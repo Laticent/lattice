@@ -21,6 +21,7 @@ export type CompletionComponent = { name: string; bucket: string; description: s
 // engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md §2, which is where
 // the full catalog + the reader for each key lives.
 const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
+	'profile',
 	// Identity + structure
 	{ key: 'title', info: 'Deck name — used in the switcher, in Share, and as the export filename. Defaults to the cover heading.' },
 	{ key: 'theme', info: 'Deck theme (palette) — e.g. indaco, cuoio.' },

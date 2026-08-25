@@ -232,16 +232,13 @@ A 12-slide board update:
 - [ ] Each slide's content counted against the component `capacity`; nothing over
       `hard`.
 - [ ] Body within budgets: eyebrow ≤ 5 words, subtitle ≤ 12, key-insight ≤ 18 —
-      these are universal chrome and do not move. The two WHOLE-SLIDE numbers —
-      body words and heading words — come from the deck's **profile**, because
-      they are the two that fit one genre rather than one corpus. Default
-      (`boardroom`): **aim ~40 words body** / ≤ 6 bullets, title ≤ 10 words (70
-      and 14 are the hard backstops, not the targets). A `teaching` deck gets 95
-      body words, a `mission` deck an 18-word heading. Set it in front matter:
-      `profile: boardroom | teaching | mission | academic | general`. Undeclared
-      decks are inferred where the evidence is clear and otherwise judged on the
-      lenient `general` bar — see `lib/authoring/deck-profiles.js` for every
-      number and the corpus distribution behind it.
+      universal chrome, unaffected by genre. The two WHOLE-SLIDE numbers come from
+      the deck's **profile**, and the default is the same bar decks were always
+      held to: **aim ~40 words body**, ≤ 70 words / ≤ 6 bullets hard, title ≤ 10
+      words (14 hard). Declare `profile: teaching` for a lesson that has to stand
+      alone without you (95 words), or `profile: mission` where a program name
+      carries its outcome (18-word heading). Nothing is inferred — a deck that
+      declares nothing gets the default bar. See `lib/authoring/deck-profiles.js`.
 - [ ] `npm run lint:deck -- deck.md` is clean (no errors).
 - [ ] Rendered to PDF and **actually looked at** — rhythm holds, no wall-of-text,
       no overflow.

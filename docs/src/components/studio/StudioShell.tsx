@@ -177,6 +177,17 @@ const DECK_TABS: { value: DeckTab; label: string }[] = [
 // The head value for a register with NO named baseline (`stamp:`, `tone:`): absent means
 // "the engine's own default shape", which is not a value the register can spell. Radix
 // Select rejects an empty value, so the head needs a non-empty sentinel.
+/** The profile choices offered in the Coach, mirroring lib/authoring/deck-profiles.js.
+ *  This lived inside the component under a comment claiming "a pinned test asserts the two
+ *  lists stay in step" — there was no such test, and deleting the `teaching` entry (the one
+ *  profile the feature exists for) left the suite green. Module-scoped and exported now so
+ *  `studio.coach-profile.test.tsx` can pin it against the engine's PROFILE_NAMES for real. */
+export const DECK_PROFILE_CHOICES: [string, string][] = [
+	['general', 'General'],
+	['teaching', 'Teaching'],
+	['mission', 'Mission'],
+];
+
 const DEFAULT_SENTINEL = '__default__';
 
 // Offline FALLBACK known-components — used only when the real catalog (the
@@ -262,7 +273,7 @@ const FINDINGS_DERIVED_CHIPS = new Set(['top', 'weak']);
 // a grade), and returns `findings: []` for it — which means "not looked at", NOT "no problems
 // found". `topFixes([])` and `weakestSlide([])` cannot tell those apart: both answer "Nothing
 // flagged — every slide follows the authoring contract". On a plain-Markdown deck that sat one
-// inch below a Board readiness card correctly reporting the same deck as unassessed, so the panel
+// inch below a Deck read card correctly reporting the same deck as unassessed, so the panel
 // contradicted itself and the chip was the half that lied. Only the two FINDINGS_DERIVED_CHIPS
 // can do this; `structure`, `ask` and `pacing` read the source directly and are honest either way.
 const unassessedCard = (id: string): CoachCard => ({
@@ -2996,16 +3007,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (chipRunRef.current !== token) return;
 		setCoachCard({ id, card });
 	};
-	// The profile choices offered in the Coach. Mirrors lib/authoring/deck-profiles.js
-	// PROFILES; a pinned test asserts the two lists stay in step, because a profile the
-	// engine grades but the panel cannot name is one a human can never correct.
-	const DECK_PROFILE_CHOICES: [string, string][] = [
-		['boardroom', 'Boardroom'],
-		['teaching', 'Teaching'],
-		['mission', 'Mission'],
-		['academic', 'Academic'],
-		['general', 'General'],
-	];
 	const CHIPS: [string, string][] = [
 		['top', 'Top fixes'],
 		['weak', 'Weakest slide'],
@@ -3074,8 +3075,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								<span className="basis-full text-[10px] leading-snug text-[var(--warn)]">Front matter says <code>profile: {scorecard.profile.declaredInvalid}</code>, which isn’t a profile — using {scorecard.profile.label} instead.</span>
 							)}
 						</div>
+						{/* Grouped by half. The categories carry `half` and it was previously unused, so
+						    the panel showed two grades and then seven undifferentiated rows — undercutting
+						    the split the change is about. */}
 						<div className="mt-2.5 space-y-2">
-							{scorecard.categories.map((c) => (
+							{(['craft', 'style'] as const).flatMap((half) => [
+								<div key={`h-${half}`} className="pt-0.5 text-[9.5px] font-bold uppercase tracking-widest text-muted-foreground">
+									{half === 'craft' ? 'Craft — same bar for every deck' : `Style — vs ${scorecard.profile.label}`}
+								</div>,
+								...scorecard.categories.filter((c) => c.half === half).map((c) => (
 								<div key={c.key} className="text-xs">
 									<div className="flex items-center justify-between gap-2">
 										<span className="text-[var(--text-body)]">{c.label}</span>
@@ -3088,7 +3096,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 									)}
 									{(c.na || (c.score ?? 100) < 85) && c.notes[0] && <p className="mt-0.5 text-[10.5px] leading-snug text-muted-foreground">{c.notes[0]}</p>}
 								</div>
-							))}
+								)),
+							])}
 						</div>
 						<p className="mt-2.5 text-[10.5px] leading-snug text-muted-foreground">Live · deterministic. Both scores measure what was <em>found</em>, not whether the deck is good — nothing here can judge whether your argument or your numbers persuade. Free.</p>
 					</>
@@ -4919,7 +4928,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<PanelHeader
 							icon={<Gauge />}
 							title="Coach"
-							srDescription="Board-readiness scorecard, deterministic quick reads, and per-finding fixes for this deck."
+							srDescription="Craft and style scores, deterministic quick reads, and per-finding fixes for this deck."
 						/>
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{coachBody}</div>
 					</PanelSheet>

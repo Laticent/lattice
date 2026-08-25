@@ -28,7 +28,7 @@ test('@mobile the Architect opens as a sheet, not a column', async ({ page }) =>
 	await gotoStudio(page);
 	await page.getByRole('button', { name: 'Toggle Coach' }).click();
 	// The Coach panel is reachable as its own sheet.
-	await expect(page.getByText('Board readiness')).toBeVisible();
+	await expect(page.getByText('Deck read')).toBeVisible();
 });
 
 test('@mobile Compose is a peer of Source in the merged pane segment — tapping it also mounts the editor', async ({ page }) => {

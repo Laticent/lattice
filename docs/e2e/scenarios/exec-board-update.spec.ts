@@ -37,7 +37,7 @@ test('an exec drafts a quarterly deck, the Coach scores it board-ready, and it e
 	// per-dimension read. The persona's goal is a BOARD-READY grade, so that bar is the
 	// oracle, not merely "some grade rendered".
 	await openArchitect(page);
-	await expect(page.getByText('Board readiness')).toBeVisible();
+	await expect(page.getByText('Deck read')).toBeVisible();
 
 	// WAIT for THIS deck's assessment. The Coach re-assesses on every source change behind a
 	// 400ms debounce, and while it re-runs it keeps the PREVIOUS deck's card on screen —

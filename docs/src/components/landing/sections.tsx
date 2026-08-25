@@ -316,7 +316,7 @@ const STUDIO_ROWS: { label: string; body: React.ReactNode }[] = [
 		//     diagnostics (editor-diagnostics.js appends "Fix: …"), not in the
 		//     review list — whose fix affordance is AI-gated, i.e. the opposite of
 		//     deterministic. So the fix is credited to the editor, where it is.
-		body: 'The same deterministic checks the command line runs, plus a board-readiness score. Every issue is named, and the editor underlines where to fix it.',
+		body: 'The same deterministic checks the command line runs, plus craft and style scores. Every issue is named, and the editor underlines where to fix it.',
 	},
 	{
 		label: 'Present & ship',
