@@ -11,7 +11,7 @@
  * flat token map keyed on `REQUIRED_TOKENS` deletes 48 distinct custom
  * properties across 19 of the 32 shipped themes, turns `themes/ardesia-dark.css`
  * from a dark theme into a light one (`color-scheme` is not a token), and loses
- * the `@import` that carries the entire content of 18 files. Each of those has
+ * the `@import` that carries the entire content of 13 files. Each of those has
  * its own test below, so a regression names its defect instead of just moving a
  * count.
  *
@@ -29,12 +29,13 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const csstree = require('css-tree');
 
 const {
   parseTheme, serializeThemeRecord, themeRecordView, tokenMapBySelector, isRootIsh,
 } = require('../../../lib/theme/parse.js');
 const { deriveTheme, requiredTokenList } = require('../../../lib/theme/derive.js');
-const { serializeTheme } = require('../../../lib/theme/serialize.js');
+const { serializeTheme, extraNames } = require('../../../lib/theme/serialize.js');
 const { STARTERS } = require('../../../lib/theme/starters.js');
 
 const THEMES_DIR = path.join(__dirname, '..', '..', '..', 'themes');
@@ -42,9 +43,43 @@ const THEME_FILES = fs.readdirSync(THEMES_DIR).filter((f) => f.endsWith('.css'))
 const readTheme = (f) => fs.readFileSync(path.join(THEMES_DIR, f), 'utf8');
 
 /**
+ * An INDEPENDENT census of every selector, at-rule and declaration, via css-tree.
+ *
+ * This is the oracle, and the corpus tests are worth nothing without it. Comparing
+ * `fingerprint(roundTripped)` to `fingerprint(source)` compares our parser's output
+ * to our own parser's reading — a declaration it never recorded is missing from
+ * BOTH sides, so the comparison is satisfied by a parser that silently deletes.
+ * Not hypothetical: a maker-checker pass monkey-patched `parseTheme` to strip all
+ * 84 `--text-*` declarations from 14 shipped themes, and every corpus test here
+ * still passed, including the one whose name is "preserves every declaration".
+ *
+ * css-tree is a devDependency and this uses `parse` ONLY — never `generate`, which
+ * is what would make it a HARD RULE #22 re-wrap sink. Parsing to compare creates no
+ * serializer.
+ */
+function census(css) {
+  const ast = csstree.parse(css, {
+    positions: false, parseValue: false, parseAtrulePrelude: false, parseSelector: false,
+  });
+  const norm = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
+  const out = [];
+  csstree.walk(ast, (node) => {
+    if (node.type === 'Rule') out.push(`RULE ${norm(node.prelude?.value)}`);
+    else if (node.type === 'Atrule') out.push(`AT @${node.name} ${norm(node.prelude?.value)}`);
+    else if (node.type === 'Declaration') {
+      out.push(`DECL ${node.property}=${norm(node.value?.value)}${node.important ? '!' : ''}`);
+    }
+  });
+  return out;
+}
+
+/**
  * Every selector, at-rule and declaration in source order — the three things the
  * acceptance criterion names, and nothing else. Comments contribute their length
  * rather than their text so the fingerprint stays a structural claim.
+ *
+ * Used for the IDEMPOTENCE claim, where comparing our reader to itself is the
+ * point. The preservation claim uses `census` above.
  */
 function fingerprint(record, out = []) {
   for (const n of record.nodes) {
@@ -66,9 +101,28 @@ describe('theme-parse — the shipped corpus', () => {
     for (const f of THEME_FILES) {
       const css = readTheme(f);
       const once = parseTheme(css);
-      const twice = parseTheme(serializeThemeRecord(once, { canonical: true }));
-      assert.deepEqual(fingerprint(twice), fingerprint(once), `${f}: structure changed across a round-trip`);
+      const out = serializeThemeRecord(once, { canonical: true });
+      // Against css-tree on BOTH sides, so a declaration our parser never recorded
+      // shows up as a difference instead of being absent from the comparison too.
+      assert.deepEqual(census(out), census(css), `${f}: structure changed across a round-trip`);
+      // And our own reader agrees with itself, which is what the record's stability
+      // claim needs — a second save must not keep changing the file.
+      assert.deepEqual(fingerprint(parseTheme(out)), fingerprint(once), `${f}: record unstable`);
     }
+  });
+
+  test('the corpus sweep FAILS when the parser drops declarations', () => {
+    // Guards the oracle itself. A parser that silently deletes must redden the test
+    // above; before the census landed it did not, and every corpus assertion here
+    // was certifying the parser against its own blind spot.
+    const css = readTheme('indaco.css');
+    const record = parseTheme(css);
+    for (const rule of record.nodes.filter((n) => n.type === 'rule')) {
+      rule.nodes = rule.nodes.filter((c) => !(c.type === 'decl' && c.property.startsWith('--text-')));
+      rule.dirty = true;
+    }
+    const mutated = serializeThemeRecord(record, { canonical: true });
+    assert.notDeepEqual(census(mutated), census(css), 'a dropped declaration must be visible to the census');
   });
 
   test('an untouched theme re-serializes byte-identically, whatever its formatting', () => {
@@ -198,8 +252,22 @@ describe('theme-parse — the generator half', () => {
     // The extras block is additive: a theme carrying none keeps its byte layout,
     // so this producer change does not restate every generated theme.
     const css = serializeTheme(map, { name: 'probe', label: 'Probe' });
+    // The real assertion: the block is skipped because there is nothing to put in
+    // it. A line count passed even under a parser mutation and would fail as
+    // `154 !== 153` the day a contract token is added, pointing the reader at the
+    // extras block rather than at the contract.
+    assert.equal(extraNames(map).length, 0, 'deriveTheme emitted a non-contract name');
     assert.ok(!css.includes('Beyond the token contract'));
-    assert.equal(css.split('\n').length, 153);
+  });
+
+  test('a name that is not a valid identifier is never emitted', () => {
+    // Before the extras block the emitted names were 107 constants, so `--${name}:`
+    // could not be an injection point; now they are caller-supplied, and this work's
+    // whole direction is feeding PARSED theme text back through a map.
+    const hostile = 'x: red; } </style><script>alert(1)</script> :root { --y';
+    const css = serializeTheme({ ...map, [hostile]: '0', 'good-name': '#fff' }, { name: 'probe' });
+    assert.ok(!css.includes('alert(1)'), 'a hostile key reached the sheet');
+    assert.match(css, /--good-name: #fff;/);
   });
 
   test('no `:root:root` mirror is emitted', () => {
@@ -243,6 +311,102 @@ describe('theme-parse — hazards', () => {
     const decl = media.nodes.find((n) => n.type === 'rule').nodes.find((n) => n.type === 'decl');
     assert.equal(decl.important, true);
     assert.equal(decl.value, 'red');
+  });
+
+  test('an unbalanced `}` does not hang the parser', () => {
+    // Deleting an opening brace is the most common transient state in a CSS editor,
+    // and it used to spin parseNodes forever: `statementEnd` stopped at the stray
+    // `}` without consuming it, so `i` never advanced. Not a throw the caller could
+    // catch — a frozen main thread, taking the author's unsaved work with it.
+    const cases = [
+      '}',
+      '  }',
+      ':root { --a: red; }\n}',
+      ':root  --accent: red; }',
+      ':root{--a:url(a}b);}',
+      String.raw`.a\}b { --a: red; }`,
+      String.raw`:root{ --a: \}; --b: red; }`,
+    ];
+    for (const css of cases) {
+      const record = parseTheme(css);
+      assert.equal(serializeThemeRecord(record), css, `${JSON.stringify(css)}: not byte-identical`);
+    }
+  });
+
+  test('a colon-less statement keeps its `;` — no welded `</style`, no swallowed token', () => {
+    // Both halves of one defect. The renderer dropped a `raw` node's semicolon, so
+    // the fragment welded onto whatever followed.
+    //
+    // (a) It MANUFACTURED a terminator out of source containing none, falsifying the
+    //     property this module's docblock asserts. Removal composes as well as
+    //     re-escaping, which the "we carry source bytes" argument did not cover.
+    const welded = serializeThemeRecord(parseTheme(':root{x</;style>y:1;}'), { canonical: true });
+    assert.ok(!/<\/style/i.test(welded), `manufactured a live terminator: ${welded}`);
+
+    // (b) It DELETED a real token. A missing colon is a routine typo, and one save
+    //     used to take the next declaration with it.
+    const src = ':root {\n  --accent red;\n  --ink: #111;\n}\n';
+    const out = serializeThemeRecord(parseTheme(src), { canonical: true });
+    assert.deepEqual(themeRecordView(parseTheme(out)).tokens.map((t) => t.name), ['ink']);
+  });
+
+  test('an unterminated block keeps its last character', () => {
+    // blockEnd returns the end of input when the brace is still open, and slicing
+    // `close - 1` unconditionally ate one byte — a color losing a digit mid-typing,
+    // with the wrong value landing in the record a live audit reads.
+    const out = serializeThemeRecord(parseTheme(':root{--accent: #ff0000'), { canonical: true });
+    assert.match(out, /--accent: #ff0000/);
+    assert.equal(tokenMapBySelector(parseTheme(out)).get(':root').get('accent'), '#ff0000');
+  });
+
+  test('adding or removing a declaration is not discarded', () => {
+    // `dirty` climbing from children catches a MUTATED node, but an added one has no
+    // flag and a removed one has no node to flag — so the clean parent's raw slice
+    // masked both. Adding and removing tokens is most of what a theme editor does.
+    const src = ':root {\n  --a: red;\n  --b: blue;\n}\n';
+    const added = parseTheme(src);
+    added.nodes.find((n) => n.type === 'rule').nodes.push({
+      type: 'decl', property: '--c', value: 'green', semicolon: true, before: '\n  ',
+    });
+    assert.match(serializeThemeRecord(added), /--c: green;/);
+
+    const removed = parseTheme(src);
+    const rule = removed.nodes.find((n) => n.type === 'rule');
+    rule.nodes = rule.nodes.filter((n) => n.property !== '--b');
+    assert.ok(!serializeThemeRecord(removed).includes('--b'), 'removed declaration still emitted');
+  });
+
+  test('a root block nested in an at-rule is still in the view', () => {
+    // Walking only the top level put its tokens in NO bucket — invisible to the
+    // view, and so indistinguishable from missing to anything reading the record.
+    const view = themeRecordView(parseTheme(
+      ':root{--bg:#fff;}\n@media (prefers-contrast: more){:root{--accent:#000;}}',
+    ));
+    assert.deepEqual(view.tokens.map((t) => t.name), ['bg', 'accent']);
+  });
+
+  test('`:ROOT` and a comment before the brace are still the root scope', () => {
+    // CSS pseudo-classes are ASCII case-insensitive, and a comment may sit between
+    // the selector and its brace. Classifying either as a non-root rule drops all
+    // ~107 tokens out of the view, which the conformance rung reads as a wholly
+    // missing contract — the false indictment the design note argues against.
+    assert.deepEqual(themeRecordView(parseTheme(':ROOT{--a:red;}')).tokens.map((t) => t.name), ['a']);
+    assert.deepEqual(
+      themeRecordView(parseTheme(':root /* palette */ {--a:red;}')).tokens.map((t) => t.name), ['a'],
+    );
+  });
+
+  test('CSS escapes are honored outside string literals too', () => {
+    // `.a\}b` is a class named `a}b`; treating that `}` as a block closer mis-sliced
+    // the selector, and for `\}` it hung the parser outright.
+    for (const css of [
+      String.raw`.a\{b { --a: red; }`,
+      String.raw`:root{ --a: \"; --b: red; }`,
+    ]) {
+      assert.equal(serializeThemeRecord(parseTheme(css)), css);
+    }
+    const view = themeRecordView(parseTheme(String.raw`:root{ --a: \"; --b: red; }`));
+    assert.deepEqual(view.tokens.map((t) => t.name), ['a', 'b']);
   });
 
   test('a selector with any non-root arm is not the root scope', () => {

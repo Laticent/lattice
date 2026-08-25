@@ -136,8 +136,19 @@ comments — the `@theme` header the registry reads, and the a11y measurement
 docblocks), and it is a serializer, so it would normalize `<\/style` back into a
 live terminator — the HARD RULE #22 third-arm hazard, invisible to
 `checkCssTreeRewrapSinks`, which discovers sinks by matching `prunePlayerCss(`.
-This parser carries value bytes as written and so cannot manufacture a terminator
-the source did not contain; a test pins that. It is **not** a sanitizer — the
+This parser carries value bytes as written — necessary, and **not sufficient**, which
+this paragraph asserted until a maker-checker pass falsified it in one line:
+`:root{x<\/;style>y:1;}` came back as `:root {x<\/style>y: 1;}`. Nothing was
+re-escaped; a byte was **dropped**. A colon-less statement parses as a `raw` node,
+the renderer omitted the `;` the source had, and the two fragments welded into a
+terminator neither contained. **Removal composes just as well as escaping**, and an
+argument that reasons only about the value channel does not see it. Fixed, and the
+test now drives that path rather than only the string-value one that was always safe.
+
+Worth keeping in view: **no HARD RULE #22 gate can see this file.** It is outside
+`DOC_STYLE_SINK_ROOTS`, and `checkCssTreeRewrapSinks` matches `prunePlayerCss(`. A
+serializer no gate watches is exactly the third-arm shape #22 exists for, so the
+property is held by a test rather than by a claim. It is **not** a sanitizer — the
 guard for a document that embeds theme CSS stays at the frame
 (`lib/core/sanitize-style-text.mjs`).
 
