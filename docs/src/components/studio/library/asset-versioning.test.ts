@@ -133,6 +133,42 @@ describe('putAsset snapshots the record it replaces', () => {
 	});
 });
 
+describe('concurrent saves of one asset', () => {
+	it('never loses a save — every value written is either live or in history', async () => {
+		// THE TWO-TAB CASE. IndexedDB is shared across tabs, so two Studio tabs can save
+		// the same record at once. With the snapshot, the id lookup and the put in THREE
+		// separate transactions, both reads saw the same `previous`, both snapshotted it,
+		// and both wrote — so the middle save existed in neither the store nor history.
+		// Measured on that version: live V3, history [V1, V1], V2 gone.
+		//
+		// One transaction spanning both stores makes the two saves serialize, which is
+		// what turns "every overwrite is versioned" from nearly-true into true.
+		const first = await putAsset(theme({ text: 'V1' }));
+		const [a, b] = await Promise.all([
+			putAsset({ ...theme({ text: 'V2' }), id: first.id }, { ts: 10 }),
+			putAsset({ ...theme({ text: 'V3' }), id: first.id }, { ts: 11 }),
+		]);
+		expect(a.id).toBe(first.id);
+		expect(b.id).toBe(first.id);
+
+		const live = (await getAsset(first.id))?.text;
+		const archived = (await listAssetVersions(first.id)).map((v: { snapshot: { text: string } }) => v.snapshot.text);
+		// Whichever order the two transactions ran in, all three values are accounted for.
+		expect(new Set([live, ...archived])).toEqual(new Set(['V1', 'V2', 'V3']));
+	});
+
+	it('serializes the no-id dedupe too, so two imports of one name do not both create', async () => {
+		// The (kind, name) lookup is inside the transaction now. Out of it, two concurrent
+		// no-id saves could both read "no such name" and both mint an id.
+		const [x, y] = await Promise.all([
+			putAsset(theme({ name: 'race', text: 'A' }), { ts: 20 }),
+			putAsset(theme({ name: 'race', text: 'B' }), { ts: 21 }),
+		]);
+		expect(x.id).toBe(y.id);
+		expect((await listAssets('theme')).filter((t: { name: string }) => t.name === 'race')).toHaveLength(1);
+	});
+});
+
 describe('restoreAssetVersion', () => {
 	it('brings the old record back byte-identical, and checkpoints the current one first', async () => {
 		const first = await putAsset(theme({ text: 'ORIGINAL' }));

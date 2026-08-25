@@ -39,17 +39,16 @@
 //     wiring is nine call sites that each have to remember, and the tenth writer added
 //     later silently opts out. Here, opting out is not reachable.
 //
-// A SNAPSHOT FAILURE FAILS THE SAVE. `putAsset` does not swallow an error from
-// `saveAssetVersion`. If the snapshot cannot be taken, we have not earned the right to
-// overwrite — that is the whole claim in the history module's docblock — and the
-// caller's edit is still in its editor, where a rejected promise surfaces as a toast.
-// Catching would silently recreate the exact hazard this wiring exists to close. The
-// cost is real and worth naming: a browser at its storage quota refuses saves rather
-// than degrading to unversioned ones. `VERSION_CAP` bounds the growth this can cause
-// (20 per asset), and `pruneOrphanVersions` reclaims what deletes miss.
+// A SNAPSHOT FAILURE FAILS THE SAVE, and now it does so atomically. If the snapshot
+// cannot be taken we have not earned the right to overwrite — that is the whole claim
+// in the history module's docblock — and the caller's edit is still in its editor,
+// where a rejected promise surfaces as a toast. The cost is real and worth naming: a
+// browser at its storage quota refuses saves rather than degrading to unversioned ones.
+// `VERSION_CAP` bounds the growth this can cause (20 per asset), and
+// `pruneOrphanVersions` reclaims what deletes miss.
 
-import { ASSET_STORE, openDB, reqAsPromise } from './asset-db.js';
-import { deleteAssetVersions, saveAssetVersion } from './asset-history.js';
+import { ASSET_STORE, HISTORY_STORE, openDB, reqAsPromise } from './asset-db.js';
+import { deleteAssetVersions, newestFirst, planSnapshot } from './asset-history.js';
 
 export { HISTORY_STORE, openDB, reqAsPromise } from './asset-db.js';
 
@@ -121,34 +120,85 @@ function newId(prefix = 'a') {
  * "Before import") — named apart from the record's OWN `label` field, which is the
  * asset's display name; `ts` is a parameter for the same reason it is one in
  * `asset-history.js`: it keeps the store testable without faking the clock.
+ *
+ * ── ONE TRANSACTION, AND NOT AN `await` IN SIGHT ────────────────────────────
+ *
+ * The id lookup, the snapshot and the put all run inside a SINGLE `readwrite`
+ * transaction spanning both object stores, so either the version and the overwrite
+ * both land or neither does.
+ *
+ * The first cut used three separate transactions with `await` between them, and the
+ * gap was reachable: two tabs on the same record read the same `previous`, each
+ * snapshotted it, and each wrote — leaving the middle save in neither the store nor
+ * history. Measured on the three-transaction version: live `V3`, history `[V1, V1]`,
+ * and `V2` gone. One tab cannot reach it (Save is disabled while saving and the import
+ * loop awaits sequentially), but "needs two tabs" is not the same as "cannot happen"
+ * for the one guarantee this module exists to make.
+ *
+ * EVERY STEP IS CHAINED FROM THE PREVIOUS REQUEST'S `onsuccess`, deliberately. An
+ * IndexedDB transaction deactivates when control returns to the event loop, so
+ * `await`-ing mid-transaction is a bug that happens to work in Chromium and is not
+ * guaranteed anywhere. Callback chaining is the only shape that is correct by
+ * construction rather than by engine.
+ *
+ * The POLICY is still the history kernel's: `planSnapshot` decides the version id, the
+ * consecutive-identical guard and the cap, and it is pure so this path and
+ * `saveAssetVersion` cannot drift (HARD RULE #15).
  */
 export async function putAsset(record, { historyLabel = 'Before save', ts = Date.now() } = {}) {
   const db = await openDB();
-  let toStore = record;
-  if (!toStore.id) {
-    const existing = (await listAssets(record.kind)).find(a => a.name === record.name);
-    toStore = { ...record, id: existing ? existing.id : newId({ theme: 't', component: 'c', finish: 'f', scene: 's', refdoc: 'd' }[record.kind] || 'a') };
-  }
-  if (VERSIONED_KINDS.has(toStore.kind)) {
-    // NOT ATOMIC WITH THE PUT, and that is a real limit rather than a design choice.
-    // Sharing one `readwrite` transaction across both stores would be the atomic
-    // answer, but `saveAssetVersion` awaits between its requests, and in a real
-    // browser an IndexedDB transaction auto-closes when the microtask queue drains
-    // with no request pending — so the shared-transaction version would have to
-    // reshape the history kernel, not just widen a scope.
-    //
-    // What that costs: two tabs saving the SAME asset can interleave (read-previous,
-    // read-previous, snapshot, snapshot, put, put), and the middle save then exists
-    // in neither the store nor history. One tab cannot reach it — Fabricate disables
-    // Save while saving and the import loop awaits sequentially — so it needs genuine
-    // concurrency on one record. Named here rather than left for someone to find.
-    const previous = await getAsset(toStore.id);
-    if (previous && !sameExceptVolatile(previous, toStore)) {
-      await saveAssetVersion(previous, historyLabel, ts);
+  return new Promise((resolve, reject) => {
+    const t = db.transaction([ASSET_STORE, HISTORY_STORE], 'readwrite');
+    const assets = t.objectStore(ASSET_STORE);
+    const history = t.objectStore(HISTORY_STORE);
+    let stored = null;
+    // Resolve on COMPLETE, not on the last request's success: only `oncomplete` means
+    // the whole unit — version and overwrite — actually committed.
+    t.oncomplete = () => resolve(stored);
+    t.onabort = () => reject(t.error || new Error('putAsset: the save was rolled back'));
+    t.onerror = () => reject(t.error || new Error('putAsset: the save failed'));
+
+    const write = (id) => {
+      const toStore = { ...record, id };
+      stored = toStore;
+      if (!VERSIONED_KINDS.has(toStore.kind)) {
+        assets.put(toStore);
+        return;
+      }
+      const getPrev = assets.get(id);
+      getPrev.onsuccess = () => {
+        const previous = getPrev.result;
+        if (!previous || sameExceptVolatile(previous, toStore)) {
+          assets.put(toStore);
+          return;
+        }
+        const read = history.index('assetId').getAll(id);
+        read.onsuccess = () => {
+          const plan = planSnapshot(newestFirst(read.result), previous, historyLabel, ts);
+          if (plan) {
+            history.put(plan.version);
+            for (const old of plan.doomed) history.delete(old.id);
+          }
+          assets.put(toStore);
+        };
+      };
+    };
+
+    if (record.id) {
+      write(record.id);
+      return;
     }
-  }
-  await reqAsPromise(tx(db, 'readwrite').put(toStore));
-  return toStore;
+    // The (kind, name) dedupe, done inside the transaction so the id it resolves
+    // cannot be stale by the time we write to it. Sorted the same way `listAssets`
+    // sorts, because with two records sharing a name the newest is the one the
+    // out-of-transaction version used to pick.
+    const all = assets.getAll();
+    all.onsuccess = () => {
+      const rows = (all.result || []).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+      const existing = rows.find((a) => a.kind === record.kind && a.name === record.name);
+      write(existing ? existing.id : newId({ theme: 't', component: 'c', finish: 'f', scene: 's', refdoc: 'd' }[record.kind] || 'a'));
+    };
+  });
 }
 
 /** All assets, newest first; optionally filtered to one kind. */

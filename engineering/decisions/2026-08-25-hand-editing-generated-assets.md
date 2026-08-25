@@ -658,6 +658,33 @@ the author's edit is still in the editor where the rejection surfaces as a toast
 cost is named rather than hidden: a browser at its storage quota refuses saves instead
 of quietly degrading to unversioned ones.
 
+**And it fails ATOMICALLY, which took a second pass.** The first cut ran the id lookup,
+the snapshot and the put as THREE transactions with `await` between them, and justified
+the split with a comment claiming a shared transaction "must never happen" because a
+rollback would take the version with it. That reasoning is backwards: if the put rolls
+back then no overwrite happened, so the version *should* roll back with it — that is the
+atomic outcome, not the hazard. The real gap was the one the comment hid: two tabs on the
+same record read the same `previous`, each snapshotted it, and each wrote, so the middle
+save landed in neither the store nor history. Measured on the three-transaction version:
+live `V3`, history `[V1, V1]`, `V2` gone.
+
+It is now one `readwrite` transaction spanning both object stores. **Every step is
+chained from the previous request's `onsuccess`, and nothing inside is awaited** — an
+IndexedDB transaction deactivates when control returns to the event loop, so `await`-ing
+mid-transaction is a bug that happens to work in Chromium rather than a thing that is
+correct. Callback chaining is correct by construction instead of by engine.
+
+The POLICY did not move with it. `planSnapshot` in `asset-history.js` is pure and decides
+the version id, the consecutive-identical guard and the cap; `saveAssetVersion` (which
+opens its own transaction and awaits) and `putAsset` (which may not) both call it, so two
+write shapes cannot drift into two behaviours (HARD RULE #15).
+
+**The general shape is worth keeping:** a guarantee stated over several steps is only as
+strong as the atomicity of those steps. "Every overwrite is versioned" read as true for
+weeks of design and was false under concurrency the whole time, and no test that drove one
+tab could have found it — the two that do are `concurrent saves of one asset`, and both
+fail against the three-transaction version.
+
 ### What the real surface showed that no unit test could
 
 The affordance went in the card's METADATA line, because the action row already

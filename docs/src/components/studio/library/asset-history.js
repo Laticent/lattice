@@ -61,12 +61,45 @@ function store(db, mode) {
  * @property {Object} snapshot  the WHOLE asset record as it was
  */
 
+/**
+ * DECIDE what a snapshot writes, without touching the database.
+ *
+ * Pure, so the two callers that must write differently can still write the SAME
+ * THING. `saveAssetVersion` below opens its own transaction and awaits; `putAsset`
+ * (asset-store.js) has to queue its requests inside a transaction it already owns
+ * and may not await, because an IndexedDB transaction deactivates the moment
+ * control returns to the event loop. Two write shapes, one policy — the cap, the
+ * consecutive-identical guard and the version id are decided here and nowhere else
+ * (HARD RULE #15).
+ *
+ * `existingNewestFirst` is that asset's current versions, newest first. Returns
+ * `null` for a no-op, else `{ version, doomed }` — the row to put and the rows the
+ * cap pushes off the end.
+ */
+export function planSnapshot(existingNewestFirst, record, label, ts) {
+  const existing = existingNewestFirst || [];
+  const snapshot = JSON.stringify(record);
+  if (existing[0] && JSON.stringify(existing[0].snapshot) === snapshot) return null;
+  const version = {
+    id: `av-${ts.toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    assetId: record.id,
+    ts,
+    label,
+    snapshot: JSON.parse(snapshot), // a deep copy — the caller keeps mutating `record`
+  };
+  return { version, doomed: [version, ...existing].slice(VERSION_CAP) };
+}
+
+/** Sort a raw `assetId` index read into the newest-first order everything here assumes. */
+export function newestFirst(rows) {
+  return (rows || []).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+}
+
 /** Every version of one asset, newest first. */
 export async function listAssetVersions(assetId) {
   if (!assetId) return [];
   const db = await openDB();
-  const rows = await reqAsPromise(store(db, 'readonly').index('assetId').getAll(assetId));
-  return rows.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  return newestFirst(await reqAsPromise(store(db, 'readonly').index('assetId').getAll(assetId)));
 }
 
 /**
@@ -88,22 +121,15 @@ export async function listAssetVersions(assetId) {
 export async function saveAssetVersion(record, label, ts) {
   if (!record?.id) return [];
   const existing = await listAssetVersions(record.id);
-  const snapshot = JSON.stringify(record);
-  if (existing[0] && JSON.stringify(existing[0].snapshot) === snapshot) return existing;
-  const version = {
-    id: `av-${ts.toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
-    assetId: record.id,
-    ts,
-    label,
-    snapshot: JSON.parse(snapshot), // a deep copy — the caller keeps mutating `record`
-  };
+  const plan = planSnapshot(existing, record, label, ts);
+  if (!plan) return existing;
+  const { version } = plan;
   const db = await openDB();
   const s = store(db, 'readwrite');
   await reqAsPromise(s.put(version));
   // Cap AFTER the write, so a failure mid-prune leaves too many versions rather
   // than a lost one. Erring long is recoverable; erring short is not.
-  const doomed = [version, ...existing].slice(VERSION_CAP);
-  for (const old of doomed) await reqAsPromise(s.delete(old.id));
+  for (const old of plan.doomed) await reqAsPromise(s.delete(old.id));
   return [version, ...existing].slice(0, VERSION_CAP);
 }
 
