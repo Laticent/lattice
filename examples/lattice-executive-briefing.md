@@ -29,11 +29,11 @@ acronyms:
 <!-- _class: title spectrum -->
 <!-- _header: '' -->
 <!-- _paginate: false -->
-<!-- _lens: brief investor buyer -->
+<!-- _lens: brief investor buyer pager -->
 
 # Not Another Presentation App
 
-`Executive Briefing · 2026-08-24`
+`Executive Briefing · 2026-08-25`
 
 What is actually here, ranked by what it is worth — and what it is not.
 
@@ -58,17 +58,17 @@ The slides are the output format. They are not the product.
 <!-- _class: stats -->
 <!-- _lens: brief investor buyer -->
 
-`Counted from the repository, not recalled`
+`Counted from the repository at HEAD, 2026-08-25`
 
 ## What is behind the thing that looks simple.
 
-1. 286
+1. 296
    - shipped decisions
 2. 72
    - machine gates
 3. 61
    - components
-4. 7,058
+4. 7,145
    - tests, none failing
 
 ---
@@ -94,9 +94,9 @@ Visibility decides the treatment, not importance — the second tier is where th
 
 ## This deck is a demonstration of itself.
 
-One source file. Four reader views. You are reading the full one.
+One source file. Six reader views, and the reader picks. The full deck is 52 slides; whichever view you are holding came out of the same file.
 
-The same file carries a **bottom line** view, an **investor** view, and a **buyer** view — different slides, same document, no copies. Membership is bound to a content hash, so editing a slide silently de-approves every view until a human re-approves it. No other presentation tool ships this.
+The same file carries a **bottom line**, an **investor**, a **buyer**, a **board** and a **three-page** view — different slides, same document, no copies. Membership is bound to a content hash, so editing a slide silently de-approves every view until a human re-approves it. No other presentation tool ships this.
 
 ---
 
@@ -133,7 +133,7 @@ The same file carries a **bottom line** view, an **investor** view, and a **buye
    - One source file, many audience views, membership bound to a content hash
    - `unique`
 2. Honest clipping
-   - Of five tools measured, the only one that reports content it could not fit
+   - The only one that reports the loss on the artifact rather than in a log
    - `unique`
 3. Achromatopsia support
    - Five color-vision palettes, with texture carrying meaning where color cannot
@@ -146,18 +146,18 @@ The same file carries a **bottom line** view, an **investor** view, and a **buye
 <!-- _class: split-panel metric -->
 <!-- _lens: brief investor buyer -->
 
-`Marquee 01 · Reader lenses`
+`Marquee · Reader lenses`
 
-## 4
+## 5
 
-One deck carries four audience views, and the reader picks. No duplicate files, no divergent copies.
+One deck carries five audience views, and the reader picks. No duplicate files, no divergent copies.
 
 - Membership is a diff
   - A slide is tagged only where it differs from its view's base, so the source stays clean.
 - Approval is a content hash
   - Not a boolean. Edit any slide and every view de-approves itself until re-approved.
 - It fails closed
-  - An unapproved or drifted view shows nothing. A redaction view can never leak.
+  - An unapproved or drifted view shows nothing. A cooperating renderer will never over-show.
 
 ---
 
@@ -171,15 +171,16 @@ One deck carries four audience views, and the reader picks. No duplicate files, 
 `node -e "lensEligibility(slides, reg, id)" — this deck's own front matter`
 
 ```text
-full       {"status":"ok","pairs":[]}
+full       {"status":"ok"}
+brief      {"status":"unavailable","reason":"unapproved"}
 investor   {"status":"unavailable","reason":"unapproved"}
 buyer      {"status":"unavailable","reason":"unapproved"}
 board      {"status":"unavailable","reason":"unapproved"}
-brief      {"status":"unavailable","reason":"unapproved"}
+pager      {"status":"unavailable","reason":"unapproved"}
 nope       {"status":"unavailable","reason":"unknown"}
 ```
 
-— Five distinct refusal reasons, none of which is "show the full deck instead." The identity view is the only one available by default, and it is safe because it is everything.
+— Two refusal reasons here, five in the contract, and none of them is "show the full deck instead." The identity view is the only one available by default, and it is safe because it is everything.
 
 ---
 
@@ -192,7 +193,9 @@ nope       {"status":"unavailable","reason":"unknown"}
 
 Anyone can filter slides. The engineering is in refusing to guess.
 
-The suggester proposes membership from a transparent rule table and **writes nothing**. The reader path never imports the suggester. The only bridge between them is a human pressing Approve, which stamps the hash. A hand-typed hash will not match, so a forged approval fails exactly like no approval — the deck you are reading has four unapproved views for precisely this reason.
+The suggester proposes membership from a transparent rule table and **writes nothing**. The reader path never imports the suggester. The only bridge between them is a human pressing Approve, which stamps the hash.
+
+The hash is unkeyed, so it detects drift, not forgery: anyone who can write the source can recompute it. The assurance is the Approve gate — a person looked — not a cryptographic property. This deck states it that way because the project retired the stronger wording in a dated correction, and a deck about measuring yourself does not get to quote the claim its own record withdrew.
 
 ---
 
@@ -201,7 +204,7 @@ The suggester proposes membership from a transparent rule table and **writes not
 <!-- _paginate: false -->
 <!-- _lens: buyer -->
 
-`Marquee 02`
+`Marquee`
 
 ## Accessibility Is Not A Checkbox Here
 
@@ -265,7 +268,7 @@ They check that every palette declares its status trio, that categorical ink is 
 <!-- _paginate: false -->
 <!-- _lens: investor -->
 
-`Marquee 03`
+`Marquee`
 
 ## The Only One That Admits It Clipped
 
@@ -304,7 +307,7 @@ Lattice measures the rendered box against its container, and when content will n
 ---
 
 <!-- _class: content -->
-<!-- _lens: investor -->
+<!-- _lens: investor buyer -->
 
 `The honest version of this claim`
 
@@ -319,7 +322,7 @@ At 16:9 an overstuffed deck clips and reports; at other sizes the engine splits 
 <!-- _class: split-panel metric mirror -->
 <!-- _lens: investor buyer -->
 
-`Marquee 04 · Narration`
+`Marquee · Narration`
 
 ## 0
 
@@ -339,7 +342,7 @@ Words a presenter must record for a deck to narrate itself, aloud, in sync.
 <!-- _paginate: false -->
 <!-- _lens: investor -->
 
-`Marquee 05`
+`Marquee`
 
 ## The Model Proposes. The Kernel Disposes.
 
@@ -375,7 +378,7 @@ Ask for a theme and the model returns ten colors — not a stylesheet. The engin
 ---
 
 <!-- _class: content -->
-<!-- _lens: investor -->
+<!-- _lens: investor buyer -->
 
 `Where this is genuinely unproven`
 
@@ -390,14 +393,14 @@ That proves the kernel survives a well-formed proposal. It does not prove any re
 <!-- _class: split-panel metric -->
 <!-- _lens: investor buyer -->
 
-`Marquee 06 · The catalog`
+`Marquee · The catalog`
 
 ## 61
 
 Contracted components across thirteen buckets. Not a blank canvas with a template gallery bolted on.
 
-- Every component declares its capacity
-  - How many items it holds before it crowds, and the count past which it overflows. The author is told before the rework, not after.
+- A component can declare its capacity
+  - How many items it holds before it crowds, and the count past which it overflows. Nineteen of sixty-one do; the rest is unfinished work, named again on the disclosure slides.
 - Every component declares its shape
   - Which form it is, what substance it carries, and which component to escalate to when the count blows the budget.
 - The catalog is the contract
@@ -408,7 +411,7 @@ Contracted components across thirteen buckets. Not a blank canvas with a templat
 <!-- _class: list-tabular def -->
 <!-- _lens: buyer investor -->
 
-`Sourced from Reynolds, Duarte, Minto and Knaflic — not invented`
+`Synthesized from Reynolds, Duarte, Minto and Knaflic; the thresholds are ours`
 
 ## The engine has an opinion about how much you may write.
 
@@ -439,7 +442,7 @@ These budgets are routed to the review tier rather than the error tier — delib
 <!-- _class: split-panel metric mirror -->
 <!-- _lens: investor -->
 
-`Marquee 07 · Theme derivation`
+`Marquee · Theme derivation`
 
 ## 10 → 107
 
@@ -457,7 +460,7 @@ Ten chosen colors become a hundred-and-seven-token contract, repaired to standar
 <!-- _class: cards-grid -->
 <!-- _lens: investor -->
 
-`Marquee 08 · Motion and guided tours`
+`Marquee · Motion and guided tours`
 
 ## Two libraries most decks never need, and some decks cannot live without.
 
@@ -475,9 +478,9 @@ Ten chosen colors become a hundred-and-seven-token contract, repaired to standar
 <!-- _class: inventory cards -->
 <!-- _lens: buyer -->
 
-`Marquee 09 · Export`
+`Marquee · Export`
 
-## One source, five destinations, none of them lossy by accident.
+## One source, four destinations, none of them lossy by accident.
 
 - **Vector PDF.** Real text, selectable and searchable, with fonts embedded so it renders identically on a machine that has none of them.
 - **PPTX.** For the room that will not accept anything else, generated rather than hand-rebuilt.
@@ -502,7 +505,7 @@ Timestamps are the usual reason a document cannot be diffed, so they are rewritt
 <!-- _class: split-panel -->
 <!-- _lens: investor buyer -->
 
-`Marquee 10 · The Studio`
+`Marquee · The Studio`
 
 ## The authoring surface is a browser tab, and it runs the real engine.
 
@@ -532,7 +535,7 @@ Timestamps are the usual reason a document cannot be diffed, so they are rewritt
 `Named checks standing between an author and a broken artifact`
 
 - 72
-  - One ten-thousand-line file, run on every commit. Not one of them is a style preference: each exists because something broke, was root-caused, and the cause became a thing the machine now refuses.
+  - One ten-thousand-line file, run on every push. A handful encode house style; the rest exist because something broke, was root-caused, and the cause became a thing the machine now refuses.
 
 ---
 
@@ -542,7 +545,7 @@ Timestamps are the usual reason a document cannot be diffed, so they are rewritt
 ## What the gates actually defend, grouped.
 
 1. Color and contrast
-   - Eight checks: every pair declared, every fallback present, every floor cleared
+   - Nine checks: every pair declared, every fallback present, every floor cleared
    - `9 gates`
 2. Untrusted content
    - Five checks across markup, stylesheets, re-wraps, runtime injection and snapshots
@@ -606,7 +609,7 @@ A preview builder sanitizes markup — and then embeds theme stylesheets two lin
    - The same deck through two paths, compared
    - _catches a transform that only one path applies_
 4. Committed goldens
-   - 359 reference PDFs, 148 MB, diffed on demand
+   - 362 reference PDFs, ~150 MB, diffed on demand
    - _no cadence — an acknowledged gap_
 5. Engine throughput
    - Head against base on one runner, nightly
@@ -633,7 +636,7 @@ So the catalog publishes a pick surface: one line per component, the whole set i
 ## Engineering process, enforced rather than encouraged.
 
 1. Decision records
-   - 451 dated notes, 286 shipped, each one a root cause with an index that refuses to drift
+   - 463 dated notes, 296 shipped, each one a root cause with an index that refuses to drift
    - `enforced`
 2. Changelog fragments
    - One file per change, folded in at release — a shared region that ejected seven merges in one evening
@@ -657,7 +660,7 @@ So the catalog publishes a pick surface: one line per component, the whole set i
 
 ## Five subsystems are already libraries in everything but publication.
 
-Each has a public surface, its own tests, a built distribution, and a gate that stops the engine reaching into it.
+Each has a public surface, its own tests, and a gate that stops the engine reaching into it. Four of the five also ship a built distribution.
 
 They cover reader lenses, narration and read-along, audio, motion scenes, and guided walkthroughs. None is published to a registry. That is a deliberate deferral rather than an oversight — but it means the standalone-value argument is currently a design claim, not a download count.
 
@@ -683,17 +686,17 @@ They cover reader lenses, narration and read-along, audio, motion scenes, and gu
 
 A pitch that names no limits is asking you to trust the parts you cannot check.
 
-The four slides that follow are the same audit the engineering team runs on itself, unedited. They are here because the differentiator on the previous forty slides is that this project measures itself — and a deck that claimed otherwise would be evidence against its own argument.
+What follows is the same audit the engineering team runs on itself, unedited. It is here because the differentiator in everything above is that this project measures itself — and a deck that claimed otherwise would be evidence against its own argument.
 
 ---
 
 <!-- _class: q-and-a -->
-<!-- _lens: investor buyer -->
+<!-- _lens: investor buyer brief -->
 
 ## The four hardest questions, answered before they are asked.
 
 - Is any of this actually adopted?
-  - No. No users, no revenue, no external deployment. The engineering is real; the market evidence does not exist.
+  - No. No users, no revenue, no external deployment. That is what the ask is for: the engineering is real and you would be the first evidence that it matters.
 - What is the bus factor?
   - One. A single primary author, and a manual that assumes agent throughput rather than a team.
 - Can we build on it commercially?
@@ -712,7 +715,7 @@ The four slides that follow are the same audit the engineering team runs on itse
 - [ ] "Faster than the alternatives" — the benchmark refuses to compare across machines `unmeasurable`
 - [ ] AI output quality — the kernel is tested, the models never were `unstarted`
 - [ ] Per-component capacity coverage — under half the catalog declares a budget `partial`
-- [ ] Golden image freshness — 359 references, 148 MB, no cadence watching them `ungated`
+- [ ] Golden image freshness — 362 references, ~150 MB, no cadence watching them `ungated`
 - [x] Everything on the marquee slides, each with an artifact behind it `measured`
 
 — Six rows, and only the last one is good news. That ratio is the point of the slide.
@@ -720,7 +723,7 @@ The four slides that follow are the same audit the engineering team runs on itse
 ---
 
 <!-- _class: list-tabular register -->
-<!-- _lens: investor -->
+<!-- _lens: investor buyer -->
 
 ## Three places the architecture leaks, named plainly.
 
@@ -746,7 +749,7 @@ The four slides that follow are the same audit the engineering team runs on itse
 `The two-sentence version for someone who reads no further`
 
 - **What is proven**
-  - A rendering engine with unusual depth in accessibility, determinism and machine-checkable invariants, verified by seven thousand tests and seventy-two gates that run on every commit.
+  - A rendering engine with unusual depth in accessibility, determinism and machine-checkable invariants, verified by seven thousand tests and seventy-two gates that run on every push.
 - **What is not**
   - That anyone wants it. Every claim in this deck is about the artifact. None of them is about a market, a user, or a dollar.
 
@@ -763,31 +766,18 @@ The four slides that follow are the same audit the engineering team runs on itse
 
 ---
 
-<!-- _class: decision -->
-<!-- _lens: brief investor -board -->
+<!-- _class: list-steps -->
+<!-- _lens: brief investor buyer pager -->
 
-`For an investor or acquirer`
+`The ask`
 
-## The asset is the invariant system, not the slide renderer.
+## Try it. Then decide whether it is worth anything.
 
-- Fund the proof, not the build
-  - The engineering risk is retired. What is unfunded is every question on the disclosure slides — adoption, publication, and whether the libraries stand alone.
-- Do not fund more features
-  - Sixty-one components and two hundred and eighty-six shipped decisions is not a capability gap. Another marquee item moves nothing.
+1. Open **lattice.style** — the Studio runs the real engine in a browser tab. No install, no account, no key.
+2. Make one real deck. Something you actually have to present, not a demo.
+3. Decide. If it is worth something to you, that is the first evidence this project has ever had.
 
----
-
-<!-- _class: decision -->
-<!-- _lens: buyer -board -->
-
-`For an enterprise buyer`
-
-## The case is compliance and determinism, not authoring speed.
-
-- Evaluate it on the audit
-  - Five color-vision palettes, contrast measured on rendered pixels, reproducible bytes, and an export that opens with the network off.
-- Pilot it on one regulated deck
-  - The properties that matter here are the ones no other tool can evidence. A general-purpose bake-off will miss all of them.
+— Everything else in this deck is an argument that the hour is worth spending. Nobody has spent it yet, which is the whole of the ask and the reason the disclosure slides read the way they do.
 
 ---
 
