@@ -11,3 +11,9 @@
   fix is on the component side. `todo` and `skip` share that ink deliberately and stay
   unmistakable in the shape channel: `todo` is a hollow ring with no inner mark, `skip` a
   filled disc carrying a slash with its label struck through.
+- **Fixed: a roadmap `PLANNED` label keeps the AA text tier.** `.cell-state-label` in the
+  `roadmap status` variant is the only place in the component tree that reads
+  `--state-color` as *text*, and `--muted-mark` is the 3:1 graphical tier with no text
+  floor. Pointing the ring at it — correct for a ring — would have dragged the label to
+  3.68:1 against its own cell ground on the rendered artifact. The label alone now takes
+  `--text-muted` (4.66:1), joining the `skipped` label that #1715 repaired the same way.

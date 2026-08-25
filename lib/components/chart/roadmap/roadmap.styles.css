@@ -365,15 +365,40 @@
   line-height:1.2;
 }
 
-/* The SKIPPED label is the one TEXT read of --state-color, and that local is graphical
- * (3:1) — it paints discs, rings and rails, and both the legend above and `heat` in
- * base.modifiers.css set it to --muted-mark. Overriding the local for the whole cell
- * would desync the legend from the cells it decodes, so the repair is here, at the read:
- * the label alone takes the 4.5 text tier. Scoped with `.state-skipped`, so it also wins
- * against `section.heat`, which re-points --state-color later in the bundle at equal
- * specificity and re-broke an earlier version of this fix (#1715). */
+/* `color:` above is the ONE text read of --state-color in the whole component tree
+ * (verified by grep, #1821), and that local is graphical (3:1) — it paints discs, rings
+ * and rails, and both the legend above and `heat` in base.modifiers.css set it to
+ * --muted-mark. Overriding the local for the whole cell would desync the legend from the
+ * cells it decodes, so the repair is here, at the read: the label alone takes the 4.5
+ * text tier. Scoped per state, so it also wins against `section.heat`, which re-points
+ * --state-color later in the bundle at equal specificity and re-broke an earlier version
+ * of this fix (#1715).
+ *
+ * PLANNED JOINED SKIPPED HERE IN #1821, and it is the same defect one state over. That
+ * state used to read --text-label, which is a TEXT tier (AA on both canvases), so the
+ * label was compliant by accident of which token the ring happened to name. Pointing the
+ * ring at the graphical --muted-mark — correct for the ring — dragged the label down with
+ * it. MEASURED against --bg-alt on the ten accent-hued palettes, light arm:
+ *
+ *   --text-label (before)  4.72 - 13.94   all pass
+ *   --muted-mark (ring)    3.11 -  4.15   ALL TEN FAIL the 4.5 text floor
+ *   --text-muted (here)    4.65 -  4.69   all pass
+ *
+ * cuoio and magnolia sat at 3.11. Confirmed on the SHIPPED ARTIFACT rather than only in
+ * token math — sampling the painted label pixels out of a 200 dpi raster of
+ * `roadmap.gallery.dark.pdf` page 4, against the modal cell ground `#002847`:
+ *
+ *   before  #6B7F9A  3.68   FAILS
+ *   after   #7C91AC  4.66   passes
+ *
+ * Nothing in CI covers this: the contrast gates model token matrices and composed
+ * surfaces, not `.cell-state-label` — it is the only `color: var(--state-color)` in the
+ * component tree — and the full 792-test integration tier passed over it. Found by
+ * rendering the slide and looking at it. */
 :is(section.roadmap, figure.roadmap).status td.cell-state.state-skipped .cell-state-label,
-:is(section.roadmap, figure.roadmap).status .horizon-rows > li.cell-state.state-skipped .cell-state-label {
+:is(section.roadmap, figure.roadmap).status .horizon-rows > li.cell-state.state-skipped .cell-state-label,
+:is(section.roadmap, figure.roadmap).status td.cell-state.state-planned .cell-state-label,
+:is(section.roadmap, figure.roadmap).status .horizon-rows > li.cell-state.state-planned .cell-state-label {
   color:var(--text-muted);
 }
 :is(section.roadmap, figure.roadmap).status td.cell-state .cell-state-text {
