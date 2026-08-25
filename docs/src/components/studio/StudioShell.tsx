@@ -252,6 +252,12 @@ const PREVIEW_MIN = PREVIEW_CHROME.splitPreviewMin;
 // theme, incl. the AA color-blind-safe set). BUILTIN_PALETTES = anything we can
 // drive through `data-palette`.
 
+// The two Coach quick reads COMPUTED FROM `findings` (`topFixes` / `weakestSlide`) — the
+// only cards a fresh assessment round can make stale. The other three (`structure`, `ask`,
+// `pacing`) read the deck SOURCE and nothing else, so a re-lint that reports the same deck
+// tells them nothing. See the staleness effects in the shell body.
+const FINDINGS_DERIVED_CHIPS = new Set(['top', 'weak']);
+
 // biome-ignore lint/suspicious/noExplicitAny: serialized lint vocabulary from the page.
 type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; componentNames?: string[]; catalogUrl?: string; lintVocab?: any; slideHeadings?: Record<string, ('h1' | 'h2')[]>; slideBlocks?: Record<string, string[]> };
 
@@ -2242,8 +2248,24 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			for (const k of drop) delete next[k];
 			return next;
 		});
-		setCoachCard(null);
+		// Only the findings-DERIVED cards go stale here. This clear used to be unconditional,
+		// and because `findings` is a fresh array out of every assessment round, the round that
+		// lands ~400ms after any deck change wiped whatever quick read the author had opened in
+		// the meantime — including the three cards that round says nothing about. In the jsdom
+		// suite the settling round landed 25-30ms before the "Structure" chip click and the card
+		// was gone before the assertion could see it (#1831); in the Studio it is an author
+		// clicking a chip inside the debounce window and watching the card vanish unprompted.
+		setCoachCard((c) => (c && FINDINGS_DERIVED_CHIPS.has(c.id) ? null : c));
 	}, [findingKeys, stopFixTimer]);
+
+	// …and the deck moving is what makes ANY quick read stale, so that clear keys on `source`.
+	// `source` changes synchronously with the edit, where the findings round trails it by the
+	// 400ms debounce — so the card now also clears when the author expects it to, not a beat
+	// later, and a chip clicked AFTER the edit is no longer canceled by that edit's round.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `source` is the staleness signal; the setter is stable.
+	React.useEffect(() => {
+		setCoachCard(null);
+	}, [source]);
 
 	// Draft an AI fix for ONE finding, showing progress IN the pill (no toast) and leaving
 	// a reviewable diff — nothing applies until Apply. The pill cycles through the fix
