@@ -456,7 +456,20 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			// cannot race to different answers, and the `{pv}` that goes back is what
 			// repaints the Stage. Read through a ref because the controller is built once
 			// and this closure would otherwise pin the first render's movers.
-			onNav: (act: string) => stageNavRef.current[act]?.(),
+			onNav: (act: string) => {
+				// AN ALLOWLIST, not a property lookup. `act` arrives on a postMessage, and
+				// `NAV[act]` reaches Object.prototype — `constructor`, `toString`, `valueOf`
+				// and `hasOwnProperty` all resolve to functions and would be CALLED. Nothing
+				// there does anything today, and the nav is accepted strictly on
+				// `e.source === stageWin`, so this is not reachable now.
+				//
+				// It is guarded anyway because both of those are one edit from untrue: the
+				// `closed` path in this same controller already had to relax `e.source` to a
+				// token match (a navigation's goodbye arrives with a different source), and
+				// a dispatch table that grows a dangerous entry is a normal thing to happen.
+				// A four-verb allowlist costs nothing and cannot become a primitive.
+				if (act === 'next' || act === 'prev' || act === 'first' || act === 'last') stageNavRef.current[act]?.();
+			},
 		});
 	}
 	// ONE door for the Stage, from the pill and from `S` alike — and it hands the keyboard

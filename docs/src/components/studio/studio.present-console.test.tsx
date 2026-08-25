@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react';
+import { act as act2, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PresentOverlay } from './PresentOverlay';
 
@@ -83,7 +83,7 @@ async function openStage(user: ReturnType<typeof import('@testing-library/user-e
 	await user.click(screen.getByRole('button', { name: 'Stage' }));
 	window.open = realOpen;
 	// The document's own `ready`, replayed. `source` is what the controller trusts.
-	await act(async () => {
+	await act2(async () => {
 		window.dispatchEvent(new MessageEvent('message', { data: { stage: 'ready' }, source: fake as unknown as MessageEventSource }));
 	});
 	return fake;
@@ -123,11 +123,54 @@ describe('Present — with no Stage, Present is exactly Present', () => {
 		const fake = await openStage(user);
 		expect(screen.getByRole('complementary', { name: 'Notes and next slide' })).toBeInTheDocument();
 		// The document's own goodbye — the same beat a hand-closed window fires.
-		await act(async () => {
+		await act2(async () => {
 			window.dispatchEvent(new MessageEvent('message', { data: { stage: 'closed' }, source: fake as unknown as MessageEventSource }));
 		});
 		expect(screen.queryByRole('complementary', { name: 'Notes and next slide' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Reset the talk clock' })).toBeNull();
+	});
+
+	it('takes nav from the Stage — but only the four verbs, not Object.prototype', async () => {
+		const { default: userEvent } = await import('@testing-library/user-event');
+		const user = userEvent.setup();
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} notify={() => {}} />);
+		const fake = await openStage(user);
+		const nav = async (act: string) => {
+			await act2(async () => {
+				window.dispatchEvent(new MessageEvent('message', { data: { stage: 'nav', act }, source: fake as unknown as MessageEventSource }));
+			});
+		};
+
+		// The Stage drives: a gesture there posts an ACTION and the console moves.
+		expect(screen.getByText('1 / 2')).toBeInTheDocument();
+		await nav('next');
+		expect(screen.getByText('2 / 2')).toBeInTheDocument();
+		await nav('prev');
+		expect(screen.getByText('1 / 2')).toBeInTheDocument();
+
+		// …and NOTHING else dispatches. `act` arrives on a postMessage and the table is a plain
+		// object, so an unguarded `NAV[act]` reaches Object.prototype.
+		//
+		// THIS IS ASSERTED WITH A POLLUTED PROTOTYPE, not with `constructor`/`toString`. The
+		// first draft looped those and checked the deck had not moved — and PASSED with the
+		// guard deleted, because calling `Object()` does not move a deck either. "Nothing
+		// happened" is trivially true when the thing you dispatched is inert; the cell has to
+		// dispatch something that REPORTS being called. That is also the real threat model:
+		// this lookup only matters if something reachable on the prototype does something,
+		// which is what prototype pollution arranges.
+		let pwned = 0;
+		Object.defineProperty(Object.prototype, 'pwned', { value: () => { pwned += 1; }, configurable: true, writable: true });
+		try {
+			await nav('pwned');
+			expect(pwned, 'a polluted prototype key must not be dispatchable from a Stage message').toBe(0);
+			for (const act of ['constructor', 'toString', 'valueOf', '__proto__', 'goNext', '']) {
+				await nav(act);
+				expect(screen.getByText('1 / 2'), `"${act}" must not move the deck`).toBeInTheDocument();
+			}
+		} finally {
+			// Restore the prototype this cell poisoned, whatever happened above.
+			delete (Object.prototype as unknown as Record<string, unknown>).pwned;
+		}
 	});
 
 	it('offers a rail toggle that governs the rail wherever it lives', async () => {
