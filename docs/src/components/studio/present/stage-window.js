@@ -31,7 +31,7 @@
 // A cross-origin stage would have forced all three to be re-implemented in
 // inline strings, which is the cost that ruled out architecture S.
 
-import { fitScale, padInset } from '../../../../../lib/core/present-transport.mjs';
+import { createWheelGate, fitScale, keyAction, PRESENT_KEYMAP, padInset, swipeAction } from '../../../../../lib/core/present-transport.mjs';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
 import { slideBox } from '../../../playground/frame-css.js';
@@ -78,7 +78,31 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 	// undefined at the call sites and `fit()` threw "padInset is not defined" on every call,
 	// silently never scaling the slide (the long-standing presenter CROP). The `var name =`
 	// binding restores the names regardless of how the function prints.
-	const kernel = `var fitScale=${fitScale.toString()};\nvar padInset=${padInset.toString()};`;
+	// THE SAME INPUT KERNEL THE CONSOLE RUNS, inlined by source (HARD RULE #1).
+	//
+	// The Stage drives the deck — keyboard, wheel and swipe — and the console follows. That
+	// is a reversal: the first cut of this window bound exactly one key (`f`) on the theory
+	// that "the room does not drive the deck". It was wrong for the case that actually
+	// happens, which is the presenter standing AT the machine the Stage is on.
+	//
+	// Driving it means reading a gesture, and there are two ways to do that: inline the
+	// kernel the console already uses, or hand-roll a second one inside this string. The
+	// second is how two surfaces drift — `present-transport.mjs`'s header exists because of
+	// it. So the kernel travels by `.toString()`, exactly as `fitScale` already does, and
+	// `test/unit/export/inlinable-kernels.test.js` is what keeps every one of these
+	// self-contained enough to survive the trip (no module-scope closure).
+	//
+	// `keyAction` defaults its map argument to a module-scope constant, which does NOT
+	// travel — so the map is inlined beside it and passed explicitly, which is the contract
+	// that test pins.
+	const kernel = [
+		`var fitScale=${fitScale.toString()}`,
+		`var padInset=${padInset.toString()}`,
+		`var keyAction=${keyAction.toString()}`,
+		`var swipeAction=${swipeAction.toString()}`,
+		`var createWheelGate=${createWheelGate.toString()}`,
+		`var PRESENT_KEYMAP=${JSON.stringify(PRESENT_KEYMAP)}`,
+	].join(';\n');
 	const padF = Number(pad.factor);
 	const padFl = Number(pad.floor || 0);
 	// Resolve the runtime URL to ABSOLUTE, and it is load-bearing on BOTH hosts. The
@@ -169,12 +193,51 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// API key. On the audience surface a link click is always accidental, so it is
 		// simply not a gesture here.
 		'document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a)e.preventDefault()},true);' +
-		// `f` is the fallback for a browser that declines to fullscreen a fresh popup
-		// (§7 — UNVERIFIED until a real two-monitor desktop says otherwise). It is the
-		// ONLY key this document binds: the Stage does not navigate, because the room
-		// does not drive the deck.
-		'window.addEventListener("keydown",function(e){if(e.key!=="f"&&e.key!=="F")return;if(e.metaKey||e.ctrlKey||e.altKey)return;e.preventDefault();' +
-		'try{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}catch(x){}});' +
+		// ── THE STAGE DRIVES ───────────────────────────────────────────────────────
+		// Keyboard, wheel and swipe move the deck, and the console follows. `nav()` does
+		// not move this window directly: it TELLS the opener, which owns `idx`, and the
+		// `{pv}` that comes back is what repaints. One writer, so the two surfaces cannot
+		// disagree about which slide is up — and a move made here survives the console
+		// re-deriving state for its own reasons.
+		'function nav(a){if(a)try{OP.postMessage({stage:"nav",act:a,tok:TOK},OR)}catch(e){}}' +
+		// `keyAction` with the map passed EXPLICITLY — its default argument is a
+		// module-scope constant that does not survive `.toString()` inlining.
+		'window.addEventListener("keydown",function(e){' +
+		'if(e.metaKey||e.ctrlKey||e.altKey)return;' +
+		'if(e.key==="f"||e.key==="F"){e.preventDefault();toggleFull();return}' +
+		'var a=keyAction(e.key,PRESENT_KEYMAP);if(!a)return;e.preventDefault();nav(a);});' +
+		// A firm flick, not a reflexive scroll — the same gate, threshold and cooldown the
+		// console applies, so a trackpad means the same thing on either surface.
+		'var gate=createWheelGate();' +
+		'window.addEventListener("wheel",function(e){var a=gate(e.deltaX,e.deltaY,Date.now());if(a){e.preventDefault();nav(a)}},{passive:false});' +
+		// Touch, via the shared swipe geometry.
+		'var t0=null;' +
+		'window.addEventListener("touchstart",function(e){var t=e.changedTouches&&e.changedTouches[0];t0=t?{x:t.clientX,y:t.clientY}:null},{passive:true});' +
+		'window.addEventListener("touchend",function(e){if(!t0)return;var t=e.changedTouches&&e.changedTouches[0];if(!t)return;' +
+		'var a=swipeAction({dx:t.clientX-t0.x,dy:t.clientY-t0.y});t0=null;if(a)nav(a);},{passive:true});' +
+		// ── THE OVERLAY CONTROLS ───────────────────────────────────────────────────
+		// A projected screen with permanent instruments on it is the defect this whole
+		// split exists to remove, and a projected screen you cannot operate from the
+		// machine it is on is the defect the first cut shipped. The video-player idiom
+		// resolves both: hidden at rest, summoned by the pointer or a key, gone again
+		// after a beat. The room sees the deck; whoever is standing at this machine has
+		// controls within one mouse-move.
+		'var bar=document.getElementById("latt-ctl"),hideT=0;' +
+		'function poke(){if(!bar)return;bar.classList.add("on");clearTimeout(hideT);hideT=setTimeout(function(){bar.classList.remove("on")},2400)}' +
+		'window.addEventListener("mousemove",poke);window.addEventListener("keydown",poke);window.addEventListener("touchstart",poke,{passive:true});' +
+		// FULLSCREEN FROM A BUTTON, which is the reliable path: the Fullscreen API wants a
+		// user gesture in THIS document, and a click here is one. Auto-fullscreen at open
+		// time is a request the browser may decline (§7, still unverified on real
+		// hardware); this is the answer that does not depend on it.
+		'function toggleFull(){try{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}catch(x){}}' +
+		'function on(id,fn){var el=document.getElementById(id);if(el)el.addEventListener("click",function(e){e.preventDefault();poke();fn()})}' +
+		'on("latt-prev",function(){nav("prev")});on("latt-next",function(){nav("next")});on("latt-full",toggleFull);' +
+		// The counter reads from the opener's `{pv}`, not from a local guess, so it cannot
+		// drift from the deck. Total comes from the film itself.
+		'function count(){var c=document.getElementById("latt-count");if(!c)return;var n=secs().length;c.textContent=(Math.min(cur+1,n||1))+" / "+(n||1)}' +
+		'window.addEventListener("message",function(e){if(e.data&&e.data.pv!=null)count()});' +
+		'document.addEventListener("fullscreenchange",function(){var b=document.getElementById("latt-full");if(b)b.setAttribute("aria-pressed",document.fullscreenElement?"true":"false")});' +
+		'[80,400,1400].forEach(function(t){setTimeout(count,t)});poke();' +
 		'tell("ready");}' +
 		'})();';
 	// The audience chrome's two hosts — EMPTY. Nothing in this document ever writes to
@@ -182,6 +245,23 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 	// caption crawl and the rail have exactly one implementation and it is the one the
 	// console already renders when no Stage is open.
 	const chrome = standalone ? '<div id="latt-chrome" class="latt-chrome"><div id="latt-cc"></div><div id="latt-rail"></div></div>' : '';
+	// THE OVERLAY CONTROLS, standalone only. Absent from the srcdoc hosts by construction —
+	// an in-page stage is already surrounded by the console's own transport, and a second
+	// set inside the frame would be two controls for one deck.
+	//
+	// `aria-hidden` is NOT set at rest: the bar is visually hidden but stays in the
+	// accessibility tree and tab order, because a keyboard user has no pointer to summon it
+	// with and "invisible until you move a mouse you do not have" is not an affordance.
+	// Focus reveals it (`:focus-within` in the sheet) so sighted keyboard users see what
+	// they are on.
+	const controls = standalone
+		? '<div id="latt-ctl" class="latt-ctl">' +
+			'<button id="latt-prev" type="button" aria-label="Previous slide">\u2039</button>' +
+			'<span id="latt-count" class="latt-ctl-count" aria-live="off">1 / 1</span>' +
+			'<button id="latt-next" type="button" aria-label="Next slide">\u203a</button>' +
+			'<button id="latt-full" type="button" aria-label="Full screen" aria-pressed="false" class="latt-ctl-full">\u26f6</button>' +
+			'</div>'
+		: '';
 	return (
 		'<!doctype html><html><head><meta charset="utf-8">' +
 		(standalone ? '<title>Stage</title>' : '') +
@@ -189,7 +269,7 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		(katexUrl ? '<link rel="stylesheet" href="' + katexUrl + '">' : '') +
 		'<style>html,body{margin:0;padding:0;height:100%;background:' + bg + ';overflow:hidden;touch-action:manipulation;-webkit-text-size-adjust:100%;}' +
 		'#latt-stage{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;visibility:hidden;}' +
-		'#latt-view{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;}' +
+		'#latt-view{position:relative;flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;}' +
 		'#latt-fit{overflow:hidden;}' +
 		'#latt-film{position:relative;transform-origin:top left;}' +
 		'#latt-film .lattice{margin:0;padding:0;}' +
@@ -214,6 +294,44 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// side padding is ADDED to its stretched width and the rail is clipped off the edge
 		// of the display (measured: 1376px of chrome in a 1280px window).
 		'#latt-chrome,#latt-chrome *{box-sizing:border-box;}' +
+		// THE OVERLAY CONTROLS. Fixed above everything, centered on the bottom edge, and
+		// INVISIBLE AT REST — `opacity` + `pointer-events`, not `display`, so summoning them
+		// is a fade rather than a layout jump under the pointer, and so they keep their place
+		// in the tab order for a keyboard user who cannot summon them with a mouse.
+		// `:focus-within` reveals them for exactly that user.
+		// ANCHORED TO THE SLIDE BOX, not the window. Fixed-to-viewport put it on top of the
+		// caption band and the rail — the chrome row owns the bottom of this window — and a
+		// short window clipped it off the edge entirely. `#latt-view` is the slide area, so
+		// absolute-inside-it floats the bar over the deck exactly the way a video player's
+		// does, above the chrome and never in its way. Out of flow, so summoning it cannot
+		// resize the slide underneath.
+		// THE BAR NEEDS THE PALETTE TOO, and scoped the same way for the same reason.
+		//
+		// The audience palette is declared ON `#latt-chrome` rather than on `:root`, because
+		// `--bg` / `--accent` / `--text-heading` are the DECK's token names as well — hoisting
+		// them to the root would repaint the slide with the chrome's colors. The control bar
+		// lives outside that element, so it inherited none of them: measured in the real
+		// popup, `--bg` and `--text-heading` came back EMPTY, the bar's background resolved to
+		// `rgba(0,0,0,0)` and its glyphs to `rgb(0,0,0)` — black on a near-black slide.
+		//
+		// That is the same trap `paintStageTokens` fell into (a palette that never reached the
+		// element reading it), the second time on this branch. So the decls are repeated here
+		// rather than widened: same values, second scope, deck untouched.
+		(standalone ? '.latt-ctl{' + chromeDecls + '}' : '') +
+		'.latt-ctl{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:40;' +
+		'display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:999px;' +
+		'background:color-mix(in srgb, var(--bg) 82%, transparent);border:1px solid color-mix(in srgb, var(--text-muted) 30%, transparent);' +
+		'backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity .18s ease;}' +
+		'.latt-ctl.on,.latt-ctl:focus-within{opacity:1;pointer-events:auto;}' +
+		'@media (prefers-reduced-motion:reduce){.latt-ctl{transition:none;}}' +
+		'.latt-ctl button{appearance:none;border:0;background:transparent;color:var(--text-heading);' +
+		'font:inherit;font-size:18px;line-height:1;cursor:pointer;border-radius:999px;padding:6px 10px;min-width:36px;min-height:36px;}' +
+		'.latt-ctl button:hover{background:color-mix(in srgb, var(--accent) 18%, transparent);}' +
+		// A visible focus ring, because this bar is reachable by Tab and is the only way a
+		// keyboard user knows the fade brought them somewhere.
+		'.latt-ctl button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}' +
+		'.latt-ctl-count{color:var(--text-muted);font-size:13px;font-variant-numeric:tabular-nums;padding:0 4px;min-width:56px;text-align:center;}' +
+		'.latt-ctl-full{font-size:15px;}' +
 		// The two hosts are the PORTAL TARGETS, and React renders its own root inside each —
 		// so a host that shrink-wraps hands its child a zero-width box to be `width:100%` of.
 		// Measured: `#latt-rail` came out 12px wide and `#latt-cc` 0x0, i.e. an invisible rail
@@ -231,7 +349,7 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// no deck uses, so putting them last costs the deck nothing and removes the whole
 		// class of "a theme quietly restyled the room's captions".
 		(standalone ? STAGE_CHROME_CSS : '') + '</style></head><body>' +
-		a11yDefs + '<div id="latt-stage"><div id="latt-view"><div id="latt-fit"><div id="latt-film">' + html + '</div></div></div>' + chrome + '</div>' +
+		a11yDefs + '<div id="latt-stage"><div id="latt-view"><div id="latt-fit"><div id="latt-film">' + html + '</div></div>' + controls + '</div>' + chrome + '</div>' +
 		(mermaidUrl ? '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>' : '') +
 		'<scr' + 'ipt src="' + rt + '"></scr' + 'ipt>' +
 		'<scr' + 'ipt>requestAnimationFrame(function(){var st=document.getElementById("latt-stage");if(st)st.style.visibility="visible"});</scr' + 'ipt>' +
@@ -326,7 +444,7 @@ function stageToken() {
  * gesture (popup-blocker-safe). The manager owns its own `message` listener
  * lifecycle and trusts only its held handle (`e.source`).
  */
-export function createStageController({ getDoc, getIndex, onChange, onLost, onPlaced }) {
+export function createStageController({ getDoc, getIndex, onChange, onLost, onPlaced, onNav }) {
 	let stageWin = null;
 	/** Has THIS document announced itself? Reset on every (re)write, because a
 	 *  rewrite replaces the listener that answered last time. */
@@ -455,6 +573,19 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 			ready = true;
 			show(getIndex?.() ?? 0);
 			onChange?.(stageWin);
+		} else if (d.stage === 'nav') {
+			// THE STAGE DRIVES. A gesture made on the projected window arrives here as an
+			// ACTION ('next' | 'prev' | 'first' | 'last'), never as an index — the console
+			// owns `idx` and stays the single writer, so the two surfaces cannot disagree
+			// about which slide is up and a `{pv}` echo cannot double-advance. The Stage
+			// repaints only when that `{pv}` comes back, which also makes a dropped
+			// message visible as "nothing moved" rather than as two surfaces drifting.
+			//
+			// STRICTLY `ours`: a nav is the one message that CHANGES state here, so unlike
+			// the goodbye it does not accept the token-only path. A page that navigated our
+			// Stage away must not be able to drive the deck.
+			if (!ours) return;
+			if (typeof d.act === 'string') onNav?.(d.act);
 		} else if (d.stage === 'closed') {
 			// A goodbye we matched only by TOKEN has to be checked against reality: the
 			// token outlives a window, so an old document unloading just as a new one opens

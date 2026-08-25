@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PresentOverlay } from './PresentOverlay';
 
@@ -54,9 +54,104 @@ afterEach(() => {
 
 const panelOf = () => within(screen.getByRole('complementary', { name: 'Notes and next slide' }));
 
-describe('Present — the console keeps the instruments the second window carried', () => {
-	it('shows THIS slide\'s note and renders the NEXT slide, not the current one', () => {
+/**
+ * Open a Stage, the way the console does, against a FAKE window.
+ *
+ * The presenter view is gated on a Stage existing (see `presenterView` in
+ * PresentOverlay) — Present stays Present until there is a room to be separate from — so
+ * every cell about notes / next slide / talk clock has to put one there first.
+ *
+ * jsdom has no popups, so this stands in for one: a document the controller can write
+ * into, carrying the two chrome hosts its portals target, plus the `{stage:'ready'}` beat
+ * the real document posts from its inline script once the fit is live. That beat is the
+ * whole handshake — without it the controller never calls `onChange` and `stageHost`
+ * stays null.
+ */
+async function openStage(user: ReturnType<typeof import('@testing-library/user-event').default.setup>) {
+	const doc = document.implementation.createHTMLDocument('Stage');
+	doc.body.innerHTML = '<div id="latt-chrome"><div id="latt-cc"></div><div id="latt-rail"></div></div><div id="latt-stage"></div>';
+	const fake = {
+		document: Object.assign(doc, { open: () => doc, write: () => {}, close: () => {} }),
+		closed: false,
+		focus: () => {},
+		postMessage: () => {},
+		addEventListener: () => {},
+		removeEventListener: () => {},
+	} as unknown as Window;
+	const realOpen = window.open;
+	window.open = (() => fake) as typeof window.open;
+	await user.click(screen.getByRole('button', { name: 'Stage' }));
+	window.open = realOpen;
+	// The document's own `ready`, replayed. `source` is what the controller trusts.
+	await act(async () => {
+		window.dispatchEvent(new MessageEvent('message', { data: { stage: 'ready' }, source: fake as unknown as MessageEventSource }));
+	});
+	return fake;
+}
+
+// PRESENT IS PRESENT UNTIL THERE IS A ROOM.
+//
+// This is the cell for the thing that was built wrong. The first cut showed notes and the
+// next slide from the outset at any width >= lg, which made every Present a presenter view
+// whether or not anyone was presenting — and a presenter view with no audience surface is
+// a third of the screen answering a question nobody asked.
+//
+// The rule now: Present opens as Present, morphs when a Stage opens, and reverts when it
+// closes. These assert the two ends of that, because the morph cells below can only prove
+// the middle — they all open a Stage first, so every one of them would keep passing if the
+// gate were deleted and the panel came back unconditionally.
+describe('Present — with no Stage, Present is exactly Present', () => {
+	it('carries no notes, no next slide and no talk clock until a Stage exists', () => {
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} notify={() => {}} />);
+		expect(screen.queryByRole('complementary', { name: 'Notes and next slide' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Reset the talk clock' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Speaker notes' })).toBeNull();
+		expect(screen.queryByText(NOTE)).toBeNull();
+		// ONE live preview — the slide itself. The presenter view's Next panel mounts a
+		// second engine frame, which is the cost this gate is really about.
+		expect(screen.getAllByTestId('dp')).toHaveLength(1);
+		// …and the things Present always had are still here, so this cell cannot pass by
+		// Present having been emptied out.
+		expect(screen.getByRole('button', { name: 'Stage' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Captions' })).toBeInTheDocument();
+	});
+
+	it('reverts to Present when the Stage closes', async () => {
+		const { default: userEvent } = await import('@testing-library/user-event');
+		const user = userEvent.setup();
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} notify={() => {}} />);
+		const fake = await openStage(user);
+		expect(screen.getByRole('complementary', { name: 'Notes and next slide' })).toBeInTheDocument();
+		// The document's own goodbye — the same beat a hand-closed window fires.
+		await act(async () => {
+			window.dispatchEvent(new MessageEvent('message', { data: { stage: 'closed' }, source: fake as unknown as MessageEventSource }));
+		});
+		expect(screen.queryByRole('complementary', { name: 'Notes and next slide' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Reset the talk clock' })).toBeNull();
+	});
+
+	it('offers a rail toggle that governs the rail wherever it lives', async () => {
+		const { default: userEvent } = await import('@testing-library/user-event');
+		const user = userEvent.setup();
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} notify={() => {}} />);
+		// It sits with CC and Guide and means the same kind of thing: show or hide a piece
+		// of AUDIENCE chrome. Default on — deck progress is the one piece a room reads
+		// without being told to.
+		const rail = screen.getByRole('button', { name: /Progress rail on/ });
+		expect(rail).toHaveAttribute('aria-pressed', 'true');
+		expect(screen.getByRole('group', { name: /Deck progress/ })).toBeInTheDocument();
+		await user.click(rail);
+		expect(screen.getByRole('button', { name: /Progress rail off/ })).toHaveAttribute('aria-pressed', 'false');
+		expect(screen.queryByRole('group', { name: /Deck progress/ })).toBeNull();
+	});
+});
+
+describe('Present — the console keeps the instruments the second window carried', () => {
+	it('shows THIS slide\'s note and renders the NEXT slide, not the current one', async () => {
+		const { default: userEvent } = await import('@testing-library/user-event');
+		const user = userEvent.setup();
+		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={0} notify={() => {}} />);
+		await openStage(user);
 		const panel = panelOf();
 		expect(panel.getByText(NOTE)).toBeInTheDocument();
 		// The index is the load-bearing bit: a Next panel pointed at `clamped` would look
@@ -66,8 +161,11 @@ describe('Present — the console keeps the instruments the second window carrie
 		expect(next.getAttribute('data-index')).toBe('1');
 	});
 
-	it('says the deck has ended rather than wrapping the preview to slide 1', () => {
+	it('says the deck has ended rather than wrapping the preview to slide 1', async () => {
+		const { default: userEvent } = await import('@testing-library/user-event');
+		const user = userEvent.setup();
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} startIndex={1} notify={() => {}} />);
+		await openStage(user);
 		const panel = panelOf();
 		expect(panel.getByText('End of the deck')).toBeInTheDocument();
 		expect(panel.queryByTestId('dp')).toBeNull();
@@ -89,6 +187,7 @@ describe('Present — the console keeps the instruments the second window carrie
 		const { default: userEvent } = await import('@testing-library/user-event');
 		const user = userEvent.setup();
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);
+		await openStage(user);
 		const reset = screen.getByRole('button', { name: 'Reset the talk clock' });
 		await user.click(reset);
 		// The label changes because the ACTION changed — the second press does something

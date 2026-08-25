@@ -487,3 +487,104 @@ The kernel was right and everything around it still described the retired rule:
 - An inline `<!-- caption: -->` may misbind across an autosplit — it is the only channel
   never remapped to rendered pages. The red team could not force a real split to
   demonstrate it, so it is a code path and a hunch, not a break.
+
+
+---
+
+## 11. What the maintainer sent back, and what the interaction model actually is
+
+§4 chose architecture C and described it as "the Present overlay *stays* the presenter's
+console and gains notes + next slide", with a "chrome-free" Stage. Built literally, that
+produced a Present that was a presenter view **from the outset** and a Stage nobody could
+operate. Both were rejected on sight, and both were right to be.
+
+### Present is Present until there is a room
+
+The panel is gated on a Stage existing (`presenterView = !!stageHost && wideRoom`), not on
+viewport width. Present opens as Present — slide, transport, lens, grid — morphs when the
+Stage opens, and reverts when it closes.
+
+The note's sentence was not wrong so much as **unconditioned**: the split only means
+anything once there are two surfaces. With no Stage there is no audience to be separate
+*from*, so a permanent side column spends a third of the screen answering a question nobody
+asked, and the morph stops being legible — one button should change the room and the console
+together. What was shipped instead made every wide Present a presenter view whether or not
+anyone was presenting.
+
+Notes, the next slide and the talk clock all arrive and leave with the Stage. On a narrow
+console with a Stage open the notes ride behind a pill instead; with **no** Stage there is no
+notes affordance at all.
+
+### The room does drive the deck
+
+"The console drives the room; the room cannot drive the console" was **not in this note** —
+it was invented during implementation, built, and pinned with an e2e cell that pressed seven
+keys on the Stage to prove they did nothing. The case it imagined is an audience member
+wandering up to a projector. The case that actually happens is the **presenter standing at
+the machine the Stage is on**, unable to advance their own deck.
+
+Both surfaces drive now — keyboard, wheel and swipe — through the SAME kernel: `keyAction`,
+`swipeAction`, `createWheelGate` and `PRESENT_KEYMAP` travel into the Stage document by
+`.toString()`, the trip `fitScale` already takes and `test/unit/export/inlinable-kernels.test.js`
+keeps viable. A hand-rolled second reader inside that string is exactly the drift
+`present-transport.mjs` exists to prevent.
+
+**One writer.** The Stage posts an ACTION (`{stage:'nav', act}`), never an index. The console
+owns `idx`; the `{pv}` that comes back is what repaints. So a gesture on the projection and a
+keypress on the console cannot race to different answers, and an echo would show up as a
+double-advance — which the e2e cell asserts does not happen.
+
+A nav is the one message that CHANGES state, so it is accepted **strictly** on
+`e.source === stageWin` — no token-only path. A page that navigated our Stage away must not
+be able to drive the deck.
+
+### "Chrome-free" meant "no presenter instruments", not "no controls"
+
+The Stage carries an auto-hiding control bar: prev / counter / next / full screen. Hidden at
+rest, summoned by pointer or key, gone after ~2.4s — the video-player idiom. A permanently
+chromed projection is the defect §2 exists to remove; a projection nobody can operate is the
+one the first cut shipped. Both are avoidable.
+
+It hides by **opacity, not `display`**, so it keeps its place in the tab order and
+`:focus-within` reveals it — a keyboard user has no pointer to summon it with, and "invisible
+until you move a mouse you do not have" is not an affordance.
+
+Full screen is a **button**, and that is the point rather than a detail: the Fullscreen API
+wants a user gesture in *that* document, and a click there is one. The auto-fullscreen
+attempt at open time is a request a browser may decline (§7, still unverified on real
+hardware); this is the path that does not depend on it. The slide counter moved here too —
+furniture for whoever is at the machine, not something the room reads over the deck.
+
+### The rail is a control, not a taste call
+
+§3 settled the rail as audience-side and called it "a taste call". It is a toggle now, beside
+CC and Guide, meaning the same kind of thing they do: show or hide a piece of AUDIENCE chrome,
+wherever that chrome currently lives — the Stage when one is open, the console's dock when
+there is none. Default on. Measured at 1440 / 820 / 390: four pills, no clipping, no page
+overflow, icon-only at 390.
+
+### The palette trap, a second time
+
+The control bar sits in `#latt-view`, outside `#latt-chrome` — and the audience palette is
+declared **on `#latt-chrome`**, not on `:root`, because `--bg` / `--accent` /
+`--text-heading` are the DECK's token names too and hoisting them would repaint the slide.
+
+So the bar inherited none of them. Measured in the real popup before the fix:
+
+```
+--bg            ""                       (empty)
+--text-heading  ""                       (empty)
+background      rgba(0, 0, 0, 0)         (fully transparent)
+button color    rgb(0, 0, 0)             (black, on a near-black slide)
+```
+
+Same shape as the `paintStageTokens` finding in §9 — a palette that never reaches the element
+reading it — and it survived a screenshot, because a black glyph on a #1a1a1a slide reads as
+"a bit dim" rather than as broken. The measurement is what caught it. The decls are repeated
+on `.latt-ctl` rather than widened: same values, second scope, deck untouched. Contrast after:
+**17.01:1**.
+
+The bar was also anchored `position:fixed` to the viewport at first, which put it on top of
+the caption band and the rail and clipped it off the bottom edge of a short window. It is
+absolute inside `#latt-view` now — over the slide, above the chrome, out of flow so summoning
+it cannot resize the deck underneath.

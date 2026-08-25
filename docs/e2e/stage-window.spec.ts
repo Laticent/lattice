@@ -53,20 +53,36 @@ const shownSlide = (stage: import('@playwright/test').Page) =>
 test('the Stage carries the deck and NONE of the presenter\'s instruments', async ({ page, context }) => {
 	const { stage, total } = await openStage(page, context);
 
-	// The audience surface: the deck, the caption host and the rail. Nothing else.
+	// The audience surface: the deck, the caption host and the rail.
 	await expect(stage.locator('#latt-rail')).toHaveCount(1);
 	await expect(stage.locator('#latt-cc')).toHaveCount(1);
-	// The five things §2 says the room should never have been shown.
+	// The four things §2 says the room should never have been shown. The SLIDE COUNTER is
+	// no longer on this list — it lives in the Stage's own auto-hiding control bar, where
+	// it is furniture for whoever is standing at this machine rather than something the
+	// room reads over the deck. What matters is that the PRESENTER's instruments are absent.
 	await expect(stage.getByRole('button', { name: 'Exit present' })).toHaveCount(0);
 	await expect(stage.getByRole('button', { name: 'Slides' })).toHaveCount(0);
 	await expect(stage.getByRole('button', { name: 'Rehearse' })).toHaveCount(0);
 	await expect(stage.getByRole('button', { name: 'Stage' })).toHaveCount(0);
-	await expect(stage.getByText(`1 / ${total}`, { exact: true })).toHaveCount(0);
 	// And the talk track, which is the one thing that must never reach an audience screen.
 	await expect(stage.getByText('Speaker notes')).toHaveCount(0);
+	// The controls that ARE here start hidden, so at rest the room still sees only the deck.
+	// (Their behavior is driven in the controls cell below; this pins the resting state,
+	// which is what "carries none of the presenter's instruments" now means.)
+	await expect.poll(() => stage.locator('#latt-ctl').evaluate((el) => getComputedStyle(el).opacity), { timeout: 15_000 }).toBe('0');
+	expect(total).toBeGreaterThan(1);
 });
 
-test('the console drives the room, and the room cannot drive the console', async ({ page, context }) => {
+test('EITHER surface drives the deck, and the other follows', async ({ page, context }) => {
+	// REVERSED from the first cut, which asserted the room could NOT drive and pressed
+	// seven keys on the Stage to prove it. That was the wrong invariant: the case it
+	// prevented is not an audience member wandering up to a projector, it is the presenter
+	// standing at the machine the Stage is on, unable to advance their own deck.
+	//
+	// What has to hold instead is that there is ONE writer. A gesture on the Stage posts an
+	// ACTION to the console, the console moves `idx`, and the `{pv}` that comes back is what
+	// repaints — so the two surfaces cannot disagree about which slide is up, and a keypress
+	// on each cannot race to different answers.
 	const { stage, dialog, total } = await openStage(page, context);
 	expect(await shownSlide(stage)).toBe(0);
 
@@ -78,14 +94,63 @@ test('the console drives the room, and the room cannot drive the console', async
 	await expect(dialog.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
 	await expect.poll(() => shownSlide(stage)).toBe(2);
 
-	// Stage → nothing. Every key that turns a deck anywhere else in the product is inert
-	// here: the audience is not a second driver, which is the whole difference between
-	// this window and the presenter window it replaced.
-	for (const key of ['ArrowRight', 'ArrowLeft', 'PageDown', 'PageUp', 'Space', 'End', 'Home']) {
-		await stage.keyboard.press(key);
-	}
+	// Stage → Console. The console's counter is the oracle: it proves the move went THROUGH
+	// the opener rather than the Stage having repainted itself locally and drifted.
+	await stage.keyboard.press('ArrowRight');
+	await expect(dialog.getByText(`4 / ${total}`, { exact: true })).toBeVisible();
+	await expect.poll(() => shownSlide(stage)).toBe(3);
+	await stage.keyboard.press('ArrowLeft');
 	await expect(dialog.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
-	expect(await shownSlide(stage)).toBe(2);
+	await expect.poll(() => shownSlide(stage)).toBe(2);
+
+	// Home/End travel too — the full shared keymap, not a next/prev subset.
+	await stage.keyboard.press('End');
+	await expect(dialog.getByText(`${total} / ${total}`, { exact: true })).toBeVisible();
+	await stage.keyboard.press('Home');
+	await expect(dialog.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
+	await expect.poll(() => shownSlide(stage)).toBe(0);
+
+	// And ONE step per gesture — an echo would show up here as a double-advance, which is
+	// the failure mode a two-way relay invites and the reason the Stage posts an action
+	// rather than an index.
+	await stage.keyboard.press('ArrowRight');
+	await expect(dialog.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+	await page.waitForTimeout(400);
+	await expect(dialog.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+});
+
+test('the Stage carries auto-hiding controls, and its full-screen button is real', async ({ page, context }) => {
+	const { stage, dialog, total } = await openStage(page, context);
+	const bar = stage.locator('#latt-ctl');
+	await expect(bar).toHaveCount(1);
+
+	// HIDDEN AT REST — by opacity, so it keeps its place in the tab order for a keyboard
+	// user who has no pointer to summon it with. The room sees the deck, not the controls.
+	// POLLED, not slept: the fade is a signal with a name, so waiting for it to arrive beats
+	// betting 2.8s is longer than a 2.4s timer on a loaded box.
+	await expect.poll(() => bar.evaluate((el) => getComputedStyle(el).opacity), { timeout: 15_000 }).toBe('0');
+
+	// SUMMONED by the pointer, the video-player idiom.
+	await stage.mouse.move(400, 300);
+	await expect.poll(() => bar.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
+
+	// The transport works, and goes through the console like every other gesture.
+	await stage.locator('#latt-next').click();
+	await expect(dialog.getByText(`2 / ${total}`, { exact: true })).toBeVisible();
+	await stage.locator('#latt-prev').click();
+	await expect(dialog.getByText(`1 / ${total}`, { exact: true })).toBeVisible();
+
+	// The counter tracks the deck rather than guessing.
+	await expect(stage.locator('#latt-count')).toHaveText(`1 / ${total}`);
+
+	// FULL SCREEN, through the real API — from a button, because the Fullscreen API wants a
+	// user gesture in THIS document and a click here is one. Headless Chromium honors
+	// requestFullscreen, so this is measurable; what stays unverified is auto-fullscreen
+	// onto a second physical display at open time (§7).
+	await stage.locator('#latt-full').click();
+	await expect.poll(() => stage.evaluate(() => !!document.fullscreenElement)).toBe(true);
+	await stage.locator('#latt-full').click();
+	await expect.poll(() => stage.evaluate(() => !!document.fullscreenElement)).toBe(false);
 });
 
 test('the progress rail lives on whichever surface the room is watching', async ({ page, context }) => {

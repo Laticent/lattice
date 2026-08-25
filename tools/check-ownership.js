@@ -4704,6 +4704,17 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'pill state via `toHaveAttribute` — so this covers only the gap between "the click was '
        + 'dispatched" and "we conclude it navigated nowhere".',
   },
+  {
+    file: 'docs/e2e/stage-window.spec.ts', ms: 400, count: 1,
+    why: 'ABSENCE ASSERTION. The Stage and the console both drive the deck now, and the relay '
+       + 'that carries a Stage gesture to the console is the shape that invites an ECHO — a move '
+       + 'posted out, applied, and posted back as a second move. The cell presses once and then '
+       + 'asserts the counter is STILL on the same slide, which has no signal to poll: a poll goes '
+       + 'green on its first tick, before a double-advance it is meant to catch could have landed. '
+       + 'Everything pollable around it already is — the first advance is awaited with `toBeVisible`, '
+       + 'so this covers only the gap between "one gesture was handled" and "we conclude a second '
+       + 'one never arrived".',
+  },
   // ── #1246, the post-sanitize injection suite ─────────────────────────────────
   // Both are the canonical "and then nothing happened" shape this allowlist exists for:
   // the assertion is that a payload did NOT execute and did NOT reach the network, and an

@@ -83,14 +83,46 @@ describe('stage-window — buildStageDoc({ standalone })', () => {
 		// And it posts to a TARGETED origin, never `'*'` — the window may not be ours by then.
 		expect(doc).toContain('OP.postMessage({stage:k,tok:TOK},OR)');
 	});
-	it('binds `f` for fullscreen — and NOTHING that turns the deck', () => {
-		// The room does not drive the deck: the Stage has no navigation keys at all, which is
-		// the whole difference between it and the presenter window it replaced.
+	it('drives the deck with the SHARED input kernel, not a hand-rolled twin', () => {
+		// REVERSED, deliberately. The first cut bound exactly one key on the theory that
+		// "the room does not drive the deck" — which is wrong for the case that actually
+		// happens: the presenter standing at the machine the Stage is on. A projected window
+		// you cannot operate is not safer, it is just inert.
+		//
+		// What matters is WHICH implementation drives it. Two surfaces reading gestures from
+		// two hand-rolled readers is exactly the drift `present-transport.mjs` exists to
+		// prevent, so the kernel travels by `.toString()` — the same trip `fitScale` already
+		// takes, kept viable by `test/unit/export/inlinable-kernels.test.js`.
 		const doc = solo();
 		expect(doc).toContain('requestFullscreen');
-		expect(doc).not.toContain('PRESENT_KEYMAP');
-		expect(doc).not.toContain('keyAction');
-		expect(doc).not.toContain('swipeAction');
+		for (const k of ['keyAction', 'swipeAction', 'createWheelGate', 'PRESENT_KEYMAP']) {
+			expect(doc, `${k} must be inlined, not reimplemented`).toContain(k);
+		}
+		// The keymap is inlined BESIDE keyAction and passed explicitly, because keyAction
+		// defaults that argument to a module-scope constant that does not survive inlining.
+		expect(doc).toContain('keyAction(e.key,PRESENT_KEYMAP)');
+		// And it posts an ACTION, never an index: the console owns `idx`, so a gesture here
+		// and a keypress there cannot race to different answers.
+		expect(doc).toContain('stage:"nav"');
+		expect(doc).not.toMatch(/stage:"nav".{0,40}pv:/);
+	});
+
+	it('carries auto-hiding overlay controls — and the srcdoc hosts carry none', () => {
+		// The video-player idiom: hidden at rest, summoned by pointer or key, gone after a
+		// beat. A permanently-chromed projection is the defect the whole split exists to
+		// remove; a projection nobody can operate is the one the first cut shipped.
+		const doc = solo();
+		expect(doc).toContain('id="latt-ctl"');
+		expect(doc).toContain('aria-label="Full screen"');
+		expect(doc).toContain('aria-label="Next slide"');
+		// Hidden by OPACITY, not `display` — so the bar keeps its place in the tab order for
+		// a keyboard user who has no pointer to summon it with, and `:focus-within` reveals
+		// it for them. A `display:none` bar is unreachable, which is not an affordance.
+		expect(doc).toContain('.latt-ctl:focus-within');
+		expect(doc).toMatch(/\.latt-ctl\{[^}]*opacity:0/);
+		// An in-page stage is already surrounded by the console's own transport; a second
+		// set inside the frame would be two controls for one deck.
+		expect(plain()).not.toContain(String.raw`id="latt-ctl"`);
 	});
 	it('leaves the iframe hosts exactly as they were — every addition is opener-gated', () => {
 		// ONE document, two hosts. `window.opener` is null in an iframe, so the handshake and
