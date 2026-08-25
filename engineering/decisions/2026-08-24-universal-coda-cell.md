@@ -17,8 +17,8 @@ summary: >
   outer STRUCTURE rather than by component name — measured in Chromium, only three shapes occur
   across the catalog — and carrying one `--coda-step` of its own. Exclusions become `coda.claims` in the
   component manifest, so the published contract and the render read one predicate and the CSS
-  `:not()` chain (and the test that parsed it) are gone. 49 of 52 layouts now land on exactly the
-  step; the three that do not are compositions whose own centering supplies the difference.
+  `:not()` chain (and the test that parsed it) are gone. 49 of the 51 coda-hosting layouts land on
+  exactly the step; the two that do not are compositions whose own centering supplies the difference.
 ---
 
 # The universal blocks needed a host, not a longer selector
@@ -143,11 +143,16 @@ carries two reasons, and the second was not previously expressible at all:
 
 ## 5. What the numbers say now
 
-52 layouts render a coda on the probe sweep. **49 land on exactly 24px.** The three that do not are
-`image` (52px), `video` (45px) and `scene` (26px): each is a centered figure composition, and the
-difference is the composition's own slack between its ink and the box the band docks to, not the
-band's step. The panel now renders on every layout that publishes one, including all eight that
-were broken.
+**51 layouts host a coda, and 49 land on exactly 24px.** The two that do not are `image` and
+`scene`: both are centered figure compositions, and the difference is the composition's own slack
+between its ink and the box the band docks to, not the band's step. The panel now renders on every
+layout that publishes one, including all eight that were broken.
+
+*(An earlier draft of this section read "52 layouts … 49 land on exactly 24px … `image` (52px),
+`video` (45px), `scene` (26px)" and contradicted §7's own count in the same file. A checker could
+not reproduce 52 under any counting — 51 publish `key-insight`, 55 publish either beat, 61 layouts
+exist — and the outlier figures were from a different probe than the one §7 reports. The numbers
+here are the current sweep. `video` left the outlier list for a real reason, recorded in §8.)*
 
 The published contract (`authoring.blocks`) changed for **13** layouts, not the four the first
 draft of this note named. In full:
@@ -269,9 +274,10 @@ funnel, gantt, journey, kanban, map, matrix-grid, piechart, progress, quadrant, 
 roadmap, state-chart, timeline-list, word-cloud — had been stacking the section's 16px
 gap on top of the full 24px step for a 40px seam, on a rule whose entire purpose was to
 make the step uniform. Measured across all 51 coda-hosting layouts, exactly-24px went
-from 34 to 48. The three that remain (`image`, `scene`, `video`) are the grid and row
-docks, where "previous element sibling" is not the visual predecessor; all three measure
-byte-identical before and after.
+from 34 to 48. The ones that remain are `image` and `scene`, where "previous element sibling" is not
+the visual predecessor; both measure byte-identical before and after. (An earlier draft called
+these "the grid and row docks" and named `video` among them. `scene` was declared `column` at the
+time — see §8 — so the description was wrong about two of the three.)
 
 **One arm-parity caveat, recorded because it is a trap.** The both-arms test does NOT
 catch this class of defect: reverted, the string arm and the DOM arm swallow the cell in
@@ -279,3 +285,55 @@ the same way, still agree, and pass. The whole 7,201-test suite passed with the 
 inside the stage and outside it. What pins it now is one STRUCTURAL assertion per arm
 (`test/unit/transformers/masthead-lift.test.js`), each verified to fail on a revert.
 
+
+## 8. What the adversarial trio found, and what it cost
+
+The trio (HARD RULE #25) ran against the final shipping diff after §7 landed. An earlier trio had
+audited an earlier version, and everything after that point — including the two highest-blast-radius
+files — was unaudited. All three lenses independently found the same critical defect, which is worth
+recording as evidence that the tier earned its cost rather than as a formality.
+
+**The peel blinded the split envelope.** `split-envelope.js` bounds every trailing-material scan by
+`extractStage`; §7 moved `.cell-coda` outside that bound, so all five scans returned empty. On this
+subsystem's own committed demo deck, `examples/split-envelope.md`:
+
+| | before §7 | after §7 | fixed |
+|---|---|---|---|
+| pages | 26 | 27 | 26 |
+| key insight | 1× | **6×, one per body page** | 1× |
+| below-note | 1× | **lost outright** | 1× |
+| insight pages | 2 | **0** | 2 |
+
+That is FM-2 — the duplication the module's own header says it exists to kill — plus content loss in
+a delivered PDF. Two integration tests named it (`split-veto`, `split-envelope-css`), both red on the
+branch and green with the peel reverted. **The integration tier had not been run.** The unit suite was
+green throughout because its fixture hand-authored the cell inside the stage under a comment claiming
+that was the engine's shape: eight tests passing against a DOM that cannot occur. A fixture that
+drifts from the render does not merely fail to catch a bug — it certifies it.
+
+**Five CSS families had silently stopped matching**, all still addressing `> .cell-stage > …`: the
+sketch finish's hand-drawn insight box (box-shadow gone), `head-center`/`head-right`'s flex, the
+split-insight page's size-up, and the split note's compact size (46.98px against
+`--fs-body-compact`'s 39.96px). This is the SAME failure class the whole change exists to kill — a
+universal block bound to an exact DOM position — reproduced one layer up by the change that killed
+it. Worth stating plainly: moving a universal cell is not a local edit, and the gate that would have
+caught it is a census of who addresses the cell, which does not exist.
+
+**Two dock declarations were wrong, and the arms were fragile to that.** `scene` declared nothing and
+so took `column` while computing as a GRID (band 439px in a 1280px section); `video` declares `row`
+while its BASE variant computes as a column (band 523px), because one manifest value cannot describe
+a per-variant structure. `scene`'s declaration is corrected. `video`'s is not — `row` is right for its
+`.companion` variant and forces the wrap that variant needs — so instead both arms were made
+axis-agnostic (`width: 100%` rather than `flex-basis: 100%`, `justify-self: stretch` beside
+`grid-column: 1 / -1`). A mis-declaration now costs nothing, which is insurance, not a defense of the
+axis.
+
+**And the band was not full-width on four layouts.** `diagram` had carried a per-component
+`align-self: stretch` since the cell landed; measuring the corpus found `title`, `closing` and
+`divider` with the same defect (285px bands), all from a host that centers its children. Stretching
+by default fixed the class and made diagram's rule redundant. All 51 bands now span full width — a
+property nothing had measured before the trio asked.
+
+**The honest summary of the tier's value:** the machine gates were green — 7,282 unit tests, lint,
+`build:check`, and an overflow ratchet identical to baseline — while the export lost content. Every
+one of those gates was measuring something real; none of them was measuring this.

@@ -3,6 +3,7 @@
   "name": "scene",
   "function": "imagery",
   "form": "canvas",
+  "coda": { "dock": "grid" },
   "substance": "prose",
   "anatomyBlock": "image-canvas",
   "orientation": [

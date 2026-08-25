@@ -14,18 +14,32 @@
  * the section's OUTER structure, and — measured across all 61 layouts, not
  * assumed — there are exactly three:
  *
- *   column  57  block / flex column. The band is simply the last in-flow child;
+ *   column  54  block / flex column. The band is simply the last in-flow child;
  *               nothing to declare, which is why it is the default and why a new
  *               component gets the coda for free.
- *   row      3  flex row (premise, split-panel, video). Without an arm the band
- *               becomes a THIRD SIBLING COLUMN squeezed beside the body — measured
- *               at -243.8px of "gap" on premise, i.e. beside, not below.
- *   grid     1  grid (image). Auto-placement drops it into one track; it has to
- *               span them all.
+ *   row      4  flex row (premise, split-compare, split-panel, video). Without an arm
+ *               the band becomes a THIRD SIBLING COLUMN squeezed beside the body —
+ *               measured at -243.8px of "gap" on premise, i.e. beside, not below.
+ *   grid     3  grid (image, math, scene). Auto-placement drops it into one track;
+ *               it has to span them all.
+ *
+ * These counts are the CATALOG's, and they have been wrong in this file before: it
+ * shipped 57/3/1 with `image` as the only grid and no `split-compare` in the row list,
+ * for long enough that a checker found it after the decision doc had already corrected
+ * the same numbers elsewhere. `scene` is the newest correction — it declared nothing
+ * and therefore took `column`, while its clean compositions compute as a GRID, so its
+ * band rendered 439px wide in a 1280px section.
  *
  * The layout declares which one it is ONCE (`coda.dock` in its manifest, baked
  * into coda-catalog.generated.js, stamped here as `data-dock`). That is the whole
  * per-component cost of supporting both universal blocks.
+ *
+ * A DECLARATION CAN STILL BE WRONG, and one is: `video` says `row` because its
+ * `.companion` variant is a flex row, while its BASE variant computes as a column —
+ * one manifest value cannot describe a per-variant structure. Both arms are written
+ * to survive that (`width: 100%` rather than `flex-basis: 100%`; `justify-self:
+ * stretch` beside `grid-column: 1 / -1`), so a mis-declaration costs nothing today.
+ * That is deliberate insurance, not an argument that the axis is right.
  *
  * ── RHYTHM: the coda is a REGISTER CHANGE, not another prose step ────────────
  *
@@ -49,6 +63,14 @@ section .cell-coda {
   /* Never grows into the stage's free space and never shrinks under pressure —
    * the band is content-height, and the body above it takes the slack. */
   flex: 0 0 auto;
+  /* FULL WIDTH is the band's whole shape, and a host that centers its children takes
+   * it away: a flex item under `align-items: center` shrink-wraps on the cross axis.
+   * `diagram` needed a per-component `align-self: stretch` for exactly this, and
+   * measuring the corpus found three more hosts with the same defect — `title`,
+   * `closing` and `divider` all rendered a 285px band in a 1152px section. Stretching
+   * by default fixes the class instead of the instances, and a layout that genuinely
+   * wants a shrink-wrapped band can still say so on its own rule. */
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   /* Insight above, note below. The step BETWEEN them is smaller than the one that
@@ -96,8 +118,21 @@ section:has(> .cell-masthead) { --coda-host-gap: var(--sp-sm); }
  * top of the step. Zeroing the ROW gap leaves the real gutter (`column-gap`)
  * untouched and hands the vertical step back to `--coda-step`, where it belongs. */
 section:has(> .cell-coda[data-dock="row"]) { flex-wrap: wrap; align-content: center; row-gap: 0; --coda-host-gap: 0px; }
-section > .cell-coda[data-dock="row"] { flex: 0 0 100%; }
+/* `width` on the CROSS axis, not `flex-basis` on the main one, and the difference is
+   not academic: `flex: 0 0 100%` reads 100% of whichever axis the section turns out to
+   be, so on a section that declares `row` but computes as a COLUMN it sized the band's
+   HEIGHT and left it 523px wide inside a 1280px section. `video` is exactly that case —
+   only its `.companion` variant is a flex row, the base variant is a column — and the
+   decision doc already concedes a per-component `dock` cannot describe a per-variant
+   structure. `width: 100%` + `flex: 0 0 auto` is correct on BOTH axes, so the arm stops
+   depending on the declaration being right about which one it is. */
+section > .cell-coda[data-dock="row"] { flex: 0 0 auto; width: 100%; }
 
 /* ── grid arm ── span every column, in an implicit final row. `1 / -1` needs no
  * knowledge of how many tracks the layout declared. */
-section > .cell-coda[data-dock="grid"] { grid-column: 1 / -1; align-self: start; }
+/* `justify-self: stretch` is the grid twin of the row arm's `width: 100%`, and it is
+   needed for the same reason: spanning every track decides the band's grid AREA, not its
+   WIDTH. A section that sets `justify-items` (image centers its composition) shrink-wraps
+   the item inside that area — measured at 533px in a 1280px two-track grid, against the
+   "full-width band beneath the body" this file's header promises. */
+section > .cell-coda[data-dock="grid"] { grid-column: 1 / -1; align-self: start; justify-self: stretch; }
