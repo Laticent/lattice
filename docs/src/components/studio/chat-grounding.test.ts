@@ -19,7 +19,8 @@ const FINDINGS = [
 	{ message: 'Slide opens without a title', slide: 2 },
 	{ message: 'Body prose exceeds the density budget', slide: 5 },
 ];
-const SCORECARD = { craft: { score: 94, band: 'A', summary: 'no issues found' }, style: { score: 82, band: 'B+', summary: 'a few small things' }, profile: { key: 'teaching', label: 'Teaching', blurb: '', origin: 'declared', declaredInvalid: null }, categories: [] };
+// The ChatGrounding contract exactly — see the note at the buildChatSystem call below.
+const SCORECARD = { craft: { score: 94, band: 'A' }, style: { score: 82, band: 'B+' }, profile: { label: 'Teaching', origin: 'declared' } };
 // Shaped like the payload `studio.astro` actually ships — every field `layoutBlock`
 // reads, so a payload that drops one fails here instead of silently thinning the prompt.
 const CATALOG = [
@@ -58,7 +59,11 @@ describe('buildChatSystem — the static/dynamic split', () => {
 
 	it('keeps the static prefix byte-identical as the assessment changes', () => {
 		const a = buildChatSystem('openrouter', { scorecard: SCORECARD, findings: FINDINGS });
-		const b = buildChatSystem('openrouter', { scorecard: { craft: { score: 62, band: 'C', summary: 'a lot to fix' }, style: { score: 70, band: 'B', summary: 'several things to fix' }, profile: { key: 'boardroom', label: 'Boardroom', blurb: '', origin: 'inferred', declaredInvalid: null }, categories: [] }, findings: [{ message: 'Something else entirely' }] });
+		// Exactly the ChatGrounding contract — no more. That type is deliberately NARROWER
+		// than DeckScorecard: grounding needs the two grades and the profile's name/origin,
+		// not its blurb, summaries or categories. Passing a wider literal here would hide
+		// the contract drifting to match whatever the Coach happens to hold.
+		const b = buildChatSystem('openrouter', { scorecard: { craft: { score: 62, band: 'C' }, style: { score: 70, band: 'B' }, profile: { label: 'Boardroom', origin: 'inferred' } }, findings: [{ message: 'Something else entirely' }] });
 		// Cache hits on turns 2..N depend on this exact equality.
 		expect(b.staticPrefix).toBe(a.staticPrefix);
 		expect(b.dynamicTail).not.toBe(a.dynamicTail);
