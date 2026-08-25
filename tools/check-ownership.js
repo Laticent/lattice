@@ -3562,7 +3562,7 @@ function listRepoTextFiles(dir = ROOT, out = []) {
 // text + anchor), so three headings carrying `grey`/`grey`/`centred` counted six times
 // over and pushed the total to 1312. The headings were corrected rather than the budget
 // raised — which also retired those three from the backlog, hence 1303 and not 1307.
-const US_ENGLISH_BUDGET = 1293;
+const US_ENGLISH_BUDGET = 1291;
 
 function checkUsEnglish(errors) {
   const re = new RegExp(`\\b(${UK_ENGLISH_FORMS.join('|')})\\b`, 'gi');

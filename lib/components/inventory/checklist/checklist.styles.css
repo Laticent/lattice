@@ -91,7 +91,7 @@ section.checklist > .cell-stage > ol > li.state.fail {
   background:var(--fail-bg, var(--bg-alt));
 }
 /* todo — `[ ]` is "not yet started", a NEUTRAL state, not a failure: a true
- * hollow ring (empty centre, --state-color edge ring; see `.state.todo` in
+ * hollow ring (empty center, --state-color edge ring; see `.state.todo` in
  * base.modifiers.css). No red, no strike — it reads "on the list, not done",
  * distinct from the red ✕ that verdict-grid keeps for a "not met" criterion.
  *

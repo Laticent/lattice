@@ -111,7 +111,7 @@ section.obligation-matrix td .state.warn { --state-color:var(--warn); }
 section.obligation-matrix td .state.fail { --state-color:var(--fail); }
 section.obligation-matrix td .state.skip { --state-color:var(--muted-mark); }
 /* exempt — `[ ]` is "not subject to this obligation", a NEUTRAL state (not a
- * gap): a true hollow ring (empty centre; see `.state.todo` in base.modifiers).
+ * gap): a true hollow ring (empty center; see `.state.todo` in base.modifiers).
  * --muted-mark, not --text-label (#1821): the latter is accent-hued EMPHASIS
  * since #1801, which painted this "neutral" ring in the brand accent on the ten
  * palettes that hue it from the accent. Same tier as `skip` above by ink, and

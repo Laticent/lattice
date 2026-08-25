@@ -1338,7 +1338,7 @@ discs, distinguished only by how full they were, did not).
 **Why `[ ]` flexes — clarity over uniformity.** In `checklist` (todo),
 `obligation-matrix` (exempt), and `roadmap` (planned), `[ ]` is a
 **neutral "not yet / on the slate"** — not a failure — so it renders as a
-**true hollow ring** (`--muted-mark` edge ring, empty centre — no inner mark,
+**true hollow ring** (`--muted-mark` edge ring, empty center — no inner mark,
 so it reads "open", not a "selected" centre-dot bullseye). In `verdict-grid`,
 `[ ]` is a criterion **not met**, which *is* a negative,
 so it keeps the **red ✕** (`--fail`, `--mark-x`). The decoder is

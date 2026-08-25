@@ -374,6 +374,24 @@
  * --state-color later in the bundle at equal specificity and re-broke an earlier version
  * of this fix (#1715).
  *
+ * WHY `skipped` NEEDS NO `heat` EXEMPTION AND `planned` DOES. That rationale transfers
+ * only when heat maps the state to the same ink the label is being pinned to, and it
+ * does for exactly one of the two (base.modifiers.css:1125-1136):
+ *
+ *   heat skipped -> --muted-mark   so --text-muted is a faithful TEXT-TIER stand-in
+ *   heat planned -> --pass         so --text-muted would DISCARD the heat encoding
+ *
+ * Under `roadmap status heat` a planned cell's ring and left ribbon go relief-green
+ * while an unexempted label would sit muted grey beside them — the label disagreeing
+ * with its own cell. So the planned arm carries `:not(.heat)` and heat keeps its own
+ * read. Nothing in the committed corpus combines `roadmap` with `heat` (heat appears
+ * only on obligation-matrix), so no golden would have shown it and no gate would have
+ * caught it; an independent checker did.
+ *
+ * That leaves heat's planned label reading --pass as text, which is the tier question
+ * this comment is about — but it is PRE-EXISTING and unchanged by #1821, so it is
+ * recorded here rather than fixed under cover of a different repair.
+ *
  * PLANNED JOINED SKIPPED HERE IN #1821, and it is the same defect one state over. That
  * state used to read --text-label, which is a TEXT tier (AA on both canvases), so the
  * label was compliant by accident of which token the ring happened to name. Pointing the
@@ -395,10 +413,15 @@
  * surfaces, not `.cell-state-label` — it is the only `color: var(--state-color)` in the
  * component tree — and the full 792-test integration tier passed over it. Found by
  * rendering the slide and looking at it. */
+/* The `.horizon-rows` arms are INERT today and kept only so the two states stay
+ * symmetrical: `applyStatusMarkers` emits `.cell-state-label` into a `<td>` only
+ * (roadmap.transform.js:141), and the horizons path emits `row-label` / `row-text`.
+ * The skipped twin has been inert the same way since #1715. Stated rather than left to
+ * imply a coverage these selectors do not have. */
 :is(section.roadmap, figure.roadmap).status td.cell-state.state-skipped .cell-state-label,
 :is(section.roadmap, figure.roadmap).status .horizon-rows > li.cell-state.state-skipped .cell-state-label,
-:is(section.roadmap, figure.roadmap).status td.cell-state.state-planned .cell-state-label,
-:is(section.roadmap, figure.roadmap).status .horizon-rows > li.cell-state.state-planned .cell-state-label {
+:is(section.roadmap, figure.roadmap).status:not(.heat) td.cell-state.state-planned .cell-state-label,
+:is(section.roadmap, figure.roadmap).status:not(.heat) .horizon-rows > li.cell-state.state-planned .cell-state-label {
   color:var(--text-muted);
 }
 :is(section.roadmap, figure.roadmap).status td.cell-state .cell-state-text {
