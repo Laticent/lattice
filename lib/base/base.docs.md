@@ -190,7 +190,7 @@ audience should remember from a card-grid slide.
 
 **Supported layouts: almost all of them — this block is OPT-OUT.** A layout renders
 the callout unless it declares `coda: { claims: ["blockquote"] }` in its manifest.
-Eight do: `quote` (the quotation itself), `math` (a display equation),
+Ten do: `quote` (the quotation itself), `math` (a display equation),
 `citation-card`, `redline`, `inventory`, `policy-recommendation` and `split-panel`
 (its `pullquote` variant) all use the element for their own anatomy; `split-compare`
 paints the same `--insight-label` on its verdict card. `contact` and `wifi` claim it

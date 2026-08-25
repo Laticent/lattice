@@ -290,16 +290,20 @@ them (eight of 61 layouts, measured). They now have a Cell of their own, built b
 
 Its geometry is unusual among the Cells and worth stating: the coda has no fixed band
 of its own. It **docks into whatever structure the section already is** — declared per
-layout as `coda.dock`, and there are only three shapes in the whole catalog:
+layout as `coda.dock`, and only three shapes occur across the catalog (measured in
+Chromium on every layout — the counts below are that measurement, not the tally of
+what the manifests happen to declare):
 
 | dock | layouts | placement |
 |---|---|---|
-| `column` (default) | 57 | the last in-flow child; nothing to declare |
-| `row` | 3 | breaks to a full line (`flex-wrap` + `flex: 0 0 100%`), and the section's `row-gap` is zeroed — a row layout's `gap` is a COLUMN gutter, and the shorthand would otherwise reappear vertically above the band |
-| `grid` | 1 | `grid-column: 1 / -1` in an implicit final row |
+| `column` (default) | 55 | the last in-flow child; nothing to declare |
+| `row` | 4 | breaks to a full line (`flex-wrap` + `flex: 0 0 100%`), and the section's `row-gap` is zeroed — a row layout's `gap` is a COLUMN gutter, and the shorthand would otherwise reappear vertically above the band |
+| `grid` | 2 | `grid-column: 1 / -1` in an implicit final row |
 
 On a `flow` layout the Cell is the last child of `.cell-stage`, so it keeps the stage's
-clip; on a `canvas` or `sovereign` layout it is a direct child of the section. Either
+clip. So is it on almost every `canvas` layout — 15 of 16, because a strict or
+`chart-frame` canvas materializes that cell too; only `video` keeps a direct-child body.
+On a `sovereign` layout the Cell is a direct child of the section. Either
 way it carries one `--coda-step` of separation from the body, SUBTRACTING any gap the
 host already puts before its last child (`--coda-host-gap`), so the step is the same on
 every layout. A layout that uses the trailing element for its own anatomy — or is a

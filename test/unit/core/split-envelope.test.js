@@ -22,6 +22,7 @@ const assert = require('node:assert/strict');
 const {
   splitEnvelope, balancedPerPage, readCover, readMasthead, splitRegions, topLevelElements,
   chromeOf, footerCell, stripChrome, partitionKeepingNote, injectTrailing, markNote, deriveAxis,
+  insightPageFrom,
 } = require('../../../lib/core/split-envelope');
 const { dockInFooterCell } = require('../../../lib/core/footer-dock');
 const { evenGroups } = require('../../../lib/core/collections');
@@ -846,5 +847,64 @@ describe('core: the universal CODA cell rides the split (lib/core/coda.js)', () 
     );
     const insightPage = secs.find((s) => s.includes('Ship it.'));
     assert.ok(!insightPage.includes('Source: filings.'), 'the note must not follow the insight onto its own page');
+  });
+});
+
+
+describe('core: the insight PAGE carries a two-beat coda without losing or breaking it', () => {
+  // Regression pins for the half-span design that shipped in the first cut of the
+  // coda: `codaSpans` returned cell-open..cut and cut..cell-close, which is correct
+  // ONLY for a caller that removes both. `insightPageFrom` keyed `keep` on a span's
+  // range and so never matched the cell (page shipped blank); `insightPage` removed
+  // just the note half and stripped `.cell-stage`'s closing tag.
+  const bothBeats = () =>
+    '<div class="cell-masthead"><div class="masthead-lede"><h2>T</h2></div></div>' +
+    '<div class="cell-stage">' +
+      items(3) +
+      '<div class="cell-coda" data-dock="column">' +
+        '<blockquote><p>INSIGHT-SENTINEL</p></blockquote>' +
+        '<div class="below-note"><p>NOTE-SENTINEL</p></div>' +
+      '</div>' +
+    '</div>';
+  const balanced = (html) => (html.match(/<div\b/g) || []).length === (html.match(/<\/div>/g) || []).length;
+
+  test('insightPageFrom keeps the insight, drops the note, and stays balanced', () => {
+    const page = insightPageFrom('<section data-lattice-slide="1" class="checklist form">', bothBeats());
+    assert.ok(page, 'an insight page must be produced');
+    assert.match(page, /INSIGHT-SENTINEL/, 'the author\'s Key Insight must survive onto its own page');
+    assert.doesNotMatch(page, /NOTE-SENTINEL/, 'the note rides the body page, not the insight page');
+    assert.match(page, /class="cell-coda"/, 'and it must still be inside a real coda cell');
+    assert.ok(balanced(page), `insight page must be balanced markup:\n${page}`);
+  });
+
+  test('the stage cell is closed AND non-empty — a blank stage is also balanced', () => {
+    const page = insightPageFrom('<section data-lattice-slide="1" class="checklist form">', bothBeats());
+    const stage = page.slice(page.indexOf('<div class="cell-stage">'));
+    assert.doesNotMatch(page, /<div class="cell-stage"><\/div>/, 'the insight page must not ship an empty stage');
+    assert.match(stage, /^<div class="cell-stage">.+<\/div><\/section>$/, 'cell-stage must close before </section>');
+  });
+
+  test('the OTHER caller — splitEnvelope\'s insightPage — is balanced too', () => {
+    // S2's actual path. `insightPage` removes the note span; when both beats share a
+    // cell that range is the cell's, so a remove (rather than a replace) strips its
+    // closing tag and `.cell-stage` never closes.
+    const secs = build(codaInner({ n: 9, insight: 'Ship it.', note: 'Source: filings.' }));
+    for (const sec of secs) {
+      assert.equal(
+        (sec.match(/<div\b/g) || []).length, (sec.match(/<\/div>/g) || []).length,
+        `unbalanced <div> in a split section:\n${sec}`,
+      );
+      assert.doesNotMatch(sec, /<div class="cell-stage"><\/div>/, 'no section may ship an empty stage');
+    }
+    assert.ok(secs.some((s) => s.includes('Ship it.')), 'the insight must survive the split');
+  });
+
+  test('a one-beat coda is unaffected', () => {
+    const one =
+      '<div class="cell-stage">' + items(3) +
+      '<div class="cell-coda" data-dock="column"><blockquote><p>ONLY-INSIGHT</p></blockquote></div></div>';
+    const page = insightPageFrom('<section data-lattice-slide="1" class="checklist form">', one);
+    assert.match(page, /ONLY-INSIGHT/);
+    assert.ok(balanced(page));
   });
 });

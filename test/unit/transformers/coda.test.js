@@ -109,6 +109,18 @@ describe('coda — claims', () => {
 });
 
 describe('coda — placement', () => {
+  test('the cell goes before the footer even when the beats WERE the whole body', () => {
+    // The arms diverged here: the string arm fell through to "append at the end",
+    // landing the cell AFTER the footer, which stops the footer reaching
+    // `.cell-footer` and breaks `no-footer`. The existing case below has a <ul>
+    // before the blockquote and so never reached that branch.
+    const { html, dom } = bothArms('content', '<blockquote><p>k</p></blockquote><footer>f</footer>');
+    for (const out of [html, dom]) {
+      assert.ok(out.indexOf(CELL) < out.indexOf('<footer>'), `chrome must stay last: ${out}`);
+    }
+    assert.equal(norm(html), norm(dom), 'both arms must place it identically');
+  });
+
   test('the cell goes BEFORE a Marp running <footer>', () => {
     const { html, dom } = bothArms('list', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote><footer>f</footer>');
     for (const out of [html, dom]) {
@@ -117,10 +129,16 @@ describe('coda — placement', () => {
     assert.equal(norm(html), norm(dom));
   });
 
-  test('the declared dock is stamped on the cell', () => {
-    assert.match(bothArms('list', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote>').html, /data-dock="column"/);
-    assert.match(bothArms('premise', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote>').html, /data-dock="row"/);
-    assert.match(bothArms('image', '<ul><li>a</li></ul><blockquote><p>k</p></blockquote>').html, /data-dock="grid"/);
+  test('the declared dock is stamped on the cell — on BOTH arms', () => {
+    // Asserting only `.html` left the DOM arm unpinned: stamping a constant
+    // `column` there survived the entire 7000-test suite. `applyToDom` is the
+    // RUNTIME path, so that regression would put the band in a third column in
+    // every browser preview while every gate stayed green.
+    for (const [cls, dock] of [['list', 'column'], ['premise', 'row'], ['image', 'grid']]) {
+      const { html, dom } = bothArms(cls, '<ul><li>a</li></ul><blockquote><p>k</p></blockquote>');
+      assert.match(html, new RegExp(`data-dock="${dock}"`), `string arm: ${cls} should dock ${dock}`);
+      assert.match(dom, new RegExp(`data-dock="${dock}"`), `DOM arm: ${cls} should dock ${dock}`);
+    }
   });
 
   test('an unknown layout takes both beats in a column — opt-out means a new component works untouched', () => {
@@ -191,4 +209,31 @@ describe('coda — the class is matched as a TOKEN, not an exact attribute', () 
     assert.equal(coda.hasCodaClass(' class="cell-coda-inner"'), false);
     assert.equal(coda.hasCodaClass(' class="not-cell-coda"'), false);
   });
+});
+
+
+describe('coda — a claimed element must still work AFTER the cell is inserted', () => {
+  const chartFamily = require('../../../lib/components/chart/_chart-family/chart-family');
+
+  // The claim ("the chart consumes its trailing <p>") is only honored if the
+  // component's own transform can still FIND that <p>. `liftChartCaption` anchors on
+  // `/<p…>…<\/p>\s*$/`, so a coda cell inserted after the caption puts it past the end
+  // anchor and it renders as body copy at full width. That function already peels a
+  // trailing <footer> for exactly this reason; the cell is the same hazard.
+  const withBoth =
+    '<h2>Rollout</h2>' +
+    '<ul><li>Alpha <code>60%</code></li><li>Beta <code>35%</code></li></ul>' +
+    '<p><em>Scores are self-reported.</em></p>' +
+    '<div class="cell-coda" data-dock="column"><blockquote><p>Key insight.</p></blockquote></div>';
+
+  for (const layout of ['progress', 'timeline-list', 'funnel', 'piechart']) {
+    test(`${layout}: the caption still lifts with a Key Insight on the slide`, () => {
+      const out = chartFamily.applyToRenderedHtml(sec(layout, withBoth));
+      assert.match(out, /<p class="chart-caption">/, 'the claimed caption must still be lifted');
+      assert.ok(
+        out.indexOf('chart-caption') < out.indexOf('cell-coda'),
+        'and the coda band stays below it',
+      );
+    });
+  }
 });

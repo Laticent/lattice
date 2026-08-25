@@ -3,7 +3,7 @@
   "name": "split-compare",
   "function": "comparison",
   "form": "split",
-  "coda": { "readsInsightLabel": true, "claims": ["blockquote", "trailing-paragraph"] },
+  "coda": { "dock": "row", "readsInsightLabel": true, "claims": ["blockquote", "trailing-paragraph"] },
   "substance": "structure",
   "density": {
     "axis": "item",

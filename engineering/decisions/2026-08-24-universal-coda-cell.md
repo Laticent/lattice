@@ -14,8 +14,8 @@ summary: >
   separator between two different kinds of block smaller than the separator between peers. Fixed by
   giving the beats a HOST: one `.cell-coda` Cell, harvested by a kernel that runs FIRST in the
   registry (before any rebuilder can swallow or delete them), docked by the section's declared
-  outer STRUCTURE rather than by component name — measured, there are only three shapes in the
-  whole catalog — and carrying one `--coda-step` of its own. Exclusions become `coda.claims` in the
+  outer STRUCTURE rather than by component name — measured in Chromium, only three shapes occur
+  across the catalog — and carrying one `--coda-step` of its own. Exclusions become `coda.claims` in the
   component manifest, so the published contract and the render read one predicate and the CSS
   `:not()` chain (and the test that parsed it) are gone. 49 of 52 layouts now land on exactly the
   step; the three that do not are compositions whose own centering supplies the difference.
@@ -107,8 +107,18 @@ the cell the same way it already peeled a trailing `<footer>` — one shared `pe
 six places rather than six ideas of what the tail contains (HARD RULE #15).
 
 **Docking by structure.** A full-width band beneath the body has to be placed differently depending
-on the section's outer structure, and measuring all 61 layouts found only three shapes: **57
-column, 3 row, 1 grid**. So the CSS has one arm each and names no component; a layout declares its
+on the section's outer structure, and measuring all 61 layouts in Chromium found only three
+shapes: **55 column, 4 row, 2 grid**.
+
+The first cut of this note said "57 column, 3 row, 1 grid — measured, not assumed", and that
+was wrong in a way worth recording, because it is the failure mode this whole change is about.
+Those were the DECLARED values, tallied out of the catalog the change itself wrote. The probe
+behind them only measured layouts that actually HOST a coda, so `math` and `split-compare` —
+which claim both beats and therefore host none — were silently defaulted to `column` and never
+measured at all. Measured, they are `grid` and `row`. The declarations were inert today (a
+layout that hosts no coda docks nothing), but the schema defines `dock` as the section's outer
+structure, so they were a latent lie of exactly the kind `coda.claims` exists to end. Corrected;
+the numbers above are now the measurement. So the CSS has one arm each and names no component; a layout declares its
 shape once as `coda.dock`, and `column` is the default, so a new component declares nothing. The
 row arm also zeroes `row-gap`, which corrects an accident rather than a choice: a row layout's
 `gap` is a COLUMN GUTTER, and the shorthand sets both axes, so the moment the row wraps a 64px
@@ -139,9 +149,28 @@ difference is the composition's own slack between its ink and the box the band d
 band's step. The panel now renders on every layout that publishes one, including all eight that
 were broken.
 
-The published contract changed to match reality: `contact`, `wifi`, `split-panel` and
-`split-compare` stop advertising blocks they never rendered; `compare-code`, `premise`, `scene` and
-`video` gain blocks they now actually render.
+The published contract (`authoring.blocks`) changed for **13** layouts, not the four the first
+draft of this note named. In full:
+
+| layout | before → after | why |
+|---|---|---|
+| `contact`, `wifi` | both → none | poster layouts; the card fills the stage |
+| `split-compare`, `split-panel` | key-insight → none | the element is their own anatomy |
+| `compare-code` | key-insight → both | the #1363 substring wart is gone; it claims neither |
+| `funnel`, `journey`, `map`, `quadrant`, `radar`, `word-cloud` | both → key-insight | the trailing `<p>` becomes `.chart-caption`, and always did |
+| `matrix-grid`, `state-chart` | both → key-insight | see below |
+
+The eight chart layouts are the ones the first draft missed entirely, and two of them are claimed
+for a reason that is **not true as written**. The schema and `lib/base/base.docs.md` justify
+`trailing-paragraph` on a chart as "turns its final paragraph into the chart caption". Six do.
+`matrix-grid` and `state-chart` render **neither** a caption nor a below-note — measured
+identical before and after — so their claim is correct in effect (nothing is lost) and wrong in
+reason. They are claimed because they render no note today, not because they consume the
+paragraph. Worth revisiting: if either should host a below-note, the claim is what is stopping it.
+
+Separately, `compare-code`, `premise`, `scene` and `video` gain blocks they now actually render —
+but that is a RENDER change, not a contract change; their `authoring.blocks` was already correct
+and unchanged.
 
 ## 6. What was NOT taken
 
