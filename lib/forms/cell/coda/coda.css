@@ -61,11 +61,23 @@ section .cell-coda {
   padding-top: max(0px, calc(var(--coda-step) - var(--coda-host-gap, 0px)));
 }
 
-/* The stage puts `--sp-xs` between every pair of its children, this band
- * included, so the padding above makes up the remainder rather than adding to it.
- * A component that re-tunes its own stage gap (diagram sets `--sp-sm`) restates
- * this token in its own rule — one line, at the point where the gap is set. */
-section .cell-stage > .cell-coda { --coda-host-gap: var(--sp-xs); }
+/* The band's HOST is the SECTION column, not the stage — the frame peels the cell
+ * out of the stage wrap exactly as it peels the running footer (masthead kernel),
+ * so the seam above the band is the section's own `gap`, set one rule away as
+ * `section:has(> .cell-masthead) { gap: var(--sp-sm) }`. Keying the token on the
+ * SAME `:has()` condition means the two cannot disagree, and no layout is named.
+ *
+ * DECLARED ON THE SECTION, NOT ON THE CELL, and that placement is load-bearing.
+ * The token is inherited, so every host that re-tunes its own gap — diagram's
+ * prose variant, scene's two clean compositions, the row arm below — declares its
+ * value in the same rule where it sets the gap, and ordinary specificity settles
+ * which wins. Declared on `.cell-coda` instead, this frame default would be a
+ * DIRECT rule on the element and would beat all of them through inheritance,
+ * silently overriding the very hosts the mechanism exists to serve.
+ *
+ * A section with no masthead sets no gap, so the token stays unset (0) and the
+ * band takes the full `--coda-step`. */
+section:has(> .cell-masthead) { --coda-host-gap: var(--sp-sm); }
 
 /* ── row arm ── the section lays its body out ACROSS, so the band must break to
  * a line of its own instead of bidding for width beside it. `flex-wrap` on the
@@ -83,7 +95,7 @@ section .cell-stage > .cell-coda { --coda-host-gap: var(--sp-xs); }
  * nobody meant vertically reappears above the band: 64px and 48px respectively, on
  * top of the step. Zeroing the ROW gap leaves the real gutter (`column-gap`)
  * untouched and hands the vertical step back to `--coda-step`, where it belongs. */
-section:has(> .cell-coda[data-dock="row"]) { flex-wrap: wrap; align-content: center; row-gap: 0; }
+section:has(> .cell-coda[data-dock="row"]) { flex-wrap: wrap; align-content: center; row-gap: 0; --coda-host-gap: 0px; }
 section > .cell-coda[data-dock="row"] { flex: 0 0 100%; }
 
 /* ── grid arm ── span every column, in an implicit final row. `1 / -1` needs no

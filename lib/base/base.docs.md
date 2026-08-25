@@ -241,11 +241,15 @@ The two sets do not coincide: `inventory` takes a below-note but not a key insig
 `timeline-list` the reverse. Read `authoring.blocks` in `dist/docs/components.json`
 for the per-component answer rather than deriving it from either list here (#1651).
 
-Both blocks land in the same place: one `.cell-coda` cell at the end of the slide
-body, built before any component transform runs, docked by the section's declared
-outer structure and carrying one `--coda-step` of separation from the body. That is
-why the step above a trailing block is now identical on every layout, and why a
-component whose transform wraps its body no longer loses the block.
+Both blocks land in the same place: one `.cell-coda` cell at the end of the slide,
+built before any component transform runs, docked by the section's declared outer
+structure and carrying one `--coda-step` of separation from the body. The cell is a
+direct child of the `<section>` — the frame peels it out of the stage wrap the same way
+it peels a running `<footer>` — so the band sits at the bottom of the slide whatever the
+body does above it, and an `align-top` / `align-middle` / `align-bottom` on the slide
+moves the body without moving the band. That is why the step above a trailing block is
+identical on every layout, and why a component whose transform wraps its body no longer
+loses the block.
 
 Promotion needs the paragraph to follow a **structural** block — a list, table,
 blockquote, code fence or div. A paragraph after a paragraph is body copy on every

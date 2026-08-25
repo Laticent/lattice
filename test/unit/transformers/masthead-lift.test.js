@@ -529,3 +529,62 @@ describe('chart .viz-frame hoist — engine↔web parity (HARD RULE #1)', () => 
     }
   });
 });
+
+describe('masthead-lift — the coda Cell is the stage\'s SIBLING, not its child', () => {
+  // The frame peels `.cell-coda` out of the stage wrap exactly as it peels the
+  // running <footer>, and for the same reason: the cell belongs to the SECTION
+  // column, not to the component. Inside the stage it was a flex item of the
+  // component's own column and inherited the component's vertical alignment, so
+  // the frame's editorial band moved when an author wrote `align-top` /
+  // `align-middle` / `align-bottom` — measured on `cycle` at 171px / 85px / 0px
+  // above the stage floor, and on `content` at 117px / 58px / 0px. As a sibling
+  // the stage keeps `flex: 1 1 auto` and absorbs the slack, so the band lands at
+  // content height above the footer whatever the body does.
+  //
+  // Nothing pinned this: the whole 7,201-test suite passed with the cell inside
+  // the stage AND outside it, which is why the leak survived to a render.
+  const CODA = '<div class="cell-coda" data-dock="column"><blockquote><p>Key insight: x</p></blockquote></div>';
+
+  test('kernel: the cell lands between the stage and the footer cell', () => {
+    const out = kernel.transformMastheadSection(
+      `<h2>Title</h2><ul><li>body</li></ul>${CODA}<footer>note</footer>`, 'content form');
+    assert.match(out, /<div class="cell-stage"><ul><li>body<\/li><\/ul><\/div><div class="cell-coda"/);
+    // and the footer cell still follows it
+    assert.match(out, /<\/div><div class="cell-footer">/);
+    // the stage must NOT contain the cell
+    const stage = out.slice(out.indexOf('<div class="cell-stage">'), out.indexOf('<div class="cell-coda"'));
+    assert.ok(!stage.includes('cell-coda'), 'stage swallowed the coda cell');
+  });
+
+  test('kernel: a slide with no coda is byte-identical to before the peel', () => {
+    const out = kernel.transformMastheadSection('<h2>Title</h2><ul><li>body</li></ul>', 'content form');
+    assert.match(out, /<div class="cell-stage"><ul><li>body<\/li><\/ul><\/div>$/);
+    assert.ok(!out.includes('cell-coda'));
+  });
+
+  // NOTE, because it is easy to over-trust: this parity test does NOT catch the
+  // leak. Reverted, both arms swallow the cell in the SAME way, so they still
+  // agree and this passes. It guards a divergence between the arms, which is a
+  // different failure. The two assertions that actually fail on a revert are the
+  // structural ones above and below — one per arm.
+  test('DOM mirror agrees with the kernel', () => {
+    const inner = `<h2>Title</h2><ul><li>body</li></ul>${CODA}<footer>note</footer>`;
+    const fromKernel = sectionOuterHtml(
+      `<section class="content form">${kernel.transformMastheadSection(inner, 'content form')}</section>`);
+    const doc = dom(`<section class="content form">${inner}</section>`);
+    adapter.applyToDom(doc.body);
+    assert.equal(doc.querySelector('section').outerHTML, fromKernel);
+  });
+
+  test('DOM mirror: the cell is a child of the section, never of the stage', () => {
+    const doc = dom(`<section class="content form"><h2>T</h2><ul><li>b</li></ul>${CODA}</section>`);
+    adapter.applyToDom(doc.body);
+    const sec = doc.querySelector('section');
+    const cell = sec.querySelector('.cell-coda');
+    assert.equal(cell.parentElement, sec, 'coda cell is not a direct child of the section');
+    assert.equal(sec.querySelector('.cell-stage').querySelector('.cell-coda'), null);
+    // document order: stage, then coda
+    const kids = [...sec.children].map((n) => n.className);
+    assert.ok(kids.indexOf('cell-stage') < kids.indexOf('cell-coda'), `order was ${kids.join(',')}`);
+  });
+});

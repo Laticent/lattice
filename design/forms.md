@@ -300,13 +300,30 @@ what the manifests happen to declare):
 | `row` | 4 | breaks to a full line (`flex-wrap` + `flex: 0 0 100%`), and the section's `row-gap` is zeroed — a row layout's `gap` is a COLUMN gutter, and the shorthand would otherwise reappear vertically above the band |
 | `grid` | 2 | `grid-column: 1 / -1` in an implicit final row |
 
-On a `flow` layout the Cell is the last child of `.cell-stage`, so it keeps the stage's
-clip. So is it on almost every `canvas` layout — 15 of 16, because a strict or
-`chart-frame` canvas materializes that cell too; only `video` keeps a direct-child body.
-On a `sovereign` layout the Cell is a direct child of the section. Either
-way it carries one `--coda-step` of separation from the body, SUBTRACTING any gap the
-host already puts before its last child (`--coda-host-gap`), so the step is the same on
-every layout. A layout that uses the trailing element for its own anatomy — or is a
+**The Cell is always a direct child of the section, never of `.cell-stage`.** The frame
+peels it out of the stage wrap exactly as it peels a running `<footer>`, at the same
+site and for the same reason: the cell is the FRAME's, not the component's. That
+placement is what makes the band's position independent of the body. `.cell-stage` is
+`flex: 1 1 auto` and the coda `flex: 0 0 auto`, so the stage absorbs all the slack and
+the band lands at content height above the footer — bottom-aligned with no positioning
+and no margin (HARD RULE #20).
+
+Inside the stage it was a flex item of the COMPONENT's own column, so it inherited the
+component's vertical alignment and the frame's editorial band moved when an author wrote
+`align-top` / `align-middle` / `align-bottom` — measured on `cycle` at 171px / 85px / 0px
+above the stage floor and on `content` at 117px / 58px / 0px, while `list` and
+`cards-grid` (whose bodies grow) showed no movement at all. The leak only bit the
+layouts whose body does NOT fill the stage, which is why it read as a per-component
+quirk rather than a frame defect.
+
+The Cell carries one `--coda-step` of separation from the body, SUBTRACTING the gap its
+host puts between its children (`--coda-host-gap`), so the step is the same on every
+layout. The host is now the SECTION, so the token is declared beside the section's own
+gap (`section:has(> .cell-masthead)`), and a host that re-tunes that gap — diagram's
+prose variant, scene's clean compositions, the row arm — restates it in the same rule,
+where ordinary specificity settles which wins. Measured across all 51 coda-hosting
+layouts: 48 sit at exactly 24px, up from 34 before the peel — the 14 canvas layouts that
+were never matched by the old stage-scoped rule had been stacking 16px + 24px = 40px. A layout that uses the trailing element for its own anatomy — or is a
 poster with no room for a band — declares `coda.claims` and the Cell is never built.
 See `engineering/decisions/2026-08-24-universal-coda-cell.md`.
 

@@ -123,14 +123,18 @@ section.diagram .diagram-caption { font-family:var(--font-label); font-size:var(
 /* The trailing CODA band on diagram slides must stretch full-width to match every
    other layout. section.diagram uses align-items:center (mirrored onto the stage
    cell) which would shrink the band to fit-content; align-self:stretch overrides
-   that on both the direct-child (no-form) and wrapped (Form) arms. It is the CELL
-   that is stretched now, not the blockquote inside it — the beats moved into
-   `.cell-coda` (lib/core/coda.js), so a rule aimed at a direct-child blockquote
-   matches nothing here any more. */
-section.diagram > .cell-coda,
-section.diagram > .cell-stage > .cell-coda { align-self:stretch; }
-/* diagram re-tunes its stage gap to `--sp-sm` (see the stage rule above), so it
-   restates the seam the coda cell subtracts — otherwise the band would sit that
-   16px further down than on every other layout. */
-section.form.diagram > .cell-stage > .cell-coda { --coda-host-gap: var(--sp-sm); }
-section.form.diagram:has(> .cell-stage > p) > .cell-stage > .cell-coda { --coda-host-gap: var(--sp-xs); }
+   that. It is the CELL that is stretched now, not the blockquote inside it — the
+   beats moved into `.cell-coda` (lib/core/coda.js), so a rule aimed at a direct-child
+   blockquote matches nothing here any more. One arm, not two: the frame peels the
+   cell out of the stage wrap, so it is ALWAYS a direct child of the section and the
+   `> .cell-stage > .cell-coda` arm this rule used to carry now matches nothing. */
+section.diagram > .cell-coda { align-self:stretch; }
+/* diagram re-tunes its SECTION gap to `--sp-xs` on the prose variant (see the
+   section rule above), so it restates the seam the coda cell subtracts — otherwise
+   the cell would subtract the frame's 16px default from a gap that is really 8px and
+   the band would sit 8px CLOSER to the body than on every other layout (a 16px seam
+   where the register change is 24px). The band is
+   a child of the section, not of the stage: the frame peels it out of the stage
+   wrap, so the seam it subtracts is the section's gap. The non-prose variant needs
+   no rule — its section gap is the frame default the coda cell already assumes. */
+section.form.diagram:has(> .cell-stage > p) { --coda-host-gap: var(--sp-xs); }

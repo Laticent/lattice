@@ -218,3 +218,64 @@ the coda's cost. That is pre-existing and off the path of this change (the beat'
 here, but a coda-blind budget was already wrong at the old cost), so it is logged, not pulled in
 (HARD RULE #18). The four slides this branch DID fix are the other case — beats we ourselves added
 to test decks, over budget, trimmed in place.
+
+## 7. The Cell is the STAGE'S SIBLING, not its child (owner-directed)
+
+The first cut put the cell at the end of the stage body. That was wrong, and the way it
+was wrong is worth recording because it looked right in every test.
+
+Inside `.cell-stage` the cell is a flex item of the COMPONENT's own column, so it
+inherits whatever vertical alignment the component (or the author) set. The frame's
+editorial band therefore MOVED when an author wrote a base alignment modifier. Measured
+in Chromium, distance from the band's bottom edge to the stage floor:
+
+| layout | `align-top` | `align-middle` | `align-bottom` |
+|---|---|---|---|
+| `cycle` | 171px | 85px | 0px |
+| `content` | 117px | 58px | 0px |
+| `list` | 0px | 0px | 0px |
+| `cards-grid` | 0px | 0px | 0px |
+
+`list` and `cards-grid` show nothing because their bodies GROW to fill the stage, so
+there is no slack for the alignment to distribute. That is exactly why the defect read
+as a per-component quirk — "why do these two components look different?" — rather than
+as the frame-level leak it is.
+
+**The fix is the peel, not a nudge.** The frame already peels a trailing Marp `<footer>`
+out of the body before wrapping the rest in `.cell-stage`, because the footer belongs to
+the section, not the component. The coda is the same kind of thing, so it is peeled at
+the same site, by the same `peelCoda` the rebuilders already use (HARD RULE #15), on both
+arms. `.cell-stage` is `flex: 1 1 auto` and `.cell-coda` is `flex: 0 0 auto`, so the
+stage absorbs the slack and the band sits at content height above the footer. No
+`position`, no `margin` (HARD RULE #20), and no component CSS touched — which was the
+constraint: the component keeps aligning exactly as designed, and the frame stops
+borrowing its alignment.
+
+After: every layout × every alignment modifier reports the band 0px from the floor.
+
+**What this cost, and what it unexpectedly fixed.** Moving the cell changes its host, so
+`--coda-host-gap` — the seam the band subtracts — is now the SECTION's gap rather than
+the stage's. Declaring that default on the section (`section:has(> .cell-masthead)`,
+keyed on the same condition as the gap itself) rather than on `.cell-coda` is
+load-bearing: on the cell it would be a direct rule and would beat, through inheritance,
+every host that re-tunes its own gap — diagram's prose variant, scene's two clean
+compositions. On the section it is one inherited declaration among peers and ordinary
+specificity settles it (verified with the frame default declared LAST, scene still
+winning at 36px).
+
+The unexpected part: the old rule was `section .cell-stage > .cell-coda`, which never
+matched the canvas layouts whose cell was ALREADY a section child. Fourteen of them —
+funnel, gantt, journey, kanban, map, matrix-grid, piechart, progress, quadrant, radar,
+roadmap, state-chart, timeline-list, word-cloud — had been stacking the section's 16px
+gap on top of the full 24px step for a 40px seam, on a rule whose entire purpose was to
+make the step uniform. Measured across all 51 coda-hosting layouts, exactly-24px went
+from 34 to 48. The three that remain (`image`, `scene`, `video`) are the grid and row
+docks, where "previous element sibling" is not the visual predecessor; all three measure
+byte-identical before and after.
+
+**One arm-parity caveat, recorded because it is a trap.** The both-arms test does NOT
+catch this class of defect: reverted, the string arm and the DOM arm swallow the cell in
+the same way, still agree, and pass. The whole 7,201-test suite passed with the cell
+inside the stage and outside it. What pins it now is one STRUCTURAL assertion per arm
+(`test/unit/transformers/masthead-lift.test.js`), each verified to fail on a revert.
+
