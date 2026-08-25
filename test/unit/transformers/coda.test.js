@@ -237,3 +237,31 @@ describe('coda — a claimed element must still work AFTER the cell is inserted'
     });
   }
 });
+
+describe('coda — a stray `cell-coda` class in AUTHOR content is content, not a cell', () => {
+  // The idempotence guard used to scan the whole body at any depth, so any author markup
+  // carrying the class — a deck ABOUT Lattice, pasted engine output, an AI-generated deck
+  // in the Studio — aborted the harvest and the slide's Key Insight printed as plain body
+  // text. That is #1651's silent failure, reintroduced by the guard meant to prevent it.
+  // It was also an arm divergence: applyToDom has always scoped its guard to
+  // `:scope > .cell-coda`, so the same slide rendered WITH a panel on the runtime path and
+  // WITHOUT one on the engine/export path.
+  const stray = '<h2>T</h2><ul><li>One <span class="cell-coda">x</span></li></ul>' +
+                '<blockquote><p>Key insight.</p></blockquote>';
+
+  test('the beat is still harvested, on BOTH arms, and they agree', () => {
+    const { html, dom } = bothArms('list form', stray);
+    assert.match(html, /<div class="cell-coda" data-dock="column">/, 'string arm dropped the panel');
+    assert.match(dom, /<div class="cell-coda" data-dock="column">/, 'DOM arm dropped the panel');
+    assert.equal(norm(html), norm(dom));
+  });
+
+  test('a REAL cell among the section\'s own children still stops a second harvest', () => {
+    const already = '<h2>T</h2><ul><li>One</li></ul>' +
+                    '<div class="cell-coda" data-dock="column"><blockquote><p>Done.</p></blockquote></div>';
+    const { html, dom } = bothArms('list form', already);
+    assert.equal((html.match(/class="cell-coda"/g) || []).length, 1, 'string arm harvested twice');
+    assert.equal((dom.match(/class="cell-coda"/g) || []).length, 1, 'DOM arm harvested twice');
+    assert.equal(norm(html), norm(dom));
+  });
+});
