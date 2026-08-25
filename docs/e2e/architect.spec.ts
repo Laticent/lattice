@@ -32,17 +32,17 @@ test.describe('Coach and Chat panels', () => {
 		await expect(page.getByText('Deck read')).toBeVisible();
 		// The REAL engine scorecard, not the toy 3-check heuristic (Components valid /
 		// Opens with a title / Variety, scored / 10) that was deleted.
+		// Scope EVERYTHING to the Deck read card. Bare `getByText('Structure')` is a
+		// case-INSENSITIVE SUBSTRING match, so it also caught the card's own disclaimer prose
+		// and the "Structure" quick-read chip in the sibling "Ask the deck" card. The tile
+		// labels need the same scoping for a different reason: an unscoped exact `Craft`
+		// ALSO matches the toolbar's Craft mode button — two elements, strict-mode violation.
+		const readiness = page.getByText('Deck read').locator('..');
 		// TWO grades now, not one "NN / 100". Craft is genre-blind; Style names the profile
 		// it was measured against, so a style score can never read as a verdict on the deck.
 		// DOM text, not rendered text — the tile labels are uppercased in CSS.
-		await expect(page.getByText('Craft', { exact: true })).toBeVisible();
-		await expect(page.getByText('Style', { exact: true })).toBeVisible();
-		// Scope the per-dimension read to the Deck read card. Bare
-		// `getByText('Structure')` is a case-INSENSITIVE SUBSTRING match, so it also
-		// caught the card's own disclaimer prose ("…authoring hygiene (structure,
-		// clarity, contract)") and the "Structure" quick-read chip in the sibling
-		// "Ask the deck" card — three matches, a strict-mode violation.
-		const readiness = page.getByText('Deck read').locator('..');
+		await expect(readiness.getByText('Craft', { exact: true })).toBeVisible();
+		await expect(readiness.getByText('Style', { exact: true })).toBeVisible();
 		await expect(readiness.getByText('Structure', { exact: true })).toBeVisible();
 		// One category from each half — `Clarity` was split into `Writing craft` (Craft) and
 		// `Brevity` (Style), so asserting one of each is what pins the split rendering.

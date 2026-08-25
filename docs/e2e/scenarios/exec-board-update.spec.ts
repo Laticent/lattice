@@ -46,18 +46,32 @@ test('an exec drafts a quarterly deck, the Coach scores it board-ready, and it e
 	// races the SEEDED deck's grade: it returned "A−\n90 / 100" (the seed's), while this
 	// deck scores 100/A. Polling for the top band is both the wait and the assertion, and it
 	// discriminates — the stale `A−` can never satisfy it, so this cannot pass on stale state.
-	const scoreLine = () =>
-		page.locator('div.items-baseline').filter({ hasText: '/ 100' }).innerText();
-	await expect.poll(scoreLine, { timeout: 20_000 }).toMatch(/^A\n/);
+	// WAIT for THIS deck's assessment, then assert on it. The Coach re-assesses behind a
+	// 400ms debounce and keeps the PREVIOUS deck's card on screen while it re-runs, so
+	// reading straight after openArchitect races the SEEDED deck's grade. Polling is both
+	// the wait and the assertion.
+	//
+	// TWO grades now, not one "NN / 100": Craft (genre-blind authoring quality) and Style
+	// (fit against the deck's profile). This read `div.items-baseline` filtered on
+	// '/ 100' — markup the Craft/Style split removed, so it timed out rather than failing
+	// on a value. Both tiles carry `items-baseline`, so read them as a pair.
+	const readiness = page.getByText('Deck read').locator('..');
+	const grades = async () => (await readiness.locator('div.items-baseline').allInnerTexts()).join(' | ');
 
-	// Read the number out of "<band>\n<overall> / 100" by MATCHING it, never by stripping the
-	// band off the front: scorecard.js bands with a TYPOGRAPHIC minus (U+2212), so the old
-	// `/^[A-F+\-\s]*/` strip left `A−` behind and parseFloat saw NaN.
-	const score = Number.parseFloat((await scoreLine()).match(/(\d+(?:\.\d+)?)\s*\/\s*100/)?.[1] ?? '');
-	// 93 is the `A` threshold (lib/authoring/scorecard.js). A deck authored to the shipped
-	// component contracts should clear it; if a scorer re-tune drops it below, the persona no
-	// longer succeeds at the goal and this SHOULD fail.
-	expect(score).toBeGreaterThanOrEqual(93);
+	// A deck authored to the shipped component contracts should reach A on BOTH halves:
+	// it opens with a title, carries an agenda, names its ask in the closing, and every
+	// slide sits inside the default profile's prose budget. If a scorer re-tune drops
+	// either below the `A` threshold (93, lib/authoring/scorecard.js), the persona no
+	// longer succeeds at the goal and this SHOULD fail. The stale seeded-deck grade can
+	// never satisfy both, so this cannot pass on stale state.
+	await expect.poll(grades, { timeout: 20_000 }).toMatch(/^A\n\d+ \| A\n\d+$/);
+
+	// Read the numbers out by MATCHING them, never by stripping the band off the front:
+	// scorecard.js bands with a TYPOGRAPHIC minus (U+2212), so an `/^[A-F+\-\s]*/` strip
+	// leaves `A−` behind and parseFloat sees NaN.
+	const scores = (await grades()).match(/\d+/g)?.map(Number) ?? [];
+	expect(scores).toHaveLength(2);
+	for (const score of scores) expect(score).toBeGreaterThanOrEqual(93);
 
 	// The artifact: a real PDF download plus the pipeline's own "ready" claim.
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
