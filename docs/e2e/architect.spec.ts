@@ -143,3 +143,56 @@ test('a turn ending offline paints on the deck that asked, not the one on screen
 	await goToDeck(DECK_ONE);
 	await expect(page.getByText(/and I can answer and edit your deck/), 'the deck that asked was never told why nothing came back').toBeVisible();
 });
+
+// ── And it is still there when the PANEL comes back, not just the deck (#1813 follow-on) ──
+//
+// The checker demonstrated this one on the real Studio, so it gets pinned on the real Studio.
+// Guarding `onConnect()` on `mountedRef` was half right: `notice` was component state, so
+// closing Chat mid-turn destroyed it, and with the shell action withheld too a turn that
+// failed while the panel was shut said NOTHING, anywhere — on the very deck that asked. The
+// `ok` branch never had the hole (`commit` calls `saveChat` unconditionally), so a FAILED
+// turn was the only one that could vanish.
+//
+// One click reaches it, and it is this one: the Studio's assistant slot is mutually
+// exclusive (StudioShell renders Coach OR Chat), so tapping Toggle Coach while you wait
+// unmounts the chat panel.
+test('a turn that fails while the panel is CLOSED is waiting when it reopens (#1813)', async ({ page }) => {
+	let release: () => void = () => {};
+	const held = new Promise<void>((r) => {
+		release = r;
+	});
+	let holding = true;
+	let heldNow = false;
+	await page.route(/architect-model\.[^/]*\.js/, async (route) => {
+		if (holding) {
+			heldNow = true;
+			await held;
+			heldNow = false;
+		}
+		await route.continue();
+	});
+
+	await gotoStudio(page);
+	await page.getByRole('button', { name: CHROME.chat }).click();
+	await page.getByRole('textbox', { name: 'Message the Architect' }).fill('Tighten slide two.');
+	await page.getByRole('button', { name: 'Send', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible();
+	expect(heldNow, 'no architect-model request is being held — the turn is not blocked, so this proves nothing').toBe(true);
+
+	// The author goes to read the scorecard while they wait. This UNMOUNTS the chat panel.
+	await page.getByRole('button', { name: CHROME.coach }).click();
+	await expect(page.getByText('Board readiness')).toBeVisible();
+	await expect(page.getByRole('textbox', { name: 'Message the Architect' })).toHaveCount(0);
+
+	holding = false;
+	release();
+
+	// No sheet over a shell whose chat panel is shut…
+	await expect(page.getByRole('dialog').filter({ hasText: 'Workspace' })).toHaveCount(0);
+
+	// …and the answer is waiting when they come back. Before the fix this was their own
+	// question with nothing after it, and no explanation anywhere in the app.
+	await page.getByRole('button', { name: CHROME.chat }).click();
+	await expect(page.getByText('Tighten slide two.')).toBeVisible();
+	await expect(page.getByText(/and I can answer and edit your deck/), 'the turn failed while the panel was shut and said nothing, anywhere').toBeVisible();
+});
