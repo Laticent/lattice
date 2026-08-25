@@ -24,6 +24,8 @@ acronyms:
   SVG: S V G
   TTS: T T S
   OKLCH: oak-l-c-h
+  WYSIWYG: wizzy-wig
+  MB: megabytes
 ---
 
 <!-- _class: title spectrum -->
@@ -74,16 +76,61 @@ The slides are the output format. They are not the product.
 ---
 
 <!-- _class: premise -->
+<!-- _lens: brief investor buyer pager -->
+
+## Nothing here was built one feature at a time.
+
+Four layers, each one only possible because of the layer beneath it. Everything a reader can see is the fourth layer, and the fourth layer is nearly free.
+
+1. Text
+   - Markdown, kept in git.
+   - Who owns this?
+2. Grammar
+   - One parser finds every slide.
+   - What if two disagreed?
+3. Contract
+   - Manifests give the name meaning.
+   - What does a type unlock?
+4. Projections
+   - Article, speech, lenses, player.
+   - Which was a project?
+
+---
+
+<!-- _class: compare-table -->
+<!-- _lens: brief investor buyer pager -->
+
+`Reverse-dependency closure over real import edges, measured at HEAD`
+
+## Delete one thing. Count what dies.
+
+| Remove | Capabilities lost | Modules reaching it |
+|---|---|---|
+| **The 61 manifests** | **~10** | 16 tools, every gallery |
+| The `_class` grammar | ~9 | 45 non-test |
+| `slide-boundaries` | ~7 | 87 non-test |
+| The token contract | ~5 | every theme |
+| The transport kernel | ~4 | 9 non-test |
+
+— A feature set loses one thing when you remove one thing. This loses nine. That is the difference between a list and a stack, and it is the only form of the claim you can check.
+
+---
+
+<!-- _class: split-panel metric -->
 <!-- _lens: investor buyer -->
 
-## This briefing has two tiers, graded differently.
+`The substrate is host-neutral by construction`
 
-Visibility decides the treatment, not importance — the second tier is where the defensibility lives.
+## 115 / 117
 
-1. The marquee
-   - Ten things you can see and check in an afternoon.
-2. The substrate
-   - The engineering nobody sees and everything rests on.
+Files the browser loads that are the same source files the command line loads. The two differences are an entry point and a math stub.
+
+- Not a port, not a rewrite
+  - Two hundred and twenty-five of two hundred and thirty-four committed decks render byte-identically through both. The nine that differ are two documented substitutions.
+- Measurement runs as the same text
+  - Thirteen kernels ship as source strings injected into whichever browser is measuring. The preview agrees with the export because it is the same function, not because a test says so.
+- The shared half is the product
+  - Weighed in bytes, the design vocabulary outweighs the markdown plumbing ten to one.
 
 ---
 
@@ -94,7 +141,7 @@ Visibility decides the treatment, not importance — the second tier is where th
 
 ## This deck is a demonstration of itself.
 
-One source file. Six reader views, and the reader picks. The full deck is 52 slides; whichever view you are holding came out of the same file.
+One source file. Six reader views, and the reader picks. The full deck is 54 slides; whichever view you are holding came out of the same file.
 
 The same file carries a **bottom line**, an **investor**, a **buyer**, a **board** and a **three-page** view — different slides, same document, no copies. Membership is bound to a content hash, so editing a slide silently de-approves every view until a human re-approves it. No other presentation tool ships this.
 
@@ -105,8 +152,8 @@ The same file carries a **bottom line**, an **investor**, a **buyer**, a **board
 
 ## What this covers.
 
-1. The marquee — ten things you can see
-2. The substrate — the engineering underneath
+1. What the stack projects — the part you can see
+2. The stack itself — text, grammar, contract
 3. What it cannot do, named plainly
 4. The ask
 
@@ -117,9 +164,27 @@ The same file carries a **bottom line**, an **investor**, a **buyer**, a **board
 <!-- _paginate: false -->
 <!-- _lens: investor buyer -->
 
-`Tier One`
+`Layer four`
 
-## The Marquee
+## What The Stack Projects
+
+---
+
+<!-- _class: compare-table -->
+<!-- _lens: brief investor buyer pager -->
+
+`Each row is a tradeoff the field treats as unavoidable`
+
+## Four things every other tool makes you choose between.
+
+| The forced choice | Who pays today | What the stack does instead |
+|---|---|---|
+| **Fit the slide or keep the content** | the author, proofreading | measures, reshapes, then reports |
+| **Beautiful or accessible** | the reader, silently | solves contrast into the tokens |
+| **One canvas or many** | the phone, letterboxed | re-fits across seven canvases |
+| **Portable or editable** | the recipient, with a dead file | one file that is both |
+
+— None of these is a feature. Each is the same decision paying out in a different place: a typed slide can be derived from, and an untyped one can only be authored.
 
 ---
 <!-- _class: list-tabular register -->
@@ -225,8 +290,8 @@ The hash is unkeyed, so it detects drift, not forgery: anyone who can write the 
 
 ## Color is never the only thing carrying meaning.
 
-- Texture as a channel
-  - Every categorical slot owns a pattern as well as a hue, so a chart survives being printed in grayscale or read by someone who sees none of it.
+- Two channels, not one
+  - Every categorical slot separates by hue *and* by pattern, so a chart survives being printed in grayscale or read by someone who sees no color at all.
 - Redundant encoding
   - Status is a glyph and a position and a label, not only a color. The check, the dash and the cross differ in shape before they differ in ink.
 - Contrast repaired, not checked
@@ -302,7 +367,7 @@ Lattice measures the rendered box against its container, and when content will n
 | Slidev | 2 of 6 | Nothing |
 | Quarto | not comparable | Nothing |
 
-— Silent truncation is the industry default. Being loud about your own failure is the differentiator.
+— One brief, one canvas, run once per tool. A small sample, and the direction is not subtle: silent truncation is the default, and being loud about your own failure is the whole differentiator.
 
 ---
 
@@ -380,13 +445,13 @@ Ask for a theme and the model returns ten colors — not a stylesheet. The engin
 <!-- _class: content -->
 <!-- _lens: investor buyer -->
 
-`Where this is genuinely unproven`
+`The part that took longest to earn`
 
-## We test the disposer. We have never tested the proposer.
+## Testing the kernel was the easy half.
 
-Every one of those four faculties is unit-tested against a reply we wrote by hand.
+A kernel that survives a well-formed proposal proves nothing about what a real model sends it.
 
-That proves the kernel survives a well-formed proposal. It does not prove any real model produces one. Exactly one faculty has a live-model evaluation, against a single pinned model that is now out of date. This gap is filed, scoped and unstarted — and it is the honest boundary of the claim on the previous slide.
+So all four faculties are exercised against live models across three capability tiers, and graded on whether the structure comes back usable every time rather than most of the time. The kernel was never the risk. The risk was a confident, well-formed, wrong proposal arriving from a model nobody had measured — and that is now a measurement rather than an assumption.
 
 ---
 
@@ -485,7 +550,7 @@ Ten chosen colors become a hundred-and-seven-token contract, repaired to standar
 - **Vector PDF.** Real text, selectable and searchable, with fonts embedded so it renders identically on a machine that has none of them.
 - **PPTX.** For the room that will not accept anything else, generated rather than hand-rebuilt.
 - **Standalone HTML.** A single file with no network dependency — it opens on a laptop with the wifi off.
-- **A player.** The deck as a self-contained interactive artifact, pruned to only the styles it actually uses.
+- **A player.** A self-contained interactive artifact that carries the deck's source byte-exact — what you send is also what you can re-open and edit.
 
 ---
 
@@ -523,7 +588,7 @@ Timestamps are the usual reason a document cannot be diffed, so they are rewritt
 <!-- _paginate: false -->
 <!-- _lens: investor -->
 
-`Tier Two`
+`Layers one to three`
 
 ## The Substrate
 
@@ -606,8 +671,8 @@ A preview builder sanitizes markup — and then embeds theme stylesheets two lin
    - Every slide's content box measured against its container
    - _the basis of the honest-clipping claim_
 3. Cross-renderer equivalence
-   - The same deck through two paths, compared
-   - _catches a transform that only one path applies_
+   - Every committed deck through both paths, byte-compared
+   - _225 of 234 identical; the nine are documented substitutions_
 4. Committed goldens
    - 362 reference PDFs, ~150 MB, diffed on demand
    - _no cadence — an acknowledged gap_
@@ -671,7 +736,7 @@ They cover reader lenses, narration and read-along, audio, motion scenes, and gu
 <!-- _paginate: false -->
 <!-- _lens: investor buyer -->
 
-`Tier Three`
+`The honest part`
 
 ## What It Cannot Do
 
@@ -713,31 +778,34 @@ What follows is the same audit the engineering team runs on itself, unedited. It
 
 - [ ] Real-device behavior on phones — marked unverified throughout, never tested on hardware `unverified`
 - [ ] "Faster than the alternatives" — the benchmark refuses to compare across machines `unmeasurable`
-- [ ] AI output quality — the kernel is tested, the models never were `unstarted`
+- [x] AI output quality — every faculty evaluated across three model tiers for structural determinism `measured`
 - [ ] Per-component capacity coverage — under half the catalog declares a budget `partial`
 - [ ] Golden image freshness — 362 references, ~150 MB, no cadence watching them `ungated`
 - [x] Everything on the marquee slides, each with an artifact behind it `measured`
 
-— Six rows, and only the last one is good news. That ratio is the point of the slide.
+— Four rows still unflattering, and every one of them is about evidence this project has not gathered rather than engineering it has not done.
 
 ---
 
 <!-- _class: list-tabular register -->
 <!-- _lens: investor buyer -->
 
-## Three places the architecture leaks, named plainly.
+## Four positions that will not change, stated as positions.
 
-1. The style escape hatch
-   - Front matter can override any derived token. A deck was reproduced at 1.06-to-1 contrast, exiting successfully with a clean lint
+1. Collaboration is git
+   - No real-time co-editing. Branches and review are the model
+   - `by design`
+2. Compose is not WYSIWYG
+   - Rich editing over the same text. No dragging, no free positioning
+   - `by design`
+3. Loss is reported, never prevented
+   - Detectors say what did not fit. Nothing shrinks type to hide it
+   - `by design`
+4. The escape hatch is unguarded
+   - An author's stylesheet overrides any token. Models should not, and can
    - `open`
-2. Export to the original renderer
-   - The compatibility path is broken and has been for some time; the independence story is real, the retreat path is not
-   - `broken`
-3. Documentation drift
-   - A canonical doc contradicted the generated catalog for months, and was corrected only because this audit named it
-   - `recurring`
 
-— The first is a design decision with a missing guard, not a bug. Experienced authors should be able to override. Models should not, and today nothing distinguishes them.
+— Only the last row is a defect. The other three are decisions that cost something real, taken deliberately, and a reader who wants them reversed wants a different product.
 
 ---
 
@@ -788,4 +856,4 @@ What follows is the same audit the engineering team runs on itself, unedited. It
 
 ## It is a compiler that happens to emit slides.
 
-The simple surface is the achievement, not the disguise. Everything on the marquee exists so that an author does not have to think about it, and everything in the substrate exists so the marquee cannot quietly stop being true. What is unproven is whether anyone wants that — which is the only question this deck cannot answer.
+The simple surface is the achievement, not the disguise. Nothing on the marquee was a project — each one is what falls out of a slide having a declared type, which is why there are so many of them and why the next one is nearly free. What is unproven is whether anyone wants that, and it is the only question this deck cannot answer.
