@@ -3605,6 +3605,219 @@ function checkUsEnglish(errors) {
   }
 }
 
+// HARD RULE #29 ratchet — the frozen ceiling of typed shape glyphs across the DECKS
+// we ship. EXCEED-only, same shape as US_ENGLISH_BUDGET: a new one fails the build,
+// the remaining backlog is burned down by lowering this. Target zero.
+// Re-measure with a temporary `= 0` — the failure message prints the live total.
+//
+// 198 (2026-08-25) — the honest count the moment the gate went in, measured with
+// the fence rule already applied (a glyph inside a ``` block is quoted material,
+// not slide chrome). Pinned to the MEASURED number, never above it: a budget with
+// slack is not a ratchet, it is a hole, and #1852 showed exactly how five new
+// entries walk through 29 units of it.
+const TYPED_GLYPH_BUDGET = 198;
+
+// ══════════════════════════════════════════════════════════════════════════
+// HARD RULE #29 — typed glyphs never reach a rendered surface.
+// ══════════════════════════════════════════════════════════════════════════
+// A "shape glyph" is a character doing the job of a drawing: ✓ ✗ → ❯ ● ⚠. The
+// curated table, the reasons, and the per-glyph advice all live in ONE kernel
+// (lib/core/shape-glyphs.js) shared with the authoring linter — HARD RULE #1.
+//
+// TWO ARMS, and they are deliberately not the same shape, because the two
+// surfaces have different owners:
+//
+//   ENGINE (budget 0) — our own stylesheets and the JS that writes strings
+//   into rendered markup. We own these, so a typed glyph is a defect with a
+//   named fix: paint the `--icon-*` / `--mark-*` mask. Zero, with an
+//   allowlist that must stay live.
+//
+//   DECKS (exceed-only ratchet) — markdown someone authored. The house style
+//   is to use the state markers and let the engine draw, and the committed
+//   decks are being migrated to it; but the AUTHORING rule is coaching, not
+//   enforcement ("we warn, we coach"). So the gate holds the line on OUR
+//   decks — the examples, exemplars, galleries and fixtures we ship as the
+//   reference for how to write one — and the lint rule handles everybody
+//   else's with a warning.
+//
+// A `*.docs.md` is prose ABOUT a component, never projected, so it is out of
+// scope; so is `engineering/decisions/**`, which is a dated archive.
+const { shapeGlyphRe, stripFencedCode, shapeGlyphAdvice } = require('../lib/core/shape-glyphs.js');
+
+function isGlyphDeck(rel, text) {
+  if (!rel.endsWith('.md')) return false;
+  if (rel.endsWith('.docs.md')) return false; // prose ABOUT a component, never projected
+  if (rel.startsWith('engineering/decisions/')) return false; // a dated archive
+  // The definition is the front matter, not the folder: a rendered surface is a
+  // file the engine will paginate into slides. A path list would have swept in
+  // design/design-system.md and design/forms.md (79 glyphs between them), which
+  // are reference PROSE — exactly the "not even in documentation" over-reach the
+  // scope decision ruled out.
+  return /^---\r?\n[\s\S]*?\bmarp:\s*true/m.test(text.slice(0, 400));
+}
+
+// Decks whose typed glyphs are the POINT — converting them deletes what the
+// deck is for. The gate fails on a STALE entry (a listed deck that no longer
+// carries a glyph), so this list cannot rot into permission nobody needs.
+const SANCTIONED_GLYPH_DECKS = Object.freeze([
+  {
+    file: 'examples/speech-symbols.md',
+    why: 'The arrows and marks are FIXTURES: the deck proves the read-aloud lexicon ' +
+      'pronounces them (lib/core/../cadenza symbols). Converting them deletes the thing under test.',
+  },
+  {
+    file: 'test/fixtures/glyph-sub-fallback-labels.md',
+    why: 'The fixture for glyph SUBSTITUTION and font fallback — the exact failure mode ' +
+      'HARD RULE #29 exists to prevent. It must keep typing the glyphs to keep measuring them.',
+  },
+  {
+    file: 'examples/gantt-component-redesign.md',
+    why: 'Documents the RETIRED gantt span delimiter by showing it: "`Q1 → Q2` errors with a ' +
+      '`..` fix". The glyph is quoted as the wrong input, inside code ticks.',
+  },
+]);
+
+// Engine files whose typed glyphs are load-bearing and must NOT become masks.
+// Each entry names the file and the measurement that settled it.
+const SANCTIONED_GLYPH_CHROME = Object.freeze([
+  {
+    file: 'themes/a11y-base.css',
+    why: 'The GRAYSCALE-SAFE SHAPE CHANNEL for color-blind readers, and a mask cannot ' +
+      'carry it. Three measured properties are load-bearing and all three are lost by a ' +
+      'background-image: (1) `content: <string> / <alt>` with an EMPTY alt is the only ' +
+      'mechanism that actually keeps the shape out of the accessibility tree — `speak: ' +
+      'never` and `speak: none` were both measured over CDP Accessibility.getFullAXTree ' +
+      'and neither works; (2) the glyph keeps sized with the type, which a fixed-box mask ' +
+      'does not; (3) each declaration is DOUBLED as a cross-engine pair, because an engine ' +
+      'that cannot parse the alt form drops the whole declaration and the shape vanishes ' +
+      'for exactly the readers it exists for. See the docblock above the rules.',
+  },
+  {
+    file: 'lib/base/base.print-textures.css',
+    why: 'The print mode\'s half of the same grayscale shape channel, same idiom, same ' +
+      'reasons — a toner-only page has no color to fall back on.',
+  },
+]);
+
+// Our own stylesheets — the surface where a typed glyph is unambiguously a
+// defect, because we own the declaration and an icon token is right there.
+//
+// Engine JS is deliberately NOT gated. Distinguishing a string bound for the
+// DOM from a console.warn, a `--help` banner, an AI prompt or a trailing
+// comment needs to parse the module, and a heuristic that cannot tell them
+// apart cries wolf until somebody switches the gate off — this draft did
+// exactly that, flagging a Symbol() sentinel's comment and a prompt string.
+// The two JS sites that genuinely wrote a glyph into rendered markup
+// (chart-family's axis arrows, state-chart's transition chips) were moved into
+// CSS chrome, and test/unit/core/shape-glyphs.test.js pins them there by name.
+function listEngineGlyphSurfaces() {
+  const out = [];
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) { walk(p); continue; }
+      if (e.name.endsWith('.css') && !/\.(min|generated)\./.test(e.name)) out.push(p);
+    }
+  };
+  walk(LIB_DIR);
+  walk(THEMES_DIR);
+  return out;
+}
+
+// A CSS `content:` value is the one way our stylesheets put a character into
+// the rendered document. Comments are stripped FIRST: a docblock explaining a
+// `content:` rule is documentation of this very rule, and matching it made the
+// gate report four files that declare nothing (math, content, split-panel,
+// cycle's prose). Escaped codepoints (\\2713) and literal characters are the
+// same thing to the renderer, so the value is decoded before matching.
+const CSS_COMMENT_RE = /\/\*[\s\S]*?\*\//g;
+const CSS_CONTENT_RE = /content\s*:\s*([^;}]*)/g;
+
+function checkTypedGlyphs(errors) {
+  // ── ENGINE ARM (budget 0) ──────────────────────────────────────────────
+  const chromeExempt = new Map(SANCTIONED_GLYPH_CHROME.map((s) => [s.file, s]));
+  const chromeSeen = new Set();
+  const engineHits = [];
+  for (const file of listEngineGlyphSurfaces()) {
+    const rel = path.relative(ROOT, file).split(path.sep).join('/');
+    // Blank comments rather than delete them, so a hit's line number still
+    // points at the real line in the file on disk.
+    const text = fs.readFileSync(file, 'utf8')
+      .replace(CSS_COMMENT_RE, (c) => c.replace(/[^\n]/g, ' '));
+    const hits = [];
+    let m;
+    const re = new RegExp(CSS_CONTENT_RE.source, 'g');
+    while ((m = re.exec(text)) !== null) {
+      const decoded = m[1].replace(/\\([0-9a-fA-F]{1,6})\s?/g, (_, hex) =>
+        String.fromCodePoint(parseInt(hex, 16)));
+      for (const g of decoded.match(shapeGlyphRe()) || []) {
+        hits.push({ glyph: g, line: text.slice(0, m.index).split('\n').length });
+      }
+    }
+    if (!hits.length) continue;
+    if (chromeExempt.has(rel)) { chromeSeen.add(rel); continue; }
+    engineHits.push({ rel, hits });
+  }
+
+  for (const { rel, hits } of engineHits) {
+    const first = hits[0];
+    errors.push(
+      `${rel}:${first.line} types a shape glyph into rendered output (${hits.length} in this file, ` +
+      `HARD RULE #29 — typed glyphs never reach a rendered surface). ` +
+      `${shapeGlyphAdvice(first.glyph, 'engine')} ` +
+      `The icon tokens are in lib/base/base.tokens.css; the mask idiom is the --mark-* block ` +
+      `beside them. If the glyph is genuinely load-bearing, add the file to ` +
+      `SANCTIONED_GLYPH_CHROME in tools/check-ownership.js with the measurement that settled it.`,
+    );
+  }
+  for (const s of SANCTIONED_GLYPH_CHROME) {
+    if (!chromeSeen.has(s.file)) {
+      errors.push(
+        `SANCTIONED_GLYPH_CHROME lists ${s.file}, but it no longer types a shape glyph — ` +
+        `remove the entry (HARD RULE #29; a stale sanction is permission nobody is using).`,
+      );
+    }
+  }
+
+  // ── DECK ARM (exceed-only ratchet) ─────────────────────────────────────
+  const sanctioned = new Map(SANCTIONED_GLYPH_DECKS.map((s) => [s.file, s]));
+  const sanctionSeen = new Set();
+  let total = 0;
+  const byFile = [];
+  for (const file of listRepoTextFiles()) {
+    const rel = path.relative(ROOT, file).split(path.sep).join('/');
+    const text = fs.readFileSync(file, 'utf8');
+    if (!isGlyphDeck(rel, text)) continue;
+    // A glyph inside a ``` fence is quoted material (two decks quote the CLI's
+    // own ⚠ overflow warning verbatim), not slide chrome. See stripFencedCode.
+    const n = (stripFencedCode(text).match(shapeGlyphRe()) || []).length;
+    if (!n) continue;
+    if (sanctioned.has(rel)) { sanctionSeen.add(rel); continue; }
+    total += n;
+    byFile.push([rel, n]);
+  }
+  for (const s of SANCTIONED_GLYPH_DECKS) {
+    if (!sanctionSeen.has(s.file)) {
+      errors.push(
+        `SANCTIONED_GLYPH_DECKS lists ${s.file}, but it no longer carries a typed glyph — ` +
+        `remove the entry (HARD RULE #29; a stale sanction is permission nobody is using).`,
+      );
+    }
+  }
+  if (total > TYPED_GLYPH_BUDGET) {
+    byFile.sort((a, b) => b[1] - a[1]);
+    const top = byFile.slice(0, 5).map(([f, n]) => `${f} (${n})`).join(', ');
+    errors.push(
+      `typed shape glyphs in shipped decks rose to ${total}, above the budget of ` +
+      `${TYPED_GLYPH_BUDGET} (HARD RULE #29). A typed ✓ / → / ❯ is not drawn by us: the deck's ` +
+      `type family has no glyph for it, so every machine substitutes a different font, a color ` +
+      `emoji, or a hollow box. Write the state marker (\`[x]\` \`[-]\` \`[ ]\` \`[/]\`) or the word, ` +
+      `and let the engine draw — \`npm run lint:deck -- <file>\` names the fix per glyph. As the ` +
+      `backlog drops, lower TYPED_GLYPH_BUDGET in tools/check-ownership.js. Heaviest: ${top}.`,
+    );
+  }
+}
+
 function checkThemeTokenParity(errors) {
   const palettes = listBasePalettes();
   if (!palettes.length) {
@@ -10623,6 +10836,7 @@ function run() {
   checkZPlanes(errors);
   checkHexLiterals(errors);
   checkUsEnglish(errors);
+  checkTypedGlyphs(errors);
   checkAdaptDeclarations(manifests, errors);
   checkSolverIntentDeclared(manifests, errors);
   checkRenderNature(manifests, errors);

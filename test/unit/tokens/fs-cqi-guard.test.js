@@ -70,11 +70,6 @@ const SANCTIONED = [
     count: 1,
     why: 'decorative, shape-fitted per the rule comment.',
   },
-  {
-    file: 'lib/components/comparison/verdict-grid/verdict-grid.styles.css',
-    count: 1,
-    why: 'decorative ✧ glyph at 0.35 opacity — not read.',
-  },
 ];
 
 // A `font-size:` (or `font:` shorthand) declaration whose value mentions `cqi`

@@ -1013,15 +1013,26 @@ section.actors > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-
 section.kpi > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
 section.agenda > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
 section.compare-table > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before {
-  content:'\2726';
+  /* The annotation spark, DRAWN rather than typed (HARD RULE #29). U+2726 is
+   * carried by almost no text face, so the mark that leads every annotation
+   * note used to be set in whichever fallback font each machine reached for.
+   *
+   * The box is 1.5em wide but the mask is drawn at 1em on the LEFT, so the
+   * remaining 0.5em is the mark→text gap — geometry, not padding and not a
+   * margin (HARD RULE #20). Sizing the mask explicitly rather than `contain`
+   * is what keeps the gap out of the mark: `contain` measures the padding box,
+   * so a padded gap would have shrunk the spark to fit beside itself. */
+  content:'';
   position:static;
-  background:none;
-  height:auto;
-  width:auto;
-  color:var(--accent);
-  font-style:normal;
-  padding-right:0.5em; /* glyph→text gap, inside the no-bg pseudo (HARD RULE #20) */
+  display:inline-block;
+  vertical-align:-0.1em;
   font-size:0.95em;
+  width:1.5em;
+  height:1em;
+  background-color:var(--accent);
+  font-style:normal;
+  -webkit-mask:var(--icon-spark) left center / 1em 1em no-repeat;
+          mask:var(--icon-spark) left center / 1em 1em no-repeat;
 }
 
 /* ════════════════════════════════════════════════════════════════════════

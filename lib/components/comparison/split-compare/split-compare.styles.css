@@ -59,7 +59,15 @@ section.split-compare .options { display:grid; grid-template-columns:1fr 1fr; ga
 section.split-compare .option { background:var(--bg-alt); border-radius:var(--radius-md); padding:var(--sp-md); display:flex; flex-direction:column; gap:var(--sp-sm); border:1px solid var(--border); position:relative; }
 section.split-compare .option > strong { display:block; font-size:var(--fs-meta); font-family:var(--font-label); text-transform:uppercase; letter-spacing:0.12em; color:var(--text-secondary); font-weight:700; padding-bottom:var(--sp-xs); border-bottom:2px solid var(--border); margin:0; }
 section.split-compare .option.preferred > strong { color:var(--accent); border-color:var(--accent); }
-section.split-compare .option.preferred::after { content:'✧'; position:absolute; top:var(--sp-sm); right:var(--sp-sm); font-size:var(--fs-meta); color:var(--accent); line-height:1; pointer-events:none; }
+/* DRAWN, not typed (HARD RULE #29) — `font-size` stays as the `em` basis for the box. */
+section.split-compare .option.preferred::after {
+  content:''; position:absolute; top:var(--sp-sm); right:var(--sp-sm);
+  font-size:var(--fs-meta); line-height:1; pointer-events:none;
+  width:1em; height:1em;
+  background-color:var(--accent);
+  -webkit-mask:var(--icon-spark-open) var(--icon-paint);
+          mask:var(--icon-spark-open) var(--icon-paint);
+}
 section.split-compare .option ul { list-style:disc; padding:0 0 0 var(--sp-md); margin:0; }
 section.split-compare .option ol { list-style:decimal; padding:0 0 0 var(--sp-md); margin:0; }
 section.split-compare .option ul > li,

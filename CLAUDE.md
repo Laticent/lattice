@@ -598,6 +598,55 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   written from this file's own one-line summary instead of the workflow.md contract
   and shipped an invented `medium-high`, three per-issue levels, no axis, no raise
   path — in a PR whose entire subject was claims nobody re-derives.)*
+- **#29 — A typed glyph never reaches a rendered surface; we draw the shape.**
+  A "shape glyph" is a character doing the job of a DRAWING — `✓` `✗` `→` `❯` `●`
+  `⚠`. The deck's own type family carries almost none of them, so the renderer
+  falls back to whatever font THAT machine has (a different weight, a different
+  baseline), or to a color emoji (which Marp Core rewrites to `<img class="emoji">`,
+  so it stops taking the element's color and blows a palette-blind layout open), or
+  to a hollow `.notdef` box. One deck therefore renders three ways across the three
+  surfaces it reaches. The `--mark-*` and `--icon-*` SVG mask tokens exist precisely
+  so the shape is ours: **color comes from the element, the shape from us** (#3).
+  The curated table, its deliberate exclusions, and the per-glyph advice live in ONE
+  kernel — `lib/core/shape-glyphs.js` (#1) — shared by the gate and the linter.
+  **Two surfaces, two postures, and the split is the whole rule:**
+  - **OUR CSS — budget 0.** We own the declaration and the token is right there, so a
+    typed shape in engine CSS is a defect with a named fix. The allowlist is
+    `SANCTIONED_GLYPH_CHROME`, it takes a MEASUREMENT rather than an opinion, and the
+    gate fails on a stale entry. Two files are on it, both for the same reason: the
+    a11y and print **grayscale shape channel** is not a naive re-implementation of
+    `--mark-check`, and a mask cannot carry it. `content: <string> / <alt>` with an
+    empty alt is the only mechanism measured (over CDP `Accessibility.getFullAXTree`)
+    to keep the shape out of the a11y tree — `speak: never` and `speak: none` both do
+    nothing; the glyph keeps sized with the type, which a fixed box does not; and each
+    declaration is DOUBLED as a cross-engine pair, because an engine that cannot parse
+    the alt form drops the whole declaration and the shape vanishes for exactly the
+    readers it exists for. Do not "simplify" those.
+  - **DECKS — an exceed-only ratchet, and coaching everywhere else.** The gate holds
+    the line on the decks WE ship (the reference for how to write one); every other
+    deck gets `lint:deck`, which **warns and never blocks**. That asymmetry is the
+    policy, not an oversight: *"authors can do whatever they want… when there are
+    better alternatives we should present a warning and suggest fixes and help them
+    fix it. Even better, give them more modifiers. We warn, we coach."* A rule that
+    refuses an author's deck buys consistency by spending the flexibility, and the
+    warning already names what the glyph will look like on another machine, the
+    modifier that does it properly, and the concrete fix.
+  **Two scope lines, both deliberate.** A glyph inside a ``` fence is QUOTED material
+  — two shipped decks quote the CLI's own `⚠` overflow warning verbatim, and the CLI
+  really does print it (terminal text is not a rendered surface). INLINE code stays in
+  scope, because a backticked eyebrow is set on the slide. And a `*.docs.md` is prose
+  ABOUT a component, never projected, so it is out of scope — as is
+  `engineering/decisions/**`, a dated archive.
+  **Engine JS is NOT gated, on purpose.** Telling a DOM string from a `console.warn`,
+  a `--help` banner or an AI prompt needs to parse the module, and the heuristic that
+  could not tell them apart flagged a `Symbol()` sentinel's trailing comment. A gate
+  that cries wolf is one somebody switches off. The two modules that genuinely write a
+  shape into markup are pinned by content in
+  `test/unit/core/shape-glyphs.test.js` instead.
+  *(gated — `checkTypedGlyphs` + `TYPED_GLYPH_BUDGET` + `SANCTIONED_GLYPH_DECKS` +
+  `SANCTIONED_GLYPH_CHROME` in `tools/check-ownership.js`, via `build:check`: engine CSS
+  budget 0, decks exceed-only toward 0, and BOTH allowlists fail on a stale entry.
+  `engineering/decisions/2026-08-25-typed-glyphs.md`.)*
 
 ---
 

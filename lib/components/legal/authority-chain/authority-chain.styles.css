@@ -186,15 +186,18 @@ section.authority-chain.trail > .cell-stage > :is(ol, ul) > li {
   position:relative;
 }
 section.authority-chain.trail > .cell-stage > :is(ol, ul) > li::after {
-  content:'→';
+  /* DRAWN, not typed (HARD RULE #29) — see lib/base/base.tokens.css § icon masks. */
+  content:'';
   display:block;
   position:absolute;
   right:calc(-0.5 * var(--sp-md)); top:50%;
   transform:translateY(-50%);
-  background:none;
-  width:auto; height:auto;
+  /* `font-size` is kept as the `em` BASIS for the box, not to set a glyph. */
   font-size:var(--fs-h3);
-  color:var(--accent);
+  width:1em; height:1em;
+  background-color:var(--accent);
+  -webkit-mask:var(--icon-arrow-right) var(--icon-paint);
+          mask:var(--icon-arrow-right) var(--icon-paint);
   z-index:1;
 }
 section.authority-chain.trail > .cell-stage > :is(ol, ul) > li:last-child::after { display:none; }

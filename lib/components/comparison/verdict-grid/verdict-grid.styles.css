@@ -71,9 +71,14 @@ section.verdict-grid > .cell-stage > ul > li {
 }
 section.verdict-grid > .cell-stage > ul > li:last-child { background:var(--accent-soft); border-color:var(--on-accent-soft); color:var(--on-accent-soft); position:relative; overflow:hidden; padding-right:3.125cqi; }
 section.verdict-grid > .cell-stage > ul > li:last-child::after {
-  content:'✧'; position:absolute; top:0.625cqi; right:0.625cqi;
-  font-size:2.75cqi; line-height:1; color:var(--on-accent-soft); opacity:0.35; /* cqi-ok: decorative ✧ glyph, 0.35 opacity — not read */
-  font-family:var(--font-body); font-weight:400; letter-spacing:0;
+  /* DRAWN, not typed (HARD RULE #29). The box is the mark now, so it is sized
+   * DIRECTLY rather than through a font-size + `em` basis. */
+  content:''; position:absolute; top:0.625cqi; right:0.625cqi;
+  width:2.75cqi; height:2.75cqi; /* cqi-ok: decorative spark mark, 0.35 opacity — not read */
+  opacity:0.35;
+  background-color:var(--on-accent-soft);
+  -webkit-mask:var(--icon-spark-open) var(--icon-paint);
+          mask:var(--icon-spark-open) var(--icon-paint);
   pointer-events:none;
 }
 section.verdict-grid > .cell-stage > ul > li:last-child:nth-child(odd) { width:100%; }

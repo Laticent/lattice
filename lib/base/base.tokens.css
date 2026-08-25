@@ -1022,6 +1022,72 @@
   --mark-x-bold:     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M8 8l8 8M16 8l-8 8' fill='none' stroke='black' stroke-width='3.6' stroke-linecap='round'/></svg>");
   --mark-slash-bold: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M8 16L16 8' fill='none' stroke='black' stroke-width='3.8' stroke-linecap='round'/></svg>");
 
+  /* ── ICON masks — the CHROME set (HARD RULE #29) ──────────────────────
+   * Same idiom as --mark-* above, different job. A --mark-* is a STATUS
+   * mark that a state disc carries; an --icon-* is layout CHROME — the
+   * step chevron, the axis arrow, the annotation spark, the transport
+   * control. Both exist for one reason: a typed ✓ / → / ❯ is not a shape
+   * we draw. The deck's own type family has no glyph for it, so every
+   * machine substitutes a different font (different weight, different
+   * baseline), or a color emoji, or a hollow box — and the same deck
+   * renders three ways across the three surfaces it reaches.
+   *
+   * Consumed as a MASK, so COLOR comes from the element and the token
+   * stays palette-blind (HARD RULE #3). The recipe is three lines, and
+   * --icon-paint carries the shared tail so a site declares only WHICH
+   * icon and how big:
+   *
+   *     .thing::before {
+   *       content: '';
+   *       display: inline-block;
+   *       width: 1em; height: 1em;
+   *       background-color: var(--accent);          <- the paint
+   *       -webkit-mask: var(--icon-chevron-right) var(--icon-paint);
+   *               mask: var(--icon-chevron-right) var(--icon-paint);
+   *     }
+   *
+   * `stroke='black'` / `fill='black'` inside the data URI is mask SOURCE,
+   * never paint: a mask reads alpha, so the color is irrelevant and black
+   * keeps the URI `#`-free and needs no escaping. viewBox 24 throughout.
+   *
+   * Every icon here has a live consumer. The set is deliberately NOT a
+   * complete compass rose — an icon nothing paints is dead weight, and
+   * lib/core/shape-glyphs.js names a token only when this file ships it
+   * (test/unit/core/shape-glyphs.test.js pins that both ways).
+   */
+  --icon-paint: center / contain no-repeat;
+
+  /* Arrows — a shaft plus a head, at the type's own weight. */
+  --icon-arrow-right: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 12h15M13 6l6 6-6 6' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --icon-arrow-down:  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 4v15M6 13l6 6 6-6' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --icon-arrow-up:    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 20V5M6 11l6-6 6 6' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+
+  /* Chevrons — a bare head, no shaft: the step/disclosure marker. */
+  --icon-chevron-right: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9 4l8 8-8 8' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --icon-chevron-down:  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 9l8 8 8-8' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+
+  /* Solid triangles — direction chrome that has to hold a bold label's
+   * weight beside it, where a stroked arrow would read too light. This is
+   * why the chart axes use a triangle and not --icon-arrow-right. */
+  --icon-triangle-right: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M7 4l12 8-12 8z' fill='black'/></svg>");
+  --icon-triangle-down:  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 7l8 12 8-12z' fill='black'/></svg>");
+
+  /* Transport + repeat — scene controls, the cycle return arc, a
+   * state-chart self-transition. */
+  --icon-refresh: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M20 12a8 8 0 1 1-2.34-5.66' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'/><path d='M20 3v5h-5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --icon-pause:   url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M9 5v14M15 5v14' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round'/></svg>");
+
+  /* Sparks — the annotation mark and the preferred-option mark. Filled and
+   * hollow are two tokens, not one with a variant, because a mask's fill
+   * cannot be tuned by a CSS var (same reason --mark-*-bold is a swap). */
+  --icon-spark:      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2.5l2.5 7 7 2.5-7 2.5-2.5 7-2.5-7-7-2.5 7-2.5z' fill='black'/></svg>");
+  --icon-spark-open: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2.5l2.5 7 7 2.5-7 2.5-2.5 7-2.5-7-7-2.5 7-2.5z' fill='none' stroke='black' stroke-width='1.6' stroke-linejoin='round'/></svg>");
+
+  /* Warning — the alarm triangle. The bar and dot are PUNCHED OUT
+   * (fill-rule evenodd), not painted, so the counter shows the surface
+   * behind it and the whole mark takes one paint color. */
+  --icon-warning: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2.6L23 21H1zM11 9h2v6h-2zM11 16.6h2v2.1h-2z' fill='black' fill-rule='evenodd'/></svg>");
+
   /* ── State-disc recipe — SCALAR KNOBS (default = "Ringed Solid") ──────
    * The disc is painted by each consumer from --state-color + these
    * scalar knobs. Knobs hold ONLY numbers/lengths/percentages — never a
