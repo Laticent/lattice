@@ -30,6 +30,22 @@ const { loadAll } = require('../lib/components');
 
 const ROOT = path.join(__dirname, '..');
 
+// Read lazily and defensively: check-ownership.js is a heavy module, and a
+// checkout that somehow cannot load it should still lint (the sanction only
+// ever REMOVES a finding, so an empty set is the strict, not the lax, default).
+let glyphExemptDecksCache = null;
+function glyphExemptDeckSet() {
+  if (glyphExemptDecksCache) return glyphExemptDecksCache;
+  try {
+    const { SANCTIONED_GLYPH_DECKS } = require('./check-ownership.js');
+    glyphExemptDecksCache = new Set(SANCTIONED_GLYPH_DECKS.map((d) => d.file));
+  } catch {
+    glyphExemptDecksCache = new Set();
+  }
+  return glyphExemptDecksCache;
+}
+const relFromRoot = (file) => path.relative(ROOT, file).split(path.sep).join('/');
+
 // Load the live manifests for the advisory review pass; never let a manifest
 // problem break the linter — degrade to lint-only.
 function safeLoadAll() {
@@ -152,7 +168,19 @@ async function main(argv) {
     // title-incomplete. A Windows author got different advice for identical content.
     // `\r\n?` covers CRLF and classic-Mac lone CR; it is a no-op on LF.
     const source = fs.readFileSync(file, 'utf8').replace(/^﻿/, '').replace(/\r\n?/g, '\n');
-    const findings = lintText(source, { vocab });
+    const findings = lintText(source, { vocab })
+      // A deck whose typed glyphs ARE the subject is exempt from the glyph rule
+      // and from nothing else (HARD RULE #29). examples/speech-symbols.md proves
+      // the read-aloud lexicon pronounces them; the glyph-substitution fixture
+      // measures the very failure the rule exists to prevent; and one deck quotes
+      // the retired gantt delimiter as the wrong input. Coaching them to convert
+      // would be coaching them to delete what they test.
+      //
+      // The list is READ from the ownership gate, never repeated (HARD RULE #1) —
+      // three consumers now honor one list: the gate counts against it, the
+      // deck-lint-clean unit test skips against it, and `--strict` here would
+      // otherwise fail the pre-push hook on decks the gate itself sanctions.
+      .filter((f) => !(f.rule === 'typed-shape-glyph' && glyphExemptDeckSet().has(relFromRoot(file))));
     for (const f of findings) {
       // `info` / `suggestion` are the ADVISORY tier — they report something true about a
       // deliberate choice (a deck that opts into autosplit WILL have over-budget slides),
