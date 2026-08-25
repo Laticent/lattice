@@ -31,7 +31,15 @@
 // A cross-origin stage would have forced all three to be re-implemented in
 // inline strings, which is the cost that ruled out architecture S.
 
-import { createWheelGate, fitScale, keyAction, PRESENT_KEYMAP, padInset, swipeAction } from '../../../../../lib/core/present-transport.mjs';
+import {
+	createWheelGate,
+	createZoomGesture,
+	fitScale,
+	keyAction,
+	PRESENT_KEYMAP,
+	padInset,
+	swipeAction,
+} from '../../../../../lib/core/present-transport.mjs';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
 import { slideBox } from '../../../playground/frame-css.js';
@@ -101,6 +109,7 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		`var keyAction=${keyAction.toString()}`,
 		`var swipeAction=${swipeAction.toString()}`,
 		`var createWheelGate=${createWheelGate.toString()}`,
+		`var createZoomGesture=${createZoomGesture.toString()}`,
 		`var PRESENT_KEYMAP=${JSON.stringify(PRESENT_KEYMAP)}`,
 	].join(';\n');
 	const padF = Number(pad.factor);
@@ -186,13 +195,21 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// are idempotent at the other end — teardown clears the handle before onLost.
 		'window.addEventListener("pagehide",function(){tell("closed")});' +
 		'window.addEventListener("unload",function(){tell("closed")});' +
-		// THE ROOM DOES NOT FOLLOW LINKS. A deck's own `<a href>` survives sanitizing, and
-		// a click on the projected copy navigated this window away — which stranded the
-		// console (it went on posting the live slide index at a page it no longer owned)
-		// and handed a foreign origin `window.opener` on the origin that holds the user's
-		// API key. On the audience surface a link click is always accidental, so it is
-		// simply not a gesture here.
-		'document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a)e.preventDefault()},true);' +
+		// THE ROOM DOES NOT FOLLOW LINKS. A deck's own link survives sanitizing, and a click
+		// on the projected copy navigated this window away — which stranded the console (it
+		// went on posting the live slide index at a page it no longer owned) and handed a
+		// foreign origin `window.opener` on the origin that holds the user's API key. On the
+		// audience surface a link click is always accidental, so it is simply not a gesture.
+		//
+		// `a,area[href]` — NOT `a[href]`, which is the narrower selector this shipped with and
+		// which misses two of the three shapes that actually navigate. Measured, all three
+		// surviving `sanitizeSlideHtml`: an SVG `<a xlink:href>` holds no `href` ATTRIBUTE, so
+		// `closest('a[href]')` is false for it while `closest('a')` is true — and a real click
+		// on one navigated the window; and an `<area href>` inside a `<map>` is not an `<a>` at
+		// all, so only naming `area` catches it. (A `<meta http-equiv=refresh>` survives the
+		// sanitizer too but is inert in a `document.write`n `about:blank` document — measured —
+		// so every live vector is click-gated, which is what makes this one listener enough.)
+		'document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a,area[href]");if(a)e.preventDefault()},true);' +
 		// ── THE STAGE DRIVES ───────────────────────────────────────────────────────
 		// Keyboard, wheel and swipe move the deck, and the console follows. `nav()` does
 		// not move this window directly: it TELLS the opener, which owns `idx`, and the
@@ -204,17 +221,49 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// module-scope constant that does not survive `.toString()` inlining.
 		'window.addEventListener("keydown",function(e){' +
 		'if(e.metaKey||e.ctrlKey||e.altKey)return;' +
+		// THE BAR'S OWN BUTTONS KEEP THEIR NATIVE KEYS. `PRESENT_KEYMAP` maps `' '` to `next`,
+		// and this listener is on `window` with no reading of `e.target` — so a keyboard user
+		// who tabbed to "Previous slide" and pressed Space got `preventDefault()` on the native
+		// activation and the deck went FORWARD (measured: 3/7 -> 4/7 on a Previous button, and
+		// Space on the full-screen button advanced instead of filling the screen). Space and
+		// Enter belong to the focused control; every other key still drives the deck, so the
+		// arrows keep working while a button holds focus.
+		'if(e.target&&e.target.closest&&e.target.closest("#latt-ctl")&&(e.key===" "||e.key==="Enter"))return;' +
 		'if(e.key==="f"||e.key==="F"){e.preventDefault();toggleFull();return}' +
 		'var a=keyAction(e.key,PRESENT_KEYMAP);if(!a)return;e.preventDefault();nav(a);});' +
 		// A firm flick, not a reflexive scroll — the same gate, threshold and cooldown the
 		// console applies, so a trackpad means the same thing on either surface.
+		//
+		// `ctrlKey||metaKey` STANDS DOWN, and it is not optional: a trackpad PINCH reaches the
+		// page as ctrl+wheel, so a gate that does not read it scrubs the deck when the user
+		// meant to zoom. `present-transport.mjs` names this exact pair as the #1294 root cause,
+		// and shipping it again here is what the kernel exists to stop. (Measured on this
+		// document before the fix: ctrl+wheel turned the deck.) The Stage does not zoom — it is
+		// the projected copy, not a Studio surface — so standing down is the whole behavior.
 		'var gate=createWheelGate();' +
-		'window.addEventListener("wheel",function(e){var a=gate(e.deltaX,e.deltaY,Date.now());if(a){e.preventDefault();nav(a)}},{passive:false});' +
-		// Touch, via the shared swipe geometry.
+		'window.addEventListener("wheel",function(e){if(e.ctrlKey||e.metaKey)return;' +
+		'var a=gate(e.deltaX,e.deltaY,Date.now());if(a){e.preventDefault();nav(a)}},{passive:false});' +
+		// Touch, via the shared swipe geometry — AND the shared finger-count rule.
+		//
+		// `createZoomGesture` is inlined here purely as the PINCH DETECTOR its `up()` docblock
+		// demands: "Reading it [`swipeBlocked`] is what a surface must do BEFORE calling
+		// `swipeAction`." The first cut did not, and measured on this document a pinch-out AND
+		// a pinch-in both turned the deck forward — the hand-rolled "first touch to last touch"
+		// twin the kernel was written to retire. `max:1` keeps it a counter and nothing more:
+		// the scale can never leave 1, so no zoom or pan behavior is added to the Stage, and a
+		// genuine one-finger swipe returns null from `move` without ever setting `moved`, so
+		// `swipeBlocked` stays false for exactly the gesture that should still turn the deck.
+		'var zoom=createZoomGesture({min:1,max:1});' +
+		'function pts(e){var o=[],t=e.touches||[];for(var i=0;i<t.length;i++)o.push({x:t[i].clientX,y:t[i].clientY});return o}' +
 		'var t0=null;' +
-		'window.addEventListener("touchstart",function(e){var t=e.changedTouches&&e.changedTouches[0];t0=t?{x:t.clientX,y:t.clientY}:null},{passive:true});' +
-		'window.addEventListener("touchend",function(e){if(!t0)return;var t=e.changedTouches&&e.changedTouches[0];if(!t)return;' +
-		'var a=swipeAction({dx:t.clientX-t0.x,dy:t.clientY-t0.y});t0=null;if(a)nav(a);},{passive:true});' +
+		'window.addEventListener("touchstart",function(e){var p=pts(e);zoom.down(p);' +
+		't0=p.length===1?{x:p[0].x,y:p[0].y}:null},{passive:true});' +
+		'window.addEventListener("touchmove",function(e){zoom.move(pts(e),{w:innerWidth,h:innerHeight})},{passive:true});' +
+		'window.addEventListener("touchend",function(e){var rest=(e.touches&&e.touches.length)||0;' +
+		'var blocked=zoom.up(rest).swipeBlocked;var t=e.changedTouches&&e.changedTouches[0];' +
+		'var from=t0;if(rest===0)t0=null;' +
+		'if(blocked||!from||!t)return;' +
+		'var a=swipeAction({dx:t.clientX-from.x,dy:t.clientY-from.y});if(a)nav(a);},{passive:true});' +
 		// ── THE OVERLAY CONTROLS ───────────────────────────────────────────────────
 		// A projected screen with permanent instruments on it is the defect this whole
 		// split exists to remove, and a projected screen you cannot operate from the
@@ -562,6 +611,14 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 	}
 	function onMsg(e) {
 		if (!stageWin) return;
+		// ORIGIN FIRST, because `e.source` cannot answer this. A WindowProxy identifies a
+		// BROWSING CONTEXT, not a document, so it survives navigation: measured in Chromium,
+		// a page that navigated our Stage away posts back with `e.source === stageWin` STILL
+		// TRUE, and every `ours` check below hands it the trust we meant for our own document.
+		// The origin is the half that does change — and a Stage we wrote into `about:blank`
+		// INHERITS our origin (measured: `e.origin === location.origin`), so this rejects the
+		// foreign page without costing the real Stage a single message.
+		if (e.origin !== location.origin) return;
 		const d = e.data || {};
 		if (typeof d.stage !== 'string') return;
 		// TWO WAYS TO BE OURS, and the second one is why a navigated Stage is noticed.
@@ -587,10 +644,13 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 			// repaints only when that `{pv}` comes back, which also makes a dropped
 			// message visible as "nothing moved" rather than as two surfaces drifting.
 			//
-			// STRICTLY `ours`: a nav is the one message that CHANGES state here, so unlike
-			// the goodbye it does not accept the token-only path. A page that navigated our
-			// Stage away must not be able to drive the deck.
-			if (!ours) return;
+			// STRICTLY `ours`, AND STILL OUR DOCUMENT: a nav is the one message that CHANGES
+			// state here, so unlike the goodbye it does not accept the token-only path. The
+			// second half is not redundant with the origin check above — it is the one that
+			// holds if a SAME-ORIGIN page ever takes the window over (our own routing, a Back
+			// into the Studio). `alive()` is already false at that instant — measured — so the
+			// information to refuse was always here; this is what consults it.
+			if (!ours || !alive()) return;
 			if (typeof d.act === 'string') onNav?.(d.act);
 		} else if (d.stage === 'closed') {
 			// A goodbye we matched only by TOKEN has to be checked against reality: the
@@ -631,10 +691,23 @@ export function createStageController({ getDoc, getIndex, onChange, onLost, onPl
 			close();
 			return;
 		}
-		// A named window that is no longer ours would be HANDED BACK by `window.open`
-		// rather than reopened, and painting into it throws into a silent catch — so the
-		// presenter presses S and nothing happens. Let go of it first.
-		if (stageWin) teardown();
+		// A named window that is no longer ours would be HANDED BACK by `window.open` rather
+		// than reopened, and painting into it throws into a silent catch — so the presenter
+		// presses S and nothing happens, FOREVER: the name keeps resolving to that same
+		// context. Letting go of the handle does not help, because the name is what resolves
+		// (measured: after teardown, `window.open('', 'lattice-stage')` returns the SAME
+		// cross-origin window and painting still throws). CLOSING it is what frees the name,
+		// and a window we opened ourselves closes even once it has gone cross-origin
+		// (measured: no throw, `closed === true`).
+		if (stageWin) {
+			const stale = stageWin;
+			teardown();
+			try {
+				if (!stale.closed) stale.close();
+			} catch {
+				// Already gone, or refused — either way the reopen below is the next attempt.
+			}
+		}
 		// Must open from the user gesture (popup-blocker-safe).
 		const win = window.open('', 'lattice-stage', 'width=1280,height=720');
 		if (!win) return; // blocked — leave the toggle off

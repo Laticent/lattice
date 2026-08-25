@@ -4693,27 +4693,22 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
-    file: 'docs/e2e/stage-window.spec.ts', ms: 800, count: 1,
-    why: 'ABSENCE ASSERTION. The Stage suppresses link navigation — a deck\'s own `<a href>` is '
-       + 'clickable on the projected copy, and a click there used to strand the console and hand a '
-       + 'foreign origin `window.opener` on the origin holding the user\'s API key. The cell clicks '
-       + 'a real link and then asserts the URL did NOT change, which has no signal to poll: a poll '
-       + 'goes green on its first tick, before a navigation it is meant to catch could have '
-       + 'committed. Everything POLLABLE around it already is — the popup is awaited via '
-       + '`context.waitForEvent(\'page\')`, the deck paint via `expect(...).not.toBeEmpty()`, and the '
-       + 'pill state via `toHaveAttribute` — so this covers only the gap between "the click was '
-       + 'dispatched" and "we conclude it navigated nowhere".',
-  },
-  {
-    file: 'docs/e2e/stage-window.spec.ts', ms: 400, count: 1,
-    why: 'ABSENCE ASSERTION. The Stage and the console both drive the deck now, and the relay '
-       + 'that carries a Stage gesture to the console is the shape that invites an ECHO — a move '
-       + 'posted out, applied, and posted back as a second move. The cell presses once and then '
-       + 'asserts the counter is STILL on the same slide, which has no signal to poll: a poll goes '
-       + 'green on its first tick, before a double-advance it is meant to catch could have landed. '
-       + 'Everything pollable around it already is — the first advance is awaited with `toBeVisible`, '
-       + 'so this covers only the gap between "one gesture was handled" and "we conclude a second '
-       + 'one never arrived".',
+    file: 'docs/e2e/stage-window.spec.ts', ms: 400, count: 4,
+    why: 'ABSENCE ASSERTIONS, four of them, all the same "and then nothing happened" shape. (1) The '
+       + 'ECHO: the Stage and the console both drive the deck now, and the relay that carries a Stage '
+       + 'gesture to the console invites a move posted out, applied, and posted back as a second move '
+       + '— so the cell presses once and asserts the counter is STILL on the same slide. (2) The LINK '
+       + 'GUARD, once per shape: a click on a deck link inside the projected copy used to strand the '
+       + 'console and hand a foreign origin `window.opener` on the origin holding the user\'s API key, '
+       + 'and the assertion is that the URL did NOT change — measured across all three shapes that '
+       + 'survive the sanitizer, because the first selector caught only the plain anchor and a real '
+       + 'click on an SVG `xlink:href` navigated. (3) The PINCH and the trackpad `ctrl`+wheel: both '
+       + 'were read as swipes and turned the deck (#1294 again), and the fix is that they now do '
+       + 'NOTHING, which is again an absence. None has a signal to poll — a poll goes green on its '
+       + 'first tick, before the navigation or the extra advance it is meant to catch could commit. '
+       + 'Everything pollable around them already is: the popup via `context.waitForEvent(\'page\')`, '
+       + 'the deck paint via `not.toBeEmpty()`, every slide ARRIVAL via `toBeVisible`, and the pill '
+       + 'state via `toHaveAttribute`.',
   },
   // ── #1246, the post-sanitize injection suite ─────────────────────────────────
   // Both are the canonical "and then nothing happened" shape this allowlist exists for:

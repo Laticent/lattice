@@ -6,18 +6,21 @@ import { expect, gotoStudio, setEditorContent, slideCount, test } from './studio
 // showed the room an Exit button, a lens picker, four staging pills, a slide counter
 // and a progress rail, and the second window duplicated the presenter's role rather
 // than serving the audience (2026-08-24-stage-console-split.md §1–2). Architecture C
-// splits them — the overlay stays the CONSOLE, and a chrome-free Stage window carries
-// the deck to the projector.
+// splits them — the overlay stays the CONSOLE, and a Stage window carries the deck to
+// the projector, chrome-free at rest: its transport is a bar that hides itself until a
+// pointer or a key summons it.
 //
 // These cells drive the real thing, because every claim here is about a REAL second
 // window and nothing else can stand in for one (HARD RULE #23): `context.waitForEvent
 // ('page')` catches the popup, and the assertions are made inside it.
 //
-// What makes them oracles rather than formalities is the DIRECTION of the wire. The
-// Stage does not navigate — the console posts `{pv:i}` at it, one way — so "the room
-// followed the presenter" is measured on the Stage's own painted slide, and "the room
-// cannot drive the deck" is measured by pressing the deck keys INSIDE the Stage and
-// requiring the console not to move.
+// What makes them oracles rather than formalities is the SINGLE WRITER. Both surfaces
+// drive — the presenter stands at the machine the Stage is on, and a projected window
+// you cannot operate is not safer, just inert — but only the console owns `idx`. A
+// gesture on the Stage posts an ACTION at the console, and the `{pv:i}` that comes back
+// is what repaints. So "the room followed the presenter" is measured on the Stage's own
+// painted slide, and "a gesture on the Stage moved the deck" is measured on the
+// CONSOLE's counter — the writer, not the surface the gesture was made on.
 
 /** Open Present, then the Stage, and hand back both surfaces. */
 async function openStage(page: import('@playwright/test').Page, context: import('@playwright/test').BrowserContext) {
@@ -185,9 +188,124 @@ test('the progress rail lives on whichever surface the room is watching', async 
 	expect(geom.segW, 'the Stage rail has zero-width segments').toBeGreaterThan(4);
 	expect(geom.ink, 'the Stage rail track paints nothing — the palette tokens never reached the popup').not.toMatch(/rgba\(0, 0, 0, 0\)|transparent|^$/);
 
+	// AND THE TOGGLE GOVERNS IT WHERE IT LIVES. The unit cell that carries this name never
+	// opened a Stage, so it proved only the console-dock half — deleting the Stage portal's
+	// `railOn` gate left the whole 1611-test suite green. This is the half that was open:
+	// the presenter's Rail button has to reach the rail on the surface the ROOM is watching,
+	// which is the only surface where it matters.
+	const railToggle = dialog.getByRole('button', { name: /Progress rail/ });
+	await railToggle.click();
+	await expect.poll(() => stageRail.count(), { message: 'Rail off did not clear the Stage rail' }).toBe(0);
+	await railToggle.click();
+	await expect.poll(() => stageRail.count(), { message: 'Rail on did not restore the Stage rail' }).toBe(1);
+
 	// Closing the Stage hands it back, in the same press.
 	await launcher.click();
 	await expect(consoleRail).toHaveCount(1);
+});
+
+// A PINCH IS NOT A SWIPE, AND A TRACKPAD PINCH IS NOT A WHEEL.
+//
+// `present-transport.mjs` names this exact pair as the #1294 root cause: every slide surface
+// hand-rolled "first touch to last touch is a swipe" and none counted the fingers, and a
+// trackpad pinch arrives as ctrl+wheel that no surface read. The Stage shipped both defects
+// again — measured on this document before the fix, pinch-out AND pinch-in both turned the
+// deck forward, and ctrl+wheel went back a slide. The kernel's own `up()` docblock states the
+// contract the Stage was breaking: reading `swipeBlocked` is what a surface must do BEFORE
+// calling `swipeAction`. Nothing tested the Stage's wheel or touch path at all.
+//
+// The oracle is the CONSOLE's counter, because the console is the single writer: if the deck
+// moved, it moved there.
+test('@parity a pinch on the Stage zooms nothing and turns nothing', async ({ page, context }) => {
+	test.skip(!test.info().project.use.hasTouch, 'this project models a device with no touchscreen');
+	const { stage, dialog, total } = await openStage(page, context);
+	const at = (n: number) => dialog.getByText(`${n} / ${total}`, { exact: true });
+	await stage.keyboard.press('ArrowRight');
+	await expect(at(2)).toBeVisible();
+
+	const box = await stage.locator('#latt-view').boundingBox();
+	if (!box) throw new Error('the Stage view has no box');
+	const cx = box.x + box.width / 2;
+	const cy = box.y + box.height / 2;
+	// Two fingers, spreading — a pinch-out across far more than the 45px swipe threshold.
+	await stage.touchscreen.tap(cx, cy); // prime the touch pipeline
+	await stage.evaluate(
+		({ x, y }) => {
+			const t = (id: number, px: number) => new Touch({ identifier: id, target: document.body, clientX: px, clientY: y });
+			const fire = (type: string, touches: Touch[]) =>
+				document.body.dispatchEvent(new TouchEvent(type, { touches, changedTouches: touches, bubbles: true, cancelable: true }));
+			fire('touchstart', [t(1, x - 20), t(2, x + 20)]);
+			fire('touchmove', [t(1, x - 200), t(2, x + 200)]);
+			// THE FINGERS LIFT ONE AT A TIME, and each touchend REPORTS THE FINGER THAT LIFTED in
+			// `changedTouches` while `touches` keeps the ones still down. Ending the gesture with
+			// an empty `changedTouches` instead is what made the first draft of this arm vacuous:
+			// the hand-rolled reader this cell exists to retire reads `changedTouches[0]`, so it
+			// bailed early and the mutation passed. A pinch that ends the way a real one does
+			// hands it a 180px horizontal flick — which is exactly the bug.
+			const lift = (touches: Touch[], changed: Touch[]) =>
+				document.body.dispatchEvent(new TouchEvent('touchend', { touches, changedTouches: changed, bubbles: true, cancelable: true }));
+			lift([t(2, x + 200)], [t(1, x - 200)]);
+			lift([], [t(2, x + 200)]);
+		},
+		{ x: cx, y: cy },
+	);
+	await page.waitForTimeout(400);
+	await expect(at(2), 'a pinch turned the deck — the finger count was never read').toBeVisible();
+
+	// And the trackpad form of the same gesture.
+	await stage.mouse.move(cx, cy);
+	await stage.keyboard.down('Control');
+	await stage.mouse.wheel(0, -120);
+	await stage.keyboard.up('Control');
+	await page.waitForTimeout(400);
+	await expect(at(2), 'ctrl+wheel (a trackpad pinch) scrubbed the deck').toBeVisible();
+
+	// A REAL one-finger swipe still turns it, which is what makes the guard a fix and not
+	// a mute button.
+	await stage.evaluate(
+		({ x, y }) => {
+			const t = (px: number) => new Touch({ identifier: 9, target: document.body, clientX: px, clientY: y });
+			const fire = (type: string, touches: Touch[]) =>
+				document.body.dispatchEvent(new TouchEvent(type, { touches, changedTouches: touches, bubbles: true, cancelable: true }));
+			// ONE touchend, carrying the END point in `changedTouches` — that is where a real
+			// touchend reports the finger that lifted, and `touches` is empty because none is
+			// left down. (A stray second touchend would clear the start point before the swipe
+			// could be measured, which is a way to write this cell so it can never pass.)
+			fire('touchstart', [t(x + 150)]);
+			document.body.dispatchEvent(
+				new TouchEvent('touchend', { touches: [], changedTouches: [t(x - 150)], bubbles: true, cancelable: true }),
+			);
+		},
+		{ x: cx, y: cy },
+	);
+	await expect(at(3), 'a genuine one-finger swipe stopped turning the deck').toBeVisible();
+});
+
+// THE BAR'S BUTTONS KEEP THEIR OWN KEYS. `PRESENT_KEYMAP` maps Space to `next` and the Stage
+// binds keydown on `window`, so a keyboard user who tabbed to "Previous slide" and pressed
+// Space got the deck moved FORWARD — and Space on the full-screen button advanced the deck
+// instead of filling the screen. The bar's whole justification is that it stays keyboard
+// reachable; reachable and wrong is worse than absent.
+test('the Stage control bar answers to the keyboard it is reachable by', async ({ page, context }) => {
+	const { stage, dialog, total } = await openStage(page, context);
+	const at = (n: number) => dialog.getByText(`${n} / ${total}`, { exact: true });
+	await stage.keyboard.press('ArrowRight');
+	await stage.keyboard.press('ArrowRight');
+	await expect(at(3)).toBeVisible();
+
+	await stage.locator('#latt-prev').focus();
+	await stage.keyboard.press(' ');
+	await expect(at(2), 'Space on the PREVIOUS button moved the deck forward').toBeVisible();
+
+	await stage.locator('#latt-next').focus();
+	await stage.keyboard.press('Enter');
+	await expect(at(3)).toBeVisible();
+
+	// An arrow key still drives the deck while a button holds focus — the fix is scoped to
+	// the two keys a button natively owns, not a blanket stand-down.
+	await stage.locator('#latt-full').focus();
+	await stage.keyboard.press('ArrowLeft');
+	await expect(at(2), 'the arrows stopped working while the bar had focus').toBeVisible();
 });
 
 test('a Stage the presenter closes by hand is reported, not left driving a dead window', async ({ page, context }) => {
@@ -314,15 +432,43 @@ test('the Stage does not follow links — the room cannot navigate the deck away
 	// accidental, so it is simply not a gesture.
 	const { stage, launcher } = await openStage(page, context);
 	const before = stage.url();
+	// THREE SHAPES, because the guard's first selector caught only one of them. Measured
+	// against `sanitizeSlideHtml`, all three survive it; measured in Chromium, `closest
+	// ('a[href]')` is FALSE for the SVG link (an SVG `<a>` carries `xlink:href`, not an
+	// `href` attribute) and false for `<area>` (which is not an `<a>` at all) — and a real
+	// click on the SVG one navigated the window. A cell that tested only the plain anchor
+	// was green the whole time the other two were open.
+	for (const shape of ['plain', 'svg', 'area'] as const) {
+		await stage.evaluate((which) => {
+			for (const n of document.querySelectorAll('.probe-link')) n.remove();
+			const box = document.createElement('div');
+			box.className = 'probe-link';
+			box.style.cssText = 'position:fixed;inset:0;z-index:99999';
+			if (which === 'plain') box.innerHTML = '<a id="hit" href="/">link</a>';
+			else if (which === 'svg')
+				box.innerHTML = '<svg width="200" height="60"><a xlink:href="/"><rect id="hit" width="200" height="60" fill="#888"/></a></svg>';
+			else
+				// A REAL, decodable 200x60 image — not a 1x1 gif stretched by attributes. Measured:
+				// a stretched 1x1 produces no hit region at all, so a click on the map went
+				// nowhere with the guard REMOVED, and testing it that way would have been a third
+				// vacuous pass hiding inside the cell written to end the first two.
+				box.innerHTML =
+					'<img id="hit" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAAA8CAYAAAA5jHreAAAAJUlEQVR4nO3BMQEAAADCoPVPbQ0PoAAAAAAAAAAAAAAAAAAAvgYyAAABlDrDNQAAAABJRU5ErkJggg==" width="200" height="60" usemap="#pm"><map name="pm"><area shape="rect" coords="0,0,200,60" href="/"></map>';
+			document.body.appendChild(box);
+		}, shape);
+		// An `<area>` has no box of its own, so Playwright will not click it — the click has to
+		// land on the IMAGE at the hot spot's coordinates, which is also how a person hits one.
+		const target = stage.locator('#hit');
+		await expect(target).toBeVisible();
+		const hitBox = await target.boundingBox();
+		if (!hitBox) throw new Error(`the ${shape} probe has no box`);
+		await stage.mouse.click(hitBox.x + hitBox.width / 2, hitBox.y + hitBox.height / 2);
+		await page.waitForTimeout(400);
+		expect(stage.url(), `a ${shape} link click navigated the Stage`).toBe(before);
+	}
 	await stage.evaluate(() => {
-		const a = document.createElement('a');
-		a.href = '/';
-		a.textContent = 'link';
-		document.body.appendChild(a);
-		a.click();
+		for (const n of document.querySelectorAll('.probe-link')) n.remove();
 	});
-	await page.waitForTimeout(800);
-	expect(stage.url(), 'a link click navigated the Stage').toBe(before);
 	await expect(launcher).toHaveAttribute('aria-pressed', 'true');
 });
 

@@ -95,9 +95,55 @@ describe('stage-window — buildStageDoc({ standalone })', () => {
 		// takes, kept viable by `test/unit/export/inlinable-kernels.test.js`.
 		const doc = solo();
 		expect(doc).toContain('requestFullscreen');
-		for (const k of ['keyAction', 'swipeAction', 'createWheelGate', 'PRESENT_KEYMAP']) {
+		for (const k of ['keyAction', 'swipeAction', 'createWheelGate', 'createZoomGesture', 'PRESENT_KEYMAP']) {
 			expect(doc, `${k} must be inlined, not reimplemented`).toContain(k);
 		}
+		// NAME PRESENCE IS NOT THE TEST — that is what made the first draft of this cell
+		// vacuous. `toContain('keyAction')` is satisfied by `var keyAction=function(k,m){return
+		// m[k]}` — a twin with the exact defect the real kernel's `Object.hasOwn` exists to
+		// prevent — and by a `swipeAction` with no threshold at all. Both were dropped in and
+		// this cell stayed green. So RUN the emitted kernel and assert its BEHAVIOR, which is
+		// the idiom `test/unit/export/inlinable-kernels.test.js` already uses.
+		const block = doc.slice(doc.indexOf('var fitScale='), doc.indexOf('};\nvar PRESENT_KEYMAP') + 2);
+		const map = JSON.parse(doc.slice(doc.indexOf('var PRESENT_KEYMAP=') + 'var PRESENT_KEYMAP='.length).slice(0, doc.slice(doc.indexOf('var PRESENT_KEYMAP=') + 'var PRESENT_KEYMAP='.length).indexOf('};') + 1));
+		const k = new Function(`${block}; return { keyAction, swipeAction, createWheelGate, createZoomGesture };`)() as {
+			keyAction: (key: string, map: Record<string, string>) => string | undefined;
+			swipeAction: (o: { dx: number; dy: number }) => string | null;
+			createWheelGate: () => (dx: number, dy: number, now: number) => string | null;
+			createZoomGesture: (o: { min: number; max: number }) => {
+				down: (p: { x: number; y: number }[]) => void;
+				move: (p: { x: number; y: number }[], v: { w: number; h: number }) => string | null;
+				up: (rest: number) => { swipeBlocked: boolean };
+			};
+		};
+		// The real `keyAction` is own-property only; a raw `m[k]` twin returns a function here.
+		expect(k.keyAction('ArrowRight', map)).toBe('next');
+		expect(k.keyAction('toString', map)).toBeUndefined();
+		// The real `swipeAction` has a threshold and an axis ratio; a twin that reads the sign
+		// of `dx` turns the deck on every stray tap and on every vertical scroll.
+		expect(k.swipeAction({ dx: -80, dy: 0 })).toBe('next');
+		expect(k.swipeAction({ dx: -6, dy: 0 })).toBeNull();
+		expect(k.swipeAction({ dx: 0, dy: -80 })).toBeNull();
+		// The real wheel gate has a threshold AND a cooldown, so a scroll inertia tail cannot
+		// run the deck to the end.
+		const gate = k.createWheelGate();
+		expect(gate(0, 60, 1000)).toBe('next');
+		expect(gate(0, 60, 1010)).toBeNull();
+		// And the finger counter refuses a swipe that was ever a pinch.
+		const z = k.createZoomGesture({ min: 1, max: 1 });
+		z.down([{ x: 0, y: 0 }]);
+		z.down([
+			{ x: 0, y: 0 },
+			{ x: 90, y: 0 },
+		]);
+		z.move(
+			[
+				{ x: 0, y: 0 },
+				{ x: 200, y: 0 },
+			],
+			{ w: 1280, h: 720 },
+		);
+		expect(z.up(1).swipeBlocked, 'a pinch must never be measured as a swipe').toBe(true);
 		// The keymap is inlined BESIDE keyAction and passed explicitly, because keyAction
 		// defaults that argument to a module-scope constant that does not survive inlining.
 		expect(doc).toContain('keyAction(e.key,PRESENT_KEYMAP)');
@@ -179,10 +225,17 @@ function navigateCrossOrigin(win: ReturnType<typeof fakeWindow>) {
 }
 // Deliver a message to the controller's window listener with a forgeable `source`
 // (jsdom's MessageEvent coerces `source` to null, so build a plain event).
-function postFromStage(data: unknown, source: unknown) {
+/**
+ * A `message` the controller will see. `origin` defaults to OURS, because that is what a
+ * real Stage posts with: the document is written into `about:blank`, which INHERITS the
+ * opener's origin (measured in Chromium). Pass a foreign one to play the page that
+ * navigated our Stage away.
+ */
+function postFromStage(data: unknown, source: unknown, origin: string = location.origin) {
 	const ev = new Event('message');
 	Object.defineProperty(ev, 'data', { value: data, configurable: true });
 	Object.defineProperty(ev, 'source', { value: source, configurable: true });
+	Object.defineProperty(ev, 'origin', { value: origin, configurable: true });
 	window.dispatchEvent(ev);
 }
 /** What was written into the window, newest last. */
@@ -330,6 +383,43 @@ describe('stage-window — createStageController', () => {
 		expect(onLost).toHaveBeenCalledTimes(1);
 		expect(onChange).toHaveBeenLastCalledWith(null);
 		expect(ctl.isOpen()).toBe(false);
+	});
+
+	it('refuses a nav from a page that TOOK OVER the Stage — `e.source` cannot see it', () => {
+		// THE GUARD THE `nav` BRANCH IS NAMED FOR, and it was unpinned: deleting `if (!ours)`
+		// left the whole suite green, so the token-only path was one edit from driving the
+		// presenter's deck.
+		//
+		// The subtle half is WHY `ours` alone is not the answer. A WindowProxy identifies a
+		// BROWSING CONTEXT, not a document, so it survives navigation — measured in Chromium:
+		// after a deck link carried our Stage to a foreign origin, that page posted back with
+		// `e.source === stageWin` STILL TRUE. `ours` was granted to the attacker. What does
+		// change is the ORIGIN, and a real Stage inherits ours (it is written into
+		// `about:blank`), so the origin check costs the real one nothing.
+		const win = fakeWindow();
+		vi.spyOn(window, 'open').mockReturnValue(win as unknown as Window);
+		const onNav = vi.fn();
+		const ctl = createStageController({ getDoc: () => '<stage/>', getIndex: () => 0, onChange: vi.fn(), onLost: vi.fn(), onPlaced: vi.fn(), onNav });
+		ctl.toggle();
+		postFromStage({ stage: 'ready' }, win);
+		// Our own Stage drives, which is the behavior all of this has to leave intact.
+		postFromStage({ stage: 'nav', act: 'next', tok: ctl.token }, win);
+		expect(onNav).toHaveBeenCalledWith('next');
+		onNav.mockClear();
+
+		// A page that took the window over: SAME source (the proxy survived), foreign origin.
+		postFromStage({ stage: 'nav', act: 'next', tok: ctl.token }, win, 'https://evil.example');
+		expect(onNav, 'a navigated-away Stage must not drive the deck').not.toHaveBeenCalled();
+
+		// And a stranger holding a handle to this tab, guessing the token, from anywhere.
+		postFromStage({ stage: 'nav', act: 'next', tok: ctl.token }, {});
+		expect(onNav, 'only the handle we hold may drive the deck').not.toHaveBeenCalled();
+
+		// Even same-origin, once the window stopped being our document, a nav is refused —
+		// `ours` is true again here, so `alive()` is the half that has to hold.
+		navigateSameOrigin(win);
+		postFromStage({ stage: 'nav', act: 'next', tok: ctl.token }, win);
+		expect(onNav).not.toHaveBeenCalled();
 	});
 
 	it('a cross-origin Stage is gone, and asking about it never throws', () => {
