@@ -1,4 +1,4 @@
-import { expect, gotoStudio, slideCount, test } from './studio-fixture';
+import { expect, gotoStudio, setEditorContent, slideCount, test } from './studio-fixture';
 
 // ── THE STAGE — the window the ROOM looks at ─────────────────────────────────
 //
@@ -259,4 +259,66 @@ test('the Stage does not follow links — the room cannot navigate the deck away
 	await page.waitForTimeout(800);
 	expect(stage.url(), 'a link click navigated the Stage').toBe(before);
 	await expect(launcher).toHaveAttribute('aria-pressed', 'true');
+});
+
+// THE NOTE, ON THE SURFACE THE ROOM IS LOOKING AT.
+//
+// A speaker note is never narrated (2026-08-24). That was fixed in the kernel and pinned
+// on the exported `.vtt` — but neither is the surface a presenter actually stands in front
+// of, and HARD RULE #23 is explicit that a claim names its surface and carries an artifact
+// from THAT one. The independent checker marked exactly this gap: whether the note is
+// PAINTED in the live caption crawl before the async projection lands was reasoned from
+// source, not measured, because nobody drove the real Studio.
+//
+// This drives it. A multi-line note on a chart-family slide is the shape that leaked — the
+// Studio's own note editor writes multi-line notes, and a chart narrator hands its
+// un-consumed lines to the flattener at projection precedence. The Stage is the harshest
+// place for it to be wrong: it is the copy projected to the room, so a leak here is the
+// private remark on the wall behind the presenter.
+test('a multi-line speaker note is never painted in the Stage caption crawl', async ({ page, context }) => {
+	test.setTimeout(120_000);
+	const SECRET = 'PRIVATEROOMLEAK';
+	await gotoStudio(page);
+	await setEditorContent(
+		page,
+		[
+			'---', 'theme: indaco', '---', '',
+			'# Cover', '', 'Opening body text for the cover slide.', '',
+			'---', '<!-- _class: funnel -->', '# Signup funnel', '',
+			// MULTI-LINE, and in the `note:` form the Studio's editor writes.
+			'<!-- note:', `${SECRET} churn is forty percent and legal has not cleared it`, '-->', '',
+			'- Visitors `1000`', '- Signups `500`', '- Paid `100`', '',
+		].join('\n'),
+	);
+
+	await page.getByRole('button', { name: 'Present', exact: true }).click();
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	await expect(dialog).toBeVisible();
+	const launcher = dialog.getByRole('button', { name: 'Stage' });
+	test.skip((await launcher.count()) === 0, 'the Stage is not offered below the md breakpoint');
+	const popupPromise = context.waitForEvent('page');
+	await launcher.click();
+	const stage = await popupPromise;
+	await expect(stage.locator('#latt-film .lattice')).not.toBeEmpty();
+
+	// Play, and walk onto the noted slide — the crawl only speaks the slide it is on.
+	await dialog.getByRole('button', { name: 'Play the presentation' }).click();
+	const crawl = stage.locator('#latt-cc .latt-cc-line');
+	await expect.poll(() => crawl.count(), { timeout: 60_000 }).toBeGreaterThan(0);
+	await page.keyboard.press('ArrowRight');
+
+	// THE POSITIVE CONTROL FIRST. Without it "the secret never appeared" also passes on a
+	// crawl that never rendered anything, which is how the ladder cells certified a live
+	// leak. The funnel's computed facts are what this slide should be saying.
+	await expect
+		.poll(async () => (await crawl.allTextContents()).join(' '), { timeout: 60_000 })
+		.toMatch(/one thousand|Visitors/i);
+
+	// …and across the whole run the note is nowhere in the room's copy.
+	const seen = (await crawl.allTextContents()).join(' ');
+	expect(seen, 'a speaker note reached the audience caption crawl').not.toContain(SECRET);
+	expect(seen, 'and neither did any word of its body').not.toMatch(/cleared it/i);
+	// Belt and braces: the whole Stage document, not just the crawl nodes.
+	const body = await stage.evaluate(() => document.body.innerText);
+	expect(body, 'the note is not anywhere on the audience surface').not.toContain(SECRET);
 });
