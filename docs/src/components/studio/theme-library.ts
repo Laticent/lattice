@@ -78,7 +78,7 @@ function toStudioTheme(a: ThemeAssetRecord): StudioTheme {
  * becomes. Omit it and the name-keyed behavior above is unchanged, which is what
  * every save-a-new-theme caller wants.
  */
-export async function saveStudioTheme(input: { id?: string; name: string; label: string; essentials: Record<string, string>; css: string; overrides?: Record<string, unknown>; rampStrategy?: string }): Promise<StudioTheme> {
+export async function saveStudioTheme(input: { id?: string; name: string; label: string; essentials: Record<string, string>; css: string; overrides?: Record<string, unknown>; rampStrategy?: string }, opts?: { historyLabel?: string }): Promise<StudioTheme> {
 	// The invariant the feature rests on: the stored record name MUST equal the
 	// name the CSS was serialized under (its `@theme <name>`), or the engine
 	// registers the theme under the CSS name while the deck renders by record name
@@ -87,7 +87,7 @@ export async function saveStudioTheme(input: { id?: string; name: string; label:
 	// label slug, then a stamped form) when it isn't.
 	const name = /^[a-z][a-z0-9-]*$/.test(input.name) ? input.name : slugify(input.label) || `theme-${slugify(input.name) || 'studio'}`;
 	const asset = (await loadThemeCore()).themeAsset({ name, label: input.label, essentials: input.essentials, css: input.css, overrides: input.overrides, rampStrategy: input.rampStrategy });
-	const stored = (await putAsset(input.id ? { ...asset, id: input.id } : asset)) as ThemeAssetRecord;
+	const stored = (await putAsset(input.id ? { ...asset, id: input.id } : asset, opts)) as ThemeAssetRecord;
 	return toStudioTheme(stored);
 }
 

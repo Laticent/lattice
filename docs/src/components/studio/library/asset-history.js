@@ -17,8 +17,22 @@
 //
 // WHAT IT IS NOT. This is not the shareable asset contract. A `.zip` built by
 // `asset-bundle.ts` carries the CURRENT asset and nothing else — nobody wants to
-// receive a stranger's edit history. History is private workspace state, and the
-// workspace backup carries it separately from `library.zip` for that reason.
+// receive a stranger's edit history. History is private workspace state.
+//
+// AND IT IS NOT IN THE WORKSPACE BACKUP. This docblock used to claim the backup
+// "carries it separately from `library.zip`", and that was never true —
+// `workspace-backup.ts` has never referenced this module. `listAllAssetVersions`
+// and `putAssetVersions` below exist FOR that round trip and are tested for it;
+// what is missing is not the plumbing but a way to land it correctly, and that is
+// worth stating so the next attempt does not start by adding two lines and calling
+// it done: a version is keyed on `assetId`, the bundle format carries no asset ids
+// (`ThemeItem` is `{kind, name, label, essentials, css}`), and restore upserts by
+// NAME — so versions restored as-is would point at ids the receiving browser never
+// minted, and `pruneOrphanVersions` would correctly delete every one of them. Doing
+// it properly means the backup carries a name→id map and restore rewrites `assetId`
+// against the ids it actually resolved, which is a change to the workspace FORMAT.
+// Logged in engineering/decisions/2026-08-25-hand-editing-generated-assets.md
+// (precondition 3), not smuggled in here.
 //
 // The SHAPE is lifted deliberately from the deck checkpoints it does not share a
 // store with (load / save-with-dedupe-and-cap / restore-that-checkpoints-first),
@@ -26,7 +40,10 @@
 // thing to learn. `ts` is a parameter rather than a `Date.now()` call for the same
 // reason it is there: it keeps the store testable without faking the clock.
 
-import { HISTORY_STORE, openDB, reqAsPromise } from './asset-store.js';
+// From `asset-db.js`, not `asset-store.js`: the store now calls INTO this module
+// (every overwrite is snapshotted there), so importing back from it would be a cycle.
+// The connection module exists to break exactly that — see its header.
+import { HISTORY_STORE, openDB, reqAsPromise } from './asset-db.js';
 
 /** Versions kept per asset. Beyond this the oldest is dropped. */
 export const VERSION_CAP = 20;

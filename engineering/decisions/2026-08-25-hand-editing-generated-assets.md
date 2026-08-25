@@ -391,6 +391,7 @@ That may be a worse experience than the picker for someone who by construction
 cannot express anything new. The read-only CSS view is cheap and honest and
 should ship; the Fields ⇄ JSON view should wait for a user who wants it.
 
+
 ## Templates
 
 Every code surface opens on a **template**, never an empty box:
@@ -553,6 +554,70 @@ overwrite safe to offer at all" — and it has **zero production callers**. This
 ships the in-place overwrite without it. That is logged rather than fixed here (it is
 #1839's own scope and a separate surface), and it is the reason all three fixes above
 are about *not reaching* the overwrite rather than about undoing it.
+
+## Fourth correction, on wiring the safety net (2026-08-25, #1839)
+
+The net is wired. Three things the note did not anticipate came out of doing it, and
+each changed the shape of the answer.
+
+**The wiring belongs in the STORE, not in the faculties — because of a path this note
+files under "what this does not do".** The obvious home was the four `save*` wrappers.
+It cannot work there: a caller that passes no `id` does not know which record it is
+about to replace, because the `(kind, name)` dedupe *inside* `putAsset` is what
+resolves it. That is not an edge case — it is the `.zip` import and the workspace
+restore, and it means importing a bundle whose theme shares a name with one of yours
+silently replaced your CSS with no version and no warning. So `putAsset` snapshots and
+`deleteAsset` drops, and the eight writers and five deleters are covered by
+construction rather than by nine call sites each remembering. Two of those deleters
+never touch `Library.tsx` at all (the Inspector's trash), and one is `governance.ts`
+`clearLibraryAssets`, a sweep over every asset of every kind.
+
+**That required breaking an import cycle**, which is why `library/asset-db.js` now
+exists: the store calls into history, and history needed `openDB`/`reqAsPromise` from
+the store. The connection and the one-database upgrade handler moved down into a
+module both import, which also makes "neither consumer opens its own database" a
+structural fact rather than a comment.
+
+**A snapshot failure fails the save, deliberately.** If the version cannot be taken we
+have not earned the right to overwrite — the claim the kernel's docblock makes — and
+the author's edit is still in the editor where the rejection surfaces as a toast. The
+cost is named rather than hidden: a browser at its storage quota refuses saves instead
+of quietly degrading to unversioned ones.
+
+### What the real surface showed that no unit test could
+
+The affordance went in the card's METADATA line, because the action row already
+carries four controls at 390px. Rendered there it was **visible, reported visible by
+Playwright, and unclickable**: that line was a single `truncate` span, so on a narrow
+card the button overflowed a clipped parent that took the pointer events. Every unit
+test passed. It is now a flex row — the facts truncate, the control is `shrink-0` —
+and the priority that implies is the right one: a name you can half-read still tells
+you which card you are on, a button you cannot press tells you nothing. Exactly the
+class of defect HARD RULE #23 exists for, and it was only ever going to surface by
+driving the real Studio.
+
+The consequence at the docked Library column (~200px) is worth stating: the facts
+truncate hard, so a card with history reads `shot… · 3 versions`. Reachability was
+chosen over completeness there on purpose.
+
+**Naming.** The list is "Earlier versions", not "Version history", because the Studio
+already has a Version history — the DECK checkpoint sheet. Two unrelated surfaces
+under one name is a product smell before it is a test problem, and it is both:
+Playwright's `getByRole` name option is a substring match unless `exact: true`, so an
+asset control named "Version history for X" would have quietly made every existing
+spec's bare `'Version history'` ambiguous.
+
+### Precondition 3 is still open, and is bigger than it looks
+
+`asset-history.js` claimed the workspace backup "carries it separately from
+`library.zip`". It never did, and the docblock is corrected rather than made true here.
+Making it true is not the two lines it appears to be: a version is keyed on `assetId`,
+the bundle format carries no asset ids (precondition 2), and restore upserts by NAME —
+so versions restored as-is would point at ids the receiving browser never minted, and
+`pruneOrphanVersions` would correctly delete every one of them. Doing it properly means
+the backup carries a name→id map and restore rewrites `assetId` against the ids it
+actually resolved, which is a change to the workspace FORMAT and belongs in its own
+change with its own review.
 
 Two smaller things the same pass found, both now fixed and both worth the sentence
 because each was a claim rather than a bug: `themeTokenMap` ignored `!important` and
