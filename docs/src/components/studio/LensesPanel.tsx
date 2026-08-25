@@ -1,8 +1,10 @@
 import { Check, ChevronDown, EyeOff, Plus, ShieldCheck, Sparkles, X } from 'lucide-react';
 import * as React from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
 	approvalHash,
 	type ComponentCatalog,
+	FULL_LENS_ID,
 	isPristineInherited,
 	type LensBase,
 	type LensDef,
@@ -185,12 +187,74 @@ export function LensesPanel({
 	const takenIds = new Set(registry.lenses.map((l) => l.id));
 	const available = ARCHETYPES.filter((a) => !takenIds.has(a.id));
 
+	// The LANDING view — front matter's `lens-default:`. Deck-level (exactly one winner), so it is ONE
+	// select above the list rather than a "make default" toggle repeated down every row.
+	//
+	// An author may land on a view that is not reader-eligible YET — the intent is durable and they are
+	// usually about to approve it — so the select does not filter to approved views. It says so instead:
+	// the landing lever fails SOFT (readers get Full), and hiding the option would leave the author
+	// guessing why their choice didn't stick. See 2026-08-25-lens-view-defaults-and-depth.md §3.
+	const fullLabel = registry.lenses.find((l) => l.id === FULL_LENS_ID)?.label || 'Full deck';
+	const landingId = registry.default || FULL_LENS_ID;
+	const landing = registry.lenses.find((l) => l.id === landingId);
+	// One sentence per state, each true of THAT state — a landing view can miss for four different
+	// reasons and "not approved yet" is only one of them. An author told the wrong reason goes looking
+	// in the wrong place.
+	//
+	// There is deliberately NO branch for "the default names a view that doesn't exist": a dangling
+	// `lens-default:` (left by a rename) is normalized to `full` by the library at parse
+	// (lente/registry.ts — `lenses.some(...) ? wantDefault : FULL_LENS_ID`), so `registry.default`
+	// handed to this panel is always a real id. A defensive branch here would be copy no one can
+	// reach. Present's own stale-id guard is a different thing — it protects the SELECTED lens, which
+	// is not parser-normalized.
+	const landingNote = ((): string => {
+		if (landingId === FULL_LENS_ID || !landing) return 'Present opens on the whole deck. Readers can still switch to any approved view.';
+		const { status } = lensStatus(slides, registry, landing);
+		if (status === 'approved') return `Present opens on ${landing.label}. Readers can still switch to any other approved view.`;
+		if (status === 'hidden') return `${landing.label} is staged, so readers are never offered it — they land on ${fullLabel}.`;
+		if (status === 'empty') return `${landing.label} has no slides yet, so readers land on ${fullLabel} until you tag some.`;
+		if (status === 'drifted') return `${landing.label} changed since you approved it, so readers land on ${fullLabel} until you re-approve.`;
+		return `${landing.label} isn’t approved yet, so readers land on ${fullLabel} until you approve it.`;
+	})();
+	function setLanding(id: string) {
+		if (id === landingId) return;
+		const label = id === FULL_LENS_ID ? 'Full deck' : (registry.lenses.find((l) => l.id === id)?.label ?? id);
+		onWriteRegistry(`Readers land on → ${label}`, { ...registry, default: id });
+	}
+
 	return (
 		<div>
 			{/* The "what a reader view IS" half of this lede moved to the panel header in
 			    #1211, where every panel now states its purpose. Keeping both put the same
 			    sentence on screen twice, 40px apart. What is left is the part the header
 			    has no room for and that a user cannot infer: who decides. */}
+
+			{/* Readers land on — the deck's `lens-default:`. Only shown once the deck HAS a reader view;
+			    with none defined there is nothing to land on but the full deck, and the row would be a
+			    control with one option. */}
+			{lenses.length > 0 && (
+				<div className="mt-2.5 rounded-lg border border-border bg-background px-2.5 py-2">
+					{/* WRAPS rather than clips. This panel docks into the ~200px Architect column (ARCH_MIN),
+					    where the label and a fixed-width select do not fit on one line — the same squeeze
+					    that made every LensRow header two lines. `flex-wrap` + `max-w-full` lets the select
+					    drop to its own line there and stay inline in the wider sheet. */}
+					<div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+						<span className="shrink-0 text-[11.5px] font-semibold text-[var(--text-heading)]">Readers land on</span>
+						<Select value={landingId} onValueChange={setLanding}>
+							<SelectTrigger size="sm" aria-label="The view readers land on" className="ml-auto w-[9.5rem] max-w-full">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value={FULL_LENS_ID}>{fullLabel}</SelectItem>
+								{lenses.map((l) => (
+									<SelectItem key={l.id} value={l.id}>{l.label}</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
+					<p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">{landingNote}</p>
+				</div>
+			)}
 
 			{lenses.length > 0 && (
 				<ul className="mt-2.5 list-none space-y-2 pl-0">

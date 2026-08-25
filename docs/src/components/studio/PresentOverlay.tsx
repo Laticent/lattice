@@ -7,7 +7,7 @@ import { buildPlanFromMetas, metasFromSource } from '@/components/studio/present
 import { Tip } from '@/components/ui/tooltip';
 import { type PaceName, slideBeatMs } from '@/lib/cadenza';
 import { cornerRadiusCss } from '@/lib/deck-corner';
-import { type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
+import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
 import { frontMatterPace, resolvePaceName } from '@/lib/resolve-pace';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
@@ -88,8 +88,27 @@ type RehearsalPlan = { totalTarget: number; suggestMinutes: number; slides: Rehe
 export function PresentOverlay({ open, onClose, onReady, options, slides, frontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, notify }: { open: boolean; onClose: () => void; /** Fires once, on this component's actual first mount — StudioShell uses it to know when it's safe to keep this mounted across future close/reopen (see StudioShell.tsx's `presentEverOpened`). */ onReady?: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; notify: (msg: string) => void }) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: fire-once-on-mount by design; onReady is a stable callback.
 	React.useEffect(() => { onReady?.(); }, []);
-	const [lens, setLens] = React.useState<PresentLens>('full');
-	const [idx, setIdx] = React.useState(() => Math.max(0, Math.min(startIndex, slides.length - 1)));
+	// The LANDING view — the deck's `lens-default:` (Lente's `registry.default`), which is where a
+	// reader STARTS, not what they may see. The two are different levers with opposite failure
+	// behavior, and conflating them is why this field sat parsed-but-unread since Lente landed
+	// (2026-08-25-lens-view-defaults-and-depth.md §3):
+	//   • LANDING (this) fails SOFT — an unapproved / drifted / empty / hidden target lands on Full.
+	//     Safe by construction: the picker offers Full anyway, so falling back reveals nothing that
+	//     wasn't already one click away.
+	//   • A PIN (not this; the share-channel slice) fails CLOSED, because a pinned view can be a
+	//     redaction and falling back to Full would leak exactly the slides the author scoped out.
+	// Resolving ELIGIBILITY HERE — before the id is ever selected — is what lets the landing lever
+	// fail soft without weakening the fail-closed projection below: an ineligible id is never set as
+	// the active lens, so the projection never has to fall open to honor a default.
+	const landingLens = React.useMemo<PresentLens>(() => {
+		if (!registry?.default || registry.default === FULL_LENS_ID) return 'full';
+		return lensEligibility(slides, registry, registry.default).status === 'ok' ? registry.default : 'full';
+	}, [registry, slides]);
+	// Both the initial mount AND every later open transition resolve the landing view — Present is
+	// rendered with `open` already true in some hosts (and in tests), so a transition-only hook would
+	// never fire and the deck default would be silently ignored on first open.
+	const [lens, setLens] = React.useState<PresentLens>(() => landingLens);
+	const [idx, setIdx] = React.useState(() => (landingLens === 'full' ? Math.max(0, Math.min(startIndex, slides.length - 1)) : 0));
 	// Start Present on the slide you were editing (full lens), set SYNCHRONOUSLY on the
 	// open transition — DURING RENDER, not in an effect — so the first present slide IS
 	// the cursor slide. `idx` state persists across open/close (this component stays
@@ -97,12 +116,17 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// RE-open; adjusting state during render re-renders before paint, killing the
 	// persisted-idx / slide-0 flash — Present's own preview mounts already showing the
 	// cursor slide, not slide 0.
+	//
+	// Under a LANDING view the start slide is the top of THAT VIEW (idx 0), not the cursor: the
+	// slide being edited often isn't a member at all, and `idx` indexes the PROJECTED set, so a
+	// full-deck cursor position would point at an unrelated slide. Present opened on a landing view
+	// is the reader's experience; the author's own position lives in the editor preview.
 	const prevOpenRef = React.useRef(open);
 	if (open !== prevOpenRef.current) {
 		prevOpenRef.current = open;
 		if (open) {
-			setLens('full');
-			setIdx(Math.max(0, Math.min(startIndex, slides.length - 1)));
+			setLens(landingLens);
+			setIdx(landingLens === 'full' ? Math.max(0, Math.min(startIndex, slides.length - 1)) : 0);
 		}
 	}
 	// Read-aloud diagnostics overlay — a first-class, draggable on-brand readout
