@@ -1,100 +1,93 @@
 ---
 status: in-progress
 summary: >
-  Fifteen of the seventeen registry transformers carry two implementations of one restructure —
-  `applyToHtml` (string, engine/export) and `applyToDom` (nodes, runtime/preview) — agreeing by
-  care rather than construction. Before deleting the string twins, `tools/transform-parity.mjs`
-  ran both over all 76 gallery decks: 2 byte-identical, 68 equivalent re-serializations, 6
-  genuinely different. Those six reduce to FOUR causes, and every one of them resolves the same
-  way — the DOM implementation is the correct one and the string twin is the stale one. So the
-  migration is not a regression risk to be managed; it is four live defects to be fixed. The
-  sharpest: math slides currently emit `<br></br>` on the export path, and a browser parses a
-  `</br>` end tag as ANOTHER `<br>` — verified in Chromium, 2 elements and 72px against 1 and
-  48px, so every math slide in every exported PDF carries a spurious extra line break. Also live:
-  `below-note` wraps a chart caption in the preview and not in the export; the `video` component
-  builds `video-lead` + `<figure>` in the preview and `cell-masthead` in the export — two
-  different layouts for the same slide.
+  RETRACTION AND CORRECTION. The first version of this note claimed the parity harness had found
+  six live defects — an extra line break in every exported math slide, a missing below-note wrap,
+  and the `video` component rendering two different layouts — and concluded that "the string twin
+  is stale and the DOM implementation is correct." That conclusion was wrong, and it was wrong
+  because the harness was measuring the wrong thing, twice over. FIRST, `lib/engine`'s `render()`
+  already runs `applyAllToHtml` itself (index.js:381), so feeding `render().html` to both paths
+  handed them ALREADY-TRANSFORMED input: the string path's idempotence guards fired and it
+  no-opped, so the comparison was an idempotence test wearing a parity test's clothes. SECOND,
+  and still true after that was fixed, the runtime does prerequisite work BEFORE it calls
+  `applyAllToDom` — `deckFrontMatterSource()`, `applyFormDefaultToDom` (which stamps the `form`
+  class that masthead-lift keys on), `transformSlotLabels()` — and the harness calls
+  `applyAllToDom` bare, so transforms run against sections that were never prepared. The
+  divergences it reports are largely artifacts of that missing setup. What survives: the
+  dom-provider itself, and the SVG finding that killed linkedom, both independent of the harness.
+  The parity question is OPEN.
 ---
 
-# The transform twins disagree in four places, and the string side is wrong in all four
+# Retracted: the transform-twin divergence findings were a harness artifact
 
-**Date:** 2026-08-26 · **Status:** findings recorded; the migration itself is not done
-**Method:** `npm run parity:transforms` — both implementations over every `*.gallery.md` and
-`*.exemplar.md`, each difference classified identical / equivalent-re-serialization / different,
-with the safe re-serializations enumerated rather than inferred.
+**Date:** 2026-08-26 · **Status:** the findings are withdrawn; the tool needs work before its
+numbers mean anything
 
-## The corpus result
+The first version of this note is preserved only as the thing being corrected. It asserted, with
+apparent evidence, that the two implementations of each registry transformer disagree in four
+live ways and that the string side was wrong in all four. Neither the count nor the conclusion
+holds.
 
-| | decks |
-|---|---|
-| byte-identical | 2 |
-| equivalent (attribute form, entity form, self-closing form, whitespace) | 68 |
-| **genuinely different** | **6** |
+## Two mistakes, in order
 
-Six decks, four causes.
+### 1. The harness fed both paths already-transformed HTML
 
-## The four
+`lib/engine/index.js:381` calls `applyAllToHtml` inside `render()`. The harness took
+`engine.render(deck).html` as its input and ran both implementations on it — so both were handed
+a document the transformers had already processed. The string path's idempotence guards did their
+job and it no-opped; the DOM path did something slightly different to the same input. Every
+"divergence" was a statement about idempotence, not about parity.
 
-### 1. `<br></br>` — an extra line break in every exported math slide
+The tell was there and got walked past: the committed `video.gallery.light.pdf` — rendered by the
+string path — shows the CORRECT video layout, which directly contradicted the claim that the
+string path builds a masthead there. Checking the artifact against the claim is what caught this,
+and it should have come first rather than last.
 
-The string path emits `<br></br>`. There is no such thing as a `<br>` end tag: an HTML parser
-treats `</br>` as a second `<br>`. Verified in Chromium rather than argued from the spec —
-`a<br></br>b` yields **2 `<br>` elements and 72px**; `a<br>b` yields **1 and 48px**.
+Fixed by stubbing `registry.applyAllToHtml` to identity BEFORE requiring `lib/engine`, so the
+engine emits pre-transform HTML. The tool now also aborts if the engine's output still carries a
+transformer's marker class, so this specific mistake cannot recur silently.
 
-The DOM path emits the correct single `<br>`. So this is not a migration risk; it is a live
-rendering defect on the export path that the migration removes.
+With that fixed, `video` compares **equivalent**. There was never a defect there.
 
-*Deck:* `math.gallery.md`.
+### 2. The harness runs `applyAllToDom` out of context
 
-### 2. `below-note` wraps a chart caption in the preview but not the export
+This one survives the first fix and invalidates the numbers again. `lib/runtime/index.js` does
+real work before it reaches the registry:
 
-The DOM implementation wraps the trailing `.chart-caption` in `<div class="below-note">`; the
-string implementation leaves it bare. The wrap is the feature — it is what gives the note its
-own styling — so the export is currently missing it.
+```
+deckFrontMatterSource();        // deck-wide front matter, memoized
+applyFormDefaultToDom(...)      // stamps `data-lattice-slide` + the `form` class
+transformSlotLabels();
+sharedTransformerRegistry.applyAllToDom(document);   // ← only now
+```
 
-*Decks:* `chart.gallery.md`, `matrix-grid.gallery.md`.
+The runtime's own comment is explicit: *"Must precede applyAllToDom (masthead-lift keys on
+`section.form`)."* The harness calls `applyAllToDom` bare, so masthead-lift sees sections with no
+`form` class and takes a different branch. That is exactly the shape of the largest remaining
+divergence — the eyebrow `<p><code>` landing inside `masthead-lede` on one path and outside
+`cell-masthead` on the other — and it is the harness's fault, not the code's.
 
-### 3. `video` builds two different layouts
+So the current reading of 60 differing decks is not a finding. It is an unprepared DOM.
 
-- string: `<div class="cell-masthead"><div class="masthead-lede">…` — mastheadLift won.
-- DOM: `<div class="video-lead">…</div><figure…` — the video component's own layout won.
+## What actually stands
 
-Same slide, two structures, depending on which path rendered it. This one needs a decision about
-which is intended rather than a straight "the DOM is right", because it looks like a
-transformer-ORDERING disagreement (whether `video` runs before or effectively instead of
-`masthead-lift`) rather than one implementation being a stale copy of the other.
+- **`lib/core/dom-provider`** — parse and serialize with the environment's own parser. Independent
+  of all of the above, and tested.
+- **linkedom is disqualified.** It lowercases SVG element names (`<radialGradient>` →
+  `<radialgradient>`, `<foreignObject>` → `<foreignobject>`); 0 of 5 preserved against jsdom's 5/5
+  and Chromium's 5/5. That measurement never touched the harness and stands on its own. It remains
+  the most valuable thing this work produced, because it was a silent-corruption trap hiding
+  behind a real 17× speed win.
+- **The Studio budget** (`docs/scripts/frame-baseline.json`) — also independent, also stands.
 
-*Decks:* `imagery.gallery.md`, `video.gallery.md`.
+## What the harness needs before it is trusted again
 
-### 4. Unclosed `<ins>` / `<del>` in prose, repaired by the parser
+Replicate the runtime's pre-steps — front matter, `applyFormDefaultToDom`, `transformSlotLabels`
+— so `applyAllToDom` runs against the DOM the runtime actually hands it. Until then
+`parity:transforms` should be read as "these two code paths were run in different conditions",
+which is not a parity test.
 
-`redline.gallery.md` describes its own component in prose containing a literal `<ins>/<del>`.
-The string path passes the malformed markup through; the DOM path closes the tags, which is
-exactly what a browser does with that input anyway. Benign — the rendered result is the same —
-and the DOM output is the honest representation of it.
-
-*Deck:* `redline.gallery.md`.
-
-## What this changes about the plan
-
-The migration was framed as "prove nothing breaks, then delete the string twins". The evidence
-says something stronger and more useful: **the string twins are where the bugs are.** Three of
-the four causes are the export path being wrong, and deleting the twin is the fix.
-
-That reorders the work. Rather than a careful risk-managed sweep, the sequence is:
-
-1. Settle cause 3 (`video`) — the only one needing a judgment call about intent.
-2. Route `applyToHtml` through `lib/core/dom-provider` + `applyToDom`, and delete the fifteen
-   string implementations.
-3. Regenerate the golden HTML and the committed PDFs. The 68 "equivalent" decks all churn bytes
-   (attribute form, entity form, self-closing form) even though nothing about them renders
-   differently, so the diff will be large and almost entirely uninteresting — worth saying out
-   loud in the PR so a reviewer does not go looking for meaning in it.
-4. Turn `parity:transforms` from a report into a gate: once the twins are gone the tool compares
-   nothing, so its successor is a check that the DOM path's output is stable against a committed
-   snapshot.
-
-## What is NOT established
-
-Only `*.gallery.md` and `*.exemplar.md` were compared — the committed `examples/` decks and any
-deck shape not represented in the galleries were not. Before the delete lands, widen the corpus.
+The general lesson, worth more than the specific bug: **a comparison harness is a measuring
+instrument, and an instrument that has not been calibrated against a known-good artifact reports
+confident nonsense.** Both mistakes here would have been caught in minutes by checking the first
+reported divergence against a committed PDF before writing any of it up.
