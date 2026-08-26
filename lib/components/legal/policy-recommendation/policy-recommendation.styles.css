@@ -23,10 +23,22 @@
    * to ~1.8:1. Mixing over `--bg` gives the SAME color over the light canvas while
    * staying opaque, so the gate measures the real navy-on-tint (~9:1) and the
    * "filled stance bar" reads as filled. Each variant sets only `--stance`; the
-   * bg re-derives from it lazily at use. */
+   * bg re-derives from it lazily at use.
+   *
+   * The depth is 9%, down from 12%. At 12% the `amend` badge (`--stance: var(--warn)`)
+   * was sub-AA on EIGHT palette-modes — the a11y four, burgundy and mustard, worst
+   * 4.39:1 — because the ink is the stance hue on a tint of itself, so the ground moves
+   * with it. 9% is the KNEE, not a round number: swept against the real gate with
+   * everything else held, the whole table reads 12% → 32 pairs below their bar, 11% → 29,
+   * 10% → 24, 9% → 22 — and 8% and 7% also leave 22, so 9% is the shallowest cut that
+   * takes the full benefit and every point past it spends fill the paragraph above exists
+   * to protect. The stance fill's own visibility against the canvas goes from a 1.215:1
+   * median to 1.150:1 (all five stance variants × 32 palettes × both modes), and the bar
+   * still reads as filled — checked on a render at mustard and burgundy, not inferred.
+   * engineering/decisions/2026-08-25-status-trio-joint-solve-model.md §8.4. */
   section.policy-recommendation {
     --stance: var(--accent);
-    --stance-bg: color-mix(in srgb, var(--stance) 12%, var(--bg));
+    --stance-bg: color-mix(in srgb, var(--stance) 9%, var(--bg));
     --stance-label: "Recommendation";
   }
   section.policy-recommendation.adopt  { --stance: var(--pass); --stance-label: "Adopt"; }

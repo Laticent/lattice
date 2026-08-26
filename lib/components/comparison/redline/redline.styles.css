@@ -223,8 +223,21 @@ section.redline.annotated > .cell-stage > :is(ol, ul) > li::before {
  * but no deck in the repo writes — went 3.21:1 to 5.85:1 on a probe deck built to reach it.
  * The card is already tinted, bordered, struck and
  * labeled "OLD — prior text"; the de-emphasis does not need a fifth channel. */
+/* The own-hue card is 4%, down from 5%. This is a CONSISTENCY fix, not a wash cut:
+ * the file already shipped four sites at 4% (`.split` / `.three-col`, :145/:160/:277/:292)
+ * against these four at 5%, for no recorded reason, and 5% was the deepest own-hue tint in
+ * the engine. Leveling them clears FOUR frozen sub-AA pairs on the dark arm —
+ * carta / laguna's `<del>` on the OLD card, which the deeper tint alone was holding under
+ * — and moves the band's own visibility by less than 0.02:1.
+ * Deliberately NOT changed: the palette-declared `--{pass,warn,fail}-bg` band. Halving it
+ * would clear four more pairs, all on `redline/del-on-old-card`, which the surface catalog
+ * flags `proactive: true` — no deck in the repo writes the markup that reaches it — and the
+ * catalog's own rule is that a surface nobody renders does not get to move a palette. It
+ * would also take carbone's band, curated deepest at 18% precisely because its canvas
+ * swallows a shallow wash, to 1.021:1 — no longer a band at all.
+ * engineering/decisions/2026-08-25-status-trio-joint-solve-model.md §8.3. */
 section.redline.stacked.stacked > .cell-stage > blockquote:nth-of-type(1) {
-  background:color-mix(in srgb, var(--fail) 5%, var(--bg-alt));
+  background:color-mix(in srgb, var(--fail) 4%, var(--bg-alt));
   border-left-color:var(--fail);
   text-decoration:line-through;
   text-decoration-color:color-mix(in srgb, var(--fail) 40%, transparent);
@@ -241,7 +254,7 @@ section.redline.stacked.stacked > .cell-stage > blockquote:nth-of-type(1)::befor
   padding-bottom:var(--sp-xs);
 }
 section.redline.stacked.stacked > .cell-stage > blockquote:nth-of-type(2) {
-  background:color-mix(in srgb, var(--pass) 5%, var(--bg-alt));
+  background:color-mix(in srgb, var(--pass) 4%, var(--bg-alt));
   border-left-color:var(--pass);
 }
 section.redline.stacked.stacked > .cell-stage > blockquote:nth-of-type(2)::before {
@@ -370,7 +383,7 @@ section.redline.three-col.three-col[data-orientation="portrait"] > .cell-stage >
  * needed). Palette-blind (HARD #3). */
 section.redline > .cell-stage > blockquote.rl-old {
   border-left-color:var(--fail);
-  background:color-mix(in srgb, var(--fail) 5%, var(--bg-alt));
+  background:color-mix(in srgb, var(--fail) 4%, var(--bg-alt));
 }
 section.redline > .cell-stage > blockquote.rl-old::before {
   content:'OLD — prior text'; display:block;
@@ -379,7 +392,7 @@ section.redline > .cell-stage > blockquote.rl-old::before {
 }
 section.redline > .cell-stage > blockquote.rl-new {
   border-left-color:var(--pass);
-  background:color-mix(in srgb, var(--pass) 5%, var(--bg-alt));
+  background:color-mix(in srgb, var(--pass) 4%, var(--bg-alt));
 }
 section.redline > .cell-stage > blockquote.rl-new::before {
   content:'NEW · current'; display:block;

@@ -293,6 +293,7 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
+- ☑ [2026-08-25-status-trio-joint-solve-model.md](2026-08-25-status-trio-joint-solve-model.md) — The design model the joint re-solve brief asked for, with the answer measured rather than assumed — and it refutes the brief's own framing.
 - ☑ [2026-08-24-chat-stream-teardown.md](2026-08-24-chat-stream-teardown.md) — The Architect's reply rendered TWICE, permanently, whenever the last token's paint frame was still queued as `chatComplete` resolved…
 - ☑ [2026-08-24-coach-card-assessment-race.md](2026-08-24-coach-card-assessment-race.md) — The third and last of the docs-suite flake family (#1328 → #1806 → this) is not a clock at all.
 - ☑ [2026-08-24-diagram-ink-tier-errors.md](2026-08-24-diagram-ink-tier-errors.md) — #1348 filed two Mermaid ink pairs below AA; measuring the whole map found four, sharing one shape — `--cat-on-fill` is curated for the PALE…

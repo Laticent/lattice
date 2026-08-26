@@ -204,6 +204,60 @@
   border-color: color-mix(in oklab, var(--status-ink) 35%, var(--border));
 }
 
+/* The lane tag steps UP to --text-heading on a washed card, and only there.
+ *
+ * `.kanban-lane` is `--text-secondary`, and the comment above `[data-done]` already states
+ * the reason that does not survive here: "--text-secondary's AA contract is against the
+ * CANVAS, and a kanban card deliberately sits LIGHTER than the canvas in both modes … An ink
+ * solved for one surface does not carry to a surface built to differ from it." A `[data-s]`
+ * card differs twice over — the card fill, then the status wash on top of it — and the lane
+ * was left on the canvas-solved ink. Measured through tools/composed-contrast.js's evalSurface
+ * over 32 palettes x 2 modes x 5 states, `--text-secondary` on this wash is sub-AA on 152 of
+ * 320, worst concrete|dark|pass at 3.12:1; the value is what the rendered palette sweep has
+ * been reporting as its one ceiling entry on 20 palettes (#1788), and the model reproduces
+ * that render exactly — concrete-dark 3.57:1, mustard-dark 3.61:1, atelier 4.32:1.
+ *
+ * --text-heading, not --text-body: body is one rung and does not reach. At the shipped
+ * 55%/26% wash it is sub-AA on 6 of 320, worst cuoio|light|pass at 4.14:1, and CUTTING the
+ * wash does not rescue it -- at 24%/10% two pairs are still under, bottoming at 4.42:1 on
+ * concrete|dark|pass, because the token itself is that tight against this card. Wash depth
+ * is the wrong lever here for the same reason it was on the kpi pill: the ground converges
+ * on the card, not on the ink.
+ *
+ * The hierarchy the ink used to carry is not lost, it moves channel, which is the house rule
+ * base.tokens.css states and this file already quotes: "If you need a quieter label here,
+ * spend size or weight, not alpha." The lane keeps --fs-meta at weight 500 against the title's
+ * weight 600, and it is the TITLE the eye lands on first by weight and position.
+ * #1788, engineering/decisions/2026-08-25-status-trio-joint-solve-model.md. */
+:is(section.kanban, figure.kanban):not(.keyline):not(.tinted) .kanban-card[data-s] .kanban-lane {
+  color: var(--text-heading);
+}
+
+/* ...and on a washed card the title does NOT take the done column's step-down.
+ *
+ * `[data-done]` recedes a card by stepping its title --text-heading -> --text-body at
+ * weight 500 (:117). The lane above is also weight 500 at the same --fs-meta, so on a
+ * card that is BOTH in a done column and status-washed the two steps meet and inverted
+ * the hierarchy: measured through the real emulator at indaco, the title rendered
+ * rgb(30,58,95) w500 against a lane at rgb(10,22,40) w500 -- the lane strictly darker
+ * than the title it labels, with no weight left to separate them.
+ *
+ * The lane cannot step back down: --text-body on this wash is sub-AA on 6 of 320
+ * palette-mode-states (worst cuoio|light|pass 4.14:1), which is the defect this whole
+ * rule exists to fix. So the TITLE keeps full strength instead. That costs nothing the
+ * done column needs -- it still recedes by elevation (:116), and the status chip and
+ * pass-green header were already exempted from the de-emphasis for the same reason:
+ * they are the signal that the column is done, so washing them out was backwards.
+ *
+ * No shipped deck writes a status sub-bullet on a card in a Done/Completed/Shipped/
+ * Closed column, so this was latent rather than rendered -- but it is authorable and
+ * documented (kanban.docs.md), and it is a window this change opened. #1788. */
+:is(section.kanban, figure.kanban):not(.keyline):not(.tinted)
+  .kanban-column[data-done] .kanban-card[data-s] .kanban-card-title {
+  color: var(--text-heading);
+  font-weight: 600;
+}
+
 .kanban-card-title {
   display: flex;
   align-items: flex-start;

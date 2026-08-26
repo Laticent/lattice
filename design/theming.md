@@ -142,7 +142,7 @@ for the authoring contract.
 | `--pass` | Success indicator (badges, checkmarks) |
 | `--fail` | Failure indicator |
 | `--warn` | Warning indicator |
-| `--pass-bg`, `--fail-bg`, `--warn-bg` | Tinted backgrounds for badges |
+| `--pass-bg`, `--fail-bg`, `--warn-bg` | Tinted backgrounds for badges. An ALPHA tint (`color-mix(… N%, transparent)`), so the ground follows whatever surface it lands on — a component that needs a ground independent of its tile mixes its own opaque one instead (see `--kpi-{pass,warn}-pill-bg`) |
 
 ### Dark variant (slide reskin)
 
