@@ -97,6 +97,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [CSS `ul > li` matches nested sublists — chain `> ul > li` for top-level-only styling](gotchas/css.md#css-ul--li-matches-nested-sublists--chain--ul--li-for-top-level-only-styling)
 - [`:where(:root)` zero-specificity defaults](gotchas/css.md#whereroot-zero-specificity-defaults)
 - [`font-size: 0` collapses `em` width/height on the same element](gotchas/css.md#font-size-0-collapses-em-widthheight-on-the-same-element)
+- [A `::before`/`::after` on a padded inline element paints a stray sliver at the end of the previous line](gotchas/css.md#a-beforeafter-on-a-padded-inline-element-paints-a-stray-sliver-at-the-end-of-the-previous-line)
 - [`100dvw`/`100vw` includes the scrollbar — a full-width child of a scroll container clips when centered](gotchas/css.md#100dvw100vw-includes-the-scrollbar--a-full-width-child-of-a-scroll-container-clips-when-centered)
 - [A CSS reset declaration silently does nothing — the value doesn't exist](gotchas/css.md#a-css-reset-declaration-silently-does-nothing--the-value-doesnt-exist)
 - [The same declaration, but it dies at COMPUTED-VALUE time — and does NOT fall back](gotchas/css.md#the-same-declaration-but-it-dies-at-computed-value-time--and-does-not-fall-back)

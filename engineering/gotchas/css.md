@@ -516,6 +516,37 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   (scales with the layout's body font); `font-size: 0` is the wrong
   tool to hide inline text.
 
+## A `::before`/`::after` on a padded inline element paints a stray sliver at the end of the previous line
+
+- **Symptom:** you add a decorative or screen-reader-only pseudo-element to an
+  inline element that carries horizontal `padding` and a `background` — `<ins>`
+  and `<del>` in `redline`, or any inline chip. Wherever that element's text
+  wraps to a new line, a small colored sliver appears hanging off the end of the
+  line ABOVE it, and the continuation line loses the left inset it should have.
+  Measured on the redline gallery: a 2.7px sliver, plainly visible at 4x, and
+  28,135 changed pixels across the slide.
+- **Cause:** the pseudo-element makes the inline box OPEN earlier. Chromium
+  places the pseudo where it fits — at the end of the previous line, since it is
+  zero-width — so the element gets an EMPTY first fragment there. With the
+  default `box-decoration-break: slice` that empty fragment still paints the
+  element's background across its horizontal padding, and it consumes the "first
+  fragment" that would otherwise have given the real text its left inset.
+- **Mitigation:** put the content in a SIBLING element instead of a pseudo, so
+  it sits outside the padded box and has nothing to paint. That is why the
+  tracked-change edge labels are a transform (`lib/transformers/tracked-changes.js`)
+  rather than four lines of CSS; the sibling form measures 0 changed pixels.
+- **Not a mitigation:** every way of hiding the pseudo produces the sliver
+  identically — `position: absolute`, `position: fixed`, zero size, `float`, and
+  `content: '' / 'alt text'` (the alt-text form renders nothing at all and still
+  opens the fragment). The cause is the fragment, not the hiding.
+  `box-decoration-break: clone` cuts it from 28,135 to 651 changed pixels — the
+  continuation line keeps its inset — but the sliver survives, and `clone` is
+  itself an 87,857-pixel redesign of the wash.
+- **Triggered by:** any generated content on an inline element that has both
+  horizontal padding and a painted background, where the element's text can wrap.
+- **Removable when:** never, for a padded inline — this is how inline
+  fragmentation works. Reach for a sibling.
+
 ## `100dvw`/`100vw` includes the scrollbar — a full-width child of a scroll container clips when centered
 
 - **Symptom:** a full-width element sized `width: 100dvw` (or `100vw`) inside a

@@ -1658,6 +1658,41 @@ A per-slide `_class: dark` still wins for that slide, and a mid-deck
 
 ---
 
+## Accessibility — tracked changes (`<ins>` / `<del>`)
+
+Markdown has no syntax for an insertion, so a tracked change is authored as
+literal HTML — and that is the right thing to write:
+
+```markdown
+> A business that <del>collects</del> <ins>collects, sells, or shares</ins>
+> consumers' personal information shall provide at least one designated method.
+```
+
+`~~text~~` also works for a deletion (it renders `<s>`, which `redline` styles
+identically to `<del>`). There is no equivalent for an insertion.
+
+**You do not have to label them.** On every render path the engine wraps each
+`<ins>` and `<del>` in a pair of visually-hidden edge labels, so a listener hears
+`"A business that — deletion start — collects — deletion end — insertion start —
+collects, sells, or shares — insertion end — consumers' personal information…"`
+instead of the old wording and the new wording running together as one sentence.
+Nothing about the rendered slide changes, and the labels are clipped rather than
+drawn, so they stay out of a PDF's copied text — a verbatim clause copies
+verbatim.
+
+Two things follow for authors:
+
+- **Prefer `<del>` over `~~text~~` outside `redline`.** `<s>` means "no longer
+  accurate", which is not a deletion, so it is labeled only inside `redline` —
+  the one component that documents `~~text~~` as a tracked deletion.
+- **Mentioning a tag is not writing one.** Backtick a tag you are talking
+  ABOUT — `` `<ins>` `` — or the engine renders it as a live empty element and
+  the word disappears from your sentence.
+
+The distinction is never carried by color alone: `<ins>` is underlined and
+`<del>` struck through, in addition to their hues, so both read without color
+perception and both survive a grayscale print.
+
 ## Accessibility — colour-vision-deficiency themes (`a11y-*`)
 
 Colour-vision-deficiency (CVD) accommodation is delivered as four **first-class
