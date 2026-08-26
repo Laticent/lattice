@@ -207,18 +207,24 @@ the docs site's would have been reaching into shared state.
 
 The four `.anima-live .scene-control` sites were the one part of Part B that no artifact
 covered: they exist only after `hydrate.ts` mounts a scene, so a CLI PDF never shows them and
-the checker could only read the code. They are now driven on a real surface — a `--player`
-HTML export of `examples/anima-scene.md`, opened in Chromium, navigated to the scene slide,
-with the control clicked and the page run under `prefers-reduced-motion: reduce`:
+the checker could only read the code. They are now driven on TWO real surfaces, in Chromium: a `--player`
+HTML export of `examples/anima-scene.md`, navigated to the scene slide, with the control clicked
+and the page re-run under `prefers-reduced-motion: reduce`; and the docs **Playground** on the
+built site, seeded with a one-slide deck carrying the finite (self-drawing) scene. Two surfaces
+because they differ in one way that turned out to matter — the player's CSS is pruned and the
+Playground's is not:
 
 | mode | reached by | `::before` mask | paint |
 |---|---|---|---|
 | `pause` | scene playing | `--shape-pause` | `rgb(92, 111, 138)` |
 | `play` | clicking the control | `--shape-triangle-right` | follows the button's `currentColor` — it changed to `rgb(10, 22, 40)` under `:hover`, which is the palette-blindness working |
 | `optin` | `prefers-reduced-motion: reduce` | `--shape-triangle-right`, in the labeled pill | `rgb(92, 111, 138)` |
-| `replay` | letting slide 3's finite scene run out | **`--shape-triangle-right`, not `--shape-refresh`** | `rgb(92, 111, 138)` |
+| `replay` | letting the finite scene run out | `--shape-refresh` on the Playground; **`--shape-triangle-right` in a `--player` export** — see below | `rgb(92, 111, 138)` |
 
-That last row is a real defect, and it is **not this change's**. `player-prune` drops every rule
+That last row is a real defect, and it is **not this change's** — which the two surfaces
+together prove rather than argue. Driven on the docs Playground (built site, `astro preview`, the
+same `hydrate.ts` host but no CSS pruning), the same control paints `--shape-refresh` correctly.
+The CSS is right; the export loses it. `player-prune` drops every rule
 whose selector matches nothing in the export-time DOM, and at export time the control exists in
 exactly one mode — `pause`, because the scene is playing. So
 `.anima-live .scene-control[data-mode="replay"]::before` and the `[data-mode="optin"]` rules are
@@ -238,6 +244,9 @@ one.
 Exposure is confined to this component. Of the ten stylesheets Part B touched, `scene.styles.css`
 is the only one keyed to a class JS injects; the other nine key off classes present in the baked
 DOM, and all of them were already covered by the PDF, PPTX and HTML renders.
+
+With the Playground pass, **all four modes now carry an artifact from a surface a human uses**, and
+no site Part B converted is left unrendered.
 
 ## 6. Why engine JS is not gated
 
