@@ -97,8 +97,11 @@ const CASES: Case[] = [
 	{ w: 1280, h: 720, stop: 'write', smoke: true, why: 'the shipped default — laptop, factory settings' },
 	{ w: 390, h: 844, stop: 'write', smoke: true, why: 'phone, the reported surface' },
 	// 320 is below the lens picker's `@[21rem]` container query, so the app's preview sub-bar
-	// is 41px there and 47px everywhere else. The shell modelled one number for both.
-	{ w: 320, h: 844, stop: 'write', why: 'phone too narrow for the lens label — the 41px sub-bar' },
+	// drops its lens label there. It used to also SHORTEN the bar (41px against 47px
+	// everywhere else) and the shell modelled one number for both. The picker is now sized to
+	// the slide counter beside it, so the label costs width and not height — this case is the
+	// guard on THAT: the phone's band is 38.2px at 320 and at 390 alike.
+	{ w: 320, h: 844, stop: 'write', why: 'phone too narrow for the lens label — the band must not shrink with it' },
 	{ w: 390, h: 844, stop: 'read', why: 'phone at Read — chromeless preview' },
 	{ w: 820, h: 1180, stop: 'write', why: 'tablet' },
 	// One case per TIER x STOP, so no tier is verified only at the stop that happens to be the
@@ -114,7 +117,9 @@ const CASES: Case[] = [
 	{ w: 1440, h: 900, stop: 'write', split: 75, why: 'splitter dragged toward the editor' },
 	{ w: 1440, h: 900, stop: 'write', split: 30, why: 'splitter dragged toward the preview' },
 	// Drag the preview down to its 300px minimum and its sub-bar loses the lens label too —
-	// the container query is on the PANE, so the narrow bar is reachable on a 1440px desktop.
+	// the container query is on the PANE, so a label-less bar is reachable on a 1440px desktop.
+	// Its HEIGHT is the two-pane 45px either way (the "Collapse preview" button governs there),
+	// which is the claim these two cases hold.
 	{ w: 1024, h: 900, stop: 'write', split: 30, why: 'preview pane below the lens-label threshold' },
 	{ w: 820, h: 1180, stop: 'write', split: 40, why: 'tablet, pane below the lens-label threshold' },
 	{ w: 1440, h: 900, stop: 'write', collapsed: 'a', why: 'editor collapsed to its 46px rail' },
@@ -667,12 +672,21 @@ test.describe('@minfont a raised browser minimum font size', () => {
 			const topGap = Math.abs((shell.panehdr as Rect)[1] - (app.panehdr as Rect)[1]);
 			expect(topGap, 'phone sub-bar top drifted past its recorded bound').toBeLessThanOrEqual(shell.mobile ? 26 : TOLERANCE);
 
-			// 2. The slide box `top` on a wide viewport: the stage reserves footer space from
-			//    `--sh-ftr`, which is the CONSTANT, while the footer band itself now grows.
-			//    Measured 11px at 24px minimum font — an order of magnitude below the 39px the
-			//    bands used to be out by, and the box's SIZE is unaffected either way.
+			// 2. The slide box `top` on a wide viewport: RESOLVED, and this bound is now the plain
+			//    band-agreement tolerance rather than a recorded residual. It used to be 11px,
+			//    because the stage reserved header and footer space from the CONSTANTS while the
+			//    bands themselves grew. The seed now derives both from the root's computed font
+			//    metrics from a probe element the browser clamps exactly as it clamps the pill, so
+			//    at a 24px minimum it places from 57.4/120.0 against the app's real 57.39/120.78
+			//    (studio.astro's note). Measured on the two WIDE cases, which are the ones that
+			//    carried the residual: 13.40/13.39 -> 0.40/0.39. The two PHONE cases were 2.2
+			//    before and are 2.2 now — they never had the wide residual, and they keep a frozen
+			//    model on purpose (below), so read this bound as tolerance for them, not a win.
+			//    The PHONE keeps a frozen model on purpose (see studio.astro): its `mobileBarH`
+			//    error runs opposite, so correcting only two of its three bands made it worse.
+			//    It passed this same TOLERANCE before and still does.
 			const boxTopGap = Math.abs((shell.box as Rect)[1] - (app.box as Rect)[1]);
-			expect(boxTopGap, 'slide box top drifted past its recorded bound').toBeLessThanOrEqual(shell.mobile ? TOLERANCE : 13);
+			expect(boxTopGap, 'slide box top drifted past its recorded bound').toBeLessThanOrEqual(TOLERANCE);
 			expect(Math.abs((shell.box as Rect)[3] - (app.box as Rect)[3]), 'slide box height').toBeLessThanOrEqual(TOLERANCE);
 		});
 	}

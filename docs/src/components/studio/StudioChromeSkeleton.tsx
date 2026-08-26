@@ -1,5 +1,5 @@
 import {
-	ArrowLeftToLine, ArrowRightToLine, ChevronDown, Copy, FileText, Gauge, Menu as MenuIcon, MonitorPlay, Moon, Palette, Play, Plus, Search, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Trash2,
+	ArrowLeftToLine, ArrowRightToLine, ChevronDown, Copy, FileText, Gauge, Menu as MenuIcon, MonitorPlay, Moon, Palette, PanelRightClose, Play, Plus, Search, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
@@ -371,16 +371,31 @@ function ContentBar({ className }: { className?: string }) {
 export function StudioPreviewBarSkeleton() {
 	return (
 		<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-			<span className="shrink-0">Preview</span>
-			{/* The app's LensPicker trigger — `px-3 py-1.5 font-sans text-[12.5px] font-semibold`.
-			    It is the TALLEST thing in this row, so under-sizing it (this was `px-2.5 py-1`)
-			    left the whole band ~8px short of the app's at every font size. */}
-			<span className="inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 font-sans text-[12.5px] font-semibold normal-case tracking-normal"><FileText className="size-3.5 shrink-0" /><ContentBar className="hidden w-12 @[21rem]:inline-flex" /></span>
+			{/* Gated exactly as the app gates it: the label is for the two-pane tiers, where the
+			    editor's header sits beside this one. On a phone the pane switcher above already
+			    says Preview, so both surfaces drop it — and they must drop it TOGETHER, or every
+			    control after it in this row lands ~72px off in the shell↔app comparison. */}
+			<span className="hidden shrink-0 @[24rem]:min-[700px]:inline">Preview</span>
+			{/* The app's LensPicker trigger in `dense` mode — `px-2 py-0.5 font-sans text-[12px]`,
+			    i.e. the slide counter's own metrics (lens-picker.tsx `DENSE_PILL`). It used to be
+			    `px-3 py-1.5 text-[12.5px]` and the tallest thing in this row; it is now the same
+			    height as the counter, and on the two-pane tiers the 32px "Collapse preview" button
+			    is what sets the band's height instead. Under-sizing it here (this was `px-2.5 py-1`)
+			    once left the whole band ~8px short of the app's at every font size. */}
+			<span className="inline-flex min-h-[calc(1lh_+_0.25rem_+_2px)] min-w-0 shrink items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal"><FileText className="size-3.5 shrink-0" /><ContentBar className="hidden w-12 @[21rem]:inline-flex" /></span>
 			<span className="flex-1" />
 			{/* The app's slide counter: `px-2 py-0.5 font-sans text-[12px] font-semibold`. It was
 			    `px-2.5 py-1.5` here, which made the skeleton's natural height 52.6px against the
 			    app's 47 — invisible only because the band was pinned to a constant and clipped. */}
 			<span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal"><ContentBar className="w-14" /></span>
+			{/* "Collapse preview" — the app renders it wherever the split exists (`!mobile`), so
+			    the CSS gate is the app's own 700 boundary, not Tailwind's. It is here for a
+			    HEIGHT reason as much as a fidelity one: at 32px (`icon-sm`) it is the tallest
+			    thing in a two-pane row now that the lens pill is counter-sized, i.e. it is what
+			    sets `PREVIEW_CHROME.headerWriteSplit`. Without it the skeleton's natural height
+			    would be the phone's 38.2px in a band floored at 45, so the pills would sit ~7px
+			    high of the app's — and, worse, a wrong constant would look right. */}
+			<Button variant="ghost" size="icon-sm" aria-label="Collapse preview" className="hidden min-[700px]:inline-flex"><PanelRightClose className="size-4" /></Button>
 		</div>
 	);
 }

@@ -89,15 +89,59 @@ export const STUDIO_SPLIT_COLLAPSE_KEY = collapseKeyFor(STUDIO_SPLIT_KEY);
  * So read a number here as "the height this band has at the default font size, and the floor
  * it never goes below" — not as "the height of this band".
  *
- * TWO PLACEMENTS still derive from the constants and therefore still drift for those readers.
- * Both are pinned by the `@minfont` cases in studio-instant-shell.spec.ts so they cannot grow
- * unseen:
+ * ONE PLACEMENT still derives from a constant and therefore still drifts for those readers,
+ * pinned by the `@minfont` cases in studio-instant-shell.spec.ts so it cannot grow unseen:
  *   - `mobileBarH` PLACES everything below the phone's action bar. The bar itself is fluid and
  *     correct; the sub-bar under it sits up to 24px high at 24px minimum font.
- *   - `footerWrite` reserves the stage's bottom padding, so the slide box's TOP is up to 11px
- *     off on a wide viewport. Its SIZE is unaffected.
- * A post-paint measure-and-republish fixes both numbers and loses a race against the rotation
- * re-seed; the note in studio.astro records what broke when it was tried.
+ * The SECOND one is resolved. `headerWrite*` and `footerWrite` used to place the slide box from
+ * their frozen values while the bands themselves grew, putting the box up to 11px off on a wide
+ * viewport (13.4px once the sub-bar got shorter — the two errors had been partly canceling).
+ * The seed now GROWS both, from a one-off probe element carrying the pill's own inline
+ * `font-size: 12px` which the browser clamps exactly as it clamps the pill. These numbers stay
+ * the DEFAULT-SIZE floors that growth starts from; the code is in studio.astro, and the
+ * derivation is here because a comment there ships in every visitor's HTML (the Studio route
+ * has a byte budget, and this reasoning cost 1.6KB of it before it moved).
+ *
+ * THE FITS, from the app measured at browser minimum font 12/16/20/24 and checked at
+ * 14/18/22/28/36. `lh` is the probe's line box, 1.6 x its clamped size:
+ *   sub-bar  max(32, lh + 6) + 13 on the two-pane tiers — the 32px "Collapse preview" button
+ *            governs until the pill outgrows it, so the row is FLAT until lh clears 26px.
+ *            Exact at every size measured.
+ *   footer   two stacked text rows, so two line boxes: footerWrite + 2 x (lh - 19.2). Runs a
+ *            uniform ~0.8px UNDER above the default size — inside the 2px band tolerance, and
+ *            it is the constant itself at the default.
+ * Box-top drift on the two-pane tiers: 12.4px -> 0.59px at a 24px minimum, 0.61px at 14px.
+ *
+ * READ ITS FONT SIZE, NEVER ITS LINE-HEIGHT. At seed time the site's own line-height has not
+ * been applied, so a probe asking for `lineHeight` gets `normal` and the correction silently
+ * never fires (measured). An inline font-size is clamped by the UA before any stylesheet.
+ *
+ * AND DO NOT REPLACE THE PROBE WITH A READING OF THE ROOT'S FONT SIZE. That was tried, and it
+ * is wrong in both directions. Chrome has two font controls: "Minimum font size" clamps the
+ * 12px pill and grows these rows, while "Font size" (the top-level Appearance control) moves
+ * the ROOT and leaves a 12px pill at 12px. Reading the root cannot tell them apart, so the
+ * correction fired on the setting that moves nothing — 0.82px of drift became 10.62px at Font
+ * size = Large, breaking a reader the frozen model had served. It was blind the other way too:
+ * a minimum between 12 and 16 clamps the pill while leaving the root at 16, so 3.58px of drift
+ * went unseen. The probe is correct in all four combinations. With BOTH controls raised the
+ * model under-predicts (5.22px at 24/18) because the rows then carry default-size text as
+ * well: better than frozen at every point measured, exact at none.
+ *
+ * TWO-PANE TIERS ONLY, and that restriction is measured. On the phone this would correct the
+ * FOOTER alone — its header takes `headerWriteMobile` unconditionally — and the phone places
+ * everything below `mobileBarH`, a third frozen band erring the other way. Correcting one of
+ * the three UNMASKS it: 2.20px -> 21.40px at 390x844, both phone cases failing. One band short
+ * of a complete fix is worse than none, so the phone keeps the frozen model until the action
+ * bar can be modeled with the rest.
+ *
+ * NOT GATED: nothing exercises the "Font size" axis — the `minfont` Playwright project sets
+ * `minimumFontSize` only — which is why the regression above was caught in review rather than
+ * by a test.
+ * The phone is deliberately excluded from that correction — its third frozen band (`mobileBarH`)
+ * errs the other way, so correcting two of its three bands moved its box OUT of tolerance
+ * (measured). It keeps the frozen model until the action bar can be modeled with them.
+ * A post-paint measure-and-republish would fix `mobileBarH` too and loses a race against the
+ * rotation re-seed; the note in studio.astro records what broke when it was tried.
  */
 export const PREVIEW_CHROME = {
 	topbarH: 54, // the studio topbar (StudioShell `header` h-[54px])
@@ -117,20 +161,26 @@ export const PREVIEW_CHROME = {
 	padCinemaY: 12,
 	// Chrome ABOVE/BELOW the holder inside the preview pane, per stop (CSS-fixed):
 	//  read/chromeless — no preview header, a 49px read affordance below.
-	//  write/build     — 47px preview header, 81.6px slide-navigator below.
+	//  write/build     — a 45px (two-pane) / 38.2px (phone) preview header, 81.6px
+	//                    slide-navigator below.
 	headerRead: 0,
-	headerWrite: 47,
-	// The preview sub-bar is a CONTAINER query, not a viewport one: the pane is
-	// `[container-type:inline-size]`, and the lens picker keeps its text label only at
-	// `@[21rem]` (336px) and up. Below that the label drops and the bar gets shorter. That is
-	// reachable two ways — a ≤335px phone, and a splitter dragged down to the 300px preview
-	// minimum on any width — so the threshold is on the PANE width, never the viewport's.
-	// Once the label is gone the tallest thing left decides, and that differs by tier: the
-	// "Collapse preview" button exists only where the split does (tablet + desktop), so a
-	// narrow phone bar is 41px and a narrow SPLIT pane is 45px.
-	headerWriteNarrowSplit: 45,
-	headerWriteNarrowMobile: 41,
-	headerNarrowPaneW: 336,
+	// The write/build sub-bar has ONE height per tier, and the tier is the whole story: the
+	// height is set by the tallest control in the row, and the two tiers do not have the same
+	// one.
+	//   · two-pane (tablet + desktop) — the 32px `icon-sm` "Collapse preview" button, which
+	//     exists only where the split does. 32 + 12 (`py-1.5`) + 1 (`border-b`) = 45.
+	//   · phone — no collapse button, so the pills decide: 25.2 + 13 = 38.2.
+	// It used to depend on the PANE's width too, through a container query: the lens picker
+	// was `px-3 py-1.5 text-[12.5px]`, the tallest thing in the row at 34px, and it shed 6px
+	// when a narrow pane (<336px) dropped its text label. That is gone — the picker is now
+	// sized to the `Slide N / M` counter beside it (lens-picker.tsx `DENSE_PILL`), so it is
+	// 25.2px labeled AND 20px bare, under both tiers' governing control either way. Dropping
+	// the label still narrows the row; it no longer shortens it, so `headerNarrowPaneW` and
+	// the two `…Narrow…` constants it selected are retired rather than re-measured.
+	// Re-measured 2026-08-25 on the built site at 320/360/390/430/600/699 (38.2px, flat) and
+	// at 700/760/820/1024/1099/1100/1280/1440 (45px, flat).
+	headerWriteSplit: 45,
+	headerWriteMobile: 38.2,
 	footerRead: 49,
 	footerWrite: 81.6,
 	// The write/build footer is TWO stacked bands — the slide navigator on top, the deck

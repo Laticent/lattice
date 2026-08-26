@@ -3675,7 +3675,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    live deck + the "Edit this slide" overlay remain. */}
 			{!previewChromeless && (
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-				<span className="hidden shrink-0 @[24rem]:inline">Preview</span>
+				{/* The band's own name. It earns its place only where the pane is ONE OF TWO —
+				    the editor sits beside it and the two headers name which is which. On a phone
+				    (<=699px, the single-pane tier) it is redundant with the Preview tab that is
+				    lit in the pane switcher directly above it, and it is the one thing in this
+				    row that is pure label: dropping it hands ~72px back to the lens pill, which
+				    is what was truncating to "Full de…" at 390px. Stacked variants, not two
+				    competing utilities: the container query keeps the narrow-PANE rule (a
+				    splitter dragged in), `min-[700px]` adds the tier rule (a phone). */}
+				<span className="hidden shrink-0 @[24rem]:min-[700px]:inline">Preview</span>
 				{/* View — the reader lens (shared LensPicker, also used in Present). It filters
 				    the PREVIEW; the source stays whole. `dense` collapses its label to an icon
 				    when the PANE is narrow (the pane is a size container above), so a tight
@@ -3688,12 +3696,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{/* The zoom's only chrome, and it earns its place twice: it tells a reader
 				    who zoomed by accident WHY the slide is cropped, and it is the pointer-free
 				    way back to fit (a middle-click also resets, but a trackpad has no middle
-				    button). Absent at fit scale — an always-on "100%" would be noise. */}
+				    button). Absent at fit scale — an always-on "100%" would be noise.
+				    Its metrics are the row's pill metrics (`px-2 py-0.5`, 12px) — it was 11px,
+				    which made it 1.6px shorter than the counter it sits two controls from. That
+				    read as slop rather than as hierarchy once the lens picker was sized to the
+				    counter too: three pills in one row are one pill shape or they are a mistake. */}
 				{previewZoomed && (
 					// Mount-time text comes from the ref (the controller set it before flipping
 					// the boolean); every later sample updates this node directly, never through
 					// a render. See `paintZoomBadge`.
-					<Tip label="Reset zoom to fit"><button ref={zoomBadgeRef} type="button" onClick={() => zoomRef.current?.reset()} className="shrink-0 rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-2 py-0.5 font-sans text-[11px] font-semibold normal-case tracking-normal text-[var(--accent)]" aria-label={`Reset zoom to fit — currently ${Math.round(previewZoomScale.current * 100)}%`}>{Math.round(previewZoomScale.current * 100)}%</button></Tip>
+					<Tip label="Reset zoom to fit"><button ref={zoomBadgeRef} type="button" onClick={() => zoomRef.current?.reset()} className="shrink-0 rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)]" aria-label={`Reset zoom to fit — currently ${Math.round(previewZoomScale.current * 100)}%`}>{Math.round(previewZoomScale.current * 100)}%</button></Tip>
 				)}
 				<button type="button" onClick={() => goToSlide(slideNo - 2)} className="shrink-0 rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Previous slide">‹</button>
 				<span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--text-heading)]">Slide {slideNo} / {viewSlides.length}</span>

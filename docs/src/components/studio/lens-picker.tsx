@@ -8,6 +8,23 @@ import type { PresentLens } from './lint';
 
 export type LensEntry = { key: PresentLens; label: string; desc: string; icon: React.ReactNode };
 
+// `dense` sizing — deliberately the SAME metrics the preview header's `Slide N / M` pill
+// carries (`px-2 py-0.5 font-sans text-[12px]`), because the two sit in one row and a pill
+// that is nearly-but-not-quite its neighbor's height reads as a mistake. Matching the text
+// size is what makes the heights identical rather than close: both pills' line box is
+// `normal` leading over the same 12px face, so equal padding + equal border ⇒ equal height.
+//
+// The `min-h` is what keeps that true in the state the padding alone cannot reach: below
+// `@[21rem]` the label is `display:none`, and a flex container has no strut, so the pill's
+// height would fall to its 14px icon — 5px SHORTER than the counter, the same mismatch in
+// the other direction. The floor restates the counter's own box from its own metrics —
+// `1lh` + `py-0.5` + the 1px border, under the `.lx-ui` border-box reset — so it tracks a
+// reader's raised minimum font size instead of freezing today's 25.2px (measured: 25.19px
+// at the default, 44.39px at a 24px browser minimum, matching the counter at both). Do NOT
+// replace it with a px constant. `1lh` here is the COMPUTED line-height — an inherited
+// unitless 1.6 over the element's own used font size, not `normal`'s font-metric value.
+const DENSE_PILL = 'min-h-[calc(1lh_+_0.25rem_+_2px)] gap-1 px-2 py-0.5 text-[12px]';
+
 // The base reader-lens catalog when a deck defines no `lenses:` registry: just the whole deck. The
 // old author-blind `exec`/`onepager` heuristics are RETIRED — a reader view is now something the author
 // builds and APPROVES in the Lenses panel, never a machine's un-vetted guess. A registry deck supplies
@@ -42,12 +59,16 @@ export function LensPicker({ value, onChange, count, total, align = 'start', cla
 	total?: number;
 	align?: 'start' | 'center' | 'end';
 	className?: string;
-	/** Opt-in: collapse the label to its icon on a NARROW CONTAINER (a `@[…]` container
-	 *  query — the parent must be a `[container-type:inline-size]` size container). The
-	 *  editor's preview-pane header passes this so the picker shrinks to a discoverable
-	 *  icon+chevron when the pane is dragged narrow, instead of forcing the whole header
-	 *  wider. Present (a reader takeover with room) omits it → labeled at every width, per
-	 *  the component's default intent. */
+	/** Opt-in COMPACT mode, two things at once:
+	 *  1. the pill is sized to the `Slide N / M` counter it shares a row with —
+	 *     `px-2 py-0.5 text-[12px]`, the counter's own metrics, so the two pills are one
+	 *     height instead of the picker standing ~9px taller and setting the whole band's
+	 *     height by itself;
+	 *  2. the label collapses to its icon on a NARROW CONTAINER (a `@[…]` container query —
+	 *     the parent must be a `[container-type:inline-size]` size container), so a preview
+	 *     pane dragged narrow keeps a usable header instead of forcing the row wider.
+	 *  The editor's preview-pane header passes this. Present (a reader takeover with room)
+	 *  omits it → labeled at every width, at the component's roomier default size. */
 	dense?: boolean;
 	/** Extra classes for the portaled menu — e.g. a z-index above a full-screen overlay. The menu
 	 *  portals to `<body>`, so inside Present (a `z-[100]` takeover) the default `z-50` would render it
@@ -66,7 +87,7 @@ export function LensPicker({ value, onChange, count, total, align = 'start', cla
 	if (catalog.length <= 1) {
 		if (onAddView) {
 			return (
-				<button type="button" onClick={onAddView} aria-label="New reader view" title="No reader views yet — add one in the Reader views panel" className={cn('group inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 font-sans text-[12.5px] font-semibold normal-case tracking-normal text-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]', className)}>
+				<button type="button" onClick={onAddView} aria-label="New reader view" title="No reader views yet — add one in the Reader views panel" className={cn('group inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 font-sans text-[12.5px] font-semibold normal-case tracking-normal text-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]', dense && DENSE_PILL, className)}>
 					<span className="shrink-0">{active.icon}</span>
 					<span className={cn('truncate', dense && 'hidden @[21rem]:inline')}>{active.label}</span>
 					<span className={cn('shrink-0 text-muted-foreground group-hover:text-[var(--accent)]', dense && 'hidden @[27rem]:inline')}>·</span>
@@ -75,7 +96,7 @@ export function LensPicker({ value, onChange, count, total, align = 'start', cla
 			);
 		}
 		return (
-			<span className={cn('inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 font-sans text-[12.5px] font-semibold normal-case tracking-normal text-muted-foreground', className)}>
+			<span className={cn('inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 font-sans text-[12.5px] font-semibold normal-case tracking-normal text-muted-foreground', dense && DENSE_PILL, className)}>
 				<span className="shrink-0">{active.icon}</span>
 				<span className={cn('truncate', dense && 'hidden @[21rem]:inline')}>{active.label}</span>
 			</span>
@@ -84,7 +105,7 @@ export function LensPicker({ value, onChange, count, total, align = 'start', cla
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<button type="button" aria-label="Reader view" className={cn('inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 font-sans text-[12.5px] font-semibold normal-case tracking-normal text-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]', className)}>
+				<button type="button" aria-label="Reader view" className={cn('inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 font-sans text-[12.5px] font-semibold normal-case tracking-normal text-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]', dense && DENSE_PILL, className)}>
 					<span className="shrink-0">{active.icon}</span>
 					<span className={cn('truncate', dense && 'hidden @[21rem]:inline')}>{active.label}</span>
 					{value !== 'full' && count != null && total != null && <span className={cn('shrink-0 text-muted-foreground', dense && 'hidden @[24rem]:inline')}>· {count}/{total}</span>}
