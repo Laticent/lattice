@@ -260,9 +260,46 @@ in this diff. Pre-existing tool behavior, off-path here, worth its own change.
 
 ## 8 · What is NOT verified here
 
-The gates are green (7183/7183, `build:check` OK), but a palette is a visual artifact and
+The gates are green (7320/7320, `build:check` OK), but a palette is a visual artifact and
 the gates measure numbers, not taste. The rendered gallery in both faces is the evidence
-that matters for the QUALITY BAR, and it is a separate artifact from this note.
+that matters for the QUALITY BAR.
+
+That render has now been done, and it is what §9 is about. All 117 gallery slides were
+rendered and reviewed on the light face. The dark face was rendered and compared
+PAGE BY PAGE against the same deck built from `origin/main`'s carbone: **115 of 117 pages
+are byte-identical rasters**, which is what turns "the dark values did not change" from a
+token diff into a measurement. The two that differ are the deck's two
+`<!-- _class: divider light -->` slides, and they differ because the modifier now WORKS --
+see the changelog fragment, which called this out before the render confirmed it.
 
 Goldens and example PDFs that resolve `theme: carbone` will re-render LIGHT after this
 change. They are re-blessed as part of the same change; any that are not are a defect.
+
+## 9 · The mark-vs-ink trap (found by the render, not by me)
+
+The five `--chart-state-*` light arms shipped in this branch at **~3.24:1 on the canvas,
+all five**, and the integration palette sweep caught one of them: a kanban "Done" column
+header at 3.24:1, over carbone's ceiling of 0.
+
+The mistake is worth naming because it is not a typo. `--chart-state-N` is a **hue**, and
+`chart-family.css` spends it **twice**:
+
+- `--state-N-fill` mixes it 24% into the canvas -- a **mark**, floor **3:1** (WCAG 1.4.11);
+- `--state-N-ink` uses it **undiluted, as text** -- floor **4.5:1**.
+
+I tuned all five to the mark floor and landed all five at 3.24 -- correct for the fill,
+sub-AA for the ink. Only `pass` was over a gallery slide that scored it; the other four
+were one slide away from the identical defect, which is why the fix took all five rather
+than the one the gate named.
+
+The light arms now take the **text** floor: ≥4.67:1 on both the canvas and the card,
+the band `indaco` (5.4-7.9) and `cuoio` already sit in. **Hue carries none of the change** --
+every one of the five is within 0.3° of its mark-tuned value and lightness does the work,
+so amber stays amber and the coral deepens to a crimson rather than becoming a maroon.
+Pairwise separation is **0.0919**, clear of the 0.065 chart-group floor, and `pass` sits
+**0.0513** off `--accent`'s light arm so the brand green and the pass green stay two colors.
+The dark arms are untouched, re-proved by the same page-by-page raster comparison in §8.
+
+The generalizable rule: **a token used as both a mark and an ink takes the ink floor.**
+The 3:1 mark floor is the right floor for what the token is NAMED after and the wrong one
+for what it is also SPENT on, and nothing in the token's name says so.

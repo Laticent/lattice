@@ -418,15 +418,29 @@
    * a vivid cool blue tuned to the dark canvas; mute is a mid-gray near
    * carbone's own --muted-mark (#757A82) — that value was --text-muted until #1715
    * split the tier; the text half is now #8A9098. */
-  /* These WERE the dark arms of the trio. The respacing that put the trio over the
+  /* The DARK arms were the trio's old values. The respacing that put the trio over the
    * achromatopsia floor moved those arms and deliberately left these: a five-token
    * chart group takes the audit's 0.065 floor, a three-token status trio takes 0.11,
-   * and one value cannot serve both. Curated here, measured by chart-contrast. */
-  --chart-state-pass: light-dark(#2A9D4A, #73DF88);   /* electric green */
-  --chart-state-warn: light-dark(#E26400, #F97316);   /* vivid amber    */
-  --chart-state-fail: light-dark(#DC6464, #FF8482);   /* coral red      */
-  --chart-state-info: light-dark(#398ED7, #4A9EE8);       /* vivid sky-blue — ≥3:1 on #1A1A1C */
-  --chart-state-mute: light-dark(#858A90, #8A8F96);       /* cool mid-gray  — ≥3:1 on #1A1A1C */
+   * and one value cannot serve both. Curated here, measured by chart-contrast.
+   *
+   * The LIGHT arms are NOT the >=3:1 mark values this group reads as. This token is a
+   * hue, and chart-family spends it twice: `--state-N-fill` uses it as a 24% tint (a
+   * mark, floor 3:1 per WCAG 1.4.11) and `--state-N-ink` uses it AS TEXT, undiluted --
+   * the kanban "Done" column header is exactly that. Tuned to the mark floor, all five
+   * light arms sat at ~3.24:1 on the canvas and the ink half was sub-AA; the palette
+   * sweep caught pass at 3.24:1 and the other four were one gallery slide away from the
+   * same defect. So the light arms take the TEXT floor: >=4.67:1 on both the canvas and
+   * the card, which is the band indaco and cuoio already sit their light arms in.
+   * Hue is held (every one within 0.3 degrees of the mark-tuned value) and lightness
+   * carries the change, so each state keeps its character -- amber stays amber, the
+   * coral deepens to a crimson. Pairwise separation is 0.0919, clear of the 0.065 chart
+   * floor, and pass sits 0.0513 off --accent's light arm so the brand green and the
+   * pass green stay two colors. */
+  --chart-state-pass: light-dark(#006827, #73DF88);   /* deep green   / electric green */
+  --chart-state-warn: light-dark(#AE4B00, #F97316);   /* burnt amber  / vivid amber    */
+  --chart-state-fail: light-dark(#AA1E2D, #FF8482);   /* crimson      / coral red      */
+  --chart-state-info: light-dark(#006CB5, #4A9EE8);   /* deep blue    / vivid sky-blue -- >=3:1 on #1A1A1C */
+  --chart-state-mute: light-dark(#65696F, #8A8F96);   /* cool gray    / cool mid-gray  -- >=3:1 on #1A1A1C */
 }
 
 /* The status trio is declared ONCE, at plain `:root` above — #1527's cascade flip
