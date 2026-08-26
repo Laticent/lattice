@@ -76,7 +76,7 @@ Name a place, give it a value. The tokens pick the rest.
 World names vary wildly, and a mistyped one is a silent gap. Two defences, both off the baked vocabulary.
 
 - **Group as a fat alias.** Name a continent or a dated bloc — `European Union`, `Sub-Saharan Africa`, `G20` — and the kernel fills every member. Blocs carry the year their membership is asserted.
-- **Autocomplete + did-you-mean.** Region names complete as you type; a name that slips through is flagged at lint time with the nearest match (`Brasil` → `Brazil`).
+- **Autocomplete + did-you-mean.** Region names complete as you type; a name that slips through is flagged at lint time with the nearest match (`Brasil` resolves to `Brazil`).
 
 ---
 

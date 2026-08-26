@@ -136,4 +136,4 @@ Source: vendor evaluation, Q3 procurement review.
 
 # One move, one shape
 
-`Cover → body → insight`
+`Cover, body, insight`

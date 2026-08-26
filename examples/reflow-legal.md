@@ -10,7 +10,7 @@ header: "Lattice · legal bucket reflow"
 
 # Legal layouts that read down the page.
 
-`Feature · native → reflow · legal bucket · 2026-06-20`
+`Feature · native to reflow · legal bucket · 2026-06-20`
 
 The four legal multi-column layouts now collapse to a single column on a
 square / tall / strip box — no portrait-specific variant authored into the

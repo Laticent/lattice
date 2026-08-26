@@ -14,6 +14,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
+  decodeCssEscapes,
   topLevelSelectors,
   splitTopLevel,
   splitCompounds,
@@ -3489,5 +3490,27 @@ describe('check-ownership: checkPackedRootReach (#1797 / the single-root trio)',
     const errors = [];
     checkPackedRootReach(errors);
     assert.deepEqual(errors, [], errors.join('\n'));
+  });
+});
+
+describe('checkTypedGlyphs — the CSS escape decoder (HARD RULE #29)', () => {
+  test('decodes an escaped glyph so it scans like a literal one', () => {
+    assert.equal(decodeCssEscapes('"\\2192"'), '"→"');
+    assert.equal(decodeCssEscapes('"\\2713\\00a0"'), '"✓\u00a0"');
+  });
+
+  test('a space TERMINATES the escape, per the CSS grammar', () => {
+    assert.equal(decodeCssEscapes('"\\2713 abc"'), '"✓abc"');
+  });
+
+  test('an out-of-range escape is left alone instead of CRASHING the gate', () => {
+    // `{1,6}` is greedy and CSS has no separator between an escape and a
+    // following hex character, so this parses as a six-digit escape past
+    // U+10FFFF. Unguarded, String.fromCodePoint threw a RangeError that aborted
+    // check-ownership — the whole build:check and the pre-push hook — with a
+    // stack naming neither the file nor the rule.
+    assert.doesNotThrow(() => decodeCssEscapes('"\\2192abc"'));
+    assert.equal(decodeCssEscapes('"\\2192abc"'), '"\\2192abc"');
+    assert.doesNotThrow(() => decodeCssEscapes('"\\ffffff"'));
   });
 });

@@ -190,7 +190,7 @@ flowchart LR
 | Surface       | Drawn by   | Line               |
 | ------------- | ---------- | ------------------ |
 | This table    | rough.js   | frame + row rules  |
-| Heading rule  | rough.js   | the masthead↔stage |
+| Heading rule  | rough.js   | the masthead/stage seam |
 | Dividers      | rough.js   | one stroke         |
 | Cards         | CSS radius | box + tilt         |
 | Photos & code | nothing    | left untouched     |

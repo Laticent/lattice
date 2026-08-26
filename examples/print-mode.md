@@ -60,7 +60,7 @@ Print mode renders the whole deck ink-on-white — grayscale plus textures, so n
 - Texture
   - hatch / dot / cross pattern fills carry chart & diagram series past five
 - Shape & glyph
-  - status keeps its ✓ · ! · ✗ mark; sentiment keeps its face
+  - status keeps its shape mark — check, bang, cross; sentiment keeps its face
 
 ---
 

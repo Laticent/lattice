@@ -81,7 +81,7 @@ The drawing ORDER is the meaning — node, arrow, node — which a static diagra
 ---
 
 <!-- _class: scene mirror -->
-<!-- _footer: "reduced-motion → the poster; the deck respects the reader" -->
+<!-- _footer: "reduced-motion falls back to the poster; the deck respects the reader" -->
 
 ## Every scene reduces to its still.
 

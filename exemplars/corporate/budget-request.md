@@ -106,7 +106,7 @@ Beyond the run cost, the platform throttles every product launch and depends on 
 2. $21M
    - 3-year net savings
    - after the $6.2M spend `Modeled` `CFO`
-3. 14→2 wk
+3. 14 to 2 wk
    - Feature lead time
    - off the mainframe `Target` `Product`
 
@@ -123,7 +123,7 @@ Beyond the run cost, the platform throttles every product launch and depends on 
    - single points of failure
 2. <1 hr
    - recovery time objective
-3. 6→1
+3. 6 to 1
    - retiring-skill dependency
 4. 99.99%
    - target availability

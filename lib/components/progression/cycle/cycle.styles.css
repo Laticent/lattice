@@ -21,6 +21,13 @@ section.cycle > .cell-stage {
 /* ── The ring: a row of equal-height stage nodes, with room below for the
  *    return arc (reserved with padding — measurable by the overflow probe). ── */
 section.cycle > .cell-stage > ul {
+  /* WHERE THE REPEAT MARK SITS, as a background-position pair — read by the
+   * arc's mask below to open a hole exactly there. It lives on the `ul` and not
+   * on either pseudo on purpose: the arc and the mark are two different
+   * pseudo-elements that must agree, and a family override that relays one
+   * without the other is precisely the bug this replaced. Move the mark, move
+   * this, and the hole follows. */
+  --cycle-notch: 50% 100%;
   list-style: none;
   padding: 0 0 var(--sp-xl) 0;
   display: flex;
@@ -53,22 +60,38 @@ section.cycle > .cell-stage > ul > li {
 /* forward connector — a moss chevron sitting in the gap after each stage but
  * the last. The negative offset is placement into the gap, not spacing. */
 section.cycle > .cell-stage > ul > li:not(:last-child)::after {
-  content: "\203A"; /* › */
+  /* DRAWN, not typed. `›` is punctuation every text face carries, so this one was
+   * never at risk of a .notdef box — but it was doing a CHEVRON's job, and the
+   * house has one chevron now (the same --shape-chevron-right compare-prose and
+   * statute-stack paint), so the three connectors match stroke for stroke instead
+   * of inheriting three different faces' idea of an angle quote. */
+  content: "";
   position: absolute;
   top: 50%;
   right: calc(-1 * var(--sp-lg));
-  width: var(--sp-lg);
   transform: translateY(-50%);
-  text-align: center;
-  color: var(--accent);
-  font-weight: 700;
   font-size: var(--fs-h3);
   line-height: 1;
+  width: 1em; height: 1em;
+  background-color: var(--accent);
+  -webkit-mask: var(--shape-chevron-right) var(--shape-paint);
+          mask: var(--shape-chevron-right) var(--shape-paint);
 }
 
 /* the return arc — a U beneath the row joining the last stage back to the
- * first; the ↻ glyph, chipped over the arc, names the loop. Both are absolutely
- * positioned (decorative), so they add no height the probe must account for. */
+ * first; the repeat mark, seated in a gap in the arc, names the loop. Both are
+ * absolutely positioned (decorative), so they add no height the probe must
+ * account for.
+ *
+ * The GAP is punched out of the arc with a radial mask, and that is a change
+ * from what shipped before. The mark used to be a `content: "\21BB"` glyph
+ * carrying `background: var(--bg)` — an opaque rectangle chipped over the line.
+ * Now that the mark is itself drawn with a mask, `background` is its PAINT and
+ * there is nothing left to knock out with, so the arc yields instead. It is the
+ * better half to cut anyway: the old --bg chip painted a solid plate that showed
+ * as a pale rectangle over any finish or backdrop, where a hole shows whatever
+ * is actually behind the slide. Mask alpha only — `black` here is opacity, not
+ * paint, so the arc's color is still var(--accent) (HARD RULE #3). */
 section.cycle > .cell-stage > ul::after {
   content: "";
   position: absolute;
@@ -80,18 +103,28 @@ section.cycle > .cell-stage > ul::after {
   border-top: none;
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   opacity: 0.7;
+  font-size: var(--fs-h3); /* the `em` basis the mark's own box uses, so the hole matches it */
+  -webkit-mask: radial-gradient(circle at var(--cycle-notch), transparent 0 0.85em, black 0.85em);
+          mask: radial-gradient(circle at var(--cycle-notch), transparent 0 0.85em, black 0.85em);
 }
 section.cycle > .cell-stage > ul::before {
-  content: "\21BB"; /* ↻ */
+  /* DRAWN, not typed (HARD RULE #29) — the repeat mark seats in the gap the arc
+   * above punches for it. */
+  content: "";
   position: absolute;
   left: 50%;
   bottom: 0;
-  transform: translate(-50%, 35%);
-  padding: 0 var(--sp-xs);
-  background: var(--bg);
-  color: var(--accent);
+  /* 50%, not the old glyph's 35%: a masked box is CENTERED on its icon, where a
+   * text glyph sat on a baseline. Half the box below the line puts the mark's
+   * center exactly on it — and exactly on the hole the arc punches at
+   * --cycle-notch. */
+  transform: translate(-50%, 50%);
   font-size: var(--fs-h3);
   line-height: 1;
+  width: 1em; height: 1em;
+  background-color: var(--accent);
+  -webkit-mask: var(--shape-refresh) var(--shape-paint);
+          mask: var(--shape-refresh) var(--shape-paint);
 }
 
 /* ── The stage body — the nested clause under the name. ── */
@@ -125,14 +158,20 @@ section.cycle > .cell-stage > ul > li > strong ~ * { font-weight: 400; }
 section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   flex-direction: column;
   padding: 0 0 0 var(--sp-xl);
+  /* The arc stands up on the LEFT edge here and the mark moves to its vertical
+   * middle (both below), so the hole moves with them. 50% 50% is the CENTER of
+   * the arc's own box — the same relationship the landscape arc has at 50% 100%,
+   * which is why the mark below is centered in the arc rather than sat on its
+   * edge: at `left:0` a 1em mark hangs off the stage and gets clipped. */
+  --cycle-notch: 50% 50%;
 }
 section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li:not(:last-child)::after {
-  content: "\2304"; /* ⌄ */
+  /* The tall/strip families turn the connector down the column. */
+  -webkit-mask-image: var(--shape-chevron-down); mask-image: var(--shape-chevron-down);
   top: auto;
   right: auto;
   bottom: calc(-1 * var(--sp-lg));
   left: 50%;
-  width: auto;
   transform: translateX(-50%);
 }
 section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul::after {
@@ -147,9 +186,12 @@ section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage >
   border-radius: var(--radius-lg) 0 0 var(--radius-lg);
 }
 section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul::before {
-  left: 0;
+  /* Centered ON the vertical arc (which spans x 0 … --sp-lg), not on its left
+   * edge — so the whole mark is inside the stage and the arc's hole, which sits
+   * at --cycle-notch 50% 50%, is concentric with it. */
+  left: calc(var(--sp-lg) / 2);
   bottom: 50%;
-  transform: translate(-35%, 50%);
+  transform: translate(-50%, 50%);
 }
 
 

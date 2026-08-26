@@ -276,12 +276,16 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
 }
 section.kpi.briefing > .cell-stage > ol > li:nth-child(1)::after,
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1)::after {
-  content: '✦';
+  /* DRAWN, not typed (HARD RULE #29) — `font-size` is the `em` basis for the box. */
+  content: '';
   position: absolute;
   top: var(--sp-lg); right: var(--sp-lg);
   font-size: var(--fs-h2);
-  color: var(--accent);
   line-height: 1;
+  width: 1em; height: 1em;
+  background-color: var(--accent);
+  -webkit-mask: var(--shape-spark) var(--shape-paint);
+          mask: var(--shape-spark) var(--shape-paint);
 }
 section.kpi.briefing > .cell-stage > ol > li:nth-child(1) > strong,
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1) > strong {
@@ -536,12 +540,16 @@ section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) {
   border-left: 4px solid var(--accent);
 }
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(1)::after {
-  content: '✦';
+  /* DRAWN, not typed (HARD RULE #29) — `font-size` is the `em` basis for the box. */
+  content: '';
   position: absolute;
   top: var(--sp-xl); right: var(--sp-xl);
   font-size: var(--fs-h1);
-  color: var(--accent);
   line-height: 1;
+  width: 1em; height: 1em;
+  background-color: var(--accent);
+  -webkit-mask: var(--shape-spark) var(--shape-paint);
+          mask: var(--shape-spark) var(--shape-paint);
 }
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) > strong {
   font-size: var(--fs-hero);

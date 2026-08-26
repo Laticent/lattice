@@ -122,7 +122,7 @@
     },
     {
       "name": "authority-chain",
-      "when": "single rule walked statute → regulation → guidance → case"
+      "when": "single rule walked from statute to regulation to guidance to case"
     },
     {
       "name": "list-criteria",

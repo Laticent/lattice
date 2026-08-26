@@ -161,9 +161,9 @@ cal.decisions.log_if_changed(signals)
 
 ## One finish, more slides
 
-- **compare-prose / split-panel / list-tabular** → a cover, then the content flows on
-- **decision** → the verdict is the cover; its reasons flow on
-- **compare-code** → a cover, then one code block per page
+- **compare-prose / split-panel / list-tabular** open on a cover, then the content flows on
+- **decision** makes the verdict the cover; its reasons flow on
+- **compare-code** opens on a cover, then one code block per page
 - Every split wears the *same* cover finish — the deck, just more of it (`autosplit: on`)
 
 ---

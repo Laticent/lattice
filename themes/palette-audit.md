@@ -67,14 +67,14 @@ style: |
 
 ---
 
-<!-- _class: title -->
+<!-- _class: title note-warn -->
 
 # Palette audit
 ## every token tier, every theme
 
 Each slide hardcodes the resolved hex values for one palette so the swatches show *that* palette regardless of the deck's active theme.
 
-> **⚠️ The `--cat-*` categorical proposals here are SUPERSEDED (2026-07-16, #1022).** They were
+> **The `--cat-*` categorical proposals here are SUPERSEDED (2026-07-16, #1022).** They were
 > scored under the retired "pale L≈87 / deep L≈32, fixed non-flipping ink" model; the shipped
 > categorical cycle is now the **three-layer contrast contract** (`engineering/decisions/2026-07-15-categorical-token-contract.md`,
 > gated by `checkCatContrast`). **Do not copy these `--cat-*` values into a new theme** — copy a
@@ -2477,12 +2477,13 @@ Light = pale fill + dark text contract (AA target 4.5:1 on theme text-heading).
 Dark = deep fill + white text contract (AA target 4.5:1 on white).
 
 Composite score (0-100):
-  • AA-text light pass   30 pts
-  • AA-text dark pass    30 pts
-  • Graphical dark on bg 15 pts
-  • Adjacency 1-6 ΔH     15 pts (60°+ = full credit)
-  • Brand affinity        5 pts (peaked at 75° — anchored but diverse)
-  • Hue coverage          5 pts (300°+ = full credit)
+
+- AA-text light pass — 30 pts
+- AA-text dark pass — 30 pts
+- Graphical dark on bg — 15 pts
+- Adjacency 1-6 ΔH — 15 pts (60°+ = full credit)
+- Brand affinity — 5 pts (peaked at 75° — anchored but diverse)
+- Hue coverage — 5 pts (300°+ = full credit)
 
 Slides are sorted within each theme: #1 is the highest scorer. The metric
 breakdown next to each ratio shows the points contributed by that axis.

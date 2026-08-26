@@ -142,12 +142,26 @@ section.scene .scene-figure svg {
 @media (prefers-reduced-motion: reduce) {
   .anima-live .scene-control { transition: none; }
 }
-/* The glyph is the ACTION the button performs. */
-.anima-live .scene-control::before { font-size: 1.1em; }
-.anima-live .scene-control[data-mode="pause"]::before { content: "\23f8"; } /* ⏸ */
-.anima-live .scene-control[data-mode="play"]::before { content: "\25b6"; } /* ▶ */
-.anima-live .scene-control[data-mode="replay"]::before { content: "\21bb"; } /* ↻ */
-.anima-live .scene-control[data-mode="optin"]::before { content: "\25b6"; } /* ▶ */
+/* The MARK is the ACTION the button performs — drawn, not typed (HARD RULE #29).
+ * These four were the clearest case in the engine: a transport control set in
+ * U+23F8 / U+25B6 / U+21BB lands as a color emoji on any machine whose emoji
+ * font wins the fallback, and a play button that ignores the puck's own ink is
+ * not a control any more. One recipe, four icon swaps. */
+.anima-live .scene-control::before {
+  content: "";
+  display: inline-block;
+  font-size: 1.1em;
+  width: 1em; height: 1em;
+  background-color: currentColor;
+  -webkit-mask: var(--shape-triangle-right) var(--shape-paint);
+          mask: var(--shape-triangle-right) var(--shape-paint);
+}
+.anima-live .scene-control[data-mode="pause"]::before {
+  -webkit-mask-image: var(--shape-pause); mask-image: var(--shape-pause);
+}
+.anima-live .scene-control[data-mode="replay"]::before {
+  -webkit-mask-image: var(--shape-refresh); mask-image: var(--shape-refresh);
+}
 /* Icon-only modes stay a circular puck; the opt-in grows to seat its label. */
 .anima-live .scene-control:not([data-mode="optin"]) {
   width: 5cqi;

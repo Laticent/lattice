@@ -441,10 +441,21 @@ section.stamp-underline::before {
   border-bottom: 0.28cqi solid var(--stamp-color);
 }
 
-/* ── DOT — a status dot + label, the quietest option (dot glyph concatenated). */
+/* ── DOT — a status dot + label, the quietest option.
+ * The dot is DRAWN, not typed (HARD RULE #29). It used to be `content: "● "
+ * var(--stamp-label)` — U+25CF concatenated onto the label — which made the
+ * quietest stamp the loudest failure: on a machine whose emoji font won the
+ * fallback the dot arrived as a colored circle beside a --stamp-color label.
+ * A radial-gradient is the right tool here rather than an --shape-* mask,
+ * because the shape is a CIRCLE and CSS draws circles natively — no second
+ * pseudo to position, no SVG to size, and the fill is still the palette token
+ * (HARD RULE #3). `padding-left` opens the well the gradient paints into
+ * (padding, not margin — HARD RULE #20). */
 section.stamp-dot::before {
-  content: "● " var(--stamp-label);
-  top: 6.5%; right: 5%; clip-path: none; background: none;
+  content: var(--stamp-label);
+  top: 6.5%; right: 5%; clip-path: none;
+  padding-left: 1.15cqi;
+  background: radial-gradient(circle at 0.44cqi 50%, var(--stamp-color) 0 0.3cqi, transparent 0.3cqi);
   color: var(--stamp-color); font-size: 0.76cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */
 }
 

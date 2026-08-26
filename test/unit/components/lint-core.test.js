@@ -1039,3 +1039,82 @@ describe('lint-core: author-script-defers (#1792)', () => {
     assert.equal(ruleFor(src, 'author-script-defers'), undefined, 'a JSON data block never executes');
   });
 });
+
+describe('lint-core: typed shape glyphs (rule 15, HARD RULE #29)', () => {
+  const glyphs = (src) => core.lintTextWith(src, vocab).filter((f) => f.rule === 'typed-shape-glyph');
+  const slide = (cls, body) => `${FM}<!-- _class: ${cls} -->\n\n## Heading\n\n${body}\n`;
+
+  test('it WARNS and never errors — coaching is the policy, not a soft touch', () => {
+    const found = glyphs(slide('cards-grid', '- Ship it ✓'));
+    assert.equal(found.length, 1);
+    assert.equal(found[0].severity, 'warning');
+  });
+
+  test('one finding per LINE, not per glyph', () => {
+    // Four checks in one comparison row is ONE decision. Four warnings on one
+    // row is the noise that teaches people to pass --quiet.
+    const found = glyphs(slide('cards-grid', '| Speed | ✓ | ✗ | ✓ | ✓ |'));
+    assert.equal(found.length, 1);
+    assert.match(found[0].message, /✓ ✗/);
+  });
+
+  test('a table cell is pointed at `[x]` AND at `state-cells`', () => {
+    const [found] = glyphs(slide('cards-grid', '| Speed | ✓ |'));
+    assert.match(found.fix, /\[x\]/);
+    assert.match(found.fix, /state-cells/);
+  });
+
+  test('a slide that already decodes cells is not told to add the modifier', () => {
+    const [found] = glyphs(slide('cards-grid state-cells', '| Speed | ✓ |'));
+    assert.match(found.fix, /already decodes/);
+  });
+
+  test('a quadrant axis eyebrow is NOT flagged — the arrow there is required syntax', () => {
+    // It is the component's axis delimiter, and there is no better spelling to
+    // coach toward. The tempting advice — "the parser accepts ASCII `->`" — is
+    // wrong: the eyebrow reaches the transform as escaped HTML, so `->` arrives
+    // as `-&gt;`, the split never fires, and the chart's data points MOVE
+    // (measured on examples/stage-inset.md slide 3). A warning with no good
+    // answer is worse than silence.
+    assert.deepEqual(glyphs(`${FM}<!-- _class: quadrant -->\n\n\`Effort 0–10 → Reach 0–100\`\n\n## Heading\n`), []);
+  });
+
+  test('the same eyebrow on a NON-quadrant slide is still coached', () => {
+    const [found] = glyphs(`${FM}<!-- _class: kpi -->\n\n\`Effort 0–10 → Reach 0–100\`\n\n## Heading\n`);
+    assert.ok(found, 'the skip is scoped to quadrant, not to every code-only line');
+  });
+
+  test('prose falls back to the table\'s own per-glyph coaching', () => {
+    const [found] = glyphs(slide('cards-grid', '- The plan → the outcome'));
+    assert.match(found.fix, /write the word/i);
+  });
+
+  test('the arrow coaching does NOT promise ASCII `->`', () => {
+    // It was drafted that way and it was false — see the quadrant test above.
+    const [found] = glyphs(slide('cards-grid', '- The plan → the outcome'));
+    assert.doesNotMatch(found.fix, /accepts ASCII/);
+  });
+
+  test('a fenced block is quoted material and is left alone', () => {
+    // examples/content-capacity.md quotes the CLI's own overflow warning
+    // verbatim, and the CLI really does print `⚠`. "Fixing" it would make the
+    // deck lie about what the tool prints.
+    const src = `${FM}<!-- _class: cards-grid -->\n\n## Heading\n\n\`\`\`text\n⚠ deck.md · slide 4 · capacity-overflow\n\`\`\`\n`;
+    assert.deepEqual(glyphs(src), []);
+  });
+
+  test('an INLINE code span is still in scope — it is set on the slide', () => {
+    assert.equal(glyphs(slide('cards-grid', '- The `A → B` handoff')).length, 1);
+  });
+
+  test('punctuation the house actually uses is never flagged', () => {
+    const src = slide('cards-grid', '- Q1–Q2 · 2×2 · “quoted” · ±0.4 · 90° — and an ellipsis…');
+    assert.deepEqual(glyphs(src), []);
+  });
+
+  test('the finding carries the slide number and the offending line', () => {
+    const [found] = glyphs(slide('cards-grid', '- Ship it ✓'));
+    assert.equal(found.slide, 1);
+    assert.equal(found.line, '- Ship it ✓');
+  });
+});

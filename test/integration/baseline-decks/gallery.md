@@ -390,17 +390,17 @@ _Source: pilot retrospective — six months, four teams, one deck, this one._
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: compare-table state-cells -->
 <!-- _footer: "Comparison table · compare-table" -->
 
 ## The four paths side by side.
 
 | Criterion    | Spreadsheet  | Vendor North | Vendor West | In-house build |
 | ------------ | ------------ | ------------ | ----------- | -------------- |
-| Speed        | ✓            | ✓            | ✓           | ✓              |
-| Auditability | ✗            | ✓            | ✓           | ✓              |
-| Adoption     | ✓            | ✗            | ✓           | ✓              |
-| Calibration  | ✗            | ✗            | ✗           | ✓              |
+| Speed        | [x]          | [x]          | [x]         | [x]            |
+| Auditability | [ ]          | [x]          | [x]         | [x]            |
+| Adoption     | [x]          | [ ]          | [x]         | [x]            |
+| Calibration  | [ ]          | [ ]          | [ ]         | [x]            |
 | Setup time   | Already open | 3–4 weeks    | 6 weeks     | Same quarter   |
 
 _Evaluated against the same four pilot teams and the same 90-minute weekly budget constraint._
@@ -579,7 +579,7 @@ for signal in calibrator.intake.unscored():
 ---
 
 <!-- _class: image -->
-<!-- _footer: "Image · auto → clean floated card · image" -->
+<!-- _footer: "Image · auto becomes clean floated card · image" -->
 
 `Offsite · Day One`
 
@@ -618,7 +618,7 @@ Shown whole, on a matte, with a placard — evidence handling for a whiteboard t
 ---
 
 <!-- _class: image spotlight -->
-<!-- _footer: "Image · auto → spotlight (full-bleed + solid card) · image spotlight" -->
+<!-- _footer: "Image · auto becomes spotlight (full-bleed + solid card) · image spotlight" -->
 <!-- _paginate: false -->
 
 ## The venue cost roughly what the calibration tooling would have.
@@ -630,7 +630,7 @@ The grounds, edge to edge — we will reference this view in three consecutive p
 ---
 
 <!-- _class: image split -->
-<!-- _footer: "Image · auto → split (extreme aspect, shown whole) · image split" -->
+<!-- _footer: "Image · auto becomes split (extreme aspect, shown whole) · image split" -->
 
 `Offsite · Team Building`
 
@@ -1090,11 +1090,11 @@ The architecture change is the calibration loop — logged, weighted, time-bound
 
 ## What this section will tell you, in five lines.
 
-- The framework buys calibrated prioritization with audit-grade decision custody. → slide 8
-- Recalibration is a version-floor increment, not a coordinated freeze, not a war room. → slide 12
-- Per-team weights make recalibration a single policy update. → slide 18
-- Phase 1 ships the architecture, Phase 2 ships the operations, Phase 3 ships the apology. → slide 22
-- Five questions stay open until Phase 1 is forced to close them on the record. → slide 27
+- The framework buys calibrated prioritization with audit-grade decision custody. — see slide 8
+- Recalibration is a version-floor increment, not a coordinated freeze, not a war room. — see slide 12
+- Per-team weights make recalibration a single policy update. — see slide 18
+- Phase 1 ships the architecture, Phase 2 ships the operations, Phase 3 ships the apology. — see slide 22
+- Five questions stay open until Phase 1 is forced to close them on the record. — see slide 27
 
 ---
 

@@ -54,9 +54,18 @@ section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol {
 }
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul::before,
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol::before {
-  content:'❯';
+  /* DRAWN, not typed (HARD RULE #29) — `❯` is U+276F, which no text face in the
+   * stack carries, so it used to arrive from whatever fallback font the machine
+   * happened to have. The box is sized in `em` off the same --fs-h3 tier the
+   * glyph was set in, so the connector keeps its old scale; `background-color`
+   * is the paint the mask reveals, so it stays palette-blind (HARD RULE #3). */
+  content:'';
   order:2; flex:0 0 auto; align-self:center;
-  font-size:var(--fs-h3); color:var(--text-secondary);
+  font-size:var(--fs-h3);
+  width:1em; height:1em;
+  background-color:var(--text-secondary);
+  -webkit-mask:var(--shape-chevron-right) var(--shape-paint);
+          mask:var(--shape-chevron-right) var(--shape-paint);
 }
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul > li,
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li {
@@ -317,10 +326,16 @@ section.banner-tag.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-
  * Merged from the standalone before-after on 2026-06-07. */
 section.compare-prose.transition .compare-prose-inner .connector { font-size: 0; }
 section.compare-prose.transition .compare-prose-inner .connector::after {
-  content: "\2192"; font-size: var(--fs-h2); color: var(--accent); line-height: 1;
+  content: ""; display: inline-block; font-size: var(--fs-h2); line-height: 1;
+  width: 1em; height: 1em;
+  background-color: var(--accent);
+  -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
+          mask: var(--shape-arrow-right) var(--shape-paint);
 }
 section.compare-prose.transition:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol)::before {
-  content: "\2192"; color: var(--accent);
+  background-color: var(--accent);
+  -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
+          mask: var(--shape-arrow-right) var(--shape-paint);
 }
 section.compare-prose.transition .compare-prose-inner .card:nth-child(3),
 section.compare-prose.transition:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:last-child {
@@ -384,8 +399,8 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
   width: 100%;
 }
 section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol)::before {
-  content: '\2192';
-  color: var(--text-secondary);
+  -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
+          mask: var(--shape-arrow-right) var(--shape-paint);
 }
 section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li {
   align-content: center;

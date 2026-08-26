@@ -121,4 +121,4 @@ An accent's lightness is whatever the palette needed for an accent, so weight 4 
 
 # 38 of 38 encodings ordered.
 
-`Tiers below the 3:1 bar: 13 → 0 · tightest adjacent step: 0.012 → 0.096 OKLab`
+`Tiers below the 3:1 bar: 13 down to 0 · tightest adjacent step: 0.012 up to 0.096 OKLab`

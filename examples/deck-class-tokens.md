@@ -57,7 +57,7 @@ Only the second is the truth, and it is the one a transform must read.
 | Pattern | Reads | Correct |
 |---|---|---|
 | `/class="([^"]*)"/` | `content` | no — leftmost match is `data-class` |
-| `/\bclass="([^"]*)"/` | `content` | no — `-`→`c` is a word boundary |
+| `/\bclass="([^"]*)"/` | `content` | no — `-` to `c` is a word boundary |
 | `/\sclass="([^"]*)"/` | `content no-note form` | yes |
 
 A transform reading the first two saw the author's payload and none of the deck's tokens.

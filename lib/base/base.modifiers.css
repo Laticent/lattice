@@ -1013,15 +1013,26 @@ section.actors > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-
 section.kpi > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
 section.agenda > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
 section.compare-table > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before {
-  content:'\2726';
+  /* The annotation spark, DRAWN rather than typed (HARD RULE #29). U+2726 is
+   * carried by almost no text face, so the mark that leads every annotation
+   * note used to be set in whichever fallback font each machine reached for.
+   *
+   * The box is 1.5em wide but the mask is drawn at 1em on the LEFT, so the
+   * remaining 0.5em is the mark→text gap — geometry, not padding and not a
+   * margin (HARD RULE #20). Sizing the mask explicitly rather than `contain`
+   * is what keeps the gap out of the mark: `contain` measures the padding box,
+   * so a padded gap would have shrunk the spark to fit beside itself. */
+  content:'';
   position:static;
-  background:none;
-  height:auto;
-  width:auto;
-  color:var(--accent);
-  font-style:normal;
-  padding-right:0.5em; /* glyph→text gap, inside the no-bg pseudo (HARD RULE #20) */
+  display:inline-block;
+  vertical-align:-0.1em;
   font-size:0.95em;
+  width:1.5em;
+  height:1em;
+  background-color:var(--accent);
+  font-style:normal;
+  -webkit-mask:var(--shape-spark) left center / 1em 1em no-repeat;
+          mask:var(--shape-spark) left center / 1em 1em no-repeat;
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -1174,6 +1185,110 @@ section .state.todo {
   --state-ring-mix: 100%;
 }
 section .state.todo::after { display: none; }
+
+/* ── `state-cells` — the state markers, in ANY table's cells ───────────────
+ * The universal opt-in behind HARD RULE #29's answer to a typed `✓`. Two
+ * layouts decoded a bracket marker inside a `<td>`: obligation-matrix (the
+ * four STATUS markers) and matrix-grid (three POSITIONAL ones — filled /
+ * reachable / not applicable, no `[/]`). Everywhere else a comparison table had
+ * no drawn status at all, so authors typed a check — which is not a shape we
+ * draw, and lands as a different font, a color emoji, or a hollow box
+ * depending on the machine. `state-cells` widens the SAME decoder (one parse,
+ * HARD RULE #1 — lib/integrations/markdown-it/plugins.js and its runtime
+ * mirror) to any slide that asks for it:
+ *
+ *     <!-- _class: compare-table state-cells -->
+ *
+ *     | Criterion    | Chorus | Notion |
+ *     | ------------ | :----: | :----: |
+ *     | Auditability | [ ]    | [x]    |
+ *
+ * The disc recipe below is the fourth mirror of one already carried by
+ * checklist, verdict-grid and obligation-matrix — the established shape here,
+ * because the geometry belongs to the consumer and only the scalar knobs are
+ * shared (base.tokens.css explains why the knobs cannot embed --state-color).
+ * `[ ]` decodes NEUTRAL in a cell (`todo`, a true hollow ring): a blank cell
+ * in a comparison table reads "not this one", not "failed".
+ *
+ * Every `checks-*` style variant and `heat` works on it unchanged, since both
+ * act on the same knobs. */
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state {
+  position: relative;
+  display: inline-block;
+  width: calc(1.4em * var(--state-disc-scale));
+  height: calc(1.4em * var(--state-disc-scale));
+  border-radius: 50%;
+  box-sizing: border-box;
+  vertical-align: middle;
+  /* Hide a trailing label while keeping `em` resolving against the cell's
+   * font-size — `font-size:0` here would collapse the disc. */
+  overflow: hidden;
+  text-indent: 200%;
+  white-space: nowrap;
+  line-height: 1;
+  background: color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
+  box-shadow:
+    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-ring-mix), black),
+    inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
+}
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.pass { --state-color: var(--pass); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.warn { --state-color: var(--warn); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.fail { --state-color: var(--fail); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.skip { --state-color: var(--muted-mark); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.todo { --state-color: var(--text-label); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-mark-pct), var(--bg));
+  -webkit-mask: var(--state-mark) center / 100% 100% no-repeat;
+          mask: var(--state-mark) center / 100% 100% no-repeat;
+}
+
+/* ── `note-warn` — the callout, marked as an alarm ─────────────────────────
+ * The other half of HARD RULE #29's answer: a typed `⚠` in front of a note is
+ * the most common shape glyph after the check, and it is the one most likely
+ * to arrive as a full-color emoji that ignores the slide's palette entirely.
+ * This draws it instead — the same --shape-warning mask, painted in the warn
+ * token, so it flips with the theme and prints in grayscale.
+ *
+ *     <!-- _class: list note-warn -->
+ *     > These figures are superseded; see the Q3 restatement.
+ *
+ * The mark rides the blockquote's ::after because ::before already carries
+ * the KEY INSIGHT label text, and a mask applies to an element's WHOLE
+ * rendering — masking the label's own box would erase the label. The label
+ * makes room for it with padding-left. */
+section.note-warn:not(.quote):not(.math):not(.citation-card):not(.redline):not(.policy-recommendation):not([class*="layout-"]) > blockquote,
+section.note-warn:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote {
+  position: relative;
+}
+/* The `:not()` chain MIRRORS the base KEY-INSIGHT rule above, exactly, and both
+ * halves of that matter. It must be at least as specific, or the base rule's
+ * `color: var(--accent)` outranks this one and the label never turns warn — a
+ * three-`:not()` draft shipped a warn triangle beside an accent label while the
+ * docs asserted both were warn. And it must EXCLUDE the same layouts, or
+ * `note-warn` reaches slides the callout treatment deliberately skips: on
+ * `inventory cards` the ::after below would outrank the component's own closing
+ * quote mark and replace it with a warning triangle. */
+section.note-warn:not(.quote):not(.math):not(.citation-card):not(.redline):not(.policy-recommendation):not([class*="layout-"]) > blockquote::before,
+section.note-warn:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote::before {
+  color: var(--warn);
+  padding-left: 1.7em; /* the well the mark sits in, inside the no-bg pseudo (HARD RULE #20) */
+}
+section.note-warn:not(.quote):not(.math):not(.citation-card):not(.redline):not(.policy-recommendation):not([class*="layout-"]) > blockquote::after,
+section.note-warn:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote::after {
+  content: '';
+  position: absolute;
+  left: var(--sp-md);
+  top: var(--sp-xs);
+  font-size: var(--fs-meta);
+  width: 1.15em;
+  height: 1.15em;
+  background-color: var(--warn);
+  -webkit-mask: var(--shape-warning) var(--shape-paint);
+          mask: var(--shape-warning) var(--shape-paint);
+}
 
 /* Style variants — author opts in per slide (`_class: checklist checks-bold`)
  * or per deck (`class: checks-outline`). Each sets ONLY scalar knobs (plus,

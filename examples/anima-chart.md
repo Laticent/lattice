@@ -12,7 +12,7 @@ motion: on
 
 `Anima · in-place chart motion · a deck & slide setting`
 
-Set `motion:` once in the front matter — or pick it in **Deck Settings → Motion** — and every rendered chart comes to life on the live Studio, Playground, and Present surfaces. No AI in the loop; the motion is derived from the chart's own marks. The exported PDF is byte-identical — it shows the finished chart still.
+Set `motion:` once in the front matter — or pick it in **Deck Settings › Motion** — and every rendered chart comes to life on the live Studio, Playground, and Present surfaces. No AI in the loop; the motion is derived from the chart's own marks. The exported PDF is byte-identical — it shows the finished chart still.
 
 ---
 
@@ -78,7 +78,7 @@ place AND the build runs quick.
 
 ## Set it once; override anywhere.
 
-Set `motion:` in the front matter (or **Deck Settings → Motion**) and every chart slide follows it. A slide overrides with a `motion-*` class (**Slide Settings → Motion**) — `motion-off` pins one slide static.
+Set `motion:` in the front matter (or **Deck Settings › Motion**) and every chart slide follows it. A slide overrides with a `motion-*` class (**Slide Settings › Motion**) — `motion-off` pins one slide static.
 
 - **Preview-only.** Motion plays on the live surfaces; every export shows the finished still. A deck without `motion:` is unchanged.
 - **Plays once, on enter.** Motion runs a single time when the slide is shown — no replay control, no loop. It honors the viewer's reduced-motion setting and pauses off-screen.

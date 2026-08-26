@@ -27,7 +27,7 @@ A `scene` puts an Anima motion scene on a slide as its poster still. The PDF sho
 ---
 
 <!-- _class: scene -->
-<!-- _footer: "wide poster → clean — a card shaped to the scene" -->
+<!-- _footer: "wide poster becomes clean — a card shaped to the scene" -->
 
 ## The rotor turns inside its fixed housing.
 
@@ -38,7 +38,7 @@ A moderate-aspect scene gets the **clean** default — a card shaped to the post
 ---
 
 <!-- _class: scene -->
-<!-- _footer: "tall poster → split — the scene gets its own full-height column" -->
+<!-- _footer: "tall poster becomes split — the scene gets its own full-height column" -->
 
 ## The pipeline assembles, stage by stage.
 
@@ -49,7 +49,7 @@ An extreme aspect would waste a card, so the resolver upgrades to **split** — 
 ---
 
 <!-- _class: scene -->
-<!-- _footer: "panorama poster → spotlight — the scene owns the frame" -->
+<!-- _footer: "panorama poster becomes spotlight — the scene owns the frame" -->
 
 ## The signal flows left to right, gated at each hop.
 

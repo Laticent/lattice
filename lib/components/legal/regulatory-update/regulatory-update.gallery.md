@@ -281,7 +281,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 `Related components`
 
 - `timeline-list` — dated entries with a status read and a sentence each, but no citation per row
-- `authority-chain` — single rule walked statute → regulation → guidance → case
+- `authority-chain` — single rule walked from statute to regulation to guidance to case
 - `list-criteria` — flat enumeration of requirements without dates or citations
 - `list-steps` — lighter dots-on-a-spine sequence — the `timeline` variant
 - `list-tabular` — structured metadata per row but no regulatory framing

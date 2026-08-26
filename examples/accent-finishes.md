@@ -43,9 +43,9 @@ The `spectrum:` key picks the gradient identity — the ribbon on the **brand ba
 By default the code strip, table rails, and rules stay a quiet accent-tint hairline — no rainbow repeated on every line. `spectrum-trim:` dials the presence up in three tiers; this slide runs `restrained`, so the panel strip below is a quiet single-hue ramp.
 
 ```js
-// spectrum-trim: off → a quiet accent-tint hairline (the default)
-//                restrained → a single-hue accent ramp (this slide)
-//                on → the deck's full spectrum flows onto the structure
+// spectrum-trim: off        gives a quiet accent-tint hairline (the default)
+//                restrained gives a single-hue accent ramp (this slide)
+//                on         flows the deck's full spectrum onto the structure
 const tiers = ['off', 'restrained', 'on'];
 ```
 

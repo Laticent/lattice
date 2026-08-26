@@ -241,18 +241,25 @@ section.statute-stack.preemption > .cell-stage > ol > li {
   position:relative;
 }
 section.statute-stack.preemption > .cell-stage > :is(ul, ol) > li:not(:last-child)::after {
-  /* `❯` rotated down — the same chevron the compare-prose connector uses, for one
-   * connector vocabulary across the deck. It sits CENTRED in its own clean band (the
+  /* The same chevron the compare-prose connector uses, rotated down, for one
+   * connector vocabulary across the deck. It sits CENTERED in its own clean band (the
    * inter-card gap), not floated over the next card's edge behind a `var(--bg)` mask
-   * chip. */
-  content:'❯';
+   * chip.
+   *
+   * DRAWN, not typed (HARD RULE #29): this was `content:'❯'`, and the rotation is
+   * why keeping the rotate rather than swapping to --shape-chevron-down matters —
+   * the transform also carries the centering translate, and splitting the two
+   * would move the mark. `font-size` stays as the `em` BASIS for the box. */
+  content:'';
   position:absolute;
   left:50%; top:100%;
   transform:translate(-50%, calc(var(--sp-md) / 2 - 50%)) rotate(90deg);
   font-size:var(--fs-h3);
-  font-weight:300;
-  color:var(--accent);
   line-height:1;
+  width:1em; height:1em;
+  background-color:var(--accent);
+  -webkit-mask:var(--shape-chevron-right) var(--shape-paint);
+          mask:var(--shape-chevron-right) var(--shape-paint);
 }
 
 /* Stacked ROW variants (hierarchy / bands / preemption) — both pills ride the header line

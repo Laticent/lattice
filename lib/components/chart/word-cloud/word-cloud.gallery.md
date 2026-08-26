@@ -107,7 +107,7 @@ Spiral-packed word cloud — items sized by weight.
 <!-- stress-slide -->
 <!-- _footer: "Stress test · word-cloud — The densest cloud that still reads." -->
 
-## Stress test — 20 terms, raw frequency counts (512 → 5).
+## Stress test — 20 terms, raw frequency counts, 512 down to 5.
 
 - component `512`
 - variant `327`

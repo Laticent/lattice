@@ -23,7 +23,7 @@ A journey is horizontal by nature — stages left to right, mood dipping below a
 The landscape board is three parallel column-grids; you can't make a stage label group its task *rows* in CSS. So portrait emits a different shape — and encodes mood redundantly so it survives a glance.
 
 - **Row wash** — pain warm, delight cool. The emotional arc is the first thing you see.
-- **Plotted face** — seated on a pain→delight track with a dashed reach to the spine. The exact value, when you look closer.
+- **Plotted face** — seated on a pain-to-delight track with a dashed reach to the spine. The exact value, when you look closer.
 - A `:1` task is then unmistakable: a pink row with the face pulled to the edge.
 
 ---

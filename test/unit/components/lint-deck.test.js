@@ -12,6 +12,9 @@ const { discoverDecks, narrationText, main } = require('../../../tools/lint-deck
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { SANCTIONED_GLYPH_DECKS } = require('../../../tools/check-ownership.js');
+
+const REPO_ROOT = path.join(__dirname, '..', '..', '..');
 
 const FM = '---\nmarp: true\ntheme: indaco\n---\n\n';
 
@@ -490,10 +493,21 @@ describe('deck linter', () => {
     // opts into autosplit and authors a slide past its budget ON PURPOSE, which is the
     // whole point of those decks. Counting them here would make `--strict` unpassable
     // for any autosplit deck, i.e. it would gate against the feature working.
+    //
+    // The three decks on SANCTIONED_GLYPH_DECKS are exempt from `typed-shape-glyph`
+    // ONLY — every other rule still applies to them. Their glyphs are the SUBJECT:
+    // examples/speech-symbols.md proves the read-aloud lexicon pronounces them,
+    // test/fixtures/glyph-sub-fallback-labels.md measures the very substitution
+    // HARD RULE #29 exists to prevent, and examples/gantt-component-redesign.md
+    // quotes the retired gantt delimiter as the wrong input. The list is READ from
+    // the gate rather than repeated here, so the two cannot drift (HARD RULE #1).
+    const glyphExempt = new Set(SANCTIONED_GLYPH_DECKS.map((d) => d.file));
     const offenders = [];
     for (const deck of discoverDecks()) {
+      const rel = path.relative(REPO_ROOT, deck).split(path.sep).join('/');
       const findings = lintText(fs.readFileSync(deck, 'utf8'), { vocab })
-        .filter((f) => f.severity !== 'info' && f.severity !== 'suggestion');
+        .filter((f) => f.severity !== 'info' && f.severity !== 'suggestion')
+        .filter((f) => !(f.rule === 'typed-shape-glyph' && glyphExempt.has(rel)));
       if (findings.length) {
         offenders.push(`${deck}: ${findings.map((f) => `${f.severity}:${f.rule}[${f.classToken}]@${f.slide}`).join(', ')}`);
       }

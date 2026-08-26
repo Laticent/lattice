@@ -94,7 +94,7 @@
     },
     {
       "title": "Unordered axes",
-      "body": "The grid earns its shape when both axes have a real order (shallow → deep, narrow → wide). Two free categorical labels belong in `matrix-2x2`."
+      "body": "The grid earns its shape when both axes have a real order (shallow to deep, narrow to wide). Two free categorical labels belong in `matrix-2x2`."
     }
   ],
   "related": [

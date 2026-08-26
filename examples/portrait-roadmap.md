@@ -31,7 +31,7 @@ You author the same workstream × phase table. The kernel reads the deck's orien
 <!-- _class: roadmap -->
 <!-- _footer: "Auto-horizons · four quarters stacked" -->
 
-`H1 2026 → H2 2026`
+`H1 2026 – H2 2026`
 
 ## Platform roadmap by workstream.
 

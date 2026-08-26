@@ -11,7 +11,7 @@ header: "Lattice · export coverage"
 
 `Fixture · capture-sensitive components`
 
-Every component family the browser export rasterizer has historically mishandled, on one short deck: stylesheet-styled chart SVGs (radar, donut, funnel, quadrant), a self-styled Mermaid diagram, the spectrum-ribbon content chrome, and a dark solid-canvas bookend. Render it through the REAL Share → PDF whenever the export pipeline changes, and actually look at every page (engineering/visual-review.md § The export surface).
+Every component family the browser export rasterizer has historically mishandled, on one short deck: stylesheet-styled chart SVGs (radar, donut, funnel, quadrant), a self-styled Mermaid diagram, the spectrum-ribbon content chrome, and a dark solid-canvas bookend. Render it through the REAL Share › PDF whenever the export pipeline changes, and actually look at every page (engineering/visual-review.md § The export surface).
 
 ---
 
