@@ -429,6 +429,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |
 | `tools/slice-equivalence.mjs` | Slice/deck equivalence — the HEADLESS half of the diagnostic. |
 | `tools/spike-composition-snapshot.mjs` | SPIKE — not production tooling. The measurement harness behind |
+| `tools/transform-parity.mjs` | transform-parity — does the DOM implementation of each registry transformer |
 | `tools/verify-catalog-states.mjs` | The real-surface check the checker said was still owed on findings 1, 2 and 4. |
 | `tools/verify-narrated-player.mjs` | Real-surface verification for the baked-narration player (#1393). |
 | `tools/verify-player-input.mjs` | Real-surface verification for the exported HTML player's TOUCH input (#1558). |

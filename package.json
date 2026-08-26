@@ -1,7 +1,7 @@
 {
   "name": "@workwel/lattice",
   "version": "1.0.0",
-  "description": "A slide deck engine for boardroom-quality PDFs from Markdown. Author every slide as plain Markdown lists; render it as KaTeX math, gantt/kanban/roadmaps, all 25 Mermaid diagram types, native charts, and legal layouts \u2014 61 components, 14 palettes, WCAG AA throughout. Lattice is the engine layer of the SlideWright deck system; decks can also export to Marp for recipients who prefer that tool.",
+  "description": "A slide deck engine for boardroom-quality PDFs from Markdown. Author every slide as plain Markdown lists; render it as KaTeX math, gantt/kanban/roadmaps, all 25 Mermaid diagram types, native charts, and legal layouts — 61 components, 14 palettes, WCAG AA throughout. Lattice is the engine layer of the SlideWright deck system; decks can also export to Marp for recipients who prefer that tool.",
   "keywords": [
     "slides",
     "presentation",
@@ -106,6 +106,7 @@
     "emulator:check": "node tools/build-emulator.js --check",
     "playground:build": "node tools/build-playground.js",
     "hljs:build": "node tools/build-hljs-languages.js",
+    "parity:transforms": "node tools/transform-parity.mjs",
     "playground:check": "node tools/build-playground.js --check",
     "playground:watch": "node tools/build-playground.js --watch",
     "katex-provider:build": "node tools/build-katex-provider.js",

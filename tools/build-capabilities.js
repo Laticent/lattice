@@ -79,6 +79,7 @@ const SCRIPT_META = {
   'playground:watch':         ['Build & bundle', 'Rebuild the playground bundle on change.'],
   'katex-provider:build':     ['Build & bundle', 'Build docs/public/playground/lattice-katex.js — the on-demand KaTeX bundle split out of the playground bundle.'],
   'hljs:build':               ['Build & bundle', 'Build docs/public/playground/hljs/ — the 156 highlight.js grammars the preview bundle\'s 36-language `common` build omits, one small file each (median 1.9 KB) plus an alias manifest, fetched per deck so the Playground colors every language the CLI export does.'],
+  'parity:transforms':        ['Quality & audit', 'Compare each registry transformer\'s string implementation against its DOM twin over every gallery deck, classifying each difference as identical / equivalent-re-serialization / genuinely different. The evidence gate for deleting the string twins — it already caught a parser that silently lowercased SVG element names.'],
   'katex-provider:check':     ['Build & bundle', 'Freshness gate for the katex-provider bundle.'],
   'katex-provider:watch':     ['Build & bundle', 'Rebuild the katex-provider bundle on change.'],
   'theme-core:build':         ['Build & bundle', 'Bundle the pure Theme Studio core for the browser (docs site).'],
