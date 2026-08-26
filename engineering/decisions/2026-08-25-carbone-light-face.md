@@ -70,8 +70,12 @@ and read as a muddy pine; solving in OKLCH instead of by eye is what kept the hu
 Three things carry the identity across the split rather than the lime alone:
 
 - `--brand-accent` stays `#7DE38A` on both faces — it is the axis, not a use;
-- `--spectrum` still ends in the bright lime, where a gradient owes no text contrast,
-  so the electric value is literally on a light slide;
+- `--spectrum` keeps the same GESTURE rather than the same values — canvas, structural
+  mid, accent — flipped per stop, because `light-dark()` is a color function and cannot
+  wrap a gradient. Measured against each face's own canvas the two arms are the same
+  shape (start 1.11/1.19, mid 1.54/2.56, end 10.95/5.22). Shipping shared stops, which
+  is what the first cut did, put a near-black bar across every light slide; the lime tip
+  survived, which is exactly what made it easy to miss;
 - `--surface-inverse` is graphite on **both** faces, so the code block keeps its
   terminal register and all twelve `--hljs-*` values stay valid, unchanged.
 

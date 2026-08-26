@@ -26,8 +26,11 @@
  *
  *   Three things carry the identity across the split rather than the lime alone:
  *     · --brand-accent stays #7DE38A on both faces — it is the axis, not a use;
- *     · --spectrum still ends in the bright lime, so the ribbon is literally the
- *       electric value on a light slide, where a gradient owes no text contrast;
+ *     · --spectrum keeps the same GESTURE on both faces — canvas, structural mid,
+ *       accent — with per-stop arms rather than shared values. (This was WRONG at
+ *       first: the ribbon shipped identical stops, so the fade that is elegant on
+ *       graphite was a near-black bar across every light slide. The lime tip was
+ *       still there, which is what made it easy to miss.);
  *     · --surface-inverse is DARK on both faces, so the code block keeps its
  *       terminal register and all twelve --hljs-* values stay valid.
  *
@@ -177,9 +180,35 @@
   --code-text:     #DCDCD7;
 
   /* ── Spectrum — black → graphite → lime ────────────────────────────── */
-  --spectrum: linear-gradient(90deg, #0E0E10 0%, #3A3A3F 55%, var(--brand-accent) 100%);
-  --spectrum-vertical: linear-gradient(180deg, #0E0E10 0%, #3A3A3F 55%, var(--brand-accent) 100%);
-  --spectrum-end: var(--brand-accent); /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
+  /* THE RIBBON FLIPS PER STOP, not as a whole — `light-dark()` is a COLOR function
+   * and cannot wrap a gradient, so each stop carries its own pair.
+   *
+   * The gesture is what carries across, not the values: the ribbon starts at the
+   * canvas, passes through a structural mid, and resolves into the accent. Measured
+   * against its own canvas, the two arms are the same shape —
+   *
+   *              start   mid    end
+   *     dark     1.11    1.54   10.95   (on #1A1A1C)
+   *     light    1.19    2.56    5.22   (on #F6F6F5)
+   *
+   * Shipping the dark values on the light face put a NEAR-BLACK BAR across the top
+   * of every light slide: the stops are identical, so the gradient that reads as an
+   * elegant fade on graphite reads as a foreign stripe on off-white. The lime tip
+   * was still there, which is what made it easy to miss.
+   *
+   * The light arm ends on the DEEP lime rather than the bright one. #7DE38A is
+   * 1.47:1 on this canvas and a 4px ribbon in it washes out; #037829 is 5.22:1 and
+   * reads as the brand. The bright value keeps its place on the dark arm and as
+   * --brand-accent. */
+  --spectrum: linear-gradient(90deg,
+    light-dark(#E2E3E0, #0E0E10) 0%,
+    light-dark(#9A9C97, #3A3A3F) 55%,
+    light-dark(#037829, var(--brand-accent)) 100%);
+  --spectrum-vertical: linear-gradient(180deg,
+    light-dark(#E2E3E0, #0E0E10) 0%,
+    light-dark(#9A9C97, #3A3A3F) 55%,
+    light-dark(#037829, var(--brand-accent)) 100%);
+  --spectrum-end: light-dark(#037829, var(--brand-accent)); /* curated endpoint, for spectrum: duo */
 
   /* ── Dark-variant tokens — kept for any explicit consumer (Marp chrome,
    * theming code paths). Carbone resolves to these whether color-scheme is
