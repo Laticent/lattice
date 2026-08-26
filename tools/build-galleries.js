@@ -93,6 +93,11 @@ function buildOne(m, theme) {
     // Render the source as authored.
     execFileSync(
       process.execPath,
+      // PALETTE PIN — DELIBERATE, and deliberately NOT the engine default.
+      // Galleries are a REFERENCE surface: holding one palette fixed is what keeps a
+      // component diff readable across time (#8). The engine default is cuoio
+      // (lib/core/resolve-palette.js); this stays indaco on purpose. Do not "fix" it to
+      // track the default — that re-renders every gallery on any future default change.
       [EMULATOR, galleryMd, THEME, outPdf, 'indaco', '-q'],
       { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] },
     );
@@ -104,6 +109,11 @@ function buildOne(m, theme) {
       fs.writeFileSync(tmpMd, sourceForTheme(m, theme));
       execFileSync(
         process.execPath,
+        // PALETTE PIN — DELIBERATE, and deliberately NOT the engine default.
+        // Galleries are a REFERENCE surface: holding one palette fixed is what keeps a
+        // component diff readable across time (#8). The engine default is cuoio
+        // (lib/core/resolve-palette.js); this stays indaco on purpose. Do not "fix" it to
+        // track the default — that re-renders every gallery on any future default change.
         [EMULATOR, tmpMd, THEME, outPdf, 'indaco', '-q'],
         { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] },
       );

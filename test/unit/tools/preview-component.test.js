@@ -7,6 +7,9 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { combineCss, buildDeck } = require('../../../tools/preview-component.js');
+// The CONSTANT, not a literal — this case is about buildDeck falling back at all,
+// not about which palette it falls back to (lib/core/default-palette.mjs).
+const { DEFAULT_PALETTE } = require('../../../lib/core/default-palette.mjs');
 
 describe('preview-component — faithful assembly', () => {
   test('combineCss keeps lattice.css FIRST, then the component CSS (frame is not replaced)', () => {
@@ -29,6 +32,6 @@ describe('preview-component — faithful assembly', () => {
   });
 
   test('buildDeck defaults the theme', () => {
-    assert.match(buildDeck('<!-- _class: x -->'), /theme: indaco/);
+    assert.match(buildDeck('<!-- _class: x -->'), new RegExp(`theme: ${DEFAULT_PALETTE}\n`));
   });
 });

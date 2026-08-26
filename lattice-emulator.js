@@ -307,7 +307,7 @@ PALETTE RESOLUTION (highest precedence first)
   1. CLI palette positional argument
   2. LATTICE_PALETTE environment variable
   3. Deck front-matter \`theme:\` directive
-  4. Default 'indaco'
+  4. Default 'cuoio'
 
   Available palettes: ${listAvailablePalettes()}
 
@@ -531,7 +531,7 @@ if (!mdFile || !outFile) {
   console.error('  node lattice-emulator.js source.md custom.css output.pdf [palette]    # explicit layout CSS');
   console.error('  node lattice-emulator.js [-o out.pdf] [-p palette] [-c css] source.md # named flags');
   console.error('');
-  console.error('Run with --help for full options. Default palette: indaco.');
+  console.error('Run with --help for full options. Default palette: cuoio.');
   process.exit(1);
 }
 

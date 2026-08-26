@@ -5,7 +5,7 @@
  *   1. CLI arg            (cliArg)
  *   2. LATTICE_PALETTE    (env)
  *   3. Front-matter `theme:`
- *   4. Default 'indaco'
+ *   4. Default: the DEFAULT constant (cuoio)
  *
  * Higher tiers override lower. Each test asserts both the resolved
  * `name` and the `source` (so a regression that flips precedence is
@@ -134,7 +134,8 @@ describe('palette-resolution', () => {
   // This reader used to capture the value with `([A-Za-z0-9_-]+)` anchored to `$`,
   // which did two jobs at once and got one of them wrong. `theme: cuoio  # brand`
   // matched NOTHING, so a deck that annotated its own front matter silently fell
-  // back to indaco on the CLI/export path — while the engine's own `parseFrontMatter`
+  // back to indaco (the default at the time) on the CLI/export path — while the engine's
+  // own `parseFrontMatter`
   // read the palette fine. Two readers, one question, opposite answers (#1416's class).
   //
   // Caught by rendering the real CLI, not by a unit test: every unit suite passed
@@ -159,7 +160,9 @@ describe('palette-resolution', () => {
     for (const bad of ['../../etc/passwd', 'a b', 'foo/bar', '..']) {
       const r = resolvePalette({ md: `---\ntheme: ${bad}\n---\n\n# T\n`, env: {} });
       assert.equal(r.source, 'default', `${bad} must not resolve as a palette`);
-      assert.equal(r.name, 'indaco');
+      // The CONSTANT, not a literal: this case is about the guard rejecting the value
+      // and falling through, not about which palette the fall-through lands on.
+      assert.equal(r.name, DEFAULT);
     }
   });
 

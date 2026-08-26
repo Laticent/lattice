@@ -26,6 +26,7 @@
  */
 
 const fs = require('node:fs');
+const { DEFAULT_PALETTE } = require('../lib/core/default-palette.mjs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
@@ -40,16 +41,16 @@ function combineCss(latticeCss, componentCss) {
 }
 
 /** Wrap a bare skeleton in deck front-matter; strip any front-matter the skeleton already carries. */
-function buildDeck(skeleton, { theme = 'indaco' } = {}) {
+function buildDeck(skeleton, { theme = DEFAULT_PALETTE } = {}) {
   const body = String(skeleton || '').replace(/^﻿?---\n[\s\S]*?\n---\s*\n?/, '').trimStart();
   return `---\nmarp: true\ntheme: ${theme}\npaginate: true\n---\n\n${body}\n`;
 }
 
 /**
  * Render a component ({name, css, skeleton}) to a PNG via the engine. Returns the
- * output path. `theme` defaults to indaco; `palette` is an optional emulator palette.
+ * output path. `theme` defaults to the engine default (lib/core/resolve-palette.js); `palette` is an optional emulator palette.
  */
-function renderComponent({ name, css, skeleton }, { out, theme = 'indaco', palette } = {}) {
+function renderComponent({ name, css, skeleton }, { out, theme = DEFAULT_PALETTE, palette } = {}) {
   if (!css || !skeleton) throw new Error('component needs both `css` and `skeleton`');
   const latticeCss = fs.readFileSync(LATTICE_CSS, 'utf8');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lat-preview-'));
@@ -73,7 +74,7 @@ function renderComponent({ name, css, skeleton }, { out, theme = 'indaco', palet
 }
 
 function parseArgs(argv) {
-  const o = { theme: 'indaco' };
+  const o = { theme: DEFAULT_PALETTE };
   const pos = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];

@@ -15,8 +15,12 @@
  * <link>/import this one file and get a themed deck with no theme
  * selection; to override, load a different palette's tokens after it.
  *
- * The default palette is cuoio (warm leather/cream). Change DEFAULT_THEME
- * to re-bless a different palette.
+ * The default palette comes from `lib/core/resolve-palette.js` — the SAME constant
+ * the CLI's resolution chain uses, imported rather than restated. This file used to
+ * declare its own `DEFAULT_THEME = 'cuoio'` while that chain defaulted to `indaco`,
+ * so a consumer who <link>ed this bundle and a deck rendered through the CLI got two
+ * different palettes from the same "no theme specified" input. One declaration now;
+ * change it there to re-bless a different palette.
  *
  * Sibling: tools/build-css.js produces the engine this consumes; the
  * orchestrator (tools/build.js) runs this immediately after it.
@@ -32,7 +36,7 @@ const { minifyCss } = require('./minify-css');
 
 const ROOT = path.join(__dirname, '..');
 const ENGINE = path.join(ROOT, 'dist', 'lattice.css');
-const DEFAULT_THEME = 'cuoio';
+const { DEFAULT_PALETTE: DEFAULT_THEME } = require('../lib/core/default-palette.mjs');
 const THEME = path.join(ROOT, 'themes', `${DEFAULT_THEME}.css`);
 const OUTPUT = path.join(ROOT, 'dist', 'lattice-default.css');
 const MIN_OUTPUT = path.join(ROOT, 'dist', 'lattice-default.min.css');

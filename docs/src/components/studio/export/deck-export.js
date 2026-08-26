@@ -31,6 +31,7 @@
 // re-derived by scanning `@import` — this was the fourth such scanner in the repo.
 // See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
+import { DEFAULT_PALETTE } from '../../../../../lib/core/default-palette.mjs';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
@@ -221,7 +222,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// default palette if the deck's theme isn't a served built-in (e.g. a
 	// Workbench library theme), so the bundle is always renderable.
 	const exportBase = themeBase.replace(/themes\/$/, 'export/');
-	let chosen = (palette || 'indaco').toLowerCase();
+	let chosen = (palette || DEFAULT_PALETTE).toLowerCase();
 	let bundledThemes = [];
 	for (const cand of [chosen, 'indaco']) {
 		bundledThemes = [];

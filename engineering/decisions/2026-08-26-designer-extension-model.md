@@ -23,7 +23,10 @@ summary: >
   already exists unwired (`gateThemeCss` in `lib/theme/gate.js`, `cvd-audit --themes-dir`).
   The FOURTH axis — how many caller CSS slots and what each means — is deliberately left
   OPEN with four candidates and their tradeoffs, because it is the one choice that cannot
-  be reversed cheaply once a CLI surface ships. No code changes here.
+  be reversed cheaply once a CLI surface ships. The note itself proposes no code; the
+  change that carries it also makes the default palette `cuoio` and gives it one
+  declaration (see 2026-08-26-one-default-palette.md), which is why §2's account of
+  the resolution chain names `cuoio` rather than the `indaco` it was drafted against.
 tags: [cli, theming, css, cascade, extensibility, designer, export]
 ---
 
@@ -100,7 +103,12 @@ flip closed that too. Meanwhile the other slot cannot help: `resolvePalette`
 (`lib/core/resolve-palette.js`) returns a **name**, constrained to `[A-Za-z0-9_-]+`
 explicitly so a deck cannot path-traverse, and `lattice-emulator.js:820` joins it to
 `PKG_ROOT/themes/<name>.css` and `process.exit(1)`s if the file is absent. A palette is
-always loaded — the chain defaults to `indaco`.
+always loaded — the chain has a default, and that default is `cuoio` as of the same
+change that carries this note. It was `indaco` while the note was drafted, and the two
+declarations of it disagreed: `dist/lattice-default.css` inlined `cuoio` while the
+CLI resolved `indaco`. There is one declaration now. The point the section makes is
+unaffected by which palette it names — a palette is ALWAYS loaded and always lands
+last, so a caller sheet has something in front of it whatever the deck asked for.
 
 What a designer wants, against what exists today:
 

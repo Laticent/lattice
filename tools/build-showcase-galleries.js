@@ -100,6 +100,11 @@ function buildOne(showcase, groups, theme) {
   const outPdf = galleryPdfPath(showcase.id, theme);
   try {
     fs.writeFileSync(tmpPath, mdSource);
+    // PALETTE PIN — DELIBERATE, and deliberately NOT the engine default.
+    // Galleries are a REFERENCE surface: holding one palette fixed is what keeps a
+    // component diff readable across time (#8). The engine default is cuoio
+    // (lib/core/resolve-palette.js); this stays indaco on purpose. Do not "fix" it to
+    // track the default — that re-renders every gallery on any future default change.
     execFileSync(process.execPath, [EMULATOR, tmpPath, THEME_CSS, outPdf, 'indaco', '-q'],
       { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
   } finally {
