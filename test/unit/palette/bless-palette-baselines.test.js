@@ -162,6 +162,7 @@ describe('bless-palette-baselines · the table parser', () => {
     // ANCHORED TO ITS OWN TABLE. An unanchored /68 entries/ matched the CVD table's
     // "768 entries" as a substring, so the contrast assertion passed while reading the
     // wrong line — and would have kept passing whatever the contrast table said.
+<<<<<<< HEAD
     //
     // 22, down from 66, and this is the first pass that cut the table by composition
     // rather than by curating a hue — no palette file is touched at all. Three moves,
@@ -187,6 +188,13 @@ describe('bless-palette-baselines · the table parser', () => {
     // infeasible without a visible design change.
     // engineering/decisions/2026-08-25-status-trio-joint-solve-model.md
     assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*22 entries/,
+=======
+    // 64, down from 66: carbone's `--code-inline-fg` was pinned off `--accent` on the
+    // light face (it composed 4.17 on a chip made from itself, below AA), which retired
+    // `kanban/card-code-chip` for BOTH carbone and carbone-dark. A sanction that stops
+    // failing is deleted, not re-frozen.
+    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*64 entries/,
+>>>>>>> b1d6edc (theme(carbone): fold in the independent checker's findings)
       'the contrast table still parses in full');
     // 792, up from 768: `carbone-dark` is a NEW theme (carbone grew a curated light face
     // and took the house two-file shape), so the table gains one theme's worth --

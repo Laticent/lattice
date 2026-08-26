@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: >
   Carbone had no light face. Resolved rather than assumed, 289 of its 303 tokens were
   IDENTICAL across the two color schemes, because the palette declared them flat and pinned
@@ -8,13 +8,13 @@ summary: >
   off-white canvas the palette never presented, which is why `--fail` read 2.34:1 and twelve
   `carbone|light|*` entries sat in KNOWN_SUB_THRESHOLD. Carbone is curated a real light face
   and takes the house two-file shape, so `theme: carbone` now resolves LIGHT (breaking) and
-  `carbone-dark` carries the byte-identical graphite values. The electric lime is 1.48:1 on
+  `carbone-dark` carries the byte-identical graphite values. The electric lime is 1.47:1 on
   an off-white canvas and cannot carry text, so `--accent`'s light arm holds the SAME hue at
-  95% of the chroma and 60% of the lightness (#037829, 5.22:1); the bright value stays the
+  95% of the chroma and 60% of the lightness (#037829, 5.24:1); the bright value stays the
   brand axis and the spectrum, and `--surface-inverse` stays graphite on both faces so the
   code block keeps its terminal register. The trio had to be solved TOGETHER against AA on
   the self-tinted composed band, twelve frozen CVD ratchets and an absolute AA gate on the
-  card — no solution exists with hues fixed; small rotation found one at +0.0024 margin. The
+  card — no solution exists with hues fixed; small rotation found one (tightest clearing margin +0.0126). The
   last KNOWN_BELOW_AA sanction (`errorTextColor`) retires as a side effect, without the CVD
   trade the recorded alternative required, because the light arms finally land on the canvas
   they were written for.
@@ -51,7 +51,7 @@ pin, so a `_class: light` slide flipped the status ink while the canvas held.
 
 Carbone's identity is `#7DE38A` on graphite — 10.95:1, and genuinely good.
 
-The same lime is **1.48:1 on an off-white canvas**. There is no canvas lightness a
+The same lime is **1.47:1 on an off-white canvas**. There is no canvas lightness a
 light mode would accept where it carries text. That is the real reason the palette
 punted, and any light face has to answer it.
 
@@ -60,7 +60,7 @@ The answer is to move the lime along ONE axis. `--accent`'s light arm is `#03782
 | | hue (OKLCH) | chroma | L | on canvas |
 |---|---|---|---|---|
 | dark arm | 146.8 | 0.156 | 0.832 | 10.95:1 |
-| light arm | **146.8** | **0.148** | 0.500 | **5.22:1** |
+| light arm | **146.8** | **0.148** | 0.500 | **5.24:1** |
 
 Same hue, **95% of the chroma**, at 60% of the lightness. A darker *electric* green,
 not a desaturated forest one — the distinction the curation turns on. An early
@@ -73,7 +73,7 @@ Three things carry the identity across the split rather than the lime alone:
 - `--spectrum` keeps the same GESTURE rather than the same values — canvas, structural
   mid, accent — flipped per stop, because `light-dark()` is a color function and cannot
   wrap a gradient. Measured against each face's own canvas the two arms are the same
-  shape (start 1.11/1.19, mid 1.54/2.56, end 10.95/5.22). Shipping shared stops, which
+  shape (start 1.11/1.17, mid 1.54/2.66, end 10.95/5.24). Shipping shared stops, which
   is what the first cut did, put a near-black bar across every light slide; the lime tip
   survived, which is exactly what made it easy to miss;
 - `--surface-inverse` is graphite on **both** faces, so the code block keeps its
@@ -102,8 +102,15 @@ trio TOGETHER — magnolia needed `--warn` lifted with `--fail`"):
 | `--warn` | `#A55400` | +8° | 4.59:1 |
 | `--fail` | `#580006` | 0° | 7.84:1 |
 
-CVD margin over the binding frozen pair: **+0.0024**. Thin, and worth saying so: this
-trio is close to the boundary of what the three constraints jointly permit.
+CVD margin over the binding frozen pair: the tightest CLEARING margin is **+0.0126**, at
+`pass^warn` under achromatopsia (0.1226 against the 0.11 floor).
+
+An earlier revision of this note, three commit messages and a slide of the demo deck all
+said **+0.0024**. An independent checker could not reproduce that number from any
+pair/floor/frozen combination using the repo's own `simulate` and `oklabDistance`, and
+neither can I. It is withdrawn rather than explained: a number nobody can re-derive is
+worth less than no number, because it reads as evidence. The trio is still close to the
+boundary of what the three constraints jointly permit — that part was true.
 
 `--warn` sits at the 3:1 graphical floor on its own pill rather than AA. That is not a
 new concession — carbone's warn pills were already sanctioned sub-AA on **both** faces
@@ -121,7 +128,18 @@ on the off-white canvas they were always written for, so the pair clears without
 trade ever being made. `KNOWN_BELOW_AA` is empty, and the sanction's stale arm is what
 reported it — the gate deleted its own last excuse.
 
-Twelve `carbone|light|*` composed sanctions went to five for the same reason.
+Twelve `carbone|light|*` composed sanctions went to four — but that count, on its own,
+describes attrition and hides an addition. **Three of the surviving keys are NEW**, created
+by this change: `policy-recommendation/amend-badge` (4.27) and `default-badge` (4.43) did
+not exist before, and `kanban/card-code-chip` did not either. Only the two `kpi` warn pills
+carry over. Under HARD RULE #18 a newly sub-AA surface a change creates is a window that
+change created, so it is named here rather than netted off against the twelve.
+
+`kanban/card-code-chip` was then FIXED rather than sanctioned: `--code-inline-fg` inherited
+`var(--accent)`, and because the chip is a 10% wash of that same value the ink was measured
+against a ground made from itself — 4.55 on `--bg` and **4.17 on `--bg-alt`**, below AA. Its
+light arm is pinned to `#006E24` (hue held, one step darker): 5.16 / 4.73. The sanction is
+deleted, not re-frozen.
 
 ## 5 · One baseline taken down by hand
 
@@ -150,7 +168,97 @@ was never rendered is the one that moves.
 - **`bless-palette-baselines`** pins the table sizes. `CVD_FROZEN` is 792, up from 768:
   33 themes × 2 modes × 3 pairs × 4 conditions.
 
-## 7 · What is NOT verified here
+## 6b · Three things the gates never caught
+
+The gates were green at every step below, and none of these was found by them. All three
+were found by rendering the deck and looking at it, which is what the QUALITY BAR is for.
+
+**The washes were chalk.** `--pass-bg` and friends were `color-mix(… var(--pass) 18%, …)`,
+and the light inks sit at OKLCH L 0.29-0.55 because AA-on-a-self-tinted-band and the CVD
+ratchets pin them there. Pouring 18% of a near-black into a light card yields a GRAY:
+`--pass-bg` measured chroma **0.0178**, `--fail-bg` **0.0156** — very nearly achromatic.
+Curating the SOURCE decouples the two jobs; the ink keeps the contrast and the CVD
+separation, the wash carries the color. Both improved (pass 0.0178 → 0.0661, ink-on-band
+5.78 → 7.04). Not the house 10% (indaco, cuoio): their inks are dark too, so a smaller pour
+of a dark ink is fainter mud rather than cleaner color. The percentage was never the lever.
+
+**The ribbon was the dark one.** `--spectrum` shipped identical stops on both faces —
+sampled across the slide, both measured `srgb(16,16,18) → (58,58,63) → (122,219,135)`. The
+lime TIP was there, which is what made "the ribbon keeps the electric value on a light
+slide" read as verified; the other 70% is near-black, and on off-white that is a foreign
+stripe. The gesture carries, not the values: canvas → structural mid → accent, flipped per
+stop because `light-dark()` is a color function and cannot wrap a gradient. Against each
+face's own canvas the arms are now the same shape (1.11/1.54/10.95 dark, 1.17/2.66/5.24
+light). The light arm ends on the deep lime: `#7DE38A` is 1.47:1 here and a 4px ribbon in it
+washes out.
+
+**The ground was achromatic, and that is the one that mattered.** The first light face was
+built by INVERTING carbone's dark ramp — and bone-on-graphite is achromatic by construction,
+which is exactly why the dark face works (value contrast plus one electric accent). Inverted,
+it is neutral gray ink on neutral gray paper, with no lime doing the work because the accent
+had to darken to carry text. Measured against the palettes that set the bar:
+
+|                | `--text-body` chroma | card chroma |
+|---|---|---|
+| carbone (was)  | 0.0067 | 0.0073 |
+| cuoio          | 0.0283 | 0.0136 |
+| indaco         | 0.0736 | 0.0074 |
+
+Both references share what carbone lacked: tinted paper, chromatic ink, tinted NEUTRAL rows.
+Their monochrome is a monochrome with color in it. Carbone's is now a cool graphite at
+OKLCH h=252 — paper C 0.0068, body ink C 0.0455, between the two.
+
+**A green ground was tried first and rejected, and the reason generalizes.** At h=165 the
+paper tied beautifully to the lime, and swallowed the semantic pass state: canvas, neutral
+rows and pass rows were all green together. **A palette's monochrome must differ in hue from
+its semantics, or the signal stops reading as a signal.** That is why indaco is navy and
+cuoio is warm brown while both keep a green pass. Nothing fails a gate when you get this
+wrong; the deck simply stops communicating state.
+
+## 7 · What the independent checker found
+
+One tier-1 checker reviewed the diff (HARD RULE #25 — a whole-palette rewrite plus changes
+to gates shared by all 33 themes is squarely maker-checker). It confirmed the load-bearing
+claims and found real defects. Worth recording both halves.
+
+**Confirmed:** the dark face is byte-identical (all 304 tokens resolved and diffed; the only
+moves are the three `--scheme-dark-*` values, which nothing outside carbone's own pairs
+reads); the three-layer contract holds on the current canvas; `--warn` clears AA on the card
+at 4.60; both arms of `SANCTIONED_FLAT_OVERRIDES` work for a correctly-keyed entry; the
+texture-ramp synthetic ramp is byte-identical to carbone's real dark fills; the per-stop
+spectrum survives the real export flattener AND the committed PDF's pixels; no missed light
+arm anywhere in `--c1..12`, `--diagram-*`, hljs or the chart family.
+
+**Found, and fixed here:**
+
+- **A sub-AA surface I created and did not notice.** `--code-inline-fg` inherited
+  `var(--accent)`; the chip is a 10% wash of that value, so the ink was measured against a
+  ground made from itself — 4.17 on `--bg-alt`. Fixed at the value (§4), not the comment.
+- **The demo deck shipped a truncated sentence** on its title slide, in the committed PDF.
+- **Numbers that were true when measured and stale after a later commit** — the cat-cycle
+  figures were taken on the neutral canvas and never retaken after `535d7c5`; the spectrum
+  table cited a canvas that commit deleted; the chroma table had the card figure sitting in
+  the body column. All re-derived against the tree.
+- **`+0.0024` is not derivable at all** and is withdrawn (§3).
+- **24 `carbone-dark` CVD rows recorded distances the tree never measured**, leaving two
+  keys with different high-water marks for the same rendering. Reset so they take today's
+  measurement; 11 of 12 dark rows now agree with `carbone`'s. The twelfth is pre-existing
+  drift on `main`, off-path under #18.
+- **`SANCTIONED_FLAT_OVERRIDES` could rot on the THEME half of its key** — a key naming an
+  untested, renamed or typo'd theme sanctioned nothing and was never reported. A third
+  assertion closes it, mutation-proved with the checker's own defeating input.
+- **`--spectrum` leaked unresolved `light-dark()` into a generated artifact.**
+  `build-docs-portal.js` matched `light-dark()` whole-value-only, so a per-stop gradient
+  fell through. It was the only `light-dark(` in the repo's generated output and
+  `build:check` was green. The resolver now collapses embedded occurrences.
+- **Four comments in `carbone.css`, and three live docs, still said carbone was dark-only** —
+  including shipped website copy.
+
+**Not fixed, disclosed:** `palette:bless` destroys hand-written prose inside the map it
+rewrites (it regex-replaces the whole block), which cost the `chart/status-pill` #1807 note
+in this diff. Pre-existing tool behavior, off-path here, worth its own change.
+
+## 8 · What is NOT verified here
 
 The gates are green (7183/7183, `build:check` OK), but a palette is a visual artifact and
 the gates measure numbers, not taste. The rendered gallery in both faces is the evidence

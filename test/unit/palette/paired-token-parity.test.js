@@ -162,6 +162,23 @@ const SANCTIONED_FLAT_OVERRIDES = new Map([
 describe('paired-token parity: no flat override of a base light-dark() pair', () => {
   assert.ok(PALETTES.length >= 15, `expected the shipped palette set, got ${PALETTES.length}`);
 
+  // The per-palette stale arm below only inspects keys whose THEME half is a palette it
+  // actually tests, so a key naming a theme that is untested, renamed, deleted or simply
+  // typo'd sanctions nothing and is never reported — it rots silently, which is the one
+  // thing the map promises it cannot do. Found by an independent checker, who defeated
+  // the stale arm with `['a11y-base|bg', …]` and `['does-not-exist|bg', …]`: 32 pass, 0 fail.
+  test('every sanction names a theme this gate actually audits', () => {
+    const unknown = [...SANCTIONED_FLAT_OVERRIDES.keys()]
+      .map((k) => k.split('|')[0])
+      .filter((theme) => !PALETTES.includes(theme));
+    assert.deepEqual(
+      unknown,
+      [],
+      'SANCTIONED_FLAT_OVERRIDES names a theme outside the audited set, so its entry can '
+      + `never be checked or reported stale:\n  ${unknown.join('\n  ')}`,
+    );
+  });
+
   for (const name of PALETTES) {
     test(name, () => {
       const modes = themeActualModes(name, themeFiles, manifests);

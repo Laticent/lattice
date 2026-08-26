@@ -78,7 +78,8 @@ describe('createThemeFetcher — transitive @import closure', () => {
 		expect(registered.has('a11y-base')).toBe(true); // light chain still fully registered
 	});
 
-	// Red-team regression (Fix A): a palette with NO `-dark` companion (carbone, the a11y set)
+	// Red-team regression (Fix A): a palette with NO `-dark` companion (the a11y set; carbone
+	// had one added when it grew a light face, so it is no longer an example of this shape)
 	// 404s on `ensure(dark)`. The module-shared cache's transient self-heal must NOT drop a 404
 	// (a designed negative result) — else it re-fetches the 404 on EVERY render. Fetched ONCE.
 	it('negative-caches an absent -dark companion — fetched once, not per render', async () => {

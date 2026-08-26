@@ -14,14 +14,14 @@
  *
  * WHAT THE LIGHT FACE IS, AND WHY IT IS NOT JUST "CARBONE INVERTED"
  * ────────────────────────────────────────────────────────────────
- *   The electric lime measures 1.48:1 on an off-white canvas. It cannot be
+ *   The electric lime measures 1.47:1 on an off-white canvas. It cannot be
  *   foreground text on light at any canvas lightness a light mode would accept,
  *   which is why the palette punted on a light face for so long.
  *
  *   The resolution is to move the lime along ONE axis. --accent's light arm is
  *   #037829: the SAME hue (OKLCH h=146.8) holding 95% of the same chroma
  *   (0.148 against the lime's 0.156), at L 0.50 instead of L 0.83. It reads
- *   5.22:1 on the canvas. That is a darker electric green, not a desaturated
+ *   5.24:1 on the canvas. That is a darker electric green, not a desaturated
  *   forest one — the distinction the whole curation turns on.
  *
  *   THE GROUND IS CHROMATIC, and that was the second thing this face got wrong.
@@ -30,7 +30,7 @@
  *   Measured against the palettes that set the bar, that is what "washed out" is:
  *
  *                    --text-body chroma    card chroma
- *       carbone(was)      0.0073             0.0027
+ *       carbone(was)      0.0067             0.0073
  *       cuoio             0.0283             0.0136
  *       indaco            0.0736             0.0074
  *
@@ -58,7 +58,7 @@
  *   2. The categorical cycle keeps the three-layer contract on both faces:
  *      mark-vs-canvas >= 3:1, label ink on fill >= 4.5:1, fill and mark distinct
  *      tiers of one hue. Light arms hold each dark mark's hue and solve only
- *      lightness. Measured light: 4.37-4.44 / 16.50-16.92 / 4.72-4.80.
+ *      lightness. Measured light: 4.39-4.46 / 16.49-16.91 / 4.72-4.80.
  *   3. Saturation is the accent's job. Everything else stays graphite.
  *
  * WHAT THIS FILE USED TO SAY, AND WHY IT WAS WRONG
@@ -87,7 +87,7 @@
   /* ── Carbone brand axis ────────────────────────────────────────────── */
   --brand-accent:            #7DE38A;  /* electric accent                       */
 
-  /* ── Surfaces — pinned dark (no light-dark wrapping) ──────────────── */
+  /* ── Surfaces — a light-dark() pair each, since the light curation ── */
   --bg:       light-dark(#F3F7FB, var(--scheme-dark-bg));
   --bg-alt:   light-dark(#E6EDF5, var(--scheme-dark-bg-alt));
   /* INVERSE IS DARK ON BOTH FACES, deliberately. It is the code-block ground and
@@ -99,29 +99,33 @@
 
   /* ── Ink ramp ──────────────────────────────────────────────────────── */
   --text-display: light-dark(#081523, var(--scheme-dark-text-display));
-  --text-heading: light-dark(#081523, var(--scheme-dark-text-heading));   /* 17.01 / 15.91 AAA */
-  --text-body:    light-dark(#1E3146, var(--scheme-dark-text-body));      /* 12.36 / 12.63 AAA */
+  --text-heading: light-dark(#081523, var(--scheme-dark-text-heading));   /* 17.08 / 15.91 AAA */
+  --text-body:    light-dark(#1E3146, var(--scheme-dark-text-body));      /* 12.32 / 12.63 AAA */
   --text-label:   var(--accent);                                          /* flips with the accent */
-  --text-secondary: light-dark(#46576A, var(--scheme-dark-text-secondary)); /* 6.90 / 7.0 AAA */
+  --text-secondary: light-dark(#46576A, var(--scheme-dark-text-secondary)); /* 6.89 / 7.04 AAA */
   --text-muted:   light-dark(#546374, var(--scheme-dark-text-muted));      /* AA on --bg AND --bg-alt (#1715) */
-  --muted-mark:   light-dark(#7B8896, var(--scheme-dark-muted-mark));      /* 3.42 / 3.0 graphical, never carries glyphs (#1715) */
+  --muted-mark:   light-dark(#7B8896, var(--scheme-dark-muted-mark));      /* 3.36 / 4.02 graphical, never carries glyphs (#1715) */
 
   /* ── Brand accent — electric lime ──────────────────────────────────── */
   /* THE LIME AT AA. #037829 is --brand-accent's OWN hue (OKLCH h=146.8) at L 0.50,
    * holding 95% of its chroma (0.148 vs 0.156) — a darker electric green, not a
-   * desaturated forest one. 5.22:1 on the light canvas; the bright lime itself is
-   * 1.48:1 there and cannot carry text. */
-  --accent:      light-dark(#037829, var(--brand-accent));  /* 5.22 / 10.95 */
+   * desaturated forest one. 5.24:1 on the light canvas; the bright lime itself is
+   * 1.47:1 there and cannot carry text. */
+  --accent:      light-dark(#037829, var(--brand-accent));  /* 5.24 / 10.95 */
   --accent-soft: light-dark(#E2F3E5, #2C3D2F);              /* accent on it 4.89 / AA */
   /* Inline-code chip ink — curated + AA-audited on the chip wash; bg/border
    * derive from it (base.tokens.css). See 2026-06-08-inline-code-contrast.md. */
-  --code-inline-fg: var(--accent); /* electric green accent — chip reads AAA (8.85/7.53 on chip) */
+  /* NOT var(--accent) on the light face. The chip is a 10% wash of this value over
+   * the surface, so the ink is measured against a ground made FROM it: --accent's
+   * #037829 lands 4.55 on --bg's chip and 4.17 on --bg-alt's — the second below AA.
+   * Darkened one step, hue held: 5.16 / 4.73. The dark arm is unchanged. */
+  --code-inline-fg: light-dark(#006E24, var(--accent)); /* 5.16/4.73 light · 8.85/7.53 dark */
   /* Accent is always bright; corner-tag text needs dark bg-tinted ink. */
   /* CURATED PER FACE, not var(--surface-inverse). The dark face pairs near-black on
    * bright lime (10.95:1); the light face pairs WHITE on the darkened lime (5.64:1).
    * Bound to --surface-inverse this went dark-on-dark the moment the canvas flipped —
    * the measured #1527 hole (a `confidential` stamp at 2.60:1). */
-  --on-accent:   light-dark(#FFFFFF, #0E0E10);       /* 5.64 / 10.95 */
+  --on-accent:   light-dark(#FFFFFF, #0E0E10);       /* 5.64 / 12.15 */
 
   /* ── Semantic signals ─────────────────────────────────────────────────
    * Carbone's industrial-grey trio. Each is a light-dark() pair: light
@@ -141,15 +145,15 @@
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
-  --pass: light-dark(#19531F, #92ffa6);   /* 7.72 on card / dark unchanged */
-  --fail: light-dark(#580006, #ffaba7);   /* 7.84 composed / dark unchanged */
-  --warn: light-dark(#A55400, #fa7419);   /* 4.59 on card; pills sanctioned both faces */
+  --pass: light-dark(#19531F, #92ffa6);   /* 7.74 on card / dark unchanged */
+  --fail: light-dark(#580006, #ffaba7);   /* 10.92 on the composed band / dark unchanged */
+  --warn: light-dark(#A55400, #fa7419);   /* 4.60 on card; pills sanctioned both faces */
   /* THE WASHES ARE CURATED ON THE LIGHT FACE, not derived from the ink.
    *
    * Derived, they were nearly achromatic. The three light inks sit at OKLCH L
    * 0.29-0.55 because AA on a self-tinted band and twelve frozen CVD ratchets
    * pin them there, and mixing 18% of a near-black into a light card yields a
-   * GRAY, not a tint: --pass-bg measured chroma 0.0185, --fail-bg 0.0170. On a
+   * GRAY, not a tint: --pass-bg measured chroma 0.0178, --fail-bg 0.0156. On a
    * slide that reads as chalk. (indaco and cuoio use 10% for the same reason we
    * cannot: their inks are dark too, and a smaller pour of a dark ink is fainter
    * mud rather than cleaner color.)
@@ -158,9 +162,9 @@
    * the contrast and the CVD separation; the wash carries the color. Both improve:
    *
    *            chroma          ink-on-band
-   *   pass   0.0185 -> 0.0695   5.76 -> 7.00
-   *   warn   0.0278 -> 0.0361   3.62 -> 4.03   (beats its recorded 3.45 sanction)
-   *   fail   0.0170 -> 0.0307   8.60 -> 10.89
+   *   pass   0.0178 -> 0.0661   5.78 -> 7.04
+   *   warn   0.0148 -> 0.0251   3.61 -> 4.02
+   *   fail   0.0156 -> 0.0247   8.56 -> 10.92
    *
    * The dark arm is untouched — 18% of the bright dark ink over graphite was
    * already a clean wash, because there the ink is the LIGHT end of the mix. */
@@ -172,12 +176,11 @@
    * that has to state both, because it is the one whose canvas does not follow
    * `color-scheme`. Base derives 50-400 toward --seq-pole-low and 600-900 toward
    * --seq-pole-high, and defaults that pair to `light-dark()` so the ramp tracks
-   * the canvas (#1697). Carbone pins `color-scheme: dark` at zero specificity, so
-   * that default would ALREADY resolve dark here — but only for as long as
-   * nothing below :root flips the scheme, and `section.light` / `.color-light` do
-   * exactly that on a slide whose canvas stays graphite regardless. Literal poles
-   * make the ramp scheme-proof, which is the contract the rest of this palette
-   * already keeps.
+   * the canvas (#1697). Carbone used to pin `color-scheme: dark` at zero specificity
+   * over a canvas that never switched, so it stated LITERAL poles to make the ramp
+   * scheme-proof. Both halves of that reasoning are retired: the canvas follows the
+   * scheme now, so the poles are a `light-dark()` pair like everyone else's and the
+   * ramp tracks the canvas it is actually painted on.
    * The anchor is not --brand-accent any more: at OKLab L 0.83 the electric lime
    * sits hard against the high pole, leaving --seq-700 1.24:1 from --seq-500 —
    * `word-cloud spectrum` painted three weights in two readable colors, and the
@@ -186,7 +189,7 @@
    * spectrum reads as four distinct tiers, all clear of the graphite canvas. */
   --seq-pole-low: light-dark(white, black);
   --seq-pole-high: light-dark(black, white);
-  --seq-500: light-dark(#007F2B, #4AB15B);   /* 4.77 on the light canvas */
+  --seq-500: light-dark(#007F2B, #4AB15B);   /* 4.79 on the light canvas */
 
   /* Tag uses --chart-2 (amber) — the lime/amber duotone gives carbone's
    * status badges a cyber-warm pop against the cold graphite. */
@@ -205,7 +208,7 @@
    *
    *              start   mid    end
    *     dark     1.11    1.54   10.95   (on #1A1A1C)
-   *     light    1.19    2.56    5.22   (on #F6F6F5)
+   *     light    1.17    2.66    5.24   (on #F3F7FB)
    *
    * Shipping the dark values on the light face put a NEAR-BLACK BAR across the top
    * of every light slide: the stops are identical, so the gradient that reads as an
@@ -213,7 +216,7 @@
    * was still there, which is what made it easy to miss.
    *
    * The light arm ends on the DEEP lime rather than the bright one. #7DE38A is
-   * 1.47:1 on this canvas and a 4px ribbon in it washes out; #037829 is 5.22:1 and
+   * 1.47:1 on this canvas and a 4px ribbon in it washes out; #037829 is 5.24:1 and
    * reads as the brand. The bright value keeps its place on the dark arm and as
    * --brand-accent. */
   --spectrum: linear-gradient(90deg,
@@ -226,9 +229,11 @@
     light-dark(#037829, var(--brand-accent)) 100%);
   --spectrum-end: light-dark(#037829, var(--brand-accent)); /* curated endpoint, for spectrum: duo */
 
-  /* ── Dark-variant tokens — kept for any explicit consumer (Marp chrome,
-   * theming code paths). Carbone resolves to these whether color-scheme is
-   * light or dark, since surface tokens above don't switch. ─────────── */
+  /* ── Dark-variant inputs — the dark arm of the surface pairs above.
+   * These USED to be inert: carbone did not switch, so nothing resolved through
+   * them and they drifted to describe a deeper canvas (#0E0E10) the palette never
+   * presented. They are now the live dark values and equal what carbone has always
+   * rendered, which is why the dark face is byte-identical across this change. */
   --scheme-dark-bg:           #1A1A1C;
   --scheme-dark-bg-alt:       #26262A;
   --scheme-dark-border:       #6F7075;
@@ -257,8 +262,10 @@
    * face a deep graphite fill under a vivid pigment. The light arms hold each dark
    * mark's own hue and solve only lightness, the same method derive-cat-ink.js
    * uses. Measured on the light face: mark-vs-canvas 4.37-4.44 (floor 3.0),
-   * heading ink on fill 16.50-16.92 (floor 4.5), --cat-on-mark white on mark
-   * 4.72-4.80 (floor 4.5), fill/mark L-separation 0.39-0.43. */
+   * heading ink on fill 16.49-16.91 (floor 4.5), --cat-on-mark white on mark
+   * 4.72-4.80 (floor 4.5), fill/mark L-separation 0.386-0.427. Re-measured against
+   * the CHROMATIC canvas; the first cut of these numbers was taken on the neutral
+   * one and never retaken. */
   --cat-1-fill:  light-dark(#DFFDE4, #304936); --cat-1-mark:  light-dark(#00853B, #5BC878);  /* green   */
   --cat-2-fill:  light-dark(#D8FDEE, #2B4B41); --cat-2-mark:  light-dark(#008263, #34D3A6);  /* emerald */
   --cat-3-fill:  light-dark(#DEF9FF, #2C4950); --cat-3-mark:  light-dark(#007E90, #3BC8E0);  /* cyan    */

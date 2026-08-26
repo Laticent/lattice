@@ -15,7 +15,7 @@ header: "Carbone · the light face"
 
 `Palette · two faces on one contract`
 
-The graphite deck now has a light counterpart. Same identity, solved for paper instead of
+The graphite deck now has a light counterpart — the same identity, solved for paper.
 
 ---
 
@@ -27,9 +27,9 @@ The graphite deck now has a light counterpart. Same identity, solved for paper i
 ## The lime does not survive a light canvas, so it moves along one axis instead of changing hue.
 
 - The measurement
-  - `#7DE38A` reads 10.95:1 on graphite and **1.48:1** on paper.
+  - `#7DE38A` reads 10.95:1 on graphite and **1.47:1** on paper.
 - The move
-  - The light arm is `#037829` — the **same hue**, holding **95% of the chroma**, at L 0.50 instead of L 0.83. It reads 5.22:1.
+  - The light arm is `#037829` — the **same hue**, holding **95% of the chroma**, at L 0.50 instead of L 0.83. It reads 5.24:1.
 - Why it matters
   - A darker *electric* green, not a desaturated forest one.
 
@@ -43,10 +43,10 @@ The graphite deck now has a light counterpart. Same identity, solved for paper i
 ## The status washes are curated, not derived from the ink.
 
 - [x] Pass, warn and fail inks sit at OKLCH L 0.29–0.55 — AA on a self-tinted band and twelve frozen CVD ratchets pin them there
-- [x] Derived at 18%, a near-black ink over a light card measured chroma **0.0185** — very nearly achromatic
-- [x] Curating the source lifts it to **0.0695**, and the ink-on-band contrast improves 5.76 → 7.00
+- [x] Derived at 18%, a near-black ink over a light card measured chroma **0.0178** — very nearly achromatic
+- [x] Curating the source lifts it to **0.0661**, and the ink-on-band contrast improves 5.78 → 7.04
 - [-] Warn sits at the 3:1 graphical floor rather than AA; its pills were already sanctioned on both faces
-- [ ] The CVD margin is +0.0024 — real, and thin enough to name
+- [ ] The tightest clearing CVD margin is +0.0126, at pass^warn under achromatopsia
 
 ---
 
@@ -97,7 +97,7 @@ flowchart LR
 ## The first light face was built by inverting the dark ramp, and inverting an achromatic ramp gives gray mush.
 
 - What "washed out" measures
-  - Light `--text-body` carried chroma **0.0073**. Cuoio's is 0.0283, indaco's **0.0736**.
+  - Light `--text-body` carried chroma **0.0067**. Cuoio's is 0.0283, indaco's **0.0736**.
 - What the references share
   - Tinted paper, chromatic ink, tinted *neutral* rows — a monochrome **with color in it**.
 - What carbone's became

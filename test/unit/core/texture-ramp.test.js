@@ -300,7 +300,7 @@ describe('texture-ramp — every shipped theme derives a usable set', () => {
   test('a SINGLE dark ramp still takes the dark arm, whichever slot it sits in', () => {
     // Pinned SYNTHETICALLY, on purpose. carbone was the only shipped palette with one dark
     // ramp, and curating its light face removed the last real exerciser of this branch.
-    // Deleting the assertion with it would drop the behaviour silently, so the input is
+    // Deleting the assertion with it would drop the behavior silently, so the input is
     // constructed here instead: textureSetFrom is pure, and the rule it encodes — arm
     // selection follows the CHIPS, not the slot they arrived in — is what stops a dark
     // ramp being handed a near-black ink.
