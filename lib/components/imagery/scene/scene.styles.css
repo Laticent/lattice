@@ -153,14 +153,14 @@ section.scene .scene-figure svg {
   font-size: 1.1em;
   width: 1em; height: 1em;
   background-color: currentColor;
-  -webkit-mask: var(--icon-triangle-right) var(--icon-paint);
-          mask: var(--icon-triangle-right) var(--icon-paint);
+  -webkit-mask: var(--shape-triangle-right) var(--shape-paint);
+          mask: var(--shape-triangle-right) var(--shape-paint);
 }
 .anima-live .scene-control[data-mode="pause"]::before {
-  -webkit-mask-image: var(--icon-pause); mask-image: var(--icon-pause);
+  -webkit-mask-image: var(--shape-pause); mask-image: var(--shape-pause);
 }
 .anima-live .scene-control[data-mode="replay"]::before {
-  -webkit-mask-image: var(--icon-refresh); mask-image: var(--icon-refresh);
+  -webkit-mask-image: var(--shape-refresh); mask-image: var(--shape-refresh);
 }
 /* Icon-only modes stay a circular puck; the opt-in grows to seat its label. */
 .anima-live .scene-control:not([data-mode="optin"]) {

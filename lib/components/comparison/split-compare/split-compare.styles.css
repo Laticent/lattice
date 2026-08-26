@@ -65,8 +65,8 @@ section.split-compare .option.preferred::after {
   font-size:var(--fs-meta); line-height:1; pointer-events:none;
   width:1em; height:1em;
   background-color:var(--accent);
-  -webkit-mask:var(--icon-spark-open) var(--icon-paint);
-          mask:var(--icon-spark-open) var(--icon-paint);
+  -webkit-mask:var(--shape-spark-open) var(--shape-paint);
+          mask:var(--shape-spark-open) var(--shape-paint);
 }
 section.split-compare .option ul { list-style:disc; padding:0 0 0 var(--sp-md); margin:0; }
 section.split-compare .option ol { list-style:decimal; padding:0 0 0 var(--sp-md); margin:0; }

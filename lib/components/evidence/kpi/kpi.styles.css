@@ -284,8 +284,8 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
   line-height: 1;
   width: 1em; height: 1em;
   background-color: var(--accent);
-  -webkit-mask: var(--icon-spark) var(--icon-paint);
-          mask: var(--icon-spark) var(--icon-paint);
+  -webkit-mask: var(--shape-spark) var(--shape-paint);
+          mask: var(--shape-spark) var(--shape-paint);
 }
 section.kpi.briefing > .cell-stage > ol > li:nth-child(1) > strong,
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1) > strong {
@@ -548,8 +548,8 @@ section.kpi.spotlight > .cell-stage > ol > li:nth-child(1)::after {
   line-height: 1;
   width: 1em; height: 1em;
   background-color: var(--accent);
-  -webkit-mask: var(--icon-spark) var(--icon-paint);
-          mask: var(--icon-spark) var(--icon-paint);
+  -webkit-mask: var(--shape-spark) var(--shape-paint);
+          mask: var(--shape-spark) var(--shape-paint);
 }
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) > strong {
   font-size: var(--fs-hero);

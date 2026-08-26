@@ -98,15 +98,15 @@ section.eyebrow-bar
 /* arrow — a leading chevron glyph in the accent color. */
 section.eyebrow-arrow
   p:has(> code:only-child):is(:has(+ h1), :has(+ h2), :has(+ h3), :has(+ h4), :has(+ h5), :has(+ ul), :has(+ ol), :has(+ pre)) > code::before {
-  /* DRAWN, not typed (HARD RULE #29) — the same --icon-chevron-right the cycle
+  /* DRAWN, not typed (HARD RULE #29) — the same --shape-chevron-right the cycle
    * and compare-prose connectors paint, so the eyebrow's lead-in matches them. */
   content: "";
   flex: none;
   line-height: 1;
   width: 1em; height: 1em;
   background-color: var(--accent);
-  -webkit-mask: var(--icon-chevron-right) var(--icon-paint);
-          mask: var(--icon-chevron-right) var(--icon-paint);
+  -webkit-mask: var(--shape-chevron-right) var(--shape-paint);
+          mask: var(--shape-chevron-right) var(--shape-paint);
 }
 
 /* underline — a hairline rule beneath the kicker (padding, not margin, for the gap). */

@@ -262,7 +262,7 @@ These two phases are one decision, and the second does not stand without the fir
 #### Marking a note as an alarm — `note-warn`
 
 The other half of the pair. `note-warn` marks the slide's callout as a warning:
-the drawn warning triangle (`--icon-warning`) beside the label, both painted in
+the drawn warning triangle (`--shape-warning`) beside the label, both painted in
 the theme's warn token.
 
 ```markdown

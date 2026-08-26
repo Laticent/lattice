@@ -7,7 +7,7 @@
  *      and no character on BOTH the deny list and the deliberate-exclusion
  *      list (the two lists disagreeing is the failure nobody would notice).
  *   2. Every `token:` a row names is a token base.tokens.css actually ships,
- *      and every `--icon-*` it ships is named by some row. That pin runs BOTH
+ *      and every `--shape-*` it ships is named by some row. That pin runs BOTH
  *      ways on purpose: an advice string pointing at a token that does not
  *      exist is a lie the linter tells an author, and an icon nothing names is
  *      dead weight in every bundle.
@@ -31,6 +31,7 @@ const {
   NOT_SHAPES,
   shapeGlyphRe,
   stripFencedCode,
+  isQuadrantAxisEyebrow,
   findShapeGlyphs,
   shapeGlyphAdvice,
 } = require('../../../lib/core/shape-glyphs.js');
@@ -72,11 +73,11 @@ describe('shape-glyphs — table coherence', () => {
 });
 
 describe('shape-glyphs — tokens are real, both ways', () => {
-  // Only the tokens that carry an actual mask URL. `--icon-paint` is the shared
+  // Only the tokens that carry an actual mask URL. `--shape-paint` is the shared
   // position/size TAIL every consumer appends, not a shape, so it is not one of
   // these and must not be demanded of the table.
   const shipped = new Set(
-    [...TOKENS_CSS.matchAll(/^\s*(--(?:icon|mark)-[a-z0-9-]+)\s*:\s*url\(/gm)].map((m) => m[1]),
+    [...TOKENS_CSS.matchAll(/^\s*(--(?:shape|mark)-[a-z0-9-]+)\s*:\s*url\(/gm)].map((m) => m[1]),
   );
 
   test('base.tokens.css ships every token the table names', () => {
@@ -90,18 +91,18 @@ describe('shape-glyphs — tokens are real, both ways', () => {
     }
   });
 
-  test('every shipped --icon-* is named by some row', () => {
+  test('every shipped --shape-* is named by some row', () => {
     const named = new Set(SHAPE_GLYPHS.map((e) => e.token).filter(Boolean));
     for (const tok of shipped) {
-      if (!tok.startsWith('--icon-')) continue; // --mark-* has its own consumers (the state discs)
-      assert.ok(named.has(tok), `${tok} is shipped but no shape names it — an icon nothing draws is dead weight`);
+      if (!tok.startsWith('--shape-')) continue; // --mark-* has its own consumers (the state discs)
+      assert.ok(named.has(tok), `${tok} is shipped but no shape names it — a mask nothing draws is dead weight`);
     }
   });
 
-  test('no icon token bakes a paint color', () => {
+  test('no shape token bakes a paint color', () => {
     // A mask reads alpha; a hex inside the data URI would be either dead or,
     // worse, a palette-blind layout's one hard-coded color (HARD RULE #3).
-    for (const [, value] of TOKENS_CSS.matchAll(/^\s*(--icon-[a-z0-9-]+)\s*:\s*(url\([^;]*)/gm)) {
+    for (const [, value] of TOKENS_CSS.matchAll(/^\s*(--shape-[a-z0-9-]+)\s*:\s*(url\([^;]*)/gm)) {
       assert.ok(!value.includes('#'), `${value.slice(0, 40)}… embeds a color literal`);
     }
   });
@@ -166,6 +167,35 @@ describe('shape-glyphs — stripFencedCode', () => {
   });
 });
 
+describe('shape-glyphs — the quadrant eyebrow, one predicate for two consumers', () => {
+  // The exclusion was implemented TWICE — a hand-rolled scanner in the ownership
+  // gate, a role check in the linter — and they disagreed in both directions.
+  // These pin the shared predicate; test/unit/components/lint-core.test.js and
+  // test/unit/cli/check-ownership.test.js pin that each consumer asks it.
+  test('an arrow eyebrow on a quadrant slide is excluded', () => {
+    assert.equal(isQuadrantAxisEyebrow('`Effort 0–10 → Reach 0–100`', ['quadrant']), true);
+  });
+
+  test('a typed CHECK in a quadrant eyebrow is NOT excluded', () => {
+    // The gate previously blanked any whole-line code span on a quadrant slide,
+    // so a `✓` hid inside one and passed at budget 0.
+    assert.equal(isQuadrantAxisEyebrow('`Shipped ✓ · Q3 review`', ['quadrant']), false);
+  });
+
+  test('the same eyebrow on a non-quadrant slide is NOT excluded', () => {
+    assert.equal(isQuadrantAxisEyebrow('`Effort 0–10 → Reach 0–100`', ['kpi']), false);
+  });
+
+  test('prose with an arrow is never an eyebrow', () => {
+    assert.equal(isQuadrantAxisEyebrow('- the plan → the outcome', ['quadrant']), false);
+  });
+
+  test('no class tokens at all is safe', () => {
+    assert.equal(isQuadrantAxisEyebrow('`a → b`', []), false);
+    assert.equal(isQuadrantAxisEyebrow('`a → b`', null), false);
+  });
+});
+
 describe('shape-glyphs — advice', () => {
   test('author advice names the risk AND the fix', () => {
     const advice = shapeGlyphAdvice('✓', 'author');
@@ -175,7 +205,7 @@ describe('shape-glyphs — advice', () => {
   });
 
   test('engine advice names the token', () => {
-    assert.match(shapeGlyphAdvice('❯', 'engine'), /--icon-chevron-right/);
+    assert.match(shapeGlyphAdvice('❯', 'engine'), /--shape-chevron-right/);
   });
 
   test('a glyph with no token gets the honest engine answer', () => {

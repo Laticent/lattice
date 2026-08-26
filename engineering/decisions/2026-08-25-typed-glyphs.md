@@ -6,8 +6,9 @@ summary: >
   which throws that away, because the deck's type family carries none of them and each machine
   substitutes a different font, a color emoji, or a hollow box. HARD RULE #29 closes it, and
   the split is the point: engine CSS is gated at zero, while author decks are COACHED, never
-  blocked ("we warn, we coach"). Fourteen `--icon-*` mask tokens ship, every one with a live
-  consumer; sixteen engine `content:` sites across ten stylesheets now paint a mask. Two
+  blocked ("we warn, we coach"). Ten `--shape-*` mask tokens ship, every one with a live
+  consumer; eighteen engine `content:` glyph occurrences across ten stylesheets now paint a
+  mask, and 182 typed glyphs across 39 shipped decks go to zero. Two
   findings changed the shape of the rule. First, the a11y/print grayscale shape channel is NOT
   a naive re-implementation of `--mark-check`: `content: <string> / <alt>` with an empty alt is
   the only mechanism measured to keep the shape out of the accessibility tree, the glyph keeps
@@ -176,6 +177,31 @@ will look. A warning with no good answer is worse than silence.
 The escaping mismatch itself is a real, pre-existing defect — the regex advertises a spelling
 that cannot work — but fixing it would not change this rule's answer, so it is recorded here
 rather than pulled into this diff.
+
+## 5c. What the independent checker found
+
+HARD RULE #25's maker-checker ran on the finished branch, and it was worth it. Nine findings,
+of which four were defects the gates could not see and three were false statements in the very
+artifacts whose purpose is to be re-read without re-derivation:
+
+| # | Finding | Resolution |
+|---|---|---|
+| 1 | **The `cycle` return arc was destroyed on portrait/strip decks.** The new radial hole was written for the landscape geometry; the tall/strip family relays the arc's box but not its mask, so the hole ate the arc's corner and the mark sat nowhere near it. A self-inflicted regression (#18). | The hole's position is now ONE custom property, `--cycle-notch`, declared on the `ul` and read by the arc's mask — so a family that moves the mark cannot leave the hole behind. The mark is also centered ON the vertical arc rather than on its edge, where a 1em box hung off the stage and was clipped. Verified by rendering a portrait cycle at 300 dpi. |
+| 2 | **A legal CSS escape crashed the whole gate.** `{1,6}` is greedy and CSS has no separator before a following hex character, so `content:"\2192abc"` parsed past U+10FFFF and `String.fromCodePoint` threw a RangeError that aborted `build:check` and the pre-push hook, naming neither file nor rule. | Extracted as `decodeCssEscapes`, range-guarded, and pinned by a unit test — the crash is why it has a name. |
+| 3 | **The gate and the linter disagreed about quadrant eyebrows, in both directions.** A deck-wide `<!-- class: quadrant -->` failed the build while `lint:deck` called the file clean; and any backticked eyebrow on a quadrant slide hid a typed `✓` from a budget of zero. | One predicate in the kernel — `isQuadrantAxisEyebrow` — asked by both, over the same `splitTopLevel` + `slideClassDirectives` primitives. This is what HARD RULE #1 is for, and implementing it twice is exactly how it went wrong. |
+| 4 | **`note-warn`'s label color was inert.** Its `:not()` chain copied three of the base KEY-INSIGHT rule's seven, so the base won and the label stayed accent while only the triangle turned warn — and `base.docs.md` asserted both were warn. The short chain also let `note-warn` reach layouts the callout deliberately excludes. | The chain now mirrors the base rule exactly. Measured over `getComputedStyle`: label and mark are both `rgb(138, 93, 0)`. |
+| 5 | **Four counts did not reproduce.** | Re-measured against `origin/main` with the shipped kernel and corrected everywhere: **182 glyphs across 39 decks** (not 198/~45 — an earlier draft's broader scope), **18 `content:` occurrences across 10 stylesheets** (not 16), **10 mask tokens** (not 14 — two had no consumer and were dropped, which is what "every one with a live consumer" is supposed to mean). |
+| 6 | **`matrix-grid` does not decode `[/]`,** and its markers are positional, not statuses — but three places said it did, including the linter's own coaching, which would have told an author to write a marker that renders as literal `[/]`. | Split into `STATE_CELL_TOKENS` and `POSITIONAL_CELL_TOKENS`, with its own message naming the three markers it really takes. |
+| 7 | **Coverage gaps.** `•` was on neither list while `◦` `●` `○` were rows; `➔` and `➤` are arrows the engine's own `AUTHORED_ARROW_RE` already strips; `☒` and `✖` are siblings of rows. | All five added, and the six typed `•` in `themes/palette-audit.md` converted to a real list. The gate's comment now says what "zero" means: zero of the CURATED table. |
+| 8 | **`state-cells` leaked onto `obligation-matrix`** (color only) when both classes were set. | Scoped `:not(.obligation-matrix):not(.matrix-grid)`. |
+| 9 | Dead `EMOJI_VS` export; a front-matter glyph reported as "slide 0"; a `--content:` custom property scanned as the `content` property. | Removed; `Math.max(1, …)`; a `(?<![\w-])` guard. |
+
+**A tenth, found while fixing the others:** the docs site already owns 32 Lucide `--icon-*` tokens
+on `:root` (`docs/src/styles/landing.css`), five of them names this branch had claimed with
+different geometry. They do not meet today — the preview is an isolated `srcdoc` document — but a
+second `--icon-chevron-right` in one repo is a trap with a shelf life. The engine's set is now
+`--shape-*`, which is free, matches the kernel's name, and is contained to this branch; renaming
+the docs site's would have been reaching into shared state.
 
 ## 6. Why engine JS is not gated
 

@@ -247,7 +247,7 @@ section.statute-stack.preemption > .cell-stage > :is(ul, ol) > li:not(:last-chil
    * chip.
    *
    * DRAWN, not typed (HARD RULE #29): this was `content:'❯'`, and the rotation is
-   * why keeping the rotate rather than swapping to --icon-chevron-down matters —
+   * why keeping the rotate rather than swapping to --shape-chevron-down matters —
    * the transform also carries the centering translate, and splitting the two
    * would move the mark. `font-size` stays as the `em` BASIS for the box. */
   content:'';
@@ -258,8 +258,8 @@ section.statute-stack.preemption > .cell-stage > :is(ul, ol) > li:not(:last-chil
   line-height:1;
   width:1em; height:1em;
   background-color:var(--accent);
-  -webkit-mask:var(--icon-chevron-right) var(--icon-paint);
-          mask:var(--icon-chevron-right) var(--icon-paint);
+  -webkit-mask:var(--shape-chevron-right) var(--shape-paint);
+          mask:var(--shape-chevron-right) var(--shape-paint);
 }
 
 /* Stacked ROW variants (hierarchy / bands / preemption) — both pills ride the header line

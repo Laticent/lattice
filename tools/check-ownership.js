@@ -3610,12 +3610,17 @@ function checkUsEnglish(errors) {
 // the remaining backlog is burned down by lowering this. Target zero.
 // Re-measure with a temporary `= 0` — the failure message prints the live total.
 //
-// TARGET REACHED. The backlog measured 198 when the gate went in and is now zero:
-// every typed shape in a shipped deck was converted in the same change. Pinned to
-// the MEASURED number, never above it — a budget with slack is not a ratchet, it is
-// a hole, and #1852 showed exactly how five new entries walk through 29 units of one.
-// At zero this is no longer a burn-down; it is a floor, and the next typed glyph
-// fails the build.
+// TARGET REACHED, and the number means something narrower than it looks: zero of
+// the CURATED table in lib/core/shape-glyphs.js, not zero typed shapes. The
+// backlog measured 182 across 39 decks when the gate went in (re-measured against
+// origin/main with this exact kernel — an earlier "198" came from a broader draft
+// scope and was wrong), and every one was converted in the same change.
+//
+// Pinned to the MEASURED number, never above it — a budget with slack is not a
+// ratchet, it is a hole, and #1852 showed exactly how five new entries walk
+// through 29 units of one. At zero this is no longer a burn-down; it is a floor,
+// and the next typed glyph ON THE TABLE fails the build. A shape the table does
+// not carry is not caught by either surface; add the row first.
 const TYPED_GLYPH_BUDGET = 0;
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -3643,27 +3648,32 @@ const TYPED_GLYPH_BUDGET = 0;
 //
 // A `*.docs.md` is prose ABOUT a component, never projected, so it is out of
 // scope; so is `engineering/decisions/**`, which is a dated archive.
-const { shapeGlyphRe, stripFencedCode, shapeGlyphAdvice } = require('../lib/core/shape-glyphs.js');
+const { shapeGlyphRe, stripFencedCode, shapeGlyphAdvice, isQuadrantAxisEyebrow } = require('../lib/core/shape-glyphs.js');
+const { splitTopLevel: splitDeckSlides } = require('../lib/authoring/slide-split.js');
+const { slideClassDirectives } = require('../lib/core/class-directive-scan.mjs');
 
-// A `quadrant` slide's axis eyebrow is the component's axis DSL, not chrome: the
-// transform splits it to get the two axis names and their ranges. The ASCII
-// spelling the regex advertises does NOT work (the eyebrow arrives as escaped
-// HTML, so `->` reaches it as `-&gt;` and the split never fires — measured on
-// examples/stage-inset.md slide 3: one axis name printed literally, the second
-// axis gone, the scale fallen back, and the data points moved). There is no
-// better spelling, so counting it would be counting something with no fix.
-// Recorded in engineering/decisions/2026-08-25-typed-glyphs.md.
-const QUADRANT_AXIS_EYEBROW = /^[ \t]*`[^`\n]*`[ \t]*$/;
-
+// A `quadrant` slide's axis eyebrow is the component's axis DSL, not chrome, so
+// neither this gate nor `lint:deck` counts it. The PREDICATE is the kernel's
+// (isQuadrantAxisEyebrow) and the slide walk uses the same primitives the linter
+// uses — splitTopLevel + slideClassDirectives — because this was previously a
+// hand-rolled scanner here and a role check there, and they disagreed in both
+// directions: a deck-wide `<!-- class: quadrant -->` failed the build while the
+// linter called the file clean, and any backticked eyebrow on a quadrant slide
+// hid a typed glyph from the budget.
 function stripQuadrantAxisEyebrows(text) {
-  let quadrant = false;
-  return text.split('\n').map((line) => {
-    const cls = line.match(/<!--\s*_?class:\s*([^>]*?)\s*-->/);
-    if (cls) { quadrant = /\bquadrant\b/.test(cls[1]); return line; }
-    if (/^---[ \t]*$/.test(line)) { quadrant = false; return line; }
-    if (quadrant && QUADRANT_AXIS_EYEBROW.test(line)) return ' '.repeat(line.length);
-    return line;
-  }).join('\n');
+  const slides = splitDeckSlides(text);
+  const directives = slideClassDirectives(text);
+  const out = [];
+  slides.forEach((slide, idx) => {
+    const tokens = (directives[idx]?.payload || '').split(/\s+/).filter(Boolean);
+    out.push(slide.split('\n')
+      .map((line) => (isQuadrantAxisEyebrow(line, tokens) ? ' '.repeat(line.length) : line))
+      .join('\n'));
+  });
+  // The DECK arm only counts matches, so the join needs to preserve glyphs and
+  // nothing else — it deliberately does NOT claim to preserve line numbers, and
+  // no caller reads one off this result.
+  return out.join('\n');
 }
 
 // The deck ROOTS the authoring linter itself walks (tools/lint-deck.js
@@ -3766,7 +3776,33 @@ function listEngineGlyphSurfaces() {
 // cycle's prose). Escaped codepoints (\\2713) and literal characters are the
 // same thing to the renderer, so the value is decoded before matching.
 const CSS_COMMENT_RE = /\/\*[\s\S]*?\*\//g;
-const CSS_CONTENT_RE = /content\s*:\s*([^;}]*)/g;
+// `(?<![\w-])` so a CUSTOM PROPERTY named `--content:` is not scanned as if it
+// were the `content` property — it is an author's own variable and may hold
+// anything. (Two narrower holes remain and are known: a `;` or `}` INSIDE a
+// quoted content string ends the match early. Neither is live in this tree, and
+// closing them needs a real value parser rather than a wider regex.)
+const CSS_CONTENT_RE = /(?<![\w-])content\s*:\s*([^;}]*)/g;
+
+/**
+ * Decode CSS `\XXXXXX` escapes in a declaration value so an escaped glyph and a
+ * literal one look the same to the scanner.
+ *
+ * The `{1,6}` is greedy and CSS puts no separator between an escape and a
+ * following hex-range character, so `content:"\2192abc"` parses as a SIX-digit
+ * escape well past U+10FFFF. Unguarded, String.fromCodePoint threw a RangeError
+ * that aborted check-ownership entirely — the whole build:check and the pre-push
+ * hook — with a stack naming neither the file nor the rule. An out-of-range
+ * escape is left as written: it is a malformed escape, not a shape glyph, and
+ * this is not the gate that should be reporting it.
+ *
+ * Exported for the unit test; the crash is the reason it has a name at all.
+ */
+function decodeCssEscapes(value) {
+  return String(value).replace(/\\([0-9a-fA-F]{1,6})\s?/g, (whole, hex) => {
+    const cp = parseInt(hex, 16);
+    return cp >= 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : whole;
+  });
+}
 
 function checkTypedGlyphs(errors) {
   // ── ENGINE ARM (budget 0) ──────────────────────────────────────────────
@@ -3783,8 +3819,7 @@ function checkTypedGlyphs(errors) {
     let m;
     const re = new RegExp(CSS_CONTENT_RE.source, 'g');
     while ((m = re.exec(text)) !== null) {
-      const decoded = m[1].replace(/\\([0-9a-fA-F]{1,6})\s?/g, (_, hex) =>
-        String.fromCodePoint(parseInt(hex, 16)));
+      const decoded = decodeCssEscapes(m[1]);
       for (const g of decoded.match(shapeGlyphRe()) || []) {
         hits.push({ glyph: g, line: text.slice(0, m.index).split('\n').length });
       }
@@ -11099,6 +11134,7 @@ module.exports = {
   UK_ENGLISH_FORMS,
   US_ENGLISH_BUDGET,
   TYPED_GLYPH_BUDGET,
+  decodeCssEscapes,
   SANCTIONED_GLYPH_DECKS,
   checkTypedGlyphs,
   CANONICAL_FS_TOKENS,

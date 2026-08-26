@@ -44,7 +44,7 @@ color from the element at all, or to a hollow box, which takes nothing.
     it, or in full color, or not at all. The same deck reads three ways, and you
     see none of them — your machine has the font.
 - **Drawn.**
-  - One `--icon-*` mask, painted in a palette token. The shape is ours and only
+  - One `--shape-*` mask, painted in a palette token. The shape is ours and only
     the color is the theme's, so it is identical on every machine, at every
     size, in light and dark, and legible in grayscale on a printer.
 

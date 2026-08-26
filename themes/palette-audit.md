@@ -2477,12 +2477,13 @@ Light = pale fill + dark text contract (AA target 4.5:1 on theme text-heading).
 Dark = deep fill + white text contract (AA target 4.5:1 on white).
 
 Composite score (0-100):
-  • AA-text light pass   30 pts
-  • AA-text dark pass    30 pts
-  • Graphical dark on bg 15 pts
-  • Adjacency 1-6 ΔH     15 pts (60°+ = full credit)
-  • Brand affinity        5 pts (peaked at 75° — anchored but diverse)
-  • Hue coverage          5 pts (300°+ = full credit)
+
+- AA-text light pass — 30 pts
+- AA-text dark pass — 30 pts
+- Graphical dark on bg — 15 pts
+- Adjacency 1-6 ΔH — 15 pts (60°+ = full credit)
+- Brand affinity — 5 pts (peaked at 75° — anchored but diverse)
+- Hue coverage — 5 pts (300°+ = full credit)
 
 Slides are sorted within each theme: #1 is the highest scorer. The metric
 breakdown next to each ratio shows the points contributed by that axis.

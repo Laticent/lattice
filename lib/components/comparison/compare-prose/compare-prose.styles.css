@@ -64,8 +64,8 @@ section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol::before
   font-size:var(--fs-h3);
   width:1em; height:1em;
   background-color:var(--text-secondary);
-  -webkit-mask:var(--icon-chevron-right) var(--icon-paint);
-          mask:var(--icon-chevron-right) var(--icon-paint);
+  -webkit-mask:var(--shape-chevron-right) var(--shape-paint);
+          mask:var(--shape-chevron-right) var(--shape-paint);
 }
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ul > li,
 section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol > li {
@@ -329,13 +329,13 @@ section.compare-prose.transition .compare-prose-inner .connector::after {
   content: ""; display: inline-block; font-size: var(--fs-h2); line-height: 1;
   width: 1em; height: 1em;
   background-color: var(--accent);
-  -webkit-mask: var(--icon-arrow-right) var(--icon-paint);
-          mask: var(--icon-arrow-right) var(--icon-paint);
+  -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
+          mask: var(--shape-arrow-right) var(--shape-paint);
 }
 section.compare-prose.transition:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol)::before {
   background-color: var(--accent);
-  -webkit-mask: var(--icon-arrow-right) var(--icon-paint);
-          mask: var(--icon-arrow-right) var(--icon-paint);
+  -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
+          mask: var(--shape-arrow-right) var(--shape-paint);
 }
 section.compare-prose.transition .compare-prose-inner .card:nth-child(3),
 section.compare-prose.transition:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:last-child {
@@ -399,8 +399,8 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
   width: 100%;
 }
 section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol)::before {
-  -webkit-mask: var(--icon-arrow-right) var(--icon-paint);
-          mask: var(--icon-arrow-right) var(--icon-paint);
+  -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
+          mask: var(--shape-arrow-right) var(--shape-paint);
 }
 section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li {
   align-content: center;

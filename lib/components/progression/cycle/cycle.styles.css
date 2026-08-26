@@ -21,6 +21,13 @@ section.cycle > .cell-stage {
 /* ── The ring: a row of equal-height stage nodes, with room below for the
  *    return arc (reserved with padding — measurable by the overflow probe). ── */
 section.cycle > .cell-stage > ul {
+  /* WHERE THE REPEAT MARK SITS, as a background-position pair — read by the
+   * arc's mask below to open a hole exactly there. It lives on the `ul` and not
+   * on either pseudo on purpose: the arc and the mark are two different
+   * pseudo-elements that must agree, and a family override that relays one
+   * without the other is precisely the bug this replaced. Move the mark, move
+   * this, and the hole follows. */
+  --cycle-notch: 50% 100%;
   list-style: none;
   padding: 0 0 var(--sp-xl) 0;
   display: flex;
@@ -55,7 +62,7 @@ section.cycle > .cell-stage > ul > li {
 section.cycle > .cell-stage > ul > li:not(:last-child)::after {
   /* DRAWN, not typed. `›` is punctuation every text face carries, so this one was
    * never at risk of a .notdef box — but it was doing a CHEVRON's job, and the
-   * house has one chevron now (the same --icon-chevron-right compare-prose and
+   * house has one chevron now (the same --shape-chevron-right compare-prose and
    * statute-stack paint), so the three connectors match stroke for stroke instead
    * of inheriting three different faces' idea of an angle quote. */
   content: "";
@@ -67,8 +74,8 @@ section.cycle > .cell-stage > ul > li:not(:last-child)::after {
   line-height: 1;
   width: 1em; height: 1em;
   background-color: var(--accent);
-  -webkit-mask: var(--icon-chevron-right) var(--icon-paint);
-          mask: var(--icon-chevron-right) var(--icon-paint);
+  -webkit-mask: var(--shape-chevron-right) var(--shape-paint);
+          mask: var(--shape-chevron-right) var(--shape-paint);
 }
 
 /* the return arc — a U beneath the row joining the last stage back to the
@@ -97,8 +104,8 @@ section.cycle > .cell-stage > ul::after {
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   opacity: 0.7;
   font-size: var(--fs-h3); /* the `em` basis the mark's own box uses, so the hole matches it */
-  -webkit-mask: radial-gradient(circle at 50% 100%, transparent 0 0.85em, black 0.85em);
-          mask: radial-gradient(circle at 50% 100%, transparent 0 0.85em, black 0.85em);
+  -webkit-mask: radial-gradient(circle at var(--cycle-notch), transparent 0 0.85em, black 0.85em);
+          mask: radial-gradient(circle at var(--cycle-notch), transparent 0 0.85em, black 0.85em);
 }
 section.cycle > .cell-stage > ul::before {
   /* DRAWN, not typed (HARD RULE #29) — the repeat mark seats in the gap the arc
@@ -109,14 +116,15 @@ section.cycle > .cell-stage > ul::before {
   bottom: 0;
   /* 50%, not the old glyph's 35%: a masked box is CENTERED on its icon, where a
    * text glyph sat on a baseline. Half the box below the line puts the mark's
-   * center exactly on it — and exactly on the hole the arc punches at 50% 100%. */
+   * center exactly on it — and exactly on the hole the arc punches at
+   * --cycle-notch. */
   transform: translate(-50%, 50%);
   font-size: var(--fs-h3);
   line-height: 1;
   width: 1em; height: 1em;
   background-color: var(--accent);
-  -webkit-mask: var(--icon-refresh) var(--icon-paint);
-          mask: var(--icon-refresh) var(--icon-paint);
+  -webkit-mask: var(--shape-refresh) var(--shape-paint);
+          mask: var(--shape-refresh) var(--shape-paint);
 }
 
 /* ── The stage body — the nested clause under the name. ── */
@@ -150,10 +158,16 @@ section.cycle > .cell-stage > ul > li > strong ~ * { font-weight: 400; }
 section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   flex-direction: column;
   padding: 0 0 0 var(--sp-xl);
+  /* The arc stands up on the LEFT edge here and the mark moves to its vertical
+   * middle (both below), so the hole moves with them. 50% 50% is the CENTER of
+   * the arc's own box — the same relationship the landscape arc has at 50% 100%,
+   * which is why the mark below is centered in the arc rather than sat on its
+   * edge: at `left:0` a 1em mark hangs off the stage and gets clipped. */
+  --cycle-notch: 50% 50%;
 }
 section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li:not(:last-child)::after {
   /* The tall/strip families turn the connector down the column. */
-  -webkit-mask-image: var(--icon-chevron-down); mask-image: var(--icon-chevron-down);
+  -webkit-mask-image: var(--shape-chevron-down); mask-image: var(--shape-chevron-down);
   top: auto;
   right: auto;
   bottom: calc(-1 * var(--sp-lg));
@@ -172,9 +186,12 @@ section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage >
   border-radius: var(--radius-lg) 0 0 var(--radius-lg);
 }
 section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul::before {
-  left: 0;
+  /* Centered ON the vertical arc (which spans x 0 … --sp-lg), not on its left
+   * edge — so the whole mark is inside the stage and the arc's hole, which sits
+   * at --cycle-notch 50% 50%, is concentric with it. */
+  left: calc(var(--sp-lg) / 2);
   bottom: 50%;
-  transform: translate(-35%, 50%);
+  transform: translate(-50%, 50%);
 }
 
 

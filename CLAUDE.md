@@ -605,7 +605,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   baseline), or to a color emoji (which Marp Core rewrites to `<img class="emoji">`,
   so it stops taking the element's color and blows a palette-blind layout open), or
   to a hollow `.notdef` box. One deck therefore renders three ways across the three
-  surfaces it reaches. The `--mark-*` and `--icon-*` SVG mask tokens exist precisely
+  surfaces it reaches. The `--mark-*` and `--shape-*` SVG mask tokens exist precisely
   so the shape is ours: **color comes from the element, the shape from us** (#3).
   The curated table, its deliberate exclusions, and the per-glyph advice live in ONE
   kernel — `lib/core/shape-glyphs.js` (#1) — shared by the gate and the linter.
@@ -637,12 +637,19 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   scope, because a backticked eyebrow is set on the slide. And a `*.docs.md` is prose
   ABOUT a component, never projected, so it is out of scope — as is
   `engineering/decisions/**`, a dated archive.
-  **Engine JS is NOT gated, on purpose.** Telling a DOM string from a `console.warn`,
-  a `--help` banner or an AI prompt needs to parse the module, and the heuristic that
-  could not tell them apart flagged a `Symbol()` sentinel's trailing comment. A gate
-  that cries wolf is one somebody switches off. The two modules that genuinely write a
-  shape into markup are pinned by content in
-  `test/unit/core/shape-glyphs.test.js` instead.
+  **Engine JS is NOT gated, on purpose — and the rule's first sentence is an
+  OBJECTIVE, not yet a description of the tree.** Telling a DOM string from a
+  `console.warn`, a `--help` banner or an AI prompt needs to parse the module, and the
+  heuristic that could not tell them apart flagged a `Symbol()` sentinel's trailing
+  comment. A gate that cries wolf is one somebody switches off. So two modules DO still
+  type a shape onto a rendered surface today — `chart-family.js`'s matrix-grid axis
+  arrows and `state-chart`'s transition chips, both writing into an HTML attribute or a
+  text node, where drawing them needs a markup change across three render paths. They
+  are pinned BY CONTENT in `test/unit/core/shape-glyphs.test.js` so a third cannot
+  appear quietly, and named in the decision record's § "What is still typed".
+  **And "zero" means zero of the CURATED table**, not zero typed shapes: a character the
+  table does not carry is invisible to both the gate and the linter, so add the row
+  first.
   *(gated — `checkTypedGlyphs` + `TYPED_GLYPH_BUDGET` + `SANCTIONED_GLYPH_DECKS` +
   `SANCTIONED_GLYPH_CHROME` in `tools/check-ownership.js`, via `build:check`: engine CSS
   budget 0, decks exceed-only toward 0, and BOTH allowlists fail on a stale entry.

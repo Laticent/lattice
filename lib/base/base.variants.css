@@ -446,7 +446,7 @@ section.stamp-underline::before {
  * var(--stamp-label)` — U+25CF concatenated onto the label — which made the
  * quietest stamp the loudest failure: on a machine whose emoji font won the
  * fallback the dot arrived as a colored circle beside a --stamp-color label.
- * A radial-gradient is the right tool here rather than an --icon-* mask,
+ * A radial-gradient is the right tool here rather than an --shape-* mask,
  * because the shape is a CIRCLE and CSS draws circles natively — no second
  * pseudo to position, no SVG to size, and the fill is still the palette token
  * (HARD RULE #3). `padding-left` opens the well the gradient paints into
