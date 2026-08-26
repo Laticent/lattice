@@ -260,7 +260,7 @@ in this diff. Pre-existing tool behavior, off-path here, worth its own change.
 
 ## 8 · What is NOT verified here
 
-The gates are green (7320/7320, `build:check` OK), but a palette is a visual artifact and
+The gates are green (7364/7364, `build:check` OK), but a palette is a visual artifact and
 the gates measure numbers, not taste. The rendered gallery in both faces is the evidence
 that matters for the QUALITY BAR.
 
@@ -275,31 +275,116 @@ see the changelog fragment, which called this out before the render confirmed it
 Goldens and example PDFs that resolve `theme: carbone` will re-render LIGHT after this
 change. They are re-blessed as part of the same change; any that are not are a defect.
 
-## 9 · The mark-vs-ink trap (found by the render, not by me)
+## 9 · The mark-vs-ink trap, and the over-scoped fix that made it worse
+
+Two mistakes, and the second is the more instructive one.
+
+### 9.1 · The defect the sweep caught
 
 The five `--chart-state-*` light arms shipped in this branch at **~3.24:1 on the canvas,
-all five**, and the integration palette sweep caught one of them: a kanban "Done" column
-header at 3.24:1, over carbone's ceiling of 0.
+all five**, and the integration palette sweep failed on one: a kanban "Done" column header
+at 3.24:1, over carbone's ceiling of 0.
 
-The mistake is worth naming because it is not a typo. `--chart-state-N` is a **hue**, and
-`chart-family.css` spends it **twice**:
+It is not a typo. `--chart-state-N` is a **hue**, and `chart-family.css` spends it two ways:
 
-- `--state-N-fill` mixes it 24% into the canvas -- a **mark**, floor **3:1** (WCAG 1.4.11);
-- `--state-N-ink` uses it **undiluted, as text** -- floor **4.5:1**.
+- `--state-N-fill` mixes it 24% into the canvas — a **mark**, floor **3:1** (WCAG 1.4.11);
+- `--state-N-ink` uses it **undiluted**, and in one place that ink is **text** — floor **4.5:1**.
 
-I tuned all five to the mark floor and landed all five at 3.24 -- correct for the fill,
-sub-AA for the ink. Only `pass` was over a gallery slide that scored it; the other four
-were one slide away from the identical defect, which is why the fix took all five rather
-than the one the gate named.
+Tuned to the mark floor, the ink half was sub-AA.
 
-The light arms now take the **text** floor: ≥4.67:1 on both the canvas and the card,
-the band `indaco` (5.4-7.9) and `cuoio` already sit in. **Hue carries none of the change** --
-every one of the five is within 0.3° of its mark-tuned value and lightness does the work,
-so amber stays amber and the coral deepens to a crimson rather than becoming a maroon.
-Pairwise separation is **0.0919**, clear of the 0.065 chart-group floor, and `pass` sits
-**0.0513** off `--accent`'s light arm so the brand green and the pass green stay two colors.
-The dark arms are untouched, re-proved by the same page-by-page raster comparison in §8.
+### 9.2 · The over-scope, which introduced a CVD regression
 
-The generalizable rule: **a token used as both a mark and an ink takes the ink floor.**
-The 3:1 mark floor is the right floor for what the token is NAMED after and the wrong one
-for what it is also SPENT on, and nothing in the token's name says so.
+The first fix took **all five** arms to the text floor, on the stated reasoning that "the
+other four were one gallery slide away from the same defect." **That reasoning was false,
+and an independent checker refuted it.** Grepping every text-color declaration in
+`lib/**/*.css`, exactly one engine rule paints a `--chart-state-*` ink as text — the kanban
+"Done" column header (`kanban.styles.css:88`, plus its `.tinted` variant at `:436`) — and
+both are `pass`. (`state-chart`'s `--state-node-ink` / `--state-index-ink` are that
+component's own tokens, resolving to `--bg-alt` / `--text-heading` / `--text-muted`; the
+name collides, the token does not.) The other four inks are only ever a border, an SVG
+stroke, a disc ring or a shape fill — 3:1 surfaces the mark values already cleared.
+
+Moving all five cost something real. Lightness was carrying the group's separation under a
+red-blind simulation, and pushing every arm down by a similar amount removed it. Measured
+with `lib/theme/cvd.js`:
+
+| protanopia | `pass` | `warn` | ΔEok |
+|---|---|---|---|
+| mark values | `#2A9D4A` → `#9f8f43` | `#E26400` → `#897800` | **0.0800** |
+| all-five "fix" | `#006827` → `#695e20` | `#AE4B00` → `#685b00` | **0.0183** |
+
+0.0183 is **3.3× under** the `SLOT_DISTINCT = 0.06` floor in
+`test/unit/palette/chart-contrast.test.js`. On-track green and at-risk amber become one
+olive on a gantt legend, a kanban lane edge, a status-pill border.
+
+**No gate would have caught it.** `tools/cvd-audit.js` `tokenGroups()` measures categorical
+fills, categorical marks, the chart spectrum and the `pass`/`warn`/`fail` **status trio** —
+`--chart-state-*` is in none of them, and `cvd-trio-floor.test.js` is the trio only. Nothing
+in the tree scores these five under a simulation. It was found by a checker, not a gate.
+
+### 9.3 · What actually shipped
+
+**Only `pass` moves.** `#2A9D4A` → **`#005B22`**: 7.06:1 on the card, 7.74:1 on the canvas,
+hue held (148.36 → 148.47, drift **0.105°**) with lightness carrying the change. The other
+four revert to their mark-tuned values, which were right for what they are.
+
+Solved against every CVD axis as well as AA, against the mark-value baseline:
+
+| axis | baseline (mark values) | shipped | |
+|---|---|---|---|
+| protanopia | 0.0705 (`fail^mute`) | **0.0705** | held |
+| deuteranopia | 0.0439 (`pass^fail`) | **0.0696** | improved |
+| tritanopia | 0.0259 (`warn^fail`) | **0.0259** | held |
+| achromatopsia | 0.0000 (`pass^info`) | **0.0000** | held (pre-existing, see below) |
+| normal vision | 0.0768 (`warn^fail`) | **0.0768** | held — no `pass` pair binds |
+
+`pass` sits **0.0932** off `--accent`'s light arm (`#037829`), so the brand green and the
+pass green stay two colors. The dark arms are untouched, re-proved by the page-by-page
+raster comparison in §8.
+
+The achromatopsia 0.0000 at `pass^info` is inherited from the mark values and is not made
+worse here; under total color blindness these two are separated by the texture channel
+(`engineering/textures.md`), not by hue.
+
+### 9.4 · The rules worth keeping
+
+1. **A token used as both a mark and an ink takes the ink floor — for the arms that are
+   actually spent as ink.** The 3:1 floor is right for what the token is *named* after and
+   wrong for what it is also *spent* on, and nothing in the name says so. But "spent as
+   ink" is a fact to **grep for**, not to assume from the token family.
+2. **Consistency is not free.** Taking the other four along "for consistency" read as
+   tidiness and was actually a change with a measured cost on an axis nobody was watching.
+3. **A palette change is not verified until it is simulated.** AA is one axis. This group
+   has no CVD gate at all, which is a hole worth closing — see §9.5.
+
+## 9.5 · Two gaps found on the way, both PRE-EXISTING and both off-path
+
+Logged, not fixed here — HARD RULE #18's rule for a defect you find rather than cause.
+Neither is a live defect today; both are traps for the next change.
+
+**(a) The status family has no ink gate.** `--chart-state-*` is scored as a *ground* by
+`tools/composed-contrast.js` (pill stops, kanban wash, with `--text-heading` as the ink) and
+never as ink itself — `grep "ink: '--state"` returns nothing. Compare the categorical family,
+which has a derived `--chart-catN-ink` tier with an AA gate in `build:check` ("all 240 inks
+clear AA on --bg and --bg-alt"). The status family has no equivalent. Measured today, on each
+theme's own light `--bg`, if these arms *were* spent as text:
+
+| palette | sub-AA as ink |
+|---|---|
+| `onyx` | warn 3.56, mute 2.18 |
+| `concrete` | warn 3.67, info 3.83, mute 2.87 |
+| `laguna` · `carta` · `brina` · `indaco` | mute 3.26 / 3.81 / 3.93 / 4.10 |
+
+**None of these is a live defect**, because per §9.2 only `pass` is ever painted as text, and
+every shipped palette's `pass` clears AA on its own light `--bg` (checked, all of them). They
+are latent: the first `color: var(--state-warn-ink)` rule anyone writes breaks six palettes
+silently. `mute` is arguably by design (`MARK_MUTE_MIN = 2.0`); `onyx`'s warn and `concrete`'s
+warn/info are not.
+
+**(b) `--chart-state-*` is in no CVD token group.** `tools/cvd-audit.js` `tokenGroups()` covers
+categorical fills, categorical marks, the chart spectrum and the `pass`/`warn`/`fail` status
+trio; `cvd-trio-floor.test.js` is the trio only. Nothing simulates these five as a group —
+which is why the §9.2 regression got all the way to a green PR. `cvd-audit.js` is also a
+report that exits 0, not a gate.
+
+Both are a change to what CI runs, so neither is taken here.
