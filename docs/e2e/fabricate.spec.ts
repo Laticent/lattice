@@ -191,3 +191,160 @@ test('CSS that reaches off the device is paused out of the preview, with a reaso
 	await expect(page.getByText(/The preview is paused/)).toHaveCount(0);
 	await expect(page.getByText('Gate clean')).toBeVisible();
 });
+
+/**
+ * Click Save and wait for the confirmation.
+ *
+ * `.first()` because these specs save more than once and the toasts STACK — the
+ * second save leaves two "Saved …" nodes on screen, and a bare `getByText(/Saved/)`
+ * is then a strict-mode violation rather than a failed assertion. Only the presence
+ * of a confirmation is being asserted, so the first one is the right one to read.
+ */
+async function saveAsset(page: import('@playwright/test').Page) {
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await expect(page.getByText(/Saved/).first()).toBeVisible();
+}
+
+/**
+ * VERSION HISTORY, on the real surface (HARD RULE #23).
+ *
+ * #1873 shipped the in-place overwrite — a Library "Edit" button and an id-pinned
+ * Save — while `library/asset-history.js` sat at ZERO production callers, though its
+ * own docblock says history "is what makes that overwrite safe to offer at all".
+ * Every guard that change added is about not REACHING the overwrite; this is the one
+ * that survives reaching it, so the claim it has to carry is bytes: the stylesheet
+ * you had before the edit comes BACK, exactly.
+ *
+ * Nothing short of the real browser reaches it. The snapshot lives in IndexedDB,
+ * which jsdom does not have; the edit runs through a real CodeMirror, which under
+ * jsdom is a `<textarea>` fallback; and the restore is driven from a dialog rendered
+ * into the top layer over a panel. It compares EXPORTED BYTES for the same reason the
+ * hand-edit round trip above does — the export is the artifact a human receives, so
+ * two downloads ask the question the claim is actually about.
+ */
+test('an edit over a saved theme is recoverable — the earlier version restores byte-identical', async ({ page }) => {
+	await page.getByRole('textbox', { name: 'Theme name' }).fill('versioned');
+
+	// 1. Author version A and save it. This is a CREATE — there is no previous record,
+	//    so no version is taken, and the card should offer no history yet.
+	const generated = await exportedCss(page);
+	const versionA = `${generated.replace(/--accent:\s*[^;]+;/, '--accent: #1a7f5a;')}\n/* version A */\n`;
+	await page.getByRole('button', { name: 'CSS', exact: true }).click();
+	const cssBox = page.locator('.cm-content[aria-label="Theme CSS"]');
+	await expect(cssBox).toBeVisible();
+	await cssBox.fill(versionA);
+	await saveAsset(page);
+	expect(await exportedCss(page)).toEqual(versionA);
+
+	// 2. Edit over it and save again. The Save is now id-pinned (the first save set
+	//    the editing id), so THIS is the overwrite that has to be recoverable.
+	const versionB = `${generated.replace(/--accent:\s*[^;]+;/, '--accent: #b3261e;')}\n/* version B */\n`;
+	await cssBox.fill(versionB);
+	await saveAsset(page);
+	expect(await exportedCss(page)).toEqual(versionB);
+
+	// 3. The Library card now says so. The affordance is in the card's metadata line,
+	//    not its action row — that row is already four controls wide at 390px.
+	await page.getByRole('button', { name: 'Back to Compose' }).click();
+	const openLibrary = page.getByRole('button', { name: 'Open Library' });
+	await (await openLibrary.count() ? openLibrary : page.getByRole('button', { name: 'Library', exact: true })).click();
+	const historyLink = page.getByRole('button', { name: 'Earlier versions of Versioned' });
+	await expect(historyLink).toBeVisible();
+	await expect(historyLink).toHaveText('1 version');
+
+	// 4. Restore version A.
+	await historyLink.click();
+	await expect(page.getByRole('heading', { name: 'Earlier versions' })).toBeVisible();
+	await expect(page.getByText('Before edit')).toBeVisible();
+	await page.getByRole('button', { name: /^Restore the / }).click();
+	await expect(page.getByText(/Restored/).first()).toBeVisible(); // toasts stack; see saveAsset
+
+	// 5. THE CLAIM, as bytes: reopen the record and the file is version A again.
+	await page.getByRole('button', { name: 'Edit Versioned' }).click();
+	await expect(page.locator('.cm-content[aria-label="Theme CSS"]')).toBeVisible();
+	expect(await exportedCss(page)).toEqual(versionA);
+});
+
+/**
+ * The other half of the restore contract: restoring is ITSELF an overwrite, so the
+ * state it replaced is checkpointed too. Without this a restore is a one-way door —
+ * a mis-click costs you the edit you were trying to compare against — which is the
+ * failure the kernel's "restore-that-checkpoints-first" shape exists to prevent.
+ */
+test('restoring checkpoints the current version, so a mis-clicked restore is itself recoverable', async ({ page }) => {
+	await page.getByRole('textbox', { name: 'Theme name' }).fill('roundtrip');
+	const generated = await exportedCss(page);
+	const versionA = `${generated}\n/* A */\n`;
+	const versionB = `${generated}\n/* B */\n`;
+
+	await page.getByRole('button', { name: 'CSS', exact: true }).click();
+	const cssBox = page.locator('.cm-content[aria-label="Theme CSS"]');
+	await expect(cssBox).toBeVisible();
+	await cssBox.fill(versionA);
+	await saveAsset(page);
+	await cssBox.fill(versionB);
+	await saveAsset(page);
+
+	await page.getByRole('button', { name: 'Back to Compose' }).click();
+	const openLibrary = page.getByRole('button', { name: 'Open Library' });
+	await (await openLibrary.count() ? openLibrary : page.getByRole('button', { name: 'Library', exact: true })).click();
+	await page.getByRole('button', { name: 'Earlier versions of Roundtrip' }).click();
+	await page.getByRole('button', { name: /^Restore the / }).click();
+	await expect(page.getByText(/Restored/).first()).toBeVisible(); // toasts stack; see saveAsset
+
+	// Two versions now: the "Before edit" snapshot of A, and a "Before restore"
+	// snapshot of B — so the state the restore replaced is still reachable.
+	const historyLink = page.getByRole('button', { name: 'Earlier versions of Roundtrip' });
+	await expect(historyLink).toHaveText('2 versions');
+	await historyLink.click();
+	await expect(page.getByText('Before restore')).toBeVisible();
+
+	// Restore that one and B comes back — the round trip closes.
+	await page.getByRole('button', { name: /^Restore the / }).first().click();
+	await expect(page.getByText(/Restored/).first()).toBeVisible(); // toasts stack; see saveAsset
+	await page.getByRole('button', { name: 'Edit Roundtrip' }).click();
+	await expect(page.locator('.cm-content[aria-label="Theme CSS"]')).toBeVisible();
+	expect(await exportedCss(page)).toEqual(versionB);
+});
+
+/**
+ * THE FINISH FACULTY'S CSS VIEW, on the real surface (HARD RULE #23).
+ *
+ * The last faculty whose generated CSS an author could not see at all. It is
+ * READ-ONLY, and that is a property of the artifact rather than a shortcut: a finish
+ * recipe is a structured four-layer object and `generateFinishCss` is a projection
+ * with no inverse — the opaque print/export mirrors are emitted twice from one
+ * source so they cannot drift, and a wash `type` swap is a whole different slot set.
+ * So the two claims to prove here are that the CSS is VISIBLE and TRACKS the recipe,
+ * and that it does not offer an edit it could not honor.
+ *
+ * The read-only half needs a real browser specifically: under jsdom `CodeField`
+ * renders its `<textarea>` fallback, so `EditorView.editable` — the switch that stops
+ * the field being a focus stop with a caret it will never honor — is never exercised.
+ */
+test('the Finish CSS view shows what Save would write, tracks the recipe, and refuses edits', async ({ page }) => {
+	await page.getByRole('button', { name: 'Finish', exact: true }).click();
+	await page.getByRole('textbox', { name: 'Finish name' }).fill('viewdemo');
+
+	const cssBox = page.locator('.cm-content[aria-label="Finish CSS"]');
+	await expect(cssBox).toBeVisible();
+
+	// 1. It is the SLUG form — what Export/Save write — not the preview form.
+	await expect(cssBox).toContainText('finish-viewdemo');
+	await expect(page.getByText('· finish-viewdemo · read-only')).toBeVisible();
+
+	// 2. It TRACKS the recipe. Toggling the spotlight is a whole different slot set,
+	//    which is one of the reasons this view cannot be an editor.
+	const before = (await cssBox.textContent()) || '';
+	await page.getByRole('checkbox', { name: 'Spotlight one area' }).check();
+	await expect(cssBox).not.toHaveText(before);
+
+	// 3. It does not offer an edit. `EditorView.editable.of(false)` drops
+	//    contenteditable, so the field is not a focus stop — a box that looked
+	//    editable and silently ate keystrokes would read as broken, not read-only.
+	await expect(cssBox).toHaveAttribute('contenteditable', 'false');
+	const typed = (await cssBox.textContent()) || '';
+	await cssBox.click();
+	await page.keyboard.type('/* nope */');
+	await expect(cssBox).toHaveText(typed);
+});

@@ -640,16 +640,19 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClo
 				// `overrides` / `rampStrategy` ride along for the first time here: they
 				// are what a re-derivation would need, and no production caller had ever
 				// persisted them.
+				// `historyLabel` only means anything on the EDIT branch: a fresh save has no
+				// previous record to snapshot, so the store takes no version. Naming the edit
+				// case explicitly is what makes the entry legible in the version list later.
 				const t = await saveStudioTheme({
 					...(editingId ? { id: editingId } : {}),
 					name: themeName, label: titleize(themeName), essentials, css,
 					...(handEdited ? {} : { overrides, rampStrategy }),
-				});
+				}, { historyLabel: 'Before edit' });
 				setEditingId(t.id);
 				setHandDirty(false);
 				notify(`Saved “${t.label}” to your theme library — pick it from Look.`);
 			} else {
-				const c = await saveStudioComponent({ name: compName, css: compCss, skeleton: compSkeleton, meta: { ...compMeta, description: compDesc } });
+				const c = await saveStudioComponent({ name: compName, css: compCss, skeleton: compSkeleton, meta: { ...compMeta, description: compDesc } }, { historyLabel: 'Before edit' });
 				notify(`Saved “.${c.name}” to your component library.`);
 			}
 			onSaved?.();

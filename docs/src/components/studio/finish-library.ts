@@ -70,7 +70,7 @@ export function safeSaveSlug(text: string): string {
  * Pass the id you loaded and the same record is rewritten whatever the name becomes.
  * Omit it and the name-keyed behavior above is unchanged.
  */
-export async function saveStudioFinish(input: { id?: string; name: string; label?: string; css: string; recipe: FinishRecipe }): Promise<StudioFinish> {
+export async function saveStudioFinish(input: { id?: string; name: string; label?: string; css: string; recipe: FinishRecipe }, opts?: { historyLabel?: string }): Promise<StudioFinish> {
 	// safeSaveSlug namespaces a reserved-name collision so a saved finish can never
 	// shadow a built-in preset (e.g. `atrium` → `atrium-custom`); empty → a timestamp.
 	const name = safeSaveSlug(input.name) || `finish-${Date.now().toString(36)}`;
@@ -89,7 +89,7 @@ export async function saveStudioFinish(input: { id?: string; name: string; label
 	};
 	// asset-store's putAsset replaces the empty id with a generated/looked-up one.
 	const { id: _drop, ...rest } = record;
-	const stored = (await putAsset((input.id ? { ...rest, id: input.id } : rest) as unknown as FinishAssetRecord)) as FinishAssetRecord;
+	const stored = (await putAsset((input.id ? { ...rest, id: input.id } : rest) as unknown as FinishAssetRecord, opts)) as FinishAssetRecord;
 	return toStudioFinish(stored);
 }
 

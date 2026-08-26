@@ -7,10 +7,14 @@ import { Tip } from '@/components/ui/tooltip';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
+import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
 import { deleteStudioComponent, listStudioComponents, type StudioComponent, saveStudioComponent } from './component-library';
 import { generateSwatch } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish, saveStudioFinish } from './finish-library';
+import { type ImportRefusal, refuseImportedComponent, refuseImportedTheme } from './import-gate';
+import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-history.js';
+import { listAssets } from './library/asset-store.js';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
 import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './reference-doc-store';
 import { renderThemeShowcase } from './share-export';
@@ -159,6 +163,10 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const [sel, setSel] = React.useState<Set<string>>(new Set());
 	const [busy, setBusy] = React.useState<string | null>(null);
 	const [armed, setArmed] = React.useState<string | null>(null);
+	// assetId → how many earlier versions it has. Read as ONE sweep of the history
+	// store rather than a query per card, so a shelf of forty assets is one read.
+	const [versionCounts, setVersionCounts] = React.useState<Record<string, number>>({});
+	const [historyFor, setHistoryFor] = React.useState<VersionedAsset | null>(null);
 	const fileRef = React.useRef<HTMLInputElement>(null);
 	const docFileRef = React.useRef<HTMLInputElement>(null);
 
@@ -168,6 +176,35 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			setComponents(c);
 			setFinishes(f);
 			setDocs(d);
+			// Version counts, and the orphan net, in the same pass.
+			//
+			// `listAssets()` — the RAW store, every kind, one read — and deliberately not the
+			// `t`/`c`/`f` lists above. Those three each swallow a throw and return `[]` so a
+			// read never breaks the shelf, which is right for rendering and catastrophic for a
+			// prune: one transient failure would hand `pruneOrphanVersions` a live set missing
+			// a whole kind, and it would permanently delete every version of it. The raw read
+			// rejects instead, so the `.catch` below skips the prune entirely.
+			//
+			// It also has to be every kind rather than the three the Library shows: the prune
+			// sweeps the WHOLE history store, so a kind that is versioned but not displayed
+			// would be wiped on every Library open. Nothing is versioned but undisplayed today
+			// — and `asset-store.js` tells the next change to add `'scene'` to `VERSIONED_KINDS`
+			// when scenes get a card, which is exactly that shape.
+			//
+			// Why prune at all, when `deleteAsset` drops an asset's versions with it: a
+			// workspace RESTORE re-saves assets with no id, so a record whose name changed
+			// between backup and restore returns under a NEW id and strands its old history on
+			// a dead one. An orphan is invisible through the UI and un-deletable, so it only
+			// ever accumulates.
+			Promise.all([listAllAssetVersions(), listAssets()])
+				.then(async ([rows, all]: [{ assetId: string }[], { id: string }[]]) => {
+					const live = new Set<string>(all.map((a) => a.id));
+					const counts: Record<string, number> = {};
+					for (const r of rows) if (live.has(r.assetId)) counts[r.assetId] = (counts[r.assetId] || 0) + 1;
+					setVersionCounts(counts);
+					if (rows.some((r) => !live.has(r.assetId))) await pruneOrphanVersions(live);
+				})
+				.catch(() => setVersionCounts({}));
 		});
 	}, []);
 	// Load (and refresh) whenever the drawer opens; honor a requested initial tab
@@ -197,6 +234,40 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const cKey = (c: StudioComponent) => `comp:${c.id}`;
 	const fKey = (f: StudioFinish) => `finish:${f.id}`;
 	const toggle = (k: string) => setSel((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
+
+	// A card's metadata line: the facts, then the way into this asset's earlier versions.
+	//
+	// The version affordance is HERE and not in the action row because that row already
+	// carries four controls at 390px and a fifth does not fit. But the line cannot stay a
+	// single `truncate` span once it holds a control: `truncate` is `overflow:hidden` on a
+	// nowrap line, so on a narrow card the button rendered, reported itself visible, and
+	// was UNCLICKABLE — the clipped parent took the pointer events. Caught by driving the
+	// real Studio, invisible to every unit test (HARD RULE #23).
+	//
+	// So the line is a flex row: the facts truncate, the control is `shrink-0` and always
+	// reachable. That is also the right priority — a name you can half-read still tells
+	// you which card you are on; a button you cannot press tells you nothing.
+	const metaLine = (facts: React.ReactNode, asset: VersionedAsset) => {
+		const n = versionCounts[asset.id] || 0;
+		return (
+			<div className="mt-1 flex items-center gap-1 font-mono text-[10.5px] text-muted-foreground">
+				<span className="min-w-0 truncate">{facts}</span>
+				{n > 0 && (
+					<>
+						<span aria-hidden="true">·</span>
+						<button
+							type="button"
+							onClick={() => setHistoryFor(asset)}
+							aria-label={`Earlier versions of ${asset.label} (${n})`}
+							className="shrink-0 whitespace-nowrap font-semibold text-[var(--accent)] underline decoration-dotted underline-offset-2"
+						>
+							{n} version{n === 1 ? '' : 's'}
+						</button>
+					</>
+				)}
+			</div>
+		);
+	};
 
 	// Reference docs (#651) — download rebuilds the original bytes from the record;
 	// delete removes it from the shared library. No bulk-export/share (docs aren't
@@ -292,21 +363,46 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		let nThemes = 0;
 		let nComps = 0;
 		let nFinishes = 0;
+		// PER ITEM, not per bundle. The whole three-loop import used to sit in one `try`,
+		// so one bad asset skipped every asset after it — and `reload()`/`onChanged()` sat
+		// inside that `try` too, so the shelf was not even refreshed for the ones that HAD
+		// landed. The result was a silent partial import that the toast denied. Now a
+		// refused item is named and the rest still import.
+		const refused: ImportRefusal[] = [];
 		try {
 			for (const f of Array.from(files)) {
 				const { themes: ts, components: cs, finishes: fs } = await unpackBundle(f);
-				for (const t of ts) { await saveStudioTheme({ name: t.name, label: t.label, essentials: t.essentials ?? {}, css: t.css }); nThemes++; }
-				for (const c of cs) { await saveStudioComponent({ name: c.name, css: c.css, skeleton: c.skeleton, meta: { bucket: c.bucket || undefined } }); nComps++; }
-				// Symmetric unpack — a shared finish lands in the finish library, pickable
-				// from the Inspector Finish menu (the same consumption loop a saved finish uses).
-				for (const fin of fs) { await saveStudioFinish({ name: fin.name, label: fin.label, css: fin.css, recipe: fin.recipe }); nFinishes++; }
+				// `historyLabel` — an import that lands on a name you already use REPLACES that
+				// record (the store dedupes by kind+name when no id is passed), so the version it
+				// snapshots is the one thing between a stranger's .zip and your own work.
+				for (const t of ts) {
+					const no = await refuseImportedTheme(t.css, t.label || t.name);
+					if (no) { refused.push(no); continue; }
+					await saveStudioTheme({ name: t.name, label: t.label, essentials: t.essentials ?? {}, css: t.css }, { historyLabel: 'Before import' });
+					nThemes++;
+				}
+				for (const c of cs) {
+					const no = await refuseImportedComponent(c.css, c.name);
+					if (no) { refused.push(no); continue; }
+					await saveStudioComponent({ name: c.name, css: c.css, skeleton: c.skeleton, meta: { bucket: c.bucket || undefined } }, { historyLabel: 'Before import' });
+					nComps++;
+				}
+				// A finish needs no CSS gate: `saveStudioFinish` DISCARDS the bundle's CSS and
+				// regenerates it from the recipe, and `coerceRecipe` clamps every number and
+				// enum-checks every keyword on the way in. Safe by construction, not by a scan.
+				for (const fin of fs) { await saveStudioFinish({ name: fin.name, label: fin.label, css: fin.css, recipe: fin.recipe }, { historyLabel: 'Before import' }); nFinishes++; }
 			}
-			reload();
-			onChanged();
-			notify(`Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}.`);
 		} catch (e) {
 			notify(`Import failed — ${String((e as Error)?.message || e)}`);
 		} finally {
+			// ALWAYS refresh, even on the failure path: whatever did land is on the shelf, and
+			// a stale shelf is how a partial import reads as "nothing happened".
+			reload();
+			onChanged();
+			const got = nThemes + nComps + nFinishes;
+			if (got) notify(`Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}.`);
+			for (const r of refused) if (r) notify(`Refused ${r.name} — ${r.why}`);
+			if (!got && !refused.length) notify('Nothing to import from that file.');
 			setBusy(null);
 			if (fileRef.current) fileRef.current.value = '';
 		}
@@ -478,7 +574,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 										<div className="flex h-[88px] w-full">{themeSwatches(t).map((c, i) => <span key={`${k}-${i}`} className="flex-1" style={{ background: c }} />)}</div>
 										<div className="p-2.5">
 											<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">{t.label}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">Theme</span>{active && <span className="ml-auto font-mono text-[9px] uppercase text-[var(--accent)]">Active</span>}</div>
-											<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">{t.name} · {t.essentials ? `${Object.keys(t.essentials).length} essentials` : 'theme'} · AA</div>
+											{metaLine(<>{t.name} · {t.essentials ? `${Object.keys(t.essentials).length} essentials` : 'theme'} · AA</>, { id: t.id, label: t.label })}
 											<div className="mt-2.5 flex items-center gap-1.5">
 												<button type="button" onClick={() => { onApplyTheme(t.name); notify(`Applied ${t.label}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Check className="size-3.5" />Apply</button>
 												{/* Icon-only, like Share: the row is already tight at mobile. This is
@@ -500,7 +596,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 										<div className="grid h-[88px] w-full place-content-center bg-[repeating-linear-gradient(45deg,var(--bg-alt),var(--bg-alt)_8px,var(--bg)_8px,var(--bg)_16px)]"><span className="rounded-lg border border-border bg-card px-3 py-1.5 font-mono text-[12px] font-semibold text-[var(--accent)] shadow-sm">.{c.name}</span></div>
 										<div className="p-2.5">
 											<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">.{c.name}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--text-muted)_30%,transparent)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--text-muted)]">Component</span></div>
-											<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">{c.bucket || 'local'} · scoped · palette-blind</div>
+											{metaLine(<>{c.bucket || 'local'} · scoped · palette-blind</>, { id: c.id, label: `.${c.name}` })}
 											<div className="mt-2.5 flex items-center gap-1.5">
 												<button type="button" onClick={() => { onInsert(c.skeleton, c.name); notify(`Inserted .${c.name}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Plus className="size-3.5" />Insert</button>
 												<button type="button" disabled={!!busy} onClick={() => shareComponent(c)} aria-label={`Share .${c.name}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" />Share</button>
@@ -522,7 +618,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 										<div className="h-[88px] w-full bg-[var(--bg)]" style={{ backgroundImage: sw.background, backgroundSize: sw.backgroundSize }} />
 										<div className="p-2.5">
 											<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">{f.label}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">Finish</span>{active && <span className="ml-auto font-mono text-[9px] uppercase text-[var(--accent)]">Active</span>}</div>
-											<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">{f.name} · layered · palette-blind</div>
+											{metaLine(<>{f.name} · layered · palette-blind</>, { id: f.id, label: f.label })}
 											<div className="mt-2.5 flex items-center gap-1.5">
 												<button type="button" onClick={() => { onApplyFinish(f.name); notify(`Applied ${f.label}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Check className="size-3.5" />Apply</button>
 												<button type="button" disabled={!!busy} onClick={() => shareFinish(f)} aria-label={`Share ${f.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" />Share</button>
@@ -591,6 +687,16 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 					</div>
 				</div>
 			)}
+			{/* Mounted inside the frame so it shares the Library's lifecycle, but rendered by
+			    Dialog into the TOP LAYER, so it sits above the panel in both transports rather
+			    than inside the sheet that would otherwise own the dismiss gesture. */}
+			<AssetVersionsDialog
+				asset={historyFor}
+				open={!!historyFor}
+				onOpenChange={(o) => { if (!o) setHistoryFor(null); }}
+				onRestored={() => { reload(); onChanged(); }}
+				notify={notify}
+			/>
 		</LibraryFrame>
 	);
 }

@@ -86,7 +86,7 @@ to lift into position 0. The rule that came out of it is worth stating once:
 semantics of the thing that will CONSUME it.** Those are different parsers and a
 gate that uses one reading for both is wrong in one direction or the other.
 
-### Logged, not fixed here: the engine hoists what it cannot resolve
+### The engine hoists what it cannot resolve — FIXED (2026-08-25)
 
 The root cause under all of the import findings is in the engine, not the gate:
 `ThemeStore.resolveThemeImports` leaves an unknown or cyclic theme-name import
@@ -96,8 +96,49 @@ and fetches it. The gate closes this for the Studio path. It does not close it f
 the other producers the design note already lists as ungated (a `.zip` import, a
 shared payload), and the honest fix is for `hoistImports` to DROP a quoted
 theme-name import that no longer resolves rather than promote it to first
-position. Off the path of this change (#18's log-it branch), and named here with
-its reproduction so the next session does not have to rediscover it.
+position.
+
+**That fix has now landed** (`lib/engine/css.js`, `hoistImports`), so it closes
+for every producer rather than for the Studio alone. Two things about it are worth
+keeping:
+
+- **The reproduction, confirmed before the fix.** A theme carrying
+  `@import 'ghost-theme';` composed to a sheet whose literal first line was
+  `@import 'ghost-theme';`. Pinned in `test/unit/engine/hoist-dangling-import.test.js`,
+  which fails 7 of its 11 cases against the pre-fix engine.
+- **The judgment DECODES, and that arm is the sharp one.** The engine resolver
+  matches raw bytes case-sensitively, so `@import '\61 rdesia'` survives resolution
+  even though `ardesia` is registered — and the browser, which decodes, then
+  fetches `./ardesia`. Reading the target the resolver's way here would have
+  re-opened exactly the hole `lib/theme/gate.js` closed, one layer down. This is
+  the same "detect with the semantics of the thing that will EXECUTE the CSS,
+  judge with the semantics of the thing that will CONSUME it" rule as the second
+  correction above, applied in the direction where the hoist is what hands the
+  browser its bytes.
+- **And "the browser's reading" is THREE normalizations, not one.** The first cut
+  decoded escapes and stopped, which an independent checker showed is a bypass one
+  keystroke wide: `@import 'ghost ';` — a single trailing space — was still hoisted
+  to position 0 and still fetched as `/ghost` by a real Chromium. A CSS string also
+  loses a `\`+newline line continuation during tokenization (css-syntax-3 §4.3.4 —
+  `decodeCssEscapes` deliberately leaves it, and its docblock's "as CSS leaves it" is
+  true *outside* a string and false inside one, which is the only context this runs
+  in), and the URL resolver strips surrounding whitespace. Leading space, trailing
+  tab and a trailing `\a` were all measured hoisting too. The rule generalizes: when
+  you judge by a consumer's semantics, you owe **all** of that consumer's
+  normalizations, and knowing one of them is not knowing them.
+- **The decode is bounded.** `decodeCssEscapesMapped` builds a decoded copy *and* a
+  per-character index map, so an unbounded call on a multi-megabyte quoted target
+  cost 651 ms and 141 MB — on a path the live preview re-runs per keystroke.
+  `lib/core/css-scan.js` caps the same class of input at `MAX_IMPORT_STATEMENT`;
+  calling its decoder primitive directly walked around that cap. A target longer
+  than a theme name is not one, so it hoists without being decoded (5.5 ms).
+
+Scope stayed narrow on purpose: it drops a dangling NAME and does not judge a real
+URL. `@import url(…)` and quoted paths hoist exactly as before, because a theme
+author may legitimately want one and the engine is not the security boundary for
+it — `lib/theme/gate.js` is, and it rejects both outright for hand-edited theme
+CSS. Measured: all 32 shipped themes compose byte-identically across the change
+(SHA-256 over `cssFor(name, size)` for every theme at two sizes).
 
 ## The ask
 
@@ -367,6 +408,28 @@ That may be a worse experience than the picker for someone who by construction
 cannot express anything new. The read-only CSS view is cheap and honest and
 should ship; the Fields ⇄ JSON view should wait for a user who wants it.
 
+**SHIPPED (2026-08-25).** The read-only view is in, under the live specimen in the
+centre column, and the Fields ⇄ JSON view is still waiting for that user. Three
+notes from building it:
+
+- **It renders the SLUG form, not the preview form.** `FinishStudio` already
+  generated CSS twice — `generateFinishCss(PREVIEW_SLUG, recipe)` for the specimen
+  and `generateFinishCss(slug, recipe)` inside both `exportCss` and `save`. The view
+  reads the second, because the question an author is asking it is "what will Save
+  write", and answering with the preview's selector would be a quietly different
+  file.
+- **`CodeField` grew a `readOnly` mode rather than the Studio growing a second code
+  surface** (HARD RULE #15). It sets BOTH `EditorState.readOnly` and
+  `EditorView.editable`: the first alone leaves a field that takes focus, shows a
+  caret and silently eats every keystroke, which reads as broken rather than as
+  read-only. The e2e asserts `contenteditable="false"` and that typing changes
+  nothing, which is a claim only a real browser can carry — under jsdom `CodeField`
+  renders its `<textarea>` fallback and neither switch is exercised.
+- **The reasoning is restated at the call site**, not just cited. Someone reading
+  `FinishStudio.tsx` and wondering why this one view is not editable when the theme
+  faculty's is should not have to find this note to learn that the answer is a
+  property of the artifact.
+
 ## Templates
 
 Every code surface opens on a **template**, never an empty box:
@@ -480,12 +543,48 @@ log them), but the design rests on them:
 - **It does not add a raw-CSS path for finishes.** If that is wanted later, it
   should arrive as an explicit detach with a revert, on top of the version
   history #1839 specifies — not as a silently forking editor.
-- **It does not gate the zip import path.** A theme imported from a `.zip`
-  (`Library.tsx:295`) reaches `extraTheme` with no CSS gate at all, and the tail
-  is arbitrary unscoped CSS that reaches every export. Either put the theme gate
-  on the import path in the same change or log it — but do not leave it
-  undiscussed, because a shared `.zip` is the one path where the author and the
-  victim are different people.
+- ~~**It does not gate the zip import path.**~~ **DONE (2026-08-25).** A theme
+  imported from a `.zip` reached `extraTheme` with no CSS gate at all, and a shared
+  `.zip` is the one path where the author and the victim are different people. The
+  refusal is per item, on the import, and it covers the **component** arm of the same
+  bundle too — that was ungated while the theme arm was not, which is the same hole in
+  the same file: hostile component CSS reaches the same preview `<style>` and every
+  export, and the intended workflow (import, then insert the skeleton) is what fires
+  it. A finish needs no gate by construction — `saveStudioFinish` discards the
+  bundle's CSS and regenerates from the recipe, which `coerceRecipe` clamps and
+  enum-checks.
+
+  **The first cut put the refusal in `saveStudioTheme`, and that was wrong — a
+  checker measured why.** The reasoning was the one that put version history in
+  `putAsset`: the import, the workspace restore and Fabricate's own Save all meet at
+  the store, so one guard covers all three. That reasoning holds for a
+  **non-destructive** action and breaks for a **refusal**, because a refusal's false
+  positives destroy work rather than pausing a preview. And the gate has false
+  positives that are not exotic — both measured against it:
+
+  | input | verdict | why |
+  |---|---|---|
+  | `:root{--code-javascript:#f0db4f}` | `blocked` | the `css-scheme` rule matches `javascript:` inside the **property name**; `.javascript:hover` trips it too |
+  | `@import 'indaco'; :root{…}` | `blocked` | a composing theme, unless the caller passes a registry — **18 of the 32 shipped themes** are blocked under the default, and Fabricate's CSS view lets an author type exactly this |
+
+  Behind a store-level refusal the first can never be saved, and inside
+  `restoreWorkspace` — which has no per-item guard and runs *after* decks and settings
+  are already merged — one such theme in your **own backup** aborts the whole restore
+  with no way to skip it. A guard meant to protect you from a stranger became a denial
+  of service on your own data. So the refusal now applies where the threat model
+  actually points, and `css-scheme` is excluded from the refusing set outright: it is
+  the rule with demonstrated false positives on a name and on a selector, and a
+  `javascript:` URL in a stylesheet cannot execute in any shipping browser, so vetoing
+  on it buys nothing and costs a legitimate import.
+
+  **The general lesson, worth more than the fix:** *where* a check lives is decided by
+  what it DOES, not by which call sites happen to converge. Convergence is an argument
+  for putting a **record** at the chokepoint; it is not an argument for putting a
+  **veto** there.
+
+  Pinned per-PR by `docs/src/components/studio/import-gate.test.ts` — the e2e that
+  drives a hostile bundle through the real Library door carries no `@smoke` tag, so it
+  runs nightly and would not have blocked a merge that deleted the guard.
 
 ## Third correction, on shipping the CSS view (2026-08-25, #1839)
 
@@ -529,6 +628,97 @@ overwrite safe to offer at all" — and it has **zero production callers**. This
 ships the in-place overwrite without it. That is logged rather than fixed here (it is
 #1839's own scope and a separate surface), and it is the reason all three fixes above
 are about *not reaching* the overwrite rather than about undoing it.
+
+## Fourth correction, on wiring the safety net (2026-08-25, #1839)
+
+The net is wired. Three things the note did not anticipate came out of doing it, and
+each changed the shape of the answer.
+
+**The wiring belongs in the STORE, not in the faculties — because of a path this note
+files under "what this does not do".** The obvious home was the four `save*` wrappers.
+It cannot work there: a caller that passes no `id` does not know which record it is
+about to replace, because the `(kind, name)` dedupe *inside* `putAsset` is what
+resolves it. That is not an edge case — it is the `.zip` import and the workspace
+restore, and it means importing a bundle whose theme shares a name with one of yours
+silently replaced your CSS with no version and no warning. So `putAsset` snapshots and
+`deleteAsset` drops, and the eight writers and five deleters are covered by
+construction rather than by nine call sites each remembering. Two of those deleters
+never touch `Library.tsx` at all (the Inspector's trash), and one is `governance.ts`
+`clearLibraryAssets`, a sweep over every asset of every kind.
+
+**That required breaking an import cycle**, which is why `library/asset-db.js` now
+exists: the store calls into history, and history needed `openDB`/`reqAsPromise` from
+the store. The connection and the one-database upgrade handler moved down into a
+module both import, which also makes "neither consumer opens its own database" a
+structural fact rather than a comment.
+
+**A snapshot failure fails the save, deliberately.** If the version cannot be taken we
+have not earned the right to overwrite — the claim the kernel's docblock makes — and
+the author's edit is still in the editor where the rejection surfaces as a toast. The
+cost is named rather than hidden: a browser at its storage quota refuses saves instead
+of quietly degrading to unversioned ones.
+
+**And it fails ATOMICALLY, which took a second pass.** The first cut ran the id lookup,
+the snapshot and the put as THREE transactions with `await` between them, and justified
+the split with a comment claiming a shared transaction "must never happen" because a
+rollback would take the version with it. That reasoning is backwards: if the put rolls
+back then no overwrite happened, so the version *should* roll back with it — that is the
+atomic outcome, not the hazard. The real gap was the one the comment hid: two tabs on the
+same record read the same `previous`, each snapshotted it, and each wrote, so the middle
+save landed in neither the store nor history. Measured on the three-transaction version:
+live `V3`, history `[V1, V1]`, `V2` gone.
+
+It is now one `readwrite` transaction spanning both object stores. **Every step is
+chained from the previous request's `onsuccess`, and nothing inside is awaited** — an
+IndexedDB transaction deactivates when control returns to the event loop, so `await`-ing
+mid-transaction is a bug that happens to work in Chromium rather than a thing that is
+correct. Callback chaining is correct by construction instead of by engine.
+
+The POLICY did not move with it. `planSnapshot` in `asset-history.js` is pure and decides
+the version id, the consecutive-identical guard and the cap; `saveAssetVersion` (which
+opens its own transaction and awaits) and `putAsset` (which may not) both call it, so two
+write shapes cannot drift into two behaviours (HARD RULE #15).
+
+**The general shape is worth keeping:** a guarantee stated over several steps is only as
+strong as the atomicity of those steps. "Every overwrite is versioned" read as true for
+weeks of design and was false under concurrency the whole time, and no test that drove one
+tab could have found it — the two that do are `concurrent saves of one asset`, and both
+fail against the three-transaction version.
+
+### What the real surface showed that no unit test could
+
+The affordance went in the card's METADATA line, because the action row already
+carries four controls at 390px. Rendered there it was **visible, reported visible by
+Playwright, and unclickable**: that line was a single `truncate` span, so on a narrow
+card the button overflowed a clipped parent that took the pointer events. Every unit
+test passed. It is now a flex row — the facts truncate, the control is `shrink-0` —
+and the priority that implies is the right one: a name you can half-read still tells
+you which card you are on, a button you cannot press tells you nothing. Exactly the
+class of defect HARD RULE #23 exists for, and it was only ever going to surface by
+driving the real Studio.
+
+The consequence at the docked Library column (~200px) is worth stating: the facts
+truncate hard, so a card with history reads `shot… · 3 versions`. Reachability was
+chosen over completeness there on purpose.
+
+**Naming.** The list is "Earlier versions", not "Version history", because the Studio
+already has a Version history — the DECK checkpoint sheet. Two unrelated surfaces
+under one name is a product smell before it is a test problem, and it is both:
+Playwright's `getByRole` name option is a substring match unless `exact: true`, so an
+asset control named "Version history for X" would have quietly made every existing
+spec's bare `'Version history'` ambiguous.
+
+### Precondition 3 is still open, and is bigger than it looks
+
+`asset-history.js` claimed the workspace backup "carries it separately from
+`library.zip`". It never did, and the docblock is corrected rather than made true here.
+Making it true is not the two lines it appears to be: a version is keyed on `assetId`,
+the bundle format carries no asset ids (precondition 2), and restore upserts by NAME —
+so versions restored as-is would point at ids the receiving browser never minted, and
+`pruneOrphanVersions` would correctly delete every one of them. Doing it properly means
+the backup carries a name→id map and restore rewrites `assetId` against the ids it
+actually resolved, which is a change to the workspace FORMAT and belongs in its own
+change with its own review.
 
 Two smaller things the same pass found, both now fixed and both worth the sentence
 because each was a claim rather than a bug: `themeTokenMap` ignored `!important` and

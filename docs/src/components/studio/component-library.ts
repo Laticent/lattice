@@ -84,7 +84,7 @@ export type ComponentMeta = {
  * Pass the id you loaded and the same record is rewritten whatever the name becomes.
  * Omit it and the name-keyed behavior above is unchanged.
  */
-export async function saveStudioComponent(input: { id?: string; name: string; css: string; skeleton: string; meta?: ComponentMeta }): Promise<StudioComponent> {
+export async function saveStudioComponent(input: { id?: string; name: string; css: string; skeleton: string; meta?: ComponentMeta }, opts?: { historyLabel?: string }): Promise<StudioComponent> {
 	const meta = input.meta || {};
 	const manifest: Record<string, unknown> = { name: input.name };
 	for (const k of ['function', 'form', 'substance', 'bucket', 'adapt', 'capacity', 'density'] as const) {
@@ -93,7 +93,7 @@ export async function saveStudioComponent(input: { id?: string; name: string; cs
 	if (Array.isArray(meta.tags) && meta.tags.length) manifest.tags = meta.tags;
 	if (meta.description?.trim()) manifest.description = meta.description.trim();
 	const asset = (await loadLayoutCore()).componentAsset({ name: input.name, css: input.css, skeleton: input.skeleton, manifest });
-	const stored = (await putAsset(input.id ? { ...asset, id: input.id } : asset)) as ComponentAssetRecord;
+	const stored = (await putAsset(input.id ? { ...asset, id: input.id } : asset, opts)) as ComponentAssetRecord;
 	return toStudioComponent(stored);
 }
 

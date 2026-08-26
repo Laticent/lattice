@@ -12,54 +12,95 @@
 // export bridge — and gets its own design pass. Record SHAPES are the pure,
 // unit-tested repo core (themeAsset in lib/theme/serialize, componentAsset in
 // lib/layout/scaffold); this module only persists them.
+//
+// The connection and schema live in `asset-db.js`; see its header for why.
+//
+// ── EVERY OVERWRITE IS VERSIONED, AND IT HAPPENS HERE ───────────────────────
+//
+// `asset-history.js` was written alongside the in-place edit #1873 shipped, and says in its own
+// docblock that history "is what makes that overwrite safe to offer at all". It then
+// shipped with ZERO production callers, so the Studio offered the overwrite without
+// the thing that made it safe. This is that wiring.
+//
+// IT IS IN THE STORE RATHER THAN IN THE FACULTIES, and that is not tidiness. Two
+// facts decide it:
+//
+//  1. **Only this function knows which record is about to be replaced.** A caller
+//     that passes an id knows it; a caller that passes NONE does not, because the
+//     `(kind, name)` dedupe below is what resolves it. That second path is not
+//     hypothetical or rare — it is the `.zip` import (`Library.tsx` `importFiles`)
+//     and the workspace restore (`workspace-backup.ts`), and importing a bundle whose
+//     theme happens to share a name with one of yours silently replaced your CSS.
+//     Wiring history in the faculties cannot cover that path at all; a caller would
+//     have to re-implement the dedupe to find out what it was about to destroy.
+//  2. **There are eight writers and five deleters**, two of the deleters reached from
+//     the Inspector rather than the Library, and one (`governance.ts`
+//     `clearLibraryAssets`) a sweep over every asset of every kind. A per-faculty
+//     wiring is nine call sites that each have to remember, and the tenth writer added
+//     later silently opts out. Here, opting out is not reachable.
+//
+// A SNAPSHOT FAILURE FAILS THE SAVE, and now it does so atomically. If the snapshot
+// cannot be taken we have not earned the right to overwrite — that is the whole claim
+// in the history module's docblock — and the caller's edit is still in its editor,
+// where a rejected promise surfaces as a toast. The cost is real and worth naming: a
+// browser at its storage quota refuses saves rather than degrading to unversioned ones.
+// `VERSION_CAP` bounds the growth this can cause (20 per asset), and
+// `pruneOrphanVersions` reclaims what deletes miss.
 
-const DB_NAME = 'lattice-workbench';
-// v2 adds `assetHistory` (asset-history.js). ONE database means ONE upgrade
-// handler, so every store this database will ever hold is created here even
-// though only `assets` is read below — a second module calling `indexedDB.open`
-// with its own version is how you get a VersionError on the tab that opened
-// first. asset-history.js imports `openDB` from here rather than opening its own.
-const DB_VERSION = 2;
-const STORE = 'assets';
-export const HISTORY_STORE = 'assetHistory';
+import { ASSET_STORE, HISTORY_STORE, openDB, reqAsPromise } from './asset-db.js';
+import { deleteAssetVersions, newestFirst, planSnapshot } from './asset-history.js';
 
-let dbPromise = null;
-export function openDB() {
-  if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject) => {
-    if (typeof indexedDB === 'undefined') {
-      reject(new Error('IndexedDB unavailable (private mode?)'));
-      return;
-    }
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    // Guards, not an `if (oldVersion < N)` ladder: a browser that never saw v1
-    // runs this once with both stores missing, and one upgrading from v1 runs it
-    // with `assets` already present. Both paths must land on the same schema.
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(STORE)) {
-        const os = db.createObjectStore(STORE, { keyPath: 'id' });
-        os.createIndex('kind', 'kind', { unique: false });
-      }
-      if (!db.objectStoreNames.contains(HISTORY_STORE)) {
-        const os = db.createObjectStore(HISTORY_STORE, { keyPath: 'id' });
-        os.createIndex('assetId', 'assetId', { unique: false });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-  return dbPromise;
+export { HISTORY_STORE, openDB, reqAsPromise } from './asset-db.js';
+
+/**
+ * The kinds whose overwrites are versioned.
+ *
+ * The three the Library shows a card for, which is the same three a person can EDIT
+ * in place and therefore the same three that can lose work to a save. Both omissions
+ * are deliberate:
+ *
+ *   `refdoc` — an ingested FILE (a PDF and its extracted text), not an authored
+ *              artifact. You replace one by attaching the file again, so there is no
+ *              edit to lose, and versioning it would put up to 20 copies of a
+ *              multi-megabyte binary into a quota the decks share.
+ *   `scene`  — authored, and it would belong here, but scenes have no Library shelf
+ *              yet (#1678), so there is nowhere to see or restore a version from.
+ *              Storing them would be cost with no reachable benefit. Add `'scene'`
+ *              to this set in the same change that gives scenes a card.
+ */
+const VERSIONED_KINDS = new Set(['theme', 'component', 'finish']);
+
+/**
+ * Fields that move on every save whether or not anything was authored.
+ *
+ * `addedAt` is the Library's sort key and every faculty re-stamps it with
+ * `Date.now()` on each save, so two saves of identical content are never
+ * byte-identical records. That matters because `saveAssetVersion`'s
+ * consecutive-identical guard compares whole records: it exists so that "open an
+ * asset and save without touching anything" does not manufacture a version, and
+ * `addedAt` defeated it every time. Measured before this: three no-op saves produced
+ * three versions — and with `VERSION_CAP` at 20, a handful of reflexive saves evicts
+ * real history off the end of the list.
+ *
+ * So the comparison below is "did anything a person authored change", which is the
+ * question the guard was always asking.
+ */
+const VOLATILE_FIELDS = ['addedAt'];
+
+function sameExceptVolatile(a, b) {
+  if (!a || !b) return false;
+  const strip = (r) => {
+    const out = { ...r };
+    for (const k of VOLATILE_FIELDS) delete out[k];
+    // Key order is not guaranteed equal across a structured clone and a freshly built
+    // record, so compare on SORTED keys rather than on raw JSON.stringify output.
+    return JSON.stringify(Object.fromEntries(Object.keys(out).sort().map((k) => [k, out[k]])));
+  };
+  return strip(a) === strip(b);
 }
 
 function tx(db, mode) {
-  return db.transaction(STORE, mode).objectStore(STORE);
-}
-export function reqAsPromise(request) {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
+  return db.transaction(ASSET_STORE, mode).objectStore(ASSET_STORE);
 }
 
 /** A stable-ish id when a record doesn't carry one. */
@@ -72,16 +113,99 @@ function newId(prefix = 'a') {
  * whose (kind, name) already exists is UPDATED in place (re-saving a theme you
  * tweaked replaces it rather than piling up duplicates). Returns the stored
  * record.
+ *
+ * When the put REPLACES an existing versioned record, the record as it stands is
+ * snapshotted into history first — see the module header for why that lives here.
+ * `historyLabel` is what the version list will show ("Before edit", "Before restore",
+ * "Before import") — named apart from the record's OWN `label` field, which is the
+ * asset's display name; `ts` is a parameter for the same reason it is one in
+ * `asset-history.js`: it keeps the store testable without faking the clock.
+ *
+ * ── ONE TRANSACTION, AND NOT AN `await` IN SIGHT ────────────────────────────
+ *
+ * The id lookup, the snapshot and the put all run inside a SINGLE `readwrite`
+ * transaction spanning both object stores, so either the version and the overwrite
+ * both land or neither does.
+ *
+ * The first cut used three separate transactions with `await` between them, and the
+ * gap was reachable: two tabs on the same record read the same `previous`, each
+ * snapshotted it, and each wrote — leaving the middle save in neither the store nor
+ * history. Measured on the three-transaction version: live `V3`, history `[V1, V1]`,
+ * and `V2` gone. One tab cannot reach it (Save is disabled while saving and the import
+ * loop awaits sequentially), but "needs two tabs" is not the same as "cannot happen"
+ * for the one guarantee this module exists to make.
+ *
+ * EVERY STEP IS CHAINED FROM THE PREVIOUS REQUEST'S `onsuccess`, deliberately. An
+ * IndexedDB transaction deactivates when control returns to the event loop, so
+ * `await`-ing mid-transaction is a bug that happens to work in Chromium and is not
+ * guaranteed anywhere. Callback chaining is the only shape that is correct by
+ * construction rather than by engine.
+ *
+ * The POLICY is still the history kernel's: `planSnapshot` decides the version id, the
+ * consecutive-identical guard and the cap, and it is pure so this path and
+ * `saveAssetVersion` cannot drift (HARD RULE #15).
  */
-export async function putAsset(record) {
+export async function putAsset(record, { historyLabel = 'Before save', ts = Date.now() } = {}) {
   const db = await openDB();
-  let toStore = record;
-  if (!toStore.id) {
-    const existing = (await listAssets(record.kind)).find(a => a.name === record.name);
-    toStore = { ...record, id: existing ? existing.id : newId({ theme: 't', component: 'c', finish: 'f', scene: 's', refdoc: 'd' }[record.kind] || 'a') };
-  }
-  await reqAsPromise(tx(db, 'readwrite').put(toStore));
-  return toStore;
+  return new Promise((resolve, reject) => {
+    const t = db.transaction([ASSET_STORE, HISTORY_STORE], 'readwrite');
+    const assets = t.objectStore(ASSET_STORE);
+    const history = t.objectStore(HISTORY_STORE);
+    let stored = null;
+    // Resolve on COMPLETE, not on the last request's success: only `oncomplete` means
+    // the whole unit — version and overwrite — actually committed.
+    t.oncomplete = () => resolve(stored);
+    t.onabort = () => reject(t.error || new Error('putAsset: the save was rolled back'));
+    t.onerror = () => reject(t.error || new Error('putAsset: the save failed'));
+
+    const write = (id) => {
+      const toStore = { ...record, id };
+      stored = toStore;
+      if (!VERSIONED_KINDS.has(toStore.kind)) {
+        assets.put(toStore);
+        return;
+      }
+      const getPrev = assets.get(id);
+      getPrev.onsuccess = () => {
+        const previous = getPrev.result;
+        if (!previous || sameExceptVolatile(previous, toStore)) {
+          assets.put(toStore);
+          return;
+        }
+        const read = history.index('assetId').getAll(id);
+        read.onsuccess = () => {
+          const plan = planSnapshot(newestFirst(read.result), previous, historyLabel, ts);
+          if (plan) {
+            history.put(plan.version);
+            for (const old of plan.doomed) history.delete(old.id);
+          }
+          assets.put(toStore);
+        };
+      };
+    };
+
+    if (record.id) {
+      write(record.id);
+      return;
+    }
+    // The (kind, name) dedupe, done inside the transaction so the id it resolves
+    // cannot be stale by the time we write to it. Sorted the same way `listAssets`
+    // sorts, because with two records sharing a name the newest is the one the
+    // out-of-transaction version used to pick.
+    //
+    // One deliberate difference from that version: it filtered by kind via
+    // `listAssets(record.kind)`, and `listAssets(undefined)` returns EVERY asset — so
+    // a record with no `kind` used to match by name alone and overwrite a live theme,
+    // clobbering its kind on the way. Matching on kind here refuses that. No caller
+    // omits `kind` (all six set it from a literal), so this is unreachable today; it
+    // is the safer half of an unreachable pair either way.
+    const all = assets.getAll();
+    all.onsuccess = () => {
+      const rows = (all.result || []).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+      const existing = rows.find((a) => a.kind === record.kind && a.name === record.name);
+      write(existing ? existing.id : newId({ theme: 't', component: 'c', finish: 'f', scene: 's', refdoc: 'd' }[record.kind] || 'a'));
+    };
+  });
 }
 
 /** All assets, newest first; optionally filtered to one kind. */
@@ -98,8 +222,55 @@ export async function getAsset(id) {
   return reqAsPromise(tx(db, 'readonly').get(id));
 }
 
-/** Delete an asset by id. */
+/**
+ * Put a stored version back as the live record.
+ *
+ * It goes through `putAsset`, which is the whole point: restoring is itself an
+ * overwrite, so the record you are about to replace is snapshotted first. That is
+ * the "restore checkpoints current state before restoring" contract the history
+ * kernel was shaped around (`asset-history.js` header) — satisfied by construction
+ * here rather than by every caller remembering to do it in the right order.
+ *
+ * `addedAt` is re-stamped rather than restored. Everything a person can SEE or edit
+ * — the CSS, the name, the essentials, the recipe — comes back exactly as it was;
+ * `addedAt` is not part of the asset, it is the Library's sort key, and restoring
+ * the old one would file a record you just touched at the bottom of the shelf.
+ *
+ * IT REFUSES WHEN THE OLD NAME IS NOW SOMEONE ELSE'S. A snapshot carries the name the
+ * asset had, and restoring is id-pinned, so it writes that name back WITHOUT passing
+ * the `(kind, name)` dedupe below. Rename `alpha` to `beta`, save a new `alpha`, then
+ * restore: two live records are called `alpha`, and the next save that passes no id —
+ * the `.zip` import — resolves the name to whichever sorts newest and overwrites the
+ * record that was just restored. Uniqueness on `(kind, name)` is what the whole
+ * no-id path resolves against, so a restore is not allowed to break it.
+ *
+ * Refusing rather than auto-renaming is deliberate. The name is the DECK-FACING
+ * identity (a deck says `theme: alpha`), and it must also match the `@theme` inside
+ * the stylesheet or the engine registers the theme under one name while the deck
+ * renders by the other — a blank, unthemed slide. So both halves have to move
+ * together, which is a rename, which is a decision only the person can make.
+ */
+export async function restoreAssetVersion(version) {
+  const snapshot = version?.snapshot;
+  if (!snapshot?.id) throw new Error('restoreAssetVersion: version has no snapshot');
+  const clash = (await listAssets(snapshot.kind)).find((a) => a.name === snapshot.name && a.id !== snapshot.id);
+  if (clash) {
+    throw new Error(`Can't restore — “${snapshot.name}” is now another saved ${snapshot.kind}. Rename that one first.`);
+  }
+  return putAsset({ ...snapshot, addedAt: Date.now() }, { historyLabel: 'Before restore' });
+}
+
+/**
+ * Delete an asset by id, and its version history with it.
+ *
+ * ORDER IS LOAD-BEARING: the asset goes first. If the second step then fails we are
+ * left with versions pinned to an id nothing points at, which `pruneOrphanVersions`
+ * reclaims. Deleting the versions first and failing on the asset would leave a LIVE
+ * record with its history gone, which nothing can undo. Same "erring long is
+ * recoverable, erring short is not" reasoning as the cap in `saveAssetVersion`.
+ */
 export async function deleteAsset(id) {
   const db = await openDB();
   await reqAsPromise(tx(db, 'readwrite').delete(id));
+  await deleteAssetVersions(id);
 }

@@ -71,8 +71,15 @@ export const CHROME = {
 	workspaceLauncher: 'Workspace launcher',
 	/** The workspace-settings sheet trigger. */
 	workspaceSettings: 'Workspace settings',
-	/** The version-history sheet trigger. */
+	/** The version-history sheet trigger — DECK checkpoints. Distinct from an ASSET's
+	 *  earlier versions (`assetVersions`), which is deliberately not named "Version
+	 *  history" so this bare, substring-matched literal stays unambiguous. */
 	versionHistory: 'Version history',
+	/** A Library card's link to that ASSET's earlier versions. Rendered only when the
+	 *  asset HAS history, and the full accessible name carries the label and count
+	 *  (`Earlier versions of Handedit (1)`), so specs match it as a prefix. The dialog
+	 *  it opens is titled "Earlier versions". See docs/src/components/studio/AssetVersions.tsx. */
+	assetVersions: 'Earlier versions of',
 	/**
 	 * The add-slide gallery — ONE door, and as of #1654 one name on every launcher that
 	 * opens it: the preview rail's `+`, the editor header's button, the mobile drawer row

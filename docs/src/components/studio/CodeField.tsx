@@ -27,6 +27,7 @@ export function CodeField({
 	ariaLabel,
 	className,
 	completion,
+	readOnly = false,
 }: {
 	value: string;
 	onChange: (next: string) => void;
@@ -35,6 +36,17 @@ export function CodeField({
 	className?: string;
 	// Optional schema-aware autocomplete source (the manifest JSON view wires one).
 	completion?: (ctx: CompletionContext) => CompletionResult | null;
+	/**
+	 * Show the code without offering to edit it — the Finish faculty's CSS view, where
+	 * the recipe is the model and its CSS is a projection with no inverse.
+	 *
+	 * BOTH switches, not one. `EditorState.readOnly` refuses transactions, and
+	 * `EditorView.editable` drops `contenteditable` so the field is not a focus stop
+	 * that swallows keys and shows a caret it will never honor. Setting only the first
+	 * gives a box that looks editable and silently eats every keystroke, which reads as
+	 * broken rather than as read-only.
+	 */
+	readOnly?: boolean;
 }) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
@@ -52,6 +64,8 @@ export function CodeField({
 
 	// Single init (StrictMode-safe): `value` seeds the doc; later changes sync via
 	// the effect below, so it is deliberately absent from the dep array.
+	// `readOnly` is in the dep array below (not just read once) so a field that flips
+	// mode rebuilds rather than keeping the extensions it was constructed with.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: construct-once editor; value seeds the doc and is synced separately.
 	React.useEffect(() => {
 		if (isJsdom || viewRef.current || !hostRef.current) return;
@@ -70,6 +84,8 @@ export function CodeField({
 						editorTheme,
 						EditorView.lineWrapping,
 						EditorView.contentAttributes.of({ 'aria-label': ariaLabel }),
+						EditorState.readOnly.of(readOnly),
+						EditorView.editable.of(!readOnly),
 						EditorView.updateListener.of((u) => {
 							if (u.docChanged) onChangeRef.current(u.state.doc.toString());
 						}),
@@ -84,7 +100,7 @@ export function CodeField({
 			viewRef.current?.destroy();
 			viewRef.current = null;
 		};
-	}, [language]);
+	}, [language, readOnly]);
 
 	// External value changes (e.g. a starter reseed) → replace doc in place.
 	React.useEffect(() => {
@@ -101,6 +117,7 @@ export function CodeField({
 				style={{ background: 'var(--bg)' }}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
+				readOnly={readOnly}
 				spellCheck={false}
 				aria-label={ariaLabel}
 			/>
