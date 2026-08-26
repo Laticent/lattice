@@ -11,10 +11,13 @@ const { scoreDeck } = require('../../../lib/authoring/scorecard');
 const { resolveProfile, PROFILES } = require('../../../lib/authoring/deck-profiles');
 
 const FM = '---\nmarp: true\ntheme: indaco\n---\n\n';
-// An UNDECLARED deck resolves to the lenient `general` profile, so a test that means
-// to exercise a tight budget has to say which genre it is testing. `boardroom` is the
-// tightest (70 slide words, a 14-word heading) — the numbers these rules shipped with.
-const FM_BOARD = '---\nmarp: true\ntheme: indaco\nprofile: boardroom\n---\n\n';
+// Declares the profile whose budget the rules below are being measured against, rather
+// than relying on the default. It used to say `profile: boardroom` — a profile this change
+// REMOVED — so both tests using it silently exercised the invalid-declaration path while
+// their comment claimed they were exercising the tightest budget. They passed only because
+// the fallback, `general`, happens to carry the same 70 words / 14-word heading. A textbook
+// pass-for-an-unrelated-reason, and it survived three review passes.
+const FM_BOARD = '---\nmarp: true\ntheme: indaco\nprofile: general\n---\n\n';
 const bucketOf = (n) => ({ kpi: 'evidence', stats: 'evidence', radar: 'chart', piechart: 'chart', gantt: 'chart' }[n] || 'statement');
 const ruleOf = (findings, rule) => findings.find((f) => f.rule === rule);
 
@@ -85,7 +88,10 @@ describe('scorecard: scoreDeck — the Craft / Style split', () => {
     assert.deepEqual(c.categories.filter((x) => x.half === 'craft').map((x) => x.key),
       ['structure', 'craftProse', 'contract']);
     assert.equal(typeof c.profile.key, 'string');
-    assert.ok(['declared', 'override', 'inferred', 'default'].includes(c.profile.origin));
+    // No 'inferred' — inference was removed (§5), and `coach-core.ts`'s DeckProfileRead
+    // type already excludes it. Listing it here let the JS test and the TS type disagree
+    // about the contract.
+    assert.ok(['declared', 'override', 'default'].includes(c.profile.origin));
   });
 
   test('a clean deck scores high on both halves', () => {
@@ -122,7 +128,7 @@ describe('scorecard: scoreDeck — the Craft / Style split', () => {
     assert.equal(cat(card(withData), 'data').na, undefined);
   });
 
-  test('Pacing is N/A without a talk length — it graded nothing on 196 of 197 decks', () => {
+  test('Pacing is N/A without a talk length — it read 100 on 197 of the 198 scorable decks', () => {
     assert.equal(cat(card(clean), 'pacing').na, true);
   });
 
@@ -233,6 +239,20 @@ describe('scorecard: every penalty term actually deducts', () => {
     ['title-incomplete', 'structure', slides('<!-- _class: title -->\n\n# Title\n')],
     ['metric-no-referent', 'data', slides('<!-- _class: big-number -->\n\n# 4.2M\n\nrevenue\n')],
     ['chart-no-takeaway', 'data', slides('<!-- _class: kpi -->\n\n## Metrics\n\n1. 18%\n')],
+    // The three below were MISSING, and a mutation pass proved it: deleting the
+    // `stub-slide`, `monotone-openings` or `density-crowd` term left the FULL suite green.
+    // `density-crowd` is the sharpest — it fires on 43% of the corpus and the changelog
+    // announces it as newly counting, the same shape as the `verbose` family that a
+    // previous pass caught being announced without being read.
+    ['stub-slide', 'structure', slides('<!-- _class: content -->\n\n## A real takeaway lands\n', '<!-- _class: content -->\n\n## Another point entirely\n\nbody\n')],
+    ['monotone-openings', 'craftProse', slides(
+      '<!-- _class: content -->\n\n## How we grew revenue\n\nbody\n',
+      '<!-- _class: content -->\n\n## How we cut latency\n\nbody\n',
+      '<!-- _class: content -->\n\n## How we hired faster\n\nbody\n',
+    )],
+    // 7 words in the worst element: past the soft 6, inside the hard 8 — `density-crowd`.
+    // (Past 8 it becomes `density-overflow`, which the row above already covers.)
+    ['density-crowd', 'brevity', slides('<!-- _class: cards-grid -->\n\n## A real takeaway lands\n\n- one two three four five six seven\n')],
   ];
 
   // DIFFERENTIAL, not `< 100`. Scoring the same deck twice — once with every finding,
@@ -346,6 +366,82 @@ describe('scorecard: every penalty term actually deducts', () => {
     assert.ok(nb > wb, `a deck inside the prose budget must beat a deck of walls on BREVITY (got nits=${nb}, walls=${wb})`);
   });
 
+  // The two FIXED structural penalties have no rule id, so the differential loop above
+  // cannot reach them — and a mutation pass proved the `-15` could be deleted with the
+  // whole suite green. Asserted by shape instead: same deck, closing slide present vs absent.
+  test('the fixed structure penalties deduct — no title, and no closing', () => {
+    const body = ['<!-- _class: content -->\n\n## Revenue held at plan\n\nbody here\n',
+      '<!-- _class: content -->\n\n## Latency came down\n\nbody here\n',
+      '<!-- _class: content -->\n\n## Hiring caught up\n\nbody here\n'];
+    const deck = (parts) => FM_G + parts.join('\n---\n\n');
+    const TITLE = '<!-- _class: title -->\n\n# A deck\n\nA framing line.\n';
+    const CLOSE = '<!-- _class: closing -->\n\n## Approve by Friday\n\nthe ask\n';
+    const withClose = cat(card(deck([TITLE, ...body, CLOSE])), 'structure').score;
+    const noClose = cat(card(deck([TITLE, ...body])), 'structure').score;
+    assert.ok(noClose < withClose, `a missing closing slide must deduct (${withClose} -> ${noClose})`);
+    const noTitle = cat(card(deck([...body])), 'structure').score;
+    assert.ok(noTitle < noClose, `a missing title slide must deduct on top (${noClose} -> ${noTitle})`);
+  });
+
+  // §4.2's general lesson, applied to EVERY category rather than asserted about one.
+  // `scoreContract` was found summing two bounded terms to a 125 ceiling; a later pass
+  // found `scoreStructure` doing the same at 122 and genuinely clamping to 0 at ~400
+  // findings. Both are now one curve over a weighted count. This pins the property for
+  // the two categories that carry fixed penalties as well as saturating ones.
+  test('no category can be driven to zero, however many findings it carries', () => {
+    const many = (n, body) => {
+      const parts = [];
+      for (let i = 0; i < n; i++) parts.push(body(i));
+      return FM_G + parts.join('\n---\n\n');
+    };
+    // The worst case has to trip EVERY term at once, or it does not reach the floor: the
+    // old ceilings were 25 (no title) + 15 (no closing) + 34 (stubs) + 26 (duplicates) =
+    // exactly 100. A stub-only fixture tops out around 26 and would certify a clamping
+    // scorer as safe — which the first version of this test did.
+    const worst = (n) => many(n, () => '<!-- _class: content -->\n\n## Results here\n');
+    const labelsOnly = (n) => many(n, () => '<!-- _class: content -->\n\n## Overview\n\nbody\n');
+    for (const n of [50, 200, 800]) {
+      const c = card(worst(n));
+      const st = cat(c, 'structure').score;
+      assert.ok(
+        reviewText(worst(n), { bucketOf }).some((f) => f.rule === 'stub-slide') &&
+          reviewText(worst(n), { bucketOf }).some((f) => f.rule === 'duplicate-heading'),
+        'the fixture must trip BOTH stub-slide and duplicate-heading, or it cannot reach the floor',
+      );
+      assert.ok(st > 0, `structure must never reach 0 (got ${st} at n=${n})`);
+      const cp = cat(card(labelsOnly(n)), 'craftProse').score;
+      assert.ok(cp > 0, `craftProse must never reach 0 (got ${cp} at ${n} label titles)`);
+    }
+    // and still discriminating out where the old summed ceilings had already clamped
+    const at200 = cat(card(worst(200)), 'structure').score;
+    const at800 = cat(card(worst(800)), 'structure').score;
+    assert.ok(at800 < at200, `must still separate 200 from 800 findings (${at200} vs ${at800})`);
+  });
+
+  // `monotone-openings` was a FLAT `craft -= 12`, count-blind, while the changelog and the
+  // record both claimed every rule family saturates in the finding COUNT. It now scales.
+  //
+  // The unit that scales is the number of DISTINCT droning openings, not the number of
+  // slides: `reviewText` groups headings by their first two words and emits one finding per
+  // group of three or more. A deck where every heading opens "How we" is ONE finding however
+  // long it runs — which is correct, it is one cadence — so the fixture below uses two
+  // separate cadences to produce two.
+  test('monotone-openings scales with the number of distinct droning openings', () => {
+    const slide = (h) => `<!-- _class: content -->\n\n## ${h}\n\nsome body text here\n`;
+    const cadence = (stem, tags) => tags.map((t) => slide(`${stem} ${t}`));
+    const one = cadence('How we', ['grew revenue', 'cut latency', 'hired faster']);
+    const two = cadence('Why we', ['chose Postgres', 'left the cloud', 'froze hiring']);
+    const score = (parts) => cat(card(FM_G + parts.join('\n---\n\n')), 'craftProse').score;
+    const single = score(one);
+    const double = score([...one, ...two]);
+    assert.equal(
+      reviewText(FM_G + [...one, ...two].join('\n---\n\n'), { bucketOf }).filter((f) => f.rule === 'monotone-openings').length,
+      2,
+      'the fixture must produce TWO monotone findings — otherwise this row proves nothing',
+    );
+    assert.ok(double < single, `two droning cadences must cost more than one (${single} -> ${double})`);
+  });
+
   // The structural guarantee behind that test, asserted directly so the reason survives
   // even if the fixtures drift.
   test('the soft-family cap is strictly below the severe ceiling', () => {
@@ -389,6 +485,61 @@ describe('deck-profiles: declared-only resolution', () => {
       assert.ok(p.slideBullets >= PROFILES.general.slideBullets, `${p.key} slideBullets`);
       assert.ok(p.titleHard >= PROFILES.general.titleHard, `${p.key} titleHard`);
     }
+  });
+
+  // …and the test ABOVE cannot see the profiles that mattered most, which is why this one
+  // exists. It iterates `Object.values(PROFILES)`, so it enumerates only the three real
+  // entries — while `PROFILES` is an object literal, so `Object.prototype` is on its chain
+  // and a bare `PROFILES[name]` used to answer TRUTHILY for `__proto__` (→ Object.prototype)
+  // and `constructor` (→ Object). Both are already lowercase and both pass BARE_NAME, so
+  // `profile: __proto__` resolved to a fourth "profile" whose every budget was `undefined`.
+  // Every budget test is `count > profile.slideWords`, and `n > undefined` is false, so
+  // `wall-of-text` and `long-heading` stopped firing entirely: a deck of twelve 220-word
+  // slides scored Brevity 100 / Style 78 against general's 49 / 50 — looser than any real
+  // profile, undeclared, undocumented, and reachable from any deck's front matter.
+  //
+  // And SILENT: `declaredInvalid` stayed null because the lookup reported success, so the
+  // guard written to stop `profile: teachng` being swallowed reported nothing and the Coach
+  // rendered "Style — vs undefined". Pinned by BEHAVIOR, not by asserting `Object.hasOwn` is
+  // called, so any future rewrite of the lookup has to keep the property.
+  test('a prototype name is not a profile — it falls back to general AND reports invalid', () => {
+    const card = (src) => scoreDeck({ source: src, lintFindings: [], reviewFindings: reviewText(src, { bucketOf }) });
+    const cat = (c, key) => c.categories.find((x) => x.key === key);
+    const FM_G = '---\nmarp: true\nprofile: general\n---\n\n';
+    const walls = (() => {
+      let d = '<!-- _class: title -->\n\n# A deck\n\nA framing line.\n';
+      for (let i = 0; i < 12; i++) d += `\n---\n\n<!-- _class: content -->\n\n## Point ${i} lands\n\n${'word '.repeat(220)}\n`;
+      return d;
+    })();
+    const fm = (name) => `---\nmarp: true\nprofile: ${name}\n---\n\n${walls}`;
+
+    const baseline = card(`${FM_G}${walls}`);
+    for (const name of ['__proto__', 'constructor', 'valueOf', 'hasOwnProperty', 'isPrototypeOf', 'toLocaleString']) {
+      const c = card(fm(name));
+      assert.equal(c.profile.key, 'general', `${name} must resolve to general, got ${c.profile.key}`);
+      assert.equal(c.profile.declaredInvalid, name, `${name} must be REPORTED invalid, not swallowed`);
+      assert.equal(
+        cat(c, 'brevity').score,
+        cat(baseline, 'brevity').score,
+        `${name} must score identically to an undeclared deck — a prototype name must buy no leniency`,
+      );
+    }
+  });
+
+  // The same hole one layer down: `getProfile` is the Coach's override path too, so a
+  // prototype name passed as an OVERRIDE must be rejected rather than resolved.
+  test('a prototype name is rejected as a profile OVERRIDE too', () => {
+    // Deliberately declares NOTHING, so a resolved override would show as origin 'override'
+    // and an ignored one falls through to 'default' — the two are distinguishable here.
+    const src = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# A deck\n\nA framing line.\n';
+    assert.equal(resolveProfile({ source: src }).origin, 'default', 'the fixture must declare no profile');
+    for (const name of ['__proto__', 'constructor', 'valueOf']) {
+      const r = resolveProfile({ source: src, override: name });
+      assert.equal(r.key, 'general', `override ${name} must not resolve`);
+      assert.equal(r.origin, 'default', `override ${name} must not claim origin 'override'`);
+    }
+    // and a REAL override still works, so the guard did not break the control
+    assert.equal(resolveProfile({ source: src, override: 'teaching' }).origin, 'override');
   });
 
   // The numbers ARE the deliverable, and nothing else constrains them: reverting

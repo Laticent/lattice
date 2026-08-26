@@ -40,7 +40,22 @@
   toward the grade.** They were surfaced to authors and silently ignored by the scorer, while
   `wall-of-text` — which measures nearly the same thing — was scored uncapped.
 - **Changed: Pacing is `n/a` unless a talk length is set or the deck runs past 40 slides.**
-  It read 100 on 196 of 197 decks while carrying 19% of the grade's weight.
+  It read 100 on 197 of the 198 scorable decks while carrying 19% of the grade's weight — and, like `Contract`, that flatness turns out to be an input artifact rather than proof the category is worthless: `length-vs-time` fires only when a talk length is set, and no caller supplies one to the scored review. `n/a` is the right answer to missing input.
+- **Fixed: a front-matter `profile:` naming a JavaScript prototype member silently disabled
+  the prose budgets.** `profile: __proto__` (and `constructor`) resolved through
+  `Object.prototype` to a profile whose every budget was `undefined`, so `wall-of-text` and
+  `long-heading` stopped firing entirely — a deck of twelve 220-word slides scored Brevity
+  100 and Style 78 against the default bar's 49 and 50, and the Coach displayed "Style — vs
+  undefined". It was also silent: the misspelled-profile warning did not fire, because the
+  lookup reported success. Any name that is not one of the three profiles now falls back to
+  `general` **and** is reported as invalid.
+- **Fixed: `Structure` could be driven to 0, and `monotone-openings` ignored how many times
+  it fired.** Structure summed five bounded penalties to a ceiling of 122, so a
+  sufficiently broken deck clamped and stopped distinguishing "bad" from "much worse" — the
+  same defect as the `Contract` one above, in the highest-variance Craft category. Both
+  categories are now a single saturating curve over a weighted finding count: Structure
+  bottoms out at 6, Writing craft at 22, and a repeated heading cadence now costs more when
+  the deck has two of them than when it has one.
 - **Added: the Studio Coach names the profile it judged Style against, says whether that was
   declared or the default, and lets you view the deck through another profile.** The control
   overrides a declaration (it previously lost to one, which made it a silent no-op on exactly

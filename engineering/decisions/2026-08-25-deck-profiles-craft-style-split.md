@@ -73,7 +73,11 @@ the finding. Both rows are now measured rather than inferred.
 gates CI (`.github/workflows/ci.yml`) and pre-push (`lefthook.yml`), and its own
 sweep (277 files) is a superset of the 198 scorable decks. So a deck carrying any
 lint finding **cannot be pushed or merged**, and Contract is pinned to 100 on this
-corpus BY CONSTRUCTION — measured, 0 lint findings across all 198.
+corpus BY CONSTRUCTION — measured, **0 error- and 0 warning-severity findings across all
+198**. (Precisely that, not "0 findings": there are 7 `info`-severity ones, which the CLI
+reports as suggestions and which neither `--strict` nor `scoreContract` counts. The
+distinction is the same one the paragraph below draws, so getting it loose here was
+careless in a sentence about exactly that asymmetry.)
 
 *Two precision notes, because the first draft of this correction overstated both.*
 "Cannot be **committed**" would be wrong: the pre-commit glob is non-recursive and
@@ -335,15 +339,38 @@ varies on a real, un-linted draft.
 
 ### 4.3 · Genre as a profile
 
-`lib/authoring/deck-profiles.js` — five profiles as frozen data, each budget set
-at roughly its family's own p90–p95 so a rule flags an outlier WITHIN the genre
-rather than the genre itself. Resolution: **declared → override → inferred →
-`general`.**
+`lib/authoring/deck-profiles.js` — **three** profiles as frozen data, each budget
+set at roughly its family's own p90–p95 so a rule flags an outlier WITHIN the genre
+rather than the genre itself. Resolution: **override → declared → `general`.**
+
+*(This paragraph said "five profiles… declared → override → inferred → `general`"
+until a fourth review pass caught it: wrong on the count, wrong on the order, and
+citing a mechanism §5 — ten lines below — records as deleted. `boardroom` and
+`academic` were cut, inference was removed outright, and the override was moved
+AHEAD of the declaration deliberately, a reversal `resolveProfile`'s docblock
+explains and a test pins. Three facts, one paragraph, all stale.)*
 
 A profile moves only the contested numbers. It cannot relax a stub slide, a
 duplicate heading, a placeholder title, a missing alt text, or a lint error.
 **A profile is a different bar, never a lower one**, and a test pins that
 teaching still fails real craft defects.
+
+**And "a name that is not one of ours" has to mean it.** `getProfile` looked its
+argument up with a bare `PROFILES[name]`, and `PROFILES` is an object literal — so
+`Object.prototype` sits on its chain and `profile: __proto__` resolved TRUTHILY, to
+an object whose every budget is `undefined`. Since every budget test is
+`count > profile.slideWords` and `n > undefined` is false, `wall-of-text` and
+`long-heading` stopped firing entirely: a deck of twelve 220-word slides scored
+Brevity **100** and Style **78** where `general` gives 49 and 50, and the Coach
+rendered "Style — vs undefined". `constructor` did the same. Both were silent —
+`declaredInvalid` stayed null because the lookup reported success, so the guard
+written to stop `profile: teachng` being swallowed reported nothing. Two extra
+profiles, looser than all three real ones, undeclared, undocumented, and reachable
+from any deck's front matter. The lookup is `Object.hasOwn`-guarded now, and the
+property is pinned by behavior rather than by asserting which function is called.
+The test that was supposed to cover this — *no profile is TIGHTER than general on
+any axis* — iterates `Object.values(PROFILES)` and therefore could never have seen
+either one.
 
 ## 5 · Inference was built, measured, and REMOVED
 
@@ -405,10 +432,10 @@ deck that asked by name.**
 | | before | after |
 |---|---|---|
 | `bloom-engineering-journey` | 64 C+ | Craft **100** · Style **89** (teaching, declared) |
-| `seven-steps-problem-to-code` | 64 C+ | Craft **100** · Style **89** (teaching, declared) |
+| `seven-steps-problem-to-code` | 64 C+ | Craft **100** · Style **88** (teaching, declared) |
 | `examples/split-headings.md` | 97 A | Craft 100 · Style 93 (the broken cut scored it 81) |
 
-Across the 198 scorable decks: Craft mean 98.7 (sd 2.3, min 88), Style mean 82.3 (sd 7.66,
+Across the 198 scorable decks: Craft mean 98.7 (sd 2.32, min 88), Style mean 82.3 (sd 7.66,
 min 57, only 6 decks at the ceiling). Profiles in use: `general` on 196 by default,
 `teaching` on 2 by declaration. Nothing is inferred.
 
@@ -495,7 +522,7 @@ rejects, the two cannot both stand.
 They do not — and measuring settled it in the direction that dissolves the critique
 rather than the change. §2 carries the full account; the short version is that
 Contract's 0.0% is a **sampling artifact** of a corpus `--all --strict` gates
-lint-clean (0 findings across all 198 scorable decks), while on the population the
+lint-clean (0 error/warning findings across all 198 scorable decks), while on the population the
 Coach actually scores — a draft — Contract discriminates: **93** for a half-typed
 class name and **71** for an unterminated comment against **100** clean, pinned
 end-to-end through the real linter in
@@ -516,7 +543,7 @@ the precise inverse of the fix, and leaving it is right; claiming the number is
 *calibrated* would be a second overclaim replacing the first. The honest form is
 **"not zero, and this corpus cannot price it."**
 
-Craft's measured variance on this corpus is sd 2.28, and that number is still worth
+Craft's measured variance on this corpus is sd 2.32, and that number is still worth
 knowing: it means Craft's job on a COMMITTED deck is mostly to confirm nothing is
 broken, which is what a conformance half should do once the gates upstream have done
 their work.
@@ -555,6 +582,83 @@ already-verified.** Not one was a compile error or a failing test — the gates 
 at every pass. §9 draws the conclusion; this section only adds the sharpest instance of
 it, which is that the *correction* of an unverified claim is itself an unverified claim
 until someone re-derives it, and the author is the worst-placed person to notice.
+
+## 8.7 · The fourth pass — and why "is it dry yet?" was the right question
+
+§8.6 records a third pass, on the §2 correction. A **fourth** was run for a different
+reason: three passes in a row had each found live defects behind fully green gates, so the
+open question was no longer "what else is wrong" but **"does a pass come back dry?"** The
+brief said so explicitly — a clean report is a valid result, do not manufacture findings.
+
+It did not come back dry, and the headline finding was the worst single defect in the whole
+change:
+
+**`profile: __proto__` was a fourth, unbounded, undeclared profile.** `getProfile` used a
+bare `PROFILES[name]` lookup, and `PROFILES` is an object literal, so `__proto__` resolved
+to `Object.prototype` and `constructor` to `Object` — both truthy, both already lowercase,
+both passing `BARE_NAME`. Every budget on the resulting "profile" is `undefined`, and every
+budget test is `count > profile.slideWords`, so `wall-of-text` and `long-heading` stopped
+firing **entirely**. Measured on the real running Studio, a deck of twelve 220-word slides:
+
+| declared | Brevity | Style |
+|---|---|---|
+| `general` | 49 | **D 50** |
+| `teaching` | 49 | B 72 |
+| `__proto__` | **100** | **B+ 78** |
+
+The Coach reported Brevity 100 on a deck its own preview stamps `OVERFLOWS`, and printed
+"Style — vs **undefined**" in three places. On the CLI the same deck went from 27 review
+suggestions to 3. And it was **silent**: `declaredInvalid` stayed `null` because the lookup
+reported success, so the guard written precisely so `profile: teachng` could not be
+swallowed reported nothing at all.
+
+This is a direct contradiction of §6's "a profile may only ever loosen, and only for a deck
+that asked by name", and the test meant to enforce it — *no profile is TIGHTER than general
+on any axis* — **could never have caught it**, because it iterates `Object.values(PROFILES)`
+and the two pseudo-profiles are not values. A test that enumerates the legitimate set cannot
+see an illegitimate member; the new test asserts the BEHAVIOR of arbitrary prototype names
+instead.
+
+Two more of the same family as §4.2's:
+
+- **`scoreStructure` summed its ceilings to 122 and genuinely clamped to 0** — the identical
+  bug found in `scoreContract` one pass earlier, in the category carrying the largest share
+  of Craft's real variance, and §4.2's "general lesson" paragraph had been written as though
+  the other categories were checked. They had not been. Now one curve, floor 6.
+- **`monotone-openings` was a flat `craft -= 12`**, count-blind, while the front-matter
+  summary and the changelog both claim every rule family saturates in the finding COUNT. Now
+  it scales with the number of distinct droning cadences.
+
+And **four penalty terms still survived deletion against the full suite** — `stub-slide`,
+`monotone-openings`, `density-crowd` and the fixed no-closing penalty — against §8.5's claim
+that "every penalty term now has a differential test". `density-crowd` is the sharpest: it
+fires on 43% of the corpus and the changelog announces it as newly counting, the same shape
+as the `verbose` family a previous pass caught being announced without being read. All four
+are covered now, and re-mutation kills them plus both reverts to the versions just replaced.
+
+Also corrected: §4.3 described **five** profiles, **inference**, and the resolution order
+**backwards** — three superseded facts in one paragraph, ten lines above the section
+recording inference's removal; a test fixture still declaring `profile: boardroom`, a
+profile this change deleted, so two tests exercised the invalid-declaration path while their
+comment claimed they exercised the tightest budget (they passed because the fallback happens
+to carry the same numbers); `'inferred'` still listed as a legal origin in a JS test while
+the TS type deliberately excludes it; "0 lint findings across all 198" where the true figure
+is 0 error/warning and 7 `info`; the last four live `197`s; `seven-steps` Style as 89 where
+it is 88; and `design/skills/deck.md` — the author-facing doc — omitting that `teaching`
+stops grading two rules.
+
+One finding was logged rather than fixed: catastrophic regex backtracking in
+`CLASS_COMMENT_G` (3,000 trailing spaces after an unterminated class directive → 8.5s on the
+Studio's main thread). It is on `origin/main` and off this change's path, so HARD RULE #18
+routes it to a ticket — **#1890**.
+
+**What the four passes together say.** Every defect, across all four, was a claim that read
+as already-verified — not one was a compile error or a failing test, and the gates were green
+at every pass. The fourth pass also demonstrates the corollary that matters most here: the
+two worst findings (the prototype lookup, and Structure clamping) were both in code written
+*by the previous pass's fix*. Correcting an unverified claim produces a new unverified
+claim, and the author is the worst-placed person to notice. That is the argument for the
+ladder in HARD RULE #25 being a floor rather than a ceiling.
 
 ## 9 · What the review process caught, and what that says
 

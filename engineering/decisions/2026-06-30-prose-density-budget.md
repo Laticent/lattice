@@ -7,7 +7,7 @@ summary: Phase 2 of the content-capacity contract — make per-element word budg
 
 > **Amendment (2026-08-25).** The two WHOLE-SLIDE numbers this note set —
 > `SLIDE_PROSE_BUDGET` (70 words / 6 bullets) and the 14-word title ceiling — are
-> no longer universal. Measured across the 197 committed decks they fit every
+> no longer universal. Measured across the 198 scorable committed decks they fit every
 > professional genre in the corpus *except* teaching (median slide 72 words, above
 > every other family's 90th percentile) and, on the heading axis, mission (17% over
 > 14 words). They now live in `lib/authoring/deck-profiles.js` as per-genre budgets

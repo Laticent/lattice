@@ -236,9 +236,12 @@ A 12-slide board update:
       the deck's **profile**, and the default is the same bar decks were always
       held to: **aim ~40 words body**, ≤ 70 words / ≤ 6 bullets hard, title ≤ 10
       words (14 hard). Declare `profile: teaching` for a lesson that has to stand
-      alone without you (95 words), or `profile: mission` where a program name
-      carries its outcome (18-word heading). Nothing is inferred — a deck that
-      declares nothing gets the default bar. See `lib/authoring/deck-profiles.js`.
+      alone without you — 95 words, **and `no-ask` / `agenda-missing` stop counting
+      against the grade** (a lesson asks the learner to practice, not the room to
+      approve, and its progression is its agenda; both still show as advice). Or
+      `profile: mission` where a program name carries its outcome (18-word heading,
+      nothing else relaxed). Nothing is inferred — a deck that declares nothing gets
+      the default bar. See `lib/authoring/deck-profiles.js`.
 - [ ] `npm run lint:deck -- deck.md` is clean (no errors).
 - [ ] Rendered to PDF and **actually looked at** — rhythm holds, no wall-of-text,
       no overflow.
