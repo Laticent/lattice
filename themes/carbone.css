@@ -125,9 +125,29 @@
   --pass: light-dark(#19531F, #92ffa6);   /* 7.72 on card / dark unchanged */
   --fail: light-dark(#580006, #ffaba7);   /* 7.84 composed / dark unchanged */
   --warn: light-dark(#A55400, #fa7419);   /* 4.59 on card; pills sanctioned both faces */
-  --pass-bg: color-mix(in srgb, var(--pass) 18%, transparent);
-  --fail-bg: color-mix(in srgb, var(--fail) 18%, transparent);
-  --warn-bg: color-mix(in srgb, var(--warn) 18%, transparent);
+  /* THE WASHES ARE CURATED ON THE LIGHT FACE, not derived from the ink.
+   *
+   * Derived, they were nearly achromatic. The three light inks sit at OKLCH L
+   * 0.29-0.55 because AA on a self-tinted band and twelve frozen CVD ratchets
+   * pin them there, and mixing 18% of a near-black into a light card yields a
+   * GRAY, not a tint: --pass-bg measured chroma 0.0185, --fail-bg 0.0170. On a
+   * slide that reads as chalk. (indaco and cuoio use 10% for the same reason we
+   * cannot: their inks are dark too, and a smaller pour of a dark ink is fainter
+   * mud rather than cleaner color.)
+   *
+   * Curating the SOURCE instead decouples the two jobs. The ink keeps carrying
+   * the contrast and the CVD separation; the wash carries the color. Both improve:
+   *
+   *            chroma          ink-on-band
+   *   pass   0.0185 -> 0.0695   5.76 -> 7.00
+   *   warn   0.0278 -> 0.0361   3.62 -> 4.03   (beats its recorded 3.45 sanction)
+   *   fail   0.0170 -> 0.0307   8.60 -> 10.89
+   *
+   * The dark arm is untouched — 18% of the bright dark ink over graphite was
+   * already a clean wash, because there the ink is the LIGHT end of the mix. */
+  --pass-bg: light-dark(color-mix(in srgb, #5FED6C 30%, transparent), color-mix(in srgb, var(--pass) 18%, transparent));
+  --fail-bg: light-dark(color-mix(in srgb, #FFA69D 30%, transparent), color-mix(in srgb, var(--fail) 18%, transparent));
+  --warn-bg: light-dark(color-mix(in srgb, #FFA565 26%, transparent), color-mix(in srgb, var(--warn) 18%, transparent));
 
   /* The ramp anchor, and the ramp's two POLES with it — carbone is the palette
    * that has to state both, because it is the one whose canvas does not follow
