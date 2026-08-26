@@ -605,13 +605,70 @@ describe('deck-profiles: declared-only resolution', () => {
       assert.match(out, /# Hello/, 'and keeps the body');
     });
 
-    test('preserves CRLF and a leading BOM — this writes back into the author\'s file', () => {
-      const crlf = withProfile('---\r\nmarp: true\r\n---\r\n\r\n# Hello\r\n', 'teaching');
-      assert.equal(declaredProfile(crlf), 'teaching');
-      assert.ok(!/[^\r]\n/.test(crlf), 'no bare LF may be introduced into a CRLF deck');
-      const bom = withProfile('\ufeff---\nmarp: true\n---\n\n# Hello\n', 'teaching');
-      assert.ok(bom.startsWith('\ufeff'), 'BOM preserved');
-      assert.equal(declaredProfile(bom), 'teaching');
+    // THE BODY IS THE ASSERTION. The first version of this test checked only that the BOM
+    // survived and that the declaration read back — and passed while the function ATE THE
+    // FIRST CHARACTER of every BOM'd deck's body: `# Title` became ` Title`, silently
+    // demoting an H1 to a paragraph, and on BOM+CRLF it ate the `\r` and left a mixed-ending
+    // file. The offset bug hid behind a dead ternary whose two branches were identical.
+    // Mutation-proved at the time: restoring the bug left the whole suite green.
+    //
+    // So compare the CONTENT, not just the frame. `withProfile` writes into a file the author
+    // owns; losing a byte of it is the worst thing in this change, and it is worth more than
+    // one assertion.
+    const bodyAfterFrontMatter = (t) => {
+      const m = /^\ufeff?---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/.exec(t);
+      return m ? t.slice(m[0].length) : t;
+    };
+
+    test('preserves the body byte-for-byte, with a BOM and with CRLF', () => {
+      for (const bom of ['', '\ufeff']) {
+        for (const eol of ['\n', '\r\n']) {
+          const body = `<!-- _class: title -->${eol}${eol}# Title${eol}${eol}Body text${eol}`;
+          const src = `${bom}---${eol}marp: true${eol}---${eol}${eol}${body}`;
+          const out = withProfile(src, 'teaching');
+          const tag = `bom=${bom ? 'Y' : 'N'} eol=${JSON.stringify(eol)}`;
+          assert.equal(declaredProfile(out), 'teaching', `${tag}: declaration must read back`);
+          assert.equal(out.startsWith('\ufeff'), Boolean(bom), `${tag}: BOM preserved`);
+          assert.equal(
+            bodyAfterFrontMatter(out),
+            `${eol}${body}`,
+            `${tag}: the body must survive byte-for-byte — not one character may be lost`,
+          );
+          if (eol === '\r\n') {
+            assert.ok(!/(^|[^\r])\n/.test(out), `${tag}: no bare LF may be introduced into a CRLF deck`);
+          }
+        }
+      }
+    });
+
+    // Degenerate front matter used to send `m[0].indexOf(m[1])` into the OPENING FENCE,
+    // writing `profile: teaching---` — which `BARE_NAME` accepts, so the Coach then reported
+    // its own write as an invalid profile — and, for a `---` body, duplicating a rule line
+    // into the deck as a spurious extra slide.
+    test('handles degenerate front matter without mangling the deck', () => {
+      for (const inner of ['', '-', '--', '---', '# not a key']) {
+        const body = '<!-- _class: title -->\n\n# Deck\n';
+        const out = withProfile(`---\n${inner}\n---\n\n${body}`, 'teaching');
+        assert.equal(declaredProfile(out), 'teaching', `inner=${JSON.stringify(inner)}: must read back cleanly`);
+        assert.equal(resolveProfile({ source: out }).declaredInvalid, null, `inner=${JSON.stringify(inner)}: must not write a declaration it then calls invalid`);
+        assert.equal(bodyAfterFrontMatter(out), `\n${body}`, `inner=${JSON.stringify(inner)}: body preserved`);
+      }
+    });
+
+    // Line endings come from the FRONT MATTER, not the whole document. Reading the document
+    // meant one stray CRLF anywhere in the prose rewrote the front matter to CRLF and handed
+    // back a MIXED-ending file — the thing
+    // engineering/decisions/2026-08-04-line-endings-lf-boundaries.md exists to prevent, from
+    // a function whose own docblock promises to preserve them.
+    test('takes line endings from the front matter, not from a stray CRLF in the prose', () => {
+      const out = withProfile('---\ntheme: x\n---\n\n# T\r\nmore\n', 'teaching');
+      const fm = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/.exec(out)[0];
+      assert.ok(!/\r/.test(fm), `an LF front matter must stay LF, got ${JSON.stringify(fm)}`);
+      assert.equal(declaredProfile(out), 'teaching');
+      // and the converse: a CRLF front matter with a stray LF in the prose stays CRLF
+      const crlf = withProfile('---\r\ntheme: x\r\n---\r\n\r\n# T\nmore\r\n', 'teaching');
+      const crlfFm = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/.exec(crlf)[0];
+      assert.ok(/\r\n/.test(crlfFm), 'a CRLF front matter must stay CRLF');
     });
 
     test('refuses a name that is not a profile, rather than stranding the deck', () => {

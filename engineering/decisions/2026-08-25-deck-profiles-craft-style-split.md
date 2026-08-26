@@ -119,6 +119,14 @@ is *"not zero, and this corpus cannot price it"*, not *"38.2% is correct on evid
 **And running that sweep over all three Craft categories at once says more than the
 per-category framing does:**
 
+*Method, stated so these are re-derivable — an earlier draft gave two different
+decompositions in two sections with no way to reconcile them: each figure is the
+category's share of the SUM of the three raw per-category variances (population
+variance, unweighted), over the 198 scorable decks. Weighting by the aggregate's own
+`craftWeights` squared instead moves it to 89.7 / 10.3 / 0.0, which changes nothing about
+the conclusion but is a different number, so the choice has to be stated rather than
+implied.*
+
 | population | `structure` | `craftProse` | `contract` | Craft sd |
 |---|---|---|---|---|
 | committed corpus (n = 198) | 91.3% | 8.7% | **0.0%** | 2.32 |
@@ -455,11 +463,11 @@ deck that asked by name.**
 
 | | before | after |
 |---|---|---|
-| `bloom-engineering-journey` | 64 C+ | Craft **100** · Style **89** (teaching, declared) |
-| `seven-steps-problem-to-code` | 64 C+ | Craft **100** · Style **88** (teaching, declared) |
+| `bloom-engineering-journey` | 64 C+ | Craft **100** · Style **80** (teaching, declared) |
+| `seven-steps-problem-to-code` | 64 C+ | Craft **100** · Style **79** (teaching, declared) |
 | `examples/split-headings.md` | 97 A | Craft 100 · Style 93 (the broken cut scored it 81) |
 
-Across the 198 scorable decks: Craft mean 98.7 (sd 2.32, min 88), Style mean 82.3 (sd 7.66,
+Across the 198 scorable decks: Craft mean 98.7 (sd 2.32, min 88), Style mean 82.2 (sd 7.64,
 min 57, only 6 decks at the ceiling). Profiles in use: `general` on 196 by default,
 `teaching` on 2 by declaration. Nothing is inferred.
 
@@ -532,8 +540,8 @@ the rules those thresholds gate.
 
 **RESOLVED before merge — `contract` holds 38.2% of Craft's weight and 0.0% of its
 variance ON THIS CORPUS, and that is a property of the corpus, not of the category.**
-Re-running this record's own methodology against the new grades: `structure` 90.5% of
-Craft's variance, `craftProse` 9.5%, `contract` **0.0%** (100 on 198/198, sd 0.0). Its
+Re-running this record's own methodology against the new grades: `structure` **91.3%** of
+Craft's variance, `craftProse` **8.7%**, `contract` **0.0%** (100 on 198/198, sd 0.0). Its
 nominal weight went UP, 24% → 38%, and this looks exactly like the shape §2 condemns.
 
 It carried to the merge gate as an open design critique, on the reasoning that the
@@ -733,8 +741,8 @@ bug and score them as any *other* author would have them:
 
 | deck | declared | front matter stripped |
 |---|---|---|
-| `bloom-engineering-journey` | Craft 100 / Style 89 | Craft 100 / Style **55** — rank **1 of 198** |
-| `seven-steps-problem-to-code` | Craft 100 / Style 88 | Craft 100 / Style **54** — rank **1 of 198** |
+| `bloom-engineering-journey` | Craft 100 / Style 80 | Craft 100 / Style **55** — rank **1 of 198** |
+| `seven-steps-problem-to-code` | Craft 100 / Style 79 | Craft 100 / Style **54** — rank **1 of 198** |
 
 Corpus Style minimum is 57. **Undeclared, both decks are the joint worst in the repository —
 the same position they occupied before this change, and worse on the varying number than the
@@ -774,6 +782,69 @@ The cap recovers 18 of the 25 points and lifts the decks off the floor — but t
 the bottom 8%, because the residual damage is Framing, which a density cap does not touch.
 **The cap was necessary and not sufficient.** That is the strongest thing that can be said
 for this design, and it was found by an agent trying to break it.
+
+## 8.9 · The sixth pass — the one that found a deck-corrupting bug
+
+The fifth pass (inversion) changed the design; a sixth was run on the result, as a checker
+over the four unreviewed commits. It found the worst-consequence defect in the whole change,
+and it was in the newest code: `withProfile`, the one function here that WRITES TO A FILE
+THE AUTHOR OWNS.
+
+**It ate a character of every BOM'd deck.** The front matter was matched against `src` (BOM
+included) and the remainder sliced from `body` (BOM stripped), so the slice started one
+character late:
+
+```
+IN   "<BOM>---\ntheme: cuoio\n---\n# Title\n\nBody\n"
+OUT  "<BOM>---\ntheme: cuoio\nprofile: teaching\n---\n Title\n\nBody\n"
+```
+
+The `#` is gone — an H1 silently demoted to a paragraph. With a class directive on that line
+the `<` goes and the directive renders as literal text; on BOM+CRLF the `\r` goes, leaving a
+bare `\n` inside a CRLF document, which is exactly what the line-endings decision record
+exists to prevent. The offset error hid behind a **dead ternary whose two branches were
+identical** — `m[0].length - bom.length ? m[0].length : m[0].length` — which is what a
+condition looks like when it was meant to be the value.
+
+**And degenerate front matter mangled the document.** The inner text was located with
+`m[0].indexOf(m[1])`, which finds the OPENING FENCE when the inner text is `''`, `'-'`,
+`'--'` or `'---'`. Empty front matter produced `profile: teaching---` — a string `BARE_NAME`
+accepts, so the Coach then reported *its own write* as an invalid profile, two seconds after
+its own toast said the deck now declared it. A `---` inner body duplicated a rule line into
+the deck: **a spurious extra slide in the author's file.**
+
+**The test that should have caught the first one did not.** It was titled *"preserves CRLF
+and a leading BOM — this writes back into the author's file"* and asserted only that the BOM
+survived and the declaration read back. It never looked at the body. Mutation-proved: with
+the bug restored verbatim, the whole suite stayed green.
+
+Both are fixed by reconstructing the document explicitly rather than splicing by computed
+offsets — match against the BOM-stripped body, take the remainder as `body.slice(m[0].length)`,
+rebuild the block from its parts. The tests now compare the body **byte-for-byte** across
+BOM × CRLF, cover the degenerate inner bodies, and pin that line endings come from the FRONT
+MATTER rather than the whole document (a stray CRLF in the prose used to flip the front
+matter and hand back a mixed-ending file). Re-mutated: all three defects are now caught.
+Fuzzed over 292 shapes — BOM × line ending × ten front-matter bodies × seven bodies, plus
+no-front-matter and five degenerate inputs — all pass.
+
+Smaller things from the same pass: the Coach reported *"Couldn't write that profile"* when
+the deck already declared the chosen one — `withProfile` is idempotent, so that is a correct
+no-op and the most likely way to reach the branch (press Keep twice); §7's results table
+still carried the pre-`framingScale` Style figures (89/88 where the shipped code gives
+80/79) and a stale corpus mean; §8.5's variance decomposition was stale and the method was
+never stated, so two sections gave different numbers with no way to reconcile them; a
+docblock claimed the new Structure weights "keep the shipped single-hit costs" and then
+listed the new ones (a duplicate heading moved 6.5 → 6.0, a title gap 5.5 → 6.0); and the
+changelog said in one bullet that the Coach writes front matter and in another that it never
+does.
+
+**One reported finding was REFUTED by re-measuring.** The pass reported §8.8's per-profile
+Style means as measured over 199 files rather than the 198 the record declares — `mission`
+82.2 where it computed 82.1, `teaching` 96.1 where it computed 96.0. Re-derived here on
+n = 198: **81.924 / 96.071 / 82.167**, which round to exactly the record's 81.9 / 96.1 /
+82.2. The record was right. Recorded because the temptation was to "fix" the numbers to
+match the reviewer — which is the same error as relaying a figure without reproducing it,
+in the opposite direction.
 
 ## 9 · What the review process caught, and what that says
 

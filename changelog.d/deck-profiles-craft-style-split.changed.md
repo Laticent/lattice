@@ -67,5 +67,5 @@
 - **Added: the Studio Coach names the profile it judged Style against, says whether that was
   declared or the default, and lets you view the deck through another profile.** The control
   overrides a declaration (it previously lost to one, which made it a silent no-op on exactly
-  the decks that declare a profile); it is session-only and never rewrites your front matter.
+  the decks that declare a profile); the profile you pick is session-only until you press **Keep in front matter** (above), which is the only thing that writes to your deck.
   A misspelled `profile:` value is reported rather than swallowed.

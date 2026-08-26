@@ -3078,7 +3078,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 										type="button"
 										onClick={() => {
 											void applyProfileToSource(source, profileOverride).then((next) => {
-												if (next === source) { notify('Couldn’t write that profile — nothing changed.'); return; }
+												// `withProfile` is idempotent, so re-declaring the profile the deck ALREADY
+												// declares returns a byte-identical string. That is a correct no-op, not a
+												// failure — and it is the most likely way to reach this branch, since the
+												// dropdown offers all three profiles including the current one, and pressing
+												// Keep twice hits it. Reporting "couldn't write" there is a false alarm.
+												if (next === source) {
+													const already = scorecard.profile.key === profileOverride;
+													notify(already
+														? `Deck already declares profile: ${profileOverride} — nothing to write.`
+														: 'Couldn’t write that profile — nothing changed.');
+													if (already) setProfileOverride(null);
+													return;
+												}
 												setCheckpoints(saveCheckpoint(deck.id, source, 'Before profile change', Date.now()));
 												setSource(next);
 												setProfileOverride(null);
