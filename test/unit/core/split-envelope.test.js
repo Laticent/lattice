@@ -891,7 +891,13 @@ describe('core: the insight PAGE carries a two-beat coda without losing or break
     // What still has to hold is what the proxy stood in for — balanced markup, the stage
     // closed, and the beat actually present.
     const page = insightPageFrom('<section data-lattice-slide="1" class="checklist form">', bothBeats());
-    assert.match(page, /<div class="cell-stage">[\s\S]*?<\/div>/, 'cell-stage must open and close');
+    // NOT `/<div class="cell-stage">[\s\S]*?<\/div>/` — a lazy match happily ends on the
+    // CODA cell's closing tag, so it passes on an unclosed stage, which is the one defect
+    // this line exists to catch. Count the tags instead.
+    const opens = (page.match(/<div\b/g) || []).length;
+    const closes = (page.match(/<\/div>/g) || []).length;
+    assert.equal(opens, closes, `unbalanced <div> on the insight page:\n${page}`);
+    assert.match(page, /<div class="cell-stage">/, 'cell-stage must be present');
     assert.match(page, /<div class="cell-coda"[^>]*>[\s\S]*?<blockquote>/, 'the beat must survive in the coda cell');
     assert.ok(balanced(page), `insight page must be balanced markup:\n${page}`);
   });

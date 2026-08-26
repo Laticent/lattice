@@ -122,9 +122,12 @@ section > .cell-coda[data-dock="row"] { flex: 0 0 auto; width: 100%; }
 
 /* ── grid arm ── span every column, in an implicit final row. `1 / -1` needs no
  * knowledge of how many tracks the layout declared. */
-/* `justify-self: stretch` is the grid twin of the row arm's `width: 100%`, and it is
-   needed for the same reason: spanning every track decides the band's grid AREA, not its
-   WIDTH. A section that sets `justify-items` (image centers its composition) shrink-wraps
-   the item inside that area — measured at 533px in a 1280px two-track grid, against the
-   "full-width band beneath the body" this file's header promises. */
-section > .cell-coda[data-dock="grid"] { grid-column: 1 / -1; align-self: start; justify-self: stretch; }
+/* Span every track, in an implicit final row. `1 / -1` needs no knowledge of how many
+   tracks the layout declared. NO `justify-self` here: I added `stretch` on the theory
+   that spanning the tracks decides the area but not the width, and on `image` — whose
+   grid runs to the slide edge — that produced a bordered panel with its left and right
+   edges CLIPPED by the slide, where before it was a centered pill. Rendered, it reads as
+   a defect. Same mistake as the `align-self: stretch` default this file used to carry:
+   "not full width" is not by itself wrong, and a layout that centers its composition
+   wants a band that matches it. */
+section > .cell-coda[data-dock="grid"] { grid-column: 1 / -1; align-self: start; }

@@ -333,9 +333,10 @@ Reverted: `scene` takes the column default, its clean composition keeps a narrow
 could have, and that is a pre-existing shape rather than a regression (on `main` the beat renders
 as unstyled body text — `scene` is one of the eight broken layouts).
 
-What DID survive is making the arms axis-agnostic — `width: 100%` rather than `flex-basis: 100%`,
-`justify-self: stretch` beside `grid-column: 1 / -1` — which is why `video`'s wrong declaration
-costs nothing today. That is insurance, not a defense of the axis, and the axis remains the open
+What DID survive is ONE half of making the arms axis-agnostic: the row arm uses `width: 100%`
+rather than `flex-basis: 100%`, which is why `video`'s wrong declaration costs nothing today (its
+base variant's band measures 1152px rather than the 523px a main-axis basis gave it). The grid
+half did not survive — see above. That is insurance, not a defense of the axis, and the axis remains the open
 question this note flagged from the start.
 
 **And I mistook a design for a defect.** `diagram` had carried a per-component
@@ -348,8 +349,14 @@ this file's own phrase "a full-width band beneath the body" to "not full width i
 without rendering the three slides. Reverted; diagram's per-component rule is back, with a comment
 saying why it stays per-component.
 
-The corrected numbers: **47 of 51 bands span full width**; `title`, `closing` and `divider`
-shrink-wrap by design, and `scene` varies by composition.
+The same error had a twin I found only when a checker made me render the slides: I had also
+added `justify-self: stretch` to the grid arm, on the theory that spanning every track decides the
+band's AREA but not its WIDTH. On `image`, whose grid runs to the slide edge, that produced a
+bordered panel with its left and right borders CLIPPED by the slide edge, where before it was a
+centered pill. Also reverted.
+
+The corrected numbers: **46 of 51 bands span full width**; `title`, `closing`, `divider`, `image`
+and `scene` keep a capped or composition-matched measure, and none of them is a defect.
 
 **The honest summary of the tier's value:** the machine gates were green — 7,282 unit tests, lint,
 `build:check`, and an overflow ratchet identical to baseline — while the export lost content. Every
