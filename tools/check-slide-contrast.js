@@ -539,6 +539,24 @@ const PROBE = () => {
       seen.add(el);
       const cs = getComputedStyle(el);
       if (cs.visibility === 'hidden' || cs.display === 'none') continue;
+      // SCREEN-READER-ONLY TEXT NEVER PAINTS, and scoring it invents a run.
+      // The house idiom for "in the accessibility tree, not on the slide" is a
+      // 1x1 box with `overflow:hidden` and a clip that leaves zero area —
+      // `.cell-sr-label` (matrix-grid), `.lat-change-edge` (tracked changes),
+      // `.lattice-description` (the player). None of them is `display:none` or
+      // `visibility:hidden`, because either would take the text back out of the
+      // accessibility tree, which is the whole point of the idiom. So they walk
+      // straight past the two guards above and get scored against whatever
+      // backdrop the ancestor chain resolves to — the same false-positive class
+      // the SVG `<desc>`/`<style>` exclusion below exists for, and the same fix:
+      // text the renderer never draws is not a contrast finding.
+      //
+      // The test is the BOX, not a class name: a 1x1 border box that clips its
+      // overflow cannot show a glyph at any font size this engine uses, and
+      // nothing real in the tree is shaped that way. Keying on the class names
+      // would miss the next sr-only span someone writes.
+      const box = el.getBoundingClientRect();
+      if (cs.overflow === 'hidden' && box.width <= 1 && box.height <= 1) continue;
       const fs = parseFloat(cs.fontSize);
       if (!fs) continue;
       // SVG TEXT IS PAINTED BY `fill`, NOT `color`. Reading `color` on an SVG
