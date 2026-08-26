@@ -10,9 +10,10 @@ summary: >
   designer door — the CLI's own usage text calls it "for layout-engine development,
   not deck authoring" — and `--palette` takes a NAME resolved against `PKG_ROOT/themes/`
   with a hard exit, so a custom theme today means writing into `node_modules`. There
-  is no designer-facing extension path on the CLI at all, while the Studio has had one
-  since #1839/#1841 (the Theme faculty's CSS view, where the stylesheet you edit IS the
-  theme). This note settles three of four axes: precedence is PINNED SOURCE ORDER stated
+  is no designer-facing extension path on the CLI at all, while the Studio has a Theme
+  faculty with a validator wired to it — driving the real Studio confirms the faculty and
+  its theme/finish pickers; the hand-editable CSS VIEW #1839/#1841 describe was NOT reached
+  by clicking and is cited, not verified (§2). This note settles three of four axes: precedence is PINNED SOURCE ORDER stated
   once in a shared composition kernel (cascade layers are the textbook answer and are
   VETOED by HARD RULE #26 — a layered caller overlay would lose to every unlayered engine
   rule, the rule-3 trap, so layers make this worse today, not better); the theme slot
@@ -119,11 +120,19 @@ What a designer wants, against what exists today:
 | component / finish / motion rules | `--css`, the dev hatch, now outranked by the palette |
 | a subset of the engine sheet | same hatch, same problem |
 
-**And there is a parity gap.** The Studio has had a designer door since #1839/#1841 —
-the Theme faculty's CSS view, where the stylesheet you edit IS the theme, validated by
-`gateThemeCss`. A Studio user can hand-write theme CSS. A CLI user cannot. The engine
-is the product surface for anyone integrating Lattice, and it is the surface with no
-door.
+**And there is a parity gap** — stated here at the strength it was actually verified,
+which is less than an earlier draft claimed. Driving the real Studio (local dev server,
+Chromium, this working tree) confirms a **Theme faculty exists** under Craft to Deck
+scope, offering "Choose deck theme" and "Choose finish". It does NOT confirm the
+hand-editable **CSS view** — that claim rests on #1839/#1841's changelog fragments
+(*"the stylesheet you edit IS the theme"*) and on `gateThemeCss` existing in
+`lib/theme/gate.js` and being imported by `docs/src/components/studio/Fabricate.tsx`,
+not on reaching the editor by clicking. A route or a precondition I did not find may
+gate it.
+
+What survives either reading, and is the point of the section: the Studio has a theme
+surface with a validator wired to it, and the CLI has neither. The engine is the product
+surface for anyone integrating Lattice, and it is the one with no door.
 
 ## 3. Root cause
 
