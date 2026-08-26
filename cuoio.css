@@ -1,0 +1,464 @@
+/* @theme cuoio
+ *
+ * Lattice · Cuoio palette
+ * ────────────────────────────────────────────────────────────────────────
+ * Warm cream + leather. Counterpart to the cool indaco default — same
+ * design contract, warm earth pigments instead of cool indigo. Pale
+ * parchment surfaces with saturated leather/saddle accents and dark
+ * espresso ink. Saturated red is reserved for alarm states (gantt
+ * critical, error fills) — every routine surface stays in the warm
+ * earth band so the deck reads as ink-on-vellum.
+ *
+ * This file is a sibling palette to indaco.css; both implement the same
+ * token contract so layouts in lattice.css stay palette-blind.
+ *
+ * Design contract
+ * ───────────────
+ *   1. Single text color (#1e1a15, dark espresso) on every light surface.
+ *      No auto-inversion logic is relied upon; every text variable below
+ *      is set explicitly.
+ *
+ *   2. Two lightness bands for fills:
+ *        Tinted band (L≈83) — --diagram-band-1..12, used directly by
+ *                              flowchart, sequence, class, state, ER,
+ *                              quadrant, and most layouts. Cream/parchment
+ *                              family (#F3EDE4 → #FAF7F2).
+ *        Mid-tone band      — categorical pigments (--cat-*) used as
+ *                              foreground marks on the cream surface
+ *                              (radar curves, kpi accents, status dots).
+ *                              Earth pigment family at L≈30-45.
+ *
+ *   3. Saturation reserved for two purposes:
+ *        a. Borders. Deep taupe #8B7E6D reads on every cream fill.
+ *        b. Alarm signal. Saturated red #9b1c1c only on diagram-state-
+ *           critical and diagram-error-bg — never on routine fills.
+ *
+ *   4. Every text-bearing token clears WCAG AA (4.5:1) against the
+ *      surface it appears on, asserted by test/unit/contrast.test.js.
+ *      Decorative tokens (--text-muted, borders, hairlines, spectrum
+ *      gradient) are WCAG-exempt per design.
+ *
+ * Palette divergence from indaco
+ * ──────────────────────────────
+ * Indaco's --cat-* are L≈60 mid-tones tuned for Mermaid kanban's lighten
+ * step (L≈70 emitted, light enough for dark text on top). Cuoio's --cat-*
+ * are L≈30-45 dark earth pigments because the warm brand reads as
+ * "ink on vellum" — categorical fills want saturation, not pastels. The
+ * Mermaid diagram overrides route categorical fills through
+ * --diagram-band-* (pale tints) instead of --cat-*, so the two contracts
+ * coexist without conflict.
+ *
+ * Diagram overrides
+ * ─────────────────
+ * Palette-blind per-diagram Mermaid overrides live at the bottom of
+ * lattice.css, imported transitively via `@import 'lattice';`. Authoring
+ * a new palette is purely a token-declaration job — no per-palette CSS
+ * rules are needed. See engineering/decisions/2026-05-12-diagram-tokens.md for the
+ * architecture.
+ */
+
+@import 'lattice';
+
+/* Zero-specificity light default — see the long comment in the next
+ * :root block. Author overrides via `style: ":root{color-scheme:dark}"`
+ * always win because plain :root is (0,0,1) and :where() is (0,0,0). */
+:where(:root) { color-scheme: light; }
+
+:root {
+  /* ── Color scheme ─────────────────────────────────────────────────────
+   * Default to light. Authors can flip to dark via Marp's native
+   * front-matter `style:` directive — no engine plugins, no class
+   * surgery, works in marp-cli, the emulator, AND the VS Code preview
+   * (because `style:` injects CSS that survives Marpit's directive
+   * pipeline). One-line incantations:
+   *
+   *   style: ":root{color-scheme:dark}"        // force whole-deck dark
+   *   style: ":root{color-scheme:light dark}"  // follow OS / viewer pref
+   *
+   * Per-slide override is unaffected: `<!-- _class: dark -->` on a
+   * single slide flips just that section via lattice.css's section.dark
+   * rule (which sets color-scheme:dark on the section, so light-dark()
+   * descendants resolve to the dark side).
+   *
+   * The default `color-scheme: light` lives in a sibling :where(:root)
+   * rule below so its specificity is zero — any author-authored
+   * `:root { color-scheme: ... }` (whether from a style: directive or a
+   * theme variant like cuoio-dark) wins the cascade automatically. */
+
+  /* ── Cuoio brand axis (single source of truth for brand color) ─────── */
+  --brand-canvas:  #1E1A15;  /* dark espresso — bg-dark            */
+  --brand-accent:       #7A5A10;  /* saddle gold — accent, 5.96:1 on bg */
+
+  /* ── Surfaces ──────────────────────────────────────────────────────────
+   * Surface tokens use light-dark() so a single `color-scheme: dark`
+   * declaration (at :root or on a section) flips every descendant
+   * lookup without touching the layout CSS. WCAG annotations refer to
+   * the light pair; dark pair clears AAA on its own surface. */
+  --bg:       light-dark(#FAF7F2, var(--scheme-dark-bg));      /* parchment / espresso */
+  --bg-alt:   light-dark(#F3EDE4, var(--scheme-dark-bg-alt));  /* card fill            */
+  --surface-inverse:  var(--brand-canvas); /* dark panels / title / divider */
+  --border:   light-dark(#8F887D, var(--scheme-dark-border));  /* hairline rule        */
+
+  /* ── Ink ramp ──────────────────────────────────────────────────────── */
+  --text-display: #FAF7F2;      /* on dark surfaces — 16.19:1 on bg-dark         */
+  --text-heading: light-dark(var(--brand-canvas), var(--scheme-dark-text-heading)); /* 16.19:1 / 17.58:1 */
+  --text-body:    light-dark(#6B5D4F, var(--scheme-dark-text-body));   /* 5.95:1 / 11.02:1 AA  */
+  /* ACCENT-HUED, which it had stopped being. --text-label is emphasis: design/theming.md
+   * calls it "accent-hued labels / kickers", and on palettes with chroma to spare it is
+   * separated from body by HUE rather than by a lightness step. cuoio had neither. The
+   * light arm was #6F604F against body #6b5d4f — dL 0.0109, da -0.0002, db 0.0045, so no
+   * hue distinction at all, OKLab 0.0118 from body and 0.0638 from the saddle gold it is
+   * supposed to carry; the dark arm was a pale tan at chroma 0.026 against the accent's
+   * 0.122. Both arms are the accent now (C 0.094 / 0.122), which clears AA on --bg and
+   * --bg-alt on both canvases without repair. */
+  --text-label:   light-dark(var(--brand-accent), var(--scheme-dark-text-label));  /* 5.47:1 / 7.05:1 AA */
+  --text-secondary: light-dark(#75685C, var(--scheme-dark-text-secondary)); /* secondary prose / subtitle / caption — AA on bg + bg-alt both sides */
+  --text-muted:   light-dark(#766854, var(--scheme-dark-text-muted));      /* de-emphasized TEXT — AA on --bg and --bg-alt (#1715) */
+  --muted-mark:   light-dark(#92856F, var(--scheme-dark-muted-mark));   /* de-emphasized DECORATION — rules, hairlines, empty/skipped marks, glyph washes. 3:1 graphical, no text floor (#1715) */
+
+  /* ── Brand accent ──────────────────────────────────────────────────────
+   * The accent is text-bearing on multiple surfaces (inline code chips,
+   * eyebrows, link colour, card headings), so it follows light-dark()
+   * too. Light pair: saddle gold on cream — 5.96:1 on bg, 5.55:1 on
+   * accent-soft. Dark pair: bright gold on dark-bg-alt — 7.05:1 on the
+   * inline-code surface, 5.38:1 on accent-soft (mid-leather panel). */
+  --accent:      light-dark(var(--brand-accent), #C8A040);
+  --accent-soft: light-dark(#F5EFE0, var(--bg-warm-mid));
+  /* Inline-code chip ink — curated + AA-audited on the chip wash; bg/border
+   * derive from it (base.tokens.css). See 2026-06-08-inline-code-contrast.md. */
+  --code-inline-fg: light-dark(#765710, #caa242); /* light ink deepened for margin (L:5.43/5.01 · D:6.63/6.01) */
+  /* Text on top of --accent. Light: white on saddle gold (5.96:1).
+   * Dark: espresso on bright gold (~9:1) — fixes corner-tag contrast
+   * which would otherwise be white on bright gold (~2.3:1, fails AA). */
+  --on-accent:   light-dark(#FFFFFF, var(--surface-inverse));
+
+  /* ── Semantic signals ─────────────────────────────────────────────────
+   * Cuoio's leather-toned variants of the universal status trio. Each
+   * is a light-dark() pair: light values are AA+ on the cream canvas;
+   * dark values lift to AA+ on the espresso canvas. Warn stays in
+   * cuoio's saddle-gold family (clearly separated from fail's crimson —
+   * fixes the "warn and fail look alike" issue the original burnt-
+   * amber introduced). */
+  /* The LIGHT arms are re-solved JOINTLY (#1698). `kpi`'s status pill and
+   * `policy-recommendation`'s stance badge ink the trio on a 10-12% tint OF THE
+   * SAME token, so the band moves with the value and a canvas-only reading
+   * overstates it. Solved along the OKLab lightness axis, hue kept, all three
+   * arms at once: moving --warn alone closes its deficiency separation from
+   * --pass and --fail, and lightness is the only channel a deficiency preserves
+   * (tools/composed-contrast.js, test/unit/palette/cvd-trio-floor.test.js). */
+  /* RESPACED FOR THE MONOCHROMACY FLOOR. Under achromatopsia only lightness
+   * survives, so three signals need three distinct WEIGHTS against the canvas —
+   * and WCAG contrast is a function of the same luminance, which is why moving
+   * these apart moved most of this palette's composed readings UP. The trio is
+   * mutually >= 0.11 in OKLab under the condition now: 0.1206 light /
+   * 0.1195 dark, from 0.0503 / 0.0127. Hue is held; chroma yields
+   * only where the sRGB gamut clips. ANY ratio or dE quoted above this line was
+   * measured before that move and is kept as the reason a value was once chosen,
+   * not as a current reading — `npm run palette:bless` holds the live numbers.
+   * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
+  --pass: light-dark(#001305, #96f576);
+  --fail: light-dark(#8a010c, #ed6868);
+  /* The light --warn was darkened from #B47200 to clear AA (the original was
+     3.4-3.7:1); the respacing below then re-solved it again, so the value here is
+     not the #885800 that fix landed. */
+  --warn: light-dark(#8a5903, #f7a64f);
+  --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
+  --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
+  --warn-bg: color-mix(in srgb, var(--warn) 10%, transparent);
+
+  /* The ramp anchor — a pair, solved ARM BY ARM against the derived stops.
+   * The light arm rides var(--brand-accent) by reference, the same source --accent's
+   * light arm reads, so re-tuning the brand hue moves the ramp with it and no
+   * literal here can go stale. The dark arm is curated, and deliberately is NOT
+   * --accent's #C8A040: that value sits high on a near-black canvas, and with
+   * canvas-relative poles (#1697) --seq-600..900 climb toward WHITE there, so an
+   * anchor parked up near the pole has nowhere left to travel — it left --seq-700
+   * 1.54:1 from --seq-500, and `word-cloud spectrum` paints those as two of its
+   * four ramp tiers. #BA922F is that same hue and chroma at OKLab L 0.68, the
+   * mid-range where every painted stop clears 3:1 on the canvas AND the tiers stay
+   * apart from each other. The set spans 1.08-1.90:1 pre-fix; base.tokens.css
+   * § Sequential ramp carries the range and the reasoning. */
+  --seq-500: light-dark(var(--brand-accent), #BA922F);
+
+  /* Tag uses --chart-cat2 (deep teal) by default — the saddle/teal duotone
+   * gives cuoio's corner tags a complementary cool pop. (Named `--chart-2`
+   * here until #1688; no such token has ever existed.) */
+
+  /* ── Dark-panel ramp ──────────────────────────────────────────────── */
+  --bg-warm-mid:   #3A2E20;     /* divider panels (deep) — decorative     */
+  --code-text:     #C4B8A8;     /* code text on dark — 8.87:1 on bg-dark  */
+
+  /* ── Spectrum ribbon — earth pigment cycle ────────────────────────── */
+  /* Decorative only (code block bottom border, dark canvas top hairline);
+   * not derived from the brand axis so the warm spectrum reads against
+   * dark surfaces without losing chromatic separation. */
+  --spectrum: linear-gradient(
+    90deg,
+    #5B86B8,
+    #7B72C0,
+    #A8628A,
+    #C45D5D,
+    #D08C42,
+    #B8A032
+  );
+  --spectrum-vertical: linear-gradient(
+    180deg,
+    #5B86B8,
+    #7B72C0,
+    #A8628A,
+    #C45D5D,
+    #D08C42,
+    #B8A032
+  );
+  --spectrum-end: #B8A032; /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
+
+  /* ── Derived on-dark tints ──────────────────────────────────────────
+   * Cuoio is the only palette that overrides this ramp, sitting slightly under
+   * the base default (a warmer panel takes a little less white). The offsets are
+   * NOT uniform — primary −2, secondary −11, ghost −2, watermark 0 — so if the
+   * base ramp moves, re-derive the rung that moved against THIS panel rather
+   * than applying one offset.
+   *
+   * Ghost tracked the base lift from 30% → 40%. It is the rule/divider rung, so
+   * it owes WCAG 1.4.11's 3:1, and 30% gave only 2.72:1 on this panel (#1E1A15)
+   * — a rule nobody could see. 40% gives 3.82:1. That mattered because these
+   * values apply on the ENGINE render path even while the export path's
+   * composition order lets the base ramp win; both paths now clear the floor.
+   * See engineering/decisions/2026-08-11-on-dark-ink-tiers.md. */
+  --on-dark-primary:   color-mix(in srgb, white 90%, transparent);
+  --on-dark-secondary: color-mix(in srgb, white 65%, transparent);
+  --on-dark-ghost:     color-mix(in srgb, white 40%, transparent);
+  --on-dark-watermark: color-mix(in srgb, white 12%, transparent);
+
+  /* Marp chrome mappings */
+  --marp-slide-pagination-color:     var(--text-muted);
+  --marp-slide-pagination-font-size: var(--fs-meta);
+  --marp-slide-header-color: var(--text-muted);
+  --marp-slide-footer-color: var(--text-muted);
+}
+
+/* ── Dark-variant tokens ───────────────────────────────────────────────
+ * Used by section.dark in lattice.css to reskin the slide canvas
+ * for cover/divider/closing layouts that need a dark canvas. The slide
+ * rule remaps the main tokens to these dark values so the same layout
+ * structure works on either canvas. All ratios verified against
+ * --scheme-dark-bg as the active surface. */
+:root {
+  --scheme-dark-bg:           #15110D;  /* deeper than bg-dark — canvas dark     */
+  --scheme-dark-bg-alt:       #1E1A15;  /* same as light bg-dark — card on dark  */
+  --scheme-dark-border:       #716454;
+  --scheme-dark-text-heading: #FAF7F2;  /* 17.58:1 on dark-bg AAA                */
+  --scheme-dark-text-body:    #D6C4A8;  /* warm tan — 11.02:1 on dark-bg AAA     */
+  --scheme-dark-text-muted:   #A69882;
+  --scheme-dark-muted-mark:   #A69882;
+  --scheme-dark-text-secondary: #AB9C85;
+  --scheme-dark-text-label:   #C8A040;  /* saddle gold (= --accent) — 7.05:1 AA   */
+  --scheme-dark-text-display: #FAF7F2;
+}
+
+/* ── highlight.js syntax tokens ────────────────────────────────────────
+ * Warm earth palette adapted for Cuoio's dark code block background
+ * (--surface-inverse: #1e1a15, dark brown + earthy spectrum ribbon at bottom).
+ * Warm ambers, terracottas, and muted teals provide contrast against
+ * the dark brown without importing the cool Night Owl palette used by
+ * the indaco theme. */
+:root {
+  --hljs-comment:    #92816f;  /* muted warm brown, italic               */
+  --hljs-keyword:    #D4A04A;  /* warm amber-gold, italic                */
+  --hljs-built_in:   #8EBA6A;  /* warm lime-green — built-ins            */
+  --hljs-number:     #D48A6A;  /* warm orange-rust                       */
+  /* Was #C05A6A, which is 4.05:1 on this theme's own --code-bg (#1e1a15) — under
+   * the AA floor for code text. Lifted in OKLCH holding hue (12.2 -> 12.4) and
+   * chroma, +0.036 lightness, the same move derive-cat-ink makes for the ink tier:
+   * 4.68:1, clearing AA + the 0.15 margin cat-ink.js uses so an 8-bit round-trip
+   * cannot drop it back under. Found by #1527's sign-off sweep; the miss was invisible
+   * because the export loaded the base AFTER the theme, so the base's #ff5874 painted
+   * instead. It was landed as a PREREQUISITE for the concat flip, changing nothing
+   * rendered at the time — #1527 has since flipped the order, so this value is what a
+   * cuoio export paints. */
+  --hljs-literal:    #CC6574;  /* warm rose-pink — booleans/null         */
+  --hljs-string:     #C8885A;  /* warm terracotta                        */
+  --hljs-title:      #D4B868;  /* warm amber-yellow, italic              */
+  --hljs-type:       #7ABAB0;  /* muted teal — cool contrast on warm bg  */
+  --hljs-variable:   #8EBA6A;  /* warm lime-green — variables            */
+  --hljs-params:     #7ABAB0;  /* muted teal-mint — parameters           */
+  --hljs-tag:        #7ABAB0;  /* muted teal — HTML tags / names         */
+  --hljs-punctuation:#C8B8A0;  /* warm taupe — operators, punctuation    */
+}
+
+/* ── Diagram tokens ────────────────────────────────────────────────────
+ * Role-named, palette-blind tokens consumed by lattice-diagram.css and
+ * the renderer bridges (lattice-runtime.js, lattice-emulator.js). The
+ * structural shape — which slot is band, stroke, state, etc. — is the
+ * same across every palette; this file supplies cuoio's warm-earth
+ * values. */
+:root {
+
+  /* ── Structural ───────────────────────────────────────────────────
+   * Universal stroke for any band fill; deep taupe reads on every
+   * cream tint. Line is for edges/arrows — warm brown ink. */
+  --diagram-stroke: #8B7E6D;  /* deep taupe */
+  /* The DARK arm was lifted #786A5B -> #8C7C6B (#1348). Mermaid fills the sequence
+   * autonumber badge from this token and draws the number on it in canvas ink, so
+   * the line tier has to carry TEXT, not just an edge: at #786A5B that pair read
+   * 3.59:1 against cuoio's #15110D canvas — the only palette of 32 still short of
+   * AA once the badge ink moved to `--bg`. The lift also raises every edge and
+   * arrow against the dark canvas, 3.59:1 -> 4.66:1, so nothing trades away. The
+   * LIGHT arm is untouched; it was never short. */
+  --diagram-line:   light-dark(#6B5D4F, #8C7C6B);  /* warm brown ink */
+
+  /* Cross-deck contrast accent — radar's second curve, where a single
+   * warm hue against the cream band reads better than a second pale
+   * tint. */
+  --diagram-accent-warm: var(--brand-accent);
+}
+
+:root {
+  --cat-1-fill:  light-dark(#E6DAC8, #795700);
+  --cat-1-mark:   light-dark(#8A672E, #E7E0D5);
+  --cat-2-fill:  light-dark(#D2CAE1, #544DAE);
+  --cat-2-mark:   light-dark(#327C86, #D5E4E6);
+  --cat-3-fill:  light-dark(#D1C5B3, #97306A);
+  --cat-3-mark:   light-dark(#3B3286, #D7D5E6);
+  --cat-4-fill:  light-dark(#C7D9DC, #006D61);
+  --cat-4-mark:   light-dark(#727B2D, #E4E6D5);
+  --cat-5-fill:  light-dark(#E3C5C5, #A03313);
+  --cat-5-mark:   light-dark(#863B32, #E6D7D5);
+  --cat-6-fill:  light-dark(#D2DCBD, #007225);
+  --cat-6-mark:   light-dark(#325286, #D5DCE6);
+  --cat-7-fill:  light-dark(#EDD5B8, #7D3C95);
+  --cat-7-mark:   light-dark(#538038, #DCE5D7);
+  --cat-8-fill:  light-dark(#D7D0C6, #5D6400);
+  --cat-8-mark:   light-dark(#388064, #D7E5E0);
+  --cat-9-fill:  light-dark(#EBDBC1, #A02D45);
+  --cat-9-mark:   light-dark(#643880, #E0D7E5);
+  --cat-10-fill: light-dark(#E1CCD9, #00697C);
+  --cat-10-mark:  light-dark(#803853, #E5D7DC);
+  --cat-11-fill: light-dark(#DDD1BD, #805300);
+  --cat-11-mark:  light-dark(#388040, #D7E5D8);
+  --cat-12-fill: light-dark(#D5CCE1, #0060A5);
+  --cat-12-mark:  light-dark(#803877, #E5D7E3);
+
+  /* ── CATEGORICAL ON-CANVAS INK — generated by tools/derive-cat-ink.js ──
+   * The categorical hue as TEXT on --bg / --bg-alt, one per slot. Same hue and
+   * chroma as --cat-N-mark; lightness solved until it clears AA on both slide
+   * surfaces. Do not hand-edit: re-run the generator after re-hueing a mark.
+   * Gated by checkCatContrast (layer 4) on light, dark and the print band. */
+  --cat-1-ink:   light-dark(#86642A, #E7E0D5);
+  --cat-2-ink:   light-dark(#28737D, #D5E4E6);
+  --cat-3-ink:   light-dark(#3B3286, #D7D5E6);
+  --cat-4-ink:   light-dark(#676F20, #E4E6D5);
+  --cat-5-ink:   light-dark(#863B32, #E6D7D5);
+  --cat-6-ink:   light-dark(#325286, #D5DCE6);
+  --cat-7-ink:   light-dark(#49752D, #DCE5D7);
+  --cat-8-ink:   light-dark(#2E765B, #D7E5E0);
+  --cat-9-ink:   light-dark(#643880, #E0D7E5);
+  --cat-10-ink:  light-dark(#803853, #E5D7DC);
+  --cat-11-ink:  light-dark(#2B7435, #D7E5D8);
+  --cat-12-ink:  light-dark(#803877, #E5D7E3);
+  /* ── end categorical on-canvas ink ── */
+
+  --cat-on-fill: var(--text-heading);
+  --cat-on-mark:  light-dark(#FFFFFF, #1E1A15);
+
+  /* Semantic palette — 5 roles, each a flipping fill. Curated per
+   * theme: hue nudged toward the brand within its meaning band,
+   * AA-verified both canvas modes, chroma-capped for restraint.
+   * The -dark companions are strokes → universal --diagram-stroke.
+   *
+   * --diagram-critical pairs with --cat-on-mark above: alarm fill lifts bright
+   * in dark mode, ink flips dark to compensate (both pass AA either
+   * way). Decoupled from the state-token --fail, which has its own
+   * light-dark() pair tuned for canvas contrast, not band-text. */
+  --diagram-active:  light-dark(#EBDBC1, #825200);
+  --diagram-active-mark:   var(--diagram-stroke);
+  --diagram-done:  light-dark(#E0D8CC, #6B5B40);
+  --diagram-done-mark:   var(--diagram-stroke);
+  --diagram-critical:       light-dark(#9B1C1C, #F87171);
+  --diagram-critical-mark:  var(--diagram-stroke);
+  --diagram-today:        light-dark(#7A5A10, #C8A040);
+  --diagram-note:        light-dark(#F5EFE0, #4A3A28);
+
+  /* Containment tier — two nested structural surfaces. A monotonic
+   * luminance ladder away from the canvas: light deck steps down,
+   * dark deck steps up, one step per nesting level. Brand-hue-tinted
+   * at a barely-there chroma — surfaces, not accents; they never
+   * compete with the --cN fills that sit on them.
+   *   --c-container     flowchart cluster, sankey area, kanban column
+   *   --c-subcontainer  kanban ticket, a box nested in a cluster */
+  --c-container:     light-dark(#ECE6DD, #28241D);
+  --c-subcontainer:  light-dark(#DDD7CF, #39352E);
+
+  /* Containment INK + EDGE (#1311 follow-on). The tier had neither: the cluster
+   * label borrowed --cat-on-fill (the CATEGORICAL tier's ink) and the box was
+   * outlined in --diagram-stroke, which does not flip with color-scheme and so
+   * went dark-on-dark — no edge of a dark cluster reached 3:1 in 12 of 14 themes.
+   * Curated per theme from this palette's own stroke hue, lightened only as far
+   * as 3:1 demands. Gated by test/unit/palette/containment-contrast.test.js:
+   * ink >= 4.5:1 on its surface (AA text), edge >= 3:1 on the fill it outlines
+   * (WCAG 1.4.11 — the box carries the grouping semantic). */
+  --c-container-edge:     light-dark(#887B6B, #8B7E6D);
+  --c-subcontainer-edge:  light-dark(#7D7162, #8E816F);
+  --c-on-container:       light-dark(#1E1A15, #F2EBDE);
+  --c-on-subcontainer:    light-dark(#1E1A15, #F2EBDE);
+}
+
+/* ── Chart-family palette ───────────────────────────────────────────────
+ * Cuoio's curation of the chart-family's two colour spectrums (defined in
+ * lib/components/chart/_chart-family/chart-family.css). The engine ships a
+ * canvas-aware Apple-hue default; untuned themes inherit it. Cuoio overrides
+ * both spectrums with its warm-earth pigments so charts read native to the
+ * "ink on vellum" brand instead of borrowing the cool system palette.
+ *
+ * Each hook is the `light-dark(lightCanvasVivid, darkCanvasVivid)` shape the
+ * chart-family expects: on cream the value is a saturated earth pigment (it
+ * drives the wedge/bar border at full strength and a 24% tint for the fill);
+ * on espresso it lifts to a brighter same-hue sibling. See design/theming.md
+ * (chart palette) and the chart-family.css token block for the contract. */
+:root {
+  /* Categorical spectrum — cuoio's #1 audited proposal, "Brand triad"
+   * (themes/palette-audit.md, 99/100: AA 12/12 both canvases, min adjacent
+   * ΔH 60°, hue coverage 330°). These are cuoio's own --cN earth pigments,
+   * so charts share the exact categorical language as its Mermaid diagrams.
+   * Light side = the audited pigment (drives the border at full strength + a
+   * 24% tint for the fill); dark side = the same hue lifted toward white so
+   * it stays vivid on espresso. */
+  --chart-cat1: light-dark(#9F570A, color-mix(in oklab, #9F570A, white 30%));  /* bronze    */
+  --chart-cat2: light-dark(#1882A7, color-mix(in oklab, #1882A7, white 30%));  /* teal      */
+  --chart-cat3: light-dark(#352A84, color-mix(in oklab, #352A84, white 30%));  /* indigo    */
+  --chart-cat4: light-dark(#718230, color-mix(in oklab, #718230, white 30%));  /* olive     */
+  --chart-cat5: light-dark(#85221B, color-mix(in oklab, #85221B, white 30%));  /* rust      */
+  --chart-cat6: light-dark(#2B6194, color-mix(in oklab, #2B6194, white 30%));  /* slate     */
+  --chart-cat7: light-dark(#538038, color-mix(in oklab, #538038, white 30%));  /* green     */
+  --chart-cat8: light-dark(#388064, color-mix(in oklab, #388064, white 30%));  /* teal-green*/
+
+  /* ── CHART CATEGORICAL INK — generated by tools/derive-chart-cat-ink.js ──
+   * The chart categorical hue as TEXT on --bg / --bg-alt, one per slot. Same hue
+   * and chroma as --chart-catN; lightness solved until it clears AA on both slide
+   * surfaces. Read via --chart-cat-N-ink in the chart family, which falls back to
+   * its own derivation for a palette with no chart cycle. Do not hand-edit: re-run
+   * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
+  --chart-cat1-ink: light-dark(#9F570A, #BE895F);
+  --chart-cat2-ink: light-dark(#007295, #6BA7C2);
+  --chart-cat3-ink: light-dark(#352A84, #7C7FC1);
+  --chart-cat4-ink: light-dark(#60711C, #99A770);
+  --chart-cat5-ink: light-dark(#85221B, #BA7167);
+  --chart-cat6-ink: light-dark(#2B6194, #6A8FB5);
+  --chart-cat7-ink: light-dark(#447028, #84A573);
+  --chart-cat8-ink: light-dark(#287156, #76A590);
+  /* ── end chart categorical ink ── */
+
+  /* Semantic spectrum — charts that encode meaning (gantt bars, progress,
+   * status pills, state-chart, timeline). pass/warn/fail reuse cuoio's own
+   * status trio so a gantt at-risk bar matches a --warn chip; info takes the
+   * slate blue, mute a warm taupe (not the engine's cool gray). */
+  --chart-state-pass: var(--pass);                  /* leather green */
+  --chart-state-warn: var(--warn);                  /* saddle amber  */
+  --chart-state-fail: var(--fail);                  /* crimson alarm */
+  --chart-state-info: light-dark(#3E6A9E, #7A9FE1); /* dusty slate   */
+  --chart-state-mute: light-dark(#825F58, #A69882); /* warm taupe    */
+}
+
+/* The status trio is declared ONCE, at plain `:root` above — #1527's cascade flip
+ * retired the `:root:root` duplicate that used to reach the CLI export.
+ * engineering/decisions/2026-08-24-status-trio-single-root.md */
