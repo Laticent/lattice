@@ -484,20 +484,20 @@ const SURFACES = [
   // does -- the state hue at full saturation, which is also why the INK was left at
   // full saturation (§8.1).
   //
-  // THE FLOOR IS PER-TILE, not one number for all four. The population is bimodal and
-  // one palette owns the whole bottom: carbone|light reads 2.60 on the hero and 3.39 on
-  // the card, and EVERY other palette-mode is 4.10 or better. A single floor low enough
-  // to admit the hero pair would permit a 60% collapse on the other 63, which is a
-  // budget rather than a ratchet. So: 3 on the card (WCAG 1.4.11's non-text bar, which
-  // every card pair already clears) and 2.5 on the hero, the `PANEL_EDGE_MIN` precedent
-  // -- a FLOOR against invisibility, not an accessibility claim. Both hero exceptions
-  // are carbone's light arm, whose trio is inks for a light canvas the palette does not
-  // have yet (#1302); when that lands, the hero floor rises to 3 and this note goes.
+  // THE FLOOR IS PER-TILE, and it is now the SAME number on both tiles: 3, WCAG 1.4.11's
+  // non-text bar. It was 2.5 on the hero, and the reason was a single palette -- the
+  // population was bimodal and carbone|light owned the whole bottom at 2.60 on the hero
+  // and 3.39 on the card, while every other palette-mode read 4.10 or better. That was
+  // not a curation choice: carbone's trio were inks written for a light canvas the
+  // palette did not have, so they were being measured on a ground that never existed
+  // (#1302). Carbone was given a real light face, and the pairs that forced the
+  // exception now read 7.91 (pass) and 4.70 (warn) on the hero. The bimodality is gone,
+  // so the exception goes with it and the hero takes the same 3 the card always had.
   ...[
     ['pass', 'card', '--bg-alt',      3,   /section\.kpi\.ops[^{]*li:nth-child\(2\)[\s\S]{0,120}?--pill-border: var\(--pass\)/],
-    ['pass', 'hero', '--accent-soft', 2.5, /section\.kpi\.briefing[\s\S]{0,200}?--pill-border: var\(--pass\)/],
+    ['pass', 'hero', '--accent-soft', 3,   /section\.kpi\.briefing[\s\S]{0,200}?--pill-border: var\(--pass\)/],
     ['warn', 'card', '--bg-alt',      3,   /section\.kpi\.ops[^{]*li:nth-child\(1\)[\s\S]{0,120}?--pill-border: var\(--warn\)/],
-    ['warn', 'hero', '--accent-soft', 2.5, /section\.kpi\.attention[^{]*li:nth-child\(1\)[\s\S]{0,120}?--pill-border: var\(--warn\)/],
+    ['warn', 'hero', '--accent-soft', 3,   /section\.kpi\.attention[^{]*li:nth-child\(1\)[\s\S]{0,120}?--pill-border: var\(--warn\)/],
   ].map(([state, tile, base, min, pin]) => ({
     id: `kpi/${state}-pill-border-on-${tile}`,
     ctx: `kpi: the ${state} pill's 1px border against the ${base} tile it sits on`,

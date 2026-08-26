@@ -388,3 +388,25 @@ which is why the §9.2 regression got all the way to a green PR. `cvd-audit.js` 
 report that exits 0, not a gate.
 
 Both are a change to what CI runs, so neither is taken here.
+
+## 10 · A gate floor this change was holding down
+
+`tools/composed-contrast.js` scored the kpi pill's border on two tiles with two different
+floors: **3 on the card, 2.5 on the hero.** The 2.5 was not a design position. Its own
+comment said so:
+
+> Both hero exceptions are carbone's light arm, whose trio is inks for a light canvas the
+> palette does not have yet (#1302); when that lands, the hero floor rises to 3 and this
+> note goes.
+
+The population was bimodal and carbone|light owned the whole bottom — 2.60 on the hero,
+3.39 on the card — while every other palette-mode read 4.10 or better. Those inks were
+being measured against a ground that did not exist, which is the same root cause as §1.
+
+This change is the "when that lands." The two pairs that forced the exception now read
+**7.91** (`pass`) and **4.70** (`warn`) on the hero, so the floor is raised to **3** on both
+tiles and the exception is deleted. The full run is unchanged at **14 of 4290 frozen, 0
+degraded, 0 stale, 0 unresolved** — no other palette-mode was relying on 2.5.
+
+Worth noting for its own sake: a gate threshold lowered for one broken palette outlives the
+breakage unless the fix goes looking for it. This one left instructions; most do not.
