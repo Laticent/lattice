@@ -301,29 +301,3 @@ section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.de
  * (`| # | Finding |`), a status tick, a citation index, or a single-column table
  * — where every cell would render bold. A component that knows its first column
  * is a label says so itself. */
-
-/* ── The tracked-change edge label ──────────────────────────────────────────
- *
- * A visually-hidden span the `tracked-changes` transform puts either side of
- * every `<ins>` / `<del>`, so a listener hears where an amendment's old wording
- * stops and its new wording starts instead of the two running together as one
- * sentence. Read lib/transformers/tracked-changes.js for why this is a sibling
- * span and not the `::before`/`::after` pair the accessibility literature
- * recommends — the short version is that a pseudo-element opens an empty inline
- * fragment on the previous line, and an empty fragment still paints the wash
- * across `<ins>`'s horizontal padding, leaving a visible colored sliver.
- *
- * The clip idiom matches `.cell-sr-label` (matrix-grid.styles.css), which is the
- * house pattern for "in the accessibility tree, not on the slide". `user-select`
- * keeps a drag-selection of a verbatim clause clean; the element is out of flow
- * and clipped to nothing, so it paints nothing and measures nothing — verified
- * at 0 changed pixels across the redline gallery. */
-.lat-change-edge {
-  position: absolute;
-  width: 1px; /* sanctioned: screen-reader-only clip target, not a visible layout length */
-  height: 1px; /* sanctioned: screen-reader-only clip target, not a visible layout length */
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  user-select: none;
-}

@@ -1,163 +1,145 @@
 ---
 status: shipped
 summary: >
-  `<ins>`/`<del>` are the right tags and authors write them by hand, but a listener hears the old
-  wording and the new wording run together with nothing marking which is which. Measured in
-  Chromium's accessibility tree — the thing a screen reader consumes — the elements DO expose roles
-  `insertion`/`deletion`, so the semantics are present; what is missing is text a reader announces
-  without role support switched on. The obvious fix, a visually-hidden `::before`/`::after` pair, is
-  the pattern the accessibility literature recommends and it SHIPS A VISIBLE DEFECT here: a
-  pseudo-element makes the inline box open on the previous line, and that empty first fragment still
-  paints redline's wash across `<ins>`'s horizontal padding — a 2.7px colored sliver hanging off the
-  line end, 28,135 changed pixels, plainly visible at 4x. Every way of hiding the pseudo produces it
-  identically (absolute, fixed, zero-size, float, `content: '' / 'alt'`), because the cause is the
-  fragment, not the hiding; `box-decoration-break: clone` cuts it to 651px but is itself an
-  87,857px redesign of the wash. A SIBLING span sits outside the padded box, has nothing to paint,
-  and measures 0 changed pixels with the reading order coming out correct. So the labels are a
-  registry transformer (`lib/transformers/tracked-changes.js`) rather than four lines of CSS.
+  DO NOT add screen-reader labels to `<ins>`/`<del>`. This note records a feature that was built,
+  measured, and then REMOVED before merge, because the premise it rested on is false. The premise
+  was "screen readers mostly do not announce these elements by default." Orca — installed here, on a
+  real AT-SPI2 bus, with real Chromium publishing `content deletion` / `content insertion` roles —
+  announces them by default with the EXACT words the labels added: `messages.py` defines
+  CONTENT_DELETION_START = "deletion start" and `formatting.py` gives the role the default format
+  `deletionStart + pause + displayedText + pause + deletionEnd`. So the labels produced "deletion
+  start, deletion start, collects, deletion end, deletion end" — and worse, Orca suppresses its OWN
+  announcement under the `onlySpeakDisplayedText` setting while literal DOM text survives it, so the
+  feature overrode the preference of the one user who had explicitly asked for less of it. Two
+  things do ship: the CSS pseudo-element trap found on the way (a `::before` on a padded inline
+  paints a visible sliver), and a contrast-walker fix for screen-reader-only text, which turned out
+  to be a PRE-EXISTING false positive affecting `.cell-sr-label` and `.lattice-description`.
 ---
 
-# Tracked changes have to say where they start and stop — and it cannot be done in CSS
+# Don't label `<ins>`/`<del>` — the screen reader already does, and better
 
-**Date:** 2026-08-26 · **Status:** shipped
+**Date:** 2026-08-26 · **Status:** feature removed before merge; the findings ship
 **Trigger:** the owner's question — *"our goal is to leverage best practices and we want to use html
 tags that is accessibility friendly so readers can read. it seems to me `<ins>`/`<del>` and figure
 are right approach but i could be wrong. authors also author `<ins>`/`<del>` right?"*
 
-## 1. The premise checks out, and so does most of the current state
+## 1. The premise checks out — the diagnosis did not
 
 **Authors do write them by hand.** `redline.docs.md` documents
 `<del>old wording</del> <ins>new wording</ins>` as the component's contract, and Markdown has no
-insertion syntax, so raw HTML is the only way to write one. `~~text~~` renders `<s>`, which redline
-styles identically to `<del>`.
+insertion syntax, so raw HTML is the only way to write one.
 
-**`<figure>`/`<figcaption>` is already right** where it applies — `video.transform.js:105` emits a
-real `<figure>` with an optional `<figcaption>`, and the chart family is careful in a way that is
-worth not disturbing: `radar.transform.js:499` documents why a decorative radar is `aria-hidden`
-while a small-multiples mini is `role="img"` with an accessible name, because moving its caption
-inside an aria-hidden `<svg>` had taken four option names out of the tree with nothing left to read.
+**`<figure>`/`<figcaption>` is already right.** `video.transform.js:105` emits a real one, and the
+chart family is careful in a way worth not disturbing: `radar.transform.js:499` documents why a
+decorative radar is `aria-hidden` while a small-multiples mini is `role="img"` with a name.
 
-**The visual distinction is not color-alone.** `redline.styles.css` gives `<ins>` an underline plus
-`--pass` plus a tinted band, and `<del>` a line-through plus `--fail` plus a band. WCAG 1.4.1 holds
-for a reader who cannot perceive the hues, and it holds unstyled too, on browser defaults.
+**The visual distinction is not color-alone** — underline vs line-through plus hue plus a tinted
+band, so WCAG 1.4.1 holds without color perception, and holds unstyled on browser defaults too.
 
-**`compare-code`'s column labels are real DOM text** (`<p><code>Before…</code></p>`), so a listener
-already hears them. There was no gap there.
+**`compare-code`'s column labels are already real DOM text.** No gap there.
 
-## 2. The gap, measured rather than asserted
+What looked like the gap was announcement. Read out, a redline blockquote is *"shall provide two or
+more at least one designated method"* — that is `pdftotext` on the shipped PDF, not a hypothesis. So
+a boundary label seemed obviously right, and it was built: a transform putting a visually-hidden
+`<span>` either side of every tracked change, 0 changed pixels, correct reading order.
 
-The gap is announcement. Read out, a redline blockquote becomes:
+## 2. What the evidence axis was actually hiding
 
-> "A business that collects collects, sells, or shares consumers' personal information shall provide
-> two or more at least one designated method…"
+The pre-merge card graded evidence `medium` because the core claim rested on a proxy — Chromium's
+CDP accessibility tree — and no screen reader had been driven. Closing that gap is what found the
+defect.
 
-— the amendment and the text it replaces, run together, with nothing marking the boundary. That is
-`pdftotext` on the shipped gallery PDF, not a hypothetical.
+Installed Orca 46 with `at-spi2-core`, `speech-dispatcher` and `espeak-ng`, brought up Xvfb, a
+session D-Bus and the AT-SPI registry, and launched real Chromium with `--force-renderer-accessibility`
+onto that bus. The tree comes back with `content deletion` × 19 and `content insertion` × 25 — the
+roles are live at the OS layer, not just inside Chromium. Orca attaches, logs
+`SPEECH OUTPUT: 'Screen reader on.'`, and reads the page title.
 
-Chromium's accessibility tree, read over the real rendered artifact via CDP `Accessibility.getFullAXTree`:
+Orca's keyboard layer will not drive SayAll headless, so the decisive evidence is its source:
 
-| what | result |
-|---|---|
-| `<ins>` / `<del>` roles | `insertion` / `deletion`, 26 and 20 of them, present |
-| generated content in the tree | yes — `::before`/`::after` text appears as real `StaticText` |
-| clipped generated content | still present (the clip does not remove it) |
+```python
+# orca/messages.py
+CONTENT_DELETION_START  = C_("content", "deletion start")
+CONTENT_DELETION_END    = C_("content", "deletion end")
+CONTENT_INSERTION_START = C_("content", "insertion start")
+CONTENT_INSERTION_END   = C_("content", "insertion end")
 
-So the semantics ARE exposed. What role support does not give you is spoken output by default, and
-that is what the labels add.
-
-**UNVERIFIED, and stated as such (HARD RULE #23):** no screen reader is reachable from this sandbox.
-Every claim above is about the accessibility tree — what a reader consumes — never about any
-particular reader's spoken output.
-
-## 3. The CSS answer is the recommended one and it is wrong here
-
-A visually-hidden `::before`/`::after` pair on `ins`/`del` is the standard pattern. It was built
-that way first. It produces a **visible colored sliver** at the end of any line an `<ins>` wraps
-from, and the continuation line loses its left inset.
-
-The mechanism, from measuring the inline fragments rather than guessing:
-
-```
-without labels   INS "direct the bus…"   100.0+376.6@347.7
-with labels      INS "direct the bus…"   1168.5+2.7@311.4   100.0+374.0@347.7
-                                         ^^^^^^^^^^^^^^^^ an EMPTY fragment on the previous line
+# orca/formatting.py — the DEFAULT format for the role
+'ROLE_CONTENT_DELETION':  {'unfocused': 'deletionStart + pause + displayedText + pause + deletionEnd'},
+'ROLE_CONTENT_INSERTION': {'unfocused': 'insertionStart + pause + displayedText + pause + insertionEnd'},
 ```
 
-The pseudo-element makes the inline box open where the pseudo fits — the end of the previous line,
-since it is zero-width. With the default `box-decoration-break: slice`, that empty fragment still
-paints the element's background across its horizontal padding (`0 0.234375cqi` ≈ 2.7px), and it
-consumes the "first fragment" that would otherwise have given the real text its left inset.
+`speech_generator.py:385` emits `CONTENT_DELETION_START` for the role, gated only by
+`onlySpeakDisplayedText` — a non-default setting whose whole purpose is suppressing exactly this
+chatter.
 
-Every hiding technique was measured against the rendered pixels, not the rect list:
+So the labels did this:
 
-| hiding technique | changed pixels | labels in a11y tree |
-|---|---|---|
-| `position: absolute` + clip | 28,135 | 9 |
-| `position: absolute`, explicit offsets, positioned host | 28,135 | 9 |
-| `position: fixed`, off-viewport | 28,135 | 9 |
-| `position: absolute`, zero size | 28,135 | 9 |
-| `float` + absolute | 28,135 | 9 |
-| `content: '' / ' [insertion start] '` (renders nothing at all) | 28,135 | 9 |
+```
+what Orca says with them:   "deletion start"  "deletion start"  collects  "deletion end"  "deletion end"
+what Orca says without them:                  "deletion start"  collects  "deletion end"
+```
 
-They are identical because **the cause is the fragment, not the hiding.** Nor does the wash
-treatment rescue it:
+## 3. Why this is a removal and not a tuning
 
-| wash treatment | labels cost | its own cost vs today |
-|---|---|---|
-| today (`slice` + padding) | 28,135 px | — |
-| `box-decoration-break: clone` | 651 px | 87,857 px |
-| `clone` + `background-clip: content-box` | 651 px | 89,245 px |
-| no horizontal padding | 28,247 px | 117,066 px |
+Duplication alone would be a nuisance. Two things make it a defect:
 
-`clone` is a 43× improvement on the label cost — the continuation line keeps its inset — and it is
-still a sliver, bought with a redesign of the wash nobody asked for.
+- **The premise was never true.** The feature existed to fill a gap that the one screen reader
+  reachable from here does not have. Nothing was measured before building; the justification was
+  documented element behavior, which the pre-merge card correctly flagged as a proxy.
+- **It overrides a user preference, permanently.** A reader who sets `onlySpeakDisplayedText` has
+  explicitly asked not to hear this. Orca honors that for its own announcement. Literal DOM text
+  cannot be honored — it is indistinguishable from the clause. The feature is least welcome for the
+  user who most clearly opted out, and they have no recourse.
 
-## 4. What shipped
+NVDA, JAWS and VoiceOver were not reachable and are NOT claimed either way. That is the point: an
+always-on, unsuppressable workaround is the wrong default to carry for an unverified gap, especially
+with a measured regression against it.
 
-A **sibling span** either side of the element. It sits outside the padded box, carries no padding
-and no background, and therefore has nothing to paint:
+**The elements are the right answer on their own.** `<ins>` and `<del>` carry the semantics, expose
+the roles, and leave the announcement under the reader's control. A reader that ignores them is that
+reader's bug, and duplicating text in every deck on every surface is not the place to fix it.
 
-- **0 changed pixels** across the redline gallery and the two-slide probe, on both slides.
-- Reading order comes out
-  `"A business that " → "[deletion start]" → "collects" → "[deletion end]" → "[insertion start]" →
-  "collects, sells, or shares" → "[insertion end]" → " consumers' personal information…"`.
-- **0 occurrences in the PDF's extractable text** — the labels are clipped, so they are never
-  painted and copying a verbatim clause is unaffected.
-- Verified on the runtime path too (`dist/lattice-runtime.js` loaded into a real page): 4 edges,
-  correct labels, each clipped to nothing.
+## 4. What ships from the work
 
-That requires a transform, so it is a registry transformer with the usual two forms —
-`lib/transformers/tracked-changes.js`, string kernel for `lib/engine` and DOM walk for
-`lattice-runtime`. It runs last: it is purely additive inline markup, and every structural transform
-above should decide about trailing elements and label paragraphs on unadorned content.
+- **A CSS trap worth never rediscovering** (`engineering/gotchas/css.md`). A `::before`/`::after` on
+  an inline element that has horizontal padding and a painted background makes the inline box open on
+  the previous line; that empty first fragment still paints the wash, leaving a visible ~2.7px colored
+  sliver and stealing the continuation line's inset. 28,135 changed pixels on the redline gallery, and
+  every hiding technique produces it identically — absolute, fixed, zero-size, float, and
+  `content: '' / 'alt'`, which renders nothing at all. `box-decoration-break: clone` cuts it to 651px
+  and is itself an 87,857px redesign of the wash. The cause is the fragment, not the hiding.
+- **A contrast-walker fix that was never about this feature.** `tools/check-slide-contrast.js` skipped
+  only `display:none` and `visibility:hidden`, so the house screen-reader-only idiom — a 1×1 box with
+  `overflow:hidden` and a zero-area clip — was scored as ink that never gets drawn. That is a
+  PRE-EXISTING false positive on `.cell-sr-label` (matrix-grid) and `.lattice-description` (the
+  player), in the same class as the SVG `<desc>`/`<style>` exclusion the file already carries.
+- **The redline manifest fix**, below.
 
-`<s>` is included **only inside redline**, because `<s>` means "no longer accurate", which is not the
-same claim as "deleted". redline is the one component that redefines it, and the label follows that
-promise exactly as far as it is made.
+## 5. A real defect the reading order surfaced
 
-## 5. A defect found on the way, and fixed
+`redline`'s own manifest description carried `<ins>/<del>` unescaped, so the engine parsed them as
+live elements. The gallery cover rendered *"verbatim language with inline / tracking the amendment"* —
+the words "ins" and "del" eaten, and the remainder of the sentence underlined AND struck through, i.e.
+displayed as a live tracked change on the summary line of the component about tracked changes. Every
+other component backticks a tag it mentions; redline was the outlier. Fixed at the manifest, which
+regenerates the docs, the gallery and the VS Code snippet. CI's golden-diff confirms it is the only
+slide in the corpus whose pixels move.
 
-The redline manifest's own description said ``inline <ins>/<del> tracking the amendment`` with the
-tags unescaped, so the engine parsed them as live empty elements and the gallery cover rendered
-"verbatim language with inline / tracking the amendment" — the words "ins" and "del" eaten out of
-the sentence. Every other component's docs backtick a tag they mention; redline was the outlier.
-Backticked at the manifest, which regenerates `redline.docs.md`, `redline.gallery.md` and the VS Code
-snippet.
+It had been invisible in review for as long as nobody read the slide aloud. **Printing a rendered
+slide's accessibility tree in reading order is a cheap check that finds a class of content bug the
+eye does not** — two empty tracked-change elements announcing boundaries around nothing.
 
-It is worth recording *how* it surfaced: it was invisible in the prose and in the rendered PDF for as
-long as nobody read the slide out loud, and it turned up the moment the accessibility tree was
-printed in reading order, because two empty tracked-change elements announced boundaries around
-nothing. Printing the reading order is a cheap check that finds a class of content bug the eye does
-not.
+## 6. The lessons
 
-## 6. The lesson worth more than the feature
+**An accessibility feature needs an accessibility measurement, not a plausible mechanism.** Every
+gate was green, the reading order was correct, the pixel cost was zero, and the feature was still
+wrong — because none of those things asks whether a screen reader was already doing the job.
 
-The recommended pattern for a problem is not automatically the right pattern for YOUR instance of it.
-The `::before`/`::after` technique is correct and widely cited — for unstyled prose. Applied to a
-padded, washed inline chip it is a defect generator, and no amount of care about *how* the pseudo is
-hidden helps, because the hiding was never the issue.
+**"The recommended pattern" is a claim about a typical instance, not yours.** The visually-hidden
+`::before`/`::after` technique is correct and widely cited for unstyled prose. On a padded, washed
+inline chip it is a defect generator.
 
-What caught it was rendering the artifact and diffing the pixels. What nearly let it through was a
-`getBoundingClientRect()` check that came back identical — the union box does not change, only the
-fragment list does. **When the question is "did this change what a person sees", measure the pixels;
-a geometry probe answers a different question and answers it reassuringly.**
+**A confidence card that names a proxy is naming the thing to go check.** The card graded evidence
+`medium` on exactly this axis. Going and closing it — rather than arguing the level up — is what
+turned a shipped regression into a decision note.

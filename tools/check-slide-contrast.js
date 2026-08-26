@@ -542,8 +542,8 @@ const PROBE = () => {
       // SCREEN-READER-ONLY TEXT NEVER PAINTS, and scoring it invents a run.
       // The house idiom for "in the accessibility tree, not on the slide" is a
       // 1x1 box with `overflow:hidden` and a clip that leaves zero area —
-      // `.cell-sr-label` (matrix-grid), `.lat-change-edge` (tracked changes),
-      // `.lattice-description` (the player). None of them is `display:none` or
+      // `.cell-sr-label` (matrix-grid) and `.lattice-description` (the player).
+      // Neither of them is `display:none` or
       // `visibility:hidden`, because either would take the text back out of the
       // accessibility tree, which is the whole point of the idiom. So they walk
       // straight past the two guards above and get scored against whatever

@@ -99,10 +99,6 @@ const distFontsDir = join(repoRoot, 'dist', 'fonts');
 for (const { file } of TEXT_FACES) {
   assets.push([`themes/fonts/${file}.woff2`, join(distFontsDir, `${file}.woff2`)]);
 }
-// Component sample images referenced by manifest `sample` decks — e.g. the image
-// component's `![bg](sample-image-landscape.svg)`. Staged under samples/ so the
-// playground preview can load them; the component render passes this base as
-// `{ baseUrl }` to the engine, which resolves the deck-relative path against it.
 // On-demand highlight.js grammars — one file per language the engine bundle's
 // 36-language `common` build does NOT carry, plus the alias manifest
 // (tools/build-hljs-languages.js). Staged into the same hashed dir as the engine
@@ -116,6 +112,10 @@ if (existsSync(hljsDir)) {
   }
 }
 
+// Component sample images referenced by manifest `sample` decks — e.g. the image
+// component's `![bg](sample-image-landscape.svg)`. Staged under samples/ so the
+// playground preview can load them; the component render passes this base as
+// `{ baseUrl }` to the engine, which resolves the deck-relative path against it.
 const imageSamplesDir = join(repoRoot, 'lib', 'components', 'imagery', 'image');
 for (const file of readdirSync(imageSamplesDir)) {
   if (file.endsWith('.svg')) assets.push([`samples/${file}`, join(imageSamplesDir, file)]);

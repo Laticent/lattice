@@ -142,9 +142,13 @@ function injectGrammar(url: string): Promise<boolean> {
 /**
  * Make sure every grammar `markdown` asks for is registered before it is rendered.
  *
- * Resolves to the canonical names newly registered — empty on the overwhelming
- * majority of decks, because js/ts/python/yaml/sql/bash are all in `common`, so
- * nothing is fetched and nothing is awaited beyond one synchronous check.
+ * Resolves to whatever the FINAL drain returns, which is normally `[]` even when
+ * grammars were fetched: each injection drains as it lands, so the last call finds
+ * the queue already empty. The return value exists for a caller that wants to log
+ * what arrived; nothing reads it today, and the useful signal is the side effect —
+ * `hljs` has the grammars registered by the time this resolves. On the overwhelming
+ * majority of decks nothing is fetched at all, because js/ts/python/yaml/sql/bash
+ * are all in `common`.
  *
  * NEVER REJECTS. A grammar that will not load leaves its fence in plain monospace,
  * which is exactly what happens today and is not worth failing a preview over.
@@ -175,11 +179,21 @@ export async function ensureFenceLanguages(markdown: string, base?: string | nul
 	// which is why the manifest exists at all: a grammar declares its aliases INSIDE
 	// the file, so without it the browser would have to fetch speculatively to find
 	// out whether the file it wants is the file it asked for.
+	// `own` rather than a bare index, because `tag` is a FENCE INFO STRING — author
+	// text. `manifest.languages['constructor']` is truthy on any plain object, so a
+	// ```constructor fence resolved to a truthy `entry` whose `.file` is undefined
+	// and injected `<script src=".../hljs/undefined">`: a 404 that fails the load,
+	// drops out of the in-flight map, and is therefore retried on EVERY render —
+	// once per debounced keystroke in the Studio. Same for `__proto__`, `toString`,
+	// `valueOf`, `hasOwnProperty`. `hljs.getLanguage()` itself is safe on all five.
+	const own = (o: Record<string, unknown>, k: string) => Object.hasOwn(o, k);
 	const files = new Set<string>();
 	for (const tag of missing) {
-		const canonical = manifest.languages[tag] ? tag : manifest.aliases[tag];
-		const entry = canonical ? manifest.languages[canonical] : undefined;
-		if (entry) files.add(entry.file);
+		const canonical = own(manifest.languages, tag) ? tag
+			: own(manifest.aliases, tag) ? manifest.aliases[tag]
+			: undefined;
+		const entry = canonical && own(manifest.languages, canonical) ? manifest.languages[canonical] : undefined;
+		if (entry?.file) files.add(entry.file);
 	}
 	if (files.size === 0) return []; // genuinely not a highlight.js language
 

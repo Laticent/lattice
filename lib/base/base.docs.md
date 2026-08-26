@@ -1669,25 +1669,23 @@ literal HTML — and that is the right thing to write:
 ```
 
 `~~text~~` also works for a deletion (it renders `<s>`, which `redline` styles
-identically to `<del>`). There is no equivalent for an insertion.
+identically to `<del>`). There is no equivalent for an insertion, and `<s>`
+means "no longer accurate" rather than "deleted", so prefer `<del>` where the
+distinction matters.
 
-**You do not have to label them.** On every render path the engine wraps each
-`<ins>` and `<del>` in a pair of visually-hidden edge labels, so a listener hears
-`"A business that — deletion start — collects — deletion end — insertion start —
-collects, sells, or shares — insertion end — consumers' personal information…"`
-instead of the old wording and the new wording running together as one sentence.
-Nothing about the rendered slide changes, and the labels are clipped rather than
-drawn, so they stay out of a PDF's copied text — a verbatim clause copies
-verbatim.
+**Write the elements and stop there — do not add your own "deleted:" wording.**
+The tags carry the meaning: a browser exposes them as the `insertion` and
+`deletion` roles, and a screen reader announces the boundaries from that. Orca,
+for one, speaks "deletion start … deletion end" around the text by default, and
+lets a reader turn that off. Literal text saying the same thing is heard twice
+by anyone whose reader already announces it, and cannot be turned off by anyone
+who has asked for less. We built exactly that and removed it before it shipped —
+`engineering/decisions/2026-08-26-tracked-change-announcement.md` has the
+measurements.
 
-Two things follow for authors:
-
-- **Prefer `<del>` over `~~text~~` outside `redline`.** `<s>` means "no longer
-  accurate", which is not a deletion, so it is labeled only inside `redline` —
-  the one component that documents `~~text~~` as a tracked deletion.
-- **Mentioning a tag is not writing one.** Backtick a tag you are talking
-  ABOUT — `` `<ins>` `` — or the engine renders it as a live empty element and
-  the word disappears from your sentence.
+**Mentioning a tag is not writing one.** Backtick a tag you are talking ABOUT —
+`` `<ins>` `` — or the engine renders it as a live element and the word
+disappears from your sentence. This is a mistake the component's own docs made.
 
 The distinction is never carried by color alone: `<ins>` is underlined and
 `<del>` struck through, in addition to their hues, so both read without color

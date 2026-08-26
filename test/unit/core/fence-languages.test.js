@@ -74,9 +74,23 @@ describe('scanFences — the walk', () => {
     assert.deepEqual(out.map((f) => f.lang), ['rust']);
   });
 
-  test('up to three leading spaces still opens a fence, four does not', () => {
+  test('a DEEPLY INDENTED fence still counts — a list item legitimately has one', () => {
+    // This assertion used to read "four spaces does not open a fence", which is
+    // CommonMark's rule at the TOP LEVEL and the wrong rule for this kernel. Inside
+    // a list item the content is measured from the list marker, so
+    // `- item` + a 4-space-indented fence IS a fence and the engine renders it
+    // `class="language-powershell"` — while this walk returned nothing for it, so
+    // the Playground never fetched the grammar and the fence stayed monochrome
+    // there while the CLI colored it. That is precisely the cross-surface gap this
+    // kernel exists to close, and the old cap reopened it for one authoring shape.
+    // See the header of lib/core/fence-languages.js for why generous is correct
+    // here: a false positive costs one unused ~2 KB grammar fetch.
     assert.deepEqual(scanFences(deck(`   ${F}go`, 'x', `   ${F}`)).map((f) => f.lang), ['go']);
-    assert.deepEqual(scanFences(deck(`    ${F}go`, 'x', `    ${F}`)), []);
+    assert.deepEqual(scanFences(deck(`    ${F}go`, 'x', `    ${F}`)).map((f) => f.lang), ['go']);
+    assert.deepEqual(
+      scanFences(deck('- item', '', `    ${F}powershell`, '    Get-Item', `    ${F}`)).map((f) => f.lang),
+      ['powershell'],
+    );
   });
 
   test('an untagged fence reports an empty language', () => {

@@ -3,8 +3,8 @@ status: shipped
 summary: >
   The Studio's warm keystroke is the product promise and nothing held it. `bench:check` ratchets
   the ENGINE in Node; the edit→paint loop a person actually feels was measured only ad hoc. Measured
-  on the real built Studio at 4× CPU throttle: FRAME patch 1.1ms, TOTAL edit→paint 11.4ms, engine
-  RENDER 3.6ms, LCP ~1.5s. Those are now committed as `docs/scripts/frame-baseline.json` with
+  on the real built Studio at 4× CPU throttle: FRAME patch 1.3ms, TOTAL edit→paint 11.1ms, engine
+  RENDER 3.4ms, LCP ~1.5s. Those are now committed as `docs/scripts/frame-baseline.json` with
   `perf:frame:bless` / `perf:frame:check`. The gate needs TWO conditions to fail — the percentage
   band AND an absolute floor — because FRAME patch is ~1.1ms and 1.1→1.3ms is +18% and meaningless;
   proved both directions (a 2→11.3ms regression fails, a 1.2→1.3ms jitter does not). The measurement
@@ -44,9 +44,9 @@ and reads raw per-render samples from `window.__latticeRenderMetrics`. It had no
 
 | needle | measured | what it is |
 |---|---|---|
-| **FRAME patch** | **1.1 ms** | warm edit, body swap |
-| **TOTAL patch** | **11.4 ms** | whole edit→paint, warm |
-| **RENDER** | **3.6 ms** | engine Markdown→HTML |
+| **FRAME patch** | **1.3 ms** | warm edit, body swap |
+| **TOTAL patch** | **11.1 ms** | whole edit→paint, warm |
+| **RENDER** | **3.4 ms** | engine Markdown→HTML |
 | LCP | ~1.5 s | newcomer first paint |
 
 `FRAME write` / `TOTAL write` (the heavy rebuild regime) come back NaN in a headless sandbox that
@@ -61,8 +61,8 @@ both borrowed from `test/benchmark/baseline.json`'s design, plus one that is new
 
 - **Machine match** (borrowed). A browser number is not portable; timing gates only when the checking
   machine matches `blessedOn`, and prints without failing anywhere else.
-- **An absolute floor beside the percentage** (new, and load-bearing). FRAME patch is ~1.1 ms. A
-  1.1 → 1.3 ms move is +18% and completely meaningless. A metric must break **both** the 25% band
+- **An absolute floor beside the percentage** (new, and load-bearing). FRAME patch is ~1.3 ms. A
+  1.3 → 1.5 ms move is +18% and completely meaningless. A metric must break **both** the 25% band
   **and** its own floor to fail. Proved in both directions: a doctored 2 → 11.3 ms baseline fails
   (+465%, +9.3 ms, exit 1); a 1.2 → 1.3 ms jitter (+8%) does not.
 

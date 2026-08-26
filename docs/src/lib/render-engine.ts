@@ -85,9 +85,10 @@ export async function renderMarkdown(
 		const katexUrl = deriveKatexProviderUrl();
 		if (katexUrl) await ensureKatexProvider(katexUrl).catch(() => {});
 	}
-	// Synchronous and allocation-free on the common case: `missingLanguages` returns
-	// empty for any deck whose fences are all in `common`, and this returns before
-	// touching the network.
+	// Returns before touching the network on the common case: `missingLanguages` is
+	// empty for any deck whose fences are all in `common`. It is not allocation-free
+	// once a deck HAS a fence — `scanFences` splits the source and builds a Set — but
+	// a fence-less deck short-circuits on an `indexOf` before allocating anything.
 	await ensureFenceLanguages(rendered).catch(() => []);
 	return PG.render(rendered, theme, opts);
 }

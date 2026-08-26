@@ -3,7 +3,7 @@
  * transform-parity — does the DOM implementation of each registry transformer
  * produce the same document as its hand-written string twin?
  *
- * WHY IT EXISTS. Fifteen of the seventeen registry transformers carry TWO
+ * WHY IT EXISTS. Sixteen of the eighteen registry transformers carry TWO
  * implementations: `applyToHtml` rewrites a string for the engine, `applyToDom`
  * walks live nodes for the runtime. They agree by care, not by construction, and
  * that is how the compare-code trailing-blockquote defect ended up in both. The

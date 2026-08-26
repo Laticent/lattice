@@ -531,10 +531,12 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   default `box-decoration-break: slice` that empty fragment still paints the
   element's background across its horizontal padding, and it consumes the "first
   fragment" that would otherwise have given the real text its left inset.
-- **Mitigation:** put the content in a SIBLING element instead of a pseudo, so
-  it sits outside the padded box and has nothing to paint. That is why the
-  tracked-change edge labels are a transform (`lib/transformers/tracked-changes.js`)
-  rather than four lines of CSS; the sibling form measures 0 changed pixels.
+- **Mitigation:** put the content in a SIBLING element instead of a pseudo, so it
+  sits outside the padded box and has nothing to paint — measured at 0 changed
+  pixels on the same gallery where the pseudo form cost 28,135. Measured on
+  `<ins>`/`<del>` in `redline`, where the pseudo route was tried and abandoned
+  (`engineering/decisions/2026-08-26-tracked-change-announcement.md`); the sibling
+  needs a transform, so weigh that against what the content is worth.
 - **Not a mitigation:** every way of hiding the pseudo produces the sliver
   identically — `position: absolute`, `position: fixed`, zero size, `float`, and
   `content: '' / 'alt text'` (the alt-text form renders nothing at all and still

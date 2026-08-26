@@ -294,7 +294,7 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
-- ☑ [2026-08-26-tracked-change-announcement.md](2026-08-26-tracked-change-announcement.md) — `<ins>`/`<del>` are the right tags and authors write them by hand, but a listener hears the old wording and the new wording run together…
+- ☑ [2026-08-26-tracked-change-announcement.md](2026-08-26-tracked-change-announcement.md) — DO NOT add screen-reader labels to `<ins>`/`<del>`.
 - ☑ [2026-08-25-on-demand-fence-grammars.md](2026-08-25-on-demand-fence-grammars.md) — The 2026-07-19 preview-bundle work swapped highlight.js's full 192-language build for the 36-language `common` one and halved cold load.
 - ☑ [2026-08-25-status-trio-joint-solve-model.md](2026-08-25-status-trio-joint-solve-model.md) — The design model the joint re-solve brief asked for, with the answer measured rather than assumed — and it refutes the brief's own framing.
 - ☑ [2026-08-25-studio-edit-paint-budget.md](2026-08-25-studio-edit-paint-budget.md) — The Studio's warm keystroke is the product promise and nothing held it.
