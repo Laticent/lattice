@@ -63,14 +63,6 @@ section .cell-coda {
   /* Never grows into the stage's free space and never shrinks under pressure —
    * the band is content-height, and the body above it takes the slack. */
   flex: 0 0 auto;
-  /* FULL WIDTH is the band's whole shape, and a host that centers its children takes
-   * it away: a flex item under `align-items: center` shrink-wraps on the cross axis.
-   * `diagram` needed a per-component `align-self: stretch` for exactly this, and
-   * measuring the corpus found three more hosts with the same defect — `title`,
-   * `closing` and `divider` all rendered a 285px band in a 1152px section. Stretching
-   * by default fixes the class instead of the instances, and a layout that genuinely
-   * wants a shrink-wrapped band can still say so on its own rule. */
-  align-self: stretch;
   display: flex;
   flex-direction: column;
   /* Insight above, note below. The step BETWEEN them is smaller than the one that

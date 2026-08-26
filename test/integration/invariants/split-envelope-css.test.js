@@ -143,4 +143,26 @@ describe('split-envelope CSS outcomes (Form on, real cascade)', () => {
     assert.equal(got.fontSize, got.meta,
       `cards-grid em-only note computed ${got.fontSize}, expected ANNOTATION's --fs-meta (${got.meta})`);
   });
+
+  test('the note in the shape the SPLITTER emits — a .cell-coda BESIDE the stage — still reads compact', async () => {
+    // Every other slide in this fixture hand-authors the note as a direct `.cell-stage`
+    // child, which is the shape the splitter emitted BEFORE the coda Cell was peeled out
+    // to sit beside the stage. That shape can still occur (an author writing raw HTML), so
+    // those slides stay — but none of them exercises what `injectTrailing` actually
+    // produces today, and a fixture that has drifted from the render is what let the
+    // original coda regression ship (see the decision note, §8). This slide is that shape.
+    const got = await page.evaluate(() => {
+      const p = document.querySelector('section[data-lattice-slide="7"] > .cell-coda.lat-split-note > .below-note > p');
+      if (!p) return null;
+      const probe = document.createElement('span');
+      probe.style.fontSize = 'var(--fs-body-compact)';
+      p.parentElement.appendChild(probe);
+      const compact = getComputedStyle(probe).fontSize;
+      probe.remove();
+      return { fontSize: getComputedStyle(p).fontSize, compact };
+    });
+    assert.ok(got, 'split-shaped note <p> not found under > .cell-coda.lat-split-note');
+    assert.equal(got.fontSize, got.compact,
+      `split-shaped note computed ${got.fontSize}, expected --fs-body-compact ${got.compact} — the .cell-coda arm of the split-note rule is not reaching it`);
+  });
 });

@@ -22,7 +22,7 @@ const assert = require('node:assert/strict');
 const {
   splitEnvelope, balancedPerPage, readCover, readMasthead, splitRegions, topLevelElements,
   chromeOf, footerCell, stripChrome, partitionKeepingNote, injectTrailing, markNote, deriveAxis,
-  insightPageFrom,
+  insightPageFrom, trailingMaterialOf, existingNoteIn,
 } = require('../../../lib/core/split-envelope');
 const { dockInFooterCell } = require('../../../lib/core/footer-dock');
 const { evenGroups } = require('../../../lib/core/collections');
@@ -922,5 +922,64 @@ describe('core: the insight PAGE carries a two-beat coda without losing or break
     const page = insightPageFrom('<section data-lattice-slide="1" class="checklist form">', one);
     assert.match(page, /ONLY-INSIGHT/);
     assert.ok(balanced(page));
+  });
+});
+
+describe('split-envelope — EVERY arm that reaches the sibling coda Cell is pinned', () => {
+  // Five functions bound their scans by `extractStage`, and all five went blind when the
+  // frame peeled `.cell-coda` out of the stage to sit beside it. That defect shipped a Key
+  // Insight onto all six body pages of examples/split-envelope.md and lost a below-note.
+  //
+  // The fix was landed with only ONE of the five arms actually pinned: mutation-testing the
+  // other four — removing each sibling merge in turn — left the whole 7,295-test suite AND
+  // the integration tier green. An unpinned fix is one refactor away from being the same
+  // bug again, which is precisely how this one got here (a fixture that had drifted from
+  // the render certified the original break). Each test below was verified to FAIL with its
+  // arm removed.
+  const sib = ({ insight = '', note = '' } = {}) =>
+    '<div class="cell-masthead"><h2>T</h2></div>' +
+    '<div class="cell-stage"><ul><li>a</li><li>b</li><li>c</li><li>d</li></ul></div>' +
+    '<div class="cell-coda" data-dock="column">' +
+      (insight ? `<blockquote><p>${insight}</p></blockquote>` : '') +
+      (note ? `<div class="below-note"><p>${note}</p></div>` : '') +
+    '</div>';
+
+  test('trailingMaterialOf sees a coda Cell that is the stage\'s SIBLING', () => {
+    const got = trailingMaterialOf(sib({ insight: 'INSIGHT', note: 'NOTE' }));
+    assert.equal(got.insight.length, 1, 'insight not found beside the stage');
+    assert.equal(got.note.length, 1, 'note not found beside the stage');
+    assert.match(got.insight[0].outer, /INSIGHT/);
+    assert.match(got.note[0].outer, /NOTE/);
+  });
+
+  test('splitRegions merges the sibling cell into its trailing regions', () => {
+    const regions = splitRegions(sib({ insight: 'INSIGHT' }), 'item');
+    assert.ok(regions, 'no regions derived');
+    assert.equal(regions.insight.length, 1, 'the sibling insight was not merged in');
+  });
+
+  test('insightPageFrom carries the sibling cell onto the insight page', () => {
+    const page = insightPageFrom('<section class="checklist form">', sib({ insight: 'INSIGHT', note: 'NOTE' }));
+    assert.ok(page, 'no insight page built');
+    assert.match(page, /INSIGHT/, 'the insight did not reach its own page');
+    assert.doesNotMatch(page, /NOTE/, 'the co-resident note leaked onto the insight page');
+  });
+
+  test('injectTrailing seats a coda Cell BESIDE the stage, never inside it', () => {
+    const page = '<div class="cell-stage"><ul><li>a</li></ul></div>';
+    const cell = '<div class="cell-coda lat-split-note" data-dock="column"><div class="below-note"><p>N</p></div></div>';
+    const out = injectTrailing(page, cell);
+    assert.match(out, /<\/div><div class="cell-coda lat-split-note"/, 'cell was not seated after the stage');
+    const stage = out.slice(out.indexOf('<div class="cell-stage">'), out.indexOf('<div class="cell-coda'));
+    assert.ok(!stage.includes('cell-coda'), 'the stage swallowed the injected cell');
+  });
+
+  test('existingNoteIn finds a marked note riding in the sibling cell', () => {
+    const withNote =
+      '<div class="cell-stage"><ul><li>a</li></ul></div>' +
+      '<div class="cell-coda lat-split-note" data-dock="column"><div class="below-note"><p>N</p></div></div>';
+    const found = existingNoteIn(withNote);
+    assert.ok(found, 'a note already on the page was not found — the next pass would duplicate it');
+    assert.match(found.outer, /lat-split-note/);
   });
 });

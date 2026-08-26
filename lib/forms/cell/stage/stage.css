@@ -169,6 +169,20 @@ section.form > .cell-stage {
    * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
 }
 
+/* AN EMPTY STAGE MUST NOT GROW. The stage takes the slack so the frame's trailing
+ * band (`.cell-coda`, its sibling) lands on the floor — but on a slide whose WHOLE
+ * body is that band, the stage holds nothing and would still eat its share, flinging
+ * the one thing on the slide to the bottom under a third of blank canvas. Measured on
+ * a `content` slide whose entire body is a Key Insight: stage 303px tall with zero
+ * children, band driven from y=178 to y=497.
+ *
+ * `content` used to guard this with a second `:has()` on a pseudo-element spacer, back
+ * when the beats were stage children; that guard went inert when the cell moved out and
+ * the fling came back. It belongs here — it is a property of the stage, not of one
+ * component — and `:not(:has(> *))` rather than `:empty` so stray whitespace between
+ * tags cannot silently switch it off. */
+section.form > .cell-stage:not(:has(> *)) { flex: 0 0 auto; }
+
 /* ── FOOTER Cell — the frame's third chrome band (flex cell-tree §6) ──────────
  * The footer Cell MIRRORS the running <header>: an absolutely-positioned chrome
  * band in the SAME edge berth (left/right: --frame-inset-x) at the bottom inset

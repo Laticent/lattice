@@ -103,25 +103,16 @@ section.content :is(ul, ol) :is(ul, ol) > li { font-size:var(--fs-body-compact);
  * writing the DEFAULT explicitly rendered differently from writing nothing at all
  * (measured: 257px of dead space with `align-top`, 0px without).
  * See engineering/decisions/2026-08-02-default-slide-layout.md §1. */
-/* The trailing run, ordered last. Both rules require the stage to ALSO hold a
- * non-trailing child: on a slide whose whole body IS a quote and its attribution,
- * every child is "trailing", so the spacer would land before all of them and fling
- * the entire body to the floor under a third of a blank slide. Rendered, and it
- * reads as a failure rather than a composition. With no body to sit under, there
- * is no slack to place — leave the slide alone. */
-/* The `order: 1` rule that used to lead this pair is GONE, not lost: the trailing
- * run is now one `.cell-coda` cell that the coda kernel places at the end of the
- * body by construction (lib/core/coda.js), so there is no longer an ordering to
- * assert. What remains is the SPACER, which is a different decision — not how far
- * the band sits from the body (that is `--coda-step`, universal), but WHERE on the
- * slide it sits: on a prose slide the note drops to the stage floor rather than
- * trailing the paragraph. The selector is simply the cell now; enumerating
- * `.below-note` and `blockquote` as direct stage children stopped matching the
- * moment they moved into it. */
-section.content:where(:not(.align-middle):not(.align-bottom):not(.fill-center):not(.fill-anchor))
-  > .cell-stage:where(:has(> .cell-coda)):where(:has(> :not(.cell-coda)))::after {
-  content: ''; flex: 1 1 0; min-height: 0;
-}
+/* The SPACER that used to live here is GONE, and both halves of it are now
+ * structural rather than declared. It pushed the trailing band to the stage floor;
+ * the band is the stage's SIBLING now, so `.cell-stage { flex: 1 1 auto }` absorbs
+ * the slack and the band lands on the floor by construction, on every layout rather
+ * than on this one. And its second `:has(> :not(.cell-coda))` guard existed to stop
+ * a slide whose WHOLE body is the beat being flung under a third of a blank slide —
+ * that case is now handled where it belongs, by an empty stage refusing to grow
+ * (lib/forms/cell/stage/stage.css). Kept as a note rather than deleted silently: the
+ * rule was live and load-bearing, and it went inert the moment the cell moved. */
+
 
 /* Portrait / square (social) — cap the running-prose measure so lines don't
    sprawl the full width; the centred block reads composed. Display lines

@@ -319,20 +319,37 @@ universal block bound to an exact DOM position — reproduced one layer up by th
 it. Worth stating plainly: moving a universal cell is not a local edit, and the gate that would have
 caught it is a census of who addresses the cell, which does not exist.
 
-**Two dock declarations were wrong, and the arms were fragile to that.** `scene` declared nothing and
-so took `column` while computing as a GRID (band 439px in a 1280px section); `video` declares `row`
-while its BASE variant computes as a column (band 523px), because one manifest value cannot describe
-a per-variant structure. `scene`'s declaration is corrected. `video`'s is not — `row` is right for its
-`.companion` variant and forces the wrap that variant needs — so instead both arms were made
-axis-agnostic (`width: 100%` rather than `flex-basis: 100%`, `justify-self: stretch` beside
-`grid-column: 1 / -1`). A mis-declaration now costs nothing, which is insurance, not a defense of the
-axis.
+**Two dock declarations disagree with what their layouts compute, and NEITHER is fixable by
+declaring harder.** `scene` computes as a GRID on its clean composition and a flex COLUMN on its
+gallery one; `video` computes as a flex ROW on `.companion` and a column on its base variant. One
+manifest value cannot describe a per-variant structure — the axis simply does not have the
+resolution.
 
-**And the band was not full-width on four layouts.** `diagram` had carried a per-component
-`align-self: stretch` since the cell landed; measuring the corpus found `title`, `closing` and
-`divider` with the same defect (285px bands), all from a host that centers its children. Stretching
-by default fixed the class and made diagram's rule redundant. All 51 bands now span full width — a
-property nothing had measured before the trio asked.
+I tried declaring `scene` as `grid` anyway. It fixed the clean composition (439px band → full
+width) and BROKE the gallery one, whose band went from a centered pill to left-aligned, because the
+grid arm's `align-self: start` means *vertical placement* in a grid and *width* in a flex column.
+That is the identical hazard this section documents for `video`, reintroduced by the fix for it.
+Reverted: `scene` takes the column default, its clean composition keeps a narrower band than it
+could have, and that is a pre-existing shape rather than a regression (on `main` the beat renders
+as unstyled body text — `scene` is one of the eight broken layouts).
+
+What DID survive is making the arms axis-agnostic — `width: 100%` rather than `flex-basis: 100%`,
+`justify-self: stretch` beside `grid-column: 1 / -1` — which is why `video`'s wrong declaration
+costs nothing today. That is insurance, not a defense of the axis, and the axis remains the open
+question this note flagged from the start.
+
+**And I mistook a design for a defect.** `diagram` had carried a per-component
+`align-self: stretch` since the cell landed; sweeping the corpus found `title`, `closing` and
+`divider` with narrow bands too, so I made stretch the cell's default and deleted diagram's rule.
+That was wrong, and a second checker caught it: those three layouts keep a CAPPED, CENTERED
+measure by design, and a global stretch turned `closing`'s centered pill into a full-width band
+with its text optically off-center (251.59px centered → 1152px at left 64). I had reasoned from
+this file's own phrase "a full-width band beneath the body" to "not full width is a defect",
+without rendering the three slides. Reverted; diagram's per-component rule is back, with a comment
+saying why it stays per-component.
+
+The corrected numbers: **47 of 51 bands span full width**; `title`, `closing` and `divider`
+shrink-wrap by design, and `scene` varies by composition.
 
 **The honest summary of the tier's value:** the machine gates were green — 7,282 unit tests, lint,
 `build:check`, and an overflow ratchet identical to baseline — while the export lost content. Every
