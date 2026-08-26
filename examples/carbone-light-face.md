@@ -44,7 +44,7 @@ The graphite deck now has a light counterpart — the same identity, solved for 
 
 - [x] Pass, warn and fail inks sit at OKLCH L 0.29–0.55 — AA on a self-tinted band and twelve frozen CVD ratchets pin them there
 - [x] Derived at 18%, a near-black ink over a light card measured chroma **0.0178** — very nearly achromatic
-- [x] Curating the source lifts it to **0.0661**, and the ink-on-band contrast improves 5.78 → 7.04
+- [x] Curating the source lifts it to **0.0661**, and the ink-on-band contrast improves from 5.78 to 7.04
 - [-] Warn sits at the 3:1 graphical floor rather than AA; its pills were already sanctioned on both faces
 - [ ] The tightest clearing CVD margin is +0.0126, at pass^warn under achromatopsia
 
