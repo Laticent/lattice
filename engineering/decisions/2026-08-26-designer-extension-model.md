@@ -38,10 +38,23 @@ tags: [cli, theming, css, cascade, extensibility, designer, export]
 
 #1804 changed one line in `lattice-emulator.js`: the export bundle went from
 `paletteCSS + layoutCSS` to `layoutCSS + paletteCSS`. That was correct and overdue.
-Four other sites already composed engine-first — `composeCss` in `lib/engine/css.js`,
-`engine.addThemes`, the Mermaid var reader in the emulator itself, and marp-cli's
-native `@import` resolution in the kit — so the export was the odd one out, and a deck
-looked one way in the Playground and another in the PDF it exported.
+Four other sites already composed engine-first, and each was read directly for this
+note rather than taken from #1804's description:
+
+| Site | Mechanism | Base lands |
+|---|---|---|
+| `composeCss`, `lib/engine/css.js:481` | splices the base **at the theme's own `@import 'lattice'` position** (`themeCss.replace(THEME_IMPORT_RE, () => base)`) | first |
+| `ThemeStore.resolveThemeImports` / `cssFor`, `lib/engine/themes.js:162`, `:196` | resolves theme-name imports including `'lattice'` against the registered base, then hands to `composeCss` | first |
+| the Mermaid var reader, `lattice-emulator.js:1131` | `parsePaletteVars(layoutCSS + '\n' + paletteCSS)` | first |
+| the Marp kit, `dist/marp-kit/*.css` | themes ship a literal `@import 'lattice';`, resolved natively by marp-cli | first |
+
+So the export was the odd one out, and a deck looked one way in the Playground and
+another in the PDF it exported.
+
+**Three of the four splice rather than concatenate**, and that distinction matters for
+§5: the base is inlined *at the position the theme's own import declares*, not prepended
+to it. A composition kernel therefore cannot be a two-term concatenation — it has to
+resolve the theme chain first and place caller overlays after the resolved result.
 
 `layoutCSS`, though, carries two meanings. It is the **engine bundle** when the CLI
 resolves the default, and it is the **caller's own sheet** when someone passes `--css`
@@ -182,8 +195,11 @@ caller overlays in the order given. Two obligations come with it.
 
 1. The order is stated **once**, in a shared composition kernel that every site calls, not
    re-derived per site (HARD RULE #1). The flip is the proof this matters: five sites, four
-   agreeing by inspection and one wrong for long enough that curated `--hljs-*` values had
-   never once reached an export.
+   agreeing and one wrong for long enough that curated `--hljs-*` values had never once
+   reached an export. Per §1 the kernel's shape is constrained: three of the four correct
+   sites *splice* the base at the theme's declared `@import` position, so the kernel resolves
+   the theme chain to a single sheet and then appends caller overlays — it is not a flat
+   concatenation of engine, theme and overlay.
 2. It is pinned by a test on the **computed** value in a real browser, not on the
    concatenation expression. A test that asserts the string order re-passes the moment
    someone adds a sixth input.
