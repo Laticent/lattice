@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: A user reported that two shipped teaching decks scored C+ from the Studio Coach and asked whether the rubric leans too hard on presentation best practices. Measured across the committed corpus they were the joint LOWEST scores in the repository, with zero lint findings and zero craft findings against them. Decomposing the grade found the five-category scorecard was one variable wearing five hats — Clarity carried ~85% of the real variance against a 28.6% nominal weight, while Pacing (0.1%) held 19.0% of the weight and graded nothing — Contract's own 0.0% turned out to be a sampling artifact of a corpus `lint:deck:all --strict` gates clean, and it discriminates on the drafts the Coach actually scores (measured live: 93 and 72 against 100), so §2's original "47.6%" headline was corrected before merge — and the dominant rule deducted 12 UNCAPPED points per dense slide, so nine of them took 108 points off a 100-point category and any long-enough deck could floor it. What shipped is (1) the grade SPLIT into Craft (conformance + craft rules, genre-blind, the same bar for every deck) and Style (prose budgets, ask, agenda, measured against a named profile and always reported with it), and (2) THREE DECLARED-ONLY profiles — `general` (the default, byte-for-byte the pre-profiles universal bar, pinned by test), `teaching` (density relief only) and `mission` (heading relief only), each relieved on the one axis its family measurably misses. Penalties are bounded and saturating in the finding COUNT with no deck-length denominator. This record is also the account of a design that had to be partly REVERSED before merge: the first cut inferred a genre from component vocabulary and set the default profile LOOSER than the bar it replaced, which inverted the scorer — a 2,332-word padded deck with no ask scored Style 100 "no issues found" while a tight 395-word argued deck scored 87, an ordering the old single grade got right. The full adversarial trio (HARD RULE #25) found that plus a stale accuracy figure quoted after the rule it measured had changed, a calibration using a different word counter than the rule it calibrated, two documented behaviors that were never implemented, seven review-core rules left with zero test coverage, and a rename verified in docs/src but not docs/e2e — every one of them live while all gates were green. Inference was removed outright after measuring that it fired on 46 decks, made 40 WORSE than abstaining and 0 better. wink-nlp was evaluated for the craft signals and rejected: its POS tagger mis-tags denominal verbs as nouns at ~0% on corporate headings but 33% on nonprofit and 42% on academic ones, so it would have imported a second genre bias pointing the same way as the first, for 1.03 MB gzipped against a 43 KB bundle.
+summary: A user reported that two shipped teaching decks scored C+ from the Studio Coach and asked whether the rubric leans too hard on presentation best practices. Measured across the committed corpus they were the joint LOWEST scores in the repository, with zero lint findings and zero craft findings against them. Decomposing the grade found the five-category scorecard was one variable wearing five hats — Clarity carried ~85% of the real variance against a 28.6% nominal weight, while Pacing (0.1%) and Contract (0.0%) held 47.6% of the weight and read 100 on every committed deck. That inflation is real, but the inference originally drawn from it — that the weight graded nothing — holds for NEITHER row and was corrected before merge: Contract's zero is a sampling artifact of a corpus `lint:deck:all --strict` gates lint-clean, and it discriminates on the drafts the Coach actually scores (pinned through the real linter at 93 for a half-typed class name and 71 for an unterminated comment against 100 clean), while Pacing's zero is an input-availability artifact — `length-vs-time` fires only on `talkMinutes`, which no caller supplies to the scored review on any surface, so shipping it as `na` is the right answer to missing input rather than a verdict on the category — and the dominant rule deducted 12 UNCAPPED points per dense slide, so nine of them took 108 points off a 100-point category and any long-enough deck could floor it. What shipped is (1) the grade SPLIT into Craft (conformance + craft rules, genre-blind, the same bar for every deck) and Style (prose budgets, ask, agenda, measured against a named profile and always reported with it), and (2) THREE DECLARED-ONLY profiles — `general` (the default, byte-for-byte the pre-profiles universal bar, pinned by test), `teaching` (density relief, and the only profile that stops GRADING a rule — `no-ask` and `agenda-missing` become advice-only for a lesson) and `mission` (heading relief only), each relieved on the one axis its family measurably misses. Penalties are bounded and saturating in the finding COUNT with no deck-length denominator. This record is also the account of a design that had to be partly REVERSED before merge: the first cut inferred a genre from component vocabulary and set the default profile LOOSER than the bar it replaced, which inverted the scorer — a 2,332-word padded deck with no ask scored Style 100 "no issues found" while a tight 395-word argued deck scored 87, an ordering the old single grade got right. The full adversarial trio (HARD RULE #25) found that plus a stale accuracy figure quoted after the rule it measured had changed, a calibration using a different word counter than the rule it calibrated, two documented behaviors that were never implemented, seven review-core rules left with zero test coverage, and a rename verified in docs/src but not docs/e2e — every one of them live while all gates were green. Inference was removed outright after measuring that it fired on 46 decks, made 40 WORSE than abstaining and 0 better. wink-nlp was evaluated for the craft signals and rejected: its POS tagger mis-tags denominal verbs as nouns at ~0% on corporate headings but 33% on nonprofit and 42% on academic ones, so it would have imported a second genre bias pointing the same way as the first, for 1.03 MB gzipped against a 43 KB bundle.
 ---
 
 # Deck profiles, and splitting the grade into Craft and Style
@@ -25,10 +25,12 @@ will an NGO deck I write tomorrow score badly too?*
 Both decks scored **64, C+**. Across the corpus that was the **joint lowest score in the repository**.
 
 *(Corpus note, since every number below rests on it: `examples/` + `exemplars/` holds
-**198** committed decks; **197** carry a `_class` directive and are therefore scorable.
-`examples/speech-symbols.md` is the one that does not. Earlier drafts of this record said
-"197 committed decks", which understated the corpus by one — the scored population is 197,
-the corpus is 198.)* Their
+**199** non-README decks; **198** carry a `_class` directive and are therefore scorable.
+`examples/speech-symbols.md` is the one that does not. This note has now been wrong twice
+— it first said "197 committed decks", was corrected to 198/197, and a checker re-counted
+it at 199/198 (202 `.md` files, 3 of them READMEs). Every population figure in this record
+is **198 scorable**; where an earlier figure read 197 it has been re-derived, not
+rescaled.)* Their
 category read said where it came from:
 
 | | Structure | Clarity | Data | Pacing | Contract |
@@ -52,53 +54,108 @@ weight the config assigns it:
 | Pacing | 19.0% | 0.1% |
 | Contract | 28.6% | 0.0% |
 
-Pacing read 100 on 196 of the 197 scorable decks; Contract on all 197.
+Pacing read 100 on 197 of the 198 scorable decks; Contract on all 198.
 
-**The Contract row does not mean what this record originally said it meant, and the
-correction matters enough to lead with.** An earlier cut of this section added the
-bottom two rows together and called it "47.6% of the weight graded nothing". That
-is right about Pacing and wrong about Contract, and the reason is a sampling
-artifact this record itself flagged and then failed to act on — it noted that
-Contract "is 100 everywhere partly because `lint:deck:all --strict` runs in CI"
-and that "on a mentee's in-progress draft it would vary", called it a caveat, and
-kept the 47.6% headline anyway. The caveat was the finding. It is now measured:
+**Neither of those two zeroes means what this record originally said it meant, and
+the correction matters enough to lead with.** An earlier cut of this section added
+the bottom two rows together and called it "47.6% of the weight graded nothing".
+The *observation* is true and is the mechanism that lifted every grade toward A−:
+47.6% of the weight was pinned at 100 on this corpus. The *inference* — that the
+weight was therefore worthless — does not follow for either row, and this record
+had already half-seen it: it noted that Contract "is 100 everywhere partly because
+`lint:deck:all --strict` runs in CI" and that "on a mentee's in-progress draft it
+would vary", called that a caveat, and kept the headline anyway. The caveat was
+the finding. Both rows are now measured rather than inferred.
 
-- **Contract's input is gated to zero.** `lint:deck:all` is `--all --strict`, and
-  `--strict` fails on a WARNING as well as an error (`tools/lint-deck.js` — the
-  exit is `errors > 0 || (strict && warnings > 0)`). It gates CI
-  (`.github/workflows/ci.yml`) and pre-push (`lefthook.yml`). A deck carrying any
-  lint finding therefore cannot be committed. Measured: **0 lint findings across
-  all 198 committed decks, and 0 across all 164 historical revisions of them** in
-  git history. Contract is pinned to 100 on this corpus BY CONSTRUCTION.
-- **Style's input is not gated.** `doReview` is off under `--all`, so review
-  findings never face the gate. That asymmetry is the entire reason Style varies
-  on the very corpus that pins Contract flat — the two halves are not being
-  measured on comparable populations.
-- **On the population the scorer actually serves, Contract discriminates.** The
-  Coach re-scores a draft in the editor on every keystroke. Driven on the REAL
-  Studio Coach (not a harness): a half-typed class name reads Contract **93**, an
-  unterminated comment **72**, against **100** for the finished deck. The OLD
-  scorer's `errs * 22 + warns * 8` moves on the same drafts (**92** / **78**), so
-  Contract was never dead weight in either grade.
+**Contract — pinned by a gate, not by worthlessness.** `lint:deck:all` is
+`--all --strict`, and `--strict` fails on a WARNING as well as an error
+(`tools/lint-deck.js` — the exit is `errors > 0 || (strict && warnings > 0)`). It
+gates CI (`.github/workflows/ci.yml`) and pre-push (`lefthook.yml`), and its own
+sweep (277 files) is a superset of the 198 scorable decks. So a deck carrying any
+lint finding **cannot be pushed or merged**, and Contract is pinned to 100 on this
+corpus BY CONSTRUCTION — measured, 0 lint findings across all 198.
 
-So the ballast was **Pacing alone — 19.0%, not 47.6%** — and it is now `na` unless
-a talk length is known. The rest of the diagnosis is untouched and stands on its
-own: what was left correlated **−0.41** with mean words per slide, which is what
-makes the grade a prose-density meter with a letter on it.
+*Two precision notes, because the first draft of this correction overstated both.*
+"Cannot be **committed**" would be wrong: the pre-commit glob is non-recursive and
+misses `exemplars` and the `examples` subdirectories, 59 of the 198; pre-push and
+CI close that, so nothing linty reaches a merge. And an appeal to "0 findings
+across 164 historical revisions" was dropped rather than kept — this repository is
+a **shallow clone with a seven-day window**, every visible revision postdates the
+lint pass, and 149 of 157 files have exactly one revision. That evidence is the
+current corpus counted twice. Claim 1 stands on the gate alone, which is enough.
 
-Two things follow that are worth stating plainly. First, this **removes the
-`contract`-weight caveat** that this PR carried to the merge gate: a weight of
-38.2% is not sitting on a dead category, and re-tuning it downward against the
-corpus would have been cutting a category that carries real signal on drafts —
-the corpus simply cannot see it. Second, it **strengthens the case for capping
-Contract** rather than making it tidiness: the one category left uncapped was the
-one that genuinely varies where the scorer is actually used, so thirteen warnings
-flooring it destroyed discrimination exactly where the variance lives.
+**Style — not gated at all.** Every review rule emits `severity: 'suggestion'`,
+which `tools/lint-deck.js` routes to a channel that never affects the exit code.
+(`doReview` is also off under `--all`, but that is incidental — the findings would
+not block even if it ran.) That asymmetry is the entire reason Style varies on the
+very corpus that pins Contract flat: the two halves are not being read off
+comparable populations.
 
-A test pins this so the wrong reading cannot come back: `contract discriminates
-across draft states — it is not a corpus constant` asserts at least three distinct
-values across a realistic ladder of draft findings, strict monotonicity, a
-lint-clean ceiling of 100, and a floor that is never actually reached.
+**On the population the scorer actually serves, Contract discriminates.** The
+Coach re-scores a draft in the editor on every keystroke. Driven on the REAL
+Studio Coach: a half-typed class name reads Contract **93**, an unterminated
+comment **71**, against **100** for the finished deck. The OLD scorer's
+`errs * 22 + warns * 8` moves on the same drafts (**92** / **78**), so Contract
+was never dead weight in either grade. Those readings are pinned end-to-end
+through the real linter in `test/unit/authoring/coach-draft-contract.test.js`,
+including the severities they depend on (`unknown-class` = warning,
+`unterminated-comment` = error) — the live-session evidence originally quoted here
+had no artifact, which under HARD RULE #23 is a surface without proof.
+
+**What that licenses, and what it does not.** It refutes "0.0% variance, therefore
+dead weight", which is what the reviewer critique against this change's own 38.2%
+`contract` weight rested on. It does **not** by itself calibrate 38.2% — three
+hand-built drafts show non-zero, not a share, and this record's own methodology is
+a variance-share comparison. Decomposed over prefix-truncations of all 198 decks
+as a draft proxy, Contract carries **27.8%–74.4%** of Craft's variance depending on
+the truncation model. 38.2% sits inside that band, so the weight is defensible and
+cutting it would have been the wrong move — but the honest statement is *"not zero,
+and this corpus cannot price it"*, not *"38.2% is correct on evidence"*.
+
+**Pacing gets the same treatment, and it changes the verdict.** The argument above
+— *a category flat on the corpus may be flat because its input is unavailable* —
+applies to Pacing more strongly than to Contract, and an earlier cut of this
+correction hardened the verdict against Pacing anyway ("the ballast was Pacing
+alone"). It is not. `length-vs-time` fires only on `opts.talkMinutes`
+(`lib/authoring/review-core.js:385`), and **no caller supplies it to the scored
+review on any surface**: `coach-core.ts` calls `reviewText` without it, and so do
+the CLI and every script. `StudioShell`'s separate `pacing()` quick-read card is
+the only consumer, and it does not feed `scoreDeck`. So Pacing's 0.1% is *also* an
+input-availability artifact — the difference is that Contract's input exists and is
+filtered out of this corpus, while Pacing's is never supplied at all. Shipping
+Pacing as `na` unless a talk length is known is the correct response to **missing
+input**, which is what it always was; it is not a verdict that the category is
+worthless.
+
+So the corrected headline is neither the original nor its first correction:
+**47.6% of the weight read 100 on every committed deck — that inflation is real —
+but neither zero was evidence that the category grades nothing.** One was gated,
+one was starved. The rest of the diagnosis is untouched and stands on its own:
+what was left correlated **−0.41** with mean words per slide, which is what makes
+the grade a prose-density meter with a letter on it.
+
+Two things follow. First, this **removes the `contract`-weight caveat** this PR
+carried to the merge gate: 38.2% is not sitting on a dead category, and re-tuning
+it downward against the corpus would have cut a category carrying real signal the
+corpus cannot see. Second, it **makes capping Contract load-bearing** rather than
+tidy: the one category left uncapped was the one that genuinely varies where the
+scorer is actually used, so flooring it destroyed discrimination exactly where the
+variance lives. That cap had to be fixed twice — see §4.2.
+
+A test pins this so the wrong reading cannot come back — and the FIRST version of
+that test did not, which is worth recording because it is the same failure mode as
+§9's mutation finding. It asserted only "≥3 distinct values plus monotonicity",
+which pins *ordinal non-degeneracy* and nothing else: a checker kept it green while
+cutting every ceiling 4× (the Coach then reads 98/93 instead of 93/71, falsifying
+the demonstration above) and again while replacing the curve with `errs * 3 +
+warns * 1` — the uncapped linear shape §2.1 exists to condemn. Ordinal assertions
+cannot see magnitude and cannot see saturation. `contract discriminates across
+draft states — it is not a corpus constant` now pins five things: the ordinal
+ladder, the **magnitudes** 93 and 71, **saturation** (each further tranche of
+findings must cost strictly less than the one before), **boundedness** at 20/20,
+40/40, 100/100 and 500/500 findings, and the declared asymptote. Re-mutated: the
+4× cut, the linear shape, a severity swap, and the two-term version it replaced are
+all now caught.
 
 ### 2.1 · The saturation bug
 
@@ -134,11 +191,20 @@ rule and the calibration must use the same counter; they now do.
 A **teaching** deck is dense and tersely headed — two thirds of its slides clear 70 words
 and its median sits above every other family's 90th percentile, because a mentee re-reads
 it with no narrator. A **mission** deck is normally dense (p90 = 70, *inside* the budget)
-but long-headed, because a program name plus its outcome does not compress. Each gets
-relief on **that axis only**: teaching's headings are the tersest measured, so it gets no
-heading relief; mission's prose fits, so it gets no density relief.
+but long-headed, because a program name plus its outcome does not compress. Each gets its
+BUDGET relief on **that axis only**: teaching's headings are the tersest measured, so it
+gets no heading relief; mission's prose fits, so it gets no density relief.
 
-`no-ask` fires on 153 of the 198 scorable decks (77.3%) and `agenda-missing` on 72 (37%). Both
+**`teaching` also does one thing no budget number describes, and three documents used to
+say it did not.** It sets `scoresAsk: false` and `scoresAgenda: false`
+(`lib/authoring/deck-profiles.js`), so `no-ask` and `agenda-missing` stop DEDUCTING for a
+teaching deck — they are still surfaced as advice. The reasoning is genre, not leniency: a
+lesson asks the learner to practice rather than the room to approve, and its progression
+is its agenda. But this record's own summary, §3, and the changelog all read "density
+relief only", which was false, and a checker caught it as the same class of defect this
+record boasts the trio caught in §6 — a documented behavior that does not match the code.
+
+`no-ask` fires on 153 of the 198 scorable decks (77.3%) and `agenda-missing` on 72 (36%). Both
 remain GRADED under the default profile — a rule firing often is an argument about the
 corpus, not a licence to stop scoring it, and switching them off by default is what
 inverted the scorer (§6).
@@ -153,8 +219,12 @@ Scoring every deck twice, once with `no-ask` findings filtered out:
 | without `no-ask` | 40.40 |
 
 Removing it **reduces** Style's variance by 31%, which is the opposite of a flat tax:
-it deducts 9–14 points (mean 11.62) and separates the 45 decks that do make an ask from
-the 153 that do not. It is a discriminator, not ballast, and it is not the shape §2
+it deducts 9–14 points (mean 11.62). It fires on 153 decks but **deducts on 151** — the
+two exceptions are `bloom-engineering-journey.md` and `seven-steps-problem-to-code.md`,
+the two `teaching` decks, where it is stamped `scored: false` — so the separation it
+actually draws is **47 decks against 151**, not 45 against 153. (An earlier cut of this
+paragraph reported the firing counts as if they were the deduction counts, which quietly
+depended on exactly the `teaching` behavior the paragraph above had failed to disclose.) It is a discriminator, not ballast, and it is not the shape §2
 rejects. Whether a deck without an explicit ask *should* lose ~12 Style points remains a
 design judgment — but it is a judgment about **Style**, which is reported against a named
 profile and never reads as a verdict on the deck, so it cannot reach the Craft grade.
@@ -199,6 +269,28 @@ excellence, because nothing in this file can see excellence.
 
 `saturate(hits, max, k)` = `max · hits / (hits + k)`. Monotonic, bounded by `max`, never
 reaching it.
+
+**Bounded per family is not bounded per category, and Contract had to be fixed twice.**
+The first fix gave Contract the saturating curve in TWO terms —
+`saturate(errs, 85, 2) + saturate(warns, 40, 5)` — whose ceilings sum to **125**. Each
+term is bounded; their sum is not bounded below 100, so at roughly twenty errors plus
+twenty warnings the category clamped to 0 and 20-vs-60 became indistinguishable again.
+That is the *exact* defect this section exists to remove, surviving inside its own fix,
+in the category §2 had just finished arguing carries the most real signal. Four places
+asserted the opposite, including the user-visible changelog's "bounded and monotonic all
+the way up".
+
+Capping the sum would not have fixed it either: `Math.min` is what `scoreBrevity` uses,
+and it FLATTENS past the cap — the same loss of discrimination one floor higher. Contract
+is now **one** saturating curve over a severity-weighted count,
+`saturate(errs · 6 + warns, 88, 12)`, which is strictly increasing in every finding
+forever and approaches 12 without reaching it. The constants are chosen to preserve the
+shipped low end: one warning still reads 93, one error 71.
+
+The general lesson, since it will recur: whenever two bounded penalties are summed, the
+bound that matters is the bound on the SUM, and it must sit strictly inside the category's
+range. `scoreBrevity` gets this right by construction (`SOFT_BREVITY_CAP` 26 <
+`SEVERE_BREVITY_MAX` 44, and 44 + 26 = 70 < 100); Contract did not.
 
 Two shapes were tried and rejected first, both measured:
 
@@ -312,13 +404,13 @@ deck that asked by name.**
 
 | | before | after |
 |---|---|---|
-| `bloom-engineering-journey` | 64 C+ | Craft **100** · Style **90** (teaching, declared) |
+| `bloom-engineering-journey` | 64 C+ | Craft **100** · Style **89** (teaching, declared) |
 | `seven-steps-problem-to-code` | 64 C+ | Craft **100** · Style **89** (teaching, declared) |
 | `examples/split-headings.md` | 97 A | Craft 100 · Style 93 (the broken cut scored it 81) |
 
-Across the 197 scorable decks: Craft mean 98.7 (sd 2.3, min 88), Style mean 82.5 (sd 7.5, min 57, only
-6 decks at the ceiling). Profiles in use: `general` on 195 by default, `teaching` on 2 by
-declaration. Nothing is inferred.
+Across the 198 scorable decks: Craft mean 98.7 (sd 2.3, min 88), Style mean 82.3 (sd 7.66,
+min 57, only 6 decks at the ceiling). Profiles in use: `general` on 196 by default,
+`teaching` on 2 by declaration. Nothing is inferred.
 
 Craft clustering high is the expected shape for a corpus CI keeps lint-clean; the
 discrimination that matters is that a deck with real defects drops. Style now spreads
@@ -401,22 +493,68 @@ what made it feel like a live critique: if the defence also acquits the category
 rejects, the two cannot both stand.
 
 They do not — and measuring settled it in the direction that dissolves the critique
-rather than the change. §2 now carries the full account; the short version is that
+rather than the change. §2 carries the full account; the short version is that
 Contract's 0.0% is a **sampling artifact** of a corpus `--all --strict` gates
-lint-clean (0 findings across 198 committed decks and 164 historical revisions), while
-on the population the Coach actually scores — a draft — Contract discriminates:
-**93** for a half-typed class name and **72** for an unterminated comment against
-**100** clean, driven on the real Studio. The old scorer moved on the same drafts
-(**92** / **78**). So the honest correction is to §2's headline, not to this weight:
-the ballast was Pacing alone (19.0%), and `contract` at 38.2% is carrying real signal
-that this corpus structurally cannot show.
+lint-clean (0 findings across all 198 scorable decks), while on the population the
+Coach actually scores — a draft — Contract discriminates: **93** for a half-typed
+class name and **71** for an unterminated comment against **100** clean, pinned
+end-to-end through the real linter in
+`test/unit/authoring/coach-draft-contract.test.js`. The old scorer moved on the same
+drafts (**92** / **78**). So the correction lands on §2's headline, not on this
+weight.
 
-**The weight is therefore left as-is on evidence rather than on caution.** Cutting it
-to match a 0.0% that the gate manufactures would have removed weight from a category
-that discriminates where the scorer is used — the precise inverse of the fix. Craft's
-measured variance on this corpus is sd 2.3, and that number is still worth knowing:
-it means Craft's job on a COMMITTED deck is mostly to confirm nothing is broken, which
-is what a conformance half should do once the gates upstream have done their work.
+**The weight is left as-is on evidence rather than on caution — but "on evidence" is
+a narrower claim than an earlier cut of this passage made, and the difference is worth
+being exact about.** Three hand-built drafts reading non-zero REFUTE "0.0% variance,
+therefore dead weight", which is the whole of the critique. They do not CALIBRATE
+38.2%: this record's methodology is a variance-share comparison, and three points are
+not a share. Decomposed over prefix-truncations of all 198 decks as a draft proxy,
+Contract carries **27.8%–74.4%** of Craft's variance depending on the truncation
+model — a band wide enough that it prices nothing precisely, but one that 38.2% sits
+inside. So: cutting the weight to match a 0.0% the gate manufactures would have been
+the precise inverse of the fix, and leaving it is right; claiming the number is
+*calibrated* would be a second overclaim replacing the first. The honest form is
+**"not zero, and this corpus cannot price it."**
+
+Craft's measured variance on this corpus is sd 2.28, and that number is still worth
+knowing: it means Craft's job on a COMMITTED deck is mostly to confirm nothing is
+broken, which is what a conformance half should do once the gates upstream have done
+their work.
+
+## 8.6 · The third review pass, and what a correction costs
+
+§8.5 records a second red team on the reworked design. A **third** pass — one independent
+checker — was run on the *correction in §2 itself*, because that correction rewrote the
+central justification of the change while it sat at the merge gate, and a wrong
+justification shipped as a fix is worse than the caveat it replaced. It found fourteen
+things. Three mattered:
+
+1. **The Contract cap was still broken** — two summed saturating terms, ceilings 85 + 40,
+   floors at 0 (§4.2). The correction had just argued Contract carries the most real
+   signal in Craft, and the category was clamping. Four documents, including the
+   user-visible changelog, stated it could not.
+2. **The test written to pin the correction did not pin it.** It asserted ordinal
+   non-degeneracy only, and stayed green under a 4× ceiling cut and under a plain linear
+   penalty — the shape §2.1 condemns. Magnitude and saturation are now asserted, and the
+   four surviving mutants are dead (§2).
+3. **The correction failed to apply its own argument to Pacing.** *A category flat on the
+   corpus may be flat because its input is unavailable* is exactly Pacing's situation —
+   `talkMinutes` is never supplied to the scored review on any surface — and the first
+   cut of the correction hardened the verdict against Pacing anyway (§2).
+
+Plus: an off-by-one in a corpus note that was itself an off-by-one correction (199/198,
+not 198/197); "cannot be committed" where only push and merge are gated; a "0 findings
+across 164 historical revisions" claim resting on a **shallow clone with a seven-day
+window**, where every visible revision postdates the lint pass; a live-Studio measurement
+with no retained artifact; "38.2% is correct on evidence" where the evidence refutes zero
+without calibrating a share; and `teaching` switching off two rules while three documents
+said "density relief only".
+
+The pattern across all three passes is one thing: **every defect was a claim that read as
+already-verified.** Not one was a compile error or a failing test — the gates were green
+at every pass. §9 draws the conclusion; this section only adds the sharpest instance of
+it, which is that the *correction* of an unverified claim is itself an unverified claim
+until someone re-derives it, and the author is the worst-placed person to notice.
 
 ## 9 · What the review process caught, and what that says
 

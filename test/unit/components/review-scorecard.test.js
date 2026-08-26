@@ -271,33 +271,64 @@ describe('scorecard: every penalty term actually deducts', () => {
 
   // Contract's 0.0%-variance figure on the committed corpus is a SAMPLING ARTIFACT, not
   // evidence that the category is dead weight — `lint:deck:all` is `--all --strict` and
-  // gates CI + pre-push, so a deck carrying any lint finding cannot be committed and
-  // Contract is pinned to 100 there BY CONSTRUCTION (measured: 0 findings across 198
-  // committed decks and 164 historical revisions). The population this scorer actually
-  // runs against is a DRAFT in the editor, and there it discriminates — driven on the
-  // real Studio Coach, a half-typed class name read 93 and an unterminated comment 72.
+  // gates CI + pre-push, so a deck carrying any lint finding cannot be pushed or merged
+  // and Contract is pinned to 100 there BY CONSTRUCTION (measured: 0 findings across the
+  // 198 scorable committed decks). The population this scorer actually runs against is a
+  // DRAFT in the editor, and there it discriminates — driven on the real Studio Coach, a
+  // half-typed class name reads 93 and an unterminated comment 71.
   //
   // An earlier docblock summed Contract's row with Pacing's and concluded "47.6% of the
   // weight graded nothing", which is wrong about Contract and would argue for cutting a
-  // weight that is carrying real signal. This pins the property that makes that reading
-  // false, so it cannot quietly come back: across a realistic ladder of draft findings,
-  // Contract must take at least three DISTINCT values and be strictly monotonic.
+  // weight that is carrying real signal.
+  //
+  // THE FIRST VERSION OF THIS TEST WAS NOT LOAD-BEARING. It asserted only >=3 distinct
+  // values plus monotonicity, which pins ORDINAL non-degeneracy and nothing else. A
+  // checker mutated the scorer two ways that kept it green: cutting every ceiling 4x (the
+  // Coach then reads 98/93 instead of 93/71, falsifying the record's whole demonstration)
+  // and replacing the curve with `errs * 3 + warns * 1` — which re-introduces the very
+  // uncapped linear shape §2.1 exists to condemn. Ordinal assertions cannot see magnitude
+  // and cannot see saturation, so this pins both.
   test('contract discriminates across draft states — it is not a corpus constant', () => {
     const clean = `${FM_G}<!-- _class: title -->\n\n# A deck\n\nA framing line.\n`;
-    const ladder = [
-      [],
-      [{ rule: 'x', severity: 'warning' }],
-      [{ rule: 'x', severity: 'warning' }, { rule: 'y', severity: 'warning' }],
-      [{ rule: 'x', severity: 'error' }],
-      [{ rule: 'x', severity: 'error' }, { rule: 'y', severity: 'error' }],
-    ];
-    const scores = ladder.map((l) => cat(card(clean, l), 'contract').score);
-    assert.ok(new Set(scores).size >= 3, `contract must take >=3 distinct values across drafts, got ${scores.join(', ')}`);
-    for (let i = 1; i < scores.length; i++) {
-      assert.ok(scores[i] < scores[i - 1], `contract must fall monotonically: ${scores.join(' > ')}`);
+    const at = (e, w) => cat(card(clean, [
+      ...Array.from({ length: e }, () => ({ rule: 'e', severity: 'error' })),
+      ...Array.from({ length: w }, () => ({ rule: 'w', severity: 'warning' })),
+    ]), 'contract').score;
+
+    // 1. Ordinal: a realistic draft ladder is strictly decreasing and non-degenerate.
+    const ladder = [at(0, 0), at(0, 1), at(0, 2), at(1, 0), at(2, 0)];
+    assert.ok(new Set(ladder).size >= 3, `>=3 distinct values, got ${ladder.join(', ')}`);
+    for (let i = 1; i < ladder.length; i++) {
+      assert.ok(ladder[i] < ladder[i - 1], `must fall monotonically: ${ladder.join(' > ')}`);
     }
-    assert.equal(scores[0], 100, 'a lint-clean draft is the ceiling');
-    assert.ok(scores.at(-1) > 0, 'and the floor is never reached — the curve saturates, it does not clamp');
+    assert.equal(ladder[0], 100, 'a lint-clean draft is the ceiling');
+
+    // 2. MAGNITUDE — the numbers the decision record and the Coach screenshots quote.
+    //    A uniform ceiling cut passes every ordinal check above and fails here.
+    assert.equal(at(0, 1), 93, 'one warning (a half-typed class name) reads 93 on the live Coach');
+    assert.equal(at(1, 0), 71, 'one error (an unterminated comment) reads 71 on the live Coach');
+    assert.ok(at(1, 0) < at(0, 2), 'one error must outweigh two warnings — severity ordering');
+
+    // 3. SATURATION — the curve must FLATTEN, which a linear penalty never does. Doubling
+    //    the findings must cost strictly less than the first tranche did.
+    const first = at(0, 0) - at(2, 0);
+    const second = at(2, 0) - at(4, 0);
+    assert.ok(second < first, `saturating: 3rd+4th error must cost < 1st+2nd (${second} vs ${first})`);
+    const late = at(20, 0) - at(22, 0);
+    assert.ok(late < second, `and later still less (${late} vs ${second})`);
+
+    // 4. BOUNDED — it never floors, at any count. This is the defect that survived the
+    //    first fix: two per-family saturating terms whose ceilings summed to 125, so
+    //    ~20 errors + 20 warnings clamped to 0 and 20-vs-60 was indistinguishable again.
+    for (const [e, w] of [[20, 20], [40, 40], [100, 100], [500, 500]]) {
+      assert.ok(at(e, w) > 0, `contract must never clamp to 0 (got ${at(e, w)} at ${e}e/${w}w)`);
+    }
+    assert.ok(at(20, 20) > at(40, 40), 'and must still discriminate past the old clamp point');
+
+    // 5. The ceiling is a real asymptote, declared, and strictly below 100.
+    const { CONTRACT_MAX } = require('../../../lib/authoring/scorecard');
+    assert.ok(CONTRACT_MAX < 100, `${CONTRACT_MAX} must be < 100 so the score cannot reach 0`);
+    assert.ok(at(1000, 1000) > 100 - CONTRACT_MAX - 1, 'approaches the asymptote from above');
   });
 
   // THE inversion a red team constructed. Cosmetic overruns must never outweigh slides
