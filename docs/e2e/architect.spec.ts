@@ -93,15 +93,22 @@ test.describe('Coach and Chat panels', () => {
 		const CLASSLESS = '# Quarterly update\n\n---\n\n## Progress\n\nWe shipped the thing.\n\n---\n\n## Next steps\n\nDecide on budget.\n';
 		await openArchitect(page);
 		// PREMISE FIRST: the deck we start on IS assessed, so the flip below means something.
-		await expect(page.getByText(/\/ 100/)).toBeVisible();
+		//
+		// The signal used to be `/ 100` — the single grade's readout. That markup is gone: the
+		// card shows TWO tiles now, Craft and Style. Scoped to the Deck read card because an
+		// unscoped exact `Craft` also matches the toolbar's Craft mode button.
+		const readiness = page.getByText('Deck read').locator('..');
+		await expect(readiness.getByText('Craft', { exact: true })).toBeVisible();
+		await expect(readiness.getByText('Style', { exact: true })).toBeVisible();
 
 		await setEditorContent(page, CLASSLESS);
 		await expect.poll(() => persistedSource(page)).toContain('Quarterly update');
 
-		// The round landed and reported the deck unassessable — the grade is gone and Board
-		// readiness says so. This is the signal that `assessing` is false and `findings` empty.
+		// The round landed and reported the deck unassessable — both grades are gone and the
+		// Deck read card says so. This is the signal that `assessing` is false and `findings` empty.
 		await expect(page.getByText(/Add a slide or two/i)).toBeVisible();
-		await expect(page.getByText(/\/ 100/)).toHaveCount(0);
+		await expect(readiness.getByText('Craft', { exact: true })).toHaveCount(0);
+		await expect(readiness.getByText('Style', { exact: true })).toHaveCount(0);
 
 		await page.getByRole('button', { name: 'Top fixes' }).click();
 		// The card must not claim a clean bill of health for a deck it never read, and it must
