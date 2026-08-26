@@ -192,6 +192,13 @@ export async function putAsset(record, { historyLabel = 'Before save', ts = Date
     // cannot be stale by the time we write to it. Sorted the same way `listAssets`
     // sorts, because with two records sharing a name the newest is the one the
     // out-of-transaction version used to pick.
+    //
+    // One deliberate difference from that version: it filtered by kind via
+    // `listAssets(record.kind)`, and `listAssets(undefined)` returns EVERY asset — so
+    // a record with no `kind` used to match by name alone and overwrite a live theme,
+    // clobbering its kind on the way. Matching on kind here refuses that. No caller
+    // omits `kind` (all six set it from a literal), so this is unreachable today; it
+    // is the safer half of an unreachable pair either way.
     const all = assets.getAll();
     all.onsuccess = () => {
       const rows = (all.result || []).sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
