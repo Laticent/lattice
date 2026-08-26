@@ -61,6 +61,7 @@ const {
   LAYOUT_HEX_BUDGET,
   SANCTIONED_HEX,
   checkUsEnglish,
+  listRepoTextFiles,
   UK_ENGLISH_FORMS,
   CANONICAL_FS_TOKENS,
   SINGLETON_TAGS,
@@ -699,6 +700,45 @@ describe('check-ownership', () => {
       const errors = [];
       checkUsEnglish(errors);
       assert.deepEqual(errors, [], `British spellings exceeded US_ENGLISH_BUDGET:\n${errors.join('\n')}`);
+    });
+
+    // #1848 — the emulator writes a gitignored .html sibling beside every PDF it
+    // renders, so any tree that previewed an example deck carries hundreds of
+    // British spellings nobody authored. The scan must skip examples/**/*.html by
+    // PATH (not by "has a .md sibling", which a renamed deck defeats) while the
+    // .md decks themselves stay counted.
+    test('the scan skips examples/**/*.html but still counts examples/**/*.md', () => {
+      const brit = 'colour behaviour organisation optimise centre analyse licence defence catalogue\n'.repeat(20);
+      const stamp = `zz-us-english-${process.pid}`;
+      const repoRoot = path.join(__dirname, '..', '..', '..');
+      const html = path.join(repoRoot, 'examples', `${stamp}.html`);
+      const nested = path.join(repoRoot, 'examples', 'assets', `${stamp}.html`);
+      const md = path.join(repoRoot, 'examples', `${stamp}.md`);
+      const before = [];
+      checkUsEnglish(before);
+
+      try {
+        // The sidecar — and a nested one, to prove the match is on the path, not
+        // just the top level — must move nothing.
+        fs.writeFileSync(html, brit);
+        fs.writeFileSync(nested, brit);
+        const files = listRepoTextFiles();
+        assert.ok(!files.includes(html), 'examples/*.html must be out of scope');
+        assert.ok(!files.includes(nested), 'examples/**/*.html must be out of scope');
+        const withHtml = [];
+        checkUsEnglish(withHtml);
+        assert.deepEqual(withHtml, before, 'a rendered .html sidecar must not move the count');
+
+        // The deck source is house prose and stays in scope — 180 hits blow any budget.
+        fs.writeFileSync(md, brit);
+        assert.ok(listRepoTextFiles().includes(md), 'examples/*.md must stay in scope');
+        const withMd = [];
+        checkUsEnglish(withMd);
+        assert.equal(withMd.length, 1, 'a British-spelling .md deck must fail the budget');
+        assert.match(withMd[0], /British spellings rose to/);
+      } finally {
+        for (const f of [html, nested, md]) fs.rmSync(f, { force: true });
+      }
     });
   });
 

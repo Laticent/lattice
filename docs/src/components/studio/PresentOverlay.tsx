@@ -124,8 +124,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	//   • LANDING (this) fails SOFT — an unapproved / drifted / empty / hidden target lands on Full.
 	//     Safe by construction: the picker offers Full anyway, so falling back reveals nothing that
 	//     wasn't already one click away.
-	//   • A PIN (not this; the share-channel slice) fails CLOSED, because a pinned view can be a
-	//     redaction and falling back to Full would leak exactly the slides the author scoped out.
+	//   • A PIN (not this; the share-channel slice) fails CLOSED, because the sender chose that scope
+	//     deliberately and withheld the picker; falling back to Full would silently override them.
+	//     (Scoping, not confidentiality — client-side projection hides, it does not withhold.)
 	// Resolving ELIGIBILITY HERE — before the id is ever selected — is what lets the landing lever
 	// fail soft without weakening the fail-closed projection below: an ineligible id is never set as
 	// the active lens, so the projection never has to fall open to honor a default.

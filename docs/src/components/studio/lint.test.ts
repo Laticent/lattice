@@ -365,7 +365,8 @@ describe('presentationSet (reader lenses)', () => {
 		// presentationIndices[1] + 1, not the set position.
 		expect(presentationIndices(slides, 'brief', registry)).toEqual([0, 2]);
 		// A registry lens with no members projects an EMPTY set (honest, not fail-open to the whole deck)
-		// — the reader path renders "unavailable"; a fail-open here would leak a redaction lens.
+		// — the reader path renders "unavailable"; a fail-open here would show slides the author
+		// scoped out of that view.
 		expect(presentationSet(['<!-- _class: title -->\n# t'], 'brief', registry)).toEqual([]);
 	});
 });

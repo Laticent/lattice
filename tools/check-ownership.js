@@ -3490,6 +3490,24 @@ function listRepoTextFiles(dir = ROOT, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
     const rel = path.relative(ROOT, p);
+    // The emulator writes an .html sibling beside every PDF it renders
+    // (lattice-emulator.js:2752, unconditional — no flag suppresses it), and
+    // examples/**/*.html is gitignored (.gitignore:56-57). Same local-only
+    // false-red class as playground/v below: a clean checkout and CI never have
+    // these; any tree that previewed an example deck does, at ~375 hits for one
+    // 70-slide deck — roughly a third of the whole repo-wide budget below, which
+    // is a RATCHET, so no figure quoted here would stay current. Matched on the
+    // PATH, not a directory name — examples/ must stay in scope so the .md decks
+    // are still counted.
+    //
+    // The sibling-.md test at the bottom of this walk already catches the
+    // ordinary case, and does so today (measured 2026-08-25: rendering
+    // examples/a11y.md leaves examples/a11y.html behind and check:ownership
+    // still exits 0). This rule is deliberately redundant with it, because it
+    // does not depend on the deck's .md surviving beside its render — a renamed
+    // or deleted deck strands the sidecar, and an explicit
+    // `npx lattice <deck> examples/x.html` never had a sibling at all.
+    if (/^examples[/\\].*\.html$/.test(rel)) continue;
     if (e.isDirectory()) {
       if (US_SKIP_DIRS.has(e.name)) continue;
       if (e.name.startsWith('.') && e.name !== '.github') continue; // hidden dirs (.git/.vscode/.claude) — keep .github

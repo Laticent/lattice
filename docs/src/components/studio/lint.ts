@@ -224,7 +224,9 @@ export function presentationPairs(slides: string[], lens: PresentLens, registry?
 	if (lens === 'full' || all.length === 0) return all;
 	// Registry (tag-driven) lens → the library projects it deterministically from approved tags.
 	// HONEST projection: an empty lens returns an EMPTY set, NOT the whole deck — a fail-OPEN fallback
-	// to `all` would show a redaction-lens reader everything the author kept out (design §6.3). The
+	// to `all` would show a scoped reader everything the author kept out of that view, on the one
+	// path where nobody vetted the result. (Not a confidentiality claim: client-side projection hides,
+	// it does not withhold — design §6.3 as corrected 2026-07-18.) The
 	// reader path (PresentOverlay) gates through lensEligibility and renders an explicit "unavailable"
 	// state; the author preview shows the real (possibly empty) membership.
 	if (registry?.lenses.some((l) => l.id === lens && l.id !== 'full')) {

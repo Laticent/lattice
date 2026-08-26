@@ -18,8 +18,9 @@ BAR's visual-review loop). Treat the skill as the floor that frees you to spend
 judgment on the last mile, not a guarantee of the ceiling.
 
 **Two of the seven can't finish from the file alone**, and say so: `lens.md`'s
-normal path runs through the Studio Lenses panel (the content-hash approval can't
-be hand-forged), and `chart-component.md` defers the color method to the `dataviz`
+normal path runs through the Studio Lenses panel (the content hash is stamped by a
+human pressing Approve, not authored by hand), and `chart-component.md` defers the
+color method to the `dataviz`
 skill. The other five are authorable end-to-end from the file.
 
 ## Load the right skill

@@ -39,11 +39,30 @@
  * rule is ever re-enabled, expect it to find things.
  *
  * What axe surfaces on contrast is tracked in the ADR's gap register (G13/G15/G16), not
- * discarded: the running header/footer muted ink measures 4.20:1 (light) / 4.07:1 (dark),
- * which is below the 4.5:1 normal-text threshold on every shell — the slide canvas is
+ * discarded — but READ THE SCOPE ON THE NUMBER. The running header/footer muted ink
+ * measures 4.20:1 (light) / 4.07:1 (dark), below the 4.5:1 normal-text threshold, **on
+ * the exported PLAYER's chrome** — the player composites that ink over its own backdrop,
+ * which is not the slide's. It is not a statement about every shell, and an earlier
+ * version of this comment said "on every shell" (it was written before #1715 retuned
+ * `--text-muted`). Measured on the real EXPORT shell, 2026-08-25:
+ *
+ *   node lattice-emulator.js test/integration/baseline-decks/gallery.md .scratch/g.html
+ *   node tools/check-slide-contrast.js .scratch/g.html
+ *   → 1541 text runs, 5 below AA — none of them the running header or footer.
+ *
+ * The five are two decorative split-panel watermark glyphs (1.31:1), a pullquote glyph
+ * (1.34:1), and two image-backdrop statements the tool itself marks "ratio not
+ * measurable". The token pair behind the chrome is gated now too: `tools/contrast-audit.js`
+ * scores `--text-muted` on `--bg` and `--bg-alt` for all 32 themes (14 declare it, the
+ * rest resolve it through the @import chain) at the 4.5 floor, and the worst pair is
+ * 4.65:1. The player-shell gap is the half of G13 that stays open — see that row and
+ * `engineering/decisions/2026-08-19-website-accessibility-gate.md` §7, not this comment.
+ *
+ * The SIZE half of the old claim is settled and still holds: the slide canvas is
  * nominally 3840px wide, so the chrome's 43.4px clears the "large text" line only in
- * canvas units, never in anything a human looks at. Fixing it is a theme-token change,
- * well outside this gate.
+ * canvas units, never in anything a human looks at — `2026-08-18-contrast-floor-deck-scale.md`
+ * declines to grade on size at all. Fixing the player ink is a theme-token change, well
+ * outside this gate.
  *
  * BUDGETS are exceed-only and seeded at zero. Both shells are clean today, so zero is
  * the honest number and any regression fails. A budget above zero here would be a

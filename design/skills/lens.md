@@ -27,21 +27,48 @@ A lens changes **which slides are shown**, never their look or content. A 10/10
 lens:
 
 - **Fails closed.** An unavailable lens (unknown / unapproved / drifted / empty /
-  hidden) shows *nothing extra* — never a silent fall-through to the full deck,
-  because a scoping lens can be a deliberate redaction.
+  hidden) shows *nothing extra* — never a silent fall-through to the full deck. An
+  unavailable lens means **nobody has vetted this projection**, and showing more
+  than the reader asked for substitutes the tool's guess for the author's approval.
+  (This is a UI-integrity guarantee, not confidentiality — see *What it is not*.)
 - **Is content-bound.** Approval is a **content hash**, not a boolean. Any later
-  edit, reorder, or hand-forgery changes the hash, so the lens de-approves itself
-  for every consumer until re-approved.
+  edit, reorder, or retag changes the hash, so the lens de-approves itself for
+  every consumer until re-approved. It detects **drift**, which is the useful
+  property; it is not a forgery proof — see *What it is not*.
 - **Stores membership as a diff from its base** — a slide carries a tag only where
   it *differs* from the lens's base, so the real deck stays clean.
 - **Keeps the read path and the suggest path apart** — the projector never imports
   the suggester; the suggester only proposes and writes nothing; the only bridge is
   a human pressing Approve.
 
-Bad looks like: `approved: true` (forgeable, staleness-blind); falling open to the
-full deck when a lens is unavailable (leaks redacted slides); renaming a lens `id`
-in place (orphans every tag); a lens that guesses membership with low confidence
+Bad looks like: `approved: true` (staleness-blind — it survives every later edit, so
+it certifies content nobody looked at); falling open to the full deck when a lens is
+unavailable (shows slides the author never approved for that view); renaming a lens
+`id` in place (orphans every tag); a lens that guesses membership with low confidence
 instead of emitting nothing.
+
+### What it is not
+
+**Two claims about this feature were withdrawn on 2026-07-18 and must not come back**
+(`engineering/decisions/2026-07-13-lente-reader-lenses.md` § Correction;
+`docs/src/lib/lente/README.md`):
+
+- **The content hash detects DRIFT, not FORGERY.** `approvalHash` is an *unkeyed*
+  SHA-256, so anything that can write the deck source can recompute a matching
+  digest. It de-approves a lens on any edit, reorder or retag — genuinely useful,
+  and the reason to prefer it over a boolean — but it does not answer "did a human
+  vet *this* deck?". The human-in-the-loop assurance is the **Approve gate itself**
+  (a person looked and clicked), not a cryptographic property of the hash. A keyed
+  HMAC or signature would be needed for a real forgery proof, and none is claimed.
+- **Client-side projection HIDES, it does not WITHHOLD.** Filtering an array the
+  client already holds is `display:none`, not redaction: a `brief` reader who views
+  source sees every non-member slide's bytes. Real confidentiality needs the host to
+  project server-side and never ship the non-member slides — outside this pure,
+  no-network library.
+
+Nothing about the *behavior* changes: still fail closed, still a content hash, still
+never `approved: true`. Only the stated reason changes. Do not describe a lens as a
+redaction, and do not describe the hash as resisting forgery.
 
 ---
 
@@ -91,17 +118,19 @@ switch to the full deck at any time.
 
 That is why it **fails soft.** If the landing view is unapproved, edited since
 approval, staged, empty, or names nothing at all, Present opens the full deck
-instead. Nothing leaks by doing so — the picker offered `full` anyway. Eligibility
+instead. That reveals nothing that was not already one click away — the picker
+offered `full` anyway. Eligibility
 is resolved *before* the view is selected, so an ineligible id never becomes the
 active view and the fail-closed projection below is never asked to fall open.
 
 **Do not confuse this with a pin.** A pinned handoff — "send the exec a link that
 shows only the brief" — is a different lever with the opposite failure behavior: it
-withholds the picker and must fail **closed**, because a scoped view can be a
-deliberate redaction. It travels on the share/export channel rather than in the
-deck, and it is **not built yet**. When it is, remember what it can honestly claim:
-client-side projection **hides, it does not withhold** — a reader who views source
-sees every non-member slide's bytes.
+withholds the picker and must fail **closed**, because the sender chose that scope on
+purpose and a fall-through would silently override them. It travels on the
+share/export channel rather than in the deck, and it is **not built yet**. When it is,
+remember what it can honestly claim: client-side projection **hides, it does not
+withhold** — a reader who views source sees every non-member slide's bytes. A pin is a
+scoping convenience, never a confidentiality control.
 
 ## Depth — rungs and cuts (designed, not yet built)
 
@@ -158,9 +187,11 @@ ship, a "deep dive" is authored as an ordinary second view, tagged in full.
 3. To ship a suggester for it, add an entry to `SUGGESTERS` in `suggest.ts` keyed
    by the id, and (for Studio) an archetype in `lens-archetypes.ts` — the id must
    match across both.
-4. There is no way to legitimately hand-type the approval hash; approve through
-   Studio so `approvalHash` stamps it. A hand-typed hash won't match and the lens
-   stays unavailable.
+4. Approve through Studio so `approvalHash` stamps it — a guessed or copied digest
+   will not match the projection it is supposed to bind, and the lens stays
+   unavailable. This is ergonomics, not a barrier: the hash is unkeyed, so anything
+   holding the source can compute the right one. What makes the stamp mean something
+   is that a person pressed Approve, not that the digest was hard to produce.
 
 ---
 
@@ -211,9 +242,10 @@ Programmatic read (host code): `parseLensRegistry(fm)` →
 
 ## What bad looks like
 
-- `approved: true` — a forgeable boolean, blind to staleness. Use the content hash.
-- A reader landing on the full deck when their lens is unavailable — leaks slides a
-  redaction lens deliberately hid.
+- `approved: true` — blind to staleness. It survives every later edit, so it keeps
+  asserting a human vetted content that has since changed. Use the content hash.
+- A reader landing on the full deck when their lens is unavailable — shows slides the
+  author never approved for that view, on the one path where nobody vetted the result.
 - Renaming `brief` → `summary` in place — orphans every `_lens: brief` tag. Ship a
   migration instead.
 - The suggester writing tags or reaching a reader directly.
