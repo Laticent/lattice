@@ -19,6 +19,13 @@ summary: >
 
 # Preview bundle — halve cold load by shipping highlight.js `common`, not the full build
 
+> **Follow-up (2026-08-25):** the `common` swap below stays, and this note remains the
+> record of why. What it did not anticipate is that the CLI and marp-core both kept the
+> full build, so the swap opened a silent PARITY hole — the same deck coloured differently
+> in the preview than in its own export, with nothing logged. Closed by fetching the
+> missing grammars per deck rather than by reverting the swap:
+> `2026-08-25-on-demand-fence-grammars.md`.
+
 **Date:** 2026-07-19 · **Status:** slice 1 SHIPPED; program open
 **Trigger:** live PERFORMANCE overlay on the Studio showed **LCP 7651ms / FCP 7559ms**
 (both red) with **TTFB 33ms** (green) and **TOTAL REBUILD 5074ms / FRAME REBUILD 2714ms**

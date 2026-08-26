@@ -11,7 +11,7 @@ header: "Lattice · redline"
 
 `Comparison · Canvas · Prose`
 
-Clause-by-clause comparison — verbatim language with inline <ins>/<del> tracking the amendment.
+Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tracking the amendment.
 
 ---
 

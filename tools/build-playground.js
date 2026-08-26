@@ -59,6 +59,17 @@ const silent = argv.includes('--silent') || check;
 // import to `common.js/lib/...` and break the build. The `/^highlight\.js$/` filter
 // rewrites ONLY the bare specifier and leaves any subpath import to resolve normally.
 // See engineering/decisions/2026-07-19-preview-bundle-hljs-common.md.
+//
+// STILL CORRECT, AND NO LONGER THE WHOLE STORY. The paragraph above says an exotic
+// language "degrades gracefully to monochrome" — true, and it was also a silent PARITY
+// break, because the CLI and marp-core both kept the full build: a `powershell` fence
+// measured 11 highlight spans in an exported PDF and 0 here, same deck, nothing logged.
+// The swap stays (it is worth 259 KB gzipped); what closes the gap is that the preview
+// now FETCHES the grammars a deck actually names — tools/build-hljs-languages.js emits
+// them one file per language, median 1.9 KB, and docs/src/lib/ensure-hljs-language.ts
+// loads them above the synchronous render(). So this plugin now decides what ships in
+// the BUNDLE, not what the product supports; `lib/engine`'s `languages` capability owns
+// the latter. See engineering/decisions/2026-08-25-on-demand-fence-grammars.md.
 const HLJS_COMMON = path.join(ROOT, 'node_modules', 'highlight.js', 'lib', 'common.js');
 const hljsCommonPreviewPlugin = {
   name: 'hljs-common-preview',

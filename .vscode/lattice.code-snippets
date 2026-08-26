@@ -813,7 +813,7 @@
       "",
       "- **Why this matters.** What the amendment changes in operational terms, in one sentence."
     ],
-    "description": "Clause-by-clause comparison — verbatim language with inline <ins>/<del> tracking the amendment."
+    "description": "Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tracking the amendment."
   },
   "lattice: regulatory-update": {
     "prefix": "lattice-regulatory-update",

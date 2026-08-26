@@ -95,6 +95,9 @@ const STEPS = [
   { label: 'spec pages (docs site)', script: 'build-spec-docs.js' },
   { label: 'playground bundle (docs site)', script: 'build-playground.js', uncommitted: true },
   { label: 'katex-provider bundle (docs site)', script: 'build-katex-provider.js', uncommitted: true },
+  // Per-language highlight.js grammars for on-demand preview loading. After the
+  // playground bundle only for log ordering — it reads node_modules, not the bundle.
+  { label: 'hljs grammars (docs site)', script: 'build-hljs-languages.js', uncommitted: true },
   { label: 'theme-core bundle (docs site)', script: 'build-theme-core.js', uncommitted: true },
   { label: 'layout-core bundle (docs site)', script: 'build-layout-core.js', uncommitted: true },
   { label: 'authoring-core bundle (docs site)', script: 'build-authoring-core.js', uncommitted: true },

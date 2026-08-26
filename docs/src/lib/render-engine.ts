@@ -25,6 +25,7 @@
 
 import { appendAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { sourceHasMath } from '../../../lib/engine/math-detect.mjs';
+import { ensureFenceLanguages } from './ensure-hljs-language';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
 import type { LatticePlaygroundEngine } from './playground-global';
 
@@ -58,6 +59,16 @@ export type RenderMarkdownResult = { html: string; css: string; width?: number; 
  * math.js's own existing fallback (escaped source text) for THIS pass, the
  * same graceful-degradation contract math.js already promises for a
  * malformed formula. A later render (retry, edit) tries again.
+ *
+ * Fenced-code grammars ride the same contract, and land here for the same reason
+ * KaTeX does: `PG.render` is synchronous BY DESIGN (lib/engine/README.md), so
+ * anything that must be fetched before a render has to be awaited above it — and
+ * this is the one chokepoint every docs render surface passes through. The engine
+ * bundle carries highlight.js's 36-language `common` build; a deck reaching past it
+ * (`powershell`, `dockerfile`, `elixir`) previously rendered those fences in plain
+ * monospace here while the CLI export colored them. `ensureFenceLanguages` fetches
+ * just the grammars this deck names — median 1.9 KB each — and never rejects, so a
+ * grammar that will not load costs its fence the color it already lacked.
  */
 export async function renderMarkdown(
 	PG: LatticePlaygroundEngine,
@@ -74,5 +85,10 @@ export async function renderMarkdown(
 		const katexUrl = deriveKatexProviderUrl();
 		if (katexUrl) await ensureKatexProvider(katexUrl).catch(() => {});
 	}
+	// Returns before touching the network on the common case: `missingLanguages` is
+	// empty for any deck whose fences are all in `common`. It is not allocation-free
+	// once a deck HAS a fence — `scanFences` splits the source and builds a Set — but
+	// a fence-less deck short-circuits on an `indexOf` before allocating anything.
+	await ensureFenceLanguages(rendered).catch(() => []);
 	return PG.render(rendered, theme, opts);
 }

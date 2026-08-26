@@ -3519,6 +3519,15 @@ function listRepoTextFiles(dir = ROOT, out = []) {
       // the artifacts present). Same reason components.md is exempted below.
       // See engineering/decisions/2026-07-02-website-copy-positioning.md §8.5.
       if (rel === path.join('docs', 'public', 'playground', 'v')) continue;
+      // Its sibling, and a stronger case: `playground/hljs/` is 156 minified
+      // highlight.js grammars (tools/build-hljs-languages.js), gitignored like
+      // `v/` above. The hits in there are third-party LANGUAGE KEYWORDS, not
+      // prose anyone here writes — Erlang's `behaviour`, GML's `colour`,
+      // Mercury's `initialise`/`finalise`, pgsql's `analyse`: 6 in total, which
+      // is enough on its own to put a tree that has merely run `npm run build`
+      // over a budget CI meets on a clean checkout. Renaming an Erlang keyword
+      // is not a migration this house can perform.
+      if (rel === path.join('docs', 'public', 'playground', 'hljs')) continue;
       // Same class, different producer: `release/` is the gitignored output of
       // a release run (tools/release.js). `notes-v<x.y.z>.md` is a verbatim
       // copy of a CHANGELOG section — and CHANGELOG.md is itself exempt below

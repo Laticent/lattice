@@ -1,6 +1,6 @@
 # redline
 
-> Clause-by-clause comparison — verbatim language with inline <ins>/<del> tracking the amendment.
+> Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tracking the amendment.
 
 **Function** comparison · **Form** canvas · **Substance** prose
 
@@ -16,7 +16,7 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 |---|---|---|---|
 | `heading` | `h2` | yes | Slide heading naming the amendment or change. |
 | `citation` | `p:first-of-type > code` | yes | Inline-code citation of the amended provision (e.g. 'Cal. Civ. Code §1798.135 · SB-362 (2024)'). |
-| `redline` | `blockquote` | yes | The amended language. Use <del>old text</del> and <ins>new text</ins> inline. |
+| `redline` | `blockquote` | yes | The amended language. Use `<del>old text</del>` and `<ins>new text</ins>` inline. |
 | `implications` | `ul > li` | no | Optional explanation. Use **Why this matters** for the operational read. |
 
 ### Variant decision rule

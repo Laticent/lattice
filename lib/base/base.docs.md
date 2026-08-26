@@ -1658,6 +1658,39 @@ A per-slide `_class: dark` still wins for that slide, and a mid-deck
 
 ---
 
+## Accessibility — tracked changes (`<ins>` / `<del>`)
+
+Markdown has no syntax for an insertion, so a tracked change is authored as
+literal HTML — and that is the right thing to write:
+
+```markdown
+> A business that <del>collects</del> <ins>collects, sells, or shares</ins>
+> consumers' personal information shall provide at least one designated method.
+```
+
+`~~text~~` also works for a deletion (it renders `<s>`, which `redline` styles
+identically to `<del>`). There is no equivalent for an insertion, and `<s>`
+means "no longer accurate" rather than "deleted", so prefer `<del>` where the
+distinction matters.
+
+**Write the elements and stop there — do not add your own "deleted:" wording.**
+The tags carry the meaning: a browser exposes them as the `insertion` and
+`deletion` roles, and a screen reader announces the boundaries from that. Orca,
+for one, speaks "deletion start … deletion end" around the text by default, and
+lets a reader turn that off. Literal text saying the same thing is heard twice
+by anyone whose reader already announces it, and cannot be turned off by anyone
+who has asked for less. We built exactly that and removed it before it shipped —
+`engineering/decisions/2026-08-26-tracked-change-announcement.md` has the
+measurements.
+
+**Mentioning a tag is not writing one.** Backtick a tag you are talking ABOUT —
+`` `<ins>` `` — or the engine renders it as a live element and the word
+disappears from your sentence. This is a mistake the component's own docs made.
+
+The distinction is never carried by color alone: `<ins>` is underlined and
+`<del>` struck through, in addition to their hues, so both read without color
+perception and both survive a grayscale print.
+
 ## Accessibility — colour-vision-deficiency themes (`a11y-*`)
 
 Colour-vision-deficiency (CVD) accommodation is delivered as four **first-class

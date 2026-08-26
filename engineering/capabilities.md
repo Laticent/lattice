@@ -81,6 +81,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `fonts:emoji` | Vendor Noto Color Emoji into dist/fonts/ for the opt-in full-offline tier (~25 MB, excluded from the npm tarball). Run once while online; needs network. |
 | `gotchas:index` | Regenerate the symptom index in engineering/gotchas.md from the entry headings of every engineering/gotchas/<topic>.md file. |
 | `gotchas:index:check` | Gate for the gotchas-index: every entry has its own correct row under the right topic, exactly once (content, not a byte-diff — row order is deliberately not asserted). |
+| `hljs:build` | Build docs/public/playground/hljs/ — the 156 highlight.js grammars the preview bundle's 36-language `common` build omits, one small file each (median 1.9 KB) plus an alias manifest, fetched per deck so the Playground colors every language the CLI export does. |
 | `image-set-core:build` | Bundle the shared image-set contract (lib/export/image-set.js) for the browser — the Studio Share sheet's "Images" (image-set ZIP) export. |
 | `image-set-core:check` | Freshness gate for the image-set-core bundle. |
 | `katex-provider:build` | Build docs/public/playground/lattice-katex.js — the on-demand KaTeX bundle split out of the playground bundle. |
@@ -378,6 +379,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-exemplar-pdfs.js` | Regenerate the committed PDF for every worked exemplar deck |
 | `tools/build-forms.js` | Generate dist/docs/forms.json — the machine-readable catalog of Lattice's |
 | `tools/build-gotchas-index.js` | build-gotchas-index.js — regenerate the symptom index in engineering/gotchas.md |
+| `tools/build-hljs-languages.js` | Build the on-demand highlight.js grammars for the browser preview. |
 | `tools/build-image-set-core.js` | Bundle the shared image-set contract for the browser. |
 | `tools/build-katex-provider.js` | Build the on-demand KaTeX provider bundle. |
 | `tools/build-lente-lib.js` | Build the Lente library's consumable dist/ — the ESM + CJS entries + type |
@@ -427,6 +429,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |
 | `tools/slice-equivalence.mjs` | Slice/deck equivalence — the HEADLESS half of the diagnostic. |
 | `tools/spike-composition-snapshot.mjs` | SPIKE — not production tooling. The measurement harness behind |
+| `tools/transform-parity.mjs` | transform-parity — does the DOM implementation of each registry transformer |
 | `tools/verify-catalog-states.mjs` | The real-surface check the checker said was still owed on findings 1, 2 and 4. |
 | `tools/verify-narrated-player.mjs` | Real-surface verification for the baked-narration player (#1393). |
 | `tools/verify-player-input.mjs` | Real-surface verification for the exported HTML player's TOUCH input (#1558). |

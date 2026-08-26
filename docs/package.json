@@ -22,6 +22,8 @@
     "perf:collect": "node scripts/perf-collect.mjs",
     "perf:compare": "node scripts/perf-regression.mjs",
     "perf:frame": "node scripts/frame-bench.mjs",
+    "perf:frame:bless": "node scripts/frame-bench.mjs --bless",
+    "perf:frame:check": "node scripts/frame-bench.mjs --check",
     "perf:first-paint": "node scripts/first-paint-bench.mjs",
     "perf:fouc": "node scripts/fouc-bench.mjs",
     "settle:check": "node scripts/runtime-settle-check.mjs",
