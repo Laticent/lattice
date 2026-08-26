@@ -401,6 +401,14 @@ Pinned in `test/integration/export/author-script-deferral.test.js` and
 `test/unit/core/author-deferral-probe.test.js`. A `lint:deck --all` sweep over the
 274 decks that tool discovers reports the new rule zero times.
 
+**Amendment (2026-08-25).** The `setTimeout(…, 400)` row above records what was measured on
+this date and still holds — but the integration test no longer pins it. That fixture's delay is
+now sized against the suite's own 120 s timeout (#1835/#1843): asserting a 400 ms timer loses to
+capture was a wall-clock race the export lost on a contended runner and it ejected #1824. The
+400 ms row is pinned by the unit test only. Note the consequence for §2a-ter's "there is no
+finite wait that is correct": **no test in the tree now detects a bounded wait added before
+capture** — the integration file states this at full strength in its own docblock, and the
+reasoning is in `engineering/gotchas/ci.md`.
 ### 2b. mmdc launches a second browser **per diagram** — the largest cost here
 
 **Corrected.** The first pass wrote: "`mmdc` costs 2,659 ms on a 58-slide deck
