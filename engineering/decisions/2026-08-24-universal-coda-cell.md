@@ -361,3 +361,16 @@ and `scene` keep a capped or composition-matched measure, and none of them is a 
 **The honest summary of the tier's value:** the machine gates were green — 7,282 unit tests, lint,
 `build:check`, and an overflow ratchet identical to baseline — while the export lost content. Every
 one of those gates was measuring something real; none of them was measuring this.
+
+**A component cannot yet DECLINE the coda, and three classes need to (#1892).** `coda.claims`
+names a trailing ELEMENT a layout keeps for its own anatomy, which is the right shape for "this
+element is mine" and the wrong shape for "no beat belongs on this slide at all". Three cases prove
+the gap. The anchor bucket (`title`, `closing`, `divider`) hosts the band INSIDE its centered
+cluster — 176px / 128px / 165px above the floor — and a bordered panel is foreign to a chrome-free
+opening. `math` claims both elements and a trailing paragraph is still absorbed into its grid,
+rendered in a track beside the equation. And the 13-layout `chart-frame canvas` family places the
+band 301px off the floor, which is a different contract from the one the rest of the catalog keeps.
+Measured: 21 of 51 coda-hosting layouts put the band more than 60px off the floor; none overlaps
+another cell, so this is compositional fit rather than correctness. Deciding it needs a look at each
+component, not a rule applied by bucket — `image`, `scene` and `video` share a bucket and want
+different answers.
