@@ -295,6 +295,7 @@ it is load-bearing.
 ### Shipped — the work landed; the note stays as the record
 
 - ☑ [2026-08-26-tracked-change-announcement.md](2026-08-26-tracked-change-announcement.md) — DO NOT add screen-reader labels to `<ins>`/`<del>`.
+- ☑ [2026-08-25-carbone-light-face.md](2026-08-25-carbone-light-face.md) — Carbone had no light face. Resolved rather than assumed, 289 of its 303 tokens were IDENTICAL across the two color schemes, because the…
 - ☑ [2026-08-25-deck-profiles-craft-style-split.md](2026-08-25-deck-profiles-craft-style-split.md) — A user reported that two shipped teaching decks scored C+ from the Studio Coach and asked whether the rubric leans too hard on presentation…
 - ☑ [2026-08-25-on-demand-fence-grammars.md](2026-08-25-on-demand-fence-grammars.md) — The 2026-07-19 preview-bundle work swapped highlight.js's full 192-language build for the 36-language `common` one and halved cold load.
 - ☑ [2026-08-25-status-trio-joint-solve-model.md](2026-08-25-status-trio-joint-solve-model.md) — The design model the joint re-solve brief asked for, with the answer measured rather than assumed — and it refutes the brief's own framing.

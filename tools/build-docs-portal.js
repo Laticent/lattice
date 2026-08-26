@@ -377,18 +377,46 @@ function splitTopLevel(s) {
 }
 
 /** Resolve a single token to {light, dark}. Returns null if undefined. */
+/**
+ * Collapse EVERY `light-dark()` in a value to one arm, not just a whole-value one.
+ *
+ * The first cut matched `/^light-dark\((.*)\)$/` — anchored — which is correct for a
+ * surface token and silently wrong for a value that merely CONTAINS pairs. carbone's
+ * `--spectrum` is a gradient whose three stops each carry their own arm (a gradient
+ * cannot be wrapped: `light-dark()` is a color function), so it fell through to the
+ * `{light: expanded, dark: expanded}` default and shipped the literal text
+ * `light-dark(#DFE6EF, #0E0E10)` into docs/src/styles/lattice-tokens.generated.css —
+ * an artifact whose whole contract is that it is RESOLVED. It was the only
+ * `light-dark(` left in the repo's generated output, and build:check was green.
+ */
+function collapseLightDark(value, arm) {
+  let out = String(value);
+  for (let guard = 0; guard < 32; guard += 1) {
+    const at = out.indexOf('light-dark(');
+    if (at === -1) break;
+    let depth = 0;
+    let end = -1;
+    for (let i = at + 'light-dark('.length - 1; i < out.length; i += 1) {
+      if (out[i] === '(') depth += 1;
+      else if (out[i] === ')') {
+        depth -= 1;
+        if (depth === 0) { end = i; break; }
+      }
+    }
+    if (end === -1) break;                       // unbalanced — leave it rather than corrupt it
+    const args = splitTopLevel(out.slice(at + 'light-dark('.length, end));
+    if (args.length < 2) break;
+    const pick = (arm === 'dark' ? args[1] : args[0]).trim();
+    out = out.slice(0, at) + pick + out.slice(end + 1);
+  }
+  return out.trim();
+}
+
 function resolveToken(map, tokenName) {
   const raw = map.get(`--${tokenName}`);
   if (raw == null) return null;
   const expanded = expandVars(map, raw).trim();
-  const ld = expanded.match(/^light-dark\(([\s\S]*)\)$/);
-  if (ld) {
-    const args = splitTopLevel(ld[1]);
-    if (args.length >= 2) {
-      return { light: args[0].trim(), dark: args[1].trim() };
-    }
-  }
-  return { light: expanded, dark: expanded };
+  return { light: collapseLightDark(expanded, 'light'), dark: collapseLightDark(expanded, 'dark') };
 }
 
 /**

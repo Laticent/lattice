@@ -5,10 +5,11 @@
   "family": "brand",
   "tier": "curated",
   "modes": [
+    "light",
     "dark"
   ],
-  "darkCounterpart": null,
+  "darkCounterpart": "carbone-dark",
   "order": 6,
   "swatch": "#7DE38A",
-  "note": "The one palette that does not use light-dark() switching at all: its surface tokens are static hexes and the default color-scheme is dark at zero specificity, so there is no second face to resolve. Deliberate — an author needing a light carbone should pick a different palette rather than override color-scheme. Hence no -dark counterpart (#1302)."
+  "note": "Two faces on the house contract since the light curation. The dark face is carbone as it always shipped \u2014 graphite canvas, bone ink, electric lime. The light face holds the same lime HUE at 95% of its chroma but at OKLCH L 0.50 (#037829), because the bright lime is 1.48:1 on an off-white canvas and cannot carry text; the bright value stays the brand axis and the DARK arm of the spectrum ribbon; the light ribbon carries the same gesture with its own stops, ending on the deep lime. The code block is painted on --surface-inverse, which is dark on BOTH faces, so carbone's terminal register survives the flip. Before this, carbone declared 289 of 303 tokens identically across schemes and carried 14 strays with light arms tuned for a canvas it never presented."
 }

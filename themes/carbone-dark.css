@@ -1,0 +1,15 @@
+/* @theme carbone-dark
+ *
+ * Thin wrapper over carbone that flips deck-wide color-scheme to dark.
+ *
+ * Carbone shipped dark-ONLY until the light face was curated: its surface tokens
+ * were static hexes and `color-scheme: dark` was pinned at zero specificity, so
+ * `theme: carbone` meant "the graphite deck". It is now a two-face palette on the
+ * house contract, which moves that meaning — `theme: carbone` resolves LIGHT, and
+ * this wrapper is what a deck that wants the original graphite canvas asks for.
+ * Every dark value it resolves to is byte-identical to what carbone shipped before
+ * the split. */
+
+@import 'carbone';
+
+:root { color-scheme: dark; }

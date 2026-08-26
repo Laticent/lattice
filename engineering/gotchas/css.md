@@ -396,8 +396,11 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   FLATTENS `light-dark` per mode — so the `[data-mode="light"]` chrome block used to pair the
   LIGHT-side `--fail #A02323` against the dark bg at 2.28:1. Fixed: `resolvePalettes` now
   resolves each block's tokens to the arg matching THAT block's canvas scheme (`isDarkSurface`
-  of its `--bg`), not the mode toggle — so carbone (dark in both toggles) takes the dark args
-  in both, and its light-mode chrome status is 6.2–8.2:1. (The old `singleMode` flag, computed
+  of its `--bg`), not the mode toggle. carbone was the palette that motivated this — it WAS
+  dark in both toggles, so it took the dark args in both, and its light-mode chrome status
+  was 6.2–8.2:1. Carbone has since grown a real light face and flips like any other palette,
+  so it is no longer an example of the shape; the RULE is unchanged and still the right one,
+  because it keys on the canvas rather than on any palette's mode list. (The old `singleMode` flag, computed
   but never consumed, was the intended lever; it's removed in favor of this one rule, which
   also subsumes the a11y mode-invariant case.) (2) `a11y-achromatopsia`'s grayscale `--warn`
   was `#7a7a7a` (4.29:1) — darkened to `#6E6E6E`, which clears AA on its surface AND stays

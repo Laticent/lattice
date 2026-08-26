@@ -181,16 +181,26 @@ describe('bless-palette-baselines · the table parser', () => {
     // tile), and +640 for the kanban status wash and the two inks it carries. The shipped
     // gate reports 4160; an earlier draft of this comment said 3520, which was true at the
     // middle commit and not updated when the kanban surfaces landed.
-    // What is LEFT is the honest residue: carbone's light arm (whose trio is inks for a
+    // What was LEFT when #1881 landed was "carbone's light arm (whose trio is inks for a
     // light canvas the palette does not have yet — #1302 owns that, and this pass
-    // deliberately does not pre-empt it) and concrete's dark `--fail`, re-derived as
+    // deliberately does not pre-empt it)" plus concrete's dark `--fail`, re-derived as
     // infeasible without a visible design change.
+    //
+    // Carbone now HAS that light canvas, which is the branch #1881 deferred to. 22 -> 14:
+    // its trio is curated for a real off-white ground rather than being light-tuned inks
+    // resolving on graphite, so most of its residue is not residue any more. What remains
+    // of carbone is two `policy-recommendation/amend-badge` rows. Its
+    // `kanban/card-code-chip` pair went a different way and was FIXED, not re-frozen —
+    // `--code-inline-fg` inherited `var(--accent)` and the chip is a 10% wash of that same
+    // value, so the ink was scored against a ground made from itself at 4.17 on --bg-alt.
     // engineering/decisions/2026-08-25-status-trio-joint-solve-model.md
-    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*22 entries/,
+    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*14 entries/,
       'the contrast table still parses in full');
-    // 768, up from 576: the monochromacy arm is 192 more (theme x mode x pair), added
-    // when the trio was respaced to clear it. 32 x 2 x 3 x 4.
-    assert.match(out, /CVD_FROZEN[^\n]*\n\s*768 entries/, 'the CVD table still parses in full');
+    // 792, up from 768: `carbone-dark` is a NEW theme (carbone grew a curated light face
+    // and took the house two-file shape), so the table gains one theme's worth --
+    // 1 x 2 modes x 3 pairs x 4 conditions = 24. The identity is 33 x 2 x 3 x 4 = 792.
+    // 768 was 32 x 2 x 3 x 4, itself up from 576 when the monochromacy arm added 192.
+    assert.match(out, /CVD_FROZEN[^\n]*\n\s*792 entries/, 'the CVD table still parses in full');
     assert.match(out, /0 ratcheted up · 0 new · 0 dropped/, 'blessing the committed tree is a no-op');
   });
 

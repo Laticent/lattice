@@ -1,101 +1,131 @@
 /* @theme carbone
  *
- * Lattice · Carbone palette — dark editorial with electric lime accent
+ * Lattice · Carbone palette — graphite editorial with an electric lime accent
  * ────────────────────────────────────────────────────────────────────────
- * Tech reveal, dramatic dark, "we ship product" deck. The lone palette
- * in the set whose identity is the dark canvas itself — every other new
- * theme follows the light-dark() switch contract. Carbone pins to dark
- * always, regardless of the active color-scheme.
+ * Tech reveal, "we ship product" deck. TWO faces on the house contract:
+ * `carbone` is the light one, `carbone-dark` the graphite one carbone shipped
+ * as its only face until the light curation.
+ *
+ * WHAT THE DARK FACE IS
+ * ─────────────────────
+ *   Byte-identical to what carbone always shipped. Graphite canvas #1A1A1C,
+ *   bone ink #F5F5F2, electric lime #7DE38A at 10.95:1. Nothing about it moved;
+ *   the values simply live in the dark arm of a light-dark() pair now.
+ *
+ * WHAT THE LIGHT FACE IS, AND WHY IT IS NOT JUST "CARBONE INVERTED"
+ * ────────────────────────────────────────────────────────────────
+ *   The electric lime measures 1.47:1 on an off-white canvas. It cannot be
+ *   foreground text on light at any canvas lightness a light mode would accept,
+ *   which is why the palette punted on a light face for so long.
+ *
+ *   The resolution is to move the lime along ONE axis. --accent's light arm is
+ *   #037829: the SAME hue (OKLCH h=146.8) holding 95% of the same chroma
+ *   (0.148 against the lime's 0.156), at L 0.50 instead of L 0.83. It reads
+ *   5.24:1 on the canvas. That is a darker electric green, not a desaturated
+ *   forest one — the distinction the whole curation turns on.
+ *
+ *   THE GROUND IS CHROMATIC, and that was the second thing this face got wrong.
+ *   The first cut inverted carbone's dark ramp literally: bone on graphite is
+ *   ACHROMATIC, so inverting it gave neutral gray ink on neutral gray paper.
+ *   Measured against the palettes that set the bar, that is what "washed out" is:
+ *
+ *                    --text-body chroma    card chroma
+ *       carbone(was)      0.0067             0.0073
+ *       cuoio             0.0283             0.0136
+ *       indaco            0.0736             0.0074
+ *
+ *   The mono hue now carries color, the way cuoio's mono is warm brown and
+ *   indaco's is navy: a COOL graphite at OKLCH h=252, paper C 0.0068 and body ink
+ *   C 0.0455. Cool, not green -- a green ground was tried and rejected, because it
+ *   swallowed the semantic pass state. The palette's mono must differ in hue from
+ *   its semantics or green-on-green stops reading as a signal.
+ *
+ *   Three things carry the identity across the split rather than the lime alone:
+ *     · --brand-accent stays #7DE38A on both faces — it is the axis, not a use;
+ *     · --spectrum keeps the same GESTURE on both faces — canvas, structural mid,
+ *       accent — with per-stop arms rather than shared values. (This was WRONG at
+ *       first: the ribbon shipped identical stops, so the fade that is elegant on
+ *       graphite was a near-black bar across every light slide. The lime tip was
+ *       still there, which is what made it easy to miss.);
+ *     · --surface-inverse is DARK on both faces, so the code block keeps its
+ *       terminal register and all twelve --hljs-* values stay valid.
  *
  * Design contract
  * ───────────────
- *   1. Single text-heading colour on every surface (#F5F5F2 bone). The
- *      canvas does not switch; light-mode and dark-mode resolve to the
- *      same dark values.
+ *   1. Every text-bearing token clears WCAG AA (4.5:1) on the surface it is
+ *      actually painted on — scored by tools/composed-contrast.js against the
+ *      composed band (tint over card over canvas), not against the canvas alone.
+ *   2. The categorical cycle keeps the three-layer contract on both faces:
+ *      mark-vs-canvas >= 3:1, label ink on fill >= 4.5:1, fill and mark distinct
+ *      tiers of one hue. Light arms hold each dark mark's hue and solve only
+ *      lightness. Measured light: 4.39-4.46 / 16.49-16.91 / 4.72-4.80.
+ *   3. Saturation is the accent's job. Everything else stays graphite.
  *
- *   2. Two lightness bands for fills:
- *        Card band (L≈14)  — primary mermaid surfaces (--bg-alt = #26262A
- *                            lifted graphite). Bone text reads at AAA.
- *        Accent band       — electric lime #7DE38A. Used as foreground
- *                            (text-label, accent text/borders) and as
- *                            background of corner tags / small chips,
- *                            where --on-accent flips dark to compensate.
- *
- *   3. Saturation: the accent IS the chroma. Everything else is
- *      monochromatic graphite. Semantic signals stay at deep mid-tones
- *      (#357849 / #A02323 / #9E5018) so checklist white-stroke icons
- *      remain readable on top.
- *
- *   4. Every text-bearing token clears WCAG AA (4.5:1) against the
- *      surface it appears on. Bone text on graphite clears AAA;
- *      lime accent on graphite clears AAA; --on-accent (graphite) on
- *      lime clears AAA.
- *
- * Mechanism — pinned-dark, deliberately
- * ─────────────────────────────────────
- *   Carbone is the *one* palette that does not use light-dark() switching.
- *   The default color-scheme is set to dark (at zero specificity), and all
- *   tokens are static. This makes the palette intentionally one-mode —
- *   if an author needs a light variant of carbone they should pick a
- *   different palette rather than override color-scheme.
- *
- *   Per-slide `<!-- _class: dark -->` is inert here (canvas is already dark);
- *   no carbone-dark wrapper is shipped because the palette is already dark.
- *
- *   Semantic signals (--pass/--fail/--warn) match the rest of the new-theme
- *   set: kept dark for the white-stroke checklist icons.
- */
+ * WHAT THIS FILE USED TO SAY, AND WHY IT WAS WRONG
+ * ───────────────────────────────────────────────
+ *   The previous header claimed a `color-mode: light` deck "renders fully styled:
+ *   every token this palette leaves to the engine resolves to the engine's LIGHT
+ *   arm, so the canvas, the text tiers and the status trio all come out legible."
+ *   Resolved rather than assumed, the opposite was true: 289 of 303 tokens were
+ *   IDENTICAL across the two schemes, because carbone declared them flat. The
+ *   canvas did not go light and the text tiers did not move. What moved were
+ *   FOURTEEN strays — the status trio and its dependents — carrying light arms
+ *   tuned for an off-white canvas the palette never presented, which is why
+ *   --fail read 2.34:1 and twelve `carbone|light|*` entries sat in
+ *   composed-contrast's sanction list. Those entries are retired by this file
+ *   having a real light canvas for them to land on. */
 
 @import 'lattice';
 
-/* Zero-specificity dark default — same pattern indaco uses for light, but
- * inverted. Carbone's identity is dark canvas, and the manifest says so:
- * `modes: ["dark"]`, no `-dark` counterpart, "an author needing a light
- * carbone should pick a different palette rather than override color-scheme".
- *
- * WHAT ACTUALLY HAPPENS IF THEY OVERRIDE IT ANYWAY is not what this comment
- * used to claim. It said they "get an unstyled deck (no light values defined),
- * which is the correct failure mode" — they do not. A deck with
- * `color-mode: light` renders fully styled: every token this palette leaves to
- * the engine resolves to the engine's LIGHT arm, so the canvas, the text tiers
- * and the status trio all come out legible. What breaks is the handful of
- * tokens carbone declares FLAT, `--on-accent` above all — its near-black is
- * paired with carbone's own bright lime, and on the engine's light `--fail` a
- * `confidential` stamp reads 2.60:1. Measured on a real CLI render, #1527.
- *
- * So the failure mode is a styled deck with a few illegible spots, which is
- * harder to notice than an unstyled one. `paired-token-parity.test.js` exempts
- * this palette and records the cost; nothing in the engine refuses the
- * configuration. Both are open, and both are why this note is precise now. */
-:where(:root) { color-scheme: dark; }
+/* Zero-specificity light default, the same shape the other thirteen base palettes
+ * use. `carbone-dark` flips it. This REPLACED a `color-scheme: dark` pin, and the
+ * flip is deliberately breaking: a deck that says `theme: carbone` and means the
+ * graphite canvas has to say `theme: carbone-dark` now. */
+:where(:root) { color-scheme: light; }
 
 :root {
   /* ── Carbone brand axis ────────────────────────────────────────────── */
   --brand-accent:            #7DE38A;  /* electric accent                       */
 
-  /* ── Surfaces — pinned dark (no light-dark wrapping) ──────────────── */
-  --bg:       #1A1A1C;
-  --bg-alt:   #26262A;
-  --surface-inverse:  #0E0E10;
-  --border:   #6F7075;
+  /* ── Surfaces — a light-dark() pair each, since the light curation ── */
+  --bg:       light-dark(#F3F7FB, var(--scheme-dark-bg));
+  --bg-alt:   light-dark(#E6EDF5, var(--scheme-dark-bg-alt));
+  /* INVERSE IS DARK ON BOTH FACES, deliberately. It is the code-block ground and
+   * the split-panel fill; carbone's terminal register is the most recognizable
+   * thing it owns, so the light face keeps a graphite block rather than inverting
+   * to paper. The twelve --hljs-* values are curated on it and stay valid. */
+  --surface-inverse:  light-dark(#0E0E10, #0E0E10);
+  --border:   light-dark(#778595, var(--scheme-dark-border));  /* 3.50 / 3.52 hairline */
 
   /* ── Ink ramp ──────────────────────────────────────────────────────── */
-  --text-display: #F5F5F2;
-  --text-heading: #F5F5F2;       /* L:15.91:1 on bg AAA */
-  --text-body:    #DCDCD7;       /* L:12.63:1 on bg AAA */
-  --text-label:   var(--brand-accent); /* L:10.95:1 on bg AAA */
-  --text-secondary: #A5A5A2;   /* secondary prose / subtitle / caption — 7.0:1 on bg AAA */
-  --text-muted:   #8A9098;      /* de-emphasized TEXT — AA on --bg and --bg-alt (#1715) */
-  --muted-mark:   #757A82;      /* de-emphasized DECORATION — rules, hairlines, empty/skipped marks, glyph washes. 3:1 graphical, no text floor (#1715) */
+  --text-display: light-dark(#081523, var(--scheme-dark-text-display));
+  --text-heading: light-dark(#081523, var(--scheme-dark-text-heading));   /* 17.08 / 15.91 AAA */
+  --text-body:    light-dark(#1E3146, var(--scheme-dark-text-body));      /* 12.32 / 12.63 AAA */
+  --text-label:   var(--accent);                                          /* flips with the accent */
+  --text-secondary: light-dark(#46576A, var(--scheme-dark-text-secondary)); /* 6.89 / 7.04 AAA */
+  --text-muted:   light-dark(#546374, var(--scheme-dark-text-muted));      /* AA on --bg AND --bg-alt (#1715) */
+  --muted-mark:   light-dark(#7B8896, var(--scheme-dark-muted-mark));      /* 3.36 / 4.02 graphical, never carries glyphs (#1715) */
 
   /* ── Brand accent — electric lime ──────────────────────────────────── */
-  --accent:      var(--brand-accent);          /* L:10.95:1 on bg AAA */
-  --accent-soft: #2C3D2F;                    /* lifted card with green tint */
+  /* THE LIME AT AA. #037829 is --brand-accent's OWN hue (OKLCH h=146.8) at L 0.50,
+   * holding 95% of its chroma (0.148 vs 0.156) — a darker electric green, not a
+   * desaturated forest one. 5.24:1 on the light canvas; the bright lime itself is
+   * 1.47:1 there and cannot carry text. */
+  --accent:      light-dark(#037829, var(--brand-accent));  /* 5.24 / 10.95 */
+  --accent-soft: light-dark(#E2F3E5, #2C3D2F);              /* accent on it 4.89 / AA */
   /* Inline-code chip ink — curated + AA-audited on the chip wash; bg/border
    * derive from it (base.tokens.css). See 2026-06-08-inline-code-contrast.md. */
-  --code-inline-fg: var(--accent); /* electric green accent — chip reads AAA (8.85/7.53 on chip) */
+  /* NOT var(--accent) on the light face. The chip is a 10% wash of this value over
+   * the surface, so the ink is measured against a ground made FROM it: --accent's
+   * #037829 lands 4.55 on --bg's chip and 4.17 on --bg-alt's — the second below AA.
+   * Darkened one step, hue held: 5.16 / 4.73. The dark arm is unchanged. */
+  --code-inline-fg: light-dark(#006E24, var(--accent)); /* 5.16/4.73 light · 8.85/7.53 dark */
   /* Accent is always bright; corner-tag text needs dark bg-tinted ink. */
-  --on-accent:   var(--surface-inverse);             /* D:10.95:1 on accent AAA */
+  /* CURATED PER FACE, not var(--surface-inverse). The dark face pairs near-black on
+   * bright lime (10.95:1); the light face pairs WHITE on the darkened lime (5.64:1).
+   * Bound to --surface-inverse this went dark-on-dark the moment the canvas flipped —
+   * the measured #1527 hole (a `confidential` stamp at 2.60:1). */
+  --on-accent:   light-dark(#FFFFFF, #0E0E10);       /* 5.64 / 12.15 */
 
   /* ── Semantic signals ─────────────────────────────────────────────────
    * Carbone's industrial-grey trio. Each is a light-dark() pair: light
@@ -115,32 +145,51 @@
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
-  --pass: light-dark(#428555, #92ffa6);
-  --fail: light-dark(#a22525, #ffaba7);
-  --warn: light-dark(#ec7d40, #fa7419);
-  --pass-bg: color-mix(in srgb, var(--pass) 18%, transparent);
-  --fail-bg: color-mix(in srgb, var(--fail) 18%, transparent);
-  --warn-bg: color-mix(in srgb, var(--warn) 18%, transparent);
+  --pass: light-dark(#19531F, #92ffa6);   /* 7.74 on card / dark unchanged */
+  --fail: light-dark(#580006, #ffaba7);   /* 10.92 on the composed band / dark unchanged */
+  --warn: light-dark(#A55400, #fa7419);   /* 4.60 on card; pills sanctioned both faces */
+  /* THE WASHES ARE CURATED ON THE LIGHT FACE, not derived from the ink.
+   *
+   * Derived, they were nearly achromatic. The three light inks sit at OKLCH L
+   * 0.29-0.55 because AA on a self-tinted band and twelve frozen CVD ratchets
+   * pin them there, and mixing 18% of a near-black into a light card yields a
+   * GRAY, not a tint: --pass-bg measured chroma 0.0178, --fail-bg 0.0156. On a
+   * slide that reads as chalk. (indaco and cuoio use 10% for the same reason we
+   * cannot: their inks are dark too, and a smaller pour of a dark ink is fainter
+   * mud rather than cleaner color.)
+   *
+   * Curating the SOURCE instead decouples the two jobs. The ink keeps carrying
+   * the contrast and the CVD separation; the wash carries the color. Both improve:
+   *
+   *            chroma          ink-on-band
+   *   pass   0.0178 -> 0.0661   5.78 -> 7.04
+   *   warn   0.0148 -> 0.0251   3.61 -> 4.02
+   *   fail   0.0156 -> 0.0247   8.56 -> 10.92
+   *
+   * The dark arm is untouched — 18% of the bright dark ink over graphite was
+   * already a clean wash, because there the ink is the LIGHT end of the mix. */
+  --pass-bg: light-dark(color-mix(in srgb, #5FED6C 30%, transparent), color-mix(in srgb, var(--pass) 18%, transparent));
+  --fail-bg: light-dark(color-mix(in srgb, #FFA69D 30%, transparent), color-mix(in srgb, var(--fail) 18%, transparent));
+  --warn-bg: light-dark(color-mix(in srgb, #FFA565 26%, transparent), color-mix(in srgb, var(--warn) 18%, transparent));
 
   /* The ramp anchor, and the ramp's two POLES with it — carbone is the palette
    * that has to state both, because it is the one whose canvas does not follow
    * `color-scheme`. Base derives 50-400 toward --seq-pole-low and 600-900 toward
    * --seq-pole-high, and defaults that pair to `light-dark()` so the ramp tracks
-   * the canvas (#1697). Carbone pins `color-scheme: dark` at zero specificity, so
-   * that default would ALREADY resolve dark here — but only for as long as
-   * nothing below :root flips the scheme, and `section.light` / `.color-light` do
-   * exactly that on a slide whose canvas stays graphite regardless. Literal poles
-   * make the ramp scheme-proof, which is the contract the rest of this palette
-   * already keeps.
+   * the canvas (#1697). Carbone used to pin `color-scheme: dark` at zero specificity
+   * over a canvas that never switched, so it stated LITERAL poles to make the ramp
+   * scheme-proof. Both halves of that reasoning are retired: the canvas follows the
+   * scheme now, so the poles are a `light-dark()` pair like everyone else's and the
+   * ramp tracks the canvas it is actually painted on.
    * The anchor is not --brand-accent any more: at OKLab L 0.83 the electric lime
    * sits hard against the high pole, leaving --seq-700 1.24:1 from --seq-500 —
    * `word-cloud spectrum` painted three weights in two readable colors, and the
    * weight-5 tier (`var(--accent)`, the lime itself) in a third that matched
    * --seq-500 exactly. #4AB15B is that lime's hue and chroma at L 0.68: the
    * spectrum reads as four distinct tiers, all clear of the graphite canvas. */
-  --seq-pole-low: black;
-  --seq-pole-high: white;
-  --seq-500: #4AB15B;
+  --seq-pole-low: light-dark(white, black);
+  --seq-pole-high: light-dark(black, white);
+  --seq-500: light-dark(#007F2B, #4AB15B);   /* 4.79 on the light canvas */
 
   /* Tag uses --chart-2 (amber) — the lime/amber duotone gives carbone's
    * status badges a cyber-warm pop against the cold graphite. */
@@ -150,16 +199,44 @@
   --code-text:     #DCDCD7;
 
   /* ── Spectrum — black → graphite → lime ────────────────────────────── */
-  --spectrum: linear-gradient(90deg, #0E0E10 0%, #3A3A3F 55%, var(--brand-accent) 100%);
-  --spectrum-vertical: linear-gradient(180deg, #0E0E10 0%, #3A3A3F 55%, var(--brand-accent) 100%);
-  --spectrum-end: var(--brand-accent); /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
+  /* THE RIBBON FLIPS PER STOP, not as a whole — `light-dark()` is a COLOR function
+   * and cannot wrap a gradient, so each stop carries its own pair.
+   *
+   * The gesture is what carries across, not the values: the ribbon starts at the
+   * canvas, passes through a structural mid, and resolves into the accent. Measured
+   * against its own canvas, the two arms are the same shape —
+   *
+   *              start   mid    end
+   *     dark     1.11    1.54   10.95   (on #1A1A1C)
+   *     light    1.17    2.66    5.24   (on #F3F7FB)
+   *
+   * Shipping the dark values on the light face put a NEAR-BLACK BAR across the top
+   * of every light slide: the stops are identical, so the gradient that reads as an
+   * elegant fade on graphite reads as a foreign stripe on off-white. The lime tip
+   * was still there, which is what made it easy to miss.
+   *
+   * The light arm ends on the DEEP lime rather than the bright one. #7DE38A is
+   * 1.47:1 on this canvas and a 4px ribbon in it washes out; #037829 is 5.24:1 and
+   * reads as the brand. The bright value keeps its place on the dark arm and as
+   * --brand-accent. */
+  --spectrum: linear-gradient(90deg,
+    light-dark(#DFE6EF, #0E0E10) 0%,
+    light-dark(#8E9AA8, #3A3A3F) 55%,
+    light-dark(#037829, var(--brand-accent)) 100%);
+  --spectrum-vertical: linear-gradient(180deg,
+    light-dark(#DFE6EF, #0E0E10) 0%,
+    light-dark(#8E9AA8, #3A3A3F) 55%,
+    light-dark(#037829, var(--brand-accent)) 100%);
+  --spectrum-end: light-dark(#037829, var(--brand-accent)); /* curated endpoint, for spectrum: duo */
 
-  /* ── Dark-variant tokens — kept for any explicit consumer (Marp chrome,
-   * theming code paths). Carbone resolves to these whether color-scheme is
-   * light or dark, since surface tokens above don't switch. ─────────── */
-  --scheme-dark-bg:           #0E0E10;
-  --scheme-dark-bg-alt:       #1A1A1C;
-  --scheme-dark-border:       #3A3A3F;
+  /* ── Dark-variant inputs — the dark arm of the surface pairs above.
+   * These USED to be inert: carbone did not switch, so nothing resolved through
+   * them and they drifted to describe a deeper canvas (#0E0E10) the palette never
+   * presented. They are now the live dark values and equal what carbone has always
+   * rendered, which is why the dark face is byte-identical across this change. */
+  --scheme-dark-bg:           #1A1A1C;
+  --scheme-dark-bg-alt:       #26262A;
+  --scheme-dark-border:       #6F7075;
   --scheme-dark-text-heading: #F5F5F2;
   --scheme-dark-text-body:    #DCDCD7;
   --scheme-dark-text-muted:   #8A9098;
@@ -169,46 +246,56 @@
   --scheme-dark-text-display: #F5F5F2;
 
   /* ── Mermaid extensions ────────────────────────────────────────────── */
-  --diagram-stroke:          var(--brand-accent);
+  --diagram-stroke:          light-dark(#037829, var(--brand-accent));
+
+  /* The split frames paint their top-edge mark on --surface-inverse, which is
+   * graphite on BOTH faces (see the header). --accent's light arm is a dark green
+   * and disappears on it, so the mark is pinned to the bright lime for both —
+   * the panel is dark wherever it appears. engineering/decisions/2026-08-18-split-frame-edge-ownership.md */
+  --panel-edge-mark:         light-dark(var(--brand-accent), var(--brand-accent));
   --diagram-accent-warm:     #FFD166;
 
   /* ── Numbered band scale (--c1..12) — Mermaid cScale / gitgraph, the
    * corner --tag-bg (var(--cat-2-mark)), and the actors-pill ladder all
-   * consume these. Carbone is single-canvas dark, so each slot is a pair
-   * of plain values (no light-dark()): -dark is the vivid stroke/mark
-   * pigment (>=3:1 on the #1A1A1C canvas) and -light is a deep graphite
-   * fill tinted with that hue (light --c-ink clears it >=8:1). Twelve hues
-   * spread across the wheel, anchored at carbone's electric green. */
-  --cat-1-fill:  #304936; --cat-1-mark:  #5BC878;  /* green   */
-  --cat-2-fill:  #2B4B41; --cat-2-mark:  #34D3A6;  /* emerald */
-  --cat-3-fill:  #2C4950; --cat-3-mark:  #3BC8E0;  /* cyan    */
-  --cat-4-fill:  #293A59; --cat-4-mark:  #4A8CFF;  /* blue    */
-  --cat-5-fill:  #303455; --cat-5-mark:  #6E72F0;  /* indigo  */
-  --cat-6-fill:  #3C3356; --cat-6-mark:  #9A6EF5;  /* violet  */
-  --cat-7-fill:  #47324B; --cat-7-mark:  #C06ECC;  /* purple  */
-  --cat-8-fill:  #522F3A; --cat-8-mark:  #E85A8A;  /* magenta */
-  --cat-9-fill:  #553130; --cat-9-mark:  #F2655F;  /* coral   */
-  --cat-10-fill: #54352A; --cat-10-mark: #F07840;  /* orange  */
-  --cat-11-fill: #54452B; --cat-11-mark: #F5B832;  /* amber   */
-  --cat-12-fill: #444D2F; --cat-12-mark: #B8D84A;  /* lime    */
+   * consume these. Each slot is a FLIPPING pair of one hue, per the three-layer
+   * contract: the light face is a pale chromatic fill under a deep edge, the dark
+   * face a deep graphite fill under a vivid pigment. The light arms hold each dark
+   * mark's own hue and solve only lightness, the same method derive-cat-ink.js
+   * uses. Measured on the light face: mark-vs-canvas 4.37-4.44 (floor 3.0),
+   * heading ink on fill 16.49-16.91 (floor 4.5), --cat-on-mark white on mark
+   * 4.72-4.80 (floor 4.5), fill/mark L-separation 0.386-0.427. Re-measured against
+   * the CHROMATIC canvas; the first cut of these numbers was taken on the neutral
+   * one and never retaken. */
+  --cat-1-fill:  light-dark(#DFFDE4, #304936); --cat-1-mark:  light-dark(#00853B, #5BC878);  /* green   */
+  --cat-2-fill:  light-dark(#D8FDEE, #2B4B41); --cat-2-mark:  light-dark(#008263, #34D3A6);  /* emerald */
+  --cat-3-fill:  light-dark(#DEF9FF, #2C4950); --cat-3-mark:  light-dark(#007E90, #3BC8E0);  /* cyan    */
+  --cat-4-fill:  light-dark(#EDF4FF, #293A59); --cat-4-mark:  light-dark(#2D6EDE, #4A8CFF);  /* blue    */
+  --cat-5-fill:  light-dark(#F0F3FF, #303455); --cat-5-mark:  light-dark(#6264E1, #6E72F0);  /* indigo  */
+  --cat-6-fill:  light-dark(#F4F1FF, #3C3356); --cat-6-mark:  light-dark(#8557DC, #9A6EF5);  /* violet  */
+  --cat-7-fill:  light-dark(#FDEEFF, #47324B); --cat-7-mark:  light-dark(#A353AF, #C06ECC);  /* purple  */
+  --cat-8-fill:  light-dark(#FFEFF2, #522F3A); --cat-8-mark:  light-dark(#CA3E71, #E85A8A);  /* magenta */
+  --cat-9-fill:  light-dark(#FFEFEE, #553130); --cat-9-mark:  light-dark(#CC4240, #F2655F);  /* coral   */
+  --cat-10-fill: light-dark(#FFF0EA, #54352A); --cat-10-mark: light-dark(#C24E07, #F07840);  /* orange  */
+  --cat-11-fill: light-dark(#FFF2DB, #54452B); --cat-11-mark: light-dark(#966C00, #F5B832);  /* amber   */
+  --cat-12-fill: light-dark(#EEF9D4, #444D2F); --cat-12-mark: light-dark(#667C00, #B8D84A);  /* lime    */
 
   /* ── CATEGORICAL ON-CANVAS INK — generated by tools/derive-cat-ink.js ──
    * The categorical hue as TEXT on --bg / --bg-alt, one per slot. Same hue and
    * chroma as --cat-N-mark; lightness solved until it clears AA on both slide
    * surfaces. Do not hand-edit: re-run the generator after re-hueing a mark.
    * Gated by checkCatContrast (layer 4) on light, dark and the print band. */
-  --cat-1-ink:   light-dark(#5BC878, #5BC878);
-  --cat-2-ink:   light-dark(#34D3A6, #34D3A6);
-  --cat-3-ink:   light-dark(#3BC8E0, #3BC8E0);
-  --cat-4-ink:   light-dark(#4A8CFF, #4A8CFF);
-  --cat-5-ink:   light-dark(#7B82FF, #7B82FF);
-  --cat-6-ink:   light-dark(#A175FD, #A175FD);
-  --cat-7-ink:   light-dark(#C270CE, #C270CE);
-  --cat-8-ink:   light-dark(#EB5D8D, #EB5D8D);
-  --cat-9-ink:   light-dark(#F2655F, #F2655F);
-  --cat-10-ink:  light-dark(#F07840, #F07840);
-  --cat-11-ink:  light-dark(#F5B832, #F5B832);
-  --cat-12-ink:  light-dark(#B8D84A, #B8D84A);
+  --cat-1-ink:   light-dark(#007935, #5BC878);
+  --cat-2-ink:   light-dark(#00775B, #34D3A6);
+  --cat-3-ink:   light-dark(#007384, #3BC8E0);
+  --cat-4-ink:   light-dark(#2263D3, #4A8CFF);
+  --cat-5-ink:   light-dark(#5959D6, #7B82FF);
+  --cat-6-ink:   light-dark(#7C4CD1, #A175FD);
+  --cat-7-ink:   light-dark(#9849A4, #C270CE);
+  --cat-8-ink:   light-dark(#BE3167, #EB5D8D);
+  --cat-9-ink:   light-dark(#C03636, #F2655F);
+  --cat-10-ink:  light-dark(#B44600, #F07840);
+  --cat-11-ink:  light-dark(#896200, #F5B832);
+  --cat-12-ink:  light-dark(#5C7100, #B8D84A);
   /* ── end categorical on-canvas ink ── */
 }
 /* Completion tokens — band-text pairs, line, gantt state, note, error.
@@ -221,20 +308,21 @@
 
 :root {
   --cat-on-fill: var(--text-heading);
-  --cat-on-mark:  #0A0A0A;
+  --cat-on-mark:  light-dark(#FFFFFF, #0A0A0A);   /* 4.72-4.80 / AAA on the mark */
 
   /* Semantic palette — 5 roles, each a flipping fill. Curated per
    * theme: hue nudged toward the brand within its meaning band,
    * AA-verified both canvas modes, chroma-capped for restraint.
    * The -dark companions are strokes → universal --diagram-stroke. */
-  --diagram-active:  light-dark(#91450E, #91450E);
+  --diagram-active:  light-dark(#FBE9D8, #91450E);
   --diagram-active-mark:   var(--diagram-stroke);
-  --diagram-done:  light-dark(#2A5F9A, #2A5F9A);
+  --diagram-done:  light-dark(#DEEAF7, #2A5F9A);
   --diagram-done-mark:   var(--diagram-stroke);
-  --diagram-critical:       light-dark(#9A2735, #9A2735);
+  --diagram-critical:       light-dark(#F9DFE3, #9A2735);
   --diagram-critical-mark:  var(--diagram-stroke);
-  --diagram-today:        light-dark(#856300, #856300);
-  --diagram-note:        light-dark(#7B5F06, #7B5F06);
+  /* todayLineColor is a LINE on the canvas, not a fill — it owes 3:1 there. */
+  --diagram-today:        light-dark(#A78433, #856300);
+  --diagram-note:        light-dark(#F6EFD2, #7B5F06);
 
   /* Containment tier — two nested structural surfaces. A monotonic
    * luminance ladder away from the canvas: light deck steps down,
@@ -243,8 +331,8 @@
    * compete with the --cN fills that sit on them.
    *   --c-container     flowchart cluster, sankey area, kanban column
    *   --c-subcontainer  kanban ticket, a box nested in a cluster */
-  --c-container:     light-dark(#202026, #202026);
-  --c-subcontainer:  light-dark(#313138, #313138);
+  --c-container:     light-dark(#E1E8F1, #202026);
+  --c-subcontainer:  light-dark(#D5DEE9, #313138);
 
   /* Containment INK + EDGE (#1311 follow-on). The tier had neither: the cluster
    * label borrowed --cat-on-fill (the CATEGORICAL tier's ink) and the box was
@@ -254,10 +342,10 @@
    * as 3:1 demands. Gated by test/unit/palette/containment-contrast.test.js:
    * ink >= 4.5:1 on its surface (AA text), edge >= 3:1 on the fill it outlines
    * (WCAG 1.4.11 — the box carries the grouping semantic). */
-  --c-container-edge:     light-dark(#7DE38A, #7DE38A);
-  --c-subcontainer-edge:  light-dark(#7DE38A, #7DE38A);
-  --c-on-container:       light-dark(#F0F0EC, #F0F0EC);
-  --c-on-subcontainer:    light-dark(#F0F0EC, #F0F0EC);
+  --c-container-edge:     light-dark(#037829, #7DE38A);
+  --c-subcontainer-edge:  light-dark(#037829, #7DE38A);
+  --c-on-container:       light-dark(#081523, #F0F0EC);
+  --c-on-subcontainer:    light-dark(#081523, #F0F0EC);
 }
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────
@@ -299,14 +387,14 @@
   /* Categorical spectrum — carbone's own vivid dark-canvas pigments, most-
    * distinct-first, anchored to the electric-green identity. All clear ≥3:1
    * on --bg #1A1A1C. */
-  --chart-cat1: #5BC878;  /* electric green  — brand anchor             */
-  --chart-cat2: #3BC8E0;  /* vivid cyan      — cool complement          */
-  --chart-cat3: #4A8CFF;  /* bright blue     — hue shift                */
-  --chart-cat4: #8A6EF5;  /* vivid indigo    — spectral step            */
-  --chart-cat5: #C06ECC;  /* vivid purple    — warm shift               */
-  --chart-cat6: #E85A8A;  /* vivid magenta   — warm-cool boundary       */
-  --chart-cat7: #F5B832;  /* amber-gold      — warm accent              */
-  --chart-cat8: #F07840;  /* vivid orange    — warm tail                */
+  --chart-cat1: light-dark(#299D50, #5BC878);  /* electric green  — brand anchor             */
+  --chart-cat2: light-dark(#0097AB, #3BC8E0);  /* vivid cyan      — cool complement          */
+  --chart-cat3: light-dark(#4486F8, #4A8CFF);  /* bright blue     — hue shift                */
+  --chart-cat4: light-dark(#8F74FB, #8A6EF5);  /* vivid indigo    — spectral step            */
+  --chart-cat5: light-dark(#BC6AC8, #C06ECC);  /* vivid purple    — warm shift               */
+  --chart-cat6: light-dark(#E35586, #E85A8A);  /* vivid magenta   — warm-cool boundary       */
+  --chart-cat7: light-dark(#B28100, #F5B832);  /* amber-gold      — warm accent              */
+  --chart-cat8: light-dark(#DC662C, #F07840);  /* vivid orange    — warm tail                */
 
   /* ── CHART CATEGORICAL INK — generated by tools/derive-chart-cat-ink.js ──
    * The chart categorical hue as TEXT on --bg / --bg-alt, one per slot. Same hue
@@ -314,14 +402,14 @@
    * surfaces. Read via --chart-cat-N-ink in the chart family, which falls back to
    * its own derivation for a palette with no chart cycle. Do not hand-edit: re-run
    * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
-  --chart-cat1-ink: light-dark(#5BC878, #5BC878);
-  --chart-cat2-ink: light-dark(#3BC8E0, #3BC8E0);
-  --chart-cat3-ink: light-dark(#4A8CFF, #4A8CFF);
-  --chart-cat4-ink: light-dark(#947AFF, #947AFF);
-  --chart-cat5-ink: light-dark(#C270CE, #C270CE);
-  --chart-cat6-ink: light-dark(#EB5D8D, #EB5D8D);
-  --chart-cat7-ink: light-dark(#F5B832, #F5B832);
-  --chart-cat8-ink: light-dark(#F07840, #F07840);
+  --chart-cat1-ink: light-dark(#007936, #5BC878);
+  --chart-cat2-ink: light-dark(#007483, #3BC8E0);
+  --chart-cat3-ink: light-dark(#2364D2, #4A8CFF);
+  --chart-cat4-ink: light-dark(#7051D5, #947AFF);
+  --chart-cat5-ink: light-dark(#9948A4, #C270CE);
+  --chart-cat6-ink: light-dark(#BE3167, #EB5D8D);
+  --chart-cat7-ink: light-dark(#896200, #F5B832);
+  --chart-cat8-ink: light-dark(#B44600, #F07840);
   /* ── end chart categorical ink ── */
 
   /* Semantic spectrum — charts that encode meaning (gantt bars, progress,
@@ -330,15 +418,41 @@
    * a vivid cool blue tuned to the dark canvas; mute is a mid-gray near
    * carbone's own --muted-mark (#757A82) — that value was --text-muted until #1715
    * split the tier; the text half is now #8A9098. */
-  /* These WERE the dark arms of the trio. The respacing that put the trio over the
+  /* The DARK arms were the trio's old values. The respacing that put the trio over the
    * achromatopsia floor moved those arms and deliberately left these: a five-token
-   * chart group takes the audit's 0.065 floor, a three-token status trio takes 0.11,
-   * and one value cannot serve both. Curated here, measured by chart-contrast. */
-  --chart-state-pass: #73DF88;   /* electric green */
-  --chart-state-warn: #F97316;   /* vivid amber    */
-  --chart-state-fail: #FF8482;   /* coral red      */
-  --chart-state-info: #4A9EE8;       /* vivid sky-blue — ≥3:1 on #1A1A1C */
-  --chart-state-mute: #8A8F96;       /* cool mid-gray  — ≥3:1 on #1A1A1C */
+   * chart group takes a 0.06 slot floor, a three-token status trio takes 0.11, and one
+   * value cannot serve both. Curated here, measured by chart-contrast.
+   *
+   * The LIGHT arms are mark values (>=3:1, WCAG 1.4.11) with ONE exception, and the
+   * exception is the whole point. This token is a hue, and chart-family spends it two
+   * ways: `--state-N-fill` mixes it 24% into the canvas -- a mark -- while
+   * `--state-N-ink` uses it undiluted. Grep says exactly ONE engine rule paints a
+   * `--chart-state-*` ink as TEXT: the kanban "Done" column header
+   * (kanban.styles.css:88, and its .tinted variant at :436). Both are `pass`. The other
+   * four inks are only ever a border, an SVG stroke, a disc ring or a shape fill, where
+   * 3:1 is the right floor and the mark values already clear it.
+   *
+   * So only `pass` takes the text floor. It sat at 3.24:1 on the canvas -- the palette
+   * sweep caught it -- and is now #005B22: 7.06:1 on the card, 7.74:1 on the canvas,
+   * hue held (148.36 -> 148.47, drift 0.105 degrees) with lightness carrying the change.
+   *
+   * An earlier pass at this took ALL FIVE to the text floor "for consistency". Do not
+   * redo that. Moving every arm down by a similar amount removes the LIGHTNESS
+   * separation the group leans on under a red-blind simulation, and measured with
+   * lib/theme/cvd.js it collapsed protanopia pass^warn from 0.0800 to 0.0183 -- on-track
+   * green and at-risk amber becoming one olive. No gate would have told you: tools/
+   * cvd-audit.js `tokenGroups()` covers cat fills, cat marks and the pass/warn/fail
+   * trio, and `--chart-state-*` is in none of them. The value below was solved against
+   * every CVD axis as well as AA, and regresses none of them: protanopia 0.0705 and
+   * tritanopia 0.0259 hold at the mark-value baseline, deuteranopia IMPROVES 0.0439 ->
+   * 0.0696, normal-vision minimum stays 0.0768 (warn^fail, no pass involved). It also
+   * sits 0.0932 off --accent's light arm, so the brand green and the pass green stay
+   * two colors. */
+  --chart-state-pass: light-dark(#005B22, #73DF88);   /* deep green  / electric green -- the one TEXT ink, AA */
+  --chart-state-warn: light-dark(#E26400, #F97316);   /* vivid amber   -- mark, >=3:1 */
+  --chart-state-fail: light-dark(#DC6464, #FF8482);   /* coral red     -- mark, >=3:1 */
+  --chart-state-info: light-dark(#398ED7, #4A9EE8);   /* vivid sky-blue -- mark, >=3:1 on both faces */
+  --chart-state-mute: light-dark(#858A90, #8A8F96);   /* cool mid-gray  -- mark, >=3:1 on both faces */
 }
 
 /* The status trio is declared ONCE, at plain `:root` above — #1527's cascade flip

@@ -9,7 +9,7 @@
  * findings".
  *
  * THE CORPUS SWEEP IS THE OTHER HALF, and it is what makes the gate honest rather
- * than merely strict. `gateCss` — the component gate — rejects all 32 shipped
+ * than merely strict. `gateCss` — the component gate — rejects all 33 shipped
  * themes, so the cheap move (reuse it) would have produced a gate that was red on
  * every palette in the catalog before the author touched anything. Every shipped
  * theme passing, and the generated template passing on the FAIL-CLOSED default
@@ -46,8 +46,9 @@ function fullTheme(extra = '') {
 }
 
 describe('theme gate — the shipped corpus', () => {
-  test('all 32 shipped themes pass', () => {
-    assert.equal(THEME_FILES.length, 32, 'the corpus is 32 themes; update this test if that changes');
+  test('all 33 shipped themes pass', () => {
+    // 33, up from 32: carbone grew a curated light face and took the house two-file shape, so the corpus gained `carbone-dark`.
+    assert.equal(THEME_FILES.length, 33, 'the corpus is 33 themes; update this test if that changes');
     const failed = [];
     for (const f of THEME_FILES) {
       const r = gateThemeCss(readTheme(f), { knownThemes: REGISTRY });
@@ -61,9 +62,10 @@ describe('theme gate — the shipped corpus', () => {
     assert.deepEqual(blocked, []);
   });
 
-  test('the 13 `*-dark` wrappers and the 5 a11y variants read as COMPOSING; the 14 palettes do not', () => {
+  test('the 14 `*-dark` wrappers and the 5 a11y variants read as COMPOSING; the 14 palettes do not', () => {
     const composing = THEME_FILES.filter(f => gateThemeCss(readTheme(f), { knownThemes: REGISTRY }).composes);
-    assert.equal(composing.length, 18, '13 *-dark wrappers + a11y-base + its 4 variants');
+    // 19, up from 18: carbone grew a curated light face and took the house two-file shape, so the corpus gained `carbone-dark`, which composes like every other wrapper.
+    assert.equal(composing.length, 19, '14 *-dark wrappers + a11y-base + its 4 variants');
     assert.ok(composing.includes('ardesia-dark.css'));
     assert.ok(composing.includes('a11y-deuteranopia.css'));
     assert.ok(!composing.includes('ardesia.css'), "importing only 'lattice' is not composition — the base supplies no palette tokens");
