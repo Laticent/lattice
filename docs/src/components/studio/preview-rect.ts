@@ -96,11 +96,14 @@ export const STUDIO_SPLIT_COLLAPSE_KEY = collapseKeyFor(STUDIO_SPLIT_KEY);
  * The SECOND one is resolved. `headerWrite*` and `footerWrite` used to place the slide box from
  * their frozen values while the bands themselves grew, putting the box up to 11px off on a wide
  * viewport (13.4px once the sub-bar got shorter — the two errors had been partly canceling).
- * The seed now GROWS both from the root's computed font size, which Blink clamps by the same
- * minimum-font-size setting and which `getComputedStyle` will answer in `<head>`, where a probe
- * element cannot: measured 13.40px -> <= 2px, i.e. band-agreement tolerance. The derivation and
- * its fit live in studio.astro beside the code; these numbers stay the DEFAULT-SIZE floors that
- * derivation starts from.
+ * The seed now GROWS both from a one-off probe element carrying the pill's own inline
+ * `font-size: 12px`, which the browser clamps exactly as it clamps the pill: on the two-pane
+ * tiers the box-top drift measures 12.4px -> 0.59px at a 24px minimum, and 0.61px at a 14px one
+ * (a minimum between 12 and 16 clamps the pill while leaving the root at 16, so it is invisible
+ * to anything that reads the root — an earlier cut of this did, and additionally fired on
+ * Chrome's unrelated "Font size" control, breaking a reader the frozen model had served).
+ * The derivation and its fit live in studio.astro beside the code; these numbers stay the
+ * DEFAULT-SIZE floors that derivation starts from.
  * The phone is deliberately excluded from that correction — its third frozen band (`mobileBarH`)
  * errs the other way, so correcting two of its three bands moved its box OUT of tolerance
  * (measured). It keeps the frozen model until the action bar can be modeled with them.

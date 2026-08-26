@@ -597,16 +597,29 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						// put the box 11px off at a 24px minimum, pinned as a known residual in
 						// preview-rect.ts and in studio-instant-shell.spec.ts.
 						//
-						// It no longer has to be frozen. Blink clamps the ROOT's computed font size by
-						// the same setting (16px default, 20/24 when the reader picks 20/24), and
-						// `getComputedStyle` answers here in <head> — where a probe ELEMENT cannot,
-						// because there is no body yet, and the post-paint re-measure that would give
-						// one loses a race against the rotation re-seed (see the note below).
+						// It no longer has to be frozen — and the way to unfreeze it is to MEASURE what the
+						// reader's browser does to a 12px element, not to infer it. A one-off
+						// `position:absolute` probe carrying the pill's own inline `font-size:12px`,
+						// appended and removed here, comes back clamped exactly as the pill will be. It
+						// is available at this point in the document (the seed sits after the parser has
+						// opened <body>, which the astro-island above it forces — an earlier draft of
+						// this note claimed there was no body yet, and that wrong belief is what put an
+						// inference here instead of a measurement), and it is cheap: one element, one
+						// style read, no layout, before first paint.
 						//
-						// From it, the app's own line box: 1.6 (the inherited unitless line-height) x
-						// the pill's used size, which is `max(12, minimum)`. The two bands are then
-						// linear in that line box — fitted to the app measured at minimum font
-						// 12/16/20/24, and EXACT at 20 and 24, the settings that actually move them:
+						// AN INFERENCE FROM THE ROOT'S FONT SIZE WAS TRIED HERE AND IS WRONG. Chrome
+						// has TWO font settings and only one of them moves these bands: "Minimum font
+						// size" clamps the 12px pill and grows the rows, while "Font size" (the
+						// top-level Appearance control, Medium/Large/Very large) moves the ROOT and
+						// leaves a 12px pill at 12px. Reading the root cannot tell them apart, so it
+						// fired on the setting that changes nothing — measured 10.62px of box-top drift
+						// at Font size = Large against 0.82px before, i.e. it broke a reader the frozen
+						// model had served correctly. It was also blind in the other direction, at a
+						// minimum between 12 and 16 (the root never clamps, the pill does). The probe
+						// is exact in all four combinations.
+						//
+						// From the line box the two bands are linear — fitted to the app measured at
+						// minimum font 12/16/20/24 and checked at 14/18/22/28/36:
 						//   sub-bar  the pill grows until it passes the 32px collapse button, so the
 						//            two-pane row is flat until the line box clears 26px, then follows.
 						//   footer   two stacked text rows -> two line boxes. The fit runs ~0.8px
@@ -617,15 +630,33 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						// TWO-PANE TIERS ONLY, and that restriction is measured rather than cautious.
 						// The phone places everything below `mobileBarH`, a THIRD frozen band (the
 						// eight-cell action bar, ~24px high at a 24px minimum — the residual pinned
-						// beside this one). Its error runs opposite to the two here, so correcting
-						// these two alone does not improve the phone: it UNMASKS the action bar and
-						// pushes the phone's box out of the 2px band the spec holds it to (measured:
-						// both phone cases fail with the correction applied there, and pass without
-						// it). The phone therefore keeps the frozen model until the action bar can be
-						// modeled with it — one band short of a complete fix is worse than none.
-						var rootFs = 16;
-						try { rootFs = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16; } catch (eF) {}
-						var lhGrow = bpMobile ? 0 : Math.max(0, 1.6 * Math.max(12, rootFs > 16 ? rootFs : 12) - 1.6 * 12);
+						// beside this one). Its error runs opposite, so correcting the phone's FOOTER
+						// (the only band this would correct there — its header takes `headerWriteMobile`
+						// unconditionally) does not improve the phone: it UNMASKS the action bar and
+						// pushes the box out of the 2px band the spec holds it to. Measured with the
+						// guard removed: 2.20px -> 21.40px at 390x844, both phone cases failing. The
+						// phone therefore keeps the frozen model until the action bar can be modeled
+						// with it — one band short of a complete fix is worse than none.
+						// What the probe reports is its FONT SIZE, not its line-height, and that is the
+						// whole trick. An inline `font-size:12px` is clamped by the browser's minimum
+						// exactly as the pill's is, and it is clamped by the UA before any stylesheet —
+						// so this reads correctly at seed time, where the site's own line-height has
+						// NOT yet been applied (measured: a probe asking for `lineHeight` here gets
+						// `normal` and the correction silently never fires). The 1.6 multiplier is the
+						// same one `lhBase` already encodes; it is stated once, here.
+						var LH_RATIO = 1.6; // the app's inherited unitless line-height
+						var lhBase = LH_RATIO * 12; // 19.2 — the pill's line box at the default size
+						var lhNow = lhBase;
+						try {
+							var probe = document.createElement('span');
+							probe.setAttribute('aria-hidden', 'true');
+							probe.style.cssText = 'position:absolute;top:-9999px;left:-9999px;width:0;height:0;overflow:hidden;font-size:12px';
+							(document.body || document.documentElement).appendChild(probe);
+							var fs = parseFloat(getComputedStyle(probe).fontSize);
+							if (fs > 0) lhNow = LH_RATIO * fs;
+							probe.parentNode.removeChild(probe);
+						} catch (eF) {}
+						var lhGrow = bpMobile ? 0 : Math.max(0, lhNow - lhBase);
 						var footerH = cinema ? 0 : (chromeless ? C.footerRead : C.footerWrite + 2 * lhGrow);
 						// No width cap — the app stopped capping the preview box (#1283), so a cap
 						// here would paint a narrower skeleton than the box the hydrated app

@@ -676,9 +676,12 @@ test.describe('@minfont a raised browser minimum font size', () => {
 			//    band-agreement tolerance rather than a recorded residual. It used to be 11px,
 			//    because the stage reserved header and footer space from the CONSTANTS while the
 			//    bands themselves grew. The seed now derives both from the root's computed font
-			//    size — which Blink clamps by the same minimum-font-size setting — so at 24px it
-			//    places from 57.4/120.0 against the app's real 57.39/120.78 (studio.astro's note).
-			//    Measured across all four cases here: 13.40 -> <= 2, i.e. sub-pixel rounding.
+			//    metrics from a probe element the browser clamps exactly as it clamps the pill, so
+			//    at a 24px minimum it places from 57.4/120.0 against the app's real 57.39/120.78
+			//    (studio.astro's note). Measured on the two WIDE cases, which are the ones that
+			//    carried the residual: 13.40/13.39 -> 0.40/0.39. The two PHONE cases were 2.2
+			//    before and are 2.2 now — they never had the wide residual, and they keep a frozen
+			//    model on purpose (below), so read this bound as tolerance for them, not a win.
 			//    The PHONE keeps a frozen model on purpose (see studio.astro): its `mobileBarH`
 			//    error runs opposite, so correcting only two of its three bands made it worse.
 			//    It passed this same TOLERANCE before and still does.
