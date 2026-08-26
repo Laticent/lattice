@@ -12,13 +12,15 @@ import type { StudioSettings } from './studio-store';
 // Derived from the SHARED archetypes (lens-archetypes.ts) so an inherited view and a hand-added one of
 // the same id are the SAME view — no divergent duplicate, no label drift. TWO, deliberately (the
 // "curated two"): the bottom-line reader and the proof-first reader. The workspace supplies only the
-// SHAPE (id/label/base) — never membership or approval, which stay per-deck + human-gated.
+// SHAPE (id/label/base/kind) — never membership or approval, which stay per-deck + human-gated.
 export const DEFAULT_WORKSPACE_LENSES: WorkspaceLensConfig = {
 	default: 'full',
 	lenses: STARTER_ARCHETYPE_IDS.map((id): LensDef => {
 		const a = ARCHETYPES.find((x) => x.id === id);
 		if (!a) throw new Error(`workspace-lenses: no archetype '${id}'`); // a STARTER id must name a real archetype
-		return { id: a.id, label: a.label, base: a.base, ...(a.single ? { single: true } : {}) };
+		// `kind` rides along so the two starters arrive as the RUNGS they are — a workspace that shipped
+		// them as (default) cuts would leave every untouched deck's ladder empty and "go deeper" dead.
+		return { id: a.id, label: a.label, base: a.base, ...(a.single ? { single: true } : {}), ...(a.kind === 'rung' ? { kind: 'rung' as const } : {}) };
 	}),
 };
 

@@ -6,6 +6,22 @@
  *  (every slide is a member unless it opts OUT with `-id`). `full` is neither — it is the identity. */
 export type LensBase = 'none' | 'all';
 
+/** What KIND of view this is — the depth model (2026-08-25-lens-view-defaults-and-depth.md §4).
+ *
+ *  `rung` — an altitude in the deck's ONE ladder. Every rung's projection CONTAINS the projection of
+ *  the rung below it, which is what makes "go deeper" honest: an escalation is guaranteed additive, so
+ *  a reader never loses a slide they just read. Only rungs are offered a deeper step (`deeperLens`).
+ *
+ *  `cut` — an arbitrary subset: the ask, a narrative slice, a redaction. No order, no containment, no
+ *  escalation. You land on a cut or you are handed one; there is no altitude above "the ask".
+ *
+ *  **Absent means `cut`, deliberately.** A view that never declared itself a rung promises nothing, so
+ *  no deck written before this field existed starts failing the containment validator, and a
+ *  hand-written custom view is never silently enrolled in a ladder it was not designed for. `full` is
+ *  ALWAYS the top rung — it contains every view by construction — whatever its record says. Read the
+ *  effective value through `lensKind`, never off the field. */
+export type LensKind = 'rung' | 'cut';
+
 export interface LensDef {
 	/** Stable machine id — referenced by every `_lens` tag. NEVER renamed in place (orphans tags). */
 	id: string;
@@ -16,8 +32,12 @@ export interface LensDef {
 	single?: boolean;
 	/** Defined + suggestible but kept out of the reader's picker (author staging). */
 	hidden?: boolean;
-	/** Picker position; default = registry order. */
+	/** Picker position; default = registry order. NOT the ladder order — altitude is derived from
+	 *  containment (`ladderRungs`), so re-numbering the picker never re-orders the depth chain. */
 	order?: number;
+	/** Rung (an altitude in the containment-checked ladder) or cut (a standalone subset). Absent = cut;
+	 *  `full` is always a rung. See `LensKind` and `ladderRungs`. */
+	kind?: LensKind;
 	/** Reader-eligibility marker: a CONTENT HASH ("sha256:…") written on human Approve. Absent (or
 	 *  mismatched at read) => a non-`full` lens is never projected to a reader. See ./hash. */
 	approved?: string;
@@ -66,7 +86,8 @@ export interface Suggestion {
 export type DiagnosticLevel = 'error' | 'warning';
 export interface Diagnostic {
 	level: DiagnosticLevel;
-	/** Stable machine code (e.g. 'orphan-tag', 'default-empty', 'tag-contradiction'). */
+	/** Stable machine code (e.g. 'orphan-tag', 'default-empty', 'tag-contradiction',
+	 *  'ladder-containment'). */
 	code: string;
 	message: string;
 	/** Author slide index, when the finding is slide-scoped. */

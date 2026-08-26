@@ -14,9 +14,10 @@ summary: >
   (arbitrary subsets — the ask, a redaction — that you land on or pin but never escalate from). The
   shipped set already decomposes this way and nothing named it: brief ⊂ evidence ⊂ full are rungs;
   story and ask are cuts. Containment is what makes "go deeper" honest, and it is also what
-  neutralizes the finding that deferred `includes:` in the first place. This PR ships the landing
-  lever (Present honors it + a control to set it); the pin, the escalation UI, and `includes:` are
-  named follow-up slices.
+  neutralizes the finding that deferred `includes:` in the first place. The landing lever
+  shipped first (Present honors it + a control to set it); the RUNGS/CUTS SCHEMA followed — `kind` on
+  `LensDef`, a ladder derived from containment, `validateLadder`, and the fail-closed `deeperLens`
+  primitive. The pin, the escalation UI, and `includes:` are still named follow-up slices.
 companion:
   - ./2026-07-13-lente-reader-lenses.md
   - ./2026-08-03-authoring-vocabulary-audit.md
@@ -243,10 +244,54 @@ to give it one and let a real deck exercise it before adding a depth vocabulary 
 | Slice | What |
 |---|---|
 | **A3 — the pin channel** | A share/export handoff that carries one view, withholds the picker, fails closed, and states the hides-not-withholds caveat where the author creates it. Touches the export pipeline → export byte sign-off applies. |
-| **Rungs + cuts in the schema** | `kind` on `LensDef`, the ladder order, and the containment validator. |
+| ~~**Rungs + cuts in the schema**~~ | **SHIPPED** — see §5.1. `kind` on `LensDef` (absent = cut), the ladder derived from containment rather than declared (`ladderRungs`), the containment validator (`validateLadder` — `error`-level, per escaping slide, surfaced in the Reader views panel), and `deeperLens`, the fail-closed read-path primitive the escalation affordance renders. |
 | **`includes:` for rungs** | Delta authoring, gated on the containment invariant. |
 | **The escalation affordance** | "Go deeper" in Present, offered only on rungs. |
 | **Workspace landing default** | `WorkspaceLensConfig.default` is parsed and inherited but has no UI; the shipped value is `full`. |
+
+### 5.1 What the schema slice landed, and the two calls it had to make
+
+Two things in §4 were specified as an outcome rather than a mechanism, and building them forced a
+choice.
+
+**Altitude is DERIVED, not declared.** §4.2 says "a chain, not a tree" and leaves open how the chain
+is ordered. The obvious answer — registry order, or the existing `order:` field — was rejected:
+`order:` is a *picker position* an author re-numbers for display reasons, and registry order is
+whatever sequence they happened to add views in. Either would make `evidence` added before `brief`
+report a containment failure for a configuration that is perfectly sound. So `ladderRungs` sorts by
+what each rung actually projects (narrowest first, `full` last, ties on registry order): containment
+*is* the order, because a lower rung is a strict subset and therefore strictly smaller. The
+side-effect is the good kind — a half-tagged rung sits low and rises as it fills, instead of being
+wrong until some separate number is updated.
+
+**Absent means `cut`.** A `kind` defaulting to `rung` would enroll every view in every deck in the
+wild into a ladder it was never designed for. Defaulting to `cut` means a view promises nothing until
+it says so: a hand-written custom view is safe, and a deck with no workspace inheritance rewrites
+byte-identically (pinned in `registry.test.ts`).
+
+**What that default does NOT buy, corrected.** An earlier draft of this section claimed no
+pre-existing deck gains a ladder or a complaint. That is false for the population almost every deck is
+in. `workspace-lenses.ts` ships `kind: rung` on both starters — deliberately, because `brief` and
+`evidence` are precisely the pair §4.1 proves nests, and shipping them as cuts would leave the default
+population with an empty ladder and the feature inert. So a deck inheriting the default reader views
+**is** in a `brief → evidence → full` ladder as of this change, its next rewrite writes `kind: rung`
+into its block, and hand-tagged membership that breaks the nesting now raises an `error` in the panel
+where there was silence. The finding is true when it fires — that deck's `brief` genuinely is not
+contained by its `evidence`, and a future "go deeper" there would have dropped a slide — so the
+behavior stands. The claim was the defect, and an independent checker found it; the honest statement
+is that `cut` protects the *undeclared* view, not that nothing changes.
+
+The one place the default bites mechanically is the workspace delta: a deck that DEMOTES an inherited
+rung has to write `kind: cut` explicitly, or the workspace's `rung` wins the `{...ws, ...deck}` merge
+and the complaint the author just resolved comes straight back — the same clear-to-inherit hazard
+`single`/`hidden` already had, in a new shape.
+
+**What is enforced vs. what is offered.** `validateLadder` is authoring-time and it reports; it gates
+nothing at read. The read path fails closed on its own: `deeperLens` returns the next rung only if
+that rung is reader-eligible AND strictly contains the current view, re-checked against the candidate
+rather than inferred through the chain — so a deck the validator is complaining about still reads
+safely, it just cannot climb. The split is deliberate: a broken ladder is an author's problem to fix,
+never a reader's view to lose.
 
 ---
 
@@ -256,12 +301,28 @@ to give it one and let a real deck exercise it before adding a depth vocabulary 
   `docs/src/components/studio/lens-containment.test.ts` asserts `brief ⊂ evidence ⊂ full` and the two
   non-containments that make `story` a cut, against the real rule table and the real 61-component
   catalog — and it runs on the merge gate (`docs-build`), so a drift in either source fails there
-  rather than rotting this note. What is **still** unverified: nothing enforces containment for
-  **author-tagged** membership, so a person can tag arbitrarily and produce `brief ⊄ evidence` in
-  their own deck. That is the follow-up slice's validator, not something this note can claim.
+  rather than rotting this note. ~~What is **still** unverified: nothing enforces containment for
+  **author-tagged** membership.~~ **CLOSED** by the schema slice: `validateLadder` checks containment
+  over whatever an author actually tagged, and the same test file now also pins that the archetypes'
+  declared `kind` values match the relations proved above — with a negative control that fires when
+  `story` is called a rung, so the new half cannot pass vacuously either.
 - **The tagging tax (R6) is still unmeasured.** The `includes:` decision above is argued from the
   shape of the problem, not from a count on a real multi-view deck. If a deck ever carries a ladder,
   count it.
 - **No adversarial trio ran on this note.** The original design was hardened by the full trio; this
   follow-on was not. The two decisions with real blast radius — the pin channel and `includes:` — are
-  specified here but not built, so the trio applies to them when they ship, per HARD RULE #25.
+  specified here but not built, so the trio applies to them when they ship, per HARD RULE #25. The
+  schema slice (§5.1) sits inside that boundary rather than on it: a pure additive library field plus
+  a reporting validator, no reader-visible behavior change and no export bytes. It went through the
+  gates, the co-located unit tier, a real-browser spec, and **maker-checker** — the middle rung, not
+  the trio. **The checker earned it**, which is worth recording because the ladder's cost is otherwise
+  easy to argue away. It found that the single line making "go deeper" honest — the containment check
+  in `deeperLens` — could be **deleted with all 113 tests still green**, because the test that claimed
+  to cover it was satisfied by the strictness check on the next line instead (its fixture had no
+  strictly-larger non-nesting rung, the only shape that isolates containment). It also found the
+  false claim §5.1 now carries a correction for. Both are the class of defect that survives
+  self-review by construction: a test author cannot notice the case they did not think of.
+- **`docs/e2e/lenses-depth.spec.ts` runs in NO automated job.** It is untagged, `studio-smoke` greps
+  `@smoke`, and `studio-smoke` is itself outside `ci.needs` — deliberate, and matching
+  `lenses-landing.spec.ts`, but it means the real-browser evidence above rests on a local run rather
+  than a gate. The merge-gating proof of the same panel behavior is the jsdom tier in `docs-build`.

@@ -4,15 +4,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
 	approvalHash,
 	type ComponentCatalog,
+	type Diagnostic,
 	FULL_LENS_ID,
 	isPristineInherited,
 	type LensBase,
 	type LensDef,
 	type LensRegistry,
+	ladderRungs,
 	lensIndices,
+	lensKind,
 	parseSlideTags,
 	suggestMembership,
 	taggedLensIds,
+	validateLadder,
 	type WorkspaceLensConfig,
 } from '@/lib/lente';
 import { cn } from '@/lib/utils';
@@ -168,7 +172,10 @@ export function LensesPanel({
 	// arrives EMPTY + unapproved — the author suggests, edits, and approves before any reader sees it.
 	function addLens(a: (typeof ARCHETYPES)[number]) {
 		if (registry.lenses.some((l) => l.id === a.id)) return;
-		const def: LensDef = { id: a.id, label: a.label, base: a.base, ...(a.single ? { single: true } : {}) };
+		// `kind` comes from the archetype, not a control: which views nest is a property of what the
+		// suggester puts in them (lens-containment.test.ts), not an author preference. A hand-written
+		// `kind: rung` in front matter is still honored — it just has to be a deliberate act.
+		const def: LensDef = { id: a.id, label: a.label, base: a.base, ...(a.single ? { single: true } : {}), ...(a.kind === 'rung' ? { kind: 'rung' as const } : {}) };
 		onWriteRegistry(`Add reader view → ${a.label}`, { ...registry, lenses: [...registry.lenses, def] });
 		setAdding(false);
 		setExpanded(a.id);
@@ -183,6 +190,12 @@ export function LensesPanel({
 		else delete next.approved;
 		onWriteRegistry(approve ? `Approve reader view → ${lens.label}` : `Unapprove reader view → ${lens.label}`, { ...registry, lenses: registry.lenses.map((l) => (l.id === lens.id ? next : l)) });
 	}
+
+	// The deck's depth LADDER + the containment findings, computed once and sliced per row (each is a
+	// pass over every rung's projection — cheap, but not once per row per render). See the depth model:
+	// engineering/decisions/2026-08-25-lens-view-defaults-and-depth.md §4.
+	const ladder = React.useMemo(() => ladderRungs(slides, registry), [slides, registry]);
+	const ladderFindings = React.useMemo(() => validateLadder(slides, registry), [slides, registry]);
 
 	const takenIds = new Set(registry.lenses.map((l) => l.id));
 	const available = ARCHETYPES.filter((a) => !takenIds.has(a.id));
@@ -268,6 +281,8 @@ export function LensesPanel({
 								registry={registry}
 								suggestions={suggestions.filter((s) => s.lensId === lens.id)}
 								catalogReady={catalogReady}
+								ladder={ladder}
+								ladderFindings={ladderFindings.filter((f) => f.lensId === lens.id)}
 								isStarter={isPristineInherited(lens, wsDefs.get(lens.id)) && !taggedIds.has(lens.id)}
 								isActive={activeLens === lens.id}
 								previewedOk={previewedHash[lens.id] === currentHash}
@@ -296,7 +311,7 @@ export function LensesPanel({
 							{available.map((a) => (
 								<button key={a.id} type="button" onClick={() => addLens(a)} className="block w-full rounded-md border border-border bg-card px-2.5 py-2 text-left hover:border-[var(--accent)]">
 									<span className="text-[12px] font-semibold text-[var(--text-heading)]">{a.label}</span>
-									<span className="ml-1.5 font-mono text-[10px] text-muted-foreground">{a.single ? 'one slide' : baseWord(a.base)}</span>
+									<span className="ml-1.5 font-mono text-[10px] text-muted-foreground">{a.single ? 'one slide' : baseWord(a.base)} · {a.kind === 'rung' ? 'rung' : 'cut'}</span>
 									<p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{a.blurb}</p>
 								</button>
 							))}
@@ -315,6 +330,8 @@ function LensRow({
 	registry,
 	suggestions,
 	catalogReady,
+	ladder,
+	ladderFindings,
 	isStarter,
 	isActive,
 	previewedOk,
@@ -331,6 +348,10 @@ function LensRow({
 	registry: LensRegistry;
 	suggestions: Array<{ index: number; lensId: string; member: boolean; reason: string }>;
 	catalogReady: boolean;
+	/** The deck's rungs, narrowest first, `full` last — this row's altitude is its position in it. */
+	ladder: LensDef[];
+	/** The containment findings for THIS view only (already sliced by the panel). */
+	ladderFindings: Diagnostic[];
 	isStarter: boolean;
 	isActive: boolean;
 	previewedOk: boolean;
@@ -351,6 +372,27 @@ function LensRow({
 	const pending = suggestions.filter((s) => memberSet.has(s.index) !== s.member);
 	const singleOverflow = !!lens.single && tagged.size > 1;
 
+	// The DEPTH note — what kind of view this is, and (for a rung) where it sits in the ladder. It
+	// describes STRUCTURE, not a reader affordance: "go deeper" in Present is a separate slice, and
+	// promising it here before it exists is the same phantom-lever mistake `lens-default:` shipped with.
+	// There is deliberately no branch for "a rung missing from the ladder": `ladder` is built from the
+	// same `registry` this row was rendered from, so every rung is in it and `at` is never -1. A
+	// defensive third string here would be copy nobody can reach (the landing note above makes the same
+	// call for a dangling `lens-default:`).
+	const rung = lensKind(lens) === 'rung';
+	const at = rung ? ladder.findIndex((l) => l.id === lens.id) : -1;
+	const below = at > 0 ? ladder[at - 1] : undefined;
+	// The chain is spelled out rather than counted. "Rung 1 of 3" is true — the full deck IS the top
+	// rung — but the list above shows only the two non-`full` rows, so a bare count asks the author to
+	// reconcile a 3 against a 2. Naming the ladder end to end removes the arithmetic and doubles as the
+	// one place the model is taught.
+	const chain = ladder.map((l) => l.label).join(' → ');
+	const depthNote = !rung
+		? 'A cut — a standalone slice, not part of the deck’s depth ladder. There’s no altitude above it.'
+		: below
+			? `Rung ${at + 1} in the depth ladder (${chain}) — it shows everything in ${below.label}, plus more.`
+			: `Rung ${at + 1} in the depth ladder (${chain}) — the shallowest altitude.`;
+
 	function applySuggestions(list: typeof pending) {
 		if (!list.length) return;
 		onTag(`Suggest → ${lens.label}`, list.map((s) => ({ index: s.index, lensId: lens.id, member: s.member, base: lens.base })));
@@ -370,6 +412,14 @@ function LensRow({
 					<span className="mt-1 flex flex-wrap items-center gap-1.5">
 						<span className="font-mono text-[10px] text-muted-foreground">{members} slide{members === 1 ? '' : 's'}</span>
 						<span title={copy.full} className={cn('rounded-full border px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide', copy.tone)}>{copy.label}</span>
+						{ladderFindings.length > 0 && (
+							<span
+								title={`This rung shows ${ladderFindings.length} slide${ladderFindings.length === 1 ? '' : 's'} that the rung above it doesn’t. Open the view to see which.`}
+								className="rounded-full border border-[color-mix(in_srgb,var(--warn)_40%,transparent)] px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-[var(--warn)]"
+							>
+								Ladder
+							</span>
+						)}
 						{isStarter && <span title="Suggested by your workspace — tag slides and approve to make it yours." className="rounded-full border border-dashed border-border px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-muted-foreground">Starter</span>}
 					</span>
 				</span>
@@ -399,6 +449,29 @@ function LensRow({
 					{status === 'hidden' && <p className="mt-2 text-[11px] leading-snug text-muted-foreground">This view is staged (hidden) — readers aren’t offered it even once approved. It’s here for you to build and preview.</p>}
 					{status === 'drifted' && <p className="mt-2 text-[11px] leading-snug text-[var(--warn)]">The deck changed since you approved this view, so readers can’t see it until you re-approve.</p>}
 					{singleOverflow && <p className="mt-2 text-[11px] leading-snug text-muted-foreground">Readers see the first tagged slide in deck order; the others below stay tagged but unshown.</p>}
+					<p className="mt-2 text-[11px] leading-snug text-muted-foreground">{depthNote}</p>
+
+					{/* The containment invariant, in the author's words. A rung must contain the rung below it —
+					    that is what would make a future "go deeper" additive rather than a button that swaps in
+					    a different set of slides. Named per slide, because the fix is per slide. */}
+					{ladderFindings.length > 0 && (
+						<div className="mt-2 rounded-md border border-[color-mix(in_srgb,var(--warn)_35%,transparent)] bg-[color-mix(in_srgb,var(--warn)_8%,transparent)] p-2">
+							<p className="text-[11px] font-semibold leading-snug text-[var(--warn)]">
+								{ladderFindings.length} slide{ladderFindings.length === 1 ? '' : 's'} here {ladderFindings.length === 1 ? 'is' : 'are'} missing from the rung above.
+							</p>
+							<p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+								A rung has to contain every rung below it — otherwise going deeper would take a slide away. Add {ladderFindings.length === 1 ? 'it' : 'them'} to the deeper view, or drop {ladderFindings.length === 1 ? 'it' : 'them'} from this one.
+							</p>
+							<ul className="mt-1 list-none space-y-0.5 pl-0">
+								{ladderFindings.map((f) => (
+									<li key={`ladder-${f.slide}`} className="flex items-center gap-1.5">
+										<span className="w-8 shrink-0 font-mono text-[10px] text-muted-foreground">{(f.slide ?? 0) + 1}</span>
+										<span className="min-w-0 flex-1 truncate text-[11px] text-foreground" title={f.message}>{slideTitle(slides[f.slide ?? 0] ?? '')}</span>
+									</li>
+								))}
+							</ul>
+						</div>
+					)}
 
 					{/* Suggestions the author hasn't reflected yet — each with its rationale. Accept all, or tap one. */}
 					{pending.length > 0 && (

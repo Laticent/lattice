@@ -14,7 +14,7 @@ export { lens } from './builder';
 // Content-hash primitive (exposed for host-side approval flows + tests).
 export { sha256Hex } from './hash';
 // Read path — pure, deterministic, never reaches the suggester.
-export { approvalHash, lensEligibility, lensIndices, lensPairs, lensSlides, readerLenses } from './project';
+export { approvalHash, deeperLens, ladderRungs, lensEligibility, lensEscapees, lensIndices, lensKind, lensPairs, lensSlides, readerLenses } from './project';
 // Registry — parse / emit / upsert the front-matter `lenses:` block (Lente is its sole writer).
 export { emitRegistry, emitRegistryDelta, isPristineInherited, parseLensRegistry, upsertLensRegistry } from './registry';
 // Suggest path — a SEPARATE module; pure, no AI, proposes membership, writes nothing.
@@ -28,6 +28,7 @@ export type {
 	DiagnosticLevel,
 	LensBase,
 	LensDef,
+	LensKind,
 	LensProjection,
 	LensRegistry,
 	LensSlide,
@@ -37,4 +38,4 @@ export type {
 } from './types';
 export { FULL_LENS_ID } from './types';
 // Validators + the base-flip rewriter.
-export { rebaseLensTags, unknownLensTokens, validateRegistry } from './validate';
+export { rebaseLensTags, unknownLensTokens, validateLadder, validateRegistry } from './validate';

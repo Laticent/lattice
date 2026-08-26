@@ -5,7 +5,7 @@
 // generic front-matter reader on unrelated edits, which is lossless only for this canonical shape —
 // so Lente emits only the canonical shape and never a form the generic reader would mangle.
 
-import { FULL_LENS_ID, type LensBase, type LensDef, type LensRegistry, type WorkspaceLensConfig } from './types';
+import { FULL_LENS_ID, type LensBase, type LensDef, type LensKind, type LensRegistry, type WorkspaceLensConfig } from './types';
 
 // Capture greedily and trim in code — a `\s*(.+?)\s*$` shape backtracks polynomially on trailing
 // whitespace (CodeQL js/polynomial-redos); a single greedy group does not.
@@ -74,6 +74,10 @@ function parseInlineMap(id: string, body: string): ParsedEntry {
 			case 'single': def.single = raw === 'true'; break;
 			case 'hidden': def.hidden = raw === 'true'; break;
 			case 'order': { const n = Number(raw); if (Number.isFinite(n)) def.order = n; break; }
+			// Both values are recorded, `cut` included: a deck that DOWNGRADES an inherited rung to a cut
+			// has to say so in its own entry, or the workspace's `rung` would win the `{...ws, ...deck}`
+			// merge and re-enroll it in the ladder. (completeDef normalizes the redundant case away.)
+			case 'kind': if (raw === 'rung' || raw === 'cut') def.kind = raw as LensKind; break;
 			case 'approved': def.approved = stripQuotes(raw); break;
 			case 'drop': drop = raw === 'true'; break;
 			default: break; // forward-compatible: ignore unknown keys
@@ -106,10 +110,18 @@ function completeDef(id: string, p: Partial<LensDef>): LensDef {
 		...(p.single ? { single: true } : {}),
 		...(p.hidden ? { hidden: true } : {}),
 		...(p.order != null ? { order: p.order } : {}),
+		// Normalized: only `rung` is stored, because absent already MEANS cut (types.ts `LensKind`). An
+		// explicit `cut` matters only during the merge above — once resolved it is the default, and
+		// keeping it would put a field in the def that emit would then have to write for no effect.
+		...(p.kind === 'rung' ? { kind: 'rung' as const } : {}),
 		...(p.approved ? { approved: p.approved } : {}),
 	};
 }
 
+// `full` is the TOP RUNG by construction — it contains every view, so it terminates every ladder. The
+// field is deliberately NOT written here: `lensKind` resolves `full` to `rung` unconditionally (a host
+// or a test that assembles its own `full` entry omits it too), and stamping it would only churn every
+// registry-equality comparison with a value nothing is allowed to read off the field anyway.
 const FULL_DEF: LensDef = { id: FULL_LENS_ID, label: 'Full deck', base: 'all' };
 
 /** Parse the deck front matter (the text BETWEEN the `---` fences) into a resolved registry, merging
@@ -149,6 +161,7 @@ function emitInline(d: LensDef): string {
 	if (d.single) parts.push('single: true');
 	if (d.hidden) parts.push('hidden: true');
 	if (d.order != null) parts.push(`order: ${d.order}`);
+	if (d.kind === 'rung') parts.push('kind: rung');
 	if (d.approved) parts.push(`approved: ${JSON.stringify(d.approved)}`);
 	return `  ${d.id}: { ${parts.join(', ')} }`;
 }
@@ -172,7 +185,8 @@ export function isPristineInherited(lens: LensDef, def: LensDef | undefined): bo
 		lens.label === def.label &&
 		!!lens.single === !!def.single &&
 		!!lens.hidden === !!def.hidden &&
-		(lens.order ?? null) === (def.order ?? null)
+		(lens.order ?? null) === (def.order ?? null) &&
+		(lens.kind ?? 'cut') === (def.kind ?? 'cut')
 	);
 }
 
@@ -180,7 +194,10 @@ export function isPristineInherited(lens: LensDef, def: LensDef | undefined): bo
  *  workspace default it must also record fields the deck CLEARED — an omitted boolean would re-inherit
  *  the workspace value on the next read (parse merges `{...wsDef, ...deckDef}`), silently resurrecting a
  *  `single`/`hidden` the author turned off (e.g. promoting a staged view to readers). So when the
- *  workspace sets `single`/`hidden` true and this lens clears it, write the explicit `false`.
+ *  workspace sets `single`/`hidden` true and this lens clears it, write the explicit `false`. `kind`
+ *  has the same hazard in its own shape — absent means `cut`, so a deck that DEMOTES an inherited rung
+ *  to a cut must write `kind: cut` explicitly or the view would re-enroll in the ladder on the next
+ *  read, and a containment complaint the author resolved by demoting it would come straight back.
  *  (`order` is a baseline the deck can re-number but not clear-to-inherit; no shipped workspace default
  *  carries `order`, and the UI only ever assigns one — never clears it — so no explicit-clear is needed.
  *  `label`/`base` are always emitted, so they can't silently re-inherit; `approved` is never on a wsDef.) */
@@ -191,6 +208,8 @@ function emitInlineDelta(d: LensDef, wsDef: LensDef | undefined): string {
 	if (d.hidden) parts.push('hidden: true');
 	else if (wsDef?.hidden) parts.push('hidden: false');
 	if (d.order != null) parts.push(`order: ${d.order}`);
+	if (d.kind === 'rung') parts.push('kind: rung');
+	else if (wsDef?.kind === 'rung') parts.push('kind: cut');
 	if (d.approved) parts.push(`approved: ${JSON.stringify(d.approved)}`);
 	return `  ${d.id}: { ${parts.join(', ')} }`;
 }

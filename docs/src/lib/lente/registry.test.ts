@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { emitRegistry, parseLensRegistry, upsertLensRegistry } from './registry';
-import type { LensRegistry, WorkspaceLensConfig } from './types';
+import type { LensDef, LensRegistry, WorkspaceLensConfig } from './types';
 
 const WORKSPACE: WorkspaceLensConfig = {
 	default: 'full',
 	lenses: [
-		{ id: 'brief', label: 'Bottom line', base: 'none' },
+		{ id: 'brief', label: 'Bottom line', base: 'none', kind: 'rung' },
 		{ id: 'ask', label: 'The ask', base: 'none', single: true, hidden: true },
 		{ id: 'evidence', label: 'Show the work', base: 'all', hidden: true },
 	],
@@ -164,7 +164,9 @@ describe('workspace-inherited registry — upsert emits only the deck DELTA', ()
 		const reg = pristine();
 		// brief's def is untouched (pristine), but the deck tagged slides into it → force-materialize {brief}.
 		const fm = upsertLensRegistry('', reg, WORKSPACE, new Set(['brief']));
-		expect(fm).toContain('brief: { label: "Bottom line", base: none }');
+		// `kind: rung` rides along: a materialized view has to be self-contained, and dropping it here
+		// would silently demote the deck's own rung to a cut the moment the workspace setting goes off.
+		expect(fm).toContain('brief: { label: "Bottom line", base: none, kind: rung }');
 		expect(fm).not.toMatch(/\bask:/); // ask NOT tagged → stays inherited (no block)
 		expect(fm).not.toMatch(/\bevidence:/);
 		expect(parseLensRegistry(fm, WORKSPACE)).toEqual(reg); // still round-trips with the workspace
@@ -241,5 +243,163 @@ describe('workspace-inherited registry — upsert emits only the deck DELTA', ()
 		const reg = parseLensRegistry('', wsBad);
 		expect(reg.lenses.filter((l) => l.id === 'full')).toHaveLength(1);
 		expect(reg.lenses[0].label).toBe('Full deck'); // the canonical implicit full, not the workspace's
+	});
+});
+
+describe('the `kind` field — rung / cut, and the absent-means-cut default', () => {
+	it('parses a declared rung and leaves an undeclared view without the field', () => {
+		const reg = parseLensRegistry('lenses:\n  brief: { label: "B", base: none, kind: rung }\n  story: { label: "S", base: none }');
+		expect(reg.lenses.find((l) => l.id === 'brief')?.kind).toBe('rung');
+		expect(reg.lenses.find((l) => l.id === 'story')?.kind).toBeUndefined();
+	});
+
+	it('normalizes a redundant explicit `cut` away — absent already means cut', () => {
+		const reg = parseLensRegistry('lenses:\n  story: { label: "S", base: none, kind: cut }');
+		expect(reg.lenses.find((l) => l.id === 'story')?.kind).toBeUndefined();
+	});
+
+	it('ignores a junk value rather than inventing a third kind', () => {
+		const reg = parseLensRegistry('lenses:\n  story: { label: "S", base: none, kind: ladder }');
+		expect(reg.lenses.find((l) => l.id === 'story')?.kind).toBeUndefined();
+	});
+
+	it('emits and round-trips a rung', () => {
+		const reg: LensRegistry = {
+			default: 'full',
+			lenses: [
+				{ id: 'full', label: 'Full deck', base: 'all' },
+				{ id: 'brief', label: 'Bottom line', base: 'none', kind: 'rung' },
+				{ id: 'story', label: 'The story', base: 'none' },
+			],
+		};
+		const fm = upsertLensRegistry('title: Deck', reg);
+		expect(fm).toContain('brief: { label: "Bottom line", base: none, kind: rung }');
+		expect(fm).toContain('story: { label: "The story", base: none }'); // a cut writes nothing extra
+		expect(parseLensRegistry(fm)).toEqual(reg);
+	});
+
+	it('leaves a pre-field deck byte-identical WITH NO WORKSPACE — the scope of that promise', () => {
+		// Deliberately narrow, and the title says so. Absent-means-cut protects the UNDECLARED view: with
+		// no workspace there is nothing to inherit a `kind` from, so a deck written before the field
+		// gains nothing on a rewrite. It does NOT generalize — see the next test, which is the case
+		// almost every real deck is in, and which an earlier version of THIS test's title claimed to
+		// cover while exercising the one mode where it is trivially true.
+		const reg = parseLensRegistry('lenses:\n  brief: { label: "B", base: none }');
+		expect(upsertLensRegistry('title: Deck', reg)).not.toContain('kind:');
+	});
+
+	it('a WORKSPACE rung reaches a deck that never asked for one — the honest opposite case', () => {
+		// The workspace starters ship `kind: rung` on purpose (workspace-lenses.ts): brief and evidence
+		// are the pair that provably nests, and shipping them as cuts would leave every default deck
+		// with an empty ladder. The consequence, pinned here rather than left to a doc claim: a deck
+		// carrying its own `brief` entry INHERITS the rung, and the next rewrite writes it into the
+		// block. That is churn on a file the author did not edit, it is intended, and the design note
+		// (§5.1) now says so instead of promising the reverse.
+		const ws: WorkspaceLensConfig = { default: 'full', lenses: [{ id: 'brief', label: 'Bottom line', base: 'none', kind: 'rung' }] };
+		const src = 'lenses:\n  brief: { label: "Bottom line", base: none, approved: "sha256:zzz" }';
+		const reg = parseLensRegistry(src, ws);
+		expect(reg.lenses.find((l) => l.id === 'brief')?.kind).toBe('rung'); // inherited, unasked
+		expect(upsertLensRegistry(src, reg, ws)).toContain('kind: rung'); // and written back out
+	});
+
+	it('DEMOTING an inherited rung to a cut round-trips — it never silently re-enrolls in the ladder', () => {
+		// Same hazard as the `single`/`hidden` clear: an omitted value re-merges the workspace's `rung`,
+		// so a containment complaint the author resolved by demoting the view would come straight back.
+		const reg = parseLensRegistry('', WORKSPACE);
+		const demoted: LensRegistry = { ...reg, lenses: reg.lenses.map((l) => (l.id === 'brief' ? { id: 'brief', label: 'Bottom line', base: 'none' as const } : l)) };
+		const fm = upsertLensRegistry('', demoted, WORKSPACE);
+		expect(fm).toContain('kind: cut');
+		const back = parseLensRegistry(fm, WORKSPACE);
+		expect(back.lenses.find((l) => l.id === 'brief')?.kind).toBeUndefined(); // stayed a cut
+		expect(back).toEqual(demoted);
+	});
+
+	it('an inherited rung the deck never touched stays pristine — no block, and the rung survives', () => {
+		const reg = parseLensRegistry('', WORKSPACE);
+		expect(upsertLensRegistry('', reg, WORKSPACE)).toBe('');
+		expect(parseLensRegistry('', WORKSPACE).lenses.find((l) => l.id === 'brief')?.kind).toBe('rung');
+	});
+
+	it('PROMOTING a deck view to a rung materializes it against a workspace that has no opinion', () => {
+		const reg = parseLensRegistry('', WORKSPACE);
+		const promoted: LensRegistry = { ...reg, lenses: reg.lenses.map((l) => (l.id === 'evidence' ? { ...l, kind: 'rung' as const } : l)) };
+		const fm = upsertLensRegistry('', promoted, WORKSPACE);
+		expect(fm).toContain('kind: rung');
+		expect(parseLensRegistry(fm, WORKSPACE)).toEqual(promoted);
+	});
+});
+
+describe('the serializer round-trips EVERY field combination — Lente is the sole writer', () => {
+	// The spot checks above each pin one interesting case. This is the exhaustive one, and it exists
+	// because a serializer defect here does not fail a test — it corrupts an AUTHOR'S DECK. Every
+	// combination of the fields a `LensDef` carries, through both writers:
+	//   materialized (no workspace) → the whole registry is written out;
+	//   delta (with a workspace)    → only what the deck changed, which is where the clear-to-inherit
+	//                                 hazards live (a cleared `single`/`hidden`, a demoted `kind`).
+	//
+	// TWO normalizations are deliberate and the matrix reflects them rather than hiding them:
+	//   · `kind` is `undefined | 'rung'` — an explicit `cut` is the default, so `completeDef` drops it
+	//     (its own test above pins that), and the library never produces a def carrying one;
+	//   · a workspace def never carries `order`. `order` is documented as a baseline a deck re-numbers
+	//     but cannot clear back to inherited, so a ws `order` the deck cleared WOULD re-inherit. That
+	//     is the existing contract (emitInlineDelta's docblock), not a case this matrix may assert —
+	//     the guard below keeps a future edit from quietly adding one and calling it covered.
+	const deckDefs: LensDef[] = [];
+	for (const base of ['none', 'all'] as const)
+		for (const single of [false, true])
+			for (const hidden of [false, true])
+				for (const order of [undefined, 3])
+					for (const kind of [undefined, 'rung'] as const)
+						for (const approved of [undefined, 'sha256:abc'])
+							deckDefs.push({
+								id: 'v',
+								label: 'A "quoted", comma’d label',
+								base,
+								...(single ? { single: true } : {}),
+								...(hidden ? { hidden: true } : {}),
+								...(order != null ? { order } : {}),
+								...(kind ? { kind } : {}),
+								...(approved ? { approved } : {}),
+							});
+
+	const workspaces: WorkspaceLensConfig[] = [
+		{ default: 'full', lenses: [{ id: 'v', label: 'WS', base: 'none' }] },
+		{ default: 'full', lenses: [{ id: 'v', label: 'WS', base: 'all', single: true, hidden: true }] },
+		{ default: 'full', lenses: [{ id: 'v', label: 'WS', base: 'none', kind: 'rung' }] },
+		{ default: 'full', lenses: [{ id: 'v', label: 'WS', base: 'all', single: true, hidden: true, kind: 'rung' }] },
+	];
+
+	it('covers the whole field space, and no workspace shape carries the one field that cannot clear', () => {
+		expect(deckDefs).toHaveLength(64);
+		for (const ws of workspaces) for (const d of ws.lenses) expect(d.order).toBeUndefined();
+	});
+
+	it('materialized: parse(upsert(reg)) ≡ reg for all 64', () => {
+		for (const def of deckDefs) {
+			const reg: LensRegistry = { default: 'full', lenses: [{ id: 'full', label: 'Full deck', base: 'all' }, def] };
+			expect(parseLensRegistry(upsertLensRegistry('title: Deck', reg)), JSON.stringify(def)).toEqual(reg);
+		}
+	});
+
+	it('delta: parse(upsert(reg, ws), ws) ≡ reg for all 64 × 4', () => {
+		for (const ws of workspaces) {
+			for (const def of deckDefs) {
+				const reg: LensRegistry = { default: 'full', lenses: [{ id: 'full', label: 'Full deck', base: 'all' }, def] };
+				const fm = upsertLensRegistry('title: Deck', reg, ws);
+				expect(parseLensRegistry(fm, ws), `${JSON.stringify(def)} over ${JSON.stringify(ws.lenses[0])}`).toEqual(reg);
+			}
+		}
+	});
+
+	it('delta: a rewrite is IDEMPOTENT — writing the parsed result back changes no bytes', () => {
+		// The loop a deck actually lives in: parse, edit something unrelated, write, parse again. A
+		// serializer that is correct but not stable would churn the file on every save.
+		for (const ws of workspaces) {
+			for (const def of deckDefs) {
+				const reg: LensRegistry = { default: 'full', lenses: [{ id: 'full', label: 'Full deck', base: 'all' }, def] };
+				const once = upsertLensRegistry('title: Deck', reg, ws);
+				expect(upsertLensRegistry(once, parseLensRegistry(once, ws), ws), JSON.stringify(def)).toBe(once);
+			}
+		}
 	});
 });
