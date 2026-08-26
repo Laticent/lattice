@@ -24,6 +24,22 @@
  *   5.22:1 on the canvas. That is a darker electric green, not a desaturated
  *   forest one — the distinction the whole curation turns on.
  *
+ *   THE GROUND IS CHROMATIC, and that was the second thing this face got wrong.
+ *   The first cut inverted carbone's dark ramp literally: bone on graphite is
+ *   ACHROMATIC, so inverting it gave neutral gray ink on neutral gray paper.
+ *   Measured against the palettes that set the bar, that is what "washed out" is:
+ *
+ *                    --text-body chroma    card chroma
+ *       carbone(was)      0.0073             0.0027
+ *       cuoio             0.0283             0.0136
+ *       indaco            0.0736             0.0074
+ *
+ *   The mono hue now carries color, the way cuoio's mono is warm brown and
+ *   indaco's is navy: a COOL graphite at OKLCH h=252, paper C 0.0068 and body ink
+ *   C 0.0455. Cool, not green -- a green ground was tried and rejected, because it
+ *   swallowed the semantic pass state. The palette's mono must differ in hue from
+ *   its semantics or green-on-green stops reading as a signal.
+ *
  *   Three things carry the identity across the split rather than the lime alone:
  *     · --brand-accent stays #7DE38A on both faces — it is the axis, not a use;
  *     · --spectrum keeps the same GESTURE on both faces — canvas, structural mid,
@@ -72,23 +88,23 @@
   --brand-accent:            #7DE38A;  /* electric accent                       */
 
   /* ── Surfaces — pinned dark (no light-dark wrapping) ──────────────── */
-  --bg:       light-dark(#F6F6F5, var(--scheme-dark-bg));
-  --bg-alt:   light-dark(#ECECEA, var(--scheme-dark-bg-alt));
+  --bg:       light-dark(#F3F7FB, var(--scheme-dark-bg));
+  --bg-alt:   light-dark(#E6EDF5, var(--scheme-dark-bg-alt));
   /* INVERSE IS DARK ON BOTH FACES, deliberately. It is the code-block ground and
    * the split-panel fill; carbone's terminal register is the most recognizable
    * thing it owns, so the light face keeps a graphite block rather than inverting
    * to paper. The twelve --hljs-* values are curated on it and stay valid. */
   --surface-inverse:  light-dark(#0E0E10, #0E0E10);
-  --border:   light-dark(#828388, var(--scheme-dark-border));  /* 3.50 / 3.52 hairline */
+  --border:   light-dark(#778595, var(--scheme-dark-border));  /* 3.50 / 3.52 hairline */
 
   /* ── Ink ramp ──────────────────────────────────────────────────────── */
-  --text-display: light-dark(#141416, var(--scheme-dark-text-display));
-  --text-heading: light-dark(#141416, var(--scheme-dark-text-heading));   /* 17.01 / 15.91 AAA */
-  --text-body:    light-dark(#2E2F33, var(--scheme-dark-text-body));      /* 12.36 / 12.63 AAA */
+  --text-display: light-dark(#081523, var(--scheme-dark-text-display));
+  --text-heading: light-dark(#081523, var(--scheme-dark-text-heading));   /* 17.01 / 15.91 AAA */
+  --text-body:    light-dark(#1E3146, var(--scheme-dark-text-body));      /* 12.36 / 12.63 AAA */
   --text-label:   var(--accent);                                          /* flips with the accent */
-  --text-secondary: light-dark(#53555A, var(--scheme-dark-text-secondary)); /* 6.90 / 7.0 AAA */
-  --text-muted:   light-dark(#5F6266, var(--scheme-dark-text-muted));      /* AA on --bg AND --bg-alt (#1715) */
-  --muted-mark:   light-dark(#82858A, var(--scheme-dark-muted-mark));      /* 3.42 / 3.0 graphical, never carries glyphs (#1715) */
+  --text-secondary: light-dark(#46576A, var(--scheme-dark-text-secondary)); /* 6.90 / 7.0 AAA */
+  --text-muted:   light-dark(#546374, var(--scheme-dark-text-muted));      /* AA on --bg AND --bg-alt (#1715) */
+  --muted-mark:   light-dark(#7B8896, var(--scheme-dark-muted-mark));      /* 3.42 / 3.0 graphical, never carries glyphs (#1715) */
 
   /* ── Brand accent — electric lime ──────────────────────────────────── */
   /* THE LIME AT AA. #037829 is --brand-accent's OWN hue (OKLCH h=146.8) at L 0.50,
@@ -201,12 +217,12 @@
    * reads as the brand. The bright value keeps its place on the dark arm and as
    * --brand-accent. */
   --spectrum: linear-gradient(90deg,
-    light-dark(#E2E3E0, #0E0E10) 0%,
-    light-dark(#9A9C97, #3A3A3F) 55%,
+    light-dark(#DFE6EF, #0E0E10) 0%,
+    light-dark(#8E9AA8, #3A3A3F) 55%,
     light-dark(#037829, var(--brand-accent)) 100%);
   --spectrum-vertical: linear-gradient(180deg,
-    light-dark(#E2E3E0, #0E0E10) 0%,
-    light-dark(#9A9C97, #3A3A3F) 55%,
+    light-dark(#DFE6EF, #0E0E10) 0%,
+    light-dark(#8E9AA8, #3A3A3F) 55%,
     light-dark(#037829, var(--brand-accent)) 100%);
   --spectrum-end: light-dark(#037829, var(--brand-accent)); /* curated endpoint, for spectrum: duo */
 
@@ -265,11 +281,11 @@
   --cat-2-ink:   light-dark(#00775B, #34D3A6);
   --cat-3-ink:   light-dark(#007384, #3BC8E0);
   --cat-4-ink:   light-dark(#2263D3, #4A8CFF);
-  --cat-5-ink:   light-dark(#5959D5, #7B82FF);
+  --cat-5-ink:   light-dark(#5959D6, #7B82FF);
   --cat-6-ink:   light-dark(#7C4CD1, #A175FD);
-  --cat-7-ink:   light-dark(#9848A4, #C270CE);
-  --cat-8-ink:   light-dark(#BD3167, #EB5D8D);
-  --cat-9-ink:   light-dark(#BF3636, #F2655F);
+  --cat-7-ink:   light-dark(#9849A4, #C270CE);
+  --cat-8-ink:   light-dark(#BE3167, #EB5D8D);
+  --cat-9-ink:   light-dark(#C03636, #F2655F);
   --cat-10-ink:  light-dark(#B44600, #F07840);
   --cat-11-ink:  light-dark(#896200, #F5B832);
   --cat-12-ink:  light-dark(#5C7100, #B8D84A);
@@ -308,8 +324,8 @@
    * compete with the --cN fills that sit on them.
    *   --c-container     flowchart cluster, sankey area, kanban column
    *   --c-subcontainer  kanban ticket, a box nested in a cluster */
-  --c-container:     light-dark(#E8E8E5, #202026);
-  --c-subcontainer:  light-dark(#DDDDD9, #313138);
+  --c-container:     light-dark(#E1E8F1, #202026);
+  --c-subcontainer:  light-dark(#D5DEE9, #313138);
 
   /* Containment INK + EDGE (#1311 follow-on). The tier had neither: the cluster
    * label borrowed --cat-on-fill (the CATEGORICAL tier's ink) and the box was
@@ -321,8 +337,8 @@
    * (WCAG 1.4.11 — the box carries the grouping semantic). */
   --c-container-edge:     light-dark(#037829, #7DE38A);
   --c-subcontainer-edge:  light-dark(#037829, #7DE38A);
-  --c-on-container:       light-dark(#141416, #F0F0EC);
-  --c-on-subcontainer:    light-dark(#141416, #F0F0EC);
+  --c-on-container:       light-dark(#081523, #F0F0EC);
+  --c-on-subcontainer:    light-dark(#081523, #F0F0EC);
 }
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────
@@ -380,11 +396,11 @@
    * its own derivation for a palette with no chart cycle. Do not hand-edit: re-run
    * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
   --chart-cat1-ink: light-dark(#007936, #5BC878);
-  --chart-cat2-ink: light-dark(#007383, #3BC8E0);
-  --chart-cat3-ink: light-dark(#2263D2, #4A8CFF);
-  --chart-cat4-ink: light-dark(#7051D4, #947AFF);
+  --chart-cat2-ink: light-dark(#007483, #3BC8E0);
+  --chart-cat3-ink: light-dark(#2364D2, #4A8CFF);
+  --chart-cat4-ink: light-dark(#7051D5, #947AFF);
   --chart-cat5-ink: light-dark(#9948A4, #C270CE);
-  --chart-cat6-ink: light-dark(#BD3167, #EB5D8D);
+  --chart-cat6-ink: light-dark(#BE3167, #EB5D8D);
   --chart-cat7-ink: light-dark(#896200, #F5B832);
   --chart-cat8-ink: light-dark(#B44600, #F07840);
   /* ── end chart categorical ink ── */
