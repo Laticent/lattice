@@ -94,6 +94,33 @@ export async function assessDeck(source: string, lintVocab: unknown, components:
 // on decks whose category has already floored). See the Munger-inversion note in the
 // migration record.
 
+/**
+ * Write a profile declaration into the deck's front matter, via the shared kernel.
+ *
+ * The Coach's profile control is a session-only LENS — it never rewrote front matter, and
+ * that was deliberate. But declared-only profiles plus a lens that cannot be kept left the
+ * register with no adoption path at all: an author who found that Teaching fit their deck
+ * lost the choice on reload, and the CLI and any shared link never saw it. Measured, that
+ * is not a small gap — strip the declaration from the two decks that reported the original
+ * bug and they score Style 55 and 54, rank 1 of 198, exactly where they started.
+ *
+ * So the lens gets a way to become the deck's own answer, on an explicit click. The
+ * transform itself is `deckProfiles.withProfile` in the shared kernel (pure, fs-free,
+ * preserves CRLF and a BOM, refuses a name that is not a profile) — this only reaches it.
+ * Returns the source UNCHANGED if the kernel is unavailable or the name is not a profile,
+ * so a caller can detect a no-op rather than banking a phantom edit.
+ */
+export async function applyProfileToSource(source: string, name: string): Promise<string> {
+	const src = String(source ?? '');
+	try {
+		const m = await core();
+		const fn = m.deckProfiles?.withProfile;
+		return typeof fn === 'function' ? String(fn(src, name) ?? src) : src;
+	} catch {
+		return src;
+	}
+}
+
 export type CoachCard = { title: string; body: string[]; jump?: number; needMinutes?: boolean };
 
 const SEV_WEIGHT: Record<string, number> = { error: 3, warning: 2, suggestion: 1 };

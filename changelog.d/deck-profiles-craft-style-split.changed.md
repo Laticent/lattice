@@ -13,10 +13,12 @@
   exactly (70 words / 6 bullets / a 14-word heading, both structural rules graded), pinned
   by a test against those constants. A profile can therefore only ever loosen a number for a
   deck whose author asked by name — never for a deck that said nothing. `teaching` relaxes
-  prose density (measured: two thirds of its slides clear 70 words) **and stops grading
-  `no-ask` and `agenda-missing`** — a lesson asks the learner to practice rather than the
-  room to approve, and its progression is its agenda; both rules are still surfaced as
-  advice, they just stop deducting. `mission` relaxes
+  prose density (measured: two thirds of its slides clear 70 words) **and softens `no-ask` /
+  `agenda-missing` to 40% of their usual cost** — a lesson asks the learner to practice
+  rather than the room to approve, and its progression is its agenda. Softened, not switched
+  off: those two rules are Framing's only deductions, so zeroing them pinned the whole
+  category to 100 and guaranteed any deck declaring `teaching` at least Style 77, whatever
+  was in it. `mission` relaxes
   the heading budget only (17% of nonprofit headings clear 14 against corporate's 2%).
   Neither can touch Craft.
 - **Fixed: the density penalty no longer floors a category, and cannot be gamed by deck
@@ -56,6 +58,12 @@
   categories are now a single saturating curve over a weighted finding count: Structure
   bottoms out at 6, Writing craft at 22, and a repeated heading cadence now costs more when
   the deck has two of them than when it has one.
+- **Added: the Coach can write a profile into your front matter.** The profile control was a
+  session-only lens — it never persisted, so the CLI and anyone you shared the deck with kept
+  seeing the old score, and the choice was lost on reload. "Keep in front matter" writes
+  `profile: <name>` into the deck (checkpointed, so ⌘Z and History undo it). Without it,
+  declared-only profiles had no adoption path at all: the two decks that prompted this change
+  only scored well because their front matter was edited by hand.
 - **Added: the Studio Coach names the profile it judged Style against, says whether that was
   declared or the default, and lets you view the deck through another profile.** The control
   overrides a declaration (it previously lost to one, which made it a silent no-op on exactly

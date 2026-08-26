@@ -8,7 +8,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { reviewText, isLabelHeading } = require('../../../lib/authoring/review-core');
 const { scoreDeck } = require('../../../lib/authoring/scorecard');
-const { resolveProfile, PROFILES } = require('../../../lib/authoring/deck-profiles');
+const { resolveProfile, withProfile, declaredProfile, PROFILES } = require('../../../lib/authoring/deck-profiles');
 
 const FM = '---\nmarp: true\ntheme: indaco\n---\n\n';
 // Declares the profile whose budget the rules below are being measured against, rather
@@ -174,39 +174,75 @@ describe('scorecard: scoreDeck — the Craft / Style split', () => {
   //
   // An earlier version of this test compared scoreDeck's answer against a THIRD,
   // hand-rolled regex written inside the test, so review-core could have drifted
-  // arbitrarily and it would still have passed. It asserted nothing it claimed to. This
-  // drives the real thing: reviewText stamps `scored` from ITS profile, so a disagreement
-  // surfaces as a flag that contradicts the genre the scorecard reports.
+  // arbitrarily and it would still have passed. It asserted nothing it claimed to.
+  //
+  // It then drove the real thing through review-core's `scored` STAMP — which no longer
+  // exists, because stamping `scored: false` is exactly what pinned Framing to a constant
+  // for `teaching`. The agreement is now observable where it actually matters: the deck's
+  // BUDGETS come from review-core's resolution and its Framing DEDUCTION from the
+  // scorecard's, so if the two resolved different genres the two would disagree here.
   test('review-core and scorecard cannot disagree about the profile', () => {
     const long = (p) => {
       let d = `---\nmarp: true\n${p ? `profile: ${p}\n` : ''}---\n\n<!-- _class: title -->\n\n# A deck\n\nA framing line.\n`;
       for (let i = 0; i < 11; i++) d += `\n---\n\n<!-- _class: content -->\n\n## Point ${i} stands alone\n\nbody\n`;
       return d;
     };
-    for (const prof of [null, 'teaching', 'mission', 'general']) {
+    // The rule ALWAYS fires and always deducts; the profile scales how hard. It used to
+    // stamp `scored: false`, which switched the deduction off entirely — and since
+    // `no-ask` and `agenda-missing` are `scoreFraming`'s only two deduction paths, that
+    // pinned the whole category to 100 for `teaching`. So what is pinned here is that the
+    // finding is present and that Framing MOVES with the profile's scale, monotonically.
+    const framingAt = (prof) => {
       const src = long(prof);
       const findings = reviewText(src, { bucketOf });
+      assert.ok(findings.some((f) => f.rule === 'agenda-missing'), 'fixture must trip agenda-missing');
       const c = scoreDeck({ source: src, lintFindings: [], reviewFindings: findings });
-      const agenda = findings.find((f) => f.rule === 'agenda-missing');
-      assert.ok(agenda, 'the 12-slide fixture must trip agenda-missing');
-      assert.equal(
-        agenda.scored !== false,                        // what review-core believed
-        PROFILES[c.profile.key].scoresAgenda,           // what the scorecard reports
-        `profile drift on profile=${prof}`,
+      return { framing: cat(c, 'framing').score, scale: PROFILES[c.profile.key].framingScale };
+    };
+    const general = framingAt('general');
+    const teaching = framingAt('teaching');
+    const undeclared = framingAt(null);
+    assert.equal(general.scale, 1);
+    assert.equal(teaching.scale, 0.4, 'teaching must scale framing DOWN');
+    assert.ok(teaching.framing > general.framing, `and therefore deduct less (${general.framing} -> ${teaching.framing})`);
+    assert.ok(teaching.framing < 100, 'but it must still deduct — a scale is not a switch-off');
+    assert.equal(undeclared.framing, general.framing, 'an undeclared deck is judged as general');
+  });
+
+  // NO PROFILE MAY RENDER A STYLE CATEGORY CONSTANT. This is the mirror of `no profile is
+  // TIGHTER than general`, and its absence is what let `teaching` become an exemption
+  // rather than a bar: it set `scoresAsk`/`scoresAgenda` false, and since those are
+  // `scoreFraming`'s only two deduction paths, Framing read exactly 100 on all 198
+  // committed decks. Style collapsed to a rescaled `brevity` (r = 0.965) and nothing could
+  // score below 77 under `teaching`, mean 96.1 — bought with two words of front matter that
+  // nothing verifies and that change no render, no export and no gate.
+  test('no profile may render a Style category constant', () => {
+    const withAsk = (p, ask) => {
+      let d = `---\nmarp: true\nprofile: ${p}\n---\n\n<!-- _class: title -->\n\n# Lesson one\n\nA framing line.\n`;
+      for (let i = 0; i < 11; i++) d += `\n---\n\n<!-- _class: content -->\n\n## Step ${i} builds on the last\n\nbody here\n`;
+      if (ask) d += '\n---\n\n<!-- _class: decision -->\n\n## Approve the pilot by Friday\n\nthe ask\n';
+      return d;
+    };
+    for (const p of Object.keys(PROFILES)) {
+      const without = cat(card(withAsk(p, false)), 'framing').score;
+      const withIt = cat(card(withAsk(p, true)), 'framing').score;
+      assert.ok(
+        without < withIt,
+        `under '${p}', a deck WITH an ask must beat one without — Framing is constant at ${without}, which makes the profile an exemption rather than a bar`,
       );
     }
   });
 
-  test('the genre rules stay VISIBLE as advice even when the profile does not grade them', () => {
+  test('the genre rules stay VISIBLE as advice, and still deduct — less', () => {
     let deck = `---\nmarp: true\nprofile: teaching\n---\n\n<!-- _class: title -->\n\n# Lesson one\n\nA framing line.\n`;
     for (let i = 0; i < 11; i++) deck += `\n---\n\n<!-- _class: content -->\n\n## Step ${i} builds on the last\n\nbody\n`;
     const findings = reviewText(deck, { bucketOf });
-    const ask = findings.find((f) => f.rule === 'no-ask');
-    const agenda = findings.find((f) => f.rule === 'agenda-missing');
-    assert.ok(ask && agenda, 'both rules must still be surfaced to the author');
-    assert.equal(ask.scored, false);
-    assert.equal(agenda.scored, false);
-    assert.equal(cat(card(deck), 'framing').score, 100, 'and must not deduct under this profile');
+    assert.ok(findings.some((f) => f.rule === 'no-ask'), 'no-ask must still be surfaced');
+    assert.ok(findings.some((f) => f.rule === 'agenda-missing'), 'agenda-missing must still be surfaced');
+    const teachingFraming = cat(card(deck), 'framing').score;
+    const generalFraming = cat(card(deck.replace('profile: teaching', 'profile: general')), 'framing').score;
+    assert.ok(teachingFraming > generalFraming, 'teaching deducts less');
+    assert.ok(teachingFraming < 100, 'but it deducts');
   });
 });
 
@@ -474,8 +510,7 @@ describe('deck-profiles: declared-only resolution', () => {
     assert.equal(g.slideWords, SLIDE_PROSE_BUDGET.words);
     assert.equal(g.slideBullets, SLIDE_PROSE_BUDGET.bullets);
     assert.equal(g.titleHard, UNIVERSAL_PROSE_BUDGETS.title.hard);
-    assert.equal(g.scoresAsk, true, 'silence must not buy relief from a graded rule');
-    assert.equal(g.scoresAgenda, true);
+    assert.equal(g.framingScale, 1, 'silence must not buy relief from a graded rule');
   });
 
   // A profile may only ever LOOSEN, and only for a deck that asked by name.
@@ -542,15 +577,69 @@ describe('deck-profiles: declared-only resolution', () => {
     assert.equal(resolveProfile({ source: src, override: 'teaching' }).origin, 'override');
   });
 
+  // `withProfile` is the ADOPTION path. Declared-only is correct — inference was measured
+  // making 40 of 46 decks worse — but it left the register unkeepable: the Coach's dropdown
+  // was session-only and never wrote front matter, so an author who found that Teaching fit
+  // their deck lost the choice on reload, and the CLI and any shared link never saw it.
+  // Measured: strip the declaration from the two decks that reported the original bug and
+  // they score Style 55 and 54, rank 1 of 198 — exactly where they started.
+  describe('withProfile — writing the declaration back', () => {
+    const round = (src, name) => declaredProfile(withProfile(src, name));
+
+    test('inserts into existing front matter', () => {
+      const out = withProfile('---\nmarp: true\ntheme: indaco\n---\n\n# Hello\n', 'teaching');
+      assert.equal(declaredProfile(out), 'teaching');
+      assert.match(out, /^---\nmarp: true\ntheme: indaco\nprofile: teaching\n---\n/);
+    });
+
+    test('replaces an existing declaration in place, without duplicating it', () => {
+      const out = withProfile('---\nmarp: true\nprofile: general\ntheme: indaco\n---\n\n# Hello\n', 'mission');
+      assert.equal(declaredProfile(out), 'mission');
+      assert.equal(out.match(/^profile:/gm)?.length, 1, 'exactly one profile line');
+      assert.match(out, /profile: mission\ntheme: indaco/, 'and it keeps its position');
+    });
+
+    test('creates front matter when the deck has none', () => {
+      const out = withProfile('# Hello\n\nbody\n', 'teaching');
+      assert.equal(declaredProfile(out), 'teaching');
+      assert.match(out, /# Hello/, 'and keeps the body');
+    });
+
+    test('preserves CRLF and a leading BOM — this writes back into the author\'s file', () => {
+      const crlf = withProfile('---\r\nmarp: true\r\n---\r\n\r\n# Hello\r\n', 'teaching');
+      assert.equal(declaredProfile(crlf), 'teaching');
+      assert.ok(!/[^\r]\n/.test(crlf), 'no bare LF may be introduced into a CRLF deck');
+      const bom = withProfile('\ufeff---\nmarp: true\n---\n\n# Hello\n', 'teaching');
+      assert.ok(bom.startsWith('\ufeff'), 'BOM preserved');
+      assert.equal(declaredProfile(bom), 'teaching');
+    });
+
+    test('refuses a name that is not a profile, rather than stranding the deck', () => {
+      const src = '---\nmarp: true\n---\n\n# Hello\n';
+      for (const bad of ['nonsense', '__proto__', 'constructor', '', null, undefined]) {
+        assert.equal(withProfile(src, bad), src, `${bad} must leave the source untouched`);
+      }
+    });
+
+    test('round-trips every real profile, and the scorer agrees', () => {
+      const src = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# A deck\n\nA framing line.\n';
+      for (const key of Object.keys(PROFILES)) {
+        assert.equal(round(src, key), key);
+        assert.equal(resolveProfile({ source: withProfile(src, key) }).origin, 'declared');
+        assert.equal(resolveProfile({ source: withProfile(src, key) }).key, key);
+      }
+    });
+  });
+
   // The numbers ARE the deliverable, and nothing else constrains them: reverting
   // teaching's budget to 70 re-creates the reported bug, and used to be invisible to CI.
   test('the profile budgets are pinned', () => {
     assert.deepEqual(
-      Object.fromEntries(Object.values(PROFILES).map((p) => [p.key, [p.slideWords, p.slideBullets, p.titleHard, p.scoresAsk, p.scoresAgenda]])),
+      Object.fromEntries(Object.values(PROFILES).map((p) => [p.key, [p.slideWords, p.slideBullets, p.titleHard, p.framingScale]])),
       {
-        general: [70, 6, 14, true, true],
-        teaching: [95, 8, 14, false, false],
-        mission: [70, 6, 18, true, true],
+        general: [70, 6, 14, 1],
+        teaching: [95, 8, 14, 0.4],
+        mission: [70, 6, 18, 1],
       },
     );
   });

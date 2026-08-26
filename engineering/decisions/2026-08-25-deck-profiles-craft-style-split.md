@@ -683,6 +683,98 @@ two worst findings (the prototype lookup, and Structure clamping) were both in c
 claim, and the author is the worst-placed person to notice. That is the argument for the
 ladder in HARD RULE #25 being a floor rather than a ceiling.
 
+## 8.8 · The inversion pass — the two findings that changed what shipped
+
+Inversion ran once, on **design v1**, and that design was deleted. It had never seen what
+actually ships, so it was run again with one question: *assume this is judged a mistake in
+six months — what is the most likely reason?* It returned two findings that changed the
+code, and one that acquitted it.
+
+### `teaching` was an exemption, not a bar
+
+`scoreFraming`'s ONLY two deduction paths are `no-ask` and `agenda-missing`. `teaching` set
+`scoresAsk: false` and `scoresAgenda: false`, so the category could not return anything but
+100. Measured across all 198 committed decks under each profile:
+
+| override | `framing` distinct values | Style range | Style mean |
+|---|---|---|---|
+| `general` | 52 / 70 / 82 / 100 | 54–100 | 81.9 |
+| `mission` | 52 / 70 / 82 / 100 | 54–100 | 82.2 |
+| **`teaching`** | **`[100]` — one value, every deck** | **77–100** | **96.1** |
+
+Style then collapsed to a rescaled `brevity` (r = 0.965), and **no deck in this repository
+could score below 77 under `teaching`** — including the 2,332-word padded deck §6 uses as
+its counter-example. Stack the properties of the thing that buys it: two words of front
+matter, **unverifiable** (there is no signal to check — §5 removed inference precisely
+because none exists), **inert everywhere else** (no lint rule reads `profile:`, no render,
+no export, no gate), and worth ~14 Style points.
+
+This module's stated contract is "**a profile is a different bar, never a lower one**". That
+is true of the thresholds and true of Craft. It was not true of the consequence, and the
+test meant to enforce it (*no profile is TIGHTER than general on any axis*) pins only the
+one-sided property — **nothing bounded how far a profile could loosen.**
+
+Invert it: *to make this a mistake, make the escape hatch cheaper than the fix.* It was. An
+author facing "Style C — a lot to fix" could restructure the deck, or type
+`profile: teaching`. The second is free, never contradicted, and reliably works.
+
+**Fixed by scaling rather than switching.** `framingScale` replaces the two booleans;
+`teaching` carries 0.4. Framing takes four distinct values again (81 / 88 / 93 / 100), the
+corpus floor under `teaching` drops from a pinned 77 to 74, and a lesson that DOES make an
+ask still beats one that does not — which is the property that makes it a bar. The two
+originating decks read Style 80 and 79 rather than 89 and 88; still a clear recovery from
+the undeclared 55 and 54, without the exemption. A new test pins the general rule: **no
+profile may render a Style category constant.**
+
+### Declared-only had no adoption path, so the fix was two hand-edited lines
+
+The sharper finding. Strip the `profile:` line from the two decks that reported the original
+bug and score them as any *other* author would have them:
+
+| deck | declared | front matter stripped |
+|---|---|---|
+| `bloom-engineering-journey` | Craft 100 / Style 89 | Craft 100 / Style **55** — rank **1 of 198** |
+| `seven-steps-problem-to-code` | Craft 100 / Style 88 | Craft 100 / Style **54** — rank **1 of 198** |
+
+Corpus Style minimum is 57. **Undeclared, both decks are the joint worst in the repository —
+the same position they occupied before this change, and worse on the varying number than the
+64 they complained about.** The entire recovery was the two lines added to those two files.
+
+The user's actual question in §1 was whether this was systematic: *"whether an NGO deck I
+write tomorrow is going to be scored poorly"*. As shipped it was not systematic. The next
+mentee writing a lesson does not know the register exists; they get `general`, Style ~55, and
+they file the same bug. The Coach's dropdown was a discovery path, but the override was
+**session-only and explicitly never rewrote front matter** — so an author could watch 55
+become 89 and lose it on reload, while the CLI and any shared link kept showing 55.
+
+**Fixed by closing the loop.** `withProfile(source, name)` lands in the shared kernel (pure,
+fs-free, preserves CRLF and a BOM, refuses a non-profile name), `applyProfileToSource`
+reaches it from the Coach, and the panel gains **"Keep in front matter"** beside the
+dropdown — checkpointed, so History and ⌘Z undo it. Driven on the real Studio: undeclared
+Brevity 65 / General → override → 100 / Teaching → Keep → **survives a full page reload**.
+
+*Note what this does and does not change.* An undeclared deck still scores exactly what it
+scored before — `general` is pinned to the old bar deliberately, and that is the whole point
+of declared-only. What changed is that the author can now act on the discovery. A register
+nobody can keep is a register nobody has.
+
+### What inversion tried to break and could not
+
+It set out to show the change was over-engineered relative to its trigger — that simply
+capping the uncapped `walls * 12` would have been enough — and **measured that it would
+not.** Against `origin/main`'s scorer with one term changed to `Math.min(36, walls * 12)`:
+
+| | bloom | seven-steps | bloom's rank (1 = worst) |
+|---|---|---|---|
+| `origin/main` as-is | 64 C+ | 64 C+ | **1 / 198** |
+| one-line cap at 36 | 82 B+ | 82 B+ | **10 / 198** |
+| shipped design (declared) | Craft 100 / Style 80 | Craft 100 / Style 79 | 162 / 198 |
+
+The cap recovers 18 of the 25 points and lifts the decks off the floor — but they stay in
+the bottom 8%, because the residual damage is Framing, which a density cap does not touch.
+**The cap was necessary and not sufficient.** That is the strongest thing that can be said
+for this design, and it was found by an agent trying to break it.
+
 ## 9 · What the review process caught, and what that says
 
 This change was reviewed by the full adversarial trio (HARD RULE #25) after the author had

@@ -49,7 +49,7 @@ import type { ComposeHandle } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
 import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, EditorSkeleton, PostureDial } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
-import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
+import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { activeCorners, CORNERS } from './corners-catalog';
@@ -3067,7 +3067,30 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								{DECK_PROFILE_CHOICES.map(([key, label]) => (<option key={key} value={key}>{label}</option>))}
 							</select>
 							{profileOverride && (
-								<button type="button" onClick={() => setProfileOverride(null)} className="text-[10.5px] font-semibold text-[var(--accent)]">reset</button>
+								<>
+									{/* KEEP IT. The dropdown is a lens; without this it is a lens onto a number the
+									    author cannot hold on to — session-only, invisible to the CLI and to anyone
+									    they share the deck with. Declared-only is the right default (inference was
+									    measured making 40 of 46 decks WORSE than abstaining), but declared-only with
+									    no way to declare from here is why the two decks that reported the original
+									    bug only recovered because someone hand-edited their front matter. */}
+									<button
+										type="button"
+										onClick={() => {
+											void applyProfileToSource(source, profileOverride).then((next) => {
+												if (next === source) { notify('Couldn’t write that profile — nothing changed.'); return; }
+												setCheckpoints(saveCheckpoint(deck.id, source, 'Before profile change', Date.now()));
+												setSource(next);
+												setProfileOverride(null);
+												notify(`Deck now declares profile: ${profileOverride} — ⌘Z or restore from History to undo.`);
+											});
+										}}
+										className="rounded-md border border-[var(--accent)] px-1.5 py-0.5 text-[10.5px] font-semibold text-[var(--accent)]"
+									>
+										Keep in front matter
+									</button>
+									<button type="button" onClick={() => setProfileOverride(null)} className="text-[10.5px] font-semibold text-[var(--accent)]">reset</button>
+								</>
 							)}
 							{scorecard.profile.declaredInvalid && (
 								<span className="basis-full text-[10px] leading-snug text-[var(--warn)]">Front matter says <code>profile: {scorecard.profile.declaredInvalid}</code>, which isn’t a profile — using {scorecard.profile.label} instead.</span>
