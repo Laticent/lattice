@@ -587,63 +587,20 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						var padX = cinema ? 0 : (vw2 < 640 ? C.padMobile : C.padDesktop);
 						var padY = cinema ? C.padCinemaY : padX;
 						var paneTop = cinema ? 0 : C.topbarH + (bpMobile ? C.mobileBarH : 0);
-						// ── The reader's MINIMUM FONT SIZE, and why it is read here ────────────────
-						// The two write/build bands are TEXT ROWS, so they grow for a reader who
-						// raises the browser's minimum font size (Chrome: Settings -> Appearance ->
-						// Customize fonts). The bands themselves already follow — they are floored by
-						// these constants, not pinned to them, and the skeleton carries the app's own
-						// text metrics (#1496). What could NOT follow was the PLACEMENT: the slide box
-						// is positioned from `headerH` and `footerH` as numbers, and a frozen number
-						// put the box 11px off at a 24px minimum, pinned as a known residual in
-						// preview-rect.ts and in studio-instant-shell.spec.ts.
-						//
-						// It no longer has to be frozen — and the way to unfreeze it is to MEASURE what the
-						// reader's browser does to a 12px element, not to infer it. A one-off
-						// `position:absolute` probe carrying the pill's own inline `font-size:12px`,
-						// appended and removed here, comes back clamped exactly as the pill will be. It
-						// is available at this point in the document (the seed sits after the parser has
-						// opened <body>, which the astro-island above it forces — an earlier draft of
-						// this note claimed there was no body yet, and that wrong belief is what put an
-						// inference here instead of a measurement), and it is cheap: one element, one
-						// style read, no layout, before first paint.
-						//
-						// AN INFERENCE FROM THE ROOT'S FONT SIZE WAS TRIED HERE AND IS WRONG. Chrome
-						// has TWO font settings and only one of them moves these bands: "Minimum font
-						// size" clamps the 12px pill and grows the rows, while "Font size" (the
-						// top-level Appearance control, Medium/Large/Very large) moves the ROOT and
-						// leaves a 12px pill at 12px. Reading the root cannot tell them apart, so it
-						// fired on the setting that changes nothing — measured 10.62px of box-top drift
-						// at Font size = Large against 0.82px before, i.e. it broke a reader the frozen
-						// model had served correctly. It was also blind in the other direction, at a
-						// minimum between 12 and 16 (the root never clamps, the pill does). The probe
-						// is exact in all four combinations.
-						//
-						// From the line box the two bands are linear — fitted to the app measured at
-						// minimum font 12/16/20/24 and checked at 14/18/22/28/36:
-						//   sub-bar  the pill grows until it passes the 32px collapse button, so the
-						//            two-pane row is flat until the line box clears 26px, then follows.
-						//   footer   two stacked text rows -> two line boxes. The fit runs ~0.8px
-						//            under above the default (inside the 2px band-agreement
-						//            tolerance); at the default it is the measured constant itself.
-						// `lhGrow` is 0 at the default size, so nothing about the common case moves.
-						//
-						// TWO-PANE TIERS ONLY, and that restriction is measured rather than cautious.
-						// The phone places everything below `mobileBarH`, a THIRD frozen band (the
-						// eight-cell action bar, ~24px high at a 24px minimum — the residual pinned
-						// beside this one). Its error runs opposite, so correcting the phone's FOOTER
-						// (the only band this would correct there — its header takes `headerWriteMobile`
-						// unconditionally) does not improve the phone: it UNMASKS the action bar and
-						// pushes the box out of the 2px band the spec holds it to. Measured with the
-						// guard removed: 2.20px -> 21.40px at 390x844, both phone cases failing. The
-						// phone therefore keeps the frozen model until the action bar can be modeled
-						// with it — one band short of a complete fix is worse than none.
-						// What the probe reports is its FONT SIZE, not its line-height, and that is the
-						// whole trick. An inline `font-size:12px` is clamped by the browser's minimum
-						// exactly as the pill's is, and it is clamped by the UA before any stylesheet —
-						// so this reads correctly at seed time, where the site's own line-height has
-						// NOT yet been applied (measured: a probe asking for `lineHeight` here gets
-						// `normal` and the correction silently never fires). The 1.6 multiplier is the
-						// same one `lhBase` already encodes; it is stated once, here.
+						// ── The reader's font clamp: MEASURED, not inferred ────────────────────────
+						// These bands are text rows, so they grow for a reader who raises the browser's
+						// MINIMUM font size — and the placement has to grow with them, or the slide box
+						// lands where the bands used to be. A one-off probe carrying the pill's own
+						// inline `font-size:12px` comes back clamped exactly as the pill will be.
+						// Read its FONT SIZE, never its line-height: the site's line-height is not
+						// applied yet at seed time (a probe asking for it gets `normal` and this
+						// silently never fires), while an inline font-size is clamped by the UA before
+						// any stylesheet. Do NOT swap the probe for a reading of the root's font size:
+						// Chrome's "Font size" control moves the root WITHOUT touching a 12px pill, so
+						// that inference fires on the wrong setting — it was tried, and it broke a
+						// reader this model had served. Two-pane tiers only; the phone's third frozen
+						// band (`mobileBarH`) errs the other way and correcting one of the three makes
+						// it worse. Full derivation, fits and measurements: preview-rect.ts.
 						var LH_RATIO = 1.6; // the app's inherited unitless line-height
 						var lhBase = LH_RATIO * 12; // 19.2 — the pill's line box at the default size
 						var lhNow = lhBase;

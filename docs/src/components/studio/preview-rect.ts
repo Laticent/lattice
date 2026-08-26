@@ -96,14 +96,47 @@ export const STUDIO_SPLIT_COLLAPSE_KEY = collapseKeyFor(STUDIO_SPLIT_KEY);
  * The SECOND one is resolved. `headerWrite*` and `footerWrite` used to place the slide box from
  * their frozen values while the bands themselves grew, putting the box up to 11px off on a wide
  * viewport (13.4px once the sub-bar got shorter — the two errors had been partly canceling).
- * The seed now GROWS both from a one-off probe element carrying the pill's own inline
- * `font-size: 12px`, which the browser clamps exactly as it clamps the pill: on the two-pane
- * tiers the box-top drift measures 12.4px -> 0.59px at a 24px minimum, and 0.61px at a 14px one
- * (a minimum between 12 and 16 clamps the pill while leaving the root at 16, so it is invisible
- * to anything that reads the root — an earlier cut of this did, and additionally fired on
- * Chrome's unrelated "Font size" control, breaking a reader the frozen model had served).
- * The derivation and its fit live in studio.astro beside the code; these numbers stay the
- * DEFAULT-SIZE floors that derivation starts from.
+ * The seed now GROWS both, from a one-off probe element carrying the pill's own inline
+ * `font-size: 12px` which the browser clamps exactly as it clamps the pill. These numbers stay
+ * the DEFAULT-SIZE floors that growth starts from; the code is in studio.astro, and the
+ * derivation is here because a comment there ships in every visitor's HTML (the Studio route
+ * has a byte budget, and this reasoning cost 1.6KB of it before it moved).
+ *
+ * THE FITS, from the app measured at browser minimum font 12/16/20/24 and checked at
+ * 14/18/22/28/36. `lh` is the probe's line box, 1.6 x its clamped size:
+ *   sub-bar  max(32, lh + 6) + 13 on the two-pane tiers — the 32px "Collapse preview" button
+ *            governs until the pill outgrows it, so the row is FLAT until lh clears 26px.
+ *            Exact at every size measured.
+ *   footer   two stacked text rows, so two line boxes: footerWrite + 2 x (lh - 19.2). Runs a
+ *            uniform ~0.8px UNDER above the default size — inside the 2px band tolerance, and
+ *            it is the constant itself at the default.
+ * Box-top drift on the two-pane tiers: 12.4px -> 0.59px at a 24px minimum, 0.61px at 14px.
+ *
+ * READ ITS FONT SIZE, NEVER ITS LINE-HEIGHT. At seed time the site's own line-height has not
+ * been applied, so a probe asking for `lineHeight` gets `normal` and the correction silently
+ * never fires (measured). An inline font-size is clamped by the UA before any stylesheet.
+ *
+ * AND DO NOT REPLACE THE PROBE WITH A READING OF THE ROOT'S FONT SIZE. That was tried, and it
+ * is wrong in both directions. Chrome has two font controls: "Minimum font size" clamps the
+ * 12px pill and grows these rows, while "Font size" (the top-level Appearance control) moves
+ * the ROOT and leaves a 12px pill at 12px. Reading the root cannot tell them apart, so the
+ * correction fired on the setting that moves nothing — 0.82px of drift became 10.62px at Font
+ * size = Large, breaking a reader the frozen model had served. It was blind the other way too:
+ * a minimum between 12 and 16 clamps the pill while leaving the root at 16, so 3.58px of drift
+ * went unseen. The probe is correct in all four combinations. With BOTH controls raised the
+ * model under-predicts (5.22px at 24/18) because the rows then carry default-size text as
+ * well: better than frozen at every point measured, exact at none.
+ *
+ * TWO-PANE TIERS ONLY, and that restriction is measured. On the phone this would correct the
+ * FOOTER alone — its header takes `headerWriteMobile` unconditionally — and the phone places
+ * everything below `mobileBarH`, a third frozen band erring the other way. Correcting one of
+ * the three UNMASKS it: 2.20px -> 21.40px at 390x844, both phone cases failing. One band short
+ * of a complete fix is worse than none, so the phone keeps the frozen model until the action
+ * bar can be modeled with the rest.
+ *
+ * NOT GATED: nothing exercises the "Font size" axis — the `minfont` Playwright project sets
+ * `minimumFontSize` only — which is why the regression above was caught in review rather than
+ * by a test.
  * The phone is deliberately excluded from that correction — its third frozen band (`mobileBarH`)
  * errs the other way, so correcting two of its three bands moved its box OUT of tolerance
  * (measured). It keeps the frozen model until the action bar can be modeled with them.
