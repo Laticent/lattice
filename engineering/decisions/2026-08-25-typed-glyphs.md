@@ -203,6 +203,42 @@ second `--icon-chevron-right` in one repo is a trap with a shelf life. The engin
 `--shape-*`, which is free, matches the kernel's name, and is contained to this branch; renaming
 the docs site's would have been reaching into shared state.
 
+## 5d. The transport controls, rendered — and what rendering them found
+
+The four `.anima-live .scene-control` sites were the one part of Part B that no artifact
+covered: they exist only after `hydrate.ts` mounts a scene, so a CLI PDF never shows them and
+the checker could only read the code. They are now driven on a real surface — a `--player`
+HTML export of `examples/anima-scene.md`, opened in Chromium, navigated to the scene slide,
+with the control clicked and the page run under `prefers-reduced-motion: reduce`:
+
+| mode | reached by | `::before` mask | paint |
+|---|---|---|---|
+| `pause` | scene playing | `--shape-pause` | `rgb(92, 111, 138)` |
+| `play` | clicking the control | `--shape-triangle-right` | follows the button's `currentColor` — it changed to `rgb(10, 22, 40)` under `:hover`, which is the palette-blindness working |
+| `optin` | `prefers-reduced-motion: reduce` | `--shape-triangle-right`, in the labeled pill | `rgb(92, 111, 138)` |
+| `replay` | letting slide 3's finite scene run out | **`--shape-triangle-right`, not `--shape-refresh`** | `rgb(92, 111, 138)` |
+
+That last row is a real defect, and it is **not this change's**. `player-prune` drops every rule
+whose selector matches nothing in the export-time DOM, and at export time the control exists in
+exactly one mode — `pause`, because the scene is playing. So
+`.anima-live .scene-control[data-mode="replay"]::before` and the `[data-mode="optin"]` rules are
+pruned out of every `--player` export, and have been all along. Rendered from `origin/main` for
+comparison, the same control on the same slide is an **empty circle**: main's base `::before`
+carried no `content` at all, so with the per-mode rule gone nothing was generated. This branch's
+base rule carries `content:""` and a mask, so the same pruned state now shows a play triangle —
+the wrong shape, but a control instead of a blank puck.
+
+Pre-existing and off the path of this change, so it is logged rather than pulled into the diff
+(#18, #17). The fix belongs where the hole is: `PLAYER_PRUNE_SAFELIST` in
+`lib/export/player-prune.js` is documented as "the hook for a future runtime-injected class the
+static DOM wouldn't show", and is still empty. Filling it changes exported bytes, which is the
+one thing the QUALITY BAR sends back for sign-off — so it is its own change, not a rider on this
+one.
+
+Exposure is confined to this component. Of the ten stylesheets Part B touched, `scene.styles.css`
+is the only one keyed to a class JS injects; the other nine key off classes present in the baked
+DOM, and all of them were already covered by the PDF, PPTX and HTML renders.
+
 ## 6. Why engine JS is not gated
 
 The first draft of the gate had a JS arm that looked for glyphs in lines that also looked like
