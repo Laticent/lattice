@@ -111,10 +111,34 @@ dead weight", which is what the reviewer critique against this change's own 38.2
 `contract` weight rested on. It does **not** by itself calibrate 38.2% — three
 hand-built drafts show non-zero, not a share, and this record's own methodology is
 a variance-share comparison. Decomposed over prefix-truncations of all 198 decks
-as a draft proxy, Contract carries **27.8%–74.4%** of Craft's variance depending on
-the truncation model. 38.2% sits inside that band, so the weight is defensible and
-cutting it would have been the wrong move — but the honest statement is *"not zero,
-and this corpus cannot price it"*, not *"38.2% is correct on evidence"*.
+as a draft proxy, Contract carries **14.1%–64.2%** of Craft's variance depending on
+whether the cut is by line or by character. 38.2% sits inside that band, so the weight
+is defensible and cutting it would have been the wrong move — but the honest statement
+is *"not zero, and this corpus cannot price it"*, not *"38.2% is correct on evidence"*.
+
+**And running that sweep over all three Craft categories at once says more than the
+per-category framing does:**
+
+| population | `structure` | `craftProse` | `contract` | Craft sd |
+|---|---|---|---|---|
+| committed corpus (n = 198) | 91.3% | 8.7% | **0.0%** | 2.32 |
+| drafts, line-truncated (n = 792) | 84.0% | 1.9% | **14.1%** | 2.40 |
+| drafts, char-truncated (n = 792) | 34.4% | 1.5% | **64.2%** | 4.29 |
+
+Every category carries real variance somewhere, and **no share is stable across draft
+models** — `structure` swings 34% → 91%, `contract` 0% → 64%. So the conclusion is not
+"`contract`'s weight is right"; it is the stronger and more useful one: **this corpus
+cannot price ANY of the three Craft weights**, and a decomposition run on it is evidence
+about the population, not about the weights. That is the same error §2 corrects, stated
+once for all three rather than caught one category at a time. `craftProse` is the
+thinnest everywhere (1.5%–8.7%) against a 32.4% nominal weight — by the reasoning above
+that is not evidence it is dead either, and it is the next weight to be suspicious of.
+
+*(This band replaces a `27.8%–74.4%` figure that an earlier draft carried. That number
+came from a reviewer's decomposition and was relayed without being reproduced; re-running
+it here gives 14.1%–64.2%. Same conclusion, different number — and relaying an
+unreproduced figure is the exact failure mode §8.6 and §8.7 are about, so the reproducible
+one wins.)*
 
 **Pacing gets the same treatment, and it changes the verdict.** The argument above
 — *a category flat on the corpus may be flat because its input is unavailable* —
@@ -536,9 +560,8 @@ being exact about.** Three hand-built drafts reading non-zero REFUTE "0.0% varia
 therefore dead weight", which is the whole of the critique. They do not CALIBRATE
 38.2%: this record's methodology is a variance-share comparison, and three points are
 not a share. Decomposed over prefix-truncations of all 198 decks as a draft proxy,
-Contract carries **27.8%–74.4%** of Craft's variance depending on the truncation
-model — a band wide enough that it prices nothing precisely, but one that 38.2% sits
-inside. So: cutting the weight to match a 0.0% the gate manufactures would have been
+Contract carries **14.1%–64.2%** of Craft's variance depending on the cut — a band
+wide enough that it prices nothing precisely, but one that 38.2% sits inside. So: cutting the weight to match a 0.0% the gate manufactures would have been
 the precise inverse of the fix, and leaving it is right; claiming the number is
 *calibrated* would be a second overclaim replacing the first. The honest form is
 **"not zero, and this corpus cannot price it."**
