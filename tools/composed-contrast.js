@@ -707,36 +707,23 @@ const SURFACES = [
 const DEGRADE_TOLERANCE = 0.02;
 
 const KNOWN_SUB_THRESHOLD = new Map([
-  // ── checklist/fail-row ── 1
-  ['carbone|light|checklist/fail-row', 2.14],
-  // ── kpi/hero-pass-pill ── 1
-  ['carbone|light|kpi/hero-pass-pill', 3.58],
-  // ── policy-recommendation/adopt-badge ── 1
-  ['carbone|light|policy-recommendation/adopt-badge', 3.54],
-  // ── policy-recommendation/oppose-badge ── 3
-  ['carbone|light|policy-recommendation/oppose-badge', 2.24],
+  // ── policy-recommendation/amend-badge ── 2
+  ['carbone-dark|light|policy-recommendation/amend-badge', 4.45],
+  ['carbone|light|policy-recommendation/amend-badge', 4.45],
+  // ── policy-recommendation/oppose-badge ── 2
   ['concrete-dark|light|policy-recommendation/oppose-badge', 4.17],
   ['concrete|light|policy-recommendation/oppose-badge', 4.17],
-  // ── redline/del ── 3
-  ['carbone|light|redline/del', 1.88],
+  // ── redline/del ── 2
   ['concrete-dark|dark|redline/del', 3.91],
   ['concrete|dark|redline/del', 3.91],
-  // ── redline/del-on-old-card ── 7
+  // ── redline/del-on-old-card ── 6
   ['ardesia-dark|dark|redline/del-on-old-card', 4.31],
   ['ardesia|dark|redline/del-on-old-card', 4.31],
   ['brina-dark|dark|redline/del-on-old-card', 4.43],
   ['brina|dark|redline/del-on-old-card', 4.43],
-  ['carbone|light|redline/del-on-old-card', 1.85],
   ['concrete-dark|dark|redline/del-on-old-card', 3.68],
   ['concrete|dark|redline/del-on-old-card', 3.68],
-  // ── redline/ins ── 1
-  ['carbone|light|redline/ins', 2.78],
-  // ── redline/ins-on-new-card ── 1
-  ['carbone|light|redline/ins-on-new-card', 2.68],
-  // ── redline/new-label ── 1
-  ['carbone|light|redline/new-label', 3.24],
-  // ── redline/old-label ── 3
-  ['carbone|light|redline/old-label', 2.00],
+  // ── redline/old-label ── 2
   ['concrete-dark|dark|redline/old-label', 4.43],
   ['concrete|dark|redline/old-label', 4.43],
 ]);

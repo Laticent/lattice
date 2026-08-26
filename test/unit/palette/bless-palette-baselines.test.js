@@ -162,7 +162,6 @@ describe('bless-palette-baselines · the table parser', () => {
     // ANCHORED TO ITS OWN TABLE. An unanchored /68 entries/ matched the CVD table's
     // "768 entries" as a substring, so the contrast assertion passed while reading the
     // wrong line — and would have kept passing whatever the contrast table said.
-<<<<<<< HEAD
     //
     // 22, down from 66, and this is the first pass that cut the table by composition
     // rather than by curating a hue — no palette file is touched at all. Three moves,
@@ -182,19 +181,20 @@ describe('bless-palette-baselines · the table parser', () => {
     // tile), and +640 for the kanban status wash and the two inks it carries. The shipped
     // gate reports 4160; an earlier draft of this comment said 3520, which was true at the
     // middle commit and not updated when the kanban surfaces landed.
-    // What is LEFT is the honest residue: carbone's light arm (whose trio is inks for a
+    // What was LEFT when #1881 landed was "carbone's light arm (whose trio is inks for a
     // light canvas the palette does not have yet — #1302 owns that, and this pass
-    // deliberately does not pre-empt it) and concrete's dark `--fail`, re-derived as
+    // deliberately does not pre-empt it)" plus concrete's dark `--fail`, re-derived as
     // infeasible without a visible design change.
+    //
+    // Carbone now HAS that light canvas, which is the branch #1881 deferred to. 22 -> 14:
+    // its trio is curated for a real off-white ground rather than being light-tuned inks
+    // resolving on graphite, so most of its residue is not residue any more. What remains
+    // of carbone is two `policy-recommendation/amend-badge` rows. Its
+    // `kanban/card-code-chip` pair went a different way and was FIXED, not re-frozen —
+    // `--code-inline-fg` inherited `var(--accent)` and the chip is a 10% wash of that same
+    // value, so the ink was scored against a ground made from itself at 4.17 on --bg-alt.
     // engineering/decisions/2026-08-25-status-trio-joint-solve-model.md
-    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*22 entries/,
-=======
-    // 64, down from 66: carbone's `--code-inline-fg` was pinned off `--accent` on the
-    // light face (it composed 4.17 on a chip made from itself, below AA), which retired
-    // `kanban/card-code-chip` for BOTH carbone and carbone-dark. A sanction that stops
-    // failing is deleted, not re-frozen.
-    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*64 entries/,
->>>>>>> b1d6edc (theme(carbone): fold in the independent checker's findings)
+    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*14 entries/,
       'the contrast table still parses in full');
     // 792, up from 768: `carbone-dark` is a NEW theme (carbone grew a curated light face
     // and took the house two-file shape), so the table gains one theme's worth --

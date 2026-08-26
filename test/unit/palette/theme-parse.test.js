@@ -9,7 +9,7 @@
  *
  * THE POINT OF THE CORPUS SWEEP is that it fails on a naive implementation. A
  * flat token map keyed on `REQUIRED_TOKENS` deletes 48 distinct custom
- * properties across 19 of the 32 shipped themes, turns `themes/ardesia-dark.css`
+ * properties across 19 of the 33 shipped themes, turns `themes/ardesia-dark.css`
  * from a dark theme into a light one (`color-scheme` is not a token), and loses
  * the `@import` that carries the entire content of 13 files. Each of those has
  * its own test below, so a regression names its defect instead of just moving a
@@ -98,8 +98,9 @@ function fingerprint(record, out = []) {
 
 describe('theme-parse — the shipped corpus', () => {
   // The headline acceptance criterion, stated as it is in #1841.
-  test('parse → serialize → parse preserves every declaration, selector and at-rule across all 32 themes', () => {
-    assert.equal(THEME_FILES.length, 32, 'corpus size moved — re-read the round-trip claims below');
+  test('parse → serialize → parse preserves every declaration, selector and at-rule across all 33 themes', () => {
+    // 33, up from 32: carbone grew a curated light face and took the house two-file shape, so the corpus gained `carbone-dark`.
+    assert.equal(THEME_FILES.length, 33, 'corpus size moved — re-read the round-trip claims below');
     for (const f of THEME_FILES) {
       const css = readTheme(f);
       const once = parseTheme(css);
@@ -183,7 +184,7 @@ describe('theme-parse — the shipped corpus', () => {
     assert.match(serializeThemeRecord(record, { canonical: true }), /color-scheme:\s*dark/);
   });
 
-  test('@import survives — it is the entire token content of 13 themes', () => {
+  test('@import survives — it is the entire token content of 14 themes', () => {
     let importing = 0;
     for (const f of THEME_FILES) {
       const record = parseTheme(readTheme(f));
@@ -197,12 +198,13 @@ describe('theme-parse — the shipped corpus', () => {
         `${f}: at-rules changed across a round-trip`,
       );
     }
-    // 13, not the 18 the design note gives. 18 is `32 files with an @import`
-    // minus `14 self-contained palettes`, and that subtraction double-counts: the
-    // four a11y variants BOTH import a11y-base AND declare 19 tokens of their own
-    // (their status trio, moved off the red-green axis, is the one thing that
-    // differs per CVD type). Only the 13 `*-dark` wrappers declare nothing.
-    assert.equal(importing, 13, 'themes whose entire token content comes from an @import');
+    // 14, not the 19 the design note's arithmetic gives. 19 is `33 files with an
+    // @import` minus `14 self-contained palettes`, and that subtraction
+    // double-counts: the four a11y variants BOTH import a11y-base AND declare 19
+    // tokens of their own (their status trio, moved off the red-green axis, is the
+    // one thing that differs per CVD type). Only the `*-dark` wrappers declare
+    // nothing — 14 of them since carbone grew a light face and gained one.
+    assert.equal(importing, 14, 'themes whose entire token content comes from an @import');
   });
 
   test('the non-root tail round-trips untouched', () => {
