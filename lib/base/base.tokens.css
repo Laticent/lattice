@@ -1145,6 +1145,12 @@
   --sp-md:  calc(1.875   * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
   --sp-lg:  calc(2.5     * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
   --sp-xl:  calc(3.75    * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
+  /* The step between a slide's body and its trailing CODA band — the Key Insight
+   * panel and the below-note (lib/forms/cell/coda/coda.css). A REGISTER CHANGE,
+   * so it is deliberately wider than any intra-block step: the widest of those is
+   * a card list's `--sp-sm` row gap, and a coda separated by less than that reads
+   * as one more card rather than as a different kind of block. */
+  --coda-step: var(--sp-md);
   --sp-2xl: calc(5       * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
 
   /* ── Island berth coordinate frame (moved here from the :root block above) ──

@@ -47,7 +47,7 @@ test('(a) every Frame manifest validates', () => {
 
 test('(a) every Tile manifest validates', () => {
   const tiles = forms.loadTiles();
-  assert.equal(tiles.length, 14, 'expected the 14 registry tiles');
+  assert.equal(tiles.length, 15, 'expected the 15 registry tiles');
   for (const t of tiles) {
     assert.deepEqual(forms.validateTile(t, t.id), [], `tile ${t.id} should validate`);
   }

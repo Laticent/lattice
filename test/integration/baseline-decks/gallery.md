@@ -314,15 +314,15 @@ The scoring model is the most configurable component, and therefore the most arg
 ## The same four parts, now with the source on the record.
 
 - Signal Intake
-  - Weekly structured collection across customer conversations, market data, and competitive moves.
+  - Weekly collection across conversations and market data.
 - Scoring Model
-  - Each signal scored on three dimensions: confidence, recency, and strategic relevance.
+  - Scored on confidence, recency and strategic relevance.
 - Decision Log
-  - Every decision recorded with the signals that informed it and the criteria applied.
+  - Every decision recorded with the signals behind it.
 - Calibration Loop
-  - Monthly retrospective that compares predicted outcomes to actual outcomes.
+  - Monthly retrospective: predicted against actual.
 
-> The calibration loop is what separates teams that learn from teams that repeat the same mistakes.
+> The calibration loop separates teams that learn from teams that repeat mistakes.
 
 _Source: pilot retrospective — six months, four teams, one deck, this one._
 

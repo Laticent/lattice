@@ -6,6 +6,7 @@
   "form": "panel",
   "substance": "structure",
   "stage": "canvas",
+  "coda": { "claims": ["blockquote", "trailing-paragraph"] },
   "conformance": "strict",
   "adapt": {
     "mode": "native",

@@ -182,8 +182,18 @@ versa:
 |------|-----------|------|
 | **Component transform** | one component's CSS/manifest | `lib/components/<bucket>/<name>/<name>.transform.js` (roadmap, journey, word-cloud, the chart layouts) |
 | **Bucket-family transform** | one bucket | `lib/components/<bucket>/_family/` (chart-family) |
-| **Structural primitive** | nothing — any component opts in | `lib/core/` (split-panels, split-slides, below-note, slot-label-lift, match-section, resolve-palette, html-lists, section-walk) |
+| **Structural primitive** | nothing — any component opts in | `lib/core/` (coda, split-panels, split-slides, below-note, slot-label-lift, match-section, resolve-palette, html-lists, section-walk) |
 | **Registry + render adapters** | the wiring across render paths | `lib/transformers/` |
+
+One structural primitive is also an ORDERING constraint, which is rare enough
+to name here: `coda` is the FIRST entry in the transformer registry, and that
+position is part of its contract rather than a preference. It harvests a slide's
+trailing editorial beats into the frame's `.cell-coda` cell before any
+component transform runs, because three components rebuild their whole section
+from the authored markup — a pass that ran later would find nothing left to
+re-parent. Every rebuilder therefore peels the cell the way it already peels a
+trailing `<footer>` (`peelCoda`, one implementation). See
+`engineering/decisions/2026-08-24-universal-coda-cell.md`.
 
 The distinction that surprises people: `split-panels` lives in
 `lib/core/`, not with a component, because it is a *structural

@@ -805,7 +805,11 @@ section.chart-frame:where([data-family="tall"], [data-family="strip"]) {
  * unchanged is the CHAIN — outer inset from the frame, internal inset from the
  * panel — and the panel's own internal inset, which still tracks the tall/strip
  * tuning through `--chart-panel-x`. */
-section.chart-frame.canvas:not(.state-chart) { row-gap: var(--sp-lg); }
+/* The coda band SUBTRACTS its host's gap so the step above it is one --coda-step on
+   every layout, so a section that re-tunes its own row-gap must restate the token in
+   the same rule — measured at 40px on `quadrant canvas` and `piechart canvas` before
+   this, against 24px everywhere else (lib/forms/cell/coda/coda.css). */
+section.chart-frame.canvas:not(.state-chart) { row-gap: var(--sp-lg); --coda-host-gap: var(--sp-lg); }
 section.chart-frame.canvas:not(.state-chart) .chart-body {
   /* THE PANEL'S OWN INTERNAL INSET — the one padding the Forms inset rule leaves
    * on a body (design/forms.md §6.1): this box PAINTS A SURFACE here (the glass

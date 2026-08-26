@@ -10,6 +10,7 @@
   },
   "function": "anchor",
   "form": "divider",
+  "coda": { "claims": ["trailing-paragraph"] },
   "substance": "prose",
   "tags": [
     "section-break",

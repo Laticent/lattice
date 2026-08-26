@@ -22,6 +22,7 @@
   "form": "matrix",
   "substance": "structure",
   "stage": "canvas",
+  "coda": { "claims": ["trailing-paragraph"] },
   "render": "html",
   "renderNote": "HTML/CSS all the way down, no `<svg>` anywhere: a real `<table>` whose cells carry the positional grammar (filled/outlined/empty spans), colored via CSS custom properties per row. Nothing is positioned by numeric value — the grid is text and color in a semantic table, same reasoning as roadmap.",
   "tags": [

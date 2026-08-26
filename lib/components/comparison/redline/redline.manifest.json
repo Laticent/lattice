@@ -18,6 +18,7 @@
   "form": "canvas",
   "substance": "prose",
   "stage": "flow",
+  "coda": { "claims": ["blockquote"] },
   "tags": [
     "contract",
     "contrast",

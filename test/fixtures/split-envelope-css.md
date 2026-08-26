@@ -64,3 +64,14 @@ theme: indaco
 - [x] Scoring model calibrated
 
 <div class="below-note lat-split-note"><p>Reviewed every Thursday, always current.</p></div>
+
+---
+
+<!-- _class: checklist lat-split-native -->
+
+## Readiness, as the SPLITTER actually emits it
+
+- [x] Signal intake wired
+- [x] Scoring model calibrated
+
+<div class="cell-coda lat-split-note" data-dock="column"><div class="below-note"><p>Reviewed every Thursday, always current.</p></div></div>

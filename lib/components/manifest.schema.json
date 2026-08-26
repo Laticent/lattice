@@ -102,6 +102,36 @@
       ],
       "description": "How this component's stage Cell is sized under the Form default (design/forms.md; engineering/decisions/2026-07-14-one-frame-model.md). `flow` = a flowing prose/structure body that the masthead kernel wraps in a bounded `.cell-stage` clip cell (the overflow probe walls it). `canvas` = a self-sizing body (a chart's `.chart-body`, a Mermaid SVG, a QR/poster card) that measures against its own box and keeps a direct-child body — the stage Cell is that box, not a generic wrapper. OMITTED for sovereign frames (title/divider/closing/image/split-panel/split-compare/math/compare-code), whose stage is their own grid and which are chrome-exempt (frame.kind:sovereign, derived from lib/forms/frame/*). The three-way {flow, canvas, sovereign} classification is the single source the stage-catalog generator composes; masthead.transform.js derives its wrap decision from it."
     },
+    "coda": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How this component hosts the UNIVERSAL CODA \u2014 the trailing editorial beats (a `> \u2026` key insight, a below-note) an author may add to almost any slide. The coda kernel (lib/core/coda.js) harvests them into one `.cell-coda` cell BEFORE any structural transform runs, so a component that rebuilds its body can no longer swallow or drop them (engineering/decisions/2026-08-24-universal-coda-cell.md). Both keys are optional and both default to the common case, so a component that neither claims a trailing element nor uses a non-column outer structure declares NOTHING and still gets both beats \u2014 that default is the point of the field.",
+      "properties": {
+        "dock": {
+          "enum": [
+            "column",
+            "row",
+            "grid"
+          ],
+          "description": "The section's OUTER structure, which decides how the coda docks as a full-width band beneath the body. `column` (the default \u2014 omit it) = the section is a block or flex COLUMN, so the coda is simply its last in-flow child and needs no placement at all. `row` = the section is a flex ROW, so the coda must break to its own line (`flex-wrap` on the section + `flex: 0 0 100%` on the cell) instead of becoming a third sibling column. `grid` = the section is a grid, so the coda spans every column (`grid-column: 1 / -1`) in an implicit final row. This is the STRUCTURAL axis the universal blocks attach to: measured in Chromium across all 61 layouts, only three shapes occur (55 column, 4 row, 2 grid), so the CSS has one arm each rather than a rule per component. Orthogonal to `stage` \u2014 a sovereign frame may be any of the three. DECLARED, NOT DERIVED: nothing yet gates this field against the section's real computed structure, so a layout that changes its `display` and forgets to restate `dock` drifts silently. Two declarations were wrong on the first cut (`math`, `split-compare`) and were caught by measuring rather than by any gate."
+        },
+        "readsInsightLabel": {
+          "type": "boolean",
+          "description": "TRUE when this layout renders the `--insight-label` seam on a surface of its OWN, even though it claims the blockquote. Exactly one layout does: split-compare paints the verdict tag from that token (default 'RECOMMENDATION'), because a recommendation IS a Key Insight variant rather than a split-compare special. It matters to the deck LINT and nowhere else: the `insight-*` modifiers govern the label seam, not the block, so `<!-- _class: split-compare insight-verdict -->` renames a real surface and must not be reported inert. Omit for every layout that reads the seam only through the coda panel."
+        },
+        "claims": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "blockquote",
+              "trailing-paragraph"
+            ]
+          },
+          "description": "Trailing elements this component keeps out of the coda, for one of two reasons. USED: the layout renders that element as part of its own anatomy. NO ROOM: the layout is a POSTER whose body fills the stage by construction (contact, wifi \u2014 the QR card measures 527px in a 524px stage), so there is no band position that does not crush it; measured, not assumed. Either way the published contract then says so, which is the point \u2014 before this field, a claim of the first kind was a CSS `:not()` chain and a claim of the second kind was not expressible at all, so the manifest advertised a Key Insight, the transform dropped the node, and the author got silence. `blockquote` = the layout renders `> \u2026` as something else (quote's quotation, math's display equation, a legal layout's framed source, split-panel's pull-quote), so it gets no Key Insight panel. `trailing-paragraph` = the layout claims its final `<p>` (a chart's caption via liftChartCaption, an attribution, a legend, a framing line), so it gets no below-note. OMIT for the opt-out default: a layout nobody excluded takes both beats, which keeps a new or third-party component working without touching any list. This REPLACES the two hand-maintained exclusion lists \u2014 KEY_INSIGHT_EXCLUDED (mirrored out of a CSS `:not()` chain by a parsing test) and below-note's EXCLUDED (a SUBSTRING matcher, so `compare-code` inherited `code`'s exclusion). Between them they published the wrong answer for 8 of 61 components, silently, because nothing tied either list to what actually rendered."
+        }
+      }
+    },
     "conformance": {
       "enum": [
         "strict"

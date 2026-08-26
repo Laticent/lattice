@@ -228,8 +228,8 @@ authored by a *designer*; a **Tile** binds a *source*.
 - **`suppresses`** — chrome Cells a sovereign Frame hides.
 
 ### Cell — the typed slot
-- **`id` / `region`** — name and band position (masthead · stage · footer ·
-  left/centre/right).
+- **`id` / `region`** — name and band position (masthead · stage · **coda** ·
+  footer · left/centre/right).
 - **`geometry`** — `position` + `size` in **relative units** (resolves to px at
   render — see §6), `shape` (rectangular today).
 - **`z`** — z-plane (0 canvas → 1 atmosphere → 2 content → 3 chrome → 4
@@ -272,14 +272,60 @@ special cases. It reconciles with the component model's slot vocabulary
 | title (`h2`) | `masthead-lede` | hoisted |
 | lede — the lead statement | `masthead-lede` | hoisted as the **`subtitle`**. There is **no "heart" noun** — the lead statement *is* the existing subtitle/lede; do not coin a synonym. |
 | content (the body) | `stage` | the body Cell, `.cell-stage` |
-| key-insight (`> blockquote`) | `stage` | lives *in* the stage Cell (it co-occurs with below-note) |
-| below-note (em-dash trailing `p`) | `stage` | lives *in* the stage Cell — **distinct** from key-insight; the two co-occur, they are not one "note" slot |
+| key-insight (`> blockquote`) | `coda` | harvested into the `coda` Cell — **distinct** from below-note; the two co-occur in the same Cell, in that order, but they are not one "note" slot |
+| below-note (em-dash trailing `p`) | `coda` | harvested into the `coda` Cell, after the key-insight |
 | annotation (review italic) | `overlay` | the existing `overlay` Cell (`tile/annotation`) — **not** a stage note |
 | caption (image / chart figure line) | `stage` | **component-owned**, placed by the component's own CSS *inside its stage Cell* — never hoisted. The `footer` Cell holds only footer + progress + pagination. |
 | footer (`_footer:`) | `footer` / `footer-left` | hoisted |
 | logo · meta · status | `masthead-bay` tiles | docked |
 | pagination · progress | `pagination-right` · `progress-centre` | docked |
 | watermark | `stage` | per the `watermark` Tile's `fits: ["stage"]` |
+
+**The `coda` Cell — the trailing editorial band.** Both trailing beats used to be
+listed as living *in* the stage Cell, which was true of where they ended up and said
+nothing about how they got there: they attached by SELECTOR SHAPE, matching two exact
+DOM positions, so any component whose transform introduced a wrapper silently lost
+them (eight of 61 layouts, measured). They now have a Cell of their own, built by
+`lib/core/coda.js` BEFORE any structural transform runs.
+
+Its geometry is unusual among the Cells and worth stating: the coda has no fixed band
+of its own. It **docks into whatever structure the section already is** — declared per
+layout as `coda.dock`, and only three shapes occur across the catalog (measured in
+Chromium on every layout — the counts below are that measurement, not the tally of
+what the manifests happen to declare):
+
+| dock | layouts | placement |
+|---|---|---|
+| `column` (default) | 55 | the last in-flow child; nothing to declare |
+| `row` | 4 | breaks to a full line (`flex-wrap` + `flex: 0 0 100%`), and the section's `row-gap` is zeroed — a row layout's `gap` is a COLUMN gutter, and the shorthand would otherwise reappear vertically above the band |
+| `grid` | 2 | `grid-column: 1 / -1` in an implicit final row |
+
+**The Cell is always a direct child of the section, never of `.cell-stage`.** The frame
+peels it out of the stage wrap exactly as it peels a running `<footer>`, at the same
+site and for the same reason: the cell is the FRAME's, not the component's. That
+placement is what makes the band's position independent of the body. `.cell-stage` is
+`flex: 1 1 auto` and the coda `flex: 0 0 auto`, so the stage absorbs all the slack and
+the band lands at content height above the footer — bottom-aligned with no positioning
+and no margin (HARD RULE #20).
+
+Inside the stage it was a flex item of the COMPONENT's own column, so it inherited the
+component's vertical alignment and the frame's editorial band moved when an author wrote
+`align-top` / `align-middle` / `align-bottom` — measured on `cycle` at 171px / 85px / 0px
+above the stage floor and on `content` at 117px / 58px / 0px, while `list` and
+`cards-grid` (whose bodies grow) showed no movement at all. The leak only bit the
+layouts whose body does NOT fill the stage, which is why it read as a per-component
+quirk rather than a frame defect.
+
+The Cell carries one `--coda-step` of separation from the body, SUBTRACTING the gap its
+host puts between its children (`--coda-host-gap`), so the step is the same on every
+layout. The host is now the SECTION, so the token is declared beside the section's own
+gap (`section:has(> .cell-masthead)`), and a host that re-tunes that gap — diagram's
+prose variant, scene's clean compositions, the row arm — restates it in the same rule,
+where ordinary specificity settles which wins. Measured across all 51 coda-hosting
+layouts: 48 sit at exactly 24px, up from 34 before the peel — the 14 canvas layouts that
+were never matched by the old stage-scoped rule had been stacking 16px + 24px = 40px. A layout that uses the trailing element for its own anatomy — or is a
+poster with no room for a band — declares `coda.claims` and the Cell is never built.
+See `engineering/decisions/2026-08-24-universal-coda-cell.md`.
 
 **Two rules the map obeys:**
 

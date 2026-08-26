@@ -67,8 +67,11 @@ describe('split-envelope CSS outcomes (Form on, real cascade)', () => {
   test('insight page blockquote reads at --fs-emphasis, not the base --fs-body', async () => {
     for (const slide of [1, 2]) { // checklist, stats — two distinct components
       const got = await page.evaluate((slide) => {
+        // The beat lives in the frame's coda cell now (lib/core/coda.js), not as a
+        // direct child of the stage — the whole point of that change being that the
+        // panel stops depending on an exact DOM position.
         const p = document.querySelector(
-          `section[data-lattice-slide="${slide}"] > .cell-stage > blockquote p`,
+          `section[data-lattice-slide="${slide}"] > .cell-coda > blockquote p`,
         );
         if (!p) return null;
         const probe = document.createElement('span');
@@ -139,5 +142,27 @@ describe('split-envelope CSS outcomes (Form on, real cascade)', () => {
       `cards-grid em-only note computed ${got.fontSize} (--fs-body-compact) — the split-note compact rule wrongly out-specified ANNOTATION`);
     assert.equal(got.fontSize, got.meta,
       `cards-grid em-only note computed ${got.fontSize}, expected ANNOTATION's --fs-meta (${got.meta})`);
+  });
+
+  test('the note in the shape the SPLITTER emits — a .cell-coda BESIDE the stage — still reads compact', async () => {
+    // Every other slide in this fixture hand-authors the note as a direct `.cell-stage`
+    // child, which is the shape the splitter emitted BEFORE the coda Cell was peeled out
+    // to sit beside the stage. That shape can still occur (an author writing raw HTML), so
+    // those slides stay — but none of them exercises what `injectTrailing` actually
+    // produces today, and a fixture that has drifted from the render is what let the
+    // original coda regression ship (see the decision note, §8). This slide is that shape.
+    const got = await page.evaluate(() => {
+      const p = document.querySelector('section[data-lattice-slide="7"] > .cell-coda.lat-split-note > .below-note > p');
+      if (!p) return null;
+      const probe = document.createElement('span');
+      probe.style.fontSize = 'var(--fs-body-compact)';
+      p.parentElement.appendChild(probe);
+      const compact = getComputedStyle(probe).fontSize;
+      probe.remove();
+      return { fontSize: getComputedStyle(p).fontSize, compact };
+    });
+    assert.ok(got, 'split-shaped note <p> not found under > .cell-coda.lat-split-note');
+    assert.equal(got.fontSize, got.compact,
+      `split-shaped note computed ${got.fontSize}, expected --fs-body-compact ${got.compact} — the .cell-coda arm of the split-note rule is not reaching it`);
   });
 });

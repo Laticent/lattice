@@ -20,7 +20,7 @@ A slide that names no component used to render as raw markdown on a Lattice canv
 
 ## This slide declares nothing
 
-No `_class` directive appears above this heading. It renders as `content` because that is what a slide with no component resolves to, and everything below is the layout doing its job rather than the browser's defaults.
+No `_class` directive appears above this heading. It renders as `content` — what a slide with no component resolves to.
 
 | Control | Owner | Status |
 | --- | --- | --- |
@@ -39,7 +39,7 @@ No `_class` directive appears above this heading. It renders as `content` becaus
 
 ## This one says `_class: content`
 
-Identical markdown to the slide before it, with the directive written out. The two render byte-for-byte the same — same type, same measure, same promoted note, same distribution down the slide.
+Identical markdown to the slide before it, with the directive written out. The two render byte-for-byte the same.
 
 | Control | Owner | Status |
 | --- | --- | --- |

@@ -189,19 +189,26 @@ audience should remember from a card-grid slide.
 ```
 
 **Supported layouts: almost all of them — this block is OPT-OUT.** A layout renders
-the callout unless it claims `blockquote` for its own anatomy. The six that do are
-`quote` (the quotation itself), `math` (a display equation), `citation-card`,
-`redline`, `inventory`, and `policy-recommendation` — plus the generated `layout-*`
-skeletons, which carry their own blockquote treatment. Everywhere else a trailing
-blockquote becomes the callout.
+the callout unless it declares `coda: { claims: ["blockquote"] }` in its manifest.
+Ten do: `quote` (the quotation itself), `math` (a display equation),
+`citation-card`, `redline`, `inventory`, `policy-recommendation` and `split-panel`
+(its `pullquote` variant) all use the element for their own anatomy; `split-compare`
+paints the same `--insight-label` on its verdict card. `contact` and `wifi` claim it
+for a different reason — they are posters whose card fills the stage, so there is no
+band position that does not crush it. The generated `layout-*` skeletons are excluded
+by pattern. Everywhere else a trailing blockquote becomes the callout.
 
-The list above used to be enumerated here by hand, as sixteen opt-IN layouts. That
-was never how it worked, and the prose had drifted from the `:not()` chain that
-actually renders it. The set now lives in `lib/core/authoring-blocks.js`, is
-published per component as `authoring.blocks` in `dist/docs/components.json`, and is
-what the deck lint's `block-unsupported` rule and Compose's grammar gutter both read
-(#1651). A unit test parses the CSS and fails if the two disagree, so this paragraph
-cannot go stale again without something going red.
+Don't derive the answer from that paragraph — read `authoring.blocks` in
+`dist/docs/components.json`, which is generated from the same predicate the RENDER
+uses (`rendersBeat`, `lib/core/coda.js`), and which the deck lint's
+`block-unsupported` rule and Compose's grammar gutter also read (#1651).
+
+The exclusions used to be a hand-written CSS `:not()` chain that a unit test parsed
+back out of the stylesheet. Measured against a real render, it — and below-note's
+substring list — were wrong for **eight of 61 layouts**, silently: the manifest
+advertised the block, the transform swallowed or dropped the node, and the author got
+nothing. Both lists are gone; see
+`engineering/decisions/2026-08-24-universal-coda-cell.md`.
 
 ### Below-Note
 
@@ -221,18 +228,28 @@ shouldn't get card weight.
 — Note: figures are pre-audit; final numbers ship in Q3.
 ```
 
-**Supported layouts: opt-out, like Key Insight above — but a DIFFERENT set.** The
-exclusions are the render kernel's own list (`EXCLUDED` in `lib/core/below-note.js`):
-the bookends (`title`, `closing`, `divider`), `quote`, `big-number`, `image` and the
-image family, `split-panel`, `split-compare`, `diagram`, `stats`, `code`, `roadmap`,
-`progress`, `timeline-list`, `piechart`, `gantt`, `kanban`, and `math` — each of which
-claims its trailing paragraph for a caption, attribution, legend, or main content.
-Everything else promotes, **including `content`**, which means any slide that names no
-component at all, since that is what an un-classed slide resolves to (#1292).
+**Supported layouts: opt-out, like Key Insight above — but a DIFFERENT set.** A
+layout withholds the note by declaring `coda: { claims: ["trailing-paragraph"] }`:
+the bookends (`title`, `closing`, `divider`), `quote`, `big-number`, `image`,
+`split-panel`, `split-compare`, `diagram`, `stats`, `code`, `math`, the two QR
+posters, and every chart-frame layout — which turns its final paragraph into the
+chart caption. Everything else promotes, **including `content`**, which means any
+slide that names no component at all, since that is what an un-classed slide resolves
+to (#1292).
 
 The two sets do not coincide: `inventory` takes a below-note but not a key insight,
 `timeline-list` the reverse. Read `authoring.blocks` in `dist/docs/components.json`
 for the per-component answer rather than deriving it from either list here (#1651).
+
+Both blocks land in the same place: one `.cell-coda` cell at the end of the slide,
+built before any component transform runs, docked by the section's declared outer
+structure and carrying one `--coda-step` of separation from the body. The cell is a
+direct child of the `<section>` — the frame peels it out of the stage wrap the same way
+it peels a running `<footer>` — so the band sits at the bottom of the slide whatever the
+body does above it, and an `align-top` / `align-middle` / `align-bottom` on the slide
+moves the body without moving the band. That is why the step above a trailing block is
+identical on every layout, and why a component whose transform wraps its body no longer
+loses the block.
 
 Promotion needs the paragraph to follow a **structural** block — a list, table,
 blockquote, code fence or div. A paragraph after a paragraph is body copy on every

@@ -6,6 +6,7 @@
   "substance": "structure",
   "bucket": "legal",
   "stage": "flow",
+  "coda": { "claims": ["blockquote"] },
   "adapt": {
     "mode": "reflow",
     "priority": ["recommendation", "ask", "rationale", "impact", "eyebrow"]

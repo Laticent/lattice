@@ -5,6 +5,7 @@
   "form": "stack",
   "substance": "structure",
   "stage": "flow",
+  "coda": { "claims": ["trailing-paragraph"] },
   "capacity": {
     "axis": "item",
     "min": 3,

@@ -249,7 +249,13 @@ section.scene[data-img-composition="clean"][data-orientation="square"] {
   grid-template-rows: auto auto;
   grid-template-areas: "figure" "text";
   align-content: center;
-  gap: calc(var(--_sec-1cqh, 1cqh) * 5);
+  --scene-stack-gap: calc(var(--_sec-1cqh, 1cqh) * 5);
+  gap: var(--scene-stack-gap);
+  /* The trailing coda band absorbs this figure↔text rhythm instead of adding
+   * to it, so the step below the placard is the universal `--coda-step` and not
+   * that plus this gap (lib/forms/cell/coda/coda.css). Declared beside the gap
+   * it names, so the two cannot drift. */
+  --coda-host-gap: var(--scene-stack-gap);
   padding: calc(var(--_sec-1cqh, 1cqh) * 7) 0;
 }
 section.scene[data-img-composition="clean"][data-orientation="portrait"] .scene-figure,
@@ -371,7 +377,13 @@ section.scene[data-img-composition="gallery"] {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: calc(var(--_sec-1cqh, 1cqh) * 3.6);
+  --scene-gallery-gap: calc(var(--_sec-1cqh, 1cqh) * 3.6);
+  gap: var(--scene-gallery-gap);
+  /* The trailing coda band absorbs this figure↔text rhythm instead of adding
+   * to it, so the step below the placard is the universal `--coda-step` and not
+   * that plus this gap (lib/forms/cell/coda/coda.css). Declared beside the gap
+   * it names, so the two cannot drift. */
+  --coda-host-gap: var(--scene-gallery-gap);
   padding: calc(var(--_sec-1cqh, 1cqh) * 6) calc(var(--_sec-1cqi, 1cqi) * 6);
   background: var(--scene-matte);
 }

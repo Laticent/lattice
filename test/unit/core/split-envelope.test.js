@@ -22,6 +22,7 @@ const assert = require('node:assert/strict');
 const {
   splitEnvelope, balancedPerPage, readCover, readMasthead, splitRegions, topLevelElements,
   chromeOf, footerCell, stripChrome, partitionKeepingNote, injectTrailing, markNote, deriveAxis,
+  insightPageFrom, trailingMaterialOf, existingNoteIn,
 } = require('../../../lib/core/split-envelope');
 const { dockInFooterCell } = require('../../../lib/core/footer-dock');
 const { evenGroups } = require('../../../lib/core/collections');
@@ -49,6 +50,30 @@ const formInner = ({ eyebrow = '', subtitle = '', lede = '', n = 9, note = '', i
     (insight ? `<blockquote><p>${insight}</p></blockquote>` : '') +
     (note ? `<div class="below-note"><p>${note}</p></div>` : '') +
   '</div>' +
+  '<div class="cell-footer"><footer>Probe</footer><span class="lat-pagination">1</span></div>';
+
+// The shape the engine ACTUALLY emits since the universal coda cell (lib/core/coda.js):
+// both trailing beats live inside one `.cell-coda`, not as bare siblings. The envelope
+// still has to tell them apart — the insight earns its own page, the note rides the last
+// body page — so it decomposes the cell rather than treating it as one opaque block.
+//
+// THE CELL IS A SIBLING OF `.cell-stage`, NOT A CHILD OF IT, and getting that wrong here
+// is not cosmetic: this fixture previously nested the cell INSIDE the stage, and because
+// every scan in split-envelope.js bounds itself by `extractStage`, all eight tests below
+// passed against a DOM the engine cannot produce while the real export duplicated the
+// Key Insight onto every body page and emitted no insight page at all. A fixture that
+// drifts from the render is worse than no fixture — it certifies the bug. Measured on
+// examples/split-envelope.md at the time: 27 pages, the insight 6x, the note lost.
+const codaInner = ({ n = 9, note = '', insight = '' } = {}) =>
+  '<header>Deck</header>' +
+  band({}) +
+  '<div class="cell-stage">' + items(n) + '</div>' +
+  ((insight || note)
+    ? '<div class="cell-coda" data-dock="column">' +
+        (insight ? `<blockquote><p>${insight}</p></blockquote>` : '') +
+        (note ? `<div class="below-note"><p>${note}</p></div>` : '') +
+      '</div>'
+    : '') +
   '<div class="cell-footer"><footer>Probe</footer><span class="lat-pagination">1</span></div>';
 
 const openTag = '<section data-lattice-slide="4" id="s4" data-lattice-pagination="4" class="checklist form">';
@@ -789,5 +814,178 @@ describe('core: dockInFooterCell — ONE docking rule for both footer marks (HAR
       dockInFooterCell(inner, mark),
       `<div class="cell-footer"><div class="x"><footer>F</footer></div>${mark}</div>`,
     );
+  });
+});
+
+
+describe('core: the universal CODA cell rides the split (lib/core/coda.js)', () => {
+  test('an insight inside the cell still earns its own page, wrapped in a cell', () => {
+    const secs = build(codaInner({ n: 9, insight: 'Ship it.' }));
+    const last = secs[secs.length - 1];
+    assert.ok(last.includes('Ship it.'), 'the insight should be on the final page');
+    assert.ok(last.includes('class="cell-coda"'), 'the insight page must carry a real coda cell, not a bare blockquote');
+    for (const s of secs.slice(0, -1)) {
+      assert.ok(!s.includes('Ship it.'), 'the insight must not repeat on a body page (FM-2)');
+    }
+  });
+
+  test('a note inside the cell rides the LAST body page, wrapped in a cell', () => {
+    const secs = build(codaInner({ n: 9, note: 'Source: filings.' }));
+    const withNote = secs.filter((s) => s.includes('Source: filings.'));
+    assert.equal(withNote.length, 1, 'the note must appear exactly once');
+    // `markNote` stamps `lat-split-note` onto the span's own open tag, which is now the
+    // CELL — so the class list is `cell-coda lat-split-note`, and the `.lat-split-note >
+    // .below-note > p` arm in base.modifiers.css is the one that fires.
+    assert.match(withNote[0], /class="[^"]*\bcell-coda\b[^"]*"/, 'the note must stay inside a coda cell');
+    assert.match(withNote[0], /class="[^"]*\blat-split-note\b[^"]*"/, 'and be marked for the split-note treatment');
+    assert.ok(withNote[0].includes('class="below-note"'), 'and keep its below-note wrapper');
+  });
+
+  test('both beats in one cell separate cleanly and leave no empty shell', () => {
+    const secs = build(codaInner({ n: 9, insight: 'Ship it.', note: 'Source: filings.' }));
+    const joined = secs.join('');
+    assert.equal(joined.split('Ship it.').length - 1, 1, 'insight appears once');
+    assert.equal(joined.split('Source: filings.').length - 1, 1, 'note appears once');
+    // An empty cell would render as a 24px band of nothing.
+    assert.ok(
+      !/<div class="cell-coda"[^>]*>\s*<\/div>/.test(joined),
+      'decomposing the cell must not leave an empty coda shell on a body page',
+    );
+    const insightPage = secs.find((s) => s.includes('Ship it.'));
+    assert.ok(!insightPage.includes('Source: filings.'), 'the note must not follow the insight onto its own page');
+  });
+});
+
+
+describe('core: the insight PAGE carries a two-beat coda without losing or breaking it', () => {
+  // Regression pins for the half-span design that shipped in the first cut of the
+  // coda: `codaSpans` returned cell-open..cut and cut..cell-close, which is correct
+  // ONLY for a caller that removes both. `insightPageFrom` keyed `keep` on a span's
+  // range and so never matched the cell (page shipped blank); `insightPage` removed
+  // just the note half and stripped `.cell-stage`'s closing tag.
+  const bothBeats = () =>
+    '<div class="cell-masthead"><div class="masthead-lede"><h2>T</h2></div></div>' +
+    '<div class="cell-stage">' +
+      items(3) +
+      '<div class="cell-coda" data-dock="column">' +
+        '<blockquote><p>INSIGHT-SENTINEL</p></blockquote>' +
+        '<div class="below-note"><p>NOTE-SENTINEL</p></div>' +
+      '</div>' +
+    '</div>';
+  const balanced = (html) => (html.match(/<div\b/g) || []).length === (html.match(/<\/div>/g) || []).length;
+
+  test('insightPageFrom keeps the insight, drops the note, and stays balanced', () => {
+    const page = insightPageFrom('<section data-lattice-slide="1" class="checklist form">', bothBeats());
+    assert.ok(page, 'an insight page must be produced');
+    assert.match(page, /INSIGHT-SENTINEL/, 'the author\'s Key Insight must survive onto its own page');
+    assert.doesNotMatch(page, /NOTE-SENTINEL/, 'the note rides the body page, not the insight page');
+    assert.match(page, /class="cell-coda"/, 'and it must still be inside a real coda cell');
+    assert.ok(balanced(page), `insight page must be balanced markup:\n${page}`);
+  });
+
+  test('the stage cell is closed, and the beat survives in the coda beside it', () => {
+    // The empty-stage check this used to make was a PROXY for "content was dropped and
+    // the markup broke". It stopped being one when the frame peeled `.cell-coda` out to
+    // sit beside the stage: on an insight page the beat IS the content, it lives in the
+    // cell, and the stage is legitimately empty because there is no body on that page.
+    // What still has to hold is what the proxy stood in for — balanced markup, the stage
+    // closed, and the beat actually present.
+    const page = insightPageFrom('<section data-lattice-slide="1" class="checklist form">', bothBeats());
+    // NOT `/<div class="cell-stage">[\s\S]*?<\/div>/` — a lazy match happily ends on the
+    // CODA cell's closing tag, so it passes on an unclosed stage, which is the one defect
+    // this line exists to catch. Count the tags instead.
+    const opens = (page.match(/<div\b/g) || []).length;
+    const closes = (page.match(/<\/div>/g) || []).length;
+    assert.equal(opens, closes, `unbalanced <div> on the insight page:\n${page}`);
+    assert.match(page, /<div class="cell-stage">/, 'cell-stage must be present');
+    assert.match(page, /<div class="cell-coda"[^>]*>[\s\S]*?<blockquote>/, 'the beat must survive in the coda cell');
+    assert.ok(balanced(page), `insight page must be balanced markup:\n${page}`);
+  });
+
+  test('the OTHER caller — splitEnvelope\'s insightPage — is balanced too', () => {
+    // S2's actual path. `insightPage` removes the note span; when both beats share a
+    // cell that range is the cell's, so a remove (rather than a replace) strips its
+    // closing tag and `.cell-stage` never closes.
+    const secs = build(codaInner({ n: 9, insight: 'Ship it.', note: 'Source: filings.' }));
+    for (const sec of secs) {
+      assert.equal(
+        (sec.match(/<div\b/g) || []).length, (sec.match(/<\/div>/g) || []).length,
+        `unbalanced <div> in a split section:\n${sec}`,
+      );
+      // An empty stage is correct on the INSIGHT page (the beat rides the coda cell
+      // beside it); anywhere else it means the body was dropped.
+      if (!sec.includes('lat-split-insight')) {
+        assert.doesNotMatch(sec, /<div class="cell-stage"><\/div>/, 'no body section may ship an empty stage');
+      }
+    }
+    assert.ok(secs.some((s) => s.includes('Ship it.')), 'the insight must survive the split');
+  });
+
+  test('a one-beat coda is unaffected', () => {
+    const one =
+      '<div class="cell-stage">' + items(3) +
+      '<div class="cell-coda" data-dock="column"><blockquote><p>ONLY-INSIGHT</p></blockquote></div></div>';
+    const page = insightPageFrom('<section data-lattice-slide="1" class="checklist form">', one);
+    assert.match(page, /ONLY-INSIGHT/);
+    assert.ok(balanced(page));
+  });
+});
+
+describe('split-envelope — EVERY arm that reaches the sibling coda Cell is pinned', () => {
+  // Five functions bound their scans by `extractStage`, and all five went blind when the
+  // frame peeled `.cell-coda` out of the stage to sit beside it. That defect shipped a Key
+  // Insight onto all six body pages of examples/split-envelope.md and lost a below-note.
+  //
+  // The fix was landed with only ONE of the five arms actually pinned: mutation-testing the
+  // other four — removing each sibling merge in turn — left the whole 7,295-test suite AND
+  // the integration tier green. An unpinned fix is one refactor away from being the same
+  // bug again, which is precisely how this one got here (a fixture that had drifted from
+  // the render certified the original break). Each test below was verified to FAIL with its
+  // arm removed.
+  const sib = ({ insight = '', note = '' } = {}) =>
+    '<div class="cell-masthead"><h2>T</h2></div>' +
+    '<div class="cell-stage"><ul><li>a</li><li>b</li><li>c</li><li>d</li></ul></div>' +
+    '<div class="cell-coda" data-dock="column">' +
+      (insight ? `<blockquote><p>${insight}</p></blockquote>` : '') +
+      (note ? `<div class="below-note"><p>${note}</p></div>` : '') +
+    '</div>';
+
+  test('trailingMaterialOf sees a coda Cell that is the stage\'s SIBLING', () => {
+    const got = trailingMaterialOf(sib({ insight: 'INSIGHT', note: 'NOTE' }));
+    assert.equal(got.insight.length, 1, 'insight not found beside the stage');
+    assert.equal(got.note.length, 1, 'note not found beside the stage');
+    assert.match(got.insight[0].outer, /INSIGHT/);
+    assert.match(got.note[0].outer, /NOTE/);
+  });
+
+  test('splitRegions merges the sibling cell into its trailing regions', () => {
+    const regions = splitRegions(sib({ insight: 'INSIGHT' }), 'item');
+    assert.ok(regions, 'no regions derived');
+    assert.equal(regions.insight.length, 1, 'the sibling insight was not merged in');
+  });
+
+  test('insightPageFrom carries the sibling cell onto the insight page', () => {
+    const page = insightPageFrom('<section class="checklist form">', sib({ insight: 'INSIGHT', note: 'NOTE' }));
+    assert.ok(page, 'no insight page built');
+    assert.match(page, /INSIGHT/, 'the insight did not reach its own page');
+    assert.doesNotMatch(page, /NOTE/, 'the co-resident note leaked onto the insight page');
+  });
+
+  test('injectTrailing seats a coda Cell BESIDE the stage, never inside it', () => {
+    const page = '<div class="cell-stage"><ul><li>a</li></ul></div>';
+    const cell = '<div class="cell-coda lat-split-note" data-dock="column"><div class="below-note"><p>N</p></div></div>';
+    const out = injectTrailing(page, cell);
+    assert.match(out, /<\/div><div class="cell-coda lat-split-note"/, 'cell was not seated after the stage');
+    const stage = out.slice(out.indexOf('<div class="cell-stage">'), out.indexOf('<div class="cell-coda'));
+    assert.ok(!stage.includes('cell-coda'), 'the stage swallowed the injected cell');
+  });
+
+  test('existingNoteIn finds a marked note riding in the sibling cell', () => {
+    const withNote =
+      '<div class="cell-stage"><ul><li>a</li></ul></div>' +
+      '<div class="cell-coda lat-split-note" data-dock="column"><div class="below-note"><p>N</p></div></div>';
+    const found = existingNoteIn(withNote);
+    assert.ok(found, 'a note already on the page was not found — the next pass would duplicate it');
+    assert.match(found.outer, /lat-split-note/);
   });
 });

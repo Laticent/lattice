@@ -214,40 +214,44 @@ section.dark p:has(> code:only-child):has(+ pre) > code { color: var(--on-dark-s
 
 /* ── KEY INSIGHT ──────────────────────────────────────────────
  * Any trailing > blockquote on a content-bearing layout renders
- * as a warm filled panel — Option C styling.
- * Excluded layouts handle blockquote themselves:
- *   quote (primary content)
+ * as a warm filled panel — Option C styling. A layout that renders `> …` as
+ * something else (quote's quotation, math's display equation, a legal layout's
+ * framed source) declares `coda: { claims: ["blockquote"] }` and never gets one.
  *
- * Every rule below is duplicated with a `.cell-stage >` arm: masthead-lift
- * (lib/forms/cell/masthead/masthead.transform.js) wraps a Form slide's flow
- * body into `<div class="cell-stage">` for every STAGE_MIGRATED layout (the
- * common case — Form has been default since 2026-06-26), so the blockquote
- * is no longer a direct child of <section> on those slides. redline and
- * inventory are excluded from the `.cell-stage` arm (not from the original)
- * because they already ship their own dedicated `.cell-stage`-scoped
- * blockquote treatment (redline.styles.css, inventory.styles.css) — this
- * generic rule must not repaint over it. A collapsed `:is(section,
- * .cell-stage)` is NOT used: Marpit's CSS scoper rewrites a leading `:is(…)`
- * into a descendant of the slide root rather than the slide itself (see the
- * BELOW-NOTE fallback note below), so each ancestor must be its own
- * comma-separated selector — same pattern as the UNIVERSAL PILL rule above.
+ * ONE SELECTOR, because the panel now has ONE HOST. The blockquote lives in the
+ * frame's `.cell-coda` cell (lib/core/coda.js), which the coda kernel builds
+ * before any structural transform runs, so these rules no longer have to guess
+ * at a DOM position.
+ *
+ * WHAT THEY USED TO BE is worth knowing, because it is the defect this replaced.
+ * Every rule was written twice — once for `section > blockquote`, once for
+ * `section > .cell-stage > blockquote`, the position the masthead lift moved it
+ * to — and each arm carried a hand-written `:not()` chain naming the layouts that
+ * claim the blockquote for something else. Two exact DOM paths and a hand list:
+ * a component whose transform introduced ANY other wrapper silently lost the
+ * panel, and the manifest went on advertising it. Eight of 61 layouts were in
+ * that state when this was written (compare-code, contact, image, premise, scene,
+ * split-panel, video, wifi — measured, see the kernel's header). The exclusions
+ * are now DECLARED, per layout, as `coda.claims` in the component manifest, and
+ * a claimed element is simply never harvested into the cell — so there is nothing
+ * here to keep in sync, and nothing for a test to parse back out of this file.
  */
-section:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote {
+section .cell-coda > blockquote {
   background:var(--accent-soft);
   border:1px solid var(--accent);
   border-radius:var(--radius-md);
   padding:var(--sp-xs) var(--sp-md);
-  /* Separation from the preceding block is supplied by the flow container's `gap`
-   * (the stage cell under Form), not a `margin-top` — HARD RULE #20. */
+  /* Separation from the block above is the CODA CELL's, not this panel's — the
+   * cell owns one `--coda-step` for both beats, so the step is identical whether
+   * the slide ends with an insight, a note, or both (lib/forms/cell/coda/coda.css).
+   * Never a `margin-top` — HARD RULE #20. */
   flex-shrink:0;
   /* The framing text follows the headline-alignment seam (`headline:` register); text-align
    * inherits to the KEY INSIGHT label, body, and list. `auto`/no register → the fallback
    * `left` (today's render, byte-identical); `head-left` pins it left. */
   text-align:var(--headline-align, left);
 }
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.policy-recommendation):not([class*="layout-"]) > blockquote::before,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote::before {
+section .cell-coda > blockquote::before {
   /* Default 'KEY INSIGHT'; an `insight-*` modifier on the slide _class (or a
    * deck-wide frontmatter `class:`) overrides via the shared --insight-label
    * seam — the same custom-property idiom the stamp-* markers use
@@ -264,8 +268,7 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
   display:block;
   padding-bottom:0.46875cqi; /* label→quote gap, inside the no-bg pseudo (HARD RULE #20) */
 }
-section:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote p,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote p {
+section .cell-coda > blockquote p {
   font-family:var(--font-body);
   /* Body tier, NOT --fs-message (the 21pt slide-statement tier). A Key Insight
    * SUMMARIZES the body above it, so it must not out-shout the very content it
@@ -277,14 +280,12 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
   line-height:var(--lh-snug);
   margin:0;
 }
-section:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote ul,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote ul {
+section .cell-coda > blockquote ul {
   list-style:none;
   padding:0; margin:0;
   display:flex; flex-direction:column; gap:0.46875cqi;
 }
-section:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote li,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote li {
+section .cell-coda > blockquote li {
   font-family:var(--font-body);
   /* Body tier — see the blockquote-p rule above. A bulleted Key Insight is still
    * a summary of the body; its items match body prose, not the statement tier. */
@@ -294,8 +295,7 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
   padding-left:var(--sp-md);
   position:relative;
 }
-section:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote li::before,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote li::before {
+section .cell-coda > blockquote li::before {
   content:'—';
   position:absolute; left:0;
   color:var(--accent);
@@ -2416,27 +2416,49 @@ section[data-split-role="cover"][data-split-role="cover"] .tile-progress .dot.on
    stage's placement at up to (0,3,1) (`section.inventory.cards > .cell-stage {
    justify-content: safe center }`, `section.list-steps.timeline`) and would otherwise win.
 
-   The SECOND rule (the font-size) needs a MUCH bigger bump, found only by an independent
-   checker pass measuring the real cascade: the base KEY INSIGHT rule two hundred lines
-   above (`section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
-   :not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote p`)
-   carries SEVEN `:not()` clauses + `.cell-stage` — eight class-level specificity units —
-   because a `:not(.X)` costs the SAME specificity as `.X` costs to a rule that targets it.
-   The doubled `.lat-split-insight` (2) + `.form` (1) + `.cell-stage` (1) = 4 lost to that
-   outright: `CSS.getMatchedStylesForNode` on a real render showed the base rule winning on
-   13 of the 15 enrolled components (only `inventory`/`policy-recommendation` happened to
-   work, being in that rule's own exclusion list) — the blockquote rendered at `--fs-body`,
-   never reaching `--fs-emphasis` at all. Repeating `.lat-split-insight` five times, `.form`
-   twice, and `.cell-stage` twice on the SIZE rule gives nine class-level units — a full
-   unit of headroom above the competing rule's eight, not a bare tie a future `:not()`
-   addition there could flip back. Layering is not available to resolve this (HARD RULE
-   #26 — the bundle is never half-layered), so the weight is explicit here. */
+   The SECOND rule (the font-size) USED TO NEED A MUCH BIGGER BUMP, and the reason it no
+   longer does is worth recording, because the fix was not to this rule.
+
+   The base KEY INSIGHT rule was `section:not(.quote):not(.math):not(.citation-card)
+   :not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"])
+   > .cell-stage > blockquote p` — SEVEN `:not()` clauses plus `.cell-stage`, eight
+   class-level units, because a `:not(.X)` costs the same specificity as `.X`. That is an
+   accidental weight: nothing about the panel's styling wanted to win a fight, the number
+   was a side effect of enumerating exclusions IN THE SELECTOR. It beat this rule outright
+   on 13 of the 15 enrolled components (measured with `CSS.getMatchedStylesForNode`; only
+   `inventory` and `policy-recommendation` escaped, by being in that rule's own exclusion
+   list), so the insight rendered at `--fs-body` and never reached `--fs-emphasis`. The
+   answer at the time was to out-specify it: `.lat-split-insight` five times, `.form`
+   twice, `.cell-stage` twice — nine units.
+
+   The exclusions are DECLARED now (`coda.claims`, lib/core/coda.js), so the base rule is
+   `section .cell-coda > blockquote p` — ONE class-level unit. The nine-unit stack was
+   answering a problem that no longer exists, and keeping it would leave a rule nobody
+   could safely touch guarding against a chain that is gone. It is back to the ordinary
+   bump: a doubled `.lat-split-insight` clears the (0,3,1) a component legitimately owns
+   on its own stage, and `.cell-coda` in the path adds the unit that settles it. Layering
+   is still not available (HARD RULE #26 — the bundle is never half-layered), so the weight
+   stays explicit; it is simply no longer extreme. */
+/* The stage on an insight page is EMPTY — the beat is the page's content and rides the
+   coda Cell beside it, since the frame peels that cell out of the stage wrap. So the
+   centering that used to live here has to move one cell over: an empty `flex: 1 1 auto`
+   stage would eat the whole column and strand the beat on the floor. The stage stops
+   growing, the CELL takes the slack, and it centers its own one child — which is what
+   this rule has always been for, on the element that now holds the thing. */
 section.form.lat-split-insight.lat-split-insight > .cell-stage {
-  justify-content: center;
-  align-items: stretch;   /* a component's centered stage would otherwise shrink-wrap the blockquote */
+  flex: 0 0 auto;
+  align-items: stretch;   /* a component's centered stage would otherwise shrink-wrap the cell */
 }
-section.form.form.lat-split-insight.lat-split-insight.lat-split-insight.lat-split-insight.lat-split-insight > .cell-stage.cell-stage > blockquote p,
-section.form.form.lat-split-insight.lat-split-insight.lat-split-insight.lat-split-insight.lat-split-insight > .cell-stage.cell-stage > blockquote li {
+/* An insight PAGE is the beat by itself — there is no body above it for the band to sit
+   under, so the step that separates them has nothing to separate. Zero it, or the cell's
+   `--coda-step` pushes the one thing on the page off its optical center. */
+section.form.lat-split-insight.lat-split-insight > .cell-coda {
+  padding-top: 0;
+  flex: 1 1 auto;
+  justify-content: center;
+}
+section.form.lat-split-insight.lat-split-insight > .cell-coda > blockquote p,
+section.form.lat-split-insight.lat-split-insight > .cell-coda > blockquote li {
   font-size: var(--fs-emphasis); line-height: var(--lh-snug);
 }
 
@@ -2486,19 +2508,27 @@ section.form.form.lat-split-insight.lat-split-insight.lat-split-insight.lat-spli
  * size regardless of layout (found by the third maker-checker pass, confirmed on a
  * real render: an em-only cards-grid note read 16.8px instead of ANNOTATION's 14.04px). */
 section.form.lat-split-native.lat-split-native > .cell-stage > p.lat-split-note,
-section.form.lat-split-native.lat-split-native > .cell-stage > .lat-split-note:not(.below-note) > p {
+section.form.lat-split-native.lat-split-native > .cell-stage > .lat-split-note:not(.below-note) > p,
+/* The coda-Cell arm. The split's re-marked note now rides in `.cell-coda`, which the
+   frame seats BESIDE the stage, so every `> .cell-stage >` arm here stopped matching:
+   measured on the split-envelope demo, the checklist and cards-grid notes rendered at
+   46.98px instead of --fs-body-compact's 39.96px. */
+section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > p {
   font-size: var(--fs-body-compact);
 }
 /* Rule 2 — a WRAPPED note, any layout, the common non-em-only case. */
 section.form.lat-split-native.lat-split-native > .cell-stage > .below-note.lat-split-note > p:not(:has(> em:only-child)),
-section.form.lat-split-native.lat-split-native > .cell-stage > .lat-split-note > .below-note > p:not(:has(> em:only-child)) {
+section.form.lat-split-native.lat-split-native > .cell-stage > .lat-split-note > .below-note > p:not(:has(> em:only-child)),
+section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > .below-note > p:not(:has(> em:only-child)) {
   font-size: var(--fs-body-compact);
 }
 /* Rule 3 — a WRAPPED, em-only note, but ONLY on a layout ANNOTATION does not cover. */
 section.form.lat-split-native.lat-split-native:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
   > .cell-stage > .below-note.lat-split-note > p:has(> em:only-child),
 section.form.lat-split-native.lat-split-native:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
-  > .cell-stage > .lat-split-note > .below-note > p:has(> em:only-child) {
+  > .cell-stage > .lat-split-note > .below-note > p:has(> em:only-child),
+section.form.lat-split-native.lat-split-native:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
+  > .cell-coda.lat-split-note > .below-note > p:has(> em:only-child) {
   font-size: var(--fs-body-compact);
 }
 

@@ -1,0 +1,133 @@
+/* ── CODA Cell — the frame's trailing editorial band ──────────────────────────
+ *
+ * One cell for a slide's trailing beats: the Key Insight panel and the
+ * below-note footnote (lib/core/coda.js builds it; the panel's own chrome is in
+ * base.modifiers.css § KEY INSIGHT, which keeps that block's historical bundle
+ * position and therefore its cascade outcome).
+ *
+ * WHAT THIS FILE OWNS is only the two things a HOST decides: where the band
+ * DOCKS in the section's outer structure, and how far it sits from the body.
+ *
+ * ── DOCKING: three arms, no component names ──────────────────────────────────
+ *
+ * A full-width band beneath the body has to be placed differently depending on
+ * the section's OUTER structure, and — measured across all 61 layouts, not
+ * assumed — there are exactly three:
+ *
+ *   column  54  block / flex column. The band is simply the last in-flow child;
+ *               nothing to declare, which is why it is the default and why a new
+ *               component gets the coda for free.
+ *   row      4  flex row (premise, split-compare, split-panel, video). Without an arm
+ *               the band becomes a THIRD SIBLING COLUMN squeezed beside the body —
+ *               measured at -243.8px of "gap" on premise, i.e. beside, not below.
+ *   grid     3  grid (image, math, scene). Auto-placement drops it into one track;
+ *               it has to span them all.
+ *
+ * These counts are the CATALOG's, and they have been wrong in this file before: it
+ * shipped 57/3/1 with `image` as the only grid and no `split-compare` in the row list,
+ * for long enough that a checker found it after the decision doc had already corrected
+ * the same numbers elsewhere. `scene` is the newest correction — it declared nothing
+ * and therefore took `column`, while its clean compositions compute as a GRID, so its
+ * band rendered 439px wide in a 1280px section.
+ *
+ * The layout declares which one it is ONCE (`coda.dock` in its manifest, baked
+ * into coda-catalog.generated.js, stamped here as `data-dock`). That is the whole
+ * per-component cost of supporting both universal blocks.
+ *
+ * A DECLARATION CAN STILL BE WRONG, and one is: `video` says `row` because its
+ * `.companion` variant is a flex row, while its BASE variant computes as a column —
+ * one manifest value cannot describe a per-variant structure. Both arms are written
+ * to survive that (`width: 100%` rather than `flex-basis: 100%`; `justify-self:
+ * stretch` beside `grid-column: 1 / -1`), so a mis-declaration costs nothing today.
+ * That is deliberate insurance, not an argument that the axis is right.
+ *
+ * ── RHYTHM: the coda is a REGISTER CHANGE, not another prose step ────────────
+ *
+ * The step before the band was whatever `row-gap` its host happened to carry —
+ * `--sp-xs` (8px) inside the stage, 0 on a sovereign, 64px on premise's row. On
+ * a list slide that put 8px between the list and the Key Insight while the list's
+ * OWN cards sat 16px apart: the separator between two DIFFERENT kinds of block
+ * was half the separator between peers inside one block, which reads as the panel
+ * being a fourth list item. The step here is deliberately larger than any
+ * intra-block step for that reason.
+ *
+ * The host's gap is still there, so the band SUBTRACTS it rather than stacking on
+ * top: a host that puts a gap before its last child declares how big it is
+ * (`--coda-host-gap`) and the padding makes up the difference. Two declarations
+ * for the common case, one line for a component that re-tunes its stage gap.
+ * `padding`, never `margin` — HARD RULE #20; the band paints no surface of its
+ * own, so the padding adds no visible box.
+ */
+
+section .cell-coda {
+  /* Never grows into the stage's free space and never shrinks under pressure —
+   * the band is content-height, and the body above it takes the slack. */
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  /* Insight above, note below. The step BETWEEN them is smaller than the one that
+   * precedes the band — they are one beat of the slide, not two — but not the bare
+   * prose step: the note draws its own hairline rule, and at `--sp-xs` that rule sat
+   * 8px under the panel's border, reading as two crowded edges rather than a panel
+   * and its footnote. `--sp-sm` is half the register change, which keeps the
+   * hierarchy (body → band → within the band) legible in one glance. */
+  gap: var(--sp-sm);
+  padding-top: max(0px, calc(var(--coda-step) - var(--coda-host-gap, 0px)));
+}
+
+/* The band's HOST is the SECTION column, not the stage — the frame peels the cell
+ * out of the stage wrap exactly as it peels the running footer (masthead kernel),
+ * so the seam above the band is the section's own `gap`, set one rule away as
+ * `section:has(> .cell-masthead) { gap: var(--sp-sm) }`. Keying the token on the
+ * SAME `:has()` condition means the two cannot disagree, and no layout is named.
+ *
+ * DECLARED ON THE SECTION, NOT ON THE CELL, and that placement is load-bearing.
+ * The token is inherited, so every host that re-tunes its own gap — diagram's
+ * prose variant, scene's two clean compositions, the row arm below — declares its
+ * value in the same rule where it sets the gap, and ordinary specificity settles
+ * which wins. Declared on `.cell-coda` instead, this frame default would be a
+ * DIRECT rule on the element and would beat all of them through inheritance,
+ * silently overriding the very hosts the mechanism exists to serve.
+ *
+ * A section with no masthead sets no gap, so the token stays unset (0) and the
+ * band takes the full `--coda-step`. */
+section:has(> .cell-masthead) { --coda-host-gap: var(--sp-sm); }
+
+/* ── row arm ── the section lays its body out ACROSS, so the band must break to
+ * a line of its own instead of bidding for width beside it. `flex-wrap` on the
+ * section is what allows the break; `flex: 0 0 100%` is what takes the full line.
+ * Keyed on the CELL's stamp via `:has()`, so no layout is named here either.
+ *
+ * `align-content: center` keeps the two flex LINES packed as one block: the
+ * default (`normal`, i.e. stretch) hands each line an equal share of the section
+ * height, which parted premise's claim from its band by 65px of nothing.
+ *
+ * `row-gap: 0` is the other half, and it corrects an ACCIDENT rather than a
+ * choice. A row layout's `gap` is a COLUMN GUTTER — the space between the claim
+ * and the list (premise: `--sp-2xl`), between the lead and the poster (video:
+ * `--sp-xl`). The shorthand sets both axes, so the moment the row wraps, a gutter
+ * nobody meant vertically reappears above the band: 64px and 48px respectively, on
+ * top of the step. Zeroing the ROW gap leaves the real gutter (`column-gap`)
+ * untouched and hands the vertical step back to `--coda-step`, where it belongs. */
+section:has(> .cell-coda[data-dock="row"]) { flex-wrap: wrap; align-content: center; row-gap: 0; --coda-host-gap: 0px; }
+/* `width` on the CROSS axis, not `flex-basis` on the main one, and the difference is
+   not academic: `flex: 0 0 100%` reads 100% of whichever axis the section turns out to
+   be, so on a section that declares `row` but computes as a COLUMN it sized the band's
+   HEIGHT and left it 523px wide inside a 1280px section. `video` is exactly that case —
+   only its `.companion` variant is a flex row, the base variant is a column — and the
+   decision doc already concedes a per-component `dock` cannot describe a per-variant
+   structure. `width: 100%` + `flex: 0 0 auto` is correct on BOTH axes, so the arm stops
+   depending on the declaration being right about which one it is. */
+section > .cell-coda[data-dock="row"] { flex: 0 0 auto; width: 100%; }
+
+/* ── grid arm ── span every column, in an implicit final row. `1 / -1` needs no
+ * knowledge of how many tracks the layout declared. */
+/* Span every track, in an implicit final row. `1 / -1` needs no knowledge of how many
+   tracks the layout declared. NO `justify-self` here: I added `stretch` on the theory
+   that spanning the tracks decides the area but not the width, and on `image` — whose
+   grid runs to the slide edge — that produced a bordered panel with its left and right
+   edges CLIPPED by the slide, where before it was a centered pill. Rendered, it reads as
+   a defect. Same mistake as the `align-self: stretch` default this file used to carry:
+   "not full width" is not by itself wrong, and a layout that centers its composition
+   wants a band that matches it. */
+section > .cell-coda[data-dock="grid"] { grid-column: 1 / -1; align-self: start; }

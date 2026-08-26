@@ -158,6 +158,9 @@ section.head-right { --headline-align: right; --headline-justify: flex-end; }
  * the same body-exclusion guard as its base rule (base.modifiers.css). */
 section:is(.head-center, .head-right):not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote,
 section:is(.head-center, .head-right):not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote,
+/* The coda Cell arm — a trailing key insight is harvested into `.cell-coda`, which the
+   frame seats beside the stage, so neither arm above reaches it any more. */
+section:is(.head-center, .head-right):not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-coda > blockquote,
 section:is(.head-center, .head-right) .below-note,
 section:is(.head-center, .head-right).diagram .diagram-caption,
 section:is(.head-center, .head-right) .chart-caption {
