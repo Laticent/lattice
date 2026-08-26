@@ -15,9 +15,9 @@ vi.mock('@/components/DeckPreview', () => ({
 }));
 
 const FINDING = { slide: 2, rule: 'wall-of-text', severity: 'warning', message: 'Too many words on this slide.' };
-const SCORECARD = { overall: 82, band: 'B+', categories: [] };
+const SCORECARD = { craft: { score: 94, band: 'A', summary: 'no issues found' }, style: { score: 82, band: 'B+', summary: 'a few small things' }, profile: { key: 'teaching', label: 'Teaching', blurb: '', origin: 'declared', declaredInvalid: null }, categories: [] };
 vi.mock('./coach/coach-core', () => ({
-	assessDeck: vi.fn(async () => ({ hasContent: true, scorecard: { overall: 82, band: 'B+', categories: [] }, findings: [{ slide: 2, rule: 'wall-of-text', severity: 'warning', message: 'Too many words on this slide.' }] })),
+	assessDeck: vi.fn(async () => ({ hasContent: true, scorecard: { craft: { score: 94, band: 'A', summary: 'no issues found' }, style: { score: 82, band: 'B+', summary: 'a few small things' }, profile: { key: 'teaching', label: 'Teaching', blurb: '', origin: 'declared', declaredInvalid: null }, categories: [] }, findings: [{ slide: 2, rule: 'wall-of-text', severity: 'warning', message: 'Too many words on this slide.' }] })),
 	rankFindings: (f: unknown[]) => f,
 	topFixes: () => ({ title: 'Top fixes', body: [] }),
 	weakestSlide: () => ({ title: 'Weakest slide', body: [] }),
@@ -82,7 +82,7 @@ describe('Studio — the chat is grounded in what the Coach knows', () => {
 		// reaches Send first sends ungrounded and this asserts `null`. The test was racing
 		// that debounce and only passing because the surrounding suite happened to be slow
 		// enough — a latent order-dependency, not a product bug. The assessment's own state
-		// is not observable from here (the "Board readiness" card lives in the Coach panel,
+		// is not observable from here (the "Deck read" card lives in the Coach panel,
 		// which this test never opens), so we wait on the call and then let its `.then`
 		// chain commit.
 		await vi.waitFor(() => expect(vi.mocked(assessDeck)).toHaveBeenCalled(), { timeout: 3000 });

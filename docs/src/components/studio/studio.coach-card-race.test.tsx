@@ -48,7 +48,7 @@ const gate = vi.hoisted(() => {
 vi.mock('./coach/coach-core', () => ({
 	assessDeck: vi.fn(async () => {
 		await gate.wait();
-		return { hasContent: true, scorecard: { overall: 82, band: 'B+', categories: [] }, findings: [{ slide: 2, rule: 'wall-of-text', severity: 'warning', message: 'Too many words on this slide.' }] };
+		return { hasContent: true, scorecard: { craft: { score: 94, band: 'A', summary: 'no issues found' }, style: { score: 82, band: 'B+', summary: 'a few small things' }, profile: { key: 'general', label: 'General', blurb: '', origin: 'default', declaredInvalid: null }, categories: [] }, findings: [{ slide: 2, rule: 'wall-of-text', severity: 'warning', message: 'Too many words on this slide.' }] };
 	}),
 	rankFindings: (f: unknown[]) => f,
 	topFixes: () => ({ title: 'Top fixes', body: ['Too many words on this slide. (slide 2)'] }),
@@ -81,6 +81,7 @@ async function openCoach() {
  *  scorecard band is the shell's own proof the round landed, so nothing here sleeps. */
 async function landTheRound() {
 	gate.release();
+	// The Style band from the mock above. It used to be the single grade's band.
 	await screen.findByText('B+');
 }
 

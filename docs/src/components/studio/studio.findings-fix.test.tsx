@@ -19,7 +19,7 @@ vi.mock('@/components/DeckPreview', () => ({
 const FINDING = { slide: 2, rule: 'wall-of-text', severity: 'warning', message: 'Too many words on this slide.' };
 const mockFindings = vi.hoisted(() => ({ current: [{ slide: 2, rule: 'wall-of-text', severity: 'warning', message: 'Too many words on this slide.' }] as { slide: number; rule: string; severity: string; message: string }[] }));
 vi.mock('./coach/coach-core', () => ({
-	assessDeck: vi.fn(async () => ({ hasContent: true, scorecard: { overall: 82, band: 'B+', categories: [] }, findings: mockFindings.current })),
+	assessDeck: vi.fn(async () => ({ hasContent: true, scorecard: { craft: { score: 94, band: 'A', summary: 'no issues found' }, style: { score: 82, band: 'B+', summary: 'a few small things' }, profile: { key: 'teaching', label: 'Teaching', blurb: '', origin: 'declared', declaredInvalid: null }, categories: [] }, findings: mockFindings.current })),
 	rankFindings: (f: unknown[]) => f,
 	topFixes: () => ({ title: 'Top fixes', body: [] }),
 	weakestSlide: () => ({ title: 'Weakest slide', body: [] }),

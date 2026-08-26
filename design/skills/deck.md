@@ -231,9 +231,18 @@ A 12-slide board update:
 - [ ] Every `## ` heading is a complete declarative sentence.
 - [ ] Each slide's content counted against the component `capacity`; nothing over
       `hard`.
-- [ ] Body within budgets: title ≤ 10 words, eyebrow ≤ 5, subtitle ≤ 12,
-      key-insight ≤ 18; whole slide **aim ~40 words body** / ≤ 6 bullets (70 words is
-      the hard backstop, not the target).
+- [ ] Body within budgets: eyebrow ≤ 5 words, subtitle ≤ 12, key-insight ≤ 18 —
+      universal chrome, unaffected by genre. The two WHOLE-SLIDE numbers come from
+      the deck's **profile**, and the default is the same bar decks were always
+      held to: **aim ~40 words body**, ≤ 70 words / ≤ 6 bullets hard, title ≤ 10
+      words (14 hard). Declare `profile: teaching` for a lesson that has to stand
+      alone without you — 95 words, **and `no-ask` / `agenda-missing` cost 40% of
+      their usual Framing deduction** (a lesson asks the learner to practice, not the
+      room to approve, and its progression is its agenda). Softened, not switched off:
+      a lesson that DOES make an ask still scores above one that doesn't. Or
+      `profile: mission` where a program name carries its outcome (18-word heading,
+      nothing else relaxed). Nothing is inferred — a deck that declares nothing gets
+      the default bar. See `lib/authoring/deck-profiles.js`.
 - [ ] `npm run lint:deck -- deck.md` is clean (no errors).
 - [ ] Rendered to PDF and **actually looked at** — rhythm holds, no wall-of-text,
       no overflow.

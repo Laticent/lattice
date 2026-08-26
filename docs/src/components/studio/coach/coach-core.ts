@@ -10,8 +10,13 @@ import type { Finding } from '../architect';
 import { stripFrontMatter } from '../front-matter';
 import { splitSlides as studioSplitSlides } from '../lint';
 
-export type ScoreCategory = { key: string; label: string; score: number | null; na?: boolean; notes: string[] };
-export type DeckScorecard = { overall: number; band: string; categories: ScoreCategory[] };
+export type ScoreCategory = { key: string; half: 'craft' | 'style'; label: string; score: number | null; na?: boolean; notes: string[] };
+export type ScoreHalf = { score: number; band: string; summary: string };
+/** Which genre the STYLE half was measured against, and where that came from. Genre is
+ *  never inferred — a deck that declares nothing is judged on `general`, the default and
+ *  strictest bar — so the panel can always name the profile AND say why it applies. */
+export type DeckProfileRead = { key: string; label: string; blurb: string; origin: 'declared' | 'override' | 'default'; declaredInvalid: string | null };
+export type DeckScorecard = { craft: ScoreHalf; style: ScoreHalf; profile: DeckProfileRead; categories: ScoreCategory[] };
 export type CoachAssessment = {
 	/** Whether the deck has real content to assess. `false` → scorecard/findings empty;
 	 *  the panel shows a placeholder, NEVER a fabricated "A / 94" for a blank deck (K1). */
@@ -46,7 +51,7 @@ export function hasContent(src: string): boolean {
 /** The real deck assessment: the engine scorecard + the union of lint + review
  *  findings. Returns an empty, content-false assessment (not a grade) for a blank deck.
  *  Never throws into render. */
-export async function assessDeck(source: string, lintVocab: unknown, components: CoachComponent[] = [], extraNames: string[] = [], extraFinishes: string[] = []): Promise<CoachAssessment> {
+export async function assessDeck(source: string, lintVocab: unknown, components: CoachComponent[] = [], extraNames: string[] = [], extraFinishes: string[] = [], profileOverride?: string): Promise<CoachAssessment> {
 	const src = String(source ?? '');
 	if (!hasContent(src)) return { hasContent: false, scorecard: null, findings: [] };
 	const v = lintVocab as { names?: unknown } | null;
@@ -69,8 +74,12 @@ export async function assessDeck(source: string, lintVocab: unknown, components:
 		}
 		const bucketMap = new Map(components.filter((c) => c.bucket).map((c) => [c.name, c.bucket]));
 		const densityMap = new Map(components.filter((c) => c.density != null).map((c) => [c.name, c.density]));
-		const review = reviewCore.reviewText(src, { bucketOf: (n: string) => bucketMap.get(n) ?? null, densityOf: (n: string) => densityMap.get(n) ?? null }) as Finding[];
-		const sc = scorecard.scoreDeck({ source: src, lintFindings: lint, reviewFindings: review }) as DeckScorecard;
+		// The profile override rides into BOTH: review-core needs it to pick the prose
+		// budgets a finding fires against, and the scorecard needs it to resolve the same
+		// genre for the Style half. Passing it to only one would grade a deck against a
+		// profile whose findings were generated under a different one.
+		const review = reviewCore.reviewText(src, { bucketOf: (n: string) => bucketMap.get(n) ?? null, densityOf: (n: string) => densityMap.get(n) ?? null, profileOverride }) as Finding[];
+		const sc = scorecard.scoreDeck({ source: src, lintFindings: lint, reviewFindings: review, profileOverride }) as DeckScorecard;
 		return { hasContent: true, scorecard: sc, findings: [...lint, ...review] };
 	} catch {
 		return { hasContent: true, scorecard: null, findings: [] };
@@ -84,6 +93,33 @@ export async function assessDeck(source: string, lintVocab: unknown, components:
 // model — the scorer's weights are private to the engine, and a grade-impact sort lies
 // on decks whose category has already floored). See the Munger-inversion note in the
 // migration record.
+
+/**
+ * Write a profile declaration into the deck's front matter, via the shared kernel.
+ *
+ * The Coach's profile control is a session-only LENS — it never rewrote front matter, and
+ * that was deliberate. But declared-only profiles plus a lens that cannot be kept left the
+ * register with no adoption path at all: an author who found that Teaching fit their deck
+ * lost the choice on reload, and the CLI and any shared link never saw it. Measured, that
+ * is not a small gap — strip the declaration from the two decks that reported the original
+ * bug and they score Style 55 and 54, rank 1 of 198, exactly where they started.
+ *
+ * So the lens gets a way to become the deck's own answer, on an explicit click. The
+ * transform itself is `deckProfiles.withProfile` in the shared kernel (pure, fs-free,
+ * preserves CRLF and a BOM, refuses a name that is not a profile) — this only reaches it.
+ * Returns the source UNCHANGED if the kernel is unavailable or the name is not a profile,
+ * so a caller can detect a no-op rather than banking a phantom edit.
+ */
+export async function applyProfileToSource(source: string, name: string): Promise<string> {
+	const src = String(source ?? '');
+	try {
+		const m = await core();
+		const fn = m.deckProfiles?.withProfile;
+		return typeof fn === 'function' ? String(fn(src, name) ?? src) : src;
+	} catch {
+		return src;
+	}
+}
 
 export type CoachCard = { title: string; body: string[]; jump?: number; needMinutes?: boolean };
 

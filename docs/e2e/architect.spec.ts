@@ -17,31 +17,37 @@ test.describe('Coach and Chat panels', () => {
 	test('Coach and Chat are separate panels, mutually exclusive in the assistant slot', async ({ page }) => {
 		// Each has its own activity-bar launcher — no tab to switch between them.
 		await openArchitect(page); // the Coach
-		await expect(page.getByText('Board readiness')).toBeVisible();
+		await expect(page.getByText('Deck read')).toBeVisible();
 
 		await openChat(page); // opening Chat takes the assistant slot from the Coach
 		await expect(page.getByRole('textbox', { name: 'Message the Architect' })).toBeVisible();
-		await expect(page.getByText('Board readiness')).toHaveCount(0);
+		await expect(page.getByText('Deck read')).toHaveCount(0);
 
 		await openArchitect(page); // and back
-		await expect(page.getByText('Board readiness')).toBeVisible();
+		await expect(page.getByText('Deck read')).toBeVisible();
 	});
 
 	test('the Coach score card scores the seeded deck', async ({ page }) => {
 		await openArchitect(page);
-		await expect(page.getByText('Board readiness')).toBeVisible();
-		// The REAL engine scorecard: an overall out of 100 and a per-dimension read
-		// (Structure/Clarity are always-present categories). The toy 3-check heuristic
-		// (Components valid / Opens with a title / Variety, scored / 10) was deleted.
-		await expect(page.getByText(/\/ 100/)).toBeVisible();
-		// Scope the per-dimension read to the Board readiness card. Bare
-		// `getByText('Structure')` is a case-INSENSITIVE SUBSTRING match, so it also
-		// caught the card's own disclaimer prose ("…authoring hygiene (structure,
-		// clarity, contract)") and the "Structure" quick-read chip in the sibling
-		// "Ask the deck" card — three matches, a strict-mode violation.
-		const readiness = page.getByText('Board readiness').locator('..');
+		await expect(page.getByText('Deck read')).toBeVisible();
+		// The REAL engine scorecard, not the toy 3-check heuristic (Components valid /
+		// Opens with a title / Variety, scored / 10) that was deleted.
+		// Scope EVERYTHING to the Deck read card. Bare `getByText('Structure')` is a
+		// case-INSENSITIVE SUBSTRING match, so it also caught the card's own disclaimer prose
+		// and the "Structure" quick-read chip in the sibling "Ask the deck" card. The tile
+		// labels need the same scoping for a different reason: an unscoped exact `Craft`
+		// ALSO matches the toolbar's Craft mode button — two elements, strict-mode violation.
+		const readiness = page.getByText('Deck read').locator('..');
+		// TWO grades now, not one "NN / 100". Craft is genre-blind; Style names the profile
+		// it was measured against, so a style score can never read as a verdict on the deck.
+		// DOM text, not rendered text — the tile labels are uppercased in CSS.
+		await expect(readiness.getByText('Craft', { exact: true })).toBeVisible();
+		await expect(readiness.getByText('Style', { exact: true })).toBeVisible();
 		await expect(readiness.getByText('Structure', { exact: true })).toBeVisible();
-		await expect(readiness.getByText('Clarity', { exact: true })).toBeVisible();
+		// One category from each half — `Clarity` was split into `Writing craft` (Craft) and
+		// `Brevity` (Style), so asserting one of each is what pins the split rendering.
+		await expect(readiness.getByText('Writing craft', { exact: true })).toBeVisible();
+		await expect(readiness.getByText('Brevity', { exact: true })).toBeVisible();
 	});
 
 	test('offline chat degrades honestly and points to Workspace', async ({ page }) => {
@@ -87,15 +93,22 @@ test.describe('Coach and Chat panels', () => {
 		const CLASSLESS = '# Quarterly update\n\n---\n\n## Progress\n\nWe shipped the thing.\n\n---\n\n## Next steps\n\nDecide on budget.\n';
 		await openArchitect(page);
 		// PREMISE FIRST: the deck we start on IS assessed, so the flip below means something.
-		await expect(page.getByText(/\/ 100/)).toBeVisible();
+		//
+		// The signal used to be `/ 100` — the single grade's readout. That markup is gone: the
+		// card shows TWO tiles now, Craft and Style. Scoped to the Deck read card because an
+		// unscoped exact `Craft` also matches the toolbar's Craft mode button.
+		const readiness = page.getByText('Deck read').locator('..');
+		await expect(readiness.getByText('Craft', { exact: true })).toBeVisible();
+		await expect(readiness.getByText('Style', { exact: true })).toBeVisible();
 
 		await setEditorContent(page, CLASSLESS);
 		await expect.poll(() => persistedSource(page)).toContain('Quarterly update');
 
-		// The round landed and reported the deck unassessable — the grade is gone and Board
-		// readiness says so. This is the signal that `assessing` is false and `findings` empty.
+		// The round landed and reported the deck unassessable — both grades are gone and the
+		// Deck read card says so. This is the signal that `assessing` is false and `findings` empty.
 		await expect(page.getByText(/Add a slide or two/i)).toBeVisible();
-		await expect(page.getByText(/\/ 100/)).toHaveCount(0);
+		await expect(readiness.getByText('Craft', { exact: true })).toHaveCount(0);
+		await expect(readiness.getByText('Style', { exact: true })).toHaveCount(0);
 
 		await page.getByRole('button', { name: 'Top fixes' }).click();
 		// The card must not claim a clean bill of health for a deck it never read, and it must
@@ -234,7 +247,7 @@ test('a turn that fails while the panel is CLOSED is waiting when it reopens (#1
 
 	// The author goes to read the scorecard while they wait. This UNMOUNTS the chat panel.
 	await page.getByRole('button', { name: CHROME.coach }).click();
-	await expect(page.getByText('Board readiness')).toBeVisible();
+	await expect(page.getByText('Deck read')).toBeVisible();
 	await expect(page.getByRole('textbox', { name: 'Message the Architect' })).toHaveCount(0);
 
 	holding = false;
@@ -282,7 +295,7 @@ test('a turn that fails after the panel closes AND reopens is not lost (#1813)',
 
 	// Coach and straight back — a NEW panel instance, same deck, turn still in flight.
 	await page.getByRole('button', { name: CHROME.coach }).click();
-	await expect(page.getByText('Board readiness')).toBeVisible();
+	await expect(page.getByText('Deck read')).toBeVisible();
 	await page.getByRole('button', { name: CHROME.chat }).click();
 	await expect(page.getByText('Tighten slide two.')).toBeVisible();
 

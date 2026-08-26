@@ -3,6 +3,7 @@ marp: true
 size: 16:9
 theme: indaco
 paginate: true
+profile: teaching
 acronyms:
   TCO: total cost of ownership
   II: two

@@ -28,6 +28,7 @@ const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'ai-lang', info: 'AI-output language — what the AI writes in, if it should differ from the document language. Defaults to lang.' },
 	{ key: 'size', info: 'Slide size — hd (16:9), standard, square, 4k, or a portrait format.' },
 	{ key: 'split', info: 'How the body divides into slides — headings (default) or rule (--- only).' },
+	{ key: 'profile', info: 'Genre the Coach judges STYLE against — general (default), teaching, or mission. Never affects the Craft score.' },
 	{ key: 'form', info: 'Deck chrome — the masthead band, status bay and rail. standard (default) / off.' },
 	{ key: 'glossary', info: 'Auto-glossary — append a reference slide built from the acronyms: definitions. auto / off.' },
 	{ key: 'class', info: 'Default _class applied to every slide (a modifier — a component name is ignored).' },

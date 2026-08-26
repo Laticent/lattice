@@ -66,9 +66,18 @@ async function setup(assessable = true) {
 	// The signal differs by deck, and picking the wrong one is silent: an unassessable deck never
 	// renders the "Assessing" skeleton at all, so waiting for that to disappear returns instantly
 	// and settles nothing.
-	await waitFor(() => expect(screen.getByText(assessable ? /\/ 100/ : /Add a slide or two/i)).toBeInTheDocument(), { timeout: 15000 });
+	// The "assessment landed" signal. This was `/\/ 100/` — the single grade's "NN / 100"
+	// readout — which the Craft/Style split removed, so every wait here burned its 15 s
+	// timeout. `STYLE` is the stable landmark now: it is rendered only once the real
+	// scorecard resolves, and never for an unassessable deck.
+	// The "assessment landed" signal. This was `/\/ 100/` — the single grade's "NN / 100"
+	// readout — which the Craft/Style split removed, so every wait here burned its 15 s
+	// timeout. The Style tile's label is the stable landmark now. Match the DOM text
+	// ('Style'), not the rendered text: the panel uppercases it in CSS, and Testing
+	// Library reads the DOM.
+	await waitFor(() => expect(screen.getByText(assessable ? /^Style$/ : /Add a slide or two/i)).toBeInTheDocument(), { timeout: 15000 });
 	if (!assessable) {
-		// An unassessable deck has no post-round signal in the DOM: the Board readiness placeholder
+		// An unassessable deck has no post-round signal in the DOM: the Deck read placeholder
 		// renders off `deckHasContent`, which is false from the first render, so waiting for it
 		// proves only that the component mounted. The round still has to finish before the chips
 		// can honestly say the deck was not assessed, so wait out the 400ms assessment debounce
@@ -168,7 +177,7 @@ describe('Coach quick-read card — a deck with no _class directives', () => {
 		await user.click(await screen.findByRole('button', { name: 'Top fixes' }));
 		await waitFor(() => expect(openCardTitle()).toBe('Top fixes'), { timeout: 15000 });
 		expect(openCardBody()).not.toMatch(/every slide follows/i);
-		// It says the true thing, and agrees with the Board readiness card beside it, which also
+		// It says the true thing, and agrees with the Deck read card beside it, which also
 		// reports the deck as unassessed rather than grading it.
 		expect(openCardBody()).toMatch(/haven.t assessed this deck/i);
 	}, 40000);

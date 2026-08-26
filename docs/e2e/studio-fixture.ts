@@ -620,7 +620,7 @@ export async function setEditorContent(page: Page, text: string): Promise<void> 
  *  separate panels now (own toolbar icon, own drawer) — no tabs. */
 export async function openArchitect(page: Page): Promise<void> {
 	await page.getByRole('button', { name: CHROME.coach }).click();
-	await expect(page.getByText('Board readiness')).toBeVisible();
+	await expect(page.getByText('Deck read')).toBeVisible();
 }
 
 /** Open the Chat panel — a separate launcher peer of the Coach. */

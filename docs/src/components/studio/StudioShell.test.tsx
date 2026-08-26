@@ -94,7 +94,7 @@ describe('StudioShell — smoke', () => {
 		expect(screen.getByText('Lattice')).toBeInTheDocument();
 		expect(screen.getByText('Q3 Board Review')).toBeInTheDocument();
 		// The Coach is its own panel now (its header names it), not a tab in "Architect".
-		expect(screen.getByText('Board readiness')).toBeInTheDocument();
+		expect(screen.getByText('Deck read')).toBeInTheDocument();
 		// 'Edit' / 'Preview' appear in the pane header AND its collapse rail (rails
 		// are ALWAYS rendered, visibility-gated by the split's 0px track) — assert
 		// the panes are present, not that the label is unique.
@@ -135,7 +135,7 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		// The crafted intro deck is the active deck, shown full-bleed.
 		expect(within(screen.getByRole('banner')).getByText('Markdown for the boardroom')).toBeInTheDocument(); // the header names the deck by its own cover heading
 		// Read is calm: no docked coach, no activity-bar launcher.
-		expect(screen.queryByText('Board readiness')).not.toBeInTheDocument();
+		expect(screen.queryByText('Deck read')).not.toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
 		// The one primary verb + the one-time element-attached hint (NOT a recurring banner nag).
 		expect(screen.getByRole('button', { name: 'Edit this slide' })).toBeInTheDocument();
@@ -227,7 +227,7 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		render(<StudioShell options={options} />);
 		fireEvent.click(screen.getByRole('button', { name: 'Toggle Coach' }));
 		expect(screen.queryByText(/New here\?/)).not.toBeInTheDocument();
-		expect(screen.getByText('Board readiness')).toBeInTheDocument();
+		expect(screen.getByText('Deck read')).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Open Library' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Workspace settings' })).toBeInTheDocument();
 	});
@@ -489,13 +489,17 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 	it('shows a live, deck-reactive Architect scorecard', async () => {
 		setup();
 		fireEvent.click(screen.getByRole('button', { name: 'Toggle Coach' }));
-		expect(screen.getByText('Board readiness')).toBeInTheDocument();
-		// The REAL engine scorecard renders its per-dimension read (async assessment,
-		// debounced) — Structure/Clarity are always-present categories — with the honest
-		// "deterministic" scope caption. (The toy 3-check heuristic was deleted.)
+		expect(screen.getByText('Deck read')).toBeInTheDocument();
+		// The REAL engine scorecard renders TWO grades and its per-dimension read (async
+		// assessment, debounced), with the honest "deterministic" scope caption.
+		// Structure (Craft) and Brevity (Style) are always-present categories, one from
+		// each half — the split is what this asserts, not just that a number rendered.
 		expect(await screen.findByText('Structure')).toBeInTheDocument();
-		expect(await screen.findByText('Clarity')).toBeInTheDocument();
+		expect(await screen.findByText('Brevity')).toBeInTheDocument();
 		expect(screen.getByText(/deterministic/i)).toBeInTheDocument();
+		// The profile the Style half was judged against is NAMED on the panel, and can be
+		// changed there — an inferred profile must never be applied silently.
+		expect(await screen.findByLabelText(/Deck profile/i)).toBeInTheDocument();
 	});
 
 	// The Q3 deck's components, classified so the (no-AI) suggester can propose a Bottom-line set.
@@ -585,7 +589,7 @@ describe('StudioShell — responsive layout', () => {
 		expect(inertWrap('studio-pane-preview')).toBeNull(); // preview active
 		expect(inertWrap('studio-pane-editor')).not.toBeNull(); // editor mounted but inert
 		// Architect is NOT a persistent column on mobile.
-		expect(screen.queryByText('Board readiness')).not.toBeInTheDocument();
+		expect(screen.queryByText('Deck read')).not.toBeInTheDocument();
 		// Swap to the editor pane — the inert flips, nothing remounts. "Markdown source"
 		// is the Eight-Cell Bar's Source cell (2026-07-26-studio-mobile-eight-cell-bar.md);
 		// it replaces the old icon-only "Edit" toggle.
@@ -624,16 +628,16 @@ describe('StudioShell — responsive layout', () => {
 	it('mobile: the Architect opens as a slide-in sheet', async () => {
 		setViewport('mobile');
 		const user = setup();
-		expect(screen.queryByText('Board readiness')).not.toBeInTheDocument();
+		expect(screen.queryByText('Deck read')).not.toBeInTheDocument();
 		await user.click(screen.getByRole('button', { name: 'Toggle Coach' }));
-		expect(await screen.findByText('Board readiness')).toBeInTheDocument();
+		expect(await screen.findByText('Deck read')).toBeInTheDocument();
 	});
 
 	it('tablet: the inspector is a docked non-blocking column (not a dimming sheet)', async () => {
 		setViewport('tablet');
 		const user = setup();
 		// Nothing docked open by default; the deck stays visible.
-		expect(screen.queryByText('Board readiness')).not.toBeInTheDocument();
+		expect(screen.queryByText('Deck read')).not.toBeInTheDocument();
 		expect(screen.queryByText('Configure the whole deck')).not.toBeInTheDocument();
 		// Tablet keeps the docked column (in-panel segment, no rail), and Deck scope opens
 		// from the overflow menu rather than a bar button: "Settings" was one of three

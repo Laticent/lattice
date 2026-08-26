@@ -233,7 +233,7 @@ test.describe('studio workspace group at the 1100px threshold', () => {
 
 		// Open the two side panels from the left activity bar (both start closed).
 		await page.getByRole('button', { name: 'Toggle Coach' }).click();
-		await expect(page.getByText('Board readiness')).toBeVisible();
+		await expect(page.getByText('Deck read')).toBeVisible();
 		await openInspector(page);
 		await expect(page.getByText('Configure the whole deck')).toBeVisible();
 

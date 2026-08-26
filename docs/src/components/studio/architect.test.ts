@@ -591,7 +591,7 @@ describe('diagram grounding — Mermaid\'s verdict reaches the prompt', () => {
 });
 
 describe('chatSystemTokens — the price strip counts the prompt it actually sends', () => {
-	const grounding = { catalog: [], findings: [], scorecard: { overall: 80, band: 'good' } };
+	const grounding = { catalog: [], findings: [], scorecard: { craft: { score: 94, band: 'A', summary: 'no issues found' }, style: { score: 82, band: 'B+', summary: 'a few small things' }, profile: { key: 'teaching', label: 'Teaching', blurb: '', origin: 'declared', declaredInvalid: null }, categories: [] } };
 
 	it('counts the system turn, which the readout used to ignore entirely', () => {
 		expect(chatSystemTokens('openrouter', grounding)).toBeGreaterThan(0);
