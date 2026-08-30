@@ -37,7 +37,7 @@
   },
   "skeleton": "<!-- _class: code -->\n\n## What the new endpoint looks like.\n\n```js\napp.post('/api/v2/auth', async (req, res) => {\n  const session = await issueSession(req.body);\n  res.json({ session });\n});\n```\n",
   "anatomyBlock": "code-canvas",
-  "sample": "<!-- _class: code -->\n\n## One block, syntax lit, sized to be read from the back.\n\n```js\n// The code slide holds ONE idea — a function, not a file.\nfunction fitsOnASlide(block) {\n  const lines = block.split('\\n').length;\n  // Twelve lines reads from the back row; twenty is the wall.\n  return lines <= 12 ? 'readable' : lines <= 20 ? 'squinting' : 'split it';\n}\n```\n",
+  "sample": "<!-- _class: code -->\n\n## One block, syntax lit, sized to be read from the back.\n\n```js\n// The code slide holds ONE idea — a function, not a file.\nfunction fitsOnASlide(block) {\n  const lines = block.split('\\n').length;\n  // Ten lines reads from the back row; fourteen is the wall.\n  return lines <= 10 ? 'readable' : lines <= 14 ? 'squinting' : 'split it';\n}\n```\n",
   "stressDoc": {
     "summary": "Fourteen lines — the wall for one block.",
     "sample": "<!-- _class: code -->\n\n## Fourteen lines is the wall.\n\n```js\n// At the ceiling: every line still earns its place.\nfunction stressTheFrame(lines) {\n  const budget = 14;      // the hard wall\n  const readable = 10;    // the comfort line\n  if (lines <= readable) return 'fine';\n  if (lines > budget) return 'split it';\n  // Between comfort and the wall, trim:\n  //  - drop imports and boilerplate\n  //  - elide with ... what survives\n  //  - keep the line the talk is about\n  const keep = ['signature', 'branch'];\n  return keep.join(' + ');\n}\n// The frame does not scroll.\n```\n"
