@@ -53,7 +53,7 @@
     },
     {
       "title": "Fourteen lines is the wall",
-      "body": "The pane holds fourteen lines at landscape and the block does not scroll, so a fifteenth is clipped rather than shrunk. Ten reads comfortably from the back row. Trim ruthlessly — keep imports out, elide bodies with `// ...`, and let the rest of the deck carry the surrounding context. (The number follows the type size: `code` reads at `--fs-body-compact`, one role above the deck's chrome, so its lines are ~20% taller than a label's. At `--fs-meta` the pane held sixteen.)"
+      "body": "The pane holds fourteen lines at landscape and the block does not scroll, so a fifteenth is clipped rather than shrunk. Ten reads comfortably from the back row. Trim ruthlessly — keep imports out, elide bodies with `// ...`, and let the rest of the deck carry the surrounding context. (The number follows the type size: `code` reads at `--fs-body-compact`, one role above the deck's chrome. At `--fs-meta` the pane held sixteen. The step is not one ratio — it is +19.7% at landscape, +17.1% at square and +33.1% at portrait/reel, which is why the portrait budgets fall hardest.)"
     }
   ],
   "antiPatterns": [

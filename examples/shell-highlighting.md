@@ -76,8 +76,6 @@ cp my-file.txt "$OUT_DIR"
 
 ## A real script keeps everything stock bash got right, and gains the rest.
 
-`bash · shebang, control flow, substitution`
-
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail

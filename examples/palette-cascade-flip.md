@@ -39,9 +39,8 @@ Render this deck at any palette: what you see is what that palette's author wrot
 ## Each palette's own syntax ramp paints now.
 
 ```js
-// Before the flip this panel showed Night Owl's purple and pink on every theme.
-// Now it shows whatever ramp the chosen palette curated for its own code panel.
-
+// Before the flip: Night Owl's purple and pink on every theme. Now: whatever
+// ramp the chosen palette curated for its own code panel.
 const ENGINE = readFileSync('dist/lattice.css', 'utf8');
 const PALETTE = themeChain(name).map(readTheme).join('\n');
 

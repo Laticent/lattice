@@ -35,9 +35,19 @@ section.code pre {
 }
 /* CODE'S OWN TYPE STEP. `code` is the layout whose whole purpose is that the code
  * IS the slide, so it reads one canonical role ABOVE the chrome scale the rest of
- * the deck's labels use — `--fs-body-compact` (1.40cqi at wide) rather than
- * `--fs-meta` (1.17cqi), a ~20% step. It is a ROLE token, not a new one: HARD RULE
- * #4's 12-token system is closed and `checkTypographyTokens` rejects a `--fs-code`.
+ * the deck's labels use — `--fs-body-compact` rather than `--fs-meta`. It is a ROLE
+ * token, not a new one: HARD RULE #4's 12-token system is closed and
+ * `checkTypographyTokens` rejects a `--fs-code`.
+ *
+ * THE STEP IS NOT ONE RATIO — the two roles are spaced differently per family, and
+ * the tall boxes move much further than the landscape ones:
+ *   wide            1.17 → 1.40cqi   +19.7%
+ *   square          2.05 → 2.40cqi   +17.1%
+ *   portrait/reel   2.78 → 3.70cqi   +33.1%
+ * That is the arithmetic behind the vertical wall dropping from sixteen lines to
+ * fourteen, and behind the tall column budgets falling by a third while the wide
+ * one falls by a fifth. Anything that quotes a single "~20%" is describing the
+ * landscape box only.
  * `compare-code` deliberately stays at `--fs-meta` — its panes are half-width and
  * two shipped gallery slides would newly clip (measured); its own full-width
  * `compare-code-block` variant already reads at `--fs-body-compact`.

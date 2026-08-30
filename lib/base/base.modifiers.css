@@ -868,7 +868,8 @@ section.decision .below-note:has(> p > em:only-child)::before,
 section.actors .below-note:has(> p > em:only-child)::before,
 section.kpi .below-note:has(> p > em:only-child)::before,
 section.agenda .below-note:has(> p > em:only-child)::before,
-section.compare-table .below-note:has(> p > em:only-child)::before {
+section.compare-table .below-note:has(> p > em:only-child)::before,
+section.code .below-note:has(> p > em:only-child)::before {
   background:none;
   border-top:1px dotted var(--border);
   height:0;
@@ -891,6 +892,7 @@ section.actors .below-note > p:has(> em:only-child),
 section.kpi .below-note > p:has(> em:only-child),
 section.agenda .below-note > p:has(> em:only-child),
 section.compare-table .below-note > p:has(> em:only-child),
+section.code .below-note > p:has(> em:only-child),
 section.cards-grid > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
 section.compare-prose > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
 section.verdict-grid > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
@@ -981,6 +983,7 @@ section.actors .below-note > p:has(> em:only-child)::before,
 section.kpi .below-note > p:has(> em:only-child)::before,
 section.agenda .below-note > p:has(> em:only-child)::before,
 section.compare-table .below-note > p:has(> em:only-child)::before,
+section.code .below-note > p:has(> em:only-child)::before,
 section.cards-grid > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
 section.compare-prose > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
 section.verdict-grid > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
