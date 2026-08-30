@@ -135,7 +135,7 @@ describe('theme-parse — the shipped corpus', () => {
     }
   });
 
-  test('every non-contract custom property survives — the 48 a flat map deletes', () => {
+  test('every non-contract custom property survives — the 47 a flat map deletes', () => {
     const required = new Set(requiredTokenList());
     const survivors = new Set();
     let filesWithExtras = 0;
@@ -155,7 +155,12 @@ describe('theme-parse — the shipped corpus', () => {
       assert.ok(!required.has(name), `--${name} joined REQUIRED_TOKENS; it is no longer an "extra"`);
     }
     assert.equal(filesWithExtras, 19, 'themes carrying non-contract tokens in a root block');
-    assert.ok(survivors.size >= 48, `expected >=48 distinct non-contract names, got ${survivors.size}`);
+    // 48 until `--seq-500` joined REQUIRED_TOKENS: it was one of the extras this
+    // census counted, and moving a name INTO the contract legitimately shrinks the
+    // set by one. The floor tracks the corpus rather than pinning a number that can
+    // only ever be right on the day it was written — what it guards is the extras
+    // channel disappearing wholesale, which is the defect the round-trip caused.
+    assert.ok(survivors.size >= 47, `expected >=47 distinct non-contract names, got ${survivors.size}`);
   });
 
   test('`--spectrum` keeps the operands that make it resolve', () => {
