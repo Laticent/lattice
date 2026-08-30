@@ -65,16 +65,31 @@ on:
   push:
     branches: [main]
     paths:
-      # Marp kit inputs: the engine bundle, palettes, fonts and the assembler.
+      # Marp kit inputs. `lib/**` covers the engine, marp-bundle's asset list, and
+      # the concepts/forms sources the agent catalogs derive from. The rest are the
+      # files build-marp-kit.js reads by name — all verified against its own copy
+      # list, because the earlier version of this filter claimed to cover "fonts"
+      # and did not.
       - 'lib/**'
       - 'themes/**'
+      - 'assets/fonts/**'
+      - 'kit/**'
+      - 'mermaid-v11.min.js'
+      - 'LICENSE'
+      - 'LICENSE-EXCEPTIONS'
       - 'tools/build-marp-kit.js'
-      # Agent kit inputs: the catalogs, the generators that WRITE them, and the
-      # primer's two source modules. The three portal/forms/concepts builders are
-      # listed by name rather than as `tools/**` — the kit copies their output, so
-      # a change to one of them changes the kit, while most other tools are
-      # irrelevant to it and would republish for nothing.
-      - 'design/concepts.md'
+      - 'tools/build-css.js'
+      - 'tools/build-runtime.js'
+      - 'tools/minify-css.js'
+      # Agent kit inputs: the generators that WRITE the catalogs, and the primer's
+      # two source modules. Listed by name rather than as `tools/**` — the kit
+      # copies their output, so a change to one of them changes the kit, while
+      # most other tools are irrelevant and would republish for nothing.
+      #
+      # NOT design/concepts.md: build-concepts.js derives concepts.json from
+      # lib/concepts/concepts.json (covered by lib/** above). That file is prose
+      # ABOUT the ontology and is read by no generator — listing it would fire a
+      # full npm ci + build + publish for no output change.
       - 'tools/build-docs-portal.js'
       - 'tools/build-forms.js'
       - 'tools/build-concepts.js'

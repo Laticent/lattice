@@ -24,11 +24,17 @@
  * is worse than no kit.
  *
  * WHY THE PRIMER SHARES THE STUDIO'S BUILDER. `lattice-primer.md` is the SAME
- * text the Studio chat sends as its system prompt, produced by calling the same
- * two functions the Studio calls — `buildStudioCatalog` (docs/src/lib) and
- * `buildLatticePrimer` (docs/src/components/studio/ai). It is not a
- * reconstruction. If the Studio's primer changes, this file changes with it, and
- * `--check` fails until the kit is rebuilt. That is the whole point: the
+ * authoring primer the Studio chat INJECTS INTO its system prompt, produced by
+ * calling the same two functions the Studio calls — `buildStudioCatalog`
+ * (docs/src/lib) and `buildLatticePrimer` (docs/src/components/studio/ai).
+ *
+ * Be exact about the scope, because the looser claim is false: the Studio's full
+ * system turn is `SYSTEM_PERSONA + DECK_CANON + EDIT_PROTOCOL + this primer + a
+ * dynamic tail` (`architect.ts` buildChatMessages), and it injects the primer only
+ * on the cloud tier. What is shared here is the primer BODY, byte-for-byte — not
+ * the whole prompt. DECK_CANON in particular (the one-idea-per-slide editorial
+ * contract) is NOT in this file. If the Studio's primer changes, this file changes
+ * with it, and `--check` fails until the kit is rebuilt. That is the whole point: the
  * 2026-07-19 skills-vs-Fabricate investigation found the product's own prompts
  * had silently drifted from the shared canon in two confirmed places, and a
  * hand-copied primer would be a third.
@@ -37,7 +43,7 @@
  * steps — it reads their output. `tools/build.js` places it accordingly.
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -94,19 +100,27 @@ async function buildPrimer() {
     );
   }
   const body = buildLatticePrimer(catalog);
-  return [
+  // Return the count alongside the text. Re-deriving it from the rendered
+  // markdown (a `^### ` scan) counts headings, not layouts — 58 of 61 skeletons
+  // already contain `^## ` lines, so one component authored with an H3
+  // sub-heading would make the README and the primer's own header disagree
+  // about the same fact.
+  const text = [
     '# Lattice — the authoring primer',
     '',
-    '> This is the **same system prompt the Lattice Studio chat sends to its own model**,',
-    '> generated from the live component manifests by `tools/build-agent-kit.mjs`. It is not a',
-    '> summary of it. Paste it into a system prompt, or hand it to an agent before asking for a',
-    `> deck. Covers ${catalog.length} layouts.`,
+    '> The **authoring primer the Lattice Studio chat injects into its own system prompt**,',
+    '> generated from the live component manifests by `tools/build-agent-kit.mjs`. The body below',
+    '> is byte-for-byte what the Studio sends — not a summary of it. It is not the Studio\'s WHOLE',
+    '> prompt: the persona, the editorial canon and the edit protocol sit alongside it there.',
+    '> Paste this into a system prompt, or hand it to an agent before asking for a deck.',
+    `> Covers ${catalog.length} layouts.`,
     '',
     '---',
     '',
     body,
     '',
   ].join('\n');
+  return { text, layoutCount: catalog.length };
 }
 
 function readme(files, layoutCount) {
@@ -180,24 +194,33 @@ async function buildKit() {
       `build-agent-kit: missing generated catalogs: ${missing.join(', ')}. Run \`npm run build\` first (this step runs after the docs-portal/forms/concepts steps).`,
     );
   }
-  const primer = await buildPrimer();
+  const { text: primer, layoutCount } = await buildPrimer();
   files.set(PRIMER_FILE, Buffer.from(primer, 'utf8'));
-  const layoutCount = (primer.match(/^### /gm) || []).length;
   files.set('README.md', Buffer.from(readme(files, layoutCount), 'utf8'));
   return files;
 }
 
+// Walks RECURSIVELY. Filtering to top-level files would leave one staleness
+// class invisible: a leftover `dist/agent-kit/old/` is then neither `extra` nor
+// `changed`, `--check` reports up to date, and the workflow's `cp -r` publishes
+// it. The writer rmSync's the tree, so this is defense against a hand-made mess
+// rather than against the generator.
 function readExisting() {
   const seen = new Map();
-  let entries;
-  try {
-    entries = readdirSync(OUT_DIR, { withFileTypes: true });
-  } catch {
-    return seen;
-  }
-  for (const e of entries) {
-    if (e.isFile()) seen.set(e.name, readFileSync(path.join(OUT_DIR, e.name)));
-  }
+  const walk = (dir, prefix) => {
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const rel = prefix ? `${prefix}/${e.name}` : e.name;
+      if (e.isDirectory()) walk(path.join(dir, e.name), rel);
+      else seen.set(rel, readFileSync(path.join(dir, e.name)));
+    }
+  };
+  walk(OUT_DIR, '');
   return seen;
 }
 
@@ -235,8 +258,19 @@ async function main(argv) {
 // Run only when invoked as the entry point — the CJS `require.main === module`
 // guard has no ESM equivalent, and without this a test that imports `buildKit`
 // would also execute the build (and call process.exit out from under it).
+// realpath BOTH sides: `fileURLToPath(import.meta.url)` is already resolved, so
+// comparing it against a raw `path.resolve(argv[1])` makes the guard false when
+// invoked through a symlink — and the process would then exit 0 having written
+// nothing and printed nothing, which is the worst way for a build step to fail.
+const realpathOr = (p) => {
+  try {
+    return realpathSync(p);
+  } catch {
+    return path.resolve(p);
+  }
+};
 const invokedDirectly =
-  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+  process.argv[1] && realpathOr(process.argv[1]) === realpathOr(fileURLToPath(import.meta.url));
 if (invokedDirectly) {
   main(process.argv.slice(2)).then(
     (code) => process.exit(code),

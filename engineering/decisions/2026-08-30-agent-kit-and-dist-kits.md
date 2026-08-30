@@ -107,7 +107,7 @@ historical trees and re-running the merge test:
 | `components.json` | 1 / 16 (6.3%) |
 
 **The compact file conflicts more than the 11,554-line one.** At one line per
-component, neighbours sit on adjacent lines and their diff contexts overlap; in the
+component, neighbors sit on adjacent lines and their diff contexts overlap; in the
 verbose JSON they are hundreds of lines apart. *Stated as directional, not settled:
 this is a reconstruction over 18 of 34 trees, and the control did not reproduce the
 real-history rate (6.3% against 21%). It is enough to retire "the pick list is the
@@ -175,11 +175,47 @@ and the root README says so.
 | The skip fires on a quiet run | assembled twice, compared `write-tree` | **identical tree** |
 | npm is not an escape route | `GET registry.npmjs.org/@workwel%2Flattice` | **`{"error":"Not found"}`** — unpublished |
 
-**UNVERIFIED:** no GitHub Actions run has executed this workflow. The shell is
-exercised locally and the YAML parses, but the first real run is the test — and
-`publish-marp-kit.yml`'s own record (6/6 green, 54–64s) is the closest evidence
-available from here. The branch ruleset in §6 has not been applied either; it is a
-settings change, not a change in this diff.
+**The workflow was preflighted on real GitHub Actions before merge.** A `push`
+event uses the workflow file from the branch being pushed, so temporarily listing
+the PR branch in `on.push.branches` — with `BRANCH` pointed at a throwaway
+`dist-kits-preflight` — exercised the real surface without touching the real
+mirror. (`workflow_dispatch` could not: it resolves only on the default branch.)
+Run 33338235703, `push`, **success**:
+
+| Claim | Result |
+|---|---|
+| Builds on a runner (`npm ci` + `npm run build`) | pass |
+| Publishes the expected tree | **64 files** — `marp/` 54, `agent/` 8, README, `.vscode` |
+| `git add -A` stages the root **dotfile** in a fresh `git init` | `.vscode/settings.json` present |
+| The kit's own `.vscode` survives at its level | `marp/.vscode/settings.json` intact |
+| Orphan, not a branch off `main` | `rev-list --count` = **1** |
+| The quiet-run skip fires | re-run (attempt 2) succeeded and minted **no new commit** |
+| Local replay == real run | published tree `d8cd118d…` — the **same hash** the local assembly produced |
+
+The two literals were then reverted, verified byte-identical to the reviewed
+version. So what merges differs from what ran by exactly `branches: [main]` and
+`BRANCH=dist-kits`.
+
+**Still UNVERIFIED:** the workflow has not run *on `main`* against the real
+`dist-kits` branch, and the `dist-kits` doc links 404 until it does. The branch
+ruleset in §6 has not been applied — it is a settings change, not a change in this
+diff.
+
+**The primer's identity WAS checked against the real Studio build, not just Node.**
+An independent checker flagged the risk precisely: `studio-catalog.mjs`'s
+`createRequire` runs inside a Vite chunk under `astro build`, behind a `catch {}`
+that yields `{}` on failure — so if it behaved differently there, the Studio would
+silently lose 19 components' `variantSkeletons` and the two copies would diverge
+while every unit test still passed. Measured against a real `npm run build` of the
+docs site, reading the emitted `docs/dist/studio/component-catalog.json`:
+
+| | |
+|---|---|
+| Catalog entries | **61** (same as the Node path) |
+| Entries carrying `variantSkeletons` | **19** (same as the Node path) |
+| Published `lattice-primer.md` contains the astro-built primer verbatim | **true** (67,244 bytes) |
+
+The require works under Astro, and the claim holds on the surface that ships.
 
 ## 6. Branch protection
 
@@ -203,6 +239,30 @@ objection that got a bypass on `main` rejected in 2026-08-09. It is accepted her
 because the blast radius is a derived mirror that republishes on the next push, not
 a source branch. If that ever stops being acceptable, the lever is a dedicated
 GitHub App as the bypass actor rather than the integration.
+
+## 6b. Three things this note owes the next reader
+
+**`dist-marp-kit` is orphaned, not retired.** The branch still exists; the only
+workflow that refreshed it is deleted here. Anyone holding that URL now has a
+permanently frozen kit with no notice. Deleting it is shared state and therefore
+the owner's call — but it should be deleted or given a tombstone README, and until
+then this sentence is the notice.
+
+**"Agent kit" now names two different things.** `lib/core/marp-bundle.js`'s
+`AGENT_ASSETS` already calls its block "the AGENT KIT" and writes
+`agent/components.pick.md` + `agent/components.json` into every exported bundle.
+The `agent/` folder on `dist-kits` is a different, larger set. Two folders named
+`agent/`, two things called the agent kit. Worth reconciling — the export's copy
+is a candidate for `lattice-primer.md` too — but not in this diff.
+
+**The CI-contract change was authorized, and here is where.** Replacing
+`publish-marp-kit.yml` and moving to a push trigger is CLAUDE.md's SECOND FILTER
+row 2 ("adding, removing or relocating a CI job or step"), which is the owner's to
+decide. It was put to them as scored options — cadence (nightly / on-push / both)
+and consolidation onto one branch — and they chose on-push-plus-nightly and "a
+single orphan branch for both marp and agent", then named and protected it. The
+branch name `dist-kits` and the `marp/` + `agent/` layout were likewise picked by
+the owner from options that priced the VS Code trap in §4.
 
 ## 7. A claim this note corrects
 
