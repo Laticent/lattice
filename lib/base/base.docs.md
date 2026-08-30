@@ -777,18 +777,30 @@ belongs under a section on handwriting, and the heading structure gave a reader
 no way to find them.
 
 **The per-slide `_class:` tokens went with them**, and HARD RULE #6 sends
-`_class:` authoring to *this* file. They are the `corners-*`, `lifted`, `stamp-*`,
-`spectrum-*` (including the `spectrum-card-*`, `spectrum-edge-*` and
-`spectrum-trim-*` families), `rule-*`, `eyebrow-*`, `head-*` and `finish-*`
-tokens — around forty in all, each documented in
-[`base.registers.docs.md`](base.registers.docs.md), along with the `unknown-*`
-codes `lint:deck` emits for a mistyped register (those are lint rule IDs, not
-classes) and the `mode:` values like `sketch-clean` that resolve TO classes.
+`_class:` authoring to *this* file — so every one of them is listed here, by the
+register it belongs to. Each is documented in
+[`base.registers.docs.md`](base.registers.docs.md); this table exists so that a
+`grep` of the file the rule names still finds the token you are about to write.
 
-**So grep the FOLDER, not this file**: `grep -rn corners-square lib/base/`. An
-earlier version of this paragraph listed eight of the forty by hand, which is
-the drifting hand-maintained index this split exists to remove — the folder
-grep needs no list and cannot rot.
+| Register | Per-slide `_class:` tokens |
+|---|---|
+| `mode:` | `sketch-clean-body` |
+| `finish:` | `finish-atrium` · `finish-gallery` · `finish-halo` · `finish-ledger` · `finish-loom` · `finish-meridian` · `finish-nimbus` · `finish-none` · `finish-savile` · `finish-strata` |
+| `stamp:` | `stamp-bar` · `stamp-bracket` · `stamp-dot` · `stamp-flag` · `stamp-mark` · `stamp-notch` · `stamp-pill` · `stamp-pin` · `stamp-ribbon` · `stamp-seal` · `stamp-tab` · `stamp-underline` · `stamp-veil` |
+| `spectrum:` | `spectrum-card` · `spectrum-card-duo` · `spectrum-card-edge-bottom` · `spectrum-card-edge-right` · `spectrum-card-edge-top` · `spectrum-card-mono` · `spectrum-card-rainbow` · `spectrum-card-solid` · `spectrum-duo` · `spectrum-edge-bottom` · `spectrum-edge-left` · `spectrum-edge-off` · `spectrum-edge-right` · `spectrum-mono` · `spectrum-off` · `spectrum-solid` · `spectrum-trim` · `spectrum-trim-restrained` |
+| `rule:` | `rule-accent` · `rule-full` · `rule-none` · `rule-short` |
+| `eyebrow:` | `eyebrow-arrow` · `eyebrow-bar` · `eyebrow-dot` · `eyebrow-underline` |
+| `headline:` | `head-center` · `head-left` · `head-right` |
+| `lift:` | `lifted` |
+| `corners:` | `corners-rounded` · `corners-square` |
+
+An earlier version of this paragraph named eight of them and told you to grep the
+folder instead. Both were wrong for the same reason: HARD RULE #6 says to open
+*this* file, so a token that is not in it is not findable by someone following the
+rule. Moving the registers out cost 38 of these tokens their only hit here, which
+a checker pass caught — the list above is derived from the class names in
+`lib/base/*.css` rather than hand-picked, so it is complete by construction as of
+2026-08-30.
 
 ### `scale-l` / `scale-xl` / `scale-2xl`
 

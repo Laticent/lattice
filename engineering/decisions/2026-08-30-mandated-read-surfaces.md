@@ -10,8 +10,8 @@ summary: >
   rows costing 18% of all row cost. base.docs.md was not a size problem at all: `### sketch`
   was 8.3k of a 15.5k variants section because NINE front-matter registers had been filed
   under a per-slide variant, one at a time, each arriving as "a sibling of the one above".
-  Moving those ten registers to their own file takes the mandated read 24,504 -> 15,171 while
-  the two files TOGETHER come to 25,610 — up ~1,100 — and makes `headline:` findable by
+  Moving those ten registers to their own file takes the mandated read 24,504 -> 15,682 while
+  the two files TOGETHER come to 26,121 — up ~1,600 — and makes `headline:` findable by
   someone not reading about handwriting. A fact-checker pass
   over the accompanying pick-surface edits refuted two claims that had already been
   committed, which is recorded here because it is the argument for running one.
@@ -140,17 +140,24 @@ A tenth register, `corners:`, sat one level up as a sibling `###` — filed corr
 equally unfindable.
 
 All ten moved to **`lib/base/base.registers.docs.md`**, with a table at the top naming what
-each selects and its default. The mandated read drops **24,504 → 15,171**.
+each selects and its default. The mandated read drops **24,504 → 15,682**.
 
 **And the total went UP, which the headline number hides.** The two files together are
-**25,610** against 24,504 before — the new preamble, the link table and the pointers cost
+**26,121** against 24,504 before — the new preamble, the link table and the pointers cost
 ~1,100 tokens. That is the right trade *for what #6 mandates*: a base-modifier read is the
 frequent one and it got a third cheaper, while a register question is rarer and now costs
 10,439 instead of being unfindable inside 24,504. But a reader who needs BOTH pays more than
 before, and some `_class:` authoring genuinely does need both — so the stub in `base.docs.md`
-names the per-slide tokens (`corners-square`, `lifted`, `sketch-clean`, `stamp-notch`,
-`spectrum-*`) to keep them greppable in the file #6 actually names. Found by the checker
-pass, not by the maker.
+carries a table of **every** per-slide token, grouped by register — 48 of them, derived from
+the class names in `lib/base/*.css` rather than hand-picked, because #6 says to open *this*
+file and a token that is not in it is not findable by someone following the rule.
+
+Two earlier attempts at that mitigation were wrong, and both were caught rather than
+noticed: naming eight of the tokens by hand (a list that is incomplete on the day it ships),
+then replacing it with "grep the folder, not this file" (which works, but is not what HARD
+RULE #6 tells the reader to do). Measured before the fix: **38 of 48** register-family class
+tokens had lost their only hit in the mandated file. Zero have now. The table costs ~500
+tokens, which is why the file lands at 15,682 rather than 15,171.
 
 **The move was mechanical and asserted**: each block was split fence-aware at its heading
 level, and every one of the ten bodies was compared byte-for-byte after the write. Nine are
