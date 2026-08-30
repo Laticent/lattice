@@ -22,11 +22,13 @@ entry.
 
 Two failures, both measured, both invisible to the gates we already had.
 
-**British spellings kept arriving.** HARD RULE #21 has a real gate behind it —
-170 curated forms, a ratchet, target zero. But it scans **tracked files**, and
-the surfaces that drift most are not files: a chat reply, an issue body, a PR
+**British spellings kept arriving.** HARD RULE #21 used to have a repo-wide
+ratchet behind it, and the ratchet scanned **tracked files** — so the surfaces
+that drift most were never in scope: a chat reply, an issue body, a PR
 description, a commit message. Measured over the last 300 commits: **21 British
-spellings**, every one under a green build.
+spellings**, every one under a green build. The tracked tree has since been swept
+to zero and that ratchet deleted; what is left is the rule and a commit-msg
+warning.
 
 **Length is a cost, not a courtesy.** A reply that restates the question, lists
 the options it already rejected, and closes with a summary of itself spends
@@ -42,15 +44,20 @@ has to find the answer inside the reply. Both prices are paid every turn.
 `color`, `analyze`, `gray`, `license`, `catalog`, `center`, `while`. American
 vocabulary too, where the words differ.
 
-This holds on **every** surface, including the ones no gate can see. The
-dictionary is `tools/us-english.js` — one list, read by the `build:check`
-ratchet and by the commit-msg hook. The hook **warns and does not block**: a
-message may legitimately quote British-spelled text, such as an upstream error
-string or a dependency's option name, and HARD RULE #14 forbids `--no-verify`
-as the escape from a false positive.
+This holds on **every** surface, and almost nothing enforces it. The tracked
+tree was swept to zero in one pass, and the repo-wide ratchet that had been
+holding a 1285-spelling backlog was deleted with it — a gate carrying 1285
+standing exceptions was more machinery than the problem.
 
-A British spelling inside a `camelCase` or `snake_case` identifier is invisible
-to the gate. Name those American too.
+What survives is `tools/us-english.js`, a 170-pair word list read by one caller:
+the commit-msg hook, which **warns and never blocks**. A message may legitimately
+quote British-spelled text — an upstream error string, a dependency's option
+name — and HARD RULE #14 forbids `--no-verify` as the escape from a false
+positive. Everything else is discipline.
+
+Eight British spellings remain on purpose: four citations of a dated
+`engineering/decisions/` filename, and four inside `docs/package-lock.json`.
+Neither is text we author.
 
 ### 2. Active voice, named actor
 
@@ -172,9 +179,9 @@ Before you send a reply, open an issue, or write a doc:
 
 | Surface | Enforcement |
 |---|---|
-| Tracked repo text — spelling | **Gated.** `checkUsEnglish` ratchet in `tools/check-ownership.js`, via `build:check`. Exceed-only, target zero. |
-| Commit messages — spelling | **Warned, not blocked.** `tools/check-commit-msg.sh` via the commit-msg hook. |
-| Chat, issues, PR bodies — spelling | **Discipline.** No gate can reach them. |
+| Commit messages — spelling | **Warned, never blocked.** `tools/check-commit-msg.sh` via the commit-msg hook. The only automated check left. |
+| Tracked repo text — spelling | **Discipline.** Swept to zero; the ratchet was retired with the backlog. |
+| Chat, issues, PR bodies — spelling | **Discipline.** Nothing can reach them. |
 | Voice, plain words, concision | **Discipline**, everywhere. |
 
 There is no gate for voice or length, and there is unlikely to ever be a good

@@ -1780,18 +1780,18 @@ function monoFontFamilies(css) {
 }
 
 function checkLabelVoiceFont(errors) {
-  const offences = [];
+  const offenses = [];
   for (const file of listCssFiles(LIB_DIR)) {
     const css = stripComments(fs.readFileSync(file, 'utf8'));
     const rel = path.relative(ROOT, file);
-    for (const hit of monoFontFamilies(css)) offences.push({ file: rel, ...hit });
+    for (const hit of monoFontFamilies(css)) offenses.push({ file: rel, ...hit });
   }
-  // Consume offences per sanction by FILE + SELECTOR MATCH, so a sanction names the
+  // Consume offenses per sanction by FILE + SELECTOR MATCH, so a sanction names the
   // declaration it blesses rather than just how many that file may have. `count` is
   // kept as the multiplicity (a `:is()` list can legitimately repeat a shape), and a
   // sanction that matches fewer than it claims is reported as stale — the same
   // two-directional contract SANCTIONED_MARGINS has.
-  const remaining = [...offences];
+  const remaining = [...offenses];
   for (const s of SANCTIONED_MONO_FONTS) {
     let consumed = 0;
     for (let i = remaining.length - 1; i >= 0 && consumed < s.count; i--) {
@@ -2026,19 +2026,19 @@ const SANCTIONED_SECTION_BOXES = [
 ];
 
 function checkSectionBoxOwnership(errors) {
-  const offences = [];
+  const offenses = [];
   for (const root of SECTION_BOX_ROOTS) {
     if (!fs.existsSync(root)) continue;
     for (const file of listCssFiles(root)) {
       const rel = path.relative(ROOT, file);
       for (const o of sectionBoxOffences(fs.readFileSync(file, 'utf8'))) {
-        offences.push({ file: rel, ...o });
+        offenses.push({ file: rel, ...o });
       }
     }
   }
   const remaining = [];
   const staleSanctions = [...SANCTIONED_SECTION_BOXES];
-  for (const o of offences) {
+  for (const o of offenses) {
     const i = staleSanctions.findIndex((s) => s.file === o.file && s.decl === o.decl);
     if (i === -1) remaining.push(o);
     else staleSanctions.splice(i, 1);
@@ -2217,7 +2217,7 @@ function sectionCqOffences(css) {
 
 // The two stamps that exist (lib/runtime/index.js `patchSectionGeometry`). Anything
 // else — `cqb`, `cqw`, `cqmin`, `cqmax` — has no anchor to route through and is
-// always an offence; `var(--_sec-1cqb, 1cqb)` LOOKS anchored and silently is not.
+// always an offense; `var(--_sec-1cqb, 1cqb)` LOOKS anchored and silently is not.
 const ANCHORED_AXES = ['cqi', 'cqh'];
 
 /**
@@ -2380,17 +2380,17 @@ function sectionOwnTokenLeaks(files) {
 const SECTION_CQ_ROOTS = [LIB_DIR, path.join(ROOT, 'themes')];
 
 function checkSectionCqAnchoring(errors) {
-  const offences = [];
+  const offenses = [];
   for (const root of SECTION_CQ_ROOTS) {
     if (!fs.existsSync(root)) continue;
     for (const file of listCssFiles(root)) {
       const rel = path.relative(ROOT, file);
-      for (const o of sectionCqOffences(fs.readFileSync(file, 'utf8'))) offences.push({ file: rel, ...o });
+      for (const o of sectionCqOffences(fs.readFileSync(file, 'utf8'))) offenses.push({ file: rel, ...o });
     }
   }
   const remaining = [];
   const staleSanctions = [...SANCTIONED_SECTION_CQ];
-  for (const o of offences) {
+  for (const o of offenses) {
     const i = staleSanctions.findIndex((s) => s.file === o.file && o.decl.startsWith(s.decl));
     if (i === -1) remaining.push(o);
     else staleSanctions.splice(i, 1);
@@ -2556,14 +2556,14 @@ function checkBackgroundLayerVars(errors) {
 
 function checkMarginDiscipline(errors) {
   // Collect every offending (file, value) across lib/.
-  const offences = [];
+  const offenses = [];
   for (const file of listCssFiles(LIB_DIR)) {
     const css = stripComments(fs.readFileSync(file, 'utf8'));
     const rel = path.relative(ROOT, file);
-    for (const value of offendingMargins(css)) offences.push({ file: rel, value });
+    for (const value of offendingMargins(css)) offenses.push({ file: rel, value });
   }
-  // Consume one offence per sanction (by file + value); track sanctions that match nothing.
-  const remaining = [...offences];
+  // Consume one offense per sanction (by file + value); track sanctions that match nothing.
+  const remaining = [...offenses];
   const staleSanctions = [];
   for (const s of SANCTIONED_MARGINS) {
     const i = remaining.findIndex((o) => o.file === s.file && o.value.trim() === s.value);
@@ -2791,12 +2791,12 @@ function offendingBodyPadding(css) {
 }
 
 function checkStageInsetOwnership(errors) {
-  const offences = [];
+  const offenses = [];
   for (const file of listCssFiles(LIB_DIR)) {
     const css = stripComments(fs.readFileSync(file, 'utf8'));
     const rel = path.relative(ROOT, file);
-    for (const o of offendingStageInsets(css)) offences.push({ file: rel, ...o });
-    for (const o of offendingBodyPadding(css)) offences.push({ file: rel, ...o });
+    for (const o of offendingStageInsets(css)) offenses.push({ file: rel, ...o });
+    for (const o of offendingBodyPadding(css)) offenses.push({ file: rel, ...o });
   }
   // A sanction with no stated reason is a waiver, not a record — the error text and
   // design/forms.md §6.1 both promise "with its justification", so require it.
@@ -2808,7 +2808,7 @@ function checkStageInsetOwnership(errors) {
       );
     }
   }
-  const remaining = [...offences];
+  const remaining = [...offenses];
   const stale = [];
   for (const s of SANCTIONED_STAGE_INSETS) {
     const i = remaining.findIndex((o) => o.file === s.file && o.prop === s.prop && o.value === s.value);
@@ -2872,8 +2872,8 @@ function checkStageInsetOwnership(errors) {
 // child. So that half is EMPIRICAL and lives in
 // test/integration/invariants/slide-planes.test.js: render a corpus of decks, walk every
 // real direct child of every section, and assert its computed z-index is a plane value.
-// That asks the DOM instead of modelling it, and it needs no enumeration at all — the
-// same division of labour the gate this replaced arrived at for its own derived check.
+// That asks the DOM instead of modeling it, and it needs no enumeration at all — the
+// same division of labor the gate this replaced arrived at for its own derived check.
 //
 // WHAT REPLACED WHAT. This gate stands where `checkFinishChromeExclusions` did. That
 // one kept base.finish.css's `:where(header, footer, img.deck-logo, …)` exclusion list
@@ -3164,14 +3164,14 @@ function katexOnlySelectors(css) {
 }
 
 function checkMathRendererParity(errors) {
-  const offences = [];
+  const offenses = [];
   for (const file of listCssFiles(LIB_DIR)) {
     const rel = path.relative(ROOT, file);
     for (const selector of katexOnlySelectors(fs.readFileSync(file, 'utf8'))) {
-      offences.push({ file: rel, selector });
+      offenses.push({ file: rel, selector });
     }
   }
-  const remaining = [...offences];
+  const remaining = [...offenses];
   const stale = [];
   for (const s of SANCTIONED_KATEX_ONLY) {
     const i = remaining.findIndex((o) => o.file === s.file && o.selector === s.selector);
@@ -3229,22 +3229,22 @@ function layerBlocksIn(css) {
 // HARD RULE #26 gate — no partial/isolated layering in engine CSS.
 function checkCascadeLayers(errors) {
   // 1. Footgun guard — no layer block in engine CSS source OR the built bundle.
-  const offences = [];
+  const offenses = [];
   for (const file of listCssFiles(LIB_DIR)) {
     const rel = path.relative(ROOT, file);
-    for (const opener of layerBlocksIn(fs.readFileSync(file, 'utf8'))) offences.push({ file: rel, opener });
+    for (const opener of layerBlocksIn(fs.readFileSync(file, 'utf8'))) offenses.push({ file: rel, opener });
   }
   if (fs.existsSync(LATTICE_BUNDLE)) {
     // Backstop for openers from non-lib sources (vendored KaTeX, JS-generated
     // blocks); a lib opener mirrored into dist is attributed to its lib file, not
     // double-counted.
-    const libOpeners = new Set(offences.map((o) => o.opener));
+    const libOpeners = new Set(offenses.map((o) => o.opener));
     const rel = path.relative(ROOT, LATTICE_BUNDLE);
     for (const opener of layerBlocksIn(fs.readFileSync(LATTICE_BUNDLE, 'utf8'))) {
-      if (!libOpeners.has(opener)) offences.push({ file: rel, opener });
+      if (!libOpeners.has(opener)) offenses.push({ file: rel, opener });
     }
   }
-  const remaining = [...offences];
+  const remaining = [...offenses];
   const staleSanctions = [];
   for (const s of SANCTIONED_LAYER_BLOCKS) {
     const i = remaining.findIndex((o) => o.file === s.file);
@@ -3362,17 +3362,17 @@ function hexInsideVar(css, idx) {
 // HARD RULE #3 gate — keep raw hex out of the engine's layout CSS; use `var(--token)`. Budget 0
 // + the SANCTIONED allowlist above; `*.tokens.css` and `var(…)` fallback defaults are exempt.
 function checkHexLiterals(errors) {
-  const offences = []; // { file, hex } (hex lower-cased)
+  const offenses = []; // { file, hex } (hex lower-cased)
   for (const file of listCssFiles(LIB_DIR)) {
     if (/\.tokens\.css$/.test(file)) continue; // token-definition layer — hex is the point
     const rel = path.relative(ROOT, file);
     const css = stripCommentsKeepOffsets(fs.readFileSync(file, 'utf8'));
     for (const hit of findHexLiterals(css)) {
       if (hexInsideVar(css, hit.index)) continue; // `var(--token, #fallback)` — compliant
-      offences.push({ file: rel, hex: hit.hex.toLowerCase() });
+      offenses.push({ file: rel, hex: hit.hex.toLowerCase() });
     }
   }
-  const remaining = [...offences];
+  const remaining = [...offenses];
   const staleSanctions = [];
   for (const s of SANCTIONED_HEX) {
     const want = s.hex.toLowerCase();
@@ -3405,38 +3405,9 @@ function checkHexLiterals(errors) {
   }
 }
 
-// ── HARD RULE #21: US English is the house dialect ───────────────────────────
-// The curated British→American dictionary moved to tools/us-english.js so the
-// commit-msg hook can warn from the SAME list this gate enforces (HARD RULE #1 —
-// two readers, one source). Membership is unchanged by that move: 170 forms, and
-// the suite asserts the count so a pair cannot be dropped in the shuffle. Why the
-// list is explicit rather than a stem rule, and what is deliberately absent, is
-// documented there.
-const { UK_ENGLISH_FORMS } = require('./us-english');
-
-// Files exempt from the US-English scan. Four kinds: this gate's own dictionary and
-// its test fixtures (they CONTAIN the British forms as data — without this the gate
-// flags itself); the append-only CHANGELOG ledger (past entries are frozen history,
-// like the decision docs — new entries are policed at PR review, not the gate); and a
-// generated/vendored playground bundle that inlines third-party libraries we don't
-// control. Dated engineering/decisions/ records are skipped by path in
-// listRepoTextFiles; minified/`*.generated.*` bundles by filename.
-const US_ENGLISH_SELF_EXEMPT = new Set([
-  'tools/check-ownership.js',
-  'tools/us-english.js',
-  'test/unit/cli/check-ownership.test.js',
-  'test/unit/tools/us-english.test.js',
-  'CHANGELOG.md',
-  // Same frozen-history exemption as CHANGELOG.md, and for literally the same prose:
-  // this file IS the pre-release `## Unreleased` section, moved out verbatim (#1735).
-  // Leaving it in scope would newly charge the gate for ~18k lines that were exempt the
-  // day before the move, on a ratchet whose whole point is that it only ever goes down.
-  'changelog/pre-release-archive.md',
-  'docs/public/playground/lattice-playground.js',
-  // Gitignored copy staged by docs/scripts/sync-portal.mjs — a duplicate of
-  // the generated dist/docs/components.md, whose sources are already counted.
-  'docs/public/components.md',
-]);
+// The repo-wide text walk. Born as the US-English ratchet's scan; that ratchet is
+// gone (the backlog is swept to zero and HARD RULE #21 is discipline now), and
+// checkTypedGlyphs is the remaining consumer.
 
 const US_TEXT_EXTS = new Set(['.md', '.js', '.mjs', '.ts', '.tsx', '.css', '.json', '.yml', '.yaml', '.html', '.astro']);
 const US_SKIP_DIRS = new Set(['node_modules', 'dist', '.git', 'coverage', '.scratch']);
@@ -3486,17 +3457,15 @@ function listRepoTextFiles(dir = ROOT, out = []) {
       // Its sibling, and a stronger case: `playground/hljs/` is 156 minified
       // highlight.js grammars (tools/build-hljs-languages.js), gitignored like
       // `v/` above. The hits in there are third-party LANGUAGE KEYWORDS, not
-      // prose anyone here writes — Erlang's `behaviour`, GML's `colour`,
+      // prose anyone here writes — Erlang's `behavior`, GML's `color`,
       // Mercury's `initialise`/`finalise`, pgsql's `analyse`: 6 in total, which
-      // is enough on its own to put a tree that has merely run `npm run build`
-      // over a budget CI meets on a clean checkout. Renaming an Erlang keyword
-      // is not a migration this house can perform.
+      // are third-party keywords no migration here could rename. (The US-English
+      // ratchet that once counted them is gone; the walk now serves HARD RULE #29.)
       if (rel === path.join('docs', 'public', 'playground', 'hljs')) continue;
       // Same class, different producer: `release/` is the gitignored output of
       // a release run (tools/release.js). `notes-v<x.y.z>.md` is a verbatim
-      // copy of a CHANGELOG section — and CHANGELOG.md is itself exempt below
-      // — so counting it double-charges an already-exempt source at ~70 hits
-      // and blows the budget. That fired for real: the release aborted on its
+      // copy of a CHANGELOG section, so counting it double-charges a source that is
+      // already represented once. That fired for real: the release aborted on its
       // own notes file, mid-run, after the version was already bumped.
       // Matched by path, not by name — `test/unit/release/` stays in scope.
       if (rel === 'release') continue;
@@ -3525,8 +3494,7 @@ function listRepoTextFiles(dir = ROOT, out = []) {
       // pre-commit pdf-rebuild regenerates them; the committed artifact is the .pdf.
       // Skip any .html that has a sibling .md of the same basename (a deck render
       // sidecar, never house prose) — same transient-flicker reason as galleries.
-      !(path.extname(e.name) === '.html' && fs.existsSync(p.replace(/\.html$/, '.md'))) &&
-      !US_ENGLISH_SELF_EXEMPT.has(rel)
+      !(path.extname(e.name) === '.html' && fs.existsSync(p.replace(/\.html$/, '.md')))
     ) {
       out.push(p);
     }
@@ -3534,62 +3502,8 @@ function listRepoTextFiles(dir = ROOT, out = []) {
   return out;
 }
 
-// HARD RULE #21 ratchet — the frozen ceiling of British spellings across the repo's
-// living text surfaces. EXCEED-only (mirrors the margin gate): a NEW British spelling
-// fails the build; the existing backlog is tracked in migration tickets and burned
-// down by lowering US_ENGLISH_BUDGET as it drops. Target zero.
-//
-// PINNED TO THE ACTUAL COUNT, and that is the point. It sat at 1336 against a real count
-// of 1307 — 29 units of slack, which is not headroom, it is a hole: five new British
-// spellings entered on this branch (`CENTRE`, `centre`, `honours`, `behaviour`,
-// `neighbour`, all in test files, one of them in a test NAME that printed on every run)
-// and the gate stayed green through all of them. A ratchet with slack does not ratchet.
-// The rule's own instruction is to lower this as the backlog drops; lowering it to the
-// measured count is what makes the next one fail on the first offence.
-// Re-measure with a temporary `= 0` — the failure message prints the live total.
-//
-// 1307 → 1303 (2026-08-17): the gotchas split made `engineering/gotchas.md` a generated
-// index that quotes every entry heading, and a heading appears TWICE in its row (link
-// text + anchor), so three headings carrying `grey`/`grey`/`centred` counted six times
-// over and pushed the total to 1312. The headings were corrected rather than the budget
-// raised — which also retired those three from the backlog, hence 1303 and not 1307.
-//
-// 1291 → 1285 (2026-08-30): re-measured while extracting the dictionary to
-// tools/us-english.js, and the backlog had been burned down 6 below the pin by
-// intervening merges without anyone lowering it. (The 1303 the note above lands
-// on was itself lowered to 1291 without a ledger line; this is that ledger line
-// catching up.) Six units of slack is six free
-// British spellings, which is the exact hole the paragraph above was written
-// about. Re-measured against tracked files only — the one untracked file in
-// scope (the gitignored katex bundle) carries zero, so a clean CI checkout
-// counts the same 1285 this tree does.
-const US_ENGLISH_BUDGET = 1285;
-
-function checkUsEnglish(errors) {
-  const re = new RegExp(`\\b(${UK_ENGLISH_FORMS.join('|')})\\b`, 'gi');
-  let total = 0;
-  const byFile = [];
-  for (const file of listRepoTextFiles()) {
-    const n = (fs.readFileSync(file, 'utf8').match(re) || []).length;
-    if (n) {
-      total += n;
-      byFile.push([path.relative(ROOT, file), n]);
-    }
-  }
-  if (total > US_ENGLISH_BUDGET) {
-    byFile.sort((a, b) => b[1] - a[1]);
-    const top = byFile.slice(0, 5).map(([f, n]) => `${f} (${n})`).join(', ');
-    errors.push(
-      `British spellings rose to ${total}, above the budget of ${US_ENGLISH_BUDGET} (HARD RULE #21 — ` +
-      `US English is the house dialect). Use the US spelling (-or not -our, -ize not -ise, -er not -re; ` +
-      `gray, license, defense, catalog, while). Existing usages are tracked for migration — don't add new ` +
-      `ones; as the backlog drops, lower US_ENGLISH_BUDGET in tools/check-ownership.js. Heaviest files: ${top}.`,
-    );
-  }
-}
-
 // HARD RULE #29 ratchet — the frozen ceiling of typed shape glyphs across the DECKS
-// we ship. EXCEED-only, same shape as US_ENGLISH_BUDGET: a new one fails the build,
+// we ship. EXCEED-only: a new one fails the build,
 // the remaining backlog is burned down by lowering this. Target zero.
 // Re-measure with a temporary `= 0` — the failure message prints the live total.
 //
@@ -4538,7 +4452,7 @@ const ADAPT_MODES = new Set(require('../lib/components/manifest.schema.json').pr
  * The line is whether the recipe changes a member's STRUCTURE for the box or
  * merely distributes members across pages:
  *   · cover-cards TRANSPOSES a table row into a card with the column headers as
- *     labelled fields — a wide read-across table cannot paginate out of
+ *     labeled fields — a wide read-across table cannot paginate out of
  *     HORIZONTAL overflow, so the shape itself has to change. That is a reflow.
  *   · cover-paginate (premise, glossary, q-and-a, authority-chain,
  *     regulatory-update, statute-stack) puts a cover in front and splits the run.
@@ -4662,7 +4576,7 @@ function checkAdaptDeclarations(manifests, errors) {
     // (lattice-emulator.js `AUTOSPLIT_APPLIES`), so a `split.strategy` fires only on
     // square/tall/strip. `compare-table` is the case — a wide read-across table cannot
     // paginate out of HORIZONTAL overflow, so `cover-cards` transposes each row into a
-    // card with the column headers as labelled fields. That is "the box is
+    // card with the column headers as labeled fields. That is "the box is
     // restructured, not just scaled" as squarely as any CSS rule; it simply keys on the
     // class carousel.js adds rather than on `[data-family]`. Verified it needs no CSS
     // tier as well: all five variants render at `size: mobile` with zero overflow, so
@@ -4797,7 +4711,7 @@ function checkRenderNature(manifests, errors) {
 // AI-generated decks + component skeletons) into a SAME-ORIGIN, un-sandboxed
 // `srcdoc` iframe; un-sanitized engine HTML there is XSS → OpenRouter-key theft
 // (#616). A frame BUILDER is any docs/src module that assembles a live preview
-// document — recognised by the split runtime-`<script>` injection idiom
+// document — recognized by the split runtime-`<script>` injection idiom
 // (`'<scr' + 'ipt`) every builder uses — and each MUST call `sanitizeSlideHtml`
 // on the slide HTML before it goes in. (Files that only ASSIGN a builder's output
 // to `.srcdoc` — e.g. drawing-board-present/export — carry no marker and need no
@@ -6537,7 +6451,7 @@ function checkRuntimeMarkupSinks(errors, sanctions = SANCTIONED_RUNTIME_MARKUP_S
   }
   // A duplicate (file, sink) would SILENTLY SHADOW in the Map below — last one wins — leaving a
   // wrong count and its provenance in the list enforcing nothing. `checkE2ESleeps` in this same
-  // file already detects exactly this hazard; not doing it here re-opened a hole its neighbour
+  // file already detects exactly this hazard; not doing it here re-opened a hole its neighbor
   // had already closed.
   const seenSanctionKeys = new Set();
   for (const entry of sanctions) {
@@ -7212,7 +7126,7 @@ function checkAudioPlaybackBoundary(errors) {
 // Two families, and the second one earned its place by naming something the first
 // cannot. The original five are all about the TOUR's own state — hello, look here,
 // it worked, it failed, careful. None of them can name a piece of the host's PROSE,
-// so a pointer whose only verb is "go somewhere" says "this" by travelling, which is
+// so a pointer whose only verb is "go somewhere" says "this" by traveling, which is
 // why the Guide rung read as a karaoke follower. The DEICTIC four are chosen by the
 // SHAPE of the thing being named, which is what makes the variety motivated rather
 // than a die roll, and each one's cursor rests where its own stroke ends.
@@ -8553,7 +8467,7 @@ function checkSkillFreshness(errors) {
   }
 }
 
-// §8 rule 5 + rule 11 — the STANDING ORACLE for split behaviour
+// §8 rule 5 + rule 11 — the STANDING ORACLE for split behavior
 // (engineering/decisions/2026-07-22-structure-derived-split-patterns.md). Rule 5 asks for
 // "a committed, blessed golden of {component → (axis, read-across, cover-class,
 // reshape-class)}, gated in build:check, so a later DOM refactor that drifts a *default*
@@ -8609,7 +8523,7 @@ function checkSplitOracle(manifests, errors) {
       const b = JSON.stringify(blessed[name][k]);
       if (a !== b) {
         errors.push(
-          `${name}.${k}: split behaviour DRIFTED from the blessed oracle (${b} → ${a}). ` +
+          `${name}.${k}: split behavior DRIFTED from the blessed oracle (${b} → ${a}). ` +
           `If intended, \`npm run oracle:bless\` and justify it in the PR; the record is ` +
           `the review artifact (§8 rule 5). If not, the manifest change has a side effect ` +
           `on how this component splits.`,
@@ -10077,7 +9991,7 @@ const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
   { token: 'footerleft-inset', why: 'footer-left cell: per-deck placement knob, defaults inline.' },
   { token: 'footerleft-w', why: 'footer-left cell: per-deck width knob, defaults inline.' },
   { token: 'pagination-inset', why: 'pagination-right cell: per-deck placement knob, defaults inline.' },
-  { token: 'progress-inset', why: 'progress-centre cell: per-deck placement knob, defaults inline.' },
+  { token: 'progress-inset', why: 'progress-center cell: per-deck placement knob, defaults inline.' },
   { token: 'horizon-count', why: 'roadmap horizons: a per-deck column count, defaults inline.' },
   { token: 'qr-ink', why: 'connect/_qr-card: the QR module color, set per deck so a card can match a brand.' },
   { token: 'qr-paper', why: 'connect/_qr-card: the QR quiet-zone color, set per deck alongside --qr-ink.' },
@@ -10888,7 +10802,6 @@ function run() {
   checkCascadeLayers(errors);
   checkZPlanes(errors);
   checkHexLiterals(errors);
-  checkUsEnglish(errors);
   checkTypedGlyphs(errors);
   checkAdaptDeclarations(manifests, errors);
   checkSolverIntentDeclared(manifests, errors);
@@ -11112,10 +11025,7 @@ module.exports = {
   checkSplitOracle,
   LAYOUT_HEX_BUDGET,
   SANCTIONED_HEX,
-  checkUsEnglish,
   listRepoTextFiles,
-  UK_ENGLISH_FORMS,
-  US_ENGLISH_BUDGET,
   TYPED_GLYPH_BUDGET,
   decodeCssEscapes,
   SANCTIONED_GLYPH_DECKS,

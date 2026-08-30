@@ -5,20 +5,22 @@
   real explanation amputated to hit it. The contract is `engineering/house-style.md`;
   `design/editorial.md` keeps the words *on a slide*, which is a different surface with
   different rules.
-- **HARD RULE #21 now says out loud that it covers the surfaces no gate can reach.** The
-  US-English ratchet scans tracked files, so a chat reply, an issue body, a PR
-  description and a commit message were never in its scope — 21 British spellings had
-  ridden into the last 300 commit messages under a green build.
-- **The commit-msg hook warns on British spellings.** It prints the American form and
-  exits 0, never blocking: a commit message legitimately quotes British-spelled text, and
-  HARD RULE #14 forbids `--no-verify` as the escape from a false positive. It reads the
-  same 170-pair dictionary the build gate enforces, now extracted to `tools/us-english.js`
-  so the hook and the gate cannot drift apart.
-- `US_ENGLISH_BUDGET` lowered 1291 → 1285, the measured count. The backlog had been burned
-  down below the pin without anyone lowering it, and six units of slack on a ratchet is six
-  free British spellings.
-- **`.claude/**` is now inside the US-English scan.** The repo walk skipped it as a hidden
-  directory, so 14 tracked prose files — the agent roster cards and workflow scripts, which
-  are house instructions an agent reads and copies the voice of — were governed by nothing.
-  They measured zero British spellings on the way in, so the budget did not move and this
-  is a floor rather than a backlog.
+- **The British-spelling backlog is gone — 1285 spellings across 406 files, swept to
+  zero** in one mechanical pass. Comments, docs, manifest prose, strings and test names
+  only: no CSS custom property, class name, camelCase identifier or deck-author-facing
+  surface carried a British spelling, so nothing renames and no deck changes.
+- **Breaking for contributors: `checkUsEnglish` is deleted.** The repo-wide scan, the
+  `US_ENGLISH_BUDGET` ratchet, its self-exempt list and its revision ledger are all gone
+  from `tools/check-ownership.js` (-93 lines), and `build:check` no longer walks every
+  tracked file looking for spellings. A gate that needed 1285 standing exceptions to stay
+  green was more machinery than the problem; from zero, a regression is one visible word
+  in a diff. HARD RULE #21 is discipline now.
+- **What replaces it is ~30 lines.** The commit-msg hook warns on British spellings from
+  `tools/us-english.js` and never blocks — a message may quote British-spelled text, and
+  HARD RULE #14 forbids `--no-verify` as the escape. It covers the surface that measured
+  real drift: 21 British spellings in the last 300 commit messages, every one under a
+  green build.
+- **Eight British spellings remain, on purpose:** four citations of a dated
+  `engineering/decisions/` filename and four inside `docs/package-lock.json`. Neither is
+  text we author. The one internal identifier still UK-spelled, the `progress-centre`
+  Form cell, is tracked separately in #578.

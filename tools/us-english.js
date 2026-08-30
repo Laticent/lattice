@@ -1,29 +1,27 @@
 #!/usr/bin/env node
 /**
- * The house US-English dictionary: one curated British-to-American word map, shared by the `build:check` ratchet and the commit-msg hook (HARD RULE #21).
+ * The house US-English word list: a curated British-to-American map, used by the commit-msg hook to warn on British spellings (HARD RULE #21).
  *
- * Why it lives here rather than inside tools/check-ownership.js, where it was
- * born: the gate scans tracked FILES, and the two surfaces that carry the most
- * drift are not files. A commit message and a PR body never reach
- * `listRepoTextFiles`, so 21 British spellings rode into the last 300 commit
- * subjects and bodies under a green gate. Two readers of one list is HARD RULE
- * #1 — a second copy in the hook would be a dictionary that silently disagrees
- * with the one the build enforces.
+ * This is the ONLY US-English machinery left. The tracked tree was swept to zero
+ * in 2026-08, and the `checkUsEnglish` ratchet — a budget, a self-exempt list,
+ * and a repo-wide scan on every build — was deleted with it. A gate that had to
+ * carry 1285 exceptions to stay green was more machinery than the problem, and
+ * from zero a regression is a single visible word in a diff rather than a needle
+ * in a haystack. HARD RULE #21 is discipline now; this file is the one cheap
+ * backstop, on the one surface that measured real drift (21 British spellings in
+ * 300 commit messages).
  *
- * The map is EXPLICIT, and deliberately so. A stem rule over-matches (`centre`
- * inside `epicentre`) and a suffix rule guesses wrong in both directions
- * (`practise`→`practice` is not `-ise`→`-ize`; `analyses` is also the US plural
- * of "analysis"). Only unambiguous UK/US pairs are listed, which is why the
- * many words US keeps in the British-looking form — `dialogue`, `analysis`,
- * `exercise`, `comprise`, `advise`, `surprise`, `cancellation`, the noun
- * `practice` — are absent. Add a pair only when the distinction is unambiguous.
+ * The map is EXPLICIT. A stem rule over-matches (`centre` inside `epicentre`) and
+ * a suffix rule guesses wrong both ways (`practise`→`practice` is not
+ * `-ise`→`-ize`; `analyses` is also the US plural of "analysis"). Only unambiguous
+ * pairs are listed, which is why words US keeps in the British-looking form —
+ * `dialogue`, `analysis`, `exercise`, `comprise`, `advise`, `surprise`,
+ * `cancellation`, the noun `practice` — are absent. Add a pair only when the
+ * distinction is unambiguous.
  *
- * Detection is case-insensitive; `suggest()` restores the casing it was given,
- * so a warning about `Behaviour` reads `Behavior` rather than `behavior`.
+ * Detection is case-insensitive; `suggest()` restores the casing it was given.
  *
- * Usage:
- *   const { findBritishSpellings } = require('./us-english');
- *   node tools/us-english.js --warn <file>   # advisory scan, always exits 0
+ * Usage: node tools/us-english.js --warn <file>    # advisory, always exits 0
  */
 
 const fs = require('node:fs');
@@ -105,11 +103,11 @@ const UK_TO_US = Object.freeze({
   practise: 'practice', practised: 'practiced', practises: 'practices',
 });
 
-const UK_ENGLISH_FORMS = Object.freeze(Object.keys(UK_TO_US));
+const BRITISH_FORMS = Object.freeze(Object.keys(UK_TO_US));
 
 /** A fresh matcher each call — a shared /g regex carries `lastIndex` between callers. */
 function britishFormRe() {
-  return new RegExp(`\\b(${UK_ENGLISH_FORMS.join('|')})\\b`, 'gi');
+  return new RegExp(`\\b(${BRITISH_FORMS.join('|')})\\b`, 'gi');
 }
 
 /**
@@ -187,4 +185,4 @@ if (require.main === module) {
   process.exit(0);
 }
 
-module.exports = { UK_TO_US, UK_ENGLISH_FORMS, britishFormRe, suggest, findBritishSpellings, commitMessageBody };
+module.exports = { UK_TO_US, BRITISH_FORMS, britishFormRe, suggest, findBritishSpellings, commitMessageBody };

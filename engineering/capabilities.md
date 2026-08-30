@@ -190,7 +190,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `test:integration:galleries` | Integration scope: gallery render + page-count regression. |
 | `test:integration:mermaid` | Integration scope: mermaid smoke render. |
 | `test:integration:nightly` | Nightly render-regression slice (runs on main via integration-nightly.yml): gallery/component/exemplar page-counts + mermaid + screenshot. |
-| `test:integration:parity` | Integration scope: resolver↔DOM colour parity, deck-class/finish/logo front-matter, chart-family. |
+| `test:integration:parity` | Integration scope: resolver↔DOM color parity, deck-class/finish/logo front-matter, chart-family. |
 | `test:integration:pr` | PR-blocking integration slice (the required CI gate): cross-path wiring (parity) + export pipeline + per-component semantic invariants. |
 | `test:integration:screenshot` | Integration scope: the screenshot harness. |
 | `test:layout` | Unit scope: the layout system. |
@@ -217,7 +217,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `check:family-conformance:bless` | Rewrite `test/oracle/family-conformance.json` from a fresh run of `check:family-conformance`. Read the drift before blessing: `fires -> inert` is a tier that stopped firing, and `-> unexercised` may mean the sweep changed which gallery slide it picks rather than anything about the component. Refuses to write when the rule read looks broken (fewer than 100 family-scoped rules found), because this pass has failed by reading ZERO once already and a record of all-`n/a` would be green forever while asserting nothing. |
 | `check:family-tiers` | Adaptive-family BEHAVIOR gate: renders one deck per family (wide/square/tall/strip) through the emulator and asserts each component actually reflows the way it intends — reading the COMPUTED style of a property only that family's rule can produce, plus the `data-family` stamp. Replaces the retired check-adaptive-families, which compared two CLASSIFIERS and so could only catch them disagreeing, never catch a whole tier being INERT — the square tier was dead for that gate's entire life (#1218). Asserting behavior catches a lost stamp, a bad selector, or a cascade change alike. Skips loudly with no Chromium. |
 | `check:ownership` | Collision/ownership guard: hard-fails on accidental duplicate selectors/transformers/names. |
-| `check:render` | Scoped-render black-fill guard: renders the chart gallery (the SVG-painting chart components) through the real playground/Studio composeCss() in headless Chromium (indaco/cuoio × light/dark) and fails on any NEW opaque-black SVG paint — a themed colour that dropped to SVG black (the #956 class). Ratchets against test/viz-render/black-baseline.json. |
+| `check:render` | Scoped-render black-fill guard: renders the chart gallery (the SVG-painting chart components) through the real playground/Studio composeCss() in headless Chromium (indaco/cuoio × light/dark) and fails on any NEW opaque-black SVG paint — a themed color that dropped to SVG black (the #956 class). Ratchets against test/viz-render/black-baseline.json. |
 | `check:render-nature` | Truth gate for the manifest `render` field: renders every visualization component's own gallery through the export path (emulator HTML sidecar, mermaid baked) in headless Chromium, derives whether the picture is actually drawn in SVG / HTML / both, and fails when a declaration disagrees. `--report` prints the derived table, `--json` the raw counts. Skips loudly with no Chromium. |
 | `check:render:bless` | Rewrite the scoped-render black-fill baseline (test/viz-render/black-baseline.json) after an intentional change; justify the delta in the PR. |
 | `check:responsive` | Static lint: no fixed-px layout in chart CSS (responsive contract). |
@@ -417,7 +417,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/component-gen-eval.mjs` | AI component-generation evaluator — runs the FROZEN, held-out adversarial prompt |
 | `tools/composed-contrast.js` | composed-contrast — WCAG audit of the surfaces a COMPONENT composes, not the |
 | `tools/contrast-exemptions.js` | The adjudicated decorative-exemption ledger, shared by every rendered-DOM contrast gate. |
-| `tools/cvd-audit.js` | Colour-vision-deficiency (CVD) collapse audit for Lattice themes. |
+| `tools/cvd-audit.js` | Color-vision-deficiency (CVD) collapse audit for Lattice themes. |
 | `tools/derive-cat-ink.js` | Generate the curated `--cat-1-ink … --cat-12-ink` block for every palette. |
 | `tools/derive-chart-cat-ink.js` | Generate the curated `--chart-cat1-ink … --chart-cat8-ink` block for every |
 | `tools/diagram-oracle.mjs` | diagram-oracle — a per-fence byte oracle for the CLI's mmdc bake. |
@@ -435,7 +435,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/slice-equivalence.mjs` | Slice/deck equivalence — the HEADLESS half of the diagnostic. |
 | `tools/spike-composition-snapshot.mjs` | SPIKE — not production tooling. The measurement harness behind |
 | `tools/transform-parity.mjs` | transform-parity — does the DOM implementation of each registry transformer |
-| `tools/us-english.js` | The house US-English dictionary: one curated British-to-American word map, shared by the `build:check` ratchet and the commit-msg hook (HARD RULE #21). |
+| `tools/us-english.js` | The house US-English word list: a curated British-to-American map, used by the commit-msg hook to warn on British spellings (HARD RULE #21). |
 | `tools/verify-catalog-states.mjs` | The real-surface check the checker said was still owed on findings 1, 2 and 4. |
 | `tools/verify-narrated-player.mjs` | Real-surface verification for the baked-narration player (#1393). |
 | `tools/verify-player-input.mjs` | Real-surface verification for the exported HTML player's TOUCH input (#1558). |

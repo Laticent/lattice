@@ -5,7 +5,7 @@ PDFs from Markdown. It is the engine layer of the **SlideWright** org; a
 Tauri desktop wrapper (also SlideWright) embeds the same engine.
 
 **The visual contract is `lattice.css`.** Layouts are palette-blind: every
-colour goes through `var(--token)`. Themes (`themes/indaco.css`,
+color goes through `var(--token)`. Themes (`themes/indaco.css`,
 `themes/cuoio.css`, …) supply the tokens.
 
 This file is an **index, not a manual**: it orients you and points to the
@@ -130,7 +130,7 @@ seen the options first. Born from a session that labeled 60 issues
    (`sync-backlog.yml`, a generated view of issues), the release (`release.yml`,
    where **the dispatch is the authorization**), and **patch/minor dependency
    bumps** (`dependabot-auto-merge.yml`; majors always wait for a human). None
-   is licence to auto-merge anything you wrote.
+   is license to auto-merge anything you wrote.
 
 Rules 6–7 deliberately override the harness defaults (which hold off on PR
 creation and ask before watching). `doneMeansMerged` in `.claude/settings.json`
@@ -191,7 +191,7 @@ A claim of "verified" names its surface and carries an artifact from *that* surf
 emulation, a synthetic harness, and "CI green" are **not** verification (HARD RULE #23).
 
 **Website / responsive UI** ships to desktop (~1440px), tablet (~820px), and
-mobile (~390px) — all first-class. Keep one visual language across them; favour
+mobile (~390px) — all first-class. Keep one visual language across them; favor
 icon-only controls where space is tight; no layout jank. **No website change is
 done without `tools/screenshot.js` evidence at all three widths.** Details:
 `engineering/development.md`.
@@ -296,7 +296,7 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
 - **#2 — Never hand-edit `dist/`** — it's generated; regenerate with `npm run build`.
 - **#3 — No hex literals in layout CSS — always `var(--token)`.** *(gated —
   `checkHexLiterals` in `tools/check-ownership.js`, via `build:check`; budget 0 + a small
-  `SANCTIONED_HEX` allowlist for fixed non-themeable colours. `*.tokens.css` + `var(--t,#fallback)`
+  `SANCTIONED_HEX` allowlist for fixed non-themeable colors. `*.tokens.css` + `var(--t,#fallback)`
   defaults exempt.)*
 - **#6 — Before authoring any `<!-- _class: X -->` slide**, in the SAME turn open
   `lib/components/<bucket>/X/X.docs.md` AND grep
@@ -346,7 +346,7 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
 lint/test catches a violation, *discipline* = no automated gate, so it's on you):
 
 - **#4 — Typography is the 12-token `--fs-*` system**; tokens are named for their
-  ROLE, never a colour scheme. *(gated — `checkTypographyTokens` in
+  ROLE, never a color scheme. *(gated — `checkTypographyTokens` in
   `tools/check-ownership.js`, via `build:check`; `engineering/typography.md`.)*
 - **#5 — Card-style layouts use nested `- Title` / `  - body`**, never inline
   `- **Title.** body`. *(gated — `deck-authoring.test.js`; see `AGENTS.md`.)*
@@ -418,22 +418,28 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 - **#21 — US English is the house dialect — American spellings only.** Everywhere a
   human reads words — docs, comments, manifest text, UI copy, hyphenated
   identifiers/classes/tokens — use the US form: `-or` not `-our`, `-ize` not `-ise`,
-  `-er` not `-re`; `gray`, `license`, `defense`, `catalog`, `while`. The curated word
-  list lives in `tools/us-english.js`; existing British spellings are a tracked
-  migration backlog (don't add new ones — as the backlog drops, lower
-  `US_ENGLISH_BUDGET`). The gate catches whole + hyphenated words; a British spelling
-  buried in a `camelCase`/`snake_case` identifier rides on review, so name those US too.
-  **"Everywhere" INCLUDES the surfaces the gate cannot reach** — a chat reply, an issue
-  body, a PR description, a review comment, a commit message. None of those is a tracked
-  file, so `build:check` never sees one, and 21 British spellings rode into the last 300
-  commit messages under a green gate. The commit-msg hook now WARNS on them from this
-  same dictionary (never blocks — a message may quote British-spelled text, and #14
-  forbids `--no-verify` as the escape); everything else on that list is discipline. *(gated —
-  `checkUsEnglish` ratchet in `tools/check-ownership.js`, via `build:check`;
-  exceed-only, target zero; dated `engineering/decisions/` records, the frozen
-  `CHANGELOG` ledger, and generated bundles are exempt — but a **`changelog.d/`
-  fragment is in scope**, so a new entry is gate-visible where the old one was not
-  (#1366's new-entry half).)*
+  `-er` not `-re`; `gray`, `license`, `defense`, `catalog`, `while`. **"Everywhere"
+  includes the surfaces no gate can reach** — a chat reply, an issue body, a PR
+  description, a review comment, a commit message.
+  **The tree is at zero, and the ratchet that got it there is gone.** The backlog was
+  1285 spellings across 406 files; it was swept in one mechanical pass (2026-08-30) and
+  `checkUsEnglish` — a repo-wide scan on every build, carrying a budget, a self-exempt
+  list and a ledger of its own revisions — was deleted with it. A gate needing 1285
+  standing exceptions to stay green was more machinery than the problem it policed, and
+  from zero the arithmetic inverts: a regression is one visible word in a diff, not a
+  needle in a 1285-hit haystack. Two things survive deliberately — the `.claude/`-aware
+  `listRepoTextFiles` walk (HARD RULE #29's glyph gate uses it) and the ~30-line
+  commit-msg warning below.
+  **Eight British spellings remain on purpose:** four citations of a dated
+  `engineering/decisions/` filename that carries the British spelling, and four inside
+  `docs/package-lock.json` (an npm tarball URL). Both are text we do not author.
+  `progress-centre` — the one internal identifier still UK-spelled — is issue #578.
+  *(discipline, with one cheap backstop — `tools/check-commit-msg.sh` WARNS on British
+  spellings from `tools/us-english.js` and never blocks, because a message may quote
+  British-spelled text and #14 forbids `--no-verify` as the escape. It covers the one
+  surface with measured drift: 21 British spellings in 300 commit messages. Nothing else
+  is enforced; a British spelling buried in a `camelCase` identifier rides on review, so
+  name those US too.)*
 - **#22 — Untrusted content reaches a preview frame ONLY through a sanitizer, and the
   frame has TWO channels: markup and stylesheet.** The docs-site Studio renders untrusted
   markdown (shared / AI-generated decks + component skeletons) into a SAME-ORIGIN,
@@ -687,8 +693,8 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   a reason to skip a gate, a caveat, or the thing that was not verified (#23).
   *(discipline — no automated gate for voice or length, and there is unlikely to be a
   good one: nothing in the tree can tell a load-bearing sentence from a plausible
-  filler one. Spelling is the one arm with teeth — the `checkUsEnglish` ratchet on
-  tracked files, and an advisory commit-msg warning from the same dictionary.
+  filler one. Spelling has one cheap arm — the advisory commit-msg warning (#21); the
+  repo-wide ratchet was retired once the tree hit zero.
   `engineering/house-style.md`; the on-demand auditor is the `prose-checker` agent.)*
 
 ---
