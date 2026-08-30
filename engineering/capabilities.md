@@ -236,6 +236,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `quality` | Codebase quality assessment: coupling, boundaries, cycles, change coupling, complexity, duplication, dead code — see engineering/quality-assessment.md. |
 | `quality:bless` | Write the committed quality-assessment baseline (test/quality/baseline.json) from a fresh run — the ratchet a quality-improving PR updates. |
 | `quality:check` | Re-run the quality assessment and compare vs the committed baseline; flags any metric that got worse. On-demand, not a blocking CI gate. |
+| `score:variance` | Decompose which scorecard categories actually move a deck's Craft/Style grade, attribute each category's variance to the rules feeding it (by ablation), and report what a draft model is really perturbing. On-demand, not a gate. --json / --committed / --weighted / --depths=. See engineering/decisions/2026-08-30-craft-weight-variance-proxy-bias.md. |
 | `scorecard` | Token-parity + palette-quality score for every theme. |
 | `scorecard:check` | Gate: fail if any theme scorecard regresses. |
 
@@ -432,6 +433,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/palette-native.js` | palette-native — the REFEREE for `tools/palette-sweep.js`. |
 | `tools/perf-nightly-compare.mjs` | Compare two `engine-bench --json` runs and report a markdown verdict. |
 | `tools/preview-component.js` | Component preview — render ONE local / AI-generated component the way the engine |
+| `tools/score-variance.js` | Score variance — which scorecard categories actually MOVE a deck's grade, and what a draft model is really perturbing. |
 | `tools/slice-equivalence.mjs` | Slice/deck equivalence — the HEADLESS half of the diagnostic. |
 | `tools/spike-composition-snapshot.mjs` | SPIKE — not production tooling. The measurement harness behind |
 | `tools/transform-parity.mjs` | transform-parity — does the DOM implementation of each registry transformer |
