@@ -62,15 +62,22 @@
  * count attempts the pin refused. The claim under test is what reading this surface cost,
  * and that is Reads.
  *
- * `context_tokens` sums `usage`, which the CLI's own schema flags as main-loop-only and
- * per-turn, and which accumulates `cache_read_input_tokens` on EVERY turn — so for a
- * condition needing ten paginated reads it counts a growing cached prefix ten times and is
- * not comparable to a one-read condition. `model_tokens` derives from `modelUsage`, which
- * the same schema says to prefer for token accounting, and is the figure to quote. Both
+ * WHICH TOKEN FIGURE ANSWERS "WHAT DID THIS SURFACE COST" — and it is none of the two this
+ * file originally offered. `context_tokens` sums `usage` and accumulates
+ * `cache_read_input_tokens` on EVERY turn, so a ten-read condition counts a growing cached
+ * prefix ten times. An earlier version of this comment told the reader to prefer
+ * `model_tokens` FOR THAT REASON, which is wrong: `model_tokens` sums `modelUsage`, and
+ * `modelUsage` carries `cacheReadInputTokens` too (see the reducer below). The two differ
+ * by the haiku sub-model's ~1.4k, not by the re-counting.
+ *
+ * The figure that does NOT re-count is `modelUsage[<opus>].cacheCreationInputTokens`: the
+ * newly-cached prefix, billed once per token. Its own evidence is that two full-catalog
+ * replicates landed at 179,572 and 179,589 while taking 11 and 10 reads — a quantity
+ * insensitive to read count is measuring the surface rather than the traversal. All three
  * are recorded so the difference stays visible rather than being an editorial choice made
- * once and forgotten. Neither compares to the `subagent_tokens` in the older
- * `pick-surface-agent-runs.json`, which came from the Agent TOOL inside an interactive
- * session and carries no `claude -p` system prompt.
+ * once and forgotten. None compares to the `subagent_tokens` of the pre-#1897 hand
+ * transcription, which came from the Agent TOOL inside an interactive session and carries
+ * no `claude -p` system prompt.
  *
  * SPEND. This drives Claude subagents, not the OpenRouter API, so HARD RULE #24's gate
  * (which keys on OUR key's NAME) has nothing to catch — and it stays out of `test/**`
@@ -105,6 +112,7 @@ import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileS
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseStream } from './parse-stream.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -245,48 +253,6 @@ function buildPrompt(surfaceFile, briefs = BRIEFS) {
 }
 
 // ── Spawning one agent ───────────────────────────────────────────────────────
-/**
- * Parse the `stream-json` transcript. The final `type:"result"` event carries usage,
- * cost and permission_denials; every assistant message may carry `tool_use` blocks,
- * which is the only place a per-tool count can come from (the `json` output format
- * reports usage but not tool calls).
- *
- * Two frame classes are skipped rather than counted. `is_meta` assistant frames are
- * synthesized by the CLI and can carry a fabricated `tool_use` block no model emitted.
- * A frame carrying `supersedes` replaces already-delivered messages, so counting both it
- * and what it replaces double-counts. Messages are also de-duplicated by `message.id`,
- * since a re-delivered frame is the same tool call rather than a second one.
- */
-function parseStream(stdout) {
-  const toolUses = {};
-  const seenMessages = new Set();
-  const superseded = new Set();
-  const perMessage = [];
-  let result = null;
-  for (const line of stdout.split('\n')) {
-    const s = line.trim();
-    if (!s.startsWith('{')) continue;
-    let ev;
-    try { ev = JSON.parse(s); } catch { continue; }
-    if (ev.type === 'result') { result = ev; continue; }
-    if (ev.type !== 'assistant' || ev.is_meta) continue;
-    const content = ev?.message?.content;
-    if (!Array.isArray(content)) continue;
-    for (const u of ev.supersedes ?? []) superseded.add(u);
-    const id = ev?.message?.id ?? ev.uuid ?? null;
-    if (id !== null) {
-      if (seenMessages.has(id)) continue;
-      seenMessages.add(id);
-    }
-    const calls = content.filter((b) => b?.type === 'tool_use').map((b) => b.name);
-    if (calls.length) perMessage.push({ uuid: ev.uuid ?? null, calls });
-  }
-  for (const { uuid, calls } of perMessage) {
-    if (uuid !== null && superseded.has(uuid)) continue;
-    for (const name of calls) toolUses[name] = (toolUses[name] || 0) + 1;
-  }
-  return { toolUses, result };
-}
 
 /**
  * Pull the JSON envelope out of the agent's reply.
@@ -363,7 +329,7 @@ function runAgent(condition, replicate, surfaceFile) {
       spawnError = e.stderr?.toString().trim().split('\n').slice(0, 3).join(' ')
         || `claude exited ${e.status ?? '?'}${e.signal ? ` on ${e.signal}` : ''}`;
     }
-    const { toolUses, result } = parseStream(stdout);
+    const { toolUses, toolCalls, result } = parseStream(stdout);
     const raw = result?.result ?? null;
     // A turn-limit kill produces no final result and otherwise reads as a model failure.
     // Name it, so the artifact records a harness limit as a harness limit.
@@ -391,6 +357,9 @@ function runAgent(condition, replicate, surfaceFile) {
       // The harness's OWN accounting — never a human's copy.
       tool_uses: toolUses,
       tool_uses_total: Object.values(toolUses).reduce((a, b) => a + b, 0),
+      // The per-call ledger the counts above are derived from, so `surface_reads` can be
+      // re-checked from the artifact alone rather than by paying for another run.
+      tool_calls: toolCalls,
       // The headline. A denied call still emits a tool_use block, so the TOTAL counts
       // attempts the pin refused; the question is what reading the surface cost.
       surface_reads: toolUses.Read ?? 0,
@@ -560,9 +529,12 @@ const doc = {
   _note:
     'GENERATED by tools/intent-bakeoff/pick-surface-agent-eval.mjs — do not hand-edit. Each run ' +
     "records the agent RAW return verbatim plus the harness's own tool-call and usage accounting. " +
-    'Quote `model_tokens` (from modelUsage), not `context_tokens` (from usage, which re-counts the ' +
-    'cached prefix on every turn); neither compares to `subagent_tokens` in ' +
-    'pick-surface-agent-runs.json, which came from the Agent tool inside an interactive session.',
+    'For "how much context did this surface cost", quote model_usage[opus].cacheCreationInputTokens ' +
+    '— the newly-cached prefix, billed once, and insensitive to how many reads it took. ' +
+    '`model_tokens` and `context_tokens` BOTH accumulate the cached prefix per turn, so both scale ' +
+    'with turn count rather than with the surface. None of the three compares to the ' +
+    '`subagent_tokens` of the pre-#1897 hand transcription (see git history for that file), which ' +
+    'came from the Agent tool inside an interactive session.',
   briefs_file: `tools/intent-bakeoff/${basename(BRIEFS_FILE)}`,
   replicates: REPLICATES,
   conditions: WANTED,
