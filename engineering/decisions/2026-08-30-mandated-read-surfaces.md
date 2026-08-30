@@ -231,7 +231,29 @@ not cause (#18: found, not caused, off-path).
 
 ## Removable when
 
-Never — structural, like its three predecessors. The rule this adds: **a surface a HARD RULE
-makes mandatory is budgeted like a read-whole index, and if it cannot get under the budget,
-its routing changes.** The two found here were the two that exist; a third mandated read
-should be measured on the day the rule creating it is written.
+Never — structural, like its three predecessors. The rule this adds is narrow, and the
+narrowness is deliberate: **a surface a HARD RULE makes MANDATORY is measured against the
+read-whole budget like an index, and when it cannot get under it, the routing changes rather
+than the content.** The two found here were the two that exist; a third should be measured on
+the day the rule creating it is written.
+
+Note what it does NOT say. It does not license trimming a document to hit a number — that is
+the mistake this branch made and reverted, and the ratchet exists so the next reader cannot
+make it from here. Both surfaces this note touches are still over 10k afterwards (13,932 and
+15,682) and that is the intended outcome: the routing moved, the prose stayed.
+
+**An open challenge to the underlying budget, recorded rather than resolved.** An inversion
+pass argues the ≤10k figure from `2026-08-17-context-index-tiering.md` generalizes from the
+wrong mechanism. The only real experiment in this corpus — the pick-surface bake-off — measured
+a **discontinuity**: `components.json` is 11,437 lines against a 2,000-line default read, so
+agents paid for eight or nine paginated reads or silently chose from a fraction of the catalog.
+That is a step function at the read boundary, not a linear token cost. `capabilities.md` (441
+lines) and `base.docs.md` (1,232) both fit one read and exhibit none of it. The proposed
+restatement is *"a mandated read must fit in ONE tool read"* — which catches `components.json`
+cleanly, clears both files here, and would not have asked anyone to shred a working document.
+
+That is a change to a rule this note did not write, so it is not made here. It is the right
+question, and the instrument to settle it already exists: `npm run intent:pick-agents` spawns
+agents against a pinned surface and records their token usage, so condition A (the file read
+whole) against condition B (the file under grep-first routing), scored on whether the agent
+finds the existing tool, would measure the SESSION rather than the file. Nobody has run it.
