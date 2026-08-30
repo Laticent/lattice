@@ -48,6 +48,14 @@ describe('US-English word list (HARD RULE #21)', () => {
     assert.equal(suggest('color'), null, 'a US form has no suggestion');
   });
 
+  // The hook PRINTS the line number, so its shape is load-bearing, not incidental.
+  test('findBritishSpellings reports every hit with its line', () => {
+    assert.deepEqual(findBritishSpellings('clean line\nthe colour is grey\n'), [
+      { found: 'colour', suggestion: 'color', line: 2 },
+      { found: 'grey', suggestion: 'gray', line: 2 },
+    ]);
+  });
+
   // A /g regex shared between callers carries `lastIndex`, so a second call would
   // start mid-string and miss a hit at the front.
   test('repeated scans of the same text agree', () => {

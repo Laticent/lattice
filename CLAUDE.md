@@ -421,19 +421,21 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   `-er` not `-re`; `gray`, `license`, `defense`, `catalog`, `while`. **"Everywhere"
   includes the surfaces no gate can reach** — a chat reply, an issue body, a PR
   description, a review comment, a commit message.
-  **The tree is at zero, and the ratchet that got it there is gone.** The backlog was
-  1285 spellings across 406 files; it was swept in one mechanical pass (2026-08-30) and
-  `checkUsEnglish` — a repo-wide scan on every build, carrying a budget, a self-exempt
-  list and a ledger of its own revisions — was deleted with it. A gate needing 1285
-  standing exceptions to stay green was more machinery than the problem it policed, and
-  from zero the arithmetic inverts: a regression is one visible word in a diff, not a
-  needle in a 1285-hit haystack. Two things survive deliberately — the `.claude/`-aware
-  `listRepoTextFiles` walk (HARD RULE #29's glyph gate uses it) and the ~30-line
-  commit-msg warning below.
-  **Eight British spellings remain on purpose:** four citations of a dated
-  `engineering/decisions/` filename that carries the British spelling, and four inside
-  `docs/package-lock.json` (an npm tarball URL). Both are text we do not author.
-  `progress-centre` — the one internal identifier still UK-spelled — is issue #578.
+  **The backlog is swept and the ratchet that got it there is gone.** 1285 spellings
+  across 406 files went in one mechanical pass (2026-08-30), and `checkUsEnglish` — a
+  repo-wide scan on every build, carrying a budget, a self-exempt list and a ledger of
+  its own revisions — was deleted with it. A gate needing 1285 standing exceptions to
+  stay green was more machinery than the problem it policed, and from a swept tree a
+  regression is one visible word in a diff rather than a needle in a 1285-hit haystack.
+  **"Swept" is not "zero", and the difference matters.** 71 British spellings remain in
+  living prose, and they are not a backlog: ~39 are the `progress-centre` Form cell
+  (issue #578), 15 are DATA we must keep accepting, 4 sit in a lockfile, 3 cite a dated
+  `engineering/decisions/` filename, and the rest are deliberate mentions in tests and
+  in this rule. **A US-English pass must never touch an EXTERNAL string**: GitHub's
+  `cancelled` conclusion enum, the OECD's real legal name, a third-party language
+  keyword, a synonym key an author might type, a pre-registered benchmark fixture. A
+  sweep that rewrote three of those shipped a dead CI allowlist, an unresolvable map
+  region and a tautological test — all three caught by review, none by a gate.
   *(discipline, with one cheap backstop — `tools/check-commit-msg.sh` WARNS on British
   spellings from `tools/us-english.js` and never blocks, because a message may quote
   British-spelled text and #14 forbids `--no-verify` as the escape. It covers the one

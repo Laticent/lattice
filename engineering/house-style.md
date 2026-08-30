@@ -55,9 +55,19 @@ quote British-spelled text — an upstream error string, a dependency's option
 name — and HARD RULE #14 forbids `--no-verify` as the escape from a false
 positive. Everything else is discipline.
 
-Eight British spellings remain on purpose: four citations of a dated
-`engineering/decisions/` filename, and four inside `docs/package-lock.json`.
-Neither is text we author.
+**71 British spellings remain in living prose, and none is a backlog.** About 39 are
+the `progress-centre` Form cell (issue #578, a rename kept out of the sweep). 15 are
+DATA a US-English pass must never touch — GitHub's `cancelled` conclusion enum, the
+OECD's real legal name, a synonym key an author might type, pre-registered benchmark
+fixtures. 4 sit in a lockfile, 3 cite a dated `engineering/decisions/` filename, and
+the rest are deliberate mentions in tests and in the rules themselves.
+
+**That external-string carve-out is the sweep's sharpest lesson.** Rewriting three of
+them shipped a dead CI allowlist (GitHub emits `cancelled`, so the check compared
+against a value it can never see), an unresolvable map region, and a test that had
+become `X.toEqual(X)`. Every one passed lint, 7500 unit tests and `build:check`; all
+three were caught by review. Before a mechanical pass touches a string, ask whether
+anything outside this repo chose its spelling.
 
 ### 2. Active voice, named actor
 

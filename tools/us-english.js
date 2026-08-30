@@ -140,8 +140,8 @@ function findBritishSpellings(text) {
 /**
  * Strip what git itself wrote into a commit-message file: the `#` comment lines
  * of the template, and everything after the `--verbose` scissors line (which
- * carries the whole diff, i.e. the repo's tracked text — already the ratchet's
- * job, and quoting it here would report the same backlog on every commit).
+ * carries the whole diff. Quoting the repo's own text back at the author on every
+ * commit would make the warning noise nobody reads).
  */
 function commitMessageBody(text) {
   const out = [];
@@ -158,7 +158,7 @@ function commitMessageBody(text) {
 // quotes British-spelled text — an upstream error string, a dependency's option
 // name, a cited filename — and HARD RULE #14 forbids `--no-verify` as the way
 // out, so a hard failure here would be a 3am dead end for a false positive.
-// The tracked-file ratchet is the enforcing surface; this one coaches.
+// Nothing else checks spelling; this hook is the only automated arm.
 if (require.main === module) {
   const args = process.argv.slice(2);
   const file = args[args.indexOf('--warn') + 1];

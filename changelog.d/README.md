@@ -77,5 +77,7 @@ rejects an unparseable name, a heading, a body with no bullet, a conflict
 marker, CR line endings or a BOM — and also rejects a **missing**
 `changelog.d/`, so the gate can never pass by scanning nothing.
 
-Fragments are ordinary repo prose, so unlike `CHANGELOG.md` they are **in scope
-for the US-English gate** (HARD RULE #21). Write `gray`, `license`, `behavior`.
+Fragments are ordinary repo prose, so US English applies (HARD RULE #21): write
+`gray`, `license`, `behavior`. **Nothing checks this** — the repo-wide US-English
+gate was retired once the tree was swept to zero, so the rule is discipline and
+review, not a build failure.

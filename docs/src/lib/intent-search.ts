@@ -64,7 +64,7 @@ const SYNONYMS: Record<string, string> = {
 	animation: 'scene motion anima',
 	moving: 'scene motion',
 	org: 'organization',
-	organization: 'organization',
+	organisation: 'organization',
 	waterfall: 'funnel conversion',
 	choropleth: 'map region',
 	testimonial: 'quote quotation',
@@ -85,10 +85,11 @@ const B = 0.75;
  *  (HARD RULE #21) is also the SEARCH dialect: an author who types the -ise/-our
  *  spelling of a word finds what the -ize/-or spelling indexes.
  *
- *  (Written without spelling the British forms out, deliberately — the US-English
- *  ratchet counts prose, and a comment about the fold should not consume budget the
- *  fold's own data needs. The remaining British strings in this feature are all
- *  functional: the SYNONYMS keys and the adversarial test fixtures.) */
+ *  The British strings that remain in this feature are DATA, not prose: the
+ *  SYNONYMS keys an author might type, and the adversarial test fixtures. They are
+ *  inputs we must keep accepting, so a US-English pass must not touch them — a
+ *  sweep that rewrote `organisation` here made the key unreachable AND scored the
+ *  stemmed term twice, at 1.85x every other query word. */
 const americanize = (w: string) =>
 	w.replace(/isation$/, 'ization').replace(/ising$/, 'izing').replace(/ise$/, 'ize').replace(/our$/, 'or');
 

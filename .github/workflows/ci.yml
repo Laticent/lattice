@@ -660,7 +660,11 @@ jobs:
           echo "lint=${{ needs.lint.result }} unit=${{ needs.unit.result }} integration=${{ needs.integration.result }} docs-build=${{ needs.docs-build.result }}"
           # A tier result is acceptable when it's: success; skipped (a conditional
           # tier that didn't apply — e.g. docs-only skips unit/integration); or
-          # canceled. 'canceled' here is a SUPERSEDED run — a force-push tripped
+          # cancelled. NOTE THE SPELLING: 'cancelled' is GitHub's own enum value
+          # (check-run conclusion / needs.<job>.result), not house prose, so HARD
+          # RULE #21 does not reach it — a US-English sweep here makes both
+          # allowlists below dead and inverts their branches. 'cancelled' here is
+          # a SUPERSEDED run — a force-push tripped
           # `concurrency: cancel-in-progress`, so a newer run on the new head SHA
           # carries the authoritative verdict. Painting the orphaned SHA red on a
           # supersession-cancel manufactured false-alarm webhooks during a merge
@@ -669,7 +673,7 @@ jobs:
           for tier in "lint=${{ needs.lint.result }}" "unit=${{ needs.unit.result }}" \
                       "integration=${{ needs.integration.result }}" "docs-build=${{ needs.docs-build.result }}"; do
             case "${tier#*=}" in
-              success|skipped|canceled) ;;
+              success|skipped|cancelled) ;;
               *) echo "::error::tier ${tier%%=*} did not pass (${tier#*=})"; exit 1 ;;
             esac
           done
@@ -740,7 +744,7 @@ jobs:
                 // SHA carries the authority. This is a PASS allowlist rather than a
                 // failure one on purpose — a conclusion GitHub adds later should
                 // read as "worth naming", not as silently fine.
-                if (!['success', 'skipped', 'neutral', 'canceled'].includes(r.conclusion)) {
+                if (!['success', 'skipped', 'neutral', 'cancelled'].includes(r.conclusion)) {
                   failed.push(`${r.name} (${r.conclusion})`);
                 }
               }

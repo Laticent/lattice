@@ -3412,9 +3412,8 @@ function checkHexLiterals(errors) {
 const US_TEXT_EXTS = new Set(['.md', '.js', '.mjs', '.ts', '.tsx', '.css', '.json', '.yml', '.yaml', '.html', '.astro']);
 const US_SKIP_DIRS = new Set(['node_modules', 'dist', '.git', 'coverage', '.scratch']);
 
-// Repo-wide text files in the enforced US-English scope. Walks from ROOT, skips
-// generated/vendor trees and the dated engineering/decisions/ records, and drops the
-// self-exempt dictionary/fixtures.
+// Repo-wide text files. Walks from ROOT, skips
+// generated/vendor trees and the dated engineering/decisions/ records.
 function listRepoTextFiles(dir = ROOT, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
@@ -3424,8 +3423,7 @@ function listRepoTextFiles(dir = ROOT, out = []) {
     // examples/**/*.html is gitignored (.gitignore:56-57). Same local-only
     // false-red class as playground/v below: a clean checkout and CI never have
     // these; any tree that previewed an example deck does, at ~375 hits for one
-    // 70-slide deck — roughly a third of the whole repo-wide budget below, which
-    // is a RATCHET, so no figure quoted here would stay current. Matched on the
+    // 70-slide deck — a large share of what this walk returns for no reason. Matched on the
     // PATH, not a directory name — examples/ must stay in scope so the .md decks
     // are still counted.
     //
@@ -3439,19 +3437,19 @@ function listRepoTextFiles(dir = ROOT, out = []) {
     if (/^examples[/\\].*\.html$/.test(rel)) continue;
     if (e.isDirectory()) {
       if (US_SKIP_DIRS.has(e.name)) continue;
-      // Hidden dirs (.git/.vscode/…) are skipped, but .github and .claude are house
-      // PROSE an agent reads and acts on — roster cards, workflow scripts, issue
-      // templates, CI job names. .claude/** was out of scope until 2026-08-30 and
-      // measured ZERO British spellings on the day it came in, so closing the hole
-      // cost nothing and the budget did not move; leaving it open would have let the
-      // agent instructions drift in a dialect the docs they point at forbid.
-      if (e.name.startsWith('.') && e.name !== '.github' && e.name !== '.claude') continue;
+      // Hidden dirs (.git/.vscode/.claude) are skipped; .github is kept because its
+      // workflow and template text is house prose. `.claude/**` was briefly added here
+      // for the US-English scan and reverted with it: the only surviving consumer is
+      // checkTypedGlyphs, and isGlyphDeck rejects all 22 `.claude` files (none is under
+      // GLYPH_DECK_ROOTS, ends `.gallery.md`, or declares `marp: true`), so the branch
+      // was measurably dead — a widening no gate could act on.
+      if (e.name.startsWith('.') && e.name !== '.github') continue;
       if (rel === path.join('engineering', 'decisions')) continue; // historical records
       // Gitignored build artifacts the docs dev/build stages into public/ —
       // duplicates of already-counted sources. A clean checkout doesn't have
       // them, so counting them made the gate red on any tree that had merely
       // RUN the docs site while CI stayed green (observed: 1351 → 1517 with
-      // the artifacts present). Same reason components.md is exempted below.
+      // the artifacts present).
       // See engineering/decisions/2026-07-02-website-copy-positioning.md §8.5.
       if (rel === path.join('docs', 'public', 'playground', 'v')) continue;
       // Its sibling, and a stronger case: `playground/hljs/` is 156 minified
@@ -9991,7 +9989,7 @@ const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
   { token: 'footerleft-inset', why: 'footer-left cell: per-deck placement knob, defaults inline.' },
   { token: 'footerleft-w', why: 'footer-left cell: per-deck width knob, defaults inline.' },
   { token: 'pagination-inset', why: 'pagination-right cell: per-deck placement knob, defaults inline.' },
-  { token: 'progress-inset', why: 'progress-center cell: per-deck placement knob, defaults inline.' },
+  { token: 'progress-inset', why: 'progress-centre cell: per-deck placement knob, defaults inline.' },
   { token: 'horizon-count', why: 'roadmap horizons: a per-deck column count, defaults inline.' },
   { token: 'qr-ink', why: 'connect/_qr-card: the QR module color, set per deck so a card can match a brand.' },
   { token: 'qr-paper', why: 'connect/_qr-card: the QR quiet-zone color, set per deck alongside --qr-ink.' },

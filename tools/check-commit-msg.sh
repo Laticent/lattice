@@ -2,11 +2,11 @@
 # Validate commit message format: `area(scope): summary` or `area: summary`.
 # Matches the convention in engineering/workflow.md.
 #
-# Then WARN (never block) on British spellings, from the same dictionary the
-# build:check ratchet enforces (tools/us-english.js, HARD RULE #21). A commit
-# message is not a tracked file, so the ratchet never sees it — 21 British
-# spellings rode into the last 300 commit subjects and bodies under a green
-# gate. It warns rather than blocks because a message legitimately quotes
+# Then WARN (never block) on British spellings from tools/us-english.js
+# (HARD RULE #21). This is the ONLY automated spelling check left: the repo-wide
+# build:check ratchet was deleted once the tree was swept, and #21 is discipline
+# now. It covers the surface that measured real drift — 21 British spellings in
+# the last 300 commit subjects and bodies. It warns rather than blocks because a message legitimately quotes
 # British-spelled text (an upstream error string, a dependency's option name),
 # and HARD RULE #14 forbids `--no-verify` as the way out of a false positive.
 #
