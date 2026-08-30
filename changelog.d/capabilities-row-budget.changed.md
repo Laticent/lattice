@@ -1,16 +1,21 @@
-- **`engineering/capabilities.md` is now budgeted per ROW and routed for `grep`, not for a
-  top-to-bottom read.** HARD RULE #15 sends every "am I about to reinvent this?" question to
-  that catalog, and it had grown past the size where reading it whole pays — so its own
-  preamble now says to grep it and open the tool the row names, and `ROW_CAP` (600 characters,
-  in `tools/build-capabilities.js`) fails both `capabilities:build` and `capabilities:check`
-  on a row that has grown into an essay. A row owes what it does, when to reach for it, and
-  the one gotcha that stops you misusing it; the mechanism and the history belong in the
-  tool's own header, which is the file a reader opens next and has no cap.
-- Eleven rows were over the budget and are trimmed, every one verified against its tool's
-  header first so the detail moved rather than died. **The tail is what a grep pays for:** the
-  widest row drops 341 → 156 tokens, `grep -i intent` 1,109 → 696, `grep -i contrast` 990 →
-  757, and the file 13,847 → 13,001.
-- **Two rows lost a search term in the first cut** — `contrast:palette-native` stopped
-  matching `theme` and `export`, `equiv:check` stopped matching `render` — and both were
-  rewritten to carry them again. Ten representative queries now return the same row counts
-  they did before the trim: a cheaper index that cannot be found is not cheaper.
+- **`engineering/capabilities.md` is now routed for `grep`, not for a top-to-bottom read.**
+  HARD RULE #15 sends every "am I about to reinvent this?" question to that catalog, and it had
+  grown past the size where reading it whole pays — so its preamble, `CLAUDE.md`'s routing row
+  and `AGENTS.md` all now say to grep it and open the tool the row names. No row cap gets the
+  file under the 10k read-whole budget (a 30-token cap does, by truncating 121 of 320 rows
+  against a median of 27 — a list of names, not an index), so the access mode is the fix.
+- **`ROW_CAP` (`tools/build-capabilities.js`) is a ratchet pinned at the widest live row**,
+  failing both `capabilities:build` and `capabilities:check`. It stops a row growing past the
+  worst that exists; it does not ask anyone to delete anything.
+- **This shipped first as a TRIM and was reverted, which is the useful part.** Eleven rows were
+  cut into a 600-character cap, validated by ten probe queries that all came back identical.
+  A word-set diff then found **~130 distinct words had stopped matching anywhere in the file** —
+  among them `permission`, `wink-nlp`, `cascade`, `retired` and `classifier`. `grep -i permission`
+  had returned the measured finding that `--allowed-tools Read` overrides a sandbox's
+  working-directory refusal: a reinvention hazard, which is exactly what #15 exists to prevent.
+  The eleven rows are restored verbatim and the word-set diff against `main` is now zero. Lowering
+  the ratchet needs a per-row recall check, not a probe list.
+- **Fixed: a tool whose header begins with an `import` rendered that import as its description.**
+  `tools/diagram-oracle.mjs`'s row read `import { execFileSync } from 'node:child_process';`
+  instead of naming the byte oracle it is. A row that describes nothing is invisible to every grep
+  but one carrying its own filename — harmless under a read-whole index, a hole under grep-first.

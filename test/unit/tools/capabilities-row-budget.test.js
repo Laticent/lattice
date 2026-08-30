@@ -41,9 +41,13 @@ describe('capabilities row budget', () => {
     assert.match(problems[0], new RegExp(`${ROW_CAP + 1} characters`));
   });
 
-  it("names the tool header as where the detail goes — the lever, not just the breach", () => {
+  it('names where the row is edited AND warns about recall — the lever, not just the breach', () => {
     const [problem] = rowCostProblems([rowExactly('intent:pick-agents', ROW_CAP + 200)]);
-    assert.match(problem, /tool's own header/);
+    assert.match(problem, /SCRIPT_META/);
+    // The recall warning is the load-bearing half. The first cut of this gate trimmed
+    // eleven rows into a lower cap and ~130 words stopped matching anywhere in the file;
+    // a message that says only "too long" invites exactly that fix again.
+    assert.match(problem, /read by grep/);
   });
 
   it('reports every over-cap row, not just the first', () => {

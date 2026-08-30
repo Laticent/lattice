@@ -777,12 +777,13 @@ belongs under a section on handwriting, and the heading structure gave a reader
 no way to find them.
 
 **The per-slide `_class:` tokens went with them**, and HARD RULE #6 sends
-`_class:` authoring to *this* file. They are the `corners-*`, `sketch-clean*`,
-`lifted`, `stamp-*`, `spectrum-*` (including the `spectrum-card-*`,
-`spectrum-edge-*` and `spectrum-trim-*` families), `rule-*`, `eyebrow-*` and
-`head-*` tokens, plus every `unknown-*` code `lint:deck` emits for a mistyped
-register — around forty in all, each documented in
-[`base.registers.docs.md`](base.registers.docs.md).
+`_class:` authoring to *this* file. They are the `corners-*`, `lifted`, `stamp-*`,
+`spectrum-*` (including the `spectrum-card-*`, `spectrum-edge-*` and
+`spectrum-trim-*` families), `rule-*`, `eyebrow-*`, `head-*` and `finish-*`
+tokens — around forty in all, each documented in
+[`base.registers.docs.md`](base.registers.docs.md), along with the `unknown-*`
+codes `lint:deck` emits for a mistyped register (those are lint rule IDs, not
+classes) and the `mode:` values like `sketch-clean` that resolve TO classes.
 
 **So grep the FOLDER, not this file**: `grep -rn corners-square lib/base/`. An
 earlier version of this paragraph listed eight of the forty by hand, which is

@@ -49,39 +49,67 @@ proposing it:
 | 65 | ~11,565 | 30 / 320 |
 | 40 | ~10,511 | 64 / 320 |
 
-**No cap reaches 10k.** At 320 items the file is far past the ~165 crossover the tiering
+**No cap that leaves the median row intact reaches 10k.** Extending the same curve past
+where this table stops, a **30**-token cap does land under it — 9,613 — by truncating **121
+of 320 rows** against a p50 of 27. That is not an index, it is a list of names. An earlier
+draft of this section said flatly "no cap reaches 10k", which the table's own method refutes
+in three lines; a checker pass did exactly that. At 320 items the file is far past the ~165 crossover the tiering
 note derived, so the honest conclusion is the one that note's own Amendment reached about
 the decisions index: **change the access mode.** At p50 27 tokens a row it is a good
 grep-first index — ten representative queries returned 301–2,590 tokens before the trim and
 301–2,211 after, all inside the read-whole budget the file as a whole misses.
 
-`ROW_CAP` (600 characters, gated in both `capabilities:build` and `capabilities:check`) is
-therefore not a file-size lever and is not sold as one — it saved 846 tokens, 6%. It bounds
-what a QUERY pays. The tail was the whole problem: ten rows over 150 tokens carried **18% of
-all row cost from 3% of rows**, and `grep -i intent` cost 158 tokens a row against a 27-token
-median because it happened to land on four of them. After the trim: widest row 341 → 156,
-`grep -i intent` 1,109 → 696.
+`ROW_CAP` is therefore **a ratchet pinned at the widest live row**, gated in both
+`capabilities:build` and `capabilities:check`. It stops a row growing past the worst that
+exists. That is all it claims, and getting there took a reversal worth recording.
 
-**Two deliberate differences from the decisions-index ROW_CAP**, both in the generator's
-header so nobody "fixes" them:
+### The trim was wrong, and how it was wrong is the finding
 
-- It is a **trim, not a ratchet.** That one was pinned at the widest live row so nothing had
-  to change on the day it landed. This one is set below the tail on purpose.
-- It scopes to the **script and tool tables, not FRAMEWORKS.** A script row has an L2 — the
-  tool's own header, which is the file the reader opens next and has no cap. A framework row
-  is curated prose about a third-party library whose L2 is that library's docs.
+The first cut set the cap **below** the tail at 600 characters and trimmed eleven rows into
+it, on the reasoning that the tail was the problem: ten rows over 150 tokens carried 18% of
+all row cost from 3% of rows, and `grep -i intent` cost 158 tokens a row against a 27-token
+median. Ten probe queries were run before and after; all ten returned the same row counts,
+and the trim shipped.
 
-Every one of the eleven over-cap rows was checked against its tool's header **before** the
-trim, file by file. Two that a first grep said were missing turned out to be present under
-different wording — which is why the check was per-file rather than per-pattern.
+**Ten probes chosen by the trimmer cannot measure recall on an index whose job is finding
+things you cannot name.** A red-team pass ran twenty different words and found five losses;
+a word-set diff over the whole file found the real number:
 
-**The trim cost grep recall, and that is the finding worth keeping.** In the first cut
-`contrast:palette-native` stopped matching `theme` and `export`, and `equiv:check` stopped
-matching `render` — a palette tool you could no longer find by grepping "theme". Both rows
-were rewritten to carry the terms again, and ten probe queries now return the same row
-counts as before. **A cheaper index that cannot be found is not cheaper**, and a row cap
-optimizes the exact quantity that makes a row findable, so this failure mode is structural
-rather than a slip.
+| | |
+|---|---:|
+| distinct words that stopped matching anywhere in the file | **~130** |
+| among them | `permission`, `wink-nlp`, `cascade`, `retired`, `classifier`, `containment`, `light-dark`, `check-adaptive-families` |
+
+`grep -i permission` had returned `intent:pick-agents` carrying a measured finding — that
+`--allowed-tools Read` is a whole-tool allow rule which overrides the working-directory
+refusal, with `permission_denials` coming back EMPTY on a real escaped read. That is a
+**reinvention hazard**, which is the precise thing HARD RULE #15 exists to stop the next
+person rediscovering, and the query that finds it returned nothing. `grep -i openrouter`
+stopped returning the row whose trimmed clause said it spends Claude tokens rather than the
+OpenRouter key — so the row that exists to be found by a #24 audit dropped out of the #24
+audit query.
+
+**The eleven rows are restored verbatim, and the word-set diff against `main` is now zero.**
+
+What that costs: the file is back to 13,926 tokens and `grep -i intent` back to ~1,100. What
+it buys is the property the whole change is about. The trim's entire benefit was **846 tokens,
+6%** — on a file whose size this note has already argued is not the fixable problem, since no
+cap reaches 10k and the routing is the answer. It was paid for in the one currency a
+grep-first index actually spends. **A cheaper index that cannot be found is not cheaper** was
+already written three paragraphs above when the trim shipped; the confession did the work of
+the fix.
+
+**Lowering the ratchet needs a recall check first**, not a probe list: a per-row assertion
+that no word findable only in this row leaves with the edit. That is buildable and cheap, and
+until it exists the honest cap is the one that forces nobody to delete anything.
+
+**Two deliberate scope notes**, both in the generator's header:
+
+- It scopes to the **script and tool tables, not FRAMEWORKS** — two framework rows are
+  already wider than any script row, and their L2 is a third-party library's own docs.
+- The failure message names **`SCRIPT_META` and the tool header** as the places a row is
+  edited, and warns about recall — a message that says only "too long" invites exactly the
+  fix that had to be reverted here.
 
 ## base.docs.md — not a size problem
 
@@ -125,8 +153,10 @@ names the per-slide tokens (`corners-square`, `lifted`, `sketch-clean`, `stamp-n
 pass, not by the maker.
 
 **The move was mechanical and asserted**: each block was split fence-aware at its heading
-level, and every one of the ten bodies was compared byte-for-byte after the write. Only the
-heading LEVEL changed (`####`/`###` → `##`); heading text is unchanged. Two positional
+level, and every one of the ten bodies was compared byte-for-byte after the write. Nine are
+identical with only the heading LEVEL changed (`####`/`###` → `##`, plus one nested `#####`
+→ `###` under `headline:`); the tenth, `eyebrow:`, carries the one-line repoint described
+below. Heading text is unchanged throughout. Two positional
 cross-references were falsified by the move and repointed by name — `corners:`' "the ones
 above" survives (it is still last), but `eyebrow:` pointed at *Eyebrow labels* "above" (that
 section stayed behind) and a `tone-*` variant pointed at the `stamp:`/`tone:` registers
@@ -186,8 +216,11 @@ not cause (#18: found, not caused, off-path).
   `2026-08-02-sovereign-bookend-measures.md:233`). True when written, false now.
   `engineering/decisions/**` is a dated archive and editing it to chase a move would fight
   #17/#8 — logged here, per #18's found-not-caused arm.
-- **`base.docs.md`'s remaining 15k is not further split.** § Auto-detected authoring patterns
-  (4,830) and the residual variants (5,985) are what the file claims to be about.
+- **`base.docs.md`'s remaining ~15k is not further split.** § Auto-detected authoring patterns
+  and the residual § Universal variants are what the file claims to be about. (Deliberately no
+  token figures here: a fence-aware split and a naive one disagree by ~1.2k on these two,
+  because the section is full of fenced examples whose own `##` lines look like headings, and
+  the number is not load-bearing enough to pin a method to.)
 
 ## Removable when
 
