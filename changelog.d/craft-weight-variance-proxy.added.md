@@ -4,7 +4,8 @@
   findings, re-score, see which category moves — so the tool never restates the scorer's own
   mapping and cannot drift from it), and prints a **perturbation ledger** saying what the
   draft models it compares against are really doing to each category's input. `--json` ·
-  `--committed` · `--weighted` · `--depths=`.
+  `--committed` · `--weighted` · `--depths=` · `--reach`. Findings are counted by identity
+  rather than netted per deck, so a swap cannot hide inside a zero.
 - The Craft-half variance figures published on 2026-08-25 measured the instrument rather
   than the weights, and the corrected reading now ships with them. Those figures ranked the
   three Craft categories over prefix-truncated decks as a draft proxy, but truncation models
@@ -16,6 +17,6 @@
   weight to be suspicious of" — it is the one nothing has yet measured.
 - **No grade changes.** No weight, rule, or threshold moved; `craftProse` is left un-priced
   and now labeled as such. Widening `label-title` — which the measurement invites, since it
-  reaches 8 of 1,579 headings and only through its single-bare-word branch — would push a
+  accepts 8 of the 1,575 headings it is offered, and only through its single-bare-word branch — would push a
   genre opinion into the profile-blind half of the grade, which is what the Craft/Style
   split exists to prevent. It stays a proposal.

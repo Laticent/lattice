@@ -73,7 +73,8 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const { lintText, buildVocab } = require('../lib/authoring/lint');
-const { reviewText } = require('../lib/authoring/review-core');
+const { reviewText, isLabelHeading } = require('../lib/authoring/review-core');
+const { splitTopLevel } = require('../lib/authoring/slide-split');
 const { scoreDeck, CRAFT_WEIGHTS, STYLE_WEIGHTS } = require('../lib/authoring/scorecard');
 const { loadAll } = require('../lib/components');
 
@@ -108,7 +109,11 @@ function glyphExemptDecks() {
   try {
     const { SANCTIONED_GLYPH_DECKS } = require('./check-ownership.js');
     glyphExemptCache = new Set(SANCTIONED_GLYPH_DECKS.map((d) => d.file));
-  } catch {
+  } catch (err) {
+    // Degrading here CHANGES A PUBLISHED NUMBER — without the exemption `contract` reads
+    // 0.4% instead of 0.0% on the committed corpus — so it must never be silent.
+    process.stderr.write(`score:variance — WARNING: could not read SANCTIONED_GLYPH_DECKS (${err.message}); `
+      + 'the population no longer matches the lint gate and `contract` will read high.\n');
     glyphExemptCache = new Set();
   }
   return glyphExemptCache;
@@ -137,7 +142,12 @@ function makeScorer() {
   let byName = new Map();
   try {
     byName = new Map(loadAll().map((m) => [m.name, m]));
-  } catch { /* a manifest problem degrades the review pass, it never breaks the run */ }
+  } catch (err) {
+    // Without the manifests `bucketOf`/`densityOf` return null, which silently disarms every
+    // review rule that needs them. Warn rather than publish a quietly thinner report.
+    process.stderr.write(`score:variance — WARNING: component manifests failed to load (${err.message}); `
+      + 'bucket- and density-dependent review rules will not fire.\n');
+  }
   const bucketOf = (n) => { const m = byName.get(n); return m ? (m.bucket || m.function) : null; };
   const densityOf = (n) => byName.get(n)?.density || null;
 
@@ -268,28 +278,96 @@ function perturbationLedger(decks, score, ruleCategory, depths = DRAFT_DEPTHS) {
       const destroyed = {};
       for (const key of [...CRAFT_KEYS, ...STYLE_KEYS]) { created[key] = 0; destroyed[key] = 0; }
       for (const { source, file } of decks) {
-        const full = score(source, file);
-        const cut = score(DRAFT_MODELS[model](source, frac), file);
-        const tally = (res) => {
-          const counts = {};
-          for (const f of [...res.lintFindings, ...res.reviewFindings]) {
-            const key = ruleCategory.get(f.rule);
-            if (key) counts[key] = (counts[key] || 0) + 1;
-          }
-          return counts;
-        };
-        const before = tally(full);
-        const after = tally(cut);
-        for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
-          const delta = (after[key] || 0) - (before[key] || 0);
-          if (delta > 0) created[key] += delta;
-          else destroyed[key] -= delta;
+        const before = identify(score(source, file), ruleCategory);
+        const after = identify(score(DRAFT_MODELS[model](source, frac), file), ruleCategory);
+        for (const [key, bag] of Object.entries(diffBags(before, after))) {
+          created[key] = (created[key] || 0) + bag.created;
+          destroyed[key] = (destroyed[key] || 0) + bag.destroyed;
         }
       }
       rows.push({ model, frac, created, destroyed });
     }
   }
   return rows;
+}
+
+/**
+ * A deck's findings as a per-category MULTISET keyed by finding identity, not a count.
+ *
+ * Counting per category and subtracting nets a swap to zero: a deck that loses one
+ * `label-title` and gains a different one at the same depth reports `+0 / -0`, and the
+ * ledger's headline claim — that line truncation creates NO `craftProse` findings — would
+ * survive a population where it creates as many as it destroys. Identity accounting sees
+ * the swap. Digits are normalized out of the message because a finding whose text carries
+ * a count (`4 headings open "what the…"`) is the SAME finding when truncation shrinks the
+ * group to three; treating it as a destroy-plus-create would invent churn.
+ */
+function identify(res, ruleCategory) {
+  const bags = {};
+  for (const f of [...res.lintFindings, ...res.reviewFindings]) {
+    const key = ruleCategory.get(f.rule);
+    if (!key) continue;
+    const id = `${f.rule}::${String(f.message || '').replace(/\d+/g, '#')}`;
+    if (!bags[key]) bags[key] = new Map();
+    bags[key].set(id, (bags[key].get(id) || 0) + 1);
+  }
+  return bags;
+}
+
+/** Per category: how many finding IDENTITIES appear only after, and only before. */
+function diffBags(before, after) {
+  const out = {};
+  for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    const b = before[key] || new Map();
+    const a = after[key] || new Map();
+    let createdN = 0;
+    let destroyedN = 0;
+    for (const [id, n] of a) createdN += Math.max(0, n - (b.get(id) || 0));
+    for (const [id, n] of b) destroyedN += Math.max(0, n - (a.get(id) || 0));
+    out[key] = { created: createdN, destroyed: destroyedN };
+  }
+  return out;
+}
+
+/**
+ * The REACH census for `label-title` — how much of the corpus the rule can even see.
+ *
+ * This exists because the record quoting these figures promised they were re-derivable
+ * with this tool, and they were not: nothing else here emits a heading count, so the one
+ * paragraph most likely to be relayed rather than re-measured was the one paragraph the
+ * tool could not check. A checker caught that.
+ *
+ * Two denominators, deliberately both reported. `^## ` LINES is the raw count of h2s in
+ * the corpus; HEADINGS SEEN is what `isLabelHeading` is actually offered, because
+ * `review-core`'s `headingOf` takes only the FIRST h2 per slide. Quoting the acceptance
+ * count over the raw line count mixes populations — a small error, but this record is
+ * about exactly that.
+ */
+function reachCensus(decks) {
+  let rawLines = 0;
+  let seen = 0;
+  let accepted = 0;
+  let singleToken = 0;
+  let singleTokenWithDigit = 0;
+  let acceptedByPhrase = 0;
+  for (const { source } of decks) {
+    for (const line of source.split('\n')) if (/^##\s+\S/.test(line)) rawLines += 1;
+    for (const slide of splitTopLevel(source)) {
+      const m = slide.match(/^##\s+(.+)$/m);
+      if (!m) continue;
+      const h = m[1].trim();
+      seen += 1;
+      const text = h.replace(/[*`_.:]/g, '').trim();
+      const oneToken = text.split(/\s+/).length === 1;
+      if (oneToken) singleToken += 1;
+      if (oneToken && /\d/.test(text)) singleTokenWithDigit += 1;
+      if (!isLabelHeading(h)) continue;
+      accepted += 1;
+      // Accepted despite being multi-word ⇒ it matched the LABEL_WORDS phrase list.
+      if (!oneToken) acceptedByPhrase += 1;
+    }
+  }
+  return { rawLines, seen, accepted, acceptedByPhrase, singleToken, singleTokenWithDigit };
 }
 
 // ── reporting ────────────────────────────────────────────────────────────────
@@ -310,9 +388,22 @@ function printShareTable(title, keys, populations, weights, useWeighted) {
 
 function main(argv) {
   const flags = new Set(argv.filter((a) => a.startsWith('--')));
+  // REJECT what we cannot honor, rather than ignoring it. An instrument whose thesis is
+  // "an unstated parameter chose the answer" must not silently discard a STATED one:
+  // `--depths 0.5` (space, not `=`) and `--bogus` both used to run happily and print the
+  // default report. A checker found it.
+  const KNOWN = new Set(['--committed', '--json', '--weighted', '--reach']);
+  const unknown = [...flags].filter((f) => !KNOWN.has(f) && !f.startsWith('--depths='));
+  if (unknown.length) {
+    process.stderr.write(`score:variance — unknown flag${unknown.length > 1 ? 's' : ''}: ${unknown.join(' ')}\n`
+      + `  known: ${[...KNOWN].join(' ')} --depths=<fractions>\n`
+      + '  (note `--depths=0.5`, with an equals sign — a space-separated value is not read)\n');
+    return 2;
+  }
   const committedOnly = flags.has('--committed');
   const asJson = flags.has('--json');
   const useWeighted = flags.has('--weighted');
+  const wantReach = flags.has('--reach');
 
   const depthArg = argv.find((a) => a.startsWith('--depths='));
   let depths = DRAFT_DEPTHS;
@@ -361,8 +452,10 @@ function main(argv) {
   if (asJson) {
     console.log(JSON.stringify({
       corpus: { filesSeen: seen, scorable: decks.length },
-      craft: populations.map((p) => ({ population: p.label, n: p.n, shares: shares(Object.fromEntries(CRAFT_KEYS.map((k) => [k, p.columns[k]])), null), sd: Math.sqrt(populationVariance(p.half)) })),
-      style: populations.map((p) => ({ population: p.label, n: p.n, shares: shares(Object.fromEntries(STYLE_KEYS.map((k) => [k, p.columns[k]])), null), sd: Math.sqrt(populationVariance(p.style)) })),
+      weighted: useWeighted,
+      craft: populations.map((p) => ({ population: p.label, n: p.n, shares: shares(Object.fromEntries(CRAFT_KEYS.map((k) => [k, p.columns[k]])), useWeighted ? CRAFT_WEIGHTS : null), sd: Math.sqrt(populationVariance(p.half)) })),
+      style: populations.map((p) => ({ population: p.label, n: p.n, shares: shares(Object.fromEntries(STYLE_KEYS.map((k) => [k, p.columns[k]])), useWeighted ? STYLE_WEIGHTS : null), sd: Math.sqrt(populationVariance(p.style)) })),
+      reach: reachCensus(decks),
       rules: [...ruleMovement].map(([rule, e]) => ({ rule, fires: e.fires, category: ruleCategory.get(rule) || null, movement: Object.fromEntries(e.byCategory) })),
       ledger,
     }, null, 2));
@@ -388,6 +481,18 @@ function main(argv) {
   const silent = [...ruleMovement].filter(([r]) => !ruleCategory.has(r)).map(([r]) => r);
   if (silent.length) console.log(`  (fired but scored nothing: ${silent.join(', ')})`);
   if (ruleSplit.length) for (const s of ruleSplit) console.log(`  (feeds more than one category: ${s.rule} → ${s.categories.join(', ')})`);
+
+  if (wantReach || committedOnly) {
+    const r = reachCensus(decks);
+    console.log('\nREACH — how much of the corpus `label-title` can see');
+    console.log(`  ${pad('`^## ` lines in the corpus', 42)}${lpad(r.rawLines, 8)}`);
+    console.log(`  ${pad('headings isLabelHeading is offered', 42)}${lpad(r.seen, 8)}  first h2 per slide (headingOf)`);
+    console.log(`  ${pad('single-token headings', 42)}${lpad(r.singleToken, 8)}`);
+    console.log(`  ${pad('  of those, digit-bearing', 42)}${lpad(r.singleTokenWithDigit, 8)}  refused as a metric`);
+    console.log(`  ${pad('ACCEPTED by isLabelHeading', 42)}${lpad(r.accepted, 8)}`);
+    console.log(`  ${pad('  of those, via the LABEL_WORDS phrases', 42)}${lpad(r.acceptedByPhrase, 8)}`);
+    console.log('  Findings are fewer than accepted: ANCHORS_NO_TITLE_CHECK suppresses anchor components.');
+  }
 
   if (ledger.length) {
     console.log('\nPERTURBATION LEDGER — what each draft model does to each category\'s input');

@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: The 2026-08-25 record closed by naming `craftProse` "the next weight to be suspicious of" on the strength of its 1.5%-8.7% variance share — the thinnest of the three Craft categories on every population measured. That band is an artifact of the instrument that produced it, and this note retires the suspicion rather than acting on it. The draft model behind those numbers is prefix truncation, and truncation is a COMPLETENESS perturbation, not a sloppiness one: measured over all 202 scorable decks it creates 166 `contract` findings and destroys 0, while creating 0 `craftProse` findings by line and 4 by character — and all 4 of those are heading fragments left by a cut landing mid-sentence ("Typed", "Ten-step", "quiet", "Dark"), i.e. defects the instrument manufactured. It destroys 46 real `craftProse` findings in exchange. A share measured that way reports how much a category tracks incompleteness, which is not what any of the three weights is for. The band's endpoints turn out to be set by an unstated parameter too: the cut DEPTHS, which the earlier record never wrote down, move `contract`'s line-truncated share from 10.3% (cutting at 90% only) to 71.2% (at 50% only) — a range that swallows the whole 14.1%-64.2% band the record reports, so that band never measured "draft model", it measured "which depths did I pick". The positive finding is that `craftProse` fails NEITHER of the two diagnoses this repo already has a name for: it is not gated like `contract` (nothing blocks a review finding — every review rule emits `severity: 'suggestion'`, which `--strict` ignores) and not starved like `pacing` (no missing input; all four of its rules fire when driven, pinned by test). It is simply RARE — 10 findings across 202 decks, 5 of them the same word ("Glossary") — and the rarity is substantially a REACH property rather than a corpus-cleanliness one: `isLabelHeading` accepts 8 of the corpus's 1,579 h2 headings, every one through its single-bare-word branch, with the 34-entry `LABEL_WORDS` phrase list contributing zero; three are then suppressed as anchors, leaving the 5. Single-word headings are 1.3% of the corpus, and half of `craftProse`'s whole measured signal is `label-title` firing on a `glossary` slide headed "Glossary", which is arguably the correct heading for that component. Nothing here licenses re-tuning the weight in either direction, and deliberately so: widening a rule the code calls "conservative: only on clear cases" would push a genre opinion back into the profile-BLIND half of the grade, which is the exact failure the Craft/Style split exists to prevent. What ships is the measurement made re-derivable — `npm run score:variance`, which prints the shares, attributes them to rules by ablation, and prints the perturbation ledger that says how far to trust each share — plus the corrected claim in three places that carried the old one.
+summary: The 2026-08-25 record closed by naming `craftProse` "the next weight to be suspicious of" on the strength of its 1.5%-8.7% variance share — the thinnest of the three Craft categories on every population measured. That band is an artifact of the instrument that produced it, and this note retires the suspicion rather than acting on it. The draft model behind those numbers is prefix truncation, and truncation is a COMPLETENESS perturbation, not a sloppiness one: measured over all 202 scorable decks it creates 166 `contract` findings and destroys 0, while creating 0 `craftProse` findings by line and 4 by character — and all 4 of those are heading fragments left by a cut landing mid-sentence ("Typed", "Ten-step", "quiet", "Dark"), i.e. defects the instrument manufactured. It destroys 46 real `craftProse` findings in exchange. A share measured that way reports how much a category tracks incompleteness, which is not what any of the three weights is for. The band's endpoints turn out to be set by an unstated parameter too: the cut DEPTHS, which the earlier record never wrote down, move `contract`'s line-truncated share from 10.3% (cutting at 90% only) to 71.2% (at 50% only) — a range that swallows the whole 14.1%-64.2% band the record reports, so that band never measured "draft model", it measured "which depths did I pick". The positive finding is that `craftProse` fails NEITHER of the two diagnoses this repo already has a name for: it is not gated like `contract` (nothing blocks a review finding — every review rule emits `severity: 'suggestion'`, which `--strict` ignores) and not starved like `pacing` (no missing input; all four of its rules fire when driven, pinned by test). It is simply RARE — 10 findings across 202 decks, 5 of them the same word ("Glossary") — and the rarity is substantially a REACH property rather than a corpus-cleanliness one: `isLabelHeading` accepts 8 of the 1,575 headings it is actually offered (the corpus holds 1,579 `^## ` lines; `headingOf` hands it the first h2 per slide), every one through its single-bare-word branch, with the 34-entry `LABEL_WORDS` phrase list contributing zero; three are then suppressed as anchors, leaving the 5. Single-word headings are 1.3% of the corpus, and half of `craftProse`'s whole measured signal is `label-title` firing on a `glossary` slide headed "Glossary", which is arguably the correct heading for that component. Nothing here licenses re-tuning the weight in either direction, and deliberately so: widening a rule the code calls "conservative: only on clear cases" would push a genre opinion back into the profile-BLIND half of the grade, which is the exact failure the Craft/Style split exists to prevent. What ships is the measurement made re-derivable — `npm run score:variance`, which prints the shares, attributes them to rules by ablation, and prints the perturbation ledger that says how far to trust each share — plus the corrected claim in three places that carried the old one.
 ---
 
 # The Craft weight bands measured the instrument, not the weights
@@ -54,8 +54,15 @@ decks at cut depths 25/50/75/90%:
 
 | model | `structure` created / destroyed | `craftProse` created / destroyed | `contract` created / destroyed |
 |---|---|---|---|
-| line-truncated | +25 / −25 | **+0 / −23** | **+54 / −0** |
+| line-truncated | +38 / −38 | **+0 / −23** | **+54 / −0** |
 | char-truncated | +11 / −39 | **+4 / −23** | **+112 / −0** |
+
+*(Counted by finding IDENTITY, not by a per-deck total. Netting counts hides a SWAP — a
+deck that loses one `label-title` and gains a different one at the same depth nets to
+`+0 / −0`, so the headline "creates none" would survive a population that creates as many
+as it destroys. The first cut of this note counted nets, and a checker caught it: the
+`craftProse` and `contract` rows are identical either way, but `structure`'s line row was
+hiding thirteen swaps at +25 / −25.)*
 
 Line truncation creates **zero** `craftProse` findings at every depth. The four
 that character truncation creates are all the same artifact — a cut landing inside
@@ -94,11 +101,34 @@ Depth alone spans more than that band, within the line model:
 Re-derive with `npm run score:variance -- --depths=0.5`.
 
 That is the honest reason this note does not simply publish a corrected band. The
-14.1%–64.2% figure is not wrong so much as **underdetermined**: it is one draw from
-a knob nobody wrote down. The tool's default depths give 32.6% where the record gives
-14.1%, on the same corpus through the same code. Rather than relay a third number,
-the tool now prints the depths it used on every run and takes `--depths` so the
-parameter is an input instead of a default buried in a script.
+14.1%–64.2% figure is not wrong so much as **underdetermined**: it is one draw from a knob
+nobody wrote down.
+
+**And the controlled comparison says so more sharply than the sentence that used to sit
+here.** An earlier cut claimed the tool's default depths gave 32.6% against the record's
+14.1% "on the same corpus through the same code" — which was false twice over, in a note
+about false verification claims, and a checker caught it. The corpus has grown by five
+decks since (199 scorable then, 202 now), and `lib/authoring/lint-core.js` — the sole
+input to `contract` — has changed, including gaining the very `typed-shape-glyph` rule
+this tool has to special-case (`3280f92`, #1888). So run it at the record's own commit
+instead. Checking out `33a188a` and dropping today's tool in unchanged:
+
+| population | `structure` | `craftProse` | `contract` | Craft sd |
+|---|---|---|---|---|
+| committed corpus (n = 199) | 91.3% | 8.7% | 0.0% | 2.32 |
+| drafts, line-truncated (n = 796) | 64.0% | 3.1% | **32.9%** |  |
+| drafts, char-truncated (n = 796) | 33.2% | 2.1% | **64.7%** |  |
+
+The committed row reproduces the record's published figures **exactly** — 91.3 / 8.7 / 0.0
+at sd 2.32 — and the char endpoint lands within 0.5pp of its 64.2%. So this tool is a
+faithful reimplementation of that record's method, which is what makes the third row
+evidence rather than noise: the line endpoint comes out **32.9% against a published
+14.1%**, an 18.8pp gap on the record's own corpus, own code, and own method, with nothing
+left to differ but the cut depths. Two rows reproduce; the one whose parameter was never
+written down does not.
+
+Rather than relay a third number, the tool now prints the depths it used on every run and
+takes `--depths`, so the parameter is an input rather than a default buried in a script.
 
 **This is the brief's own durable lesson landing on the record that taught it.**
 That record already carries a margin note retiring a reviewer's un-reproduced
@@ -124,8 +154,11 @@ Neither gated nor starved. Measured:
   `monotone-openings`, 1 × `image-no-alt`, 0 × `possessive-stacking`. Five of the
   ten are the same heading word, "Glossary", on five different decks.
 
-And the rarity is not mostly a compliment to the corpus. Of the corpus's **1,579**
-h2 headings, `isLabelHeading` accepts **8**, and every one of the 8 arrives through
+And the rarity is not mostly a compliment to the corpus. The corpus holds **1,579**
+`^## ` lines, but `isLabelHeading` is only ever offered the **1,575** that are the FIRST
+h2 on their slide — `headingOf` takes one per slide — and quoting an acceptance count over
+the raw line count would mix two populations, which in this note of all notes is not a
+rounding matter. Of those 1,575 it accepts **8**, and every one of the 8 arrives through
 its last line — `text.split(/\s+/).length === 1`, a single bare word. The 34-entry
 `LABEL_WORDS` phrase list above it (`overview`, `next steps`, `the ask`, …)
 contributes **zero**; the corpus simply has no slide headed "Overview". Single-word
@@ -198,12 +231,19 @@ check if anyone does price this weight.
 ## 7 · How to re-derive everything above
 
 ```
-npm run score:variance                    # the three tables, default depths
+npm run score:variance                    # the three tables + the perturbation ledger
 npm run score:variance -- --depths=0.5    # the 71.2% row in §3
-npm run score:variance -- --committed     # committed corpus only, fast
-npm run score:variance -- --json          # machine-readable
+npm run score:variance -- --reach         # §4's heading census: 1579 / 1575 / 21 / 13 / 8
+npm run score:variance -- --committed     # committed corpus only, fast (implies --reach)
+npm run score:variance -- --json          # machine-readable, honors --weighted
 node --test test/unit/authoring/craft-variance-proxy.test.js
 ```
+
+`--reach` exists because a checker found that §4's heading figures were the one paragraph
+this note promised was re-derivable and the tool could not actually emit — which is the
+precise failure §1 indicts, committed inside the note indicting it. The §3 table at
+`33a188a` is reproduced by checking that commit out and copying today's tool in; the tool
+reads decks from its own tree, so no flag is needed.
 
 The tool derives its rule-to-category mapping by **ablation** — drop one rule's
 findings, re-score, see which category moves — rather than restating the scorer's
