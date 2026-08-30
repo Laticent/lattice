@@ -12,14 +12,14 @@ header: "Lattice · universal-pill"
 `Base · Finish · Structure`
 
 One geometry for every status and metadata pill — consistent padding,
-centre-aligned text, colour left to carry the meaning.
+center-aligned text, color left to carry the meaning.
 
 ---
 
 <!-- _class: verdict-grid -->
 <!-- _footer: "verdict-grid · state-marker badges" -->
 
-## Badges share the pill's geometry, not its colour.
+## Badges share the pill's geometry, not its color.
 
 - **Build in-house.**
   - [ ] Certified
@@ -122,7 +122,7 @@ Date pills are the universal shape; green chips are the chart-status variant.
 
 <!-- _class: title silent -->
 
-# Structure unifies, colour signals
+# Structure unifies, color signals
 
 `--pill-radius · --pill-pad-y · --pill-pad-x · --pill-weight`
 

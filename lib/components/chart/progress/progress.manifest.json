@@ -82,7 +82,7 @@
     },
     {
       "title": "Decorative status pills",
-      "body": "Don't invent new status words for tone. `on-track`, `at-risk`, `blocked`, `deferred`, `done` are the vocabulary the engine recognises; everything else renders as a plain pill and breaks the at-a-glance read."
+      "body": "Don't invent new status words for tone. `on-track`, `at-risk`, `blocked`, `deferred`, `done` are the vocabulary the engine recognizes; everything else renders as a plain pill and breaks the at-a-glance read."
     }
   ],
   "related": [

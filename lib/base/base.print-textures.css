@@ -84,7 +84,7 @@ section.print.funnel .funnel-band:nth-of-type(6n+4) { fill: url(#latt-a11y-chart
 section.print.funnel .funnel-band:nth-of-type(6n+5) { fill: url(#latt-a11y-chart-tex-5) !important; }
 section.print.funnel .funnel-band:nth-of-type(6n+6) { fill: url(#latt-a11y-chart-tex-6) !important; }
 
-/* Multi-series line charts (radar) — greyscale overlaps, so a distinct
+/* Multi-series line charts (radar) — grayscale overlaps, so a distinct
  * stroke-dasharray per series carries the distinction hue can't. */
 section.print.radar .radar-poly[data-series="0"] { stroke-dasharray: none !important; }
 section.print.radar .radar-poly[data-series="1"] { stroke-dasharray: 7 4 !important; }

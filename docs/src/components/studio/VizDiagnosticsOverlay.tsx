@@ -1,7 +1,7 @@
 // Live viz diagnostics overlay — a small on-screen readout of dropped-to-black SVG
 // chart paint on the slide being edited, the live twin of the CI guard shipped in
 // #961 (tools/check-viz-render.js). It answers, on the author's REAL device, the
-// question CI can only answer headless: did a themed chart colour resolve to black
+// question CI can only answer headless: did a themed chart color resolve to black
 // on the scoped render path (the #956 class)?
 //
 // Mirrors PerfOverlay.tsx: a React island that renders NOTHING (and subscribes to

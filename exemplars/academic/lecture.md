@@ -32,7 +32,7 @@ The cellular biology of thermal tolerance — and why some reefs are beating the
 <!-- _class: content -->
 <!-- tier: short -->
 
-## A reef that bleached in 2016 came back greener than its neighbours.
+## A reef that bleached in 2016 came back greener than its neighbors.
 
 Most of the central Coral Sea bleached when temperatures held 2 degrees above the summer mean for six weeks. Yet one shoal recovered in eighteen months while reefs forty kilometres away never did. That gap is today's question.
 

@@ -25,7 +25,7 @@
  *   · Headline (h2)  — Playfair serif, one statement
  *   · Number (strong)— Playfair display, tabular figures
  *   · Pill (code)    — trailing inline `code` becomes a status / audience
- *                       pill; first pill carries the status colour
+ *                       pill; first pill carries the status color
  *   · Flagship (✦)   — four-point star on critical / hero card
  *
  * The bare `kpi` class resolves to briefing styling — when authors don't
@@ -143,7 +143,7 @@ section.kpi {
 }
 
 /* Pills — any `code` inside a kpi slide renders as a pill. First pill on
- * each row carries the status colour (set per-row by the modifier's
+ * each row carries the status color (set per-row by the modifier's
  * nth-child hooks); subsequent pills stay neutral. */
 section.kpi code {
   display: inline-flex;
@@ -350,7 +350,7 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
   --pill-fg: var(--pass);
 }
 /* `attention` modifier — the hero is the one slipping. Hero pill turns
- * warn-coloured and the accent left-border picks up --warn too. Use
+ * warn-colored and the accent left-border picks up --warn too. Use
  * when the hero metric is below target / off plan. */
 section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
   --pill-border: var(--warn);
@@ -635,8 +635,8 @@ section.kpi.kpi:where([data-family="tall"], [data-family="strip"]) > .cell-stage
 section.kpi.kpi:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   display: flex;
   flex-direction: column;
-  /* The list keeps `flex: 1` (fills the slide below the title), so centre the
-   * metrics WITHIN it — centring the section can't, the list absorbs the slack.
+  /* The list keeps `flex: 1` (fills the slide below the title), so center the
+   * metrics WITHIN it — centering the section can't, the list absorbs the slack.
    *
    * SAFE centering, and the `safe` is load-bearing. Plain `center` on an overflowing
    * flex column throws content off BOTH ends, and block-START overflow is the worst

@@ -4,9 +4,9 @@
  * Renders the chart gallery deck (the SVG-painting chart components) through the
  * REAL scoped `composeCss()` a browser host loads (playground / Studio / Player) —
  * the surface #956's map/quadrant/radar iOS-black bug lived on, which every
- * UNSCOPED colour check (color-parity, the resolver twin) is blind to. Asserts no
+ * UNSCOPED color check (color-parity, the resolver twin) is blind to. Asserts no
  * SVG paintable element computes to opaque black except the sanctioned
- * max-contrast inks in test/viz-render/black-baseline.json. A dropped-colour
+ * max-contrast inks in test/viz-render/black-baseline.json. A dropped-color
  * regression (a scoping or token-name break) shows up here as a NEW black.
  * (Mermaid diagrams bake inline fills at mmdc time — immune to this mechanism,
  * covered by test/integration/mermaid/.)
@@ -34,7 +34,7 @@ test('no unsanctioned black SVG paint on the scoped playground/Studio/Player ren
   assert.equal(
     regressions.length,
     0,
-    `NEW black SVG paint on the scoped path — a themed colour resolved to nothing (scoping/token break, cf. #956):\n  ${regressionMsg}\n` +
+    `NEW black SVG paint on the scoped path — a themed color resolved to nothing (scoping/token break, cf. #956):\n  ${regressionMsg}\n` +
       'If intentional, re-bless: node tools/check-viz-render.js --bless',
   );
 

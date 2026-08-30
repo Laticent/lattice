@@ -27,7 +27,7 @@
  *   journey curve        — connected polyline of mood across tasks with
  *                          a y-axis scale and section bands behind.
  *   journey swimlane     — one row per actor; dot at every task the
- *                          actor participates in, coloured by that task's mood.
+ *                          actor participates in, colored by that task's mood.
  *   journey weighted     — task chip widths proportional to `+volume`;
  *                          chip color = mood. Two dimensions at once.
  *
@@ -126,7 +126,7 @@
  * another resolves at its DECLARATION scope, so section.print's remap (on the
  * section) can't reach a :root-declared derived token. Re-declaring the SAME
  * derivations here, on the print section, re-resolves them against the print
- * greyscale cat-marks / ink surfaces. Keep in SYNC with the :root block above.
+ * grayscale cat-marks / ink surfaces. Keep in SYNC with the :root block above.
  * (Print-only; light/dark output is untouched.) */
 section.print.journey {
   --journey-mood-5: var(--cat-2-mark);
@@ -310,12 +310,12 @@ section.journey .journey-mood-key[data-mood="3"] { --mood-color: var(--journey-m
 section.journey .journey-mood-key[data-mood="2"] { --mood-color: var(--journey-mood-2); }
 section.journey .journey-mood-key[data-mood="1"] { --mood-color: var(--journey-mood-1); }
 
-/* ── Key placement: bottom-centre ───────────────────────────────────────────
+/* ── Key placement: bottom-center ───────────────────────────────────────────
  * A journey board is a WIDE diagram, so its actor + mood keys belong at the
- * BOTTOM-CENTRE (accessibility best practice for a full-width visual), not
- * crowding the top-left. Reordered to the foot of the flex column and centred;
- * the board then centres the diagram+key group vertically. Variants whose bands
- * have a flex-growing plot (curve, swimlane) ignore the centring (the plot
+ * BOTTOM-CENTER (accessibility best practice for a full-width visual), not
+ * crowding the top-left. Reordered to the foot of the flex column and centered;
+ * the board then centers the diagram+key group vertically. Variants whose bands
+ * have a flex-growing plot (curve, swimlane) ignore the centering (the plot
  * absorbs the free space) but still move their key to the foot. */
 section.journey .journey-board {
   justify-content: center;
@@ -866,7 +866,7 @@ section.journey .journey-vrows {
   padding: 0;
   flex: 1 1 auto;
   min-height: 0;
-  justify-content: center;   /* centre the rows in the stage band; few tasks → whitespace, not ballooned rows */
+  justify-content: center;   /* center the rows in the stage band; few tasks → whitespace, not ballooned rows */
 }
 
 /* Task row — actor dots + label on the left, mood marker on the right. */
@@ -895,7 +895,7 @@ section.journey .journey-vtask .journey-task-label {
 }
 
 /* ── Treatment A+B blend: row WASHED by mood (instant arc) AND the face PLOTTED
- * by mood with a reach to the spine (precision). Colour gives the at-a-glance
+ * by mood with a reach to the spine (precision). Color gives the at-a-glance
  * read; position gives the exact value. §10 (journey). */
 /* Row wash: pain (1) warm → delight (5) cool, off the semantic state hues. */
 section.journey .journey-vtask[data-mood="1"] { background: color-mix(in oklab, var(--state-fail-hue) 15%, var(--journey-task-bg)); }

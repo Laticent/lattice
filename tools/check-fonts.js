@@ -23,7 +23,7 @@
  * the shipped bundle fails the gate.
  *
  * Noto Color Emoji is intentionally absent from the manifest: at ~23 MB it is
- * not bundled by default (colour emoji uses the installed system font), and the
+ * not bundled by default (color emoji uses the installed system font), and the
  * opt-in full-offline tier (`npm run fonts:emoji`) vendors it separately. So it
  * is not a parity face. Read-only; never writes.
  *

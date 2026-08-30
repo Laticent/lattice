@@ -1,8 +1,8 @@
 /**
  * Unit: baked Mermaid ink is legible on the surface it actually sits on —
- * every shipped palette, both colour schemes.
+ * every shipped palette, both color schemes.
  *
- * THE BUG THIS EXISTS TO CATCH. A Mermaid SVG bakes its colours to literal hex,
+ * THE BUG THIS EXISTS TO CATCH. A Mermaid SVG bakes its colors to literal hex,
  * so `themeVariables` decide legibility outright; no CSS can rescue them
  * afterwards. The map used to feed EVERY text key from one token,
  * `--cat-on-fill`, on the reasoning that "the fills flip with the canvas too, so
@@ -24,8 +24,8 @@
  * wrote that version first and it passed the very mutation it was built to
  * catch. WHERE a label is drawn is a fact about Mermaid, not about our map, so
  * it has to be stated independently. SITES below is that statement: ink key →
- * the themeVariable whose colour it lands on. The gate then asks whether the
- * token the map assigns clears AA against the colour that surface resolves to.
+ * the themeVariable whose color it lands on. The gate then asks whether the
+ * token the map assigns clears AA against the color that surface resolves to.
  * Mis-assign a key and the gate fires.
  */
 
@@ -329,7 +329,7 @@ describe('baked diagram ink clears AA on the surface it sits on', () => {
     // Without this, deleting rows from SITES would quietly shrink the gate to
     // nothing while every remaining assertion stayed green. NESTED blocks are
     // walked too: an earlier version of this file looked only at top-level
-    // entries, so the five xyChart label colours were never judged at all.
+    // entries, so the five xyChart label colors were never judged at all.
     const byName = textBearingKeys();
     const keys = [...new Set([...inkKeys(), ...byName])];
     const uncovered = keys.filter((k) => !SITES[k]);
@@ -358,7 +358,7 @@ describe('baked diagram ink clears AA on the surface it sits on', () => {
   });
 
   test('no sanction is stale — every KNOWN_BELOW_AA entry still fails somewhere', () => {
-    // A sanction that has quietly started passing everywhere is a licence nobody
+    // A sanction that has quietly started passing everywhere is a license nobody
     // is using, and the next person reads it as "this pair is hopeless". Retire it.
     const stillFailing = new Set();
     for (const theme of THEMES) {
@@ -404,7 +404,7 @@ describe('baked diagram ink clears AA on the surface it sits on', () => {
         }
         assert.deepEqual(failures, [],
           `${theme} (${scheme}) bakes diagram ink below AA:\n  ${failures.join('\n  ')}\n` +
-          'A Mermaid SVG bakes its colours, so no CSS can fix this after the fact. Either the key is fed ' +
+          'A Mermaid SVG bakes its colors, so no CSS can fix this after the fact. Either the key is fed ' +
           'from the wrong tier in lib/core/mermaid-theme-map.js, or the palette needs to curate the token.');
       });
     }

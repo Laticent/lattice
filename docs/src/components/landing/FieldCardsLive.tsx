@@ -28,7 +28,7 @@ export default function FieldCardsLive({ data }: { data: FieldCardsData }) {
 	React.useEffect(() => {
 		const engine = engineRef.current;
 		const hosts = Array.from(document.querySelectorAll<HTMLElement>('[data-live-card]'));
-		let cancelled = false;
+		let canceled = false;
 
 		const renderCard = (host: HTMLElement) => {
 			const name = host.getAttribute('data-live-card') || '';
@@ -44,7 +44,7 @@ export default function FieldCardsLive({ data }: { data: FieldCardsData }) {
 			// (not behind it) — same fix as DeckPreview.tsx's paint().
 			engine.prefetchTheme?.();
 			engine.whenReady().then(() => {
-				if (!cancelled) hosts.forEach(renderCard);
+				if (!canceled) hosts.forEach(renderCard);
 			});
 		};
 
@@ -85,7 +85,7 @@ export default function FieldCardsLive({ data }: { data: FieldCardsData }) {
 		document.addEventListener('click', onClick);
 
 		return () => {
-			cancelled = true;
+			canceled = true;
 			io?.disconnect();
 			mo.disconnect();
 			clearTimeout(t);

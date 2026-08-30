@@ -103,7 +103,7 @@ describe('chart-family.applyToDom', () => {
     // Regression for #452.3 — the old naive /<ol>…<\/ol>/ stopped at an item's
     // NESTED </ol>, truncating the spine to ZERO items. The depth-aware
     // extractFirstList matches the outer list by depth, so both items survive.
-    // (A nested <ol> is not a recognised body type, so it doesn't become a clean
+    // (A nested <ol> is not a recognized body type, so it doesn't become a clean
     // timeline-body — the fix is about not losing the whole list, not styling it.)
     const doc = makeDoc(`
       <section class="timeline-list">
@@ -209,7 +209,7 @@ describe('chart-family.applyToDom', () => {
     assert.ok(pdx > 0, `portrait diagram group is centered (dx=${pdx})`);
   });
 
-  test('radar: builds polygons with per-series colours from the chart spectrum (--catN-hue)', () => {
+  test('radar: builds polygons with per-series colors from the chart spectrum (--catN-hue)', () => {
     const doc = makeDoc(`
       <section class="radar">
         <h2>Skills</h2>

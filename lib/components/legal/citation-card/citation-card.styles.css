@@ -68,7 +68,7 @@ section.citation-card > .cell-stage > ul,
 section.citation-card > .cell-stage > ol {
   list-style:none; padding:0; margin:0;
   display:flex; flex-direction:column; gap:var(--sp-sm);
-  /* content-height (was flex:1) — the stage centres the whole quote+list block;
+  /* content-height (was flex:1) — the stage centers the whole quote+list block;
    * a growing list would absorb the free space and strand its items at the top. */
 }
 section.citation-card > .cell-stage > :is(ul, ol) > li {
@@ -103,13 +103,13 @@ section.citation-card > .cell-stage > :is(ul, ol) > li > strong:first-child {
 /* flex mirror of `grid-template-columns:1fr 1fr` — two equal columns (flex:1 each) on one
  * full-height row; the base cell-stage's flex-direction:column flips to row here. */
 section.citation-card.split > .cell-stage { display:flex; flex-direction:row; column-gap:var(--sp-lg); align-items:stretch; }
-/* Quote fills its column; the verbatim text is CENTRED inside the accent box so the
+/* Quote fills its column; the verbatim text is CENTERED inside the accent box so the
  * filled panel reads as deliberate, not a half-empty box. */
 section.citation-card.split > .cell-stage > blockquote {
   flex:1; min-width:0; align-self:stretch; margin-top:0;
   display:flex; flex-direction:column; justify-content:center;
 }
-/* Gloss is centred to the quote so the two columns balance across the full height. */
+/* Gloss is centered to the quote so the two columns balance across the full height. */
 section.citation-card.split > .cell-stage > :is(ul, ol) { flex:1; min-width:0; align-self:center; }
 
 /* .pull-quote — hero quote dominant. */

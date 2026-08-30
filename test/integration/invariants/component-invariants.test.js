@@ -15,7 +15,7 @@
  *                   funnel widths ∝ values, radar N series → N polygons, etc.
  *
  * WHY this isn't flaky like the pixel gate: selector matches, the overflow flag,
- * and computed colours are logical facts of the laid-out DOM — no sub-pixel AA.
+ * and computed colors are logical facts of the laid-out DOM — no sub-pixel AA.
  *
  * ONE RENDER, NOT ONE PER COMPONENT. Each sample is a self-contained
  * `<!-- _class: X -->` slide, so the 61 of them are 61 sections of ONE deck. This used
@@ -269,7 +269,7 @@ describe('component semantic invariants (assert meaning, not pixels)', () => {
               if (!s) return -1;
               // Manifest selectors are written against the slide <section> root: a
               // leading `section` IS this element (→ :scope), a bare selector is a
-              // descendant. Normalise per comma-group so `section > p, section > ul`
+              // descendant. Normalize per comma-group so `section > p, section > ul`
               // scopes to the slide instead of leaking an unscoped second clause.
               const norm = sel.split(',').map((x) => {
                 x = x.trim();

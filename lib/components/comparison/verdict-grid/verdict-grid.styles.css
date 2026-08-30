@@ -10,14 +10,14 @@
  * mark on top — check / dash / x / slash, picked by state-full /
  * state-half / state-empty / state-slashed. Replaces the prior Unicode
  * ✓/–/✗ glyphs (font-dependent) with a font-independent disc+mask recipe;
- * the SHAPE carries the meaning independently of colour. */
+ * the SHAPE carries the meaning independently of color. */
 .badge { position:relative; display:inline-flex; align-items:center; justify-content:center; text-align:center; line-height:1; gap:6px; font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight); letter-spacing:var(--pill-tracking); border-radius:var(--pill-radius); padding:var(--pill-pad-y) var(--pill-pad-x); white-space:nowrap; background:var(--bg); border:1px solid var(--muted-mark); color:var(--text-body); }
 .badge.pass { --state-color:var(--pass); }
 .badge.warn { --state-color:var(--warn); }
 .badge.fail { --state-color:var(--fail); }
 .badge.skip { --state-color:var(--muted-mark); color:var(--text-muted); text-decoration:line-through; text-decoration-color:color-mix(in srgb, var(--muted-mark) 60%, transparent); }
 /* Disc (leading ::before, in flex flow) + mark (::after, overlaid on the
- * disc). Colours mixed here from --state-color + the scalar knobs; disc
+ * disc). Colors mixed here from --state-color + the scalar knobs; disc
  * style follows the default (Ringed Solid) or a .checks-* variant. Mirror
  * recipe: checklist.styles.css, obligation-matrix.styles.css. */
 .badge::before {
@@ -111,7 +111,7 @@ section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li {
   width: auto; flex: 1; min-height: 0;
 }
 /* fill:center — with few cards the 1fr rows stretch tall; top-anchored content
- * then leaves dead space at the card bottom ("a grid of boxes", forms.md §6). Centre
+ * then leaves dead space at the card bottom ("a grid of boxes", forms.md §6). Center
  * the content block so the full-height cards read as a board deck. Portrait only;
  * the wide 2×2 is untouched. */
 section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { justify-content: safe center; }

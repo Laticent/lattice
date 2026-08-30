@@ -257,7 +257,7 @@ export function classTokenLine(src: string): string {
  * remaining token that matches one of its documented variant keys. Lets the
  * pickers reflect a deck loaded via "Open in Playground", a reload, or a paste —
  * instead of sitting on "Pick a component…". Returns null when no component is
- * recognised. Faithful port of the inline `detectComponent`.
+ * recognized. Faithful port of the inline `detectComponent`.
  */
 export function detectComponent(catalog: Catalog, src: string): { name: string; variant: string } | null {
 	const m = /<!--\s*_class:\s*([^>]*?)\s*-->/.exec(src || '');

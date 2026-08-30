@@ -99,7 +99,7 @@ describe('buildSrcdoc — print sheet + fit', () => {
 	// page size where it ignores CSS @page. Same paper decision, one source of truth (#1).
 	it('the print @page is emitted AFTER the deck css so its sheet + margin win', () => {
 		// The engine `css` carries its OWN `@page{size:<slide-px>;margin:0}` (one slide per
-		// page for the colour PDF). CSS merges same-named @page rules LATER-wins-per-descriptor,
+		// page for the color PDF). CSS merges same-named @page rules LATER-wins-per-descriptor,
 		// so if our print @page came first, the raw slide sheet + margin:0 would override it and
 		// the paper pick was silently inert (the real PDF came out slide-sized, edge-to-edge —
 		// caught only by rendering the actual artifact, not this string check). Pin the order.

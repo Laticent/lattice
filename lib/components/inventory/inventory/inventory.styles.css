@@ -16,7 +16,7 @@
  * .cell-stage > …`, the same idiom every component uses. */
 
 /* ── Default · LEDGER — numbered rows, hairline rules, accent insight band ──
- * The stage centres the whole [rows + insight band] group. The ul sizes to its rows
+ * The stage centers the whole [rows + insight band] group. The ul sizes to its rows
  * (no `flex:1`) so the band is never pushed past the bounded stage's clip edge — a
  * `flex:1` list would eat the column and shove the band out of view. */
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage {
@@ -65,8 +65,8 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > blo
   font-size: var(--fs-message); font-weight: 600;
 }
 
-/* ── Variant · CARDS — equal grid, insight as a centred pull-quote ──
- * Stage centres [card grid + pull-quote]; the grid sizes to its rows so the quote
+/* ── Variant · CARDS — equal grid, insight as a centered pull-quote ──
+ * Stage centers [card grid + pull-quote]; the grid sizes to its rows so the quote
  * stays inside the bounded stage (see ledger note on dropping `flex:1`). */
 section.inventory.cards > .cell-stage { display: flex; flex-direction: column; justify-content: safe center; }
 section.inventory.cards > .cell-stage > ul {
@@ -93,7 +93,7 @@ section.inventory.cards > .cell-stage > blockquote::before { content: '\201C'; }
 section.inventory.cards > .cell-stage > blockquote::after  { content: '\201D'; }
 
 /* ── Variant · TIMELINE — horizontal numbered run, insight above ──
- * Stage centres [insight + horizontal run]; the run sizes to its content. */
+ * Stage centers [insight + horizontal run]; the run sizes to its content. */
 section.inventory.timeline > .cell-stage { display: flex; flex-direction: column; justify-content: safe center; }
 section.inventory.timeline > .cell-stage > blockquote {
   order: -1; text-align: center; font-family: var(--font-display);

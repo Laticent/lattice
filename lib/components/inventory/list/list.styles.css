@@ -1,7 +1,7 @@
 /* list — inventory.stack.bullets
  *
  * An equal-fill ledger: the list fills the working area and every item takes
- * an equal share of the height with its content vertically centred, so the
+ * an equal share of the height with its content vertically centered, so the
  * slide reads edge-to-edge whether it carries three items or the layout's
  * max. Three registers share the spine:
  *   default        — accent-edged pills (a flat set of points)
@@ -16,7 +16,7 @@
 
 section.list > .cell-stage { display:flex; flex-direction:column; }
 
-/* ── Spine: the list fills the canvas; each row an equal, centred band. ── */
+/* ── Spine: the list fills the canvas; each row an equal, centered band. ── */
 section.list > .cell-stage > :is(ul,ol) {
   list-style:none; padding:0; margin:0;
   display:flex; flex-direction:column;
@@ -42,7 +42,7 @@ section.list > .cell-stage > ul > li > ul > li {
   font-size:var(--fs-body-compact); color:var(--text-label);
   line-height:var(--lh-snug); background:none; border:none; padding:0;
 }
-/* Default ordered: leading accent counter, content centred. */
+/* Default ordered: leading accent counter, content centered. */
 section.list > .cell-stage > ol { counter-reset:list-counter; }
 section.list > .cell-stage > ol > li {
   counter-increment:list-counter;
@@ -71,7 +71,7 @@ section.list.takeaway > .cell-stage > :is(ul,ol) > li {
 section.list.takeaway > .cell-stage > :is(ul,ol) > li::before { content:none; }
 section.list.takeaway > .cell-stage > :is(ul,ol) > li::marker { content:''; }
 section.list.takeaway > .cell-stage > :is(ul,ol) > li:last-child { border-bottom:none; }
-/* numbered — accent counter as a fixed leading column, centred with the text. */
+/* numbered — accent counter as a fixed leading column, centered with the text. */
 section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li { counter-increment:list-take-counter; gap:var(--sp-md); }
 section.list.takeaway.numbered > .cell-stage > :is(ul,ol) { counter-reset:list-take-counter; }
 section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li::before {

@@ -165,7 +165,7 @@ export interface ResolvedScene {
 
 /** Resolve a baked `section.scene[data-scene-spec]` into a ResolvedScene, or null if it has no
  *  usable spec / figure. The poster went through `sanitizeSlideHtml` when the frame was built; we
- *  sanitize AGAIN here to honour the AssetMap contract at the point of use (renderer.ts). */
+ *  sanitize AGAIN here to honor the AssetMap contract at the point of use (renderer.ts). */
 function resolveSpecSource(section: Element, sanitize: (m: string) => string): ResolvedScene | null {
   const b64 = section.getAttribute('data-scene-spec');
   if (!b64) return null;
@@ -195,7 +195,7 @@ const CONTROL_ARIA: Record<ControlMode, string> = {
 };
 
 /** One adaptive playback control in the figure's corner: ⏸ while a scene plays, ▶ to resume
- *  a paused one, ↻ to replay a finished one, and a labelled "Play the motion" opt-in when
+ *  a paused one, ↻ to replay a finished one, and a labeled "Play the motion" opt-in when
  *  `prefers-reduced-motion` has held a scene to its poster. The floor governs the DEFAULT and
  *  what the AUTHOR can force; it does not strip the VIEWER's agency to choose the motion (the
  *  opt-in never autoplays and is per-view). The glyph per mode lives in `scene.styles.css`. */

@@ -12,7 +12,7 @@
  * The heading carries the verb of the decision. The list below holds
  * 2-4 short justifications, each with a strong-prefix label and a body
  * paragraph. Cards render as a horizontal strip with an accent left
- * edge — visually unified, signalling that they all support the verdict.
+ * edge — visually unified, signaling that they all support the verdict.
  * ──────────────────────────────────────────────────────────────────────── */
 section.decision > .cell-stage { display:flex; flex-direction:column; }
 /* No width: the heading FILLS the masthead band, whose `.masthead-lede` track already
@@ -45,7 +45,7 @@ section.decision > .cell-stage > ol > li {
 /* Categorical rotation across cards (cycle of 6, then mauve/slate) —
  * mirrors the KPI palette so the two layouts read as siblings (KPI = top
  * accent, decision = bottom accent). Each card's corner-tag fill follows
- * the same variable so the card reads as one colour. */
+ * the same variable so the card reads as one color. */
 section.decision > .cell-stage > :is(ul, ol) > li:nth-child(8n+1) { --decision-accent:var(--cat-1-mark);   --decision-accent-deep:var(--cat-1-mark); }
 section.decision > .cell-stage > :is(ul, ol) > li:nth-child(8n+2) { --decision-accent:var(--cat-2-mark);  --decision-accent-deep:var(--cat-2-mark); }
 section.decision > .cell-stage > :is(ul, ol) > li:nth-child(8n+3) { --decision-accent:var(--cat-3-mark); --decision-accent-deep:var(--cat-3-mark); }
@@ -100,7 +100,7 @@ section.decision :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  * read `<= 1.05` because it was written when the only question was
  * landscape-or-portrait and square rode the portrait side, unseen (#1218). */
 section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) { flex-direction: column; }
-/* Each card fills a share of the tall frame; centre the justification so it sits
+/* Each card fills a share of the tall frame; center the justification so it sits
    in the card's optical middle (the corner tag stays pinned top-left) instead of
    orphaning at the top over empty space. */
 section.decision.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { display:flex; flex-direction:column; justify-content: safe center; }

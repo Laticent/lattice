@@ -77,7 +77,7 @@ test('media component (chart) re-hosts the SVG as a captioned <figure>', () => {
 	);
 	const { articleHtml } = project(secs);
 	// A chart component carries the `chart-frame` class so the re-hosted SVG's
-	// `--chart-cat-*` scoped colours resolve outside `section.chart-frame`.
+	// `--chart-cat-*` scoped colors resolve outside `section.chart-frame`.
 	assert.match(
 		articleHtml,
 		/<figure class="lp-figure chart-frame"><svg[\s\S]*<figcaption>Revenue mix<\/figcaption><\/figure>/,
@@ -170,7 +170,7 @@ test('a SPATIAL chart (state-chart) goes to the placeholder, NOT a broken SVG re
 test('a SPATIAL-BOUNDED chart (word-cloud) re-hosts its .chart-body into a bounded .lp-spatial box', () => {
 	// word-cloud lays out in cqi/%, so it can't re-host as a bare SVG (no container context) —
 	// but its whole .chart-body renders cleanly inside a bounded container-type:size box. The
-	// figure carries `lp-spatial` + the component class (+ chart-frame for the colour scope).
+	// figure carries `lp-spatial` + the component class (+ chart-frame for the color scope).
 	const secs = sections(
 		`<section data-lattice-slide class="word-cloud"><div class="cell-stage">
 			<div class="masthead-lede"><h2>Themes</h2></div>
@@ -237,11 +237,11 @@ test('flow-height re-host drops the authored color-scheme modifier (article owns
 	assert.doesNotMatch(articleHtml, /chart-frame kanban tinted dark/, 'the dark scheme modifier is not carried');
 });
 
-test('a component whose PRIMARY chart SVG is aria-hidden (funnel) still re-hosts in colour', () => {
+test('a component whose PRIMARY chart SVG is aria-hidden (funnel) still re-hosts in color', () => {
 	// funnel / map / quadrant / radar mark their MAIN chart svg aria-hidden (the data
 	// rides the label / mark-detail channel). aria-hidden must NOT gate re-hosting — these
 	// are self-contained data charts that re-host cleanly, carrying `chart-frame` so their
-	// scoped `--chart-cat-*` colours resolve.
+	// scoped `--chart-cat-*` colors resolve.
 	const secs = sections(
 		`<section data-lattice-slide class="funnel"><div class="cell-stage">
 			<div class="masthead-lede"><h2>Deal funnel</h2></div>

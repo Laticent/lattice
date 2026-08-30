@@ -41,7 +41,10 @@ describe('resolve-headline', () => {
 
   test('isKnownHeadline recognizes the four names only', () => {
     for (const n of ['auto', 'left', 'center', 'right']) assert.ok(isKnownHeadline(n), n);
-    assert.ok(!isKnownHeadline('centre'));
+    // A near-miss that is NOT a name. This used to be the British `centre`; the
+    // US-English sweep would have turned it into `center`, which IS one — so the
+    // counter-example is now a form no spelling pass can collapse into a real name.
+    assert.ok(!isKnownHeadline('centered'));
     assert.ok(!isKnownHeadline('middle'));
     assert.ok(!isKnownHeadline(''));
     assert.ok(!isKnownHeadline(undefined));

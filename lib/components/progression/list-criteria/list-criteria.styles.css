@@ -49,7 +49,7 @@ section.list-criteria .crit-body ul li::before { display:none; content:none; }
  * VS Code markdown preview that skips the post-processor). Our engine ALWAYS emits
  * .crit-body, so this path never ships; it only keeps the markdown legible in a bare
  * renderer. Flex, not grid (flex shop §10): the index is an absolutely-positioned left
- * gutter and the strong + ul stack in a centred column beside it — the marker spanning both
+ * gutter and the strong + ul stack in a centered column beside it — the marker spanning both
  * text lines is what a grid row-span did, here done with absolute placement. */
 section.list-criteria:not(:has(.crit-body)) > .cell-stage > :is(ol, ul) > li {
   display:flex; flex-direction:column; justify-content:center;

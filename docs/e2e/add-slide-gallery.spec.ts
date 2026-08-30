@@ -21,7 +21,7 @@ test('inserting a component adds a slide from the catalog', async ({ page }) => 
 	await expect(search).toBeVisible();
 	await search.fill('divider');
 
-	// Pick the matching tile — each tile is a button labelled "Insert <name> — …".
+	// Pick the matching tile — each tile is a button labeled "Insert <name> — …".
 	await page.getByRole('button', { name: /^Insert divider/i }).first().click();
 
 	await expect(toastText(page)).toContainText('Inserted');

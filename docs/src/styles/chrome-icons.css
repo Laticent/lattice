@@ -4,7 +4,7 @@
  * controls, imported by BOTH the standalone pages (landing.css) and the
  * Starlight docs skin (lattice.css) so the docs zone and the rest of the
  * site can't drift apart. Delivered as data-URI SVG masks: paint them with
- * `background: currentColor` + `mask`, so they inherit the control's colour
+ * `background: currentColor` + `mask`, so they inherit the control's color
  * and the per-mode palette for free. Stroke pixels are opaque, so a
  * `fill:none` outline masks correctly.
  *

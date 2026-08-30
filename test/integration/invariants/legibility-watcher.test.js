@@ -96,7 +96,7 @@ describe('type-floor watcher — the live runtime, on the real bundle', () => {
     fs.writeFileSync(file, harness());
     const [dense, legible] = await read(file);
     assert.equal(dense.illegible, true, 'the 4px figure must ring — this is the whole rule');
-    assert.match(dense.tab || '', /^Type [\d.]+px · floor [\d.]+px$/, 'and name the numbers, not just colour');
+    assert.match(dense.tab || '', /^Type [\d.]+px · floor [\d.]+px$/, 'and name the numbers, not just color');
     assert.equal(legible.illegible, false, 'a legible figure must stay clean (no blanket ring)');
     assert.equal(legible.tab, null);
   });

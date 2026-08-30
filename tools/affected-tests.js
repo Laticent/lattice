@@ -5,7 +5,7 @@
  * failure. Used by the lefthook pre-commit hook for fast inner-loop
  * iteration; the full unit suite still runs in pre-push and CI.
  *
- * Safety: when a staged file isn't recognised, falls back to running
+ * Safety: when a staged file isn't recognized, falls back to running
  * the full unit suite (`npm test`). Better to be slow than to miss a
  * regression.
  *
@@ -123,7 +123,7 @@ for (const f of process.argv.slice(2)) {
     continue;
   }
 
-  // lib/theme/* — the Theme Studio deterministic core (colour math, token
+  // lib/theme/* — the Theme Studio deterministic core (color math, token
   // derivation, serialization, contrast audit, starters). Palette-shaped;
   // covered by the theme-*.test.js files under test/unit/palette/.
   if (rel.startsWith('lib/theme/') && rel.endsWith('.js')) {
@@ -163,7 +163,7 @@ for (const f of process.argv.slice(2)) {
   // would be flagged here. Conservative: full suite for unknown tool changes.
   if (rel.startsWith('tools/')) { runAll = true; break; }
 
-  // Anything we don't recognise → safe default
+  // Anything we don't recognize → safe default
   runAll = true;
   break;
 }

@@ -52,7 +52,7 @@
     },
     "gap": {
       "type": "string",
-      "description": "Guaranteed gap to neighbours, as a CSS token NAME (e.g. --frame-gap) defined in lib/base — referenced, never redefined here. See design/forms.md §6."
+      "description": "Guaranteed gap to neighbors, as a CSS token NAME (e.g. --frame-gap) defined in lib/base — referenced, never redefined here. See design/forms.md §6."
     },
     "geometry": {
       "type": "object",
@@ -65,7 +65,7 @@
     },
     "clip": {
       "type": "boolean",
-      "description": "overflow:hidden — content is cut at the Cell, never bled across a neighbour (design/forms.md §6 clip guarantee)."
+      "description": "overflow:hidden — content is cut at the Cell, never bled across a neighbor (design/forms.md §6 clip guarantee)."
     },
     "css": {
       "type": "boolean",

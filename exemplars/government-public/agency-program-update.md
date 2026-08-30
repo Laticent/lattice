@@ -57,7 +57,7 @@ Two years in, the modernised platform processes seven of every ten initial claim
 2. 91%
    - claims filed online
 3. −44%
-   - call-centre volume
+   - call-center volume
 4. 4.6 / 5
    - claimant satisfaction
 

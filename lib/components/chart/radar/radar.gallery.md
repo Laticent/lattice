@@ -359,7 +359,7 @@ Native radar / spider chart — items rated across multiple axes.
 - Three or fewer axes
   - Three axes makes a triangle — barely a shape. Below four criteria, the spider collapses and the slide should be a `cards-grid` or `verdict-grid` instead.
 - Mixed scales across axes
-  - If one axis is 0–10 and another is 0–10,000, the larger axis dominates the polygon and the comparison is misleading. Normalise everything to a shared scale first.
+  - If one axis is 0–10 and another is 0–10,000, the larger axis dominates the polygon and the comparison is misleading. Normalize everything to a shared scale first.
 
 ---
 

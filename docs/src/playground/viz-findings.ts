@@ -6,7 +6,7 @@
 //
 // The detector (scanBlackFills) is the browser twin of tools/check-viz-render.js
 // (the CI guard shipped in #961): same signal — an SVG paintable element that
-// computed to opaque black, the value a dropped/undefined themed `var()` colour
+// computed to opaque black, the value a dropped/undefined themed `var()` color
 // falls to (the #956 class). The CI guard runs it headless over the gallery; this
 // runs it live over the deck the author is editing, on their real device — the two
 // surfaces the guard can't reach from CI (real touch, real iOS).
@@ -31,7 +31,7 @@ type Listener = (scan: VizScan) => void;
 const listeners = new Set<Listener>();
 let last: VizScan | null = null;
 
-// SVG paint that is legitimately absent — never a dropped-colour signal.
+// SVG paint that is legitimately absent — never a dropped-color signal.
 const TRANSPARENT = new Set(['none', 'transparent', 'rgba(0, 0, 0, 0)']);
 // Only leaf paintable shapes carry a visible fill/stroke (structural defs/gradients/
 // <g> default to black fill but paint nothing). Kept in sync with the CI guard.
@@ -43,7 +43,7 @@ function isBlack(v: string): boolean {
 
 /**
  * Scan a rendered slide root (an iframe document or an element) for SVG paint that
- * computed to opaque black — the dropped-themed-colour signature. Pure + synchronous;
+ * computed to opaque black — the dropped-themed-color signature. Pure + synchronous;
  * returns deduped findings. Mirrors the CI guard's element/property rules so the two
  * agree on what counts.
  */

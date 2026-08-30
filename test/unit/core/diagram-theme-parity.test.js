@@ -51,7 +51,7 @@ const RUNTIME_SRC = fs.readFileSync(path.join(REPO, 'lib', 'runtime', 'index.js'
  * A complete, deterministic stand-in for "read one palette token".
  *
  * Distinct per token so a mis-wired key cannot pass by coincidentally matching
- * its neighbour — the failure mode a single sentinel value would hide.
+ * its neighbor — the failure mode a single sentinel value would hide.
  */
 const fakeReadToken = (name) => `#${name}`;
 

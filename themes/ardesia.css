@@ -7,7 +7,7 @@
  *
  * Design contract
  * ───────────────
- *   1. Single text-heading colour on every light surface (#0A0A0A near-
+ *   1. Single text-heading color on every light surface (#0A0A0A near-
  *      black). Dark mode flips to #FFFFFF on deep-graphite canvas. Every
  *      contrast clears AAA on this palette — chroma is gone, only luminance
  *      separates surfaces.
@@ -260,7 +260,7 @@
 }
 
 /* ── Chart-family palette ───────────────────────────────────────────────
- * Ardesia's curation of the chart-family's two colour spectrums (defined in
+ * Ardesia's curation of the chart-family's two color spectrums (defined in
  * lib/components/chart/_chart-family/chart-family.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Ardesia overrides
  * both spectrums with its audited Brand-triad pigments — slate, terracotta,

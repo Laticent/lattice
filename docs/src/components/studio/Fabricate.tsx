@@ -123,7 +123,7 @@ function isSingle(v: unknown): boolean {
 	return !LD_RE.test(String(v ?? ''));
 }
 
-// THE DATA-VIZ BAND — the categorical colours charts + Mermaid cycle through,
+// THE DATA-VIZ BAND — the categorical colors charts + Mermaid cycle through,
 // hue-rotated off the accent and AA-repaired. Surfaced as click-to-select strips
 // in the token tree; edited in the inspector. (#G3b)
 const SERIES_TOKENS = Array.from({ length: 8 }, (_, i) => `chart-cat${i + 1}`);
@@ -207,7 +207,7 @@ function essentialsFromMap(map: Record<string, string>, fallback: Record<EssKey,
 // Only FOREGROUND roles (ink / brand / signals) have an on-background AA target;
 // surfaces (bg, bg-alt, border, accent wash) and the decorative muted ink are
 // WCAG-exempt — so we never stamp them pass/FAIL against the canvas (it would be
-// a meaningless, alarming "fail" for a colour that is itself a background).
+// a meaningless, alarming "fail" for a color that is itself a background).
 const INK_TOKENS = new Set(['text-heading', 'text-body', 'text-secondary', 'accent', 'pass', 'warn', 'fail']);
 const readsOnBg = (tokenId: string) => INK_TOKENS.has(tokenId);
 // Contrast of a token's resolved side vs the page background, per mode — null when
@@ -1357,7 +1357,7 @@ function TreeRow({ label, swatch, dual, tag, overridden, selected, onClick }: { 
 }
 
 // The data-viz band as click-to-select strips (Series / Cat fill / Cat mark /
-// Diagram). The chip colour tracks the live specimen mode so it mirrors the canvas.
+// Diagram). The chip color tracks the live specimen mode so it mirrors the canvas.
 function BandStrips({ map, overrides, mode, selId, onPick }: { map: Record<string, unknown>; overrides: Record<string, Override>; mode: 'light' | 'dark'; selId: string; onPick: (t: string) => void }) {
 	const repr = (token: string) => sides(map[token])[mode];
 	return (
@@ -1378,7 +1378,7 @@ function BandStrips({ map, overrides, mode, selId, onPick }: { map: Record<strin
 	);
 }
 
-// One jump-target chip in a band strip — its colour is the live-mode value.
+// One jump-target chip in a band strip — its color is the live-mode value.
 function BandChip({ token, color, selected, overridden, onPick }: { token: string; color: string; selected: boolean; overridden: boolean; onPick: (t: string) => void }) {
 	return (
 		<button
@@ -1491,13 +1491,13 @@ function Inspector({ selected, core, map, overrides, mode, onHex, onOverride, on
 function PairRow({ icon, label, ratio }: { icon: React.ReactNode; label: string; ratio: number | null }) {
 	const ok = (ratio ?? 0) >= 4.5;
 	const tier = ratio == null ? '—' : tierOf(ratio, ok);
-	const colour = ratio == null ? 'var(--text-muted)' : ok ? 'var(--pass)' : 'var(--fail)';
+	const color = ratio == null ? 'var(--text-muted)' : ok ? 'var(--pass)' : 'var(--fail)';
 	return (
 		<div className="my-1.5 flex items-center gap-2.5 text-[12px]">
 			<span className="text-muted-foreground">{icon}</span>
 			<span className="text-[var(--text-body)]">{label}</span>
 			<span className="ml-auto font-mono text-[11px] text-muted-foreground">{ratio == null ? '—' : `${ratio.toFixed(1)} : 1`}</span>
-			<span className="rounded-full border px-1.5 py-px font-mono text-[10px] font-bold" style={{ borderColor: `color-mix(in srgb, ${colour} 35%, transparent)`, color: colour }}>{tier}</span>
+			<span className="rounded-full border px-1.5 py-px font-mono text-[10px] font-bold" style={{ borderColor: `color-mix(in srgb, ${color} 35%, transparent)`, color: color }}>{tier}</span>
 		</div>
 	);
 }
@@ -1569,7 +1569,7 @@ function AuditPanel({ rows, ok }: { rows: { role: string; ratio: number | null; 
 				const unchecked = isUnchecked(r);
 				const separation = r.kind === 'separation';
 				const tier = unchecked ? 'n/a' : separation ? (good ? 'OK' : 'FAIL') : tierOf(r.ratio, good);
-				const colour = good ? 'var(--pass)' : unchecked ? 'var(--warn)' : 'var(--fail)';
+				const color = good ? 'var(--pass)' : unchecked ? 'var(--warn)' : 'var(--fail)';
 				const unread = r.unreadable?.length ? r.unreadable.map((n) => `--${n}`).join(', ') : 'not set';
 				const reading = unchecked
 					? unread
@@ -1578,10 +1578,10 @@ function AuditPanel({ rows, ok }: { rows: { role: string; ratio: number | null; 
 					: (r.ratio ? `${r.ratio.toFixed(1)} : 1` : '—');
 				return (
 					<div key={r.role} className="my-1.5 flex items-center gap-2.5 text-[12px] text-foreground" title={unchecked ? `Could not be measured — ${unread} is not a plain hex color, so this pair has no contrast ratio.` : undefined}>
-						<span className="grid size-[18px] place-items-center rounded-md" style={{ background: `color-mix(in srgb, ${colour} 16%, transparent)`, color: colour }}>{good ? <Check className="size-3" /> : unchecked ? <Info className="size-3" /> : <TriangleAlert className="size-3" />}</span>
+						<span className="grid size-[18px] place-items-center rounded-md" style={{ background: `color-mix(in srgb, ${color} 16%, transparent)`, color: color }}>{good ? <Check className="size-3" /> : unchecked ? <Info className="size-3" /> : <TriangleAlert className="size-3" />}</span>
 						<span className="capitalize text-[var(--text-body)]">{r.role}</span>
 						<span className="ml-auto truncate font-mono text-[11px] text-muted-foreground">{reading}</span>
-						<span className="shrink-0 rounded-full border px-1.5 py-px font-mono text-[10px] font-bold" style={{ borderColor: `color-mix(in srgb, ${colour} 35%, transparent)`, color: colour }}>{tier}</span>
+						<span className="shrink-0 rounded-full border px-1.5 py-px font-mono text-[10px] font-bold" style={{ borderColor: `color-mix(in srgb, ${color} 35%, transparent)`, color: color }}>{tier}</span>
 					</div>
 				);
 			})}

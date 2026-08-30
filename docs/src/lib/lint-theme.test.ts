@@ -158,7 +158,7 @@ describe('lintTheme', () => {
 
 	it('keeps coarse-pointer rules to target and type size, never width', () => {
 		// A coarse pointer means fingers — a target-size argument at ANY width. It is
-		// not a licence to widen the card: relaxing max-width here produced an 893px
+		// not a license to widen the card: relaxing max-width here produced an 893px
 		// full-bleed banner on every touchscreen laptop and landscape tablet, the
 		// opposite of the 340px "sit beside the code" rule. The narrow cap already
 		// carries `calc(100vw - 28px)`, so real phones need no override.

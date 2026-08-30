@@ -292,7 +292,7 @@ test/helpers/*          → full unit suite        (shared infra)
 unknown lib/<X>.js      → full unit suite        (safe fallback)
 ```
 
-When a staged file isn't recognised, the script falls back to the full
+When a staged file isn't recognized, the script falls back to the full
 suite. Better to be slow than miss a regression. Pre-push runs the full
 suite regardless as a second safety net.
 

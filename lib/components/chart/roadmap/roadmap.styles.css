@@ -46,8 +46,8 @@
  * Roadmap cells encode meaning by SYMBOL (✓ shipped / – in flight / ○ planned /
  * ╱ out of scope). An emailed deck reader can't decode those without a key, so
  * the transform emits one — only for the states actually present. A wide,
- * full-width chart wants its key BOTTOM-CENTRE (best practice + accessibility),
- * not a right rail, so it sits centred under the grid, pushed to the foot of
+ * full-width chart wants its key BOTTOM-CENTER (best practice + accessibility),
+ * not a right rail, so it sits centered under the grid, pushed to the foot of
  * the figure. Each chip reuses the EXACT disc+masked-glyph recipe the cells use
  * (one source of truth: a theme tuning --mark-* / --state-color updates both).
  * Sized to read without squinting, weighted to key the grid, not compete. */
@@ -99,7 +99,7 @@
   -webkit-mask:var(--state-mark) center / 72% 72% no-repeat;
           mask:var(--state-mark) center / 72% 72% no-repeat;
 }
-/* planned = true hollow ring (no centre glyph), matching the cell. */
+/* planned = true hollow ring (no center glyph), matching the cell. */
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-planned .roadmap-legend-mark::before {
   background-color:transparent;
   box-shadow:inset 0 0 0 2px var(--state-color);
@@ -219,7 +219,7 @@
  * span. Empty cells (no marker) keep the default muted dash from base.
  *
  * Two visual treatments:
- *   - Light (default, any variant):  small filled state-coloured dot
+ *   - Light (default, any variant):  small filled state-colored dot
  *                                    before the cell text. Eyebrow
  *                                    label is rendered but hidden.
  *   - Heavy (`.status` modifier):    full ribbon + tinted ground +
@@ -232,7 +232,7 @@
  *   [/] skipped   → state-skipped  (fail red — explicitly out of scope)
  * ──────────────────────────────────────────────────────────────────── */
 
-/* Per-state colour tokens — used by both light + heavy treatments. */
+/* Per-state color tokens — used by both light + heavy treatments. */
 :is(section.roadmap, figure.roadmap) td.cell-state.state-shipped,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-shipped {
   --state-color:var(--pass);
@@ -262,26 +262,26 @@
   --cell-state-bg:transparent;
 }
 
-/* Light treatment (default, any variant): a small state-coloured
+/* Light treatment (default, any variant): a small state-colored
    indicator with an inset white glyph sits before the cell text.
    Glyph vocabulary — each state carries a SHAPE-distinct mark so it reads
-   in greyscale and for colour-vision-deficient viewers (colour is the
+   in grayscale and for color-vision-deficient viewers (color is the
    redundant, not the primary, encoding):
      shipped  → ✓ check          (filled / complete)
-     wip      → – dash           (in progress) — the colour-blind-safe
+     wip      → – dash           (in progress) — the color-blind-safe
                                   equivalent of the retired half-fill disc,
                                   matching the checklist/verdict-grid mark
                                   vocabulary (half → dash)
      planned  → ○ open ring     (committed / not started) — a TRUE hollow ring
                                   (transparent disc + --state-color ring, empty
-                                  centre), matching the checklist / obligation
+                                  center), matching the checklist / obligation
                                   neutral todo; ✕ ("no") is reserved for
                                   verdict-grid's genuine "not met"
      skipped  → ╱ diagonal slash (out of scope; plus strike-through on text)
    The eyebrow label is rendered for the heavy treatment but hidden here. */
 :is(section.roadmap, figure.roadmap) td.cell-state .cell-state-label { display:none; }
 /* Leading state token = a solid --state-color disc (::before) carrying the
- * shared --state-mark symbol (::after), knocked out in the canvas colour via
+ * shared --state-mark symbol (::after), knocked out in the canvas color via
  * a CSS mask — the SAME recipe checklist / verdict-grid / obligation-matrix
  * use, so a theme tuning --mark-* / --state-color updates roadmap in lockstep.
  * Both pseudo-elements are absolutely positioned in the text's leading pad so
@@ -319,7 +319,7 @@
 }
 /* planned is the EMPTY state — a TRUE hollow ring, not a filled disc with a
    mark (which reads as a "selected" bullseye): transparent ::before with a
-   --state-color ring, ::after mark suppressed. No centre dot. Matches the
+   --state-color ring, ::after mark suppressed. No center dot. Matches the
    checklist / obligation-matrix neutral-todo hollow ring. */
 :is(section.roadmap, figure.roadmap) td.cell-state.state-planned .cell-state-text::before,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-planned .row-text::before {
@@ -337,7 +337,7 @@
   text-decoration-color:color-mix(in srgb, var(--muted-mark) 60%, transparent);
 }
 
-/* Horizons row left rail picks up the state colour (overrides the
+/* Horizons row left rail picks up the state color (overrides the
    default phase-accent rail when a state class is present). */
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state {
   border-left-color:color-mix(in srgb, var(--state-color) 60%, var(--border));
@@ -382,7 +382,7 @@
  *   heat planned -> --pass         so --text-muted would DISCARD the heat encoding
  *
  * Under `roadmap status heat` a planned cell's ring and left ribbon go relief-green
- * while an unexempted label would sit muted grey beside them — the label disagreeing
+ * while an unexempted label would sit muted gray beside them — the label disagreeing
  * with its own cell. So the planned arm carries `:not(.heat)` and heat keeps its own
  * read. Nothing in the committed corpus combines `roadmap` with `heat` (heat appears
  * only on obligation-matrix), so no golden would have shown it and no gate would have
@@ -434,9 +434,9 @@
   display:none;
 }
 
-/* Top-right state token — a state-coloured disc carrying a SHAPE-distinct
+/* Top-right state token — a state-colored disc carrying a SHAPE-distinct
  * white mark, positioned in the corner so the cell body stays clean while
- * still encoding state by shape (not just colour / fill level):
+ * still encoding state by shape (not just color / fill level):
  *   shipped → check
  *   wip     → dash   (replaces the retired half-disc tonal split)
  *   planned → open ring (neutral "on the slate"; not ✕)
@@ -470,7 +470,7 @@
           mask:var(--state-mark) center / 72% 72% no-repeat;
   z-index:1;
 }
-/* planned corner = hollow ring (no centre dot), matching the light treatment. */
+/* planned corner = hollow ring (no center dot), matching the light treatment. */
 :is(section.roadmap, figure.roadmap).status td.cell-state.state-planned::after {
   background-color:transparent;
   box-shadow:inset 0 0 0 2px var(--state-color);
@@ -487,8 +487,8 @@
   display:grid;
   grid-template-columns:repeat(var(--horizon-count, 3), 1fr);
   gap:var(--sp-md);
-  /* Size to the cards (not the full body height) so the bottom-centre status
-   * key sits in the freed space below them; the figure centres the stack. */
+  /* Size to the cards (not the full body height) so the bottom-center status
+   * key sits in the freed space below them; the figure centers the stack. */
   flex:0 1 auto;
   min-height:0;
 }
@@ -683,7 +683,7 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
  * least the stage's height when content is smaller (the split case → it
  * fills), while `flex: 0 0 auto` still lets it grow PAST the stage when
  * content is larger (the overstuffed case → the probe still fires and the
- * split still triggers). One property, both behaviours, no pin to fight.
+ * split still triggers). One property, both behaviors, no pin to fight.
  *
  * Both directions are covered by tests: `check:chart-fit` renders the split
  * pages, and the carousel suite asserts an overstuffed roadmap still divides.

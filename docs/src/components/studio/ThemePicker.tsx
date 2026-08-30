@@ -22,7 +22,7 @@ import type { CatalogGroup } from './CatalogSelect';
 import { A11Y_THEMES, BUILTIN_PALETTES, CURATED, MORE_THEMES, PALETTE_DOTS } from './palettes';
 
 export { A11Y_THEMES, BUILTIN_PALETTES, CURATED, MORE_THEMES, PALETTE_DOTS };
-// US-English label (the shared site one uses the British "colour"); HARD RULE #21.
+// US-English label (the shared site one uses the British "color"); HARD RULE #21.
 export const A11Y_LABEL = 'Accessibility · color-blind safe';
 
 export type SavedTheme = { id: string; name: string; label: string; accent?: string };

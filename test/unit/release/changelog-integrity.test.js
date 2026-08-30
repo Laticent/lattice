@@ -202,7 +202,7 @@ function duplicateEntries(section) {
  * That is keep-both-sides, and the seam lands on an indented continuation line where the
  * orphan detector above cannot see it.
  *
- * COPIES IS A COUNT, not a licence. The sibling prose list insists a sanctioned line appear
+ * COPIES IS A COUNT, not a license. The sibling prose list insists a sanctioned line appear
  * EXACTLY once for the same reason: a keep-both-sides duplicates the sanctioned line rather
  * than removing it, so "is it in the list" reads damage as health. A sanction here says how
  * many copies a human looked at; a further copy fails, and so does dropping to one.

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Colour-vision-deficiency (CVD) collapse audit for Lattice themes.
+ * Color-vision-deficiency (CVD) collapse audit for Lattice themes.
  *
  * For every theme, simulate each condition — the three dichromacies (protanopia /
  * deuteranopia / tritanopia) and ACHROMATOPSIA, the total monochromacy — on the
@@ -19,7 +19,7 @@
  *
  * This is a DIAGNOSTIC, not a gate: the shipped brand themes encode meaning in
  * hue and *will* collapse here — that is the problem the curated accessibility
- * palettes exist to solve (engineering/decisions/2026-06-16-colour-blindness-
+ * palettes exist to solve (engineering/decisions/2026-06-16-color-blindness-
  * accessibility.md). It exits 0 by default so it never breaks CI on the brand
  * themes; pass `--strict` to exit non-zero on any collapse (used by the
  * accessibility palettes' regression test once they exist).
@@ -315,7 +315,7 @@ let totalCollapsed = 0;
 const uncovered = []; // requested themes that yielded no measurable tokens
 
 console.log('');
-console.log('  Lattice · Colour-Vision-Deficiency Audit (Machado 2009)');
+console.log('  Lattice · Color-Vision-Deficiency Audit (Machado 2009)');
 console.log('  ══════════════════════════════════════════════════════════════');
 // The floor is per-condition now, so the banner cannot state one number. It prints
 // each condition with the floor it is actually measured against — a report that

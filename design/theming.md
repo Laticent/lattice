@@ -359,7 +359,7 @@ character by setting the override hooks at `:root`, each a
 | `--chart-state-pass` / `-warn` / `-fail` / `-info` / `-mute` | the 5 semantic hues |
 
 The `var()` indirection means a theme always wins, and it need only set the
-slots it wants to flavour.
+slots it wants to flavor.
 
 **The per-theme curation rationale — the shared "port categoricals, reuse
 status" recipe, and how each curated theme expresses it on its own

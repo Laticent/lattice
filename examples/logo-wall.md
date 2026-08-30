@@ -103,7 +103,7 @@ The credibility moment shows up everywhere — it just wears a different label. 
 
 `Participating agencies`
 
-## Twelve agencies stood up the joint programme.
+## Twelve agencies stood up the joint program.
 
 - ![Acme](../lib/components/inventory/logo-wall/acme.svg)
 - ![Globex](../lib/components/inventory/logo-wall/globex.svg)

@@ -13,7 +13,7 @@ header: "Office of Wildfire Resilience · Policy Briefing"
 
 # Defensible-Space Standard
 
-Whether to mandate 30-metre vegetation clearance for the 41,000 homes in the wildland-urban interface.
+Whether to mandate 30-meter vegetation clearance for the 41,000 homes in the wildland-urban interface.
 
 ---
 
@@ -22,7 +22,7 @@ Whether to mandate 30-metre vegetation clearance for the 41,000 homes in the wil
 
 ## The bottom line: mandate the clearance standard, phased over three fire seasons.
 
-A statewide 30-metre defensible-space requirement is the single intervention that most reduces structure loss per dollar. We recommend adopting it now, with a graduated enforcement schedule and a hardship grant for low-income owners.
+A statewide 30-meter defensible-space requirement is the single intervention that most reduces structure loss per dollar. We recommend adopting it now, with a graduated enforcement schedule and a hardship grant for low-income owners.
 
 ---
 
@@ -31,7 +31,7 @@ A statewide 30-metre defensible-space requirement is the single intervention tha
 
 ## Last season's losses concentrated where vegetation met structures.
 
-The 2026 Coyote Ridge fire destroyed 612 homes. Post-incident survey found 83% of lost structures had less than 10 metres of cleared vegetation; 91% of surviving structures within the same burn perimeter exceeded 20 metres.
+The 2026 Coyote Ridge fire destroyed 612 homes. Post-incident survey found 83% of lost structures had less than 10 meters of cleared vegetation; 91% of surviving structures within the same burn perimeter exceeded 20 meters.
 
 - Clearance, not construction year, was the strongest predictor of survival.
 - The pattern repeats across four of the last five major incidents.
@@ -43,7 +43,7 @@ The 2026 Coyote Ridge fire destroyed 612 homes. Post-incident survey found 83% o
 
 ## Voluntary guidance has not moved compliance in eight years.
 
-The interface has carried a *recommended* 30-metre guideline since 2019. Self-reported audits put voluntary compliance at 34% — flat since the guideline was issued, and concentrated in higher-income parcels with the means to clear.
+The interface has carried a *recommended* 30-meter guideline since 2019. Self-reported audits put voluntary compliance at 34% — flat since the guideline was issued, and concentrated in higher-income parcels with the means to clear.
 
 ---
 
@@ -56,7 +56,7 @@ The interface has carried a *recommended* 30-metre guideline since 2019. Self-re
   - [x] Low cost
   - [ ] Compliance gain
   - [ ] Equity reach
-  - Cheapest to administer, but eight years of flat compliance show it does not change behaviour at scale.
+  - Cheapest to administer, but eight years of flat compliance show it does not change behavior at scale.
 - **Mandate with no support.**
   - [ ] Low cost
   - [x] Compliance gain
@@ -150,12 +150,12 @@ Inspecting 41,000 parcels needs roughly 40 additional seasonal inspectors. We pr
 <!-- _class: decision -->
 <!-- tier: short -->
 
-## Adopt the mandated 30-metre standard with hardship grants, phased over three seasons.
+## Adopt the mandated 30-meter standard with hardship grants, phased over three seasons.
 
 - Adopt mandate with grants
   - Delivers the loss reduction while funding the owners least able to clear.
 - Why not stay voluntary
-  - Eight years of flat compliance show guidance alone does not change behaviour.
+  - Eight years of flat compliance show guidance alone does not change behavior.
 - Why not mandate without support
   - Equitable burden was a hard requirement; an unfunded mandate fails it.
 

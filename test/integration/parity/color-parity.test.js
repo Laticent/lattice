@@ -1,12 +1,12 @@
 /**
- * Integration: COLOUR resolver ↔ real DOM parity.
+ * Integration: COLOR resolver ↔ real DOM parity.
  *
  * The guarantee the universal token system needs but nothing else asserts: that
  * a token resolves to the SAME value through the emulator's offline resolver
  * (lib/core/resolve-token-expr.js, the twin of getComputedStyle) and through a
  * REAL browser's getComputedStyle over the engine-rendered DOM. A rename that
  * points the resolver at a name one theme spells differently, or a resolver that
- * drifts from the browser's colour math, fails here instead of shipping an
+ * drifts from the browser's color math, fails here instead of shipping an
  * off-brand diagram.
  *
  * The probe deck is rendered by the owned engine (the production HTML + CSS
@@ -150,7 +150,7 @@ describe('color-parity (offline resolver ↔ real engine-rendered DOM getCompute
             if (emu.some((c, i) => c !== br[i])) drift.push(`--${tok}: emulator ${emuHex}→${emu} vs browser ${br}`);
           }
           await page.close();
-          assert.deepEqual(drift, [], `cross-renderer colour drift (${theme}/${mode}):\n${drift.join('\n')}`);
+          assert.deepEqual(drift, [], `cross-renderer color drift (${theme}/${mode}):\n${drift.join('\n')}`);
         });
     }
   }

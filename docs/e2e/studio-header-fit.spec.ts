@@ -363,7 +363,7 @@ test('@smoke the Studio header fits — and keeps its words — at every support
 					return color === 'transparent' ? 0 : 1;
 				};
 				// `hit === el` or one of ITS OWN descendants — deliberately not "an ancestor
-				// was hit". An ancestor showing through at the label's centre is the signature
+				// was hit". An ancestor showing through at the label's center is the signature
 				// of the label being clipped away, so accepting it would have passed exactly the
 				// case this is here to catch (measured: a zero-width `overflow: hidden` wrapper).
 				const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);

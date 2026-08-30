@@ -9,10 +9,10 @@
  * the linter will enforce it.
  *
  * DESIGN (2026-06-22 redesign — engineering/decisions/2026-06-22-kanban-chart-redesign.md):
- * the board spends colour on the DECISION axis (status), not decoratively on
+ * the board spends color on the DECISION axis (status), not decoratively on
  * category. The default is a calm grid of uniform, elevated, neutral tiles
  * ("premium card"); the one card carrying a status is the focal point. Two
- * opt-in variants restore colour coding for teams that need it:
+ * opt-in variants restore color coding for teams that need it:
  *   • `keyline` — category as a single crisp left edge (ownership at a glance)
  *   • `tinted`  — columns tinted by STAGE (reinforces the pipeline flow)
  * Author as `<!-- _class: kanban -->` / `kanban keyline` / `kanban tinted`. */
@@ -128,7 +128,7 @@
  * every card: a refined hairline, a soft canvas-aware depth cue, generous
  * padding. The per-lane gradient + 3px lane stripe are GONE — category no
  * longer paints the surface (it survives, disciplined, in the `keyline`/`tinted`
- * variants). Colour on the surface is reserved for STATUS (see the status block
+ * variants). Color on the surface is reserved for STATUS (see the status block
  * below). --lane-color is still inherited from the card's style attribute but is
  * inert by default; the variants opt back into it. */
 .kanban-card {
@@ -157,8 +157,8 @@
    * ZERO BLUR on every layer, shaped with negative SPREAD — the same technique
    * base.tokens.css --elevation-recipe uses, and for the same reason. Chromium's
    * printToPDF exports a *blurred* box-shadow as a raster soft-mask, which Quartz
-   * viewers (iOS Files/Preview) paint as an opaque grey box around the element:
-   * engineering/gotchas.md "Blurred `box-shadow` → opaque grey box", and the
+   * viewers (iOS Files/Preview) paint as an opaque gray box around the element:
+   * engineering/gotchas.md "Blurred `box-shadow` → opaque gray box", and the
    * standing decision in engineering/decisions/2026-07-12-struck-elevation.md.
    * The first cut of this repair restored the ORIGINAL blur radii and put 42 new
    * JPEG soft-masks into kanban.gallery.light.pdf alone — trading a missing
@@ -179,12 +179,12 @@
   min-width: 0;
 }
 
-/* Status → the one colour the surface earns. Map the shared status vocabulary
+/* Status → the one color the surface earns. Map the shared status vocabulary
  * to its state tokens (same crosswalk every chart uses), then tint the card
  * gently with that status's fill so a flagged card feels highlighted, not
  * alarming. Cards without a status stay fully neutral, so the board reads calm
  * with the flagged card(s) as the focal point. The `.chart-status` pill remains
- * the loud chip. Scoped `:not(.keyline):not(.tinted)` so the colour-coded
+ * the loud chip. Scoped `:not(.keyline):not(.tinted)` so the color-coded
  * variants keep status on the chip alone (their thesis). */
 .kanban-card[data-s="on-track"],
 .kanban-card[data-s="done"],
@@ -310,9 +310,9 @@
 }
 
 /* Lane tag — a quiet NEUTRAL dot + label by default: it names the category
- * without painting the card. The dot is muted (not the lane colour), so the
- * default board carries no per-card category colour. The variants below opt
- * the lane colour back in. */
+ * without painting the card. The dot is muted (not the lane color), so the
+ * default board carries no per-card category color. The variants below opt
+ * the lane color back in. */
 .kanban-lane {
   display: inline-flex;
   align-items: center;
@@ -367,7 +367,7 @@
  * VARIANT: `keyline` — category as ONE crisp left edge.
  * Category coding is useful to some teams, so don't delete it — discipline it to
  * a single quiet expression. Every card is the same neutral tile (flat, no
- * shadow); the lane colour appears ONLY as a crisp left keyline. Status stays on
+ * shadow); the lane color appears ONLY as a crisp left keyline. Status stays on
  * the chip. (engineering/decisions/2026-06-22-kanban-chart-redesign.md)
  * ════════════════════════════════════════════════════════════════════════════ */
 :is(section.kanban, figure.kanban).keyline .kanban-card {
@@ -387,13 +387,13 @@
 :is(section.kanban, figure.kanban).keyline.dark .kanban-card {
   border-color: color-mix(in oklab, var(--border) 70%, var(--muted-mark));
 }
-/* Lane label quiet; the keyline carries the colour, so drop the dot. */
+/* Lane label quiet; the keyline carries the color, so drop the dot. */
 :is(section.kanban, figure.kanban).keyline .kanban-lane { color: var(--text-secondary); }
 :is(section.kanban, figure.kanban).keyline .kanban-lane::before { display: none; }
 
 /* ════════════════════════════════════════════════════════════════════════════
- * VARIANT: `tinted` — colour encodes STAGE, not category.
- * The board's primary axis is the pipeline (Backlog → … → Done), so move colour
+ * VARIANT: `tinted` — color encodes STAGE, not category.
+ * The board's primary axis is the pipeline (Backlog → … → Done), so move color
  * off the cards and onto the COLUMNS: a whisper-tint per lane + a hue-keyed
  * header underline. Cards go uniformly neutral and lift off the lane. Status
  * stays the one accent chip. (engineering/decisions/2026-06-22-kanban-chart-redesign.md)
@@ -455,7 +455,7 @@
   box-shadow:
     0 0.1cqi 0 -0.02cqi light-dark(color-mix(in oklab, var(--col-hue) 12%, transparent), transparent);
 }
-/* Dark: tint the lane a hair stronger so the stage colour survives near-black,
+/* Dark: tint the lane a hair stronger so the stage color survives near-black,
  * and lift the cards above it. */
 :is(section.kanban, figure.kanban).tinted.dark .kanban-column {
   background: color-mix(in oklab, var(--col-hue) calc(var(--col-tint) + 5%), var(--bg));
@@ -465,7 +465,7 @@
   background: color-mix(in oklab, var(--bg-alt) 88%, white);
   border-color: color-mix(in oklab, var(--border) 70%, var(--muted-mark));
 }
-/* Lane label quiet; drop the dot (colour now lives on the lane, not the card). */
+/* Lane label quiet; drop the dot (color now lives on the lane, not the card). */
 :is(section.kanban, figure.kanban).tinted .kanban-lane { color: var(--text-muted); }
 :is(section.kanban, figure.kanban).tinted .kanban-lane::before { display: none; }
 

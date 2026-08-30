@@ -5,7 +5,7 @@
  * (`- ![Brand](brand.svg)`); the engine renders `<ul><li><img></li></ul>`. The
  * logo-marks transform (lib/transformers/logo-marks.js) then rewrites each
  * `<img>` into a `<span class="logo-mark">` whose SVG rides as a CSS `mask` and
- * whose fill is a palette token — so the colour is OURS, not the asset's.
+ * whose fill is a palette token — so the color is OURS, not the asset's.
  *
  * Modifier model:
  *   logo-wall          4-column wall, marks in --text-secondary (default)
@@ -14,7 +14,7 @@
  *   logo-wall dark     dark canvas — every token re-tones via light-dark()
  *
  * Because the fill is `var(--logo-ink)` (a token), the wall is AA on both
- * grounds and adapts to every theme + colour-mode for free — no per-mode filter.
+ * grounds and adapts to every theme + color-mode for free — no per-mode filter.
  * The mask is alpha-based: a mark's negative space must be real transparency
  * (the SVGs are authored as silhouettes), and fill-opacity becomes tonal depth.
  *
@@ -33,14 +33,14 @@ section.logo-wall > .cell-stage {
 }
 
 /* The headline block (eyebrow + h2) keeps its natural height at the top;
- * the wall grows to fill the remaining canvas and centres its rows. */
+ * the wall grows to fill the remaining canvas and centers its rows. */
 section.logo-wall > .cell-stage > ul {
   list-style: none;
   margin: 0;
   padding: 0;
   width: 100%;
   flex: 1 1 auto;
-  /* flex mirror of `repeat(N,1fr)` (flex shop §11.A): N marks per row, the rows centred as a
+  /* flex mirror of `repeat(N,1fr)` (flex shop §11.A): N marks per row, the rows centered as a
    * cluster. `--logo-col-gap` feeds the per-cell width below so tiling stays exact even when
    * a reflow uses an asymmetric gap. */
   --logo-col-gap: var(--logo-gap);
@@ -58,9 +58,9 @@ section.logo-wall > .cell-stage > ul > li {
   flex: 0 0 auto;
   box-sizing: border-box;
   /* Column, not row: the optional caption (name + pill) stacks BELOW the mark and
-   * centres, rather than landing to its right. `min-height` keeps caption-less
+   * centers, rather than landing to its right. `min-height` keeps caption-less
    * cells at the mark band so a mixed wall still tiles evenly; a captioned cell
-   * grows past it and the outer flex `align-content:center` re-centres the rows. */
+   * grows past it and the outer flex `align-content:center` re-centers the rows. */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -69,10 +69,10 @@ section.logo-wall > .cell-stage > ul > li {
   min-height: var(--logo-cell-h);
 }
 
-/* The mark is a token-coloured silhouette: its SVG rides as a CSS `mask` (the
+/* The mark is a token-colored silhouette: its SVG rides as a CSS `mask` (the
  * logo-marks transform stamps `--logo-mask:url(...)` per mark) and its fill is a
- * palette token, so every mark resolves the SAME colour through `var(--token)` —
- * one cohesive wall that re-tones per theme and per colour-mode via `light-dark()`,
+ * palette token, so every mark resolves the SAME color through `var(--token)` —
+ * one cohesive wall that re-tones per theme and per color-mode via `light-dark()`,
  * AA on both grounds. `--logo-ink` defaults to the AA `--text-secondary`; the
  * `color` variant overrides it per mark with categorical `--cat-*-mark` hues. */
 section.logo-wall > .cell-stage > ul > li > .logo-mark {
@@ -92,7 +92,7 @@ section.logo-wall > .cell-stage > ul > li > .logo-mark {
 /* Export path: the emulator swaps the mask span for the mark's real `<svg>`
  * (CSS mask doesn't survive print-to-PDF). The SVG is authored `fill:
  * currentColor`, so it takes the SAME `--logo-ink` token via `color` — identical
- * colour to the preview, but a robust vector in every PDF viewer. Turn the
+ * color to the preview, but a robust vector in every PDF viewer. Turn the
  * mask/background treatment off and let the inline svg paint instead. */
 section.logo-wall > .cell-stage > ul > li > .logo-mark-svg {
   -webkit-mask-image: none;
@@ -115,10 +115,10 @@ section.logo-wall > .cell-stage > ul > li > .logo-mark-svg > svg {
  *     - Northwind          ← name (plain text)
  *     - `Anchor partner`   ← pill (backticked → <code>)
  * Both optional, in any combination. Substance is prose, so this is pure
- * structure + CSS — no transform. The nested <ul> is a centred column; a plain
+ * structure + CSS — no transform. The nested <ul> is a centered column; a plain
  * <li> is the name, a <code> inside an <li> is the pill chip. The universal
  * trailing-pill rule (base.modifiers.css) only reaches a FIRST-level `li > code`,
- * so the nested pill here is ours to place — centred, not right-anchored. */
+ * so the nested pill here is ours to place — centered, not right-anchored. */
 section.logo-wall > .cell-stage > ul > li > ul {
   list-style: none;
   padding: 0;
@@ -142,7 +142,7 @@ section.logo-wall > .cell-stage > ul > li > ul > li {
 
 /* The pill — a metadata chip below the name. Reuses the universal `--pill-*`
  * geometry/tokens (base.tokens.css) so it matches every other pill in the deck,
- * but centred under the mark rather than pushed to a row's right edge. */
+ * but centered under the mark rather than pushed to a row's right edge. */
 section.logo-wall > .cell-stage > ul > li > ul > li > code {
   display: inline-flex;
   align-items: center;
@@ -168,7 +168,7 @@ section.logo-wall.dense > .cell-stage {
 }
 
 /* Color — per-mark on-palette hues. The marks are masks, so there are no real
- * brand colours to keep; instead each cell takes a categorical `--cat-*-mark`
+ * brand colors to keep; instead each cell takes a categorical `--cat-*-mark`
  * token (saturated, AA on both grounds, `light-dark()`-adaptive), cycling 1..12
  * so adjacent marks differ. This is the palette-driven answer to "keep the hues"
  * — cohesive with every chart/diagram in the deck, and contrast-clean by token. */
@@ -207,7 +207,7 @@ section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 12) > .logo-mark
 section.logo-wall.logo-wall:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   --logo-cols: 2;
   --logo-col-gap: var(--sp-xl);
-  /* Cohesive centred cluster — the marks read as one wall held in the slide's
+  /* Cohesive centered cluster — the marks read as one wall held in the slide's
      middle, rather than scattered the full height of the frame. */
   align-content: center;
   row-gap: var(--sp-2xl);

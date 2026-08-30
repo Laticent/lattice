@@ -260,14 +260,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// biome-ignore lint/correctness/useExhaustiveDependencies: recompute on presented SET or theme change; extraTheme keyed by name (its content hash).
 	React.useEffect(() => {
 		if (!open) return;
-		let cancelled = false;
+		let canceled = false;
 		const target = set; // the reference this render's projection belongs to
 		const source = frontMatter + target.join(SLIDE_SEP);
 		import('./narration-projection')
 			.then(({ projectDeckSpeech }) => projectDeckSpeech(options, source, paletteOverride, extraTheme, extraCss, modeOverride))
-			.then((texts) => { if (!cancelled && texts.length === target.length) setProjected({ set: target, texts }); })
+			.then((texts) => { if (!canceled && texts.length === target.length) setProjected({ set: target, texts }); })
 			.catch(() => {});
-		return () => { cancelled = true; };
+		return () => { canceled = true; };
 	}, [open, set, frontMatter, paletteOverride, extraTheme?.name, modeOverride, extraCss, options]);
 
 	// Resolve a slide's narration by its index in the presented set, through the ONE shared
@@ -512,11 +512,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// biome-ignore lint/correctness/useExhaustiveDependencies: rebuild when the presented SET or theme changes; extraTheme keyed by name (its content hash).
 	React.useEffect(() => {
 		if (!open) return;
-		let cancelled = false;
+		let canceled = false;
 		const source = fmAll + set.join(SLIDE_SEP);
 		buildStageDocument(options, source, set.length, paletteOverride, extraTheme, extraCss, modeOverride, stageRef.current?.token)
 			.then(({ doc, bg }) => {
-				if (cancelled) return;
+				if (canceled) return;
 				stageDocRef.current = doc;
 				stageBgRef.current = bg;
 				stageRef.current?.write(doc);
@@ -525,9 +525,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				// NOT SILENT. A rejected render left the Stage on "Preparing the stage…"
 				// forever while the console's pill read *not* pressed — the console telling
 				// the presenter no Stage exists while the room reads a loading message.
-				if (!cancelled && stageRef.current?.isOpen()) notifyRef.current('The Stage could not render this deck. Close it and try again.');
+				if (!canceled && stageRef.current?.isOpen()) notifyRef.current('The Stage could not render this deck. Close it and try again.');
 			});
-		return () => { cancelled = true; };
+		return () => { canceled = true; };
 	}, [open, set, fmAll, paletteOverride, extraTheme?.name, modeOverride, extraCss, options, chromeGen]);
 	// Keep the room's slide in step with the console's.
 	React.useEffect(() => { stageRef.current?.show(clamped); }, [clamped]);

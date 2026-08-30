@@ -3,12 +3,12 @@
  * Lattice · Accessibility — Deuteranopia (red-green, the common case)
  * ────────────────────────────────────────────────────────────────────────
  * A first-class, mode-invariant palette: pick `theme: a11y-deuteranopia` like
- * any theme. All the shared machinery — fixed greyscale categorical ramp,
+ * any theme. All the shared machinery — fixed grayscale categorical ramp,
  * texture wiring, status glyphs, forced light scheme — lives in a11y-base.css;
  * this file overrides only the one thing that differs per type: the status trio.
  *
- * Colour alone separates only ~1–2 categories under dichromacy, so the texture
- * patterns (a11y-base) carry the categorical channel; colour's one job is the
+ * Color alone separates only ~1–2 categories under dichromacy, so the texture
+ * patterns (a11y-base) carry the categorical channel; color's one job is the
  * status trio — pass/warn/fail moved OFF the red-green axis (blue / amber /
  * deep-red), also luminance-separated so they survive a full red-green
  * collapse. Verified CVD-distinct (OKLab ΔE ≥ 0.15 under deuteranopia AND

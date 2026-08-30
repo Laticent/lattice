@@ -26,7 +26,7 @@
  * inlines it into dist/lattice-emulator.js and dist/lattice-runtime.js (CJS
  * requires are not tree-shaken, and the chart-family dispatcher is always
  * loaded), so the basemap ships in those two JS bundles — never in
- * dist/lattice.css, which carries only colour rules. Baking it inline keeps
+ * dist/lattice.css, which carries only color rules. Baking it inline keeps
  * the zero-fetch contract (the emulator CLI renders offline; the runtime is
  * a single <script>). The cost is bounded by integer-rounding the geometry.
  *

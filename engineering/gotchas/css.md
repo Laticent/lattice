@@ -406,7 +406,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   was `#7a7a7a` (4.29:1) — darkened to `#6E6E6E`, which clears AA on its surface AND stays
   CVD-distinct. Achromatopsia is gated by a luminance contrast-ratio floor (1.25,
   `ACHROMAT_FLOOR` in `cvd-palette.test.js`) — NOT the 0.15 OKLab ΔE floor the three dichromacy
-  palettes use, from which it's explicitly excluded (its trio is luminance-only greys whose
+  palettes use, from which it's explicitly excluded (its trio is luminance-only grays whose
   distinction rides the glyphs, not a color ΔE the simulation measures); the ramp holds ~1.6:1
   pairwise and `cvd-audit` collapses are unchanged. A theme-wide contrast gate
   (`test/unit/palette/theme-surface-aa.test.js`) now catches any regression.
@@ -501,7 +501,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Symptom:** A state-token disc (or any size-from-em element) renders
   with zero dimensions and disappears entirely. Most visible in
   `obligation-matrix` cells where the `<span class="state …">` should
-  be a 1.4em coloured circle but is invisible.
+  be a 1.4em colored circle but is invisible.
 - **Cause:** `em` resolves against the element's own computed
   `font-size`. Setting `font-size: 0` (a common trick to hide a
   trailing inline label like `[x] Applies fully`) drops the computed

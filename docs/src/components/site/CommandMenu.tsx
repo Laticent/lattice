@@ -95,7 +95,7 @@ export function CommandMenu({
 		window.location.href = href;
 	};
 
-	// Palette / mode commands honour the Drawing Board chrome bus when present
+	// Palette / mode commands honor the Drawing Board chrome bus when present
 	// (same contract as <PaletteControls>): on that route a pick writes the
 	// deck theme; everywhere else it sets the site palette.
 	const applyPalette = (name: string) => {
@@ -127,7 +127,7 @@ export function CommandMenu({
 			setDocs([]);
 			return;
 		}
-		let cancelled = false;
+		let canceled = false;
 		const run = async () => {
 			if (pf.current === 'unavailable') return;
 			if (pf.current === null) {
@@ -144,7 +144,7 @@ export function CommandMenu({
 			try {
 				const res = await mod.search(q);
 				const data = await Promise.all(res.results.slice(0, 6).map(async (r) => ({ id: r.id, d: await r.data() })));
-				if (cancelled) return;
+				if (canceled) return;
 				setDocs(
 					data.map(({ id, d }) => ({
 						id,
@@ -159,7 +159,7 @@ export function CommandMenu({
 		};
 		const t = setTimeout(run, 140);
 		return () => {
-			cancelled = true;
+			canceled = true;
 			clearTimeout(t);
 		};
 	}, [query, pagefindUrl]);
@@ -278,7 +278,7 @@ export function CommandMenu({
 								<CommandItem key={p} value={`palette-${p}`} onSelect={() => applyPalette(p)}>
 									<Palette />
 									{paletteLabel(p)}
-									<CommandShortcut>colour-blind safe</CommandShortcut>
+									<CommandShortcut>color-blind safe</CommandShortcut>
 								</CommandItem>
 							))}
 						</CommandGroup>

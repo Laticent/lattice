@@ -12,7 +12,7 @@ export { A11Y_GROUP_LABEL, paletteLabel };
  * The ONE shared rendering of palette `<SelectItem>`s, so every picker (the
  * chrome-wide PaletteControls AND the Drawing Board topbar) lists themes
  * identically: the brand palettes first (in their given order), then a single
- * labelled "Accessibility" group for the curated color-vision-deficiency
+ * labeled "Accessibility" group for the curated color-vision-deficiency
  * themes at the END — regardless of where a11y sorts in the input array. An a11y
  * palette is just a theme; this only governs presentation.
  *

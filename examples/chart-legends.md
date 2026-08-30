@@ -10,7 +10,7 @@ paginate: true
 
 `chart-family · legend rail`
 
-A shared key for every colour-categorical chart — one separator, one rhythm, balanced as a group.
+A shared key for every color-categorical chart — one separator, one rhythm, balanced as a group.
 
 ---
 

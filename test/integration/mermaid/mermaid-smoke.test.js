@@ -81,7 +81,7 @@ describe('mermaid-smoke', () => {
     assert.match(html, /flowchart-v2/);
   });
 
-  test('mermaid: deck declared theme:indaco is honoured (palette in HTML)', { timeout: TIMEOUT }, () => {
+  test('mermaid: deck declared theme:indaco is honored (palette in HTML)', { timeout: TIMEOUT }, () => {
     const html = render();
     assert.match(html, /@theme indaco/);
   });
@@ -97,7 +97,7 @@ describe('mermaid-smoke', () => {
     // Mermaid emits per-element styling as `style="fill: …"` /
     // `style="stroke: …"` rather than bare attributes. Prove the theme
     // cascade reached the renderer by asserting at least one inline
-    // colour directive lives somewhere in the document.
+    // color directive lives somewhere in the document.
     const hasFill   = /style="[^"]*fill\s*:\s*(?:#[0-9A-Fa-f]{3,8}|rgb\()/i.test(html);
     const hasStroke = /style="[^"]*stroke\s*:\s*(?:#[0-9A-Fa-f]{3,8}|rgb\()/i.test(html);
     assert.ok(hasFill || hasStroke, 'expected at least one inline fill/stroke directive in SVG');

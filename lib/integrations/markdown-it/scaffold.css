@@ -8,7 +8,7 @@
  * the OWNED engine scaffold (`article.lattice > section::after`, lib/engine/css.js)
  * at HIGHER specificity (0,1,2 vs 0,0,1) — and where both set a property the
  * values already MATCH (padding:0, position:absolute); for the properties only
- * this file sets (bottom/right/font/colour) it is the sole declaration. So the
+ * this file sets (bottom/right/font/color) it is the sole declaration. So the
  * !important was vestigial. A marp-cli pixel probe (6-page deck w/ header +
  * footer + pagination, fuzz 25%) confirmed stripping every !important here
  * renders pixel-identically — see the Track-3 !important cleanup and
@@ -38,7 +38,7 @@ section footer > p {
    padding and misplaced the page number; this rule resets padding to 0 and
    repositions the marker. With Marp retired the only other `section::after`
    declaration is the owned engine scaffold (0,1,2), which sets matching
-   padding/position; the bottom/right/font/colour here are unopposed. No
+   padding/position; the bottom/right/font/color here are unopposed. No
    !important needed — confirmed by the marp-cli pixel probe (file header). */
 section::after {
   position: absolute;

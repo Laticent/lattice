@@ -751,7 +751,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		paletteOverride?: string,
 		// Opt-in: render against a RAW in-memory theme (e.g. Fabricate's live
 		// derived theme) instead of fetching `<themeBase><name>.css`. Registered
-		// once per distinct name. Existing callers omit it → unchanged behaviour.
+		// once per distinct name. Existing callers omit it → unchanged behavior.
 		extra?: { name: string; css: string },
 		// Opt-in: render in a SPECIFIC light/dark mode instead of the global
 		// `<html data-mode>` — lets a surface audition a theme in both modes (the

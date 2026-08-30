@@ -27,6 +27,6 @@ import { isA11yPalette } from '@/lib/theme-catalog.generated';
 export const paletteLabel = (name: string) =>
 	(isA11yPalette(name) ? name.replace(/^a11y-/, '') : name).replace(/(^|-)(\w)/g, (_m, sep, c) => (sep ? ' ' : '') + c.toUpperCase());
 
-// US English is the house dialect (HARD RULE #21). This used to read "colour-blindness",
+// US English is the house dialect (HARD RULE #21). This used to read "color-blindness",
 // which is why ThemePicker carries its own US-spelled A11Y_LABEL; the two now agree.
 export const A11Y_GROUP_LABEL = 'Accessibility · color-blindness';

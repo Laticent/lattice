@@ -2,7 +2,7 @@
 
 Lattice has **12 font-size tokens** organized as three independent scales.
 Each token has a single, named role. Picking the right token is a
-one-step decision, not a "which size feels right" judgement call.
+one-step decision, not a "which size feels right" judgment call.
 
 This file is the canonical reference. The audit, methodology, and
 migration history that produced this system live in

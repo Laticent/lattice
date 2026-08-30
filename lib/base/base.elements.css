@@ -171,7 +171,7 @@ section :is(pre, marp-pre) code { background:none; border:none; padding:0; borde
 section :is(code, pre, marp-pre, kbd, samp) {
   font-variant-ligatures: none;
 }
-/* Centred rule. Horizontal centre via flex `align-self` (the stage flow is a flex
+/* Centered rule. Horizontal center via flex `align-self` (the stage flow is a flex
  * column), NOT `margin:auto` (HARD RULE #20); vertical space comes from the stage
  * gap like any other block. In a non-flex context it falls back to left-aligned —
  * acceptable for the rare raw-block-flow `hr`. */

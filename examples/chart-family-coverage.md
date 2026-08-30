@@ -15,7 +15,7 @@ header: "Lattice · Chart family coverage"
 
 `Chart family · Coverage`
 
-`journey`, `word-cloud`, and `roadmap` now render in the shared chart-frame skeleton — the same header, caption, and surface every other chart already wears — and roadmap's state markers go colour-blind-safe.
+`journey`, `word-cloud`, and `roadmap` now render in the shared chart-frame skeleton — the same header, caption, and surface every other chart already wears — and roadmap's state markers go color-blind-safe.
 
 ---
 

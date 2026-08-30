@@ -33,7 +33,7 @@
  * grid via `> h2`); they're chrome-exempt in the toggle's skip set.
  *
  * Cell gap + clip contract (design/forms.md §6). Cells must never touch or bleed
- * into one another: each Cell keeps a DEFINED gap to its neighbours, and content
+ * into one another: each Cell keeps a DEFINED gap to its neighbors, and content
  * that overflows a Cell is CLIPPED, not allowed to spill across.
  *   · masthead↔stage — the band's margin-bottom + hairline rule is the gap.
  *   · stage↔footer   — `form` reserves a footer safe-area (padding-bottom,
@@ -60,7 +60,7 @@ section.form {
   --frame-y: calc(var(--_sec-1cqi, 1cqi) * 6.875);
   /* Footer Cell geometry. The reserve is DERIVED from the real footer Cell
    * height (baseline inset + band height + gap), not a magic number, so the
-   * stage's bottom edge ends exactly where the footer Cell begins. The centre
+   * stage's bottom edge ends exactly where the footer Cell begins. The center
    * zone is the progress rail's reserved horizontal budget (see the footer Cell
    * rules) — footer-left yields it so the two can never collide. */
   --footer-h: calc(var(--_sec-1cqi, 1cqi) * 5);
@@ -92,7 +92,7 @@ section.form {
   /* The progress rail's default right offset — it parks just left of the page
    * number so the two wayfinding marks read as one group. Sized for the page
    * number's own width (≈ up to two digits) plus a hair of gap, tighter than the
-   * legacy --frame-page-reserve (6.25cqi) the centred rail used to clear. */
+   * legacy --frame-page-reserve (6.25cqi) the centered rail used to clear. */
   --footer-pag-reserve: calc(var(--frame-inset-x) + var(--_sec-1cqi, 1cqi) * 3.25);
   position: relative;
   /* Explicit frame inset on every side so the in-flow masthead + stage clear the
@@ -212,7 +212,7 @@ section.form > .cell-footer {
   right: var(--frame-inset-x);
   bottom: var(--frame-inset-y);   /* hug — mirrors `section header { top: --frame-inset-y }` */
   display: flex;
-  align-items: center;            /* footer text · rail · page no. share a vertical centre */
+  align-items: center;            /* footer text · rail · page no. share a vertical center */
   justify-content: flex-end;      /* wayfinding group (rail · page no.) sits right */
   gap: var(--sp-md);
 }
@@ -253,7 +253,7 @@ section.form > .cell-footer > footer {
   position: static;
   inset: auto;
   /* `block`, not the band's `flex`: `text-overflow: ellipsis` never applies to a flex
-   * CONTAINER, so the text clipped mid-word with no ellipsis. Vertical centring is the
+   * CONTAINER, so the text clipped mid-word with no ellipsis. Vertical centering is the
    * band's own `align-items: center` now that this is a real flex ITEM. */
   display: block;
   flex: 1 1 auto;
@@ -299,7 +299,7 @@ section.form.no-footer > .cell-footer > footer,
 section.form.silent > .cell-footer > footer {
   display: none;
 }
-/* The page number as a real element — mono, --fs-meta, vertically centred with the
+/* The page number as a real element — mono, --fs-meta, vertically centered with the
  * footer text + rail, matching the retired pseudo's appearance. */
 section.form > .cell-footer > .lat-pagination {
   font-family: var(--font-label);
@@ -386,7 +386,7 @@ section.form:has(> .cell-footer)::after { content: none; }
  *   vertical   — align-top (default) · align-middle · align-bottom   (justify-content)
  *   horizontal — align-left (default) · align-center · align-right    (align-items, the BLOCK)
  * `middle` vs `center` disambiguates the axis (middle = vertical). Horizontal
- * moves the content BLOCK, never `text-align` (centred prose lines rag badly).
+ * moves the content BLOCK, never `text-align` (centered prose lines rag badly).
  * `fill-center`/`fill-anchor` are retained as legacy aliases of align-middle/
  * align-bottom (consolidation tracked in #527). The stage is ALWAYS a flex
  * column now (it owns prose rhythm via `gap`, above), so these modifiers only
@@ -419,8 +419,8 @@ section.form.align-left   > .cell-stage { align-items: flex-start; }
  * is a Cell `fill` value made selectable. */
 section.form.fill-center  { justify-content: safe center; }
 section.form.fill-anchor  { justify-content: safe flex-end; }
-/* optical-center sits the content slightly above true centre (the eye reads a
- * geometric centre as low) — extra bottom reserve biases it up. */
+/* optical-center sits the content slightly above true center (the eye reads a
+ * geometric center as low) — extra bottom reserve biases it up. */
 section.form.fill-optical {
   justify-content: safe center;
   padding-bottom: calc(var(--footer-reserve) + var(--sp-2xl));

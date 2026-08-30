@@ -1,9 +1,9 @@
-/* ── PROGRESS-CENTRE Cell — the section dot-rail's slot ──────────────────────
+/* ── PROGRESS-CENTER Cell — the section dot-rail's slot ──────────────────────
  * Real Form Cell (was css:false). The Cell owns the rail's POSITION; the progress
  * Tile (lib/forms/tile/progress) owns its appearance (the dots).
  *
  * `clip: false` in the manifest, corrected from `true`. The declaration promised the §6 clip
- * guarantee — "content is cut at the Cell, never bled across a neighbour" — while the CSS here
+ * guarantee — "content is cut at the Cell, never bled across a neighbor" — while the CSS here
  * has always been `overflow: visible`. It was approximately true only because the rail's section
  * label carried its own `overflow: hidden`; that label is gone (rank 4 of the band's allocation
  * policy) and the dots are deliberately unshrinkable, so nothing clips and the manifest was
@@ -16,7 +16,7 @@
  * A single `--progress-inset` var() hook lets a Frame relocate the rail
  * INDEPENDENTLY (e.g. to the right-middle) for infinite layouts (forms.md §7.3).
  * The region id stays `progress-centre` for compatibility; its default geometry is
- * now right-grouped, not centred. */
+ * now right-grouped, not centered. */
 section.form .tile-progress {
   position: absolute;
   /* default: parked just left of the page number (--footer-pag-reserve), bottom

@@ -43,7 +43,7 @@ describe('corner export capability', async () => {
   test('PPTX squares even though its slide image is a PNG', () => {
     // It looks capable — the image can hold alpha — but neither exporter writes a
     // <p:bg>, so the hole fills with the RECIPIENT's PowerPoint template background.
-    // That would make the corner colour a property of the reader's software.
+    // That would make the corner color a property of the reader's software.
     assert.equal(cornerSurvivesExport('pptx'), false);
   });
 

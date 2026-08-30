@@ -253,7 +253,7 @@
 }
 
 /* ── Chart-family palette ───────────────────────────────────────────────
- * Concrete's curation of the chart-family's two colour spectrums (defined in
+ * Concrete's curation of the chart-family's two color spectrums (defined in
  * lib/components/chart/_chart-family/chart-family.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Concrete overrides
  * both spectrums with its own low-chroma greige pigments so charts read native

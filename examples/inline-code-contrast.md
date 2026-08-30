@@ -31,7 +31,7 @@ The same `--accent` ink on a fixed `--bg-alt` fill — fine on the canvas, wrong
 - Card and panel fills
   - A chip filled with `--bg-alt` vanishes into a `--bg-alt` card
 - Accent-soft callouts
-  - The grey chip fill clashes with the tinted `--accent-soft` panel
+  - The gray chip fill clashes with the tinted `--accent-soft` panel
 - Contrast was audited for the wrong pair
   - Themes measure `--accent` on `--bg`, but the chip rides `--bg-alt` — mustard fell to 3.89:1, below AA
 

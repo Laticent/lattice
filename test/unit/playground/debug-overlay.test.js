@@ -164,7 +164,7 @@ describe('applyDebug — lifecycle', () => {
 		const overlay = doc.getElementById(DEBUG_OVERLAY_ID);
 		assert.ok(overlay, 'overlay injected');
 		const chips = overlay.querySelectorAll('.dbg-chip');
-		assert.ok(chips.length >= 1, 'section labelled');
+		assert.ok(chips.length >= 1, 'section labeled');
 		assert.match(chips[0].textContent, /slide 1/); // identity facet
 		assert.equal(doc.querySelector('section').getAttribute('data-dbg-layout'), 'flow');
 

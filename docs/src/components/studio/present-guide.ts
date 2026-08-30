@@ -235,7 +235,7 @@ export function findSpanningTarget(root: Document | Element | null, text: string
 	// That is tolerable exactly as far as the part it DID match is most of what is being said. Below
 	// that the honest answer is the one this feature already gives when it cannot place a cue: hide.
 	// A cursor on a block carrying a fifth of the sentence is the failure #1403 set the bar against,
-	// and "it used to hide" is not a licence to point somewhere worse than hiding.
+	// and "it used to hide" is not a license to point somewhere worse than hiding.
 	const share = hits.reduce((a, b) => (b.len > a.len ? b : a)).len / Math.max(1, loose(text).length);
 	spanPartial += 1;
 	return share >= LONGEST_SHARE ? longest : null;

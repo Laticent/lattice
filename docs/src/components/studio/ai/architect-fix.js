@@ -2,7 +2,7 @@
 //
 // The deterministic Architect flags findings; for the MECHANICAL ones it already
 // offers an exact, model-free "Apply fix" (lint-core.applyFix). This module covers
-// the JUDGEMENT findings — a wall-of-text slide, a label-only title — where the fix
+// the JUDGMENT findings — a wall-of-text slide, a label-only title — where the fix
 // needs rewriting, not a rule. When a generation backend is available the Coach
 // card grows a "Fix" button that asks the model to rewrite JUST the flagged slide
 // and returns a reviewable { edit, before, after } the card renders as a diff. It
@@ -22,7 +22,7 @@ import { canonForFinding } from './presentation-canon.js';
 // cacheable STATIC prefix (persona + Lattice primer + the edit protocol —
 // byte-identical across findings and decks) and a DYNAMIC tail (this finding + the
 // deck). Only the caching-capable cloud path sends the structured cache_control
-// blocks; every other backend gets the flattened string (behaviour-identical).
+// blocks; every other backend gets the flattened string (behavior-identical).
 export function buildFixMessages({ source, finding, catalog, cache } = {}) {
 	const slideNo = finding?.slide;
 	const persona =
@@ -87,7 +87,7 @@ export async function requestSlideFix({ model, gate, source, finding, catalog, s
 	const before = sliceSlide(source, finding.slide);
 	const after = (edit.body || '').trim();
 	if (!after || after === before.trim()) return null; // empty or no-op — nothing to review
-	// Normalise the edit to the flagged slide so Apply splices the right one even if
-	// the model labelled the block with a drifted number.
+	// Normalize the edit to the flagged slide so Apply splices the right one even if
+	// the model labeled the block with a drifted number.
 	return { edit: { action: 'replace', slide: finding.slide, body: after }, before, after };
 }

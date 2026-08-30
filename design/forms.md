@@ -229,7 +229,7 @@ authored by a *designer*; a **Tile** binds a *source*.
 
 ### Cell — the typed slot
 - **`id` / `region`** — name and band position (masthead · stage · **coda** ·
-  footer · left/centre/right).
+  footer · left/center/right).
 - **`geometry`** — `position` + `size` in **relative units** (resolves to px at
   render — see §6), `shape` (rectangular today).
 - **`z`** — z-plane (0 canvas → 1 atmosphere → 2 content → 3 chrome → 4
@@ -239,7 +239,7 @@ authored by a *designer*; a **Tile** binds a *source*.
 - **`fill`** — how an *underfilling* occupant distributes: `start` · `center` ·
   `end` · `optical-center` · `anchor`. The difference between "grid of correct
   boxes" and "board deck."
-- **`gap` / `clip`** — guaranteed gap to neighbours; `overflow: hidden` (cut at
+- **`gap` / `clip`** — guaranteed gap to neighbors; `overflow: hidden` (cut at
   the Cell, never bled).
 
 ### Tile — the filler
@@ -443,30 +443,30 @@ made the content box *content-driven* (height = whatever the content is) — the
 wrong order of causality. A Cell, being a grid track of a fixed-size slide,
 **computes to px before its content lays out**, at any resolution. It is the same
 philosophy as the rest of Lattice: layouts are *palette-blind* (themes supply
-colour); Cells are *resolution-blind* (the `size:` directive supplies the pixels).
+color); Cells are *resolution-blind* (the `size:` directive supplies the pixels).
 
 ### The gap + clip guarantee — Cells never touch or bleed
 
 The dual of "every Cell is a concrete box" is a **guarantee**, not a default:
-**every Cell keeps a defined gap to its neighbours, and overflow is clipped, not
+**every Cell keeps a defined gap to its neighbors, and overflow is clipped, not
 bled.**
 
 - **Defined gaps.** Each Cell carries a guaranteed gap to the next (masthead↔body
   hairline, body↔footer safe-area, stacked Cells on a gap token). **No two Cells
   share an edge.**
 - **Clip, don't bleed.** `overflow: hidden` is the rule. A too-long title or meta
-  line is **cut at its Cell**, never spilled across a neighbour.
+  line is **cut at its Cell**, never spilled across a neighbor.
 
-**Which noun owns which behaviour** (so it lives in exactly one place, not three):
+**Which noun owns which behavior** (so it lives in exactly one place, not three):
 
-- **Clip is a Cell behaviour.** Each Cell cuts its own content at its own edge
+- **Clip is a Cell behavior.** Each Cell cuts its own content at its own edge
   (`clip` is a field on the Cell). A **Tile** needs no clip of its own: it renders
   *inside* a Cell, so the Cell's clip already protects it — giving Tiles their own
   would duplicate the Cell's job.
 - **The overflow warning is a slide / root-Frame signal**, not a Cell one — an
   authoring aid that the whole composition overflows (a z4 review-plane cue),
-  drawn once per slide as a red ring **plus a labelled "OVERFLOWS" tab** (text,
-  so it doesn't rely on colour alone — WCAG 1.4.1). The **loud** form is where the
+  drawn once per slide as a red ring **plus a labeled "OVERFLOWS" tab** (text,
+  so it doesn't rely on color alone — WCAG 1.4.1). The **loud** form is where the
   author is fixing (VS Code / the Studio / playground); a red box in front of a
   board is worse than the subtle clipping, so an **export** does not carry it by
   default. What an export carries is the `overflow-marker` setting's answer —
@@ -641,17 +641,17 @@ top-left-anchors its content is geometry, not a board deck.
 ## 7. The designer / author split — Form is a "structural theme"
 
 Form draws the create/consume line exactly where Lattice already draws it for
-colour:
+color:
 
 | | **Theme** | **Form** |
 |---|---|---|
 | Owned by | designer | designer |
 | Authored in | theme tooling | the Studio's Fabricate tab (a future Frame studio, AI-assisted) |
 | Author action | *selects* a theme | *selects* a Frame (`form: <name>`) |
-| Supplies | colour tokens | structure (the coordinate frame + Cells) |
+| Supplies | color tokens | structure (the coordinate frame + Cells) |
 | Consumer is blind to it | layouts are palette-blind | Tiles are frame-blind |
 
-A theme is a designer-owned **colour** bundle an author selects; a Frame is a
+A theme is a designer-owned **color** bundle an author selects; a Frame is a
 designer-owned **structure** bundle an author selects. Same contract, orthogonal
 axis. Lattice ships default Frames; designers add more; authors pick one and fill
 its Cells.
@@ -705,7 +705,7 @@ mechanism behind "this slide looks completely different." Every Cell holds a Til
 decision note). The masthead's `lede · bay` is a fixed band split. On a migrated
 frame the footer is a real `.cell-footer` band (the frame's third cell) holding the
 running footer text (left), the section progress rail, and the page number (right),
-the three marks **vertically centred** with each other. The band **mirrors the running
+the three marks **vertically centered** with each other. The band **mirrors the running
 `<header>`**: same edge berth (`left`/`right: var(--frame-inset-x)`) at the inset that
 mirrors the header's top (`bottom: var(--frame-inset-y)`), so header↔footer are
 symmetric by construction — the header's top/left padding equals the footer's

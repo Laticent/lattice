@@ -64,7 +64,7 @@ CommonMark `<hr>`; an unaware renderer shows horizontal rules between sections.
 
 ### 2.3 Front-matter directives
 
-A leading YAML front-matter block carries deck-wide directives. LFM recognises,
+A leading YAML front-matter block carries deck-wide directives. LFM recognizes,
 in addition to Marpit's own (`theme`, `paginate`, `_class`, …):
 
 | Key | Value | Effect |
@@ -73,7 +73,7 @@ in addition to Marpit's own (`theme`, `paginate`, `_class`, …):
 | `logo:` | path | Deck logo injected into the masthead. |
 
 These two keys are the complete LFM-added front-matter surface in 1.0; every
-other recognised key belongs to Marpit.
+other recognized key belongs to Marpit.
 
 A **delivery** register is a third category, and 1.0 does not define one: `pace:`
 (2026-08-04) tells a self-presenting player how long to hold on a new slide before speaking. It
@@ -136,7 +136,7 @@ grammar is **shared** across `checklist`, `verdict-grid`, `obligation-matrix`,
 
 ### 3.3 Fenced sub-languages (charts & diagrams)
 
-A fenced code block with a recognised info string is a **sub-language**. Each
+A fenced code block with a recognized info string is a **sub-language**. Each
 is its own mini-spec; LFM only requires that it degrades to a code block.
 
 | Info string | Sub-language | Degrades to |
@@ -190,7 +190,7 @@ comment kinds are **not** notes, matching Marpit exactly:
   comment that parses as a block of known directive keys (§2.1, §2.3).
 - **Tooling pragmas** — `markdownlint-*`, `prettier-ignore[-start|-end]`, and
   `lint disable|enable|ignore …` (the editor/formatter control comments). The
-  recognised set is Marpit's `magicCommentMatchers`, mirrored in the reference
+  recognized set is Marpit's `magicCommentMatchers`, mirrored in the reference
   implementation `lib/authoring/notes-core.js` so every render path agrees on
   the note/non-note boundary.
 
@@ -229,7 +229,7 @@ is generated, not enumerated here, so it cannot drift:
 - **Per-component grammar** — `dist/docs/grammar.json`: for each component, its
   `_class` token, its required and optional **slots** (CSS selector +
   description), its **skeleton**, and the **fences/state-markers** it reads.
-- **Modifiers** — recognised by set membership or by these prefix families:
+- **Modifiers** — recognized by set membership or by these prefix families:
   `tint-`, `mark-`, `with-`, `at-`, `no-`, `tone-`, `treatment-`, `checks-`,
   plus the universal/semi-universal variant sets. The authoritative prefix list
   is `MODIFIER_PREFIXES` in

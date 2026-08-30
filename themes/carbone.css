@@ -128,7 +128,7 @@
   --on-accent:   light-dark(#FFFFFF, #0E0E10);       /* 5.64 / 12.15 */
 
   /* ── Semantic signals ─────────────────────────────────────────────────
-   * Carbone's industrial-grey trio. Each is a light-dark() pair: light
+   * Carbone's industrial-gray trio. Each is a light-dark() pair: light
    * values are AA+ on the off-white canvas; dark values lift to AA+ on
    * the deep charcoal canvas. The white-stroke checklist icon
    * constraint from the legacy design is gone — the universal state-
@@ -371,7 +371,7 @@
 }
 
 /* ── Chart-family palette ───────────────────────────────────────────────
- * Carbone's curation of the chart-family's two colour spectrums (defined in
+ * Carbone's curation of the chart-family's two color spectrums (defined in
  * lib/components/chart/_chart-family/chart-family.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Carbone overrides
  * both spectrums with vivid hues tuned for its electric-green / dark-graphite

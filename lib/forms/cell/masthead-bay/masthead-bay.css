@@ -7,7 +7,7 @@
  * The right column of the masthead grid (template on the masthead Cell). It is a
  * stack Cell: its Tiles dock top-down, right-aligned — the meta Tile
  * (front-matter `meta:`) on top, the status chip beneath. The bay clips its own
- * overflow so a long meta line is cut at the Cell, never bled across a neighbour
+ * overflow so a long meta line is cut at the Cell, never bled across a neighbor
  * (the §6 clip guarantee). This is the bay's LAYOUT; the Tiles' own appearance
  * lives in their folders (lib/forms/tile/{meta,status}) — Cell-vs-Tile is the
  * ownership line. All occupants are palette-blind. */

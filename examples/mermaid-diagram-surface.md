@@ -14,7 +14,7 @@ header: "Lattice · mermaid diagram surface"
 
 # Three fixes to the diagram surface
 
-The band a diagram bakes for, the map it is coloured from, and the box it is drawn in.
+The band a diagram bakes for, the map it is colored from, and the box it is drawn in.
 
 ---
 

@@ -6,7 +6,7 @@
  *
  * Two modifiers:
  *   compact  — shrinks the --sp-* scale ~25%
- *   accent   — replaces the spectrum top-border with a single-colour
+ *   accent   — replaces the spectrum top-border with a single-color
  *              accent stripe and tints the slide heading
  *
  * (`loose` — the inverse of compact — was retired 2026-07-03: 0 real uses, and
@@ -48,7 +48,7 @@ section.accent:not(.split-panel, .split-compare) {
 }
 section.accent h2 { color: var(--accent); }
 /* On the dark canvas the rainbow border is suppressed entirely; the accent
- * modifier restores a single-colour stripe so the visual signal still reads. */
+ * modifier restores a single-color stripe so the visual signal still reads. */
 section.accent.dark {
   /* LONGHANDS, not the `background:` shorthand, for the same reason as `section.dark`
    * itself (base.modifiers.css, #1528): one undefined var() invalidates the WHOLE

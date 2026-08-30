@@ -29,7 +29,7 @@
  *
  * The packer's px coordinates ARE the SVG viewBox units, so positions/sizes
  * scale with the SVG at any resolution (the #180 fix). text-anchor:middle +
- * dominant-baseline:central centre each word on its anchor; rotation is an
+ * dominant-baseline:central center each word on its anchor; rotation is an
  * SVG transform about that anchor. Rotation policy is rank-keyed in the packer.
  *
  * Five variants share the engine; per-variant behavior lives entirely
@@ -75,7 +75,7 @@
   height: 25cqi;
   max-width: 100%;
   max-height: 100%;
-  /* Horizontal centring comes from .chart-body's flex-direction:column +
+  /* Horizontal centering comes from .chart-body's flex-direction:column +
    * align-items:center (was margin: 0 auto — redundant, and auto margins sit
    * outside the flex content box). */
   flex: 0 1 auto;
@@ -85,7 +85,7 @@
 /* The cloud itself — a viewBox SVG filling the canvas. The packer's px
  * coordinates are viewBox units, so word positions/sizes scale with the SVG.
  * overflow:visible lets a glyph's optical bbox breathe past the viewBox edge
- * (the packer already keeps anchors inside), matching the old span behaviour. */
+ * (the packer already keeps anchors inside), matching the old span behavior. */
 :is(section.word-cloud, figure.chart-frame) .wc-svg {
   /* No longer absolutely positioned: `position:absolute; inset:0` existed so the
    * HTML key rail could overlay it. The key is inside the viewBox now, so the
@@ -110,7 +110,7 @@
  *
  * These rules therefore carry TYPE and PAINT only; every coordinate and every
  * font-size is a presentation attribute in user units, the same division of
- * labour as `.chart-key-*` on the four keyed charts. See
+ * labor as `.chart-key-*` on the four keyed charts. See
  * engineering/decisions/2026-07-27-render-nature-declaration.md and
  * 2026-06-13-svg-native-legend.md §7b. */
 :is(section.word-cloud, figure.chart-frame) .wc-key-label {
@@ -146,7 +146,7 @@
 
 /* Each word is an SVG <text>. Position (x/y), font-size, and any rotation are
  * presentation attributes emitted by the packer; text-anchor + dominant-baseline
- * centre the glyph on its anchor (replacing the old translate(-50%,-50%)). */
+ * center the glyph on its anchor (replacing the old translate(-50%,-50%)). */
 :is(section.word-cloud, figure.chart-frame) .wc-word {
   font-family: var(--font-display);
   font-weight: 700;

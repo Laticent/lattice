@@ -67,7 +67,7 @@ describe('buildDeterministicPlan', () => {
 });
 
 describe('buildDeckRead (whole-deck structural read)', () => {
-  test('rides on the plan and summarises the arc', async () => {
+  test('rides on the plan and summarizes the arc', async () => {
     const { buildDeterministicPlan } = await load();
     const p = buildDeterministicPlan(DECK, 10);
     assert.ok(p.deck, 'plan carries a deck read');
@@ -121,7 +121,7 @@ describe('overBeat (pace-aware nudge)', () => {
 });
 
 describe('mergeAiPlan', () => {
-  test('overrides why/target/beats and re-normalises to the length', async () => {
+  test('overrides why/target/beats and re-normalizes to the length', async () => {
     const { buildDeterministicPlan, mergeAiPlan } = await load();
     const floor = buildDeterministicPlan(DECK, 10);
     const ai = {
@@ -171,7 +171,7 @@ describe('mergeAiPlan', () => {
     const { buildDeterministicPlan, mergeAiPlan } = await load();
     const floor = buildDeterministicPlan(DECK, 10);
     const before = floor.slides.map((s) => s.target);
-    // a skewed response forces a non-trivial re-normalisation factor
+    // a skewed response forces a non-trivial re-normalization factor
     mergeAiPlan(floor, { slides: [{ i: 0, target: 999 }] });
     const after = floor.slides.map((s) => s.target);
     assert.deepEqual(after, before, 'floor targets must be untouched by the merge');

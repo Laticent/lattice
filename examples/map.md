@@ -23,7 +23,7 @@ The first layout on the new **spatial** form — regions placed by real-world ge
 Name a place, give it a value. The tokens pick the rest.
 
 - **`map`** is US states; **`map world`** is world countries (Robinson projection). Same authoring — one place per li with a trailing inline-code value: `- Brazil \`31\``.
-- **Choropleth** (default) shades one hue — *how much, where*. **`highlight`** colours each place — *which ones*.
+- **Choropleth** (default) shades one hue — *how much, where*. **`highlight`** colors each place — *which ones*.
 - Names resolve loosely — `California` / `CA` / `Calif.`, or `Brazil` / `BR` / `Brasil` — and anything the basemap can't place is reported, never dropped.
 
 ---
@@ -73,7 +73,7 @@ Name a place, give it a value. The tokens pick the rest.
 
 ## Naming a region is the hard part — so we made it cheap.
 
-World names vary wildly, and a mistyped one is a silent gap. Two defences, both off the baked vocabulary.
+World names vary wildly, and a mistyped one is a silent gap. Two defenses, both off the baked vocabulary.
 
 - **Group as a fat alias.** Name a continent or a dated bloc — `European Union`, `Sub-Saharan Africa`, `G20` — and the kernel fills every member. Blocs carry the year their membership is asserted.
 - **Autocomplete + did-you-mean.** Region names complete as you type; a name that slips through is flagged at lint time with the nearest match (`Brasil` resolves to `Brazil`).

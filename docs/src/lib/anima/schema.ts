@@ -1,7 +1,7 @@
 // Anima — the SPEC validator. Hand-rolled and zero-dependency (like Cadenza): given
 // untrusted input (the LLM emits DATA, never code — HARD RULE #22), return either a
 // typed `Scene` or a list of human-readable errors. It enforces the closed vocabulary,
-// the hero range, palette-blind token colours (HARD RULE #3), and source/verb
+// the hero range, palette-blind token colors (HARD RULE #3), and source/verb
 // compatibility — the structural half of the safety envelope, before anything renders.
 
 import { EASINGS, type Easing } from './easing';
@@ -10,16 +10,16 @@ import { AXES, MOTION_VERBS, type MotionVerb, PRIMITIVES, type SourceModel, VERB
 
 export type ParseResult = { ok: true; scene: Scene } | { ok: false; errors: string[] };
 
-// A token colour is `var(--name)` with an optional `var(--name)` fallback — no hex, no
+// A token color is `var(--name)` with an optional `var(--name)` fallback — no hex, no
 // keyword, no functions. The forbid-list is a belt over the allow-regex: token values
 // are host-trusted and must never smuggle url()/expression()/markup (Vetrina's rule).
 const TOKEN_COLOR = /^var\(--[a-z0-9_-]+(?:\s*,\s*var\(--[a-z0-9_-]+\))?\)$/i;
 const COLOR_FORBID = /(url\(|image\(|expression\(|javascript:|[;{}<>])/i;
 
 export function validateColor(c: unknown): string | null {
-  if (typeof c !== 'string') return 'colour must be a string var(--token) reference';
-  if (COLOR_FORBID.test(c)) return `colour '${c}' contains a forbidden construct (url/expression/markup)`;
-  if (!TOKEN_COLOR.test(c.trim())) return `colour '${c}' must be a var(--token) reference (palette-blind, HARD RULE #3)`;
+  if (typeof c !== 'string') return 'color must be a string var(--token) reference';
+  if (COLOR_FORBID.test(c)) return `color '${c}' contains a forbidden construct (url/expression/markup)`;
+  if (!TOKEN_COLOR.test(c.trim())) return `color '${c}' must be a var(--token) reference (palette-blind, HARD RULE #3)`;
   return null;
 }
 

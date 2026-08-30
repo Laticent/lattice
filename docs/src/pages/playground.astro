@@ -82,7 +82,7 @@ const lenses = buildLenses();
 
 // Inline-validation vocabulary — the SAME deck-grammar vocab the Drawing Board's
 // Architect lints from, computed here at build time from the live manifests so the
-// playground editor's underlines recognise every component/modifier/region. Map
+// playground editor's underlines recognize every component/modifier/region. Map
 // Sets are serialized to arrays for the page handoff (rehydrated by buildVocabSets).
 const { buildVocab } = require(join(repoRoot, 'lib/authoring', 'lint.js'));
 const _vocab = buildVocab(manifests);

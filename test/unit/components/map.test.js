@@ -115,7 +115,7 @@ describe('map kernel', () => {
       assert.ok(mixes.every((v) => v === MIX_CEIL));
     });
 
-    test('draws every basemap region — named coloured, the rest neutral', () => {
+    test('draws every basemap region — named colored, the rest neutral', () => {
       const html = buildMap(parseMap(ul([['California', '4']])), 'choropleth');
       const total = (html.match(/class="map-region/g) || []).length;
       assert.equal(total, Object.keys(BASEMAP.regions).length, 'all 51 regions drawn');

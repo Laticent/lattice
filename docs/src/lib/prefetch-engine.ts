@@ -41,7 +41,7 @@ export interface WarmSignals {
  * keep `eager` — everywhere else `eager` is demoted to `intent`.
  */
 export function decide(signals: WarmSignals, allowEager: boolean): Decision {
-	// Explicit data-saving — honoured on every device, including desktop.
+	// Explicit data-saving — honored on every device, including desktop.
 	if (signals.saveData || signals.reducedData) return 'off';
 
 	let mode: Decision;

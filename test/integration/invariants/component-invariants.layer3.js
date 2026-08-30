@@ -3,7 +3,7 @@
  *
  * Layers 1–2 (contract slots + universal contrast/overflow) cover every component
  * automatically. Layer 3 adds the per-component truth that those generic layers
- * can't see. Two flavours:
+ * can't see. Two flavors:
  *
  *   • TRANSFORM components rewrite their authored markup — a chart's `ul > li`
  *     source list is consumed into an SVG/HTML chart frame, glossary's list
@@ -71,7 +71,7 @@ function chartFrameRenders() {
   };
 }
 
-// Anchor slides (title / divider / closing) are minimal centred statements: a
+// Anchor slides (title / divider / closing) are minimal centered statements: a
 // single heading + a kicker eyebrow (`p > code`, an OPTIONAL slot layer 1 skips)
 // and — definitionally — NO list body. That last fact is what separates an
 // anchor from every content component, so we lock it.
@@ -128,11 +128,11 @@ const LAYER3 = {
       present('table tr', 2, 'compare-table did not render table rows'),
   },
   'compare-prose': {
-    'renders two labelled prose options (strong + nested point)':
-      eachWith('ul > li', ['strong', ':scope > ul'], 2, 'compare-prose did not render two labelled options'),
+    'renders two labeled prose options (strong + nested point)':
+      eachWith('ul > li', ['strong', ':scope > ul'], 2, 'compare-prose did not render two labeled options'),
   },
   decision: {
-    'renders two labelled options, each with its reasoning':
+    'renders two labeled options, each with its reasoning':
       eachWith('ul > li', ['strong', ':scope > ul'], 2, 'decision did not render two reasoned options'),
     // NOTE: the flush-corner badge's ABSOLUTE positioning is a Form-ON property
     // (the treatment reaches the label through `> .cell-stage >`), but this
@@ -240,11 +240,11 @@ const LAYER3 = {
     },
   },
   'list-tabular': {
-    'each row carries a body and an emphasised meta column':
+    'each row carries a body and an emphasized meta column':
       eachWith('ol > li', ['em', ':scope > ul'], 3, 'list-tabular did not render rows with meta columns'),
   },
   'logo-wall': {
-    'renders multiple token-coloured mark spans':
+    'renders multiple token-colored mark spans':
       present('.logo-mark', 2, 'logo-wall did not render multiple .logo-mark spans (logo-marks transform)'),
     'marks can carry a name + pill caption below the mark':
       eachWith('ul > li', [':scope > .logo-mark', ':scope > ul > li > code'], 2,
@@ -258,7 +258,7 @@ const LAYER3 = {
   // ── legal ──
   'authority-chain': {
     'each tier renders a label and a citation':
-      eachWith('ol > li', ['strong', 'code'], 3, 'authority-chain did not render labelled tiers with citations'),
+      eachWith('ol > li', ['strong', 'code'], 3, 'authority-chain did not render labeled tiers with citations'),
   },
   'citation-card': {
     'renders the citation (blockquote)':
@@ -280,7 +280,7 @@ const LAYER3 = {
   },
   'statute-stack': {
     'each jurisdiction renders a label and a statutory citation':
-      eachWith('ul > li', ['strong', 'code'], 3, 'statute-stack did not render labelled rows with citations'),
+      eachWith('ul > li', ['strong', 'code'], 3, 'statute-stack did not render labeled rows with citations'),
   },
 
   // ── math ──
@@ -292,7 +292,7 @@ const LAYER3 = {
   // ── progression ──
   'list-criteria': {
     'each criterion renders a label and its rationale':
-      eachWith('ol > li', ['strong', ':scope > ul'], 3, 'list-criteria did not render labelled criteria'),
+      eachWith('ol > li', ['strong', ':scope > ul'], 3, 'list-criteria did not render labeled criteria'),
   },
   'list-steps': {
     'renders an ordered sequence of steps, each with detail': async (page, assert, SLIDE) => {

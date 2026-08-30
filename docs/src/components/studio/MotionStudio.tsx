@@ -324,7 +324,7 @@ export function MotionStudio({
 					// A manual edit / Reset superseded this generation while it was in flight. Protect the
 					// hand-edits (don't clobber them), but SAY SO — a paid round-trip silently vanishing is
 					// the wrong default when it's the user's own metered key.
-					notify('Your edit cancelled the pending generation — describe again to use it.');
+					notify('Your edit canceled the pending generation — describe again to use it.');
 					return;
 				}
 				// The stage transports the spec via `btoa` (Latin1 only); a model that returns a

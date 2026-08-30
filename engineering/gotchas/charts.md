@@ -91,7 +91,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Symptom:** A trailing caption paragraph on a chart-frame slide
   (piechart, gantt, radar, timeline-list, …) renders as a raw,
   full-width, body-size `<p>` flush against the slide's **left edge**
-  instead of the centred, mono, meta-size `.chart-caption` with its
+  instead of the centered, mono, meta-size `.chart-caption` with its
   hairline. Looks like content "overflowing" the chart. Reproduced on
   the `gallery-jargon.md` donut slide; the per-component galleries
   never tripped it because none pairs a trailing caption with a footer

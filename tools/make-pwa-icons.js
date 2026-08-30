@@ -14,7 +14,7 @@
  *                           inside the 80%-diameter safe zone every OS mask
  *                           (circle, squircle, rounded square) is cut from —
  *                           the diamond's corner nodes reach 0.464·frac from
- *                           centre, so 0.80 keeps them at 0.371 < the 0.40 edge
+ *                           center, so 0.80 keeps them at 0.371 < the 0.40 edge
  *   apple-touch-icon.png    180² · iOS home screen (iOS applies its own mask).
  *                           The mark's four points sit at the tile's edge
  *                           MIDPOINTS — where a squircle has zero rounding — so

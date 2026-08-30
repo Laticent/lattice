@@ -2,7 +2,7 @@
  * Unit tests for the S4 responsiveness lint (tools/check-chart-responsiveness.js).
  *
  * Two halves:
- *   1. findViolations() logic — flags fixed-px layout lengths, and honours the
+ *   1. findViolations() logic — flags fixed-px layout lengths, and honors the
  *      three legitimate escapes (SVG-viewBox context, clamp() hairlines, and
  *      /* sanctioned: *​/ notes) plus the var()-fallback case.
  *   2. The guard — every real chart component CSS file is clean, so the lint

@@ -265,7 +265,7 @@ describe('parse → apply round trips (the whole protocol)', () => {
     const { edits } = parseEdits('Here:\n````lattice-edit slide=3\n### Three (edited)\n````');
     const out = applyEdit(DECK, edits[0]);
     assert.match(out, /### Three \(edited\)/);
-    assert.match(out, /## Two\n\nbody two/); // neighbours intact
+    assert.match(out, /## Two\n\nbody two/); // neighbors intact
   });
 });
 

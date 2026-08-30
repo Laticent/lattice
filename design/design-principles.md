@@ -219,7 +219,7 @@ section::after {
 }
 ```
 
-**Critical — !important is deliberate.** Marp's scaffold CSS injects `section::after { padding: inherit; }` and font defaults that load *after* the theme stylesheet at equal specificity, so the cascade order favours the scaffold. `!important` on padding, position, and font properties is the override that makes the theme rule win regardless of load order. This is one of the few places in the system where `!important` is the right tool.
+**Critical — !important is deliberate.** Marp's scaffold CSS injects `section::after { padding: inherit; }` and font defaults that load *after* the theme stylesheet at equal specificity, so the cascade order favors the scaffold. `!important` on padding, position, and font properties is the override that makes the theme rule win regardless of load order. This is one of the few places in the system where `!important` is the right tool.
 
 **Single mechanism — no DOM span.** Earlier versions of lattice-emulator.js injected a `<span class="marp-slide-pagination">N</span>` element with its own positioning CSS, creating two divergent pagination paths. That has been removed: the engine emits a single `data-lattice-pagination` attribute (`lib/engine/slides.js`) — the Lattice-namespaced counterpart of Marpit's own `data-marpit-pagination` — and the single `section::after` rule handles both paths. Any new pagination styling lives on `section::after` only.
 

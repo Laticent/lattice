@@ -12,7 +12,7 @@ header: "Lattice · sketch finish"
 
 # A boardroom deck, drawn by hand.
 
-The `sketch` finish swaps Lattice into a hand-drawn skin — felt-tip headings, a legible hand-sans for body, and boxes that read as sketched. It is palette-blind, so any theme colours it; here it rides the `carta` paper-and-ink palette.
+The `sketch` finish swaps Lattice into a hand-drawn skin — felt-tip headings, a legible hand-sans for body, and boxes that read as sketched. It is palette-blind, so any theme colors it; here it rides the `carta` paper-and-ink palette.
 
 ---
 
@@ -21,7 +21,7 @@ The `sketch` finish swaps Lattice into a hand-drawn skin — felt-tip headings, 
 
 `How it works`
 
-## Form, not colour.
+## Form, not color.
 
 Turn it on once with `class: sketch` in the front matter and it propagates to every slide. Every stroke is drawn in a palette token, so swapping `theme: carta` for `theme: indaco` recolours the whole sketch in blue without touching a layout.
 
@@ -223,7 +223,7 @@ _Every rule here is a seeded rough.js stroke, drawn over the measured box. Cards
 ## Each point sits in its own sketched box.
 
 - The list layout's rows are bordered cards — so they take the hand box and the offset ink.
-- Checklists ride a left spine; the spine stays its state colour, the corners go hand-drawn.
+- Checklists ride a left spine; the spine stays its state color, the corners go hand-drawn.
 - An agenda's row rules ink up like a table's, instead of staying a printer's hairline.
 
 ---

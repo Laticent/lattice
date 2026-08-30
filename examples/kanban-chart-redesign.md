@@ -11,7 +11,7 @@ header: 'kanban · redesign'
 
 `chart · kanban`
 
-Colour now serves the decision — **status** — not decoration. The default board is
+Color now serves the decision — **status** — not decoration. The default board is
 calm; category coding is there when you ask for it.
 
 ---
@@ -74,7 +74,7 @@ calm; category coding is there when you ask for it.
 
 `Delivery · week 30`
 
-## `tinted` — colour tracks the pipeline, left to right.
+## `tinted` — color tracks the pipeline, left to right.
 
 - Backlog
   - Per-team weighting `S`
@@ -134,5 +134,5 @@ calm; category coding is there when you ask for it.
 
 `kanban · default · keyline · tinted`
 
-The default spends colour on what's in trouble. `keyline` adds ownership; `tinted`
+The default spends color on what's in trouble. `keyline` adds ownership; `tinted`
 adds stage. Pick the one the room needs — the markup never changes.

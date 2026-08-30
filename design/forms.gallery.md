@@ -35,7 +35,7 @@ A slide is no longer content with chrome bolted on. It is a Frame that divides t
 - **Stage**
   - The deterministic content region between the bands — the box a component fills. It computes to pixels before its content lays out, which is why a chart finally has somewhere to live.
 - **Footer**
-  - Three reserved zones that never collide: the footer text on the left, the section progress rail in the centre, the page number on the right.
+  - Three reserved zones that never collide: the footer text on the left, the section progress rail in the center, the page number on the right.
 
 ---
 
@@ -115,11 +115,11 @@ The old flex column made the content box content-driven — its height was whate
 
 <!-- _class: content fill-center -->
 
-`fill-center · the Tile sits in the centre of its Cell`
+`fill-center · the Tile sits in the center of its Cell`
 
 ## Fill discipline puts a short Tile where the eye expects it.
 
-A short occupant given `fill-center` sits in the middle of the stage Cell. The chrome Cells are reserved above and below; the stage centres what it holds. This is the board-deck read — composed, not pinned.
+A short occupant given `fill-center` sits in the middle of the stage Cell. The chrome Cells are reserved above and below; the stage centers what it holds. This is the board-deck read — composed, not pinned.
 
 ---
 

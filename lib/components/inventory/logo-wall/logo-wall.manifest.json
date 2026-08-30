@@ -77,7 +77,7 @@
       "body": "If each entity needs a role, a quote, or a metric beside it, this is the wrong layout. Use `actors` (who owns what), `cards-grid` (a short body per item), or `quote` (a single testimonial)."
     },
     {
-      "title": "Logos nobody recognises",
+      "title": "Logos nobody recognizes",
       "body": "A wall of unknown marks proves nothing and asks the audience to squint. If the names don't carry on sight, state the count as a `big-number` ('400+ teams') instead."
     },
     {

@@ -70,7 +70,7 @@ section.cards-stack .card > code {
 }
 
 /* — card body (nested list) wraps full-width below the title row, reset to
- *   normal weight and body colour so only the title reads bold. — */
+ *   normal weight and body color so only the title reads bold. — */
 section.cards-stack > .cell-stage > ul > li > ul, section.cards-stack > .cell-stage > ul > li > ol,
 section.cards-stack > .cell-stage > ol > li > ul, section.cards-stack > .cell-stage > ol > li > ol,
 section.cards-stack .card > ul, section.cards-stack .card > ol {

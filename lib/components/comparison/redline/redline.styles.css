@@ -173,7 +173,7 @@ section.redline.split > .cell-stage > :is(ol, ul) { grid-column:1 / -1; grid-row
 
 /* .annotated — single passage with numbered sup markers; annotations below. */
 /* sanctioned: a superscript footnote marker — stays raised + small (0.7em,
- * vertical-align:super) rather than a centred inline-flex pill. Geometry that
+ * vertical-align:super) rather than a centered inline-flex pill. Geometry that
  * doesn't fight the superscript routes through the --pill-* tokens. */
 section.redline.annotated > .cell-stage > blockquote sup {
   display:inline-block;
@@ -347,7 +347,7 @@ section.redline.three-col > .cell-stage > :is(ol, ul)::before {
  *   - Layout-specific modifiers (declared further below) compose with
  *     cross-cutting modifiers.
  *
- * Reference: references/proposals.md §2 (modifier catalogue), §4.5 (rollout).
+ * Reference: references/proposals.md §2 (modifier catalog), §4.5 (rollout).
  * ════════════════════════════════════════════════════════════════════════ */
 
 /* ── PORTRAIT REFLOW — the COLLAPSE move (Fit Ladder) ──────────────────────

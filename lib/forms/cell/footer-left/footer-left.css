@@ -7,10 +7,10 @@
  * keep the legacy base footer (lib/base/base.modifiers.css). */
 section.form > footer {
   /* inset: top right bottom left — default anchors bottom-left. A Frame override
-   * (e.g. relocate to the right, or vertically centre) just sets this one token. */
+   * (e.g. relocate to the right, or vertically center) just sets this one token. */
   inset: var(--footerleft-inset, auto auto var(--frame-inset-y) var(--frame-inset-x));
   /* Stay clear of the right-hand wayfinding group (rail + pagination) — the band
-   * no longer dodges a centred rail with a magic-number calc; it is simply
+   * no longer dodges a centered rail with a magic-number calc; it is simply
    * width-bounded on its own side.
    * THIS RULE IS THE LEGACY PATH ONLY. It matches a footer that is a DIRECT child of
    * `section.form` — the un-migrated / sovereign frames that have no `.cell-footer`. Every frame

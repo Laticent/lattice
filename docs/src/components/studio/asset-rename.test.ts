@@ -16,7 +16,7 @@ describe('renameAssetInSource — theme', () => {
 		const out = renameAssetInSource(src, 'theme', 'midnight', 'midnight-blue');
 		expect(out.hits).toBe(1);
 		expect(out.source).toContain('theme: midnight-blue');
-		expect(out.source).toContain('paginate: true'); // the neighbours are untouched
+		expect(out.source).toContain('paginate: true'); // the neighbors are untouched
 	});
 
 	it('leaves a deck on a different theme alone', () => {

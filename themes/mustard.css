@@ -9,7 +9,7 @@
  *
  * Design contract
  * ───────────────
- *   1. Single text-heading colour on every light surface (#2A1A06 deep
+ *   1. Single text-heading color on every light surface (#2A1A06 deep
  *      sepia-near-black). Dark mode flips to warm cream on deep
  *      sepia-brown canvas.
  *
@@ -264,7 +264,7 @@
 }
 
 /* ── Chart-family palette ───────────────────────────────────────────────
- * Mustard's curation of the chart-family's two colour spectrums (defined in
+ * Mustard's curation of the chart-family's two color spectrums (defined in
  * lib/components/chart/_chart-family/chart-family.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Mustard overrides
  * both spectrums with its audited Brand-triad pigments so charts read native to

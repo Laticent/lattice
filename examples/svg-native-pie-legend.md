@@ -35,7 +35,7 @@ The key scales with the diagram; the spine floats in a comfortable gap.
 ---
 
 <!-- _class: piechart donut -->
-<!-- _footer: "Donut — same unit, hollow centre" -->
+<!-- _footer: "Donut — same unit, hollow center" -->
 
 `H1 2026 · 1,840 person-hours`
 
@@ -92,13 +92,13 @@ Cover just works — the key scales up with the diagram, no special-casing.
 ---
 
 <!-- _class: piechart dark -->
-<!-- _footer: "Dark — every colour is a palette token" -->
+<!-- _footer: "Dark — every color is a palette token" -->
 
 `H1 2026 · dark canvas`
 
 ## Spine, swatches, labels — all token-driven.
 
-Every colour flips with the canvas; nothing is a baked literal.
+Every color flips with the canvas; nothing is a baked literal.
 
 - Signal Intake build `46%`
 - Scoring policy work `22%`
@@ -116,7 +116,7 @@ Every colour flips with the canvas; nothing is a baked literal.
 ## How we stack up across the buying criteria.
 
 The key rides the same shared builder — swatch, label, spine — keyed off the
-series colour instead of a wedge.
+series color instead of a wedge.
 
 - Meridian
   - Performance `9`

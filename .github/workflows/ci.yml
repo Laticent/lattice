@@ -660,7 +660,7 @@ jobs:
           echo "lint=${{ needs.lint.result }} unit=${{ needs.unit.result }} integration=${{ needs.integration.result }} docs-build=${{ needs.docs-build.result }}"
           # A tier result is acceptable when it's: success; skipped (a conditional
           # tier that didn't apply — e.g. docs-only skips unit/integration); or
-          # cancelled. 'cancelled' here is a SUPERSEDED run — a force-push tripped
+          # canceled. 'canceled' here is a SUPERSEDED run — a force-push tripped
           # `concurrency: cancel-in-progress`, so a newer run on the new head SHA
           # carries the authoritative verdict. Painting the orphaned SHA red on a
           # supersession-cancel manufactured false-alarm webhooks during a merge
@@ -669,7 +669,7 @@ jobs:
           for tier in "lint=${{ needs.lint.result }}" "unit=${{ needs.unit.result }}" \
                       "integration=${{ needs.integration.result }}" "docs-build=${{ needs.docs-build.result }}"; do
             case "${tier#*=}" in
-              success|skipped|cancelled) ;;
+              success|skipped|canceled) ;;
               *) echo "::error::tier ${tier%%=*} did not pass (${tier#*=})"; exit 1 ;;
             esac
           done
@@ -740,7 +740,7 @@ jobs:
                 // SHA carries the authority. This is a PASS allowlist rather than a
                 // failure one on purpose — a conclusion GitHub adds later should
                 // read as "worth naming", not as silently fine.
-                if (!['success', 'skipped', 'neutral', 'cancelled'].includes(r.conclusion)) {
+                if (!['success', 'skipped', 'neutral', 'canceled'].includes(r.conclusion)) {
                   failed.push(`${r.name} (${r.conclusion})`);
                 }
               }

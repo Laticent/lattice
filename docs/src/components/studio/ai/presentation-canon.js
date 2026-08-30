@@ -1,7 +1,7 @@
 // The Drawing Board — the presentation canon, as a distilled principle pack.
 //
 // The deterministic review DETECTS problems (a label title, a wall of text, no
-// ask); this pack carries the QUALITATIVE judgement behind why they matter and how
+// ask); this pack carries the QUALITATIVE judgment behind why they matter and how
 // the field's canon says to fix them — Minto, Duarte, Knaflic, Reynolds, and the
 // common-pitfalls literature. It's our own terse synthesis of public *frameworks*
 // (ideas, not anyone's copyrighted prose), with attribution, so it's small,

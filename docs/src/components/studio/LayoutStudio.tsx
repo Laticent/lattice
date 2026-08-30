@@ -5,7 +5,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { CodeField } from './CodeField';
 
-// A starter that PASSES the gate out of the box — palette-blind (every colour a
+// A starter that PASSES the gate out of the box — palette-blind (every color a
 // token), scoped to `.callout`, and invoked by its skeleton. Edit from here.
 // Exported so the unified Studio (Fabricate) can seed the component tab's state.
 export const STARTER_NAME = 'callout';

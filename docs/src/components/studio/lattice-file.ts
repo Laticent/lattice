@@ -29,7 +29,7 @@ export type LatticeManifest = {
 	engine: 'lattice';
 	/** ms epoch the file was written (0 when the caller didn't stamp one). */
 	generatedAt: number;
-	/** The travelling review comments (the whole point of the format). */
+	/** The traveling review comments (the whole point of the format). */
 	comments: SlideComment[];
 };
 

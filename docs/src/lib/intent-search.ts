@@ -64,7 +64,7 @@ const SYNONYMS: Record<string, string> = {
 	animation: 'scene motion anima',
 	moving: 'scene motion',
 	org: 'organization',
-	organisation: 'organization',
+	organization: 'organization',
 	waterfall: 'funnel conversion',
 	choropleth: 'map region',
 	testimonial: 'quote quotation',

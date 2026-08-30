@@ -173,7 +173,7 @@ const BLOCS = {
     members: ['BR','RU','IN','CN','ZA'],
   },
   'oecd': {
-    label: 'OECD', aliases: ['organisation for economic co-operation and development'], asOf: '2025',
+    label: 'OECD', aliases: ['organization for economic co-operation and development'], asOf: '2025',
     source: 'OECD member states',
     members: ['AU','AT','BE','CA','CL','CO','CR','CZ','DK','EE','FI','FR','DE','GR','HU','IS','IE','IL','IT','JP','KR','LV','LT','LU','MX','NL','NZ','NO','PL','PT','SK','SI','ES','SE','CH','TR','GB','US'],
   },
@@ -387,7 +387,7 @@ async function buildWorld(projId = 'equal-earth') {
     });
     // Continental slices of the same membership — mirrors how the G77 itself
     // organizes into regional chapters (African / Asia-Pacific / GRULAC). So an
-    // author can colour just one region of it, e.g. `global-south-africa`.
+    // author can color just one region of it, e.g. `global-south-africa`.
     const southByContinent = {};
     for (const k of southMembers) {
       const cont = regions[k]?.continent;

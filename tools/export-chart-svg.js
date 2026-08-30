@@ -126,7 +126,7 @@ async function main() {
       }
       // Single-file themes resolve light/dark via light-dark(); force the canvas
       // scheme so dark resolves the dark value (mirrors the Drawing Board's
-      // `colorScheme: mode`). The chart's `fill`/text colours then compute dark.
+      // `colorScheme: mode`). The chart's `fill`/text colors then compute dark.
       document.documentElement.style.colorScheme = args.mode === 'dark' ? 'dark' : 'light';
       document.body.innerHTML = out.html || '';
       return document.querySelectorAll('.lattice > section').length;

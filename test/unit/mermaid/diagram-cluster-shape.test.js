@@ -1,7 +1,7 @@
 /**
  * Unit: the Mermaid subgraph box's corner and padding — one definition, both paths.
  *
- * Two values decide how a cluster is SHAPED (as opposed to coloured, which is the
+ * Two values decide how a cluster is SHAPED (as opposed to colored, which is the
  * theme map's job), and each has a trap this file pins down:
  *
  *   1. The CORNER is a CSS `rx`/`ry` in `mermaid.css`. `border-radius` does

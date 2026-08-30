@@ -10,7 +10,7 @@ section.compare-prose { }
 /* The stage is a flex column so the comparison list (`> :is(ul,ol) { flex:1 }`) fills
  * the bounded stage (flex cell-tree §6); the section carried no display, so the codemod
  * left the cell without one. The two cards then stretch to the stage height with the
- * `❯` connector centred on the divide. */
+ * `❯` connector centered on the divide. */
 section.compare-prose > .cell-stage { display:flex; flex-direction:column; gap:var(--sp-sm); }
 section.compare-prose .compare-prose-inner { display:flex; align-items:stretch; flex:1; }
 section.compare-prose .compare-prose-inner .card {
@@ -128,8 +128,8 @@ section.compare-prose.rejected > .cell-stage > :is(ul, ol) > li:last-child > str
   text-decoration: line-through;
 }
 
-/* decision composes chosen (second card) with a de-emphasised first card and
- * a chevron amplified into a labelled DECISION connector. */
+/* decision composes chosen (second card) with a de-emphasized first card and
+ * a chevron amplified into a labeled DECISION connector. */
 /* De-emphasis on the losing card is INK, never opacity — same call as agenda and
  * kanban (#1717). An `opacity` composites the subtree's ink AND its backdrop in one
  * buffer, so it does not step each ink down evenly: it steps each down in proportion to
@@ -260,7 +260,7 @@ section.compare-prose:not(:has(.compare-prose-inner)):where([data-family="square
  * flush-corner labeled tag into a full-width header strip — the card becomes
  * a vertical column-flex: tag is `flex: 0 0 auto` (fits content height,
  * spans full width), body is `flex: 1 1 0` and stretches to fill the
- * remaining card box on both axes (justify-content centres the body).
+ * remaining card box on both axes (justify-content centers the body).
  *
  * Use when the slot label is the architectural signal of the card (the
  * categorical case, e.g. `BUILD` / `WHY NOT BUY` / `WHY NOT DELAY`) rather
@@ -494,12 +494,12 @@ section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-
   /* mirror `.vertical` — flex column, the connector slot is the divider row (cards
      order:1/3 + connector order:2 carry from the base). */
   flex-direction: column;
-  /* a generous gap gives the centred chevron room in the divide, clear of the
+  /* a generous gap gives the centered chevron room in the divide, clear of the
      second card's (now larger) top-left corner tag. */
   gap: var(--sp-2xl);
 }
 /* Keep the cards filling (base `li { flex: 1 }`) so the two split the frame and
-   the chevron — anchored at the list's 50% — lands on the divide. Centre each
+   the chevron — anchored at the list's 50% — lands on the divide. Center each
    card's statement vertically (the corner tag is an absolute top-left badge, so it
    stays put) so the body owns the card's optical middle instead of a short line
    stranded at the top over empty space. */

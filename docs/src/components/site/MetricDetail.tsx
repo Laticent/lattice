@@ -24,7 +24,7 @@ const RATING_COLOR: Record<string, string> = {
 	'needs-improvement': '#d97706',
 	poor: '#dc2626',
 };
-const GREY = '#52525b';
+const GRAY = '#52525b';
 const RATING_WORD: Record<string, string> = { good: 'Good', 'needs-improvement': 'Needs work', poor: 'Poor' };
 
 /** Live matchMedia hook (client-only island, but guarded for safety). */
@@ -62,7 +62,7 @@ export type MetricDatum = {
 // pads the header right so the value clears the sheet's top-right close button.
 function DetailBody({ meta, datum, reserveClose }: { meta: MetricMeta; datum: MetricDatum; reserveClose?: boolean }) {
 	const { value, rating, raw, regime } = datum;
-	const color = rating ? RATING_COLOR[rating] : GREY;
+	const color = rating ? RATING_COLOR[rating] : GRAY;
 	const band = bandLabel(meta, regime);
 	const zones: { key: Rating; label: string }[] = [
 		{ key: 'good', label: 'Good' },
@@ -202,7 +202,7 @@ function DeckContext({ stats }: { stats: RenderStats }) {
 // The row button — the trigger. Compact HUD styling; the whole row is tappable.
 const Row = React.forwardRef<HTMLButtonElement, { meta: MetricMeta; datum: MetricDatum } & React.ButtonHTMLAttributes<HTMLButtonElement>>(
 	({ meta, datum, className, ...props }, ref) => {
-		const color = datum.rating ? RATING_COLOR[datum.rating] : GREY;
+		const color = datum.rating ? RATING_COLOR[datum.rating] : GRAY;
 		return (
 			<button
 				ref={ref}

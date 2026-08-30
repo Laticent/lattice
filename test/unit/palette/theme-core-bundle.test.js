@@ -4,7 +4,7 @@
  * Workbench page). Guards that the bundle (1) loads as valid ESM, (2) exposes
  * the API the Workbench imports, and (3) stays in PARITY with the source
  * lib/theme/* — i.e. it isn't stale. The byte-level freshness gate is
- * `npm run build:check` (build-theme-core --check); this is the behavioural one.
+ * `npm run build:check` (build-theme-core --check); this is the behavioral one.
  */
 
 const { test, describe } = require('node:test');

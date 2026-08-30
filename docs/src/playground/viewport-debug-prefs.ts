@@ -53,7 +53,7 @@ export function onViewportDebugEnabledChange(fn: Listener): () => void {
 	};
 }
 
-/** Honour a `?vvdebug` URL param once at load — a phone can enable without the drawer. */
+/** Honor a `?vvdebug` URL param once at load — a phone can enable without the drawer. */
 export function applyViewportDebugUrlParam(): void {
 	try {
 		const p = new URLSearchParams(location.search);

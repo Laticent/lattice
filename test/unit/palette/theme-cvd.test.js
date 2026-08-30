@@ -1,8 +1,8 @@
 /**
- * Unit: lib/theme/cvd.js — the Machado-2009 colour-vision-deficiency simulation
+ * Unit: lib/theme/cvd.js — the Machado-2009 color-vision-deficiency simulation
  * the accessibility audit is built on. Asserts the algorithm's load-bearing
  * properties (achromatic preservation, valid-hex output, type aliasing) and the
- * physiological behaviour the whole feature relies on: that the confusion axes
+ * physiological behavior the whole feature relies on: that the confusion axes
  * actually collapse (red↔green under protan/deutan, blue↔yellow under tritan).
  */
 
@@ -71,7 +71,7 @@ describe('theme-cvd', () => {
     assert.throws(() => canonicalType('quadranopia'));
   });
 
-  test('achromatic colours are preserved exactly under every deficiency', () => {
+  test('achromatic colors are preserved exactly under every deficiency', () => {
     // The Machado matrices' rows sum to 1, so R=G=B in → R=G=B out.
     for (const type of CVD_TYPES) {
       for (const gray of ['#000000', '#808080', '#bfbfbf', '#ffffff']) {

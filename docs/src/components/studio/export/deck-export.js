@@ -23,7 +23,7 @@
 // (section.title { background: var(--surface-inverse) }), turning them white. Each slide
 // paints its own background, so we let it. (Gradient-backed dark slides happened
 // to survive the white because a background-image paints over background-color;
-// solid-colour ones did not — hence title/closing went white on Cuoio.)
+// solid-color ones did not — hence title/closing went white on Cuoio.)
 //
 // jspdf / pptxgenjs / html-to-image are lazy-imported (own chunks).
 
@@ -665,7 +665,7 @@ async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTar
 		const grad = cs.borderImageSource;
 		const tw = cs.borderTopWidth;
 		// Layer the ribbon gradient as a top strip OVER the slide's own background
-		// (preserved — a canvas colour rides on background-color, untouched here; an
+		// (preserved — a canvas color rides on background-color, untouched here; an
 		// image canvas is kept as the second layer).
 		const baseImg = cs.backgroundImage && cs.backgroundImage !== 'none' ? cs.backgroundImage : '';
 		section.style.backgroundImage = baseImg ? `${grad}, ${baseImg}` : grad;
@@ -914,7 +914,7 @@ async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat, corn
 	}, undefined, cornerTarget);
 }
 
-// Legacy lane: the original all-main-thread jsPDF build — the full-bleed colour PDF
+// Legacy lane: the original all-main-thread jsPDF build — the full-bleed color PDF
 // (slide-sized MediaBox, one slide per page), used when the worker lane is unavailable
 // or fails. The print `sheet` mode does NOT come through here anymore: it is the
 // rasterize → assemble split below (rasterizeDeckImages + assembleSheetPdf), so a
@@ -997,7 +997,7 @@ export async function rasterizeDeckImages(render, onStatus, opts) {
 // in a grid (default 1 → one fit+centered slide per page); `opts.handout` (with
 // `opts.notes` — one string per slide) prints the speaker-notes handout instead (slide on
 // top, its notes below, one slide per page). Annotations (comment sticky notes) are
-// intentionally OUT of scope here — the Print drawer never carries them; the colour-PDF/
+// intentionally OUT of scope here — the Print drawer never carries them; the color-PDF/
 // legacy lanes own that path.
 export async function assembleSheetPdf(images, geom, name, meta, opts) {
 	const pageFormat = opts?.pageFormat === 'jpeg' ? 'jpeg' : 'png';
@@ -1215,7 +1215,7 @@ export function exportPrint(frame, meta) {
 	// Chromium's print-to-PDF carries only one document-property field we can set:
 	// the title (it hard-sets Producer/Creator itself). Encode the engine into it
 	// so a vector Print PDF is still tellable apart — it also becomes the suggested
-	// filename in the dialog, which is the behaviour authors expect.
+	// filename in the dialog, which is the behavior authors expect.
 	const doc = frame.contentDocument;
 	if (doc && meta) doc.title = `${(meta.deck || 'deck').trim()} · ${engineLabel(meta.engine)}`;
 	win.focus();
@@ -1225,7 +1225,7 @@ export function exportPrint(frame, meta) {
 // ── Standalone chart SVG ──────────────────────────────────────────────────────
 // Lift each keyed chart (pie/radar/map/cohort quadrant) out of the deck as a
 // self-contained .svg — the diagram, spine, and key are already one <svg>, so
-// the export flattens its COMPUTED colours to literals (no theme CSS needed) and
+// the export flattens its COMPUTED colors to literals (no theme CSS needed) and
 // embeds the fonts it uses. Shares the core (lib/.../standalone-svg.js) with the
 // CLI sibling tools/export-chart-svg.js — in the browser via the esbuild ESM
 // bundle standalone-svg.generated.js (the raw CJS module can't be imported in

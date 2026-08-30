@@ -83,7 +83,7 @@ flowchart LR
 
 ## The reconstruction pipeline, step by step.
 
-1. Catalogue
+1. Catalog
    - Measure the shape of every background galaxy in the survey field, correcting for the telescope's own blur.
 2. Bin
    - Average shapes across the sky to estimate the shear field, trading resolution for signal.
@@ -99,7 +99,7 @@ flowchart LR
 
 ## The hardest step is the telescope, not the physics.
 
-The atmosphere and the instrument blur every galaxy, mimicking the very shear we want to measure. Most of the pipeline's effort goes into modelling and removing that blur — the point-spread function — before any cosmology begins. Get it wrong and you map the telescope, not the universe.
+The atmosphere and the instrument blur every galaxy, mimicking the very shear we want to measure. Most of the pipeline's effort goes into modeling and removing that blur — the point-spread function — before any cosmology begins. Get it wrong and you map the telescope, not the universe.
 
 - The point-spread function must be modelled per exposure.
 - Residual blur is the dominant systematic error.
@@ -126,7 +126,7 @@ Applying the pipeline to the Ophion cluster, we recover a total mass of 4.2 × 1
 In one sub-region of Ophion the mass peak sits offset from the gas — a signature of a recent cluster collision, where dark matter sailed through while the gas slowed. Offsets like these are among our cleanest evidence that dark matter is collisionless.
 
 - A mass–gas offset marks a past collision.
-- Collisionless behaviour constrains dark-matter physics.
+- Collisionless behavior constrains dark-matter physics.
 
 ---
 

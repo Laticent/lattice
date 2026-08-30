@@ -25,7 +25,7 @@
  * (no tints) and `dark` (lifted grid) are composable cross-cutting
  * modifiers handled here in CSS.
  *
- * Per-cell colour rides --cell-color, set per-rect/dot/label from the
+ * Per-cell color rides --cell-color, set per-rect/dot/label from the
  * categorical palette in lib/quadrant.js. Layouts stay palette-blind.
  *
  * Sibling implementations:
@@ -44,7 +44,7 @@
  * reading order — cell 0=TL→c1, 1=TR→c2, 2=BL→c3, 3=BR→c4 — exactly like
  * the other chart-family members (piechart, radar) cycle cN. There is no
  * per-quadrant semantic hue routing and no `--c-quadrant-*` alias layer:
- * the four corners are categories, coloured c1…c4, fill paired with ink
+ * the four corners are categories, colored c1…c4, fill paired with ink
  * from the same slot (`--cN-light` / `--cN-dark`). Cohort inherits the
  * same `[data-cell]` routing — its groups are categories too. Themes tune
  * the look by tuning cN, not a quadrant-only token set. */
@@ -78,7 +78,7 @@
 
 /* quadrant is a chart-family member — section layout, header/body/caption
  * skeleton and h2 styling all come from section.chart-frame. The figure
- * just slots into .chart-body as a centred flex row of svg (+ optional
+ * just slots into .chart-body as a centered flex row of svg (+ optional
  * legend, for the cohort variant). */
 /* .chart-body fills the stage cell, which owns the inset since #1598, so the
  * surface panel matches every other chart's size and inset — no
@@ -214,7 +214,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 }
 
 /* ── Quadrant corner labels ───────────────────────────────────────────── */
-/* Category colour rides the region tint + dots (cN); the label TEXT is
+/* Category color rides the region tint + dots (cN); the label TEXT is
  * maximum-contrast ink (--quadrant-label-ink: black on light / white on
  * dark) — no --bg halo. cN-dark ink can't clear AA as text on its own tint,
  * so text never uses cell-ink; and softened --text-heading reads a touch

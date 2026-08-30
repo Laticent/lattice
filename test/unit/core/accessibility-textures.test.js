@@ -45,7 +45,7 @@ test('onyx scheme-aware set flips fill + ink via light-dark() in a <style>', () 
   assert.equal((defs.match(/id="latt-onyx-tex-\d+"/g) || []).length, 12);
   // slot 1 rect flips light #e8e8e8 ↔ dark #2e2e2e (mirrors onyx's --cat-1-fill ramp).
   assert.match(defs, /\.latt-onyx-tex-r1\{fill:light-dark\(#e8e8e8,#2e2e2e\)\}/);
-  // slot 1 ink flips a subtle mid-grey #8a8a8a (on the light chip, so black text stays
+  // slot 1 ink flips a subtle mid-gray #8a8a8a (on the light chip, so black text stays
   // dominant) ↔ light #f5f5f5 (on the dark chip).
   assert.match(defs, /\.latt-onyx-tex-i1\{[^}]*light-dark\(#8a8a8a,#f5f5f5\)/);
   assert.doesNotMatch(defs, /var\(/, 'the whole defs block must avoid var() (light-dark is a function, not a token)');

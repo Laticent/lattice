@@ -735,7 +735,7 @@ test('buildQuadrant: a de-collided label never overlaps a plotted dot', () => {
 
 // THE property the placement engine exists for: a label sits NEXT TO the mark
 // it names. The pass it replaced could slide a crowded label a fifth of the plot
-// away from its dot — at which point it reads as labelling something else, which
+// away from its dot — at which point it reads as labeling something else, which
 // is the failure a reader actually reports ("the text and the point are not
 // close to each other"). Adjacency is bounded by the mark's radius plus the
 // anchor ring, never by a travel budget.
@@ -807,7 +807,7 @@ test('buildQuadrant: a dense cluster fans out instead of overprinting', () => {
 test('buildQuadrant: labels go above or below their point, not beside it', () => {
   const out = buildQuadrant(modelFour(), 'default', SCALE);
   const sideways = (out.match(/<text class="quadrant-dot-label"[^>]*dominant-baseline="middle"/g) || []).length;
-  assert.equal(sideways, 0, 'a point with room above or below it must not be labelled from the side');
+  assert.equal(sideways, 0, 'a point with room above or below it must not be labeled from the side');
 
   // And the preferred position is ABOVE: every label's anchor sits over its dot.
   const dots = [...out.matchAll(/<circle class="quadrant-dot"[^>]*cx="([\d.]+)" cy="([\d.]+)"/g)]
@@ -820,7 +820,7 @@ test('buildQuadrant: labels go above or below their point, not beside it', () =>
     `${above}/${dots.length} labels are centered above their dot — a sparse scatter should place nearly all of them there`);
 });
 
-// Three behaviours the trio found had NO test at all — each was a real defect
+// Three behaviors the trio found had NO test at all — each was a real defect
 // once (decision note §13), each was fixed, and each could silently come back.
 test('buildQuadrant: the quadrant names are obstacles for the item-label pass', () => {
   // `cornerObstacles()` briefly returned [] on the reasoning that a name outside
@@ -940,7 +940,7 @@ test('buildQuadrant: an item label never overprints a quadrant name', () => {
     const names = textBoxes(out, 'quadrant-label', FS_LABEL);
     const items = textBoxes(out, variant === 'bubble' ? 'quadrant-bubble-label' : 'quadrant-dot-label', FS_ITEM);
     assert.ok(names.length === 4, `${variant}: expected 4 quadrant names, got ${names.length}`);
-    assert.ok(items.length >= 4, `${variant}: expected every item to be labelled`);
+    assert.ok(items.length >= 4, `${variant}: expected every item to be labeled`);
     for (const n of names) {
       for (const it of items) {
         const hits = it.left < n.right && it.right > n.left && it.top < n.bottom && it.bottom > n.top;

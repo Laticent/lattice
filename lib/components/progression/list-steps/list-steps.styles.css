@@ -7,7 +7,7 @@
  */
 /* Stage cell (flex cell-tree §6): the body wraps in `.cell-stage`, so the stage
  * carries the flex-column context the strip `ol` (flex:1) needs to fill the bounded
- * cell. The `.timeline` variant overrides this with centring (below). */
+ * cell. The `.timeline` variant overrides this with centering (below). */
 section.list-steps > .cell-stage { display:flex; flex-direction:column; min-height:0; }
 /* `--lat-split-offset` is set by the auto-splitter on a body page of a split run (the count
  * of members on prior pages), so an atomized sequence continues STEP 01 → 02 → 03 instead
@@ -178,7 +178,7 @@ section.list-steps.capsule ol > li:nth-child(8n+7)::before { background: var(--c
 section.list-steps.capsule ol > li:nth-child(8n)::before   { background: var(--cat-8-fill); color: var(--cat-on-fill); }
 
 /* ── timeline variant — former `timeline` component (progression.list-steps.timeline) ──
- * Dots-on-a-spine: ordered stages as labelled nodes along one horizontal axis.
+ * Dots-on-a-spine: ordered stages as labeled nodes along one horizontal axis.
  * ol → numbered discs; ul → plain dots. Resets the list-steps card + STEP-badge
  * + arrow-connector chrome. Merged from the standalone timeline on 2026-06-07.
  * Lifted to <strong> by the timeline token in the shared slot-label-lift paths. */
@@ -237,7 +237,7 @@ section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) > li { 
 section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) > li em { font-size:var(--fs-meta); color:var(--text-body); line-height:var(--lh-snug); font-style:normal; }
 
 /* ── chevron · converge · ghost — vertical staged-flow variants ──
- * Three looks for a labelled argument cascading DOWN the frame (Problem →
+ * Three looks for a labeled argument cascading DOWN the frame (Problem →
  * Vision → … → Plan), each riding the same list-steps DOM: `li > strong` is the
  * stage label (slot-label-lifted from the nested `- Title`), `li > ul > li` is
  * the one-line description. Added 2026-07-06 from the chevron-cascade design
@@ -245,13 +245,13 @@ section.list-steps.timeline > .cell-stage > :is(ol,ul) > li > :is(ul,ol) > li em
  *   chevron  — accent down-chevron tab + accent-keyed description card (the
  *              boardroom-cleaned version of the reference deck).
  *   converge — one continuous tapering silhouette narrowing onto the last
- *              stage; colour deepens top→bottom (the qualitative sibling of the
+ *              stage; color deepens top→bottom (the qualitative sibling of the
  *              value-driven chart `funnel`). Built for 4 stages (3–4 ideal).
  *   ghost    — editorial: faint chevron watermark, eyebrow label, hero body.
  * Self-contained: each establishes the vertical column itself, so
  * `<!-- _class: list-steps chevron -->` needs no companion `vertical`. */
 
-/* shared: centre the flow, stack as a column, strip the default card + STEP
+/* shared: center the flow, stack as a column, strip the default card + STEP
  * badge (::before) + right-arrow connector (::after) chrome. */
 section.list-steps:is(.chevron, .converge, .ghost) > .cell-stage { justify-content:safe center; }
 section.list-steps:is(.chevron, .converge, .ghost) ol { flex-direction:column; align-items:stretch; flex:0 1 auto; }
@@ -285,7 +285,7 @@ section.list-steps.chevron ol > li > ul > li { font-size:var(--fs-body); color:v
 /* converge — every band is full-width, clipped to a trapezoid whose edges sit on
  * two continuous converging diagonals; stacked at gap:0 the clips read as ONE
  * funnel narrowing onto the final stage, capped by a spout point (ol::after).
- * Colour deepens in four steps via color-mix. Geometry is authored for 4 bands;
+ * Color deepens in four steps via color-mix. Geometry is authored for 4 bands;
  * a 3rd/4th+ band degrades to the narrowest trapezoid rather than breaking. */
 section.list-steps.converge ol { gap:0; width:100%; }
 section.list-steps.converge ol > li {

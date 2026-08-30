@@ -65,7 +65,7 @@ pie showData
   "Chart" : 15
 ```
 
-> Every colour above resolves through the new names across all three render paths — light and dark, fourteen palettes, zero visual change.
+> Every color above resolves through the new names across all three render paths — light and dark, fourteen palettes, zero visual change.
 
 ---
 

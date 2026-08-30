@@ -11,7 +11,7 @@
 :is(section.piechart, figure.chart-frame) .piechart-figure {
   /* SVG-native legend (2026-06-13-svg-native-legend.md): the figure holds ONE
      self-contained <svg> (diagram + spine + key in one viewBox). It only needs
-     to centre + size that SVG; the 70/30 split, spine and key now live INSIDE
+     to center + size that SVG; the 70/30 split, spine and key now live INSIDE
      the viewBox, so they scale with the diagram by construction (no CSS grid,
      no `cqh`-in-`font-size`). container-type:size lets the SVG's height:100cqh
      resolve against this box. */
@@ -89,7 +89,7 @@ section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
   height: 100%;
 }
 :is(section.piechart, figure.chart-frame) .piechart-svg .wedge {
-  /* Stroke colour is the slot's --catN-ink (set per nth-child below); the
+  /* Stroke color is the slot's --catN-ink (set per nth-child below); the
    * wedge fill is the same hue's --catN-fill. Pale fill + deep border on a
    * light canvas, deep fill + pale border on dark — the shared chart model. */
   stroke-width: 1.5;
@@ -113,7 +113,7 @@ section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
  * trailing spine <rect> / legend <rect>+<text> (different element types). The
  * wedge FILL here is overridden by the kernel's inline radial gradient; these
  * rules supply the per-slot STROKE (--catN-ink). The legend swatches are now
- * SVG <rect class="pie-key-swatch"> coloured inline by the kernel (slot hue +
+ * SVG <rect class="pie-key-swatch"> colored inline by the kernel (slot hue +
  * --catN-ink edge), so they no longer ride these selectors.
  * See engineering/gotchas.md "Pie wedge borders off-by-one". */
 :is(section.piechart, figure.chart-frame) .wedge:nth-of-type(6n+1) { fill: var(--chart-cat-1-fill); stroke: var(--chart-cat-1-ink); }

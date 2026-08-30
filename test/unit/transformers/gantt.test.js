@@ -125,7 +125,7 @@ describe('gantt renderer — continuous time scale', () => {
     const out = buildGanttChart(inner(ul), '');
     const x = milestoneX(out);
     assert.ok(x >= 0 && x <= 100, `milestone x=${x} should be within [0,100]`);
-    assert.equal(x, 50); // padded window centres a solitary point
+    assert.equal(x, 50); // padded window centers a solitary point
   });
 
   // S2 regression — a task reaching beyond an explicit eyebrow window must clip

@@ -27,7 +27,7 @@
  *     status drops to the card foot, BOTTOM-LEFT. Author `- Federal \`cite\`` + the status
  *     as the last body code.
  * Citation = neutral outline (an identifier, identical across cards); status = jurisdiction-
- * hued (the signal colour). A bare first-body-line `code` still renders as a hanging
+ * hued (the signal color). A bare first-body-line `code` still renders as a hanging
  * citation chip, for decks on the legacy body-citation authoring.
  *
  * Default = three equal vertical rails. Modifiers re-ARRANGE the same cards: .hierarchy
@@ -112,7 +112,7 @@ section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > 
 }
 /* ROW cards — the citation stays left after the label; the trailing status pill (the second
  * header code) anchors to the right edge on the same line and takes the jurisdiction hue (the
- * signal colour). A lone citation in a row card simply stays left.
+ * signal color). A lone citation in a row card simply stays left.
  *
  * Right-anchoring is margin-free (an auto margin sits outside the flex content box and breaks
  * the virtual-list height measurement): the status pill is taken out of flow and pinned to the
@@ -151,7 +151,7 @@ section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li {
 section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li::marker,
 section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li::marker { content:''; }
 /* Citation chip — first body item, only-child <code>. Non-pill hanging
- * cite: mono, body-heading colour, no chrome. */
+ * cite: mono, body-heading color, no chrome. */
 section.statute-stack > .cell-stage > ul > li > :is(ul, ol) > li:first-child:has(> code:only-child) > code,
 section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:first-child:has(> code:only-child) > code {
   display:block;
@@ -164,7 +164,7 @@ section.statute-stack > .cell-stage > ol > li > :is(ul, ol) > li:first-child:has
 }
 /* COLUMN-card status pill — last body item, only-child <code> (the default's authoring puts
  * status in the body so the narrow rail keeps it OFF the header line). Same chrome as the
- * header citation but JURISDICTION-HUED (the card's signal colour); foot-anchored to the
+ * header citation but JURISDICTION-HUED (the card's signal color); foot-anchored to the
  * BOTTOM-LEFT corner + align-self.
  * Row cards carry status in the header instead, so this body code never appears there.
  * (Swap --jur-accent for a --pass/--warn/--fail map for pass/warn/fail status semantics.)
@@ -224,11 +224,11 @@ section.statute-stack.bands > .cell-stage > ol > li {
 /* .preemption — vertical stack with arrows between cards. */
 section.statute-stack.preemption > .cell-stage > ul,
 section.statute-stack.preemption > .cell-stage > ol {
-  /* content-height cards stacked + centred — flex mirror of `grid-auto-rows:auto;
+  /* content-height cards stacked + centered — flex mirror of `grid-auto-rows:auto;
    * align-content:center`. */
   flex-direction:column;
   /* inter-card spacing as a flex gap (was margin-bottom on each card) — measurable,
-   * inside the flex content box; the chevron ::after still centres in this gap band. */
+   * inside the flex content box; the chevron ::after still centers in this gap band. */
   gap:var(--sp-md);
   justify-content:center;
 }
@@ -264,7 +264,7 @@ section.statute-stack.preemption > .cell-stage > :is(ul, ol) > li:not(:last-chil
 
 /* Stacked ROW variants (hierarchy / bands / preemption) — both pills ride the header line
  * (citation left, status right) and the gloss sits below, so each card is just two compact
- * lines. Tighter padding + a centred content block keep the card balanced in its band
+ * lines. Tighter padding + a centered content block keep the card balanced in its band
  * (especially hierarchy's tall Federal card) instead of stranding the two lines at the top. */
 section.statute-stack:is(.hierarchy, .bands, .preemption) > .cell-stage > :is(ul, ol) > li {
   padding:var(--sp-sm) var(--sp-md);

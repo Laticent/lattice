@@ -108,7 +108,7 @@ section.premise > ol > li {
   white-space: nowrap;
 }
 /* The ordinal is generated, not hand-typed per row — rows renumber themselves on
- * reorder, which a typed `01` cannot. The list's own `start` is honoured though
+ * reorder, which a typed `01` cannot. The list's own `start` is honored though
  * (see the counter note above): that is the mechanism, not a leak. --text-secondary, not
  * --text-muted: this is row CONTENT, so it takes the content tier (6.27:1 on --bg-alt)
  * rather than the quietest text tier. The 3.75:1 this comment used to attribute to
@@ -237,8 +237,8 @@ section.premise:where([data-family="square"], [data-family="tall"], [data-family
  * `flex: 1` so it claims the row's remaining width beside the 34% claim rail — right
  * in landscape, wrong in a column, where `flex: 1` claims the remaining HEIGHT instead.
  * The rows then pack at the top of a full-height box and the section's `safe center`
- * has nothing left to centre, so a four-row page rendered as content in the top third
- * over half a page of void. Natural height instead, and the centring works as written.
+ * has nothing left to center, so a four-row page rendered as content in the top third
+ * over half a page of void. Natural height instead, and the centering works as written.
  *
  * This is most visible on a SPLIT body page, where the hoisted lede is no longer there
  * to fill the gap — so the fix belongs with that work even though the rule predates it. */

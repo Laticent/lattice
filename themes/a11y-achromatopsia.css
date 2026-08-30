@@ -1,14 +1,14 @@
 /* @theme a11y-achromatopsia
  *
- * Lattice · Accessibility — Achromatopsia (total colour-blindness)
+ * Lattice · Accessibility — Achromatopsia (total color-blindness)
  * ────────────────────────────────────────────────────────────────────────
  * A first-class, mode-invariant palette: pick `theme: a11y-achromatopsia` like
- * any theme. Shared machinery (greyscale categorical ramp, texture wiring,
+ * any theme. Shared machinery (grayscale categorical ramp, texture wiring,
  * status glyphs, forced light scheme) lives in a11y-base.css.
  *
- * Under total colour-blindness hue carries NO information, so every channel is
+ * Under total color-blindness hue carries NO information, so every channel is
  * luminance: the categorical ramp + textures (a11y-base) do all the categorical
- * work, and the status trio is itself luminance-separated greys — fail darkest,
+ * work, and the status trio is itself luminance-separated grays — fail darkest,
  * warn lightest. Verified AA + distinct by luminance via tools/cvd-audit.js. */
 
 @import 'a11y-base';

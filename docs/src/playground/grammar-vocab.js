@@ -23,7 +23,7 @@ export const FOCUS_AXIS_VALUES = ['item', 'row', 'col', 'cell', 'line'];
 
 // Value vocabulary for `_paginate:` (Marp accepts the booleans; `skip`/`hold`
 // are Marp's pagination extensions). The other directives take free strings or
-// colours — not completable.
+// colors — not completable.
 export const PAGINATE_VALUES = ['true', 'false', 'skip', 'hold'];
 
 // Value vocabulary for the deck-level `form:` front-matter toggle — the Form

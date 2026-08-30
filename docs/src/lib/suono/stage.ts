@@ -122,7 +122,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 	// read (battery drain, audio-ducking of other apps). But stopping it on `stop()`/barge-in is wrong too
 	// — a barge-in is immediately followed by a new clip, and a cold route there reintroduces the very pop.
 	// So: it's (re)armed on play()/unlock(), kept alive across barge-ins and the sub-second gaps between
-	// clips, and RELEASED by an idle timer that arms when no clip is active and is cancelled the moment the
+	// clips, and RELEASED by an idle timer that arms when no clip is active and is canceled the moment the
 	// next clip does. A genuine end-of-read (no follow-up clip) lets the timer fire → the route idles ~a few
 	// seconds later; the next play re-arms it (unlock() in the tap warms it ahead of the first clip again).
 	let keepAliveSource: OscillatorNode | null = null;
@@ -199,7 +199,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 		keepAliveSource = null;
 		keepAliveGainNode = null;
 	}
-	// Arm the idle release: once no clip is active, let the route go cold after keepAliveIdleMs. Cancelled
+	// Arm the idle release: once no clip is active, let the route go cold after keepAliveIdleMs. Canceled
 	// by the next play()/unlock() (via ensureKeepAlive). No-op if already scheduled or nothing's running.
 	function scheduleKeepAliveRelease(): void {
 		if (!keepAlive || !keepAliveSource || keepAliveReleaseTimer) return;
@@ -339,7 +339,7 @@ export function createStage(opts: StageOptions = {}): Stage {
 			if (src) activeSources.delete(src);
 			src = null;
 			gainNode = null;
-			// Nothing left playing → start the keep-alive idle countdown (cancelled if a next clip arms
+			// Nothing left playing → start the keep-alive idle countdown (canceled if a next clip arms
 			// before it fires). Covers BOTH a natural end-of-read and a stop()/barge-in.
 			if (activeSources.size === 0) scheduleKeepAliveRelease();
 			resolveDone(r);

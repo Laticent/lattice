@@ -98,7 +98,7 @@ A slide is a Frame plus a fixed set of Cells — and as of this release, that co
 
 ## The footer orients the audience.
 
-The progress Tile reads the deck's `divider` slides as sections and stamps a dot-rail into the footer centre of every Form slide — current section elongated and accented. The watermark echoes the section number behind this text.
+The progress Tile reads the deck's `divider` slides as sections and stamps a dot-rail into the footer center of every Form slide — current section elongated and accented. The watermark echoes the section number behind this text.
 
 ---
 

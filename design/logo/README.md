@@ -2,11 +2,11 @@
 
 A crystallographic **unit cell** (the structure) whose nodes are lit by the
 brand **spectrum ribbon**, swept left→right and anchored by a single gold
-core. The rule the whole mark obeys: **structure is ink, colour is signal.**
+core. The rule the whole mark obeys: **structure is ink, color is signal.**
 
-- The **bonds** are navy ink — the lattice skeleton. They never carry colour.
+- The **bonds** are navy ink — the lattice skeleton. They never carry color.
 - The **nodes** carry the spectrum, in palette order (cool → warm), so the
-  colour reads as *Lattice's own `--spectrum`* rather than decoration.
+  color reads as *Lattice's own `--spectrum`* rather than decoration.
 - One **gold core** is the focal "atom" and the brand anchor.
 
 ## Files
@@ -45,7 +45,7 @@ and unable to theme — was retired.)
   bonds brighten, halos darken. Don't hand-recolour; ship the adaptive file.
 - **Wordmark font:** Fraunces / Cormorant Garamond (Georgia fallback), 600,
   letter-spacing −1. Matches the deck display serif.
-- **Don't:** recolour the nodes off-spectrum, put colour on the bonds, squish
+- **Don't:** recolour the nodes off-spectrum, put color on the bonds, squish
   the aspect ratio, or add effects (shadows/gradients on the nodes).
 
 Regenerate after any change: `python3 design/logo/generate.py`.

@@ -16,7 +16,7 @@
  *
  * This gate fails in BOTH directions, like its palette sibling: on an unlisted
  * divergence, and on a `DIVERGENT_CONFIG` entry that no longer diverges (a sanction
- * that stops being needed must be retired, not left as a standing licence for the next
+ * that stops being needed must be retired, not left as a standing license for the next
  * one).
  */
 

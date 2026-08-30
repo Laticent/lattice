@@ -27,7 +27,7 @@ Open the relevant file before starting work. Only load what the current task nee
 
 **Do not load all files at once.** Load only what the task requires.
 
-**Vocabulary.** A **component** is what authors invoke as `<!-- _class: cards-grid -->`. The pre-design-system docs called these "layouts" or "templates" — the words are interchangeable in older prose, but design-system.md normalises on *component*.
+**Vocabulary.** A **component** is what authors invoke as `<!-- _class: cards-grid -->`. The pre-design-system docs called these "layouts" or "templates" — the words are interchangeable in older prose, but design-system.md normalizes on *component*.
 
 ---
 

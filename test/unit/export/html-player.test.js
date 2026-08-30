@@ -1052,6 +1052,12 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const goldenSource = '---\ntheme: indaco\n---\n\n# Golden deck\n\nBody.\n';
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
+	// Re-blessed for the US-English sweep (2026-08-30). The player inlines its own
+	// source COMMENTS, so a one-word prose fix moves the artifact: `analogue` →
+	// `analog` in a comment in the wheel handler. Diffed before/after — exactly two
+	// lines move, and the second is forced by the first: the CSP `script-src`
+	// sha256 is derived from the script text, so it MUST change when the script
+	// does. No markup, attribute, block order or behavior moved.
 	// Re-blessed for the live FLOW-HEIGHT charts in Read·Article: the article CSS gained the
 	// Re-blessed for the player's LANDMARK skeleton (semantic-html ADR §15.1, §17.3). Four
 	// deliberate edits, and nothing else moved — verified by diffing the assembled output:
@@ -1087,7 +1093,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// buys nothing, and HARD RULE #20 keeps margins out of this engine's CSS on principle
 	// (this file is not in the gate's scan path, which is not a reason to write one).
 	// A pure-attribute + tag change plus that one hidden-utility rule: no layout, no
-	// script behaviour. Deliberate.
+	// script behavior. Deliberate.
 	// (Prior bless: the `.lp-chart` width-container rules for flow-height chart re-hosts.)
 	// Re-blessed for #1462 item 3 — the player now resolves ALL of its chrome through one
 	// scoped `lpEl(id)` helper instead of bare `getElementById`. The document body IS deck
@@ -1150,7 +1156,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	//     diagram follows the viewer's toggle instead of freezing at export.
 	// This fixture declares no pinning `color-mode:` and carries no diagram, so (1) and (3)
 	// contribute script bytes only and (2) contributes two selector fragments.
-	assert.equal(sha, '4cc0e74c898a12b3ca913f00172b0ba4f2c808c0c4430e0d8ad5d67bb65e4a39', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, 'c81acf88a8cabcc475fb32d2ad640c793e57ae386ae90d58a2e3e2aa6747bc6f', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

@@ -9,7 +9,7 @@
  *
  * Design contract
  * ───────────────
- *   1. Single text-heading colour on every light surface (#1A2330
+ *   1. Single text-heading color on every light surface (#1A2330
  *      graphite-blue). Dark mode flips to bone (#E6EDF4) on deep-graphite
  *      canvas.
  *
@@ -146,7 +146,7 @@
   /* cScale / gitgraph — slot 0 anchors band-1 steel-blue (BRAND); slot 1
    * brass echoes band-2 warm-tan. Slot 3 swapped from cool-gray-blue
    * (collided with slot 0 steel) to deep-wine — the brina chart-4 CB-safe
-   * complement. Slot 5 retuned to mauve-grey for distinction from
+   * complement. Slot 5 retuned to mauve-gray for distinction from
    * cool-lavender at slot 2. All values ≥3:1 graphical on --bg #F2F5F7. */
 }
 /* Completion tokens — band-text pairs, line, gantt state, note, error.
@@ -259,7 +259,7 @@
 }
 
 /* ── Chart-family palette ───────────────────────────────────────────────
- * Brina's curation of the chart-family's two colour spectrums (defined in
+ * Brina's curation of the chart-family's two color spectrums (defined in
  * lib/components/chart/_chart-family/chart-family.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Brina overrides
  * both spectrums with its cool frost pigments so charts read native to the
@@ -275,7 +275,7 @@
 :root {
   /* Categorical spectrum — brina's audited Brand-triad pigments, most-
    * distinct-first. Ported from the theme's own cool-frost hue band so
-   * charts and Mermaid diagrams speak one colour language.
+   * charts and Mermaid diagrams speak one color language.
    * Light side = the audited pigment (drives border + 24%-tint fill);
    * dark side = same hue lifted toward white (color-mix in oklab, white 30%)
    * so it stays vivid on the deep-graphite canvas. */

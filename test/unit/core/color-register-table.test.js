@@ -41,7 +41,7 @@
  * dark` does.
  *
  * 7 `color-mode:` values × 5 `class:` values × 7 `_class:` values × 2 flag states
- * × 2 spellings = 980 rows, each checked on THREE axes: the section's colour
+ * × 2 spellings = 980 rows, each checked on THREE axes: the section's color
  * tokens, its COMPONENT, and the band its Mermaid ink was baked for.
  *
  * See engineering/decisions/2026-08-05-deck-class-register-boundary.md.
@@ -102,12 +102,12 @@ function build({ cm, deck, slide, spelling }) {
  */
 function expectedTokens({ cm, deck, slide, spelling, flagPrint }) {
   // The AXIS token in the deck-wide value, not the value wholesale — the register
-  // may carry a non-colour token beside it (`kpi`, `no-note`), and only the colour
+  // may carry a non-color token beside it (`kpi`, `no-note`), and only the color
   // one belongs on this axis.
   const axisIn = (v) => (v || '').split(/\s+/).find((t) => AXIS.has(t)) || '';
   // Through `frontMatterScalar` — the deck writes `color-mode: <cm>` as a literal
   // line, and the engine cleans that scalar (trailing YAML comment stripped) before
-  // `colorModeClass` ever sees it. Modelling the read here rather than assuming a
+  // `colorModeClass` ever sees it. Modeling the read here rather than assuming a
   // bare name is what lets the commented row carry a real expectation instead of a
   // refusal. Not a tautology: the row still independently pins the section CLASS,
   // the COMPONENT and the baked BAND against each other.
@@ -126,12 +126,12 @@ function expectedTokens({ cm, deck, slide, spelling, flagPrint }) {
 
 /**
  * The COMPONENT the section must end up carrying — a second axis, because the
- * colour axis alone cannot see R1. A by-value strip deleted a slide's own
+ * color axis alone cannot see R1. A by-value strip deleted a slide's own
  * `kpi`; every row below checks that the component survives, not just the canvas.
  *
  *   · front matter naming a component  → refused, so the slide's own wins, else
  *     the default (`content`);
- *   · a mid-deck global naming one     → honoured, but a slide's own `_class:`
+ *   · a mid-deck global naming one     → honored, but a slide's own `_class:`
  *     replaces it WHOLESALE (so a spot naming no component falls to the default).
  */
 function expectedComponent({ deck, slide, spelling }) {
@@ -175,7 +175,7 @@ describe('the color register table — color-mode: × class: × _class: × --pri
                 flagPrint,
               });
               const row = `${spelling} print=${flagPrint} color-mode=${cm} class=${deck} _class=${slide}`;
-              // COMPONENTS, checked alongside the colour axis — a lost colour token
+              // COMPONENTS, checked alongside the color axis — a lost color token
               // is a wrong canvas, a lost component token is a wrong LAYOUT.
               const comps = cls.split(/\s+/).filter(isComponentToken);
               const wantComp = expectedComponent({ deck, slide, spelling });

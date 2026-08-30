@@ -125,7 +125,7 @@ describe('hydrateScene — reduced-motion opt-in + control gating (Stage 6b)', (
     const btn = section.querySelector('.scene-control') as HTMLElement;
     expect(btn?.dataset.mode).toBe('optin');
     expect(btn.getAttribute('aria-label')).toBe('Play the motion');
-    expect(btn.textContent).toBe('Play the motion'); // labelled, not icon-only
+    expect(btn.textContent).toBe('Play the motion'); // labeled, not icon-only
     expect(section.querySelector('.scene-live')).toBeNull(); // no mount until the viewer opts in
     expect((section.querySelector('.scene-figure > svg') as SVGSVGElement).style.display).not.toBe('none'); // poster visible
     c?.dispose();

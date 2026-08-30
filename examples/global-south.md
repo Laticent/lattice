@@ -68,7 +68,7 @@ Leaving "Global South" out doesn't keep the engine impartial — it just makes e
 <!-- _class: map world -->
 <!-- _footer: "Per-region authoring · world choropleth" -->
 
-## Or colour the members directly.
+## Or color the members directly.
 
 - Nigeria `9.2`
 - Kenya `7.4`

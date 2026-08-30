@@ -218,7 +218,7 @@ section.regulatory-update.regulatory-update.diff-bands > .cell-stage > :is(ol, u
 section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3 {
   margin:0;
   /* --sp-sm, not --sp-md: the band set this variant documents is FOUR (Added /
-   * Amended / Repealed / Enforced, and the nth-of-type colours below assume four).
+   * Amended / Repealed / Enforced, and the nth-of-type colors below assume four).
    * At design size four bands at an --sp-md rhythm overshoot the stage by 20px, so
    * the documented set could not render — the rhythm was tuned when every box was
    * 11% smaller (2026-07-30-slide-geometry-emitted-not-measured.md). */

@@ -191,7 +191,7 @@ test('axisAngle: axis 0 points straight up', () => {
   assert.ok(Math.abs(axisAngle(2, 4) - Math.PI) < 1e-9);
 });
 
-test('polar: angle 0 sits directly above the centre', () => {
+test('polar: angle 0 sits directly above the center', () => {
   const p = polar(GEOM.R, 0);
   assert.ok(Math.abs(p.x - GEOM.cx) < 1e-9);
   assert.ok(Math.abs(p.y - (GEOM.cy - GEOM.R)) < 1e-9);
@@ -361,7 +361,7 @@ describe('radar', () => {
     assert.ok(tspans(hand) > tspans(clean), 'the wider face must wrap sooner, not later');
   });
 
-  test('chart-family: eyebrow scale override is honoured', () => {
+  test('chart-family: eyebrow scale override is honored', () => {
     const inner = '<p><code>0–10</code></p><h2>Skills</h2>' + UL_TWO;
     const { html } = transformChartSection(inner, 'radar');
     // Eyebrow lifts to .chart-eyebrow but the value text survives for parsing.

@@ -1,7 +1,7 @@
 /**
- * Unit: lib/theme/color.js — the colour primitives shared by the Theme Studio
+ * Unit: lib/theme/color.js — the color primitives shared by the Theme Studio
  * and the contrast gate. Pins the WCAG predicate to its anchor values, checks
- * the OKLCH round-trip on real shipped-theme colours, and exercises the
+ * the OKLCH round-trip on real shipped-theme colors, and exercises the
  * contrast-repair helper the derivation depends on.
  */
 
@@ -54,7 +54,7 @@ describe('theme-color', () => {
     assert.ok(dark < pale);
   });
 
-  test('OKLCH round-trips on real theme colours', () => {
+  test('OKLCH round-trips on real theme colors', () => {
     for (const hex of ['#7a5a10', '#faf7f2', '#1e1a15', '#327c86', '#c8a040', '#2d4ed8']) {
       assert.equal(oklchToHex(hexToOklch(hex)), normalizeHex(hex), hex);
     }

@@ -15,7 +15,7 @@
  *                           are present so they're CONSIDERED at creation, not
  *                           discovered later — the manifest is the one
  *                           co-located, IDE-agnostic source of completion data.
- *   <name>.styles.css     — a palette-blind stub (every colour via var(--token)).
+ *   <name>.styles.css     — a palette-blind stub (every color via var(--token)).
  *
  * The scaffold writes valid JSON but DELIBERATELY leaves `description`,
  * `tags`, and the `skeleton` as TODOs — fill them before committing; the
@@ -88,7 +88,7 @@ const manifest = {
 
 const css = `/* ${name} — ${fn} · ${form} · ${substance}
  *
- * Palette-blind: every colour goes through var(--token). No hex literals.
+ * Palette-blind: every color goes through var(--token). No hex literals.
  * See lib/base/ for the cascade and design/design-system.md for the model.
  */
 section.${name} {

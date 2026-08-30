@@ -122,7 +122,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   layer-3 asserts the **rendered** contract instead. Add a new transforming
   component to that set + give it a layer-3 entry.
 - **Also:** manifest selectors are written against the slide `<section>` *root*, so
-  a leading `section` IS that element — the suite normalises it to `:scope` per
+  a leading `section` IS that element — the suite normalizes it to `:scope` per
   comma-group. A bare `section > p, section > ul` queried unscoped leaks its second
   clause and false-fails. (And note `roadmap`/`state-chart` pass layer-1 only by
   tag-shape luck — `roadmap`'s `horizons` modifier transposes its `<table>` away.)
@@ -139,7 +139,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   to `0` (or inherited size) because the variable is undeclared.
 - **Cause:** The typography token system was rewritten on
   `claude/typography-redact-proposal-V4Ocx` (May 2026). The
-  legacy 16-token t-shirt-named scale was retired in favour of
+  legacy 16-token t-shirt-named scale was retired in favor of
   11 role-named tokens: `--fs-meta`, `--fs-body-compact`,
   `--fs-body`, `--fs-emphasis`, `--fs-h1` … `--fs-h6`, `--fs-hero`.
 - **Mitigation:** Replace per the migration map in
@@ -449,7 +449,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 
 - **Symptom:** A deck rendered through the owned engine on mobile Safari/iOS:
   spacing collapses (cards/list rows overlap with ~0 gap),
-  `list-criteria`/`list principles` counters vanish, title/KPI slides don't centre
+  `list-criteria`/`list principles` counters vanish, title/KPI slides don't center
   with breathing room. The SAME engine output renders perfectly in headless
   Chromium and on desktop WebKit. Looks like the scaled-`foreignObject` WebKit class
   ("Playground renders broken in mobile Safari/WebKit" in `studio-playground.md`), but

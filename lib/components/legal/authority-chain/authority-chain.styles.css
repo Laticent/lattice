@@ -119,7 +119,7 @@ section.authority-chain.pyramid > .cell-stage > :is(ol, ul) > li {
   max-width:none;
   text-align:left;
   /* The pyramid is a SHAPE (decreasing-width tiers) — its rows stay content-height
-   * and the group centres in the stage (ul justify-content:center), rather than the
+   * and the group centers in the stage (ul justify-content:center), rather than the
    * base chain's flex:1 stretch which would balloon each tier and break the silhouette. */
   flex:0 1 auto;
 }

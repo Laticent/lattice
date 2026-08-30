@@ -50,7 +50,7 @@
 	--surface-inverse: #003d66;
 }
 
-/* ── Remap Starlight's colour surface onto the site palette tokens ──────────
+/* ── Remap Starlight's color surface onto the site palette tokens ──────────
  * These rules are intentionally UNLAYERED, so they win over Starlight's
  * @layer starlight.base props.css regardless of its [data-theme] specificity.
  * The site tokens are themselves mode-aware (resolved per data-mode), so a
@@ -109,7 +109,7 @@ h1#_top {
  * concrete) and warm themes. Keep the distinct-per-card look the rainbow gave,
  * but source it from the palette's OWN categorical series (--chart-cat1..8 —
  * tuned per palette AND light/dark, exposed to the docs via
- * lattice-tokens.generated.css). Each icon gets its hue's full colour for the
+ * lattice-tokens.generated.css). Each icon gets its hue's full color for the
  * glyph + border and a faint same-hue fill, so it stays distinct AND on-palette
  * with AA contrast in every theme/mode. Unlayered → beats Starlight's
  * @layer starlight.components nth-child rules. */
@@ -168,7 +168,7 @@ starlight-menu-button[aria-expanded='true'] button {
 
 /* ── Code blocks (Expressive Code) — accent-bound chrome ────────────────────
  * The frame (bg/border/shadow) already tracks the palette via Starlight's UI
- * theme colours (→ our --sl-color-* remap); the syntax hues come from the
+ * theme colors (→ our --sl-color-* remap); the syntax hues come from the
  * quiet Vitesse pair (astro.config). Here we tie the *interactive* accents to
  * the palette so the whole block reads as the current theme: the focus ring,
  * the copy button's border, the active editor-tab indicator, the text

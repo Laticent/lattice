@@ -82,8 +82,8 @@ section.title   :is(h1, h2) + p:has(> code:only-child),
 section.divider :is(h1, h2) + p:has(> code:only-child),
 section.closing :is(h1, h2) + p:has(> code:only-child) { color: var(--on-dark-secondary); }
 /* divider.light is the bright-canvas variant (former subtopic) — the dark-canvas
- * eyebrow colour above would render near-invisible on it, so reset to the
- * standard muted ink and centre it. */
+ * eyebrow color above would render near-invisible on it, so reset to the
+ * standard muted ink and center it. */
 section.divider.light h1 + p:has(> code:only-child),
 section.divider.light h2 + p:has(> code:only-child) { color: var(--text-secondary); text-align: var(--headline-align, center); }
 /* .dark modifier: the subtitle uses --text-secondary, a light-dark() pair, and
@@ -183,7 +183,7 @@ section.title   p:has(> code:only-child):has(+ h1) > code,
 section.title   p:has(> code:only-child):has(+ h2) > code,
 section.divider p:has(> code:only-child):has(+ h1) > code,
 section.divider p:has(> code:only-child):has(+ h2) > code { color: var(--on-dark-secondary); }
-/* divider.light bright-canvas variant — reset eyebrow ink off the dark-canvas colour. */
+/* divider.light bright-canvas variant — reset eyebrow ink off the dark-canvas color. */
 section.divider.light p:has(> code:only-child):has(+ h1) > code,
 section.divider.light p:has(> code:only-child):has(+ h2) > code { color: var(--text-secondary); }
 /* `closing` takes --on-dark-secondary, exactly like `title` and `divider` above.
@@ -389,8 +389,8 @@ section footer {
  *
  * Per-layout custom-property hooks (defaults in parens):
  *   --pill-border  (var(--muted-mark))   border color
- *   --pill-bg      (var(--bg))           fill colour
- *   --pill-fg      (var(--text-body))    text colour
+ *   --pill-bg      (var(--bg))           fill color
+ *   --pill-fg      (var(--text-body))    text color
  *
  * Deny list = layouts where a metadata pill does not earn its place,
  * OR where the row container is grid/scaffold and the pill needs a
@@ -488,7 +488,7 @@ section.dark {
  * a THIRD mode light-dark() can't reach, so this rule REMAPS every consumed main
  * token to the --print-* band (universal defaults in base.tokens.css; a theme may
  * override any). Stamped deck-wide by `class: print` / `color-mode: print` / the
- * engine `--print` flag — never @media print, so the colour PDF export is left
+ * engine `--print` flag — never @media print, so the color PDF export is left
  * alone. Layouts are palette-blind, so they inherit the band for free.
  * See engineering/decisions/2026-06-14-deck-print-styling.md. */
 section.print {
@@ -1060,8 +1060,8 @@ section.compare-table > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> e
 
 /* ── Rendered math in non-math layouts ──
  * Allow inline math in any layout (e.g. a stats card on a kpi slide) by giving
- * the rendered math sensible defaults so it inherits colour and doesn't blow up
- * the line-height. Display math outside `section.math.*` falls back to centred +
+ * the rendered math sensible defaults so it inherits color and doesn't blow up
+ * the line-height. Display math outside `section.math.*` falls back to centered +
  * accent for visibility.
  *
  * BOTH RENDERERS, same 1:1 mapping as math.styles.css — `.katex` ↔ `mjx-container`
@@ -1084,7 +1084,7 @@ section:not(.math) :is(.katex-display, mjx-container[display="true"]) { padding:
  *
  * `.heat` is a section modifier the author can add alongside any of the
  * state-bearing layout classes (checklist, verdict-grid, obligation-matrix,
- * roadmap). It flips the semantic-to-colour mapping from a performance/
+ * roadmap). It flips the semantic-to-color mapping from a performance/
  * lifecycle axis to a load/risk axis:
  *   full   (was good)  → alarm  (var(--fail))
  *   half   (was caution) → caution (var(--warn) — unchanged)
@@ -1149,7 +1149,7 @@ section.heat .horizon-rows > li.cell-state.state-skipped { --state-color:var(--m
 /* ════════════════════════════════════════════════════════════════════════
  * UNIVERSAL STATE-TOKEN MARKS + STYLE VARIANTS
  * ────────────────────────────────────────────────────────────────────────
- * The checkbox grammar ([x]/[-]/[ ]/[/]) renders as one coloured disc
+ * The checkbox grammar ([x]/[-]/[ ]/[/]) renders as one colored disc
  * carrying a DISTINCT mark per state, across the three consumers that share
  * the universal `state {sem} {shape}` classes: checklist, verdict-grid,
  * obligation-matrix. (Roadmap keeps its own dot vocabulary — see the
@@ -1173,9 +1173,9 @@ section .state-slashed { --state-mark: var(--mark-slash); }
  * (verdict-grid keeps state-empty → ✕). The decoder emits `state todo
  * state-todo` for those cases.
  *
- * It renders as a TRUE hollow ring — no fill, a full-colour --state-color
- * ring, and NO inner mark, so the centre is EMPTY ("not started"). A filled
- * disc + a ring-stroke mask would leave the disc colour in the centre and
+ * It renders as a TRUE hollow ring — no fill, a full-color --state-color
+ * ring, and NO inner mark, so the center is EMPTY ("not started"). A filled
+ * disc + a ring-stroke mask would leave the disc color in the center and
  * read as a "selected" bullseye; an empty disc + an edge ring reads as
  * "open". (The ring is a vector box-shadow — pixel-crisp in every export —
  * and inherits the variant's disc-scale, so it tracks checks-bold etc.) */
@@ -1308,11 +1308,11 @@ section.checks-bold {              /* larger disc + heavier marks, knockout */
   --mark-check:var(--mark-check-bold); --mark-dash:var(--mark-dash-bold);
   --mark-x:var(--mark-x-bold);         --mark-slash:var(--mark-slash-bold);
 }
-section.checks-outline {           /* transparent fill, inner ring + status-colour mark */
+section.checks-outline {           /* transparent fill, inner ring + status-color mark */
   --state-fill-pct:0%; --state-ring-outer-w:0px; --state-ring-inner-w:2px;
   --state-mark-pct:100%; --state-disc-scale:1;
 }
-section.checks-tonal {             /* soft tint fill, inner ring + status-colour mark */
+section.checks-tonal {             /* soft tint fill, inner ring + status-color mark */
   --state-fill-pct:17%; --state-ring-outer-w:0px; --state-ring-inner-w:1.6px;
   --state-mark-pct:100%; --state-disc-scale:1;
 }
@@ -1483,8 +1483,8 @@ section.closing.numbered::after {
 }
 
 /* On dark canvases the accent is muted; lift the numeral with the dark
- * watermark colour so it reads against the dark bg. divider.light is a bright
- * canvas, so it keeps the accent colour set above (overrides the dark rule). */
+ * watermark color so it reads against the dark bg. divider.light is a bright
+ * canvas, so it keeps the accent color set above (overrides the dark rule). */
 section.divider.numbered::after,
 section.closing.numbered::after {
   color: var(--on-dark-watermark, var(--accent));
@@ -1633,7 +1633,7 @@ section.illegible[data-lattice-overflow-marker="off"] { box-shadow: none !import
  * So the export's `overflow-marker` setting decides who the marker talks to
  * (lib/core/resolve-overflow-marker.js), the runtime stamps the resolved level on
  * each SLIDE SECTION, and this block is the `reader` treatment: restyle the SAME
- * text-labeled tab (WCAG 1.4.1 — never colour alone) into a calm bottom-center
+ * text-labeled tab (WCAG 1.4.1 — never color alone) into a calm bottom-center
  * "Content clipped" pill. The red ring is not overridden here — it is EXCLUDED at
  * its own rule above, so the finish frame that yields to it survives. Content that
  * clips is still visibly clipped; only the tone changes.
@@ -2056,12 +2056,12 @@ img.deck-logo {
   user-select: none;
   opacity: 0.4;
   /* Default tuned for light canvases (body slides): darken to a
-   * faint dark-grey watermark. */
+   * faint dark-gray watermark. */
   filter: grayscale(1) brightness(0.4) contrast(1.2);
 }
 
 /* Dark-canvas layouts and the explicit `.dark` modifier flip the
- * brightness so the mark shows as a faint light-grey watermark. */
+ * brightness so the mark shows as a faint light-gray watermark. */
 section.title    img.deck-logo,
 section.divider  img.deck-logo,
 section.closing  img.deck-logo,
@@ -2070,7 +2070,7 @@ section.dark     img.deck-logo {
   opacity: 0.45;
 }
 
-/* `deck-logo-brand` — keep the logo's original colours on a soft
+/* `deck-logo-brand` — keep the logo's original colors on a soft
  * plate. The plate uses the theme's surface token so it harmonises
  * with the canvas without picking a hard hue. */
 img.deck-logo.deck-logo-brand {
@@ -2090,7 +2090,7 @@ img.deck-logo.deck-logo-brand {
    caption + right-hand action rail. Opt-in (add `safe`, e.g. deck-wide via
    `class: safe` front-matter); takes effect ONLY on a portrait/square @size,
    where the engine emits the px `--safe-*` bands from the geometry. Content
-   centres (justify-content:center, from the orientation CSS) within the reduced
+   centers (justify-content:center, from the orientation CSS) within the reduced
    area, and the footer chrome is lifted above the caption band. See
    lib/base/base.docs.md and engineering/decisions/2026-06-16-social-mobile-portrait-sizes.md. */
 section.safe[data-orientation='portrait'],
@@ -2108,8 +2108,8 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
 /* ── Auto-split continuation marker ──────────────────────────────────────────
  * Appended to the repeated heading of a split slide's 2nd+ part by the auto-split
  * driver (lib/core/auto-split.js), so a continuation slide reads as part of the
- * previous one. Deliberately quiet — smaller, lighter, de-emphasised — so it says
- * "(cont.)" without competing with the title. Palette-blind (opacity, no colour). */
+ * previous one. Deliberately quiet — smaller, lighter, de-emphasized — so it says
+ * "(cont.)" without competing with the title. Palette-blind (opacity, no color). */
 :is(h1, h2) .lat-cont {
   font-size: 0.5em;
   font-weight: 400;
@@ -2128,7 +2128,7 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
    * identically to the old margin-top, and measures cleanly (HARD RULE #20). */
   padding-top: var(--sp-lg); font-size: var(--fs-emphasis); letter-spacing: 0.02em; opacity: 0.9;
 }
-/* Shares the deck pagination's baseline (bottom-right, vertically centred on the page
+/* Shares the deck pagination's baseline (bottom-right, vertically centered on the page
    number) but stands well clear of it horizontally — the rail and the page count are two
    different "where am I" signals (sub-sequence progress vs. deck position), so they get
    real air between them rather than reading as one widget. `right` leaves room for the
@@ -2272,7 +2272,7 @@ section.print[data-split-role="cover"] .split-cover-lead { color: var(--text-bod
    shared cover is otherwise untouched (the family fidelity bar). Palette-blind (HARD #3). */
 /* Stack the title text over its spectrum underline with a `gap` rather than a
  * margin-top on the strip — the strip has a background, so padding-top would bleed
- * the colour up into the gap (HARD RULE #20). align-items keeps both left-aligned. */
+ * the color up into the gap (HARD RULE #20). align-items keeps both left-aligned. */
 section.lat-split-cover.split-cover-compare-table .split-feat-h {
   display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-sm);
 }
@@ -2369,7 +2369,7 @@ section[data-split-role="cover"][data-split-role="cover"] > .cell-footer > foote
 section[data-split-role="cover"][data-split-role="cover"] > .lat-pagination,
 /* (No `.tile-progress .seg` arm — the progress rail no longer emits a label on any path;
    rank 4 of the band's allocation policy. `.lat-split-rail .seg` is a different element,
-   a k-of-N segment bar, and is coloured by its own rules.) */
+   a k-of-N segment bar, and is colored by its own rules.) */
 section[data-split-role="cover"][data-split-role="cover"] > .cell-footer > .lat-pagination {
   color: currentColor;
   opacity: 0.9;

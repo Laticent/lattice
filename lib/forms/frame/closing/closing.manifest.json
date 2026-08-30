@@ -4,7 +4,7 @@
   "form": "bookend",
   "kind": "sovereign",
   "exemptFromChrome": true,
-  "description": "Closing bookend — its own centred chrome claims the canvas, so the root chrome Cells do not apply (design/forms.md §8; FORM_TOGGLE_SKIP). A deck-closing slide.",
+  "description": "Closing bookend — its own centered chrome claims the canvas, so the root chrome Cells do not apply (design/forms.md §8; FORM_TOGGLE_SKIP). A deck-closing slide.",
   "cells": ["stage"],
   "suppresses": ["masthead", "masthead-lede", "masthead-bay", "footer", "footer-left", "progress-centre", "pagination-right"]
 }

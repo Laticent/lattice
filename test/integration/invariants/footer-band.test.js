@@ -124,7 +124,7 @@ describe('footer band — a contended band keeps every mark legible', () => {
           // The rail's own rect is NOT where its ink is. `overflow` on the rail is `visible`, so a
           // `max-width` narrower than the dots does not clip them — it spills them leftward, out of
           // the reported box and over the footer. Comparing the two BOXES is the first wrong
-          // measurement this whole investigation catalogues, and it shipped here once more: a
+          // measurement this whole investigation catalogs, and it shipped here once more: a
           // clamped rail overlapped the footer by 82.8px while its rect said it started 35px clear.
           // `scrollWidth` is no help either (it reported 194 against 194). So take the LEFTMOST DOT.
           inkLeft: (() => {

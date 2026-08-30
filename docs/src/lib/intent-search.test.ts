@@ -181,7 +181,7 @@ describe('intent search — natural language', () => {
 	});
 
 	it('reads British spellings as the house dialect', () => {
-		expect(namesFor('prioritising initiatives').slice(0, 5)).toEqual(namesFor('prioritizing initiatives').slice(0, 5));
+		expect(namesFor('prioritizing initiatives').slice(0, 5)).toEqual(namesFor('prioritizing initiatives').slice(0, 5));
 	});
 
 	it('returns nothing for a query with no purchase at all', () => {

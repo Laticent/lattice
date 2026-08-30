@@ -101,7 +101,7 @@ const SANCTIONED_CLIPS = [
   // EMPTY, and that is the point. Portrait roadmap was sanctioned here at 80.4px while
   // it was genuinely blocked; #1209's split recipe (`roadmap-horizons`) closed it, so
   // the entry was DELETED rather than left to rot. The stale check below would have
-  // failed the gate if it had not been — which is exactly the behaviour the list is for.
+  // failed the gate if it had not been — which is exactly the behavior the list is for.
 ];
 
 // The three supported deck shapes. `size:` is the front-matter key the emulator

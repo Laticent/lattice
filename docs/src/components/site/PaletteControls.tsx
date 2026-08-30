@@ -9,7 +9,7 @@ import { CHROME_CHANGE_EVENT, cycleModePref, DEFAULT_PALETTE, MODE_KEY, MODE_PRE
 // The Drawing Board's deck-theme-writing chrome bus (present ONLY on that route).
 // When it exists, a pick WRITES the deck's `theme:` front matter (authoring) and
 // the controller mirrors it back via `db-chrome-sync`; elsewhere a pick just sets
-// the site palette via site-chrome.ts. Same component, context-aware behaviour.
+// the site palette via site-chrome.ts. Same component, context-aware behavior.
 type ChromeBus = {
 	getPalette: () => string;
 	getMode: () => Mode;
@@ -41,10 +41,10 @@ function seeded(attr: string, allowed: readonly string[], fallback: string): str
  * THE theme dropdown + light/dark toggle — one global chrome component mounted on
  * every surface (landing, playground, workbench, component pages, Drawing Board).
  * Items render through the shared <PaletteSelectItems> so the list is identical
- * everywhere (brand palettes, then a labelled Accessibility group for the a11y-*
+ * everywhere (brand palettes, then a labeled Accessibility group for the a11y-*
  * themes). It never owns first paint — the pre-paint <head> script does.
  *
- * Behaviour is context-aware via the Drawing Board chrome bus (window.__dbChrome):
+ * Behavior is context-aware via the Drawing Board chrome bus (window.__dbChrome):
  *   - Drawing Board: picking writes the deck's `theme:` (authoring); state is
  *     pulled from the bus and pushed by `db-chrome-ready` / `db-chrome-sync`.
  *   - Everywhere else: picking sets the site palette (data-palette + localStorage)

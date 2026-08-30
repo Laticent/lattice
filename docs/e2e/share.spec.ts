@@ -4,7 +4,7 @@ import { expect, gotoStudio, test, toastText } from './studio-fixture';
 // The exports run the real pipeline; offline they either succeed or report a
 // failure toast, so we assert the sheet structure and that an export reports a
 // result (never a silent no-op). The sheet is a Radix dialog with no aria-label
-// (labelled via aria-labelledby), and each row's accessible name is
+// (labeled via aria-labelledby), and each row's accessible name is
 // "<title><description>", so options are matched by a leading-anchored name.
 
 test.beforeEach(async ({ page }) => {

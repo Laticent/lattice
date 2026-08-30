@@ -142,7 +142,7 @@ jobs:
           retention-days: 14
 
       # On a regression, open or append a single rolling tracking issue (found by
-      # a title marker). It is SELF-LABELLED at creation: a GITHUB_TOKEN-opened
+      # a title marker). It is SELF-LABELED at creation: a GITHUB_TOKEN-opened
       # issue can't trigger the Issue triage gate (GitHub's workflow-recursion
       # guard), so a bot must carry the four-axis taxonomy itself — otherwise it
       # lands on the board unlabelled (this was issue #384). Skipped when green.
@@ -327,7 +327,7 @@ jobs:
       #
       # 1. `!= 'true'` IS TRUE FOR THE EMPTY STRING. Two paths in this job deliberately set their
       #    output to `false` and then `exit 1` BECAUSE NOTHING WAS MEASURED — the comparator's
-      #    exit-2 wiring-bug branch, and the @perf harness-failure branch. A cancelled or timed-out
+      #    exit-2 wiring-bug branch, and the @perf harness-failure branch. A canceled or timed-out
       #    job leaves both empty. In every one of those states the old condition held, so the step
       #    commented "Green — no tier past its band" and closed the thread. "Not measured" was
       #    being reported as health, which is this workflow's cardinal sin and the fifth instance

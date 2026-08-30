@@ -82,7 +82,7 @@ const heroCodeHtml = heroSource
 	.join('\n');
 
 // "One source, every palette" demo = ONE slide re-rendered live through every
-// palette. Swatch colours are each palette's light `--accent`, read from the
+// palette. Swatch colors are each palette's light `--accent`, read from the
 // generated tokens CSS (the same source the topbar selector lists).
 const restyleComp = manifests.find((m) => m.name === 'kpi');
 const paletteAccents = palettes.map((name) => {

@@ -101,7 +101,7 @@ describe('findCulprits', () => {
   // up. The row-outlier gate must suppress the normal row entirely.
   test('a comfortably-sized row is never searched just because it sits below an overflowing row', () => {
     const rowB = fakeItem(0, 322, 305); // the true culprit's row, slack 17
-    const rowBmate = fakeItem(0, 322, 117); // its stretched neighbour, slack 205
+    const rowBmate = fakeItem(0, 322, 117); // its stretched neighbor, slack 205
     const rowD = fakeItem(0, 161, 144); // row 2: perfectly normal, slack 17
     const rowDmate = fakeItem(0, 161, 117); // row 2's other card, slack 44 — MORE slack than rowD, but neither is a problem
     const result = findCulprits([rowB, rowBmate, rowD, rowDmate]);

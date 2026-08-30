@@ -3,7 +3,7 @@
  *
  * The kernel (map.transform.js) emits a <div class="map-figure"> holding an
  * SVG basemap (one <path> per region) and a legend (swatch · name · value).
- * All colour lives here so the kernel stays palette-blind: choropleth regions
+ * All color lives here so the kernel stays palette-blind: choropleth regions
  * carry a `--mix` percentage and ride a single-hue ramp off --chart-cat-1-hue;
  * highlight regions carry a `--region-hue` var-reference into a --catN slot;
  * unnamed regions take the neutral base fill. Unlayered like every other
@@ -43,7 +43,7 @@
 
 /* ── Regions ──────────────────────────────────────────────────────────────
  * Unnamed regions sit on a quiet neutral fill so the named ones carry the
- * read. A hairline canvas-coloured stroke keeps adjacent states crisp —
+ * read. A hairline canvas-colored stroke keeps adjacent states crisp —
  * the same crisp-divider idiom funnel uses between bands. */
 :is(section.map, figure.chart-frame) .map-region {
   fill: var(--map-base);

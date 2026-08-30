@@ -80,7 +80,7 @@ describe('buildFixMessages', () => {
 });
 
 describe('requestSlideFix', () => {
-  test('returns a normalised replace edit + before/after for a valid reply', async () => {
+  test('returns a normalized replace edit + before/after for a valid reply', async () => {
     const { requestSlideFix } = await load();
     const after = '<!-- _class: content -->\n## One idea\n- the essential point';
     const model = mockModel('Sure — here is the fix:\n\n' + EDIT(2, after));
@@ -96,7 +96,7 @@ describe('requestSlideFix', () => {
     const { requestSlideFix } = await load();
     const model = mockModel(EDIT(7, '<!-- _class: content -->\n## Fixed'));
     const out = await requestSlideFix({ model, source: DECK, finding, catalog: [] });
-    assert.equal(out.edit.slide, 2); // normalised to the finding, not the model's 7
+    assert.equal(out.edit.slide, 2); // normalized to the finding, not the model's 7
   });
 
   test('null when no edit block came back', async () => {

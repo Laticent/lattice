@@ -41,14 +41,14 @@
  *   math.stats          — estimate ± uncertainty + interpretation line
  *
  * Authoring contracts are documented per-variant below. The single rule
- * that applies to all variants: `$$…$$` becomes a centred display block;
+ * that applies to all variants: `$$…$$` becomes a centered display block;
  * `$…$` is inline and inherits surrounding font sizing.
  * ──────────────────────────────────────────────────────────────────────── */
 
 /* ── Shared base ── */
 /* Three-row grid: optional inline-code eyebrow at top, headline (h2), then content.
  * Variants override only `grid-template-columns` so they all share the same
- * vertical rhythm. align-self: center on body children centres them inside
+ * vertical rhythm. align-self: center on body children centers them inside
  * the 1fr body row. */
 section.math {
   display: grid;
@@ -110,7 +110,7 @@ section.math ul > li::before {
   font-weight: 700;
 }
 
-/* KaTeX colour + scale — the rendered math should sit in the same colour
+/* KaTeX color + scale — the rendered math should sit in the same color
  * tier as headings (more weight than body), and display math should feel
  * monumental without overflowing 1280×720. The 1.05 multiplier on display
  * is conservative: KaTeX's own 1.21em baseline already feels large. */
@@ -244,21 +244,21 @@ section.math.derivation {
   position: relative;
 }
 /* Heading taken out of flow (absolute, pinned top) so the proof-chain table
- * centres in the well below it — margin-free equivalent of the table's former
+ * centers in the well below it — margin-free equivalent of the table's former
  * auto block-axis margins. */
 section.math.derivation > h2,
 section.math.derivation > h3 {
   /* left/right:auto keeps the heading at its in-flow (section-padded) horizontal
-   * position; only the vertical is pinned so the table centres beneath it. top clears
+   * position; only the vertical is pinned so the table centers beneath it. top clears
    * the absolute header by the base section's header-clearance (6.875cqi = --sp-2xl +
    * --sp-md), so the title sits the same distance below the eyebrow as on Form slides. */
   position: absolute;
   top: calc(var(--sp-2xl) + var(--sp-md));
   padding: 0;
 }
-/* The proof chain centres vertically via the parent's
+/* The proof chain centers vertically via the parent's
  * `justify-content: center` (replacing the table's former auto block-axis
- * centring, which is now measurable). The table keeps its intrinsic height. */
+ * centering, which is now measurable). The table keeps its intrinsic height. */
 section.math.derivation table {
   width: 100%;
   border-collapse: collapse;
@@ -296,7 +296,7 @@ section.math.derivation tbody tr:last-child td:last-child {
   color: var(--accent);
 }
 /* Display math used as a row entry stays inline-block so it doesn't break
- * the row height. Override the default centred display behaviour. */
+ * the row height. Override the default centered display behavior. */
 section.math.derivation td :is(.katex-display, mjx-container[display="true"]) {
   display: inline-block;
   margin: 0;
@@ -309,7 +309,7 @@ section.math.derivation td :is(.katex-display > .katex, mjx-container[display="t
 }
 
 /* ── math.theorem ──
- * Authoring: blockquotes labelled by their first **Bold.** word.
+ * Authoring: blockquotes labeled by their first **Bold.** word.
  *   ## Title
  *   > **Definition.** A function $f:\mathbb{R}\to\mathbb{R}$ is continuous
  *   > at $a$ if $\lim_{x\to a} f(x) = f(a)$.
@@ -319,15 +319,15 @@ section.math.derivation td :is(.katex-display > .katex, mjx-container[display="t
  *   >
  *   > **Proof.** By contradiction. …
  *
- * The blockquotes render as stacked colour-coded cards. Markdown wraps
+ * The blockquotes render as stacked color-coded cards. Markdown wraps
  * each `>`-prefixed block in a single `<blockquote>`; theorem-card stripes
- * are coloured by position (first/middle/last) using the deck spectrum. */
+ * are colored by position (first/middle/last) using the deck spectrum. */
 section.math.theorem {
   display: flex;
   flex-direction: column;
-  /* Card stack centres in the well via justify-content; the heading is taken
+  /* Card stack centers in the well via justify-content; the heading is taken
    * out of flow (absolute, below) so it stays pinned to the top while only the
-   * cards centre — the margin-free equivalent of the old first/last-card
+   * cards center — the margin-free equivalent of the old first/last-card
    * `margin:auto`. (section::after is the pagination marker, so a flex
    * pseudo-spacer pair isn't available on this non-Form component.) The
    * transparent inter-card gap is a measurable `gap` of var(--sp-sm) — padding
@@ -340,7 +340,7 @@ section.math.theorem {
 section.math.theorem > h2,
 section.math.theorem > h3 {
   /* left/right:auto keeps the heading at its in-flow (section-padded) horizontal
-   * position; only the vertical is pinned so the cards centre beneath it. top clears
+   * position; only the vertical is pinned so the cards center beneath it. top clears
    * the absolute header by the base section's header-clearance (6.875cqi = --sp-2xl +
    * --sp-md), so the title sits the same distance below the eyebrow as on Form slides. */
   position: absolute;
@@ -437,7 +437,7 @@ section.math.compare {
   column-gap: var(--sp-lg);
   column-rule: 1px solid var(--border);
   column-fill: balance;
-  /* Chromium ≥122 honours `align-content` on block layout — use it to pull
+  /* Chromium ≥122 honors `align-content` on block layout — use it to pull
    * the columns to the vertical middle of the slide so a short comparison
    * doesn't leave the bottom half empty. */
   align-content: center;
@@ -680,8 +680,8 @@ section.math.matrix > :is(ul, ol) > li > strong {
 /* `.decompose` overrides the grid to a block layout so the secondary
  * equations can sit inline-block in a row. The lead equation + h3 are
  * full-width block; the remaining `<p>` siblings flow horizontally as
- * a 3-up row (text-align: center on the parent centres them as a group). */
-/* Block layout with align-content:center centres the whole group
+ * a 3-up row (text-align: center on the parent centers them as a group). */
+/* Block layout with align-content:center centers the whole group
  * (title → lead eq → divider → subhead → component row) vertically.
  * The 3 component equations need block display to flow inline-block in a
  * row; flex column would stack them. Modern Chromium (≥122) supports

@@ -275,7 +275,7 @@ function clipDeck(size, comps) {
  *
  * The fix is to stop choosing. Rendering every candidate costs about ten seconds a size
  * (321 slides, measured) against roughly one for 33, which is nothing on a nightly — so
- * the roster is not a judgement call any more, and `unexercised` recovers its real
+ * the roster is not a judgment call any more, and `unexercised` recovers its real
  * meaning: NO gallery slide anywhere carries what this rule targets.
  *
  * Deduped by slide BODY, because one baseline slide can name two components (the

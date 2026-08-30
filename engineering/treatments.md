@@ -79,7 +79,7 @@ No per-pattern overrides are needed.
 
 ---
 
-## Catalogue
+## Catalog
 
 ### Tints · Corner glows (`tint-corner` + `at-*`)
 
@@ -193,7 +193,7 @@ The 10 other marks own no slot — they paint via `::before` (or `::before` + bo
 
 Marks use one of three mechanisms depending on geometry:
 
-1. **Mask** (default for 8 marks). A small absolutely-positioned `::before` (and sometimes `::after`) with `mask-image: <SVG>` and a `color-mix(var(--accent), transparent)` background. The SVG defines the alpha channel; the paint colour comes from the active palette.
+1. **Mask** (default for 8 marks). A small absolutely-positioned `::before` (and sometimes `::after`) with `mask-image: <SVG>` and a `color-mix(var(--accent), transparent)` background. The SVG defines the alpha channel; the paint color comes from the active palette.
 
 2. **Box-shadow** (`mark-ticks`, `mark-pills`). A `::before` sized to one shape, with multiple `box-shadow` copies offsetting it to the other positions. No mask involved.
 
@@ -204,7 +204,7 @@ The mask is the simplest path but is unreliable in Apple PDFKit / Skia / PDFium:
 - **Cropped `::before` bbox.** Each mask-based mark sizes its `::before` to the shapes' bounding box, not the full slide. If the mask drops, the failure shows only that small box as a tinted patch — visible degradation rather than slide-breaking artifact.
 - **Escape hatches.** `mark-ticks` and `mark-pills` repeat regular shapes that map cleanly to box-shadow copies, so the mask is removed entirely. `mark-seeds` has four-corner geometry with no small bbox, so stacked gradients in `--_bg-radial` replace the mask.
 
-See `engineering/gotchas.md` → "Chromium PDF output of CSS mask-image renders inconsistently across viewers" for the underlying browser/PDF behaviour.
+See `engineering/gotchas.md` → "Chromium PDF output of CSS mask-image renders inconsistently across viewers" for the underlying browser/PDF behavior.
 
 ---
 
@@ -218,7 +218,7 @@ See `engineering/gotchas.md` → "Chromium PDF output of CSS mask-image renders 
 
 2. **Opacity budget.** Tints cap at 12% accent. Marks paint at 28% through a mask (or equivalent ink in the box-shadow / gradient variants), so individual shapes are visible without competing with content.
 
-3. **No hex.** Every color goes through `var(--accent)` + `color-mix()`. Palette swap = treatment colour swap automatically.
+3. **No hex.** Every color goes through `var(--accent)` + `color-mix()`. Palette swap = treatment color swap automatically.
 
 4. **Divider layout + marks.** The `divider` layout defines its own `::before` bar. Combining `divider` with a mark loses the divider bar (`::before` collision). Use tints (`tint-corner`, `tint-edge`, `tint-spotlight`, etc.) on divider slides instead.
 

@@ -22,7 +22,7 @@ footer: "Mermaid 11.14 · rendered through the diagram component"
 
 <!-- _class: split-panel watermark -->
 
-## How this gallery is organised.
+## How this gallery is organized.
 
 `Orientation · How to use this deck`
 

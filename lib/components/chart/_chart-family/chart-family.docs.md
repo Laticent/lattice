@@ -10,7 +10,7 @@ member is any layout the dispatcher wraps in the `.chart-frame` skeleton.
 That is a wider net than substance = `series` — `state-chart` is a `graph`
 and `journey` is `structure`, yet both render through the frame, and
 `word-cloud` (`series`) was folded in when its bespoke frame-mirroring CSS
-was retired in favour of the real skeleton.
+was retired in favor of the real skeleton.
 
 **Files in this folder:**
 
@@ -100,12 +100,12 @@ their box size, so a fixed-px `<svg>` box fails the gate.
 
 ## Legend / key system
 
-A chart carries a **key** only when it encodes meaning by colour, symbol, or
+A chart carries a **key** only when it encodes meaning by color, symbol, or
 size — i.e. something the marks don't already spell out. That test sorts the
 13 members into three placements (full rationale + the per-chart catalog:
 `engineering/decisions/2026-06-11-chart-legend-system.md`):
 
-**Colour/size-categorical → integrated SVG key.** `piechart`, `radar`, `map`,
+**Color/size-categorical → integrated SVG key.** `piechart`, `radar`, `map`,
 and `quadrant·cohort` carry their key **inside the diagram's own `<svg>`
 viewBox**: diagram, a gradient **spine**, and the swatch+label+value key are one
 unit that scales together (emitted by `svg-legend.js` — see
@@ -119,22 +119,22 @@ is what encodes weight there. It is emitted by the kernel rather than by
 and lives in the cloud's own viewBox, so key and words scale as one unit. The
 `--chart-spine*` tokens it used to own are deleted — nothing reads them now.
 
-**Wide diagram → bottom-centre key.** `roadmap` (status markers ✓/–/○/╱,
+**Wide diagram → bottom-center key.** `roadmap` (status markers ✓/–/○/╱,
 emitted by `buildStatusLegend` for the states present; omitted only on
 `status`, which already labels every cell), `gantt` (a swatch+label status key
 reusing each bar's fill,
 emitted by `buildGanttChart`), and `journey` (actor + mood keys reordered to
 the foot of the board, CSS-only).
 
-**Self-labelling → no key.** `funnel`, `progress`, `kanban`, `timeline-list`,
+**Self-labeling → no key.** `funnel`, `progress`, `kanban`, `timeline-list`,
 `state-chart`, and the non-cohort `quadrant` variants caption every
-band/bar/card/node in place (kanban & state-chart print a labelled status
+band/bar/card/node in place (kanban & state-chart print a labeled status
 pill on each tile), so a separate key would be redundant.
 
 The keyed charts' key carries only TYPE from CSS — `.chart-key-label` / `-value`
 / `-head` set fill + route `--font-label` / `--font-mono` (so the `sketch` finish
 reskins the labels); the GEOMETRY lives in the SVG. `word-cloud`'s `.wc-key-*`
-rules follow the same division of labour. **No CSS-rail spine tokens remain**: the
+rules follow the same division of labor. **No CSS-rail spine tokens remain**: the
 `--chart-spine*` trio was deleted with word-cloud's conversion, since every spine
 in the family is now drawn by `svg-legend.js buildSpine`. The
 roadmap/gantt/journey keys ride the shared `transformChartSection`, adding no
@@ -149,7 +149,7 @@ single viewBox), a chart can be lifted out of a deck as a portable file. Since
 2026-07-27 that includes `word-cloud` (key inside the viewBox) and a
 small-multiples `radar` (each mini's series name inside its own viewBox) — both
 previously exported with their labels missing. It is
-not portable *as-emitted*, though: colours are `var(--token)`/`color-mix()` and
+not portable *as-emitted*, though: colors are `var(--token)`/`color-mix()` and
 the key text is styled by `.chart-key-*` CSS classes, so a detached SVG with no
 stylesheet renders **black, unstyled, serif**. The export resolves this:
 
@@ -174,7 +174,7 @@ stylesheet renders **black, unstyled, serif**. The export resolves this:
   route (2026-07-03-studio-succession.md P5). Use the CLI above until a Share entry is
   added.
 
-**Caveats.** Resolved colours come out as `oklab()` where the source used
+**Caveats.** Resolved colors come out as `oklab()` where the source used
 `color-mix(in oklab, …)` — every current browser (and Inkscape ≥1.0 / resvg)
 renders it, older SVG renderers may not. The export keeps a `viewBox`, so it
 stays fully responsive (the intrinsic `width`/`height` is only a default

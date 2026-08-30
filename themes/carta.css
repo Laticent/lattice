@@ -5,7 +5,7 @@
  * Warm paper + ink. The blessed pairing for the `sketch` finish
  * (`theme: carta` + `class: sketch`): a warm off-white sheet, near-black
  * sepia-leaning ink, and a fountain-pen ink-blue accent. The finish
- * itself is palette-blind — any theme colours it — but carta is the one
+ * itself is palette-blind — any theme colors it — but carta is the one
  * tuned to read as "drawn on paper".
  *
  * Structurally this is a warm reskin of the default `indaco` palette:
@@ -39,7 +39,7 @@
   --surface-inverse:  var(--brand-canvas);
   --border:   light-dark(#8F8676, var(--scheme-dark-border));  /* warm hairline  */
 
-  /* ── Ink ramp — warm near-black → sepia-grey ───────────────────────── */
+  /* ── Ink ramp — warm near-black → sepia-gray ───────────────────────── */
   --text-display: #FFFFFF;
   --text-heading: light-dark(#211C15, var(--scheme-dark-text-heading)); /* ~16:1 on paper */
   --text-body:    light-dark(#3A3127, var(--scheme-dark-text-body));    /* ~9:1 on paper  */

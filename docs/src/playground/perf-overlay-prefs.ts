@@ -20,7 +20,7 @@ const listeners = new Set<Listener>();
 // engineering/decisions/2026-06-15-docs-perf-gating-policy.md §"Open human step".
 // At GA, restrict it: set this to `isPreviewDeploy()` (import from
 // ../lib/deploy-env.mjs) so it ships only on Preview/PR builds, or `false` to
-// remove it entirely. Both the overlay and the settings toggle honour this.
+// remove it entirely. Both the overlay and the settings toggle honor this.
 export const PERF_OVERLAY_AVAILABLE = true;
 
 export function perfOverlayEnabled(): boolean {

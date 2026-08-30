@@ -151,7 +151,7 @@ function readFormFactor(dir, formFactor) {
 	return result;
 }
 
-// Normalise a URL to a path so base and head line up even if the host/port
+// Normalize a URL to a path so base and head line up even if the host/port
 // differ (they don't here, but be defensive).
 function urlKey(u) {
 	try {

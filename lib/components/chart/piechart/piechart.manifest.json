@@ -62,7 +62,7 @@
     },
     {
       "title": "Donut for executive decks",
-      "body": "The `donut` modifier hollows the centre — cleaner, less crowded, and the hole reads as composed rather than as a missing slice. Default to donut for board / investor decks; reserve solid pies for analyst working sessions."
+      "body": "The `donut` modifier hollows the center — cleaner, less crowded, and the hole reads as composed rather than as a missing slice. Default to donut for board / investor decks; reserve solid pies for analyst working sessions."
     }
   ],
   "antiPatterns": [
