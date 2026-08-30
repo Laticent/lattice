@@ -565,7 +565,7 @@ describe('STATUS_KEYWORDS', () => {
   });
 });
 
-// ── Browser layout (behavioural, via a fake DOM) ──────────────────────────
+// ── Browser layout (behavioral, via a fake DOM) ──────────────────────────
 // installStateChartLayout is a self-contained closure (it serialises to a
 // string for the emulator bootstrap), so its inner helpers — gutter routing,
 // the 5-slot port picker, crossing minimisation, single-exit convergence —
@@ -573,7 +573,7 @@ describe('STATUS_KEYWORDS', () => {
 // minimal synchronous DOM and inspect the SVG it actually emits.
 //
 // The only node property the routing logic depends on is index-ordered,
-// monotonic node centres in a centred column (TB) / row (LR); we simulate
+// monotonic node centers in a centered column (TB) / row (LR); we simulate
 // exactly that. Then we flatten the emitted <path> geometry to polylines and
 // count true segment crossings. These are the tests that would have caught
 // the slot-ordering regression that shipped (a crossing the parser-level
@@ -582,8 +582,8 @@ describe('STATUS_KEYWORDS', () => {
 describe('browser layout (fake DOM)', () => {
   const NODE_H = 40;
   const ROW_GAP = 48;
-  const COL_CX = 400;   // TB column centre x
-  const ROW_CY = 380;   // LR row centre y
+  const COL_CX = 400;   // TB column center x
+  const ROW_CY = 380;   // LR row center y
   const GAP = 5;        // mirrors G.gap (arrow-tip → node boundary)
 
   const nodeWidth = (label) => 70 + String(label).length * 7;
@@ -834,14 +834,14 @@ describe('browser layout (fake DOM)', () => {
 
   describe('port assignment (5-slot picker)', () => {
     // A→B→C with a lone A→C skip: the skip is the only edge on each node's
-    // gutter face, so it must attach at the node CENTRE (middle slot).
+    // gutter face, so it must attach at the node CENTER (middle slot).
     const LONE = {
       dir: 'tb',
       nodes: [node(1, 'A', 'start'), node(2, 'B'), node(3, 'C')],
       transitions: [tr(1, 2, 'go'), tr(1, 3, 'skip'), tr(2, 3, 'go')],
     };
 
-    test('a lone skip attaches at the node centre line', () => {
+    test('a lone skip attaches at the node center line', () => {
       const { svg, rects } = runLayout(LONE);
       const skips = extractPaths(svg).filter((p) => !p.isSelf && /C/.test(p.d));
       assert.equal(skips.length, 1, 'exactly one skip edge (1→3)');
@@ -849,8 +849,8 @@ describe('browser layout (fake DOM)', () => {
       const start = pts[0], end = pts[pts.length - 1];
       const cy1 = rects[1].y + rects[1].h / 2;
       const cy3 = rects[3].y + rects[3].h / 2;
-      assert.ok(Math.abs(start[1] - cy1) < 0.6, `skip starts at state1 centre (${start[1]} vs ${cy1})`);
-      assert.ok(Math.abs(end[1] - cy3) < 0.6, `skip ends at state3 centre (${end[1]} vs ${cy3})`);
+      assert.ok(Math.abs(start[1] - cy1) < 0.6, `skip starts at state1 center (${start[1]} vs ${cy1})`);
+      assert.ok(Math.abs(end[1] - cy3) < 0.6, `skip ends at state3 center (${end[1]} vs ${cy3})`);
     });
 
     test('multiple edges sharing a face take distinct slots', () => {

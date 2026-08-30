@@ -28,7 +28,7 @@
  * (stroke-only) and `dark` are composable cross-cutting modifiers handled
  * here in CSS.
  *
- * Series colour rides --series-color, set per polygon/dot from the
+ * Series color rides --series-color, set per polygon/dot from the
  * categorical palette in lib/radar.js. Layouts stay palette-blind.
  *
  * Sibling implementations:
@@ -42,12 +42,12 @@
   --radar-grid:       color-mix(in srgb, var(--muted-mark) 42%, transparent);
   --radar-grid-soft:  color-mix(in srgb, var(--muted-mark) 20%, transparent);
   --radar-spoke:      color-mix(in srgb, var(--muted-mark) 34%, transparent);
-  --radar-fill:       18%;   /* series-colour share in the polygon fill */
+  --radar-fill:       18%;   /* series-color share in the polygon fill */
 }
 
 /* radar is a chart-family member — section layout, header/body/caption
  * skeleton and h2 styling all come from section.chart-frame. The figure
- * just slots into .chart-body as a centred flex row of svg + legend. */
+ * just slots into .chart-body as a centered flex row of svg + legend. */
 /* .chart-body fills the stage cell, which owns the inset since #1598, so the
  * surface panel matches every other chart's size and inset — no radar-specific
  * override. */
@@ -315,7 +315,7 @@ section.form.radar:not(.claim-hero):not(.claim-bleed) .radar-figure[data-variant
 /* The mini's series name is an SVG <text> inside its own viewBox (2026-07-27),
  * so this rule carries TYPE and PAINT only — position and font-size are
  * presentation attributes in user units, emitted by radar.transform.js. Same
- * division of labour as .radar-axis-label and .chart-key-label. */
+ * division of labor as .radar-axis-label and .chart-key-label. */
 :is(section.radar, figure.chart-frame) .radar-mini-label {
   font-weight: 600;
   fill: var(--series-color);
@@ -353,12 +353,12 @@ section.radar.dark {
  * and the chart family generalizes it (chart-family.css `section.chart-frame
  * :is(.claim-hero, .claim-bleed)`): the bleed, hidden chrome, exposed title, filled chart-body, and the
  * sheen caption band all come from there. This block adds only radar's own
- * extras — centring and scaling up the single SVG unit (diagram + key), and the
+ * extras — centering and scaling up the single SVG unit (diagram + key), and the
  * lifted scale ticks. Pure CSS. */
 
 /* The cover unit is now ONE svg (diagram + spine + key in one viewBox), so cover
- * just CENTRES + scales it: equal 1fr gutters flank the auto-width svg so the
- * whole unit centres on the slide (the key scales up with the diagram — the
+ * just CENTERS + scales it: equal 1fr gutters flank the auto-width svg so the
+ * whole unit centers on the slide (the key scales up with the diagram — the
  * "cover just works" property of the SVG-native key). */
 section.radar:is(.claim-hero, .claim-bleed) .radar-figure {
   display: grid;

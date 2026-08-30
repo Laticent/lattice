@@ -44,7 +44,7 @@ These four charts bake the diagram **and** its legend into one `<svg>` viewBox, 
 ---
 
 <!-- _class: piechart donut -->
-<!-- _footer: "Donut · same unit, hollow centre" -->
+<!-- _footer: "Donut · same unit, hollow center" -->
 
 `FY2026 · engineering time`
 

@@ -159,11 +159,11 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     return s.size;
   };
 
-  // Title / value / colour for mark i, from whichever source the kind provides:
+  // Title / value / color for mark i, from whichever source the kind provides:
   //   label  — the mark's data-label (funnel/map/quadrant) · its own text node
   //            (radar axis label) · the legend row (pie has no text on a wedge).
   //   value  — data-value · the legend value column (pie).
-  //   colour — the legend swatch's computed fill (pie/map gradients are URL refs,
+  //   color — the legend swatch's computed fill (pie/map gradients are URL refs,
   //            meaningless in the parent) · else the mark's own computed fill.
   function infoFor(i) {
     const el = marksFor(i)[0] || null;
@@ -186,9 +186,9 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
       value = textOf('.chart-key-value', i);
     }
     const swatch = curSection?.querySelectorAll('.chart-key-swatch')[i];
-    // A usable swatch colour — reject the SVG `fill` INITIAL (black) that an HTML
+    // A usable swatch color — reject the SVG `fill` INITIAL (black) that an HTML
     // box computes to, plus transparents, so an HTML mark never shows a stray
-    // black dot. Returns null when there's no real colour (→ the dot is hidden).
+    // black dot. Returns null when there's no real color (→ the dot is hidden).
     const usable = (c) => (c && c !== 'none' && c !== 'transparent' && c !== 'rgba(0, 0, 0, 0)') ? c : null;
     let dot = null;
     try {
@@ -197,12 +197,12 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
       } else if (el) {
         const cs = (el.ownerDocument?.defaultView || window).getComputedStyle(el);
         dot = typeof el.getBBox === 'function'
-          // SVG mark — fill (or stroke) IS the wedge colour.
+          // SVG mark — fill (or stroke) IS the wedge color.
           ? (usable(cs.fill) || usable(cs.stroke) || 'currentColor')
           // HTML mark (gantt bar, state node): `fill` is the SVG initial (black)
           // on an HTML box — useless. These paint their status via the canonical
           // chart fill, whose --fill-ink shows as the left ACCENT BORDER; read
-          // that resolved colour — but only when a left border actually exists
+          // that resolved color — but only when a left border actually exists
           // (borderLeftColor otherwise computes to currentColor, never
           // transparent). A mark with no accent (e.g. a milestone diamond
           // container) returns null → the dot is hidden, not a dark blob.
@@ -397,7 +397,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     if (i === openSlice) return;
     if (openSlice < 0 && onReveal) { try { onReveal(); } catch { /* host hook */ } }
     openSlice = i;
-    // Title/value/colour come from the mark (data-label/value, or the legend for
+    // Title/value/color come from the mark (data-label/value, or the legend for
     // the pie); body/meta from the authored <template>. All scoped to curSection
     // so a multi-chart preview reads the HOVERED chart's detail, not the first
     // chart in the doc. See infoFor().
@@ -470,7 +470,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
 
   // The popover anchors to the pie DISC (the union of the current chart's wedge
   // boxes), not an individual wedge — a calm, stable spot; the active slice is
-  // already identified by the lift, the dim, and the popover's colour dot + label.
+  // already identified by the lift, the dim, and the popover's color dot + label.
   // Floating UI anchors to a VIRTUAL REFERENCE: an object exposing the disc's box
   // in viewport coords, mapped from the iframe's own geometry through its offset.
   // That sidesteps the cross-iframe problem (no DOM node to point at) and lets the
@@ -514,7 +514,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     if (!ptr && !anchorPt && (!r.width || !r.height)) return;
     computePosition(virtualRef, pop, {
       // Off the cursor's lower-right so it never sits under the pointer; flip/shift
-      // keep it on-screen. Disc fallback keeps the calm centred-below placement.
+      // keep it on-screen. Disc fallback keeps the calm centered-below placement.
       placement: ptr ? 'bottom-start' : 'bottom',
       strategy: 'absolute',
       middleware: [offset(ptr ? 14 : 12), flip({ padding: 8 }), shift({ padding: 8 })],
@@ -583,7 +583,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // Nudge the active wedge a few px along its centroid→hub vector (its "out").
   // HTML marks: the state-chart node lifts PERPENDICULAR to the flow (it carries
   // data-sc-dir) — lr → up, tb → right — so it steps off its wire cleanly instead
-  // of a scale() swelling it into its neighbours/edge labels. offsetHeight is the
+  // of a scale() swelling it into its neighbors/edge labels. offsetHeight is the
   // node's slide-space height (immune to the Drawing Board's fit-scale), so the
   // lift stays proportional on a scaled-down mobile slide; the edges don't
   // re-route while tilted (router guard), so a small gap reads as "stepping out".

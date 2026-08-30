@@ -38,10 +38,10 @@ to the same face set, and **regression-guards the zero-network property**: any
 CSS or the shipped bundle fails the build. `dist/fonts/` freshness is enforced
 separately by `css:build --check`.
 
-## Colour emoji — system font by default, opt-in full-offline tier
+## Color emoji — system font by default, opt-in full-offline tier
 
 Noto Color Emoji is **not** bundled by default: at ~25 MB it is impractical to
-ship to everyone, so colour emoji falls back to the installed **system** emoji
+ship to everyone, so color emoji falls back to the installed **system** emoji
 font (every font stack lists Apple/Segoe/Noto). Air-gapped environments that
 can't rely on a system emoji font run **`npm run fonts:emoji`** once while online
 to vendor the font into `dist/fonts/noto-color-emoji.ttf` (excluded from the

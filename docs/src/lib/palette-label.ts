@@ -27,6 +27,9 @@ import { isA11yPalette } from '@/lib/theme-catalog.generated';
 export const paletteLabel = (name: string) =>
 	(isA11yPalette(name) ? name.replace(/^a11y-/, '') : name).replace(/(^|-)(\w)/g, (_m, sep, c) => (sep ? ' ' : '') + c.toUpperCase());
 
-// US English is the house dialect (HARD RULE #21). This used to read "colour-blindness",
-// which is why ThemePicker carries its own US-spelled A11Y_LABEL; the two now agree.
+// US English is the house dialect (HARD RULE #21). This label was once spelled the
+// British way, which is why ThemePicker carries its own US-spelled A11Y_LABEL; the
+// two now agree. (The original spelling is not written out here on purpose — a
+// US-English pass would rewrite it and the note would stop making sense, which is
+// exactly what happened once.)
 export const A11Y_GROUP_LABEL = 'Accessibility · color-blindness';

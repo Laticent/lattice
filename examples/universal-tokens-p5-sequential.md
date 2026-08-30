@@ -16,7 +16,7 @@ footer: "Phase 5 — sequential ramp"
 
 `Universal token system · Phase 5`
 
-*The ordered colour ramp stops borrowing the name of the type multiplier — `--scale-*` becomes `--seq-*`.*
+*The ordered color ramp stops borrowing the name of the type multiplier — `--scale-*` becomes `--seq-*`.*
 
 ---
 
@@ -25,7 +25,7 @@ footer: "Phase 5 — sequential ramp"
 ## "scale" meant two unrelated things.
 
 - The collision
-  - `--scale-500` was an ordered colour ramp; `--fs-scale` was the type-size multiplier. Same word, unrelated jobs.
+  - `--scale-500` was an ordered color ramp; `--fs-scale` was the type-size multiplier. Same word, unrelated jobs.
 - seq
   - The sequential ramp is now `--seq-50` … `--seq-900` — ordered/quantitative encoding (heat, intensity).
 - fs-scale

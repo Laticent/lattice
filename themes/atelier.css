@@ -10,7 +10,7 @@
  *
  * Design contract
  * ───────────────
- *   1. Single text-heading colour on every light surface (#1A1A18 warm-
+ *   1. Single text-heading color on every light surface (#1A1A18 warm-
  *      tinted near-black). Dark mode flips to oat (#F0EDE6) on deep brown-
  *      gray canvas.
  *
@@ -260,7 +260,7 @@
 }
 
 /* ── Chart-family palette ───────────────────────────────────────────────
- * Atelier's curation of the chart-family's two colour spectrums (defined in
+ * Atelier's curation of the chart-family's two color spectrums (defined in
  * lib/components/chart/_chart-family/chart-family.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Atelier overrides
  * both spectrums with its muted artist's-studio pigments so charts read native

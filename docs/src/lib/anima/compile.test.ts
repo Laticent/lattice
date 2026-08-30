@@ -189,7 +189,7 @@ describe('compile — timeline invariants', () => {
     expect(a).toEqual(b);
   });
 
-  it('carries the token colour through untouched (resolved at paint, not here)', () => {
+  it('carries the token color through untouched (resolved at paint, not here)', () => {
     const tl = timeline(scene([el('a', { color: 'var(--accent)' })]));
     expect(tl.at(0).elements[0].color).toBe('var(--accent)');
   });

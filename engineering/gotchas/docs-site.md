@@ -90,7 +90,7 @@ owe nothing here. See
 ## A docs panel is dead in `astro dev` only (source CJS served over `/@fs`)
 
 - **Symptom:** In `astro dev` (local docs preview), a whole `<script>` block's
-  panels are inert while their neighbours are fine. Originally seen on the (now
+  panels are inert while their neighbors are fine. Originally seen on the (now
   removed) Drawing Board, whose entire left rail went dark; the trap is not
   surface-specific and bites any docs surface that imports a repo CJS core
   directly. The console shows

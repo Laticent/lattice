@@ -104,7 +104,7 @@ Here's a billing ticket that came in yesterday: "I was charged twice this month.
 ## Do: your turn — work this ticket and check off each step.
 
 - [ ] Triage the ticket and set priority `step 1`
-- [ ] Send the acknowledgement reply `step 2`
+- [ ] Send the acknowledgment reply `step 2`
 - [ ] Investigate using the knowledge base `step 3`
 - [ ] Apply the fix and write the response `step 4`
 - [ ] Confirm with the customer and tag it `step 5`

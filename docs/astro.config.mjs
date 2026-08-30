@@ -79,7 +79,7 @@ export default defineConfig({
 	// so existing links (forms.md §11, the form-manifest ADR) don't 404. The site
 	// serves at the root base in every environment, so the destination is a plain
 	// root-relative path.
-	// The Drawing Board and the Workbench were retired in favour of the Studio, which
+	// The Drawing Board and the Workbench were retired in favor of the Studio, which
 	// succeeds both (2026-07-03-studio-succession.md P5). Old links, bookmarks and the
 	// installed PWA's app shortcuts land on the successor rather than a 404.
 	redirects: {
@@ -154,7 +154,7 @@ export default defineConfig({
 			// (which we remap to the site tokens). The default syntax theme
 			// (night-owl) is a saturated cool blue that fights the warmer palettes,
 			// so swap in the restrained, low-saturation Vitesse pair: it sits
-			// calmly inside ANY of the 14 palettes. We keep the UI-theme-colour
+			// calmly inside ANY of the 14 palettes. We keep the UI-theme-color
 			// binding ON (it defaults off once `themes` is set) so the frame stays
 			// palette-bound; only the token hues come from Vitesse. The accent-
 			// driven bits (focus ring, copy button, active-tab indicator, selection,

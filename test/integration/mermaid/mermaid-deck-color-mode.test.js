@@ -68,7 +68,7 @@ describe('mermaid-deck-color-mode', () => {
   }, { timeout: TIMEOUT });
 
   // Each embedded SVG's rules are namespaced `#lattice-mmd-<n>`; that prefix is
-  // how we address one diagram's baked palette without catching its neighbours'.
+  // how we address one diagram's baked palette without catching its neighbors'.
   function ruleFor(diagram, selector) {
     const re = new RegExp(`#lattice-mmd-${diagram}\\s+${selector}\\s*\\{([^}]*)\\}`);
     const m = re.exec(html);

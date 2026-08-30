@@ -142,7 +142,7 @@ Browser-measured layout: nodes are sized by the real text engine, edges are draw
 ---
 
 <!-- _class: state-chart -->
-<!-- _footer: "8 — mixed widths + every status colour" -->
+<!-- _footer: "8 — mixed widths + every status color" -->
 
 ## Status palette across widths.
 

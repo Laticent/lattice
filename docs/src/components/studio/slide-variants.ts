@@ -51,7 +51,7 @@ export function humanizeVariant(token: string): string {
  */
 export function componentLooks(variants: string[] | undefined, axes: Record<string, readonly string[]> = {}, variantAxes: readonly VariantAxis[] = []): VariantLook[] {
 	// Mirrors applyVariant's precedence: the component's own axes, then the vocab axes,
-	// then unclassified (which toggles). A look labelled exclusive here is one whose tile
+	// then unclassified (which toggles). A look labeled exclusive here is one whose tile
 	// SWAPS; everything else turns off when you click it again.
 	const classify = (token: string): { axis: string; exclusive: boolean } => {
 		const own = variantAxes.find((a) => a.members.includes(token));

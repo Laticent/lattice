@@ -48,7 +48,7 @@ function bail(msg, code = 1) {
   process.exit(code);
 }
 
-function capitalise(name) {
+function capitalize(name) {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
@@ -63,7 +63,7 @@ function checklistBlock(name) {
  *   2. Surfaces / ink    — light-dark() pairs for bg, bg-alt, border,
  *                          text-* tokens. Edit the LIGHT side here; the
  *                          DARK side resolves to --scheme-dark-* below.
- *   3. Accent            — most-seen colour after ink. Must clear 4.5:1
+ *   3. Accent            — most-seen color after ink. Must clear 4.5:1
  *                          on --bg AND on --accent-soft.
  *   4. Categorical cycle  — --cat-1-fill..--cat-12-fill paired with
  *                          --cat-1-mark..--cat-12-mark, plus the inks
@@ -108,7 +108,7 @@ function checklistBlock(name) {
 }
 
 function transformPalette(src, name) {
-  const Title = capitalise(name);
+  const Title = capitalize(name);
 
   // Fail loudly if indaco.css drifts away from the patterns this script
   // depends on; that's a signal to revisit the scaffolder rather than to
@@ -150,7 +150,7 @@ function transformPalette(src, name) {
 }
 
 function transformDarkWrapper(src, name) {
-  const Title = capitalise(name);
+  const Title = capitalize(name);
 
   const checks = [
     [/@theme\s+indaco-dark\b/,         'opening @theme directive (dark)'],

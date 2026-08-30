@@ -22,7 +22,7 @@
  * Universal modifiers (compose with the default ledger):
  *   q-and-a solo     one question, one answer, given the whole slide
  *   q-and-a compact  denser rhythm for five-plus pairs
- *   q-and-a dark     dark canvas (every colour is a light-dark() token, so the
+ *   q-and-a dark     dark canvas (every color is a light-dark() token, so the
  *                    five looks invert without per-look overrides)
  *
  * Rules are UNLAYERED (no `@layer components` wrapper) to match every other
@@ -52,7 +52,7 @@ section.q-and-a > .cell-stage {
   --qa-gap: var(--sp-md); /* vertical gap between pairs */
 }
 
-/* The pair stack fills the canvas below the headline and centres its rows. */
+/* The pair stack fills the canvas below the headline and centers its rows. */
 section.q-and-a > .cell-stage > :is(ul, ol) {
   list-style: none;
   margin: 0;
@@ -104,7 +104,7 @@ section.q-and-a > .cell-stage > :is(ul, ol) > li > strong {
   letter-spacing: inherit;
 }
 
-/* Answer — the nested list, reset off the question's weight/size/colour. */
+/* Answer — the nested list, reset off the question's weight/size/color. */
 section.q-and-a > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
   list-style: none;
   padding: var(--sp-xs) 0 0;
@@ -119,7 +119,7 @@ section.q-and-a > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
 
 /* ── spine — sequential walkthrough ───────────────────────────────────── */
 /* Drops the ledger rule and index for a vertical spine with accent nodes; the
- * node halo is the canvas colour so it punches cleanly through the line. */
+ * node halo is the canvas color so it punches cleanly through the line. */
 section.q-and-a.spine > .cell-stage > :is(ul, ol) {
   position: relative;
   /* border-box so the spine's own `padding-left` is absorbed WITHIN the inherited
@@ -261,7 +261,7 @@ section.q-and-a.grid > .cell-stage > :is(ul, ol) > li {
   width: calc(50% - var(--sp-2xl) / 2);
   height: calc(50% - var(--sp-xl) / 2);
   /* flex mirror of `grid-template-rows:minmax(3em,auto) auto` + the outer `align-items:center`:
-   * a centred column whose question (<strong>) reserves a 3em row so answer tops baseline-align
+   * a centered column whose question (<strong>) reserves a 3em row so answer tops baseline-align
    * across the quadrant whether or not a question wraps. */
   display: flex;
   flex-direction: column;

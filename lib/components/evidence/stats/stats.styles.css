@@ -68,7 +68,7 @@ section.stats > .cell-stage > ol > li > ul > li {
 }
 
 /* Portrait / square (social) — stack the stat tiles vertically and let the hero
-   numbers command the tall frame. A centred horizontal row crams 3–5 numbers
+   numbers command the tall frame. A centered horizontal row crams 3–5 numbers
    small with the whole lower frame empty; stacked + enlarged (the engine's
    --stat-emphasis param, on top of --canvas-scale) reads from across a room and
    fills the canvas. `space-evenly` does the FILLING (it spreads the surplus), so

@@ -10,7 +10,7 @@ import { STUDIO_LANGUAGES } from './studio-language';
 
 export type CompletionComponent = { name: string; bucket: string; description: string };
 
-// Deck-level front-matter directives the engine honours, with a one-line hint. Values
+// Deck-level front-matter directives the engine honors, with a one-line hint. Values
 // are left to the author (a few common ones are suggested inline below).
 //
 // This list was a THIRD hand-maintained enumeration of the deck's front-matter surface,
@@ -118,7 +118,7 @@ export function makeStudioCompletion(
 	components: CompletionComponent[],
 	finishValues: string[] = [],
 	finishClasses: string[] = [],
-	// Opt-in vocabularies (existing callers omit → unchanged behaviour):
+	// Opt-in vocabularies (existing callers omit → unchanged behavior):
 	//   modifiers — the universal/base modifier tokens valid on any slide (`dark`,
 	//     `light`, `numbered`, `quiet`, `tone-*`, …), from the shared lint vocabulary
 	//     so they can't drift; offered on `_class:` and the deck-wide `class:` value.

@@ -12,14 +12,14 @@
  *
  * This locks that in for all 13 curated themes (cuoio/onyx/indaco were the
  * original exemplars; the rest were brought to parity), so a re-curation that
- * picks a hue too close to the canvas or to a neighbour fails here instead of
+ * picks a hue too close to the canvas or to a neighbor fails here instead of
  * shipping muddy/indistinct charts. Resolves the full
  * token expression — `light-dark()`, `var()` with fallback, and
  * `color-mix(in oklab, …)` (the dark-side hues + tints) — which the existing
  * contrast-audit.js intentionally skips.
  *
  * If a test fails: a curation dropped a hue below the bar. Re-tune the hue
- * (lift it off the canvas / spread it from its neighbour); do not lower the bar.
+ * (lift it off the canvas / spread it from its neighbor); do not lower the bar.
  */
 
 const { test, describe } = require('node:test');
@@ -63,7 +63,7 @@ function loadTheme(name) {
   return vars;
 }
 
-// ── Colour math (sRGB ↔ OKLab, WCAG luminance) ──────────────────────────────
+// ── Color math (sRGB ↔ OKLab, WCAG luminance) ──────────────────────────────
 function clamp01(x) { return Math.max(0, Math.min(1, x)); }
 function toLinear(c) { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }
 function encode(c) { c = clamp01(c); return c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055; }
@@ -113,7 +113,7 @@ function splitTop(s) {
   return out.map(x => x.trim());
 }
 
-// Resolve a CSS colour expression to {r,g,b}. Handles hex, white/black,
+// Resolve a CSS color expression to {r,g,b}. Handles hex, white/black,
 // var(--x[, fallback]), light-dark(L, D) (by mode), color-mix(in oklab, …).
 function resolve(expr, vars, mode, depth = 0) {
   if (expr == null || depth > 24) return null;
@@ -161,11 +161,11 @@ function resolve(expr, vars, mode, depth = 0) {
 // achromatic onyx ramp separates by value, tight brand triads by a small hue
 // step), so gating at 0.15 would fail the gold standard. These floors catch the
 // real regressions: a label that fails AA on its fill, a mark invisible on the
-// canvas, or two slots collapsing to the same colour.
+// canvas, or two slots collapsing to the same color.
 const TEXT_ON_FILL   = 4.5;   // AA — the --text-heading label on a chart fill
 const MARK_VS_CANVAS = 3.0;   // WCAG 1.4.11 — a saturated mark must clear the canvas
 const MARK_MUTE_MIN  = 2.0;   // --chart-state-mute is the deliberately-quiet "deferred" role
-const SLOT_DISTINCT  = 0.06;  // adjacent slots must not collapse to the same colour
+const SLOT_DISTINCT  = 0.06;  // adjacent slots must not collapse to the same color
 
 describe('chart palette — curated theme assessment', () => {
   for (const theme of CURATED) {

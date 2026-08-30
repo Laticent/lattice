@@ -470,7 +470,7 @@ export const lintTheme = {
  *
  * These are POINTER rules, not width rules, and the distinction matters: a coarse
  * pointer means fingers, which is a target-size and type-size argument at any
- * width. It is NOT a licence to widen the card — an earlier cut also relaxed
+ * width. It is NOT a license to widen the card — an earlier cut also relaxed
  * `max-width` to `calc(100vw - 24px)` here, which on every touchscreen laptop,
  * Surface and landscape tablet produced an 893px full-bleed banner with a
  * half-screen-wide fix button, the exact opposite of the 340px "sit beside the

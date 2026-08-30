@@ -25,7 +25,7 @@ section.scene {
   background: var(--bg);
   --scene-matte: var(--bg-alt);
   /* Card-lift shadow. ZERO BLUR on purpose (mirrors image's --img-lift): a blurred
-   * box-shadow renders as a flat grey block in Apple PDFKit / Skia. A hard, offset,
+   * box-shadow renders as a flat gray block in Apple PDFKit / Skia. A hard, offset,
    * low-opacity shadow off the heading ink reads as a lifted card in every viewer. */
   --scene-lift: 0.6cqi 0.8cqi 0 -0.1cqi color-mix(in oklab, var(--text-heading) 13%, transparent);
   --scene-hairline: inset 0 0 0 1px color-mix(in oklab, var(--text-heading) 9%, transparent);
@@ -74,7 +74,7 @@ section.scene .scene-figure svg {
 
 /* Stage 6 — the live animation. The host (hydrate.ts) hides the poster svg and mounts the
  * backend surface into `.scene-live`, which fills the figure exactly where the poster sat;
- * a single adaptive control (⏸ / ▶ / ↻, or a labelled "Play the motion" opt-in under
+ * a single adaptive control (⏸ / ▶ / ↻, or a labeled "Play the motion" opt-in under
  * reduced motion) sits in the corner. Both are added by JS only, so the PDF (no JS) always
  * shows the authored poster still.
  *

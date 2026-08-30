@@ -240,7 +240,7 @@ function collect(results: AxeResults, hit: Set<string>, width: number, ariaHidde
 			// zero-size, `opacity:0` and clip-based `sr-only` — verified, all four stay out of
 			// this bucket. It does NOT drop `aria-hidden="true"`, which is a legitimate way to
 			// hide decoration from assistive tech, and such an element painted in its own
-			// ground colour is not "an invisible label" — it is correctly invisible. Nothing
+			// ground color is not "an invisible label" — it is correctly invisible. Nothing
 			// on the site does this today; without the guard the first one to appear fails
 			// the build with the wrong diagnosis.
 			if (ariaHidden.has(n.target.join(' '))) continue;

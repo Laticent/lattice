@@ -118,7 +118,7 @@
 
   /* ── Brand accent ──────────────────────────────────────────────────────
    * The accent is text-bearing on multiple surfaces (inline code chips,
-   * eyebrows, link colour, card headings), so it follows light-dark()
+   * eyebrows, link color, card headings), so it follows light-dark()
    * too. Light pair: saddle gold on cream — 5.96:1 on bg, 5.55:1 on
    * accent-soft. Dark pair: bright gold on dark-bg-alt — 7.05:1 on the
    * inline-code surface, 5.38:1 on accent-soft (mid-leather panel). */
@@ -404,7 +404,7 @@
 }
 
 /* ── Chart-family palette ───────────────────────────────────────────────
- * Cuoio's curation of the chart-family's two colour spectrums (defined in
+ * Cuoio's curation of the chart-family's two color spectrums (defined in
  * lib/components/chart/_chart-family/chart-family.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Cuoio overrides
  * both spectrums with its warm-earth pigments so charts read native to the

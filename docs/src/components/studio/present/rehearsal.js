@@ -179,7 +179,7 @@ function allocate(metas, totalSeconds) {
 // to get them, and they MUST agree with what the deck actually renders:
 //
 //   • metasFromSections — AUTHORITATIVE. The engine already split the deck (it
-//     honours `---`, fenced code, and `split: headings`, which a source regex
+//     honors `---`, fenced code, and `split: headings`, which a source regex
 //     cannot), so the rendered <section> list is the truth. Practice uses this.
 //   • metasFromSource — a fallback for when the engine isn't ready. A naive
 //     `---` split; correct for plain `split: rule` decks, wrong for headings/fence
@@ -357,7 +357,7 @@ export function mergeAiPlan(floor, ai) {
   if (!byI.size) return null;
   const slides = floor.slides.map((s) => {
     const r = byI.get(s.index);
-    // Clone untouched rows too — the re-normalise below mutates `target`, and the
+    // Clone untouched rows too — the re-normalize below mutates `target`, and the
     // floor (`det`) is already on screen sharing these objects; never mutate it.
     if (!r) return { ...s };
     const why = typeof r.why === 'string' && r.why.trim() ? r.why.trim().slice(0, 120) : s.why;
@@ -371,7 +371,7 @@ export function mergeAiPlan(floor, ai) {
     }
     return { ...s, target, why, beats };
   });
-  // Re-normalise targets so they sum to the requested length (the model rarely
+  // Re-normalize targets so they sum to the requested length (the model rarely
   // sums exactly), preserving the relative dwell it chose.
   const sum = slides.reduce((a, s) => a + s.target, 0) || 1;
   const k = floor.totalTarget / sum;

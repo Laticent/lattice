@@ -47,7 +47,7 @@ import { STAGE_CHROME_CSS } from './stage-chrome.js';
 
 /**
  * The single-slide stage document — one `<section>` of `html` shown at a time,
- * centred and uniformly scaled to fit, the slide box pinned through frame-css so
+ * centered and uniformly scaled to fit, the slide box pinned through frame-css so
  * container-query layouts resolve against the real `@size` (preview parity).
  * `show(n)` is driven from the parent via `postMessage({pv:n})`. A no-zoom
  * viewport + touch-action kill the iOS double-tap jolt.

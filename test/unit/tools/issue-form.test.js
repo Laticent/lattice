@@ -61,7 +61,7 @@ describe('parseForm — M1: a stray heading in prose is not mistaken for a field
 });
 
 describe('parseForm — robustness', () => {
-  test('normalises CRLF', () => {
+  test('normalizes CRLF', () => {
     const f = parseForm(form().replace(/\n/g, '\r\n'));
     assert.equal(f.acceptance, 'tests pass');
   });
@@ -101,7 +101,7 @@ describe('parseForm — alias headings on a hand-written card', () => {
   test('an alias section stops at the next same-level heading', () => {
     assert.doesNotMatch(parseForm(handwritten).swimlane, /Definition of done/);
   });
-  test('every alias spelling is recognised', () => {
+  test('every alias spelling is recognized', () => {
     for (const h of ['Acceptance criteria', 'Acceptance', 'Done when']) {
       const f = parseForm(`## ${h}\n\nthe gate is green\n`);
       assert.match(f.acceptance, /the gate is green/, `${h} should fill acceptance`);

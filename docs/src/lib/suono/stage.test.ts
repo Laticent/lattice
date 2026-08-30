@@ -399,7 +399,7 @@ describe('createStage — keep-alive route-warmer (Bluetooth / CarPlay anti-chop
 		vi.advanceTimersByTime(10000); // partway through the idle window
 		const clipB = await stage.decode(bytesOfSize(8), 'b'); // the next sentence arrives in time
 		stage.play(clipB);
-		vi.advanceTimersByTime(30000); // well past the ORIGINAL deadline — the cancelled timer must not fire
+		vi.advanceTimersByTime(30000); // well past the ORIGINAL deadline — the canceled timer must not fire
 		expect(oscillators.length).toBe(1); // same warmer throughout — never released, never re-created
 		expect(oscillators[0].stopped).toBe(false);
 	});

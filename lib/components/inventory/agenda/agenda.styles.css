@@ -10,7 +10,7 @@
  *   - `cards`    — each section is a boxed row
  *   - `checks`   — checkbox rows; with `progress-N`, past items get a tick,
  *                  the current one an arrow, future ones an empty box
- * All five are palette-blind (every colour is a token) and compose with the
+ * All five are palette-blind (every color is a token) and compose with the
  * `progress-N` "you are here" modifier and the universal modifiers
  * (`dark`, `compact`, …). The `sketch` finish (lib/base/base.sketch.css)
  * re-skins them by hand — it swaps the --ag-* mark SHAPES and wobbles the
@@ -27,7 +27,7 @@ section.agenda > .cell-stage {
   flex-direction: column;
   justify-content: center;
   /* The hand/finish layer overrides these mark SHAPES (sketch draws bowed
-   * arrows, wavy dots, a looser tick). Colour stays a token at the use site,
+   * arrows, wavy dots, a looser tick). Color stays a token at the use site,
    * so the marks are palette-blind. */
   --ag-outline: color-mix(in srgb, var(--text-heading) 30%, transparent);
   --ag-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cpath d='M2 9 H21 M14 3 L21 9 L14 15' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -192,9 +192,9 @@ section.agenda.rail ol::before {
 }
 section.agenda.rail ol > li {
   /* flex mirror of `grid-template-columns:3.4em 1fr`: the node ring sits in a 3.4em gutter
-   * (centred on the journey line at 1.7em), then the title fills the rest. The ring's
+   * (centered on the journey line at 1.7em), then the title fills the rest. The ring's
    * (3.4-2.2)/2 = 0.6em side insets ride here — padding-left for the leading gutter (ring
-   * centre lands on 1.7em) and a +0.6em bump on the column-gap for the trailing one —
+   * center lands on 1.7em) and a +0.6em bump on the column-gap for the trailing one —
    * rather than as margins on the ring, whose background+border can't be padded. */
   display: flex; align-items: center; column-gap: calc(var(--sp-md) + 0.6em);
   padding: var(--sp-xs) 0 var(--sp-xs) 0.6em; position: static;

@@ -141,7 +141,7 @@ describe('resolveDiagramBand', () => {
     test('`printable` is not `print` — deck-wide OR per-slide', () => {
       assert.notEqual(resolveDiagramBand({ frontMatter: fmOf('class: printable') }), 'print');
       assert.notEqual(resolveDiagramBand({ frontMatter: fmOf(), slideClass: 'printable' }), 'print');
-      // Whole-token membership, so a hyphenated neighbour is not a match either —
+      // Whole-token membership, so a hyphenated neighbor is not a match either —
       // a `\bprint\b` regex WOULD fire on this one.
       assert.notEqual(resolveDiagramBand({ frontMatter: fmOf(), slideClass: 'print-safe' }), 'print');
     });

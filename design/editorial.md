@@ -4,6 +4,12 @@ The prose rules for writing the words on the slides. These are about
 style and rhythm, not layout. The layouts in [skill.md](skill.md) tell
 you where to put text. This file tells you how it should sound.
 
+**Scope: words ON a slide.** For the words we write *about* the work — chat
+replies, issues, PR bodies, changelog fragments, docs, code comments — the
+contract is [engineering/house-style.md](../engineering/house-style.md)
+(HARD RULE #30). The two agree on voice and disagree on shape: a slide header is
+a complete sentence, an issue title is not.
+
 ## Headers are complete sentences
 
 Every H2 (`## ...`) is a complete declarative sentence. Not a noun phrase,

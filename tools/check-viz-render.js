@@ -3,7 +3,7 @@
  * check-viz-render — the SCOPED-CSS black-fill guard (born from the #956
  * map/quadrant/radar iOS-black bug).
  *
- * THE GAP THIS CLOSES. Every other colour check in the tree renders through the
+ * THE GAP THIS CLOSES. Every other color check in the tree renders through the
  * UNSCOPED emulator/PDF path (each `section` IS the page, tokens land directly).
  * The docs-site hosts a human actually taps — playground / Studio / Player —
  * render WITHOUT Marp's `<foreignObject>`, so the engine re-scopes every selector
@@ -21,7 +21,7 @@
  * `getComputedStyle().fill/stroke` (plus gradient `<stop>` stop-color) on every
  * SVG paintable element. Any paint that computes to opaque black `rgb(0, 0, 0)`
  * is a candidate: black is the SVG initial value a dropped/undefined `var()`
- * colour falls to, so a NEW black where a themed colour belongs is the signature
+ * color falls to, so a NEW black where a themed color belongs is the signature
  * of a scoping/token regression.
  *
  * SCOPE. This targets exactly the surface where #956 can occur: the SVG-painting
@@ -66,7 +66,7 @@ const BASELINE_FILE = path.join(ROOT, 'test', 'viz-render', 'black-baseline.json
 const THEMES = ['indaco', 'cuoio', 'concrete'];
 const SCHEMES = ['light', 'dark'];
 
-// The deck whose slides carry SVG kernels that paint themed colour through the
+// The deck whose slides carry SVG kernels that paint themed color through the
 // scoped path. SCOPE NOTE (checker H1/M1): only the SVG-painting chart components
 // (funnel/journey/map/piechart/quadrant/radar/word-cloud) are inspectable here —
 // the HTML/CSS-layout charts (gantt/kanban/progress/roadmap/timeline-list) emit no
@@ -93,12 +93,12 @@ const CANVAS_TEXT = [
   { selector: '.quadrant-label', floor: 4.5, what: 'quadrant name' },
 ];
 
-// SVG paint that is legitimately absent — never a "dropped colour" signal.
+// SVG paint that is legitimately absent — never a "dropped color" signal.
 const TRANSPARENT = new Set(['none', 'transparent', 'rgba(0, 0, 0, 0)']);
 
 // Only LEAF paintable shapes carry a visible fill/stroke. Structural elements
 // (defs, gradients, <stop>, <g> groups, desc/title) compute fill:black by
-// default but paint nothing, so they are pure noise for a dropped-colour check.
+// default but paint nothing, so they are pure noise for a dropped-color check.
 const PAINTABLE_TAGS = new Set(['path', 'rect', 'circle', 'ellipse', 'polygon', 'polyline', 'line', 'text', 'tspan', 'use']);
 
 /**
@@ -222,7 +222,7 @@ async function collectBlacks() {
           for (const f of found) blacks.push({ family: deck.family, ...f });
 
           // Canvas TEXT must clear its contrast floor against the slide it sits
-          // on. Measured by painting each colour onto a 1x1 canvas and reading
+          // on. Measured by painting each color onto a 1x1 canvas and reading
           // the pixel back — `getComputedStyle` hands back `oklab()`/`color()`
           // for a `color-mix`, and parsing digits out of that as if they were
           // RGB is how you get confident nonsense.
@@ -318,7 +318,7 @@ async function main() {
 
   if (bless) {
     const payload = {
-      note: 'Sanctioned opaque-black SVG paint on the SCOPED render path. Each entry is a legitimately-black ink/hairline, NOT a dropped-colour bug. Regenerate with `node tools/check-viz-render.js --bless`; justify any addition in the PR.',
+      note: 'Sanctioned opaque-black SVG paint on the SCOPED render path. Each entry is a legitimately-black ink/hairline, NOT a dropped-color bug. Regenerate with `node tools/check-viz-render.js --bless`; justify any addition in the PR.',
       themes: THEMES,
       schemes: SCHEMES,
       sanctioned: found.map((f) => ({ family: f.family, component: f.component, selector: f.selector, property: f.property, scheme: f.scheme })),
@@ -345,9 +345,9 @@ async function main() {
   }
 
   if (regressions.length) {
-    console.error(`\ncheck-viz-render FAILED — ${regressions.length} NEW black SVG paint (a dropped-colour regression on the scoped playground/Studio/Player path):`);
+    console.error(`\ncheck-viz-render FAILED — ${regressions.length} NEW black SVG paint (a dropped-color regression on the scoped playground/Studio/Player path):`);
     for (const f of regressions) console.error(`  ✗ ${f.family} · section.${f.component} · ${f.selector} { ${f.property} } → rgb(0,0,0)`);
-    console.error('\n  A themed SVG colour resolved to nothing and fell to black. Usually a selector-scoping or token-name break (see #956).');
+    console.error('\n  A themed SVG color resolved to nothing and fell to black. Usually a selector-scoping or token-name break (see #956).');
     console.error('  If this black is INTENTIONAL (a max-contrast ink), re-bless: node tools/check-viz-render.js --bless');
   }
   if (stale.length) {

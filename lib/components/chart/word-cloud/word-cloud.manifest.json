@@ -67,7 +67,7 @@
     },
     {
       "title": "Multi-word phrases",
-      "body": "Each li should be a single token. Multi-word phrases blow out the layout and crowd the spiral; if your data is phrases, normalise to keywords first or use `quote` for verbatim text."
+      "body": "Each li should be a single token. Multi-word phrases blow out the layout and crowd the spiral; if your data is phrases, normalize to keywords first or use `quote` for verbatim text."
     }
   ],
   "related": [

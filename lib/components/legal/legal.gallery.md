@@ -310,7 +310,7 @@ Lane stripes signal "this row is its own regime."
 | ---------- | -------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------- |
 | GDPR       | Pre-collection; layered with purposes and legal basis    | Opt-in; explicit for special-category data                     | 30-day response; identity verification required            |
 | CCPA/CPRA  | At or before collection; "Notice at Collection" required | Opt-out default for sale/sharing; opt-in for under-16 minors   | 45-day response; two free requests per consumer per year   |
-| LGPD       | Pre-collection; controller identity disclosed            | Opt-in for most processing; multiple legal bases recognised    | 15-day response; appeal route to the ANPD                  |
+| LGPD       | Pre-collection; controller identity disclosed            | Opt-in for most processing; multiple legal bases recognized    | 15-day response; appeal route to the ANPD                  |
 
 Pick when each cell carries a sentence, not a glyph.
 

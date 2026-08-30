@@ -8,7 +8,7 @@
  *
  * Design contract
  * ───────────────
- *   1. Single text-heading colour on every light surface (#150F22 plum-
+ *   1. Single text-heading color on every light surface (#150F22 plum-
  *      black). Dark mode flips to #FFFFFF on dark plum canvas.
  *
  *   2. Two lightness bands for fills:
@@ -260,7 +260,7 @@
 }
 
 /* ── Chart-family palette ───────────────────────────────────────────────
- * Crepuscolo's curation of the chart-family's two colour spectrums (defined
+ * Crepuscolo's curation of the chart-family's two color spectrums (defined
  * in lib/components/chart/_chart-family/chart-family.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Crepuscolo
  * overrides both spectrums with its cool dusk-violet pigments so charts read

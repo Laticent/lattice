@@ -81,7 +81,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   plain CSS. No build error; the rule just never fires.
 - **Cause:** Marpit's prefixer rewrites every theme rule to scope it
   to the slide root, prepending `div#:$p > svg > foreignobject >
-  section`. Its pattern only recognises a single leading `section` or
+  section`. Its pattern only recognizes a single leading `section` or
   known type — when the selector starts with `:is(...)` or `:where(...)`,
   the prefixer treats the function as a *descendant* of the slide
   root (`section :is(...)`), producing a selector that matches a

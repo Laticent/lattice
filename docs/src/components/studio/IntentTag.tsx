@@ -1,9 +1,9 @@
 import { CheckCircle2, Info, OctagonX, TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// Colour-independent status signal (plan PM-13 / WCAG 1.4.1). Each intent pairs
-// colour with a SHAPE-distinct icon + a text label, so the meaning survives in
-// greyscale and across the CVD palettes. Colour only reinforces.
+// Color-independent status signal (plan PM-13 / WCAG 1.4.1). Each intent pairs
+// color with a SHAPE-distinct icon + a text label, so the meaning survives in
+// grayscale and across the CVD palettes. Color only reinforces.
 export type Intent = 'pass' | 'review' | 'fix' | 'info';
 
 const MAP: Record<Intent, { Icon: typeof CheckCircle2; label: string; cls: string }> = {

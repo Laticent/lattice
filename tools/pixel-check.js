@@ -122,7 +122,7 @@ function snapshot(label, decks) {
 // Rasterize two PDFs page-by-page (pdftoppm 72dpi) and pixel-diff each page
 // with ImageMagick `compare -metric AE`. The metric is changed-pixel COUNT.
 //
-// `opts.fuzz` (e.g. '3%') tells `compare` to treat per-channel colour deltas
+// `opts.fuzz` (e.g. '3%') tells `compare` to treat per-channel color deltas
 // within that tolerance as equal — the antialiasing carve-out the regression
 // gate needs. pixel-check's own _legacy.css flow leaves it unset (exact 0 px,
 // same-session); the gate (tools/regression-gate.mjs) passes a fuzz so glyph-

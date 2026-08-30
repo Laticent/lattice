@@ -53,10 +53,10 @@ figure.timeline-list.chart-frame .chart-body {
   max-width: 85.9375cqi;
   padding: 0.9375cqi 0 0;  /* room for the dot to "sit on" the spine line */
 }
-/* The horizontal spine line runs through the centre of each dot. The dot
- * is 1.09375cqi tall with 3px border on each side — its centre is 0.546875cqi
+/* The horizontal spine line runs through the center of each dot. The dot
+ * is 1.09375cqi tall with 3px border on each side — its center is 0.546875cqi
  * from the top of timeline-item content. Spine padding-top is 0.9375cqi so
- * the dot appears at y=0.9375cqi, centre at y≈1.484375cqi; line is at same. */
+ * the dot appears at y=0.9375cqi, center at y≈1.484375cqi; line is at same. */
 :is(section.timeline-list, figure.timeline-list) .timeline-spine::before {
   content: '';
   position: absolute;
@@ -85,7 +85,7 @@ figure.timeline-list.chart-frame .chart-body {
 /* The dot is a fixed circle drawn on a ::before so the element box itself can
  * carry the dot→pill spacing as padding-bottom (a margin would collapse outside
  * the flex content box and break virtual-list scrollHeight). The visible ring
- * keeps its exact 1.09375cqi size + position, so the spine-line math (centre at
+ * keeps its exact 1.09375cqi size + position, so the spine-line math (center at
  * 0.546875cqi from the item content top) is unchanged. */
 :is(section.timeline-list, figure.timeline-list) .timeline-dot {
   position: relative;
@@ -96,7 +96,7 @@ figure.timeline-list.chart-frame .chart-body {
   aspect-ratio: 1;
   box-sizing: content-box;
   padding-bottom: var(--sp-sm);   /* was margin-bottom: var(--sp-sm) — dot→pill gap */
-  --timeline-dot-ink: var(--chart-cat-1-ink); /* per-stage colour, cycled below */
+  --timeline-dot-ink: var(--chart-cat-1-ink); /* per-stage color, cycled below */
   flex: 0 0 auto;
 }
 :is(section.timeline-list, figure.timeline-list) .timeline-dot::before {
@@ -106,12 +106,12 @@ figure.timeline-list.chart-frame .chart-body {
   aspect-ratio: 1;
   box-sizing: border-box;
   border-radius: 50%;
-  background: var(--bg);             /* hollow — centre matches the slide */
+  background: var(--bg);             /* hollow — center matches the slide */
   border: 3px solid var(--timeline-dot-ink);
   box-shadow: 0 0 0 4px var(--bg);
 }
 /* Each stage's dot rides the vivid catN spectrum (hollow ring, stroke only),
- * matching pie / kanban / word-cloud — categorical colour for sequential
+ * matching pie / kanban / word-cloud — categorical color for sequential
  * stages. Six-rotation, like the other categorical members. The spine and
  * date pills stay accent so the row still reads as one timeline. */
 :is(section.timeline-list, figure.timeline-list) .timeline-item:nth-child(6n+1) .timeline-dot { --timeline-dot-ink: var(--chart-cat-1-ink); }

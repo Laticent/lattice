@@ -43,12 +43,12 @@ const { execSync, execFileSync } = require('child_process');
 // Inline each local `logo-wall` mark as a REAL `<svg>` for the export path.
 // The logo-marks transform emits `<span class="logo-mark" … style="--logo-mask:
 // url('<src>')">` — a CSS `mask` that renders cleanly in a live browser but NOT
-// reliably in print-to-PDF (different PDF rasterisers honour the soft-mask
+// reliably in print-to-PDF (different PDF rasterisers honor the soft-mask
 // differently: poppler-splash hairlines the group, cairo drops it and shows a
 // solid box). So for the PDF we swap each mask span for the mark's actual SVG
 // vector, given the marks authored with `fill="currentColor"`: the inline svg
 // inherits `color: var(--logo-ink)` (logo-mark-svg rule), so it's the SAME token
-// colour as the preview — robust across every PDF viewer. Local marks only;
+// color as the preview — robust across every PDF viewer. Local marks only;
 // remote (http) / already-inlined (data:) srcs are left as the mask span.
 // Order-independent: match an empty `<span>` carrying the `logo-mark` class
 // anywhere in its attribute run, and pull `--logo-mask` / `aria-label` out of the
@@ -210,7 +210,7 @@ OPTIONS
                           also be enabled with a 'player: true' front-matter key.
       --present           Mark the PDF to open directly in full-screen
                           presentation mode (Adobe Acrobat/Reader and most desktop
-                          viewers honour this; browser-embedded viewers ignore it
+                          viewers honor this; browser-embedded viewers ignore it
                           harmlessly). Adds a subtle cross-fade between slides;
                           slides stay presenter-driven (no auto-advance). PDF only.
                           Can also be enabled per-deck with a 'present: true'
@@ -218,7 +218,7 @@ OPTIONS
       --print             Render in PRINT mode: a B&W-safe, ink-on-white band
                           (grayscale + hatch/dot textures for chart & diagram
                           series) for paper handouts, instead of the screen /
-                          colour palette. Every text token clears WCAG AA on
+                          color palette. Every text token clears WCAG AA on
                           white. Any output format; also settable per-deck with
                           'color-mode: print'.
       --raster            Print the PDF as one full-bleed slide image per page
@@ -987,7 +987,7 @@ const SIZE_DIRECTIVE_RE = /^\s*size:\s*["']?([\w:/.-]+)["']?\s*(?:#.*)?$/m;
 // scoped so a `size:` in prose / a code block can't trip it.
 //
 // Reads lib/engine/sizes.js, the same table `resolveSize` resolves against, so
-// the CLI cannot accept a name the renderer would not honour or reject one it
+// the CLI cannot accept a name the renderer would not honor or reject one it
 // would. This used to parse `@size` out of the loaded stylesheets — which meant
 // the guard was only as good as whichever sheet happened to carry the table, and
 // it silently disabled ITSELF (`knownSizes.size &&`) when none did. See
@@ -1134,7 +1134,7 @@ const PALETTE_VARS = parsePaletteVars(layoutCSS + '\n' + paletteCSS);
 // a single bake can't flip on a `section.dark` slide — the documented dark-mode
 // gap. We bake a second SVG with dark-resolved vars and toggle the two by
 // color-scheme in CSS (see mermaid.css `.mmd-light/.mmd-dark`). This makes dark
-// diagrams correct natively, including Mermaid's own colour-math derivations.
+// diagrams correct natively, including Mermaid's own color-math derivations.
 // Toggle off with LATTICE_MERMAID_SINGLE=1 to fall back to the single (light)
 // bake + the per-diagram CSS overrides.
 const DUAL_RENDER = process.env.LATTICE_MERMAID_SINGLE !== '1';
@@ -1608,7 +1608,7 @@ function renderMermaidBatch(requests) {
 // its slide is dark, else the light-resolved set. Mermaid bakes themeVariables
 // to literal hex at render time, so a light bake can't flip on a section.dark
 // slide — the documented dark-mode gap. Baking the correct scheme per slide
-// closes it natively (including Mermaid's own colour-math derivations), with no
+// closes it natively (including Mermaid's own color-math derivations), with no
 // per-element CSS overrides and no wasted second SVG on single-scheme decks.
 // Author-supplied %%{init}%% diagrams keep their own theming.
 // LATTICE_MERMAID_SINGLE=1 forces the light bake everywhere (fallback to the
@@ -2517,7 +2517,7 @@ ${marpSystemCss}
 /* The deck landmark adds no box of its own — the slides keep their own geometry. */
 main#deck{margin:0;padding:0;display:block}
 /* …EXCEPT in the FLUID viewer, where interposing any element between <body> and the
-   slides is NOT layout-neutral. base.fluid-view.css makes <body> a centred flex column
+   slides is NOT layout-neutral. base.fluid-view.css makes <body> a centered flex column
    and sizes each slide with min(100%, 100dvh * --fill-max-aspect). That percentage
    resolves against the slide's PARENT — so once <main> sits in between, body's
    align-items:center shrink-to-fits it, the percentage resolves against a
@@ -2626,7 +2626,7 @@ ${ENGINE_SCRIPT_OPEN}
       var tell = isAuthor
         ? (over || clip.cut)
         : ((over && probed.squeezed > TOL) || (clip.cut && !clip.chromeOnly));
-      // The overflow tab. The ring is colour-only (WCAG 1.4.1), so the condition is
+      // The overflow tab. The ring is color-only (WCAG 1.4.1), so the condition is
       // named in text -- and the text differs by level AND by condition. "Overflows" is
       // the geometry word and was wrong on the population this change added: an ellipsed
       // label has over:false, so the author got a red OVERFLOWS flag with no ring beside
@@ -2661,7 +2661,7 @@ ${ENGINE_SCRIPT_OPEN}
       var leg = MARKER_LEVEL === 'author' ? probeFigureLegibility(s, ${FIGURE_TEXT_FLOOR_RATIO}) : null;
       var under = !!(leg && leg.under);
       s.classList.toggle('illegible', under);
-      // The labelled tab — the ring is colour-only (WCAG 1.4.1), so name the condition in text,
+      // The labeled tab — the ring is color-only (WCAG 1.4.1), so name the condition in text,
       // and name it with the NUMBERS, since "too small" is only actionable next to the floor it
       // missed. Presence-guarded; position:absolute, so it never changes the measured height.
       var tab = berth(s, 'illegible-tab');
@@ -4670,7 +4670,7 @@ async function embedSourceInPdf(pdfBytes) {
 
 // When --present is set, mark the PDF to open straight into full-screen
 // presentation mode. These are document-catalog hints that Adobe Acrobat/Reader
-// and most desktop viewers honour (it is exactly what Keynote / PowerPoint
+// and most desktop viewers honor (it is exactly what Keynote / PowerPoint
 // "Save as PDF" emit); browser-embedded viewers (Chrome's pdfium, pdf.js) and
 // macOS Preview ignore them harmlessly, so there is no downside elsewhere.
 //   /PageMode /FullScreen   open directly in presentation/full-screen view

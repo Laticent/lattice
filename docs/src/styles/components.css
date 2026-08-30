@@ -7,7 +7,7 @@
  * WIN over the layered Tailwind utilities). What remains here is the
  * Astro-owned page shell (sub-bar, two-column layout, mobile nav drawer) and
  * the live Specimen, which stays vanilla this phase. Reuses landing.css for
- * tokens, reset, fonts, the topbar. Palette-blind: every colour is var(--token). */
+ * tokens, reset, fonts, the topbar. Palette-blind: every color is var(--token). */
 
 /* ── Sub-bar (mobile nav drawer toggle) ─────────────────────────────────── */
 .csub {
@@ -43,7 +43,7 @@
 	border-color: var(--accent);
 	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
 }
-/* Lucide "menu" glyph, masked so it inherits the button colour / hover.
+/* Lucide "menu" glyph, masked so it inherits the button color / hover.
  * Token defined in landing.css :root (loaded alongside this file). */
 .cnav-toggle-bars {
 	width: 1.05em;
@@ -277,7 +277,7 @@
 	color: var(--text-muted);
 	margin-right: 4px;
 }
-/* Axis-grouped switcher (manifest.variantAxes): each axis is a labelled cluster
+/* Axis-grouped switcher (manifest.variantAxes): each axis is a labeled cluster
    of chips, separated by a hairline. Falls back to the flat row above when a
    component declares no axes. */
 .specimen-variants--grouped {

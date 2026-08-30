@@ -8,7 +8,7 @@
  *
  * Design contract
  * ───────────────
- *   1. Single text-heading colour on every light surface (#1F0A0F garnet-
+ *   1. Single text-heading color on every light surface (#1F0A0F garnet-
  *      black). Dark mode flips to #FFFFFF on deep-garnet canvas.
  *
  *   2. Two lightness bands for fills:
@@ -256,7 +256,7 @@
 }
 
 /* ── Chart-family palette ───────────────────────────────────────────────
- * Magnolia's curation of the chart-family's two colour spectrums (defined in
+ * Magnolia's curation of the chart-family's two color spectrums (defined in
  * lib/components/chart/_chart-family/chart-family.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Magnolia overrides
  * both spectrums with its soft-coral / dusty-rose pigments so charts read native

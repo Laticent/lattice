@@ -24,12 +24,12 @@ axis each — that is the whole of "different yet similar."
 1. **Two spectrums, same hooks.** Every theme curates the same two token sets
    through the same `:root` override hooks: `--chart-cat1..8` (categorical) and
    `--chart-state-{pass,warn,fail,info,mute}` (semantic). A theme sets only the
-   slots it wants to flavour; the `var()` indirection means the theme always
+   slots it wants to flavor; the `var()` indirection means the theme always
    wins, and unset slots inherit the default.
 
 2. **Port, don't invent.** Categorical hues are lifted from the theme's *own*
    existing pigment spectrum (its `--cN` / brand palette), so charts speak the
-   same colour language as the theme's Mermaid diagrams. Status roles *reuse*
+   same color language as the theme's Mermaid diagrams. Status roles *reuse*
    the theme's living semantic palette (`--pass` / `--warn` / `--fail`, muted)
    wherever it already has one — only the roles a theme genuinely lacks are
    curated fresh.
@@ -87,7 +87,7 @@ half of the rule: seven of eight roles reuse, one is invented.
 
 ## Status is reuse-first
 
-Categorical colour is *ported* (principle 2); status colour is *reused*. The
+Categorical color is *ported* (principle 2); status color is *reused*. The
 difference matters: categories are decorative identity (any well-spaced set
 works), but status is **meaning** — and a theme almost always already encodes
 green-good / red-stop somewhere. Reuse keeps a chart's "at-risk" reading
@@ -111,7 +111,7 @@ of these followed:
    first; it determines everything below.
 2. **Port `--chart-cat1..8`** from the theme's *own* `--cN` pigment spectrum
    (most-distinct-first), so charts and the theme's Mermaid diagrams speak one
-   colour language. Eight slots max; past ~6, consolidate rather than cycle.
+   color language. Eight slots max; past ~6, consolidate rather than cycle.
 3. **Reuse `--chart-state-{pass,warn,fail,info,mute}`** from the theme's living
    semantic palette (`--pass` / `--warn` / `--fail`, brand accent, muted).
    *Curate only the roles the theme genuinely lacks*, and tune any new hue to the
@@ -130,15 +130,15 @@ both canvases and clear the assessment — same as the three exemplars.
 
 ## Fill finish (a future variant)
 
-Distinct from colour, the chart family has a **fill finish** — how a fill is
+Distinct from color, the chart family has a **fill finish** — how a fill is
 shaded across its shape. There are two, assigned by geometry:
 
 - **Bar / tile family** (kanban card, gantt bar, progress bar, state-chart node,
   status pill) — a **linear top→bottom wash** + a vivid edge/accent.
 - **Solid-area family** (pie wedge, quadrant zone) — a **radial hub→rim dome**,
   the *same* 42/58/82 area-fade toward `--chart-cat-base` on both, so the two
-  read as one. The dome is the **base**: charts that radiate from a centre take a
-  centre-out fade. (Radar is neither — it stays a translucent overlay so its
+  read as one. The dome is the **base**: charts that radiate from a center take a
+  center-out fade. (Radar is neither — it stays a translucent overlay so its
   curves read through each other.)
 
 A **flatter top→bottom wash for the solid-area pair** (matching the bar family)

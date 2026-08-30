@@ -261,7 +261,7 @@
 }
 
 /* ── Chart-family palette ───────────────────────────────────────────────
- * Laguna's curation of the chart-family's two colour spectrums (defined in
+ * Laguna's curation of the chart-family's two color spectrums (defined in
  * lib/components/chart/_chart-family/chart-family.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Laguna overrides
  * both spectrums with its coastal-teal pigments so charts read native to the

@@ -16,7 +16,7 @@
  *   - `meta: "Default layout · #1292"` is a REAL line in examples/default-slide-layout.md.
  *     A naive comment strip truncates it to `Default layout ·`.
  *   - `backgroundColor: #ffffff` is not in the corpus but `color`/`backgroundColor` are real
- *     directives that take colours, so an unquoted hex is a deck someone would plausibly
+ *     directives that take colors, so an unquoted hex is a deck someone would plausibly
  *     write. Strict YAML would call it a comment; breaking it would be a self-inflicted
  *     regression (HARD RULE #18) to gain purity nobody asked for.
  */
@@ -82,12 +82,12 @@ describe('frontMatterScalar — quoted values', () => {
 });
 
 describe('frontMatterScalar — a # that is data, not a comment', () => {
-  test('an unquoted hex colour survives', () => {
+  test('an unquoted hex color survives', () => {
     assert.equal(frontMatterScalar('#ffffff'), '#ffffff');
     assert.deepEqual(viaEngine('backgroundColor: #ffffff'), { backgroundColor: '#ffffff' });
   });
 
-  test('an unquoted hex colour keeps its value and loses a real trailing comment', () => {
+  test('an unquoted hex color keeps its value and loses a real trailing comment', () => {
     assert.equal(frontMatterScalar('#ffffff # header tint'), '#ffffff');
     assert.deepEqual(viaEngine('backgroundColor: #ffffff # header tint'), { backgroundColor: '#ffffff' });
   });
@@ -134,7 +134,7 @@ describe('frontMatterScalar — malformed input keeps the legacy strip', () => {
   });
 
   test('the corpus has zero unbalanced-quote front matter, so this is unobservable today', () => {
-    // Pinned as documentation of WHY the choice above is safe, not as a behaviour claim.
+    // Pinned as documentation of WHY the choice above is safe, not as a behavior claim.
     // If a deck ever ships an unbalanced quote, this rule is what it will get.
     assert.equal(frontMatterScalar("'unterminated"), 'unterminated');
   });

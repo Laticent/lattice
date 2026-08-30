@@ -31,7 +31,7 @@ card floats without ever changing its fill.
 - Dark-mode rim
   - On a dark canvas, a hairline of light catches the top edge — the way real light hits a raised panel.
 - Exported clean
-  - Every layer has zero blur, so the PDF renders it as pure vector — no grey-box soft-mask artifact.
+  - Every layer has zero blur, so the PDF renders it as pure vector — no gray-box soft-mask artifact.
 
 ---
 

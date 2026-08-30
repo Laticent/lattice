@@ -1,6 +1,6 @@
 // Metric metadata — the single source of truth behind the performance overlay's
 // rows AND their detail cards. One table so a row's label, formatter, budget
-// colour, and its plain-language explanation can never drift apart.
+// color, and its plain-language explanation can never drift apart.
 //
 // Three groups, mirroring what the overlay measures:
 //   • vitals  — Google Core Web Vitals (page load, one-shot).
@@ -8,7 +8,7 @@
 //   • render  — the Lattice edit→preview pipeline (fed by render-metrics.ts).
 //
 // Ratings are computed here from `bands` (not from web-vitals) so every group
-// colours the same way and the detail card can draw one consistent budget
+// colors the same way and the detail card can draw one consistent budget
 // scale. `dir` says which way is better; MEM overrides with a custom rate() (it
 // rates by fraction-of-heap-limit, not an absolute MB band).
 

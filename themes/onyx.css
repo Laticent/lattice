@@ -265,8 +265,8 @@
 
 /* ── Chart-family palette — slate · red · green ─────────────────────────
  * onyx stays achromatic in its CHROME (ink ramp, brand axis, mermaid, code),
- * but its CHARTS carry a restrained three-colour identity — the signature
- * red plus a slate and a green — over a grayscale value tail. Colour does the
+ * but its CHARTS carry a restrained three-color identity — the signature
+ * red plus a slate and a green — over a grayscale value tail. Color does the
  * separating where it earns legibility (a pie's wedges, a status); value and
  * the signature red still anchor the look. Each slot is
  * `light-dark(whiteCanvasValue, blackCanvasValue)` so it survives the canvas

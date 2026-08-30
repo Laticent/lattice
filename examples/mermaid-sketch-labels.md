@@ -54,7 +54,7 @@ stateDiagram-v2
   Dispatched --> InTransit: first GPS ping
   InTransit --> Exception: dwell > 6h
   Exception --> InTransit: recovery plan filed
-  Exception --> Cancelled: shipper withdraws
+  Exception --> Canceled: shipper withdraws
   InTransit --> Delivered: POD captured
   Delivered --> Invoiced: rate audit passed
   Invoiced --> [*]

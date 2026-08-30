@@ -2,7 +2,7 @@
 // motion verbs the timeline can drive, and the capability each verb needs. Closed by
 // design (the anti-wizbang discipline, engineering/decisions/2026-07-17-anima-animation-library.md
 // §12): you pick a ROLE from these sets, you never hand-author keyframes or easing curves.
-// A backend that can't honour a member fails capability negotiation (caps.ts) rather
+// A backend that can't honor a member fails capability negotiation (caps.ts) rather
 // than rendering something wrong.
 
 // Built primitives — the Zdog shape set (the first backend, §14.2). The gated Three
@@ -46,7 +46,7 @@ export type Axis = (typeof AXES)[number];
 export const SOURCE_MODELS = ['built', 'svg'] as const;
 export type SourceModel = (typeof SOURCE_MODELS)[number];
 
-/** verb → the extra capability a backend must advertise to honour it. `draw`/`trace`
+/** verb → the extra capability a backend must advertise to honor it. `draw`/`trace`
  *  need the `draw` capability (SVG stroke reveal); the rest need only a scene-graph
  *  engine, so they add no cap beyond the source-model check (caps.ts). */
 export const VERB_CAP: Record<MotionVerb, 'draw' | null> = {

@@ -277,7 +277,7 @@
 				const r = rung || rungNow();
 				voiceLabelEl.textContent = VOICE_LABEL[r] || r;
 				voiceEl.dataset.live = String(voicing && playing && r !== 'silent');
-				// The voice picker drives Kokoro's voice (hosted or on-device); grey it out when
+				// The voice picker drives Kokoro's voice (hosted or on-device); gray it out when
 				// the active rung isn't Kokoro (no key → browser voice → its voice isn't ours).
 				voiceSelEl.disabled = !(r === 'openrouter-tts' || r === 'kokoro');
 			}
@@ -300,7 +300,7 @@
 				elapsed = 0; paint(); updateClock();
 			}
 
-			// Build a labelled span with its text set via textContent — never innerHTML —
+			// Build a labeled span with its text set via textContent — never innerHTML —
 			// so a narration token like `<img onerror=…>` can't inject into this page
 			// (which holds the user's BYOK key in localStorage). Mirrors the caption path.
 			const mkSpan = (cls, text) => { const s = document.createElement('span'); s.className = cls; s.textContent = text; return s; };

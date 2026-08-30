@@ -3,7 +3,7 @@
  * Renamed from base.decorations.css; the old bg-* class names are
  * replaced by tint-* (gradient washes) and mark-* (graphic accents),
  * with an at-* placement axis on tint-corner / tint-edge. See
- * engineering/treatments.md for the catalogue + composition rules
+ * engineering/treatments.md for the catalog + composition rules
  * and engineering/decisions/2026-05-17-treatments-rename.md for the rationale.
  *
  * Bundle position: AFTER lib/_legacy.css, BEFORE the universal /
@@ -23,7 +23,7 @@
  * slots) and mark (graphic accents, paint via ::before pseudos, a
  * box-shadow stack, or a stacked-radial-gradient slot depending on
  * the mark's geometry). All colors go through var(--accent) so palette
- * swap = treatment colour swap automatically.
+ * swap = treatment color swap automatically.
  *
  * Layer composability — tints stack via two slots (--_bg-radial,
  * --_bg-linear). Most marks paint via ::before and own no slot, so
@@ -51,7 +51,7 @@
  * tint-edge; marks render at their per-treatment default home (the
  * old bg-name's suffix). Adding placement to marks is a v2 feature.
  *
- * See engineering/treatments.md for the full catalogue, the
+ * See engineering/treatments.md for the full catalog, the
  * placement vocabulary, and the design constraints.
  * ════════════════════════════════════════════════════════════════════════════ */
 

@@ -71,7 +71,7 @@ export const MERMAID_URL = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid
 // EVERY render so every surface that uses this controller — Drawing Board,
 // Playground, both Workbench studios — shows a11y textures identically, instead
 // of each caller opting in (the Drawing Board did; the others didn't → wireframe
-// pies). Inert under colour themes: nothing references the patterns there.
+// pies). Inert under color themes: nothing references the patterns there.
 export const A11Y_DEFS = texturePatternDefs();
 
 const DARK_BG = '#0c0c0c';
@@ -166,7 +166,7 @@ function syncAgent(gap) {
 		'  window.__latticeTag=tag;',
 		'  tag();',
 		'  function setActive(i){var s=secs();for(var k=0;k<s.length;k++)s[k].classList.toggle("db-active",k===i);}',
-		// Honour prefers-reduced-motion: a smooth cursor-follow scroll becomes an instant jump.
+		// Honor prefers-reduced-motion: a smooth cursor-follow scroll becomes an instant jump.
 		'  var REDUCE=typeof matchMedia!=="undefined"&&matchMedia("(prefers-reduced-motion: reduce)").matches;',
 		'  function scrollTo(i,smooth){var s=secs();if(!s[i])return;window.scrollTo({top:Math.max(0,s[i].offsetTop-' + gap + '),behavior:(smooth&&!REDUCE)?"smooth":"auto"});setActive(i);}',
 		'  function centered(){var m=document.querySelector(".lattice");var s=secs();if(!s.length)return -1;var w=m?m.clientWidth:0;if(!w)return 0;var SW=window.__SLIDE_W||1280,SH=window.__SLIDE_H||720;var slotH=SH*(w/SW)+' + gap + ';if(slotH<=0)return 0;var i=Math.round(window.scrollY/slotH);if(i<0)i=0;if(i>=s.length)i=s.length-1;return i;}',
@@ -348,7 +348,7 @@ export function buildSrcdoc({
 		sanitizeStyleText(css) +
 		// printCss LAST so its `@page` wins. CSS merges same-named `@page` rules with
 		// the LATER declaration winning per-descriptor, and the engine `css` carries its
-		// own `@page{size:<slide-px>;margin:0}` (one-slide-per-page for the colour PDF).
+		// own `@page{size:<slide-px>;margin:0}` (one-slide-per-page for the color PDF).
 		// Emitted before `css`, our `@page{size:<paper>;margin:9mm}` would be overridden
 		// and every print came out on the raw slide sheet, edge-to-edge — defeating the
 		// paper pick + safe margin. After `css`, the print sheet + margin win. (The

@@ -21,7 +21,7 @@ const forms = require('../../../lib/forms');
 const plugins = require('../../../lib/integrations/markdown-it/plugins');
 const { renderJson, JSON_FILE } = require('../../../tools/build-forms');
 
-// The historical hardcoded skip list (the behaviour the manifests must preserve).
+// The historical hardcoded skip list (the behavior the manifests must preserve).
 const HISTORICAL_SKIP = [
   'title', 'divider', 'closing',
   'math', 'compare-code',

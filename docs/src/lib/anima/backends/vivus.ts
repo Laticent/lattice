@@ -79,7 +79,7 @@ export function strokeProgress(animated: ReadonlySet<string>, elements: readonly
 }
 
 // Elements stripped by the inert parse. Beyond the obvious code-execution vectors
-// (`script`/`foreignObject`/`on*`), these carry OFF-ORIGIN or side-effecting behaviour that
+// (`script`/`foreignObject`/`on*`), these carry OFF-ORIGIN or side-effecting behavior that
 // fires the moment the svg is appended to the LIVE document (mount): `style` (a global
 // `@import url(…)` beacons the viewer's IP and leaks into the page cascade), `image`/`use`
 // (external `href` fetches), and SMIL (`animate`/`set` — uncontrolled motion outside our
@@ -180,7 +180,7 @@ export function vivusRenderer(opts: VivusOptions = {}): Renderer {
   /** Paint the PER-ELEMENT channels the single-scalar stroke-draw can't: transform (slide +
    *  base), opacity (reveal on a non-drawn part), and emphasis (highlight → stroke-weight).
    *  DOM-attribute-only, so it runs in jsdom AND serializes cleanly into the poster — and it
-   *  runs even when Vivus itself couldn't initialise (no `getTotalLength`). */
+   *  runs even when Vivus itself couldn't initialize (no `getTotalLength`). */
   function paintElements(state: SceneState): void {
     if (!parts.length) return;
     const stateById = new Map(state.elements.map((es) => [es.id, es] as const));

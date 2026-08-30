@@ -13,7 +13,7 @@ overrides, and custom syntax highlighting for the source.
 | File | What it implements |
 |---|---|
 | `mermaid.css` | Per-diagram CSS overrides — Lattice-theme-aware selectors targeting Mermaid's emitted SVG (flowchart, journey, mindmap, gitgraph, treemap, c4, venn, and 9 more that ignore Mermaid's own `themeVariables`). |
-| `mermaid.hljs.js` | Custom highlight.js language definition for Mermaid syntax, so raw `\`\`\`mermaid` fences fall back to syntax-coloured code when not (yet) runtime-rendered. |
+| `mermaid.hljs.js` | Custom highlight.js language definition for Mermaid syntax, so raw `\`\`\`mermaid` fences fall back to syntax-colored code when not (yet) runtime-rendered. |
 
 ---
 

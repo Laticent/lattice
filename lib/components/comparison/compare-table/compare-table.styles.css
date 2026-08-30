@@ -14,7 +14,7 @@ section.compare-table td:first-child { font-weight:600; color:var(--text-heading
 
 /* ── portrait RESHAPE — card-per-row (carousel.js cover-cards) ──
  * In a portrait box a wide read-across table can't paginate out of HORIZONTAL overflow, so
- * each ROW becomes a card and the column headers become labelled fields. The card carries
+ * each ROW becomes a card and the column headers become labeled fields. The card carries
  * the native table's language so a reshaped split reads as the same deck: mono/label field
  * names (the thead look), the --spectrum strip (the thead rule, now per-card), hairline
  * rules (the row borders), first-cell emphasis as the card title. Palette-blind (HARD #3).

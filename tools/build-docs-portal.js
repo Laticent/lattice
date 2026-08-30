@@ -138,7 +138,7 @@ const PORTAL_TOKENS = [
   'muted-mark',
   'accent', 'accent-soft', 'on-accent', 'surface-inverse',
   // The per-palette categorical series (each tuned per palette AND light/dark),
-  // so the docs chrome can use distinct-but-on-palette colours — e.g. the Card
+  // so the docs chrome can use distinct-but-on-palette colors — e.g. the Card
   // icon tiles cycle through these instead of Starlight's fixed rainbow.
   'chart-cat1', 'chart-cat2', 'chart-cat3', 'chart-cat4',
   'chart-cat5', 'chart-cat6', 'chart-cat7', 'chart-cat8',
@@ -276,7 +276,7 @@ const PALETTE_PRIORITY = ['indaco', 'cuoio'];
  *  `@import 'a11y-base'; :root`, fail the `:root` test, and be dropped. That
  *  silently lost the a11y palettes' OWN status trio (they override only
  *  --pass/--warn/--fail in that post-import :root block), so they fell through to
- *  onyx's green/red — the exact red-green colours those palettes exist to avoid.
+ *  onyx's green/red — the exact red-green colors those palettes exist to avoid.
  *  Theme token blocks have no nested braces. */
 function parseThemeVars(css) {
   // The @import strip is url()- and quote-aware: a naive /@import[^;]*;/ would stop at a
@@ -590,7 +590,7 @@ function resolvePalettes() {
       light[t] = pick(r, lightSchemeDark);
       dark[t] = pick(r, darkSchemeDark);
     }
-    // --spectrum is a GRADIENT (not part of the flat-colour PORTAL_TOKENS contract), so
+    // --spectrum is a GRADIENT (not part of the flat-color PORTAL_TOKENS contract), so
     // it's resolved and carried separately. Emitting it onto the token blocks lets the
     // Studio's Compose surface paint the deck's REAL spectrum ribbon (its structural-trim
     // divider), instead of falling back to a plain accent ramp.
@@ -1005,7 +1005,7 @@ function renderPortalJson(manifests) {
 // obligation-matrix / checklist / roadmap state plugins, and functionPlotFences)
 // and the chart-family Mermaid registration. They are declared here — as
 // lib/authoring/lint.js declares its own modifier lists — because the plugin
-// module exports the behaviour, not these vocabularies. Keep in sync if the
+// module exports the behavior, not these vocabularies. Keep in sync if the
 // plugin set changes; the grammar.json --check gate makes drift loud.
 
 // The universal state-token marker grammar (lib/integrations/markdown-it/plugins.js
@@ -1033,7 +1033,7 @@ const STATE_MARKERS_NOTE = 'semantic is universal; shape is the canonical state-
 // markers via its own transform.
 const STATE_MARKER_COMPONENTS = ['checklist', 'verdict-grid', 'obligation-matrix', 'pricing', 'roadmap'];
 
-// Fenced sub-languages LFM recognises (info string → degraded form). The fence
+// Fenced sub-languages LFM recognizes (info string → degraded form). The fence
 // body is NOT Markdown — it is the config language of the library that renders
 // it, owned by that library and the component that uses it, not by LFM. Each
 // degrades to a plain code block in an LFM-unaware renderer. The fence is named

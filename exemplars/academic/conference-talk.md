@@ -29,7 +29,7 @@ Corrections always lag the rumor they chase. We asked whether the *structure* of
 <!-- _class: content -->
 <!-- tier: standard -->
 
-## The problem: by the time a rumor is labelled false, it has already arrived.
+## The problem: by the time a rumor is labeled false, it has already arrived.
 
 On the platform we study, the median verified rumor reaches 60% of its eventual audience before any correction is posted. Content-based detectors need the text to be flagged first. We wanted a signal that fires earlier — from the cascade itself.
 
@@ -50,7 +50,7 @@ True news spreads broad and shallow — many people share it once. Rumors spread
 <!-- _class: content -->
 <!-- tier: short -->
 
-## Method: 1.2M shares across 4,300 labelled cascades, modelled as growing trees.
+## Method: 1.2M shares across 4,300 labeled cascades, modelled as growing trees.
 
 We reconstructed each cascade as a reshare tree, sampled it at fixed time slices, and extracted twelve structural features per slice. A gradient-boosted classifier predicts the eventual fact-check verdict from the hour-one snapshot.
 
@@ -62,7 +62,7 @@ We reconstructed each cascade as a reshare tree, sampled it at fixed time slices
 <!-- _class: radar -->
 <!-- tier: short -->
 
-`Structural features · 0–10 (normalised)`
+`Structural features · 0–10 (normalized)`
 
 ## False cascades are deeper, faster, and less broad than true ones.
 
@@ -118,7 +118,7 @@ Raw share count barely helps — popular true stories look popular too. What sep
 
 ## Ablation: drop the bot-account features and performance barely moves.
 
-We worried the model was just an automation detector. Removing every bot-related feature cost only 0.02 AUC. The structural signal is about human resharing behaviour, not coordinated inauthentic accounts — rumors spread deep because people, not bots, pass them along.
+We worried the model was just an automation detector. Removing every bot-related feature cost only 0.02 AUC. The structural signal is about human resharing behavior, not coordinated inauthentic accounts — rumors spread deep because people, not bots, pass them along.
 
 ---
 

@@ -297,7 +297,7 @@ describe('color-mode-parse-parity — the linter and the resolver read the regis
     ['color-mode: darrk', null],
     ['color-mode: lite', null],
     // The #1416 input. A trailing YAML comment is now STRIPPED by the shared scalar
-    // rule, so the author's `light` is honoured instead of the whole line being
+    // rule, so the author's `light` is honored instead of the whole line being
     // refused — and the linter stays quiet, because there is nothing wrong.
     ['color-mode: light  # migrated 2026-08', 'color-light'],
     ['color-mode: dark # night', 'dark'],

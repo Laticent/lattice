@@ -41,7 +41,7 @@ section.image {
   background: var(--bg);
   --img-matte: var(--bg-alt);
   /* Card-lift shadow. ZERO BLUR on purpose: a blurred box-shadow renders as a
-   * flat grey block in Apple PDFKit (Preview / iOS) and Skia — see
+   * flat gray block in Apple PDFKit (Preview / iOS) and Skia — see
    * engineering/gotchas.md + base.focus.css. A hard, offset, low-opacity shadow
    * derived from the heading ink reads as a lifted card and survives every PDF
    * viewer. Paired with the hairline border below for crisp definition. */

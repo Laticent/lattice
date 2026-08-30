@@ -115,7 +115,7 @@ describe('export-formats', () => {
 
   // Count pixels near the overflow ring's danger red (#d4351c) along the bottom
   // and left edges — where the 4px inset ring lands, away from the top spectrum
-  // band. The ring is a colour-only box-shadow (invisible to pdftotext), so this
+  // band. The ring is a color-only box-shadow (invisible to pdftotext), so this
   // raster check is what actually guards the strip.
   function ringRedPixels(ppm) {
     const { w, h, data } = readPPM(ppm);

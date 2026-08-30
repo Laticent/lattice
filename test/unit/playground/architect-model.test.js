@@ -6,7 +6,7 @@
  * parts that MUST be correct regardless of backend:
  *
  *   - the ladder floors when no model is present (the offline guarantee),
- *   - complete() never throws and honours `fallback` / `json` validation,
+ *   - complete() never throws and honors `fallback` / `json` validation,
  *   - a MockBackend exercises the model-on path (streaming + JSON),
  *   - the model-off switch forces the floor,
  *   - cosine ranking orders items correctly with synthetic vectors.
@@ -159,7 +159,7 @@ describe('retrieval (cosine ranking)', () => {
     assert.ok(ranked[0].score >= ranked[1].score && ranked[1].score >= ranked[2].score);
   });
 
-  test('cosineRank honours limit and handles empty input', async () => {
+  test('cosineRank honors limit and handles empty input', async () => {
     const { retrieval } = await load();
     assert.deepEqual(retrieval.cosineRank([1], [], {}), []);
     assert.deepEqual(retrieval.cosineRank(null, [[1]]), []);

@@ -130,7 +130,7 @@ jobs:
           echo "base=https://raw.githubusercontent.com/${{ github.repository }}/$SHOT_BRANCH/$DEST" >> "$GITHUB_OUTPUT"
 
       # Open or append a single rolling tracking issue (found by a title marker),
-      # SELF-LABELLED at creation (a GITHUB_TOKEN-opened issue can't trigger the
+      # SELF-LABELED at creation (a GITHUB_TOKEN-opened issue can't trigger the
       # triage gate — GitHub's recursion guard — so the bot carries the taxonomy
       # itself), with the screenshots embedded inline. Skipped when green.
       - name: Open / append regression issue

@@ -1,5 +1,5 @@
 /* Guided-tour skin — themes driver.js so the spotlight + popover read as part
- * of Lattice rather than a bolted-on widget. Palette-blind: every colour is a
+ * of Lattice rather than a bolted-on widget. Palette-blind: every color is a
  * design token, so the tour recolours with the rest of the page. Loaded by
  * src/playground/guided-tour.js (alongside driver's own driver.css). */
 

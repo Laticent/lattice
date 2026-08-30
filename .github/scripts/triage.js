@@ -64,7 +64,7 @@ function computeTriage({ labels = [], form = {} } = {}) {
   // 1. Floor: every card sits in a lane. Default new/unlaned cards to backlog.
   if (!hasDimension(current, 'status')) add.push(DEFAULT_STATUS);
 
-  // 2. Required axes — present if already labelled OR selected in the form (the
+  // 2. Required axes — present if already labeled OR selected in the form (the
   //    Apply-form-labels workflow will materialize that pick, so don't double-
   //    flag a form-filed card whose dropdown already carries the axis).
   const missing = AXES.filter((dim) => {

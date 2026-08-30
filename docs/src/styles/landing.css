@@ -1,6 +1,6 @@
 /* Lattice landing page — dogfoods the engine's own design tokens.
  *
- * Colour tokens (--bg / --accent / …) come from lattice-tokens.generated.css,
+ * Color tokens (--bg / --accent / …) come from lattice-tokens.generated.css,
  * which is emitted by tools/build-landing-tokens.js from the SAME resolver the
  * component portal uses (themes/<name>.css). That keeps the landing and the
  * portal visually identical and lets a visitor's palette/mode choice persist
@@ -50,7 +50,7 @@
 	/* UI-chrome icons — Lucide (https://lucide.dev, ISC). Delivered as
 	 * data-URI SVG masks (mirrors the engine's --mark-* technique): painted
 	 * with `background: currentColor` + `mask`, so they inherit the button's
-	 * colour / --accent hover and the per-mode palette for free. Stroke pixels
+	 * color / --accent hover and the per-mode palette for free. Stroke pixels
 	 * are opaque, so a fill:none outline masks correctly. To add an icon, drop
 	 * its Lucide <path>/<circle> children into a new --icon-<name> here.
 	 * The chrome menu glyph (--icon-menu) lives in chrome-icons.css, shared with
@@ -85,7 +85,7 @@
 	--icon-minus: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M5 12h14'/%3e%3c/svg%3e");
 	--icon-presentation: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M2 3h20'/%3e%3cpath d='M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3'/%3e%3cpath d='m7 21 5-5 5 5'/%3e%3c/svg%3e");
 	/* AI-tier status glyphs — Lucide (ISC). Per-state indicator so the live tier is
-	   conveyed by SHAPE, not colour alone (WCAG 1.4.1). cloud=cloud · cpu=on-device ·
+	   conveyed by SHAPE, not color alone (WCAG 1.4.1). cloud=cloud · cpu=on-device ·
 	   circle-slash=off/floor · loader-circle=reconnecting · triangle-alert=failed. */
 	--icon-cloud: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z'/%3e%3c/svg%3e");
 	--icon-cpu: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M12 20v2'/%3e%3cpath d='M12 2v2'/%3e%3cpath d='M17 20v2'/%3e%3cpath d='M17 2v2'/%3e%3cpath d='M2 12h2'/%3e%3cpath d='M2 17h2'/%3e%3cpath d='M2 7h2'/%3e%3cpath d='M20 12h2'/%3e%3cpath d='M20 17h2'/%3e%3cpath d='M20 7h2'/%3e%3cpath d='M7 20v2'/%3e%3cpath d='M7 2v2'/%3e%3crect x='4' y='4' width='16' height='16' rx='2'/%3e%3crect x='8' y='8' width='8' height='8' rx='1'/%3e%3c/svg%3e");
@@ -123,7 +123,7 @@
 }
 
 /* .ico — site-wide inline icon. Drop <span class="ico ico-NAME"> anywhere and it
- * paints a Lucide glyph in the current text colour via a mask, so it tracks the
+ * paints a Lucide glyph in the current text color via a mask, so it tracks the
  * palette + light/dark like the toggles. Mark it aria-hidden when decorative. */
 .ico {
 	display: inline-block;
@@ -232,7 +232,7 @@ a {
 	text-decoration: none;
 }
 /* shadcn components rendered as a link (asChild → <a data-slot=…>) must keep
- * their OWN color, not the global link colour above. Tailwind's color utilities
+ * their OWN color, not the global link color above. Tailwind's color utilities
  * are @layer-ed, so they lose to this unlayered `a` rule (the load-bearing
  * cascade trap, migration doc §0). Hand control back to the component by mapping
  * each variant's intended foreground here, UNLAYERED, so it wins. Scoped to
@@ -260,7 +260,7 @@ a {
  * called the page clean. Both are now covered — the site axe gate enforces
  * color-contrast out of the incomplete bucket too.
  *
- * Colours come from the same token pairs the bridge already gates: --on-accent on
+ * Colors come from the same token pairs the bridge already gates: --on-accent on
  * --accent (the solid pill) and --text-heading on the accent-soft pill. */
 .lx-ui a[data-nav='item-active'] {
 	color: var(--on-accent);

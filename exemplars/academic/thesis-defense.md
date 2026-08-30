@@ -99,7 +99,7 @@ Participants who carried abundant *F. prausnitzii* before treatment recovered 3.
 
 ## Validation: the predictor holds in an independent 80-person replication cohort.
 
-A separate cohort, sampled two years later with a different sequencing platform, reproduced the association: baseline keystone abundance predicted recovery with 0.79 AUC. The signal is not an artefact of one batch or one machine.
+A separate cohort, sampled two years later with a different sequencing platform, reproduced the association: baseline keystone abundance predicted recovery with 0.79 AUC. The signal is not an artifact of one batch or one machine.
 
 - External AUC 0.79, close to the discovery cohort's 0.82.
 - Different platform, different year, same effect.

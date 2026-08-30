@@ -59,7 +59,7 @@ const GROUPS = [
 // a short note on how the file is used.
 const DESCRIPTIONS = {
   'lattice.css': {
-    purpose: 'Engine bundle — the palette-blind layout system (layouts + modifiers, no colour tokens).',
+    purpose: 'Engine bundle — the palette-blind layout system (layouts + modifiers, no color tokens).',
     consume: '`@workwel/lattice/css`',
   },
   'lattice.min.css': {
@@ -75,7 +75,7 @@ const DESCRIPTIONS = {
     consume: '`@workwel/lattice/default/min`',
   },
   'lattice-emoji.css': {
-    purpose: 'Opt-in full-offline colour emoji `@font-face` (Noto Color Emoji). Link after `lattice.css`; run `npm run fonts:emoji` to vendor the font (excluded from the npm tarball, ~25 MB). Without it, emoji fall back to the installed system font.',
+    purpose: 'Opt-in full-offline color emoji `@font-face` (Noto Color Emoji). Link after `lattice.css`; run `npm run fonts:emoji` to vendor the font (excluded from the npm tarball, ~25 MB). Without it, emoji fall back to the installed system font.',
     consume: '`@workwel/lattice/dist/lattice-emoji.css` (opt-in, not in `exports`)',
   },
   'lattice-runtime.js': {

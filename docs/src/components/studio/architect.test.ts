@@ -206,7 +206,7 @@ describe('suggestFor — the shared "did you mean"', () => {
 	});
 });
 
-describe('setBudget — the cap the architect honours', () => {
+describe('setBudget — the cap the architect honors', () => {
 	it('persists a cap + mode, and clears the cap at 0', () => {
 		setBudget(5, 'stop');
 		let s = architectSpend();

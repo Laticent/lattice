@@ -22,7 +22,7 @@
 //
 // Props:
 //   palettes    string[]  — selectable palette names (titleCased for display)
-//   wide        boolean   — full-bleed inner (apps/reference) vs centred (landing)
+//   wide        boolean   — full-bleed inner (apps/reference) vs centered (landing)
 //   standalone  boolean   — render the sticky <header> wrapper (standalone routes);
 //                           false inside Starlight, whose .header already wraps us
 //   mobileMenu  boolean   — render our hamburger+Sheet (standalone). False in the
@@ -250,7 +250,7 @@ const paletteLabelCss = seedablePalettes
 <style>
 	/* The component owns its styles, so Astro bundles them into BOTH worlds —
 	   the standalone routes (which import landing.css) and the Starlight docs
-	   zone (customCss: lattice.css). All colour goes through palette tokens. */
+	   zone (customCss: lattice.css). All color goes through palette tokens. */
 	.site-header.is-standalone {
 		position: sticky;
 		top: 0;
@@ -367,7 +367,7 @@ const paletteLabelCss = seedablePalettes
 	}
 
 	/* The app links (Studio, Playground) lead the bar. They carry the heading
-	   colour + a touch more weight than the content links so the eye lands on
+	   color + a touch more weight than the content links so the eye lands on
 	   the front door first — a rank cue, not a second button. */
 	.sh-link-app {
 		font-weight: 600;

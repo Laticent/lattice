@@ -25,7 +25,7 @@ import type { ReadAloudDebugEvent, ReadAloudDebugLive } from './read-aloud';
 // mean the same thing across both overlays. Inline style (not CSS) — a diagnostics
 // aid, not layout — mirroring PerfOverlay's own approach.
 const TONE: Record<string, string> = { good: '#16a34a', warn: '#d97706', bad: '#dc2626' };
-const GREY = '#8b949e';
+const GRAY = '#8b949e';
 
 type Tone = 'good' | 'warn' | 'bad' | 'none';
 
@@ -33,7 +33,7 @@ type Tone = 'good' | 'warn' | 'bad' | 'none';
 function Row({ label, value, tone = 'none' }: { label: string; value: React.ReactNode; tone?: Tone }) {
 	return (
 		<div className="flex items-center gap-2 py-[1.5px]">
-			<span aria-hidden className="inline-block size-[7px] shrink-0 rounded-full" style={{ background: tone === 'none' ? GREY : TONE[tone] }} />
+			<span aria-hidden className="inline-block size-[7px] shrink-0 rounded-full" style={{ background: tone === 'none' ? GRAY : TONE[tone] }} />
 			<span className="text-[10.5px] uppercase tracking-[0.06em] text-muted-foreground">{label}</span>
 			<span className="h-px flex-1" />
 			<span className="shrink-0 font-mono text-[12px] tabular-nums text-popover-foreground">{value}</span>

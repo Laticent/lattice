@@ -348,7 +348,7 @@ describe('core: carousel — cover-cards (compare-table portrait RESHAPE)', () =
     assert.match(parts[0], /split-cover-lead">The full comparison/);
   });
 
-  test('each ROW becomes a card: first cell is the title, columns are labelled fields', () => {
+  test('each ROW becomes a card: first cell is the title, columns are labeled fields', () => {
     assert.match(parts[1], /ct-card-title">Up-front cost</);
     assert.match(parts[1], /<dt>Build<\/dt><dd>\$1\.2M<\/dd>/);
     assert.match(parts[1], /<dt>Buy<\/dt><dd>\$400k<\/dd>/);

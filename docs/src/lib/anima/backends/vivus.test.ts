@@ -34,7 +34,7 @@ describe('vivusRenderer', () => {
     expect(host.querySelector('#p2')).not.toBeNull();
   });
 
-  it('applies a token stroke colour to each referenced path', () => {
+  it('applies a token stroke color to each referenced path', () => {
     const { host } = mounted();
     expect(host.querySelector('#p1')?.getAttribute('stroke')).toBeTruthy();
     expect(host.querySelector('#p2')?.getAttribute('stroke')).toBeTruthy();

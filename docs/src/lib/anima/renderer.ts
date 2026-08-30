@@ -39,7 +39,7 @@ export interface Renderer {
    *  NOTE: poster is mount-scoped and NOT pure — it requires a prior `mount` (reads the
    *  retained surface), scrubs the live instance (call it on a separate renderer if you're
    *  also previewing live), and returns `{ svg:'', width:0, height:0 }` if nothing is mounted.
-   *  The poster's colour/recolour model for the PDF export is an open decision (ADR §15). */
+   *  The poster's color/recolour model for the PDF export is an open decision (ADR §15). */
   poster(state: SceneState): Poster;
   /** Tear down the surface + retained objects. */
   dispose(): void;

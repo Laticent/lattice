@@ -11,14 +11,14 @@ describe('withAlpha', () => {
     expect(withAlpha('#f80', 0.5)).toBe('rgba(255, 136, 0, 0.5)');
     expect(withAlpha('#ff8800', 0.5)).toBe('rgba(255, 136, 0, 0.5)');
   });
-  it('alpha >= 1 is a no-op (returns the colour unchanged)', () => {
+  it('alpha >= 1 is a no-op (returns the color unchanged)', () => {
     expect(withAlpha('rgb(1, 2, 3)', 1)).toBe('rgb(1, 2, 3)');
     expect(withAlpha('#abc', 2)).toBe('#abc');
   });
   it('clamps a negative alpha to 0', () => {
     expect(withAlpha('rgb(1,2,3)', -1)).toBe('rgba(1, 2, 3, 0)');
   });
-  it('leaves an unparseable colour unchanged (no NaN corruption)', () => {
+  it('leaves an unparseable color unchanged (no NaN corruption)', () => {
     // A format normalization (resolveColor→rgb) is what makes withAlpha total in practice.
     expect(withAlpha('not-a-color', 0.5)).toBe('not-a-color');
   });

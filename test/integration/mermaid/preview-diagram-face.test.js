@@ -152,7 +152,7 @@ function assertAllRendered(census, expected, label) {
   assert.equal(census.unrendered, 0, `${label}: ${census.unrendered} fence(s) never rendered`);
   assert.equal(census.diagrams, expected,
     `${label}: the deck has ${expected} mermaid fences but the preview produced `
-    + `${census.diagrams} labelled diagrams. Counting only what rendered is how a missing `
+    + `${census.diagrams} labeled diagrams. Counting only what rendered is how a missing `
     + 'family hides — assert the deck\'s own fence count.');
 }
 

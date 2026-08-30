@@ -17,7 +17,7 @@
  * Authors set `theme: indaco` or `theme: cuoio` in front matter. Each
  * palette imports lattice (`@import 'lattice'`) and supplies color
  * tokens. `theme: lattice` alone renders unstyled (no palette loaded) —
- * a useful diagnostic for verifying var() fallback behaviour.
+ * a useful diagnostic for verifying var() fallback behavior.
  *
  * To author a new palette, copy themes/indaco.css to themes/<name>.css,
  * change the @theme directive, and edit the tokens. This file does not

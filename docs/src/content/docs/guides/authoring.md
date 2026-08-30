@@ -72,7 +72,7 @@ default is a numbered **ledger**, and three variants restyle the identical
 content:
 
 - `inventory` — the default: numbered rows with hairline rules and an accent insight band
-- `inventory cards` — an equal grid of cards with the insight as a centred pull-quote
+- `inventory cards` — an equal grid of cards with the insight as a centered pull-quote
 - `inventory timeline` — a horizontal numbered run with the insight above
 - `inventory editorial` — a magazine split: the insight beside a ruled item column
 
@@ -135,7 +135,7 @@ before. The default is also **hybrid**: an explicit `---` still forces a break,
 which is how you give a slide no heading at all (an image slide) or split two
 slides under one idea.
 
-To opt back into the classic behaviour — split **only** on `---`, never on a
+To opt back into the classic behavior — split **only** on `---`, never on a
 heading — set `split: rule` in front matter:
 
 ```markdown
@@ -156,7 +156,7 @@ once in front matter and every slide inherits it:
 
 ```markdown
 ---
-theme: carta        # palette — still owns the colours
+theme: carta        # palette — still owns the colors
 mode: sketch      # rendering hand — the whole-deck mode
 ---
 ```
@@ -170,7 +170,7 @@ injection.) `mode:` takes one of three values:
 - **`sketch-clean`** — hand headings and boxes, but a clean body font for
   text-dense slides.
 
-The mode is **palette-blind** — it wobbles type and geometry, never colour, so
+The mode is **palette-blind** — it wobbles type and geometry, never color, so
 it pairs with any theme. It **composes** with per-slide components (`mode:
 sketch` plus `<!-- _class: cards-grid -->` renders a hand-drawn grid) and with a
 `finish:` **backdrop** (`mode: sketch` + `finish: atrium` is a hand-drawn deck on

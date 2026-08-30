@@ -30,13 +30,13 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   disc) renders cleanly in the browser, in PNG rasterizations of the
   emulator PDF (`tools/rasterize-for-review.sh`), and in MuPDF/PyMuPDF
   rasterization — but in **mobile / Quartz PDF viewers** (iOS
-  Files/Preview, some Android apps) a **solid grey square** appears around the
+  Files/Preview, some Android apps) a **solid gray square** appears around the
   element's bounding box.
 - **Cause:** Chromium `printToPDF` exports a *blurred* `box-shadow` as a
   transparency-group / soft-mask (SMask) image sized to the element's expanded
   box. Viewers with incomplete transparency-group support paint the image's
-  bounds with an opaque grey matte instead of applying the alpha — so the soft
-  shadow becomes a hard grey rectangle. Spread-only shadows (`0 0 0 Npx`, no
+  bounds with an opaque gray matte instead of applying the alpha — so the soft
+  shadow becomes a hard gray rectangle. Spread-only shadows (`0 0 0 Npx`, no
   blur radius) are exported as plain vector strokes and are safe; only the
   blur triggers it.
 - **Mitigation:** Keep small-element chrome **vector-only** — solid fills and
@@ -47,16 +47,16 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Triggered by:** Any blurred `box-shadow`/`filter: drop-shadow()` on small
   repeated elements destined for PDF. Verify in an actual mobile PDF viewer —
   PyMuPDF/Chromium screenshots will NOT reveal it.
-- **Caught:** checkbox redesign — discs showed a grey square in the iOS PDF
+- **Caught:** checkbox redesign — discs showed a gray square in the iOS PDF
   viewer while every local raster looked clean.
 
 ## A blurred `box-shadow` renders as a flat gray block in Apple PDFKit
 
 - **Symptom:** A soft drop-shadow (any `box-shadow` with a blur radius) that
   looks fine in Chrome / poppler renders in **Apple PDFKit** (iOS/macOS Preview,
-  the iOS share-sheet viewer) as an opaque grey **rectangle** filling the
+  the iOS share-sheet viewer) as an opaque gray **rectangle** filling the
   shadow's footprint — not a soft gradient. Caught on the focus `pop`/`blur`
-  lift: the focused card showed a hard grey box behind it on iPhone while the
+  lift: the focused card showed a hard gray box behind it on iPhone while the
   sandbox raster (poppler) looked correct.
 - **Cause:** PDFKit does not composite the soft transparency group Chromium
   emits for a blurred shadow — the same soft-compositing weakness that makes it

@@ -21,21 +21,21 @@
  */
 
 /* Role tokens — a theme MAY retune these; defaults keep the feature
- * palette-blind. `--focus-dim` is an opacity (a number, not a colour — no hex
+ * palette-blind. `--focus-dim` is an opacity (a number, not a color — no hex
  * rule applies); ring/fill borrow the universal accent tokens. */
 section[data-focus-resolved] {
   --focus-dim: 0.24;
   --focus-ring: var(--accent);
   --focus-fill: var(--accent-soft);
   --focus-blur: 0.15cqi;
-  --focus-pop: 1.02;        /* blur target lift — subtle, won't overlap neighbours */
+  --focus-pop: 1.02;        /* blur target lift — subtle, won't overlap neighbors */
   --focus-pop-shadow: 0.28cqi;
   /* The lift edge — a curated role token (HARD RULE 11): a theme overrides this
    * one name to tune the lift. Default = the brand accent softened toward the
    * page so it reads on-brand without the harsh saturated edge. OPAQUE (mixed
    * toward --bg, not transparent) so it stays a solid vector fill — bulletproof
    * in Apple PDFKit. Per-mode variance is automatic: both --accent and --bg are
-   * light-dark(), so the lift adapts to the colour scheme with no -light/-dark
+   * light-dark(), so the lift adapts to the color scheme with no -light/-dark
    * tokens. */
   --focus-lift: color-mix(in srgb, var(--accent) 32%, var(--bg));
 }
@@ -58,12 +58,12 @@ section[data-focus-style="spotlight"] tr.lat-focus > td { color: var(--text-head
  * carry. */
 section[data-focus-style="blur"] .lat-recede { filter: blur(var(--focus-blur)); opacity: 0.82; }
 /* …and blur LIFTS the target — a subtle scale + a hard (zero-blur) accent offset
- * shadow. Hard-edged on purpose: a *blurred* shadow renders as a flat grey block
+ * shadow. Hard-edged on purpose: a *blurred* shadow renders as a flat gray block
  * in Apple PDFKit (the soft-compositing weakness behind the mask gotcha), but a
  * zero-blur offset is a solid vector fill that renders everywhere. Scoped to
  * block items (`li`) — a table row / code line doesn't scale cleanly — and kept
  * small (`--focus-pop` scale, `--focus-pop-shadow` offset) so the grown card
- * never bleeds into its neighbour. */
+ * never bleeds into its neighbor. */
 section[data-focus-style="blur"] li.lat-focus {
   transform: scale(var(--focus-pop));
   box-shadow: var(--focus-pop-shadow) var(--focus-pop-shadow) 0 var(--focus-lift);
@@ -77,7 +77,7 @@ section[data-focus-style="blur"] li.lat-focus {
  * pop pulls the target *forward*. Promote-only — nothing is dimmed or blurred,
  * so every other card/row stays fully readable (its edge over ring/list-fill is
  * dimensionality). Uses the same hard, zero-blur lift shadow (`--focus-lift`),
- * so it holds up in Apple PDFKit where a blurred shadow renders as a grey block
+ * so it holds up in Apple PDFKit where a blurred shadow renders as a gray block
  * (engineering/gotchas.md). */
 section[data-focus-style="pop"] li.lat-focus {
   transform: scale(var(--focus-pop));

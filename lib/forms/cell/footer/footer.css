@@ -9,14 +9,14 @@
  * (the `footer:` text), progress-centre (the section rail — the progress Tile,
  * lib/forms/tile/progress), pagination-right (`::after`). Pagination is a
  * pseudo-element, so the footer Cell is a TOKEN COORDINATE CONTRACT, not a DOM
- * grid: footer-left yields the reserved centre zone so it can never run through
- * the rail, and the centre zone ends before the pagination zone. The reserved
+ * grid: footer-left yields the reserved center zone so it can never run through
+ * the rail, and the center zone ends before the pagination zone. The reserved
  * widths are the --footer-center-w/-half tokens defined on the root in
  * lib/forms/cell/stage/stage.css. (Non-form decks keep the full-width footer —
  * this is scoped to section.form.) */
 /* The footer band's three zones are now INDEPENDENTLY-positioned Cells
  * (footer-left · progress-centre · pagination-right), each token-driven for free
  * relocation (design/forms.md §7.3) — so the old magic-number "yield" that made
- * the left text dodge a centred rail is retired: the rail no longer sits in the
- * centre, and footer-left is width-bounded on its own side
+ * the left text dodge a centered rail is retired: the rail no longer sits in the
+ * center, and footer-left is width-bounded on its own side
  * (lib/forms/cell/footer-left). No shared-band rule remains here. */

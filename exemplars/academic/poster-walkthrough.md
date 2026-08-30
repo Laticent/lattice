@@ -124,7 +124,7 @@ Above 60°C the reversible network loosens and the material creeps under sustain
 
 ## Where this goes: components that report and repair their own fatigue.
 
-We are blending the healing chemistry with a strain-responsive dye so a part changes colour where it has healed — a visual fatigue log. The aim is structural components that both repair micro-damage and show their repair history at a glance.
+We are blending the healing chemistry with a strain-responsive dye so a part changes color where it has healed — a visual fatigue log. The aim is structural components that both repair micro-damage and show their repair history at a glance.
 
 - A strain-responsive dye marks healed regions.
 - The part becomes its own maintenance record.

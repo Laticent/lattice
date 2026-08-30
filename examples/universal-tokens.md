@@ -16,7 +16,7 @@ footer: "Phase 1 — categorical vocabulary"
 
 `Universal token system · Phase 1`
 
-*Self-describing colour tokens for the categorical layer — same pixels, clearer names, no magic.*
+*Self-describing color tokens for the categorical layer — same pixels, clearer names, no magic.*
 
 ---
 
@@ -41,7 +41,7 @@ footer: "Phase 1 — categorical vocabulary"
 
 `The pairing law`
 
-A background takes the bare role name; a foreground names the background it reads against with `on-`. Colour-scheme lives only inside the `light-dark()` value, never in a token name.
+A background takes the bare role name; a foreground names the background it reads against with `on-`. Color-scheme lives only inside the `light-dark()` value, never in a token name.
 
 ---
 

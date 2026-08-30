@@ -141,7 +141,7 @@ section.compare-code:not(:has(.code-cols)):has(> p ~ h2) > pre:nth-of-type(2) { 
 section.compare-code:not(:has(.code-cols)):has(> p ~ h2) > .cell-coda         { grid-column:1 / -1; grid-row:5; }
 
 /* ── Cover-code carousel — compare-code's owned SPLIT forms ────────────────────
-   Two labelled code blocks read across; code can't reflow into a row, so an overflowing
+   Two labeled code blocks read across; code can't reflow into a row, so an overflowing
    compare-code re-authors into a title COVER then ONE code block per page at full width
    under its label (2026-06-23-read-across-carousel.md). lib/core/carousel.js emits
    `content compare-code-split compare-code-{cover,block} form`. Palette-blind. */

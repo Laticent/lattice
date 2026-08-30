@@ -11,7 +11,7 @@ header: "Lattice · state marks"
 
 # Circles, with a mark
 
-A universal, colour-blind-safe treatment for `[x]` `[-]` `[ ]` `[/]` — one status-coloured disc, one distinct mark.
+A universal, color-blind-safe treatment for `[x]` `[-]` `[ ]` `[/]` — one status-colored disc, one distinct mark.
 
 ---
 
@@ -24,7 +24,7 @@ A universal, colour-blind-safe treatment for `[x]` `[-]` `[ ]` `[/]` — one sta
 - [ ] X — not done, rejected, todo
 - [/] Slash — out of scope, waived, N/A
 
-> The mark's shape carries the meaning independently of colour — the redundant channel the old fill-level discs lacked. Read it in greyscale and it still parses.
+> The mark's shape carries the meaning independently of color — the redundant channel the old fill-level discs lacked. Read it in grayscale and it still parses.
 
 ---
 
@@ -79,10 +79,10 @@ A universal, colour-blind-safe treatment for `[x]` `[-]` `[ ]` `[/]` — one sta
 
 ## Variant — `checks-outline`.
 
-- [x] Editorial, low-ink: ring + status-colour mark
+- [x] Editorial, low-ink: ring + status-color mark
 - [-] Best where the row has no tint behind it
 - [ ] Per-slide or per-deck, no markup change
-- [/] Marks and colours never change — only the disc
+- [/] Marks and colors never change — only the disc
 
 ---
 
@@ -99,6 +99,6 @@ A universal, colour-blind-safe treatment for `[x]` `[-]` `[ ]` `[/]` — one sta
 
 <!-- _class: closing -->
 
-## Shape first, colour second.
+## Shape first, color second.
 
 `checklist · verdict-grid · obligation-matrix`

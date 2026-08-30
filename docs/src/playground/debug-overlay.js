@@ -163,7 +163,7 @@ export function debugCss() {
 // Is this element worth a LABEL? The slide itself, any grid/flex CONTAINER, and a
 // GRID CELL (a direct child of a grid — the tiles you size). Deliberately NOT the
 // children of a flex row: those are usually leaf content (a heading, a badge, a
-// line of prose), and labelling them turns a slide into a wall of chips. Everything
+// line of prose), and labeling them turns a slide into a wall of chips. Everything
 // is still OUTLINED by layout mode; only the structural boxes get a chip.
 function isStructural(el, mode, parentMode) {
 	if (el.tagName === 'SECTION') return true;
@@ -242,7 +242,7 @@ export function applyDebug(frame, opts = {}) {
 			};
 			// One label string — the CONFIGURED facet set. `verbose` is what adds detail
 			// (class + box); a plain hover chip stays short so it doesn't truncate or bury
-			// the content it's labelling. (Previously hover ballooned to every facet and
+			// the content it's labeling. (Previously hover ballooned to every facet and
 			// ellipsis-truncated — worse than the lean line it replaced.)
 			const text = facetLabel(info, cfg.facets);
 			if (!text) continue;

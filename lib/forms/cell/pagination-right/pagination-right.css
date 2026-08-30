@@ -3,7 +3,7 @@
  * pseudo-element; this Cell token-drives its POSITION so it is INDEPENDENTLY
  * movable (design/forms.md §7.3) WITHOUT converting the pseudo to injected DOM —
  * which would change exported bytes and touch all three render paths. The pseudo's
- * appearance (mono, --fs-meta, colour) stays in the engine scaffold
+ * appearance (mono, --fs-meta, color) stays in the engine scaffold
  * (lib/integrations/markdown-it/scaffold.css + lib/engine/css.js); this form-scoped
  * rule wins on specificity and only re-anchors it. Default: bottom-right, unchanged. */
 section.form::after {

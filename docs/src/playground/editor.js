@@ -38,7 +38,7 @@ import { typeaheadContext } from './slide-context.js';
 // cascades you straight into the modifier list). 'all' extends it to every
 // grammar context with a pure detector (directives, fence languages, the
 // front-matter value lines). 'off' disables proactive open entirely — the popup
-// then opens only on typing / Ctrl-Space, the legacy behaviour. The map/data
+// then opens only on typing / Ctrl-Space, the legacy behavior. The map/data
 // and Mermaid sources are never proactive (their sources need a typed prefix).
 const TYPEAHEAD_KINDS = {
 	class: new Set(['class', 'modifier']),
@@ -125,7 +125,7 @@ const mermaidParser = {
 		}
 
 		// keywords — Prism anchors these to line start (lookbehind on ^[ \t]*), so
-		// match only at logical line start. This avoids colouring node ids that
+		// match only at logical line start. This avoids coloring node ids that
 		// happen to be keyword words mid-line (`A --> end`, a node called `state`).
 		// KW_DECLARE includes classDef/linkStyle/style, so style lines are covered.
 		if (atLineStart && (stream.match(KW_DECLARE) || stream.match(KW_FLOW))) {
@@ -144,7 +144,7 @@ const mermaidParser = {
 		// punctuation (`,` included for classDef/style value lists, per Prism)
 		if (stream.match(/^[(){};,]/)) return emit('punctuation');
 
-		// style-line property:value — colour `prop:` identifiers as properties
+		// style-line property:value — color `prop:` identifiers as properties
 		// (Prism's style.inside.property).
 		if (stream.match(/^\w[\w-]*(?=[ \t]*:)/)) return emit('propertyName');
 
@@ -180,7 +180,7 @@ const EAGER_LANGUAGES = [
 ];
 
 // Highlight palette mapped onto Lattice CSS tokens. CodeMirror needs concrete
-// colours per tag, but we point them at var(--token) so they track the palette.
+// colors per tag, but we point them at var(--token) so they track the palette.
 // CONTRAST-REPAIRED VIA THE SHARED SYNTAX INK TIER (#1688). Every row that used to read
 // `var(--accent)` or `var(--text-muted)` now reads the derived `--syntax-*-ink` token instead,
 // for one measured reason: neither of those carries an AA guarantee against the canvas. Over the
@@ -251,7 +251,7 @@ const latticeTheme = EditorView.theme({
 		// (border-vs-bg ~1.21 on indaco-light), and the detail/type hint reused
 		// --text-muted, which drops to WCAG ~2.5 on the warm light palettes. A
 		// muted-blended border lifts the panel edge to ~1.87; a body-blended detail
-		// colour lifts the hint to ~3.85 while staying secondary to the label.
+		// color lifts the hint to ~3.85 while staying secondary to the label.
 		'--cm-pop-border': 'color-mix(in srgb, var(--border) 45%, var(--text-muted))',
 		'--cm-detail': 'color-mix(in srgb, var(--text-muted) 50%, var(--text-body))',
 	},
@@ -455,7 +455,7 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 	// travels with the deck (set from the deck-setup drawer) with no extra wiring: a
 	// `validate: off` write re-lints to zero findings through the normal edit path.
 	// The vocab Sets are rebuilt each run so component names bridged into `vocab` live
-	// (the author's saved local components) are recognised. lintCore is imported on
+	// (the author's saved local components) are recognized. lintCore is imported on
 	// demand so editor surfaces that never validate don't pull the authoring-core
 	// bundle. The source is async — CodeMirror's linter awaits the returned promise.
 	let lintCoreMod = null;

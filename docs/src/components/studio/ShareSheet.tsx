@@ -34,7 +34,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	const close = () => onOpenChange(false);
 	// The sheet has a format MENU plus a pre-export OPTIONS step per format that has
 	// a real per-artifact decision: PDF (comments as sticky notes), the Webpage player
-	// (colour mode / strip speaker notes), PRINT (paper + colour with a live preview),
+	// (color mode / strip speaker notes), PRINT (paper + color with a live preview),
 	// IMAGE SET (format / resolution), and the MARP bundle (who the overflow marker
 	// speaks to). Reset to the menu whenever the sheet re-opens so it never lands
 	// mid-flow.
@@ -230,7 +230,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 								<Row busy={busy === 'pdf'} status={progress} icon={<Download className="size-4" />} title="PDF" desc="One slide per page — choose what rides along" onClick={() => setView('pdf')} />
 								<Row busy={busy === 'pptx'} status={progress} icon={<Monitor className="size-4" />} title="PowerPoint" desc="PPTX, one slide per page" onClick={() => run('pptx', 'PowerPoint', (onStatus) => sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss))} />
 								<Row busy={busy === 'images'} status={progress} icon={<Images className="size-4" />} title="Images (.zip)" desc="One image per slide — PNG/JPEG/WebP, thumbnails, chart SVGs" onClick={() => setView('imageset')} />
-								<Row icon={<Printer className="size-4" />} title="Print deck" desc="Pick paper &amp; colour, preview, then print or save" onClick={() => setView('print')} />
+								<Row icon={<Printer className="size-4" />} title="Print deck" desc="Pick paper &amp; color, preview, then print or save" onClick={() => setView('print')} />
 								<Row busy={busy === 'html'} status={progress} icon={<Globe className="size-4" />} title="Webpage (.html)" desc="One self-contained file — opens in any browser, offline" onClick={() => setView('html')} />
 								<Row busy={busy === 'captions'} status={progress} icon={<Captions className="size-4" />} title="Captions (.vtt)" desc="Read-along WebVTT from your slide content — no audio, no key" onClick={() => run('captions', 'Captions', (onStatus) => shareCaptions(options, artifactSource, name, palette, mode, extraTheme, onStatus))} />
 							</PanelSection>

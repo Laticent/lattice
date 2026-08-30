@@ -6,7 +6,7 @@
  * an import target (lib/engine/themes.js keys themes by @theme name) — it is NOT
  * meant to be picked directly and is excluded from the theme picker. A shared
  * partial the four
- * colour-vision-deficiency palettes @import. It carries everything identical
+ * color-vision-deficiency palettes @import. It carries everything identical
  * across them so each a11y-<type>.css is just its @theme header + the one bit
  * that genuinely differs — the status trio (pass/warn/fail), recoloured off the
  * axis that type collapses.
@@ -20,7 +20,7 @@
  * regardless of the viewer's light/dark preference, so this base forces
  * `color-scheme: light` (beating the global dark toggle's `:root{...:dark}` on
  * specificity) — every token resolves to its light value and the mode toggle
- * has no effect. Accordingly every colour here is a FIXED hex, not a
+ * has no effect. Accordingly every color here is a FIXED hex, not a
  * `light-dark()` pair: there is no dark side to flip.
  *
  * TWO EXCEPTIONS BELOW, plus a third that IS a mode: the shipped `--player`
@@ -42,8 +42,8 @@
  * paired: the categorical ramp is fixed grays that read on either canvas.
  *
  * Redundant encoding (engineering/decisions/2026-06-16-cvd-redundant-encoding.md):
- * colour alone separates only ~1–2 categories under dichromacy, so the heavy
- * lifting is the non-colour channels below — categorical TEXTURE patterns,
+ * color alone separates only ~1–2 categories under dichromacy, so the heavy
+ * lifting is the non-color channels below — categorical TEXTURE patterns,
  * status GLYPHS, and per-series LINE-STYLES. The texture <pattern> <defs> these
  * fills reference (`url(#latt-a11y-tex-N)`) are emitted by the engine on every
  * render (lib/core/accessibility-textures.js) — the one engine seam; same-
@@ -124,7 +124,7 @@
   --cat-on-mark: #FFFFFF;
 
   /* Categorical cycle — fixed grayscale value ramp. The approved textures
-   * overlay these to carry the distinction colour alone cannot beyond ~6 steps. */
+   * overlay these to carry the distinction color alone cannot beyond ~6 steps. */
   --cat-1-fill:  #e8e8e8;
   --cat-2-fill:  #dedede;
   --cat-3-fill:  #d5d5d5;
@@ -197,7 +197,7 @@
   /* ── end chart categorical ink ── */
 
   /* ── Categorical TEXTURE — adopt the universal channel ─────────────────
-   * CVD viewers can distinguish only ~1-2 categories by colour, so opt into the
+   * CVD viewers can distinguish only ~1-2 categories by color, so opt into the
    * literal a11y texture set. The canonical mermaid.css / chart rules paint
    * var(--cat-N-texture, …), so these tokens texture EVERY categorical diagram
    * (mindmap, pie, kanban, timeline, treemap, …) at once — replacing the former
@@ -219,7 +219,7 @@
   --cat-12-texture: url(#latt-a11y-tex-12);
 }
 
-/* (The texture <defs> no longer read any token — they paint LITERAL greyscale
+/* (The texture <defs> no longer read any token — they paint LITERAL grayscale
  * hex, self-contained, because resolving a var at the page-level defs proved
  * fragile on real iOS Safari. See lib/core/accessibility-textures.js. The ramps
  * here remain the source those literals mirror.) */
@@ -297,8 +297,8 @@ section.funnel .funnel-band:nth-of-type(6n+4) { fill: url(#latt-a11y-chart-tex-4
 section.funnel .funnel-band:nth-of-type(6n+5) { fill: url(#latt-a11y-chart-tex-5) !important; }
 section.funnel .funnel-band:nth-of-type(6n+6) { fill: url(#latt-a11y-chart-tex-6) !important; }
 /* Line-style variation — multi-series line charts (radar). Overlapping series
- * are greyscale here, so a distinct stroke-dasharray per series carries the
- * distinction colour can't: solid / dashed / dotted / dash-dot / … */
+ * are grayscale here, so a distinct stroke-dasharray per series carries the
+ * distinction color can't: solid / dashed / dotted / dash-dot / … */
 section.radar .radar-poly[data-series="0"] { stroke-dasharray: none !important; }
 section.radar .radar-poly[data-series="1"] { stroke-dasharray: 7 4 !important; }
 section.radar .radar-poly[data-series="2"] { stroke-dasharray: 1.5 3.5 !important; stroke-linecap: round; }

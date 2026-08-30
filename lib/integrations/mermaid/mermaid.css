@@ -9,8 +9,8 @@
  *   2. DIAGRAM OVERRIDES — per-diagram CSS overrides for Mermaid-emitted
  *      SVG (flowchart, journey, mindmap, gitgraph, treemap, c4, venn,
  *      ishikawa, sankey, packet, architecture, er). Every rule addresses
- *      a real Mermaid behaviour (hardcoded internal palettes, ignored
- *      themeVariables, missing class hooks). All colour tokens consumed
+ *      a real Mermaid behavior (hardcoded internal palettes, ignored
+ *      themeVariables, missing class hooks). All color tokens consumed
  *      are --cN-light/--cN-dark plus the structural --diagram-* tokens.
  *
  * Bundle position: end of bundle (TAIL_SOURCES tail). Mermaid SVG
@@ -117,10 +117,10 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * DIAGRAM OVERRIDES (Mermaid-emitted SVG selectors, palette-blind)
  * ════════════════════════════════════════════════════════════════════════
  * Per-diagram CSS overrides for Mermaid-emitted SVG. Every rule addresses
- * a real Mermaid behaviour (hardcoded internal palettes, ignored
+ * a real Mermaid behavior (hardcoded internal palettes, ignored
  * themeVariables, missing class hooks); none are speculative.
  *
- * All colour tokens consumed are --cN-light/--cN-dark plus the
+ * All color tokens consumed are --cN-light/--cN-dark plus the
  * structural --diagram-* tokens (stroke, line, state, note, error,
  * quadrant), declared by the active palette (themes/indaco.css,
  * themes/cuoio.css, …). Rules are palette-blind: a new palette
@@ -176,7 +176,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * ──────────────────────────────────────────────────────────────────────
  * Mermaid's radar ships its curves gray with no per-curve theme hook, so we
  * paint them from the engine `--cN` categorical palette — like the band cycle
- * — giving each series a distinct, theme-flavoured colour, extensible to eight
+ * — giving each series a distinct, theme-flavored color, extensible to eight
  * curves (not the two brand accents this used to hard-code). `--cN-dark` is the
  * saturated stroke tone that flips per canvas (vivid on light, pale on dark).
  * Moved here from radar.styles.css (the NATIVE radar component): this is
@@ -379,7 +379,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * inside them (`.task-type-N`), where N is the SECTION index in source
  * order — not the emotion score (the score drives stroke / avatar
  * placement instead). Pair the section bar and its tasks on the same
- * band so each phase reads as one coloured strip from header to last
+ * band so each phase reads as one colored strip from header to last
  * task. Legacy classes (.section0/.task0 from pre-11 versions) included
  * so older renders inherit the same contract.
  */
@@ -674,14 +674,14 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * node fills and link gradients. The .node group has no per-cycle class
  * on the rect — Mermaid's only signal is element order inside
  * `<g class="nodes">`. Earlier this rule pinned every node to band-1
- * (reasoning: sankey distinguishes flows by width, not colour). That
- * left sankey reading as flat compared to treemap's six-colour
+ * (reasoning: sankey distinguishes flows by width, not color). That
+ * left sankey reading as flat compared to treemap's six-color
  * distribution.
  *
  * Cycle node fills through bands 1–8 via :nth-of-type() so each node
  * picks up a different palette slot — same principle as treemap. The
- * NODES carry the distinct colours; the link ribbons ("tentacles") are
- * connective tissue tied to c1 — the brand/lead colour every other
+ * NODES carry the distinct colors; the link ribbons ("tentacles") are
+ * connective tissue tied to c1 — the brand/lead color every other
  * diagram opens on — at reduced opacity so overlapping flows stay
  * legible and the node bars remain the primary read. --cat-1-fill is a
  * light-dark() pair, so the ribbons flip with the canvas.
@@ -856,10 +856,10 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 :is(section, figure) g.row-rect-even > path { fill: var(--bg-alt) !important; }
 :is(section, figure) g.row-rect-odd > path  { fill: var(--bg) !important; }
 
-/* ── EDGE MARKERS = EDGE COLOUR (style, both modes) ──
+/* ── EDGE MARKERS = EDGE COLOR (style, both modes) ──
  * Arrowheads and crow's-foot relationship markers render UNFILLED by default
  * in some diagram types — notably ER relationship terminals, which come out as
- * thin open outlines. Fill every marker with the flipping edge colour so each
+ * thin open outlines. Fill every marker with the flipping edge color so each
  * connector terminal reads as solidly as its line (matching flowchart/state
  * arrowheads). Not a dark-flip hack: --diagram-line flips with the canvas, so this
  * is identical in both schemes — it's a deliberate "solid terminals" style.
@@ -902,15 +902,15 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 :is(section, figure) .treeView-node-label { fill: var(--cat-on-fill) !important; }
 :is(section, figure) .treeView-node-line  { stroke: var(--diagram-line) !important; }
 
-/* ── MINDMAP BRANCH EDGES (per-section colour, brightened) ──
- * Mindmap draws each branch in its section's cScale colour (themeVar
+/* ── MINDMAP BRANCH EDGES (per-section color, brightened) ──
+ * Mindmap draws each branch in its section's cScale color (themeVar
  * cScale0-11 → --cN-dark). Those bake at the light branch and, more to the
  * point, the saturated --cN-dark tone reads dark on a dark canvas. Re-point
  * each `.section-edge-N` at the matching category, brightened via color-mix
  * toward the flipping ink (lighter on a dark slide, slightly deeper on a light
- * slide) so the branches stay COLOURED and read brightly in both modes.
+ * slide) so the branches stay COLORED and read brightly in both modes.
  * Scoped to svg.mindmapDiagram so no other diagram's edges are touched.
- * (Restores the per-branch colour an earlier over-broad edge rule flattened.)
+ * (Restores the per-branch color an earlier over-broad edge rule flattened.)
  * Section indices mirror the mindmap-node fill mapping below: 0→c1 … 5→c6. */
 :is(section, figure) svg.mindmapDiagram .section-edge--1,
 :is(section, figure) svg.mindmapDiagram .section-edge-0 { stroke: color-mix(in srgb, var(--cat-1-mark) 78%, var(--cat-on-fill)) !important; }

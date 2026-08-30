@@ -4,7 +4,7 @@
  * consumed by the Architect + Coach). Guards that the bundle (1) loads as valid
  * ESM, (2) exposes the API the panels import, and (3) stays in PARITY with the
  * source lib/authoring/* — i.e. it isn't stale. The byte-level freshness gate is
- * `npm run build:check` (build-authoring-core --check); this is the behavioural
+ * `npm run build:check` (build-authoring-core --check); this is the behavioral
  * one. See engineering/gotchas.md "Drawing Board Architect/Coach panels dead in
  * astro dev".
  */

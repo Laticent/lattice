@@ -1,7 +1,7 @@
 // Shared guided-tour helper for the docs workspaces (Playground · Workbench ·
 // Drawing Board). Wraps driver.js (MIT, ~5 KB, zero-dep) so every page gets the
-// same behaviour from one place: a "Tour" button in the topbar, a one-time
-// auto-start on a visitor's first arrival, a global on/off honoured everywhere
+// same behavior from one place: a "Tour" button in the topbar, a one-time
+// auto-start on a visitor's first arrival, a global on/off honored everywhere
 // (the Drawing Board settings drawer writes it), and palette-blind popover
 // styling that reads the same design tokens as the rest of the site.
 //
@@ -182,7 +182,7 @@ export function initGuidedTour(opts) {
 		}
 	};
 
-	// Honour the global flag, and react to it live on this page (the Drawing
+	// Honor the global flag, and react to it live on this page (the Drawing
 	// Board settings toggle dispatches through tour-prefs).
 	const applyEnabled = (on) => {
 		if (on) mountButton();

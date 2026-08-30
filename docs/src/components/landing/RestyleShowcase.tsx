@@ -74,7 +74,7 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 	React.useEffect(() => {
 		const host = stageRef.current;
 		if (!host) return;
-		let cancelled = false;
+		let canceled = false;
 		const begin = () => {
 			if (startedRef.current) return;
 			startedRef.current = true;
@@ -82,7 +82,7 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 			// (not behind it) — same fix as DeckPreview.tsx's paint().
 			engineRef.current.prefetchTheme?.(palettes[idxRef.current]?.name);
 			engineRef.current.whenReady().then(() => {
-				if (cancelled) return;
+				if (canceled) return;
 				renderAt(idxRef.current);
 				start();
 			});
@@ -103,7 +103,7 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 			begin();
 		}
 		return () => {
-			cancelled = true;
+			canceled = true;
 			io?.disconnect();
 			stop();
 		};

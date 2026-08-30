@@ -3,7 +3,7 @@
  *
  * The Issue triage gate is the board's universal backstop — it must label every
  * card that arrives off the form path, without spamming the ones that arrive on
- * it. These cases pin that behaviour so the YAML stays a thin wire over the
+ * it. These cases pin that behavior so the YAML stays a thin wire over the
  * tested core.
  */
 
@@ -60,7 +60,7 @@ describe('computeTriage — form intake must not be double-flagged', () => {
 });
 
 describe('computeTriage — idempotence + clearing', () => {
-  test('a fully-labelled card is a no-op (no repeat comment)', () => {
+  test('a fully-labeled card is a no-op (no repeat comment)', () => {
     const r = computeTriage({
       labels: ['area:engine', 'type:feat', 'priority:high', 'status:ready'],
     });

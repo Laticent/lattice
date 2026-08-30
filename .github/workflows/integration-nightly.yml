@@ -17,7 +17,7 @@ name: Integration nightly (render-regression tier)
 # nightly. See engineering/decisions/2026-06-27-integration-nightly-split.md.
 #
 # On failure it opens / appends a single rolling tracking issue (found by a title
-# marker, so it never spams), self-labelled at creation (a GITHUB_TOKEN-opened
+# marker, so it never spams), self-labeled at creation (a GITHUB_TOKEN-opened
 # issue can't trip the triage gate — GitHub's workflow-recursion guard).
 
 on:
@@ -49,7 +49,7 @@ jobs:
           key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - name: Install poppler-utils (pdfinfo) + ImageMagick + color emoji font
         # Mirror the PR integration job: pdfinfo for page counts, and an installed
-        # colour emoji font so headless-Chromium PDF renders emit emoji in colour.
+        # color emoji font so headless-Chromium PDF renders emit emoji in color.
         # ImageMagick (`identify` / `compare` / `convert`) is what tools/pixel-check.js
         # shells out to, so the `regress` step below dies on its first page comparison
         # without it — same install ci.yml's golden-diff job does.
@@ -319,7 +319,7 @@ jobs:
           retention-days: 14
 
       # On a failure, open or append a single rolling tracking issue (found by a
-      # title marker). Self-labelled at creation with the four-axis taxonomy (a
+      # title marker). Self-labeled at creation with the four-axis taxonomy (a
       # GITHUB_TOKEN-opened issue can't trigger the triage gate). Skipped when green.
       - name: Open / append regression issue
         if: steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.regress.outputs.failed == 'true'

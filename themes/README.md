@@ -1,15 +1,15 @@
 ## Themes — palettes for Lattice
 
-A **theme** is one CSS file that decides every colour on every slide.
+A **theme** is one CSS file that decides every color on every slide.
 Layouts (in `lattice.css`) are palette-blind: they only ever reference
 `var(--token)`. A palette supplies the tokens. Swap palettes, every
-colour changes; nothing about layout, spacing, or typography moves.
+color changes; nothing about layout, spacing, or typography moves.
 
 This directory ships ten palette pairs (`indaco`, `cuoio`, `atelier`,
 `brina`, `burgundy`, `crepuscolo`, `laguna`, `magnolia`, `mustard`,
 `onyx`) plus three structural extras (`ardesia`, `carbone`, `concrete`).
 Each ships a `-dark` variant — a three-line wrapper that flips the
-deck onto a dark canvas without touching colour values.
+deck onto a dark canvas without touching color values.
 
 If you're here to author a new palette: skip to **The five-minute
 path** below. The diagrams above it explain the model the engine has
@@ -76,7 +76,7 @@ The engine reads the file once. Authors edit one file.
 │   /* dark-variant tokens */ ─ --scheme-dark-bg, --scheme-dark-text-* …             │
 │ }                            consumed by light-dark() above                        │
 │                                                                                    │
-│ :root { /* hljs tokens */ } ─ code syntax colours                                  │
+│ :root { /* hljs tokens */ } ─ code syntax colors                                  │
 │ section .hljs-keyword { … } ─ + the rules that apply them                          │
 │                                                                                    │
 │ :root {                                                                            │
@@ -245,7 +245,7 @@ What to change, in order of impact:
 1. **Brand axis** (`--brand-<hue>-deep`, `--brand-<hue>-mid`,
    `--brand-<hue>`). These feed `--surface-inverse`, `--accent`, `--text-label`.
    Pick four shades along a single hue; everything else hangs off them.
-2. **Accent** (`--accent`, `--on-accent`). The most-seen colour after
+2. **Accent** (`--accent`, `--on-accent`). The most-seen color after
    ink. Must clear 4.5:1 against `--bg` and against `--accent-soft`.
 3. **Categorical cycle** (`--cat-1-fill` / `--cat-1-mark` through
    `--cat-12-fill` / `--cat-12-mark`, plus the flipping `--cat-on-fill` and
@@ -259,7 +259,7 @@ What to change, in order of impact:
    radar's second curve and similar.
 5. **Universal semantic palette** (`--diagram-active` / `--diagram-active-mark`
    / `--diagram-done` / `--diagram-done-mark` / `--diagram-critical` / `--diagram-critical-mark`
-   / `--diagram-today` / `--diagram-note`). The deck's status-signaling colours.
+   / `--diagram-today` / `--diagram-note`). The deck's status-signaling colors.
    Inherit lattice.css defaults (cuoio is the one theme that overrides
    for its leather aesthetic).
 6. **Dark variant tokens** (`--scheme-dark-*`). Used by `section.dark` and by
@@ -277,7 +277,7 @@ references the `--c-*` tokens by name — your new values flow through.
    symptom                                    likely cause
    ────────────────────────────────────────   ───────────────────────────────
    Mermaid diagram renders Mermaid defaults   --c-* token missing from
-   (gray boxes, no brand colour)              palette — DIAGRAM OVERRIDES
+   (gray boxes, no brand color)              palette — DIAGRAM OVERRIDES
                                               rule falls through. Run
                                               test/unit/palette.test.js to
                                               catch missing tokens.
@@ -299,7 +299,7 @@ references the `--c-*` tokens by name — your new values flow through.
                                               var(--text-heading)
 
    One slide is dark but the title shows      section.title pulls --scheme-dark-*
-   wrong colours                              tokens directly; your dark
+   wrong colors                              tokens directly; your dark
                                               variant block is incomplete
 ```
 
@@ -315,5 +315,5 @@ For deeper triage see `engineering/gotchas.md`.
 | See the (retired) categorical proposal deck    | `themes/palette-audit.md` — chart-palette scoring only; its `--cat-*` values are superseded (#1022) |
 | Understand why `themeCSS` was dropped          | `engineering/decisions/2026-05-12-diagram-tokens.md` |
 | See every layout the engine ships              | `engineering/architecture.md`     |
-| Trace a colour from palette to rendered pixel  | `lattice.css` (search the token, then the DIAGRAM OVERRIDES section) |
+| Trace a color from palette to rendered pixel  | `lattice.css` (search the token, then the DIAGRAM OVERRIDES section) |
 | Diagnose a render that "looks wrong"           | `engineering/gotchas.md` |

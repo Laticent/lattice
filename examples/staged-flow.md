@@ -11,7 +11,7 @@ header: "Lattice · staged flow"
 
 # The case, built one stage at a time.
 
-Three new `list-steps` variants for a labelled argument that cascades **down**
+Three new `list-steps` variants for a labeled argument that cascades **down**
 the frame — a chevron cascade, a converging funnel, and an editorial ghost —
 all from the same plain numbered list.
 

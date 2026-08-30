@@ -5,7 +5,7 @@
 /* ── PROGRESS ──
  * Stack of horizontal bars, one per list item. Each row carries a label,
  * a bar (filled to --pct), a numeric readout, and an optional status pill.
- * The fill colour tints with the status. */
+ * The fill color tints with the status. */
 :is(section.progress, figure.progress).chart-frame .chart-body {
   /* Inherit the shared inset — the stage cell's, since #1598 — so progress is
    * inset exactly like every other chart. Don't re-assert one here: the old

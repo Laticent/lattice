@@ -502,7 +502,7 @@ describe('lattice-engine: css emission (P1.1)', () => {
 // counters) are INVISIBLE to the headless-Chromium pixel gates — they live in the
 // CSS cascade, not the rendered frame. So we gate the emitter at the RULE level:
 // pack the REAL dist/lattice.css through the engine and assert the three
-// load-bearing pack behaviours directly. Rule-level ⇒ browser-independent ⇒
+// load-bearing pack behaviors directly. Rule-level ⇒ browser-independent ⇒
 // catches the bug class the pixel harness cannot. (These were cross-checked
 // against marp-core's packer during the migration; the engine is now canonical,
 // so the assertions stand on their own.)

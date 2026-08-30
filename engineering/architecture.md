@@ -218,7 +218,7 @@ component folders free of render-path plumbing.
 
 ## CSS owns layout; JS is a bounded post-processing set
 
-The division of labour across the engine is sharp, and worth stating as a
+The division of labor across the engine is sharp, and worth stating as a
 contract: **CSS owns all layout and appearance; JS exists only for the things
 CSS fundamentally cannot do to the HTML.** No layout is computed in JS — JS only
 produces the right DOM, then CSS lays it out and styles it. (The masthead band,

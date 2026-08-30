@@ -36,7 +36,7 @@ section by 1-2 lines.
 
 ## `accent`
 
-Replaces the default rainbow top-stripe with a solid accent-colour
+Replaces the default rainbow top-stripe with a solid accent-color
 stripe and tints the slide heading. Composes with `dark`: on the dark
 canvas, where the spectrum stripe is suppressed, `accent.dark` restores
 a solid accent stripe so the visual signal still reads.

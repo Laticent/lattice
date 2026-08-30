@@ -2,8 +2,8 @@
  * See lib/components/chart/funnel/funnel.manifest.json for the contract.
  *
  * The kernel (funnel.transform.js) emits a <div class="funnel-figure"> with an
- * SVG of centred trapezoid bands, stage labels (left), values (right), and the
- * stage-to-stage conversion % in the gaps. All colour lives here so the kernel
+ * SVG of centered trapezoid bands, stage labels (left), values (right), and the
+ * stage-to-stage conversion % in the gaps. All color lives here so the kernel
  * stays palette-blind: bands carry `--i` (their index) and ride a single-hue
  * ramp off --chart-cat-1-hue; text uses the canvas ink tokens. Unlayered like every
  * other component file (broad @layer activation is blocked — see cascade.md). */
@@ -22,13 +22,13 @@
 }
 
 /* Bands — one distinct hue per stage, rotating the categorical chart palette
- * exactly like the piechart wedges, so a stage reads as its own colour. This
+ * exactly like the piechart wedges, so a stage reads as its own color. This
  * is the "on-brand" palette: themes curate --chart-catN (cuoio's earth
  * pigments, etc.), so the rotation greens/browns/etc. per theme rather than
  * sitting on a fixed blue. Vivid solid (mix toward --bg for body, the same
  * 82% richness the pie legend swatch uses), six-hue cap (Wong 2011) matching
  * PIE_PALETTE. Labels + values sit on the canvas, never on a band, so the fill
- * never affects text contrast. A hairline canvas-coloured stroke keeps adjacent
+ * never affects text contrast. A hairline canvas-colored stroke keeps adjacent
  * bands crisp.
  *
  * :nth-of-type counts <polygon> siblings — every band is a polygon and the only
@@ -65,7 +65,7 @@
   dominant-baseline: central;
 }
 
-/* Conversion rate — small, muted, centred in the gap below each band. */
+/* Conversion rate — small, muted, centered in the gap below each band. */
 :is(section.funnel, figure.chart-frame) .funnel-conv {
   fill: var(--text-muted);
   font-family: var(--font-label);

@@ -46,7 +46,7 @@ afterEach(() => { localStorage.clear(); vi.clearAllMocks(); });
 describe('Present — full screen', () => {
 	// The rule this is here to keep: HIDDEN where the API is absent, never a disabled
 	// control. iPhone Safari has shipped no Fullscreen API for arbitrary elements for
-	// the whole life of the API, and a greyed-out button there sends the reader hunting
+	// the whole life of the API, and a grayed-out button there sends the reader hunting
 	// for a setting that does not exist.
 	it('shows no button at all where the browser has no Fullscreen API', () => {
 		render(<PresentOverlay open onClose={() => {}} options={options} slides={slides} notify={() => {}} />);

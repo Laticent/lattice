@@ -12,7 +12,7 @@
 // pays the scan cost while a consumer is subscribed — off = free.
 //
 // WHAT IT SURFACES. The same black-fill signal the CI guard checks
-// (tools/check-viz-render.js, shipped #961): an SVG chart colour that dropped to
+// (tools/check-viz-render.js, shipped #961): an SVG chart color that dropped to
 // black because a themed `var()` resolved to nothing (a scoping/token break, the
 // #956 class). The CI guard proves it on the gallery in Chromium; this overlay
 // shows it live on whatever deck the author is editing, on their real device.
@@ -23,7 +23,7 @@ type Listener = (on: boolean) => void;
 const listeners = new Set<Listener>();
 
 // Available in every environment (like the perf overlay pre-GA): a real device is
-// exactly where a scoped-render colour drop shows up, so authors can self-diagnose.
+// exactly where a scoped-render color drop shows up, so authors can self-diagnose.
 export const VIZ_OVERLAY_AVAILABLE = true;
 
 export function vizOverlayEnabled(): boolean {
@@ -55,7 +55,7 @@ export function onVizOverlayEnabledChange(fn: Listener): () => void {
 	};
 }
 
-/** Honour a `?viz` URL param once at load — a phone can enable without the drawer. */
+/** Honor a `?viz` URL param once at load — a phone can enable without the drawer. */
 export function applyVizOverlayUrlParam(): void {
 	try {
 		const p = new URLSearchParams(location.search);

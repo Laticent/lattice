@@ -21,7 +21,7 @@
  *   node tools/theme-scorecard.js --check    # exit 1 on any contract gap
  *                                            # (the durable parity gate)
  *
- * The colour math (sRGB↔OKLab, WCAG) mirrors chart-contrast.test.js exactly so
+ * The color math (sRGB↔OKLab, WCAG) mirrors chart-contrast.test.js exactly so
  * the two never disagree. See engineering/decisions for the curation history.
  */
 
@@ -77,7 +77,7 @@ const CONTRACT = [
   'chart-state-warn', 'chart-state-fail', 'chart-state-info', 'chart-state-mute',
 ];
 
-// ── Colour math (identical to chart-contrast.test.js) ───────────────────────
+// ── Color math (identical to chart-contrast.test.js) ───────────────────────
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const toLinear = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
 const encode = (c) => { c = clamp01(c); return c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055; };

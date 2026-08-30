@@ -3,7 +3,7 @@
  * Lattice · Accessibility — Protanopia (red-green, red-weak)
  * ────────────────────────────────────────────────────────────────────────
  * A first-class, mode-invariant palette: pick `theme: a11y-protanopia` like
- * any theme. Shared machinery (greyscale categorical ramp, texture wiring,
+ * any theme. Shared machinery (grayscale categorical ramp, texture wiring,
  * status glyphs, forced light scheme) lives in a11y-base.css.
  *
  * Protanopia and deuteranopia both collapse the red-green axis, so they share

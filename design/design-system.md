@@ -1078,7 +1078,7 @@ discovery story that markdown alone can't provide.
   shape, only the row layout differs, so they stay as variants.
   Kept as a review rule, not encoded in the manifest, to avoid
   inventing a `dataShape` field before we know we need one. Revisit
-  if review judgement starts drifting.
+  if review judgment starts drifting.
 - **Multi-substance components — `substance: "mixed"` on panel
   forms.** The four-substance plugin contract stays at four. A panel-
   form component that legitimately combines prose + structure may

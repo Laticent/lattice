@@ -13,7 +13,7 @@ header: "Computational neuroscience · Course overview"
 
 # Computational Neuroscience: from spikes to circuits
 
-A twelve-week graduate course modelling how neurons compute, individually and together.
+A twelve-week graduate course modeling how neurons compute, individually and together.
 
 ---
 
@@ -34,7 +34,7 @@ A twelve-week graduate course modelling how neurons compute, individually and to
 
 ## This course builds a working brain model, one layer at a time.
 
-We start from a single neuron's electrical behaviour and end with networks that learn. Every week adds a layer: from the membrane equation, to spiking models, to populations, to plasticity. By December you will have coded each one yourself.
+We start from a single neuron's electrical behavior and end with networks that learn. Every week adds a layer: from the membrane equation, to spiking models, to populations, to plasticity. By December you will have coded each one yourself.
 
 ---
 

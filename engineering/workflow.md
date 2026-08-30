@@ -42,7 +42,7 @@ Each worktree is fully independent — you can run `npm test` in both simultaneo
 ## One feature, one branch — never a stacked PR chain
 
 A worktree-per-feature (above) is for **different** features in parallel, each
-off `main`. It is **not** licence to split **one** feature across many PRs.
+off `main`. It is **not** license to split **one** feature across many PRs.
 
 **One feature = one branch, incremented in place → one PR.** Many commits on that
 branch is good — review it commit-by-commit if it's large (PR #272, the shadcn
@@ -710,7 +710,7 @@ parked PR has gone stale. This is HARD RULE #16.
 **Don't try to watch for drift.** An earlier version of this rule armed a
 continuous background `Monitor` that polled `origin/main` and rebased on every
 movement. It backfired two ways: against a parallel merge train it produced N
-force-pushes, N cancelled CI runs, and a spurious red gate, with green
+force-pushes, N canceled CI runs, and a spurious red gate, with green
 unreachable until the chasing stopped
 (`decisions/2026-06-14-drift-watch-rebase-thrash.md`); and the steady stream of
 poll events, timer pings, and force-push churn made the chat unusable. The watch
@@ -893,7 +893,7 @@ The contract, and its limits — be precise about what it does and doesn't cover
   anything deferred. If the PR body is the fuller account, a one-line pointer
   (`superseded by the PR — see #N`) is enough; the card need not restate the PR.
   The bar is **no closed card describes work that didn't happen.** This is the
-  issue-side analogue of keeping the PR title/body honest (HARD RULE #13) — and
+  issue-side analog of keeping the PR title/body honest (HARD RULE #13) — and
   nothing automates it, so it's on the agent driving the merge.
 - **Post-merge teardown.** Once the merge is confirmed:
   1. `git fetch origin`

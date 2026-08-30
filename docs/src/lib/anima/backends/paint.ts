@@ -1,9 +1,9 @@
-// Anima backends — shared paint helpers. Token colours are resolved to a concrete value
+// Anima backends — shared paint helpers. Token colors are resolved to a concrete value
 // AT PAINT TIME by reading the host's computed CSS (palette-blind authoring, HARD RULE #3):
 // the same scene recolours with the theme, and a theme switch re-resolves on the next draw.
 // DOM-touching, so it lives under backends/ (the pure core stays DOM-free).
 
-/** Resolve ANY colour expression — `var(--token)`, `light-dark(...)` (how Lattice themes
+/** Resolve ANY color expression — `var(--token)`, `light-dark(...)` (how Lattice themes
  *  define tokens), `hsl()/oklch()`, a hex, a keyword — to a concrete, NORMALIZED `rgb()`/
  *  `rgba()` string, by probing the browser's own computed style in the host's context (so
  *  the theme's custom props + color-scheme apply). Normalizing to rgb is what lets
@@ -33,7 +33,7 @@ export function resolveColor(color: string | undefined, host: Element, fallback 
   }
 }
 
-/** Apply `alpha` (0..1) to a concrete colour, so `reveal` reads as OPACITY. Handles
+/** Apply `alpha` (0..1) to a concrete color, so `reveal` reads as OPACITY. Handles
  *  `rgb()/rgba()` (what getComputedStyle returns) and `#rgb/#rrggbb`; other forms pass
  *  through unchanged (alpha 1 is a no-op anyway). */
 export function withAlpha(color: string, alpha: number): string {

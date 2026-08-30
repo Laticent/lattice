@@ -135,7 +135,7 @@ front-matter extension (`lib/core/resolve-split.js`), binary by design:
 | `split:` value | Slides divide on | Notes |
 |---|---|---|
 | `headings` | the first `#` (lead) + every `##`, **and** `---` | The **default** (omit the key). Eyebrow-aware + hybrid (below). |
-| `rule` | a top-level `---` only | Opt back into the Marp-classic separators-only behaviour. |
+| `rule` | a top-level `---` only | Opt back into the Marp-classic separators-only behavior. |
 
 The default `headings` divider is **eyebrow-aware**: a slide's lead-in — its
 `<!-- _key -->` directive comments and its eyebrow paragraph, both written
@@ -560,10 +560,10 @@ Record, with the per-format measurements on both exporters:
 | `sketch` | Full handwriting (headings **and** body) + drawn boxes. The default. |
 | `sketch sketch-clean-body` | Keep hand headings + boxes; return prose to the clean `--font-body` for text-dense slides. |
 | `--sketch-ink` | The ink the boxes are drawn in (defaults to `--text-heading`); a theme override seam. |
-| `--sketch-font-display` / `--sketch-font-body` | The hand fonts; swap either to re-flavour the whole finish in one line. |
+| `--sketch-font-display` / `--sketch-font-body` | The hand fonts; swap either to re-flavor the whole finish in one line. |
 | `--pill-font` | Re-pointed at the hand body face under `sketch` so label chips/badges read hand-drawn; override per theme to restore a clean label font. |
 | `--font-label` | The label voice (eyebrows, table headers, stat sub-labels, header/footer, pagination); defaults to `--font-mono`, re-pointed at the hand sans under `sketch`. |
-| `--rough-ink-stroke` | **Enrollment.** A structure with a non-empty value gets its lines drawn in rough.js, in this colour. Set it (and `--rough-ink-width`) to opt a new structure in. |
+| `--rough-ink-stroke` | **Enrollment.** A structure with a non-empty value gets its lines drawn in rough.js, in this color. Set it (and `--rough-ink-width`) to opt a new structure in. |
 | `--rough-ink-width` | Stroke weight for that structure's ink, in px. The frame is drawn a little heavier than the rules it encloses. |
 | `--rough-ink-cols` | Set to `1` to also ink a table's COLUMN boundaries. Off by default, and nothing ships it on — no table component rules columns, and inking them unasked turns a comparison table into a spreadsheet. |
 | `--sketch-wave` | The old tiled pen-waver, now the **no-script fallback only**. Every rule it draws is switched off under `:root.rough-inked`. Don't add callers. |

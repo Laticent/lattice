@@ -1,5 +1,5 @@
 {
-  "note": "Sanctioned opaque-black SVG paint on the SCOPED render path. Each entry is a legitimately-black ink/hairline, NOT a dropped-colour bug. Regenerate with `node tools/check-viz-render.js --bless`; justify any addition in the PR.",
+  "note": "Sanctioned opaque-black SVG paint on the SCOPED render path. Each entry is a legitimately-black ink/hairline, NOT a dropped-color bug. Regenerate with `node tools/check-viz-render.js --bless`; justify any addition in the PR.",
   "themes": [
     "indaco",
     "cuoio"

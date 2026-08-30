@@ -13,7 +13,7 @@
  * | CCPA       | [x]    | [-]     | [x]       | [x]    | [x]  |
  *
  * Cells are authored with the state-marker grammar [x]/[-]/[ ]/[/], decoded
- * into status-coloured state discs (masked SVG via --state-mark). Variants:
+ * into status-colored state discs (masked SVG via --state-mark). Variants:
  * .heat (cell fills), .pills (cell pills), .lanes (row stripes),
  * .asymmetric (cards).
  * ──────────────────────────────────────────────────────────────────── */
@@ -73,12 +73,12 @@ section.obligation-matrix tbody tr:nth-child(odd) td:not(:first-child) {
  *   <span class="state {pass|warn|fail|skip} {state-full|state-half|state-empty|state-slashed}">…</span>.
  * The shape class selects the in-disc mark (check / dash / x / slash via
  * --state-mark); the semantic class resolves --state-color. SHAPE is the
- * primary channel — readable in greyscale, unambiguous for colour-blind
+ * primary channel — readable in grayscale, unambiguous for color-blind
  * viewers. The disc (this element) + masked mark (::after) follow the
  * scalar-knob recipe shared with checklist / verdict-grid; no font
  * dependency, no Unicode glyphs.
  *
- * Default colour mapping is the per-category coverage palette
+ * Default color mapping is the per-category coverage palette
  * (applies = green; partial = amber; exempt = red; skipped = muted).
  * The universal `.heat` modifier (top of LAYOUTS section) flips to the
  * risk axis (applies = alarm red, exempt = relief green). This layout
@@ -99,7 +99,7 @@ section.obligation-matrix td .state {
   white-space:nowrap;
   line-height:1;
   /* Disc fill + ring + lift from the scalar knobs (default Ringed Solid or
-   * a .checks-* variant). Colours mixed here from --state-color. Mirror
+   * a .checks-* variant). Colors mixed here from --state-color. Mirror
    * recipe: checklist.styles.css, verdict-grid.styles.css. */
   background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
@@ -118,7 +118,7 @@ section.obligation-matrix td .state.skip { --state-color:var(--muted-mark); }
  * still unmistakable by shape — this ring has no inner mark at all. */
 section.obligation-matrix td .state.todo { --state-color:var(--muted-mark); }
 /* Mark overlay — masked symbol (check / dash / x / slash) on the disc.
- * Mark colour from --state-mark-pct (0% = knockout to --bg). */
+ * Mark color from --state-mark-pct (0% = knockout to --bg). */
 section.obligation-matrix td .state::after {
   content:'';
   position:absolute; inset:0;

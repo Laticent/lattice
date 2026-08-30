@@ -31,7 +31,7 @@ modifier keeps slide content clear of those bands.
   portrait or square (`data-orientation`); on a landscape deck it's inert.
 - **How it works.** The engine emits px safe bands from the geometry —
   `--safe-top` (12% of height) and `--safe-bottom` (20%, covering the taller
-  caption bar) — and `safe` reserves them as content padding (content stays centred
+  caption bar) — and `safe` reserves them as content padding (content stays centered
   within the reduced area) and lifts the footer chrome above the caption band.
   The same bands are emitted by the runtime preview, so the Drawing Board matches
   the export. Tune per deck by overriding `--safe-top` / `--safe-bottom`.
@@ -153,13 +153,13 @@ will not wrap — it just makes a wide pill. (This is a guideline, not a
 hard validator: enforcing a word count in CSS would require truncating
 text, which hides content, so it is intentionally left to the author.)
 
-**Pills share one structure, not one colour.** Every pill across every
+**Pills share one structure, not one color.** Every pill across every
 layout draws its geometry — radius, proportional (em-based) padding, the
-body sans, weight, tracking, and centre-/middle-aligned text — from the
+body sans, weight, tracking, and center-/middle-aligned text — from the
 universal `--pill-*` tokens in `base.tokens.css`. (Pills use the deck's
 sans, not mono: a pill is a status / label chip, not code, and the sans
-also vertically centres caps correctly where mono seats them high.) The
-separate non-pill citation/identifier chips keep their own mono. Colour
+also vertically centers caps correctly where mono seats them high.) The
+separate non-pill citation/identifier chips keep their own mono. Color
 stays per-pill:
 a layout sets `--pill-fg` / `--pill-bg` / `--pill-border` (or its own
 semantic hue tokens) to carry the meaning. Three pills are **sanctioned
@@ -456,7 +456,7 @@ Authors don't carry presentational markup.
 
   The card becomes a vertical column-flex: tag fits its content height
   and spans the full card width; body stretches into the remaining
-  height (vertically centred). Use when the slot label is the
+  height (vertically centered). Use when the slot label is the
   architectural signal of the card — the categorical case (`BUILD` /
   `WHY NOT BUY` / `WHY NOT DELAY`) — rather than a quiet marker.
   Default flush-corner stays for the editorial register where the body
@@ -717,10 +717,10 @@ divider** every Form slide already draws. Boxed blockquotes (`quote`,
 `redline`) and bordered rows (`actors`, `list`, `checklist`, `agenda` cards
 and rings) still bend a `border-radius`; they convert next. The
 governing rule is *roughen the lines the deck draws, never invent a box* —
-so structures that draw none (`big-number`, `stats` — pure centred type)
+so structures that draw none (`big-number`, `stats` — pure centered type)
 stay font-only, and content the slide merely contains (photos, real
 `code`, chart/diagram SVG geometry) is left untouched. Where a structure
-carries a meaning-bearing colour (the per-actor hue, redline's add/remove
+carries a meaning-bearing color (the per-actor hue, redline's add/remove
 spine) the finish wobbles the corners but never recolours the border.
 Every glyph of prose takes a hand face. The display numerals (`stats`,
 `big-number`, `quote`, KPI heroes) ride the felt-tip via the `--font-display`
@@ -748,9 +748,9 @@ CSS.
 
 It is the **`mode:` axis** — the deck's rendering *mode* (its typographic
 hand), a sibling of the `finish:` backdrop within the Function · Form · Substance
-· Finish model: it changes type and box geometry, never colour. Every stroke
+· Finish model: it changes type and box geometry, never color. Every stroke
 resolves through a palette token, so the style is **palette-blind** — pair it
-with any theme and that theme colours it. The curated `carta` paper-and-ink
+with any theme and that theme colors it. The curated `carta` paper-and-ink
 palette is the blessed pairing.
 
 ```yaml
@@ -881,8 +881,8 @@ identically everywhere, and the fourth (`[ ]`) reads by local meaning.
 
 Each marker is a **status-colored circle carrying a distinct mark**. The
 mark *shape* carries the meaning independently of color — the
-colour-blind-safe redundant channel — so the states stay unambiguous in
-greyscale or for colour-vision-deficient viewers (the old fill-level
+color-blind-safe redundant channel — so the states stay unambiguous in
+grayscale or for color-vision-deficient viewers (the old fill-level
 discs, distinguished only by how full they were, did not).
 
 | Marker | Class | Mark | Semantic |
@@ -890,13 +890,13 @@ discs, distinguished only by how full they were, did not).
 | `[x]` | `state pass` | check (green) | succeeded, chosen, complete |
 | `[-]` | `state warn` | dash (amber) | partial, caveat, qualified pass |
 | `[ ]` | `state todo` *(neutral)* / `state fail` *(verdict-grid)* | open ring (neutral) / ✕ (red) | **todo / pending** in checklist, obligation-matrix, roadmap; **not met** in verdict-grid |
-| `[/]` | `state skip` | slash (grey) | out of scope, waived, N/A (row struck through) |
+| `[/]` | `state skip` | slash (gray) | out of scope, waived, N/A (row struck through) |
 
 **Why `[ ]` flexes — clarity over uniformity.** In `checklist` (todo),
 `obligation-matrix` (exempt), and `roadmap` (planned), `[ ]` is a
 **neutral "not yet / on the slate"** — not a failure — so it renders as a
 **true hollow ring** (`--muted-mark` edge ring, empty center — no inner mark,
-so it reads "open", not a "selected" centre-dot bullseye). In `verdict-grid`,
+so it reads "open", not a "selected" center-dot bullseye). In `verdict-grid`,
 `[ ]` is a criterion **not met**, which *is* a negative,
 so it keeps the **red ✕** (`--fail`, `--mark-x`). The decoder is
 layout-aware; the stable marks (check / dash / slash) are identical across
@@ -906,19 +906,19 @@ correctly in each context.
 **Style variants (`checks-*`).** The disc treatment is one of five
 boardroom-ready styles, switchable per slide (`_class: checklist
 checks-outline`) or per deck (`class: checks-bold`). The marks and
-status colours never change — only the disc presentation:
+status colors never change — only the disc presentation:
 
 | Variant | Disc treatment |
 |---|---|
 | *(default)* / `checks-ringed` | saturated fill + hairline darker ring; knockout mark. Stays crisp on its own status-tinted row. |
 | `checks-knockout` | flat saturated fill, knockout mark. Cleanest/classic. |
 | `checks-bold` | larger disc + heavier marks, knockout. Reads across a room. |
-| `checks-outline` | transparent fill + ring + status-colour mark. Editorial, low-ink. |
-| `checks-tonal` | soft tint fill + ring + status-colour mark. Calm; best on plain (non-tinted) backgrounds. |
+| `checks-outline` | transparent fill + ring + status-color mark. Editorial, low-ink. |
+| `checks-tonal` | soft tint fill + ring + status-color mark. Calm; best on plain (non-tinted) backgrounds. |
 
 Each variant flips only scalar CSS knobs (`--state-fill-pct`,
 `--state-ring-*`, `--state-mark-pct`, `--state-disc-scale`) at section
-scope; the leaf disc mixes the actual colours from `--state-color` +
+scope; the leaf disc mixes the actual colors from `--state-color` +
 `--bg`, so variants stay theme-aware. See `base.modifiers.css`.
 
 **Theme tokens:** `--pass`, `--warn`, `--fail` (disc fill + ring + left
@@ -956,7 +956,7 @@ visual chrome: the disc (`::before`) and the masked mark (`::after`).
 (gradient washes, vignettes) and 11 marks (SVG accent shapes), plus a
 `treatment-none` reset. `tint-corner` and `tint-edge` carry a placement
 axis (`at-tl`, `at-top`, etc.). All palette-blind via `var(--accent)`
-so palette swap = treatment colour swap.
+so palette swap = treatment color swap.
 
 ```markdown
 <!-- _class: content tint-corner at-tl -->
@@ -1107,8 +1107,8 @@ workspace files). Same constraint `class: dark` has — see
 
 **Brand style.** `logo-style: brand` adds `deck-logo-brand` to the
 injected img. The silhouette mask is removed; the logo's original
-colours render directly on a soft `--bg-alt` plate. Use when the
-brand's colours carry meaning (government insignia, university
+colors render directly on a soft `--bg-alt` plate. Use when the
+brand's colors carry meaning (government insignia, university
 crests); reach for `auto` otherwise.
 
 ---
@@ -1194,9 +1194,9 @@ The distinction is never carried by color alone: `<ins>` is underlined and
 `<del>` struck through, in addition to their hues, so both read without color
 perception and both survive a grayscale print.
 
-## Accessibility — colour-vision-deficiency themes (`a11y-*`)
+## Accessibility — color-vision-deficiency themes (`a11y-*`)
 
-Colour-vision-deficiency (CVD) accommodation is delivered as four **first-class
+Color-vision-deficiency (CVD) accommodation is delivered as four **first-class
 themes** — pick one exactly like any theme:
 
 ```yaml
@@ -1212,15 +1212,15 @@ theme**.
 
 The four are **mode-invariant**: each is a fixed palette that ignores the
 light/dark toggle, so an accessibility render reads identically for every viewer.
-They share `themes/a11y-base.css` (the texture wiring + greyscale categorical
+They share `themes/a11y-base.css` (the texture wiring + grayscale categorical
 ramp + the forced light scheme); each theme file adds only its **status trio**
 (`pass`/`warn`/`fail`, moved off that deficiency's confusion axis). The texture
 `<pattern>` `<defs>` the fills reference are emitted by the engine on every
 render (`lib/core/accessibility-textures.js`).
 
-Because colour alone distinguishes only ~1–2 categories under dichromacy, the
-themes do **not** rely on recolouring. They pair the CVD-tuned **status colours**
-with three redundant, non-colour channels that carry meaning when colour collapses:
+Because color alone distinguishes only ~1–2 categories under dichromacy, the
+themes do **not** rely on recolouring. They pair the CVD-tuned **status colors**
+with three redundant, non-color channels that carry meaning when color collapses:
 
 - **Status glyphs** — `✓` / `!` / `✗` prefix the status-pill vocabulary.
 - **Categorical textures** — a distinct pattern (diagonal, dots, grid, chevron,
@@ -1231,7 +1231,7 @@ with three redundant, non-colour channels that carry meaning when colour collaps
 
 Authors write decks normally — no per-slide markup. `achromatopsia` leans
 entirely on glyphs + textures + line-styles (its status trio is
-luminance-separated greys) — the same channels that survive black-and-white print.
+luminance-separated grays) — the same channels that survive black-and-white print.
 Design + rationale: `engineering/decisions/2026-06-16-colour-blindness-accessibility.md`
 and `…-cvd-redundant-encoding.md`.
 

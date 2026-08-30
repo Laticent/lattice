@@ -13,8 +13,8 @@ name: Modulepreload coverage nightly (docs)
 # entry; this nightly instead catches the case nothing else can: a NEW
 # client:only island added without anyone remembering to wire it up. Same
 # shape as perf-nightly.yml — opens/appends a single rolling tracking issue,
-# self-labelled (a GITHUB_TOKEN-opened issue can't trigger the Issue triage
-# gate's own labelling).
+# self-labeled (a GITHUB_TOKEN-opened issue can't trigger the Issue triage
+# gate's own labeling).
 
 on:
   schedule:

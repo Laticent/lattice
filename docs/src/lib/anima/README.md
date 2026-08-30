@@ -86,17 +86,17 @@ child's `transform` is **local** to its parent and the backend composes it, so c
 motion — a rotor spinning inside a tilting housing — is expressible. `reveal` is defined
 as **opacity** (the portable reading across a vector and a GPU backend).
 
-Colours are `var(--token)` references only (palette-blind, HARD RULE #3); the validator
+Colors are `var(--token)` references only (palette-blind, HARD RULE #3); the validator
 rejects hex, `url()`, and markup.
 
 ## API
 
 | Export | What it does |
 |---|---|
-| `parseScene(input)` | untrusted data → `{ ok, scene }` or `{ ok:false, errors }` (closed vocab, hero range, token colours, source/verb fit) |
+| `parseScene(input)` | untrusted data → `{ ok, scene }` or `{ ok:false, errors }` (closed vocab, hero range, token colors, source/verb fit) |
 | `compile(scene)` | validated scene → `Timeline` (`durationMs`, `at(tMs)`, `poster()`) |
 | `negotiate(scene, caps)` / `canRender` / `requiredCaps` | capability match between a scene and a backend |
-| `validateColor` / `usedVerbs` | the token-colour check; the verbs a scene uses |
+| `validateColor` / `usedVerbs` | the token-color check; the verbs a scene uses |
 | `ease` / `EASINGS` | the closed easing set |
 
 Types: `Scene` (`BuiltScene` \| `SvgScene`), `Motion`, `SceneState`, `ElementState`,

@@ -33,7 +33,7 @@ header: "Lattice · presentation mode"
 <!-- _class: list -->
 <!-- _footer: "Where it applies" -->
 
-## Honoured where it helps, ignored where it doesn't.
+## Honored where it helps, ignored where it doesn't.
 
 - Adobe Acrobat and Reader
   - Open the deck directly in full-screen presentation view — the headline case this is built for.

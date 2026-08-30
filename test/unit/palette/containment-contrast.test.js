@@ -150,7 +150,7 @@ describe('containment-contrast', () => {
     // The tier's doc comment promises "a monotonic luminance ladder away from the
     // canvas". Direction is NOT asserted as light-steps-down / dark-steps-up:
     // that reads the deck, not the token, and two themes break the shortcut —
-    // concrete's light canvas is a mid grey (#B8B8B5) and carbone is dark-canvas
+    // concrete's light canvas is a mid gray (#B8B8B5) and carbone is dark-canvas
     // on BOTH arms. What must hold regardless is that the two rungs move the same
     // way: a subcontainer stepping back toward the canvas inverts the nesting cue
     // and reads as a box floating above its own parent. (Perceptibility is the

@@ -43,7 +43,7 @@
  * `box-shadow: light-dark(0 0.1cqi 0.3cqi var(--col-hue), none)` on the tinted
  * kanban card, which the gate certified while fixing the identical mistake one rule
  * above. So var() values are now substituted with a battery of typed probes (a
- * colour, a length, a number, a percentage, `none`, a time, `auto`, a string, an
+ * color, a length, a number, a percentage, `none`, a time, `auto`, a string, an
  * ident) and reported only when EVERY probe is rejected — i.e. no token of any type
  * could make the declaration parse, so it is dead for structural reasons. That
  * cannot see a value whose token merely happens to be the wrong type today, and it
@@ -97,7 +97,7 @@ const SCAN_DIRS = ['lib', 'themes'].map((d) => path.join(ROOT, d)).filter((d) =>
  * not to a count, so a SECOND unpaired `line-clamp: 2` written into
  * kanban.styles.css still collapsed into the existing entry, exit 0, justification
  * now true of one site out of two. `sites` closes that: any new occurrence, in a new
- * file or an already-named one, is a NEW offence that has to be looked at. Line
+ * file or an already-named one, is a NEW offense that has to be looked at. Line
  * numbers are deliberately not pinned — they churn on every edit above.
  *
  * The gate fails on a STALE entry too (one whose declaration is gone), so the list
@@ -511,7 +511,7 @@ async function main() {
   });
 
   const dropped = pairs.filter((_, i) => !verdicts[i]);
-  const sanctioned = [], offences = [];
+  const sanctioned = [], offenses = [];
   const unused = [...SANCTIONED];
   const fileOf = (site) => site.replace(/:\d+$/, '');
   for (const d of dropped) {
@@ -526,7 +526,7 @@ async function main() {
       const near = SANCTIONED.find((s) => s.prop === d.prop && s.value === d.value);
       const stray = near ? d.sites.filter((site) => !near.files.includes(fileOf(site))) : [];
       const extra = near && !stray.length && d.sites.length !== near.sites ? { saw: d.sites.length, want: near.sites } : null;
-      offences.push({ ...d, stray, extra, sanctionedFiles: near ? near.files : null });
+      offenses.push({ ...d, stray, extra, sanctionedFiles: near ? near.files : null });
     } else {
       sanctioned.push({ ...d, why: unused[i].why });
       unused.splice(i, 1);
@@ -541,12 +541,12 @@ async function main() {
     .filter(Boolean)
     .filter((d) => !varDead.some((x) => x.prop === d.prop && x.value === d.value));
 
-  const fail = offences.length || unused.length || integrity.length || varDead.length || varDeclaredDead.length;
+  const fail = offenses.length || unused.length || integrity.length || varDead.length || varDeclaredDead.length;
   if (json) {
     console.log(JSON.stringify({
       files: files.length, declarations: all.length, skipped,
       tested: pairs.length, varTested: varPairs.length,
-      integrity, offences, varDead, varDeclaredDead, sanctioned, staleSanctions: unused,
+      integrity, offenses, varDead, varDeclaredDead, sanctioned, staleSanctions: unused,
     }, null, 1));
     process.exit(fail ? 1 : 0);
   }
@@ -597,10 +597,10 @@ async function main() {
   // is actually in the corpus: gone (delete the entry) · still present but now
   // ACCEPTED, e.g. Chromium shipped the property (delete the entry, the value is
   // fine now) · still present and still dropped, but at a site the entry does not
-  // cover (it was reported as an offence above; do not double-report it here).
+  // cover (it was reported as an offense above; do not double-report it here).
   for (const s of unused) {
     const present = pairs.find((p) => p.prop === s.prop && p.value === s.value);
-    if (present && offences.some((o) => o.prop === s.prop && o.value === s.value)) continue;
+    if (present && offenses.some((o) => o.prop === s.prop && o.value === s.value)) continue;
     console.log(`  ✗ STALE sanction — \`${s.prop}: ${s.value}\``);
     if (!present) {
       console.log('    is no longer in the CSS at all. Remove its SANCTIONED entry so the list stays honest.\n');
@@ -611,7 +611,7 @@ async function main() {
     }
   }
 
-  for (const o of offences) {
+  for (const o of offenses) {
     console.log(`  ✗ ${o.prop}: ${o.value}`);
     for (const site of o.sites) console.log(`      ${site}`);
     if (o.stray?.length) {
@@ -628,9 +628,9 @@ async function main() {
     console.log('');
   }
 
-  if (offences.length) {
+  if (offenses.length) {
     console.log(
-      `  ${offences.length} declaration(s) the rendering engine DROPS. The value is outside the\n` +
+      `  ${offenses.length} declaration(s) the rendering engine DROPS. The value is outside the\n` +
       `  property's grammar, so the declaration is invalid at parse time and never applies —\n` +
       `  silently. Fix the value, or add a SANCTIONED entry WITH its justification if the drop\n` +
       `  is deliberate (a cross-engine pair, or intent no engine implements yet).\n` +

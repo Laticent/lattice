@@ -3,7 +3,7 @@
 // One interface, four backends, behind feature detection. App code never
 // branches on the backend: complete() ALWAYS resolves to text/JSON, falling
 // through the ladder to the deterministic floor when no model is present, so a
-// missing model degrades to the proven Phase-1 behaviour rather than breaking.
+// missing model degrades to the proven Phase-1 behavior rather than breaking.
 //
 //   generation:  built-in Prompt API  →  WebLLM (opt-in)  →  floor (templated)
 //   embeddings:  Transformers.js bge-small (CDN, always the same model)  →  null

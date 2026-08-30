@@ -23,7 +23,7 @@ The same five components, rendered on a 9:16 frame. Each reflows to the box it o
 - Type stays anchored to the slide; only the structure reflows.
 - The trigger is the container's aspect, so a portrait deck and a narrow nested cell are handled by one rule.
 - Four families carry the structure: wide, square, tall, strip.
-- The author declares priority and what may drop; the layout honours it.
+- The author declares priority and what may drop; the layout honors it.
 
 ---
 

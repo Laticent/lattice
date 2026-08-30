@@ -65,7 +65,7 @@
   margin: 0 !important;
   scroll-snap-align: start;
   scroll-snap-stop: always;
-  /* Sparse content sits as a centred block rather than stretched edge-to-edge in
+  /* Sparse content sits as a centered block rather than stretched edge-to-edge in
    * the tall box (the "airy" finding from the prototype — design §8). Over-dense
    * content overflows and clips: the documented keystone limitation that the
    * later autofit / re-pagination capabilities address. */
@@ -74,7 +74,7 @@
 
 /* Stop the slide's own TEXT / figure-row content blocks (grids, lists, stat rows)
  * from growing to fill the over-tall box, so a light slide stays compact and
- * centred. Visual/media blocks that are MEANT to fill — images and the diagram /
+ * centered. Visual/media blocks that are MEANT to fill — images and the diagram /
  * chart bodies that set their own flex:1 (mermaid, chart-body, function-plot) —
  * are exempted so they still fill the fluid box rather than collapsing.
  *

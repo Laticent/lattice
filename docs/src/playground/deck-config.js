@@ -40,7 +40,7 @@ const FIELD_DEFAULTS = {
   // controller only syncs a registered palette), not here — writeFrontMatter
   // never scrubs a hand-typed value out of the author's source.
   theme: '',
-  // (Accessibility / colour-vision-deficiency is no longer a separate front-matter
+  // (Accessibility / color-vision-deficiency is no longer a separate front-matter
   // key — the a11y-* palettes are plain themes now, written through `theme:` like
   // any other. There is no `accessibility:` axis.)
   // `finish` is the deck-wide BACKDROP register (lib/core/resolve-finish.js):
@@ -59,7 +59,7 @@ const FIELD_DEFAULTS = {
   // universal-token canonical flip completed — there is one vocabulary now.)
   // `split` is how the body divides into slides (lib/core/resolve-split.js):
   // 'headings' (the default → omitted) splits on each h1/h2 (eyebrow-aware, `---`
-  // still honoured) so the deck needs no separators; 'rule' opts back to `---`-only.
+  // still honored) so the deck needs no separators; 'rule' opts back to `---`-only.
   split: 'headings',
   // `glossary` opts the deck into the auto-glossary: a reference-appendix slide built from
   // the `acronyms:` registry's `definition` fields (lib/core/glossary-auto.mjs, #920). Off

@@ -10,7 +10,7 @@
  *   <div class="state-chart-figure" data-variant="default" data-sc-transitions="[…]">
  *     <ol class="state-nodes">
  *       <li class="state-node" data-index="N" [data-kind="start|terminal"] [data-s="…"]>
- *         <span class="state-index" [data-s="…"]>N</span>   (status colours the badge)
+ *         <span class="state-index" [data-s="…"]>N</span>   (status colors the badge)
  *         <span class="state-label">…</span>
  *       </li>
  *     </ol>
@@ -18,10 +18,10 @@
  *   </div>
  *   <ol class="state-legend">…swatch + label per distinct status…</ol>
  *
- * Nodes are NEUTRAL (--bg-alt) so colour is reserved for meaning: status is NOT
+ * Nodes are NEUTRAL (--bg-alt) so color is reserved for meaning: status is NOT
  * a wide text pill (a state machine shows flow, not a dashboard) — it folds into
- * the top-right index numeral, which becomes a colour-coded badge (number = the
- * state ID, colour = the status), using the same AA-vetted tone vocabulary
+ * the top-right index numeral, which becomes a color-coded badge (number = the
+ * state ID, color = the status), using the same AA-vetted tone vocabulary
  * chart-family's .chart-status uses (pass/warn/fail/info/mute) and decoded by the
  * legend band below. Mirrors journey's glyph-in-a-disc + legend. Palette-blind
  * throughout — no hex literals, no !important, no :has() chains.
@@ -114,7 +114,7 @@ section.state-chart .state-chart-figure {
 
 /* Scale box — the NATURAL-SIZE geometry root (nodes + the absolutely-placed SVG
  * overlay), width:fit-content sized to the padded node column (the bow-gutter padding
- * is real space inside it). OUT OF FLOW (absolute, centred via top/left 50% +
+ * is real space inside it). OUT OF FLOW (absolute, centered via top/left 50% +
  * translate) so the flex viewport above never inherits its height. draw() reads its
  * natural box, routes the edges into it, then appends `scale()` to letterbox it into
  * the viewport — like the pie's <svg>, but for HTML content. */
@@ -124,10 +124,10 @@ section.state-chart .state-chart-scale {
   left: 50%;
   width: fit-content;
   transform-origin: center center;
-  transform: translate(-50%, -50%);   /* centred; draw() appends the fit scale() */
+  transform: translate(-50%, -50%);   /* centered; draw() appends the fit scale() */
 }
 
-/* Node column (TB, default) — centred, content-sized HTML nodes. The
+/* Node column (TB, default) — centered, content-sized HTML nodes. The
  * generous horizontal padding is the bow gutter: forward skips bow into
  * the right gutter, back-edges into the left, so they stay inside the
  * figure and never clip. Vertical padding hosts the start/terminal
@@ -167,7 +167,7 @@ section.state-chart .state-nodes {
   z-index: 1;
 }
 
-/* LR row — nodes flow left-to-right, centred on the cross (vertical) axis.
+/* LR row — nodes flow left-to-right, centered on the cross (vertical) axis.
  * Horizontal padding hosts the start (left) / terminal (right) markers;
  * the larger vertical padding is the bow gutter (forward below, back
  * above). overflow-x lets long rows scroll without clipping the bows. */
@@ -205,7 +205,7 @@ section.state-chart .state-node {
   padding: 0.78125cqi 1.25cqi;
   /* THE CANONICAL CHART FILL (chart-family.css): every node is a quiet neutral
    * slate tile, exactly like a kanban card with no lane. The node fill is ALWAYS
-   * neutral — status colour lives only in the index badge (see below), never the
+   * neutral — status color lives only in the index badge (see below), never the
    * node fill, so a green "on-track" node can't blend into a green wash. */
   --fill-hue: var(--muted-mark);
   --fill-ink: var(--diagram-stroke);
@@ -224,7 +224,7 @@ section.state-chart .state-node {
 
 /* Nodes stay NEUTRAL — a kanban card with no lane. Status is deliberately NOT
  * painted onto the node fill: a green "on-track" node would overload green's
- * fixed semantic and widen the column. Colour lives in the small .state-dot
+ * fixed semantic and widen the column. Color lives in the small .state-dot
  * (decoded by the legend band) — the one hue on an otherwise quiet tile.
  * (data-s is kept on the node for the dot and the start/terminal cues.) */
 
@@ -234,7 +234,7 @@ section.state-chart .state-node .state-label {
 
 /* The index numeral doubles as the status badge: a status-LESS node keeps a
  * quiet top-right ref numeral; a status node turns that numeral into a small
- * coloured badge (index + status in ONE element — no separate dot, no widening
+ * colored badge (index + status in ONE element — no separate dot, no widening
  * the node). The badge and the legend swatch share the .chart-status pill recipe —
  * --text-heading on a hue-into-bg tint + a vivid --pill-ink edge — INCLUDING its
  * numbers, which is what #1830 restored. This component reimplemented the recipe and
@@ -282,7 +282,7 @@ section.state-chart .state-index[data-s="decision"], section.state-chart .state-
 section.state-chart .state-index[data-s="deferred"], section.state-chart .state-dot[data-s="deferred"]
   { --pill-hue: var(--state-mute-hue); --pill-ink: var(--state-mute-ink); }
 
-/* Status badge — the numeral inside a coloured disc, overhanging the top-right
+/* Status badge — the numeral inside a colored disc, overhanging the top-right
  * corner (so it never overlaps the label). The wide horizontal node gutter
  * absorbs the overhang without clipping. */
 section.state-chart .state-index[data-s] {
@@ -309,7 +309,7 @@ section.state-chart .state-dot {
   border-radius: 50%;
 }
 
-/* Status legend band — a centred row of dot + label, decoding the node dots.
+/* Status legend band — a centered row of dot + label, decoding the node dots.
  * Same shape as journey's .journey-legend (flex-wrap key band). */
 section.state-chart .state-legend {
   display: flex;
@@ -334,7 +334,7 @@ section.state-chart .state-legend-label {
 
 /* Start / terminal redundancy cues alongside the SVG ●/◎ glyphs. Every node now
  * carries a 4px accent; the start node reads heavier (keeps its neutral/status
- * stripe colour), the terminal keeps its outline ring. */
+ * stripe color), the terminal keeps its outline ring. */
 section.state-chart .state-node[data-kind="start"] {
   border-left-width: clamp(7px, 0.546875cqi, 9px);
 }
@@ -413,8 +413,8 @@ section.state-chart .state-edge-arrow[data-dir="back"] {
   fill: var(--state-edge-back);
 }
 
-/* Edge labels sit ON the line at its midpoint (centred). The halo is a
- * background-coloured stroke painted UNDER the glyphs (paint-order:stroke),
+/* Edge labels sit ON the line at its midpoint (centered). The halo is a
+ * background-colored stroke painted UNDER the glyphs (paint-order:stroke),
  * knocking out the edge behind the text so the line visibly breaks around
  * the label with a clear gap on each side. */
 section.state-chart .state-edge-label {
@@ -535,7 +535,7 @@ section.state-chart.horizontal .state-node-row {
   color: var(--state-node-ink);
   border-radius: 0.46875cqi;
 }
-/* Neutral rows too — the pill carries the status colour (see the SVG-node note). */
+/* Neutral rows too — the pill carries the status color (see the SVG-node note). */
 
 section.state-chart.inline .state-node-row[data-kind="start"],
 section.state-chart.horizontal .state-node-row[data-kind="start"] {

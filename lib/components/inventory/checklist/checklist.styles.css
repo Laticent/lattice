@@ -22,7 +22,7 @@
  *   [/] → skip + state-slashed  (slash  on --muted-mark; row strikethrough)
  *
  * Every state is the SAME disc treatment carrying a DISTINCT mark, so the
- * SHAPE channel is colour-blind-safe. The Marp plugin (build) and runtime
+ * SHAPE channel is color-blind-safe. The Marp plugin (build) and runtime
  * transformer (preview) strip the marker and add
  * `class="state {pass|warn|fail|skip} {state-full|...}"` to the <li>; CSS
  * paints the disc (::before) + mark (::after). The row background tint and
@@ -69,7 +69,7 @@ section.checklist > .cell-stage > ol > li {
 section.checklist > .cell-stage > ul > li::marker,
 section.checklist > .cell-stage > ol > li::marker { content:''; }
 
-/* Per-row colour token + chrome — rail and background tint pick up the
+/* Per-row color token + chrome — rail and background tint pick up the
  * resolved --state-color via color-mix. The token itself draws via
  * ::before below. */
 section.checklist > .cell-stage > ul > li.state.pass,
@@ -128,10 +128,10 @@ section.checklist > .cell-stage > ol > li.state.skip {
   text-decoration-color:color-mix(in srgb, var(--muted-mark) 50%, transparent);
 }
 
-/* Universal state token — coloured disc + distinct in-disc mark in the
+/* Universal state token — colored disc + distinct in-disc mark in the
  * row's left column. ::before paints the disc (fill + ring + lift from
  * the scalar knobs); ::after masks the per-shape mark (check / dash / x /
- * slash) on top. Colours are mixed HERE from --state-color (resolved on
+ * slash) on top. Colors are mixed HERE from --state-color (resolved on
  * the .state row) + the knobs set by the default or a .checks-* variant.
  * Mirror recipe: verdict-grid.styles.css, obligation-matrix.styles.css. */
 section.checklist > .cell-stage > ul > li.state::before,
@@ -141,8 +141,8 @@ section.checklist > .cell-stage > ol > li.state::after {
   content:'';
   position:absolute;
   left:var(--sp-md);
-  /* Centre the disc on the row midline — the row now stretches to fill the stage
-   * and its text is centre-aligned, so a top-anchored disc would float above it. */
+  /* Center the disc on the row midline — the row now stretches to fill the stage
+   * and its text is center-aligned, so a top-anchored disc would float above it. */
   top:50%;
   transform:translateY(-50%);
   width:calc(1.15em * var(--state-disc-scale));

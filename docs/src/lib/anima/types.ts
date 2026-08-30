@@ -184,7 +184,7 @@ export interface ElementState {
   transform: ResolvedTransform;
   color?: Color; // still a token ref — resolved at paint
   /** 0→1 progressive PRESENCE, defined as OPACITY (the portable reading across a vector
-   *  and a GPU backend; a transparent-material backend honours it as material opacity).
+   *  and a GPU backend; a transparent-material backend honors it as material opacity).
    *  For an svg element this is the stroke-draw progress. */
   reveal: number;
   /** 0→1 data-bound LEVEL (the `fill` verb); 1 when no fill drives it. Its geometry

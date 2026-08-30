@@ -75,7 +75,7 @@ test('an un-paginated proof run tints each slide by deck order in Present', asyn
 	}
 
 	// CONSECUTIVE, IN ORDER — not merely distinct. "three different hues" would also pass with
-	// the run reversed or each slide pinned to its neighbour's slot, and pinning the WRONG slide
+	// the run reversed or each slide pinned to its neighbor's slot, and pinning the WRONG slide
 	// is precisely the failure mode a deck-context mechanism can introduce. The absolute start
 	// depends on how many proof slides the seeded deck already has, so the invariant is "each is
 	// the next slot in the 8-cycle".
@@ -88,7 +88,7 @@ test('an un-paginated proof run tints each slide by deck order in Present', asyn
 	expect(slots[2]).toBe((slots[1] % 8) + 1);
 
 	// And they PAINTED differently. The class assertions above would still pass if every slot
-	// resolved to one colour, which is the failure a reader actually sees.
+	// resolved to one color, which is the failure a reader actually sees.
 	expect(new Set(seen.map((s) => s.fill)).size).toBe(3);
 	for (const s of seen) expect(s.fill).toMatch(/^rgb/);
 });

@@ -2,7 +2,7 @@
 /**
  * Vendor Noto Color Emoji for the opt-in FULL-OFFLINE tier.
  *
- * The library self-hosts every TEXT face by default (zero network), but colour
+ * The library self-hosts every TEXT face by default (zero network), but color
  * emoji is a ~23 MB font — too heavy to bundle for everyone, so by default emoji
  * fall back to the installed system emoji font. Air-gapped / locked-down
  * corporate environments that can't rely on a system emoji font run this ONCE
@@ -81,7 +81,7 @@ async function main(argv) {
   fs.writeFileSync(DEST, buf);
   process.stdout.write(
     `Wrote dist/fonts/noto-color-emoji.ttf (${(buf.length / 1e6).toFixed(1)} MB). ` +
-      'Link dist/lattice-emoji.css after lattice.css for full-offline colour emoji.\n',
+      'Link dist/lattice-emoji.css after lattice.css for full-offline color emoji.\n',
   );
   return 0;
 }

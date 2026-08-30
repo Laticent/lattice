@@ -387,7 +387,7 @@ async function buildWorld(projId = 'equal-earth') {
     });
     // Continental slices of the same membership — mirrors how the G77 itself
     // organizes into regional chapters (African / Asia-Pacific / GRULAC). So an
-    // author can colour just one region of it, e.g. `global-south-africa`.
+    // author can color just one region of it, e.g. `global-south-africa`.
     const southByContinent = {};
     for (const k of southMembers) {
       const cont = regions[k]?.continent;

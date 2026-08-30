@@ -9,6 +9,7 @@ live here:
 | `architecture.md` | Engine internals; where transform kernels live |
 | `development.md` | npm scripts, tests, hooks, CI, the cloud sandbox |
 | `workflow.md` | Branching, feature decks, rebase/merge, standups + handoff briefs |
+| `house-style.md` | How we write ABOUT the work — chat, issues, PR bodies, changelog, docs, comments (HARD RULE #30) |
 | `gotchas.md` | Symptom-indexed debugging ("X looks wrong" → cause) |
 | `capabilities.md` | GENERATED index of every script/tool — don't edit |
 | `quality-assessment.md` | The 7-dimension codebase health tooling |

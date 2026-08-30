@@ -660,7 +660,11 @@ jobs:
           echo "lint=${{ needs.lint.result }} unit=${{ needs.unit.result }} integration=${{ needs.integration.result }} docs-build=${{ needs.docs-build.result }}"
           # A tier result is acceptable when it's: success; skipped (a conditional
           # tier that didn't apply — e.g. docs-only skips unit/integration); or
-          # cancelled. 'cancelled' here is a SUPERSEDED run — a force-push tripped
+          # cancelled. NOTE THE SPELLING: 'cancelled' is GitHub's own enum value
+          # (check-run conclusion / needs.<job>.result), not house prose, so HARD
+          # RULE #21 does not reach it — a US-English sweep here makes both
+          # allowlists below dead and inverts their branches. 'cancelled' here is
+          # a SUPERSEDED run — a force-push tripped
           # `concurrency: cancel-in-progress`, so a newer run on the new head SHA
           # carries the authoritative verdict. Painting the orphaned SHA red on a
           # supersession-cancel manufactured false-alarm webhooks during a merge

@@ -100,7 +100,7 @@
 
   /* ── Brand accent ──────────────────────────────────────────────────────
    * The accent is text-bearing on multiple surfaces (inline code chips,
-   * eyebrows, link colour, card headings), so it follows light-dark()
+   * eyebrows, link color, card headings), so it follows light-dark()
    * too. Light pair: brand-blue-mid on white — 5.47:1 on bg, 5.02:1 on
    * accent-soft. Dark pair: sky blue on dark-bg-alt — 8.13:1, well
    * inside AA on the inline-code chip surface. */
@@ -206,7 +206,7 @@
  * Background is kept as our brand dark (#001D33 + spectrum) rather than
  * Night Owl's #011627. All token colors are verbatim Night Owl values. */
 :root {
-  --hljs-comment:    #95aaaa;  /* Night Owl: muted teal-grey, italic     */
+  --hljs-comment:    #95aaaa;  /* Night Owl: muted teal-gray, italic     */
   --hljs-keyword:    #c792ea;  /* Night Owl: soft purple, italic         */
   --hljs-built_in:   #addb67;  /* Night Owl: yellow-green — functions    */
   --hljs-number:     #F78C6C;  /* Night Owl: warm orange                 */
@@ -339,7 +339,7 @@
   --c-on-container:       light-dark(#0A1628, #E4EDF5);
   --c-on-subcontainer:    light-dark(#0A1628, #E4EDF5);
 
-  /* ── Chart palette — indaco's curation of the chart-family's two colour
+  /* ── Chart palette — indaco's curation of the chart-family's two color
    * spectrums (defined in lib/components/chart/_chart-family/chart-family.css).
    * Ported from indaco's own --cN pigment spectrum (cool-blue lead) + its
    * living status palette, so charts read native to the theme instead of

@@ -324,7 +324,7 @@ describe('the scan indexes exactly like splitTopLevel — the pairing every call
   //     slides.forEach((slide, idx) => { const dir = directives[idx]; … })
   //
   // so if the lengths ever differ, every slide after the divergence is checked
-  // against its NEIGHBOUR's class contract — defect #3 in this module's header,
+  // against its NEIGHBOR's class contract — defect #3 in this module's header,
   // arriving through the fix for it. It is unchecked at the call sites, so it is
   // checked here.
   //

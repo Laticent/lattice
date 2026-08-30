@@ -10,7 +10,7 @@
  * failure modes a naive "slice to the next ###" helper falls into.
  *
  * Forms render each field as `### <label>` then its value; a skipped optional
- * field renders `_No response_` (normalised to '').
+ * field renders `_No response_` (normalized to '').
  */
 
 // Heading text (after stripping the ★ required-marker) → field key.

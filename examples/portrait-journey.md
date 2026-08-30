@@ -12,7 +12,7 @@ header: "Lattice · journey portrait"
 
 `journey · vertical board · portrait · 2026-06-19`
 
-A journey is horizontal by nature — stages left to right, mood dipping below a timeline. On a tall deck that strands it in a band. Portrait gets a board of its own: stages stack, each task is a row, and mood reads twice — the row's colour and the face's position.
+A journey is horizontal by nature — stages left to right, mood dipping below a timeline. On a tall deck that strands it in a band. Portrait gets a board of its own: stages stack, each task is a row, and mood reads twice — the row's color and the face's position.
 
 ---
 

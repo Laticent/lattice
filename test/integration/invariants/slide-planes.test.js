@@ -26,7 +26,7 @@
  * in `tools/build-forms.js` rejects a bare integer on a Form noun and demands the token for
  * its declared plane. Both were verified firing on that revert. An earlier version of this
  * docstring claimed the render test caught it; it does not, and the distinction is the
- * whole division of labour between the two halves of the gate.
+ * whole division of labor between the two halves of the gate.
  *
  * What this test uniquely catches is the half no static check can decide: an element that
  * is a direct section child in the DOM carrying a value that is not a plane at all, and the

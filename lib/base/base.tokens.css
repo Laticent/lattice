@@ -25,7 +25,7 @@
  * a self-hosted `@font-face` block from the canonical manifest
  * (lib/fonts/text-faces.js) into the bundle at this point (the cascade slot the
  * `@import` held), each face resolving to `url('fonts/<file>.woff2')` relative
- * to the stylesheet — i.e. dist/fonts/, shipped in the npm tarball. Colour emoji
+ * to the stylesheet — i.e. dist/fonts/, shipped in the npm tarball. Color emoji
  * is NOT bundled by default (~23 MB); it falls back to the installed system
  * emoji font (every stack below lists Apple/Segoe/Noto). The opt-in full-offline
  * tier (`npm run fonts:emoji` + dist/lattice-emoji.css) vendors it for air-gapped
@@ -70,7 +70,7 @@
      felt-tip signal); Shantell Sans carries body (a designed-for-UI hand
      sans that stays legible across a dense slide). Both are palette-blind
      and used only under section.sketch, so non-sketch decks never load
-     them as the active family. Swap either token to re-flavour the whole
+     them as the active family. Swap either token to re-flavor the whole
      finish in one line. */
   --sketch-font-display: 'Caveat', 'Bradley Hand', cursive, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   --sketch-font-body:    'Shantell Sans', system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
@@ -289,7 +289,7 @@
    *     "elevation is light from above", as an EDGE highlight so the card FILL never
    *     changes) while the contact layers recede into the ground.
    * Every layer has 0 blur, so it exports to PDF as pure vector — no soft-mask
-   * grey-box in Apple PDFKit / Skia (the trap at image.styles.css:43 and the
+   * gray-box in Apple PDFKit / Skia (the trap at image.styles.css:43 and the
    * --state-* note below). Offsets are cqi so the lift scales with the slide (incl.
    * 4K); hairline rim/underside ~1px at hd. Palette-neutral (white/black only). */
   --elevation-recipe:
@@ -500,7 +500,7 @@
   --status-mute: var(--chart-state-mute, light-dark(#6B7480, #9AA7B6));
 
   /* ── diagram lifecycle / annotation (group 3, CANONICAL) ──────────────
-   * The Mermaid gantt lifecycle + note/error annotation colours, off the
+   * The Mermaid gantt lifecycle + note/error annotation colors, off the
    * `--c-` junk drawer onto SEMANTIC `--diagram-*` names — restoring the
    * pre-2026-05-14 `--diagram-state-*` intent. A fill + a paired `-mark`
    * stroke per state. BOTH VALUE REUSES ARE RETIRED: the grid used to borrow
@@ -535,12 +535,12 @@
   
 
   /* ── Universal semantic palette ───────────────────────────────────────
-   * Status-signaling colours shared by every theme. Gantt task lifecycle,
+   * Status-signaling colors shared by every theme. Gantt task lifecycle,
    * sequence-diagram notes, alarm fills, today markers — none of those
    * UI roles want a per-theme curated hue; they want the deck's one warm
    * tint, the deck's one alarm red, the deck's one highlight yellow. So
    * the values live here, not in each theme. Themes that have curated
-   * semantic colours (e.g. cuoio's leather-toned warm pair) override the
+   * semantic colors (e.g. cuoio's leather-toned warm pair) override the
    * specific tokens they want to retune; everyone else inherits.
    *
    * Pairs (light fill + deep stroke/ink):
@@ -569,7 +569,7 @@
   --diagram-note:       #FFFBE6;
 
   /* ── Status-signaling state tokens — universal defaults ───────────────
-   * `--pass`, `--warn`, `--fail` drive the state-token disc colours
+   * `--pass`, `--warn`, `--fail` drive the state-token disc colors
    * across checklist, verdict-grid, obligation-matrix, and roadmap.
    * Each is a `light-dark()` pair so the same authoring grammar reads
    * cleanly on light and dark canvases — themes that only flip
@@ -581,7 +581,7 @@
    *     #B45309 (H32 amber-700) in light mode and #F97316 (orange-500)
    *     in dark mode. Bumps hue 10° clear of red and lifts luminance
    *     so warn ≠ fail at a glance — the burnt-amber/crimson clash
-   *     was the loudest "two colours that look the same" complaint
+   *     was the loudest "two colors that look the same" complaint
    *     in the state-tokens demo deck.
    *   - Fail stays at canonical alarm red in light mode (#991B1B) and
    *     lifts to red-400 (#F87171) in dark for AAA contrast on dark bg.
@@ -674,7 +674,7 @@
    * it reads AAA on the soft tint and is the value every soft-accent card
    * already used; the soft body is the canvas body (a pale tint takes canvas
    * ink). Naming both gives the soft container a first-class vocabulary and a
-   * single override seam, with no new curated colour. */
+   * single override seam, with no new curated color. */
   --on-accent:           light-dark(#FFFFFF, var(--surface-inverse, #000));
   --on-accent-secondary: color-mix(in srgb, var(--on-accent) 70%, transparent);
   --on-accent-ghost:     color-mix(in srgb, var(--on-accent) 32%, transparent);
@@ -739,7 +739,7 @@
    * can't ride a color-scheme flip like .dark/.light; instead section.print
    * (base.modifiers.css) REMAPS the main tokens to this --print-* band, stamped
    * deck-wide by `class: print` / `color-mode: print` / the engine `--print`
-   * flag — NOT @media print, so the colour PDF export is untouched.
+   * flag — NOT @media print, so the color PDF export is untouched.
    *
    * These are brand-neutral (ink on white), so — like the universal --pass/
    * --warn/--fail trio above — they live here as the default EVERY theme
@@ -761,7 +761,7 @@
   /* The rest of the containment tier, flattened to the B&W band. Same rule as
    * above: `overlayPrintVars` substitutes only where a `--print-<token>` sibling
    * exists, so every containment token Mermaid reads needs one or the theme's
-   * colour leaks into a grayscale handout. Ratios on the fills they pair with:
+   * color leaks into a grayscale handout. Ratios on the fills they pair with:
    * edge 3.94 / 3.57 (needs 3), ink 19.3 / 17.5 (needs 4.5). */
   --print-c-subcontainer:     #EAEAEA;
   --print-c-container-edge:   #7A7A7A;
@@ -940,10 +940,10 @@
 
   /* ── Universal pill — STRUCTURE ONLY ──────────────────────────────────
    * One geometry for every status / metadata pill across every layout.
-   * Colour stays per-pill: each site sets --pill-fg / --pill-bg /
+   * Color stays per-pill: each site sets --pill-fg / --pill-bg /
    * --pill-border (or its own semantic hue tokens) — it must NOT redefine
    * the geometry below. That split is the whole contract: structure is
-   * universal, colour carries the semantics.
+   * universal, color carries the semantics.
    *
    * Padding is em-based on purpose. em resolves against the pill's OWN
    * font-size, so the box always tracks its text ("responsive to the text
@@ -954,7 +954,7 @@
    * Font is the body sans (Outfit), NOT mono. A pill is a status / label
    * chip, not code; the only reason pills were ever mono is that the first
    * one was a literal trailing-`code` span. Sans also fixes vertical
-   * centring at the root: align-items:center centres the line BOX, and a
+   * centering at the root: align-items:center centers the line BOX, and a
    * font's baseline sits asymmetrically inside it, so caps/digits can read
    * high. JetBrains Mono seats caps badly (caps land ~7px high in a 60px
    * test pill); Outfit's metrics land them ~1px off — imperceptible — so no
@@ -966,7 +966,7 @@
    * Centering is the box's job, not the token's: a pill is laid out as
    *   display:inline-flex; align-items:center; justify-content:center;
    *   text-align:center; line-height:1; white-space:nowrap;
-   * which middle- AND centre-aligns the text. The universal-pill rule in
+   * which middle- AND center-aligns the text. The universal-pill rule in
    * base.modifiers.css applies that recipe; component pills mirror it.
    *
    * Three sanctioned variants deliberately override specific axes and say
@@ -985,7 +985,7 @@
   --pill-tracking: 0.04em;
 
   /* ── ROADMAP slash mask (legacy) ──────────────────────────────────────
-   * Semi-transparent dark slash painted on top of a coloured dot. Now
+   * Semi-transparent dark slash painted on top of a colored dot. Now
    * used ONLY by roadmap.status (state-skipped) — the checkbox trio
    * (checklist / verdict-grid / obligation-matrix) moved to the
    * full-opacity --mark-slash mask below. Kept so roadmap renders
@@ -994,9 +994,9 @@
 
   /* ── Universal state-token MARKS — circle + distinct in-disc symbol ───
    * The redesigned checkbox grammar for [x]/[-]/[ ]/[/]. Every state is
-   * the SAME coloured disc treatment carrying a DISTINCT mark, so the
-   * SHAPE channel carries the meaning independently of colour — the
-   * colour-blind-safe redundant encoding the old fill-level discs
+   * the SAME colored disc treatment carrying a DISTINCT mark, so the
+   * SHAPE channel carries the meaning independently of color — the
+   * color-blind-safe redundant encoding the old fill-level discs
    * (full/half/empty) lacked:
    *
    *   [x] done         → check  on --pass        (green)
@@ -1004,15 +1004,15 @@
    *   [ ] is OVERLOADED, so the decoder picks per layout:
    *       · neutral "todo / pending" (checklist todo, obligation exempt,
    *         roadmap planned) → a hollow --state-color RING on a NEUTRAL disc
-   *         (empty centre; no mask — see `.state.todo` in base.modifiers.css)
+   *         (empty center; no mask — see `.state.todo` in base.modifiers.css)
    *       · "not met" (verdict-grid)                     → x    on --fail (red)
-   *   [/] out of scope → slash  on --text-muted  (grey, row struck through)
+   *   [/] out of scope → slash  on --text-muted  (gray, row struck through)
    *
    * Each mark is a CSS mask (opaque path on transparent ground); the
    * consumer paints it in a `background-color` revealed through the mask,
-   * so the mark colour is theme- and variant-driven (knockout = canvas
-   * colour, or the status colour for the outline/tonal styles) — NOT
-   * baked into the data-URI. Stroke colour inside the SVG is irrelevant
+   * so the mark color is theme- and variant-driven (knockout = canvas
+   * color, or the status color for the outline/tonal styles) — NOT
+   * baked into the data-URI. Stroke color inside the SVG is irrelevant
    * (mask uses alpha); we use `black` so the URI stays `#`-free and needs
    * no escaping. viewBox 24 with the path inset to the central ~50%
    * gives the mark its disc padding.
@@ -1029,7 +1029,7 @@
   --mark-slash: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M8 16L16 8' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'/></svg>");
   /* No --mark-todo: the neutral `[ ]` (todo / pending) does NOT use a masked
    * mark — it renders as a TRUE hollow ring (empty disc + an edge ring) so the
-   * centre stays empty and reads "not started", instead of the "selected"
+   * center stays empty and reads "not started", instead of the "selected"
    * bullseye a ring-stroke mask on a filled disc produces. See `.state.todo`
    * in base.modifiers.css and roadmap's `state-planned`. */
   /* Heavier-stroked set for the `checks-bold` variant (a mask's stroke
@@ -1122,13 +1122,13 @@
    * spread rings) — no blurred drop-shadow. A blurred box-shadow on a
    * small element is exported by Chromium print-to-PDF as a
    * transparency-group/soft-mask image, which some PDF viewers render as
-   * an opaque grey square around the disc. See engineering/gotchas.md
-   * "blurred box-shadow → grey box in some PDF viewers". */
+   * an opaque gray square around the disc. See engineering/gotchas.md
+   * "blurred box-shadow → gray box in some PDF viewers". */
   --state-fill-pct: 100%;       /* disc fill = this % of --state-color, rest transparent */
   --state-ring-outer-w: 1.6px;  /* outer ring width (ringed default) */
-  --state-ring-mix: 50%;        /* outer ring colour = --state-color mixed toward black */
+  --state-ring-mix: 50%;        /* outer ring color = --state-color mixed toward black */
   --state-ring-inner-w: 0px;    /* inner ring width (outline / tonal) */
-  --state-mark-pct: 0%;         /* mark colour = this % --state-color, rest --bg (0% = knockout) */
+  --state-mark-pct: 0%;         /* mark color = this % --state-color, rest --bg (0% = knockout) */
   --state-disc-scale: 1;        /* disc + mark size multiplier (bold bumps it) */
 }
 

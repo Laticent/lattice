@@ -67,7 +67,7 @@ section.actors > .cell-stage > ol > li > strong {
  * Pill chrome (font, border, bg, color, radius) inherits from the
  * universal pill rule. This block adds grid placement and the actors-
  * specific letter-spacing + slightly wider padding. The categorical
- * border colour is fed via --pill-border below (set per-row by the
+ * border color is fed via --pill-border below (set per-row by the
  * nth-child rotation), which the universal rule consumes directly.
  * The --cN-dark palette is theme-defined; both cuoio (warm earth
  * pigments) and indaco (cool L≈32 deeps) ship balanced sets. */

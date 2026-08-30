@@ -10,7 +10,7 @@
  *
  * Design contract
  * ───────────────
- *   1. Single text-heading colour on every light surface (#2A1015 deep
+ *   1. Single text-heading color on every light surface (#2A1015 deep
  *      garnet-near-black). Dark mode flips to warm cream on deep-wine
  *      canvas.
  *
@@ -259,7 +259,7 @@
 }
 
 /* ── Chart-family palette ───────────────────────────────────────────────
- * Burgundy's curation of the chart-family's two colour spectrums (defined in
+ * Burgundy's curation of the chart-family's two color spectrums (defined in
  * lib/components/chart/_chart-family/chart-family.css). The engine ships a
  * canvas-aware Apple-hue default; untuned themes inherit it. Burgundy overrides
  * both spectrums with its wine-cellar pigments so charts read native to the

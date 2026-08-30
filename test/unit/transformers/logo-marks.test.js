@@ -1,4 +1,4 @@
-// logo-marks transformer — `logo-wall` `<img>` marks become token-coloured
+// logo-marks transformer — `logo-wall` `<img>` marks become token-colored
 // `.logo-mark` mask spans. The web/preview paths emit the mask span; the
 // emulator later swaps it for inline SVG (tested via the emulator, not here).
 

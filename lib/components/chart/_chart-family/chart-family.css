@@ -45,7 +45,7 @@
  *
  * The lucent strip is a soft accent-tinted gradient that fades into the
  * canvas, with a hairline rule beneath. Eyebrow + h2 + subtitle are all
- * centred. The chart area dominates the lower 60% of the slide.
+ * centered. The chart area dominates the lower 60% of the slide.
  *
  * Status pill vocabulary (shared across progress / timeline-list / kanban):
  *   on-track, done, live  → --pass family
@@ -54,7 +54,7 @@
  *   pilot, decision       → --accent family
  *   deferred              → --text-muted family
  *
- * Dark variant works automatically — every colour goes through tokens
+ * Dark variant works automatically — every color goes through tokens
  * that the .dark rule remaps.
  * ──────────────────────────────────────────────────────────────────── */
 
@@ -251,7 +251,7 @@ section.chart-frame:not(.form) {
            calc(4.375 * var(--_sec-1cqi, 1cqi));
 }
 
-/* ── Categorical chart colour model ───────────────────────────────────────
+/* ── Categorical chart color model ───────────────────────────────────────
  * One curated hue per slot, rendered as a fill/mark pair that flips with
  * the canvas, shared by every categorical chart (quadrant, piechart, radar,
  * progress). The contract is symmetric — a restrained TINT fill plus a
@@ -281,23 +281,23 @@ section.chart-frame:not(.form) {
  * decoupled from the engine-wide cN accents (which still drive roadmap /
  * journey / legal / decision) — and Apple-inspired: vivid, well-spaced hues
  * whose dark-canvas value is a brighter same-hue sibling, used as accents on a
- * tint, never as flooded primaries. Themes flavour it by setting `--chart-catN`
+ * tint, never as flooded primaries. Themes flavor it by setting `--chart-catN`
  * (see below). Components consume only --catN-fill / --catN-ink and stay
  * palette-blind. Eight slots — past ~6 categories perceptual distinction
  * collapses (Wong 2011), so charts should consolidate rather than cycle on. */
 section.chart-frame,
 section.word-cloud,
-.chart-frame { /* word-cloud is a chart-frame member; the bare `.chart-frame` also covers the Read·Article prose projection, which re-hosts a chart SVG in a <figure class="chart-frame"> outside its section — the SVG's --chart-cat-* colours must still resolve there (2026-07-… read-article-chart-tokens) */
+.chart-frame { /* word-cloud is a chart-frame member; the bare `.chart-frame` also covers the Read·Article prose projection, which re-hosts a chart SVG in a <figure class="chart-frame"> outside its section — the SVG's --chart-cat-* colors must still resolve there (2026-07-… read-article-chart-tokens) */
   /* Apple-inspired categorical spectrum — the chart-family's OWN palette,
    * decoupled from the engine-wide cN accents (which still drive roadmap /
    * journey / legal / decision). Each slot is `light-dark(lightCanvasVivid,
    * darkCanvasVivid)` where the dark-canvas value is a brighter same-hue
-   * sibling (Apple ships its system colours this way: blue #007AFF→#0A84FF,
+   * sibling (Apple ships its system colors this way: blue #007AFF→#0A84FF,
    * green #34C759→#30D158, …). The hues are well-spaced around the wheel and
    * tuned a touch off Apple's exact values — inspired, not copied.
    *
    * Theme-overridable: a theme sets `--chart-catN` (same light-dark shape) at
-   * :root to flavour the spectrum to its character; the var() indirection lets
+   * :root to flavor the spectrum to its character; the var() indirection lets
    * the theme always win, and untuned themes inherit this master set. */
   --chart-cat-1-hue: var(--chart-cat1, light-dark(#0A6CE0, #2E8BFF));  /* blue   */
   --chart-cat-2-hue: var(--chart-cat2, light-dark(#C2670A, #FFA630));  /* orange */
@@ -368,7 +368,7 @@ section.word-cloud,
   --chart-cat-base: light-dark(var(--bg), black);
 }
 
-/* ── Chart SEMANTIC / status colour model ─────────────────────────────────
+/* ── Chart SEMANTIC / status color model ─────────────────────────────────
  * The status counterpart to the catN categorical spectrum. Charts that
  * encode MEANING (gantt bars, progress fills, status pills, state-chart,
  * timeline-list) draw from this set — NOT the engine-wide --pass / --warn /
@@ -401,7 +401,7 @@ section.chart-frame,
    * hue toward BLACK, not the navy --bg — mixing amber/orange into a blue
    * canvas neutralizes to brown (near-complementary). Toward black the hue
    * stays true and vivid for every status, so the bar/pill reads as its
-   * colour, not mud. The percentage is what keeps the fill dark enough for
+   * color, not mud. The percentage is what keeps the fill dark enough for
    * --text-heading to sit ON it (chart-contrast.test.js scores exactly that),
    * so it is calibrated against the LIGHTEST status hue any palette carries.
    * It was ~58%, set when the status trio sat in a narrow mid band; respacing
@@ -448,7 +448,7 @@ section.chart-frame,
    *
    * Per-shape variation is allowed where the geometry demands it (the pie wedge
    * uses a RADIAL gradient with these same stops) — the stops and edge stay
-   * shared, only the gradient axis changes. Colour rides the edge; the wash
+   * shared, only the gradient axis changes. Color rides the edge; the wash
    * only tints, so --text-heading labels clear it on both canvases.
    *
    * One member specializes further: PROGRESS is the only chart with a magnitude
@@ -593,7 +593,7 @@ section.chart-frame .chart-body {
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
-  align-self: center;   /* centre the body in the section flex column (was margin:0 auto) */
+  align-self: center;   /* center the body in the section flex column (was margin:0 auto) */
   /* NO INLINE padding — that half was the duplicate, and the stage owns it now.
    *
    * THE BLOCK PADDING STAYS, and #1598 kept it because MEASUREMENT said to. It is
@@ -659,7 +659,7 @@ section.chart-frame .chart-body {
  * (the `cqh` basis — "fill height minus the inset" — is the same number, just
  * subtracted one box higher).
  *
- * `justify-content` centres the body in the cell: a pinned list body
+ * `justify-content` centers the body in the cell: a pinned list body
  * (`flex: 0 0 auto`, natural height) would otherwise sit at the stage top; an SVG
  * body (`flex: 1`) already fills the stage, so this is a no-op for it. `safe`
  * (#1299) falls back to start the instant the body overflows, so an overstuffed
@@ -890,7 +890,7 @@ section.chart-frame.canvas:not(.state-chart) .chart-body {
 
 section.chart-frame .chart-caption {
   flex: 0 0 auto;
-  /* flex column so the ::before hairline centres via align-items and its gap to the
+  /* flex column so the ::before hairline centers via align-items and its gap to the
    * caption text is a `gap`, not the pseudo's `margin: 0 auto var(--sp-sm)` (#20). */
   display: flex;
   flex-direction: column;
@@ -936,7 +936,7 @@ section.chart-frame .chart-caption::before {
 
 /* Shared status pill vocabulary — used by progress, timeline-list, kanban.
  * Reads as `[s]` data attribute on a chip element so the markup is small
- * and the colour mapping lives in one place. */
+ * and the color mapping lives in one place. */
 section.chart-frame .chart-status {
   display: inline-flex;
   align-items: center;
@@ -1019,9 +1019,9 @@ section.chart-frame .chart-status[data-s="deferred"] {
 
 
 /* ════════════════════════════════════════════════════════════════════════
- * CHART KEY — SVG-native legend + spine for the colour-categorical charts
+ * CHART KEY — SVG-native legend + spine for the color-categorical charts
  * ────────────────────────────────────────────────────────────────────────
- * Four chart-family members encode meaning purely by COLOUR, so each needs a
+ * Four chart-family members encode meaning purely by COLOR, so each needs a
  * KEY: piechart (wedge ↔ category), radar (polygon ↔ series), map (region ↔
  * value) and quadrant·cohort (hull ↔ cohort). The diagram, the gradient SPINE,
  * and the key now share ONE <svg> viewBox, emitted by the kernels via the shared
@@ -1038,7 +1038,7 @@ section.chart-frame .chart-status[data-s="deferred"] {
  *   the whole unit), never the font alone. Palette-blind, canvas-aware.
  *
  * This CSS now carries only the key TYPE (`.chart-key-*`, below — geometry is in
- * the SVG) plus the figure SIZING that centres + scales each chart's single svg.
+ * the SVG) plus the figure SIZING that centers + scales each chart's single svg.
  * Scoped `:not(.claim-hero):not(.claim-bleed)` (those variants own their own full-bleed layout, where
  * the key scales up inside the svg for free) and off radar·small-multiples (no
  * single key). See engineering/decisions/2026-06-13-svg-native-legend.md
@@ -1084,7 +1084,7 @@ section.chart-frame .chart-status[data-s="deferred"] {
 
 /* SVG-NATIVE FIGURE SIZING — radar / map / cohort-quadrant. Each figure now holds
  * ONE self-contained <svg> (diagram + spine + key in one viewBox, emitted by
- * svg-legend.js), so the figure only CENTRES + SIZES that svg; the 70/30 split,
+ * svg-legend.js), so the figure only CENTERS + SIZES that svg; the 70/30 split,
  * spine and key live INSIDE the viewBox and scale with the diagram by
  * construction (no CSS grid, no `cqh`-in-`font-size`). The svg CONTAINER-FILLS
  * (width:100%; height:100% against the size-container figure; see
@@ -1191,7 +1191,7 @@ section.chart-frame:is(.claim-hero, .claim-bleed) .chart-subtitle {
  * the universal masthead-hide to `:not(.chart-frame)`) — an unlabeled full-bleed
  * chart is useless in a board deck. The chrome drops, the section bleeds, and the
  * chart-body grows to fill above the band, stripped of the surface panel.
- * Per-chart rules (radar's centred diagram + legend column) layer on top; an
+ * Per-chart rules (radar's centered diagram + legend column) layer on top; an
  * untuned chart still bleeds + captions but may need an explicit figure size (cf.
  * radar's 36cqi). Palette-blind. */
 section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) {
