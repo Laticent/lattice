@@ -170,7 +170,7 @@
   removes any comment whose body was lifted as a note, and its directive safety rested on the
   ENGINE having consumed every directive before the extractor ever saw the HTML. That is the
   engine's property, not the extractor's, and it does not hold when a directive survives into the
-  rendered section — one malformed neighbouring comment is enough. `<!-- _class: title -->` was
+  rendered section — one malformed neighboring comment is enough. `<!-- _class: title -->` was
   then lifted as a note and scrubbed out of the verbatim source the envelope carries, so the
   recipient re-imported a deck whose slide had silently lost its class. `noteBodiesFromHtml` now
   classifies directives itself (`isDirectiveComment`, mirroring the engine's `KNOWN_DIRECTIVES`

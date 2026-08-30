@@ -137,7 +137,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 
 - **Symptom:** a single layout looks right in the exported `.pdf` and right in
   CI, but in the Playground / Studio its type is roughly double size, one or
-  two words wrap per line, and it carries an "OVERFLOWS" tab. Neighbouring
+  two words wrap per line, and it carries an "OVERFLOWS" tab. Neighboring
   slides in the same deck are fine. Because the preview scales the whole
   filmstrip assuming every section is exactly `SH` tall, the *other* slides'
   scroll and clip geometry goes wrong too — so the deck can look broken well

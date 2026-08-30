@@ -34,10 +34,53 @@ describe('US-English word list (HARD RULE #21)', () => {
   // Every suggestion must be a real fix. A pair whose American side is itself a
   // listed British form would coach the writer into a second failure.
   test('every suggestion is a genuine correction', () => {
-    assert.equal(BRITISH_FORMS.length, 170);
+    assert.equal(BRITISH_FORMS.length, 228);
     for (const [uk, us] of Object.entries(UK_TO_US)) {
       assert.notEqual(uk, us, `${uk} maps to itself`);
       assert.ok(!britishFormRe().test(us), `the suggestion "${us}" is itself flagged`);
+    }
+  });
+
+  // #1918. The map is keyed on whole words and matched with `\b`, so a listed root does
+  // NOT cover its own longer inflections — `neighbour` cannot fire inside `neighbouring`.
+  // The list was inflection-aware but incomplete, and the incompleteness was invisible:
+  // the repo-wide sweep that justified deleting the ratchet ran on a list missing these,
+  // so it reported zero while 19 British spellings stood in tracked files. A reviewer will
+  // not catch the next omission by reading 228 pairs, so the SHAPE is asserted instead.
+  test('every -ise and -our root carries its -ing inflection', () => {
+    const listed = new Set(Object.keys(UK_TO_US));
+    // The only derived form that is not a word. Shrinking this set is a deliberate act.
+    const NOT_ENGLISH = new Set(['behaviouring']); // `behaviour` is a noun; no verb to inflect
+    const missing = [];
+    for (const w of listed) {
+      // `-ise` verbs drop the `e`: normalise -> normalising.
+      if (w.endsWith('ise')) {
+        const ing = `${w.slice(0, -3)}ising`;
+        if (!listed.has(ing) && !NOT_ENGLISH.has(ing)) missing.push(`${w} -> ${ing}`);
+      }
+      // `-our` roots just add `-ing`: honour -> honouring.
+      if (w.endsWith('our')) {
+        const ing = `${w}ing`;
+        if (!listed.has(ing) && !NOT_ENGLISH.has(ing)) missing.push(`${w} -> ${ing}`);
+      }
+    }
+    assert.deepEqual(
+      missing.sort(), [],
+      'a root is listed without its -ing form, which is how `neighbouring` shipped past a ' +
+      'green build (#1918). Add the pair, or add it to NOT_ENGLISH with the reason.',
+    );
+  });
+
+  test('the inflections #1918 named all resolve to their US form', () => {
+    for (const [uk, us] of Object.entries({
+      neighbouring: 'neighboring', honouring: 'honoring', labouring: 'laboring',
+      rumoured: 'rumored', standardising: 'standardizing', specialising: 'specializing',
+      finalising: 'finalizing', capitalising: 'capitalizing', practising: 'practicing',
+      standardisation: 'standardization', categorisation: 'categorization',
+      visualisation: 'visualization', initialisation: 'initialization',
+      customisation: 'customization', prioritisation: 'prioritization',
+    })) {
+      assert.equal(suggest(uk), us, `${uk} should suggest ${us}`);
     }
   });
 

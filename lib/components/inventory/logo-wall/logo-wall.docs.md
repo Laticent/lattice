@@ -32,9 +32,9 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 
 ## When to use
 
-- **The proof is the logos.** Customers, partners, funders, accreditations, participating agencies — anywhere a set of recognisable marks carries more weight than a sentence. The audience scans the wall and concludes 'serious company keeps this company.'
+- **The proof is the logos.** Customers, partners, funders, accreditations, participating agencies — anywhere a set of recognizable marks carries more weight than a sentence. The audience scans the wall and concludes 'serious company keeps this company.'
 - **Marks read as one texture.** Every mark is filled with the same palette token, so a loud red logo can't outshout a quiet one — the wall reads as a single credential, not a ransom note of competing brand colors. Because the fill is a token, it re-tones for theme + dark mode and stays AA on any ground.
-- **Eight to eighteen marks.** Enough to signal breadth, few enough that each is legible. Fewer than six looks thin; past eighteen the marks shrink below recognition — curate to the most recognisable names or split across two slides.
+- **Eight to eighteen marks.** Enough to signal breadth, few enough that each is legible. Fewer than six looks thin; past eighteen the marks shrink below recognition — curate to the most recognizable names or split across two slides.
 
 ## When NOT to use
 

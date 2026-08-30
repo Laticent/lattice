@@ -101,6 +101,40 @@ const UK_TO_US = Object.freeze({
   ageing: 'aging',
   programme: 'program', programmes: 'programs',
   practise: 'practice', practised: 'practiced', practises: 'practices',
+
+  // Found by stemming the tree against this map rather than by reading it (#1918).
+  // A hand pass misses what it does not think to look for; these four are inflections
+  // and derivations nobody enumerated.
+  colourable: 'colorable', recognisable: 'recognizable', recognisably: 'recognizably',
+  analyser: 'analyzer', analysers: 'analyzers', prioritiser: 'prioritizer',
+  prioritisers: 'prioritizers',
+  // ── Inflections of roots already listed above (#1918) ────────────────────
+  // The map is keyed on whole words and matched with `\b`, so a listed root does
+  // NOT cover its own longer forms: `neighbour` cannot fire inside `neighbouring`.
+  // Every entry below is an inflection of a root that was already here, and each
+  // one was a word the list silently could not see.
+  // -our → -or, the inflections the -our roots above were missing
+  flavouring: 'flavoring', honouring: 'honoring', labouring: 'laboring',
+  rumoured: 'rumored', rumouring: 'rumoring', neighbouring: 'neighboring',
+  favourably: 'favorably', behaviourally: 'behaviorally',
+  // -re → -er
+  calibres: 'calibers', greying: 'graying',
+  // -ise verbs: the -ing forms, and the -isation nouns with their plurals
+  standardising: 'standardizing', specialising: 'specializing', finalising: 'finalizing',
+  capitalising: 'capitalizing', practising: 'practicing', standardisation: 'standardization',
+  standardisations: 'standardizations', categorisation: 'categorization', categorisations: 'categorizations',
+  specialisation: 'specialization', initialisation: 'initialization', initialisations: 'initializations',
+  utilisation: 'utilization', realisation: 'realization', realisations: 'realizations',
+  finalisation: 'finalization', capitalisation: 'capitalization', visualisation: 'visualization',
+  visualisations: 'visualizations', customisation: 'customization', customisations: 'customizations',
+  prioritisation: 'prioritization', prioritisations: 'prioritizations', minimisation: 'minimization',
+  maximisation: 'maximization', summarisation: 'summarization', normalisations: 'normalizations',
+  optimisations: 'optimizations', organisations: 'organizations',
+  // doubled consonants, -ment, -er, and the -ogue verbs
+  modelled: 'modeled', signalled: 'signaled', catalogued: 'cataloged',
+  cataloguing: 'cataloging', fulfilment: 'fulfillment', fulfilments: 'fulfillments',
+  enrolment: 'enrollment', enrolments: 'enrollments', skilfully: 'skillfully',
+  wilfully: 'willfully', traveller: 'traveler', travellers: 'travelers',
 });
 
 const BRITISH_FORMS = Object.freeze(Object.keys(UK_TO_US));

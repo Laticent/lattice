@@ -205,7 +205,7 @@ function PresentRailImpl({
 										    The current-slide cue used to be a lift of the track's own tone (16% → 30%).
 										    Two independent problems, both measured: the prefetch fill occupies the SAME
 										    box and paints after it, so once a slide is fully cached the tint is hidden
-										    completely (red team rendered it — the current and neighbouring segments came
+										    completely (red team rendered it — the current and neighboring segments came
 										    back byte-identical); and as a tone step it is weaker than what it replaced in
 										    26 of 36 palettes. It was reachable at all only because Kokoro could not
 										    prefetch; letting it prefetch is what tipped that latent fragility into failure.
