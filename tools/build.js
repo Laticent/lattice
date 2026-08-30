@@ -141,6 +141,8 @@ const STEPS = [
   // dist/themes/, dist/lattice-runtime.min.js and dist/fonts/, so every one of
   // those must already be fresh. Before dist README, which indexes dist/.
   { label: 'marp kit (dist/marp-kit)', script: 'build-marp-kit.js', uncommitted: true },
+  // Reads the docs-portal / forms / concepts output, so it must follow them.
+  { label: 'agent kit (dist/agent-kit)', script: 'build-agent-kit.mjs', uncommitted: true },
   { label: 'dist README', script: 'build-dist-readme.js', uncommitted: true },
 ];
 

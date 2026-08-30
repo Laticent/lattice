@@ -185,14 +185,27 @@ merge queue, not the docs site.
 i go use vscode with marp i simply go and copy files from dist" (the same
 requirement `tools/build-marp-kit.js` was originally built for) does not
 distinguish "was it ever fetched" from "do I want to be able to grab it right
-now." `.github/workflows/publish-marp-kit.yml` mirrors `dist/marp-kit/` onto
-an orphan `dist-marp-kit` branch, force-pushed as one commit on every push to
-`main` that touches a real input. It costs nothing this doc's reasoning cared
+now." `.github/workflows/publish-marp-kit.yml` mirrored `dist/marp-kit/` onto
+an orphan `dist-marp-kit` branch, force-pushed as one commit. It costs nothing this doc's reasoning cared
 about: an orphan branch never enters the Main Merge Queue (§3's whole
 objection was about *committed-on-main* churn), and re-orphaning each run
 keeps that branch's own history from growing the way `main`'s did. Also
 shipped alongside it: `dist/marp-kit` now carries unminified counterparts of
 its Lattice-authored files, for reading rather than running.
+
+> **Superseded 2026-08-30 on two points, one of them a correction.**
+> **(1)** The sentence above said the mirror ran "on every push to `main` that
+> touches a real input." It did not — `publish-marp-kit.yml` was schedule-only
+> (`cron: 29 6 * * *`) plus `workflow_dispatch`, and its own header said so in as
+> many words. The claim was wrong the day it was written, and it was repeated in
+> that PR's changelog fragment. Nobody re-read the workflow against the prose.
+> **(2)** Both kits now publish together to the orphan **`dist-kits`** branch
+> (`marp/` and `agent/`) via `.github/workflows/publish-kits.yml`, which IS
+> push-triggered with a nightly backstop — so the original sentence describes the
+> mechanism that exists today, just not the one that existed then. §6's stated
+> cost, "the agent-facing catalog is now built rather than checked out", is what
+> that change answers. See
+> `engineering/decisions/2026-08-30-agent-kit-and-dist-kits.md`.
 
 ## 7. Verification
 

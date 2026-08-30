@@ -53,6 +53,16 @@ const GROUPS = [
       + '`Sample-Deck.md`. Copy the folder, open it in VS Code, start editing.',
     consume: 'Copy `dist/marp-kit/` wholesale; see its own `README.md`.',
   },
+  {
+    prefix: 'agent-kit/',
+    purpose:
+      'The LLM agent kit — the component catalogs (`components.pick.md` to choose, '
+      + '`components.md` to read, `components.json` / `grammar.json` / `forms.json` / '
+      + '`concepts.json` for tools) plus `lattice-primer.md`, the authoring primer the '
+      + 'Studio chat injects into its own system prompt. For a model or coding agent '
+      + 'that has to author a deck.',
+    consume: 'Copy `dist/agent-kit/` wholesale; see its own `README.md`.',
+  },
 ];
 
 // Keyed by dist-relative POSIX path. `consume` is the public entry point or

@@ -378,6 +378,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/bless-palette-baselines.js` | bless-palette-baselines — rewrite the two frozen palette baselines, RATCHET-ONLY. |
 | `tools/bless-split-oracle.js` | bless-split-oracle — write the STANDING ORACLE record (§8 rule 5). |
 | `tools/build-a11y-textures.js` | Bundle the categorical/chart texture-<defs> kernel for the browser. |
+| `tools/build-agent-kit.mjs` | build-agent-kit — assemble dist/agent-kit/, the copy-and-go kit for an LLM |
 | `tools/build-anima-player.js` | Bundle the Anima host + vector backends into ONE self-contained IIFE string, for |
 | `tools/build-axis-dom-catalog.js` | Generates lib/runtime/axis-dom-catalog.generated.js — a plain CJS lookup |
 | `tools/build-cadenza-lib.js` | Build the Cadenza library's consumable dist/ — the ESM + CJS entries + type |
