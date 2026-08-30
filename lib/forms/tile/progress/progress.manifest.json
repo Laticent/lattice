@@ -2,7 +2,7 @@
   "$schema": "../../schema/tile.schema.json",
   "id": "progress",
   "kind": "chrome",
-  "fits": ["progress-centre"],
+  "fits": ["progress-center"],
   "z": 3,
   "population": "derived — the section rail from divider sections",
   "hideToken": "no-progress",

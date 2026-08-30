@@ -55,8 +55,11 @@ quote British-spelled text — an upstream error string, a dependency's option
 name — and HARD RULE #14 forbids `--no-verify` as the escape from a false
 positive. Everything else is discipline.
 
-**71 British spellings remain in living prose, and none is a backlog.** About 39 are
-the `progress-centre` Form cell (issue #578, a rename kept out of the sweep). 15 are
+**71 British spellings remained in living prose when this was written, and none was a
+backlog.** About 39 were the `progress-centre` Form cell — issue #578 has since renamed
+it to `progress-center`, so the largest cluster is gone. The total is deliberately not
+restated: `checkUsEnglish`, the tool that measured 71, was deleted with the ratchet, so a
+fresh number would be a different measurement wearing the old one's clothes. 15 are
 DATA a US-English pass must never touch — GitHub's `cancelled` conclusion enum, the
 OECD's real legal name, a synonym key an author might type, pre-registered benchmark
 fixtures. 4 sit in a lockfile, 3 cite a dated `engineering/decisions/` filename, and

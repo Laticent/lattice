@@ -15,5 +15,5 @@
     "pagination-right",
     "overlay"
   ],
-  "suppresses": ["progress-centre"]
+  "suppresses": ["progress-center"]
 }

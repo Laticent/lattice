@@ -257,7 +257,7 @@ describe('footer band — a contended band keeps every mark legible', () => {
 
   test('the rail FITS the berth reserved for it — the constant that keeps being wrong', () => {
     // `--footer-center-w` is the rail's reserved width. It governs the ABSOLUTE placement
-    // (progress-centre.css) and the undocked split rail's dodge, neither of which the docked
+    // (progress-center.css) and the undocked split rail's dodge, neither of which the docked
     // `max-width: none` reaches — so an under-sized value still spills dots over the footer there.
     // This has been set wrong twice: once from `section.compact`'s `--sp-sm` instead of the
     // default (18.69 → a 20-unit token → 82.8px of dots through the footer on every portrait deck

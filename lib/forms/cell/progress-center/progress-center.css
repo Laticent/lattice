@@ -15,7 +15,7 @@
  * page number) read as ONE group at the same baseline and the same --fs-meta size.
  * A single `--progress-inset` var() hook lets a Frame relocate the rail
  * INDEPENDENTLY (e.g. to the right-middle) for infinite layouts (forms.md §7.3).
- * The region id stays `progress-centre` for compatibility; its default geometry is
+ * The region id stays `progress-center` for compatibility; its default geometry is
  * now right-grouped, not centered. */
 section.form .tile-progress {
   position: absolute;

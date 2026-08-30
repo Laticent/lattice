@@ -6,5 +6,5 @@
   "exemptFromChrome": true,
   "description": "Sovereign split comparison — claims the whole canvas and re-carves it (the registry rewrites the h2 before masthead-lift would see it), so it reads as distinct from everything else (design/forms.md §8; FORM_TOGGLE_SKIP). Suppresses the masthead and footer.",
   "cells": ["stage"],
-  "suppresses": ["masthead", "masthead-lede", "masthead-bay", "footer", "footer-left", "progress-centre", "pagination-right"]
+  "suppresses": ["masthead", "masthead-lede", "masthead-bay", "footer", "footer-left", "progress-center", "pagination-right"]
 }

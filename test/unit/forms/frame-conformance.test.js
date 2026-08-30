@@ -58,10 +58,10 @@ describe('frame-conformance · hasClass token match', () => {
 describe('frame-conformance · materializingCells', () => {
   test('declared minus suppressed minus non-materializing', () => {
     const frame = {
-      cells: ['masthead', 'stage', 'footer', 'overlay', 'progress-centre'],
-      suppresses: ['progress-centre'],
+      cells: ['masthead', 'stage', 'footer', 'overlay', 'progress-center'],
+      suppresses: ['progress-center'],
     };
-    // progress-centre suppressed; overlay is non-materializing (css:false).
+    // progress-center suppressed; overlay is non-materializing (css:false).
     assert.deepEqual(materializingCells(frame), ['masthead', 'stage', 'footer']);
   });
 

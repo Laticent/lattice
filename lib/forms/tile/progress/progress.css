@@ -2,9 +2,9 @@
  * Self-contained Form Tile (issue #356): co-located with its kernel
  * (progress.transform.js) + manifest, bundled by tools/build-css.js into the
  * same cascade slot these rules held in base.variants.css. POSITION belongs to
- * the progress-centre Cell (lib/forms/cell/progress-centre) — these rules are
+ * the progress-center Cell (lib/forms/cell/progress-center) — these rules are
  * appearance only. The legacy `has-progress` footer-yield is retired. */
-/* Appearance only — the progress-centre Cell (lib/forms/cell/progress-centre)
+/* Appearance only — the progress-center Cell (lib/forms/cell/progress-center)
  * owns POSITION (so the rail is an independently-movable Cell). The dots + label
  * lay out right-aligned, so the group hugs the page number to its right. */
 section.form .tile-progress {

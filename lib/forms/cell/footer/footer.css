@@ -6,7 +6,7 @@
  *
  * The footer band holds three Tiles that historically collided because each was
  * an independent absolute at the same baseline with no shared budget: footer-left
- * (the `footer:` text), progress-centre (the section rail — the progress Tile,
+ * (the `footer:` text), progress-center (the section rail — the progress Tile,
  * lib/forms/tile/progress), pagination-right (`::after`). Pagination is a
  * pseudo-element, so the footer Cell is a TOKEN COORDINATE CONTRACT, not a DOM
  * grid: footer-left yields the reserved center zone so it can never run through
@@ -15,7 +15,7 @@
  * lib/forms/cell/stage/stage.css. (Non-form decks keep the full-width footer —
  * this is scoped to section.form.) */
 /* The footer band's three zones are now INDEPENDENTLY-positioned Cells
- * (footer-left · progress-centre · pagination-right), each token-driven for free
+ * (footer-left · progress-center · pagination-right), each token-driven for free
  * relocation (design/forms.md §7.3) — so the old magic-number "yield" that made
  * the left text dodge a centered rail is retired: the rail no longer sits in the
  * center, and footer-left is width-bounded on its own side

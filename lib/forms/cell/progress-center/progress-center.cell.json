@@ -1,7 +1,7 @@
 {
   "$schema": "../../schema/cell.schema.json",
-  "id": "progress-centre",
-  "region": "progress-centre",
+  "id": "progress-center",
+  "region": "progress-center",
   "z": 3,
   "accepts": ["chrome"],
   "capacity": "one",

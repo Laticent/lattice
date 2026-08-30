@@ -278,7 +278,7 @@ special cases. It reconciles with the component model's slot vocabulary
 | caption (image / chart figure line) | `stage` | **component-owned**, placed by the component's own CSS *inside its stage Cell* — never hoisted. The `footer` Cell holds only footer + progress + pagination. |
 | footer (`_footer:`) | `footer` / `footer-left` | hoisted |
 | logo · meta · status | `masthead-bay` tiles | docked |
-| pagination · progress | `pagination-right` · `progress-centre` | docked |
+| pagination · progress | `pagination-right` · `progress-center` | docked |
 | watermark | `stage` | per the `watermark` Tile's `fits: ["stage"]` |
 
 **The `coda` Cell — the trailing editorial band.** Both trailing beats used to be
