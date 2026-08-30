@@ -15,7 +15,7 @@ It exists so you can browse or fetch a file straight from the repo — no clone,
 | Folder | What it is |
 |---|---|
 | [`marp/`](./marp) | The **copy-and-go Marp kit** — engine CSS, palettes, fonts, a `marp.config.cjs` and a sample deck. Copy the folder and you are working in VS Code or `marp-cli`. |
-| [`agent/`](./agent) | The **LLM agent kit** — the component catalogs and the Studio chat's own authoring primer, for a model or coding agent that has to write a Lattice deck. |
+| [`agent/`](./agent) | The **LLM agent kit** — a per-component reference, the catalogs, and the authoring primer the Studio chat uses, for a model or coding agent that has to write a Lattice deck. **Short on context? Start at [`agent/BOOTSTRAP.md`](./agent/BOOTSTRAP.md)** — it routes you to the one component file you need, about 2k tokens rather than 107k. |
 
 Each folder has its own README with the details.
 
