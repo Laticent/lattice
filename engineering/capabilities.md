@@ -3,12 +3,17 @@
 
 # Capabilities — what this repo already has
 
-**Before building any tool, harness, test, or framework, check here first —
-we almost certainly already have it.** This index is generated from
-`package.json` scripts and the `tools/` headers (so it can't drift) and is
-gated by `capabilities:check` (so a new **script or tool** can't land
-uncatalogued). The live source lists never lie either: `npm run` prints every
-script, `ls tools/` every tool.
+**Before building any tool, harness, test, or framework, look here first —
+we almost certainly already have it.** This catalog is past the size where
+reading it top-to-bottom pays, so **`grep` it for the thing you were about to
+build** (`grep -i contrast`, `grep -i bench`, `grep -i render`), then open the
+script or tool the row names — its own header is the long form. A zero-hit grep
+means try another word, not that nothing exists.
+
+It is generated from `package.json` scripts and the `tools/` headers (so it
+can't drift) and is gated by `capabilities:check` (so a new **script or tool**
+can't land uncatalogued). The live source lists never lie either: `npm run`
+prints every script, `ls tools/` every tool.
 
 To add: a new npm script → describe it in `SCRIPT_META` in
 `tools/build-capabilities.js`; a new `tools/` file → give it a one-line
@@ -415,7 +420,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/cvd-audit.js` | Colour-vision-deficiency (CVD) collapse audit for Lattice themes. |
 | `tools/derive-cat-ink.js` | Generate the curated `--cat-1-ink … --cat-12-ink` block for every palette. |
 | `tools/derive-chart-cat-ink.js` | Generate the curated `--chart-cat1-ink … --chart-cat8-ink` block for every |
-| `tools/diagram-oracle.mjs` | import { execFileSync } from 'node:child_process'; |
+| `tools/diagram-oracle.mjs` | diagram-oracle — a per-fence byte oracle for the CLI's mmdc bake. |
 | `tools/export-chart-svg.js` | Export a deck's chart(s) as standalone image files — SVG for the vector |
 | `tools/export-marp.js` | export-marp — produce a portable, self-contained bundle of a Lattice deck for |
 | `tools/fetch-emoji-font.js` | Vendor Noto Color Emoji for the opt-in FULL-OFFLINE tier. |

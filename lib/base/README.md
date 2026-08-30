@@ -6,7 +6,10 @@ treatments, finish backdrops, and sketch mode. All CSS — nothing here is
 `require`d as JavaScript.
 
 **Read `base.docs.md` in this folder** — it is the canonical file-by-file
-and feature-by-feature reference; this README is just the signpost.
+and feature-by-feature reference; this README is just the signpost. Its sibling
+**`base.registers.docs.md`** covers the ten deck-level front-matter registers
+(`mode:` `finish:` `split:` `stamp:`/`tone:` `spectrum:` `rule:` `eyebrow:`
+`headline:` `lift:` `corners:`) and the per-slide tokens they resolve to.
 
 `tools/build-css.js` concatenates these files in a fixed, load-bearing
 order (`base.tokens.css` first) into `dist/lattice.css`.

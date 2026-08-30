@@ -275,8 +275,10 @@ A 12-slide board update:
 - `design/design-principles.md` — hierarchy, restraint, content limits.
 - `design/design-system.md` — the four axes; the 7 functions, 12 forms, 4
   substances; the component catalog.
-- `lib/base/base.docs.md` — eyebrow / subtitle / pill / key-insight / below-note
-  and the front-matter registers.
+- `lib/base/base.docs.md` — eyebrow / subtitle / pill / key-insight / below-note.
+- `lib/base/base.registers.docs.md` — the deck-level front-matter registers
+  (`mode:` `finish:` `split:` `stamp:`/`tone:` `spectrum:` `rule:` `eyebrow:`
+  `headline:` `lift:` `corners:`) and the per-slide tokens they resolve to.
 - `spec/LFM-1.0.md` — the markdown dialect and front-matter surface.
 - `AGENTS.md` — the agent authoring loop (count → capacity → density → lint →
   render).

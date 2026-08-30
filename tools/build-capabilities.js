@@ -335,10 +335,67 @@ function toolHeaderDescription(file) {
       .replace(/\s+$/, '')
       .trim();
     if (!line) continue;
-    if (/eslint|Auto-generated|DO NOT EDIT|@ts-|^Usage:|^Flags:|require\(|^const /.test(line)) continue;
+    // `^import ` joins `require(` and `^const `: an ESM tool whose header ends before its
+    // first import renders that import AS its description (`tools/diagram-oracle.mjs` did —
+    // its row read `import { execFileSync } from 'node:child_process';` while the real
+    // description sat two lines below). A row that describes nothing is invisible to every
+    // grep but one carrying its own filename, which is worse under grep-first routing than
+    // it was under a read-whole index.
+    if (/eslint|Auto-generated|DO NOT EDIT|@ts-|^Usage:|^Flags:|require\(|^const |^import /.test(line)) continue;
     if (/^[A-Za-z`]/.test(line) && line.length > 15) return line;
   }
   return null;
+}
+
+// ── Row budget (the grep unit) ────────────────────────────────────────────
+// This index is READ BY GREP, so what a reader pays is the ROW, not the file.
+// Budget the row and the cost of a query stays bounded no matter how many
+// capabilities land; budget the FILE and you bill whichever PR crosses the line
+// for 300 predecessors' contributions, which is the aggregate mistake #1547
+// already removed from the generated artifacts.
+//
+// IT IS A RATCHET, PINNED AT THE WIDEST LIVE ROW — the same shape as `ROW_CAP`
+// in tools/build-decisions-index.js, and NOT what this gate shipped first.
+//
+// The first cut set the cap BELOW the tail and trimmed eleven rows into it. That
+// was wrong, and the way it was wrong is worth keeping: it bought 846 tokens (6%)
+// on a file whose size is not the fixable problem — no cap reaches the 10k
+// read-whole budget, which is why the routing changed to grep-first — and it paid
+// for that in the one currency a grep-first index actually spends. Measured across
+// the trim: ~130 distinct words stopped matching anywhere in the file, among them
+// `permission`, `wink-nlp`, `cascade`, `retired` and `classifier`. `grep -i
+// permission` had returned the measured finding that `--allowed-tools Read`
+// overrides the working-directory refusal — a reinvention hazard, which is the
+// exact thing HARD RULE #15 exists to stop someone rediscovering. Ten probe
+// queries chosen by the trimmer said the trim was clean; twenty words chosen by a
+// red team found five losses and a word-set diff found ~130.
+//
+// So the cap now only stops a row growing PAST the worst that exists, which is all
+// a ratchet can honestly claim. Lowering it means deleting authored prose, and
+// nothing here can tell prose that carries a search term from prose that does not
+// — build that check first (a per-row word-set assertion across the edit), then
+// lower this. Do not lower it on the strength of a probe list.
+//
+// It scopes to the SCRIPT and TOOL tables, not FRAMEWORKS: the nine framework rows
+// are curated prose about libraries whose L2 is that library's own docs, and two of
+// them are already wider than any script row.
+const ROW_CAP = 1500;
+
+/** Per-row, per-capability: the check one PR can be held responsible for. */
+function rowCostProblems(rows) {
+  const problems = [];
+  for (const row of rows) {
+    if (row.length <= ROW_CAP) continue;
+    const name = row.match(/^\| `([^`]+)`/)?.[1] || row.slice(0, 40);
+    problems.push(
+      `${name}: its catalog row is ${row.length} characters, over the ${ROW_CAP} ratchet — ` +
+        'the widest row that exists today. Rows are edited in `SCRIPT_META` (npm scripts) ' +
+        "or the tool file's own header comment (tools/), both in tools/build-capabilities.js's " +
+        'sources. Before you shorten one, check that no word only findable in this row goes ' +
+        'with it: this index is read by grep, and a row nobody can find is worse than a long one.',
+    );
+  }
+  return problems;
 }
 
 function table(rows) {
@@ -348,6 +405,7 @@ function table(rows) {
 function render() {
   const scripts = require(path.join(ROOT, 'package.json')).scripts || {};
   const missing = [];
+  const catalogRows = [];
 
   // Frameworks
   const fwRows = FRAMEWORKS.map(([n, what, how]) => `| **${n}** | ${what} | ${how} |`);
@@ -363,7 +421,9 @@ function render() {
   for (const g of GROUP_ORDER_SCRIPTS) {
     const rows = (byGroupS[g] || []).sort((a, b) => a[0].localeCompare(b[0]));
     if (!rows.length) continue;
-    scriptSections += `\n### ${g}\n\n${table(rows.map(([n, d]) => `| \`${n}\` | ${d} |`))}\n`;
+    const rendered = rows.map(([n, d]) => `| \`${n}\` | ${d} |`);
+    catalogRows.push(...rendered);
+    scriptSections += `\n### ${g}\n\n${table(rendered)}\n`;
   }
 
   // Tools grouped (description from header / override)
@@ -381,7 +441,9 @@ function render() {
   for (const g of GROUP_ORDER_TOOLS) {
     const rows = (byGroupT[g] || []).sort((a, b) => a[0].localeCompare(b[0]));
     if (!rows.length) continue;
-    toolSections += `\n### ${g}\n\n${table(rows.map(([n, d]) => `| \`tools/${n}\` | ${d} |`))}\n`;
+    const rendered = rows.map(([n, d]) => `| \`tools/${n}\` | ${d} |`);
+    catalogRows.push(...rendered);
+    toolSections += `\n### ${g}\n\n${table(rendered)}\n`;
   }
 
   const body = `<!-- Auto-generated by tools/build-capabilities.js — DO NOT EDIT.
@@ -389,12 +451,17 @@ function render() {
 
 # Capabilities — what this repo already has
 
-**Before building any tool, harness, test, or framework, check here first —
-we almost certainly already have it.** This index is generated from
-\`package.json\` scripts and the \`tools/\` headers (so it can't drift) and is
-gated by \`capabilities:check\` (so a new **script or tool** can't land
-uncatalogued). The live source lists never lie either: \`npm run\` prints every
-script, \`ls tools/\` every tool.
+**Before building any tool, harness, test, or framework, look here first —
+we almost certainly already have it.** This catalog is past the size where
+reading it top-to-bottom pays, so **\`grep\` it for the thing you were about to
+build** (\`grep -i contrast\`, \`grep -i bench\`, \`grep -i render\`), then open the
+script or tool the row names — its own header is the long form. A zero-hit grep
+means try another word, not that nothing exists.
+
+It is generated from \`package.json\` scripts and the \`tools/\` headers (so it
+can't drift) and is gated by \`capabilities:check\` (so a new **script or tool**
+can't land uncatalogued). The live source lists never lie either: \`npm run\`
+prints every script, \`ls tools/\` every tool.
 
 To add: a new npm script → describe it in \`SCRIPT_META\` in
 \`tools/build-capabilities.js\`; a new \`tools/\` file → give it a one-line
@@ -414,11 +481,21 @@ ${scriptSections}
 ## Tools — \`tools/\`
 ${toolSections}`;
 
-  return { body, missing };
+  return { body, missing, rowProblems: rowCostProblems(catalogRows) };
 }
 
 function main() {
-  const { body, missing } = render();
+  const { body, missing, rowProblems } = render();
+
+  // The row budget fails BOTH paths. A write-only check would let a fat row land
+  // in the committed file and then report it as "stale" forever after, which
+  // names the wrong defect; a check-only one would let the author write it,
+  // commit, and meet the gate in CI instead of at their desk.
+  if (rowProblems.length) {
+    console.error(`✗ ${rowProblems.length} catalog row(s) over the ${ROW_CAP}-character budget:`);
+    for (const p of rowProblems) console.error(`    - ${p}`);
+    process.exit(1);
+  }
 
   if (check) {
     const current = fs.existsSync(OUT_FILE) ? fs.readFileSync(OUT_FILE, 'utf8') : '';
@@ -442,4 +519,8 @@ function main() {
   }
 }
 
-main();
+// Guarded so the row budget is unit-testable without running the generator — the
+// same shape tools/build-decisions-index.js uses for `rowCostProblems`.
+if (require.main === module) main();
+
+module.exports = { rowCostProblems, ROW_CAP };
