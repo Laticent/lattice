@@ -3,16 +3,17 @@ status: shipped
 summary: >
   `CLAUDE.md` was the only surface in the context-tiering system with no budget, and the
   only one every session pays unconditionally. It is now gated — 64,500 bytes, about
-  16,510 o200k_base tokens, against today's 58,760 / 15,041. The gate caps GROWTH rather
+  16,509 o200k_base tokens, against today's 58,760 / 15,041. The gate caps GROWTH rather
   than demanding a trim, because #1897 measured the expensive thing as the read boundary
   and `CLAUDE.md` is on the cheap side of it with zero reads: both trimming options priced
   on #1896 convert resident text into an extra read, and routing the canonical-doc table
   is actively wrong since that table is what tells you which doc to open. The measure is
   BYTES, which is a proxy the issue's own acceptance check did not ask for — justified by
-  a 0.08% ratio spread across five revisions of this one file, and by two live precedents
-  that already gate a token-motivated budget with characters. The number in #1896's
-  analysis, 13,897, was four commits stale when it was posted; the file was 14,914 at the
-  branch point.
+  a 0.079% ratio spread across four distinct revisions of this one file, and by two live
+  precedents that already gate a token-motivated budget with characters. Nothing guards that
+  proxy: a composition check was written, measured against a counterexample, and deleted.
+  #1896's 13,897 was CORRECT when posted — an earlier draft of this note wrongly called it
+  stale — and the file reached 14,914 half an hour later.
 ---
 
 # A budget for the router — cap the growth, not the file
@@ -34,18 +35,30 @@ it carries was written for indexes, so the router was out of its own scope by co
 
 | commit | bytes | tokens | bytes/token |
 |---|---:|---:|---:|
-| `d9a8dee` | 54,252 | 13,897 | 3.904 |
-| `4271fe1` (adds #30) | 57,937 | 14,842 | 3.904 |
-| `bd1ff9c` | 58,260 | 14,914 | 3.906 |
-| `b77107d` (branch point) | 58,260 | 14,914 | 3.906 |
-| this branch | 58,760 | **15,041** | 3.907 |
+| `d9a8dee` | 54,252 | 13,897 | 3.9039 |
+| `4271fe1` (adds #30) | 57,937 | 14,842 | 3.9036 |
+| `ff35963` (= `bd1ff9c` = `b77107d`) | 58,260 | 14,914 | 3.9064 |
+| this branch | 58,760 | **15,041** | 3.9067 |
 
-**#1896's analysis priced the fix against 13,897, and that was `d9a8dee` — four commits
-back, and about 80 minutes stale when it was posted.** `4271fe1` had already added HARD
-RULE #30. Its proposal, "record 13,897 as the budget", would have pinned a ceiling the
-file was already 1,017 tokens over on the day it was written. Recorded because the same
-mistake is easy to repeat: this file changes several times a day, and a number taken from
-a merged PR is not a number about `main`.
+**Four distinct states, not five.** A first draft listed `bd1ff9c` and `b77107d` as separate
+rows; both carry the blob `ff35963` produced, so counting them twice overstated the sample by
+25%. The conclusion is unchanged — the spread is (3.9067−3.9036)/3.9036 = **0.079%** — but a
+duplicate presented as an independent measurement is the kind of claim this branch exists to
+catch.
+
+**#1896's 13,897 was correct when it was posted, and a first draft of this note said
+otherwise.** The comment landed at 17:01; `d9a8dee` (13,897) was the tip from 16:13, and
+`4271fe1` — which added HARD RULE #30 and took the file to 14,842 — did not land until 17:34.
+The analysis was measuring the live file. It went stale 33 minutes later, and by the branch
+point (`ff35963`, 18:53) the file was 14,914.
+
+The draft claim, "four commits and about 80 minutes stale", was also internally impossible: at
+80 minutes one commit had landed; four commits is 160. It is corrected here rather than
+quietly dropped, because it accused someone else's measurement of an error it did not make.
+
+What survives is the reason the budget is set against 15,041 rather than 13,897: **this file
+moved +1,144 tokens in under six hours**, so a number quoted from a merged PR is stale by the
+time anyone acts on it. That argues for the gate, not against the analysis.
 
 Of the +127 tokens on this branch, all are the #21 enforcement tag, corrected because this
 branch's own work falsified it.
@@ -61,7 +74,7 @@ available — no read at all.
 So both trimming options priced on #1896 spend the expensive currency to save the cheap
 one:
 
-- **Routing the canonical-doc table** (1,323 tokens) is the clearest case and is actively
+- **Routing the canonical-doc table** (1,413 tokens, 37 rows) is the clearest case and is actively
   wrong. That table is the thing that tells you which doc to open; moving it behind a
   pointer spends a read on exactly the sessions that need routing.
 - **Splitting rule text from rationale** (~1,900 tokens) carries the issue's own objection:
@@ -85,23 +98,37 @@ purpose** — a ~2MB BPE rank table installed on every checkout to serve one gat
 **The proxy is the established method here, not a novel one.** `ROW_CAP` in
 `tools/build-capabilities.js` and in `tools/build-decisions-index.js` both gate a
 token-motivated budget with a **character** count today. The second's docblock states its
-own token measurement in `o200k_base` and then caps characters.
+own token measurement in `o200k_base` and then caps characters. One unit note: both cap
+`String.length`; this gate caps BYTES. `CLAUDE.md` is 58,760 bytes against 58,204 characters,
+0.96% apart — the calibration is internally consistent in bytes, so nothing is wrong, but the
+precedent is not quite the same unit.
 
 **And the calibration is far tighter than a cross-file ratio would be, because the gate
-judges one file.** Across the five revisions above: 3.904, 3.904, 3.906, 3.906, 3.907 — a
-spread of **0.08%** over a span of +1,144 tokens. The live gate's own estimate of today's
+judges one file.** Across the four distinct revisions above: 3.9039, 3.9036, 3.9064, 3.9067 —
+a spread of **0.079%** over a span of +1,144 tokens. The live gate's own estimate of today's
 file is 15,040 against a true 15,041. Across *other* prose files the ratio runs 3.61
 (`decisions/README.md`, dense with links) to 4.42 (`components.pick.md`), which is exactly
 why this gate names its one file rather than pretending to a general rule.
 
-`test/unit/tools/router-budget.test.js` guards the substitution rather than only the
-comparison: it fails if the share of non-letter bytes leaves a 24–32% band (today 27.5%),
-which is the cheap tokenizer-free signal that the file has changed *what it is made of* —
-a wall of tables or code fences would move the ratio where ordinary prose does not.
+**Nothing guards the proxy, and a check that pretended to was deleted.** This note first
+claimed `test/unit/tools/router-budget.test.js` guarded the substitution with a 24–32%
+non-letter-byte band, on the theory that composition drift is what moves bytes/token. A checker
+was asked to break it and did, using this paragraph's own example: fill the whole 5,740-byte
+headroom with a CSS fence and the file is 17,342 real tokens while the gate reports 16,509 — 5%
+understated — with the band green at 29.6%. Across every tracked `.md` over 4k, non-letter
+share and bytes/token correlate at r = −0.30, and of the 625 repo files inside that band
+bytes/token spans 3.53 to 4.70. It could not have worked structurally either: 5,740 bytes is
+under 10% of the file, so nothing that fits under the ceiling moves a whole-file ratio by 4.5
+points.
+
+So the proxy is **unguarded**. The honest sentence beats the reassuring assertion, because the
+assertion is the one a future reader would have trusted. What holds the substitution together
+is that raising the ceiling means re-measuring with `o200k_base` — which is when the
+calibration gets re-derived.
 
 ## The number
 
-**64,500 bytes ≈ 16,510 tokens**, against today's 58,760 / 15,041. Headroom is 5,740 bytes
+**64,500 bytes ≈ 16,509 tokens**, against today's 58,760 / 15,041. Headroom is 5,740 bytes
 / ~1,470 tokens — **+10%**, chosen by the owner. One rule the size of #22 (1,288 tokens) or
 #29 (1,164) fits without a trade; a second does not.
 

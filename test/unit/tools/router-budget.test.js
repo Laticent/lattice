@@ -13,12 +13,11 @@ const {
 const ROOT = path.join(__dirname, '..', '..', '..');
 
 /**
- * #1896. `CLAUDE.md` is the only surface every session pays unconditionally, and it was
- * the only one in the context-tiering system with no budget. The gate is a BYTE ceiling
- * standing in for an o200k_base token budget, so the thing most worth testing is not the
- * comparison — it is that the substitution stays honest. If the file's bytes-per-token
- * ratio drifts, the byte number silently stops meaning the token number the gate's
- * docblock claims it means, and nothing else in the repo would notice.
+ * #1896. `CLAUDE.md` is the only surface every session pays unconditionally, and it was the
+ * only one in the context-tiering system with no budget. The gate is a BYTE ceiling standing
+ * in for an o200k_base token budget. What that substitution rests on is one measurement — the
+ * ratio's 0.08% spread across four distinct revisions of this one file — and what it does NOT
+ * rest on is any check in this file, for the reason spelled out below.
  */
 describe('the L0 router budget (#1896)', () => {
   const file = path.join(ROOT, ROUTER_FILE);
@@ -52,26 +51,23 @@ describe('the L0 router budget (#1896)', () => {
     assert.match(errors[0], /do not "fix" it by routing text behind a pointer/);
   });
 
-  // THE SUBSTITUTION CHECK. 3.907 was measured across five revisions spanning +1,144
-  // tokens, with a spread of 0.08% — that stability is the whole license for using bytes.
-  // A 2% band is ~25x the observed drift, so this fails on a real change in what the file
-  // is made of (a table of short cells, a wall of code fences) and not on ordinary prose.
-  // Re-measure with o200k_base in a scratchpad; gpt-tokenizer is deliberately not a repo
-  // dependency, which is exactly why this arm has to be a proxy check rather than a real one.
-  test('the byte-per-token calibration still describes the file', () => {
-    const text = fs.readFileSync(file, 'utf8');
-    // A cheap, tokenizer-free stand-in for "what the file is made of": the share of bytes
-    // that are whitespace, punctuation or digits rather than letters. o200k splits those
-    // far more finely than prose words, so a move here is what would move the ratio.
-    const nonWord = (text.match(/[^A-Za-z]/g) || []).length / text.length;
-    assert.ok(
-      nonWord > 0.24 && nonWord < 0.32,
-      `CLAUDE.md is ${(nonWord * 100).toFixed(1)}% non-letter bytes, outside the 24-32% band the ` +
-      `${ROUTER_BYTES_PER_TOKEN} bytes/token calibration was measured on. The byte ceiling may no ` +
-      'longer mean the token budget it claims — re-measure with o200k_base and update ' +
-      'ROUTER_BYTES_PER_TOKEN and ROUTER_BYTE_CEILING together.',
-    );
-  });
+  // THERE IS NO SUBSTITUTION CHECK, AND PRETENDING OTHERWISE WAS WORSE THAN NOTHING.
+  //
+  // A first version of this file asserted that CLAUDE.md's share of non-letter bytes stayed
+  // in a 24-32% band, on the theory that composition drift is what would move bytes/token.
+  // A checker was asked to break it and did, with the docblock's own example: fill the whole
+  // 5,740-byte headroom with a CSS fence and the file is 17,342 real tokens while the gate
+  // reports 16,509 — 5% understated — and the band sits at 29.6%, green. Identifier-dense
+  // prose is worse. Across every tracked .md over 4k, non-letter share and bytes/token
+  // correlate at r = -0.30; of the 625 repo files inside that band, bytes/token spans 3.53 to
+  // 4.70. It could not have worked structurally either: 5,740 bytes is under 10% of the file,
+  // so nothing that fits under the ceiling moves a whole-file ratio by 4.5 points.
+  //
+  // So the proxy is UNGUARDED, and that is stated rather than dressed up. What protects it is
+  // the ceiling being low enough that drift cannot accumulate far before a human is in the
+  // loop: raising it means re-measuring with o200k_base, which is when the calibration gets
+  // re-derived. An assertion that reads like a guarantee and gives none is worse than the
+  // honest sentence, because it is the sentence a future reader trusts.
 
   test('the ceiling leaves real headroom, and is not a zero-slack ratchet', () => {
     assert.ok(bytes < ROUTER_BYTE_CEILING, 'the file is already at or over the ceiling');

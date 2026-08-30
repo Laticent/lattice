@@ -3723,12 +3723,19 @@ function decodeCssEscapes(value) {
  * token-motivated budget with a CHARACTER count already.
  *
  * The calibration is measured on THIS file, which is the only file it judges, and it is
- * far tighter than a cross-file ratio would be: 3.904, 3.904, 3.906, 3.906, 3.907 bytes
- * per o200k_base token across five revisions spanning +1,144 tokens — a spread of 0.08%.
- * (Across other prose files the ratio runs 3.61 to 4.42, which is why this gate judges
- * one file and says so.)
+ * far tighter than a cross-file ratio would be: 3.9039, 3.9036, 3.9064, 3.9067 bytes per
+ * o200k_base token across FOUR distinct revisions spanning +1,144 tokens — a spread of
+ * 0.079%. (A first draft said five; two of the commits it listed carry the same blob.
+ * Across other prose files the ratio runs 3.61 to 4.42, which is why this gate judges one
+ * file and says so.)
  *
- * THE NUMBER. 64,500 bytes is ~16,510 tokens at 3.907. Today's file is 58,760 bytes /
+ * NOTHING GUARDS THE PROXY, and that is stated rather than dressed up. A composition check
+ * was tried and deleted: see test/unit/tools/router-budget.test.js for the counterexample
+ * that killed it. What holds the substitution honest is that raising the ceiling means
+ * re-measuring with o200k_base, which is when the calibration gets re-derived.
+ *
+ * THE NUMBER. 64,500 bytes is ~16,509 tokens at 3.907 — the figure the gate's own message
+ * prints, and the docs used to say 16,510 beside it. Today's file is 58,760 bytes /
  * 15,041 tokens, so the headroom is 5,740 bytes / ~1,470 tokens — about +10%, chosen by
  * the owner. One rule the size of #22 (1,288 tokens) or #29 (1,164) fits without a trade;
  * a second does not. Zero slack was rejected on purpose: the `US_ENGLISH_BUDGET` shape was

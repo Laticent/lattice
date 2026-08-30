@@ -64,8 +64,8 @@ backlog.** About 39 were the `progress-centre` Form cell — issue #578 has sinc
 it to `progress-center`, so the largest cluster is gone. That total was deliberately not
 restated for a while, because `checkUsEnglish` had been deleted with the ratchet and a
 fresh number needs a fresh instrument. There is one now, and it counted living surfaces —
-outside the map and the writing about it — at 91 before a 2026-08-30 pass and 34 after. Every
-one of the 34 is named in
+outside the map and the writing about it, tracked files only — at 84 before a 2026-08-30 pass
+and 30 after. Every one of the 30 is named in
 `engineering/decisions/2026-08-30-british-spellings-remainder.md`. The shape below still
 describes them. 15 are DATA a US-English pass must never touch — GitHub's `cancelled` conclusion enum, the
 OECD's real legal name, a synonym key an author might type, pre-registered benchmark

@@ -36,10 +36,10 @@ const ROOT = path.join(__dirname, '..', '..', '..');
  *    nowhere in the repo — passed the check that exists to catch exactly that;
  *  · the removed-pair test, which would reopen a gap for ANY key, whether or not the word
  *    occurs in anything anyone wrote;
- *  · the audit's own yield. `flavourful` occurs on exactly one line in the whole repo: the
- *    enumeration test's comment listing the derivations it does not cover. It is in the map
- *    because this audit surfaced it, and surfacing it was reading its own predecessor's
- *    documentation.
+ *  · the audit's own yield. At the branch point `flavourful` occurred on exactly one line in
+ *    the whole repo — the enumeration test's comment listing the derivations it does not
+ *    cover. It is in the map because this audit surfaced it, and surfacing it was reading its
+ *    own predecessor's documentation. (It is on six lines now, all of them prose about the map.)
  *
  * All three were found by an independent checker, not by the suite. The honest statement
  * about the tree this ships against is that the audit finds ZERO British spellings in house
@@ -58,9 +58,11 @@ const ROOT = path.join(__dirname, '..', '..', '..');
  *  · **The 25 collapsing families are dark.** They are dropped for a good reason (below),
  *    and the cost is that no unlisted word in them can be seen: `modeller` stems to `model`
  *    and `marvellously` to `marvel`, and neither lands in a British family.
- *  · **582 of 3,195 tracked text files are never read**, 528 of them `engineering/decisions/**`,
- *    which `listRepoTextFiles` skips as a dated archive.
- *  · **Extensions on neither list** — `.mdx`, `.cjs`, `.txt`, `.sh`, `.vtt` — are unread.
+ *  · **559 of 3,178 tracked files in the extensions it does read are never opened**, 530 of
+ *    them `engineering/decisions/**`, which `listRepoTextFiles` skips as a dated archive.
+ *  · **Extensions on neither list** — `.mdx`, `.cjs`, `.txt`, `.sh`, `.vtt`, 23 tracked files —
+ *    are unread. All 23 were checked by hand once, in August 2026: none carried a British
+ *    spelling. Nothing keeps that true.
  *
  * So this is a net with a stated mesh, not a proof of zero.
  *
@@ -133,7 +135,10 @@ function britishStems() {
 // identifiers of its own: a `.md` naming `sectionBoxOffences` is QUOTING one, and the file
 // that declares it is already in scope. Without the restriction the arm fails on the
 // changelog fragment describing the rename it just made — measured, not hypothetical.
-const IDENTIFIER_FILE_EXTS = new Set(['.js', '.mjs', '.cjs', '.ts', '.tsx', '.css', '.json', '.astro', '.py', '.yml', '.yaml']);
+// `.cjs` and `.yaml` were here and were dead: the corpus yields only the extensions in
+// `US_TEXT_EXTS` plus `.py`, and neither is among them. `.html` is walked, carries real
+// identifiers (class names, ids, inline script), and was wrongly left out.
+const IDENTIFIER_FILE_EXTS = new Set(['.js', '.mjs', '.ts', '.tsx', '.css', '.json', '.astro', '.py', '.yml', '.html']);
 
 // The dialect map and the two suites that test it. See § THE MAP AND ITS TESTS above:
 // these hold British words as DATA, so leaving them in the corpus lets the audit, its
@@ -143,6 +148,12 @@ const DIALECT_MACHINERY = [
   'test/unit/tools/us-english.test.js',
   'test/unit/tools/us-english-stem-audit.test.js',
 ];
+
+// So are the changelog fragments, and leaving them in was the same defect one file over: a
+// fragment describing this work quotes the words it is about, and between them the pending
+// fragments hold 25 map keys. `recognisable` lived in exactly one in-corpus file — the #1918
+// fragment — which is what the removed-pair proof below used to run on.
+const isDialectMachinery = (rel) => DIALECT_MACHINERY.includes(rel) || rel.startsWith('changelog.d/');
 
 /** Tracked `.py` files, which `listRepoTextFiles` does not carry. Absolute, to match it. */
 function trackedPythonFiles() {
@@ -173,7 +184,7 @@ function wordsIn(text) {
 function repoWords() {
   const words = new Map();
   for (const file of [...listRepoTextFiles(), ...trackedPythonFiles()]) {
-    if (DIALECT_MACHINERY.includes(path.relative(ROOT, file))) continue;
+    if (isDialectMachinery(path.relative(ROOT, file))) continue;
     let text;
     try {
       text = fs.readFileSync(file, 'utf8');
@@ -233,13 +244,33 @@ describe('the dialect map, audited by stemming the tree (HARD RULE #21)', () => 
     );
   });
 
-  // The instrument has to be able to fail, and the map is the thing it audits, so the
-  // proof runs on a map with a known pair removed rather than on a synthetic fixture.
-  test('it catches a pair deliberately removed from the map', () => {
+  // The instrument has to be able to fail, and this proof is SYNTHETIC on purpose — a
+  // demotion from what it was, made because a checker showed the old one proved nothing.
+  //
+  // It used to delete `recognisable` from the map and assert the gap reopened. With the map
+  // and its tests in the corpus that passed for ANY key, because a British-to-American map is
+  // a list of British words: all 237 keys were tokens in the tree by construction. Excluding
+  // those three files left `recognisable` in exactly one in-corpus file — the #1918 changelog
+  // fragment — so the proof still ran on prose about the map rather than on prose.
+  //
+  // Excluding the fragments too leaves NO word to mutate against, and that is the finding
+  // rather than an obstacle: the tree is swept, so no British spelling in house prose remains
+  // for a removed pair to rediscover. A synthetic corpus proves what is actually provable
+  // here — that tokenize -> stem -> compare reports an unlisted word in a British family. The
+  // walk's end-to-end proof is the identifier arm below, which does go red on a real file.
+  test('the tokenize/stem/compare pipeline reports an unlisted British form', () => {
+    const corpus = new Map([
+      ['recognisable', new Set(['synthetic/prose.md'])],
+      ['recognizable', new Set(['synthetic/prose.md'])], // the US form must NOT be reported
+      ['calibration', new Set(['synthetic/prose.md'])], //  nor a collision the allowlist absorbs
+    ]);
     const holed = new Set(listed);
     holed.delete('recognisable');
-    const found = auditGaps(words, holed, byStem).gaps.map((g) => g.word);
-    assert.deepEqual(found, ['recognisable'], 'removing a listed pair must reopen exactly that gap');
+    const { gaps } = auditGaps(corpus, holed, byStem);
+    assert.deepEqual(gaps.map((g) => g.word), ['recognisable']);
+    assert.deepEqual(gaps[0].files, ['synthetic/prose.md']);
+    // And with the pair listed the same corpus is clean — the map is what decides.
+    assert.deepEqual(auditGaps(corpus, listed, byStem).gaps, []);
   });
 
   // A discriminating family is one the stemmer can actually take a position on. The
@@ -286,10 +317,11 @@ describe('the dialect map, audited by stemming the tree (HARD RULE #21)', () => 
     // string a sweep must not touch.
     const NOT_AN_IDENTIFIER = new Set(['test/benchmark/engine-bench.mjs:emphasised_']);
     const listedForms = new Set(Object.keys(UK_TO_US));
+    const absorbed = new Set();
     const found = [];
     for (const file of [...listRepoTextFiles(), ...trackedPythonFiles()]) {
       const rel = path.relative(ROOT, file);
-      if (DIALECT_MACHINERY.includes(rel)) continue;
+      if (isDialectMachinery(rel)) continue;
       if (!IDENTIFIER_FILE_EXTS.has(path.extname(rel))) continue;
       let text;
       try {
@@ -300,7 +332,10 @@ describe('the dialect map, audited by stemming the tree (HARD RULE #21)', () => 
       for (const m of text.matchAll(/[A-Za-z][A-Za-z0-9_]*/g)) {
         const token = m[0];
         if (!/[a-z][A-Z]|_/.test(token)) continue;
-        if (NOT_AN_IDENTIFIER.has(`${rel}:${token}`)) continue;
+        if (NOT_AN_IDENTIFIER.has(`${rel}:${token}`)) {
+          absorbed.add(`${rel}:${token}`);
+          continue;
+        }
         for (const seg of token.split(/(?<=[a-z0-9])(?=[A-Z])|_+/)) {
           if (seg && listedForms.has(seg.toLowerCase())) found.push(`${rel}: ${token} (${seg})`);
         }
@@ -311,6 +346,13 @@ describe('the dialect map, audited by stemming the tree (HARD RULE #21)', () => 
       'an identifier carries a British spelling (HARD RULE #21). Rename it, or — if the ' +
       'string is external or is not an identifier at all — add it to NOT_AN_IDENTIFIER with ' +
       'the reason.',
+    );
+    // This was the one allowlist on the branch without a staleness arm, which is the rot the
+    // repo gates against everywhere else (#20, #22, #29). If `_emphasised_` ever leaves
+    // engine-bench.mjs, the entry goes with it.
+    assert.deepEqual(
+      [...NOT_AN_IDENTIFIER].filter((e) => !absorbed.has(e)), [],
+      'a NOT_AN_IDENTIFIER entry no longer matches anything in the tree — delete it',
     );
   });
 
