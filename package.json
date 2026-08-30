@@ -302,6 +302,7 @@
     "tinybench": "^6.0.2",
     "typescript": "^6.0.3",
     "vivus": "^0.4.6",
+    "wink-porter2-stemmer": "^2.0.1",
     "yaml": "^2.9.0",
     "zdog": "^1.1.3"
   },
