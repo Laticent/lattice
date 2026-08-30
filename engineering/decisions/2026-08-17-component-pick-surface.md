@@ -250,13 +250,22 @@ condition, one surface each and nothing else.
 
 **How this record was made, because it bears on how far to trust it.**
 `pick-surface-agent-runs.json` is a **hand-transcribed** record of what four subagents
-returned — as is the first bake-off above. There is no committed harness, no run log, no
-replay: the briefs and the ground truth are gated artifacts, the *picks* are not. Every
-derived figure in the table below recomputes from that JSON, which verifies the
-arithmetic and nothing about provenance. Under HARD RULE #23 the surface is "four Opus
-subagents" and the artifact is self-reported, so read the numbers as an honest report
-rather than a reproducible measurement. Making them reproducible means a committed
-harness, which is a different change from this one.
+returned — as is the first bake-off above. The briefs and the ground truth are gated
+artifacts, the *picks* are not. Every derived figure in the table below recomputes from
+that JSON, which verifies the arithmetic and nothing about provenance. Under HARD RULE
+#23 the surface is "four Opus subagents" and the artifact is self-reported, so read the
+numbers as an honest report rather than a reproducible measurement.
+
+**A harness now exists, and these numbers still do not come from it** (corrected
+2026-08-30). This paragraph read "there is no committed harness, no run log, no replay"
+until today, and that stopped being true when #1734 landed
+`tools/intent-bakeoff/pick-surface-agent-eval.mjs` (`npm run intent:pick-agents`) in
+#1777 — a script that spawns the agents against a pinned surface and writes their raw
+returns plus the harness's own accounting. What it has never done is write THIS file:
+the committed runs JSON is still the transcription, so the numbers below carry exactly
+the provenance they always did. #1734 was closed on the harness being built, not on the
+bake-off being re-run; the re-run is its own card. Two claims worth keeping apart — the
+tool is available, and the record is still self-reported.
 
 | condition | strict | defensible | tokens per agent | tool calls |
 |---|---|---|---|---|
@@ -313,6 +322,24 @@ these briefs also owns the surface under test. The mitigation is partial — dis
 were read out of each manifest's `whenToUse`, which is text the FULL condition can see
 and the PICK condition cannot, so where that biases the experiment it biases it toward
 the full catalog — but it is not an independent-author design.
+
+## The one column that is mostly empty (#1784)
+
+Recorded here because this note argues for `capacity` twice — it rides along "because
+`AGENTS.md` requires counting content against it *before* committing to a component",
+and the pick list's own preamble tells the reader to count before choosing.
+
+**Measured 2026-08-30 over the generated file: 38 of the 61 rows render `capacity` as
+`—`.** The column is present, documented, and empty for roughly three components in
+five. That is not a defect in the pick surface — the manifests are where `capacity`
+lives, and #1784 (open) records that it is undeclared on most of them — but it is the
+gap between what this surface promises a picker and what it can currently deliver, and
+the two were tracked in separate places until now.
+
+It also bounds a claim above. The bake-off's cost finding (one read against nine) does
+not depend on this column, but "each row carries exactly what a pick needs" is weaker
+than it reads while the count that decides whether your content fits is blank on most
+rows. Filling the manifests fixes both surfaces at once; nothing here needs to change.
 
 ## Deliberately not done
 
