@@ -2,12 +2,23 @@
 /**
  * The house US-English word list: a curated British-to-American map, used by the commit-msg hook to warn on British spellings (HARD RULE #21).
  *
- * This is the ONLY US-English machinery left. The tracked tree was swept to zero
- * in 2026-08, and the `checkUsEnglish` ratchet — a budget, a self-exempt list,
- * and a repo-wide scan on every build — was deleted with it. A gate that had to
- * carry 1285 exceptions to stay green was more machinery than the problem, and
- * from zero a regression is a single visible word in a diff rather than a needle
- * in a haystack. HARD RULE #21 is discipline now; this file is the one cheap
+ * This is the ONLY US-English machinery left. The tracked tree was swept in 2026-08
+ * and the `checkUsEnglish` ratchet — a budget, a self-exempt list, and a repo-wide
+ * scan on every build — was deleted with it. **Swept is not zero**, and this docblock
+ * said "swept to zero" until #1918. HARD RULE #21 is the contract and it says the
+ * opposite in terms: spellings remain on purpose — data we must keep accepting, a
+ * lockfile, dated filenames, mentions in tests and in the rule — and a pass must
+ * never touch an EXTERNAL string (GitHub's `cancelled` enum, a synonym key, a
+ * benchmark fixture). The rule declines to restate a running total, because the tool
+ * that measured the original 71 was deleted with the ratchet; a fresh count needs a
+ * fresh instrument. Do not quote a total from here either.
+ *
+ * The wrong sentence was load-bearing, which is why it is worth this many lines: it
+ * is the one #1918 read INSTEAD of the rule, and it produced a confident, published
+ * report that the sweep had failed. It had not. A gate that had to carry 1285
+ * exceptions to stay green was more machinery than the problem, and from a swept
+ * tree a regression is a single visible word in a diff rather than a needle in a
+ * haystack. HARD RULE #21 is discipline now; this file is the one cheap
  * backstop, on the one surface that measured real drift (21 British spellings in
  * 300 commit messages).
  *
@@ -123,12 +134,12 @@ const UK_TO_US = Object.freeze({
   standardising: 'standardizing', specialising: 'specializing', finalising: 'finalizing',
   capitalising: 'capitalizing', practising: 'practicing', standardisation: 'standardization',
   standardisations: 'standardizations', categorisation: 'categorization', categorisations: 'categorizations',
-  specialisation: 'specialization', initialisation: 'initialization', initialisations: 'initializations',
-  utilisation: 'utilization', realisation: 'realization', realisations: 'realizations',
-  finalisation: 'finalization', capitalisation: 'capitalization', visualisation: 'visualization',
+  specialisation: 'specialization', specialisations: 'specializations', initialisation: 'initialization', initialisations: 'initializations',
+  utilisation: 'utilization', utilisations: 'utilizations', realisation: 'realization', realisations: 'realizations',
+  finalisation: 'finalization', finalisations: 'finalizations', capitalisation: 'capitalization', capitalisations: 'capitalizations', visualisation: 'visualization',
   visualisations: 'visualizations', customisation: 'customization', customisations: 'customizations',
-  prioritisation: 'prioritization', prioritisations: 'prioritizations', minimisation: 'minimization',
-  maximisation: 'maximization', summarisation: 'summarization', normalisations: 'normalizations',
+  prioritisation: 'prioritization', prioritisations: 'prioritizations', minimisation: 'minimization', minimisations: 'minimizations',
+  maximisation: 'maximization', maximisations: 'maximizations', summarisation: 'summarization', summarisations: 'summarizations', normalisations: 'normalizations',
   optimisations: 'optimizations', organisations: 'organizations',
   // doubled consonants, -ment, -er, and the -ogue verbs
   modelled: 'modeled', signalled: 'signaled', catalogued: 'cataloged',
