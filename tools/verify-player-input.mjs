@@ -1,4 +1,5 @@
-// Real-surface verification for the exported HTML player's TOUCH input (#1558).
+// Real-surface verification for the exported HTML player: TOUCH input (#1558) and the deck's
+// declared CANVAS (#1577).
 //
 // HARD RULE #23: "verified" names a surface and carries an artifact from it. The claim here is
 // "pinching a deck someone shared with you no longer turns the slide", which is a claim about
