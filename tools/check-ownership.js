@@ -3704,65 +3704,67 @@ function decodeCssEscapes(value) {
  *
  * `CLAUDE.md` is the one surface every session pays UNCONDITIONALLY — it is resident
  * before any tool call — and it was the only file in the context-tiering system with no
- * budget at all. `2026-08-17-context-index-tiering.md` set ≤10k tokens for a read-whole
- * INDEX and three were fixed under it; the router that carries that rule is over it and
- * is not an index, so it was out of scope by construction.
+ * budget at all. `2026-08-17-context-index-tiering.md` set <=10k tokens for a read-whole
+ * INDEX and three were fixed under it; the router that carries that rule is over it and is
+ * not an index, so it was out of scope by construction.
  *
  * WHY A CEILING AND NOT A TRIM. #1897's bake-off measured a step function at the READ
- * BOUNDARY, not a linear token cost: the full catalog costs 18x the pick surface because
- * it takes 10-12 paginated reads against 1. `CLAUDE.md` sits on the cheap side of that
- * boundary in the strongest way available — zero reads — so both trimming options priced
- * on #1896 convert resident text into an EXTRA read. Routing the canonical-doc table is
- * the clearest case and is actively wrong: that table is what tells you which doc to
- * open. So the file is allowed to be this size; what is gated is unbounded growth.
+ * BOUNDARY, not a linear token cost: the full catalog costs 18x the pick surface because it
+ * takes 10-12 paginated reads against 1. `CLAUDE.md` sits on the cheap side of that boundary
+ * in the strongest way available — zero reads — so both trimming options priced on #1896
+ * convert resident text into an EXTRA read. Routing the canonical-doc table is the clearest
+ * case and is actively wrong: that table is what tells you which doc to open. So the file is
+ * allowed to be this size; what is gated is unbounded growth.
  *
- * WHY BYTES. There is no tokenizer in the repo and the tiering note deliberately keeps
- * `gpt-tokenizer` out of it — a ~2MB BPE rank table installed on every checkout to serve
- * one gate on one file. The proxy is not a guess and not a novel method here: `ROW_CAP`
- * in `tools/build-capabilities.js` and `tools/build-decisions-index.js` both gate a
- * token-motivated budget with a CHARACTER count already.
+ * IT MEASURES TOKENS, because a proxy could not be made honest. This gate first counted
+ * BYTES against a calibrated bytes-per-token ratio, on the argument that `ROW_CAP` in
+ * `build-capabilities.js` and `build-decisions-index.js` already cap a token-motivated
+ * budget with a character count. The ratio was genuinely stable — 0.079% across four
+ * revisions of this file — but NOTHING could check that it stayed stable: a composition
+ * check was written and broken in one attempt (fill the headroom with a code fence and the
+ * file is 5% more tokens than the gate reports, with the check green). The honest options
+ * were an unguarded proxy or the real measurement, and the owner chose the measurement.
  *
- * The calibration is measured on THIS file, which is the only file it judges, and it is
- * far tighter than a cross-file ratio would be: 3.9039, 3.9036, 3.9064, 3.9067 bytes per
- * o200k_base token across FOUR distinct revisions spanning +1,144 tokens — a spread of
- * 0.079%. (A first draft said five; two of the commits it listed carry the same blob.
- * Across other prose files the ratio runs 3.61 to 4.42, which is why this gate judges one
- * file and says so.)
+ * WHAT IT COSTS, measured rather than estimated: `gpt-tokenizer` is 30 MB installed
+ * (27.2 MB unpacked, 1,537 files) because it ships every encoding in both CJS and ESM.
+ * Requiring the o200k_base encoding alone costs ~180 ms and ~120 MB RSS, and encoding this
+ * file ~40 ms. That is why the require is INSIDE the function: `tools/check-ownership.js` is
+ * loaded at module scope by several test files, and none of them should pay for a tokenizer
+ * they do not use.
  *
- * NOTHING GUARDS THE PROXY, and that is stated rather than dressed up. A composition check
- * was tried and deleted: see test/unit/tools/router-budget.test.js for the counterexample
- * that killed it. What holds the substitution honest is that raising the ceiling means
- * re-measuring with o200k_base, which is when the calibration gets re-derived.
- *
- * THE NUMBER. 64,500 bytes is ~16,509 tokens at 3.907 — the figure the gate's own message
- * prints, and the docs used to say 16,510 beside it. Today's file is 58,760 bytes /
- * 15,041 tokens, so the headroom is 5,740 bytes / ~1,470 tokens — about +10%, chosen by
- * the owner. One rule the size of #22 (1,288 tokens) or #29 (1,164) fits without a trade;
- * a second does not. Zero slack was rejected on purpose: the `US_ENGLISH_BUDGET` shape was
- * a burn-down toward zero and this file is ALLOWED to be this size, so a zero-slack gate
+ * THE NUMBER. 16,500 tokens, the owner's +10% headroom, against 15,117 today (59,050 bytes)
+ * — 1,383 tokens of room. One rule the size of #22 (1,288 tokens) or #29 (1,164) fits
+ * without a trade; a second does not. Zero slack was rejected on purpose: `US_ENGLISH_BUDGET`
+ * was a burn-down toward zero and this file is ALLOWED to be its size, so a zero-slack gate
  * would be the "a bad gate is a permanent tax" case from CLAUDE.md's own second filter.
  *
- * Re-measure with o200k_base before quoting either figure; a scratchpad `gpt-tokenizer`
- * is how the numbers above were taken, and it is deliberately not a repo dependency.
+ * The figure moves under you. `9504fde` added 290 bytes to this file while the PR that
+ * introduced this gate was open, and three published measurements went stale during one
+ * session. That is the argument for the gate, and the reason it now derives the number at
+ * run time rather than carrying a calibration somebody has to re-check.
  */
 const ROUTER_FILE = 'CLAUDE.md';
-const ROUTER_BYTE_CEILING = 64500;
-const ROUTER_BYTES_PER_TOKEN = 3.907; // o200k_base, measured on this file across 5 revisions
+const ROUTER_TOKEN_CEILING = 16500;
+
+/** The router's exact o200k_base token count. Requires the tokenizer lazily — see above. */
+function routerTokenCount(text) {
+  const { encode } = require('gpt-tokenizer/encoding/o200k_base');
+  return encode(text).length;
+}
 
 function checkRouterBudget(errors) {
   const file = path.join(ROOT, ROUTER_FILE);
   if (!fs.existsSync(file)) return; // nothing to judge; not this gate's failure to report
-  const bytes = fs.statSync(file).size;
-  if (bytes <= ROUTER_BYTE_CEILING) return;
-  const tokens = Math.round(bytes / ROUTER_BYTES_PER_TOKEN);
-  const ceilingTokens = Math.round(ROUTER_BYTE_CEILING / ROUTER_BYTES_PER_TOKEN);
+  const text = fs.readFileSync(file, 'utf8');
+  const tokens = routerTokenCount(text);
+  if (tokens <= ROUTER_TOKEN_CEILING) return;
   errors.push(
-    `${ROUTER_FILE} is ${bytes} bytes (~${tokens} o200k tokens), over the ${ROUTER_BYTE_CEILING}-byte ` +
-    `(~${ceilingTokens}-token) ceiling (#1896). Every session pays this file unconditionally, before ` +
-    'any tool call. Raise the ceiling in the PR WITH the trade it buys, or trade something out — and ' +
-    'do not "fix" it by routing text behind a pointer: the file is on the cheap side of the read ' +
-    'boundary, so moving resident text out buys tokens by spending a read, which #1897 measured as ' +
-    'the expensive half. ROUTER_BYTE_CEILING is in tools/check-ownership.js.',
+    `${ROUTER_FILE} is ${tokens} o200k_base tokens (${Buffer.byteLength(text)} bytes), over the ` +
+    `${ROUTER_TOKEN_CEILING}-token ceiling (#1896). Every session pays this file unconditionally, ` +
+    'before any tool call. Raise the ceiling in the PR WITH the trade it buys, or trade something ' +
+    'out — and do not "fix" it by routing text behind a pointer: the file is on the cheap side of ' +
+    'the read boundary, so moving resident text out buys tokens by spending a read, which #1897 ' +
+    'measured as the expensive half. ROUTER_TOKEN_CEILING is in tools/check-ownership.js.',
   );
 }
 
@@ -11106,9 +11108,9 @@ module.exports = {
   SANCTIONED_GLYPH_DECKS,
   checkTypedGlyphs,
   checkRouterBudget,
+  routerTokenCount,
   ROUTER_FILE,
-  ROUTER_BYTE_CEILING,
-  ROUTER_BYTES_PER_TOKEN,
+  ROUTER_TOKEN_CEILING,
   CANONICAL_FS_TOKENS,
   parseThemeTokens,
   listBasePalettes,
