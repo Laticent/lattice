@@ -57,7 +57,9 @@ positive. Everything else is discipline.
 
 **71 British spellings remained in living prose when this was written, and none was a
 backlog.** About 39 were the `progress-centre` Form cell — issue #578 has since renamed
-it to `progress-center`, so about 32 remain and the largest cluster is gone. 15 are
+it to `progress-center`, so the largest cluster is gone. The total is deliberately not
+restated: `checkUsEnglish`, the tool that measured 71, was deleted with the ratchet, so a
+fresh number would be a different measurement wearing the old one's clothes. 15 are
 DATA a US-English pass must never touch — GitHub's `cancelled` conclusion enum, the
 OECD's real legal name, a synonym key an author might type, pre-registered benchmark
 fixtures. 4 sit in a lockfile, 3 cite a dated `engineering/decisions/` filename, and

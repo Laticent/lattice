@@ -6,7 +6,8 @@
   `.tile-progress`), and nothing persists it, so no deprecation alias is needed. Two
   prose references to the footer's `footer-centre` zone went with it; the
   `--footer-center-*` tokens were already US-spelled.
-- **Corrects the surviving-spelling count in HARD RULE #21 and `engineering/house-style.md`.**
-  Both said 71 British spellings remain in living prose, of which about 39 were this cell.
-  That cluster is gone, so about 32 remain — this supersedes the count in the house-voice
-  entry, which was accurate when it shipped.
+- **Corrects the surviving-spelling claim in HARD RULE #21 and `engineering/house-style.md`.**
+  Both said 71 British spellings remain in living prose, about 39 of them this cell. That
+  cluster is gone, so both now read as history and neither restates a present-tense total —
+  `checkUsEnglish`, the tool that measured 71, was deleted with the ratchet, so a fresh
+  number would be a different measurement wearing the old one's clothes.

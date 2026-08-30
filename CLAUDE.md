@@ -432,7 +432,9 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   `progress-centre` Form cell, 15 are DATA we must keep accepting, 4 sit in a lockfile,
   3 cite a dated `engineering/decisions/` filename, and the rest are deliberate mentions
   in tests and in this rule. **The Form cell is now `progress-center`** — issue #578
-  renamed it, so about 32 remain and the largest cluster is gone. **A US-English pass must never touch an EXTERNAL string**: GitHub's
+  renamed it, so the largest cluster is gone. The total is deliberately not restated:
+  `checkUsEnglish`, the tool that measured 71, was deleted with the ratchet, so a fresh
+  number would be a different measurement wearing the old one's clothes. **A US-English pass must never touch an EXTERNAL string**: GitHub's
   `cancelled` conclusion enum, the OECD's real legal name, a third-party language
   keyword, a synonym key an author might type, a pre-registered benchmark fixture. A
   sweep that rewrote three of those shipped a dead CI allowlist, an unresolvable map
