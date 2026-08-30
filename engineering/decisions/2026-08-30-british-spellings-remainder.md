@@ -34,7 +34,7 @@ deliberate spelling from one nobody had noticed. This note is the count and the 
 (see § The walk cannot see Python). The CURRENT matcher is applied to BOTH trees, so a pair
 this branch added to the map counts on each side and the columns differ only in content:
 
-| | base (`94bb951`) | after |
+| | base (`f302ea0`) | after |
 |---|---:|---:|
 | total | 482 | 465 |
 | — the dialect map, and writing about it | 323 | 360 |
