@@ -34,7 +34,7 @@ describe('US-English word list (HARD RULE #21)', () => {
   // Every suggestion must be a real fix. A pair whose American side is itself a
   // listed British form would coach the writer into a second failure.
   test('every suggestion is a genuine correction', () => {
-    assert.equal(BRITISH_FORMS.length, 228);
+    assert.equal(BRITISH_FORMS.length, 235);
     for (const [uk, us] of Object.entries(UK_TO_US)) {
       assert.notEqual(uk, us, `${uk} maps to itself`);
       assert.ok(!britishFormRe().test(us), `the suggestion "${us}" is itself flagged`);
@@ -43,31 +43,35 @@ describe('US-English word list (HARD RULE #21)', () => {
 
   // #1918. The map is keyed on whole words and matched with `\b`, so a listed root does
   // NOT cover its own longer inflections — `neighbour` cannot fire inside `neighbouring`.
-  // The list was inflection-aware but incomplete, and the incompleteness was invisible:
-  // the repo-wide sweep that justified deleting the ratchet ran on a list missing these,
-  // so it reported zero while 19 British spellings stood in tracked files. A reviewer will
-  // not catch the next omission by reading 228 pairs, so the SHAPE is asserted instead.
-  test('every -ise and -our root carries its -ing inflection', () => {
+  // The list was inflection-aware but incomplete, and the incompleteness was invisible by
+  // construction: 66 British spellings across 45 files sat in the tree unseen by the map,
+  // because no entry existed that could match them. That is not the same as the sweep
+  // having failed — HARD RULE #21 records ~71 further spellings that remain on purpose —
+  // it is the map being unable to see a family it already had the roots for.
+  //
+  // Three axes are asserted, and they are the three the map enumerates mechanically. The
+  // `-able`/`-hood`/`-ful`/`-ly` derivations (`honourable`, `neighbourhood`, `flavourful`)
+  // are NOT covered here: they are open-ended word formation rather than a closed
+  // inflection set, and a test that pretended to cover them would be the same overclaim
+  // this one exists to prevent.
+  test('every root carries the inflections its family enumerates', () => {
     const listed = new Set(Object.keys(UK_TO_US));
     // The only derived form that is not a word. Shrinking this set is a deliberate act.
     const NOT_ENGLISH = new Set(['behaviouring']); // `behaviour` is a noun; no verb to inflect
     const missing = [];
+    const want = (from, to) => {
+      if (!listed.has(to) && !NOT_ENGLISH.has(to)) missing.push(`${from} -> ${to}`);
+    };
     for (const w of listed) {
-      // `-ise` verbs drop the `e`: normalise -> normalising.
-      if (w.endsWith('ise')) {
-        const ing = `${w.slice(0, -3)}ising`;
-        if (!listed.has(ing) && !NOT_ENGLISH.has(ing)) missing.push(`${w} -> ${ing}`);
-      }
-      // `-our` roots just add `-ing`: honour -> honouring.
-      if (w.endsWith('our')) {
-        const ing = `${w}ing`;
-        if (!listed.has(ing) && !NOT_ENGLISH.has(ing)) missing.push(`${w} -> ${ing}`);
-      }
+      if (w.endsWith('ise')) want(w, `${w.slice(0, -3)}ising`); // normalise -> normalising
+      if (w.endsWith('our')) want(w, `${w}ing`); //                 honour   -> honouring
+      if (w.endsWith('isation')) want(w, `${w}s`); //               -isation -> its plural
     }
     assert.deepEqual(
       missing.sort(), [],
-      'a root is listed without its -ing form, which is how `neighbouring` shipped past a ' +
-      'green build (#1918). Add the pair, or add it to NOT_ENGLISH with the reason.',
+      'a root is listed without an inflection its own family enumerates, which is how ' +
+      '`neighbouring` shipped past a green build (#1918). Add the pair, or add it to ' +
+      'NOT_ENGLISH with the reason it is not a word.',
     );
   });
 
