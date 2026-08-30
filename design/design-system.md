@@ -128,7 +128,7 @@ backdrops), each its own front-matter key, palette-blind, defaulting to today's 
 | **Eyebrow** | `eyebrow:` | the mono-caps kicker decoration (`plain`/`dot`/`bar`/`arrow`/`underline`) |
 | **Headline alignment** | `headline:` | the framing-text cluster's horizontal alignment (`auto`/`left`/`center`/`right`) — `auto` keeps each component's own default; `left`/`center`/`right` pin the whole cluster, even on a layout whose default is the other way |
 
-The accent registers are documented for authors in `lib/base/base.docs.md`; design in
+The accent registers are documented for authors in `lib/base/base.registers.docs.md`; design in
 `engineering/decisions/2026-07-15-accent-finish-consolidation.md`.
 
 They compose: `theme: indaco` + `mode: sketch` + `finish: atrium` is a

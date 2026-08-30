@@ -229,7 +229,7 @@ with `<!-- _class: finish-none -->`.
 - `lib/base/base.finish.css` — the compositor, all preset bodies, the opaque flip.
 - `lib/core/resolve-mode.js` + `lib/base/base.sketch.css` — the sibling `mode:`
   register.
-- `lib/base/base.docs.md` §`finish:` — the author-facing reference.
+- `lib/base/base.registers.docs.md` §`finish:` — the author-facing reference.
 - `engineering/decisions/2026-06-30-finish-the-surface-layer.md` — the founding
   design (nature × zone, the stacked-layer model, invariants).
 - `engineering/decisions/2026-07-01-finish-restraint-controls.md` — strength /

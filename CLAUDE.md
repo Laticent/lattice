@@ -684,7 +684,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | How a slide is composed — the Form vocabulary | `design/forms.md` |
 | Prose rules for galleries/decks | `design/editorial.md` |
 | The deck-authoring contract | `design/skill.md` |
-| Cross-cutting authoring (eyebrow, subtitle, base modifiers) | `lib/base/base.docs.md` |
+| Cross-cutting authoring (eyebrow, subtitle, base modifiers) | `lib/base/base.docs.md` — and for a deck-level front-matter REGISTER (`mode:` `finish:` `split:` `stamp:`/`tone:` `spectrum:` `rule:` `eyebrow:` `headline:` `lift:` `corners:`), `lib/base/base.registers.docs.md` |
 | A specific component's slots/variants/anti-patterns | `lib/components/<bucket>/<name>/<name>.docs.md` |
 | Picking a component as an agent | `dist/docs/components.pick.md` — one line per component, the whole catalog in ~3.8k tokens; skim or grep it, then read the picked component's `.docs.md` (#6). `dist/docs/components.json` is the full machine record for TOOLS — don't load it to choose. Also `AGENTS.md` |
 | What scripts/tools already exist (don't reinvent) | `engineering/capabilities.md` |
