@@ -3406,57 +3406,13 @@ function checkHexLiterals(errors) {
 }
 
 // ── HARD RULE #21: US English is the house dialect ───────────────────────────
-// Curated, HIGH-CONFIDENCE British spellings (with the inflections that actually
-// occur), listed EXPLICITLY so a stem can't over-match — `\b(...)\b` keeps `centre`
-// from firing inside `epicentre`, and only UNAMBIGUOUS UK/US pairs are listed, so the
-// many words US keeps in the British-looking form (`dialogue`, `analysis`, `exercise`,
-// `comprise`, `advise`, `surprise`, `cancellation`, `practice` the noun) are
-// deliberately ABSENT to avoid false positives. Detection is case-insensitive. Add a
-// form only when the UK→US distinction is unambiguous.
-const UK_ENGLISH_FORMS = [
-  // -our → -or
-  'colour', 'colours', 'coloured', 'colouring', 'colourful', 'colourless',
-  'behaviour', 'behaviours', 'behavioural',
-  'favour', 'favours', 'favoured', 'favouring', 'favourable', 'favourite', 'favourites',
-  'flavour', 'flavours', 'flavoured', 'honour', 'honours', 'honoured',
-  'labour', 'labours', 'laboured', 'rumour', 'rumours', 'neighbour', 'neighbours',
-  // -re → -er
-  'centre', 'centres', 'centred', 'centring',
-  'metre', 'metres', 'litre', 'litres', 'fibre', 'fibres', 'theatre', 'theatres', 'calibre',
-  // -ise/-isation → -ize/-ization (explicit verb roots only — NEVER a blunt -ise stem)
-  'normalise', 'normalised', 'normalises', 'normalising', 'normalisation',
-  'optimise', 'optimised', 'optimises', 'optimising', 'optimisation',
-  'organise', 'organised', 'organises', 'organising', 'organisation',
-  'recognise', 'recognised', 'recognises', 'recognising',
-  'emphasise', 'emphasised', 'emphasises', 'emphasising',
-  'summarise', 'summarised', 'summarises', 'summarising',
-  'prioritise', 'prioritised', 'prioritises', 'prioritising',
-  'minimise', 'minimised', 'minimises', 'minimising',
-  'maximise', 'maximised', 'maximises', 'maximising',
-  'customise', 'customised', 'customises', 'customising',
-  'standardise', 'standardised', 'standardises',
-  'categorise', 'categorised', 'categorises', 'categorising',
-  'specialise', 'specialised', 'specialises',
-  'initialise', 'initialised', 'initialises', 'initialising',
-  'utilise', 'utilised', 'utilises', 'utilising',
-  'realise', 'realised', 'realises', 'realising',
-  'finalise', 'finalised', 'finalises',
-  'capitalise', 'capitalised', 'capitalises',
-  'visualise', 'visualised', 'visualises', 'visualising',
-  'analyse', 'analysed', 'analysing', // NOT 'analyses' — that's also the US plural noun of "analysis"
-  'apologise', 'apologised', 'apologises', 'apologising',
-  // -ence → -ense / misc unambiguous
-  'defence', 'defences', 'offence', 'offences', 'licence', 'licences', 'pretence', 'pretences',
-  'catalogue', 'catalogues', 'analogue', 'analogues',
-  'artefact', 'artefacts',
-  'grey', 'greys', 'greyed', 'greyscale',
-  'whilst', 'amongst',
-  'fulfil', 'fulfils', 'enrol', 'enrols', 'instil', 'skilful', 'wilful',
-  'cancelled', 'cancelling', 'labelled', 'labelling', 'modelling',
-  'signalling', 'travelled', 'travelling', 'marvellous',
-  'judgement', 'judgements', 'acknowledgement', 'acknowledgements', 'ageing',
-  'programme', 'programmes', 'practise', 'practised', 'practises',
-];
+// The curated British→American dictionary moved to tools/us-english.js so the
+// commit-msg hook can warn from the SAME list this gate enforces (HARD RULE #1 —
+// two readers, one source). Membership is unchanged by that move: 170 forms, and
+// the suite asserts the count so a pair cannot be dropped in the shuffle. Why the
+// list is explicit rather than a stem rule, and what is deliberately absent, is
+// documented there.
+const { UK_ENGLISH_FORMS } = require('./us-english');
 
 // Files exempt from the US-English scan. Four kinds: this gate's own dictionary and
 // its test fixtures (they CONTAIN the British forms as data — without this the gate
@@ -3467,7 +3423,9 @@ const UK_ENGLISH_FORMS = [
 // listRepoTextFiles; minified/`*.generated.*` bundles by filename.
 const US_ENGLISH_SELF_EXEMPT = new Set([
   'tools/check-ownership.js',
+  'tools/us-english.js',
   'test/unit/cli/check-ownership.test.js',
+  'test/unit/tools/us-english.test.js',
   'CHANGELOG.md',
   // Same frozen-history exemption as CHANGELOG.md, and for literally the same prose:
   // this file IS the pre-release `## Unreleased` section, moved out verbatim (#1735).
@@ -3510,7 +3468,13 @@ function listRepoTextFiles(dir = ROOT, out = []) {
     if (/^examples[/\\].*\.html$/.test(rel)) continue;
     if (e.isDirectory()) {
       if (US_SKIP_DIRS.has(e.name)) continue;
-      if (e.name.startsWith('.') && e.name !== '.github') continue; // hidden dirs (.git/.vscode/.claude) — keep .github
+      // Hidden dirs (.git/.vscode/…) are skipped, but .github and .claude are house
+      // PROSE an agent reads and acts on — roster cards, workflow scripts, issue
+      // templates, CI job names. .claude/** was out of scope until 2026-08-30 and
+      // measured ZERO British spellings on the day it came in, so closing the hole
+      // cost nothing and the budget did not move; leaving it open would have let the
+      // agent instructions drift in a dialect the docs they point at forbid.
+      if (e.name.startsWith('.') && e.name !== '.github' && e.name !== '.claude') continue;
       if (rel === path.join('engineering', 'decisions')) continue; // historical records
       // Gitignored build artifacts the docs dev/build stages into public/ —
       // duplicates of already-counted sources. A clean checkout doesn't have
@@ -3589,7 +3553,17 @@ function listRepoTextFiles(dir = ROOT, out = []) {
 // text + anchor), so three headings carrying `grey`/`grey`/`centred` counted six times
 // over and pushed the total to 1312. The headings were corrected rather than the budget
 // raised — which also retired those three from the backlog, hence 1303 and not 1307.
-const US_ENGLISH_BUDGET = 1291;
+//
+// 1291 → 1285 (2026-08-30): re-measured while extracting the dictionary to
+// tools/us-english.js, and the backlog had been burned down 6 below the pin by
+// intervening merges without anyone lowering it. (The 1303 the note above lands
+// on was itself lowered to 1291 without a ledger line; this is that ledger line
+// catching up.) Six units of slack is six free
+// British spellings, which is the exact hole the paragraph above was written
+// about. Re-measured against tracked files only — the one untracked file in
+// scope (the gitignored katex bundle) carries zero, so a clean CI checkout
+// counts the same 1285 this tree does.
+const US_ENGLISH_BUDGET = 1285;
 
 function checkUsEnglish(errors) {
   const re = new RegExp(`\\b(${UK_ENGLISH_FORMS.join('|')})\\b`, 'gi');

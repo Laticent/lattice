@@ -2,6 +2,14 @@
 # Validate commit message format: `area(scope): summary` or `area: summary`.
 # Matches the convention in engineering/workflow.md.
 #
+# Then WARN (never block) on British spellings, from the same dictionary the
+# build:check ratchet enforces (tools/us-english.js, HARD RULE #21). A commit
+# message is not a tracked file, so the ratchet never sees it — 21 British
+# spellings rode into the last 300 commit subjects and bodies under a green
+# gate. It warns rather than blocks because a message legitimately quotes
+# British-spelled text (an upstream error string, a dependency's option name),
+# and HARD RULE #14 forbids `--no-verify` as the way out of a false positive.
+#
 # Allows merges, reverts, fixups, squashes (git's machine-generated forms),
 # and empty messages (git's own validation handles those).
 #
@@ -12,10 +20,15 @@ set -euo pipefail
 msg_file="${1:?usage: $0 <commit-msg-file>}"
 first_line=$(head -n1 "$msg_file")
 
+# The advisory US-English scan. Always exits 0 — see the header.
+warn_dialect() {
+  node "$(dirname "$0")/us-english.js" --warn "$msg_file" || true
+}
+
 # Pass-through: git's own machine-generated messages and empty lines.
 case "$first_line" in
   '') exit 0 ;;
-  'Merge '*|'Revert '*|'fixup! '*|'squash! '*|'amend! '*) exit 0 ;;
+  'Merge '*|'Revert '*|'fixup! '*|'squash! '*|'amend! '*) warn_dialect; exit 0 ;;
 esac
 
 # Format: lowercase area, optional (scope), optional ! (breaking-change
@@ -25,6 +38,7 @@ esac
 # !        = optional, signals a breaking change (e.g. `ci(node)!: drop Node 18`)
 # summary  = at least one non-space character
 if echo "$first_line" | grep -qE '^[a-z][a-z0-9-]*(\([a-z0-9.,\ -]+\))?!?: \S'; then
+  warn_dialect
   exit 0
 fi
 
