@@ -24,51 +24,38 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Removable when:** Quartz gains parity with poppler/Skia for Chromium's SVG-image print constructs. No timeline; treat SVG-in-PDF as a portability hazard.
 - **Commits:** The pdf-export-portability branch (#690); the deck-side raster twins landed in #681.
 
-## Blurred `box-shadow` → opaque gray box around the element in some PDF viewers
+## A blurred `box-shadow` renders as an opaque gray block in Apple PDFKit and Quartz PDF viewers
 
-- **Symptom:** A small element with a soft drop-shadow (e.g. the state-token
-  disc) renders cleanly in the browser, in PNG rasterizations of the
-  emulator PDF (`tools/rasterize-for-review.sh`), and in MuPDF/PyMuPDF
-  rasterization — but in **mobile / Quartz PDF viewers** (iOS
-  Files/Preview, some Android apps) a **solid gray square** appears around the
-  element's bounding box.
-- **Cause:** Chromium `printToPDF` exports a *blurred* `box-shadow` as a
-  transparency-group / soft-mask (SMask) image sized to the element's expanded
-  box. Viewers with incomplete transparency-group support paint the image's
-  bounds with an opaque gray matte instead of applying the alpha — so the soft
-  shadow becomes a hard gray rectangle. Spread-only shadows (`0 0 0 Npx`, no
-  blur radius) are exported as plain vector strokes and are safe; only the
-  blur triggers it.
-- **Mitigation:** Keep small-element chrome **vector-only** — solid fills and
-  0-blur spread rings/borders. For depth, use a darker *spread* ring
-  (`box-shadow: 0 0 0 1.6px <darker>`) rather than a blurred lift. The state
-  disc recipe (base.tokens.css / the three checkbox consumers) is deliberately
-  blur-free for this reason.
-- **Triggered by:** Any blurred `box-shadow`/`filter: drop-shadow()` on small
-  repeated elements destined for PDF. Verify in an actual mobile PDF viewer —
-  PyMuPDF/Chromium screenshots will NOT reveal it.
-- **Caught:** checkbox redesign — discs showed a gray square in the iOS PDF
-  viewer while every local raster looked clean.
-
-## A blurred `box-shadow` renders as a flat gray block in Apple PDFKit
-
-- **Symptom:** A soft drop-shadow (any `box-shadow` with a blur radius) that
-  looks fine in Chrome / poppler renders in **Apple PDFKit** (iOS/macOS Preview,
-  the iOS share-sheet viewer) as an opaque gray **rectangle** filling the
-  shadow's footprint — not a soft gradient. Caught on the focus `pop`/`blur`
-  lift: the focused card showed a hard gray box behind it on iPhone while the
-  sandbox raster (poppler) looked correct.
-- **Cause:** PDFKit does not composite the soft transparency group Chromium
-  emits for a blurred shadow — the same soft-compositing weakness that makes it
-  drop SVG `mask-image` (see the mask gotcha). poppler/Chrome composite it, so
-  the sandbox raster hides the bug — **verify shadow-bearing exports on an Apple
-  viewer.**
-- **Fix / don't reintroduce:** for anything that must survive PDF, lift with
-  **hard-edged** shapes only — a crisp border, or a **zero-blur** offset shadow
-  (`box-shadow: Xcqi Ycqi 0 <color>`), which is a solid vector fill. Keep the
-  color **opaque** (mix toward `--bg`, not `transparent`) to avoid alpha
-  compositing too. This is why `--focus-lift` is an opaque hard offset, not a
-  soft elevation shadow (`lib/base/base.focus.css`).
+- **Symptom:** Any `box-shadow` with a blur radius — or `filter: drop-shadow()` —
+  looks correct in Chrome and in every local rasterization, but in **Apple PDFKit
+  and Quartz viewers** (iOS Files/Preview, macOS Preview, the iOS share sheet, some
+  Android apps) it paints a **solid gray rectangle** filling the shadow's footprint
+  instead of a soft gradient. Seen twice, at both ends of the size range: the
+  state-token disc showed a gray square around each small disc, and the focus
+  `pop`/`blur` lift showed a hard gray box behind a whole card.
+- **Cause:** Chromium `printToPDF` exports a blurred shadow as a transparency-group /
+  soft-mask (SMask) image sized to the element's expanded box. Viewers with
+  incomplete transparency-group support paint that image's *bounds* opaque instead of
+  applying its alpha — the same soft-compositing weakness that makes PDFKit drop SVG
+  `mask-image` (see the mask gotcha above). Spread-only shadows (`0 0 0 Npx`, no blur
+  radius) export as plain vector strokes and are safe; **only the blur triggers it.**
+- **Every local check passes, which is the trap.** The browser, PNG rasterizations of
+  the emulator PDF (`tools/rasterize-for-review.sh`), MuPDF/PyMuPDF, and poppler all
+  composite the group correctly — so the sandbox raster hides the bug. **Verify any
+  shadow-bearing export on a real Apple/mobile viewer** (HARD RULE #23: a local
+  raster is not that surface).
+- **Fix / don't reintroduce:** keep chrome **vector-only** — solid fills and
+  hard-edged shapes. For depth use a darker zero-blur *spread* ring
+  (`box-shadow: 0 0 0 1.6px <darker>`) or a zero-blur *offset* shadow
+  (`box-shadow: Xcqi Ycqi 0 <color>`), both of which are solid vector fills. Keep the
+  color **opaque** — mix toward `--bg`, not `transparent` — to avoid alpha
+  compositing as well. Two shipped recipes are deliberately blur-free for this
+  reason: the state disc (`lib/base/base.tokens.css` plus its three checkbox
+  consumers) and `--focus-lift` (`lib/base/base.focus.css`), which is an opaque hard
+  offset rather than a soft elevation shadow.
+- **Caught:** twice — the checkbox redesign (discs showed a gray square in the iOS PDF
+  viewer while every local raster looked clean) and the focus lift (a hard gray box
+  behind the focused card on iPhone, correct in the poppler sandbox raster).
 
 ## A JSON data block inside a `<script>` comes back with `&amp;` in every string
 

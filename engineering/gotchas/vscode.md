@@ -329,3 +329,16 @@ means "no gap logged for the runtime route", never "the preview is complete.
   shading + transparency rendering. Don't hold your breath.
 - **Commits:** `39e3351` (chart-header refactor that incidentally
   removed one source).
+
+## Mermaid on a 4K deck renders at HD size in the VS Code preview
+
+- **Filed under Lattice internals, on purpose.** The full entry is
+  [Mermaid diagrams render at HD size inside 4K slides in VS Code
+  preview](lattice-internals.md#mermaid-diagrams-render-at-hd-size-inside-4k-slides-in-vs-code-preview).
+- **Why it is not here:** it is one finding with one cause shared with the docs-site
+  4K entry — `GEOM` globals plus a fixed-box FIT scale — and the trap catalog cites
+  the two as a pair. Splitting them across the surface files where each was *observed*
+  costs more than the mis-filing does
+  (`engineering/decisions/2026-08-17-gotchas-topic-refile.md`). This stub exists so the
+  VS Code section of the symptom index still names it, which was the one thing that
+  decision gave up.

@@ -985,3 +985,16 @@ never turn "passed in headless" into "works on iOS."
   so "the turn ended on the other deck" is a state entered on purpose rather than
   waited for.
 - **Triggered by:** #1787, #1813.
+
+## A 4K deck renders oversized and cropped in docs-site preview and export
+
+- **Filed under Lattice internals, on purpose.** The full entry is
+  [Docs-site preview/export rendered 4K decks oversized +
+  cropped](lattice-internals.md#docs-site-previewexport-rendered-4k-decks-oversized--cropped).
+- **Why it is not here:** it is one finding with one cause shared with the VS Code 4K
+  entry — `GEOM` globals plus a fixed-box FIT scale — and the trap catalog cites the
+  two as a pair. Splitting them across the surface files where each was *observed*
+  costs more than the mis-filing does
+  (`engineering/decisions/2026-08-17-gotchas-topic-refile.md`). This stub exists so the
+  Studio/Playground section of the symptom index still names it, which was the one
+  thing that decision gave up.
