@@ -336,6 +336,16 @@ lives, and #1784 (open) records that it is undeclared on most of them — but it
 gap between what this surface promises a picker and what it can currently deliver, and
 the two were tracked in separate places until now.
 
+The 23 rows that DO carry one come from two places, which is worth knowing because
+#1784 §1 flags the discrepancy without naming the mechanism: **19 components declare a
+flat `capacity` in their manifest, and 4 more resolve one from `adapt.capacity.wide`**
+via `capacityEntry()` (`tools/build-docs-portal.js:81`), which stamps `family: 'wide'`
+so a per-family budget can be published as a single number. That fallback is why the
+catalog and the manifests report different totals — the build is not inventing a value,
+it is picking the wide-deck row out of an adaptive table. The count is also moving:
+#1784 measured 21 published on 2026-08-23 against 23 today, so any figure here is a
+dated reading of a live number, not a constant.
+
 It also bounds a claim above. The bake-off's cost finding (one read against nine) does
 not depend on this column, but "each row carries exactly what a pick needs" is weaker
 than it reads while the count that decides whether your content fits is blank on most
