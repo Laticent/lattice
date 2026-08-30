@@ -1,8 +1,10 @@
-- **Fixed: 55 British spellings in house prose, and the remaining 34 are now named
+- **Fixed: 57 British spellings in house prose, and the remaining 34 are now named
   rather than merely absent.** HARD RULE #21 says the tree is swept but not zero and
   declines to restate a total, because the tool that measured the original 71 was
   deleted with the ratchet. A fresh pass with `britishFormRe()` over the repo text
-  files plus tracked `.py` counted 501 before and 446 after. The `modelled` cluster
+  files plus tracked `.py`, the same matcher on both trees, counted 91 in living
+  surfaces before and 34 after. (The gross total barely moves, 482 to 463, because a
+  British-to-American map is itself a list of British words.) The `modelled` cluster
   across the three contrast oracles was most of it; the rest were `catalogued`,
   `signalled`, `minimisation`, `behaviourally` and `organisations` in tools, tests,
   specs, docs and four exemplar decks.

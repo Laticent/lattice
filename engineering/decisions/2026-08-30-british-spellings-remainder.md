@@ -30,23 +30,38 @@ deliberate spelling from one nobody had noticed. This note is the count and the 
 ## The instrument
 
 `britishFormRe()` from `tools/us-english.js`, over `listRepoTextFiles()` from
-`tools/check-ownership.js`, plus tracked `.py` files (see § The walk cannot see Python). Same
-call before and after, so the two numbers are comparable.
+`tools/check-ownership.js`, plus tracked `.py` files (see § The walk cannot see Python). The
+CURRENT matcher is applied to BOTH trees, so a pair this branch added to the map counts on
+each side and the two columns differ only in content:
 
-| | hits |
-|---|---:|
-| before | **501** |
-| after | **446** |
-| swept | **55** |
+| | base (`94bb951`) | after |
+|---|---:|---:|
+| total | 482 | 463 |
+| — the dialect map, and writing about it | 316 | 354 |
+| — `changelog/pre-release-archive.md`, frozen | 75 | 75 |
+| — **living surfaces** | **91** | **34** |
 
-The gross number is dominated by the dialect map itself. `tools/us-english.js` is 246 hits
-because a British-to-American map is a list of British words, and its two tests another 71
-for the same reason. Subtract that machinery and the rule's own text in `CLAUDE.md` and
-`engineering/house-style.md`, and what is left is **109**.
+**The gross total barely moves, and the machinery column goes UP.** Both are the same fact:
+a British-to-American map is a list of British words, so `tools/us-english.js` alone is 246
+hits, its tests another 71, and this branch adds two more pairs, a second test file and two
+decision records about spelling. The number that means anything is the living one: **91 → 34**.
+
+**Getting those two columns comparable took two tries, and the first was wrong.** The base
+was measured by handing the live `listRepoTextFiles` a foreign directory — and that function
+derives every skip from `path.relative(ROOT, p)` against its OWN module root, not against the
+`dir` it was passed. So it walked `engineering/decisions/**`, which it exists to skip, and
+reported 869 living hits instead of 91. Nothing in the repo calls it that way today, so this
+is a latent footgun rather than a live defect (#18: found, not caused, off-path) — but any
+future re-measurement across trees has to require each tree's own copy, which is what the
+numbers above do.
 
 ## The three-way split
 
-**55 were house prose, and are fixed.** One cluster carries most of it: `modelled` and
+**57 were house prose, and are fixed** — 55 replacements across 35 tracked files, plus 3 in
+the two Python files the walk cannot see. (The edit list is 58; one of them, `quote.docs.md`,
+was a GENERATED file whose change the next build reverted, and fixing its source in
+`tools/ascii-preview.py` produced it again. Generated copies follow their sources here, they
+are not separate wins.) One cluster carries most of it: `modelled` and
 `modelling` across the contrast oracles (`tools/composed-contrast.js`,
 `check-player-contrast.js`, `check-slide-contrast.js`), their tests, two changelog fragments
 and four exemplar decks. The rest are `catalogued`/`cataloguing` in `design/concepts.md`,
@@ -60,7 +75,7 @@ own header says it: *"Entries keep their wording and their order… A correction
 entry, never here."* It is the pre-1.0.0 development log, moved out of `CHANGELOG.md`
 verbatim (#1735). Sweeping it would edit a record whose value is that it was not edited.
 
-**34 are in living surfaces, and every one is deliberate.** They are listed below rather than
+**34 are in living surfaces, across 18 files, and every one is deliberate.** They are listed below rather than
 summarized, because a future sweep needs to be able to check its own work against a list, and
 because the last sweep that rewrote three of these shipped a dead CI allowlist, an unresolvable
 map region and a tautological test — all three caught by review, none by a gate.
