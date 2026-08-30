@@ -30,7 +30,7 @@ footer, pagination, and logo are absolutely positioned at repeated magic-number
 insets; marks and tints are pseudo-elements. There is **no slide-level
 coordinate system** — every chrome element re-derives its own position, and
 "where does the title sit" is an accident of flow. That absence is not cosmetic:
-it is the direct cause of the chrome-over-content collisions catalogued in
+it is the direct cause of the chrome-over-content collisions cataloged in
 `engineering/decisions/2026-06-13-islands-sketch-density-collisions.md`.
 
 **Form** is the fix, and it is not a new concept — it is the **composition axis

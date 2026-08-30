@@ -47,7 +47,7 @@ test('diffBaseline reports a NEW finding, and a WORSE one only outside the jitte
 	assert.deepEqual(diffBaseline([], base).fixed, Object.keys(base));
 });
 
-test('the ink is composited over the pixel it sits on, not over a modelled backdrop', () => {
+test('the ink is composited over the pixel it sits on, not over a modeled backdrop', () => {
 	// A translucent ink composited over backdrop A and then scored against backdrop B
 	// describes no pixel on screen — and the whole --on-*-secondary / -ghost / -watermark ramp
 	// is color-mix(… N%, transparent).

@@ -2,8 +2,8 @@
 """Lattice brand mark generator — "Spectrum Cell".
 
 A crystal-lattice unit cell (the structure) whose nodes are lit by the
-brand spectrum ribbon swept left->right (the colour), anchored by a single
-gold core. Structure is ink, colour is signal.
+brand spectrum ribbon swept left->right (the color), anchored by a single
+gold core. Structure is ink, color is signal.
 
 Emits four master assets into this directory:
   lattice-mark.svg        full mark, light+dark adaptive (one file)

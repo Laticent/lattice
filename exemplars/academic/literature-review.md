@@ -117,7 +117,7 @@ Almost every study tests one intervention at one site. The handful of citywide m
 The hottest neighbourhoods are the least studied — most temperature sensors sit in wealthier, greener districts. Until monitoring follows the heat burden rather than the budget, equity claims rest on models, not measurements. This is where I argue the next decade of work belongs.
 
 - Sensor coverage tracks wealth, not heat exposure.
-- Equity findings currently lean on modelled, not measured, data.
+- Equity findings currently lean on modeled, not measured, data.
 
 ---
 

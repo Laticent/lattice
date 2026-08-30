@@ -76,7 +76,7 @@ Mean-distance-between-failures has fallen 38% in four years. Signal faults and s
 
 ## Every year of deferral makes the backlog more expensive to clear.
 
-`Modelled escalation on the current backlog at observed degradation and inflation rates.`
+`Modeled escalation on the current backlog at observed degradation and inflation rates.`
 
 1. +14%
    - annual backlog growth

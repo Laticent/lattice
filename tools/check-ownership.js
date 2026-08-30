@@ -5153,7 +5153,7 @@ function listE2EFiles(dir, out = []) {
  *    that name, recorded as `via`. Bodies that merely CONTAIN a sleep among other work are
  *    not helpers and count once, which is why `readHeaderSettled` counts 1;
  *  · an EXPORTED sleep helper is counted across every file in the directory;
- *  · NOT modelled, and therefore counted as one: runtime multiplicity (a sleep inside a
+ *  · NOT modeled, and therefore counted as one: runtime multiplicity (a sleep inside a
  *    loop). Tests pin that as a known limit.
  */
 function e2eSleepCensus(dir) {
@@ -8951,7 +8951,7 @@ function auditPdfOwnership(files) {
 // ─── NUL bytes in tracked text ─────────────────────────────────────────────
 // A NUL byte in a text source makes git treat the whole file as BINARY: the diff
 // renders as "Binary file not shown", so review sees nothing at all — not the
-// change, not the corruption. Two of the eleven errors catalogued in #1252 were
+// change, not the corruption. Two of the eleven errors cataloged in #1252 were
 // exactly this, and both were pushed: `tools/check-lint-coverage.js` (commit
 // bb8d8a58) and `docs/src/lib/deck-link.test.ts`, whose 18 tests all vanished
 // from the diff. Neither reached `main`, and neither was caught by a gate — one

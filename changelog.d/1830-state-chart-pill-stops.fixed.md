@@ -6,6 +6,6 @@
   worst `concrete` light `pass` at **2.48:1**. All three sites — the HTML index badge, the
   legend swatch and the SVG `.state-index-disc` — now carry chart-family's stops, and the
   worst pair is `laguna` dark `pass` at **4.62:1**.
-- **Both gradient stops of all three sites are modelled in `tools/composed-contrast.js`.**
-  Nothing modelled a state-chart pill at all, which is why no gate had ever reported the
+- **Both gradient stops of all three sites are modeled in `tools/composed-contrast.js`.**
+  Nothing modeled a state-chart pill at all, which is why no gate had ever reported the
   49 pairs; a fourth divergence now reddens the gate instead of shipping.

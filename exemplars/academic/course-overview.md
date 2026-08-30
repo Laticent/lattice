@@ -98,7 +98,7 @@ Grades come mostly from the weekly coding labs, where you build the models we de
 
 ## The final project: model one phenomenon end to end.
 
-In the last month you will pick a neural phenomenon — a visual illusion, a decision, a memory effect — and build a computational model that reproduces it. You will present it in week twelve. Past students have modelled birdsong learning, place cells, and binocular rivalry.
+In the last month you will pick a neural phenomenon — a visual illusion, a decision, a memory effect — and build a computational model that reproduces it. You will present it in week twelve. Past students have modeled birdsong learning, place cells, and binocular rivalry.
 
 - Pick a phenomenon by week eight; build it by week twelve.
 - A short talk plus your code is the deliverable.

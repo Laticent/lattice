@@ -526,7 +526,7 @@ def demo_blocks() -> dict[str, str]:
         ('left', 'header'),
         ('blank',),
         ('center', '"A pulled quote that fills'),
-        ('center', 'the centre of the slide."'),
+        ('center', 'the center of the slide."'),
         ('blank',),
         ('center', '— Attribution, source'),
         ('blank',),

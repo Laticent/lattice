@@ -32,7 +32,7 @@
  * and the backdrop through the SAME group stack, which is the only way the two can
  * be composited consistently. Validated against sampled pixels: within 0.01 on the
  * nested-wash runs (3.20 vs 3.21, 2.74 vs 2.75) and within 0.07 across the wider
- * set (4.98 / 5.15 / 3.85 / 6.99 modelled against 4.95 / 5.13 / 3.90 / 6.92). `tools/composed-contrast.js` models the same stack
+ * set (4.98 / 5.15 / 3.85 / 6.99 modeled against 4.95 / 5.13 / 3.90 / 6.92). `tools/composed-contrast.js` models the same stack
  * statically, from the token table rather than a render.
  *
  * A CORRECTION, KEPT ON PURPOSE. This block used to claim that the running header is
@@ -250,7 +250,7 @@ const PROBE = () => {
    * after every enclosing `opacity` group has scaled it.
    *
    * `resolveStack` composites the ink all the way down to an opaque triple against the
-   * MODELLED backdrop, which is the right answer for this file and the wrong one for a
+   * MODELED backdrop, which is the right answer for this file and the wrong one for a
    * caller that sampled the backdrop from the rendered pixels instead. A translucent ink
    * composited over one backdrop and then scored against another is a number describing no
    * pixel anywhere — and translucent ink is not an edge case here: the whole
@@ -661,7 +661,7 @@ const PROBE = () => {
           imgBackdrop: rasterUnder(el),
           // The OWNER's box, not the pseudo's — CSS exposes no rect for a pseudo-element.
           // Flagged as such so a pixel-sampling caller knows this one box is an
-          // approximation and can keep the modelled backdrop instead of trusting a sample
+          // approximation and can keep the modeled backdrop instead of trusting a sample
           // that may land beside the pseudo rather than under it.
           rect: (() => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; })(),
           rectIsOwner: true,

@@ -416,7 +416,7 @@
 			bargeBtn.addEventListener('click', () => {
 				if (!seq) return;
 				paused = false;
-				seq.stop();               // cooperative abort — in-flight produce() is signalled
+				seq.stop();               // cooperative abort — in-flight produce() is signaled
 				setDiag('Barged in — the sequence aborted; a new intent could start immediately.');
 				setTransport(false);
 			});
@@ -425,7 +425,7 @@
 			const BEATS = [
 				{ id: 'play',  t: 'Bytes in, clock out', d: 'Five tones scheduled back-to-back; each lights at its real onset on Suono’s owned WebAudio clock.', api: 'sequence().play()', run: () => playFresh({ gaps: false }) },
 				{ id: 'gaps',  t: 'Breath between phrases', d: 'The same run with a deeper gap after a topic beat — the scheduler inserts the silence, not you.', api: 'gap((it,next,i)=>ms)', run: () => playFresh({ gaps: true }) },
-				{ id: 'barge', t: 'Barge-in', d: 'Start playing, then interrupt: the run aborts cleanly mid-clip and the in-flight producer is signalled.', api: 'stop() / AbortSignal', run: () => { playFresh({ gaps: true }); setTimeout(() => bargeBtn.click(), 900); } },
+				{ id: 'barge', t: 'Barge-in', d: 'Start playing, then interrupt: the run aborts cleanly mid-clip and the in-flight producer is signaled.', api: 'stop() / AbortSignal', run: () => { playFresh({ gaps: true }); setTimeout(() => bargeBtn.click(), 900); } },
 				{ id: 'pause', t: 'Pause & resume', d: 'Freeze between clips and continue — the owned clock pauses with it.', api: 'pause() / resume()', run: () => { playFresh({ gaps: true }); setTimeout(() => pauseBtn.click(), 800); setTimeout(() => pauseBtn.click(), 1900); } },
 				// Cache: play a FRESH instance, then on natural completion REPLAY THAT SAME instance. Its
 				// keyed byte cache persists across the replay, so produce() should not fire again — we

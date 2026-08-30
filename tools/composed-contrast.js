@@ -623,7 +623,7 @@ const SURFACES = [
   },
   // ── chart family · the .chart-status pill on its own depth gradient ───────
   // FOUND BY A REGRESSION, not by reading the token table — the fourth surface in
-  // this swimlane that no catalog entry modelled. #1801 respaced every trio for the
+  // this swimlane that no catalog entry modeled. #1801 respaced every trio for the
   // achromatopsia floor (which moved --pass LIGHTER), #1789 let curated trios reach a
   // rendered export at all, and the pill's dark gradient end — calibrated for dimmer
   // hues — lifted its ground toward the light `--text-heading` label. It surfaced as
@@ -632,7 +632,7 @@ const SURFACES = [
   // is a raw color-mix rather than a `*-bg` token.
   //
   // BOTH STOPS ARE LISTED, and the reason the 0% one was not is worth keeping. The
-  // original entries modelled only the 100% stop, on the argument that the 0% stop is
+  // original entries modeled only the 100% stop, on the argument that the 0% stop is
   // "quieter by construction". That is true of the DARK arm — less hue mixed into black
   // is a darker ground under a LIGHT label — and false of the light arm, where less hue
   // mixed into `--bg` is a LIGHTER ground under a DARK label, so quieter means safer on
@@ -1074,7 +1074,7 @@ function auditTheme(theme) {
 }
 
 /**
- * A component whose surfaces are modelled WITHOUT a group alpha must not declare
+ * A component whose surfaces are modeled WITHOUT a group alpha must not declare
  * one anywhere, because a group alpha applies to whatever it wraps: putting it on
  * an ancestor, a sibling rule, or a decoy selector changes the composite just as a
  * `del { opacity }` would. A per-rule "this block contains no `opacity`" pattern
@@ -1200,7 +1200,7 @@ function checkSurfaceEvidence() {
     const src = stripComments(fs.readFileSync(file, 'utf8'));
     if (FRACTIONAL_OPACITY.test(src)) {
       errors.push(
-        `${rel} declares a fractional \`opacity\`, but every surface modelled from it ` +
+        `${rel} declares a fractional \`opacity\`, but every surface modeled from it ` +
         'assumes no group alpha. Add it to the surface\'s `groups[].opacity` and re-derive ' +
         'the palette arms solved through it, or take the opacity back out.',
       );
@@ -1226,7 +1226,7 @@ function checkSurfaceEvidence() {
     if (ANCESTOR_REACHES_REDLINE.test(src)) {
       errors.push(
         `${rel} sets an \`opacity\` on a \`section.redline\` selector. That composites ` +
-        'every redline surface in SURFACES, which are modelled without a group alpha. ' +
+        'every redline surface in SURFACES, which are modeled without a group alpha. ' +
         'Model it in `groups[].opacity` and re-derive, or take it out.',
       );
     }

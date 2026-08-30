@@ -198,7 +198,7 @@ explicit.
 
 ## 8. What the lattice answers
 
-Because the concepts and their edges are catalogued, an author or agent can
+Because the concepts and their edges are cataloged, an author or agent can
 *navigate* the model instead of scrolling a gallery:
 
 - **"What component fits this Function?"** → filter by Function.

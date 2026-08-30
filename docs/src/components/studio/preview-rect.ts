@@ -193,7 +193,7 @@ export const PREVIEW_CHROME = {
 	// editor|preview split, so the split divides `vw - railW`, not `vw` — miss it and every band
 	// right of it lands ~29px off while the editor band lands 52px off. That was the shape of the
 	// worst divergence the adversarial trio found (#1444), and it existed because the shell
-	// modelled Craft as "Write minus the slim header tail".
+	// modeled Craft as "Write minus the slim header tail".
 	railCraftDesktop: 52,
 	// (`cap: 760` — the old comfort width cap — is RETIRED. The app no longer caps the
 	//  preview box at all: the splitter grows and shrinks the slide continuously and the

@@ -146,7 +146,7 @@ describe('bless-palette-baselines · the table parser', () => {
     // FAILS on a stale entry — a frozen pair that now passes has to be deleted, not left
     // to rot.
     // 66 again, and the round trip through 85 is worth keeping. Those 19 were the
-    // `chart/status-pill-*` LIGHT arm: a newly MODELLED surface rather than a new defect,
+    // `chart/status-pill-*` LIGHT arm: a newly MODELED surface rather than a new defect,
     // frozen because retuning it is visible on every palette (#1807). #1807 landed, so
     // they are DELETED rather than re-frozen — the light gradient stops moved 33%/54% to
     // 18%/30% and every one of them clears.
@@ -157,7 +157,7 @@ describe('bless-palette-baselines · the table parser', () => {
     // base-wins map too, so that arm was VACUOUS for the trio and could not report one.
     // Removing the copy (2026-08-24-status-trio-single-root.md) surfaced 18 regressions on
     // exactly these pairs. And the pill's dark arm was not the only unmodelled stop — the
-    // gradient's 0% stop was sub-AA too, at 4.38:1, and is catalogued now, which is why
+    // gradient's 0% stop was sub-AA too, at 4.38:1, and is cataloged now, which is why
     // the DENOMINATOR rises to 2624 while the numerator falls.
     // ANCHORED TO ITS OWN TABLE. An unanchored /68 entries/ matched the CVD table's
     // "768 entries" as a substring, so the contrast assertion passed while reading the
@@ -176,7 +176,7 @@ describe('bless-palette-baselines · the table parser', () => {
     //   · `redline`'s own-hue card 5% -> 4%, levelling it with the four `.split` /
     //     `.three-col` sites that always shipped at 4%, clears 4.
     // The DENOMINATOR rises 2624 -> 4160 across the branch, in three steps: +640 for
-    // state-chart's ten stops, +256 for the kpi pill BORDER modelled for the first time
+    // state-chart's ten stops, +256 for the kpi pill BORDER modeled for the first time
     // (#1847 — it is what carries the chip's edge now that an opaque ground can match its
     // tile), and +640 for the kanban status wash and the two inks it carries. The shipped
     // gate reports 4160; an earlier draft of this comment said 3520, which was true at the

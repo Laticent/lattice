@@ -51,7 +51,7 @@ Use to land a phrase verbatim — customer voice, expert claim, mission statemen
 │  header                                 │
 │                                         │
 │       "A pulled quote that fills        │
-│        the centre of the slide."        │
+│        the center of the slide."        │
 │                                         │
 │          — Attribution, source          │
 │                                         │

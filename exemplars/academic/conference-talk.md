@@ -50,11 +50,11 @@ True news spreads broad and shallow — many people share it once. Rumors spread
 <!-- _class: content -->
 <!-- tier: short -->
 
-## Method: 1.2M shares across 4,300 labeled cascades, modelled as growing trees.
+## Method: 1.2M shares across 4,300 labeled cascades, modeled as growing trees.
 
 We reconstructed each cascade as a reshare tree, sampled it at fixed time slices, and extracted twelve structural features per slice. A gradient-boosted classifier predicts the eventual fact-check verdict from the hour-one snapshot.
 
-- Ground truth: three independent fact-check organisations, majority label.
+- Ground truth: three independent fact-check organizations, majority label.
 - Strict temporal split — train on 2023–24, test on 2025.
 
 ---

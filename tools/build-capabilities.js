@@ -8,7 +8,7 @@
  * their own benchmark harness without knowing `npm run bench` (tinybench)
  * existed; dozens of tools and scripts had no catalog, so agents reinvented
  * them.
- * Components never suffer this — they're catalogued (components.json) and
+ * Components never suffer this — they're cataloged (components.json) and
  * gated. This gives tools/scripts/frameworks the same treatment.
  *
  * Sources of truth that can't drift:

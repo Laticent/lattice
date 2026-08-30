@@ -2,6 +2,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 const stem = require('wink-porter2-stemmer');
 
 const { UK_TO_US, NOT_ENGLISH_FORMS } = require('../../../tools/us-english.js');
@@ -29,6 +30,16 @@ const ROOT = path.join(__dirname, '..', '..', '..');
  * not among them: `neighbourhood` stems to itself, lands in no family, and is invisible
  * here. So this is a net with a stated mesh, not a proof of zero — the same honesty the
  * enumeration test keeps about its three axes.
+ *
+ * The FILE set is the second half of the mesh, and it cost a real miss. `listRepoTextFiles`
+ * carries an extension list built for a different gate, and `.py` is not on it — so
+ * `tools/ascii-preview.py` held `the centre of the slide."`, which the build pastes into
+ * `quote.docs.md` and `dist/docs/components.md`, where it was visible while its source was
+ * not. Editing the generated copy was reverted by the next build, which is how it was
+ * found. Tracked `.py` files are therefore added here rather than to that walk, whose only
+ * other consumer is HARD RULE #29's glyph gate — and `ascii-preview.py` is 600 lines of
+ * box drawing, so widening the walk would point a glyph budget at an ASCII-art file for no
+ * gain. What is still uncovered is every extension on NEITHER list.
  *
  * ## Why the families are restricted
  *
@@ -69,10 +80,16 @@ function britishStems() {
   return byStem;
 }
 
+/** Tracked `.py` files, which `listRepoTextFiles` does not carry. Absolute, to match it. */
+function trackedPythonFiles() {
+  const out = execFileSync('git', ['ls-files', '-z', '*.py'], { cwd: ROOT, encoding: 'utf8' });
+  return out.split('\0').filter(Boolean).map((rel) => path.join(ROOT, rel));
+}
+
 /** Every distinct lowercased alphabetic word in the tree, with the files it came from. */
 function repoWords() {
   const words = new Map();
-  for (const file of listRepoTextFiles()) {
+  for (const file of [...listRepoTextFiles(), ...trackedPythonFiles()]) {
     let text;
     try {
       text = fs.readFileSync(file, 'utf8');
@@ -172,8 +189,10 @@ describe('the dialect map, audited by stemming the tree (HARD RULE #21)', () => 
 
   // The walk is the expensive half, and a walk that returned nothing would make every
   // assertion above vacuously green.
-  test('the walk actually read the tree', () => {
+  test('the walk actually read the tree, including the files listRepoTextFiles omits', () => {
     assert.ok(words.size > 10000, `expected a repo-sized vocabulary, got ${words.size}`);
     assert.ok(words.has('lattice'));
+    const py = trackedPythonFiles().map((f) => path.relative(ROOT, f));
+    assert.ok(py.includes('tools/ascii-preview.py'), `expected the .py arm to find the anatomy catalog, got ${py}`);
   });
 });

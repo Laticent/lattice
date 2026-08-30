@@ -74,7 +74,7 @@
  * its numbers were later questioned nobody could re-examine the residual — it was restated three
  * times (~99%, 92.6%, 96.5%) as successive passes found bugs in the probe rather than the engine. A
  * measurement that can be wrong by tens of points and still look plausible is worth keeping and
- * worth cataloguing. A drop here now means one of two things and the header tells you which:
+ * worth cataloging. A drop here now means one of two things and the header tells you which:
  * `positions` fell → the shipped supply path broke; `positions` held and the rate fell → the
  * residual grew, i.e. the prototype moved.
  */

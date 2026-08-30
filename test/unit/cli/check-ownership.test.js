@@ -2999,7 +2999,7 @@ describe('check-ownership: checkE2ESleeps (#1575)', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  test('KNOWN LIMIT — runtime multiplicity is not modelled', () => {
+  test('KNOWN LIMIT — runtime multiplicity is not modeled', () => {
     // A sleep in a loop executes N times and counts once. Pinned so the limit is recorded
     // rather than discovered later and mistaken for a bug.
     const dir = mkTree({ 'a.spec.ts': 'for (let i = 0; i < 40; i++) await page.waitForTimeout(100);' });

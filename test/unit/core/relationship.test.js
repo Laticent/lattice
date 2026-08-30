@@ -228,7 +228,7 @@ describe('core: relationship — degenerate inputs say nothing rather than lie',
   test('a table with no <tbody> does not count its HEADER row as a member', () => {
     // markdown-it always emits a `<tbody>`, so this is the raw-HTML / hand-authored path. Left
     // unguarded, the scan started at 0 and swept the `<thead>` row in: a three-option table
-    // signalled "Option 1 of 4", and the count disagreed with `countAxis`, which sees none.
+    // signaled "Option 1 of 4", and the count disagreed with `countAxis`, which sees none.
     const html = '<table><thead><tr><th>Criterion</th></tr></thead>'
       + '<tr><td>A</td></tr><tr><td>B</td></tr></table>';
     const ms = membersIn(html, 'row');
