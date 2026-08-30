@@ -313,7 +313,7 @@ section img.emoji {
   max-width:none; max-height:none;
   border-radius:0; object-fit:fill;
   vertical-align:-0.1em;
-  /* Horizontal breathing in text. padding (replaced element, no bg) pushes neighbouring
+  /* Horizontal breathing in text. padding (replaced element, no bg) pushes neighboring
    * glyphs out by the same 0.05em as the old margin would — HARD RULE #20. */
   padding:0 0.05em;
 }

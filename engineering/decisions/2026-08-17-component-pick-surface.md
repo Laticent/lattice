@@ -206,27 +206,47 @@ grep — and asked to name the `_class` for 12 authoring briefs written in autho
 ("four metrics for the monthly ops review, each needs a label, the value, and whether
 it's on track"). Ground truth was locked in a pre-registered file before any agent ran.
 
-| condition | strict (the manifest's own answer) | defensible | tokens per agent | tool calls |
+| condition | strict (the manifest's own answer) | defensible | distinct context ingested | reads |
 |---|---|---|---|---|
-| PICK surface | 22/24 — **92%** | 24/24 — 100% | ~48k | 1 |
-| FULL catalog | 24/24 — 100% | 24/24 — 100% | 61k–216k | 8–9 |
+| PICK surface | 22/24 — **92%** | 24/24 — 100% | **9.8k** | 1 |
+| FULL catalog | 24/24 — 100% | 24/24 — 100% | **179.6k** | 10–11 |
+
+*(Re-run by the harness on 2026-08-30 — see § "Re-run by the harness" below. The accuracy
+columns are unchanged from the original hand-transcribed run, to the brief. The cost
+columns are not: they now come from `modelUsage`, and the two instruments do not compare.)*
 
 **The two surfaces agreed on 11 of 12 briefs.** The single disagreement is brief #3 —
 six onboarding steps, in order, a sentence each: the full-catalog agents said
 `list-steps`, the pick agents said `timeline-list`, which is in the same confusable
-cluster and is a choice an author could defend. Both conditions flagged the same two
-briefs as low-confidence, unprompted.
+cluster and is a choice an author could defend.
+
+**One sentence here did NOT survive the re-run and is withdrawn.** It read "both conditions
+flagged the same two briefs as low-confidence, unprompted", which was true of the hand
+transcription — all four easy-set runs self-reported `[1, 3]`. The harness runs disagree:
+the pick agents flagged `[3]` and `[3]`, the full-catalog agents `[1, 3]` and `[1, 3]`. So
+the two conditions did **not** agree, and the pick surface reported *less* doubt while being
+the condition that missed. `low_confidence` is descriptive and was never scored — but it was
+cited, and a cited number is a claim.
 
 So the lexical proxy's **-17.8 points overstated the loss**: it models one-shot TF-IDF
 retrieval over a row, while the real flow is an agent reading all 61 rows — 3.8k tokens
 fits comfortably — and reasoning across them. Retrieval signal and decision signal are
 not the same quantity, and this surface was built for the second.
 
-The cost side is the sharper finding. One full-catalog agent burned **216k tokens across
-8 paginated reads** to reach the same 12 answers a pick-surface agent reached in **48k
-with a single read** — which is also the mechanism behind the "11,437 lines, a default
-read stops at `code`" defect above: the full catalog is not one read, it is six, and an
-agent that does not pay for all six is choosing from a fraction of the catalog.
+The cost side is the sharper finding, and the harness re-run made it sharper still. A
+full-catalog agent ingests **179.6k tokens of distinct context across 10–11 paginated
+reads** to reach the same 12 answers a pick-surface agent reaches from **9.8k and a single
+read** — **18.4x**. That is also the mechanism behind the "11,437 lines, a default read
+stops at `code`" defect above: at **11,554 lines** against a 2,000-line default, the full
+catalog is not one read, it is **six pages**, and an agent that does not pay for all six is
+choosing from a fraction of the catalog.
+
+**Keep those two numbers apart.** Six is the PAGINATION floor; **10–12 is the Read call
+count** the harness measured, which is larger because agents re-read and overlap. The ledger
+cannot arbitrate between them: `tool_calls` records `{id, name}` and no tool input, so
+nothing in the artifact separates twelve distinct pages from six pages plus six re-reads.
+`surface_reads` is auditable from the artifact; the pagination claim rests on the line count,
+not on the ledger. Storing `input.offset`/`limit` would close that, and has not been done.
 
 **Limits, stated plainly.** Twelve briefs, two runs per condition, and the briefs were
 written to have defensible ground truth — which makes them easier than a real confusable
@@ -248,39 +268,48 @@ labels against `quadrant`'s continuous data, `roadmap`'s workstream×phase cells
 `gantt`'s overlapping spans. Same design as before: four agents on Opus, two per
 condition, one surface each and nothing else.
 
-**How this record was made, because it bears on how far to trust it.**
-`pick-surface-agent-runs.json` is a **hand-transcribed** record of what four subagents
-returned — as is the first bake-off above, so the committed file holds eight runs. The briefs and the ground truth are gated
-artifacts, the *picks* are not. Every derived figure in the table below recomputes from
-that JSON, which verifies the arithmetic and nothing about provenance. Under HARD RULE
-#23 the surface is "four Opus subagents" and the artifact is self-reported, so read the
-numbers as an honest report rather than a reproducible measurement.
+**How this record was made.** Both bake-offs are written by
+`npm run intent:pick-agents` (`tools/intent-bakeoff/pick-surface-agent-eval.mjs`) into
+`pick-surface-agent-runs.json` and `pick-surface-agent-runs-confusable.json` — one file per
+brief set, each carrying every agent's **raw return verbatim**, the per-call tool ledger,
+the `usage`/`modelUsage` blocks and the cost. The briefs and the ground truth are gated
+artifacts committed before any agent ran; the picks are now harness-written rather than
+copied by hand. Re-run either set with `--score-only` for free, or re-earn it for about
+$5 a set.
 
-**A harness now exists, and these numbers still do not come from it** (corrected
-2026-08-30). This paragraph read "there is no committed harness, no run log, no replay"
-until today, and that stopped being true when #1734 landed
-`tools/intent-bakeoff/pick-surface-agent-eval.mjs` (`npm run intent:pick-agents`) in
-#1777 — a script that spawns the agents against a pinned surface and writes their raw
-returns plus the harness's own accounting. What it has never done is write THIS file:
-the committed runs JSON is still the transcription, so the numbers below carry exactly
-the provenance they always did. #1734 was closed on the harness being built, not on the
-bake-off being re-run; the re-run is its own card. Two claims worth keeping apart — the
-tool is available, and the record is still self-reported.
+**This replaced a hand transcription, and the replacement changed things** (2026-08-30,
+#1897). Until today this paragraph disclosed that `pick-surface-agent-runs.json` was a
+human's copy of what eight subagents returned — an honest report, but under HARD RULE #23
+not a reproducible measurement. #1734 built the harness and #1777 landed it; neither ever
+wrote this file. What the re-run found is in § "Re-run by the harness" below, and it is not
+a rubber stamp: the accuracy figures on the easy set reproduce to the brief, the confusable
+set moved **against** the pick surface, and the cost figure the note had been quoting is
+retired rather than confirmed.
 
-| condition | strict | defensible | tokens per agent | tool calls |
+| condition | strict | defensible | distinct context ingested | reads |
 |---|---|---|---|---|
-| PICK surface | 22/24 — **92%** | 22/24 — 92% | 50.9k | 1 |
-| FULL catalog | 24/24 — 100% | 24/24 — 100% | 218.8k | 9 |
+| PICK surface | 21/24 — **87.5%** | 22/24 — 91.7% | **9.9k** | 1 |
+| FULL catalog | 24/24 — 100% | 24/24 — 100% | **180.2k** | 11–12 |
 
-**The STRICT gap did not widen on the cases chosen to widen it** — 92% against 100%, and
-the two surfaces still agreed on **11 of 12**, the same as the easy set. **The DEFENSIBLE
+**The STRICT gap DID widen on the cases chosen to widen it** — 87.5% against 100%. The
+hand transcription had recorded 92% here and the harness re-run does not reproduce it: one
+pick agent additionally answered `cards-grid` where the manifest says `inventory` (brief 7,
+inside `ok`, so defensible but not strict). The transcription recorded the two pick agents
+returning *identical* picks on both sets; the re-run's two disagree on the confusable set,
+so there is replicate variance the earlier record did not show, and a two-agent condition
+cannot separate it from a real effect. **The DEFENSIBLE
 gap did widen, from 0 points to 8**, and that is the honest headline of the table: on the
 easy set the pick agents' one miss (`timeline-list` for brief 3) sat inside the `ok` set,
 so both surfaces scored 100% lenient; here the miss falls outside both `expect` and `ok`.
 A confusable brief costs you a defensible answer, not just a strict one.
 
-The cost gap widened too: **4.3x the tokens and 9 reads against 1**, with both full-catalog
-agents paying for all nine pages this time rather than one of them getting lucky at eight.
+The cost gap is the figure that moved most: **18.1x the distinct context and 11–12 reads
+against 1.** The retired 4.3x came from the transcription's `subagent_tokens`, which was the
+Agent tool's accounting inside an interactive session; these come from `claude -p`'s
+`modelUsage`. **The two instruments do not compare** and the ratio is not "corrected" from
+4.3x to 18.1x — the old number is withdrawn, and this one is what the harness measures
+end-to-end on both sets (18.4x on the easy set, 18.1x here, from runs that never see each
+other's context).
 
 **The one miss is worth more than the score.** Brief 12 — six compliance dates, each
 needing the date, a read on whether we are clear or exposed, and a line of explanation —
@@ -288,6 +317,11 @@ went `timeline-list` in both full-catalog agents and `regulatory-update` in both
 agents. Both full agents named `regulatory-update` as their runner-up and rejected it for
 a reason that is not on the pick row and cannot be: its antiPattern says each row needs
 *all three* of citation, summary and effective date, "otherwise the row reads as rumor."
+**That sentence is sourced from the hand transcription, which this note's own re-run
+overwrote in place** — the harness prompt demands a bare JSON envelope, so the committed
+`raw_return`s carry picks and nothing else, and no runner-up reasoning survives anywhere in
+the tree. It is kept because it was observed, and flagged because it is no longer falsifiable
+from the artifact, in the one section whose thesis is that the artifact is the point.
 **The discriminator is a required sub-element, and a one-line purpose cannot carry one.**
 
 **And it was not a `see also` failure — it was a `see also` GAP.** `timeline-list`
@@ -313,8 +347,13 @@ and would take the file past the 24 KB pin `build-pick-list.test.js` holds (16,9
 ~30,300 characters). The answer to a missing edge is the edge, not a fatter row.
 
 **What this result does NOT establish.** The `see also` fix was derived from the single
-observed miss, so re-running these same twelve briefs would be circular; **it is not
-re-measured, and should not be reported as verified.** The brief that produced the miss
+observed miss, so re-running these same twelve briefs is circular as a *test of the fix*.
+It has nonetheless now been run with the edge in place, and **the fix did not rescue the
+pick agents: both still answered `regulatory-update` on brief 12.** That is weak evidence
+(circular by construction, and n=2), but it points one way, and it is the direction this
+note predicted was possible — the row gained a bare pointer, not the discriminator, and a
+pointer the agent has no reason to follow when its first answer already looks right. Read
+it as the fix being **unverified and now mildly doubted**, not as verified. The brief that produced the miss
 also handed the pick surface a verbatim tag match (`compliance`) pointing at the wrong
 component, which makes 92% pessimistic here rather than flattering — worth stating in
 both directions. And the same-author bias is unchanged and not retired: whoever wrote
@@ -322,6 +361,61 @@ these briefs also owns the surface under test. The mitigation is partial — dis
 were read out of each manifest's `whenToUse`, which is text the FULL condition can see
 and the PICK condition cannot, so where that biases the experiment it biases it toward
 the full catalog — but it is not an independent-author design.
+
+## Re-run by the harness (2026-08-30, #1897)
+
+Everything above was, until this section, a hand transcription of what eight subagents
+returned. `npm run intent:pick-agents` re-ran all eight — two conditions, two replicates,
+both committed brief sets — and wrote the artifacts itself, all on Opus per HARD RULE #27.
+
+**The spend, itemized, because half of it bought nothing.** $5.17 for the easy set and $5.09
+for the confusable set = **$10.26** for the eight scored agents, which is what the artifacts
+below are. Before them: **$0.51** validating one agent end-to-end, **~$0.16** on a
+single-brief probe run purely to capture a raw transcript for the defect in finding 3, and
+**$10.37** on a first full pass that was DISCARDED once that defect was found. About **$21**
+total, of which $10.37 is the price of having shipped a harness whose accounting was never
+tested.
+
+**Three things came back, and only the first is a confirmation.**
+
+**1. The easy set reproduced exactly.** 22/24 strict and 24/24 defensible for the pick
+surface, 24/24 and 24/24 for the full catalog, and the single disagreement is still brief 3
+(`timeline-list` against `list-steps`). A transcription is a weak artifact, but this one was
+faithful.
+
+**2. The confusable set moved against the pick surface**, 92% strict to 87.5%, on a
+replicate that disagreed with its twin. See that section for the detail. This is the case
+for re-running rather than re-arguing: the number that moved is the number the experiment
+existed to produce.
+
+**3. The harness's own headline metric was wrong, and it under-counted to ZERO.**
+`parseStream` de-duplicated stream frames by `message.id` — but the CLI splits ONE assistant
+message across several frames sharing that id, one per content block. Keeping only the first
+frame therefore dropped any `tool_use` that followed a text or `thinking` block in the same
+message. Measured on a captured transcript: four frames, two message ids, the `Read` sitting
+in the *second* frame of the first id, and `surface_reads` reported **0** for an agent that
+had plainly read its surface.
+
+Across the discarded first pass the buggy parser recorded `pick` at 0–1 reads and `full` at
+1–4; the same conditions under the fix record 1 and 10–12. **The entire paginated-read
+argument runs through that number**, so the first pass was discarded and paid for again.
+Those before-figures are quoted from the run log and are **not reproducible from the tree** —
+the discarded artifacts were overwritten rather than committed, which is the same
+un-auditability the fix exists to remove, one level up.
+
+De-duplication now keys on the `tool_use` block's own `toolu_…` id — repeated by a
+re-delivered frame, never shared by two real calls — and each run stores the per-call ledger
+its counts derive from, so `surface_reads` is auditable from the artifact instead of by
+paying for another run. The absence of that ledger is the only reason this defect needed a
+re-run to find, and it is the general lesson: **an accounting artifact that cannot be
+re-derived from what it stores is a transcription with extra steps.**
+
+**What the re-run does NOT retire.** The same-author bias is untouched — whoever wrote these
+briefs owns the surface under test, and that is #1898, not this. Twelve briefs and two
+replicates per condition remain too few to separate replicate variance from effect, which
+finding 2 now demonstrates rather than merely cautions about. And the numbers are `claude -p`
+numbers: they do not compare to what an agent costs inside an interactive session, which is
+the flow the routing actually serves.
 
 ## The one column that is mostly empty (#1784)
 
