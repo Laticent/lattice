@@ -5782,6 +5782,15 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'content — the lint is a reader like any other.',
   },
   {
+    file: 'tools/score-variance.js',
+    why: 'readDeck — the corpus sweep\'s only door for author text. It scores every committed '
+       + 'deck through the SAME lint + review + scorecard path `tools/lint-deck.js` and the '
+       + 'Studio Coach run, so an unnormalized read would give a CRLF deck a different GRADE '
+       + 'than the identical content in LF, and the tool exists to publish figures that other '
+       + 'documents quote. A measurement instrument that reports differently by encoding is '
+       + 'worse than no instrument.',
+  },
+  {
     file: 'tools/export-marp.js',
     why: 'the deck read in exportMarp(). #1388: this ingest was never normalized, so a BOM\'d or '
        + 'CRLF deck exported to a Marp bundle in the wrong palette — #1349 recurring one file '

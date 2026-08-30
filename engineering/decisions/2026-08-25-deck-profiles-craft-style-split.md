@@ -138,15 +138,28 @@ models** — `structure` swings 34% → 91%, `contract` 0% → 64%. So the concl
 "`contract`'s weight is right"; it is the stronger and more useful one: **this corpus
 cannot price ANY of the three Craft weights**, and a decomposition run on it is evidence
 about the population, not about the weights. That is the same error §2 corrects, stated
-once for all three rather than caught one category at a time. `craftProse` is the
-thinnest everywhere (1.5%–8.7%) against a 32.4% nominal weight — by the reasoning above
-that is not evidence it is dead either, and it is the next weight to be suspicious of.
+once for all three rather than caught one category at a time.
+
+> **CORRECTED 2026-08-30 — the last two sentences of this section used to read:**
+> *"`craftProse` is the thinnest everywhere (1.5%–8.7%) against a 32.4% nominal weight —
+> by the reasoning above that is not evidence it is dead either, and it is the next weight
+> to be suspicious of."* That ranking is the instrument, not the category. Prefix
+> truncation models an unfinished deck, not a badly-written one: it creates 166 `contract`
+> findings and destroys none, while creating **zero** `craftProse` findings by line and
+> four by character — all four being one-word fragments left where the cut landed inside a
+> heading — against 46 real ones destroyed. And this band's own endpoints are set by a
+> parameter this record never wrote down: cut DEPTH alone moves `contract`'s line-truncated
+> share from 10.3% to 71.2%, a range that swallows 14.1%–64.2% whole. `craftProse` is not
+> the next weight to be suspicious of; it is the one nothing here has measured.
+> `npm run score:variance` now re-derives all of it.
+> See `2026-08-30-craft-weight-variance-proxy-bias.md`.
 
 *(This band replaces a `27.8%–74.4%` figure that an earlier draft carried. That number
 came from a reviewer's decomposition and was relayed without being reproduced; re-running
 it here gives 14.1%–64.2%. Same conclusion, different number — and relaying an
 unreproduced figure is the exact failure mode §8.6 and §8.7 are about, so the reproducible
-one wins.)*
+one wins. **The replacement inherited the defect** — see the correction above: 14.1%–64.2%
+is not un-reproduced but *underdetermined*, one draw from cut depths nobody recorded.)*
 
 **Pacing gets the same treatment, and it changes the verdict.** The argument above
 — *a category flat on the corpus may be flat because its input is unavailable* —
