@@ -63,11 +63,7 @@ name: Publish kits
 
 on:
   push:
-    # PREFLIGHT (temporary, reverted before merge): a `push` event uses the
-    # workflow file from the branch being pushed, so listing this PR branch is
-    # the only way to exercise this workflow on real GitHub Actions before it
-    # reaches main — `workflow_dispatch` resolves only on the default branch.
-    branches: [main, claude/llm-agent-kit-artifacts-8fwnuw]
+    branches: [main]
     paths:
       # Marp kit inputs: the engine bundle, palettes, fonts and the assembler.
       - 'lib/**'
@@ -124,7 +120,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          BRANCH=dist-kits-preflight # PREFLIGHT (temporary, reverted before merge)
+          BRANCH=dist-kits
           SHA="${GITHUB_SHA:0:7}"
           work="$(mktemp -d)"
           cd "$work"
