@@ -777,11 +777,17 @@ belongs under a section on handwriting, and the heading structure gave a reader
 no way to find them.
 
 **The per-slide `_class:` tokens went with them**, and HARD RULE #6 sends
-`_class:` authoring to *this* file — so they are named here to stay greppable:
-`corners-rounded`, `corners-square`, `sketch-clean`, `sketch-clean-body`,
-`lifted`, `stamp-notch`, `spectrum-solid`, and the `spectrum-card-edge-*`
-family. Each is documented, with what it does and what it overrides, in
+`_class:` authoring to *this* file. They are the `corners-*`, `sketch-clean*`,
+`lifted`, `stamp-*`, `spectrum-*` (including the `spectrum-card-*`,
+`spectrum-edge-*` and `spectrum-trim-*` families), `rule-*`, `eyebrow-*` and
+`head-*` tokens, plus every `unknown-*` code `lint:deck` emits for a mistyped
+register — around forty in all, each documented in
 [`base.registers.docs.md`](base.registers.docs.md).
+
+**So grep the FOLDER, not this file**: `grep -rn corners-square lib/base/`. An
+earlier version of this paragraph listed eight of the forty by hand, which is
+the drifting hand-maintained index this split exists to remove — the folder
+grep needs no list and cannot rot.
 
 ### `scale-l` / `scale-xl` / `scale-2xl`
 

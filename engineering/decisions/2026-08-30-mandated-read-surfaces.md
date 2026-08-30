@@ -10,8 +10,9 @@ summary: >
   rows costing 18% of all row cost. base.docs.md was not a size problem at all: `### sketch`
   was 8.3k of a 15.5k variants section because NINE front-matter registers had been filed
   under a per-slide variant, one at a time, each arriving as "a sibling of the one above".
-  Moving those ten registers to their own file takes the mandated read 24,504 -> 14,991 and
-  makes `headline:` findable by someone not reading about handwriting. A fact-checker pass
+  Moving those ten registers to their own file takes the mandated read 24,504 -> 15,171 while
+  the two files TOGETHER come to 25,610 — up ~1,100 — and makes `headline:` findable by
+  someone not reading about handwriting. A fact-checker pass
   over the accompanying pick-surface edits refuted two claims that had already been
   committed, which is recorded here because it is the argument for running one.
 ---

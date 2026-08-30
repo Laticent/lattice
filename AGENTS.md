@@ -7,9 +7,10 @@ engine — and each slide opts into a **component** via a
 Markdown. This file orients any AI agent (Claude Code, Copilot, Cursor, an
 SDK agent) toward authoring decks correctly. For engine/contributor work,
 read `CLAUDE.md` and the `engineering/` docs instead — and before building any
-script or tool, check `engineering/capabilities.md` (the generated index of
-every script, tool, and framework) so you extend what exists rather than
-reinvent it.
+script or tool, **grep** `engineering/capabilities.md` (the generated index of
+every script, tool, and framework) for what you were about to build, then open
+the script or tool the row names — its own header is the long form. Extend what
+exists rather than reinvent it; don't read the index top-to-bottom.
 
 ## Read these first
 
