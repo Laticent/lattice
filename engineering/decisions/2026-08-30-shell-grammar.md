@@ -70,11 +70,11 @@ construction takes down the whole bundle rather than just the highlighting. A
 two-part `begin` array with `beginScope: {2: 'params'}` states the same
 constraint through hljs's own API and compiles everywhere.
 
-Requiring that leading whitespace is also what keeps powershell's bug out:
-`-dist` in `${OUT_DIR:-dist}` is preceded by `:`, and `-file` in `my-file.txt` by
-a word character. Neither is a flag. (Belt and braces — bash's variable mode opens
-at the earlier `$` and swallows `${…}` whole before the flag rule is offered the
-position.)
+**What may precede a flag is a deliberate set** — start-of-line plus ` ([|,;&` —
+and that set is what keeps powershell's bug out: it excludes word characters (so
+`-file` in `my-file.txt` is not a flag) and `:` and `=` (so `-dist` in
+`${OUT_DIR:-dist}` and a `--opt=-value` tail are not). It began as whitespace
+alone, which was too narrow in a way that showed on a slide — see §6.
 
 **Registered at the one seam every path shares.** `registerShellHljs` sits beside
 `registerMermaidHljs` in `lib/integrations/markdown-it/plugins.js` and is called
@@ -128,13 +128,79 @@ command list comes out with **zero tokens**. Scripts are barely affected (stock
 bash still colors keywords, strings and POSIX built-ins); what a recipient loses
 is the modern-command and flag color.
 
-## 6. Verification (HARD RULE #23)
+## 6. What the maker-checker pass changed (HARD RULE #25)
 
-- **Engine**: 9 unit tests (`test/unit/engine/shell-grammar.test.js`) drive the real
-  `createEngine()` — built-ins, flags, the two mis-flagging regressions, and the
-  tag routing including the negative case that pins ` ```shell ` as NOT annexed.
+An independent checker ran over the shipped diff and found three real defects and
+a dead test. All are fixed; the record matters more than the fixes.
+
+**A false premise in a comment cost the change its own headline example.** The
+grammar's docblock asserted that stock bash already covered `find`, `sed`, `awk`,
+`curl` and `make` as coreutils, so they were left out of the added list. It does
+not: hljs's `GNU_CORE_UTILS` is the literal coreutils manifest, which has `wc`,
+`cat` and `tr` and has never had `find`, `sed`, `awk`, `grep`, `curl`, `make`,
+`ssh` or `tar`. The result was worse than the monochrome it replaced — in the
+six-line corpus from §1, `curl` was **the one gray word among five colored
+commands**, using the very command this file quotes as its flag example. Fourteen
+everyday commands are now in the list, and the comment carries the one-line check
+that would have caught it.
+
+**`.git` rendered as a command.** bash's keyword `$pattern` is
+`/\b[a-z][a-z0-9._-]+\b/`, and a leading `.` is a non-word character, so `\b`
+holds and `git` matched inside `rm -rf .git` and `tar --exclude=.git`. `foo.git`
+and `/path/.git` were always safe; the bare and `=`-prefixed forms were not. It
+was already firing on committed content in `engineering/decisions/`. A dot rule
+now consumes a dot-prefixed name as plain text before keyword matching sees it.
+
+**The whitespace anchor was too narrow, and it showed.** Anchoring a flag on a
+preceding `\s` meant the FIRST flag in a block — index 0, nothing before it —
+never colored, so two identical adjacent lines (`-v, --verbose` / `-q, --quiet`)
+came out differently for no reason a reader could see. `[-h]` in a usage line and
+`-h|--help` in a `case` alternation were missed for the same reason. The set is
+now start-of-line plus ` ([|,;&` — still excluding word characters, `:` and `=`,
+which is what keeps `my-file.txt` and `--opt=-value` safe.
+
+**The most reassuring test in the suite was dead.** The `${OUT_DIR:-dist}` case
+was documented as pinning the flag rule and cited here as evidence for it. The
+checker deleted the rule outright and the test still passed: bash's own
+`BRACED_VAR` mode opens at the earlier `$` and swallows the braces whole, so that
+assertion pins upstream behavior Lattice does not own. It is kept, honestly
+relabeled, and the load-bearing guards (`my-file.txt`, strings, comments, `=-value`)
+are now the ones asserted. **Every rule is mutation-proved**: removing the flag
+guard fails 2 tests, the dot rule 1, the added commands 1.
+
+Two smaller things: `registerShellHljs` swallowed a missing-argument
+`TypeError` — a caller bug that would have silently dropped every shell fence
+back to stock bash — and now throws; and the idempotence comment named the wrong
+mechanism (`registerLanguage` stores the raw definition, compilation is lazy and
+memoized via `isCompiled`).
+
+**Accepted, not fixed:** a flag inside a QUOTED heredoc body (`<<-'EOF'`) still
+colors — the quoted form never opens bash's `HERE_DOC` mode upstream, so the rule
+sees literal text; unquoted `<<EOF` is safe. And on the print/grayscale finish,
+`--hljs-built_in` and `--hljs-params` both resolve to `--print-text-body`
+(`base.modifiers.css`), so a command list there is exactly as monochrome as
+before — pre-existing token policy, not this change, but it bounds the claim.
+
+## 7. Verification (HARD RULE #23)
+
+- **Engine**: 14 unit tests (`test/unit/engine/shell-grammar.test.js`) drive the real
+  `createEngine()` — built-ins, flags, the mis-flagging guards, the three §6
+  regressions, and the tag routing including the negative case that pins ` ```shell `
+  as NOT annexed (by grammar IDENTITY, not merely by absence of color).
+- **Mutation-proved**, because a passing test is not evidence that it tests
+  anything: each rule was removed in turn and the suite re-run — flag guard → 2
+  failures, dot rule → 1, added commands → 1.
 - **Rendered PDFs** via `lattice-emulator.js` + `tools/rasterize-for-review.sh`,
   inspected as images, for the before/after comparison in §1.
 - **A real marp-cli render** for the §5 claim, not an inference from the
   dependency graph.
 - **Bundle sizes** measured on the built artifacts for the injection fix in §2.
+- **An independent checker** (HARD RULE #25's maker-checker rung) re-ran every gate
+  and the integration tier (804 tests, 0 fail), rasterized the committed example PDF
+  and inspected it, and independently confirmed the three clean bills that matter:
+  `sh`/`zsh` re-point to the new grammar while `shell`/`console` keep 'Shell Session';
+  `console`'s embedded bash resolves to the re-registered grammar; and nothing in
+  main's on-demand grammar path can clobber it (`languages.register` refuses an
+  existing name, `missingLanguages` never reports `bash`, and
+  `build-hljs-languages.js` emits only non-`common` grammars, so no `bash.js` is
+  ever generated).

