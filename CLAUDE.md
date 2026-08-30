@@ -427,11 +427,12 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   its own revisions — was deleted with it. A gate needing 1285 standing exceptions to
   stay green was more machinery than the problem it policed, and from a swept tree a
   regression is one visible word in a diff rather than a needle in a 1285-hit haystack.
-  **"Swept" is not "zero", and the difference matters.** 71 British spellings remain in
-  living prose, and they are not a backlog: ~39 are the `progress-centre` Form cell
-  (issue #578), 15 are DATA we must keep accepting, 4 sit in a lockfile, 3 cite a dated
-  `engineering/decisions/` filename, and the rest are deliberate mentions in tests and
-  in this rule. **A US-English pass must never touch an EXTERNAL string**: GitHub's
+  **"Swept" is not "zero", and the difference matters.** 71 British spellings remained in
+  living prose when this rule was written, and they were not a backlog: ~39 were the
+  `progress-centre` Form cell, 15 are DATA we must keep accepting, 4 sit in a lockfile,
+  3 cite a dated `engineering/decisions/` filename, and the rest are deliberate mentions
+  in tests and in this rule. **The Form cell is now `progress-center`** — issue #578
+  renamed it, so about 32 remain and the largest cluster is gone. **A US-English pass must never touch an EXTERNAL string**: GitHub's
   `cancelled` conclusion enum, the OECD's real legal name, a third-party language
   keyword, a synonym key an author might type, a pre-registered benchmark fixture. A
   sweep that rewrote three of those shipped a dead CI allowlist, an unresolvable map

@@ -6,5 +6,5 @@
   "exemptFromChrome": true,
   "description": "Full-bleed imagery Frame — the image claims the whole canvas, so the root chrome Cells do not apply (design/forms.md §8; FORM_TOGGLE_SKIP). Suppresses the masthead and footer.",
   "cells": ["stage"],
-  "suppresses": ["masthead", "masthead-lede", "masthead-bay", "footer", "footer-left", "progress-centre", "pagination-right"]
+  "suppresses": ["masthead", "masthead-lede", "masthead-bay", "footer", "footer-left", "progress-center", "pagination-right"]
 }

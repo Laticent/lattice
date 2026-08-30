@@ -2144,7 +2144,7 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
 }
 .lat-split-rail .seg.on { opacity: 0.8; }
 /* …UNLESS the deck's SECTION rail is in the same band. `12cqi` clears the page number, but
-   it lands squarely inside the berth the section rail (`.tile-progress`, the progress-centre
+   it lands squarely inside the berth the section rail (`.tile-progress`, the progress-center
    Cell) reserves — right of `--footer-pag-reserve`, up to `--footer-center-w` wide — so on
    any deck WITH dividers the k-of-N segments were drawn on top of the section label's last
    characters. Seen on a real portrait render, and pre-existing on the plain path (a body page

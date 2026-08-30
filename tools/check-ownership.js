@@ -9989,7 +9989,7 @@ const AUTHOR_SET_ENGINE_TOKENS = Object.freeze([
   { token: 'footerleft-inset', why: 'footer-left cell: per-deck placement knob, defaults inline.' },
   { token: 'footerleft-w', why: 'footer-left cell: per-deck width knob, defaults inline.' },
   { token: 'pagination-inset', why: 'pagination-right cell: per-deck placement knob, defaults inline.' },
-  { token: 'progress-inset', why: 'progress-centre cell: per-deck placement knob, defaults inline.' },
+  { token: 'progress-inset', why: 'progress-center cell: per-deck placement knob, defaults inline.' },
   { token: 'horizon-count', why: 'roadmap horizons: a per-deck column count, defaults inline.' },
   { token: 'qr-ink', why: 'connect/_qr-card: the QR module color, set per deck so a card can match a brand.' },
   { token: 'qr-paper', why: 'connect/_qr-card: the QR quiet-zone color, set per deck alongside --qr-ink.' },

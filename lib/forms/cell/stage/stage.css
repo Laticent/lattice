@@ -340,7 +340,7 @@ section.form > .cell-footer > .tile-progress {
   position: static;
   inset: auto;
   flex: 0 0 auto;
-  /* `none`. The progress-centre Cell caps the rail at `--footer-center-w` for its ABSOLUTE
+  /* `none`. The progress-center Cell caps the rail at `--footer-center-w` for its ABSOLUTE
    * placement, where the reserve is the only thing keeping it off the page number. In flow the rail
    * is `flex: 0 0 auto`, so its content size IS its box and a clamp can only ever be too small —
    * and `overflow` on the rail is `visible` with `justify-content: flex-end`, so a clamped box does
@@ -363,7 +363,7 @@ section.form > .cell-footer > .tile-progress {
  * of the same class name on the progress rail. Both are fixed-size marks that must not deform.)
  * A previous revision called this REDUNDANT — "verified: removing it leaves the suite green". It
  * was neither. The rail is a flex ITEM (rigid, so nothing reaches the dots that way) but it is
- * ALSO a flex CONTAINER carrying `max-width: var(--footer-center-w)` from the progress-centre
+ * ALSO a flex CONTAINER carrying `max-width: var(--footer-center-w)` from the progress-center
  * Cell, and a binding cap there reaches straight through: with the default `flex-shrink: 1`
  * restored and the cap under-sized, every dot measured **0px wide**. The suite was green because
  * its fixture had ONE dot and never approached the cap. Whether the cap binds today depends on

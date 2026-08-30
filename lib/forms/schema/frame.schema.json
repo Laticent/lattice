@@ -52,7 +52,7 @@
               "description": "A Cell's placement override at this family. Bounded by the kind-contract (forms.md §7): a relocation target region must accept the Cell's Tile kind.",
               "properties": {
                 "region": {
-                  "enum": ["masthead", "masthead-lede", "masthead-bay", "stage", "footer", "footer-left", "progress-centre", "pagination-right", "overlay", null],
+                  "enum": ["masthead", "masthead-lede", "masthead-bay", "stage", "footer", "footer-left", "progress-center", "pagination-right", "overlay", null],
                   "description": "The band this Cell occupies at this family. Differs from the Cell's default region → a CROSS-BAND relocation, applied by the runtime (content moves, never vanishes). null = drop — reserved for genuinely redundant content, NOT the default (dropping authored content silently is the fade decision forms.md §6 rejects)."
                 },
                 "tokens": {

@@ -24,11 +24,11 @@
         "coda",
         "footer",
         "footer-left",
-        "progress-centre",
+        "progress-center",
         "pagination-right",
         "overlay"
       ],
-      "description": "Band position on the slide (design/forms.md §5/§6). masthead carries the sub-cells masthead-lede (kicker+title) and masthead-bay (meta·logo·status); coda is the trailing editorial band beneath the stage (key insight, below-note — lib/core/coda.js); footer carries the three zones footer-left · progress-centre · pagination-right; overlay is the z4 annotation plane."
+      "description": "Band position on the slide (design/forms.md §5/§6). masthead carries the sub-cells masthead-lede (kicker+title) and masthead-bay (meta·logo·status); coda is the trailing editorial band beneath the stage (key insight, below-note — lib/core/coda.js); footer carries the three zones footer-left · progress-center · pagination-right; overlay is the z4 annotation plane."
     },
     "z": {
       "type": "integer",
@@ -69,7 +69,7 @@
     },
     "css": {
       "type": "boolean",
-      "description": "Whether this Cell ships a co-located 2D stylesheet lib/forms/cell/<id>/<id>.css (the build asserts presence/absence — manifest↔CSS gate §4.1). Default true; set FALSE for a pure token/coordinate-contract Cell with no CSS of its own (footer-left, pagination-right, progress-centre, overlay)."
+      "description": "Whether this Cell ships a co-located 2D stylesheet lib/forms/cell/<id>/<id>.css (the build asserts presence/absence — manifest↔CSS gate §4.1). Default true; set FALSE for a pure token/coordinate-contract Cell with no CSS of its own (footer-left, pagination-right, progress-center, overlay)."
     }
   }
 }
