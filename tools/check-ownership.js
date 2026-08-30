@@ -3699,6 +3699,66 @@ function decodeCssEscapes(value) {
   });
 }
 
+/**
+ * THE L0 ROUTER'S SIZE BUDGET (#1896).
+ *
+ * `CLAUDE.md` is the one surface every session pays UNCONDITIONALLY — it is resident
+ * before any tool call — and it was the only file in the context-tiering system with no
+ * budget at all. `2026-08-17-context-index-tiering.md` set ≤10k tokens for a read-whole
+ * INDEX and three were fixed under it; the router that carries that rule is over it and
+ * is not an index, so it was out of scope by construction.
+ *
+ * WHY A CEILING AND NOT A TRIM. #1897's bake-off measured a step function at the READ
+ * BOUNDARY, not a linear token cost: the full catalog costs 18x the pick surface because
+ * it takes 10-12 paginated reads against 1. `CLAUDE.md` sits on the cheap side of that
+ * boundary in the strongest way available — zero reads — so both trimming options priced
+ * on #1896 convert resident text into an EXTRA read. Routing the canonical-doc table is
+ * the clearest case and is actively wrong: that table is what tells you which doc to
+ * open. So the file is allowed to be this size; what is gated is unbounded growth.
+ *
+ * WHY BYTES. There is no tokenizer in the repo and the tiering note deliberately keeps
+ * `gpt-tokenizer` out of it — a ~2MB BPE rank table installed on every checkout to serve
+ * one gate on one file. The proxy is not a guess and not a novel method here: `ROW_CAP`
+ * in `tools/build-capabilities.js` and `tools/build-decisions-index.js` both gate a
+ * token-motivated budget with a CHARACTER count already.
+ *
+ * The calibration is measured on THIS file, which is the only file it judges, and it is
+ * far tighter than a cross-file ratio would be: 3.904, 3.904, 3.906, 3.906, 3.907 bytes
+ * per o200k_base token across five revisions spanning +1,144 tokens — a spread of 0.08%.
+ * (Across other prose files the ratio runs 3.61 to 4.42, which is why this gate judges
+ * one file and says so.)
+ *
+ * THE NUMBER. 64,500 bytes is ~16,510 tokens at 3.907. Today's file is 58,760 bytes /
+ * 15,041 tokens, so the headroom is 5,740 bytes / ~1,470 tokens — about +10%, chosen by
+ * the owner. One rule the size of #22 (1,288 tokens) or #29 (1,164) fits without a trade;
+ * a second does not. Zero slack was rejected on purpose: the `US_ENGLISH_BUDGET` shape was
+ * a burn-down toward zero and this file is ALLOWED to be this size, so a zero-slack gate
+ * would be the "a bad gate is a permanent tax" case from CLAUDE.md's own second filter.
+ *
+ * Re-measure with o200k_base before quoting either figure; a scratchpad `gpt-tokenizer`
+ * is how the numbers above were taken, and it is deliberately not a repo dependency.
+ */
+const ROUTER_FILE = 'CLAUDE.md';
+const ROUTER_BYTE_CEILING = 64500;
+const ROUTER_BYTES_PER_TOKEN = 3.907; // o200k_base, measured on this file across 5 revisions
+
+function checkRouterBudget(errors) {
+  const file = path.join(ROOT, ROUTER_FILE);
+  if (!fs.existsSync(file)) return; // nothing to judge; not this gate's failure to report
+  const bytes = fs.statSync(file).size;
+  if (bytes <= ROUTER_BYTE_CEILING) return;
+  const tokens = Math.round(bytes / ROUTER_BYTES_PER_TOKEN);
+  const ceilingTokens = Math.round(ROUTER_BYTE_CEILING / ROUTER_BYTES_PER_TOKEN);
+  errors.push(
+    `${ROUTER_FILE} is ${bytes} bytes (~${tokens} o200k tokens), over the ${ROUTER_BYTE_CEILING}-byte ` +
+    `(~${ceilingTokens}-token) ceiling (#1896). Every session pays this file unconditionally, before ` +
+    'any tool call. Raise the ceiling in the PR WITH the trade it buys, or trade something out — and ' +
+    'do not "fix" it by routing text behind a pointer: the file is on the cheap side of the read ' +
+    'boundary, so moving resident text out buys tokens by spending a read, which #1897 measured as ' +
+    'the expensive half. ROUTER_BYTE_CEILING is in tools/check-ownership.js.',
+  );
+}
+
 function checkTypedGlyphs(errors) {
   // ── ENGINE ARM (budget 0) ──────────────────────────────────────────────
   const chromeExempt = new Map(SANCTIONED_GLYPH_CHROME.map((s) => [s.file, s]));
@@ -10810,6 +10870,7 @@ function run() {
   checkZPlanes(errors);
   checkHexLiterals(errors);
   checkTypedGlyphs(errors);
+  checkRouterBudget(errors);
   checkAdaptDeclarations(manifests, errors);
   checkSolverIntentDeclared(manifests, errors);
   checkRenderNature(manifests, errors);
@@ -11037,6 +11098,10 @@ module.exports = {
   decodeCssEscapes,
   SANCTIONED_GLYPH_DECKS,
   checkTypedGlyphs,
+  checkRouterBudget,
+  ROUTER_FILE,
+  ROUTER_BYTE_CEILING,
+  ROUTER_BYTES_PER_TOKEN,
   CANONICAL_FS_TOKENS,
   parseThemeTokens,
   listBasePalettes,
