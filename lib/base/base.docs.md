@@ -231,9 +231,12 @@ shouldn't get card weight.
 **Supported layouts: opt-out, like Key Insight above — but a DIFFERENT set.** A
 layout withholds the note by declaring `coda: { claims: ["trailing-paragraph"] }`:
 the bookends (`title`, `closing`, `divider`), `quote`, `big-number`, `image`,
-`split-panel`, `split-compare`, `diagram`, `stats`, `code`, `math`, the two QR
+`split-panel`, `split-compare`, `diagram`, `stats`, `math`, the two QR
 posters, and every chart-frame layout — which turns its final paragraph into the
-chart caption. Everything else promotes, **including `content`**, which means any
+chart caption. (`code` was on this list until 2026-08-30: its claim protected a
+caption selector that could never match the engine's output, so it cost the note
+and the annotation and bought nothing —
+`engineering/decisions/2026-08-30-code-type-step.md` §3.) Everything else promotes, **including `content`**, which means any
 slide that names no component at all, since that is what an un-classed slide resolves
 to (#1292).
 

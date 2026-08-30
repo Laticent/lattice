@@ -115,10 +115,20 @@ test('the `no-note` opt-out withholds the note and leaves the insight', () => {
 test('claims are TOKEN-EXACT — the substring wart is gone', () => {
   // below-note's old matcher tested `cls.includes(x)`, so `compare-code` inherited
   // `code`'s exclusion and `pull-quote` inherited `quote`'s (#1363). Declared claims
-  // are per layout, so a name that merely CONTAINS another answers for itself:
-  // compare-code claims neither beat and renders both.
+  // are per layout, so a name that merely CONTAINS another answers for itself.
+  //
+  // `quote` / `pull-quote` is the pair that carries this now: `quote` claims the
+  // blockquote for the quotation itself and takes NEITHER beat, while `pull-quote`
+  // — whose name contains it — takes both. `code` / `compare-code` used to be the
+  // second demonstration and no longer is: `code` dropped its trailing-paragraph
+  // claim (it protected a CSS selector that could never match — see
+  // engineering/decisions/2026-08-30-code-type-step.md §3), so the two now agree.
+  // They are still asserted below, because a substring regression would make
+  // `compare-code` answer with `code`'s row rather than its own.
+  assert.deepEqual(blocksFor('quote'), []);
+  assert.deepEqual(blocksFor('pull-quote'), ['key-insight', 'below-note']);
   assert.deepEqual(blocksFor('compare-code'), ['key-insight', 'below-note']);
-  assert.deepEqual(blocksFor('code'), ['key-insight']);
+  assert.deepEqual(blocksFor('code'), ['key-insight', 'below-note']);
 });
 
 test('a layout that paints the insight label itself is not reported inert', () => {

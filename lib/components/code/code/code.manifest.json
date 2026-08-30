@@ -16,7 +16,6 @@
   "form": "canvas",
   "substance": "prose",
   "stage": "flow",
-  "coda": { "claims": ["trailing-paragraph"] },
   "tags": [
     "snippet",
     "walkthrough",
@@ -40,8 +39,8 @@
   "anatomyBlock": "code-canvas",
   "sample": "<!-- _class: code -->\n\n## One block, syntax lit, sized to be read from the back.\n\n```js\n// The code slide holds ONE idea — a function, not a file.\nfunction fitsOnASlide(block) {\n  const lines = block.split('\\n').length;\n  // Twelve lines reads from the back row; twenty is the wall.\n  return lines <= 12 ? 'readable' : lines <= 20 ? 'squinting' : 'split it';\n}\n```\n",
   "stressDoc": {
-    "summary": "Twenty lines — the wall for one block.",
-    "sample": "<!-- _class: code -->\n\n## Twenty lines is the wall.\n\n```js\n// A stress block at the ceiling: every line still earns its place.\nfunction stressTheFrame(lines) {\n  const budget = 20;                      // the hard wall\n  const readable = 12;                    // the comfort line\n  if (lines <= readable) return 'fine';\n  if (lines > budget) return 'split it';  // two slides beat one scroll\n  // Between comfort and the wall, trim ruthlessly:\n  // - drop imports and boilerplate\n  // - elide with ... what the point survives without\n  // - keep the line the talk is about\n  const keep = ['the signature', 'the branch', 'the return'];\n  return keep.join(' + ');\n}\n// The frame does not scroll. The audience does not squint.\n// What does not fit was never the point.\n```\n"
+    "summary": "Fourteen lines — the wall for one block.",
+    "sample": "<!-- _class: code -->\n\n## Fourteen lines is the wall.\n\n```js\n// At the ceiling: every line still earns its place.\nfunction stressTheFrame(lines) {\n  const budget = 14;      // the hard wall\n  const readable = 10;    // the comfort line\n  if (lines <= readable) return 'fine';\n  if (lines > budget) return 'split it';\n  // Between comfort and the wall, trim:\n  //  - drop imports and boilerplate\n  //  - elide with ... what survives\n  //  - keep the line the talk is about\n  const keep = ['signature', 'branch'];\n  return keep.join(' + ');\n}\n// The frame does not scroll.\n```\n"
   },
   "whenToUse": [
     {
@@ -53,8 +52,8 @@
       "body": "Always include the language tag on the fence (```js, ```python, ```sql). The highlighter only triggers when the language is named; without it the slide reads as undifferentiated mono."
     },
     {
-      "title": "Twenty lines or fewer",
-      "body": "Past about twenty lines the type shrinks below boardroom legibility. Trim ruthlessly — keep imports out, elide bodies with `// ...`, and let the rest of the deck carry the surrounding context."
+      "title": "Fourteen lines is the wall",
+      "body": "The pane holds fourteen lines at landscape and the block does not scroll, so a fifteenth is clipped rather than shrunk. Ten reads comfortably from the back row. Trim ruthlessly — keep imports out, elide bodies with `// ...`, and let the rest of the deck carry the surrounding context. (The number follows the type size: `code` reads at `--fs-body-compact`, one role above the deck's chrome, so its lines are ~20% taller than a label's. At `--fs-meta` the pane held sixteen.)"
     }
   ],
   "antiPatterns": [
@@ -96,7 +95,7 @@
     },
     {
       "mistake": "Shebang, import block, or file-header boilerplate left in as padding before the interesting line.",
-      "fix": "Trim to the lines that carry the point — `whenToUse`/`stressDoc` put the hard wall at twenty lines (code declares no enforced capacity/density budget, so nothing gates this besides legibility). Cut scaffolding with `// ...` rather than spending that budget on it."
+      "fix": "Trim to the lines that carry the point — `whenToUse`/`stressDoc` put the hard wall at fourteen lines, MEASURED by rendering fences of increasing length and detecting the clip (438px pane, 28.67px line-height at landscape), not estimated. `code` declares no enforced capacity budget, so nothing gates this besides the clip itself. Cut scaffolding with `// ...` rather than spending the budget on it."
     }
   ],
   "showcase": {
