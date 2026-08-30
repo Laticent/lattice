@@ -10,6 +10,7 @@ const { describe, test } = require('node:test');
 // The module is ESM and the harness around it is a script — importing THAT parses
 // process.argv, prints a plan and exits — which is why the function lives in its own file.
 const load = async () => (await import('../../../tools/intent-bakeoff/parse-stream.mjs')).parseStream;
+const loadNote = async () => (await import('../../../tools/intent-bakeoff/runs-note.mjs')).RUNS_NOTE;
 
 const line = (o) => `${JSON.stringify(o)}\n`;
 const assistant = (o) => line({ type: 'assistant', ...o });
@@ -88,6 +89,20 @@ describe('parseStream tool-call accounting', () => {
     const { toolUses, result: r } = parseStream('not json\n\n{bad\n');
     assert.deepEqual(toolUses, {});
     assert.equal(r, null);
+  });
+
+  // The banner is the artifact's only instruction to a reader, and it was wrong once: it
+  // said "quote `model_tokens`" after that advice had been withdrawn, because correcting the
+  // generator did not rewrite two JSONs that cost $10 to regenerate. Pin them to one source.
+  test('every committed artifact carries the current runs banner', async () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const RUNS_NOTE = await loadNote();
+    const dir = path.join(__dirname, '..', '..', '..', 'tools', 'intent-bakeoff');
+    for (const f of ['pick-surface-agent-runs.json', 'pick-surface-agent-runs-confusable.json']) {
+      const doc = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+      assert.equal(doc._note, RUNS_NOTE, `${f}: _note has drifted from tools/intent-bakeoff/runs-note.mjs`);
+    }
   });
 
   // The committed artifacts must agree with the parser that wrote them.
