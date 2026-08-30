@@ -250,7 +250,7 @@ condition, one surface each and nothing else.
 
 **How this record was made, because it bears on how far to trust it.**
 `pick-surface-agent-runs.json` is a **hand-transcribed** record of what four subagents
-returned — as is the first bake-off above. The briefs and the ground truth are gated
+returned — as is the first bake-off above, so the committed file holds eight runs. The briefs and the ground truth are gated
 artifacts, the *picks* are not. Every derived figure in the table below recomputes from
 that JSON, which verifies the arithmetic and nothing about provenance. Under HARD RULE
 #23 the surface is "four Opus subagents" and the artifact is self-reported, so read the
@@ -336,15 +336,31 @@ lives, and #1784 (open) records that it is undeclared on most of them — but it
 gap between what this surface promises a picker and what it can currently deliver, and
 the two were tracked in separate places until now.
 
-The 23 rows that DO carry one come from two places, which is worth knowing because
-#1784 §1 flags the discrepancy without naming the mechanism: **19 components declare a
-flat `capacity` in their manifest, and 4 more resolve one from `adapt.capacity.wide`**
-via `capacityEntry()` (`tools/build-docs-portal.js:81`), which stamps `family: 'wide'`
-so a per-family budget can be published as a single number. That fallback is why the
-catalog and the manifests report different totals — the build is not inventing a value,
-it is picking the wide-deck row out of an adaptive table. The count is also moving:
-#1784 measured 21 published on 2026-08-23 against 23 today, so any figure here is a
-dated reading of a live number, not a constant.
+The 23 rows that DO carry one come from THREE places, and the third is the interesting
+one — #1784 §1 flags a discrepancy between the manifests and the catalog without naming
+the mechanism, and the mechanism turns out to be two functions, not one:
+
+| where the budget comes from | count | reaches `components.json`? |
+|---|---:|---|
+| a flat `capacity` in the manifest | 19 | yes |
+| `adapt.capacity.wide` via `capacityEntry()` (`tools/build-docs-portal.js:81`), stamped `family: 'wide'` | 2 — `kpi`, `list` | yes |
+| an AXIS-LESS family budget via `capacityCell()` (`:1117`) | 2 — `matrix-2x2`, `split-compare` | **no** |
+
+`capacityEntry()` bails on a family table with no `axis` (`:85`), and those two carry
+`axisRetired` prose instead of an axis — so the catalog omits them entirely while the
+pick cell renders them anyway. You can see it in the rows without opening either file:
+every other value row is prefixed with its axis (`list → item:5/6/6*`), and those two
+are bare (`matrix-2x2 → 4/4/4`, `split-compare → 2/2/2`).
+
+**So the two surfaces disagree in both directions, and 21 vs 23 is not drift.** An
+earlier version of this section said the count was "moving" — 21 published on
+2026-08-23 against 23 today — and that was wrong: `components.json` publishes 21 and
+`components.pick.md` renders 23 *right now*, simultaneously, and nothing about capacity
+has changed across the available history (no `capacity` line in
+`git diff 2da7444 HEAD -- 'lib/components/**/*.json'`, and `capacityCell()`'s axis-less
+arm was already there). It is a structural gap of exactly two components, not a
+timestamp. Refuted by a fact-checker pass over this very section, which is the point of
+running one.
 
 It also bounds a claim above. The bake-off's cost finding (one read against nine) does
 not depend on this column, but "each row carries exactly what a pick needs" is weaker
