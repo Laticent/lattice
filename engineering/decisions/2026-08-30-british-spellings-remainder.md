@@ -34,12 +34,18 @@ deliberate spelling from one nobody had noticed. This note is the count and the 
 (see § The walk cannot see Python). The CURRENT matcher is applied to BOTH trees, so a pair
 this branch added to the map counts on each side and the columns differ only in content:
 
-| | base (`f302ea0`) | after |
+| | base | after |
 |---|---:|---:|
 | total | 482 | 465 |
 | — the dialect map, and writing about it | 323 | 360 |
 | — `changelog/pre-release-archive.md`, frozen | 75 | 75 |
 | — **living surfaces** | **84** | **30** |
+
+The base column re-derived **identically** against each of the three commits this branch was
+rebased onto while it was open (`94bb951`, `f302ea0`, `9504fde`) — none of them touched a
+British spelling. The commit is deliberately not pinned in the table: a SHA in a decision
+record goes stale on the next rebase, and what makes the number checkable is the method, not
+the tree it happened to run on first.
 
 **Tracked files only, and that restriction is load-bearing.** A first version measured the base
 in a `git worktree` and the head in the working tree — so the head column counted
