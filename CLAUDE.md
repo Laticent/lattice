@@ -166,7 +166,8 @@ disposition and a gate collide, the gate wins.
   the expectation, not an escape hatch from the rules; it operates in the space
   the rules leave open.
 - **Write so I understand the first time.** Default to plain words; spend a term
-  of art only when it earns its place, and define it on first use. The moment I
+  of art only when it earns its place, and define it on first use. This is the
+  disposition behind HARD RULE #30 — the contract is `engineering/house-style.md`. The moment I
   say I'm lost, *stop* — don't restate the same explanation louder. Re-explain
   from the start in plain language, lead with a concrete example, and name the
   thing in the codebase it maps to. Jargon I have to decode is a defect in the
@@ -418,10 +419,16 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   human reads words — docs, comments, manifest text, UI copy, hyphenated
   identifiers/classes/tokens — use the US form: `-or` not `-our`, `-ize` not `-ise`,
   `-er` not `-re`; `gray`, `license`, `defense`, `catalog`, `while`. The curated word
-  list lives in the gate; existing British spellings are a tracked migration backlog
-  (don't add new ones — as the backlog drops, lower `US_ENGLISH_BUDGET`). The gate
-  catches whole + hyphenated words; a British spelling buried in a `camelCase`/
-  `snake_case` identifier rides on review, so name those US too. *(gated —
+  list lives in `tools/us-english.js`; existing British spellings are a tracked
+  migration backlog (don't add new ones — as the backlog drops, lower
+  `US_ENGLISH_BUDGET`). The gate catches whole + hyphenated words; a British spelling
+  buried in a `camelCase`/`snake_case` identifier rides on review, so name those US too.
+  **"Everywhere" INCLUDES the surfaces the gate cannot reach** — a chat reply, an issue
+  body, a PR description, a review comment, a commit message. None of those is a tracked
+  file, so `build:check` never sees one, and 21 British spellings rode into the last 300
+  commit messages under a green gate. The commit-msg hook now WARNS on them from this
+  same dictionary (never blocks — a message may quote British-spelled text, and #14
+  forbids `--no-verify` as the escape); everything else on that list is discipline. *(gated —
   `checkUsEnglish` ratchet in `tools/check-ownership.js`, via `build:check`;
   exceed-only, target zero; dated `engineering/decisions/` records, the frozen
   `CHANGELOG` ledger, and generated bundles are exempt — but a **`changelog.d/`
@@ -654,6 +661,35 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   `SANCTIONED_GLYPH_CHROME` in `tools/check-ownership.js`, via `build:check`: engine CSS
   budget 0, decks exceed-only toward 0, and BOTH allowlists fail on a stale entry.
   `engineering/decisions/2026-08-25-typed-glyphs.md`.)*
+- **#30 — House voice: active, plain, and short enough that a junior engineer can
+  act on it.** Every surface where we write ABOUT the work — a chat reply, an issue, a
+  PR body, a commit message, a `changelog.d/` fragment, an `engineering/`/`design/`
+  doc, a code comment. Four rules, and the contract is
+  `engineering/house-style.md` — **read it there**, this is an index entry:
+  - **Active voice, named actor.** "`build-css.js` resolves the token", not "the token
+    is resolved". Passive earns its place only when the actor is genuinely unknown or
+    irrelevant; "it was decided" never qualifies.
+  - **Plain words; a term of art is defined on first use.** Write for someone who
+    joined last week. `use` over `leverage`, `to` over `in order to`, `fast` over
+    `performant`. Our own vocabulary is worth spending — pay for it once, then use it
+    freely. "Robust" and "seamless" both hide the claim: say what survives what.
+  - **Lead with the answer.** First sentence answers; the rest supports. Cut the
+    preamble, the restatement of the question, the summary of what you just said, and
+    the options you did not take.
+  - **US English** — that is #21, and it binds here too, on exactly the un-gated
+    surfaces #21 now names.
+  **There is deliberately NO word budget.** A number gets a real design explanation
+  amputated to hit it, or split across three replies to dodge it. The test is not
+  length, it is whether a sentence is load-bearing: point at a paragraph and ask what
+  deleting it would cost. "Nothing" means it should not have shipped.
+  **This does NOT license under-answering.** Cutting the filler is not cutting the
+  work — a complete answer with its evidence is the deliverable, and "concise" is never
+  a reason to skip a gate, a caveat, or the thing that was not verified (#23).
+  *(discipline — no automated gate for voice or length, and there is unlikely to be a
+  good one: nothing in the tree can tell a load-bearing sentence from a plausible
+  filler one. Spelling is the one arm with teeth — the `checkUsEnglish` ratchet on
+  tracked files, and an advisory commit-msg warning from the same dictionary.
+  `engineering/house-style.md`; the on-demand auditor is the `prose-checker` agent.)*
 
 ---
 
@@ -682,7 +718,8 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | **Who owns color** — engine vs theme vs deck vs consumer, and which record settled each piece | `engineering/decisions/2026-08-09-color-theme-ownership.md` |
 | Core visual design principles (hierarchy, restraint) | `design/design-principles.md` |
 | How a slide is composed — the Form vocabulary | `design/forms.md` |
-| Prose rules for galleries/decks | `design/editorial.md` |
+| Prose rules for galleries/decks (the words ON a slide) | `design/editorial.md` |
+| **How we write ABOUT the work** — chat, issues, PR bodies, changelog, docs, comments (HARD RULE #30) | `engineering/house-style.md` |
 | The deck-authoring contract | `design/skill.md` |
 | Cross-cutting authoring (eyebrow, subtitle, base modifiers) | `lib/base/base.docs.md` — and for a deck-level front-matter REGISTER (`mode:` `finish:` `split:` `stamp:`/`tone:` `spectrum:` `rule:` `eyebrow:` `headline:` `lift:` `corners:`), `lib/base/base.registers.docs.md` |
 | A specific component's slots/variants/anti-patterns | `lib/components/<bucket>/<name>/<name>.docs.md` |
