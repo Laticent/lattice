@@ -12,8 +12,11 @@ sketch on deck-wide, and each new register arrived as "a sibling of the one
 above it". A reader looking for `headline:` had no reason to open a section
 about handwriting, and the heading structure gave them no way to find it. The
 tenth (`corners:`) sat one level up, correctly filed and equally hard to find.
-Moved here verbatim, 2026-08-30; the bodies are byte-identical to what was in
-`base.docs.md` and only the heading LEVEL changed.
+Moved here 2026-08-30. Nine of the ten bodies are byte-identical to what was in
+`base.docs.md`, with only the heading LEVEL changed; the tenth, `eyebrow:`, has a
+one-line edit, because it pointed at *Eyebrow labels* "above" and that section
+stayed behind. Stated exactly rather than as "verbatim", so a future auditor who
+byte-compares all ten knows which mismatch is intended.
 
 For the per-slide variants these compose with — `dark`, `mirror`, `numbered`,
 `silent`, `sketch` itself, the scales, tone tokens, state markers, treatments —
@@ -389,7 +392,7 @@ The **sovereign bookends are the exception**: on `title` / `closing` / `divider`
 subtitle *are* the slide's content rather than a frame around it, so a composed measure there
 is the component's own call.
 
-##### The two bookend measures
+### The two bookend measures
 
 Those three components share **two tokens**, and they are the only width caps on framing text
 left in the engine. They are named, documented, and yours to override:

@@ -359,12 +359,18 @@ function toolHeaderDescription(file) {
 // by a tool whose own header carries the long form — verified file by file before
 // the trim, not assumed — so the detail moved one hop, it did not die. What a row
 // owes is what it does, when to reach for it, and the one gotcha that stops you
-// misusing it (it spends money, it skips silently, it is not the neighbouring
+// misusing it (it spends money, it skips silently, it is not the neighboring
 // script). Mechanism narrative belongs in the tool.
 //
 // It scopes to the SCRIPT and TOOL tables, not FRAMEWORKS. A script or tool row
 // has somewhere to put the detail; a framework row is curated prose about a
 // library whose L2 is that library's own docs, and there are ten of them.
+//
+// PRACTICAL MARGIN, so the cap is not a surprise: the trim left the five widest
+// rows within ~25 characters of the budget (`contrast:player` 595, `check:chart-fit`
+// 586, `check:family-conformance` 583, `contrast:palette-native` 582, `intent:judge`
+// 577). Adding a clause to one of those fails the build. That is the cap working —
+// the clause goes in the tool's header — but expect it rather than discovering it.
 const ROW_CAP = 600;
 
 /** Per-row, per-capability: the check one PR can be held responsible for. */

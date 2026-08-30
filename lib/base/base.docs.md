@@ -776,6 +776,13 @@ there fairly, and eight more followed it. Nothing about `headline:` or `lift:`
 belongs under a section on handwriting, and the heading structure gave a reader
 no way to find them.
 
+**The per-slide `_class:` tokens went with them**, and HARD RULE #6 sends
+`_class:` authoring to *this* file — so they are named here to stay greppable:
+`corners-rounded`, `corners-square`, `sketch-clean`, `sketch-clean-body`,
+`lifted`, `stamp-notch`, `spectrum-solid`, and the `spectrum-card-edge-*`
+family. Each is documented, with what it does and what it overrides, in
+[`base.registers.docs.md`](base.registers.docs.md).
+
 ### `scale-l` / `scale-xl` / `scale-2xl`
 
 Bump the readable fonts on the slide up in lockstep. The typography
@@ -1212,6 +1219,10 @@ and `…-cvd-redundant-encoding.md`.
 ---
 
 ## Related
+
+- `base.registers.docs.md` — the ten deck-level front-matter registers
+  (`mode:` `finish:` `split:` `stamp:`/`tone:` `spectrum:` `rule:` `eyebrow:`
+  `headline:` `lift:` `corners:`) and their per-slide tokens.
 
 - `design/design-system.md §6.5` — the variant tier system (universal,
   semi-universal, layout-specific) and the rules manifests follow.

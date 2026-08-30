@@ -51,8 +51,8 @@ proposing it:
 **No cap reaches 10k.** At 320 items the file is far past the ~165 crossover the tiering
 note derived, so the honest conclusion is the one that note's own Amendment reached about
 the decisions index: **change the access mode.** At p50 27 tokens a row it is a good
-grep-first index — ten representative queries return 301–2,590 tokens, all inside the
-read-whole budget the file as a whole misses.
+grep-first index — ten representative queries returned 301–2,590 tokens before the trim and
+301–2,211 after, all inside the read-whole budget the file as a whole misses.
 
 `ROW_CAP` (600 characters, gated in both `capabilities:build` and `capabilities:check`) is
 therefore not a file-size lever and is not sold as one — it saved 846 tokens, 6%. It bounds
@@ -111,7 +111,17 @@ A tenth register, `corners:`, sat one level up as a sibling `###` — filed corr
 equally unfindable.
 
 All ten moved to **`lib/base/base.registers.docs.md`**, with a table at the top naming what
-each selects and its default. The mandated read drops **24,504 → 14,991**.
+each selects and its default. The mandated read drops **24,504 → 15,171**.
+
+**And the total went UP, which the headline number hides.** The two files together are
+**25,610** against 24,504 before — the new preamble, the link table and the pointers cost
+~1,100 tokens. That is the right trade *for what #6 mandates*: a base-modifier read is the
+frequent one and it got a third cheaper, while a register question is rarer and now costs
+10,439 instead of being unfindable inside 24,504. But a reader who needs BOTH pays more than
+before, and some `_class:` authoring genuinely does need both — so the stub in `base.docs.md`
+names the per-slide tokens (`corners-square`, `lifted`, `sketch-clean`, `stamp-notch`,
+`spectrum-*`) to keep them greppable in the file #6 actually names. Found by the checker
+pass, not by the maker.
 
 **The move was mechanical and asserted**: each block was split fence-aware at its heading
 level, and every one of the ten bodies was compared byte-for-byte after the write. Only the
@@ -150,6 +160,16 @@ plausible one, so a claims-heavy diff has no machine gate at all. This is the se
 one session that a wrong claim of mine reached a commit and was caught by re-derivation rather
 than by a gate.
 
+**And a third, from the checker pass on this change:** the capabilities commit shipped
+`neighbouring` into a tool docblock — a HARD RULE #21 violation, in the same session whose
+subject is claims nothing checks. `checkUsEnglish` did not catch it because `UK_ENGLISH_FORMS`
+lists `neighbour` and `neighbours` and the pattern is `\b`-anchored, so the `-ing` inflection
+is invisible to it. The instance is fixed here. The gate gap is real and bounded — the list
+enumerates inflections one by one and omits several (`honouring`, `labouring`, `standardising`,
+`specialising`, `finalising`, `capitalising`, and most `-isation` forms) — and it is **#1918**
+rather than swept in, because closing it surfaces three pre-existing occurrences this PR did
+not cause (#18: found, not caused, off-path).
+
 ## Deliberately not done
 
 - **`themes/palette-audit.md` (196,801 tokens)** — the largest authored file in the repo by 8x,
@@ -160,6 +180,11 @@ than by a gate.
   read § Pre-merge card there rather than from a summary, which reads like a 22k tax. That
   section is **1,204 tokens** and the rule already routes by name. Recorded so nobody
   re-derives it and "fixes" a file that is working.
+- **Two dated decision records still say `base.docs.md` documents something "under the
+  `headline:` register"** (`2026-07-30-masthead-framing-fills-the-band.md:96`,
+  `2026-08-02-sovereign-bookend-measures.md:233`). True when written, false now.
+  `engineering/decisions/**` is a dated archive and editing it to chase a move would fight
+  #17/#8 — logged here, per #18's found-not-caused arm.
 - **`base.docs.md`'s remaining 15k is not further split.** § Auto-detected authoring patterns
   (4,830) and the residual variants (5,985) are what the file claims to be about.
 
