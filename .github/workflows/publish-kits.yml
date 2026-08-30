@@ -1,0 +1,166 @@
+name: Publish kits
+
+# Mirrors the two copy-and-go kits onto the orphan `dist-kits` branch, so there
+# is a stable, browsable/raw-fetchable place to grab them without cloning or
+# running `npm install`:
+#
+#   dist/marp-kit/  → dist-kits:marp/     the Marp kit (VS Code / marp-cli)
+#   dist/agent-kit/ → dist-kits:agent/    the LLM agent kit (catalogs + primer)
+#
+# plus a root README and a root .vscode/settings.json fallback, both staged from
+# tools/kit-branch/root/ so they are reviewable on `main` rather than buried in a
+# heredoc here.
+#
+# WHY THIS EXISTS. dist/ is built, not committed
+# (engineering/decisions/2026-08-17-generated-bundles-uncommitted.md) — the merge
+# queue was ejecting PRs on conflicts in the committed minified bundles. npm
+# install and the GitHub Release zip still carry dist/, but browsing or grabbing
+# a single file straight from the repo tree stopped working. This restores that
+# surface without undoing the fix. Supersedes publish-marp-kit.yml, which did the
+# same for the Marp kit alone.
+#
+# ORPHAN BRANCH, NOT A PR THROUGH MAIN. `dist-kits` is unrelated history, rebuilt
+# from scratch and force-pushed as ONE commit every run:
+#   - it never enters the Main Merge Queue and never conflicts with an open PR —
+#     engineering/workflow.md § Automation vs. the main ruleset names exactly this
+#     shape ("an orphan artifact branch... costs nothing at all and needs no
+#     ruleset change either");
+#   - its own history never grows either. Re-orphaning and force-pushing lets the
+#     old tip go unreachable (and eventually GC'd) instead of piling up — the same
+#     churn problem the uncommit fixed on `main`. Deliberately UNLIKE
+#     `ci-drift-images` (same idiom), which keeps one commit per PR because it
+#     wants a history of past snapshots; this branch wants only the current one.
+#
+# WHY BOTH KITS SHARE ONE BRANCH. They are the same kind of thing — a generated,
+# copy-and-go folder — and one branch means one name to remember, one ruleset to
+# maintain and one publish to reason about. The cost is that the Marp kit moved
+# from the branch ROOT into `marp/`, which silently breaks
+# `.vscode/settings.json`'s workspace-relative theme paths for anyone who opens
+# the branch root as their workspace. The root .vscode fallback above is the
+# answer: both levels now work. (marp.config.cjs uses __dirname, so the CLI path
+# was never affected.)
+#
+# PUSH-TRIGGERED, WITH A NIGHTLY BACKSTOP. Measured over 30 days: 50 pushes to
+# `main`, of which 12 touch an input of either kit. So path-filtered on-push is
+# both FRESHER and CHEAPER than a nightly that reruns 30 times to catch 12
+# changes. The nightly stays as a backstop, because a failed push-run would
+# otherwise leave the branch stale until someone next happened to touch an input
+# — and the tree-compare skip below makes a redundant nightly run a no-op.
+#
+# GITHUB_TOKEN, NOT AUTOMATION_PAT. The main ruleset — the reason the other
+# automation workflows need the PAT — targets only `refs/heads/main`, and nothing
+# downstream needs to see this push as a triggering event, so the built-in token
+# (which raises no event other workflows can react to) is sufficient. See
+# engineering/workflow.md § Automation vs. the main ruleset.
+#
+# BRANCH PROTECTION. `dist-kits` carries a ruleset that blocks deletion and
+# restricts updates, with a bypass for the GitHub Actions integration so this
+# workflow can still force-push. That bypass is why the ruleset cannot be
+# tightened further: an integration bypass is held by any workflow with
+# GITHUB_TOKEN. It is accepted here and NOT on `main` because the worst case is a
+# derived mirror that republishes on the next push, not a compromised source
+# branch. See engineering/decisions/2026-08-30-agent-kit-and-dist-kits.md § 6.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Marp kit inputs: the engine bundle, palettes, fonts and the assembler.
+      - 'lib/**'
+      - 'themes/**'
+      - 'tools/build-marp-kit.js'
+      # Agent kit inputs: the catalogs, the generators that WRITE them, and the
+      # primer's two source modules. The three portal/forms/concepts builders are
+      # listed by name rather than as `tools/**` — the kit copies their output, so
+      # a change to one of them changes the kit, while most other tools are
+      # irrelevant to it and would republish for nothing.
+      - 'design/concepts.md'
+      - 'tools/build-docs-portal.js'
+      - 'tools/build-forms.js'
+      - 'tools/build-concepts.js'
+      - 'docs/src/lib/studio-catalog.mjs'
+      - 'docs/src/components/studio/ai/architect-knowledge.js'
+      - 'tools/build-agent-kit.mjs'
+      # The branch-root staging files, and the publisher itself.
+      - 'tools/kit-branch/**'
+      - '.github/workflows/publish-kits.yml'
+      # A dependency bump can change a bundled third-party asset.
+      - 'package-lock.json'
+  schedule:
+    - cron: '29 6 * * *' # daily 06:29 UTC — after the 06:17 backlog sync
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Belt-and-suspenders against overlapping runs — a busy morning can land several
+# pushes to `main` in a row. Safe to cancel because nothing is pushed until the
+# very last step; a killed run simply leaves the branch at its previous snapshot,
+# and the next push (or the nightly) republishes.
+concurrency:
+  group: publish-kits
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build the kits
+        run: npm run build
+      - name: Publish to the orphan dist-kits branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BRANCH=dist-kits
+          SHA="${GITHUB_SHA:0:7}"
+          work="$(mktemp -d)"
+          cd "$work"
+          git init -q
+          git checkout -q --orphan "$BRANCH"
+
+          # Fail loudly on an empty kit rather than publishing a hole. A kit that
+          # is silently short is worse than one that is briefly stale.
+          for d in marp-kit agent-kit; do
+            if [ -z "$(ls -A "$GITHUB_WORKSPACE/dist/$d" 2>/dev/null)" ]; then
+              echo "::error::dist/$d is missing or empty after npm run build" >&2
+              exit 1
+            fi
+          done
+
+          mkdir -p marp agent
+          cp -r "$GITHUB_WORKSPACE"/dist/marp-kit/. marp/
+          cp -r "$GITHUB_WORKSPACE"/dist/agent-kit/. agent/
+          # Branch-root README + the .vscode fallback that makes opening the
+          # branch root (not just marp/) work in VS Code.
+          cp -r "$GITHUB_WORKSPACE"/tools/kit-branch/root/. .
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
+          # The nightly backstop reruns whether or not anything upstream changed,
+          # so skip the commit + force-push entirely when the built tree matches
+          # what is already published — otherwise every run would mint a new,
+          # otherwise-identical commit.
+          NEW_TREE="$(git write-tree)"
+          if git fetch -q origin "$BRANCH" 2>/dev/null; then
+            OLD_TREE="$(git rev-parse 'FETCH_HEAD^{tree}')"
+            if [ "$NEW_TREE" = "$OLD_TREE" ]; then
+              echo "kits unchanged — nothing to publish."
+              exit 0
+            fi
+          fi
+
+          git commit -q -m "chore(kits): publish from main @ ${SHA}"
+          git push -q --force origin "HEAD:${BRANCH}"
+          echo "published $(git ls-files | wc -l) files to ${BRANCH}"

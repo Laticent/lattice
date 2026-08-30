@@ -63,6 +63,7 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-suono-lib.js',
   'build-read-along-core.js',
   'build-marp-kit.js',
+  'build-agent-kit.mjs',
   'build-dist-readme.js',
 ]);
 

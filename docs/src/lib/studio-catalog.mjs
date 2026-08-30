@@ -20,10 +20,18 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { pickGrammarVariants } from '../components/studio/ai/architect-knowledge.js';
 
-/** The trimmed component catalog, or [] when the manifest cannot be read. */
-export function buildStudioCatalog() {
+/**
+ * The trimmed component catalog, or [] when the manifest cannot be read.
+ *
+ * `root` is the REPO root. It defaults to the docs-site case (cwd is `docs/`
+ * under `astro build`), which is why the default walks one level up. It is a
+ * parameter so `tools/build-agent-kit.mjs` can call the SAME builder from the
+ * repo root instead of restating this mapping — the published agent kit and the
+ * Studio's own primer are then the same bytes by construction (HARD RULE #1).
+ */
+export function buildStudioCatalog(root = join(process.cwd(), '..')) {
 	try {
-		const catalog = JSON.parse(readFileSync(join(process.cwd(), '..', 'dist/docs/components.json'), 'utf8'));
+		const catalog = JSON.parse(readFileSync(join(root, 'dist/docs/components.json'), 'utf8'));
 		// Variants whose AUTHORING GRAMMAR differs from the base skeleton (e.g.
 		// `list-tabular metric` → ``1. Name `value```) are not in components.json — they are
 		// derived from the live manifest by `pickGrammarVariants`. The primer's authoring rules
@@ -32,7 +40,7 @@ export function buildStudioCatalog() {
 		let variantSkeletonsByName = {};
 		try {
 			const req = createRequire(import.meta.url);
-			const { loadAll } = req(join(process.cwd(), '..', 'lib/components', 'index.js'));
+			const { loadAll } = req(join(root, 'lib/components', 'index.js'));
 			for (const m of loadAll()) {
 				const picked = pickGrammarVariants(m);
 				if (picked?.length) variantSkeletonsByName[m.name] = picked;

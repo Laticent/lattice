@@ -348,7 +348,9 @@ lattice/
   (generated from `package.json` + `tools/`).
 - **The component/theme/token catalog** → `dist/docs/components.pick.md` (pick a
   component), `dist/docs/components.json` (the full machine record) and
-  [`design/design-system.md`](design/design-system.md).
+  [`design/design-system.md`](design/design-system.md). `dist/` is generated —
+  `npm install` builds it; without a clone, the same catalogs plus the authoring
+  primer are published on the [`dist-kits`](https://github.com/Laticent/lattice/tree/dist-kits/agent) branch.
 
 ## Testing
 
