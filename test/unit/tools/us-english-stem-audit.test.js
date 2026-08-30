@@ -24,14 +24,47 @@ const ROOT = path.join(__dirname, '..', '..', '..');
  * against the pre-#1918 map it rediscovers `neighbouring` and its siblings unaided,
  * and it found `honourable` and `flavourful`, which no rule over the roots demands.
  *
+ * ## THE MAP AND ITS TESTS ARE NOT PART OF THE TREE
+ *
+ * These three files are excluded, and the exclusion is load-bearing rather than tidy. A
+ * British-to-American map is a list of British words, so every key is a token in the tree
+ * by construction — 237 of 237, measured. With the machinery in scope, three separate
+ * things certified themselves:
+ *
+ *  · the staleness assertion below, because `stem('calibr')` is `calibr` and the allowlist
+ *    KEY is a word in this file. A fabricated entry for `honourably` — a word that appears
+ *    nowhere in the repo — passed the check that exists to catch exactly that;
+ *  · the removed-pair test, which would reopen a gap for ANY key, whether or not the word
+ *    occurs in anything anyone wrote;
+ *  · the audit's own yield. `flavourful` occurs on exactly one line in the whole repo: the
+ *    enumeration test's comment listing the derivations it does not cover. It is in the map
+ *    because this audit surfaced it, and surfacing it was reading its own predecessor's
+ *    documentation.
+ *
+ * All three were found by an independent checker, not by the suite. The honest statement
+ * about the tree this ships against is that the audit finds ZERO British spellings in house
+ * prose — which is what a green audit over a swept tree should say.
+ *
  * ## What it can and cannot see
  *
- * Porter2 reduces INFLECTION and a bounded set of derivations. `-hood` and `-ness` are
- * not among them: `neighbourhood` stems to itself, lands in no family, and is invisible
- * here. So this is a net with a stated mesh, not a proof of zero — the same honesty the
- * enumeration test keeps about its three axes.
+ * Porter2 reduces INFLECTION and a bounded set of derivations, and the boundary is not
+ * where a first draft of this comment put it. `-ness` IS deleted (Porter2 step 3, the same
+ * step whose `-ful` deletion produced the `flavourful` find), so `colourfulness` reduces to
+ * `colour`. What survives whole is `-hood` and `-less`: `neighbourhood` and `colourless`
+ * stem to themselves, land in no family, and are invisible here.
  *
- * The FILE set is the second half of the mesh, and it cost a real miss. `listRepoTextFiles`
+ * Three further holes, none of them closed:
+ *
+ *  · **The 25 collapsing families are dark.** They are dropped for a good reason (below),
+ *    and the cost is that no unlisted word in them can be seen: `modeller` stems to `model`
+ *    and `marvellously` to `marvel`, and neither lands in a British family.
+ *  · **582 of 3,195 tracked text files are never read**, 528 of them `engineering/decisions/**`,
+ *    which `listRepoTextFiles` skips as a dated archive.
+ *  · **Extensions on neither list** — `.mdx`, `.cjs`, `.txt`, `.sh`, `.vtt` — are unread.
+ *
+ * So this is a net with a stated mesh, not a proof of zero.
+ *
+ * The FILE set is the other half of the mesh, and it cost a real miss. `listRepoTextFiles`
  * carries an extension list built for a different gate, and `.py` is not on it — so
  * `tools/ascii-preview.py` held `the centre of the slide."`, which the build pastes into
  * `quote.docs.md` and `dist/docs/components.md`, where it was visible while its source was
@@ -39,7 +72,15 @@ const ROOT = path.join(__dirname, '..', '..', '..');
  * found. Tracked `.py` files are therefore added here rather than to that walk, whose only
  * other consumer is HARD RULE #29's glyph gate — and `ascii-preview.py` is 600 lines of
  * box drawing, so widening the walk would point a glyph budget at an ASCII-art file for no
- * gain. What is still uncovered is every extension on NEITHER list.
+ * gain.
+ *
+ * Identifiers are split on case and underscore boundaries, so `sectionBoxOffenses` is read
+ * as three words. That does NOT close the `camelCase` hole on its own, and believing it did
+ * was a claim this file made for one commit: the stem audit reports words the map CANNOT
+ * see, and `offences` IS in the map, so a listed British form inside an identifier is
+ * skipped whether or not the tokenizer finds it. Splitting only helps for an UNLISTED word
+ * hiding in an identifier. The listed case needs its own assertion, and has one below —
+ * which is what closes CLAUDE.md's recorded "rides on review" hole.
  *
  * ## Why the families are restricted
  *
@@ -57,11 +98,19 @@ const COLLIDING_STEMS = Object.freeze({
   programm: 'programme/program vs. `programmable` and `programming`',
 });
 
-// Words US keeps in the British-looking form. `analyses` is the one the map's own
-// docblock already names as a deliberate exclusion: it is the US plural of "analysis"
-// as often as it is the British verb, so no suggestion is safe.
-const US_KEEPS = Object.freeze({
-  analyses: 'also the US plural noun of "analysis" — the map excludes it on purpose',
+// Words that must NOT be rewritten, for either of two reasons: US keeps the
+// British-looking form, or the string is EXTERNAL and rewriting it breaks something.
+// HARD RULE #21 names the second class specifically — GitHub's `cancelled` enum, the
+// OECD's legal name, a synonym key an author might type, a pre-registered benchmark
+// fixture — and a sweep that rewrote three of them shipped a dead CI allowlist, an
+// unresolvable map region and a tautological test. An entry states which class it is.
+//
+// Only ONE lands here today, because this list catches words the MAP does not carry;
+// an external string the map already lists (`cancelled`, `organisation`) never reaches
+// this audit at all. Those are inventoried in
+// engineering/decisions/2026-08-30-british-spellings-remainder.md instead.
+const KEEP_AS_IS = Object.freeze({
+  analyses: 'US keeps it: the plural noun of "analysis" — the map excludes it on purpose',
 });
 
 /** The families where stemming can tell British from American. */
@@ -80,16 +129,51 @@ function britishStems() {
   return byStem;
 }
 
+// Where identifiers live. The identifier arm below scans only these, because prose has no
+// identifiers of its own: a `.md` naming `sectionBoxOffences` is QUOTING one, and the file
+// that declares it is already in scope. Without the restriction the arm fails on the
+// changelog fragment describing the rename it just made — measured, not hypothetical.
+const IDENTIFIER_FILE_EXTS = new Set(['.js', '.mjs', '.cjs', '.ts', '.tsx', '.css', '.json', '.astro', '.py', '.yml', '.yaml']);
+
+// The dialect map and the two suites that test it. See § THE MAP AND ITS TESTS above:
+// these hold British words as DATA, so leaving them in the corpus lets the audit, its
+// allowlists and its mutation proof all certify themselves.
+const DIALECT_MACHINERY = [
+  'tools/us-english.js',
+  'test/unit/tools/us-english.test.js',
+  'test/unit/tools/us-english-stem-audit.test.js',
+];
+
 /** Tracked `.py` files, which `listRepoTextFiles` does not carry. Absolute, to match it. */
 function trackedPythonFiles() {
   const out = execFileSync('git', ['ls-files', '-z', '*.py'], { cwd: ROOT, encoding: 'utf8' });
   return out.split('\0').filter(Boolean).map((rel) => path.join(ROOT, rel));
 }
 
-/** Every distinct lowercased alphabetic word in the tree, with the files it came from. */
+/**
+ * The words in one blob of text, lowercased. Runs of letters, PLUS the segments of a
+ * camelCase or snake_case identifier — `sectionBoxOffenses` yields `section`, `box` and
+ * `offenses`. Both forms are emitted, because the whole token can itself be a word
+ * (`analyser` inside `analyser_pool`) and a segment can be one the whole is not.
+ */
+function wordsIn(text) {
+  const out = new Set();
+  for (const m of text.matchAll(/[A-Za-z][A-Za-z0-9_]*/g)) {
+    const token = m[0];
+    out.add(token.toLowerCase());
+    if (!/[a-z][A-Z]|_/.test(token)) continue;
+    for (const seg of token.split(/(?<=[a-z0-9])(?=[A-Z])|_+/)) {
+      if (seg) out.add(seg.toLowerCase());
+    }
+  }
+  return out;
+}
+
+/** Every distinct lowercased word in the tree, with the files it came from. */
 function repoWords() {
   const words = new Map();
   for (const file of [...listRepoTextFiles(), ...trackedPythonFiles()]) {
+    if (DIALECT_MACHINERY.includes(path.relative(ROOT, file))) continue;
     let text;
     try {
       text = fs.readFileSync(file, 'utf8');
@@ -97,8 +181,7 @@ function repoWords() {
       continue; // a sidecar the build deleted mid-walk is not this audit's business
     }
     const rel = path.relative(ROOT, file);
-    for (const m of text.matchAll(/[A-Za-z]+/g)) {
-      const w = m[0].toLowerCase();
+    for (const w of wordsIn(text)) {
       if (!words.has(w)) words.set(w, new Set());
       words.get(w).add(rel);
     }
@@ -121,7 +204,7 @@ function auditGaps(words, listed, byStem) {
       absorbed.stems.add(s);
       continue;
     }
-    if (US_KEEPS[word]) {
+    if (KEEP_AS_IS[word]) {
       absorbed.words.add(word);
       continue;
     }
@@ -145,7 +228,7 @@ describe('the dialect map, audited by stemming the tree (HARD RULE #21)', () => 
       gaps.map((g) => g.word), [],
       'the tree contains British spellings the map cannot see. Add the pair to UK_TO_US in ' +
       'tools/us-english.js, or — if the word is correct US English that merely stems alike — ' +
-      'add it to US_KEEPS/COLLIDING_STEMS here WITH the reason. Never add a suggestion that ' +
+      'add it to KEEP_AS_IS/COLLIDING_STEMS here WITH the reason. Never add a suggestion that ' +
       `is not unambiguous (HARD RULE #21 also forbids touching an EXTERNAL string).\n${report}\n`,
     );
   });
@@ -179,12 +262,56 @@ describe('the dialect map, audited by stemming the tree (HARD RULE #21)', () => 
       'a COLLIDING_STEMS entry no longer matches any word in the tree — delete it',
     );
     assert.deepEqual(
-      Object.keys(US_KEEPS).filter((w) => !absorbed.words.has(w)), [],
-      'a US_KEEPS entry no longer matches any word in the tree — delete it',
+      Object.keys(KEEP_AS_IS).filter((w) => !absorbed.words.has(w)), [],
+      'a KEEP_AS_IS entry no longer matches any word in the tree — delete it',
     );
     for (const s of Object.keys(COLLIDING_STEMS)) {
       assert.ok(byStem.has(s), `COLLIDING_STEMS carries "${s}", which is not a British family stem`);
     }
+  });
+
+  // HARD RULE #21: "a British spelling buried in a `camelCase` identifier rides on review,
+  // so name those US too." Nothing enforced that, and five identifiers in
+  // tools/check-ownership.js had ridden it — `sectionBoxOffences` and four siblings, 65
+  // sites. This is the arm the stem audit above cannot be: `offences` is IN the map, so the
+  // audit skips it by construction, and only a check that looks FOR listed forms sees it.
+  //
+  // Scoped to multi-part identifiers (a case boundary or an underscore). A whole-word
+  // British spelling is the other instrument's business, and 34 of those remain on purpose —
+  // engineering/decisions/2026-08-30-british-spellings-remainder.md.
+  test('no identifier segment is a British spelling the map lists', () => {
+    // Markdown emphasis, not an identifier: `_emphasised_` sits inside the pre-registered
+    // benchmark calibration document, whose bytes set the baseline every `bench:check`
+    // compares against (HARD RULE #19), and #21 names a benchmark fixture as an external
+    // string a sweep must not touch.
+    const NOT_AN_IDENTIFIER = new Set(['test/benchmark/engine-bench.mjs:emphasised_']);
+    const listedForms = new Set(Object.keys(UK_TO_US));
+    const found = [];
+    for (const file of [...listRepoTextFiles(), ...trackedPythonFiles()]) {
+      const rel = path.relative(ROOT, file);
+      if (DIALECT_MACHINERY.includes(rel)) continue;
+      if (!IDENTIFIER_FILE_EXTS.has(path.extname(rel))) continue;
+      let text;
+      try {
+        text = fs.readFileSync(file, 'utf8');
+      } catch {
+        continue;
+      }
+      for (const m of text.matchAll(/[A-Za-z][A-Za-z0-9_]*/g)) {
+        const token = m[0];
+        if (!/[a-z][A-Z]|_/.test(token)) continue;
+        if (NOT_AN_IDENTIFIER.has(`${rel}:${token}`)) continue;
+        for (const seg of token.split(/(?<=[a-z0-9])(?=[A-Z])|_+/)) {
+          if (seg && listedForms.has(seg.toLowerCase())) found.push(`${rel}: ${token} (${seg})`);
+        }
+      }
+    }
+    assert.deepEqual(
+      [...new Set(found)].sort(), [],
+      'an identifier carries a British spelling (HARD RULE #21). Rename it, or — if the ' +
+      'string is external or is not an identifier at all — add it to NOT_AN_IDENTIFIER with ' +
+      'the reason.',
+    );
   });
 
   // The walk is the expensive half, and a walk that returned nothing would make every

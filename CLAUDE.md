@@ -442,9 +442,14 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   *(discipline, with one cheap backstop — `tools/check-commit-msg.sh` WARNS on British
   spellings from `tools/us-english.js` and never blocks, because a message may quote
   British-spelled text and #14 forbids `--no-verify` as the escape. It covers the one
-  surface with measured drift: 21 British spellings in 300 commit messages. Nothing else
-  is enforced; a British spelling buried in a `camelCase` identifier rides on review, so
-  name those US too.)*
+  surface with measured drift: 21 British spellings in 300 commit messages. Two test-tier
+  arms joined it in `test/unit/tools/us-english-stem-audit.test.js`, which is why the
+  `camelCase` identifier no longer "rides on review": it stems every word in the tree and
+  fails on one landing in a British family the map does not carry, and it fails on any
+  identifier segment the map DOES carry. Both are narrow by construction and say what they
+  cannot see — the map and its own tests are excluded, `engineering/decisions/**` is not
+  walked, and `-hood`/`-less` derivations do not stem. Neither reinstates the deleted
+  repo-wide ratchet: they carry two allowlist entries between them, not 1285.)*
 - **#22 — Untrusted content reaches a preview frame ONLY through a sanitizer, and the
   frame has TWO channels: markup and stylesheet.** The docs-site Studio renders untrusted
   markdown (shared / AI-generated decks + component skeletons) into a SAME-ORIGIN,

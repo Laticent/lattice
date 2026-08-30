@@ -85,6 +85,35 @@ map region and a tautological test — all three caught by review, none by a gat
 
 That is the whole 34. Nothing in it is a backlog.
 
+## The identifiers, which the word count could not see
+
+HARD RULE #21 says a British spelling buried in a `camelCase` identifier "rides on review,
+so name those US too", and nothing had ever looked. A word-boundary scan cannot: `offences`
+inside `sectionBoxOffences` is not a word to a `\b`-anchored matcher.
+
+Splitting every token on case and underscore boundaries and testing each segment found
+**six** identifiers across the tree. Five are `Offences` in `tools/check-ownership.js` and
+its test — `sectionBoxOffences`, `sectionCqOffences`, `rootOnlyAnchorOffences`,
+`classAttrOffences`, `offencesFor`, 65 sites — and they are renamed here.
+
+The sixth stays: `_emphasised_` at `test/benchmark/engine-bench.mjs:218`. It is not an
+identifier at all — it is markdown emphasis inside `CALIBRATION_DOC`, the pre-registered
+document whose bytes the benchmark baseline is measured against (HARD RULE #19), and #21
+names a benchmark fixture as an external string a pass must not touch. Rewriting it would
+re-scale a calibration index for a spelling nobody reads.
+
+`test/unit/tools/us-english-stem-audit.test.js` now asserts this directly, so the ride is
+over. It is a separate arm from the stemming audit and has to be: `offences` is IN the map,
+so the audit — which reports only what the map CANNOT see — skips it by construction. That
+was worth learning the hard way; a first version of this work claimed the tokenizer change
+closed the hole, and reintroducing `sectionBoxOffences` left the suite green.
+
+It scans **code extensions only**. Prose has no identifiers of its own — a `.md` naming
+`sectionBoxOffences` is quoting one, and the file that declares it is already in scope. The
+unscoped version failed on the changelog fragment describing the rename it had just made,
+which is the shape of every self-reference defect on this branch: an instrument that reads
+the whole tree eventually reads the writing about itself.
+
 ## `quote.docs.md` is generated, and the build said so
 
 `lib/components/statement/quote/quote.docs.md` held `the centre of the slide."` inside an

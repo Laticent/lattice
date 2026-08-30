@@ -1919,7 +1919,7 @@ const SECTION_BOX_ROOTS = [
  * see inside `@media`/`@container`, could not handle nested braces, and was
  * case-sensitive against a case-insensitive language. Exported for unit tests.
  */
-function sectionBoxOffences(css) {
+function sectionBoxOffenses(css) {
   const src = stripComments(css);
   const out = [];
   let selStart = 0;
@@ -2031,7 +2031,7 @@ function checkSectionBoxOwnership(errors) {
     if (!fs.existsSync(root)) continue;
     for (const file of listCssFiles(root)) {
       const rel = path.relative(ROOT, file);
-      for (const o of sectionBoxOffences(fs.readFileSync(file, 'utf8'))) {
+      for (const o of sectionBoxOffenses(fs.readFileSync(file, 'utf8'))) {
         offenses.push({ file: rel, ...o });
       }
     }
@@ -2182,7 +2182,7 @@ const SANCTIONED_SECTION_CQ = [];
 // whose bare fallback is the intended export path) and custom-property declarations
 // (a token is not itself applied to the section; its CONSUMER is, and that consumer is
 // what this gate sees).
-function sectionCqOffences(css) {
+function sectionCqOffenses(css) {
   const src = stripComments(css);
   const out = [];
   let selStart = 0;
@@ -2286,7 +2286,7 @@ function scanDecls(body, prelude, out = []) {
  * load-bearing, not decoration. A token also declared in a section-subject rule
  * anywhere in the same file is fine — that copy is the one that does the work.
  */
-function rootOnlyAnchorOffences(css) {
+function rootOnlyAnchorOffenses(css) {
   const src = stripComments(css);
   const decls = []; // { prop, sel, sectionSubject }
   let selStart = 0;
@@ -2385,7 +2385,7 @@ function checkSectionCqAnchoring(errors) {
     if (!fs.existsSync(root)) continue;
     for (const file of listCssFiles(root)) {
       const rel = path.relative(ROOT, file);
-      for (const o of sectionCqOffences(fs.readFileSync(file, 'utf8'))) offenses.push({ file: rel, ...o });
+      for (const o of sectionCqOffenses(fs.readFileSync(file, 'utf8'))) offenses.push({ file: rel, ...o });
     }
   }
   const remaining = [];
@@ -2417,7 +2417,7 @@ function checkSectionCqAnchoring(errors) {
     if (!fs.existsSync(root)) continue;
     for (const file of listCssFiles(root)) {
       const rel = path.relative(ROOT, file);
-      for (const o of rootOnlyAnchorOffences(fs.readFileSync(file, 'utf8'))) rootOnly.push({ file: rel, ...o });
+      for (const o of rootOnlyAnchorOffenses(fs.readFileSync(file, 'utf8'))) rootOnly.push({ file: rel, ...o });
     }
   }
   // …and the shape that reaches the section's own box through a TOKEN.
@@ -6085,7 +6085,7 @@ function listClassAttrFiles(dir, out = []) {
   return out;
 }
 
-function classAttrOffences(dirs = {}) {
+function classAttrOffenses(dirs = {}) {
   const roots = dirs.roots || [
     path.join(ROOT, 'lib'),
     path.join(ROOT, 'docs', 'src'),
@@ -6118,7 +6118,7 @@ function classAttrOffences(dirs = {}) {
 function checkClassAttrReads(errors) {
   const sanctioned = new Map(SANCTIONED_CLASS_ATTR_READS.map((s) => [s.file, s]));
   const seen = new Set();
-  for (const o of classAttrOffences()) {
+  for (const o of classAttrOffenses()) {
     seen.add(o.file);
     if (sanctioned.has(o.file)) continue;
     errors.push(
@@ -10956,9 +10956,9 @@ module.exports = {
   checkTypographyTokens,
   nonCanonicalFsTokens,
   offendingMargins,
-  sectionBoxOffences,
-  sectionCqOffences,
-  rootOnlyAnchorOffences,
+  sectionBoxOffenses,
+  sectionCqOffenses,
+  rootOnlyAnchorOffenses,
   sectionOwnTokenLeaks,
   checkSectionCqAnchoring,
   SECTION_CQ_BUDGET,
@@ -10989,7 +10989,7 @@ module.exports = {
   CANONICAL_LAYER_ORDER,
   LAYER_INERT_SENTINEL,
   checkClassAttrReads,
-  classAttrOffences,
+  classAttrOffenses,
   SANCTIONED_CLASS_ATTR_READS,
   checkLineEndingBoundaries,
   SANCTIONED_EOL_BOUNDARIES,
