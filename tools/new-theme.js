@@ -86,6 +86,17 @@ function checklistBlock(name) {
  *   7. Dark-variant      — --scheme-dark-* tokens, the DARK side of every
  *                          light-dark() pair above.
  *   8. Semantic signals  — --pass / --fail / --warn. Usually inherit.
+ *   9. Sequential ramp   — --seq-500, the anchor lattice.css derives the other
+ *                          nine stops from (word-cloud spectrum, heat/intensity
+ *                          ramps). It is a light-dark() PAIR and only the LIGHT
+ *                          arm tracks your brand automatically (it reads
+ *                          var(--brand-accent)); the DARK arm is still indaco's
+ *                          blue literal. Re-anchor it in YOUR hue at OKLab
+ *                          L 0.68 — mid-range, because the stops travel toward
+ *                          WHITE on a dark canvas and an anchor parked near
+ *                          that pole leaves them nowhere to go. Then verify
+ *                          where the stops LAND, not where the anchor sits:
+ *                            node tools/composed-contrast.js ${name}
  *
  * The DIAGRAM OVERRIDES section in lattice.css consumes --diagram-*
  * by name, so per-diagram CSS picks up your values automatically.
@@ -108,6 +119,14 @@ function transformPalette(src, name) {
     [/The default Lattice palette — cool indigo\./,           'indigo description block'],
     [/This file is the canonical palette template/,           'canonical-template block'],
     [/\*\/\s*\n@import\s+'lattice'/,                          'header-to-@import boundary'],
+    // Checklist item 9 tells the author the ramp anchor's light arm tracks the
+    // brand by reference and its DARK arm is a literal they must re-anchor. That
+    // is a claim about this template's shape, so it is asserted rather than
+    // assumed: if indaco ever pairs the anchor differently — a second var(), a
+    // flat single value like carbone's — the instruction stops being true and
+    // the scaffolder should be revisited, not silently ship a wrong checklist.
+    [/--seq-500:\s*light-dark\(\s*var\(--brand-accent\)\s*,\s*#[0-9A-Fa-f]{3,8}\s*\)/,
+                                                              'sequential ramp anchor (--seq-500 light-dark pair)'],
   ];
   for (const [re, label] of checks) {
     if (!re.test(src)) {

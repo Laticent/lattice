@@ -65,6 +65,12 @@ const CONTRACT = [
   'diagram-stroke', 'diagram-line', 'cat-on-fill', 'cat-on-mark', 'diagram-active',
   'diagram-active-mark', 'diagram-done', 'diagram-done-mark', 'diagram-critical', 'diagram-today', 'diagram-note',
   'c-container', 'c-subcontainer',
+  // The sequential ramp's anchor. The other nine stops derive from it in
+  // lattice.css, so this is a curated seam and not an engine-derived tier: the
+  // base's `--seq-500: var(--accent)` fallback keeps a palette painting, but the
+  // dark --accent is near-white by design and the derived stops then land
+  // 1.08-1.90:1 apart (#1697). A palette owns its own anchor.
+  'seq-500',
   // chart family
   'chart-cat1', 'chart-cat2', 'chart-cat3', 'chart-cat4', 'chart-cat5',
   'chart-cat6', 'chart-cat7', 'chart-cat8', 'chart-state-pass',

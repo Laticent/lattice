@@ -102,7 +102,6 @@
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
 
-  /* Sequential ramp anchor — burgundy's brand mid-wine. */
   /* The ramp anchor — a pair, solved ARM BY ARM against the derived stops.
    * The light arm rides var(--brand-accent) by reference, the same source --accent's
    * light arm reads, so re-tuning the brand hue moves the ramp with it and no
