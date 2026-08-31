@@ -9,7 +9,7 @@
 - **It measures tokens rather than a byte proxy, and the proxy is why.** The first version
   counted bytes against a ratio calibrated to 0.079% across four revisions of this one file —
   accurate, and unguardable: the composition check written to catch drift was broken in one
-  attempt, understating the file by 5% while staying green. `gpt-tokenizer` is now a root
-  devDependency, costing 30 MB installed and ~190 ms on a ~6.0 s `check:ownership` run, both
+  attempt, understating the file by ~7% while staying green. `gpt-tokenizer` is now a root
+  devDependency, costing 30 MB installed and ~200 ms on a ~6.2 s `check:ownership` run, both
   measured. The require sits inside the check so the test files that load
   `tools/check-ownership.js` at module scope do not pay for it.

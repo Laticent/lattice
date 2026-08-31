@@ -62,22 +62,47 @@ describe('the L0 router budget (#1896)', () => {
     assert.match(errors[0], /do not "fix" it by routing text behind a pointer/);
   });
 
-  // The gate and this test could both be wrong in the same direction if they shared a helper,
-  // so the count is re-derived here from the package's own entry point rather than the gate's.
-  test('the count agrees with an independent o200k_base encode', () => {
-    const { encode } = require('gpt-tokenizer');
-    assert.equal(routerTokenCount(text), encode(text).length);
+  // This asserted the gate's count against `require('gpt-tokenizer').encode` and called that
+  // independent. It is not: the package's CJS main RE-EXPORTS the o200k_base module, so both
+  // sides were the same function object and the assertion read `n === n`. A checker caught it,
+  // and by this commit's own standard — an assertion that reads like a guarantee and gives
+  // none is worse than no assertion — it had to go.
+  //
+  // What is actually independent is a value not computed here. These counts are pinned from
+  // OpenAI's own `tiktoken` (`o200k_base`, n_vocab 200019), cross-checked out of band against
+  // 80 tracked `.md` files including `CLAUDE.md`: 80/80 matched. The emoji pair is the useful
+  // one — it is 6 tokens under o200k_base and 9 under cl100k_base, so if a dependency bump
+  // ever moves what the gate resolves to, this fails instead of silently re-budgeting.
+  test('the encoding really is o200k_base, pinned against tiktoken', () => {
+    const { encode } = require('gpt-tokenizer/encoding/o200k_base');
+    for (const [input, expected] of [
+      ['🚀🇬🇧', 6], // 9 under cl100k_base — this is the discriminator
+      ['CLAUDE.md is the L0 router.', 10],
+      ['function checkRouterBudget(errors) {', 7],
+      ['', 0],
+    ]) {
+      assert.equal(encode(input).length, expected, `o200k_base count changed for ${JSON.stringify(input)}`);
+    }
   });
 
-  test('the ceiling leaves real headroom, and is not a zero-slack ratchet', () => {
-    const tokens = routerTokenCount(text);
-    assert.ok(tokens < ROUTER_TOKEN_CEILING, `${tokens} is already at or over ${ROUTER_TOKEN_CEILING}`);
+  // THIS ASSERTS A PROPERTY OF THE CONSTANT, NOT OF TODAY'S FILE, and the difference is the
+  // whole reason it was rewritten. It used to require `CEILING - live count > 1000`, which
+  // quietly made the real budget 16,117 rather than 16,500: adding a rule the size of #22
+  // (1,288 tokens) left `build:check` GREEN and turned `npm test` RED, while the decision
+  // record said in terms that such a rule "fits without a trade". A test that shadows the
+  // gate it accompanies is a second, secret ceiling.
+  //
+  // The property worth holding is that the CEILING was not pinned at zero slack over the file
+  // it was chosen against. `US_ENGLISH_BUDGET` was a burn-down toward zero and that ratchet
+  // shape was right for it; this file is ALLOWED to be its size, so a zero-slack gate here is
+  // the "a bad gate is a permanent tax" case from CLAUDE.md's own second filter. Growth past
+  // the ceiling is the GATE's job to report, and only the gate's.
+  const BASELINE_AT_CHOOSING = 15117; // CLAUDE.md when the owner set the +10% headroom
+  test('the ceiling was not pinned at zero slack over the file it was set against', () => {
     assert.ok(
-      ROUTER_TOKEN_CEILING - tokens > 1000,
-      `only ${ROUTER_TOKEN_CEILING - tokens} tokens of headroom. Zero slack was rejected on ` +
-      'purpose: this file is ALLOWED to be its size, so a ratchet here is a permanent tax ' +
-      'rather than a burn-down. If the file has grown into the ceiling, that is the gate ' +
-      'working — raise it with the trade, in the PR.',
+      ROUTER_TOKEN_CEILING >= Math.round(BASELINE_AT_CHOOSING * 1.05),
+      `${ROUTER_TOKEN_CEILING} is under 5% slack over the ${BASELINE_AT_CHOOSING} baseline it ` +
+      'was chosen against. Lowering it that far turns a growth budget into a ratchet.',
     );
   });
 });

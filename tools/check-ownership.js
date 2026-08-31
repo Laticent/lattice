@@ -3719,7 +3719,7 @@ function decodeCssEscapes(value) {
  * IT MEASURES TOKENS, because a proxy could not be made honest. This gate first counted
  * BYTES against a calibrated bytes-per-token ratio, on the argument that `ROW_CAP` in
  * `build-capabilities.js` and `build-decisions-index.js` already cap a token-motivated
- * budget with a character count. The ratio was genuinely stable — 0.079% across four
+ * budget with a character count. The ratio was genuinely stable — 0.072% across five
  * revisions of this file — but NOTHING could check that it stayed stable: a composition
  * check was written and broken in one attempt (fill the headroom with a code fence and the
  * file is 5% more tokens than the gate reports, with the check green). The honest options
@@ -3727,8 +3727,9 @@ function decodeCssEscapes(value) {
  *
  * WHAT IT COSTS, measured rather than estimated: `gpt-tokenizer` is 30 MB installed
  * (27.2 MB unpacked, 1,537 files) because it ships every encoding in both CJS and ESM.
- * Requiring the o200k_base encoding alone costs ~180 ms and ~120 MB RSS, and encoding this
- * file ~40 ms. That is why the require is INSIDE the function: `tools/check-ownership.js` is
+ * Requiring the o200k_base encoding alone costs ~175 ms and +70 MB RSS (43 -> 113 MB; the
+ * 113 is the whole process, not the delta), and encoding this file ~30 ms — ~200 ms
+ * attributed in a live run. That is why the require is INSIDE the function: `tools/check-ownership.js` is
  * loaded at module scope by several test files, and none of them should pay for a tokenizer
  * they do not use.
  *
