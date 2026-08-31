@@ -7,8 +7,9 @@ summary: >
   `--accent: #FF00FF` painted magenta before the flip and indaco's `#006FA8` after,
   with the caller's declaration still in the file, ~6 KB earlier at equal specificity.
   The investigation found something larger than a regression. `--css` was never a
-  designer door — the CLI's own usage text calls it "for layout-engine development,
-  not deck authoring" — and `--palette` takes a NAME resolved against `PKG_ROOT/themes/`
+  designer door — its own source docblock calls it "for layout-engine development,
+  not deck authoring" (`--help` says only "Optional layout CSS override", so a user
+  never sees that sentence) — and `--palette` takes a NAME resolved against `PKG_ROOT/themes/`
   with a hard exit, so a custom theme today means writing into `node_modules`. There
   is no designer-facing extension path on the CLI at all, while the Studio has a Theme
   faculty with a validator wired to it — driving the real Studio confirms the faculty and
@@ -25,8 +26,8 @@ summary: >
   The FOURTH axis — how many caller CSS slots and what each means — is deliberately left
   OPEN with four candidates and their tradeoffs, because it is the one choice that cannot
   be reversed cheaply once a CLI surface ships. The note itself proposes no code; the
-  change that carries it also makes the default palette `cuoio` and gives it one
-  declaration (see 2026-08-26-one-default-palette.md), which is why §2's account of
+  change that carries it also makes the default palette `cuoio` and gives it a single
+  declaration that five of its six sites read (see 2026-08-26-one-default-palette.md), which is why §2's account of
   the resolution chain names `cuoio` rather than the `indaco` it was drafted against.
 tags: [cli, theming, css, cascade, extensibility, designer, export]
 ---
@@ -107,7 +108,7 @@ explicitly so a deck cannot path-traverse, and `lattice-emulator.js:820` joins i
 always loaded — the chain has a default, and that default is `cuoio` as of the same
 change that carries this note. It was `indaco` while the note was drafted, and the two
 declarations of it disagreed: `dist/lattice-default.css` inlined `cuoio` while the
-CLI resolved `indaco`. There is one declaration now. The point the section makes is
+CLI resolved `indaco`. Five of the six sites read one module now (§2 of that note). The point the section makes is
 unaffected by which palette it names — a palette is ALWAYS loaded and always lands
 last, so a caller sheet has something in front of it whatever the deck asked for.
 

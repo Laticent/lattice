@@ -1,6 +1,6 @@
 - **Breaking: the default palette is `cuoio`, and there is now only one declaration of it.**
   A deck that names no palette — no `theme:` front matter, no `--palette`, no
-  `LATTICE_PALETTE` — rendered on `indaco` through the CLI and the engine, while
+  `LATTICE_PALETTE` — rendered on `indaco` through the CLI and the tools that call it, while
   `dist/lattice-default.css`, the zero-config bundle a consumer can `<link>` directly,
   inlined **`cuoio`**. Same product, same "no palette specified" input, two different
   answers, and nothing held them together: `lib/core/resolve-palette.js` declared
@@ -25,10 +25,13 @@
 - **Fixed: a palette-resolution test asserted a literal where it meant "the default".**
   The path-traversal guard case checked `r.name === 'indaco'`, so it was really testing
   two things and would have failed on any default change for a reason unrelated to path
-  traversal. It reads the exported `DEFAULT` constant now. A neighboring case improved for
-  free: `front-matter theme:indaco wins over default` previously declared the same palette
-  the default already resolved to, so it could not distinguish a win from a fall-through;
-  with the default moved, it now actually tests what it claims.
+  traversal. It reads the exported `DEFAULT` constant now.
+- **Added: a pin on the default's VALUE.** Reading the constant is right per case, but it
+  left the value itself unpinned — a one-character edit changed what every palette-less
+  deck, every Marp export and `dist/lattice-default.css` render as, with all 7544 tests
+  green. The pre-change tree pinned `indaco` only by accident, through literals those
+  cases have stopped using. One assertion restores it, matching the shape
+  `docs/src/lib/site-chrome.test.ts` already uses for its own copy.
 - The CLI's `--help` palette-resolution table and its short usage footer, plus the
   `export-chart-svg` and `preview-component` docstrings, named `indaco` as the default in
   prose. They now name `cuoio` or point at the single constant.

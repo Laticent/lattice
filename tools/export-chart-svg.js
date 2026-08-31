@@ -26,7 +26,7 @@
  *                      slide that has a chart)
  *     --chart I        0-based index when a slide has multiple charts (default 0)
  *     --theme NAME     theme/palette to render with (default: deck front-matter, else the
- *                      engine default from lib/core/resolve-palette.js)
+ *                      engine default from lib/core/default-palette.mjs)
  *     --mode light|dark   canvas mode (default light)
  *     -o, --out FILE   output path (default: <deck>-slideN.svg|.png in cwd; the
  *                      extension is forced to match the chart's tier)

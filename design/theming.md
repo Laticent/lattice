@@ -470,7 +470,7 @@ Audit and design rationale: `engineering/decisions/2026-05-12-diagram-elevation.
 
 ## The categorical contrast contract
 
-The default `indaco` palette gives the categorical cycle two **flipping** tiers of
+The `indaco` palette gives the categorical cycle two **flipping** tiers of
 each hue, plus a small universal semantic palette for status signals:
 
 - **Fill tier.** `--cat-1-fill`..`--cat-12-fill` — `light-dark(<pale chromatic>,

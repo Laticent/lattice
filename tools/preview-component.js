@@ -48,7 +48,7 @@ function buildDeck(skeleton, { theme = DEFAULT_PALETTE } = {}) {
 
 /**
  * Render a component ({name, css, skeleton}) to a PNG via the engine. Returns the
- * output path. `theme` defaults to the engine default (lib/core/resolve-palette.js); `palette` is an optional emulator palette.
+ * output path. `theme` defaults to the engine default (lib/core/default-palette.mjs); `palette` is an optional emulator palette.
  */
 function renderComponent({ name, css, skeleton }, { out, theme = DEFAULT_PALETTE, palette } = {}) {
   if (!css || !skeleton) throw new Error('component needs both `css` and `skeleton`');

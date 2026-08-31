@@ -62,8 +62,20 @@ another — the exact class of defect #1804 had just finished fixing elsewhere.
 
 ## 2. What changed
 
-The value lives in `lib/core/default-palette.mjs` and nowhere else. All five sites above
-read it, so re-blessing a different default is one edit rather than a sweep.
+The value lives in `lib/core/default-palette.mjs`. **Five of the six sites now read it**;
+the sixth, `docs/src/lib/playground-controller.ts`, does NOT — its `sanitizePalette`
+already returned `cuoio` in code and only its docblock was wrong, so this change fixed the
+prose and left the literal. An earlier draft of this section claimed all of them read the
+module, which §5 then contradicted; an independent checker caught the two halves
+disagreeing inside one document.
+
+**A SIXTH declaration existed and the first draft missed it.** `tools/build-marp-kit.js`
+declared `const THEME = 'cuoio'` under the comment *"The default palette"* — the same
+question, answered again twenty files away, feeding a PUBLISHED artifact
+(`publish-kits.yml`). A re-bless would have left `dist/marp-kit/` shipping the old pair
+with every gate green and that file's own docblock turned into a lie: the exact drift this
+note exists to end, reintroduced by the change that ended it. It reads the module now.
+`kit/Sample-Deck.md`'s front matter is coupled to it and a re-bless has to move it too.
 
 **Why `.mjs` for a one-line constant.** Both module systems have to read it. The CJS side —
 `resolve-palette.js`, the emulator, `tools/*` — `require()`s it; the ESM side — the docs
@@ -123,10 +135,17 @@ every gallery for no signal.
 Promoting a palette to default promotes its weaknesses too. Measured on the light arms,
 against each palette's own canvas:
 
-| | `--diagram-done` vs `--diagram-active`, OKLab | done vs canvas | active vs canvas |
+| | `--diagram-done` vs `--diagram-active`, OKLab | done vs `--bg` | active vs `--bg` |
 |---|---|---|---|
 | indaco | **0.1089** | 1.62:1 | 1.66:1 |
-| cuoio | **0.0238** | 1.27:1 | 1.22:1 |
+| cuoio | **0.0238** | 1.32:1 | 1.27:1 |
+
+The cuoio contrast pair is corrected here: an earlier draft printed 1.27 / 1.22, which an
+independent checker could not reproduce against any of the 143 hex literals in
+`themes/cuoio.css`. Measured against `--bg` — the same background the indaco row uses — the
+pair is 1.32 / 1.27. **The OKLab figures both reproduce exactly**, so the headline holds:
+cuoio's two states sit 4.6x closer together than indaco's. This section is a hand-off to
+the palette owner, who will re-measure, so the numbers have to survive that.
 
 At 0.0238 the two gantt states are very nearly the same fill, and the sign-off render of
 `examples/data-viz-gallery.md` shows it: the "done" and "live" bars read as one warm gray
@@ -139,34 +158,66 @@ moves — and that is a design decision, not plumbing, so it is recorded here an
 owner rather than folded in silently (HARD RULE #18's off-path branch: log it, do not pull
 it into the diff).
 
-## 4b. The flip woke a dead code path in the Studio export
+## 4b. A claim this note got wrong, and what driving the export actually showed
 
-Driving the export paths rather than reasoning about them turned up a behavior change
-this note had missed. `deck-export.js` bundles themes through a rescue loop:
+An earlier draft of this section said the flip "woke a dead code path" in
+`deck-export.js`'s rescue loop, `for (const cand of [chosen, 'indaco'])`. **An independent
+checker refuted it on two counts, and both are worth keeping.**
 
-```js
-let chosen = (palette || DEFAULT_PALETTE).toLowerCase();
-for (const cand of [chosen, 'indaco']) { ... }
-```
+**The retry was never dead.** The pre-existing comment nine lines above says what it is
+for: *"Fall back to the default palette if the deck's theme isn't a served built-in (e.g. a
+Workbench library theme)."* A deck on a library theme sets `chosen = 'my-brand'`, pass 1
+fetches nothing, pass 2 rescues it. That path ran before this change and is untouched by
+it. Only the narrower palette-*less* case was a no-op.
 
-The second candidate rescues "the chosen palette's files did not fetch", so it is
-deliberately a FIXED known-good palette rather than `DEFAULT_PALETTE` — retrying the name
-the first pass already failed on would be a no-op, and `indaco` is the historical base
-that is always present in the staged directory.
+**And that narrower case is unreachable from the real Studio.** `StudioShell.tsx:742`
+seeds the palette from `localStorage` or its own `DEFAULT_PALETTE` and passes it down
+through `ShareSheet` to `exportMarp`, so `palette` is never empty and
+`palette || DEFAULT_PALETTE` never takes its right-hand branch in the app. The "behavior
+change on a user-facing export path" the draft recorded is, on the surface a user touches,
+no change at all.
 
-**That retry was DEAD until this change.** With the default at `indaco`, a palette-less
-deck set `chosen = 'indaco'` and the loop ran `['indaco', 'indaco']`; the second pass
-could never contribute. Moving the default to `cuoio` is what made it live, without
-touching the line. The effect is benign and arguably an improvement — a failed cuoio
-fetch now yields a renderable bundle instead of an empty one — but it is a behavior
-change on a user-facing export path, and nothing in the diff pointed at it. The line
-now carries a comment saying both halves: why the palette is fixed, and that this
-change is what woke it.
+**Keep the literal.** Reading `DEFAULT_PALETTE` there would degenerate the loop to
+`['cuoio','cuoio']` for exactly the palette-less deck — the no-op the rescue exists to
+avoid. One real fragility survives and the comment now names it: `indaco` works only
+because `sync-playground-assets.mjs` stages every `dist/themes/*.min.css`. Nothing pins
+that name, so a rename would turn the rescue into a silent no-op with no gate.
 
-**Marp export, driven.** `node tools/export-marp.js examples/data-viz-gallery.md` on an
-un-themed deck reports `palette: cuoio` and bundles `themes/cuoio.css` +
-`themes/cuoio-dark.css`, carrying `--brand-accent: #7A5A10` — cuoio's own value, with no
-indaco file in the bundle. That is the export half of the claim, on a real artifact.
+**What did hold: the Marp export, driven.** `node tools/export-marp.js
+examples/data-viz-gallery.md` on a genuinely front-matter-less deck reports `palette:
+cuoio` and writes `themes/cuoio.css` + `themes/cuoio-dark.css` carrying
+`--brand-accent: #7A5A10`, with no indaco file in the bundle. The checker reproduced it.
+
+**The lesson is the one this note keeps relearning.** The draft reasoned about the loop
+from the diff instead of from the call chain, and produced a confident, wrong claim — in a
+shipped code comment. Reading one file is not reading the path.
+
+## 4c. What the independent checker found
+
+HARD RULE #25's maker-checker rung ran on this diff after the owner authorized it. It
+returned **thirteen confirmed findings**, and the count is the point: every machine gate
+was green when it started, and none of the thirteen was visible to one.
+
+The three that were defects rather than prose, all fixed here:
+
+| | Finding | Fix |
+|---|---|---|
+| 1 | **A SIXTH declaration.** `tools/build-marp-kit.js` declared `const THEME = 'cuoio'` under the comment *"The default palette"*, feeding the PUBLISHED kit. A re-bless would have left `dist/marp-kit/` shipping the old pair, every gate green, that docblock a lie | reads the module |
+| 2 | **Nine shipped doc lines still said `indaco` is the default** — `README.md` (the npm front page), `design/skill.md` and `design/skills/deck.md` (both in `package.json` `files`, and the deck-authoring contract agents read), the live docs site | corrected |
+| 3 | **Nothing pinned the VALUE.** Both changed tests now read the constant, which is right per case, but that removed the only thing asserting *which* palette it is. A one-character edit changed every palette-less render with 7544 tests green | one assertion, mutation-proved: flipping the constant to `burgundy` fails it |
+
+The rest were false or imprecise claims in this note, the changelog and one shipped code
+comment — the orphaned-golden claim (§5), the "dead code path" story (§4b), the cuoio
+contrast pair (§4), "all five sites read it" (§2), three docstrings pointing at the
+re-exporter instead of the declaration, and two more uncommented `indaco` pins the comment
+sweep had missed (`build-component-docs.js:593`, which writes `theme: indaco` into 63
+generated galleries, and `regression-gate.mjs`, which mirrors `build-galleries.js`
+verbatim). All corrected in place.
+
+**What this cost and what it bought.** One agent, ~158k tokens, ~17 minutes. It caught a
+published-artifact drift bug that recreated the exact defect class this note exists to end,
+inside the change that ended it. The maker had already self-reviewed twice and run every
+gate.
 
 ## 5. Not verified
 
@@ -176,7 +227,12 @@ indaco file in the bundle. That is the export half of the claim, on a real artif
   cuoio changed.
 - The docs-site Playground was not driven. `sanitizePalette`'s code already returned `cuoio`,
   so its behavior is unchanged; only its docblock was wrong and is now fixed.
-- `examples/data-viz-gallery.{light,dark}.pdf` have **no producer** — no tool in `tools/`
-  references that deck, and `build-staged-pdfs.js` would write `examples/data-viz-gallery.pdf`,
-  which does not exist. That is the orphaned-golden class #1279 named, it predates this change,
-  and it is logged here rather than fixed.
+- ~~`examples/data-viz-gallery.{light,dark}.pdf` have no producer.~~ **Refuted by an
+  independent checker.** `tools/build-showcase-galleries.js:44` registers `id: 'data-viz'`
+  and writes `examples/<id>-gallery.<theme>.pdf`; `build-showcase-galleries.js --check`
+  exits 0 over exactly those two files, `build-staged-pdfs.js` routes edits to that deck to
+  `{kind:'showcase'}`, and `build:showcase-galleries:check` gates their freshness. It is one
+  of the better-owned artifacts in the tree. The conclusion it was cited for — no committed
+  PDF changes — still holds, because that showcase render pins `'indaco'` positionally, but
+  the stated reason was wrong and would have sent a future reader hunting for a producer
+  that already exists.

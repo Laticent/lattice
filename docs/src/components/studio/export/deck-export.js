@@ -225,15 +225,13 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	let chosen = (palette || DEFAULT_PALETTE).toLowerCase();
 	let bundledThemes = [];
 	// The second candidate is a FIXED known-good palette, deliberately NOT
-	// DEFAULT_PALETTE: it is the rescue for "the chosen palette's files did not
-	// fetch", so retrying the same name the first pass already failed on would be a
-	// no-op. `indaco` is the historical base and is always present in the staged dir.
+	// DEFAULT_PALETTE: it rescues "the chosen palette's files did not fetch", so
+	// retrying the name the first pass already failed on would be a no-op — which is
+	// exactly what reading DEFAULT_PALETTE here would produce for a palette-less deck.
 	//
-	// This retry was DEAD until the default became cuoio. With the default at indaco a
-	// palette-less deck set `chosen = 'indaco'` and the loop ran ['indaco', 'indaco'],
-	// so the second pass could never add anything; the cuoio default is what made it
-	// live. Recorded because that is a behavior change the default flip caused here
-	// without touching this line.
+	// It is `indaco` only because `sync-playground-assets.mjs` stages every
+	// dist/themes/*.min.css, so any shipped palette would do. Nothing pins THIS name:
+	// rename or drop indaco and the rescue degrades to a silent no-op with no gate.
 	for (const cand of [chosen, 'indaco']) {
 		bundledThemes = [];
 		// Bundle the palette, its -dark companion, AND the transitive theme-name

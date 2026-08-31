@@ -412,7 +412,7 @@ The renderer expects this layout relative to its own location:
 ```text
 lattice-emulator.js
 themes/
-  indaco.css     (default palette; or whatever palette is named)
+  cuoio.css      (the default palette; or whatever palette is named)
   cuoio.css
 lattice.css      (passed as argv[2])
 ```

@@ -15,8 +15,24 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { resolvePalette, DEFAULT } = require('../../../lib/core/resolve-palette');
+const { DEFAULT_PALETTE } = require('../../../lib/core/default-palette.mjs');
 
 describe('palette-resolution', () => {
+  // THE VALUE PIN. Every other case here reads the DEFAULT constant, which is right per
+  // case — they test precedence, not which palette wins the fall-through — but it left
+  // the VALUE itself unpinned: a one-character edit to lib/core/default-palette.mjs
+  // silently changed what every palette-less deck, every Marp export and
+  // dist/lattice-default.css render as, with the whole suite green. The pre-change tree
+  // pinned 'indaco' by accident, through literals these cases have since stopped using.
+  // Same shape as docs/src/lib/site-chrome.test.ts, which pins its own copy.
+  //
+  // Re-blessing a different default is meant to be one edit; this makes it two, and the
+  // second one is a deliberate acknowledgement rather than a search-and-replace.
+  test('the default palette is cuoio', () => {
+    assert.equal(DEFAULT, 'cuoio');
+    assert.equal(DEFAULT_PALETTE, 'cuoio', 're-export and declaration must not drift');
+  });
+
   const FM_INDACO = '---\nmarp: true\ntheme: indaco\n---\n\n# Slide';
   const FM_CUOIO  = '---\nmarp: true\ntheme: cuoio\n---\n\n# Slide';
   const FM_NONE   = '---\nmarp: true\n---\n\n# Slide';

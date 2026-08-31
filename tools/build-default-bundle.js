@@ -15,7 +15,7 @@
  * <link>/import this one file and get a themed deck with no theme
  * selection; to override, load a different palette's tokens after it.
  *
- * The default palette comes from `lib/core/resolve-palette.js` — the SAME constant
+ * The default palette comes from `lib/core/default-palette.mjs` — the SAME constant
  * the CLI's resolution chain uses, imported rather than restated. This file used to
  * declare its own `DEFAULT_THEME = 'cuoio'` while that chain defaulted to `indaco`,
  * so a consumer who <link>ed this bundle and a deck rendered through the CLI got two
