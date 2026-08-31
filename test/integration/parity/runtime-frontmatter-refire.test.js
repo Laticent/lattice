@@ -303,3 +303,161 @@ describe('runtime front-matter re-fire — logo/meta/class survive a live-edit D
     window.close();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Texture <defs> re-derivation (#1863)
+//
+// The defs used to be deck-INDEPENDENT: every set, every page, injected once and
+// never revisited. Selective emission makes them a function of the document's
+// CSS, which puts them in this file's subject — a live edit that changes the
+// answer has to be picked up, or the new theme's `--cat-N-texture` refs dangle
+// and an unresolvable paint-server ref renders as SVG default BLACK.
+//
+// This is a REGRESSION PIN, not the verification. jsdom is not a rendering
+// surface (HARD RULE #23); the behavior was verified by driving the committed
+// dist/lattice-runtime.js in a real Chromium — see the PR's ## Performance
+// section. What this guards is that the wiring survives refactors in CI.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const THEMES = path.join(__dirname, '..', '..', '..', 'themes');
+const themeCss = (n) => fs.readFileSync(path.join(THEMES, `${n}.css`), 'utf8');
+// base.print-textures.css ships inside the engine sheet on every surface, and is
+// what makes `latt-a11y-tex` present for EVERY theme — the sentinel the runtime
+// uses to tell "no textures referenced" from "I cannot see the stylesheet".
+const PRINT_CSS = fs.readFileSync(
+  path.join(__dirname, '..', '..', '..', 'lib', 'base', 'base.print-textures.css'), 'utf8',
+);
+const inlinedSheet = (theme) => `${themeCss(theme)}\n${PRINT_CSS}`;
+
+const bootRuntime = async (html) => {
+  const dom = new JSDOM(html, { url: 'https://example.test/deck.html', runScripts: 'dangerously', pretendToBeVisual: true });
+  dom.window.fetch = () => Promise.resolve({ ok: true, text: () => Promise.resolve('') });
+  const el = dom.window.document.createElement('script');
+  el.textContent = RUNTIME_SRC;
+  dom.window.document.body.appendChild(el);
+  await new Promise((r) => setTimeout(r, 250));
+  return dom.window.document;
+};
+const emitted = (document) => {
+  const el = document.querySelector('.latt-a11y-defs');
+  if (!el) return null;
+  return {
+    sets: el.getAttribute('data-latt-tex-sets'),
+    patterns: el.querySelectorAll('pattern').length,
+    elements: document.querySelectorAll('.latt-a11y-defs').length,
+  };
+};
+
+describe('runtime texture <defs> — narrowed to the sets the document references', () => {
+  test('a hue-carried theme ships only the sets its print overrides reference', async () => {
+    const document = await bootRuntime(
+      `<!DOCTYPE html><html><head><style id="theme">${inlinedSheet('indaco')}</style></head><body>${RAW_SECTION}</body></html>`,
+    );
+    assert.deepEqual(emitted(document), {
+      sets: 'latt-a11y-tex latt-a11y-chart-tex', patterns: 20, elements: 1,
+    }, 'indaco declares no texture channel — only print\'s a11y refs survive');
+  });
+
+  test('a live `theme:` edit re-derives the defs, and reverses cleanly', async () => {
+    const document = await bootRuntime(
+      `<!DOCTYPE html><html><head><style id="theme">${inlinedSheet('indaco')}</style></head><body>${RAW_SECTION}</body></html>`,
+    );
+    assert.equal(emitted(document).patterns, 20);
+
+    // What marp-vscode does on a `theme:` edit: repack the themeSet <style> and
+    // re-render the sections. The section replacement is what wakes the pass.
+    document.getElementById('theme').textContent = inlinedSheet('onyx');
+    document.body.innerHTML = RAW_SECTION;
+    await new Promise((r) => setTimeout(r, 400));
+
+    const after = emitted(document);
+    assert.equal(after.patterns, 56, 'onyx pulls in its scheme-aware set and both polarity pins');
+    assert.match(after.sets, /latt-onyx-tex latt-onyx-tex-light latt-onyx-tex-dark/);
+    assert.equal(after.elements, 1, 'the stale defs are replaced, never stacked');
+
+    document.getElementById('theme').textContent = inlinedSheet('indaco');
+    document.body.innerHTML = RAW_SECTION;
+    await new Promise((r) => setTimeout(r, 400));
+    assert.equal(emitted(document).patterns, 20, 'narrowing is reversible, not a one-way ratchet');
+  });
+
+  test('every referenced id resolves — no dangling paint-server ref after a swap', async () => {
+    const document = await bootRuntime(
+      `<!DOCTYPE html><html><head><style id="theme">${inlinedSheet('concrete')}</style></head><body>${RAW_SECTION}</body></html>`,
+    );
+    const ids = new Set([...document.querySelectorAll('.latt-a11y-defs pattern')].map((p) => p.id));
+    for (const [, id] of inlinedSheet('concrete').matchAll(/url\(\s*["']?#(latt-[a-z0-9-]*-\d+)/g)) {
+      assert.ok(ids.has(id), `concrete references #${id}, which the runtime did not emit`);
+    }
+  });
+
+  // ── The three ways a cheap change-detector got this wrong ──────────────────
+  //
+  // The first cut gated the re-derivation on a `<style>`-length signature. An
+  // independent check found three edits that change the answer without moving that
+  // signature; all three end in a `url(#…)` with no `<pattern>`, which SVG paints
+  // BLACK. The gate is now the answer itself, and these pin each scenario.
+
+  test('a reference arriving through slide MARKUP is picked up (no stylesheet change)', async () => {
+    const document = await bootRuntime(
+      `<!DOCTYPE html><html><head><style id="theme">${inlinedSheet('indaco')}</style></head><body>${RAW_SECTION}</body></html>`,
+    );
+    assert.equal(emitted(document).patterns, 20);
+    // The author adds a slide with inline SVG of their own. No `<style>` moves.
+    document.body.innerHTML =
+      '<section class="content"><svg><rect fill="url(#latt-concrete-tex-1)"/></svg></section>';
+    await new Promise((r) => setTimeout(r, 400));
+    assert.match(emitted(document).sets, /latt-concrete-tex$/,
+      'a markup-only reference is a different INPUT to the same scan, and was invisible '
+      + 'to a gate that watched only stylesheet text');
+  });
+
+  test('a SAME-LENGTH stylesheet edit that retargets a slot is picked up', async () => {
+    // `latt-a11y-tex` and `latt-onyx-tex` are both 13 characters, so retargeting
+    // `--cat-N-texture` from one to the other moves no byte count anywhere. The set
+    // prefixes are not length-distinct, so this is a by-construction blind spot for
+    // any length-based signature, not an unlucky coincidence.
+    const before = `${inlinedSheet('indaco')}\nsection{--cat-1-texture:url(#latt-a11y-tex-1)}`;
+    const after = `${inlinedSheet('indaco')}\nsection{--cat-1-texture:url(#latt-onyx-tex-1)}`;
+    assert.equal(before.length, after.length, 'the premise: these edits are the same length');
+
+    const document = await bootRuntime(
+      `<!DOCTYPE html><html><head><style id="theme">${before}</style></head><body>${RAW_SECTION}</body></html>`,
+    );
+    assert.equal(emitted(document).sets, 'latt-a11y-tex latt-a11y-chart-tex');
+    document.getElementById('theme').textContent = after;
+    document.body.innerHTML = RAW_SECTION;
+    await new Promise((r) => setTimeout(r, 400));
+    assert.match(emitted(document).sets, /latt-onyx-tex$/);
+  });
+
+  test('a destroyed defs element is restored, even when the answer did not change', async () => {
+    const document = await bootRuntime(
+      `<!DOCTYPE html><html><head><style id="theme">${inlinedSheet('indaco')}</style></head><body>${RAW_SECTION}</body></html>`,
+    );
+    document.querySelector('.latt-a11y-defs').remove();
+    document.body.innerHTML = RAW_SECTION;
+    await new Promise((r) => setTimeout(r, 400));
+    assert.deepEqual(emitted(document), {
+      sets: 'latt-a11y-tex latt-a11y-chart-tex', patterns: 20, elements: 1,
+    }, 'an early return on an unchanged signature never noticed the element was gone — '
+      + 'and on a hue-carried theme nothing else would ever put it back');
+  });
+
+  test('an unreadable stylesheet falls back to EVERY set, never to none', async () => {
+    // A <link> theme: its text is not in the DOM, so the narrow answer cannot be
+    // proved. Emitting everything is waste; emitting nothing is a black fill.
+    const linked = await bootRuntime(
+      '<!DOCTYPE html><html><head><link rel="stylesheet" href="/theme.css"></head>'
+      + `<body>${RAW_SECTION}</body></html>`,
+    );
+    assert.equal(emitted(linked).patterns, 92, 'a linked sheet must fall back to every set');
+
+    // And a document with no engine sheet at all — the sentinel is absent, so the
+    // runtime is not looking at a real Lattice stylesheet.
+    const bare = await bootRuntime(
+      `<!DOCTYPE html><html><head><style>body{color:red}</style></head><body>${RAW_SECTION}</body></html>`,
+    );
+    assert.equal(emitted(bare).patterns, 92, 'no print sentinel means "cannot tell", not "needs none"');
+  });
+});

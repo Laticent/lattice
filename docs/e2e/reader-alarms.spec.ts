@@ -1,4 +1,4 @@
-import { paintedMarkers } from './marker-chrome';
+import { markersSettled, paintedMarkers } from './marker-chrome';
 import { expect, test } from './studio-fixture';
 
 /**
@@ -45,8 +45,12 @@ async function previewsAppear(page: import('@playwright/test').Page): Promise<bo
 	} catch {
 		return false;
 	}
-	// Font-gated: the watcher re-measures once webfonts land, so a too-early read can miss a ring.
-	await page.waitForTimeout(4500);
+	// Font-gated: the watcher re-measures once webfonts land, so a too-early read can miss a
+	// ring. `markersSettled` waits for that sequence — every frame's own `fonts.ready`, then
+	// the marker set holding still across a frame — instead of guessing an interval that
+	// covers both steps. See its header for why `fonts.ready` alone would be worse than the
+	// fixed wait it replaces.
+	await markersSettled(page, FRAME);
 	return true;
 }
 

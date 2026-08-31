@@ -1,4 +1,4 @@
-import { paintedMarkers } from './marker-chrome';
+import { markersSettled, paintedMarkers } from './marker-chrome';
 import { expect, gotoStudio, openAddSlide, test } from './studio-fixture';
 
 // #1463 — scrolling the add-slide gallery used to accumulate one live engine iframe per
@@ -77,8 +77,14 @@ test('@crosswidth the add-slide gallery holds its live-preview count flat across
 	expect(settled, `after three full traversals the grid settled at ${settled} live documents`).toBeLessThanOrEqual(CEILING);
 
 	// And the same under an active search — the condition the bug was reported against.
+	const browseHeight = await scroller.evaluate((el) => el.scrollHeight);
 	await page.getByPlaceholder(/Search slides|Search \d+ slides/).fill('compare options');
-	await page.waitForTimeout(1200);
+	// The filtered grid is SHORTER than the browse grid, and that change is the signal the
+	// 1200ms sleep was standing in for. Polling it means the search pass below always scrolls
+	// the filtered height rather than, on a slow box, the stale browse height (#1526).
+	await expect
+		.poll(() => scroller.evaluate((el) => el.scrollHeight), { timeout: 30_000 })
+		.toBeLessThan(browseHeight);
 	const searchHeight = await scroller.evaluate((el) => el.scrollHeight);
 	let searchPeak = 0;
 	for (let y = 0; y <= searchHeight; y += 250) {
@@ -113,8 +119,10 @@ test('@crosswidth no add-slide gallery tile paints an authoring alarm', async ({
 		await scroller.evaluate((el, top) => el.scrollTo({ top }), y);
 		await page.waitForTimeout(160);
 	}
-	// The watcher re-measures once webfonts land, so a too-early read can miss a mark.
-	await page.waitForTimeout(4500);
+	// The watcher re-measures once webfonts land, so a too-early read can miss a mark —
+	// `markersSettled` waits for the fonts AND for the re-measure to change nothing, rather
+	// than for an interval guessed to cover both (#1526).
+	await markersSettled(page, 'iframe.live');
 
 	// Walk the GALLERY's frames only — scoped to the grid's scroller, deliberately. A
 	// page-wide `page.frames()` sweep also picks up the Studio's own full-size preview
@@ -188,23 +196,33 @@ test("Present's slide overview keeps the authoring signal — those are the auth
 	await page.keyboard.press('ControlOrMeta+a');
 	await page.keyboard.press('Delete');
 	await page.keyboard.insertText(overflowing);
-	await page.waitForTimeout(4000);
 
 	// The control: the authoring preview really does mark this deck. Without it, "the overview
 	// is watched" could pass on a deck that simply does not overflow.
-	const mainLevel = await page
-		.frameLocator('[aria-label="Live deck preview"] iframe.live')
-		.locator('section[data-lattice-slide]')
-		.first()
-		.getAttribute('data-lattice-overflow-marker');
-	expect(mainLevel, 'the Studio preview must be an authoring surface').toBe('author');
+	//
+	// This used to sleep 4s for the preview to re-render the pasted deck and then read the
+	// attribute once. The attribute IS the signal, so it is polled instead: a slow re-render
+	// no longer reads `null` and fails, and a fast one does not pay four seconds (#1526).
+	await expect
+		.poll(
+			() =>
+				page
+					.frameLocator('[aria-label="Live deck preview"] iframe.live')
+					.locator('section[data-lattice-slide]')
+					.first()
+					.getAttribute('data-lattice-overflow-marker')
+					.catch(() => null),
+			{ timeout: 30_000, message: 'the Studio preview must be an authoring surface' },
+		)
+		.toBe('author');
 
 	await page.getByRole('button', { name: 'Present' }).click();
-	await page.waitForTimeout(2500);
+	// Present has to be up before `g` can open its overview; the dialog is that condition.
+	await expect(page.getByRole('dialog', { name: 'Present' })).toBeVisible({ timeout: 30_000 });
 	await page.keyboard.press('g');
 	const overview = page.getByRole('dialog', { name: 'Slide overview' });
 	await overview.waitFor();
-	await page.waitForTimeout(4500); // the watcher re-measures once webfonts land
+	await markersSettled(page, 'iframe.live'); // fonts, then the re-measure settling — see #1526
 
 	const tiles = overview.locator('iframe.live');
 	const n = await tiles.count();

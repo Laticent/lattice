@@ -33,7 +33,11 @@ test('the Studio webpage export produces a player that boots (styled + script ru
 	const errors: string[] = [];
 	viewer.on('pageerror', (e) => errors.push(e.message));
 	await viewer.goto(`file://${file}`, { waitUntil: 'networkidle' });
-	await viewer.waitForTimeout(500);
+	// The boot stamp IS the condition this used to sleep 500ms for — `.lp-js` lands on
+	// <html> only when the inline kernel actually ran. Waiting for it directly means a
+	// slow file:// boot no longer races the assertion below, and a fast one no longer
+	// pays half a second (#1526).
+	await expect(viewer.locator('html')).toHaveClass(/\blp-js\b/);
 
 	// The script booted: it stamps `.lp-js` on <html> only when it actually runs, and
 	// Present mode marks exactly one slide FRAME active (the wrapper each slide is
