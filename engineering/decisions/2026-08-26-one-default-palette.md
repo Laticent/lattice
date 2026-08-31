@@ -139,6 +139,35 @@ moves — and that is a design decision, not plumbing, so it is recorded here an
 owner rather than folded in silently (HARD RULE #18's off-path branch: log it, do not pull
 it into the diff).
 
+## 4b. The flip woke a dead code path in the Studio export
+
+Driving the export paths rather than reasoning about them turned up a behavior change
+this note had missed. `deck-export.js` bundles themes through a rescue loop:
+
+```js
+let chosen = (palette || DEFAULT_PALETTE).toLowerCase();
+for (const cand of [chosen, 'indaco']) { ... }
+```
+
+The second candidate rescues "the chosen palette's files did not fetch", so it is
+deliberately a FIXED known-good palette rather than `DEFAULT_PALETTE` — retrying the name
+the first pass already failed on would be a no-op, and `indaco` is the historical base
+that is always present in the staged directory.
+
+**That retry was DEAD until this change.** With the default at `indaco`, a palette-less
+deck set `chosen = 'indaco'` and the loop ran `['indaco', 'indaco']`; the second pass
+could never contribute. Moving the default to `cuoio` is what made it live, without
+touching the line. The effect is benign and arguably an improvement — a failed cuoio
+fetch now yields a renderable bundle instead of an empty one — but it is a behavior
+change on a user-facing export path, and nothing in the diff pointed at it. The line
+now carries a comment saying both halves: why the palette is fixed, and that this
+change is what woke it.
+
+**Marp export, driven.** `node tools/export-marp.js examples/data-viz-gallery.md` on an
+un-themed deck reports `palette: cuoio` and bundles `themes/cuoio.css` +
+`themes/cuoio-dark.css`, carrying `--brand-accent: #7A5A10` — cuoio's own value, with no
+indaco file in the bundle. That is the export half of the claim, on a real artifact.
+
 ## 5. Not verified
 
 - The sign-off render is `examples/data-viz-gallery.md` — a real un-themed deck, so it is
