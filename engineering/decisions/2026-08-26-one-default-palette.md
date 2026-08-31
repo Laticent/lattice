@@ -226,14 +226,52 @@ published-artifact drift bug that recreated the exact defect class this note exi
 inside the change that ended it. The maker had already self-reviewed twice and run every
 gate.
 
+## 4d. Every surface the change touches, driven
+
+The `evidence` axis of the pre-merge card sat at `medium` because the change reaches eight
+surfaces and only three had been driven. All eight now carry an artifact. Sampled with
+ImageMagick where the surface is a raster; read from the emitted stylesheet where it is
+text. cuoio's canvas is `#FAF7F2`; indaco's is `#FFFFFF`, so the two are trivially
+distinguishable in a pixel.
+
+| Surface | How it was driven | Result |
+|---|---|---|
+| CLI HTML | computed `--accent` / `--text-body` off `document.documentElement`, real Chromium | cuoio |
+| CLI PDF | four before/after sign-off renders, light + dark | cuoio |
+| **PPTX** | `out.pptx` unzipped, `ppt/media/image-3-1.png` pixel-sampled | `srgb(250,247,242)` = `#FAF7F2` |
+| **Image set (`.zip`)** | `slides/player-03.png`, `-04.png` pixel-sampled | `#FAF7F2` |
+| **Player (`--player`)** | emitted stylesheet read | `--bg:#FAF7F2` light, `#15110D` dark |
+| Marp export (CLI) | `tools/export-marp.js` on an un-themed deck | `palette: cuoio`, bundles `cuoio.css` + `cuoio-dark.css`, no indaco file |
+| **Studio export flow** | real browser: Studio to Share to Marp bundle to Download, the `.zip` captured over CDP and unpacked | `themes/cuoio.css` + `cuoio-dark.css`, `brand-accent: #7A5A10`, **zero** indaco files |
+| **Docs Playground** | driven on the local dev server | `data-palette="cuoio"`, `--bg: #FAF7F2` |
+
+Two of these are worth their own line.
+
+**The Studio export is the surface this note previously got wrong** (§4b), so driving it
+mattered more than the others. Its deck — the Studio starter — declares no `theme:` in its
+markdown, yet the bundle carries cuoio and nothing else. That is the corrected §4b account
+confirmed from the outside: `StudioShell` supplies the palette from its own state, the
+rescue loop's first pass succeeds, and the `'indaco'` literal never runs.
+
+**The Playground result proves less than it looks like.** Its `cuoio` comes from
+`docs/src/lib/site-chrome.ts`, which this change does not touch and which already said
+`cuoio` on `main`. Driving it confirms no regression; it is not evidence the change works.
+The checker caught an earlier version of this note making exactly that inference about the
+docs site, and the distinction is kept here so it is not made again.
+
+**One pre-existing warning, ruled out as not this change's.** Every player render prints
+`Could not parse CSS @import URL "lattice" relative to base URL "about:blank"`. It also
+prints on a deck that declares its own `theme:`, where the default is irrelevant, so it
+predates this change. Logged, not fixed (#18, off-path).
+
 ## 5. Not verified
 
 - The sign-off render is `examples/data-viz-gallery.md` — a real un-themed deck, so it is
   the right subject, but it is one deck. No sweep across components was run for the default
   change, on the grounds that cuoio's rendering is unchanged by it; only which decks receive
   cuoio changed.
-- The docs-site Playground was not driven. `sanitizePalette`'s code already returned `cuoio`,
-  so its behavior is unchanged; only its docblock was wrong and is now fixed.
+- ~~The docs-site Playground was not driven.~~ It is now (§4d) — and the result is weaker
+  evidence than it appears, because the Playground's `cuoio` predates this change.
 - ~~`examples/data-viz-gallery.{light,dark}.pdf` have no producer.~~ **Refuted by an
   independent checker.** `tools/build-showcase-galleries.js:44` registers `id: 'data-viz'`
   and writes `examples/<id>-gallery.<theme>.pdf`; `build-showcase-galleries.js --check`
