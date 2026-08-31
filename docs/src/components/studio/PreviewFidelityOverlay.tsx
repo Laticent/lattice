@@ -444,6 +444,10 @@ function causeRel(cause: string): string {
 	if (cause === 'watermark glyph') return 'the section glyph differs — visible, and it means the supplied section position disagreed with the deck.';
 	if (cause === 'progress rail absent')
 		return 'the progress rail is on one render and not the other — visible. No section position was supplied, which happens when the deck\'s divider count is ambiguous (a `divider` class shown inside code), so it refused to guess rather than paint an extra dot.';
+	if (cause.startsWith('deck position refused'))
+		return 'no deck position was supplied at all, so this slice numbers itself “1 of 1”. That is the fail-closed guard working: `positionIsTrustworthy` could not prove which slide this is (a `_focusSteps` deck, a slide count that disagrees with the render), and it refuses rather than paint a confident wrong number. Nothing to repair on this slide — the deck is one the sweep measures without a position.';
+	if (cause.startsWith('deck logo'))
+		return '⚠ the deck logo is on one render and not the other — VISIBLE. `logo-on: title` selects the deck\'s first slide, and a slice is its own document\'s first section, so it paints on a slide the export does not carry it on. Repaired wherever a deck position is supplied; if you are seeing it, this deck is one the position guard refuses.';
 	return 'not a shape this readout recognizes yet — the rows below are the raw finding.';
 }
 

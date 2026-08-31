@@ -62,10 +62,38 @@
  * What it IS: the residual for step 3 — how far a slice is from its deck section once the repairs
  * that already shipped have actually been applied to it.
  *
- * ON-DEMAND, NOT A CI GATE — the same shape as `bench` and `quality`. It could now produce a true
- * alarm, which the pre-supply version could not; what still argues against gating it is that its
- * subject is a diagnostic prototype rather than a shipped surface, and a corpus edit moves it. If
- * it is ever promoted, tighten the band with it:
+ * THE BASELINE COMPARISON IS DIRECTIONAL, and that is the 2026-08-31 change — read this before
+ * re-blessing anything. `decks`, `slides`, `preludes` and `positions` used to be compared for EXACT
+ * equality, on the sound reasoning that the denominator is part of the claim: a deck dropping out
+ * of the measurement makes the rate go UP, because the decks that drop out are the badly-matching
+ * ones. What that got wrong is the DIRECTION. Adding an example deck is routine and also moves
+ * every one of those counts, so `equiv:check` failed on ordinary corpus growth in a message
+ * indistinguishable from a real regression — and, nothing having ever invoked it, it sat red and
+ * unread from 154 decks to 158 while the rate it was guarding had not moved (96.6% -> 96.7%).
+ *
+ * A gate that cannot tell growth from decay is not measuring the thing it says it is. So:
+ *
+ *   · counts may GROW freely and may NOT SHRINK. Shrinkage is the flattering direction and the one
+ *     the exact check existed to catch; growth is a corpus edit and says nothing about the engine.
+ *   · the RATIOS are what get pinned, because they survive a corpus that changes size — the
+ *     equivalence rate (a band, it genuinely drifts), and the refusal / prelude / skip rates as
+ *     RATCHETS: each may fall, none may rise. That is the same alarm the exact counts were reaching
+ *     for (the synthesizer over-firing, a deck becoming unrepairable, decks leaving the sweep),
+ *     stated in the unit that does not move when someone writes an example.
+ *   · `positions + refusals === slides` is an EXACT invariant with no band at all. It is the
+ *     accounting identity: every measured slide either got a supplied deck position or was counted
+ *     as a refusal. Nothing may fall out of the denominator unnamed, which is the property the
+ *     exact counts were a proxy for.
+ *
+ * `refusals` is new with that contract and is the field #1442's Amendment 5 asks for. `positions`
+ * alone cannot distinguish "the supply path broke" from "these decks were never eligible": the
+ * refusals are the decks `positionIsTrustworthy` declines, i.e. exactly where a plausible-lie
+ * regression would hide. They are now counted, rated, ratcheted and listed by deck.
+ *
+ * IT IS RUN BY THE UNIT TIER. `measure` and `compareToBaseline` below are exported, and
+ * `test/unit/diagnostics/slice-equivalence-baseline.test.js` calls them — so `npm test` enforces
+ * the contract on every run and the silent drift above cannot recur. The CLI stays for the
+ * report, which is the half a test cannot give you:
  *   npm run equiv          report the current reconciliation rate + the biggest residual
  *   npm run equiv:bless    write test/benchmark/slice-equivalence.json
  *   npm run equiv:check    compare against it and fail on a real drop
@@ -77,6 +105,14 @@
  * worth cataloging. A drop here now means one of two things and the header tells you which:
  * `positions` fell → the shipped supply path broke; `positions` held and the rate fell → the
  * residual grew, i.e. the prototype moved.
+ *
+ * NO RESIDUAL IS UNATTRIBUTED, as of 2026-08-31, and keeping it that way is the point of the
+ * `unclassified` assertion in the committed test. 27 of 49 residuals were `unclassified` when
+ * #1442 was audited. 25 of those 27 turned out to be ONE real preview defect rather than a
+ * measurement artifact — `logo-on: title` painting the deck logo on every slice, because a slice is
+ * its own document's first section (fixed in `applyDeckLogoToHtml`). The other 2 are the fail-closed
+ * guard declining, which is correct behavior and now reports under its own name. An unnamed bucket
+ * is where a real defect sits looking like noise; that is what it cost here.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -99,10 +135,63 @@ const { createEngine } = engine;
 const VOCAB = { known: directives.KNOWN_DIRECTIVES, flags: directives.FLAG_DIRECTIVES };
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE = path.join(ROOT, 'test/benchmark/slice-equivalence.json');
-/** How far the rate may fall before `--check` fails. Corpus edits move it a little. */
+/** How far the equivalence rate may fall before `--check` fails. Corpus edits move it a little. */
 const BAND = 1.5;
+/**
+ * How far a RATCHETED rate may rise before `--check` fails. Tighter than `BAND` because these are
+ * not expected to drift at all — one deck of 158 arriving with a refusal is ~0.5 points of the
+ * refusal rate, so the tolerance has to clear a single deck without clearing a class of them.
+ */
+const RATCHET = 1.0;
+/**
+ * The ONE-SIDED ratchet: a rate that may fall but not rise, with what a rise would MEAN.
+ *
+ * `skipRate` is alone here because it is the only one where falling is unambiguously good — a deck
+ * that stops dropping out of the measurement is a deck that started being measured.
+ */
+const RATCHETS = {
+	skipRate: 'more decks are dropping out of the measurement, which flatters the rate',
+};
 
-function measure() {
+/**
+ * TWO-SIDED, and the difference is the whole point. `refusalRate` and `preludeRate` began as
+ * one-sided ratchets on the reading that a RISE is the alarm — more blind spots, an over-firing
+ * synthesizer. A checker mutation-proved that backwards, and the result was the worst kind of
+ * gate:
+ *
+ *   · stub `positionIsTrustworthy` to `return true` — delete the fail-closed guard outright — and
+ *     `refusalRate` goes 0.5% -> 0%, `equiv:check` exits 0, and the headline rate RISES to 98.9%.
+ *     The gate REWARDED removing the safety guard, in exactly the direction where a confidently
+ *     wrong page number gets painted. That guard is the subject of #1442's Amendment 5.
+ *   · make `synthesizePrelude` return '' for every slide and `preludeRate` goes 0.6% -> 0%, and
+ *     `equiv:check` exits 0 again, because a fall is "an improvement".
+ *
+ * A count of slides the instrument declines to measure, or synthesizes context for, is not a
+ * quality score. It is a description of the corpus, and it should move when the CORPUS moves and
+ * not otherwise. So both are held in a band: a rise means the alarm each was written for, and a
+ * fall means the mechanism stopped running.
+ */
+const TWO_SIDED = {
+	refusalRate: {
+		rise: 'more slides are being measured without a supplied deck position',
+		fall: 'FEWER slides are being refused a position — check the fail-closed guard still refuses. A guard that stopped refusing raises this tool\'s headline rate while removing the thing that keeps a wrong page number off the slide',
+	},
+	preludeRate: {
+		rise: 'the prelude synthesizer is firing on more slides — check it is not over-matching',
+		fall: 'the prelude synthesizer is firing on FEWER slides — check it did not stop running. At 0 it synthesizes nothing and every inherited running directive is silently dropped from the comparison',
+	},
+};
+
+/**
+ * The refusal DECK NAMES, compared as a set. The rate band above catches a class of decks arriving
+ * or leaving; it cannot catch WHICH, and "which" is the whole content of a blind spot. It is also
+ * the only clause that fires the instant the guard stops refusing on a deck it used to refuse —
+ * `refusalRate` needs the change to clear a tolerance, this needs it to happen at all. Cheap: the
+ * set is one entry today.
+ */
+const REFUSAL_DECKS = 'refusalDecks';
+
+export function measure() {
 	const eng = createEngine();
 	// RECURSIVE. `examples/` has real decks in subfolders (token-contrast/, chart-theme-gallery/);
 	// a flat read silently measured 111 of 125 and called the result "the corpus". Found in review.
@@ -124,6 +213,10 @@ function measure() {
 	const skipped = [];
 	const byDeck = new Map();
 	const byCause = new Map();
+	// Where `positionIsTrustworthy` DECLINED, by deck. `positions` alone reads as a plain shortfall
+	// and says nothing about which decks the sweep is measuring blind; these are exactly the decks a
+	// plausible-lie regression would hide in (#1442, Amendment 5), so they are named, not subtracted.
+	const refusalsByDeck = new Map();
 
 	for (const file of files) {
 		const src = fs.readFileSync(file, 'utf8');
@@ -155,6 +248,7 @@ function measure() {
 			// `rail` no longer neutralized — is a rate collapse rather than a 0.0-point no-op.
 			const page = supplyablePosition(src, k, chunks.length);
 			if (page) positions += 1;
+			else refusalsByDeck.set(path.basename(file), (refusalsByDeck.get(path.basename(file)) || 0) + 1);
 			let got;
 			try {
 				got = sectionsOf(eng.render(`${fm}${prelude ? `${prelude}\n\n` : ''}${chunk}`, 'lattice', { page }).html)[0] ?? '';
@@ -170,69 +264,184 @@ function measure() {
 			}
 			const name = path.basename(file);
 			byDeck.set(name, (byDeck.get(name) || 0) + 1);
-			const cause = classifyDivergence(a, b);
+			const cause = classifyDivergence(a, b, { positionRefused: !page });
 			byCause.set(cause, (byCause.get(cause) || 0) + 1);
 		});
 	}
-	return { slides, matched, preludes, positions, decks: measured, skipped, rate: +((matched / slides) * 100).toFixed(1), byDeck, byCause };
+	const refusals = [...refusalsByDeck.values()].reduce((a, b) => a + b, 0);
+	const pct = (n, d) => +((n / (d || 1)) * 100).toFixed(1);
+	return {
+		slides,
+		matched,
+		preludes,
+		positions,
+		refusals,
+		decks: measured,
+		skipped,
+		rate: pct(matched, slides),
+		// The RATED forms, which are what the baseline pins — see the contract in the header. Derived
+		// here rather than at the comparison so the report and the gate read one number, not two
+		// roundings of it.
+		refusalRate: pct(refusals, slides),
+		preludeRate: pct(preludes, slides),
+		skipRate: pct(skipped.length, measured + skipped.length),
+		refusalsByDeck,
+		byDeck,
+		byCause,
+	};
 }
 
-const r = measure();
-const mode = process.argv[2] || process.argv.find((a) => a.startsWith('--'));
+/** The fields written to (and read back from) `test/benchmark/slice-equivalence.json`. */
+export function baselineOf(r) {
+	return {
+		decks: r.decks,
+		slides: r.slides,
+		matched: r.matched,
+		preludes: r.preludes,
+		positions: r.positions,
+		refusals: r.refusals,
+		rate: r.rate,
+		refusalRate: r.refusalRate,
+		preludeRate: r.preludeRate,
+		skipRate: r.skipRate,
+		[REFUSAL_DECKS]: [...r.refusalsByDeck.keys()].sort(),
+	};
+}
 
-console.log(`\nslice/deck equivalence: ${r.matched}/${r.slides} slides (${r.rate}%)`);
-console.log(`slides given a NON-EMPTY prelude: ${r.preludes}${r.preludes === 0 ? '  — the prelude prototype is UNEXERCISED by this corpus' : ''}`);
-// The count of slides the SHIPPED repair actually ran on. Printed beside the prelude count, and
-// blessed beside it, because it is the number that makes the rate mean something: at 0 this tool is
-// measuring the pre-#1272 engine no matter how healthy the percentage looks. That was literally the
-// case until this line existed.
-console.log(`slides given a SUPPLIED deck position: ${r.positions}${r.positions === 0 ? '  — nothing here exercises the shipped repair' : ''}`);
-// The active neutralizer set, printed for the same reason the counts above are: it is an ASSERTION
-// ABOUT WHAT CANNOT BE REPAIRED YET, and nothing pins it to reality. It is now short — `pagination`
-// and `rail` left it when the sweep started supplying the position that fixes them — and it should
-// only ever get shorter — `pagination` and `rail` left it when the position started being supplied,
-// and the generated-id counters left it when they became slide-scoped. What is left is `ids`, the
-// positional `id="N"` on the section itself, which a supplied position does NOT repair.
-console.log(`ignoring (no shipped repair): ${Object.keys(RESIDUAL_NEUTRALIZERS).join(', ')}`);
-console.log(`decks measured: ${r.decks}${r.skipped.length ? `  ·  skipped ${r.skipped.length}: ${r.skipped.join(', ')}` : ''}\n`);
-console.log('residual by cause:');
-for (const [c, n] of [...r.byCause].sort((a, b) => b[1] - a[1])) console.log(`  ${String(n).padStart(4)}  ${c}`);
-console.log('\nresidual by deck (top 8):');
-for (const [d, n] of [...r.byDeck].sort((a, b) => b[1] - a[1]).slice(0, 8)) console.log(`  ${String(n).padStart(4)}  ${d}`);
+/**
+ * Every field `baselineOf` writes. A baseline missing one is a baseline that CHECKS one fewer
+ * thing, silently — `compareToBaseline` skips an absent field so an older baseline stays
+ * comparable, and a checker proved where that ends: an empty `{}` baseline passes
+ * `equiv:check` AND all four committed tests while comparing nothing at all. A truncated write or
+ * a bad merge resolution is enough. So completeness is asserted separately, before the comparison
+ * means anything.
+ */
+export const BASELINE_FIELDS = Object.freeze([
+	'decks', 'slides', 'matched', 'preludes', 'positions', 'refusals',
+	'rate', 'refusalRate', 'preludeRate', 'skipRate', REFUSAL_DECKS,
+]);
 
-if (mode === '--bless') {
-	fs.mkdirSync(path.dirname(BASELINE), { recursive: true });
-	fs.writeFileSync(
-		BASELINE,
-		`${JSON.stringify({ decks: r.decks, slides: r.slides, matched: r.matched, preludes: r.preludes, positions: r.positions, rate: r.rate }, null, 2)}\n`,
+/** The fields a baseline is missing — empty means it can actually gate something. */
+export function missingBaselineFields(base) {
+	return BASELINE_FIELDS.filter((k) => base?.[k] === undefined);
+}
+
+/**
+ * The baseline contract, as a list of failures — empty means green. Exported so the committed test
+ * and the CLI enforce ONE reading of it rather than two that agree by inspection (HARD RULE #1).
+ *
+ * `base[k] !== undefined` keeps an OLDER baseline comparable rather than failing on a field it
+ * predates — but a missing field is also un-checked, so re-bless after adding one.
+ */
+export function compareToBaseline(base, r) {
+	const fail = [];
+
+	// THE ACCOUNTING IDENTITY, checked on the CURRENT run and needing no baseline at all: every
+	// measured slide either got a supplied deck position or was counted as a refusal. This is the
+	// one thing with no tolerance, because a slide falling out of the accounting is not a drift —
+	// it is the measurement lying about its own denominator.
+	if (r.positions + r.refusals !== r.slides) {
+		fail.push(`positions (${r.positions}) + refusals (${r.refusals}) != slides (${r.slides}) — a measured slide fell out of the accounting.`);
+	}
+
+	// COUNTS: growth is a corpus edit, shrinkage is the flattering direction. Only shrinkage fails.
+	for (const k of ['decks', 'slides']) {
+		if (base[k] !== undefined && r[k] < base[k]) {
+			fail.push(`${k}: baseline ${base[k]}, now ${r[k]} — the corpus SHRANK. Decks leaving the sweep raise the rate; re-bless only with a reason.`);
+		}
+	}
+
+	// RATIOS: the rate gets a band because it genuinely drifts; the rest are ratchets.
+	if (base.rate !== undefined) {
+		const delta = +(r.rate - base.rate).toFixed(1);
+		if (delta < -BAND) fail.push(`rate: baseline ${base.rate}%, now ${r.rate}% — dropped more than ${BAND} points. Re-bless only with a reason.`);
+	}
+	for (const [k, meaning] of Object.entries(RATCHETS)) {
+		if (base[k] === undefined) continue;
+		if (r[k] > base[k] + RATCHET) fail.push(`${k}: baseline ${base[k]}%, now ${r[k]}% — ${meaning}.`);
+	}
+	for (const [k, { rise, fall }] of Object.entries(TWO_SIDED)) {
+		if (base[k] === undefined) continue;
+		if (r[k] > base[k] + RATCHET) fail.push(`${k}: baseline ${base[k]}%, now ${r[k]}% — ${rise}.`);
+		// THE FALL SIDE IS PROPORTIONAL, and it has to be. Reusing `RATCHET` here made the clause
+		// inert on exactly the mechanism it guards: `preludeRate` is 0.6%, so `now < 0.6 - 1.0`
+		// asks for a NEGATIVE percentage, and the synthesizer returning '' for every slide — 0.6%
+		// to 0% — sailed through a band written to catch it. A tolerance wider than the value it
+		// measures is not a tolerance. Half the baseline scales with whatever the number is, and
+		// the explicit zero arm names the case that matters most: the mechanism stopped running.
+		if (base[k] > 0 && (r[k] === 0 || r[k] < base[k] * 0.5)) {
+			fail.push(`${k}: baseline ${base[k]}%, now ${r[k]}% — ${fall}.`);
+		}
+	}
+
+	// The refusal deck SET, exactly. See REFUSAL_DECKS above: the rate band cannot say WHICH decks
+	// the sweep is blind on, and a deck silently leaving this set is the fail-closed guard
+	// un-refusing — the mutation that used to pass while the rate went up.
+	if (base[REFUSAL_DECKS] !== undefined) {
+		const was = [...base[REFUSAL_DECKS]].sort().join(', ');
+		const now = [...r.refusalsByDeck.keys()].sort().join(', ');
+		if (was !== now) {
+			fail.push(`${REFUSAL_DECKS}: baseline [${was}], now [${now}] — the set of decks the position guard refuses changed. A deck LEAVING it means the guard stopped refusing there; one joining means a new blind spot.`);
+		}
+	}
+	return fail;
+}
+
+/**
+ * The CLI half. Guarded so importing this module (the committed test does) measures nothing and
+ * prints nothing — the sweep is 2s of engine renders, and a module that runs it on import cannot be
+ * imported twice for the price of once.
+ */
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+	const r = measure();
+	const mode = process.argv[2] || process.argv.find((a) => a.startsWith('--'));
+
+	console.log(`\nslice/deck equivalence: ${r.matched}/${r.slides} slides (${r.rate}%)`);
+	console.log(`slides given a NON-EMPTY prelude: ${r.preludes} (${r.preludeRate}%)${r.preludes === 0 ? '  — the prelude prototype is UNEXERCISED by this corpus' : ''}`);
+	// The count of slides the SHIPPED repair actually ran on. Printed beside the prelude count, and
+	// blessed beside it, because it is the number that makes the rate mean something: at 0 this tool is
+	// measuring the pre-#1272 engine no matter how healthy the percentage looks. That was literally the
+	// case until this line existed.
+	console.log(`slides given a SUPPLIED deck position: ${r.positions}${r.positions === 0 ? '  — nothing here exercises the shipped repair' : ''}`);
+	// THE REFUSALS, named and attributed. The shortfall between `positions` and `slides` is not noise
+	// and it is not a bug: it is the fail-closed guard declining on decks whose slide index cannot be
+	// trusted, which is exactly where a confidently-wrong page number would hide. Listing the decks
+	// turns "8 slides short" into something a reader can go and look at.
+	console.log(
+		`slides where the position guard REFUSED: ${r.refusals} (${r.refusalRate}%)${r.refusals ? `  — ${[...r.refusalsByDeck].map(([d, n]) => `${d} x${n}`).join(', ')}` : ''}`,
 	);
-	console.log(`\nblessed → ${path.relative(ROOT, BASELINE)}`);
-} else if (mode === '--check') {
-	if (!fs.existsSync(BASELINE)) {
-		console.error('\nno baseline — run `npm run equiv:bless`');
-		process.exit(1);
+	// The active neutralizer set, printed for the same reason the counts above are: it is an ASSERTION
+	// ABOUT WHAT CANNOT BE REPAIRED YET, and nothing pins it to reality. It is now down to one —
+	// `pagination` and `rail` left it when the sweep started supplying the position that fixes them,
+	// the generated-id counters left it when they became slide-scoped, and `whitespace` left it in
+	// 2026-08-31 on the measurement that it was hiding nothing. What is left is `ids`, the positional
+	// `id="N"` on the section itself, which a supplied position does NOT repair.
+	console.log(`ignoring (no shipped repair): ${Object.keys(RESIDUAL_NEUTRALIZERS).join(', ')}`);
+	console.log(
+		`decks measured: ${r.decks}${r.skipped.length ? `  ·  skipped ${r.skipped.length} (${r.skipRate}%): ${r.skipped.join(', ')}` : ''}\n`,
+	);
+	console.log('residual by cause:');
+	for (const [c, n] of [...r.byCause].sort((a, b) => b[1] - a[1])) console.log(`  ${String(n).padStart(4)}  ${c}`);
+	console.log('\nresidual by deck (top 8):');
+	for (const [d, n] of [...r.byDeck].sort((a, b) => b[1] - a[1]).slice(0, 8)) console.log(`  ${String(n).padStart(4)}  ${d}`);
+
+	if (mode === '--bless') {
+		fs.mkdirSync(path.dirname(BASELINE), { recursive: true });
+		fs.writeFileSync(BASELINE, `${JSON.stringify(baselineOf(r), null, 2)}\n`);
+		console.log(`\nblessed → ${path.relative(ROOT, BASELINE)}`);
+	} else if (mode === '--check') {
+		if (!fs.existsSync(BASELINE)) {
+			console.error('\nno baseline — run `npm run equiv:bless`');
+			process.exit(1);
+		}
+		const base = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
+		console.log(`\nbaseline ${base.rate}%  ->  now ${r.rate}%  (${r.rate - base.rate >= 0 ? '+' : ''}${+(r.rate - base.rate).toFixed(1)})`);
+		console.log(`refusal rate ${base.refusalRate ?? '?'}% -> ${r.refusalRate}%  ·  prelude ${base.preludeRate ?? '?'}% -> ${r.preludeRate}%  ·  skipped ${base.skipRate ?? '?'}% -> ${r.skipRate}%`);
+		const failures = compareToBaseline(base, r);
+		if (failures.length) {
+			for (const f of failures) console.error(`FAIL — ${f}`);
+			process.exit(1);
+		}
+		console.log('within contract.');
 	}
-	const base = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
-	const delta = +(r.rate - base.rate).toFixed(1);
-	console.log(`\nbaseline ${base.rate}%  ->  now ${r.rate}%  (${delta >= 0 ? '+' : ''}${delta})`);
-	// THE DENOMINATOR IS PART OF THE CLAIM. Comparing the rate alone let three things through
-	// silently: a deck dropping out of the measurement (which makes the rate go UP, because the
-	// skipped decks are the badly-matching ones), the corpus growing or shrinking, and the prelude
-	// count going 0 → 1201 (the synthesizer over-firing). `positions` joins them: it is the count of
-	// slides the shipped repair ran on, so a change that stops the repair firing is caught by NAME
-	// here as well as by the rate collapse below. Only `rate` gets a band, because only `rate` is
-	// expected to drift.
-	//
-	// `base[k] !== undefined` keeps an OLDER baseline comparable rather than failing on a field it
-	// predates — but a missing field is also un-checked, so re-bless after adding one.
-	const exact = ['decks', 'slides', 'preludes', 'positions'].filter((k) => base[k] !== undefined && base[k] !== r[k]);
-	if (exact.length) {
-		for (const k of exact) console.error(`FAIL — ${k}: baseline ${base[k]}, now ${r[k]}. The measurement changed shape, so the rate is not comparable.`);
-		process.exit(1);
-	}
-	if (delta < -BAND) {
-		console.error(`FAIL — dropped more than ${BAND} points. Re-bless only with a reason.`);
-		process.exit(1);
-	}
-	console.log('within band.');
 }

@@ -722,6 +722,53 @@ describe('markdown-it-plugins', () => {
     assert.match(moved, /style="--logo-scale:2;--theme: indaco;"/, 'logo vars prepend onto the engine\'s own style');
   });
 
+  // ── `logo-on: title` under a SLICE render ──────────────────────────────
+  // `logo-on: title` selects the deck's first slide. Until the deck offset was passed in, this
+  // function had only the document in front of it to decide firstness with — right for a whole-deck
+  // render, wrong for every slice, because a slice IS its own document's first section. So the
+  // Studio preview painted the deck logo on slide 7 and the export did not. It was 25 of the
+  // slice-equivalence sweep's 27 unattributed residuals (#1442) — a real defect that had been
+  // sitting inside a bucket named `unclassified`.
+
+  test('applyDeckLogoToHtml: `logo-on: title` on a whole-deck render still selects the first slide', () => {
+    const html = [
+      '<section id="1" class="title"></section>',
+      '<section id="2"></section>',
+    ].join('');
+    const md = '---\nlogo: ./acme.svg\nlogo-on: title\n---\n';
+    // No offset supplied — a whole-deck render, and the reading is unchanged.
+    assert.equal((plugins.applyDeckLogoToHtml(html, md).match(/class="deck-logo/g) || []).length, 1);
+    // An explicit 0 is the same statement said out loud, and must not change it.
+    assert.equal((plugins.applyDeckLogoToHtml(html, md, 0).match(/class="deck-logo/g) || []).length, 1);
+  });
+
+  test('applyDeckLogoToHtml: `logo-on: title` paints NOTHING on a slice taken from past the deck start', () => {
+    // The section below is the document's first and the DECK's eighth. Firstness has to come from
+    // the supplied offset, or a slice of any non-title slide shows a mark the deck does not carry.
+    const html = '<section id="1"><p>body</p></section>';
+    const md = '---\nlogo: ./acme.svg\nlogo-on: title\n---\n';
+    assert.match(plugins.applyDeckLogoToHtml(html, md), /class="deck-logo/, 'with no offset it is read as the deck start');
+    assert.doesNotMatch(plugins.applyDeckLogoToHtml(html, md, 7), /class="deck-logo/, 'slide 8 of the deck is not the title slide');
+    // And the placement custom properties go with it — they are what made the residual show up as a
+    // `style` difference rather than only as stray markup.
+    assert.doesNotMatch(plugins.applyDeckLogoToHtml(html, '---\nlogo: ./a.svg\nlogo-on: title\nlogo-scale: 2\n---\n', 7), /--logo-scale/);
+  });
+
+  test('applyDeckLogoToHtml: a slice of a `.title` slide still gets the logo, wherever it sits', () => {
+    // The offset narrows FIRSTNESS, not the `title` class. A deck whose title slide is not slide 1
+    // (a cover after a legal notice, say) must still paint there when that slide is sliced.
+    const html = '<section id="1" class="title"><h1>Cover</h1></section>';
+    const md = '---\nlogo: ./acme.svg\nlogo-on: title\n---\n';
+    assert.match(plugins.applyDeckLogoToHtml(html, md, 3), /class="deck-logo/);
+  });
+
+  test('applyDeckLogoToHtml: an offset never narrows `logo-on: all`', () => {
+    // `all` does not consult firstness at all, so a slice must look exactly like its deck row.
+    const html = '<section id="1"><p>body</p></section>';
+    const md = '---\nlogo: ./acme.svg\n---\n';
+    assert.equal(plugins.applyDeckLogoToHtml(html, md, 9), plugins.applyDeckLogoToHtml(html, md));
+  });
+
   test('applyDeckLogoToHtml: idempotent — a section that already carries the logo is left alone', () => {
     // The runtime's DOM mirror re-injects on every transform pass and skips a section
     // that already has one; the HTML pass has to converge the same way, or a document
