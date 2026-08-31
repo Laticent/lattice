@@ -192,7 +192,7 @@ worth a per-surface *precedence contract*; §7 lists what would settle it.
 
 ## 5. Axis 2 — what decides who wins — **DECIDED: pinned source order, one kernel**
 
-Three mechanisms were considered.
+This note weighs three mechanisms.
 
 **Cascade layers** are the textbook answer and are **off the table**. HARD RULE #26 holds
 the engine bundle to all-or-nothing layering while export-to-Marp ships marp-core's

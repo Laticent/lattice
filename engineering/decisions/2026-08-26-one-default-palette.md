@@ -106,8 +106,8 @@ would write.
 
 So **no committed PDF changes.** The first estimate came from a sloppy glob
 (`design/forms.md` prefix-matching `design/forms.gallery.pdf`) plus the assumption that a
-deck with no `theme:` is rendered without a palette. Both were checkable in under a minute
-and neither was checked before the number was said out loud.
+deck with no `theme:` is rendered without a palette. I could have checked either in under a minute. I checked neither before saying the
+number out loud.
 
 ### The pins now say they are pins
 
