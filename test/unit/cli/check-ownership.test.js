@@ -3012,11 +3012,19 @@ describe('check-ownership: checkE2ESleeps (#1575)', () => {
       assert.ok(s.why && s.why.length > 20, `${s.file} ${s.ms}ms needs a real justification`);
       assert.ok(typeof s.count === 'number' && s.count > 0, `${s.file} ${s.ms}ms needs a count`);
     }
-    // The seeding is honest about what nobody has examined — that ambiguity is the thing
-    // this gate exists to remove, so it must be visible rather than implied by silence.
-    assert.ok(
-      SANCTIONED_E2E_SLEEPS.some((s) => s.why.startsWith('UNJUDGED')),
-      'inherited-but-unexamined sleeps must be labeled, not quietly blessed',
+    // This USED to assert the opposite — that at least one entry still says UNJUDGED —
+    // because the list was SEEDED with the sweep's backlog and the honest thing was to
+    // make "nobody has examined this" visible rather than implied by silence. #1526
+    // finished that backlog: all 21 inherited entries are now judgments, six of them by
+    // deleting the sleep. Kept as an assertion rather than deleted, inverted to a ratchet
+    // at zero, because the ambiguity it guards against is still the point — an UNJUDGED
+    // entry is a sleep nobody has looked at, and parking one is what let 21 of them sit
+    // for months. A new sleep gets judged when it lands.
+    assert.deepEqual(
+      SANCTIONED_E2E_SLEEPS.filter((s) => s.why.startsWith('UNJUDGED')).map((s) => `${s.file} @ ${s.ms}`),
+      [],
+      'an UNJUDGED entry is a sleep nobody has examined — judge it, or replace it with the '
+      + 'signal it is waiting for (#1526)',
     );
   });
 });

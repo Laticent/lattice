@@ -5123,32 +5123,110 @@ const SANCTIONED_E2E_SLEEPS = [
   // Seeded when this gate landed so the tree is honest about what nobody has examined.
   // Each is a claim only that the sleep EXISTS, never that it is correct. Replacing one
   // with a named signal, or judging it and rewriting this `why`, is the work.
-  { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 160, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
-  { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 180, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
-  { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 400, count: 2, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
+  {
+    file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 160, count: 1,
+    why: 'JUDGED KEEP (#1526). The step interval of a hand-rolled STEPPED scroll that samples the '
+       + 'marker state as it goes - a sampler\'s tick, not a settle before an assertion. The file\'s '
+       + 'own header explains why this loop is stepped rather than flicked: a stepped scroll hands '
+       + 'the IntersectionObserver a clean idle window per step, which is what this test wants and '
+       + 'the sibling flick test deliberately does not.',
+  },
+  {
+    file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 180, count: 1,
+    why: 'JUDGED KEEP (#1526). Same shape as the 160ms above - the tick of the stepped scroll that '
+       + 'samples `liveFrames` across the SEARCH results, taking the peak. Polling would defeat '
+       + 'it: the value being sampled is the quantity under test, so a matcher that waits for it '
+       + 'to satisfy the ceiling can only ever confirm its own premise.',
+  },
+  {
+    file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 400, count: 2,
+    why: 'JUDGED KEEP (#1526). Between flick-scroll traversals, to let the preview recycler drain '
+       + 'before the next pass starts. There is nothing honest to poll: the only observable is the '
+       + 'live-frame count, and that is the quantity the test measures - waiting for it to reach a '
+       + 'value would manufacture the result. Deliberately short, and outside the measured window.',
+  },
   // Was `docs/e2e/gallery-preview-budget.spec.ts` @ 600ms until #1654 lifted that spec's
   // local `openGallery` into the shared `openAddSlide` fixture helper (the launcher rename
   // made an open-coded `getByRole` ambiguous, so every caller had to route through one
   // opener). Same wait, same mobile drawer route, new file — MOVED, NOT JUDGED. The gate
   // caught the move as an unsanctioned wait plus a stale entry, which is exactly its job.
-  { file: 'docs/e2e/studio-fixture.ts', ms: 600, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575), moved from gallery-preview-budget.spec.ts in #1654. Never counted by #1526.' },
-  { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 1200, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
-  { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 2500, count: 2, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
-  { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 4000, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
-  { file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 4500, count: 2, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
-  { file: 'docs/e2e/present-guide.spec.ts', ms: 120, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
-  { file: 'docs/e2e/present-guide.spec.ts', ms: 5000, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
-  { file: 'docs/e2e/preview-nav.spec.ts', ms: 400, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). Never counted by #1526.' },
-  { file: 'docs/e2e/pwa.spec.ts', ms: 600, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
-  { file: 'docs/e2e/reader-alarms.spec.ts', ms: 3000, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
-  { file: 'docs/e2e/reader-alarms.spec.ts', ms: 4500, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
+  {
+    file: 'docs/e2e/studio-fixture.ts', ms: 600, count: 1,
+    why: 'JUDGED KEEP (#1526). The mobile drawer\'s mount, between opening the Markdown-source '
+       + 'panel and pressing the control inside it. Playwright\'s actionability check is NOT the '
+       + 'condition here: it waits for visible + stable + enabled, all of which a React island '
+       + 'satisfies BEFORE hydration attaches its handler, so a click can land on a real button '
+       + 'and do nothing. Replacing this needs a hydration signal the shell does not currently '
+       + 'expose; until it does, the wait is the honest instrument. Blast radius is every '
+       + '@crosswidth spec that opens the gallery on a phone, which is why it is not worth '
+       + 'guessing at.',
+  },
+  {
+    file: 'docs/e2e/gallery-preview-budget.spec.ts', ms: 2500, count: 1,
+    why: 'JUDGED KEEP (#1526). A PLATEAU read, which is an absence assertion wearing a number: the '
+       + 'claim the fix makes is that the live-preview count STOPS CLIMBING, so the test stops '
+       + 'driving the grid, waits, and reads the steady state. Polling cannot ask that - '
+       + '`expect.poll(...).toBeLessThanOrEqual(CEILING)` is satisfied by the first sample and '
+       + 'never sees a count still on its way up. The pair\'s other half, after the Present click, '
+       + 'WAS pollable and is now `expect(dialog).toBeVisible()`.',
+  },
+  {
+    file: 'docs/e2e/present-guide.spec.ts', ms: 120, count: 1,
+    why: 'JUDGED KEEP (#1526). The tick of a hand-rolled sampling loop that collects DISTINCT '
+       + 'cursor positions over time - the assertion is that the Guide cursor came to rest on two '
+       + 'different places, which is a property of a sequence, not of a state. An auto-retrying '
+       + 'matcher reads one state and cannot accumulate.',
+  },
+  {
+    file: 'docs/e2e/present-guide.spec.ts', ms: 5000, count: 1,
+    why: 'JUDGED KEEP (#1526). An ABSENCE held deliberately across a known timer: having hidden '
+       + 'the Guide cursor, the test asserts the REAL pointer was not also taken away, and holds '
+       + 'past the idle timer that would otherwise hide it. The test\'s own comment states the '
+       + 'intent - \'so this cannot pass by simply being sampled too early\' - which is exactly what '
+       + 'a poll would reintroduce.',
+  },
+  {
+    file: 'docs/e2e/preview-nav.spec.ts', ms: 400, count: 1,
+    why: 'JUDGED KEEP (#1526). After a viewport resize, where TWO outcomes are correct and which '
+       + 'one a project gets depends on whether the new geometry crosses a layout branch - the '
+       + 'slide stays zoomed, or the holder remounts and zoom resets to fit. There is no single '
+       + 'condition to poll for, and polling for either one turns a deliberate both-are-valid '
+       + 'assertion into a race the test would silently pick a winner in.',
+  },
+  {
+    file: 'docs/e2e/pwa.spec.ts', ms: 600, count: 1,
+    why: 'JUDGED KEEP (#1526). An ABSENCE: after fetching a cached immutable asset, the assertion '
+       + 'is that the server saw NO new hit, and the wait is there to give a wrongly-fired '
+       + 'revalidation time to land and be counted. A poll goes green on its first tick, before '
+       + 'the request it is meant to catch could have reached the server - it would assert the '
+       + 'opposite of what it reads.',
+  },
+  {
+    file: 'docs/e2e/reader-alarms.spec.ts', ms: 3000, count: 1,
+    why: 'JUDGED KEEP (#1526). ONE shared settle for a DEBOUNCED watcher across every frame on the '
+       + 'page, after deliberately injecting illegible type into each. The per-frame alternative '
+       + 'is what the comment rules out on budget grounds, and the sibling assertions this control '
+       + 'protects are `toBe(0)` absences - so the value being waited on is \'the watcher has had '
+       + 'its chance and stayed quiet\', which cannot be polled. The FONT-gated wait that used to '
+       + 'sit beside it was a different shape and is now `markersSettled`.',
+  },
+  {
+    file: 'docs/e2e/marker-chrome.ts', ms: 'stepMs', count: 1,
+    why: 'JUDGED KEEP (#1526) — a POLL INTERVAL, and the one this sweep added. `markersSettled` '
+       + 'is the shared replacement for the fixed 4500ms wait three specs used to carry before a '
+       + 'font-gated marker read; this is the step of its bounded '
+       + 'read-until-two-consecutive-reads-agree loop (40 tries), the same shape as '
+       + 'studio-header-fit\'s SETTLE_STEP_MS below. Removing the waits it replaced is what '
+       + 'earns this one: three fixed bets on a loaded box became one bounded poll on the actual '
+       + 'signal.',
+  },
   {
     file: 'docs/e2e/studio-header-fit.spec.ts', ms: 'SETTLE_STEP_MS', count: 1,
-    why: 'UNJUDGED — inherited at gate introduction (#1575), and INVISIBLE to every count '
-       + 'before it: the argument is a constant, not a literal, so #1526\'s census and this '
-       + 'gate\'s own first regex both missed it. Shape is a bounded read-until-two-identical '
-       + 'poll (SETTLE_TRIES = 40), so it is probably a poll interval rather than a settle — '
-       + 'but nobody has judged it.',
+    why: 'JUDGED KEEP (#1526), and the entry it replaces guessed right. It is the step of a '
+       + 'bounded read-until-two-consecutive-reads-agree poll (`readHeaderSettled`, SETTLE_TRIES = '
+       + '40) - a poll INTERVAL, which this list has never counted as a settle. Its invisibility '
+       + 'to every earlier census is a property of the argument being a named constant, not of the '
+       + 'wait.',
   },
   {
     file: 'docs/e2e/studio-jargon-alignment.spec.ts', ms: 50, count: 1,
@@ -5162,12 +5240,38 @@ const SANCTIONED_E2E_SLEEPS = [
     why: 'JUDGED KEEP (#1523). Same class as the 50ms above — "no change" is the pass, which a '
        + 'poll cannot distinguish from "not yet changed".',
   },
-  { file: 'docs/e2e/studio-preview-perf.spec.ts', ms: 500, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
-  { file: 'docs/e2e/studio-preview-perf.spec.ts', ms: 700, count: 2, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
-  { file: 'docs/e2e/studio-preview-perf.spec.ts', ms: 800, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
-  { file: 'docs/e2e/webpage-export.spec.ts', ms: 500, count: 1, why: 'UNJUDGED — inherited at gate introduction (#1575). On #1526 backlog.' },
+  {
+    file: 'docs/e2e/studio-preview-perf.spec.ts', ms: 500, count: 1,
+    why: 'JUDGED KEEP (#1526). QUIESCENCE BEFORE A COUNTER IS ZEROED. This harness measures '
+       + 'preview renders per interaction under 4x CPU throttling; `reset(page)` zeroes the '
+       + 'counters on the next line, so any render still in flight from the caret positioning '
+       + 'would be attributed to the typing run and inflate the sample. The obvious poll - waiting '
+       + 'for the render counter to hold still - reads the very instrument being calibrated.',
+  },
+  {
+    file: 'docs/e2e/studio-preview-perf.spec.ts', ms: 700, count: 2,
+    why: 'JUDGED KEEP (#1526). The PACING of the measurement itself, twice: once per rail click '
+       + 'across the navigation run, once per keystroke across the typing run. The interval is '
+       + 'part of what is being measured - renders per interaction at a realistic cadence under 4x '
+       + 'CPU throttling - so replacing it with a condition changes the number the harness reports '
+       + 'rather than making it arrive sooner.',
+  },
+  {
+    file: 'docs/e2e/studio-preview-perf.spec.ts', ms: 800, count: 1,
+    why: 'JUDGED KEEP (#1526). Same class as the 500ms above - settling after showing the last '
+       + 'slide, before the caret is seated and the counters are zeroed. The comment beside it '
+       + 'records what an uncontrolled caret costs: the run reads as zero renders, which looks '
+       + 'like a finding rather than a broken harness.',
+  },
   // Arrived from main while this PR was open — the ratchet caught them, which is the point.
-  { file: 'docs/e2e/math-compare-webkit.spec.ts', ms: 400, count: 1, why: 'UNJUDGED — landed in #1561 after this gate was written; the gate flagged it on rebase.' },
+  {
+    file: 'docs/e2e/math-compare-webkit.spec.ts', ms: 400, count: 1,
+    why: 'JUDGED KEEP (#1526). A MEASUREMENT WINDOW after a signal that has ALREADY been awaited - '
+       + '`document.fonts.ready` is on the line above. The ghost this spec hunts is a column- '
+       + 'BALANCE artifact that moves with text metrics, so it can appear on the re-layout that '
+       + 'follows the font swap rather than on the swap itself. Same shape as the playground- '
+       + 'first-paint entries, and judged the same way.',
+  },
   {
     file: 'docs/e2e/playground-first-paint.spec.ts', ms: 1500, count: 7,
     why: 'MEASUREMENT WINDOW (#1589/#1588/#1590), not a settle. Every one of these follows a '
@@ -5180,7 +5284,14 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'catching the defect they were written for. Three were inherited from #1581 and were '
        + 'UNJUDGED; they are judged now and the four added here are the same shape.',
   },
-  { file: 'docs/e2e/present-chunk-hr.spec.ts', ms: 1500, count: 1, why: 'UNJUDGED — landed after this gate was written; the gate flagged it on rebase.' },
+  {
+    file: 'docs/e2e/present-chunk-hr.spec.ts', ms: 1500, count: 1,
+    why: 'JUDGED KEEP (#1526). The loop covers two slides and the invariant is that a frame holds '
+       + 'ONE section - on slide 1 that is the REFUSAL path, where the correct behavior is that '
+       + 'the second section never paints. `expect.poll(...).toBe(1)` is satisfied the instant the '
+       + 'first section lands and would never observe a second arriving after it, which is the '
+       + 'exact defect this test was written for.',
+  },
   {
     file: 'docs/e2e/site-chrome-first-paint.spec.ts', ms: 1500, count: 1,
     why: 'MEASUREMENT WINDOW (#1592), not a settle. Hydration itself is polled — Astro removes '
