@@ -284,6 +284,21 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// which is where the panel actually sits. 18rem is the same idiom the status
 	// breakdown below already uses, at the width the measurement asks for.
 	const shareLabel = cn(docked ? 'hidden @[18rem]:inline' : 'inline');
+	// AND THE ARMED DELETE'S WORD, for the same width and a sharper reason.
+	//
+	// `DeleteBtn` swaps its icon-only button for a wider "Sure?", which at the panel's
+	// 240px minimum pushed the row 21-23px past the card. The first fix hid Share while
+	// armed to free the width, and that was WORSE than the clip: the confirm then grew
+	// onto the coordinates Share had occupied one frame earlier, so a mis-click on Delete
+	// followed by a click where Share had just been DELETED THE ASSET. Measured — the
+	// element at Share's former centre was the confirm, and one click removed the record
+	// and its version history.
+	//
+	// So nothing moves now. Below 18rem the confirm keeps the idle button's box and drops
+	// only its word, which means the row never reflows, no safe control is displaced, and
+	// the width problem is gone rather than relocated. The state still reads as armed:
+	// the button turns red and its accessible name changes to "Confirm delete <name>".
+	const confirmLabel = cn(docked ? 'hidden @[18rem]:inline' : 'inline');
 
 	// A card's metadata line: the facts, then the way into this asset's earlier versions.
 	//
@@ -631,8 +646,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 												    the ONLY way back into a saved theme — Fabricate had no seed at all,
 												    so a theme could be made and never reopened. */}
 												{onEditTheme && <button type="button" onClick={() => { onEditTheme(t); onOpenChange(false); }} aria-label={`Edit ${t.label}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
-												{armed !== k && <button type="button" disabled={!!busy} onClick={() => shareTheme(t)} aria-label={`Share ${t.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" /><span className={shareLabel}>Share</span></button>}
-												<DeleteBtn armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeTheme(t); }} onCancel={() => setArmed(null)} label={t.label} />
+												<button type="button" disabled={!!busy} onClick={() => shareTheme(t)} aria-label={`Share ${t.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" /><span className={shareLabel}>Share</span></button>
+												<DeleteBtn labelClass={confirmLabel} armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeTheme(t); }} onCancel={() => setArmed(null)} label={t.label} />
 											</div>
 										</div>
 									</div>
@@ -653,8 +668,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 												    the same way whichever kind you are looking at. Four controls is what
 												    the theme card already ships at 390px; this is the fourth, not a fifth. */}
 												{onEditComponent && <button type="button" onClick={() => { onEditComponent(c); onOpenChange(false); }} aria-label={`Edit .${c.name}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
-												{armed !== k && <button type="button" disabled={!!busy} onClick={() => shareComponent(c)} aria-label={`Share .${c.name}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" /><span className={shareLabel}>Share</span></button>}
-												<DeleteBtn armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeComponent(c); }} onCancel={() => setArmed(null)} label={`.${c.name}`} />
+												<button type="button" disabled={!!busy} onClick={() => shareComponent(c)} aria-label={`Share .${c.name}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" /><span className={shareLabel}>Share</span></button>
+												<DeleteBtn labelClass={confirmLabel} armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeComponent(c); }} onCancel={() => setArmed(null)} label={`.${c.name}`} />
 											</div>
 										</div>
 									</div>
@@ -676,8 +691,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 											<div className="mt-2.5 flex items-center gap-1.5">
 												<button type="button" onClick={() => { onApplyFinish(f.name); notify(`Applied ${f.label}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Check className="size-3.5" />Apply</button>
 												{onEditFinish && <button type="button" onClick={() => { onEditFinish(f); onOpenChange(false); }} aria-label={`Edit ${f.label}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
-												{armed !== k && <button type="button" disabled={!!busy} onClick={() => shareFinish(f)} aria-label={`Share ${f.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" /><span className={shareLabel}>Share</span></button>}
-												<DeleteBtn armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeFinish(f); }} onCancel={() => setArmed(null)} label={f.label} />
+												<button type="button" disabled={!!busy} onClick={() => shareFinish(f)} aria-label={`Share ${f.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" /><span className={shareLabel}>Share</span></button>
+												<DeleteBtn labelClass={confirmLabel} armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeFinish(f); }} onCancel={() => setArmed(null)} label={f.label} />
 											</div>
 										</div>
 									</div>
@@ -692,7 +707,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 										<div className="mt-1 truncate font-mono text-[10.5px] text-muted-foreground">{d.docKind === 'pdf' ? 'pdf' : 'text'} · {formatBytes(d.bytes)} · added {fmtDate(d.addedAt)}</div>
 										<div className="mt-2.5 flex items-center gap-1.5">
 											<button type="button" onClick={() => downloadDoc(d)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card py-1.5 text-[11.5px] font-semibold text-foreground"><Download className="size-3.5" />Download</button>
-											<DeleteBtn armed={armed === `refdoc:${d.id}`} onArm={() => setArmed(`refdoc:${d.id}`)} onConfirm={() => { setArmed(null); removeDoc(d); }} onCancel={() => setArmed(null)} label={d.name} />
+											<DeleteBtn labelClass={confirmLabel} armed={armed === `refdoc:${d.id}`} onArm={() => setArmed(`refdoc:${d.id}`)} onConfirm={() => { setArmed(null); removeDoc(d); }} onCancel={() => setArmed(null)} label={d.name} />
 										</div>
 									</div>
 								</div>
@@ -766,7 +781,13 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 // inactivity (matching StudioShell's RailOp slide-toolbar delete) or a
 // pointerdown anywhere outside this button, captured at the document level so
 // another component's stopPropagation can't swallow it first.
-export function DeleteBtn({ armed, onArm, onConfirm, onCancel, label }: { armed: boolean; onArm: () => void; onConfirm: () => void; onCancel: () => void; label: string }) {
+export function DeleteBtn({ armed, onArm, onConfirm, onCancel, label, labelClass }: { armed: boolean; onArm: () => void; onConfirm: () => void; onCancel: () => void; label: string;
+	/** Classes for the armed button's "Sure?" word. Defaults to always-visible.
+	 *
+	 *  It is a PROP rather than a container query baked in here because this button is
+	 *  shared — `WorkspaceSheet` renders it outside any size container, where a bare
+	 *  `@[…]` would never match and would leave the confirm permanently wordless. */
+	labelClass?: string }) {
 	const ref = React.useRef<HTMLButtonElement>(null);
 	React.useEffect(() => {
 		if (!armed) return;
@@ -781,7 +802,7 @@ export function DeleteBtn({ armed, onArm, onConfirm, onCancel, label }: { armed:
 		};
 	}, [armed, onCancel]);
 	return armed ? (
-		<button ref={ref} type="button" onClick={onConfirm} aria-label={`Confirm delete ${label}`} className="flex items-center gap-1 rounded-lg border border-[color-mix(in_srgb,var(--fail,#c0392b)_40%,transparent)] bg-[color-mix(in_srgb,var(--fail,#c0392b)_12%,transparent)] px-2 py-1.5 text-[11px] font-semibold text-[var(--fail,#c0392b)]"><Trash2 className="size-3.5" />Sure?</button>
+		<button ref={ref} type="button" onClick={onConfirm} aria-label={`Confirm delete ${label}`} className="flex items-center gap-1 rounded-lg border border-[color-mix(in_srgb,var(--fail,#c0392b)_40%,transparent)] bg-[color-mix(in_srgb,var(--fail,#c0392b)_12%,transparent)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--fail,#c0392b)]"><Trash2 className="size-3.5" /><span className={labelClass}>Sure?</span></button>
 	) : (
 		<button type="button" onClick={onArm} aria-label={`Delete ${label}`} className="grid place-items-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-muted-foreground hover:text-[var(--fail,#c0392b)]"><Trash2 className="size-3.5" /></button>
 	);

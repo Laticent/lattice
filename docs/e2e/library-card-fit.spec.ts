@@ -181,3 +181,47 @@ test('@smoke an ARMED delete row still fits, without squashing the primary actio
 		await expect(page.getByRole('button', { name: `Delete ${kind}` })).toBeVisible({ timeout: 6000 });
 	}
 });
+
+// ARMING A DELETE MUST NOT MOVE ANY OTHER CONTROL.
+//
+// The first fix for the armed-row overflow hid Share to free the width, and that was worse
+// than the overflow it cured: the confirm then expanded onto the coordinates Share had
+// occupied one frame earlier, so a mis-click on Delete followed by a click where Share had
+// just been DELETED THE ASSET — measured, one click, record and version history gone.
+//
+// This asserts the property that makes that impossible: every sibling control keeps its
+// box across the idle→armed swap. It is stated as geometry rather than as "Share is still
+// rendered", because re-rendering Share somewhere else would satisfy the weaker claim and
+// reintroduce the hazard.
+test('@smoke arming a delete moves no other control', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await seedOneOfEach(page);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.getByRole('button', { name: CHROME.library }).click();
+	await dragLibraryTo(page, 'min');
+
+	for (const kind of KINDS) {
+		const boxesOf = () =>
+			page.getByRole('button', { name: `Delete ${kind}` }).or(page.getByRole('button', { name: `Confirm delete ${kind}` }))
+				.evaluate((el) => {
+					const row = el.parentElement as HTMLElement;
+					return [...row.children].map((c) => {
+						const r = c.getBoundingClientRect();
+						return `${(c as HTMLElement).getAttribute('aria-label') || (c.textContent || '').trim()}@${Math.round(r.x)}x${Math.round(r.width)}`;
+					});
+				});
+
+		const before = await boxesOf();
+		await page.getByRole('button', { name: `Delete ${kind}` }).click();
+		const after = await boxesOf();
+
+		// Every control except the delete itself must be byte-identical in position+width.
+		expect(after.slice(0, -1), `arming ${kind}'s delete moved a sibling control:\n  before ${before.slice(0, -1)}\n  after  ${after.slice(0, -1)}`).toEqual(before.slice(0, -1));
+		// …and the delete button itself must not have grown into where a sibling was.
+		const w = (s: string) => Number(s.split('x').pop());
+		expect(w(after[after.length - 1]), `${kind}'s confirm grew from ${before.at(-1)} to ${after.at(-1)} — it can only do that over a neighbour`).toBeLessThanOrEqual(w(before[before.length - 1]));
+
+		await expect(page.getByRole('button', { name: `Delete ${kind}` })).toBeVisible({ timeout: 6000 });
+	}
+});

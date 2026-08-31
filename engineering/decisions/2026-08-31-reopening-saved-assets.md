@@ -348,3 +348,46 @@ assumed — each was driven against the built site:
   payload aimed at `mark.glyph`, the one unclamped field.
 - **`VERSION_CAP` exhaustion: held** — 20, enforced per `assetId` inside the same
   transaction, and no-op saves manufacture no versions.
+
+### Round four, and the point at which the loop stops
+
+A narrow checker over the red team's three fixes found two more, and the second is the
+sharpest lesson in this record because it is a fix that was **worse than the defect it
+cured**.
+
+**Hiding Share while a delete is armed created a one-click destructive path.** With Share
+unmounted, the confirm expanded onto the coordinates Share had occupied one frame earlier —
+so a mis-click on Delete followed by a click where Share had just been *deleted the asset*,
+along with its version history. Measured: the element at Share's former centre was the
+confirm, and one click removed the record. Trading a 23px clip for a destructive
+mis-click is not a trade, and the shape of the error is general: **freeing space by removing
+a control moves a destructive target under a safe one's coordinates.**
+
+The fix is to stop the confirm growing instead of making room for it: below `18rem` it keeps
+the idle button's box and drops only its word. Nothing reflows, so nothing can be displaced.
+`library-card-fit.spec.ts` now asserts that as geometry — every sibling keeps its exact
+box across the idle→armed swap — rather than asserting "Share is still rendered", which a
+re-render elsewhere would satisfy while reintroducing the hazard.
+
+**And the collision guard was over-scoped from the start.** Two dead ends came out of it in
+consecutive rounds — first "you cannot save the same asset twice", then, after a
+`lastSavedId` patch, "you cannot rename back to a name you used earlier in this session" —
+and both had one root: *the guard fired on saves that cannot produce the state it guards
+against.* `putAsset` writes a duplicate only on the id path; without an id it resolves
+`(kind, name)` onto the record already holding that name and updates it. So the guard now
+applies only when a reopened record is pinned. That deleted a state variable and both dead
+ends together, and it is smaller than what it replaced — the sign that the earlier versions
+were patching symptoms.
+
+**Four rounds, ten confirmed defects, nine of them introduced by this change.** Round 4 also
+found the theme faculty still pinning after a fresh save (pre-existing, and fixed here since
+it sits in the same function as the note condemning it) and confirmed the disabled-Save
+tooltip reaches a pointer only — keyboard and screen-reader users still get no explanation,
+which the changelog now says rather than implying it was solved.
+
+The discovery rate did not fall across the four rounds (6, 3, 3, 2). HARD RULE #25 caps
+refine loops at about three for exactly this reason, and the honest reading is not "one more
+round would finish it" but that **this subsystem — the interaction of id-pinning, name
+guards and save semantics — has a defect density that four rounds have not exhausted.** That
+belongs in the merge decision as a property of the change, not as a queue of items to keep
+fixing quietly. The loop stops here; what is left goes to the human.

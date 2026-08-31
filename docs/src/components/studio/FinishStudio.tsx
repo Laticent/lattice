@@ -96,9 +96,6 @@ export function FinishStudio({
 	// reopen-then-rename is a CREATE and every deck saying `finish: <old name>` keeps
 	// pointing at the untouched original.
 	const [editingId, setEditingId] = React.useState<string | null>(null);
-	// The record this faculty most recently WROTE — see `Fabricate`'s twin. Only the
-	// collision guard reads it; it never reaches the store.
-	const [lastSavedId, setLastSavedId] = React.useState<string | null>(null);
 	const [mode, setMode] = React.useState<'light' | 'dark'>('light');
 	// "Export preview" — show the OPAQUE export face the PDF/PPTX bakes, not just the
 	// rich on-screen face, so the designer sees the flatter look before they ship it.
@@ -196,10 +193,9 @@ export function FinishStudio({
 	// records land on `ledger-custom`. Same hole on a FRESH save, where it silently
 	// overwrote the existing `ledger-custom` instead of refusing.
 	const savedSlug = safeSaveSlug(name);
-	// `lastSavedId` is excluded for the same reason as the component guard's twin: without
-	// it, saving a finish and then saving it again is refused, because the shelf now holds
-	// the record this faculty just wrote. See the long note in `Fabricate`.
-	const finishTakenBy = savedFinishes.find((f) => f.name === savedSlug && f.id !== editingId && f.id !== lastSavedId);
+	// Fires only when id-pinned — see the long note on `compNameTakenBy` in `Fabricate`.
+	// A save without an id cannot create a duplicate; `putAsset` dedupes it by name.
+	const finishTakenBy = editingId ? savedFinishes.find((f) => f.name === savedSlug && f.id !== editingId) : undefined;
 	// What Save and Export would actually WRITE — the slug form, not the preview form.
 	// Two generators would be two things to keep in step, so the view reads the same
 	// `generateFinishCss` those two call, with the same argument they pass.
@@ -280,7 +276,6 @@ export function FinishStudio({
 				{ ...(editingId ? { id: editingId } : {}), name: slug, label: name.trim(), css, recipe },
 				{ historyLabel: 'Before edit' },
 			);
-			setLastSavedId(f.id);
 			// NOT `setEditingId(f.id)` — see the twin note in `Fabricate`'s component save.
 			// Pinning here made the faculty a permanent editor of the first finish it
 			// saved, so designing a second one and naming it renamed the first out of

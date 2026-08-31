@@ -366,11 +366,6 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 	// FORKED the record — leaving the original in the shelf and every deck saying
 	// `_class: <old name>` pointing at it.
 	const [compEditingId, setCompEditingId] = React.useState<string | null>(null);
-	// The record this faculty most recently WROTE, as distinct from the one it is editing.
-	// It exists only to keep `compNameTakenBy` from refusing a re-save of the asset just
-	// created — see that guard's note. Never sent to the store, so it cannot make a save
-	// land on the wrong record the way `compEditingId` would.
-	const [compLastSavedId, setCompLastSavedId] = React.useState<string | null>(null);
 
 	// Derive the full token map from the ten picked essentials, then layer any
 	// per-side contract overrides — REAL, every render. The live specimen uses a
@@ -654,27 +649,22 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 	// name (`savedThemes.find(t => t.name === palette)`), leaving the older card
 	// listed but unreachable. Refuse rather than silently make one of them a ghost.
 	const nameTakenBy = savedThemes.find((t) => t.name === themeName && t.id !== editingId);
-	// The component tab's twin. It only became reachable when components became
-	// reopenable — before that the save had no id, so a name collision resolved to an
-	// overwrite rather than to two records sharing a name. Now that Save is id-pinned,
-	// a component can be renamed ONTO another one's name, and `_class: <name>` in a
-	// deck resolves by name, so the older record would still be listed and never again
-	// invokable. Refuse, exactly as the theme branch does.
+	// The component tab's twin — AND IT ONLY FIRES WHEN THIS FACULTY IS ID-PINNED, which
+	// is the whole of the reasoning it took three review rounds to get right.
 	//
-	// `compLastSavedId` IS EXCLUDED, AND WITHOUT IT THIS GUARD LOCKS THE FACULTY. Not
-	// pinning the id on a fresh save (so a second asset cannot rename the first out of
-	// existence) and refusing a taken name are each right on their own, and together they
-	// close the door on the most ordinary loop there is: save `alpha`, keep tuning, save
-	// again. The second save has no id, so `putAsset` would resolve `(kind, 'alpha')` to
-	// the record just written — an update — but this guard sees a shelf entry named
-	// `alpha` and disables Save permanently. Measured: dead after one save, with the only
-	// escapes being a rename (which forks) or leaving the faculty (which loses the edit).
+	// `putAsset` creates a duplicate only on the id path: given an id it writes blind,
+	// so a REOPENED record renamed onto another's name lands as a second live record
+	// under one name, and `_class: <name>` in a deck then resolves to whichever sorts
+	// newest, leaving the other listed and never again invokable. That is worth refusing.
 	//
-	// Excluding the record THIS faculty just created restores the intended contract,
-	// which the note on the save below states: same name overwrites, new name creates. A
-	// rename onto a DIFFERENT record's name is still refused, because that record is
-	// neither the one being edited nor the one just saved.
-	const compNameTakenBy = savedComponents.find((c) => c.name === compName && c.id !== compEditingId && c.id !== compLastSavedId);
+	// Without an id there is no such hazard: `putAsset` resolves `(kind, name)`, so a
+	// same-name save is an UPDATE of the record already holding it, snapshotted to
+	// history first. Refusing that was over-reach, and it cost two dead ends — first
+	// "you cannot save the same asset twice", then, after a `lastSavedId` patch, "you
+	// cannot rename back to a name you used earlier in this session", whose only escape
+	// discarded the author's unsaved edit. Both had the same root: guarding a path that
+	// cannot produce the state being guarded against.
+	const compNameTakenBy = compEditingId ? savedComponents.find((c) => c.name === compName && c.id !== compEditingId) : undefined;
 	const canSave = !saving && (tab === 'theme' ? themeNameOk && !!derived.css && !nameTakenBy : compOk && compNameOk && !compNameTakenBy);
 	/**
 	 * WHY SAVE IS DEAD ON A REOPENED IMPORT, said on the button rather than left to be
@@ -731,7 +721,13 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 					name: themeName, label: titleize(themeName), essentials, css,
 					...(handEdited ? {} : { overrides, rampStrategy }),
 				}, { historyLabel: 'Before edit' });
-				setEditingId(t.id);
+				// NOT pinned on a fresh save, for the reason the component branch below
+				// spells out: pinning here made the faculty a permanent editor of the first
+				// theme it saved, so naming a SECOND theme renamed the first out of
+				// existence. Measured on this branch: two saves, one record. Pre-existing
+				// (it predates #1839) but in the same function as the fix and contradicted
+				// by its own note, so it is corrected here rather than walked past (#18).
+				if (editingId) setEditingId(t.id);
 				setHandDirty(false);
 				notify(`Saved “${t.label}” to your theme library — pick it from Look.`);
 			} else {
@@ -756,9 +752,6 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 				// which record they mean. Created here, the next save resolves by
 				// `(kind, name)` — same name overwrites, new name creates — which is what
 				// someone making variants expects and what this faculty did before the pin.
-				// `compLastSavedId` is what keeps the collision guard from refusing that
-				// "same name overwrites" half; it is never handed to the store.
-				setCompLastSavedId(c.id);
 				notify(`Saved “.${c.name}” to your component library.`);
 			}
 			onSaved?.();

@@ -206,3 +206,37 @@ test('@smoke a finish can be saved, edited and saved again', async ({ page }) =>
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await expect(page.getByRole('button', { name: 'Edit Twice Wash' })).toHaveCount(1);
 });
+
+// ── 5. Renaming BACK to a name used earlier in the session ───────────────────────────
+//
+// The case a `lastSavedId` patch did not cover, and the reason the guard is now scoped to
+// the id-pinned path instead. Save `alpha`, rename to `beta`, save, rename BACK to
+// `alpha`, save. `putAsset` resolves `(kind, 'alpha')` onto the original and updates it —
+// there is no duplicate to prevent — but a guard that fires on every save refused it, and
+// the only escape (leaving to reopen from the Library) discards the unsaved draft.
+test('@smoke a component can be renamed back to a name used earlier in the session', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await openFabricate(page, 'Component');
+	await draftComponent(page, 'roundtrip-card');
+	await save(page);
+	await expect(page.getByText(/Saved .*roundtrip-card/)).toBeVisible();
+
+	await draftComponent(page, 'roundtrip-other');
+	await save(page);
+	await expect(page.getByText(/Saved .*roundtrip-other/)).toBeVisible();
+
+	// …and back. This must be an update of the first record, not a refusal.
+	await draftComponent(page, 'roundtrip-card');
+	await expect(
+		page.getByRole('button', { name: 'Save', exact: true }),
+		'renaming back to a name this session already used must not be refused — the save has no id, so it updates that record',
+	).toBeEnabled();
+	await save(page);
+	await expect(page.getByText(/Saved .*roundtrip-card/).last()).toBeVisible();
+
+	await page.getByRole('button', { name: /Back to Compose/ }).click();
+	await page.getByRole('button', { name: CHROME.library }).click();
+	await expect(page.getByRole('button', { name: 'Edit .roundtrip-card' })).toHaveCount(1);
+	await expect(page.getByRole('button', { name: 'Edit .roundtrip-other' })).toHaveCount(1);
+});

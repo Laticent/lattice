@@ -52,17 +52,25 @@
   A `.zip` bundle carries no `function`/`form`/`substance`/`description`, so a reopened
   import cannot be saved until those are filled in. The button now names the missing fields
   instead of leaving four red findings to be decoded.
-- **Fixed: a component or finish could not be saved twice.** Not pinning the record's id
-  on a fresh save and refusing a name another record holds are each right on their own,
-  and together they closed the door on the plainest loop there is — save, keep tuning,
-  save again. The second save matched the record the first had just created and Save went
-  permanently dead, leaving only a rename (which forked) or leaving the faculty (which
-  lost the edit). The guard now ignores the record the faculty itself just wrote.
-- **Fixed: the reason a disabled Save is disabled was unreachable.** The tooltip's trigger
-  was the button, and a disabled button carries `pointer-events: none`, so none of the
-  three explanations — name taken, finish name taken, imported without its manifest —
-  could ever open. The trigger is now the wrapper.
+- **Fixed: a saved asset could not be saved twice, or renamed back to a name used earlier
+  in the session.** The name-collision guard fired on every save, including ones that
+  carry no record id — and those cannot produce the state it guards against, because
+  `putAsset` resolves them by name onto the record already holding it. So the plainest
+  loop there was (save, keep tuning, save again) died after one save, and the only escape
+  discarded the author's unsaved draft. The guard now applies only when a reopened record
+  is pinned, which is the one path that can write a duplicate.
+- **Fixed: the reason a disabled Save is disabled was unreachable by pointer.** The
+  tooltip's trigger was the button, and a disabled button carries `pointer-events: none`,
+  so none of the three explanations — name taken, finish name taken, imported without its
+  manifest — could ever open. The trigger is now a wrapping span. **Keyboard and screen
+  reader still get nothing**: neither the span nor the disabled button is focusable, so
+  Radix's focus path stays dead and the description is attached to the span rather than
+  the button. That gap is real and is not closed here.
 - **Fixed: arming a card's Delete pushed its row out of the card.** The confirm state swaps
   the icon-only button for a wider "Sure?", which overflowed by 21–23px at the docked
-  panel's minimum. Share now steps aside while a delete is armed, so the row fits without
-  squashing the primary action.
+  panel's minimum. Below `18rem` the confirm now keeps the idle button's box and drops only
+  its word, so the row never reflows and no other control moves.
+- **Fixed: making two themes in a row destroyed the first.** The theme faculty pinned the
+  record it had just saved, so naming a second theme renamed the first out of existence.
+  Pre-existing — it predates this change — but in the same function as the component fix
+  and contradicted by that fix's own note.
