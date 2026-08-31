@@ -184,6 +184,70 @@ the bootstrap, and the whole thing stays under ~4k tokens. An index pointing at 
 missing file is worse than no index, because the reader spends a fetch to learn
 nothing.
 
+## 3c. The kit knew WHICH component, and nothing about whether the deck was good
+
+The bootstrap fixed *reach* — an agent could get one component for ~3.2k tokens
+instead of ~111k. It did not fix *content*. The owner's verdict on the result was
+that everything had been "shoved in there and not thoughtfully", and the audit
+that followed found the kit answered one question well and three not at all:
+
+| Question | Where the answer lives | Was it in the kit? |
+|---|---|---|
+| Is this deck any good? | `lib/authoring/deck-canon.js` — `DECK_CANON`, ~925 tokens + **18 named traps with fixes** | **No** |
+| How do I create a theme / component / finish from scratch? | `design/skills/` — 7 files, already written to stand alone | **No** |
+| How do I do motion? | **nowhere** — Anima has 4 decision records and no skill | **Does not exist** |
+
+**`DECK_CANON` is the sharpest of the three.** The Studio chat sends it on every
+single turn; it is the difference between an agent that picks the right layout and
+one that writes a deck worth showing. The previous round's checker caught that the
+kit's primer claim overstated what shipped, and the fix corrected the *sentence*
+rather than closing the *gap* — the canon still was not in the kit. Correcting a
+claim is not the same as shipping the thing the claim was about.
+
+### What shipped
+
+Four task folders, each a question a person has rather than a file-type bucket:
+
+```
+BOOTSTRAP.md   route by task, every path costed in tokens
+authoring/     deck-canon.md · rules.md · primer.md
+components/    _index.md + one file per component
+skills/        the seven design/skills, verbatim
+reference/     the machine catalogs + studio-prompts.md
+```
+
+**All four product canons ship, on the owner's call.** The recommendation was
+`DECK_CANON` alone, because the other three are generator prompts whose ground the
+matching skill covers better; the owner chose all four for completeness. They ship
+with an explicit precedence note — *when a prompt and a skill disagree, the skill is
+the safer bet* — because `2026-07-19-skills-fabricate-authoring-truth.md` measured
+these exact prompts drifting from the shared canon in two confirmed places while the
+skills had been recertified against it. Shipping both without saying which wins
+would invite a reader to follow the drifted one. A test pins that sentence.
+
+**The skills are the one hand-written thing in the kit**, so their copy is pinned
+byte-for-byte against `design/skills/`. Everything else is derived from a generator
+and cannot drift; these could.
+
+**`FINISH_SYSTEM` costs a bundle.** It is computed from the live finish catalog
+inside a TypeScript module, so it cannot be `require`d — the generator extracts it
+with esbuild (~0.3s, measured). It fails loudly rather than degrading: a canon
+silently missing from the kit is the exact defect this section is about.
+
+**The path filter gained `design/skills/**` and `architect.ts`.** Without them,
+editing a skill or the finish prompt would not have republished the kit — the same
+shape of miss as the "fonts" gap the previous round found.
+
+### Not done, and deliberately
+
+**There is no motion/Anima skill**, and this change does not invent one. Anima has
+four decision records, a player bundle and two shipped examples, but no
+`design/skills/` file — so the gap is in the repo's own canon, not just in the kit.
+Writing it from decision records inside a PR whose other 95% is mechanical is how a
+plausible-and-wrong skill gets shipped in the most authoritative-looking place: a
+house-spine file that reads exactly like the seven written properly. It is its own
+piece of work, against the real implementation, with a checker.
+
 ## 4. The cost of one branch instead of two, and the trap it opens
 
 Consolidating moves the Marp kit from the branch **root** into `marp/`. Its

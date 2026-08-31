@@ -96,6 +96,12 @@ on:
       - 'docs/src/lib/studio-catalog.mjs'
       - 'docs/src/components/studio/ai/architect-knowledge.js'
       - 'tools/build-agent-kit.mjs'
+      # The kit ships design/skills/ VERBATIM and carries all four product canons.
+      # DECK_CANON (lib/authoring), THEME_CANON (lib/theme) and COMPONENT_CANON
+      # (lib/layout) ride on lib/** above; these two do not, and without them
+      # editing a skill or the finish prompt would not republish the kit.
+      - 'design/skills/**'
+      - 'docs/src/components/studio/architect.ts'
       # The branch-root staging files, and the publisher itself.
       - 'tools/kit-branch/**'
       - '.github/workflows/publish-kits.yml'
