@@ -103,7 +103,7 @@ the ladder exists for:
 | Finding | What it actually was |
 |---|---|
 | **The finish faculty had no name-collision guard** | The theme and component faculties refuse a rename onto another record's name; the finish one did not — and the id pin is what made that reachable. Measured: two live `navy` records, one slug. Worse than untidy: the shell resolves the active finish by name and takes the newest, while `finishExtraCss` concatenates BOTH `section.finish.finish-navy` rules with the older one last, so the Inspector shows one recipe and the preview renders the other. The changelog fragment claimed collisions were refused; it was wrong. |
-| **A fresh AI generate after a reopen would overwrite the reopened record** | The component branch replaces the name outright on a bare generate and nothing cleared `compEditingId`, so an unrelated generated component saved over the record you had opened. Before the id pin the same save created a second record — a hazard the pin introduced and had to close. Theme and finish avoid it only by accident, because both keep an existing name. |
+| **A fresh AI generate after a reopen would overwrite the reopened record** | The component branch replaces the name outright on a bare generate and nothing cleared `compEditingId`, so an unrelated generated component saved over the record you had opened. Before the id pin the same save created a second record — a hazard the pin introduced and had to close. Theme and finish avoid it only by accident, because both keep an existing name. **Demonstrated, not just reasoned** — see below. |
 | **The Edit button re-introduced the clip this change set out to fix** | See below. |
 | **`@[31rem]` could never fire** | `PANEL_MAX = 420`; the query asked for 496px. Right outcome, unreachable branch, and a comment describing a two-column docked state that cannot occur. |
 | **A finish whose label does not slugify back to its name is renamed by reopen + save** | `{ name: 'corporate-blue', label: 'Corporate Blue v2' }` — a shape the zip import passes through verbatim — reopened and saved as `corporate-blue-v2`. Every deck saying `finish: finish-corporate-blue` stops resolving, silently, with the author having renamed nothing. |
@@ -114,6 +114,37 @@ argued carefully for seeding the label rather than the slug, and was right about
 the direction it considered and silent about the opposite one. A comment that
 reasons about one direction of a round trip is evidence about that direction
 only.
+
+### Mocking the model, so the second finding stopped being an argument
+
+The generate-after-reopen fix shipped first as one line and a paragraph of
+reasoning, because no model is reachable from this sandbox and HARD RULE #24
+bars our `OPEN_ROUTER_KEY` from any per-PR test path. A pre-merge card graded on
+that honestly: `medium`, axis `evidence`.
+
+**#24's own text is what closed it.** The rule keys on our key's NAME, not on the
+endpoint, and it says so explicitly: a Playwright spec that MOCKS the endpoint
+(`page.route`) or drives the Studio on a test key is fine. Both apply —
+`library-reopen-generate.spec.ts` seeds `lattice-db-or-key` with a throwaway
+string (the app's `ready()` is nothing more than a truthiness check on it) and
+fulfills every `openrouter.ai` request locally, so no request leaves the browser
+and no budget is spent.
+
+Two details a future author will otherwise rediscover:
+
+- **Turn dedup off** (`lattice-db-dedup = 'off'`). It fires its own embeddings
+  request before the generate, which the spec has no reason to model.
+- **The mocked draft must be gate-clean, and `tags` is the trap.**
+  `validateManifest` requires a **3–5 item** array; a one-item list leaves Save
+  disabled on `manifest:tags` and the spec never reaches its assertion. Most
+  other fields self-heal through `snapEnum` defaults, which makes this the one
+  that bites.
+
+Mutation-proved, and the mutation is the finding: delete
+`if (!refine) setCompEditingId(null)`, rebuild, and the `.quarter-callout` card
+is **gone** from the Library after the generate is saved — overwritten by
+`pricing-trio` on its id, exactly as the checker predicted. That is the
+difference between a claim and an artifact.
 
 ## The clip the change had to fix on the way
 

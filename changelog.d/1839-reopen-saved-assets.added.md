@@ -19,6 +19,12 @@
   stylesheets, so the Inspector shows one and the slide renders the other. This applies to
   a first save too, not only an edit — previously a fresh component save under an existing
   name silently overwrote that record.
+- **Fixed: generating a new component after reopening a saved one overwrote the reopened
+  record.** A bare generate replaces the whole draft with a different component, and the
+  save is now id-pinned — so with the reopened record's id still held, the new component
+  was written over it and every deck naming the old one rendered unstyled. A generate that
+  is not a refine now stops editing the opened record. (A hazard the id pin introduced
+  rather than one it inherited: before it, the same save merely created a second record.)
 - **Fixed: reopening a finish could silently rename its slug.** The name field holds the
   display label and the slug is derived from it, so a record whose label does not slugify
   back to its stored name — `Corporate Blue v2` stored as `corporate-blue`, which the zip
