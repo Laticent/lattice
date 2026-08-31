@@ -56,7 +56,12 @@ otherwise. A whole-deck render supplies none and is unchanged. Found by the slic
 as 25 of its 27 unattributed residuals (#1442); pinned in
 `test/unit/parsing/markdown-it-plugins.test.js`.
 
-**The repair reaches exactly as far as the position does.** The Studio's slice route asks
+**Which surfaces this reached.** A surface that renders ONE slide alone takes the slice route —
+the slide-overview grid, a deck thumbnail, anything passing `slideMarkdown` to
+`single-slide-render`. The Studio's MAIN preview does not: it renders the whole deck and narrows
+to one section, so firstness there was always the deck's and it never showed the mark.
+
+**The repair reaches exactly as far as the position does.** The slice route asks
 `supplyablePosition`, whose fail-closed guard declines when it cannot prove which slide is
 being shown — a `_focusSteps` deck, a slide count that disagrees with the render, a `---`
 inside an HTML comment. There the engine receives no offset and reads firstness from the

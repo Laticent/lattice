@@ -180,12 +180,22 @@ Stated because a gate's blind spots are the part nobody writes down:
   is true of these 161 decks. The mechanism the retired attribution named — prelude injection
   shifting block adjacency — is still a live mechanism; it just does not bite here. Removing the
   neutralizer also changes what a user's own deck reads in the Preview Fidelity overlay.
-- **UNVERIFIED on its stated surface (HARD RULE #23):** nobody built the docs site and opened the
-  Studio slice preview to watch the logo appear and then not appear. What was verified is the
-  code path (`single-slide-render.ts` supplies `page` → `lib/engine/index.js` → the logo pass),
-  the engine-level behavior, and that whole-deck exported bytes are unchanged (byte-identical
-  render of `examples/finish-backdrops.md` across the commit). That is not the same as driving
-  the browser.
+- **WHICH Studio surface, corrected by actually driving it (HARD RULE #23).** The first write-up
+  of this change said the Studio preview painted the deck logo on every non-title slide. That is
+  **wrong**, and driving the real surface is what found it. The Studio's MAIN slide preview never
+  exhibited the defect: `canDivert` in `single-slide-render.ts` requires the caller to pass
+  `slideMarkdown`, the main preview does not, so `wantsContext` is true and it renders the WHOLE
+  deck and narrows to one section — where firstness was always the deck's. Measured on a local
+  docs build with a `logo-on: title` probe deck, with the repair reverted AND the shipped bundle
+  proven reverted (the minified clause reads `g=!L;` rather than `g=!L&&!d`): slide 1 shows one
+  logo, slides 2 and 3 show none. Identical with the repair. The bundle does carry the repair.
+  The slice route belongs to the callers that DO pass `slideMarkdown` — `SlideOverview` (present
+  mode's slide sorter, `G`) and the `DeckPreview` / `slide-thumb` consumers — and that is where
+  the logo painted. **That arm is UNVERIFIED**: the overview thumbnails never rendered in a
+  headless run (they stayed blank through a 30s wait), so the logo was not observed appearing and
+  then not appearing there. What is verified is the engine behavior, the headless sweep's 25
+  residuals, the route analysis above, and that whole-deck exported bytes are unchanged
+  (byte-identical render of `examples/finish-backdrops.md` across the commit).
 - **The repair reaches exactly as far as the position does.** A deck the fail-closed guard
   declines gets no offset, so `logo-on: title` still paints on its slices. Those decks are the
   tracked `refusals`, so the gap is counted rather than silent — but closing it needs a caller
