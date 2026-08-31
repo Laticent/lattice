@@ -229,6 +229,27 @@ trajectory).
 
 **Categorical cycle** (12 paired slots, each a flipping `light-dark()` tier of ONE hue).
 
+> **Which tier carries the category depends on the canvas, and the two SWAP.** On a light ground
+> `--cat-N-mark` is the saturated tier (chroma max ~0.150 at L ~0.45) and `--cat-N-fill` is the
+> pale wash (~0.056 at L ~0.86). **On a dark ground they trade places** — the fill carries the
+> chroma (~0.243) and the mark becomes the pale tint (~0.053). That is deliberate, for the same
+> reason the `--cat-on-*` inks flip: on a dark ground the pale tier is the one that reads. The
+> consequence for anyone measuring the ramp is that **naming a token measures the wash in one mode
+> and the code in the other** — on `indaco` the fill reads ΔE 0.013 between adjacent slots and the
+> mark reads 0.1549. Derive the tier by chroma, never by name
+> (`engineering/decisions/2026-08-31-categorical-adjacency-tier-swap.md`).
+
+**What the cycle guarantees, and what it does not.** Each slot is guaranteed *against its own
+ground* — the mark clears 3:1 on `--bg`, the label ink clears 4.5:1 on the fill, both gated by
+`checkCatContrast`. **Mutual distinctness between slots is a ratchet, not a floor that is met.**
+`test/unit/palette/cat-adjacency-floor.test.js` holds adjacent slots among the first 6 against
+what `indaco` and `cuoio` already reach (0.1050 saturated, 0.0295 wash) and freezes every palette
+so none erodes — but 75 readings sit below those floors today. Author for **six** categories, not
+twelve: `chart-family` itself cycles at 6 on several consumers, and past ~6 hue distinction
+collapses regardless of palette (Wong 2011). Past that, reach for a palette carrying
+`--cat-N-texture` (`onyx`, `concrete`, the `a11y-*` family) — but note it is an SVG paint server,
+so it reaches diagrams and charts and not a CSS `background`.
+
 - `--cat-1-fill`..`--cat-12-fill` — the leaf/area fill,
   `light-dark(<pale chromatic>, <jewel tone>)`. The canonical
   categorical surface: timeline periods, kanban columns, mindmap
