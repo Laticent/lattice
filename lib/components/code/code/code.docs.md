@@ -20,13 +20,13 @@ Use when the code IS the slide — an API snippet, a config example, a migration
 ### Common mistakes
 
 - **Fence tagged with the wrong language, e.g. ```js on a Python snippet.** Match the fence tag to the actual language exactly. The highlighter keys off the tag alone, not the code's content — a wrong tag mis-highlights every token.
-- **Shebang, import block, or file-header boilerplate left in as padding before the interesting line.** Trim to the lines that carry the point — `whenToUse`/`stressDoc` put the hard wall at twenty lines (code declares no enforced capacity/density budget, so nothing gates this besides legibility). Cut scaffolding with `// ...` rather than spending that budget on it.
+- **Shebang, import block, or file-header boilerplate left in as padding before the interesting line.** Trim to the lines that carry the point — `whenToUse`/`stressDoc` put the hard wall at fourteen lines, MEASURED by rendering fences of increasing length and detecting the clip (438px pane, 28.67px line-height at landscape), not estimated. `code` declares no enforced capacity budget, so nothing gates this besides the clip itself. Cut scaffolding with `// ...` rather than spending the budget on it.
 
 ## When to use
 
 - **The code is the argument.** When a single snippet answers the question on the slide — the shape of an API call, the surface of a config, the body of a migration. Authoring follows the snippet, not the other way around.
 - **Language hint earns the highlight.** Always include the language tag on the fence (```js, ```python, ```sql). The highlighter only triggers when the language is named; without it the slide reads as undifferentiated mono.
-- **Twenty lines or fewer.** Past about twenty lines the type shrinks below boardroom legibility. Trim ruthlessly — keep imports out, elide bodies with `// ...`, and let the rest of the deck carry the surrounding context.
+- **Fourteen lines is the wall.** The pane holds fourteen lines at landscape and the block does not scroll, so a fifteenth is clipped rather than shrunk. Ten reads comfortably from the back row. Trim ruthlessly — keep imports out, elide bodies with `// ...`, and let the rest of the deck carry the surrounding context. (The number follows the type size: `code` reads at `--fs-body-compact`, one role above the deck's chrome. At `--fs-meta` the pane held sixteen. The step is not one ratio — it is +19.7% at landscape, +17.1% at square and +33.1% at portrait/reel, which is why the portrait budgets fall hardest.)
 
 ## When NOT to use
 

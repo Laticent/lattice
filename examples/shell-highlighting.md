@@ -76,8 +76,6 @@ cp my-file.txt "$OUT_DIR"
 
 ## A real script keeps everything stock bash got right, and gains the rest.
 
-`bash · shebang, control flow, substitution`
-
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
@@ -89,6 +87,8 @@ for f in "$OUT_DIR"/*.css; do
   fi
 done
 ```
+
+_Trimmed for the slide; the real script also checks the lockfile._
 
 ---
 
@@ -124,3 +124,18 @@ built 19 slides
   - Their job is the `$` prompt, so a script tagged that way colors almost nothing.
 - The linter catches the mix-up
   - It names both tags and the fix, so nobody guesses why a block looks flat.
+
+---
+
+<!-- _class: code -->
+
+`Universal blocks · One per slide`
+
+## A code slide takes a below-note now.
+
+```bash
+kubectl rollout status deploy/api --timeout=90s
+kubectl logs -l app=api --since=10m | grep -i error
+```
+
+— Note: `--timeout` is the rollout budget, not the request budget.

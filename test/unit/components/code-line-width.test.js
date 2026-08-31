@@ -194,9 +194,10 @@ describe('code-line-clipped — measuring the line as it RENDERS, not as it read
 
 describe('code-line-clipped — when the pane is not the pane the table measured', () => {
   test('a stage-resizing modifier silences the rule rather than judging the wrong box', () => {
-    // MEASURED at wide: bare code 1104px/122 cols, claim-hero and claim-bleed
-    // 1172px/130, compact 1116px/124. Judging these against 122 told the author
-    // that 8 columns were "clipped off the rendered slide" when they were on it —
+    // MEASURED at wide, at `code`'s own `--fs-body-compact` size: bare code
+    // 1104px/102 cols, claim-hero and claim-bleed 1172px/109, compact 1116px/103.
+    // Judging these against 102 told the author that 7 columns were "clipped off
+    // the rendered slide" when they were on it —
     // and examples/claim.md and two galleries ship exactly these combinations.
     for (const mod of ['claim-hero', 'claim-bleed', 'compact']) {
       assert.equal(
@@ -224,14 +225,31 @@ describe('code-line-clipped — the budgets, as the browser resolves them', () =
   // when there is no Chromium — `npm test` must stay render-free.
   const { resolveChrome: chrome } = require('../../../tools/lib/resolve-chrome');
 
-  // One render per box, reused by both assertions below.
+  // EVERY DISTINCT CANVAS, not one per family — the budget table is keyed by
+  // family, but the pane is not the same width at every @size inside one. The
+  // padding tokens are container-relative, so `tall` measures 893.025px at
+  // `portrait` and 883.305px at `reel`. That 9.7px was harmless while `code` read
+  // at `--fs-meta` (both floored to 49) and stopped being harmless when it took
+  // its type step: portrait fits 37, reel fits 36. Measuring `portrait` alone
+  // certified `tall: 37` as "what Chromium actually fits" while a `size: reel`
+  // deck silently shipped its 37th column clipped — the exact defect this file
+  // exists to prevent, hidden by the sampling rather than by the arithmetic.
+  //
+  // Aliases are deduped by canvas (`16:9`/`HD`/`hd` are one box; `story`/`reel`
+  // are one), since identical geometry cannot disagree.
   const BOXES = [
-    { size: undefined, family: 'wide' },
-    { size: 'square', family: 'square' },
-    { size: 'portrait', family: 'tall' },
-    { size: 'mobile', family: 'strip' },
+    { size: undefined, family: 'wide' }, // hd 1280×720, the default
+    { size: '4K', family: 'wide' }, //      3840×2160
+    { size: 'standard', family: 'wide' }, // 960×720
+    { size: 'square', family: 'square' }, // 1080×1080
+    { size: 'portrait', family: 'tall' }, // 1080×1350
+    { size: 'reel', family: 'tall' }, //     1080×1920
+    { size: 'mobile', family: 'strip' }, //  1080×2340
   ];
+  /** family → layout → the TIGHTEST measurement across that family's canvases. */
   const measured = new Map();
+  /** Every canvas measured on its own, so the fold above can itself be checked. */
+  const perCanvas = [];
   let browser;
   const exe = chrome();
 
@@ -242,17 +260,18 @@ describe('code-line-clipped — the budgets, as the browser resolves them', () =
     // A ruler line long enough to overflow every box, in both layouts.
     const ruler = Array.from({ length: 200 }, (_, i) => String((i + 1) % 10)).join('');
     for (const box of BOXES) {
-      const src = path.join(os.tmpdir(), `codewidth-${box.family}-${process.pid}.md`);
+      const tag = `${box.family}-${box.size || 'default'}`;
+      const src = path.join(os.tmpdir(), `codewidth-${tag}-${process.pid}.md`);
       fs.writeFileSync(src, `---\nmarp: true\ntheme: indaco\n${box.size ? `size: ${box.size}\n` : ''}---\n\n`
         + `<!-- _class: compare-code -->\n\n\`L\`\n\n\`\`\`js\n${ruler}\n\`\`\`\n\n\`R\`\n\n\`\`\`js\n${ruler}\n\`\`\`\n\n`
         + `---\n\n<!-- _class: code -->\n\n\`\`\`js\n${ruler}\n\`\`\`\n`);
-      const base = path.join(os.tmpdir(), `codewidth-${box.family}-${process.pid}`);
+      const base = path.join(os.tmpdir(), `codewidth-${tag}-${process.pid}`);
       execFileSync(process.execPath, [path.join(ROOT, 'dist/lattice-emulator.js'), src, `${base}.pdf`, 'indaco', '-q'],
         { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 600000 });
       const page = await browser.newPage();
       await page.setViewport({ width: 1600, height: 1000 });
       await page.goto(`file://${base}.html`, { waitUntil: 'networkidle0', timeout: 120000 });
-      measured.set(box.family, await page.evaluate(() => {
+      const atSize = await page.evaluate(() => {
         const read = (sel) => {
           const sec = document.querySelector(sel);
           if (!sec) return null;
@@ -277,14 +296,28 @@ describe('code-line-clipped — the budgets, as the browser resolves them', () =
           return { fits: Math.floor(content / advance), whiteSpace: ccs.whiteSpace, overflow: cs.overflow };
         };
         return { 'compare-code': read('section.compare-code'), code: read('section.code') };
-      }));
+      });
       await page.close();
+
+      perCanvas.push({ family: box.family, size: box.size || 'hd', at: atSize });
+      // Fold this canvas into its family, keeping the TIGHTEST `fits` per layout.
+      // That is what the budget table has to hold: one number covering every
+      // @size the family serves, and it can only be the smallest without
+      // under-reporting a clip on the narrowest of them.
+      const acc = measured.get(box.family) || {};
+      for (const layout of ['compare-code', 'code']) {
+        const m = atSize[layout];
+        if (!m) continue;
+        const prev = acc[layout];
+        acc[layout] = !prev || m.fits < prev.fits ? { ...m, size: box.size || 'hd' } : prev;
+      }
+      measured.set(box.family, acc);
     }
   });
 
   after(async () => { if (browser) await browser.close(); });
 
-  test('every budget in CODE_LINE_BUDGET is what Chromium actually fits', (t) => {
+  test('every budget in CODE_LINE_BUDGET is what Chromium fits at the family’s TIGHTEST @size', (t) => {
     if (!exe) return t.skip('no Chromium — set CHROME_PATH (the SessionStart hook exports it)');
     for (const [layout, byFamily] of Object.entries(core.CODE_LINE_BUDGET)) {
       for (const [family, budget] of Object.entries(byFamily)) {
@@ -292,8 +325,30 @@ describe('code-line-clipped — the budgets, as the browser resolves them', () =
         assert.ok(m, `no measurement for ${layout}@${family}`);
         assert.equal(
           m.fits, budget,
-          `${layout}@${family}: the table says ${budget} columns, the browser fits ${m.fits}. `
-          + 'Re-measure and update CODE_LINE_BUDGET (and its derivation comment) — do not edit the test to match.',
+          `${layout}@${family}: the table says ${budget} columns, the browser fits ${m.fits} at its `
+          + `narrowest @size (${m.size}). Re-measure EVERY @size in the family and take the smallest `
+          + '— do not edit the test to match.',
+        );
+      }
+    }
+  });
+
+  test('the budget is the family MINIMUM, so no @size in a family is over-reported', (t) => {
+    if (!exe) return t.skip('no Chromium — set CHROME_PATH');
+    // The assertion above compares against the folded minimum, which would still
+    // pass if the fold itself were wrong. This one re-reads the table from the
+    // other direction: for every canvas measured, the budget its family carries
+    // must be one this canvas can actually honor. A budget generous by even one
+    // column on ONE @size is a line that lints clean and exports clipped.
+    for (const { family, size, at } of perCanvas) {
+      for (const layout of ['compare-code', 'code']) {
+        const budget = core.CODE_LINE_BUDGET[layout]?.[family];
+        if (budget == null || !at[layout]) continue;
+        assert.ok(
+          budget <= at[layout].fits,
+          `${layout}@${family}: the table's budget of ${budget} columns exceeds what @size ${size} `
+          + `actually fits (${at[layout].fits}) — a line of ${budget} columns would lint clean and `
+          + 'export clipped on that canvas.',
         );
       }
     }

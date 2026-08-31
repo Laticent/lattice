@@ -231,9 +231,12 @@ shouldn't get card weight.
 **Supported layouts: opt-out, like Key Insight above — but a DIFFERENT set.** A
 layout withholds the note by declaring `coda: { claims: ["trailing-paragraph"] }`:
 the bookends (`title`, `closing`, `divider`), `quote`, `big-number`, `image`,
-`split-panel`, `split-compare`, `diagram`, `stats`, `code`, `math`, the two QR
+`split-panel`, `split-compare`, `diagram`, `stats`, `math`, the two QR
 posters, and every chart-frame layout — which turns its final paragraph into the
-chart caption. Everything else promotes, **including `content`**, which means any
+chart caption. (`code` was on this list until 2026-08-30: its claim protected a
+caption selector that could never match the engine's output, so it cost the note
+and the annotation and bought nothing —
+`engineering/decisions/2026-08-30-code-type-step.md` §3.) Everything else promotes, **including `content`**, which means any
 slide that names no component at all, since that is what an un-classed slide resolves
 to (#1292).
 
@@ -356,10 +359,24 @@ italic span). Glyph: `✦` at `0.95em` in `--accent`. Text: 15px
 caveats, asterisk-style footnotes — content that *frames* the slide
 rather than extending its argument.
 
-**Supported layouts:** same set as Below-Note —
+**Supported layouts: an OPT-IN union, and NOT the same set as Below-Note.** This
+line used to say "same set as Below-Note", which was wrong in the direction that
+matters: Below-Note is **opt-out** (a layout gets it unless it claims its trailing
+paragraph), while Annotation is a hand-enumerated list in
+`lib/base/base.modifiers.css`. A layout can therefore take a below-note and still
+render an italic trailing paragraph as an ordinary note, with no `✦` and no dotted
+rule — which is exactly what `code` did until it was added here (2026-08-30).
+
 `cards-grid`, `cards-stack`, `compare-prose`,
 `compare-table`, `verdict-grid`, `list`, `list-criteria`,
-`list-steps`, `list-tabular`, `timeline`, `principles`, `matrix-2x2`, `decision`, `actors`, `kpi`, `agenda`.
+`list-steps`, `list-tabular`, `timeline`, `principles`, `matrix-2x2`, `decision`,
+`actors`, `kpi`, `agenda`, `code`.
+
+Adding a layout means adding an arm to **all three** unions in
+`base.modifiers.css` — hairline suppression, type/color, and the `✦` mask. Adding
+it to one or two produces a half-styled note rather than a visible failure.
+`code` carries only the `.below-note`-wrapped arms: the raw sibling form keys off
+`:is(ul, ol, blockquote, table) + p`, and a code slide's note trails a `<pre>`.
 
 ### The three trailing-paragraph registers — comparison
 

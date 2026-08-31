@@ -18,8 +18,8 @@ Code — syntax-highlighted source code blocks.
 // The code slide holds ONE idea — a function, not a file.
 function fitsOnASlide(block) {
   const lines = block.split('\n').length;
-  // Twelve lines reads from the back row; twenty is the wall.
-  return lines <= 12 ? 'readable' : lines <= 20 ? 'squinting' : 'split it';
+  // Ten lines reads from the back row; fourteen is the wall.
+  return lines <= 10 ? 'readable' : lines <= 14 ? 'squinting' : 'split it';
 }
 ```
 

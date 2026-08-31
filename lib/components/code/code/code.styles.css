@@ -13,7 +13,6 @@ section.code { }
 section.code > .cell-stage { display:flex; flex-direction:column; }
 section.code h3 { padding-bottom:0.3125cqi; }
 section.code h2 { padding-bottom:var(--sp-xs); }
-section.code > .cell-stage > em { font-size:var(--fs-meta); line-height:var(--lh-snug); color:var(--text-label); padding-bottom:var(--sp-sm); font-style:normal; display:block; }
 /* Longhands so a missing ribbon can't take the code panel's SURFACE with it (#1528). This
  * one is second-order: it reads `--spectrum-structure`, which is engine-declared but is NOT
  * therefore safe. Its DEFAULT value derives from the theme — base.variants.css builds it
@@ -34,7 +33,26 @@ section.code pre {
   background-repeat:no-repeat;
   padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 0.234375cqi); box-sizing:border-box;
 }
-section.code pre > code { font-family:var(--font-mono); font-size:var(--fs-meta); line-height:var(--lh-base); color:var(--code-text); background:none; padding:0; display:block; }
+/* CODE'S OWN TYPE STEP. `code` is the layout whose whole purpose is that the code
+ * IS the slide, so it reads one canonical role ABOVE the chrome scale the rest of
+ * the deck's labels use — `--fs-body-compact` rather than `--fs-meta`. It is a ROLE
+ * token, not a new one: HARD RULE #4's 12-token system is closed and
+ * `checkTypographyTokens` rejects a `--fs-code`.
+ *
+ * THE STEP IS NOT ONE RATIO — the two roles are spaced differently per family, and
+ * the tall boxes move much further than the landscape ones:
+ *   wide            1.17 → 1.40cqi   +19.7%
+ *   square          2.05 → 2.40cqi   +17.1%
+ *   portrait/reel   2.78 → 3.70cqi   +33.1%
+ * That is the arithmetic behind the vertical wall dropping from sixteen lines to
+ * fourteen, and behind the tall column budgets falling by a third while the wide
+ * one falls by a fifth. Anything that quotes a single "~20%" is describing the
+ * landscape box only.
+ * `compare-code` deliberately stays at `--fs-meta` — its panes are half-width and
+ * two shipped gallery slides would newly clip (measured); its own full-width
+ * `compare-code-block` variant already reads at `--fs-body-compact`.
+ * The column budgets this moves are re-derived in lib/authoring/lint-core.js. */
+section.code pre > code { font-family:var(--font-mono); font-size:var(--fs-body-compact); line-height:var(--lh-base); color:var(--code-text); background:none; padding:0; display:block; }
 
 /* At claim-hero/bleed the stage grows tall; a short snippet in a `flex:1` panel
  * then reads as a huge empty box. Size the panel to its content instead (the

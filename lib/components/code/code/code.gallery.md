@@ -24,8 +24,8 @@ Single fenced code block as the slide's centerpiece.
 // The code slide holds ONE idea — a function, not a file.
 function fitsOnASlide(block) {
   const lines = block.split('\n').length;
-  // Twelve lines reads from the back row; twenty is the wall.
-  return lines <= 12 ? 'readable' : lines <= 20 ? 'squinting' : 'split it';
+  // Ten lines reads from the back row; fourteen is the wall.
+  return lines <= 10 ? 'readable' : lines <= 14 ? 'squinting' : 'split it';
 }
 ```
 
@@ -34,26 +34,25 @@ function fitsOnASlide(block) {
 
 <!-- _class: code -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · code — Twenty lines — the wall for one block." -->
+<!-- _footer: "Stress test · code — Fourteen lines — the wall for one block." -->
 
-## Twenty lines is the wall.
+## Fourteen lines is the wall.
 
 ```js
-// A stress block at the ceiling: every line still earns its place.
+// At the ceiling: every line still earns its place.
 function stressTheFrame(lines) {
-  const budget = 20;                      // the hard wall
-  const readable = 12;                    // the comfort line
+  const budget = 14;      // the hard wall
+  const readable = 10;    // the comfort line
   if (lines <= readable) return 'fine';
-  if (lines > budget) return 'split it';  // two slides beat one scroll
-  // Between comfort and the wall, trim ruthlessly:
-  // - drop imports and boilerplate
-  // - elide with ... what the point survives without
-  // - keep the line the talk is about
-  const keep = ['the signature', 'the branch', 'the return'];
+  if (lines > budget) return 'split it';
+  // Between comfort and the wall, trim:
+  //  - drop imports and boilerplate
+  //  - elide with ... what survives
+  //  - keep the line the talk is about
+  const keep = ['signature', 'branch'];
   return keep.join(' + ');
 }
-// The frame does not scroll. The audience does not squint.
-// What does not fit was never the point.
+// The frame does not scroll.
 ```
 
 
@@ -68,8 +67,8 @@ function stressTheFrame(lines) {
 // The code slide holds ONE idea — a function, not a file.
 function fitsOnASlide(block) {
   const lines = block.split('\n').length;
-  // Twelve lines reads from the back row; twenty is the wall.
-  return lines <= 12 ? 'readable' : lines <= 20 ? 'squinting' : 'split it';
+  // Ten lines reads from the back row; fourteen is the wall.
+  return lines <= 10 ? 'readable' : lines <= 14 ? 'squinting' : 'split it';
 }
 ```
 
@@ -85,8 +84,8 @@ function fitsOnASlide(block) {
 // The code slide holds ONE idea — a function, not a file.
 function fitsOnASlide(block) {
   const lines = block.split('\n').length;
-  // Twelve lines reads from the back row; twenty is the wall.
-  return lines <= 12 ? 'readable' : lines <= 20 ? 'squinting' : 'split it';
+  // Ten lines reads from the back row; fourteen is the wall.
+  return lines <= 10 ? 'readable' : lines <= 14 ? 'squinting' : 'split it';
 }
 ```
 
@@ -102,8 +101,8 @@ function fitsOnASlide(block) {
 // The code slide holds ONE idea — a function, not a file.
 function fitsOnASlide(block) {
   const lines = block.split('\n').length;
-  // Twelve lines reads from the back row; twenty is the wall.
-  return lines <= 12 ? 'readable' : lines <= 20 ? 'squinting' : 'split it';
+  // Ten lines reads from the back row; fourteen is the wall.
+  return lines <= 10 ? 'readable' : lines <= 14 ? 'squinting' : 'split it';
 }
 ```
 
