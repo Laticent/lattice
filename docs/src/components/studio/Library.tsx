@@ -244,25 +244,46 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const fKey = (f: StudioFinish) => `finish:${f.id}`;
 	const toggle = (k: string) => setSel((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
 
-	// TWO COLUMNS ON THE PANEL'S OWN WIDTH, not the viewport's.
+	// THE DOCKED PANEL IS ALWAYS ONE COLUMN, and that is arithmetic, not a preference.
 	//
-	// `sm:grid-cols-2` is a VIEWPORT breakpoint, and the docked Library is a ~270px
-	// column that is almost always on a ≥640px screen — so it took two columns of 125px
-	// and every card's action row overflowed its own box by ~110px, hiding Share and
-	// Delete behind the card edge. Measured at 1440 in the docked panel: a 216px row
-	// inside a 105px box, on all three kinds.
+	// It used to take two on `sm:grid-cols-2` — a VIEWPORT breakpoint — while the docked
+	// Library is a 240–420px column that is almost always on a ≥640px screen. So it laid
+	// out two 125px cards and every card's action row overflowed its own box by ~110px,
+	// painting Share and Delete behind the card edge. Measured at 1440 in the docked
+	// panel: a 216px row inside a 105px box, on all three kinds.
 	//
-	// That was ALREADY true of the theme card, which has carried four controls since
-	// #1850. Adding Edit to components and finishes spread the same clip to them, which
-	// is what turned a pre-existing nick into something this change had to fix rather
-	// than note (HARD RULE #18).
+	// A container query replaced it, and the FIRST attempt asked `@[31rem]` — which is
+	// 496px, above the panel's own `PANEL_MAX = 420` drag ceiling. Right outcome (one
+	// column, always) reached by a branch that can never be true, describing a
+	// two-column docked state that cannot occur. Two 236px cards plus the 12px gap need
+	// 484px and the panel tops out at 420, so the honest statement is the one below: no
+	// query, because there is no width at which the answer changes.
 	//
-	// Every other responsive choice in this component already switches on `docked` + a
-	// container query — the Import label at `@[20rem]`, the status breakdown at
-	// `@[18rem]` — and `LibraryFrame` has made the docked column an inline-size
-	// container all along. The card grid was the one that never got the memo. 31rem is
-	// two 236px cards (a 216px action row + the card's 2x10px padding) plus the 12px gap.
-	const cardGrid = cn('grid grid-cols-1 gap-3', docked ? '@[31rem]:grid-cols-2' : 'sm:grid-cols-2');
+	// The Sheet keeps the viewport breakpoint — it really is viewport-wide.
+	const cardGrid = cn('grid grid-cols-1 gap-3', !docked && 'sm:grid-cols-2');
+
+	// …and at the panel's MINIMUM width the four-control row still does not fit, so the
+	// Share label is the width that gives way.
+	//
+	// Measured at `LIB_MIN = 240`: a 216px row in a 185px box — 31px over, on all three
+	// kinds. Hiding this one label puts every card at 0. The fourth control is what
+	// tipped it (the theme card has carried four since #1850; components and finishes
+	// gained a fourth here), so it is this change's to fix rather than note — HARD RULE
+	// #18 counts a break your change TIPS a latent fragility into, not only one it
+	// authors.
+	//
+	// The label goes rather than an icon because it is the only text in the row that
+	// repeats what its icon already says.
+	//
+	// 18rem (288px), not the 20rem the Import button uses, and the number is measured
+	// rather than borrowed: the binding case is the 240px MINIMUM, where the card is
+	// 185px and the row with the label is 216px. The label therefore has to be gone
+	// below roughly a 268px container — and the panel's 380px default resolves to a
+	// ~295px container, where a 216px row fits inside a 263px card with room to spare.
+	// A 20rem threshold cleared the minimum but also hid the label at the DEFAULT width,
+	// which is where the panel actually sits. 18rem is the same idiom the status
+	// breakdown below already uses, at the width the measurement asks for.
+	const shareLabel = cn(docked ? 'hidden @[18rem]:inline' : 'inline');
 
 	// A card's metadata line: the facts, then the way into this asset's earlier versions.
 	//
@@ -610,7 +631,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 												    the ONLY way back into a saved theme — Fabricate had no seed at all,
 												    so a theme could be made and never reopened. */}
 												{onEditTheme && <button type="button" onClick={() => { onEditTheme(t); onOpenChange(false); }} aria-label={`Edit ${t.label}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
-												<button type="button" disabled={!!busy} onClick={() => shareTheme(t)} aria-label={`Share ${t.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" />Share</button>
+												<button type="button" disabled={!!busy} onClick={() => shareTheme(t)} aria-label={`Share ${t.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" /><span className={shareLabel}>Share</span></button>
 												<DeleteBtn armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeTheme(t); }} onCancel={() => setArmed(null)} label={t.label} />
 											</div>
 										</div>
@@ -632,7 +653,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 												    the same way whichever kind you are looking at. Four controls is what
 												    the theme card already ships at 390px; this is the fourth, not a fifth. */}
 												{onEditComponent && <button type="button" onClick={() => { onEditComponent(c); onOpenChange(false); }} aria-label={`Edit .${c.name}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
-												<button type="button" disabled={!!busy} onClick={() => shareComponent(c)} aria-label={`Share .${c.name}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" />Share</button>
+												<button type="button" disabled={!!busy} onClick={() => shareComponent(c)} aria-label={`Share .${c.name}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" /><span className={shareLabel}>Share</span></button>
 												<DeleteBtn armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeComponent(c); }} onCancel={() => setArmed(null)} label={`.${c.name}`} />
 											</div>
 										</div>
@@ -655,7 +676,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 											<div className="mt-2.5 flex items-center gap-1.5">
 												<button type="button" onClick={() => { onApplyFinish(f.name); notify(`Applied ${f.label}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Check className="size-3.5" />Apply</button>
 												{onEditFinish && <button type="button" onClick={() => { onEditFinish(f); onOpenChange(false); }} aria-label={`Edit ${f.label}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
-												<button type="button" disabled={!!busy} onClick={() => shareFinish(f)} aria-label={`Share ${f.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" />Share</button>
+												<button type="button" disabled={!!busy} onClick={() => shareFinish(f)} aria-label={`Share ${f.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" /><span className={shareLabel}>Share</span></button>
 												<DeleteBtn armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeFinish(f); }} onCancel={() => setArmed(null)} label={f.label} />
 											</div>
 										</div>

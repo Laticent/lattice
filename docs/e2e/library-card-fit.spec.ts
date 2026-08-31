@@ -48,6 +48,33 @@ async function seedOneOfEach(page: Parameters<typeof gotoStudio>[0]) {
 	await page.getByRole('button', { name: /Back to Compose/ }).click();
 }
 
+// THE VIEWPORT IS NOT THE WIDTH THAT MATTERS FOR THE DOCKED PANEL, and the first version
+// of this spec only checked viewports. The docked Library is a DRAGGABLE column between
+// `LIB_MIN = 240` and `PANEL_MAX = 420` (StudioShell.tsx), so its cards are narrowest at a
+// width no viewport size can produce — and that is exactly where the four-control row
+// broke: 31px of overflow at the 240px minimum, on all three kinds, invisible to a spec
+// that only resized the window. A spec whose stated invariant is "at every width" has to
+// visit the narrow end of the thing that actually resizes.
+async function dragLibraryTo(page: Parameters<typeof gotoStudio>[0], target: 'min' | 'max'): Promise<number> {
+	// The Library is the leftmost docked panel, so its seam is the first handle in the
+	// spine. `data-slot="resizable-handle"` is what `components/ui/resizable.tsx` stamps.
+	const handle = page.locator('[data-slot="resizable-handle"]').first();
+	const box = await handle.boundingBox();
+	if (!box) throw new Error('no resize handle — the docked Library is not open');
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.down();
+	// Overshoot deliberately: the panel clamps at its own min/max, so aiming past the
+	// stop lands ON the stop without this spec having to know the pixel.
+	await page.mouse.move(target === 'min' ? 0 : 3000, box.y + box.height / 2, { steps: 14 });
+	await page.mouse.up();
+	// Report the width reached, so the test can prove the drag did something. A silent
+	// no-op drag would let this spec "pass" at the default width forever.
+	return await page.evaluate(() => {
+		const el = document.querySelector('[style*="container-type"], .\\[container-type\\:inline-size\\]') as HTMLElement | null;
+		return el?.clientWidth ?? -1;
+	});
+}
+
 test('@smoke every Library card action row fits its card at 1440 / 820 / 390', async ({ page }) => {
 	test.slow(); // three widths, three kinds, seeded through the real Save path
 	await gotoStudio(page);
@@ -79,4 +106,33 @@ test('@smoke every Library card action row fits its card at 1440 / 820 / 390', a
 		}
 		await page.keyboard.press('Escape');
 	}
+});
+
+test('@smoke the docked Library card rows fit at BOTH ends of the panel drag range', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await seedOneOfEach(page);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.getByRole('button', { name: CHROME.library }).click();
+
+	const widths: Record<string, number> = {};
+	for (const end of ['min', 'max'] as const) {
+		widths[end] = await dragLibraryTo(page, end);
+		for (const kind of KINDS) {
+			const del = page.getByRole('button', { name: `Delete ${kind}` });
+			await expect(del, `${kind} should have a card at the ${end} drag width`).toBeVisible();
+			const shape = await del.evaluate((el) => {
+				const row = el.parentElement;
+				return { overflow: row ? row.scrollWidth - row.clientWidth : -1, client: row?.clientWidth ?? -1 };
+			});
+			expect(
+				shape.overflow,
+				`${kind}'s action row overflows its card by ${shape.overflow}px at the ${end} drag width (card ${shape.client}px)`,
+			).toBeLessThanOrEqual(0);
+		}
+	}
+	// The two ends must actually differ, or the loop above measured one width twice and
+	// the "both ends" in this test's name is a lie. `LIB_MIN = 240`, `PANEL_MAX = 420`.
+	expect(widths.max - widths.min, `drag range collapsed: min=${widths.min}px max=${widths.max}px`).toBeGreaterThan(100);
+	expect(widths.min, `min drag width ${widths.min}px should be near LIB_MIN (240)`).toBeLessThan(280);
 });

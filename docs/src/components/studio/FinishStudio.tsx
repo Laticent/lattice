@@ -13,6 +13,7 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { Tip } from '@/components/ui/tooltip';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateFinish, useArchitectStatus } from './architect';
@@ -73,6 +74,7 @@ const specimen = (exporting: boolean) =>
 export function FinishStudio({
 	options,
 	seed,
+	savedFinishes = [],
 	notify,
 	onSaved,
 	onOpenWorkspace,
@@ -80,6 +82,8 @@ export function FinishStudio({
 	options: SingleSlideOptions;
 	/** A saved finish to REOPEN, or null to start from the default recipe. */
 	seed?: StudioFinish | null;
+	/** Every saved finish, for the name-collision guard below. */
+	savedFinishes?: { id: string; name: string }[];
 	notify: (msg: string) => void;
 	onSaved?: () => void;
 	onOpenWorkspace?: () => void;
@@ -123,9 +127,25 @@ export function FinishStudio({
 	 * regenerates the stylesheet from it under the final slug, so unlike a theme
 	 * (whose hand-edited bytes ARE the record) there is nothing else to restore.
 	 *
-	 * `setName(seed.label)`, NOT `seed.name`: this field holds the DISPLAY name and the
-	 * slug is derived from it below. Seeding it with the slug would round-trip a slug
-	 * through `safeFinishSlug` on the next save and quietly re-title the finish.
+	 * THE FIELD HOLDS THE DISPLAY NAME AND THE SLUG IS DERIVED FROM IT, so seeding it is
+	 * a round-trip problem in both directions and the obvious answer is wrong in one of
+	 * them:
+	 *
+	 *  - seed it with `record.name` (the slug) and a save re-titles the finish, turning
+	 *    "Corporate Blue" into "corporate-blue" in every menu that shows the label;
+	 *  - seed it with `record.label` and a save can RENAME THE SLUG, because a label need
+	 *    not slugify back to the name it was stored under. A record imported as
+	 *    `{ name: 'corporate-blue', label: 'Corporate Blue v2' }` — which `Library`'s zip
+	 *    import passes through verbatim — reopens, saves, and becomes
+	 *    `corporate-blue-v2`. Every deck saying `finish: finish-corporate-blue` stops
+	 *    resolving, the regenerated stylesheet follows the new slug, and the author
+	 *    renamed nothing. That is worse than a re-title, because it is silent and it
+	 *    reaches decks.
+	 *
+	 * So: take the label only when it round-trips to the stored slug, and fall back to
+	 * the slug itself when it does not. The rare mismatched record then shows its slug in
+	 * the field — visibly odd, and editable — instead of quietly renaming itself on the
+	 * next save. Save is still id-pinned either way, so the record is never forked.
 	 *
 	 * Keyed on `seed?.id` so re-opening the SAME record does not stomp edits in
 	 * progress — the same rule `Fabricate`'s theme seed effect follows.
@@ -134,7 +154,8 @@ export function FinishStudio({
 	React.useEffect(() => {
 		if (!seed) return;
 		setEditingId(seed.id);
-		setName(seed.label || seed.name);
+		const label = seed.label || seed.name;
+		setName(safeFinishSlug(label) === seed.name ? label : seed.name);
 		setRecipe(coerceRecipe(seed.recipe));
 	}, [seed?.id]);
 
@@ -145,6 +166,17 @@ export function FinishStudio({
 	// the specimen is WYSIWYG straight from it — the backdrop needs no separate injection.
 	const previewCss = React.useMemo(() => generateFinishCss(PREVIEW_SLUG, recipe), [recipe]);
 	const nameOk = !!name.trim() && /^[a-z][a-z0-9-]*$/.test(slug);
+	// A SLUG ALREADY TAKEN BY A DIFFERENT SAVED FINISH. The twin of `Fabricate`'s
+	// `nameTakenBy` / `compNameTakenBy`, and it became REACHABLE with the id-pinned save
+	// above: `putAsset` skips its `(kind, name)` dedupe when an id is given, so renaming
+	// this finish onto another one's slug writes two live records under one name. That is
+	// not cosmetic — `StudioShell` resolves the active finish by name and picks the
+	// newest, while `finishExtraCss` concatenates BOTH `section.finish.finish-<slug>`
+	// rules with the older one last, so the Inspector shows one recipe and the preview
+	// renders the other. The Finish menu also offers two options with the same value, and
+	// a later `restoreAssetVersion` refuses outright (the store keeps `(kind, name)`
+	// unique for exactly this reason). Refuse the save instead.
+	const finishTakenBy = savedFinishes.find((f) => f.name === slug && f.id !== editingId);
 	// What Save and Export would actually WRITE — the slug form, not the preview form.
 	// Two generators would be two things to keep in step, so the view reads the same
 	// `generateFinishCss` those two call, with the same argument they pass.
@@ -210,15 +242,17 @@ export function FinishStudio({
 	};
 
 	const save = async () => {
-		if (!nameOk || saving) return;
+		if (!nameOk || finishTakenBy || saving) return;
 		setSaving(true);
 		try {
 			const css = generateFinishCss(slug, recipe);
-			// `id` is what makes this an UPDATE rather than a second record — see the
-			// note on `editingId`. `historyLabel` only means anything on that branch: a
-			// fresh save has no previous record to snapshot, so the store takes no
-			// version, and naming the edit case is what makes the entry legible in the
-			// "Earlier versions" list later.
+			// `id` is what makes this an UPDATE rather than a second record — see the note
+			// on `editingId`. `historyLabel` names the snapshot the store takes of the
+			// OUTGOING record, so on a first save of a new finish there is nothing to
+			// snapshot and it is unused. It is passed unconditionally rather than only on
+			// the edit branch because a fresh save can still land on an existing record —
+			// `putAsset` resolves a no-id save by `(kind, name)` — and that case is an
+			// overwrite too, which is exactly what the label should say.
 			const f = await saveStudioFinish(
 				{ ...(editingId ? { id: editingId } : {}), name: slug, label: name.trim(), css, recipe },
 				{ historyLabel: 'Before edit' },
@@ -277,7 +311,7 @@ export function FinishStudio({
 				</div>
 				<div className="flex-1" />
 				<Button variant="outline" size="sm" className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={exportCss}><Download className="size-4" /><span className="hidden sm:inline">Export</span></Button>
-				<Button size="sm" disabled={!nameOk || saving} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={save}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button>
+				<Tip label={finishTakenBy ? `“${slug}” is already a saved finish — pick another name.` : ''}><Button size="sm" disabled={!nameOk || !!finishTakenBy || saving} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={save}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button></Tip>
 			</div>
 
 			{/* AI front door — "Describe a finish" (mirrors the Theme tab's command bar). */}

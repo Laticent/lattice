@@ -236,7 +236,7 @@ export type FabricateSeed =
 	| { kind: 'component'; record: StudioComponent }
 	| { kind: 'finish'; record: StudioFinish };
 
-export function Fabricate({ options, catalog = [], seed, savedThemes = [], savedComponents = [], onClose, notify, onSaved, onOpenWorkspace }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: FabricateSeed | null; savedThemes?: { id: string; name: string }[]; savedComponents?: { id: string; name: string }[]; onClose: () => void; notify: (msg: string) => void; onSaved?: () => void; onOpenWorkspace?: () => void }) {
+export function Fabricate({ options, catalog = [], seed, savedThemes = [], savedComponents = [], savedFinishes = [], onClose, notify, onSaved, onOpenWorkspace }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: FabricateSeed | null; savedThemes?: { id: string; name: string }[]; savedComponents?: { id: string; name: string }[]; savedFinishes?: { id: string; name: string }[]; onClose: () => void; notify: (msg: string) => void; onSaved?: () => void; onOpenWorkspace?: () => void }) {
 	const [tab, setTab] = React.useState<'theme' | 'layout' | 'finish' | 'motion'>('theme');
 	// All ten essentials in state, seeded from the first curated starter.
 	const [core, setCore] = React.useState<Record<EssKey, string>>(() => ({ ...(STARTERS[0].essentials as Record<EssKey, string>) }));
@@ -536,6 +536,23 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 				// Snapshot the OUTGOING draft before this result overwrites it, so one click
 				// restores it (a prompt shouldn't be able to silently eat a hand-tuned draft).
 				setCompUndo({ name: compName, description: compDesc, css: compCss, skeleton: compSkeleton, meta: compMeta });
+				// A FRESH GENERATE IS A NEW COMPONENT, SO IT STOPS EDITING THE OPENED ONE.
+				//
+				// `refine` reworks the draft in front of you and stays that record. A bare
+				// generate replaces name, description, CSS, skeleton and manifest with a
+				// wholly different component — and Save is now id-pinned, so leaving
+				// `compEditingId` set would make that unrelated component OVERWRITE the record
+				// you had opened for editing: reopen `.quarter-callout`, ask for a pricing
+				// table, Save, and every deck saying `_class: quarter-callout` renders
+				// unstyled. Before the id pin the same save created a second record, so this
+				// is a hazard the pin introduced and has to close.
+				//
+				// The theme and finish faculties avoid it by accident — both keep the existing
+				// name when one is set (`if (out.name && !name.trim())`), so their generate
+				// lands on the record you opened. The component branch replaces the name
+				// outright, which is the right behavior for a new component and exactly why
+				// the id has to go.
+				if (!refine) setCompEditingId(null);
 				if (!refine) compDoc.clear();
 				setCompName(out.draft.name);
 				setCompDesc(out.draft.description);
@@ -739,9 +756,9 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 			setTab('layout');
 			setCompEditingId(c.id);
 			setCompName(c.name);
-			// The description lives INSIDE the manifest on the record and is hoisted out
-			// by `toStudioComponent`'s `toMeta`; Save re-nests it. Seeding it from `meta`
-			// would put the caption back in the manifest editor as a stray key.
+			// The description is persisted INSIDE the manifest and `toMeta` copies it into
+			// `meta` on the way out, so it arrives in both places. The header field is its
+			// editable home (Save re-nests it at `:meta`), so read it from there.
 			setCompDesc(c.meta?.description ?? '');
 			setCompCss(c.css);
 			setCompSkeleton(c.skeleton);
@@ -857,7 +874,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 					{facultyToggle}
 					<div className="flex-1" />
 				</div>
-				<FinishStudio options={options} seed={seed?.kind === 'finish' ? seed.record : null} notify={notify} onSaved={onSaved} onOpenWorkspace={onOpenWorkspace} />
+				<FinishStudio options={options} seed={seed?.kind === 'finish' ? seed.record : null} savedFinishes={savedFinishes} notify={notify} onSaved={onSaved} onOpenWorkspace={onOpenWorkspace} />
 			</div>
 		);
 	}

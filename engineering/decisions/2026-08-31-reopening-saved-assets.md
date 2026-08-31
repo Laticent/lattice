@@ -93,6 +93,28 @@ and nothing else.
    to restore. A theme's hand-edited bytes ARE the record, which is why its seed
    effect is the complicated one.
 
+## What the independent checker found, and it was most of the value
+
+Maker-checker (HARD RULE #25) ran over the first draft of this change and returned
+six findings, four of them confirmed against the real Studio rather than by
+reading. Three were defects the change itself had introduced, which is the case
+the ladder exists for:
+
+| Finding | What it actually was |
+|---|---|
+| **The finish faculty had no name-collision guard** | The theme and component faculties refuse a rename onto another record's name; the finish one did not — and the id pin is what made that reachable. Measured: two live `navy` records, one slug. Worse than untidy: the shell resolves the active finish by name and takes the newest, while `finishExtraCss` concatenates BOTH `section.finish.finish-navy` rules with the older one last, so the Inspector shows one recipe and the preview renders the other. The changelog fragment claimed collisions were refused; it was wrong. |
+| **A fresh AI generate after a reopen would overwrite the reopened record** | The component branch replaces the name outright on a bare generate and nothing cleared `compEditingId`, so an unrelated generated component saved over the record you had opened. Before the id pin the same save created a second record — a hazard the pin introduced and had to close. Theme and finish avoid it only by accident, because both keep an existing name. |
+| **The Edit button re-introduced the clip this change set out to fix** | See below. |
+| **`@[31rem]` could never fire** | `PANEL_MAX = 420`; the query asked for 496px. Right outcome, unreachable branch, and a comment describing a two-column docked state that cannot occur. |
+| **A finish whose label does not slugify back to its name is renamed by reopen + save** | `{ name: 'corporate-blue', label: 'Corporate Blue v2' }` — a shape the zip import passes through verbatim — reopened and saved as `corporate-blue-v2`. Every deck saying `finish: finish-corporate-blue` stops resolving, silently, with the author having renamed nothing. |
+| **Reopening a zip-imported component is a dead Edit** | The import drops `function`/`form`/`substance` from the manifest, so `validateManifest` fails and Save is disabled with three findings. **Not fixed here** — see "Deliberately not in this change". |
+
+The fifth is the one worth generalizing from: the seed effect's docblock had
+argued carefully for seeding the label rather than the slug, and was right about
+the direction it considered and silent about the opposite one. A comment that
+reasons about one direction of a round trip is evidence about that direction
+only.
+
 ## The clip the change had to fix on the way
 
 The docked Library's card grid was `grid-cols-1 sm:grid-cols-2` — a **viewport**
@@ -102,8 +124,24 @@ row overflowed its own box by **~110px**: Share and Delete rendered, reported
 themselves visible, and sat behind the card's edge.
 
 Measured at 1440 in the docked panel, before: row 216px inside a 105px box, on
-all three kinds. After, switching on the panel's own inline size at `@[31rem]`:
-**0px overflow at 1440 / 820 / 390, on all three kinds.**
+all three kinds.
+
+**The first fix was half of one, and the checker measured the other half.** The
+docked panel is not a fixed column — it is DRAGGABLE between `LIB_MIN = 240` and
+`PANEL_MAX = 420`. Two consequences the first draft missed:
+
+- Two 236px cards plus a 12px gap need 484px, and the panel tops out at 420. So
+  there is no width at which the docked answer is two columns, and the container
+  query asking `@[31rem]` (496px) was a branch that could never be true. It is
+  now simply `grid-cols-1` when docked, which is the honest statement.
+- At the 240px **minimum**, the four-control row still overflowed by **31px**
+  (185px box, 216px row) — and hiding the new Edit control took it to 0 on all
+  three kinds. The fourth control is what tipped it, so it is this change's to
+  fix. The Share label now collapses to its icon below `@[20rem]`, the same
+  threshold and the same idiom the Import button above it already uses.
+
+After: **0px overflow at 1440 / 820 / 390 AND at both ends of the drag range**,
+on all three kinds.
 
 Two things about it are worth recording:
 
@@ -118,6 +156,14 @@ Two things about it are worth recording:
   own card in a real browser, which is the only oracle that exists for this shape
   (HARD RULE #23). It is the same failure mode as the deck pill in #1417: the
   element engineered to absorb the pressure is the one that breaks silently.
+- **A spec that says "at every width" has to visit the width that varies.** The
+  first version of that spec iterated 1440 / 820 / 390 — VIEWPORT sizes — and
+  passed while the invariant it names was false, because the docked panel's own
+  width is set by a drag handle no viewport size can reach. It now drags the
+  panel to both stops and asserts the two ends actually differ, so a silent
+  no-op drag cannot let it pass at the default width forever. Both arms are
+  mutation-proved: restoring the Share label reproduces 31px at a 185px card on
+  the drag arm, and leaves the viewport arm green.
 
 Every other responsive control in that panel already switched on `docked` + a
 container query (the Import label at `@[20rem]`, the status breakdown at
@@ -137,3 +183,16 @@ container all along. The card grid was the one that never got the memo.
 - **Motion scenes.** `scene` is excluded from `VERSIONED_KINDS` and has no Library
   card at all (#1678). Giving one kind Edit before it has a card would ship half a
   set of actions.
+- **A usable Edit on a zip-imported or workspace-restored component.** Confirmed
+  by the checker and left standing, deliberately. `Library`'s import writes
+  `meta: { bucket }` and `workspace-backup` writes no meta at all, so both drop
+  `function` / `form` / `substance`; the reopen path seeds `compMeta` from that
+  record and `validateManifest` then fails Save with three findings. The
+  underlying loss is PRE-EXISTING and off the path of this change (HARD RULE
+  #18's on-path/off-path rule), and the two available fixes are both worse than
+  the gap: back-filling from `STARTER_META` would invent a classification and
+  persist it as if the author had chosen it, and suppressing the gate for
+  imported records would let an under-specified component into the catalog. The
+  findings panel already names the three fields to fill in, so the round trip
+  completes — it just is not one click. Fixing it properly means the IMPORT
+  carrying the manifest, which is where the bytes are lost.
