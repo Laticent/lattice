@@ -83,10 +83,14 @@ and nothing else.
    component rename belongs in the **Library**, where all three can be rewritten
    together, and is why this change does not claim to have delivered rename.
 
-2. **`FinishStudio.name` holds the LABEL, not the slug** (the slug is derived by
-   `safeFinishSlug`). The seed therefore sets `setName(record.label)`. Seeding it
-   with `record.name` would round-trip a slug through the slugifier and quietly
-   re-title the finish on the next save.
+2. **`FinishStudio.name` holds the LABEL, not the slug**, and THERE ARE TWO
+   SLUGGERS. `safeFinishSlug` is the preview's; `safeSaveSlug` is the store's, and
+   only the second namespaces the ten reserved names (`Ledger` → `ledger-custom`).
+   Every comparison against a stored name must use `safeSaveSlug` — the seed
+   predicate and the collision guard both used the other one and both were wrong on
+   exactly those ten names. Seeding the field with `record.name` instead of the
+   label would separately re-title the finish on the next save, so the predicate has
+   to be `safeSaveSlug(label) === record.name ? label : record.name`.
 
 3. **A finish's CSS is regenerated from its recipe on every save**
    (`finish-library.ts:80`), so the recipe is the model and there is nothing else
@@ -97,7 +101,7 @@ and nothing else.
 
 Maker-checker (HARD RULE #25) ran over the first draft of this change and returned
 six findings, four of them confirmed against the real Studio rather than by
-reading. Three were defects the change itself had introduced, which is the case
+reading. FOUR were defects the change itself had introduced, which is the case
 the ladder exists for:
 
 | Finding | What it actually was |
@@ -107,7 +111,7 @@ the ladder exists for:
 | **The Edit button re-introduced the clip this change set out to fix** | See below. |
 | **`@[31rem]` could never fire** | `PANEL_MAX = 420`; the query asked for 496px. Right outcome, unreachable branch, and a comment describing a two-column docked state that cannot occur. |
 | **A finish whose label does not slugify back to its name is renamed by reopen + save** | `{ name: 'corporate-blue', label: 'Corporate Blue v2' }` — a shape the zip import passes through verbatim — reopened and saved as `corporate-blue-v2`. Every deck saying `finish: finish-corporate-blue` stops resolving, silently, with the author having renamed nothing. |
-| **Reopening a zip-imported component is a dead Edit** | The import drops `function`/`form`/`substance` from the manifest, so `validateManifest` fails and Save is disabled with three findings. **Not fixed here** — see "Deliberately not in this change". |
+| **Reopening a zip-imported component is a dead Edit** | The import drops `function`/`form`/`substance` from the manifest, so `validateManifest` fails and Save is disabled with FOUR findings (`description` is dropped too). **Not fixed here** — see "Deliberately not in this change". |
 
 The fifth is the one worth generalizing from: the seed effect's docblock had
 argued carefully for seeding the label rather than the slug, and was right about
@@ -168,7 +172,11 @@ docked panel is not a fixed column — it is DRAGGABLE between `LIB_MIN = 240` a
 - At the 240px **minimum**, the four-control row still overflowed by **31px**
   (185px box, 216px row) — and hiding the new Edit control took it to 0 on all
   three kinds. The fourth control is what tipped it, so it is this change's to
-  fix. The Share label now collapses to its icon below `@[20rem]`, the same
+  fix. The Share label now collapses to its icon below `@[18rem]` — MEASURED, not
+  borrowed from the Import button's `@[20rem]`: the binding case is the 240px minimum
+  (a 185px card against a 216px row), and the panel's default resolves to a ~297px
+  container where a labelled row still fits. A 20rem threshold cleared the minimum and
+  also hid the label at the width the panel actually sits at. The same
   threshold and the same idiom the Import button above it already uses.
 
 After: **0px overflow at 1440 / 820 / 390 AND at both ends of the drag range**,
@@ -218,7 +226,7 @@ container all along. The card grid was the one that never got the memo.
   by the checker and left standing, deliberately. `Library`'s import writes
   `meta: { bucket }` and `workspace-backup` writes no meta at all, so both drop
   `function` / `form` / `substance`; the reopen path seeds `compMeta` from that
-  record and `validateManifest` then fails Save with three findings. The
+  record and `validateManifest` then fails Save with four findings. The
   underlying loss is PRE-EXISTING and off the path of this change (HARD RULE
   #18's on-path/off-path rule), and the two available fixes are both worse than
   the gap: back-filling from `STARTER_META` would invent a classification and
@@ -227,3 +235,61 @@ container all along. The card grid was the one that never got the memo.
   findings panel already names the three fields to fill in, so the round trip
   completes — it just is not one click. Fixing it properly means the IMPORT
   carrying the manifest, which is where the bytes are lost.
+
+## What the adversarial trio added, and the direction it forced
+
+The trio (HARD RULE #25) ran over `0af6c96` after the checker's fixes. Three more
+confirmed defects, all in code this branch introduced, all measured:
+
+- **Saving two assets in one sitting destroyed the first.** Both faculties pinned
+  the record they had just saved and nothing cleared it, so the faculty became a
+  permanent editor of its first save and naming a second asset renamed the first
+  out of existence. This is the one that should have held the PR: silent data loss
+  on the most ordinary flow either faculty has, and strictly worse than the fork it
+  replaced, which at least left both records standing. The id now comes only from a
+  reopen.
+- **The ten reserved finish names bypassed the collision guard**, and the same
+  mix-up made the seed a regression for them. See shape 2 above.
+- **No spec anywhere covered the collision guard** — for any kind. That is how the
+  reserved-name hole reached review, and `library-save-identity.spec.ts` is the
+  answer.
+
+### The rename question, reopened by the human — and my own argument corrected
+
+The inversion's lead objection is that this branch ships the mechanism for an
+irreversible cross-deck rename and defers the only thing that makes it safe. That
+is right, and it is why rename stays out (see "Deliberately not in this change").
+
+**But the argument I made for preferring aliases over a deck rewrite was wrong on
+its main example, and the correction matters.** I claimed a deck rewrite cannot
+reach decks already exported to PDF or to the `.html` player, so those "stay broken
+forever". They are not broken at all: both bake the asset's CSS *and* its class
+tokens into the artifact at export time (`share-export.ts` → `buildDeckRender` /
+`buildSelfContainedDoc`), so a later rename never reaches them and never needs to.
+The same holds for a `.md` handoff's finish CSS.
+
+What a rename actually breaks is **decks in the same workspace**, and a deck
+rewrite does reach those. The honest case for aliases is narrower and still good:
+
+| | deck rewrite | record-side alias |
+|---|---|---|
+| decks in this workspace | fixed, by mutating them | fixed, without touching them |
+| a deck shared BEFORE the rename, re-imported after | still broken | resolves |
+| a `.zip` asset bundle re-imported after a rename | duplicates or overwrites | resolves under the precedence rule |
+| frozen artifacts (PDF, player, `.md`) | not affected | not affected |
+
+**The fork worth a human decision is components.** A finish alias is a comma-joined
+selector list in one generator (`finish-generate.ts`, one `sel` variable feeding
+three emission points). A theme alias is not a CSS edit at all — `ThemeStore.byName`
+is a plain Map, so an alias is a second registration. But a component's selectors
+are the *author's own bytes*, and `gate.js`'s `partScoped` requires every selector
+part to contain `.<name>` — so `.velvet, .navy { … }` fails the gate as an
+unscoped-selector error. A component alias therefore needs either a CSS rewrite at
+rename time (which is a rename, not an alias) or a widening of a scope gate that
+exists to stop a component leaking onto other slides. That is not a mechanical
+choice.
+
+Scope, measured: roughly nine resolution sites in the shell, a four-layer thread
+per kind (input type → record build → mapper → view type; miss one and the alias
+round-trips to nothing), four uniqueness guards, and the `partScoped` decision. It
+is its own change, and its own decision record.

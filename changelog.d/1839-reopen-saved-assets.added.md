@@ -35,7 +35,7 @@
   two columns on a `sm:` VIEWPORT breakpoint while the docked panel is a 240–420px column,
   so each card was 125px and its action row overflowed its own box by ~110px — the controls
   painted behind the card edge. That panel is now always one column (two cards cannot fit
-  its 420px drag ceiling), and the Share label collapses to its icon below `20rem` so the
+  its 420px drag ceiling), and the Share label collapses to its icon below `18rem` so the
   four-control row also fits at the 240px minimum. This fixes the theme card too, which had
   clipped the same way since it gained a fourth control.
 - **Fixed: saving two components or finishes in one sitting destroyed the first.** The
