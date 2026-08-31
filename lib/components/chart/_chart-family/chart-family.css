@@ -979,7 +979,7 @@ section.chart-frame .chart-status {
    * over all 32 palettes x 5 states, the light end clears at 31% (4.59:1) and 30% is
    * taken for the margin (4.72:1, still concrete|pass); 32% misses at 4.46:1.
    *
-   * THE 0% STOP WAS SUB-AA TOO, AND NOTHING MODELLED IT — at 33% it read 4.38:1 on
+   * THE 0% STOP WAS SUB-AA TOO, AND NOTHING MODELED IT — at 33% it read 4.38:1 on
    * concrete|pass, below the same bar, invisible because the catalog listed only the
    * 100% stop ("quieter by construction", which is true of the DARK arm and false of
    * this one). It moves 33% -> 18%, which reads 6.38:1 and leaves the light arm 12pp

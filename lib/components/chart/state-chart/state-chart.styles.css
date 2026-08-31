@@ -242,7 +242,7 @@ section.state-chart .state-node .state-label {
  * 33/54 -> 18/30 in #1807); measured through tools/composed-contrast.js's own
  * evalSurface over 32 palettes x 5 states the old stops were sub-AA on FORTY-NINE
  * pairs, worst concrete|light|pass at 2.48:1, and nothing reported it because no
- * surface modelled a state-chart pill at all. Both stops of all three sites are in
+ * surface modeled a state-chart pill at all. Both stops of all three sites are in
  * SURFACES now (`stateChartStop`), so a third divergence reddens a gate instead of
  * shipping. Worst pair today: laguna|dark|pass 4.62:1 — chart-family's own figure,
  * because it is now literally the same recipe. */

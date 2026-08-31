@@ -101,7 +101,7 @@ flowchart LR
 
 The atmosphere and the instrument blur every galaxy, mimicking the very shear we want to measure. Most of the pipeline's effort goes into modeling and removing that blur — the point-spread function — before any cosmology begins. Get it wrong and you map the telescope, not the universe.
 
-- The point-spread function must be modelled per exposure.
+- The point-spread function must be modeled per exposure.
 - Residual blur is the dominant systematic error.
 
 ---

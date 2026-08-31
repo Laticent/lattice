@@ -103,7 +103,7 @@ jobs:
           echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
 
       # CONTRAST OF THE REAL EXPORTED PLAYER, in both scheme states, with every backdrop
-      # sampled from rendered pixels rather than modelled from the ancestor chain. The two
+      # sampled from rendered pixels rather than modeled from the ancestor chain. The two
       # cheaper contrast gates cannot answer this question:
       #   contrast-audit   scores a palette's own token matrix — 0.3s, no browser
       #   composed-contrast models the surfaces a component composes — 0.3s, no browser

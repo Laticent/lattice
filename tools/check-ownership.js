@@ -1919,7 +1919,7 @@ const SECTION_BOX_ROOTS = [
  * see inside `@media`/`@container`, could not handle nested braces, and was
  * case-sensitive against a case-insensitive language. Exported for unit tests.
  */
-function sectionBoxOffences(css) {
+function sectionBoxOffenses(css) {
   const src = stripComments(css);
   const out = [];
   let selStart = 0;
@@ -2031,7 +2031,7 @@ function checkSectionBoxOwnership(errors) {
     if (!fs.existsSync(root)) continue;
     for (const file of listCssFiles(root)) {
       const rel = path.relative(ROOT, file);
-      for (const o of sectionBoxOffences(fs.readFileSync(file, 'utf8'))) {
+      for (const o of sectionBoxOffenses(fs.readFileSync(file, 'utf8'))) {
         offenses.push({ file: rel, ...o });
       }
     }
@@ -2182,7 +2182,7 @@ const SANCTIONED_SECTION_CQ = [];
 // whose bare fallback is the intended export path) and custom-property declarations
 // (a token is not itself applied to the section; its CONSUMER is, and that consumer is
 // what this gate sees).
-function sectionCqOffences(css) {
+function sectionCqOffenses(css) {
   const src = stripComments(css);
   const out = [];
   let selStart = 0;
@@ -2286,7 +2286,7 @@ function scanDecls(body, prelude, out = []) {
  * load-bearing, not decoration. A token also declared in a section-subject rule
  * anywhere in the same file is fine — that copy is the one that does the work.
  */
-function rootOnlyAnchorOffences(css) {
+function rootOnlyAnchorOffenses(css) {
   const src = stripComments(css);
   const decls = []; // { prop, sel, sectionSubject }
   let selStart = 0;
@@ -2385,7 +2385,7 @@ function checkSectionCqAnchoring(errors) {
     if (!fs.existsSync(root)) continue;
     for (const file of listCssFiles(root)) {
       const rel = path.relative(ROOT, file);
-      for (const o of sectionCqOffences(fs.readFileSync(file, 'utf8'))) offenses.push({ file: rel, ...o });
+      for (const o of sectionCqOffenses(fs.readFileSync(file, 'utf8'))) offenses.push({ file: rel, ...o });
     }
   }
   const remaining = [];
@@ -2417,7 +2417,7 @@ function checkSectionCqAnchoring(errors) {
     if (!fs.existsSync(root)) continue;
     for (const file of listCssFiles(root)) {
       const rel = path.relative(ROOT, file);
-      for (const o of rootOnlyAnchorOffences(fs.readFileSync(file, 'utf8'))) rootOnly.push({ file: rel, ...o });
+      for (const o of rootOnlyAnchorOffenses(fs.readFileSync(file, 'utf8'))) rootOnly.push({ file: rel, ...o });
     }
   }
   // …and the shape that reaches the section's own box through a TOKEN.
@@ -3697,6 +3697,76 @@ function decodeCssEscapes(value) {
     const cp = parseInt(hex, 16);
     return cp >= 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : whole;
   });
+}
+
+/**
+ * THE L0 ROUTER'S SIZE BUDGET (#1896).
+ *
+ * `CLAUDE.md` is the one surface every session pays UNCONDITIONALLY — it is resident
+ * before any tool call — and it was the only file in the context-tiering system with no
+ * budget at all. `2026-08-17-context-index-tiering.md` set <=10k tokens for a read-whole
+ * INDEX and three were fixed under it; the router that carries that rule is over it and is
+ * not an index, so it was out of scope by construction.
+ *
+ * WHY A CEILING AND NOT A TRIM. #1897's bake-off measured a step function at the READ
+ * BOUNDARY, not a linear token cost: the full catalog costs 18x the pick surface because it
+ * takes 10-12 paginated reads against 1. `CLAUDE.md` sits on the cheap side of that boundary
+ * in the strongest way available — zero reads — so both trimming options priced on #1896
+ * convert resident text into an EXTRA read. Routing the canonical-doc table is the clearest
+ * case and is actively wrong: that table is what tells you which doc to open. So the file is
+ * allowed to be this size; what is gated is unbounded growth.
+ *
+ * IT MEASURES TOKENS, because a proxy could not be made honest. This gate first counted
+ * BYTES against a calibrated bytes-per-token ratio, on the argument that `ROW_CAP` in
+ * `build-capabilities.js` and `build-decisions-index.js` already cap a token-motivated
+ * budget with a character count. The ratio was genuinely stable — 0.072% across five
+ * revisions of this file — but NOTHING could check that it stayed stable: a composition
+ * check was written and broken in one attempt (fill the headroom with a code fence and the
+ * file is 5% more tokens than the gate reports, with the check green). The honest options
+ * were an unguarded proxy or the real measurement, and the owner chose the measurement.
+ *
+ * WHAT IT COSTS, measured rather than estimated: `gpt-tokenizer` is 30 MB installed
+ * (27.2 MB unpacked, 1,537 files) because it ships every encoding in both CJS and ESM.
+ * Requiring the o200k_base encoding alone costs ~175 ms and +70 MB RSS (43 -> 113 MB; the
+ * 113 is the whole process, not the delta), and encoding this file ~30 ms — ~200 ms
+ * attributed in a live run. That is why the require is INSIDE the function: `tools/check-ownership.js` is
+ * loaded at module scope by several test files, and none of them should pay for a tokenizer
+ * they do not use.
+ *
+ * THE NUMBER. 16,500 tokens, the owner's +10% headroom, against 15,117 today (59,050 bytes)
+ * — 1,383 tokens of room. One rule the size of #22 (1,288 tokens) or #29 (1,164) fits
+ * without a trade; a second does not. Zero slack was rejected on purpose: `US_ENGLISH_BUDGET`
+ * was a burn-down toward zero and this file is ALLOWED to be its size, so a zero-slack gate
+ * would be the "a bad gate is a permanent tax" case from CLAUDE.md's own second filter.
+ *
+ * The figure moves under you. `9504fde` added 290 bytes to this file while the PR that
+ * introduced this gate was open, and three published measurements went stale during one
+ * session. That is the argument for the gate, and the reason it now derives the number at
+ * run time rather than carrying a calibration somebody has to re-check.
+ */
+const ROUTER_FILE = 'CLAUDE.md';
+const ROUTER_TOKEN_CEILING = 16500;
+
+/** The router's exact o200k_base token count. Requires the tokenizer lazily — see above. */
+function routerTokenCount(text) {
+  const { encode } = require('gpt-tokenizer/encoding/o200k_base');
+  return encode(text).length;
+}
+
+function checkRouterBudget(errors) {
+  const file = path.join(ROOT, ROUTER_FILE);
+  if (!fs.existsSync(file)) return; // nothing to judge; not this gate's failure to report
+  const text = fs.readFileSync(file, 'utf8');
+  const tokens = routerTokenCount(text);
+  if (tokens <= ROUTER_TOKEN_CEILING) return;
+  errors.push(
+    `${ROUTER_FILE} is ${tokens} o200k_base tokens (${Buffer.byteLength(text)} bytes), over the ` +
+    `${ROUTER_TOKEN_CEILING}-token ceiling (#1896). Every session pays this file unconditionally, ` +
+    'before any tool call. Raise the ceiling in the PR WITH the trade it buys, or trade something ' +
+    'out — and do not "fix" it by routing text behind a pointer: the file is on the cheap side of ' +
+    'the read boundary, so moving resident text out buys tokens by spending a read, which #1897 ' +
+    'measured as the expensive half. ROUTER_TOKEN_CEILING is in tools/check-ownership.js.',
+  );
 }
 
 function checkTypedGlyphs(errors) {
@@ -5153,7 +5223,7 @@ function listE2EFiles(dir, out = []) {
  *    that name, recorded as `via`. Bodies that merely CONTAIN a sleep among other work are
  *    not helpers and count once, which is why `readHeaderSettled` counts 1;
  *  · an EXPORTED sleep helper is counted across every file in the directory;
- *  · NOT modelled, and therefore counted as one: runtime multiplicity (a sleep inside a
+ *  · NOT modeled, and therefore counted as one: runtime multiplicity (a sleep inside a
  *    loop). Tests pin that as a known limit.
  */
 function e2eSleepCensus(dir) {
@@ -6085,7 +6155,7 @@ function listClassAttrFiles(dir, out = []) {
   return out;
 }
 
-function classAttrOffences(dirs = {}) {
+function classAttrOffenses(dirs = {}) {
   const roots = dirs.roots || [
     path.join(ROOT, 'lib'),
     path.join(ROOT, 'docs', 'src'),
@@ -6118,7 +6188,7 @@ function classAttrOffences(dirs = {}) {
 function checkClassAttrReads(errors) {
   const sanctioned = new Map(SANCTIONED_CLASS_ATTR_READS.map((s) => [s.file, s]));
   const seen = new Set();
-  for (const o of classAttrOffences()) {
+  for (const o of classAttrOffenses()) {
     seen.add(o.file);
     if (sanctioned.has(o.file)) continue;
     errors.push(
@@ -8951,7 +9021,7 @@ function auditPdfOwnership(files) {
 // ─── NUL bytes in tracked text ─────────────────────────────────────────────
 // A NUL byte in a text source makes git treat the whole file as BINARY: the diff
 // renders as "Binary file not shown", so review sees nothing at all — not the
-// change, not the corruption. Two of the eleven errors catalogued in #1252 were
+// change, not the corruption. Two of the eleven errors cataloged in #1252 were
 // exactly this, and both were pushed: `tools/check-lint-coverage.js` (commit
 // bb8d8a58) and `docs/src/lib/deck-link.test.ts`, whose 18 tests all vanished
 // from the diff. Neither reached `main`, and neither was caught by a gate — one
@@ -10810,6 +10880,7 @@ function run() {
   checkZPlanes(errors);
   checkHexLiterals(errors);
   checkTypedGlyphs(errors);
+  checkRouterBudget(errors);
   checkAdaptDeclarations(manifests, errors);
   checkSolverIntentDeclared(manifests, errors);
   checkRenderNature(manifests, errors);
@@ -10956,9 +11027,9 @@ module.exports = {
   checkTypographyTokens,
   nonCanonicalFsTokens,
   offendingMargins,
-  sectionBoxOffences,
-  sectionCqOffences,
-  rootOnlyAnchorOffences,
+  sectionBoxOffenses,
+  sectionCqOffenses,
+  rootOnlyAnchorOffenses,
   sectionOwnTokenLeaks,
   checkSectionCqAnchoring,
   SECTION_CQ_BUDGET,
@@ -10989,7 +11060,7 @@ module.exports = {
   CANONICAL_LAYER_ORDER,
   LAYER_INERT_SENTINEL,
   checkClassAttrReads,
-  classAttrOffences,
+  classAttrOffenses,
   SANCTIONED_CLASS_ATTR_READS,
   checkLineEndingBoundaries,
   SANCTIONED_EOL_BOUNDARIES,
@@ -11037,6 +11108,10 @@ module.exports = {
   decodeCssEscapes,
   SANCTIONED_GLYPH_DECKS,
   checkTypedGlyphs,
+  checkRouterBudget,
+  routerTokenCount,
+  ROUTER_FILE,
+  ROUTER_TOKEN_CEILING,
   CANONICAL_FS_TOKENS,
   parseThemeTokens,
   listBasePalettes,

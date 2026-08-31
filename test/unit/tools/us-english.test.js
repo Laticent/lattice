@@ -8,6 +8,7 @@ const path = require('node:path');
 const {
   UK_TO_US,
   BRITISH_FORMS,
+  NOT_ENGLISH_FORMS,
   britishFormRe,
   suggest,
   findBritishSpellings,
@@ -34,7 +35,7 @@ describe('US-English word list (HARD RULE #21)', () => {
   // Every suggestion must be a real fix. A pair whose American side is itself a
   // listed British form would coach the writer into a second failure.
   test('every suggestion is a genuine correction', () => {
-    assert.equal(BRITISH_FORMS.length, 235);
+    assert.equal(BRITISH_FORMS.length, 237);
     for (const [uk, us] of Object.entries(UK_TO_US)) {
       assert.notEqual(uk, us, `${uk} maps to itself`);
       assert.ok(!britishFormRe().test(us), `the suggestion "${us}" is itself flagged`);
@@ -50,14 +51,18 @@ describe('US-English word list (HARD RULE #21)', () => {
   // it is the map being unable to see a family it already had the roots for.
   //
   // Three axes are asserted, and they are the three the map enumerates mechanically. The
-  // `-able`/`-hood`/`-ful`/`-ly` derivations (`honourable`, `neighbourhood`, `flavourful`)
-  // are NOT covered here: they are open-ended word formation rather than a closed
-  // inflection set, and a test that pretended to cover them would be the same overclaim
-  // this one exists to prevent.
+  // `-able`/`-hood`/`-ful`/`-ly` derivations are NOT covered here: they are open-ended word
+  // formation rather than a closed inflection set, and a test that pretended to cover them
+  // would be the same overclaim this one exists to prevent. `neighbour` is listed without
+  // `neighbourhood` and that stays a real hole in THIS instrument — the map carries
+  // `honourable` and `flavourful` only because `us-english-stem-audit.test.js` found them in
+  // the tree, which is the other half of the pair and the only half that can see a
+  // derivation nobody enumerated.
   test('every root carries the inflections its family enumerates', () => {
     const listed = new Set(Object.keys(UK_TO_US));
-    // The only derived form that is not a word. Shrinking this set is a deliberate act.
-    const NOT_ENGLISH = new Set(['behaviouring']); // `behaviour` is a noun; no verb to inflect
+    // Derived forms that are not words, shared with the stemmer audit so the two
+    // instruments cannot disagree about what English contains.
+    const NOT_ENGLISH = NOT_ENGLISH_FORMS;
     const missing = [];
     const want = (from, to) => {
       if (!listed.has(to) && !NOT_ENGLISH.has(to)) missing.push(`${from} -> ${to}`);

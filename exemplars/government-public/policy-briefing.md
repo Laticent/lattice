@@ -73,11 +73,11 @@ The interface has carried a *recommended* 30-meter guideline since 2019. Self-re
 <!-- _class: stats -->
 <!-- tier: short -->
 
-`Evidence · Modelled outcomes`
+`Evidence · Modeled outcomes`
 
 ## What the mandated standard buys over a five-year horizon.
 
-`Modelled against the 2019–2026 incident record, applied to the current interface parcel set.`
+`Modeled against the 2019–2026 incident record, applied to the current interface parcel set.`
 
 1. −58%
    - projected structure loss

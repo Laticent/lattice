@@ -1,7 +1,7 @@
 - **`build:check` now fails on a raw NUL byte in tracked text.** Git classifies a file as
   binary when a NUL falls in the first 8000 bytes, and then its diff reads *"Binary files …
   differ"* — a reviewer sees nothing at all, not the change and not the corruption. Two of
-  the eleven errors catalogued in #1252 were exactly that, both pushed, both caught by a
+  the eleven errors cataloged in #1252 were exactly that, both pushed, both caught by a
   human rather than by a gate. The check found **five pre-existing files** on `main`, each
   using a NUL as a composite-key separator inside a string literal instead of the escape
   that is byte-identical at runtime — and two of them

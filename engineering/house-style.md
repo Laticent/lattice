@@ -49,18 +49,25 @@ tree was swept to zero in one pass, and the repo-wide ratchet that had been
 holding a 1285-spelling backlog was deleted with it — a gate carrying 1285
 standing exceptions was more machinery than the problem.
 
-What survives is `tools/us-english.js`, a 170-pair word list read by one caller:
-the commit-msg hook, which **warns and never blocks**. A message may legitimately
-quote British-spelled text — an upstream error string, a dependency's option
-name — and HARD RULE #14 forbids `--no-verify` as the escape from a false
-positive. Everything else is discipline.
+What survives is `tools/us-english.js`, a word list with three readers. The
+commit-msg hook **warns and never blocks**: a message may legitimately quote
+British-spelled text — an upstream error string, a dependency's option name — and
+HARD RULE #14 forbids `--no-verify` as the escape from a false positive. The other
+two are the test-tier arms in `test/unit/tools/us-english-stem-audit.test.js`,
+which do block: one stems every word in the tree and fails on a British form the
+map cannot see, the other fails on a British segment inside an identifier. The list
+was 170 pairs when this was written and is 237 now, because the first of those arms
+keeps finding forms a hand pass missed. Everything else is discipline.
 
 **71 British spellings remained in living prose when this was written, and none was a
 backlog.** About 39 were the `progress-centre` Form cell — issue #578 has since renamed
-it to `progress-center`, so the largest cluster is gone. The total is deliberately not
-restated: `checkUsEnglish`, the tool that measured 71, was deleted with the ratchet, so a
-fresh number would be a different measurement wearing the old one's clothes. 15 are
-DATA a US-English pass must never touch — GitHub's `cancelled` conclusion enum, the
+it to `progress-center`, so the largest cluster is gone. That total was deliberately not
+restated for a while, because `checkUsEnglish` had been deleted with the ratchet and a
+fresh number needs a fresh instrument. There is one now, and it counted living surfaces —
+outside the map and the writing about it, tracked files only — at 84 before a 2026-08-30 pass
+and 30 after. Every one of the 30 is named in
+`engineering/decisions/2026-08-30-british-spellings-remainder.md`. The shape below still
+describes them. 15 are DATA a US-English pass must never touch — GitHub's `cancelled` conclusion enum, the
 OECD's real legal name, a synonym key an author might type, pre-registered benchmark
 fixtures. 4 sit in a lockfile, 3 cite a dated `engineering/decisions/` filename, and
 the rest are deliberate mentions in tests and in the rules themselves.

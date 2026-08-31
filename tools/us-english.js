@@ -146,7 +146,28 @@ const UK_TO_US = Object.freeze({
   cataloguing: 'cataloging', fulfilment: 'fulfillment', fulfilments: 'fulfillments',
   enrolment: 'enrollment', enrolments: 'enrollments', skilfully: 'skillfully',
   wilfully: 'willfully', traveller: 'traveler', travellers: 'travelers',
+  // ── Open-ended derivations, found by the stemmer audit ───────────────────
+  // Not reachable from the mechanical inflection axes: `-able` and `-ful` are word
+  // FORMATION, not a closed inflection set, so no rule over the roots demands them.
+  // `test/unit/tools/us-english-stem-audit.test.js` found both by stemming what the
+  // tree actually contains, which is the only way a derivation nobody enumerated
+  // gets noticed. Words are added here as that audit surfaces them, never by
+  // guessing at the next suffix.
+  honourable: 'honorable', flavourful: 'flavorful',
 });
+
+/**
+ * British-looking strings that are NOT English words, so no suggestion exists for
+ * them and neither the enumeration test nor the stemmer audit may demand one.
+ * Today there is one: `behaviour` is a noun with no verb to inflect, so
+ * `behaviouring` is what a mechanical `-our` + `-ing` rule produces and a speaker
+ * never writes. Shrinking this set is a deliberate act; growing it needs the
+ * reason on the entry.
+ *
+ * It lives here rather than in either test because both need it and a second copy
+ * would drift.
+ */
+const NOT_ENGLISH_FORMS = Object.freeze(new Set(['behaviouring']));
 
 const BRITISH_FORMS = Object.freeze(Object.keys(UK_TO_US));
 
@@ -230,4 +251,6 @@ if (require.main === module) {
   process.exit(0);
 }
 
-module.exports = { UK_TO_US, BRITISH_FORMS, britishFormRe, suggest, findBritishSpellings, commitMessageBody };
+module.exports = {
+  UK_TO_US, BRITISH_FORMS, NOT_ENGLISH_FORMS, britishFormRe, suggest, findBritishSpellings, commitMessageBody,
+};

@@ -98,7 +98,7 @@ const CASES: Case[] = [
 	{ w: 390, h: 844, stop: 'write', smoke: true, why: 'phone, the reported surface' },
 	// 320 is below the lens picker's `@[21rem]` container query, so the app's preview sub-bar
 	// drops its lens label there. It used to also SHORTEN the bar (41px against 47px
-	// everywhere else) and the shell modelled one number for both. The picker is now sized to
+	// everywhere else) and the shell modeled one number for both. The picker is now sized to
 	// the slide counter beside it, so the label costs width and not height — this case is the
 	// guard on THAT: the phone's band is 38.2px at 320 and at 390 alike.
 	{ w: 320, h: 844, stop: 'write', why: 'phone too narrow for the lens label — the band must not shrink with it' },
@@ -562,7 +562,7 @@ test.describe('a rect from another orientation', () => {
 // `useLandscapePhone` media query asks for one), which is a context option, not a viewport —
 // hence its own block. It is the case with no chrome whatsoever: no header, no bar, no
 // navigator, the slide full-bleed in a holder padded on ONE axis (`px-0 py-3`). The shell
-// modelled it as unpadded, which made its slide 43px wider and 24px taller than the app's.
+// modeled it as unpadded, which made its slide 43px wider and 24px taller than the app's.
 test.describe('cinema', () => {
 	test.use({ hasTouch: true, isMobile: true, viewport: { width: 844, height: 390 } });
 

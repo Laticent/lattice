@@ -82,7 +82,7 @@ The credibility moment shows up everywhere — it just wears a different label. 
 
 `Our funders`
 
-## Eighteen organisations backed this year's work.
+## Eighteen organizations backed this year's work.
 
 - ![Acme](../lib/components/inventory/logo-wall/acme.svg)
 - ![Globex](../lib/components/inventory/logo-wall/globex.svg)

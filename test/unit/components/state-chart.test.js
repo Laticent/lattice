@@ -568,7 +568,7 @@ describe('STATUS_KEYWORDS', () => {
 // ── Browser layout (behavioral, via a fake DOM) ──────────────────────────
 // installStateChartLayout is a self-contained closure (it serialises to a
 // string for the emulator bootstrap), so its inner helpers — gutter routing,
-// the 5-slot port picker, crossing minimisation, single-exit convergence —
+// the 5-slot port picker, crossing minimization, single-exit convergence —
 // can't be imported piecewise. We instead drive the REAL closure against a
 // minimal synchronous DOM and inspect the SVG it actually emits.
 //
@@ -789,7 +789,7 @@ describe('browser layout (fake DOM)', () => {
     ],
   };
 
-  describe('crossing minimisation', () => {
+  describe('crossing minimization', () => {
     test('router (fan-out + single-exit convergence) draws zero crossings', () => {
       const { svg } = runLayout(ROUTER);
       const { n, offenders } = crossingPairs(svg);

@@ -26,7 +26,7 @@
 // the bytes (and thus the content hash) change. The minified variants are built by
 // the same `npm run build` (build-runtime.js emits both; lattice.min.css via the
 // css pipeline) and already back the Export-to-Marp path, so they're guaranteed
-// present and behaviourally identical to the readable builds.
+// present and behaviorally identical to the readable builds.
 //
 // WHY HASHED. These three asset kinds are served from fixed public/ URLs. Astro
 // content-hashes its own page JS, so a redeploy refreshes the page, but the

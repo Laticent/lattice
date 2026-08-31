@@ -234,7 +234,7 @@ is generated, not enumerated here, so it cannot drift:
   plus the universal/semi-universal variant sets. The authoritative prefix list
   is `MODIFIER_PREFIXES` in
   [`lib/authoring/lint-core.js`](../lib/authoring/lint-core.js); the enumerated
-  variant tiers are catalogued in
+  variant tiers are cataloged in
   [`design/design-system.md`](../design/design-system.md) §6.5.
 
 An unrecognised token is a diagnostic (`unknown-class`) with a did-you-mean

@@ -35,13 +35,13 @@
  * here, never counted as failures. Nothing else is excluded.
  *
  * KNOWN LIMITATIONS, inherited and added:
- *   · a pseudo-element has no rect in CSS, so its row keeps the MODELLED backdrop
+ *   · a pseudo-element has no rect in CSS, so its row keeps the MODELED backdrop
  *     (`rectIsOwner`) — a sample taken from the owner's box may land beside the
- *     pseudo rather than under it, and a wrong number is worse than a modelled one.
+ *     pseudo rather than under it, and a wrong number is worse than a modeled one.
  *     THAT MODEL CAN STILL BE WRONG, and those rows are the ones to distrust first: 10 of
  *     the 285 oracle entries are pseudo-elements, and a spot audit found the `scene`
  *     play-control glyph (`button::before`, the ⏸) scored 1.00:1 while rendering as light
- *     gray on a dark circular button, plainly legible. The modelled backdrop misses a
+ *     gray on a dark circular button, plainly legible. The modeled backdrop misses a
  *     translucent control floating over a canvas. Treat a pseudo row as a lead, not a
  *     measurement, until someone has looked at the slide;
  *   · an occluded run is still scored, exactly as in `check-slide-contrast` — with
@@ -249,7 +249,7 @@ async function auditState(page, label) {
 				rows.push({ ...row, state: label, sampled: false });
 				continue;
 			}
-			// COMPOSITE THE INK OVER THE SAMPLED PIXEL, never over the modelled one. `PROBE`
+			// COMPOSITE THE INK OVER THE SAMPLED PIXEL, never over the modeled one. `PROBE`
 			// hands back `fg` already flattened against the backdrop IT resolved, which is right
 			// for that tool and wrong here: scoring an ink composited over backdrop A against
 			// backdrop B describes no pixel on screen. It is not an edge case — the whole
@@ -556,7 +556,7 @@ function report(name, rows) {
 	for (const [state, list] of byState) {
 		console.log(`\n  ── ${state} ── ${list.length} below AA`);
 		for (const b of list.sort((p, q) => p.r - q.r)) {
-			const flags = [b.gradient ? `gradient, worst ${b.worst}:1` : '', b.sampled ? '' : 'modelled backdrop', b.imgBackdrop ? 'image backdrop' : '']
+			const flags = [b.gradient ? `gradient, worst ${b.worst}:1` : '', b.sampled ? '' : 'modeled backdrop', b.imgBackdrop ? 'image backdrop' : '']
 				.filter(Boolean)
 				.join(', ');
 			console.log(

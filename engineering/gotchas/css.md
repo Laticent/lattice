@@ -34,7 +34,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
      that DOES pay is making the ground opaque and independent of the tile — see
      `--kpi-{pass,warn}-pill-bg` — with one caveat: an opaque ground can then land on
      its tile's own color, so whatever carries the chip's edge (for kpi, its border)
-     has to be modelled and floored rather than assumed.
+     has to be modeled and floored rather than assumed.
      `engineering/decisions/2026-08-25-status-trio-joint-solve-model.md`.
 
      **A tier-named ink does not carry to a surface built to differ from the canvas.**

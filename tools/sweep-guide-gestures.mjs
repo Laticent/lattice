@@ -49,7 +49,7 @@ const OUT = path.join(ROOT, '.scratch', 'guide-sweep');
 /** The cursor's half-footprint in PARENT pixels (`POINTER_BOX / 2`), and the width Present shows
  *  a slide at. The footprint does NOT scale with the preview, so inside a 3840-wide deck shown in
  *  a ~1440 card it covers `14 / (1440/3840)` ≈ 37 slide px — and a check run at 14 understates how
- *  often the geometric rest is occupied. Modelled here rather than assumed at 1:1. */
+ *  often the geometric rest is occupied. Modeled here rather than assumed at 1:1. */
 const HALF_PARENT = 14;
 const PRESENT_WIDTH = 1440;
 

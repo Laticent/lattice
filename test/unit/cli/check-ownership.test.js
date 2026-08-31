@@ -32,9 +32,9 @@ const {
   checkTypographyTokens,
   nonCanonicalFsTokens,
   offendingMargins,
-  sectionBoxOffences,
-  sectionCqOffences,
-  rootOnlyAnchorOffences,
+  sectionBoxOffenses,
+  sectionCqOffenses,
+  rootOnlyAnchorOffenses,
   sectionOwnTokenLeaks,
   targetsSectionElement,
   SECTION_BOX_PROPS,
@@ -112,7 +112,7 @@ const {
   checkUniversalTableGuard,
   universalTableDenyEntries,
   subjectIsTableElement,
-  classAttrOffences,
+  classAttrOffenses,
   SANCTIONED_CLASS_ATTR_READS,
   checkFontMetricsPin,
 } = require('../../../tools/check-ownership');
@@ -332,10 +332,10 @@ describe('check-ownership', () => {
     // the runtime mis-stamped data-orientation="portrait". The PDF was correct, so
     // golden-diff could never see it.
     test('flags a box dimension on the section element', () => {
-      assert.equal(sectionBoxOffences('section.premise { height: 100%; }').length, 1);
-      assert.equal(sectionBoxOffences('section { height: 100%; }').length, 1, 'bare section is the worst case, not an edge case');
+      assert.equal(sectionBoxOffenses('section.premise { height: 100%; }').length, 1);
+      assert.equal(sectionBoxOffenses('section { height: 100%; }').length, 1, 'bare section is the worst case, not an edge case');
       assert.deepEqual(
-        sectionBoxOffences('section.a { max-width: 50cqi; }')[0].decl,
+        sectionBoxOffenses('section.a { max-width: 50cqi; }')[0].decl,
         'max-width: 50cqi',
       );
     });
@@ -346,48 +346,48 @@ describe('check-ownership', () => {
     // rule preceded it. That is the most common way the defect is written.
     test('inspects EVERY bare-section rule, including adjacent ones', () => {
       const css = 'section.a:hover { color: red; }\nsection.a { height: 100%; }';
-      assert.equal(sectionBoxOffences(css).length, 1, 'the second adjacent rule must still be seen');
+      assert.equal(sectionBoxOffenses(css).length, 1, 'the second adjacent rule must still be seen');
       const three = 'section.a { color: red }\nsection.b { width: 1px }\nsection.c { height: 2px }';
-      assert.equal(sectionBoxOffences(three).length, 2);
+      assert.equal(sectionBoxOffenses(three).length, 2);
     });
 
     test('sees inside at-rules and is case-insensitive', () => {
-      assert.equal(sectionBoxOffences('@media print { section.a { height: 100%; } }').length, 1);
+      assert.equal(sectionBoxOffenses('@media print { section.a { height: 100%; } }').length, 1);
       assert.equal(
-        sectionBoxOffences('@container lattice (min-width: 10px) { section.a { width: 50%; } }').length, 1,
+        sectionBoxOffenses('@container lattice (min-width: 10px) { section.a { width: 50%; } }').length, 1,
       );
-      assert.equal(sectionBoxOffences('SECTION.premise { HEIGHT: 100%; }').length, 1, 'CSS is case-insensitive');
+      assert.equal(sectionBoxOffenses('SECTION.premise { HEIGHT: 100%; }').length, 1, 'CSS is case-insensitive');
     });
 
     test('covers logical-property synonyms and aspect-ratio', () => {
       for (const prop of ['block-size', 'inline-size', 'min-block-size', 'max-inline-size']) {
-        assert.equal(sectionBoxOffences(`section.a { ${prop}: 100%; }`).length, 1, `${prop} is a synonym of height/width`);
+        assert.equal(sectionBoxOffenses(`section.a { ${prop}: 100%; }`).length, 1, `${prop} is a synonym of height/width`);
         assert.ok(SECTION_BOX_PROPS.includes(prop));
       }
-      assert.equal(sectionBoxOffences('section.a { aspect-ratio: 16/9; }').length, 1);
+      assert.equal(sectionBoxOffenses('section.a { aspect-ratio: 16/9; }').length, 1);
     });
 
     test('a descendant, a pseudo-element, and a custom property are NOT the section box', () => {
-      assert.deepEqual(sectionBoxOffences('section.a .card { height: 100%; }'), []);
-      assert.deepEqual(sectionBoxOffences('section.a > .card { height: 100%; }'), []);
-      assert.deepEqual(sectionBoxOffences('section.a::before { height: 4px; }'), []);
-      assert.deepEqual(sectionBoxOffences('section.a { --card-height: 100%; }'), []);
-      assert.deepEqual(sectionBoxOffences('section.a { transition: width .2s; }'), []);
-      assert.deepEqual(sectionBoxOffences('section.a { padding-block: 2px; }'), []);
+      assert.deepEqual(sectionBoxOffenses('section.a .card { height: 100%; }'), []);
+      assert.deepEqual(sectionBoxOffenses('section.a > .card { height: 100%; }'), []);
+      assert.deepEqual(sectionBoxOffenses('section.a::before { height: 4px; }'), []);
+      assert.deepEqual(sectionBoxOffenses('section.a { --card-height: 100%; }'), []);
+      assert.deepEqual(sectionBoxOffenses('section.a { transition: width .2s; }'), []);
+      assert.deepEqual(sectionBoxOffenses('section.a { padding-block: 2px; }'), []);
     });
 
     // A naive `:is(`/`:not(` → `,` flattening tore these open and read the leading
     // `section.foo` fragment as a whole selector — 4 false positives on the real tree.
     test('selector parsing respects nested parens in :not()/:has()/:is()', () => {
       assert.deepEqual(
-        sectionBoxOffences('section.a:not(:has(.below-note)) > :is(ul, ol) + p::before { height: 1px; }'),
+        sectionBoxOffenses('section.a:not(:has(.below-note)) > :is(ul, ol) + p::before { height: 1px; }'),
         [],
         'the subject is p::before, not the section',
       );
-      assert.equal(sectionBoxOffences('section.a:not(:has(.x)) { height: 100%; }').length, 1);
-      assert.equal(sectionBoxOffences(':is(section.a, section.b) { height: 100%; }').length, 1);
-      assert.equal(sectionBoxOffences('.pane, section.a { height: 100%; }').length, 1, 'section need not be first');
-      assert.equal(sectionBoxOffences('section.a .card, section.b { height: 100%; }').length, 1);
+      assert.equal(sectionBoxOffenses('section.a:not(:has(.x)) { height: 100%; }').length, 1);
+      assert.equal(sectionBoxOffenses(':is(section.a, section.b) { height: 100%; }').length, 1);
+      assert.equal(sectionBoxOffenses('.pane, section.a { height: 100%; }').length, 1, 'section need not be first');
+      assert.equal(sectionBoxOffenses('section.a .card, section.b { height: 100%; }').length, 1);
     });
 
     test('targetsSectionElement judges the LAST compound', () => {
@@ -418,11 +418,11 @@ describe('check-ownership', () => {
     // (measured: a 17px swing in stage height between a 900px pane and a 355px one),
     // and the two docs-site surfaces disagreed about which slides overflow.
     test('flags a bare cq unit in a declaration that lands on the section', () => {
-      assert.equal(sectionCqOffences('section.divider { padding-left: 9.375cqi; }').length, 1);
-      assert.equal(sectionCqOffences('section { padding: 6.875cqi 5cqi; }').length, 1, 'bare section is the worst case');
-      assert.equal(sectionCqOffences('section.image { grid-template-rows: 44cqh 1fr; }').length, 1, 'the height axis leaks the same way');
+      assert.equal(sectionCqOffenses('section.divider { padding-left: 9.375cqi; }').length, 1);
+      assert.equal(sectionCqOffenses('section { padding: 6.875cqi 5cqi; }').length, 1, 'bare section is the worst case');
+      assert.equal(sectionCqOffenses('section.image { grid-template-rows: 44cqh 1fr; }').length, 1, 'the height axis leaks the same way');
       assert.equal(
-        sectionCqOffences('section.a:hover { color: red }\nsection.a { gap: 5cqh }').length,
+        sectionCqOffenses('section.a:hover { color: red }\nsection.a { gap: 5cqh }').length,
         1,
         'every rule is inspected, adjacent ones included',
       );
@@ -432,35 +432,35 @@ describe('check-ownership', () => {
       // The first cut matched `cq[ihb]` only, so `cqw`/`cqmin`/`cqmax` — valid units
       // with the identical self-reference leak — walked past a budget of 0.
       for (const unit of ['cqw', 'cqmin', 'cqmax', 'cqb']) {
-        assert.equal(sectionCqOffences(`section.a { padding: 5${unit}; }`).length, 1, unit);
+        assert.equal(sectionCqOffenses(`section.a { padding: 5${unit}; }`).length, 1, unit);
       }
       // …including the form that LOOKS anchored: only `--_sec-1cqi`/`--_sec-1cqh` are
       // ever stamped, so `var(--_sec-1cqb, 1cqb)` is inert and still resolves to the ICB.
-      assert.equal(sectionCqOffences('section.a { gap: calc(var(--_sec-1cqb, 1cqb) * 5); }').length, 1);
+      assert.equal(sectionCqOffenses('section.a { gap: calc(var(--_sec-1cqb, 1cqb) * 5); }').length, 1);
       // A fallback naming the OTHER axis would measure width on the export path and
       // height in preview — the two paths silently disagreeing, which is this whole bug.
-      assert.equal(sectionCqOffences('section.a { gap: calc(var(--_sec-1cqh, 1cqi) * 5); }').length, 1);
+      assert.equal(sectionCqOffenses('section.a { gap: calc(var(--_sec-1cqh, 1cqi) * 5); }').length, 1);
     });
 
     test('units are matched case-insensitively, and url()/strings are not lengths', () => {
       // CSS units are case-insensitive; the sibling section-box gate's header records
       // case-sensitivity as a defect it already fixed once, and this one reintroduced it.
-      assert.equal(sectionCqOffences('section.a { padding: 5CQI; }').length, 1);
-      assert.deepEqual(sectionCqOffences('section.a { background: url("img-5cqi.png"); }'), []);
-      assert.deepEqual(sectionCqOffences('section.a::after { content: "5cqi"; }'), []);
+      assert.equal(sectionCqOffenses('section.a { padding: 5CQI; }').length, 1);
+      assert.deepEqual(sectionCqOffenses('section.a { background: url("img-5cqi.png"); }'), []);
+      assert.deepEqual(sectionCqOffenses('section.a::after { content: "5cqi"; }'), []);
     });
 
     test('an at-rule NESTED INSIDE a section rule still applies to the section', () => {
       // `section.a { @media print { padding: 5cqi } }` — the at-rule prelude was
       // skipped outright, so the declaration inside it was never attributed.
-      assert.equal(sectionCqOffences('section.a { color: red; @media print { padding: 5cqi } }').length, 1);
-      assert.equal(sectionCqOffences('@media print { section.a { padding: 5cqi } }').length, 1);
+      assert.equal(sectionCqOffenses('section.a { color: red; @media print { padding: 5cqi } }').length, 1);
+      assert.equal(sectionCqOffenses('@media print { section.a { padding: 5cqi } }').length, 1);
     });
 
     test('a declaration sitting above a NESTED block is still scanned', () => {
       // The prelude parser used to swallow everything before a nested `{`, so with
       // native nesting the enclosing rule's own declarations became invisible.
-      assert.equal(sectionCqOffences('section.a { padding: 5cqi; .b { color: red } }').length, 1);
+      assert.equal(sectionCqOffenses('section.a { padding: 5cqi; .b { color: red } }').length, 1);
     });
 
     test('a bare unit that reaches the section through a TOKEN CHAIN is flagged', () => {
@@ -487,30 +487,30 @@ describe('check-ownership', () => {
       // element the declaration applies to; at `:root` that is `html`, where
       // `--_sec-1cqi` does not exist — so the fallback is baked in and the token still
       // resolves against the ICB. It reads as anchored and is not.
-      assert.equal(rootOnlyAnchorOffences(':root { --a: calc(var(--_sec-1cqi, 1cqi) * 2); }').length, 1);
+      assert.equal(rootOnlyAnchorOffenses(':root { --a: calc(var(--_sec-1cqi, 1cqi) * 2); }').length, 1);
       // Declared on both, the section copy re-substitutes per slide — the --sp-* idiom.
-      assert.deepEqual(rootOnlyAnchorOffences(':root, section { --a: calc(var(--_sec-1cqi, 1cqi) * 2); }'), []);
+      assert.deepEqual(rootOnlyAnchorOffenses(':root, section { --a: calc(var(--_sec-1cqi, 1cqi) * 2); }'), []);
       // A second, section-subject declaration of the same token elsewhere also works.
       assert.deepEqual(
-        rootOnlyAnchorOffences(':root { --a: calc(var(--_sec-1cqi, 1cqi) * 2) } section { --a: calc(var(--_sec-1cqi, 1cqi) * 2) }'),
+        rootOnlyAnchorOffenses(':root { --a: calc(var(--_sec-1cqi, 1cqi) * 2) } section { --a: calc(var(--_sec-1cqi, 1cqi) * 2) }'),
         [],
       );
     });
 
     test('the ANCHORED form is clean, and so is anything below the section', () => {
-      assert.deepEqual(sectionCqOffences('section.a { padding: calc(var(--_sec-1cqi, 1cqi) * 6.875); }'), []);
-      assert.deepEqual(sectionCqOffences('section.a { gap: calc(var(--_sec-1cqh, 1cqh) * 5); }'), []);
+      assert.deepEqual(sectionCqOffenses('section.a { padding: calc(var(--_sec-1cqi, 1cqi) * 6.875); }'), []);
+      assert.deepEqual(sectionCqOffenses('section.a { gap: calc(var(--_sec-1cqh, 1cqh) * 5); }'), []);
       // A descendant's `cq*` resolves against the SECTION (it is a real ancestor
       // container), and so does a pseudo-element's — verified in a browser, not
       // assumed: only the section's own box falls back to the ICB. A descendant must
       // be LEFT bare: its `1cqi` is 1% of the section's CONTENT box (1152 at HD) while
       // the stamp is `offsetWidth/100` (1280), so "anchoring" one moves it 11% and
       // makes preview and export disagree — measured, after doing exactly that.
-      assert.deepEqual(sectionCqOffences('section.a .card { width: 10cqi; }'), []);
-      assert.deepEqual(sectionCqOffences('section.a::before { width: 10cqi; }'), []);
+      assert.deepEqual(sectionCqOffenses('section.a .card { width: 10cqi; }'), []);
+      assert.deepEqual(sectionCqOffenses('section.a::before { width: 10cqi; }'), []);
       // A custom property is not itself applied to anything — its CONSUMER is, and
       // that consumer is what this gate sees.
-      assert.deepEqual(sectionCqOffences('section.a { --tone-rail: inset 0.55cqi 0 0 0 red; }'), []);
+      assert.deepEqual(sectionCqOffenses('section.a { --tone-rail: inset 0.55cqi 0 0 0 red; }'), []);
     });
 
     test('the tree is clean at budget 0, with an honest allowlist', () => {
@@ -2080,7 +2080,7 @@ describe('check-ownership', () => {
       fs.writeFileSync(p, `${lines.join('\n')}\n`);
       return p;
     };
-    const offencesFor = (lines) => classAttrOffences({ roots: [], files: [write('probe.js', lines)] });
+    const offensesFor = (lines) => classAttrOffenses({ roots: [], files: [write('probe.js', lines)] });
 
     // Every one of these READS `data-class` on a real section tag. `\s*` and `\s?` are
     // zero-width, i.e. not guards at all — and they are the likeliest thing to write after
@@ -2115,18 +2115,18 @@ describe('check-ownership', () => {
     ];
 
     test('every unguarded spelling is caught — including the zero-width quantifiers', () => {
-      const got = offencesFor(UNGUARDED).map((o) => o.line);
+      const got = offensesFor(UNGUARDED).map((o) => o.line);
       assert.deepStrictEqual(got, UNGUARDED.map((_, i) => i + 1),
         'a spelling walked past the gate; it reads data-class and renders plausibly');
     });
 
     test('every correct guard passes, and literal markup is not a matcher', () => {
-      assert.deepStrictEqual(offencesFor(GUARDED), [],
+      assert.deepStrictEqual(offensesFor(GUARDED), [],
         'a false positive forces the author to weaken a correct guard or exempt the whole file');
     });
 
     test('prose may write the bad pattern down — in either comment style', () => {
-      assert.deepStrictEqual(offencesFor([
+      assert.deepStrictEqual(offensesFor([
         `// a bare /class="([^"]*)"/ reads data-class`,
         '/* and so does',
         ` * /class="[^"]+"/ — explained here`,
@@ -2137,7 +2137,7 @@ describe('check-ownership', () => {
     test('a matcher parked after a comment-shaped continuation line is still caught', () => {
       // The line-based first cut skipped any line whose leading text began `*`, which the
       // continuation of a multi-line expression also does.
-      const got = offencesFor([
+      const got = offensesFor([
         'const n = someValue',
         `  * factor; const PARKED = /class="([^"]*)"/.exec(t);`,
       ]);
@@ -2145,7 +2145,7 @@ describe('check-ownership', () => {
     });
 
     test('the repo is clean and the allowlist is empty', () => {
-      assert.deepStrictEqual(classAttrOffences(), []);
+      assert.deepStrictEqual(classAttrOffenses(), []);
       assert.deepStrictEqual(SANCTIONED_CLASS_ATTR_READS, [],
         'an entry here blanket-exempts a whole file — prefer readClassAttr');
     });
@@ -2999,7 +2999,7 @@ describe('check-ownership: checkE2ESleeps (#1575)', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  test('KNOWN LIMIT — runtime multiplicity is not modelled', () => {
+  test('KNOWN LIMIT — runtime multiplicity is not modeled', () => {
     // A sleep in a loop executes N times and counts once. Pinned so the limit is recorded
     // rather than discovered later and mistaken for a bug.
     const dir = mkTree({ 'a.spec.ts': 'for (let i = 0; i < 40; i++) await page.waitForTimeout(100);' });
