@@ -50,6 +50,76 @@ Three things in that table trip people up — they are deliberate, not accidenta
   fluted ribs, herringbone, aggregate speckle) drawn to read as *themed* to the brand.
   A deliberate product choice, not drift.
 
+## Which sets a page ships (#1863)
+
+`texturePatternDefs(only)` emits **only the sets `only` names**, in the table's
+order. `only` is normally the return of `texturePrefixesReferencedIn(cssText)` —
+the same kernel both render paths call, so they cannot drift (HARD RULE #1). It
+scans for `url(#<prefix>-N)` in all three spellings a reference can take
+(`url(#x)`, `url("#x")`, `url('#x')`), because CSSOM re-serializes the bare form
+with quotes.
+
+**Omit `only`, or pass a non-array, and every set is emitted.** That is the
+conservative answer and it is what a caller that cannot read the document's CSS
+must take. The asymmetry is the whole safety argument: an unreferenced
+`<pattern>` paints nothing, so over-emitting is pure waste — while a reference
+with no matching `<pattern>` is an unresolvable paint server, which SVG renders
+as **default black**. Every fallback in this layer therefore errs toward
+emitting more.
+
+Before this, every page shipped all 92 patterns — 28,490 B — whatever its theme.
+A deck on `indaco` now ships 20.
+
+**The two call sites reach the same answer by different routes:**
+
+| Site | Where its CSS comes from | Fallback trigger |
+|---|---|---|
+| `lattice-emulator.js` | the assembled deck `<style>` (theme chain + layout sheet, post-`sanitizeStyleText`) **plus the slide markup**, since a deck may write its own inline SVG | never — it holds the whole document |
+| `lib/runtime/index.js` | the `<style>` elements' `.textContent` in the live document, plus `[fill*="#latt-"]`-style attributes on the slides | a `<link rel=stylesheet>` (text not in the DOM), or a missing `latt-a11y-tex` **sentinel** |
+
+That sentinel is worth understanding before you touch the runtime half.
+`lib/base/base.print-textures.css` re-points all 12 print slots at
+`latt-a11y-tex-*` and ships inside the engine sheet, so **any** document carrying
+Lattice's CSS contains that id — on every theme. Not finding it does not mean
+"this deck needs no textures", it means the stylesheet did not arrive as
+readable `<style>` text. The first cut of the runtime half read it the other way
+and emitted 0 of 92 patterns on such a document; a real-Chromium probe caught it,
+reasoning about the code did not.
+
+The same fact is why `section.print` needs no special case: the print references
+are in the layout sheet for every deck, so a hue-carried palette still ships the
+a11y sets it will need if a slide takes `.print`.
+
+**The runtime's injection is deck-DEPENDENT and therefore re-fires.** It rides
+`runAllContentTransforms()`, so a `theme:` edit in a live preview re-derives the
+defs instead of leaving the new theme's `--cat-N-texture` refs dangling. Only the
+docs-site builders (`docs/src/playground/deck-preview.js`) still call
+`texturePatternDefs()` bare: they build the preview document at module scope with
+no document to read.
+
+**There is deliberately no cheap change-detector in front of that re-fire, and
+the reason is worth keeping.** The first cut gated it on a `<style>`-length
+signature. That proxy was unsound three ways, and an independent check found all
+three — none of them by testing, all of them by asking what the proxy could not
+see:
+
+1. a reference arriving through slide **markup** is a different input to the same
+   scan, and moves no stylesheet length at all;
+2. the set prefixes are **not length-distinct** — `latt-a11y-tex` and
+   `latt-onyx-tex` are both 13 characters — so retargeting `--cat-N-texture` from
+   one to the other, the single most natural edit, is invisible **by
+   construction**;
+3. an early return on an unchanged signature never notices that a live edit
+   **destroyed the element**, and on a hue-carried theme nothing else puts it back.
+
+Each ends in a `url(#…)` with no `<pattern>`, which SVG paints black. So the gate
+IS the answer now: scan, compare to `data-latt-tex-sets` on the standing element,
+re-inject on a difference or an absence. Measured in Chromium against a 1.7 MB
+inlined engine sheet, that is ~1.2 ms for the scan and 0.03 ms to gather the text
+— under 1% of the 150 ms debounce the pass already waits out. A proxy that costs
+a black fill is not worth the milliseconds it saves. The three scenarios are
+pinned in `test/integration/parity/runtime-frontmatter-refire.test.js`.
+
 ## Two builders — and why there must be two
 
 `texturePatternDefs()` uses two helpers. This is the irreducible complexity of the
@@ -154,8 +224,11 @@ is roughly eight times today's defs markup on every page). Only then can
 ## Invariants (don't break these)
 
 - **Output is byte-locked.** `test/unit/core/accessibility-textures.test.js` compares
-  `texturePatternDefs()` against `texture-defs.golden.svg`. Any output change fails until
-  the golden is re-blessed *with justification*. Because the output is stable, exported
+  the FULL emission — `texturePatternDefs()` with no argument — against
+  `texture-defs.golden.svg`. Any output change fails until the golden is re-blessed
+  *with justification*. A narrowed emission is a strict subset of the golden plus its
+  own `data-latt-tex-sets` value, so the lock still covers every byte of pattern
+  geometry. Because the output is stable, exported
   PDF/PPTX bytes don't change from a supply-side refactor (no export sign-off needed), and
   `dist/lattice.css` (which carries only the `--cat-N-texture` token wiring, not the defs)
   is unaffected. The module source *is* bundled into `dist/lattice-emulator.js` /
@@ -163,6 +236,12 @@ is roughly eight times today's defs markup on every page). Only then can
   rebuild and commit them (`build:check` enforces it).
 - **The a11y literal sets stay literal** — no `var()`, no `<style>` (the iOS all-black-pie
   guard). Only the scheme-aware sets carry a `<style>`.
+- **A set is APPENDED to `TEXTURE_SETS`, never inserted.** That array is both the
+  emission order the golden pins and the closed list `texturePrefixesReferencedIn()`
+  matches against. Adding a set means adding a row there AND wiring the theme that
+  references it — a theme pointing `--cat-N-texture` at an id no row builds is the
+  black-fill failure, and `test/unit/core/accessibility-textures.test.js` asserts every
+  shipped palette emits a superset of the ids it references.
 
 ## What this is NOT
 

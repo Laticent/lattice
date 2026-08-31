@@ -812,10 +812,10 @@ function applyImageModePalette(name) {
 const paletteName = applyImageModePalette(resolvePalette({ md, cliArg: paletteArg }).name);
 // The a11y-* palettes are first-class themes (pick `theme: a11y-deuteranopia`
 // like any theme). Their categorical fills reference texture <pattern> <defs>
-// — SVG markup CSS can't hold — so emit them on every render. They're inert
-// unless an a11y theme's CSS references them, so there's no palette-name gate;
-// this matches the Drawing Board's always-on injection (drawing-board.astro).
-const a11yTextureDefs = require('./lib/core/accessibility-textures').texturePatternDefs();
+// — SVG markup CSS can't hold — so the engine emits those <defs> per page.
+// WHICH sets it emits is decided once the document's CSS exists, down at the
+// <body> assembly; see the injection site.
+const { texturePatternDefs, texturePrefixesReferencedIn } = require('./lib/core/accessibility-textures');
 const THEMES_DIR   = path.join(PKG_ROOT, 'themes');
 const palettePath = path.join(THEMES_DIR, `${paletteName}.css`);
 if (!fs.existsSync(palettePath)) {
@@ -2533,13 +2533,35 @@ main#deck{margin:0;padding:0;display:block}
 :root[data-lattice-view="fluid"] main#deck{display:flex;flex-direction:column;align-items:center;width:100%;min-width:0;flex:1 0 auto}
 ${globalStyle ? `\n/* Front-matter style: directive */\n${globalStyle}\n` : ''}`;
 
+// The one place the deck's stylesheet exists as a finished string. Compute it
+// once: the <style> body below embeds it, and the texture <defs> are chosen from
+// it. Scanning the SANITIZED text is the honest read — it is what the browser
+// parses, so a reference `sanitizeStyleText` strips is a reference that is not
+// there.
+const deckStyle = sanitizeStyleText(deckStyleText);
+// Emit ONLY the texture pattern sets this page references. An unreferenced
+// <pattern> paints nothing, so dropping it is provably zero visual change — and
+// it was 28,490 B on every page, whatever the theme (#1863).
+//
+// The scan covers BOTH channels a reference can arrive through: the stylesheet
+// (where `--cat-N-texture` and `lib/base/base.print-textures.css`'s
+// `section.print` overrides live) and the slide MARKUP (a deck may write inline
+// SVG with `fill="url(#latt-a11y-tex-3)"` of its own). Missing a reference
+// renders a blank fill, so the scan errs wide rather than narrow.
+//
+// This is why `section.print` keeps working on every theme without a special
+// case: base.print-textures.css re-points all 12 slots at `latt-a11y-tex-*` and
+// ships in the layout sheet, so the reference is in `deckStyle` for every deck.
+const a11yTextureDefs = texturePatternDefs(
+  texturePrefixesReferencedIn(`${deckStyle}\n${slidesWithMeta2}`),
+);
 const htmlDoc = `<!DOCTYPE html>
 <html lang="${escapeHtml(deckLang)}"><head><meta charset="utf-8">
 <title>${escapeHtml(deckTitle)}</title>
 ${embeddedFonts}
 ${katexCssLink}
 <style>
-${sanitizeStyleText(deckStyleText)}
+${deckStyle}
 </style></head><body>
 <a class="lat-skip-link" href="#deck">Skip to the slides</a>
 ${a11yTextureDefs}

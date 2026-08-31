@@ -4917,8 +4917,12 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
     sink: 'document.body.insertAdjacentHTML',
     count: 1,
     provenance:
-      'OURS — texturePatternDefs(), a fixed <svg><defs> of categorical texture patterns generated from ' +
-      'lib/tokens with no caller-supplied input at all.',
+      'OURS — texturePatternDefs(), an <svg><defs> of categorical texture patterns built entirely from ' +
+      "this repo's literal ramps and geometries in lib/core/accessibility-textures.js. No caller-supplied " +
+      'string reaches the markup. Since #1863 the document DOES choose WHICH of the eight sets are built: ' +
+      'texturePrefixesReferencedIn() scans the page CSS for `url(#<prefix>-N)` and returns matches from a ' +
+      'CLOSED list of eight literal prefixes. Document text therefore selects among our fixed strings, ' +
+      'and can never become one — an unrecognized id selects nothing rather than being echoed.',
   },
 ];
 

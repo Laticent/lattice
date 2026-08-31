@@ -87,12 +87,12 @@ const DECKS = [
     deck: path.join(ROOT, 'test/integration/baseline-decks/gallery.md'),
     // See UNSWEPT below — these are per-deck because the drop set is a property of what
     // the deck renders, not of the sweep.
-    unswept: 11, foreign: 5, ambiguous: 6, sheets: 3, minRows: 400,
+    unswept: 11, foreign: 5, ambiguous: 6, sheets: 1, minRows: 400,
   },
   {
     id: 'gallery-jargon',
     deck: path.join(ROOT, 'examples/gallery-jargon.md'),
-    unswept: 10, foreign: 5, ambiguous: 5, sheets: 3, minRows: 400,
+    unswept: 10, foreign: 5, ambiguous: 5, sheets: 1, minRows: 400,
   },
 ];
 
@@ -348,6 +348,20 @@ describe('palette sweep — every shipped palette, on every swept deck', () => {
    * renderer ships inside its own `<svg>` and re-probing; if it finds none to disable, it
    * silently classifies nothing as foreign and every baked run gets scored with a stale
    * channel. Both decks render Mermaid, so the count is known and pinned PER DECK.
+   *
+   * This count was 3 and is 1 as of #1863, and the drop is the detector getting MORE
+   * precise, not less. `SET_FOREIGN_SHEETS` disables every stylesheet whose owner node
+   * sits inside an `<svg>` — which always swept up our OWN two scheme-aware texture
+   * `<style>` blocks (onyx and concrete) along with Mermaid's. Those two carry nothing
+   * but `.latt-onyx-tex-rN{fill:…}` rules: they paint `<pattern>` internals and can
+   * never move a text run's color, so they were passengers inflating the count. Now that
+   * a page emits only the sets it references, a hue-carried render carries neither, and
+   * the count is exactly the one genuinely third-party sheet.
+   *
+   * The proof that nothing was lost is in the NEXT test, not this one: `foreign` (5) and
+   * `ambiguous` (6/5) are unchanged on both decks across the same 32-palette sweep. Had
+   * either of our sheets been supplying paint, dropping it from the disable set would
+   * have moved those numbers.
    */
   test('provenance detection found the svg-scoped stylesheets it keys on', () => {
     for (const d of DECKS) {
