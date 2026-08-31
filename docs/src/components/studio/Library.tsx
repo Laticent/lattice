@@ -130,7 +130,7 @@ function LibraryFrame({ docked, open, onOpenChange, dropProps, children }: { doc
 	);
 }
 
-export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onChanged, notify }: {
+export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onChanged, notify }: {
 	open: boolean;
 	onOpenChange: (o: boolean) => void;
 	/** Desktop-Craft: render as a docked left column (plain div, no Sheet portal),
@@ -143,9 +143,18 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	onApplyTheme: (name: string) => void;
 	onApplyFinish: (name: string) => void;
 	onInsert: (skeleton: string, name: string) => void;
-	/** Reopen a saved theme in Fabricate for editing. Optional so a host that has no
-	 *  Fabricate mount (there is only one) simply does not show the control. */
+	/** Reopen a saved asset in Fabricate for editing — one per kind. Optional so a host
+	 *  that has no Fabricate mount (there is only one) simply does not show the control.
+	 *
+	 *  ALL THREE VERSIONED KINDS CARRY ONE. Themes had this alone for two releases, and
+	 *  the asymmetry was not a considered scope line: a saved component or finish could
+	 *  be made and never reopened, while its record already held everything needed to
+	 *  restore the editor (`manifest`/`skeleton`/`css` for a component, `recipe` for a
+	 *  finish). Scenes are deliberately still absent — #1678 has to give them a Library
+	 *  card first, and half a set of actions on one kind is what this fixes. */
 	onEditTheme?: (t: StudioTheme) => void;
+	onEditComponent?: (c: StudioComponent) => void;
+	onEditFinish?: (f: StudioFinish) => void;
 	onChanged: () => void;
 	notify: (msg: string) => void;
 }) {
@@ -234,6 +243,26 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const cKey = (c: StudioComponent) => `comp:${c.id}`;
 	const fKey = (f: StudioFinish) => `finish:${f.id}`;
 	const toggle = (k: string) => setSel((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
+
+	// TWO COLUMNS ON THE PANEL'S OWN WIDTH, not the viewport's.
+	//
+	// `sm:grid-cols-2` is a VIEWPORT breakpoint, and the docked Library is a ~270px
+	// column that is almost always on a ≥640px screen — so it took two columns of 125px
+	// and every card's action row overflowed its own box by ~110px, hiding Share and
+	// Delete behind the card edge. Measured at 1440 in the docked panel: a 216px row
+	// inside a 105px box, on all three kinds.
+	//
+	// That was ALREADY true of the theme card, which has carried four controls since
+	// #1850. Adding Edit to components and finishes spread the same clip to them, which
+	// is what turned a pre-existing nick into something this change had to fix rather
+	// than note (HARD RULE #18).
+	//
+	// Every other responsive choice in this component already switches on `docked` + a
+	// container query — the Import label at `@[20rem]`, the status breakdown at
+	// `@[18rem]` — and `LibraryFrame` has made the docked column an inline-size
+	// container all along. The card grid was the one that never got the memo. 31rem is
+	// two 236px cards (a 216px action row + the card's 2x10px padding) plus the 12px gap.
+	const cardGrid = cn('grid grid-cols-1 gap-3', docked ? '@[31rem]:grid-cols-2' : 'sm:grid-cols-2');
 
 	// A card's metadata line: the facts, then the way into this asset's earlier versions.
 	//
@@ -563,7 +592,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 							</PanelEmpty>
 						</div>
 					) : (
-						<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+						<div className={cardGrid}>
 							{vThemes.map((t) => {
 								const k = tKey(t);
 								const active = t.name === activePalette;
@@ -599,6 +628,10 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 											{metaLine(<>{c.bucket || 'local'} · scoped · palette-blind</>, { id: c.id, label: `.${c.name}` })}
 											<div className="mt-2.5 flex items-center gap-1.5">
 												<button type="button" onClick={() => { onInsert(c.skeleton, c.name); notify(`Inserted .${c.name}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Plus className="size-3.5" />Insert</button>
+												{/* Icon-only and in the same slot as the theme card's, so the row reads
+												    the same way whichever kind you are looking at. Four controls is what
+												    the theme card already ships at 390px; this is the fourth, not a fifth. */}
+												{onEditComponent && <button type="button" onClick={() => { onEditComponent(c); onOpenChange(false); }} aria-label={`Edit .${c.name}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
 												<button type="button" disabled={!!busy} onClick={() => shareComponent(c)} aria-label={`Share .${c.name}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" />Share</button>
 												<DeleteBtn armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeComponent(c); }} onCancel={() => setArmed(null)} label={`.${c.name}`} />
 											</div>
@@ -621,6 +654,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 											{metaLine(<>{f.name} · layered · palette-blind</>, { id: f.id, label: f.label })}
 											<div className="mt-2.5 flex items-center gap-1.5">
 												<button type="button" onClick={() => { onApplyFinish(f.name); notify(`Applied ${f.label}.`); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Check className="size-3.5" />Apply</button>
+												{onEditFinish && <button type="button" onClick={() => { onEditFinish(f); onOpenChange(false); }} aria-label={`Edit ${f.label}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
 												<button type="button" disabled={!!busy} onClick={() => shareFinish(f)} aria-label={`Share ${f.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" />Share</button>
 												<DeleteBtn armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeFinish(f); }} onCancel={() => setArmed(null)} label={f.label} />
 											</div>

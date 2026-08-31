@@ -22,9 +22,10 @@ import { auditBoth, contrastRatio, deriveTheme, gateThemeCss, parseTheme, rename
 import { COMPONENT_EFFORTS, type ComponentEffort, type ComponentSimilar, connectOpenRouter, generateComponent, generateTheme, refineComponent, useArchitectStatus } from './architect';
 import { auditMeterRows, isUnchecked } from './audit-meter';
 import { CodeField } from './CodeField';
-import { type ComponentMeta, saveStudioComponent } from './component-library';
+import { type ComponentMeta, type StudioComponent, saveStudioComponent } from './component-library';
 import { downloadText } from './download';
 import { FinishStudio } from './FinishStudio';
+import type { StudioFinish } from './finish-library';
 import { type Finding, LayoutStudio, STARTER_CSS, STARTER_DESCRIPTION, STARTER_META, STARTER_NAME, STARTER_SKELETON } from './LayoutStudio';
 import { MotionStudio } from './MotionStudio';
 import { manifestJsonCompletion } from './manifest-complete';
@@ -222,7 +223,20 @@ const contractLabelOf = (id: string) => CONTRACT.find((c) => c.token === id)?.la
 const tokenLabel = (id: string) => contractLabelOf(id) ?? bandLabel(id);
 const tierOf = (ratio: number | null, ok: boolean) => ((ratio ?? 0) >= 7 ? 'AAA' : ok ? 'AA' : 'FAIL');
 
-export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClose, notify, onSaved, onOpenWorkspace }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: StudioTheme | null; savedThemes?: { id: string; name: string }[]; onClose: () => void; notify: (msg: string) => void; onSaved?: () => void; onOpenWorkspace?: () => void }) {
+/**
+ * A saved record to REOPEN, tagged by kind.
+ *
+ * A tagged union rather than three optional props, because the three are mutually
+ * exclusive by construction — Fabricate lands on ONE faculty — and the tag is what
+ * tells the hydration effect which tab to switch to. Three nullable props would make
+ * "two seeds at once" representable and leave the tab choice to be re-derived.
+ */
+export type FabricateSeed =
+	| { kind: 'theme'; record: StudioTheme }
+	| { kind: 'component'; record: StudioComponent }
+	| { kind: 'finish'; record: StudioFinish };
+
+export function Fabricate({ options, catalog = [], seed, savedThemes = [], savedComponents = [], onClose, notify, onSaved, onOpenWorkspace }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: FabricateSeed | null; savedThemes?: { id: string; name: string }[]; savedComponents?: { id: string; name: string }[]; onClose: () => void; notify: (msg: string) => void; onSaved?: () => void; onOpenWorkspace?: () => void }) {
 	const [tab, setTab] = React.useState<'theme' | 'layout' | 'finish' | 'motion'>('theme');
 	// All ten essentials in state, seeded from the first curated starter.
 	const [core, setCore] = React.useState<Record<EssKey, string>>(() => ({ ...(STARTERS[0].essentials as Record<EssKey, string>) }));
@@ -345,6 +359,13 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClo
 	// reason: without it a rename is a create, and every deck saying
 	// `theme: <old name>` keeps pointing at the untouched original.
 	const [editingId, setEditingId] = React.useState<string | null>(null);
+	// The component tab's twin of `editingId`. It did not exist until components became
+	// reopenable, and its absence was a live defect rather than a missing feature: the
+	// component save passed `historyLabel: 'Before edit'` with NO id, so `putAsset` fell
+	// back to `(kind, name)` dedupe and every "edit" that changed the name silently
+	// FORKED the record — leaving the original in the shelf and every deck saying
+	// `_class: <old name>` pointing at it.
+	const [compEditingId, setCompEditingId] = React.useState<string | null>(null);
 
 	// Derive the full token map from the ten picked essentials, then layer any
 	// per-side contract overrides — REAL, every render. The live specimen uses a
@@ -611,7 +632,14 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClo
 	// name (`savedThemes.find(t => t.name === palette)`), leaving the older card
 	// listed but unreachable. Refuse rather than silently make one of them a ghost.
 	const nameTakenBy = savedThemes.find((t) => t.name === themeName && t.id !== editingId);
-	const canSave = !saving && (tab === 'theme' ? themeNameOk && !!derived.css && !nameTakenBy : compOk && compNameOk);
+	// The component tab's twin. It only became reachable when components became
+	// reopenable — before that the save had no id, so a name collision resolved to an
+	// overwrite rather than to two records sharing a name. Now that Save is id-pinned,
+	// a component can be renamed ONTO another one's name, and `_class: <name>` in a
+	// deck resolves by name, so the older record would still be listed and never again
+	// invokable. Refuse, exactly as the theme branch does.
+	const compNameTakenBy = savedComponents.find((c) => c.name === compName && c.id !== compEditingId);
+	const canSave = !saving && (tab === 'theme' ? themeNameOk && !!derived.css && !nameTakenBy : compOk && compNameOk && !compNameTakenBy);
 	async function saveToLibrary() {
 		if (!canSave) return;
 		setSaving(true);
@@ -652,7 +680,16 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClo
 				setHandDirty(false);
 				notify(`Saved “${t.label}” to your theme library — pick it from Look.`);
 			} else {
-				const c = await saveStudioComponent({ name: compName, css: compCss, skeleton: compSkeleton, meta: { ...compMeta, description: compDesc } }, { historyLabel: 'Before edit' });
+				// `id` is what makes this an UPDATE — same reason as the theme branch above.
+				// Without it the store keys on the name, so editing-then-renaming created a
+				// second component and left every deck saying `_class: <old name>` pointing
+				// at the untouched original. The `historyLabel` was already here, which made
+				// the omission easy to miss: it read as an edit and behaved as a create.
+				const c = await saveStudioComponent(
+					{ ...(compEditingId ? { id: compEditingId } : {}), name: compName, css: compCss, skeleton: compSkeleton, meta: { ...compMeta, description: compDesc } },
+					{ historyLabel: 'Before edit' },
+				);
+				setCompEditingId(c.id);
 				notify(`Saved “.${c.name}” to your component library.`);
 			}
 			onSaved?.();
@@ -680,16 +717,48 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClo
 	 * The essentials still seed the pickers, so discarding the CSS lands somewhere
 	 * recognizable rather than on the default starter.
 	 *
-	 * Keyed on `seed?.id` so re-opening the SAME record does not stomp edits in
-	 * progress on every unrelated re-render.
+	 * Keyed on `seed?.record.id` so re-opening the SAME record does not stomp edits in
+	 * progress on every unrelated re-render. The KIND is in the key too: three kinds
+	 * mint ids from different prefixes (`t`/`c`/`f`), so a collision is not possible
+	 * today, but keying on the id alone would make that a silent assumption rather
+	 * than a stated one.
+	 *
+	 * The FINISH kind is absent below on purpose — `FinishStudio` owns its own state,
+	 * so the seed is threaded to it as a prop and hydrated there. All this effect owes
+	 * a finish is the tab switch.
 	 */
 	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the record identity, not its contents — re-seeding on every field change would fight the editor.
 	React.useEffect(() => {
 		if (!seed) return;
+		if (seed.kind === 'finish') {
+			setTab('finish');
+			return;
+		}
+		if (seed.kind === 'component') {
+			const c = seed.record;
+			setTab('layout');
+			setCompEditingId(c.id);
+			setCompName(c.name);
+			// The description lives INSIDE the manifest on the record and is hoisted out
+			// by `toStudioComponent`'s `toMeta`; Save re-nests it. Seeding it from `meta`
+			// would put the caption back in the manifest editor as a stray key.
+			setCompDesc(c.meta?.description ?? '');
+			setCompCss(c.css);
+			setCompSkeleton(c.skeleton);
+			setCompMeta({ ...(c.meta as ComponentMeta) });
+			// Draft-local scratch that belongs to the PREVIOUS component, not this one.
+			// Leaving `compUndo` standing would let one click restore a foreign draft
+			// over the record just opened.
+			setCompUndo(null);
+			setCompSimilar([]);
+			setCompJsonError('');
+			return;
+		}
+		const t = seed.record;
 		setTab('theme');
-		setEditingId(seed.id);
-		setThemeName(seed.name);
-		setHandCss(seed.css);
+		setEditingId(t.id);
+		setThemeName(t.name);
+		setHandCss(t.css);
 		setHandDirty(false);
 		setHandOrigin('seed');
 		setDiscardArmed(false);
@@ -698,17 +767,17 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClo
 		// import or an older schema can carry keys this faculty does not know, and
 		// spreading them into `core` puts them in front of `validateEssentials` and
 		// `deriveTheme` on the next discard.
-		if (seed.essentials) {
-			const from = seed.essentials as Record<string, string>;
+		if (t.essentials) {
+			const from = t.essentials as Record<string, string>;
 			setCore((c) => {
 				const next = { ...c };
 				for (const k of Object.keys(ESS_TOKEN) as EssKey[]) if (typeof from[k] === 'string' && from[k].trim()) next[k] = from[k];
 				return next;
 			});
 		}
-		if (seed.overrides) setOverrides(seed.overrides as Record<string, Override>);
-		if (seed.rampStrategy) setRampStrategy(seed.rampStrategy);
-	}, [seed?.id]);
+		if (t.overrides) setOverrides(t.overrides as Record<string, Override>);
+		if (t.rampStrategy) setRampStrategy(t.rampStrategy);
+	}, [seed?.kind, seed?.record.id]);
 
 	/**
 	 * Open the CSS view. The record is seeded from the derivation and BECOMES the
@@ -788,7 +857,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClo
 					{facultyToggle}
 					<div className="flex-1" />
 				</div>
-				<FinishStudio options={options} notify={notify} onSaved={onSaved} onOpenWorkspace={onOpenWorkspace} />
+				<FinishStudio options={options} seed={seed?.kind === 'finish' ? seed.record : null} notify={notify} onSaved={onSaved} onOpenWorkspace={onOpenWorkspace} />
 			</div>
 		);
 	}
@@ -829,7 +898,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClo
 				</div>
 				<div className="flex-1" />
 				<Button variant="outline" size="sm" disabled={!canExport} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={exportArtifact}><Download className="size-4" /><span className="hidden sm:inline">Export</span></Button>
-				<Tip label={nameTakenBy && tab === 'theme' ? `“${themeName}” is already a saved theme — pick another name.` : ''}>
+				<Tip label={nameTakenBy && tab === 'theme' ? `“${themeName}” is already a saved theme — pick another name.` : compNameTakenBy && tab === 'layout' ? `“.${compName}” is already a saved component — pick another name.` : ''}>
 					<Button size="sm" disabled={!canSave} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={saveToLibrary}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button>
 				</Tip>
 			</div>

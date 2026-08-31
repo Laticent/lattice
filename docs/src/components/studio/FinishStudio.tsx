@@ -37,7 +37,7 @@ import {
 	WASH_TYPES,
 	washHasHotspot,
 } from './finish-generate';
-import { saveStudioFinish } from './finish-library';
+import { type StudioFinish, saveStudioFinish } from './finish-library';
 import { Joystick } from './Joystick';
 import { type HandleStyle, loadSettings, SETTINGS_EVENT } from './studio-store';
 
@@ -72,17 +72,26 @@ const specimen = (exporting: boolean) =>
 
 export function FinishStudio({
 	options,
+	seed,
 	notify,
 	onSaved,
 	onOpenWorkspace,
 }: {
 	options: SingleSlideOptions;
+	/** A saved finish to REOPEN, or null to start from the default recipe. */
+	seed?: StudioFinish | null;
 	notify: (msg: string) => void;
 	onSaved?: () => void;
 	onOpenWorkspace?: () => void;
 }) {
 	const [recipe, setRecipe] = React.useState<FinishRecipe>(() => coerceRecipe(PRESET_RECIPES.atrium));
 	const [name, setName] = React.useState('');
+	// The saved record this session is EDITING, so Save updates it in place instead of
+	// creating a second finish. Same reason `Fabricate` keeps `editingId` for themes:
+	// `putAsset` skips its `(kind, name)` dedupe when an id is given, so without this a
+	// reopen-then-rename is a CREATE and every deck saying `finish: <old name>` keeps
+	// pointing at the untouched original.
+	const [editingId, setEditingId] = React.useState<string | null>(null);
 	const [mode, setMode] = React.useState<'light' | 'dark'>('light');
 	// "Export preview" — show the OPAQUE export face the PDF/PPTX bakes, not just the
 	// rich on-screen face, so the designer sees the flatter look before they ship it.
@@ -108,6 +117,26 @@ export function FinishStudio({
 	const [saving, setSaving] = React.useState(false);
 	const [cssOpen, setCssOpen] = React.useState(true);
 	const modelReady = useArchitectStatus().ready;
+
+	/**
+	 * HYDRATE FROM A SAVED RECORD. The recipe is the model — `saveStudioFinish`
+	 * regenerates the stylesheet from it under the final slug, so unlike a theme
+	 * (whose hand-edited bytes ARE the record) there is nothing else to restore.
+	 *
+	 * `setName(seed.label)`, NOT `seed.name`: this field holds the DISPLAY name and the
+	 * slug is derived from it below. Seeding it with the slug would round-trip a slug
+	 * through `safeFinishSlug` on the next save and quietly re-title the finish.
+	 *
+	 * Keyed on `seed?.id` so re-opening the SAME record does not stomp edits in
+	 * progress — the same rule `Fabricate`'s theme seed effect follows.
+	 */
+	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the record identity, not its contents — re-seeding on every recipe change would fight the editor.
+	React.useEffect(() => {
+		if (!seed) return;
+		setEditingId(seed.id);
+		setName(seed.label || seed.name);
+		setRecipe(coerceRecipe(seed.recipe));
+	}, [seed?.id]);
 
 	// The generated CSS drives BOTH the live preview (targets finish-preview) and the
 	// export/save (targets the named slug). Recompute as the recipe changes.
@@ -185,7 +214,16 @@ export function FinishStudio({
 		setSaving(true);
 		try {
 			const css = generateFinishCss(slug, recipe);
-			const f = await saveStudioFinish({ name: slug, label: name.trim(), css, recipe });
+			// `id` is what makes this an UPDATE rather than a second record — see the
+			// note on `editingId`. `historyLabel` only means anything on that branch: a
+			// fresh save has no previous record to snapshot, so the store takes no
+			// version, and naming the edit case is what makes the entry legible in the
+			// "Earlier versions" list later.
+			const f = await saveStudioFinish(
+				{ ...(editingId ? { id: editingId } : {}), name: slug, label: name.trim(), css, recipe },
+				{ historyLabel: 'Before edit' },
+			);
+			setEditingId(f.id);
 			notify(`Saved "${f.label}" to your library — pick it from the Finish menu in the Inspector.`);
 			onSaved?.();
 		} catch {
