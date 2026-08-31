@@ -130,13 +130,17 @@ test('agent kit structure', { skip }, async (t) => {
 		const { COMPONENT_CANON } = require(path.join(ROOT, 'lib', 'layout', 'ai.js'));
 		assert.ok(doc.includes(String(THEME_CANON).trim()), 'THEME_CANON missing or altered');
 		assert.ok(doc.includes(String(COMPONENT_CANON).trim()), 'COMPONENT_CANON missing or altered');
-		// FINISH_SYSTEM is extracted from TypeScript via esbuild, so assert on a
-		// stable sentence of its own rather than re-running the bundle here.
+		// FINISH_SYSTEM is deliberately NOT shipped: it lives in architect.ts, which
+		// imports fuse.js and react from the docs workspace, and loading that in a
+		// root-only `npm ci` broke the whole install. The kit must SAY so rather than
+		// leave a reader wondering why three of four canons are here.
 		assert.match(
 			doc,
-			/You design a SLIDE FINISH/,
-			'FINISH_SYSTEM missing — its esbuild extraction from architect.ts has probably broken',
+			/FINISH_SYSTEM — not shipped, and why/,
+			'studio-prompts.md no longer explains the absent finish prompt. Silently shipping ' +
+				'three of four canons leaves a reader unable to tell absence from oversight.',
 		);
+		assert.match(doc, /skills\/finish\.md/, 'the finish prompt section must route to the skill');
 		assert.match(
 			doc,
 			/the skill is the safer bet/,

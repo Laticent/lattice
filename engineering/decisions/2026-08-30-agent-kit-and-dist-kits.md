@@ -229,10 +229,29 @@ would invite a reader to follow the drifted one. A test pins that sentence.
 byte-for-byte against `design/skills/`. Everything else is derived from a generator
 and cannot drift; these could.
 
-**`FINISH_SYSTEM` costs a bundle.** It is computed from the live finish catalog
-inside a TypeScript module, so it cannot be `require`d — the generator extracts it
-with esbuild (~0.3s, measured). It fails loudly rather than degrading: a canon
-silently missing from the kit is the exact defect this section is about.
+**`FINISH_SYSTEM` could not ship, and the attempt broke `npm ci` for everyone.**
+It is computed inside `architect.ts`, so reading it means loading that module. The
+first cut extracted it with esbuild — 0.287s locally, and green on this machine
+because `docs/node_modules` existed. In CI it failed every job at `npm ci` with
+`Could not resolve "fuse.js"`: `prepare` runs this build, `architect.ts` imports
+`fuse.js` and `react` from the DOCS workspace, and a root-only install does not
+have them. `--packages=external` does not help — node then cannot resolve the
+import at load time either.
+
+The fix was to **shrink the change until it stopped causing the break** (HARD RULE
+#18's sanctioned move for a regression you created), not to weaken the gate. The
+kit ships two generator canons and a section saying plainly why the third is
+absent and where to get the same material. Nothing of substance is lost:
+`skills/finish.md` teaches the four-layer system at length, and
+`finish-system-vocab.test.ts` already reconciles that skill against the prompt.
+
+Two things worth keeping from the failure. **The `prepare` hook makes any kit
+build error an INSTALL error** — a build step here is not a private concern, it is
+on the critical path of `npm ci` for every consumer. And the local/CI split was
+invisible: the same command passed locally and failed on six jobs, because the
+sandbox had a workspace's `node_modules` that a fresh install does not. Every other
+docs module this generator loads was then verified to have **zero** bare imports,
+and the whole build re-run with `docs/node_modules` hidden — exit 0.
 
 **The path filter gained `design/skills/**` and `architect.ts`.** Without them,
 editing a skill or the finish prompt would not have republished the kit — the same

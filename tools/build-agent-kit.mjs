@@ -34,6 +34,13 @@
  * are hand-written rather than generated, so their copy is additionally pinned
  * byte-for-byte by `test/unit/tools/agent-kit-structure.test.js`.
  *
+ * WHAT IT DOES NOT SHIP. The finish generator prompt (FINISH_SYSTEM) is computed
+ * inside architect.ts, which imports `fuse.js` and `react` from the DOCS workspace.
+ * Extracting it made a root-only `npm ci` fail — `prepare` runs this build, so the
+ * whole install died. `skills/finish.md` teaches the same system more fully and a
+ * repo test already reconciles the two, so the kit points there instead. Every
+ * other module this generator loads was verified to have zero bare imports.
+ *
  * WHY THE PRIMER SHARES THE STUDIO'S BUILDER. `authoring/primer.md` is the SAME
  * authoring primer the Studio chat injects, produced by calling the same two
  * functions it calls. Be exact about the scope, because the looser claim is
@@ -46,19 +53,8 @@
  * it reads their output. `tools/build.js` places it accordingly.
  */
 
-import { execFileSync } from 'node:child_process';
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -164,45 +160,6 @@ function skillDocs() {
     .map((f) => ({ name: f, body: readFileSync(path.join(SKILLS_DIR, f)) }));
 }
 
-/**
- * FINISH_SYSTEM is computed from the live finish catalog inside a TypeScript
- * module, so it cannot be `require`d. esbuild resolves it in ~0.3s.
- *
- * It FAILS LOUDLY rather than degrading: a canon silently missing from the kit is
- * the failure mode this whole change exists to fix, and a caught-and-ignored
- * error would reproduce it exactly.
- */
-function finishSystem() {
-  const tmp = mkdtempSync(path.join(tmpdir(), 'lattice-finish-'));
-  try {
-    const entry = path.join(tmp, 'entry.ts');
-    const out = path.join(tmp, 'out.mjs');
-    writeFileSync(entry, "export { FINISH_SYSTEM } from '@/components/studio/architect.ts';\n");
-    execFileSync(
-      path.join(ROOT, 'node_modules', '.bin', 'esbuild'),
-      [
-        entry,
-        '--bundle',
-        '--format=esm',
-        '--platform=node',
-        `--alias:@=${path.join(ROOT, 'docs', 'src')}`,
-        `--outfile=${out}`,
-        '--log-level=error',
-      ],
-      { cwd: ROOT, stdio: ['ignore', 'ignore', 'pipe'] },
-    );
-    return { file: out, cleanup: () => rmSync(tmp, { recursive: true, force: true }) };
-  } catch (err) {
-    rmSync(tmp, { recursive: true, force: true });
-    throw new Error(
-      `build-agent-kit: could not extract FINISH_SYSTEM from docs/src/components/studio/architect.ts — ${err?.message || err}\n` +
-        '  This is one of the four product canons the kit ships. If architect.ts gained an import esbuild cannot resolve\n' +
-        '  for the node platform, fix that rather than dropping the canon: a kit missing a canon silently is the exact\n' +
-        '  defect this generator exists to prevent.',
-    );
-  }
-}
-
 /** authoring/deck-canon.md — what good looks like. */
 function deckCanonDoc() {
   const { DECK_CANON, DECK_CANON_SHORT } = require(path.join(ROOT, 'lib', 'authoring', 'deck-canon.js'));
@@ -260,30 +217,17 @@ function rulesDoc(authoringRules) {
   ].join('\n');
 }
 
-/** reference/studio-prompts.md — the three GENERATOR canons. */
+/** reference/studio-prompts.md — the generator canons that can be shipped safely. */
 function studioPromptsDoc() {
   const { THEME_CANON } = require(path.join(ROOT, 'lib', 'theme', 'ai.js'));
   const { COMPONENT_CANON } = require(path.join(ROOT, 'lib', 'layout', 'ai.js'));
-  const fin = finishSystem();
-  let FINISH_SYSTEM;
-  try {
-    // Loaded via a child process rather than a dynamic import so the bundle's own
-    // module-level code cannot run inside this build.
-    FINISH_SYSTEM = execFileSync(
-      process.execPath,
-      ['-e', `import(${JSON.stringify(fin.file)}).then((m)=>process.stdout.write(m.FINISH_SYSTEM))`],
-      { encoding: 'utf8' },
-    );
-  } finally {
-    fin.cleanup();
-  }
 
   return [
     "# The Studio's generator prompts",
     '',
     "> These are the instructions Lattice's own product sends its model when it GENERATES a",
-    '> theme, a component or a finish. They are here so an outside agent can reproduce what',
-    '> the Studio does.',
+    '> theme or a component. They are here so an outside agent can reproduce what the Studio',
+    '> does.',
     '',
     '**Which wins.** For learning how to build one of these properly, the matching',
     `\`${SKILLS}/\` file is fuller and is the better teaching surface — it carries the 10/10 bar,`,
@@ -312,19 +256,22 @@ function studioPromptsDoc() {
     String(COMPONENT_CANON).trim(),
     '```',
     '',
-    '## FINISH_SYSTEM',
+    '## FINISH_SYSTEM — not shipped, and why',
     '',
-    `Sent when generating a finish. The closed vocabularies below are generated from what`,
-    `actually ships, so they cannot drift from the engine. See \`${SKILLS}/finish.md\`.`,
+    'The finish generator prompt lives in `docs/src/components/studio/architect.ts` and is',
+    'computed from the live finish catalog, so it cannot be read without loading that module —',
+    'which imports `fuse.js` and `react` from the docs workspace. Extracting it made a root-only',
+    '`npm ci` fail, so it is deliberately absent rather than shipped through a build step that',
+    'breaks installation.',
     '',
-    '```',
-    String(FINISH_SYSTEM).trim(),
-    '```',
+    `Nothing is lost that matters: \`${SKILLS}/finish.md\` teaches the same four-layer system`,
+    '(wash · texture · mark · edge) at length, with the closed vocabularies, the intensity',
+    'ranges, what good and bad look like, and a ship checklist — and a test in the repo already',
+    'reconciles that skill against the prompt, so they cannot say different things.',
     '',
     '---',
     '',
-    'Sources: `lib/theme/ai.js`, `lib/layout/ai.js`,',
-    '`docs/src/components/studio/architect.ts`. Generated by `tools/build-agent-kit.mjs`.',
+    'Sources: `lib/theme/ai.js`, `lib/layout/ai.js`. Generated by `tools/build-agent-kit.mjs`.',
     '',
   ].join('\n');
 }

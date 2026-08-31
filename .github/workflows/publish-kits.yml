@@ -96,12 +96,13 @@ on:
       - 'docs/src/lib/studio-catalog.mjs'
       - 'docs/src/components/studio/ai/architect-knowledge.js'
       - 'tools/build-agent-kit.mjs'
-      # The kit ships design/skills/ VERBATIM and carries all four product canons.
-      # DECK_CANON (lib/authoring), THEME_CANON (lib/theme) and COMPONENT_CANON
-      # (lib/layout) ride on lib/** above; these two do not, and without them
-      # editing a skill or the finish prompt would not republish the kit.
+      # The kit ships design/skills/ VERBATIM. DECK_CANON (lib/authoring),
+      # THEME_CANON (lib/theme) and COMPONENT_CANON (lib/layout) ride on lib/**
+      # above; design/skills/ does not, and without it editing a skill would not
+      # republish the kit. architect.ts is deliberately NOT listed — the kit stopped
+      # reading it when FINISH_SYSTEM was dropped, so listing it would republish for
+      # a file the kit no longer contains.
       - 'design/skills/**'
-      - 'docs/src/components/studio/architect.ts'
       # The branch-root staging files, and the publisher itself.
       - 'tools/kit-branch/**'
       - '.github/workflows/publish-kits.yml'
