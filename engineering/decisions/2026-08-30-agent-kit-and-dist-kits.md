@@ -148,6 +148,42 @@ nightly stays because a failed push-run would otherwise leave the branch stale u
 someone next happened to touch an input; the tree-compare skip makes a redundant
 nightly run a no-op.
 
+## 3b. The kit had no small-context read path (added 2026-08-30, same day)
+
+The first cut shipped only AGGREGATE surfaces, and that is a design defect for the
+reader it was built for. Measured on the shipped kit:
+
+| To author one component | ~tokens |
+|---|---:|
+| `components.pick.md` + `components.md` (the only prose path) | **~111k** |
+| `BOOTSTRAP.md` + `components/<name>.md` | **~3.2k** |
+
+An agent that already knew it wanted `matrix-2x2` had to read a 107k-token catalog
+to reach a 1.8k-token entry, because the per-component file was not in the kit — it
+was in the repo, at `lib/components/<bucket>/<name>/<name>.docs.md`.
+
+**And `components.pick.md` told readers to open exactly that repo path** — a
+dangling pointer inside the kit, the same class of defect §1 of this note is about,
+shipped in the artifact built to fix it. The pick list is right for someone working
+in the repo, which is who it was generated for; it is wrong for the audience the kit
+exists to serve, and nobody re-read it in that context.
+
+What shipped: 62 `components/<name>.md` files (61 components + the shared
+`_chart-family` contract that 8 chart docs point at, and that was unreachable for the
+same reason), plus `BOOTSTRAP.md` — a read-path table costed in tokens, the 13
+families with their members, and the cross-cutting authoring rules inline. The rules
+are carried because they are the half a per-component file cannot supply; without
+them an agent on the cheap path writes a well-formed slide of the wrong kind.
+
+Two things are load-bearing and easy to get wrong later. The bootstrap **measures its
+own size** in a two-pass render rather than guessing it — a hardcoded estimate
+understated the cheapest path by half, and that number is the one an agent budgets
+against. And `test/unit/tools/agent-kit-bootstrap.test.js` pins the index against the
+files: every component the bootstrap names has a file, every file is reachable from
+the bootstrap, and the whole thing stays under ~4k tokens. An index pointing at a
+missing file is worse than no index, because the reader spends a fetch to learn
+nothing.
+
 ## 4. The cost of one branch instead of two, and the trap it opens
 
 Consolidating moves the Marp kit from the branch **root** into `marp/`. Its
