@@ -31,6 +31,7 @@
 // re-derived by scanning `@import` — this was the fourth such scanner in the repo.
 // See engineering/decisions/2026-08-16-manifest-is-the-theme-contract.md.
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
+import { DEFAULT_PALETTE } from '../../../../../lib/core/default-palette.mjs';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
@@ -221,8 +222,16 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// default palette if the deck's theme isn't a served built-in (e.g. a
 	// Workbench library theme), so the bundle is always renderable.
 	const exportBase = themeBase.replace(/themes\/$/, 'export/');
-	let chosen = (palette || 'indaco').toLowerCase();
+	let chosen = (palette || DEFAULT_PALETTE).toLowerCase();
 	let bundledThemes = [];
+	// The second candidate is a FIXED known-good palette, deliberately NOT
+	// DEFAULT_PALETTE: it rescues "the chosen palette's files did not fetch", so
+	// retrying the name the first pass already failed on would be a no-op — which is
+	// exactly what reading DEFAULT_PALETTE here would produce for a palette-less deck.
+	//
+	// It is `indaco` only because `sync-playground-assets.mjs` stages every
+	// dist/themes/*.min.css, so any shipped palette would do. Nothing pins THIS name:
+	// rename or drop indaco and the rescue degrades to a silent no-op with no gate.
 	for (const cand of [chosen, 'indaco']) {
 		bundledThemes = [];
 		// Bundle the palette, its -dark companion, AND the transitive theme-name

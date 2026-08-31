@@ -206,6 +206,12 @@ function renderFresh(galleryMd, theme) {
   const outPdf = join(dir, `.regr-${name}.${theme}.pdf`);
   const cleanup = [outPdf, outPdf.replace(/\.pdf$/, '.html')];
   try {
+    // PALETTE PIN — mirrors build-galleries.js's two pinned call sites verbatim, and must
+    // stay in step with them. Deliberately NOT the engine default (cuoio,
+    // lib/core/default-palette.mjs): a gallery is a REFERENCE surface, and holding one
+    // palette fixed is what keeps a component diff readable across time (#8). Change this
+    // only together with build-galleries.js, or the gate silently measures a different
+    // render than the goldens it compares against.
     if (theme === 'light') {
       execFileSync(process.execPath, [EMULATOR, galleryMd, THEME_CSS, outPdf, 'indaco', '-q'], {
         cwd: ROOT,

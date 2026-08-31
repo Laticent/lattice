@@ -62,6 +62,7 @@
  */
 
 const fs = require('fs');
+const { DEFAULT_PALETTE } = require('../lib/core/default-palette.mjs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { bakeSplits } = require('../lib/core/bake-splits');
@@ -290,7 +291,7 @@ function main(argv) {
   }
 
   const src = readDeckSource(deckPath);
-  const palette = (paletteArg || readTheme(src) || 'indaco').toLowerCase();
+  const palette = (paletteArg || readTheme(src) || DEFAULT_PALETTE).toLowerCase();
   const name = path.basename(deckPath).replace(/\.md$/i, '');
   // Every PATH in the bundle — the directory, the deck file, and the commands the
   // generated package.json/README name it with — uses the sanitized slug, so a

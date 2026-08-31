@@ -5,7 +5,7 @@
  *   1. CLI arg            (cliArg)
  *   2. LATTICE_PALETTE    (env)
  *   3. Front-matter `theme:`
- *   4. Default 'indaco'
+ *   4. Default: the DEFAULT constant (cuoio)
  *
  * Higher tiers override lower. Each test asserts both the resolved
  * `name` and the `source` (so a regression that flips precedence is
@@ -15,8 +15,24 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { resolvePalette, DEFAULT } = require('../../../lib/core/resolve-palette');
+const { DEFAULT_PALETTE } = require('../../../lib/core/default-palette.mjs');
 
 describe('palette-resolution', () => {
+  // THE VALUE PIN. Every other case here reads the DEFAULT constant, which is right per
+  // case — they test precedence, not which palette wins the fall-through — but it left
+  // the VALUE itself unpinned: a one-character edit to lib/core/default-palette.mjs
+  // silently changed what every palette-less deck, every Marp export and
+  // dist/lattice-default.css render as, with the whole suite green. The pre-change tree
+  // pinned 'indaco' by accident, through literals these cases have since stopped using.
+  // Same shape as docs/src/lib/site-chrome.test.ts, which pins its own copy.
+  //
+  // Re-blessing a different default is meant to be one edit; this makes it two, and the
+  // second one is a deliberate acknowledgement rather than a search-and-replace.
+  test('the default palette is cuoio', () => {
+    assert.equal(DEFAULT, 'cuoio');
+    assert.equal(DEFAULT_PALETTE, 'cuoio', 're-export and declaration must not drift');
+  });
+
   const FM_INDACO = '---\nmarp: true\ntheme: indaco\n---\n\n# Slide';
   const FM_CUOIO  = '---\nmarp: true\ntheme: cuoio\n---\n\n# Slide';
   const FM_NONE   = '---\nmarp: true\n---\n\n# Slide';
@@ -134,7 +150,8 @@ describe('palette-resolution', () => {
   // This reader used to capture the value with `([A-Za-z0-9_-]+)` anchored to `$`,
   // which did two jobs at once and got one of them wrong. `theme: cuoio  # brand`
   // matched NOTHING, so a deck that annotated its own front matter silently fell
-  // back to indaco on the CLI/export path — while the engine's own `parseFrontMatter`
+  // back to indaco (the default at the time) on the CLI/export path — while the engine's
+  // own `parseFrontMatter`
   // read the palette fine. Two readers, one question, opposite answers (#1416's class).
   //
   // Caught by rendering the real CLI, not by a unit test: every unit suite passed
@@ -159,7 +176,9 @@ describe('palette-resolution', () => {
     for (const bad of ['../../etc/passwd', 'a b', 'foo/bar', '..']) {
       const r = resolvePalette({ md: `---\ntheme: ${bad}\n---\n\n# T\n`, env: {} });
       assert.equal(r.source, 'default', `${bad} must not resolve as a palette`);
-      assert.equal(r.name, 'indaco');
+      // The CONSTANT, not a literal: this case is about the guard rejecting the value
+      // and falling through, not about which palette the fall-through lands on.
+      assert.equal(r.name, DEFAULT);
     }
   });
 

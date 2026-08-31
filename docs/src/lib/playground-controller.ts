@@ -328,7 +328,7 @@ export function renderSig(theme: string, mode: string, w: number, h: number): st
  * is persisted across sessions and seeded onto `data-palette` before hydration; a
  * value that names a retired/renamed theme would 404 its theme CSS and blank the
  * preview (the "blank in my browser, fine in private browsing" report). Returns the
- * palette unchanged when it is still registered, else a safe default (`indaco` when
+ * palette unchanged when it is still registered, else a safe default (`cuoio` when
  * present, else the first known palette). An empty vocabulary (the test harness, or
  * before the palette list loads) is a pass-through — we can't judge validity, so we
  * don't override.

@@ -89,7 +89,7 @@ about Form directly — the component already selected it.
    header: "Meridian Freight · Board update"
    ---
    ```
-   `theme:` defaults to `indaco` if omitted. Add `finish:` / `mode:` only
+   `theme:` defaults to `cuoio` if omitted. Add `finish:` / `mode:` only
    deliberately (see the finish/theme skills). A typo'd register value
    (`finish: atriumm`) silently renders the baseline — the linter catches it.
 

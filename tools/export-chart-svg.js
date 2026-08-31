@@ -25,7 +25,8 @@
  *     --slide N        1-based slide number to pull the chart from (default: first
  *                      slide that has a chart)
  *     --chart I        0-based index when a slide has multiple charts (default 0)
- *     --theme NAME     theme/palette to render with (default: deck front-matter, else indaco)
+ *     --theme NAME     theme/palette to render with (default: deck front-matter, else the
+ *                      engine default from lib/core/default-palette.mjs)
  *     --mode light|dark   canvas mode (default light)
  *     -o, --out FILE   output path (default: <deck>-slideN.svg|.png in cwd; the
  *                      extension is forced to match the chart's tier)
@@ -35,6 +36,7 @@
  */
 
 const fs = require('fs');
+const { DEFAULT_PALETTE } = require('../lib/core/default-palette.mjs');
 const path = require('path');
 const puppeteer = require('puppeteer');
 const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } = require('../lib/components/chart/_chart-family/standalone-svg.js');
@@ -82,7 +84,7 @@ async function main() {
   // `checkLineEndingBoundaries` — the arm written because the other five can only inspect a
   // fold that already exists, and this reader had none. Listed in SANCTIONED_EOL_BOUNDARIES.
   const src = fs.readFileSync(deckPath, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
-  const theme = a.theme || frontmatterTheme(src) || 'indaco';
+  const theme = a.theme || frontmatterTheme(src) || DEFAULT_PALETTE;
   // The render seam: docs/public/playground/lattice-playground.js defines
   // window.LatticePlayground.render(md, theme) -> {html, css}. It is a BUILT
   // bundle synced from lib/ (docs/scripts/sync-playground-assets.mjs) — a stale

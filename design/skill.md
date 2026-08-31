@@ -64,7 +64,7 @@ node lattice-emulator.js -o output.pdf -p cuoio examples/gallery-jargon.md
 # named flags: -o/--output, -p/--palette, -c/--css, -q/--quiet (positional still works)
 ```
 
-Palette resolution precedence: CLI flag > positional palette > `LATTICE_PALETTE` env > deck front matter `theme:` > default `indaco`. Run `node lattice-emulator.js --help` for the full reference. Exit codes: `0` success, `1` usage/file/render error.
+Palette resolution precedence: CLI flag > positional palette > `LATTICE_PALETTE` env > deck front matter `theme:` > the default, `cuoio` (declared once, in `lib/core/default-palette.mjs`). Run `node lattice-emulator.js --help` for the full reference. Exit codes: `0` success, `1` usage/file/render error.
 
 The 2nd positional accepts either an output path or a `.css` path; if it ends in `.css` the emulator treats it as a custom layout CSS and shifts the remaining args right (backward-compat with the old 3-arg form).
 

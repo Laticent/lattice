@@ -588,6 +588,12 @@ ${m.description}`,
 }
 
 function renderGallery(m) {
+  // PALETTE PIN — this writes `theme: indaco` into the front matter of all 63 generated
+  // component galleries, which is a STRONGER pin than the positional the gallery builders
+  // pass: it is what the deck itself declares. Deliberately NOT the engine default (cuoio,
+  // lib/core/default-palette.mjs) — a gallery is a REFERENCE surface and one fixed palette
+  // is what keeps a component diff readable across time (#8). Changing it re-renders every
+  // component gallery for no signal.
   const frontMatter = `---
 marp: true
 theme: indaco

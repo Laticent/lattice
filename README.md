@@ -55,8 +55,8 @@ and what the name means — is at
   sets (plus an HTML sidecar) from the same source — the output extension picks
   the format, and PPTX/PNG rasterize from the same render as the PDF. Mermaid diagrams pre-render
   as inline SVG. Code blocks syntax-highlight. Slides are 1280×720.
-- **Fourteen palettes.** `indaco` (cool indigo, the default) and `cuoio`
-  (warm leather) are the canonical pair, alongside `ardesia`, `atelier`,
+- **Fourteen palettes.** `cuoio` (warm leather, the default) and `indaco`
+  (cool indigo) are the canonical pair, alongside `ardesia`, `atelier`,
   `brina`, `burgundy`, `carbone`, `carta`, `concrete`, `crepuscolo`,
   `laguna`, `magnolia`, `mustard`, and `onyx` — most with a paired dark-canvas
   variant. Authors pick one in front matter (`theme: indaco`). Each
@@ -254,7 +254,7 @@ Set `theme:` in your deck's front matter:
 
 ```yaml
 ---
-theme: indaco   # cool indigo (default)
+theme: cuoio    # warm leather (the default — omit `theme:` for the same result)
 ---
 ```
 

@@ -64,8 +64,18 @@ const ROOT = path.join(__dirname, '..');
 const OUT_DIR = path.join(ROOT, 'dist', 'marp-kit');
 const DECK = 'Sample-Deck.md';
 
-/** The default palette. Named, not "some themes" — a deck says `theme: cuoio`. */
-const THEME = 'cuoio';
+/**
+ * The default palette — READ, not restated. This file used to declare `'cuoio'` of its
+ * own while `lib/core/resolve-palette.js` answered `'indaco'` for the CLI, which is the
+ * five-way drift `2026-08-26-one-default-palette.md` records. The kit is a PUBLISHED
+ * artifact (`publish-kits.yml`), so a literal here would keep shipping the old pair after
+ * a re-bless, with every gate green and this file's own docblock turned into a lie.
+ *
+ * `kit/Sample-Deck.md` declares `theme:` in its front matter and is coupled to this — a
+ * re-bless has to move it too. The kit render test reads the deck, so a mismatch shows up
+ * there rather than silently.
+ */
+const { DEFAULT_PALETTE: THEME } = require('../lib/core/default-palette.mjs');
 
 /**
  * Files copied verbatim. `from` is repo-relative, `to` is kit-relative.

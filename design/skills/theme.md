@@ -66,7 +66,7 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
 - **Files**: `themes/<name>.css` + `themes/<name>-dark.css`.
 - **The engine token layer** you inherit from: `lib/base/base.tokens.css` (the one
   `*.tokens.css` file — the sanctioned home for `--token:#hex`).
-- **The reference themes** to copy from: `themes/indaco.css` (cool default) and
+- **The reference themes** to copy from: `themes/cuoio.css` (the warm default) and `themes/indaco.css` (cool) and
   `themes/cuoio.css` (warm) — their `--cat-*` **values** are the current three-layer
   cycle, so copy them freely.
 - **⚠️ Two stale neighbors — trust this skill's model over them.** `indaco.css`'s own

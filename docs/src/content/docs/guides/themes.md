@@ -14,7 +14,7 @@ Set `theme:` in the deck's front matter:
 
 ```yaml
 ---
-theme: indaco   # cool indigo (default)
+theme: cuoio    # warm leather (the default — omit `theme:` for the same result)
 ---
 ```
 
@@ -22,9 +22,10 @@ theme: indaco   # cool indigo (default)
 
 Two palettes are the canonical pair:
 
+- **`cuoio`** — warm leather. The default: a deck that names no `theme:`
+  renders on this.
 - **`indaco`** — cool indigo. Pale-cool surfaces, saturated brand navy
-  borders, dark slate ink. The default.
-- **`cuoio`** — warm leather. The warm counterpart.
+  borders, dark slate ink. The cool counterpart.
 
 Beyond those, Lattice ships a full set — fourteen palettes in all,
 counting the canonical pair — `ardesia`, `atelier`, `brina`,
