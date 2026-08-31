@@ -38,3 +38,17 @@
   its 420px drag ceiling), and the Share label collapses to its icon below `20rem` so the
   four-control row also fits at the 240px minimum. This fixes the theme card too, which had
   clipped the same way since it gained a fourth control.
+- **Fixed: saving two components or finishes in one sitting destroyed the first.** The
+  faculty pinned the record it had just saved, so naming a second asset renamed the first
+  out of existence instead of creating it — and every deck naming the old one rendered
+  unstyled. The pin now comes only from reopening a record, which is the one moment the
+  author has said which record they mean.
+- **Fixed: the ten reserved finish names bypassed the collision guard.** The guard compared
+  the preview slug while the store writes a namespaced one (`Ledger` is stored as
+  `ledger-custom`), so on those names two live records could land on one slug, and a fresh
+  save silently overwrote an existing record instead of refusing. Reopening such a finish
+  also renamed its display name to the namespaced slug on the next save.
+- **Changed: a component imported without its manifest now says so on the disabled Save.**
+  A `.zip` bundle carries no `function`/`form`/`substance`/`description`, so a reopened
+  import cannot be saved until those are filled in. The button now names the missing fields
+  instead of leaving four red findings to be decoded.

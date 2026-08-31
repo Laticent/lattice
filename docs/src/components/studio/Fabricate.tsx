@@ -657,6 +657,25 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 	// invokable. Refuse, exactly as the theme branch does.
 	const compNameTakenBy = savedComponents.find((c) => c.name === compName && c.id !== compEditingId);
 	const canSave = !saving && (tab === 'theme' ? themeNameOk && !!derived.css && !nameTakenBy : compOk && compNameOk && !compNameTakenBy);
+	/**
+	 * WHY SAVE IS DEAD ON A REOPENED IMPORT, said on the button rather than left to be
+	 * inferred from four red findings.
+	 *
+	 * A `.zip` bundle carries only `name`/`bucket`/`css`/`skeleton` (`asset-bundle.ts`'s
+	 * `ComponentItem`), and workspace restore carries no meta at all — so a component that
+	 * arrived either way has no `function`/`form`/`substance`/`description`, and
+	 * `validateManifest` fails all four. The record is fine to APPLY and to share; it just
+	 * cannot be re-saved until those are filled in.
+	 *
+	 * That loss happens at PACK time and fixing it properly means changing the bundle
+	 * format, the packer, the unpacker and the import — off the path of "reopen a saved
+	 * asset". What IS on the path is that this change put the Edit button there, so the
+	 * dead end is new even though the missing data is not. One sentence closes the
+	 * user-visible half; the format fix is filed separately.
+	 */
+	const importedGap = tab === 'layout' && compEditingId && !compOk
+		? compFindings.filter((f) => f.level === 'error' && f.rule.startsWith('manifest:')).map((f) => f.rule.slice('manifest:'.length))
+		: [];
 	async function saveToLibrary() {
 		if (!canSave) return;
 		setSaving(true);
@@ -706,7 +725,18 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 					{ ...(compEditingId ? { id: compEditingId } : {}), name: compName, css: compCss, skeleton: compSkeleton, meta: { ...compMeta, description: compDesc } },
 					{ historyLabel: 'Before edit' },
 				);
-				setCompEditingId(c.id);
+				// DELIBERATELY NOT `setCompEditingId(c.id)`. Pinning after a save turns the
+				// faculty into a permanent editor of whatever it saved first, and then
+				// "make two components in a row" DESTROYS the first one: name it `alpha`,
+				// Save, rename to `beta`, Save — and with the id still held the second save
+				// renames the record in place, so `alpha` is gone from the shelf and every
+				// deck saying `_class: alpha` renders unstyled. Measured; it is worse than
+				// the fork it replaced, because a fork at least left both records.
+				//
+				// The id belongs to a REOPEN, which is the only moment the author has said
+				// which record they mean. Created here, the next save resolves by
+				// `(kind, name)` — same name overwrites, new name creates — which is what
+				// someone making variants expects and what this faculty did before the pin.
 				notify(`Saved “.${c.name}” to your component library.`);
 			}
 			onSaved?.();
@@ -915,7 +945,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 				</div>
 				<div className="flex-1" />
 				<Button variant="outline" size="sm" disabled={!canExport} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={exportArtifact}><Download className="size-4" /><span className="hidden sm:inline">Export</span></Button>
-				<Tip label={nameTakenBy && tab === 'theme' ? `“${themeName}” is already a saved theme — pick another name.` : compNameTakenBy && tab === 'layout' ? `“.${compName}” is already a saved component — pick another name.` : ''}>
+				<Tip label={nameTakenBy && tab === 'theme' ? `“${themeName}” is already a saved theme — pick another name.` : compNameTakenBy && tab === 'layout' ? `“.${compName}” is already a saved component — pick another name.` : importedGap.length ? `This component was imported without its ${importedGap.join(', ')} — set ${importedGap.length === 1 ? 'it' : 'them'} in the Manifest panel to save.` : ''}>
 					<Button size="sm" disabled={!canSave} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={saveToLibrary}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button>
 				</Tip>
 			</div>

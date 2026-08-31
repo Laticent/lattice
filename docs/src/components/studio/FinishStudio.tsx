@@ -38,7 +38,7 @@ import {
 	WASH_TYPES,
 	washHasHotspot,
 } from './finish-generate';
-import { type StudioFinish, saveStudioFinish } from './finish-library';
+import { type StudioFinish, safeSaveSlug, saveStudioFinish } from './finish-library';
 import { Joystick } from './Joystick';
 import { type HandleStyle, loadSettings, SETTINGS_EVENT } from './studio-store';
 
@@ -155,7 +155,16 @@ export function FinishStudio({
 		if (!seed) return;
 		setEditingId(seed.id);
 		const label = seed.label || seed.name;
-		setName(safeFinishSlug(label) === seed.name ? label : seed.name);
+		// `safeSaveSlug`, NOT `safeFinishSlug` — the store's transform, not the preview's.
+		// `safeSaveSlug` namespaces the ten reserved names (`ledger` → `ledger-custom`), so
+		// a record saved as `Ledger` is stored `{name:'ledger-custom', label:'Ledger'}`.
+		// Comparing with `safeFinishSlug` says `'ledger' !== 'ledger-custom'`, takes the
+		// fallback, and puts the SLUG in a field that holds the label — so reopening
+		// `Ledger` and pressing Save with no edits renamed the card to `ledger-custom`.
+		// This predicate is right for all three cases: it keeps `Ledger`, and it still
+		// falls back for `{name:'corporate-blue', label:'Corporate Blue v2'}`, which is
+		// what the fallback was added for.
+		setName(safeSaveSlug(label) === seed.name ? label : seed.name);
 		setRecipe(coerceRecipe(seed.recipe));
 	}, [seed?.id]);
 
@@ -176,7 +185,15 @@ export function FinishStudio({
 	// renders the other. The Finish menu also offers two options with the same value, and
 	// a later `restoreAssetVersion` refuses outright (the store keeps `(kind, name)`
 	// unique for exactly this reason). Refuse the save instead.
-	const finishTakenBy = savedFinishes.find((f) => f.name === slug && f.id !== editingId);
+	//
+	// COMPARE THE SLUG THE STORE WILL WRITE, not the one the preview uses. `slug` above is
+	// `safeFinishSlug`, which does NOT namespace reserved names; `saveStudioFinish` writes
+	// `safeSaveSlug`, which does. Comparing the wrong one let the guard pass on all ten
+	// reserved names — save `Ledger`, then rename another finish to `Ledger`, and two live
+	// records land on `ledger-custom`. Same hole on a FRESH save, where it silently
+	// overwrote the existing `ledger-custom` instead of refusing.
+	const savedSlug = safeSaveSlug(name);
+	const finishTakenBy = savedFinishes.find((f) => f.name === savedSlug && f.id !== editingId);
 	// What Save and Export would actually WRITE — the slug form, not the preview form.
 	// Two generators would be two things to keep in step, so the view reads the same
 	// `generateFinishCss` those two call, with the same argument they pass.
@@ -257,7 +274,10 @@ export function FinishStudio({
 				{ ...(editingId ? { id: editingId } : {}), name: slug, label: name.trim(), css, recipe },
 				{ historyLabel: 'Before edit' },
 			);
-			setEditingId(f.id);
+			// NOT `setEditingId(f.id)` — see the twin note in `Fabricate`'s component save.
+			// Pinning here made the faculty a permanent editor of the first finish it
+			// saved, so designing a second one and naming it renamed the first out of
+			// existence instead of creating it.
 			notify(`Saved "${f.label}" to your library — pick it from the Finish menu in the Inspector.`);
 			onSaved?.();
 		} catch {
@@ -311,7 +331,7 @@ export function FinishStudio({
 				</div>
 				<div className="flex-1" />
 				<Button variant="outline" size="sm" className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={exportCss}><Download className="size-4" /><span className="hidden sm:inline">Export</span></Button>
-				<Tip label={finishTakenBy ? `“${slug}” is already a saved finish — pick another name.` : ''}><Button size="sm" disabled={!nameOk || !!finishTakenBy || saving} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={save}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button></Tip>
+				<Tip label={finishTakenBy ? `“${savedSlug}” is already a saved finish — pick another name.` : ''}><Button size="sm" disabled={!nameOk || !!finishTakenBy || saving} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={save}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button></Tip>
 			</div>
 
 			{/* AI front door — "Describe a finish" (mirrors the Theme tab's command bar). */}
