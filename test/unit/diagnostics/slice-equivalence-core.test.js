@@ -353,12 +353,12 @@ test('the neutralizer set KEEPS the progress rail — same reason', () => {
   assert.notEqual(core.normalizeSection(withRail, core.RESIDUAL_NEUTRALIZERS), core.normalizeSection(without, core.RESIDUAL_NEUTRALIZERS));
 });
 
-test('the neutralizer set hides exactly the two residuals with no shipped repair', () => {
+test('the neutralizer set hides exactly the one residual with no shipped repair', () => {
   // Named, and compared as a whole set rather than key-by-key: an ADDED key re-blinds a surface to
   // a repair that ships, which is the regression this pair of files is built to prevent. Removing
   // one is the good direction, so it is meant to fail
   // here and be re-pinned deliberately.
-  assert.deepEqual(core.RESIDUAL_NEUTRALIZERS, { ids: true, whitespace: true });
+  assert.deepEqual(core.RESIDUAL_NEUTRALIZERS, { ids: true });
   assert.equal(core.PROTOTYPE_NEUTRALIZERS, undefined, 'the prototype/shipped split is retired — one set, both surfaces');
   assert.equal(core.SHIPPED_NEUTRALIZERS, undefined, 'the prototype/shipped split is retired — one set, both surfaces');
 });
@@ -369,10 +369,23 @@ test('the neutralizer set still drops the positional id — the one residual lef
   assert.equal(core.normalizeSection(a, core.RESIDUAL_NEUTRALIZERS), core.normalizeSection(b, core.RESIDUAL_NEUTRALIZERS));
 });
 
-test('whitespace between blocks is neutralized', () => {
+// WHITESPACE IS NO LONGER NEUTRALIZED BY THE SWEEP, and this pair pins both halves of that: the
+// option still works for a caller that wants the loose reading, and the sweep's set no longer asks
+// for it. It was in the set on an attribution nobody had checked — that the sweep's own prelude
+// injection shifts block adjacency, so the body re-parses tight-vs-loose (#1442 asks for exactly
+// that attribution to be confirmed). Measured across the corpus, it hid **0** divergences: every
+// slide it could have flattered differed in something else too. So it bought nothing and cost a
+// blind spot for a whitespace-only regression, and it left on the measurement.
+test('the whitespace option still collapses inter-block whitespace when a caller asks for it', () => {
   const a = '<section>\n\t<p>x</p>\n</section>';
   const b = '<section><p>x</p></section>';
-  assert.equal(core.normalizeSection(a, core.RESIDUAL_NEUTRALIZERS), core.normalizeSection(b, core.RESIDUAL_NEUTRALIZERS));
+  assert.equal(core.normalizeSection(a, { whitespace: true }), core.normalizeSection(b, { whitespace: true }));
+});
+
+test('the sweep no longer hides a whitespace-only difference', () => {
+  const a = '<section><p>x</p>\n\t<p>y</p></section>';
+  const b = '<section><p>x</p><p>y</p></section>';
+  assert.notEqual(core.normalizeSection(a, core.RESIDUAL_NEUTRALIZERS), core.normalizeSection(b, core.RESIDUAL_NEUTRALIZERS));
 });
 
 // ── sectionsOf / classifyDivergence / firstDivergence ────────────────────────

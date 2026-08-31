@@ -42,10 +42,19 @@ logo-scale: 1.0                  # optional — size multiplier, default 1
 |---|---|---|
 | `logo:` | image path or URL | **Required to activate.** A relative path resolves against the deck source (but see the output-directory gotcha below). An absolute `https://`, protocol-relative `//` or `data:` value is used verbatim and works cross-origin — nothing in the engine, the sanitizer or the docs site filters it. A site-relative `/mark.svg` is re-based onto the render's asset origin on the web-preview path (`resolveInlineImageSrcs`), which on the shipped Studio is the page's own origin. SVG and PNG both work. |
 | `logo-style:` | `auto` (default), `brand` | `auto` → faint grayscale watermark, brightness-inverted on dark canvases. `brand` → original colors on a soft surface plate. Use `brand` only for marks whose colors carry meaning (government insignia, university crests). |
-| `logo-on:` | `all` (default), `title` | `all` → logo on every slide. `title` → only on the title slide. |
+| `logo-on:` | `all` (default), `title` | `all` → logo on every slide. `title` → only on the title slide — meaning the deck's first slide, or any slide carrying the `title` class. A surface rendering ONE slide (the Studio's slice preview) must hand the engine that slide's deck position, or its lone section reads as the deck's first and the mark is painted on a slide the export does not carry it on; see the note below the table. |
 | `logo-x:` | `0`–`100` | The mark's **center**, as a percentage of the slide width. Unset → the mark hugs the top-right corner at the frame inset. Setting either axis switches the mark from corner-hugging to centered-on-its-point. |
 | `logo-y:` | `0`–`100` | The same, vertically. `logo-y: 82` puts the mark's center 82% of the way down the slide — a common placement for a title-slide watermark under the lede. |
 | `logo-scale:` | multiplier, default `1` | Scales the mark. The base size is `6.25cqi × 4cqi`, so the mark stays resolution-independent at any scale. |
+
+**`logo-on: title` reads firstness from the DECK, not from the document.** A single-slide render
+is its own document's first section, so until 2026-08-31 slicing slide 8 of a `logo-on: title` deck
+painted the mark on it — the preview showed a logo the export would not. `applyDeckLogoToHtml` now
+takes the deck offset (the engine passes `page.offset`, the same value `svgA11yNames.applyToHtml`
+already took) and only reads the document's first section as the deck's first when no offset says
+otherwise. A whole-deck render supplies none and is unchanged. Found by the slice-equivalence sweep
+as 25 of its 27 unattributed residuals (#1442); pinned in
+`test/unit/parsing/markdown-it-plugins.test.js`.
 
 **These three were undocumented until 2026-08-04**, and for their whole life they did not
 work on any deck carrying a `finish:` — a slide-level stacking rule dragged the mark into

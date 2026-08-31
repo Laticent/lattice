@@ -1,8 +1,12 @@
 {
-  "decks": 154,
-  "slides": 1461,
-  "matched": 1412,
+  "decks": 158,
+  "slides": 1492,
+  "matched": 1468,
   "preludes": 9,
-  "positions": 1453,
-  "rate": 96.6
+  "positions": 1484,
+  "refusals": 8,
+  "rate": 98.4,
+  "refusalRate": 0.5,
+  "preludeRate": 0.6,
+  "skipRate": 1.9
 }
