@@ -52,3 +52,17 @@
   A `.zip` bundle carries no `function`/`form`/`substance`/`description`, so a reopened
   import cannot be saved until those are filled in. The button now names the missing fields
   instead of leaving four red findings to be decoded.
+- **Fixed: a component or finish could not be saved twice.** Not pinning the record's id
+  on a fresh save and refusing a name another record holds are each right on their own,
+  and together they closed the door on the plainest loop there is — save, keep tuning,
+  save again. The second save matched the record the first had just created and Save went
+  permanently dead, leaving only a rename (which forked) or leaving the faculty (which
+  lost the edit). The guard now ignores the record the faculty itself just wrote.
+- **Fixed: the reason a disabled Save is disabled was unreachable.** The tooltip's trigger
+  was the button, and a disabled button carries `pointer-events: none`, so none of the
+  three explanations — name taken, finish name taken, imported without its manifest —
+  could ever open. The trigger is now the wrapper.
+- **Fixed: arming a card's Delete pushed its row out of the card.** The confirm state swaps
+  the icon-only button for a wider "Sure?", which overflowed by 21–23px at the docked
+  panel's minimum. Share now steps aside while a delete is armed, so the row fits without
+  squashing the primary action.

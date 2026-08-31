@@ -366,6 +366,11 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 	// FORKED the record — leaving the original in the shelf and every deck saying
 	// `_class: <old name>` pointing at it.
 	const [compEditingId, setCompEditingId] = React.useState<string | null>(null);
+	// The record this faculty most recently WROTE, as distinct from the one it is editing.
+	// It exists only to keep `compNameTakenBy` from refusing a re-save of the asset just
+	// created — see that guard's note. Never sent to the store, so it cannot make a save
+	// land on the wrong record the way `compEditingId` would.
+	const [compLastSavedId, setCompLastSavedId] = React.useState<string | null>(null);
 
 	// Derive the full token map from the ten picked essentials, then layer any
 	// per-side contract overrides — REAL, every render. The live specimen uses a
@@ -655,7 +660,21 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 	// a component can be renamed ONTO another one's name, and `_class: <name>` in a
 	// deck resolves by name, so the older record would still be listed and never again
 	// invokable. Refuse, exactly as the theme branch does.
-	const compNameTakenBy = savedComponents.find((c) => c.name === compName && c.id !== compEditingId);
+	//
+	// `compLastSavedId` IS EXCLUDED, AND WITHOUT IT THIS GUARD LOCKS THE FACULTY. Not
+	// pinning the id on a fresh save (so a second asset cannot rename the first out of
+	// existence) and refusing a taken name are each right on their own, and together they
+	// close the door on the most ordinary loop there is: save `alpha`, keep tuning, save
+	// again. The second save has no id, so `putAsset` would resolve `(kind, 'alpha')` to
+	// the record just written — an update — but this guard sees a shelf entry named
+	// `alpha` and disables Save permanently. Measured: dead after one save, with the only
+	// escapes being a rename (which forks) or leaving the faculty (which loses the edit).
+	//
+	// Excluding the record THIS faculty just created restores the intended contract,
+	// which the note on the save below states: same name overwrites, new name creates. A
+	// rename onto a DIFFERENT record's name is still refused, because that record is
+	// neither the one being edited nor the one just saved.
+	const compNameTakenBy = savedComponents.find((c) => c.name === compName && c.id !== compEditingId && c.id !== compLastSavedId);
 	const canSave = !saving && (tab === 'theme' ? themeNameOk && !!derived.css && !nameTakenBy : compOk && compNameOk && !compNameTakenBy);
 	/**
 	 * WHY SAVE IS DEAD ON A REOPENED IMPORT, said on the button rather than left to be
@@ -737,6 +756,9 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 				// which record they mean. Created here, the next save resolves by
 				// `(kind, name)` — same name overwrites, new name creates — which is what
 				// someone making variants expects and what this faculty did before the pin.
+				// `compLastSavedId` is what keeps the collision guard from refusing that
+				// "same name overwrites" half; it is never handed to the store.
+				setCompLastSavedId(c.id);
 				notify(`Saved “.${c.name}” to your component library.`);
 			}
 			onSaved?.();
@@ -946,7 +968,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 				<div className="flex-1" />
 				<Button variant="outline" size="sm" disabled={!canExport} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={exportArtifact}><Download className="size-4" /><span className="hidden sm:inline">Export</span></Button>
 				<Tip label={nameTakenBy && tab === 'theme' ? `“${themeName}” is already a saved theme — pick another name.` : compNameTakenBy && tab === 'layout' ? `“.${compName}” is already a saved component — pick another name.` : importedGap.length ? `This component was imported without its ${importedGap.join(', ')} — set ${importedGap.length === 1 ? 'it' : 'them'} in the Manifest panel to save.` : ''}>
-					<Button size="sm" disabled={!canSave} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={saveToLibrary}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button>
+					<span className="inline-flex shrink-0"><Button size="sm" disabled={!canSave} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={saveToLibrary}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button></span>
 				</Tip>
 			</div>
 			{/* Description disclosure — collapsed by default on both tabs. AI-seeded for

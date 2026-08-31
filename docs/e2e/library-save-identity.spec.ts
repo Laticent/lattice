@@ -150,3 +150,59 @@ test('@smoke reopening a reserved-name finish keeps its display name through a r
 	await expect(page.getByRole('button', { name: 'Edit Ledger' })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Edit ledger-custom' })).toHaveCount(0);
 });
+
+// ── 4. Saving the SAME asset twice ───────────────────────────────────────────────────
+//
+// The plainest loop either faculty has, and for one commit it was impossible. Two fixes
+// that are each right alone closed the door together: the id is no longer pinned on a
+// fresh save (so a second asset cannot rename the first out of existence), and a taken
+// name is refused — so the second save found the record the FIRST save had just created,
+// matched it, and disabled Save permanently. The only escapes were a rename (which forks)
+// or leaving the faculty (which loses the unsaved edit).
+//
+// Note what the two tests at the top of this file do NOT cover: they rename between the
+// saves, which is the one path the guard always allowed. That is why this needs its own
+// test rather than an extra assertion in those.
+
+test('@smoke a component can be saved, edited and saved again', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await openFabricate(page, 'Component');
+	await draftComponent(page, 'twice-card');
+	await save(page);
+	await expect(page.getByText(/Saved .*twice-card/)).toBeVisible();
+
+	// Keep tuning the SAME component — no rename — and save again.
+	await retype(page, 'Component CSS', 'section.twice-card { display: grid; gap: 2rem; }\nsection.twice-card h2 { color: var(--accent); }');
+	await expect(
+		page.getByRole('button', { name: 'Save', exact: true }),
+		'Save must stay reachable for a second save of the same component',
+	).toBeEnabled();
+	await save(page);
+	await expect(page.getByText(/Saved .*twice-card/).last()).toBeVisible();
+
+	// One record, not two — the second save resolved by name onto the first.
+	await page.getByRole('button', { name: /Back to Compose/ }).click();
+	await page.getByRole('button', { name: CHROME.library }).click();
+	await expect(page.getByRole('button', { name: 'Edit .twice-card' })).toHaveCount(1);
+});
+
+test('@smoke a finish can be saved, edited and saved again', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await openFabricate(page, 'Finish');
+	await page.getByRole('textbox', { name: /finish name/i }).fill('Twice Wash');
+	await save(page);
+	await expect(page.getByText(/Saved "Twice Wash"/)).toBeVisible();
+
+	await expect(
+		page.getByRole('button', { name: 'Save', exact: true }),
+		'Save must stay reachable for a second save of the same finish',
+	).toBeEnabled();
+	await save(page);
+	await expect(page.getByText(/Saved "Twice Wash"/).last()).toBeVisible();
+
+	await page.getByRole('button', { name: /Back to Compose/ }).click();
+	await page.getByRole('button', { name: CHROME.library }).click();
+	await expect(page.getByRole('button', { name: 'Edit Twice Wash' })).toHaveCount(1);
+});

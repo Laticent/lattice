@@ -136,3 +136,48 @@ test('@smoke the docked Library card rows fit at BOTH ends of the panel drag ran
 	expect(widths.max - widths.min, `drag range collapsed: min=${widths.min}px max=${widths.max}px`).toBeGreaterThan(100);
 	expect(widths.min, `min drag width ${widths.min}px should be near LIB_MIN (240)`).toBeLessThan(280);
 });
+
+// THE ARMED DELETE IS THE STATE THAT MATTERS, and the two tests above cannot see it.
+//
+// `DeleteBtn` swaps its icon-only button for a wider "Sure?" when armed, which is the
+// state you must reach to delete anything — and at the panel's minimum that pushed the
+// row 21–23px past the card on all three kinds while every idle measurement read 0.
+//
+// The assertion is deliberately TWO numbers, because the first fix for this passed the
+// row check by destroying the button instead: giving the primary action `min-w-0` let it
+// collapse from 70px to 28px with its own "Apply" clipped, and the row-level oracle
+// happily reported 0. A width oracle that only asks "does the row fit" cannot tell a fix
+// from a squash — so this also asserts the primary action still renders its own label.
+test('@smoke an ARMED delete row still fits, without squashing the primary action', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await seedOneOfEach(page);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.getByRole('button', { name: CHROME.library }).click();
+	await dragLibraryTo(page, 'min');
+
+	for (const kind of KINDS) {
+		await page.getByRole('button', { name: `Delete ${kind}` }).click();
+		const shape = await page.getByRole('button', { name: `Confirm delete ${kind}` }).evaluate((el) => {
+			const row = el.parentElement as HTMLElement;
+			const primary = row.firstElementChild as HTMLElement;
+			return {
+				row: row.scrollWidth - row.clientWidth,
+				primaryClipped: primary.scrollWidth - primary.clientWidth,
+				primaryText: (primary.textContent || '').trim(),
+			};
+		});
+		expect(shape.row, `${kind}'s ARMED row overflows its card by ${shape.row}px at the min drag width`).toBeLessThanOrEqual(0);
+		expect(
+			shape.primaryClipped,
+			`${kind}'s primary action ("${shape.primaryText}") is clipped by ${shape.primaryClipped}px — the row fits only because this button was squashed`,
+		).toBeLessThanOrEqual(0);
+		await page.keyboard.press('Escape');
+		// Wait for the SIGNAL, not the timer. `DeleteBtn` disarms on a 3s timeout, an
+		// outside pointerdown, or a re-click — and what this loop actually needs is for
+		// the next card to start idle, which is observable: the armed "Sure?" is replaced
+		// by the icon-only Delete. Polling that is bounded and cannot be outrun by a
+		// loaded runner the way a guessed sleep can.
+		await expect(page.getByRole('button', { name: `Delete ${kind}` })).toBeVisible({ timeout: 6000 });
+	}
+});

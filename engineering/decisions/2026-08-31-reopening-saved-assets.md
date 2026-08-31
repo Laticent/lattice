@@ -293,3 +293,58 @@ Scope, measured: roughly nine resolution sites in the shell, a four-layer thread
 per kind (input type → record build → mapper → view type; miss one and the alias
 round-trips to nothing), four uniqueness guards, and the `partScoped` decision. It
 is its own change, and its own decision record.
+
+### The red team's finding, which is the best argument in this record for the ladder
+
+The red team ran last, over `ecc793f` — a head that had already been through a checker
+twice and an inversion. It found a HIGH-severity defect **created by the previous
+round's fix**:
+
+> After one save, Save is permanently disabled. You cannot save the same component or
+> finish twice.
+
+Two changes, each correct in isolation, deadlocked. Not pinning the id on a fresh save
+(so a second asset cannot rename the first out of existence) means the next save carries
+no id — and the collision guard then matches *the record the first save just created* and
+refuses it. The escapes were both bad and one was measured: renaming forks the record,
+and leaving the faculty to reopen from the Library **discards the unsaved edit**.
+
+The lesson is not "add another guard". It is that **the defect lived in the seam, not in
+either unit** — and that my own code comment asserted the contract the pair had broken
+("same name overwrites, new name creates"), which is precisely the kind of claim a
+reviewer reads and believes. `compLastSavedId` restores it by excluding the one record the
+faculty itself wrote.
+
+Two more, both real:
+
+- **The tooltip explaining a disabled Save could never open.** `TooltipTrigger asChild`
+  put the trigger on the button, and shadcn's `disabled:pointer-events-none` means a
+  disabled button fires no `pointerenter` and takes no focus. All three messages were
+  dead — including the imported-manifest explanation this change added *as* the mitigation
+  for its own acknowledged dead end. The trigger is now a wrapping span.
+- **The ARMED delete row overflowed by 21–23px at the panel minimum**, on all three kinds.
+  Every measurement in this record until then was of the IDLE row, and arming is the state
+  you must reach to delete anything.
+
+That last one produced the sharpest small lesson in the change. The first fix — `min-w-0`
+on the primary action — made the row-level oracle read 0 **by collapsing the primary
+button from 70px to 28px with its own label clipped.** The row fit; the button was
+destroyed. A width oracle that asks only "does the row fit" cannot tell a fix from a
+squash, which is why `library-card-fit.spec.ts`'s armed arm asserts TWO numbers: the row's
+overflow *and* the primary's own. The shipped fix takes the width from Share, which steps
+aside while a delete is armed.
+
+**What the red team CLEARED is worth as much as what it found**, and none of it was
+assumed — each was driven against the built site:
+
+- **HARD RULE #22, stylesheet channel: held.** A hostile `.zip` component whose CSS
+  carried `</style><img src=x onerror=…>` was imported, reopened, and rendered in the real
+  faculty preview. `sanitizeStyleText` escaped the terminator; no markup escaped, no script
+  ran. The reopen path adds no new #22 sink.
+- **An attacker-chosen record `id` in a bundle: held.** `unpackBundle` rebuilds
+  `{name,bucket,css,skeleton}` and drops the rest, so an imported bundle cannot clobber a
+  victim's asset by id.
+- **A hostile finish recipe: held.** `sanitizeGlyph` stripped the quote/semicolon/brace
+  payload aimed at `mark.glyph`, the one unclamped field.
+- **`VERSION_CAP` exhaustion: held** — 20, enforced per `assetId` inside the same
+  transaction, and no-op saves manufacture no versions.
