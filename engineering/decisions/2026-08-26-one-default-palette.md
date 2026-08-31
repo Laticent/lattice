@@ -1,15 +1,19 @@
 ---
 status: shipped
 summary: >
-  "What does a deck with no `theme:` look like?" had FIVE answers in the tree, in five files,
-  none of which referenced the others, and they had already drifted. `lib/core/resolve-palette.js`
+  "What does a deck with no `theme:` look like?" had SIX answers in the tree, in six files,
+  none of which referenced the others, and they had already drifted. The first draft of this
+  note found five and claimed that was all of them; an independent checker found the sixth. `lib/core/resolve-palette.js`
   declared `DEFAULT = 'indaco'` for the CLI and the engine; `tools/build-default-bundle.js`
   declared its own `DEFAULT_THEME = 'cuoio'` and inlined that into `dist/lattice-default.css`,
   the zero-config bundle a consumer can `<link>` with no theme selection at all; the docs-site
   Playground's `sanitizePalette` returned `cuoio` in code while its own docblock promised
   `indaco`; and TWO user-facing EXPORT paths — `tools/export-marp.js` and the Studio's
-  `deck-export.js` — each hardcoded `'indaco'` of their own. The value now lives in ONE place,
-  `lib/core/default-palette.mjs`, and all five read it. The
+  `deck-export.js` — each hardcoded `'indaco'` of their own; and `tools/build-marp-kit.js`
+  declared `THEME = 'cuoio'` under the comment "The default palette", feeding the PUBLISHED
+  kit. The value now lives in ONE place, `lib/core/default-palette.mjs`, and FIVE OF THE SIX
+  read it — the exception is the Playground's `sanitizePalette`, which already returned
+  `cuoio` in code and needed only its docblock corrected. The
   blast radius is much smaller than it looks and the reason is worth recording — every
   committed deck in this repo already declares its `theme:`, and all four gallery/showcase
   render sites pass the palette as an EXPLICIT positional, so not one committed PDF changes.
@@ -32,18 +36,21 @@ the three gallery builders, the CLI help text
 
 ---
 
-## 1. Five answers to one question
+## 1. Six answers to one question
 
 A deck that names no palette — no front-matter `theme:`, no `--palette`, no
-`LATTICE_PALETTE` — has to get *something*. The tree had five independent opinions:
+`LATTICE_PALETTE` — has to get *something*. The tree had six independent opinions.
+The first draft of this note listed five; the sixth is the last row, and an independent
+checker found it:
 
 | Declaration | Value | Who received it |
 |---|---|---|
-| `lib/core/resolve-palette.js:21` | `indaco` | every CLI render and the engine's own resolution chain |
+| `lib/core/resolve-palette.js:21` | `indaco` | every CLI render, and the tools that call it (not `lib/engine`, which never calls `resolvePalette`) |
 | `tools/build-default-bundle.js:35` | `cuoio` | anyone who `<link>`s `dist/lattice-default.css` |
 | `docs/src/lib/playground-controller.ts` `sanitizePalette` | `cuoio` in code, `indaco` in its docblock | the docs-site Playground, on an unrecognized stored palette |
 | `tools/export-marp.js:293` | `indaco` | the export-to-Marp bundle a recipient renders themselves |
 | `docs/src/components/studio/export/deck-export.js:224` | `indaco` | the Studio's own deck export |
+| `tools/build-marp-kit.js:68` | `cuoio` | `dist/marp-kit/`, a PUBLISHED artifact (`publish-kits.yml`) |
 
 Nothing referenced anything else. The bundle builder's header even explained its choice
 in prose — *"The default palette is cuoio (warm leather/cream). Change DEFAULT_THEME to

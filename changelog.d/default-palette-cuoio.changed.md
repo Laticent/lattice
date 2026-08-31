@@ -1,4 +1,5 @@
-- **Breaking: the default palette is `cuoio`, and there is now only one declaration of it.**
+- **Breaking: the default palette is `cuoio`, declared once and read by five of the six
+  places that used to answer for themselves.**
   A deck that names no palette — no `theme:` front matter, no `--palette`, no
   `LATTICE_PALETTE` — rendered on `indaco` through the CLI and the tools that call it, while
   `dist/lattice-default.css`, the zero-config bundle a consumer can `<link>` directly,
@@ -7,8 +8,13 @@
   `DEFAULT = 'indaco'` and `tools/build-default-bundle.js` declared its own
   `DEFAULT_THEME = 'cuoio'` twenty files away. The docs-site Playground had already
   drifted to a third position — `sanitizePalette` returns `cuoio` while its own docblock
-  said `indaco`. The engine now resolves `cuoio`, and the bundle builder **imports that
-  constant** rather than restating it, so the two cannot disagree again.
+  said `indaco`. Two user-facing EXPORT paths hardcoded `indaco` of their own, and
+  `tools/build-marp-kit.js` a sixth — `THEME = 'cuoio'` under the comment "The default
+  palette", feeding the PUBLISHED kit, where a re-bless would have shipped the old pair
+  with every gate green. The CLI now resolves `cuoio`, and the bundle builder, both export
+  paths and the kit **import that constant** rather than restating it, so they cannot
+  disagree again. The Playground keeps its literal: its code already returned `cuoio` and
+  only its docblock was wrong.
   **What changes for you:** a deck with no palette now renders warm cream and leather
   instead of cool indigo. Nothing else moves — every committed deck in this repo already
   declares its `theme:`, so no committed PDF changes, and the gallery, bucket and showcase
