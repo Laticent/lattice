@@ -191,9 +191,13 @@ Stated because a gate's blind spots are the part nobody writes down:
   logo, slides 2 and 3 show none. Identical with the repair. The bundle does carry the repair.
   The slice route belongs to the callers that DO pass `slideMarkdown` — `SlideOverview` (present
   mode's slide sorter, `G`) and the `DeckPreview` / `slide-thumb` consumers — and that is where
-  the logo painted. **That arm is UNVERIFIED**: the overview thumbnails never rendered in a
-  headless run (they stayed blank through a 30s wait), so the logo was not observed appearing and
-  then not appearing there. What is verified is the engine behavior, the headless sweep's 25
+  the logo painted. **That arm is UNVERIFIED, and it is unreachable from
+  here rather than untried**: driven twice, the overview thumbnails render "This preview couldn't
+  render." on every tile after polling 120s — and they do so IDENTICALLY with the change reverted
+  and its bundle proven reverted, so the diff is ruled out as the cause (HARD RULE #18). Each tile
+  spins up its own engine instance, and this headless sandbox does not get them up; nothing in the
+  e2e suite covers the slide overview either (`grep -rln "Slide overview" docs/e2e` is empty), so
+  CI does not reach it. What is verified is the engine behavior, the headless sweep's 25
   residuals, the route analysis above, and that whole-deck exported bytes are unchanged
   (byte-identical render of `examples/finish-backdrops.md` across the commit).
 - **The repair reaches exactly as far as the position does.** A deck the fail-closed guard
