@@ -143,12 +143,53 @@ const BAND = 1.5;
  * refusal rate, so the tolerance has to clear a single deck without clearing a class of them.
  */
 const RATCHET = 1.0;
-/** The ratchets: a rate that may fall but not rise, each with what a rise would MEAN. */
+/**
+ * The ONE-SIDED ratchet: a rate that may fall but not rise, with what a rise would MEAN.
+ *
+ * `skipRate` is alone here because it is the only one where falling is unambiguously good — a deck
+ * that stops dropping out of the measurement is a deck that started being measured.
+ */
 const RATCHETS = {
-	refusalRate: 'more slides are being measured without a supplied deck position',
-	preludeRate: 'the prelude synthesizer is firing on more slides — check it is not over-matching',
 	skipRate: 'more decks are dropping out of the measurement, which flatters the rate',
 };
+
+/**
+ * TWO-SIDED, and the difference is the whole point. `refusalRate` and `preludeRate` began as
+ * one-sided ratchets on the reading that a RISE is the alarm — more blind spots, an over-firing
+ * synthesizer. A checker mutation-proved that backwards, and the result was the worst kind of
+ * gate:
+ *
+ *   · stub `positionIsTrustworthy` to `return true` — delete the fail-closed guard outright — and
+ *     `refusalRate` goes 0.5% -> 0%, `equiv:check` exits 0, and the headline rate RISES to 98.9%.
+ *     The gate REWARDED removing the safety guard, in exactly the direction where a confidently
+ *     wrong page number gets painted. That guard is the subject of #1442's Amendment 5.
+ *   · make `synthesizePrelude` return '' for every slide and `preludeRate` goes 0.6% -> 0%, and
+ *     `equiv:check` exits 0 again, because a fall is "an improvement".
+ *
+ * A count of slides the instrument declines to measure, or synthesizes context for, is not a
+ * quality score. It is a description of the corpus, and it should move when the CORPUS moves and
+ * not otherwise. So both are held in a band: a rise means the alarm each was written for, and a
+ * fall means the mechanism stopped running.
+ */
+const TWO_SIDED = {
+	refusalRate: {
+		rise: 'more slides are being measured without a supplied deck position',
+		fall: 'FEWER slides are being refused a position — check the fail-closed guard still refuses. A guard that stopped refusing raises this tool\'s headline rate while removing the thing that keeps a wrong page number off the slide',
+	},
+	preludeRate: {
+		rise: 'the prelude synthesizer is firing on more slides — check it is not over-matching',
+		fall: 'the prelude synthesizer is firing on FEWER slides — check it did not stop running. At 0 it synthesizes nothing and every inherited running directive is silently dropped from the comparison',
+	},
+};
+
+/**
+ * The refusal DECK NAMES, compared as a set. The rate band above catches a class of decks arriving
+ * or leaving; it cannot catch WHICH, and "which" is the whole content of a blind spot. It is also
+ * the only clause that fires the instant the guard stops refusing on a deck it used to refuse —
+ * `refusalRate` needs the change to clear a tolerance, this needs it to happen at all. Cheap: the
+ * set is one entry today.
+ */
+const REFUSAL_DECKS = 'refusalDecks';
 
 export function measure() {
 	const eng = createEngine();
@@ -223,7 +264,7 @@ export function measure() {
 			}
 			const name = path.basename(file);
 			byDeck.set(name, (byDeck.get(name) || 0) + 1);
-			const cause = classifyDivergence(a, b);
+			const cause = classifyDivergence(a, b, { positionRefused: !page });
 			byCause.set(cause, (byCause.get(cause) || 0) + 1);
 		});
 	}
@@ -263,7 +304,26 @@ export function baselineOf(r) {
 		refusalRate: r.refusalRate,
 		preludeRate: r.preludeRate,
 		skipRate: r.skipRate,
+		[REFUSAL_DECKS]: [...r.refusalsByDeck.keys()].sort(),
 	};
+}
+
+/**
+ * Every field `baselineOf` writes. A baseline missing one is a baseline that CHECKS one fewer
+ * thing, silently — `compareToBaseline` skips an absent field so an older baseline stays
+ * comparable, and a checker proved where that ends: an empty `{}` baseline passes
+ * `equiv:check` AND all four committed tests while comparing nothing at all. A truncated write or
+ * a bad merge resolution is enough. So completeness is asserted separately, before the comparison
+ * means anything.
+ */
+export const BASELINE_FIELDS = Object.freeze([
+	'decks', 'slides', 'matched', 'preludes', 'positions', 'refusals',
+	'rate', 'refusalRate', 'preludeRate', 'skipRate', REFUSAL_DECKS,
+]);
+
+/** The fields a baseline is missing — empty means it can actually gate something. */
+export function missingBaselineFields(base) {
+	return BASELINE_FIELDS.filter((k) => base?.[k] === undefined);
 }
 
 /**
@@ -299,6 +359,30 @@ export function compareToBaseline(base, r) {
 	for (const [k, meaning] of Object.entries(RATCHETS)) {
 		if (base[k] === undefined) continue;
 		if (r[k] > base[k] + RATCHET) fail.push(`${k}: baseline ${base[k]}%, now ${r[k]}% — ${meaning}.`);
+	}
+	for (const [k, { rise, fall }] of Object.entries(TWO_SIDED)) {
+		if (base[k] === undefined) continue;
+		if (r[k] > base[k] + RATCHET) fail.push(`${k}: baseline ${base[k]}%, now ${r[k]}% — ${rise}.`);
+		// THE FALL SIDE IS PROPORTIONAL, and it has to be. Reusing `RATCHET` here made the clause
+		// inert on exactly the mechanism it guards: `preludeRate` is 0.6%, so `now < 0.6 - 1.0`
+		// asks for a NEGATIVE percentage, and the synthesizer returning '' for every slide — 0.6%
+		// to 0% — sailed through a band written to catch it. A tolerance wider than the value it
+		// measures is not a tolerance. Half the baseline scales with whatever the number is, and
+		// the explicit zero arm names the case that matters most: the mechanism stopped running.
+		if (base[k] > 0 && (r[k] === 0 || r[k] < base[k] * 0.5)) {
+			fail.push(`${k}: baseline ${base[k]}%, now ${r[k]}% — ${fall}.`);
+		}
+	}
+
+	// The refusal deck SET, exactly. See REFUSAL_DECKS above: the rate band cannot say WHICH decks
+	// the sweep is blind on, and a deck silently leaving this set is the fail-closed guard
+	// un-refusing — the mutation that used to pass while the rate went up.
+	if (base[REFUSAL_DECKS] !== undefined) {
+		const was = [...base[REFUSAL_DECKS]].sort().join(', ');
+		const now = [...r.refusalsByDeck.keys()].sort().join(', ');
+		if (was !== now) {
+			fail.push(`${REFUSAL_DECKS}: baseline [${was}], now [${now}] — the set of decks the position guard refuses changed. A deck LEAVING it means the guard stopped refusing there; one joining means a new blind spot.`);
+		}
 	}
 	return fail;
 }

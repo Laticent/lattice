@@ -1096,13 +1096,19 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						compare: slideMarkdown
 							? async () => {
 									try {
+										// Built ONCE and named, not inlined into the render call, because the
+										// classifier below needs the same fact: whether a position was supplied at
+										// all is what separates "the fail-closed guard refused" from every other
+										// residual, and inferring that from the rendered "1 of 1" pagination
+										// mis-attributes a supplied-but-wrong position to a guard that is working.
+										const comparePage = supplyablePosition(markdown, slideIndex, slideCount);
 										const [sliceOut, deckOut] = await Promise.all([
 											// The COUNTERFACTUAL fast route, rendered the way the fast route would
 											// really render it — including the position it would really supply. Passing
 											// the route-gated `slicePage` here meant omitting the position on the
 											// whole-deck route, and then reporting the pagination mismatch that caused
 											// as a finding, on any deck that paginates.
-											renderMarkdown(PG, slideMarkdown, theme, { baseUrl: samplesBase, page: supplyablePosition(markdown, slideIndex, slideCount) }),
+											renderMarkdown(PG, slideMarkdown, theme, { baseUrl: samplesBase, page: comparePage }),
 											renderMarkdown(PG, markdown, theme, { baseUrl: samplesBase }),
 										]);
 										// THE SAME ALIGNMENT GUARD narrowToSlide enforces, and for the same reason: an
@@ -1135,7 +1141,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 										// with a fragment it could not parse into named differences — it reported half an
 										// attribute as a wording change. The core does the windowing, but only as its
 										// last-resort fallback when nothing more specific explains the difference.
-										return { equal: false, cause: classifyDivergence(a, b), got: a, want: b };
+										return { equal: false, cause: classifyDivergence(a, b, { positionRefused: !comparePage }), got: a, want: b };
 									} catch (e) {
 										return { equal: null, why: String((e as Error)?.message || e) };
 									}

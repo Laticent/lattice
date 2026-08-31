@@ -130,6 +130,67 @@ docblock says it should only ever go.
 | refusals | untracked | 8, rated and listed by deck |
 | neutralizers | `ids`, `whitespace` | `ids` |
 
+## What the checker changed
+
+The first cut of this contract was mutation-proved by an independent checker (HARD RULE #25,
+tier 1 — verification infrastructure cannot check itself). Four of its findings were holes
+worth the round trip, and the contract above is the repaired version:
+
+- **A one-sided ratchet rewarded deleting the safety guard.** `refusalRate` and `preludeRate`
+  began as ratchets that fired on a RISE, on the reading that more blind spots is the alarm.
+  Stub `positionIsTrustworthy` to `return true` — delete the fail-closed guard outright — and
+  the refusal rate fell to 0, `equiv:check` exited 0, and the headline rate ROSE to 98.9%. The
+  gate paid you to remove the guard that keeps a confidently-wrong page number off the slide,
+  which is the subject of the Amendment this field exists for. Both are now two-sided, plus an
+  exact comparison of the refusal DECK SET, which fires the instant the guard stops refusing
+  rather than waiting for a tolerance to clear.
+- **The fall tolerance was wider than the value it guarded.** The first two-sided cut reused the
+  1.0-point ratchet tolerance on the fall side, so catching `preludeRate` at 0.6% falling to 0%
+  required a negative percentage. The synthesizer returning `''` for every slide sailed through
+  a band written to catch exactly that. The fall side is proportional now (half the baseline),
+  with an explicit zero arm.
+- **An empty baseline disarmed everything, silently.** `compareToBaseline` skips a field the
+  baseline lacks, so an older baseline stays comparable — and `{}` therefore passed every clause
+  and all four committed tests while comparing nothing. A truncated write or a bad merge
+  resolution gets you there. Completeness is now asserted before the comparison means anything.
+- **The refusal bucket inferred its cause from a symptom.** It read "the guard refused" off the
+  rendered `1 of 1` pagination while `measure()` had the actual fact — `page === undefined` — in
+  hand. Hand `supplyablePosition` a supplied-but-WRONG position and the symptom reading labels
+  1315 slides "the guard refused" while the guard refused 8 times, pointing the reader at a
+  guard that is working. The fact is passed in now, on both surfaces; the symptom survives only
+  as the fallback for a caller with no fact to offer.
+
+It also found that the two new cause names reached the CLI sweep and not the author: the
+Studio's Preview Fidelity overlay branches on the old four and fell through to "not a shape this
+readout recognizes yet". Same non-answer the unattributed bucket was, in a new string. Both
+causes have overlay copy now.
+
+## What is measured but not caught
+
+Stated because a gate's blind spots are the part nobody writes down:
+
+- **A rate band absorbs about 24 newly-diverging slides** — 1.5% of the corpus. One added deck
+  that reproduces badly on a third of its slides is invisible; five are not.
+- **The logo repair has 0.2 points of headroom.** Reverting it costs 1.7 points against a
+  1.5-point band. Once the corpus reaches ~1667 slides (about 12% growth) the band alone would
+  certify the reverted repair. The repair itself is pinned by unit tests, so this is a limit on
+  the SWEEP's claim, not on the fix.
+- **`matched` and `preludes` are blessed but never compared** (their rated forms are).
+- **The whitespace measurement is a corpus fact, not an engine property.** 0 hidden divergences
+  is true of these 161 decks. The mechanism the retired attribution named — prelude injection
+  shifting block adjacency — is still a live mechanism; it just does not bite here. Removing the
+  neutralizer also changes what a user's own deck reads in the Preview Fidelity overlay.
+- **UNVERIFIED on its stated surface (HARD RULE #23):** nobody built the docs site and opened the
+  Studio slice preview to watch the logo appear and then not appear. What was verified is the
+  code path (`single-slide-render.ts` supplies `page` → `lib/engine/index.js` → the logo pass),
+  the engine-level behavior, and that whole-deck exported bytes are unchanged (byte-identical
+  render of `examples/finish-backdrops.md` across the commit). That is not the same as driving
+  the browser.
+- **The repair reaches exactly as far as the position does.** A deck the fail-closed guard
+  declines gets no offset, so `logo-on: title` still paints on its slices. Those decks are the
+  tracked `refusals`, so the gap is counted rather than silent — but closing it needs a caller
+  that can say "this is a slice" without being able to say which one.
+
 ## Not done here
 
 Item 2 of #1442 — structural gating to close the `paginate: true` typing

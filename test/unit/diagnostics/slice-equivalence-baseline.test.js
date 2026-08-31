@@ -28,6 +28,17 @@ test.before(async () => {
   baseline = JSON.parse(fs.readFileSync(path.join(__dirname, '../../benchmark/slice-equivalence.json'), 'utf8'));
 });
 
+// THE BASELINE MUST ACTUALLY CARRY ITS FIELDS, asserted BEFORE the contract, because
+// `compareToBaseline` skips a field the baseline lacks — which keeps an older baseline comparable
+// and, taken to its end, means an empty `{}` baseline passes every clause while comparing nothing.
+// A checker demonstrated exactly that: `printf '{}' > test/benchmark/slice-equivalence.json` and
+// both `equiv:check` and this file went green. A truncated write or a bad merge resolution is
+// enough to get there, and nothing else in the tree would have noticed.
+test('the committed baseline carries every field the contract compares', () => {
+  const missing = harness.missingBaselineFields(baseline);
+  assert.deepEqual(missing, [], `the baseline is missing ${missing.join(', ')} — those clauses would silently check nothing. Re-bless with \`npm run equiv:bless\`.`);
+});
+
 test('the corpus sweep meets the committed baseline contract', () => {
   const failures = harness.compareToBaseline(baseline, measured);
   assert.deepEqual(failures, [], `\n${failures.join('\n')}\n\nRe-bless with \`npm run equiv:bless\` ONLY with a stated reason.`);
@@ -57,6 +68,22 @@ test('no residual is unclassified', () => {
 // arriving on a deck that did not have one is a change in which slides the sweep measures without a
 // position — the "plausible lie" case Amendment 5 of #1442 names — and it should be read, not
 // absorbed into a rate that rounds it away.
+//
+// Stated HERE as a literal as well as in the baseline, and the duplication is deliberate: the
+// baseline is a generated file that `equiv:bless` rewrites without argument, so it cannot be the
+// only place a human would have to edit to make this change. This line is the one a reviewer sees
+// in a diff.
 test('the decks the position guard refuses are the expected ones', () => {
   assert.deepEqual([...measured.refusalsByDeck.keys()].sort(), ['slide-class-forms.md']);
+});
+
+// THE GUARD MUST STILL REFUSE. Every clause above is satisfied by a sweep where
+// `positionIsTrustworthy` was deleted outright — a checker stubbed it to `return true` and watched
+// `equiv:check` exit 0 with the headline rate RISING to 98.9%, because a fall in the refusal rate
+// read as an improvement. The contract's two-sided band now catches that, and so does this: the
+// refusal count is the direct readout of the guard doing its job, and zero refusals on a corpus
+// that contains `slide-class-forms.md` means it is not.
+test('the fail-closed position guard still refuses somewhere', () => {
+  assert.ok(measured.refusals > 0,
+    'no slide was refused a deck position. Either the corpus lost every deck the guard declines, or `positionIsTrustworthy` stopped declining — check it before re-blessing.');
 });
