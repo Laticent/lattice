@@ -247,3 +247,59 @@ found no crash, no prototype pollution, and no error explosion (zero
 the 131/61/33/12/10/15 counts and reproduced the `slicng` defect on `origin/main`.
 
 Cost of the review: 3 agents, ~350k tokens.
+
+## The checker's second pass — the fix for a finding introduced three more
+
+The adversarial trio's findings were fixed in one commit, and a follow-up checker
+then reviewed **that commit** — the ~500 lines nothing independent had seen. It
+was worth running: the fix for the dot-directory false positive had introduced
+three new divergences, all of the same species as the bug it repaired.
+
+**The rule the first cut broke: agree with the loaders, never invent policy.**
+
+- **`SKIP_ROOTS` anchored to the repo root** meant the sweep walked every NESTED
+  `node_modules` and `dist`. `docs/` is its own npm package, so `docs/node_modules`
+  is 743 packages and 4,193 directories: the sweep went from 8 ms to 71 ms, and —
+  paired with `manifest.json` in the swept names — the next dependency to ship a
+  bare `manifest.json` fixture would have failed `build:check` and the pre-push
+  hook for everyone, telling them to delete a file inside `node_modules`. Zero such
+  files exist today, which is luck. The root-anchoring had been justified here as
+  stopping a manifest HIDING under a nested `dist/`; that trade was backwards, and
+  the justification was invented rather than derived from any loader.
+- **Skipping dot-directories at every depth** traded the false positive for a
+  FALSE NEGATIVE. `loadAll` skips only `_` bucket children, so
+  `anchor/.hidden/.hidden.manifest.json` loads into the shipped catalog — and with
+  both the sweep and the lister skipping it, nothing checked it. Dot-directories
+  are now skipped at the ROOT only, which is where `.claude/worktrees/` lives.
+- **A `_` filter on flat-family FILES** had no basis: `listThemeManifests` filters
+  on the extension alone. The lister excluded `themes/_wip.manifest.json` while the
+  sweep still saw it, manufacturing a guaranteed "no schema family covers" error
+  for a theme every other theme gate reads.
+
+It also found `checkAjvBoundary` shipped with **zero tests**, directly beneath a
+comment in `check-ownership.js` saying gates are exported "so the suite can drive
+them against synthetic fixtures — a gate only proves something if you can watch it
+fail." It matched only `ajv` and `ajv/`, waving through `ajv-formats` and
+`ajv-keywords` (the same devDependency leak under another name), and lacked the
+per-file dedupe its sibling gates have. All three fixed, and the gate now has
+tests that watch it fail.
+
+**What the checker could not break.** It attacked the `if`-error skip hardest,
+since suppressing ajv's `if` keyword could in principle silence a manifest's ONLY
+error: five hand-built adversarial schema/data pairs and a **8,456-mutation fuzz**
+over the real tree produced zero all-`if` error sets. Not a defect; the invariant
+rests on ajv behavior nothing pins, which is recorded here rather than claimed as
+proven.
+
+**Cost of the two review rounds:** 4 agents, ~470k tokens. They found two HIGH
+defects in the original and three regressions in its fix. Every one was in the
+gate itself rather than in the manifests it checks.
+
+### Measured, after both rounds
+
+| | |
+|---|---|
+| repo-wide sweep | 9 ms (was 71 ms mid-fix; 8.5 ms before this change) |
+| `checkAjvBoundary` | 176 ms |
+| `check-ownership.js` total | 6.47 s |
+| unit / integration | 7,623 pass / 804 pass, 0 fail |

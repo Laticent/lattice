@@ -7187,12 +7187,20 @@ function checkAjvBoundary(errors) {
     for (const file of listSourceFiles(dir)) {
       const rel = path.relative(ROOT, file).split(path.sep).join('/');
       const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+      // Dedupe per file, like checkSuonoBoundary: one module importing ajv two
+      // ways is one defect, not two error lines.
+      const seen = new Set();
       for (const pattern of SUONO_SPEC_PATTERNS) {
         for (const m of src.matchAll(pattern)) {
           const spec = m[1];
-          if (spec !== 'ajv' && !spec.startsWith('ajv/')) continue;
+          // The ajv PACKAGE FAMILY, not just `ajv`. `ajv-formats` and
+          // `ajv-keywords` are the same devDependency leak wearing a different
+          // name, and matching only `ajv` / `ajv/` waved both straight through.
+          if (!/^ajv(-[a-z]+)?(\/|$)/.test(spec)) continue;
+          if (seen.has(spec)) continue;
+          seen.add(spec);
           errors.push(
-            `${rel} imports '${spec}'. ajv is a devDependency and may be required ONLY from tools/ ` +
+            `${rel} imports '${spec}'. The ajv family is a devDependency and may be required ONLY from tools/ ` +
             '(tools/manifest-schemas.js). tools/ is not in package.json `files`, so an ajv import here ' +
             'ships a missing dependency to every consumer of the published package and inlines a 3 MB ' +
             'validator into the browser bundle. Validate manifests at BUILD time instead, or hand the ' +

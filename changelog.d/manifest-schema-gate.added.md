@@ -38,3 +38,13 @@
 - The swept filename set is derived from the family registry rather than
   hardcoded, one schema typo now reports one error instead of 62, and a missing
   or absolute `$schema` is caught rather than exempted.
+- The sweep skips `node_modules` and `dist` at **any** depth, not just the repo
+  root — `docs/` is its own npm package, so a root-anchored skip walked 4,193
+  third-party directories and would have failed the build on the next dependency
+  shipping a bare `manifest.json`. Dot-directories are skipped at the root only,
+  because `loadAll` does not skip a nested one and doing so hid a component the
+  engine really loads. The flat theme family applies no `_` filter, matching
+  `listThemeManifests`.
+- `checkAjvBoundary` covers the whole ajv package family (`ajv-formats`,
+  `ajv-keywords` are the same devDependency leak), dedupes per file, and now has
+  tests that watch it fail.

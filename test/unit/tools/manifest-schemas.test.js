@@ -437,3 +437,134 @@ test('a root-level type error names the root instead of an empty field', () => {
     'a top-level array must not render as ``: [1,2]``',
   );
 });
+
+// ── The skip rules must AGREE WITH THE LOADERS, not invent policy ────────────
+
+/**
+ * These four pin the corrections an independent checker found in the first cut
+ * of the skip logic. Each one was a real divergence from what the engine loads,
+ * and three of them were introduced by the fix for the previous finding — which
+ * is why they are pinned rather than trusted.
+ */
+test('the sweep skips node_modules and dist at ANY depth, not just the root', () => {
+  // `docs/` is its own npm package, so `docs/node_modules` exists (743 packages,
+  // 4193 directories). Root-anchoring the skip walked all of it — 9x on the sweep,
+  // and one dependency shipping a bare `manifest.json` fixture would have failed
+  // build:check for everyone with "delete the file" pointing inside node_modules.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-nested-'));
+  try {
+    for (const rel of ['docs/node_modules/pkg/fixtures', 'docs/dist/assets', 'lib/x/coverage']) {
+      fs.mkdirSync(path.join(tmp, rel), { recursive: true });
+      fs.writeFileSync(path.join(tmp, rel, 'manifest.json'), '{}');
+      fs.writeFileSync(path.join(tmp, rel, 'a.manifest.json'), '{}');
+    }
+    assert.deepEqual(listAllManifests(tmp), [], 'a nested third-party or generated tree must not be swept');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('a nested dot-directory is NOT skipped — loadAll does not skip one either', () => {
+  // The dot-skip exists for `.claude/worktrees/` at the repo root. Applying it at
+  // every depth traded that false positive for a FALSE NEGATIVE: `loadAll` skips
+  // only `_` bucket children, so `anchor/.hidden/.hidden.manifest.json` would load
+  // into the shipped catalog with both arms blind to it.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-dot-'));
+  try {
+    fs.mkdirSync(path.join(tmp, '.claude/worktrees/feat'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.claude/worktrees/feat/a.manifest.json'), '{}');
+    fs.mkdirSync(path.join(tmp, 'lib/components/anchor/.hidden'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, 'lib/components/anchor/.hidden/.hidden.manifest.json'), '{}');
+
+    const swept = listAllManifests(tmp);
+    assert.ok(!swept.some((f) => f.startsWith('.claude/')), 'a root dot-directory must be skipped');
+    assert.ok(
+      swept.includes('lib/components/anchor/.hidden/.hidden.manifest.json'),
+      'a NESTED dot-directory must still be swept — the engine loads it',
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('the flat (theme) family applies no `_` filter, because listThemeManifests does not', () => {
+  // `listThemeManifests` filters on the extension alone. Excluding `_`-prefixed
+  // FILES in the lister while the sweep still saw them manufactured a guaranteed
+  // "no schema family covers" error for a theme every other theme gate reads.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-flat-'));
+  try {
+    fs.cpSync(path.join(ROOT, 'themes'), path.join(tmp, 'themes'), { recursive: true });
+    fs.copyFileSync(
+      path.join(ROOT, 'themes/indaco.manifest.json'),
+      path.join(tmp, 'themes/_parked.manifest.json'),
+    );
+    const claimed = listFamilyManifests(family('theme'), tmp);
+    assert.ok(claimed.includes('themes/_parked.manifest.json'), 'the lister must claim it');
+    assert.ok(listAllManifests(tmp).includes('themes/_parked.manifest.json'), 'the sweep must see it');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('a `_`-prefixed DIRECTORY is skipped by lister and sweep alike — both loaders skip it', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-underscore-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'lib/forms/frame/_draft'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, 'lib/forms/frame/_draft/_draft.manifest.json'), '{}');
+    assert.deepEqual(listAllManifests(tmp), []);
+    assert.deepEqual(listFamilyManifests(family('form frame'), tmp), []);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// ── checkAjvBoundary — the gate that had no test ─────────────────────────────
+
+/**
+ * A gate nobody can watch fail is the defect this whole PR is about, and this one
+ * shipped with zero tests directly beneath a comment in check-ownership.js saying
+ * gates are exported "so the suite can drive them against synthetic fixtures".
+ */
+test('checkAjvBoundary BITES on the ajv family and stays quiet on the real tree', () => {
+  const { checkAjvBoundary } = ownership;
+  const clean = [];
+  checkAjvBoundary(clean);
+  assert.deepEqual(clean, [], `the shipped tree must be clean, got:\n${clean.join('\n')}`);
+
+  const probe = path.join(ROOT, 'lib', '__ajv_boundary_probe__.js');
+  for (const [spec, shouldBite] of [
+    ["require('ajv')", true],
+    ["require('ajv/dist/2020')", true],
+    // Same devDependency leak wearing a different name — matching only `ajv` let these through.
+    ["require('ajv-formats')", true],
+    ["require('ajv-keywords')", true],
+    ["require('my-ajv-helper')", false],
+    ["require('./ajv')", false],
+  ]) {
+    fs.writeFileSync(probe, `const x = ${spec};\nmodule.exports = x;\n`);
+    try {
+      const errors = [];
+      checkAjvBoundary(errors);
+      assert.equal(
+        errors.length > 0,
+        shouldBite,
+        `${spec}: expected ${shouldBite ? 'a finding' : 'silence'}, got ${JSON.stringify(errors)}`,
+      );
+    } finally {
+      fs.rmSync(probe, { force: true });
+    }
+  }
+});
+
+test('checkAjvBoundary reports one file importing ajv two ways ONCE', () => {
+  const { checkAjvBoundary } = ownership;
+  const probe = path.join(ROOT, 'lib', '__ajv_dedupe_probe__.js');
+  fs.writeFileSync(probe, "const a = require('ajv');\nconst b = require('ajv');\nmodule.exports = [a, b];\n");
+  try {
+    const errors = [];
+    checkAjvBoundary(errors);
+    assert.equal(errors.length, 1, `expected one line per spec, got ${JSON.stringify(errors)}`);
+  } finally {
+    fs.rmSync(probe, { force: true });
+  }
+});

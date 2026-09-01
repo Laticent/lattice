@@ -117,32 +117,45 @@ const FAMILIES = Object.freeze([
 ]);
 
 /**
- * Top-level directories the repo-wide sweep must not walk: generated output,
- * third-party code, the throwaway area. A manifest under any of these is not
- * hand-authored, so it is not this gate's business.
+ * Directories that never hold a hand-authored manifest, skipped at ANY depth:
+ * third-party trees and generated output.
  *
- * ANCHORED AT THE ROOT, deliberately. Matching a bare name at any depth would
- * also skip `lib/coverage/` or a `dist/` inside a real family — a hiding place
- * for exactly the unchecked manifest arm 1 exists to find.
+ * ANY DEPTH IS LOAD-BEARING, and an earlier cut of this got it wrong by
+ * anchoring the set to the repo root. `docs/` is its own npm package, so
+ * `docs/node_modules` exists — 743 top-level packages, 4,193 directories — and
+ * a root-anchored skip walked all of it. That cost 9x on the sweep (8 ms → 71 ms)
+ * AND armed a false positive: paired with `manifest.json` in the swept names
+ * below, the next dependency to ship a bare `manifest.json` fixture (PWA
+ * templates, web-extension tooling) would fail `build:check` and the pre-push
+ * hook for everyone, demanding they delete a file inside `node_modules`. The
+ * tree holds zero such files today, which is luck, not design. `docs/dist` is
+ * the same shape once a docs build has run.
+ *
+ * The root-anchoring was justified here as stopping a manifest from HIDING under
+ * a nested `dist/`. That trade was backwards: the hiding place is hypothetical
+ * and generated anyway, the walk cost and the false positive are real.
  */
-const SKIP_ROOTS = new Set(['node_modules', 'dist', 'test-results', 'coverage']);
+const SKIP_ANYWHERE = new Set(['node_modules', 'dist', 'test-results', 'coverage']);
 
 /**
- * A directory the sweep and the family listers both skip at ANY depth.
+ * Whether the sweep skips a directory — and the rule is "agree with the runtime
+ * loaders", never "invent policy". Where the gate and the loaders disagree about
+ * what exists, one of them is wrong about the catalog.
  *
- * Two rules, and both mirror the runtime loaders rather than inventing policy:
- *   · a DOT directory — `.git`, `.scratch`, `.vscode`, and critically
- *     `.claude/worktrees/`, which `.gitignore` reserves for transient agent
- *     worktrees. Walking it made a single `git worktree add` fail `build:check`
- *     (and therefore the pre-push hook) with one bogus error per manifest in the
- *     checkout — up to 131, none of them real. A gate that fires on work the
- *     author never touched is the one people learn to bypass.
- *   · an UNDERSCORE-prefixed directory — `loadDir` in lib/forms/index.js and
- *     `loadAll` in lib/components/index.js both skip these, so a parked
- *     `_draft/` is by convention not part of the catalog. The gate must agree
- *     with the loaders about what exists, or it polices files nothing loads.
+ *   · DOT directories are skipped AT THE REPO ROOT ONLY — `.git`, `.claude`,
+ *     `.scratch`, `.vscode`. `.gitignore` reserves `.claude/worktrees/` for
+ *     transient agent worktrees, and walking it made a single `git worktree add`
+ *     fail `build:check` with one bogus error per manifest in the checkout.
+ *     NOT skipped deeper, because `loadAll` (lib/components/index.js) skips only
+ *     `_` children of a bucket — so skipping a nested dot-directory in BOTH the
+ *     sweep and the lister would let `anchor/.hidden/.hidden.manifest.json` load
+ *     into the shipped catalog with nothing checking it. Trading a false positive
+ *     for a false negative is not a fix.
+ *   · `_`-prefixed directories are skipped at any depth, because both loaders do:
+ *     `loadAll` skips `_` bucket children and `loadDir` (lib/forms/index.js) skips
+ *     `_` entries. A parked `_draft/` is by convention not part of the catalog.
  */
-const isSkippedDir = (name) => name.startsWith('.') || name.startsWith('_');
+const isSkippedDir = (name, atRoot) => (atRoot && name.startsWith('.')) || name.startsWith('_');
 
 /**
  * The filename suffixes the sweep looks for, DERIVED from the registry rather
@@ -175,8 +188,8 @@ function listAllManifests(root = ROOT, families = FAMILIES) {
     }
     for (const e of entries) {
       if (e.isDirectory()) {
-        if (isSkippedDir(e.name)) continue;
-        if (!rel && SKIP_ROOTS.has(e.name)) continue;
+        if (SKIP_ANYWHERE.has(e.name)) continue;
+        if (isSkippedDir(e.name, !rel)) continue;
         walk(rel ? `${rel}/${e.name}` : e.name);
       } else if (suffixes.some((s) => e.name.endsWith(s)) || exact.includes(e.name)) {
         out.push(rel ? `${rel}/${e.name}` : e.name);
@@ -192,17 +205,22 @@ function listFamilyManifests(fam, root = ROOT) {
   const base = path.join(root, fam.dir);
   if (!fs.existsSync(base)) return [];
   const out = [];
-  // `_`-prefixed directories are skipped to match the runtime loaders, which
-  // treat them as parked and never load them (see isSkippedDir).
+  // `_`-prefixed directories only — NOT dot-directories. `loadAll` and `loadDir`
+  // both skip `_` and neither skips a dot, so skipping dots here would drop a
+  // component the engine really loads out of the checked set (see isSkippedDir).
   const subdirs = (dir) =>
     fs
       .readdirSync(dir, { withFileTypes: true })
-      .filter((d) => d.isDirectory() && !isSkippedDir(d.name))
+      .filter((d) => d.isDirectory() && !d.name.startsWith('_'))
       .map((d) => d.name);
 
   if (fam.flat) {
+    // NO `_` filter: `listThemeManifests` (tools/check-ownership.js) filters on the
+    // extension alone, so a parked `themes/_wip.manifest.json` IS a theme every other
+    // theme gate reads. Excluding it here while the sweep still saw it manufactured a
+    // guaranteed "no schema family covers" error for a file the loader happily loads.
     for (const f of fs.readdirSync(base)) {
-      if (f.endsWith(fam.ext) && !f.startsWith('_')) out.push(`${fam.dir}/${f}`);
+      if (f.endsWith(fam.ext)) out.push(`${fam.dir}/${f}`);
     }
     return out.sort();
   }
