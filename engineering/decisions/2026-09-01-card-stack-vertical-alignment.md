@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   Design model for the vertical alignment of cards laid side by side — the holistic version of
   #1979/#1980/#1981, which are three symptoms of one missing policy. Measured catalog-wide: 26
@@ -40,7 +40,7 @@ builds-on: 2026-09-01-composition-is-an-engine-measure.md, 2026-06-22-the-fit-sp
 
 # Cards laid side by side need one vertical-alignment policy, and there is none
 
-**Date:** 2026-09-01 · **Status:** Proposed (design model; no production code) ·
+**Date:** 2026-09-01 · **Status:** In progress (design model; three of its four defect cells now fixed in code — §9) ·
 **Decision owner:** Sharmarke
 
 `2026-09-01-composition-is-an-engine-measure.md` argued that the engine should measure
@@ -428,7 +428,7 @@ finding, and §9c argues it should change the plan.
 |---|---|---|---|
 | **`decision` @ wide** (#1979) | `justify-content: safe center` was stamped for square, tall and strip and left off wide, so the one family most decks use inherited `flex-start` | the declaration moves to the base card rule; the per-family copy is deleted | gallery re-rendered at four families and pixel-diffed: square, portrait and story **byte-identical on all 9 pages**, only wide moves |
 | **`matrix-2x2`** (#1980) | the quadrant's height is definite in every family and it declared no `justify-content`, computing `normal` at all four — so portrait's cleanliness was luck | `justify-content: safe center` on the card, **not** `align-content` on the row | card content box 157.11px holding 99.53px; lead 0 / trail 57.58 (36.6%) → lead 28.78 / trail 28.80 |
-| **`stats` @ portrait autosplit** (#1981) | base's lone-member split rule fills `li:only-child` on the premise that "every heavy member's card is a wrap-flex row"; a stat tile is a nowrap flex COLUMN, so the `align-content: center` paired with the fill is inert | `stats` opts out of the fill and restores the centering base replaced with `flex-start` | card 573.4px for 222.4px of content, lead 1 / trail 245.7 (52.7%) → card 328.7px for 223.4px, lead 1 / trail 1 (**0.9%**). All 33 exemplars using `stats`, 418 pages, rendered with and without: **zero pages changed** |
+| **`stats` @ portrait autosplit** (#1981) | base's lone-member split rule fills `li:only-child` on the premise that "every heavy member's card is a wrap-flex row"; a stat tile is a flex COLUMN, so the `align-content: center` paired with the fill is inert | `stats` opts out of the fill and restores the centering base replaced with `flex-start`, **per family, because the axis differs** — see §9e | card 573.4px for 222.4px of content, lead 1 / trail 245.7 (52.7%) → card 328.7px for 223.4px, lead 1 / trail 1 (**0.9%**). At portrait across the corpus: 148 of 162 split pages are lone-member and all 148 are fixed; the 14 multi-tile pages are geometrically identical to `main` |
 | **`list-tabular`** (#1982) | **not a defect** | none | see below |
 
 **`list-tabular` is an instrument artifact, found twice independently.** Measured in real
@@ -505,7 +505,7 @@ floor"*, which is the distinction a threshold provably cannot draw.
   each a heading plus two lines, bottom third empty. It is the `decision` defect at smaller
   magnitude, and it was counted as a composed control.
 - **§6's argument for a per-component default is the right conclusion from the opposite premise,
-  and stronger for it.** The threshold never proposes to centre `pricing` or `statute-stack` — it
+  and stronger for it.** The threshold never proposes to center `pricing` or `statute-stack` — it
   reads them **tight, S ≈ 0**, because the anchored footer *is* the last in-flow child and it *is*
   at the bottom. Leading/trailing slack is structurally blind to a bottom-anchored footer, and both
   cards are visibly half empty (~150px and ~250px of nothing above the footer), which needs the
@@ -513,7 +513,7 @@ floor"*, which is the distinction a threshold provably cannot draw.
   mistake; it is there because **the measure that can see the void cannot tell "the layout anchored
   this on purpose" from "the layout abandoned the content at the top", and the measure that cannot
   see it is right by accident.** Only the component knows. `kanban` is a third shape again: its
-  lanes are content-sized and centred at stage level, where this instrument never looks.
+  lanes are content-sized and centered at stage level, where this instrument never looks.
 
 ### 9c · What this changes about §4 and §5
 
@@ -539,11 +539,11 @@ decision, and whose `auto` means "what the component declared" with nothing to m
 **What that leaves open, and it is the owner's call:** whether the register ships at all once the
 declarative pass is done, and whether `full` / `centered` are still the right two values. §3b's
 A/B/C render on `decision` says the vocabulary is off: `centered` as §5 defines it — cards shrink
-to the densest, band centres — does not remove the void, it **relocates it from inside the card to
+to the densest, band centers — does not remove the void, it **relocates it from inside the card to
 around the band**, and for a card with a background fill and a bottom accent rule that is a
 downgrade rather than a fix. What `decision` wanted, and what its square rule had all along, is a
 third composition the two-value vocabulary cannot name: **the card fills its track and its content
-centres inside it.**
+centers inside it.**
 
 ### 9d · The corpus, before and after the three fixes
 
@@ -580,3 +580,56 @@ covered the whole population rather than a corner of it.
   HARD RULE #18 logs them rather than pulling them into this diff — and §3b already says where each
   fix goes: their cards have no explicit height and stretch because the line stretches, so the
   declaration is `align-content` on the container, not `justify-content` on the card.
+
+### 9e · What an independent checker found, and what it changed
+
+The three fixes went to a checker before the merge ask. It confirmed `decision` and `matrix-2x2`
+— reproducing §9a's numbers to the decimal and extending the byte-identity claim from three
+families to four — and it found three real defects in the `stats` change and two in this note.
+All five are corrected above; they are recorded here because each one is a shape that will recur.
+
+**1 · The `stats` fix was inert at `square`, and the reason is the AXIS.** `justify-content` and
+the `flex` shorthand both address a flex container's **main** axis, and the `stats` list is a
+column only at `tall`/`strip`. At `wide` and `square` it is a row, so the tile's height is the
+**cross** axis and neither declaration touches it. Measured on a square autosplit fixture: the
+lone tile stayed **791.9px tall with 463.7px of void** below the number while `flex` dutifully
+changed from `1 1 auto` to `0 1 auto`. The comment in `stats.styles.css` had claimed in as many
+words that `justify-content` was right "in every family here and needs no family split" — a
+claim about four families, tested on two. Corrected: the vertical axis gets `flex` where it is
+the main axis and `align-self` where it is the cross axis, each family-scoped. Square now
+measures **h 329.2, trail 1**.
+
+**2 · The rule on the list was unguarded, and moved 30 pages it had no business touching.**
+`justify-content: safe center` on the `ol` fired on *every* `stats` split page rather than only
+lone-member ones. At square that is the horizontal axis, so 30 real corpus pages moved 150–275px
+sideways — plausibly for the better, and entirely out of this change's scope. The rationale for
+leaving it unguarded ("with one tile it is indistinguishable from `space-evenly`") was also
+measurably false: multi-tile split pages compute `flex-start`, because base's 2-repeat rule at
+(0,4,2) beats stats' own family rules at (0,3,2). Now guarded with `:has(> li:only-child)`;
+left-packed multi-tile square split pages are how `main` renders and stay that way (#18).
+
+**3 · The evidence offered for the `stats` change was a null test.** "All 33 exemplars using
+`stats`, 418 pages, rendered with and without: zero pages changed" is true and proves nothing:
+**none of those 418 pages carries a `stats` split section at all**, because no shipped deck
+autosplits `stats` at its committed geometry. The measurement rendered a corpus in which the
+rule cannot fire and reported that it did not fire — and it sat in the row meant to establish
+the change was safe. It is a scope statement, not a safety proof, and §9a now says so. The real
+evidence is at the geometries where the rule *does* fire, and it is in the row above.
+
+**4 · This note declared itself to have no production code** while §9 said three cells were
+fixed and shipped, in the same file. `status:` is now `in-progress`.
+
+**5 · Four British spellings** entered on `+` lines of this note (#21). Fixed; the retired
+`checkUsEnglish` ratchet means no gate catches these, so prose review is the only net.
+
+**One path stays UNVERIFIED, deliberately.** A `wide`-family `stats` autosplit page could not be
+reached: `stats` overflows *horizontally* at wide and the export clips it rather than splitting
+(confirmed on three fixtures at 10, 20 and 6 heavy tiles — one section, no split pass, "Content
+clipped"). The `align-self` rule covers `wide` by construction, since it is a row there exactly
+as square is, but that is reasoning, not a render. If the splitter ever learns to act on
+horizontal overflow, this is the cell to re-check first.
+
+**And §9b's numbers still are not re-derivable from the tree.** The calibration instrument lived
+in `.scratch/`, which does not merge — the very failure `tools/spike-composition-snapshot.mjs`'s
+docblock was written to prevent. `tools/measure-card-slack.mjs` now ships it, so every figure in
+§9b and §9d can be re-run.

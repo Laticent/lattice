@@ -48,7 +48,7 @@ Three layouts were handed the full height of the stage and pinned their content 
 ---
 
 <!-- _class: stats -->
-<!-- _footer: "stats — the tile is sized by its content, on an authored page and on a split one alike." -->
+<!-- _footer: "stats — the tile is sized by its content. The autosplit page this fixes is portrait-only, so it is not on this deck." -->
 
 ## A stat is a tile, not a panel.
 
@@ -58,10 +58,10 @@ Three layouts were handed the full height of the stage and pinned their content 
    - of the tile was empty
 2. 0.9%
    - is empty now
-3. 418
-   - pages unchanged
-4. 33
-   - decks swept
+3. 148
+   - split pages fixed
+4. 313
+   - flagged cards gone
 
 ---
 
@@ -81,19 +81,19 @@ Three layouts were handed the full height of the stage and pinned their content 
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: list-criteria -->
 <!-- _footer: "What the measurement says the fix actually is." -->
 
 ## The defect is declarative, so the fix is a declaration.
 
-- Where the void lives picks the property.
+- **Where the void lives picks the property**
   - A definite height takes `justify-content`; a stretched card takes `align-content`.
-- No row needs to move to grid.
-  - `align-content` works on wrapped flex, and the 2×2 never flattens.
-- A threshold cannot draw the line.
-  - Past 19% slack, 2,908 measured cards are one continuum.
-- The computed style can.
-  - No card told to distribute is ever flagged; all 350 flagged compute `flex-start`.
+- **The axis picks it again, per family**
+  - The same list is a column at portrait and a row at square.
+- **A threshold cannot draw the line**
+  - Past 19% slack, 2,908 cards are one continuum.
+- **The computed style can**
+  - All 350 flagged cards compute `flex-start`; no centered card is flagged.
 
 ---
 
