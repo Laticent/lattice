@@ -2347,6 +2347,19 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
   /* Gap above the lead-in. <div>, no bg, in a no-gap flex column — padding-top reads
    * identically to the old margin-top, and measures cleanly (HARD RULE #20). */
   padding-top: var(--sp-lg); font-size: var(--fs-emphasis); letter-spacing: 0.02em; opacity: 0.9;
+  display: flex; align-items: center; gap: 0.4em;
+}
+/* The forward arrow, DRAWN (HARD RULE #29). It was a typed `&rarr;` written into the rendered
+   DOM — an entity, which is why `checkTypedGlyphs` never saw it: that gate matches literal
+   characters, and an entity is not one until the parser has run. The deck's type family carries
+   almost no arrow, so the typed form fell back to whatever face the rendering machine had.
+   Sized in `em` so it tracks the lead-in's type, and painted `currentColor` so it works on the
+   accent cover and in the print band without a second rule (HARD RULE #3). */
+.split-cover-lead::after {
+  content: ""; flex: none; width: 1em; height: 1em;
+  background-color: currentColor;
+  -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
+          mask: var(--shape-arrow-right) var(--shape-paint);
 }
 /* Shares the deck pagination's baseline (bottom-right, vertically centered on the page
    number) but stands well clear of it horizontally — the rail and the page count are two
@@ -2830,6 +2843,41 @@ section.form.lat-split-native > .lat-split-rel {
      SOC 2") and wraps in a portrait box; `balance` keeps it from orphaning a two-character
      fragment on line two, which is what it did on the real render. */
   text-wrap: balance;
+  /* The mark sits on the first line, not above a wrapped block, so this is a flex row with the
+     text as the one growing member rather than an inline `::before` that a `text-wrap: balance`
+     line box would carry along. */
+  display: flex; align-items: baseline; gap: 0.45em;
+}
+/* The signal's MARK, DRAWN per `data-mark` (lib/core/relationship.js). Four shapes for the four
+   relationships: a run continues (→), a cycle returns (↻), a hierarchy governs downward (↓) or
+   sits under (↑). A comparison gets none — "Option 2 of 4" is a count, and an arrow on it would
+   claim a direction the relationship does not have.
+
+   All four were typed HTML entities until 2026-09-01. HARD RULE #29's gate could not see them
+   (it matches literal characters, not entities), so they shipped as the exact defect the rule
+   describes: the deck's own face carries none of `→ ↻ ↓ ↑`, so each fell back per machine.
+   `align-self: center` on a baseline row keeps the mask centred on the first line's x-height —
+   a mask has no baseline of its own to align. */
+.lat-split-rel[data-mark]:not([data-mark="count"])::before {
+  content: ""; flex: none; align-self: center; width: 1.05em; height: 1.05em;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+}
+.lat-split-rel[data-mark="next"]::before {
+  -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
+          mask: var(--shape-arrow-right) var(--shape-paint);
+}
+.lat-split-rel[data-mark="loop"]::before {
+  -webkit-mask: var(--shape-refresh) var(--shape-paint);
+          mask: var(--shape-refresh) var(--shape-paint);
+}
+.lat-split-rel[data-mark="down"]::before {
+  -webkit-mask: var(--shape-arrow-down) var(--shape-paint);
+          mask: var(--shape-arrow-down) var(--shape-paint);
+}
+.lat-split-rel[data-mark="up"]::before {
+  -webkit-mask: var(--shape-arrow-up) var(--shape-paint);
+          mask: var(--shape-arrow-up) var(--shape-paint);
 }
 
 /* ── Shared split NOTE, the `cover-cards` shape (lib/core/carousel.js `coverCardsSections`) ──

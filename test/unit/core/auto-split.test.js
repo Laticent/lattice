@@ -156,25 +156,26 @@ describe('core: the envelope — cover → bodies → closing', () => {
 describe('core: the carousel points at what is next — on EVERY run', () => {
   const card = (t, b) => `<li><strong>${t}</strong> ${b}</li>`;
   const steps = `<ul>${card('Draft the policy.', 'Legal owns it.')}${card('Circulate.', 'Two weeks.')}${card('Sign off.', 'The chair signs.')}</ul>`;
-  const sigsOf = (html) => [...html.matchAll(/<div class="lat-split-rel">([\s\S]*?)<\/div>/g)].map((m) => m[1]);
+  const sigsOf = (html) => [...html.matchAll(/<div class="lat-split-rel"[^>]*>([\s\S]*?)<\/div>/g)].map((m) => m[1]);
 
   test('a component declaring NO relationship still gets a forward pointer', () => {
     // The signal used to require `capacity.relationship`, which four of sixty-one components
     // declare — so the ordinary bulleted slide split into pages with nothing joining them.
     const out = applyRelationshipSignals(split(docify(sec('cards', `<h2>T</h2>${steps}`))).html, cap);
-    assert.deepEqual(sigsOf(out), ['&rarr; next: Circulate', '&rarr; next: Sign off']);
+    assert.deepEqual(sigsOf(out), ['next: Circulate', 'next: Sign off']);
   });
 
   test('a declared relationship still chooses the PHRASING', () => {
     const cycleCap = { cards: { axis: 'item', hard: 4, relationship: 'cycle' } };
     const out = applyRelationshipSignals(split(docify(sec('cards', `<h2>T</h2>${steps}`)), cycleCap).html, cycleCap);
-    assert.match(sigsOf(out).at(-1), /&#8635; back to Draft the policy/);
+    assert.match(sigsOf(out).at(-1), /back to Draft the policy/);
+    assert.match(out, /data-mark="loop"/, 'the loop shape is DRAWN, never a typed glyph');
   });
 
   test('the LAST body page points at the closing page, naming what it carries', () => {
     const inner = `<h2>T</h2>${steps}<blockquote><p>Ship it.</p></blockquote>`;
     const out = applyRelationshipSignals(split(docify(sec('cards', inner))).html, cap);
-    assert.equal(sigsOf(out).at(-1), '&rarr; next: the key insight');
+    assert.equal(sigsOf(out).at(-1), 'next: the key insight');
   });
 
   test('no signal on the cover or the closing page — neither is a member', () => {

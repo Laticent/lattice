@@ -59,3 +59,18 @@
   `roadmap` grouped six phases into 2+2+1+1 to stay under a four-page budget. `coverWindow`'s
   fallback for a recipe that declares no `perPage` was 3, so a new recipe would have packed
   silently; it is 1.
+- **Fixed: the split run's arrows are drawn, not typed.** The cover lead-in and the four
+  relationship marks were HTML entities — `&rarr;`, `&#8635;`, `&darr;`, `&uarr;` — written into
+  the rendered DOM. HARD RULE #29 exists because the deck's own type family carries almost none
+  of those characters, so each fell back to whatever face the rendering machine had. The #29 gate
+  never saw them: `checkTypedGlyphs` matches literal characters, and an entity is not one until
+  the parser has run. They are now `data-mark` attributes painted from the existing
+  `--shape-arrow-*` / `--shape-refresh` mask tokens; `--shape-arrow-down` is added as the mirror
+  of `-up`, and both down-arrow rows in `lib/core/shape-glyphs.js` now name it.
+- **Changed: a split cover introduces what is next even when its layout declares no `intro`.**
+  Twelve components declare `split.intro` ("Side by side", "Entry by entry"); the other
+  forty-nine carried a title and nothing else, which is §0a's cover doing half the job it argues
+  for. The lead-in is now derived from the run's first member — the same `labelOf` the body
+  pages' "next:" uses, so the cover points at page one exactly as page one points at page two.
+  It declines rather than clips: a member with no name (a bare sentence) leaves the cover
+  title-only instead of printing a truncated fragment.

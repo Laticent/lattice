@@ -191,6 +191,39 @@ carried the footer; with three marks gone the constraint that set it is gone, an
 is now a readability call — twelve, about the limit for a row the eye reads as a shape rather
 than counts.
 
+## The marks are drawn, not typed
+
+Every arrow in a split run — the cover's lead-in and the four relationship marks — was an HTML
+ENTITY written into the rendered DOM. HARD RULE #29 forbids exactly that, and its gate never saw
+them: `checkTypedGlyphs` matches literal characters, and `&rarr;` is not one until the parser has
+run. So the rule's own failure mode shipped in the feature whose whole job is wayfinding — the
+deck's face carries no arrow, so each fell back per machine.
+
+They are `data-mark` attributes now, painted from the mask tokens that already existed. A
+comparison signal deliberately gets no mark: "Option 2 of 4" is a count, and an arrow on it would
+claim a direction the relationship does not have.
+
+**The gate's blind spot is worth recording**: it is a text matcher over literal characters, so
+entity-encoded and JS-escaped forms are both invisible to it. Nothing here closes that; the arrows
+are simply no longer typed.
+
+## The cover introduces, it does not merely title
+
+§0a's argument for a cover is that a split should "introduce rather than merely title", and the
+mechanism was a per-layout `split.intro`. Twelve components declare one. The other forty-nine
+carried a title and nothing else — the cover doing half the job its own rationale asks for.
+
+The lead-in is now DERIVED where none is declared, from the run's first member, using the same
+`labelOf` the body pages use for "next:". One rule for the whole run: the cover points at page
+one exactly as page one points at page two, and it cannot go stale because it is read from the
+content rather than authored beside it.
+
+It declines rather than clips. `labelOf` refuses a member with no name — a bare sentence — because
+clipping one produced "→ next: A page carries one structural elem…", which reads as a rendering
+bug rather than wayfinding. A prose-bulleted `content` slide therefore still gets a title-only
+cover. **Whether that case should instead fall back to a count ("Five points →") is open**, and is
+the one piece of the opening slide this note does not settle.
+
 ## Scope: the size gate is unchanged
 
 Splitting still runs at `square`, `tall` and `strip`, never at `wide`. That gate is about
