@@ -5,7 +5,8 @@
   preview frames use, and it lives in one shared kernel so an author's preview and their
   reader's file cannot disagree. The exported `--player` was already contained. The deck's OWN
   local images and its math fonts still load — measured on Blink, Gecko and WebKit, counted at a
-  real socket rather than through a devtools hook.
+  real socket rather than through a devtools hook, and pinned nightly on the two non-Blink
+  engines. WebKit is the strict one there, which is the engine that matters for this question.
 - **Unchanged on purpose: PDF, PPTX and PNG still fetch.** There the request happens on the
   exporting author's machine and the recipient receives baked pixels, so containing it would
   blank a picture the author asked for and buy the recipient nothing. The policy is applied

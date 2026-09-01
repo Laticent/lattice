@@ -104,14 +104,23 @@ on a fixed port and counts hits **server-side**: if the server logs nothing, no 
 machine. The CSP-stripped control logs 1 in every engine, so a 0 means absent rather than
 unlooked-for.
 
-**This is a one-off verification, deliberately not a gate.** CI has Chromium only; Firefox and
-WebKit came from `npx playwright install firefox webkit` plus `install-deps` in a sandbox.
-Putting them in CI is a change to the pipeline every future PR pays for, which is not a call to
-make in passing — the shipped gate stays `test/integration/export/export-remote-subresource.test.js`
-on Chromium, and this table is the record that the other two were checked once, here. To repeat
-it: export a deck carrying one same-directory image and one `http://127.0.0.1:<port>/beacon.png`,
-strip the `<meta>` from a copy for the control, and open both from `file://` in each engine while
-a server on that port counts hits.
+**WebKit is the strict engine, and that is what makes it the useful proxy.** Narrow the policy to
+`img-src data:` — so the deck's own `file://` image *should* be refused — and WebKit blanks it
+while **Gecko renders it anyway**: Firefox does not subject a same-document `file://` image load
+to `img-src`, though it does enforce the directive for the http beacon on the same run. So the
+cost half of this measurement is carried by WebKit alone. That is the reassuring direction: the
+engine Safari is built on is the one that enforces `'self'` strictly on `file://`, and it renders
+the deck's own images and math under the policy we ship.
+
+**The measurement is now a spec, not a one-off.** `docs/e2e/export-subresource-engines.spec.ts` runs it on the
+`gecko` and `webkit-tablet` projects, which `playwright.config.ts` already defines and
+`studio-e2e-nightly.yml` already installs — so it rides a tier that pays for those browsers
+rather than asking a second tier to start, and no per-PR pipeline cost is added. It lives in
+`docs/e2e` for that reason alone: the Chromium arms stay in
+`test/integration/export/export-remote-subresource.test.js`, which drives Puppeteer's bundled
+Chromium, the only browser the integration tier has.
+
+Mutation-proved: narrowing `SELF_SOURCES` to `data:` fails it on WebKit.
 
 ### The player-assembly failure path is executed, not argued
 
