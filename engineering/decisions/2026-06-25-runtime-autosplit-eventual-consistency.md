@@ -442,8 +442,19 @@ byte — all identical:
 | `examples/portrait-prose-deboost.md` | 9 → 20 | vertical |
 | `.scratch` portrait probe | 3 → 5 | vertical |
 | `list-steps` @ `size: square` probe | 1 → 9 | inline-flow / horizontal |
-| `compare-table` portrait probe | 1 → 6 | paginator carousel |
+| `compare-table` portrait probe | 1 → 6 | **structural** carousel |
 | 4 portrait decks that fit | unchanged | the no-verdict path |
+
+**That branch map was wrong in its first draft, in the direction that flatters.**
+It called the `compare-table` deck a paginator case and said the structural branch
+had no end-to-end coverage. It is the reverse: `compare-table` declares
+`cover-cards`, which is in `WIDTH_REDUCING_STRATEGIES` (`lattice-emulator.js`), so
+it is **structural** — and the **paginator** branch (`cover-paginate` and friends:
+glossary, premise, q-and-a, statute-stack, authority-chain, regulatory-update) is
+the one this comparison never drove. An independent checker closed that hole with
+a `glossary` deck at square, rendered against a materialized pre-change tree:
+byte-identical. Recorded because a coverage claim that names the wrong branch is
+worse than one that admits a gap.
 
 `test/unit/core/split-verdict.test.js` adds the branch tests the logic could never
 have while it lived inside a `page.evaluate`: the legibility floor, both carousel
@@ -451,7 +462,18 @@ branches, the ordinary vertical case, the headroom veto, the inline-flow carve-o
 with its `<table>` counter-case, the two-page floor, and that the injected copy
 behaves like the imported one.
 
-**NOT covered, and named so it is not mistaken for covered:** the *structural*
-carousel branch (`cover-code`) has unit coverage but no end-to-end deck — a
-`compare-code` probe at `size: story` would not overflow however much code it was
-given, so no before/after render exercises it. Its unit test is the only guard.
+**On the tests.** The first version of this suite did not pin what it said it
+pinned, and the same independent check found it by mutation: the `<table>`
+carve-out fixture omitted `display`, so `inlineFlow` was already false by
+fall-through and deleting the carve-out kept it green; the horizontal
+`Math.max(2, …)` floor had no case near the floor; the 33-line envelope-hoist
+correction — the rule with the sharpest recorded defect behind it — had no fixture
+carrying a lede or a trailing note at all; and `tol` was pinned at neither of its
+two use sites. Six mutants that survived now fail: `allow-table-inline-flow`,
+`drop-horizontal-floor`, `kill-hoist-entirely`, `flex-column-counts-as-inline`,
+`grid-any-columns-inline`, `hardcode-tol-at-width-site`.
+
+**Still NOT covered, and named so it is not mistaken for covered:** the two
+`illegible` paths end-to-end (no deck was found that trips the type floor rather
+than overflowing), the `unmeasured` field, and PDF/PPTX output — the byte
+comparison is on the `.html` deliverable, upstream of the encode.
