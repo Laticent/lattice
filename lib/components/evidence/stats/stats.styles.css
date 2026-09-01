@@ -129,3 +129,41 @@ section.stats.stats:where([data-family="square"], [data-family="tall"], [data-fa
   font-size: var(--fs-body);
 }
 
+
+/* ── Autosplit pages keep the stat a TILE ────────────────────────────────────
+   A stat is a chip — a number and its label on a bg-alt surface — and every
+   family rule above says so: the column at tall/strip and the 2-up wrap at
+   square both distribute the tiles down the frame (`space-evenly`) rather than
+   stretching each one to fill it, and the square comment states that choice
+   outright.
+
+   The generic split rules in base.modifiers.css override both. Their
+   lone-member rule gives `li:only-child` `flex: 1 1 auto` so the member claims
+   the stage, on the stated premise that a member paced one-per-page is "a card —
+   a header plus its content" and "every heavy member's card is the same shape —
+   a wrap-flex row". A stat tile is neither. It is a NOWRAP flex COLUMN, so the
+   `align-content: center` that rule pairs with the fill has no effect at all —
+   `align-content` does nothing on a single-line flex container — and the tile is
+   stretched to the full stage with its number pinned to the top. Measured on
+   board-update at `size: portrait`, which autosplits one stat per page: card
+   573.4px tall, content 222.4px, lead 1px against trail 245.7px — 52.7% of the
+   tile empty below the number, on a page no author wrote (#1981).
+
+   So stats opts out of the fill and restores the centering the base rules
+   replaced with `flex-start`. `justify-content` is the right property in every
+   family here and needs no family split: at wide it centers the row, at
+   tall/strip the column, and at square it is what the component already asks
+   for. With exactly one tile it is indistinguishable from the `space-evenly`
+   the multi-tile pages use. `safe` keeps a crowded tile's number rather than
+   its tail.
+
+   THE REPEATED CLASSES ARE LOAD-BEARING, not a style. base.modifiers.css
+   deliberately repeats `.lat-split-native` twice for the natural-height rules
+   and FOUR times for the lone-member fill, and documents why; an override has
+   to clear (0,7,3) to be seen at all. */
+section.stats.stats.form.lat-split-native.lat-split-native > .cell-stage > ol {
+  justify-content: safe center;
+}
+section.stats.stats.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ol > li:only-child {
+  flex: 0 1 auto;
+}
