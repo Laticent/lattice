@@ -16,9 +16,14 @@ summary: >
   classes is SLACK ASYMMETRY, and it is startlingly clean: across 148 cards in 9 exemplars it
   puts `stats` (tight), `kpi` (centered 28 of 30), `list-criteria`, `cards-grid`, `actors` and
   `big-number` (leading, deliberately low) on the composed side with zero false positives, and
-  isolates exactly three components on the defect side — `decision` (9 cards, 52-55% of the
-  card empty below top-pinned content), `matrix-2x2` (12 cards, 36-43%) and one `list-tabular`
-  card at 63%. `decision` is confirmed three independent ways: two instruments sharing no
+  isolates a small defect side — at landscape `decision` (9 cards, 52-55% of the card empty
+  below top-pinned content), `matrix-2x2` (12 cards, 36-43%) and one `list-tabular` card at 63%.
+  Swept at portrait and square as well, and that corrects the unit: the defect is a component
+  x FAMILY cell, not a component. `decision` and `matrix-2x2` are clean at portrait and
+  defective at the other two sizes; `stats` is the reverse, tight on all 64 landscape cards and
+  trailing on 28 of 36 at portrait. The classes stay component-clean within every family, which
+  is the property that was load-bearing. The sharpest instance found anywhere is a portrait
+  `stats` page autosplit produced -- no author wrote it, and half the tinted card is empty. `decision` is confirmed three independent ways: two instruments sharing no
   machinery agree to the point, the render confirms it by eye, and its own CSS carries
   `justify-content: safe center` for the square, tall and strip families and nothing for wide.
   The author is not at fault — the component's docs ask for "one sentence of rationale" per
@@ -148,8 +153,10 @@ durable lesson of the last two records is that a single instrument certifies its
 3. **The component's own CSS says so.**
    `decision.styles.css:106` gives `li` `justify-content: safe center` at the `square`,
    `tall` and `strip` families and nothing at `wide`, so the landscape card inherits
-   `flex-start` from line 42. The engine already knows the right answer for this component
-   at three families out of four.
+   `flex-start` from line 42. The engine already carries a centering rule for this
+   component at three families out of four — and the sweep below shows that rule
+   *removes* the defect at portrait and only *halves* it at square, so "the fix already
+   exists, it is just not stamped at wide" would be too tidy a reading of it.
 
 **The author is not at fault, and this is the part that makes it an engine defect rather
 than an authoring one.** `decision.docs.md` says *"Each card is one sentence of rationale"*
@@ -162,6 +169,40 @@ which would have made mechanism void look endemic. Both figures were padding. Su
 the box's own padding moves `stats` to tight on all 64 cards and `kpi` to centered on 28 of
 30 — the corpus did not change, the instrument did. The first cut of §4 would have reported
 a defect class four times its real size.
+
+### 4b · The same sweep at portrait and square, which corrects the headline
+
+The first cut of this section stopped at landscape and §7 listed the family axis as where
+the measurement was thinnest. Running it there instead of caveating it changes the finding:
+
+| component | landscape (148 cards, 9 decks) | portrait (76 cards, 5 decks) | square (83 cards, 5 decks) |
+|---|---|---|---|
+| `decision` | **trailing** ×9, worst 55% | tight ×4 | **trailing** ×6, worst 27% |
+| `matrix-2x2` | **trailing** ×12, worst 43% | tight ×8 | **trailing** ×8, worst 52% |
+| `stats` | tight ×64 | **trailing** ×28 of 36, worst 51% | tight ×35, trailing ×1 |
+| `list-tabular` | **trailing** ×1, worst 63% | — | **trailing** ×1, worst 73% |
+| `kpi` · `list-criteria` · `big-number` · `cards-grid` · `actors` · `content` | composed | composed | composed |
+
+**Two things survive and one claim does not.**
+
+**The discriminator still does not smear.** At every size, no component lands on both the
+composed and the defect side — the classes stay component-clean within a family. That was
+the load-bearing property, and the family sweep is the harder test of it, not the easier one.
+
+**But "three components" was the wrong unit.** The defect is a **component × family cell**,
+not a component. `decision` and `matrix-2x2` are clean at portrait and defective at the
+other two; `stats` is the reverse — 64 cards tight at landscape, 28 of 36 trailing at
+portrait. Nothing about the corpus changed between those runs. Only the box shape did,
+which is precisely what makes it a mechanism fact rather than a taste one. It also names
+the right shape for any gate under Option A: per (component × `@size`), which is the shape
+`tools/check-family-conformance.js` already uses for a neighboring question.
+
+**The portrait `stats` case is the sharpest instance found anywhere in this note, because
+no author wrote the page.** Autosplit divided one landscape `stats` slide into four
+single-stat portrait pages, and each page keeps a tinted card sized for the full stage with
+the number and label pinned to its top third — about half the card empty below. Rendered at
+`size: portrait` and looked at (`board-update` page 8). An authoring rule has nothing to
+say about a page the engine itself produced.
 
 ## 5 · The fork
 
@@ -213,25 +254,38 @@ about *when the question gets asked*, not about how:
 | `tools/check-chart-fit.js` | already carries the INSET assertion, the same defect class | the precedent, but it is chart-scoped and this is not |
 | `tools/check-overflow-corpus.js` (`npm run overflow:check`) | renders the whole shipped corpus and ratchets per-deck clipped pages | **the closest match.** It is already the corpus-wide fit ratchet, already on-demand for the same cost reason (HARD RULE #19), and a trailing-slack arm rides renders it is already paying for |
 
-The likely shape is a sibling arm on the corpus ratchet, not a new pipeline stage. Deciding
-that is build work, not this note's; §5 is the fork that has to close first.
+The likely shape is a sibling arm on the corpus ratchet, not a new pipeline stage. **Whatever
+the site, §4b fixes the UNIT: the assertion is per (component × `@size`), not per component.**
+A gate written per component would have called `stats` clean on 64 landscape cards while it was
+trailing on 28 of 36 portrait ones. `tools/check-family-conformance.js` already freezes a
+per-(component × `@size`) oracle for a neighboring question, so the shape has a precedent as
+well as a reason. Deciding the site is build work, not this note's; §5 is the fork that has to
+close first.
 
 ## 7 · What this does not establish
 
 - **The threshold.** §4 sorts cards into four classes with a 15% floor and a 50% asymmetry
   split, and the classes come out component-clean at those numbers. That is not the same as
   having calibrated them. A gate needs a floor derived from the population it will run on.
-- **The corpus figure.** 9 decks of 45, one theme (`indaco`), one size (landscape). The
-  three components named are real and confirmed; "these are the only three" is not claimed.
-  `list-tabular` in particular is one card in four.
-- **Whether the three named components should be fixed here.** They should not — this note
-  changes no render (HARD RULE #18: found, not caused, and off the path of a decision doc).
-  They want an issue each, and `decision` looks like a one-line-shaped fix given the CSS check in §4.
+- **The corpus figure.** 9 decks of 45 at landscape, 5 of those at portrait and square, one
+  theme. The cells named are real and confirmed; "these are the only cells" is not claimed,
+  and `list-tabular` in particular is one card in four.
+- **Whether the named cells should be fixed here.** They should not — this note changes no
+  render (HARD RULE #18: found, not caused, and off the path of a decision doc). They want an
+  issue each. `decision` at wide looked like a one-line-shaped fix until §4b measured the same
+  rule leaving 27% at square, so even that one is not as small as it first read.
 - **Anything about non-card void.** The whole of §3-§4 measures `li` cards. Trailing void in
   a stage with no cards in it — the `content` slides that are most of §1's second row — is
   measured only by the leaf-ink band in §2 and is deliberately left on the composition side.
-- **Portrait, square, and the other 32 themes.** `decision`'s defect is family-conditional by
-  construction (the CSS check in §4), so the family axis is exactly where this measurement is thinnest.
+- **The portrait and square population is synthetic.** §4b forces `size:` onto decks authored
+  for landscape. That is the repo's own idiom (`tools/check-chart-fit.js` sweeps one fixture at
+  three sizes), and it is a fair test of engine behavior, but it is not a sample of decks anyone
+  ships. Five decks, not nine.
+- **Why `safe center` clears `decision` at portrait and leaves 27% at square** is unexplained.
+  Both families carry the rule and both are stamped (checked in the sidecar); the residual
+  differs. Worth knowing before anyone treats the existing rule as the template for a fix.
+- **The other 32 themes.** Everything here is `indaco`. Type metrics differ across themes, so
+  the slack numbers will move; whether any component crosses a class boundary is unasked.
 
 ## 8 · How to re-derive
 
@@ -244,6 +298,10 @@ reproduce:
 # the artifact the visual claims are made against, not a proxy
 pdftoppm -r 60 -f 11 -l 11 -png exemplars/corporate/quarterly-business-review.pdf out
 ```
+
+A third pass, §4b's family sweep, is the second script again with `size:` and `autosplit:`
+rewritten into each deck's front matter the way `tools/check-chart-fit.js` does it, measured at
+1080×1350 and 1080×1080.
 
 Both scripts render each deck with `lattice-emulator.js` and load the HTML sidecar in
 Chromium at 1920×1080 — the plumbing `tools/check-chart-fit.js` already uses. The leaf-ink
