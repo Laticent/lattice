@@ -188,6 +188,20 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
      doubled to (0,2,2) to beat the engine's pagination rule. `section.divider.numbered::after`
      is (0,2,2) too, and `base.variants.css` loads after `base.modifiers.css`, so the tie
      went to `content: none`.
+- **The third surface, and the one a user is most likely to hit: marp-vscode.** The
+  "Marp for VS Code" preview loads `lattice.css` as a Marp THEME, so marp-core runs its
+  own copy of this mask — `@marp-team/marpit/lib/postcss/pagination.js`, whose selector
+  test is byte-for-byte the shape ours mirrors:
+  `/^section(?![\w-])[^\s>+~]*::?after$/`. Marp then MINIFIES the theme, which drops the
+  comment the mask leaves behind, so the declaration is not commented in that output —
+  it is simply absent. Measured through real marp-core on both bundles: the pre-fix
+  `dist/lattice.css` yields **zero** occurrences of `counter(lat-…)` in the emitted CSS,
+  the fixed one yields all three, live. Worth stating plainly because both natural
+  guesses are wrong: this is not `lattice-runtime.js` failing to load and it is not the
+  counter. `numbered` is a plain `_class:` token, so Marpit itself puts the class on the
+  `<section>` (the probe reads `class="divider numbered"` in both builds), and
+  `counter-reset` / `counter-increment` survive the mask untouched — the ONLY thing
+  removed is the `content` declaration that reads the counter back out.
 - **Mitigation:** the `numbered` numeral rides the slide HEADING's pseudo —
   `section.divider.numbered :is(h1, h2)::after` (`base.modifiers.css`). The descendant
   combinator puts a space in the selector, which the pagination regex cannot cross, and it
