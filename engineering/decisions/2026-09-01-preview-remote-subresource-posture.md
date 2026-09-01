@@ -177,15 +177,24 @@ route to a real Playground.
 Script execution out of a preview frame is #22's territory and is covered elsewhere (#1752,
 `2026-08-18-post-sanitize-injection-queue.md` §3.1). This record is about resource loads only.
 
-**It does not contain EXPORTS, on either path, and that is the open question this leaves.** The
-CLI (`lattice-emulator.js`) emits no CSP into the documents it rasterizes, and the Studio's
-capture frame now explicitly opts out to match it. So a deck carrying a remote image still
-fetches it while a `.pdf` / `.pptx` / `.png` is being produced — which leaks the *exporting
-author's* IP, not a recipient's, and that is a materially weaker harm than the preview case: the
-author chose the deck and chose to export it. It is still a real question for a deck that
-arrived from someone else, and the answer has to cover both export paths at once or it just
-recreates the CLI/Studio divergence in the other direction. Deciding it means moving exported
-bytes, so it needs its own change and its own sign-off.
+**It did not contain EXPORTS, and that open question is now SETTLED — see
+`2026-09-01-export-remote-subresource-posture.md`.** Read that record before quoting this
+paragraph, because the framing this one used was measurably wrong in half the cases.
+
+It said the export harm is "materially weaker — it leaks the *exporting author's* IP, not a
+recipient's". True of the RASTER artifacts (pdf/pptx/png), where the fetch happens on the
+author's machine and the recipient receives baked pixels. **False of the CLI's `.html` and
+`--fluid` exports**, which are LIVE DOCUMENTS a recipient opens — `--fluid`'s own `--help` calls
+its output "a single emailable file" — and which fired 2 requests each on the recipient's
+machine, measured. That is the same harm this record was written to stop, in a file that has
+left the building.
+
+The decision there: contain the live class, leave the raster class fetching. And the standing
+objection this paragraph raised — that any answer must cover both export paths or recreate the
+CLI/Studio divergence — does not bite, because the classes do not straddle the two paths the
+same way. The live class is CLI-only (the Studio's sole HTML export is the player, already
+contained), so containing it REMOVES a divergence; the raster class has one on each path, and
+they stay together by staying untouched.
 
 The exported **player** is the one artifact already contained (`img-src data:`), and that
 predates this work.

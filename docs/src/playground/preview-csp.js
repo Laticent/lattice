@@ -50,7 +50,14 @@
 // `img-src data:` all along: preview was rendering something the export would not.
 // Containing preview makes the two agree.
 // See engineering/decisions/2026-09-01-preview-remote-subresource-posture.md.
-const SELF_SOURCES = "'self' data: blob:";
+// THE POLICY ITSELF LIVES IN `lib/core/subresource-csp.mjs` (HARD RULE #1). It is not a
+// preview concern any more: the CLI's live HTML exports — the `.html` deliverable, the
+// `--fluid` viewer, the sidecar beside a pdf/pptx/png — carry the same policy, and a document
+// an author previews must not disagree with the file their reader opens. This module stays as
+// the name the three preview builders already call, and as the home of the reasoning about
+// preview specifically; the directive list is shared.
+import { subresourceCspMeta } from '../../../lib/core/subresource-csp.mjs';
+
 /**
  * The `<meta http-equiv="Content-Security-Policy">` tag every preview-frame document
  * carries. Emitted FIRST in `<head>`, before any content, so it governs the whole document.
@@ -63,21 +70,5 @@ const SELF_SOURCES = "'self' data: blob:";
  * @returns {string}
  */
 export function previewCspMeta({ katexUrl = '' } = {}) {
-	let fontOrigin = '';
-	try {
-		// Only an http(s) URL contributes an origin. A relative/same-origin path is already
-		// covered by 'self', and a malformed value must not throw a preview frame away.
-		const u = new URL(String(katexUrl), 'https://placeholder.invalid');
-		if (/^https?:$/.test(u.protocol) && u.hostname !== 'placeholder.invalid') fontOrigin = ` ${u.origin}`;
-	} catch { /* not a URL — 'self' still covers a relative path */ }
-	const policy = [
-		`img-src ${SELF_SOURCES}`,
-		`media-src ${SELF_SOURCES}`,
-		`font-src 'self' data:${fontOrigin}`,
-		"connect-src 'self'",
-		"object-src 'none'",
-		"base-uri 'none'",
-		"form-action 'none'",
-	].join('; ');
-	return `<meta http-equiv="Content-Security-Policy" content="${policy}">`;
+	return subresourceCspMeta({ katexUrl });
 }
