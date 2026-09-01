@@ -62,6 +62,8 @@ describe('notes-core: isLatticePragma', () => {
     'color-mode: dark',
     'color-mode: light',
     'color-mode: system',
+    'color-mode: inherited',
+    'color-mode: print',
   ]) {
     test(`pragma excluded: "${pragma}"`, () => {
       assert.equal(core.isLatticePragma(pragma), true);
@@ -78,11 +80,44 @@ describe('notes-core: isLatticePragma', () => {
     'Reminder: keep it to ninety seconds',
     'TODO: revisit this slide before the board',
     'tiers are the thing to explain here',
+    // A single-token value that is NOT in the register's domain. An early draft matched
+    // `color-mode:\s*[a-z-]+` and swallowed this — and because a pragma also leaves the
+    // --strip-notes scrub set, the note then SHIPPED in the envelope source with the audit
+    // reporting nothing. Both failure directions from one loose character class.
+    'color-mode: TBD',
+    'color-mode: unclear',
+    'color-mode: ask-design',
+    // `tier-filter.js` tolerates no space before the colon, so this does NOT filter the deck.
+    // A marker the producer misses must stay VISIBLE as a note, not be silently suppressed.
+    'tier : full',
   ]) {
     test(`note kept: "${note}"`, () => {
       assert.equal(core.isLatticePragma(note), false);
     });
   }
+
+  // `$` is end-of-INPUT without the `m` flag, so an unanchored key matcher swallows a whole
+  // multi-line body. Both of these carry a real note after the marker.
+  test('a pragma matcher does not swallow prose on a later line', () => {
+    assert.equal(core.isLatticePragma('galleryAuthored: yes\n\nRemember the Q3 numbers.'), false);
+    assert.equal(core.isLatticePragma('tier: full\n\nRemember the caveat about Q3.'), false);
+  });
+
+  // The three matchers mirror producers that live elsewhere. Pin the value domains to those
+  // producers so the two cannot drift apart silently.
+  test('the tier names mirror lib/exemplars/tier-filter.js', () => {
+    const { TIERS } = require('../../../lib/exemplars/tier-filter.js');
+    for (const t of TIERS) assert.equal(core.isLatticePragma(`tier: ${t}`), true, `tier: ${t}`);
+  });
+  test('the color-mode values mirror the register documented in lib/core/resolve-color-mode.js', () => {
+    const src = require('fs').readFileSync(
+      require('path').join(__dirname, '../../../lib/core/resolve-color-mode.js'), 'utf8'
+    );
+    for (const v of ['light', 'dark', 'system', 'inherited']) {
+      assert.match(src, new RegExp(`color-mode:\\s*${v}\\b`), `resolve-color-mode.js documents ${v}`);
+      assert.equal(core.isLatticePragma(`color-mode: ${v}`), true);
+    }
+  });
 
   // The two sets are deliberately separate — MAGIC_COMMENT_MATCHERS is locked to Marpit's
   // set by the parity test, so a Lattice entry landing there would fail it.
@@ -707,6 +742,31 @@ describe('notes-core: auditStrippedSource', () => {
       '<!--   -->',                          // empty
     ].join('\n');
     assert.deepEqual(core.auditStrippedSource(src), []);
+  });
+
+  // The pragma exclusion has TWO call sites and this is the second one. Excluding a pragma
+  // from the note set also takes it OUT of the --strip-notes scrub set, so it legitimately
+  // survives into the stripped source — and without the matching exclusion here, the audit
+  // would report every one of them as a note that leaked. That is a false privacy alarm,
+  // which this function's own contract calls the worst kind. Pinned because removing the
+  // call at that site left the whole suite green.
+  test('a Lattice pragma that survives the scrub is not reported as a leak', () => {
+    const src = [
+      '<!-- tier: short -->',
+      '<!-- galleryAuthored: curated tour; the build reads this verbatim -->',
+      '<!-- color-mode: dark -->',
+    ].join('\n');
+    assert.deepEqual(core.auditStrippedSource(src), []);
+  });
+
+  test('a note that merely LOOKS like a pragma is still reported', () => {
+    // The other direction: the value is outside the register's domain, so this is prose the
+    // author wrote and the strip failed to remove. It must not hide behind the exclusion.
+    assert.deepEqual(core.auditStrippedSource('<!-- color-mode: TBD -->'), ['color-mode: TBD']);
+    assert.deepEqual(
+      core.auditStrippedSource('<!-- tier: we should discuss the pricing tier -->'),
+      ['tier: we should discuss the pricing tier']
+    );
   });
 
   test('a deck-scope directive with a REAL value is not reported — the engine owns it', () => {
