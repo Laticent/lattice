@@ -412,12 +412,20 @@ the helper is what guarantees it ends. What it gives you:
 - **One line of output, at the end.** In run mode the command's own output goes
   to `.scratch/waits/<job>.log`, and the tail is echoed on any failure.
 
-A lock never wedges a job name, and never admits a second holder either. A dead
-holder is reclaimed; a **zombie** holder is reclaimed (a killed-but-unreaped
-process still answers `kill -0` — a bug this helper had, and one that bit its own
-tests); any lock older than the ceiling is reclaimed regardless; and a waiter
+The lock is a file created by hard-linking one whose contents are **already
+written** — pid on line 1, claim time on line 2. That ordering is load-bearing:
+writing metadata after the lock exists left a window where it had no pid, and a
+second waiter read that as abandoned and took it from a holder still mid-claim.
+
+Around that: a dead holder is reclaimed; a **zombie** holder is reclaimed (a
+killed-but-unreaped process still answers `kill -0` — a bug this helper had, and
+one that then bit its own tests); a lock naming a pid that is not a `wait-for.sh`
+process is reclaimed, because a pid can be reused and `--force` signals whatever
+the lock names; a lock older than any legal deadline is reclaimed; and a waiter
 only ever releases a lock **it still owns**, so one exiting on its own deadline
-cannot delete the lock of whoever replaced it.
+cannot delete the lock of whoever replaced it. Anything reclaimed from a holder
+that is still running gets stopped first — taking a lock without stopping the
+holder just produces the two-waiters case the lock exists to prevent.
 
 **A hook nudges you if you forget.** `.claude/hooks/warn-unbounded-wait.sh` runs
 on every Bash call, spots the loop shape above, and prints a one-line pointer at

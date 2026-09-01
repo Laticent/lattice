@@ -65,8 +65,14 @@ const until = (fn, budgetMs = 10_000) => {
   return false;
 };
 
-const lockDir = (job) => path.join(LOCK_ROOT, `${job}.lock`);
-const lockHeld = (job) => fs.existsSync(lockDir(job));
+// The lock is a FILE now: pid on line 1, claim epoch on line 2, both written
+// before it exists. See the script's claim_lock.
+const lockPath = (job) => path.join(LOCK_ROOT, `${job}.lock`);
+const lockHeld = (job) => fs.existsSync(lockPath(job));
+const seedLock = (job, pid, epoch) => {
+  fs.mkdirSync(LOCK_ROOT, { recursive: true });
+  fs.writeFileSync(lockPath(job), `${pid}\n${epoch}\n`);
+};
 
 // A SIGKILLed holder cannot run its trap, so cases that kill one leave a lock
 // behind. That is correct for the tool (the stale reclaim handles it) and untidy
@@ -180,6 +186,27 @@ describe('wait-for — a signal actually stops the wait', () => {
   // failure this tool exists to prevent. Before the fix, bash deferred the trap
   // until the FOREGROUND child finished: TERM at t=1s on a 12s job exited at
   // t=11s reporting "hit the deadline".
+  // Fixing only run mode left POLL mode deaf: its probe also ran in the
+  // foreground, so a TERM sat behind it. Measured before the fix -- TERM at
+  // t=2s on `--until 'sleep 300'` left the process alive and the lock held 30s
+  // later, and a large --timeout stretches that to the full deadline.
+  test('SIGTERM stops a POLL-mode wait too, not just run mode', () => {
+    const job = jobName('pollterm');
+    const holder = spawn(SCRIPT,
+      ['--job', job, '--timeout', '120', '--interval', '1', '--until', 'sleep 300'],
+      { cwd: REPO, stdio: 'ignore', detached: true });
+    assert.ok(until(() => lockHeld(job)), 'poll waiter never claimed the lock');
+
+    const started = Date.now();
+    process.kill(holder.pid, 'SIGTERM');
+    const stopped = until(() => !lockHeld(job), 15_000);
+    const elapsed = Date.now() - started;
+    reap(holder);
+
+    assert.ok(stopped, 'poll-mode wait ignored SIGTERM and kept its lock');
+    assert.ok(elapsed < 12_000, `should stop on the signal, took ${elapsed}ms`);
+  });
+
   test('SIGTERM stops it promptly and releases the lock', () => {
     const job = jobName('term');
     const holder = spawnHolder(job, 20);
@@ -250,14 +277,10 @@ describe('wait-for — lock hygiene', () => {
   // failure mode that gets a guard switched off instead of fixed.
   test('reclaims a lock whose recorded process is gone', () => {
     const job = jobName('stale');
-    const lock = path.join(LOCK_ROOT, `${job}.lock`);
-    fs.mkdirSync(lock, { recursive: true });
-    fs.writeFileSync(path.join(lock, 'pid'), '999999');
+    seedLock(job, 999999, Math.floor(Date.now() / 1000));
     assert.equal(run(['--job', job, '--', 'true']).code, 0);
   });
 
-  // A zombie answers `kill -0` successfully, so an existence check alone would
-  // read a killed-but-unreaped holder as live and wedge the lock permanently.
   test('reclaims after the holder is SIGKILLed, so no trap runs', () => {
     const job = jobName('k9');
     const victim = require('node:child_process').spawn(
@@ -270,17 +293,17 @@ describe('wait-for — lock hygiene', () => {
     assert.equal(run(['--job', job, '--', 'true']).code, 0);
   });
 
-  // Metadata lands after `mkdir`, so a reader can see a lock with a pid and no
-  // epoch yet. Defaulting that missing epoch to 0 made the age ~1.8e9s and the
-  // backstop robbed a LIVE holder. Unknown age must mean "leave it alone".
-  test('does not rob a live holder whose epoch has not landed yet', () => {
-    const job = jobName('noepoch');
-    const lock = lockDir(job);
-    fs.mkdirSync(lock, { recursive: true });
-    fs.writeFileSync(path.join(lock, 'pid'), String(process.pid)); // unambiguously live
-    const { code } = run(['--job', job, '--', 'true']);
-    fs.rmSync(lock, { recursive: true, force: true });
-    assert.equal(code, 2, 'stole the lock from a live holder mid-write');
+  // A lock is created by hard-linking a file whose contents are already written,
+  // so a reader can never see one with a pid and no epoch. That window is what
+  // let a second waiter steal a lock from a holder that was still mid-claim.
+  test('never publishes a lock without both fields', () => {
+    const job = jobName('atomic');
+    const holder = spawnHolder(job, 20);
+    assert.ok(until(() => lockHeld(job)), 'holder never claimed the lock');
+    const lines = fs.readFileSync(lockPath(job), 'utf8').split('\n');
+    reap(holder);
+    assert.match(lines[0], /^\d+$/, 'line 1 must be the pid');
+    assert.match(lines[1], /^\d+$/, 'line 2 must be the claim epoch');
   });
 
   test('reclaims a lock left by a live process but older than the ceiling', () => {
@@ -327,6 +350,18 @@ describe('wait-for — argument validation', () => {
   for (const flag of ['--job', '--timeout', '--interval', '--until']) {
     rejected[`${flag} with no value`] = ['--job', 'j', flag];
   }
+
+  // Bash reads a leading zero as OCTAL, so `--timeout 08` cleared the regex and
+  // then died in the arithmetic with "value too great for base", exiting 1 --
+  // straight into the documented "predicate never became true" code.
+  test('accepts a zero-padded timeout instead of dying in octal', () => {
+    assert.equal(run(['--job', jobName('octal'), '--timeout', '08', '--', 'true']).code, 0);
+  });
+
+  test('accepts a zero-padded interval', () => {
+    assert.equal(
+      run(['--job', jobName('octal-i'), '--timeout', '10', '--interval', '09', '--until', 'true']).code, 0);
+  });
 
   for (const [label, args] of Object.entries(rejected)) {
     test(`rejects ${label}`, () => {

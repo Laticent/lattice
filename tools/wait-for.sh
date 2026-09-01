@@ -91,7 +91,13 @@ done
 # The job name becomes a path component, so keep it to safe characters.
 [[ "$job" =~ ^[A-Za-z0-9._-]+$ ]] || die "--job must match [A-Za-z0-9._-]: $job"
 [[ "$timeout_s" =~ ^[0-9]+$ ]] || die "--timeout must be a whole number of seconds"
-[[ "$interval_s" =~ ^[1-9][0-9]*$ ]] || die "--interval must be a positive whole number"
+[[ "$interval_s" =~ ^[0-9]+$ ]] || die "--interval must be a whole number of seconds"
+# Force base 10. Bash reads a leading zero as OCTAL, so `--timeout 08` passed the
+# regex and then blew up in the arithmetic with "value too great for base",
+# exiting 1 -- straight into the documented "predicate never became true" code.
+timeout_s=$((10#$timeout_s))
+interval_s=$((10#$interval_s))
+[ "$interval_s" -ge 1 ] || die "--interval must be at least 1 second"
 [ "$timeout_s" -gt 0 ] || die "--timeout must be greater than zero"
 # Capped on purpose: past the prompt-cache TTL a wake costs ~10x, so a wait that
 # wants longer than an hour is a design problem, not a flag problem.
@@ -106,112 +112,129 @@ fi
 
 # ── take the lock ────────────────────────────────────────────────────────────
 mkdir -p "$lock_root"
-lock_dir="$lock_root/$job.lock"
+lock_file="$lock_root/$job.lock"
 log_file="$lock_root/$job.log"
 
-# Who does the lock currently say owns it?
-lock_owner() { cat "$lock_dir/pid" 2>/dev/null || true; }
+# A waiter may legally outlive the ceiling by timeout's kill-after grace, so a
+# lock is only "impossibly old" some way past it.
+readonly RECLAIM_AFTER=$((MAX_TIMEOUT + 60))
 
-# Drop the lock, but ONLY if we still hold it.
-#
-# An unconditional `rm -rf` here is a duplicate-admitting bug: a waiter that was
-# forced out, or whose stale lock was reclaimed by someone else, deletes the
-# CURRENT holder's lock on its way out, and the next wait on that job is let
-# straight through while the holder is still live. Reproduced before the fix --
-# two live waiters on one job, the exact defect this tool exists to prevent.
-release_lock() {
-  [ "$(lock_owner)" = "$$" ] || return 0
-  rm -rf "$lock_dir"
-}
+# The lock is a FILE whose contents are complete BEFORE it exists: pid on line 1,
+# claim time on line 2. That ordering is the whole point. Writing metadata after
+# creating the lock left a window in which the lock existed with no pid, and a
+# second waiter read that as abandoned and stole it from a holder that was still
+# mid-claim. Guessing at "probably newborn" only papered over half of it.
+lock_field() { sed -n "${1}p" "$lock_file" 2>/dev/null || true; }
+lock_owner() { lock_field 1; }
+lock_born()  { lock_field 2; }
 
-# Is this PID a genuinely live holder?
+# Is this pid a live wait-for.sh process?
 #
-# `kill -0` alone is NOT enough, and getting this wrong wedges the lock forever:
-# a killed holder whose parent has not reaped it yet is a ZOMBIE, which still
-# has a PID entry and still answers `kill -0` successfully. Measured here — a
-# SIGKILLed holder sat in state Z and the lock refused every later wait on that
-# job. A guard that can never be satisfied is one somebody deletes.
-is_live() {
-  local pid="$1" state=""
+# Three checks, and every one of them has a failure behind it. `kill -0` alone
+# says yes to a ZOMBIE -- a killed-but-unreaped holder -- which wedges the job
+# name forever. And a pid left by a SIGKILLed holder can be REUSED by something
+# entirely unrelated, so believing the number on its own means `--force` would
+# send TERM and then KILL to a stranger's process. Verify it is ours before
+# trusting it, and certainly before signalling it.
+is_wait_process() {
+  local pid="$1" state="" args=""
   [ -n "$pid" ] || return 1
+  case "$pid" in (*[!0-9]*) return 1 ;; esac
   kill -0 "$pid" 2>/dev/null || return 1
   if [ -r "/proc/$pid/stat" ]; then
-    # Field 2 is the command name in parentheses and may itself contain spaces,
-    # so cut from the LAST ')' rather than splitting the line on whitespace.
+    # Field 2 is the command name in parentheses and may contain spaces, so cut
+    # from the LAST ')' rather than splitting on whitespace.
     state=$(sed 's/.*) //' "/proc/$pid/stat" 2>/dev/null | cut -d' ' -f1)
+    args=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)
   else
     state=$(ps -o stat= -p "$pid" 2>/dev/null | tr -d '[:space:]' | cut -c1)
+    args=$(ps -o args= -p "$pid" 2>/dev/null || true)
   fi
-  [ "$state" != "Z" ]
+  [ "$state" != "Z" ] || return 1
+  case "$args" in (*wait-for.sh*) return 0 ;; (*) return 1 ;; esac
 }
 
-# `mkdir` is atomic, so two waiters racing for one name cannot both win.
-claim_lock() {
-  if mkdir "$lock_dir" 2>/dev/null; then
+# Stop a holder we are taking the lock from. Reclaiming without stopping it just
+# produces the two-live-waiters case the lock exists to prevent: both run to
+# their own deadlines and both fire.
+stop_holder() {
+  local pid="$1" _
+  is_wait_process "$pid" || return 0
+  kill -TERM "$pid" 2>/dev/null || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    is_wait_process "$pid" || return 0
+    sleep 0.5
+  done
+  kill -KILL "$pid" 2>/dev/null || true
+}
+
+# Drop the lock, but ONLY if we still hold it. An unconditional remove is a
+# duplicate-admitting bug: a waiter that was forced out would delete the CURRENT
+# holder's lock on its way out, and the next wait would walk straight in.
+release_lock() {
+  [ "$(lock_owner)" = "$$" ] || return 0
+  rm -f "$lock_file"
+}
+
+# `ln` is atomic and fails if the target exists, so the lock appears only once
+# its metadata is already written.
+try_claim() {
+  local tmp
+  tmp=$(mktemp "$lock_root/.claim.XXXXXX" 2>/dev/null) || return 1
+  printf '%s\n%s\n' "$$" "$(date +%s)" > "$tmp"
+  if ln "$tmp" "$lock_file" 2>/dev/null; then
+    rm -f "$tmp"
     return 0
   fi
-  local holder="" born="" age=0
+  rm -f "$tmp"
+  return 1
+}
+
+claim_lock() {
+  try_claim && return 0
+
+  local holder born age
   holder=$(lock_owner)
-  [ -r "$lock_dir/epoch" ] && born=$(cat "$lock_dir/epoch" 2>/dev/null || true)
-  # A lock whose metadata has not landed YET is newborn, not ancient. Defaulting
-  # a missing epoch to 0 put the age at ~1.8e9s, so the backstop below happily
-  # stole the lock from a live holder in the window between `mkdir` and the
-  # metadata write. Unknown age must mean "leave it alone".
-  case "$born" in (''|*[!0-9]*) born=$(date +%s) ;; esac
+  born=$(lock_born)
+  case "$born" in (''|*[!0-9]*) born=0 ;; esac
   age=$(( $(date +%s) - born ))
 
-  # Second, independent backstop: nothing is permitted to wait longer than the
-  # ceiling, so a lock older than that cannot belong to a legitimate wait no
-  # matter what the liveness check believes. This is what makes "wedged
-  # forever" structurally impossible rather than merely unlikely.
-  if is_live "$holder" && [ "$age" -le "$MAX_TIMEOUT" ]; then
+  # A live waiter of ours, still inside the longest life it could legally have.
+  if is_wait_process "$holder" && [ "$age" -le "$RECLAIM_AFTER" ]; then
     return 1
   fi
 
-  # Owner is gone (or impossibly old) — reclaim rather than block forever on a
-  # lock whose holder was killed with -9 and never ran its trap.
-  rm -rf "$lock_dir"
-  mkdir "$lock_dir" 2>/dev/null || return 1
-  return 0
+  # Otherwise the lock is reclaimable: the holder is gone, is not ours, or has
+  # outlived any legal deadline. Stop whatever is still there before taking it.
+  stop_holder "$holder"
+  rm -f "$lock_file"
+  try_claim
 }
 
 if ! claim_lock; then
   if [ "$force" -eq 1 ]; then
-    # Forcing REPLACES the holder, so it has to stop the holder. Merely stealing
-    # the lock left both waiters running to their own deadlines, both firing,
-    # and -- in run mode -- the second truncating the first's log mid-run.
-    victim=$(lock_owner)
-    if [ -n "$victim" ] && is_live "$victim"; then
-      kill -TERM "$victim" 2>/dev/null || true
-      for _ in 1 2 3 4 5 6 7 8 9 10; do
-        is_live "$victim" || break
-        sleep 0.5
-      done
-      is_live "$victim" && kill -KILL "$victim" 2>/dev/null || true
-    fi
-    rm -rf "$lock_dir"
-    mkdir -p "$lock_dir"
+    # Forcing REPLACES the holder, so it has to stop the holder. Stealing the
+    # lock alone left both waiters running to their own deadlines, both firing,
+    # and in run mode the second truncating the first's log.
+    stop_holder "$(lock_owner)"
+    rm -f "$lock_file"
+    try_claim || die "could not take the lock for $job even with --force" 2
   else
-    holder=$(cat "$lock_dir/pid" 2>/dev/null || echo "unknown")
-    started=$(cat "$lock_dir/started" 2>/dev/null || echo "unknown")
     printf 'wait-for: refused — job "%s" is already being waited on (pid %s, since %s).\n' \
-      "$job" "$holder" "$started" >&2
+      "$job" "$(lock_owner)" "$(date -u -d "@$(lock_born)" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)" >&2
     printf 'wait-for: let that one finish, or pass --force to replace it.\n' >&2
     exit 2
   fi
 fi
 
-echo "$$" > "$lock_dir/pid"
-date -u '+%Y-%m-%dT%H:%M:%SZ' > "$lock_dir/started"
-date '+%s' > "$lock_dir/epoch"
 child=""
 
-# A signal must STOP the wait, not just tidy the lock. With the command run in
-# the foreground, bash defers trap handling until it finishes, so a TERM was
-# swallowed for the whole job: the waiter kept running and still fired at its
-# deadline. Measured -- TERM at t=1s on a 12s job, waiter exited at t=11s
-# reporting "hit the deadline". A wait you cannot cancel is the thing this tool
-# exists to prevent, so the child runs in the background and is `wait`ed on.
+# A signal must STOP the wait, not merely tidy the lock. bash defers trap
+# handling until a FOREGROUND child finishes, so a TERM was swallowed for the
+# whole job: the waiter kept running and still fired at its deadline. Measured --
+# TERM at t=1s on a 12s job exited at t=11s reporting "hit the deadline". Both
+# modes therefore run their child in the BACKGROUND and `wait` on it; fixing only
+# run mode left poll mode deaf to signals for a full probe.
 on_signal() {
   [ -n "$child" ] && kill -TERM "$child" 2>/dev/null || true
   release_lock
@@ -232,8 +255,6 @@ if [ ${#cmd[@]} -gt 0 ]; then
   status=0
   timeout --signal=TERM --kill-after=10s "$timeout_s" "${cmd[@]}" > "$log_file" 2>&1 &
   child=$!
-  # `wait` rather than a foreground run, so the traps above can fire while the
-  # job is still going. See on_signal.
   wait "$child" || status=$?
   child=""
 
@@ -246,7 +267,7 @@ if [ ${#cmd[@]} -gt 0 ]; then
   elif [ "$status" -eq 137 ]; then
     # 137 is SIGKILL, which is NOT necessarily the deadline: it is also what an
     # OOM kill looks like. Reporting both as "hit the deadline" would send you
-    # hunting a timeout that never happened, so say which one the clock supports.
+    # hunting a timeout that never happened, so say which the clock supports.
     if [ "$((SECONDS - started_at))" -ge "$timeout_s" ]; then
       printf 'wait-for: %s ignored the deadline TERM and was killed at %ss (log: %s)\n' \
         "$job" "$timeout_s" "$rel_log" >&2
@@ -269,12 +290,17 @@ while [ "$SECONDS" -lt "$deadline" ]; do
   [ "$remaining" -gt 0 ] || break
 
   # Each PROBE is bounded too, not just the loop. A predicate that BLOCKS -- a
-  # curl with no timeout, a `wait` on a live pid, a read on a pipe nobody writes
-  # -- would otherwise sail straight past the deadline, which is the unbounded
-  # wait this tool exists to prevent, reintroduced inside the tool. Measured
-  # before the fix: `--until 'sleep 300'` ran a full 2 minutes against a 3s
-  # deadline. Bounding by the REMAINING time keeps the total honest.
-  if timeout --signal=TERM --kill-after=2s "$remaining" bash -c "$predicate" >/dev/null 2>&1; then
+  # curl with no timeout, a `wait` on a live pid -- would otherwise sail past the
+  # deadline, which is the unbounded wait this tool exists to prevent, rebuilt
+  # inside it. Measured before the fix: `--until 'sleep 300'` ran a full 2
+  # minutes against a 3s deadline. Backgrounded so a signal can land mid-probe.
+  probe=0
+  timeout --signal=TERM --kill-after=2s "$remaining" bash -c "$predicate" >/dev/null 2>&1 &
+  child=$!
+  wait "$child" || probe=$?
+  child=""
+
+  if [ "$probe" -eq 0 ]; then
     printf 'wait-for: %s became true after %s\n' "$job" "$(elapsed)"
     exit 0
   fi
@@ -282,7 +308,10 @@ while [ "$SECONDS" -lt "$deadline" ]; do
   # Do not oversleep the deadline either.
   remaining=$((deadline - SECONDS))
   [ "$remaining" -gt 0 ] || break
-  sleep "$(( interval_s < remaining ? interval_s : remaining ))"
+  sleep "$(( interval_s < remaining ? interval_s : remaining ))" &
+  child=$!
+  wait "$child" || true
+  child=""
 done
 
 printf 'wait-for: %s never became true within %ss — the predicate is probably wrong, not the job.\n' \
