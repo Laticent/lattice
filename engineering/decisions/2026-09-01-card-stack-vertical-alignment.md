@@ -15,9 +15,9 @@ summary: >
   anyone wants"; both halves are wrong. `fill-center` — a full-height panel with its content at
   the optical middle — is what TWO of the four defect cells actually needed and the first cut
   could not name, and `fill-top` is what a `kanban` lane legitimately wants. §5c recommends a
-  composition for each of the 17, three of them settled by shipped code. THREE OF THE NOTE'S LOAD-BEARING
-  CLAIMS ARE NOW REFUTED BY MEASUREMENT, and §9 is where the branch that fixed the defects records
-  what it found. (1) The grid switch is not needed: `align-content` works on a WRAPPED FLEX
+  composition for each of the 17, five of them settled by shipped code. FOUR OF THE NOTE'S LOAD-BEARING
+  CLAIMS ARE NOW REFUTED BY MEASUREMENT, and §9 is where the branches that fixed the defects record
+  what they found. (1) The grid switch is not needed: `align-content` works on a WRAPPED FLEX
   container, the 2x2 never flattens, and flattening is exclusive to `grid-auto-flow: column` — so
   the 77-row switchability sweep prices a migration nothing requires, and "10 rows cannot take the
   declaration" is wrong. Four of those ten take it and it is a measured no-op, because their cards
@@ -30,9 +30,13 @@ summary: >
   flagged, and all 350 that are compute `flex-start`. The defect is declarative, so the fix is a CSS
   declaration rather than a runtime layout decision. (3) `list-tabular` is not a defect at all — the
   ledger box distributes perfectly (trail 0 on all seven slides) and the reported 63% was a fourth
-  instrument bug, `display: contents` children having no client rects. Three cells are fixed and
-  shipped — `decision` at wide, `matrix-2x2` at every family, `stats` on autosplit pages — one CSS
-  property each, no register and no manifest field. Scope was settled by
+  instrument bug, `display: contents` children having no client rects. (4) §5c's OWN recommendation
+  for `cards-grid` and `verdict-grid` was wrong: the render that picked `fill-center` exercised only
+  cards whose bodies wrap to equal line counts, and on the uneven cases centering inside the card
+  staggers the titles across a row of peers. Both take `shrink-center` on the CONTAINER instead
+  (§9f). Five cells are fixed and shipped — `decision` at wide, `matrix-2x2` at every family,
+  `stats` on autosplit pages, `cards-grid` and `verdict-grid` on their rows — one CSS property each,
+  no register and no manifest field. Scope was settled by
   RENDERING all 26 candidates and looking at them, which corrected five: `authority-chain`,
   `cycle` and `roadmap` are cards, not diagrams; `contact` and `wifi` are single cards whose
   internal zones the detector miscounted as a row. A second look at full resolution corrected two
@@ -45,7 +49,7 @@ builds-on: 2026-09-01-composition-is-an-engine-measure.md, 2026-06-22-the-fit-sp
 
 # Cards laid side by side need one vertical-alignment policy, and there is none
 
-**Date:** 2026-09-01 · **Status:** In progress (design model; three of its four defect cells now fixed in code — §9) ·
+**Date:** 2026-09-01 · **Status:** In progress (design model; all four of its defect cells now resolved in code — §9) ·
 **Decision owner:** Sharmarke
 
 `2026-09-01-composition-is-an-engine-measure.md` argued that the engine should measure
@@ -421,30 +425,40 @@ means it follows from the component's own CSS without a render, and `unseen` mea
 | `compare-prose` | `fill-center` | already declares `align-content: center` on its card at tall/strip; wide/square are the unstamped gap, exactly as `decision`'s was | read |
 | `cycle` | `fill-center` | its own split-run rule already picks `justify-content: center` for a lone card | read |
 | `list-steps` | `fill-spread` | the card's body carries `flex: 1`, so the content already spans the card | read |
-| `verdict-grid` | `fill-center` | chromed card; its portrait rule already stamps `justify-content: safe center` and its comment calls the result "fill:center" | **measured** |
-| `cards-grid` | `fill-center` | chromed card; the card is a wrap-row, so its content axis is `align-content` | **measured** |
+| `verdict-grid` | `shrink-center` | chromed card, but laid in a multi-card ROW — centering inside the card staggers the titles. The rows go content-height instead | **measured** |
+| `cards-grid` | `shrink-center` | same shape as `verdict-grid`: a row of peers, so the declaration goes on the CONTAINER, not the card | **measured** |
 | `cards-stack` | `fill-center` | 75% slack with its own sample, chromed card | read |
 | `authority-chain` | `fill-center` | numbered cards in a frame; only the `trail` variant lays a row | read |
 | `citation-card` | `fill-center` | `triptych` only; card is a block today, so this needs a `display` first | read |
 | `inventory` | `fill-center` | `cards` and `timeline` variants; card is a block today, same caveat | read |
 | `roadmap` | `fill-center` | `horizons` only; `.horizon-card` is a flex column with no `justify-content` | read |
 
-**`cards-grid` and `verdict-grid` were settled by rendering both candidates**, since §3b had
-measured that either the container or the card declaration takes their trailing slack to zero
-and only a look could choose. Rendered on the two exemplar slides that flag —
-`strategy-proposal` slide 6 and `investor-pitch` slide 7 — as shipped, as `fill-center`, and as
-`shrink-center`:
+**`cards-grid` and `verdict-grid` read `fill-center` until a wider render refuted it.** §3b had
+measured that either the container or the card declaration takes their trailing slack to zero, so
+only a look could choose, and the first look — `strategy-proposal` slide 6 and `investor-pitch`
+slide 7, as shipped, as `fill-center`, and as `shrink-center` — picked `fill-center` for both. **That
+render exercised only cards whose bodies wrap to the same number of lines.** Rendered again on the
+uneven cases (`cards-grid`'s `four` variant at square and portrait, `verdict-grid`'s five-option
+page at square), `fill-center` **staggers the titles**: centering each card's content independently
+drops `Third.` and `Fourth.` below `First.` and `Second.` the moment one body wraps to an extra
+line. A grid of peers is read ACROSS, so a title baseline is load-bearing — and this is the same
+principle §9d already applied to `stats`, where centering each tile independently would have broken a shared
+number baseline. It was not applied here, and the render that would have caught it was too narrow.
 
-- **`verdict-grid` → `fill-center`.** Under `shrink-center` the three cards contract and the
-  band centers, but the void moves outside them: a gap opens between the headline rule and the
-  first row, the band stops short of the stage floor, and the accent-filled "recommended" card
-  loses the presence its fill is there to give it. `fill-center` keeps the board of panels and
-  balances the air inside each.
-- **`cards-grid` → `fill-center`.** Its own square/tall/strip rule picks `align-content:
-  space-evenly` on the CONTAINER, so that was the obvious candidate — but rendered, it only
-  moves the void rather than removing it: the rows become content-height and spread, and the
-  shorter card of each pair still top-pins inside the line it shares. Centering the card's own
-  content is what actually empties the card.
+**The correction is one declaration up the tree.** `align-content: space-evenly` on the CONTAINER
+makes each wrapped line content-height and distributes the leftover between the lines. The void
+goes, the cards in a line stay equal height (flex's default cross-axis `stretch`), and the titles
+stay level. At one line `space-evenly` is exactly "band centered", which is `shrink-center`; at two
+or more it is that value generalized to a wrap. **The rule for when `fill-center` is safe:**
+
+- **Safe in a single COLUMN** — one card per line, so there is nothing to stagger against. This is
+  why `verdict-grid`'s own portrait rule chose card-level centering and its comment says in as many
+  words that "the wide 2×2 is untouched", and why `decision` at tall/strip is fine.
+- **Safe when the card has no in-flow title** — `decision`'s corner tag is absolutely positioned and
+  `matrix-2x2`'s quadrant height is definite per cell, so neither has a baseline a sibling can fall
+  out of line with. Both keep `fill-center`.
+- **Unsafe in a multi-card ROW with in-flow headings.** That is `cards-grid` and `verdict-grid`, and
+  it is the only shape in the 17 where the two candidates render differently enough to matter.
 
 **And the pattern across all three fixed cells is the same, which reframes §1.** `decision` had
 `safe center` at square, tall and strip; `verdict-grid` has it at portrait, tall and strip, with
@@ -482,9 +496,11 @@ slide"*, not *"center everything"*.
 - ~~**Which mode each of the 18 declares.**~~ **ANSWERED — see §5c**, which recommends a
   composition for each of the 17 with its reason and its evidence grade. Three are settled by
   shipped code (`decision`, `matrix-2x2`, `stats`); `pricing`, `statute-stack` and `kanban` are
-  settled by §6 and by render. The rest are graded `read` — they follow from the component's own
-  CSS but have not been rendered, and `cards-grid` and `verdict-grid` in particular can reach
-  their composition two ways, which the next PR settles by rendering both.
+  settled by §6 and by render. `cards-grid` and `verdict-grid` could reach their composition two
+  ways; **that is now settled by render too — as `shrink-center`, which is the opposite of what
+  this section first recommended** (§5c, §9f). The rest are graded `read`: they follow from the
+  component's own CSS but have not been rendered, and §9f is the reason to distrust a `read` grade
+  on any card that sits in a multi-card row.
 - ~~**The sparsity threshold.**~~ **CALIBRATED — see §9b, and the answer is that a threshold is
   the wrong mechanism.** Recommended constants are 14% slack and 0.70 asymmetry; the note's
   picked 15%/0.50 select the same cards, and 0.50 sits 0.013 from the edge of its own empty
@@ -537,7 +553,8 @@ is `position: absolute`; counting it produced a defect at `square` that does not
 
 Three of the four defect cells are fixed and shipped; the fourth turned out not to be a defect.
 None of the four needed the register, the manifest field, or a runtime measurement. That is the
-finding, and §9c argues it should change the plan.
+finding, and §9c argues it should change the plan. **§9f then closes the 42 cards §9d had logged
+as off-path** — `cards-grid` and `verdict-grid` — which took the flagged corpus from 374 to 19.
 
 ### 9a · The three fixes, and the one non-defect
 
@@ -696,7 +713,8 @@ covered the whole population rather than a corner of it.
   Both are the `decision` defect at smaller magnitude. Both are **off the path** of #1979–#1982, so
   HARD RULE #18 logs them rather than pulling them into this diff — and §3b already says where each
   fix goes: their cards have no explicit height and stretch because the line stretches, so the
-  declaration is `align-content` on the container, not `justify-content` on the card.
+  declaration is `align-content` on the container, not `justify-content` on the card. **§3b was
+  right and §5c was wrong**; the follow-up PR that fixed them is §9f.
 
 ### 9e · What an independent checker found, and what it changed
 
@@ -765,3 +783,55 @@ have to re-derive this.
 in `.scratch/`, which does not merge — the very failure `tools/spike-composition-snapshot.mjs`'s
 docblock was written to prevent. `tools/spike-card-slack.mjs` now ships it — a top-level entry point over the four stages in
 `tools/spike-card-slack/` — so every figure in §9b and §9d can be re-run.
+
+### 9f · The last 42, and the recommendation that was wrong
+
+§9d logged 42 flagged cards — `cards-grid` at landscape (24) and `verdict-grid` at landscape and
+square (9 + 9) — as real, off-path, and deliberately not fixed in that diff. They are fixed now,
+and getting there refuted §5c's own recommendation for both components.
+
+**The defect is §9a's, one file over.** `cards-grid` stamps `align-content: space-evenly` on its
+row for square, tall and strip; `verdict-grid` stamps `justify-content: safe center` on its card
+for portrait, tall and strip. Both left `wide` on the inherited `stretch`, exactly as `decision`
+had. **Both components had already made the call and never stamped it at the family nearly every
+deck uses** — the third and fourth instances of §5c's pattern, and the reason §1's "no policy"
+reading keeps being half wrong.
+
+**§5c said `fill-center` for both, and a wider render says the opposite.** The first render
+compared the candidates on `strategy-proposal` slide 6 and `investor-pitch` slide 7, where every
+card's body wraps to the same number of lines — so both candidates looked equally clean and
+`fill-center` won on chrome. Rendered on the uneven cases (`cards-grid`'s `four` variant at square
+and portrait, `verdict-grid`'s five-option page at square), card-level centering **staggers the
+titles**: `Third.` and `Fourth.` drop below `First.` and `Second.` as soon as one body takes an
+extra line. §9d had already stated the principle — "cross-card alignment beats within-card
+centering" — about `stats`, and §5c did not apply it here. **A `read`-grade row in §5c is worth
+less than it looks for any component that lays a multi-card row.**
+
+**The fix is the container, not the card.** `align-content: space-evenly` makes each wrapped line
+content-height and distributes what is left between the lines: the void goes, the cards within a
+line stay equal height (flex's default cross-axis `stretch`), and the titles stay level. At one
+line it is exactly "band centered" — `shrink-center`.
+
+| card | before | after |
+|---|---|---|
+| `cards-grid` · `investor-pitch` sl. 7 · wide | H 173.11, lead 2 / **trail 64.67 (38.5%)** | H 108.44, lead 2 / **trail 0 (1.8%)** |
+| `verdict-grid` · `strategy-proposal` sl. 6 · wide | H 154.32, lead 0 / **trail 54.83 (35.5%)** | H 99.48, lead 0 / **trail 0 (0.0%)** |
+| `verdict-grid` · `strategy-proposal` sl. 6 · square | H 366.68 ×2 and 286.58, **trail 147 (40.1% · 51.3%)** | H 219.66 ×2 and 139.57, **trail 0** |
+
+**Portrait is untouched, and that is measured rather than assumed.** Re-rendering both decks at
+all three families from the pre-change tree and diffing every card signature: landscape and square
+move on exactly the four rows above, and **portrait's 19 card signatures are identical**. At tall
+and strip the `verdict-grid` list is a COLUMN, where `align-content` governs the horizontal axis —
+so that component keeps an explicit `align-content: stretch` reset there rather than inheriting a
+declaration that would mean something else.
+
+**One thing the hoist fixes that the family override never could.** `cards-grid` has three emit
+paths — the marp-native `ul`/`ol`, the lattice.js `.cards-grid-inner`, and the VS Code
+`:not(:has())` fallback — and the family override reached only the first. The other two ran on
+`stretch` at **every** family, wide included. Moving the declaration to the three base row rules
+closes that as a side effect and leaves all three paths saying the same thing (HARD RULE #1).
+
+**Corpus after:** 19 of 2,908 cards flagged, down from 61 at the previous merge and 374 at the
+start. All 19 are the `stats` cards §9d identified as CORRECT — an equal-height row sharing a
+number baseline — so **every remaining flag is a card that should not be changed**, and the
+declarative pass over the four defect cells is complete.

@@ -11,7 +11,7 @@ header: "Lattice · card-stack vertical alignment"
 
 `Comparison · Evidence · Inventory`
 
-Three layouts were handed the full height of the stage and pinned their content to the top of it.
+Five layouts were handed the full height of the stage and pinned their content to the top of it. Two of them wanted the fix on the row, not the card.
 
 ---
 
@@ -44,6 +44,42 @@ Three layouts were handed the full height of the stage and pinned their content 
 - Low impact · High effort.
   - Time sinks
   - One suffices
+
+---
+
+<!-- _class: cards-grid four -->
+<!-- _footer: "cards-grid — the row is content-height now, so every title still sits on one line." -->
+
+## A row of peers keeps its titles level.
+
+- Content-height rows.
+  - The line takes what its tallest card needs.
+- Equal within the line.
+  - Cards still stretch to each other.
+- Titles stay put.
+  - Centering each card alone would drop this one.
+- Three emit paths.
+  - Native, post-processed and fallback now agree.
+
+---
+
+<!-- _class: verdict-grid -->
+<!-- _footer: "verdict-grid — uneven rationales, one title baseline." -->
+
+## The same correction, on a scored grid.
+
+- **Center the card.**
+  - [ ] Void gone
+  - [ ] Titles level
+  - Empties the card, staggers the names.
+- **Stretch the row.**
+  - [ ] Void gone
+  - [x] Titles level
+  - Honest alignment, 35% of the panel empty.
+- **Distribute the rows.**
+  - [x] Void gone
+  - [x] Titles level
+  - Content-height lines, spread down the stage.
 
 ---
 
@@ -99,6 +135,6 @@ Three layouts were handed the full height of the stage and pinned their content 
 
 <!-- _class: closing -->
 
-## Three cells fixed, one retired.
+## Five cells fixed, one retired.
 
 `One CSS property each — no register, no manifest field, no runtime measurement.`
