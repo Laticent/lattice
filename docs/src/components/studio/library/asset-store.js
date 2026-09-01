@@ -249,10 +249,19 @@ export async function putAsset(record, { historyLabel = 'Before save', ts = Date
       //
       // Read through the `kind` index, not `getAll()`. The shelf holds `refdoc` records
       // that are whole PDFs, and a bare `getAll()` deserializes every one of them on a
-      // path that previously read a single record by key. Measured in real Chromium with
-      // three 8 MB reference docs on the shelf: ~50–100 ms and ~24 MB of strings per
-      // save, against ~0.3–13 ms before and ~0.7–13 ms through the index. The index is
-      // also exactly the right question — the invariant is per-kind.
+      // path that previously read a single record by key. Measured in real Chromium by
+      // the #1839 review, with three 8 MB reference docs on the shelf: ~50–100 ms and
+      // ~24 MB of strings per save, against ~0.3–13 ms before and ~0.7–13 ms through the
+      // index. (Those numbers are that review's artifact, not a bench in this tree —
+      // there is no scenario covering the Studio's IndexedDB path.) The index is also
+      // exactly the right question, since the invariant is per-kind.
+      //
+      // SAFE TO DEPEND ON: this is the first read of that index, and `asset-db.js` can
+      // only create it alongside the store, so a database holding `assets` WITHOUT it
+      // could never gain one. There is no such database — `git log -S createObjectStore
+      // --all` returns exactly two commits, and the earliest (80c0666, which introduced
+      // this database) creates the store and the index in the same `onupgradeneeded`
+      // block. No shipped build ever made one without the other.
       const dupes = assets.index('kind').getAll(record.kind);
       dupes.onsuccess = () => {
         const clash = (dupes.result || []).find((a) => a.name === record.name && a.id !== record.id);
