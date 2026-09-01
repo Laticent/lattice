@@ -135,6 +135,15 @@ the Playground shell around it. The document under test is the real one the fram
 shell is not exercised. Re-run `docs/e2e/` on a machine where that suite is green before
 treating the Playground round trip as covered.
 
+**The deployed Cloudflare Pages preview was tried too, and is also out of reach from here** —
+recorded so nobody spends the time again. The PR bot posts a per-commit deployment
+(`https://<hash>.lattice-docs-5ji.pages.dev`) which *is* the real deployed Playground and would
+settle this. `curl` reaches it (HTTP 200); **Chromium cannot** — `net::ERR_CONNECTION_RESET`,
+with and without `--proxy-server=$HTTPS_PROXY`. The sandbox allows the CLI fetcher out and not
+the browser, so the one surface that would close the gap is exactly the one a headless browser
+here cannot open. On a machine with ordinary network access, driving that preview URL is the
+cheapest way to finish this verification — no local docs build required.
+
 ## What this does not do
 
 Script execution out of a preview frame is #22's territory and is covered elsewhere (#1752,
