@@ -64,6 +64,23 @@ describe('notes-core: isLatticePragma', () => {
     'color-mode: system',
     'color-mode: inherited',
     'color-mode: print',
+    // #1986 — the five deck-logo registers and the finish override. Hyphenated like
+    // `color-mode:`, so the engine cannot read the comment form either, and they shipped as
+    // reader-visible "notes" on slides whose author wrote none.
+    'logo-style: auto',
+    'logo-style: brand',
+    'logo-style: BRAND', // the producer lowercases the VALUE
+    'logo-style: "brand"', // frontMatterScalar strips a wrapping quote pair
+    'logo-on: all',
+    'logo-on: title',
+    'logo-x: 12',
+    'logo-y: 88.5',
+    'logo-x: -3',
+    'logo-x: .5',
+    'logo-x: 1.', // Number('1.') is 1, so the producer reads it
+    'logo-scale: 1.5',
+    "logo-scale: '2'",
+    'finish-override:', // a BLOCK key: the header carries no value
   ]) {
     test(`pragma excluded: "${pragma}"`, () => {
       assert.equal(core.isLatticePragma(pragma), true);
@@ -90,6 +107,22 @@ describe('notes-core: isLatticePragma', () => {
     // `tier-filter.js` tolerates no space before the colon, so this does NOT filter the deck.
     // A marker the producer misses must stay VISIBLE as a note, not be silently suppressed.
     'tier : full',
+    // #1986, the over-strip direction. Every line here shares a KEY with a matcher above and
+    // must stay a note purely on its value or its key CASE.
+    'logo-style: neon', // not in the register's two words
+    'logo-on: the second half',
+    'logo-on: slides 3 and 7',
+    'logo-x: we should move it left',
+    'logo-x: 1.2.3', // matches [\d.]+ but Number() gives NaN, so the producer ignores it
+    'logo-x: 1e3', // ditto — exponent notation is outside the producer's character class
+    'logo-scale: bigger',
+    'finish-override: ask design first', // the block key takes no value
+    // The KEY is case-sensitive in the producer (`frontMatterValue` builds its regex without
+    // `i`), so an upper-case marker configures NOTHING. Suppressing it would hide the
+    // producer's own miss — the failure the module docblock names in the other direction.
+    'LOGO-STYLE: brand',
+    'Logo-On: title',
+    'LOGO-X: 12',
   ]) {
     test(`note kept: "${note}"`, () => {
       assert.equal(core.isLatticePragma(note), false);
@@ -126,6 +159,82 @@ describe('notes-core: isLatticePragma', () => {
     }
   });
 
+  // ── #1986 parity: the six hyphenated keys, against their real producers ───────────────
+  //
+  // These call the PRODUCER rather than reading its doc comment, for the reason the
+  // color-mode test above gives: a test that greps a comment for names it already knows
+  // cannot see drift in the direction that matters.
+
+  test('logo-x / logo-y / logo-scale accept exactly what readDeckLogoFrontMatter accepts', () => {
+    const { readDeckLogoFrontMatter } = require('../../../lib/integrations/markdown-it/plugins.js');
+    // BOTH DIRECTIONS over one corpus. Looser than the producer suppresses a marker that
+    // configured nothing; stricter leaks it into the notes channel. Neither is visible from
+    // one direction alone, which is why this compares booleans rather than asserting a list.
+    const VALUES = [
+      '0', '1', '12', '1.5', '88.5', '-3', '-0.5', '.5', '-.5', '1.',
+      '1.2.3', '.', '-', '..', 'abc', '1e3', '12px', '50%', '', ' ',
+      '"1.5"', "'2'", 'we should move it left', 'TBD',
+    ];
+    for (const axis of ['logo-x', 'logo-y', 'logo-scale']) {
+      const field = axis === 'logo-scale' ? 'scale' : axis.slice(-1);
+      for (const v of VALUES) {
+        const line = `${axis}: ${v}`;
+        const cfg = readDeckLogoFrontMatter(`---\nlogo: ./m.svg\n${line}\n---\n\n# D\n`);
+        const producerReads = cfg != null && cfg[field] != null;
+        assert.equal(
+          core.isLatticePragma(line), producerReads,
+          producerReads
+            ? `plugins.js reads "${line}" as ${cfg[field]}, but the pragma matcher does not — `
+              + `so <!-- ${line} --> ships as a speaker note (#1350's shape)`
+            : `plugins.js ignores "${line}", but the pragma matcher suppresses it — a marker `
+              + 'that configured nothing disappears instead of staying visible as a note',
+        );
+      }
+    }
+  });
+
+  test('logo-style / logo-on cover every value the producer acts on', () => {
+    const { readDeckLogoFrontMatter } = require('../../../lib/integrations/markdown-it/plugins.js');
+    const read = (line) => readDeckLogoFrontMatter(`---\nlogo: ./m.svg\n${line}\n---\n\n# D\n`);
+    // These two COLLAPSE rather than validate — the producer asks one question of the
+    // lowercased value and everything else means the default — so there is no register to
+    // iterate. What IS checkable, and is the leak direction: every value the producer acts
+    // on must be matched here.
+    for (const v of ['brand', 'BRAND', 'Brand', '"brand"', "'brand'"]) {
+      assert.equal(read(`logo-style: ${v}`).brand, true, `guard: the producer reads ${v} as brand`);
+      assert.equal(core.isLatticePragma(`logo-style: ${v}`), true, `logo-style: ${v}`);
+    }
+    for (const v of ['title', 'TITLE', '"title"']) {
+      assert.equal(read(`logo-on: ${v}`).on, 'title', `guard: the producer reads ${v} as title`);
+      assert.equal(core.isLatticePragma(`logo-on: ${v}`), true, `logo-on: ${v}`);
+    }
+    // The default word is in the domain too — an author writing it out is configuring, not
+    // narrating — and the producer's own docs name the two.
+    assert.equal(core.isLatticePragma('logo-style: auto'), true);
+    assert.equal(core.isLatticePragma('logo-on: all'), true);
+    // KEY case: the producer does not read it, so neither does this.
+    assert.equal(read('LOGO-STYLE: brand').brand, false, 'guard: the producer ignores an upper-case key');
+    assert.equal(core.isLatticePragma('LOGO-STYLE: brand'), false);
+  });
+
+  test('finish-override mirrors the block key parseFinishOverride looks up', () => {
+    // The producer is TypeScript in the docs site, so this is a SOURCE assertion rather than
+    // a call — and it is the drift that actually happens: a rename of the front-matter key.
+    // It reads the lookup itself, not a comment about it.
+    const fs = require('fs');
+    const path = require('path');
+    const src = fs.readFileSync(
+      path.join(__dirname, '..', '..', '..', 'docs', 'src', 'components', 'studio', 'front-matter.ts'),
+      'utf8',
+    );
+    const m = src.match(/parseFinishOverride[\s\S]*?blocks\.find\(\(\[k\]\) => k === '([^']+)'\)/);
+    assert.ok(m, 'parseFinishOverride no longer looks a block key up this way — re-derive the matcher');
+    assert.equal(
+      core.isLatticePragma(`${m[1]}:`), true,
+      `front-matter.ts reads the block key "${m[1]}", but <!-- ${m[1]}: --> still ships as a speaker note`,
+    );
+  });
+
   // The two sets are deliberately separate, for PROVENANCE — one records what an upstream
   // project excluded, the other what this repo emits. Not because a gate enforces it: there
   // is no Marpit parity test and there cannot be one (the dependency is gone), so a Lattice
@@ -145,6 +254,30 @@ describe('notes-core: isLatticePragma', () => {
 
   test('a slide carrying only pragmas has no note at all', () => {
     assert.equal(core.notesFromHtml(sec('<!-- tier: full --><!-- color-mode: dark --><h1>A</h1>')), null);
+  });
+
+  // Classification is not the same question as EXTRACTION, and #1350 was visible only in the
+  // second: the six matchers could all be right while nothing consulted them on the path that
+  // builds the notes field. Measured end to end on this deck exported to .pptx — slides
+  // carrying only these six get `ppt/notesSlides/*.xml` with no text, and before the matchers
+  // existed all six shipped as the slide's note.
+  test('#1986: the six hyphenated registers are not LIFTED as notes, and a real note beside them is', () => {
+    const html = sec(
+      '<!-- logo-style: brand --><!-- logo-on: title --><!-- logo-x: 12 --><!-- logo-y: 88.5 -->'
+      + '<!-- logo-scale: 1.5 --><!-- finish-override: --><h1>Q3</h1>'
+    );
+    assert.equal(core.notesFromHtml(html), null, 'a slide of nothing but logo/finish registers has no note');
+    assert.deepEqual(
+      core.noteBodiesFromHtml(sec('<!-- logo-x: 12 --><h1>Q3</h1><!-- Pause here. -->')),
+      ['Pause here.'],
+      'the author\'s own note still comes through'
+    );
+    // The over-strip direction, at the extraction level: a prose value is a NOTE, and eating
+    // it would be silent — the author has no way to tell what removed it.
+    assert.equal(
+      core.notesFromHtml(sec('<h1>Q3</h1><!-- logo-on: the second half -->')),
+      'logo-on: the second half'
+    );
   });
 });
 
