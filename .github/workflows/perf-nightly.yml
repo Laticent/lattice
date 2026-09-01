@@ -422,11 +422,24 @@ jobs:
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
             --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
-          BODY=$(gh issue view "$ISSUE" --json body -q .body || true)
+          # THE LATEST FIRING, NOT THE ISSUE BODY. The body is written once, by
+          # `gh issue create`; every firing after the first is a COMMENT, so the body
+          # describes the thread's FIRST firing forever. Discriminating on it closes a
+          # thread whose most recent firing was a real, unfixed regression:
+          #   night 1  harness failure  -> body says NOTHING WAS COMPARED
+          #   nights 2..N  real regression -> appended as comments, body untouched
+          #   night N+1  base is now old enough to carry the regression too, so the
+          #              diff reads clean -> the old code matched the STALE body and
+          #              closed. No adversary required.
+          # `last` falls back to the body via `//` for a thread with no comments yet,
+          # where the body really is the latest firing. Read BEFORE this step posts its
+          # own comment below, or it would discriminate on itself.
+          LATEST=$(gh issue view "$ISSUE" --json body,comments \
+            --jq '(.comments | map(.body) | last) // .body' || true)
           gh issue comment "$ISSUE" --body "Measured green on \`${{ github.sha }}\` — no tier past its band, no ceiling breached. _Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._" || true
           # Close ONLY a harness-failure thread. A real regression stays open: head-vs-base-24h
           # cannot distinguish "fixed" from "the base now carries it too".
-          case "$BODY" in
+          case "$LATEST" in
             *"NOTHING WAS COMPARED"*)
               gh issue comment "$ISSUE" --body "The previous firing was a harness failure, not a measured regression, and this run measured cleanly — closing. A real regression opens a fresh thread. _Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._" || true
               gh issue close "$ISSUE" --reason completed || true

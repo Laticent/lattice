@@ -664,9 +664,13 @@ qualify.** This is the part a first cut got wrong, in the direction that matters
   is fixed". These comment and leave the thread open.
 - **Differential** — `perf-nightly` compares head against a base ~24h old, so a regression landing
   on day 0 fires on night 1 (the base predates it) and comes back clean on night 2 (the base
-  carries it too), on a still-broken site. `engine-perf` closes only a thread whose body says the
-  previous firing was a HARNESS failure — a false alarm IS settled by one clean measurement — and
-  `watch`, which emits no such marker, comments and never closes.
+  carries it too), on a still-broken site. `engine-perf` closes only a thread whose LATEST FIRING
+  was a HARNESS failure — a false alarm IS settled by one clean measurement — and `watch`, which
+  emits no such marker, comments and never closes. **Latest firing, not the issue body:** the body
+  is written once by `gh issue create` and every firing after the first is a comment, so
+  discriminating on the body reads the thread's FIRST firing forever. A harness-failure night, then
+  a real regression, then one clean night (the base is now old enough to carry it) closed a live
+  regression under the old reading — no adversary required.
 
 **The near-miss is worth keeping in mind, because it inverts the whole change.** Four jobs were
 first written as absolute and closed on a measured green. Three of them score against baselines
@@ -686,6 +690,54 @@ and a `git log` that silently returns nothing would close on no evidence at all.
 
 `test/unit/tools/nightly-alarm-contract.test.js` pins the posture of every job in the family, in
 both directions, so a new alarm cannot join without someone deciding which of the three it is.
+
+### Three things a stand-down must prove before it acts
+
+Standing down is the destructive direction — a wrong comment is noise, a wrong close destroys the
+thread — so each of these was a live defect found by an adversarial pass, not a precaution.
+
+- **WHOSE thread is it.** The lookup matches a title prefix, and anyone who can file an issue picks
+  the title. Keyed on the title alone it selects a squatted thread, closes it, and stamps it
+  "Recovered … measured green" about something nobody measured; and while the squat is open it also
+  absorbs every filing, so the genuine thread is never created. Every lookup therefore also requires
+  the filing identity. **Both spellings are required** — REST reports `github-actions[bot]`,
+  `gh --json author` resolves through GraphQL where a Bot actor's login is `github-actions`. Match
+  one and the lookup finds nothing, and `[ -n … ] || exit 0` then exits ZERO: silently dead rather
+  than loudly broken. `startswith` is not a shortcut — `github-actions-evil` is registrable.
+- **WHICH ref measured it.** None of these workflows pins a ref, so `--ref <branch>` runs the
+  branch's file against the branch's code. Without a guard, neutering a check on a throwaway branch
+  and dispatching closes the live alarm and records `main@<sha>` for a sha never on `main`. The
+  stand-downs require `github.ref == 'refs/heads/main'`, which is also what makes that `main@`
+  literal true. The guard is on the stand-down, not the job: a branch dispatch must still be able to
+  RUN the checks, and filing from a branch is loud and recoverable where closing is not.
+- **THAT it measured anything.** `uncovered=false` / `failed=false` is each check's evidence of
+  health and equally what a run that examined NOTHING produces. Both absolute closers gate on a
+  count (`islands`, `cases`) emitted by the script and parsed by the step, and the contract test
+  pins the producer to the consumer — deleting the `console.log` alone would leave the parse
+  yielding `0` and the stand-down dead forever.
+
+### What the stand-down does NOT fix: the silent night
+
+**The alarms can now say "measured green". They still cannot always say "something broke", and
+`always()` is not the fix — recording it as such is worse than recording nothing.** A filing step
+whose condition reads `steps.X.outputs.Y == 'true'` is not rescued by `always()`, because a skipped
+step's output is the **empty string**, which is not `'true'` either. `perf-nightly::engine-perf`
+already carries `always()` on its filing step and is still silent in this gap, which is the proof.
+
+The two shapes in the tree that DO work are `overflow`'s `always() && … != 'false'` and
+`studio-e2e`'s `always() && (… == 'true' || outcome != 'success')` — an exhaustive condition, not a
+status function. Making the rest exhaustive is deliberately **not** done here: it changes when the
+alarms FILE, so nights that were silent would start opening issues, and the volume is unmeasured.
+That is a change to what the automation produces, not to how it reports, and it wants its own
+decision.
+
+The sharpest instance, worth naming because a reader will otherwise assume it is covered: in
+`perf-nightly::watch`, `Build + collect — base` is `continue-on-error`, so when it dies `compare`
+runs head-only, scores nothing, and writes `regressed=false`. Filing needs `'true'` and does not
+fire; the stand-down correctly declines on `basecollect`'s outcome; the job concludes **success**.
+Nothing filed, nothing commented, nothing red — a green nothing. The contract test now requires
+every `continue-on-error` step that runs BEFORE the measurement to be outcome-guarded by the
+stand-down, so that state can never be read as health; it still cannot make the job speak.
 
 **A live-key job owes one thing the others do not: redact before you publish.** Actions masks
 secrets in the LOG, but `tee` writes the report to disk unmasked and `gh issue create` posts that

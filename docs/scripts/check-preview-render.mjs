@@ -241,6 +241,14 @@ async function main() {
 
 	const failed = results.filter((r) => !r.ok);
 
+	// HOW MANY CASES ACTUALLY RAN. `failed.length === 0` is this check's evidence
+	// of health, and it is also what a run that executed NOTHING produces — an
+	// empty scenario list, a browser that never launched, a filter that matched
+	// no deck. The nightly is one of the few allowed to CLOSE its rolling issue,
+	// so it needs to tell "nothing is broken" from "nothing was tried". Keep the
+	// `cases=` prefix stable — the workflow parses it.
+	console.log(`cases=${results.length}`);
+
 	// Always emit machine-readable results; emit a rich report only on failure.
 	fs.writeFileSync(path.join(OUT, 'results.json'), JSON.stringify({ failed: failed.length, results }, null, 2));
 

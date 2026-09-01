@@ -73,11 +73,19 @@ jobs:
         id: e2e
         run: |
           set -uo pipefail
-          if npm run check:preview; then
+          LOG="$GITHUB_WORKSPACE/preview-check.log"
+          if npm run check:preview 2>&1 | tee "$LOG"; then
             echo "failed=false" >> "$GITHUB_OUTPUT"
           else
             echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
+          # HOW MANY CASES RAN — see the note in check-preview-render.mjs. This job
+          # CLOSES its rolling issue, and `failed=false` is also what a run that
+          # tried nothing produces. `|| true` and `:-0` are deliberate: a parse that
+          # finds nothing must report ZERO so the stand-down declines, never an
+          # empty string, and must not abort the step under `-e`.
+          CASES=$(grep -oE '^cases=[0-9]+' "$LOG" | tail -n 1 | cut -d= -f2 || true)
+          echo "cases=${CASES:-0}" >> "$GITHUB_OUTPUT"
         working-directory: docs
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
@@ -210,7 +218,7 @@ jobs:
       # a measured green IS the evidence that the condition is gone. The thread closes; a
       # recurrence opens a fresh one.
       - name: Stand down the rolling issue when the gallery renders
-        if: always() && steps.e2e.outcome == 'success' && steps.e2e.outputs.failed == 'false' && github.ref == 'refs/heads/main'
+        if: always() && steps.e2e.outcome == 'success' && steps.e2e.outputs.failed == 'false' && steps.e2e.outputs.cases != '0' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

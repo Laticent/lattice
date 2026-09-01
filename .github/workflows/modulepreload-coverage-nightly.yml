@@ -47,11 +47,20 @@ jobs:
         id: check
         run: |
           set -uo pipefail
-          if npm run check:modulepreload-coverage -- --md "$GITHUB_WORKSPACE/coverage-report.md"; then
+          LOG="$GITHUB_WORKSPACE/modulepreload-check.log"
+          if npm run check:modulepreload-coverage -- --md "$GITHUB_WORKSPACE/coverage-report.md" 2>&1 | tee "$LOG"; then
             echo "uncovered=false" >> "$GITHUB_OUTPUT"
           else
             echo "uncovered=true" >> "$GITHUB_OUTPUT"
           fi
+          # HOW MANY ISLANDS THE SCAN ACTUALLY SAW. `uncovered=false` is also what an
+          # EMPTY scan produces, and this job is one of the few allowed to CLOSE its
+          # rolling issue — so without this it closes on a measurement that never
+          # happened. `|| true` and the `:-0` default are deliberate: a parse that
+          # finds nothing must report ZERO (the stand-down then declines), never an
+          # empty string, and must not abort the step under `-e`.
+          ISLANDS=$(grep -oE '^islands=[0-9]+' "$LOG" | tail -n 1 | cut -d= -f2 || true)
+          echo "islands=${ISLANDS:-0}" >> "$GITHUB_OUTPUT"
         working-directory: docs
 
       - name: Job summary
@@ -120,7 +129,7 @@ jobs:
       # a measured green IS the evidence that the condition is gone. The thread closes; a
       # recurrence opens a fresh one.
       - name: Stand down the coverage issue when every island is covered
-        if: always() && steps.check.outcome == 'success' && steps.check.outputs.uncovered == 'false' && github.ref == 'refs/heads/main'
+        if: always() && steps.check.outcome == 'success' && steps.check.outputs.uncovered == 'false' && steps.check.outputs.islands != '0' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

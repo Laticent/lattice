@@ -48,7 +48,8 @@ const path = require('node:path');
 const YAML = require('yaml');
 const { spawnSync } = require('node:child_process');
 
-const WF_DIR = path.join(__dirname, '..', '..', '..', '.github', 'workflows');
+const REPO = path.join(__dirname, '..', '..', '..');
+const WF_DIR = path.join(REPO, '.github', 'workflows');
 
 /**
  * A stand-down may CLOSE its thread only when a green night is real evidence
@@ -74,8 +75,31 @@ const CLOSES = {
     'differential, and closes NARROWLY because of it — only a thread whose body says the ' +
     'previous firing was a HARNESS failure (NOTHING WAS COMPARED). A false alarm is settled ' +
     'by one clean measurement; a real regression is not, and that one stays open. The body ' +
-    'is the discriminator, and its sibling `watch` job emits no such marker, which is why ' +
+    'is the discriminator — read from the LATEST firing (the last comment, falling back to the ' +
+    'body only for a thread with none), never the create-time body, which describes the FIRST ' +
+    'firing forever. Its sibling `watch` job emits no such marker, which is why ' +
     'that one may not close at all',
+};
+
+/**
+ * A CLOSER MUST PROVE IT MEASURED SOMETHING, and this names the output that
+ * carries the count.
+ *
+ * `uncovered=false` / `failed=false` is each check's evidence of health — and it
+ * is equally what a run that examined NOTHING produces. That is not theoretical
+ * for either job here: exactly one page in the tree hydrates a `client:only`
+ * island, the coverage scan is top-level-only by design, and `src/pages/studio/`
+ * already exists, so moving that one page is an ordinary refactor that empties
+ * the corpus and reports zero-of-zero as health.
+ *
+ * A job that only COMMENTS does not need this — a wrong comment is noise, a
+ * wrong close destroys the thread. `perf-nightly.yml::engine-perf` is the one
+ * closer with no entry, because it does not close unconditionally: it closes
+ * inside a `case` on the latest firing, and the arm below holds it to that.
+ */
+const MEASUREMENT_FLOOR = {
+  'preview-e2e-nightly.yml::e2e': { step: 'e2e', output: 'cases' },
+  'modulepreload-coverage-nightly.yml::check': { step: 'check', output: 'islands' },
 };
 
 const COMMENTS_ONLY = {
@@ -477,6 +501,99 @@ test('nightly alarm contract', async (t) => {
           'thread on evidence gathered somewhere else entirely',
       );
     }
+  });
+
+  await t.test('a closer proves it measured something before it closes', () => {
+    for (const key of Object.keys(MEASUREMENT_FLOOR)) {
+      assert.ok(key in CLOSES, `MEASUREMENT_FLOOR names ${key}, which is not a closing job — stale entry`);
+    }
+    let floors = 0;
+    for (const { id, standDown } of jobs) {
+      if (!standDown || !(id in CLOSES)) continue;
+      const cond = norm(standDown.if);
+      const floor = MEASUREMENT_FLOOR[id];
+      if (floor) {
+        floors++;
+        assert.match(
+          cond,
+          new RegExp(`steps\\.${floor.step}\\.outputs\\.${floor.output}\\s*!=\\s*'0'`),
+          `${id} closes its thread but does not require steps.${floor.step}.outputs.${floor.output} != '0' — ` +
+            'a run that measured nothing reports the same health as a run that measured everything',
+        );
+      } else {
+        // The escape hatch is narrow ON PURPOSE: a closer with no count floor
+        // must not close unconditionally. `case`/`esac` is how the one such job
+        // discriminates on the latest firing before closing.
+        assert.match(
+          code(standDown.run),
+          /case\s+"?\$/,
+          `${id} closes with neither a measurement floor in MEASUREMENT_FLOOR nor a discriminator — ` +
+            'it will close on any green night, including one that measured nothing',
+        );
+      }
+    }
+    assert.ok(floors >= 2, `expected >=2 closers with a measurement floor, found ${floors}`);
+  });
+
+  await t.test('the count a closer gates on is actually EMITTED by the script it runs', () => {
+    // The floor is a two-party contract and the gate above only checked the
+    // consumer. Delete the `console.log(`islands=…`)` from the script and every
+    // other arm stays green: the workflow's grep finds nothing, `${ISLANDS:-0}`
+    // makes it 0, and the stand-down then declines FOREVER. That fails safe on
+    // the close, but silent-forever is the disease this file exists to catch, so
+    // the producer is pinned to the consumer here.
+    const docsPkg = JSON.parse(fs.readFileSync(path.join(REPO, 'docs/package.json'), 'utf8'));
+    let pinned = 0;
+    for (const [id, floor] of Object.entries(MEASUREMENT_FLOOR)) {
+      const job = jobs.find((j) => j.id === id);
+      assert.ok(job, `MEASUREMENT_FLOOR names ${id}, which is not an alarm job any more`);
+      const producer = job.steps.find((st) => st.id === floor.step);
+      assert.ok(producer, `${id}: no step with id '${floor.step}'`);
+      const run = code(producer.run);
+      // consumer: the step must actually parse the line into the output it gates on
+      assert.match(
+        run, new RegExp(`\\^${floor.output}=`),
+        `${id}: step '${floor.step}' never greps for a '${floor.output}=' line`,
+      );
+      // producer: the npm script it invokes must emit that line
+      const m = run.match(/npm run ([\w:-]+)/);
+      assert.ok(m, `${id}: step '${floor.step}' runs no npm script — cannot locate the producer`);
+      const cmd = docsPkg.scripts?.[m[1]];
+      assert.ok(cmd, `${id}: docs/package.json has no script '${m[1]}'`);
+      const rel = cmd.match(/(scripts\/[\w.-]+\.mjs)/);
+      assert.ok(rel, `${id}: cannot resolve a script file from '${cmd}'`);
+      const src = fs.readFileSync(path.join(REPO, 'docs', rel[1]), 'utf8');
+      assert.ok(
+        src.includes(`${floor.output}=\${`),
+        `docs/${rel[1]} no longer emits a \`${floor.output}=\` line, but ${id} gates its CLOSE on ` +
+          'parsing one — the parse silently yields 0 and the stand-down is dead forever',
+      );
+      pinned++;
+    }
+    assert.ok(pinned >= 2, `expected >=2 producer/consumer pairs pinned, found ${pinned}`);
+  });
+
+  await t.test('the narrow closer discriminates on the LATEST firing, not the issue body', () => {
+    // The body is written once by `gh issue create`; every firing after the first
+    // is a comment. Discriminating on the body therefore reads the thread's FIRST
+    // firing forever, and closes a thread whose latest firing was a real, unfixed
+    // regression. No adversary needed — a harness-failure night, then a regression,
+    // then one clean night does it.
+    const narrow = jobs.find((j) => j.id === 'perf-nightly.yml::engine-perf');
+    assert.ok(narrow?.standDown, 'perf-nightly.yml::engine-perf lost its stand-down');
+    const run = code(narrow.standDown.run);
+    assert.match(
+      run, /--json body,comments/,
+      'the narrow closer no longer reads comments — it is back to discriminating on the create-time body',
+    );
+    assert.match(
+      run, /\.comments \| map\(\.body\) \| last/,
+      'the narrow closer does not take the LAST comment as the latest firing',
+    );
+    assert.doesNotMatch(
+      run, /case\s+"\$BODY"/,
+      'the narrow closer still switches on $BODY — the create-time body is not the latest firing',
+    );
   });
 
   await t.test('a Playwright stand-down proves tests actually RAN', () => {
