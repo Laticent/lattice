@@ -74,6 +74,16 @@
   record it had just saved, so naming a second theme renamed the first out of existence.
   Pre-existing — it predates this change — but in the same function as the component fix
   and contradicted by that fix's own note.
+- **Fixed: a fresh save under an existing asset's name silently replaced it.** Scoping the
+  name guard to reopened records fixed a deadlock and opened this: with nothing pinned the
+  store resolves `(kind, name)` and updates whoever holds the name, so typing a name another
+  saved theme already used overwrote that theme with the current draft — a record the author
+  had never opened. Two requirements were being served by one flag, and no version of that
+  flag can hold both: refuse every clash and a second save of your own asset deadlocks;
+  refuse none while composing and this happens. The guard now asks whether the session
+  OWNS the record holding the name — by having reopened it, or by having written it here —
+  which it tracks as a set, because renaming back to a name used earlier in the same
+  session is legitimate and a single "last saved" id cannot express that.
 - **Fixed: saving a theme, then editing it and saving again, was impossible.** Scoping the
   name-collision guard to reopened records fixed the component and finish faculties and
   missed the theme one, which then paired with the matching change to the theme's id pin:

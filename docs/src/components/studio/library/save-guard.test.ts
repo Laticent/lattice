@@ -28,30 +28,57 @@ const SAVED = [
 	{ id: 'id-b', name: 'beta' },
 ] as const;
 
-describe('findNameClash — not pinned: nothing is ever refused', () => {
-	// THE DEADLOCK ROW. Each of these was, at some point on this branch, a Save that
-	// could never be pressed again.
-	it.each([
-		['a name nothing holds', 'gamma'],
-		['a name this faculty just saved', 'alpha'],
-		['a name another record holds', 'beta'],
-	])('%s is free when the faculty is not pinned', (_label, name) => {
-		expect(findNameClash(SAVED, name, null)).toBeUndefined();
-		expect(findNameClash(SAVED, name, undefined)).toBeUndefined();
-		expect(findNameClash(SAVED, name, '')).toBeUndefined();
+describe('findNameClash — composing, and the name is one this session wrote', () => {
+	// THE DEADLOCK ROW (a). Each of these was, at some point on this branch, a Save that
+	// could never be pressed again. `id-a` stands for the record the session just wrote.
+	const OWNS_A: ReadonlySet<string> = new Set(['id-a']);
+
+	it('a name nothing holds is free', () => {
+		expect(findNameClash(SAVED, 'gamma', null, OWNS_A)).toBeUndefined();
 	});
 
-	// The regression that made this a shared module: saving a theme, then editing and
-	// saving it again. Unscoped, the second save is refused by the record the first created.
-	it('a second save of a freshly created record is not refused', () => {
-		const shelf = [...SAVED, { id: 'id-new', name: 'gamma' }];
-		expect(findNameClash(shelf, 'gamma', null)).toBeUndefined();
+	it('re-saving under the name this session just wrote is free', () => {
+		expect(findNameClash(SAVED, 'alpha', null, OWNS_A)).toBeUndefined();
+	});
+
+	// The `lastSavedId` failure: a single "last" id cannot answer this, a set can.
+	it('renaming BACK to a name used earlier in the same session is free', () => {
+		const owns = new Set(['id-a', 'id-b']);
+		expect(findNameClash(SAVED, 'alpha', null, owns)).toBeUndefined();
+		expect(findNameClash(SAVED, 'beta', null, owns)).toBeUndefined();
+	});
+
+	it('null, undefined and empty pins all mean composing', () => {
+		for (const pin of [null, undefined, '']) {
+			expect(findNameClash(SAVED, 'alpha', pin, OWNS_A)).toBeUndefined();
+		}
+	});
+});
+
+describe('findNameClash — composing, and the name belongs to someone else', () => {
+	// REQUIREMENT (b), and the one a pinned-only guard regressed. On the unpinned path
+	// the store resolves `(kind, name)` and UPDATES the holder — so allowing this
+	// silently replaces a record the author never opened with their current draft.
+	it('another record’s name is refused even with nothing pinned', () => {
+		expect(findNameClash(SAVED, 'beta', null, new Set(['id-a']))).toEqual({ id: 'id-b', name: 'beta' });
+	});
+
+	it('a session that owns nothing yet is refused every taken name', () => {
+		expect(findNameClash(SAVED, 'alpha', null)).toEqual({ id: 'id-a', name: 'alpha' });
+		expect(findNameClash(SAVED, 'beta', null, new Set())).toEqual({ id: 'id-b', name: 'beta' });
 	});
 });
 
 describe('findNameClash — pinned to THIS record', () => {
 	it('its own name is free — that is the ordinary edit', () => {
 		expect(findNameClash(SAVED, 'alpha', 'id-a')).toBeUndefined();
+	});
+
+	// `sessionOwned` relaxes the UNPINNED path only. Pinned, the write is a blind put on
+	// the id path, so landing it on another record's name makes two records share a name —
+	// worth refusing even if the author created that other record a minute ago.
+	it('another record’s name stays refused even when this session wrote it', () => {
+		expect(findNameClash(SAVED, 'beta', 'id-a', new Set(['id-b']))).toEqual({ id: 'id-b', name: 'beta' });
 	});
 
 	it('an unused name is free — that is a rename, and the id keeps it one record', () => {

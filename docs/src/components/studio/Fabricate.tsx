@@ -368,6 +368,15 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 	// FORKED the record — leaving the original in the shelf and every deck saying
 	// `_class: <old name>` pointing at it.
 	const [compEditingId, setCompEditingId] = React.useState<string | null>(null);
+	// EVERY RECORD THIS SESSION HAS WRITTEN, per tab — what makes re-saving a just-saved
+	// asset legal while still refusing someone else's name. See `findNameClash`: neither
+	// guarding every save (deadlock) nor guarding only the pinned path (silently updates a
+	// record the author never opened) is correct, and ownership is the discriminator. It
+	// is a Set rather than a "last saved id" because renaming BACK to a name used earlier
+	// in the same session is legitimate, and a single id cannot answer that.
+	const [ownedThemes, setOwnedThemes] = React.useState<ReadonlySet<string>>(() => new Set());
+	const [ownedComponents, setOwnedComponents] = React.useState<ReadonlySet<string>>(() => new Set());
+	const own = (setter: React.Dispatch<React.SetStateAction<ReadonlySet<string>>>, id: string) => setter((prev) => new Set(prev).add(id));
 
 	// Derive the full token map from the ten picked essentials, then layer any
 	// per-side contract overrides — REAL, every render. The live specimen uses a
@@ -653,8 +662,8 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 	// the theme copy stayed unscoped, which paired with the conditional pin below to
 	// deadlock Save on this tab after the first save. Three copies of a rule with two
 	// halves is how that happens twice.
-	const nameTakenBy = findNameClash(savedThemes, themeName, editingId);
-	const compNameTakenBy = findNameClash(savedComponents, compName, compEditingId);
+	const nameTakenBy = findNameClash(savedThemes, themeName, editingId, ownedThemes);
+	const compNameTakenBy = findNameClash(savedComponents, compName, compEditingId, ownedComponents);
 	const canSave = !saving && (tab === 'theme' ? themeNameOk && !!derived.css && !nameTakenBy : compOk && compNameOk && !compNameTakenBy);
 	/**
 	 * WHY SAVE IS DEAD ON A REOPENED IMPORT, said on the button rather than left to be
@@ -717,7 +726,13 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 				// existence. Measured on this branch: two saves, one record. Pre-existing
 				// (it predates #1839) but in the same function as the fix and contradicted
 				// by its own note, so it is corrected here rather than walked past (#18).
+				//
+				// OWNED, though — which is not the same as pinned. Ownership only tells the
+				// guard this session may re-save under that name; the save itself stays
+				// unpinned, so typing a NEW name still creates a record instead of renaming
+				// this one. That split is what lets both requirements hold at once.
 				if (editingId) setEditingId(t.id);
+				own(setOwnedThemes, t.id);
 				setHandDirty(false);
 				notify(`Saved “${t.label}” to your theme library — pick it from Look.`);
 			} else {
@@ -742,6 +757,9 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 				// which record they mean. Created here, the next save resolves by
 				// `(kind, name)` — same name overwrites, new name creates — which is what
 				// someone making variants expects and what this faculty did before the pin.
+				//
+				// Owned, not pinned — see the theme branch above for why those differ.
+				own(setOwnedComponents, c.id);
 				notify(`Saved “.${c.name}” to your component library.`);
 			}
 			onSaved?.();

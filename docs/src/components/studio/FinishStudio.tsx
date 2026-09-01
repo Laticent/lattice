@@ -98,6 +98,11 @@ export function FinishStudio({
 	// reopen-then-rename is a CREATE and every deck saying `finish: <old name>` keeps
 	// pointing at the untouched original.
 	const [editingId, setEditingId] = React.useState<string | null>(null);
+	// Every finish this session has written — the twin of `Fabricate`'s `ownedThemes`.
+	// Ownership is what makes re-saving a just-saved finish legal while still refusing
+	// another finish's name; `findNameClash` carries the reasoning.
+	const [owned, setOwned] = React.useState<ReadonlySet<string>>(() => new Set());
+	const own = (id: string) => setOwned((prev) => new Set(prev).add(id));
 	const [mode, setMode] = React.useState<'light' | 'dark'>('light');
 	// "Export preview" — show the OPAQUE export face the PDF/PPTX bakes, not just the
 	// rich on-screen face, so the designer sees the flatter look before they ship it.
@@ -198,7 +203,7 @@ export function FinishStudio({
 	// The same rule the two Fabricate tabs use, from the same function — including the
 	// part that says it applies only when pinned. Note it takes `savedSlug`, not `name`:
 	// the guard must compare what the store will WRITE, per the note just above.
-	const finishTakenBy = findNameClash(savedFinishes, savedSlug, editingId);
+	const finishTakenBy = findNameClash(savedFinishes, savedSlug, editingId, owned);
 	// What Save and Export would actually WRITE — the slug form, not the preview form.
 	// Two generators would be two things to keep in step, so the view reads the same
 	// `generateFinishCss` those two call, with the same argument they pass.
@@ -282,7 +287,10 @@ export function FinishStudio({
 			// NOT `setEditingId(f.id)` — see the twin note in `Fabricate`'s component save.
 			// Pinning here made the faculty a permanent editor of the first finish it
 			// saved, so designing a second one and naming it renamed the first out of
-			// existence instead of creating it.
+			// existence instead of creating it. OWNED though, not pinned: that is what
+			// lets this finish be saved again under the same name without letting a new
+			// name rename it. See `findNameClash`.
+			own(f.id);
 			notify(`Saved "${f.label}" to your library — pick it from the Finish menu in the Inspector.`);
 			onSaved?.();
 		} catch (e) {

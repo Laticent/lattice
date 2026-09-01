@@ -467,3 +467,58 @@ something that did not happen: across four rounds all three lenses ran, but no s
 ran the full trio. HARD RULE #25 requires the trio on *what will actually ship*, and a count
 of agents that reviewed earlier commits does not satisfy it. **The check that catches this
 is asking, per axis, which commit the evidence came from.**
+
+---
+
+## Round 6 — the fix for round 5 shipped the opposite defect, and the full suite caught it
+
+`b944fb5` fixed the theme deadlock by scoping the guard to reopened records, matched the
+other two faculties, pushed green on lint, typecheck, `build:check`, the library unit tier
+and 30 real-surface e2e tests. **The full studio unit suite then failed one test** —
+`studio.theme-depth.test.tsx`, "refuses to save one theme onto ANOTHER saved theme's name",
+which predates this branch.
+
+It is not a stale test. With nothing pinned, `putAsset` resolves `(kind, name)` and updates
+whoever holds the name — so a fresh save under an existing theme's name overwrites that
+theme with the current draft. Recoverable through history, and completely silent.
+
+### One flag, two requirements, four attempts
+
+The guard was being asked to serve two things that no single flag can hold:
+
+  (a) re-saving the record you just saved must work — refusing it is a deadlock, because
+      the escapes are a rename (forks) or leaving the faculty (discards the draft);
+  (b) typing a DIFFERENT record's name must be refused — allowing it silently updates a
+      record the author never opened.
+
+| Attempt | (a) | (b) |
+|---|---|---|
+| guard every save | deadlock | ✓ |
+| guard every save, remember one `lastSavedId` | ✓ | breaks renaming BACK |
+| guard only while pinned (`b944fb5`) | ✓ | silent overwrite |
+| guard unless this session OWNS the clashing record | ✓ | ✓ |
+
+The discriminator is ownership: does this session already own the record holding that name,
+by having reopened it or by having written it here? It must be a SET — a single "last saved"
+id is what made attempt 2 refuse a rename back to a name used earlier in the same session.
+
+**Ownership deliberately does not pin.** The save stays unpinned, so typing a genuinely new
+name still creates a record rather than renaming the one just made — which is what killed the
+version that pinned after every save. Owning relaxes the guard; pinning changes the write.
+
+### What this round is actually evidence of
+
+Three copies made the arithmetic worse than it looks: the fix for attempt 1 landed attempt 3
+in two faculties and left the third on attempt 1, so one tab deadlocked while the other two
+were quietly overwriting. Both defects were live simultaneously, in one function, and each
+review round saw only the one its scenario touched.
+
+Two gaps are worth recording over the fix itself:
+
+- **The pre-push hook runs `affected-tests`, not the full suite**, so `b944fb5` reached the
+  remote with a failing test in it. The hook is a backstop, not the gate (CLAUDE.md says so);
+  this is what that costs when the change is in a file whose dependents the heuristic misses.
+- **Neither the library unit tier nor 30 e2e tests could see it.** The e2e specs exercise the
+  faculties this branch changed; the assertion that caught it lives in a suite about the theme
+  faculty's depth, written long before. **A regression net is only as good as the scope you
+  run it at**, and the scope that mattered here was the one nobody had a reason to run.
