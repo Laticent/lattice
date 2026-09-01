@@ -197,16 +197,23 @@ export function FinishStudio({
 	//
 	// One value closes both: the gate, the guard and the write agree by construction.
 	const savedSlug = safeSaveSlug(name);
-	// What the author is SHOWN before the name is valid. Save and Export are gated on
-	// `nameOk`, so this placeholder is never an identity anything ships.
+	// What the author is SHOWN before the name is valid. Save and Export both refuse
+	// unless `nameOk`, so this placeholder never becomes an identity anything ships.
+	// (Export did NOT refuse until the guard in `exportCss` below — an earlier version of
+	// this comment asserted the gate that sentence depends on without it existing.)
 	const slug = savedSlug || 'custom';
 	// The generated CSS bakes ALL five layers (wash / texture / mark / edge + backdrop), so
 	// the specimen is WYSIWYG straight from it — the backdrop needs no separate injection.
 	const previewCss = React.useMemo(() => generateFinishCss(PREVIEW_SLUG, recipe), [recipe]);
 	// A name that slugifies to nothing is REFUSED rather than quietly renamed to `custom`.
-	// `nameReason` says so on the field, because refusing without a reason is the dead end
-	// this fix would otherwise have created — `Fabricate` has said the equivalent for its
-	// two tabs all along.
+	// `nameReason` says so in its own row below the header, because refusing without a
+	// reason is the dead end this fix would otherwise have created.
+	//
+	// `Fabricate`'s COMPONENT tab does the equivalent (`compFindings` emits a name error);
+	// its THEME tab does not — an invalid theme name disables Save with no message at all.
+	// That is a real gap and it is not this diff's to close: logged as #1995 rather than
+	// pulled in (#18, off-path). An earlier version of this comment claimed parity across
+	// both tabs, which was false and would have sent a reader looking in the wrong place.
 	const nameOk = !!name.trim() && /^[a-z][a-z0-9-]*$/.test(savedSlug);
 	const nameReason = !name.trim() || nameOk ? '' : 'Finish name must contain letters or numbers — a–z, 0–9, hyphen, starting with a letter.';
 	// A SLUG ALREADY TAKEN BY A DIFFERENT SAVED FINISH. The twin of `Fabricate`'s
@@ -277,6 +284,16 @@ export function FinishStudio({
 	if (spot) canvasHandles.push({ key: 'spotlight', label: 'Spotlight', x: spot.x, y: spot.y, tone: 'accent', onMove: setSpotXY });
 
 	const exportCss = () => {
+		// GATED, like Save. It was not, and the comment beside `slug` claimed it was — so
+		// with the field empty or holding a name that slugifies to nothing, Export handed
+		// the author `custom.finish.css` and a toast telling them to paste
+		// `_class: finish finish-custom` into a deck. That is the placeholder escaping as a
+		// real identity, and `custom` is not a reserved name, so it collides with any finish
+		// actually named "Custom". Measured on the built site before this guard.
+		if (!nameOk) {
+			notify(nameReason || 'Name the finish before exporting — the file is named after it.');
+			return;
+		}
 		const cls = `finish finish-${slug}`;
 		const css = generateFinishCss(slug, recipe);
 		downloadText(
@@ -367,21 +384,27 @@ export function FinishStudio({
 						className="min-w-0 flex-1 bg-transparent font-mono text-[13px] font-semibold text-[var(--text-heading)] outline-none placeholder:font-normal placeholder:text-muted-foreground"
 					/>
 				</div>
-				{/* VISIBLE, not a tooltip. The refusal is new here, and the faculty's other
-				    disabled-Save explanation is already known to reach a pointer only
-				    (#1975) — routing a second one down that channel would widen a gap
-				    rather than close it. `Fabricate` states its equivalent as a finding;
-				    this is the same message in the space the header already had spare. */}
-				{nameReason ? (
-					<p role="alert" className="min-w-0 flex-1 truncate text-[11.5px] text-[color-mix(in_srgb,var(--fail,#b3261e)_80%,var(--text-body))]">
-						{nameReason}
-					</p>
-				) : (
-					<div className="flex-1" />
-				)}
+				<div className="flex-1" />
 				<Button variant="outline" size="sm" className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={exportCss}><Download className="size-4" /><span className="hidden sm:inline">Export</span></Button>
 				<Tip label={finishTakenBy ? `“${savedSlug}” is already a saved finish — pick another name.` : nameReason}><span className="inline-flex shrink-0"><Button size="sm" disabled={!nameOk || !!finishTakenBy || saving} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={save}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button></span></Tip>
 			</div>
+
+			{/* WHY THE REFUSAL GETS ITS OWN ROW rather than a slot in the header. It lived in
+			    the header first, as a `flex-1 truncate` paragraph beside the name field and
+			    two buttons — which measured 32px wide at 390px and rendered as "Fini…", so
+			    the message existed at desktop and not on a phone. A full-width row under the
+			    header competes with nothing and can WRAP instead of truncating, which is what
+			    a sentence this long needs at 390px.
+
+			    It is visible text, not a tooltip: the faculty's other disabled-Save
+			    explanation already reaches a pointer only (#1975), and routing a second one
+			    down that channel would widen that gap rather than close it. `role="alert"`
+			    puts it in the a11y tree, which the tooltip never managed. */}
+			{nameReason ? (
+				<p role="alert" className="shrink-0 border-b border-border bg-card px-3 pb-2 text-[11.5px] leading-snug text-[color-mix(in_srgb,var(--fail,#b3261e)_80%,var(--text-body))] sm:px-4">
+					{nameReason}
+				</p>
+			) : null}
 
 			{/* AI front door — "Describe a finish" (mirrors the Theme tab's command bar). */}
 			<div className="flex shrink-0 flex-col gap-2 border-b border-border bg-card px-4 py-2.5">

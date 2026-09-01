@@ -75,11 +75,39 @@ describe('FinishStudio — the name gate and the identity it shows', () => {
 		expect(saveBtn()).not.toBeDisabled();
 	});
 
+	// EXPORT IS GATED TOO. It was not: with the field empty or holding a name that
+	// slugifies to nothing, Export downloaded `custom.finish.css` and toasted "apply with
+	// _class: finish finish-custom" — handing the author the internal placeholder as a real
+	// class. `custom` is not a reserved name either, so it collides with any finish actually
+	// named "Custom". A review measured it on the built site.
+	it.each([
+		['an empty name', ''],
+		['a name that slugifies to nothing', '报告'],
+	])('Export refuses %s instead of writing the placeholder', (_label, typed) => {
+		const notify = vi.fn();
+		render(<FinishStudio options={options} notify={notify} />);
+		if (typed) fireEvent.change(nameField(), { target: { value: typed } });
+		fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+		expect(notify).toHaveBeenCalledTimes(1);
+		expect(notify.mock.calls[0][0]).not.toMatch(/finish-custom/);
+		expect(notify.mock.calls[0][0]).toMatch(/name|letters/i);
+	});
+
+	it('Export still writes the file once the name is valid', () => {
+		const notify = vi.fn();
+		render(<FinishStudio options={options} notify={notify} />);
+		fireEvent.change(nameField(), { target: { value: 'Ledger' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+		// …and under the namespaced identity, not the shipped preset's.
+		expect(notify.mock.calls[0][0]).toMatch(/ledger-custom\.finish\.css/);
+		expect(notify.mock.calls[0][0]).not.toMatch(/finish-ledger\b(?!-custom)/);
+	});
+
 	// The class the author is SHOWN must be the one the store writes. A reserved name is
 	// namespaced on the way in, and showing the un-namespaced form handed the author a
-	// class that silently resolves to the shipped preset instead of their finish.
-	// Shown in more than one place (the slug chip and the CSS view), which is the point —
-	// every surface that names the finish must name the saved one.
+	// class that silently resolves to the shipped preset instead of their finish. Shown in
+	// more than one place (the slug chip and the CSS view), which is the point — every
+	// surface that names the finish must name the saved one.
 	it('a reserved name shows the namespaced class it will actually be saved under', () => {
 		render(<FinishStudio options={options} notify={vi.fn()} />);
 		fireEvent.change(nameField(), { target: { value: 'Ledger' } });

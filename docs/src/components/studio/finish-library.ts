@@ -28,13 +28,27 @@ function toStudioFinish(a: FinishAssetRecord): StudioFinish {
 	return { id: a.id, name: a.name, label: a.label || a.name, css: a.text || '', recipe: coerceRecipe(a.recipe) };
 }
 
-// Names a saved finish must NOT shadow: the 5 shipped presets + the other
+// Names a saved finish must NOT shadow: every shipped preset + the other
 // `finish:`-register / engine reserved words. A saved finish that resolved to one
 // of these would collide with a built-in `section.finish-<name>` rule (or the
 // `finish-preview` specimen / `finish-none` opt-out) — so we namespace it instead.
-// Mirrors resolve-finish.js FINISH_REGISTER + base.finish.css's reserved selectors.
+//
+// THE HARM, because it is not cosmetic. `StudioShell` injects a saved finish's CSS
+// whenever a deck's `finish:` matches its name, and the saved rule is
+// `section.finish.finish-<name>` (0,2,1) against the shipped `section.finish-<name>`
+// (0,1,1) — so the user's finish OUTSPECIFIES the built-in. Name one "Nimbus" and every
+// deck in the workspace saying `finish: nimbus` — an ordinary use of the SHIPPED
+// preset — silently renders your finish instead.
+//
+// This list carried five presets while nine ship. `nimbus`, `loom`, `savile` and
+// `gallery` are all in `resolve-finish.js`'s FINISH_REGISTER, all have a
+// `section.finish-<name>` rule in `base.finish.css`, and all four are offered in the
+// faculty's own "Start from preset" row — so the likeliest way to hit this was to start
+// from one and keep its name. `finish-preset-parity.test.ts` now derives the preset half
+// from the engine so the two cannot drift again.
 export const RESERVED_FINISH_NAMES: ReadonlySet<string> = new Set([
-	'atrium', 'meridian', 'strata', 'halo', 'ledger', // the 5 shipped presets
+	// the 9 shipped presets — keep in step with resolve-finish.js FINISH_REGISTER
+	'atrium', 'meridian', 'strata', 'halo', 'ledger', 'nimbus', 'loom', 'savile', 'gallery',
 	'boardroom', 'sketch', 'sketch-clean', 'none', 'preview', // register + engine reserved
 ]);
 

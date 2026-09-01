@@ -74,6 +74,23 @@
   record it had just saved, so naming a second theme renamed the first out of existence.
   Pre-existing — it predates this change — but in the same function as the component fix
   and contradicted by that fix's own note.
+- **Fixed: four of the nine shipped finish presets could be shadowed by a saved finish.**
+  `nimbus`, `loom`, `savile` and `gallery` are registered in the engine and have their own
+  `section.finish-<name>` rules, but the Studio's reserved-name list carried only five
+  presets — so saving a finish called "Nimbus" stored it under `nimbus`, and its
+  `section.finish.finish-nimbus` rule outspecifies the built-in. Every deck in that
+  workspace saying `finish: nimbus` — an ordinary use of the shipped preset — then rendered
+  the saved finish instead. All nine are now reserved and namespaced (`nimbus-custom`), and
+  a test derives the list from the engine's own register so the two cannot drift again.
+- **Fixed: exporting an unnamed finish wrote a file named after an internal placeholder.**
+  Export was ungated, so with the name field empty — or holding a name that slugifies to
+  nothing — it downloaded `custom.finish.css` and told the author to apply
+  `_class: finish finish-custom`. That is not a name they chose, and it collides with any
+  finish actually called "Custom". Export now refuses with the same reason Save gives.
+- **Changed: the CSS view, slug chip, export filename and "apply with" message now name the
+  finish the way it is saved.** For the reserved names they showed the un-namespaced form
+  (`finish-ledger`) while the store wrote `ledger-custom` — so pasting the class the Studio
+  displayed silently applied the *shipped preset* instead of the finish just designed.
 - **Fixed: every finish named in a non-Latin script saved as the same record.** The Finish
   faculty derives two slugs — one for the preview class, which falls back to `custom` when
   nothing survives slugification, and one for the saved identity, which is empty in that
