@@ -347,3 +347,44 @@ gate itself rather than in the manifests it checks.
 | `checkAjvBoundary` | 176 ms |
 | `check-ownership.js` total | 6.47 s |
 | unit / integration | 7,623 pass / 804 pass, 0 fail |
+
+## The Studio, driven — the one surface this change never touched by hand
+
+The CORRECTION above establishes that `manifest.schema.json` is shipped bytes:
+`lib/layout/gate.js:34` requires it and esbuild inlines it into
+`docs/src/playground/layout-core.generated.js`, which the Layout Studio's
+component picker and Fabricate's component gate both read. The change reasoned
+about that bundle and measured its size. Nobody opened it.
+
+Driven at 1440 / 820 / 390 on the **production `docs/dist` build** — the bytes a
+visitor gets — not only on the dev server. That distinction earned itself: the
+Astro dev server renders Fabricate's live preview EMPTY, and the same walk
+against the built site renders it correctly (see below).
+
+- **The bundle diff is the schema text and nothing else.** Rebuilding
+  `layout-core.generated.js` from the pre-change schema (`71539f7`) and diffing
+  against the current one gives 18 changed lines: the two new `description`
+  strings, and `additionalProperties: false` on `slots`. No code path moved.
+  143,930 → 145,061 bytes.
+- **The component picker is unchanged** — "Add a slide" over 61 components, 62
+  tiles with `Blank`, the same search placeholder at each width.
+- **The gate still passes AND still bites.** Fabricate's Component tab opens
+  ALL CLEAR on the default component, with its BUCKET / FUNCTION / FORM /
+  SUBSTANCE selects populated from the schema enums; typing `#ff0000` into the
+  CSS pane flips it to `GATE — 1 TO FIX / no-hex:1 — hex literal "#ff0000"`.
+  An all-clear panel alone proves nothing, which is why the failing case is here.
+
+**Nothing shipped is broken, and one trap is worth writing down.** On the Astro
+DEV server Fabricate's `LIVE PREVIEW` figure has zero children — it looks like a
+dead surface. On the built site the same figure holds the `srcdoc` iframe and
+renders the slide. Two consequences: the empty preview is a dev-server artifact
+and not a defect, and **a verification run against `npm run dev` alone would have
+reported the opposite of the truth here** — in both directions, since a dev-only
+break reads as shipped and a dev-only pass would too. Drive `docs/dist`.
+
+Both surfaces also log a 404 for the fabricated theme's CSS
+(`/playground/v/<hash>/themes/fab-<id>.css`) — a theme authored in the browser
+cannot exist under a staged asset path. It is present with the pre-change bundle
+rebuilt in place, so it is neither caused nor worsened here, it costs one failed
+request, and the preview renders regardless. Recorded, not fixed: off the path of
+this change (HARD RULE #18).
