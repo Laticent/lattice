@@ -85,15 +85,20 @@ function renderEngine(deck) {
  * reason its docblock gives: the bootstrap is an esbuild IIFE with no exports
  * and no global, so nothing can `require` it — it has to be run.
  */
-async function renderRuntime(markup) {
+async function renderRuntime(markup, frontMatter) {
   const dom = new JSDOM(`<!DOCTYPE html><html><head></head><body>${markup}</body></html>`, {
     url: 'https://example.test/deck.html',
     runScripts: 'dangerously',
     pretendToBeVisual: true,
   });
-  // Not optional: the runtime fetches the sibling `.md` for front matter, and an
-  // unstubbed fetch makes the result depend on the network.
-  dom.window.fetch = () => Promise.reject(new Error('no network in this test'));
+  // The runtime derives the sibling `.md` from the document URL and fetches it for
+  // the deck-level registers. Stubbing is not optional — an unstubbed fetch makes
+  // the result depend on the network. A probe whose claim IS a deck-level register
+  // supplies that front matter here; everything else refuses, so a transform that
+  // quietly started depending on one would fail rather than reach out.
+  dom.window.fetch = frontMatter
+    ? () => Promise.resolve({ ok: true, text: () => Promise.resolve(frontMatter) })
+    : () => Promise.reject(new Error('no network in this test'));
   const el = dom.window.document.createElement('script');
   el.textContent = fs.readFileSync(RUNTIME_BUNDLE, 'utf8');
   dom.window.document.body.appendChild(el);
@@ -102,6 +107,9 @@ async function renderRuntime(markup) {
 }
 
 const cls = (el) => el.className.split(/\s+/).filter(Boolean).sort().join(' ');
+
+/** The component tokens on a section — the answer a component-resolution row claims. */
+const COMPONENT_NAMES = new Set(require(path.join(ROOT, 'lib/core/resolve-component')).COMPONENT_NAMES);
 
 /**
  * One entry per `mirrored` ledger row that can be compared today.
@@ -216,6 +224,58 @@ const PROBES = {
       ),
   },
 
+  deckClassPropagate: {
+    min: 1,
+    // A DECK-LEVEL register: `class:` in front matter lands on every section. The
+    // runtime does not get it from the markup — it fetches the sibling `.md` — so
+    // this probe supplies that fetch, which is the plumbing that made this row look
+    // un-probeable. It is the only reason the row sat in AWAITING_PROBE.
+    deck: ['---', 'theme: indaco', 'class: dark', '---', '', '<!-- _class: content -->', '', '## Title', '', 'Body.'].join('\n'),
+    markup: '<section class="content"><h2>Title</h2><p>Body.</p></section>',
+    frontMatter: ['---', 'theme: indaco', 'class: dark', '---', '', '## Title', '', 'Body.', ''].join('\n'),
+    // SORTED, and that is load-bearing. Measured, the engine emits `content dark
+    // form` and the runtime `content form dark` — the same set applied in a
+    // different order. Order is not what `mirrored` promises here; membership is.
+    probe: (doc) => [...doc.querySelectorAll('section')].map((s) => cls(s)),
+  },
+
+  defaultComponent: {
+    min: 1,
+    // A slide naming no component at all. The default is resolved from the deck's
+    // front matter, so this needs the same fetch as the row above.
+    deck: ['---', 'theme: indaco', '---', '', '## Title', '', 'Body.'].join('\n'),
+    markup: '<section><h2>Title</h2><p>Body.</p></section>',
+    frontMatter: ['---', 'theme: indaco', '---', '', '## Title', '', 'Body.', ''].join('\n'),
+    probe: (doc) =>
+      [...doc.querySelectorAll('section')].map((s) =>
+        [...s.classList].filter((c) => COMPONENT_NAMES.has(c)).sort().join(' '),
+      ),
+  },
+
+  'imagery prose → the .image-text panel': {
+    min: 1,
+    // A `topic` row rather than a `plugin` row. It was listed as needing a real
+    // background image and the layout measurement after it — it does not:
+    // `wrapImageTextToDom` is pure DOM, folding the slide's prose into a panel and
+    // leaving an image-only slide alone. jsdom is enough.
+    deck: [
+      '<!-- _class: image -->', '', '![bg](./photo.jpg)', '', '## The site today', '',
+      'Two thirds of the floor is unused after the move.',
+    ].join('\n'),
+    markup:
+      '<section class="image"><h2>The site today</h2>' +
+      '<p>Two thirds of the floor is unused after the move.</p></section>',
+    // STRUCTURE, not the panel's raw text. The engine's HTML carries whitespace
+    // between elements and the runtime inherits whatever its input had, so a
+    // textContent compare reads "The site today Two thirds…" against "The site
+    // todayTwo thirds…" — a serialization difference, not a fidelity one. What the
+    // row actually claims is WHICH nodes get folded into the panel, so compare that.
+    probe: (doc) =>
+      [...doc.querySelectorAll('.image-text')].map((p) =>
+        [...p.children].map((c) => `${c.tagName}:${c.textContent.trim()}`).join('|'),
+      ),
+  },
+
   glossaryRange: {
     min: 1,
     // The pill is DERIVED from the first and last term, not authored — so the
@@ -241,16 +301,14 @@ const PROBES = {
  * longer reads `mirrored`, is an error.
  */
 const AWAITING_PROBE = {
-  deckClassPropagate:
-    'the runtime reads the deck class from front matter it fetches from the sibling .md, so the ' +
-    'probe needs the fetch plumbing test/integration/parity/runtime-frontmatter-refire.test.js ' +
-    'was written for, not a static markup string',
-  defaultComponent:
-    'same front-matter supply path as deckClassPropagate — the default component is a deck-level ' +
-    'declaration, not something a single section carries',
-  'imagery prose → the .image-text panel':
-    'a topic row rather than a plugin row; the runtime side needs a real background image and the ' +
-    'layout measurement that follows it, which jsdom does not do',
+  // EMPTY, and the mechanism stays. All ten `mirrored` rows now render through both
+  // paths and compare. The three that were listed here were listed because a first
+  // pass believed them un-probeable, and all three reasons were wrong: the two
+  // deck-level registers just needed the front-matter fetch the harness now
+  // supplies, and the imagery row needed no image and no measurement at all —
+  // `wrapImageTextToDom` is pure DOM. Keeping an empty list is the point: a new
+  // `mirrored` row with no probe must either get one or land here with a reason,
+  // and a reason in a diff is a thing a reviewer can disagree with.
 };
 
 test('marp fidelity — a `mirrored` claim is attested by rendered output', async (t) => {
@@ -304,7 +362,7 @@ test('marp fidelity — a `mirrored` claim is attested by rendered output', asyn
           'the deck or the probe selector is wrong, and without this the comparison below would ' +
           'be two empty arrays passing forever',
       );
-      const runtimeOut = spec.probe(await renderRuntime(spec.markup));
+      const runtimeOut = spec.probe(await renderRuntime(spec.markup, spec.frontMatter));
       assert.deepEqual(
         runtimeOut,
         engineOut,

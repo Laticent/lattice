@@ -204,11 +204,16 @@ adding a row:
   asserts the ENGINE produced at least *n* of the thing first. This is not
   theoretical: it is what caught a `matrix-grid` probe using `[/]`, a marker
   that layout's positional grammar does not define.
-- **A row with no probe is a declared gap, not a pass.** `AWAITING_PROBE` lists
-  the three rows that cannot be compared yet with the reason for each, and the
-  test fails on a stale entry — so the list can only shrink. The old assertion
-  certified all ten rows and verified none; this verifies seven and says out
-  loud that three are unverified.
+- **A row with no probe is a declared gap, not a pass.** `AWAITING_PROBE` carries
+  the rows that cannot be compared, with a reason each, and the test fails on a
+  stale entry so the list can only shrink. **It is currently empty: all ten rows
+  are attested.** Three sat in it briefly, and all three reasons turned out to be
+  wrong — the two deck-level registers (`deckClassPropagate`, `defaultComponent`)
+  only needed the harness to answer the sibling-`.md` fetch the runtime makes for
+  front matter, and the imagery row needed no background image and no layout
+  measurement at all, because `wrapImageTextToDom` is pure DOM. The empty list
+  stays: a new `mirrored` row must either get a probe or land there with a reason,
+  and a reason in a diff is something a reviewer can disagree with.
 - **`baked` rows still have only a spelling check.** Their mirror is
   `tools/export-marp.js`, a different path with its own harness needs. Two rows
   are affected and `marp-fidelity.test.js` now says so in its own name rather
