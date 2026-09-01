@@ -213,6 +213,15 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **The general lesson:** `section::after` belongs to pagination on every path. Anything
   that must survive a real render goes on the section itself (see the finish-edge entry
   above) or on a descendant's pseudo — never on the slide's own `::after`.
+- **A THIRD thing the fix exposed, for the record:** the modifier's SCOPE was wrong in the
+  same way its ink was. It ran three independent counters — `divider`, `divider light` and
+  `closing` each restarting at 01 — so a deck that mixed dark and light breaks restarted
+  mid-count and a closing announced itself as section 01. Nobody had seen it, because on
+  every browser surface nothing rendered at all. It is now ONE `lat-divider` series shared
+  by both dividers, `closing` does not take the modifier, and a numbered divider suppresses
+  its running header (the stamp took that corner). Worth knowing as a class: **a feature
+  that renders nowhere accumulates design defects silently**, and fixing the render is
+  where you find them, not where you finish.
 - **A SECOND defect was hiding behind the first, and it is the more interesting one.**
   Once the numeral drew, it measured **1.4:1** — inked `--on-dark-watermark`, the 12%
   DECORATION rung of the on-dark ramp, under a CSS `opacity: 0.85`. It had been written

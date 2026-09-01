@@ -20,7 +20,7 @@ Marks the start of a major section. Use sparingly — every divider is a context
 ### Variant decision rule
 
 - **default (no modifier).** A standard mid-deck section start — dark canvas, one heading, no extra chrome.
-- **`numbered`.** Section numbering matters to the audience — a long, multi-part deck where a running section count in the corner helps orientation.
+- **`numbered`.** The audience needs to know which section they are in — a long, multi-part deck where a running count belongs on the slide itself. `divider` and `divider light` share one series, so mixing them does not restart it.
 - **`light`.** A narrower re-focus within a section rather than a full section start — sits between a dark divider and a run of content slides. Reserve the dark default for genuine section starts.
 - **`qr`.** The divider itself should carry a scannable link — a resource specific to the section it's opening.
 
@@ -28,7 +28,7 @@ Marks the start of a major section. Use sparingly — every divider is a context
 
 - **Eyebrow written as plain text instead of inline code, e.g. plain `Section 01` instead of a backtick-wrapped one.** Divider's eyebrow uses the shared before-heading rule `p:has(> code:only-child):has(+ h2)` (base.modifiers.css) — wrap it in backticks; without the code span it's just a plain paragraph with no eyebrow treatment at all.
 - **Eyebrow paragraph placed AFTER the heading, copying the title/closing pattern.** Divider's eyebrow is the mirror image of title/closing's — it uses the BEFORE-heading rule (`p:has(> code:only-child):has(+ h2)`), not the after-heading one those two use. Keep it directly before `## Section name`; placed after, it still renders (via the separate after-heading rule) but as an italic secondary-color treatment, not the intended mono kicker.
-- **Reaching for `numbered` on a slide with no heading.** The stamp rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-paginate` null it. No heading, no numeral. The heading is a required slot here anyway, so write it.
+- **Reaching for `numbered` on a slide with no heading, or expecting it on a `title` / `closing`.** The stamp rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-paginate` null it. No heading, no numeral, and the heading is a required slot here anyway. `numbered` is a divider modifier only: a bookend is not a section, so `title` and `closing` do not take it.
 
 ## When to use
 
@@ -75,14 +75,14 @@ Marks the start of a major section. Use sparingly — every divider is a context
 
 ### `numbered` — numbered
 
-Stamps the running section number.
+Stamps the running section number at the top-left edge.
 
 ```markdown
 <!-- _class: divider silent numbered -->
 
 `divider numbered`
 
-## The corner stamp counts this divider for you.
+## The stamp counts this divider for you.
 ```
 
 ### `light` — light

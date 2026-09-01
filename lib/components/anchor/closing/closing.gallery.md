@@ -25,16 +25,6 @@ Final slide. Dark canvas mirror of title.
 
 ---
 
-<!-- _class: closing silent numbered -->
-<!-- _footer: "numbered · closing numbered — Counts closings apart from dividers." -->
-
-## The closing counts itself, apart from the dividers.
-
-`Closing 04`
-
-
----
-
 <!-- _class: closing qr -->
 <!-- _footer: "qr · closing qr — Scan to take the deck with you." -->
 

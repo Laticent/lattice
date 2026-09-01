@@ -51,6 +51,7 @@ const TIMEOUT = 300000;
 const DECK = `---
 marp: true
 theme: indaco
+header: "Deck header"
 ---
 
 <!-- _class: divider -->
@@ -79,17 +80,40 @@ theme: indaco
 
 <!-- _class: closing numbered -->
 
-## Stamped on the closing.
+## A closing does not take the modifier.
+
+---
+
+<!-- _class: divider silent -->
+
+## Silent, unstamped.
 `;
 
-/** What each slide's heading `::after` must resolve to. `null` = no stamp at all. */
+/**
+ * What each slide's heading `::after` must resolve to. `null` = no stamp at all.
+ *
+ * The last row is the one worth reading twice: `closing numbered` must stamp NOTHING.
+ * `numbered` is a divider modifier — a bookend is not a section — and the class is
+ * still spellable, so only a rendered assertion catches it coming back. The
+ * `divider light` row asserts the SAME counter as the dark dividers, which is the
+ * other half of the same decision: one series, no restart.
+ */
 const EXPECTED = [
-  { cls: 'divider', counter: null },
+  // Header VISIBLE here, and asserted: it proves the deck's `header:` really reaches a
+  // divider, so the `display: none` asserted on every stamped row below is doing work
+  // rather than describing a deck that never had a header to begin with.
+  { cls: 'divider', counter: null, header: 'block' },
   { cls: 'divider numbered', counter: 'lat-divider' },
   { cls: 'divider silent numbered', counter: 'lat-divider' },
-  { cls: 'divider light numbered', counter: 'lat-divider-light' },
-  { cls: 'closing numbered', counter: 'lat-closing' },
+  { cls: 'divider light numbered', counter: 'lat-divider' },
+  { cls: 'closing numbered', counter: null },
+  // The PIXEL control: silent, so no header and no page number, and unstamped. Paired
+  // with `divider silent numbered` above, the numeral is the only thing that can differ.
+  { cls: 'divider silent', counter: null, header: 'none' },
 ];
+/** Indices of the pixel pair — same chrome, one stamped. */
+const PIXEL_CONTROL = 5;
+const PIXEL_STAMPED = 2;
 
 /**
  * Read every slide's heading-pseudo `content` off a laid-out page.
@@ -102,9 +126,11 @@ function readStamps(page, sectionSelector) {
   return page.evaluate((sel) => {
     return [...document.querySelectorAll(sel)].map((s) => {
       const heading = s.querySelector('h1, h2');
+      const header = s.querySelector(':scope > header');
       return {
         cls: [...s.classList].filter((c) => c !== 'form').join(' '),
         content: heading ? getComputedStyle(heading, '::after').content : '<no heading>',
+        header: header ? getComputedStyle(header).display : '<no header>',
       };
     });
   }, sectionSelector);
@@ -120,7 +146,8 @@ function assertStamps(rows, surface) {
       // generates no box, which is what "nothing declared a stamp here" looks like. A
       // stray stamp on a plain divider would be the modifier leaking, a different
       // defect, and worth failing on.
-      assert.equal(row.content, 'none', `${surface}: the un-numbered control grew a stamp`);
+      assert.equal(row.content, 'none', `${surface}: "${want.cls}" grew a stamp it must not have`);
+      if (want.header) assert.equal(row.header, want.header, `${surface}: "${want.cls}" header display`);
       return;
     }
     assert.match(
@@ -128,6 +155,11 @@ function assertStamps(rows, surface) {
       new RegExp(`^counter\\(${want.counter},`),
       `${surface}: "${want.cls}" lost its stamp (computed content: ${row.content})`
     );
+    // The stamp takes the corner the running header occupies, so a numbered divider
+    // suppresses it. Asserted as computed `display`, not class presence: the deck
+    // declares a `header:`, so a slide that still paints one has two labels in one
+    // corner.
+    assert.equal(row.header, 'none', `${surface}: "${want.cls}" still paints a running header under the stamp`);
   });
 }
 
@@ -162,25 +194,30 @@ describe('numbered bookend stamp — both render paths', { skip: skipWithoutChro
       );
       assertStamps(await readStamps(page, 'article.lattice > section'), 'packed');
 
-      // THE PIXEL ARM. Same 340×180 top-right corner on the control and on
-      // `divider numbered`: identical canvas, identical rail (it runs down the LEFT
-      // edge), no chrome — so the ONLY thing that can differ is the numeral. Compared
-      // as encoded PNG bytes, which needs no image library: two identical crops encode
-      // to identical buffers.
+      // THE PIXEL ARM. The same 340×180 TOP-LEFT corner — where the numeral now sits,
+      // bleeding past the edge — on `divider silent` and `divider silent numbered`.
+      // Both are silent, so neither paints a header or a page number, and the canvas and
+      // the left rail are identical: the numeral is the only thing that can differ.
+      // Compared as encoded PNG bytes, which needs no image library — two identical
+      // crops encode to identical buffers.
+      //
+      // The crop starts at the section's own left edge, so it covers the bleed: a
+      // regression that pushed the numeral fully off-canvas would read as "identical to
+      // the control" and fail here, which a computed-style assertion cannot see.
       const sections = await page.$$('article.lattice > section');
       const corner = async (el) => {
         const box = await el.boundingBox();
         return page.screenshot({
-          clip: { x: box.x + box.width - 360, y: box.y, width: 340, height: 180 },
+          clip: { x: box.x, y: box.y, width: 340, height: 180 },
           captureBeyondViewport: true,
         });
       };
-      const control = await corner(sections[0]);
-      const stamped = await corner(sections[1]);
+      const control = await corner(sections[PIXEL_CONTROL]);
+      const stamped = await corner(sections[PIXEL_STAMPED]);
       assert.notEqual(
         Buffer.compare(control, stamped),
         0,
-        'the numbered divider painted the same top-right corner as the un-numbered control — the stamp is declared but invisible'
+        'the numbered divider painted the same top-left corner as its unstamped twin — the stamp is declared but invisible'
       );
     } finally {
       await page.close();

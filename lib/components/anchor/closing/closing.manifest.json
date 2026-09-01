@@ -21,7 +21,6 @@
   "description": "Final slide. Dark canvas mirror of title.",
   "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Like title, suppresses header/footer/pagination — the dark canvas signals \"we're done.\" Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out.",
   "variants": [
-    "numbered",
     "qr",
     "index",
     "spectrum"
@@ -100,20 +99,12 @@
     {
       "mistake": "In the `index` variant, the leading reference key isn't wrapped in inline code, e.g. `docs — the component catalog` instead of leading with a backtick-wrapped key.",
       "fix": "The `index` variant's mono reference-key styling (`section.closing.index :is(ul,ol) li code`) only applies to an actual `<code>` element — wrap the leading key in backticks so it renders as a mono chip, not plain text."
-    },
-    {
-      "mistake": "Reaching for `numbered` on a slide with no heading.",
-      "fix": "The stamp rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-paginate` null it. No heading, no numeral. The heading is a required slot here anyway, so write it."
     }
   ],
   "variantDecisionRule": [
     {
       "variant": "default",
       "useWhen": "A single-sentence takeaway or call-to-action closes the deck — the common case."
-    },
-    {
-      "variant": "numbered",
-      "useWhen": "The deck's dividers also use the `numbered` variant — keeps the closing's corner stamp consistent with that numbering scheme."
     },
     {
       "variant": "qr",
@@ -133,11 +124,6 @@
       "label": "spectrum",
       "summary": "Mirrors title's generated gradient bar — the deck's color story, one last time.",
       "sample": "<!-- _class: closing silent spectrum -->\n\n## The closing echoes the same six-step spectrum.\n\n`Closing · spectrum`\n"
-    },
-    "numbered": {
-      "label": "numbered",
-      "summary": "Counts closings apart from dividers.",
-      "sample": "<!-- _class: closing silent numbered -->\n\n## The closing counts itself, apart from the dividers.\n\n`Closing 04`\n"
     },
     "qr": {
       "label": "qr",

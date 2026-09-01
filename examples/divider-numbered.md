@@ -10,9 +10,9 @@ meta: "numbered · divider / closing section stamp"
 
 `Bookend modifier · numbered`
 
-# The numbered stamp, back on the canvas
+# The section stamp, back on the canvas
 
-The `numbered` modifier stamps a running section index on a `divider` or a `closing`. It wrote that numeral onto `section::after` — the pseudo the engine reserves for the page number — and two separate owners took it back. It now rides the slide heading instead.
+`numbered` stamps a running section index on a divider. It wrote that numeral onto `section::after` — the pseudo the engine reserves for the page number — and two separate owners took it back. It now rides the slide heading, at the top-left edge.
 
 ---
 
@@ -66,7 +66,7 @@ The `numbered` modifier stamps a running section index on a `divider` or a `clos
 
 `divider light numbered`
 
-## The light divider keeps a second, independent counter.
+## The light divider continues the same count.
 
 ---
 
@@ -104,8 +104,23 @@ Drawing again exposed a second defect: the numeral sat on the 12% decoration run
 
 ---
 
-<!-- _class: closing numbered -->
+<!-- _class: content -->
 
-`closing numbered`
+`The fix · scope`
 
-## The closing counts itself, apart from the dividers.
+## One counter, dividers only
+
+Three counters used to run in parallel — `divider`, `divider light` and `closing` each restarting at 01. A closing that announces itself as section 01 is a number telling the room nothing.
+
+- One series
+  - `divider` and `divider light` share `lat-divider`, so mixing them never restarts the count.
+- No bookends
+  - `closing` and `title` do not take the modifier. A bookend is not a section.
+- The header steps aside
+  - A numbered divider suppresses its running header: the stamp takes that corner, and two labels stacked there is not a layout.
+
+---
+
+<!-- _class: closing -->
+
+## The closing carries no stamp, by design.

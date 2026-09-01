@@ -26,11 +26,11 @@ Section boundary slide. Dark canvas with a single heading.
 ---
 
 <!-- _class: divider silent numbered -->
-<!-- _footer: "numbered · divider numbered — Stamps the running section number." -->
+<!-- _footer: "numbered · divider numbered — Stamps the running section number at the top-left edge." -->
 
 `divider numbered`
 
-## The corner stamp counts this divider for you.
+## The stamp counts this divider for you.
 
 
 ---

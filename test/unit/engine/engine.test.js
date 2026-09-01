@@ -563,12 +563,19 @@ describe('lattice-engine: CSS-pack (load-bearing rules)', () => {
 
   // The other half of the same contract: the `numbered` stamp must SURVIVE the pack,
   // and it does so by riding the heading's pseudo rather than the slide's own.
-  test('the numbered bookend stamp survives the pack on the heading pseudo', () => {
-    for (const token of ['lat-divider', 'lat-divider-light', 'lat-closing']) {
-      const re = new RegExp(`content:\\s*counter\\(${token},`);
-      assert.match(strip(enginePack), re, `${token} stamp was stripped from the packed stylesheet`);
-      assert.match(declaringSelector(enginePack, re), /:is\(h1, h2\)::after$/, `${token} stamp is not on the heading pseudo`);
-    }
+  test('the numbered divider stamp survives the pack on the heading pseudo', () => {
+    const re = /content:\s*counter\(lat-divider,/;
+    assert.match(strip(enginePack), re, 'the section stamp was stripped from the packed stylesheet');
+    assert.match(declaringSelector(enginePack, re), /:is\(h1, h2\)::after$/, 'the stamp is not on the heading pseudo');
+  });
+
+  // ONE counter, and no second one hiding behind it. `divider.light` and `closing` each
+  // used to run their own, so a light divider restarted the count and a closing announced
+  // itself as section 01. A regex for the surviving token cannot see a NEW sibling being
+  // added, so this asserts the whole set.
+  test('exactly one section counter exists', () => {
+    const tokens = new Set([...strip(enginePack).matchAll(/counter(?:-reset|-increment)?\(?\s*(lat-[\w-]+)/g)].map((m) => m[1]));
+    assert.deepEqual([...tokens].sort(), ['lat-divider']);
   });
 });
 

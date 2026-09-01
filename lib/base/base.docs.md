@@ -714,39 +714,43 @@ ignore it.
 
 ### `numbered`
 
-Stamps an auto-incrementing index in the top-right corner of bookend
-slides. Each layout carries its own counter — a `divider numbered`
-series and a `closing numbered` series number independently.
+Stamps the running section index on a `divider`, at the top-left, bleeding
+slightly past the slide edge.
 
-**It is ink, not ornament.** The stamp is how a reader and a room tell
-which section they are in, so it is inked to be read: `--on-dark-secondary`
-on the dark bookends and `--text-secondary` on `divider light` — the same
-rungs the eyebrow beside it takes. Measured 5.05:1 (cuoio, light) to
-11.79:1 (onyx) across the shipped palettes, clear of AA everywhere. It sits
-on `--z-content`, not the decorative plane.
+**Dividers only, and one counter for all of them.** `divider` and
+`divider light` share a single `lat-divider` count, so a deck that mixes
+them still reads 01, 02, 03 straight through. `closing` and `title` do not
+take the modifier: a bookend is not a section, and a closing that announced
+itself as "01" was the clearest symptom of the three-counter design this
+replaced.
 
-| Layout | Counter token | Stamp position |
-|---|---|---|
-| `divider` | `lat-divider` | top-right |
-| `divider light` | `lat-divider-light` | top-right |
-| `closing` | `lat-closing` | top-right |
+**It is ink, not ornament.** The stamp is how a reader and a room tell which
+section they are in, so it is inked to be read: `--on-dark-secondary` on the
+dark divider and `--text-secondary` on `divider light` — the same rungs the
+eyebrow beside it takes. Measured 5.05:1 (cuoio, light) to 11.79:1 (onyx)
+across the shipped palettes, clear of AA everywhere. It sits on
+`--z-content`, not the decorative plane.
 
 ```markdown
-<!-- _class: divider numbered -->   → first stamps "01", next "02", …
-<!-- _class: closing numbered -->   → independent counter, starts at "01"
+<!-- _class: divider numbered -->         → stamps "01", then "02", …
+<!-- _class: divider light numbered -->   → same series, no restart
 ```
 
-The counter is set on `body` and walks the deck once. Authors do not
-number sections manually — the layout does it.
+The counter is set on `body` and walks the deck once. Authors do not number
+sections manually — the layout does it.
 
-The numeral rides the slide HEADING's `::after`, so a `numbered` slide
-needs its heading — that is the required slot on both bookends anyway.
-It deliberately does NOT ride `section::after`: that pseudo is the
-engine's page number, which `silent` / `no-paginate` null and which the
-browser-path stylesheet reserves for the pagination attribute. On the
-heading it composes cleanly — `divider silent numbered` stamps the
-index with no other chrome, and a paginated `divider numbered` keeps
-both the index and its page number.
+**It suppresses the running header** on the slides that carry it. The header
+band sits in the corner the numeral takes, and two labels stacked there is
+not a layout; a section start is also the one slide that does not need to be
+told which deck it is in. The footer and the page number are untouched.
+
+The numeral rides the slide HEADING's `::after`, so a `numbered` slide needs
+its heading — the required slot here anyway. It deliberately does NOT ride
+`section::after`: that pseudo is the engine's page number, which `silent` /
+`no-paginate` null and which the browser-path stylesheet reserves for the
+pagination attribute. On the heading it composes cleanly — `divider silent
+numbered` stamps the index with no other chrome, and a paginated `divider
+numbered` keeps both the index and its page number.
 
 ### `silent`
 
