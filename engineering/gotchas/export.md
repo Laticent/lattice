@@ -362,9 +362,17 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   converge on `text\n\ntext`, which is why no shape is left that says a note was here.
 - **And the export is fail-closed on fidelity.** Pass 2 renders a different markdown document,
   and no comment in this file can prove markdown-it will agree. So both paths compare the two
-  renders ignoring whitespace — whitespace being exactly what pass 2 exists to drop — and on any
-  disagreement ship the deck as written, with a warning naming what was given up. Zero of the 23
-  shipped noted decks trigger it.
+  renders ignoring whitespace — whitespace being exactly what pass 2 exists to drop. There are
+  TWO candidate cuts and the right one is deck-dependent: a note above a `---` needs a blank line
+  left in its place, a note indented inside a list item needs the line simply gone (a blank there
+  turns a tight list loose). So both are rendered and the matching one is kept — and the SOURCE
+  that ships is the one that was rendered, which review found was not true of the first cut: the
+  envelope was scrubbed on an unguarded path, so a fallback shipped authored slides beside a
+  restructured source and the "verbatim source for lossless re-import" re-imported as a different
+  deck. If neither cut matches (a note at column 0 between two list items, where the comment is
+  what splits them), the SLIDES ship as written and the warning says the embedded source will
+  differ — because on such a deck no removal preserves the boundary. All 23 shipped noted decks
+  take the first cut.
 
 ## A `tier:` / `galleryAuthored:` pragma shipped as the speaker note in every format
 

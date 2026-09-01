@@ -843,6 +843,60 @@ describe('notes-core: stripNotesFromSource leaves no line where a note was (#198
     assert.equal(core.stripNotesFromSource('<!-- n -->', new Set(['n'])), '');
   });
 
+  test('stripNotesFromSource offers BOTH cuts, because the right one is deck-dependent (#1985 checker)', () => {
+    // The `text / text` case has two right answers and no local test can pick between them.
+    // Above a `---` the comment IS the block boundary, so an empty line must take its place —
+    // delete the line and `Some text\n---` becomes a setext H2. Inside a LIST item the opposite
+    // holds: an empty line turns a tight list loose, and simply taking the line reproduces the
+    // author's own tight list. Same neighbours, opposite answers, so the caller measures.
+    const setext = 'Some text\n<!-- n -->\n---\n';
+    assert.equal(core.stripNotesFromSource(setext, new Set(['n']), { boundary: 'preserve' }), 'Some text\n\n---\n');
+    assert.equal(core.stripNotesFromSource(setext, new Set(['n']), { boundary: 'drop' }), 'Some text\n---\n');
+    const list = '- one\n  <!-- n -->\n- two\n';
+    assert.equal(core.stripNotesFromSource(list, new Set(['n']), { boundary: 'drop' }), '- one\n- two\n');
+    // `preserve` is the default, so a caller that does not opt in gets the pre-existing shape.
+    assert.equal(
+      core.stripNotesFromSource(setext, new Set(['n'])),
+      core.stripNotesFromSource(setext, new Set(['n']), { boundary: 'preserve' })
+    );
+    // Neither mode touches the other branches: a blank on both sides still takes one blank with
+    // the line, and an inline note still loses only its span.
+    for (const boundary of ['preserve', 'drop']) {
+      assert.equal(core.stripNotesFromSource('a\n\n<!-- n -->\n\nb\n', new Set(['n']), { boundary }), 'a\n\nb\n');
+      assert.equal(core.stripNotesFromSource('a <!-- n --> b', new Set(['n']), { boundary }), 'a  b');
+    }
+  });
+
+  test('the word registers mirror frontMatterScalar, comment and quoted-span included (#1986 checker)', () => {
+    // `frontMatterScalar` strips a WHITESPACE-preceded `#` comment, and for a quoted value
+    // returns the quoted span and discards what trails it. An anchored `["']?word["']?$` matched
+    // neither, so both of these were read as `brand` by the producer AND shipped as the slide's
+    // speaker note — the #1350 shape in a form an author plausibly writes.
+    const { readDeckLogoFrontMatter } = require('../../../lib/integrations/markdown-it/plugins.js');
+    const read = (line) => readDeckLogoFrontMatter(`---\nlogo: ./m.svg\n${line}\n---\n\n# D\n`);
+    for (const v of ['brand # our brand mark', '"brand" only on the cover', 'BRAND # x', "'brand'"]) {
+      assert.equal(read(`logo-style: ${v}`).brand, true, `guard: the producer reads "${v}" as brand`);
+      assert.equal(core.isLatticePragma(`logo-style: ${v}`), true, `logo-style: ${v}`);
+    }
+    for (const v of ['title # cover only', '"title" for now']) {
+      assert.equal(read(`logo-on: ${v}`).on, 'title', `guard: the producer reads "${v}" as title`);
+      assert.equal(core.isLatticePragma(`logo-on: ${v}`), true, `logo-on: ${v}`);
+    }
+    // And what the producer does NOT read stays a note. `#` needs whitespace before it to open
+    // a comment, so `brand#nospace` is the whole value; unquoted trailing words likewise.
+    for (const v of ['brand extra words', 'brand#nospace', 'neon']) {
+      assert.equal(read(`logo-style: ${v}`).brand, false, `guard: the producer ignores "${v}"`);
+      assert.equal(core.isLatticePragma(`logo-style: ${v}`), false, `logo-style: ${v} must stay a note`);
+    }
+  });
+
+  test('anyCase refuses a word whose uppercase is not one-to-one (#1986 checker)', () => {
+    // `'ß'.toUpperCase()` is `'SS'`, which would emit the class `[ßSS]` — ß or S, not the pair
+    // intended. Unreachable with today's four words; this is here so the next one is not silent.
+    assert.throws(() => core.anyCase('straße'), RangeError);
+    assert.equal(core.anyCase('ab'), '[aA][bB]');
+  });
+
   test('stripNotesFromSource keeps the BLOCK BOUNDARY a note comment was providing (#1985 checker)', () => {
     // A comment line is an HTML block, so it separates what is above it from what is below.
     // Deleting it outright moves the deck, and both of these were measured on the real CLI:

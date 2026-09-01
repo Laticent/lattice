@@ -68,7 +68,9 @@ the author never wrote. So the cut is decided per line: a note between two blank
 of them with it (no run left behind to mark the spot), and a note between two lines of text is
 replaced by a blank line (the boundary it was providing survives). If the two renders ever
 disagree anyway, the export **keeps the deck you wrote** and says so — the note text is still
-removed everywhere, but that export no longer hides which slides carried one.
+removed everywhere, but that export no longer hides which slides carried one, and its embedded
+source re-imports with that one block boundary changed. (The slides are what is kept as written;
+the source cannot also be, because on that deck any removal at all restructures it.)
 
 **What the flag removes is the NOTE channel, and specifically not the DESCRIPTION channel.** A
 `<!-- describe: … -->` comment is the slide's WCAG 1.1.1 text alternative — what a screen
