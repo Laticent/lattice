@@ -79,6 +79,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A docs test passes in declaration order and fails under `--sequence.shuffle.tests`](gotchas/ci.md#a-docs-test-passes-in-declaration-order-and-fails-under---sequenceshuffletests)
 - [A Playwright test for a settling-round race passes on the broken code](gotchas/ci.md#a-playwright-test-for-a-settling-round-race-passes-on-the-broken-code)
 - [An integration test that asks the export to BEAT a timer ejects PRs from the merge queue](gotchas/ci.md#an-integration-test-that-asks-the-export-to-beat-a-timer-ejects-prs-from-the-merge-queue)
+- [Every Dependabot PR in a directory is red, and `npm ci` blames a package none of them touched](gotchas/ci.md#every-dependabot-pr-in-a-directory-is-red-and-npm-ci-blames-a-package-none-of-them-touched)
 
 ### [CSS](gotchas/css.md)
 
