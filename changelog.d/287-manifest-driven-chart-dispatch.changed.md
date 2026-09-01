@@ -2,3 +2,4 @@
 - Chart dispatch order is derived from the manifests instead of an array's line order — a chart is dispatched ahead of any chart it names among its own modifiers, so `<!-- _class: radar quadrant -->` still reaches radar rather than the quadrant chart.
 - The Studio's per-slide chart count no longer under-reports a deck that uses `matrix-grid`; its hand-mirrored layout list had drifted from the engine's.
 - The live-preview runtime now transforms chart sections in document order rather than in layout order, so it numbers a deck's shared SVG ids the same way the export path does. Nothing rendered wrongly before — every reference stayed inside its own section — but two render paths disagreed about a shared counter.
+- A kanban card's lane label no longer double-escapes an entity: a lane authored `Ops & IT` painted the literal `Ops &amp; IT`, and the two spellings counted as two lanes for color assignment.
