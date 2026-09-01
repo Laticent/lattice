@@ -715,7 +715,10 @@ ignore it.
 ### `numbered`
 
 Stamps the running section index on a `divider`, at the top-left, bleeding
-slightly past the slide edge.
+past the slide edge — set as **display** type (`--fs-hero`, `--font-display`,
+weight 700, no tracking), which is the same treatment every other oversized
+mark in the engine takes: the `form watermark` Tile, `split-panel`'s section
+numeral and its pullquote glyph.
 
 **Dividers only, and one counter for all of them.** `divider` and
 `divider light` share a single `lat-divider` count, so a deck that mixes
