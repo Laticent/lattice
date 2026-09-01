@@ -141,29 +141,53 @@ section.stats.stats:where([data-family="square"], [data-family="tall"], [data-fa
    lone-member rule gives `li:only-child` `flex: 1 1 auto` so the member claims
    the stage, on the stated premise that a member paced one-per-page is "a card —
    a header plus its content" and "every heavy member's card is the same shape —
-   a wrap-flex row". A stat tile is neither. It is a NOWRAP flex COLUMN, so the
-   `align-content: center` that rule pairs with the fill has no effect at all —
+   a wrap-flex row". A stat tile is neither. It is a flex COLUMN, so the
+   `align-content: center` that rule pairs with the fill has no effect —
    `align-content` does nothing on a single-line flex container — and the tile is
    stretched to the full stage with its number pinned to the top. Measured on
    board-update at `size: portrait`, which autosplits one stat per page: card
    573.4px tall, content 222.4px, lead 1px against trail 245.7px — 52.7% of the
    tile empty below the number, on a page no author wrote (#1981).
 
-   So stats opts out of the fill and restores the centering the base rules
-   replaced with `flex-start`. `justify-content` is the right property in every
-   family here and needs no family split: at wide it centers the row, at
-   tall/strip the column, and at square it is what the component already asks
-   for. With exactly one tile it is indistinguishable from the `space-evenly`
-   the multi-tile pages use. `safe` keeps a crowded tile's number rather than
-   its tail.
+   THE FIX IS FAMILY-SPLIT, AND THE AXIS IS WHY. An earlier cut of this block set
+   `justify-content` and `flex` alone and claimed in this comment that no family
+   split was needed. That was wrong at half the families, and a checker caught it:
+   `justify-content` and the `flex` shorthand both address the ol's MAIN axis, and
+   the ol is a column only at tall/strip. At wide and square it is a row, so the
+   tile's HEIGHT is the cross axis and both declarations are inert — measured on a
+   square autosplit fixture, the lone tile stayed 791.9px tall with 463.7px of void
+   below the number while `flex` dutifully changed from `1 1 auto` to `0 1 auto`.
+   So each direction gets the declaration that governs its vertical axis:
+   `flex` where the main axis is vertical, `align-self` where the cross axis is.
+   Neither is safe unscoped — `align-self` at tall/strip would shrink the tile off
+   the full width it is meant to span.
+
+   EVERY RULE HERE IS GUARDED TO `:only-child`, including the one on the `ol`. The
+   first cut left that one unguarded, on the reasoning that with one tile
+   `justify-content` is indistinguishable from the `space-evenly` the multi-tile
+   pages use. Also measured false: at square the ol is a wrap ROW, so
+   `justify-content` is the HORIZONTAL axis, and multi-tile split pages compute
+   `flex-start` there (base's 2-repeat rule at (0,4,2) beats stats' own family
+   rules at (0,3,2)) rather than `space-evenly`. Unguarded it moved 30 real corpus
+   pages 150-275px sideways — arguably for the better, but it is not this change's
+   business. Left-packed multi-tile square split pages are how `main` renders and
+   stay that way (HARD RULE #18: pre-existing, off-path).
+
+   `safe` keeps a crowded tile's number rather than its tail.
 
    THE REPEATED CLASSES ARE LOAD-BEARING, not a style. base.modifiers.css
-   deliberately repeats `.lat-split-native` twice for the natural-height rules
-   and FOUR times for the lone-member fill, and documents why; an override has
-   to clear (0,7,3) to be seen at all. */
-section.stats.stats.form.lat-split-native.lat-split-native > .cell-stage > ol {
+   deliberately repeats `.lat-split-native` twice for the natural-height rules and
+   FOUR times for the lone-member fill, and documents why; the lone-member rules
+   sit at (0,7,3) and an override has to clear that to be seen at all. */
+section.stats.stats.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ol:has(> li:only-child) {
   justify-content: safe center;
 }
-section.stats.stats.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ol > li:only-child {
+/* tall · strip — the ol is a column, so its MAIN axis is the vertical one. */
+section.stats.stats.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:only-child {
   flex: 0 1 auto;
+}
+/* wide · square — the ol is a row, so the tile's height is the CROSS axis.
+   `wide` is the ABSENCE of the family stamp (lib/adaptive/families.js). */
+section.stats.stats.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native:where(section:not([data-family]), [data-family="square"]) > .cell-stage > ol > li:only-child {
+  align-self: center;
 }
