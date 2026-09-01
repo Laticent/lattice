@@ -860,8 +860,10 @@ describe('notes-core: stripNotesFromSource leaves no line where a note was (#198
 
 describe('notes-core: a directive is never a note', () => {
   test('parity — the mirrored directive names match lib/engine/directives.js', () => {
-    // Same discipline as the Marpit pragma mirror above: this module stays dependency-free,
-    // and this test fails the moment the engine's registry gains or loses a name.
+    // This module stays dependency-free, and this test fails the moment the engine's registry
+    // gains or loses a name. Deliberately NOT described as "the same discipline as the Marpit
+    // pragma mirror": that set has no test and cannot have one (the dependency is gone), so the
+    // comparison advertised this test's guarantee for a set that has none (#1987).
     const engine = require('../../../lib/engine/directives.js');
     assert.deepEqual(
       [...core.KNOWN_DIRECTIVE_NAMES].sort(),

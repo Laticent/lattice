@@ -65,6 +65,15 @@ One residue is left and is worth knowing: a note that sat between two blank line
 blank lines behind in the embedded source. That is whitespace an author writes all the time
 and it is not computable against anything, unlike the byte delta above.
 
+**What the flag removes is the NOTE channel, and specifically not the DESCRIPTION channel.** A
+`<!-- describe: … -->` comment is the slide's WCAG 1.1.1 text alternative — what a screen
+reader says the slide SHOWS, not what you say over it — so it survives `--strip-notes` and
+still rides into the PPTX image `altText` and the HTML `aria-describedby`. That is deliberate:
+stripping it would take accessibility away from the recipient to protect the sender, and the
+two comments are opposite registers. But it IS an author-written comment channel outliving a
+privacy flag, so write a description as something the audience may read. `caption:` is the same:
+it is public-facing narration and has its own flag, `--strip-captions`.
+
 **What makes a great note:**
 
 - **Add spoken subtext** — pacing and delivery cues ("Open cold." "Land it, then

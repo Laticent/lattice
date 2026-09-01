@@ -188,8 +188,11 @@ OPTIONS
                           overflow marks the slide <!-- stress-slide --> instead
       --strip-notes       Scrub speaker notes from every output copy (the player
                           DOM, the PDF annotations, AND the embedded source) — a
-                          shareable file with no speaker text. Captions are
-                          unaffected: they narrate slide content, not notes
+                          shareable file with no speaker text. Removes the NOTE
+                          channel only: a <!-- describe: --> accessibility
+                          description survives (it is the slide's text
+                          alternative, not speaker text), and so do captions,
+                          which narrate slide content and have --strip-captions
       --strip-captions    Scrub the author's caption OVERRIDES (inline <!-- caption: -->
                           and front-matter captions:) from the .vtt and embedded
                           source; those slides fall back to the generated projection.
