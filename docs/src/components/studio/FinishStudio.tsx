@@ -181,7 +181,25 @@ export function FinishStudio({
 	// The generated CSS bakes ALL five layers (wash / texture / mark / edge + backdrop), so
 	// the specimen is WYSIWYG straight from it — the backdrop needs no separate injection.
 	const previewCss = React.useMemo(() => generateFinishCss(PREVIEW_SLUG, recipe), [recipe]);
-	const nameOk = !!name.trim() && /^[a-z][a-z0-9-]*$/.test(slug);
+	// THE NAME THE STORE WILL WRITE — declared here because both the Save gate and the
+	// collision guard below must agree on it, and they must agree on the WRITTEN identity
+	// rather than the preview's. `slug` above is `safeFinishSlug`, which does not namespace
+	// reserved names; `saveStudioFinish` applies `safeSaveSlug`, which does. Comparing the
+	// wrong one let the guard pass on all ten reserved names — save `Ledger`, then rename
+	// another finish to `Ledger`, and two live records land on `ledger-custom`.
+	const savedSlug = safeSaveSlug(name);
+	// A NAME THAT SLUGIFIES TO NOTHING IS REFUSED, not quietly renamed. `slug` uses
+	// `safeFinishSlug`, which falls back to `'custom'` when nothing survives — right for a
+	// preview class, wrong as a saved identity. Testing `slug` therefore let every name
+	// written in a non-Latin script through: `报告`, `Отчёт` and `!!!` all pass, all store
+	// as `custom`, and the collision guard below compares `safeSaveSlug` — which returns
+	// `''` for exactly those names and so matches nothing. Measured: three finishes named
+	// in Chinese, Cyrillic or Arabic become ONE record, each save silently replacing the
+	// last, with a "Saved" toast every time. Testing `savedSlug` — the name the store
+	// actually writes — closes the gap at its source: the guard and Save now agree, and
+	// they agree on the written identity. `Fabricate`'s two tabs never had this hole
+	// because `NAME_RE` rejects the same names outright.
+	const nameOk = !!name.trim() && !!savedSlug && /^[a-z][a-z0-9-]*$/.test(savedSlug);
 	// A SLUG ALREADY TAKEN BY A DIFFERENT SAVED FINISH. The twin of `Fabricate`'s
 	// `nameTakenBy` / `compNameTakenBy`, and it became REACHABLE with the id-pinned save
 	// above: `putAsset` skips its `(kind, name)` dedupe when an id is given, so renaming
@@ -193,16 +211,8 @@ export function FinishStudio({
 	// a later `restoreAssetVersion` refuses outright (the store keeps `(kind, name)`
 	// unique for exactly this reason). Refuse the save instead.
 	//
-	// COMPARE THE SLUG THE STORE WILL WRITE, not the one the preview uses. `slug` above is
-	// `safeFinishSlug`, which does NOT namespace reserved names; `saveStudioFinish` writes
-	// `safeSaveSlug`, which does. Comparing the wrong one let the guard pass on all ten
-	// reserved names — save `Ledger`, then rename another finish to `Ledger`, and two live
-	// records land on `ledger-custom`. Same hole on a FRESH save, where it silently
-	// overwrote the existing `ledger-custom` instead of refusing.
-	const savedSlug = safeSaveSlug(name);
-	// The same rule the two Fabricate tabs use, from the same function — including the
-	// part that says it applies only when pinned. Note it takes `savedSlug`, not `name`:
-	// the guard must compare what the store will WRITE, per the note just above.
+	// It takes `savedSlug`, the written identity — see its declaration above.
+	// The rule itself is `findNameClash`, shared with the two Fabricate tabs.
 	const finishTakenBy = findNameClash(savedFinishes, savedSlug, editingId, owned);
 	// What Save and Export would actually WRITE — the slug form, not the preview form.
 	// Two generators would be two things to keep in step, so the view reads the same

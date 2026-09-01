@@ -74,6 +74,16 @@
   record it had just saved, so naming a second theme renamed the first out of existence.
   Pre-existing — it predates this change — but in the same function as the component fix
   and contradicted by that fix's own note.
+- **Fixed: every finish named in a non-Latin script saved as the same record.** The Finish
+  faculty derives two slugs — one for the preview class, which falls back to `custom` when
+  nothing survives slugification, and one for the saved identity, which is empty in that
+  case. Save was gated on the first while the collision guard compared the second, so
+  `报告`, `Отчёт` and `تقرير` all passed the gate, matched nothing in the guard, and stored
+  as `custom`: three finishes became one record, each save silently replacing the last
+  under a "Saved" toast. Both sides now read the name the store actually writes, so such a
+  name is refused at the gate instead of quietly renamed. Reserved names (`Ledger` →
+  `ledger-custom`) still save normally. The theme and component tabs never had this hole —
+  their name pattern rejects those names outright.
 - **Fixed: a fresh save under an existing asset's name silently replaced it.** Scoping the
   name guard to reopened records fixed a deadlock and opened this: with nothing pinned the
   store resolves `(kind, name)` and updates whoever holds the name, so typing a name another

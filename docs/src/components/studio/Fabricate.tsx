@@ -655,8 +655,9 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 	}
 
 	// A NAME ALREADY TAKEN BY A DIFFERENT RECORD, for both tabs. The rule — including the
-	// part that says it applies only when the faculty is pinned to a reopened record —
-	// lives in `findNameClash`, with the reasoning and the table that pins it.
+	// part that says a name is free when this session already OWNS the record holding it,
+	// by having reopened it or written it here — lives in `findNameClash`, with the
+	// reasoning and the table that pins it.
 	//
 	// It is a shared function because it was three copies, and a fix scoped two of them:
 	// the theme copy stayed unscoped, which paired with the conditional pin below to

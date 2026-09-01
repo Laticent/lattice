@@ -440,11 +440,17 @@ caught by a test that existed and was not run, not by one nobody had written.
   message text to decide whether to show the store's reason or the storage-failure
   fallback; it was a bare literal in three files, so rewording it would have silently
   reverted the fix with the suite still green.
-- **The two `fabricate` tests that caught it are now in the smoke tier.** They were the
-  only coverage anywhere for saving one theme twice, and the pull-request tier is
-  `--grep @smoke`, which that file carried no tag for. Tagging them is a cost every future
-  PR pays, which is why it is written down rather than done quietly: two tests on a tier
-  that ran 38, for the one class of defect this branch demonstrated CI could not see.
+- **The two `fabricate` tests that caught it are now in the smoke tier — which does NOT
+  make them a gate, and the first version of this note implied it did.** They were the only
+  coverage anywhere for saving one theme twice, and `test:e2e:smoke` is `--grep @smoke`,
+  which that file carried no tag for; tagged, they now run. But `studio-smoke` is
+  deliberately absent from `ci`'s `needs` (`ci.yml:646-653`) — "a red here reports but does
+  NOT block merge" — so the symptom as originally written, "both went red and CI stayed
+  green", would recur verbatim on the required checks. **The gate that actually caught the
+  regression is `docs-build`'s vitest step, which already existed and which nothing local
+  can run.** The tags are still worth having (a reported red is how a human notices), but
+  they are reporting, not gating, and calling them "a cost every future PR pays" overstated
+  what they buy.
 - **The enumeration's own docblock was overstated.** It declared a four-value `id` axis, but
   the store cannot distinguish "another live record's id" from "its own" — it sees only
   whether the id and the name each match something live. It now states the seven states it
@@ -515,9 +521,16 @@ review round saw only the one its scenario touched.
 
 Two gaps are worth recording over the fix itself:
 
-- **The pre-push hook runs `affected-tests`, not the full suite**, so `b944fb5` reached the
-  remote with a failing test in it. The hook is a backstop, not the gate (CLAUDE.md says so);
-  this is what that costs when the change is in a file whose dependents the heuristic misses.
+- **No local hook can run the docs suite at all** — and the first version of this note got
+  that wrong, which an independent checker caught. It said pre-push runs `affected-tests`
+  rather than the full suite. Both halves are false: `affected-tests` is a PRE-COMMIT job
+  (`lefthook.yml:10-21`), and pre-push does run `npm test` as an explicit "safety net: full
+  unit suite" (`:103-165`). The real reason is narrower and more useful: **`npm test` is
+  `node --test 'test/unit/**/*.test.js'`, which never enters the docs workspace**, and
+  `tools/affected-tests.js:70` lists `docs/` under `isSkippable`. The docs vitest suite is
+  reachable only through CI's `docs-build` step. Acting on the wrong diagnosis would have
+  made pre-push "run the full suite" — it already does, and `b944fb5` would still have got
+  out.
 - **Neither the library unit tier nor 30 e2e tests could see it.** The e2e specs exercise the
   faculties this branch changed; the assertion that caught it lives in a suite about the theme
   faculty's depth, written long before. **A regression net is only as good as the scope you

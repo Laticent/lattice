@@ -9,15 +9,25 @@
 //
 // So the rule is now one function and this is its table. The space:
 //
-//   pinnedId ∈ { not pinned, pinned to THIS record, pinned to ANOTHER record }
-//   name     ∈ { unused, the pinned record's own, another record's }
+//   pinnedId     ∈ { not pinned, pinned to THIS record, pinned to a record since deleted }
+//   name         ∈ { unused, the pinned record's own, another record's }
+//   sessionOwned ∈ { owns nothing, owns the record holding the name }
 //
-// Nine cells, all here. The property that matters is in the first row: when the faculty
-// is not pinned there is NOTHING to refuse, because `putAsset` resolves an unpinned save
-// by `(kind, name)` onto the record already holding the name. An implementation that
-// refuses there is the deadlock, and it is a deadlock rather than an inconvenience — the
-// only escapes are a rename (which forks) or leaving the faculty (which discards the
-// unsaved draft).
+// THE THIRD AXIS IS THE WHOLE POINT, and this header claimed for one commit that there
+// were only two — asserting that "when the faculty is not pinned there is NOTHING to
+// refuse", four lines above a test that refutes it. Two requirements are in play and no
+// single flag holds both:
+//
+//   (a) re-saving the record you just saved must work — refusing it is a DEADLOCK, since
+//       the escapes are a rename (which forks) or leaving the faculty (which discards the
+//       unsaved draft);
+//   (b) typing a DIFFERENT record's name must be refused — on the unpinned path the store
+//       resolves `(kind, name)` and UPDATES the holder, so allowing it silently replaces a
+//       record the author never opened.
+//
+// Guard everything → (a) deadlocks. Guard only while pinned → (b) overwrites. Both
+// shipped. Ownership is the discriminator, and it is a SET because renaming BACK to a
+// name used earlier in the session is legitimate and one "last saved" id cannot say so.
 
 import { describe, expect, it } from 'vitest';
 import { findNameClash } from './save-guard.js';
