@@ -191,7 +191,7 @@ jobs:
           # lookup silently miss the rolling issue and file a fresh duplicate every night —
           # the same shape of quiet failure this whole workflow change is about.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title == \"$TITLE\")][0].number" 2>/dev/null || true)
+            --jq "[.[] | select(.title == \"$TITLE\")][0].number" || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
             echo "Appended to issue #$ISSUE"
@@ -205,7 +205,7 @@ jobs:
       # STAND THE ALARM DOWN when the suite passes again. A rolling issue that only ever
       # opens is a one-way ratchet: after its first firing it reads as "the flaky nightly",
       # and a real regression months later arrives as a comment on a thread nobody reopens.
-      # Until an alarm can close itself, neither its run colour nor its issue is
+      # Until an alarm can close itself, neither its run color nor its issue is
       # falsifiable.
       #
       # THREE conditions, and every one of them is load-bearing:
@@ -227,12 +227,21 @@ jobs:
       #    is not evidence that a regression is fixed. `[1-9][0-9]*` rather than `[0-9]+`, so
       #    a literal "0 passed" cannot satisfy it.
       #
-      # UNLIKE perf-nightly, THIS ALARM MAY CLOSE OUTRIGHT once those three hold. perf
-      # compares head against a base ~24h old, so a green night there cannot tell "fixed"
-      # from "the base now carries the regression too", and it may only close a
-      # harness-failure thread. This check is ABSOLUTE — the specs pass or fail against this
-      # commit alone — so a measured green IS the evidence that the condition is gone.
-      - name: Stand down the rolling issue when the suite passes
+      # AND IT COMMENTS RATHER THAN CLOSING. The suite is not scored against this commit
+      # alone: `docs/e2e/visual.spec.ts` asserts `toHaveScreenshot` against the committed
+      # baselines in `docs/e2e/visual.spec.ts-snapshots`, and blessing those turns the specs
+      # green without fixing anything. So a green night means "the suite matches its
+      # baselines", which is a different claim from "the regression is fixed", and the two
+      # are indistinguishable from inside the run. `retries: 1` in CI adds a second reason:
+      # a spec that fails and passes on retry reports `1 flaky` alongside the pass count and
+      # still exits 0 — and an intermittent failure is exactly what a rolling issue is most
+      # likely to be tracking, so it would open and close on alternate nights.
+      #
+      # A first cut of this step called the suite ABSOLUTE and closed. Commenting is not a
+      # consolation prize: the ratchet was never really "it does not close", it was "nothing
+      # ever argues the other side". A comment naming the run and the pass count is the
+      # counter-evidence a human needs to make the call the run cannot.
+      - name: Report a passing suite on the rolling issue
         if: always() && steps.e2e.outcome == 'success' && steps.e2e.outputs.failed == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -251,7 +260,7 @@ jobs:
           # documented there. Two different searches is how a stand-down closes a thread
           # nobody was appending to while the live one stays open.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title == \"$TITLE\")][0].number" 2>/dev/null || true)
+            --jq "[.[] | select(.title == \"$TITLE\")][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
           PASSED=$(grep -oE '[1-9][0-9]* passed' "$REPORT" | tail -n 1)
           # Comment BEFORE closing, naming the run AND the pass count that proved it. A silent
@@ -261,12 +270,13 @@ jobs:
           # start at column 0 to avoid leading spaces in the issue text, and a column-0 line
           # ENDS the `run: |` block scalar — the workflow then parses as something else.
           {
-            echo "Recovered: the deterministic Studio E2E suite passed on \`main@${{ github.sha }}\` (${PASSED}). Closing — a recurrence opens a fresh thread."
+            echo "Measured green on \`main@${{ github.sha }}\`: the deterministic Studio E2E suite passed (${PASSED}).\"
+            echo \""
+            echo \"**Left open deliberately.** Part of this suite asserts screenshots against committed baselines, and CI retries a failing spec once — so a green night cannot distinguish a fix from a blessed baseline or a flaky spec that passed on its second try. Check which happened and close by hand; a recurrence appends here."
             echo ""
             echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
           } > "$GITHUB_WORKSPACE/stand-down.md"
           gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
-          gh issue close "$ISSUE" --reason completed || true
 
   # The AI-assisted scenario tier (docs/e2e/scenarios/ai-architect.spec.ts):
   # drives the Architect against a LIVE OpenRouter model and asserts a real
@@ -414,7 +424,7 @@ jobs:
           # --limit is deliberately far above the open-issue count; gh paginates to reach it, and a
           # limit the backlog can outgrow would file a fresh duplicate every night.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title == \"$TITLE\")][0].number" 2>/dev/null || true)
+            --jq "[.[] | select(.title == \"$TITLE\")][0].number" || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
             echo "Appended to issue #$ISSUE"
@@ -428,7 +438,7 @@ jobs:
       # STAND THE ALARM DOWN when the suite passes again. A rolling issue that only ever
       # opens is a one-way ratchet: after its first firing it reads as "the flaky nightly",
       # and a real regression months later arrives as a comment on a thread nobody reopens.
-      # Until an alarm can close itself, neither its run colour nor its issue is
+      # Until an alarm can close itself, neither its run color nor its issue is
       # falsifiable.
       #
       # THREE conditions, and every one of them is load-bearing:
@@ -450,12 +460,21 @@ jobs:
       #    is not evidence that a regression is fixed. `[1-9][0-9]*` rather than `[0-9]+`, so
       #    a literal "0 passed" cannot satisfy it.
       #
-      # UNLIKE perf-nightly, THIS ALARM MAY CLOSE OUTRIGHT once those three hold. perf
-      # compares head against a base ~24h old, so a green night there cannot tell "fixed"
-      # from "the base now carries the regression too", and it may only close a
-      # harness-failure thread. This check is ABSOLUTE — the specs pass or fail against this
-      # commit alone — so a measured green IS the evidence that the condition is gone.
-      - name: Stand down the rolling issue when the live scenarios pass
+      # AND IT COMMENTS RATHER THAN CLOSING. The suite is not scored against this commit
+      # alone: `docs/e2e/visual.spec.ts` asserts `toHaveScreenshot` against the committed
+      # baselines in `docs/e2e/visual.spec.ts-snapshots`, and blessing those turns the specs
+      # green without fixing anything. So a green night means "the suite matches its
+      # baselines", which is a different claim from "the regression is fixed", and the two
+      # are indistinguishable from inside the run. `retries: 1` in CI adds a second reason:
+      # a spec that fails and passes on retry reports `1 flaky` alongside the pass count and
+      # still exits 0 — and an intermittent failure is exactly what a rolling issue is most
+      # likely to be tracking, so it would open and close on alternate nights.
+      #
+      # A first cut of this step called the suite ABSOLUTE and closed. Commenting is not a
+      # consolation prize: the ratchet was never really "it does not close", it was "nothing
+      # ever argues the other side". A comment naming the run and the pass count is the
+      # counter-evidence a human needs to make the call the run cannot.
+      - name: Report passing live scenarios on the rolling issue
         if: always() && steps.ai.outcome == 'success' && steps.ai.outputs.failed == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -474,7 +493,7 @@ jobs:
           # documented there. Two different searches is how a stand-down closes a thread
           # nobody was appending to while the live one stays open.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title == \"$TITLE\")][0].number" 2>/dev/null || true)
+            --jq "[.[] | select(.title == \"$TITLE\")][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
           PASSED=$(grep -oE '[1-9][0-9]* passed' "$REPORT" | tail -n 1)
           # Comment BEFORE closing, naming the run AND the pass count that proved it. A silent
@@ -484,9 +503,10 @@ jobs:
           # start at column 0 to avoid leading spaces in the issue text, and a column-0 line
           # ENDS the `run: |` block scalar — the workflow then parses as something else.
           {
-            echo "Recovered: the live AI Studio scenarios passed against a real model on \`main@${{ github.sha }}\` (${PASSED}). Closing — a recurrence opens a fresh thread."
+            echo "Measured green on \`main@${{ github.sha }}\`: the live AI Studio scenarios passed against a real model (${PASSED}), so the key was present and the specs really ran.\"
+            echo \""
+            echo \"**Left open deliberately.** This tier drives a live model, so one passing night is weaker evidence than it looks — the same prompt can pass and fail on consecutive runs, and CI retries once. Close by hand once a couple of nights agree; a recurrence appends here."
             echo ""
             echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
           } > "$GITHUB_WORKSPACE/stand-down.md"
           gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
-          gh issue close "$ISSUE" --reason completed || true

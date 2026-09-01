@@ -172,7 +172,7 @@ jobs:
           # --limit is far above the open-issue count; gh paginates to reach it, and a limit the
           # backlog could outgrow would silently miss the issue and file a fresh duplicate nightly.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" 2>/dev/null || true)
+            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
             echo "Appended to issue #$ISSUE"
@@ -210,7 +210,7 @@ jobs:
       # `regressed=false` — not a green site, a green nothing. Commenting "measured green" on
       # that is the not-measured-as-health sin this whole change exists to remove. `outcome`
       # rather than the output alone, for the empty-string reason the sibling job documents.
-      - name: Comment on the rolling issue when measured green
+      - name: Report a measured-green night on the rolling issue
         if: >-
           always()
           && steps.compare.outcome == 'success' && steps.compare.outputs.regressed == 'false'
@@ -223,7 +223,7 @@ jobs:
           # The IDENTICAL lookup the filing step above uses — see its comment. Two different
           # searches is how one step appends to a thread while another acts on a different one.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" 2>/dev/null || true)
+            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
           {
             echo "Measured green on \`main@${{ github.sha }}\` against base \`${{ steps.base.outputs.sha }}\` — no page past its budget, and both arms collected."
@@ -420,7 +420,7 @@ jobs:
           # The IDENTICAL lookup the filing step uses — see its comment. These two searching
           # differently is how a stand-down closes a thread nobody was appending to.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" 2>/dev/null || true)
+            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
           BODY=$(gh issue view "$ISSUE" --json body -q .body || true)
           gh issue comment "$ISSUE" --body "Measured green on \`${{ github.sha }}\` — no tier past its band, no ceiling breached. _Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._" || true
@@ -475,7 +475,7 @@ jobs:
             echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} · base \`${{ steps.base.outputs.sha }}\` → head \`${{ github.sha }}\`._"
           } >> "$BODY"
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" 2>/dev/null || true)
+            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
           else

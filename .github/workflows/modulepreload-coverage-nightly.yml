@@ -86,7 +86,7 @@ jobs:
           # --limit is far above the open-issue count; gh paginates to reach it, and a limit the
           # backlog could outgrow would silently miss the issue and file a fresh duplicate nightly.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" 2>/dev/null || true)
+            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
             echo "Appended to issue #$ISSUE"
@@ -101,7 +101,7 @@ jobs:
       # STAND THE ALARM DOWN when the condition clears. A rolling issue that only ever
       # opens is a one-way ratchet: after its first firing it reads as "the flaky
       # nightly", and a real regression months later arrives as a comment on a thread
-      # nobody reopens. Until an alarm can close itself, neither its run colour nor its
+      # nobody reopens. Until an alarm can close itself, neither its run color nor its
       # issue is falsifiable — and this family is report-only by contract, so the issue is
       # the ONLY signal there is.
       #
@@ -129,7 +129,7 @@ jobs:
           # The IDENTICAL lookup the filing step above uses — see its comment for why the
           # `in:title` search cannot be used and why this matches on the marker prefix.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" 2>/dev/null || true)
+            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
           # Comment BEFORE closing, and name the run that proved it. A silent close leaves the
           # next reader unable to tell a recovered alarm from one somebody quietly triaged away.

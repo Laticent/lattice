@@ -3,34 +3,42 @@
  *
  * Six workflows watch `main` overnight and, by a contract this repo states
  * twice (`integration-nightly.yml`, `overflow-nightly.yml`), stay GREEN when
- * they find something — they file a rolling tracking issue instead. Run colour
- * therefore carries no information about these checks at all: twelve
- * consecutive `integration-nightly` runs reported success while the tier was
- * failing, and that is the contract working as designed. THE ISSUE IS THE ONLY
- * SIGNAL, which puts the whole weight of the nightly tier on it being true.
+ * they find something — they file a rolling tracking issue instead. Run color
+ * therefore carries no information about these checks: twelve consecutive
+ * `integration-nightly` runs reported success while the tier was failing, and
+ * that is the contract working as designed. THE ISSUE IS THE ONLY SIGNAL,
+ * which puts the whole weight of the nightly tier on it being true.
  *
- * It was not. Until this file landed, five of the six could open a rolling
- * issue and none of them could close one. An alarm that only ever fires is not
- * an alarm: after its first firing — statistically likelier a harness failure
- * than a real regression — the thread is triaged as "the flaky nightly", and a
- * genuine regression months later arrives as a comment on a dismissed thread.
+ * It was not. Until 2026-09-01 five of the six could open a rolling issue and
+ * none could act on a recovery. An alarm that only ever fires is not an alarm:
+ * after its first firing — likelier a harness failure than a real regression —
+ * the thread reads as "the flaky nightly", and a genuine regression months
+ * later arrives as a comment nobody reopens.
  *
  * WHY A TEST AND NOT A REVIEW NOTE. Every rule below is a shape somebody
  * already got wrong, and every one of them fails SILENTLY: the workflow is
- * valid YAML, the run is green, and the damage is an issue that closed on a
- * night nothing was measured. Nothing in the tree could see that. These are
- * cheap string-level assertions over parsed YAML — they cannot prove a
- * stand-down closes for the right reason, and they are not meant to. They pin
- * the five mechanical mistakes that produced the wrong behavior.
+ * valid YAML, the run is green, and the damage is a thread closed on a night
+ * nothing was measured. Nothing else in the tree can see that.
  *
- * WHAT IT DELIBERATELY DOES NOT ASSERT: that a stand-down CLOSES. Whether a
- * measured-green night is evidence the condition is gone depends on the check.
- * An ABSOLUTE check (does the gallery paint on this commit?) is settled by one
- * green night. A DIFFERENTIAL one (perf: head vs a base ~24h old) is not — on
- * night 2 the base carries the regression too and the diff comes back clean on
- * a still-broken site. So `perf-nightly`'s `watch` job comments and never
- * closes, on purpose. Requiring a close would have forced a wrong condition
- * into the one job that must not have one.
+ * AN EARLIER VERSION OF THIS FILE WAS ITSELF THE PROBLEM IT DESCRIBES, and
+ * the corrections are why three of these assertions look the way they do:
+ *
+ *  · Its lookup comparison read the raw shell text, which contains the
+ *    VARIABLE `$MARKER` rather than its value — so the two sides were equal by
+ *    construction for every job in the family and the assertion could not fail.
+ *    Pointing a job's stand-down at a SIBLING'S marker passed. The markers are
+ *    now RESOLVED from their assignments before anything is compared.
+ *  · Its outcome check asked only that `outcome == 'success'` appeared
+ *    SOMEWHERE in the `if:`. Reducing integration's six-arm guard to one arm
+ *    passed. It now requires that every step whose OUTPUT the condition reads
+ *    also has its OUTCOME guarded — the pairing is the rule, not the presence
+ *    of the words.
+ *  · Its `!= 'true'` ban matched one exact spelling, so removing a space
+ *    evaded it. The condition is normalized first.
+ *
+ * WHAT IT DELIBERATELY DOES NOT ASSERT is nothing: the CLOSE/COMMENT posture
+ * of every job is pinned below, because that judgment is the one most likely
+ * to be got wrong quietly — and was.
  */
 
 const test = require('node:test');
@@ -42,10 +50,55 @@ const YAML = require('yaml');
 const WF_DIR = path.join(__dirname, '..', '..', '..', '.github', 'workflows');
 
 /**
+ * A stand-down may CLOSE its thread only when a green night is real evidence
+ * the condition cleared. That is true only of a check scored against the
+ * commit in front of it. It is NOT true of a check scored against a COMMITTED
+ * BASELINE, because blessing the baseline turns the check green without fixing
+ * anything, and the run cannot tell the two apart — the re-bless would BE the
+ * trigger. It is not true of a DIFFERENTIAL check either: a head-vs-base-24h
+ * comparison comes back clean on night 2 because the base carries the
+ * regression too.
+ *
+ * Both lists are exhaustive over the family and are checked for staleness in
+ * both directions, so a new alarm cannot join without someone deciding which
+ * it is.
+ */
+const CLOSES = {
+  'preview-e2e-nightly.yml::e2e':
+    'absolute — the gallery paints on this commit or it does not; there is no baseline to bless',
+  'modulepreload-coverage-nightly.yml::check':
+    'absolute — islands under docs/src/pages/ against the ENTRIES list, both in the tree, and ' +
+    'adding the missing entry IS the fix rather than a bless',
+  'perf-nightly.yml::engine-perf':
+    'differential, and closes NARROWLY because of it — only a thread whose body says the ' +
+    'previous firing was a HARNESS failure (NOTHING WAS COMPARED). A false alarm is settled ' +
+    'by one clean measurement; a real regression is not, and that one stays open. The body ' +
+    'is the discriminator, and its sibling `watch` job emits no such marker, which is why ' +
+    'that one may not close at all',
+};
+
+const COMMENTS_ONLY = {
+  'integration-nightly.yml::nightly':
+    'baseline-scored — test/oracle/family-*.json, test/oracle/player-contrast.json and the ' +
+    'committed golden PDFs, each with its own bless script',
+  'overflow-nightly.yml::overflow':
+    'baseline-scored — the tool calls itself a RATCHET against committed per-deck clip counts, ' +
+    'and overflow:bless raises the floor',
+  'studio-e2e-nightly.yml::e2e':
+    'baseline-scored — visual.spec.ts asserts toHaveScreenshot against committed snapshots; ' +
+    'CI also retries once, so a flaky pass reads as green',
+  'studio-e2e-nightly.yml::e2e-ai':
+    'a live model, so one passing night is weaker evidence than it looks',
+  'perf-nightly.yml::watch':
+    'differential — head against a base ~24h old, and it emits no harness-failure marker to ' +
+    'discriminate on',
+};
+
+/**
  * Shell comment lines, stripped. These workflows document the bugs they fixed
  * BY QUOTING THEM — `perf-nightly.yml` spells out the `--search "in:title …"`
  * form in prose precisely to say never to use it. A naive substring scan reads
- * the warning as the offense and fails the file that carries the fix.
+ * the warning as the offense and fails the file carrying the fix.
  */
 const code = (run) =>
   String(run || '')
@@ -53,146 +106,254 @@ const code = (run) =>
     .filter((l) => !l.trim().startsWith('#'))
     .join('\n');
 
-/** Every job that files a rolling issue, as `{ file, job, filing, standDown }`. */
+const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+
+/** Every SCHEDULED job that files a rolling issue. */
 function alarmJobs() {
   const out = [];
   for (const file of fs.readdirSync(WF_DIR).filter((f) => f.endsWith('.yml'))) {
     const doc = YAML.parse(fs.readFileSync(path.join(WF_DIR, file), 'utf8'));
+    // Scoped to the NIGHTLY family on purpose. A one-shot dispatch workflow
+    // that files an issue is not a rolling alarm, and demanding a stand-down of
+    // it would redden `npm test` for an unrelated change.
+    if (!doc?.on?.schedule) continue;
     for (const [job, spec] of Object.entries(doc.jobs || {})) {
       const steps = spec.steps || [];
       const filing = steps.find((s) => code(s.run).includes('gh issue create'));
       if (!filing) continue;
-      const standDown = steps.find((s) => /Stand down|Comment on the rolling issue/.test(s.name || ''));
-      out.push({ file, job, filing, standDown });
+      const standDown = steps.find((s) => /Stand down|Report .* on the rolling issue/.test(s.name || ''));
+      out.push({ file, job, id: `${file}::${job}`, filing, standDown });
     }
   }
   return out;
 }
 
-/** The `gh issue list …` lookup a step uses, whitespace-normalized. */
+/** `MARKER='[x]'` / `TITLE='x'` assignments in a step, as a name→value map. */
+function shellVars(step) {
+  const vars = {};
+  for (const m of code(step?.run).matchAll(/^\s*(MARKER|TITLE)='([^']*)'/gm)) vars[m[1]] = m[2];
+  return vars;
+}
+
+/**
+ * The `gh issue list …` lookup a step uses, whitespace-normalized AND WITH ITS
+ * MARKER/TITLE RESOLVED. Resolving is the whole point: unresolved, every job in
+ * the family shares one string and comparing them proves nothing.
+ */
 function lookup(step) {
   const m = code(step?.run).match(/ISSUE=\$\(gh issue list[\s\S]*?\)\n/);
-  return m ? m[0].replace(/\s+/g, ' ').trim() : null;
+  if (!m) return null;
+  let text = norm(m[0]);
+  for (const [k, v] of Object.entries(shellVars(step))) text = text.split(`$${k}`).join(v);
+  return text;
+}
+
+/** The title the filing step would create, resolved. */
+function createdTitle(step) {
+  const m = code(step?.run).match(/--title "([^"]*)"/);
+  if (!m) return null;
+  let t = m[1];
+  for (const [k, v] of Object.entries(shellVars(step))) t = t.split(`$${k}`).join(v);
+  return t;
 }
 
 test('nightly alarm contract', async (t) => {
   const jobs = alarmJobs();
 
   await t.test('the alarm family is found at all', () => {
-    // Anti-vacuity. Every assertion below iterates `jobs`; an empty list would
-    // pass all of them silently, which is the exact failure mode this file is
-    // about. The count is a floor, not a pin — a new nightly should raise it.
-    assert.ok(jobs.length >= 8, `expected >=8 issue-filing jobs, found ${jobs.length}`);
+    // Anti-vacuity: every assertion below iterates `jobs`, so an empty list
+    // would pass all of them silently — the exact failure this file is about.
+    assert.ok(jobs.length >= 7, `expected >=7 scheduled issue-filing jobs, found ${jobs.length}`);
     const files = new Set(jobs.map((j) => j.file));
     for (const f of [
-      'perf-nightly.yml',
-      'preview-e2e-nightly.yml',
-      'integration-nightly.yml',
-      'modulepreload-coverage-nightly.yml',
-      'overflow-nightly.yml',
-      'studio-e2e-nightly.yml',
+      'perf-nightly.yml', 'preview-e2e-nightly.yml', 'integration-nightly.yml',
+      'modulepreload-coverage-nightly.yml', 'overflow-nightly.yml', 'studio-e2e-nightly.yml',
     ]) {
       assert.ok(files.has(f), `${f} no longer files a rolling issue — did it move or get renamed?`);
     }
   });
 
-  await t.test('every filing job can also stand its alarm down', () => {
-    for (const { file, job, standDown } of jobs) {
-      assert.ok(standDown, `${file} / ${job} files a rolling issue but can never act on a recovery`);
+  await t.test('every filing job can also act on a recovery', () => {
+    for (const { id, standDown } of jobs) {
+      assert.ok(standDown, `${id} files a rolling issue but can never act on a recovery`);
+    }
+  });
+
+  await t.test('every job is classified as closing or commenting, and neither list is stale', () => {
+    const classified = new Set([...Object.keys(CLOSES), ...Object.keys(COMMENTS_ONLY)]);
+    for (const { id } of jobs) {
+      assert.ok(
+        classified.has(id),
+        `${id} is a nightly alarm with no posture — decide whether a green night is evidence ` +
+          'enough to CLOSE its thread, and say why in CLOSES or COMMENTS_ONLY',
+      );
+    }
+    const live = new Set(jobs.map((j) => j.id));
+    for (const id of classified) {
+      assert.ok(live.has(id), `${id} is classified but is no longer a nightly alarm — drop it`);
+    }
+    for (const id of Object.keys(CLOSES)) {
+      assert.ok(!COMMENTS_ONLY[id], `${id} is in both lists`);
+    }
+  });
+
+  await t.test('a job closes its thread only if it is classified as able to', () => {
+    // The one the first cut got wrong: four baseline-scored jobs closed on a
+    // measured green, so the first night any of them fired would have been the
+    // night after a bless — reporting a lowered bar as a recovery.
+    for (const { id, standDown } of jobs) {
+      if (!standDown) continue;
+      const closes = code(standDown.run).includes('gh issue close');
+      if (CLOSES[id]) {
+        assert.ok(closes, `${id} is classified as able to close, but never closes — ${CLOSES[id]}`);
+      } else {
+        assert.ok(
+          !closes,
+          `${id} closes its thread, but a green night there is not evidence the condition ` +
+            `cleared: ${COMMENTS_ONLY[id]}`,
+        );
+      }
     }
   });
 
   await t.test("a stand-down runs on always(), so a failing sibling step can't mute it", () => {
     // GitHub applies an implicit `success()` to any `if:` with no status
-    // function. Without `always()` the condition silently becomes
-    // `success() && …`, and these jobs deliberately let steps fail — so the
-    // step would be skipped in a run that had something to say.
-    for (const { file, job, standDown } of jobs) {
-      if (!standDown) continue; // reported by the test above; don't crash the rest
-      assert.match(String(standDown.if), /always\(\)/, `${file} / ${job}: stand-down lacks always()`);
+    // function, and these jobs deliberately let steps fail.
+    for (const { id, standDown } of jobs) {
+      if (!standDown) continue;
+      assert.match(norm(standDown.if), /always\(\)/, `${id}: stand-down lacks always()`);
     }
   });
 
-  await t.test('a stand-down keys on step OUTCOME, never on the output alone', () => {
-    // `!= 'true'` — and a bare output test — IS TRUE FOR THE EMPTY STRING, and
-    // the output is empty in every state where nothing ran: a cancellation, a
-    // step timeout, an earlier step that died. Acting there reports NOT
-    // MEASURED as health, which is this family's cardinal sin.
-    for (const { file, job, standDown } of jobs) {
-      if (!standDown) continue; // reported above
-      const cond = String(standDown.if);
-      assert.ok(
-        cond.includes("outcome == 'success'"),
-        `${file} / ${job}: stand-down has no outcome guard — an unmeasured night reads as green`,
+  await t.test('every step whose OUTPUT a stand-down reads has its OUTCOME guarded too', () => {
+    // The pairing is the rule. An output is empty in every state where nothing
+    // was measured — a cancellation, a step timeout, an earlier step that died
+    // — so an output read without its outcome guard treats NOT MEASURED as
+    // health. Checking that the words appear somewhere is not enough: it
+    // accepted a six-arm guard reduced to one arm.
+    for (const { id, standDown } of jobs) {
+      if (!standDown) continue;
+      const cond = norm(standDown.if);
+      const read = new Set([...cond.matchAll(/steps\.([\w-]+)\.outputs\./g)].map((m) => m[1]));
+      assert.ok(read.size > 0, `${id}: stand-down reads no step output at all — what is it keying on?`);
+      for (const stepId of read) {
+        assert.ok(
+          new RegExp(`steps\\.${stepId}\\.outcome\\s*==\\s*'success'`).test(cond),
+          `${id}: reads steps.${stepId}.outputs.* without guarding steps.${stepId}.outcome — ` +
+            'an unmeasured night reads as green',
+        );
+      }
+    }
+  });
+
+  await t.test('a stand-down weighs every arm the filing step weighs', () => {
+    // Filing ORs its arms — ANY one red files. Standing down has to AND the
+    // SAME arms, because any one still red means the condition has not cleared.
+    // Checking only that each arm read is also outcome-guarded is not enough: it
+    // is satisfied by a six-arm guard reduced to one, which is a stand-down that
+    // reports the whole tier green on the strength of its first arm. Measured —
+    // that mutation passed every other assertion in this file.
+    const outputsRead = (cond) =>
+      new Set([...norm(cond).matchAll(/steps\.([\w-]+)\.outputs\./g)].map((m) => m[1]));
+    for (const { id, filing, standDown } of jobs) {
+      if (!standDown) continue;
+      const want = [...outputsRead(filing.if)].sort();
+      const got = [...outputsRead(standDown.if)].sort();
+      assert.ok(want.length > 0, `${id}: the filing step reads no step output — what does it key on?`);
+      assert.deepEqual(
+        got,
+        want,
+        `${id}: the filing step weighs [${want}] but the stand-down weighs [${got}] — ` +
+          'an arm nobody re-checks is an arm that can stay red through a "recovery"',
       );
+    }
+  });
+
+  await t.test("no stand-down compares an output with != 'true'", () => {
+    // True for the empty string. Normalized first: the earlier spelling-exact
+    // ban was evaded by deleting a space.
+    for (const { id, standDown } of jobs) {
+      if (!standDown) continue;
       assert.ok(
-        !cond.includes("!= 'true'"),
-        `${file} / ${job}: stand-down uses != 'true', which is true for the empty string`,
+        !/!=\s*'true'/.test(norm(standDown.if)),
+        `${id}: uses != 'true', which is satisfied by the empty output of a job that never ran`,
       );
     }
   });
 
   await t.test('no lookup uses the tokenizing in:title search', () => {
     // GitHub tokenizes `--search "in:title [preview-e2e]"` on the brackets and
-    // the hyphen, degrading it to the bare words — which match human-authored
-    // issues. `.[0]` then takes someone else's issue and appends to it nightly
-    // while the rolling issue is never found.
-    for (const { file, job, filing, standDown } of jobs) {
-      if (!standDown) continue; // reported above
+    // the hyphen, so it matches human-authored issues and `.[0]` takes one.
+    for (const { id, filing, standDown } of jobs) {
       for (const [what, step] of [['filing', filing], ['stand-down', standDown]]) {
+        if (!step) continue;
         assert.ok(
           !code(step.run).includes('--search "in:title'),
-          `${file} / ${job}: ${what} step uses the tokenizing in:title search`,
+          `${id}: ${what} step uses the tokenizing in:title search`,
         );
       }
     }
   });
 
-  await t.test('the filing and stand-down steps of a job look the issue up identically', () => {
-    // The one that matters most. Two different searches in one job means the
-    // step that files appends to one thread while the step that recovers acts
-    // on another — and both look correct in isolation.
-    for (const { file, job, filing, standDown } of jobs) {
-      if (!standDown) continue; // reported above
+  await t.test('the filing and stand-down steps of a job look up the SAME issue', () => {
+    // Compared with markers RESOLVED. Unresolved, the two strings are identical
+    // for every job in the family whatever the markers are, and pointing one
+    // job's stand-down at a sibling's thread passes.
+    for (const { id, filing, standDown } of jobs) {
+      if (!standDown) continue;
       const a = lookup(filing);
       const b = lookup(standDown);
-      assert.ok(a, `${file} / ${job}: could not find the filing step's issue lookup`);
-      assert.ok(b, `${file} / ${job}: could not find the stand-down's issue lookup`);
-      assert.equal(b, a, `${file} / ${job}: the two steps search for DIFFERENT issues`);
+      assert.ok(a, `${id}: could not find the filing step's issue lookup`);
+      assert.ok(b, `${id}: could not find the stand-down's issue lookup`);
+      assert.ok(!a.includes('$MARKER') && !a.includes('$TITLE'), `${id}: filing marker unresolved`);
+      assert.equal(b, a, `${id}: the two steps search for DIFFERENT issues`);
+    }
+  });
+
+  await t.test('the issue a job CREATES is one its own lookup would find', () => {
+    // A marker that does not prefix the title is a stand-down that silently
+    // never finds anything, and a filing step that opens a fresh duplicate
+    // every night.
+    for (const { id, filing } of jobs) {
+      const title = createdTitle(filing);
+      const q = lookup(filing);
+      assert.ok(title, `${id}: filing step creates no --title`);
+      const prefix = q.match(/startswith\(\\?"([^"\\]*)/);
+      const exact = q.match(/\.title == \\?"([^"\\]*)/);
+      if (prefix) {
+        assert.ok(title.startsWith(prefix[1]), `${id}: creates "${title}", which "${prefix[1]}" never matches`);
+      } else if (exact) {
+        assert.equal(title, exact[1], `${id}: creates a title its own exact lookup would miss`);
+      } else {
+        assert.fail(`${id}: lookup matches on neither a prefix nor an exact title`);
+      }
     }
   });
 
   await t.test('a stand-down never acts silently — it comments, naming the run', () => {
-    // A close with no comment leaves the next reader unable to tell a recovered
-    // alarm from one somebody quietly triaged away.
-    for (const { file, job, standDown } of jobs) {
-      if (!standDown) continue; // reported above
+    for (const { id, standDown } of jobs) {
+      if (!standDown) continue;
       const run = code(standDown.run);
-      assert.ok(run.includes('gh issue comment'), `${file} / ${job}: stand-down acts without commenting`);
-      assert.ok(
-        run.includes('actions/runs/'),
-        `${file} / ${job}: stand-down comment names no run, so its evidence can't be checked`,
-      );
+      assert.ok(run.includes('gh issue comment'), `${id}: stand-down acts without commenting`);
+      assert.ok(run.includes('actions/runs/'), `${id}: comment names no run, so its evidence can't be checked`);
     }
   });
 
   await t.test('a Playwright stand-down proves tests actually RAN', () => {
     // `ai-architect.spec.ts` opens with `test.skip(!LIVE_KEY, …)`: with the
     // secret unset Playwright skips every test, prints "N skipped" and EXITS 0.
-    // Outcome and output both say green while nothing whatsoever was tested, so
-    // these two need a third condition the other jobs do not.
+    // Outcome and output both read green while nothing was tested.
     const pw = jobs.filter((j) => j.file === 'studio-e2e-nightly.yml');
     assert.equal(pw.length, 2, 'expected the two studio-e2e jobs');
-    for (const { file, job, standDown } of pw) {
-      // Pin the GUARD specifically — `! grep -qE …` in the early-exit — not merely the
-      // presence of the pattern somewhere in the step. The step greps the report twice
-      // (once to gate, once to pull the count for the comment), and an assertion that
-      // accepted either copy passed a mutation that weakened the gate and left the
-      // cosmetic one intact. Measured: that exact mutation went uncaught.
+    for (const { id, standDown } of pw) {
+      // The GUARD specifically — `! grep -qE …` — not merely the pattern
+      // somewhere in the step. The step greps twice (once to gate, once for the
+      // count), and accepting either copy passed a mutation that weakened the
+      // gate and left the cosmetic one intact.
       assert.match(
         code(standDown.run),
         /!\s*grep -qE '\[1-9\]\[0-9\]\* passed'/,
-        `${file} / ${job}: stand-down would close on a run that skipped every test`,
+        `${id}: would act on a run that skipped every test`,
       );
     }
   });

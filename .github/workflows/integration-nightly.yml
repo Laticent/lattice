@@ -362,7 +362,7 @@ jobs:
           # --limit is far above the open-issue count; gh paginates to reach it, and a limit the
           # backlog could outgrow would silently miss the issue and file a fresh duplicate nightly.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" 2>/dev/null || true)
+            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
             echo "Appended to issue #$ISSUE"
@@ -377,7 +377,7 @@ jobs:
       # STAND THE ALARM DOWN when the condition clears. A rolling issue that only ever
       # opens is a one-way ratchet: after its first firing it reads as "the flaky
       # nightly", and a real regression months later arrives as a comment on a thread
-      # nobody reopens. Until an alarm can close itself, neither its run colour nor its
+      # nobody reopens. Until an alarm can close itself, neither its run color nor its
       # issue is falsifiable — and this family is report-only by contract, so the issue is
       # the ONLY signal there is.
       #
@@ -389,12 +389,28 @@ jobs:
       # (perf-nightly.yml records four separate instances of it). `outcome` is the step's
       # own result, so a step that never ran to a clean exit cannot be read as evidence.
       #
-      # AND UNLIKE perf-nightly, THIS ALARM MAY CLOSE OUTRIGHT. perf compares head against
-      # a base ~24h old, so a green night there cannot tell "fixed" from "the base now
-      # carries the regression too", and it may only close a harness-failure thread. This
-      # check is ABSOLUTE — scored against this commit alone, with no historical arm — so
-      # a measured green IS the evidence that the condition is gone. The thread closes; a
-      # recurrence opens a fresh one.
+      # AND IT COMMENTS RATHER THAN CLOSING, because this tier is NOT scored against the
+      # commit in front of it. It is scored against a COMMITTED BASELINE — `test/oracle/family-*.json`, `test/oracle/player-contrast.json`, and the committed golden PDFs —
+      # and `npm run bless` / `contrast:player:bless` / `check:family-conformance:bless` rewrites that baseline to accept whatever is currently
+      # failing. So a green night here means "the tree matches the baseline", which is a
+      # different claim from "the finding is fixed", and the two are indistinguishable from
+      # inside the run.
+      #
+      # THE RE-BLESS WOULD HAVE BEEN THE TRIGGER. That is not hypothetical: a first cut of
+      # this step called the tier ABSOLUTE and closed on a measured green, which means the
+      # very first time it fired would have been the night after somebody blessed the
+      # baseline — posting "measured green, closing" about a bar that had just been lowered.
+      # A lowered bar reported as a recovery is the same lie this change exists to remove,
+      # wearing the opposite costume.
+      #
+      # Commenting is not a consolation prize. The ratchet was never really "it does not
+      # close", it was "nothing ever argues the other side": a thread that only ever
+      # accumulates failures reads as the flaky nightly. A comment naming the run and the
+      # commit gives a human the counter-evidence and lets them make the call the run
+      # cannot. Closing on a bless-aware condition — compare the baseline files' history
+      # against the issue's own creation date — is the better answer and is deliberately
+      # NOT attempted here: it needs full git history in a job that may be shallow, and a
+      # `git log` that silently returns nothing would close on no evidence at all.
       #
       # ALL SIX ARMS, NAMED INDIVIDUALLY. The filing step ORs six outputs; standing down has
       # to AND the same six, because any one still red means the tier is still failing.
@@ -407,7 +423,7 @@ jobs:
       # re-bless deliberately deferred (see that step's own comment) — so the rolling issue
       # stays open until the corpus is re-blessed. An alarm that stood down while a known
       # arm is red would be the same lie in the opposite direction.
-      - name: Stand down the rolling issue when every arm is measured green
+      - name: Report a measured-green night on the rolling issue
         if: >-
           always()
           && steps.run.outcome == 'success' && steps.run.outputs.failed == 'false'
@@ -424,7 +440,7 @@ jobs:
           # The IDENTICAL lookup the filing step above uses — see its comment for why the
           # `in:title` search cannot be used and why this matches on the marker prefix.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" 2>/dev/null || true)
+            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
           # Comment BEFORE closing, and name the run that proved it. A silent close leaves the
           # next reader unable to tell a recovered alarm from one somebody quietly triaged away.
@@ -432,9 +448,10 @@ jobs:
           # to start at column 0 to avoid leading spaces in the issue text, and a column-0 line
           # ENDS the `run: |` block scalar — the workflow then parses as something else entirely.
           {
-            echo "Recovered: every arm of the render-regression tier measured green on \`main@${{ github.sha }}\` — integration slice, adaptive family tiers, player contrast, palette matrix, code-line budgets and committed-golden freshness. Closing — a recurrence opens a fresh thread."
+            echo "Measured green on \`main@${{ github.sha }}\`: every arm of the render-regression tier passed — integration slice, adaptive family tiers, player contrast, palette matrix, code-line budgets and committed-golden freshness.\"
+            echo \""
+            echo \"**Left open deliberately.** Three of those arms score against committed baselines (\`test/oracle/*.json\`, the golden PDFs), and blessing a baseline turns them green without fixing anything. This run cannot tell a fix from a re-bless. Check which happened and close by hand; a recurrence appends here."
             echo ""
             echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
           } > "$GITHUB_WORKSPACE/stand-down.md"
           gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
-          gh issue close "$ISSUE" --reason completed || true

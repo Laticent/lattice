@@ -647,16 +647,45 @@ a mistake somebody already made:
   outcome and output both say green while nothing was tested. Both `studio-e2e-nightly.yml` jobs
   therefore require a non-zero passed count in the report before they will close anything.
 
-**Whether a green night licenses a CLOSE depends on the check, and the split is the interesting
-part.** An **absolute** check is scored against the commit in front of it — the gallery paints or
-it does not — so one measured-green night IS the evidence that the condition is gone, and the
-thread closes. A **differential** check is not: `perf-nightly` compares head against a base ~24h
-old, so a regression that lands on day 0 fires on night 1 (the base predates it) and comes back
-clean on night 2 (the base carries it too), on a still-broken site. Its `engine-perf` job
-therefore closes only a thread whose body says the previous firing was a HARNESS failure, and its
-`watch` job — which emits no such marker — **comments and never closes**, saying in the comment
-why a human has to make that call. Commenting is not a consolation prize: the ratchet was never
-really "it does not close", it was "nothing ever argues the other side".
+**Whether a green night licenses a CLOSE depends on the check, and only two of the eight jobs
+qualify.** This is the part a first cut got wrong, in the direction that matters.
+
+- **Absolute** — scored against the commit in front of it, with nothing in the tree that could be
+  edited to make it pass. The gallery paints or it does not (`preview-e2e`); an island is covered
+  by `ENTRIES` or it is not, and adding the entry IS the fix rather than a bless
+  (`modulepreload-coverage`). One measured-green night is evidence the condition cleared, so the
+  thread closes.
+- **Baseline-scored** — the check compares the tree against a COMMITTED baseline that a bless
+  script rewrites: `test/oracle/family-*.json` and `player-contrast.json` and the golden PDFs
+  (`integration-nightly`), the per-deck clip counts the overflow tool itself calls a ratchet
+  (`overflow-nightly`), the `toHaveScreenshot` snapshots under `docs/e2e/visual.spec.ts-snapshots`
+  (`studio-e2e`). Blessing turns the check green without fixing anything, and **the run cannot
+  tell the two apart** — so a green night means "the tree matches the baseline", not "the finding
+  is fixed". These comment and leave the thread open.
+- **Differential** — `perf-nightly` compares head against a base ~24h old, so a regression landing
+  on day 0 fires on night 1 (the base predates it) and comes back clean on night 2 (the base
+  carries it too), on a still-broken site. `engine-perf` closes only a thread whose body says the
+  previous firing was a HARNESS failure — a false alarm IS settled by one clean measurement — and
+  `watch`, which emits no such marker, comments and never closes.
+
+**The near-miss is worth keeping in mind, because it inverts the whole change.** Four jobs were
+first written as absolute and closed on a measured green. Three of them score against baselines
+that were, at the time, knowingly stale — `integration`'s own step comment says the stand-down
+will not fire "until the corpus is re-blessed". **The re-bless would have been the trigger**: the
+first time any of them ever fired would have been the night after somebody lowered the bar, and
+it would have posted "measured green, closing". A lowered bar reported as a recovery is the same
+lie this section exists to remove, wearing the opposite costume.
+
+**Commenting is not a consolation prize.** The ratchet was never really "it does not close", it
+was "nothing ever argues the other side": a thread that only accumulates failures reads as the
+flaky nightly. A comment naming the run, the commit and what was measured is the counter-evidence
+a human needs to make the call the run cannot. Closing a baseline-scored alarm properly needs a
+bless-aware condition — compare the baseline files' history against the issue's own creation date
+— and that is deliberately not attempted: it needs full git history in jobs that may be shallow,
+and a `git log` that silently returns nothing would close on no evidence at all.
+
+`test/unit/tools/nightly-alarm-contract.test.js` pins the posture of every job in the family, in
+both directions, so a new alarm cannot join without someone deciding which of the three it is.
 
 **A live-key job owes one thing the others do not: redact before you publish.** Actions masks
 secrets in the LOG, but `tee` writes the report to disk unmasked and `gh issue create` posts that

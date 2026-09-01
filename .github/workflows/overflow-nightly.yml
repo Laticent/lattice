@@ -283,7 +283,7 @@ jobs:
           # --limit is far above the open-issue count; gh paginates to reach it, and a limit the
           # backlog could outgrow would silently miss the issue and file a fresh duplicate nightly.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" 2>/dev/null || true)
+            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             # Retitle on append. The rolling issue outlives the condition that opened it, so an
             # issue first opened by a broken browser would otherwise keep saying "cannot render"
@@ -303,7 +303,7 @@ jobs:
       # STAND THE ALARM DOWN when the condition clears. A rolling issue that only ever
       # opens is a one-way ratchet: after its first firing it reads as "the flaky
       # nightly", and a real regression months later arrives as a comment on a thread
-      # nobody reopens. Until an alarm can close itself, neither its run colour nor its
+      # nobody reopens. Until an alarm can close itself, neither its run color nor its
       # issue is falsifiable — and this family is report-only by contract, so the issue is
       # the ONLY signal there is.
       #
@@ -315,12 +315,28 @@ jobs:
       # (perf-nightly.yml records four separate instances of it). `outcome` is the step's
       # own result, so a step that never ran to a clean exit cannot be read as evidence.
       #
-      # AND UNLIKE perf-nightly, THIS ALARM MAY CLOSE OUTRIGHT. perf compares head against
-      # a base ~24h old, so a green night there cannot tell "fixed" from "the base now
-      # carries the regression too", and it may only close a harness-failure thread. This
-      # check is ABSOLUTE — scored against this commit alone, with no historical arm — so
-      # a measured green IS the evidence that the condition is gone. The thread closes; a
-      # recurrence opens a fresh one.
+      # AND IT COMMENTS RATHER THAN CLOSING, because this tier is NOT scored against the
+      # commit in front of it. It is scored against a COMMITTED BASELINE — the per-deck clip counts in the overflow corpus baseline, which this tool calls a RATCHET in its own header —
+      # and `npm run overflow:bless` rewrites that baseline to accept whatever is currently
+      # failing. So a green night here means "the tree matches the baseline", which is a
+      # different claim from "the finding is fixed", and the two are indistinguishable from
+      # inside the run.
+      #
+      # THE RE-BLESS WOULD HAVE BEEN THE TRIGGER. That is not hypothetical: a first cut of
+      # this step called the tier ABSOLUTE and closed on a measured green, which means the
+      # very first time it fired would have been the night after somebody blessed the
+      # baseline — posting "measured green, closing" about a bar that had just been lowered.
+      # A lowered bar reported as a recovery is the same lie this change exists to remove,
+      # wearing the opposite costume.
+      #
+      # Commenting is not a consolation prize. The ratchet was never really "it does not
+      # close", it was "nothing ever argues the other side": a thread that only ever
+      # accumulates failures reads as the flaky nightly. A comment naming the run and the
+      # commit gives a human the counter-evidence and lets them make the call the run
+      # cannot. Closing on a bless-aware condition — compare the baseline files' history
+      # against the issue's own creation date — is the better answer and is deliberately
+      # NOT attempted here: it needs full git history in a job that may be shallow, and a
+      # `git log` that silently returns nothing would close on no evidence at all.
       #
       # `failed == 'false'` IS THE ONLY CLEAN VERDICT HERE, and the sweep step writes it on
       # exit 0 alone. That step deliberately swallows the tool's exit code into `code`/`kind`
@@ -329,7 +345,7 @@ jobs:
       # and `kind=unknown` both carry `failed=true`, and both must keep the thread open. A
       # ratchet verdict computed over decks that never rendered is not a verdict, so it is not
       # grounds to close one either.
-      - name: Stand down the rolling issue when the corpus sweeps clean
+      - name: Report a clean corpus sweep on the rolling issue
         if: always() && steps.sweep.outcome == 'success' && steps.sweep.outputs.failed == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -339,7 +355,7 @@ jobs:
           # The IDENTICAL lookup the filing step above uses — see its comment for why the
           # `in:title` search cannot be used and why this matches on the marker prefix.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" 2>/dev/null || true)
+            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
           # Comment BEFORE closing, and name the run that proved it. A silent close leaves the
           # next reader unable to tell a recovered alarm from one somebody quietly triaged away.
@@ -347,9 +363,10 @@ jobs:
           # to start at column 0 to avoid leading spaces in the issue text, and a column-0 line
           # ENDS the `run: |` block scalar — the workflow then parses as something else entirely.
           {
-            echo "Recovered: the corpus rendered in full and no deck clips more slides than its baseline on \`main@${{ github.sha }}\`. Closing — a recurrence opens a fresh thread."
+            echo "Measured green on \`main@${{ github.sha }}\`: the corpus rendered in full and no deck clips more slides than its baseline.\"
+            echo \""
+            echo \"**Left open deliberately.** The ratchet is scored against a committed baseline, and \`npm run overflow:bless\` raises that floor to accept the current clips — the issue body above says so itself when it fires. A clean sweep therefore cannot distinguish a trimmed deck from a raised floor. Check which happened and close by hand; a recurrence appends here."
             echo ""
             echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
           } > "$GITHUB_WORKSPACE/stand-down.md"
           gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
-          gh issue close "$ISSUE" --reason completed || true
