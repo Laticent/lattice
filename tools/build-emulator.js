@@ -19,6 +19,17 @@
  * highlight.js, function-plot, puppeteer at runtime — those resolve from
  * the consumer's node_modules, exactly as the loose source does.
  *
+ * `@workwel/*` IS THE LOCAL GRAPH, so it is inlined too (see WORKSPACE_LIBS
+ * below). Those four packages are npm-WORKSPACE members: in this repo they
+ * resolve through a node_modules symlink into docs/src/lib/<name>, and in an
+ * `npm install @workwel/lattice` they resolve nowhere — they are neither a
+ * dependency nor in the published `files`. A bare `require('@workwel/cadenza')`
+ * surviving into the bundle is therefore MODULE_NOT_FOUND for every installed
+ * user, which is what `--strip-notes`, read-along, chart narration and `--lens`
+ * would each have hit. `packages: 'external'` is the right default for a
+ * third-party dep the consumer installs; it is the wrong one for our own source
+ * under another name.
+ *
  * Path resolution: the source uses a package-root walk (PKG_ROOT) rather
  * than __dirname for themes/, dist/lattice.css, and node_modules/.bin, so
  * the same code locates its assets whether it runs from the repo root or
@@ -40,8 +51,37 @@ const { execSync } = require('child_process');
 
 const ROOT     = path.resolve(__dirname, '..');
 const ENTRY    = path.join(ROOT, 'lattice-emulator.js');
+const LIB_DIR  = path.join(ROOT, 'docs', 'src', 'lib');
 const OUT_FILE = path.join(ROOT, 'dist', 'lattice-emulator.js');
 const MIN_FILE = path.join(ROOT, 'dist', 'lattice-emulator.min.js');
+
+/**
+ * Resolve `@workwel/<name>` to its TypeScript SOURCE barrel so esbuild inlines it
+ * instead of leaving a `require()` the installed CLI cannot satisfy. An onResolve
+ * callback runs ahead of esbuild's own resolver, which is where `packages: 'external'`
+ * lives — so this is the one hook that can opt a package back IN.
+ *
+ * SOURCE, not the sibling `dist/index.cjs`, for one reason: build order. Each library's
+ * dist is generated (tools/build-lente-lib.js et al), gitignored, and — in tools/build.js —
+ * produced in the BACKGROUND, joined only before build-read-along-core.js, long after this
+ * step runs. Bundling it would make a committed artifact a function of an uncommitted one
+ * built later, and `--check` would report drift on a cold tree. The `.ts` files are
+ * committed and esbuild reads TypeScript natively, so pointing at them removes the ordering
+ * question entirely. The result is equivalent by construction: those dists are themselves
+ * `esbuild --bundle` of this same barrel, with zero dependencies to inline.
+ */
+const inlineWorkspacePackages = {
+  name: 'workwel-workspace-inline',
+  setup(build) {
+    build.onResolve({ filter: /^@workwel\/[a-z]+$/ }, (args) => {
+      const name = args.path.slice('@workwel/'.length);
+      const entry = path.join(LIB_DIR, name, 'index.ts');
+      // Anything not a workspace member falls through to the normal resolver (and
+      // stays external) rather than resolving to a path that does not exist.
+      return fs.existsSync(entry) ? { path: entry } : null;
+    });
+  },
+};
 
 const argv   = process.argv.slice(2);
 const check  = argv.includes('--check');
@@ -59,6 +99,7 @@ const BUILD_OPTIONS = {
   // Only the local relative graph (./lib, ./package.json) is
   // inlined.
   packages: 'external',
+  plugins: [inlineWorkspacePackages],
   // Inlined source map so a single committed file carries debugging info
   // without a sidecar .map artifact. esbuild is deterministic, so identical
   // sources rebuild byte-for-byte — the --check diff relies on that.
