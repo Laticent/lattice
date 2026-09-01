@@ -15,7 +15,9 @@ summary: >
   anyone wants"; both halves are wrong. `fill-center` — a full-height panel with its content at
   the optical middle — is what TWO of the four defect cells actually needed and the first cut
   could not name, and `fill-top` is what a `kanban` lane legitimately wants. §5c recommends a
-  composition for each of the 17, five of them settled by shipped code. FOUR OF THE NOTE'S LOAD-BEARING
+  composition for each of the 17, three of them settled by shipped code. **§10 IS THE OUTCOME AND OVERRIDES
+  §5c's DIRECTION** — the owner ruled the default stays `stretch` and all four alignments go to the
+  author, so the `cards:` register ships and NO component default changes. FOUR OF THE NOTE'S LOAD-BEARING
   CLAIMS ARE NOW REFUTED BY MEASUREMENT, and §9 is where the branches that fixed the defects record
   what they found. (1) The grid switch is not needed: `align-content` works on a WRAPPED FLEX
   container, the 2x2 never flattens, and flattening is exclusive to `grid-auto-flow: column` — so
@@ -34,9 +36,10 @@ summary: >
   for `cards-grid` and `verdict-grid` was wrong: the render that picked `fill-center` exercised only
   cards whose bodies wrap to equal line counts, and on the uneven cases centering inside the card
   staggers the titles across a row of peers. Both take `shrink-center` on the CONTAINER instead
-  (§9f). Five cells are fixed and shipped — `decision` at wide, `matrix-2x2` at every family,
-  `stats` on autosplit pages, `cards-grid` and `verdict-grid` on their rows — one CSS property each,
-  no register and no manifest field. Scope was settled by
+  (§9f). Three cells are fixed and shipped — `decision` at wide, `matrix-2x2` at every family and
+  `stats` on autosplit pages — one CSS property each. `cards-grid` and `verdict-grid` keep their
+  stretching default and gain the register instead (§10), which is the one piece of §5 that did get
+  built, with a vocabulary §5b did not anticipate. Scope was settled by
   RENDERING all 26 candidates and looking at them, which corrected five: `authority-chain`,
   `cycle` and `roadmap` are cards, not diagrams; `contact` and `wifi` are single cards whose
   internal zones the detector miscounted as a row. A second look at full resolution corrected two
@@ -445,11 +448,14 @@ line. A grid of peers is read ACROSS, so a title baseline is load-bearing — an
 principle §9d already applied to `stats`, where centering each tile independently would have broken a shared
 number baseline. It was not applied here, and the render that would have caught it was too narrow.
 
-**The correction is one declaration up the tree.** `align-content: space-evenly` on the CONTAINER
-makes each wrapped line content-height and distributes the leftover between the lines. The void
-goes, the cards in a line stay equal height (flex's default cross-axis `stretch`), and the titles
-stay level. At one line `space-evenly` is exactly "band centered", which is `shrink-center`; at two
-or more it is that value generalized to a wrap. **The rule for when `fill-center` is safe:**
+**The correction is one declaration up the tree** — `align-content` on the CONTAINER rather than
+`justify-content` on the card. That makes each wrapped line content-height: the void goes, the
+cards in a line stay equal height (flex's default cross-axis `stretch`), and the titles stay level.
+**Which VALUE of `align-content` is a separate question, and §9f settles it — not this section.**
+An earlier draft of this paragraph said `space-evenly`, on the reasoning that at one line it is
+exactly "band centered" and at two or more it is that generalized to a wrap. The second half is
+wrong: at two or more lines it pours the leftover into the row gutter. Read §9f for the value and
+the measurements. **The rule for when `fill-center` is safe:**
 
 - **Safe in a single COLUMN** — one card per line, so there is nothing to stagger against. This is
   why `verdict-grid`'s own portrait rule chose card-level centering and its comment says in as many
@@ -828,8 +834,13 @@ at wide and square and looked at: `center` is the composition, `space-evenly` wa
 **The cost of `center`, stated because §5c originally rejected this composition over exactly it.**
 The first draft's objection was that under `shrink-center` *"the band stops short of the stage
 floor, and the accent-filled 'recommended' card loses the presence its fill is there to give it"*.
-That is real and `center` makes it larger than `space-evenly` would: on `verdict-grid`'s own
-gallery slide the band's top and bottom padding goes from **0 to 51.5px each**. It is accepted
+That is real and `center` makes it larger than `space-evenly` would — **0 to 77.23px each** on
+`verdict-grid`'s own 2-row gallery slide, where `space-evenly` puts 51.48/51.50 (the same 154.5px
+of freed height split two ways rather than three) and `flex-start` puts 0/154.47. The card height
+drops 211.11 → 133.88 in every case: that 77px per card is the void being removed.
+**An earlier revision of this section quoted 51.5 as `center`'s number.** It is `space-evenly`'s —
+the value this section rejects — in the one paragraph whose job is to price the cost honestly, and
+in the same breath as the sentence saying `center` is the larger of the two. Caught by a checker. It is accepted
 here, and the reason is that the objection was written against the wrong comparison — it weighed
 `shrink-center` against a full-height card that looked *composed*, when that card is two-fifths
 empty. A coherent block of content-height cards, inset from the stage edge, reads better than
@@ -893,3 +904,81 @@ declarative pass over the four defect cells is complete. The count is the same u
 under `space-evenly`: the slack probe measures the void INSIDE a card, and both values take it to
 zero. The gutter defect that separates them is invisible to this instrument — a fifth thing it
 cannot see, and the fifth correction that came from somewhere other than the corpus.
+
+## 10 · What shipped: the register, not a new default
+
+**The owner rejected changing the default, and directed the opposite of what §5c and §9f
+were converging on.** In their words: *"why can't all options be available to the author?
+default should be stretch."* That settles a question this note had been answering the hard
+way — by trying to find the single composition that is right for every sparse card row —
+and the answer is that there isn't one, which is why three successive values each looked
+right until the next render.
+
+**So the default is untouched.** `cards-grid` and `verdict-grid` render exactly as they did
+before this branch: `align-content: stretch`, cards filling their row. §9a's `decision`,
+`matrix-2x2` and `stats` fixes are unaffected — those were cards whose height was
+*definite* and whose content simply never distributed, which is a mechanism void the engine
+owes; this section is about where a SHRUNK band sits, which is a composition the deck owns.
+
+### 10a · The register
+
+`cards:` — a deck-level front-matter register with a per-slide class escape, the shape
+`lift:` uses (`lib/core/resolve-cards.js`, 4 values, ~75 lines, pure and dependency-free).
+
+| value | token | where the spare height goes |
+|---|---|---|
+| `stretch` | *(none)* | nowhere — the cards absorb it. **The default.** |
+| `center` | `cards-center` | split above and below the band |
+| `top` | `cards-top` | all below, band under the headline rule |
+| `spread` | `cards-spread` | shared between the rows, widening the row gutter |
+
+Per slide, `_class: cards-center` sets one slide, and `_class: cards-stretch` puts one
+slide back to the default inside a deck that chose otherwise — which is why the override
+set carries a token for the default even though the deck value stamps none.
+
+**The names are the CSS values in plain English**, not §5b's proposed `auto|fill|spread|
+shrink`. That vocabulary was built for a register that would have *decided* the composition
+(`auto` meaning "the runtime measures sparseness"), and §9b killed the measurement. What is
+left is a direct choice between four alignments, so the values say what they do. `spread`
+is the one name that survives from §5b, with the same meaning.
+
+### 10b · The mechanism, and why silence changes nothing
+
+A token, not a specificity fight. Each value sets `--cards-align` on the section, and a
+card row reads `align-content: var(--cards-align, <its own default>)`. Three consequences,
+all of them the reason this shape was chosen over a `section.cards-center .card-row { … }`
+rule:
+
+- **An absent register resolves to the component's own value.** There is deliberately NO
+  `:root` default for `--cards-align`; the variable simply is not set, so every fallback
+  wins. That is why `cards: stretch` stamps nothing — it is the absence of the variable,
+  not a value of it.
+- **A per-family default survives.** `cards-grid` paces its cards down a tall frame
+  (`space-evenly`) rather than centering them, and its family arm carries THAT value in its
+  own fallback. A single global default would have flattened it.
+- **The splitter still wins.** Base's split-page rules set `align-content` outright at
+  (0,4,2) and (0,6,2), above any of this, so a split run's pages stay uniform whatever the
+  deck asked for.
+
+Adding the next component is therefore one declaration, which is what lets this land one
+component at a time with a render check on each rather than as a catalog sweep.
+
+### 10c · What is verified, and what is not
+
+- **The export path**, in real Chromium, on the geometry: all four values plus no-register
+  measured on the same deck. No register and `cards: stretch` both give card height 211.11
+  and `align-content: stretch` — byte-identical to `main`. `center` → 133.88 with
+  padTop/padBot 77.23; `top` → 0/154.47; `spread` → 51.48/51.50 with the row gutter at
+  67.86 against a 16px column gutter.
+- **The runtime path**, driving the shipped `dist/lattice-runtime.js` in real Chromium:
+  the correct `cards-*` class is stamped for each value, none is stamped when the register
+  is absent, and a slide carrying `cards-stretch` correctly does NOT receive the deck
+  token. The geometry was not re-measured there — that harness injects the deck's theme CSS
+  rather than the full bundle — so the runtime claim is about the CLASS, not the layout.
+- **The lint rule** rejects a typo (`cards: centre`) and accepts all four names; the
+  per-slide tokens are registered as universal modifiers, so `_class: cards-center` is not
+  flagged unknown.
+- **NOT verified: the "Marp for VS Code" webview.** No such surface exists here.
+- **NOT verified: any component other than `cards-grid` and `verdict-grid`.** They still
+  stretch, which is the default, so nothing regresses — but nothing was rendered for them
+  either.

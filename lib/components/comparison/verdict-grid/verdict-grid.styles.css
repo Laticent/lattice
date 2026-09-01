@@ -53,38 +53,17 @@
  * the cell without one. */
 section.verdict-grid > .cell-stage { display:flex; flex-direction:column; }
 section.verdict-grid > .cell-stage > ul {
-  /* flex mirror of `grid-template-columns:1fr 1fr`: a 2-col tiling (matrix-2x2 idiom —
-   * `width` on the cells, not a flex-shorthand calc basis). The rows used to STRETCH to
-   * share the bounded stage; they are content-height now, and the note below says why. A
-   * dense grid still shrinks rather than clipping the last row: the cards have no explicit
-   * height, so a crowded line just gets taller. */
-  display:flex; flex-wrap:wrap;
-  /* `align-content: stretch` used to sit here, which made every wrapped row share the
-   * stage and left ~40% of each card empty below its criteria block at wide and square.
-   * The alternative — centering the content INSIDE a full-height card, which is what
-   * this component already does at portrait — was rendered and rejected: portrait is a
-   * single COLUMN, one card per line, so centering cannot stagger anything. In a
-   * multi-card ROW it can and does. On the five-option stress page the `Third.` and
-   * `Fourth.` titles fall out of line the moment one body wraps to two lines, and a
-   * grid of peers is read across, so a title baseline is load-bearing.
-   * `center`, not `space-evenly`: both take the void to zero, but `space-evenly` pours
-   * the leftover into the ROW gutter — measured 16px -> 67.5px here, 4.2x the column
-   * gutter — and the 2-up stops reading as a grid. `center` keeps the gutter at `gap`
-   * and puts the slack outside the band.
-   * THE COST, stated because an earlier draft of the note rejected this composition over
-   * it: the band no longer reaches the stage floor (padTop/padBot 0 -> 51.5 on the
-   * gallery's own slide), so the accent-filled last card sits inside the stage rather
-   * than closing it. Rendered both ways at wide and square; the coherent block reads
-   * better than a full-height card two-fifths empty, and better than two rows pushed
-   * apart.
-   * Scoped to the ROW families — at tall/strip this list is a column, where
-   * `align-content` governs the horizontal axis instead.
-   * See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §9f. */
-  align-content: center;
+  /* flex mirror of `grid-template-columns:1fr 1fr; grid-auto-rows:minmax(0,1fr)`: a 2-col
+   * tiling (matrix-2x2 idiom — `width` on the cells, not a flex-shorthand calc basis) whose
+   * wrapped rows stretch to share the bounded stage, so a dense grid shrinks to fit instead
+   * of clipping the last row.
+   * THE STRETCH IS THE DEFAULT, NOT THE ONLY OPTION. It fills a sparse card with empty space
+   * — right when the cards are full, wrong when they are not, and only the author knows
+   * which. `var(--cards-align, stretch)` reads the deck's `cards:` register (center / top /
+   * spread) and falls back to the value this component has always had, so a deck that says
+   * nothing renders exactly as before. lib/core/resolve-cards.js; the note's §10. */
+  display:flex; flex-wrap:wrap; align-content: var(--cards-align, stretch);
   gap:var(--sp-sm); flex:1; list-style:none; padding:0; margin:0;
-}
-section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
-  align-content: stretch;
 }
 section.verdict-grid > .cell-stage > ul > li {
   box-sizing:border-box;

@@ -1495,3 +1495,29 @@ section.flat {
   --elevation-card: 0 0 transparent;  /* a no-op shadow, not `none` — see the :root note */
   --elevation-berth: 0;
 }
+
+/* ── `cards:` — where a sparse CARD ROW puts the height it does not need ─────────────
+ * A row of cards is a wrapped flex container handed the full stage height. Its lines
+ * STRETCH to share that height by default, so a card holding one line of text is as tall
+ * as the row and carries the difference as empty space inside itself. Right when the
+ * cards are full, wrong when they are sparse — and only the author knows which, so the
+ * engine keeps stretching and the register hands over the other three.
+ *
+ * NO `:root` DEFAULT ON PURPOSE. `--cards-align` is deliberately left UNSET unless a
+ * value is stamped, so every consumer reads `align-content: var(--cards-align, <its own
+ * default>)` and an absent register resolves to exactly what that component shipped —
+ * including a per-family default, which a single global default would flatten. That is
+ * why `cards: stretch` maps to no token at all (resolve-cards.js): it is the absence of
+ * the variable, not a value of it.
+ *
+ * Deck-wide via `cards:`; per slide via `_class: cards-center` / `-top` / `-spread` /
+ * `-stretch`, the last of which opts one slide back out of a deck-wide choice. Section
+ * specificity beats :root, so the per-slide class is order-independent.
+ * See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §5. */
+section.cards-center { --cards-align: center; }
+section.cards-top    { --cards-align: flex-start; }
+section.cards-spread { --cards-align: space-evenly; }
+/* `cards-stretch` names the default explicitly so a slide can opt out of a deck-wide
+ * value. It sets the variable rather than unsetting it, because a consumer's fallback is
+ * its own family default, which may not be `stretch`. */
+section.cards-stretch { --cards-align: stretch; }
