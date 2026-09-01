@@ -366,9 +366,12 @@ close first.
   ships. Five decks, not nine.
 - **How many more instrument bugs there are.** §4c bounds the one §4b found — it reached
   `decision` and nothing else, across all 424 cards — but that is one bug's blast radius, not
-  a clean bill of health for the instrument. Only two cells are confirmed against a rendered
-  page (`decision` at wide, `stats` at portrait); `matrix-2x2` and `list-tabular` rest on
-  measurement plus the `justify-content` cross-check, and neither has been looked at.
+  a clean bill of health for the instrument. Three of the four defect cells are confirmed
+  against a rendered page: `decision` at wide, `stats` at portrait, and `matrix-2x2` at wide
+  (`board-update` page 8, four quadrants each with about a third of the tinted card empty
+  below two lines). **`list-tabular` is the one that has never been looked at** — one card in
+  four at wide and one in four at square, resting on measurement plus the `justify-content`
+  cross-check. It is filed at `priority:low` for exactly that reason (#1982).
 - **The other 32 themes.** Everything here is `indaco`. Type metrics differ across themes, so
   the slack numbers will move; whether any component crosses a class boundary is unasked.
 
