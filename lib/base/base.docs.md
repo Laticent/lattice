@@ -732,6 +732,15 @@ series and a `closing numbered` series number independently.
 The counter is set on `body` and walks the deck once. Authors do not
 number sections manually — the layout does it.
 
+The numeral rides the slide HEADING's `::after`, so a `numbered` slide
+needs its heading — that is the required slot on both bookends anyway.
+It deliberately does NOT ride `section::after`: that pseudo is the
+engine's page number, which `silent` / `no-paginate` null and which the
+browser-path stylesheet reserves for the pagination attribute. On the
+heading it composes cleanly — `divider silent numbered` stamps the
+index with no other chrome, and a paginated `divider numbered` keeps
+both the index and its page number.
+
 ### `silent`
 
 Suppresses header, footer, and pagination on a single slide. Use on

@@ -533,9 +533,42 @@ describe('lattice-engine: CSS-pack (load-bearing rules)', () => {
     assert.match(e, /section body$/); // dead → implicit root reset
   });
 
-  test('no live non-pagination ::after content', () => {
-    const live = (css) => /content:\s*counter\(lat-/.test(strip(css));
-    assert.equal(live(enginePack), false);
+  // The SLIDE'S OWN `::after` is the engine's pagination marker, so the pack comments
+  // out every `content` on it that isn't `attr(data-lattice-pagination)` — that is what
+  // stops a theme clobbering the page number, and it is the behavior this arm pins.
+  //
+  // It used to be pinned as `no live content: counter(lat-…) anywhere in the packed
+  // output`, which read like the same claim and was not. `counter(lat-divider)` is the
+  // `numbered` bookend stamp; asserting it never survives the pack CERTIFIED a bug —
+  // the modifier rendered in the unpacked emulator/CLI PDF and rendered nothing in the
+  // packed stylesheet the docs Playground, the Studio and lib/runtime load. A test
+  // naming the SELECTOR SHAPE the mask exists for says what the mask is for; a test
+  // naming one victim's counter token only says what happened to it.
+  test('the slide-own ::after carries no non-pagination content', () => {
+    const offenders = [];
+    for (const rule of strip(enginePack).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const [, selectorList, block] = rule;
+      if (!/content\s*:/.test(block)) continue;
+      for (const one of selectorList.split(',').map((x) => x.trim().replace(/\s+/g, ' '))) {
+        // `article.lattice > section<compound>::after` and nothing further — a descendant
+        // (`… h2::after`) is a different pseudo and the mask deliberately leaves it alone.
+        if (!/^(?:article\.lattice > )?section[^\s>+~]*::?after$/.test(one)) continue;
+        for (const d of block.matchAll(/content\s*:\s*([^;}]+)/g)) {
+          if (!/attr\(\s*data-lattice-pagination/.test(d[1])) offenders.push(`${one} { content: ${d[1].trim()} }`);
+        }
+      }
+    }
+    assert.deepEqual(offenders, [], 'a non-pagination content survived on the slide-own ::after');
+  });
+
+  // The other half of the same contract: the `numbered` stamp must SURVIVE the pack,
+  // and it does so by riding the heading's pseudo rather than the slide's own.
+  test('the numbered bookend stamp survives the pack on the heading pseudo', () => {
+    for (const token of ['lat-divider', 'lat-divider-light', 'lat-closing']) {
+      const re = new RegExp(`content:\\s*counter\\(${token},`);
+      assert.match(strip(enginePack), re, `${token} stamp was stripped from the packed stylesheet`);
+      assert.match(declaringSelector(enginePack, re), /:is\(h1, h2\)::after$/, `${token} stamp is not on the heading pseudo`);
+    }
   });
 });
 

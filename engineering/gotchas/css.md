@@ -168,6 +168,38 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   reworked inside the nimbus/loom/savile/gallery preset change; relocating those edges
   off `::after` is a separate fix.
 
+## A `section::after` `content` renders in the PDF and is BLANK in the browser (`numbered`)
+
+- **Symptom:** `<!-- _class: divider numbered -->` stamps its `01` in the emulator/CLI
+  PDF and stamps nothing in the docs Playground, the Studio or `lib/runtime`. Add
+  `silent` — which every sample this repo ships does, `divider.docs.md`, the manifest
+  and `divider.gallery.md` alike — and the stamp disappears on **both** paths, so the
+  modifier reads as simply broken.
+- **Cause:** two independent owners of the same `section…::after` pseudo, one per path.
+  1. `packTheme` (`lib/engine/css.js`) mirrors Marpit's pagination plugin: on any rule
+     whose selector matches `^section[^\s>+~]*::?after$` it COMMENTS OUT every `content`
+     declaration that isn't `attr(data-lattice-pagination)`, so a theme cannot clobber the
+     page number. That mask runs over the whole inlined base bundle, so
+     `section.divider.numbered::after { content: counter(lat-divider, …) }` came out as
+     `/* content: … */`. The emulator/CLI path does not pack, which is why one modifier
+     rendered two different pictures.
+  2. `silent` / `no-paginate` null the same pseudo with
+     `section.silent.silent::after { content: none }` (`base.variants.css`) — deliberately
+     doubled to (0,2,2) to beat the engine's pagination rule. `section.divider.numbered::after`
+     is (0,2,2) too, and `base.variants.css` loads after `base.modifiers.css`, so the tie
+     went to `content: none`.
+- **Mitigation:** the `numbered` numeral rides the slide HEADING's pseudo —
+  `section.divider.numbered :is(h1, h2)::after` (`base.modifiers.css`). The descendant
+  combinator puts a space in the selector, which the pagination regex cannot cross, and it
+  shares no pseudo with `silent`. `position: absolute` still resolves against the section
+  (`base.elements.css` sets `position: relative` on every slide), so the numeral sits in the
+  same slide corner; being out of flow it does not disturb the heading's `text-wrap: balance`
+  or `max-width`. A side effect worth knowing: `numbered` no longer EATS the page number, so
+  a paginated `divider numbered` now shows both.
+- **The general lesson:** `section::after` belongs to pagination on every path. Anything
+  decorative that must survive a real render goes on the section itself (see the finish-edge
+  entry above) or on a descendant's pseudo — never on the slide's own `::after`.
+
 ## On a `finish:` deck the running header/footer/logo moved, and ate stage height
 
 - **Symptom:** Anything on a slide carrying a `finish:` (deck-wide or per-slide

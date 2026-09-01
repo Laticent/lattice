@@ -100,6 +100,10 @@
     {
       "mistake": "In the `index` variant, the leading reference key isn't wrapped in inline code, e.g. `docs — the component catalog` instead of leading with a backtick-wrapped key.",
       "fix": "The `index` variant's mono reference-key styling (`section.closing.index :is(ul,ol) li code`) only applies to an actual `<code>` element — wrap the leading key in backticks so it renders as a mono chip, not plain text."
+    },
+    {
+      "mistake": "Reaching for `numbered` on a slide with no heading.",
+      "fix": "The stamp rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-paginate` null it. No heading, no numeral. The heading is a required slot here anyway, so write it."
     }
   ],
   "variantDecisionRule": [

@@ -28,6 +28,7 @@ Marks the start of a major section. Use sparingly — every divider is a context
 
 - **Eyebrow written as plain text instead of inline code, e.g. plain `Section 01` instead of a backtick-wrapped one.** Divider's eyebrow uses the shared before-heading rule `p:has(> code:only-child):has(+ h2)` (base.modifiers.css) — wrap it in backticks; without the code span it's just a plain paragraph with no eyebrow treatment at all.
 - **Eyebrow paragraph placed AFTER the heading, copying the title/closing pattern.** Divider's eyebrow is the mirror image of title/closing's — it uses the BEFORE-heading rule (`p:has(> code:only-child):has(+ h2)`), not the after-heading one those two use. Keep it directly before `## Section name`; placed after, it still renders (via the separate after-heading rule) but as an italic secondary-color treatment, not the intended mono kicker.
+- **Reaching for `numbered` on a slide with no heading.** The stamp rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-paginate` null it. No heading, no numeral. The heading is a required slot here anyway, so write it.
 
 ## When to use
 

@@ -72,6 +72,42 @@ const SANCTIONED_CONTRAST_EXEMPTIONS = [
     },
   },
   {
+    id: 'decorative-section-numeral',
+    why: [
+      "The `numbered` bookend stamp — the running section index on `divider` / `closing`,",
+      'set at --fs-h1 (192 raw canvas px on the 4k gated surfaces) and inked with',
+      '`--on-dark-watermark` at 0.85 on the dark bookend canvas. Same ornament family as',
+      'the entry above and adjudicated for the same reason: a numeral set three times',
+      'reading size, sitting on the ATMOSPHERE plane behind the words by declaration',
+      '(`z-index: var(--z-atmosphere)`, base.modifiers.css), is incidental decoration —',
+      'WCAG 1.4.3 exempts it from the ratio. It duplicates no information: the section it',
+      'counts is named in the heading beside it, and nothing in the deck is reachable only',
+      'through the numeral. Bringing it to 4.5:1 is not a tune, it is a different element —',
+      'a corner chrome mark competing with the section headline it sits behind, which is',
+      'the design this repo already rejected for the watermark ghost.',
+      'IT IS NEW TO THIS GATE AND NOT NEW TO THE ENGINE. The stamp rode `section::after`,',
+      'which the browser-path pack strips and `silent` nulls, so it drew nothing on the',
+      'surfaces this gate renders and the gate never saw it. Moving the carrier to the',
+      'heading pseudo fixed the modifier and, in doing so, showed this gate a run that had',
+      'been declared all along — found by the fix, not caused by it.',
+    ].join(' '),
+    // Deliberately NOT keyed on font size: it is the SAME `--fs-h1` an ordinary heading
+    // takes, so a size floor here would either miss the stamp or start absorbing real
+    // headings. Keyed on the mechanism instead — the modifier, the carrier, and the
+    // counter token — none of which another element can acquire by accident.
+    match: (r) => /(^|\s)numbered(\s|$)/.test(r.cls)
+      && /(^|\s)(divider|closing)(\s|$)/.test(r.cls)
+      && /^h[12]::after$/.test(r.tag)
+      && /^counter\(lat-(divider|divider-light|closing),/.test(r.text),
+    counts: {
+      'gallery @ indaco': { 'h2::after': 2 },
+      'gallery @ indaco-dark': { 'h2::after': 2 },
+      'gallery-jargon @ indaco': { 'h2::after': 2 },
+      // The spectrum deck carries no numbered bookend.
+      'seq-ramp @ indaco': {},
+    },
+  },
+  {
     id: 'raster-backdrop',
     why: [
       'Text over a photograph on the `image` layouts. Every backdrop in the prober is read',

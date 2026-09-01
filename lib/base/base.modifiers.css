@@ -1429,6 +1429,32 @@ section.compare-prose.mirror > .cell-stage > :is(ul, ol) {
  *
  * Visual: large display-weight numeral, accent-tinted, anchored to the
  * top-right corner, sized so it does not collide with section chrome.
+ *
+ * CARRIER: the numeral rides the slide HEADING's `::after`, NOT the section's.
+ * `section…::after` is the engine's PAGINATION pseudo and it is spoken for twice
+ * over. Between the two, this modifier drew nothing in any browser host, and nothing
+ * anywhere on the samples this repo ships:
+ *
+ *   1. `packTheme` (lib/engine/css.js) mirrors Marpit's pagination plugin and
+ *      COMMENTS OUT every `content` declaration on a `section…::after` rule that
+ *      isn't `attr(data-lattice-pagination)`. The packed path is what the docs
+ *      Playground, the Studio and lib/runtime load, so the counter text was
+ *      stripped there while the unpacked emulator/CLI path kept it — one modifier,
+ *      two render paths, two different pictures.
+ *   2. `silent` / `no-paginate` null that same pseudo with
+ *      `section.silent.silent::after { content: none }` (base.variants.css), which
+ *      ties this rule's (0,2,2) specificity and wins on source order. Every sample
+ *      this repo ships — divider.docs.md, the manifest, divider.gallery.md — reads
+ *      `divider silent numbered`, i.e. precisely the losing combination.
+ *
+ * A heading descendant selector sidesteps both: it carries a space, so the
+ * pagination regex (`^section[^\s>+~]*::?after$`) cannot match it, and it shares no
+ * pseudo with `silent`. It also stops `numbered` silently EATING the page number on
+ * a paginated deck — the two now coexist, which is what `silent` is for.
+ *
+ * `:is(h1, h2)` because both bookends take `h2` as their heading slot and tolerate
+ * an author's `h1` (base.modifiers.css ships the eyebrow rules for both). Exactly
+ * one heading per slide is the contract; a slide with two would stamp twice.
  * ──────────────────────────────────────────────────────────────────────── */
 
 body {
@@ -1441,8 +1467,8 @@ section.divider.numbered        { counter-increment: lat-divider; }
 section.divider.light.numbered  { counter-increment: lat-divider-light; }
 section.closing.numbered        { counter-increment: lat-closing; }
 
-section.divider.numbered::after,
-section.closing.numbered::after {
+section.divider.numbered :is(h1, h2)::after,
+section.closing.numbered :is(h1, h2)::after {
   position: absolute;
   top: var(--sp-xl);
   right: var(--sp-xl);
@@ -1454,6 +1480,11 @@ section.closing.numbered::after {
   color: var(--accent);
   opacity: 0.55;
   pointer-events: none;
+  /* The heading is the CARRIER, not the anchor: `position: absolute` resolves against
+   * the nearest positioned ancestor, which is the section (`base.elements.css` sets
+   * `position: relative` on every slide) — so `top`/`right` still measure from the
+   * slide corner exactly as they did on the section pseudo. Out of flow, so the
+   * heading's own `text-wrap: balance` and `max-width` are untouched. */
   /* The oversized section numeral is DECORATION behind the words, not a chrome mark —
    * same family as the watermark ghost and split-panel's giant step numeral. Its old
    * `1` sat below the finish rule's blanket `2`, which is the order this preserves. */
@@ -1463,19 +1494,19 @@ section.closing.numbered::after {
 /* On dark canvases the accent is muted; lift the numeral with the dark
  * watermark color so it reads against the dark bg. divider.light is a bright
  * canvas, so it keeps the accent color set above (overrides the dark rule). */
-section.divider.numbered::after,
-section.closing.numbered::after {
+section.divider.numbered :is(h1, h2)::after,
+section.closing.numbered :is(h1, h2)::after {
   color: var(--on-dark-watermark, var(--accent));
   opacity: 0.85;
 }
-section.divider.light.numbered::after {
+section.divider.light.numbered :is(h1, h2)::after {
   color: var(--accent);
   opacity: 0.55;
 }
 
-section.divider.numbered::after        { content: counter(lat-divider,  decimal-leading-zero); }
-section.divider.light.numbered::after  { content: counter(lat-divider-light, decimal-leading-zero); }
-section.closing.numbered::after        { content: counter(lat-closing,  decimal-leading-zero); }
+section.divider.numbered :is(h1, h2)::after        { content: counter(lat-divider,  decimal-leading-zero); }
+section.divider.light.numbered :is(h1, h2)::after  { content: counter(lat-divider-light, decimal-leading-zero); }
+section.closing.numbered :is(h1, h2)::after        { content: counter(lat-closing,  decimal-leading-zero); }
 
 /* ════════════════════════════════════════════════════════════════════════
  * OVERFLOW WARNING — visual signal when content exceeds the 1280×720 frame
