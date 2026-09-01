@@ -323,8 +323,18 @@ async function main() {
 
   const chrome = resolveChrome();
   if (!chrome) {
-    console.error('check-chart-fit: no Chromium (set CHROME_PATH) — SKIPPED, nothing verified.');
-    process.exit(0);
+    // EXIT 2, NOT 0. This used to exit 0 with "SKIPPED, nothing verified" — a check
+    // that reports success having measured nothing, which is the one thing a gate
+    // must never do. It cost nothing while the script was unwired, and it is exactly
+    // what would have been wired: on a runner whose Chromium is missing or whose
+    // puppeteer cache restored without the binary (a failure `overflow-nightly.yml`
+    // documents as recurring), the job would have gone green every night while every
+    // clip went unmeasured. `check-geometry-parity.js`, its closest sibling, already
+    // exits 2 here; this matches it. 2 rather than 1 keeps a SETUP failure distinct
+    // from a real clip finding, which is the discrimination the nightly alarm family
+    // is built on.
+    console.error('check-chart-fit: no Chromium (set CHROME_PATH) — nothing was verified.');
+    process.exit(2);
   }
   if (!fs.existsSync(FIXTURE)) {
     console.error(`check-chart-fit: fixture not found: ${FIXTURE}`);
