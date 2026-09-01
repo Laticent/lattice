@@ -254,6 +254,37 @@ them was a claim a gate in this tree could have checked. That is an argument for
 carrying a committed instrument eventually, and against trusting the uncommitted ones in §8
 any further than the cards they were checked against by eye.
 
+### 4c · How far the bug reached, and a cross-check that fell out of asking
+
+§4b's bug raises an obvious question that §7 first recorded as an open caveat: how many other
+cells did it contaminate? Answered by inspecting every card's children across all three
+families — 424 cards.
+
+**20 of 424 cards have an out-of-flow child, and all 20 are `decision`.** No other component
+puts a `position: absolute` child in a card, so no other cell's numbers were affected. The bug
+reached exactly one component, and the corrected table in §4b is otherwise the same table.
+
+**The same inspection produced a cross-check worth more than the bug hunt.** Reading each
+card's computed `justify-content` predicts the classifier's verdict, everywhere, with no
+shared machinery — one is a computed style, the other is measured geometry:
+
+| computed `justify-content` on the card | components | classifier verdict |
+|---|---|---|
+| `center` | `kpi`, `list-criteria` | centered |
+| `space-between` | `cards-grid` | centered |
+| `safe center` | `decision` at portrait and square | centered / tight |
+| `normal` (behaves as `flex-start`) | `decision` at wide, `matrix-2x2`, `stats`, `list-tabular`, `agenda`, `content`, `big-number` | tight where content fills the card, **trailing where it does not** |
+
+Two things follow. First, **the defect class has a one-line signature**: a start-aligned card
+whose content does not fill it. That is a better basis for a gate under Option A than a slack
+threshold alone, because it separates "this box was never told to distribute" from "this box
+distributes and the numbers are near the floor" — a distinction a percentage cannot make.
+
+Second, it **answers the question #1980 was filed with**. `matrix-2x2` computes `normal` at
+*all three* families, so its portrait cleanliness is not a rule doing the work — the cards are
+simply full enough there. Unlike `decision`, it has no existing centering rule to extend, so
+its fix is a new declaration rather than a widened selector. `stats` is the same shape.
+
 ## 5 · The fork
 
 **Option A — measure mechanism void, never composition void. Recommended.**
@@ -333,11 +364,11 @@ close first.
   for landscape. That is the repo's own idiom (`tools/check-chart-fit.js` sweeps one fixture at
   three sizes), and it is a fair test of engine behavior, but it is not a sample of decks anyone
   ships. Five decks, not nine.
-- **How many more instrument bugs there are.** §4b found one by inspecting a single card's
-  children in the DOM. The same inspection has not been done for `matrix-2x2`, `stats` or
-  `list-tabular`, so their numbers carry the confidence of an instrument that has been wrong
-  once. `stats` at portrait and `decision` at wide are the two cells confirmed by eye; the
-  rest are instrument-only.
+- **How many more instrument bugs there are.** §4c bounds the one §4b found — it reached
+  `decision` and nothing else, across all 424 cards — but that is one bug's blast radius, not
+  a clean bill of health for the instrument. Only two cells are confirmed against a rendered
+  page (`decision` at wide, `stats` at portrait); `matrix-2x2` and `list-tabular` rest on
+  measurement plus the `justify-content` cross-check, and neither has been looked at.
 - **The other 32 themes.** Everything here is `indaco`. Type metrics differ across themes, so
   the slack numbers will move; whether any component crosses a class boundary is unasked.
 
