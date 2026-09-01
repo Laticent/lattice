@@ -403,10 +403,44 @@ The two literals were then reverted, verified byte-identical to the reviewed
 version. So what merges differs from what ran by exactly `branches: [main]` and
 `BRANCH=dist-kits`.
 
-**Still UNVERIFIED:** the workflow has not run *on `main`* against the real
-`dist-kits` branch, and the `dist-kits` doc links 404 until it does. The branch
-ruleset in §6 has not been applied — it is a settings change, not a change in this
-diff.
+**Superseded — the real run happened.** The paragraph here used to read "the
+workflow has not run *on `main`* against the real `dist-kits` branch, and the
+`dist-kits` doc links 404 until it does." Both halves stopped being true when
+#1962 merged, and the claim survived into a later session that repeated it twice
+without checking the remote. `git ls-remote` is the one-second check that settles
+it, and not running it is the same mistake §1 of this note is about — reasoning
+about a ref from memory instead of asking the remote.
+
+What actually happened: `refs/heads/dist-kits` was published by
+`github-actions[bot]` on 2026-08-31 11:41 UTC from `main @ fccc0c6`, as
+`chore(kits): publish from main @ fccc0c6` — one commit, orphan
+(`rev-list --count` = 1), 127 files, carrying `.vscode/`, `README.md`, `marp/`
+and `agent/` exactly as assembled. So the publish path is verified on the real
+surface, by the real workflow, with the real branch name — the last thing the
+preflight in the table above could not cover.
+
+**This PR republishes over a LIVE branch, and 8 URLs change shape.** That is a
+genuine consequence rather than a hypothetical, because the branch has been
+serving the pre-restructure kit since 2026-08-31. Measured against the live tree:
+
+| Live URL under `agent/` | After this PR |
+|---|---|
+| `components.json` · `components.md` · `concepts.json` · `forms.json` · `grammar.json` | move to `reference/<same name>` |
+| `BOOTSTRAP.md` | `README.md` |
+| `components.pick.md` | `components/_index.md` |
+| `lattice-primer.md` | `authoring/primer.md` |
+
+The 62 per-component files are **path-stable** (all 62 survive; the restructure
+adds 2). Nothing in the repo links a file URL — `README.md`, `CLAUDE.md` and
+`AGENTS.md` all link the `agent/` FOLDER, which keeps working — so the breakage
+is bounded to anyone who bookmarked a file path in the window between the two
+publishes. Small, but it is not zero, and it is the reason the folder-level link
+is the one worth handing out.
+
+**Still UNVERIFIED:** the branch ruleset in §6 has not been applied — it is a
+settings change, not a change in this diff — and the RESTRUCTURED tree in this PR
+has not itself been published (the live branch carries the pre-restructure
+shape). The mechanism is proven; what this PR changes is the payload.
 
 **The primer's identity WAS checked against the real Studio build, not just Node.**
 An independent checker flagged the risk precisely: `studio-catalog.mjs`'s
