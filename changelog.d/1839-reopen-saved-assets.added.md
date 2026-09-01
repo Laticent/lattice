@@ -74,3 +74,13 @@
   record it had just saved, so naming a second theme renamed the first out of existence.
   Pre-existing — it predates this change — but in the same function as the component fix
   and contradicted by that fix's own note.
+- **Fixed: two saved assets could end up sharing one name.** The three faculties each
+  refuse a name another record holds, but they read a snapshot refreshed on save — so a
+  second tab, or a workspace restore behind an open faculty, made the check blind and the
+  id-pinned write went through. Two live records under one name is not cosmetic: the shell
+  resolves an asset by name and takes the newest while the preview concatenates every
+  match, so the Inspector shows one and the slide renders another, and neither record can
+  reach its own version history afterwards. `putAsset` now enforces `(kind, name)`
+  uniqueness inside the write transaction and aborts, so a refused save leaves the shelf
+  byte-identical — and the faculties report the store's reason instead of a generic
+  storage failure.

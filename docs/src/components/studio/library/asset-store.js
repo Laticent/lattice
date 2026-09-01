@@ -47,6 +47,26 @@
 // `VERSION_CAP` bounds the growth this can cause (20 per asset), and
 // `pruneOrphanVersions` reclaims what deletes miss.
 
+// ── `(kind, name)` UNIQUENESS IS AN INVARIANT, ENFORCED HERE ────────────────
+//
+// Two live records under one name is not untidiness. `StudioShell` resolves an asset by
+// name and takes the newest, while `finishExtraCss` / `usedLocalCss` concatenate the CSS
+// of EVERY match — so the Inspector shows one record and the slide renders another — and
+// `restoreAssetVersion` then refuses for both, locking each out of its own history.
+//
+// Only the id path can produce it: a put with an id is blind, while a put without one
+// resolves the name to whichever record already holds it and updates that. So the check
+// sits on the id path, INSIDE the write transaction, and aborts rather than resolving —
+// a refused save leaves the shelf byte-identical, with no version snapshot taken.
+//
+// It is here rather than in the three faculties for the same reason history is (above):
+// their guards read a React snapshot refreshed on save, which a second tab or a workspace
+// restore behind an open faculty invalidates. Two independent review rounds drove exactly
+// that and measured the duplicate. The UI guards are still worth keeping — they disable
+// Save with a reason instead of letting the author hit an error — but they are the second
+// line, not the invariant. The whole state table is enumerated in
+// `asset-save-states.test.ts`.
+
 import { ASSET_STORE, HISTORY_STORE, openDB, reqAsPromise } from './asset-db.js';
 import { deleteAssetVersions, newestFirst, planSnapshot } from './asset-history.js';
 
@@ -152,10 +172,14 @@ export async function putAsset(record, { historyLabel = 'Before save', ts = Date
     const assets = t.objectStore(ASSET_STORE);
     const history = t.objectStore(HISTORY_STORE);
     let stored = null;
+    // A refusal we raised ourselves, as distinct from a storage failure. Set before
+    // `t.abort()` so `onabort` can reject with the real reason instead of the generic
+    // rollback message.
+    let refusal = null;
     // Resolve on COMPLETE, not on the last request's success: only `oncomplete` means
     // the whole unit — version and overwrite — actually committed.
     t.oncomplete = () => resolve(stored);
-    t.onabort = () => reject(t.error || new Error('putAsset: the save was rolled back'));
+    t.onabort = () => reject(refusal || t.error || new Error('putAsset: the save was rolled back'));
     t.onerror = () => reject(t.error || new Error('putAsset: the save failed'));
 
     const write = (id) => {
@@ -185,7 +209,39 @@ export async function putAsset(record, { historyLabel = 'Before save', ts = Date
     };
 
     if (record.id) {
-      write(record.id);
+      // `(kind, name)` UNIQUENESS IS ENFORCED HERE, not by the callers.
+      //
+      // The id path is a blind put — it is the ONLY way two live records can end up
+      // sharing a name, because the no-id path below resolves the name to whichever
+      // record already holds it and updates that one. Three faculties each guard it in
+      // the UI, and those guards read a React snapshot refreshed on save: two tabs, or a
+      // workspace restore behind an open faculty, and the snapshot is stale. Both the
+      // round-2 checker and the Munger inversion drove exactly that and measured two live
+      // records under one name.
+      //
+      // The damage is not untidiness. `StudioShell` resolves an asset by name and takes
+      // the newest, while `finishExtraCss`/`usedLocalCss` concatenate the CSS of EVERY
+      // match — so the Inspector shows one record and the slide renders another — and
+      // `restoreAssetVersion` (which already refuses this state, :256) then locks both
+      // records out of their own history permanently.
+      //
+      // So the check goes where it cannot be bypassed or go stale: inside the same
+      // transaction as the write, reading the store it is about to modify. Aborting
+      // rather than resolving is what makes it an invariant — nothing is written and no
+      // version is snapshotted, so a refused save leaves the shelf byte-identical.
+      //
+      // Deliberately scoped to a DIFFERENT record: pinning a record onto its own name is
+      // the ordinary edit, and must stay free.
+      const dupes = assets.getAll();
+      dupes.onsuccess = () => {
+        const clash = (dupes.result || []).find((a) => a.kind === record.kind && a.name === record.name && a.id !== record.id);
+        if (clash) {
+          refusal = new Error(`Can't save — “${record.name}” is already another saved ${record.kind}. Rename that one first.`);
+          t.abort();
+          return;
+        }
+        write(record.id);
+      };
       return;
     }
     // The (kind, name) dedupe, done inside the transaction so the id it resolves

@@ -282,8 +282,14 @@ export function FinishStudio({
 			// existence instead of creating it.
 			notify(`Saved "${f.label}" to your library — pick it from the Finish menu in the Inspector.`);
 			onSaved?.();
-		} catch {
-			notify('Could not save — your browser may block storage (private mode?).');
+		} catch (e) {
+			// The store REFUSES a save that would put two live records under one name, and
+			// that refusal carries the only explanation the author can act on — which
+			// record, and that it has to be renamed first. Reporting it as a storage
+			// failure would send them to check private mode for a name clash. Anything
+			// without a message is a genuine storage failure and keeps the old wording.
+			const why = (e as Error)?.message;
+			notify(why?.startsWith("Can't save") ? why : 'Could not save — your browser may block storage (private mode?).');
 		} finally {
 			setSaving(false);
 		}
