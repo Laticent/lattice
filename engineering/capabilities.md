@@ -383,6 +383,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-anima-player.js` | Bundle the Anima host + vector backends into ONE self-contained IIFE string, for |
 | `tools/build-axis-dom-catalog.js` | Generates lib/runtime/axis-dom-catalog.generated.js — a plain CJS lookup |
 | `tools/build-cadenza-lib.js` | Build the Cadenza library's consumable dist/ — the ESM + CJS entries + type |
+| `tools/build-chart-registry.js` | Generates lib/components/chart/_chart-family/chart-registry.generated.js — |
 | `tools/build-decisions-index.js` | build-decisions-index.js — regenerate the "Current notes" index in |
 | `tools/build-exemplar-pdfs.js` | Regenerate the committed PDF for every worked exemplar deck |
 | `tools/build-forms.js` | Generate dist/docs/forms.json — the machine-readable catalog of Lattice's |

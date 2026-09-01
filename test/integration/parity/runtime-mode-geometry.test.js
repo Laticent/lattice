@@ -38,6 +38,7 @@ const fs = require('fs');
 const { JSDOM } = require('jsdom');
 const { frontMatterBlock } = require('../../../lib/core/deck-front-matter');
 const engine = require('../../../lib/components/chart/_chart-family/chart-family');
+const ganttKernel = require('../../../lib/components/chart/gantt/gantt.transform');
 
 const RUNTIME_SRC = fs.readFileSync(
   path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js'),
@@ -58,7 +59,7 @@ const deckFrontMatter = (lines) =>
 /** Tick count the ENGINE path produces for the same list — the parity reference. */
 const engineTicks = (hand) => {
   const ul = GANTT_SECTION.match(/<ul>[\s\S]*<\/ul>/)[0];
-  const out = engine.buildGanttChart(
+  const out = ganttKernel.buildGanttChart(
     engine.extractFirstList(ul).inner,
     '<p><code>2026-01-01 .. 2027-03-31</code></p>',
     undefined,

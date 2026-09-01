@@ -1124,13 +1124,18 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// layout class (piechart/gantt/…) on the <section> in the engine HTML
 						// string; the `chart-frame` marker is added at RUNTIME (applyToDom) and
 						// isn't in the string yet — so we match the layout class, not the marker.
-						// This alternation MIRRORS `CHART_LAYOUTS` in
-						// lib/components/chart/_chart-family/chart-family.js (all 13 layouts) —
-						// keep it in sync when a chart type is added there (neither the engine
-						// nor the playground re-exports the list, so it can't be imported here).
+						// This alternation MIRRORS `LAYOUTS` in
+						// lib/components/chart/_chart-family/chart-registry.generated.js (all 14
+						// layouts) — keep it in sync when a chart is added. It was written against
+						// the old hand-written `CHART_LAYOUTS` and had already drifted: it was
+						// missing `matrix-grid`, so the chart chip under-counted any deck using
+						// one. The list is now GENERATED from the manifests, so the durable fix is
+						// to import it here rather than mirror it — blocked only on the generated
+						// module being CJS while this bundle is ESM (tracked in
+						// engineering/decisions/2026-09-01-manifest-driven-chart-dispatch.md).
 						// Overflow is read from the live frame after it settles (below) — 0 here
 						// as a placeholder.
-						s.charts = (out.html.match(/<section\b[^>]*\sclass="[^"]*\b(?:progress|timeline-list|piechart|gantt|kanban|radar|quadrant|state-chart|funnel|map|journey|word-cloud|roadmap)\b/g) || []).length;
+						s.charts = (out.html.match(/<section\b[^>]*\sclass="[^"]*\b(?:progress|timeline-list|piechart|gantt|kanban|radar|quadrant|state-chart|funnel|map|journey|word-cloud|roadmap|matrix-grid)\b/g) || []).length;
 						s.mermaid = (out.html.match(/language-mermaid/g) || []).length;
 						// Match the engine's OWN KaTeX gate exactly — renderMarkdown
 						// (render-engine.ts) loads KaTeX when `sourceHasMath(source)` is true on

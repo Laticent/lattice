@@ -665,7 +665,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   `console.warn`, a `--help` banner or an AI prompt needs to parse the module, and the
   heuristic that could not tell them apart flagged a `Symbol()` sentinel's trailing
   comment. A gate that cries wolf is one somebody switches off. So two modules DO still
-  type a shape onto a rendered surface today — `chart-family.js`'s matrix-grid axis
+  type a shape onto a rendered surface today — `matrix-grid.transform.js`'s axis
   arrows and `state-chart`'s transition chips, both writing into an HTML attribute or a
   text node, where drawing them needs a markup change across three render paths. They
   are pinned BY CONTENT in `test/unit/core/shape-glyphs.test.js` so a third cannot

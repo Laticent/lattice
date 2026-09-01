@@ -6,7 +6,7 @@
 
 **Read this when** you need a new chart kind (a Cartesian plot, a new
 distribution, a new comparison encoding) that the existing chart components (the
-live roster is `CHART_LAYOUTS` in `chart-family.js`) don't cover. **You'll produce** a component folder under `lib/components/chart/`
+live roster is `LAYOUTS` in `_chart-family/chart-registry.generated.js`) don't cover. **You'll produce** a component folder under `lib/components/chart/`
 whose kernel emits SVG through the shared `.chart-frame` dispatcher.
 
 > Read the **`dataviz` skill first** for the medium-agnostic method (form
@@ -78,8 +78,10 @@ dispatcher + the categorical/semantic color token model in `chart-family.css`),
 `svg-legend.js` (SVG-native legend), `mark-detail.js` (per-mark reveal substrate),
 `transform-utils.js`.
 
-- **Register** your layout in `chart-family.js` — both `CHART_LAYOUTS` (the name)
-  and `SECTION_BUILDERS` (the `build<Name>Section` wrapper). See the recipe.
+- **Dispatch registers itself.** Declare a `kernel` block in your manifest and
+  the dispatcher finds you; `chart-family.js` is not edited. **Everything else
+  still does not** — see step 9 for the rosters that are hand-maintained and
+  fail silently.
 - **Validate**: `test/unit/palette/chart-contrast.test.js`, `npm run scorecard`.
 
 ---
@@ -127,16 +129,19 @@ mud and value-collapse hide there.
    shared list helpers + `mark-detail.splitDetail` for optional per-mark detail)
    and returns `null` when there's nothing to draw; `build<Name>(model,
    orientation)` returns the SVG string. **No hard-coded color.**
-4. **Wire it into the dispatcher** in `_chart-family/chart-family.js` — this is the
-   step that actually makes it render, and it's three edits, not one:
-   1. `require` the kernel at the top (`const <name> = require('../<name>/<name>.transform');`).
-   2. Write a `build<Name>Section(html, ctx)` wrapper that calls your parse+build
-      through `spliceFirstList` (see `buildFunnelSection`).
-   3. Add `<name>: build<Name>Section` to the **`SECTION_BUILDERS`** object **and**
-      `<name>` to **`CHART_LAYOUTS`**. A name in `CHART_LAYOUTS` with no
-      `SECTION_BUILDERS` entry no-ops — the shared `transformChartSection`
-      dispatcher looks your name up in `SECTION_BUILDERS`. Also ensure the body
-      container class your kernel emits is matched by the frame `bodyRE`.
+4. **Declare the dispatch in your manifest** — this is the step that actually makes
+   it render, and it is one block, in your own folder:
+   ```jsonc
+   "kernel": { "figureClass": "<name>-figure" }   // the class on your figure root
+   ```
+   One key: the kernel is found at `<name>/<name>.transform.js` and its entrypoint
+   is `transformSection(html, ctx)`, both by convention. Export it — usually two
+   lines around your parse+build (see `funnel.transform.js`) — then `npm run build`.
+   The generator picks the block up and freezes it into
+   `_chart-family/chart-registry.generated.js`; `chart-family.js` is not touched.
+   `figureClass` is how the frame finds your body, so it must be the class your
+   kernel actually writes: get it wrong and the figure renders unwrapped.
+   `checkChartKernels` (`tools/check-ownership.js`) catches all three.
 5. **Write CSS** `<name>.styles.css`: style only the interior; consume
    `--chart-cat-N-fill/-ink` or `--chart-state-*`. The `.chart-frame` chrome is
    already styled. **Unlayered** — no `@layer` wrapper (inert here; a layered rule
@@ -148,6 +153,23 @@ mud and value-collapse hide there.
    no key.
 7. **Demo deck** `examples/<name>.md` + galleries; wire all three paths.
 8. **Validate contrast** on both canvases; `npm run build:check` + `npm test`.
+9. **Add yourself to the rosters the manifest does NOT drive.** The `kernel` block
+   registers your dispatch and framing. These lists are still hand-maintained, and
+   every one of them fails silently — no gate, no red test, just a capability your
+   chart quietly does not have:
+   - `lib/transformers/prose-projection.mjs` — `MEDIA_COMPONENTS` (the accessible
+     `<figure>` projection), `CHART_TOKEN_COMPONENTS` (without it the re-hosted
+     figure loses `chart-frame` and your fills fall to black),
+     `SPATIAL_BOUNDED_COMPONENTS` / `SPATIAL_PLACEHOLDER_COMPONENTS`.
+   - `lib/export/image-set.js` `KEYED_CHART_LAYOUTS` **and** its second copy in
+     `tools/export-chart-svg.js` — standalone SVG extraction.
+   - `docs/src/components/studio/export/deck-export.js` `CLEAN_SVG_LAYOUTS`.
+   - `lib/authoring/scorecard.js` `DATA_LAYOUTS` — else a deck built on your chart
+     scores Data: N/A instead of scoring.
+   - `docs/src/lib/families.mjs` — else the chart never appears in the docs picker.
+   - `docs/src/lib/single-slide-render.ts` — the Studio's chart-count chip.
+   Folding these into the manifest the way dispatch now is would be the right
+   follow-up; until then, this list is the map.
 
 ---
 
@@ -181,25 +203,34 @@ function buildFunnel(model, orientation) {
 module.exports = { parseFunnel, buildFunnel };
 ```
 
-The dispatcher wiring (the three edits from recipe step 4):
+The dispatch — recipe step 4 — in full. It is two things, both inside your own
+component folder; nothing central is edited.
 
 ```js
-// lib/components/chart/_chart-family/chart-family.js
-const funnel = require('../funnel/funnel.transform');            // 1. require the kernel
+// lib/components/chart/funnel/funnel.transform.js — the family's ratified entrypoint
+const { spliceFirstList } = require('../_chart-family/transform-utils');
 
-function buildFunnelSection(html, ctx) {                          // 2. the section wrapper
+function transformSection(html, ctx) {
   return spliceFirstList(html, (ext) => {
-    const model = funnel.parseFunnel(ext.inner);
-    return model ? funnel.buildFunnel(model, ctx.orientation) : null;
+    const model = parseFunnel(ext.inner);
+    return model ? buildFunnel(model, ctx.orientation) : null;
   });
 }
-
-const CHART_LAYOUTS = [ /* … */ 'funnel' ];                       // 3a. name in the register
-const SECTION_BUILDERS = { /* … */ funnel: buildFunnelSection };  // 3b. AND the builder map
-// transformChartSection(innerHtml, cls, orientation) — the SHARED dispatcher — then
-// finds 'funnel' in SECTION_BUILDERS and calls buildFunnelSection. No per-component
-// transformChartSection export exists; a CHART_LAYOUTS name without a builder no-ops.
+module.exports = { transformSection, parseFunnel, buildFunnel };
 ```
+
+```jsonc
+// lib/components/chart/funnel/funnel.manifest.json
+"kernel": { "figureClass": "funnel-figure" }
+// tools/build-chart-registry.js reads that into the frozen registry, and the
+// shared transformChartSection(innerHtml, cls, orientation) dispatches on it.
+// Proof: test/unit/components/chart-folder-drop.test.js drops a chart into a
+// scratch copy of lib/ and renders it through the real engine.
+```
+
+`ctx` is `{ cls, classTokens, orientation, utils }`. A kernel written outside this
+tree takes its helpers off `ctx.utils` rather than guessing a relative path;
+in-tree kernels require `transform-utils` directly, as above.
 
 The CSS — **unlayered** (no `@layer` wrapper: `@layer` is inert in the engine
 bundle and a layered rule LOSES to an unlayered base rule regardless of
@@ -251,8 +282,11 @@ re-parents the chart SVG outside its `section`. Consumes tokens, cycles by hue:
 - [ ] Coordinates: `evidence`/`progression` · `canvas` · `series` · `chart`.
 - [ ] Kernel is pure, returns `null` when empty, emits `viewBox` SVG with
       `--i`/`--mix` marks and **no color**.
-- [ ] Registered in **both** `CHART_LAYOUTS` and `SECTION_BUILDERS`; body class
-      matched by `bodyRE`.
+- [ ] Manifest carries a `kernel` block whose `figureClass` is the class the
+      kernel really emits; kernel exports `transformSection`. No edit to
+      `chart-family.js`. (`checkChartKernels` in `tools/check-ownership.js` ties
+      the declaration to the kernel source, so a mismatch is caught.)
+- [ ] Added to every hand-maintained roster in step 9 — none of them is gated.
 - [ ] CSS consumes `--chart-cat-N-*` / `--chart-state-*` only; cycles via
       `nth-of-type`; **unlayered** (no `@layer` wrapper, cascade.md) and anchored on
       `:is(section.<name>, figure.chart-frame)`.

@@ -1,6 +1,6 @@
 /**
  * Unit tests for matrix-grid's chart-family builder
- * (lib/components/chart/_chart-family/chart-family.js buildMatrixGridSection).
+ * (lib/components/chart/matrix-grid/matrix-grid.transform.js buildMatrixGridSection).
  *
  * buildMatrixGridSection runs on the raw section HTML before the generic
  * chart-frame skeleton wrap (eyebrow/h2/subtitle/caption lift). It does three
@@ -22,7 +22,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildMatrixGridSection } = require('../../../lib/components/chart/_chart-family/chart-family');
+const { buildMatrixGridSection } = require('../../../lib/components/chart/matrix-grid/matrix-grid.transform');
 
 const ctx = { cls: 'matrix-grid', classTokens: ['matrix-grid'], orientation: 'landscape' };
 

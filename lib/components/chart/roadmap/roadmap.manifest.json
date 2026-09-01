@@ -32,6 +32,9 @@
   "substance": "structure",
   "render": "html",
   "renderNote": "HTML/CSS all the way down, with no `<svg>` anywhere: a real `<table>` of cells carrying state markers by default, or a transposed `.horizons` grid for that variant. The layout is a grid of text and nothing is positioned by value, so the semantic table is both the right structure for assistive tech and the right layout engine for the cells.",
+  "kernel": {
+    "figureClass": "roadmap-figure"
+  },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },
   "orientation": [

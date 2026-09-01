@@ -18,6 +18,7 @@
  *   1. lattice.css            tools/build-css.js
  *   2. lattice-default.css    tools/build-default-bundle.js  (engine + default palette)
  *   2b. axis-DOM catalog      tools/build-axis-dom-catalog.js (lib/runtime/, before step 3)
+ *   2c. chart dispatch registry tools/build-chart-registry.js (lib/components/chart/, before step 3)
  *   3. lattice-runtime.js     tools/build-runtime.js
  *   4. lattice-emulator.js    tools/build-emulator.js    (bundled CLI bin)
  *   5. VS Code snippets       tools/build-snippets.js
@@ -84,6 +85,7 @@ const STEPS = [
   // docs bundle can't fs-load 32 manifests at runtime.
   { label: 'theme catalog (docs studio palettes)', script: 'build-theme-catalog.js' },
   { label: 'axis-DOM catalog (lib/runtime)', script: 'build-axis-dom-catalog.js' },
+  { label: 'chart dispatch registry (lib/components/chart)', script: 'build-chart-registry.js' },
   { label: 'lattice-runtime.js', script: 'build-runtime.js', uncommitted: true },
   { label: 'lattice-emulator.js', script: 'build-emulator.js', uncommitted: true },
   { label: 'VS Code snippets', script: 'build-snippets.js' },

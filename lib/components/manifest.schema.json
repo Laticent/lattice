@@ -95,6 +95,21 @@
       "minLength": 40,
       "description": "Why THIS component is built the way `render` says — one or two sentences naming what each side is made of and what forced the choice (a shared coordinate system, a measured box, arbitrary rotation, text that must stay selectable). Required alongside `render`. Not a restatement of the enum: \"renders as SVG\" is not a justification. For `hybrid` it must say which part is which, because that is the boundary an author needs (radar's polygons animate; its small-multiple captions do not). Surfaced in the generated <name>.docs.md and in dist/docs/components.json."
     },
+    "kernel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "figureClass"
+      ],
+      "properties": {
+        "figureClass": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]+$",
+          "description": "The class on the figure root this component's kernel emits — what the chart-frame wrap looks for when it splits the section into header / body / caption. It is NOT derivable from `name` (timeline-list emits `timeline-spine`, kanban emits `kanban-board`), which is why it is declared, and it is the ONE fact about a chart's dispatch that is not. The kernel itself is found by convention at `<name>.transform.js` beside this manifest, and its entrypoint is `transformSection`; declaring either would restate what the loader already requires. Before this field the same set lived as a hand-maintained alternation inside chart-family.js, and a chart added without editing it rendered its figure at full slide width with no frame. `checkChartKernels` in tools/check-ownership.js ties the declaration back to the kernel source, so the two cannot drift."
+        }
+      },
+      "description": "Marks this component as a chart-family member and declares the one thing its dispatch needs — the manifest half of LPM Phase 1 (engineering/decisions/2026-06-14-plugin-extension-system.md § Rollout Phase 1, as built in 2026-09-01-manifest-driven-chart-dispatch.md). `tools/build-chart-registry.js` reads every chart manifest and freezes lib/components/chart/_chart-family/chart-registry.generated.js, and chart-family.js dispatches through that registry rather than a hard-coded map, so a chart's DISPATCH AND FRAMING need no central edit. It does not make a whole chart component registration-free — several other rosters (prose projection, image-set export, the scorecard's data layouts, the docs family picker) are still hand-maintained; see design/skills/chart-component.md. Restricted to the `chart` bucket today. NOTE the name: the ADR calls this the `render` block, but `render` had since been claimed by the render-NATURE enum above and `transform` by the (unwired) transform DSL, so the field ships as `kernel` — which is also what this repo already calls these modules."
+    },
     "stage": {
       "enum": [
         "flow",

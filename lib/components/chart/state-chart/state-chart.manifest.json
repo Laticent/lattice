@@ -17,6 +17,9 @@
   "substance": "graph",
   "render": "hybrid",
   "renderNote": "States are authored as an HTML `<ol>`, which the browser pass measures and then paints as nodes, edges and edge labels into the `<svg>` overlay \u2014 edge routing needs each state's measured box, so the HTML has to exist first. Once painted the list is hidden, so a default slide is SVG in practice; what keeps the component hybrid is the `inline` variant, whose chip row stays HTML and is never painted over.",
+  "kernel": {
+    "figureClass": "state-chart-figure"
+  },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },
   "orientation": [

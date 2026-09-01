@@ -4722,6 +4722,69 @@ function checkRenderNature(manifests, errors) {
   }
 }
 
+// A chart's `kernel.figureClass` is a claim about the kernel's OUTPUT — the class
+// on the figure root it emits — and the chart-frame wrap believes it: BODY_RE is
+// built from the declared set, so a declaration that does not match what the
+// kernel writes means the wrap never finds the body and the chart renders
+// full-bleed, with no eyebrow, subtitle or caption. That is a slide that looks
+// wrong rather than a build that goes red, which is exactly the silent failure
+// the manifest block replaced (it was a literal alternation in chart-family.js
+// before, with the same failure mode and four hand edits instead of one).
+//
+// Moving the declaration next to its kernel did not close it — only tying the two
+// together does. So: the declared class must appear, as a class-attribute string,
+// in the kernel's own source. Text matching, deliberately: deriving it would mean
+// running each kernel over synthetic input and reading the root class back, which
+// only tells you about the input you thought of. What text matching cannot see is
+// a class ASSEMBLED at runtime (`'tempo-' + kind + '-strip'`); no kernel does
+// that, and the arm below fails loudly if one starts, which is the right way to
+// find out.
+//
+// It also enforces the two conventions the `kernel` block stopped declaring once
+// `module`/`entry` were dropped as redundant: the kernel is at
+// `<name>/<name>.transform.js` and exports `transformSection`.
+// engineering/decisions/2026-09-01-manifest-driven-chart-dispatch.md.
+const KERNEL_BUCKETS_GATED = new Set(['chart']);
+
+function checkChartKernels(manifests, errors) {
+  for (const m of manifests) {
+    if (!m.kernel) continue;
+    const bucket = manifestBucket(m);
+    if (!KERNEL_BUCKETS_GATED.has(bucket)) continue;  // the loader already rejected it
+    const rel = path.join('lib', 'components', bucket, m.name, `${m.name}.transform.js`);
+    const abs = path.join(ROOT, rel);
+    if (!fs.existsSync(abs)) {
+      errors.push(
+        `${m.name}: declares a \`kernel\` block but ${rel} does not exist. The dispatch ` +
+        `registry requires that path by convention — the block is what makes the chart render.`);
+      continue;
+    }
+    const src = fs.readFileSync(abs, 'utf8');
+    // The export, not the declaration: `function transformSection(…)` is what a
+    // kernel that FORGOT to export it still has. Match the shapes an export takes
+    // — a shorthand or keyed entry inside `module.exports = { … }`, or a direct
+    // `exports.transformSection =`.
+    const exportsBlock = src.match(/module\.exports\s*=\s*\{[\s\S]*?\}\s*;/);
+    const exported = /\bexports\.transformSection\s*=/.test(src)
+      || (exportsBlock && /(^|[{,\s])transformSection\s*(?:[,:}]|$)/m.test(exportsBlock[0]));
+    if (!exported) {
+      errors.push(
+        `${rel}: does not export \`transformSection\` — the family's one entrypoint. ` +
+        `The generated registry would put \`undefined\` in the dispatch table and every ` +
+        `${m.name} slide would throw at render time.`);
+    }
+    const declared = m.kernel.figureClass;
+    if (typeof declared !== 'string') continue;  // the loader reports the shape error
+    if (!src.includes(`class="${declared}"`)) {
+      errors.push(
+        `${m.name}: \`kernel.figureClass\` is "${declared}" but ${rel} never writes ` +
+        `\`class="${declared}"\`. The chart-frame wrap builds its body matcher from the ` +
+        `declaration, so a mismatch renders the figure UNFRAMED — full-bleed, no eyebrow, ` +
+        `no subtitle, no caption — with every test still green. Make the two agree.`);
+    }
+  }
+}
+
 // HARD RULE #22 — untrusted slide HTML reaches a preview frame ONLY through
 // `sanitizeSlideHtml`. The docs-site Studio renders untrusted markdown (shared /
 // AI-generated decks + component skeletons) into a SAME-ORIGIN, un-sandboxed
@@ -10999,6 +11062,7 @@ function run() {
   checkAdaptDeclarations(manifests, errors);
   checkSolverIntentDeclared(manifests, errors);
   checkRenderNature(manifests, errors);
+  checkChartKernels(manifests, errors);
   checkDensityCoverage(manifests, errors);
   checkDiagramScopeSelectors(errors);
   checkClassAttrReads(errors);
@@ -11132,6 +11196,7 @@ module.exports = {
   checkAdaptDeclarations,
   checkSolverIntentDeclared,
   checkRenderNature,
+  checkChartKernels,
   RENDER_NATURES,
   RENDER_BUCKETS,
   RENDER_NOTE_MIN,

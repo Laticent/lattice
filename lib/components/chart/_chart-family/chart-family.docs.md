@@ -1,9 +1,9 @@
 # chart-family
 
-Lattice's chart engine. A shared rendering subsystem used by thirteen
+Lattice's chart engine. A shared rendering subsystem used by fourteen
 chart-class components: `progress`, `timeline-list`, `piechart`,
 `gantt`, `kanban`, `radar`, `quadrant`, `state-chart`, `funnel`, `map`,
-`journey`, `word-cloud`, and `roadmap`.
+`journey`, `word-cloud`, `roadmap`, and `matrix-grid`.
 
 Membership is defined by the engine, not the disk bucket: a chart-family
 member is any layout the dispatcher wraps in the `.chart-frame` skeleton.
@@ -17,7 +17,9 @@ was retired in favor of the real skeleton.
 | File | What it implements |
 |---|---|
 | `chart-family.css` | The `.chart-frame` skeleton + `.chart-status` pill vocabulary that every chart component wraps its content in. |
-| `chart-family.js` | The dispatcher + inline kernels for `progress` / `timeline-list` / `piechart` / `gantt` / `kanban`, plus shared parsing helpers. Imports the per-component `radar.transform` and `quadrant.transform` kernels which live in their own component folders. |
+| `chart-family.js` | The dispatcher and the `.chart-frame` wrap, and nothing per-chart: no layout list, no kernel `require`, no adapter, no figure-class alternation. Every chart's kernel lives in its own component folder. |
+| `chart-registry.generated.js` | The frozen dispatch table — layout tokens, figure classes, kernel entrypoints — generated from every chart manifest's `kernel` block by `tools/build-chart-registry.js`. Never hand-edited. |
+| `transform-utils.js` | The shared string/list toolkit each kernel imports, plus the section-kernel helpers (`spliceFirstList`, `stripTrailingPills`, `readsHandBody`) and the family's `CHART_STATUS` vocabulary. |
 
 The dispatcher runs in both render paths:
 - **The owned engine** (`lib/engine`) — wraps the
@@ -185,15 +187,26 @@ was deferred (`2026-06-13-svg-native-legend.md` §4d).
 
 ## Membership
 
-The closed set of layouts wrapped by chart-family is hard-coded in
-`chart-family.js`:
+The set of layouts wrapped by chart-family is **declared by the components
+themselves**. A chart's manifest carries a `kernel` block:
 
-```js
-const CHART_LAYOUTS = ['progress', 'timeline-list', 'piechart',
-                       'gantt', 'kanban', 'radar', 'quadrant',
-                       'state-chart', 'funnel', 'map',
-                       'journey', 'word-cloud', 'roadmap'];
+```jsonc
+"kernel": { "figureClass": "gantt-chart" }   // the class on the figure root it emits
 ```
+
+One key, because one fact is not derivable. The kernel is at
+`<name>/<name>.transform.js` and exports `transformSection`, both by convention —
+`checkChartKernels` (`tools/check-ownership.js`) enforces all three, including that
+the declared class is one the kernel actually writes.
+
+`tools/build-chart-registry.js` reads every one of those and freezes
+`chart-registry.generated.js`, which is where `CHART_LAYOUTS` now comes from.
+
+Dispatch is FIRST MATCH over that list, and its order is derived too: a chart is
+placed ahead of any chart it names in its own `variants`. That is not cosmetic —
+`radar`'s `quadrant` variant collides with the `quadrant` chart's name, so
+`<!-- _class: radar quadrant -->` must reach radar. A hand-written array settled
+that by accident for years; the generator settles it from the manifests.
 
 **Membership is a skeleton, not a claim about content.** Being in `CHART_LAYOUTS`
 means one thing: the dispatcher wraps this layout in `.chart-frame`, so it gets
@@ -204,24 +217,35 @@ what the author writes (`substance` — `state-chart` is a `graph`, `journey` an
 of the word "chart", plus a fourth for the bucket folder; `design/design-system.md`
 §5.5 lays all four side by side.
 
-Adding a new chart member requires updating that array AND either:
-- writing an inline builder in `chart-family.js` (current pattern for
-  `progress` / `timeline-list` / `piechart` / `gantt` / `kanban`), OR
-- writing a per-component `<name>.transform.js` kernel and importing
-  it from `chart-family.js` (current pattern for `radar`, `quadrant`,
-  `state-chart`, `funnel`, `map`, `journey`, `word-cloud`, and `roadmap`).
+**A chart's DISPATCH AND FRAMING are a folder drop.** Create
+`lib/components/chart/<name>/` with a manifest carrying a `kernel` block and a
+`<name>.transform.js` exporting `transformSection`, then `npm run build`. No
+edit to `chart-family.js`, no array entry, no adapter, no figure-class
+alternation. `test/unit/components/chart-folder-drop.test.js` performs exactly
+that drop against a scratch copy of `lib/` and renders it through the real
+engine, so the claim is executed rather than asserted.
+
+**That is the dispatch, not the whole component.** A chart still has to be added
+by hand to several rosters elsewhere in the tree, none of which goes red when you
+miss it — the accessible prose projection
+(`lib/transformers/prose-projection.mjs`), the image-set / standalone-SVG export
+(`lib/export/image-set.js`, `tools/export-chart-svg.js`), the Studio export's
+clean-SVG list, the scorecard's data layouts (`lib/authoring/scorecard.js`) and
+the docs family picker (`docs/src/lib/families.mjs`). The checklist in
+`design/skills/chart-component.md` names them. Folding them into the manifest is
+follow-up work, not something this change did.
 
 `roadmap` is the one member whose body is a `<table>` (or a transposed
 `.horizons` grid) rather than a list/SVG figure; the dispatch wraps it in a
 `.roadmap-figure` div so the div-based chart-frame body matcher catches it.
 
-For a delegated kernel the dispatch branch calls the kernel's section
-transform to rewrite the list in place (e.g.
-`journey.transformJourneySection(html, cls)` /
-`wordCloud.transformWordCloudSection(html, cls)`), leaving the `<h2>` for
-the chart-frame wrap to lift into the header. The body container the kernel
-emits (`.journey-board`, `.word-cloud-canvas`, …) must be listed in the
-`bodyRE` the wrap scans for.
+A kernel rewrites the list (or the table) in place and leaves the `<h2>` for the
+chart-frame wrap to lift into the header. The body container it emits
+(`.journey-board`, `.word-cloud-canvas`, …) is found through the manifest's
+`kernel.figureClass` — the wrap builds its matcher from the declared set. That
+used to be a literal alternation in `chart-family.js`, and it was the hand edit
+whose omission failed SILENTLY: the kernel ran, the figure was built, and the
+slide rendered it full-bleed with no frame.
 
 ---
 
@@ -326,14 +350,32 @@ placement is a choice of position rather than a nudge.
 
 ## Kernel contract
 
-Per-component chart kernels (`radar.transform.js`, `quadrant.transform.js`)
-export `transformChartSection(html, classTokens)` — a pure function
-that takes the raw section HTML and the section's class tokens, returns
-the rewritten HTML.
+Every chart kernel exports ONE entrypoint, and this signature is the ratified
+one (LPM Phase 1):
 
-The same function signature is used by inline builders in
-`chart-family.js`. The dispatcher routes based on class token presence
-and calls the appropriate kernel.
+```js
+transformSection(html, ctx) -> html | { html, cls } | null
+```
+
+- **`html`** — the section's inner HTML. The kernel splices its figure back in
+  and returns the whole section, not the figure alone.
+- **`ctx`** — `{ cls, classTokens, orientation, utils }`. `orientation` is the
+  deck-wide `'portrait' | 'square'` stamp (absent for landscape) read off the
+  section's `data-orientation`. `utils` carries the shared section helpers
+  (`spliceFirstList`, `stripTrailingPills`, `readsHandBody`, `escAttr`,
+  `escHtml`, `plainText`, `extractFirstList`, `parseTopLevelLis`,
+  `findMatchingClose`) so a dropped-in kernel takes them off its argument
+  instead of guessing a relative path.
+- **Return** — the rewritten section HTML; `{ html, cls }` when the kernel must
+  also change the section's class list (only `roadmap` does, auto-selecting
+  `horizons` on a portrait deck because the card CSS is gated on the section
+  class); or the html unchanged / `null` to pass through.
+
+**Idempotence is the family's job, not the kernel's** — `transformChartSection`
+early-returns on a section that already carries `chart-frame`.
+
+A kernel names a different entrypoint by declaring `kernel.entry`; nothing
+first-party does.
 
 ---
 
@@ -371,24 +413,22 @@ preview and the export pipelines see the same DOM.
 
 ---
 
-## Future refactor
+## History
 
-The current file structure has an asymmetry: `radar` and `quadrant`
-follow the per-component-transform pattern (their kernels live in
-`lib/components/<name>/<name>.transform.js`), while the other 5 chart
-layouts have their kernels inlined in `chart-family.js`. This was
-historical — the inline kernels were written before per-component
-transforms were a pattern.
-
-A planned cleanup distributes all kernels to their components, leaving
-`chart-family.js` as pure dispatch + shared helpers. See
-`engineering/decisions/2026-05-17-chart-family-refactor.md` for the design.
+The kernels used to be split two ways: `radar` / `quadrant` / `state-chart` /
+`funnel` / `map` / `journey` / `word-cloud` / `roadmap` lived in their own
+component folders, while `progress` / `timeline-list` / `piechart` / `gantt` /
+`kanban` / `matrix-grid` were inlined in `chart-family.js` — historical, because
+the inline ones were written before per-component transforms were a pattern.
+Every kernel now lives in its own folder and the dispatch is manifest-driven.
+See `engineering/decisions/2026-09-01-manifest-driven-chart-dispatch.md` (and
+`2026-05-17-chart-family-refactor.md` for the original design).
 
 ---
 
 ## See also
 
-- `lib/components/chart/{progress,timeline-list,piechart,gantt,kanban,radar,quadrant,state-chart,funnel,map,journey,word-cloud,roadmap}/<name>.docs.md` — per-component contracts and variant catalogs.
+- `lib/components/chart/{progress,timeline-list,piechart,gantt,kanban,radar,quadrant,state-chart,funnel,map,journey,word-cloud,roadmap,matrix-grid}/<name>.docs.md` — per-component contracts and variant catalogs.
 - `lib/shared/shared.docs.md` — the contrast: small composable
   modifiers (`compact`, `loose`, `accent`) that compose with all
   layouts, not just chart components.

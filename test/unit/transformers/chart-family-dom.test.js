@@ -13,6 +13,7 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const chartFamily = require('../../../lib/transformers/chart-family');
 const engine = require('../../../lib/components/chart/_chart-family/chart-family');
+const ganttKernel = require('../../../lib/components/chart/gantt/gantt.transform');
 const notesCore = require('../../../lib/authoring/notes-core');
 
 function makeDoc(bodyHtml) {
@@ -394,7 +395,7 @@ describe('chart-family.applyToDom — the rebuild guard', () => {
     chartFamily.applyToDom(doc);
     assert.notEqual(ticks(sec), mono,
       'the axis kept its mono tick count while the CSS moved to the hand face');
-    assert.equal(ticks(sec), engine.buildGanttChart(
+    assert.equal(ticks(sec), ganttKernel.buildGanttChart(
       engine.extractFirstList(GANTT.match(/<ul>[\s\S]*<\/ul>/)[0]).inner,
       '<p><code>2026-01-01 .. 2027-03-31</code></p>', undefined, true,
     ).match(/class="gantt-tick"/g).length, 'the rebuild must match what the engine builds');
@@ -530,5 +531,54 @@ describe('piechart per-slice detail → speaker-note comment', () => {
     assert.match(note, /A \(60%\): the detail/);
     // and the comment is removed from the visible HTML once lifted
     assert.ok(!/<!--/.test(notesCore.stripCommentNodes(section)), 'comment stripped after lift');
+  });
+});
+
+describe('the DOM walk visits sections in document order, like the HTML path', () => {
+  // Both render paths mint render-scoped ids (lib/core/render-ids.js) from one
+  // counter, so the ORDER they visit sections in decides which chart gets which
+  // id. The HTML path walks the document (`mapSections`); the DOM path used to
+  // loop the layout list and query each layout in turn, which is a different
+  // order the moment a deck mixes chart types. Nothing broke — every reference is
+  // inside its own section and no id collided — but two of the three render paths
+  // disagreed about a shared counter, and the disagreement was invisible while
+  // the layout list was hand-ordered. It stopped being invisible when the list
+  // started being generated. Pinned here because the fix is one `querySelectorAll`
+  // that a future edit could quietly undo.
+  //
+  // Three of the four KEYED charts, whose spine ids come from the shared
+  // svg-legend builder — laid out in the REVERSE of their dispatch order (the
+  // registry has map, then piechart, then radar), so a layout-order walk and a
+  // document-order walk cannot agree by accident. A fixture that happens to be
+  // in dispatch order proves nothing here, and the first draft of this test was
+  // exactly that: it passed against the walk it was written to catch.
+  const MIXED = `
+    <section class="radar"><h2>Fit</h2><ul><li>Team<ul><li>Speed <code>4</code></li><li>Depth <code>3</code></li></ul></li></ul></section>
+    <section class="piechart"><h2>Mix</h2><ul><li>Cloud <code>60</code></li><li>On-prem <code>40</code></li></ul></section>
+    <section class="map"><h2>Reach</h2><ul><li>California <code>40</code></li><li>Texas <code>30</code></li></ul></section>`;
+  const spineIds = (scope) =>
+    [...scope.querySelectorAll('[id]')].map((e) => e.id).filter((id) => id.startsWith('chart-spine'));
+
+  test('the DOM path numbers the spines in document order', () => {
+    // The counter is render-scoped, and earlier tests in this file have already
+    // minted from it — so assert the SEQUENCE is ascending and consecutive, not
+    // that it starts at 1. That is the property under test either way.
+    const doc = makeDoc(MIXED);
+    chartFamily.applyToDom(doc);
+    const nums = spineIds(doc).map((id) => Number(id.split('-')[2]));
+    assert.equal(nums.length, 3, 'all three keyed charts built');
+    assert.deepEqual(nums, [nums[0], nums[0] + 1, nums[0] + 2],
+      'the walk numbered the spines by layout order rather than document order');
+  });
+
+  test('the HTML path agrees — same sections, same sequence', () => {
+    const sections = MIXED.trim().split('\n').map((s, i) =>
+      s.trim().replace('<section', `<section id="${i + 1}" data-lattice-slide="${i + 1}"`)).join('');
+    const out = engine.applyToRenderedHtml(sections);
+    const ids = (out.match(/id="(chart-spine-[\d-]+)"/g) || []).map((m) => m.slice(4, -1));
+    // The HTML path scopes each id to its slide ordinal, so compare the SEQUENCE
+    // the counter produced, not the literal strings the DOM path emits.
+    assert.deepEqual(ids.map((id) => id.split('-')[2]), ['1', '2', '3'],
+      'the HTML path numbered the spines out of document order');
   });
 });
