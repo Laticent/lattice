@@ -151,6 +151,26 @@ packer keys on the leftmost compound, which a `section:is()` head satisfies — 
 `blocksFor()` and fails on a missing name AND a stale one. Verified able to fail by mutation
 in both directions.
 
+**And the tier is now DRIVEN on its own surface, not reasoned about.** This note shipped
+saying tier 2 was UNVERIFIED because no marp-cli was installed. It was installed
+(v4.5.0 / marp-core v4.4.0), the shipped marp-kit config was used, and a deck carrying no
+runtime `<script>` was rendered on both this branch and a build of the base commit, then
+measured in Chromium:
+
+| case | base | this branch |
+|---|---|---|
+| `list` + plain note | accent hairline | accent hairline (unchanged) |
+| `list no-note` + plain | accent hairline — **opt-out ignored** | none |
+| `list` + italic | accent hairline + spark — **half-styled** | dotted rule + spark |
+| `content` + italic | nothing | dotted rule + spark |
+| `code` + italic (trails `<pre>`) | nothing | dotted rule + spark |
+
+The third row was not predicted by anyone, including the two agents that audited this tier.
+On base the spark fired and the dotted rule did not, because the rule's arm keyed on the
+`.below-note` WRAPPER — which a runtime-less render never produces — while the spark's arm
+keyed on the raw `<p>`. Half the register, on a shipped path, silently, for as long as the
+enumeration has existed. Tier 2 now puts the rule on the `<p>` itself.
+
 That test is not the CSS-parsing drift test `2026-08-24` deleted, and the difference is the
 direction of the arrow. The deleted one mirrored a CSS `:not()` chain into a hand-kept JS
 array and could only confirm that two hand-written lists still matched each other. This one

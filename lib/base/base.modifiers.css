@@ -848,9 +848,21 @@ section.scale-2xl { --fs-scale: 1.5;  }
  * satisfies. Only a LEADING `:is(section.x, …)` needs distributing, which is what
  * the note this comment replaces was actually about.
  *
- * UNVERIFIED on a real CSS-only consumer: no marp-cli in this sandbox and no
- * shipped config that omits the runtime, so tier 2 is reasoned from the packer
- * and the selector, not driven on that surface (HARD RULE #23).
+ * VERIFIED on the real surface, 2026-09-01. Driven through marp-cli v4.5.0 (marp-core
+ * v4.4.0) with the shipped marp-kit config and a deck carrying NO runtime `<script>`,
+ * measured in Chromium against a build of the base commit:
+ *
+ *   case                      base                      this file
+ *   list + plain note         accent hairline           accent hairline   (unchanged)
+ *   list NO-NOTE + plain      accent hairline           none              (opt-out now honored)
+ *   list + italic             accent hairline + spark   dotted + spark    (was HALF-STYLED)
+ *   content + italic          nothing                   dotted + spark    (the 19-layout gap)
+ *   code + italic (trails pre) nothing                  dotted + spark    (the anchor fix)
+ *
+ * The `list + italic` row is the one worth keeping: on base the spark fired while the
+ * dotted rule did not, because that arm keyed on the `.below-note` WRAPPER — which no
+ * runtime-less render produces. Half the register, on the shipped path, silently. Tier 2
+ * puts the rule on the `<p>` itself for exactly that reason.
  *                                                                            */
 
 /* ── TIER 1 · the `.below-note` wrapper ── */
