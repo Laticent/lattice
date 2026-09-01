@@ -218,3 +218,127 @@ stays accurate until Option B is implemented.
    enhancement, never the artifact path.
 
 These are implementation questions; none reopen the architecture decided above.
+
+---
+
+## Amendment 1 (2026-09-01) — §7 answered by measurement, and the two costs §5 does not name
+
+Written before any Option B code, against the tree at `bde789e`. **The
+architecture in §0–§6 is unchanged.** Three of §7's five questions turned out
+cheaper than the issue assumed; two costs that §5 does not name turned out to be
+where the work actually is.
+
+### §7.1 Reference inventory — answered, and the anticipated first slice is not needed
+
+The issue says "if yes, that retirement is Option B's first slice." The answer is
+**no**, measured:
+
+- Every `data-lattice-slide` occurrence in `lib/runtime/index.js` (3) and
+  `lib/export/player-core.mjs` (16) is a **CSS or query selector**
+  (`section[data-lattice-slide]`). Not one reads the attribute's *value* as an
+  address.
+- The player's transport indexes a live `querySelectorAll` array rebuilt on load
+  (`player-core.mjs:1753`). There is **no `location.hash` restore, no deep link,
+  no persisted index** — so no external reference can be invalidated by a split.
+- Run-id addressing **already exists and is already stamped**: `runIdOf`,
+  `stampRun`, `data-split-run` (`lib/core/auto-split.js:148-167`), carried onto
+  every continuation.
+
+The one genuine physical-page value is **`data-lattice-pagination`** — stamped at
+PARSE time (`lib/engine/slides.js:206`) and painted through
+`content: attr(data-lattice-pagination)` (`lib/engine/css.js:228`). That is one
+attribute on one element, which is the placeholder candidate §4 describes.
+
+**So there is no physical addressing to retire.** The first slice is not a
+migration; §7.1 costs a re-stamp.
+
+### §7.5 Persona-2 — confirmed
+
+The emulator writes `outHtml` *after* the split loop converges and again after the
+`applyRails` / `applyRelationshipSignals` / `fitBerth` re-render
+(`lattice-emulator.js:3230-3268`). The emailed artifact is post-split by
+construction. Option B is purely an interactive-surface enhancement and never the
+artifact path, exactly as §5 says.
+
+### §7.3 Idle budget — prefer the runtime's existing cadence over `requestIdleCallback`
+
+§4.1 names `requestIdleCallback` as the mechanism. `lib/runtime/index.js` **does
+not use `requestIdleCallback` anywhere.** Its established cadence is a 150 ms
+trailing debounce (`scheduleRun`), a rAF post-mutation coalescer, and a backstop
+timer with a max wait — three coordinated schedulers whose interaction is already
+carefully commented. Adding a fourth primitive to that file is how an interaction
+budget stops being analysable. **Reuse `scheduleRun`'s debounce.** §4.1's real
+content — that the work is main-thread by physics and a Worker cannot measure
+layout — is unaffected and stays.
+
+### §7.4 Placeholder policy — the dependent values are four, and three are already pure functions
+
+`data-lattice-pagination` (the printed number), the k-of-N rail (`applyRails`),
+the relationship signal (`applyRelationshipSignals`), and the player's own
+`lp-count`. The middle two are already exported pure functions on the assembled
+document. The policy is small; it is the *application* that is not (see Cost B).
+
+### §7.2 Scroll anchor — falls out of Cost B, not answerable before it
+
+---
+
+### Cost A — the verdict builder is NOT a shared kernel, and §0 says it is
+
+§0: *"The existing pure kernel (`resplitDoc`) is already measurement-fed and reused
+verbatim; the live DOM is just another measurer."* True of `resplitDoc`. **False of
+what feeds it.**
+
+`resplitDoc` consumes `{ slide, ratio, canSplit, splitRatio }`. The code that turns
+a probe reading into that verdict is **165 lines inside `lattice-emulator.js`'s
+`measureOverflow` `page.evaluate` (lines 3054–3218)**, and the string `splitRatio`
+appears **nowhere in `lib/`**. What *is* shared is `probeSectionOverflow`
+(`lib/core/overflow-probe.js`), which returns an *extent* — not a verdict.
+
+Those 165 lines are not boilerplate. They are the `canSplit` gate on vertical
+overflow, the collection-relative `splitRatio` that makes the loop converge instead
+of re-cutting a slide a tall non-list block keeps over the box, the carousel
+branch, and the width-overflow carve-out — each with a recorded defect behind it.
+Re-deriving them in the runtime is precisely the HARD RULE #1 violation Option B
+exists to prevent.
+
+**So slice 1 is: extract the verdict builder into a browser-safe shared kernel
+beside `overflow-probe.js`, and have the emulator inject it the way it already
+injects `PROBE_SRC`.** It is independently valuable, independently testable, and a
+provable no-op for the export path (the emulator's own corpus renders unchanged).
+It is also the same move `2026-09-01-manifest-driven-chart-dispatch.md` just made
+for chart dispatch, and for the same reason.
+
+### Cost B — `resplitDoc` rewrites a document STRING; the runtime is a DOM
+
+`resplitDoc(docHtml, overflow, capacityMap) -> { html, changed }`. `applyRails` and
+`applyRelationshipSignals` are the same shape. §5 says "live split of the visible
+slide … via `resplitDoc` on live-DOM ratios" and stops there — but applying a
+string transform to a live document means **serialize → transform → re-parse**,
+which destroys node identity across the split.
+
+Node identity is load-bearing at runtime in ways the export path never sees: Anima
+motion targets, `data-mark` popover state, the chart-family adapter's WeakMap
+rebuild-guard (`lib/transformers/chart-family.js`, whose own comment records what a
+wholesale `innerHTML` replacement costs), focus, and the reader's scroll position —
+which is §7.2. **The slide that splits is the slide the reader is looking at**,
+which is the worst possible place to lose identity.
+
+Two resolutions, and this is the fork:
+
+- **B1 — string round-trip scoped to one run.** Serialize only the affected run,
+  transform, re-parse, replace those sections. Reuses all three pure functions
+  verbatim; cheapest to build; confines identity loss to the splitting slide.
+- **B2 — a DOM applicator beside the string one**, with the *decision* (where to
+  cut, into how many parts) staying in the shared kernel and only the *application*
+  differing. This is the `applyToHtml` / `applyToDom` dual-adapter shape
+  `lib/transformers/registry.js` already uses across every render path, so it is
+  not a second implementation in the sense HARD RULE #1 forbids. More work; no
+  identity loss.
+
+B2 matches the precedent the repo already set. B1 ships sooner. **Not decided here.**
+
+### What this amendment changes
+
+Nothing in §0–§6. It re-orders the build: **slice 1 is Cost A** (extract the
+verdict builder), not §7.1's reference retirement, which measurement showed is not
+needed. Cost B is a design fork for the decision owner before any runtime code.
