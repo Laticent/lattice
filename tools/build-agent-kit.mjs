@@ -114,32 +114,26 @@ const CATALOGS = [
   {
     file: 'components.pick.md',
     to: `${COMPONENTS}/_index.md`,
-    why: '**The index — start here to CHOOSE a layout.** One line per component; the whole catalog in ~3.8k tokens. Skim or grep it, then open that component\'s own file beside it.',
   },
   {
     file: 'components.md',
     to: `${REFERENCE}/components.md`,
-    why: 'The prose catalog, whole. You almost never want this — `components/<name>.md` is the same content for one component. Here for completeness.',
   },
   {
     file: 'components.json',
     to: `${REFERENCE}/components.json`,
-    why: 'The full machine record, for TOOLS to parse. Do not load it to choose a layout.',
   },
   {
     file: 'grammar.json',
     to: `${REFERENCE}/grammar.json`,
-    why: 'The authoring grammar: which class tokens, variants and modifiers are legal where. What a linter keys off.',
   },
   {
     file: 'forms.json',
     to: `${REFERENCE}/forms.json`,
-    why: 'The Form vocabulary — how a slide is composed (cells, mastheads, stage regions), one level above components.',
   },
   {
     file: 'concepts.json',
     to: `${REFERENCE}/concepts.json`,
-    why: 'The concept ontology joining the two levels: what a component, modifier, token and Form each are, and how they relate.',
   },
 ];
 
@@ -156,6 +150,54 @@ const CATALOGS = [
  * `.chart-frame` skeleton they all wrap in, so omitting it ships a dangling
  * pointer one level down.
  */
+/**
+ * Rewrite a copied doc's outbound references so they resolve INSIDE the kit.
+ *
+ * The component docs are written for someone standing in the repo, and the kit
+ * copied them verbatim: 305 `../../<bucket>/<name>/<name>.docs.md` sibling
+ * links, 62 pointers at `design/design-system.md §6.5` and 61 at a gallery PDF
+ * — 428 references, none of which resolves for a reader who has no clone. That
+ * is the kit's whole audience.
+ *
+ * A NOTE SAYING "MENTALLY REWRITE THIS PATH" IS NOT THE FIX. The kit shipped one
+ * for a single such pointer and the other 428 stayed broken; the fix is to
+ * rewrite the paths, and to pin link resolution in a test so a new one cannot
+ * appear. Prose that merely NAMES an engine file ("the contrast is
+ * `lib/shared/shared.docs.md`") is left alone — it is information, not an
+ * instruction to open something the reader does not have.
+ */
+function relocate(text) {
+  return (
+    String(text)
+      // A sibling component doc — `../../comparison/verdict-grid/verdict-grid.docs.md`
+      // (and the `_family` directories) — is one flat file here.
+      .replace(/\]\(\.\.\/\.\.\/[a-z-]+\/_?([a-z0-9-]+)\/\1\.docs\.md\)/g, '](./$1.md)')
+      .replace(/\]\(\.\.\/\.\.\/[a-z-]+\/_([a-z0-9-]+)\/\1\.docs\.md\)/g, '](./_$1.md)')
+      // The rendered-gallery PDFs are not in the kit (they are ~1 MB each and the
+      // kit is text). Drop the sentence rather than leave a link to nothing.
+      .replace(/^See \[[a-z0-9-]+\.gallery\.[a-z]+\.pdf\]\([^)]*\)[^\n]*\n/gm, '')
+      // The universal-variant catalog now ships as authoring/modifiers.md. The
+      // repo link was doubly dead here: the anchor still said `three-tiers` after
+      // the section became four.
+      .replace(
+        /\[design\/design-system\.md §6\.5\]\([^)]*\)/g,
+        `[the universal modifier catalog](../${AUTHORING}/modifiers.md)`,
+      )
+      // `components.pick.md` is generated for repo users and routes readers to a
+      // path a kit consumer does not have.
+      .replace(/`lib\/components\/<bucket>\/<name>\/<name>\.docs\.md`/g, '`./<name>.md`')
+      // chart-family lists its members as a shell brace expansion over the repo
+      // tree. Same file, flat, in the kit.
+      .replace(/`lib\/components\/[a-z-]+\/\{[^}]*\}\/<name>\.docs\.md`/g, '`./<name>.md`')
+      // HARD RULE numbers are the repo's internal index; the kit's reader has no
+      // CLAUDE.md to resolve them against. Keep the requirement, drop the citation.
+      .replace(/ — HARD RULE #6 requires that before you write the slide/g, ' — always read it before you write the slide')
+      .replace(/, which HARD RULE #6 requires you to open before/g, ', which you should always open before')
+      .replace(/ \(HARD RULE #5, lint[^)]*\)/g, '')
+      .replace(/ \(HARD RULE #5\)/g, '')
+  );
+}
+
 function componentDocs() {
   const { loadAll, manifestBucket } = require(path.join(ROOT, 'lib', 'components'));
   const out = [];
@@ -163,7 +205,7 @@ function componentDocs() {
     const bucket = manifestBucket(m);
     const src = path.join(ROOT, 'lib', 'components', bucket, m.name, `${m.name}.docs.md`);
     if (!existsSync(src)) continue;
-    out.push({ name: m.name, bucket, body: readFileSync(src) });
+    out.push({ name: m.name, bucket, body: Buffer.from(relocate(readFileSync(src, 'utf8')), 'utf8') });
   }
   for (const bucket of readdirSync(path.join(ROOT, 'lib', 'components'))) {
     const bucketDir = path.join(ROOT, 'lib', 'components', bucket);
@@ -178,7 +220,7 @@ function componentDocs() {
       const family = dir.slice(1);
       const src = path.join(bucketDir, dir, `${family}.docs.md`);
       if (!existsSync(src)) continue;
-      out.push({ name: `_${family}`, bucket, family: true, body: readFileSync(src) });
+      out.push({ name: `_${family}`, bucket, family: true, body: Buffer.from(relocate(readFileSync(src, 'utf8')), 'utf8') });
     }
   }
   out.sort((a, b) => a.name.localeCompare(b.name));
@@ -208,10 +250,19 @@ function skillDocs() {
  * a whole class: a matrix-2x2 element at 28 words against a ~10-word budget is
  * found only when the catalog is passed (measured).
  *
- * THIS BUNDLE IS lib/ → lib/ ONLY. An earlier attempt to bundle a DOCS module
- * broke `npm ci` for everyone, because `prepare` runs this build and the docs
- * workspace's deps are not installed by a root-only install. review-core's
- * whole graph is `lib/`, verified to run with `docs/node_modules` hidden.
+ * ITS FIRST-PARTY GRAPH IS lib/ → lib/ ONLY, and that is the load-bearing half.
+ * An earlier attempt to bundle a DOCS module broke `npm ci` for everyone,
+ * because `prepare` runs this build and the docs workspace's deps are not
+ * installed by a root-only install. Verified by running this build with
+ * `docs/node_modules` hidden.
+ *
+ * It is NOT dependency-free. review-core requires markdown-it, so esbuild inlines
+ * it and five transitive deps (linkify-it, mdurl, uc.micro, punycode.js, entities)
+ * — root deps, so `npm ci` is safe, but MIT/BSD-2-Clause code whose notices the
+ * bundler strips. `thirdPartyLicenses()` restores them from the packages' own
+ * LICENSE files and throws if one cannot be found. An earlier revision of this
+ * docblock said "lib/ → lib/ only" full stop, and the kit published with no
+ * notices and no LICENSE at all on the strength of it.
  */
 function reviewBundle() {
   const tmp = mkdtempSync(path.join(tmpdir(), 'lattice-review-'));
@@ -326,6 +377,121 @@ function reviewBundle() {
         '  `npm ci` for every consumer, because `prepare` runs this build.',
     );
   }
+}
+
+/**
+ * The third-party packages esbuild actually pulled into `review/check.mjs`.
+ *
+ * DERIVED FROM THE BUNDLE, never from a hand-kept list: esbuild writes each
+ * module's source path as a banner comment, so the set of `node_modules/<pkg>/`
+ * prefixes IS the set of packages redistributed. A hand list would silently rot
+ * the first time review-core's import graph moves — which is exactly how these
+ * six shipped with no notices at all.
+ *
+ * `markdown-it` and its five transitive deps are MIT / BSD-2-Clause. Both
+ * require the copyright notice to accompany a redistribution, and esbuild
+ * strips comments from the packages it inlines, so the notice has to be
+ * restored beside the file. Missing LICENSE text is a hard error: publishing
+ * without it is the defect this function exists to prevent.
+ */
+function bundledPackages(bundle) {
+  const names = new Set();
+  for (const m of String(bundle).matchAll(/^\/\/ node_modules\/((?:@[^/\n]+\/)?[^/\n]+)\//gm)) {
+    names.add(m[1]);
+  }
+  return [...names].sort();
+}
+
+const LICENSE_FILENAMES = ['LICENSE', 'LICENSE.md', 'LICENSE.txt', 'LICENCE', 'LICENSE-MIT.txt', 'LICENSE-MIT'];
+
+function thirdPartyLicenses(bundle) {
+  const pkgs = bundledPackages(bundle);
+  if (!pkgs.length) {
+    throw new Error(
+      'build-agent-kit: no bundled packages detected in review/check.mjs.\n' +
+        '  Either esbuild stopped emitting its path banners (so the license list can no longer be\n' +
+        '  derived and must be rewritten), or the bundle is empty. Do not publish either way.',
+    );
+  }
+  const rule = '='.repeat(78);
+  const out = [
+    'THIRD-PARTY LICENSES',
+    '',
+    'The Lattice engine itself is AGPL-3.0-only — see LICENSE and NOTICE.md.',
+    '',
+    'review/check.mjs is a single-file bundle. The packages below are third party,',
+    'inlined into it unmodified, and governed by their own terms, reproduced here in',
+    'full because the bundler strips the notices from the code itself.',
+    '',
+  ];
+  for (const name of pkgs) {
+    const dir = path.join(ROOT, 'node_modules', name);
+    const file = LICENSE_FILENAMES.map((f) => path.join(dir, f)).find((f) => existsSync(f));
+    if (!file) {
+      throw new Error(
+        `build-agent-kit: ${name} is bundled into review/check.mjs but ships no LICENSE file.\n` +
+          '  Its terms cannot be reproduced, so the kit cannot be published with it. Vendor the\n' +
+          "  text into assets/licenses/ and extend LICENSE_FILENAMES, or drop the dependency.",
+      );
+    }
+    let version = '';
+    try {
+      version = `@${JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8')).version}`;
+    } catch {
+      version = '';
+    }
+    out.push(rule, `${name}${version}`, rule, '', readFileSync(file, 'utf8').trimEnd(), '');
+  }
+  return out.join('\n');
+}
+
+/**
+ * NOTICE.md — the license facts a recipient cannot get from the files.
+ *
+ * The agent kit is mostly prose, and prose about an AGPL engine is not itself
+ * the engine. One file is different: `review/check.mjs` is Lattice's own
+ * reviewer compiled to a runnable bundle — engine code, handed over loose — so
+ * the AGPL applies to it in full and the output exception (which covers engine
+ * assets embedded inside a RENDERED deck) does not reach it.
+ */
+function noticeDoc(bundle) {
+  return [
+    '# Notices',
+    '',
+    '## Lattice',
+    '',
+    'Copyright (c) 2025-2026 SlideWright. Licensed under the **GNU Affero General',
+    'Public License, version 3** — the full text is in `LICENSE`, beside this file.',
+    '',
+    'Most of this kit is documentation: the component references, the authoring',
+    'canon, the skills and the catalogs describe Lattice rather than being it. Decks',
+    'you write from them are yours, and were never covered either way.',
+    '',
+    '**`review/check.mjs` is different.** It is the Lattice reviewer itself,',
+    'compiled to one runnable file — engine code handed over loose, not engine code',
+    'embedded in a rendered deck — so the AGPL applies to it in full and the output',
+    'exception in `LICENSE-EXCEPTIONS` does not reach it. Running it on your own',
+    'decks is ordinary use and asks nothing of you; redistributing it, or a service',
+    'built on it, is what the license speaks to.',
+    '',
+    '## Third-party code inside `review/check.mjs`',
+    '',
+    'The bundle inlines the packages below. The bundler strips their comments, so',
+    'their notices are reproduced in full in `THIRD-PARTY-LICENSES.txt`.',
+    '',
+    '| Package | License |',
+    '|---|---|',
+    ...bundledPackages(bundle).map((n) => {
+      let lic = 'see THIRD-PARTY-LICENSES.txt';
+      try {
+        lic = JSON.parse(readFileSync(path.join(ROOT, 'node_modules', n, 'package.json'), 'utf8')).license || lic;
+      } catch {
+        /* fall through to the pointer */
+      }
+      return `| \`${mdCell(n)}\` | ${mdCell(lic)} |`;
+    }),
+    '',
+  ].join('\n');
 }
 
 /** review/rubric.md — the same 17 checks, for a reader rather than a runtime. */
@@ -461,6 +627,93 @@ function rulesDoc(authoringRules) {
     '---',
     '',
     'Source: `docs/src/components/studio/ai/architect-knowledge.js` (`AUTHORING_RULES`).',
+    '',
+  ].join('\n');
+}
+
+/**
+ * authoring/modifiers.md — the cross-cutting vocabulary, which the kit named and
+ * never listed.
+ *
+ * `rules.md` tells an author to compose `tint-*` / `mark-*` / `with-*` / `tone-*`
+ * onto the class, and every component doc ended a paragraph with "see
+ * design/design-system.md §6.5 for the catalog" — a file outside the kit. So the
+ * catalog was mandatory to use and impossible to read: a cold consumer measured
+ * it and used no modifier at all rather than guess.
+ *
+ * GENERATED FROM `UNIVERSAL_GROUPS`, not copied from the prose (HARD RULE #1).
+ * The prose had already drifted — the anchor those 62 links used still said
+ * `three-tiers` after the section became four.
+ */
+function modifiersDoc() {
+  const { UNIVERSAL_GROUPS, SEMI_UNIVERSAL_VARIANTS } = require(path.join(ROOT, 'lib', 'components', 'index.js'));
+  // What each group is FOR. The names alone do not say when to reach for one,
+  // and "when not to" is the line that actually saves a reader a bad slide.
+  const BLURBS = {
+    mood: 'Flip a single slide to the dark companion palette. Deck-wide dark is a theme choice, not this.',
+    decoration: 'Ambient art on the canvas. One per slide at most — two read as clutter, and none is the right answer on a dense slide.',
+    typography: 'Scale the slide’s type up, or control the auto-period on headings. `scale-*` buys emphasis on a SPARSE slide; on a full one it just overflows.',
+    chrome: 'Turn the running header, footer, page number or section rail off for one slide. `silent` bundles the first three — it is what bookends use.',
+    note: 'Act on a trailing sentence: keep it as body copy, or mark the slide’s callout as an alarm (the warning triangle is drawn, so a caveat needs no typed glyph).',
+    social: 'Crop-safe framing for a slide destined to be screenshotted.',
+    table: 'Table treatment switches: drop the zebra, spread rows into leftover height, or decode `[x]` `[-]` `[ ]` `[/]` cells into status discs.',
+    state: 'Collaboration markers — a visible stamp that a slide is in progress, confidential or superseded. Meta-signal about the slide, independent of its content.',
+    tone: 'Cast the whole slide in a pass/warn/fail/skip color. Use for "this is the failure slide", not to color one item.',
+    insight: 'Rename the key-insight callout’s eyebrow (TAKEAWAY, VERDICT, THE ASK, …). Changes the WORD, never the styling.',
+    claim: 'Let content claim the stage by receding the chrome — quiet, then hero. Composes with the chrome switches above.',
+  };
+  const rows = Object.entries(UNIVERSAL_GROUPS).map(
+    ([group, names]) =>
+      `| \`${mdCell(group)}\` (${names.length}) | ${names.map((n) => `\`${n}\``).join(' · ')} | ${mdCell(BLURBS[group] || '')} |`,
+  );
+  const total = Object.values(UNIVERSAL_GROUPS).reduce((n, v) => n + v.length, 0);
+  return [
+    '# Universal modifiers',
+    '',
+    'Class tokens that work on **every** layout. Compose them on the same comment,',
+    'space-separated, after the layout name:',
+    '',
+    '```',
+    '<!-- _class: cards-grid dark tone-warn insight-the-ask -->',
+    '```',
+    '',
+    `There are ${total}, in ${Object.keys(UNIVERSAL_GROUPS).length} groups. A layout never has to declare them and`,
+    'cannot opt out of them.',
+    '',
+    '| Group | Tokens | What it is for |',
+    '|---|---|---|',
+    ...rows,
+    '',
+    '## Two rules that save a slide',
+    '',
+    '**Colors come from the theme, never from you.** There is no way to author a hex',
+    'value, and that is the point: a token means the same thing in every theme, a hex',
+    'means one thing in one theme and is wrong in the rest.',
+    '',
+    '**One decoration per slide, and usually none.** `tint-*` and `mark-*` are ambient',
+    'art. They earn their place on a bookend or a divider; on a slide already carrying',
+    'content they compete with it.',
+    '',
+    '## Position suffixes',
+    '',
+    'The `tint-corner` / `tint-edge` treatments take a companion `at-*` token that says',
+    'where: `at-tl` `at-top` `at-tr` `at-right` `at-br` `at-bottom` `at-bl` `at-left`.',
+    'Author both — `tint-corner at-tl`.',
+    '',
+    '## Semi-universal',
+    '',
+    'These apply to MOST layouts; a layout whose shape they would break opts out, so a',
+    'component file is the authority for its own:',
+    '',
+    ...(Array.isArray(SEMI_UNIVERSAL_VARIANTS) && SEMI_UNIVERSAL_VARIANTS.length
+      ? [SEMI_UNIVERSAL_VARIANTS.map((v) => `\`${v}\``).join(' · '), '']
+      : []),
+    'Per-layout variants are listed in each `../components/<name>.md`.',
+    '',
+    '---',
+    '',
+    'Generated from `UNIVERSAL_GROUPS` in the component index — the same source the',
+    'engine composes against, so this list cannot drift from what actually renders.',
     '',
   ].join('\n');
 }
@@ -865,7 +1118,10 @@ async function buildKit() {
       missing.push(c.file);
       continue;
     }
-    files.set(c.to, readFileSync(src));
+    // Markdown catalogs get the same relocation as the component docs — the
+    // pick list is generated for repo users and hands out a `lib/components/...`
+    // path. JSON is machine input and is copied byte-for-byte.
+    files.set(c.to, c.file.endsWith('.json') ? readFileSync(src) : Buffer.from(relocate(readFileSync(src, 'utf8')), 'utf8'));
   }
   if (missing.length) {
     throw new Error(
@@ -877,11 +1133,19 @@ async function buildKit() {
   files.set(`${AUTHORING}/primer.md`, Buffer.from(primer, 'utf8'));
   files.set(`${AUTHORING}/deck-canon.md`, Buffer.from(deckCanonDoc(), 'utf8'));
   files.set(`${AUTHORING}/rules.md`, Buffer.from(rulesDoc(authoringRules), 'utf8'));
+  files.set(`${AUTHORING}/modifiers.md`, Buffer.from(modifiersDoc(), 'utf8'));
   files.set(`${REFERENCE}/studio-prompts.md`, Buffer.from(studioPromptsDoc(), 'utf8'));
 
-  // The checker and its rubric. check.mjs is the only executable in the kit.
-  files.set(`${REVIEW}/check.mjs`, reviewBundle());
+  // The checker and its rubric. check.mjs is the only executable in the kit —
+  // and the only reason the kit needs license files at all, since it inlines six
+  // third-party packages whose notices the bundler strips.
+  const checker = reviewBundle();
+  files.set(`${REVIEW}/check.mjs`, checker);
   files.set(`${REVIEW}/rubric.md`, Buffer.from(rubricDoc(), 'utf8'));
+  files.set('LICENSE', readFileSync(path.join(ROOT, 'LICENSE')));
+  files.set('LICENSE-EXCEPTIONS', readFileSync(path.join(ROOT, 'LICENSE-EXCEPTIONS')));
+  files.set('NOTICE.md', Buffer.from(noticeDoc(checker), 'utf8'));
+  files.set('THIRD-PARTY-LICENSES.txt', Buffer.from(thirdPartyLicenses(checker), 'utf8'));
 
   const components = componentDocs();
   const componentCount = components.filter((c) => !c.family).length;

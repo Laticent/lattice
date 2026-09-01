@@ -302,4 +302,123 @@ test('agent kit structure', { skip }, async (t) => {
 				'written for the primer, where every skeleton is printed inline, and dangle here.',
 		);
 	});
+	/**
+	 * LICENSING. `review/check.mjs` is an esbuild bundle, and esbuild strips the
+	 * comments from every package it inlines — including the copyright notices
+	 * MIT and BSD-2-Clause both require to travel with the code. The kit shipped
+	 * six such packages, no notices, and no LICENSE of its own, to a PUBLIC
+	 * branch. These arms are the reason that cannot recur.
+	 */
+	await t.test('every package bundled into the checker has its notice reproduced', () => {
+		const bundle = fs.readFileSync(path.join(KIT, 'review', 'check.mjs'), 'utf8');
+		const notices = fs.readFileSync(path.join(KIT, 'THIRD-PARTY-LICENSES.txt'), 'utf8');
+		const bundled = [
+			...new Set(
+				[...bundle.matchAll(/^\/\/ node_modules\/((?:@[^/\n]+\/)?[^/\n]+)\//gm)].map((m) => m[1]),
+			),
+		];
+		assert.ok(
+			bundled.length > 0,
+			'no bundled packages detected — if esbuild stopped emitting path banners the license ' +
+				'list is no longer derivable and this arm is blind, which is worse than a red build.',
+		);
+		for (const name of bundled) {
+			assert.ok(
+				notices.includes(name),
+				`${name} is inlined into review/check.mjs but its license text is not reproduced ` +
+					'in THIRD-PARTY-LICENSES.txt. Redistributing it without the notice breaks its terms.',
+			);
+		}
+		// A heading per package is not the notice — the copyright line is the part
+		// both licenses actually require.
+		const copyrights = (notices.match(/Copyright/gi) || []).length;
+		assert.ok(
+			copyrights >= bundled.length,
+			`${bundled.length} packages bundled but only ${copyrights} copyright lines reproduced`,
+		);
+	});
+
+	await t.test('the kit carries its own license files', () => {
+		for (const f of ['LICENSE', 'LICENSE-EXCEPTIONS', 'NOTICE.md', 'THIRD-PARTY-LICENSES.txt']) {
+			const p = path.join(KIT, f);
+			assert.ok(fs.existsSync(p), `${f} is missing — the kit publishes to a public branch`);
+			assert.ok(fs.statSync(p).size > 200, `${f} is present but too short to be the real text`);
+		}
+		// NOTICE.md has to say the one thing a reader cannot infer: check.mjs is
+		// engine code handed over loose, so the output exception does not reach it.
+		const notice = fs.readFileSync(path.join(KIT, 'NOTICE.md'), 'utf8');
+		assert.match(notice, /review\/check\.mjs/, 'NOTICE.md does not name the one file that is engine code');
+		assert.match(notice, /exception/i, 'NOTICE.md does not address the output exception');
+	});
+
+	/**
+	 * THE LINK CENSUS — the arm that would have caught 428 dead references.
+	 *
+	 * The component docs are written for someone standing in the repo, and the kit
+	 * copied them verbatim: every `[x](../../<bucket>/<name>/<name>.docs.md)`,
+	 * every `design/design-system.md §6.5` pointer and every gallery-PDF link
+	 * pointed at a file no kit consumer has. A note explaining the mapping is not
+	 * a fix and did not scale past the one pointer it was written for; resolving
+	 * every link mechanically is, and this is what holds it.
+	 *
+	 * `skills/` is exempt BY DECISION: those seven files ship verbatim so they
+	 * stay byte-identical to `design/skills/`, and `skills/README.md` carries a
+	 * glossary for what they cite. Everything else in the kit must stand alone.
+	 */
+	await t.test('every relative link outside skills/ resolves inside the kit', () => {
+		const dead = [];
+		const walk = (dir) => {
+			for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+				const p = path.join(dir, entry.name);
+				if (entry.isDirectory()) {
+					if (entry.name !== 'skills') walk(p);
+					continue;
+				}
+				if (!entry.name.endsWith('.md')) continue;
+				const body = fs.readFileSync(p, 'utf8');
+				for (const m of body.matchAll(/\]\((\.[^)]*|[a-z][A-Za-z0-9_./-]*\.(?:md|json|mjs|pdf|css|js))\)/g)) {
+					const target = m[1].split('#')[0];
+					if (!target || /^(https?:|mailto:)/.test(target)) continue;
+					const resolved = path.resolve(path.dirname(p), target);
+					if (!fs.existsSync(resolved)) {
+						dead.push(`${path.relative(KIT, p)} -> ${target}`);
+					}
+				}
+			}
+		};
+		walk(KIT);
+		assert.deepEqual(
+			dead,
+			[],
+			`${dead.length} link(s) in the kit point at a file the kit does not contain. A reader ` +
+				'with no clone cannot follow them, and that reader is the kit\'s entire audience.',
+		);
+	});
+
+	await t.test('the kit does not tell its reader to open a repo path or obey a HARD RULE', () => {
+		const offenders = [];
+		const walk = (dir) => {
+			for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+				const p = path.join(dir, entry.name);
+				if (entry.isDirectory()) {
+					if (entry.name !== 'skills') walk(p);
+					continue;
+				}
+				if (!entry.name.endsWith('.md')) continue;
+				const body = fs.readFileSync(p, 'utf8');
+				// An instruction to OPEN a repo doc, and the repo's internal rule
+				// index — neither resolves for a reader with no clone and no CLAUDE.md.
+				// Keyed on the PATH SHAPE, not a verb: the first draft of this arm
+				// matched /open `?lib\/components\// and a capital "Open" walked
+				// straight past it. A kit file has no business naming a repo
+				// `.docs.md` at all, whatever sentence wraps it.
+				for (const re of [/lib\/components\/[^`\s)]*\.docs\.md/, /HARD RULE #\d+/]) {
+					const hit = body.match(re);
+					if (hit) offenders.push(`${path.relative(KIT, p)}: ${hit[0]}`);
+				}
+			}
+		};
+		walk(KIT);
+		assert.deepEqual(offenders, [], 'the kit routes its reader somewhere they cannot go');
+	});
 });
