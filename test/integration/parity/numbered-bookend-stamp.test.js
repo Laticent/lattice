@@ -108,12 +108,15 @@ const EXPECTED = [
   { cls: 'divider silent numbered', counter: 'lat-divider' },
   { cls: 'divider light numbered', counter: 'lat-divider' },
   { cls: 'closing numbered', counter: null },
-  // The PIXEL control: silent, so no header and no page number, and unstamped. Paired
-  // with `divider silent numbered` above, the numeral is the only thing that can differ.
+  // `silent` WITHOUT `numbered`: proves the chrome assertions above are reading the
+  // modifier and not just `silent`, which suppresses header and footer on its own.
   { cls: 'divider silent', counter: null, header: 'none', footer: 'none' },
 ];
-/** Indices of the pixel pair — same chrome, one stamped. */
-const PIXEL_CONTROL = 5;
+/**
+ * The slide the pixel arm toggles. It compares this section against ITSELF with
+ * `numbered` removed, so there is no second index — see the arm for why a two-section
+ * comparison could not fail.
+ */
 const PIXEL_STAMPED = 2;
 
 /**
@@ -201,30 +204,56 @@ describe('numbered bookend stamp — both render paths', { skip: skipWithoutChro
       );
       assertStamps(await readStamps(page, 'article.lattice > section'), 'packed');
 
-      // THE PIXEL ARM. The same 340×180 TOP-LEFT corner — where the numeral now sits,
-      // bleeding past the edge — on `divider silent` and `divider silent numbered`.
-      // Both are silent, so neither paints a header or a page number, and the canvas and
-      // the left rail are identical: the numeral is the only thing that can differ.
-      // Compared as encoded PNG bytes, which needs no image library — two identical
-      // crops encode to identical buffers.
+      // THE PIXEL ARM — and it compares ONE section against ITSELF, which is the whole
+      // point of the shape.
       //
-      // The crop starts at the section's own left edge, so it covers the bleed: a
-      // regression that pushed the numeral fully off-canvas would read as "identical to
-      // the control" and fail here, which a computed-style assertion cannot see.
+      // The first cut cropped the same corner from TWO DIFFERENT sections (`divider
+      // silent` vs `divider silent numbered`) and asserted the buffers differ. That
+      // assertion cannot fail: the dark canvas carries a gradient, so two sections
+      // rasterize ±1 per channel regardless of the stamp. Measured with the stamp killed
+      // outright (`content: none`, i.e. the exact pre-fix picture) it still "passed" —
+      // 338 differing pixels, all ±1, spread across the whole crop and none of them
+      // anywhere near the numeral. The one arm bought to satisfy HARD RULE #23 could not
+      // fail for the reason it existed.
+      //
+      // So: screenshot the numbered section, strip `numbered` from THAT SAME element,
+      // screenshot again. Same element, same position, same rasterization — the numeral
+      // is now the only thing that can differ, and byte equality means it painted
+      // nothing. The guard below proves the harness can still detect sameness.
       const sections = await page.$$('article.lattice > section');
+      const stampedEl = sections[PIXEL_STAMPED];
+      // THE CROP ISOLATES THE NUMERAL, and that is load-bearing too. A crop wide enough
+      // to include the HAIRLINE passes on the rule alone: mutation-tested with
+      // `color: transparent` — numeral invisible, rule still painting — and a full-corner
+      // crop reported "differs" and went green. At 1280x720 (1cqi = 12.8px) the mark is
+      // laid out `left: 9.375cqi = 120`, `top: 5cqi = 64`, `--fs-hero = 114.7` tall, then
+      // 20.5 of padding and the 1px rule at y ~199. So this window — x 100..340,
+      // y 50..190 — holds the digits and stops short of the rule.
       const corner = async (el) => {
         const box = await el.boundingBox();
         return page.screenshot({
-          clip: { x: box.x, y: box.y, width: 340, height: 180 },
+          clip: { x: box.x + 100, y: box.y + 50, width: 240, height: 140 },
           captureBeyondViewport: true,
         });
       };
-      const control = await corner(sections[PIXEL_CONTROL]);
-      const stamped = await corner(sections[PIXEL_STAMPED]);
-      assert.notEqual(
-        Buffer.compare(control, stamped),
+
+      const withStamp = await corner(stampedEl);
+      // FALSIFIABILITY GUARD: the same element twice, untouched, must be byte-identical.
+      // Without this the arm below could pass on rasterization noise all over again.
+      assert.equal(
+        Buffer.compare(withStamp, await corner(stampedEl)),
         0,
-        'the numbered divider painted the same top-left corner as its unstamped twin — the stamp is declared but invisible'
+        'two screenshots of one unchanged element differ — the pixel harness is noisy and its verdict means nothing'
+      );
+
+      await stampedEl.evaluate((el) => el.classList.remove('numbered'));
+      const withoutStamp = await corner(stampedEl);
+      await stampedEl.evaluate((el) => el.classList.add('numbered'));
+
+      assert.notEqual(
+        Buffer.compare(withStamp, withoutStamp),
+        0,
+        'removing `numbered` from the section changed nothing where the numeral sits — the stamp is declared but paints no pixels'
       );
     } finally {
       await page.close();

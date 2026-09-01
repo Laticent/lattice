@@ -527,7 +527,7 @@ describe('lattice-engine: CSS-pack (load-bearing rules)', () => {
     }
   });
 
-  test('divider/closing counters reset on the dead root selector', () => {
+  test('the section counter resets on the dead root selector', () => {
     const re = /counter-reset:\s*lat-divider/;
     const e = declaringSelector(enginePack, re);
     assert.match(e, /section body$/); // dead → implicit root reset
@@ -574,8 +574,30 @@ describe('lattice-engine: CSS-pack (load-bearing rules)', () => {
   // itself as section 01. A regex for the surviving token cannot see a NEW sibling being
   // added, so this asserts the whole set.
   test('exactly one section counter exists', () => {
-    const tokens = new Set([...strip(enginePack).matchAll(/counter(?:-reset|-increment)?\(?\s*(lat-[\w-]+)/g)].map((m) => m[1]));
-    assert.deepEqual([...tokens].sort(), ['lat-divider']);
+    // BOTH declaration forms, because the first cut of this matched NEITHER: its pattern
+    // had no `:` between the property and its value, so `counter-reset: lat-divider` and
+    // `counter-increment: lat-closing` both fell through and the only hit came from the
+    // `content: counter(...)` function — i.e. it was exactly the "regex for the surviving
+    // token" the comment above says it is not. A sibling counter re-added on the
+    // SLIDE-OWN `::after` (the bug this PR fixes) would have been invisible to it twice
+    // over, since `packTheme` comments that declaration out and `strip()` deletes the
+    // comment.
+    const packed = strip(enginePack);
+    const tokens = new Set();
+    for (const m of packed.matchAll(/counter-(?:reset|increment)\s*:\s*([^;}]+)/g)) {
+      for (const t of m[1].match(/lat-[\w-]+/g) || []) tokens.add(t);
+    }
+    for (const m of packed.matchAll(/counters?\(\s*(lat-[\w-]+)/g)) tokens.add(m[1]);
+    assert.ok(tokens.size, 'no counter found at all — the pattern stopped matching');
+    // SCOPED to the bookend family, not to every `lat-*` counter in the engine: the split
+    // machinery runs its own `lat-split-offset`, and asserting a repo-wide count of one
+    // would fail on an unrelated feature. Caught by mutation-testing this very assertion.
+    assert.deepEqual([...tokens].filter((t) => /^lat-(divider|closing)/.test(t)).sort(), ['lat-divider']);
+    // And the two retired siblings are gone from the packed output entirely — not merely
+    // absent from a counter declaration, which a `content:` reference could still smuggle.
+    for (const retired of ['lat-divider-light', 'lat-closing']) {
+      assert.ok(!packed.includes(retired), `${retired} was retired but still appears in the packed stylesheet`);
+    }
   });
 });
 

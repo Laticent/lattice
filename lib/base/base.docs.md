@@ -761,6 +761,17 @@ it. The masthead owns the top band, and a section start is the one slide that
 does not need to be told which deck it is in. The page number is deliberately
 untouched — it sits bottom-right, nowhere near the mark.
 
+One consequence worth knowing before you reach for it: **a numbered divider
+cannot carry a `_footer:` caption.** The component galleries label each variant
+in the footer, so the two numbered slides in the baseline gallery are labelled
+by their eyebrow instead. If a slide needs a visible footer, it cannot also be
+`numbered`.
+
+**A heading is required, and the count advances either way.** The numeral rides
+the heading's pseudo, so a numbered divider with no heading paints nothing — but
+it still increments the series, so the next divider reads one higher. A deck
+that does this silently skips a number; `lint:deck` does not catch it.
+
 The numeral rides the slide HEADING's `::after`, so a `numbered` slide needs
 its heading — the required slot here anyway. It deliberately does NOT ride
 `section::after`: that pseudo is the engine's page number, which `silent` /

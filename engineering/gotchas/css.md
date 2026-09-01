@@ -206,10 +206,12 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `section.divider.numbered :is(h1, h2)::after` (`base.modifiers.css`). The descendant
   combinator puts a space in the selector, which the pagination regex cannot cross, and it
   shares no pseudo with `silent`. `position: absolute` still resolves against the section
-  (`base.elements.css` sets `position: relative` on every slide), so the numeral sits in the
-  same slide corner; being out of flow it does not disturb the heading's `text-wrap: balance`
-  or `max-width`. A side effect worth knowing: `numbered` no longer EATS the page number, so
-  a paginated `divider numbered` now shows both.
+  (`base.elements.css` sets `position: relative` on every slide), so the mark measures from
+  the slide corner rather than from wherever the heading sits; being out of flow it does not
+  disturb the heading's `text-wrap: balance` or `max-width`. The mark itself was later
+  restyled as a MASTHEAD in the top band (numeral over a hairline, left margin) — the
+  carrier is what this entry is about, not the geometry. A side effect worth knowing:
+  `numbered` no longer EATS the page number, so a paginated `divider numbered` shows both.
 - **The general lesson:** `section::after` belongs to pagination on every path. Anything
   that must survive a real render goes on the section itself (see the finish-edge entry
   above) or on a descendant's pseudo — never on the slide's own `::after`.
@@ -219,7 +221,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   mid-count and a closing announced itself as section 01. Nobody had seen it, because on
   every browser surface nothing rendered at all. It is now ONE `lat-divider` series shared
   by both dividers, `closing` does not take the modifier, and a numbered divider suppresses
-  its running header (the stamp took that corner). Worth knowing as a class: **a feature
+  its running header AND its footer (the masthead owns the top band; the page number stays). Worth knowing as a class: **a feature
   that renders nowhere accumulates design defects silently**, and fixing the render is
   where you find them, not where you finish.
 - **A SECOND defect was hiding behind the first, and it is the more interesting one.**

@@ -3,7 +3,7 @@ marp: true
 theme: indaco
 paginate: true
 header: "Lattice · numbered bookends"
-meta: "numbered · divider / closing section stamp"
+meta: "numbered · the divider section mark"
 ---
 
 <!-- _class: title silent -->

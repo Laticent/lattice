@@ -1504,13 +1504,13 @@ body {
  * through. */
 section.divider.numbered { counter-increment: lat-divider; }
 
-/* The stamp owns the top-left corner, so the running header does not get to share it.
- * `> header` reaches the band on BOTH frames — the Form migration wrapped the footer in
- * a `.cell-footer` but left the header a direct child (lib/forms/cell/stage/stage.css). */
 /* The masthead owns the top band, so the running header and the footer both stand
  * down. `> header` and `> footer` reach the legacy frame; the Form migration wrapped
  * the footer in a `.cell-footer` and left the header a direct child
- * (lib/forms/cell/stage/stage.css), so the footer needs both forms. The PAGE NUMBER is
+ * (lib/forms/cell/stage/stage.css), so the footer needs both forms. The `.cell-footer`
+ * arm is DEFENSIVE, not exercised: `divider` renders on the legacy frame today, so no
+ * such DOM exists — it is here so a future Form migration does not silently restore the
+ * footer. The PAGE NUMBER is
  * deliberately untouched — it lives bottom-right, nowhere near this, and it is the one
  * piece of chrome a section start still benefits from. */
 section.divider.numbered > header,
@@ -1519,25 +1519,42 @@ section.divider.numbered > .cell-footer > footer { display: none; }
 
 section.divider.numbered :is(h1, h2)::after {
   position: absolute;
-  /* PINNED TO THE SECTION, at the top, and that is the whole reason this shape won.
-   * The headline block is vertically CENTERED, so it grows DOWNWARD AND UPWARD from the
-   * middle — away from a mark pinned at the top. Measured against one-, two-, three- and
-   * five-line headings: this numeral does not move by a pixel and never meets the copy.
+  /* PINNED TO THE SECTION, at the top. The headline block is vertically CENTERED, so it
+   * grows in BOTH directions from the middle and this numeral does not move by a pixel
+   * at any heading length — which is the property the shape was chosen for.
    *
-   * The rejected alternative is worth recording because it looked better in a still. A
-   * numeral anchored to the HEADING's own box (`bottom: 100%`) locks into the headline
-   * block and reads beautifully on one slide — and its height on the SLIDE then changes
-   * with the copy: measured 22% / 17% / 14% down the canvas at one, two and three lines,
-   * and at five it lands on the eyebrow. For a RUNNING marker that is a defect, because
-   * the eye expects it in the same place on every divider. The lock-up and the drift are
-   * the same property; you cannot keep one and drop the other. A third shape, pinned
-   * bottom-left, holds position but the block grows toward it — clear at three lines,
-   * touching at four, overlapping at five.
+   * IT DOES NOT MEAN THE MARK NEVER MEETS THE COPY, and an earlier revision of this
+   * comment claimed exactly that. It was wrong, and the way it went wrong is worth more
+   * than the number: the three candidate shapes were stress-tested at one to five lines,
+   * but THIS one was only ever rendered at three. The claim was written from a test that
+   * had not been run. Measured properly, on the packed browser path at 1280x720/indaco —
+   * the mark's bottom edge sits at 200px (top 64 + --fs-hero 114.67 + padding 20.48 +
+   * the 1px rule) and the heading's top climbs to meet it:
    *
-   * NOTHING GATES THIS. The overflow probe measures scrollHeight against clientHeight, and
-   * an absolutely-positioned pseudo sitting on top of the copy is an overlap, not an
-   * overflow — the colliding renders printed no warning at all. Re-measure by eye if you
-   * move it. */
+   *     1 line  heading top 321.6   clearance +121.5
+   *     3 lines             244.8              +44.7
+   *     4 lines             206.4               +6.3   ← last safe length
+   *     5 lines             168.0              -32.1   OVERLAP: the rule cuts the
+   *                                                    headline and the numeral strikes
+   *                                                    through the eyebrow
+   *
+   * So the honest comparison with the shape this beat: a numeral pinned BOTTOM-left also
+   * holds position and also overlaps at five lines. The masthead's real advantage is over
+   * the third candidate, anchored to the HEADING's own box (`bottom: 100%`), which locks
+   * into the block and reads beautifully in a still — and then moves 22% / 17% / 14% down
+   * the canvas at one, two and three lines. For a RUNNING marker that is the defect,
+   * because the eye expects it in the same place on every divider; and the lock-up and
+   * the drift are the same property, so you cannot keep one and drop the other.
+   *
+   * FIVE LINES IS OFF-CONTRACT — `--measure-bookend-heading` caps the slot at 16em (~33
+   * characters) and divider.docs.md tells authors a section name sits on one line — but
+   * off-contract is not the same as impossible, and NOTHING IN THE ENGINE GATES IT. The
+   * overflow probe compares scrollHeight to clientHeight, and an absolutely-positioned
+   * pseudo sitting on top of the copy is an overlap, not an overflow: the colliding
+   * render prints no warning at all. `lib/authoring/lint-core.js` now warns the author
+   * instead (`divider-numbered-heading`), which is the coaching posture HARD RULE #29
+   * describes rather than a refusal. If you move this mark, re-measure — and render the
+   * long case, which is the step that was skipped here. */
   top: calc(var(--_sec-1cqi, 1cqi) * 5);
   /* The divider's own `padding-left`, so the masthead shares the left margin of the
    * eyebrow and heading below it — and clears the 0.46875cqi left spectrum rail twenty
