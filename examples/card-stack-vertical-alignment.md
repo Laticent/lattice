@@ -54,15 +54,15 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 - **Under the rule.**
   - [x] Gutter kept
-  - [ ] Band centered
+  - [/] Band centered
   - Cards start below the headline. Nothing floats.
 - **Spare height below.**
   - [x] Gutter kept
-  - [ ] Band centered
+  - [/] Band centered
   - Spare height collects at the bottom.
 - **Composition void.**
   - [x] Gutter kept
-  - [x] Author's call
+  - [/] Band centered
   - Where the content ends is the deck's business.
 
 ---
@@ -82,7 +82,7 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
   - Measured at 4.2x the column gutter.
 - **Use it deliberately.**
   - [x] Void gone
-  - [x] Author's call
+  - [ ] Gutter kept
   - Two sparse rows carry it; a dense grid cannot.
 
 ---
@@ -93,7 +93,7 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 ## One token, and every default survives it.
 
 - **A class sets a variable**
-  - `cards: center` stamps a class that sets `--cards-align`.
+  - `cards: top` stamps a class that sets `--cards-align`.
 - **Each row keeps its own default**
   - Each row reads the variable with its own fallback.
 - **So a rule keeps its own default**

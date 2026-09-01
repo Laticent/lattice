@@ -124,6 +124,13 @@ section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { just
 /* Family reflow (2026-06-18-component-adaptive-sizing.md): tall+strip
  * (≤0.9) collapse the verdict grid to one column, keyed on the deck's `data-family` stamp so it fires on any tall or strip deck. Doubled
  * class reaches (0,2,2) to match the [data-orientation] reflow it mirrors. */
+/* A verdict grid that ends in a CODA keeps stretching, for the reason cards-grid does:
+ * `--coda-step` is measured from the stage, so shrinking the cards adds the freed height to
+ * the gap and the panel stops reading as a comment on the cards. `cards:` still overrides. */
+section.verdict-grid.verdict-grid:has(> .cell-coda) > .cell-stage > ul {
+  align-content: var(--cards-align, stretch);
+}
+
 section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   flex-direction: column;
 }

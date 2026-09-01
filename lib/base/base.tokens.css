@@ -1507,8 +1507,9 @@ section.flat {
  * NO `:root` DEFAULT ON PURPOSE. `--cards-align` is deliberately left UNSET unless a
  * non-default value is stamped, so every consumer reads `align-content: var(--cards-align,
  * <its own default>)` and the default resolves to exactly what that RULE says — including
- * a per-family one, which a single global default would flatten: cards-grid at tall/strip
- * is a column of full-width cards rather than a grid, and paces them down the frame. That
+ * a per-SHAPE one, which a single global default would flatten: cards-grid at tall/strip is a
+ * column of full-width cards rather than a grid and paces them down the frame, and a slide
+ * ending in a Key Insight coda keeps stretching so that panel's step stays put. That
  * is why `cards: center` maps to no token at all (resolve-cards.js) — it is the absence of
  * the variable, not a value of it, which is also what keeps the explicit value and the
  * omitted one identical instead of subtly different.

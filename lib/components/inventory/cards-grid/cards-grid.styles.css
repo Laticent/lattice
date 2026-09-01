@@ -205,14 +205,33 @@ section.cards-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 /* `.cards-grid.cards-grid` (class doubled) reaches (0,2,2) so it matches the
  * `:not(:has(.cards-grid-inner))` base grid rule and wins on source order — the
  * role the old `[data-orientation]` attribute played. */
-section.cards-grid.cards-grid:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul,
-section.cards-grid.cards-grid:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
-  /* content-height rows distributed, not stretched-to-fill. The fallback carries THIS
-   * family default rather than the base rule's `stretch`, which is the reason the `cards:`
-   * register is a variable rather than a rule: a deck that says nothing still gets what it
-   * has always got at each family, and a deck that sets `cards:` overrides at every family
-   * rather than only the landscape one. lib/core/resolve-cards.js; the note's §10. */
+section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul,
+section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
+  /* content-height cards paced down the frame. The fallback carries THIS shape's default
+   * rather than the base rule's `center`, which is the reason the `cards:` register is a
+   * variable rather than a rule: a deck that says nothing gets what suits the shape, and a
+   * deck that sets `cards:` overrides everywhere.
+   * TALL AND STRIP ONLY — square used to be in this list and should not have been. Square
+   * keeps the 2-up GRID (see the note below), and pacing a grid's two rows apart is exactly
+   * what §9f rejects: measured 185.31px between the rows against a 33.41px column gutter,
+   * 5.5x, which reads as two separated bands rather than one grid. Only tall and strip go
+   * single-column (`width: 100%` below), and only there is there no column gutter to match.
+   * lib/core/resolve-cards.js; the note's §10. */
   align-content: var(--cards-align, space-evenly);
+}
+/* A slide that ends in a CODA — the Key Insight / below-note panel — keeps stretching.
+ * `--coda-step` is a designed, uniform register change between the body and that panel
+ * (`lib/forms/cell/coda/coda.css`), and it is measured from the STAGE, not from the last
+ * card. Shrinking the cards leaves the freed height inside the `ul` and adds it to the
+ * step: on `examples/seven-steps-problem-to-code.md` slide 2 the gap goes 48 -> 239.5 under
+ * `center` and 48 -> 431 under `top`, and the panel stops reading as a comment on the cards
+ * above it. Six shipped decks carry that shape. Stretching is the only value that keeps the
+ * step, so it is this shape's fallback — an author who wants otherwise still says so, and
+ * `cards:` still wins. Doubled class + `:has()` reaches (0,4,2) to clear the family arm
+ * above at every aspect. */
+section.cards-grid.cards-grid:has(> .cell-coda) > .cell-stage > ul,
+section.cards-grid.cards-grid:has(> .cell-coda) > .cell-stage > ol {
+  align-content: var(--cards-align, stretch);
 }
 /* SQUARE KEEPS THE 2-UP GRID — only tall/strip go single-column. A square box is
  * the `balanced` family (lib/adaptive/families.js: "2×2 grids, 2-up"), and it has

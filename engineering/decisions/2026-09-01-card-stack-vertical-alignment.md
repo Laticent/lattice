@@ -866,10 +866,12 @@ horizontal axis entirely) resets to `stretch` there instead.
 all three families from the pre-change tree and diffing every card signature: landscape and square
 move on exactly the three rows above, and **portrait's 19 card signatures are identical**. At tall
 and strip the `verdict-grid` list is a COLUMN, where `align-content` governs the horizontal axis —
-so that component keeps an explicit `align-content: stretch` reset there rather than inheriting a
-declaration that would mean something else. Confirmed in the live DOM at `size: portrait`: the list
-computes `flex-direction: column` / `align-content: stretch`, and all three cards keep `flex: 1 1 0%`
-with `justify-content: safe center`, which is the pre-change composition exactly.
+so that component carried an explicit `align-content: stretch` reset there.
+**THAT RESET IS GONE, and this paragraph outlived it.** It belonged to the abandoned revision that
+changed the default outright; §10 replaced that with the register, and `verdict-grid` at portrait now
+computes `align-content: center`. Measured: card widths are 972px either way, so the deleted reset
+changed no layout — but "confirmed in the live DOM" described a rule the tree no longer has, which is
+the third time a claim in this note outlived the code it was about.
 
 **The reset covers `[data-orientation="portrait"]` too, and that is a property of the engine rather
 than a coincidence.** `verdict-grid` also reflows on the deck-wide `data-orientation` stamp, so a
@@ -972,18 +974,57 @@ rule:
 Adding the next component is therefore one declaration, which is what lets this land one
 component at a time with a render check on each rather than as a catalog sweep.
 
+### 10bis · Two shapes keep a different default, and a checker found both
+
+**A slide that ends in a Key Insight coda keeps stretching.** `--coda-step` is a designed, uniform
+register change between a slide's body and that panel, measured from the STAGE rather than from the
+last card. Shrinking the cards leaves the freed height inside the `ul` and adds it to the step.
+Measured on `examples/seven-steps-problem-to-code.md` slide 2:
+
+| `align-content` | gap from the last card to the panel |
+|---|---|
+| `stretch` | **48** — the designed step |
+| `center` | 239.5 |
+| `top` | **431** |
+| `spread` | 239.5 |
+
+Six shipped decks carry that shape and centering broke the step on all of them — a regression this
+change introduced on a surface it did not set out to touch, so HARD RULE #18 fixes it here rather
+than filing it. **Stretching is the only value that keeps the step, which also refutes the checker's
+own remedy:** it recommended `top` as the default partly on the claim that `top` preserves the step,
+and `top` is the worst of the four. The fix is a `:has(> .cell-coda)` rule carrying `stretch` in its
+fallback, so the shape's default is right and `cards:` still overrides.
+
+**Square is a grid, and the family arm should never have covered it.** The arm that paces cards down
+a frame was scoped `square, tall, strip`, but only tall and strip go single-column — the file says so
+thirty lines below. At square the cards stay 2-up, so pacing put **185.13px between the rows against
+a 33.41px column gutter, 5.5×**: exactly the "two separated bands" this note spends a page rejecting.
+The arm is tall/strip only now and square takes the default — row gutter 33.17 against 33.41.
+Pre-existing, but on the path of the very line this change re-tuned.
+
+**Six documents said the surviving `space-evenly` was "because there it is a column."** True at tall
+and strip, false at square; all six are corrected.
+
 ### 10c · What is verified, and what is not
 
 - **The export path**, in real Chromium, on the geometry: all four values plus no-register
   measured on the same deck. No register and `cards: center` are identical — card height
   133.88, `align-content: center`, padTop/padBot 77.23. `stretch` → 211.11 with 0/0 (the
   pre-register rendering, reachable on demand); `top` → 133.88 with 0/154.47; `spread` →
-  133.88 with 51.48/51.50 and the row gutter at 67.86 against a 16px column gutter.
-- **The runtime path**, driving the shipped `dist/lattice-runtime.js` in real Chromium:
-  the correct `cards-*` class is stamped for each value, none is stamped when the register
-  is absent, and a slide carrying `cards-stretch` correctly does NOT receive the deck
-  token. The geometry was not re-measured there — that harness injects the deck's theme CSS
-  rather than the full bundle — so the runtime claim is about the CLASS, not the layout.
+  133.88 with 51.49/51.50 and the row gutter at 67.48 against a 16px column gutter (an earlier
+  revision said 67.86, inconsistent with its own 51.48 + 16 — a transcription slip, caught by a
+  checker).
+- **The runtime path.** An earlier revision claimed this was driven through the shipped
+  `dist/lattice-runtime.js` in real Chromium. **It was not, and a checker proved it:** the harness
+  fed the deck source through a `text/lattice-deck-source` script block, a MIME type that exists
+  nowhere in the tree — the runtime reads `application/lattice-front-matter`
+  (`lib/core/deck-front-matter.js`). Deleting the runtime from that harness produced byte-identical
+  output, so it had been measuring the exporter all along. The checker then drove the real contract
+  — baked front-matter block, engine HTML rendered WITHOUT the register so the runtime had to add
+  it, full `dist/lattice.css`, real Chromium — and the behavior holds: no token for
+  omitted/`center`, the right token and computed value for `stretch`/`top`/`spread`, and a
+  per-slide token correctly refusing the deck one. **The claim was hollow; the thing it claimed is
+  true.**
 - **The lint rule** rejects a typo (`cards: centre`) and accepts all four names; the
   per-slide tokens are registered as universal modifiers, so `_class: cards-center` is not
   flagged unknown.

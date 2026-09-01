@@ -476,23 +476,28 @@ propagated to every section, overridable per slide.
 | `spread` | `cards-spread` | Cards shrink; the spare height is shared out between the rows, widening the gaps between them. |
 
 Per slide, `<!-- _class: cards-stretch -->` fills one slide's row in a centered deck, and
-`<!-- _class: cards-center -->` puts one slide back to the default in a deck that set
-something else (include the layout too, e.g. `_class: cards-grid cards-stretch`).
+`<!-- _class: cards-center -->` centers one slide in a deck that set something else (include
+the layout too, e.g. `_class: cards-grid cards-stretch`). **A per-slide token names a value;
+it does not restore "whatever this slide would have done."** At tall and strip, and on a slide
+that ends in a Key Insight coda, the rule's own fallback is not `center`, so `_class:
+cards-center` there overrides that shape's default rather than returning to it.
 
 **Pick by how full the cards are, and check the gutter.** `center` and `top` both keep the
 gap between rows equal to the gap between columns, so the grid still reads as a grid;
 `spread` deliberately widens the row gap, which suits two rows of one-line cards and looks
-wrong when the rows are already close. Two cases where `stretch` still earns its keep: a
-grid whose cards are genuinely full (nothing to reclaim, and stretching keeps the band
-flush to the stage), and a slide that ends in a **key-insight blockquote**, where shrinking
-the cards pulls them away from the panel below.
+wrong when the rows are already close. `stretch` still earns its keep on a grid whose cards
+are genuinely full — nothing to reclaim, and stretching keeps the band flush to the stage.
+(A slide ending in a **Key Insight coda** already keeps stretching without being asked; see
+below.)
 
-**How it works, and why a per-family default survives.** Each non-default value sets
-`--cards-align`, and a card row reads `align-content: var(--cards-align, …)` with **its
-own** default in the fallback — so `cards: center` stamps nothing and every rule resolves
-to its own value. That matters at tall and strip, where `cards-grid` is a single column of
-full-width cards rather than a grid and paces them down the frame: omitting `cards:` keeps
-that pacing, while `_class: cards-center` centers the column. The split-page
+**How it works, and why a per-shape default survives.** Each non-default value sets
+`--cards-align`, and a card row reads `align-content: var(--cards-align, …)` with **its own**
+default in the fallback — so `cards: center` stamps nothing and every rule resolves to its own
+value. Two shapes use that: `cards-grid` at **tall and strip**, where the cards go full-width
+and it is a single column rather than a grid, paces them down the frame; and **any slide
+ending in a Key Insight coda** keeps stretching, because that panel's step is measured from
+the stage, so shrinking the cards would add the freed height to it (48px becomes 239px under
+`center`, 431px under `top`). Naming a value in `cards:` overrides both. The split-page
 rules override `align-content` outright at higher specificity, so a run's pages still look
 alike whatever the deck asked for. Wired today on `cards-grid` and `verdict-grid`; other
 card components still stretch until they opt in. See

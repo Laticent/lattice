@@ -10,8 +10,13 @@
   - `cards: top` — cards shrink, band under the headline rule, spare height at the bottom.
   - `cards: spread` — cards shrink, spare height shared out between the rows.
   - Per slide: `<!-- _class: cards-stretch -->` fills one slide's row in a centered deck;
-    `cards-center` puts one slide back to the default in a deck that chose otherwise.
+    `cards-center` centers one slide in a deck that chose otherwise. At tall and strip those
+    are not the same as omitting the key — a rule's own fallback there is `space-evenly`, so
+    the per-slide token overrides the shape's default rather than restoring it.
   - Wired on `cards-grid` and `verdict-grid`. Other card components are unchanged until they
     opt in — each row reads `align-content: var(--cards-align, <its own default>)`, so adding
-    one is a single declaration and no per-family value is lost. `cards-grid` at tall and
-    strip still paces its cards down the frame, because there it is a column, not a grid.
+    one is a single declaration and no per-shape value is lost. Two shapes keep a different
+    default: `cards-grid` at **tall and strip**, where the cards go full-width and it is a
+    single column rather than a grid, still paces them down the frame; and **any slide ending
+    in a Key Insight coda** keeps stretching, because that panel's step is measured from the
+    stage and shrinking the cards would widen it.
