@@ -362,6 +362,129 @@ inputs).
 **Eviction:** `npm run clean:scratch` (14-day GC). Returned PDF paths
 are owned by the cache; callers MUST NOT `unlinkSync` them.
 
+## Waiting for a slow job
+
+**Never hand-roll a wait.** Every wait goes through `tools/wait-for.sh`, and
+**one job gets one waiter**.
+
+The shape to never write again is the obvious one:
+
+```bash
+# WRONG — unbounded, anonymous, and it outlives everything.
+until grep -q "done" build.log; do sleep 5; done   # in a background Bash call
+```
+
+It has no deadline and no identity, and both gaps have been paid for. One
+session left **fifteen** of these resident — six of them waiting on the same
+integration run, still polling after five hours. They multiply because a
+condition that never matches produces no notification, so the next turn assumes
+the wait was never started and spawns another with slightly different wording.
+
+Idling costs nothing measurable (about 16 seconds of CPU over five hours). The
+expense is the **late fire**: a waiter that finally matches hours later wakes the
+session with an expired prompt cache, so the whole conversation re-enters at full
+input price rather than the roughly 10% cache-read price — once per duplicate.
+That is why the helper's deadline is capped under the cache TTL.
+
+Two modes. Prefer the first:
+
+```bash
+# Run the job AND wait, as ONE background task. Its exit is the notification,
+# so there is no second shell polling for it.
+tools/wait-for.sh --job integration -- npm run test:integration
+
+# Only when the job is already running elsewhere: poll a predicate, bounded.
+tools/wait-for.sh --job docs-server --timeout 120 --until 'grep -q ready /tmp/astro.log'
+```
+
+Run it through the harness's `run_in_background` when you want to keep working;
+the helper is what guarantees it ends. What it gives you:
+
+- **A deadline on every wait.** Default 1800s, ceiling 3600s. Overrunning and
+  taking the TERM exits 124; a job that ignores it and gets SIGKILLed exits 137,
+  reported separately because a 137 is just as often an OOM as a timeout.
+- **One waiter per job.** A second wait on a live job exits 2 and names the
+  holder rather than adding a duplicate. `--force` replaces it and **stops the
+  waiter it replaces** — otherwise both run to their own deadlines and both fire.
+- **A signal stops it.** TERM or INT ends the wait promptly, kills the job, and
+  releases the lock (exit 143 on TERM, 130 on INT). A wait you cannot cancel is
+  the same defect as a wait that never ends.
+- **One line of output, at the end.** In run mode the command's own output goes
+  to `.scratch/waits/<job>.log`, and the tail is echoed on any failure.
+
+The lock is **`flock`** — the kernel's, not ours. This is the fourth version of
+it and the first correct one: `mkdir`, then an atomic hard link, then a reclaim
+path guarded by pid liveness and age. Review defeated all three, six different
+ways, always the same failure — two live waiters on one job. Each needed
+compare-and-swap semantics that a create plus a separate remove cannot provide,
+and every fix opened a new hole.
+
+`flock -n` is atomic, and the kernel releases the lock when the holder dies —
+SIGKILL, OOM, a reaped container, anything. So the whole class stops existing
+rather than being handled: no stale-lock detection, no zombie check, no
+pid-reuse hazard, no age backstop, no reclaim race, and no unlink on release, so
+a lock cannot be deleted out from under whoever replaced it. The file's contents
+are now purely informational — who to name in a refusal, who to signal on
+`--force`. Every correctness decision belongs to the kernel.
+
+Two practical notes. The lock lives under `.git/lattice-waits/`, **not**
+`.scratch/` — that directory is documented as throwaway, and a `rm -rf .scratch`
+or `git clean -fdx` during a live wait would let a second waiter create a fresh
+inode and take the lock while the first still runs. Logs stay in `.scratch`,
+where disposable things belong.
+
+**On a box without `flock(1)`, it falls back to perl.** `flock(1)` is util-linux
+and macOS does not ship it — but macOS *does* have the `flock(2)` syscall, and
+perl's `flock` builtin is a thin wrapper over it, with perl present by default
+there. So the fallback is the same kernel primitive reached another way, not a
+weaker imitation: it refuses while held and is released by the kernel on
+SIGKILL, both measured. The subtlety is that perl locks the open file
+*description* bash holds on fd 9 (`>&=` duplicates the description, not just the
+number), so the lock outlives the perl process and lasts as long as the waiter.
+`WAIT_FOR_LOCK_IMPL` pins the choice, and the suite drives **both** paths — a
+second code path nothing exercises is how this tool kept breaking.
+
+**The deadline needs GNU `timeout(1)`, and macOS ships none** — so the perl lock
+fallback alone does not make this run there. `gtimeout` (from `brew install
+coreutils`) is used when the GNU one is absent, and if neither exists the wait
+fails with exit 69 naming the dependency. Unguarded this lied twice: run mode
+reported `failed with exit 127`, blaming your command for the tool's missing
+dependency, and poll mode burned the whole deadline before blaming your
+predicate.
+
+**macOS itself remains UNVERIFIED** (HARD RULE #23): what is tested is the
+mechanism the macOS path would use, on Linux. If neither mechanism is present,
+the wait fails loudly with exit 69 rather than being folded into "already being
+waited on" — which is what a naive non-zero check did, reporting a phantom
+holder forever.
+
+One sharp edge worth knowing, since it cost a measured bug: **a flock lives on
+an open file descriptor, and children inherit descriptors.** The job this tool
+runs must therefore be started with `9>&-` to close the lock fd, or it keeps the
+lock held after the waiter itself is killed — reintroducing precisely the stale
+lock flock was adopted to delete.
+
+**A hook nudges you if you forget.** `.claude/hooks/warn-unbounded-wait.sh` runs
+on every Bash call, spots the loop shape above, and prints a one-line pointer at
+this section. It **warns and never blocks** — the same call this repo made for
+`check-commit-msg.sh` (a message may legitimately quote British text, and HARD
+RULE #14 bars `--no-verify` as the escape) and for #29's deck policy, stated
+outright as "we warn, we coach." A blocking matcher tuned on one example is a
+permanent tax on every future session; a false positive here costs one ignorable
+line.
+
+It reads the raw payload rather than parsing out the command field, because it
+runs on **every** Bash call and the numbers decide it: 1.8ms for the match
+against 36ms to start node for an accurate parse. Twenty times the cost on every
+call is not worth the precision, for a warning. Note what this means: a repo
+gate could never have done this job at all — `check-ownership.js` walks the
+filesystem, and these waits are tool calls that never become files.
+
+**A waiter waits.** Do not attach an action to a condition — a background shell
+that runs `build:check` when some file appears will happily run it three hours
+later against a tree that has moved on. Run the job, or wait for it; not both.
+
+
 ## Editor setup
 
 `jsconfig.json` gives VS Code / JetBrains / Neovim project-wide
