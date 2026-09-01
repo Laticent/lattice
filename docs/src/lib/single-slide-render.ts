@@ -1128,10 +1128,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// lib/components/chart/_chart-family/chart-registry.generated.js (all 14
 						// layouts) — keep it in sync when a chart is added. It was written against
 						// the old hand-written `CHART_LAYOUTS` and had already drifted: it was
-						// missing `matrix-grid`, so the chart chip under-counted any deck using
-						// one. The list is now GENERATED from the manifests, so the durable fix is
-						// to import it here rather than mirror it — blocked only on the generated
-						// module being CJS while this bundle is ESM (tracked in
+						// missing `matrix-grid`, so `stats.charts` under-counted any deck using
+						// one. NOTHING READS `stats.charts` TODAY — it is populated here and
+						// declared on RenderStats, and no surface consumes it — so the drift was
+						// latent rather than visible, and this is a correctness fix to a field
+						// that is wrong the moment something does read it. The list is now
+						// GENERATED from the manifests, so the durable fix is to import it here
+						// rather than mirror it — blocked only on the generated module being CJS
+						// while this bundle is ESM (tracked in
 						// engineering/decisions/2026-09-01-manifest-driven-chart-dispatch.md).
 						// Overflow is read from the live frame after it settles (below) — 0 here
 						// as a placeholder.

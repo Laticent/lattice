@@ -191,13 +191,21 @@ be the right follow-up; the `kernel` block is the shape to extend.
 
 **One of them was already wrong and is fixed here**, because it is a chart-layout
 roster that had drifted: `docs/src/lib/single-slide-render.ts` mirrored the old
-`CHART_LAYOUTS` and was missing `matrix-grid`, so the Studio's chart chip
-under-counted any deck using one. The durable fix is to import `LAYOUTS` from the
-generated registry instead of mirroring it — the comment's stated reason for the
-copy ("neither the engine nor the playground re-exports the list") stopped being
-true with this change. It is blocked on the generated module being CJS while that
-bundle is ESM, so the mirror is corrected in place and the import is left as
-follow-up.
+`CHART_LAYOUTS` and was missing `matrix-grid`, so `stats.charts` under-counted any
+deck using one.
+
+**Nothing reads `stats.charts` today** — it is populated there, declared on
+`RenderStats` (`docs/src/playground/render-metrics.ts`), and consumed by no
+surface. So the drift was latent, not a visible undercount, and correcting it is
+worth exactly what it is: a field that would have been wrong the moment something
+read it. Said plainly because the first draft of this note and its changelog
+fragment claimed a user-visible chip, and there is no chip.
+
+The durable fix is to import `LAYOUTS` from the generated registry instead of
+mirroring it — the comment's stated reason for the copy ("neither the engine nor
+the playground re-exports the list") stopped being true with this change. It is
+blocked on the generated module being CJS while that bundle is ESM, so the mirror
+is corrected in place and the import is left as follow-up.
 
 ## Scope: what this is NOT
 
