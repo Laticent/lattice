@@ -423,6 +423,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/contrast-exemptions.js` | The adjudicated decorative-exemption ledger, shared by every rendered-DOM contrast gate. |
 | `tools/cvd-audit.js` | Color-vision-deficiency (CVD) collapse audit for Lattice themes. |
 | `tools/derive-cat-ink.js` | Generate the curated `--cat-1-ink … --cat-12-ink` block for every palette. |
+| `tools/derive-cat-ramp.js` | Re-place the `--cat-1..12-fill` / `--cat-1..12-mark` ramps so the twelve |
 | `tools/derive-chart-cat-ink.js` | Generate the curated `--chart-cat1-ink … --chart-cat8-ink` block for every |
 | `tools/diagram-oracle.mjs` | diagram-oracle — a per-fence byte oracle for the CLI's mmdc bake. |
 | `tools/export-chart-svg.js` | Export a deck's chart(s) as standalone image files — SVG for the vector |

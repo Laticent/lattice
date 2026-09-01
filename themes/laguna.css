@@ -177,27 +177,27 @@
 
 :root {
   --cat-1-fill:  light-dark(#eab8cc, #940a40);
-  --cat-1-mark:  light-dark(#921c4a, #e4c3d0);
-  --cat-2-fill:  light-dark(#b8ead7, #065637);
-  --cat-2-mark:  light-dark(#01875a, #c3e4d7);
-  --cat-3-fill:  light-dark(#e5eab8, #454d05);
-  --cat-3-mark:  light-dark(#717c00, #e0e4c3);
-  --cat-4-fill:  light-dark(#beb8ea, #230dc9);
-  --cat-4-mark:  light-dark(#2a1c92, #c7c3e4);
-  --cat-5-fill:  light-dark(#b8ccea, #0b46a3);
-  --cat-5-mark:  light-dark(#1c4a92, #c3d0e4);
-  --cat-6-fill:  light-dark(#cceab8, #255606);
-  --cat-6-mark:  light-dark(#3c8400, #d0e4c3);
+  --cat-1-mark:  light-dark(#921c4a, #e0bfcc);
+  --cat-2-fill:  light-dark(#b8ead7, #1a6243);
+  --cat-2-mark:  light-dark(#007a52, #c4e5d8);
+  --cat-3-fill:  light-dark(#e5eab8, #3b4100);
+  --cat-3-mark:  light-dark(#727d09, #e6eac9);
+  --cat-4-fill:  light-dark(#beb8ea, #2824d5);
+  --cat-4-mark:  light-dark(#2a1b91, #c3bfe0);
+  --cat-5-fill:  light-dark(#b8ccea, #003c97);
+  --cat-5-mark:  light-dark(#1d4b93, #c3d0e4);
+  --cat-6-fill:  light-dark(#cdecb9, #255606);
+  --cat-6-mark:  light-dark(#3c8400, #d2e6c5);
   --cat-7-fill:  light-dark(#eabdb8, #94190a);
-  --cat-7-mark:  light-dark(#92291c, #e4c7c3);
+  --cat-7-mark:  light-dark(#92291c, #e7cac6);
   --cat-8-fill:  light-dark(#d7b8ea, #720bb1);
   --cat-8-mark:  light-dark(#651c92, #d7c3e4);
   --cat-9-fill:  light-dark(#b8e4ea, #06515b);
-  --cat-9-mark:  light-dark(#17818f, #c3e0e4);
-  --cat-10-fill:  light-dark(#b8eabe, #06560f);
-  --cat-10-mark:  light-dark(#07891f, #c3e4c7);
+  --cat-9-mark:  light-dark(#17818f, #bfdce0);
+  --cat-10-fill:  light-dark(#b7e8bd, #06560f);
+  --cat-10-mark:  light-dark(#07891f, #bddec1);
   --cat-11-fill:  light-dark(#eab8e3, #8b0979);
-  --cat-11-mark:  light-dark(#921c82, #e4c3df);
+  --cat-11-mark:  light-dark(#921c82, #eac8e5);
   --cat-12-fill:  light-dark(#ead8b8, #694507);
   --cat-12-mark:  light-dark(#92661c, #e4d8c3);
 
@@ -206,17 +206,17 @@
    * chroma as --cat-N-mark; lightness solved until it clears AA on both slide
    * surfaces. Do not hand-edit: re-run the generator after re-hueing a mark.
    * Gated by checkCatContrast (layer 4) on light, dark and the print band. */
-  --cat-1-ink:   light-dark(#921C4A, #E4C3D0);
-  --cat-2-ink:   light-dark(#00764E, #C3E4D7);
-  --cat-3-ink:   light-dark(#646D00, #E0E4C3);
-  --cat-4-ink:   light-dark(#2A1C92, #C7C3E4);
-  --cat-5-ink:   light-dark(#1C4A92, #C3D0E4);
-  --cat-6-ink:   light-dark(#357500, #D0E4C3);
-  --cat-7-ink:   light-dark(#92291C, #E4C7C3);
+  --cat-1-ink:   light-dark(#921C4A, #E0BFCC);
+  --cat-2-ink:   light-dark(#00764F, #C4E5D8);
+  --cat-3-ink:   light-dark(#646D00, #E6EAC9);
+  --cat-4-ink:   light-dark(#2A1B91, #C3BFE0);
+  --cat-5-ink:   light-dark(#1D4B93, #C3D0E4);
+  --cat-6-ink:   light-dark(#357500, #D2E6C5);
+  --cat-7-ink:   light-dark(#92291C, #E7CAC6);
   --cat-8-ink:   light-dark(#651C92, #D7C3E4);
-  --cat-9-ink:   light-dark(#007280, #C3E0E4);
-  --cat-10-ink:  light-dark(#007517, #C3E4C7);
-  --cat-11-ink:  light-dark(#921C82, #E4C3DF);
+  --cat-9-ink:   light-dark(#007280, #BFDCE0);
+  --cat-10-ink:  light-dark(#007517, #BDDEC1);
+  --cat-11-ink:  light-dark(#921C82, #EAC8E5);
   --cat-12-ink:  light-dark(#8A5F11, #E4D8C3);
   /* ── end categorical on-canvas ink ── */
 
