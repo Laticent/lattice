@@ -282,8 +282,8 @@ jobs:
           # would let this step append to one thread while that one closes another.
           # --limit is far above the open-issue count; gh paginates to reach it, and a limit the
           # backlog could outgrow would silently miss the issue and file a fresh duplicate nightly.
-          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" || true)
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             # Retitle on append. The rolling issue outlives the condition that opened it, so an
             # issue first opened by a broken browser would otherwise keep saying "cannot render"
@@ -346,7 +346,7 @@ jobs:
       # ratchet verdict computed over decks that never rendered is not a verdict, so it is not
       # grounds to close one either.
       - name: Report a clean corpus sweep on the rolling issue
-        if: always() && steps.sweep.outcome == 'success' && steps.sweep.outputs.failed == 'false'
+        if: always() && steps.sweep.outcome == 'success' && steps.sweep.outputs.failed == 'false' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -354,8 +354,8 @@ jobs:
           MARKER='[overflow-nightly]'
           # The IDENTICAL lookup the filing step above uses — see its comment for why the
           # `in:title` search cannot be used and why this matches on the marker prefix.
-          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" || true)
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
           # Comment BEFORE closing, and name the run that proved it. A silent close leaves the
           # next reader unable to tell a recovered alarm from one somebody quietly triaged away.

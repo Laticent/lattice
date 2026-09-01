@@ -190,8 +190,8 @@ jobs:
           # gh paginates to reach it; a limit that the backlog can outgrow would make the
           # lookup silently miss the rolling issue and file a fresh duplicate every night —
           # the same shape of quiet failure this whole workflow change is about.
-          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title == \"$TITLE\")][0].number" || true)
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
             echo "Appended to issue #$ISSUE"
@@ -242,7 +242,7 @@ jobs:
       # ever argues the other side". A comment naming the run and the pass count is the
       # counter-evidence a human needs to make the call the run cannot.
       - name: Report a passing suite on the rolling issue
-        if: always() && steps.e2e.outcome == 'success' && steps.e2e.outputs.failed == 'false'
+        if: always() && steps.e2e.outcome == 'success' && steps.e2e.outputs.failed == 'false' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -259,8 +259,8 @@ jobs:
           # The IDENTICAL exact-title lookup the filing step above uses, for the reason
           # documented there. Two different searches is how a stand-down closes a thread
           # nobody was appending to while the live one stays open.
-          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title == \"$TITLE\")][0].number" || true)
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
           PASSED=$(grep -oE '[1-9][0-9]* passed' "$REPORT" | tail -n 1)
           # Comment BEFORE closing, naming the run AND the pass count that proved it. A silent
@@ -423,8 +423,8 @@ jobs:
           # append to someone else's issue nightly and the rolling issue would never be created.
           # --limit is deliberately far above the open-issue count; gh paginates to reach it, and a
           # limit the backlog can outgrow would file a fresh duplicate every night.
-          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title == \"$TITLE\")][0].number" || true)
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
             echo "Appended to issue #$ISSUE"
@@ -475,7 +475,7 @@ jobs:
       # ever argues the other side". A comment naming the run and the pass count is the
       # counter-evidence a human needs to make the call the run cannot.
       - name: Report passing live scenarios on the rolling issue
-        if: always() && steps.ai.outcome == 'success' && steps.ai.outputs.failed == 'false'
+        if: always() && steps.ai.outcome == 'success' && steps.ai.outputs.failed == 'false' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -492,8 +492,8 @@ jobs:
           # The IDENTICAL exact-title lookup the filing step above uses, for the reason
           # documented there. Two different searches is how a stand-down closes a thread
           # nobody was appending to while the live one stays open.
-          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title == \"$TITLE\")][0].number" || true)
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
           PASSED=$(grep -oE '[1-9][0-9]* passed' "$REPORT" | tail -n 1)
           # Comment BEFORE closing, naming the run AND the pass count that proved it. A silent

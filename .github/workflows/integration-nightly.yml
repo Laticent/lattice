@@ -361,8 +361,8 @@ jobs:
           # would let this step append to one thread while that one closes another.
           # --limit is far above the open-issue count; gh paginates to reach it, and a limit the
           # backlog could outgrow would silently miss the issue and file a fresh duplicate nightly.
-          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" || true)
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
             echo "Appended to issue #$ISSUE"
@@ -425,7 +425,7 @@ jobs:
       # arm is red would be the same lie in the opposite direction.
       - name: Report a measured-green night on the rolling issue
         if: >-
-          always()
+          always() && github.ref == 'refs/heads/main'
           && steps.run.outcome == 'success' && steps.run.outputs.failed == 'false'
           && steps.families.outcome == 'success' && steps.families.outputs.failed == 'false'
           && steps.contrast.outcome == 'success' && steps.contrast.outputs.failed == 'false'
@@ -439,8 +439,8 @@ jobs:
           MARKER='[integration-nightly]'
           # The IDENTICAL lookup the filing step above uses — see its comment for why the
           # `in:title` search cannot be used and why this matches on the marker prefix.
-          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" || true)
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
           # Comment BEFORE closing, and name the run that proved it. A silent close leaves the
           # next reader unable to tell a recovered alarm from one somebody quietly triaged away.

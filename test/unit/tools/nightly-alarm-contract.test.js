@@ -123,7 +123,7 @@ function alarmJobs() {
       const filing = steps.find((s) => code(s.run).includes('gh issue create'));
       if (!filing) continue;
       const standDown = steps.find((s) => /Stand down|Report .* on the rolling issue/.test(s.name || ''));
-      out.push({ file, job, id: `${file}::${job}`, filing, standDown });
+      out.push({ file, job, id: `${file}::${job}`, filing, standDown, steps });
     }
   }
   return out;
@@ -383,6 +383,99 @@ test('nightly alarm contract', async (t) => {
       const run = code(standDown.run);
       assert.ok(run.includes('gh issue comment'), `${id}: stand-down acts without commenting`);
       assert.ok(run.includes('actions/runs/'), `${id}: comment names no run, so its evidence can't be checked`);
+    }
+  });
+
+  await t.test('every step that may fail quietly is outcome-guarded by the stand-down', () => {
+    // The arm above pairs an outcome guard to every step whose OUTPUT the
+    // condition reads. That is not the whole rule, and the gap was real: in
+    // `perf-nightly::watch`, `basecollect` is `continue-on-error: true` and is
+    // referenced by OUTCOME ALONE, so deleting the single clause that separates
+    // "the site is green" from "nothing was compared" passed the whole suite.
+    //
+    // `continue-on-error` is the precise marker for "this step may die and the
+    // job carries on", which is exactly the state an output cannot describe:
+    // the comparator writes `regressed=false` when it had no base to compare
+    // against, and a stand-down that cannot see the death reads it as health.
+    // SCOPED TO STEPS THAT RUN BEFORE THE MEASUREMENT. A continue-on-error step
+    // that runs AFTER the measuring step cannot corrupt it — `preview-e2e`'s
+    // `shots` publishes screenshots once the verdict is already in, and demanding
+    // a guard for it would be noise. What matters is a step whose death changes
+    // what the measurement MEANS, and running first is the mechanical test for
+    // that: `basecollect` feeds `compare`, so its death turns "no regression"
+    // into "nothing to compare against".
+    let checked = 0;
+    for (const { id, standDown, steps } of jobs) {
+      if (!standDown) continue;
+      const cond = norm(standDown.if);
+      const measured = new Set([...cond.matchAll(/steps\.([\w-]+)\.outputs\./g)].map((m) => m[1]));
+      const lastMeasured = Math.max(...steps.map((st, i) => (measured.has(st.id) ? i : -1)));
+      for (const [i, step] of steps.entries()) {
+        if (step['continue-on-error'] !== true || !step.id) continue;
+        if (i > lastMeasured) continue; // runs after the verdict — cannot corrupt it
+        checked++;
+        assert.ok(
+          new RegExp(`steps\\.${step.id}\\.outcome\\s*==\\s*'success'`).test(cond),
+          `${id}: step '${step.id}' is continue-on-error and feeds the measurement, so it can die ` +
+            'without reddening the job — but the stand-down never checks its outcome, and a green ' +
+            'nothing then reads as a green site',
+        );
+      }
+    }
+    // Anti-vacuity: if the family stops marking its feeding steps
+    // continue-on-error, this arm must fail loudly rather than pass on nothing.
+    assert.ok(checked >= 1, 'no continue-on-error feeding step was checked — has the family changed shape?');
+  });
+
+  await t.test('a lookup identifies its thread by AUTHOR, not just by a title anyone can type', () => {
+    // A title prefix is not an identity. Anyone who can file an issue picks the
+    // title, so a lookup keyed on the title alone selects a squatted thread —
+    // and these steps CLOSE what they select, stamping it "measured green".
+    // Filtering on the filing identity is the fix: an outsider cannot author as
+    // the bot.
+    //
+    // BOTH spellings are required, and that is not belt-and-braces. REST reports
+    // `github-actions[bot]`; `gh --json author` resolves through GraphQL, where a
+    // Bot actor's login is `github-actions`. Matching one spelling would make the
+    // lookup find nothing, and the `[ -n … ] || exit 0` guard then exits ZERO —
+    // so every stand-down would be silently dead rather than loudly broken.
+    // `startswith` is NOT acceptable here: `github-actions-evil` is registrable.
+    for (const { id, filing, standDown } of jobs) {
+      for (const [what, step] of [['filing', filing], ['stand-down', standDown]]) {
+        if (!step) continue;
+        const lk = lookup(step);
+        if (!lk) continue;
+        assert.match(
+          lk, /\.author\.login\s*==\s*\\?"github-actions\\?"/,
+          `${id}: the ${what} lookup does not require author 'github-actions' — a squatted title wins`,
+        );
+        assert.match(
+          lk, /\.author\.login\s*==\s*\\?"github-actions\[bot\]\\?"/,
+          `${id}: the ${what} lookup omits the 'github-actions[bot]' spelling — if gh reports that ` +
+            'form the lookup matches nothing and the step exits 0, silently dead',
+        );
+      }
+    }
+  });
+
+  await t.test('a stand-down acts only on main, so a branch dispatch cannot close the real thread', () => {
+    // Every one of these workflows is `workflow_dispatch`-able and none pins a
+    // ref, so `--ref <branch>` runs the BRANCH's file against the BRANCH's code.
+    // Without this guard, neutering a check on a throwaway branch and dispatching
+    // closes the live alarm on main and records "Recovered … on `main@<sha>`" for
+    // a sha that was never on main. The guard is also what makes that `main@`
+    // literal true rather than a hardcoded lie.
+    //
+    // It is on the STAND-DOWN, not the whole job: dispatching from a branch must
+    // still be able to RUN the checks. Filing from a branch is loud and
+    // recoverable (a duplicate issue); closing is not.
+    for (const { id, standDown } of jobs) {
+      if (!standDown) continue;
+      assert.match(
+        norm(standDown.if), /github\.ref\s*==\s*'refs\/heads\/main'/,
+        `${id}: the stand-down can act on a dispatch from any branch — it can close the real ` +
+          'thread on evidence gathered somewhere else entirely',
+      );
     }
   });
 

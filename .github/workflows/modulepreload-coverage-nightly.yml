@@ -85,8 +85,8 @@ jobs:
           # would let this step append to one thread while that one closes another.
           # --limit is far above the open-issue count; gh paginates to reach it, and a limit the
           # backlog could outgrow would silently miss the issue and file a fresh duplicate nightly.
-          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" || true)
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
             echo "Appended to issue #$ISSUE"
@@ -120,7 +120,7 @@ jobs:
       # a measured green IS the evidence that the condition is gone. The thread closes; a
       # recurrence opens a fresh one.
       - name: Stand down the coverage issue when every island is covered
-        if: always() && steps.check.outcome == 'success' && steps.check.outputs.uncovered == 'false'
+        if: always() && steps.check.outcome == 'success' && steps.check.outputs.uncovered == 'false' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -128,8 +128,8 @@ jobs:
           MARKER='[modulepreload-coverage]'
           # The IDENTICAL lookup the filing step above uses — see its comment for why the
           # `in:title` search cannot be used and why this matches on the marker prefix.
-          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" || true)
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
           # Comment BEFORE closing, and name the run that proved it. A silent close leaves the
           # next reader unable to tell a recovered alarm from one somebody quietly triaged away.
