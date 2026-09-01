@@ -78,6 +78,9 @@ const seedLock = (job, pid, epoch) => {
 // behind. That is correct for the tool (the stale reclaim handles it) and untidy
 // for the suite, which should not silt up .scratch/waits across runs.
 after(() => {
+  // Guarded: the validation cases die before the script's `mkdir -p`, so on a
+  // clean tree this directory may never exist and an unguarded read throws.
+  if (!fs.existsSync(LOCK_ROOT)) return;
   for (const entry of fs.readdirSync(LOCK_ROOT, { withFileTypes: true })) {
     if (entry.name.startsWith(`test-`) && entry.name.includes(`-${process.pid}-`)) {
       fs.rmSync(path.join(LOCK_ROOT, entry.name), { recursive: true, force: true });
@@ -283,13 +286,14 @@ describe('wait-for — lock hygiene', () => {
 
   test('reclaims after the holder is SIGKILLed, so no trap runs', () => {
     const job = jobName('k9');
-    const victim = require('node:child_process').spawn(
-      SCRIPT, ['--job', job, '--timeout', '30', '--', 'sleep', '30'],
-      { cwd: REPO, stdio: 'ignore' },
-    );
-    spawnSync('sleep', ['1']);
-    victim.kill('SIGKILL');
-    spawnSync('sleep', ['1']);
+    // Detached, so reaping kills the `timeout`/`sleep` grandchild too. Spawned
+    // undetached, it outlived the test by ~29s — the very leak spawnHolder exists
+    // to prevent.
+    const victim = spawnHolder(job, 30);
+    assert.ok(until(() => lockHeld(job)), 'victim never claimed the lock');
+    process.kill(victim.pid, 'SIGKILL');
+    until(() => !isLive(victim.pid));
+    reap(victim);
     assert.equal(run(['--job', job, '--', 'true']).code, 0);
   });
 
@@ -305,17 +309,68 @@ describe('wait-for — lock hygiene', () => {
     assert.match(lines[0], /^\d+$/, 'line 1 must be the pid');
     assert.match(lines[1], /^\d+$/, 'line 2 must be the claim epoch');
   });
+});
 
-  test('reclaims a lock left by a live process but older than the ceiling', () => {
+describe('wait-for — reclaiming a lock', () => {
+  // A pid left by a SIGKILLed holder can be reused by something unrelated, so a
+  // lock must not be believed on the number alone: --force sends TERM then KILL
+  // to whatever it names. Matching "wait-for.sh" alone is not enough either —
+  // after reuse that can be a DIFFERENT job's waiter.
+  test('ignores a lock naming a live process that is not this job\'s waiter', () => {
+    const job = jobName('notours');
+    seedLock(job, process.pid, Math.floor(Date.now() / 1000)); // node, not a waiter
+    const { code } = run(['--job', job, '--', 'true']);
+    assert.equal(code, 0, 'a foreign pid should not hold a wait-for lock');
+    assert.ok(isLive(process.pid), 'and it must certainly not be signalled');
+  });
+
+  // Scoping to THIS job is the part a "is it a wait-for.sh process" check misses.
+  // After pid reuse the lock can name a live waiter on a DIFFERENT job, and then
+  // the plain path refuses a job nobody is waiting on while --force TERM+KILLs
+  // that unrelated waiter. Seeding a foreign non-waiter pid cannot catch this —
+  // it fails the wait-for.sh test either way — so the pid here is a real waiter
+  // on another job. Mutation-checked: dropping the --job match leaves this red.
+  test('ignores a lock naming a live waiter that belongs to another job', () => {
+    const other = jobName('otherjob');
+    const holder = spawnHolder(other, 40);
+    assert.ok(until(() => lockHeld(other)), 'the other job never claimed its lock');
+
+    const job = jobName('crossjob');
+    seedLock(job, holder.pid, Math.floor(Date.now() / 1000));
+    const { code } = run(['--job', job, '--', 'true']);
+    const survived = isLive(holder.pid);
+    reap(holder);
+
+    assert.equal(code, 0, "another job's waiter should not hold this job's lock");
+    assert.ok(survived, "took the lock but signalled another job's waiter");
+  });
+
+  // The age backstop must actually FIRE, and proving that needs care. An earlier
+  // fix defaulted a missing epoch to "now", pinning age at 0 and leaving the
+  // backstop inert while a comment beside it claimed wedging was "structurally
+  // impossible". The obvious test — seed a foreign live pid — does NOT cover
+  // this: a foreign pid fails is_wait_process, so the lock frees down the "not
+  // ours" path and the age branch never runs. Mutation-checked, and that version
+  // stayed green with the age condition deleted.
+  //
+  // So the holder here is a REAL waiter on this job and only its timestamp is
+  // aged. Nothing but the age rule can free this lock.
+  test('reclaims a lock older than any legal deadline, and stops its holder', () => {
     const job = jobName('ancient');
-    const lock = path.join(LOCK_ROOT, `${job}.lock`);
-    fs.mkdirSync(lock, { recursive: true });
-    // A PID that is unambiguously alive (this test process), so only the age
-    // rule can free this lock. Without it, one missed liveness case is enough
-    // to make a job name permanently unusable.
-    fs.writeFileSync(path.join(lock, 'pid'), String(process.pid));
-    fs.writeFileSync(path.join(lock, 'epoch'), String(Math.floor(Date.now() / 1000) - 99_999));
-    assert.equal(run(['--job', job, '--', 'true']).code, 0);
+    const holder = spawnHolder(job, 40);
+    assert.ok(until(() => lockHeld(job)), 'holder never claimed the lock');
+
+    const pid = fs.readFileSync(lockPath(job), 'utf8').split('\n')[0].trim();
+    assert.equal(pid, String(holder.pid), 'the lock should name the real waiter');
+    fs.writeFileSync(lockPath(job), `${pid}\n${Math.floor(Date.now() / 1000) - 99_999}\n`);
+
+    const { code } = run(['--job', job, '--', 'true']);
+    const holderStopped = until(() => !isLive(holder.pid));
+    reap(holder);
+
+    assert.equal(code, 0, 'age backstop is inert — an ancient lock wedged the job name');
+    // Reclaiming without stopping the holder is just the two-waiters case again.
+    assert.ok(holderStopped, 'reclaimed the lock but left the old holder running');
   });
 });
 

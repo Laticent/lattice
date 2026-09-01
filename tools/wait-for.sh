@@ -151,7 +151,15 @@ is_wait_process() {
     args=$(ps -o args= -p "$pid" 2>/dev/null || true)
   fi
   [ "$state" != "Z" ] || return 1
-  case "$args" in (*wait-for.sh*) return 0 ;; (*) return 1 ;; esac
+  # Matching "wait-for.sh" alone is not enough: after pid reuse it can name a
+  # DIFFERENT job's waiter, and then --force TERM+KILLs an unrelated live wait
+  # while the plain path refuses a job nobody is waiting on. The lock knows its
+  # job, so require the pid to be waiting on THIS one.
+  case "$args" in
+    (*wait-for.sh*"--job $job"*) return 0 ;;
+    (*wait-for.sh*"--job=$job"*) return 0 ;;
+    (*) return 1 ;;
+  esac
 }
 
 # Stop a holder we are taking the lock from. Reclaiming without stopping it just
@@ -176,6 +184,25 @@ release_lock() {
   rm -f "$lock_file"
 }
 
+# Clear a legacy DIRECTORY lock before anything else.
+#
+# `ln tmp somedir/` does not fail -- it puts the link INSIDE the directory -- so
+# a leftover `<job>.lock/` turns the atomic claim into a fail-open mutex: two
+# waiters on one job both proceed, and release_lock can never clear it.
+# Reproduced. This is reachable in practice because earlier revisions of this
+# script used a directory lock, so a checkout can carry one.
+clear_legacy_dir_lock() {
+  [ -d "$lock_file" ] || return 0
+  local legacy
+  legacy=$(cat "$lock_file/pid" 2>/dev/null || true)
+  if is_wait_process "$legacy"; then
+    printf 'wait-for: refused — job "%s" is held by a live waiter (pid %s) under an older lock format.\n' \
+      "$job" "$legacy" >&2
+    exit 2
+  fi
+  rm -rf "$lock_file"
+}
+
 # `ln` is atomic and fails if the target exists, so the lock appears only once
 # its metadata is already written.
 try_claim() {
@@ -191,6 +218,7 @@ try_claim() {
 }
 
 claim_lock() {
+  clear_legacy_dir_lock
   try_claim && return 0
 
   local holder born age

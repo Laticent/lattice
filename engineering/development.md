@@ -407,8 +407,8 @@ the helper is what guarantees it ends. What it gives you:
   holder rather than adding a duplicate. `--force` replaces it and **stops the
   waiter it replaces** — otherwise both run to their own deadlines and both fire.
 - **A signal stops it.** TERM or INT ends the wait promptly, kills the job, and
-  releases the lock (exit 143). A wait you cannot cancel is the same defect as a
-  wait that never ends.
+  releases the lock (exit 143 on TERM, 130 on INT). A wait you cannot cancel is
+  the same defect as a wait that never ends.
 - **One line of output, at the end.** In run mode the command's own output goes
   to `.scratch/waits/<job>.log`, and the tail is echoed on any failure.
 
