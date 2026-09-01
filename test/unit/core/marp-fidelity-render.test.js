@@ -60,6 +60,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
+const MarkdownIt = require('markdown-it');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const { LEDGER } = require(path.join(ROOT, 'lib/core/marp-fidelity.js'));
@@ -71,7 +72,37 @@ const latticeEngine = require(path.join(ROOT, 'lib/engine'));
 // and by `prepare` on install — the same undeclared prerequisite three
 // `test/integration/parity/**` specs and `test/unit/parsing/source-parse.test.js`
 // already rely on.
+//
+// KNOW WHAT THAT COSTS LOCALLY. Reading the bundle means this test measures
+// whatever was last BUILT, not what is in `lib/runtime/**` right now, and
+// nothing at either hook rebuilds it: `build:check` is
+// `tools/build.js --check --exclude-uncommitted`, and the runtime bundle is
+// marked `uncommitted: true` (tools/build.js:87), so it is skipped by
+// construction. Measured: with the #1858 bug reintroduced in the source and a
+// stale-but-fixed bundle on disk, this file passes 16/16. CI closes it — the
+// `unit` job runs `npm run build` before `npm test` — so a regression cannot
+// MERGE, but `npm test` on its own is not proof after a runtime edit. Run
+// `npm run build` (or at least `node tools/build-runtime.js`) first.
 const RUNTIME_BUNDLE = path.join(ROOT, 'dist', 'lattice-runtime.js');
+
+/**
+ * The runtime's input: the same slide body as plain markdown-it output, wrapped in
+ * the section marp-core would put it in.
+ *
+ * DERIVED, NOT HAND-WRITTEN, and that is the point. An earlier cut of this file
+ * hand-authored each `markup` string "as marp-core emits it" — a claim nothing in
+ * this repo can check, since marp-core is not a dependency here. Two things went
+ * wrong with that immediately: a glossary probe was authored with flat `<li>`s when
+ * the layout needs nested ones, and the deep-nesting probe compared an engine tree
+ * carrying markdown-it's inter-element newlines against a hand-written one with
+ * none — a whitespace artifact reported as a fidelity failure.
+ *
+ * marp-core is built on markdown-it, so its list, table and inline output for this
+ * content is markdown-it's. Deriving both sides from ONE body means a probe cannot
+ * be made to pass by writing its input more conveniently than reality.
+ */
+const md = new MarkdownIt();
+const marpShaped = (cls, body) => `<section class="${cls}">${md.render(body)}</section>`;
 
 /** Render markdown through the owned engine and hand back a queryable document. */
 function renderEngine(deck) {
@@ -108,6 +139,32 @@ async function renderRuntime(markup, frontMatter) {
 
 const cls = (el) => el.className.split(/\s+/).filter(Boolean).sort().join(' ');
 
+/**
+ * A wrapped mark, PLUS the text of the element that hosts it.
+ *
+ * The host text is not decoration — without it the probe cannot see the harm
+ * #1858 actually caused. A transform that builds the right badge and APPENDS it
+ * instead of replacing the item's contents leaves `[ ] Criterion A` sitting on
+ * the slide beside a correct-looking badge; reading only `.badge` returns an
+ * identical array either way, and the comparison passes while a reader is
+ * looking at raw markdown. Measured: `li.replaceChildren(…)` mutated to
+ * `li.append(…)` is invisible to the badge alone and caught by the host.
+ */
+const marked = (sel) => (doc) =>
+  [...doc.querySelectorAll(sel)].map((m) => {
+    const host = m.closest('li,td') || m.parentElement;
+    // Whitespace RUNS collapse to one space. The engine's HTML carries markdown-it's
+    // newlines between an item's own content and a nested list; the same tree built
+    // in jsdom does not. That is serialization, not fidelity — one of the four
+    // documented divergences — and it is the only thing that separated an otherwise
+    // identical five-badge comparison. Collapsing runs does NOT weaken the guard the
+    // host text exists for: the append-mutant it catches differs by having whole
+    // extra WORDS (`[ ] Criterion ACriterion A`), not by spacing, and it is still
+    // caught with this normalization in place.
+    const text = (n) => (n ? n.textContent : '').replace(/\s+/g, ' ').trim();
+    return `${cls(m)}|${m.textContent.trim()}|host:${text(host)}`;
+  });
+
 /** The component tokens on a section — the answer a component-resolution row claims. */
 const COMPONENT_NAMES = new Set(require(path.join(ROOT, 'lib/core/resolve-component')).COMPONENT_NAMES);
 
@@ -120,178 +177,186 @@ const COMPONENT_NAMES = new Set(require(path.join(ROOT, 'lib/core/resolve-compon
 const PROBES = {
   verdictGridBadges: {
     min: 4,
-    deck: [
-      '<!-- _class: verdict-grid -->', '', '## Grid', '',
+    section: 'verdict-grid',
+    // The last nested item of each card carries a marker and NO prose line follows
+    // it. That is #1858's exact shape: legal markdown the card convention does not
+    // cover, where `slice(0, -1)` silently ate the final badge.
+    body: [
+      '## Grid', '',
       '- **Option one.**', '  - [ ] Criterion A', '  - [-] Criterion B',
       '- **Option two.**', '  - [x] Criterion A', '  - [/] Criterion B',
     ].join('\n'),
-    // The last nested item of each card carries a marker and NO prose line
-    // follows it. That is #1858's exact shape: legal markdown the convention
-    // does not cover, where `slice(0, -1)` silently ate the final badge.
-    markup: `<section class="verdict-grid"><h2>Grid</h2><ul>
-<li><strong>Option one.</strong><ul>
-<li>[ ] Criterion A</li><li>[-] Criterion B</li></ul></li>
-<li><strong>Option two.</strong><ul>
-<li>[x] Criterion A</li><li>[/] Criterion B</li></ul></li></ul></section>`,
-    probe: (doc) => [...doc.querySelectorAll('.badge')].map((b) => `${cls(b)}|${b.textContent.trim()}`),
+    probe: marked('.badge'),
+  },
+
+  // A SECOND probe for the same row, on the shapes the first cannot reach. The first
+  // uses one bullet list at depth 2 — the shape every committed deck uses, and
+  // therefore the shape a divergence can hide behind forever. All three of these read
+  // raw `[x]` to a reader through the runtime while the engine badged them, and none
+  // of it was #1858's slice: the engine's rule is list-kind-agnostic and
+  // depth-unbounded (`bullet_list_open` OR `ordered_list_open`, `listDepth >= 2`)
+  // where the runtime read `ul` only, one level down, through `textContent`.
+  'verdictGridBadges@shapes': {
+    row: 'verdictGridBadges',
+    min: 5,
+    section: 'verdict-grid',
+    body: [
+      '## Grid', '',
+      '1. **Numbered card.**',        // ordered OUTER list
+      '   - [x] Bullet criterion',
+      '- **Bullet card.**',
+      '  1. [-] Numbered criterion',  // ordered INNER list
+      '- **Deep card.**',
+      '  - [x] Criterion with children',
+      '    - [-] Sub criterion',      // THIRD nesting level
+      '    - [/] Second sub',
+    ].join('\n'),
+    probe: marked('.badge'),
   },
 
   obligationMatrixBadges: {
     min: 4,
-    deck: [
-      '<!-- _class: obligation-matrix -->', '', '## Duties', '',
+    section: 'obligation-matrix',
+    body: [
+      '## Duties', '',
       '| Duty | Us | Them |', '|---|---|---|',
       '| Notify | [x] | [ ] |', '| Audit | [-] | [/] |',
     ].join('\n'),
-    markup: `<section class="obligation-matrix"><h2>Duties</h2><table>
-<thead><tr><th>Duty</th><th>Us</th><th>Them</th></tr></thead>
-<tbody><tr><td>Notify</td><td>[x]</td><td>[ ]</td></tr>
-<tr><td>Audit</td><td>[-]</td><td>[/]</td></tr></tbody></table></section>`,
-    probe: (doc) => [...doc.querySelectorAll('td .state')].map((s) => `${cls(s)}|${s.textContent.trim()}`),
+    probe: marked('td .state'),
   },
 
   checklistItemStates: {
     min: 4,
-    deck: [
-      '<!-- _class: checklist -->', '', '## Ship list', '',
-      '- [x] Contracts signed', '- [ ] Data migrated', '- [-] Runbook drafted', '- [/] Legal sign-off',
+    section: 'checklist',
+    body: [
+      '## Ship list', '',
+      '- [x] Contracts signed', '- [ ] Data migrated',
+      '- [-] Runbook drafted', '- [/] Legal sign-off',
     ].join('\n'),
-    markup: `<section class="checklist"><h2>Ship list</h2><ul>
-<li>[x] Contracts signed</li><li>[ ] Data migrated</li>
-<li>[-] Runbook drafted</li><li>[/] Legal sign-off</li></ul></section>`,
-    // The marker becomes CLASSES ON THE <li> here, not a wrapper span, so the
-    // probe reads the class list and the stripped text together — a transform
-    // that set the right classes but forgot to strip the marker would pass a
-    // class-only probe.
-    probe: (doc) => [...doc.querySelectorAll('li.state')].map((li) => `${cls(li)}|${li.textContent.trim()}`),
+    // The marker becomes CLASSES ON THE <li> here rather than a wrapper span, so the
+    // probe reads the class list and the stripped text together — a transform that
+    // set the right classes but forgot to strip the marker passes a class-only probe.
+    probe: (doc) =>
+      [...doc.querySelectorAll('li.state')].map((li) => `${cls(li)}|${li.textContent.trim()}`),
   },
 
   matrixGridCells: {
     min: 6,
-    // The positional grammar this layout actually defines is `[x]` / `[-]` / `[ ]`
-    // (matrix-grid.docs.md) — one `[x]` per row, and a filled cell's trailing text
-    // is its label. `[/]` is NOT part of it; a first draft of this probe used it,
-    // the engine emitted nothing for those cells, and the anti-vacuity floor is
-    // what said so rather than a green comparison of two short lists.
-    deck: [
-      '<!-- _class: matrix-grid -->', '', '## Levels', '',
+    section: 'matrix-grid',
+    // The positional grammar this layout defines is `[x]` / `[-]` / `[ ]`
+    // (matrix-grid.docs.md) — one `[x]` per row, a filled cell's trailing text is its
+    // label. `[/]` is NOT part of it; a first draft used it, the engine emitted
+    // nothing for those cells, and the anti-vacuity floor is what said so rather than
+    // a green comparison of two short lists.
+    body: [
+      '## Levels', '',
       '| Level | Self | Team | Org |', '|---|---|---|---|',
       '| Advanced | [ ] | [-] | [x] Lead |',
       '| Beginner | [x] Junior | [-] | [ ] |',
     ].join('\n'),
-    markup: `<section class="matrix-grid"><h2>Levels</h2><table>
-<thead><tr><th>Level</th><th>Self</th><th>Team</th><th>Org</th></tr></thead>
-<tbody><tr><td>Advanced</td><td>[ ]</td><td>[-]</td><td>[x] Lead</td></tr>
-<tr><td>Beginner</td><td>[x] Junior</td><td>[-]</td><td>[ ]</td></tr></tbody></table></section>`,
-    probe: (doc) => [...doc.querySelectorAll('.cell')].map((c) => `${cls(c)}|${c.textContent.trim()}`),
+    probe: marked('.cell'),
   },
 
   slotLabelLift: {
     min: 3,
-    deck: [
-      '<!-- _class: premise -->', '', '## Where we stand', '',
+    section: 'premise',
+    body: [
+      '## Where we stand', '',
       '- Market. Buyers consolidated onto two vendors.',
       '- Product. Our retention leads the category.',
       '- Risk. One contract carries a third of revenue.',
     ].join('\n'),
-    markup: `<section class="premise"><h2>Where we stand</h2><ul>
-<li>Market. Buyers consolidated onto two vendors.</li>
-<li>Product. Our retention leads the category.</li>
-<li>Risk. One contract carries a third of revenue.</li></ul></section>`,
-    probe: (doc) => [...doc.querySelectorAll('li > strong')].map((s) => s.textContent.trim()),
+    // Same host-text reasoning as `marked`: a lift that creates the <strong> but
+    // leaves the original `Market.` text beside it is invisible to the label alone.
+    probe: (doc) =>
+      [...doc.querySelectorAll('li > strong')].map(
+        (el) => `${el.textContent.trim()}|host:${el.parentElement.textContent.trim()}`,
+      ),
   },
 
   glossaryListToTable: {
     min: 4,
+    section: 'glossary',
     // NESTED bullets — outer li is the term, inner li its one-line definition
-    // (glossary.docs.md, and HARD RULE #5). A flat `- ARR. Annual recurring
-    // revenue.` is not a glossary entry: the engine leaves the row unsplit, and
-    // the first draft of this probe compared two identical un-split lists and
-    // would have passed while proving nothing about the transform.
-    deck: [
-      '<!-- _class: glossary -->', '', '## Terms', '',
+    // (glossary.docs.md, and HARD RULE #5). A flat `- ARR. Annual recurring revenue.`
+    // is not a glossary entry: the engine leaves the row unsplit, and a first draft
+    // compared two identical un-split lists and would have passed while proving
+    // nothing about the transform.
+    body: [
+      '## Terms', '',
       '- ARR', '  - Annual recurring revenue.',
       '- CAC', '  - Cost to acquire a customer.',
       '- NRR', '  - Net revenue retention.',
     ].join('\n'),
-    markup: `<section class="glossary"><h2>Terms</h2><ul>
-<li>ARR<ul><li>Annual recurring revenue.</li></ul></li>
-<li>CAC<ul><li>Cost to acquire a customer.</li></ul></li>
-<li>NRR<ul><li>Net revenue retention.</li></ul></li></ul></section>`,
     probe: (doc) =>
       [...doc.querySelectorAll('tr')].map((r) =>
         [...r.children].map((c) => c.textContent.trim()).join('|'),
       ),
   },
 
+  glossaryRange: {
+    min: 1,
+    section: 'glossary',
+    // The pill is DERIVED from the first and last term, not authored, so this is a
+    // real test of the derivation. Terms go in alphabetical order because the
+    // transform reads position, not sort order (glossary.docs.md).
+    body: [
+      '## Bands', '',
+      '- Anchor', '  - A slide that orients the audience.',
+      '- Cadence', '  - How much new information per slide.',
+      '- Zone', '  - The region a deck is scoped to.',
+    ].join('\n'),
+    probe: (doc) => [...doc.querySelectorAll('.range-pill')].map((p) => p.textContent.trim()),
+  },
+
   deckClassPropagate: {
     min: 1,
+    section: 'content',
     // A DECK-LEVEL register: `class:` in front matter lands on every section. The
-    // runtime does not get it from the markup — it fetches the sibling `.md` — so
-    // this probe supplies that fetch, which is the plumbing that made this row look
-    // un-probeable. It is the only reason the row sat in AWAITING_PROBE.
+    // runtime does not read it from the markup — it fetches the sibling `.md` — so
+    // this probe supplies that fetch, which is the plumbing that made the row look
+    // un-probeable. It is the only reason it sat in AWAITING_PROBE.
+    body: '## Title\n\nBody.',
     deck: ['---', 'theme: indaco', 'class: dark', '---', '', '<!-- _class: content -->', '', '## Title', '', 'Body.'].join('\n'),
-    markup: '<section class="content"><h2>Title</h2><p>Body.</p></section>',
     frontMatter: ['---', 'theme: indaco', 'class: dark', '---', '', '## Title', '', 'Body.', ''].join('\n'),
     // SORTED, and that is load-bearing. Measured, the engine emits `content dark
-    // form` and the runtime `content form dark` — the same set applied in a
-    // different order. Order is not what `mirrored` promises here; membership is.
-    probe: (doc) => [...doc.querySelectorAll('section')].map((s) => cls(s)),
+    // form` and the runtime `content form dark` — the same set applied in a different
+    // order. Order is not what `mirrored` promises here; membership is.
+    probe: (doc) => [...doc.querySelectorAll('section')].map((sec) => cls(sec)),
   },
 
   defaultComponent: {
     min: 1,
+    section: '',
     // A slide naming no component at all. The default is resolved from the deck's
     // front matter, so this needs the same fetch as the row above.
+    body: '## Title\n\nBody.',
     deck: ['---', 'theme: indaco', '---', '', '## Title', '', 'Body.'].join('\n'),
-    markup: '<section><h2>Title</h2><p>Body.</p></section>',
     frontMatter: ['---', 'theme: indaco', '---', '', '## Title', '', 'Body.', ''].join('\n'),
     probe: (doc) =>
-      [...doc.querySelectorAll('section')].map((s) =>
-        [...s.classList].filter((c) => COMPONENT_NAMES.has(c)).sort().join(' '),
+      [...doc.querySelectorAll('section')].map((sec) =>
+        [...sec.classList].filter((c) => COMPONENT_NAMES.has(c)).sort().join(' '),
       ),
   },
 
   'imagery prose → the .image-text panel': {
     min: 1,
+    section: 'image',
     // A `topic` row rather than a `plugin` row. It was listed as needing a real
     // background image and the layout measurement after it — it does not:
     // `wrapImageTextToDom` is pure DOM, folding the slide's prose into a panel and
     // leaving an image-only slide alone. jsdom is enough.
-    deck: [
-      '<!-- _class: image -->', '', '![bg](./photo.jpg)', '', '## The site today', '',
-      'Two thirds of the floor is unused after the move.',
-    ].join('\n'),
-    markup:
-      '<section class="image"><h2>The site today</h2>' +
+    body: '![bg](./photo.jpg)\n\n## The site today\n\nTwo thirds of the floor is unused after the move.',
+    // The runtime's input carries no `![bg]`: on the engine side that image is lifted
+    // out of the prose flow before this transform sees it, and marp-core's own
+    // advanced-background machinery takes it on the export side. What the row claims
+    // is which PROSE nodes get folded, so the probe compares that structure.
+    markup: '<section class="image"><h2>The site today</h2>' +
       '<p>Two thirds of the floor is unused after the move.</p></section>',
-    // STRUCTURE, not the panel's raw text. The engine's HTML carries whitespace
-    // between elements and the runtime inherits whatever its input had, so a
-    // textContent compare reads "The site today Two thirds…" against "The site
-    // todayTwo thirds…" — a serialization difference, not a fidelity one. What the
-    // row actually claims is WHICH nodes get folded into the panel, so compare that.
     probe: (doc) =>
       [...doc.querySelectorAll('.image-text')].map((p) =>
         [...p.children].map((c) => `${c.tagName}:${c.textContent.trim()}`).join('|'),
       ),
-  },
-
-  glossaryRange: {
-    min: 1,
-    // The pill is DERIVED from the first and last term, not authored — so the
-    // probe is a real test of the derivation, and terms go in alphabetical order
-    // because the transform reads position, not sort order (glossary.docs.md).
-    deck: [
-      '<!-- _class: glossary -->', '', '## Bands', '',
-      '- Anchor', '  - A slide that orients the audience.',
-      '- Cadence', '  - How much new information per slide.',
-      '- Zone', '  - The region a deck is scoped to.',
-    ].join('\n'),
-    markup: `<section class="glossary"><h2>Bands</h2><ul>
-<li>Anchor<ul><li>A slide that orients the audience.</li></ul></li>
-<li>Cadence<ul><li>How much new information per slide.</li></ul></li>
-<li>Zone<ul><li>The region a deck is scoped to.</li></ul></li></ul></section>`,
-    probe: (doc) => [...doc.querySelectorAll('.range-pill')].map((p) => p.textContent.trim()),
   },
 };
 
@@ -329,8 +394,9 @@ test('marp fidelity — a `mirrored` claim is attested by rendered output', asyn
     assert.ok(mirrored.length >= 10, `expected >=10 mirrored rows, found ${mirrored.length}`);
     for (const e of mirrored) {
       const k = key(e);
+      const probed = PROBES[k] || Object.values(PROBES).some((p) => p.row === k);
       assert.ok(
-        PROBES[k] || AWAITING_PROBE[k],
+        probed || AWAITING_PROBE[k],
         `${k} claims to be mirrored with no probe and no declared reason — a claim nothing checks`,
       );
     }
@@ -340,29 +406,41 @@ test('marp fidelity — a `mirrored` claim is attested by rendered output', asyn
     for (const k of Object.keys(AWAITING_PROBE)) {
       const row = mirrored.find((e) => key(e) === k);
       assert.ok(row, `${k} is listed as awaiting a probe but no longer claims to be mirrored — drop it`);
-      assert.ok(!PROBES[k], `${k} now has a probe — remove it from AWAITING_PROBE`);
+      assert.ok(
+        !PROBES[k] && !Object.values(PROBES).some((p) => p.row === k),
+        `${k} now has a probe — remove it from AWAITING_PROBE`,
+      );
     }
   });
 
   await t.test('every probe names a real mirrored row', () => {
     for (const k of Object.keys(PROBES)) {
+      // A probe may carry a `row` when several probes cover one ledger row from
+      // different angles — one shape per probe reads better than one probe with a
+      // deck that tries to be every shape at once.
+      const row = PROBES[k].row || k;
       assert.ok(
-        mirrored.some((e) => key(e) === k),
-        `there is a probe for ${k}, which is not a mirrored ledger row`,
+        mirrored.some((e) => key(e) === row),
+        `there is a probe for ${row}, which is not a mirrored ledger row`,
       );
     }
   });
 
   for (const [k, spec] of Object.entries(PROBES)) {
     await t.test(`${k} — the engine and the runtime bundle render the same thing`, async () => {
-      const engineOut = spec.probe(renderEngine(spec.deck));
+      // ONE body, two renderings. `deck` and `markup` are derived unless a probe
+      // overrides them — `deck` when the claim needs front matter, `markup` when the
+      // runtime legitimately receives something different from what the author wrote.
+      const deck = spec.deck || `<!-- _class: ${spec.section} -->\n\n${spec.body}`;
+      const markup = spec.markup || marpShaped(spec.section, spec.body);
+      const engineOut = spec.probe(renderEngine(deck));
       assert.ok(
         engineOut.length >= spec.min,
         `the engine produced ${engineOut.length} of the thing ${k} claims (floor ${spec.min}) — ` +
           'the deck or the probe selector is wrong, and without this the comparison below would ' +
           'be two empty arrays passing forever',
       );
-      const runtimeOut = spec.probe(await renderRuntime(spec.markup, spec.frontMatter));
+      const runtimeOut = spec.probe(await renderRuntime(markup, spec.frontMatter));
       assert.deepEqual(
         runtimeOut,
         engineOut,

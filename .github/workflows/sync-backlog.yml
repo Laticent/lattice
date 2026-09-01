@@ -68,10 +68,18 @@ jobs:
       # header OVERRIDES the `x-access-token:${AUTOMATION_PAT}` credentials embedded in
       # the push URL below — so the nightly force-push authenticated as
       # `github-actions[bot]`, exactly the identity the push step's own comment says it
-      # must not use. GitHub suppresses workflow runs for events raised by the repo
-      # token, so the resulting `synchronize` landed in `action_required` with zero jobs
-      # started, the required `ci` check never reported, `mergeable_state` stayed
-      # `blocked`, and auto-merge could never fire.
+      # must not use.
+      #
+      # WHAT FOLLOWS IS PARKING, NOT SUPPRESSION, and the difference is measurable and
+      # worth stating: a bot-attributed `synchronize` here does NOT vanish. The run
+      # object is CREATED and left `action_required`, awaiting a manual "Approve and
+      # run", with ZERO JOBS ever started — run 33400075078 exists and reports
+      # `jobs.total_count == 0`, and twenty consecutive nights look the same. The
+      # consequence for merging is what you would expect (the required `ci` check never
+      # reported, `mergeable_state` stayed `blocked`, auto-merge could never fire), but
+      # two things follow that the word "suppressed" hides: a human with access could
+      # have approved any one of those runs on any of those nights, and a staleness
+      # alarm written to detect "no run appeared" would be looking for the wrong thing.
       #
       # Every night was green. The workflow did its work, pushed, and reported success.
       # The PR simply never merged, so BACKLOG.md on `main` froze at 2026-08-10 while
@@ -117,10 +125,11 @@ jobs:
       - name: Open (or update) the sync PR, and let the queue land it
         env:
           # NOT secrets.GITHUB_TOKEN, and this is the whole reason the secret
-          # exists: GitHub suppresses workflow runs for events raised by the
-          # repo token, so a PR opened — or a branch pushed — with it would
-          # never start `ci`. The required check would never appear and the PR
-          # would sit unmergeable forever.
+          # exists: an event raised by the repo token does not get `ci` — the run
+          # is either never created or created and parked awaiting approval (the
+          # latter is what was measured on this branch; see the checkout comment
+          # above). Either way the required check never reports and the PR sits
+          # unmergeable forever.
           GH_TOKEN: ${{ secrets.AUTOMATION_PAT }}
           REPO: ${{ github.repository }}
         run: |

@@ -1060,6 +1060,14 @@ the repo token never starts `ci`, and a push that *updates* such a PR never
 re-starts it either. The required check simply never appears, so the PR can
 never merge — it does not fail, it just sits there forever.
 
+**What was actually measured here is PARKING, not absence, and the distinction is worth
+carrying.** A bot-attributed push to `chore/backlog-sync` did not produce "no run": run
+`33400075078` exists, concluded `action_required`, and reports `jobs.total_count == 0` —
+created, then left awaiting a manual "Approve and run". Twenty consecutive nights look the
+same. The merge consequence is identical, but two things follow that "suppressed" hides: a
+human with access could have approved any one of them, and an alarm written to detect a
+MISSING run would be looking for the wrong thing.
+
 So every step that raises an event another workflow must see — the branch push,
 the `gh pr create`, and the `gh pr merge --auto` whose merge must in turn
 trigger `release-publish.yml` — runs as **`secrets.AUTOMATION_PAT`**, a

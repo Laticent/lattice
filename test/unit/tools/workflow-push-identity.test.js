@@ -44,11 +44,35 @@ const YAML = require('yaml');
 const WF_DIR = path.join(__dirname, '..', '..', '..', '.github', 'workflows');
 
 /**
+ * WHAT THIS FILE DOES NOT SEE, stated so nobody reads it as full coverage.
+ *
+ * Push sites are found by one URL shape — `x-access-token:$GH_TOKEN` in a `run:`
+ * block. That pins the four sites in the tree today and catches a rewrite of any
+ * of them. It does NOT find a new automation that authenticates some other way:
+ * a secret interpolated straight into the URL (`${{ secrets.X }}`, where the
+ * `{{` defeats the pattern), a different variable name, `git remote set-url`
+ * followed by a plain `git push origin`, a credential helper, `.netrc`,
+ * `GIT_ASKPASS`, or a push inside a composite action or reusable workflow.
+ *
+ * There is no arm enumerating "jobs that open a PR which must start `ci`", which
+ * is the property actually at stake — only a list of the ways we happen to write
+ * it down today. A new workflow in any of the forms above is invisible here.
+ */
+
+/**
  * Jobs that push with an embedded credential URL from a working tree that is
  * NOT the `actions/checkout` one, so the extraheader cannot reach them. Each
  * builds its own repository in a temp directory — a `git clone` into `mktemp
  * -d`, or a `git init` plus `git remote add` — which has its own git config.
- * Checked for staleness, so an entry that stops doing that is an error.
+ *
+ * VERIFIED BY REVIEW, not by the test. See the comment at the check below: no
+ * string match over a shell block can decide where a push actually runs, so the
+ * control here is that the list is short, each entry carries its reason, and a
+ * third one is a diff someone has to agree with. Both current entries were read:
+ * `ci.yml::golden-diff` clones into `mktemp -d` and `cd`s there
+ * (`.github/workflows/ci.yml:420-425`), and `publish-kits.yml::publish` does
+ * `mktemp -d` + `cd` + `git init` (`:139-140`). Staleness IS checked — an entry
+ * naming a job that no longer pushes this way is an error.
  */
 const SEPARATE_WORKTREE = {
   'ci.yml::golden-diff':
@@ -83,12 +107,24 @@ test('a workflow that pushes with its own credentials keeps them', async (t) => 
   await t.test('every credential push either keeps its identity or is a separate worktree', () => {
     for (const { id, checkout, pushStep } of pushers) {
       if (SEPARATE_WORKTREE[id]) {
-        // Verify the exemption's own claim rather than trusting the label.
-        const run = runOf(pushStep);
-        assert.ok(
-          /mktemp -d/.test(run) || /git remote add/.test(run),
-          `${id} is exempted as pushing from a separate worktree, but no longer builds one — ` +
-            'it now pushes from the checkout, where the extraheader overrides its credentials',
+        // A SANITY CHECK ON THE LABEL, NOT A PROOF — and the difference is worth
+        // being blunt about, because an earlier version of this file claimed the
+        // stronger thing. Whether a `git push` runs inside the checkout or inside a
+        // repository the script built for itself is a property of shell execution,
+        // and no string match over the block decides it. Two mutations demonstrate
+        // the gap: point `work=` at `$GITHUB_WORKSPACE` while keeping `git init`,
+        // or delete one of two `cd`s — both leave the push in the checkout and both
+        // satisfy any pattern that has only the text to go on.
+        //
+        // So this asserts only that the entry still LOOKS like what it says, and the
+        // real control is that the list is two entries long, both justified in
+        // prose, and adding a third is a diff a reviewer has to agree with. Read
+        // the run block when you touch one.
+        assert.match(
+          runOf(pushStep),
+          /mktemp -d|git init/,
+          `${id} is exempted as pushing from a repository it builds itself, and the step no ` +
+            'longer builds one at all — re-read it before keeping the exemption',
         );
         continue;
       }
