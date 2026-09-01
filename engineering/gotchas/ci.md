@@ -391,7 +391,11 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   is the step failing. Make the bump yourself instead — `npm update <package> --package-lock-only`
   in that directory, which for `brace-expansion 1.1.15 → 1.1.18` was a three-line edit that
   installs clean under `npm ci`, against Dependabot's 3-added / 231-deleted version of the same
-  bump. Dependabot closes its own PR once `main` carries the version.
+  bump. **Dependabot then closes its own PR, and that is measured rather than assumed:**
+  #2002 carried the hand-made bump onto `main` at 17:01:23Z on 2026-09-01 and
+  `dependabot[bot]` closed #1489 at 17:50:50Z — 49 minutes, on its own, with nobody
+  touching the PR. So the hand-made bump is the whole remedy: there is no second step
+  where somebody closes the superseded PR, and no need to wait for the nightly run.
 - **The hard edge is not a universal remedy, and the gate's own advice says so.** Hoisting only
   absorbs the peer when the root copy SATISFIES the peer range. Two consumers wanting different
   majors leaves a nested copy that is still optional-peer-only, and the fix has to be worked out
