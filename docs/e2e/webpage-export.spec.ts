@@ -2,6 +2,41 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
+/** Open an exported artifact and read its slide sections back out of a real DOM. */
+async function exportedSections(page: import('@playwright/test').Page, file: string): Promise<string[]> {
+	const viewer = await page.context().newPage();
+	await viewer.goto(`file://${file}`);
+	const out = await viewer.evaluate(() =>
+		[...document.querySelectorAll('section[data-lattice-slide]')].map((s) => s.outerHTML));
+	await viewer.close();
+	return out;
+}
+
+/**
+ * Drive the real Share → Webpage (.html) flow and return the path of the file it downloaded.
+ *
+ * Saved with a real `.html` name on purpose: `download.path()` is an extension-less temp file
+ * that `file://` will not parse as HTML, so the inline script never runs — which would mask
+ * exactly the kind of bug these cells open the artifact to find.
+ */
+async function exportWebpage(
+	page: import('@playwright/test').Page,
+	testInfo: import('@playwright/test').TestInfo,
+	deck: string,
+	opts: { stripNotes?: boolean; as: string },
+): Promise<string> {
+	await gotoStudio(page);
+	await setEditorContent(page, deck);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	await page.getByRole('dialog').getByRole('button', { name: /^Webpage \(\.html\)/ }).click();
+	if (opts.stripNotes) await page.getByRole('switch', { name: 'Strip speaker notes' }).click();
+	const downloadPromise = page.waitForEvent('download', { timeout: 150_000 });
+	await page.getByRole('button', { name: /Download webpage|Exporting/ }).click();
+	const file = path.join(testInfo.outputDir, opts.as);
+	await (await downloadPromise).saveAs(file);
+	return file;
+}
+
 // The Studio "Webpage (.html)" export must produce a player that actually RUNS in a
 // real browser — not just assemble bytes. This drives the full Share → Webpage flow,
 // captures the downloaded file, opens it, and asserts the player boots: it styles the
@@ -172,4 +207,81 @@ test('the Studio webpage export honors Strip speaker notes, including on a slide
 	expect(envelopeSource, 'the scrub does not eat directives').toContain('_class: diagram');
 	// The accessible description is a text alternative, not private speaker copy — it stays.
 	expect(html, 'the a11y description survives a notes strip').toContain('class="lattice-description"');
+});
+
+// ── The two-cut measurement, on the button ───────────────────────────────────
+//
+// #1985 closed a fingerprint: the scrub removed each note's comment NODE from already-rendered
+// HTML and left the whitespace it occupied, so a stripped slide carried one byte more than the
+// same slide written without a note — naming WHICH slides had one, computable by the RECIPIENT
+// from the shipped file alone, because the envelope carries the deck's own scrubbed source to
+// re-render. The repair renders the SCRUBBED SOURCE instead.
+//
+// But a note comment is an HTML BLOCK, so removing it can move the deck — and the `text / note /
+// text` case has TWO right answers, which is why the export measures instead of deciding. Both
+// cells below pin one answer on the REAL artifact, because that is the thing every other tier
+// could not see: `stripNotesCut` has unit coverage against a fake renderer, and the CLI has
+// integration coverage on real exports, but until these the Studio's own button was inferred
+// from a shared kernel rather than driven. That inference is exactly what went wrong once
+// already — the button shipped with a single cut for one commit while the CLI had two.
+test('the Studio webpage export keeps the deck the author wrote — the note was the slide break', async ({ page }, testInfo) => {
+	test.setTimeout(180_000);
+	// `Some text` / note / `---`: the author gets TWO slides, because `---` after an HTML block
+	// is a slide break. Delete the comment LINE and `Some text\n---` is a setext H2 — one slide,
+	// and a heading the author never wrote. So the `preserve` cut has to win here.
+	const DECK = ['---', 'theme: indaco', '---', '', '# Cover', '', '---', '', 'Some text', '<!-- Board only. -->', '---', '', 'Tail.', ''];
+	// The same deck as an author who never wrote a note would type it. Committed here rather than
+	// derived from the deck above, so this asserts the scrub agrees with a HUMAN's file — deriving
+	// it in the test would only assert the scrub agrees with a copy of itself.
+	const TWIN = ['---', 'theme: indaco', '---', '', '# Cover', '', '---', '', 'Some text', '', '---', '', 'Tail.', ''];
+
+	const sectionsOf = (file: string) => exportedSections(page, file);
+
+	const stripped = await exportWebpage(page, testInfo, DECK.join('\n'), { stripNotes: true, as: 'noted-stripped.html' });
+	const twin = await exportWebpage(page, testInfo, TWIN.join('\n'), { stripNotes: false, as: 'twin.html' });
+
+	const a = await sectionsOf(stripped);
+	const b = await sectionsOf(twin);
+
+	// The deck did not gain or lose a slide, and the `---` did not become a heading.
+	expect(a.length, 'the stripped export has the slide count the author wrote').toBe(b.length);
+	expect(a.join(''), 'the slide break did not turn into a setext heading').not.toMatch(/<h2[^>]*>Some text/);
+	// THE ACCEPTANCE CRITERION. Byte-identical rendered sections: with the fingerprint present,
+	// the noted slide differs from its twin by the whitespace the comment left behind.
+	expect(a, 'a stripped export is byte-identical to the same deck written without the note').toEqual(b);
+});
+
+test('the Studio webpage export keeps a tight list tight — the note was inside a list item', async ({ page }, testInfo) => {
+	test.setTimeout(180_000);
+	// The opposite answer, same neighbours. An indented note inside a list item: leave a BLANK
+	// line where it was and the tight list turns LOOSE (`<li>Revenue…` becomes `<li><p>Revenue…`),
+	// a visible change to a deck that did nothing unusual. Taking the line reproduces it exactly,
+	// so the `drop` cut has to win. A single-cut export gets one of these two cells wrong.
+	const DECK = ['---', 'theme: indaco', '---', '', '# Numbers', '', '- Revenue up 12 percent', '  <!-- Board only. -->', '- Costs flat', ''];
+	const TWIN = ['---', 'theme: indaco', '---', '', '# Numbers', '', '- Revenue up 12 percent', '- Costs flat', ''];
+
+	const listShape = async (file: string) => {
+		const viewer = await page.context().newPage();
+		await viewer.goto(`file://${file}`);
+		const out = await viewer.evaluate(() => {
+			const items = [...document.querySelectorAll('li')];
+			return { items: items.length, wrapped: items.filter((li) => li.querySelector(':scope > p')).length };
+		});
+		await viewer.close();
+		return out;
+	};
+
+	const stripped = await exportWebpage(page, testInfo, DECK.join('\n'), { stripNotes: true, as: 'list-stripped.html' });
+	const twin = await exportWebpage(page, testInfo, TWIN.join('\n'), { stripNotes: false, as: 'list-twin.html' });
+
+	const a = await listShape(stripped);
+	const b = await listShape(twin);
+	expect(a.items, 'both items survive').toBe(b.items);
+	expect(a.wrapped, 'the list stayed TIGHT — a blank line in the note’s place would wrap each item in <p>').toBe(b.wrapped);
+	expect(a.wrapped, 'the authored list is tight to begin with, so this cell can fail').toBe(0);
+	// And the fingerprint is gone. Tightness alone passes on a build that scrubs the RENDER
+	// instead of the source — it never touches the list — so without this the cell is vacuous
+	// against exactly the version this PR replaces. Verified: it fails on that build.
+	expect(await exportedSections(page, stripped), 'byte-identical to the same deck written without the note')
+		.toEqual(await exportedSections(page, twin));
 });
