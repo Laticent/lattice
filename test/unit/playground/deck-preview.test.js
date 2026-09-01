@@ -199,6 +199,31 @@ describe('deck-preview: preview-frame CSP', () => {
 		assert.doesNotMatch(doc, /default-src/, 'a default-src here would restrict more than the posture chose');
 	});
 
+	// The PREVIEW / EXPORT boundary, pinned from both sides. A preview is a frame the author
+	// browses, where a deck's remote image beacons on open; the Studio's capture frame is an
+	// export renderer whose output the author downloads, and containing it would blank a
+	// legitimately-remote image in the .pdf/.pptx/.png — an export-bytes change, and a
+	// divergence from the CLI, which emits no CSP. Neither side may flip by accident.
+	test('csp:false omits the meta entirely — the export capture frame opts out', async () => {
+		const { buildSrcdoc } = await load();
+		assert.doesNotMatch(buildSrcdoc({ ...BASE, csp: false }), /Content-Security-Policy/);
+		assert.match(buildSrcdoc({ ...BASE }), /Content-Security-Policy/, 'the DEFAULT must stay on');
+	});
+
+	test("the Studio's export capture frame passes csp:false, deliberately", () => {
+		const fs = require('fs');
+		const path = require('path');
+		const src = fs.readFileSync(
+			path.join(__dirname, '..', '..', '..', 'docs/src/components/studio/export/deck-export.js'), 'utf8'
+		);
+		assert.match(
+			src, /csp:\s*false/,
+			'deck-export.js builds the offscreen frame that PDF/PPTX/PNG are rasterized from. If it '
+			+ 'stops passing csp:false, a deck\'s remote image is blocked during capture and blanks in '
+			+ 'the downloaded file — an EXPORT-BYTES change needing sign-off (QUALITY BAR), not a tweak.'
+		);
+	});
+
 	test('the font-src origin follows the katexUrl rather than a hard-coded CDN', async () => {
 		const { previewCspMeta } = await load();
 		assert.match(previewCspMeta({ katexUrl: 'https://cdn.example.net/katex/katex.min.css' }), /font-src 'self' data: https:\/\/cdn\.example\.net;/);

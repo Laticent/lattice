@@ -109,18 +109,27 @@ describe('notes-core: isLatticePragma', () => {
     const { TIERS } = require('../../../lib/exemplars/tier-filter.js');
     for (const t of TIERS) assert.equal(core.isLatticePragma(`tier: ${t}`), true, `tier: ${t}`);
   });
-  test('the color-mode values mirror the register documented in lib/core/resolve-color-mode.js', () => {
-    const src = require('fs').readFileSync(
-      require('path').join(__dirname, '../../../lib/core/resolve-color-mode.js'), 'utf8'
-    );
-    for (const v of ['light', 'dark', 'system', 'inherited']) {
-      assert.match(src, new RegExp(`color-mode:\\s*${v}\\b`), `resolve-color-mode.js documents ${v}`);
-      assert.equal(core.isLatticePragma(`color-mode: ${v}`), true);
+  test('the color-mode values mirror the producer REGISTER, not its prose', () => {
+    // Reads COLOR_MODE_REGISTER itself. An earlier version grepped the module's doc COMMENT
+    // for each name it already knew, which could not detect drift in the direction that
+    // matters: adding a fifth value to the producer left this green while the new marker
+    // leaked into the notes channel as a "note". Iterating the register fails on that.
+    const { COLOR_MODE_REGISTER } = require('../../../lib/core/resolve-color-mode.js');
+    const names = Object.keys(COLOR_MODE_REGISTER);
+    assert.ok(names.length > 0, 'the producer register is empty — has it moved?');
+    for (const v of names) {
+      assert.equal(
+        core.isLatticePragma(`color-mode: ${v}`), true,
+        `resolve-color-mode.js accepts "${v}" but the pragma matcher does not, so `
+        + `<!-- color-mode: ${v} --> ships as a speaker note (#1350)`
+      );
     }
   });
 
-  // The two sets are deliberately separate — MAGIC_COMMENT_MATCHERS is locked to Marpit's
-  // set by the parity test, so a Lattice entry landing there would fail it.
+  // The two sets are deliberately separate, for PROVENANCE — one records what an upstream
+  // project excluded, the other what this repo emits. Not because a gate enforces it: there
+  // is no Marpit parity test and there cannot be one (the dependency is gone), so a Lattice
+  // entry added to the wrong set would pass everything. This asserts the separation directly.
   test('Lattice pragmas are NOT in the Marpit-mirrored tooling set', () => {
     for (const pragma of ['tier: short', 'galleryAuthored: x', 'color-mode: dark']) {
       assert.equal(core.isToolingComment(pragma), false);

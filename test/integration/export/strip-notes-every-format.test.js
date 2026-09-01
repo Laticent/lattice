@@ -84,15 +84,31 @@ describe('strip-notes: every export format', () => {
     // "svgz": "svgSet" (double quotes, or a camelCase value, or a hyphenated one, or a
     // multi-dot key) vanished from the old single-pass parse with no test failing. That is
     // #1837 all over again, which is the exact thing this file exists to prevent.
-    const rows = [...block[1].matchAll(/^\s*(?:'[^']*'|"[^"]*"|\[[^\]]*\]|[A-Za-z_$][\w$]*)\s*:/gm)].length;
-    const pairs = [...block[1].matchAll(/['"]\.[A-Za-z0-9.]+['"]\s*:\s*['"]([A-Za-z0-9_-]+)['"]/g)];
+    // COMMENTS FIRST. This block is heavily commented, and prose inside it trips both
+    // counters — a `//` line mentioning `'.svgz': 'svgset'` was read as a row, and a sentence
+    // containing `svgz: not offered` was read as one too. Both directions produced a failure
+    // naming the wrong cause. Strip comments and count only code.
+    const code = block[1]
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+    const rows = [...code.matchAll(/^\s*(?:'[^']*'|"[^"]*"|\[[^\]]*\]|[A-Za-z_$][\w$]*)\s*:/gm)].length;
+    const pairs = [...code.matchAll(/['"]\.[A-Za-z0-9.]+['"]\s*:\s*['"]([A-Za-z0-9_-]+)['"]/g)];
     assert.ok(rows > 0, 'OUT_FORMATS parsed to zero rows');
+    // Stated in BOTH directions, because the counts can disagree either way and the fix
+    // differs. Fewer pairs than rows: a row this parser cannot read would be silently
+    // EXCLUDED from the coverage check — the failure this cross-check exists to make loud.
+    // More pairs than rows: the pair pattern is matching something that is not a row, so the
+    // coverage check would demand a case for a format that does not exist.
     assert.equal(
       pairs.length, rows,
-      `OUT_FORMATS has ${rows} row(s) but only ${pairs.length} could be read as '<ext>': '<format>'. `
-      + 'A row is written in a shape this parser cannot read, so it would be silently EXCLUDED '
-      + 'from the coverage check below — the failure this cross-check exists to make loud. '
-      + 'Widen the pair pattern (and add the --strip-notes case for the new format).'
+      `OUT_FORMATS parsed to ${rows} row(s) but ${pairs.length} '<ext>': '<format>' pair(s). `
+      + (pairs.length < rows
+        ? 'A row is written in a shape this parser cannot read, so it would be silently excluded '
+          + 'from the coverage check. Widen the pair pattern, and add the --strip-notes case for '
+          + 'the new format.'
+        : 'The pair pattern matched something that is not a table row (stray prose, or a nested '
+          + 'literal). Tighten it — otherwise the coverage check below demands a case for a '
+          + 'format that does not exist.')
     );
     return [...new Set(pairs.map((m) => m[1]))];
   }

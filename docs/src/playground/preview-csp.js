@@ -1,11 +1,15 @@
 // preview-csp.js — the remote-subresource policy every preview-frame document carries.
 //
-// A STANDALONE module on purpose, and the reason is bundle weight rather than tidiness. All
-// three preview-frame builders need this, and `stage-window.js` is one of them — it ships on
-// the Studio route, which has a committed size budget (`scripts/check-route-budget.mjs`).
-// Importing it from `deck-preview.js` would have dragged that module's whole dependency chain
-// (print-sheet, the generated a11y texture defs, preview-virtual) into the Studio bundle to
-// obtain one string builder. This file imports nothing.
+// A standalone module because three builders share it and it depends on nothing — not, as an
+// earlier version of this docblock claimed, to keep `deck-preview.js` out of the Studio
+// bundle. That justification was measured wrong and is worth recording as wrong: the Studio
+// route ALREADY imports `deck-preview.js` eagerly (`studio-stage.ts`, `PrintOptionsPanel.tsx`),
+// the split moved the route by 0.0KB (637.0KB before and after, `docs/scripts/check-route-budget.mjs`),
+// and rollup merges this file into the deck-preview chunk anyway. The number quoted as the
+// reason had been read off a stale build.
+//
+// It stays split because it is genuinely independent and the three consumers sit in three
+// different trees — which is a fine reason, just not the one first given.
 //
 // `deck-preview.js` re-exports it, so the name stays reachable where callers already look.
 

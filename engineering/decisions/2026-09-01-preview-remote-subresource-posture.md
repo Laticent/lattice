@@ -52,13 +52,28 @@ ships `img-src data:` in its CSP, and a deck carrying a remote image fires **zer
 requests from the exported `.html` (measured, Chromium 131, request interception). The URL
 survives in the markup; the fetch is refused.
 
-Two consequences follow, and together they settle the cost question:
+One consequence follows, and it settles the cost question:
 
-1. **Preview was the only open surface.** The artifact that actually leaves the building was
-   already closed.
-2. **Preview was rendering something the export would not.** A remote image displays while
-   authoring and is silently dead in the shipped player — the export inlines *local* files
-   only. Containing preview does not remove a working feature; it stops preview from lying.
+- **Preview was rendering something the shipped player would not.** A remote image displays
+  while authoring and is silently dead in the exported `.html` — that export inlines *local*
+  files only. Containing preview does not remove a working feature; it stops preview from
+  disagreeing with the file people receive.
+
+**A second consequence was claimed here and was FALSE, and the correction is the more useful
+half of this record.** The first draft said "preview was the only open surface — the artifact
+that actually leaves the building was already closed." Review found it wrong. `buildSrcdoc` —
+the function this change adds the CSP to — also builds the Studio's **offscreen export capture
+frame** (`docs/src/components/studio/export/deck-export.js`, `createCaptureFrame`), the sole
+frame factory behind Download PDF, PPTX, PNG and the image set. Containing that frame would
+have blanked a legitimately-remote image in a **downloaded file** — an export-bytes change,
+which the QUALITY BAR makes a stop-and-show, and which nobody was shown. It would also have
+put the Studio's export at odds with the CLI's, which carries no CSP at all: the same deck
+rendering two ways, the exact disagreement this policy exists to remove.
+
+So the capture frame **opts out** (`csp: false`), and the boundary is now explicit: a
+**preview** is a frame the author browses, where a deck's image beacons on open; an **export
+renderer** produces a file the author asked for. Exports load what the deck references, on
+both paths. See "What this does not do".
 
 And the cost to this repo's own content is **zero**: no deck under `examples/**`,
 `exemplars/**`, the baseline decks, or the component galleries references a remote image or
@@ -148,3 +163,16 @@ cheapest way to finish this verification — no local docs build required.
 
 Script execution out of a preview frame is #22's territory and is covered elsewhere (#1752,
 `2026-08-18-post-sanitize-injection-queue.md` §3.1). This record is about resource loads only.
+
+**It does not contain EXPORTS, on either path, and that is the open question this leaves.** The
+CLI (`lattice-emulator.js`) emits no CSP into the documents it rasterizes, and the Studio's
+capture frame now explicitly opts out to match it. So a deck carrying a remote image still
+fetches it while a `.pdf` / `.pptx` / `.png` is being produced — which leaks the *exporting
+author's* IP, not a recipient's, and that is a materially weaker harm than the preview case: the
+author chose the deck and chose to export it. It is still a real question for a deck that
+arrived from someone else, and the answer has to cover both export paths at once or it just
+recreates the CLI/Studio divergence in the other direction. Deciding it means moving exported
+bytes, so it needs its own change and its own sign-off.
+
+The exported **player** is the one artifact already contained (`img-src data:`), and that
+predates this work.
