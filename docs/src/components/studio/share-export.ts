@@ -343,6 +343,11 @@ export async function shareHtmlPlayer(
 	// truncated at the nested close tag and its comments fall outside the chunk — while
 	// the slide COUNT stays correct, which is exactly why a count-parity check cannot
 	// catch it.
+	// A SEPARATE variable from `bakeWarning`, merged with it at the end. The bake's own branches
+	// ASSIGN rather than append (they are mutually exclusive), so setting bakeWarning here would
+	// be silently clobbered by any bake outcome — the exact failure the merge below the audit
+	// already documents.
+	let fidelityWarning: string | undefined;
 	const sectionsOf = (html: string) =>
 		splitSectionsCore(html)
 			.filter((p) => p.type === 'section')
@@ -369,10 +374,34 @@ export async function shareHtmlPlayer(
 	// scrubbed source to re-render (#1985). Parity with the CLI is the point: `--strip-notes`
 	// and this button are the same guarantee, and the CLI does exactly this
 	// (lattice-emulator.js, "PASS 2"). Costs one extra render, on this flag's path only.
+	//
+	// FAIL-CLOSED ON FIDELITY, mirroring the CLI. Pass 2 renders a DIFFERENT markdown document,
+	// and a comment line is an HTML block — so deleting one can move the deck (a `---` below a
+	// note becomes a setext underline; two paragraphs merge). `stripNotesFromSource` preserves
+	// the boundary, but that is a property of markdown-it rather than something this file can
+	// prove, so compare the two renders ignoring whitespace — the whitespace is exactly what
+	// pass 2 is here to drop — and on any disagreement keep the deck the author wrote.
 	if (stripNotes) {
-		out = await renderMarkdown(PG, envelopeSource, theme);
-		recordSections = sectionsOf(out.html);
-		noteRecord = notesCore.slideNoteRecord(recordSections);
+		const stripped = await renderMarkdown(PG, envelopeSource, theme);
+		const strippedSections = sectionsOf(stripped.html);
+		// Whitespace-BLIND, not whitespace-collapsing: the residue is one space on one side and
+		// nothing on the other, which collapsing cannot equalize. See the CLI's own note.
+		const shape = (sec: string) => notesCore.stripCommentNodes(sec).replace(/\s+/g, '');
+		const same =
+			strippedSections.length === recordSections.length &&
+			strippedSections.every((sec, i) => shape(sec) === shape(recordSections[i]));
+		if (same) {
+			out = stripped;
+			recordSections = strippedSections;
+			noteRecord = notesCore.slideNoteRecord(recordSections);
+		} else {
+			console.warn(
+				'lattice: --strip-notes could not remove a note comment without changing the deck '
+					+ `(${strippedSections.length} slide(s) from the scrubbed source vs ${recordSections.length} as written); `
+					+ 'exporting the deck as written.',
+			);
+			fidelityWarning = 'a note comment was acting as a block boundary, so the export does not hide which slides carried one';
+		}
 	}
 	// The engine omits `data-lattice-slide`; the CLI's emulator re-tags each section
 	// with it (lattice-emulator.js), and the player CSS + transport key off it. Split
@@ -472,6 +501,10 @@ export async function shareHtmlPlayer(
 			const privacy = `${survivors.length} comment(s) that look like speaker text are still in the embedded source`;
 			bakeWarning = bakeWarning ? `${bakeWarning}; ${privacy}` : privacy;
 		}
+	}
+	// The fidelity guard's degradation, folded in the same append-never-assign way.
+	if (fidelityWarning) {
+		bakeWarning = bakeWarning ? `${bakeWarning}; ${fidelityWarning}` : fidelityWarning;
 	}
 
 	// KaTeX is styled by a stylesheet the offline file must carry inline. The core's

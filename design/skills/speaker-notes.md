@@ -61,9 +61,14 @@ carries the deck's own scrubbed source for re-import, which used to make the cou
 computable from the shipped file alone: re-render that source, diff, and a one-byte residue
 per noted slide named *which* slides had one (never what it said). It does not any more.
 
-One residue is left and is worth knowing: a note that sat between two blank lines leaves the
-blank lines behind in the embedded source. That is whitespace an author writes all the time
-and it is not computable against anything, unlike the byte delta above.
+The scrub is **structure-preserving**, which matters more than it sounds. A comment line is an
+HTML block, so it separates what is above it from what is below — delete it outright and
+`Some text` / `<!-- note -->` / `---` turns into a setext heading, and the export gains a slide
+the author never wrote. So the cut is decided per line: a note between two blank lines takes one
+of them with it (no run left behind to mark the spot), and a note between two lines of text is
+replaced by a blank line (the boundary it was providing survives). If the two renders ever
+disagree anyway, the export **keeps the deck you wrote** and says so — the note text is still
+removed everywhere, but that export no longer hides which slides carried one.
 
 **What the flag removes is the NOTE channel, and specifically not the DESCRIPTION channel.** A
 `<!-- describe: … -->` comment is the slide's WCAG 1.1.1 text alternative — what a screen

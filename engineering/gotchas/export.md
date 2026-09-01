@@ -349,10 +349,22 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   ("PASS 2") and `docs/src/components/studio/share-export.ts`. Pinned by
   `test/integration/export/strip-notes-no-fingerprint.test.js`, which exports the fixture and a
   committed note-free twin and compares the rendered section bytes.
-- **What is still there, and is not the same thing.** `stripNotesFromSource` takes a whole-line
-  note's LINE with it, but the author's own blank lines on either side stay — so a note between
-  two blank lines leaves a run of them in the embedded source. That is ordinary authoring
-  whitespace and it is not computable against anything; the byte delta above was.
+- **A whole-line cut is not enough on its own, and the review of the fix found both halves.**
+  (1) Taking only the note's line leaves the author's blank lines on BOTH sides, so a note
+  between two blanks leaves a `\n\n\n` run in the embedded source. That was measured on 16 of
+  the 23 decks this repo ships with notes, and it is a CHEAPER tell than the one #1985 closed —
+  `grep -c` on the shipped file, no re-render needed. So a note between two blank lines takes one
+  of them with it. (2) A comment line is an HTML BLOCK, so deleting it moves the deck: measured
+  on the real CLI, `Some text` / `<!-- note -->` / `---` exported 3 slides where the author wrote
+  2 (`Some text\n---` is a setext H2), and the `.vtt` bound the author's front-matter caption for
+  slide 2 onto the phantom; separately, two paragraphs merged into one with a `<br>`. So a note
+  between two lines of TEXT is replaced by a blank line, keeping the boundary. All three cases
+  converge on `text\n\ntext`, which is why no shape is left that says a note was here.
+- **And the export is fail-closed on fidelity.** Pass 2 renders a different markdown document,
+  and no comment in this file can prove markdown-it will agree. So both paths compare the two
+  renders ignoring whitespace — whitespace being exactly what pass 2 exists to drop — and on any
+  disagreement ship the deck as written, with a warning naming what was given up. Zero of the 23
+  shipped noted decks trigger it.
 
 ## A `tier:` / `galleryAuthored:` pragma shipped as the speaker note in every format
 

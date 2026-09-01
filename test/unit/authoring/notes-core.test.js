@@ -803,21 +803,21 @@ describe('notes-core: stripNotesFromSource leaves no line where a note was (#198
     // behind as an empty one, and an empty line where a note used to sit names WHICH slides
     // carried a note — in the very source the player envelope ships for re-import. It also
     // reaches the rendered bytes, because the export re-renders this scrubbed source.
-    // The author's OWN blank lines on either side survive — this takes the note's line, it
-    // does not reflow the deck. What is left is a run of blank lines, which is whitespace an
-    // author writes all the time; what is NOT left is a line that exists only because a note
-    // was removed from it. See the docblock in notes-core for the residue this does not close.
-    const source = '# Slide\n\n<!-- Pause here. -->\n\nBody.\n';
+    //
+    // A blank line on EACH side means one of them goes too, so no run is left where the note
+    // was. Measured on the 23 decks this repo ships with notes: taking the line alone added a
+    // `\n\n\n` run to 16 of them, which is a cheaper tell than the one #1985 closed —
+    // `grep -c` on the shipped file, no re-render needed. This rule adds one to none.
     assert.equal(
-      core.stripNotesFromSource(source, new Set(['Pause here.'])),
-      '# Slide\n\n\nBody.\n',
-      'the note line is gone, terminator included — not blanked in place'
+      core.stripNotesFromSource('# Slide\n\n<!-- Pause here. -->\n\nBody.\n', new Set(['Pause here.'])),
+      '# Slide\n\nBody.\n',
+      'the note line and one of its blank neighbours go; one blank line remains'
     );
     // Indented, as a nested-list author would write it.
     assert.equal(
       core.stripNotesFromSource('a\n  <!-- n -->\nb\n', new Set(['n'])),
-      'a\nb\n',
-      'the leading indent goes with the line'
+      'a\n\nb\n',
+      'the leading indent goes with the line, and the block boundary it was providing stays'
     );
     // Last line, no trailing newline: there is no terminator to take, and the PRECEDING
     // one belongs to the line above and must survive.
@@ -826,21 +826,44 @@ describe('notes-core: stripNotesFromSource leaves no line where a note was (#198
       'a\n',
       'a note on the final line leaves the previous line intact'
     );
-    // CRLF: the `\r` is part of this line's terminator and goes with it, rather than
+    // CRLF: the `\r` is part of this line's terminator and travels with it, rather than
     // being left dangling as a lone carriage return in a Windows-authored deck.
     assert.equal(
-      core.stripNotesFromSource('a\r\n<!-- n -->\r\nb\r\n', new Set(['n'])),
-      'a\r\nb\r\n',
-      'a CRLF deck loses the whole line, carriage return included'
+      core.stripNotesFromSource('a\r\n\r\n<!-- n -->\r\n\r\nb\r\n', new Set(['n'])),
+      'a\r\n\r\nb\r\n',
+      'a CRLF deck keeps CRLF throughout'
     );
-    // TWO notes on ONE line. The second is only judged after the first has been cut, so
-    // the line legitimately begins at the cursor and collapses — rather than the first
-    // seeing a comment after it, declining, and leaving a blank line for both.
+    // TWO notes on ONE line, with nothing else on it: the line goes.
     assert.equal(
-      core.stripNotesFromSource('a\n<!-- one --><!-- two -->\nb\n', new Set(['one', 'two'])),
-      'a\nb\n',
+      core.stripNotesFromSource('a\n\n<!-- one --><!-- two -->\n\nb\n', new Set(['one', 'two'])),
+      'a\n\nb\n',
       'two notes sharing a line take the line with them'
     );
+    // The whole file.
+    assert.equal(core.stripNotesFromSource('<!-- n -->', new Set(['n'])), '');
+  });
+
+  test('stripNotesFromSource keeps the BLOCK BOUNDARY a note comment was providing (#1985 checker)', () => {
+    // A comment line is an HTML block, so it separates what is above it from what is below.
+    // Deleting it outright moves the deck, and both of these were measured on the real CLI:
+    // the first exported 3 slides where the author wrote 2 (`Some text\n---` is a setext H2,
+    // not a slide break) and mis-bound the author's front-matter caption for slide 2 onto the
+    // phantom; the second collapsed two paragraphs into one with a `<br>`. A privacy flag
+    // must not restructure a deck.
+    assert.equal(
+      core.stripNotesFromSource('Some text\n<!-- Remember the numbers. -->\n---\n', new Set(['Remember the numbers.'])),
+      'Some text\n\n---\n',
+      'the `---` stays a thematic break rather than becoming a setext underline'
+    );
+    assert.equal(
+      core.stripNotesFromSource('First paragraph.\n<!-- Pause. -->\nSecond paragraph.\n', new Set(['Pause.'])),
+      'First paragraph.\n\nSecond paragraph.\n',
+      'two paragraphs stay two paragraphs'
+    );
+    // Only where it is load-bearing. With a blank line already on one side there is nothing
+    // to preserve, so the line simply goes and no run is left.
+    assert.equal(core.stripNotesFromSource('a\n<!-- n -->\n\nb\n', new Set(['n'])), 'a\n\nb\n');
+    assert.equal(core.stripNotesFromSource('a\n\n<!-- n -->\nb\n', new Set(['n'])), 'a\n\nb\n');
   });
 
   test('stripNotesFromSource leaves an INLINE note\'s surrounding whitespace alone (#1985)', () => {
@@ -854,6 +877,15 @@ describe('notes-core: stripNotesFromSource leaves no line where a note was (#198
     // A comment that ENDS a line of prose is not a whole-line comment either: the prose
     // before it is not whitespace, so the line stays and only the span goes.
     assert.equal(core.stripNotesFromSource('a <!-- n -->\nb\n', new Set(['n'])), 'a \nb\n');
+    // TWO inline notes after real text. "Own line" is judged against what has been EMITTED,
+    // not against source offsets — otherwise the second note sees nothing since the cursor,
+    // concludes whole-line, and eats the terminator, joining `hello` to the line below. With
+    // `---` on that next line it destroyed a slide on the real CLI (#1985 checker).
+    assert.equal(
+      core.stripNotesFromSource('hello <!-- a --> <!-- b -->\nworld\n', new Set(['a', 'b'])),
+      'hello  \nworld\n',
+      'the line terminator survives two inline notes'
+    );
   });
 
 });

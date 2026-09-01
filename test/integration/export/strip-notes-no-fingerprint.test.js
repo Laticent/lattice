@@ -60,6 +60,8 @@ describe('strip-notes: no whitespace fingerprint', () => {
   const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
   const NOTED = path.join(ROOT, 'test', 'fixtures', 'strip-notes-deck.md');
   const TWIN = path.join(ROOT, 'test', 'fixtures', 'strip-notes-deck-no-notes.md');
+  // A deck whose notes sit where a comment line is load-bearing — no blank line on either side.
+  const BOUNDARY = path.join(ROOT, 'test', 'fixtures', 'strip-notes-deck-boundary.md');
   const TIMEOUT = 180000;
 
   // Rendered slide bytes, and ONLY those. A whole-file diff is not the question: the two
@@ -73,14 +75,55 @@ describe('strip-notes: no whitespace fingerprint', () => {
       .map((p) => `${p.openTag}${p.inner}</section>`);
   }
 
+  // Returns the artifact path, and records the run's own log under it — the fidelity guard
+  // reports a fallback there, and a test that cannot see the fallback cannot tell a scrub that
+  // preserved the deck from a guard that rescued one that did not.
+  const logs = new Map();
   function exportHtml(dir, deck, name, args) {
     const out = path.join(dir, name);
     const r = spawnSync(process.execPath, [EMULATOR, deck, out, '--quiet', ...args], {
       cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
     });
     assert.equal(r.status, 0, `emulator failed for ${name}: ${r.stderr}`);
+    logs.set(out, `${r.stdout}${r.stderr}`);
     return out;
   }
+
+  // A note comment is an HTML BLOCK, so it separates what is above it from what is below.
+  // Removing it without putting the boundary back MOVES THE DECK, and both shapes below were
+  // measured doing exactly that on this CLI: `Some text` / note / `---` exported THREE slides
+  // where the author wrote two (`Some text\n---` is a setext H2, not a slide break) and the
+  // `.vtt` bound the author's front-matter caption for slide 2 onto the phantom; and a note
+  // between two paragraphs merged them into one with a `<br>`.
+  //
+  // Slide COUNT is the assertion because it is the one a reader can check against the fixture
+  // by eye, and because it is what mis-binds every per-slide channel downstream — captions,
+  // narration cues, PDF page mapping. A privacy flag must not restructure a deck.
+  test('a --strip-notes export does not gain or lose a slide', { timeout: TIMEOUT }, () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-boundary-'));
+    const authored = sections(exportHtml(dir, BOUNDARY, 'authored.html', ['--player']));
+    const strippedPath = exportHtml(dir, BOUNDARY, 'stripped.html', ['--player', '--strip-notes']);
+    const stripped = sections(strippedPath);
+    assert.equal(authored.length, 2, 'guard: the fixture is a two-slide deck');
+    // THE SCRUB ITSELF must hold, not merely the guard behind it. Both keep the artifact
+    // correct, so without this arm a scrub that re-cut the deck would pass here silently —
+    // and that export DOES still name which slides carried a note.
+    assert.doesNotMatch(
+      logs.get(strippedPath), /could not remove a note comment/,
+      'the fidelity guard had to fall back, so the scrub is not preserving the block boundary'
+    );
+    assert.equal(
+      stripped.length, authored.length,
+      `--strip-notes exported ${stripped.length} slides for a ${authored.length}-slide deck: `
+      + 'a note comment was acting as a block boundary and removing it re-cut the deck'
+    );
+    // The paragraph on slide 2 must still be two paragraphs, not one joined by a <br>.
+    assert.equal(
+      (stripped[1].match(/<p>/g) || []).length,
+      (authored[1].match(/<p>/g) || []).length,
+      'slide 2: the two paragraphs the author wrote are still two paragraphs'
+    );
+  });
 
   test('a --strip-notes export and the note-free twin render identical bytes', { timeout: TIMEOUT }, () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-fingerprint-'));
