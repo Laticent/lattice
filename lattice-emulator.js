@@ -246,6 +246,21 @@ OPTIONS
                           selectable text is lost. PDF only.
       --orientation <o>   auto | landscape | portrait for --paper (auto follows
                           the deck aspect). Implies --paper auto if given alone.
+      --lens <ids>        Export only the slides the named READER VIEWS show —
+                          one id, or a comma list, or 'full'. Views are declared
+                          in the deck's front-matter 'lenses:' block and each one
+                          must have been APPROVED by a human; an unavailable view
+                          (unknown / hidden / unapproved / empty / drifted) exits
+                          non-zero naming the reason and writes nothing, rather
+                          than falling back to the full deck. Several views need
+                          --player, which carries them behind a switcher; every
+                          other format is one linear sequence, so it takes one.
+      --lens-source <s>   What a --lens player's embedded envelope carries:
+                          'projected' (default) ships only the slides that
+                          shipped; 'full' keeps the deck exactly as authored, so
+                          the file still re-imports losslessly — at the cost that
+                          a recipient can recover every slide no view showed
+                          them. No effect without --lens.
       --embed-source      Attach the deck's Markdown source to the PDF as an
                           embedded file (visible in any viewer's attachments
                           panel), so the deck can be re-rendered from the PDF
@@ -369,6 +384,10 @@ function parseArgs(argv) {
     // Who a clipped slide's marker speaks to in THIS render — the same export
     // setting tools/export-marp.js takes (lib/core/resolve-overflow-marker.js).
     '--overflow-marker': 'overflow-marker',
+    // Reader views to project into this export — one id, or a comma list. See LENS_IDS.
+    '--lens': 'lens',
+    // What the player envelope carries once --lens has projected: 'projected' | 'full'.
+    '--lens-source': 'lens-source',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -738,6 +757,51 @@ function readFileOrDie(p, label) {
 }
 
 const mdRaw = readFileOrDie(mdFile, 'source markdown');
+
+// ── Reader-view projection (`--lens`) ───────────────────────────────────────
+// The author chooses, per export, WHICH reader views leave the building: one id,
+// a comma list, or `full`. Applied here — before every other stage — because
+// every stage below is a function of the source, so projecting once at the door
+// keeps the render, auto-split, notes, captions, pagination, the CSS/font prune
+// and the `.html` envelope consistent for free. A `--lens brief` PDF paginates
+// 1..4 because by the time anything measures it, it really is a four-slide deck.
+//
+// The alternative — render everything and drop pages afterwards — is the
+// `pdfseparate` workaround #1853 was filed about, and it needs the absolute page
+// numbers of a view's members, which is exactly the coupling reader views exist
+// to remove.
+//
+// ABSENT, THIS IS A NO-OP AND NOTHING MOVES A BYTE. `mdRaw` is passed through
+// untouched, so a deck with no views — every deck in the tree today — exports
+// exactly as it did before this flag existed.
+const LENS_IDS = String(flags.lens ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+const LENS_SOURCE = String(flags['lens-source'] ?? 'projected').trim().toLowerCase();
+if (!['projected', 'full'].includes(LENS_SOURCE)) {
+  console.error(`error: --lens-source must be 'projected' or 'full' (got '${LENS_SOURCE}')`);
+  process.exit(1);
+}
+let LENS_VIEWS = null;
+let LENS_REPORT = null;
+let lensProjected = mdRaw;
+if (LENS_IDS.length) {
+  const { projectForExport, exportableViews, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
+  const out = projectForExport(mdRaw, LENS_IDS);
+  // FAIL CLOSED. A view is often a deliberate REDUCTION, so falling through to the
+  // full deck would hand the reader every slide the author kept out — the one
+  // failure mode the design forbids (2026-07-13-lente-reader-lenses.md §6.3).
+  if (!out.ok) {
+    const offered = exportableViews(mdRaw).map((v) => v.id);
+    console.error(`error: reader view '${out.lensId}' is unavailable (${out.reason}) — ${REFUSAL_REASONS[out.reason]}`);
+    console.error(`       nothing was exported. Views this deck can export right now: ${offered.join(', ')}`);
+    process.exit(1);
+  }
+  LENS_VIEWS = out.views;
+  lensProjected = out.source;
+  // Reported only once the export is committed to running — see the carrier guard below.
+  // Saying "5 of 16 slides ship" and then refusing is a line that describes an artifact
+  // nobody received.
+  LENS_REPORT = out.kept.length < out.total ? `  reader views: ${LENS_IDS.join(', ')} — ${out.kept.length} of ${out.total} slides ship` : null;
+}
 // PRINT canvas is stamped by `--print` OR by an image set's `--image-mode print`
 // (one `color-mode: print` path, so the whole set renders the B&W-safe handout).
 // The source transform lives in the kernel (lib/core/resolve-color-mode.js) so it
@@ -749,7 +813,7 @@ const {
 const { frontMatterValue } = require('./lib/core/front-matter-key');
 const { PALETTE_END_MARK } = require('./lib/core/export-shell-marks');
 const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.mode === 'print');
-const md = WANT_PRINT ? withPrintColorMode(mdRaw) : mdRaw;
+const md = WANT_PRINT ? withPrintColorMode(lensProjected) : lensProjected;
 
 // A REFUSED deck-wide `class:` token says so HERE, not only in `lint:deck`.
 //
@@ -1904,6 +1968,20 @@ if (OUT_FORMAT === 'html') {
 // --fluid (the player is the richer viewer). Frozen player-runtime version stamp.
 const PLAYER = !!flags.player || /^\s*player:\s*(?:true|yes|on)\s*$/im.test(fm);
 const PLAYER_VERSION = '1';
+// SEVERAL views need a CARRIER, and only the player is one. A PDF, a PPTX and an
+// image set are each ONE linear sequence: handed two views they could only show
+// the union, with nothing telling the reader which slide belongs to which view —
+// an artifact that looks like it carries both and carries neither. The player has
+// a view switcher already (`data-lp-view`), so it is the one format that can. Said
+// here rather than at parse time because `player: true` in front matter enables the
+// player too, and `fm` is the shared resolution of that (HARD RULE #1). Nothing has
+// been rendered or written yet.
+if (LENS_IDS.length > 1 && !PLAYER) {
+  console.error(`error: --lens got ${LENS_IDS.length} views (${LENS_IDS.join(', ')}) but ${OUT_EXT || '.pdf'} carries one linear sequence.`);
+  console.error('       Export one view per file, or add --player, which carries several views behind a switcher.');
+  process.exit(1);
+}
+if (LENS_REPORT && !flags.quiet) console.log(LENS_REPORT);
 const ENGINE_BUILD = pkgVersion() ?? '';
 // Auto-split — the Fit Ladder's SPLIT move. ONE trigger: a real render MEASURED the slide
 // overflowing its box, and the slide has a seam (lib/core/auto-split.js `splitDoc`, driven
@@ -4191,7 +4269,15 @@ async function renderBody(browser, g, closeBrowser) {
         // from the render; captions match the `caption:` prefix), so the shared file leaks
         // no speaker text and/or no caption text. A stripped file re-imports without them —
         // the stated privacy tradeoff (§Notes on export).
-        source: stripSharedSource(rawMd, noteStripSet),
+        // `--lens-source full` keeps the deck EXACTLY AS AUTHORED in the envelope, so a
+        // projected file still re-imports losslessly. The default is `projected` — the
+        // envelope carries only what shipped — because it is the fourth and worst channel
+        // a withheld slide escapes through: unlike the DOM and the two article surfaces,
+        // this one is DESIGNED to round-trip, so a recipient re-imports the file and gets
+        // every slide no view showed them plus the `lenses:` block naming the views they
+        // were not given. A projected DOM beside a verbatim source withholds nothing at
+        // all, and silently undoing what the author just asked for is not a default.
+        source: stripSharedSource(LENS_VIEWS && LENS_SOURCE === 'full' ? mdRaw : rawMd, noteStripSet),
         // `false` FORCES the still; `undefined` inherits the deck's own registers
         // (`motion:`, with `player-motion: off` as the author-side opt-out). The flag can
         // only suppress, never force motion on — a deck that says `motion: off` means it.
