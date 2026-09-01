@@ -105,25 +105,49 @@ describe('split-envelope CSS outcomes (Form on, real cascade)', () => {
       'stats note lost its component-owned centering (section.stats > .cell-stage > p) — a regression markNote must not cause by wrapping the note in a fresh div');
   });
 
-  test('wrapped note, non-ANNOTATION layout (checklist): both em-only and plain get --fs-body-compact', async () => {
-    for (const slide of [4, 6]) {
+  /**
+   * WHAT THIS PAIR USED TO ASSERT, and why the answer changed (2026-09-01).
+   *
+   * The ANNOTATION register — an em-only note's ✦ and its `--fs-meta` — used to be a
+   * hand-enumerated OPT-IN union of sixteen layouts, so a split page had THREE cases: a
+   * raw note (compact), a wrapped non-em-only note (compact), and a wrapped em-only note
+   * that was compact on a layout OUTSIDE the union and `--fs-meta` on one inside it. The
+   * third case needed a `:not()` chain mirroring that union by hand, and `checklist` sat
+   * outside it while `cards-grid` sat inside — which is exactly what these two tests
+   * pinned.
+   *
+   * The register is now keyed on the `.below-note` wrapper and covers every layout that
+   * renders one, so "a layout ANNOTATION does not cover" is the empty set and the mirror
+   * is deleted. The invariant is simpler and stronger: on ANY layout, an em-only note
+   * reads at ANNOTATION's `--fs-meta` and a plain one at `--fs-body-compact`. Both tests
+   * now assert that, `checklist` and `cards-grid` alike.
+   * engineering/decisions/2026-09-01-universal-coda-registers.md §5.
+   */
+  test('wrapped note on any layout: em-only reads --fs-meta, plain reads --fs-body-compact', async () => {
+    // slide 4 — checklist, em-only.  slide 5 — cards-grid, em-only.  slide 6 — checklist, plain.
+    for (const [slide, want] of [[4, 'meta'], [5, 'meta'], [6, 'compact']]) {
       const got = await page.evaluate((slide) => {
         const p = document.querySelector(`section[data-lattice-slide="${slide}"] > .cell-stage > .below-note > p`);
         if (!p) return null;
-        const probe = document.createElement('span');
-        probe.style.fontSize = 'var(--fs-body-compact)';
-        p.parentElement.appendChild(probe);
-        const compact = getComputedStyle(probe).fontSize;
-        probe.remove();
-        return { fontSize: getComputedStyle(p).fontSize, compact };
+        const mk = (name) => {
+          const probe = document.createElement('span');
+          probe.style.fontSize = `var(${name})`;
+          p.parentElement.appendChild(probe);
+          const px = getComputedStyle(probe).fontSize;
+          probe.remove();
+          return px;
+        };
+        return { fontSize: getComputedStyle(p).fontSize, meta: mk('--fs-meta'), compact: mk('--fs-body-compact') };
       }, slide);
       assert.ok(got, `slide ${slide}: wrapped note <p> not found`);
-      assert.equal(got.fontSize, got.compact,
-        `slide ${slide}: checklist wrapped note computed ${got.fontSize}, expected --fs-body-compact (${got.compact})`);
+      assert.equal(got.fontSize, got[want],
+        `slide ${slide}: wrapped note computed ${got.fontSize}, expected ${want === 'meta' ? "ANNOTATION's --fs-meta" : '--fs-body-compact'} (${got[want]})`);
+      // The two must stay distinguishable, or the assertion above proves nothing.
+      assert.notEqual(got.meta, got.compact, '--fs-meta and --fs-body-compact resolved to the same px');
     }
   });
 
-  test('wrapped, em-only note on an ANNOTATION-enumerated layout (cards-grid) defers to ANNOTATION, not --fs-body-compact', async () => {
+  test('the em-only note keeps the register\'s own chrome, not just its size', async () => {
     const got = await page.evaluate(() => {
       const p = document.querySelector('section[data-lattice-slide="5"] > .cell-stage > .below-note > p');
       if (!p) return null;
@@ -135,13 +159,27 @@ describe('split-envelope CSS outcomes (Form on, real cascade)', () => {
         probe.remove();
         return px;
       };
-      return { fontSize: getComputedStyle(p).fontSize, meta: mk('--fs-meta'), compact: mk('--fs-body-compact') };
+      const before = getComputedStyle(p, '::before');
+      const wrapBefore = getComputedStyle(p.parentElement, '::before');
+      return {
+        fontSize: getComputedStyle(p).fontSize,
+        meta: mk('--fs-meta'),
+        compact: mk('--fs-body-compact'),
+        mask: before.maskImage && before.maskImage !== 'none' ? before.maskImage : (before.webkitMaskImage || 'none'),
+        rule: wrapBefore.borderTopStyle,
+      };
     });
     assert.ok(got, 'cards-grid wrapped em-only note <p> not found');
     assert.notEqual(got.fontSize, got.compact,
       `cards-grid em-only note computed ${got.fontSize} (--fs-body-compact) — the split-note compact rule wrongly out-specified ANNOTATION`);
     assert.equal(got.fontSize, got.meta,
       `cards-grid em-only note computed ${got.fontSize}, expected ANNOTATION's --fs-meta (${got.meta})`);
+    // Size alone is not the register. Adding a layout to one arm and not the others used
+    // to produce a half-styled note rather than a visible failure, so pin all three.
+    assert.notEqual(got.mask, 'none',
+      'the em-only note lost the drawn ✦ (--shape-spark mask) — the register is half-applied');
+    assert.equal(got.rule, 'dotted',
+      `the em-only note kept the below-note's accent hairline instead of the annotation's dotted rule (got ${got.rule})`);
   });
 
   test('the note in the shape the SPLITTER emits — a .cell-coda BESIDE the stage — still reads compact', async () => {

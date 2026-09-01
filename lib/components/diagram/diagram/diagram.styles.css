@@ -111,15 +111,6 @@ section.diagram > :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
 section.diagram > .cell-stage > :is(pre, marp-pre):not([data-mermaid-state="rendered"]) {
   flex:1; width:100%; max-width:100%; height:auto; min-height:0;
 }
-/* The caption's `padding-top` STAYS a padding, called explicitly under the inset
-   rule (#1598) rather than left ambiguous. It is spacing between stage children,
-   which the rule would normally hand to the stage's `gap` — but the stage's gap is
-   ONE value shared by every seam in the column (dek↔diagram↔Key Insight, tuned to
-   `--sp-sm`, and `--sp-xs` when a dek leads), and this seam wants a step MORE air
-   than those. A gap cannot be asymmetric, so expressing it as one would move two
-   seams to fix a third. It is not an outer inset — it adds nothing on the inline
-   axis and nothing at the stage edge — so it is outside what the rule governs. */
-section.diagram .diagram-caption { font-family:var(--font-label); font-size:var(--fs-meta); color:var(--text-secondary); letter-spacing:0.08em; padding-top:var(--sp-md); text-align:var(--headline-align, center); font-style:italic; }
 /* The trailing CODA band on diagram slides must stretch full-width to match the
    layouts around it. section.diagram uses align-items:center (mirrored onto the stage
    cell), which shrink-wraps a flex item on the cross axis. Per-component rather than a

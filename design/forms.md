@@ -274,7 +274,7 @@ special cases. It reconciles with the component model's slot vocabulary
 | content (the body) | `stage` | the body Cell, `.cell-stage` |
 | key-insight (`> blockquote`) | `coda` | harvested into the `coda` Cell — **distinct** from below-note; the two co-occur in the same Cell, in that order, but they are not one "note" slot |
 | below-note (em-dash trailing `p`) | `coda` | harvested into the `coda` Cell, after the key-insight |
-| annotation (review italic) | `overlay` | the existing `overlay` Cell (`tile/annotation`) — **not** a stage note |
+| annotation (italic-only trailing `p`) | `coda` | harvested into the `coda` Cell, in the note's slot — it IS a below-note, styled differently because it is italic-only. **Not** the `overlay` Cell: this row read `overlay` / `tile/annotation` until 2026-09-01, which described a corner-overlay Tile no render path has ever emitted (see §7) |
 | caption (image / chart figure line) | `stage` | **component-owned**, placed by the component's own CSS *inside its stage Cell* — never hoisted. The `footer` Cell holds only footer + progress + pagination. |
 | footer (`_footer:`) | `footer` / `footer-left` | hoisted |
 | logo · meta · status | `masthead-bay` tiles | docked |
@@ -683,9 +683,17 @@ stage / footer bands) and sovereign Frames (`split-panel`, `title`,
 superseded ADR): the surfaces `canvas` · `rule` · `atmosphere` · `watermark`;
 the chrome `kicker` · `title` · `meta` · `logo` · `status` · `footer` ·
 `progress` · `pagination`; the `content` Tile; and the `annotation` review Tile.
-Five of these (`meta`, `progress`, `status`, the generalised `watermark`, the
-formalised `annotation`) are the boardroom gaps the model gives a principled home
-instead of cramming into the footer or eyebrow.
+Four of these (`meta`, `progress`, `status`, the generalised `watermark`) are
+boardroom gaps the model gives a principled home instead of cramming into the footer
+or eyebrow.
+
+**`annotation` is the fifth and it is DECLARED, NOT BUILT** — its manifest says so as
+of 2026-09-01. It was written for a `<!-- annotation: … -->` review comment rendering
+as a corner overlay; measured on a real render, that comment is swallowed by the
+speaker-notes channel and nothing paints, on any layout, and there is no CSS for it.
+The `overlay` Cell it `fits` exists only to accept it, so that Cell is unoccupied too.
+The editorial-note job is done instead by the ANNOTATION register — an italic-only
+trailing paragraph, which docks in the `coda` Cell (§5.1).
 
 ---
 

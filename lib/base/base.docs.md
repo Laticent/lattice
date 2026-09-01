@@ -229,16 +229,45 @@ shouldn't get card weight.
 ```
 
 **Supported layouts: opt-out, like Key Insight above — but a DIFFERENT set.** A
-layout withholds the note by declaring `coda: { claims: ["trailing-paragraph"] }`:
-the bookends (`title`, `closing`, `divider`), `quote`, `big-number`, `image`,
-`split-panel`, `split-compare`, `diagram`, `stats`, `math`, the two QR
-posters, and every chart-frame layout — which turns its final paragraph into the
-chart caption. (`code` was on this list until 2026-08-30: its claim protected a
-caption selector that could never match the engine's output, so it cost the note
-and the annotation and bought nothing —
-`engineering/decisions/2026-08-30-code-type-step.md` §3.) Everything else promotes, **including `content`**, which means any
-slide that names no component at all, since that is what an un-classed slide resolves
-to (#1292).
+layout withholds the note by declaring `coda: { claims: ["trailing-paragraph"] }`,
+and after the 2026-09-01 audit every surviving claim is one the layout's own anatomy
+really uses: the bookend lede (`title`, `closing`, `divider`), `quote`'s attribution,
+`stats`' italic lede, `image` and `split-panel`'s body regions, `split-compare`'s
+verdict, `math`'s equation grid, the two QR posters (`contact`, `wifi` — a 527px card
+in a 524px stage; there is no band position that does not crush it), and the fourteen
+chart-frame layouts that turn a final paragraph into `.chart-caption` (twelve as the
+caption proper, `matrix-grid` and `state-chart` as their swatch `legend`).
+Everything else promotes, **including `content`**, which means any slide that names no
+component at all, since that is what an un-classed slide resolves to (#1292).
+
+**Two claims did NOT survive that audit, and the pattern is worth knowing.** Rendered
+through the real emulator and measured in Chromium, `diagram` and `big-number` each
+withheld the note to protect anatomy they do not render. `diagram` is the sharper case:
+it claimed the paragraph for a `.diagram-caption`, and **no code path in the tree emits
+that class** — what actually caught the paragraph was diagram's *dek* rule
+(`section.diagram > .cell-stage > p`, the rule for the LEADING paragraph under the
+heading), so the author's closing sentence rendered as a second dek at the foot of the
+slide. `big-number` had no rule matching a trailing paragraph at all; its documented
+caption is a nested bullet (`ul > li:first-child > ul > li`), not a paragraph. Both now
+take the note, and diagram's dead caption rule is deleted with its claim. This is the
+same defect `code` carried until 2026-08-30, when its claim was found to be protecting a
+caption selector the markdown path never emits
+(`engineering/decisions/2026-08-30-code-type-step.md` §3) — a claim can be dead for years
+without anything failing loudly, because the failure IS silence.
+
+**Three more looked dead and are not, which is the more useful half of the audit.**
+`matrix-grid` and `state-chart` both LOOK like they render nothing with the trailing
+paragraph, and a probe that appends a note to their sample sees exactly that. What the
+probe cannot see is that the paragraph is already their documented `legend` slot
+(`p:last-of-type`), which the transform pre-wraps in a span so `liftChartCaption` can lift
+it into `.chart-caption` as one inline run. Drop the claim and the coda harvests the
+legend instead — measured on their own manifest samples with nothing appended, the legend
+became a below-note and the chart lost it. A probe that always adds a beat cannot see
+this, because the added beat displaces the legend from the anchor position; the bare
+sample is what shows it. `math` is the third: dropping its claim docks the band inside its
+equation grid at 584.6px wide and 376px off the floor, where every other layout lands
+full-width 56px above the footer. One manifest value cannot describe that, and fixing it
+is a layout change rather than a claim change.
 
 The two sets do not coincide: `inventory` takes a below-note but not a key insight,
 `timeline-list` the reverse. Read `authoring.blocks` in `dist/docs/components.json`
@@ -314,29 +343,14 @@ one transform was reading the wrong attribute off it. #1358,
 header, footer, page number — none of which is the author's own words, whereas this
 is the author's last sentence.
 
-### Annotation (HTML-comment register)
-
-A trailing `<!-- annotation: text -->` HTML comment on any slide
-renders as a corner overlay (top-right by default) for editorial or
-process notes. Used during deck review to mark slides as `WIP`,
-`needs-data`, `pending-legal`, etc.
-
-```markdown
-<!-- _class: content -->
-<!-- annotation: WIP — numbers from May; needs June refresh -->
-
-## …
-```
-
-Suppressed when `_class` includes `silent` (review chrome shouldn't
-leak into final delivery).
-
-### Annotation (italic-paragraph register)
+### Annotation
 
 A trailing paragraph whose only content is an `_italic_` span renders
-as an annotation — a `✦` (U+2726) glyph in `--accent` followed by
-smaller, muted, label-size text. No hairline rule. Distinct from a
-below-note: lighter visual weight, lower information density, signals
+as an annotation — a `✦` in `--accent`, DRAWN from the `--shape-spark` mask
+rather than typed (HARD RULE #29), followed by smaller, muted, label-size text.
+It swaps the below-note's accent hairline for a **dotted** rule at the same
+vertical position, so the gap above the rule is identical either way. Distinct
+from a below-note: lighter visual weight, lower information density, signals
 "this is a footnote, not a continuation of the argument."
 
 ```markdown
@@ -352,42 +366,57 @@ below-note: lighter visual weight, lower information density, signals
 _Source: pilot retrospective, six months across four product teams._
 ```
 
-CSS pattern: `p:has(> em:only-child)` — the paragraph must contain a
-single `<em>` and nothing else (no leading/trailing text outside the
-italic span). Glyph: `✦` at `0.95em` in `--accent`. Text: 15px
-(`--fs-sm`) in `--text-secondary`. Use for source citations, scope
+CSS pattern: `.cell-coda .below-note > p:has(> em:only-child)` — the
+paragraph must contain a single `<em>` and nothing else (no leading/trailing
+text outside the italic span), and it has to have been promoted into the coda
+band in the first place, which is what ties the register to `below-note`'s
+support set. Mark: the `--shape-spark` mask at `1em` in `--accent`, in a
+`1.5em` box whose spare `0.5em` IS the mark-to-text gap (geometry, not a
+margin — HARD RULE #20). Text: `--fs-meta` in `--text-secondary`. Use for source citations, scope
 caveats, asterisk-style footnotes — content that *frames* the slide
 rather than extending its argument.
 
-**Supported layouts: an OPT-IN union, and NOT the same set as Below-Note.** This
-line used to say "same set as Below-Note", which was wrong in the direction that
-matters: Below-Note is **opt-out** (a layout gets it unless it claims its trailing
-paragraph), while Annotation is a hand-enumerated list in
-`lib/base/base.modifiers.css`. A layout can therefore take a below-note and still
-render an italic trailing paragraph as an ordinary note, with no `✦` and no dotted
-rule — which is exactly what `code` did until it was added here (2026-08-30).
+**Supported layouts: exactly the same set as Below-Note, by construction.** An
+annotation IS a below-note — the same trailing paragraph, in the same `.cell-coda`
+band, promoted by the same kernel under the same rule (it must follow a structural
+block). All the register does is style it differently when the paragraph's only
+content is an `_italic_` span. So there is one predicate, `rendersBeat`, and one
+answer: read `authoring.blocks` in `dist/docs/components.json` and if it lists
+`below-note`, the annotation works there too.
 
-`cards-grid`, `cards-stack`, `compare-prose`,
-`compare-table`, `verdict-grid`, `list`, `list-criteria`,
-`list-steps`, `list-tabular`, `timeline`, `principles`, `matrix-2x2`, `decision`,
-`actors`, `kpi`, `agenda`, `code`.
+This paragraph used to say something else, and the correction is worth keeping.
+Below-Note was **opt-out** while Annotation was **opt-in** — a hand-enumerated union
+of seventeen layouts written three times over in `lib/base/base.modifiers.css`. Two
+sets, two mechanisms, and no way for them to agree. Measured through the real
+emulator, one probe slide per component: **15 layouts got the mark and 19 that render
+a below-note silently got an ordinary one instead** — body-size, accent hairline, no
+`✦` — including `content`, which is what every un-classed slide resolves to. Two of
+the seventeen names (`timeline`, `principles`) are not components, so those arms had
+never matched anything in any render.
 
-Adding a layout means adding an arm to **all three** unions in
-`base.modifiers.css` — hairline suppression, type/color, and the `✦` mask. Adding
-it to one or two produces a half-styled note rather than a visible failure.
-`code` carries only the `.below-note`-wrapped arms: the raw sibling form keys off
-`:is(ul, ol, blockquote, table) + p`, and a code slide's note trails a `<pre>`.
+The union is gone. The register now keys on the coda Cell, which the kernel only
+builds for a layout that renders the beat, so the two sets cannot drift apart again.
+Adding a layout means nothing here: it takes the annotation the moment it takes the
+below-note.
+
+*(One name list survives, and it is not this one: the CSS-only fallback tier, for a
+Marp deck that loads `lattice.css` without the runtime and so has no coda cell. It is
+derived from the catalog by `test/unit/transformers/coda-fallback-union.test.js`,
+which fails on a missing name and on a stale one.)*
 
 ### The three trailing-paragraph registers — comparison
 
-The blockquote / plain-paragraph / italic-paragraph registers compose
-by markdown shape on the same set of card-bearing layouts:
+The three registers are told apart by MARKDOWN SHAPE, not by a class the author
+types. They do not all reach the same layouts, and the counts are measured on a real
+render rather than derived from this page — 61 layouts, one probe slide each:
+**key insight 51, below-note 36, annotation 36.** The last two are equal by
+construction: an annotation *is* a below-note that happens to be italic-only.
 
 | Markdown shape | Renders as | Visual |
 |---|---|---|
 | `> blockquote` | **Key Insight** | accent-tinted panel, "KEY INSIGHT" eyebrow |
 | Plain `<p>` (em-dash prefix) | **Below-Note** | hairline rule + body text |
-| `<p>` containing only `_italic_` | **Annotation** | `✦` glyph + muted label-size text |
+| `<p>` containing only `_italic_` | **Annotation** | drawn `✦` + dotted rule + muted label-size text |
 
 A slide may carry one Key Insight (blockquote) plus one trailing-
 paragraph register (below-note OR annotation), in that order. See

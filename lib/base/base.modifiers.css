@@ -761,31 +761,118 @@ section.scale-xl  { --fs-scale: 1.3;  }
 section.scale-2xl { --fs-scale: 1.5;  }
 
 
-/* ── BELOW-NOTE fallback ─────────────────────────────────────────────────────
- * CLI wraps trailing <p> in .below-note. In Marp preview the raw <p> needs
- * the same hairline-rule treatment for layouts that use it.
+/* ── THE TRAILING BEATS' CHROME — below-note and its ANNOTATION register ─────
  *
- * NOTE: Marpit's CSS scoper rewrites leading `:is(section.X, ...)` to
- * `div#:$p > svg > foreignobject > section :is(...)` — i.e. it treats
- * the `:is(...)` as a descendant of the slide root rather than the slide
- * itself. So leading sections must be enumerated as a comma-separated
- * union (each gets prefixed individually), not collapsed into `:is()`.
+ * Two tiers, and the split is the whole design.
+ *
+ * TIER 1 — THE `.below-note` WRAPPER, and it names NO component. `lib/core/coda.js`
+ * runs first in the transformer registry and has ALREADY decided whether this slide
+ * renders a below-note: it consulted `rendersBeat`, the same predicate that publishes
+ * `authoring.blocks`. The wrapper only exists where that answer was yes, so the class
+ * IS the permission and CSS has nothing left to decide. Re-deciding it is how the
+ * register drifted from the contract in the first place.
+ *
+ * KEYED ON THE WRAPPER, NOT ON `.cell-coda`, and the difference is not cosmetic — it
+ * is this file's own lesson applied to the fix for it. The first cut of this rule read
+ * `section .cell-coda .below-note`, which is a DOM PATH, and it dropped the register
+ * for a note that is legitimately somewhere else: the split envelope's fixture hand-
+ * authors `<div class="below-note lat-split-note">` as a section child, which the Form
+ * transform folds into `.cell-stage`, and an author writing raw HTML can do the same.
+ * Two integration tests caught it (`split-envelope-css`, both red, the unit suite green
+ * throughout — the same asymmetry recorded in 2026-08-24 §8). Binding a universal block
+ * to an exact position is the defect the coda Cell exists to end; the wrapper travels
+ * with the note, so the register travels with it too.
+ *
+ * That drift was measured, not supposed. The annotation used to be a
+ * hand-enumerated OPT-IN union of seventeen layouts written three times over
+ * (hairline suppression, type, spark). Rendered through the real emulator, one
+ * probe slide per component: 15 layouts got the mark and 19 that render a
+ * below-note silently got an ordinary one instead — body-size, accent hairline,
+ * no spark — including `content`, which is what every un-classed slide resolves
+ * to. Two of the seventeen (`timeline`, `principles`) are not components at all,
+ * so those arms had never matched anything. Below-note is opt-out and annotation
+ * was opt-in, which is why the two sets could not agree; keyed on the cell, they
+ * are the same set by construction.
+ *
+ * The old PER-LAYOUT `> .cell-stage > …` arms are gone with them, and keying on
+ * the wrapper is what makes that safe. Measured across all 61 layouts, every
+ * KERNEL-promoted note lands in `.cell-coda` — but a `.below-note` can legally be
+ * elsewhere (see above), and `section .below-note` reaches it wherever it sits. A
+ * paragraph left loose in the stage on a layout that CLAIMED it never gets the
+ * treatment, because the kernel is what emits the class in the first place.
+ *
+ * TIER 2 — THE CSS-ONLY FALLBACK, which is the one place a name list is
+ * unavoidable. A Marp deck that loads `lattice.css` without the runtime has no
+ * coda cell and no Form structure, so the raw trailing `<p>` needs the treatment
+ * directly — and here the layout's own claim is NOT visible in the DOM, only in
+ * its class name. The union is therefore the catalog's below-note set, and
+ * `test/unit/transformers/coda-fallback-union.test.js` DERIVES it from `blocksFor()` and
+ * fails on a missing name AND a stale one, so it cannot rot the way the list it
+ * replaces did.
+ *
+ * `section:is(…)` is scope-safe: the packer keys on the leftmost compound
+ * (`/^section(?![\w-])/`, lib/engine/css.js), which a `section:is()` head
+ * satisfies. Only a LEADING `:is(section.x, …)` needs distributing, which is what
+ * the note this comment replaces was actually about.
+ *
+ * UNVERIFIED on a real CSS-only consumer: no marp-cli in this sandbox and no
+ * shipped config that omits the runtime, so tier 2 is reasoned from the packer
+ * and the selector, not driven on that surface (HARD RULE #23).
  *                                                                            */
-section.cards-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p,
-section.compare-prose:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p,
-section.verdict-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p,
-section.list-criteria:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p,
-section.cards-stack:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p,
-section.list:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p,
-section.list-steps:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p,
-section.list-tabular:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p,
-section.timeline:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p,
-section.principles:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p,
-section.matrix-2x2:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p,
-section.decision:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p,
-section.actors:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p,
-section.kpi:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p,
-section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p {
+
+/* ── TIER 1 · the `.below-note` wrapper ── */
+
+/* The note's hairline is an accent gradient (`.below-note::before`,
+ * compare-prose.styles.css). An annotation replaces it with a dotted rule at the
+ * same vertical position, so the gap above the rule is identical either way. */
+section .below-note:has(> p > em:only-child)::before {
+  background:none;
+  border-top:1px dotted var(--border);
+  height:0;
+}
+
+/* Lighter than a below-note in both axes: label size, secondary ink. An
+ * annotation FRAMES the slide (a source, a scope caveat); a below-note continues
+ * its argument. */
+section .below-note > p:has(> em:only-child) {
+  font-size:var(--fs-meta);
+  color:var(--text-secondary);
+  line-height:var(--lh-snug);
+}
+
+section .below-note > p:has(> em:only-child)::before {
+  /* The annotation spark, DRAWN rather than typed (HARD RULE #29). U+2726 is
+   * carried by almost no text face, so the mark that leads every annotation
+   * note used to be set in whichever fallback font each machine reached for.
+   *
+   * The box is 1.5em wide but the mask is drawn at 1em on the LEFT, so the
+   * remaining 0.5em is the mark→text gap — geometry, not padding and not a
+   * margin (HARD RULE #20). Sizing the mask explicitly rather than `contain`
+   * is what keeps the gap out of the mark: `contain` measures the padding box,
+   * so a padded gap would have shrunk the spark to fit beside itself. */
+  content:'';
+  position:static;
+  display:inline-block;
+  vertical-align:-0.1em;
+  font-size:0.95em;
+  width:1.5em;
+  height:1em;
+  background-color:var(--accent);
+  font-style:normal;
+  -webkit-mask:var(--shape-spark) left center / 1em 1em no-repeat;
+          mask:var(--shape-spark) left center / 1em 1em no-repeat;
+}
+
+/* ── TIER 2 · the CSS-only fallback ── */
+
+section:is(
+  .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
+  .citation-card, .code, .compare-code, .compare-prose, .compare-table, .content, .cycle,
+  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-criteria, .list-steps,
+  .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
+  .premise, .pricing, .q-and-a, .redline, .regulatory-update, .scene, .statute-stack,
+  .verdict-grid, .video
+):not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p {
   /* Space above the hairline rule (was margin-top) + below it (padding-top) are
    * BOTH folded into padding-top so the spacing lives inside the note's own box —
    * HARD RULE #20. The `::before` rule is parked at `top: --sp-sm` inside that pad,
@@ -798,21 +885,15 @@ section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p {
   position:relative; font-size:var(--fs-body); color:var(--text-body);
   line-height:var(--lh-relaxed); margin:0;
 }
-section.cards-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.compare-prose:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.verdict-grid:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.list-criteria:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.cards-stack:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.list:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.list-steps:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.list-tabular:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.timeline:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.principles:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.matrix-2x2:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.decision:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.actors:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.kpi:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before,
-section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before {
+
+section:is(
+  .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
+  .citation-card, .code, .compare-code, .compare-prose, .compare-table, .content, .cycle,
+  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-criteria, .list-steps,
+  .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
+  .premise, .pricing, .q-and-a, .redline, .regulatory-update, .scene, .statute-stack,
+  .verdict-grid, .video
+):not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before {
   content:''; position:absolute; top:var(--sp-sm); left:0; right:0; height:1px;
   background:linear-gradient(to right, var(--accent), transparent);
 }
@@ -838,193 +919,31 @@ section.agenda:not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::befo
  * looks washed in a PDF, rasterize it again with a different engine before you change CSS.
  * engineering/decisions/2026-08-12-slide-plane-model.md § The wash that was a rasterizer. */
 
-/* ── ANNOTATION (trailing _italic_ paragraph) ─────────────────────────────
- * A trailing paragraph whose only child is an <em> renders as a quiet
- * footnote: ✦ glyph + italic muted body. Distinct from below-note (no
- * hairline rule) and key-insight (no panel). Use for sources, scope
- * caveats, and attributions — the editorial register that says "skim
- * this, don't dwell."
- *
- * Selector covers both forms: the CLI-wrapped `.below-note > p` and the
- * Marp-preview raw trailing `<p>`. Layouts must be enumerated as a
- * comma-separated union (see note on the below-note fallback above).
- * ──────────────────────────────────────────────────────────────────────── */
-
-/* Suppress the below-note hairline rule when annotation triggers (CLI form),
- * and replace it with a dotted rule on the wrapper at the same vertical
- * position so the gap above the rule is identical to a plain below-note. */
-section.cards-grid .below-note:has(> p > em:only-child)::before,
-section.compare-prose .below-note:has(> p > em:only-child)::before,
-section.verdict-grid .below-note:has(> p > em:only-child)::before,
-section.list-criteria .below-note:has(> p > em:only-child)::before,
-section.cards-stack .below-note:has(> p > em:only-child)::before,
-section.list .below-note:has(> p > em:only-child)::before,
-section.list-steps .below-note:has(> p > em:only-child)::before,
-section.list-tabular .below-note:has(> p > em:only-child)::before,
-section.timeline .below-note:has(> p > em:only-child)::before,
-section.principles .below-note:has(> p > em:only-child)::before,
-section.matrix-2x2 .below-note:has(> p > em:only-child)::before,
-section.decision .below-note:has(> p > em:only-child)::before,
-section.actors .below-note:has(> p > em:only-child)::before,
-section.kpi .below-note:has(> p > em:only-child)::before,
-section.agenda .below-note:has(> p > em:only-child)::before,
-section.compare-table .below-note:has(> p > em:only-child)::before,
-section.code .below-note:has(> p > em:only-child)::before {
-  background:none;
-  border-top:1px dotted var(--border);
-  height:0;
-}
-
-/* Annotation paragraph styling — covers both CLI-wrapped and Marp-preview raw forms. */
-section.cards-grid .below-note > p:has(> em:only-child),
-section.compare-prose .below-note > p:has(> em:only-child),
-section.verdict-grid .below-note > p:has(> em:only-child),
-section.list-criteria .below-note > p:has(> em:only-child),
-section.cards-stack .below-note > p:has(> em:only-child),
-section.list .below-note > p:has(> em:only-child),
-section.list-steps .below-note > p:has(> em:only-child),
-section.list-tabular .below-note > p:has(> em:only-child),
-section.timeline .below-note > p:has(> em:only-child),
-section.principles .below-note > p:has(> em:only-child),
-section.matrix-2x2 .below-note > p:has(> em:only-child),
-section.decision .below-note > p:has(> em:only-child),
-section.actors .below-note > p:has(> em:only-child),
-section.kpi .below-note > p:has(> em:only-child),
-section.agenda .below-note > p:has(> em:only-child),
-section.compare-table .below-note > p:has(> em:only-child),
-section.code .below-note > p:has(> em:only-child),
-section.cards-grid > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.compare-prose > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.verdict-grid > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.list-criteria > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.cards-stack > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.list > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.list-steps > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.list-tabular > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.timeline > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.principles > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.matrix-2x2 > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.decision > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.actors > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.kpi > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.agenda > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.compare-table > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.cards-grid > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.compare-prose > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.verdict-grid > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.list-criteria > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.cards-stack > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.list > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.list-steps > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.list-tabular > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.timeline > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.principles > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.matrix-2x2 > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.decision > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.actors > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.kpi > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.agenda > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.compare-table > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child) {
+/* The annotation register on the same fallback: dotted rule instead of the
+ * gradient hairline, label size, and the drawn spark. */
+section:is(
+  .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
+  .citation-card, .code, .compare-code, .compare-prose, .compare-table, .content, .cycle,
+  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-criteria, .list-steps,
+  .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
+  .premise, .pricing, .q-and-a, .redline, .regulatory-update, .scene, .statute-stack,
+  .verdict-grid, .video
+):not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p:has(> em:only-child) {
   font-size:var(--fs-meta);
   color:var(--text-secondary);
   line-height:var(--lh-snug);
-}
-/* Marp-preview raw form: rule lives on the <p> directly (no wrapper). */
-section.cards-grid > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.compare-prose > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.verdict-grid > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.list-criteria > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.cards-stack > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.list > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.list-steps > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.list-tabular > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.timeline > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.principles > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.matrix-2x2 > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.decision > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.actors > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.kpi > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.agenda > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.compare-table > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.cards-grid > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.compare-prose > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.verdict-grid > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.list-criteria > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.cards-stack > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.list > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.list-steps > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.list-tabular > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.timeline > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.principles > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.matrix-2x2 > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.decision > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.actors > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.kpi > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.agenda > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child),
-section.compare-table > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child) {
   border-top:1px dotted var(--border);
   padding-top:var(--sp-xs);
 }
 
-/* ✦ glyph prefix + override the below-note ::before hairline. */
-section.cards-grid .below-note > p:has(> em:only-child)::before,
-section.compare-prose .below-note > p:has(> em:only-child)::before,
-section.verdict-grid .below-note > p:has(> em:only-child)::before,
-section.list-criteria .below-note > p:has(> em:only-child)::before,
-section.cards-stack .below-note > p:has(> em:only-child)::before,
-section.list .below-note > p:has(> em:only-child)::before,
-section.list-steps .below-note > p:has(> em:only-child)::before,
-section.list-tabular .below-note > p:has(> em:only-child)::before,
-section.timeline .below-note > p:has(> em:only-child)::before,
-section.principles .below-note > p:has(> em:only-child)::before,
-section.matrix-2x2 .below-note > p:has(> em:only-child)::before,
-section.decision .below-note > p:has(> em:only-child)::before,
-section.actors .below-note > p:has(> em:only-child)::before,
-section.kpi .below-note > p:has(> em:only-child)::before,
-section.agenda .below-note > p:has(> em:only-child)::before,
-section.compare-table .below-note > p:has(> em:only-child)::before,
-section.code .below-note > p:has(> em:only-child)::before,
-section.cards-grid > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.compare-prose > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.verdict-grid > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.list-criteria > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.cards-stack > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.list > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.list-steps > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.list-tabular > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.timeline > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.principles > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.matrix-2x2 > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.decision > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.actors > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.kpi > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.agenda > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.compare-table > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.cards-grid > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.compare-prose > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.verdict-grid > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.list-criteria > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.cards-stack > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.list > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.list-steps > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.list-tabular > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.timeline > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.principles > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.matrix-2x2 > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.decision > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.actors > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.kpi > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.agenda > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before,
-section.compare-table > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before {
-  /* The annotation spark, DRAWN rather than typed (HARD RULE #29). U+2726 is
-   * carried by almost no text face, so the mark that leads every annotation
-   * note used to be set in whichever fallback font each machine reached for.
-   *
-   * The box is 1.5em wide but the mask is drawn at 1em on the LEFT, so the
-   * remaining 0.5em is the mark→text gap — geometry, not padding and not a
-   * margin (HARD RULE #20). Sizing the mask explicitly rather than `contain`
-   * is what keeps the gap out of the mark: `contain` measures the padding box,
-   * so a padded gap would have shrunk the spark to fit beside itself. */
+section:is(
+  .actors, .agenda, .authority-chain, .big-number, .cards-grid, .cards-stack, .checklist,
+  .citation-card, .code, .compare-code, .compare-prose, .compare-table, .content, .cycle,
+  .decision, .diagram, .glossary, .inventory, .kpi, .list, .list-criteria, .list-steps,
+  .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
+  .premise, .pricing, .q-and-a, .redline, .regulatory-update, .scene, .statute-stack,
+  .verdict-grid, .video
+):not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before {
   content:'';
   position:static;
   display:inline-block;
@@ -1032,11 +951,13 @@ section.compare-table > .cell-stage > :is(ul, ol, blockquote, table) + p:has(> e
   font-size:0.95em;
   width:1.5em;
   height:1em;
+  background:none;
   background-color:var(--accent);
   font-style:normal;
   -webkit-mask:var(--shape-spark) left center / 1em 1em no-repeat;
           mask:var(--shape-spark) left center / 1em 1em no-repeat;
 }
+
 
 /* ════════════════════════════════════════════════════════════════════════
  * NEW LAYOUTS (Wave 7) — proposals.md §3.1–3.6
@@ -2484,22 +2405,25 @@ section.form.lat-split-insight.lat-split-insight > .cell-coda > blockquote li {
    A rare multi-element note (more than one trailing element) still falls back to a
    `.lat-split-note` wrapper div — the second selector in each pair below reaches it.
 
-   ANNOTATION (an em-only below-note, styled even smaller at `--fs-meta` with a ✦ glyph by
-   its own rule, base.modifiers.css § ANNOTATION) is a SEPARATE, narrower variant that only
-   ever meets a WRAPPED note — the RAW un-wrapped form (below-note.js's EXCLUDED layouts)
-   never carries it at all, so a raw note gets the compact size unconditionally, em-only or
-   not (rule 1). A WRAPPED note splits further: ANNOTATION covers only 16 named layouts, so
-   its em-only case must keep deferring to that even-smaller rule there (rule 2's
-   `:not(:has(…))` guard — mutual exclusion, not a specificity race), but on a wrapped,
-   ANNOTATION-carrying-nothing layout (`checklist`, `cycle`, `inventory`,
-   `policy-recommendation` among the 15 enrolled — the other two, `split-compare`/`stats`,
-   are on below-note's EXCLUDED list so they only ever reach rule 1) an em-only note would
-   get NO sizing at all if rule 2 excluded it outright — it would render LARGER than an
-   ordinary note beside it, the opposite of "slightly smaller" (found by the second
-   maker-checker pass, confirmed on a real render: 43.5px vs 37px). Rule 3 is that missing
-   case: the SAME em-only shape, but ONLY on layouts NOT in ANNOTATION's enumeration — the
-   list MIRRORS that rule's own enumeration exactly (below, § ANNOTATION) so the two cannot
-   drift apart. Palette-blind; no margin (#3, #20). */
+   ANNOTATION (an em-only below-note, styled at `--fs-meta` with a drawn ✦ by its own rule,
+   base.modifiers.css § THE TRAILING BEATS' CHROME) is a SEPARATE, narrower variant that only
+   ever meets a WRAPPED note — the RAW un-wrapped form never carries it, so a raw note gets the
+   compact size unconditionally, em-only or not (rule 1). A WRAPPED note that is NOT em-only
+   gets it from rule 2.
+
+   THERE IS NO RULE 3 ANY MORE, and its deletion is the point. It existed because ANNOTATION
+   used to cover only 16 NAMED layouts, so an em-only note on any other layout got no sizing
+   at all and rendered LARGER than an ordinary note beside it (43.5px vs 37px, measured) —
+   rule 3 was that missing case, and it carried a `:not()` chain that MIRRORED the annotation
+   enumeration by hand. The register is now keyed on the coda Cell and covers every layout
+   that renders a below-note, so the fallthrough it patched cannot occur and the mirror has
+   nothing to mirror. A stale copy of a list that no longer exists is worse than no rule:
+   its 16 `:not()` arms out-specify ANNOTATION, so keeping it would force `--fs-body-compact`
+   onto every annotation on a split page OUTSIDE the old 16 — spark and dotted rule at the
+   wrong size, which is the half-styled note this whole change removes. (The chain also
+   carried `principles` and `timeline`, which are not components.) Every split em-only note
+   now reads at ANNOTATION's `--fs-meta`, one step below the compact size, on every layout.
+   Palette-blind; no margin (#3, #20). */
 /* Rule 1 — a RAW note (below-note.js excludes the layout; ANNOTATION never reaches it).
  * The second selector's `.lat-split-note:not(.below-note)` guard matters: the rare
  * multi-span fallback wrapper (`markNote`, spans.length > 1) can carry a direct-child
@@ -2525,16 +2449,6 @@ section.form.lat-split-native.lat-split-native > .cell-stage > .lat-split-note >
 section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > .below-note > p:not(:has(> em:only-child)) {
   font-size: var(--fs-body-compact);
 }
-/* Rule 3 — a WRAPPED, em-only note, but ONLY on a layout ANNOTATION does not cover. */
-section.form.lat-split-native.lat-split-native:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
-  > .cell-stage > .below-note.lat-split-note > p:has(> em:only-child),
-section.form.lat-split-native.lat-split-native:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
-  > .cell-stage > .lat-split-note > .below-note > p:has(> em:only-child),
-section.form.lat-split-native.lat-split-native:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
-  > .cell-coda.lat-split-note > .below-note > p:has(> em:only-child) {
-  font-size: var(--fs-body-compact);
-}
-
 /* ── Shared split RELATIONSHIP SIGNAL (lib/core/relationship.js) ───────────────────
    The one-line adornment a CONNECTED member's split run carries on every page — "→ next: {next
    step}", "↻ back to {stage 1}", "governs ↓ {next tier}", "Option N of M · comparing …"
@@ -2570,9 +2484,19 @@ section.form.lat-split-native > .lat-split-rel {
    `markNote` / `injectTrailing` (HARD RULE #15), so the marker shape is identical; only the
    DOM it lands in differs — `lat-split-cards` pages have no `.cell-stage` (their body is
    `<div class="ct-cards">`, a direct child of `<section>`), so each selector below drops the
-   `.cell-stage >` step the native rules use. Same three-rule split, same reasoning (the
-   ANNOTATION guard, and the native Rule 1's `:not(.below-note)` fallback guard — HARD RULE
-   #18: omitting it here would reopen the exact F11 specificity gap on this shape too). */
+   `.cell-stage >` step the native rules use. Same TWO rules now, same reasoning (the
+   em-only guard that leaves an annotation to its own register, and the native Rule 1's
+   `:not(.below-note)` fallback guard — HARD RULE #18: omitting it here would reopen the
+   exact F11 specificity gap on this shape too). The third rule these used to carry died
+   with its native twin, for the reason recorded there: it patched a fallthrough that a
+   16-name ANNOTATION enumeration created, and the register is universal now.
+
+   BOTH ARMS BELOW ADDRESS A SHAPE THE RENDER NO LONGER PRODUCES, and that is PRE-EXISTING,
+   off-path, and logged rather than fixed here (HARD RULE #18). The §8 sweep that moved the
+   note into `.cell-coda` added a coda arm to the NATIVE rules and missed these: measured on
+   `examples/split-envelope.md`, every split note — cards pages included — sits in
+   `<div class="cell-coda lat-split-note">`, which no `section > .below-note.lat-split-note`
+   selector reaches. Fixing it needs its own before/after on a cover-cards deck. */
 section.form.lat-split-cards.lat-split-cards > p.lat-split-note,
 section.form.lat-split-cards.lat-split-cards > .lat-split-note:not(.below-note) > p {
   font-size: var(--fs-body-compact);
@@ -2581,14 +2505,6 @@ section.form.lat-split-cards.lat-split-cards > .below-note.lat-split-note > p:no
 section.form.lat-split-cards.lat-split-cards > .lat-split-note > .below-note > p:not(:has(> em:only-child)) {
   font-size: var(--fs-body-compact);
 }
-section.form.lat-split-cards.lat-split-cards:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
-  > .below-note.lat-split-note > p:has(> em:only-child),
-section.form.lat-split-cards.lat-split-cards:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
-  > .lat-split-note > .below-note > p:has(> em:only-child) {
-  font-size: var(--fs-body-compact);
-}
-
-
 /* ── THE SLIDE'S CORNER — the `corners:` register ──────────────────────────────
    Whether the slide's own surface is square or rounded. `corners: square` (the
    default and the whole prior behavior) → nothing here applies; `corners: rounded`
