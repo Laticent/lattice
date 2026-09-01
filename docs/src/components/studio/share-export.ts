@@ -163,7 +163,7 @@ type NotesCore = {
 	extractSlideCaptions: (sections: string[]) => (string | null)[];
 	stripCommentNodes: (html: string) => string;
 	noteBodiesFromHtml: (sectionHtml: string) => string[];
-	stripNotesFromSource: (source: string, noteBodies: Set<string> | string[]) => string;
+	stripNotesFromSource: (source: string, noteBodies: Set<string> | string[], opts?: { boundary?: 'preserve' | 'drop' }) => string;
 	auditStrippedSource: (strippedSource: string) => string[];
 	slideNoteRecord: (sections: string[]) => SlideNoteRecord[];
 };
@@ -354,19 +354,20 @@ export async function shareHtmlPlayer(
 			.map((p) => `${p.openTag}${p.inner}</section>`);
 	let recordSections = sectionsOf(out.html);
 	let noteRecord = notesCore.slideNoteRecord(recordSections);
+	// `let`, because the guard below picks WHICH cut ships once it knows which one reproduces
+	// the deck — the source that ships is the source that was rendered.
+	let envelopeSource = source;
 	// --strip-notes privacy export: the note text must appear NOWHERE in the shipped file —
 	// not the DOM, and not the verbatim envelope source. Scrub the source with the INDIVIDUAL
 	// note bodies lifted from the render (directive-safe: only exact note bodies are removed,
 	// never a `_class`/pragma comment), exactly as the CLI emulator does. The note/non-note
 	// boundary stays the shared notesCore.
 	//
-	// Read from the RECORD, not from the baked sections below. Those have been through the
-	// bake, so scraping them for note bodies is what produced an empty set and turned this
-	// scrub into a no-op — the leak. A multi-note slide joins its notes with a blank line,
-	// so the record carries them pre-join: the scrub matches INDIVIDUAL bodies.
-	const envelopeSource = stripNotes
-		? notesCore.stripNotesFromSource(source, new Set(noteRecord.flatMap((r) => r.noteBodies || [])))
-		: source;
+	// Read those bodies from the RECORD, not from the baked sections below. Those have been
+	// through the bake, so scraping them for note bodies is what produced an empty set and
+	// turned this scrub into a no-op — the leak. A multi-note slide joins its notes with a
+	// blank line, so the record carries them pre-join: the scrub matches INDIVIDUAL bodies.
+	//
 	// THEN RENDER THAT SOURCE, and ship its bytes. Blanking the note copies after the fact
 	// left the comment's own whitespace behind, so a stripped slide carried one byte more
 	// than the same slide written without a note — naming WHICH slides had one, computable
@@ -375,42 +376,29 @@ export async function shareHtmlPlayer(
 	// and this button are the same guarantee, and the CLI does exactly this
 	// (lattice-emulator.js, "PASS 2"). Costs one extra render, on this flag's path only.
 	//
-	// FAIL-CLOSED ON FIDELITY, mirroring the CLI. Pass 2 renders a DIFFERENT markdown document,
-	// and a comment line is an HTML block — so deleting one can move the deck (a `---` below a
-	// note becomes a setext underline; two paragraphs merge). `stripNotesFromSource` preserves
-	// the boundary, but that is a property of markdown-it rather than something this file can
-	// prove, so compare the two renders ignoring whitespace — the whitespace is exactly what
-	// pass 2 is here to drop — and on any disagreement keep the deck the author wrote.
+	// FAIL-CLOSED ON FIDELITY, and the measurement lives in `strip-notes-guard.ts` — loaded on
+	// demand, because it runs when someone exports and never on the way to first paint. Keeping
+	// it inline put the studio route over its eager-payload budget, and the ledger's own
+	// `architect-model.js` note makes the same argument for the same reason.
 	if (stripNotes) {
-		const stripped = await renderMarkdown(PG, envelopeSource, theme);
-		const strippedSections = sectionsOf(stripped.html);
-		// Whitespace-BLIND, not whitespace-collapsing: the residue is one space on one side and
-		// nothing on the other, which collapsing cannot equalize. See the CLI's own note.
-		const shape = (sec: string) => notesCore.stripCommentNodes(sec).replace(/\s+/g, '');
-		const same =
-			strippedSections.length === recordSections.length &&
-			strippedSections.every((sec, i) => shape(sec) === shape(recordSections[i]));
-		if (same) {
-			out = stripped;
-			recordSections = strippedSections;
-			noteRecord = notesCore.slideNoteRecord(recordSections);
-		} else {
-			console.warn(
-				'lattice: --strip-notes could not remove a note comment without changing the deck '
-					+ `(${strippedSections.length} slide(s) from the scrubbed source vs ${recordSections.length} as written); `
-					+ 'exporting the deck as written.',
-			);
-			fidelityWarning = 'a note comment was acting as a block boundary, so the export does not hide which slides carried one';
+		const { stripNotesCut } = await import('./strip-notes-guard.js');
+		const cut = await stripNotesCut(
+			source,
+			notesCore,
+			new Set(noteRecord.flatMap((r) => r.noteBodies || [])),
+			recordSections,
+			sectionsOf,
+			(src) => renderMarkdown(PG, src, theme),
+		);
+		envelopeSource = cut.source;
+		fidelityWarning = cut.warning;
+		if (cut.out && cut.sections) {
+			out = cut.out as typeof out;
+			recordSections = cut.sections;
+			noteRecord = notesCore.slideNoteRecord(cut.sections);
 		}
 	}
-	// The engine omits `data-lattice-slide`; the CLI's emulator re-tags each section
-	// with it (lattice-emulator.js), and the player CSS + transport key off it. Split
-	// the render into per-slide sections and re-tag them the same way, so the assembled
-	// player finds its slides. (The emulator's extra image fixups are preview-parity
-	// concerns handled the same way the Studio preview does — i.e. not here.) Then
-	// materialize speaker notes + a11y descriptions the same way the emulator does, so
-	// the Studio player carries them exactly like the CLI player (notes: true is honest).
-	//
+
 	// BAKE FIRST. The engine's render is static: a ```mermaid fence is still a
 	// `<pre><code class="language-mermaid">`, and state-chart / function-plot are still
 	// inert scripts — all three are inflated by the RUNTIME in the preview iframe, and
