@@ -22,7 +22,9 @@ summary: >
   `slots.<name>` object leaving 180 nested paths unchecked, and a sweep that walked
   `.claude/worktrees/` and failed build:check with up to 131 bogus errors — plus three
   coverage and diagnosis gaps; all fixed. It cleared the two real risks: zero regressions
-  against the retired walker over 39 mutations, and zero draft-07 vs 2020-12 disagreements.
+  against the retired walker, and zero draft-07 vs 2020-12 disagreements — both now
+  re-derivable by running `test/unit/tools/manifest-schema-equivalence.test.js` rather
+  than only in an agent's transcript.
   Schemas stay beside their manifests (the relative `$schema` link is what gives editors
   inline completion). themes/theme.schema.json moved draft-07 -> 2020-12.
 ---
@@ -33,7 +35,8 @@ summary: >
 **Status:** landed
 **Touches:** `tools/manifest-schemas.js` (new), `tools/check-ownership.js`,
 `lib/components/manifest.schema.json`, `themes/theme.schema.json`,
-`test/unit/tools/manifest-schemas.test.js`
+`test/unit/tools/manifest-schemas.test.js`,
+`test/unit/tools/manifest-schema-equivalence.test.js`
 
 ## The question
 
@@ -248,6 +251,47 @@ the 131/61/33/12/10/15 counts and reproduced the `slicng` defect on `origin/main
 
 Cost of the review: 3 agents, ~350k tokens.
 
+### Both cleared risks are now re-derivable, and the numbers moved
+
+The paragraph above was an agent's report, and it stayed one: the harness lived
+in a transcript, and the walker it compared against was **deleted by this same
+commit**. So the two claims this change rests on could not be re-run by anyone —
+which is what HARD RULE #23 calls a claim rather than evidence.
+
+`test/unit/tools/manifest-schema-equivalence.test.js` commits both comparisons.
+It carries the retired `checkThemeManifestShape` transcribed from `71539f7` (the
+walk unchanged; only its input is a passed-in list rather than a directory read),
+and it **generates** its corpus from the schema's own keywords instead of listing
+mutations by hand — one per `required` / `enum` / `pattern` / `type` / `minimum` /
+`items` / `uniqueItems` / `minItems` / `additionalProperties` the schema actually
+uses, over two real seeds that sit on opposite arms of the schema's one
+`if`/`then`/`else`.
+
+| | trio's report | the committed harness |
+|---|---|---|
+| walker-equivalence mutations | 39 | **51** |
+| ajv passed what the walker caught | 0 | **0** |
+| mutations only ajv catches | not reported | **2** |
+| draft-comparison cases | 33 manifests + 20 mutations | **33 manifests + 51 mutations** |
+| draft disagreements | 0 | **0** |
+
+The counts differ because the corpora are built differently, not because either
+is wrong — and 51 is the one a reader can reproduce. Three things the harness
+adds that the transcript did not:
+
+- **The superset margin is named.** "Strict superset" is two claims, and only the
+  second is a reason to swap. The margin is exactly the walker's own
+  `if (k === '$schema') continue;` — it never checked the link that gives an
+  author's editor its completion, which is now arm 3 of the gate.
+- **Every mutation is proved to be a defect first.** A generator emitting legal
+  manifests would report a flattering equivalence over cases neither side rejects.
+- **The drafts are compared on WHY, not just whether.** Two validators can agree a
+  manifest is broken and disagree about which field, and the field is the line an
+  author reads. Compared as a set of `keyword@instancePath`: identical.
+
+The corpus size is pinned in the test, so growing `theme.schema.json` fails here
+and forces this table to be updated with it.
+
 ## The checker's second pass — the fix for a finding introduced three more
 
 The adversarial trio's findings were fixed in one commit, and a follow-up checker
@@ -303,3 +347,44 @@ gate itself rather than in the manifests it checks.
 | `checkAjvBoundary` | 176 ms |
 | `check-ownership.js` total | 6.47 s |
 | unit / integration | 7,623 pass / 804 pass, 0 fail |
+
+## The Studio, driven — the one surface this change never touched by hand
+
+The CORRECTION above establishes that `manifest.schema.json` is shipped bytes:
+`lib/layout/gate.js:34` requires it and esbuild inlines it into
+`docs/src/playground/layout-core.generated.js`, which the Layout Studio's
+component picker and Fabricate's component gate both read. The change reasoned
+about that bundle and measured its size. Nobody opened it.
+
+Driven at 1440 / 820 / 390 on the **production `docs/dist` build** — the bytes a
+visitor gets — not only on the dev server. That distinction earned itself: the
+Astro dev server renders Fabricate's live preview EMPTY, and the same walk
+against the built site renders it correctly (see below).
+
+- **The bundle diff is the schema text and nothing else.** Rebuilding
+  `layout-core.generated.js` from the pre-change schema (`71539f7`) and diffing
+  against the current one gives 18 changed lines: the two new `description`
+  strings, and `additionalProperties: false` on `slots`. No code path moved.
+  143,930 → 145,061 bytes.
+- **The component picker is unchanged** — "Add a slide" over 61 components, 62
+  tiles with `Blank`, the same search placeholder at each width.
+- **The gate still passes AND still bites.** Fabricate's Component tab opens
+  ALL CLEAR on the default component, with its BUCKET / FUNCTION / FORM /
+  SUBSTANCE selects populated from the schema enums; typing `#ff0000` into the
+  CSS pane flips it to `GATE — 1 TO FIX / no-hex:1 — hex literal "#ff0000"`.
+  An all-clear panel alone proves nothing, which is why the failing case is here.
+
+**Nothing shipped is broken, and one trap is worth writing down.** On the Astro
+DEV server Fabricate's `LIVE PREVIEW` figure has zero children — it looks like a
+dead surface. On the built site the same figure holds the `srcdoc` iframe and
+renders the slide. Two consequences: the empty preview is a dev-server artifact
+and not a defect, and **a verification run against `npm run dev` alone would have
+reported the opposite of the truth here** — in both directions, since a dev-only
+break reads as shipped and a dev-only pass would too. Drive `docs/dist`.
+
+Both surfaces also log a 404 for the fabricated theme's CSS
+(`/playground/v/<hash>/themes/fab-<id>.css`) — a theme authored in the browser
+cannot exist under a staged asset path. It is present with the pre-change bundle
+rebuilt in place, so it is neither caused nor worsened here, it costs one failed
+request, and the preview renders regardless. Recorded, not fixed: off the path of
+this change (HARD RULE #18).
