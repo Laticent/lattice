@@ -40,6 +40,16 @@ section.decision > .cell-stage > ol > li {
   border-radius:var(--radius-md);
   padding:var(--sp-md);
   display:flex; flex-direction:column; gap:var(--sp-xs);
+  /* The card is `flex:1`, so the row hands it the full stage height. Distribute
+   * that height instead of pinning the justification to the top of it: a card
+   * documented to hold "one sentence of rationale" otherwise leaves 55% of a
+   * tinted panel empty below the text (#1979). `safe` falls back to start
+   * alignment when the content exceeds the card, so an overflowing option loses
+   * its tail rather than its opening. This used to be stamped for square, tall
+   * and strip only, which is why the same component composed correctly in every
+   * family except the landscape one nearly every deck uses.
+   * See engineering/decisions/2026-09-01-composition-is-an-engine-measure.md §4b. */
+  justify-content: safe center;
   color:var(--text-body);
 }
 /* Categorical rotation across cards (cycle of 6, then mauve/slate) —
@@ -100,10 +110,10 @@ section.decision :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  * read `<= 1.05` because it was written when the only question was
  * landscape-or-portrait and square rode the portrait side, unseen (#1218). */
 section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) { flex-direction: column; }
-/* Each card fills a share of the tall frame; center the justification so it sits
-   in the card's optical middle (the corner tag stays pinned top-left) instead of
-   orphaning at the top over empty space. */
-section.decision.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { display:flex; flex-direction:column; justify-content: safe center; }
+/* Centering the justification in its card used to live here, scoped to square,
+   tall and strip. It is not a family behavior — a card that fills its track owes
+   its content the height in every family — so it moved up to the base card rule
+   and this per-family copy is gone. */
 /* One option per full-width card — the justification is the card's hero, so it
    carries statement weight (--fs-message), not body weight. */
 section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(p, ul, ol) {
