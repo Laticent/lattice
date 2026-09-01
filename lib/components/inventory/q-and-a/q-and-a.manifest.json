@@ -28,7 +28,7 @@
   "split": {
     "strategy": "cover-paginate",
     "axis": "item",
-    "perPage": 3,
+    "perPage": 1,
     "intro": "The questions, answered",
     "note": "Overflowing Q&A splits as an accent cover → its own native pairs paginated (never flattened). lib/core/carousel.js cover-paginate."
   },

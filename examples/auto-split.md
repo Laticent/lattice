@@ -2,7 +2,7 @@
 size: portrait
 theme: indaco
 paginate: true
-footer: "Auto-split — the Fit Ladder's split move"
+footer: "Auto-split — the split move"
 ---
 
 <!-- _class: title -->
@@ -19,10 +19,10 @@ When a slide holds more than it can show, it becomes several — automatically, 
 
 ## The problem auto-split solves
 
-- Every layout declares how many items it holds comfortably — its **capacity**
-- Past that budget the slide **overflows** — the title clips off the top, the last items off the bottom
-- Below the type floor there is nothing smaller to reach for
-- The honest fix is **more slides, not smaller type**
+- A slide holding fourteen things asks the reader to hold fourteen things
+- Packed onto one page they **compete**; past the type floor there is nothing smaller to reach for
+- Below that floor the slide **clips** — the title off the top, the last items off the bottom
+- The honest fix is **more slides, not smaller type** — and **one thing on each**
 
 ---
 
@@ -30,12 +30,11 @@ When a slide holds more than it can show, it becomes several — automatically, 
 
 ## How it works
 
-- A slide past `capacity.hard` is **divided** into slides that each fit
-- The **heading repeats**; ordered lists **renumber** across the break
-- **Nothing is lost** — every item survives, in order
+- A slide holding **more than one** structural element becomes one slide per element
+- The trigger is **structure**, read from the markup — the cut is the same on every machine
+- Every run opens on a **cover** and closes on the **note and key insight**
+- Each page **points at the next one**, so the run reads as one thing
 - **Read-across** content (columns, code) is **never split**
-- A **portrait-family** behavior
-- Opt in per deck with `autosplit: on`
 
 ---
 
@@ -64,10 +63,10 @@ When a slide holds more than it can show, it becomes several — automatically, 
 
 ## What you just saw
 
-- The fourteen-item checklist exceeded the layout's comfortable budget
-- Rather than clip, it split into **several comfortable slides** — the heading carried onto each, marked `(cont.)`
-- The author wrote one slide; the export produced the right number
-- No deck without `autosplit: on` is affected — existing decks render unchanged
+- The fourteen-item checklist became a **cover, fourteen pages and a closing** — one check each
+- The heading carried onto every page, marked `(cont.)`, and each page named **the next check**
+- The author wrote one slide; the structure decided the rest
+- Nothing was measured to get there, so the same deck cuts the same way on any machine
 
 ---
 

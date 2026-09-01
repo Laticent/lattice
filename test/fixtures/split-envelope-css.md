@@ -75,3 +75,30 @@ theme: indaco
 - [x] Scoring model calibrated
 
 <div class="cell-coda lat-split-note" data-dock="column"><div class="below-note"><p>Reviewed every Thursday, always current.</p></div></div>
+
+---
+
+<!-- _class: pricing lat-split-native -->
+
+## One tier, alone on its page
+
+- Growth `$49 / mo`
+  - [x] Up to 25 seats
+  - [x] Priority support
+  - For scaling teams.
+
+---
+
+<!-- _class: pricing lat-split-native -->
+
+## Three tiers, as authored
+
+- Starter `$0`
+  - [x] Up to 3 seats
+  - For evaluating, one team.
+- Growth `$49 / mo`
+  - [x] Up to 25 seats
+  - For scaling teams.
+- Enterprise `Custom`
+  - [x] Unlimited seats
+  - For procurement.

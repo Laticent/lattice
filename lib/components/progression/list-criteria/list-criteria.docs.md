@@ -10,6 +10,8 @@ Use to enumerate the criteria a decision must meet, in priority order. Numbering
 
 ## Agent contract
 
+**Capacity** ~4 items (over 5 overflows).
+
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one criterion with a short proof, not a spec.
 
 ### Slots

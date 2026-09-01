@@ -203,9 +203,27 @@ describe('core: relationship — through the real emission path (post-convergenc
     assert.equal((recut.match(/lat-split-rel/g) || []).length, 2, 'and it is not doubled');
   });
 
-  test('a layout that declares no relationship gets no signal at all', () => {
+  test('a layout that declares NO relationship still gets one — sequence is the default', () => {
+    // The carousel is universal as of 2026-09-01. This test asserted the opposite until then:
+    // the signal required `capacity.relationship`, which four of sixty-one components declare,
+    // so every other split run's pages ended with nothing joining them. `sequence` is the
+    // default because it is the relationship a split run HAS — the pages were one slide.
     const out = applyRelationshipSignals(deck([['Draft'], ['Publish']]), { 'list-steps': { axis: 'item' } });
-    assert.doesNotMatch(out, /lat-split-rel/);
+    assert.match(out, /&rarr; next: Publish</);
+    assert.equal((out.match(/lat-split-rel/g) || []).length, 1, 'the last body page has no next member');
+  });
+
+  test('an UNNAMED member points forward without inventing a label', () => {
+    // A member with no `<strong>`, no subheading and no clause break has only a sentence. The
+    // budget would clip it to "→ next: A page carries one structural element; no…", which reads
+    // as a bug rather than wayfinding — seen on the first real render after the carousel went
+    // universal, and the reason `labelOf` now returns '' rather than a truncated fragment.
+    const long = 'A page carries one structural element and nothing else at all';
+    const bare = (n, label) => `<section data-split-run="r1" data-split-role="body" data-lattice-slide="${n}" `
+      + `class="list-steps form lat-split-native"><h2>T</h2><ul><li>${label}</li></ul></section>`;
+    const out = applyRelationshipSignals(bare(1, long) + bare(2, `${long} again`), { 'list-steps': { axis: 'item' } });
+    assert.match(out, /&rarr; continues</, 'it still points forward');
+    assert.doesNotMatch(out, /…/, 'and never with a truncated sentence');
   });
 
   test('an unsplit deck (no run ids) and an empty capacity map are no-ops', () => {

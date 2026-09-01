@@ -43,7 +43,7 @@
   "split": {
     "strategy": "cover-paginate",
     "axis": "item",
-    "perPage": 4,
+    "perPage": 1,
     "intro": "What changed, and when",
     "note": "Overflowing list splits as an accent cover → its own native rows paginated (never flattened). lib/core/carousel.js cover-paginate."
   },

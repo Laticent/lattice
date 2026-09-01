@@ -6,6 +6,13 @@
   "substance": "prose",
   "stage": "flow",
   "adapt": {
+    "capacity": {
+      "axis": "item",
+      "wide": { "sweet": 5, "soft": 6, "hard": 7 },
+      "square": { "sweet": 4, "soft": 5, "hard": 7 },
+      "tall": { "sweet": 4, "soft": 5, "hard": 7 },
+      "strip": { "sweet": 3, "soft": 4, "hard": 6 }
+    },
     "mode": "reflow",
     "families": [
       "wide",

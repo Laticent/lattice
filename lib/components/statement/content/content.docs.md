@@ -10,6 +10,8 @@ The catch-all for explanatory content that doesn't fit a more structured layout.
 
 ## Agent contract
 
+**Capacity** ~5 items at a wide @size (crowds past 6, overflows past 7).
+
 ### Slots
 
 | Slot | Selector | Required | Description |

@@ -2363,6 +2363,15 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
   background: currentColor; opacity: 0.22;
 }
 .lat-split-rail .seg.on { opacity: 0.8; }
+/* The long-run form: past eight pages the rail prints "k/N" rather than drawing a dot per
+   page (lib/core/auto-split.js `RAIL_DOT_MAX`). Set in the footer band's own meta face and
+   color so it reads as the same mark the dots were, not as a second footer string. */
+.lat-split-rail .seg-count {
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+  white-space: nowrap;
+}
 /* …UNLESS the deck's SECTION rail is in the same band. `12cqi` clears the page number, but
    it lands squarely inside the berth the section rail (`.tile-progress`, the progress-center
    Cell) reserves — right of `--footer-pag-reserve`, up to `--footer-center-w` wide — so on
@@ -2536,9 +2545,15 @@ section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li 
    one member, so every page fills identically. It cannot re-open the runt-page defect
    either, since that needs pages with DIFFERENT counts, and a light member packed to a
    group never lands a lone member on a page.
-   (Width needs no rule — a tiling component already answers it: cards-grid promotes
-   `li:last-child:nth-child(odd)` to `width:100%`, which a single card matches. Verified on
-   the real render at the full 1000px measure.)
+   (Width DOES need a rule, and this comment used to say it did not. The claim was that "a
+   tiling component already answers it: cards-grid promotes `li:last-child:nth-child(odd)` to
+   `width:100%`" — true of cards-grid, and true of nothing else. A component that states its
+   track width ARITHMETICALLY keeps that width with one member on the page: pricing sets
+   `width: calc(100% / 3 - 2 * var(--sp-md) / 3)` on every tier, so a lone tier rendered at a
+   third of the measure and sheared its own copy — a "Content clipped" tag on a page holding
+   one card and two-thirds white. It was invisible while the components that atomize were all
+   tiling ones; enrolling pricing is what surfaced it. So the fill is stated here, once, for
+   every component rather than per tiling idiom.)
 
    WEIGHT: these two rules repeat `.lat-split-native` FOUR times, not the two the natural-height
    rules above need. A component's BOX-LOCAL PORTRAIT REFLOW is the thing they have to beat, and
@@ -2554,6 +2569,15 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
 }
 section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:only-child {
   flex: 1 1 auto;           /* the column case (cards-stack, actors) */
+  /* …and the ROW case: a member alone on its page takes the whole measure, whatever track
+     width its component computed for a row of N.
+     `auto`, NOT `100%`. Both fill a lone tier, and `100%` also imposes a box on the
+     components that never set one — list-criteria's numbered row sheared its own text under
+     it, because its `li` is not the padded flex child the arithmetic assumes. `auto` returns
+     the item to a content basis and lets the `flex-grow: 1` above claim the line, so a
+     component that stated a track width is neutralized and one that stated nothing is
+     untouched. */
+  width: auto;
   /* …and its content sits in the card's optical center rather than hugging the top edge
      of a now page-tall box. Every heavy member's card is the same shape — a wrap-flex row
      — and `actors` ALREADY resolves to `align-content: center`, so this brings cards-grid
@@ -2680,6 +2704,36 @@ section.form.lat-split-insight.lat-split-insight > .cell-coda {
 section.form.lat-split-insight.lat-split-insight > .cell-coda > blockquote p,
 section.form.lat-split-insight.lat-split-insight > .cell-coda > blockquote li {
   font-size: var(--fs-emphasis); line-height: var(--lh-snug);
+}
+
+/* ── The split run's CLOSING page (lib/core/split-envelope.js `closingPage`) ────────────
+   A split run opens on an accent cover and ENDS on a page that carries what the section
+   said ABOUT its content — the below-note, the key insight, and the `<!-- annotation: -->`
+   — together, with nothing else on the page (owner ruling, 2026-09-01).
+
+   Geometrically this is the insight page: an EMPTY stage, everything in the coda Cell
+   beside it, so the same two corrections apply and for the same reasons documented above
+   — the stage must stop growing or it eats the column and strands the content on the
+   floor, and the coda's `--coda-step` must go, because there is no body above for the
+   band to sit under. Written as its own block rather than folded into the insight
+   selectors so that reasoning stays attached to the page it was measured on, and so the
+   two can diverge later without unpicking a shared `:is()`.
+
+   What is deliberately NOT repeated here is the insight page's size bump. That page holds
+   ONE thing and sets it a step up; a closing page can hold a note AND an insight AND an
+   annotation, which already carry three distinct sizes (`--fs-body`, the key-insight
+   panel's own, and ANNOTATION's `--fs-meta`). Scaling the group would flatten a hierarchy
+   the theme already draws correctly. The note is at its NORMAL size here, not the compact
+   step it used to take: that step existed only because the note shared a page with body
+   content, and on the closing page it does not. */
+section.form.lat-split-closing.lat-split-closing > .cell-stage {
+  flex: 0 0 auto;
+  align-items: stretch;   /* a component's centered stage would otherwise shrink-wrap the cell */
+}
+section.form.lat-split-closing.lat-split-closing > .cell-coda {
+  padding-top: 0;
+  flex: 1 1 auto;
+  justify-content: center;
 }
 
 /* ── Shared split NOTE (lib/core/split-envelope.js `markNote` / `injectTrailing`) ───────

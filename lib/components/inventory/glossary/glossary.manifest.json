@@ -18,7 +18,7 @@
   "split": {
     "strategy": "cover-paginate",
     "axis": "row",
-    "perPage": 8,
+    "perPage": 1,
     "intro": "The terms, defined",
     "note": "Overflowing glossary splits as an accent cover → its own native rows paginated (thead repeats; never flattened). No capacity contract: it authors as a list but renders as a table, so the row axis is not measurable at authoring time. lib/core/carousel.js cover-paginate."
   },

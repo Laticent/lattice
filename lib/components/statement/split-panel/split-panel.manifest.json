@@ -13,7 +13,7 @@
   "split": {
     "strategy": "feature-cover",
     "family": "narrative",
-    "perPage": 3,
+    "perPage": 1,
     "roles": [
       "cover",
       "points"

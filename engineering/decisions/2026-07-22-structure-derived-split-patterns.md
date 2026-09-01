@@ -6,6 +6,11 @@ builds-on: 2026-06-22-the-fit-spine.md, 2026-06-21-reflow-as-form-capability.md,
 
 # Structure-derived split patterns — structure supplies the mechanism, not the policy
 
+> **SUPERSEDED IN PART (2026-09-01).** This note's STRUCTURAL ruling is what the engine now does, and the §0a envelope is built. Two things in it are not current, and BOTH were edited into it after it was authored: the "it fires on measured FIT" clause in the ★ section below (added 2026-07-28, seven days later, and it overwrote this note's own trigger), and §0b's per-component PACING — a page now carries ONE structural element, so nothing reads `perPage`/`sweet`/`soft`/`hard` to size a cut. §0b's own point, that atomizing WITHOUT a wayfinding signal is unreadable, is kept and widened: every run carries one now, not the four components that declared a `relationship`. See
+> [`2026-09-01-autosplit-splits-on-structure.md`](2026-09-01-autosplit-splits-on-structure.md).
+> Read that note before acting on anything below about the split TRIGGER or its PACING.
+
+
 **Date:** 2026-07-22 · **Status:** Proposed (design model; no code) — **hardened
 by two HARD RULE #25 adversarial trio passes, §12** · **Decision owner:** Sharmarke
 
@@ -51,7 +56,12 @@ other. **Three things to carry across the boundary:**
    judged; a landscape slide that does not fit rings, and `lint:deck`'s
    `capacity-overflow` names the non-split so the silence is never mistaken for a bug.
    It fires on measured FIT, never on a slide's authored count against `capacity.hard`
-   — that number is an editorial budget with one consumer, `lint:deck`. The only
+   — that number is an editorial budget with one consumer, `lint:deck`.
+   **[SUPERSEDED 2026-09-01 — and note that this sentence was added to this note on
+   2026-07-28, a week after it was authored, where it overwrote the structural trigger this
+   very note specifies. The trigger is STRUCTURE. `capacity.hard` remaining an editorial
+   budget with one consumer is the part that stands — which is also why the splitter no
+   longer reads it, or `sweet`, or `soft`, to size a cut.]** The only
    opt-outs are per-SLIDE (`<!-- stress-slide -->`, for a specimen that means to show
    overflow) and the emulator's `--no-split` (for a measurement rig).
    The two blessed oracles still look like they contradict each other and still do
@@ -324,11 +334,11 @@ one: the map in `split-facts.js` is the source, and
 | **Anchor — never splits** | `closing` · `divider` · `title` |
 | **viewBox graphic — container-responsive + legibility-floor→ring** | `diagram` · `funnel` · `map` · `piechart` · `quadrant` · `radar` · `scene` · `state-chart` *(JS-scaled; no-JS UNVERIFIED)* · `word-cloud` |
 | **Bitmap asset — responsive, no split** | `image` · `video` |
-| **Atomic — whole slide, overflow→ring** (single text units + shared-geometry grids that can't scale or split) | `big-number` · `citation-card` · `contact` · `gantt` · `math` · `matrix-2x2` · `matrix-grid` *(a positional grid — a row means nothing without every other row)* · `obligation-matrix` · `quote` · `wifi` |
-| **List → item · light** (pack a fixed uniform count) | `agenda` · `checklist` · `content`° · `inventory` · `list` · `list-criteria`° · `logo-wall`° *(by image)* |
-| **List → item · heavy** (1/slide, deterministic) | `actors` · `cards-grid` · `cards-stack` · `kpi` · `policy-recommendation` · `q-and-a` · `stats` *(tile — watch)* |
+| **Atomic — whole slide, overflow→ring** (single text units + shared-geometry grids that can't scale or split) | `big-number` · `citation-card` · `contact` · `gantt` · `logo-wall` *(by image)* · `math` · `matrix-2x2` · `matrix-grid` *(a positional grid — a row means nothing without every other row)* · `obligation-matrix` · `quote` · `wifi` |
+| **List → item · light** (1/slide; a light member is one bullet or tile) | `agenda` · `checklist` · `content` · `inventory` · `list` · `list-criteria` |
+| **List → item · heavy** (1/slide; a heavy member carries a title AND a body) | `actors` · `cards-grid` · `cards-stack` · `kpi` · `policy-recommendation` · `q-and-a` · `stats` *(tile — watch)* |
 | **Record-shaped → 1 per slide** (glossary pivots via its table transform; the rest are `ol/ul>li` → list-item split) | `glossary` · `list-tabular` · `regulatory-update` · `statute-stack` |
-| **Connected / related → 1/slide + relationship signal** | `authority-chain` *(governs↓)* · `cycle` *(↻loop)* · `journey`° *(→next)* · `list-steps` *(→next)* · `pricing`° *(compare N/M)* · `timeline-list`° *(→next)* · `verdict-grid` *(compare N/M)* |
+| **Connected / related → 1/slide + relationship signal** | `authority-chain` *(governs↓)* · `cycle` *(↻loop)* · `journey` *(→next)* · `list-steps` *(→next)* · `pricing`° *(compare N/M)* · `timeline-list`° *(→next)* · `verdict-grid` *(compare N/M)* |
 | **Read-across → keep whole / carousel** | `compare-code` · `compare-prose` · `compare-table` · `decision` · `kanban` *(per-lane — loses the cross-lane read; a keep-whole is arguably better)* · `premise` *(one claim beside the points that substantiate it — same shape as split-panel)* · `redline` · `roadmap` *(the TABLE rings; only the transposed `horizons` card form has a seam (#1209))* · `split-compare` · `split-panel` |
 | **Code → code-cards** (by line / block — PROPOSED) | `code` |
 | **Needs an opt-in call** | `progress` *(CSS bars, not a viewBox graphic — so NOT "scale like a graphic"; list-heavy if enrolled, else whole-slide)* |
