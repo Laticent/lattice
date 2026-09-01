@@ -49,27 +49,8 @@ jobs:
     # engineering/workflow.md § Automation vs. the main ruleset.
     environment: automation
     steps:
-      # `persist-credentials: false` for the same reason sync-backlog.yml carries it,
-      # and this one is LATENT rather than active — which is why it is worth fixing
-      # before it fires. `actions/checkout` otherwise writes the job's GITHUB_TOKEN into
-      # git config as an Authorization extraheader, and that header OVERRIDES the
-      # `x-access-token:${AUTOMATION_PAT}` credentials in the push URL below. The PAT is
-      # used deliberately: a `push` or `pull_request` event raised by the repo token
-      # starts no workflow run, so the required `ci` check would never report and the
-      # release PR could never merge.
-      #
-      # Today it works anyway, for a reason that is pure luck: a release always cuts a
-      # FRESH `release/v$V` branch, so the PR's first event is the `opened` raised by
-      # `gh pr create` — which goes over REST with the PAT and is correctly attributed.
-      # The moment a release PR needs an UPDATE push to an existing branch, the
-      # `synchronize` would be bot-attributed and the release would freeze exactly as
-      # the backlog mirror did for three weeks.
-      #
-      # Safe here: the only git operations after checkout are `git config`, a local
-      # `git switch -c`, and the explicit-credential push. Nothing needs ambient auth.
       - uses: actions/checkout@v4
         with:
-          persist-credentials: false
           fetch-depth: 0          # full history + tags for archive + versioning
           fetch-tags: true
 
