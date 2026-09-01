@@ -258,7 +258,33 @@ test('@smoke the editor pane holds its width before the preview pane has parsed'
 	// failing at a rounding boundary — reintroducing, inside the guard, the flake class this case
 	// exists to remove. The defect is 856px wide; ±1 catches it with room to spare, and it is the
 	// tolerance the sampler beside it already uses (`sameRect`, ±2).
-	const width = (await page.locator('#pg-split-editor').boundingBox())!.width;
+	// MEASURE A LAID-OUT PANE, NOT A HYDRATING ONE. This read the box straight after a
+	// `domcontentloaded` goto, so it raced the hydration that mounts the panel group. When it
+	// lost, `boundingBox()` returned null and the case died on a TypeError rather than on the
+	// width it exists to assert — 3 of 8 runs under 3x CPU contention here, and once on a CI
+	// runner.
+	//
+	// `await expect(editor).toBeVisible()` first is NOT enough, which is worth knowing: it cut
+	// the rate to 1 in 16 and no further, because the pane FLICKERS — hydration detaches and
+	// remounts it, so a `boundingBox()` issued after visibility can still land in the gap and
+	// re-resolve to nothing. The box therefore has to come from the same call that proved it
+	// exists, which is what capturing it inside the poll does.
+	//
+	// Waiting does not weaken what is measured. The preview pane is absent by construction (the
+	// fetch above cut it out), so there is nothing left to wait FOR except this pane laying
+	// out — which is the thing being measured.
+	const editor = page.locator('#pg-split-editor');
+	let box: Awaited<ReturnType<typeof editor.boundingBox>> = null;
+	await expect
+		.poll(
+			async () => {
+				box = await editor.boundingBox();
+				return box?.width ?? null;
+			},
+			{ timeout: 15_000 },
+		)
+		.not.toBeNull();
+	const width = box!.width;
 	expect(Math.abs(width - settled), `the editor pane is ${Math.round(width)}px with the preview pane absent and ${settled}px with it present — a person watches it narrow`).toBeLessThanOrEqual(1);
 });
 
