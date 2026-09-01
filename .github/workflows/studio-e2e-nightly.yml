@@ -191,7 +191,7 @@ jobs:
           # lookup silently miss the rolling issue and file a fresh duplicate every night —
           # the same shape of quiet failure this whole workflow change is about.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
-            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
+            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
             echo "Appended to issue #$ISSUE"
@@ -260,7 +260,7 @@ jobs:
           # documented there. Two different searches is how a stand-down closes a thread
           # nobody was appending to while the live one stays open.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
-            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
+            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
           PASSED=$(grep -oE '[1-9][0-9]* passed' "$REPORT" | tail -n 1)
           # Comment BEFORE closing, naming the run AND the pass count that proved it. A silent
@@ -424,7 +424,7 @@ jobs:
           # --limit is deliberately far above the open-issue count; gh paginates to reach it, and a
           # limit the backlog can outgrow would file a fresh duplicate every night.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
-            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
+            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
             echo "Appended to issue #$ISSUE"
@@ -493,7 +493,7 @@ jobs:
           # documented there. Two different searches is how a stand-down closes a thread
           # nobody was appending to while the live one stays open.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
-            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
+            --jq "[.[] | select(.title == \"$TITLE\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
           PASSED=$(grep -oE '[1-9][0-9]* passed' "$REPORT" | tail -n 1)
           # Comment BEFORE closing, naming the run AND the pass count that proved it. A silent

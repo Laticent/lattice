@@ -172,7 +172,7 @@ jobs:
           # --limit is far above the open-issue count; gh paginates to reach it, and a limit the
           # backlog could outgrow would silently miss the issue and file a fresh duplicate nightly.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
             echo "Appended to issue #$ISSUE"
@@ -223,7 +223,7 @@ jobs:
           # The IDENTICAL lookup the filing step above uses — see its comment. Two different
           # searches is how one step appends to a thread while another acts on a different one.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
           {
             echo "Measured green on \`main@${{ github.sha }}\` against base \`${{ steps.base.outputs.sha }}\` — no page past its budget, and both arms collected."
@@ -420,7 +420,7 @@ jobs:
           # The IDENTICAL lookup the filing step uses — see its comment. These two searching
           # differently is how a stand-down closes a thread nobody was appending to.
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
           [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
           # THE LATEST FIRING, NOT THE ISSUE BODY. The body is written once, by
           # `gh issue create`; every firing after the first is a COMMENT, so the body
@@ -488,7 +488,7 @@ jobs:
             echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} · base \`${{ steps.base.outputs.sha }}\` → head \`${{ github.sha }}\`._"
           } >> "$BODY"
           ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
-            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.login == \"github-actions\" or .author.login == \"github-actions[bot]\")][0].number" || true)
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
           if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
           else

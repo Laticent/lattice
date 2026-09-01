@@ -458,25 +458,40 @@ test('nightly alarm contract', async (t) => {
     // Filtering on the filing identity is the fix: an outsider cannot author as
     // the bot.
     //
-    // BOTH spellings are required, and that is not belt-and-braces. REST reports
-    // `github-actions[bot]`; `gh --json author` resolves through GraphQL, where a
-    // Bot actor's login is `github-actions`. Matching one spelling would make the
-    // lookup find nothing, and the `[ -n … ] || exit 0` guard then exits ZERO —
-    // so every stand-down would be silently dead rather than loudly broken.
-    // `startswith` is NOT acceptable here: `github-actions-evil` is registrable.
+    // THE SPELLING IS MEASURED, NOT REASONED — and both earlier guesses were wrong.
+    // `gh issue list --json author` reports `app/github-actions`. REST reports
+    // `github-actions[bot]`; GraphQL's Bot.login is `github-actions`; gh's own
+    // projection is a THIRD form, and no amount of reading settles which one a
+    // runner sees. It was established by printing the raw object on a real runner
+    // (run 33520347578). Shipping the guessed pair made all 16 lookups match
+    // nothing, and the filing step created duplicate issue #2000 instead of
+    // appending to the open thread it was looking at.
+    //
+    // Getting this wrong is ASYMMETRIC, which is why it is pinned rather than left
+    // to review. A filing step that cannot find its thread duplicates nightly —
+    // loud. A STAND-DOWN that cannot find its thread hits `[ -n … ] || exit 0` and
+    // exits ZERO — silently dead forever, which is the exact disease this whole
+    // change exists to cure.
+    //
+    // The other two spellings stay as exact alternates in case gh changes its
+    // projection. Matching is EXACT, never startswith/endswith: `evil-github-actions`
+    // is a registrable name and a prefix test would admit it.
     for (const { id, filing, standDown } of jobs) {
       for (const [what, step] of [['filing', filing], ['stand-down', standDown]]) {
         if (!step) continue;
         const lk = lookup(step);
         if (!lk) continue;
         assert.match(
-          lk, /\.author\.login\s*==\s*\\?"github-actions\\?"/,
-          `${id}: the ${what} lookup does not require author 'github-actions' — a squatted title wins`,
+          lk, /\.author\.login\s*==\s*\\?"app\/github-actions\\?"/,
+          `${id}: the ${what} lookup does not accept 'app/github-actions' — the spelling gh ` +
+            'ACTUALLY reports (measured, run 33520347578). Without it the lookup matches nothing: ' +
+            'the filing step duplicates nightly and the stand-down goes silently dead',
         );
-        assert.match(
-          lk, /\.author\.login\s*==\s*\\?"github-actions\[bot\]\\?"/,
-          `${id}: the ${what} lookup omits the 'github-actions[bot]' spelling — if gh reports that ` +
-            'form the lookup matches nothing and the step exits 0, silently dead',
+        const authorPart = lk.slice(lk.indexOf('.author'));
+        assert.ok(
+          !/startswith\(|endswith\(/.test(authorPart),
+          `${id}: the ${what} lookup matches its author by prefix/suffix — 'evil-github-actions' ` +
+            'is registrable, so the comparison must be exact',
         );
       }
     }
