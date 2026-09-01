@@ -366,7 +366,7 @@ from a below-note: lighter visual weight, lower information density, signals
 _Source: pilot retrospective, six months across four product teams._
 ```
 
-CSS pattern: `.cell-coda .below-note > p:has(> em:only-child)` — the
+CSS pattern: `section .below-note > p:has(> em:only-child)` — the
 paragraph must contain a single `<em>` and nothing else (no leading/trailing
 text outside the italic span), and it has to have been promoted into the coda
 band in the first place, which is what ties the register to `below-note`'s
@@ -391,13 +391,17 @@ sets, two mechanisms, and no way for them to agree. Measured through the real
 emulator, one probe slide per component: **15 layouts got the mark and 19 that render
 a below-note silently got an ordinary one instead** — body-size, accent hairline, no
 `✦` — including `content`, which is what every un-classed slide resolves to. Two of
-the seventeen names (`timeline`, `principles`) are not components, so those arms had
-never matched anything in any render.
+the seventeen names, `timeline` and `principles`, are not COMPONENTS but VARIANT classes
+(`inventory`/`regulatory-update` timeline, `list` principles) — so `principles` was
+redundant with its own base and `timeline` was the union's only reach into an
+`inventory timeline` slide, a reach every layout now has by construction.
 
-The union is gone. The register now keys on the coda Cell, which the kernel only
-builds for a layout that renders the beat, so the two sets cannot drift apart again.
+The union is gone. The register now keys on the `.below-note` wrapper, which the kernel
+emits only for a layout that renders the beat, so the two sets cannot drift apart again.
 Adding a layout means nothing here: it takes the annotation the moment it takes the
-below-note.
+below-note. (Keyed on the WRAPPER, not on the `.cell-coda` cell — the cell is a DOM
+position, and keying on it drops the register for a hand-authored `.below-note` that the
+Form transform folds into `.cell-stage`.)
 
 *(One name list survives, and it is not this one: the CSS-only fallback tier, for a
 Marp deck that loads `lattice.css` without the runtime and so has no coda cell. It is

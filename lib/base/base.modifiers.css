@@ -789,10 +789,17 @@ section.scale-2xl { --fs-scale: 1.5;  }
  * probe slide per component: 15 layouts got the mark and 19 that render a
  * below-note silently got an ordinary one instead — body-size, accent hairline,
  * no spark — including `content`, which is what every un-classed slide resolves
- * to. Two of the seventeen (`timeline`, `principles`) are not components at all,
- * so those arms had never matched anything. Below-note is opt-out and annotation
- * was opt-in, which is why the two sets could not agree; keyed on the cell, they
- * are the same set by construction.
+ * to. Two of the seventeen, `timeline` and `principles`, are not COMPONENTS — they
+ * are VARIANT classes (`inventory`/`regulatory-update` timeline, `list` principles).
+ * An earlier draft here said those arms "had never matched anything", which is wrong:
+ * the probe behind that claim rendered one slide per component NAME and never composed
+ * a variant, so it concluded "never matched" from an instrument that structurally could
+ * not match. What is true is narrower and still enough to delete them — `principles`
+ * was redundant (its base `list` was already in the union), and `timeline` was the
+ * union's only reach into an `inventory timeline` slide, a reach the wrapper-keyed rule
+ * now gives every layout. Below-note is opt-out and annotation was opt-in, which is why
+ * the two sets could not agree; keyed on the wrapper, they are the same set by
+ * construction.
  *
  * The old PER-LAYOUT `> .cell-stage > …` arms are gone with them, and keying on
  * the wrapper is what makes that safe. Measured across all 61 layouts, every
@@ -802,7 +809,18 @@ section.scale-2xl { --fs-scale: 1.5;  }
  * treatment, because the kernel is what emits the class in the first place.
  *
  * TIER 2 — THE CSS-ONLY FALLBACK, which is the one place a name list is
- * unavoidable. A Marp deck that loads `lattice.css` without the runtime has no
+ * unavoidable.
+ *
+ * ITS ANCHOR MIRRORS THE KERNEL'S `STRUCTURAL` SET, and that is load-bearing rather
+ * than tidy. A note is promoted only when it FOLLOWS a structural block, and the
+ * kernel's set is `DIV, UL, OL, TABLE, PRE, BLOCKQUOTE` (lib/core/coda.js). This
+ * anchor read `:is(ul, ol, blockquote, table)` — no `pre`, no `div` — so on the
+ * CSS-only surface a `code`, `compare-code` or `diagram` note (which trails a `<pre>`)
+ * could never match, however correct the name union was. The enumeration hid it,
+ * because those three were not in the 17 either; widening the union without widening
+ * the anchor would have shipped a list promising three layouts a treatment the
+ * selector could not deliver. Two hand-written sets, one gated and one not, is the
+ * exact shape this change exists to remove. Keep them equal. A Marp deck that loads `lattice.css` without the runtime has no
  * coda cell and no Form structure, so the raw trailing `<p>` needs the treatment
  * directly — and here the layout's own claim is NOT visible in the DOM, only in
  * its class name. The union is therefore the catalog's below-note set, and
@@ -872,7 +890,7 @@ section:is(
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .scene, .statute-stack,
   .verdict-grid, .video
-):not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p {
+):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p {
   /* Space above the hairline rule (was margin-top) + below it (padding-top) are
    * BOTH folded into padding-top so the spacing lives inside the note's own box —
    * HARD RULE #20. The `::before` rule is parked at `top: --sp-sm` inside that pad,
@@ -893,7 +911,7 @@ section:is(
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .scene, .statute-stack,
   .verdict-grid, .video
-):not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p::before {
+):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p::before {
   content:''; position:absolute; top:var(--sp-sm); left:0; right:0; height:1px;
   background:linear-gradient(to right, var(--accent), transparent);
 }
@@ -928,7 +946,7 @@ section:is(
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .scene, .statute-stack,
   .verdict-grid, .video
-):not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p:has(> em:only-child) {
+):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p:has(> em:only-child) {
   font-size:var(--fs-meta);
   color:var(--text-secondary);
   line-height:var(--lh-snug);
@@ -943,7 +961,7 @@ section:is(
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .scene, .statute-stack,
   .verdict-grid, .video
-):not(:has(.below-note)) > :is(ul, ol, blockquote, table) + p:has(> em:only-child)::before {
+):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p:has(> em:only-child)::before {
   content:'';
   position:static;
   display:inline-block;
@@ -2415,7 +2433,7 @@ section.form.lat-split-insight.lat-split-insight > .cell-coda > blockquote li {
    used to cover only 16 NAMED layouts, so an em-only note on any other layout got no sizing
    at all and rendered LARGER than an ordinary note beside it (43.5px vs 37px, measured) —
    rule 3 was that missing case, and it carried a `:not()` chain that MIRRORED the annotation
-   enumeration by hand. The register is now keyed on the coda Cell and covers every layout
+   enumeration by hand. The register is now keyed on the `.below-note` wrapper and covers every layout
    that renders a below-note, so the fallthrough it patched cannot occur and the mirror has
    nothing to mirror. A stale copy of a list that no longer exists is worse than no rule:
    its 16 `:not()` arms out-specify ANNOTATION, so keeping it would force `--fs-body-compact`

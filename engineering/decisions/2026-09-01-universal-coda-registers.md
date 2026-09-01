@@ -11,7 +11,7 @@ summary: >
   below-note 34/34 honest, annotation 15 — with 19 layouts that DO render a below-note
   silently rendering an italic note as an ordinary one, no spark, no dotted rule, `content`
   among them, which is what every un-classed slide resolves to. Two of the seventeen names
-  (`timeline`, `principles`) are not components. Fixed by keying the register on the
+  (`timeline`, `principles`) are not components but VARIANT classes. Fixed by keying the register on the
   `.below-note` wrapper the kernel emits, so it names no component and inherits the kernel's
   answer: annotation now matches below-note exactly, 36 and 36. The same probe proposed five
   dead `coda.claims`; TWO were dead (`diagram` claimed the paragraph for a `.diagram-caption`
@@ -97,8 +97,9 @@ case: no rule in the tree matches a trailing `<p>` on it at all, and its documen
 is a nested bullet.
 
 **Annotation — 15, and the other 19 fail silently.** The union named seventeen layouts, of
-which two (`timeline`, `principles`) are not components, so those arms had never matched
-anything in any render. Nineteen layouts that render a below-note got an ordinary one for
+which two (`timeline`, `principles`) are not components but VARIANT classes — see §4b,
+where the reason first given for deleting them turned out to be false. Nineteen layouts
+that render a below-note got an ordinary one for
 an italic-only paragraph: accent hairline instead of the dotted rule, `--fs-body` instead of
 `--fs-meta`, no spark. `content` is on that list, so **the default slide did not render the
 register.** Nothing told the author: `authoring.blocks` does not publish the annotation, and
@@ -197,6 +198,32 @@ a beat appended and with the bare sample. The appended form is what proves a lay
 the beat; the bare form is what proves the claim is not protecting something real. Neither
 alone is enough, and the appended form alone is what produced both this note's first wrong
 answer and `2026-08-24` §5's.
+
+## 4b. The ghost names were not ghosts, and the trio caught it
+
+The first revision of this note, its commit message, the changelog, `base.docs.md`,
+`base.modifiers.css` **and a gate's own failure message** all asserted that `timeline`
+and `principles` "are not components at all, so those arms had never matched anything in
+any render." The first half is true. **The second half is false**, and the inversion lens
+found it.
+
+Both are VARIANT classes: `timeline` on `inventory` and `regulatory-update`, `principles`
+on `list` (`inventory.manifest.json`, `list.manifest.json`). A real slide carries
+`class="inventory timeline form"`, so `section.timeline .below-note > p:has(> em:only-child)`
+matched it. And it was doing WORK: `inventory` was not in the seventeen, so that arm was
+the union's only route to an annotation on an `inventory timeline` slide. `principles` was
+the redundant one — its base `list` was already in the union.
+
+**The instrument is why.** The probe renders one slide per component NAME and never
+composes a variant, so it could not have observed a match if one existed. "Never matched"
+was not a measurement; it was the absence of one, reported as a finding. This is the same
+error shape as §4 — a probe's blind spot read as a property of the tree — twice in one
+change, which is the argument for the tier rather than against the probe.
+
+Nothing about the fix changes: the wrapper-keyed rule reaches an `inventory timeline`
+slide like any other. What changes is the REASON, and it mattered enough to correct in six
+places because one of them was a machine refusing a future arm while citing a precedent
+that never happened.
 
 ## 5. What this change BROKE, and where it was caught
 
