@@ -211,8 +211,27 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   or `max-width`. A side effect worth knowing: `numbered` no longer EATS the page number, so
   a paginated `divider numbered` now shows both.
 - **The general lesson:** `section::after` belongs to pagination on every path. Anything
-  decorative that must survive a real render goes on the section itself (see the finish-edge
-  entry above) or on a descendant's pseudo — never on the slide's own `::after`.
+  that must survive a real render goes on the section itself (see the finish-edge entry
+  above) or on a descendant's pseudo — never on the slide's own `::after`.
+- **A SECOND defect was hiding behind the first, and it is the more interesting one.**
+  Once the numeral drew, it measured **1.4:1** — inked `--on-dark-watermark`, the 12%
+  DECORATION rung of the on-dark ramp, under a CSS `opacity: 0.85`. It had been written
+  that way as a watermark ghost, and it read as one; it was briefly sanctioned in
+  `tools/contrast-exemptions.js` on that reading. That was wrong. The stamp is how a
+  reader and a room tell WHICH SECTION THEY ARE IN — content, not texture — and content
+  is not excused from a ratio for being large. The ramp's own rule had the answer:
+  *text on a dark panel uses primary or secondary; ghost draws lines*
+  (`base.tokens.css`, `engineering/decisions/2026-08-11-on-dark-ink-tiers.md`), and the
+  `closing` eyebrow had already been moved off `ghost` for exactly this. Rebound to
+  `--on-dark-secondary` / `--text-secondary` — verbatim what the eyebrow beside it
+  takes — with the `opacity` dropped rather than re-tuned, it measures 5.05:1 (cuoio,
+  light canvas) to 11.79:1 (onyx). **The reusable tell:** a run that is faint, oversized
+  and resembles an ornament already on an exemption list is not thereby an ornament. Ask
+  what it would cost a reader to miss it. And when the answer is "de-emphasize it", the
+  lever is a role ink plus size and weight — never a CSS `opacity`, which composites ink
+  and backdrop together and steps each down in proportion to the headroom it already
+  had (the `agenda` case, where that made the biggest, boldest element the least
+  legible one).
 
 ## On a `finish:` deck the running header/footer/logo moved, and ate stage height
 

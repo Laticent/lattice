@@ -1427,8 +1427,27 @@ section.compare-prose.mirror > .cell-stage > :is(ul, ol) {
  * Counter scope: counter-reset is applied at body level so the counter
  * walks the whole deck once. No author bookkeeping required.
  *
- * Visual: large display-weight numeral, accent-tinted, anchored to the
- * top-right corner, sized so it does not collide with section chrome.
+ * Visual: a display-weight numeral anchored to the top-right corner, sized so it does
+ * not collide with section chrome.
+ *
+ * IT IS INK, NOT DECORATION, and that decides its color. The stamp exists so a reader
+ * and a room can tell which section they are in — it is the only thing on the slide
+ * that says so once the headline has scrolled past in memory. It was inked
+ * `--on-dark-watermark` (the 12% DECORATION rung) at `opacity: 0.85` and measured
+ * 1.4:1: present, and not readable. That is the wrong-rung binding
+ * `engineering/decisions/2026-08-11-on-dark-ink-tiers.md` is about, and the `closing`
+ * eyebrow had already been moved off `ghost` for exactly it. The ramp's own rule is
+ * "text on a dark panel uses primary or secondary; ghost draws lines" — so the stamp
+ * takes `--on-dark-secondary` on the dark bookends and `--text-secondary` on
+ * `divider.light`, which is verbatim what the eyebrow BESIDE it already uses (see the
+ * before-heading eyebrow rules above). Secondary's worst case across the shipped
+ * palettes is 7.17:1.
+ *
+ * AND THE CSS `opacity` IS GONE, not re-tuned. De-emphasis here is a role ink plus
+ * size and weight; a wash composites ink and backdrop together and steps each down in
+ * proportion to the headroom it already had, which is how `agenda` ended up with its
+ * BIGGEST, BOLDEST element as its least legible one. Same lesson, recorded in
+ * `slide-contrast.test.js` § PREEXISTING_CONTRAST_BACKLOG.
  *
  * CARRIER: the numeral rides the slide HEADING's `::after`, NOT the section's.
  * `section…::after` is the engine's PAGINATION pseudo and it is spoken for twice
@@ -1477,31 +1496,27 @@ section.closing.numbered :is(h1, h2)::after {
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.04em;
-  color: var(--accent);
-  opacity: 0.55;
+  color: var(--on-dark-secondary);
   pointer-events: none;
   /* The heading is the CARRIER, not the anchor: `position: absolute` resolves against
    * the nearest positioned ancestor, which is the section (`base.elements.css` sets
    * `position: relative` on every slide) — so `top`/`right` still measure from the
    * slide corner exactly as they did on the section pseudo. Out of flow, so the
    * heading's own `text-wrap: balance` and `max-width` are untouched. */
-  /* The oversized section numeral is DECORATION behind the words, not a chrome mark —
-   * same family as the watermark ghost and split-panel's giant step numeral. Its old
-   * `1` sat below the finish rule's blanket `2`, which is the order this preserves. */
-  z-index: var(--z-atmosphere);
+  /* THE WORDS' plane, not the atmosphere one. `--z-atmosphere` is documented as
+   * "decoration BEHIND the words" (base.tokens.css § depth axis) and is where this sat
+   * while it was a ghost. A section marker a reader is meant to READ is content, so it
+   * belongs on `--z-content` and the plane model should say so. Cosmetically this is a
+   * no-op today — the numeral sits alone in a corner nothing else occupies — which is
+   * the point: the plane is a claim about what a thing IS, and leaving it on the
+   * decorative plane would leave the wrong claim in the tree. */
+  z-index: var(--z-content);
 }
 
-/* On dark canvases the accent is muted; lift the numeral with the dark
- * watermark color so it reads against the dark bg. divider.light is a bright
- * canvas, so it keeps the accent color set above (overrides the dark rule). */
-section.divider.numbered :is(h1, h2)::after,
-section.closing.numbered :is(h1, h2)::after {
-  color: var(--on-dark-watermark, var(--accent));
-  opacity: 0.85;
-}
+/* `divider.light` is the bright-canvas variant, so the dark-panel ink above would all
+ * but vanish on it — same reset, and the same token, as its own eyebrow takes. */
 section.divider.light.numbered :is(h1, h2)::after {
-  color: var(--accent);
-  opacity: 0.55;
+  color: var(--text-secondary);
 }
 
 section.divider.numbered :is(h1, h2)::after        { content: counter(lat-divider,  decimal-leading-zero); }

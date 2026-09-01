@@ -38,8 +38,24 @@
  *
  * Deliberately NOT here, because they were fixed instead of excused: the four `split-*`
  * running headers at 1.00:1 (a paint-order bug in the prober), the three `journey` stage
- * labels at 1.87:1 (#1702), and the `journey` mood legend, whose worst pair sat 0.07 above
- * the 3:1 floor and now clears it by 2.
+ * labels at 1.87:1 (#1702), the `journey` mood legend, whose worst pair sat 0.07 above
+ * the 3:1 floor and now clears it by 2, and the `numbered` bookend stamp at 1.4:1.
+ *
+ * THAT LAST ONE WAS BRIEFLY WRITTEN INTO THIS LIST, and pulling it back out is the more
+ * useful record. It reads like the entry above it — an oversized numeral, declared onto
+ * the atmosphere plane, in the watermark's ornament family — and the resemblance is what
+ * made the wrong call available. It is not decoration: the stamp is there so a reader and
+ * a room can tell WHICH SECTION THEY ARE IN, which is content, and content does not get
+ * excused from a ratio for being large. The tell was in the ink ramp all along —
+ * `--on-dark-watermark` is the 12% DECORATION rung, and the ramp's own rule is that text
+ * on a dark panel takes primary or secondary. Rebound to `--on-dark-secondary` (worst
+ * case 7.17:1 across the shipped palettes) with the CSS `opacity` dropped, it clears AA
+ * on its own and needs nothing from this file.
+ *
+ * THE GENERAL TEST, since this list will be asked the question again: an entry here is
+ * for a run that CARRIES NO INFORMATION — texture, an ornament, a measurement of the
+ * wrong surface. "It is big", "it is faint by design" and "it looks like something
+ * already on the list" are none of those.
  */
 const SANCTIONED_CONTRAST_EXEMPTIONS = [
   {
@@ -68,42 +84,6 @@ const SANCTIONED_CONTRAST_EXEMPTIONS = [
       'gallery @ indaco-dark': { div: 2, 'div::before': 1 },
       'gallery-jargon @ indaco': { div: 2 },
       // The spectrum deck writes no oversized decorative glyph.
-      'seq-ramp @ indaco': {},
-    },
-  },
-  {
-    id: 'decorative-section-numeral',
-    why: [
-      "The `numbered` bookend stamp — the running section index on `divider` / `closing`,",
-      'set at --fs-h1 (192 raw canvas px on the 4k gated surfaces) and inked with',
-      '`--on-dark-watermark` at 0.85 on the dark bookend canvas. Same ornament family as',
-      'the entry above and adjudicated for the same reason: a numeral set three times',
-      'reading size, sitting on the ATMOSPHERE plane behind the words by declaration',
-      '(`z-index: var(--z-atmosphere)`, base.modifiers.css), is incidental decoration —',
-      'WCAG 1.4.3 exempts it from the ratio. It duplicates no information: the section it',
-      'counts is named in the heading beside it, and nothing in the deck is reachable only',
-      'through the numeral. Bringing it to 4.5:1 is not a tune, it is a different element —',
-      'a corner chrome mark competing with the section headline it sits behind, which is',
-      'the design this repo already rejected for the watermark ghost.',
-      'IT IS NEW TO THIS GATE AND NOT NEW TO THE ENGINE. The stamp rode `section::after`,',
-      'which the browser-path pack strips and `silent` nulls, so it drew nothing on the',
-      'surfaces this gate renders and the gate never saw it. Moving the carrier to the',
-      'heading pseudo fixed the modifier and, in doing so, showed this gate a run that had',
-      'been declared all along — found by the fix, not caused by it.',
-    ].join(' '),
-    // Deliberately NOT keyed on font size: it is the SAME `--fs-h1` an ordinary heading
-    // takes, so a size floor here would either miss the stamp or start absorbing real
-    // headings. Keyed on the mechanism instead — the modifier, the carrier, and the
-    // counter token — none of which another element can acquire by accident.
-    match: (r) => /(^|\s)numbered(\s|$)/.test(r.cls)
-      && /(^|\s)(divider|closing)(\s|$)/.test(r.cls)
-      && /^h[12]::after$/.test(r.tag)
-      && /^counter\(lat-(divider|divider-light|closing),/.test(r.text),
-    counts: {
-      'gallery @ indaco': { 'h2::after': 2 },
-      'gallery @ indaco-dark': { 'h2::after': 2 },
-      'gallery-jargon @ indaco': { 'h2::after': 2 },
-      // The spectrum deck carries no numbered bookend.
       'seq-ramp @ indaco': {},
     },
   },

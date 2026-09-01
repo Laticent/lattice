@@ -9500,7 +9500,12 @@ const KNOWN_CONTRACT_DROPS = [
   // and `checkPhantomFallbackTokens` below stops the class from recurring.
   '--jur-ink → --accent',
   '--lane-ink → --accent',
-  '--on-dark-watermark → --accent',
+  // '--on-dark-watermark → --accent' was here until the `numbered` bookend stamp was
+  // rebound. That read was the stamp's own `color: var(--on-dark-watermark, var(--accent))`
+  // — a text run degrading onto the unfloored brand hue. It is gone because the stamp
+  // stopped inking off the DECORATION rung entirely: it is content (a reader has to be
+  // able to tell which section they are in), so it now takes `--on-dark-secondary`, a
+  // no-fallback read of a tier the ink ramp holds to AAA. One row drained, not excused.
   '--panel-label-ink → --accent',
   '--phase-ink → --accent',
   '--row-ink → --accent',

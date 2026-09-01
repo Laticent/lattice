@@ -718,6 +718,13 @@ Stamps an auto-incrementing index in the top-right corner of bookend
 slides. Each layout carries its own counter — a `divider numbered`
 series and a `closing numbered` series number independently.
 
+**It is ink, not ornament.** The stamp is how a reader and a room tell
+which section they are in, so it is inked to be read: `--on-dark-secondary`
+on the dark bookends and `--text-secondary` on `divider light` — the same
+rungs the eyebrow beside it takes. Measured 5.05:1 (cuoio, light) to
+11.79:1 (onyx) across the shipped palettes, clear of AA everywhere. It sits
+on `--z-content`, not the decorative plane.
+
 | Layout | Counter token | Stamp position |
 |---|---|---|
 | `divider` | `lat-divider` | top-right |
