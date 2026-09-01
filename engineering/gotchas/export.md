@@ -319,3 +319,14 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   scan of a definitely-leaking PDF returns ZERO hits. Inflate every `stream…endstream`
   first. The same suite carries a control render WITHOUT the flag for exactly this reason:
   a probe that cannot see the note when it IS there proves nothing when it is gone.
+
+## The exported player told the recipient a deck HAD notes, after `--strip-notes` removed them
+
+- **Symptom:** a `--player` export made with `--strip-notes` carries no note text, but
+  pressing `n` in Present view still slides up a 65px sheet reading "No notes for this
+  slide." The recipient learns the deck had notes — which is what the flag exists to prevent.
+- **Cause:** `player-core.mjs` hid the notes BUTTON when the file carried no
+  `aside.lattice-notes`, but left the panel in the layout and the `n` key handler live.
+- **Fix:** `hasNotes` gates the button, the panel and the key together. Verified on a real
+  browser, not a harness (HARD RULE #23): panel `display:none`, `n` inert, 0px.
+  `lib/export/player-core.mjs`.

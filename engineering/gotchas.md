@@ -129,6 +129,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [`--strip-notes` deleted a comment out of a code fence](gotchas/export.md#--strip-notes-deleted-a-comment-out-of-a-code-fence)
 - [`--strip-notes` could not remove a note that opens with a directive keyword](gotchas/export.md#--strip-notes-could-not-remove-a-note-that-opens-with-a-directive-keyword)
 - [`--strip-notes` shipped the note anyway — in the `.pptx`, and in the raster PDF's sidecar](gotchas/export.md#--strip-notes-shipped-the-note-anyway--in-the-pptx-and-in-the-raster-pdfs-sidecar)
+- [The exported player told the recipient a deck HAD notes, after `--strip-notes` removed them](gotchas/export.md#the-exported-player-told-the-recipient-a-deck-had-notes-after---strip-notes-removed-them)
 
 ### [Fonts and emoji](gotchas/fonts.md)
 

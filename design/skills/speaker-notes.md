@@ -50,7 +50,9 @@ engine reads any non-directive comment, so hand-authored notes round-trip):
 A slide may carry several note comments (concatenated in order). Notes reach: a
 hidden PDF annotation (`--notes-icon` reveals it), a hidden HTML `aside`, a
 plaintext sidecar (`--notes`), the **PPTX presenter-notes field**, and the
-Present-mode teleprompter. `--strip-notes` removes them for a clean export.
+Present-mode teleprompter. `--strip-notes` removes them for a clean export — from **every**
+format, and the exported player then shows no notes affordance at all: no button, no panel,
+and the `n` key does nothing, so the file never hints that notes were there.
 
 **What makes a great note:**
 
