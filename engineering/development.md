@@ -419,6 +419,22 @@ tests); any lock older than the ceiling is reclaimed regardless; and a waiter
 only ever releases a lock **it still owns**, so one exiting on its own deadline
 cannot delete the lock of whoever replaced it.
 
+**A hook nudges you if you forget.** `.claude/hooks/warn-unbounded-wait.sh` runs
+on every Bash call, spots the loop shape above, and prints a one-line pointer at
+this section. It **warns and never blocks** — the same call this repo made for
+`check-commit-msg.sh` (a message may legitimately quote British text, and HARD
+RULE #14 bars `--no-verify` as the escape) and for #29's deck policy, stated
+outright as "we warn, we coach." A blocking matcher tuned on one example is a
+permanent tax on every future session; a false positive here costs one ignorable
+line.
+
+It reads the raw payload rather than parsing out the command field, because it
+runs on **every** Bash call and the numbers decide it: 1.8ms for the match
+against 36ms to start node for an accurate parse. Twenty times the cost on every
+call is not worth the precision, for a warning. Note what this means: a repo
+gate could never have done this job at all — `check-ownership.js` walks the
+filesystem, and these waits are tool calls that never become files.
+
 **A waiter waits.** Do not attach an action to a condition — a background shell
 that runs `build:check` when some file appears will happily run it three hours
 later against a tree that has moved on. Run the job, or wait for it; not both.
