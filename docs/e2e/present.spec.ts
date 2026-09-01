@@ -1,4 +1,4 @@
-import { expect, gotoStudio, slideCount, test } from './studio-fixture';
+import { expect, FIRST_PAINT_TIMEOUT, gotoStudio, slideCount, test } from './studio-fixture';
 
 // The Present overlay: enter, navigate, switch reader lens, open the slide
 // overview, and exit on Escape. The slide total is read from the seed deck so the
@@ -89,6 +89,48 @@ test('the slide overview opens with the G key and lists every slide', async ({ p
 
 	await page.getByRole('button', { name: 'Close slide overview' }).click();
 	await expect(overview).toBeHidden();
+});
+
+// THE TILES THEMSELVES, which the test above cannot see. It asserts the overview's
+// CHROME — a dialog, N buttons, a close control — and every one of those assertions
+// passes over a grid of empty placeholder boxes. That is not hypothetical: these
+// thumbnails do not paint under `astro dev` at all (the Vite dep-optimizer 504s the
+// Studio island's lazy engine import), so the surface a human sees and the surface the
+// chrome test sees came apart exactly where nobody was looking. Playwright builds and
+// previews instead (see playwright.config.ts), which is what makes this assertable —
+// and asserting it is what stops the config quietly regressing to a dev server.
+//
+// REUSE is the claim being guarded: SlideOverview.tsx says each thumbnail is "the SAME
+// engine render as the main stage … not a screenshot". So the test is that a tile
+// contains a real engine document with a painted `.lattice` root, not that a box of
+// roughly the right size exists.
+test('a slide-overview tile is a real engine render, and clicking it jumps there', async ({ page }) => {
+	test.skip(total < 3, 'needs at least three slides to jump to a non-adjacent one');
+	const dialog = page.getByRole('dialog', { name: 'Present' });
+	await page.keyboard.press('g');
+	const overview = page.getByRole('dialog', { name: 'Slide overview' });
+	await expect(overview).toBeVisible();
+
+	// The engine paints into the tile's own iframe document. `.lattice` is the painted
+	// root the live preview asserts on too, so a tile that only booted an empty document
+	// still fails here.
+	const firstTile = overview.frameLocator('iframe.live >> nth=0');
+	await expect(firstTile.locator('.lattice').first()).toBeVisible({ timeout: FIRST_PAINT_TIMEOUT });
+
+	// The tile shows ITS OWN slide, not slide 1 twelve times — the bug the component's
+	// deck-context note records ("Handing each tile one sliced-out slide printed '1' on
+	// every tile"). Page number is engine-rendered inside the frame, so this reads the
+	// second tile's document rather than the button's own label.
+	const secondTile = overview.frameLocator('iframe.live >> nth=1');
+	await expect(secondTile.locator('.lattice').first()).toBeVisible({ timeout: FIRST_PAINT_TIMEOUT });
+
+	// The current slide is marked, so a presenter can see where they are in the grid.
+	await expect(overview.getByRole('button', { name: 'Slide 1' })).toHaveAttribute('aria-current', 'true');
+
+	// And the jump actually navigates — the overview closes and Present lands on 3.
+	await overview.getByRole('button', { name: 'Slide 3', exact: true }).click();
+	await expect(overview).toBeHidden();
+	await expect(dialog.getByText(`3 / ${total}`, { exact: true })).toBeVisible();
 });
 
 // ── Zoom on the delivery surface (#pinch-zoom) ───────────────────────────────
