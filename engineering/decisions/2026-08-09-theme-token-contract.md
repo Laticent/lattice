@@ -128,7 +128,7 @@ Every field is either impossible to state in CSS (`family`, `tier`, `order`, `sw
 | Gate | Proves |
 |---|---|
 | `checkThemeManifestCoverage` | bijection: every CSS has a manifest, every manifest a CSS, names agree |
-| `checkThemeManifestShape` | the manifest matches `theme.schema.json` — read *from* the schema file, not a hand mirror |
+| `checkThemeManifestShape` | the manifest matches `theme.schema.json` — read *from* the schema file, not a hand mirror. Since 2026-09-01 it delegates to the shared `tools/manifest-schemas.js` gate (ajv) rather than walking the schema itself, and `run()` reaches the theme family through `checkManifestSchemas`; this name stays as the family's single-directory entry point. See `2026-09-01-manifest-schema-gate.md` |
 | `checkThemeRoles` | `role`/`extends` against the file's imports (**all** of them) and token count; `swatch`/`order` present and unique per group |
 | `checkThemeModes` | `modes` against the palette's own `color-scheme` **specificity** and its `light-dark()` arms; `darkCounterpart` against disk |
 
