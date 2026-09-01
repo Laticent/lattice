@@ -597,7 +597,10 @@ changed from `1 1 auto` to `0 1 auto`. The comment in `stats.styles.css` had cla
 words that `justify-content` was right "in every family here and needs no family split" — a
 claim about four families, tested on two. Corrected: the vertical axis gets `flex` where it is
 the main axis and `align-self` where it is the cross axis, each family-scoped. Square now
-measures **h 329.2, trail 1**.
+measures **h 329.2, trail 1**. **The fixture behind those two numbers is committed** —
+`tools/spike-card-slack/fixtures/stats-square-autosplit.md` — because a second checker pointed
+out that quoting them from an uncommitted `.scratch/` deck is the same failure this very section
+was written to close, for the third time in one branch.
 
 **2 · The rule on the list was unguarded, and moved 30 pages it had no business touching.**
 `justify-content: safe center` on the `ol` fired on *every* `stats` split page rather than only
