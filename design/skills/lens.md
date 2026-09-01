@@ -158,6 +158,12 @@ the useful part:
   `brief` reader can reach the `evidence` slides. If a recipient must not have them, send
   them their own file.
 
+**An export freezes an approval, and a sent file cannot be un-approved.** Inside the Studio
+approval is revocable: edit the deck and the view de-approves itself, hide it and readers lose
+it. None of that reaches a file you already sent. The vocabulary here — approved, eligible,
+de-approves itself — describes a live check, and an exported artifact only carries the answer
+that check gave on the day it was baked.
+
 **The envelope is the channel people forget.** A `--player` export embeds the deck source
 for lossless re-import, so it round-trips back into a fully editable deck. With `--lens`
 it carries only the slides that shipped; `--lens-source full` restores the whole deck,

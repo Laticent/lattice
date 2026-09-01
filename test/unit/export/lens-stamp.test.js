@@ -18,6 +18,11 @@ const { JSDOM } = require('jsdom');
 
 const { buildArticle } = require('../../../lib/export/player-core.mjs');
 
+/** The rendered-section → AUTHORED-slide map. Identity for these fixtures, which render one
+ *  section per slide; `buildArticle` takes the MAP rather than a flag because auto-split and
+ *  heading-split both make those two numbers diverge on a real deck. */
+const identityMap = (n) => Array.from({ length: n }, (_, i) => i);
+
 /** A deck DOM of `n` slides, each with an eyebrow — the `.masthead-lede > p` the engine
  *  renders an eyebrow as, and what `projectDeckToProse` turns into the `.lp-kicker` this
  *  suite is about. Written as the ENGINE emits it, not as a plausible-looking shape: an
@@ -39,7 +44,7 @@ function stamps(article) {
 }
 
 test('every top-level article element is owned by the slide it came from', async () => {
-	const { article } = await buildArticle(deckDom(3), true);
+	const { article } = await buildArticle(deckDom(3), identityMap(3));
 	const owned = stamps(article);
 	assert.ok(owned.length >= 6, 'three slides project at least a heading and a body each');
 	assert.ok(owned.every(([, i]) => i !== null), 'NO element is left unstamped — an unstamped one can never be hidden');
@@ -50,7 +55,7 @@ test('every top-level article element is owned by the slide it came from', async
 });
 
 test('a body belongs to its OWN slide, not the next one', async () => {
-	const { article } = await buildArticle(deckDom(3), true);
+	const { article } = await buildArticle(deckDom(3), identityMap(3));
 	const host = new JSDOM(`<div>${article}</div>`).window.document.body.firstChild;
 	for (const h of [...host.querySelectorAll('[id^=lp-sec-]')]) {
 		const i = /lp-sec-(\d+)/.exec(h.id)[1];
@@ -65,7 +70,7 @@ test('a body belongs to its OWN slide, not the next one', async () => {
 });
 
 test('a kicker belongs to the heading BELOW it, not the slide above', async () => {
-	const { article } = await buildArticle(deckDom(3), true);
+	const { article } = await buildArticle(deckDom(3), identityMap(3));
 	const host = new JSDOM(`<div>${article}</div>`).window.document.body.firstChild;
 	const kickers = [...host.querySelectorAll('.lp-kicker')];
 	assert.ok(kickers.length >= 2, 'the fixture projects kickers');
@@ -79,7 +84,7 @@ test('a kicker belongs to the heading BELOW it, not the slide above', async () =
 });
 
 test('the table of contents carries the same index, so it can be filtered too', async () => {
-	const { toc } = await buildArticle(deckDom(3), true);
+	const { toc } = await buildArticle(deckDom(3), identityMap(3));
 	assert.deepEqual([...toc.matchAll(/data-lp-i="(\d+)"/g)].map((m) => m[1]), ['0', '1', '2']);
 });
 

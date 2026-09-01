@@ -255,6 +255,12 @@ OPTIONS
                           than falling back to the full deck. Several views need
                           --player, which carries them behind a switcher; every
                           other format is one linear sequence, so it takes one.
+                          WHAT THIS WITHHOLDS, AND WHAT IT ONLY HIDES: slides
+                          outside the views you export are genuinely absent from
+                          the file. Slides INSIDE a multi-view carrier are only
+                          hidden — switching is a display rule, so every view in
+                          one file is reachable from that file. Export one view
+                          per file for a recipient who must not have the others.
       --lens-source <s>   What a --lens player's embedded envelope carries:
                           'projected' (default) ships only the slides that
                           shipped; 'full' keeps the deck exactly as authored, so
@@ -780,8 +786,22 @@ if (!['projected', 'full'].includes(LENS_SOURCE)) {
   console.error(`error: --lens-source must be 'projected' or 'full' (got '${LENS_SOURCE}')`);
   process.exit(1);
 }
+// `--lens-source full` + `--strip-notes` ask for opposite things and only one can be kept.
+// The note-strip set is lifted from the slides that were RENDERED, so it cannot name a note
+// on a slide the projection dropped — and `--lens-source full` puts exactly those slides
+// back into the envelope. Measured: a withheld slide's speaker note reached the shared file
+// with `--strip-notes` set. `auditStrippedSource` caught it and warned, which is the net
+// doing its job, but a warning about a file that has already been written is not a guard.
+// Refused rather than half-honored, because the author asked for a privacy property here.
+if (LENS_SOURCE === 'full' && flags['strip-notes'] && String(flags.lens ?? '').trim()) {
+  console.error('error: --lens-source full cannot be combined with --strip-notes.');
+  console.error('       The note strip covers only the slides that were rendered, and `full` re-admits the ones');
+  console.error('       that were not — so their speaker notes would ride into the envelope. Drop one of the two.');
+  process.exit(1);
+}
 let LENS_VIEWS = null;
 let LENS_REPORT = null;
+let LENS_TOTAL = 0;
 let lensProjected = mdRaw;
 if (LENS_IDS.length) {
   const { projectForExport, exportableViews, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
@@ -796,11 +816,15 @@ if (LENS_IDS.length) {
     process.exit(1);
   }
   LENS_VIEWS = out.views;
+  LENS_TOTAL = out.total;
   lensProjected = out.source;
   // Reported only once the export is committed to running — see the carrier guard below.
   // Saying "5 of 16 slides ship" and then refusing is a line that describes an artifact
   // nobody received.
-  LENS_REPORT = out.kept.length < out.total ? `  reader views: ${LENS_IDS.join(', ')} — ${out.kept.length} of ${out.total} slides ship` : null;
+  // ALWAYS reported, not only when the projection reduced. A carrier whose views happen
+  // to cover the whole deck used to print NOTHING, which is the one case where a reader
+  // most needs to know the file is a carrier rather than a cut.
+  LENS_REPORT = `  reader views: ${LENS_IDS.join(', ')} — ${out.kept.length} of ${out.total} slides ship`;
 }
 // PRINT canvas is stamped by `--print` OR by an image set's `--image-mode print`
 // (one `color-mode: print` path, so the whole set renders the B&W-safe handout).
@@ -1981,7 +2005,18 @@ if (LENS_IDS.length > 1 && !PLAYER) {
   console.error('       Export one view per file, or add --player, which carries several views behind a switcher.');
   process.exit(1);
 }
-if (LENS_REPORT && !flags.quiet) console.log(LENS_REPORT);
+if (LENS_REPORT && !flags.quiet) {
+  console.log(LENS_REPORT);
+  // The distinction the whole design record exists to protect, said WHERE THE AUTHOR IS.
+  // `design/skills/lens.md` states it well and a CLI user is not reading it. "5 of 16 slides
+  // ship" is the language of withholding, and for a multi-view carrier that is only half
+  // true: what the export left out is genuinely absent, but every view carried in one file
+  // is reachable from that file.
+  if (LENS_IDS.length > 1) {
+    console.log(`  note: this file CARRIES ${LENS_IDS.length} views — switching between them hides, it does not withhold.`);
+    console.log('        Every carried slide is in this file. Export one view per file for a recipient who must not have the others.');
+  }
+}
 const ENGINE_BUILD = pkgVersion() ?? '';
 // Auto-split — the Fit Ladder's SPLIT move. ONE trigger: a real render MEASURED the slide
 // overflowing its box, and the slide has a seam (lib/core/auto-split.js `splitDoc`, driven
@@ -4286,6 +4321,11 @@ async function renderBody(browser, g, closeBrowser) {
         // Only past two views does the player build a switcher: one view is not a carrier,
         // it is an ordinary player of a deck that was already reduced.
         lensViews: LENS_VIEWS,
+        // What this envelope IS, when it is not the whole deck — so a re-import can say
+        // "4 of 16 slides, under `brief`" rather than looking like a deck that lost twelve
+        // slides and broke its own approvals. Only for a PROJECTED envelope: under
+        // `--lens-source full` the envelope really is the whole deck.
+        lensProjection: LENS_VIEWS && LENS_SOURCE === 'projected' ? { views: LENS_IDS, of: LENS_TOTAL } : undefined,
         title: deckTitle,
         // The deck's REAL canvas. Without it the player hardcoded 1280x720 and any deck
         // declaring a non-default `size:` exported laid out for its own canvas and then
