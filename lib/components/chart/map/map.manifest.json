@@ -15,6 +15,9 @@
   "substance": "series",
   "render": "svg",
   "renderNote": "The projected basemap, region fills, highlight rings and place labels are one `<svg>`. The geography IS path data — nothing but SVG draws a coastline — and labels have to sit in the same projected space as the regions they name.",
+  "kernel": {
+    "figureClass": "map-figure"
+  },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },
   "bucket": "chart",

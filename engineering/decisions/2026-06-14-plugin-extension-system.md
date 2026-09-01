@@ -12,6 +12,18 @@ under `spec/`, a sibling profile to [`LFM 1.0`](../../spec/LFM-1.0.md).
 **Supersedes nothing.** Formalises and unifies what the engine already does in
 six places.
 
+**Status update (2026-09-01):** Phase 1 items 1–2 — the dispatch half — shipped as
+`2026-09-01-manifest-driven-chart-dispatch.md` (#287). All fourteen chart kernels
+now dispatch off a manifest block and `chart-family.js` names no chart. Two naming
+divergences that note records: the block ships as `kernel`, because `render` had
+since been claimed by the render-nature enum, and `transform` by the transform DSL;
+and the ratified entrypoint takes `(html, ctx)` rather than
+`(inner, classTokens, ctx)`, with a `{ html, cls }` return arm roadmap needs.
+Items 3–5 (function-plot, the `lpm-conformance` fixtures + parity gate, and
+`spec/LPM-1.0.md`) are NOT built, so this note stays **Proposed** and the
+`kind` / `trigger` / `order` / `parity` / `degradesTo` / `tokens` fields below
+remain design, not schema.
+
 ---
 
 ## The question

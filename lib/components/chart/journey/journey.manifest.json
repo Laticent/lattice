@@ -14,6 +14,9 @@
   "substance": "structure",
   "render": "hybrid",
   "renderNote": "The board \u2014 stages, lanes, actors and task labels \u2014 is an HTML/CSS grid, because a journey map is fundamentally a table of text that must wrap and reflow. Drawn across it in inline `<svg>`: the mood curve and the mood faces, the only parts with real geometry. Neither side animates today \u2014 journey emits no motion roles, so chart-motion skips it.",
+  "kernel": {
+    "figureClass": "journey-board"
+  },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },
   "orientation": [

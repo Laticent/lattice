@@ -276,7 +276,7 @@ knowing one tells you nothing about the others.
 |---|---|---|
 | **`substance`** | manifest, §5 above | What the AUTHOR writes — a table of numbers (`series`), a network (`graph`), a hierarchy (`structure`), prose |
 | **`bucket`** | manifest + the folder path | Which directory the files sit in. **Nothing else.** |
-| **chart-family membership** | `CHART_LAYOUTS` in `chart-family.js` | Whether the dispatcher wraps it in `.chart-frame` — the shared eyebrow / subtitle / caption / status skeleton |
+| **chart-family membership** | the `kernel` block in each chart's manifest (frozen into `_chart-family/chart-registry.generated.js`) | Whether the dispatcher wraps it in `.chart-frame` — the shared eyebrow / subtitle / caption / status skeleton |
 | **`render`** | manifest, gated | What the picture is DRAWN with — `svg`, `html`, or `hybrid` |
 
 Read out loud, for the components where they disagree:
@@ -695,11 +695,14 @@ The manifest is the contract; everything else flows from it.
 
 The engine has exactly four plugin points, one per substance.
 
-**Adding a new chart kind (substance = series).** Add a kernel module
-`lib/<name>.js` exporting a function that takes the parsed list and
-returns SVG sized to the chart-frame. Register the kind in
-`CHART_LAYOUTS` in `lib/components/chart/_chart-family/chart-family.js`. Add CSS, manifest, demo
-deck.
+**Adding a new chart kind (substance = series).** A folder drop. Create
+`lib/components/chart/<name>/` with a `<name>.transform.js` exporting
+`transformSection(html, ctx)` — parse the list, return SVG sized to the
+chart-frame — and a manifest carrying a `kernel` block (`figureClass`, the class
+on the figure root the kernel emits). `npm run build` freezes it into the dispatch
+registry; `chart-family.js` is not edited. Add CSS, docs, demo deck — and the
+hand-maintained rosters in `design/skills/chart-component.md` step 9, which the
+manifest does not yet drive.
 
 **Adding a new graph language (substance = graph).** Detect the fence
 in the shared kernel and the two render surfaces — `lattice-emulator.js`

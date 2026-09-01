@@ -1,6 +1,6 @@
 /**
  * Unit tests for the redesigned gantt — the continuous-time renderer
- * (lib/components/chart/_chart-family/chart-family.js buildGanttChart) and the
+ * (lib/components/chart/gantt/gantt.transform.js buildGanttChart) and the
  * authoring linter (lib/authoring/lint-core.js findGanttIssues, via lintTextWith).
  *
  * Contract: a task is a nested bullet with trailing inline-code tokens — a span
@@ -20,9 +20,11 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const engine = require('../../../lib/components/chart/_chart-family/chart-family');
+const ganttKernel = require('../../../lib/components/chart/gantt/gantt.transform');
 const core = require('../../../lib/authoring/lint-core');
 
-const { buildGanttChart, extractFirstList, GANTT_GEOM, GANTT_GEOM_TALL } = engine;
+const { buildGanttChart, GANTT_GEOM, GANTT_GEOM_TALL } = ganttKernel;
+const { extractFirstList } = engine;
 const inner = (ul) => extractFirstList(ul).inner;
 
 // The gantt is SVG-native (2026-07-26): marks are <rect>/<polygon> in viewBox

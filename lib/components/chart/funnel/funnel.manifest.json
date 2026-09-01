@@ -14,6 +14,9 @@
   "substance": "series",
   "render": "svg",
   "renderNote": "Bands, labels, values and the conversion percentages are all one `<svg>`. A funnel is a geometric claim — each band's width IS the conversion rate — so the taper has to be drawn in one coordinate system rather than assembled from boxes that happen to line up.",
+  "kernel": {
+    "figureClass": "funnel-figure"
+  },
   "stage": "canvas",
   "coda": { "claims": ["trailing-paragraph"] },
   "bucket": "chart",

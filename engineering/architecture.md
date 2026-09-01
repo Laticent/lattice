@@ -248,6 +248,7 @@ exercised by the unit suite:
 | watermark Tile | section-number ghost | compute the number | `lib/forms/tile/watermark/watermark.transform.js` (`applyToHtml` + `applyToDom`) — self-contained Tile (#356) |
 | footer / paginate / header | front-matter directives → chrome | directive parsing | `lib/engine/directives.js` (owned engine) |
 | overflow signal | measures the laid-out slide → ring + "Overflows" / "Content clipped" tab, the type-floor alarm, and the Fix-Me outline | measure + react | probe `lib/core/overflow-probe.js` · WHEN/WHERE `lib/core/fit-sweep.js` · the tabs' markup `lib/core/fit-berth.js` · watchers `lib/runtime/index.js` + `lattice-emulator.js` |
+| split verdict | turns the probe's EXTENT into `{ ratio, canSplit, splitRatio }` — is this overflow one a split can fix, and into how many pages | decide, then feed `resplitDoc` | `lib/core/split-verdict.js` (`buildSplitVerdict` + `SPLIT_VERDICT_SRC` for injection), consumed by `lattice-emulator.js`'s `measureOverflow` |
 | marker berth | emits the three empty, hidden marker tabs into every slide, so no watcher creates marker DOM | none — it is markup | `lib/core/fit-berth.js` (`applyToHtml` + `applyToDom`), called LAST on both paths |
 | geometry bridge | sets `--_sec-1cqi` (= section width ÷ 100) so `cqi`/`cqh` sizing resolves in the preview iframe | self-measure for the container-query fallback | `lib/runtime` `patchSectionGeometry` |
 

@@ -243,7 +243,10 @@ describe('shape-glyphs — engine JS render sites stay drawn', () => {
       // reads as a mistake to every linter that looks.
       `const dest = t.isSelf ? '\u21ba' : \`\u2192 \${t.to}\`;`,
     ],
-    'lib/components/chart/_chart-family/chart-family.js': [
+    // The matrix-grid axis arrows moved here with the rest of that chart's
+    // kernel when chart-family.js stopped holding per-chart code (LPM Phase 1);
+    // the glyphs are unchanged, only the file that holds them.
+    'lib/components/chart/matrix-grid/matrix-grid.transform.js': [
       "const AXIS_ARROW = { col: '\u25b6', row: '\u25bc' };",
       // NOT a violation — this one STRIPS an author's typed arrow before the
       // component appends its own, so the glyphs are on the removal side. It is
