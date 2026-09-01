@@ -57,8 +57,24 @@ section.verdict-grid > .cell-stage > ul {
    * tiling (matrix-2x2 idiom — `width` on the cells, not a flex-shorthand calc basis) whose
    * wrapped rows stretch to share the bounded stage (align-content:stretch), so a dense grid
    * shrinks to fit instead of clipping the last row. */
-  display:flex; flex-wrap:wrap; align-content:stretch;
+  display:flex; flex-wrap:wrap;
+  /* `align-content: stretch` used to sit here, which made every wrapped row share the
+   * stage and left ~40% of each card empty below its criteria block at wide and square.
+   * The alternative — centering the content INSIDE a full-height card, which is what
+   * this component already does at portrait — was rendered and rejected: portrait is a
+   * single COLUMN, one card per line, so centering cannot stagger anything. In a
+   * multi-card ROW it can and does. On the five-option stress page the `Third.` and
+   * `Fourth.` titles fall out of line the moment one body wraps to two lines, and a
+   * grid of peers is read across, so a title baseline is load-bearing.
+   * Content-height rows distributed instead: the void goes, the titles stay level.
+   * Scoped to the ROW families — at tall/strip this list is a column, where
+   * `align-content` governs the horizontal axis instead.
+   * See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §5c. */
+  align-content: space-evenly;
   gap:var(--sp-sm); flex:1; list-style:none; padding:0; margin:0;
+}
+section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+  align-content: stretch;
 }
 section.verdict-grid > .cell-stage > ul > li {
   box-sizing:border-box;
