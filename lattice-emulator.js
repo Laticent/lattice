@@ -2217,8 +2217,10 @@ function strippedSlidesOrAuthored() {
   // a setext underline, so the export gains a slide), while a note indented inside a LIST item
   // needs the line simply gone (an empty line turns a tight list loose, which is a visible
   // change to a deck that did nothing unusual). Same neighbours, opposite right answers — so
-  // this renders each and keeps the one that reproduces the deck the author wrote.
-  for (const boundary of ['preserve', 'drop']) {
+  // this renders each and keeps the one that reproduces the deck the author wrote. The CANDIDATE
+  // LIST is the kernel's (#1): the Studio's `stripNotesCut` reads the same one, so neither path
+  // can quietly gain a cut or reorder them without the other.
+  for (const boundary of notesCore.NOTE_SCRUB_BOUNDARIES) {
     const source = notesCore.stripNotesFromSource(rawMd, noteStripSet, { boundary });
     const rendered = engineSlides(source);
     if (matches(rendered)) {

@@ -163,7 +163,8 @@ type NotesCore = {
 	extractSlideCaptions: (sections: string[]) => (string | null)[];
 	stripCommentNodes: (html: string) => string;
 	noteBodiesFromHtml: (sectionHtml: string) => string[];
-	stripNotesFromSource: (source: string, noteBodies: Set<string> | string[], opts?: { boundary?: 'preserve' | 'drop' }) => string;
+	stripNotesFromSource: (source: string, noteBodies: Set<string> | string[], opts?: { boundary?: string }) => string;
+	NOTE_SCRUB_BOUNDARIES: readonly string[];
 	auditStrippedSource: (strippedSource: string) => string[];
 	slideNoteRecord: (sections: string[]) => SlideNoteRecord[];
 };
@@ -393,11 +394,18 @@ export async function shareHtmlPlayer(
 		envelopeSource = cut.source;
 		fidelityWarning = cut.warning;
 		if (cut.out && cut.sections) {
-			out = cut.out as typeof out;
+			out = cut.out;
 			recordSections = cut.sections;
 			noteRecord = notesCore.slideNoteRecord(cut.sections);
 		}
 	}
+	// The engine omits `data-lattice-slide`; the CLI's emulator re-tags each section with it
+	// (lattice-emulator.js), and the player CSS + transport key off it. Split the render into
+	// per-slide sections and re-tag them the same way, so the assembled player finds its slides.
+	// (The emulator's extra image fixups are preview-parity concerns handled the same way the
+	// Studio preview does — i.e. not here.) Then materialize speaker notes + a11y descriptions the
+	// same way the emulator does, so the Studio player carries them exactly like the CLI player
+	// (`notes: true` is honest).
 
 	// BAKE FIRST. The engine's render is static: a ```mermaid fence is still a
 	// `<pre><code class="language-mermaid">`, and state-chart / function-plot are still

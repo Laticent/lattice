@@ -9,4 +9,6 @@
   needs the line gone. A note between two blank lines still takes one of them, so no blank-line
   run marks the spot. If neither cut reproduces the deck (a note at column 0 splitting two
   lists), the slides ship as written with a warning — and the warning now says that the embedded
-  source will re-import with that boundary changed, which the earlier wording did not.
+  source will re-import with that boundary changed, which the earlier wording did not. On both
+  paths it also names the likely cause and what to change, since that is the one case where the
+  author has to edit the deck to get the guarantee back.

@@ -346,7 +346,9 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   removing the comment before markdown-it ever sees it, which is how `directives.js` has always
   kept a consumed directive from leaving a trace. Costs one extra engine render on this flag's
   path only. Both writers changed, so the two paths stay in step — `lattice-emulator.js`
-  ("PASS 2") and `docs/src/components/studio/share-export.ts`. Pinned by
+  ("PASS 2") and the Studio's Webpage export, whose half of the measurement lives in
+  `docs/src/components/studio/strip-notes-guard.ts` (loaded on demand from `share-export.ts`;
+  it is off the studio route's eager bundle deliberately). Pinned by
   `test/integration/export/strip-notes-no-fingerprint.test.js`, which exports the fixture and a
   committed note-free twin and compares the rendered section bytes.
 - **A whole-line cut is not enough on its own, and the review of the fix found both halves.**
@@ -373,6 +375,16 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   what splits them), the SLIDES ship as written and the warning says the embedded source will
   differ — because on such a deck no removal preserves the boundary. All 23 shipped noted decks
   take the first cut.
+- **The two paths share the CANDIDATE LIST, not just the idea of one.** They are separate
+  implementations in separate runtimes — a CJS CLI and a browser TS module — and the first port
+  of the measurement to the Studio was a hand-written copy with nothing holding the two together,
+  which is the mechanism that produced the divergence in the first place. The one piece they must
+  agree on is the ordered candidates, so it is `notesCore.NOTE_SCRUB_BOUNDARIES` and both read it
+  from there. `test/unit/authoring/notes-core.test.js` fails if either caller writes the literal
+  out again; `docs/src/components/studio/strip-notes-guard.test.ts` pins the three outcomes
+  (preserve wins, drop wins, neither does) — without it, narrowing the loop back to one cut left
+  every gate in the tree green, the strip-notes e2e included, because that spec asserts only that
+  the note text is gone and that is true on all three.
 
 ## A `tier:` / `galleryAuthored:` pragma shipped as the speaker note in every format
 

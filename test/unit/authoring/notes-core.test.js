@@ -1166,3 +1166,48 @@ describe('notes-core: the comment matcher reads `--!>` as a terminator', () => {
     assert.match(out, /_class: title/, 'the directive is untouched');
   });
 });
+
+// ── The candidate cut order is ONE list, and both export paths read it ────────
+//
+// The checker's finding on the Studio port: `stripNotesCut` was a hand-written copy of
+// `strippedSlidesOrAuthored`, with no shared code and nothing pinning them together — the exact
+// mechanism that produced the divergence the port was fixing. `NOTE_SCRUB_BOUNDARIES` makes the
+// one piece they must agree on shared, and this pins that neither of them quietly writes its own
+// again. It is a SOURCE assertion because the two callers live in different runtimes (a CJS CLI
+// and a browser TS module) and cannot be imported into one process to be compared behaviorally.
+describe('notes-core: NOTE_SCRUB_BOUNDARIES', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const ROOT = path.join(__dirname, '..', '..', '..');
+  const CALLERS = [
+    'lattice-emulator.js',
+    'docs/src/components/studio/strip-notes-guard.ts',
+  ];
+
+  test('is the two cuts, conservative one first', () => {
+    assert.deepEqual([...core.NOTE_SCRUB_BOUNDARIES], ['preserve', 'drop']);
+    assert.ok(Object.isFrozen(core.NOTE_SCRUB_BOUNDARIES));
+  });
+
+  test('every value it carries is one stripNotesFromSource actually implements', () => {
+    // A cut nobody implements would silently render the same document twice: `boundary` falls
+    // through to the default, both passes agree, and the second is pure cost.
+    const src = 'Some text\n<!-- a note -->\n---\n\nMore text\n';
+    const bodies = new Set(['a note']);
+    const cuts = new Set(
+      core.NOTE_SCRUB_BOUNDARIES.map((boundary) => core.stripNotesFromSource(src, bodies, { boundary })),
+    );
+    assert.equal(cuts.size, core.NOTE_SCRUB_BOUNDARIES.length, 'two cuts produced the same source');
+  });
+
+  for (const rel of CALLERS) {
+    test(`${rel} reads the shared list rather than writing its own`, () => {
+      const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+      assert.match(text, /NOTE_SCRUB_BOUNDARIES/, `${rel} no longer reads the shared cut order`);
+      // The literal the constant replaced, in either quote style, in any order. A caller that
+      // writes it out again is a caller that can be reordered on its own.
+      const literal = /\[\s*(['"])(?:preserve|drop)\1\s*,\s*(['"])(?:preserve|drop)\2\s*\]/;
+      assert.doesNotMatch(text, literal, `${rel} writes its own boundary list — use the kernel's`);
+    });
+  }
+});
