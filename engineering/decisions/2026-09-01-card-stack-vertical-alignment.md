@@ -421,23 +421,42 @@ means it follows from the component's own CSS without a render, and `unseen` mea
 | `compare-prose` | `fill-center` | already declares `align-content: center` on its card at tall/strip; wide/square are the unstamped gap, exactly as `decision`'s was | read |
 | `cycle` | `fill-center` | its own split-run rule already picks `justify-content: center` for a lone card | read |
 | `list-steps` | `fill-spread` | the card's body carries `flex: 1`, so the content already spans the card | read |
-| `verdict-grid` | `fill-center` | chromed card; and its tall/strip rule already stamps `justify-content: safe center` | read |
-| `cards-grid` | `fill-center` | chromed card; the void is in the line rather than the card, so the declaration lands on the container | read |
+| `verdict-grid` | `fill-center` | chromed card; its portrait rule already stamps `justify-content: safe center` and its comment calls the result "fill:center" | **measured** |
+| `cards-grid` | `fill-center` | chromed card; the card is a wrap-row, so its content axis is `align-content` | **measured** |
 | `cards-stack` | `fill-center` | 75% slack with its own sample, chromed card | read |
 | `authority-chain` | `fill-center` | numbered cards in a frame; only the `trail` variant lays a row | read |
 | `citation-card` | `fill-center` | `triptych` only; card is a block today, so this needs a `display` first | read |
 | `inventory` | `fill-center` | `cards` and `timeline` variants; card is a block today, same caveat | read |
 | `roadmap` | `fill-center` | `horizons` only; `.horizon-card` is a flex column with no `justify-content` | read |
 
-**Two things this table does NOT settle.** `cards-grid` and `verdict-grid` can reach
-`fill-center` two ways — `align-content: stretch` on the line plus `justify-content` on the
-card, or `align-content: safe center` on the line, which instead produces `shrink-center`.
-§3b measured that the *container* declaration alone takes their trailing slack to zero, so both
-are available and the choice is a visual one. **The declarative pass that fixes those two
-(the next PR) settles it by rendering both**, and this table should be corrected from that
-render rather than trusted ahead of it. And `citation-card`, `inventory` and `roadmap` are
-graded `read` on cards that are `display: block` today — giving them a composition means
-giving them a `display` first, which is a larger change than a declaration.
+**`cards-grid` and `verdict-grid` were settled by rendering both candidates**, since §3b had
+measured that either the container or the card declaration takes their trailing slack to zero
+and only a look could choose. Rendered on the two exemplar slides that flag —
+`strategy-proposal` slide 6 and `investor-pitch` slide 7 — as shipped, as `fill-center`, and as
+`shrink-center`:
+
+- **`verdict-grid` → `fill-center`.** Under `shrink-center` the three cards contract and the
+  band centers, but the void moves outside them: a gap opens between the headline rule and the
+  first row, the band stops short of the stage floor, and the accent-filled "recommended" card
+  loses the presence its fill is there to give it. `fill-center` keeps the board of panels and
+  balances the air inside each.
+- **`cards-grid` → `fill-center`.** Its own square/tall/strip rule picks `align-content:
+  space-evenly` on the CONTAINER, so that was the obvious candidate — but rendered, it only
+  moves the void rather than removing it: the rows become content-height and spread, and the
+  shorter card of each pair still top-pins inside the line it shares. Centering the card's own
+  content is what actually empties the card.
+
+**And the pattern across all three fixed cells is the same, which reframes §1.** `decision` had
+`safe center` at square, tall and strip; `verdict-grid` has it at portrait, tall and strip, with
+a comment reasoning it out; `cards-grid` has `space-evenly` at square, tall and strip. **Every
+one of them had already made the call at some family and simply never stamped it at `wide`.**
+§1's "five different alignment behaviors, no policy" is half right: there IS a per-component
+policy in most of these files — it is just incompletely applied, and always in the same
+direction, on the family nearly every deck uses.
+
+**What this table still does NOT settle:** `citation-card`, `inventory` and `roadmap` are graded
+`read` on cards that are `display: block` today. Giving them a composition means giving them a
+`display` first, which is a larger change than a declaration.
 
 ## 6 · The constraint that forces a per-component default
 
