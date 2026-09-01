@@ -1020,6 +1020,56 @@ fine-grained PAT scoped to this repo with **Contents: write** and
 **Pull requests: write**, and nothing else. Both workflows **fail loudly** when
 it is missing rather than opening a PR that can never land.
 
+**Holding the PAT is not enough — `actions/checkout` will quietly take the
+identity back.** By default it writes the job's `GITHUB_TOKEN` into the
+repository's git config as an `http.https://github.com/.extraheader`
+Authorization header, and **that header overrides the credentials embedded in a
+push URL**. So a step doing everything right —
+
+```yaml
+env:
+  GH_TOKEN: ${{ secrets.AUTOMATION_PAT }}
+run: |
+  git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" HEAD:refs/heads/$BRANCH
+```
+
+— still pushes as `github-actions[bot]`, and the suppression above applies in
+full. **Every job that pushes with its own credentials must check out with
+`persist-credentials: false`.** `test/unit/tools/workflow-push-identity.test.js`
+pins it, with a checked exemption for the two jobs that push from a working tree
+they build themselves in a temp directory, where the extraheader cannot reach.
+
+**This froze the backlog mirror for three weeks and every symptom pointed away
+from the cause.** The workflow was green: it regenerated the file, committed,
+pushed, and exited 0. The PAT was present and demonstrably working — `gh pr
+create` and `gh pr merge` go over REST with it and were attributed correctly.
+Only git operations pick up the extraheader, so the run log showed an identity
+SPLIT rather than a failure:
+
+```
+2026-08-09  saden1               success           a fresh PR — the `opened` path
+2026-08-10  saden1               success           merged; the last good mirror
+2026-08-11  saden1               FAILURE           a real lint failure
+2026-08-12  github-actions[bot]  action_required
+…           github-actions[bot]  action_required   20 consecutive nights
+```
+
+A one-night lint failure started it. Until then each night opened a NEW PR, so
+the first event was the `opened` raised over REST by the PAT. The failure left
+the PR open, and from then on every night took the force-push path instead —
+the one that carries the wrong identity. `BACKLOG.md` on `main` froze claiming
+"167 open · 8 need triage" against a live queue of 271, and the one place
+anybody would look was twenty consecutive successes.
+
+**The design's own invariant is what routed it onto the broken path.** "ONE
+branch, ONE open PR, ever" is what turns the second night into a
+`synchronize` — so this workflow worked for exactly as long as it never had to
+update a PR. `release.yml` carried the identical bug and was saved only by
+luck: it cuts a fresh `release/v$V` branch every time, so its first event is
+always an `opened`. The first release needing a second push to an open PR would
+have frozen the same way, on the repo's highest-stakes automation. It now
+carries the flag too.
+
 **It is an *environment* secret, not a repo secret — that distinction is the
 security control.** A repo secret is readable by any workflow that runs in the
 repo, including one added on a PR branch; in a repo driven by agents that is a
