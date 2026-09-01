@@ -50,6 +50,60 @@ describe('notes-core: isToolingComment', () => {
   }
 });
 
+describe('notes-core: isLatticePragma', () => {
+  // The markers this repo writes into its own decks. Each one shipped as reader-visible
+  // text in every export's presenter-notes field before #1350.
+  for (const pragma of [
+    'tier: short',
+    'tier: standard',
+    'tier: full',
+    'TIER: Short', // the matcher is case-insensitive, as the tier-filter's own regex is
+    'galleryAuthored: curated Mermaid tour; build-bucket-galleries.js will not overwrite it',
+    'color-mode: dark',
+    'color-mode: light',
+    'color-mode: system',
+  ]) {
+    test(`pragma excluded: "${pragma}"`, () => {
+      assert.equal(core.isLatticePragma(pragma), true);
+    });
+  }
+
+  // The other direction, and the one that matters more: over-stripping eats an author's
+  // note silently. Every entry here shares a KEY with a pragma above and must stay a note
+  // purely on its value, which is what the value constraints buy.
+  for (const note of [
+    'tier: we should discuss the pricing tier before the board',
+    'tier: enterprise',
+    'color-mode: we should discuss the palette with design first',
+    'Reminder: keep it to ninety seconds',
+    'TODO: revisit this slide before the board',
+    'tiers are the thing to explain here',
+  ]) {
+    test(`note kept: "${note}"`, () => {
+      assert.equal(core.isLatticePragma(note), false);
+    });
+  }
+
+  // The two sets are deliberately separate — MAGIC_COMMENT_MATCHERS is locked to Marpit's
+  // set by the parity test, so a Lattice entry landing there would fail it.
+  test('Lattice pragmas are NOT in the Marpit-mirrored tooling set', () => {
+    for (const pragma of ['tier: short', 'galleryAuthored: x', 'color-mode: dark']) {
+      assert.equal(core.isToolingComment(pragma), false);
+    }
+  });
+
+  test('a pragma is not lifted as a note, and a real note beside it survives', () => {
+    assert.equal(
+      core.notesFromHtml(sec('<!-- tier: short --><h1>A</h1><!-- Pause here. -->')),
+      'Pause here.'
+    );
+  });
+
+  test('a slide carrying only pragmas has no note at all', () => {
+    assert.equal(core.notesFromHtml(sec('<!-- tier: full --><!-- color-mode: dark --><h1>A</h1>')), null);
+  });
+});
+
 describe('notes-core: notesFromHtml', () => {
   test('single note', () => {
     assert.equal(core.notesFromHtml(sec('<h1>A</h1><!-- speaker note -->')), 'speaker note');

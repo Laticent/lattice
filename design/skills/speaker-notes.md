@@ -78,6 +78,15 @@ ordinary, strippable note again. The directive names are `theme`, `paginate`, `h
 `backgroundRepeat`, `backgroundSize`, `size`, `style`, `lang`, `marp`, `logo`, `focus`,
 `focusStyle`, `focusSteps`, `build`, `debug`, `lens`.
 
+**A handful of `key: value` comments are PRAGMAS, not notes, and never reach the notes
+field.** These are markers Lattice's own tooling reads: `tier: short|standard|full` (the
+exemplar length-variant marker), `galleryAuthored: …` (a gallery build marker), and the
+comment form of the deck register `color-mode: …`. Each is matched on its VALUE as well as
+its key, so an ordinary note that happens to start with one of those words stays a note —
+`<!-- tier: we should discuss the pricing tier -->` is yours, `<!-- tier: short -->` is the
+tool's. Before this, every one of them shipped as reader-visible text in the presenter-notes
+field of every format, on slides whose author had written no note at all.
+
 **A note comment shown inside a code fence is safe.** A deck that documents this syntax
 keeps its sample: `--strip-notes` matches a note body *in a position where a note can
 live*, so a `<!-- … -->` inside a fenced block or an inline code span is left alone even

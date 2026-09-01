@@ -330,3 +330,21 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Fix:** `hasNotes` gates the button, the panel and the key together. Verified on a real
   browser, not a harness (HARD RULE #23): panel `display:none`, `n` inert, 0px.
   `lib/export/player-core.mjs`.
+
+## A `tier:` / `galleryAuthored:` pragma shipped as the speaker note in every format
+
+- **Symptom:** an exemplar deck exports and its presenter-notes field reads
+  `"tier: short\n\ntier: standard\n\ntier: full…"`. A slide whose author never wrote a note
+  ships one anyway, made of internal build markers — and where the author DID write a note,
+  the pragma is prepended to it.
+- **Cause:** the engine consumes only its own KNOWN directives; every other `key: value`
+  comment survives into the rendered section, and `noteBodiesFromHtml` lifts any surviving
+  comment as a speaker note. Lattice's own pragmas are not Marpit's, so the
+  `MAGIC_COMMENT_MATCHERS` exclusion set — copied verbatim from Marpit and locked there by a
+  parity test — never covered them.
+- **Fix:** a separate `LATTICE_PRAGMA_MATCHERS` set beside it, covering `tier:`,
+  `galleryAuthored:` and the comment form of the `color-mode:` register. Every matcher is
+  VALUE-CONSTRAINED where a prose reading is possible (`tier:` takes only the three tier
+  names), because over-stripping is the expensive failure: it eats a real note silently and
+  the author has no way to tell what ate it. `lib/authoring/notes-core.js` ›
+  `isLatticePragma`.
