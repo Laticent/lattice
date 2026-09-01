@@ -119,46 +119,65 @@ owe nothing here. See
 - **Commit:** `fix(docs): load Architect authoring cores via an esbuild bundle so
   they work in astro dev`.
 
-## Playwright dies with `Process from config.webServer exited early` — `astro preview` is a daemon
+## astro 7 backgrounds `preview` and `dev` FOR AN AGENT, and Playwright then dies with `Process from config.webServer exited early`
 
 - **Symptom:** every Playwright run against the docs site fails before a single test
   body executes, with `Process from config.webServer exited early`. The build step
-  before it succeeded, and pointing a browser at `http://localhost:4321/studio/` by
-  hand serves the site perfectly well. Identical in CI and locally.
-- **Cause:** astro 7 made `astro preview` FORK. It starts the server, prints
-  `Preview server running at … (pid N)`, and the command RETURNS. Playwright's
-  `webServer` needs a process that stays up for as long as the run, so a command that
-  exits with rc=0 is reported as an early exit and the whole run is abandoned. The
-  `--background` flag does not select this behavior — it is opt-in *reporting* of a
-  daemon that is already the default.
-- **Measured, on astro 7.2.10:** the foreground invocation returns in 3.05s with rc=0,
-  while `astro preview status` still answers
-  `Preview server running at http://localhost:4399 (pid 4984, uptime 1s, background)`
-  and the port serves HTTP 200.
-- **Mitigation:** `docs/scripts/preview-e2e.mjs` — `npm run preview:e2e` runs it
-  instead of `astro preview` directly. It runs astro's PROGRAMMATIC `preview()`, which
-  serves in-process, and blocks on `await server.closed()`. There is no daemon, so
-  whatever ends the process — SIGTERM, SIGKILL, a lost signal, the parent dying — takes
-  the server with it.
-- **STOPPING THE DAEMON ON THE WAY OUT DOES NOT WORK, and this is the part worth
-  knowing.** The wrapper's first version kept the CLI daemon and stopped it from
-  `SIGINT`/`SIGTERM`/`exit` handlers. It leaked anyway. Playwright ends a run by
-  signaling the `webServer` command, which is `npm run preview:e2e`; **npm does not
-  reliably forward that signal to the node process it spawned**, so the handlers never
-  ran. A cleanup that depends on receiving a signal is not a cleanup.
-- **What a leaked daemon then costs is silent, not loud.** `reuseExistingServer` is on
-  locally (off in CI), and Playwright checks the URL *before* it runs the `webServer`
-  command — so if anything is already answering on 4321, the command never runs and the
-  suite tests whatever is there. Measured while writing this entry: a leaked daemon from
-  one checkout was adopted by a Playwright run in a DIFFERENT worktree, and **179 tests
-  went green against a build the branch under test had never produced.** Nothing in the
-  output says so; the giveaway was that the branch's own `docs/dist/` did not exist.
-- **So if an e2e result looks too good, check `docs/dist/` exists in the tree you are
-  testing** and that no `astro preview` process is running from elsewhere
-  (`ps aux | grep 'astro.*preview'`).
+  before it succeeded, and the site serves fine by hand. **It does not reproduce on a
+  GitHub runner** — which is the part that misleads.
+- **Cause, and it is NOT "astro 7 daemonizes":** astro 7 backgrounds the server when it
+  detects an AGENTIC environment, and only then. From
+  `astro/dist/cli/preview/index.js`:
+
+  ```js
+  const agentDetected = !process.env.ASTRO_PREVIEW_BACKGROUND && isRunByAgent();
+  if (flags.background || agentDetected) { await background(...); return; }
+  ```
+
+  `isRunByAgent()` is `am-i-vibing`'s `detectAgenticEnvironment()`, which in a Claude
+  Code session returns `{ isAgentic: true, id: "claude-code", type: "agent" }`.
+- **Measured on astro 7.2.10, same tree, same command:**
+
+  | environment | result |
+  |---|---|
+  | Claude Code session | returns in ~3s, rc=0; `astro preview status` reports it up, "background" |
+  | agent vars stripped, `CI=true GITHUB_ACTIONS=true` | stays in the FOREGROUND until killed |
+
+  So `astro preview --port 4321` is fine on a GitHub runner and breaks for an agent.
+  An earlier version of this entry said the daemon was unconditional and "identical in
+  CI and locally"; that was inherited from #1491's attempt and never tested. It is
+  wrong.
+- **`astro dev` does the same thing** — `astro/dist/cli/dev/index.js` carries the
+  identical branch on `ASTRO_DEV_BACKGROUND`. So the `cd docs && npm run dev` that
+  CLAUDE.md and `engineering/development.md` tell agents to use now returns
+  immediately and leaves the server running. Stopping it by port still works.
+- **Mitigation for the e2e path:** `docs/scripts/preview-e2e.mjs` — `npm run
+  preview:e2e` runs it instead of the CLI. It serves through astro's PROGRAMMATIC
+  `preview()`, which runs in THIS process, so there is no fork to detect and CI and an
+  agent session behave identically. It sets `strictPort` so a busy port is a loud
+  error rather than a silent slide to 4322 with Playwright waiting out its 300s
+  timeout on the URL nothing is serving.
+- **DO NOT "helpfully" run `astro preview stop` first.** An earlier version did, as
+  belt and braces against a daemon from another checkout. It cannot do that job —
+  astro's preview lockfile is `.astro/preview.json` resolved against the ROOT, so a
+  daemon from a different checkout is invisible to it. And on an **astro 6** tree it is
+  destructive: astro 6's preview CLI has no `stop` subcommand, ignores the positional,
+  and STARTS A FOREGROUND SERVER. The `spawnSync` never returns, and a server is left
+  holding 4321.
+- **What a stray server on 4321 then costs is silent, not loud.** `reuseExistingServer`
+  is on outside CI, and Playwright probes the URL *before* running the `webServer`
+  command — so if anything answers, the command never runs and the suite tests whatever
+  is there. Measured twice while writing this entry: once **179 tests went green
+  against a build the branch under test had never produced**, and once a `@smoke` run
+  reported 4 failures belonging to a different worktree entirely.
+- **So if an e2e result looks surprising — too good or too strange — check the tree you
+  are testing has a `docs/dist/`**, and that nothing else is serving
+  (`ps aux | grep 'astro.*preview'`, `curl -s -o /dev/null -w '%{http_code}'
+  http://127.0.0.1:4321/studio/`).
 - **Triggered by:** the astro 6 → 7 bump (#1483).
-- **Removable when:** astro offers a documented foreground preview, or Playwright grows
-  a way to adopt a daemonizing server command.
+- **Removable when:** astro offers a documented, stable way to force the foreground
+  (`ASTRO_PREVIEW_BACKGROUND` is astro's own marker for the process it forked, not a
+  public opt-out), or Playwright grows a way to adopt a daemonizing server command.
 
 ## Docs `npm run dev` → `sh: 1: astro: not found`
 
