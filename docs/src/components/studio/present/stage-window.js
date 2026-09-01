@@ -43,6 +43,7 @@ import {
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
 import { slideBox } from '../../../playground/frame-css.js';
+import { previewCspMeta } from '../../../playground/preview-csp.js';
 import { STAGE_CHROME_CSS } from './stage-chrome.js';
 
 /**

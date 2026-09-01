@@ -181,7 +181,16 @@ describe('the specimen flag on the rendered frame (#1463)', () => {
 	it('does not disturb the rest of the document head — the theme style still carries its id', async () => {
 		// The RESTYLE fast path finds the resident theme <style> by id; a malformed <html>
 		// tag would be a parse problem the flag has no business causing.
+		//
+		// Asserted as three facts rather than one literal string. This used to match
+		// `<head><meta charset="utf-8"><style id="lattice-theme">` as one span, which pinned
+		// the ADJACENCY of the charset meta and the theme style — more than the fast path
+		// needs, and it went red the moment the preview CSP meta was added between them
+		// (#1753). What the fast path actually requires is that the head opens well and the
+		// style is findable by id; a `<meta>` in between is exactly what a head is for.
 		const doc = await srcdocFor(true);
-		expect(doc).toContain('<head><meta charset="utf-8"><style id="lattice-theme">');
+		expect(doc).toContain('<head><meta charset="utf-8">');
+		expect(doc).toContain('<style id="lattice-theme">');
+		expect(doc.indexOf('<style id="lattice-theme">')).toBeLessThan(doc.indexOf('</head>'));
 	});
 });

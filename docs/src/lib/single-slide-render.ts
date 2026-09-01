@@ -34,9 +34,10 @@ import {
 } from '../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { sourceHasMath } from '../../../lib/engine/math-detect.mjs';
 import { applyDebug } from '../playground/debug-overlay.js';
-import { hashString, linkGuardAgent, previewCspMeta } from '../playground/deck-preview.js';
+import { hashString, linkGuardAgent } from '../playground/deck-preview.js';
 import { hasFidelityListeners, recordFidelity } from '../playground/fidelity-findings';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
+import { previewCspMeta } from '../playground/preview-csp.js';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../playground/render-metrics';
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playground/viz-findings';
