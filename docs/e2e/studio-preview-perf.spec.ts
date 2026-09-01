@@ -77,7 +77,7 @@ function galleryDeck(n: number): string {
 	return `${fm.replace(/\n---[ \t]*\n$/, '\npaginate: true\n---\n')}${slides.join('\n\n---\n\n')}\n`;
 }
 
-type Sample = { engineMs: number; frameMs: number; totalMs: number; writePath?: string };
+type Sample = { engineMs: number; sanitizeMs: number; frameMs: number; totalMs: number; writePath?: string };
 
 /** Subscribe to raw render samples and reset the buffer. */
 async function collectFrom(page: import('@playwright/test').Page): Promise<void> {
@@ -87,7 +87,7 @@ async function collectFrom(page: import('@playwright/test').Page): Promise<void>
 		w.__bench = [];
 		w.__latticeRenderMetrics.on((s) => {
 			const r = (s.raw as Record<string, number>) ?? (s as unknown as Record<string, number>);
-			w.__bench.push({ engineMs: r.engineMs, frameMs: r.frameMs, totalMs: r.totalMs, writePath: s.writePath as string });
+			w.__bench.push({ engineMs: r.engineMs, sanitizeMs: r.sanitizeMs, frameMs: r.frameMs, totalMs: r.totalMs, writePath: s.writePath as string });
 		});
 	});
 }
@@ -133,8 +133,20 @@ function report(label: string, samples: Sample[], interaction?: 'navigation' | '
 	const regimes: Record<string, number> = {};
 	for (const s of samples) regimes[s.writePath ?? '?'] = (regimes[s.writePath ?? '?'] ?? 0) + 1;
 	console.log(`  regimes: ${JSON.stringify(regimes)}`);
-	for (const [i, s] of patch.entries()) console.log(`    #${String(i + 1).padStart(2)}  RENDER ${f(s.engineMs).padStart(6)}  FRAME ${f(s.frameMs).padStart(5)}  TOTAL ${f(s.totalMs).padStart(6)}`);
-	console.log(`  n=${patch.length}  RENDER p50 ${f(p50(patch.map((s) => s.engineMs)))}  FRAME p50 ${f(p50(patch.map((s) => s.frameMs)))}  TOTAL p50 ${f(p50(patch.map((s) => s.totalMs)))}  TOTAL max ${f(Math.max(...patch.map((s) => s.totalMs)))}`);
+	// SANITIZE is reported and not capped, deliberately. It was the largest single span on a cheap
+	// deck (~4.3ms, flat across a 6.5x difference in deck bytes — #1543) and nothing printed it, so
+	// the one number that would have shown the cost was invisible in the suite that measures this
+	// path. What blocks a merge for it is the pass COUNT in
+	// docs/src/lib/single-slide-render.sanitize-memo.test.ts, for the reason the header gives about
+	// wall-clock gates; this column is the corroboration a human reads.
+	for (const [i, s] of patch.entries())
+		console.log(`    #${String(i + 1).padStart(2)}  RENDER ${f(s.engineMs).padStart(6)}  SANITIZE ${f(s.sanitizeMs).padStart(5)}  FRAME ${f(s.frameMs).padStart(5)}  TOTAL ${f(s.totalMs).padStart(6)}`);
+	// SANITIZE also carries a MEAN, which no other span here needs. Its distribution is bimodal by
+	// design — a repeat render is served from the sanitize memo (single-slide-render.ts) at ~0 while
+	// a new string pays the full pass — so a p50 over a run that is half hits reports whichever mode
+	// the median happens to land in and hides the other one entirely.
+	const mean = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : Number.NaN);
+	console.log(`  n=${patch.length}  RENDER p50 ${f(p50(patch.map((s) => s.engineMs)))}  SANITIZE p50 ${f(p50(patch.map((s) => s.sanitizeMs)))} mean ${f(mean(patch.map((s) => s.sanitizeMs)))}  FRAME p50 ${f(p50(patch.map((s) => s.frameMs)))}  TOTAL p50 ${f(p50(patch.map((s) => s.totalMs)))}  TOTAL max ${f(Math.max(...patch.map((s) => s.totalMs)))}`);
 
 	// THE CLIFF. Asserted on p50, not max: one slow sample is a GC pause or a scheduler hiccup, and
 	// gating on it would be the flaky gate the old note rightly feared. A p50 past the ceiling means

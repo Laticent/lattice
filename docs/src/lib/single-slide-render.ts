@@ -155,7 +155,7 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // unchanged sig means the next render can PATCH the section in place; plus a
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
-type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeRestyleSig?: string; __latticePendingLoad?: boolean; __latticeRevealPoll?: ReturnType<typeof setInterval> };
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticePendingLoad?: boolean; __latticeRevealPoll?: ReturnType<typeof setInterval> };
 // "Has the live iframe actually painted a slide yet?" — true once its document holds a
 // rendered `.lattice`. scaleFrame reveals the frame only when this is true, so it never
 // unhides the pre-load `about:blank` white document (no `.lattice`) — the white-flash
@@ -449,7 +449,33 @@ function needsDeckContext(deck: string): boolean {
 // On a hit `engineMs` is the real (near-zero) elapsed time and `stats` is absent, because no
 // engine stages ran — the perf overlay tells the truth rather than a fabricated breakdown.
 type DeckRender = { html: string; css: string; width?: number; height?: number };
-let deckMemo: { key: string; out: DeckRender } | null = null;
+// THE KEY IS A FILTER; THIS IS THE ANSWER. Both caches below key on `memoKey`, which HASHES the
+// three long inputs (djb2-32 + length). A hash key alone decides a hit by 32 bits, so a collision
+// serves ANOTHER DECK'S rendered slide into the preview frame — a confident, wrong slide, on a
+// surface that ingests decks from a share link and from a model. `lib/core/slide-boundaries.mjs`
+// makes exactly this argument for its own memo while these two did not, which Amendment 7 of
+// 2026-07-30-preview-deck-context-and-render-cost.md logged as "either that principle is wrong or
+// this is a live defect" (#1543).
+//
+// So every entry carries the inputs the key only hashed, and a hit is CONFIRMED against them
+// before it is served: the hash narrows the lookup, the comparison decides it. The comparison is
+// what a cache like this is allowed to trust — an equality over the exact bytes, not a digest of
+// them — and a mismatch is simply a miss, so a collision costs a re-render rather than a wrong
+// slide. Verified inside the getters, so no call site can forget it.
+//
+// The cost is a string compare on a hit. Both sides are usually the SAME string object (the deck
+// the Studio holds, handed in again), which V8 settles by identity; the worst case is a memcmp of
+// a 60KB deck source, ~microseconds against a 4-6ms render. The other key parts — theme, mode,
+// samplesBase and the supplied page position — stay literal in the key and need no verification.
+type KeyInputs = { source: string; extraCss: string; extraThemeCss: string };
+const sameInputs = (a: KeyInputs, b: KeyInputs) => a.source === b.source && a.extraCss === b.extraCss && a.extraThemeCss === b.extraThemeCss;
+let deckMemo: { key: string; inputs: KeyInputs; out: DeckRender } | null = null;
+/** The whole-deck memo, served only when the entry's own inputs match the ones asked for. */
+function deckMemoGet(key: string, inputs: KeyInputs): DeckRender | undefined {
+	if (!deckMemo || deckMemo.key !== key) return undefined;
+	if (!sameInputs(deckMemo.inputs, inputs)) return undefined;
+	return deckMemo.out;
+}
 // SLICE CACHE — a small LRU of single-slide renders.
 //
 // The whole-deck memo made NAVIGATION nearly free: one memoized deck parse served all 40 slides,
@@ -466,22 +492,173 @@ let deckMemo: { key: string; out: DeckRender } | null = null;
 // profile is smaller than the single whole-deck entry it supplements. Insertion-ordered Map: the
 // oldest key is evicted, and a hit re-inserts to keep it warm.
 const SLICE_CACHE_MAX = 24;
-const sliceCache = new Map<string, DeckRender>();
+const sliceCache = new Map<string, { inputs: KeyInputs; out: DeckRender }>();
 /** Drop the slice cache. Separate from `clearDeckMemo` on purpose — see the note there. */
 export function clearSliceCache(): void {
 	sliceCache.clear();
 }
-function sliceCacheGet(key: string): DeckRender | undefined {
+function sliceCacheGet(key: string, inputs: KeyInputs): DeckRender | undefined {
 	const hit = sliceCache.get(key);
 	if (!hit) return undefined;
+	// A hashed key narrowed the lookup; the inputs decide it (see KeyInputs above). A mismatch is
+	// a miss — the render below overwrites the entry, so a collision cannot serve twice either.
+	if (!sameInputs(hit.inputs, inputs)) return undefined;
 	sliceCache.delete(key); // re-insert so recency is the eviction order
 	sliceCache.set(key, hit);
-	return hit;
+	return hit.out;
 }
-function sliceCachePut(key: string, out: DeckRender): void {
+/**
+ * Store a slice render, with its inputs DETACHED from the deck they were cut out of.
+ *
+ * The slice route's `source` is the Studio's `previewFm + slide`, and `slide` came from
+ * `splitSlides`'s `text.slice(...)` — which V8 represents as a SlicedString over the WHOLE deck
+ * body, wrapped in a ConsString. Keeping one of those alive keeps the entire deck source alive
+ * with it, and every keystroke mints a new entry: up to 24 GENERATIONS of the deck retained by a
+ * cache that used to hold nothing but engine output. Measured on the retention mechanism itself,
+ * 24 entries cut from a 4MB deck held 96MB.
+ *
+ * The round-trip forces a fresh flat string, so what we keep is one slide's worth of characters
+ * instead of a window onto the deck. It costs one copy of the SLICE (a few KB) per cache miss.
+ * The whole-deck memo deliberately does not do this: its source IS the deck string the app is
+ * already holding, so copying it would double a megabyte to save nothing.
+ */
+function sliceCachePut(key: string, inputs: KeyInputs, out: DeckRender): void {
+	const detached: KeyInputs = { source: JSON.parse(JSON.stringify(inputs.source)), extraCss: inputs.extraCss, extraThemeCss: inputs.extraThemeCss };
 	if (sliceCache.has(key)) sliceCache.delete(key);
-	sliceCache.set(key, out);
+	sliceCache.set(key, { inputs: detached, out });
 	if (sliceCache.size > SLICE_CACHE_MAX) sliceCache.delete(sliceCache.keys().next().value as string);
+}
+// ── SANITIZE MEMO — the sanitized twin of the two caches above ───────────────
+//
+// Every route ends by handing the render's HTML to `sanitizeSlideHtml` before it enters the
+// frame (HARD RULE #22): the full srcdoc write, the patch fast path, and the restyle fast path
+// each sanitize once. That call is the largest single item left on a cheap deck — ~4.3ms on a
+// 3.3KB prose deck and ~4.4ms on a 21KB gallery deck, flat across a 6.5x difference in bytes,
+// which is a fixed per-call cost rather than content-proportional work (#1543; the span
+// breakdown is in 2026-07-30-preview-deck-context-and-render-cost.md, Amendment 7).
+//
+// Part of that is now cheaper for everyone: the sanitizer configures DOMPurify once instead of
+// per call (lib/core/sanitize-slide-html.mjs), which is ~0.8ms off every pass at a 4x throttle. This memo removes the pass entirely for the case that recurs — sanitizing a string
+// we have already sanitized.
+//
+// WHEN IT HITS. The input is the render's HTML, so a hit means the SAME slide of the SAME deck
+// under the SAME palette and mode:
+//   · REVISITING A SLIDE — rail navigation back to a visited slide (the slice cache serves the
+//     render, this serves the sanitize), the overview grid re-opened or scrolled back up, and
+//     Present walking in reverse. The FIRST pass over a deck is all misses and no cache changes
+//     that; what recurs is the second pass, which is why the bound below is a whole deck.
+//   · TWO HOSTS ON ONE SLIDE — the editor preview and the Present overlay, or a focused tile
+//     beside them, showing the same slide at the same time. The memo is module-level for this.
+//   · TYPING IN A DIFFERENT SLIDE — the preview re-renders on every deck change, but on the slice
+//     route the shown slide's own markdown is unchanged, so the render is served from the slice
+//     cache and the HTML is byte-identical. Before this memo that re-render still paid a full
+//     DOMPurify pass for a slide nobody had touched.
+//
+// WHEN IT DOES NOT, and this cost a claim: A PALETTE OR DARK-MODE FLIP MISSES. An earlier cut of
+// this comment said the engine's HTML is theme-invariant, so the restyle path would re-sanitize a
+// string it already had. It is not: every `<section>` carries `data-theme="<name>"` and
+// `--theme:"<name>"`, and dark mode resolves to a DIFFERENT theme name (`palette + '-dark'`, line
+// ~969), so both flips produce new bytes. The corpus sweep that "proved" invariance had rendered
+// with no theme registered, where the engine stamps nothing — and the mocked unit test that
+// backed it discarded the theme argument. `test/unit/engine/theme-invariant-html.test.js` now
+// pins what is actually true: the NAME is the whole difference, so if palette-derived markup ever
+// appears, that test fails and this paragraph gets re-read.
+// A KEYSTROKE MISSES BY CONSTRUCTION — the html is new — and that is correct: that sanitize is
+// real work, and it is why the per-call config saving above matters more than this memo does.
+//
+// WHY THIS IS SOUND UNDER HARD RULE #22. The rule is that untrusted markup reaches a preview
+// frame only through the sanitizer; what this changes is *how many times* the same bytes make
+// that trip. `sanitizeSlideHtml` is a pure function of its input — one lazily-built DOMPurify
+// instance, a fixed config, no per-call state, pinned by an interleaved purity case in
+// test/unit/core/sanitize-slide-html.test.js — and the key here is the WHOLE INPUT STRING, not a
+// hash of it: a hit means this exact byte string was sanitized by this exact function, so the
+// answer cannot be another string's. That is the same bargain `renderDeck`'s per-section sanitize
+// cache in deck-preview.js has been shipping since #1298, keyed the same way and locked by
+// deck-preview.sanitize-cache.test.ts. The three sinks below no longer name the sanitizer
+// themselves, so `single-slide-render.sanitize-memo.test.ts` carries a CENSUS of them — the gate
+// is a whole-file text match and cannot tell three guarded sinks from one.
+//
+// DELIBERATELY NOT SHARED WITH deck-preview.js's cache. That one is per-host state holding one
+// render's worth of sections — up to a 117-slide deck's worth — and folding it into a bounded
+// module-level LRU would make a big deck evict itself every keystroke. Two caches, two working
+// sets, no interference in either direction.
+//
+// SIZED FOR ONE DECK, not off the slice cache. An early cut set this to `SLICE_CACHE_MAX` (24) on
+// the argument that a slide whose RENDER can be served without the engine is exactly a slide whose
+// SANITIZE can be served without DOMPurify. That is false in both directions, and the code above
+// says so: this memo takes an entry on EVERY render of EVERY host, including the ones the render
+// caches skip (no `slideIndex` → `key === null`), while a palette flip mints a slice-cache entry
+// and no memo hit at all. Worse, 24 is the wrong size for the interaction it exists for: the
+// overview grid and a Present walk-back have a WHOLE DECK as their working set, which is the
+// sequential scan an under-sized LRU serves worst — at 24 entries, walking a 40-slide deck and
+// back missed 16 of the 40 on the way back.
+//
+// So the bound is a deck: the largest deck we ship is 119 authored slides / 117 engine sections
+// (`test/integration/baseline-decks/gallery.md`), rounded up to 128. Measured over 1332 sections
+// of the committed corpus, a slide's HTML is p50 1.4K code units, p90 4.0K, p99 29K — and that
+// same 119-slide gallery is 654K units in total, a third of the budget below. A whole deck fits,
+// which is the property that matters; the p99 is what the caps are for.
+//
+// The two size caps are in UTF-16 CODE UNITS (`String.length`), which is what we can count for
+// free; heap is up to 2x that. The TOTAL cap evicts oldest-first until the memo is under it. The
+// PER-ENTRY cap is the more useful of the two: an entry that alone would take an eighth of the
+// budget is not stored at all, because caching it means evicting most of a deck to serve one
+// slide — and then paying a multi-megabyte string hash on every later lookup for the privilege.
+// No committed deck comes near it (the largest single slide is 76K units), so it is a guard
+// against a slide with an inlined base64 image rather than a tuning knob. Over either cap the
+// memo simply holds less; it never holds a wrong answer.
+const SANITIZE_MEMO_MAX = 128;
+const SANITIZE_MEMO_MAX_UNITS = 2_000_000;
+const SANITIZE_MEMO_MAX_ENTRY_UNITS = SANITIZE_MEMO_MAX_UNITS / 8;
+const sanitizeMemo = new Map<string, string>();
+let sanitizeMemoUnits = 0;
+/** Drop the sanitize memo (tests). Not called by `dispose()`, for the reason `clearDeckMemo`
+ *  gives about the slice cache: this is module-level state shared by every live host. And NOT
+ *  called by `clearSliceCache()` either — the two hold different things, so a test that clears the
+ *  render caches to force a cold ENGINE pass still gets a warm sanitize if the same html comes
+ *  back, which is exactly what production does. A test that wants a cold sanitize asks for it. */
+export function clearSanitizeMemo(): void {
+	sanitizeMemo.clear();
+	sanitizeMemoUnits = 0;
+}
+/**
+ * `sanitizeSlideHtml`, minus the DOMPurify pass when this EXACT string already made the trip.
+ *
+ * THE SANITIZER IS ALWAYS THE ANSWER — no path through this function returns MARKUP that DOMPurify
+ * has not approved, and there must never be one (HARD RULE #22; a falsy input is not markup). The three
+ * markup sinks below call this instead of `sanitizeSlideHtml` directly, so this body is the
+ * whole guard for all of them; `single-slide-render.sanitize-memo.test.ts` carries a census that
+ * fails if a sink stops routing through it or if this stops calling the sanitizer.
+ */
+function sanitizeOnce(html: string): string {
+	// Falsy in, falsy out, uncached — the same answer `sanitizeSlideHtml` gives for a falsy input
+	// (there is no markup to strip), reached without a second call to it so the census below keeps
+	// counting exactly one guard in this file. Memoizing it is what this avoids: the entry's
+	// `length` would enter the unit accounting, where a non-string from some future caller reads
+	// NaN and a NaN total silently disables the size cap for the rest of the session.
+	if (!html) return html;
+	const hit = sanitizeMemo.get(html);
+	if (hit !== undefined) {
+		sanitizeMemo.delete(html); // re-insert so recency is the eviction order
+		sanitizeMemo.set(html, hit);
+		return hit;
+	}
+	const safe = sanitizeSlideHtml(html);
+	const units = html.length + safe.length;
+	if (units > SANITIZE_MEMO_MAX_ENTRY_UNITS) return safe; // too big to be worth a deck's worth of entries
+	sanitizeMemo.set(html, safe);
+	sanitizeMemoUnits += units;
+	// `size > 0` is not decoration: the unit accounting is exact today (a hit returns before the
+	// insert, and the decrement mirrors the increment), but if it ever over-counted, a loop without
+	// it would drain the map and then read `.length` off `undefined` — a TypeError thrown from a
+	// markup sink that sits OUTSIDE the render's try/catch, i.e. a dead preview instead of a slower
+	// one. Degrade to holding less, never to throwing.
+	while (sanitizeMemo.size > 0 && (sanitizeMemo.size > SANITIZE_MEMO_MAX || sanitizeMemoUnits > SANITIZE_MEMO_MAX_UNITS)) {
+		const oldest = sanitizeMemo.keys().next().value as string;
+		sanitizeMemoUnits -= oldest.length + (sanitizeMemo.get(oldest) as string).length;
+		sanitizeMemo.delete(oldest);
+	}
+	return safe;
 }
 function memoKey(markdown: string, theme: string, mode: string, extraCss: string, extraThemeCss: string): string {
 	// Hash the long strings; keep theme/mode literal so a collision cannot cross palettes.
@@ -662,7 +839,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// un-sandboxed frame (#616 T-CONTENT) — the runtime/Mermaid scripts are
 		// appended separately below, so they're untouched.
 		const tSanitize = performance.now();
-		html = sanitizeSlideHtml(html);
+		html = sanitizeOnce(html);
 		lastSanitizeMs = performance.now() - tSanitize;
 		let s =
 			// The theme <style> carries an id so the RESTYLE fast path (renderInto) can find
@@ -903,12 +1080,16 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// Two caches, because the two paths cache different things: the whole-deck memo
 					// holds ONE un-narrowed deck render, the slice cache holds up to 24 single
 					// slides. A slice render never populates the deck memo and vice versa.
-					const sliceHit = key !== null && slicePage ? sliceCacheGet(key) : undefined;
+					// The inputs the key only HASHED, carried so a hit can be confirmed rather than
+					// assumed — see KeyInputs. Built once; both caches take the same three.
+					const keyInputs: KeyInputs = { source: renderSource, extraCss: extraCss || '', extraThemeCss: extra?.css || '' };
+					const sliceHit = key !== null && slicePage ? sliceCacheGet(key, keyInputs) : undefined;
+					const deckHit = key !== null && !slicePage ? deckMemoGet(key, keyInputs) : undefined;
 					if (sliceHit) {
 						out = { ...sliceHit };
 						engineMs = performance.now() - tEngine;
-					} else if (key !== null && !slicePage && deckMemo?.key === key) {
-						out = { ...deckMemo.out };
+					} else if (deckHit) {
+						out = { ...deckHit };
 						engineMs = performance.now() - tEngine; // the real (near-zero) cost
 					} else {
 						// Ask the engine for its per-stage breakdown ONLY while the overlay is
@@ -921,8 +1102,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						if (key !== null) {
 							const snapshot = { html: out.html, css: out.css, width: out.width, height: out.height };
 							// A slice render goes in the LRU; a whole-deck render in the single memo.
-							if (slicePage) sliceCachePut(key, snapshot);
-							else deckMemo = { key, out: snapshot };
+							if (slicePage) sliceCachePut(key, keyInputs, snapshot);
+							else deckMemo = { key, inputs: keyInputs, out: snapshot };
 						}
 					}
 					// engineMs brackets the WHOLE renderMarkdown call, which also does the
@@ -1171,6 +1352,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// runtime re-renders the swapped fence. KaTeX needs no flag either: single
 				// -slide never injects a katex <link>; math rides the patch as static HTML.
 				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}|${themes.katexFacesActive() ? 'K' : ''}`;
+				// The same hash-is-a-filter argument the render caches make (see KeyInputs), applied to
+				// the one other djb2 key in this file. Here a collision is not another deck's content —
+				// it is the author's live CSS edit landing on the PATCH path, which reuses the resident
+				// <style> and so silently never applies the new rules. Cheap to close: the two CSS
+				// strings already exist, so the host holds them beside the sig and they decide the hit.
+				const frameCss = { extraCss: extraCss || '', themeCss: extra?.css || '' };
+				const sameFrameCss = (a: LiveHost['__latticeFrameCss']) => !!a && a.extraCss === frameCss.extraCss && a.themeCss === frameCss.themeCss;
 				// RESTYLE sig — everything a theme/mode change CANNOT re-render in place: the frame
 				// box (geom, which sizes the resident <style>'s singleSlideFrame + the iframe element)
 				// and the mermaid <script> presence (prop-driven, so it can't be injected post-hoc).
@@ -1187,10 +1375,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					live &&
 					!(host as LiveHost).__latticePendingLoad &&
 					(host as LiveHost).__latticeFrameSig === sig &&
+					sameFrameCss((host as LiveHost).__latticeFrameCss) &&
 					live.contentDocument?.querySelector('.lattice')
 				) {
 					const tSan = performance.now();
-					const safe = sanitizeSlideHtml(out.html);
+					const safe = sanitizeOnce(out.html);
 					const patchSanitizeMs = performance.now() - tSan;
 					const tFrame = performance.now();
 					if (patchSlideBody(live, safe)) {
@@ -1244,7 +1433,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					live.contentDocument?.querySelector('.lattice')
 				) {
 					const tSan = performance.now();
-					const safe = sanitizeSlideHtml(out.html);
+					const safe = sanitizeOnce(out.html);
 					const restyleSanitizeMs = performance.now() - tSan;
 					const tFrame = performance.now();
 					// Swap the theme <style> in place FIRST, then the body — the new palette applies
@@ -1253,6 +1442,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					themeStyleEl.textContent = styleElementText(out.css, mode, geom, extraCss);
 					if (patchSlideBody(live, safe)) {
 						(host as LiveHost).__latticeFrameSig = sig;
+						(host as LiveHost).__latticeFrameCss = frameCss;
 						(host as LiveHost).__latticeRestyleSig = restyleSig;
 						const tFit = performance.now();
 						scaleFrame(host);
@@ -1484,6 +1674,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Record the sig this full document was built for, so the NEXT render can
 				// take the patch fast path above when nothing outside the section changed.
 				(host as LiveHost).__latticeFrameSig = sig;
+				(host as LiveHost).__latticeFrameCss = frameCss;
 				// Record the frame box + mermaid this srcdoc was built for, so the NEXT theme/mode/
 				// palette change can take the RESTYLE fast path above (swap the <style> in place)
 				// instead of rewriting the whole srcdoc and minting a new realm.

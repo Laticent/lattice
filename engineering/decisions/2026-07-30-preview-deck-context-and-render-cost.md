@@ -1605,14 +1605,19 @@ comments now say so. Two changes in one branch must not each bank the same savin
   interleave (pre-#1265, main, this branch) in one sitting. Not run; the two-arm result above is
   what is actually measured.
 - **The sanitize span is now the largest single item on the cheap decks and nobody has looked at
-  it.** `sanitizeMs` reads ~4.3ms on the 3.3KB prose deck and ~4.4ms on the 21KB gallery deck —
+  it.** *(ANSWERED — Amendment 8. About 40% of the per-call cost was DOMPurify re-parsing our config
+  on every call; the rest is now memoized per exact input string. The proposal below to widen
+  `sliceCache` was NOT what shipped, and the reasoning is there.)*
+  `sanitizeMs` reads ~4.3ms on the 3.3KB prose deck and ~4.4ms on the 21KB gallery deck —
   flat across a 6.5× difference in bytes, which is the signature of a fixed per-call cost rather
   than content-proportional work. On prose it is larger than the engine render. The inversion pass
   proposed caching it in the existing `sliceCache` (on a hit the input HTML is byte-identical and
   `sanitizeSlideHtml` is pure), which is a small change in one file — but it weakens HARD RULE #22's
   "every preview builder calls the sanitizer" to "every distinct string was sanitized once", so it
   needs its own adversarial pass rather than a rider here.
-- **A third off-path finding, logged** (HARD RULE #18): the new boundary-memo comment argues that a
+- **A third off-path finding, logged** (HARD RULE #18): *(FIXED — Amendment 8. Both caches, and the
+  patch path's frame signature, now confirm a hit against the inputs the key only hashed.)*
+  The new boundary-memo comment argues that a
   hashed cache key is unacceptable because a collision returns another deck's boundaries. That
   principle is violated today by `deckMemo` and the 24-entry `sliceCache` in
   `docs/src/lib/single-slide-render.ts`, which key on a djb2-32 hash plus length — where a collision
@@ -1623,3 +1628,206 @@ comments now say so. Two changes in one branch must not each bank the same savin
   the preview's route-decision path. The substitutes are the interleaved wall-clock above and, more
   importantly, the parse-count and derivation-count tests, which are deterministic where a
   wall-clock gate on this infrastructure would be flaky. Stated rather than skipped.
+
+## Amendment 8 (2026-09-01): the sanitize span, the two hash keys, and a measurement that fooled itself
+
+Amendment 7 owed three things. Two are the same paragraph twice — the sanitize span nobody had
+looked at, and a hashed cache key nobody had defended. #1543 asked for both. This records what the
+cost actually was, why the shipped fix is not the one the issue proposed, and what the adversarial
+trio took out of it, including one headline claim that was false.
+
+### The cost was two costs, and only one of them is a cache problem
+
+Amendment 7 read `sanitizeMs` at ~4.3ms on a 3.3KB prose deck and ~4.4ms on a 21KB gallery deck and
+drew the right conclusion — flat across a 6.5× difference in bytes is a FIXED per-call cost. It then
+proposed the fix a fixed cost does not need: caching the result. A cache removes the cost on a
+REPEAT; it does nothing about the first call, and typing is nothing but first calls.
+
+Measured directly, in real Chromium, on engine-rendered slides, batch-timed at the same 4× CPU
+throttle the perf spec uses (`tools/bench-sanitize.mjs`, committed so the number can be re-derived):
+
+| input | per-call config (what shipped) | `setConfig` once | memo hit |
+|---|---|---|---|
+| prose slide, 723 B | 1.75ms | 0.99ms | 0.000ms |
+| gallery slice, 1.5 KB | 2.11ms | 1.45ms | 0.000ms |
+| heaviest gallery slice, 2.5 KB | 2.87ms | 2.01ms | 0.000ms |
+| whole 40-slide gallery render, 62 KB | 29.36ms | 29.50ms | 0.000ms |
+
+**26-40% of a slide's sanitize call is DOMPurify re-parsing our config.** `dp.sanitize(html, cfg)`
+runs `_parseConfig` per call, which rebuilds `ALLOWED_TAGS` and `ALLOWED_ATTR` from its defaults
+(~250 tags, ~300 attributes) and folds our FORBID/ADD lists in — the same two sets, every time.
+`dp.setConfig(cfg)` does it once and the sanitize path then skips `_parseConfig` entirely. That is
+~0.8ms off EVERY call at 4×, on every route, in both hosts — the docs preview and the Node export
+assembler — and it is the only part of this that helps the keystroke path at all. (Against the perf
+spec's ~4.3ms *span* the same 0.8ms is ~18%; the two denominators are different, and the first draft
+of this note called it "half of the fixed cost", which was neither.)
+
+The last row is the control: at 62KB the config parse is a rounding error against the document
+parse, which is what "fixed cost" means and why the cheap decks felt it most.
+
+### What shipped, and why it is not the change the issue asked for
+
+#1543 proposed widening `sliceCache`'s entry with a `safeHtml` field. What shipped instead is
+`sanitizeOnce` in `docs/src/lib/single-slide-render.ts`: a bounded LRU keyed on the WHOLE HTML
+string, sitting under all three markup sinks (the srcdoc write, the patch fast path, the restyle
+fast path). Three reasons:
+
+1. **It does not weaken HARD RULE #22, and the proposed shape did.** The issue is explicit that
+   widening the cache entry turns "every preview builder calls the sanitizer" into "every distinct
+   string was sanitized once", and asks for an adversarial pass on that. Keyed on the exact input
+   string, the memo needs no such re-reading: `sanitizeSlideHtml` is a pure function of its input,
+   so a hit means *this exact byte string* was sanitized by *this exact function*. It is also not
+   new — `renderDeck` in `docs/src/playground/deck-preview.js` has cached per-section sanitized
+   output keyed on the raw section string since #1298, locked by `deck-preview.sanitize-cache.test.ts`.
+2. **It covers hosts the cache entry cannot.** Both render caches are gated on a caller that
+   supplies a `slideIndex`; a landing island or a component specimen caches nothing at all.
+3. **The narrowing runs AFTER the cache read.** The "frame holds one slide" guard can rewrite
+   `out.html` after a `sliceCache` hit, so a `safeHtml` stored beside the cached render is the
+   sanitized form of a string that is not always the one written to the frame. Keying on the actual
+   input sidesteps a class of mistake rather than documenting it.
+
+The gate keeps its meaning — but its REDUNDANCY dropped, and that needed answering. Before this
+change the file named `sanitizeSlideHtml(` at all three sinks; now it names it once, inside
+`sanitizeOnce`. `checkPreviewHtmlSinks` is a whole-file text match, so it cannot tell three guarded
+sinks from one guarded sink and two unguarded ones. `single-slide-render.sanitize-memo.test.ts`
+therefore carries a CENSUS of the sinks and the guard count — the markup-channel twin of
+`test/unit/export/style-guard-census.test.js`, which exists for exactly this blind spot in the
+stylesheet channel.
+
+### The claim that was false: the engine's HTML is NOT theme-invariant
+
+The memo was written believing a palette flip would hit it — the render caches key on the theme
+(correctly, the CSS changes) while the HTML would be identical, so the restyle path would
+re-sanitize a string it already had. A corpus sweep "confirmed" it: 235 decks, byte-identical under
+`indaco`, `cuoio` and `onyx`, 0 differing.
+
+**The sweep had rendered with no theme registered.** The engine stamps `data-theme="<name>"` and
+`--theme:"<name>"` on every `<section>` only for a theme it actually knows, so with an empty theme
+store both arms produce identical unstamped markup. With the real sheets registered every section
+differs, and dark mode differs too — it resolves to a DIFFERENT theme name (`palette + '-dark'`).
+The unit test that backed the claim was worse than the sweep: it drove a mocked `renderMarkdown`
+that discards the theme argument, so it asserted a property of the stand-in. That is the HARD RULE
+#23 shape in miniature — a green harness standing in for a surface it never exercised — and it was
+caught twice independently, by the checker and by writing an engine-level test with a control in it.
+
+What survives is narrower and worth stating exactly: the memo hits when the SAME slide of the SAME
+deck is re-rendered under the SAME palette and mode — rail navigation back to a visited slide, the
+overview grid re-opened or scrolled back, Present walking in reverse, two hosts showing one slide,
+and an edit to a slide you are not looking at (the shown slice's markdown is unchanged, so the
+render is cached but the sanitize was not). `test/unit/engine/theme-invariant-html.test.js` now pins
+the real property — a palette changes the theme's NAME in the markup and nothing else — so if
+palette-derived markup ever appears, that test fails and this paragraph gets re-read.
+
+### The size of the memo: 24 was inherited, 128 is derived
+
+The first cut bounded it at `SLICE_CACHE_MAX` (24), arguing that a slide whose render can be served
+without the engine is exactly a slide whose sanitize can be served without DOMPurify. The inversion
+pass took that apart, and it was right: the memo's input stream is a superset of the slice cache's
+(every host, including the ones with no render cache), and 24 is the wrong size for the interaction
+it exists for — the overview grid and a Present walk-back have a whole deck as their working set,
+which is the sequential scan an under-sized LRU serves worst. At 24 entries, walking a 40-slide deck
+and back missed 16 of the 40 on the way back.
+
+The bound is now a deck: 128, from the largest deck we ship (119 slides). Measured over 1332 sections
+of the committed corpus, a slide's HTML is p50 1.4K UTF-16 code units, p90 4.0K, p99 29K, max 76K —
+and that 119-slide gallery is 654K units in total, a third of the 2M-unit budget. A whole deck fits.
+The earlier "0.7–2.5KB" range in the comment was wrong (16% of sections exceed it); the conclusion
+survived the correction, the stated basis did not.
+
+Two caps guard the slide that is not like those: a total budget, and a per-entry cap at an eighth of
+it. The per-entry cap is the more useful — an entry that alone would cost a deck's worth of entries
+is not stored at all, because caching it means evicting most of the working set to serve one slide
+and then hashing megabytes on every later lookup. Both bounds, and LRU-not-FIFO, fail at least one
+test by mutation in both directions.
+
+### The hash keys: a filter is not an answer
+
+Amendment 7's third finding said `deckMemo` and `sliceCache` decide a hit from a djb2-32 hash plus a
+length, where `lib/core/slide-boundaries.mjs` argues at length that a probabilistic key is
+unacceptable because a collision returns another deck's work — and that both cannot be right. They
+are not. Both caches now carry the inputs the key only hashed (`source`, `extraCss`, `extraThemeCss`)
+and confirm a hit against them: the hash narrows the lookup, the comparison decides it, and a
+mismatch is a miss, so a collision costs a re-render instead of showing another deck's slide.
+
+The same treatment closes the third djb2 key in that file — the patch fast path's frame signature,
+where a collision is not another deck's content but the author's live CSS edit landing on the patch
+path, which reuses the resident `<style>` and so never applies.
+
+`docs/src/lib/single-slide-render.cache-keys.test.ts` forces the collision — `hashString` stubbed to
+a constant, two decks of equal length — rather than waiting for one. Removing the confirmation fails
+five of its six cases; the sixth is the patch path, which needed a faked live document because jsdom
+never parses a `srcdoc`.
+
+**The confirmation had a cost worth writing down, and it is fixed rather than accepted.** The slice
+route's `source` is the Studio's `previewFm + slide`, and `slide` came out of a `String.slice` — which
+V8 keeps as a window onto the WHOLE deck body. Storing one pins the entire deck source, and every
+keystroke mints a new entry: up to 24 generations of the deck retained by a cache that used to hold
+nothing but engine output (measured on the retention mechanism: 24 entries cut from a 4MB deck held
+96MB). The slice put now stores a detached copy of the slice — a few KB — so what is kept is one
+slide's characters rather than a window onto the deck. The whole-deck memo deliberately does not
+copy: its source IS the string the app already holds.
+
+### Behavior-preserving, proved rather than argued
+
+`setConfig` changes what DOMPurify does per call, on the surface where being wrong is an XSS. The
+proof is a corpus differential rather than a reading of the diff: every committed deck rendered with
+the real engine, then every render AND every section sanitized both ways through the real
+jsdom-backed sanitizer — **281 decks, 3145 strings, 13.0 MB of engine HTML, byte-identical**, and
+the same sweep run again in Chromium with the same result (`tools/bench-sanitize.mjs --verify`, and
+`--verify --node` for the export host — both committed, both ~12s). The
+red team ran its own against an adversarial corpus (41 mXSS / clobbering / URI payloads × 10
+interleaved passes, 0 diffs) and against 40 rendered decks (377 pieces, 1.83 MB, 0 diffs); the
+checker ran a third (515 strings, 3 interleaved rounds, 1545 comparisons, 0 mismatches). The export
+assembler shares that sanitizer, so this is also the answer to the CLAUDE.md export rule: the bytes
+of an exported artifact do not change.
+
+**The safety of the persistent config rests on three lines inside DOMPurify**, which restore the
+pristine `ALLOWED_TAGS`/`ALLOWED_ATTR` captured at `setConfig()` time so the per-call clone a hook
+forces cannot carry a widened allowlist forward. `dompurify` is pinned with a caret and minor bumps
+auto-merge, so that is a floating third-party contract. The first cut said "pinned by test rather
+than trusted" and was wrong: the red team deleted those two lines from the installed DOMPurify and
+every assertion in the file still passed, because our hook only ever NARROWS (`keepAttr = false`) and
+a leak needs a widening one. There is now a test that registers a widening hook and asserts it does
+not survive into the next call — verified to fail with those lines removed (from `purify.es.mjs`;
+Node's `import` resolves the ESM build, which is its own way to fool yourself).
+
+### Found, not fixed (HARD RULE #18, off-path)
+
+- **`patchSlideBody` re-serializes DOMPurify's output.** `holder.innerHTML = safeHtml` then
+  `lattice.innerHTML = (fresh || holder).innerHTML` parses, re-serializes and re-parses an approved
+  string — the classic mXSS amplifier, and the one place in that file where the bytes reaching the
+  live document are not the bytes DOMPurify returned. Pre-existing, untouched by this change, and
+  the red team's own "where I would look next".
+- **`PG.addThemes` overwrites by name unconditionally**, so a Studio theme named after a built-in
+  palette replaces it permanently — while both render caches and the patch signature key on that
+  name. Pre-existing; reasoned, not reproduced.
+
+| deck · interaction | base (2 rounds) | this branch (2 rounds) | |
+|---|---|---|---|
+| default · navigation | 3.6 / 3.3 | **1.3 / 1.4** | **−60%** |
+| prose · navigation | 3.9 / 4.1 | **1.6 / 1.5** | **−61%** |
+| gallery · navigation | 4.4 / 4.3 | **1.4 / 1.8** | **−63%** |
+| default · typing | 3.2 / 3.5 | **2.8 / 2.2** | −25% |
+| prose · typing | 3.8 / 3.8 | **2.9 / 2.7** | −26% |
+| gallery · typing | 3.7 / 3.8 | **2.7 / 2.7** | −28% |
+
+Ranges do not overlap on any row. The two mechanisms are visible separately inside a single
+navigation run: the rail visits 10 slides twice, and in the head arm the first pass reads ~2.5ms per
+slide (the config saving) while every sample of the second pass reads **0.0ms** (the memo). The base
+arm pays ~3.6ms on both passes.
+
+TOTAL p50 moves the same direction on every row — navigation ~−8%, typing ~−9% — and that is
+reported rather than claimed: `2026-08-03-performance-guard.md` puts this infrastructure's
+resolution at roughly 2×, and a 9% difference in a composite number is below it. What is measured
+directly is the span, and the span moves 2.4–3.1× on navigation.
+
+### Still owed
+
+- **No `engine-bench.mjs` scenario, no ratcheted `baseline.json`** — HARD RULE #19 (b)/(c), unmet
+  here for the reason Amendment 7 gives: `bench` measures the engine in Node and this is the
+  preview's browser-side sanitize. What stands in its place is `tools/bench-sanitize.mjs` (the table
+  above, re-runnable, in the browser the preview actually uses), the interleaved wall clock below,
+  and the deterministic counts — the sanitize pass count, the argument-count pin on `setConfig`, and
+  the sink census — which are what a gate can hold.
+- **The sanitize span is reported by the perf spec now, and capped by nothing.** Adding a ceiling
+  would be adding a gate to a nightly that can file an issue, which is not this change's to make.
