@@ -430,6 +430,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/fetch-video-oembed.js` | fetch-video-oembed.js — the BUILD-TIME (authoring-time) half of the `video` |
 | `tools/generate-voice-samples.mjs` | Pre-generates the "Play sample" audio the Studio's TTS settings panel plays for |
 | `tools/golden-diff.mjs` | Golden before/after — what visually changed in THIS PR's committed goldens. |
+| `tools/manifest-schemas.js` | The ONE declaration of which manifest families exist, which schema governs |
 | `tools/marp-inventory.mjs` | marp-inventory — classify every Marp reference in the repo by DISPOSITION. |
 | `tools/mutate-stage-window.mjs` | mutate-stage-window — break what each Stage-window cell NAMES, and watch it go red. |
 | `tools/palette-native.js` | palette-native — the REFEREE for `tools/palette-sweep.js`. |

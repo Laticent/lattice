@@ -56,6 +56,8 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { EXTRA_NAMES, EXTRA_GALLERIES } = require('./build-bucket-galleries');
+const manifestSchemas = require('./manifest-schemas'); // the four manifest families + their JSON-Schema gate
+const { checkManifestSchemas } = manifestSchemas;
 const {
   loadAll, manifestBucket, BUCKETS,
   UNIVERSAL_VARIANTS, SEMI_UNIVERSAL_VARIANTS, TAGS,
@@ -690,79 +692,25 @@ function checkThemeManifestCoverage(errors, themesDir = THEMES_DIR) {
  * breakage needed a visible name deleted from an array in a reviewed diff.
  *
  * Enforced FROM the schema file rather than a hand mirror of it, so the schema is the
- * single declaration it claims to be. Deliberately a small subset — `required`,
- * `additionalProperties`, `enum`, `type`, `pattern`, and the one `if/then/else` — which
- * is everything this schema actually uses. If it ever needs more, reach for a real
- * validator rather than growing this.
+ * single declaration it claims to be.
+ *
+ * This used to walk the schema itself, in a deliberate subset — `required`,
+ * `additionalProperties`, `enum`, `type`, `pattern`, and the one `if/then/else` — with a
+ * note saying to reach for a real validator if it ever needed more. It did: components
+ * and the Form frames need `patternProperties` and nested objects, and the walker checked
+ * neither, so three component manifests carried undeclared fields two levels down while
+ * every gate stayed green. The walk now lives in tools/manifest-schemas.js on top of ajv,
+ * shared by all four manifest families, and this stays as the theme family's named entry
+ * point — the name is what the theme-contract decision record and its test refer to.
+ *
+ * NOT called from `run()`: `checkManifestSchemas` already covers the theme family there,
+ * and calling both would report every theme shape error twice. This entry point exists so
+ * a caller can check the theme family alone, against a fixture directory.
  */
 function checkThemeManifestShape(errors, themesDir = THEMES_DIR) {
-  let schema;
-  try {
-    schema = JSON.parse(fs.readFileSync(path.join(THEMES_DIR, 'theme.schema.json'), 'utf8'));
-  } catch (e) {
-    errors.push(`themes/theme.schema.json could not be read: ${e.message}`);
-    return;
-  }
-  const props = schema.properties ?? {};
-  const typeOk = (v, t) => {
-    const types = Array.isArray(t) ? t : [t];
-    return types.some((x) => (
-      x === 'string' ? typeof v === 'string'
-        : x === 'integer' ? Number.isInteger(v)
-          : x === 'array' ? Array.isArray(v)
-            : x === 'null' ? v === null
-              : x === 'object' ? (v && typeof v === 'object' && !Array.isArray(v))
-                : false));
-  };
-
-  for (const [name, m] of listThemeManifests(themesDir)) {
-    const where = `themes/${name}.manifest.json`;
-
-    // Required — the base set, plus whichever arm of the conditional applies.
-    const required = new Set(schema.required ?? []);
-    for (const rule of schema.allOf ?? []) {
-      const cond = rule.if?.properties ?? {};
-      const matches = Object.entries(cond).every(([k, c]) => m[k] === c.const);
-      for (const r of (matches ? rule.then : rule.else)?.required ?? []) required.add(r);
-    }
-    for (const r of required) {
-      if (m[r] === undefined) errors.push(`${where} is missing required field \`${r}\` (see themes/theme.schema.json).`);
-    }
-
-    for (const [k, v] of Object.entries(m)) {
-      if (k === '$schema') continue;
-      const spec = props[k];
-      if (!spec) {
-        if (schema.additionalProperties === false) {
-          errors.push(`${where} carries unknown field \`${k}\`. Add it to themes/theme.schema.json with its meaning, or remove it — an undeclared field is one no gate can check.`);
-        }
-        continue;
-      }
-      if (spec.enum && !spec.enum.includes(v)) {
-        errors.push(`${where} has \`${k}: ${JSON.stringify(v)}\`, which is not one of ${spec.enum.map((x) => JSON.stringify(x)).join(' | ')}.`);
-        continue;
-      }
-      if (spec.type && !typeOk(v, spec.type)) {
-        errors.push(`${where} has \`${k}: ${JSON.stringify(v)}\` but the schema says ${JSON.stringify(spec.type)}.`);
-        continue;
-      }
-      if (spec.pattern && typeof v === 'string' && !new RegExp(spec.pattern).test(v)) {
-        errors.push(`${where} has \`${k}: ${JSON.stringify(v)}\`, which does not match ${spec.pattern}.`);
-      }
-      if (Number.isInteger(spec.minimum) && typeof v === 'number' && v < spec.minimum) {
-        errors.push(`${where} has \`${k}: ${v}\`, below the minimum of ${spec.minimum}.`);
-      }
-      if (spec.items?.enum && Array.isArray(v)) {
-        for (const item of v) {
-          if (!spec.items.enum.includes(item)) {
-            errors.push(`${where} has \`${k}\` containing ${JSON.stringify(item)}, which is not one of ${spec.items.enum.map((x) => JSON.stringify(x)).join(' | ')}.`);
-          }
-        }
-        if (spec.uniqueItems && new Set(v).size !== v.length) errors.push(`${where} has duplicate entries in \`${k}\`.`);
-        if (Number.isInteger(spec.minItems) && v.length < spec.minItems) errors.push(`${where} has \`${k}\` with fewer than ${spec.minItems} entr(y/ies).`);
-      }
-    }
-  }
+  const fam = manifestSchemas.family('theme');
+  const override = path.resolve(themesDir) === path.resolve(THEMES_DIR) ? null : themesDir;
+  manifestSchemas.checkFamily(errors, fam, { dir: override });
 }
 
 /**
@@ -7212,6 +7160,58 @@ function checkAnimaBoundary(errors) {
 // promise. Reuses the robust multi-form Suono specifier patterns.
 const LENTE_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'lente');
 
+/**
+ * ajv STAYS OUT OF `lib/`. The manifest-schema gate's one safety property, gated
+ * rather than asserted.
+ *
+ * `tools/manifest-schemas.js` is the only module that may require ajv, and it lives
+ * in `tools/`, which `package.json` `files` does not publish. A `require('ajv')` in
+ * `lib/` would therefore ship a DEVdependency to consumers — `@workwel/lattice` would
+ * throw on import for anyone who installed it — and esbuild would inline a validator
+ * into the browser bundles that `lib/layout` and `lib/forms` feed.
+ *
+ * The temptation is real and already one import away: docs/src/components/studio/
+ * Fabricate.tsx validates AI-authored manifests in the browser through a hand-written
+ * validator, and "why not use the real one?" is the most natural follow-up this gate's
+ * own existence invites. The honest answer is that the real one is 3 MB of dev
+ * tooling. That answer needs a gate, not a comment — a boundary held only by prose
+ * fails exactly the way the schemas this gate checks used to: silently, and past
+ * every other check.
+ *
+ * NOTE the scope. This is about the ajv LIBRARY, not about schema JSON, which
+ * lib/layout/gate.js deliberately requires and ships to the Studio.
+ */
+function checkAjvBoundary(errors) {
+  for (const dir of [LIB_DIR, path.join(ROOT, 'docs', 'src')]) {
+    if (!fs.existsSync(dir)) continue;
+    for (const file of listSourceFiles(dir)) {
+      const rel = path.relative(ROOT, file).split(path.sep).join('/');
+      const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+      // Dedupe per file, like checkSuonoBoundary: one module importing ajv two
+      // ways is one defect, not two error lines.
+      const seen = new Set();
+      for (const pattern of SUONO_SPEC_PATTERNS) {
+        for (const m of src.matchAll(pattern)) {
+          const spec = m[1];
+          // The ajv PACKAGE FAMILY, not just `ajv`. `ajv-formats` and
+          // `ajv-keywords` are the same devDependency leak wearing a different
+          // name, and matching only `ajv` / `ajv/` waved both straight through.
+          if (!/^ajv(-[a-z]+)?(\/|$)/.test(spec)) continue;
+          if (seen.has(spec)) continue;
+          seen.add(spec);
+          errors.push(
+            `${rel} imports '${spec}'. The ajv family is a devDependency and may be required ONLY from tools/ ` +
+            '(tools/manifest-schemas.js). tools/ is not in package.json `files`, so an ajv import here ' +
+            'ships a missing dependency to every consumer of the published package and inlines a 3 MB ' +
+            'validator into the browser bundle. Validate manifests at BUILD time instead, or hand the ' +
+            'browser a narrow hand-written check as docs/src/components/studio/Fabricate.tsx does.',
+          );
+        }
+      }
+    }
+  }
+}
+
 function checkLenteBoundary(errors) {
   if (!fs.existsSync(LENTE_DIR)) return; // library not present — nothing to guard
   for (const file of listSourceFiles(LENTE_DIR)) {
@@ -11017,8 +11017,9 @@ function run() {
   checkLenteBoundary(errors);
   checkAudioPlaybackBoundary(errors);
   checkSanctionedGestures(errors);
+  checkManifestSchemas(errors);
+  checkAjvBoundary(errors);
   checkThemeManifestCoverage(errors);
-  checkThemeManifestShape(errors);
   checkThemeRoles(errors);
   checkThemeModes(errors);
   checkCatContrast(errors);
@@ -11076,6 +11077,8 @@ module.exports = {
   // Theme-manifest gates + their pure helpers, exported so the suite can drive them
   // against synthetic fixtures rather than only asserting the shipped tree is clean —
   // a gate only proves something if you can watch it fail.
+  checkManifestSchemas,
+  checkAjvBoundary,
   checkThemeManifestCoverage,
   checkThemeManifestShape,
   checkThemeRoles,

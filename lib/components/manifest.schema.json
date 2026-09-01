@@ -217,6 +217,11 @@
                 "cell",
                 "line"
               ]
+            },
+            "axisRetired": {
+              "type": "string",
+              "minLength": 1,
+              "description": "A TOMBSTONE: `axis` was deliberately removed here, and the ABSENCE is the behavior \u2014 `splitFactsFor` (lib/core/split-facts.js) reads `adapt.capacity.axis` as a split opt-in, so restoring the key re-enrolls the component in a split its own design resolution forbids. Prose, never read by the engine; `lib/authoring/lint.js` filters it from the lint vocabulary by name. Why, per component: engineering/decisions/2026-09-01-manifest-schema-gate.md."
             }
           },
           "patternProperties": {
@@ -247,6 +252,11 @@
                     "minLength": 1
                   },
                   "minItems": 1
+                },
+                "note": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "One-line human consequence of overflowing THIS box \u2014 the per-family counterpart of the flat `capacity.note`. Note that the flat form's consumer (lib/authoring/lint-core.js) does NOT read this per-family one; it reaches agents through dist/docs/components.json. See engineering/decisions/2026-09-01-manifest-schema-gate.md."
                 }
               }
             }
@@ -329,6 +339,7 @@
       "type": "object",
       "additionalProperties": {
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "selector",
           "description"
