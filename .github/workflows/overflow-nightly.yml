@@ -269,8 +269,22 @@ jobs:
             echo ""
             echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
           } > "$BODY"
-          ISSUE=$(gh issue list --state open --search "in:title $MARKER" --json number -q '.[0].number' || true)
-          if [ -n "$ISSUE" ]; then
+          # Find the rolling issue by its title MARKER, client-side. `--search "in:title $MARKER"`
+          # looks right and is not: GitHub tokenizes the query on the brackets and the hyphen,
+          # so it degrades to the bare words and matches human-authored issues — `.[0]` then
+          # takes someone else's issue and appends to it nightly while the rolling issue is
+          # never found and never updated. studio-e2e-nightly.yml fixed this for itself and its
+          # comment recorded that every sibling still carried the bug; this is that fix.
+          # `startswith` on the marker rather than full-title equality, because
+          # overflow-nightly.yml deliberately RETITLES its rolling issue as the condition
+          # changes — across this family only the marker is stable.
+          # THE STAND-DOWN STEP BELOW MUST USE THE IDENTICAL LOOKUP. Two different searches
+          # would let this step append to one thread while that one closes another.
+          # --limit is far above the open-issue count; gh paginates to reach it, and a limit the
+          # backlog could outgrow would silently miss the issue and file a fresh duplicate nightly.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" 2>/dev/null || true)
+          if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             # Retitle on append. The rolling issue outlives the condition that opened it, so an
             # issue first opened by a broken browser would otherwise keep saying "cannot render"
             # for months after the night a real ratchet regression appeared. The body already
@@ -285,3 +299,57 @@ jobs:
               --label "priority:high" --label "status:backlog" \
               --body-file "$BODY"
           fi
+
+      # STAND THE ALARM DOWN when the condition clears. A rolling issue that only ever
+      # opens is a one-way ratchet: after its first firing it reads as "the flaky
+      # nightly", and a real regression months later arrives as a comment on a thread
+      # nobody reopens. Until an alarm can close itself, neither its run colour nor its
+      # issue is falsifiable — and this family is report-only by contract, so the issue is
+      # the ONLY signal there is.
+      #
+      # THE CONDITION IS `outcome == 'success' && output == 'false'`, NEVER `!= 'true'`.
+      # `!= 'true'` IS TRUE FOR THE EMPTY STRING, and the output is empty in every state
+      # where nothing was measured — a canceled job, a step timeout, an earlier step that
+      # died first. Each of those would close the issue and comment "measured green",
+      # reporting NOT MEASURED as health, which is this family's cardinal sin
+      # (perf-nightly.yml records four separate instances of it). `outcome` is the step's
+      # own result, so a step that never ran to a clean exit cannot be read as evidence.
+      #
+      # AND UNLIKE perf-nightly, THIS ALARM MAY CLOSE OUTRIGHT. perf compares head against
+      # a base ~24h old, so a green night there cannot tell "fixed" from "the base now
+      # carries the regression too", and it may only close a harness-failure thread. This
+      # check is ABSOLUTE — scored against this commit alone, with no historical arm — so
+      # a measured green IS the evidence that the condition is gone. The thread closes; a
+      # recurrence opens a fresh one.
+      #
+      # `failed == 'false'` IS THE ONLY CLEAN VERDICT HERE, and the sweep step writes it on
+      # exit 0 alone. That step deliberately swallows the tool's exit code into `code`/`kind`
+      # so the job stays green under the report-only contract, which means its `outcome` is
+      # `success` for a BROKEN BROWSER exactly as readily as for a clean corpus — `kind=broken`
+      # and `kind=unknown` both carry `failed=true`, and both must keep the thread open. A
+      # ratchet verdict computed over decks that never rendered is not a verdict, so it is not
+      # grounds to close one either.
+      - name: Stand down the rolling issue when the corpus sweeps clean
+        if: always() && steps.sweep.outcome == 'success' && steps.sweep.outputs.failed == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          MARKER='[overflow-nightly]'
+          # The IDENTICAL lookup the filing step above uses — see its comment for why the
+          # `in:title` search cannot be used and why this matches on the marker prefix.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \"))][0].number" 2>/dev/null || true)
+          [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
+          # Comment BEFORE closing, and name the run that proved it. A silent close leaves the
+          # next reader unable to tell a recovered alarm from one somebody quietly triaged away.
+          # Built with `--body-file`, not an inline multi-line `--body`: a continuation line has
+          # to start at column 0 to avoid leading spaces in the issue text, and a column-0 line
+          # ENDS the `run: |` block scalar — the workflow then parses as something else entirely.
+          {
+            echo "Recovered: the corpus rendered in full and no deck clips more slides than its baseline on \`main@${{ github.sha }}\`. Closing — a recurrence opens a fresh thread."
+            echo ""
+            echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
+          } > "$GITHUB_WORKSPACE/stand-down.md"
+          gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
+          gh issue close "$ISSUE" --reason completed || true

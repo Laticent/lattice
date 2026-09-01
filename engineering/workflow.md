@@ -624,6 +624,40 @@ STEP green so later steps run, carry the verdict in an output, put the step time
 job's (a job-level timeout kills every later step, including one guarded by `always()`), and gate
 the issue step on `always() && (outputs.failed == 'true' || outcome != 'success')`.
 
+**And an alarm that cannot STAND ITSELF DOWN is a ratchet, not a signal.** Filing was only half
+the mechanism. Until 2026-09-01 five of the six nightly workflows could open a rolling issue and
+none of them could close one, so after a thread's first firing — statistically likelier a harness
+failure than a real regression — it read as "the flaky nightly", and a genuine regression months
+later arrived as a comment on a thread nobody reopens. Every filing job now carries a stand-down
+step, and `test/unit/tools/nightly-alarm-contract.test.js` holds the shape. Four rules, each one
+a mistake somebody already made:
+
+- **Key on `outcome == 'success' && output == 'false'`, never `!= 'true'`.** `!= 'true'` — and a
+  bare output test — **is true for the empty string**, and the output is empty in every state
+  where nothing was measured: a cancellation, a step timeout, an earlier step that died. Acting
+  there reports NOT MEASURED as health, which is this family's cardinal sin; `perf-nightly.yml`
+  records four separate instances of it in one file.
+- **Look the issue up the same way the filing step does.** Both use the client-side marker match
+  above. Two different searches in one job means the step that files appends to one thread while
+  the step that recovers acts on another, and each looks right on its own.
+- **Comment before acting, naming the run.** A silent close leaves the next reader unable to tell
+  a recovered alarm from one somebody quietly triaged away.
+- **Prove the check actually RAN.** `ai-architect.spec.ts` opens with `test.skip(!LIVE_KEY, …)`,
+  so with the secret unset Playwright skips every test, prints "N skipped" and **exits 0** —
+  outcome and output both say green while nothing was tested. Both `studio-e2e-nightly.yml` jobs
+  therefore require a non-zero passed count in the report before they will close anything.
+
+**Whether a green night licenses a CLOSE depends on the check, and the split is the interesting
+part.** An **absolute** check is scored against the commit in front of it — the gallery paints or
+it does not — so one measured-green night IS the evidence that the condition is gone, and the
+thread closes. A **differential** check is not: `perf-nightly` compares head against a base ~24h
+old, so a regression that lands on day 0 fires on night 1 (the base predates it) and comes back
+clean on night 2 (the base carries it too), on a still-broken site. Its `engine-perf` job
+therefore closes only a thread whose body says the previous firing was a HARNESS failure, and its
+`watch` job — which emits no such marker — **comments and never closes**, saying in the comment
+why a human has to make that call. Commenting is not a consolation prize: the ratchet was never
+really "it does not close", it was "nothing ever argues the other side".
+
 **A live-key job owes one thing the others do not: redact before you publish.** Actions masks
 secrets in the LOG, but `tee` writes the report to disk unmasked and `gh issue create` posts that
 text verbatim — so one echoed `Authorization` header would publish our key in an issue. `e2e-ai`

@@ -202,6 +202,72 @@ jobs:
               --body-file "$BODY"
           fi
 
+      # STAND THE ALARM DOWN when the suite passes again. A rolling issue that only ever
+      # opens is a one-way ratchet: after its first firing it reads as "the flaky nightly",
+      # and a real regression months later arrives as a comment on a thread nobody reopens.
+      # Until an alarm can close itself, neither its run colour nor its issue is
+      # falsifiable.
+      #
+      # THREE conditions, and every one of them is load-bearing:
+      #
+      # 1. `outcome == 'success'`, not the output alone. A bare output test — and `!= 'true'`
+      #    especially — IS TRUE FOR THE EMPTY STRING, and the output is empty in every state
+      #    where nothing was measured: the step timeout this job deliberately sets below the
+      #    job's, a cancellation, an install that died first. Closing there would comment
+      #    "recovered" about a suite that never ran — NOT MEASURED reported as health, this
+      #    family's cardinal sin (perf-nightly.yml records four instances of it).
+      # 2. `failed == 'false'`, the run step's own verdict.
+      # 3. THE REPORT MUST SHOW TESTS THAT ACTUALLY PASSED. This is the condition the first
+      #    two cannot supply, and it is the whole reason a keyless night must not close
+      #    anything: `ai-architect.spec.ts` opens with `test.skip(!LIVE_KEY, …)`, so with the
+      #    secret unset Playwright skips every test, prints "N skipped", and EXITS 0 — steps
+      #    1 and 2 both hold while nothing whatsoever was tested. The deterministic `e2e` job
+      #    carries the identical guard: it is one bad `--grep`, one renamed project or one
+      #    empty spec glob away from the same vacuous green, and a suite that ran zero tests
+      #    is not evidence that a regression is fixed. `[1-9][0-9]*` rather than `[0-9]+`, so
+      #    a literal "0 passed" cannot satisfy it.
+      #
+      # UNLIKE perf-nightly, THIS ALARM MAY CLOSE OUTRIGHT once those three hold. perf
+      # compares head against a base ~24h old, so a green night there cannot tell "fixed"
+      # from "the base now carries the regression too", and it may only close a
+      # harness-failure thread. This check is ABSOLUTE — the specs pass or fail against this
+      # commit alone — so a measured green IS the evidence that the condition is gone.
+      - name: Stand down the rolling issue when the suite passes
+        if: always() && steps.e2e.outcome == 'success' && steps.e2e.outputs.failed == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          TITLE='[studio-e2e] Studio E2E suite failing on main'
+          REPORT="$GITHUB_WORKSPACE/studio-e2e-report.txt"
+          # Condition 3, guarded on the file existing as well — a missing report is the
+          # killed-before-writing case the filing step above calls out, and an absent file
+          # must never read as a pass.
+          if [ ! -f "$REPORT" ] || ! grep -qE '[1-9][0-9]* passed' "$REPORT"; then
+            echo "No passing tests in the report — nothing was proved; leaving any open thread alone."
+            exit 0
+          fi
+          # The IDENTICAL exact-title lookup the filing step above uses, for the reason
+          # documented there. Two different searches is how a stand-down closes a thread
+          # nobody was appending to while the live one stays open.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
+            --jq "[.[] | select(.title == \"$TITLE\")][0].number" 2>/dev/null || true)
+          [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
+          PASSED=$(grep -oE '[1-9][0-9]* passed' "$REPORT" | tail -n 1)
+          # Comment BEFORE closing, naming the run AND the pass count that proved it. A silent
+          # close leaves the next reader unable to tell a recovered alarm from a triaged-away
+          # one, and the count is what says the green was measured rather than vacuous.
+          # `--body-file`, not an inline multi-line `--body`: a continuation line would have to
+          # start at column 0 to avoid leading spaces in the issue text, and a column-0 line
+          # ENDS the `run: |` block scalar — the workflow then parses as something else.
+          {
+            echo "Recovered: the deterministic Studio E2E suite passed on \`main@${{ github.sha }}\` (${PASSED}). Closing — a recurrence opens a fresh thread."
+            echo ""
+            echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
+          } > "$GITHUB_WORKSPACE/stand-down.md"
+          gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
+          gh issue close "$ISSUE" --reason completed || true
+
   # The AI-assisted scenario tier (docs/e2e/scenarios/ai-architect.spec.ts):
   # drives the Architect against a LIVE OpenRouter model and asserts a real
   # productivity outcome (source changed + checkpoint saved). A separate job so
@@ -358,3 +424,69 @@ jobs:
               --label "priority:high" --label "status:backlog" \
               --body-file "$BODY"
           fi
+
+      # STAND THE ALARM DOWN when the suite passes again. A rolling issue that only ever
+      # opens is a one-way ratchet: after its first firing it reads as "the flaky nightly",
+      # and a real regression months later arrives as a comment on a thread nobody reopens.
+      # Until an alarm can close itself, neither its run colour nor its issue is
+      # falsifiable.
+      #
+      # THREE conditions, and every one of them is load-bearing:
+      #
+      # 1. `outcome == 'success'`, not the output alone. A bare output test — and `!= 'true'`
+      #    especially — IS TRUE FOR THE EMPTY STRING, and the output is empty in every state
+      #    where nothing was measured: the step timeout this job deliberately sets below the
+      #    job's, a cancellation, an install that died first. Closing there would comment
+      #    "recovered" about a suite that never ran — NOT MEASURED reported as health, this
+      #    family's cardinal sin (perf-nightly.yml records four instances of it).
+      # 2. `failed == 'false'`, the run step's own verdict.
+      # 3. THE REPORT MUST SHOW TESTS THAT ACTUALLY PASSED. This is the condition the first
+      #    two cannot supply, and it is the whole reason a keyless night must not close
+      #    anything: `ai-architect.spec.ts` opens with `test.skip(!LIVE_KEY, …)`, so with the
+      #    secret unset Playwright skips every test, prints "N skipped", and EXITS 0 — steps
+      #    1 and 2 both hold while nothing whatsoever was tested. The deterministic `e2e` job
+      #    carries the identical guard: it is one bad `--grep`, one renamed project or one
+      #    empty spec glob away from the same vacuous green, and a suite that ran zero tests
+      #    is not evidence that a regression is fixed. `[1-9][0-9]*` rather than `[0-9]+`, so
+      #    a literal "0 passed" cannot satisfy it.
+      #
+      # UNLIKE perf-nightly, THIS ALARM MAY CLOSE OUTRIGHT once those three hold. perf
+      # compares head against a base ~24h old, so a green night there cannot tell "fixed"
+      # from "the base now carries the regression too", and it may only close a
+      # harness-failure thread. This check is ABSOLUTE — the specs pass or fail against this
+      # commit alone — so a measured green IS the evidence that the condition is gone.
+      - name: Stand down the rolling issue when the live scenarios pass
+        if: always() && steps.ai.outcome == 'success' && steps.ai.outputs.failed == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          TITLE='[studio-e2e-ai] Live AI Studio scenarios failing on main'
+          REPORT="$GITHUB_WORKSPACE/studio-e2e-ai-report.txt"
+          # Condition 3, guarded on the file existing as well — a missing report is the
+          # killed-before-writing case the filing step above calls out, and an absent file
+          # must never read as a pass.
+          if [ ! -f "$REPORT" ] || ! grep -qE '[1-9][0-9]* passed' "$REPORT"; then
+            echo "No passing tests in the report — nothing was proved; leaving any open thread alone."
+            exit 0
+          fi
+          # The IDENTICAL exact-title lookup the filing step above uses, for the reason
+          # documented there. Two different searches is how a stand-down closes a thread
+          # nobody was appending to while the live one stays open.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title \
+            --jq "[.[] | select(.title == \"$TITLE\")][0].number" 2>/dev/null || true)
+          [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
+          PASSED=$(grep -oE '[1-9][0-9]* passed' "$REPORT" | tail -n 1)
+          # Comment BEFORE closing, naming the run AND the pass count that proved it. A silent
+          # close leaves the next reader unable to tell a recovered alarm from a triaged-away
+          # one, and the count is what says the green was measured rather than vacuous.
+          # `--body-file`, not an inline multi-line `--body`: a continuation line would have to
+          # start at column 0 to avoid leading spaces in the issue text, and a column-0 line
+          # ENDS the `run: |` block scalar — the workflow then parses as something else.
+          {
+            echo "Recovered: the live AI Studio scenarios passed against a real model on \`main@${{ github.sha }}\` (${PASSED}). Closing — a recurrence opens a fresh thread."
+            echo ""
+            echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
+          } > "$GITHUB_WORKSPACE/stand-down.md"
+          gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
+          gh issue close "$ISSUE" --reason completed || true
