@@ -54,13 +54,16 @@ Present-mode teleprompter. `--strip-notes` removes them for a clean export — f
 format, and the exported player then shows no notes affordance at all: no button, no panel,
 and the `n` key does nothing.
 
-**What `--strip-notes` guarantees is that the note TEXT is gone, not that the file is
-indistinguishable from one that never had notes.** The distinction is worth stating because
-it is easy to assume the stronger one. A determined recipient can still infer that notes were
-removed: stripping deletes the comment node and leaves the whitespace around it, so
-re-rendering the deck's own embedded source and diffing reveals a one-byte-per-slide residue
-that says *which* slides carried a note — though never what it said. Treat the flag as
-removing the content, not as concealing that you used it.
+**`--strip-notes` ships the render of the SCRUBBED source**, so the exported slides are
+byte-identical to the same deck written without notes — measured across every deck in
+`examples/` and the 117-slide baseline gallery. That matters because the shared player
+carries the deck's own scrubbed source for re-import, which used to make the counterfactual
+computable from the shipped file alone: re-render that source, diff, and a one-byte residue
+per noted slide named *which* slides had one (never what it said). It does not any more.
+
+One residue is left and is worth knowing: a note that sat between two blank lines leaves the
+blank lines behind in the embedded source. That is whitespace an author writes all the time
+and it is not computable against anything, unlike the byte delta above.
 
 **What makes a great note:**
 

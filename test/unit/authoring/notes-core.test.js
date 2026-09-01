@@ -664,6 +664,67 @@ describe('notes-core: caption channel (caption:)', () => {
 // fails on a deck where a directive survives into the rendered section — the directive is
 // lifted as a note and then deleted from the verbatim source the envelope carries, so the
 // recipient re-imports a deck whose slide has silently lost its class.
+describe('notes-core: stripNotesFromSource leaves no line where a note was (#1985)', () => {
+  test('stripNotesFromSource takes the whole LINE, so no blank line marks where a note was (#1985)', () => {
+    // The residue IS the disclosure. Replacing the `<!-- … -->` span alone leaves the line
+    // behind as an empty one, and an empty line where a note used to sit names WHICH slides
+    // carried a note — in the very source the player envelope ships for re-import. It also
+    // reaches the rendered bytes, because the export re-renders this scrubbed source.
+    // The author's OWN blank lines on either side survive — this takes the note's line, it
+    // does not reflow the deck. What is left is a run of blank lines, which is whitespace an
+    // author writes all the time; what is NOT left is a line that exists only because a note
+    // was removed from it. See the docblock in notes-core for the residue this does not close.
+    const source = '# Slide\n\n<!-- Pause here. -->\n\nBody.\n';
+    assert.equal(
+      core.stripNotesFromSource(source, new Set(['Pause here.'])),
+      '# Slide\n\n\nBody.\n',
+      'the note line is gone, terminator included — not blanked in place'
+    );
+    // Indented, as a nested-list author would write it.
+    assert.equal(
+      core.stripNotesFromSource('a\n  <!-- n -->\nb\n', new Set(['n'])),
+      'a\nb\n',
+      'the leading indent goes with the line'
+    );
+    // Last line, no trailing newline: there is no terminator to take, and the PRECEDING
+    // one belongs to the line above and must survive.
+    assert.equal(
+      core.stripNotesFromSource('a\n<!-- n -->', new Set(['n'])),
+      'a\n',
+      'a note on the final line leaves the previous line intact'
+    );
+    // CRLF: the `\r` is part of this line's terminator and goes with it, rather than
+    // being left dangling as a lone carriage return in a Windows-authored deck.
+    assert.equal(
+      core.stripNotesFromSource('a\r\n<!-- n -->\r\nb\r\n', new Set(['n'])),
+      'a\r\nb\r\n',
+      'a CRLF deck loses the whole line, carriage return included'
+    );
+    // TWO notes on ONE line. The second is only judged after the first has been cut, so
+    // the line legitimately begins at the cursor and collapses — rather than the first
+    // seeing a comment after it, declining, and leaving a blank line for both.
+    assert.equal(
+      core.stripNotesFromSource('a\n<!-- one --><!-- two -->\nb\n', new Set(['one', 'two'])),
+      'a\nb\n',
+      'two notes sharing a line take the line with them'
+    );
+  });
+
+  test('stripNotesFromSource leaves an INLINE note\'s surrounding whitespace alone (#1985)', () => {
+    // The opposite error, and the reason the line rule is conditional. A note written mid
+    // sentence has an author-typed space on each side; deleting one would JOIN two words.
+    // `a <!-- n --> b` scrubs to `a  b` — which is also exactly what the counterfactual
+    // source (the author never typing the comment) contains, so the span-only cut is
+    // already the right answer here.
+    assert.equal(core.stripNotesFromSource('a <!-- n --> b', new Set(['n'])), 'a  b');
+    assert.equal(core.stripNotesFromSource('a<!-- n -->b', new Set(['n'])), 'ab');
+    // A comment that ENDS a line of prose is not a whole-line comment either: the prose
+    // before it is not whitespace, so the line stays and only the span goes.
+    assert.equal(core.stripNotesFromSource('a <!-- n -->\nb\n', new Set(['n'])), 'a \nb\n');
+  });
+
+});
+
 describe('notes-core: a directive is never a note', () => {
   test('parity — the mirrored directive names match lib/engine/directives.js', () => {
     // Same discipline as the Marpit pragma mirror above: this module stays dependency-free,

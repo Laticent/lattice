@@ -2057,7 +2057,11 @@ function splitTopLevelSections(latticeHtml) {
   return out;
 }
 
-function engineSlides() {
+// `deckSource` defaults to the deck's own source. `--strip-notes` re-enters with the
+// SCRUBBED source (see the call below), which is what makes the exported bytes the bytes of
+// a deck that never carried a note. Named for the parameter it is, not `md` — the module
+// already has an `md` (the print-mode source) and shadowing it here reads as a bug.
+function engineSlides(deckSource = rawMd) {
   const latticeEngine = require('./lib/engine');
   // `htmlAndMathml` — KaTeX's default, and the ONLY setting under which math is
   // readable by a screen reader.
@@ -2107,7 +2111,7 @@ function engineSlides() {
   // the output directory (the path-bug fix —
   // engineering/decisions/2026-06-17-image-rearchitecture.md).
   const deckBaseUrl = pathToFileURL(path.dirname(path.resolve(mdFile)) + path.sep).href;
-  const rendered = engine.render(bgImage.liftBgImages(rawMd, deckBaseUrl), paletteName);
+  const rendered = engine.render(bgImage.liftBgImages(deckSource, deckBaseUrl), paletteName);
   // logo-wall marks ride as CSS `mask` in the preview; for the PDF we swap each
   // mask span for the mark's real `<svg>` vector (CSS mask isn't reliable in
   // print-to-PDF). Read against the deck dir, the same base `![bg]` uses.
@@ -2145,7 +2149,9 @@ function engineSlides() {
   });
 }
 
-const slides = engineSlides();
+// PASS 1 — the deck as the author wrote it. Under `--strip-notes` this render exists only
+// to lift the note bodies; the file ships pass 2.
+const slidesAsAuthored = engineSlides();
 
 // ── Speaker notes ──────────────────────────────────────────────────────────
 // A non-directive HTML comment on a slide is that slide's speaker note
@@ -2158,15 +2164,30 @@ const slides = engineSlides();
 const notesCore = require('./lib/authoring/notes-core');
 const escapeHtml = (s) => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const slideNotes = notesCore.extractSlideNotes(slides);
-// `--strip-notes` blanks every MATERIALIZED note copy (DOM aside, PDF annotation,
-// sidecar) while `slideNotes` stays intact for the envelope source-scrub set below.
-const materializedNotes = STRIP_NOTES ? slideNotes.map(() => null) : slideNotes;
 // The set of INDIVIDUAL note bodies straight from the render — the directive-safe
 // key for scrubbing the SOURCE copies (the player envelope AND the PDF `--embed-source`
 // attachment). NOT the `\n\n`-joined note split apart, which shatters a single
 // blank-line note and leaks it.
-const noteStripSet = STRIP_NOTES ? new Set(slides.flatMap((sec) => notesCore.noteBodiesFromHtml(sec))) : null;
+const noteStripSet = STRIP_NOTES ? new Set(slidesAsAuthored.flatMap((sec) => notesCore.noteBodiesFromHtml(sec))) : null;
+// PASS 2 — `--strip-notes` SHIPS THE RENDER OF THE SCRUBBED SOURCE, not a scrubbed render
+// of the authored source. Blanking the note copies after the fact left the comment's own
+// whitespace behind, and one byte per noted slide named WHICH slides had notes — computable
+// from the shipped file alone, since the player envelope carries the same scrubbed source to
+// re-render (#1985). Removing the comment BEFORE markdown-it is how `directives.js` has
+// always kept a consumed directive from leaving a trace, and it makes the exported bytes
+// byte-identical to the same deck written without notes: measured across all 23 decks in
+// examples/ + the 117-slide baseline gallery.
+//
+// Costs one extra engine render (~5 ms on a 6-slide deck, ~94 ms on the 117-slide gallery)
+// and only on this flag's path, against an export that spawns Chromium. The alternative —
+// consuming the residue in `stripCommentNodes` — sits on the render path for EVERY deck and
+// cannot tell a block comment from an inline one in already-rendered HTML, so it would join
+// two words in `a<!-- n -->\nb`. See engineering/gotchas/export.md.
+const slides = STRIP_NOTES ? engineSlides(notesCore.stripNotesFromSource(rawMd, noteStripSet)) : slidesAsAuthored;
+const slideNotes = notesCore.extractSlideNotes(slides);
+// Belt and braces: pass 2 already renders a note-free deck, so this is a second, independent
+// guarantee that no materialized copy carries note text even if a note ever survived the scrub.
+const materializedNotes = STRIP_NOTES ? slideNotes.map(() => null) : slideNotes;
 const slideDescriptions = notesCore.extractSlideDescriptions(slides);
 // Per-slide inline `<!-- caption: … -->` read-as text (Layer 1, §16) — the highest-precedence
 // narration source. Extracted from the rendered slides (index-aligned) exactly as notes are. A

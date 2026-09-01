@@ -316,7 +316,7 @@ export async function shareHtmlPlayer(
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
 	const theme = await ensureTheme(options, palette, mode, extra, source);
-	const out = await renderMarkdown(PG, source, theme);
+	let out = await renderMarkdown(PG, source, theme);
 
 	onStatus?.('Embedding fonts…');
 	const [fontMod, deckMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
@@ -343,10 +343,37 @@ export async function shareHtmlPlayer(
 	// truncated at the nested close tag and its comments fall outside the chunk — while
 	// the slide COUNT stays correct, which is exactly why a count-parity check cannot
 	// catch it.
-	const recordSections = splitSectionsCore(out.html)
-		.filter((p) => p.type === 'section')
-		.map((p) => `${p.openTag}${p.inner}</section>`);
-	const noteRecord = notesCore.slideNoteRecord(recordSections);
+	const sectionsOf = (html: string) =>
+		splitSectionsCore(html)
+			.filter((p) => p.type === 'section')
+			.map((p) => `${p.openTag}${p.inner}</section>`);
+	let recordSections = sectionsOf(out.html);
+	let noteRecord = notesCore.slideNoteRecord(recordSections);
+	// --strip-notes privacy export: the note text must appear NOWHERE in the shipped file —
+	// not the DOM, and not the verbatim envelope source. Scrub the source with the INDIVIDUAL
+	// note bodies lifted from the render (directive-safe: only exact note bodies are removed,
+	// never a `_class`/pragma comment), exactly as the CLI emulator does. The note/non-note
+	// boundary stays the shared notesCore.
+	//
+	// Read from the RECORD, not from the baked sections below. Those have been through the
+	// bake, so scraping them for note bodies is what produced an empty set and turned this
+	// scrub into a no-op — the leak. A multi-note slide joins its notes with a blank line,
+	// so the record carries them pre-join: the scrub matches INDIVIDUAL bodies.
+	const envelopeSource = stripNotes
+		? notesCore.stripNotesFromSource(source, new Set(noteRecord.flatMap((r) => r.noteBodies || [])))
+		: source;
+	// THEN RENDER THAT SOURCE, and ship its bytes. Blanking the note copies after the fact
+	// left the comment's own whitespace behind, so a stripped slide carried one byte more
+	// than the same slide written without a note — naming WHICH slides had one, computable
+	// by the recipient from the shipped file alone, since the envelope carries this same
+	// scrubbed source to re-render (#1985). Parity with the CLI is the point: `--strip-notes`
+	// and this button are the same guarantee, and the CLI does exactly this
+	// (lattice-emulator.js, "PASS 2"). Costs one extra render, on this flag's path only.
+	if (stripNotes) {
+		out = await renderMarkdown(PG, envelopeSource, theme);
+		recordSections = sectionsOf(out.html);
+		noteRecord = notesCore.slideNoteRecord(recordSections);
+	}
 	// The engine omits `data-lattice-slide`; the CLI's emulator re-tags each section
 	// with it (lattice-emulator.js), and the player CSS + transport key off it. Split
 	// the render into per-slide sections and re-tag them the same way, so the assembled
@@ -424,20 +451,9 @@ export async function shareHtmlPlayer(
 		bakeWarning = 'diagrams ship as source, not as drawings';
 	}
 	const tagged = (baked ?? recordSections).map((sec, i) => sec.replace(/^<section\b/i, `<section data-lattice-slide="${i + 1}"`));
+	// Belt and braces: under `--strip-notes` the render above is already note-free, so this
+	// is a second, independent guarantee that no materialized copy carries note text.
 	const slides = materializeNotes(tagged, notesCore, noteRecord, stripNotes);
-	// --strip-notes privacy export: the note text must appear NOWHERE in the shipped
-	// file — not the DOM (blanked above) AND not the verbatim envelope source. Scrub
-	// the source with the INDIVIDUAL note bodies lifted from the render (directive-safe:
-	// only exact note bodies are removed, never a `_class`/pragma comment), exactly as
-	// the CLI emulator does. The note/non-note boundary stays the shared notesCore.
-	//
-	// Read from the RECORD, not from `tagged`. Those sections have been through the
-	// bake, so scraping them for note bodies is what produced an empty set and turned
-	// this scrub into a no-op — the leak. A multi-note slide joins its notes with a
-	// blank line, so split them back apart: the scrub matches INDIVIDUAL bodies.
-	const envelopeSource = stripNotes
-		? notesCore.stripNotesFromSource(source, new Set(noteRecord.flatMap((r) => r.noteBodies || [])))
-		: source;
 	// FAIL-CLOSED, mirroring the CLI. The scrub matches bodies lifted from the RENDER against
 	// comments in the SOURCE, and every leak this has had was a new way for those two sides to
 	// disagree. So check the OUTPUT rather than trusting the matcher: a comment still standing

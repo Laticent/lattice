@@ -336,13 +336,23 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   stripped one said `false`: a one-bit answer to "were there notes here?". It now reads the
   materialized array, so both cases say `false`. Two writers, both changed —
   `lattice-emulator.js` and `docs/src/components/studio/share-export.ts`.
-- **What is NOT fixed — do not claim the file is indistinguishable.** Stripping removes the
-  comment NODE and leaves the whitespace around it, so re-rendering the deck's own embedded
-  source and diffing shows a one-byte-per-slide residue naming WHICH slides carried a note
-  (never what it said) — computable from the shipped file alone. Closing it means changing
-  whitespace handling in `stripCommentNodes`, which is on the render path for every deck, so
-  it wants its own change and its own verification. `--strip-notes` removes the content; it
-  does not conceal that it ran.
+- **A third tell in the same class, now closed (#1985).** Stripping used to remove the comment
+  NODE from already-rendered HTML and leave the whitespace around it, so re-rendering the deck's
+  own embedded source and diffing showed a one-byte-per-slide residue naming WHICH slides
+  carried a note — computable from the shipped file alone. The fix is NOT whitespace surgery in
+  `stripCommentNodes`: that sits on the render path for every deck, and already-rendered HTML
+  cannot tell a block comment from an inline one, so consuming the trailing newline would join
+  two words in `a<!-- n -->\nb`. Instead `--strip-notes` scrubs the SOURCE and renders that —
+  removing the comment before markdown-it ever sees it, which is how `directives.js` has always
+  kept a consumed directive from leaving a trace. Costs one extra engine render on this flag's
+  path only. Both writers changed, so the two paths stay in step — `lattice-emulator.js`
+  ("PASS 2") and `docs/src/components/studio/share-export.ts`. Pinned by
+  `test/integration/export/strip-notes-no-fingerprint.test.js`, which exports the fixture and a
+  committed note-free twin and compares the rendered section bytes.
+- **What is still there, and is not the same thing.** `stripNotesFromSource` takes a whole-line
+  note's LINE with it, but the author's own blank lines on either side stay — so a note between
+  two blank lines leaves a run of them in the embedded source. That is ordinary authoring
+  whitespace and it is not computable against anything; the byte delta above was.
 
 ## A `tier:` / `galleryAuthored:` pragma shipped as the speaker note in every format
 
