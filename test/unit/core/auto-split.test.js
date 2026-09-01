@@ -220,31 +220,68 @@ describe('core: document-level bookkeeping across a split', () => {
     assert.doesNotMatch(tags[1], /\sid="/);
   });
 
-  test('renumbers every section after a mid-deck split', () => {
-    const doc = docSec(1, 'quote', '<p>a</p>') + docSec(2, 'cards', list(3)) + docSec(3, 'quote', '<p>b</p>');
-    assert.deepEqual(nums(splitDoc(doc, cap).html), [1, 2, 3, 4, 5]);
-  });
-
-  test('re-paginates the page-number badge so split copies do not repeat the original', () => {
-    const pg = (n, cls, inner) => `<section data-lattice-slide="${n}" data-lattice-pagination="${n}" data-lattice-pagination-total="2" class="${cls}">${inner}</section>`;
-    const doc = pg(1, 'quote', '<p>a</p>') + pg(2, 'cards', list(3));
+  // ── HIERARCHICAL numbering (2026-09-01) ────────────────────────────────────────────────
+  // A split run numbers itself — 2 · 2.2 · 2.3 — and nothing else in the deck moves. The old
+  // pass counted every emitted page and re-stamped the whole deck's numbers AND totals, which
+  // reported the artifact's page count when what a reader needs is where they are in the
+  // argument the author wrote.
+  test('a split run numbers ITSELF: 2 becomes 2 · 2.2 · 2.3', () => {
+    const doc = docSec(1, 'quote', '<p>a</p>') + docSec(2, 'cards', `<h2>T</h2>${list(3)}`) + docSec(3, 'quote', '<p>b</p>');
     const { html } = splitDoc(doc, cap);
-    const pages = [...html.matchAll(/data-lattice-pagination="(\d+)"/g)].map((m) => Number(m[1]));
-    assert.deepEqual(pages, [1, 2, 3, 4]);
-    assert.ok([...html.matchAll(/data-lattice-pagination-total="(\d+)"/g)].every((m) => m[1] === '4'));
+    assert.deepEqual(
+      [...html.matchAll(/data-lattice-slide="([^"]*)"/g)].map((m) => m[1]),
+      ['1', '2', '2.2', '2.3', '2.4', '3'],
+    );
   });
 
-  // The engine numbers a slide by its ABSOLUTE position and totals the WHOLE deck
-  // (lib/engine/slides.js §3): a `_paginate: false` slide is still counted, so the next
-  // paginated slide reads its true position. The re-paginate after a split has to agree.
-  test('a paginate:false slide is not numbered but STILL advances the counter', () => {
+  test('slides the split never touched come out BYTE-IDENTICAL', () => {
+    // The whole point of the change: one split at slide 2 must cost nothing at slides 3..N,
+    // so nothing downstream needs re-rendering. Asserted on the bytes, not on the numbers —
+    // a re-stamped attribute would pass a number check and still dirty the section.
+    const head = docSec(2, 'cards', `<h2>T</h2>${list(3)}`);
+    const tail = docSec(3, 'quote', '<p>b</p>') + docSec(4, 'quote', '<p>c</p>');
+    const { html } = splitDoc(head + tail, cap);
+    assert.ok(html.endsWith(tail), 'every section after the split must be untouched');
+  });
+
+  test('the TOTAL is never rewritten — the authored deck still has as many slides', () => {
+    const pg = (n, cls, inner) => `<section data-lattice-slide="${n}" data-lattice-pagination="${n}" data-lattice-pagination-total="2" class="${cls}">${inner}</section>`;
+    const { html } = splitDoc(pg(1, 'quote', '<p>a</p>') + pg(2, 'cards', list(3)), cap);
+    assert.ok([...html.matchAll(/data-lattice-pagination-total="([^"]*)"/g)].every((m) => m[1] === '2'),
+      'a split does not change how many slides the author wrote');
+    assert.deepEqual(
+      [...html.matchAll(/data-lattice-pagination="([^"]*)"/g)].map((m) => m[1]),
+      ['1', '2', '2.2', '2.3'],
+    );
+  });
+
+  test('the VISIBLE span tracks the attribute — including on the cover', () => {
+    // The cover used to mint a literal `0` and rely on the sequential pass to overwrite it.
+    // Nothing re-stamps a run's first page any more, so it seeds from its own openTag.
+    const pg = (n, cls, inner) => `<section data-lattice-slide="${n}" data-lattice-pagination="${n}" data-lattice-pagination-total="1" class="${cls}"><span class="lat-pagination">${n}</span>${inner}</section>`;
+    const { html } = splitDoc(pg(2, 'cards', `<h2>T</h2>${list(3)}`), cap);
+    assert.deepEqual(
+      [...html.matchAll(/<span class="lat-pagination">([^<]*)</g)].map((m) => m[1]),
+      ['2', '2.2', '2.3', '2.4'],
+    );
+    assert.doesNotMatch(html, /lat-pagination">0</, 'no page may render a literal 0');
+  });
+
+  // The engine numbers a slide by its ABSOLUTE position and a `paginate: false` slide still
+  // holds one (lib/engine/slides.js §3). Hierarchical numbering does not disturb that: it only
+  // ever appends a decimal WITHIN a run, so a hidden slide's position is untouched by
+  // construction rather than by a counter that has to remember it.
+  test('a paginate:false slide is unaffected — the split never counts across it', () => {
     const doc =
       '<section data-lattice-slide="1" class="title"><h1>cover</h1></section>' +
       `<section data-lattice-slide="2" data-lattice-pagination="2" data-lattice-pagination-total="2" class="cards">${list(3)}</section>`;
     const { html } = splitDoc(doc, cap);
-    const pages = [...html.matchAll(/data-lattice-pagination="(\d+)"/g)].map((m) => Number(m[1]));
-    assert.deepEqual(pages, [2, 3, 4]);
-    assert.ok([...html.matchAll(/data-lattice-pagination-total="(\d+)"/g)].every((m) => m[1] === '4'));
+    assert.match(html, /<section data-lattice-slide="1" class="title"><h1>cover<\/h1><\/section>/,
+      'the hidden slide is byte-identical');
+    assert.deepEqual(
+      [...html.matchAll(/data-lattice-pagination="([^"]*)"/g)].map((m) => m[1]),
+      ['2', '2.2', '2.3'],
+    );
   });
 
   test('a body page the splitter already emitted does not grow a SECOND cover', () => {

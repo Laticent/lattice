@@ -485,20 +485,22 @@ describe('core: the envelope through the auto-split passes (HARD RULE #1)', () =
     assert.equal(twice.html, once.html, 'the structural cut is idempotent');
   });
 
-  test('both passes re-stamp the page number — attribute AND the real .lat-pagination span', () => {
+  test('the run addresses itself — 1 · 1.2 · 1.3 …, attribute AND visible span in step', () => {
     const { html } = firstCut(doc(formInner({ n: 9, insight: 'Insight.', note: 'Note.' })), cap);
-    const attrs = [...html.matchAll(/data-lattice-pagination="(\d+)"/g)].map((m) => Number(m[1]));
-    const spans = [...html.matchAll(/class="lat-pagination">(\d+)</g)].map((m) => Number(m[1]));
-    assert.deepEqual(attrs, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]); // cover + 9 bodies + closing
-    // Every page — the COVER included. The cover used to emit its footer text, section rail and
-    // page number as BARE section children, so it had no `.cell-footer` and fell back to the
-    // `section.form::after` pagination pseudo. Those four marks are each absolutely positioned
-    // from their own edge, which on a portrait cover made them overlap (the k-of-N rail struck
-    // through the footer text, the section label truncated). The cover now builds the same footer
-    // CELL an ordinary slide has, so the band is one flex row with a shared width budget — and
-    // the number is a real element `repaginate` re-stamps, exactly like the body pages'.
-    assert.deepEqual(spans, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
-    assert.ok([...html.matchAll(/data-lattice-pagination-total="(\d+)"/g)].every((m) => m[1] === '11'));
+    const attrs = [...html.matchAll(/data-lattice-pagination="([^"]*)"/g)].map((m) => m[1]);
+    const spans = [...html.matchAll(/class="lat-pagination">([^<]*)</g)].map((m) => m[1]);
+    // The fixture's one slide is number 1, so its run is 1 · 1.2 … 1.11 (cover + 9 bodies +
+    // closing). The COVER keeps the authored number bare — that is what makes an unsplit deck
+    // and a split one read the same at the top of every run.
+    const expected = ['1', ...Array.from({ length: 10 }, (_, i) => `1.${i + 2}`)];
+    assert.deepEqual(attrs, expected);
+    // Every page carries a real `.lat-pagination` element in its own `.cell-footer` — the cover
+    // included. (Before it built that Cell, the cover fell back to the `section.form::after`
+    // pseudo, and the four absolutely-positioned marks overlapped on a portrait cover: the rail
+    // struck through the footer text and the section label truncated.)
+    assert.deepEqual(spans, expected);
+    assert.ok([...html.matchAll(/data-lattice-pagination-total="([^"]*)"/g)].every((m) => m[1] === '1'),
+      'the total is the authored slide count, which a split does not change');
   });
 
   // The engine's contract: absolute position, whole-deck total, hidden slides counted
@@ -507,10 +509,15 @@ describe('core: the envelope through the auto-split passes (HARD RULE #1)', () =
     const hidden = '<section data-lattice-slide="1" class="title"><h1>cover</h1></section>';
     const trailing = '<section data-lattice-slide="3" data-lattice-pagination="3" data-lattice-pagination-total="3" class="content form"><p>after</p></section>';
     const { html } = firstCut(hidden + doc(formInner({ n: 9, insight: 'Insight.' })).replace('data-lattice-pagination="1"', 'data-lattice-pagination="2"') + trailing, cap);
-    const attrs = [...html.matchAll(/data-lattice-pagination="(\d+)"/g)].map((m) => Number(m[1]));
-    // hidden holds 1; cover 2, bodies 3-11, closing 12, trailing 13
-    assert.deepEqual(attrs, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
-    assert.ok([...html.matchAll(/data-lattice-pagination-total="(\d+)"/g)].every((m) => m[1] === '13'));
+    const attrs = [...html.matchAll(/data-lattice-pagination="([^"]*)"/g)].map((m) => m[1]);
+    // The hidden slide holds 1 and is untouched; the run addresses itself from 2; the trailing
+    // slide is still 3, because a split never moves anything after it.
+    assert.deepEqual(attrs.map(String), ['2', ...Array.from({ length: 10 }, (_, i) => `2.${i + 2}`), '3']);
+    // Totals are never rewritten, so each section keeps the one it was authored with — the
+    // run's `1` and the trailing slide's `3` in this synthetic fixture. Asserting they are
+    // UNCHANGED is the real contract; asserting a single value would only pin the fixture.
+    const totalsIn = ['1', '3'];
+    assert.deepEqual([...new Set([...html.matchAll(/data-lattice-pagination-total="([^"]*)"/g)].map((m) => m[1]))].sort(), totalsIn);
   });
 
   test('a page the splitter emitted never grows a SECOND cover', () => {
@@ -709,12 +716,14 @@ describe('core: split-envelope — injectTrailing places the note before the TRA
 describe('core: split-envelope — footerCell / stripChrome', () => {
   const chrome = { header: '<header>H</header>', footer: '<footer>F</footer>', rail: '<div class="tile-progress"><span class="seg">S</span></div>' };
 
-  test('a paginated slide gets footer + rail + a page-number element to re-stamp', () => {
+  test('a paginated slide gets footer + rail + a page-number element seeded from its own tag', () => {
     const cellHtml = footerCell('<section data-lattice-pagination="3" class="x">', chrome);
     assert.match(cellHtml, /^<div class="cell-footer">/);
     assert.match(cellHtml, /<footer>F<\/footer>/);
     assert.match(cellHtml, /tile-progress/);
-    assert.match(cellHtml, /<span class="lat-pagination">0<\/span>/);
+    // Seeded from the openTag's own `data-lattice-pagination`, not minted as a placeholder `0`
+    // for a later pass to overwrite — nothing re-stamps a run's first page any more.
+    assert.match(cellHtml, /<span class="lat-pagination">3<\/span>/);
   });
 
   test('a `paginate: false` slide gets the Cell WITHOUT a number — never a literal "0"', () => {
