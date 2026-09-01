@@ -431,9 +431,24 @@ Two practical notes. The lock lives under `.git/lattice-waits/`, **not**
 `.scratch/` — that directory is documented as throwaway, and a `rm -rf .scratch`
 or `git clean -fdx` during a live wait would let a second waiter create a fresh
 inode and take the lock while the first still runs. Logs stay in `.scratch`,
-where disposable things belong. And `flock` is required: a missing binary now
-fails loudly (exit 69) rather than being folded into "already being waited on",
-which is what a naive non-zero check did — reporting a phantom holder forever.
+where disposable things belong.
+
+**On a box without `flock(1)`, it falls back to perl.** `flock(1)` is util-linux
+and macOS does not ship it — but macOS *does* have the `flock(2)` syscall, and
+perl's `flock` builtin is a thin wrapper over it, with perl present by default
+there. So the fallback is the same kernel primitive reached another way, not a
+weaker imitation: it refuses while held and is released by the kernel on
+SIGKILL, both measured. The subtlety is that perl locks the open file
+*description* bash holds on fd 9 (`>&=` duplicates the description, not just the
+number), so the lock outlives the perl process and lasts as long as the waiter.
+`WAIT_FOR_LOCK_IMPL` pins the choice, and the suite drives **both** paths — a
+second code path nothing exercises is how this tool kept breaking.
+
+**macOS itself remains UNVERIFIED** (HARD RULE #23): what is tested is the
+mechanism the macOS path would use, on Linux. If neither mechanism is present,
+the wait fails loudly with exit 69 rather than being folded into "already being
+waited on" — which is what a naive non-zero check did, reporting a phantom
+holder forever.
 
 One sharp edge worth knowing, since it cost a measured bug: **a flock lives on
 an open file descriptor, and children inherit descriptors.** The job this tool

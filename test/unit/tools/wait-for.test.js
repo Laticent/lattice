@@ -23,6 +23,7 @@ const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
+const os = require('node:os');
 const { spawn, spawnSync } = require('node:child_process');
 
 const REPO = path.join(__dirname, '..', '..', '..');
@@ -38,6 +39,9 @@ const run = (args, opts = {}) => {
   return { code: r.status, out: r.stdout || '', err: r.stderr || '' };
 };
 
+/** Run pinned to one locking implementation. */
+const runWith = (impl, args) => run(args, { env: { ...process.env, WAIT_FOR_LOCK_IMPL: impl } });
+
 /** A job name unique to one test, so cases never collide over a lock. */
 let n = 0;
 const jobName = (label) => `test-${label}-${process.pid}-${++n}`;
@@ -48,9 +52,10 @@ const jobName = (label) => `test-${label}-${process.pid}-${++n}`;
  * lock dirs behind after every `npm test` — leaked waiters inside the suite that
  * pins "no leaked waiters".
  */
-const spawnHolder = (job, seconds = 30) =>
+const spawnHolder = (job, seconds = 30, impl = undefined) =>
   spawn(SCRIPT, ['--job', job, '--timeout', String(seconds), '--', 'sleep', String(seconds)],
-    { cwd: REPO, stdio: 'ignore', detached: true });
+    { cwd: REPO, stdio: 'ignore', detached: true,
+      env: impl ? { ...process.env, WAIT_FOR_LOCK_IMPL: impl } : process.env });
 
 /** Kill a holder and everything it started. */
 const reap = (child) => {
@@ -369,6 +374,69 @@ describe('wait-for — the lock is the kernel\'s, not ours', () => {
     reap(holder);
     assert.equal(code, 0, 'a prefix of another job name was treated as that job');
     assert.ok(survived, "and the other job's waiter must not be signaled");
+  });
+});
+
+// flock(1) is util-linux and macOS does not ship it, but macOS DOES have the
+// flock(2) syscall, and perl's builtin is a thin wrapper over it with perl
+// present by default there. The fallback is therefore the same kernel primitive
+// reached another way — but a second code path that nothing exercises is how
+// this tool kept breaking, so both are driven through the cases that matter.
+//
+// This does NOT verify macOS. It verifies the mechanism the macOS path uses.
+// The platform itself stays UNVERIFIED from a Linux sandbox (HARD RULE #23).
+for (const impl of ['flock', 'perl']) {
+  describe(`wait-for — the lock via ${impl}`, () => {
+    test('refuses a second waiter while the job is held', () => {
+      const job = jobName(`impl-${impl}`);
+      const holder = spawnHolder(job, 20, impl);
+      assert.ok(until(() => lockHeld(job)), 'holder never claimed the lock');
+      const { code } = runWith(impl, ['--job', job, '--', 'true']);
+      reap(holder);
+      assert.equal(code, 2);
+    });
+
+    test('frees the job when its holder is SIGKILLed', () => {
+      const job = jobName(`implkill-${impl}`);
+      const holder = spawnHolder(job, 60, impl);
+      assert.ok(until(() => lockHeld(job)), 'holder never claimed the lock');
+      process.kill(holder.pid, 'SIGKILL');
+      until(() => !isLive(holder.pid));
+      reap(holder);
+      assert.equal(runWith(impl, ['--job', job, '--', 'true']).code, 0,
+        'the job stayed wedged after a kill — the child may have inherited the lock');
+    });
+
+    test('runs the job and reports success', () => {
+      const { code, out } = runWith(impl, ['--job', jobName(`implok-${impl}`), '--', 'true']);
+      assert.equal(code, 0);
+      assert.match(out, /finished OK/);
+    });
+  });
+}
+
+describe('wait-for — locking mechanism selection', () => {
+  test('rejects an unknown implementation rather than guessing', () => {
+    assert.equal(runWith('banana', ['--job', jobName('impl-bad'), '--', 'true']).code, 64);
+  });
+
+  // A broken mechanism folded into the "held" branch reported
+  // `refused — already being waited on (pid , since )` forever, with --force
+  // equally stuck. Shim flock to a hard failure and require exit 69, not 2.
+  test('reports a broken mechanism as a fault, not as a phantom holder', () => {
+    const shimDir = fs.mkdtempSync(path.join(os.tmpdir(), 'waitfor-shim-'));
+    fs.writeFileSync(path.join(shimDir, 'flock'), '#!/bin/sh\nexit 127\n', { mode: 0o755 });
+    try {
+      const r = spawnSync(SCRIPT, ['--job', jobName('impl-broken'), '--', 'true'], {
+        encoding: 'utf8', cwd: REPO, timeout: 30_000,
+        env: { ...process.env, PATH: `${shimDir}:${process.env.PATH}`, WAIT_FOR_LOCK_IMPL: 'flock' },
+      });
+      assert.equal(r.status, 69, `expected a fault exit, got ${r.status}: ${r.stderr}`);
+      assert.doesNotMatch(r.stderr || '', /already being waited on/,
+        'a broken mechanism must not be reported as a live holder');
+    } finally {
+      fs.rmSync(shimDir, { recursive: true, force: true });
+    }
   });
 });
 

@@ -148,23 +148,51 @@ log_file="$log_root/$job.log"
 
 # Append-mode open: it must NOT truncate, or opening would wipe the live
 # holder's details before we know whether we can have the lock.
-command -v flock >/dev/null 2>&1 \
-  || die "flock is required and was not found (it is util-linux; macOS does not ship it)" 69
+# Which locking mechanism? Resolved once, and overridable so the fallback is
+# TESTED rather than shipped as dead code -- an untested second path is how this
+# tool kept breaking.
+lock_impl="${WAIT_FOR_LOCK_IMPL:-}"
+if [ -z "$lock_impl" ]; then
+  if command -v flock >/dev/null 2>&1; then lock_impl=flock
+  elif command -v perl >/dev/null 2>&1; then lock_impl=perl
+  else lock_impl=none
+  fi
+fi
+case "$lock_impl" in
+  flock) command -v flock >/dev/null 2>&1 || die "flock requested but not found" 69 ;;
+  perl)  command -v perl  >/dev/null 2>&1 || die "perl requested but not found" 69 ;;
+  none)  die "no locking mechanism found: install flock (util-linux) or perl" 69 ;;
+  *)     die "unknown WAIT_FOR_LOCK_IMPL: $lock_impl" 64 ;;
+esac
 
 exec 9>>"$lock_file" || die "cannot open lock file $lock_file"
 
-# `flock -n` returns 1 when the lock is HELD and something else on any other
-# fault -- 127 for a missing binary, for instance. Folding every non-zero into
-# "held" made a broken environment report `refused -- already being waited on
-# (pid , since )` forever, with --force equally stuck. Verified by removing
-# flock from PATH.
+# Take the lock on fd 9, whichever mechanism this box has.
+#
+# `flock(1)` is util-linux and macOS does not ship it -- but macOS does have the
+# flock(2) SYSCALL, and perl's `flock` builtin is a thin wrapper over it, with
+# perl present by default there. So the fallback is the same kernel primitive
+# reached another way, not a weaker imitation: measured here to refuse while
+# held, and to be released by the kernel on SIGKILL, exactly like flock(1).
+#
+# The subtle part is that perl locks the open file description that BASH holds
+# on fd 9 (`>&=` duplicates the description, not just the number), so the lock
+# survives perl exiting and lasts as long as this shell. Measured, because
+# reasoning about POSIX lock lifetimes is how you get this wrong.
+#
+# Both return 1 for HELD and something else for a fault. Folding every non-zero
+# into "held" made a broken environment report `refused -- already being waited
+# on (pid , since )` forever, with --force equally stuck.
 take_lock() {
   local rc=0
-  flock -n 9 || rc=$?
+  case "$lock_impl" in
+    flock) flock -n 9 || rc=$? ;;
+    perl)  perl -e 'use Fcntl ":flock"; open(my $fh, ">&=", 9) or exit 3; exit(flock($fh, LOCK_EX|LOCK_NB) ? 0 : 1)' || rc=$? ;;
+  esac
   case "$rc" in
     0) return 0 ;;
     1) return 1 ;;
-    *) die "flock failed with exit $rc on $lock_file" 69 ;;
+    *) die "lock attempt ($lock_impl) failed with exit $rc on $lock_file" 69 ;;
   esac
 }
 
