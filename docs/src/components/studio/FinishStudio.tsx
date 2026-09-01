@@ -13,6 +13,7 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { Tip } from '@/components/ui/tooltip';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateFinish, useArchitectStatus } from './architect';
@@ -37,8 +38,10 @@ import {
 	WASH_TYPES,
 	washHasHotspot,
 } from './finish-generate';
-import { saveStudioFinish } from './finish-library';
+import { type StudioFinish, safeSaveSlug, saveStudioFinish } from './finish-library';
 import { Joystick } from './Joystick';
+import { REFUSAL_PREFIX } from './library/asset-store.js';
+import { findNameClash } from './library/save-guard.js';
 import { type HandleStyle, loadSettings, SETTINGS_EVENT } from './studio-store';
 
 // The Finish faculty — the third Fabricate workbench (beside Theme + Component),
@@ -72,17 +75,34 @@ const specimen = (exporting: boolean) =>
 
 export function FinishStudio({
 	options,
+	seed,
+	savedFinishes = [],
 	notify,
 	onSaved,
 	onOpenWorkspace,
 }: {
 	options: SingleSlideOptions;
+	/** A saved finish to REOPEN, or null to start from the default recipe. */
+	seed?: StudioFinish | null;
+	/** Every saved finish, for the name-collision guard below. */
+	savedFinishes?: { id: string; name: string }[];
 	notify: (msg: string) => void;
 	onSaved?: () => void;
 	onOpenWorkspace?: () => void;
 }) {
 	const [recipe, setRecipe] = React.useState<FinishRecipe>(() => coerceRecipe(PRESET_RECIPES.atrium));
 	const [name, setName] = React.useState('');
+	// The saved record this session is EDITING, so Save updates it in place instead of
+	// creating a second finish. Same reason `Fabricate` keeps `editingId` for themes:
+	// `putAsset` skips its `(kind, name)` dedupe when an id is given, so without this a
+	// reopen-then-rename is a CREATE and every deck saying `finish: <old name>` keeps
+	// pointing at the untouched original.
+	const [editingId, setEditingId] = React.useState<string | null>(null);
+	// Every finish this session has written — the twin of `Fabricate`'s `ownedThemes`.
+	// Ownership is what makes re-saving a just-saved finish legal while still refusing
+	// another finish's name; `findNameClash` carries the reasoning.
+	const [owned, setOwned] = React.useState<ReadonlySet<string>>(() => new Set());
+	const own = (id: string) => setOwned((prev) => new Set(prev).add(id));
 	const [mode, setMode] = React.useState<'light' | 'dark'>('light');
 	// "Export preview" — show the OPAQUE export face the PDF/PPTX bakes, not just the
 	// rich on-screen face, so the designer sees the flatter look before they ship it.
@@ -109,13 +129,107 @@ export function FinishStudio({
 	const [cssOpen, setCssOpen] = React.useState(true);
 	const modelReady = useArchitectStatus().ready;
 
-	// The generated CSS drives BOTH the live preview (targets finish-preview) and the
-	// export/save (targets the named slug). Recompute as the recipe changes.
-	const slug = safeFinishSlug(name) === 'custom' && !name.trim() ? 'custom' : safeFinishSlug(name);
+	/**
+	 * HYDRATE FROM A SAVED RECORD. The recipe is the model — `saveStudioFinish`
+	 * regenerates the stylesheet from it under the final slug, so unlike a theme
+	 * (whose hand-edited bytes ARE the record) there is nothing else to restore.
+	 *
+	 * THE FIELD HOLDS THE DISPLAY NAME AND THE SLUG IS DERIVED FROM IT, so seeding it is
+	 * a round-trip problem in both directions and the obvious answer is wrong in one of
+	 * them:
+	 *
+	 *  - seed it with `record.name` (the slug) and a save re-titles the finish, turning
+	 *    "Corporate Blue" into "corporate-blue" in every menu that shows the label;
+	 *  - seed it with `record.label` and a save can RENAME THE SLUG, because a label need
+	 *    not slugify back to the name it was stored under. A record imported as
+	 *    `{ name: 'corporate-blue', label: 'Corporate Blue v2' }` — which `Library`'s zip
+	 *    import passes through verbatim — reopens, saves, and becomes
+	 *    `corporate-blue-v2`. Every deck saying `finish: finish-corporate-blue` stops
+	 *    resolving, the regenerated stylesheet follows the new slug, and the author
+	 *    renamed nothing. That is worse than a re-title, because it is silent and it
+	 *    reaches decks.
+	 *
+	 * So: take the label only when it round-trips to the stored slug, and fall back to
+	 * the slug itself when it does not. The rare mismatched record then shows its slug in
+	 * the field — visibly odd, and editable — instead of quietly renaming itself on the
+	 * next save. Save is still id-pinned either way, so the record is never forked.
+	 *
+	 * Keyed on `seed?.id` so re-opening the SAME record does not stomp edits in
+	 * progress — the same rule `Fabricate`'s theme seed effect follows.
+	 */
+	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the record identity, not its contents — re-seeding on every recipe change would fight the editor.
+	React.useEffect(() => {
+		if (!seed) return;
+		setEditingId(seed.id);
+		const label = seed.label || seed.name;
+		// `safeSaveSlug`, NOT `safeFinishSlug` — the store's transform, not the preview's.
+		// `safeSaveSlug` namespaces the ten reserved names (`ledger` → `ledger-custom`), so
+		// a record saved as `Ledger` is stored `{name:'ledger-custom', label:'Ledger'}`.
+		// Comparing with `safeFinishSlug` says `'ledger' !== 'ledger-custom'`, takes the
+		// fallback, and puts the SLUG in a field that holds the label — so reopening
+		// `Ledger` and pressing Save with no edits renamed the card to `ledger-custom`.
+		// This predicate is right for all three cases: it keeps `Ledger`, and it still
+		// falls back for `{name:'corporate-blue', label:'Corporate Blue v2'}`, which is
+		// what the fallback was added for.
+		setName(safeSaveSlug(label) === seed.name ? label : seed.name);
+		setRecipe(coerceRecipe(seed.recipe));
+	}, [seed?.id]);
+
+	// THE NAME THE STORE WILL WRITE — and, since this commit, the ONLY identity in this
+	// faculty. Everything downstream reads it: the Save gate, the collision guard, the CSS
+	// panel, the slug chip, the export filename and the "apply with" toast.
+	//
+	// The alternative slugger, `safeFinishSlug`, differs in two ways and both were bugs
+	// here. It does not namespace the ten reserved names, and it falls back to `'custom'`
+	// when nothing survives slugification. Those are right for a PREVIEW class and wrong
+	// for a saved identity, and this file used it for the identity:
+	//
+	//   `Ledger`  → shown and exported as `finish-ledger`, stored as `ledger-custom`. The
+	//               author pastes `_class: finish finish-ledger` into a deck and silently
+	//               gets the SHIPPED preset instead of the finish they designed. All ten
+	//               reserved names mismatched; unreserved ones never did, which is how it
+	//               survived.
+	//   `报告`    → gate compared `''` (matching nothing) while the store wrote `custom`,
+	//               so every name in a non-Latin script saved onto ONE record, each save
+	//               silently replacing the last under a "Saved" toast. (Derived from the
+	//               code and reproduced at the store layer on `fake-indexeddb`; NOT driven
+	//               through a running Studio, so it is not a real-surface claim — #23.)
+	//
+	// One value closes both: the gate, the guard and the write agree by construction.
+	const savedSlug = safeSaveSlug(name);
+	// What the author is SHOWN before the name is valid. Save and Export both refuse
+	// unless `nameOk`, so this placeholder never becomes an identity anything ships.
+	// (Export did NOT refuse until the guard in `exportCss` below — an earlier version of
+	// this comment asserted the gate that sentence depends on without it existing.)
+	const slug = savedSlug || 'custom';
 	// The generated CSS bakes ALL five layers (wash / texture / mark / edge + backdrop), so
 	// the specimen is WYSIWYG straight from it — the backdrop needs no separate injection.
 	const previewCss = React.useMemo(() => generateFinishCss(PREVIEW_SLUG, recipe), [recipe]);
-	const nameOk = !!name.trim() && /^[a-z][a-z0-9-]*$/.test(slug);
+	// A name that slugifies to nothing is REFUSED rather than quietly renamed to `custom`.
+	// `nameReason` says so in its own row below the header, because refusing without a
+	// reason is the dead end this fix would otherwise have created.
+	//
+	// `Fabricate`'s COMPONENT tab does the equivalent (`compFindings` emits a name error);
+	// its THEME tab does not — an invalid theme name disables Save with no message at all.
+	// That is a real gap and it is not this diff's to close: logged as #1995 rather than
+	// pulled in (#18, off-path). An earlier version of this comment claimed parity across
+	// both tabs, which was false and would have sent a reader looking in the wrong place.
+	const nameOk = !!name.trim() && /^[a-z][a-z0-9-]*$/.test(savedSlug);
+	const nameReason = !name.trim() || nameOk ? '' : 'Finish name must contain letters or numbers — a–z, 0–9, hyphen, starting with a letter.';
+	// A SLUG ALREADY TAKEN BY A DIFFERENT SAVED FINISH. The twin of `Fabricate`'s
+	// `nameTakenBy` / `compNameTakenBy`, and it became REACHABLE with the id-pinned save
+	// above: `putAsset` skips its `(kind, name)` dedupe when an id is given, so renaming
+	// this finish onto another one's slug writes two live records under one name. That is
+	// not cosmetic — `StudioShell` resolves the active finish by name and picks the
+	// newest, while `finishExtraCss` concatenates BOTH `section.finish.finish-<slug>`
+	// rules with the older one last, so the Inspector shows one recipe and the preview
+	// renders the other. The Finish menu also offers two options with the same value, and
+	// a later `restoreAssetVersion` refuses outright (the store keeps `(kind, name)`
+	// unique for exactly this reason). Refuse the save instead.
+	//
+	// It takes `savedSlug`, the written identity — see its declaration above.
+	// The rule itself is `findNameClash`, shared with the two Fabricate tabs.
+	const finishTakenBy = findNameClash(savedFinishes, savedSlug, editingId, owned);
 	// What Save and Export would actually WRITE — the slug form, not the preview form.
 	// Two generators would be two things to keep in step, so the view reads the same
 	// `generateFinishCss` those two call, with the same argument they pass.
@@ -170,6 +284,16 @@ export function FinishStudio({
 	if (spot) canvasHandles.push({ key: 'spotlight', label: 'Spotlight', x: spot.x, y: spot.y, tone: 'accent', onMove: setSpotXY });
 
 	const exportCss = () => {
+		// GATED, like Save. It was not, and the comment beside `slug` claimed it was — so
+		// with the field empty or holding a name that slugifies to nothing, Export handed
+		// the author `custom.finish.css` and a toast telling them to paste
+		// `_class: finish finish-custom` into a deck. That is the placeholder escaping as a
+		// real identity, and `custom` is not a reserved name, so it collides with any finish
+		// actually named "Custom". Measured on the built site before this guard.
+		if (!nameOk) {
+			notify(nameReason || 'Name the finish before exporting — the file is named after it.');
+			return;
+		}
 		const cls = `finish finish-${slug}`;
 		const css = generateFinishCss(slug, recipe);
 		downloadText(
@@ -181,15 +305,38 @@ export function FinishStudio({
 	};
 
 	const save = async () => {
-		if (!nameOk || saving) return;
+		if (!nameOk || finishTakenBy || saving) return;
 		setSaving(true);
 		try {
 			const css = generateFinishCss(slug, recipe);
-			const f = await saveStudioFinish({ name: slug, label: name.trim(), css, recipe });
+			// `id` is what makes this an UPDATE rather than a second record — see the note
+			// on `editingId`. `historyLabel` names the snapshot the store takes of the
+			// OUTGOING record, so on a first save of a new finish there is nothing to
+			// snapshot and it is unused. It is passed unconditionally rather than only on
+			// the edit branch because a fresh save can still land on an existing record —
+			// `putAsset` resolves a no-id save by `(kind, name)` — and that case is an
+			// overwrite too, which is exactly what the label should say.
+			const f = await saveStudioFinish(
+				{ ...(editingId ? { id: editingId } : {}), name: slug, label: name.trim(), css, recipe },
+				{ historyLabel: 'Before edit' },
+			);
+			// NOT `setEditingId(f.id)` — see the twin note in `Fabricate`'s component save.
+			// Pinning here made the faculty a permanent editor of the first finish it
+			// saved, so designing a second one and naming it renamed the first out of
+			// existence instead of creating it. OWNED though, not pinned: that is what
+			// lets this finish be saved again under the same name without letting a new
+			// name rename it. See `findNameClash`.
+			own(f.id);
 			notify(`Saved "${f.label}" to your library — pick it from the Finish menu in the Inspector.`);
 			onSaved?.();
-		} catch {
-			notify('Could not save — your browser may block storage (private mode?).');
+		} catch (e) {
+			// The store REFUSES a save that would put two live records under one name, and
+			// that refusal carries the only explanation the author can act on — which
+			// record, and that it has to be renamed first. Reporting it as a storage
+			// failure would send them to check private mode for a name clash. Anything
+			// without a message is a genuine storage failure and keeps the old wording.
+			const why = (e as Error)?.message;
+			notify(why?.startsWith(REFUSAL_PREFIX) ? why : 'Could not save — your browser may block storage (private mode?).');
 		} finally {
 			setSaving(false);
 		}
@@ -239,8 +386,25 @@ export function FinishStudio({
 				</div>
 				<div className="flex-1" />
 				<Button variant="outline" size="sm" className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={exportCss}><Download className="size-4" /><span className="hidden sm:inline">Export</span></Button>
-				<Button size="sm" disabled={!nameOk || saving} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={save}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button>
+				<Tip label={finishTakenBy ? `“${savedSlug}” is already a saved finish — pick another name.` : nameReason}><span className="inline-flex shrink-0"><Button size="sm" disabled={!nameOk || !!finishTakenBy || saving} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={save}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button></span></Tip>
 			</div>
+
+			{/* WHY THE REFUSAL GETS ITS OWN ROW rather than a slot in the header. It lived in
+			    the header first, as a `flex-1 truncate` paragraph beside the name field and
+			    two buttons — which measured 32px wide at 390px and rendered as "Fini…", so
+			    the message existed at desktop and not on a phone. A full-width row under the
+			    header competes with nothing and can WRAP instead of truncating, which is what
+			    a sentence this long needs at 390px.
+
+			    It is visible text, not a tooltip: the faculty's other disabled-Save
+			    explanation already reaches a pointer only (#1975), and routing a second one
+			    down that channel would widen that gap rather than close it. `role="alert"`
+			    puts it in the a11y tree, which the tooltip never managed. */}
+			{nameReason ? (
+				<p role="alert" className="shrink-0 border-b border-border bg-card px-3 pb-2 text-[11.5px] leading-snug text-[color-mix(in_srgb,var(--fail,#b3261e)_80%,var(--text-body))] sm:px-4">
+					{nameReason}
+				</p>
+			) : null}
 
 			{/* AI front door — "Describe a finish" (mirrors the Theme tab's command bar). */}
 			<div className="flex shrink-0 flex-col gap-2 border-b border-border bg-card px-4 py-2.5">

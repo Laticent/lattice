@@ -57,6 +57,7 @@ import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide, SL
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import type { EditorHandle } from './Editor';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
+import type { FabricateSeed } from './Fabricate';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
 import { activeFinish } from './finish-catalog';
 import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
@@ -759,15 +760,22 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// rather than only made once. Until this existed there was no path back into a
 	// saved theme at all: <Fabricate> took no seed, so the CSS a user saved was
 	// unreachable from the UI that produced it.
-	const [fabricateSeed, setFabricateSeed] = React.useState<StudioTheme | null>(null);
+	const [fabricateSeed, setFabricateSeed] = React.useState<FabricateSeed | null>(null);
 	// A plain function, not a `useCallback`: `setLibraryOpen` and `setView` are not
 	// bare state setters here, and every other prop Library takes is an inline arrow
 	// anyway — a memo that has to list them buys nothing and can go stale.
-	const editTheme = (t: StudioTheme) => {
-		setFabricateSeed(t);
+	//
+	// ONE OPENER PER KIND, all three the same three steps. They stayed one function
+	// while only themes could be reopened; splitting them is what lets the seed carry
+	// its KIND, which is what tells Fabricate which faculty to land on.
+	const openInFabricate = (next: FabricateSeed) => {
+		setFabricateSeed(next);
 		setLibraryOpen(false);
 		setView('fabricate');
 	};
+	const editTheme = (t: StudioTheme) => openInFabricate({ kind: 'theme', record: t });
+	const editComponent = (c: StudioComponent) => openInFabricate({ kind: 'component', record: c });
+	const editFinish = (f: StudioFinish) => openInFabricate({ kind: 'finish', record: f });
 	// CLEARED ON EVERY EXIT, not just Fabricate's own Close. `view` moves from
 	// 'fabricate' through at least six other paths (the launcher's Decks item, the
 	// mode buttons, a share/present entry), and a seed left standing means the NEXT
@@ -4691,7 +4699,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    the heading would be page content sitting in no landmark. */}
 					<h1 className="sr-only">Lattice Studio</h1>
 					<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the Fabricate studio…</div>}>
-						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} onClose={() => { setFabricateSeed(null); setView('compose'); }} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
+						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} onClose={() => { setFabricateSeed(null); setView('compose'); }} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 					</React.Suspense>
 				</main>
 			) : landscapePhone ? (
@@ -4892,7 +4900,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 										</>
 									)}
 									{libraryOpen && (
-										<Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, curIndex, skeleton))} onEditTheme={editTheme} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} notify={notify} />
+										<Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, curIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} notify={notify} />
 									)}
 								</ResizablePanel>
 								<ResizableHandle aria-label="Resize panel" />
@@ -5084,6 +5092,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }}
 					onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, curIndex, skeleton))}
 					onEditTheme={editTheme}
+					onEditComponent={editComponent}
+					onEditFinish={editFinish}
 					onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }}
 					notify={notify}
 				/>

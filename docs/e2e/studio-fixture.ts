@@ -107,26 +107,49 @@ export const CHROME = {
 	 */
 	feedback: 'Send feedback',
 	/**
-	 * The "···" overflow trigger — SAME accessible name and header position at every
-	 * breakpoint, but a DIFFERENT surface underneath (2026-07-26-studio-mobile-eight-
-	 * cell-bar.md): tablet opens the flat DropdownMenu (rows are `role="menuitem"`);
-	 * mobile opens the StudioDrawer, a bottom Sheet (rows are plain `role="button"`).
-	 * A spec asserting a row inside it must pick the role for the tier it's testing.
+	 * The PHONE's "···" overflow trigger — mobile (≤699) ONLY. It opens the StudioDrawer,
+	 * a bottom Sheet whose rows are plain `role="button"`.
+	 *
+	 * THE NAME IS NOT SHARED WITH TABLET/DESKTOP, and this entry used to say it was. Read
+	 * that correction before writing a locator, because believing the old text is how #1876
+	 * got filed: the ⋯ at tablet is `searchOverflow` ('More controls'), so a spec — or a
+	 * person — looking for 'Menu' at 820px finds NOTHING and concludes the overflow is
+	 * absent. It is not. Measured on the built site, Craft stop, search closed:
+	 *
+	 *   | viewport | 'Menu' | 'More controls' |
+	 *   |---|---|---|
+	 *   | 390  | 1 | 0 |
+	 *   | 820  | 0 | 1 |
+	 *   | 1440 | 0 | 1 |
+	 *
+	 * The 2026-08-18 header pass made `overflowMenu` (aria-label "More controls") the row's
+	 * permanent right edge from 700 up and left this bare `mobile &&` button as the only
+	 * 'Menu' in the tree — `studio-header-fit.spec.ts` was reconciled with that world ("the
+	 * overflow menu is now permanent from 700 up") and this map was not. `overflow-trigger-
+	 * names.spec.ts` now pins the table above so the two cannot drift apart again.
 	 */
 	moreControls: 'Menu',
 	/**
-	 * The hamburger that stands in for the row's whole right-hand side WHILE THE INLINE
-	 * SEARCH IS OPEN. Deliberately NOT `moreControls` ('Menu'), even though both are
-	 * hamburgers: they open different doors — this one carries everything the open field
-	 * displaces (Present/Share/feedback/Workspace, plus the tablet's Coach/Chat/Settings
-	 * and the ⋯ menu's own rows), which is a superset of what 'Menu' holds. Same name,
-	 * different contents is the drift #1654 is about, in the direction the map cannot
-	 * catch. They are never on screen together: this one exists only while the field is
-	 * open, and the row's own ⋯ is inside the block that collapses into it.
+	 * The "···" overflow trigger at TABLET and DESKTOP (≥700) — the row's permanent right
+	 * edge, present whether or not the inline search is open. Rows inside it are
+	 * `role="menuitem"` (a flat Radix DropdownMenu), NOT the `role="button"` rows the
+	 * phone's drawer ships, so a spec asserting on a row must pick the role for its tier.
 	 *
-	 * Also keeps `back-gesture.spec.ts` honest — it asserts on a bare `'Menu'` and the
-	 * SSR skeleton already ships two inert ones; a third would make that locator
-	 * ambiguous under strict mode.
+	 * At tablet it is the ONLY route to Coach / Chat / Library / Reader views — the
+	 * activity rail that carries them one-tap is gated on `desktop && craft` — so it is
+	 * also the control whose disappearance would make four panels genuinely unreachable.
+	 * That is #1381, and `studio-header-fit.spec.ts` guards it at nine widths.
+	 *
+	 * ITS DOCSTRING USED TO SAY "exists only while the field is open", which was true
+	 * before the 2026-08-18 pass and is false now: the same button is the row's ⋯ with the
+	 * field CLOSED, and it additionally absorbs the right-hand cluster when the field
+	 * opens. The header-fit spec already relies on the corrected behavior — it uses this
+	 * name as its always-present settle signal at every width from 700 up.
+	 *
+	 * The two names are never on screen together: 'Menu' is `mobile &&`, this one is
+	 * `!mobile` (plus the search-expanded branch). That is also what keeps
+	 * `back-gesture.spec.ts` honest — it asserts on a bare 'Menu' at phone widths, and the
+	 * `/studio/` SSR skeleton already ships two inert ones.
 	 */
 	searchOverflow: 'More controls',
 	/**

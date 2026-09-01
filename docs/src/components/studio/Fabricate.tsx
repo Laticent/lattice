@@ -22,10 +22,13 @@ import { auditBoth, contrastRatio, deriveTheme, gateThemeCss, parseTheme, rename
 import { COMPONENT_EFFORTS, type ComponentEffort, type ComponentSimilar, connectOpenRouter, generateComponent, generateTheme, refineComponent, useArchitectStatus } from './architect';
 import { auditMeterRows, isUnchecked } from './audit-meter';
 import { CodeField } from './CodeField';
-import { type ComponentMeta, saveStudioComponent } from './component-library';
+import { type ComponentMeta, type StudioComponent, saveStudioComponent } from './component-library';
 import { downloadText } from './download';
 import { FinishStudio } from './FinishStudio';
+import type { StudioFinish } from './finish-library';
 import { type Finding, LayoutStudio, STARTER_CSS, STARTER_DESCRIPTION, STARTER_META, STARTER_NAME, STARTER_SKELETON } from './LayoutStudio';
+import { REFUSAL_PREFIX } from './library/asset-store.js';
+import { findNameClash } from './library/save-guard.js';
 import { MotionStudio } from './MotionStudio';
 import { manifestJsonCompletion } from './manifest-complete';
 import { useReferenceDoc } from './reference-doc-ui';
@@ -222,7 +225,20 @@ const contractLabelOf = (id: string) => CONTRACT.find((c) => c.token === id)?.la
 const tokenLabel = (id: string) => contractLabelOf(id) ?? bandLabel(id);
 const tierOf = (ratio: number | null, ok: boolean) => ((ratio ?? 0) >= 7 ? 'AAA' : ok ? 'AA' : 'FAIL');
 
-export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClose, notify, onSaved, onOpenWorkspace }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: StudioTheme | null; savedThemes?: { id: string; name: string }[]; onClose: () => void; notify: (msg: string) => void; onSaved?: () => void; onOpenWorkspace?: () => void }) {
+/**
+ * A saved record to REOPEN, tagged by kind.
+ *
+ * A tagged union rather than three optional props, because the three are mutually
+ * exclusive by construction — Fabricate lands on ONE faculty — and the tag is what
+ * tells the hydration effect which tab to switch to. Three nullable props would make
+ * "two seeds at once" representable and leave the tab choice to be re-derived.
+ */
+export type FabricateSeed =
+	| { kind: 'theme'; record: StudioTheme }
+	| { kind: 'component'; record: StudioComponent }
+	| { kind: 'finish'; record: StudioFinish };
+
+export function Fabricate({ options, catalog = [], seed, savedThemes = [], savedComponents = [], savedFinishes = [], onClose, notify, onSaved, onOpenWorkspace }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: FabricateSeed | null; savedThemes?: { id: string; name: string }[]; savedComponents?: { id: string; name: string }[]; savedFinishes?: { id: string; name: string }[]; onClose: () => void; notify: (msg: string) => void; onSaved?: () => void; onOpenWorkspace?: () => void }) {
 	const [tab, setTab] = React.useState<'theme' | 'layout' | 'finish' | 'motion'>('theme');
 	// All ten essentials in state, seeded from the first curated starter.
 	const [core, setCore] = React.useState<Record<EssKey, string>>(() => ({ ...(STARTERS[0].essentials as Record<EssKey, string>) }));
@@ -345,6 +361,22 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClo
 	// reason: without it a rename is a create, and every deck saying
 	// `theme: <old name>` keeps pointing at the untouched original.
 	const [editingId, setEditingId] = React.useState<string | null>(null);
+	// The component tab's twin of `editingId`. It did not exist until components became
+	// reopenable, and its absence was a live defect rather than a missing feature: the
+	// component save passed `historyLabel: 'Before edit'` with NO id, so `putAsset` fell
+	// back to `(kind, name)` dedupe and every "edit" that changed the name silently
+	// FORKED the record — leaving the original in the shelf and every deck saying
+	// `_class: <old name>` pointing at it.
+	const [compEditingId, setCompEditingId] = React.useState<string | null>(null);
+	// EVERY RECORD THIS SESSION HAS WRITTEN, per tab — what makes re-saving a just-saved
+	// asset legal while still refusing someone else's name. See `findNameClash`: neither
+	// guarding every save (deadlock) nor guarding only the pinned path (silently updates a
+	// record the author never opened) is correct, and ownership is the discriminator. It
+	// is a Set rather than a "last saved id" because renaming BACK to a name used earlier
+	// in the same session is legitimate, and a single id cannot answer that.
+	const [ownedThemes, setOwnedThemes] = React.useState<ReadonlySet<string>>(() => new Set());
+	const [ownedComponents, setOwnedComponents] = React.useState<ReadonlySet<string>>(() => new Set());
+	const own = (setter: React.Dispatch<React.SetStateAction<ReadonlySet<string>>>, id: string) => setter((prev) => new Set(prev).add(id));
 
 	// Derive the full token map from the ten picked essentials, then layer any
 	// per-side contract overrides — REAL, every render. The live specimen uses a
@@ -515,6 +547,23 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClo
 				// Snapshot the OUTGOING draft before this result overwrites it, so one click
 				// restores it (a prompt shouldn't be able to silently eat a hand-tuned draft).
 				setCompUndo({ name: compName, description: compDesc, css: compCss, skeleton: compSkeleton, meta: compMeta });
+				// A FRESH GENERATE IS A NEW COMPONENT, SO IT STOPS EDITING THE OPENED ONE.
+				//
+				// `refine` reworks the draft in front of you and stays that record. A bare
+				// generate replaces name, description, CSS, skeleton and manifest with a
+				// wholly different component — and Save is now id-pinned, so leaving
+				// `compEditingId` set would make that unrelated component OVERWRITE the record
+				// you had opened for editing: reopen `.quarter-callout`, ask for a pricing
+				// table, Save, and every deck saying `_class: quarter-callout` renders
+				// unstyled. Before the id pin the same save created a second record, so this
+				// is a hazard the pin introduced and has to close.
+				//
+				// The theme and finish faculties avoid it by accident — both keep the existing
+				// name when one is set (`if (out.name && !name.trim())`), so their generate
+				// lands on the record you opened. The component branch replaces the name
+				// outright, which is the right behavior for a new component and exactly why
+				// the id has to go.
+				if (!refine) setCompEditingId(null);
 				if (!refine) compDoc.clear();
 				setCompName(out.draft.name);
 				setCompDesc(out.draft.description);
@@ -605,13 +654,37 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClo
 		notify(`Exported ${compName} — manifest, styles & skeleton (drop into lib/components/).`);
 	}
 
-	// A NAME ALREADY TAKEN BY A DIFFERENT RECORD. Save is id-pinned, and `putAsset`
-	// skips its (kind, name) dedupe when an id is given — so renaming this theme onto
-	// another one's name writes two records with one name, and the picker resolves by
-	// name (`savedThemes.find(t => t.name === palette)`), leaving the older card
-	// listed but unreachable. Refuse rather than silently make one of them a ghost.
-	const nameTakenBy = savedThemes.find((t) => t.name === themeName && t.id !== editingId);
-	const canSave = !saving && (tab === 'theme' ? themeNameOk && !!derived.css && !nameTakenBy : compOk && compNameOk);
+	// A NAME ALREADY TAKEN BY A DIFFERENT RECORD, for both tabs. The rule — including the
+	// part that says a name is free when this session already OWNS the record holding it,
+	// by having reopened it or written it here — lives in `findNameClash`, with the
+	// reasoning and the table that pins it.
+	//
+	// It is a shared function because it was three copies, and a fix scoped two of them:
+	// the theme copy stayed unscoped, which paired with the conditional pin below to
+	// deadlock Save on this tab after the first save. Three copies of a rule with two
+	// halves is how that happens twice.
+	const nameTakenBy = findNameClash(savedThemes, themeName, editingId, ownedThemes);
+	const compNameTakenBy = findNameClash(savedComponents, compName, compEditingId, ownedComponents);
+	const canSave = !saving && (tab === 'theme' ? themeNameOk && !!derived.css && !nameTakenBy : compOk && compNameOk && !compNameTakenBy);
+	/**
+	 * WHY SAVE IS DEAD ON A REOPENED IMPORT, said on the button rather than left to be
+	 * inferred from four red findings.
+	 *
+	 * A `.zip` bundle carries only `name`/`bucket`/`css`/`skeleton` (`asset-bundle.ts`'s
+	 * `ComponentItem`), and workspace restore carries no meta at all — so a component that
+	 * arrived either way has no `function`/`form`/`substance`/`description`, and
+	 * `validateManifest` fails all four. The record is fine to APPLY and to share; it just
+	 * cannot be re-saved until those are filled in.
+	 *
+	 * That loss happens at PACK time and fixing it properly means changing the bundle
+	 * format, the packer, the unpacker and the import — off the path of "reopen a saved
+	 * asset". What IS on the path is that this change put the Edit button there, so the
+	 * dead end is new even though the missing data is not. One sentence closes the
+	 * user-visible half; the format fix is filed separately.
+	 */
+	const importedGap = tab === 'layout' && compEditingId && !compOk
+		? compFindings.filter((f) => f.level === 'error' && f.rule.startsWith('manifest:')).map((f) => f.rule.slice('manifest:'.length))
+		: [];
 	async function saveToLibrary() {
 		if (!canSave) return;
 		setSaving(true);
@@ -648,16 +721,57 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClo
 					name: themeName, label: titleize(themeName), essentials, css,
 					...(handEdited ? {} : { overrides, rampStrategy }),
 				}, { historyLabel: 'Before edit' });
-				setEditingId(t.id);
+				// NOT pinned on a fresh save, for the reason the component branch below
+				// spells out: pinning here made the faculty a permanent editor of the first
+				// theme it saved, so naming a SECOND theme renamed the first out of
+				// existence. Measured on this branch: two saves, one record. Pre-existing
+				// (it predates #1839) but in the same function as the fix and contradicted
+				// by its own note, so it is corrected here rather than walked past (#18).
+				//
+				// OWNED, though — which is not the same as pinned. Ownership only tells the
+				// guard this session may re-save under that name; the save itself stays
+				// unpinned, so typing a NEW name still creates a record instead of renaming
+				// this one. That split is what lets both requirements hold at once.
+				if (editingId) setEditingId(t.id);
+				own(setOwnedThemes, t.id);
 				setHandDirty(false);
 				notify(`Saved “${t.label}” to your theme library — pick it from Look.`);
 			} else {
-				const c = await saveStudioComponent({ name: compName, css: compCss, skeleton: compSkeleton, meta: { ...compMeta, description: compDesc } }, { historyLabel: 'Before edit' });
+				// `id` is what makes this an UPDATE — same reason as the theme branch above.
+				// Without it the store keys on the name, so editing-then-renaming created a
+				// second component and left every deck saying `_class: <old name>` pointing
+				// at the untouched original. The `historyLabel` was already here, which made
+				// the omission easy to miss: it read as an edit and behaved as a create.
+				const c = await saveStudioComponent(
+					{ ...(compEditingId ? { id: compEditingId } : {}), name: compName, css: compCss, skeleton: compSkeleton, meta: { ...compMeta, description: compDesc } },
+					{ historyLabel: 'Before edit' },
+				);
+				// DELIBERATELY NOT `setCompEditingId(c.id)`. Pinning after a save turns the
+				// faculty into a permanent editor of whatever it saved first, and then
+				// "make two components in a row" DESTROYS the first one: name it `alpha`,
+				// Save, rename to `beta`, Save — and with the id still held the second save
+				// renames the record in place, so `alpha` is gone from the shelf and every
+				// deck saying `_class: alpha` renders unstyled. Measured; it is worse than
+				// the fork it replaced, because a fork at least left both records.
+				//
+				// The id belongs to a REOPEN, which is the only moment the author has said
+				// which record they mean. Created here, the next save resolves by
+				// `(kind, name)` — same name overwrites, new name creates — which is what
+				// someone making variants expects and what this faculty did before the pin.
+				//
+				// Owned, not pinned — see the theme branch above for why those differ.
+				own(setOwnedComponents, c.id);
 				notify(`Saved “.${c.name}” to your component library.`);
 			}
 			onSaved?.();
-		} catch {
-			notify('Could not save — your browser may block storage (private mode?).');
+		} catch (e) {
+			// The store REFUSES a save that would put two live records under one name, and
+			// that refusal carries the only explanation the author can act on — which
+			// record, and that it has to be renamed first. Reporting it as a storage
+			// failure would send them to check private mode for a name clash. Anything
+			// without a message is a genuine storage failure and keeps the old wording.
+			const why = (e as Error)?.message;
+			notify(why?.startsWith(REFUSAL_PREFIX) ? why : 'Could not save — your browser may block storage (private mode?).');
 		} finally {
 			setSaving(false);
 		}
@@ -680,16 +794,48 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClo
 	 * The essentials still seed the pickers, so discarding the CSS lands somewhere
 	 * recognizable rather than on the default starter.
 	 *
-	 * Keyed on `seed?.id` so re-opening the SAME record does not stomp edits in
-	 * progress on every unrelated re-render.
+	 * Keyed on `seed?.record.id` so re-opening the SAME record does not stomp edits in
+	 * progress on every unrelated re-render. The KIND is in the key too: three kinds
+	 * mint ids from different prefixes (`t`/`c`/`f`), so a collision is not possible
+	 * today, but keying on the id alone would make that a silent assumption rather
+	 * than a stated one.
+	 *
+	 * The FINISH kind is absent below on purpose — `FinishStudio` owns its own state,
+	 * so the seed is threaded to it as a prop and hydrated there. All this effect owes
+	 * a finish is the tab switch.
 	 */
 	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the record identity, not its contents — re-seeding on every field change would fight the editor.
 	React.useEffect(() => {
 		if (!seed) return;
+		if (seed.kind === 'finish') {
+			setTab('finish');
+			return;
+		}
+		if (seed.kind === 'component') {
+			const c = seed.record;
+			setTab('layout');
+			setCompEditingId(c.id);
+			setCompName(c.name);
+			// The description is persisted INSIDE the manifest and `toMeta` copies it into
+			// `meta` on the way out, so it arrives in both places. The header field is its
+			// editable home (Save re-nests it at `:meta`), so read it from there.
+			setCompDesc(c.meta?.description ?? '');
+			setCompCss(c.css);
+			setCompSkeleton(c.skeleton);
+			setCompMeta({ ...(c.meta as ComponentMeta) });
+			// Draft-local scratch that belongs to the PREVIOUS component, not this one.
+			// Leaving `compUndo` standing would let one click restore a foreign draft
+			// over the record just opened.
+			setCompUndo(null);
+			setCompSimilar([]);
+			setCompJsonError('');
+			return;
+		}
+		const t = seed.record;
 		setTab('theme');
-		setEditingId(seed.id);
-		setThemeName(seed.name);
-		setHandCss(seed.css);
+		setEditingId(t.id);
+		setThemeName(t.name);
+		setHandCss(t.css);
 		setHandDirty(false);
 		setHandOrigin('seed');
 		setDiscardArmed(false);
@@ -698,17 +844,17 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClo
 		// import or an older schema can carry keys this faculty does not know, and
 		// spreading them into `core` puts them in front of `validateEssentials` and
 		// `deriveTheme` on the next discard.
-		if (seed.essentials) {
-			const from = seed.essentials as Record<string, string>;
+		if (t.essentials) {
+			const from = t.essentials as Record<string, string>;
 			setCore((c) => {
 				const next = { ...c };
 				for (const k of Object.keys(ESS_TOKEN) as EssKey[]) if (typeof from[k] === 'string' && from[k].trim()) next[k] = from[k];
 				return next;
 			});
 		}
-		if (seed.overrides) setOverrides(seed.overrides as Record<string, Override>);
-		if (seed.rampStrategy) setRampStrategy(seed.rampStrategy);
-	}, [seed?.id]);
+		if (t.overrides) setOverrides(t.overrides as Record<string, Override>);
+		if (t.rampStrategy) setRampStrategy(t.rampStrategy);
+	}, [seed?.kind, seed?.record.id]);
 
 	/**
 	 * Open the CSS view. The record is seeded from the derivation and BECOMES the
@@ -788,7 +934,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClo
 					{facultyToggle}
 					<div className="flex-1" />
 				</div>
-				<FinishStudio options={options} notify={notify} onSaved={onSaved} onOpenWorkspace={onOpenWorkspace} />
+				<FinishStudio options={options} seed={seed?.kind === 'finish' ? seed.record : null} savedFinishes={savedFinishes} notify={notify} onSaved={onSaved} onOpenWorkspace={onOpenWorkspace} />
 			</div>
 		);
 	}
@@ -829,8 +975,8 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], onClo
 				</div>
 				<div className="flex-1" />
 				<Button variant="outline" size="sm" disabled={!canExport} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={exportArtifact}><Download className="size-4" /><span className="hidden sm:inline">Export</span></Button>
-				<Tip label={nameTakenBy && tab === 'theme' ? `“${themeName}” is already a saved theme — pick another name.` : ''}>
-					<Button size="sm" disabled={!canSave} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={saveToLibrary}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button>
+				<Tip label={nameTakenBy && tab === 'theme' ? `“${themeName}” is already a saved theme — pick another name.` : compNameTakenBy && tab === 'layout' ? `“.${compName}” is already a saved component — pick another name.` : importedGap.length ? `This component was imported without its ${importedGap.join(', ')} — set ${importedGap.length === 1 ? 'it' : 'them'} in the Manifest panel to save.` : ''}>
+					<span className="inline-flex shrink-0"><Button size="sm" disabled={!canSave} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={saveToLibrary}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button></span>
 				</Tip>
 			</div>
 			{/* Description disclosure — collapsed by default on both tabs. AI-seeded for

@@ -47,6 +47,26 @@
 // `VERSION_CAP` bounds the growth this can cause (20 per asset), and
 // `pruneOrphanVersions` reclaims what deletes miss.
 
+// ── `(kind, name)` UNIQUENESS IS AN INVARIANT, ENFORCED HERE ────────────────
+//
+// Two live records under one name is not untidiness. `StudioShell` resolves an asset by
+// name and takes the newest, while `finishExtraCss` / `usedLocalCss` concatenate the CSS
+// of EVERY match — so the Inspector shows one record and the slide renders another — and
+// `restoreAssetVersion` then refuses for both, locking each out of its own history.
+//
+// Only the id path can produce it: a put with an id is blind, while a put without one
+// resolves the name to whichever record already holds it and updates that. So the check
+// sits on the id path, INSIDE the write transaction, and aborts rather than resolving —
+// a refused save leaves the shelf byte-identical, with no version snapshot taken.
+//
+// It is here rather than in the three faculties for the same reason history is (above):
+// their guards read a React snapshot refreshed on save, which a second tab or a workspace
+// restore behind an open faculty invalidates. Two independent review rounds drove exactly
+// that and measured the duplicate. The UI guards are still worth keeping — they disable
+// Save with a reason instead of letting the author hit an error — but they are the second
+// line, not the invariant. The whole state table is enumerated in
+// `asset-save-states.test.ts`.
+
 import { ASSET_STORE, HISTORY_STORE, openDB, reqAsPromise } from './asset-db.js';
 import { deleteAssetVersions, newestFirst, planSnapshot } from './asset-history.js';
 
@@ -69,6 +89,20 @@ export { HISTORY_STORE, openDB, reqAsPromise } from './asset-db.js';
  *              to this set in the same change that gives scenes a card.
  */
 const VERSIONED_KINDS = new Set(['theme', 'component', 'finish']);
+
+/**
+ * The opening words of a refusal WE raised, as opposed to a storage failure the browser
+ * raised. Exported because the faculties branch on it: a `(kind, name)` clash is the
+ * author's to fix and its message names the fix, while anything else is reported as
+ * "your browser may block storage".
+ *
+ * It is a constant rather than a literal repeated in three files because the coupling is
+ * invisible otherwise — reword the message and the faculties silently fall back to the
+ * storage-failure text, which is the exact defect the branch that added this fixed, and
+ * no test would have gone red. `refusal-prefix.test.ts` pins the message against it and
+ * drives both branch arms in both faculties.
+ */
+export const REFUSAL_PREFIX = "Can't save —";
 
 /**
  * Fields that move on every save whether or not anything was authored.
@@ -152,10 +186,14 @@ export async function putAsset(record, { historyLabel = 'Before save', ts = Date
     const assets = t.objectStore(ASSET_STORE);
     const history = t.objectStore(HISTORY_STORE);
     let stored = null;
+    // A refusal we raised ourselves, as distinct from a storage failure. Set before
+    // `t.abort()` so `onabort` can reject with the real reason instead of the generic
+    // rollback message.
+    let refusal = null;
     // Resolve on COMPLETE, not on the last request's success: only `oncomplete` means
     // the whole unit — version and overwrite — actually committed.
     t.oncomplete = () => resolve(stored);
-    t.onabort = () => reject(t.error || new Error('putAsset: the save was rolled back'));
+    t.onabort = () => reject(refusal || t.error || new Error('putAsset: the save was rolled back'));
     t.onerror = () => reject(t.error || new Error('putAsset: the save failed'));
 
     const write = (id) => {
@@ -185,7 +223,64 @@ export async function putAsset(record, { historyLabel = 'Before save', ts = Date
     };
 
     if (record.id) {
-      write(record.id);
+      // `(kind, name)` UNIQUENESS IS ENFORCED HERE, not by the callers.
+      //
+      // The id path is a blind put — it is the ONLY way two live records can end up
+      // sharing a name, because the no-id path below resolves the name to whichever
+      // record already holds it and updates that one. Three faculties each guard it in
+      // the UI, and those guards read a React snapshot refreshed on save: two tabs, or a
+      // workspace restore behind an open faculty, and the snapshot is stale. Both the
+      // round-2 checker and the Munger inversion drove exactly that and measured two live
+      // records under one name.
+      //
+      // The damage is not untidiness. `StudioShell` resolves an asset by name and takes
+      // the newest, while `finishExtraCss`/`usedLocalCss` concatenate the CSS of EVERY
+      // match — so the Inspector shows one record and the slide renders another — and
+      // `restoreAssetVersion` (which already refuses this state, :256) then locks both
+      // records out of their own history permanently.
+      //
+      // So the check goes where it cannot be bypassed or go stale: inside the same
+      // transaction as the write, reading the store it is about to modify. Aborting
+      // rather than resolving is what makes it an invariant — nothing is written and no
+      // version is snapshotted, so a refused save leaves the shelf byte-identical.
+      //
+      // Deliberately scoped to a DIFFERENT record: pinning a record onto its own name is
+      // the ordinary edit, and must stay free.
+      //
+      // Read through the `kind` index, not `getAll()`. The shelf holds `refdoc` records
+      // that are whole PDFs, and a bare `getAll()` deserializes every one of them on a
+      // path that previously read a single record by key. Measured in real Chromium by
+      // the #1839 review, with three 8 MB reference docs on the shelf: ~50–100 ms and
+      // ~24 MB of strings per save, against ~0.3–13 ms before and ~0.7–13 ms through the
+      // index. (Those numbers are that review's artifact, not a bench in this tree —
+      // there is no scenario covering the Studio's IndexedDB path.) The index is also
+      // exactly the right question, since the invariant is per-kind.
+      //
+      // SAFE TO DEPEND ON: this is the first read of that index, and `asset-db.js` can
+      // only create it alongside the store (`if (!objectStoreNames.contains(...))`), so a
+      // database holding `assets` WITHOUT it could never gain one — every id-pinned save
+      // would throw `NotFoundError` and reach the author as "your browser may block
+      // storage". No such database exists: the store and the index have been created in
+      // the same `onupgradeneeded` block since `2e5f2260` (2026-06-11,
+      // `docs/src/playground/asset-store.js`, `DB_VERSION = 1`), which is the commit that
+      // introduced this database, and through every move since — `6b3dd775` renamed it
+      // here, `8f47a0e` split `asset-db.js` out.
+      //
+      // Verify it against GitHub, not this checkout: the sandbox clone is SHALLOW (66
+      // commits, grafted at 80c0666), so `git log -S … --all` is bounded by the graft and
+      // silently reports the graft boundary as the beginning of history. An earlier
+      // version of this note did exactly that and named the wrong commit as the origin —
+      // the database is ~2.5 months older than the one it cited.
+      const dupes = assets.index('kind').getAll(record.kind);
+      dupes.onsuccess = () => {
+        const clash = (dupes.result || []).find((a) => a.name === record.name && a.id !== record.id);
+        if (clash) {
+          refusal = new Error(`${REFUSAL_PREFIX} “${record.name}” is already another saved ${record.kind}. Rename that one first.`);
+          t.abort();
+          return;
+        }
+        write(record.id);
+      };
       return;
     }
     // The (kind, name) dedupe, done inside the transaction so the id it resolves
