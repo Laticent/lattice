@@ -129,3 +129,76 @@ section.stats.stats:where([data-family="square"], [data-family="tall"], [data-fa
   font-size: var(--fs-body);
 }
 
+
+/* ── Autosplit pages keep the stat a TILE ────────────────────────────────────
+   A stat is a chip — a number and its label on a bg-alt surface — and every
+   family rule above says so: the column at tall/strip and the 2-up wrap at
+   square both distribute the tiles down the frame (`space-evenly`) rather than
+   stretching each one to fill it, and the square comment states that choice
+   outright.
+
+   The generic split rules in base.modifiers.css override both. Their
+   lone-member rule gives `li:only-child` `flex: 1 1 auto` so the member claims
+   the stage, on the stated premise that a member paced one-per-page is "a card —
+   a header plus its content" and "every heavy member's card is the same shape —
+   a wrap-flex row". A stat tile is neither. It is a flex COLUMN, so the
+   `align-content: center` that rule pairs with the fill has no effect —
+   `align-content` does nothing on a single-line flex container — and the tile is
+   stretched to the full stage with its number pinned to the top. Measured on
+   board-update at `size: portrait`, which autosplits one stat per page: card
+   573.4px tall, content 222.4px, lead 1px against trail 245.7px — 52.7% of the
+   tile empty below the number, on a page no author wrote (#1981).
+
+   THE FIX IS FAMILY-SPLIT, AND THE AXIS IS WHY. An earlier cut of this block set
+   `justify-content` and `flex` alone and claimed in this comment that no family
+   split was needed. That was wrong at half the families, and a checker caught it:
+   `justify-content` and the `flex` shorthand both address the ol's MAIN axis, and
+   the ol is a column only at tall/strip. At wide and square it is a row, so the
+   tile's HEIGHT is the cross axis and both declarations are inert — measured on a
+   square autosplit fixture, the lone tile stayed 791.9px tall with 463.7px of void
+   below the number while `flex` dutifully changed from `1 1 auto` to `0 1 auto`.
+   So each direction gets the declaration that governs its vertical axis:
+   `flex` where the main axis is vertical, `align-self` where the cross axis is.
+   Neither is safe unscoped — `align-self` at tall/strip would shrink the tile off
+   the full width it is meant to span.
+
+   EVERY RULE HERE IS GUARDED TO `:only-child`, including the one on the `ol`. The
+   first cut left that one unguarded, on the reasoning that with one tile
+   `justify-content` is indistinguishable from the `space-evenly` the multi-tile
+   pages use. Also measured false: at square the ol is a wrap ROW, so
+   `justify-content` is the HORIZONTAL axis, and multi-tile split pages compute
+   `flex-start` there (base's 2-repeat rule at (0,4,2) beats stats' own family
+   rules at (0,3,2)) rather than `space-evenly`. Unguarded it moved all 30 real corpus
+   pages sideways — 3.8px to 274.1px, 11 of them under 150px — arguably for the
+   better, but it is not this change's business. Left-packed multi-tile square split pages are how `main` renders and
+   stay that way (HARD RULE #18: pre-existing, off-path).
+
+   `safe` keeps a crowded tile's number rather than its tail.
+
+   THE REPEATED CLASSES ARE LOAD-BEARING, not a style. base.modifiers.css
+   deliberately repeats `.lat-split-native` twice for the natural-height rules and
+   FOUR times for the lone-member fill, and documents why; the lone-member rules
+   sit at (0,7,3) and an override has to clear that to be seen at all. */
+section.stats.stats.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ol:has(> li:only-child) {
+  justify-content: safe center;
+}
+/* tall · strip — the ol is a column, so its MAIN axis is the vertical one. */
+section.stats.stats.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:only-child {
+  flex: 0 1 auto;
+}
+/* wide · square — the ol is a row, so the tile's height is the CROSS axis.
+   `wide` is the ABSENCE of the family stamp (lib/adaptive/families.js).
+
+   THE `wide` ARM IS INERT TODAY, AND DELIBERATELY KEPT. Autosplit does not run
+   at the wide family at all — `AUTOSPLIT_APPLIES` in lattice-emulator.js is
+   `AUTOSPLIT && familyFor(...) !== 'wide'` — so `.lat-split-native` can never
+   appear on a wide slide and this arm cannot match. It is here because the
+   reason it would be needed is structural rather than incidental: wide is a row
+   exactly as square is, so if that gate ever admits wide, the correct
+   declaration is already in place instead of the axis bug being reintroduced.
+   Confirmed unreachable by construction, not merely untested: two fixtures that
+   overflow at wide horizontally (10 and 6 tiles) and one that overflows
+   vertically (4 tall-captioned tiles) all clip rather than split. */
+section.stats.stats.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native:where(section:not([data-family]), [data-family="square"]) > .cell-stage > ol > li:only-child {
+  align-self: center;
+}

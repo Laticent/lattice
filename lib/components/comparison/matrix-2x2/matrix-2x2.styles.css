@@ -39,6 +39,17 @@ section.matrix-2x2 > .cell-stage > ol > li {
   border-radius:var(--radius-md);
   padding:var(--sp-md);
   display:flex; flex-direction:column; gap:var(--sp-xs);
+  /* The quadrant's height is DEFINITE — `height: calc(50% - gap/2)` above at
+   * wide/square, `flex:1` at tall/strip — so the card always gets half the stage
+   * whether or not its label and items need it. Distribute that height instead
+   * of pinning the pair to the top: at the documented 1-4 items per cell the
+   * shipped layout leaves 36-43% of every quadrant empty below the text (#1980).
+   * The card computed `normal` at all four families, so portrait was never
+   * composed on purpose — it just happened to read acceptably. `safe` falls back
+   * to start alignment when a crowded cell exceeds its quadrant, so the overflow
+   * oracle still sees the tail rather than the label vanishing off the top.
+   * See engineering/decisions/2026-09-01-composition-is-an-engine-measure.md §4. */
+  justify-content: safe center;
   font-weight:700; color:var(--text-heading);
   font-size:var(--fs-body);
   position:relative; overflow:hidden;
