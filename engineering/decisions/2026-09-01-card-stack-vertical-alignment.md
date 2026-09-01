@@ -11,13 +11,20 @@ summary: >
   deck-level front-matter register overrides that, with `auto` the default and `full` /
   `centered` available to authors. `centered` sizes every card to the densest one and centers
   the band; `full` expands both the cards and their content to fill. Both come off one CSS
-  property — `align-content` on a grid row — with no DOM change, so all three render paths get
-  it at once. `auto` needs real measurement: an auto grid track under `align-content: center`
+  property — `align-content` on a grid row — but the switch to grid is NOT a drop-in, and a
+  77-row sweep refuted the first cut's claim that it was: 47 rows are a no-op, 20 change, and 10
+  cannot take the declaration at all because a wrapped 2x2 would be flattened — `matrix-2x2` and
+  `verdict-grid` among them, two of the four cells the design exists to fix. Two of the changes
+  are regressions with rendered artifacts: grid ignores flex ordering, so `compare-prose`'s
+  `mirror` variant silently un-reverses, and `grid-auto-columns: 1fr` overrides content-based
+  flex sizing, collapsing `pricing`'s tiers until the export raises "Content clipped". `auto` needs real measurement: an auto grid track under `align-content: center`
   sizes to content and NEVER grows to fill, which was measured, so CSS cannot choose between
   the modes and the choice belongs beside the runtime overflow probe. Scope was settled by
   RENDERING all 26 candidates and looking at them, which corrected five: `authority-chain`,
   `cycle` and `roadmap` are cards, not diagrams; `contact` and `wifi` are single cards whose
-  internal zones the detector miscounted as a row. Two components — `pricing` and
+  internal zones the detector miscounted as a row. A second look at full resolution corrected two
+  more: `q-and-a` is a ruled cell grid rather than cards (out, leaving 17 in scope), and
+  `authority-chain`'s DEFAULT variant is a vertical stack. Two components — `pricing` and
   `statute-stack` — deliberately anchor a footer to the bottom of a full-height card, which is
   why the manifest must carry a per-component default rather than the register imposing one.
 builds-on: 2026-09-01-composition-is-an-engine-measure.md, 2026-06-22-the-fit-spine.md, 2026-07-12-struck-elevation.md, 2026-07-28-capacity-basis.md
@@ -74,30 +81,48 @@ The first cut of this section sorted the 26 into "cards" and "diagrams that happ
 children in a row" from component names and priors. That was wrong on five of twenty-six, and
 the only thing that found it was rendering all 26 and looking at them.
 
-**In scope — 18 components.** These render bounded cards side by side:
+**In scope — 17 components.** These render bounded cards side by side, in at least one
+variant each:
 
 `authority-chain` · `cards-grid` · `cards-stack` · `citation-card` · `compare-prose` ·
 `cycle` · `decision` · `inventory` · `kanban` · `kpi` · `list-steps` · `matrix-2x2` ·
-`pricing` · `q-and-a` · `roadmap` · `stats` · `statute-stack` · `verdict-grid`
+`pricing` · `roadmap` · `stats` · `statute-stack` · `verdict-grid`
 
-**Out of scope — 8.** `journey` (stage bands over a sentiment plot), `state-chart` (a node and
+*(18 in the first cut. `q-and-a` was moved out by the full-resolution re-check below.)*
+
+**Out of scope — 9.** `journey` (stage bands over a sentiment plot), `state-chart` (a node and
 arrow diagram), `radar` (three charts), `timeline-list` (dots on a line), `obligation-matrix`
 (a table of marks), `logo-wall` (image plates — the plate IS the content, nothing to center),
-and `contact` and `wifi`, which are **single cards** whose two internal zones the detector
-miscounted as a row.
+`q-and-a` (a ruled cell grid with no card chrome — see the correction below), and `contact` and
+`wifi`, which are **single cards** whose two internal zones the detector miscounted as a row.
+All four of `contact`, `wifi`, `journey` and `logo-wall` were re-checked at full resolution and
+held.
 
 **What looking corrected:**
 
 | component | classified from the name | what the render shows |
 |---|---|---|
 | `roadmap` | diagram | phase **cards** with a header chip and a checklist |
-| `cycle` | diagram | labelled **cards** with connectors between them |
+| `cycle` | diagram | labeled **cards** with connectors between them |
 | `authority-chain` | diagram | numbered **cards** inside a frame |
 | `contact` · `wifi` | a card row | ONE card, split by a rule |
 
 `kanban` is in scope by owner's call. It is lanes rather than cards, and a board wants its
 lanes top-aligned — which is an argument about which MODE it declares, not about whether it
-participates.
+participates. Re-rendered at full resolution, that reading holds: each lane is a header with a
+rule and its cards beneath, so `kanban` declares `full`.
+
+**Two entries were corrected by a second look at full resolution**, one slide per image rather
+than nine, because the first pass judged them from 40 dpi contact sheets:
+
+- **`q-and-a` is cells, not cards.** Its grid variant is four question/answer blocks separated
+  by hairline rules, with no card chrome at all. The first pass called it "borderline but
+  structurally cards" and counted it in. The alignment question still applies to it — the
+  answers sit high with slack below — but a ruled cell grid is not a card stack, which is the
+  thing the register governs. **Moved out, leaving 17 in scope.**
+- **`authority-chain`'s DEFAULT variant is a VERTICAL stack**, four cards top to bottom on a
+  connecting line. Only its `trail` variant lays them in a row. The component stays in scope,
+  but as further evidence for the per-variant rule below rather than as a wholesale entry.
 
 **Scope is per (component × VARIANT), not per component.** Eight of the card components change
 layout axis by variant, so a component-level flag would be wrong on all eight:
@@ -119,31 +144,62 @@ layout axis by variant, so a component-level flag would be wrong on all eight:
 card's body must be a nested bullet), not about layout geometry, and the two only partly
 overlap.
 
-## 3 · The mechanism — one property, both modes
+## 3 · The mechanism — grid gives both modes, but it is NOT a drop-in
 
-Switching a card row from flex to grid puts both modes on `align-content`, with **no DOM
-change**, so every render path gets it from the shared kernel (HARD RULE #1):
+**The first cut of this section was wrong, and a sweep refuted it.** It said moving a card
+row from flex to grid puts both modes on `align-content` with *no DOM change*, so every render
+path gets it from the shared kernel — implying a catalog-wide find-and-replace. Measured across
+**77 card rows in 26 components**, applying the switch in the live DOM and diffing per-card
+geometry, with `align-content` pinned to `stretch` so the switch is isolated from the mode change:
 
-```css
-display: grid;
-grid-auto-flow: column;
-grid-auto-columns: 1fr;
-align-content: safe center;   /* centered */   or   stretch;   /* full */
-align-items: stretch;
-```
+| outcome | rows |
+|---|---|
+| **no-op** — geometry identical | **47** |
+| **CHANGED** — cards moved or resized | **20** |
+| **not switchable at all** | **10** |
 
-- **`centered`** — the implicit row track is `auto`, so it sizes to the **densest** card's
-  content; every card stretches to that track, so they stay equal; `align-content: center`
-  centers the band in the leftover space. That is exactly the described behavior.
-- **`full`** — `align-content: stretch` grows the track to fill. **This is two declarations,
-  not one**: the card must also expand its own content, or `full` reproduces the `decision`
-  bug precisely — a filled card with one sentence at the top.
+So the declaration is right about what grid *can express* and wrong about what it costs to
+adopt. Both modes do come off `align-content`, and that half stands. What does not stand is
+"drop-in".
+
+**Failure mode 1 — grid ignores the flex ordering properties.** `compare-prose`'s `mirror`
+variant reverses its two panes, and the reversal is a flex behavior. Under
+`grid-auto-flow: column` the panes revert to DOM order: the pane labeled THE RIGHT OPTION
+moves from the left side to the right, silently. The variant's entire purpose is that
+reversal. Rendered before and after and looked at. All 8 of `compare-prose`'s row variants
+changed.
+
+**Failure mode 2 — `grid-auto-columns: 1fr` overrides content-based flex sizing, and it
+clips.** `pricing`'s tier cards are sized by flex from their content (`flex: 1 1 auto` on an
+inner block, §6). Forced to equal `1fr` tracks they collapse to roughly a third of their
+width, the tier names break mid-word — *Starte*, *Enterp* — and **the export raises "Content
+clipped"**. That is not a cosmetic difference; it is a regression the overflow oracle catches.
+A decorative child compounds it: `compare-prose`'s chevron sits between the two panes as a
+third flex child, and `1fr` gives it an equal third of the width.
+
+**And 10 rows cannot take the declaration at all.** A wrapped flex container laying cards in
+two visual rows would be flattened by `grid-auto-flow: column` — a 2×2 becomes 1×4. That set is
+`cards-grid` (3 variants), `logo-wall` (3), `pricing two`, `q-and-a grid`, **`matrix-2x2`** and
+**`verdict-grid`**. The last two matter most: they are two of the four defect cells this design
+exists to fix, and the mechanism as written does not reach them.
+
+**What the mechanism actually is, then.** Grid with `align-content` expresses both modes
+correctly — verified on `decision`, where `safe center` produces exactly the described
+composition. It is a no-op on 47 of the 67 switchable rows, so most of the catalog can adopt it
+unchanged. The remaining 30 need per-component work: preserve flex ordering where a variant
+depends on it, keep content-based track sizing where a component relies on it, and find a
+different declaration for the wrapped multi-row cases. **That is a materially larger job than
+one property, and any plan built on the earlier wording would have under-costed it.**
 
 **Use `safe`, not bare `center`.** A stress deck whose card overflows the stage kept its top
 and clipped its tail, and the export's "Content clipped" tag fired correctly — but that is one
 case, and the flexbox rule this replaces already said `safe center`. `safe` falls back to start
 alignment when content exceeds the box, so an overflowing card loses its tail rather than its
 opening. It costs nothing.
+
+**`full` is still two declarations, not one.** The card must expand its own content as well as
+fill the track, or `full` reproduces the `decision` bug exactly — a filled card with one
+sentence at the top.
 
 ## 4 · Why `auto` needs measurement, and where it goes
 
@@ -235,9 +291,14 @@ slide"*, not *"center everything"*.
 - **The blast radius on committed PDFs.** 18 components appear across the exemplars, the six
   galleries and the examples. Every mode change regenerates those, and each one owes visual
   review at the QUALITY BAR.
-- **Whether the grid switch is behavior-neutral where a component is already correct.** `kpi`,
-  `stats`, `radar` and `logo-wall` compose fine today; moving their row from flex to grid must
-  be measured as a no-op, not assumed to be one.
+- ~~Whether the grid switch is behavior-neutral.~~ **MEASURED — see §3.** It is not: 20 of 67
+  switchable rows change, 10 more cannot take the declaration, and two of the changes are
+  regressions with rendered artifacts. What remains open is the per-component remediation for
+  the 30 rows that are not a clean no-op, which is design work this note does not do.
+- **How the wrapped multi-row cases should work at all.** §3 names ten rows that
+  `grid-auto-flow: column` would flatten, including `matrix-2x2` and `verdict-grid`. No
+  alternative declaration is proposed for them here, and they are two of the four cells the
+  design exists to fix.
 - **Family interaction.** Everything measured here is `wide` at `indaco`. Several in-scope
   components flip their row to a column at `tall`/`strip`, where `align-content` governs a
   different axis, and the composition note already measured the defect set changing per family.
