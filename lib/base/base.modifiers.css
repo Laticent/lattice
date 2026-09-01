@@ -772,6 +772,17 @@ section.scale-2xl { --fs-scale: 1.5;  }
  * IS the permission and CSS has nothing left to decide. Re-deciding it is how the
  * register drifted from the contract in the first place.
  *
+ * KEYED ON A CLASS THE KERNEL STAMPS, NOT ON A SHAPE. Tier 1 used to select the
+ * annotation with `p:has(> em:only-child)`, which reads as "a paragraph whose only
+ * content is an em" and is not — `:only-child` counts ELEMENTS, so
+ * `<p>The figure excludes <em>pro forma</em> adjustments.</p>` matches. Measured: that
+ * ordinary note rendered at `--fs-meta` in secondary ink with a spark on it. CSS has no
+ * selector for "no text nodes", so the test cannot be repaired here; `lib/core/coda.js`
+ * makes the decision where the parse is and stamps `.is-annotation`, and this file
+ * renders it. That is the same division the register itself is built on, applied one
+ * level deeper. Tier 2 keeps the shape test because on that surface no kernel has run —
+ * it is the degraded answer, and the trap above is live there. Recorded, not hidden.
+ *
  * KEYED ON THE WRAPPER, NOT ON `.cell-coda`, and the difference is not cosmetic — it
  * is this file's own lesson applied to the fix for it. The first cut of this rule read
  * `section .cell-coda .below-note`, which is a DOM PATH, and it dropped the register
@@ -801,8 +812,12 @@ section.scale-2xl { --fs-scale: 1.5;  }
  * the two sets could not agree; keyed on the wrapper, they are the same set by
  * construction.
  *
- * The old PER-LAYOUT `> .cell-stage > …` arms are gone with them, and keying on
- * the wrapper is what makes that safe. Measured across all 61 layouts, every
+ * The old PER-LAYOUT `> .cell-stage > …` arms are gone with them, and they were NOT
+ * redundant with the wrapper — they were BROADER. They matched
+ * `:is(ul, ol, blockquote, table) + p:has(> em:only-child)` ANYWHERE in the stage, so an
+ * italic aside in the MIDDLE of a slide took the ✦ and `--fs-meta`. The register is a
+ * TRAILING beat by definition, so that was the selector reaching past its own contract;
+ * a mid-slide aside is body copy now, and that narrowing is deliberate. Measured across all 61 layouts, every
  * KERNEL-promoted note lands in `.cell-coda` — but a `.below-note` can legally be
  * elsewhere (see above), and `section .below-note` reaches it wherever it sits. A
  * paragraph left loose in the stage on a layout that CLAIMED it never gets the
@@ -843,7 +858,7 @@ section.scale-2xl { --fs-scale: 1.5;  }
 /* The note's hairline is an accent gradient (`.below-note::before`,
  * compare-prose.styles.css). An annotation replaces it with a dotted rule at the
  * same vertical position, so the gap above the rule is identical either way. */
-section .below-note:has(> p > em:only-child)::before {
+section .below-note.is-annotation::before {
   background:none;
   border-top:1px dotted var(--border);
   height:0;
@@ -852,13 +867,13 @@ section .below-note:has(> p > em:only-child)::before {
 /* Lighter than a below-note in both axes: label size, secondary ink. An
  * annotation FRAMES the slide (a source, a scope caveat); a below-note continues
  * its argument. */
-section .below-note > p:has(> em:only-child) {
+section .below-note.is-annotation > p {
   font-size:var(--fs-meta);
   color:var(--text-secondary);
   line-height:var(--lh-snug);
 }
 
-section .below-note > p:has(> em:only-child)::before {
+section .below-note.is-annotation > p::before {
   /* The annotation spark, DRAWN rather than typed (HARD RULE #29). U+2726 is
    * carried by almost no text face, so the mark that leads every annotation
    * note used to be set in whichever fallback font each machine reached for.
@@ -890,7 +905,7 @@ section:is(
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .scene, .statute-stack,
   .verdict-grid, .video
-):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p {
+):not(.no-note):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p {
   /* Space above the hairline rule (was margin-top) + below it (padding-top) are
    * BOTH folded into padding-top so the spacing lives inside the note's own box —
    * HARD RULE #20. The `::before` rule is parked at `top: --sp-sm` inside that pad,
@@ -911,7 +926,7 @@ section:is(
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .scene, .statute-stack,
   .verdict-grid, .video
-):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p::before {
+):not(.no-note):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p::before {
   content:''; position:absolute; top:var(--sp-sm); left:0; right:0; height:1px;
   background:linear-gradient(to right, var(--accent), transparent);
 }
@@ -946,7 +961,7 @@ section:is(
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .scene, .statute-stack,
   .verdict-grid, .video
-):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p:has(> em:only-child) {
+):not(.no-note):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p:has(> em:only-child) {
   font-size:var(--fs-meta);
   color:var(--text-secondary);
   line-height:var(--lh-snug);
@@ -961,7 +976,7 @@ section:is(
   .list-tabular, .logo-wall, .matrix-2x2, .obligation-matrix, .policy-recommendation,
   .premise, .pricing, .q-and-a, .redline, .regulatory-update, .scene, .statute-stack,
   .verdict-grid, .video
-):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p:has(> em:only-child)::before {
+):not(.no-note):not(:has(.below-note)) > :is(ul, ol, blockquote, table, pre, div) + p:has(> em:only-child)::before {
   content:'';
   position:static;
   display:inline-block;
@@ -2509,12 +2524,21 @@ section.form.lat-split-native > .lat-split-rel {
    with its native twin, for the reason recorded there: it patched a fallthrough that a
    16-name ANNOTATION enumeration created, and the register is universal now.
 
-   BOTH ARMS BELOW ADDRESS A SHAPE THE RENDER NO LONGER PRODUCES, and that is PRE-EXISTING,
-   off-path, and logged rather than fixed here (HARD RULE #18). The §8 sweep that moved the
-   note into `.cell-coda` added a coda arm to the NATIVE rules and missed these: measured on
-   `examples/split-envelope.md`, every split note — cards pages included — sits in
-   `<div class="cell-coda lat-split-note">`, which no `section > .below-note.lat-split-note`
-   selector reaches. Fixing it needs its own before/after on a cover-cards deck. */
+   THREE OF THE FOUR SELECTORS BELOW ARE DEAD; THE FOURTH IS LIVE AND LOAD-BEARING. An
+   earlier revision of this comment said "both arms address a shape the render no longer
+   produces", which was wrong in the direction that gets a working rule deleted. Counted in
+   Chromium on `examples/split-envelope.md`:
+
+     > p.lat-split-note                                   0
+     > .lat-split-note:not(.below-note) > p               0
+     > .below-note.lat-split-note > p:not(:has(> em…))    0
+     > .lat-split-note > .below-note > p:not(:has(> em…)) 1   ← LIVE
+
+   The live one reaches the real `div.cell-coda.lat-split-note > div.below-note > p` chain
+   and is what holds that note at `--fs-body-compact` (39.96px against a `--fs-body` of
+   46.98px). The three dead ones are PRE-EXISTING debt from the §8 sweep that moved the note
+   into `.cell-coda` and updated the NATIVE rules only — off-path, logged, not fixed here
+   (HARD RULE #18). Do not delete this block on the strength of the old comment. */
 section.form.lat-split-cards.lat-split-cards > p.lat-split-note,
 section.form.lat-split-cards.lat-split-cards > .lat-split-note:not(.below-note) > p {
   font-size: var(--fs-body-compact);

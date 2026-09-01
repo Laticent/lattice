@@ -10,6 +10,17 @@
  * HARD RULE #23: CI-green / a unit test on generated HTML strings is not
  * verification of a real cascade outcome — only a real render is.
  *
+ * `is-annotation` ON THE FIXTURE'S EM-ONLY WRAPPERS IS THE KERNEL'S OUTPUT, not a
+ * convenience. As of 2026-09-01 the annotation register is decided by `lib/core/coda.js`
+ * and stamped as a class, because the selector it replaced (`p:has(> em:only-child)`)
+ * matches any paragraph with ONE ELEMENT child — an ordinary note that italicizes a
+ * phrase mid-sentence was rendering with a spark on it. `markNote` APPENDS its marker
+ * (`split-envelope.js`), so a real split annotation reads
+ * `class="below-note is-annotation lat-split-note"`, which is what these slides now
+ * carry. Verified against the real splitter's output on `examples/split-envelope.md`.
+ * A fixture that drifts from the render does not merely fail to catch a bug — it
+ * certifies it (2026-08-24 §8), so this file's own shape is the thing to keep honest.
+ *
  * The fixture hand-authors the split envelope's OWN output shape as raw HTML in
  * a plain deck (`_class: <layout> lat-split-insight` / `lat-split-native`, plus
  * a literal `<p class="lat-split-note">` / `<div class="below-note

@@ -123,8 +123,17 @@ single-arm rules replace roughly a hundred selector arms, and the annotation set
 below-note set **by construction**:
 an annotation IS a below-note that happens to be italic-only.
 
-The old per-layout `> .cell-stage >` arms went with them, and keying on the wrapper is what
-makes that safe. Measured across all 61 layouts, every KERNEL-promoted note lands in
+The old per-layout `> .cell-stage >` arms went with them, and they were NOT redundant with
+the wrapper — they were BROADER, and the narrowing is deliberate. An earlier revision of this
+paragraph said keying on the wrapper "is what makes that safe", which the independent checker
+refuted with a render: those arms matched `:is(ul, ol, blockquote, table) + p:has(> em:only-child)`
+anywhere in the stage, so an italic aside in the MIDDLE of a slide — a list, an aside, then more
+prose — took the annotation's ✦ and `--fs-meta`. The register is defined as a TRAILING beat
+(`base.docs.md`, and the kernel harvests nothing else), so that was the selector over-reaching
+past its own contract, and a mid-slide aside now renders as the body copy it is. Measured on a
+`list` slide with an aside followed by a closing paragraph: 21.376px, no spark, still in the
+stage. Zero slides in the corpus author that shape, so nothing regresses today; it is pinned by
+a test rather than left to the next reader to rediscover. Measured across all 61 layouts, every KERNEL-promoted note lands in
 `.cell-coda` — but that is not the only legal place a `.below-note` can be, and the first
 cut of this change assumed it was. `section .below-note` reaches the wrapper wherever it
 sits; a note left loose in the stage on a layout that CLAIMED the paragraph never gets one,
@@ -186,6 +195,13 @@ against the section box:
 | `content`, `list` (the reference) | 1152px @ x=64 | 56px |
 | `big-number`, `diagram` (dropped) | 1152px @ x=64 | 56px |
 | **`math`** | **584.6px** | **376.3px** |
+
+*(Provenance, because the independent checker could not reproduce these two figures and got
+x=774 / w=442 / 48px instead: they are measured on THIS note's probe deck — each component's
+manifest `sample` plus a key insight and a trailing paragraph, indaco, 1920×1080 — and
+`gapToFloor` is the distance to the FOOTER's top edge, not to the section box. Re-measured on
+2026-09-01 after the claim was restored: identical to the digit. A different probe and a
+different datum give different numbers and the same conclusion, which is the useful part.)*
 
 `math` docks `grid`, and `math.styles.css` puts every non-heading child in `grid-row: 3` —
 the body's own row — so the band lands beside the equation rather than beneath it. That is
@@ -259,12 +275,17 @@ all three registers to ~59/61. It is a breaking change to existing decks and nee
 measured first. Put to the owner as an explicit fork; the truth pass was chosen, and this is
 the truth pass.
 
-**The `lat-split-cards` note rules address a shape the render no longer produces.** Both arms
-key on `section > .below-note.lat-split-note`, and measured on `examples/split-envelope.md`
-every split note — cards pages included — sits in `<div class="cell-coda lat-split-note">`.
-The §8 sweep that added coda arms to the NATIVE rules missed these. Pre-existing, off the path
-of this change, and it needs its own before/after on a cover-cards deck: logged in the file,
-not pulled into this diff (HARD RULE #18).
+**Three of the four `lat-split-cards` note selectors are dead; the fourth is LIVE.** An
+earlier revision of this section said "both arms address a shape the render no longer
+produces", which the independent checker refuted by counting matches in Chromium on
+`examples/split-envelope.md`: the first three match 0 elements, and
+`> .lat-split-note > .below-note > p:not(:has(> em…))` matches 1 — it reaches the real
+`div.cell-coda.lat-split-note > div.below-note > p` chain and is what holds that note at
+`--fs-body-compact` (39.96px against a `--fs-body` of 46.98px). Acting on the old sentence
+would have deleted a working rule, which is the one outcome a "logged, off-path" note must
+never cause. The three dead selectors are pre-existing debt from the §8 sweep that moved the
+note into `.cell-coda` and updated the NATIVE rules only: still logged, still not fixed here
+(HARD RULE #18), and now recorded with the count that makes them safe to act on.
 
 **The trailing-pill rule's `:not()` chain also carries `principles` and `timeline`**
 (`base.modifiers.css`, the `margin-left:auto` pill rule). Same two ghosts, different feature,

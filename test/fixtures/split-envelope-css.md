@@ -39,7 +39,7 @@ theme: indaco
 - [x] Signal intake wired
 - [x] Scoring model calibrated
 
-<div class="below-note lat-split-note"><p><em>Reviewed every Thursday.</em></p></div>
+<div class="below-note is-annotation lat-split-note"><p><em>Reviewed every Thursday.</em></p></div>
 
 ---
 
@@ -52,7 +52,7 @@ theme: indaco
 - Scoring model
   - Recalibrated on eighteen months.
 
-<div class="below-note lat-split-note"><p><em>Reviewed every Thursday.</em></p></div>
+<div class="below-note is-annotation lat-split-note"><p><em>Reviewed every Thursday.</em></p></div>
 
 ---
 

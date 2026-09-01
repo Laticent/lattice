@@ -58,7 +58,7 @@ function expectedSet() {
  * a looser scan would happily pass on a union that had been split in half.
  */
 function fallbackUnions() {
-  const re = /section:is\(([^)]*)\):not\(:has\(\.below-note\)\)/g;
+  const re = /section:is\(([^)]*)\):not\(\.no-note\):not\(:has\(\.below-note\)\)/g;
   const found = [];
   let m;
   while ((m = re.exec(css))) {
@@ -100,7 +100,7 @@ describe('coda CSS-only fallback union', () => {
     // Scoped to the FALLBACK heads only. A bare `:is(…) + p` scan also catches the
     // eyebrow rule (`:is(h1, h2) + p`), which is a different feature entirely.
     const anchors = [...css.matchAll(
-      /section:is\([^)]*\):not\(:has\(\.below-note\)\)\s*>\s*:is\(([^)]*)\) \+ p/g,
+      /section:is\([^)]*\):not\(\.no-note\):not\(:has\(\.below-note\)\)\s*>\s*:is\(([^)]*)\) \+ p/g,
     )].map((a) => a[1].split(',').map((x) => x.trim()).sort());
     assert.equal(anchors.length, TIER2_ARMS,
       `found ${anchors.length} fallback anchors, expected ${TIER2_ARMS}`);
@@ -144,7 +144,7 @@ describe('coda CSS-only fallback union', () => {
     // guard: they are the split envelope's compact-size feature, keyed on a split
     // MARKER, not on a layout, and they are not the annotation register.
     const annotationRules = css.split('\n').filter((l) =>
-      l.includes('.below-note') && l.includes('em:only-child')
+      l.includes('.below-note') && (l.includes('is-annotation') || l.includes('em:only-child'))
       && !l.trimStart().startsWith('*') && !l.includes('lat-split'));
     assert.ok(annotationRules.length >= 3,
       `tier 1 is incomplete — expected the hairline, type and spark rules, found ${annotationRules.length}`);
@@ -158,11 +158,71 @@ describe('coda CSS-only fallback union', () => {
     // All three arms of the register must be present. Adding a layout to one or two
     // of them used to produce a half-styled note rather than a visible failure.
     for (const arm of [
-      'section .below-note:has(> p > em:only-child)::before',   // dotted rule
-      'section .below-note > p:has(> em:only-child) {',          // type + ink
-      'section .below-note > p:has(> em:only-child)::before',    // the ✦ mask
+      'section .below-note.is-annotation::before',      // dotted rule
+      'section .below-note.is-annotation > p {',        // type + ink
+      'section .below-note.is-annotation > p::before',  // the ✦ mask
     ]) {
       assert.ok(css.includes(arm), `the annotation register is missing its arm: ${arm}`);
     }
+  });
+});
+
+/**
+ * THE ANNOTATION IS DECIDED BY THE KERNEL, NOT BY A SELECTOR.
+ *
+ * `p:has(> em:only-child)` reads as "a paragraph whose only content is an em" and is
+ * not one: `:only-child` counts ELEMENTS, so a note that merely italicizes a phrase
+ * mid-sentence matches it. Measured on a real render before this was moved, that note
+ * came out at `--fs-meta` in secondary ink with a spark on it. CSS has no selector for
+ * "no text nodes", so the decision lives in lib/core/coda.js and both arms stamp
+ * `.is-annotation`.
+ */
+describe('the annotation predicate', () => {
+  const { isAnnotationHtml } = require('../../../lib/core/coda');
+
+  const CASES = [
+    ['<p><em>Source: the pilot retrospective.</em></p>', true, 'an em-only note'],
+    ['<p>  <em>padded</em>  </p>', true, 'whitespace around the em is not content'],
+    ['<p>The figure excludes <em>pro forma</em> adjustments.</p>', false,
+      'THE REGRESSION: prose with one italicized phrase is a below-note, not an annotation'],
+    ['<p><em>Filed</em> and <em>amended</em></p>', false, 'two ems are prose'],
+    ['<p><strong><em>x</em></strong></p>', false, 'the em is not the paragraph\'s own child'],
+    ['<p><em>a</em><br>b</p>', false, 'a second element is content'],
+    ['<p>Plain prose.</p>', false, 'no em at all'],
+  ];
+
+  for (const [html, want, why] of CASES) {
+    test(why, () => { assert.equal(isAnnotationHtml(html), want); });
+  }
+});
+
+/**
+ * THE REGISTER IS A TRAILING BEAT, AND THE NARROWING IS DELIBERATE.
+ *
+ * The per-layout arms this change deleted matched `:is(ul, ol, blockquote, table) +
+ * p:has(> em:only-child)` anywhere in the stage, so an italic aside in the MIDDLE of a
+ * slide took the ✦ and `--fs-meta`. The kernel harvests only trailing beats, so nothing
+ * mid-slide is ever wrapped, and an aside is body copy again. Pinned here because it is
+ * a real behavior change with zero corpus hits — exactly the kind that gets rediscovered
+ * as a bug two years later.
+ */
+describe('the annotation is trailing-only', () => {
+  const { applyToHtml } = require('../../../lib/transformers/coda');
+
+  test('a mid-slide italic aside is not wrapped, so it cannot be an annotation', () => {
+    const html = applyToHtml(
+      '<section class="list"><h2>H</h2><ul><li>a</li></ul>'
+      + '<p><em>An aside that is not last.</em></p>'
+      + '<p>A closing paragraph after it.</p></section>');
+    assert.ok(!html.includes('is-annotation'),
+      'a non-trailing italic paragraph must not be stamped as an annotation');
+  });
+
+  test('the same paragraph IS the annotation when it trails', () => {
+    const html = applyToHtml(
+      '<section class="list"><h2>H</h2><ul><li>a</li></ul>'
+      + '<p><em>An aside that is last.</em></p></section>');
+    assert.ok(html.includes('is-annotation'),
+      'a trailing italic-only paragraph after a structural block is the annotation');
   });
 });
