@@ -415,6 +415,48 @@ for (const impl of ['flock', 'perl']) {
   });
 }
 
+describe('wait-for — environment assumptions', () => {
+  // The lock path came from `git rev-parse --git-dir`, which prints ".git"
+  // RELATIVE to the repo root. The script never cds there, so the lock resolved
+  // against the CALLER's cwd: the same job from two directories took two
+  // different locks and BOTH ran. Every other test runs with cwd: REPO, which
+  // is exactly why the suite was green through it.
+  test('dedupes a job across different working directories', () => {
+    const job = jobName('cwd');
+    const holder = spawnHolder(job, 20);
+    assert.ok(until(() => lockHeld(job)), 'holder never claimed the lock');
+    const elsewhere = run(['--job', job, '--', 'true'], { cwd: os.tmpdir() });
+    reap(holder);
+    assert.equal(elsewhere.code, 2,
+      'the same job from another directory took a second lock and ran');
+  });
+
+  // The deadline needs GNU timeout(1), which macOS does not ship — so the perl
+  // lock fallback ALONE does not make this tool run there. Unguarded it lied:
+  // run mode blamed the user's command with "failed with exit 127", and poll
+  // mode burned the whole deadline then blamed the predicate.
+  test('fails loudly and by name when no timeout(1) exists', () => {
+    const farm = fs.mkdtempSync(path.join(os.tmpdir(), 'waitfor-farm-'));
+    const needed = ['bash', 'sh', 'env', 'sed', 'cut', 'tr', 'date', 'mkdir', 'rm', 'cat',
+      'git', 'perl', 'flock', 'sleep', 'grep', 'tail', 'ps', 'kill', 'mktemp', 'seq',
+      'awk', 'dirname', 'basename', 'ln', 'pwd'];
+    for (const bin of needed) {
+      const src = spawnSync('command', ['-v', bin], { shell: true, encoding: 'utf8' }).stdout.trim();
+      if (src) { try { fs.symlinkSync(src, path.join(farm, bin)); } catch { /* dup */ } }
+    }
+    try {
+      const r = spawnSync(path.join(farm, 'bash'), [SCRIPT, '--job', jobName('notimeout'), '--', 'true'],
+        { encoding: 'utf8', cwd: REPO, timeout: 30_000, env: { ...process.env, PATH: farm } });
+      assert.equal(r.status, 69, `expected a loud dependency failure, got ${r.status}: ${r.stderr}`);
+      assert.match(r.stderr || '', /timeout/, 'the message must name the missing dependency');
+      assert.doesNotMatch(r.stderr || '', /predicate is probably wrong/,
+        'a missing dependency must not be blamed on the caller');
+    } finally {
+      fs.rmSync(farm, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('wait-for — locking mechanism selection', () => {
   test('rejects an unknown implementation rather than guessing', () => {
     assert.equal(runWith('banana', ['--job', jobName('impl-bad'), '--', 'true']).code, 64);

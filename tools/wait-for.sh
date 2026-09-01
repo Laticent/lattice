@@ -62,7 +62,13 @@ repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 # and take the lock while the first is still running. Reproduced. `.git/` is
 # never touched by git clean and is already per-checkout and untracked.
 log_root="$repo_root/.scratch/waits"
-lock_root="$(git -C "$repo_root" rev-parse --git-dir 2>/dev/null || echo "$repo_root/.git")/lattice-waits"
+# --absolute-git-dir, NOT --git-dir. The latter prints ".git" RELATIVE to the
+# repo root, and this script never cds there, so the lock path resolved against
+# the CALLER's cwd: the same job started from two directories took two different
+# locks and both ran. Reproduced -- the exact "two live waiters on one job"
+# failure the flock design exists to delete -- and it also littered a stray
+# .git/lattice-waits/ wherever the caller happened to be.
+lock_root="$(git -C "$repo_root" rev-parse --absolute-git-dir 2>/dev/null || echo "$repo_root/.git")/lattice-waits"
 
 job=""
 timeout_s=$DEFAULT_TIMEOUT
@@ -165,6 +171,21 @@ case "$lock_impl" in
   *)     die "unknown WAIT_FOR_LOCK_IMPL: $lock_impl" 64 ;;
 esac
 
+# The deadline needs GNU timeout(1), and macOS ships none -- so the perl lock
+# fallback ALONE does not make this tool run there. Unguarded, the failure lied:
+# run mode reported `failed with exit 127`, blaming the user's command for the
+# tool's missing dependency, and poll mode burned the whole deadline and then
+# said "the predicate is probably wrong, not the job" when the predicate was
+# fine. coreutils installs it as `gtimeout` on macOS, so prefer that when the
+# GNU one is absent.
+if command -v timeout >/dev/null 2>&1; then
+  TIMEOUT_BIN=timeout
+elif command -v gtimeout >/dev/null 2>&1; then
+  TIMEOUT_BIN=gtimeout
+else
+  die "no timeout(1) found: install GNU coreutils (on macOS: brew install coreutils, which provides gtimeout)" 69
+fi
+
 exec 9>>"$lock_file" || die "cannot open lock file $lock_file"
 
 # Take the lock on fd 9, whichever mechanism this box has.
@@ -229,7 +250,18 @@ if ! take_lock; then
 
   # --force REPLACES the holder, so it must stop the holder: leaving it running
   # is the two-waiters case this lock exists to prevent.
+  # The holder is written just after the lock is taken, so --force can still
+  # land in a window where the file is empty (or on a job's first-ever use).
+  # Give it a moment to appear rather than sending no signal at all and then
+  # timing out against a holder we were meant to replace.
   victim=$(holder_pid)
+  if [ -z "$victim" ]; then
+    for _ in 1 2 3 4 5 6; do
+      sleep 0.5
+      victim=$(holder_pid)
+      [ -n "$victim" ] && break
+    done
+  fi
   if is_our_waiter "$victim"; then
     kill -TERM "$victim" 2>/dev/null || true
   fi
@@ -251,10 +283,10 @@ if ! take_lock; then
   [ "$taken" -eq 1 ] || die "could not take the lock for $job even with --force" 2
 fi
 
-# We hold it. Publish who we are, for anyone we later refuse. Safe to truncate:
-# only the lock holder writes here, and the lock is ours.
-: > "$lock_file"
-printf '%s\n%s\n%s\n' "$$" "$job" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$lock_file"
+# We hold it. Publish who we are, for anyone we later refuse. ONE redirection,
+# so the truncate and the write are a single open rather than a window in which
+# a reader sees an empty file and reports a blank holder.
+printf '%s\n%s\n%s\n' "$$" "$job" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$lock_file"
 
 child=""
 
@@ -289,7 +321,7 @@ if [ ${#cmd[@]} -gt 0 ]; then
   # inherits fd 9 and keeps the flock held after this script dies, so a
   # SIGKILLed waiter left its job wedged until the child finished -- the exact
   # stale-lock problem flock was adopted to delete. Measured.
-  timeout --signal=TERM --kill-after=10s "$timeout_s" "${cmd[@]}" > "$log_file" 2>&1 9>&- &
+  "$TIMEOUT_BIN" --signal=TERM --kill-after=10s "$timeout_s" "${cmd[@]}" > "$log_file" 2>&1 9>&- &
   child=$!
   wait "$child" || status=$?
   child=""
@@ -331,7 +363,7 @@ while [ "$SECONDS" -lt "$deadline" ]; do
   # inside it. Measured before the fix: `--until 'sleep 300'` ran a full 2
   # minutes against a 3s deadline. Backgrounded so a signal can land mid-probe.
   probe=0
-  timeout --signal=TERM --kill-after=2s "$remaining" bash -c "$predicate" >/dev/null 2>&1 9>&- &
+  "$TIMEOUT_BIN" --signal=TERM --kill-after=2s "$remaining" bash -c "$predicate" >/dev/null 2>&1 9>&- &
   child=$!
   wait "$child" || probe=$?
   child=""

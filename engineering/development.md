@@ -444,6 +444,14 @@ number), so the lock outlives the perl process and lasts as long as the waiter.
 `WAIT_FOR_LOCK_IMPL` pins the choice, and the suite drives **both** paths — a
 second code path nothing exercises is how this tool kept breaking.
 
+**The deadline needs GNU `timeout(1)`, and macOS ships none** — so the perl lock
+fallback alone does not make this run there. `gtimeout` (from `brew install
+coreutils`) is used when the GNU one is absent, and if neither exists the wait
+fails with exit 69 naming the dependency. Unguarded this lied twice: run mode
+reported `failed with exit 127`, blaming your command for the tool's missing
+dependency, and poll mode burned the whole deadline before blaming your
+predicate.
+
 **macOS itself remains UNVERIFIED** (HARD RULE #23): what is tested is the
 mechanism the macOS path would use, on Linux. If neither mechanism is present,
 the wait fails loudly with exit 69 rather than being folded into "already being
