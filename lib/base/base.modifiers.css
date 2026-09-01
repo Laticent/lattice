@@ -2363,11 +2363,18 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
   background: currentColor; opacity: 0.22;
 }
 .lat-split-rail .seg.on { opacity: 0.8; }
-/* The long-run form: past eight pages the rail prints "k/N" rather than drawing a dot per
-   page (lib/core/auto-split.js `RAIL_DOT_MAX`). Set in the footer band's own meta face and
-   color so it reads as the same mark the dots were, not as a second footer string. */
+/* The long-run form: past `RAIL_DOT_MAX` pages the rail prints "k/N" rather than drawing a
+   pill per page (lib/core/auto-split.js).
+
+   Set EXPLICITLY in the band's meta register, not `font: inherit`. Inherit was right while a
+   `<footer>` sat beside it and set the size; a split page no longer carries one (the deck's
+   chrome is stripped, 2026-09-01), so the count inherited the SLIDE's body size and rendered
+   larger than the page number next to it — the quietest mark in the band shouting over the
+   one that orients the reader. Measured on a real portrait render. */
 .lat-split-rail .seg-count {
-  font: inherit;
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
   opacity: 0.8;
   white-space: nowrap;

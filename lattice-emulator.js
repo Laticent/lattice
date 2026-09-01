@@ -3191,7 +3191,7 @@ async function renderBody(browser, g, closeBrowser) {
   // does not fit even at one element per page rings, which is the honest terminal: there is no
   // smaller cut left to make.
   if (AUTOSPLIT_APPLIES) {
-    const { splitDoc, applyRails, applyRelationshipSignals } = require('./lib/core/auto-split');
+    const { splitDoc, applyRails, applyRelationshipSignals, stripDeckChrome } = require('./lib/core/auto-split');
     const r = splitDoc(cleanDocHtml, SPLIT_CAP);
     if (r.changed) {
       cleanDocHtml = r.html;
@@ -3210,7 +3210,9 @@ async function renderBody(browser, g, closeBrowser) {
     // which after a single structural pass is simply "now" — but they stay a separate pass
     // because they are facts ABOUT a run rather than about any one page.
     // …and RE-BERTH, in the same re-render (see below).
-    const railed = fitBerth.applyToDocHtml(applyRails(applyRelationshipSignals(cleanDocHtml, SPLIT_CAP)));
+    // …and STRIP THE DECK'S CHROME from the emitted pages first, so the rail is docked into
+    // whatever band is left rather than into one that is about to lose three of its four marks.
+    const railed = fitBerth.applyToDocHtml(applyRails(applyRelationshipSignals(stripDeckChrome(cleanDocHtml), SPLIT_CAP)));
     if (railed !== cleanDocHtml) {
       cleanDocHtml = railed;
       fs.writeFileSync(outHtml, cleanDocHtml);

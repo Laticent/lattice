@@ -31,7 +31,6 @@ const sec = (cls, inner) => `<section class="${cls}">${inner}</section>`;
 const docSec = (n, cls, inner) => `<section data-lattice-slide="${n}" class="${cls}">${inner}</section>`;
 const list = (n) => `<ul>${Array.from({ length: n }, (_, i) => `<li>item ${i + 1}</li>`).join('')}</ul>`;
 const cap = { cards: { axis: 'item', hard: 4 }, redline: { axis: 'col', hard: 2 } };
-const nums = (html) => [...html.matchAll(/data-lattice-slide="(\d+)"/g)].map((m) => Number(m[1]));
 // The fixtures are authored without a slide number; the walker keys on `data-lattice-slide`.
 const docify = (html) => html.replace(/^<section /, '<section data-lattice-slide="1" ');
 const split = (html, capacity = cap) => {

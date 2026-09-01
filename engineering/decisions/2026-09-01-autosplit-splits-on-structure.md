@@ -164,6 +164,33 @@ wall — so one logo per slide says something the author did not write, and any 
 the single-element rule forbids. It keeps whole and rings, which is what it already did by
 declaring no axis; this records the reason so the next sweep does not "fix" the omission.
 
+## The chrome a split page carries
+
+**The page number and the k-of-N pill rail. Nothing else.** No deck header, no running
+`footer:` string, no section rail.
+
+This reverses §0a — *"Footer, pagination, and the progress rail ride every slide in the
+envelope (cover and closing included)"* — and the reversal is about what a split RUN is. The
+deck frame is what a reader meets on an authored slide. A split run is not a sequence of
+authored slides; it is one slide unfolded, so the run's own chrome is what orients the reader
+inside it. Repeating the deck frame fourteen times says only that the deck is still the deck.
+
+§0a was written when a split was two or three pages. At that length the frame reads as
+continuity. At one structural element per page it reads as repetition, and it costs the thing
+the band is for: the footer text, the section rail, the k-of-N rail and the page number were
+four marks sharing one width budget, which is why a long run pushed a deck's own footer into an
+ellipsis on 21 pages of a demo deck. Removing three of the four is the fix §0a could not reach.
+
+It is one pass over the emitted document (`stripDeckChrome`), keyed on `data-split-role`, not a
+change inside each builder — ten carousel strategies plus the plain envelope assemble their own
+pages and three of them splice the deck's chrome back in by construction. Keying on the role
+also means it cannot touch a slide the split did not emit, which is the whole distinction.
+
+**The pill rail follows from it.** `RAIL_DOT_MAX` was 4 for one commit, set while the band still
+carried the footer; with three marks gone the constraint that set it is gone, and the threshold
+is now a readability call — twelve, about the limit for a row the eye reads as a shape rather
+than counts.
+
 ## Scope: the size gate is unchanged
 
 Splitting still runs at `square`, `tall` and `strip`, never at `wide`. That gate is about
@@ -176,6 +203,11 @@ change to the gate is a separate decision and is not made here.
 - **The galleries and example decks will export with different page counts.** That is the
   change, not a defect, but the committed PDFs are regenerated in this change and every one
   wants an eye on it.
+- **The single-element rule reached the plain envelope before it reached the carousel
+  strategies.** `cover-cards` and `roadmap-horizons` assemble their own pages and were still
+  packing — caught by a census of the split kernels rather than by any gate. There is no gate
+  that would catch the next one: `perPage` is a manifest field, and a strategy that groups in
+  code is invisible to it.
 - **A one-element page can be sparse.** One bullet on a portrait page is a lot of white — visible
   on p3–p6 of `examples/split-structure.pdf`. A lone member already claims the stage's HEIGHT
   (`base.modifiers.css` § lone-member fill, extended here to claim its WIDTH too), so the box is

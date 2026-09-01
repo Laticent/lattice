@@ -41,3 +41,21 @@
 - **Fixed: fit is still measured, and now only for the ring.** The overflow probe runs after the
   split rather than driving it, so a page that does not fit at one element per page still warns
   and still carries the overflow marker. There is no smaller cut left to make.
+- **Breaking: a split page carries no deck header, footer or section rail.** Its wayfinding is
+  its own: the page number and the k-of-N pill rail. The deck frame is what a reader meets on an
+  authored slide, and a split run is not a sequence of authored slides — it is one slide
+  unfolded. This reverses §0a's "footer, pagination and the progress rail ride every slide", a
+  rule written when a split was two or three pages, where the frame reads as continuity rather
+  than repetition. It also fixes what that rule could not reach: four marks shared one width
+  budget, which is why a long run pushed a deck's own `footer:` into an ellipsis.
+- **Changed: the k-of-N rail is pills again, up to twelve pages.** With the deck chrome gone the
+  threshold is a readability call rather than a width one — past about a dozen a reader counts
+  rather than reads, and the numeral does counting better. The count form is set explicitly in
+  the band's meta register; it inherited the slide's body size once the footer beside it was
+  gone, and rendered larger than the page number.
+- **Fixed: `cover-cards` and `roadmap-horizons` were still packing.** The single-element rule
+  reached the plain envelope but not two carousel strategies that assemble their own pages:
+  `compare-table`'s transposed cards kept the retired "note on the last card page" placement, and
+  `roadmap` grouped six phases into 2+2+1+1 to stay under a four-page budget. `coverWindow`'s
+  fallback for a recipe that declares no `perPage` was 3, so a new recipe would have packed
+  silently; it is 1.
