@@ -233,10 +233,17 @@ where the work actually is.
 The issue says "if yes, that retirement is Option B's first slice." The answer is
 **no**, measured:
 
-- Every `data-lattice-slide` occurrence in `lib/runtime/index.js` (3) and
-  `lib/export/player-core.mjs` (16) is a **CSS or query selector**
-  (`section[data-lattice-slide]`). Not one reads the attribute's *value* as an
-  address.
+- Every `data-lattice-slide` occurrence in code in `lib/runtime/index.js` (3) and
+  `lib/export/player-core.mjs` (15) is a **CSS or query selector**
+  (`section[data-lattice-slide]`). Not one reads the attribute's *value*.
+- One place in `lib/core` does read the value:
+  `author-deferral-probe.js:128` (`Number(s.getAttribute('data-lattice-slide'))`).
+  It is a **diagnostic label** — "deck script deferred work on slide N", surfaced
+  through `lint-core` — not an address anything resolves, so it cannot be
+  invalidated in the sense §7.1 asks about. What it would do under a live split is
+  report a stale NUMBER in a lint message. Named rather than waved past, because
+  the first draft of this amendment said the value is read nowhere, and it is read
+  once.
 - The player's transport indexes a live `querySelectorAll` array rebuilt on load
   (`player-core.mjs:1753`). There is **no `location.hash` restore, no deep link,
   no persisted index** — so no external reference can be invalidated by a split.
