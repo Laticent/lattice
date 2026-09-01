@@ -193,6 +193,30 @@ test('agent kit structure', { skip }, async (t) => {
 		assert.ok(findings.every((f) => f.message), 'findings must carry a human-readable message');
 	});
 
+	await t.test('generated table cells escape backslash as well as pipe', () => {
+		// CodeQL flagged this as two high-severity alerts: escaping `|` alone leaves a
+		// trailing backslash free to escape the table's own delimiter and silently break
+		// the row. The inputs are prose anyone may edit, so this is a latent defect, not
+		// a hypothetical one.
+		for (const rel of [
+			['review', 'rubric.md'],
+			['skills', 'README.md'],
+		]) {
+			const doc = fs.readFileSync(path.join(KIT, ...rel), 'utf8');
+			for (const line of doc.split('\n')) {
+				if (!line.startsWith('|') || /^\|[\s-]*\|[\s-]*\|?\s*$/.test(line)) continue;
+				// A cell may legitimately END in an escaped backslash (\\\\) but never in a
+				// lone one, which would swallow the delimiter that follows.
+				assert.doesNotMatch(
+					line,
+					/[^\\]\\ *\|/,
+					`${rel.join('/')} has a table cell ending in an unescaped backslash, which ` +
+						'escapes the delimiter and breaks the row:\n  ' + line,
+				);
+			}
+		}
+	});
+
 	await t.test('the checker bundle is byte-stable across builds', () => {
 		// esbuild writes each module's path as a comment, and the CLI entry lives in a
 		// randomly named temp dir — so two builds of identical source differed by one

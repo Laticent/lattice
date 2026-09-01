@@ -88,6 +88,27 @@ const fmtTok = (b) => {
 };
 const bytesOf = (files, key) => files.get(key)?.length || 0;
 
+/**
+ * One markdown TABLE CELL, from text this file does not control.
+ *
+ * Escape the BACKSLASH FIRST, then the pipe — the other order double-escapes,
+ * and escaping the pipe alone (which is what shipped, and what CodeQL flagged as
+ * two high-severity alerts) leaves a trailing `\` free to escape the table's own
+ * delimiter and silently break the row. Newlines collapse for the same reason: a
+ * cell cannot span lines.
+ *
+ * Latent rather than live today — no RUBRIC entry or CLAUDE.md rule title
+ * currently contains either character — but the inputs are prose that anyone may
+ * edit, and a broken table is exactly the kind of silent wrongness this kit is
+ * meant not to ship.
+ */
+const mdCell = (v) =>
+  String(v)
+    .replace(/\\/g, '\\\\')
+    .replace(/\|/g, '\\|')
+    .replace(/\s*\n\s*/g, ' ')
+    .trim();
+
 /** Catalogs copied verbatim from dist/docs/, with where each one lands. */
 const CATALOGS = [
   {
@@ -321,7 +342,7 @@ function rubricDoc() {
     '',
     '| Trap | Fix |',
     '|---|---|',
-    ...RUBRIC.map((r) => `| ${String(r.trap).replace(/\|/g, '\\|')} | ${String(r.fix).replace(/\|/g, '\\|')} |`),
+    ...RUBRIC.map((r) => `| ${mdCell(r.trap)} | ${mdCell(r.fix)} |`),
     '',
     '---',
     '',
@@ -700,7 +721,7 @@ function skillsReadme(skills) {
   const glossary = [...cited]
     .sort((a, b) => a - b)
     .filter((n) => titles.has(n))
-    .map((n) => `| #${n} | ${titles.get(n)} |`);
+    .map((n) => `| #${n} | ${mdCell(titles.get(n))} |`);
 
   const LABEL = {
     'deck.md': 'A **deck** — a full presentation from a blank `.md`',
