@@ -1,23 +1,30 @@
 ---
 status: shipped
 summary: >
-  All four manifest families (61 components, 33 themes, 12 frames, 10 cells, 15 tiles)
+  All five manifest families (61 components, 33 themes, 12 frames, 10 cells, 15 tiles)
   already shipped a JSON Schema beside them, and all five already declared
   `additionalProperties: false` — but nothing in the repo ran a JSON-Schema validator, so
   each family grew its own hand-written checker at a different strength. Forms never read
   its schemas at all: renaming the optional `slicing` block on the `standard` frame to
   `slicng` returned zero errors from every checker in the repo, silently deleting the
   frame's whole responsive behavior. Fixed with one shared gate, `tools/manifest-schemas.js`,
-  running ajv (devDependency, tools/-only so no schema JSON reaches a browser bundle) over
-  a registry of all five families, inside the existing `check-ownership.js` — no new CI job,
-  step, or git hook. Three arms: coverage (a manifest no family claims), shape (nested
-  fields included), and self-reference (each manifest's `$schema` resolves to its own
-  contract). ajv `strict` adds a fourth catch free — a typo'd keyword in a schema file.
-  On its first run it found three component manifests carrying undeclared fields two levels
-  down in `adapt.capacity`, invisible to the flat top-level check; both fields were
-  legitimate and are now declared. Schemas stay beside their manifests (the relative
-  `$schema` link is what gives editors inline completion). themes/theme.schema.json moved
-  draft-07 -> 2020-12.
+  running ajv over a registry of all five families, inside the existing `check-ownership.js`
+  — no new CI job, step, or git hook. ajv is a devDependency kept out of `lib/` by
+  `checkAjvBoundary`; note that the schema JSON ITSELF does reach a browser bundle by design
+  (`lib/layout/gate.js` requires it and esbuild inlines it for the Studio), so a `description`
+  here is shipped bytes — an earlier draft of this record claimed otherwise and was wrong.
+  Three arms: coverage (a manifest no family claims), shape (nested fields included), and
+  self-reference (each manifest's `$schema` resolves to its own contract). ajv `strict` adds
+  a fourth catch free — a typo'd keyword in a schema file. On its first run it found three
+  component manifests carrying undeclared fields two levels down in `adapt.capacity`,
+  invisible to the flat top-level check; both fields were legitimate and are now declared.
+  The adversarial trio then found two holes of the same kind in the gate itself — an open
+  `slots.<name>` object leaving 180 nested paths unchecked, and a sweep that walked
+  `.claude/worktrees/` and failed build:check with up to 131 bogus errors — plus three
+  coverage and diagnosis gaps; all fixed. It cleared the two real risks: zero regressions
+  against the retired walker over 39 mutations, and zero draft-07 vs 2020-12 disagreements.
+  Schemas stay beside their manifests (the relative `$schema` link is what gives editors
+  inline completion). themes/theme.schema.json moved draft-07 -> 2020-12.
 ---
 
 # One JSON-Schema gate over every manifest family
