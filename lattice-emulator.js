@@ -781,6 +781,15 @@ const mdRaw = readFileOrDie(mdFile, 'source markdown');
 // untouched, so a deck with no views — every deck in the tree today — exports
 // exactly as it did before this flag existed.
 const LENS_IDS = String(flags.lens ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+// PASSING THE FLAG AND NAMING NOTHING IS AN ERROR, not "no projection". `--lens "$VIEW"`
+// with `$VIEW` unset is the ordinary way a script hits this, and the old reading — an empty
+// list means skip the whole block — handed over every slide the author kept out, exit 0, no
+// warning. Everything else in this feature refuses; this path silently did the opposite.
+if (flags.lens !== undefined && LENS_IDS.length === 0) {
+  console.error(`error: --lens was given no view id (got '${String(flags.lens)}').`);
+  console.error("       Name at least one view, or drop the flag to export the whole deck.");
+  process.exit(1);
+}
 const LENS_SOURCE = String(flags['lens-source'] ?? 'projected').trim().toLowerCase();
 if (!['projected', 'full'].includes(LENS_SOURCE)) {
   console.error(`error: --lens-source must be 'projected' or 'full' (got '${LENS_SOURCE}')`);
@@ -2000,7 +2009,12 @@ const PLAYER_VERSION = '1';
 // here rather than at parse time because `player: true` in front matter enables the
 // player too, and `fm` is the shared resolution of that (HARD RULE #1). Nothing has
 // been rendered or written yet.
-if (LENS_IDS.length > 1 && !PLAYER) {
+// The DELIVERABLE has to be the carrier, not merely accompanied by one. `PLAYER` alone is
+// satisfied by a `player: true` key in the deck's own front matter, so a `.pdf` export could
+// clear this guard while the PDF itself stayed one linear sequence carrying the union of two
+// views with nothing saying which slide belongs to which — precisely the artifact the guard
+// exists to prevent. The player is only ever the deliverable for `.html`.
+if (LENS_IDS.length > 1 && !(PLAYER && OUT_FORMAT === 'html')) {
   console.error(`error: --lens got ${LENS_IDS.length} views (${LENS_IDS.join(', ')}) but ${OUT_EXT || '.pdf'} carries one linear sequence.`);
   console.error('       Export one view per file, or add --player, which carries several views behind a switcher.');
   process.exit(1);

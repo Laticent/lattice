@@ -93,7 +93,12 @@ describe('a multi-view player carrier', { skip }, () => {
 			const art = document.querySelector('#lp-doc #lp-article');
 			const toc = document.querySelector('#lp-doc #lp-toc');
 			return {
-				frames: frames.filter((f) => !f.hidden).map(idx),
+				// GEOMETRY, not the `hidden` attribute. The attribute is what the switcher sets;
+				// asking it back only proves the switcher set what it set. What has to hold is
+				// that the CASCADE agrees — which is exactly where two live defects hid, since
+				// `#lp-toc a{display:block}` and `#lp-article .lp-stats{display:grid}` both
+				// outrank the UA sheet's `[hidden]{display:none}`.
+				frames: frames.filter(vis).map(idx),
 				prose: [...new Set([...art.querySelectorAll('[data-lp-i]')].filter(vis).map(idx))].sort((a, b) => a - b),
 				toc: [...toc.querySelectorAll('a[data-lp-i]')].filter(vis).map(idx),
 				counter: document.getElementById('lp-count').textContent,
@@ -120,9 +125,15 @@ describe('a multi-view player carrier', { skip }, () => {
 		test(`\`${id}\` agrees across Present, Read·Slides and Read·Article`, { timeout: TIMEOUT }, async () => {
 			const want = inCarrier(MEMBERSHIP[id]);
 			await page.click(`[data-lp-lens="${id}"]`);
+			// Each surface is measured WHERE IT IS LAID OUT. Present hides every frame but the
+			// active one by design, so a geometric read of the frames there — or in Read·Article,
+			// where the stage is display:none entirely — reports nothing and proves nothing.
+			// Read·Slides is the view that lays the whole column out at once.
+			await page.click('[data-lp-btn="read-slides"]');
+			const frameState = await showing();
+			assert.deepEqual(frameState.frames, want, 'Read·Slides lays out exactly the view’s frames');
 			await page.click('[data-lp-btn="read-article"]');
 			const s = await showing();
-			assert.deepEqual(s.frames, want, 'the frames the view shows');
 			assert.deepEqual(s.prose, want, 'Read·Article prose — the surface the `hidden` cascade defeated');
 			assert.deepEqual(s.toc, want, 'Read·Article table of contents');
 			assert.equal(s.counter, `1 / ${want.length}`, 'the counter re-sizes to the view');

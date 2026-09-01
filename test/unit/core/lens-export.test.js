@@ -20,6 +20,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { projectForExport, exportableViews, REFUSAL_REASONS } = require('../../../lib/core/lens-export.mjs');
+const { frontMatterBlockOf } = require('../../../lib/core/slide-boundaries.mjs');
 const { approvalHash, applyTag, emitRegistry } = require('@workwel/lente');
 const engine = require('../../../lib/engine/index.js');
 
@@ -84,6 +85,25 @@ test('`full` is byte-identical to no projection at all', () => {
 	assert.equal(full.source, src, 'the caller gets its OWN string back, not a re-assembled copy');
 });
 
+test('the identity shortcut is what makes `full` byte-exact — re-assembly is NOT lossless', () => {
+	// The test above passes with the shortcut REMOVED, because re-assembly happens to be
+	// byte-identical for an ordinary LF `---` deck: chunk + '\n' + sep + '\n' + chunk
+	// reproduces the original exactly. So it pins the property without pinning the mechanism,
+	// and two mutants (`identity = false`, `identity = kept.length >= slides.length`) survived
+	// the whole suite.
+	//
+	// A deck whose body OPENS with a separator discriminates: that leading separator belongs to
+	// no chunk, so re-assembly cannot put it back. The shortcut is the only reason `--lens full`
+	// hands back what it was given, which is the guarantee the docblock claims.
+	const base = deckWith(VIEWS, MEMBERSHIP);
+	const fm = frontMatterBlockOf(base);
+	const src = `${fm}\n---\n${base.slice(fm.length)}`;
+	const out = projectForExport(src, ['full']);
+	assert.equal(out.ok, true);
+	assert.equal(out.source, src, '`full` returns the caller’s own string, leading separator and all');
+	assert.match(out.source.slice(fm.length), /^\n---\n/, 'the leading separator survived — re-assembly would have dropped it');
+});
+
 test('a view containing every slide also returns the original source', () => {
 	const all = [{ id: 'everything', label: 'Everything', base: 'all' }];
 	const src = deckWith(all, { everything: [0, 1, 2, 3] }, { n: 4 });
@@ -103,11 +123,27 @@ test('a non-`---` separator survives the projection', () => {
 	assert.match(brief.source, /\*\*\*/, 'the author’s own separator is what re-joins the kept slides');
 });
 
-test('a deck whose body opens with a separator keeps its slide numbering', () => {
-	const src = deckWith(VIEWS, MEMBERSHIP).replace(/\n---\n$/m, '\n---\n\n---\n');
-	const before = renderedSections(src);
-	const out = projectForExport(src, ['full']);
-	assert.equal(renderedSections(out.source), before);
+test('a deck whose body OPENS with a separator keeps its slide numbering', () => {
+	// THIS TEST USED TO PROVE NOTHING, and the way it failed is the point. It built its
+	// fixture with `src.replace(/\n---\n$/m, …)`, which matches the FIRST separator followed
+	// by a blank line — between slides one and two, never at the head of the body. So no
+	// leading separator was ever created. It then asserted only on `full`, which the identity
+	// shortcut answers before any re-assembly runs. Deleting the whole `leadingEmpty` branch
+	// from the kernel left it green.
+	//
+	// Built properly, and asserted on a REDUCING view so the re-assembly path is actually
+	// walked: a body opening with a separator renders N sections from N+1 chunks, so an
+	// off-by-one here shifts every membership by one slide.
+	const base = deckWith(VIEWS, MEMBERSHIP);
+	const fm = frontMatterBlockOf(base); // the canonical helper — counting separators got this wrong
+	const src = `${fm}\n---\n${base.slice(fm.length)}`;
+	assert.equal(renderedSections(src), renderedSections(base), 'fixture: a leading separator adds no section');
+
+	const out = projectForExport(src, ['brief']);
+	assert.equal(out.ok, true, `brief must still project on a leading-separator deck (got ${out.reason})`);
+	assert.equal(renderedSections(out.source), MEMBERSHIP.brief.length, 'the SAME slides brief projects on the ordinary deck');
+	// The membership is the same deck either way — a leading separator is not a slide.
+	assert.deepEqual(out.kept, projectForExport(base, ['brief']).kept);
 });
 
 test.describe('fails CLOSED — every one of the five reasons refuses', () => {
