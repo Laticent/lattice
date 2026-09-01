@@ -59,7 +59,18 @@ corpus, and each one moved a headline number:
    slack on a row that is visibly full, and putting a non-defect on the defect
    list. `collect()` now descends through boxless elements instead.
 
-**Assume a fifth.** Read a number here as a claim needing a render behind it,
+**A fifth was found by a review bot on the PR that shipped this**, and it is the
+reason the depth bounds now behave the way they do. The bot flagged
+`if (depth > 8)` in the stage walk as a comparison that is always false. It was
+right — and the useful reading is the other one: **8 is one level clear of the
+deepest real stage subtree** (measured max 7 across 15 exemplar decks), and a
+bound that close silently DROPS content the moment it trips, which is instrument
+bug #4's exact shape wearing a different hat. Both bounds are now 32, and a trip
+is **counted and reported**: the run prints either `depth bounds never tripped` or
+a warning naming how many times content was dropped. Re-measured with the change:
+5,478 records and 61 flagged cards, identical per cell.
+
+**Assume a sixth.** Read a number here as a claim needing a render behind it,
 which is what §2 and §9a of the note do throughout.
 
 ## Known limits — measured, not guessed

@@ -31,6 +31,15 @@ const VIEWPORT = {
 
 const probe = () => {
   const num = (v) => Number.parseFloat(v) || 0;
+  // Recursion bounds. Both were 8, which a review bot flagged as never firing — and
+  // it was right, but the useful reading is the other one: 8 is ONE LEVEL clear of
+  // the deepest real stage subtree (measured max 7 across 15 exemplar decks), and a
+  // bound that close silently DROPS content when it trips. That is instrument bug
+  // #4's exact shape. So both are raised well clear and, more importantly, a trip is
+  // COUNTED and reported — a truncated run can no longer pass as a clean one.
+  const BOXLESS_DEPTH_CAP = 32;   // consecutive `display:contents` / zero-rect wrappers
+  const WALK_DEPTH_CAP = 32;      // stage-subtree descent looking for a card row
+  let truncations = 0;
   const OVERLAP = 0.5; // a child joins a band when it overlaps the band by >50% of the shorter height
 
   /**
@@ -58,12 +67,14 @@ const probe = () => {
     if (cs.position === 'absolute' || cs.position === 'fixed') { acc.outOfFlow += 1; return; }
     const boxless = cs.display === 'contents' || node.getClientRects().length === 0;
     if (boxless) {
-      if (depth < 8) for (const k of node.childNodes) collect(k, acc, depth + 1);
+      if (depth < BOXLESS_DEPTH_CAP) for (const k of node.childNodes) collect(k, acc, depth + 1);
+      else truncations += 1;
       return;
     }
     const r = node.getBoundingClientRect();
     if (r.width === 0 && r.height === 0) {
-      if (depth < 8) for (const k of node.childNodes) collect(k, acc, depth + 1);
+      if (depth < BOXLESS_DEPTH_CAP) for (const k of node.childNodes) collect(k, acc, depth + 1);
+      else truncations += 1;
       return;
     }
     acc.rects.push(r);
@@ -181,7 +192,7 @@ const probe = () => {
     // container qualifies when its in-flow element children band into a row of 2+.
     // Do NOT descend past a qualifying container: the outermost row is the card row.
     (function walk(el, depth) {
-      if (depth > 8) return;
+      if (depth > WALK_DEPTH_CAP) { truncations += 1; return; }
       const kids = [...el.children].filter((k) => {
         const cs = getComputedStyle(k);
         return cs.display !== 'none' && cs.position !== 'absolute' && cs.position !== 'fixed'
@@ -202,7 +213,7 @@ const probe = () => {
 
     for (const rec of seen.values()) cards.push({ slide, component, family, ...rec });
   }
-  return cards;
+  return { cards, truncations };
 };
 
 const dirs = process.argv.slice(2);
@@ -213,6 +224,7 @@ const browser = await puppeteer.launch({
   args: ['--no-sandbox', '--font-render-hinting=none'],
 });
 const rows = [];
+let truncated = 0;
 for (const size of Object.keys(VIEWPORT)) {
   const dir = path.join(root, size);
   if (!fs.existsSync(dir)) continue;
@@ -220,12 +232,19 @@ for (const size of Object.keys(VIEWPORT)) {
     const page = await browser.newPage();
     await page.setViewport({ width: VIEWPORT[size][0], height: VIEWPORT[size][1] });
     await page.goto(`file://${path.join(dir, f)}`, { waitUntil: 'networkidle0', timeout: 180_000 });
-    const cards = await page.evaluate(probe);
+    const { cards, truncations } = await page.evaluate(probe);
+    truncated += truncations;
     await page.close();
     for (const c of cards) rows.push({ size, deck: path.basename(f, '.html'), ...c });
     process.stderr.write(`\r${size}/${f} → ${cards.length} cards (total ${rows.length})            `);
   }
 }
 process.stderr.write('\n');
+if (truncated > 0) {
+  process.stderr.write(`\nWARNING: the depth bound tripped ${truncated} time(s). Content was DROPPED and\n` +
+    'every number from this run is suspect — raise BOXLESS_DEPTH_CAP / WALK_DEPTH_CAP and re-run.\n');
+} else {
+  process.stderr.write('depth bounds never tripped — no content was dropped.\n');
+}
 await browser.close();
 process.stdout.write(JSON.stringify(rows));
