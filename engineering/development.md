@@ -427,6 +427,14 @@ a lock cannot be deleted out from under whoever replaced it. The file's contents
 are now purely informational — who to name in a refusal, who to signal on
 `--force`. Every correctness decision belongs to the kernel.
 
+Two practical notes. The lock lives under `.git/lattice-waits/`, **not**
+`.scratch/` — that directory is documented as throwaway, and a `rm -rf .scratch`
+or `git clean -fdx` during a live wait would let a second waiter create a fresh
+inode and take the lock while the first still runs. Logs stay in `.scratch`,
+where disposable things belong. And `flock` is required: a missing binary now
+fails loudly (exit 69) rather than being folded into "already being waited on",
+which is what a naive non-zero check did — reporting a phantom holder forever.
+
 One sharp edge worth knowing, since it cost a measured bug: **a flock lives on
 an open file descriptor, and children inherit descriptors.** The job this tool
 runs must therefore be started with `9>&-` to close the lock fd, or it keeps the

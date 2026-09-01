@@ -27,7 +27,10 @@ const { spawn, spawnSync } = require('node:child_process');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const SCRIPT = path.join(REPO, 'tools', 'wait-for.sh');
-const LOCK_ROOT = path.join(REPO, '.scratch', 'waits');
+// Locks live outside .scratch on purpose: that directory is throwaway, and
+// wiping it mid-wait would let a second waiter make a fresh inode and take
+// the lock. Logs stay there; correctness state does not.
+const LOCK_ROOT = path.join(REPO, '.git', 'lattice-waits');
 
 /** Run the helper to completion and hand back its exit code plus streams. */
 const run = (args, opts = {}) => {
@@ -65,8 +68,8 @@ const until = (fn, budgetMs = 10_000) => {
   return false;
 };
 
-// The lock is a FILE now: pid on line 1, claim epoch on line 2, both written
-// before it exists. See the script's claim_lock.
+// The lock file records who holds it -- pid, job, ISO timestamp -- purely so
+// that a refusal can name them. Mutual exclusion is flock's, not the file's.
 const lockPath = (job) => path.join(LOCK_ROOT, `${job}.lock`);
 
 /**
@@ -83,9 +86,8 @@ const lockHeld = (job) => {
 };
 
 
-// A SIGKILLed holder cannot run its trap, so cases that kill one leave a lock
-// behind. That is correct for the tool (the stale reclaim handles it) and untidy
-// for the suite, which should not silt up .scratch/waits across runs.
+// The kernel releases a killed holder's lock, but the (now unlocked) file
+// remains. Tidy them so the suite does not silt up the lock directory.
 after(() => {
   // Guarded: the validation cases die before the script's `mkdir -p`, so on a
   // clean tree this directory may never exist and an unguarded read throws.
@@ -361,7 +363,7 @@ describe('wait-for — the lock is the kernel\'s, not ours', () => {
     const survived = isLive(holder.pid);
     reap(holder);
     assert.equal(code, 0, 'a prefix of another job name was treated as that job');
-    assert.ok(survived, "and the other job's waiter must not be signalled");
+    assert.ok(survived, "and the other job's waiter must not be signaled");
   });
 });
 

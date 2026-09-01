@@ -56,7 +56,13 @@ readonly MAX_TIMEOUT=3600
 readonly DEFAULT_INTERVAL=5
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-lock_root="$repo_root/.scratch/waits"
+# Logs are disposable, so they stay in .scratch. The LOCK is correctness state
+# and must not: CLAUDE.md calls .scratch throwaway, and `rm -rf .scratch` or
+# `git clean -fdx` during a live wait lets a second waiter create a FRESH inode
+# and take the lock while the first is still running. Reproduced. `.git/` is
+# never touched by git clean and is already per-checkout and untracked.
+log_root="$repo_root/.scratch/waits"
+lock_root="$(git -C "$repo_root" rev-parse --git-dir 2>/dev/null || echo "$repo_root/.git")/lattice-waits"
 
 job=""
 timeout_s=$DEFAULT_TIMEOUT
@@ -89,7 +95,10 @@ done
 # ── validate ─────────────────────────────────────────────────────────────────
 [ -n "$job" ] || die "--job is required (it is the dedup key)"
 # The job name becomes a path component, so keep it to safe characters.
-[[ "$job" =~ ^[A-Za-z0-9._-]+$ ]] || die "--job must match [A-Za-z0-9._-]: $job"
+# Must not START with '-', or a swallowed value (`--job --force -- ...`) locks
+# under the key "--force" instead of failing.
+[[ "$job" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] \
+  || die "--job must start alphanumeric and match [A-Za-z0-9._-]: $job"
 [[ "$timeout_s" =~ ^[0-9]+$ ]] || die "--timeout must be a whole number of seconds"
 [[ "$interval_s" =~ ^[0-9]+$ ]] || die "--interval must be a whole number of seconds"
 # Force base 10. Bash reads a leading zero as OCTAL, so `--timeout 08` passed the
@@ -133,13 +142,31 @@ fi
 #
 # The file's CONTENTS are now purely informational -- who to name when refusing,
 # and who to signal on --force. Every correctness decision is the kernel's.
-mkdir -p "$lock_root"
+mkdir -p "$lock_root" "$log_root"
 lock_file="$lock_root/$job.lock"
-log_file="$lock_root/$job.log"
+log_file="$log_root/$job.log"
 
 # Append-mode open: it must NOT truncate, or opening would wipe the live
 # holder's details before we know whether we can have the lock.
+command -v flock >/dev/null 2>&1 \
+  || die "flock is required and was not found (it is util-linux; macOS does not ship it)" 69
+
 exec 9>>"$lock_file" || die "cannot open lock file $lock_file"
+
+# `flock -n` returns 1 when the lock is HELD and something else on any other
+# fault -- 127 for a missing binary, for instance. Folding every non-zero into
+# "held" made a broken environment report `refused -- already being waited on
+# (pid , since )` forever, with --force equally stuck. Verified by removing
+# flock from PATH.
+take_lock() {
+  local rc=0
+  flock -n 9 || rc=$?
+  case "$rc" in
+    0) return 0 ;;
+    1) return 1 ;;
+    *) die "flock failed with exit $rc on $lock_file" 69 ;;
+  esac
+}
 
 holder_pid()   { sed -n 1p "$lock_file" 2>/dev/null || true; }
 holder_since() { sed -n 3p "$lock_file" 2>/dev/null || true; }
@@ -164,7 +191,7 @@ is_our_waiter() {
   printf '%s\n' "$args" | grep -qxF -- "$job"
 }
 
-if ! flock -n 9; then
+if ! take_lock; then
   if [ "$force" -ne 1 ]; then
     printf 'wait-for: refused — job "%s" is already being waited on (pid %s, since %s).\n' \
       "$job" "$(holder_pid)" "$(holder_since)" >&2
@@ -183,13 +210,13 @@ if ! flock -n 9; then
   # is released, so there is nothing to reclaim and no window to race.
   taken=0
   for _ in $(seq 1 20); do
-    flock -n 9 && { taken=1; break; }
+    take_lock && { taken=1; break; }
     sleep 0.5
   done
   if [ "$taken" -ne 1 ] && is_our_waiter "$victim"; then
     kill -KILL "$victim" 2>/dev/null || true
     for _ in 1 2 3 4; do
-      flock -n 9 && { taken=1; break; }
+      take_lock && { taken=1; break; }
       sleep 0.5
     done
   fi
