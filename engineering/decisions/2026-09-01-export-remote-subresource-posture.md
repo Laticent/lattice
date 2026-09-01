@@ -75,8 +75,47 @@ Chromium on a real export carrying one local and one remote image:
 | `img-src 'self' data: blob: file:` | 0 | loads |
 
 A same-directory `file://` image counts as `'self'`, so no `file:` token is needed and local
-assets cost nothing. **UNVERIFIED on Firefox and Safari** (HARD RULE #23): the measurement is
-Chromium's, and `file://` origin rules are engine-specific.
+assets cost nothing.
+
+### The engines agree — measured, not assumed
+
+`file://` origin rules are engine-specific, so a Chromium-only measurement was the open question
+here (it shipped as an explicit UNVERIFIED). It is now closed, on **all three engine families**:
+
+| | remote fetch, CSP on | remote fetch, CSP stripped | local `./local.png` | KaTeX faces |
+|---|---|---|---|---|
+| Blink (Chromium 1194) | **0** | 1 | renders | 20/20 |
+| Gecko (Firefox 142) | **0** | 1 | renders | 20/20 |
+| WebKit (2215) | **0** | 1 | renders | 20/20 |
+
+Two cases, because they are different questions. The **local image** is same-directory, which is
+the `'self'` reading Chromium was measured on. **KaTeX is not**: its stylesheet and its 20 faces
+live in `node_modules/katex/dist`, a different directory, so a stricter reading of `'self'` for a
+`file://` origin would silently drop every math glyph to a fallback. It does not: `KaTeX_Main`
+measures 460/459/459px against a 301px monospace fallback for the same string, and the rendered
+`.katex` box is 770px in all three.
+
+**Counted at the socket, not through devtools.** Every earlier measurement counted requests
+through a browser-automation interception layer, and those sit at different points relative to
+the CSP check — Puppeteer's Fetch-domain interception never sees a refused load, while
+Playwright's Network events DO see it and then report `requestfailed … csp`. Neither is wrong and
+neither answers the question. So this one serves the beacon from a real `http://127.0.0.1` server
+on a fixed port and counts hits **server-side**: if the server logs nothing, no bytes left the
+machine. The CSP-stripped control logs 1 in every engine, so a 0 means absent rather than
+unlooked-for.
+
+**This is a one-off verification, deliberately not a gate.** CI has Chromium only; Firefox and
+WebKit came from `npx playwright install firefox webkit` plus `install-deps` in a sandbox.
+Putting them in CI is a change to the pipeline every future PR pays for, which is not a call to
+make in passing — the shipped gate stays `test/integration/export/export-remote-subresource.test.js`
+on Chromium, and this table is the record that the other two were checked once, here. To repeat
+it: export a deck carrying one same-directory image and one `http://127.0.0.1:<port>/beacon.png`,
+strip the `<meta>` from a copy for the control, and open both from `file://` in each engine while
+a server on that port counts hits.
+
+What is still **UNVERIFIED**: Safari itself. Playwright's WebKit is a WebKit build, not Safari on
+macOS or iOS, and the two are not the same product — this closes the engine question, not the
+browser one.
 
 ## The cost that is real, and small
 
