@@ -99,12 +99,22 @@ test('agent kit structure', { skip }, async (t) => {
 		}
 	});
 
-	await t.test('every skill the bootstrap offers actually ships', () => {
-		for (const m of text.matchAll(/`skills\/([a-z-]+\.md)`/g)) {
-			assert.ok(
-				fs.existsSync(path.join(KIT, 'skills', m[1])),
-				`the bootstrap offers skills/${m[1]}, which is not in the kit`,
-			);
+	await t.test('every skill the index offers actually ships', () => {
+		// This read the ROOT README, which names no skill file — so the loop body
+		// never ran and the arm passed unconditionally. The index that DOES name
+		// them is skills/README.md, and the count assertion below is what stops
+		// this from silently going hollow again.
+		const index = fs.readFileSync(path.join(KIT, 'skills', 'README.md'), 'utf8');
+		const named = [...index.matchAll(/`([a-z-]+\.md)`/g)].map((m) => m[1]).filter((f) => f !== 'README.md');
+		assert.ok(named.length >= 5, `skills/README.md names ${named.length} skills — the arm is not looking at anything`);
+		for (const f of new Set(named)) {
+			assert.ok(fs.existsSync(path.join(KIT, 'skills', f)), `the index offers skills/${f}, which is not in the kit`);
+		}
+		// ...and the other direction: a skill that ships but is not offered is
+		// invisible to the reader who is choosing one.
+		const shipped = fs.readdirSync(path.join(KIT, 'skills')).filter((f) => f.endsWith('.md') && f !== 'README.md');
+		for (const f of shipped) {
+			assert.ok(named.includes(f), `skills/${f} ships but skills/README.md never names it`);
 		}
 	});
 
@@ -211,27 +221,29 @@ test('agent kit structure', { skip }, async (t) => {
 		}
 	});
 
-	await t.test('generated table cells escape backslash as well as pipe', () => {
-		// CodeQL flagged this as two high-severity alerts: escaping `|` alone leaves a
-		// trailing backslash free to escape the table's own delimiter and silently break
-		// the row. The inputs are prose anyone may edit, so this is a latent defect, not
-		// a hypothetical one.
-		for (const rel of [
-			['review', 'rubric.md'],
-			['skills', 'README.md'],
-		]) {
-			const doc = fs.readFileSync(path.join(KIT, ...rel), 'utf8');
-			for (const line of doc.split('\n')) {
-				if (!line.startsWith('|') || /^\|[\s-]*\|[\s-]*\|?\s*$/.test(line)) continue;
-				// A cell may legitimately END in an escaped backslash (\\\\) but never in a
-				// lone one, which would swallow the delimiter that follows.
-				assert.doesNotMatch(
-					line,
-					/[^\\]\\ *\|/,
-					`${rel.join('/')} has a table cell ending in an unescaped backslash, which ` +
-						'escapes the delimiter and breaks the row:\n  ' + line,
-				);
-			}
+	await t.test('mdCell escapes what would break a table row', async () => {
+		// CodeQL flagged the missing backslash escape as two high-severity alerts.
+		// The arm that replaced this one asserted on the OUTPUT of the real docs —
+		// and no live input carries a backslash OR a pipe, so removing the fix left
+		// it green. Measured: 0 of 58 real cells differ with the fix reverted. That
+		// is not a pin, so test the function against the inputs that would break it.
+		const { mdCell } = await import('../../../tools/build-agent-kit.mjs');
+		const cases = [
+			['a | b', 'a pipe would split the cell into two'],
+			['ends in a backslash \\', 'a trailing backslash escapes the delimiter that follows'],
+			['\\| already escaped', 'a pre-escaped pipe must not double-unescape'],
+			['multi\nline\n  text', 'a newline ends the row early'],
+		];
+		for (const [input, why] of cases) {
+			const cell = mdCell(input);
+			assert.doesNotMatch(cell, /\n/, `${why} — mdCell left a newline in`);
+			// Every `|` must be escaped, and no backslash may be left dangling at
+			// the end where it would consume the delimiter.
+			assert.doesNotMatch(cell, /(^|[^\\])\|/, `${why} — mdCell left an unescaped pipe`);
+			assert.doesNotMatch(cell, /(^|[^\\])\\$/, `${why} — mdCell left a trailing lone backslash`);
+			// The row must still parse as three cells.
+			const row = `| ${cell} | x |`;
+			assert.equal(row.split(/(?<!\\)\|/).length - 2, 2, `${why} — the rendered row does not have 2 cells`);
 		}
 	});
 
@@ -467,5 +479,80 @@ test('agent kit structure', { skip }, async (t) => {
 		// consumer does not have, and the CLI rewrites them to the kit's own.
 		assert.doesNotMatch(unknown.fix, /dist\/docs|design\/design-system/, 'the fix routes outside the kit');
 		assert.match(unknown.fix, /reference\/components\.json/);
+	});
+
+	/**
+	 * THE PUBLISH FILTER — derived, not maintained by eye.
+	 *
+	 * publish-kits.yml republishes the kit on a push to `main` that touches an
+	 * input. An input MISSING from that list is the worst kind of defect here:
+	 * nothing errors, no check goes red, the kit just quietly serves stale
+	 * content until someone happens to touch a different input. The workflow's
+	 * own comment claimed the list had been verified while CLAUDE.md and
+	 * build-bucket-galleries.js were both absent from it.
+	 *
+	 * So this reads the generator's `path.join(ROOT, ...)` literals — every
+	 * repo-relative file it opens — and checks each against the filter.
+	 */
+	await t.test('every input the generator reads is in the publish filter', () => {
+		const gen = fs.readFileSync(path.join(ROOT, 'tools', 'build-agent-kit.mjs'), 'utf8');
+		const wf = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'publish-kits.yml'), 'utf8');
+		const patterns = [...wf.matchAll(/^\s+- '([^']+)'$/gm)].map((m) => m[1]);
+		assert.ok(patterns.length > 10, 'could not parse the path filter — the arm would pass blind');
+
+		// `design/skills/**` covers both the directory the generator opens and every
+		// file under it; an exact pattern covers only itself.
+		const covered = (file) =>
+			patterns.some((pat) =>
+				pat.endsWith('/**')
+					? file === pat.slice(0, -3) || file.startsWith(pat.slice(0, -2))
+					: pat === file,
+			);
+
+		const uncovered = [];
+		for (const m of gen.matchAll(/path\.join\(ROOT, ((?:'[^']*'|\s|,)+)\)/g)) {
+			const parts = [...m[1].matchAll(/'([^']*)'/g)].map((x) => x[1]);
+			if (!parts.length) continue; // a computed segment (bucket, m.name) — the lib/** glob covers those
+			const file = parts.join('/');
+			// node_modules rides on package-lock.json; dist/ is this build's own output.
+			if (file.startsWith('node_modules') || file.startsWith('dist')) continue;
+			if (!covered(file)) uncovered.push(file);
+		}
+		assert.deepEqual(
+			uncovered,
+			[],
+			'build-agent-kit.mjs reads these, but a push changing one would NOT republish the ' +
+				'kit — it would serve stale content silently until the nightly backstop ran.',
+		);
+	});
+
+	/**
+	 * A cold-consumer agent could not find front matter anywhere on the
+	 * "writing a deck" path. It is the one thing a deck CANNOT render without,
+	 * and it lived only in `skills/deck.md` — a file the root README routes to
+	 * for "creating a theme, component, finish or lens", not for writing one.
+	 * The agent got it right by going off-path.
+	 */
+	await t.test('the deck-writing path teaches front matter and the modifier catalog', () => {
+		const readme = fs.readFileSync(path.join(KIT, 'authoring', 'README.md'), 'utf8');
+		assert.match(readme, /marp:\s*true/, 'the authoring README never shows front matter');
+		assert.match(readme, /theme:/, 'the authoring README never shows how to pick a theme');
+		assert.match(readme, /modifiers\.md/, 'the authoring README never points at the modifier catalog');
+	});
+
+	/**
+	 * The budget table is what an agent sizes its context against. Every cell in
+	 * it is computed from real bytes EXCEPT where someone types one, and the one
+	 * typed cell was wrong by up to 87%. A deck also needs one component file per
+	 * layout, so a single figure for "writing a deck" describes a one-slide deck:
+	 * a cold agent measured a real nine-slide deck at 2.9x the quoted number.
+	 */
+	await t.test('the budget table quotes a per-component cost, not one flat figure', () => {
+		const row = text.split('\n').find((l) => l.includes('per layout you use'));
+		assert.ok(row, 'the table has no per-component row — the fixed figure alone understates a real deck');
+		assert.match(row, /\+ ~[\d.]+k each/, 'the per-component row does not carry a measured cost');
+		const skills = text.split('\n').find((l) => l.includes('creating a theme'));
+		assert.doesNotMatch(skills, /~3k each/, 'the skills row is hand-typed again; measure it');
+		assert.match(skills, /[\d.]+k–[\d.]+k each/, 'the skills row should quote the measured range');
 	});
 });

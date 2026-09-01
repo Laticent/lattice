@@ -126,8 +126,9 @@ An orphan branch, `dist-kits`, carrying both kits:
 /agent/          the LLM agent kit                   (dist/agent-kit)
 ```
 
-`tools/build-agent-kit.mjs` assembles `dist/agent-kit/` — the six generated
-catalogs copied verbatim, plus `lattice-primer.md` and a README index.
+`tools/build-agent-kit.mjs` assembles `dist/agent-kit/` — at first the six
+generated catalogs plus a primer and a README index; §3c and §3d below rebuild it
+by task, which is the shape that ships.
 `.github/workflows/publish-kits.yml` mirrors both onto the branch and supersedes
 `publish-marp-kit.yml`.
 
@@ -156,7 +157,7 @@ reader it was built for. Measured on the shipped kit:
 | To author one component | ~tokens |
 |---|---:|
 | `components.pick.md` + `components.md` (the only prose path) | **~111k** |
-| `BOOTSTRAP.md` + `components/<name>.md` | **~3.2k** |
+| the routing `README.md` + `components/<name>.md` | **~3.2k** |
 
 An agent that already knew it wanted `matrix-2x2` had to read a 107k-token catalog
 to reach a 1.8k-token entry, because the per-component file was not in the kit — it
@@ -170,16 +171,19 @@ exists to serve, and nobody re-read it in that context.
 
 What shipped: 62 `components/<name>.md` files (61 components + the shared
 `_chart-family` contract that 8 chart docs point at, and that was unreachable for the
-same reason), plus `BOOTSTRAP.md` — a read-path table costed in tokens, the 13
-families with their members, and the cross-cutting authoring rules inline. The rules
+same reason), plus a routing file — a read-path table costed in tokens, the 13
+families with their members, and the cross-cutting authoring rules inline. (It was
+`BOOTSTRAP.md` at this step; §3d folds it into the root `README.md`, so this section
+describes a shape that no longer ships.) The rules
 are carried because they are the half a per-component file cannot supply; without
 them an agent on the cheap path writes a well-formed slide of the wrong kind.
 
 Two things are load-bearing and easy to get wrong later. The bootstrap **measures its
 own size** in a two-pass render rather than guessing it — a hardcoded estimate
 understated the cheapest path by half, and that number is the one an agent budgets
-against. And `test/unit/tools/agent-kit-bootstrap.test.js` pins the index against the
-files: every component the bootstrap names has a file, every file is reachable from
+against. And a test pins the index against the
+files (`agent-kit-bootstrap.test.js` here, renamed to `agent-kit-structure.test.js`
+by §3d): every component the bootstrap names has a file, every file is reachable from
 the bootstrap, and the whole thing stays under ~4k tokens. An index pointing at a
 missing file is worse than no index, because the reader spends a fetch to learn
 nothing.
@@ -193,7 +197,7 @@ that followed found the kit answered one question well and three not at all:
 
 | Question | Where the answer lives | Was it in the kit? |
 |---|---|---|
-| Is this deck any good? | `lib/authoring/deck-canon.js` — `DECK_CANON`, ~925 tokens + **18 named traps with fixes** | **No** |
+| Is this deck any good? | `lib/authoring/deck-canon.js` — `DECK_CANON`, ~925 tokens + **17 named traps with fixes** | **No** |
 | How do I create a theme / component / finish from scratch? | `design/skills/` — 7 files, already written to stand alone | **No** |
 | How do I do motion? | **nowhere** — Anima has 4 decision records and no skill | **Does not exist** |
 
@@ -209,7 +213,7 @@ claim is not the same as shipping the thing the claim was about.
 Four task folders, each a question a person has rather than a file-type bucket:
 
 ```
-BOOTSTRAP.md   route by task, every path costed in tokens
+README.md      route by task, every path costed in tokens
 authoring/     deck-canon.md · rules.md · primer.md
 components/    _index.md + one file per component
 skills/        the seven design/skills, verbatim
@@ -276,9 +280,9 @@ check the result. An agent wrote a deck and nothing independent ever looked at i
 **Every folder is now its own entry point.** A `README.md` in each of the five
 folders says what is inside and in what order to read it; GitHub renders it on
 open, so a human browsing the branch lands oriented with no clicks, and an agent
-handed a folder URL gets the same. The root `README.md` is the single front door
-and `BOOTSTRAP.md` is gone — two front doors is how the previous cut drifted into
-redundancy.
+handed a folder URL gets the same. The root `README.md` is the single front door —
+the separate `BOOTSTRAP.md` of the previous cut is gone, because two front doors
+is how that cut drifted into redundancy.
 
 **`components/README.md` carries the when-NOT-to-use signal, which already existed
 as data and was on no surface.** All 61 components declare `antiPatterns`, and
@@ -300,8 +304,8 @@ decks its own model writes — bundled as one dependency-free file. Measured:
 |---|---|
 | Runtime on a real deck | **0.066 s** |
 | Token cost | **zero** |
-| Dependencies | none; runs in an empty directory |
-| Bundle | 0.28 s, lib/ → lib/ only |
+| Dependencies | none to install; runs in an empty directory (third-party code is inlined, see §5b) |
+| Bundle | 0.28 s. FIRST-PARTY graph lib/ → lib/ only, which is what keeps `npm ci` safe — but the bundle also inlines markdown-it and five transitive deps, whose licenses it must therefore reproduce (§5b) |
 
 **Why it had to be code rather than a rubric.** A model reviewing its own draft
 against a rubric it read two minutes ago will declare the draft fine; that is the
@@ -327,10 +331,13 @@ identical source differed by one line and the freshness gate would have failed o
 every CI run. The banner is normalized, and a test pins it.
 
 **The skills stay verbatim; their index does not.** The seven skills remain
-byte-identical to `design/skills/` — the drift pin holds — so their 22 HARD RULE
-citations and 86 repo paths ship with them. `skills/README.md` is now generated for
-the kit rather than copied: it carries a glossary resolving every rule the skills
-actually cite (parsed from CLAUDE.md, so it cannot go stale by hand) and states
+byte-identical to `design/skills/` — the drift pin holds — so their HARD RULE
+citations and repo paths ship with them. Eight distinct rules are cited across the
+seven files that actually ship; an earlier count of 22 swept in `design/skills/README.md`,
+which the kit replaces rather than copies. `skills/README.md` is now generated for
+the kit rather than copied: it carries a glossary resolving every rule the SHIPPED skills
+cite (parsed from CLAUDE.md, so it cannot go stale by hand — and scanning only the
+seven, since scanning the folder listed two rules nothing a reader can open cites) and states
 plainly that repo paths and `npm run` commands assume a clone. Rewriting the skills
 themselves was considered and rejected: it forks a second copy of seven hand-written
 files, which is the failure `2026-07-19` documented.
@@ -352,6 +359,15 @@ pointing at `./marp/…`. Both levels now work. A folder *between* the two does 
 and the root README says so.
 
 ## 5. Verification
+
+> **These two tables are DATED, and the kit has moved past them.** They record what
+> was measured at the §3b/§3c cut: 8 files at 1082 KB, a 64-file published tree, and
+> preflight run 33338235703. The kit that ships is 92 files / 2372 KB and publishes
+> 148, after the restructure in §3d and the fixes in §5b. Re-running the same checks
+> against the current artifact is §5b; these stay as written because a decision
+> record is an archive of what was true when the decision was taken, and rewriting
+> the numbers in place would erase the evidence that the earlier claim was made.
+> They should not be read as describing what publishes today.
 
 | Claim | How | Result |
 |---|---|---|
@@ -407,6 +423,81 @@ docs site, reading the emitted `docs/dist/studio/component-catalog.json`:
 | Published `lattice-primer.md` contains the astro-built primer verbatim | **true** (67,244 bytes) |
 
 The require works under Astro, and the claim holds on the surface that ships.
+
+## 5b. What two independent agents found, and re-verification (2026-09-01)
+
+Everything above was written by the agent that built the kit. Two agents then
+checked it — one auditing the diff with fresh eyes, one **restricted to reading
+only `dist/agent-kit/`** and told to write a real nine-slide deck from it. Between
+them they found seventeen defects that `npm test` (7,600 arms), `npm run lint`, the
+ownership gate, CI and CodeQL had all passed. Four are worth recording because none
+of them is the kind of thing another test round would have found.
+
+**The kit was about to publish six third-party packages with their copyright
+notices stripped.** `review/check.mjs` is an esbuild bundle; esbuild drops comments
+from the modules it inlines, and `markdown-it`, `linkify-it`, `mdurl`, `uc.micro`,
+`punycode.js` (MIT) and `entities` (BSD-2-Clause) all require the notice to
+accompany a redistribution. `dist/agent-kit/` carried none, and no `LICENSE` of its
+own, to a **public branch**. The Marp kit had solved this in `build-marp-kit.js`;
+the agent kit never did — and this note's own §5 said "lib/ → lib/ only", which is
+true of the first-party graph and was read as though it were true of the bundle.
+The fix derives the package list from the bundle's `// node_modules/<pkg>/` banners
+so it cannot drift, and refuses to build when a bundled package has no discoverable
+LICENSE.
+
+**The Studio has been telling its own model to use a feature that does not
+exist.** `AUTHORING_RULES` — appended to the dossier on every Studio turn AND
+dumped verbatim into the kit's `authoring/rules.md` — advertised a ` ```chart `
+fence. `plugins.js` rewrites `functionplot`/`latticeplot`, `anima` and `mermaid`,
+and nothing else. The same rule set stated the title-slide element order
+**backwards**: eyebrow before `# H1`, when the eyebrow matches as the paragraph
+IMMEDIATELY after the h1, so the documented order silently renders it as a second
+subtitle. Both had shipped to two surfaces at once, and `rules.md` is the second
+file a cold agent reads — before any component doc corrects it.
+
+**428 references in the kit resolved only inside a clone.** 305 sibling
+`../../<bucket>/<name>/<name>.docs.md` links, 62 pointers at
+`design/design-system.md §6.5` (whose anchor said `three-tiers` after the section
+became four), 61 gallery-PDF links. §3b of this note is *about* one such pointer
+and fixed it with a prose note explaining the mapping — which did not scale to the
+other 428 and was itself deleted by §3d. The lesson worth keeping: **a note telling
+a reader to mentally rewrite a path is not a fix.** They are rewritten now, and a
+census arm resolves every link in the kit.
+
+**The checker certified decks that would not render.** The kit shipped
+`review-core` (is this deck any good?) without `lint-core` (is this deck valid?),
+so `<!-- _class: not-a-component -->` came back "No findings. The checkable half is
+clean". An invented component name is the likeliest mistake a model makes here. And
+`label-title` — the trap this canon emphasizes above all others — passed `## Q2
+Results` and `## Q3 Financials`, the canon's OWN worked examples, because
+`isLabelHeading` bailed on any digit and the `2` in "Q2" is a digit.
+
+Re-verified against the kit that actually ships:
+
+| Claim | How | Result |
+|---|---|---|
+| The kit builds | `node tools/build-agent-kit.mjs` | **92 files, 2372 KB** |
+| Deterministic | two consecutive builds | byte-identical |
+| `npm ci` is safe | full `prepare` build with `docs/node_modules` hidden | exit **0** |
+| Every bundled package's notice ships | 6 packages vs `THIRD-PARTY-LICENSES.txt` | 6/6, 22 copyright lines |
+| …and an unattributable package is fatal | hid `node_modules/mdurl/LICENSE` | exit **1**, names the package |
+| Every link in the kit resolves | census arm over all `.md` outside `skills/` | **0 dangling** |
+| The checker rejects an invented `_class` | `node review/check.mjs` on a bad deck | `unknown-class`, was clean before |
+| …and still passes a good deck | a real 2-slide deck | no findings |
+| `--json` reports a partial check | ran `check.mjs` alone, no catalog | `"partial": true` |
+| The publish filter covers every input | arm deriving the generator's `path.join(ROOT, …)` reads | **0 uncovered** |
+| Published tree | `marp/` + `agent/` + root staging | **148 files** |
+
+Every new arm in this round was mutation-tested. Six did not bite on the first
+attempt and are in the diff because of it — including two of the arms written to
+pin the fixes above, and one pre-existing arm whose loop body had never executed.
+
+**The generalizable finding is not any of the four.** It is that a 7,600-arm suite,
+a linter, an ownership gate, CI and CodeQL all passed an artifact with a licensing
+defect, a false instruction shipped to two surfaces, 428 dead links and a quality
+gate that certified broken input. What caught them was *running the artifact the
+way its reader would* — and the cheapest instrument by far was the second agent,
+told to use the kit and forbidden to read anything else.
 
 ## 6. Branch protection
 

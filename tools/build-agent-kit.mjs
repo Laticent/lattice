@@ -994,6 +994,26 @@ function componentsReadme(components, files) {
   ].join('\n');
 }
 
+/**
+ * The real cost of the skills row, measured.
+ *
+ * It was the ONE hand-typed cell in a table where every other number is computed
+ * from bytes, and it was wrong: "~3k each" against a real 3.0k-5.6k. An agent
+ * budgeting context off this table would have run out on the theme skill, which
+ * is nearly double the quoted figure. §3b of the decision record is about
+ * exactly this failure, in exactly this table.
+ */
+function skillsRange(files) {
+  const sizes = [...files.keys()]
+    .filter((k) => k.startsWith(`${SKILLS}/`) && k.endsWith('.md') && !k.endsWith('README.md'))
+    .map((k) => files.get(k).length);
+  if (!sizes.length) return 'n/a';
+  const lo = approxTokens(Math.min(...sizes));
+  const hi = approxTokens(Math.max(...sizes));
+  const k = (n) => `${(n / 1000).toFixed(1)}k`;
+  return `${k(lo)}–${k(hi)} each`;
+}
+
 const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
 
 /** authoring/README.md — the local bootstrap for writing a deck. */
@@ -1012,6 +1032,26 @@ function authoringReadme(files, layoutCount) {
     '   how classes compose, how card layouts nest, what a title slide is.',
     `3. **[\`../${COMPONENTS}/\`](../${COMPONENTS}/)** — pick the layout, then author it from its own file.`,
     `4. **[\`../${REVIEW}/\`](../${REVIEW}/)** — run the checker before you hand it over.`,
+    '',
+    `**[\`modifiers.md\`](./modifiers.md)** (${fmtTok(bytesOf(files, `${AUTHORING}/modifiers.md`))} tokens) when you need one — the`,
+    'cross-cutting tokens (`dark`, `tone-*`, `insight-*`, the `tint-*` / `mark-*` decorations)',
+    'that compose onto any layout. Not on the path above: you can write a good deck without',
+    'reaching for one, and a component file names its own variants.',
+    '',
+    '## Front matter',
+    '',
+    'Every deck opens with it. This is the whole of what you need:',
+    '',
+    '```markdown',
+    '---',
+    'marp: true',
+    'theme: indaco',
+    'paginate: true',
+    '---',
+    '```',
+    '',
+    '`theme:` picks the palette — `indaco` and `cuoio` ship with the engine. `paginate:`',
+    'turns on page numbers. A deck with no front matter still renders, but with no theme.',
     '',
     '## primer.md — the other way to work',
     '',
@@ -1061,8 +1101,12 @@ function referenceReadme(files) {
  */
 function skillsReadme(skills) {
   const files = skills.map((s) => s.name).filter((n) => n !== 'README.md');
+  // Only the skills that actually SHIP. Scanning every file in design/skills/
+  // swept in the repo's own README — which this kit replaces — and listed two
+  // rules in the glossary that nothing a reader can open ever cites.
   const cited = new Set();
   for (const s of skills) {
+    if (s.name === 'README.md') continue;
     for (const m of String(s.body).matchAll(/HARD RULE #(\d+)/g)) cited.add(Number(m[1]));
   }
   const claude = readFileSync(path.join(ROOT, 'CLAUDE.md'), 'utf8');
@@ -1158,9 +1202,14 @@ function bootstrap(components, skills, files, layoutCount, selfBytes = 0) {
     '',
     '| You are… | Read, in order | ~tokens |',
     '|---|---|---|',
-    `| **writing a deck** | \`${AUTHORING}/deck-canon.md\` → \`${AUTHORING}/rules.md\` → \`${COMPONENTS}/README.md\` → one \`${COMPONENTS}/<name>.md\` → \`${REVIEW}/\` | **${fmtTok(canonB + rulesB + compReadmeB + compMedian)}** |`,
+    // FIXED + PER-COMPONENT, because a deck is not one slide. The single figure
+    // this used to quote described a ONE-component read and a cold agent
+    // measured a real nine-slide deck at 2.9x it — the row an agent budgets
+    // against was the row that would run it out of context.
+    `| **writing a deck** | \`${AUTHORING}/deck-canon.md\` → \`${AUTHORING}/rules.md\` → \`${COMPONENTS}/README.md\` → \`${REVIEW}/\` | **${fmtTok(canonB + rulesB + compReadmeB)}** once |`,
+    `| …then one \`${COMPONENTS}/<name>.md\` per layout you use | the file for that component | + ${fmtTok(compMedian)} each |`,
     `| **drafting a whole deck** in one pass | \`${AUTHORING}/deck-canon.md\` → \`${AUTHORING}/primer.md\` | ${fmtTok(canonB + primerB)} |`,
-    `| **creating a theme, component, finish or lens** | \`${SKILLS}/README.md\` → the one skill | ~3k each |`,
+    `| **creating a theme, component, finish or lens** | \`${SKILLS}/README.md\` → the one skill | ${skillsRange(files)} |`,
     `| **checking a deck you already wrote** | \`${REVIEW}/README.md\` | ${fmtTok(bytesOf(files, `${REVIEW}/README.md`))} |`,
     `| **building a tool** over the catalog | \`${REFERENCE}/README.md\` | ${fmtTok(bytesOf(files, `${REFERENCE}/README.md`))} |`,
     '',
@@ -1364,4 +1413,4 @@ if (invokedDirectly) {
   );
 }
 
-export { buildKit, main, OUT_DIR };
+export { buildKit, main, mdCell, OUT_DIR };
