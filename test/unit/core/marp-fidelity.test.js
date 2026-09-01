@@ -98,8 +98,29 @@ describe('marp fidelity ledger — the classification is complete', () => {
   });
 });
 
-describe('marp fidelity ledger — coverage claims point at real code', () => {
-  test('every `mirrored` entry names a symbol the runtime actually calls', () => {
+// THESE TWO ARE SPELLING CHECKS, NOT COVERAGE — read the names literally.
+//
+// They assert that a symbol of the named shape is CALLED somewhere in a source
+// file. That catches a `via` gone stale after a rename, which is worth catching
+// and costs nothing. It does not, and cannot, say the mirror is CORRECT: it
+// renders nothing and compares nothing.
+//
+// The first of them used to be the only thing standing behind a `mirrored`
+// claim, and it certified #1858 for as long as the bug existed —
+// `transformVerdictGridBadges` was present and called, and dropped the last
+// nested item of every card while the engine badged it. THE REAL ATTESTATION
+// IS `test/unit/core/marp-fidelity-render.test.js`, which renders each claim
+// through `lib/engine` and through the real `dist/lattice-runtime.js` and
+// compares the output. If you are here to check whether a mirror works, that
+// is the file; this one only checks that a name resolves.
+//
+// KNOWN GAP: the `baked` rows have no equivalent. Their mirror is
+// `tools/export-marp.js`, a different path with its own harness needs, and
+// nothing renders through it to compare. Two rows are affected and they are
+// spelling-checked only, which is stated here rather than implied by a passing
+// test named as though it proved more.
+describe('marp fidelity ledger — coverage claims name symbols that exist', () => {
+  test('every `mirrored` entry names a symbol the runtime source calls (spelling only)', () => {
     for (const e of LEDGER.filter((x) => x.coverage === 'mirrored')) {
       // `via` is either a bare function or a `kernel.applyToDom` call; either way
       // it must appear as a CALL in the runtime, not merely as a mention.
@@ -108,7 +129,7 @@ describe('marp fidelity ledger — coverage claims point at real code', () => {
     }
   });
 
-  test('every `baked` entry names a transform the exporter actually runs', () => {
+  test('every `baked` entry names a symbol the exporter calls (spelling only)', () => {
     for (const e of LEDGER.filter((x) => x.coverage === 'baked')) {
       assert.ok(EXPORTER_SRC.includes(`${e.via}(`),
         `${e.plugin} claims to be baked by ${e.via}, which tools/export-marp.js never calls`);

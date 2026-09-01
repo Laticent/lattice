@@ -1,6 +1,13 @@
 /**
  * Unit: the image component's text panel on a LIVE DOM
- * (lib/core/bg-image.js `wrapImageTextToDom`) and its parity with the HTML pass.
+ * (lib/core/bg-image.js `wrapImageTextToDom`).
+ *
+ * IT DOES NOT TEST PARITY WITH THE HTML PASS, though this docblock claimed it did
+ * until 2026-09-01. The file never imports `lib/engine`, so there is no second
+ * render to compare against — it exercises the DOM adapter alone. The imagery row
+ * is registered in `AWAITING_PROBE` in test/unit/core/marp-fidelity-render.test.js
+ * for that reason: its runtime side needs a real background image and the layout
+ * measurement that follows it, which jsdom does not do.
  *
  * The imagery bucket was the seventh gap the fidelity ledger recorded, and the one
  * that did NOT degrade gracefully: on a Marp render the `![bg]` fell to Marp's own

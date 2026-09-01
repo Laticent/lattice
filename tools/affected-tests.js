@@ -117,9 +117,15 @@ for (const f of process.argv.slice(2)) {
   }
 
   // lib/runtime/* — runtime source bundled into lattice-runtime.js.
-  // Tests of the bundled DOM transforms live in test:transformers.
+  // Tests of the bundled DOM transforms live in test:transformers, and the
+  // engine-vs-bundle fidelity attestation lives in test:core
+  // (test/unit/core/marp-fidelity-render.test.js). BOTH are needed: that
+  // attestation exists precisely to catch a runtime change that diverges from
+  // the engine, so routing a runtime edit past it would leave the one check
+  // written for this file unselected by the very edit it guards against.
   if (rel.startsWith('lib/runtime/') && rel.endsWith('.js')) {
     scripts.add('test:transformers');
+    scripts.add('test:core');
     continue;
   }
 
