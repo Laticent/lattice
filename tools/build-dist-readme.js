@@ -56,11 +56,13 @@ const GROUPS = [
   {
     prefix: 'agent-kit/',
     purpose:
-      'The LLM agent kit — the component catalogs (`components.pick.md` to choose, '
-      + '`components.md` to read, `components.json` / `grammar.json` / `forms.json` / '
-      + '`concepts.json` for tools) plus `lattice-primer.md`, the authoring primer the '
-      + 'Studio chat injects into its own system prompt. For a model or coding agent '
-      + 'that has to author a deck.',
+      'The LLM agent kit, organized by task — `authoring/` (the deck canon, the '
+      + 'cross-cutting rules, the modifier catalog and the Studio\'s own primer), '
+      + '`components/` (one file per component, plus an index to choose from), '
+      + '`skills/` (creating a theme, component, finish or lens from blank), '
+      + '`review/` (a runnable self-contained deck checker and its rubric) and '
+      + '`reference/` (the machine catalogs). For a model or coding agent that has '
+      + 'to author a deck; every folder has its own README.',
     consume: 'Copy `dist/agent-kit/` wholesale; see its own `README.md`.',
   },
 ];

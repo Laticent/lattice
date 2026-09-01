@@ -5,7 +5,8 @@ name: Publish kits
 # running `npm install`:
 #
 #   dist/marp-kit/  → dist-kits:marp/     the Marp kit (VS Code / marp-cli)
-#   dist/agent-kit/ → dist-kits:agent/    the LLM agent kit (catalogs + primer)
+#   dist/agent-kit/ → dist-kits:agent/    the LLM agent kit (authoring, components,
+#                                        skills, review, reference)
 #
 # plus a root README and a root .vscode/settings.json fallback, both staged from
 # tools/kit-branch/root/ so they are reviewable on `main` rather than buried in a
@@ -70,6 +71,12 @@ on:
       # files build-marp-kit.js reads by name — all verified against its own copy
       # list, because the earlier version of this filter claimed to cover "fonts"
       # and did not.
+      #
+      # The AGENT-KIT half of this list is no longer maintained by eye: an arm in
+      # test/unit/tools/agent-kit-structure.test.js derives every ROOT-relative
+      # file build-agent-kit.mjs reads and fails when one is not covered here. It
+      # was written because this comment already claimed the list was verified
+      # while CLAUDE.md and build-bucket-galleries.js were both missing from it.
       - 'lib/**'
       - 'themes/**'
       - 'assets/fonts/**'
@@ -91,11 +98,25 @@ on:
       # ABOUT the ontology and is read by no generator — listing it would fire a
       # full npm ci + build + publish for no output change.
       - 'tools/build-docs-portal.js'
+      - 'tools/build-component-docs.js'
       - 'tools/build-forms.js'
       - 'tools/build-concepts.js'
+      - 'tools/build-bucket-galleries.js'
       - 'docs/src/lib/studio-catalog.mjs'
       - 'docs/src/components/studio/ai/architect-knowledge.js'
       - 'tools/build-agent-kit.mjs'
+      # The kit's skills/README.md glossary resolves the HARD RULE numbers the
+      # seven skills cite, and it reads their titles straight out of CLAUDE.md.
+      # Rename a rule and, without this, the published glossary keeps the old
+      # wording until someone next happens to touch another input.
+      - 'CLAUDE.md'
+      # The kit ships design/skills/ VERBATIM. DECK_CANON (lib/authoring),
+      # THEME_CANON (lib/theme) and COMPONENT_CANON (lib/layout) ride on lib/**
+      # above; design/skills/ does not, and without it editing a skill would not
+      # republish the kit. architect.ts is deliberately NOT listed — the kit stopped
+      # reading it when FINISH_SYSTEM was dropped, so listing it would republish for
+      # a file the kit no longer contains.
+      - 'design/skills/**'
       # The branch-root staging files, and the publisher itself.
       - 'tools/kit-branch/**'
       - '.github/workflows/publish-kits.yml'
