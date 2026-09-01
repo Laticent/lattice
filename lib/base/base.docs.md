@@ -714,11 +714,13 @@ ignore it.
 
 ### `numbered`
 
-Stamps the running section index on a `divider`, at the top-left, bleeding
-past the slide edge — set as **display** type (`--fs-hero`, `--font-display`,
-weight 700, no tracking), which is the same treatment every other oversized
+Stamps the running section index on a `divider`, in the slide's own headline
+column and running off the **top** edge — set as **display** type
+(`--font-display`, weight 700, no tracking, at `--fs-hero × 1.28`, which is
+`split-panel`'s section-numeral size). That is the treatment every oversized
 mark in the engine takes: the `form watermark` Tile, `split-panel`'s section
-numeral and its pullquote glyph.
+numeral and its pullquote glyph. It clears the left spectrum rail and shares
+the left margin of the eyebrow and heading beneath it.
 
 **Dividers only, and one counter for all of them.** `divider` and
 `divider light` share a single `lat-divider` count, so a deck that mixes

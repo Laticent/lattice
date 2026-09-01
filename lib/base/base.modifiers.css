@@ -1431,11 +1431,12 @@ section.compare-prose.mirror > .cell-stage > :is(ul, ol) {
  * Counter scope: counter-reset is applied at body level so the counter walks the whole
  * deck once. No author bookkeeping required.
  *
- * Visual: a DISPLAY numeral at the TOP-LEFT, bleeding past the slide edge — the idiom
- * `lib/forms/tile/watermark/watermark.css` and `split-panel.watermark` use for their
- * section marks, which hang a glyph off the corner and let `section`'s `overflow: hidden`
- * crop it. Left, because that is the edge the eye starts from and the edge the divider's
- * own headline is set against; the overhang stops short of costing a digit.
+ * Visual: a DISPLAY numeral in the divider's own headline column, running off the TOP
+ * edge — the idiom `lib/forms/tile/watermark/watermark.css` and `split-panel` use for
+ * their section marks, which hang a glyph past an edge and let `section`'s
+ * `overflow: hidden` crop it. It clears the left spectrum rail entirely and shares the
+ * left margin of the eyebrow and headline below it; the top bleed stops short of costing
+ * a digit.
  *
  * IT IS SET AS DISPLAY TYPE, which it was not at first. The first cut took `--fs-h1` at
  * 700 with `+0.04em` tracking, and every one of those three was a heading/label idiom
@@ -1511,20 +1512,31 @@ section.divider.numbered > header { display: none; }
 
 section.divider.numbered :is(h1, h2)::after {
   position: absolute;
-  top: var(--sp-xl);
-  /* NEGATIVE, and that is the whole treatment: the numeral hangs past the slide edge and
-   * `section { overflow: hidden }` (base.elements.css) crops it, exactly as the
-   * split-panel watermark hangs off its own corner. Held in cqi via `--_sec-1cqi` like
-   * every other divider offset, so the bleed scales with the canvas instead of drifting
-   * on a portrait deck.
+  /* OFF THE TOP EDGE, which is where the family bleeds — `split-panel.pullquote` tucks
+   * its open quote up past its panel (`top: -2.1875cqi`) and the watermark Tile drops
+   * past the bottom. `section { overflow: hidden }` (base.elements.css) does the cropping.
    *
-   * -0.63 IS MEASURED, not picked — and it was re-measured when the type grew. The rule
-   * is the same at any size: the largest bleed that still leaves both digits whole. That
-   * is this numeral's binding constraint and NOT the watermark's, because that ghost
-   * carries no information and this one is the only thing on the slide saying which
-   * section you are in. At --fs-h1 the answer was -0.35; at --fs-hero it is -0.63, which
-   * is the same overhang as a FRACTION OF THE GLYPH. */
-  left: calc(var(--_sec-1cqi, 1cqi) * -0.63);
+   * -4.5 IS MEASURED, and the first three candidates taught the thing worth writing down:
+   * a small negative top CROPS NOTHING. `line-height: 1` leaves internal leading above
+   * the figure tops, so -1.5 / -2.5 / -3.5cqi only slid the numeral upward and it still
+   * sat whole inside the slide. The bleed does not begin until the offset has eaten that
+   * leading. Past it the budget closes fast: at -5.5 the `2` loses its upper curve and
+   * the `3` its upper bowl, and both start reading as other digits. -4.5 shaves the tops
+   * visibly — it plainly runs off the slide — while every digit stays unambiguous, which
+   * is the constraint this numeral has and the watermark does not: it is the only thing
+   * on the slide saying which section you are in. */
+  top: calc(var(--_sec-1cqi, 1cqi) * -4.5);
+  /* THE HEADLINE COLUMN, and it must not cross the spectrum rail. The rail is the left
+   * gradient strip on `section.divider`'s own background, `0.46875cqi` wide; this sits at
+   * `9.375cqi`, the divider's `padding-left`, so it clears the rail twenty times over AND
+   * lands the numeral in the same column as the eyebrow and the headline beneath it.
+   * Sharing the text column is what makes it read as part of the slide rather than as a
+   * mark dropped in the gutter.
+   *
+   * `divider.light` zeroes its own `padding-left` and centers, so 9.375 is not ITS text
+   * column — deliberately kept the same anyway, so the corner mark sits identically on
+   * both variants and a deck that mixes them does not shuffle it. */
+  left: calc(var(--_sec-1cqi, 1cqi) * 9.375);
   font-family: var(--font-display);
   /* THE DISPLAY ROLE, not a heading one. `--fs-h1` was a role mismatch: base.tokens.css
    * maps "KPI / watermark / display" to `--fs-hero` and headings to `--fs-h*` (HARD RULE
@@ -1534,19 +1546,23 @@ section.divider.numbered :is(h1, h2)::after {
    *
    *     form watermark Tile ........ 44cqi     wt 700   (bleeds off the corner)
    *     stamp-mark (DRAFT) ......... 16cqi     wt 900   (rotated, full-slide)
-   *     split-panel pullquote " .... 17.19cqi  wt 700
+   *     split-panel pullquote " .... 17.19cqi  wt 700   (bleeds off the top)
    *     split-panel section numeral  11.46cqi  wt 700
    *     split-panel steps eyebrow .. --fs-hero wt 900
-   *     this stamp, before ......... --fs-h1   wt 700   ← 1.8x to 8.8x smaller
+   *     this stamp, originally ..... --fs-h1   wt 700   +0.04em  ← 1.8x to 8.8x smaller
    *
-   * `--fs-hero` rather than split-panel's literal 11.46cqi: a raw cqi font-size renders
-   * at the same coefficient on a portrait box as on a landscape one, which is what
-   * `test/unit/tokens/fs-cqi-guard.test.js` exists to stop, and it would need an
-   * allowlist entry this file has never had. The role token is orientation-aware for
-   * free. Setting it on a heading's PSEUDO does not set it on the heading — the pseudo's
-   * generated content is its own box — so the token's "never on h*" note is not in play
-   * (`split-panel.metric` puts `--fs-hero` on a real `h2` in any case). */
-  font-size: var(--fs-hero);
+   * The 1.28 multiplier lands this at 11.47cqi — `split-panel`'s section numeral, to two
+   * decimal places, which is the mark this one is a sibling of. Written as a multiple of
+   * the ROLE TOKEN rather than as the literal `11.46cqi`, because a raw cqi font-size
+   * renders at the same coefficient on a portrait box as on a landscape one (the failure
+   * `test/unit/tokens/fs-cqi-guard.test.js` exists to stop) and would need an allowlist
+   * entry this file has never had. A multiple of `--fs-hero` is orientation-aware for
+   * free and carries no cqi literal for the guard to find.
+   *
+   * Setting `--fs-hero` on a heading's PSEUDO does not set it on the heading — the
+   * pseudo's generated content is its own box — so the token's "never on h*" note is not
+   * in play (`split-panel.metric` puts it on a real `h2` in any case). */
+  font-size: calc(var(--fs-hero) * 1.28);
   /* 700, the section-numeral weight across the family above. The two 900s are a rotated
    * DRAFT stamp and a step eyebrow, neither of which is this. At display size Playfair's
    * thick/thin contrast is the face's whole argument, and 900 flattens it. */
