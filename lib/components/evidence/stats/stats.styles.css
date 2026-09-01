@@ -187,7 +187,18 @@ section.stats.stats.form.lat-split-native.lat-split-native.lat-split-native.lat-
   flex: 0 1 auto;
 }
 /* wide · square — the ol is a row, so the tile's height is the CROSS axis.
-   `wide` is the ABSENCE of the family stamp (lib/adaptive/families.js). */
+   `wide` is the ABSENCE of the family stamp (lib/adaptive/families.js).
+
+   THE `wide` ARM IS INERT TODAY, AND DELIBERATELY KEPT. Autosplit does not run
+   at the wide family at all — `AUTOSPLIT_APPLIES` in lattice-emulator.js is
+   `AUTOSPLIT && familyFor(...) !== 'wide'` — so `.lat-split-native` can never
+   appear on a wide slide and this arm cannot match. It is here because the
+   reason it would be needed is structural rather than incidental: wide is a row
+   exactly as square is, so if that gate ever admits wide, the correct
+   declaration is already in place instead of the axis bug being reintroduced.
+   Confirmed unreachable by construction, not merely untested: two fixtures that
+   overflow at wide horizontally (10 and 6 tiles) and one that overflows
+   vertically (4 tall-captioned tiles) all clip rather than split. */
 section.stats.stats.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native:where(section:not([data-family]), [data-family="square"]) > .cell-stage > ol > li:only-child {
   align-self: center;
 }

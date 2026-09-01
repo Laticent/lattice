@@ -622,12 +622,16 @@ fixed and shipped, in the same file. `status:` is now `in-progress`.
 **5 · Four British spellings** entered on `+` lines of this note (#21). Fixed; the retired
 `checkUsEnglish` ratchet means no gate catches these, so prose review is the only net.
 
-**One path stays UNVERIFIED, deliberately.** A `wide`-family `stats` autosplit page could not be
-reached: `stats` overflows *horizontally* at wide and the export clips it rather than splitting
-(confirmed on three fixtures at 10, 20 and 6 heavy tiles — one section, no split pass, "Content
-clipped"). The `align-self` rule covers `wide` by construction, since it is a row there exactly
-as square is, but that is reasoning, not a render. If the splitter ever learns to act on
-horizontal overflow, this is the cell to re-check first.
+**The one path that looked unverified is actually unreachable BY CONSTRUCTION, and the engine
+says so.** A `wide`-family `stats` autosplit page could not be produced from any fixture — three
+that overflow horizontally and one that overflows vertically all clip rather than split. The
+reason is not the fixtures: `AUTOSPLIT_APPLIES` in `lattice-emulator.js` is
+`AUTOSPLIT && familyFor(...) !== 'wide'`, so **autosplit never runs at wide** and
+`.lat-split-native` cannot appear on a wide slide at all. The `wide` arm of the new rule is
+therefore inert rather than untested, and it is kept deliberately: wide is a row exactly as
+square is, so if that gate ever admits wide the correct declaration is already there instead of
+the axis bug being reintroduced. The CSS comment names the constant so the next reader does not
+have to re-derive this.
 
 **And §9b's numbers still are not re-derivable from the tree.** The calibration instrument lived
 in `.scratch/`, which does not merge — the very failure `tools/spike-composition-snapshot.mjs`'s
