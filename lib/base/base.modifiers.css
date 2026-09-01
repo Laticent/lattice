@@ -849,8 +849,17 @@ section.scale-2xl { --fs-scale: 1.5;  }
  * the note this comment replaces was actually about.
  *
  * VERIFIED on the real surface, 2026-09-01. Driven through marp-cli v4.5.0 (marp-core
- * v4.4.0) with the shipped marp-kit config and a deck carrying NO runtime `<script>`,
+ * v4.4.0) with the shipped marp-kit config and a deck carrying no runtime script tag,
  * measured in Chromium against a build of the base commit:
+ *
+ * (Written as "script tag" rather than the literal element, deliberately. THIS COMMENT
+ * SHIPS: build-css inlines the bundle into every exported sidecar's `<style>`, so prose
+ * here is export bytes. `test/integration/export/author-script-deferral.test.js` censuses
+ * the sidecar for script tags with a plain case-insensitive text scan — it has to, because
+ * an uppercase emitter would otherwise skip the census entirely — and it cannot tell
+ * RAWTEXT inside `<style>` from real markup. The first draft of this comment spelled the
+ * tag out and pushed that census from 3 unmarked scripts to 4, turning CI red. The tag was
+ * inert for the parser; the gate was still right to count it.)
  *
  *   case                      base                      this file
  *   list + plain note         accent hairline           accent hairline   (unchanged)
