@@ -19,3 +19,9 @@
   the export itself **withholds** everything outside the union of the views it carries. Several views
   need `--player`; a PDF, PPTX or image set is one linear sequence and refuses rather than shipping
   the union with nothing to tell the reader which slide belongs to which view.
+- **A reader-view label can no longer break out of the player's script.** The carrier bakes its
+  view map as JSON inside the player's single CSP-hashed `<script>`, and a script's content is
+  HTML RAWTEXT — it ends at the first `</script`, whatever JSON thinks. `JSON.stringify` does not
+  escape `/`, so a deck whose view label carried `</script>…` ended the element early: the player
+  never booted and the remainder of the label was parsed as markup. The escape now runs through one
+  named helper shared with the narration blocks (`scriptJson`).
