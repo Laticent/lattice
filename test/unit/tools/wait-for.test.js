@@ -318,25 +318,23 @@ describe('wait-for — the lock is the kernel\'s, not ours', () => {
   // The race that defeated the hard-link version: two waiters both saw one
   // reclaimable lock, both removed it, and both won — reproduced at 4 of 15
   // trials. There is no reclaim path now, so there is no window.
-  test('admits exactly one of five waiters racing for the same job', () => {
+  test('admits exactly one of five waiters racing for the same job', async () => {
     const job = jobName('race');
-    // Concurrent, and their exit codes collected — five separate spawnSync calls
-    // would serialize and never race at all.
-    //
-    // The script path and job name are passed as ARGUMENTS rather than
-    // interpolated into the command text (CodeQL flagged the interpolation as a
-    // shell command built from an uncontrolled path). It is also simply more
-    // robust: a checkout directory containing a space or a shell metacharacter
-    // would break the interpolated form.
-    const script = `
-      for i in 1 2 3 4 5; do
-        ( "$1" --job "$2" --timeout 10 -- sleep 2 >/dev/null 2>&1; echo $? ) &
-      done
-      wait
-    `;
-    const r = spawnSync('bash', ['-c', script, 'wait-for-race', SCRIPT, job],
-      { encoding: 'utf8', cwd: REPO, timeout: 90_000 });
-    const codes = (r.stdout || '').trim().split('\n').filter(Boolean).map(Number);
+    // NO SHELL. Five direct spawns, started together so they genuinely race,
+    // with their exit codes collected as they land. Driving this through
+    // `bash -c` put the helper's absolute path inside a shell command — which
+    // CodeQL flags (alerts 197 and 198, the second raised even after the path
+    // was passed as an argument rather than interpolated, since it still
+    // reaches the shell as $1) and which a checkout path containing a space
+    // would break outright. Spawning directly sidesteps the whole question.
+    const codes = await Promise.all(
+      Array.from({ length: 5 }, () => new Promise((resolve) => {
+        const c = spawn(SCRIPT, ['--job', job, '--timeout', '10', '--', 'sleep', '2'],
+          { cwd: REPO, stdio: 'ignore' });
+        c.on('exit', (code) => resolve(code));
+        c.on('error', () => resolve(-1));
+      })),
+    );
     assert.equal(codes.length, 5, `expected 5 results, got ${JSON.stringify(codes)}`);
     assert.equal(
       codes.filter((c) => c === 0).length, 1,
