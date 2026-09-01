@@ -28,11 +28,17 @@ derived in §9b by finding the widest interval containing no card, not picked.
 ## Running it
 
 ```bash
-node tools/spike-card-slack/render.mjs   exemplars/*/*.md    # → .scratch/card-slack/html/<family>/
-node tools/spike-card-slack/measure.mjs  .scratch/card-slack/html > .scratch/card-slack/cards.json
-node tools/spike-card-slack/analyze.mjs  .scratch/card-slack/cards.json
-node tools/spike-card-slack/calibrate.mjs .scratch/card-slack/cards.json
+node tools/spike-card-slack.mjs render    exemplars/*/*.md    # → .scratch/card-slack/html/<family>/
+node tools/spike-card-slack.mjs measure   .scratch/card-slack/html > .scratch/card-slack/cards.json
+node tools/spike-card-slack.mjs analyze   .scratch/card-slack/cards.json
+node tools/spike-card-slack.mjs calibrate .scratch/card-slack/cards.json
 ```
+
+`tools/spike-card-slack.mjs` is the entry point and dispatches to the four stages
+here. It is top-level because `engineering/capabilities.md` is built from a
+**non-recursive** scan of `tools/` (`tools/build-capabilities.js`), so a harness
+living only in a subdirectory is invisible to the index HARD RULE #15 tells the
+next agent to grep — which is how a tool gets rebuilt instead of reused.
 
 `render.mjs` takes `TREE=` (which checkout to render with — point it at a
 worktree to get a before/after), `OUT=` and `CONC=`. Rendering 45 exemplars at
@@ -66,8 +72,10 @@ right — and the useful reading is the other one: **8 is one level clear of the
 deepest real stage subtree** (measured max 7 across 15 exemplar decks), and a
 bound that close silently DROPS content the moment it trips, which is instrument
 bug #4's exact shape wearing a different hat. Both bounds are now 32, and a trip
-is **counted and reported**: the run prints either `depth bounds never tripped` or
-a warning naming how many times content was dropped. Re-measured with the change:
+**fails the run**: it prints how many times content was dropped, writes NO JSON,
+and exits 1 — matching `render.mjs`. A stderr warning alone was not enough, because
+the documented invocation pipes stdout to a file, so a truncated corpus could be
+saved and analysed as if it were clean. Re-measured with the change:
 5,478 records and 61 flagged cards, identical per cell.
 
 **Assume a sixth.** Read a number here as a claim needing a render behind it,

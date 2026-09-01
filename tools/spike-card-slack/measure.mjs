@@ -240,11 +240,18 @@ for (const size of Object.keys(VIEWPORT)) {
   }
 }
 process.stderr.write('\n');
-if (truncated > 0) {
-  process.stderr.write(`\nWARNING: the depth bound tripped ${truncated} time(s). Content was DROPPED and\n` +
-    'every number from this run is suspect — raise BOXLESS_DEPTH_CAP / WALK_DEPTH_CAP and re-run.\n');
-} else {
-  process.stderr.write('depth bounds never tripped — no content was dropped.\n');
-}
 await browser.close();
+if (truncated > 0) {
+  // EXIT NON-ZERO, and write nothing to stdout. The documented invocation pipes
+  // stdout to a JSON file, so a stderr warning alone lets a truncated corpus be
+  // saved and analysed as if it were clean — which is how instrument bug #4 got
+  // as far as a filed issue. render.mjs already exits 1 on failure; match it.
+  process.stderr.write(
+    `\nFAILED: the depth bound tripped ${truncated} time(s). Content was DROPPED, so every\n` +
+      'number from this run would be wrong. No JSON was written. Raise BOXLESS_DEPTH_CAP /\n' +
+      'WALK_DEPTH_CAP in this file and re-run.\n',
+  );
+  process.exit(1);
+}
+process.stderr.write('depth bounds never tripped — no content was dropped.\n');
 process.stdout.write(JSON.stringify(rows));

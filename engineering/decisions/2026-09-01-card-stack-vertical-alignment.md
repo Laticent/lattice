@@ -601,8 +601,10 @@ measures **h 329.2, trail 1**.
 
 **2 · The rule on the list was unguarded, and moved 30 pages it had no business touching.**
 `justify-content: safe center` on the `ol` fired on *every* `stats` split page rather than only
-lone-member ones. At square that is the horizontal axis, so 30 real corpus pages moved 150–275px
-sideways — plausibly for the better, and entirely out of this change's scope. The rationale for
+lone-member ones. At square that is the horizontal axis, so all 30 real corpus pages moved sideways —
+**3.8px to 274.1px, with 11 of the 30 under 150px** — plausibly for the better, and entirely out
+of this change's scope. (An earlier draft of this paragraph quoted the range as 150–275px, which
+read the top of the distribution as the whole of it.) The rationale for
 leaving it unguarded ("with one tile it is indistinguishable from `space-evenly`") was also
 measurably false: multi-tile split pages compute `flex-start`, because base's 2-repeat rule at
 (0,4,2) beats stats' own family rules at (0,3,2). Now guarded with `:has(> li:only-child)`;
@@ -626,14 +628,20 @@ fixed and shipped, in the same file. `status:` is now `in-progress`.
 says so.** A `wide`-family `stats` autosplit page could not be produced from any fixture — three
 that overflow horizontally and one that overflows vertically all clip rather than split. The
 reason is not the fixtures: `AUTOSPLIT_APPLIES` in `lattice-emulator.js` is
-`AUTOSPLIT && familyFor(...) !== 'wide'`, so **autosplit never runs at wide** and
-`.lat-split-native` cannot appear on a wide slide at all. The `wide` arm of the new rule is
-therefore inert rather than untested, and it is kept deliberately: wide is a row exactly as
+`AUTOSPLIT && familyFor(...) !== 'wide'`, so **the exporter never autosplits at wide**. That gate
+covers every emitter: `carousel.js` and `split-envelope.js` also stamp `lat-split-native`, but both
+are reachable only through `lib/core/auto-split.js`, which sits behind it. So on the export path
+the `wide` arm of the new rule is inert rather than untested. **Scope that claim to the exporter,
+not to every surface** — `lib/runtime/index.js` re-stamps `data-family` from each section's
+*measured* aspect and removes the attribute when it reads `wide`, so a runtime-hosted surface that
+measured a baked `.lat-split-native` section at a wide aspect would match. No such surface could be
+constructed (a section's box comes from the deck's own `@size` CSS, so the aspect is preserved),
+which is why the arm is kept: and it is kept deliberately: wide is a row exactly as
 square is, so if that gate ever admits wide the correct declaration is already there instead of
 the axis bug being reintroduced. The CSS comment names the constant so the next reader does not
 have to re-derive this.
 
 **And §9b's numbers still are not re-derivable from the tree.** The calibration instrument lived
 in `.scratch/`, which does not merge — the very failure `tools/spike-composition-snapshot.mjs`'s
-docblock was written to prevent. `tools/measure-card-slack.mjs` now ships it, so every figure in
-§9b and §9d can be re-run.
+docblock was written to prevent. `tools/spike-card-slack.mjs` now ships it — a top-level entry point over the four stages in
+`tools/spike-card-slack/` — so every figure in §9b and §9d can be re-run.

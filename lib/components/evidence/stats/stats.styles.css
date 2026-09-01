@@ -168,9 +168,9 @@ section.stats.stats:where([data-family="square"], [data-family="tall"], [data-fa
    pages use. Also measured false: at square the ol is a wrap ROW, so
    `justify-content` is the HORIZONTAL axis, and multi-tile split pages compute
    `flex-start` there (base's 2-repeat rule at (0,4,2) beats stats' own family
-   rules at (0,3,2)) rather than `space-evenly`. Unguarded it moved 30 real corpus
-   pages 150-275px sideways — arguably for the better, but it is not this change's
-   business. Left-packed multi-tile square split pages are how `main` renders and
+   rules at (0,3,2)) rather than `space-evenly`. Unguarded it moved all 30 real corpus
+   pages sideways — 3.8px to 274.1px, 11 of them under 150px — arguably for the
+   better, but it is not this change's business. Left-packed multi-tile square split pages are how `main` renders and
    stay that way (HARD RULE #18: pre-existing, off-path).
 
    `safe` keeps a crowded tile's number rather than its tail.

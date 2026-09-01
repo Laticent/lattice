@@ -48,7 +48,7 @@ Three layouts were handed the full height of the stage and pinned their content 
 ---
 
 <!-- _class: stats -->
-<!-- _footer: "stats — the tile is sized by its content. The autosplit page this fixes is portrait-only, so it is not on this deck." -->
+<!-- _footer: "stats — the tile is sized by its content. This fix only fires on an autosplit page, which no landscape deck produces." -->
 
 ## A stat is a tile, not a panel.
 
