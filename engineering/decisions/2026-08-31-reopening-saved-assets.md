@@ -379,6 +379,11 @@ applies only when a reopened record is pinned. That deleted a state variable and
 ends together, and it is smaller than what it replaced — the sign that the earlier versions
 were patching symptoms.
 
+**Superseded in round 6 — read on before acting on that sentence.** Pinning is not the
+condition; it turned out to permit a silent overwrite on the unpinned path, and the rule is
+now ownership. This paragraph is left as the record of what round 4 concluded, which is the
+point of a round narrative, but it is not the current rule.
+
 **Four rounds, ten confirmed defects, nine of them introduced by this change.** Round 4 also
 found the theme faculty still pinning after a fresh save (pre-existing, and fixed here since
 it sits in the same function as the note condemning it) and confirmed the disabled-Save
@@ -429,9 +434,11 @@ caught by a test that existed and was not run, not by one nobody had written.
 
 - **The rule is one function.** `library/save-guard.ts` holds `findNameClash`, and all
   three faculties call it. The bug was possible because a rule with two halves — the id
-  comparison, and the fact that it applies only when pinned — existed in three copies, and
-  a fix updated two. `save-guard.test.ts` enumerates its nine cells; reverting the scope
-  reddens exactly the deadlock rows.
+  comparison, and the condition under which the guard applies — existed in three copies,
+  and a fix updated two. (Round 5 stated that condition as "only when pinned";
+  round 6 replaced it with ownership, and `save-guard.test.ts` now enumerates a
+  three-axis space, not nine cells. Reverting the scope today reddens the
+  unpinned-refusal rows.)
 - **The id-pinned save reads the `kind` index, not the whole shelf.** The checker measured
   the uniqueness check at ~50–100 ms and ~24 MB per save with three 8 MB reference docs
   present, on a path that previously read one record by key. The index is both cheaper and
@@ -530,7 +537,10 @@ Two gaps are worth recording over the fix itself:
   `tools/affected-tests.js:70` lists `docs/` under `isSkippable`. The docs vitest suite is
   reachable only through CI's `docs-build` step. Acting on the wrong diagnosis would have
   made pre-push "run the full suite" — it already does, and `b944fb5` would still have got
-  out.
+  out. Precisely: no HOOK runs it. A developer can and does (`cd docs && npx vitest run`),
+  and `lefthook.yml` already carries a docs-scoped pre-push job behind a `docs/` path
+  guard, so the pattern for adding one exists — that is a hook-contract change and so a
+  human's call, not an agent's.
 - **Neither the library unit tier nor 30 e2e tests could see it.** The e2e specs exercise the
   faculties this branch changed; the assertion that caught it lives in a suite about the theme
   faculty's depth, written long before. **A regression net is only as good as the scope you

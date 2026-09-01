@@ -15,8 +15,19 @@
 // hole: `NAME_RE` rejects those names outright.
 //
 // The durable property is not "reject non-Latin names" — it is that the value the guard
-// compares is the value the store writes, for every name the faculty will accept. That is
-// what this file pins, so a future change to either slugger cannot reopen the gap quietly.
+// compares is the value the store writes. That is what this file pins, so a future change
+// to either SLUGGER cannot reopen the gap quietly.
+//
+// WHAT IT DOES NOT PIN, because a review measured it and the first version of this header
+// implied otherwise: it does not bind `FinishStudio.tsx`. It defines its own copy of the
+// gate and imports only the two sluggers, so reverting the gate in the component left this
+// suite green — a mutation score of 0 out of 1780. The tests that bind the component are
+// in `FinishStudio.test.tsx`, which renders it and drives the real field; the same
+// mutation reddens five of them. Both are worth having, but only one of them can fail when
+// the shipping code is wrong.
+//
+// Coverage here is 11 fixed names, two of which (`''`, `'   '`) assert nothing because the
+// gate refuses them before the comparison — not "every name the faculty will accept".
 
 import { describe, expect, it } from 'vitest';
 import { safeFinishSlug } from '../finish-generate.js';

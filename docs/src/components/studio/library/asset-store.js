@@ -257,11 +257,20 @@ export async function putAsset(record, { historyLabel = 'Before save', ts = Date
       // exactly the right question, since the invariant is per-kind.
       //
       // SAFE TO DEPEND ON: this is the first read of that index, and `asset-db.js` can
-      // only create it alongside the store, so a database holding `assets` WITHOUT it
-      // could never gain one. There is no such database — `git log -S createObjectStore
-      // --all` returns exactly two commits, and the earliest (80c0666, which introduced
-      // this database) creates the store and the index in the same `onupgradeneeded`
-      // block. No shipped build ever made one without the other.
+      // only create it alongside the store (`if (!objectStoreNames.contains(...))`), so a
+      // database holding `assets` WITHOUT it could never gain one — every id-pinned save
+      // would throw `NotFoundError` and reach the author as "your browser may block
+      // storage". No such database exists: the store and the index have been created in
+      // the same `onupgradeneeded` block since `2e5f2260` (2026-06-11,
+      // `docs/src/playground/asset-store.js`, `DB_VERSION = 1`), which is the commit that
+      // introduced this database, and through every move since — `6b3dd775` renamed it
+      // here, `8f47a0e` split `asset-db.js` out.
+      //
+      // Verify it against GitHub, not this checkout: the sandbox clone is SHALLOW (66
+      // commits, grafted at 80c0666), so `git log -S … --all` is bounded by the graft and
+      // silently reports the graft boundary as the beginning of history. An earlier
+      // version of this note did exactly that and named the wrong commit as the origin —
+      // the database is ~2.5 months older than the one it cited.
       const dupes = assets.index('kind').getAll(record.kind);
       dupes.onsuccess = () => {
         const clash = (dupes.result || []).find((a) => a.name === record.name && a.id !== record.id);

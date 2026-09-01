@@ -175,31 +175,40 @@ export function FinishStudio({
 		setRecipe(coerceRecipe(seed.recipe));
 	}, [seed?.id]);
 
-	// The generated CSS drives BOTH the live preview (targets finish-preview) and the
-	// export/save (targets the named slug). Recompute as the recipe changes.
-	const slug = safeFinishSlug(name) === 'custom' && !name.trim() ? 'custom' : safeFinishSlug(name);
+	// THE NAME THE STORE WILL WRITE — and, since this commit, the ONLY identity in this
+	// faculty. Everything downstream reads it: the Save gate, the collision guard, the CSS
+	// panel, the slug chip, the export filename and the "apply with" toast.
+	//
+	// The alternative slugger, `safeFinishSlug`, differs in two ways and both were bugs
+	// here. It does not namespace the ten reserved names, and it falls back to `'custom'`
+	// when nothing survives slugification. Those are right for a PREVIEW class and wrong
+	// for a saved identity, and this file used it for the identity:
+	//
+	//   `Ledger`  → shown and exported as `finish-ledger`, stored as `ledger-custom`. The
+	//               author pastes `_class: finish finish-ledger` into a deck and silently
+	//               gets the SHIPPED preset instead of the finish they designed. All ten
+	//               reserved names mismatched; unreserved ones never did, which is how it
+	//               survived.
+	//   `报告`    → gate compared `''` (matching nothing) while the store wrote `custom`,
+	//               so every name in a non-Latin script saved onto ONE record, each save
+	//               silently replacing the last under a "Saved" toast. (Derived from the
+	//               code and reproduced at the store layer on `fake-indexeddb`; NOT driven
+	//               through a running Studio, so it is not a real-surface claim — #23.)
+	//
+	// One value closes both: the gate, the guard and the write agree by construction.
+	const savedSlug = safeSaveSlug(name);
+	// What the author is SHOWN before the name is valid. Save and Export are gated on
+	// `nameOk`, so this placeholder is never an identity anything ships.
+	const slug = savedSlug || 'custom';
 	// The generated CSS bakes ALL five layers (wash / texture / mark / edge + backdrop), so
 	// the specimen is WYSIWYG straight from it — the backdrop needs no separate injection.
 	const previewCss = React.useMemo(() => generateFinishCss(PREVIEW_SLUG, recipe), [recipe]);
-	// THE NAME THE STORE WILL WRITE — declared here because both the Save gate and the
-	// collision guard below must agree on it, and they must agree on the WRITTEN identity
-	// rather than the preview's. `slug` above is `safeFinishSlug`, which does not namespace
-	// reserved names; `saveStudioFinish` applies `safeSaveSlug`, which does. Comparing the
-	// wrong one let the guard pass on all ten reserved names — save `Ledger`, then rename
-	// another finish to `Ledger`, and two live records land on `ledger-custom`.
-	const savedSlug = safeSaveSlug(name);
-	// A NAME THAT SLUGIFIES TO NOTHING IS REFUSED, not quietly renamed. `slug` uses
-	// `safeFinishSlug`, which falls back to `'custom'` when nothing survives — right for a
-	// preview class, wrong as a saved identity. Testing `slug` therefore let every name
-	// written in a non-Latin script through: `报告`, `Отчёт` and `!!!` all pass, all store
-	// as `custom`, and the collision guard below compares `safeSaveSlug` — which returns
-	// `''` for exactly those names and so matches nothing. Measured: three finishes named
-	// in Chinese, Cyrillic or Arabic become ONE record, each save silently replacing the
-	// last, with a "Saved" toast every time. Testing `savedSlug` — the name the store
-	// actually writes — closes the gap at its source: the guard and Save now agree, and
-	// they agree on the written identity. `Fabricate`'s two tabs never had this hole
-	// because `NAME_RE` rejects the same names outright.
-	const nameOk = !!name.trim() && !!savedSlug && /^[a-z][a-z0-9-]*$/.test(savedSlug);
+	// A name that slugifies to nothing is REFUSED rather than quietly renamed to `custom`.
+	// `nameReason` says so on the field, because refusing without a reason is the dead end
+	// this fix would otherwise have created — `Fabricate` has said the equivalent for its
+	// two tabs all along.
+	const nameOk = !!name.trim() && /^[a-z][a-z0-9-]*$/.test(savedSlug);
+	const nameReason = !name.trim() || nameOk ? '' : 'Finish name must contain letters or numbers — a–z, 0–9, hyphen, starting with a letter.';
 	// A SLUG ALREADY TAKEN BY A DIFFERENT SAVED FINISH. The twin of `Fabricate`'s
 	// `nameTakenBy` / `compNameTakenBy`, and it became REACHABLE with the id-pinned save
 	// above: `putAsset` skips its `(kind, name)` dedupe when an id is given, so renaming
@@ -358,9 +367,20 @@ export function FinishStudio({
 						className="min-w-0 flex-1 bg-transparent font-mono text-[13px] font-semibold text-[var(--text-heading)] outline-none placeholder:font-normal placeholder:text-muted-foreground"
 					/>
 				</div>
-				<div className="flex-1" />
+				{/* VISIBLE, not a tooltip. The refusal is new here, and the faculty's other
+				    disabled-Save explanation is already known to reach a pointer only
+				    (#1975) — routing a second one down that channel would widen a gap
+				    rather than close it. `Fabricate` states its equivalent as a finding;
+				    this is the same message in the space the header already had spare. */}
+				{nameReason ? (
+					<p role="alert" className="min-w-0 flex-1 truncate text-[11.5px] text-[color-mix(in_srgb,var(--fail,#b3261e)_80%,var(--text-body))]">
+						{nameReason}
+					</p>
+				) : (
+					<div className="flex-1" />
+				)}
 				<Button variant="outline" size="sm" className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={exportCss}><Download className="size-4" /><span className="hidden sm:inline">Export</span></Button>
-				<Tip label={finishTakenBy ? `“${savedSlug}” is already a saved finish — pick another name.` : ''}><span className="inline-flex shrink-0"><Button size="sm" disabled={!nameOk || !!finishTakenBy || saving} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={save}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button></span></Tip>
+				<Tip label={finishTakenBy ? `“${savedSlug}” is already a saved finish — pick another name.` : nameReason}><span className="inline-flex shrink-0"><Button size="sm" disabled={!nameOk || !!finishTakenBy || saving} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={save}><Check className="size-4" /><span className="hidden sm:inline">{saving ? 'Saving…' : 'Save'}</span></Button></span></Tip>
 			</div>
 
 			{/* AI front door — "Describe a finish" (mirrors the Theme tab's command bar). */}
