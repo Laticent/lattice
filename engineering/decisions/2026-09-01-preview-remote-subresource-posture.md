@@ -12,8 +12,8 @@ summary: >
   sources, deliberately NO `default-src` so script and style loading are untouched. Measured
   before/after on the real assembled srcdoc: 3 beacon requests to 0, payload still in the DOM.
   Cost measured at zero — no shipped deck references a remote image. The full Playground round
-  trip is UNVERIFIED here: the docs e2e suite fails identically with and without the change in
-  this sandbox.
+  trip is now driven on the real app: 4 beacon requests with the meta neutered, 0 with it,
+  payload present in the DOM both times, pinned by docs/e2e/preview-remote-subresource.spec.ts.
 ---
 
 # The preview frame's remote-subresource posture
@@ -139,25 +139,38 @@ font origin follows `katexUrl`, and a **census** asserting all three builders ca
 `previewCspMeta`. The census is by source text because two builders are not Node-importable —
 the same shape #22's own guards use, for the same reason.
 
-## UNVERIFIED, and stated rather than glossed
+## The Playground round trip, driven
 
-**The full Playground round trip was not driven here.** The docs e2e suite cannot render a
-seeded deck in this sandbox: `docs/e2e/mermaid-post-sanitize.spec.ts` fails identically **with
-and without** this change (11/11, `locator('#preview').contentFrame().locator('.lattice')`
-never appears), so the failure is environmental and pre-existing, not caused by this work — but
-it also means the browser-level assertion above rests on the assembled document rather than on
-the Playground shell around it. The document under test is the real one the frame receives; the
-shell is not exercised. Re-run `docs/e2e/` on a machine where that suite is green before
-treating the Playground round trip as covered.
+**Measured on the real running Playground**, not on the assembled document: the built docs
+site served by `astro preview`, a deck seeded as the visitor's draft carrying all three
+vectors, request interception on `attacker.invalid`, Chromium.
 
-**The deployed Cloudflare Pages preview was tried too, and is also out of reach from here** —
-recorded so nobody spends the time again. The PR bot posts a per-commit deployment
-(`https://<hash>.lattice-docs-5ji.pages.dev`) which *is* the real deployed Playground and would
-settle this. `curl` reaches it (HTTP 200); **Chromium cannot** — `net::ERR_CONNECTION_RESET`,
-with and without `--proxy-server=$HTTPS_PROXY`. The sandbox allows the CLI fetcher out and not
-the browser, so the one surface that would close the gap is exactly the one a headless browser
-here cannot open. On a machine with ordinary network access, driving that preview URL is the
-cheapest way to finish this verification — no local docs build required.
+| | beacon requests | payload elements in the frame DOM |
+|---|---|---|
+| with the CSP (shipped) | **0** | 3 |
+| with `previewCspMeta` neutered in the served bundle | **4** | 3 |
+
+Four rather than three in the control because the raw `<img>` is requested twice; the
+before/after on the assembled document below counted three distinct URLs. The payload is in
+the DOM both times, so the fetch is refused rather than the markup rewritten, and the probe
+is demonstrably able to see a beacon when one fires. Zero page errors either way — the CSP
+starves no directive the app needs.
+
+**Pinned by `docs/e2e/preview-remote-subresource.spec.ts`**, which is the same measurement as
+a spec: it reads the CSP off the LIVE frame document (not off the builder), settles on
+`img.complete` rather than a fixed wait — a refused load still completes, so the absence
+assertion has a real signal to poll — and asserts both that the payload survived and that
+nothing was fetched. Run red against the same neutered bundle.
+
+**What this cost to learn, recorded so nobody re-pays it.** The prior session concluded the
+docs e2e suite "cannot render a seeded deck in this sandbox" from
+`mermaid-post-sanitize.spec.ts` failing 11/11 with `.lattice` never appearing. That
+conclusion was too wide by one step: THAT suite loads the real Mermaid from the CDN the
+preview names, which this sandbox cannot reach, so its preview never settles. A seeded deck
+with no Mermaid in it renders here in about three seconds. The deployed Cloudflare Pages
+preview remains out of reach for a browser (`net::ERR_CONNECTION_RESET`, with and without
+`--proxy-server=$HTTPS_PROXY`, while `curl` gets HTTP 200) — but it is no longer the only
+route to a real Playground.
 
 ## What this does not do
 
