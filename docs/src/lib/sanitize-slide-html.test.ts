@@ -29,6 +29,16 @@ describe('sanitizeSlideHtml — kills script vectors', () => {
 		expect(out).not.toMatch(/expression/i);
 		expect(out).toContain('<div>x</div>');
 	});
+	it('still applies the config on the 50th call — setConfig is set once, not per call', () => {
+		// `createSlideSanitizer` configures the instance once and then sanitizes with no per-call
+		// config (~0.7-0.9ms cheaper per slide at a 4x throttle — see lib/core/sanitize-slide-html.mjs).
+		// The browser binding holds ONE lazily-built sanitizer for the whole session, so "the config
+		// is still in force much later" is a property this surface depends on all day, not an edge case.
+		for (let i = 0; i < 50; i++) sanitizeSlideHtml(`<p>warm ${i}</p>`);
+		expect(sanitizeSlideHtml('<script>steal()</script><p>ok</p>')).toBe('<p>ok</p>');
+		expect(sanitizeSlideHtml('<iframe src="//evil"></iframe><p>ok</p>')).toBe('<p>ok</p>');
+		expect(sanitizeSlideHtml('<svg><path d="M0 0" vector-effect="non-scaling-stroke"/></svg>')).toContain('vector-effect="non-scaling-stroke"');
+	});
 });
 
 describe('sanitizeSlideHtml — preserves legitimate engine output', () => {
