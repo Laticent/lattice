@@ -179,6 +179,30 @@ owe nothing here. See
   (`ASTRO_PREVIEW_BACKGROUND` is astro's own marker for the process it forked, not a
   public opt-out), or Playwright grows a way to adopt a daemonizing server command.
 
+## A CSS custom property reads back as `#1478dc` where the source says `rgb(20, 120, 220)`
+
+- **Symptom:** something that reads a `--custom-property` off the docs site and compares it to
+  a string stops matching — a test, a probe, a debug assertion. The color on screen is
+  unchanged, and a pixel comparison of the page finds nothing.
+- **Cause:** a custom property's COMPUTED value is the token stream that survived the build,
+  not a parsed color — CSSOM does not normalize it, so whatever the stylesheet ends up
+  containing is what you read back. astro 7's CSS minifier (vite 8) rewrites color literals
+  in author CSS, so `--vt-accent: rgb(20, 120, 220)` ships as `--vt-accent:#1478dc`. astro 6
+  left it alone. Measured on the astro 6 → 7 bump (#1483): `docs/dist/vetrina-exemplars/`
+  carries the hex form on 7 and the `rgb()` form on 6, from a source file that says `rgb()`.
+- **This is serialization only.** The rendered page is byte-identical — the astro 6 and astro 7
+  renders of the Studio, Playground and landing at 1440/820/390 compare pixel-for-pixel equal.
+  Nothing in `lib/` is affected either: the ENGINE's CSS is built by `build-css.js`, not by
+  astro, so only the docs site's own author CSS goes through this minifier.
+- **Fix: read it as a color rather than as a string.** Set the raw value on a throwaway
+  element's `color` and read `getComputedStyle(probe).color` back — the browser's own parser
+  canonicalizes every spelling to `rgb(...)`. `docs/e2e/vetrina-exemplars.spec.ts` does exactly
+  this, and its comment says why.
+- **What is NOT affected, checked:** every other reader of a custom property in `docs/src` and
+  `lib/` either tests it for emptiness, `parseFloat`s it, or passes it straight back into CSS.
+  None compares a color literal.
+- **Triggered by:** the astro 6 → 7 bump (#1483).
+
 ## Docs `npm run dev` → `sh: 1: astro: not found`
 
 - **Symptom:** `cd docs && npm run dev` (or `npm run start`) prints the

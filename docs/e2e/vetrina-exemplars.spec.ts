@@ -52,7 +52,25 @@ test('theming — CSS-first: the mounted stage inherits the host :root --vt-* ac
 	await expect.poll(() => attr(page, 'data-vt-phase')).toBe('holding');
 
 	// Light mode: the stage's --vt-accent is the host's :root light value — NOT the JS default.
-	const readAccent = () => page.locator(STAGE).evaluate((el) => getComputedStyle(el).getPropertyValue('--vt-accent').trim());
+	//
+	// READ IT AS A COLOR, NOT AS A STRING. A custom property's computed value is the token
+	// stream as it survived the build, not a parsed color — and astro 7's CSS minifier
+	// rewrites the page's authored `rgb(20, 120, 220)` to `#1478dc`. Same color, and the
+	// render is pixel-identical, but a literal string comparison went red on the astro 6 -> 7
+	// bump (#1483) for a difference that is purely serialization. What this case is actually
+	// asserting is PROVENANCE — the host's value reached the stage rather than the JS default —
+	// so canonicalize through the browser's own color parser and the assertion stops depending
+	// on how any future minifier chooses to spell it.
+	const readAccent = () =>
+		page.locator(STAGE).evaluate((el) => {
+			const raw = getComputedStyle(el).getPropertyValue('--vt-accent').trim();
+			const probe = el.ownerDocument.createElement('span');
+			probe.style.color = raw;
+			el.ownerDocument.body.appendChild(probe);
+			const parsed = getComputedStyle(probe).color;
+			probe.remove();
+			return parsed;
+		});
 	expect(await readAccent()).toBe('rgb(20, 120, 220)');
 
 	// Flip the host's mode: the cascade re-resolves the token with ZERO engine mode-switch code.
