@@ -10360,6 +10360,131 @@ function checkChangelogFragments(errors) {
   for (const problem of changelogFragmentProblems()) errors.push(problem);
 }
 
+// ─── Lockfile optional-peer materialization ────────────────────────────────
+// A committed lockfile must never hold a node that ONLY an optional peer edge
+// reaches, because npm and Dependabot disagree about whether such a node exists
+// — and `npm ci` sides with npm.
+//
+// npm materializes an optional peer whenever it can resolve one. Dependabot's
+// lockfile writer does not. So every Dependabot PR against a directory holding
+// such a node ships a lockfile with the whole subtree deleted, and `npm ci`
+// rejects it before resolution is ever reached:
+//
+//     npm error code EUSAGE
+//     npm error Missing: proxy-agent@8.0.2 from lock file
+//
+// The symptom is worth spelling out because it lies about where the fault is.
+// `npm ci` names the missing PACKAGE, so the failure reads as a problem with
+// puppeteer, or with the bump in the diff — and the bump in the diff is
+// routinely something like `brace-expansion`, which touches none of it. #1491
+// sat for three weeks on that misreading, blocking four /docs Dependabot PRs
+// that had nothing in common except the directory they were in. It is not a
+// peer CONFLICT and re-running `@dependabot recreate` cannot clear it: the
+// generator reproduces the same lockfile every time.
+//
+// The fix is always the same shape — give the package a hard edge, by declaring
+// it a direct dependency of the manifest that needs it, at the version the
+// optional peer already resolved to. That is not a new install; it relocates a
+// package the tree already contained, and Dependabot keeps direct dependencies.
+//
+// This gate exists because nothing else can see the problem coming. The tree is
+// green, `npm ci` passes, and every local install is correct; the damage only
+// appears in a lockfile a bot writes somewhere else, days later, and lands as a
+// red check on a PR nobody connects to the bump that introduced the node.
+//
+// IT CARRIES NO ALLOWLIST, and that is a departure from every neighboring gate
+// here worth being explicit about. The others police a judgment — a sanctioned
+// margin, a sanctioned preview builder — where a justified exception is a real
+// answer. This one polices a fact about a file a bot will rewrite, so sanctioning
+// an entry would silence the gate without repairing anything: the lockfile is
+// still one Dependabot run away from uninstallable, and the PRs it blocks are
+// still red. There is nothing to justify, only an edge to add, and the remedy
+// costs one line in a package.json.
+//
+// The corner where that bites is two consumers wanting DIFFERENT versions of the
+// same optional peer, so one copy has to stay nested. Nobody has hit it — both
+// lockfiles here resolve to zero — and the honest answer if someone does is to
+// work out what `npm ci` actually does with Dependabot's output for that tree,
+// not to reach for an exception that leaves it broken.
+const OPTIONAL_PEER_LOCKFILES = ['package-lock.json', 'docs/package-lock.json'];
+
+// The directory a nested node hangs off — `a/node_modules/b` -> `a`.
+function lockNodeParent(key) {
+  const at = key.lastIndexOf('/node_modules/');
+  return at === -1 ? '' : key.slice(0, at);
+}
+
+// Node resolution as npm performs it: walk up the `node_modules` chain from the
+// consumer and take the first copy that exists. Returns the lockfile key, or
+// null when nothing supplies the name.
+function resolveLockNode(packages, fromKey, name) {
+  let scope = fromKey;
+  for (;;) {
+    const candidate = `${scope ? `${scope}/` : ''}node_modules/${name}`;
+    if (packages[candidate]) return candidate;
+    if (scope === '') return null;
+    scope = lockNodeParent(scope);
+  }
+}
+
+// Every node whose incoming edges are ALL optional peers. A node that any hard
+// edge also reaches (dependencies, devDependencies, optionalDependencies, or a
+// REQUIRED peer) is safe — Dependabot keeps those, so the optional peer riding
+// along on the same node costs nothing.
+function optionalPeerOnlyNodes(packages) {
+  const hard = new Set();
+  const optionalPeer = new Set();
+  for (const [key, node] of Object.entries(packages)) {
+    for (const field of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
+      for (const name of Object.keys(node[field] || {})) {
+        const target = resolveLockNode(packages, key, name);
+        if (!target) continue;
+        const isOptionalPeer =
+          field === 'peerDependencies' && node.peerDependenciesMeta?.[name]?.optional === true;
+        (isOptionalPeer ? optionalPeer : hard).add(target);
+      }
+    }
+  }
+  return [...optionalPeer].filter((key) => !hard.has(key)).sort();
+}
+
+function checkLockfileOptionalPeers(errors, root = ROOT, lockfiles = OPTIONAL_PEER_LOCKFILES) {
+  for (const rel of lockfiles) {
+    const abs = path.join(root, rel);
+    if (!fs.existsSync(abs)) {
+      errors.push(`checkLockfileOptionalPeers: ${rel} is missing — a broken path, not a clean tree.`);
+      continue;
+    }
+    let packages;
+    try {
+      ({ packages } = JSON.parse(fs.readFileSync(abs, 'utf8')));
+    } catch (e) {
+      errors.push(`checkLockfileOptionalPeers could not parse ${rel}: ${e.message}`);
+      continue;
+    }
+    // A lockfile this repo commits carries hundreds of nodes. A handful means the
+    // shape changed under the gate, which is a finding rather than a pass.
+    if (!packages || Object.keys(packages).length < 100) {
+      errors.push(
+        `checkLockfileOptionalPeers read ${Object.keys(packages || {}).length} nodes out of ${rel} — ` +
+        'a broken parse, not a clean lockfile.',
+      );
+      continue;
+    }
+    for (const key of optionalPeerOnlyNodes(packages)) {
+      const dir = path.dirname(rel) === '.' ? 'the repo root' : path.dirname(rel);
+      errors.push(
+        `${rel}: ${key}@${packages[key].version} is reachable only through an OPTIONAL peer edge. ` +
+        'npm materializes it, Dependabot\'s lockfile writer deletes it, and every Dependabot PR against ' +
+        `${dir} then fails \`npm ci\` with "Missing: ${key.slice(key.lastIndexOf('node_modules/') + 13)}@` +
+        `${packages[key].version} from lock file" — whatever the bump in the diff was. Give it a hard edge: ` +
+        `declare "${key.slice(key.lastIndexOf('node_modules/') + 13)}": "^${packages[key].version}" a direct ` +
+        `dependency of ${path.join(path.dirname(rel), 'package.json')} and regenerate the lockfile.`,
+      );
+    }
+  }
+}
+
 // ─── Font-metrics pin ──────────────────────────────────────────────────────
 // `GLYPH_UPPER` (lib/components/chart/_chart-family/svg-label.js) is a per-glyph
 // advance table for the two faces uppercase tracked chart labels paint in. It
@@ -11029,6 +11154,7 @@ function run() {
   checkCommittedPdfs(errors);
   checkNulBytes(errors);
   checkChangelogFragments(errors);
+  checkLockfileOptionalPeers(errors);
   checkDanglingTokenReads(errors);
   checkAnimaColorVocabulary(errors);
   checkSyntaxInkContrast(errors);
@@ -11099,6 +11225,10 @@ module.exports = {
   SANCTIONED_NUL_FILES,
   NUL_TEXT_EXTENSIONS,
   checkChangelogFragments,
+  checkLockfileOptionalPeers,
+  optionalPeerOnlyNodes,
+  resolveLockNode,
+  OPTIONAL_PEER_LOCKFILES,
   checkFontMetricsPin,
   checkFallbackContracts,
   ledgerContractProblems,

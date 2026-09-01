@@ -326,3 +326,53 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   race-free in the safe direction, since contention only makes it more certain to pass.
 - **Triggered by:** #1824's ejection; fixed in #1835/#1843, hardened after.
 - **Removable when:** Nothing upstream — this is a test-authoring hazard.
+
+## Every Dependabot PR in a directory is red, and `npm ci` blames a package none of them touched
+
+- **Symptom:** four or five Dependabot PRs against the same directory all fail the same jobs, on
+  `npm ci`, with an error naming a package that appears in none of their diffs:
+
+  ```
+  npm error code EUSAGE
+  npm error `npm ci` can only install packages when your package.json and
+  npm error package-lock.json … are in sync.
+  npm error Missing: proxy-agent@8.0.2 from lock file
+  npm error Missing: agent-base@9.0.0 from lock file
+  …
+  ```
+
+  Locally everything is fine: `npm ci` passes on `main`, `npm install` passes, and regenerating
+  the lockfile by hand always produces a working one. `@dependabot recreate` changes nothing —
+  the head does not move and the checks stay red.
+- **Cause:** the committed lockfile holds a node that **only an optional peer dependency reaches**,
+  and npm and Dependabot disagree about whether such a node exists. npm materializes an optional
+  peer whenever it can resolve one; Dependabot's lockfile writer does not. So Dependabot's
+  regenerated lockfile is missing that node and everything under it, and `npm ci` — which
+  validates the lockfile against itself before resolving anything — refuses it.
+- **This is NOT a peer CONFLICT,** and that is the whole reason it costs weeks. A conflict says
+  `ERESOLVE` and names two incompatible ranges. This says `Missing: <package> from lock file`, so
+  it reads as a problem with the named package — in #1491 that was `proxy-agent`, reached through
+  `puppeteer-core`, on a PR whose entire diff was `brace-expansion 1.1.15 → 1.1.18`. Four /docs
+  PRs sat red for three weeks behind that misreading, filed against an astro/Starlight peer pin
+  that was real but blocked only ONE of them.
+- **How to confirm it in one command:** `node -e` over the two lockfiles, or just run the gate —
+  `checkLockfileOptionalPeers` in `tools/check-ownership.js` names the node, the `npm ci` message
+  it will produce, and the fix. To see it by hand, diff the node COUNTS: the Dependabot lockfile
+  is short by the whole subtree (1183 vs 1198 nodes in #1491), and every missing key sits under
+  one parent.
+- **Fix: give the package a hard edge.** Declare it a direct dependency of that directory's
+  `package.json`, at the version the optional peer already resolved to, then regenerate. It is
+  not a new install — the package was already in the tree; declaring it hoists it to the root and
+  npm drops the nested copy because the root one satisfies the peer range. Dependabot never
+  deletes a direct dependency, so the failure cannot recur for that package.
+- **Regenerate SURGICALLY — `npm install --package-lock-only`, never a from-scratch delete.**
+  Deleting the lockfile re-floats every version in it (233 top-level versions, 25 of them direct
+  dependencies, when #1491's earlier astro attempt tried it). The surgical path moved one
+  transitive dev-only version across 2,848 dependency edges.
+- **Check the whole change is inert before shipping it.** The useful measure is not the node diff
+  — relocating a package changes many keys — but the **resolved version per dependency edge**: for
+  every (consumer, dependency name) pair, which version does it get, before and after. #1491's fix
+  moved 13 nodes and changed exactly one edge.
+- **Triggered by:** #1491; gated by `checkLockfileOptionalPeers` (`tools/check-ownership.js`, via
+  `build:check`), tested in `test/unit/tools/lockfile-optional-peers.test.js`.
+- **Removable when:** Dependabot's lockfile writer materializes optional peers the way npm does.
