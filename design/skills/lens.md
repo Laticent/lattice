@@ -128,10 +128,41 @@ active view and the fail-closed projection below is never asked to fall open.
 shows only the brief" — is a different lever with the opposite failure behavior: it
 withholds the picker and must fail **closed**, because the sender chose that scope on
 purpose and a fall-through would silently override them. It travels on the
-share/export channel rather than in the deck, and it is **not built yet**. When it is,
-remember what it can honestly claim: client-side projection **hides, it does not
-withhold** — a reader who views source sees every non-member slide's bytes. A pin is a
-scoping convenience, never a confidentiality control.
+share/export channel rather than in the deck. The **export half of that channel now
+exists**; a pinned *link* does not.
+
+## Exporting a view — the one consumer that can withhold
+
+`lattice deck.md --lens brief out.pdf` renders the `brief` view: its members, in
+author order, and nothing else. Several views at once need `--player`, which carries
+them behind a switcher in one file — a PDF is one linear sequence, so handed two views
+it could only show the union with nothing telling the reader which slide belongs to
+which, and it refuses instead.
+
+It **fails closed**, exactly as the reader path does. An unavailable view — `unknown`,
+`hidden`, `unapproved`, `empty`, `drifted` — exits non-zero naming the reason and writes
+no file. There is no fall-through to the full deck, because a view is often a deliberate
+reduction and a fall-through hands the reader every slide you kept out.
+
+**This is where the "hides, not withholds" limit finally moves — halfway.** Inside the
+Studio, projection is `display:none` over an array the browser already holds; a reader
+who views source sees every non-member slide. An export *constructs* the bytes, so the
+slides it leaves out are genuinely not in the file. Two things follow, and the split is
+the useful part:
+
+- **What the export leaves out is withheld.** Slides outside the union of the views you
+  exported are not in the artifact at all — not in the slide DOM, not in the article, and
+  not in the re-importable envelope.
+- **What a multi-view carrier switches between is only hidden.** Every view in that one
+  file is in that one file. Send one file with `brief` and `evidence` in it and the
+  `brief` reader can reach the `evidence` slides. If a recipient must not have them, send
+  them their own file.
+
+**The envelope is the channel people forget.** A `--player` export embeds the deck source
+for lossless re-import, so it round-trips back into a fully editable deck. With `--lens`
+it carries only the slides that shipped; `--lens-source full` restores the whole deck,
+which is a real choice with a real cost — the recipient can then recover every slide no
+view showed them, and the `lenses:` block naming the views they were not given.
 
 ## Depth — rungs and cuts
 
@@ -209,6 +240,8 @@ never five.
   `lens-picker.tsx` / `PresentOverlay.tsx` (the reader switchers).
 - **Engine touch**: `_lens` is a flag directive — tags are **stripped** from
   exported HTML/PDF, so membership never leaks into output bytes.
+- **Export**: `lib/core/lens-export.mjs` — the bake-time projection behind `--lens`,
+  over the same `lensEligibility` read path and the engine's own slide splitter.
 
 ---
 
