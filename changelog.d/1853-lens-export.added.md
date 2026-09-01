@@ -25,3 +25,12 @@
   escape `/`, so a deck whose view label carried `</script>…` ended the element early: the player
   never booted and the remainder of the label was parsed as markup. The escape now runs through one
   named helper shared with the narration blocks (`scriptJson`).
+- **A split page keeps its slide's number, so nothing after it renumbers.** The engine renders one
+  authored slide as several sections when `split: headings` divides it at a second heading, or when
+  a slide overflows its box — and every consumer that numbered the sections afterwards counted those
+  extra pages as new slides, shifting everything below. Each section now carries
+  `data-authored-slide`: both pages of slide 2 are slide 2, and slide 3 is still slide 3. Reader-view
+  exports read that number instead of reconstructing it, which is what makes a view name the same
+  slides however the deck happens to paginate. Export-to-Marp still materializes those breaks as real
+  separators — a baked deck genuinely has more slides — and a view carried into one refuses as
+  `drifted` rather than guessing.
