@@ -413,3 +413,38 @@ Unchanged: **slice 1 is still Cost A** (extract the verdict builder into a share
 browser-safe kernel). Slice 2 is the B2 applicator, with the cut decision staying in
 `resplitDoc` and only the application differing — the `applyToHtml` / `applyToDom`
 shape `lib/transformers/registry.js` already uses on every render path.
+
+---
+
+## Amendment 3 (2026-09-01) — slice 1 shipped: `lib/core/split-verdict.js`
+
+Cost A is closed. `buildSplitVerdict` now lives in `lib/core/split-verdict.js`
+beside the probe it consumes, exported both as a function and as
+`SPLIT_VERDICT_SRC` for `.toString()` injection — the same idiom
+`overflow-probe.js` uses for `PROBE_SRC`. `lattice-emulator.js`'s `measureOverflow`
+`page.evaluate` went from 165 lines to 24 and now injects three lib-owned functions
+instead of holding one of them itself. The runtime can reach the same decision
+without re-deriving it, which was the whole point.
+
+**Evidence it changed nothing.** Every deck below rendered through the emulator
+before and after the extraction, comparing the exported `.html` sidecar byte for
+byte — all identical:
+
+| deck | pages, no-split → split | branch exercised |
+|---|---|---|
+| `examples/portrait-prose-deboost.md` | 9 → 20 | vertical |
+| `.scratch` portrait probe | 3 → 5 | vertical |
+| `list-steps` @ `size: square` probe | 1 → 9 | inline-flow / horizontal |
+| `compare-table` portrait probe | 1 → 6 | paginator carousel |
+| 4 portrait decks that fit | unchanged | the no-verdict path |
+
+`test/unit/core/split-verdict.test.js` adds the branch tests the logic could never
+have while it lived inside a `page.evaluate`: the legibility floor, both carousel
+branches, the ordinary vertical case, the headroom veto, the inline-flow carve-out
+with its `<table>` counter-case, the two-page floor, and that the injected copy
+behaves like the imported one.
+
+**NOT covered, and named so it is not mistaken for covered:** the *structural*
+carousel branch (`cover-code`) has unit coverage but no end-to-end deck — a
+`compare-code` probe at `size: story` would not overflow however much code it was
+given, so no before/after render exercises it. Its unit test is the only guard.

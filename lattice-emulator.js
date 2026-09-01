@@ -765,6 +765,9 @@ const { renderDiagrams } = require('./lib/core/render-diagrams');
 // (#1329).
 const { slideClassSpans, slideClassAt, slideIndexAt } = require('./lib/core/slide-class-spans');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
+// The verdict half of the same measurement — extent + legibility → the
+// `{ ratio, canSplit, splitRatio }` resplitDoc eats. See lib/core/split-verdict.js.
+const { SPLIT_VERDICT_SRC } = require('./lib/core/split-verdict');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const { ROUGH_INK_STRUCTURES, pathsForPlan } = require('./lib/core/rough-ink');
 const { MEASURE_ROUGH_INK_SRC, PAINT_ROUGH_INK_SRC } = require('./lib/core/rough-ink-dom');
@@ -3051,171 +3054,30 @@ async function renderBody(browser, g, closeBrowser) {
   // clientHeight) — the signal both the author warning and the measured auto-split
   // pass below read. Scope to real slide sections only — `<section>` literals inside
   // code blocks parse as nested DOM and would pollute the indices.
-  const measureOverflow = () => g(() => page.evaluate(({ structuralCarousel, paginatorCarousel, clipSel, ignoreSel, probeSrc, legibilitySrc, floorRatio }) => {
+  const measureOverflow = () => g(() => page.evaluate(({ structuralCarousel, paginatorCarousel, clipSel, ignoreSel, probeSrc, legibilitySrc, verdictSrc, floorRatio }) => {
     const TOL = 12; // filter sub-pixel rounding; see lattice-runtime.js
-    // Cell-aware probe (lib/core/overflow-probe.js, injected verbatim): a bounded
-    // content cell that clips hides its overflow from section.scrollHeight, so we
-    // fold the cell's internal overflow back into the section's effective extent —
-    // otherwise autosplit never sees an over-stuffed cell and the content is lost.
+    // Three functions, injected verbatim, all owned by lib/core (HARD RULE #1):
+    //   · probeSectionOverflow — cell-aware EXTENT. A bounded content cell that
+    //     clips hides its overflow from section.scrollHeight, so the cell's
+    //     internal overflow is folded back into the section's effective extent;
+    //     otherwise autosplit never sees an over-stuffed cell and content is lost.
+    //   · probeFigureLegibility — the §8 rule 8 type floor.
+    //   · buildSplitVerdict — extent + legibility → the VERDICT resplitDoc eats.
+    //     It used to be 150 lines inline right here, which is why the runtime
+    //     could not become a second measurer without re-deriving them
+    //     (2026-06-25-runtime-autosplit-eventual-consistency.md Amendment 1 § Cost A).
     const probeSectionOverflow = new Function('return (' + probeSrc + ')')();
     const probeFigureLegibility = new Function('return (' + legibilitySrc + ')')();
+    const buildSplitVerdict = new Function('return (' + verdictSrc + ')')();
+    const deps = { probeSectionOverflow, probeFigureLegibility };
+    const opts = { clipSel, ignoreSel, tol: TOL, floorRatio, structuralCarousel, paginatorCarousel };
     const out = [];
     document.querySelectorAll('section[data-lattice-slide]').forEach((s, i) => {
-      const probe = probeSectionOverflow(s, clipSel, TOL, ignoreSel);
-      const vOver = probe.vOver;
-      const over = probe.over;
-      // §8 rule 8 — the LEGIBILITY FLOOR. A viewBox figure is container-responsive: it never
-      // overflows its box, it shrinks its own text, so `probe.over` is structurally blind to it
-      // and a dense figure ships silently at 6px type. Reported on its own axis, and NEVER
-      // splittable — a figure has no seam to divide, so the honest answer is the ring.
-      const leg = probeFigureLegibility(s, floorRatio);
-      const illegible = leg?.under ? leg : null;
-      // Figures whose labels the probe cannot size at all (mermaid's `<foreignObject>` HTML
-      // labels). Carried on its own field so the report can say "not measured" rather than
-      // let silence read as "legible" (HARD RULE #23).
-      const unmeasured = leg && !leg.count && leg.unmeasured ? leg.unmeasured : 0;
-      if (illegible && !over) {
-        // Illegible while its box FITS: nothing to split (a figure has no seam), so record and stop.
-        out.push({ slide: i + 1, ratio: 1, canSplit: false, splitRatio: 1, illegible, unmeasured });
-        return;
-      }
-      if (!over) return;
-      // …and a slide that is BOTH illegible and clipping must be reported on BOTH axes. Returning
-      // early above swallowed such a slide's CLIPPED warning and its split — flagged as a latent
-      // ordering hazard by the HARD RULE #25 inversion pass, which could not construct the
-      // co-occurrence (once the box overflows the figure stops being squeezed) but was right that
-      // nothing prevented it. `illegible` now rides along on the record instead of replacing it.
-      const C = probe.clientH;
-      const ratio = C > 0 ? probe.scrollH / C : 2;
-      // A STRUCTURAL carousel (cover-code/cover-sides) re-authors a side-by-side layout to
-      // one panel per page, so ANY overflow is actionable — compare-code overflows
-      // HORIZONTALLY (two code blocks too wide for a portrait box; one-block-per-page fixes
-      // it). Mark it splittable and let resplitDoc's carousel branch own it (the ratio is
-      // irrelevant to a structural re-author).
-      if (structuralCarousel.some((c) => s.classList.contains(c))) {
-        out.push({ slide: i + 1, ratio, canSplit: true, splitRatio: ratio, illegible, unmeasured });
-        return;
-      }
-      // A VERTICAL PAGINATOR (cover-paginate) divides a row/item collection; it can only fix
-      // VERTICAL overflow. A too-wide table overflows HORIZONTALLY — row-splitting it is
-      // futile and balloons the deck — so gate canSplit on vOver and leave a width-overflow
-      // for the ring (this is the guard that lets a wide compare-table / obligation-matrix
-      // carry a split recipe without ever ballooning).
-      if (paginatorCarousel.some((c) => s.classList.contains(c))) {
-        out.push({ slide: i + 1, ratio, canSplit: vOver, splitRatio: ratio, illegible, unmeasured });
-        return;
-      }
-      // The auto-splitter only divides a list (ul/ol) or table — so a split can only
-      // make the slide fit if THAT collection is the height driver. Measure the tallest
-      // such collection and the headroom the surrounding content leaves: if the
-      // non-collection content alone already fills the box (a tall <p>/figure/code with
-      // an incidental list), splitting just copies that block onto every piece and never
-      // fits — leave it for the ring. `canSplit` gates the measured pass; `splitRatio`
-      // sizes it from the collection's own height, not the whole slide's.
-      // The collection's REAL extent, not its laid-out box. `offsetHeight` was the measure, and
-      // in a bounded flex stage it reports the SQUEEZED height: a checklist's `ul` inside
-      // `section.checklist > .cell-stage { display: flex; flex-direction: column }` shrank to
-      // offsetHeight 0 (rect 0, scrollHeight 312) and the veto therefore concluded the
-      // collection contributed NOTHING to the overflow — the exact opposite of the truth — and
-      // refused to split a slide whose list was the entire driver. It clipped, silently.
-      // `scrollHeight` is the content extent a clipping or squeezed box hides, which is what
-      // "how tall does this collection want to be" means; the rect is the floor for the ordinary
-      // un-squeezed case. Same cell-aware reasoning as `probeSectionOverflow` itself.
-      const extentOf = (el) => Math.max(el.scrollHeight, Math.round(el.getBoundingClientRect().height));
-      let collH = 0;
-      let collEl = null;
-      s.querySelectorAll('ul, ol, table').forEach((el) => {
-        const h = extentOf(el);
-        if (h > collH) { collH = h; collEl = el; }
-      });
-      // …AND the headroom must be measured against the slide the split will actually EMIT, not
-      // the one on screen. The envelope HOISTS the framing lede to the cover and the trailing
-      // note/key-insight off every page but the last, so counting them as immovable
-      // non-collection content under-reports the room a body page will have. Measured in the
-      // emulator on a portrait `checklist` of 8 items with a long lede and a long below-note: the
-      // collection read 0 (`offsetHeight` and its rect both 0 against a scrollHeight of 312 — the
-      // squeeze above), so the headroom came out at −114 against a 269px floor and the slide was
-      // VETOED. It clipped, silently, while the identical slide with the lede and note deleted
-      // split cleanly — so the author's fix would have been to cut the lede, which is exactly the
-      // content the envelope was built to relocate.
-      //
-      // Mirrors split-envelope.js's own `ledeSpansIn` / `trailingSpansIn` (HARD RULE #1 — same
-      // two regions, read here from the DOM instead of the HTML string): the LEDE is the
-      // cell's direct-child <p>s before the collection, minus the code-only eyebrow/subtitle
-      // and a chart subtitle; the TRAILING run is the contiguous <p> / .below-note /
-      // <blockquote> after it. Deliberately narrow — over-counting would let an unsplittable
-      // slide into the loop and balloon the deck.
-      let hoistH = 0;
-      if (collEl) {
-        const cell = s.querySelector(':scope > .cell-stage') || s;
-        if (cell.contains(collEl)) {
-          const kids = [...cell.children];
-          const at = kids.findIndex((el) => el === collEl || el.contains(collEl));
-          if (at > 0) {
-            for (const el of kids.slice(0, at)) {
-              if (el.tagName !== 'P') continue;
-              if (el.classList.contains('chart-subtitle')) continue;
-              if (el.children.length === 1 && el.firstElementChild.tagName === 'CODE') continue;
-              hoistH += extentOf(el);
-            }
-          }
-          for (let k = kids.length - 1; k > at; k--) {
-            const el = kids[k];
-            if (el.tagName === 'HEADER' || el.tagName === 'FOOTER' || el.tagName === 'NAV') continue;
-            const trailing = el.tagName === 'P' || el.tagName === 'BLOCKQUOTE'
-              || (el.tagName === 'DIV' && el.classList.contains('below-note'));
-            if (!trailing) break;
-            hoistH += extentOf(el);
-          }
-        }
-      }
-      const headroom = C - (probe.scrollH - collH - hoistH); // room a BODY page will have
-      // ── The HORIZONTAL half, which this gate did not have (#1234 group C).
-      //
-      // `canSplit` keyed on `vOver` alone, so a collection that overflows ONLY sideways
-      // was never handed to the measured loop. `list-steps` at `size: square` is the
-      // reproduction: its `<ol>` is `display:flex; flex-direction:row`, and six steps want
-      // **1291px in a 972px track** (eight want 1852) with `scrollH === clientH` — zero
-      // vertical spill. Step 06 rendered entirely off the frame and step 05 sliced
-      // mid-word, on a component that declares `capacity.perPage: 1` and would have been
-      // completely fixed by pagination. Worse, the slide was over `capacity.hard` and the
-      // static pass DID defer it — but a deferred candidate is dropped when the slide is
-      // already in the measured list, and it was, with `canSplit: false`. So it fell
-      // between the two passes and shipped clipped, while `lint:deck`'s
-      // `capacity-autosplit` advisory told the author it would be divided. That is §8
-      // rule 10's lie-to-the-author defect, through a different door.
-      //
-      // The `vOver` gate was RIGHT about its own case and too broad. Its stated reason (at
-      // the paginator branch above) is that "a too-wide table overflows HORIZONTALLY —
-      // row-splitting it is futile and balloons the deck". True of a `<table>`: its width
-      // comes from its COLUMNS and its rows stack vertically, so cutting rows narrows
-      // nothing. False of a collection whose MEMBERS run along the inline axis — there,
-      // fewer members per page IS a narrower row, and pagination fixes the overflow
-      // directly. So the test is not "which direction did it overflow" but "does splitting
-      // this collection reduce its width", which is a property of its layout.
-      const hOver = collEl ? collEl.scrollWidth - collEl.clientWidth > TOL : false;
-      const inlineFlow = (() => {
-        if (!collEl || collEl.tagName === 'TABLE') return false; // the counter-case, excluded by construction
-        const cs = getComputedStyle(collEl);
-        if (cs.display.includes('flex')) return cs.flexDirection.startsWith('row');
-        // A multi-COLUMN grid lays members out inline too; a single-column one does not.
-        if (cs.display.includes('grid')) return cs.gridTemplateColumns.split(/\s+/).filter(Boolean).length > 1;
-        return false;
-      })();
-      const vSplit = vOver && headroom > C * 0.2;
-      const hSplit = hOver && inlineFlow;
-      const canSplit = collH > 0 && (vSplit || hSplit);
-      // Size the cut from whichever axis is actually binding. For the horizontal case that
-      // is how many times too wide the collection is — and the authored `perPage` still
-      // wins where it is tighter (`resplitDoc` takes the tighter of the two), so a
-      // `perPage: 1` component still atomizes rather than merely halving.
-      const splitRatio = vSplit
-        ? Math.max(2, collH / headroom)
-        : (hSplit ? Math.max(2, collEl.scrollWidth / Math.max(1, collEl.clientWidth)) : ratio);
-      out.push({ slide: i + 1, ratio, canSplit, splitRatio, illegible, unmeasured });
+      const v = buildSplitVerdict(s, deps, opts);
+      if (v) out.push({ slide: i + 1, ...v });
     });
     return out;
-  }, { structuralCarousel: STRUCTURAL_CAROUSEL_NAMES, paginatorCarousel: PAGINATOR_CAROUSEL_NAMES, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, probeSrc: PROBE_SRC, legibilitySrc: LEGIBILITY_SRC, floorRatio: FIGURE_TEXT_FLOOR_RATIO }), 'measure overflow');
+  }, { structuralCarousel: STRUCTURAL_CAROUSEL_NAMES, paginatorCarousel: PAGINATOR_CAROUSEL_NAMES, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, probeSrc: PROBE_SRC, legibilitySrc: LEGIBILITY_SRC, verdictSrc: SPLIT_VERDICT_SRC, floorRatio: FIGURE_TEXT_FLOOR_RATIO }), 'measure overflow');
   let overflow = await measureOverflow();
   // MEASURED auto-split — the ONLY split trigger, and the loop that makes "split" fit REAL
   // boxes. Divide every overflowing SPLITTABLE slide by how much it overflows, re-render,
