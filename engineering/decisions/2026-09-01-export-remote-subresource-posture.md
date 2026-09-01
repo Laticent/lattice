@@ -81,10 +81,21 @@ Chromium's, and `file://` origin rules are engine-specific.
 ## The cost that is real, and small
 
 A plain `.html` export does NOT inline local files — only `--player` does — so a deck built to
-be emailed as `.html` may use a remote image deliberately, because that is the only way it
+be emailed as `.html` may use a remote resource deliberately, because that is the only way it
 travels today. Such a deck now shows a blank there while its own PDF still shows the picture.
-No deck this repo ships is in that position: zero of `examples/**`, `exemplars/**`, the baseline
-decks and the component galleries reference a remote image or media file.
+
+**It is not only images, and an earlier draft of this section said so by omission.** Three
+directives bite, measured on the real CLI — 3 requests before, 0 after:
+
+- `img-src` — a remote image;
+- `media-src` — a hosted `<video>` or `<audio>`;
+- `font-src` — a front-matter `style:` declaring `@font-face { src: url(https://…) }`.
+
+That is the policy behaving as designed rather than a defect, but a reader weighing the change
+should not have to derive the other two from the directive list.
+
+No deck this repo ships is in any of those positions: zero of `examples/**`, `exemplars/**`, the
+baseline decks and the component galleries reference a remote image, media file or font.
 
 ## Where the policy is injected, and why that IS the decision
 
@@ -96,8 +107,16 @@ One step, after rasterization, into whatever HTML the run leaves at `outHtml`
 - the PDF/PPTX/PNG were rasterized from the clean file written *before* that line, so their
   bytes cannot move;
 - the assembled player already carries a stricter policy (`default-src 'none'`), so the
-  injection skips a document that already has one — which also covers the player-assembly
-  failure path, where `outHtml` falls back to the clean render and does want it.
+  injection skips it — from a FLAG set when the player is written, never from the document's
+  text. A text match here let the deck switch its own policy off, and review found it: a
+  `<meta http-equiv=…>` in the BODY (which browsers ignore outside `<head>`, so the artifact
+  ended up with no effective policy at all), and — worse, because it hits an author who was
+  documenting the feature rather than attacking it — an inline code span or a front-matter
+  `style:` comment carrying the string, since markdown-it's `escapeHtml` does not escape `'`.
+  A `<head>`-scoped text match would still fall to the second, because a deck's `style:` lands
+  in a `<style>` inside `<head>`. Nothing the deck writes can reach a flag, which is why the
+  skip is one. It also gets the player-assembly FAILURE path right: `outHtml` is then the
+  clean render, which does want the policy.
 
 Move that step one line earlier and every raster artifact silently loses its remote images with
 every other assertion still green. `test/integration/export/export-remote-subresource.test.js`

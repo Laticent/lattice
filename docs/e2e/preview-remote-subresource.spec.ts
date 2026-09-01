@@ -76,7 +76,11 @@ test('a deck cannot beacon out of the Playground preview frame', async ({ page }
 	// The CSP the frame actually received — read off the live document, not off the builder.
 	const csp = preview.locator('meta[http-equiv="Content-Security-Policy"]').first();
 	await expect(csp).toHaveAttribute('content', /img-src 'self' data: blob:/);
-	await expect(csp).toHaveAttribute('content', /media-src|connect-src 'self'/);
+	// Separately, not as one alternation: `/media-src|connect-src 'self'/` binds across the
+	// whole pattern, so the literal `media-src` alone satisfied it and `connect-src` was never
+	// actually asserted.
+	await expect(csp).toHaveAttribute('content', /media-src 'self' data: blob:/);
+	await expect(csp).toHaveAttribute('content', /connect-src 'self'/);
 
 	// Settle: both <img> vectors have been decided one way or the other. A refused load
 	// still completes, so this is the point after which a beacon cannot still be in flight.

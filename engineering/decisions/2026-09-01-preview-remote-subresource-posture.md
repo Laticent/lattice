@@ -148,10 +148,11 @@ vectors, request interception on `attacker.invalid`, Chromium.
 | | beacon requests | payload elements in the frame DOM |
 |---|---|---|
 | with the CSP (shipped) | **0** | 3 |
-| with `previewCspMeta` neutered in the served bundle | **4** | 3 |
+| with `previewCspMeta` neutered in the served bundle | **4–5** | 3 |
 
-Four rather than three in the control because the raw `<img>` is requested twice; the
-before/after on the assembled document below counted three distinct URLs. The payload is in
+More than three in the control because a blocked image is re-requested on re-render: two
+independent runs of the same probe measured 4 and 5, against three distinct URLs. The number is
+a floor on "the probe can see a beacon when one fires", not a fixed count — do not pin it. The payload is in
 the DOM both times, so the fetch is refused rather than the markup rewritten, and the probe
 is demonstrably able to see a beacon when one fires. Zero page errors either way — the CSP
 starves no directive the app needs.

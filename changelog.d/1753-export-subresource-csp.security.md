@@ -1,5 +1,5 @@
 - **Security: a downloaded `.html` or `--fluid` deck no longer phones home when someone opens
-  it.** A deck's remote image, `<video>`, or `url()` in an inline style fired on the
+  it.** A deck's remote image, `<video>`, `url()` in an inline style, or a webfont its front matter declared fired on the
   **recipient's** machine, on every open, leaking their IP and confirming they opened the file —
   measured at two requests per artifact. Both now carry the same narrow policy the docs-site
   preview frames use, and it lives in one shared kernel so an author's preview and their

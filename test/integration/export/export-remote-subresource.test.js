@@ -109,6 +109,42 @@ theme: indaco
 		}
 	});
 
+	// THE DECK MUST NOT BE ABLE TO SWITCH THE POLICY OFF. The skip that spares the assembled
+	// player used to be a text match against the WHOLE rendered file, deck body included —
+	// so the one actor this control defends against could disable it, in two measured ways.
+	// A `<head>`-scoped text match would still fall to the second, because a deck's `style:`
+	// lands in a `<style>` inside <head>; the skip is a FLAG for that reason, and this arm is
+	// what stops it drifting back into a content test.
+	test('a deck cannot suppress its own policy', { timeout: TIMEOUT }, async () => {
+		const cases = {
+			// Deliberate: a CSP meta in the BODY. Browsers ignore one outside <head>, so before
+			// the fix the artifact carried no effective policy at all.
+			'rawmeta': '# Raw meta\n\n<meta http-equiv="Content-Security-Policy" content="img-src *">\n',
+			// Accidental, and the worse of the two: markdown-it's escapeHtml does NOT escape
+			// `'`, so an inline code span or a front-matter `style:` comment carrying the
+			// string suppressed the policy on a deck whose author was documenting the feature.
+			'codespan': "# Opt out\n\nA code span: `http-equiv='Content-Security-Policy'`\n",
+		};
+		for (const [name, body] of Object.entries(cases)) {
+			const deck = path.join(dir, `${name}.md`);
+			fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\nstyle: |\n  /* http-equiv='Content-Security-Policy' */\n---\n\n${body}\n![pic](https://${ATTACKER}/plain.png)\n`);
+			const r = spawnSync(process.execPath, [EMULATOR, deck, path.join(dir, `${name}.html`), '--quiet'], {
+				cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+			});
+			assert.equal(r.status, 0, `emulator failed for ${name}: ${r.stderr}`);
+			const file = path.join(dir, `${name}.html`);
+			// In <head>, where it governs — not merely present somewhere in the file.
+			const html = fs.readFileSync(file, 'utf8');
+			const head = html.slice(0, html.toLowerCase().indexOf('</head>'));
+			assert.ok(
+				/http-equiv="Content-Security-Policy"/i.test(head),
+				`${name}: the deck suppressed its own policy — the skip is matching deck CONTENT again`
+			);
+			const { hits } = await probe(file);
+			assert.deepEqual(hits, [], `${name}: the deck beaconed despite the policy`);
+		}
+	});
+
 	test('CONTROL — with the policy removed, the same artifact does beacon', { timeout: TIMEOUT }, async () => {
 		const file = exportDeck('control.html', []);
 		const stripped = path.join(dir, 'control-nocsp.html');
