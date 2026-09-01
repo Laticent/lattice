@@ -863,3 +863,109 @@ describe('review-core: shared ask + pacing (one definition for Coach + scorecard
     assert.equal(pacingVerdict(3, 30).level, 'leisurely'); // 600s/slide
   });
 });
+
+/**
+ * The three defects a cold-consumer agent found by RUNNING the checker the
+ * agent kit ships, rather than reading it. All three had passed the suite
+ * above, and the first is the one that matters: `label-title` is the single
+ * most-emphasized trap in the whole deck canon, and it green-lit the canon's
+ * own worked examples of a bad heading.
+ */
+describe('review-core — defects found by running the shipped checker', () => {
+	// "never a label ('Q2 Results')" is deck-canon.md's own wording, and
+	// skills/deck.md opens its "what bad looks like" with `## Q2 Financials`.
+	// Both came back clean: the digit guard fired on the `2` and returned before
+	// the label check ever ran.
+	test('a period qualifier no longer hides a label heading', () => {
+		for (const h of [
+			'Q2 Results',
+			'Q3 Financials',
+			'2026 Roadmap',
+			'FY24 Metrics',
+			'H1 Summary',
+			'January Update',
+		]) {
+			assert.equal(isLabelHeading(h), true, `"${h}" is a label with a period prefix, not a takeaway`);
+		}
+	});
+
+	test('a digit that is not a period prefix still reads as a takeaway', () => {
+		for (const h of [
+			'Revenue grew 18%, led by APAC',
+			'Q4 revenue grew 18%',
+			'Churn fell to 2.1% after the migration',
+			// Single bare tokens: without the digit guard these fall through to the
+			// one-word rule and get flagged. A hero metric IS the takeaway.
+			'18%',
+			'3x',
+			'$4.2M',
+		]) {
+			assert.equal(isLabelHeading(h), false, `"${h}" makes a claim and must not be flagged`);
+		}
+	});
+
+	// A heading that is ONLY periods is a divider, not a claim anyone can judge.
+	// Two paths reach that verdict and they are worth separating, because the
+	// first mutation-test of this arm passed for the wrong reason: a BARE "Q2"
+	// never enters the strip at all (the prefix pattern requires trailing
+	// whitespace), so the digit guard returns first. Only a heading that is
+	// entirely prefixes strips to empty and exercises the guard — without which
+	// "" falls through to the single-bare-word rule and gets flagged.
+	test('a heading that strips to nothing is not flagged', () => {
+		for (const h of ['Q2', 'Q1 Q2', 'FY24 Q3', '2026', 'January']) {
+			assert.equal(isLabelHeading(h), false, `"${h}" is all period, no claim`);
+		}
+	});
+
+	test('a density finding names the element that is over budget', () => {
+		const deck =
+			FM +
+			'<!-- _class: cards-stack -->\n\n' +
+			'## Migration carries more risk than the status quo.\n\n' +
+			'- Lift and shift\n' +
+			'  - This option moves every service as it stands today without rewriting anything ' +
+			'at all which keeps the change small\n' +
+			'- Rewrite\n' +
+			'  - Short.\n';
+		const density = reviewText(deck, {
+			bucketOf: () => 'inventory',
+			densityOf: () => ({ axis: 'item', soft: 16, hard: 40, note: 'a stacked card is a short paragraph at most' }),
+		}).filter((f) => f.rule.startsWith('density-'));
+		assert.equal(density.length, 1);
+		// Without this the reader gets "a cards-stack element runs to 22 words" and
+		// has to find which of the cards it is by hand.
+		assert.equal(density[0].line, 'Lift and shift');
+	});
+
+	// density-overflow is a SECOND findings.push with its own `line`, and the
+	// crowd test above does not reach it — dropping `line` from the overflow
+	// branch alone left the suite green.
+	test('an overflow finding names its element too', () => {
+		const deck =
+			FM +
+			'<!-- _class: cards-stack -->\n\n## A claim.\n\n' +
+			'- The card that overflows\n  - ' +
+			'one two three four five six seven eight nine ten eleven twelve thirteen fourteen\n' +
+			'- Short\n  - Fine.\n';
+		const [finding] = reviewText(deck, {
+			bucketOf: () => 'inventory',
+			densityOf: () => ({ axis: 'item', soft: 4, hard: 8, note: 'a stacked card is a short paragraph at most' }),
+		}).filter((f) => f.rule === 'density-overflow');
+		assert.ok(finding, 'expected a density-overflow finding');
+		assert.equal(finding.line, 'The card that overflows');
+	});
+
+	test('the density fix reads as a sentence', () => {
+		const deck =
+			FM +
+			'<!-- _class: cards-stack -->\n\n## A claim.\n\n- Card\n  - ' +
+			'one two three four five six seven eight nine ten eleven twelve\n';
+		const [finding] = reviewText(deck, {
+			bucketOf: () => 'inventory',
+			densityOf: () => ({ axis: 'item', soft: 4, hard: 40, note: 'a stacked card is a short paragraph at most' }),
+		}).filter((f) => f.rule.startsWith('density-'));
+		// It used to concatenate "Tighten to " with a note that is a DESCRIPTION of
+		// the target, yielding "Tighten to a stacked card is a short paragraph at most."
+		assert.equal(finding.fix, 'Tighten it toward the target — a stacked card is a short paragraph at most.');
+	});
+});

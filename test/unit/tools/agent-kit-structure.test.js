@@ -182,15 +182,33 @@ test('agent kit structure', { skip }, async (t) => {
 			deck,
 			['---', 'theme: cuoio', '---', '', '## Next Steps', '', '- Continue monitoring', ''].join('\n'),
 		);
-		const out = execFileSync(process.execPath, [check, deck, '--json'], { encoding: 'utf8' });
-		const findings = JSON.parse(out);
-		fs.rmSync(tmp, { recursive: true, force: true });
-		assert.ok(
-			findings.some((f) => f.rule === 'label-title'),
-			'the shipped checker did not flag a label heading. It is the kit\'s only independent ' +
-				'quality gate; if it stops biting, an agent grades its own work.',
+		// A SECOND deck, whose heading carries a period qualifier. `## Q2 Results` is
+		// the deck canon's own worked example of a bad heading and the checker used
+		// to pass it clean, because the digit guard fired on the `2`.
+		const dated = path.join(tmp, 'q.md');
+		fs.writeFileSync(
+			dated,
+			['---', 'theme: cuoio', '---', '', '## Q2 Results', '', '- Continue monitoring', ''].join('\n'),
 		);
-		assert.ok(findings.every((f) => f.message), 'findings must carry a human-readable message');
+		const out = execFileSync(process.execPath, [check, deck, dated, '--json'], { encoding: 'utf8' });
+		const report = JSON.parse(out);
+		fs.rmSync(tmp, { recursive: true, force: true });
+
+		// ONE envelope shape, always, and it carries `partial`. The bare-array form
+		// suppressed the partial marker in exactly the mode a machine reads, so a
+		// check that skipped a whole rule class came back as [] and read as clean.
+		assert.equal(typeof report, 'object', '--json must emit an envelope, not a bare array');
+		assert.equal(report.partial, false, 'the kit ships its own catalog, so a check inside it is complete');
+		assert.equal(report.files.length, 2, 'every file passed on the command line must be checked');
+
+		for (const { file, findings } of report.files) {
+			assert.ok(
+				findings.some((f) => f.rule === 'label-title'),
+				`the shipped checker did not flag the label heading in ${file}. It is the kit's only ` +
+					'independent quality gate; if it stops biting, an agent grades its own work.',
+			);
+			assert.ok(findings.every((f) => f.message), 'findings must carry a human-readable message');
+		}
 	});
 
 	await t.test('generated table cells escape backslash as well as pipe', () => {
@@ -420,5 +438,34 @@ test('agent kit structure', { skip }, async (t) => {
 		};
 		walk(KIT);
 		assert.deepEqual(offenders, [], 'the kit routes its reader somewhere they cannot go');
+	});
+
+	/**
+	 * THE LINTER HALF. The kit shipped only the presentation reviewer, so an
+	 * invented `_class` — the single most likely mistake a model makes writing a
+	 * Lattice deck — came back "No findings. The checkable half is clean" while
+	 * the deck would not render. An independent checker that passes a broken deck
+	 * is worse than none: it certifies the failure.
+	 */
+	await t.test('the checker rejects a component name that does not exist', () => {
+		const { execFileSync } = require('node:child_process');
+		const os = require('node:os');
+		const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kit-lint-'));
+		const deck = path.join(tmp, 'bad.md');
+		fs.writeFileSync(
+			deck,
+			['---', 'marp: true', '---', '', '<!-- _class: totally-not-a-component -->', '', '## A claim.', '', '- one', ''].join('\n'),
+		);
+		const out = execFileSync(process.execPath, [path.join(KIT, 'review', 'check.mjs'), deck, '--json'], {
+			encoding: 'utf8',
+		});
+		fs.rmSync(tmp, { recursive: true, force: true });
+		const [{ findings }] = JSON.parse(out).files;
+		const unknown = findings.find((f) => f.rule === 'unknown-class');
+		assert.ok(unknown, 'an invented _class passed the checker clean');
+		// lint-core writes for a repo reader; its fix strings name two paths a kit
+		// consumer does not have, and the CLI rewrites them to the kit's own.
+		assert.doesNotMatch(unknown.fix, /dist\/docs|design\/design-system/, 'the fix routes outside the kit');
+		assert.match(unknown.fix, /reference\/components\.json/);
 	});
 });
