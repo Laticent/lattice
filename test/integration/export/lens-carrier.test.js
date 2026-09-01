@@ -117,14 +117,20 @@ describe('a multi-view player carrier', { skip }, () => {
 	});
 
 	test('the switcher offers exactly the exported views, in order', { timeout: TIMEOUT }, async () => {
-		const ids = await page.$$eval('[data-lp-lens]', (bs) => bs.map((b) => b.getAttribute('data-lp-lens')));
+		const ids = await page.$$eval('#lp-lens-sel option', (os) => os.map((o) => o.value));
 		assert.deepEqual(ids, ['brief', 'evidence', 'ask']);
+		const labels = await page.$$eval('#lp-lens-sel option', (os) => os.map((o) => o.textContent));
+		assert.deepEqual(labels, ['Brief', 'Evidence', 'The ask'], 'the author’s own names, in full — the reason this is a select');
+	});
+
+	test('a carrier opens on the first view it was given', { timeout: TIMEOUT }, async () => {
+		assert.equal(await page.$eval('#lp-lens-sel', (s) => s.value), 'brief');
 	});
 
 	for (const id of ['brief', 'evidence', 'ask']) {
 		test(`\`${id}\` agrees across Present, Read·Slides and Read·Article`, { timeout: TIMEOUT }, async () => {
 			const want = inCarrier(MEMBERSHIP[id]);
-			await page.click(`[data-lp-lens="${id}"]`);
+			await page.select('#lp-lens-sel', id);
 			// Each surface is measured WHERE IT IS LAID OUT. Present hides every frame but the
 			// active one by design, so a geometric read of the frames there — or in Read·Article,
 			// where the stage is display:none entirely — reports nothing and proves nothing.
@@ -137,15 +143,14 @@ describe('a multi-view player carrier', { skip }, () => {
 			assert.deepEqual(s.prose, want, 'Read·Article prose — the surface the `hidden` cascade defeated');
 			assert.deepEqual(s.toc, want, 'Read·Article table of contents');
 			assert.equal(s.counter, `1 / ${want.length}`, 'the counter re-sizes to the view');
-			const pressed = await page.$$eval('[data-lp-lens]', (bs) => bs.filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.getAttribute('data-lp-lens')));
-			assert.deepEqual(pressed, [id], 'exactly one view reads as pressed');
+			assert.equal(await page.$eval('#lp-lens-sel', (s) => s.value), id, 'the control reads back the view it is showing');
 			await page.click('[data-lp-btn="present"]');
 		});
 	}
 
 	test('navigation stays inside the active view and clamps at both ends', { timeout: TIMEOUT }, async () => {
 		const want = inCarrier(MEMBERSHIP.ask);
-		await page.click('[data-lp-lens="ask"]');
+		await page.select('#lp-lens-sel', 'ask');
 		await page.click('[data-lp-btn="present"]');
 		const at = () => page.evaluate(() => {
 			const f = [...document.querySelectorAll('.lp-frame')].filter((x) => x.classList.contains('lp-active') && !x.hidden);
@@ -216,7 +221,7 @@ describe('a multi-view player carrier', { skip }, () => {
 		try {
 			await page2.goto(`file://${out}`);
 			await page2.waitForFunction(() => document.documentElement.classList.contains('lp-js'));
-			await page2.click('[data-lp-lens="brief"]');
+			await page2.select('#lp-lens-sel', 'brief');
 			const shown = await page2.evaluate(() => {
 				const st = document.querySelector('#lp-app > #lp-stage');
 				return [...st.querySelectorAll(':scope > .lp-frame')].filter((f) => !f.hidden).map((f) => Number(f.getAttribute('data-lp-i')));
@@ -266,7 +271,7 @@ describe('a multi-view player carrier', { skip }, () => {
 		try {
 			await page2.goto(`file://${out}`);
 			await page2.waitForFunction(() => document.documentElement.classList.contains('lp-js'));
-			await page2.click('[data-lp-lens="brief"]');
+			await page2.select('#lp-lens-sel', 'brief');
 			const r2 = await page2.evaluate(() => {
 				const st = document.querySelector('#lp-app > #lp-stage');
 				const real = [...st.querySelectorAll(':scope > .lp-frame')].filter((f) => !f.hidden);
@@ -296,7 +301,7 @@ describe('a multi-view player carrier', { skip }, () => {
 		});
 		assert.equal(r.status, 0, r.stderr);
 		const html = fs.readFileSync(out, 'utf8');
-		assert.ok(!html.includes('data-lp-lens'), 'one view is a projected deck, not a switcher');
+		assert.ok(!html.includes('lp-lens-sel'), 'one view is a projected deck, not a switcher');
 		assert.ok(!html.includes('data-lp-i'), 'and it carries none of the carrier’s per-slide stamps');
 	});
 });

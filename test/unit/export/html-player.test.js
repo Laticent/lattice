@@ -500,8 +500,9 @@ test('produces a self-contained file — no file:// survives', async () => {
 			assert.equal(terminators, openers, `a live </script broke out of the baked map (${where})`);
 			assert.match(html, /var LENS_VIEWS=\[/, 'the map still ships');
 			assert.ok(html.includes('\\u003c'), 'the payload is escaped rather than dropped');
-			// The reader still gets the author's words, in the control and its tooltip.
-			assert.ok(html.includes('data-lp-lens="brief"'), 'the view is still offered');
+			// The reader still gets the author's words, in the control's own option.
+			assert.ok(html.includes('<option value="brief"'), 'the view is still offered');
+			assert.match(html, /<option value="brief"[^>]*>Brief&lt;/, 'and its label is escaped as TEXT, not dropped');
 		});
 	}
 

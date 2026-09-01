@@ -170,6 +170,13 @@ it carries only the slides that shipped; `--lens-source full` restores the whole
 which is a real choice with a real cost — the recipient can then recover every slide no
 view showed them, and the `lenses:` block naming the views they were not given.
 
+**The switcher is a dropdown, not a row of buttons.** A view's name is your own noun and
+there is no icon that could stand for one, so the control has to show words — and a button
+per view sizes the whole top bar to how many views you declared and how long you named
+them. One `<select>` costs one control however many views ship, keeps the full names in
+the platform's own picker (a full-screen list on a phone), and flexes with the bar instead
+of budgeting it.
+
 ## Depth — rungs and cuts
 
 Reader views are two different kinds of thing, and only one of them has a "deeper":
