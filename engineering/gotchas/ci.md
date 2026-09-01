@@ -355,16 +355,32 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `puppeteer-core`, on a PR whose entire diff was `brace-expansion 1.1.15 → 1.1.18`. Four /docs
   PRs sat red for three weeks behind that misreading, filed against an astro/Starlight peer pin
   that was real but blocked only ONE of them.
-- **How to confirm it in one command:** `node -e` over the two lockfiles, or just run the gate —
-  `checkLockfileOptionalPeers` in `tools/check-ownership.js` names the node, the `npm ci` message
-  it will produce, and the fix. To see it by hand, diff the node COUNTS: the Dependabot lockfile
-  is short by the whole subtree (1183 vs 1198 nodes in #1491), and every missing key sits under
-  one parent.
+- **How to confirm it, and DON'T re-derive it:** npm already writes the answer into the lockfile.
+  It marks each node it placed with `"peer": true` when a peer edge put it there and
+  `"optional": true` when that edge was optional, so the nodes at risk are exactly the ones
+  carrying BOTH. Either flag alone is fine — `optional` alone is an optionalDependency (131 in
+  `docs/` today, all kept), `peer` alone is a required peer (8, all kept). On #1489's parent
+  lockfile npm flags 14 nodes `peer && optional` and Dependabot's regenerated lockfile deletes
+  exactly those 14 — same set, no misses, no extras. `checkLockfileOptionalPeers` in
+  `tools/check-ownership.js` is that one-line check plus a readable message.
+- **Do not diff node counts instead.** It is the obvious by-hand test and it misleads twice. The
+  count must be taken against the Dependabot branch's OWN parent (1183 vs **1197** on #1489, a
+  drop of 14) — comparing against today's `main` adds unrelated keys that are just base staleness.
+  And the missing keys do NOT all sit under one parent: 12 were under `puppeteer-core`, and 2
+  (`proxy-agent-negotiate`, `quickjs-wasi`) were hoisted to the root of `node_modules` because
+  nothing outside the deleted subtree needed them.
 - **Fix: give the package a hard edge.** Declare it a direct dependency of that directory's
   `package.json`, at the version the optional peer already resolved to, then regenerate. It is
   not a new install — the package was already in the tree; declaring it hoists it to the root and
-  npm drops the nested copy because the root one satisfies the peer range. Dependabot never
-  deletes a direct dependency, so the failure cannot recur for that package.
+  npm drops the nested copy because the root one satisfies the peer range. Dependabot keeps
+  direct dependencies, so this should not recur for that package — "should", because nobody here
+  can run Dependabot's lockfile writer to prove it. What IS measured is the survival: regenerate
+  with a peer-ignoring resolver (`npm install --package-lock-only --legacy-peer-deps`) and the
+  declared copy is still there, where the undeclared one vanishes.
+- **The hard edge is not a universal remedy, and the gate's own advice says so.** Hoisting only
+  absorbs the peer when the root copy SATISFIES the peer range. Two consumers wanting different
+  majors leaves a nested copy that is still optional-peer-only, and the fix has to be worked out
+  against what `npm ci` actually makes of Dependabot's output for that tree.
 - **Regenerate SURGICALLY — `npm install --package-lock-only`, never a from-scratch delete.**
   Deleting the lockfile re-floats every version in it (233 top-level versions, 25 of them direct
   dependencies, when #1491's earlier astro attempt tried it). The surgical path moved one
@@ -372,7 +388,8 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Check the whole change is inert before shipping it.** The useful measure is not the node diff
   — relocating a package changes many keys — but the **resolved version per dependency edge**: for
   every (consumer, dependency name) pair, which version does it get, before and after. #1491's fix
-  moved 13 nodes and changed exactly one edge.
+  changed exactly one edge, while the node view of the same change reads 12 removed, 25 added and
+  9 re-versioned in place — which is why the node view is the wrong instrument here.
 - **Triggered by:** #1491; gated by `checkLockfileOptionalPeers` (`tools/check-ownership.js`, via
   `build:check`), tested in `test/unit/tools/lockfile-optional-peers.test.js`.
 - **Removable when:** Dependabot's lockfile writer materializes optional peers the way npm does.

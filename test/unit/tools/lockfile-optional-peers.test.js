@@ -3,15 +3,21 @@
  *
  * npm and Dependabot disagree about optional peer dependencies. npm materializes
  * one whenever it can resolve it; Dependabot's lockfile writer deletes it. So a
- * committed lockfile holding a node that ONLY an optional peer edge reaches is a
- * time bomb: the tree is green here, and every Dependabot PR against that
- * directory arrives with the subtree gone and `npm ci` failing EUSAGE.
+ * committed lockfile holding a node npm placed for an optional peer is a time
+ * bomb: the tree is green here, and every Dependabot PR against that directory
+ * arrives with the subtree gone and `npm ci` failing EUSAGE.
  *
- * #1491 is the worked example — one `proxy-agent@8.0.2` under `puppeteer-core`,
- * four /docs Dependabot PRs red for three weeks, and a `npm ci` message naming
+ * #1491 is the worked example — `proxy-agent@8.0.2` under `puppeteer-core`, four
+ * /docs Dependabot PRs red for three weeks, and a `npm ci` message naming
  * puppeteer on a PR whose whole diff was `brace-expansion`.
  *
- * Both verdicts run through the PURE function on BUILT fixtures, because the
+ * THE GATE ASKS NPM RATHER THAN RE-DERIVING. npm annotates each node it placed
+ * with `peer` / `optional`, and the conjunction is an exact match for what
+ * Dependabot deletes (14 of 14, measured on the real #1489 commit). An earlier
+ * draft walked the graph and classified by incoming edges; it found 1 of those
+ * 14. These tests pin the flag semantics, not a graph walk.
+ *
+ * Both verdicts run through the PURE functions on BUILT fixtures, because the
  * gate itself reads the two committed lockfiles and those are (correctly) clean
  * — a suite that only ever saw the real files would stay green with the
  * condition inverted. The real lockfiles get their own arm at the bottom, which
@@ -24,146 +30,137 @@ const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 
+const TOOLS = path.join(__dirname, '..', '..', '..', 'tools');
 const {
   checkLockfileOptionalPeers,
-  optionalPeerOnlyNodes,
-  resolveLockNode,
+  optionalPeerNodes,
+  lockAnnotationCount,
+  lockNodeName,
   OPTIONAL_PEER_LOCKFILES,
-} = require(path.join(__dirname, '..', '..', '..', 'tools', 'check-ownership.js'));
+} = require(path.join(TOOLS, 'check-ownership.js'));
 
 /** A lockfile `packages` map with the boilerplate every node carries filled in. */
 const lock = (nodes) =>
   Object.fromEntries(Object.entries(nodes).map(([key, node]) => [key, { version: '1.0.0', ...node }]));
 
-/** The shape #1491 was: a hard consumer, and a nested optional peer nobody else wants. */
+/** The shape #1491 was, as npm annotates it. */
 const puppeteerShape = () =>
   lock({
     '': { dependencies: { 'puppeteer-core': '^25.1.0' } },
-    'node_modules/puppeteer-core': { version: '25.1.0', dependencies: { '@puppeteer/browsers': '3.0.4' } },
-    'node_modules/puppeteer-core/node_modules/@puppeteer/browsers': {
-      version: '3.0.4',
-      peerDependencies: { 'proxy-agent': '>=8.0.1' },
-      peerDependenciesMeta: { 'proxy-agent': { optional: true } },
+    'node_modules/puppeteer-core': { version: '25.1.0' },
+    'node_modules/puppeteer-core/node_modules/proxy-agent': {
+      version: '8.0.2',
+      peer: true,
+      optional: true,
     },
-    'node_modules/puppeteer-core/node_modules/proxy-agent': { version: '8.0.2' },
   });
 
-describe('optionalPeerOnlyNodes — detection', () => {
-  test('flags a node only an optional peer edge reaches', () => {
-    assert.deepEqual(optionalPeerOnlyNodes(puppeteerShape()), [
+describe('optionalPeerNodes — the flag conjunction', () => {
+  test('flags a node npm marked both peer and optional', () => {
+    assert.deepEqual(optionalPeerNodes(puppeteerShape()), [
       'node_modules/puppeteer-core/node_modules/proxy-agent',
     ]);
   });
 
   test('a REQUIRED peer is not a finding — Dependabot keeps those', () => {
+    // 8 of these in docs/package-lock.json today, all kept by Dependabot.
     const packages = puppeteerShape();
-    delete packages['node_modules/puppeteer-core/node_modules/@puppeteer/browsers'].peerDependenciesMeta;
-    assert.deepEqual(optionalPeerOnlyNodes(packages), []);
+    delete packages['node_modules/puppeteer-core/node_modules/proxy-agent'].optional;
+    assert.deepEqual(optionalPeerNodes(packages), []);
   });
 
-  test('a direct dependency clears the node — the fix #1491 took', () => {
-    // Declaring the package a direct dependency hoists it to the root, and npm
-    // then drops the nested copy because the root one satisfies the peer range.
-    // The optional peer edge survives untouched and stops mattering: it now
-    // lands on a node a hard root edge also reaches.
+  test('an optionalDependency is not a finding — optional-dependency and optional-PEER differ', () => {
+    // 131 of these in docs/package-lock.json today, all kept by Dependabot.
     const packages = puppeteerShape();
-    packages[''].devDependencies = { 'proxy-agent': '^8.0.2' };
-    packages['node_modules/proxy-agent'] = { version: '8.0.2' };
-    delete packages['node_modules/puppeteer-core/node_modules/proxy-agent'];
-    assert.deepEqual(optionalPeerOnlyNodes(packages), []);
+    delete packages['node_modules/puppeteer-core/node_modules/proxy-agent'].peer;
+    assert.deepEqual(optionalPeerNodes(packages), []);
   });
 
-  test('a hoisted copy does NOT clear a nested one — shadowing is per subtree', () => {
-    // The near-miss the fix above has to avoid. A root `proxy-agent` that does
-    // not satisfy the peer range leaves the nested copy in place, still reached
-    // only by the optional peer, and Dependabot still deletes it.
+  test('`optional: false` on a peer is NOT a finding — the check is strict, not truthy', () => {
+    // Pins `=== true` against a loosening to `!== undefined`, which would flag this.
     const packages = puppeteerShape();
-    packages[''].devDependencies = { 'proxy-agent': '^6.5.0' };
-    packages['node_modules/proxy-agent'] = { version: '6.5.0' };
-    assert.deepEqual(optionalPeerOnlyNodes(packages), [
+    packages['node_modules/puppeteer-core/node_modules/proxy-agent'].optional = false;
+    assert.deepEqual(optionalPeerNodes(packages), []);
+  });
+
+  test('`peer: false` with `optional: true` is NOT a finding', () => {
+    const packages = puppeteerShape();
+    packages['node_modules/puppeteer-core/node_modules/proxy-agent'].peer = false;
+    assert.deepEqual(optionalPeerNodes(packages), []);
+  });
+
+  test('a HOISTED optional peer is found — 2 of #1491\'s 14 were root-level', () => {
+    // The graph walk this replaced could not see these at all.
+    const packages = lock({
+      '': { dependencies: { a: '^1' } },
+      'node_modules/a': {},
+      'node_modules/proxy-agent-negotiate': { version: '1.1.0', peer: true, optional: true },
+    });
+    assert.deepEqual(optionalPeerNodes(packages), ['node_modules/proxy-agent-negotiate']);
+  });
+
+  test('the root "" key is never a finding, however it is annotated', () => {
+    const packages = puppeteerShape();
+    packages[''].peer = true;
+    packages[''].optional = true;
+    assert.deepEqual(optionalPeerNodes(packages), [
       'node_modules/puppeteer-core/node_modules/proxy-agent',
     ]);
   });
 
-  test('an optionalDependencies edge is HARD — optional-dependency and optional-PEER are different things', () => {
-    const packages = puppeteerShape();
-    packages['node_modules/puppeteer-core'].optionalDependencies = { 'proxy-agent': '^8.0.2' };
-    assert.deepEqual(optionalPeerOnlyNodes(packages), []);
-  });
-
-  test('an optional peer nothing supplies is not a finding — there is no node to delete', () => {
-    const packages = puppeteerShape();
-    delete packages['node_modules/puppeteer-core/node_modules/proxy-agent'];
-    assert.deepEqual(optionalPeerOnlyNodes(packages), []);
-  });
-
   test('a clean tree produces nothing', () => {
-    assert.deepEqual(
-      optionalPeerOnlyNodes(lock({ '': { dependencies: { a: '^1' } }, 'node_modules/a': {} })),
-      [],
-    );
+    assert.deepEqual(optionalPeerNodes(lock({ '': {}, 'node_modules/a': {} })), []);
   });
 
-  test('two findings come back sorted, so the message is stable across runs', () => {
+  test('findings come back SORTED, from an input whose insertion order is not', () => {
+    // Insertion order here is z, a — so a returned-as-inserted list fails.
     const packages = lock({
-      '': { dependencies: { z: '^1', a: '^1' } },
-      'node_modules/a': { peerDependencies: { 'a-peer': '*' }, peerDependenciesMeta: { 'a-peer': { optional: true } } },
-      'node_modules/z': { peerDependencies: { 'z-peer': '*' }, peerDependenciesMeta: { 'z-peer': { optional: true } } },
-      'node_modules/a-peer': {},
-      'node_modules/z-peer': {},
+      '': {},
+      'node_modules/zeta': { peer: true, optional: true },
+      'node_modules/alpha': { peer: true, optional: true },
     });
-    assert.deepEqual(optionalPeerOnlyNodes(packages), ['node_modules/a-peer', 'node_modules/z-peer']);
+    assert.deepEqual(optionalPeerNodes(packages), ['node_modules/alpha', 'node_modules/zeta']);
   });
 });
 
-describe('resolveLockNode — npm walk-up resolution', () => {
-  const packages = lock({
-    '': {},
-    'node_modules/dep': { version: '2.0.0' },
-    'node_modules/host': {},
-    'node_modules/host/node_modules/dep': { version: '1.0.0' },
-  });
-
-  test('a nested copy shadows the hoisted one for its own subtree', () => {
-    assert.equal(resolveLockNode(packages, 'node_modules/host', 'dep'), 'node_modules/host/node_modules/dep');
-  });
-
-  test('a consumer with no nested copy walks up to the root', () => {
-    assert.equal(resolveLockNode(packages, 'node_modules/other', 'dep'), 'node_modules/dep');
-  });
-
-  test('an unsupplied name resolves to null rather than throwing', () => {
-    assert.equal(resolveLockNode(packages, 'node_modules/host', 'absent'), null);
-  });
-
-  test('a WORKSPACE root walks straight up to the root — the shape package-lock.json actually has', () => {
-    // The repo-root lockfile carries four of these (docs/src/lib/cadenza and its
-    // siblings). Their keys hold no `node_modules/` segment at all, so the walk-up
-    // has to fall to the root in one step rather than looping or throwing.
-    const ws = lock({
+describe('lockAnnotationCount — the going-blind sentinel', () => {
+  test('counts nodes carrying either flag', () => {
+    const packages = lock({
       '': {},
-      'docs/src/lib/cadenza': { dependencies: { dep: '^1' } },
-      'node_modules/dep': { version: '2.0.0' },
+      'node_modules/a': { peer: true },
+      'node_modules/b': { optional: true },
+      'node_modules/c': { peer: true, optional: true },
+      'node_modules/d': {},
     });
-    assert.equal(resolveLockNode(ws, 'docs/src/lib/cadenza', 'dep'), 'node_modules/dep');
-    assert.equal(resolveLockNode(ws, 'docs/src/lib/cadenza', 'absent'), null);
+    assert.equal(lockAnnotationCount(packages), 3);
   });
 
-  test('a workspace holding its OWN copy keeps it', () => {
-    const ws = lock({
-      '': {},
-      'docs/src/lib/cadenza': { dependencies: { dep: '^1' } },
-      'docs/src/lib/cadenza/node_modules/dep': { version: '1.0.0' },
-      'node_modules/dep': { version: '2.0.0' },
-    });
-    assert.equal(
-      resolveLockNode(ws, 'docs/src/lib/cadenza', 'dep'),
-      'docs/src/lib/cadenza/node_modules/dep',
-    );
+  test('a lockfile with no annotations at all counts zero', () => {
+    assert.equal(lockAnnotationCount(lock({ '': {}, 'node_modules/a': {} })), 0);
+  });
+});
+
+describe('lockNodeName', () => {
+  test('a nested key yields the bare package name', () => {
+    assert.equal(lockNodeName('node_modules/puppeteer-core/node_modules/proxy-agent'), 'proxy-agent');
+  });
+  test('a hoisted key yields the bare package name', () => {
+    assert.equal(lockNodeName('node_modules/proxy-agent'), 'proxy-agent');
+  });
+  test('a scoped package keeps its scope', () => {
+    assert.equal(lockNodeName('node_modules/a/node_modules/@puppeteer/browsers'), '@puppeteer/browsers');
   });
 });
 
 describe('checkLockfileOptionalPeers — reporting', () => {
+  // 120 filler nodes, so a fixture clears the "did the parse work at all" floor.
+  const padded = (packages) => ({
+    ...packages,
+    ...Object.fromEntries(
+      Array.from({ length: 120 }, (_, i) => [`node_modules/filler-${i}`, { version: '1.0.0' }]),
+    ),
+  });
+
   const withLockfile = (packages, run) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-lockgate-'));
     try {
@@ -180,25 +177,35 @@ describe('checkLockfileOptionalPeers — reporting', () => {
     }
   };
 
-  // 100 filler nodes, so the fixture clears the "did the parse work at all" floor.
-  const padded = (packages) => ({
-    ...packages,
-    ...Object.fromEntries(
-      Array.from({ length: 120 }, (_, i) => [`node_modules/filler-${i}`, { version: '1.0.0' }]),
-    ),
-  });
+  const check = (errs, dir) => checkLockfileOptionalPeers(errs, dir, ['docs/package-lock.json']);
 
-  test('the message names the package, the npm ci error it will cause, and the one-line fix', () => {
-    const errors = withLockfile(padded(puppeteerShape()), (errs, dir) =>
-      checkLockfileOptionalPeers(errs, dir, ['docs/package-lock.json']),
-    );
+  test('the message names the package, the npm ci error it will cause, and the fix', () => {
+    const errors = withLockfile(padded(puppeteerShape()), check);
     assert.equal(errors.length, 1);
     // Each of these is load-bearing: the reader arrives at this message from a red
     // CI job whose own error blamed a package they never touched.
-    assert.match(errors[0], /OPTIONAL peer edge/);
+    assert.match(errors[0], /OPTIONAL peer dependency/);
     assert.match(errors[0], /Missing: proxy-agent@8\.0\.2 from lock file/);
     assert.match(errors[0], /"proxy-agent": "\^8\.0\.2"/);
     assert.match(errors[0], new RegExp(`direct dependency of ${path.join('docs', 'package.json')}`));
+  });
+
+  test('a node with no `version` does not print `@undefined`', () => {
+    // Workspace link nodes carry `resolved` and no `version`; the root lockfile has four.
+    const packages = padded(puppeteerShape());
+    const key = 'node_modules/puppeteer-core/node_modules/proxy-agent';
+    delete packages[key].version;
+    packages[key].resolved = 'docs/src/lib/thing';
+    const errors = withLockfile(packages, check);
+    assert.equal(errors.length, 1);
+    assert.doesNotMatch(errors[0], /undefined/);
+    assert.match(errors[0], /docs\/src\/lib\/thing/);
+  });
+
+  test('a lockfile carrying NO peer/optional annotation is flagged as the gate going blind', () => {
+    const errors = withLockfile(padded({ '': {}, 'node_modules/a': { version: '1.0.0' } }), check);
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /going blind/);
   });
 
   test('a missing lockfile is an error, not a silent pass', () => {
@@ -222,9 +229,7 @@ describe('checkLockfileOptionalPeers — reporting', () => {
   });
 
   test('a suspiciously small lockfile is a broken parse, not a clean tree', () => {
-    const errors = withLockfile(puppeteerShape(), (errs, dir) =>
-      checkLockfileOptionalPeers(errs, dir, ['docs/package-lock.json']),
-    );
+    const errors = withLockfile(puppeteerShape(), check);
     assert.equal(errors.length, 1);
     assert.match(errors[0], /broken parse/);
   });
@@ -235,7 +240,14 @@ describe('the committed lockfiles', () => {
     assert.deepEqual(OPTIONAL_PEER_LOCKFILES, ['package-lock.json', 'docs/package-lock.json']);
   });
 
-  test('neither holds an optional-peer-only node', () => {
+  test('the gate is actually WIRED into the ownership run', () => {
+    // Every assertion above passes with the check unreferenced by `run()`. This is
+    // the only arm that fails if someone deletes the call site.
+    const src = fs.readFileSync(path.join(TOOLS, 'check-ownership.js'), 'utf8');
+    assert.match(src, /^\s*checkLockfileOptionalPeers\(errors\);$/m);
+  });
+
+  test('neither holds a node placed for an optional peer', () => {
     const errors = [];
     checkLockfileOptionalPeers(errors);
     assert.deepEqual(errors, []);

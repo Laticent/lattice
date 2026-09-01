@@ -10361,9 +10361,9 @@ function checkChangelogFragments(errors) {
 }
 
 // ─── Lockfile optional-peer materialization ────────────────────────────────
-// A committed lockfile must never hold a node that ONLY an optional peer edge
-// reaches, because npm and Dependabot disagree about whether such a node exists
-// — and `npm ci` sides with npm.
+// A committed lockfile must never hold a node that npm placed for an OPTIONAL
+// PEER dependency, because npm and Dependabot disagree about whether such a node
+// exists — and `npm ci` sides with npm.
 //
 // npm materializes an optional peer whenever it can resolve one. Dependabot's
 // lockfile writer does not. So every Dependabot PR against a directory holding
@@ -10382,10 +10382,34 @@ function checkChangelogFragments(errors) {
 // peer CONFLICT and re-running `@dependabot recreate` cannot clear it: the
 // generator reproduces the same lockfile every time.
 //
-// The fix is always the same shape — give the package a hard edge, by declaring
-// it a direct dependency of the manifest that needs it, at the version the
-// optional peer already resolved to. That is not a new install; it relocates a
-// package the tree already contained, and Dependabot keeps direct dependencies.
+// ASK NPM, DO NOT RE-DERIVE. npm already annotates every node it placed —
+// `"peer": true` when a peer edge put it there, `"optional": true` when that
+// edge was optional — and the CONJUNCTION is the answer. Measured against the
+// real Dependabot commit on #1489 (`brace-expansion`, whose diff touches none of
+// this): npm flags 14 nodes `peer && optional` in the parent lockfile, and
+// Dependabot's regenerated lockfile deletes exactly those 14. Same set, no
+// misses, no extras.
+//
+// The first draft of this gate walked the dependency graph and classified a node
+// by its incoming edges instead. It found 1 of those 14. Two node shapes defeat
+// that walk outright — a package named as a REQUIRED peer by something inside
+// its own deleted subtree, and a mutual hard cycle behind the optional peer —
+// and it structurally cannot see a hoisted node at all, which 2 of the 14 are.
+// Neither problem is worth solving: npm wrote the right answer into the file.
+//
+// The two flags are only meaningful TOGETHER. `optional` alone is an
+// optionalDependency (131 of them in docs/, all kept); `peer` alone is a
+// required peer (8 in docs/, all kept). Dependabot drops neither.
+//
+// The fix, when this fires, is to give the package a hard edge — usually by
+// declaring it a direct dependency of the manifest that needs it, at the version
+// the optional peer already resolved to. That is not a new install; it relocates
+// a package the tree already contained, and Dependabot keeps direct dependencies.
+// It is not a universal remedy: a root copy only absorbs the peer when it
+// SATISFIES the peer range, so two consumers wanting different majors still
+// leaves a nested copy. That corner has not occurred here — both lockfiles read
+// zero — and the answer if it does is to work out what `npm ci` makes of
+// Dependabot's output for that tree, not to reach for an exception.
 //
 // This gate exists because nothing else can see the problem coming. The tree is
 // green, `npm ci` passes, and every local install is correct; the damage only
@@ -10395,57 +10419,33 @@ function checkChangelogFragments(errors) {
 // IT CARRIES NO ALLOWLIST, and that is a departure from every neighboring gate
 // here worth being explicit about. The others police a judgment — a sanctioned
 // margin, a sanctioned preview builder — where a justified exception is a real
-// answer. This one polices a fact about a file a bot will rewrite, so sanctioning
-// an entry would silence the gate without repairing anything: the lockfile is
-// still one Dependabot run away from uninstallable, and the PRs it blocks are
-// still red. There is nothing to justify, only an edge to add, and the remedy
-// costs one line in a package.json.
-//
-// The corner where that bites is two consumers wanting DIFFERENT versions of the
-// same optional peer, so one copy has to stay nested. Nobody has hit it — both
-// lockfiles here resolve to zero — and the honest answer if someone does is to
-// work out what `npm ci` actually does with Dependabot's output for that tree,
-// not to reach for an exception that leaves it broken.
+// answer. This one polices a fact about a file a bot will rewrite, so
+// sanctioning an entry would silence the gate without repairing anything: the
+// lockfile is still one Dependabot run away from uninstallable, and the PRs it
+// blocks are still red.
 const OPTIONAL_PEER_LOCKFILES = ['package-lock.json', 'docs/package-lock.json'];
 
-// The directory a nested node hangs off — `a/node_modules/b` -> `a`.
-function lockNodeParent(key) {
-  const at = key.lastIndexOf('/node_modules/');
-  return at === -1 ? '' : key.slice(0, at);
+// Every node npm placed to satisfy an OPTIONAL PEER — the set Dependabot deletes.
+function optionalPeerNodes(packages) {
+  return Object.keys(packages)
+    .filter((key) => key && packages[key].peer === true && packages[key].optional === true)
+    .sort();
 }
 
-// Node resolution as npm performs it: walk up the `node_modules` chain from the
-// consumer and take the first copy that exists. Returns the lockfile key, or
-// null when nothing supplies the name.
-function resolveLockNode(packages, fromKey, name) {
-  let scope = fromKey;
-  for (;;) {
-    const candidate = `${scope ? `${scope}/` : ''}node_modules/${name}`;
-    if (packages[candidate]) return candidate;
-    if (scope === '') return null;
-    scope = lockNodeParent(scope);
-  }
+// How many nodes carry EITHER flag. The gate reads a verdict out of annotations
+// npm writes, so a lockfile carrying none of them is a shape this gate cannot
+// judge — a silent pass would be the "gate that scans nothing" failure. Both
+// committed lockfiles are far from zero (root 108, docs 139).
+function lockAnnotationCount(packages) {
+  return Object.keys(packages).filter(
+    (key) => key && (packages[key].peer === true || packages[key].optional === true),
+  ).length;
 }
 
-// Every node whose incoming edges are ALL optional peers. A node that any hard
-// edge also reaches (dependencies, devDependencies, optionalDependencies, or a
-// REQUIRED peer) is safe — Dependabot keeps those, so the optional peer riding
-// along on the same node costs nothing.
-function optionalPeerOnlyNodes(packages) {
-  const hard = new Set();
-  const optionalPeer = new Set();
-  for (const [key, node] of Object.entries(packages)) {
-    for (const field of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
-      for (const name of Object.keys(node[field] || {})) {
-        const target = resolveLockNode(packages, key, name);
-        if (!target) continue;
-        const isOptionalPeer =
-          field === 'peerDependencies' && node.peerDependenciesMeta?.[name]?.optional === true;
-        (isOptionalPeer ? optionalPeer : hard).add(target);
-      }
-    }
-  }
-  return [...optionalPeer].filter((key) => !hard.has(key)).sort();
+// The package name a lockfile key names — `a/node_modules/@scope/b` -> `@scope/b`.
+function lockNodeName(key) {
+  const at = key.lastIndexOf('node_modules/');
+  return at === -1 ? key : key.slice(at + 'node_modules/'.length);
 }
 
 function checkLockfileOptionalPeers(errors, root = ROOT, lockfiles = OPTIONAL_PEER_LOCKFILES) {
@@ -10471,15 +10471,27 @@ function checkLockfileOptionalPeers(errors, root = ROOT, lockfiles = OPTIONAL_PE
       );
       continue;
     }
-    for (const key of optionalPeerOnlyNodes(packages)) {
-      const dir = path.dirname(rel) === '.' ? 'the repo root' : path.dirname(rel);
+    if (lockAnnotationCount(packages) === 0) {
       errors.push(
-        `${rel}: ${key}@${packages[key].version} is reachable only through an OPTIONAL peer edge. ` +
-        'npm materializes it, Dependabot\'s lockfile writer deletes it, and every Dependabot PR against ' +
-        `${dir} then fails \`npm ci\` with "Missing: ${key.slice(key.lastIndexOf('node_modules/') + 13)}@` +
-        `${packages[key].version} from lock file" — whatever the bump in the diff was. Give it a hard edge: ` +
-        `declare "${key.slice(key.lastIndexOf('node_modules/') + 13)}": "^${packages[key].version}" a direct ` +
-        `dependency of ${path.join(path.dirname(rel), 'package.json')} and regenerate the lockfile.`,
+        `checkLockfileOptionalPeers found no \`peer\`/\`optional\` annotation anywhere in ${rel}. ` +
+        'This gate reads its verdict out of those flags, so a lockfile without them is one it cannot ' +
+        'judge — treat this as the gate going blind (an npm format change, or the wrong file), not as ' +
+        'a clean lockfile.',
+      );
+      continue;
+    }
+    for (const key of optionalPeerNodes(packages)) {
+      const dir = path.dirname(rel) === '.' ? 'the repo root' : path.dirname(rel);
+      const name = lockNodeName(key);
+      const version = packages[key].version ?? packages[key].resolved ?? 'unknown version';
+      errors.push(
+        `${rel}: ${key}@${version} is here only to satisfy an OPTIONAL peer dependency ` +
+        '(npm marks it `peer` + `optional`). npm materializes it, Dependabot\'s lockfile writer deletes ' +
+        `it, and every Dependabot PR against ${dir} then fails \`npm ci\` with ` +
+        `"Missing: ${name}@${version} from lock file" — whatever the bump in the diff was. Give it a ` +
+        `hard edge: declaring "${name}": "^${version}" a direct dependency of ` +
+        `${path.join(path.dirname(rel), 'package.json')} and regenerating the lockfile is the usual fix, ` +
+        'and works when the hoisted copy satisfies the peer range.',
       );
     }
   }
@@ -11226,8 +11238,9 @@ module.exports = {
   NUL_TEXT_EXTENSIONS,
   checkChangelogFragments,
   checkLockfileOptionalPeers,
-  optionalPeerOnlyNodes,
-  resolveLockNode,
+  optionalPeerNodes,
+  lockAnnotationCount,
+  lockNodeName,
   OPTIONAL_PEER_LOCKFILES,
   checkFontMetricsPin,
   checkFallbackContracts,
