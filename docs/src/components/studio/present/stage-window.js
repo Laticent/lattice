@@ -316,6 +316,9 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		: '';
 	return (
 		'<!doctype html><html><head><meta charset="utf-8">' +
+		// Remote-subresource containment, before any content (#1753). The Stage renders the
+		// same untrusted deck HTML the other preview frames do, so it takes the same policy.
+		previewCspMeta({ katexUrl }) +
 		(standalone ? '<title>Stage</title>' : '') +
 		'<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">' +
 		(katexUrl ? '<link rel="stylesheet" href="' + katexUrl + '">' : '') +

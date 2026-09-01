@@ -1,0 +1,141 @@
+---
+status: shipped
+summary: >
+  A deck could make a docs-site preview frame fetch an arbitrary external URL on open — a
+  tracking beacon leaking the viewer's IP and User-Agent — through fully sanitized slide HTML.
+  Not a Mermaid bug and not a sanitizer hole: the sanitizer keeps inline `style` deliberately,
+  and HARD RULE #22's threat model covers script execution, not resource loads. The deciding
+  measurement was that the EXPORTED player already contains this (`img-src data:`, zero
+  outbound requests), so preview was both the only open surface and the one rendering
+  something the shipped file would not. Decision: contain, via a narrow CSP on all three
+  preview-frame builders — img/media/font/connect/object/base/form closed to same-document
+  sources, deliberately NO `default-src` so script and style loading are untouched. Measured
+  before/after on the real assembled srcdoc: 3 beacon requests to 0, payload still in the DOM.
+  Cost measured at zero — no shipped deck references a remote image. The full Playground round
+  trip is UNVERIFIED here: the docs e2e suite fails identically with and without the change in
+  this sandbox.
+---
+
+# The preview frame's remote-subresource posture
+
+**Date:** 2026-09-01 · **Issue:** #1753 (split out of #1246) · **Status:** decided, implemented
+
+## The question
+
+A deck can make a docs-site preview frame fetch an arbitrary external URL on **open**, with
+no interaction. Measured on the real Playground during #1753, through **fully sanitized**
+slide HTML, with no Mermaid anywhere:
+
+| deck content | outbound requests |
+|---|---|
+| `[pic](https://attacker.invalid/plain.png)` | 2 |
+| an inline `style="background-image:url(…)"` | 1 |
+| a raw `<img src="https://attacker.invalid/raw.png">` | 2 |
+
+A Mermaid node label does the same. That is why this is **not** a Mermaid bug and not a
+sanitizer hole: `lib/core/sanitize-slide-html.mjs` keeps inline `style` deliberately, because
+the engine emits `url()` for backgrounds and logo masks — *"a resource load, not script."*
+
+## Why HARD RULE #22 did not already answer it
+
+#22's threat model (#616, `2026-06-29-component-transformer-threat-model.md` §5.1) is about
+**script execution → OpenRouter-key theft**. A resource load executes nothing. The harm here
+is different: for a deck that arrived from someone else — a shared deck or an AI-generated
+one, both shipped paths — an image URL is a **tracking beacon**. It leaks the viewer's IP and
+User-Agent and confirms they opened the deck, silently, on open. Real, and simply not the
+question #22 was written to answer.
+
+## The measurement that decided it
+
+The **exported player already contains this**, and has all along. `lib/export/player-core.mjs`
+ships `img-src data:` in its CSP, and a deck carrying a remote image fires **zero** outbound
+requests from the exported `.html` (measured, Chromium 131, request interception). The URL
+survives in the markup; the fetch is refused.
+
+Two consequences follow, and together they settle the cost question:
+
+1. **Preview was the only open surface.** The artifact that actually leaves the building was
+   already closed.
+2. **Preview was rendering something the export would not.** A remote image displays while
+   authoring and is silently dead in the shipped player — the export inlines *local* files
+   only. Containing preview does not remove a working feature; it stops preview from lying.
+
+And the cost to this repo's own content is **zero**: no deck under `examples/**`,
+`exemplars/**`, the baseline decks, or the component galleries references a remote image or
+media file.
+
+## The decision
+
+**Contain, via a CSP on every preview-frame builder.** Chosen by the maintainer over
+*accept-and-document* and *split-by-provenance*. Containment is the only option that actually
+closes the vector, its cost landed at zero once measured, and it makes preview agree with the
+export. Split-by-provenance was the best-targeted option but needs a provenance signal the
+preview does not carry, and a signal that fails open is worse than no signal.
+
+A CSP rather than a scrub because it closes the vector uniformly, **pre- and post-render** —
+including the one shape no post-render scrub can reach: `A@{ img: "https://…" }` fetches
+during Mermaid's *own* layout, before our injection point exists.
+
+## The policy, and why it is narrow
+
+```
+img-src 'self' data: blob:; media-src 'self' data: blob:;
+font-src 'self' data: <katex origin>; connect-src 'self';
+object-src 'none'; base-uri 'none'; form-action 'none'
+```
+
+**There is deliberately no `default-src`.** Script, style and worker loading stay exactly as
+unrestricted as before, so this change cannot break Mermaid, KaTeX or the runtime by starving
+a directive nobody thought to enumerate. What is listed is only what a *deck* can aim at a
+remote host:
+
+- **`img-src`** — the beacon proper: markdown images, raw `<img>`, and `url()` in an inline
+  style attribute all land here.
+- **`media-src`** — `<video>`/`<audio>` survive sanitization (only script/iframe/object/embed
+  are forbidden), so they are the same vector with a different tag.
+- **`font-src`** — a deck's front-matter `style:` can carry `@font-face { src: url(…) }`. The
+  KaTeX origin is **derived from the `katexUrl` parameter**, not hard-coded: these URLs are
+  call-site parameters, and a surface pointing at a different mirror must not silently lose
+  its math glyphs.
+- **`connect-src` / `object-src` / `base-uri` / `form-action`** — closed; nothing in a preview
+  needs them and each is an exfiltration route on its own.
+
+`data:` and `blob:` stay open throughout: both are same-document payloads that reach no
+network, and the Studio's own image handling depends on them.
+
+## Verification
+
+**Measured before/after on the real assembled preview document** — the actual `buildSrcdoc`
+output, loaded in Chromium 131 with request interception, with only the CSP meta removed for
+the "before":
+
+| | beacon requests | payload elements in DOM |
+|---|---|---|
+| without the CSP | **3** (`plain.png`, `raw.png`, `bg.png`) | 3 |
+| with the CSP | **0** | 3 |
+
+The payload is present in the DOM both times, so the fetch is refused rather than the markup
+rewritten — and the probe is demonstrably able to see a beacon when one fires.
+
+**Pinned by:** `test/unit/playground/deck-preview.test.js` — that the meta is emitted, that it
+precedes `<body>` and every subresource link (a CSP meta governs only what the parser has not
+already reached), that each directive is present, that `default-src` is *absent*, that the
+font origin follows `katexUrl`, and a **census** asserting all three builders call
+`previewCspMeta`. The census is by source text because two builders are not Node-importable —
+the same shape #22's own guards use, for the same reason.
+
+## UNVERIFIED, and stated rather than glossed
+
+**The full Playground round trip was not driven here.** The docs e2e suite cannot render a
+seeded deck in this sandbox: `docs/e2e/mermaid-post-sanitize.spec.ts` fails identically **with
+and without** this change (11/11, `locator('#preview').contentFrame().locator('.lattice')`
+never appears), so the failure is environmental and pre-existing, not caused by this work — but
+it also means the browser-level assertion above rests on the assembled document rather than on
+the Playground shell around it. The document under test is the real one the frame receives; the
+shell is not exercised. Re-run `docs/e2e/` on a machine where that suite is green before
+treating the Playground round trip as covered.
+
+## What this does not do
+
+Script execution out of a preview frame is #22's territory and is covered elsewhere (#1752,
+`2026-08-18-post-sanitize-injection-queue.md` §3.1). This record is about resource loads only.
