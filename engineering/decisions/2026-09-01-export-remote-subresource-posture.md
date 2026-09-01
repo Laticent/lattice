@@ -113,6 +113,19 @@ it: export a deck carrying one same-directory image and one `http://127.0.0.1:<p
 strip the `<meta>` from a copy for the control, and open both from `file://` in each engine while
 a server on that port counts hits.
 
+### The player-assembly failure path is executed, not argued
+
+The skip that spares the player is a flag set where the player is actually written. That has a
+second edge the rejected text match did not: when assembly THROWS, the emulator warns and keeps
+the clean static render it wrote before rasterizing — a LIVE document, which must get the policy.
+`playerOwnsOutHtml` stays false there, and that was the whole argument until
+`export-remote-subresource.test.js` started driving it: the arm forces the throw by poisoning the
+module cache in a `--require` preload, since `buildPlayerHtml` is required lazily inside the try.
+It asserts the run survives, that the failure really happened (or the arm would certify the
+opposite path), that what landed is the clean render rather than a player, that it carries the
+policy, and that it does not beacon when opened. Mutation-proved: setting the flag when `--player`
+is REQUESTED rather than when the player is WRITTEN fails this arm and only this arm.
+
 What is still **UNVERIFIED**: Safari itself. Playwright's WebKit is a WebKit build, not Safari on
 macOS or iOS, and the two are not the same product — this closes the engine question, not the
 browser one.

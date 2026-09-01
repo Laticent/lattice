@@ -197,4 +197,58 @@ theme: indaco
 			await new Promise((res) => server.close(res));
 		}
 	});
+
+	// THE FAILURE PATH, EXECUTED — not argued.
+	//
+	// The skip that spares the player is a FLAG set where the player is actually written, and
+	// the reason it is a flag rather than a text match is that a DECK could otherwise switch its
+	// own policy off. But a flag has a second edge the text match did not: when player assembly
+	// THROWS, the emulator warns and keeps the clean static render it wrote before rasterizing —
+	// and that render is a live document, so it must get the policy. `playerOwnsOutHtml` stays
+	// false on that path, which is the whole argument, and until now the argument was all there
+	// was: nothing drove it.
+	//
+	// Forced deterministically by poisoning the module cache in a `--require` preload, because
+	// `buildPlayerHtml` is required lazily INSIDE the try. That is the only way to reach this
+	// branch without breaking shipped code, and it makes the branch a gate rather than a note.
+	test('a player-assembly failure leaves a contained sidecar, not a bare one', { timeout: TIMEOUT }, async () => {
+		const preload = path.join(dir, 'break-player.cjs');
+		fs.writeFileSync(preload, [
+			"const path = require('node:path');",
+			`const target = require.resolve(path.join(${JSON.stringify(ROOT)}, 'lib/export/html-player.js'));`,
+			'require.cache[target] = { id: target, filename: target, loaded: true, exports: {',
+			"  buildPlayerHtml: async () => { throw new Error('forced player assembly failure'); },",
+			'} };',
+			'',
+		].join('\n'));
+
+		const out = path.join(dir, 'player-broke.html');
+		const r = spawnSync(
+			process.execPath,
+			['--require', preload, EMULATOR, path.join(dir, 'beacon.md'), out, '--player'],
+			{ cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT },
+		);
+
+		assert.equal(r.status, 0, `a player-assembly failure must not fail the run: ${r.stderr}`);
+		// The forced failure really happened. Without this the arm would pass on a run where
+		// assembly SUCCEEDED and the preload silently did nothing — certifying the opposite path.
+		assert.match(
+			`${r.stdout}${r.stderr}`,
+			/--player assembly failed \(forced player assembly failure\)/,
+			'the preload did not actually break player assembly, so this arm proves nothing',
+		);
+		const html = fs.readFileSync(out, 'utf8');
+		// It really IS the fallback, not a player: a player carries its own stricter policy and
+		// its inline kernel. Without this the arm would pass on a run where assembly succeeded.
+		assert.doesNotMatch(html, /default-src 'none'/, 'this is the clean render, not an assembled player');
+		assert.match(
+			html,
+			/<head[^>]*><meta http-equiv="Content-Security-Policy"/i,
+			'the clean sidecar left by a failed player assembly shipped WITHOUT the policy — a '
+			+ 'live document a recipient opens, uncontained, on the one path nobody drives',
+		);
+		// And it behaves: opened for real, the beacons do not fire.
+		const { hits } = await probe(out);
+		assert.deepEqual(hits, [], 'the fallback sidecar beaconed when opened');
+	});
 });
