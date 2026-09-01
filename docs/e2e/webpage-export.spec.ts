@@ -285,3 +285,44 @@ test('the Studio webpage export keeps a tight list tight — the note was inside
 	expect(await exportedSections(page, stripped), 'byte-identical to the same deck written without the note')
 		.toEqual(await exportedSections(page, twin));
 });
+
+test('the Studio webpage export stands down loudly when NO cut reproduces the deck', async ({ page }, testInfo) => {
+	test.setTimeout(180_000);
+	// The third outcome, and the only one where the promise degrades — so it is the one worth
+	// driving on the real button rather than reasoning about. A note at COLUMN 0 between two list
+	// items is what splits them into two lists: leave a blank line in its place and they become
+	// one loose list, take the line and they become one tight list. Neither is the deck the author
+	// wrote, so the export keeps the SLIDES as written and says so.
+	//
+	// What must still hold is the privacy half. The note text goes from the DOM and from the
+	// envelope either way; what is given up is only the concealment of WHICH slide carried one.
+	const SECRET = 'BOARDONLYFIGURE99';
+	const DECK = ['---', 'theme: indaco', '---', '', '# Numbers', '', '- Revenue up 12 percent', `<!-- ${SECRET} -->`, '- Costs flat', ''];
+
+	const warnings: string[] = [];
+	page.on('console', (m) => { if (m.type() === 'warning') warnings.push(m.text()); });
+	const file = await exportWebpage(page, testInfo, DECK.join('\n'), { stripNotes: true, as: 'fallback.html' });
+	const html = await readFile(file, 'utf8');
+
+	// The privacy promise holds: no note text in the DOM, and none in the re-import source.
+	expect(html, 'the note text is gone from the DOM').not.toContain(SECRET);
+	const { parseEnvelope } = (await import('../../lib/core/lattice-doc.js')) as { parseEnvelope: (h: string) => { source?: string } };
+	expect(parseEnvelope(html).source || '', 'the note text is gone from the envelope').not.toContain(SECRET);
+
+	// The deck was NOT restructured: the author's two separate lists are still two lists.
+	const lists = await (async () => {
+		const viewer = await page.context().newPage();
+		await viewer.goto(`file://${file}`);
+		const n = await viewer.evaluate(() => document.querySelectorAll('section[data-lattice-slide] ul').length);
+		await viewer.close();
+		return n;
+	})();
+	expect(lists, 'the author’s two lists survive — the export did not merge them').toBe(2);
+
+	// And it said so, naming the cause and the fix. This is the one path where the author has to
+	// edit the deck to get the concealment back, so a bare "something changed" is not enough.
+	const said = warnings.join(' ');
+	expect(said, 'the export warned that no cut reproduced the deck').toMatch(/could not remove a note comment/);
+	expect(said, 'the warning names the cause').toMatch(/column 0 BETWEEN two list items/);
+	expect(said, 'the warning names the fix').toMatch(/move the note inside an item, or out of the list/);
+});
