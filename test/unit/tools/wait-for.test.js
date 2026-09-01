@@ -322,13 +322,20 @@ describe('wait-for — the lock is the kernel\'s, not ours', () => {
     const job = jobName('race');
     // Concurrent, and their exit codes collected — five separate spawnSync calls
     // would serialize and never race at all.
+    //
+    // The script path and job name are passed as ARGUMENTS rather than
+    // interpolated into the command text (CodeQL flagged the interpolation as a
+    // shell command built from an uncontrolled path). It is also simply more
+    // robust: a checkout directory containing a space or a shell metacharacter
+    // would break the interpolated form.
     const script = `
       for i in 1 2 3 4 5; do
-        ( "${SCRIPT}" --job ${job} --timeout 10 -- sleep 2 >/dev/null 2>&1; echo $? ) &
+        ( "$1" --job "$2" --timeout 10 -- sleep 2 >/dev/null 2>&1; echo $? ) &
       done
       wait
     `;
-    const r = spawnSync('bash', ['-c', script], { encoding: 'utf8', cwd: REPO, timeout: 90_000 });
+    const r = spawnSync('bash', ['-c', script, 'wait-for-race', SCRIPT, job],
+      { encoding: 'utf8', cwd: REPO, timeout: 90_000 });
     const codes = (r.stdout || '').trim().split('\n').filter(Boolean).map(Number);
     assert.equal(codes.length, 5, `expected 5 results, got ${JSON.stringify(codes)}`);
     assert.equal(
