@@ -15,7 +15,7 @@ section.cards-grid > .cell-stage { display:flex; flex-direction:column; }
  * card is itself the two-cells-then-full-width pattern (actors §11.A): title + badge on the
  * header row, the body wraps to a full-width row 2. */
 section.cards-grid > .cell-stage > ul, section.cards-grid > .cell-stage > ol {
-  display:flex; flex-wrap:wrap; align-content:stretch;
+  display:flex; flex-wrap:wrap; align-content: space-evenly;
   gap:var(--sp-md); flex:1;
   list-style:none; padding:0; margin:0;
 }
@@ -52,7 +52,7 @@ section.cards-grid > .cell-stage > ol > li > ul > li, section.cards-grid > .cell
 /* — lattice.js post-processed path — */
 section.cards-grid .cards-grid-inner,
 section.cards-grid .cards-grid-inner--ordered {
-  display:flex; flex-wrap:wrap; align-content:stretch;
+  display:flex; flex-wrap:wrap; align-content: space-evenly;
   gap:var(--sp-md); flex:1;
 }
 section.cards-grid .card {
@@ -102,7 +102,7 @@ section.cards-grid .cards-grid-inner--ordered > .card::before {
  * ul/ol > li (nested list format) → mimic .cards-grid-inner > .card             */
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul,
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol {
-  display:flex; flex-wrap:wrap; align-content:stretch;
+  display:flex; flex-wrap:wrap; align-content: space-evenly;
   gap:var(--sp-md); flex:1; list-style:none; padding:0; margin:0;
 }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li,
@@ -205,10 +205,13 @@ section.cards-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 /* `.cards-grid.cards-grid` (class doubled) reaches (0,2,2) so it matches the
  * `:not(:has(.cards-grid-inner))` base grid rule and wins on source order — the
  * role the old `[data-orientation]` attribute played. */
-section.cards-grid.cards-grid:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul,
-section.cards-grid.cards-grid:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
-  align-content: space-evenly;   /* content-height rows distributed, not stretched-to-fill */
-}
+/* `align-content: space-evenly` used to be stamped here for square, tall and strip
+ * while `wide` kept `align-content: stretch`. It is not a family behavior — a row of
+ * peers wants content-height cards at every aspect — so it moved up to the three base
+ * row rules and this override is gone. Two things that fixes beyond the wide gap:
+ * the override reached only `> .cell-stage > ul, > ol`, so the lattice.js
+ * (`.cards-grid-inner`) and VS Code (`:not(:has())`) emit paths never got it at ANY
+ * family; and hoisting it keeps all three paths saying the same thing. */
 /* SQUARE KEEPS THE 2-UP GRID — only tall/strip go single-column. A square box is
  * the `balanced` family (lib/adaptive/families.js: "2×2 grids, 2-up"), and it has
  * the width for two cards, and one column fights the family's own definition.
