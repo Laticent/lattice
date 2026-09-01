@@ -6,9 +6,9 @@ acronyms:
   KB: kilobytes
 header: "Lattice · Reader views, exported"
 lenses:
-  brief: { label: "Brief", base: none, order: 1, kind: rung, approved: "sha256:34816b88a818fe468b832adecc52b74ae63e501b1c33fae26b91013e32de6282" }
-  evidence: { label: "Evidence", base: none, order: 2, kind: rung, approved: "sha256:5e869db5cb6674532f55ae4421dd3d479422e6758dd1399e07715fd0cd129f46" }
-  ask: { label: "The ask", base: none, order: 3, approved: "sha256:72d3e49459c5a6921fea42f0752cee62c5beedb984e8137a6429faeb269dcc0c" }
+  brief: { label: "Brief", base: none, order: 1, kind: rung, approved: "sha256:bc7205fb1d53b752739374ce22834a613286209bb7ec806773804435e7303b32" }
+  evidence: { label: "Evidence", base: none, order: 2, kind: rung, approved: "sha256:56b0b4a05010d1bb121e7cd14d2f82dcdcf1bc312875d81569921a9ee1d70b33" }
+  ask: { label: "The ask", base: none, order: 3, approved: "sha256:f303a1db30f8e9474342baaea97c4c653bb78ac4fe104a840120dff232bbf06a" }
 ---
 <!-- _class: title -->
 <!-- _lens: brief evidence -->
@@ -86,9 +86,9 @@ The workaround was page surgery: render all 52 pages, extract 2, 8 and 48, stapl
 
 ## The re-importable envelope is the one people forget.
 
-A player embeds the deck source so it can round-trip into an editable deck. That is the fourth way a withheld slide reaches a recipient, and the easiest: not a source view, an import.
+A player embeds the deck source so it round-trips into an editable deck — the fourth way a withheld slide reaches a recipient, and the easiest: an import, not a source view.
 
-So a projected export carries only what shipped. `--lens-source full` puts the whole deck back — the recipient then recovers every slide no view showed them.
+So a projection carries only what shipped — the views too, not just the slides. `--lens-source full` puts the whole deck back, views and all.
 
 ---
 
@@ -99,8 +99,8 @@ So a projected export carries only what shipped. `--lens-source full` puts the w
 
 1. One view, as many pages as it projects — pass its id to --lens.
 2. Two views in one file — pass both ids, and add --player.
-3. An unavailable view exits non-zero and writes nothing.
-4. Several views need a carrier; a PDF refuses rather than guess.
+3. Pick which one it opens on with --lens-default.
+4. An unavailable view exits non-zero and writes nothing.
 
 ---
 
@@ -113,5 +113,5 @@ So a projected export carries only what shipped. `--lens-source full` puts the w
 
 `Where this leaves us`
 
-Switch the view above — a brief, the evidence, or the ask.
+Pick a view from the menu above — a brief, the evidence, or the ask.
 

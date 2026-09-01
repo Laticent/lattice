@@ -120,6 +120,23 @@ describe('--lens: the projected export', () => {
 		assert.ok(!envelope.includes(WITHHELD), 'withheld text in the re-importable envelope');
 	});
 
+	test('a withheld VIEW is not named either — the fifth channel', { timeout: TIMEOUT }, () => {
+		// The four channels above carry a withheld SLIDE. The registry carries a withheld
+		// VIEW, and it is the channel that stayed open longest: a `--lens brief` export
+		// withheld every `ask` slide and then, in the envelope's own front matter, named
+		// `ask`, printed its human label ("The ask" — prose an author writes, and it can be
+		// "Board only — restructuring"), published its approval digest, and marked on every
+		// kept slide whether it was a member. Nothing about that survives the reduction.
+		const { dir, deck } = setup();
+		const out = path.join(dir, 'brief-only.html');
+		assert.equal(run(deck, out, ['--player', '--lens', 'brief']).status, 0);
+		const html = fs.readFileSync(out, 'utf8');
+		const envelope = Buffer.from(/id="lattice-doc"[^>]*>([A-Za-z0-9+/=\s]+)<\/script>/.exec(html)[1], 'base64').toString('utf8');
+		assert.ok(envelope.includes('brief'), 'sanity: the view that WAS exported is still declared');
+		assert.ok(!envelope.includes('The ask'), 'the withheld view’s label');
+		assert.ok(!/\bask\b/.test(envelope), 'the withheld view’s id, in the registry or on any slide’s tag');
+	});
+
 	test('`--lens-source full` re-admits the whole deck to the envelope, by explicit request', { timeout: TIMEOUT }, () => {
 		const { dir, deck } = setup();
 		const out = path.join(dir, 'brief-full.html');

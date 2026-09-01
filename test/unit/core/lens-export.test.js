@@ -78,38 +78,109 @@ test('several views ship their union, in author order, each view indexed into it
 	assert.deepEqual(both.views.find((v) => v.id === 'ask').indices, [2]);
 });
 
-test('`full` is byte-identical to no projection at all', () => {
+test('`full` alone carries NO other view, and leaves the body byte-identical', () => {
+	// `--lens full` is a selection, not a no-op: the author asked for the whole deck AND for
+	// no other view, so the registry and every foreign membership tag go with the others.
+	// What must not change is a single byte of the SLIDES.
 	const src = deckWith(VIEWS, MEMBERSHIP);
 	const full = projectForExport(src, ['full']);
 	assert.equal(full.ok, true);
-	assert.equal(full.source, src, 'the caller gets its OWN string back, not a re-assembled copy');
+	assert.equal(full.source.slice(frontMatterBlockOf(full.source).length), src.slice(frontMatterBlockOf(src).length).replace(/<!-- _lens: [^>]*-->\n/g, ''),
+		'the slides are the author’s own text, minus the membership tags for views this export does not carry');
+	assert.doesNotMatch(full.source, /lenses:/, 'no view but `full` is exported, so no registry ships');
+	assert.doesNotMatch(full.source, /_lens:/, 'and no slide still declares membership in one');
+	assert.equal(renderedSections(full.source), renderedSections(src), 'every slide still ships');
 });
 
-test('the identity shortcut is what makes `full` byte-exact — re-assembly is NOT lossless', () => {
-	// The test above passes with the shortcut REMOVED, because re-assembly happens to be
-	// byte-identical for an ordinary LF `---` deck: chunk + '\n' + sep + '\n' + chunk
-	// reproduces the original exactly. So it pins the property without pinning the mechanism,
-	// and two mutants (`identity = false`, `identity = kept.length >= slides.length`) survived
-	// the whole suite.
-	//
-	// A deck whose body OPENS with a separator discriminates: that leading separator belongs to
-	// no chunk, so re-assembly cannot put it back. The shortcut is the only reason `--lens full`
-	// hands back what it was given, which is the guarantee the docblock claims.
-	const base = deckWith(VIEWS, MEMBERSHIP);
-	const fm = frontMatterBlockOf(base);
-	const src = `${fm}\n---\n${base.slice(fm.length)}`;
+test('a deck with nothing to prune gets its OWN string back — the identity shortcut', () => {
+	// The shortcut is what makes an un-annotated deck byte-exact through `--lens full`. It is
+	// pinned on a deck whose body OPENS with a separator, because that separator belongs to no
+	// chunk: it is the one thing a re-assembly has to put back deliberately.
+	const src = `---\nmarp: true\ntheme: indaco\n---\n\n---\n\n# One\n\n---\n\n# Two\n`;
 	const out = projectForExport(src, ['full']);
 	assert.equal(out.ok, true);
 	assert.equal(out.source, src, '`full` returns the caller’s own string, leading separator and all');
-	assert.match(out.source.slice(fm.length), /^\n---\n/, 'the leading separator survived — re-assembly would have dropped it');
 });
 
-test('a view containing every slide also returns the original source', () => {
+test('a leading separator survives the RE-ASSEMBLY path too, not just the shortcut', () => {
+	// The shortcut answers `full` before any re-assembly runs, so it cannot pin what a REDUCING
+	// projection does with that separator. This does: slide 0 is a `brief` member, so the
+	// separator that opens the body still precedes the first slide shipped and must come back.
+	const base = deckWith(VIEWS, MEMBERSHIP);
+	const fm = frontMatterBlockOf(base);
+	const src = `${fm}\n---\n${base.slice(fm.length)}`;
+	const out = projectForExport(src, ['brief']);
+	assert.equal(out.ok, true);
+	assert.match(out.source.slice(frontMatterBlockOf(out.source).length), /^\n---\n/, 'the leading separator was re-emitted, not dropped');
+	assert.equal(renderedSections(out.source), MEMBERSHIP.brief.length, 'and it still adds no section');
+});
+
+test('a view containing every slide keeps the body, and still sheds its siblings', () => {
 	const all = [{ id: 'everything', label: 'Everything', base: 'all' }];
 	const src = deckWith(all, { everything: [0, 1, 2, 3] }, { n: 4 });
 	const out = projectForExport(src, ['everything']);
 	assert.equal(out.ok, true);
-	assert.equal(out.source, src, 'identity is a property of the RESULT, not of the id `full`');
+	assert.equal(out.source.slice(frontMatterBlockOf(out.source).length), src.slice(frontMatterBlockOf(src).length),
+		'no slide was dropped, so no slide was re-assembled');
+});
+
+test.describe('an export carries ONLY the views it exports', () => {
+	test('the registry and the membership tags both shed the views left behind', () => {
+		const src = deckWith(VIEWS, MEMBERSHIP);
+		assert.match(src, /ask: \{/, 'fixture sanity: the unprojected deck declares both views');
+
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true);
+		assert.match(out.source, /brief: \{/, 'the exported view is still declared');
+		assert.doesNotMatch(out.source, /ask/, 'the view left behind is named nowhere — not its id, label, or digest');
+		for (const tag of out.source.match(/<!-- _lens:([^>]*)-->/g) ?? []) {
+			assert.doesNotMatch(tag, /ask/, 'and no kept slide still declares membership in it');
+		}
+	});
+
+	test('the re-stamped approval still opens the view in the artifact', () => {
+		// A copied digest covers the PRE-projection member bodies and foreign tags, so it reads
+		// `drifted` the moment anyone re-opens the exported deck — the view would refuse to open
+		// in the file that exists to show it. Re-parsing the projection is the only honest check.
+		const src = deckWith(VIEWS, MEMBERSHIP);
+		const out = projectForExport(src, ['brief', 'ask']);
+		assert.equal(out.ok, true);
+		const again = projectForExport(out.source, ['brief']);
+		assert.equal(again.ok, true, `the exported deck must still project its own views (got ${again.reason})`);
+		assert.equal(again.kept.length, MEMBERSHIP.brief.length, 'and to the same slides');
+	});
+
+	test('the label a reader sees survives the prune', () => {
+		const src = deckWith(VIEWS, MEMBERSHIP);
+		const out = projectForExport(src, ['ask']);
+		assert.match(out.source, /label: "The ask"/, 'a pruned registry is still a registry, not a bare id list');
+	});
+});
+
+test.describe('the view the artifact opens on', () => {
+	test('defaults to the first view asked for', () => {
+		const src = deckWith(VIEWS, MEMBERSHIP);
+		assert.equal(projectForExport(src, ['ask', 'brief']).default, 'ask');
+	});
+
+	test('an explicit default is recorded in the deck it ships', () => {
+		const src = deckWith(VIEWS, MEMBERSHIP);
+		const out = projectForExport(src, ['brief', 'ask'], { default: 'ask' });
+		assert.equal(out.ok, true);
+		assert.equal(out.default, 'ask');
+		assert.match(out.source, /^lens-default: ask$/m, 'so re-opening the artifact opens the same view');
+	});
+
+	test('naming a default this export does not carry REFUSES', () => {
+		// Falling back to the first view would ship a correct-looking artifact that opens on the
+		// wrong one, and say nothing.
+		const src = deckWith(VIEWS, MEMBERSHIP);
+		const out = projectForExport(src, ['brief'], { default: 'ask' });
+		assert.equal(out.ok, false);
+		assert.equal(out.reason, 'default-not-exported');
+		assert.equal(out.lensId, 'ask');
+		assert.ok(REFUSAL_REASONS['default-not-exported'], 'the reason carries an explanation the CLI can print');
+	});
 });
 
 test('a non-`---` separator survives the projection', () => {
@@ -193,4 +264,27 @@ test.describe('fails CLOSED — every one of the five reasons refuses', () => {
 		assert.equal(out.ok, true);
 		assert.equal(out.source, src, 'a deck with no views renders exactly as it does today, to the byte');
 	});
+});
+
+test('a chunk that ends mid-paragraph still gets the separator pad', () => {
+	// The pad is conditional now, so the case it exists for needs its own test — and finding
+	// that case takes a `***`. `slideBoundaries` reads `---` under a prose line the way
+	// markdown-it does (a setext underline, not a boundary), so a chunk before a `---` always
+	// ends on a blank line and never needs the pad. `***` is a thematic break in every context,
+	// so a chunk can end mid-paragraph in front of one — and when the slide AFTER it is dropped,
+	// that chunk lands in front of the NEXT slide's `---`, which would underline it.
+	const one = '\n# One\n\nprose';
+	const two = '\n\n# Two\n\nDropped.\n';
+	const three = '\n\n# Three\n\nKept.\n';
+	const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, { id: 'brief', label: 'Brief', base: 'none' }], default: 'full' };
+	const chunks = [one, two.slice(1), three.slice(1)].map((s, i) => applyTag(s, 'brief', i !== 1, 'none'));
+	const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
+	const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---${chunks[0]}\n***\n${chunks[1]}\n---\n${chunks[2]}`;
+	assert.equal(renderedSections(src), 3, 'fixture sanity: three slides');
+
+	const out = projectForExport(src, ['brief']);
+	assert.equal(out.ok, true, `expected a projection, got ${out.reason}`);
+	assert.match(out.source, /prose\n\n---\n/, 'the pad was written — without it the separator underlines the paragraph');
+	assert.equal(renderedSections(out.source), 2, 'two slides ship, and the paragraph is still on the first');
+	assert.match(out.source, /prose/, 'the paragraph survived rather than becoming a heading');
 });

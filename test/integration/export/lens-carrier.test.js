@@ -123,7 +123,7 @@ describe('a multi-view player carrier', { skip }, () => {
 		assert.deepEqual(labels, ['Brief', 'Evidence', 'The ask'], 'the author’s own names, in full — the reason this is a select');
 	});
 
-	test('a carrier opens on the first view it was given', { timeout: TIMEOUT }, async () => {
+	test('with no --lens-default it opens on the first view named', { timeout: TIMEOUT }, async () => {
 		assert.equal(await page.$eval('#lp-lens-sel', (s) => s.value), 'brief');
 	});
 
@@ -290,6 +290,44 @@ describe('a multi-view player carrier', { skip }, () => {
 		} finally {
 			await page2.close();
 		}
+	});
+
+	test('--lens-default decides which view the file opens on', { timeout: TIMEOUT }, async () => {
+		// The opening view is an editorial choice — the board gets the brief, the analyst gets
+		// the evidence — and "the order you typed the ids in" is a poor way to express it,
+		// because that order is also what the switcher lists.
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-default-'));
+		const deck = path.join(path.dirname(file), 'deck.md');
+		const out = path.join(dir, 'opens.html');
+		const r = spawnSync(process.execPath, [EMULATOR, deck, out, '--quiet', '--player', '--lens', 'brief,evidence,ask', '--lens-default', 'ask'], {
+			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+		});
+		assert.equal(r.status, 0, r.stderr);
+		const p2 = await browser.newPage();
+		try {
+			await p2.goto(`file://${out}`);
+			await p2.waitForFunction(() => document.documentElement.classList.contains('lp-js'));
+			assert.equal(await p2.$eval('#lp-lens-sel', (s) => s.value), 'ask', 'the control opens on the named view');
+			const shown = await p2.evaluate(() => {
+				const st = document.querySelector('#lp-app > #lp-stage');
+				return [...st.querySelectorAll(':scope > .lp-frame')].filter((f) => !f.hidden).map((f) => Number(f.getAttribute('data-lp-i')));
+			});
+			assert.deepEqual(shown, inCarrier(MEMBERSHIP.ask), 'and the deck it shows is that view, not the first one listed');
+		} finally {
+			await p2.close();
+		}
+	});
+
+	test('naming a default this export does not carry writes nothing', { timeout: TIMEOUT }, () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-baddefault-'));
+		const deck = path.join(path.dirname(file), 'deck.md');
+		const out = path.join(dir, 'never.html');
+		const r = spawnSync(process.execPath, [EMULATOR, deck, out, '--quiet', '--player', '--lens', 'brief,evidence', '--lens-default', 'ask'], {
+			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+		});
+		assert.notEqual(r.status, 0, 'a default outside the export is a refusal, not a fallback');
+		assert.match(r.stderr, /ask/, 'and the message names the id the author typed');
+		assert.ok(!fs.existsSync(out), 'nothing was written');
 	});
 
 	test('a single-view export is not a carrier — no switcher, no stamps', { timeout: TIMEOUT }, () => {

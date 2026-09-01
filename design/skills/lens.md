@@ -170,6 +170,23 @@ it carries only the slides that shipped; `--lens-source full` restores the whole
 which is a real choice with a real cost — the recipient can then recover every slide no
 view showed them, and the `lenses:` block naming the views they were not given.
 
+**The views themselves are pruned too, not just the slides.** A `--lens brief` export
+carries `brief` and nothing else: the front matter's `lenses:` block names only the views
+you exported, and each kept slide's `_lens` tag names only those views. So a withheld
+view's id, its human label (which is prose you wrote — "Board only — restructuring"), its
+approval digest and its per-slide membership are all absent from the file, not merely
+absent from the switcher. The approval digests of the views that DO ship are re-stamped
+against the projected deck, because the digest binds the member bodies and a copied one
+would read `drifted` in the very artifact that exists to show the view. `--lens-source
+full` is the one exception, and it is you asking for the whole deck by name.
+
+**`--lens-default <id>` picks the view the file opens on.** Without it a carrier opens on
+the first id you named, which is also the order the dropdown lists them in — two jobs for
+one piece of syntax, and the opening view is a real editorial choice (the board gets the
+brief, the analyst gets the evidence). Naming a view the export does not carry is a
+refusal, not a fallback: otherwise you would ship a correct-looking file that opens on the
+wrong view and never be told.
+
 **The switcher is a dropdown, not a row of buttons.** A view's name is your own noun and
 there is no icon that could stand for one, so the control has to show words — and a button
 per view sizes the whole top bar to how many views you declared and how long you named

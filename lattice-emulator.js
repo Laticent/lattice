@@ -261,6 +261,9 @@ OPTIONS
                           hidden — switching is a display rule, so every view in
                           one file is reachable from that file. Export one view
                           per file for a recipient who must not have the others.
+      --lens-default <id> Which of the --lens views the player OPENS on. Must be
+                          one of the ids you exported; naming any other exits
+                          non-zero. Defaults to the first one you named.
       --lens-source <s>   What a --lens player's embedded envelope carries:
                           'projected' (default) ships only the slides that
                           shipped; 'full' keeps the deck exactly as authored, so
@@ -394,6 +397,8 @@ function parseArgs(argv) {
     '--lens': 'lens',
     // What the player envelope carries once --lens has projected: 'projected' | 'full'.
     '--lens-source': 'lens-source',
+    // Which exported view the carrier opens on. See LENS_DEFAULT.
+    '--lens-default': 'lens-default',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -808,13 +813,24 @@ if (LENS_SOURCE === 'full' && flags['strip-notes'] && String(flags.lens ?? '').t
   console.error('       that were not — so their speaker notes would ride into the envelope. Drop one of the two.');
   process.exit(1);
 }
+// WHICH VIEW THE FILE OPENS ON. A carrier's first view is a real editorial choice — the
+// board gets the brief, the analyst gets the evidence — and "the order you typed the ids in"
+// is a bad way to express it, because that order is also what the switcher lists. Naming a
+// view this export does not carry REFUSES rather than falling back: an author who typed the
+// wrong id would otherwise ship a correct-looking file that opens on the wrong view.
+const LENS_DEFAULT = String(flags['lens-default'] ?? '').trim();
+if (LENS_DEFAULT && !LENS_IDS.length) {
+  console.error('error: --lens-default needs --lens — it names one of the views being exported.');
+  process.exit(1);
+}
 let LENS_VIEWS = null;
 let LENS_REPORT = null;
 let LENS_TOTAL = 0;
+let LENS_OPENS_ON = null;
 let lensProjected = mdRaw;
 if (LENS_IDS.length) {
   const { projectForExport, exportableViews, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
-  const out = projectForExport(mdRaw, LENS_IDS);
+  const out = projectForExport(mdRaw, LENS_IDS, { default: LENS_DEFAULT || undefined });
   // FAIL CLOSED. A view is often a deliberate REDUCTION, so falling through to the
   // full deck would hand the reader every slide the author kept out — the one
   // failure mode the design forbids (2026-07-13-lente-reader-lenses.md §6.3).
@@ -826,6 +842,12 @@ if (LENS_IDS.length) {
   }
   LENS_VIEWS = out.views;
   LENS_TOTAL = out.total;
+  LENS_OPENS_ON = out.default;
+  // The projected source has already SHED the views this export does not carry — both the
+  // front-matter `lenses:` block and the per-slide `_lens` tags (lib/core/lens-export.mjs).
+  // That matters here because `lensProjected` is what the `.html` envelope ends up carrying:
+  // without the prune, a one-view export still told the recipient the ids, labels, approval
+  // digests and per-slide membership of every view it withheld.
   lensProjected = out.source;
   // Reported only once the export is committed to running — see the carrier guard below.
   // Saying "5 of 16 slides ship" and then refusing is a line that describes an artifact
@@ -4335,6 +4357,8 @@ async function renderBody(browser, g, closeBrowser) {
         // Only past two views does the player build a switcher: one view is not a carrier,
         // it is an ordinary player of a deck that was already reduced.
         lensViews: LENS_VIEWS,
+        // Which of them the file OPENS on (`--lens-default`, else the first id named).
+        lensDefault: LENS_OPENS_ON,
         // What this envelope IS, when it is not the whole deck — so a re-import can say
         // "4 of 16 slides, under `brief`" rather than looking like a deck that lost twelve
         // slides and broke its own approvals. Only for a PROJECTED envelope: under

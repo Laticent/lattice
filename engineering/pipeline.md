@@ -84,6 +84,7 @@ show, instead of the whole deck:
 ```bash
 node lattice-emulator.js deck.md board.pdf  --lens brief             # one view, 4 pages
 node lattice-emulator.js deck.md pack.html  --lens brief,evidence --player   # both, one file
+node lattice-emulator.js deck.md pack.html  --lens brief,evidence --lens-default evidence --player
 ```
 
 Views come from the deck's front-matter `lenses:` block, and each must have been
@@ -99,6 +100,17 @@ also what a `--lens` export can honestly claim that the Studio cannot — the sl
 leaves out are not in the file, rather than hidden inside it. Inside a multi-view player
 the switching is still only hiding. `--lens-source full` puts the whole deck source back
 in the player's re-import envelope, which undoes that for everything except the DOM.
+
+The reduction covers the **views** as well as the slides: the projected source's `lenses:`
+block and every kept slide's `_lens` tag name only the views being exported, so a withheld
+view's id, label, approval digest and membership are absent from the artifact rather than
+merely absent from its switcher. Surviving views get their approval digests re-stamped
+against the projected deck — the digest binds the member bodies, so a copied one reads
+`drifted` in the artifact that exists to show the view.
+
+`--lens-default <id>` names which of the exported views a carrier opens on (default: the
+first id given). Naming a view the export does not carry exits non-zero rather than
+falling back, so a typo cannot ship a file that opens on the wrong view.
 
 **Palette resolution** (highest wins): CLI positional/`--palette` flag →
 `LATTICE_PALETTE` env → the deck's own front-matter `theme:` → default
