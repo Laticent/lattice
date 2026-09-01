@@ -42,9 +42,10 @@ Should we and can we be strict?"
 
 ## What was already true
 
-The premise was mostly already met, which changed the work entirely. Four
-families of hand-authored manifest, 131 files, and every one of them already
-shipped a schema beside it — all five declaring `additionalProperties: false`:
+The premise was mostly already met, which changed the work entirely. Five
+families of hand-authored manifest — components, themes, and the Form model's
+frames, cells and tiles — 131 files, and every one of them already shipped a
+schema beside it, all five declaring `additionalProperties: false`:
 
 | Family | Files | Schema |
 |---|---|---|

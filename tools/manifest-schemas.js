@@ -2,8 +2,8 @@
  * The ONE declaration of which manifest families exist, which schema governs
  * each, and how a manifest is checked against it.
  *
- * WHY THIS FILE EXISTS. Lattice keeps four kinds of hand-authored JSON manifest
- * — components, themes, and the Form model's frames / cells / tiles — and every
+ * WHY THIS FILE EXISTS. Lattice keeps five families of hand-authored JSON manifest
+ * — components, themes, and the Form model's frames, cells and tiles — and every
  * one of them already shipped a `*.schema.json` beside it. Those schema files
  * were inert. Nothing in the repo ran a JSON-Schema validator, so each family
  * grew its OWN hand-written checker instead, and the three of them disagreed
@@ -71,7 +71,7 @@ const ROOT = path.resolve(__dirname, '..');
 
 /**
  * THE REGISTRY. Every hand-authored manifest in the repo belongs to exactly one
- * row, and `checkFamilyCoverage` below fails the build on any manifest that
+ * row, and arm 1 of `checkManifestSchemas` below fails the build on any manifest that
  * belongs to none — because a new family that nobody registers is a new family
  * nobody checks, which is how forms stayed unchecked in the first place.
  *
