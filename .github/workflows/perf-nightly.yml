@@ -158,8 +158,22 @@ jobs:
             echo ""
             echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} · base \`${{ steps.base.outputs.sha }}\` → head \`${{ github.sha }}\`._"
           } >> "$BODY"
-          ISSUE=$(gh issue list --state open --search "in:title $MARKER" --json number -q '.[0].number' || true)
-          if [ -n "$ISSUE" ]; then
+          # Find the rolling issue by its title MARKER, client-side. `--search "in:title $MARKER"`
+          # looks right and is not: GitHub tokenizes the query on the brackets and the hyphen,
+          # so it degrades to the bare words and matches human-authored issues — `.[0]` then
+          # takes someone else's issue and appends to it nightly while the rolling issue is
+          # never found and never updated. studio-e2e-nightly.yml fixed this for itself and its
+          # comment recorded that every sibling still carried the bug; this is that fix.
+          # `startswith` on the marker rather than full-title equality, because
+          # overflow-nightly.yml deliberately RETITLES its rolling issue as the condition
+          # changes — across this family only the marker is stable.
+          # THE STAND-DOWN STEP BELOW MUST USE THE IDENTICAL LOOKUP. Two different searches
+          # would let this step append to one thread while that one closes another.
+          # --limit is far above the open-issue count; gh paginates to reach it, and a limit the
+          # backlog could outgrow would silently miss the issue and file a fresh duplicate nightly.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
             echo "Appended to issue #$ISSUE"
           else
@@ -169,6 +183,56 @@ jobs:
               --label "priority:high" --label "status:backlog" \
               --body-file "$BODY"
           fi
+
+      # STAND THE ALARM DOWN — and for THIS job that means COMMENT, NEVER CLOSE.
+      #
+      # Every other nightly alarm in this repo closes its rolling issue on a measured green,
+      # because every other one is ABSOLUTE: it is scored against the commit in front of it.
+      # This job is DIFFERENTIAL — head against a base ~24h old — and that makes a green
+      # night unreadable as a fix. A regression lands on day 0; night 1 the base predates it,
+      # the alarm fires; night 2 the base INCLUDES it, both arms carry it, the diff is clean.
+      # Closing there would be literally true and completely misleading, on a still-broken
+      # site. The sibling `engine-perf` job hit exactly this and solved it by closing only a
+      # thread whose body says the previous firing was a HARNESS failure. This job emits no
+      # such marker, so a close condition here would be one I could not ground — and a step
+      # that closes on the wrong evidence is worse than the ratchet it replaces.
+      #
+      # So it comments. That is not a consolation prize: it turns a thread that has been
+      # accumulating failures with no counter-evidence into one that says which nights
+      # measured clean and on which commit, which is what a human needs to decide whether to
+      # close it. The one-way ratchet was never really "it does not close" — it was "nothing
+      # ever argues the other side".
+      #
+      # BOTH ARMS MUST HAVE SUCCEEDED, and the base arm is the one that matters.
+      # `Build + collect — base` is `continue-on-error`, and perf-regression.mjs skips any
+      # metric with no base reading (`evaluate()`: `base == null → regressed: false, reason:
+      # 'missing'`). So a base arm that died entirely yields ZERO comparisons and a cheerful
+      # `regressed=false` — not a green site, a green nothing. Commenting "measured green" on
+      # that is the not-measured-as-health sin this whole change exists to remove. `outcome`
+      # rather than the output alone, for the empty-string reason the sibling job documents.
+      - name: Report a measured-green night on the rolling issue
+        if: >-
+          always() && github.ref == 'refs/heads/main'
+          && steps.compare.outcome == 'success' && steps.compare.outputs.regressed == 'false'
+          && steps.basecollect.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          MARKER='[perf-nightly]'
+          # The IDENTICAL lookup the filing step above uses — see its comment. Two different
+          # searches is how one step appends to a thread while another acts on a different one.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
+          {
+            echo "Measured green on \`main@${{ github.sha }}\` against base \`${{ steps.base.outputs.sha }}\` — no page past its budget, and both arms collected."
+            echo ""
+            echo "**Left open deliberately.** This watch compares head against a base ~24h old, so a clean night cannot tell \"fixed\" from \"the base now carries the regression too\". Close it by hand once you have confirmed the fix; a recurrence appends here."
+            echo ""
+            echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
+          } > "$GITHUB_WORKSPACE/stand-down.md"
+          gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
 
   # ── Engine + preview + export perf ────────────────────────────────────────────
   # A SECOND AXIS. The lighthouse job above measures docs-site PAGE LOAD (LCP/TBT,
@@ -347,21 +411,37 @@ jobs:
       #    a green-night comment and stays open for a human, because a differ with a 24-hour memory
       #    cannot tell "fixed" from "now on both sides".
       - name: Stand down the rolling issue when measured green
-        if: always() && steps.compare.outcome == 'success' && steps.preview.outcome == 'success' && steps.compare.outputs.regressed == 'false' && steps.preview.outputs.breached == 'false'
+        if: always() && steps.compare.outcome == 'success' && steps.preview.outcome == 'success' && steps.compare.outputs.regressed == 'false' && steps.preview.outputs.breached == 'false' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -uo pipefail
           MARKER='[perf-nightly-engine]'
-          ISSUE=$(gh issue list --state open --search "in:title $MARKER" --json number -q '.[0].number' || true)
-          [ -n "$ISSUE" ] || exit 0
-          BODY=$(gh issue view "$ISSUE" --json body -q .body || true)
-          gh issue comment "$ISSUE" --body "Measured green on \`${{ github.sha }}\` — no tier past its band, no ceiling breached." || true
+          # The IDENTICAL lookup the filing step uses — see its comment. These two searching
+          # differently is how a stand-down closes a thread nobody was appending to.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
+          # THE LATEST FIRING, NOT THE ISSUE BODY. The body is written once, by
+          # `gh issue create`; every firing after the first is a COMMENT, so the body
+          # describes the thread's FIRST firing forever. Discriminating on it closes a
+          # thread whose most recent firing was a real, unfixed regression:
+          #   night 1  harness failure  -> body says NOTHING WAS COMPARED
+          #   nights 2..N  real regression -> appended as comments, body untouched
+          #   night N+1  base is now old enough to carry the regression too, so the
+          #              diff reads clean -> the old code matched the STALE body and
+          #              closed. No adversary required.
+          # `last` falls back to the body via `//` for a thread with no comments yet,
+          # where the body really is the latest firing. Read BEFORE this step posts its
+          # own comment below, or it would discriminate on itself.
+          LATEST=$(gh issue view "$ISSUE" --json body,comments \
+            --jq '(.comments | map(.body) | last) // .body' || true)
+          gh issue comment "$ISSUE" --body "Measured green on \`${{ github.sha }}\` — no tier past its band, no ceiling breached. _Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._" || true
           # Close ONLY a harness-failure thread. A real regression stays open: head-vs-base-24h
           # cannot distinguish "fixed" from "the base now carries it too".
-          case "$BODY" in
+          case "$LATEST" in
             *"NOTHING WAS COMPARED"*)
-              gh issue comment "$ISSUE" --body "The previous firing was a harness failure, not a measured regression, and this run measured cleanly — closing. A real regression opens a fresh thread." || true
+              gh issue comment "$ISSUE" --body "The previous firing was a harness failure, not a measured regression, and this run measured cleanly — closing. A real regression opens a fresh thread. _Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._" || true
               gh issue close "$ISSUE" --reason completed || true
               ;;
           esac
@@ -407,8 +487,9 @@ jobs:
             echo ""
             echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} · base \`${{ steps.base.outputs.sha }}\` → head \`${{ github.sha }}\`._"
           } >> "$BODY"
-          ISSUE=$(gh issue list --state open --search "in:title $MARKER" --json number -q '.[0].number' || true)
-          if [ -n "$ISSUE" ]; then
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
             gh issue comment "$ISSUE" --body-file "$BODY"
           else
             gh issue create \

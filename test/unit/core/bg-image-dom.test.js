@@ -1,6 +1,16 @@
 /**
  * Unit: the image component's text panel on a LIVE DOM
- * (lib/core/bg-image.js `wrapImageTextToDom`) and its parity with the HTML pass.
+ * (lib/core/bg-image.js `wrapImageTextToDom`).
+ *
+ * IT DOES NOT TEST PARITY WITH THE HTML PASS, though this docblock claimed it did
+ * until 2026-09-01. The file never imports `lib/engine`, so there is no second
+ * render to compare against — it exercises the DOM adapter alone.
+ *
+ * The parity it claimed is now tested, elsewhere:
+ * `test/unit/core/marp-fidelity-render.test.js` renders this row's deck through
+ * `lib/engine` and through the real `dist/lattice-runtime.js` and compares which
+ * prose nodes each folds into the `.image-text` panel. This file keeps its own
+ * job — the adapter's behavior on inputs that never reach a whole-deck render.
  *
  * The imagery bucket was the seventh gap the fidelity ledger recorded, and the one
  * that did NOT degrade gracefully: on a Marp render the `![bg]` fell to Marp's own

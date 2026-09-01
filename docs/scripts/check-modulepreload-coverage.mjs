@@ -65,6 +65,28 @@ export function isCovered(sourcePath, entries = ENTRIES) {
 	return entries.some((e) => normalized.endsWith(e.sourceSuffix));
 }
 
+/**
+ * How many `client:only` islands the scan actually SAW, covered or not.
+ *
+ * `uncovered.length === 0` is the alarm's evidence of health, and it is also
+ * what an empty scan produces — so without this the alarm reports zero-of-zero
+ * as "every island is covered" and CLOSES its rolling issue on a measurement
+ * that never happened. That is not hypothetical: exactly one page in the tree
+ * hydrates an island (`studio.astro`), the scan is top-level-only by design,
+ * and `src/pages/studio/` already exists — so moving that one page into it is
+ * an ordinary refactor that silently empties the corpus.
+ */
+export function countIslands(pagesDir = PAGES_DIR) {
+	let islands = 0;
+	let pages = 0;
+	for (const file of fs.readdirSync(pagesDir).filter((f) => f.endsWith('.astro'))) {
+		pages++;
+		const full = path.join(pagesDir, file);
+		islands += findClientOnlyIslands(fs.readFileSync(full, 'utf8'), full).length;
+	}
+	return { pages, islands };
+}
+
 /** Scan every .astro file directly under src/pages/ (not nested route dirs — those are per-component specimen pages, a different pattern) for uncovered client:only islands. */
 export function findUncoveredIslands(pagesDir = PAGES_DIR, entries = ENTRIES) {
 	const uncovered = [];
@@ -84,8 +106,16 @@ export function findUncoveredIslands(pagesDir = PAGES_DIR, entries = ENTRIES) {
 function main() {
 	const uncovered = findUncoveredIslands();
 	const mdFlagIdx = process.argv.indexOf('--md');
+	// Emitted on BOTH paths, and parsed by the nightly workflow: a stand-down
+	// that cannot tell "nothing is broken" from "nothing was scanned" is not a
+	// measurement. Keep the `islands=` prefix stable — it is a machine contract.
+	const { pages, islands } = countIslands();
+	console.log(`islands=${islands}`);
+	console.log(`pages=${pages}`);
 	if (uncovered.length === 0) {
-		console.log('check-modulepreload-coverage: clean — every client:only island under src/pages/ is covered.');
+		console.log(
+			`check-modulepreload-coverage: clean — all ${islands} client:only island(s) across ${pages} page(s) under src/pages/ are covered.`,
+		);
 		return;
 	}
 	const lines = [

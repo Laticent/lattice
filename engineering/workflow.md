@@ -624,6 +624,121 @@ STEP green so later steps run, carry the verdict in an output, put the step time
 job's (a job-level timeout kills every later step, including one guarded by `always()`), and gate
 the issue step on `always() && (outputs.failed == 'true' || outcome != 'success')`.
 
+**And an alarm that cannot STAND ITSELF DOWN is a ratchet, not a signal.** Filing was only half
+the mechanism. Until 2026-09-01 five of the six nightly workflows could open a rolling issue and
+none of them could close one, so after a thread's first firing — statistically likelier a harness
+failure than a real regression — it read as "the flaky nightly", and a genuine regression months
+later arrived as a comment on a thread nobody reopens. Every filing job now carries a stand-down
+step, and `test/unit/tools/nightly-alarm-contract.test.js` holds the shape. Four rules, each one
+a mistake somebody already made:
+
+- **Key on `outcome == 'success' && output == 'false'`, never `!= 'true'`.** `!= 'true'` — and a
+  bare output test — **is true for the empty string**, and the output is empty in every state
+  where nothing was measured: a cancellation, a step timeout, an earlier step that died. Acting
+  there reports NOT MEASURED as health, which is this family's cardinal sin; `perf-nightly.yml`
+  records four separate instances of it in one file.
+- **Look the issue up the same way the filing step does.** Both use the client-side marker match
+  above. Two different searches in one job means the step that files appends to one thread while
+  the step that recovers acts on another, and each looks right on its own.
+- **Comment before acting, naming the run.** A silent close leaves the next reader unable to tell
+  a recovered alarm from one somebody quietly triaged away.
+- **Prove the check actually RAN.** `ai-architect.spec.ts` opens with `test.skip(!LIVE_KEY, …)`,
+  so with the secret unset Playwright skips every test, prints "N skipped" and **exits 0** —
+  outcome and output both say green while nothing was tested. Both `studio-e2e-nightly.yml` jobs
+  therefore require a non-zero passed count in the report before they will close anything.
+
+**Whether a green night licenses a CLOSE depends on the check, and only two of the eight jobs
+qualify.** This is the part a first cut got wrong, in the direction that matters.
+
+- **Absolute** — scored against the commit in front of it, with nothing in the tree that could be
+  edited to make it pass. The gallery paints or it does not (`preview-e2e`); an island is covered
+  by `ENTRIES` or it is not, and adding the entry IS the fix rather than a bless
+  (`modulepreload-coverage`). One measured-green night is evidence the condition cleared, so the
+  thread closes.
+- **Baseline-scored** — the check compares the tree against a COMMITTED baseline that a bless
+  script rewrites: `test/oracle/family-*.json` and `player-contrast.json` and the golden PDFs
+  (`integration-nightly`), the per-deck clip counts the overflow tool itself calls a ratchet
+  (`overflow-nightly`), the `toHaveScreenshot` snapshots under `docs/e2e/visual.spec.ts-snapshots`
+  (`studio-e2e`). Blessing turns the check green without fixing anything, and **the run cannot
+  tell the two apart** — so a green night means "the tree matches the baseline", not "the finding
+  is fixed". These comment and leave the thread open.
+- **Differential** — `perf-nightly` compares head against a base ~24h old, so a regression landing
+  on day 0 fires on night 1 (the base predates it) and comes back clean on night 2 (the base
+  carries it too), on a still-broken site. `engine-perf` closes only a thread whose LATEST FIRING
+  was a HARNESS failure — a false alarm IS settled by one clean measurement — and `watch`, which
+  emits no such marker, comments and never closes. **Latest firing, not the issue body:** the body
+  is written once by `gh issue create` and every firing after the first is a comment, so
+  discriminating on the body reads the thread's FIRST firing forever. A harness-failure night, then
+  a real regression, then one clean night (the base is now old enough to carry it) closed a live
+  regression under the old reading — no adversary required.
+
+**The near-miss is worth keeping in mind, because it inverts the whole change.** Four jobs were
+first written as absolute and closed on a measured green. Three of them score against baselines
+that were, at the time, knowingly stale — `integration`'s own step comment says the stand-down
+will not fire "until the corpus is re-blessed". **The re-bless would have been the trigger**: the
+first time any of them ever fired would have been the night after somebody lowered the bar, and
+it would have posted "measured green, closing". A lowered bar reported as a recovery is the same
+lie this section exists to remove, wearing the opposite costume.
+
+**Commenting is not a consolation prize.** The ratchet was never really "it does not close", it
+was "nothing ever argues the other side": a thread that only accumulates failures reads as the
+flaky nightly. A comment naming the run, the commit and what was measured is the counter-evidence
+a human needs to make the call the run cannot. Closing a baseline-scored alarm properly needs a
+bless-aware condition — compare the baseline files' history against the issue's own creation date
+— and that is deliberately not attempted: it needs full git history in jobs that may be shallow,
+and a `git log` that silently returns nothing would close on no evidence at all.
+
+`test/unit/tools/nightly-alarm-contract.test.js` pins the posture of every job in the family, in
+both directions, so a new alarm cannot join without someone deciding which of the three it is.
+
+### Three things a stand-down must prove before it acts
+
+Standing down is the destructive direction — a wrong comment is noise, a wrong close destroys the
+thread — so each of these was a live defect found by an adversarial pass, not a precaution.
+
+- **WHOSE thread is it.** The lookup matches a title prefix, and anyone who can file an issue picks
+  the title. Keyed on the title alone it selects a squatted thread, closes it, and stamps it
+  "Recovered … measured green" about something nobody measured; and while the squat is open it also
+  absorbs every filing, so the genuine thread is never created. Every lookup therefore also requires
+  the filing identity. **Both spellings are required** — REST reports `github-actions[bot]`,
+  `gh --json author` resolves through GraphQL where a Bot actor's login is `github-actions`. Match
+  one and the lookup finds nothing, and `[ -n … ] || exit 0` then exits ZERO: silently dead rather
+  than loudly broken. `startswith` is not a shortcut — `github-actions-evil` is registrable.
+- **WHICH ref measured it.** None of these workflows pins a ref, so `--ref <branch>` runs the
+  branch's file against the branch's code. Without a guard, neutering a check on a throwaway branch
+  and dispatching closes the live alarm and records `main@<sha>` for a sha never on `main`. The
+  stand-downs require `github.ref == 'refs/heads/main'`, which is also what makes that `main@`
+  literal true. The guard is on the stand-down, not the job: a branch dispatch must still be able to
+  RUN the checks, and filing from a branch is loud and recoverable where closing is not.
+- **THAT it measured anything.** `uncovered=false` / `failed=false` is each check's evidence of
+  health and equally what a run that examined NOTHING produces. Both absolute closers gate on a
+  count (`islands`, `cases`) emitted by the script and parsed by the step, and the contract test
+  pins the producer to the consumer — deleting the `console.log` alone would leave the parse
+  yielding `0` and the stand-down dead forever.
+
+### What the stand-down does NOT fix: the silent night
+
+**The alarms can now say "measured green". They still cannot always say "something broke", and
+`always()` is not the fix — recording it as such is worse than recording nothing.** A filing step
+whose condition reads `steps.X.outputs.Y == 'true'` is not rescued by `always()`, because a skipped
+step's output is the **empty string**, which is not `'true'` either. `perf-nightly::engine-perf`
+already carries `always()` on its filing step and is still silent in this gap, which is the proof.
+
+The two shapes in the tree that DO work are `overflow`'s `always() && … != 'false'` and
+`studio-e2e`'s `always() && (… == 'true' || outcome != 'success')` — an exhaustive condition, not a
+status function. Making the rest exhaustive is deliberately **not** done here: it changes when the
+alarms FILE, so nights that were silent would start opening issues, and the volume is unmeasured.
+That is a change to what the automation produces, not to how it reports, and it wants its own
+decision.
+
+The sharpest instance, worth naming because a reader will otherwise assume it is covered: in
+`perf-nightly::watch`, `Build + collect — base` is `continue-on-error`, so when it dies `compare`
+runs head-only, scores nothing, and writes `regressed=false`. Filing needs `'true'` and does not
+fire; the stand-down correctly declines on `basecollect`'s outcome; the job concludes **success**.
+Nothing filed, nothing commented, nothing red — a green nothing. The contract test now requires
+every `continue-on-error` step that runs BEFORE the measurement to be outcome-guarded by the
+stand-down, so that state can never be read as health; it still cannot make the job speak.
+
 **A live-key job owes one thing the others do not: redact before you publish.** Actions masks
 secrets in the LOG, but `tee` writes the report to disk unmasked and `gh issue create` posts that
 text verbatim — so one echoed `Authorization` header would publish our key in an issue. `e2e-ai`
@@ -852,6 +967,44 @@ The contract, and its limits — be precise about what it does and doesn't cover
   pre-merge re-rebase dance — the queue now owns it** (so step 2 of §Keeping
   mergeable no longer applies before an authorized merge). Background:
   `decisions/2026-06-17-workflow-efficiency-review.md` §F.
+- **`auto_merge.merge_method` is NOT the method that will land, and on this repo it
+  reads `merge` on essentially every PR.** That field is what was *requested*; when a
+  merge queue governs the branch, the **queue's own merge method decides**, and
+  GitHub's merge-queue settings expose it as exactly that — *"Merge method: select
+  which method to use when merging queued pull requests"*. `gh` says so at the time:
+  *"The merge strategy for main is set by the merge queue."*
+
+  So a stored `"merge"` is a stale label, not a pending violation of § Merging's
+  *"never a merge commit"*. **The repo's history settles it:
+  `git rev-list --count --merges origin/main` is `0`** — no merge commit has ever
+  landed here, including from PR #1613, whose `auto_merge.merge_method` has read
+  `"merge"` for weeks. Every PR above lands as a squash.
+
+  **Read it, but do not act on it alone.** After anything arms auto-merge:
+
+  ```console
+  $ curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" \
+      https://api.github.com/repos/Laticent/lattice/pulls/<N> \
+    | python3 -c "import json,sys; print(json.load(sys.stdin)['auto_merge'])"
+  ```
+
+  On a queue-governed branch (`main`), `"merge"` here is expected and harmless — do
+  **not** disable auto-merge over it. **On a branch the queue does NOT govern, this
+  field IS what lands**, and it defaults to the repository default, which is `merge`
+  because this repo allows all three methods. That is the case worth checking.
+
+  **A narrower claim is unresolved.** #1912 reports that `enable_pr_auto_merge`
+  *ignores* a passed `mergeMethod` — `SQUASH` in, `(method: MERGE)` back. The
+  observable evidence here cannot separate "the argument was ignored" from "the queue
+  governs, so the argument is moot", and the zero-merge-commit history is consistent
+  with the second. Pass the method explicitly anyway; it costs one argument.
+
+  **Do NOT route around any of this by merging directly.** `merge_pull_request` does
+  honor `squash`, which makes it tempting — and it skips the queue's rebase-and-retest
+  against a `main` the PR has never seen, the protection added after #1535/#1547. On
+  #1870 that mattered: `main` moved nine times during the PR, twice touching files it
+  depended on.
+
 - **An ejection CLEARS auto-merge, and nothing tells you** (observed on #1535, #1547).
   The queue tests your
   PR on a `main` it has never seen, so a PR that was green on its own head can

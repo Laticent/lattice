@@ -163,6 +163,62 @@ gate, so we deepen it ourselves rather than wish for a second renderer:
   optional eyebrow kicker layer 1 skips). The bar to raise from here is depth on
   individual rules, not breadth — every component now has a rule.
 
+### What a `mirrored` ledger row now means
+
+`lib/core/marp-fidelity.js` classifies every markdown-it plugin as `baked`,
+`mirrored`, `unmirrored` or `moot`. **`mirrored` is the load-bearing one**: it
+promises that `lib/runtime/**`, bundled into `dist/lattice-runtime.js`,
+reproduces the plugin for a reader who is looking at the exported HTML rather
+than at an engine render.
+
+Until 2026-09-01 that promise was checked by a name match —
+`RUNTIME_SRC.includes(`${via}(`)`, an assertion that a function of that name
+appears somewhere in the runtime SOURCE. It rendered nothing, compared nothing,
+and read the source rather than the bundle a preview actually loads, so **it
+could not fail for the right reason.** #1858 is what that cost:
+`transformVerdictGridBadges` dropped the last nested item of every card
+(`slice(0, -1)`) on the assumption that it is body prose — the card
+*convention*, which the engine never shared, because `verdictGridBadges` tests
+each item against the marker regex. Every committed deck follows the
+convention, so the two agreed everywhere anyone looked. Where an author simply
+ends a card on a marker row they did not: measured **4 badges from the engine
+against 2 from the runtime**, with `[-] Criterion B` left on the reader's slide
+as literal markdown, and **3 against 0** on a card carrying a single marker and
+no prose line. The ledger was green throughout.
+
+**A claim is now a comparison** — `test/unit/core/marp-fidelity-render.test.js`.
+Each `mirrored` row registers a probe: a deck, the marp-core-shaped markup the
+same content arrives as before any lattice transform has run, and a projection
+of the thing that row is responsible for. The deck goes through `lib/engine`,
+the markup is booted through the real **bundle** in jsdom, and the two
+projections must be equal. Four points of the design are worth knowing before
+adding a row:
+
+- **It compares a projection, not the whole document.** The two trees differ in
+  four ways that are not fidelity defects — runtime-only bookkeeping attributes,
+  jsdom's `attr=""` boolean serialization, the input's own whitespace, and a
+  leading newline. Normalizing all four is four chances to erase a real
+  difference; a probe scoped to the claim says what it checked.
+- **Every probe carries an anti-vacuity floor.** Two empty arrays are equal, so
+  a probe whose markup or selector is subtly wrong would pass forever. Each one
+  asserts the ENGINE produced at least *n* of the thing first. This is not
+  theoretical: it is what caught a `matrix-grid` probe using `[/]`, a marker
+  that layout's positional grammar does not define.
+- **A row with no probe is a declared gap, not a pass.** `AWAITING_PROBE` carries
+  the rows that cannot be compared, with a reason each, and the test fails on a
+  stale entry so the list can only shrink. **It is currently empty: all ten rows
+  are attested.** Three sat in it briefly, and all three reasons turned out to be
+  wrong — the two deck-level registers (`deckClassPropagate`, `defaultComponent`)
+  only needed the harness to answer the sibling-`.md` fetch the runtime makes for
+  front matter, and the imagery row needed no background image and no layout
+  measurement at all, because `wrapImageTextToDom` is pure DOM. The empty list
+  stays: a new `mirrored` row must either get a probe or land there with a reason,
+  and a reason in a diff is something a reviewer can disagree with.
+- **`baked` rows still have only a spelling check.** Their mirror is
+  `tools/export-marp.js`, a different path with its own harness needs. Two rows
+  are affected and `marp-fidelity.test.js` now says so in its own name rather
+  than implying more.
+
 The bar is ours to raise — never marp's to validate.
 
 ## Update log
