@@ -136,13 +136,26 @@ owe nothing here. See
   `Preview server running at http://localhost:4399 (pid 4984, uptime 1s, background)`
   and the port serves HTTP 200.
 - **Mitigation:** `docs/scripts/preview-e2e.mjs` — `npm run preview:e2e` runs it
-  instead of `astro preview` directly. It starts the server, blocks in the foreground
-  by following its logs for as long as the server lives, and stops it on the way out,
-  including on the SIGTERM Playwright sends when the run ends.
-- **Why the stop matters as much as the block:** a daemon left behind by an earlier run
-  keeps answering on 4321 with a STALE `dist/`, and `reuseExistingServer` (on locally,
-  off in CI) then picks it up and tests the old build silently. The wrapper therefore
-  also stops any leftover daemon before it starts its own.
+  instead of `astro preview` directly. It runs astro's PROGRAMMATIC `preview()`, which
+  serves in-process, and blocks on `await server.closed()`. There is no daemon, so
+  whatever ends the process — SIGTERM, SIGKILL, a lost signal, the parent dying — takes
+  the server with it.
+- **STOPPING THE DAEMON ON THE WAY OUT DOES NOT WORK, and this is the part worth
+  knowing.** The wrapper's first version kept the CLI daemon and stopped it from
+  `SIGINT`/`SIGTERM`/`exit` handlers. It leaked anyway. Playwright ends a run by
+  signaling the `webServer` command, which is `npm run preview:e2e`; **npm does not
+  reliably forward that signal to the node process it spawned**, so the handlers never
+  ran. A cleanup that depends on receiving a signal is not a cleanup.
+- **What a leaked daemon then costs is silent, not loud.** `reuseExistingServer` is on
+  locally (off in CI), and Playwright checks the URL *before* it runs the `webServer`
+  command — so if anything is already answering on 4321, the command never runs and the
+  suite tests whatever is there. Measured while writing this entry: a leaked daemon from
+  one checkout was adopted by a Playwright run in a DIFFERENT worktree, and **179 tests
+  went green against a build the branch under test had never produced.** Nothing in the
+  output says so; the giveaway was that the branch's own `docs/dist/` did not exist.
+- **So if an e2e result looks too good, check `docs/dist/` exists in the tree you are
+  testing** and that no `astro preview` process is running from elsewhere
+  (`ps aux | grep 'astro.*preview'`).
 - **Triggered by:** the astro 6 → 7 bump (#1483).
 - **Removable when:** astro offers a documented foreground preview, or Playwright grows
   a way to adopt a daemonizing server command.
