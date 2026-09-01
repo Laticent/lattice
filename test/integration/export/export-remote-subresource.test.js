@@ -247,8 +247,11 @@ theme: indaco
 			'the clean sidecar left by a failed player assembly shipped WITHOUT the policy — a '
 			+ 'live document a recipient opens, uncontained, on the one path nobody drives',
 		);
-		// And it behaves: opened for real, the beacons do not fire.
-		const { hits } = await probe(out);
+		// And it behaves: opened for real, the beacons do not fire — with the payload guard every
+		// other arm here carries. Without it a fallback render that lost the deck body entirely
+		// satisfies both the `<head><meta>` match above and an empty hit list.
+		const { hits, payload } = await probe(out);
+		assert.ok(payload > 0, 'the fallback render does not carry the deck’s remote refs, so this arm proves nothing');
 		assert.deepEqual(hits, [], 'the fallback sidecar beaconed when opened');
 	});
 });

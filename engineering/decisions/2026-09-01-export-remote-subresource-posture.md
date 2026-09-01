@@ -122,6 +122,17 @@ Chromium, the only browser the integration tier has.
 
 Mutation-proved: narrowing `SELF_SOURCES` to `data:` fails it on WebKit.
 
+**What the browser-driven arms do NOT cover.** Both the cross-engine spec and the integration
+arms exercise `img-src` and (through KaTeX) `font-src`. The other five directives — `media-src`,
+`connect-src`, `object-src`, `base-uri`, `form-action` — are not driven in a browser on the
+export path. They are not unguarded: dropping one from `subresourceCspPolicy` fails
+`test/unit/playground/deck-preview.test.js`, but that is a string-presence test on the PREVIEW
+surface, so what is pinned is that the directive is emitted, not that a browser acts on it.
+`media-src` is the one worth naming, since the kernel's own docblock calls a hosted `<video>`
+"the same vector with a different tag" — the CLI measurement that found 3 requests going to 0
+covered it, but nothing re-measures it. So "measured, not assumed" is true of the policy's
+behavior on images and fonts, and of its SHAPE everywhere else.
+
 ### The player-assembly failure path is executed, not argued
 
 The skip that spares the player is a flag set where the player is actually written. That has a

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { expect, test } from '@playwright/test';
+import { chromium, expect, test } from '@playwright/test';
 
 // The export subresource policy, in the OTHER two engine families. @gecko @webkit-tablet
 //
@@ -23,11 +23,21 @@ import { expect, test } from '@playwright/test';
 //     faces sit in ANOTHER directory, so a stricter reading drops every math glyph to a
 //     fallback and nothing about the page looks broken enough to notice.
 //
-// COUNTED AT A REAL SOCKET, not through a devtools hook, and that distinction is load-bearing.
-// Browser-automation interception layers sit at different points relative to the CSP check:
-// Puppeteer's Fetch-domain interception never sees a refused load, while Playwright's Network
-// events DO see it and then report `requestfailed … csp`. Neither answers "did bytes leave the
-// machine". A server counting its own hits does.
+// THE COST HALF IS CARRIED BY WEBKIT ALONE, and the gecko run is a CONTROL-ONLY run. Firefox
+// applies neither `img-src` NOR `font-src` to a same-document `file://` subresource: measured,
+// `font-src 'none'` and `img-src data:` both leave Gecko rendering the image and loading all 20
+// faces, while WebKit detects each (`loaded=0`, and `local 0/1`). Both are asserted on both
+// projects anyway — they are cheap, and an engine changing its mind is worth catching — but do
+// not read a green gecko run as evidence about cost. Read it as evidence about the beacon,
+// which IS enforced there and which the control on the same run proves.
+//
+// COUNTED AT A REAL SOCKET, not through a devtools hook, and that distinction is load-bearing —
+// more so than an earlier draft of this comment said. Automation layers disagree with each other
+// about a CSP-refused load: Puppeteer's Fetch-domain interception never sees one; Playwright's
+// Network events see it IN CHROMIUM and report `requestfailed … csp`, and in Gecko and WebKit —
+// the two engines this spec actually runs on — emit nothing at all. So a hook-based count means
+// three different things in three engines and none of them is "did bytes leave the machine".
+// A server counting its own hits means exactly that, everywhere.
 //
 // The CSP-stripped CONTROL is what makes a 0 mean absent rather than unlooked-for.
 //
@@ -76,12 +86,27 @@ test('a downloaded deck refuses a remote fetch and still renders its own files @
 		// `spawn`, NOT `spawnSync`: the beacon server is in THIS process, so a synchronous spawn
 		// blocks the event loop and the export's own Chromium waits for a response that cannot be
 		// sent. The integration tier learned this the expensive way.
-		const status = await new Promise<number | null>((res, rej) => {
-			const child = spawn(process.execPath, [EMULATOR, deck, out, '--quiet'], { cwd: ROOT });
+		// HAND THE EXPORT THE BROWSER THIS TIER ALREADY HAS. The emulator needs a Chrome binary,
+		// and it looks for `PUPPETEER_EXECUTABLE_PATH`, then puppeteer's own download, then
+		// `google-chrome`/`chromium` on PATH. The nightly runs root `npm ci` with
+		// `PUPPETEER_SKIP_DOWNLOAD=1`, and it does NOT search `~/.cache/ms-playwright` — so
+		// without this line the spec silently depends on the runner image happening to ship
+		// Chrome on PATH, and goes red one day with "Browser was not found", a message that names
+		// nothing about the export policy. Playwright's own chromium is installed by this tier,
+		// so point at it and the dependency is declared rather than inherited.
+		const { status, stderr } = await new Promise<{ status: number | null; stderr: string }>((res, rej) => {
+			const child = spawn(process.execPath, [EMULATOR, deck, out, '--quiet'], {
+				cwd: ROOT,
+				env: { ...process.env, PUPPETEER_EXECUTABLE_PATH: chromium.executablePath() },
+			});
+			let err = '';
+			child.stderr.on('data', (b) => { err += b; });
 			child.on('error', rej);
-			child.on('close', (code) => res(code));
+			child.on('close', (code) => res({ status: code, stderr: err }));
 		});
-		expect(status, 'the export itself succeeded').toBe(0);
+		// Carry stderr into the message: a nightly failure here otherwise reports "expected 0,
+		// received 2" and nothing about why.
+		expect(status, `the export itself succeeded — stderr: ${stderr.slice(-800)}`).toBe(0);
 
 		const live = fs.readFileSync(out, 'utf8');
 		expect(live, 'the export carries the policy at all').toMatch(/<meta http-equiv="Content-Security-Policy"/i);
@@ -93,9 +118,20 @@ test('a downloaded deck refuses a remote fetch and still renders its own files @
 			hits.length = 0;
 			await page.goto(`file://${file}`);
 			await page.waitForLoadState('load').catch(() => {});
-			// A REFUSED load still completes, so poll the images rather than sleeping — the
-			// absence assertion has a real signal and needs no sanctioned wait.
-			await page.waitForFunction(() => [...document.images].every((i) => i.complete), null, { timeout: 30_000 }).catch(() => {});
+			// SETTLE ON THE LOCAL IMAGE, NOT ON EVERY IMAGE. "A refused load still completes" is
+			// Chromium's behavior and an earlier draft of this spec assumed it everywhere: in
+			// Firefox a CSP-refused image never sets `complete`, so waiting for ALL images turned
+			// a poll into a swallowed 30-second timeout on every guarded gecko run — the exact
+			// unbounded wait this repo has been removing. The deck's own `file://` image always
+			// completes (it is the thing under test), so it is a signal that exists in every
+			// engine and in both the guarded and stripped cases.
+			await page
+				.waitForFunction(
+					() => [...document.images].filter((i) => (i.currentSrc || i.src).startsWith('file:')).every((i) => i.complete),
+					null,
+					{ timeout: 20_000 },
+				)
+				.catch(() => {});
 			const local = await page.evaluate(() => {
 				const l = [...document.images].filter((i) => (i.currentSrc || i.src).startsWith('file:'));
 				return { total: l.length, rendered: l.filter((i) => i.naturalWidth > 0).length };
