@@ -10,3 +10,12 @@
   escapes through, and the only one designed to round-trip. With `--lens`, the envelope now carries
   only the slides that shipped; `--lens-source full` restores the whole deck for authors who want the
   lossless round trip and accept that a recipient can recover every slide no view showed them.
+- **A `.html` player can carry several reader views behind a switcher.** `--lens brief,evidence`
+  with `--player` exports one file holding the union of those views, with a control in the top bar
+  that switches between them — across all three existing views (Present, Read·Slides, Read·Article),
+  since a reader view picks *which* slides and those pick *how* they are shown. The file carries a
+  baked view→slides map rather than the projection library: eligibility was settled at export time
+  and frozen bytes cannot drift. Switching **hides** — every slide in the file is in the file — but
+  the export itself **withholds** everything outside the union of the views it carries. Several views
+  need `--player`; a PDF, PPTX or image set is one linear sequence and refuses rather than shipping
+  the union with nothing to tell the reader which slide belongs to which view.

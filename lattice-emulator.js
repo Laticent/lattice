@@ -4282,6 +4282,10 @@ async function renderBody(browser, g, closeBrowser) {
         // (`motion:`, with `player-motion: off` as the author-side opt-out). The flag can
         // only suppress, never force motion on — a deck that says `motion: off` means it.
         playerMotion: flags['no-player-motion'] ? false : undefined,
+        // The reader views this file CARRIES, each as indices into the PROJECTED slide list.
+        // Only past two views does the player build a switcher: one view is not a carrier,
+        // it is an ordinary player of a deck that was already reduced.
+        lensViews: LENS_VIEWS,
         title: deckTitle,
         // The deck's REAL canvas. Without it the player hardcoded 1280x720 and any deck
         // declaring a non-default `size:` exported laid out for its own canvas and then
