@@ -351,8 +351,17 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 		// contentVisibility:false → no virtualization (every slide is laid out); no
 		// cursor / sync / print chrome. The FIT agent still scales + reveals against
 		// the real width; rasterizeSection undoes the scale (transform:none) per slide.
+		// `csp: false` — this is an EXPORT renderer, not a preview. The remote-subresource
+		// CSP (#1753) contains frames the author BROWSES, where a deck's image beacons on
+		// open. Here the frame is offscreen and transient, and what it produces is a file
+		// the author downloads: blocking a legitimately-remote image would blank it in the
+		// .pdf / .pptx / .png, changing EXPORTED BYTES — a stop-and-show under the QUALITY
+		// BAR, and a divergence from the CLI export, which carries no CSP. Exports load what
+		// the deck references, on both paths; previews do not. Flipping this to `true` is an
+		// export-behavior decision covering the CLI too, not a local tweak.
 		const srcdoc = buildSrcdoc({ html, css, mode, geom: { w: gw, h: gh }, runtimeUrl, fontCss,
 			...(mermaidUrl ? { mermaidUrl } : {}),
+			csp: false,
 			contentVisibility: false, cursor: false, sync: false, printRules: false });
 		// Every settle await below is BOUNDED — an unbounded wait could hang the
 		// export forever (a srcdoc whose load never fires, or a `fonts.ready` that

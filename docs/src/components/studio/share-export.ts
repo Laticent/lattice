@@ -567,7 +567,11 @@ export async function shareHtmlPlayer(
 			height: h,
 			theme: { name: palette, mode: scheme },
 			config: undefined,
-			notes: !stripNotes,
+			// Describes the ARTIFACT — does this file carry notes — not the FLAG that made it.
+			// Parity with the CLI export: `!stripNotes` was a one-bit answer to "did the author
+			// run the privacy flag?", in plain base64 at the bottom of a file people share. See
+			// the same field in lattice-emulator.js for the reasoning (#1833).
+			notes: !stripNotes && noteRecord.some((r) => !!r.note),
 			// The auto-glossary term→definition projection, gated on the `glossary: auto` opt-in —
 			// parity with the CLI export's manifest field (#920); omitted otherwise.
 			glossary: resolveGlossaryMode(source) === 'auto' ? glossaryEntries(source) : [],

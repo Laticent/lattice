@@ -128,6 +128,9 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A baked diagram label went dark-on-dark after the player's toggle](gotchas/export.md#a-baked-diagram-label-went-dark-on-dark-after-the-players-toggle)
 - [`--strip-notes` deleted a comment out of a code fence](gotchas/export.md#--strip-notes-deleted-a-comment-out-of-a-code-fence)
 - [`--strip-notes` could not remove a note that opens with a directive keyword](gotchas/export.md#--strip-notes-could-not-remove-a-note-that-opens-with-a-directive-keyword)
+- [`--strip-notes` shipped the note anyway — in the `.pptx`, and in the raster PDF's sidecar](gotchas/export.md#--strip-notes-shipped-the-note-anyway--in-the-pptx-and-in-the-raster-pdfs-sidecar)
+- [The exported player told the recipient a deck HAD notes, after `--strip-notes` removed them](gotchas/export.md#the-exported-player-told-the-recipient-a-deck-had-notes-after---strip-notes-removed-them)
+- [A `tier:` / `galleryAuthored:` pragma shipped as the speaker note in every format](gotchas/export.md#a-tier--galleryauthored-pragma-shipped-as-the-speaker-note-in-every-format)
 
 ### [Fonts and emoji](gotchas/fonts.md)
 

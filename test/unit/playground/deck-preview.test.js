@@ -156,3 +156,115 @@ describe('hashString', () => {
 		assert.equal(h >= 0, true);
 	});
 });
+
+// ── Remote-subresource containment (#1753) ────────────────────────────────────
+// A deck could make a preview frame fetch an arbitrary external URL on open — a beacon
+// leaking the viewer's IP and User-Agent and confirming they opened it — through FULLY
+// SANITIZED slide HTML. The posture chosen is containment by CSP, matching what the
+// exported player already ships.
+//
+// WHAT THESE PIN, AND WHAT THEY CANNOT. A browser's enforcement of a valid CSP is the
+// browser's guarantee, not ours; what can regress on our side is the meta going missing,
+// landing after content, or losing a directive. That is what is asserted here. The
+// enforcement itself was measured on the REAL assembled srcdoc in Chromium 131: the same
+// document fired 3 requests (markdown image, raw <img>, inline `background-image:url()`)
+// with the meta removed and 0 with it present, the payload elements still in the DOM both
+// times — so the fetch is refused rather than the markup rewritten.
+describe('deck-preview: preview-frame CSP', () => {
+	test('buildSrcdoc emits the CSP before any content or subresource link', async () => {
+		const { buildSrcdoc } = await load();
+		const doc = buildSrcdoc({ ...BASE });
+		const csp = doc.indexOf('http-equiv="Content-Security-Policy"');
+		assert.ok(csp !== -1, 'the preview srcdoc carries no CSP');
+		// A CSP meta governs only what the parser has not already reached, so its POSITION
+		// is the whole guarantee — after a <link> or the body it would be inert.
+		assert.ok(csp < doc.indexOf('<body'), 'the CSP must precede <body>');
+		const link = doc.indexOf('<link');
+		if (link !== -1) assert.ok(csp < link, 'the CSP must precede every subresource link');
+	});
+
+	test('the policy closes every channel a deck can aim at a remote host', async () => {
+		const { buildSrcdoc } = await load();
+		const doc = buildSrcdoc({ ...BASE });
+		// img: markdown images, raw <img>, and `url()` in an inline style attribute.
+		// media: <video>/<audio>, which survive sanitization. connect/object/base/form:
+		// exfiltration routes nothing in a preview needs.
+		for (const directive of ['img-src', 'media-src', 'font-src', 'connect-src', 'object-src', 'base-uri', 'form-action']) {
+			assert.match(doc, new RegExp(`${directive}[^;"]*[;"]`), `CSP is missing ${directive}`);
+		}
+		assert.match(doc, /img-src 'self' data: blob:;/, 'img-src must allow only same-document sources');
+		// No `default-src`, deliberately: script/style/worker loading stays exactly as
+		// unrestricted as before, so this cannot break Mermaid, KaTeX or the runtime by
+		// starving a directive nobody enumerated.
+		assert.doesNotMatch(doc, /default-src/, 'a default-src here would restrict more than the posture chose');
+	});
+
+	// The PREVIEW / EXPORT boundary, pinned from both sides. A preview is a frame the author
+	// browses, where a deck's remote image beacons on open; the Studio's capture frame is an
+	// export renderer whose output the author downloads, and containing it would blank a
+	// legitimately-remote image in the .pdf/.pptx/.png — an export-bytes change, and a
+	// divergence from the CLI, which emits no CSP. Neither side may flip by accident.
+	test('csp:false omits the meta entirely — the export capture frame opts out', async () => {
+		const { buildSrcdoc } = await load();
+		assert.doesNotMatch(buildSrcdoc({ ...BASE, csp: false }), /Content-Security-Policy/);
+		assert.match(buildSrcdoc({ ...BASE }), /Content-Security-Policy/, 'the DEFAULT must stay on');
+	});
+
+	test("the Studio's export capture frame passes csp:false, deliberately", () => {
+		const fs = require('fs');
+		const path = require('path');
+		const src = fs.readFileSync(
+			path.join(__dirname, '..', '..', '..', 'docs/src/components/studio/export/deck-export.js'), 'utf8'
+		);
+		assert.match(
+			src, /csp:\s*false/,
+			'deck-export.js builds the offscreen frame that PDF/PPTX/PNG are rasterized from. If it '
+			+ 'stops passing csp:false, a deck\'s remote image is blocked during capture and blanks in '
+			+ 'the downloaded file — an EXPORT-BYTES change needing sign-off (QUALITY BAR), not a tweak.'
+		);
+	});
+
+	test('the font-src origin follows the katexUrl rather than a hard-coded CDN', async () => {
+		const { previewCspMeta } = await load();
+		assert.match(previewCspMeta({ katexUrl: 'https://cdn.example.net/katex/katex.min.css' }), /font-src 'self' data: https:\/\/cdn\.example\.net;/);
+		// A relative path is already covered by 'self'; a malformed value must not throw.
+		assert.match(previewCspMeta({ katexUrl: '/local/katex.css' }), /font-src 'self' data:;/);
+		assert.match(previewCspMeta({ katexUrl: '???' }), /font-src 'self' data:;/);
+		assert.match(previewCspMeta(), /font-src 'self' data:;/);
+	});
+});
+
+// The CENSUS. `buildSrcdoc` is one of three modules that assemble a preview-frame document;
+// the other two are TypeScript / dependency-heavy and are not Node-importable here, so they
+// are pinned by SOURCE. This is the same shape HARD RULE #22's own guards use, and for the
+// same reason: a file-scoped text match is what survives when the module cannot be loaded.
+//
+// The list mirrors SANCTIONED_PREVIEW_BUILDERS in tools/check-ownership.js minus
+// `sanitize-slide-html.js`, which binds the sanitizer and assembles no document. If a fourth
+// builder appears, #22's gate makes it declare its sanitizer calls; this makes it declare the
+// CSP too — otherwise the new frame is open exactly as these three were.
+describe('deck-preview: every preview-frame builder carries the CSP', () => {
+	const fs = require('fs');
+	const path = require('path');
+	const ROOT = path.join(__dirname, '..', '..', '..');
+	const BUILDERS = [
+		'docs/src/playground/deck-preview.js',
+		'docs/src/lib/single-slide-render.ts',
+		'docs/src/components/studio/present/stage-window.js',
+	];
+	for (const rel of BUILDERS) {
+		test(`${rel} calls previewCspMeta`, () => {
+			const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+			assert.match(
+				src, /previewCspMeta\(/,
+				`${rel} assembles a preview document but does not emit the CSP — the frame it builds `
+				+ 'can beacon the viewer out on open (#1753)'
+			);
+			// It has to land in the HEAD, before content. Assert the call sits ahead of the
+			// document's <body>, which is the ordering the browser actually honors.
+			const call = src.indexOf('previewCspMeta(');
+			const body = src.indexOf("'</style></head><body>'") === -1 ? src.indexOf('<body') : src.indexOf("'</style></head><body>'");
+			if (body !== -1) assert.ok(call < body, `${rel} emits the CSP after <body>, where it is inert`);
+		});
+	}
+});

@@ -50,6 +50,104 @@ describe('notes-core: isToolingComment', () => {
   }
 });
 
+describe('notes-core: isLatticePragma', () => {
+  // The markers this repo writes into its own decks. Each one shipped as reader-visible
+  // text in every export's presenter-notes field before #1350.
+  for (const pragma of [
+    'tier: short',
+    'tier: standard',
+    'tier: full',
+    'TIER: Short', // the matcher is case-insensitive, as the tier-filter's own regex is
+    'galleryAuthored: curated Mermaid tour; build-bucket-galleries.js will not overwrite it',
+    'color-mode: dark',
+    'color-mode: light',
+    'color-mode: system',
+    'color-mode: inherited',
+    'color-mode: print',
+  ]) {
+    test(`pragma excluded: "${pragma}"`, () => {
+      assert.equal(core.isLatticePragma(pragma), true);
+    });
+  }
+
+  // The other direction, and the one that matters more: over-stripping eats an author's
+  // note silently. Every entry here shares a KEY with a pragma above and must stay a note
+  // purely on its value, which is what the value constraints buy.
+  for (const note of [
+    'tier: we should discuss the pricing tier before the board',
+    'tier: enterprise',
+    'color-mode: we should discuss the palette with design first',
+    'Reminder: keep it to ninety seconds',
+    'TODO: revisit this slide before the board',
+    'tiers are the thing to explain here',
+    // A single-token value that is NOT in the register's domain. An early draft matched
+    // `color-mode:\s*[a-z-]+` and swallowed this — and because a pragma also leaves the
+    // --strip-notes scrub set, the note then SHIPPED in the envelope source with the audit
+    // reporting nothing. Both failure directions from one loose character class.
+    'color-mode: TBD',
+    'color-mode: unclear',
+    'color-mode: ask-design',
+    // `tier-filter.js` tolerates no space before the colon, so this does NOT filter the deck.
+    // A marker the producer misses must stay VISIBLE as a note, not be silently suppressed.
+    'tier : full',
+  ]) {
+    test(`note kept: "${note}"`, () => {
+      assert.equal(core.isLatticePragma(note), false);
+    });
+  }
+
+  // `$` is end-of-INPUT without the `m` flag, so an unanchored key matcher swallows a whole
+  // multi-line body. Both of these carry a real note after the marker.
+  test('a pragma matcher does not swallow prose on a later line', () => {
+    assert.equal(core.isLatticePragma('galleryAuthored: yes\n\nRemember the Q3 numbers.'), false);
+    assert.equal(core.isLatticePragma('tier: full\n\nRemember the caveat about Q3.'), false);
+  });
+
+  // The three matchers mirror producers that live elsewhere. Pin the value domains to those
+  // producers so the two cannot drift apart silently.
+  test('the tier names mirror lib/exemplars/tier-filter.js', () => {
+    const { TIERS } = require('../../../lib/exemplars/tier-filter.js');
+    for (const t of TIERS) assert.equal(core.isLatticePragma(`tier: ${t}`), true, `tier: ${t}`);
+  });
+  test('the color-mode values mirror the producer REGISTER, not its prose', () => {
+    // Reads COLOR_MODE_REGISTER itself. An earlier version grepped the module's doc COMMENT
+    // for each name it already knew, which could not detect drift in the direction that
+    // matters: adding a fifth value to the producer left this green while the new marker
+    // leaked into the notes channel as a "note". Iterating the register fails on that.
+    const { COLOR_MODE_REGISTER } = require('../../../lib/core/resolve-color-mode.js');
+    const names = Object.keys(COLOR_MODE_REGISTER);
+    assert.ok(names.length > 0, 'the producer register is empty — has it moved?');
+    for (const v of names) {
+      assert.equal(
+        core.isLatticePragma(`color-mode: ${v}`), true,
+        `resolve-color-mode.js accepts "${v}" but the pragma matcher does not, so `
+        + `<!-- color-mode: ${v} --> ships as a speaker note (#1350)`
+      );
+    }
+  });
+
+  // The two sets are deliberately separate, for PROVENANCE — one records what an upstream
+  // project excluded, the other what this repo emits. Not because a gate enforces it: there
+  // is no Marpit parity test and there cannot be one (the dependency is gone), so a Lattice
+  // entry added to the wrong set would pass everything. This asserts the separation directly.
+  test('Lattice pragmas are NOT in the Marpit-mirrored tooling set', () => {
+    for (const pragma of ['tier: short', 'galleryAuthored: x', 'color-mode: dark']) {
+      assert.equal(core.isToolingComment(pragma), false);
+    }
+  });
+
+  test('a pragma is not lifted as a note, and a real note beside it survives', () => {
+    assert.equal(
+      core.notesFromHtml(sec('<!-- tier: short --><h1>A</h1><!-- Pause here. -->')),
+      'Pause here.'
+    );
+  });
+
+  test('a slide carrying only pragmas has no note at all', () => {
+    assert.equal(core.notesFromHtml(sec('<!-- tier: full --><!-- color-mode: dark --><h1>A</h1>')), null);
+  });
+});
+
 describe('notes-core: notesFromHtml', () => {
   test('single note', () => {
     assert.equal(core.notesFromHtml(sec('<h1>A</h1><!-- speaker note -->')), 'speaker note');
@@ -653,6 +751,31 @@ describe('notes-core: auditStrippedSource', () => {
       '<!--   -->',                          // empty
     ].join('\n');
     assert.deepEqual(core.auditStrippedSource(src), []);
+  });
+
+  // The pragma exclusion has TWO call sites and this is the second one. Excluding a pragma
+  // from the note set also takes it OUT of the --strip-notes scrub set, so it legitimately
+  // survives into the stripped source — and without the matching exclusion here, the audit
+  // would report every one of them as a note that leaked. That is a false privacy alarm,
+  // which this function's own contract calls the worst kind. Pinned because removing the
+  // call at that site left the whole suite green.
+  test('a Lattice pragma that survives the scrub is not reported as a leak', () => {
+    const src = [
+      '<!-- tier: short -->',
+      '<!-- galleryAuthored: curated tour; the build reads this verbatim -->',
+      '<!-- color-mode: dark -->',
+    ].join('\n');
+    assert.deepEqual(core.auditStrippedSource(src), []);
+  });
+
+  test('a note that merely LOOKS like a pragma is still reported', () => {
+    // The other direction: the value is outside the register's domain, so this is prose the
+    // author wrote and the strip failed to remove. It must not hide behind the exclusion.
+    assert.deepEqual(core.auditStrippedSource('<!-- color-mode: TBD -->'), ['color-mode: TBD']);
+    assert.deepEqual(
+      core.auditStrippedSource('<!-- tier: we should discuss the pricing tier -->'),
+      ['tier: we should discuss the pricing tier']
+    );
   });
 
   test('a deck-scope directive with a REAL value is not reported — the engine owns it', () => {

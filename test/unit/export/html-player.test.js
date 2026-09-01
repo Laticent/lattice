@@ -1156,7 +1156,16 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	//     diagram follows the viewer's toggle instead of freezing at export.
 	// This fixture declares no pinning `color-mode:` and carries no diagram, so (1) and (3)
 	// contribute script bytes only and (2) contributes two selector fragments.
-	assert.equal(sha, 'c81acf88a8cabcc475fb32d2ad640c793e57ae386ae90d58a2e3e2aa6747bc6f', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for the notes-affordance gate (#1833). The player hid the notes BUTTON when a
+	// file carried no notes, but left the 'n' key live and the panel in the layout — so a deck
+	// exported with `--strip-notes` still slid up a sheet reading "No notes for this slide.",
+	// telling the recipient the deck HAD notes, which is the disclosure the flag exists to
+	// prevent. `hasNotes` now gates the panel and the key as well as the button. Diffed
+	// before/after: THREE script lines move, plus the CSP `script-src` sha256, which is derived
+	// from the script text and so is forced by them. No markup, attribute or block order moved —
+	// this fixture's `aside.lattice-notes` means `hasNotes` is true here, so the gated branches
+	// contribute bytes, not behavior, to the golden.
+	assert.equal(sha, 'a1e08602fc36ee666ac23137e82f3c04e5c057aa28df65c2a379e05b3c4a3409', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

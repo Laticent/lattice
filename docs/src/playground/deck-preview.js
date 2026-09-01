@@ -57,14 +57,18 @@ import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 import { texturePatternDefs } from './a11y-textures.generated.js';
 import { slideBox } from './frame-css.js';
+import { previewCspMeta } from './preview-csp.js';
 import { splitSections } from './preview-virtual.js';
 
-export { splitSections };
+// Re-exported so callers that already reach for it here keep working; the policy itself
+// lives in its own dependency-free module (see preview-csp.js for why).
+export { previewCspMeta, splitSections };
 
 export const KATEX_URL = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css';
 // UMD build sets window.mermaid, which lattice-runtime.js polls for and then
 // renders ```mermaid fences (and charts/split-panels via applyAllToDom).
 export const MERMAID_URL = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+
 
 // The categorical/chart texture <defs> (the a11y redundant-encoding mechanism),
 // built ONCE from the shared kernel (HARD RULE #1). buildSrcdoc injects this on
@@ -277,6 +281,19 @@ export function buildSrcdoc({
 	// context under an a11y theme (inert otherwise). Owned here, not per-caller.
 	lang = 'en', // <html lang> for the frame — real-text surfaces (vector Print PDF, the
 	// preview a screen reader can walk) announce the deck's language (WCAG 3.1.1).
+	// Emit the remote-subresource CSP (#1753). Defaults ON — every PREVIEW frame wants it.
+	// The one caller that passes `false` is the Studio's offscreen EXPORT capture frame
+	// (`docs/src/components/studio/export/deck-export.js`), and the reason is a scope line
+	// this whole change rests on: a preview is a surface the author BROWSES, where a remote
+	// image beacons on open; the capture frame is an export renderer whose output the author
+	// downloads. Containing it would silently blank a legitimately-remote image in a
+	// downloaded .pdf/.pptx/.png — an EXPORT-BYTES change, which CLAUDE.md's QUALITY BAR
+	// makes a stop-and-show, and which nobody signed off. It would also put Studio's export
+	// at odds with the CLI's, which emits no CSP at all: the same deck would render two ways,
+	// the exact disagreement this policy exists to remove. Whether EXPORTS should contain
+	// remote subresources is a real question, but it is one decision covering both export
+	// paths — see the decision record's "What this does not do".
+	csp = true,
 }) {
 	// Strip script-bearing content before it reaches this same-origin srcdoc
 	// frame (#616 T-CONTENT). Covers buildSrcdoc's external caller too
@@ -313,6 +330,9 @@ export function buildSrcdoc({
 	const needsMermaid = html.indexOf('language-mermaid') !== -1;
 	return (
 		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"><head><meta charset="utf-8">' +
+		// FIRST in <head>, before any content or subresource link — a CSP meta governs only
+		// what the parser has not already reached (#1753).
+		(csp ? previewCspMeta({ katexUrl }) : '') +
 		(needsKatex ? '<link rel="stylesheet" href="' + katexUrl + '">' : '') +
 		// Guarded too, though `fontCss` is ours (previewFontFaceCss over a static table of
 		// bundled .woff2). `buildSrcdoc` is EXPORTED and has external callers, so "ours" is

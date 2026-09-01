@@ -296,3 +296,68 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   would not close the leak anyway, because the engine bakes the value onto the section. Only
   the author can fix it, by rewording the note — which is what the warning asks for.
   `lib/authoring/notes-core.js` › `directiveShapedProse`; `design/skills/speaker-notes.md`.
+
+## `--strip-notes` shipped the note anyway — in the `.pptx`, and in the raster PDF's sidecar
+
+- **Symptom:** `lattice deck.md out.pptx --strip-notes` produces a file whose
+  `ppt/notesSlides/*.xml` still carries the speaker text, where PowerPoint shows it to
+  anyone who opens the file. Same flag, same deck, `--raster` or `--paper`: the
+  `<out>.notes.txt` sidecar carries it too, and the run's own log line claims "3 slides
+  with speaker notes" on the render that just stripped all three.
+- **Cause:** the emulator materializes two arrays — `slideNotes` (as authored) and
+  `materializedNotes` (all-null under `--strip-notes`) — and each writer picks one. Three
+  call sites still read `slideNotes`. Coverage was per-path, so each export path had its
+  own test and a path nobody thought about was simply untested.
+- **Fix:** every writer takes `materializedNotes`. The durable guard is
+  `test/integration/export/strip-notes-every-format.test.js`, which drives ONE deck to
+  every row of the emulator's closed `OUT_FORMATS` table — and to the flag variants that
+  select a different write path, since the sidecar leak was in `.pdf`, the same table row
+  as the vector path that was already correct. Adding a format row without a case fails
+  the suite by name.
+- **When you write that test yourself, do not grep the PDF.** `embedNotesInPdf` writes the
+  note as an annotation and pdf-lib deflates the object stream carrying it, so a raw byte
+  scan of a definitely-leaking PDF returns ZERO hits. Inflate every `stream…endstream`
+  first. The same suite carries a control render WITHOUT the flag for exactly this reason:
+  a probe that cannot see the note when it IS there proves nothing when it is gone.
+
+## The exported player told the recipient a deck HAD notes, after `--strip-notes` removed them
+
+- **Symptom:** a `--player` export made with `--strip-notes` carries no note text, but
+  pressing `n` in Present view still slides up a 65px sheet reading "No notes for this
+  slide." The recipient learns the deck had notes — which is what the flag exists to prevent.
+- **Cause:** `player-core.mjs` hid the notes BUTTON when the file carried no
+  `aside.lattice-notes`, but left the panel in the layout and the `n` key handler live.
+- **Fix:** `hasNotes` gates the button, the panel and the key together. Verified on a real
+  browser, not a harness (HARD RULE #23): panel `display:none`, `n` inert, 0px.
+  `lib/export/player-core.mjs`.
+- **A second tell in the same class, found by review:** the `lattice-doc` envelope's `notes`
+  field was `!STRIP_NOTES` — set from the FLAG, not from the artifact. It sits in plain base64
+  at the bottom of the shared file, so a deck that never had a note said `true` and only a
+  stripped one said `false`: a one-bit answer to "were there notes here?". It now reads the
+  materialized array, so both cases say `false`. Two writers, both changed —
+  `lattice-emulator.js` and `docs/src/components/studio/share-export.ts`.
+- **What is NOT fixed — do not claim the file is indistinguishable.** Stripping removes the
+  comment NODE and leaves the whitespace around it, so re-rendering the deck's own embedded
+  source and diffing shows a one-byte-per-slide residue naming WHICH slides carried a note
+  (never what it said) — computable from the shipped file alone. Closing it means changing
+  whitespace handling in `stripCommentNodes`, which is on the render path for every deck, so
+  it wants its own change and its own verification. `--strip-notes` removes the content; it
+  does not conceal that it ran.
+
+## A `tier:` / `galleryAuthored:` pragma shipped as the speaker note in every format
+
+- **Symptom:** an exemplar deck exports and its presenter-notes field reads
+  `"tier: short\n\ntier: standard\n\ntier: full…"`. A slide whose author never wrote a note
+  ships one anyway, made of internal build markers — and where the author DID write a note,
+  the pragma is prepended to it.
+- **Cause:** the engine consumes only its own KNOWN directives; every other `key: value`
+  comment survives into the rendered section, and `noteBodiesFromHtml` lifts any surviving
+  comment as a speaker note. Lattice's own pragmas are not Marpit's, so the
+  `MAGIC_COMMENT_MATCHERS` exclusion set — copied verbatim from Marpit and locked there by a
+  parity test — never covered them.
+- **Fix:** a separate `LATTICE_PRAGMA_MATCHERS` set beside it, covering `tier:`,
+  `galleryAuthored:` and the comment form of the `color-mode:` register. Every matcher is
+  VALUE-CONSTRAINED where a prose reading is possible (`tier:` takes only the three tier
+  names), because over-stripping is the expensive failure: it eats a real note silently and
+  the author has no way to tell what ate it. `lib/authoring/notes-core.js` ›
+  `isLatticePragma`.

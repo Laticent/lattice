@@ -37,6 +37,7 @@ import { applyDebug } from '../playground/debug-overlay.js';
 import { hashString, linkGuardAgent } from '../playground/deck-preview.js';
 import { hasFidelityListeners, recordFidelity } from '../playground/fidelity-findings';
 import { DEFAULT_H, DEFAULT_W, singleSlideFrame } from '../playground/frame-css.js';
+import { previewCspMeta } from '../playground/preview-csp.js';
 import { hasRenderListeners, patchOverflow, type RenderStats, recordRenderSample } from '../playground/render-metrics';
 import { installVideoBridge } from '../playground/video-overlay.js';
 import { hasVizScanListeners, recordVizScan, scanBlackFills } from '../playground/viz-findings';
@@ -848,7 +849,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// the body or the section: the runtime reads it once at boot, before it has a
 			// section to consult, and the restyle/patch fast paths never rewrite this tag —
 			// so the flag survives every re-render short of a full write, which rebuilds it.
-			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + '><head><meta charset="utf-8"><style id="lattice-theme">' +
+			'<!doctype html><html' + (specimen ? ' data-lattice-specimen' : '') + '><head><meta charset="utf-8">' +
+			// Remote-subresource containment, before any content (#1753). This frame takes its
+			// KaTeX from `opts.katexUrl`, so the same value drives the font-src origin.
+			previewCspMeta({ katexUrl: opts.katexUrl || '' }) +
+			'<style id="lattice-theme">' +
 			styleElementText(css, mode, geom, extraCss) +
 			'</style></head><body>' +
 			html;

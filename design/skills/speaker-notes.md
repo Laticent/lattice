@@ -50,7 +50,17 @@ engine reads any non-directive comment, so hand-authored notes round-trip):
 A slide may carry several note comments (concatenated in order). Notes reach: a
 hidden PDF annotation (`--notes-icon` reveals it), a hidden HTML `aside`, a
 plaintext sidecar (`--notes`), the **PPTX presenter-notes field**, and the
-Present-mode teleprompter. `--strip-notes` removes them for a clean export.
+Present-mode teleprompter. `--strip-notes` removes them for a clean export — from **every**
+format, and the exported player then shows no notes affordance at all: no button, no panel,
+and the `n` key does nothing.
+
+**What `--strip-notes` guarantees is that the note TEXT is gone, not that the file is
+indistinguishable from one that never had notes.** The distinction is worth stating because
+it is easy to assume the stronger one. A determined recipient can still infer that notes were
+removed: stripping deletes the comment node and leaves the whitespace around it, so
+re-rendering the deck's own embedded source and diffing reveals a one-byte-per-slide residue
+that says *which* slides carried a note — though never what it said. Treat the flag as
+removing the content, not as concealing that you used it.
 
 **What makes a great note:**
 
@@ -75,6 +85,15 @@ ordinary, strippable note again. The directive names are `theme`, `paginate`, `h
 `footer`, `class`, `color`, `backgroundColor`, `backgroundImage`, `backgroundPosition`,
 `backgroundRepeat`, `backgroundSize`, `size`, `style`, `lang`, `marp`, `logo`, `focus`,
 `focusStyle`, `focusSteps`, `build`, `debug`, `lens`.
+
+**A handful of `key: value` comments are PRAGMAS, not notes, and never reach the notes
+field.** These are markers Lattice's own tooling reads: `tier: short|standard|full` (the
+exemplar length-variant marker), `galleryAuthored: …` (a gallery build marker), and the
+comment form of the deck register `color-mode: …`. Each is matched on its VALUE as well as
+its key, so an ordinary note that happens to start with one of those words stays a note —
+`<!-- tier: we should discuss the pricing tier -->` is yours, `<!-- tier: short -->` is the
+tool's. Before this, every one of them shipped as reader-visible text in the presenter-notes
+field of every format, on slides whose author had written no note at all.
 
 **A note comment shown inside a code fence is safe.** A deck that documents this syntax
 keeps its sample: `--strip-notes` matches a note body *in a position where a note can
