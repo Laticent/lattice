@@ -74,6 +74,21 @@
   record it had just saved, so naming a second theme renamed the first out of existence.
   Pre-existing — it predates this change — but in the same function as the component fix
   and contradicted by that fix's own note.
+- **Fixed: saving a theme, then editing it and saving again, was impossible.** Scoping the
+  name-collision guard to reopened records fixed the component and finish faculties and
+  missed the theme one, which then paired with the matching change to the theme's id pin:
+  a fresh save left nothing pinned while the record it had just written now held the name,
+  so Save was disabled — permanently, for that theme — with a tooltip naming the record the
+  author had just created. The only escapes were a rename, which forked a second record,
+  or leaving the faculty, which discarded the unsaved edit. The rule now lives in one
+  function all three faculties call (`library/save-guard.ts`) rather than three copies of a
+  two-part rule, and it has its own state table.
+- **Changed: an id-pinned save no longer reads the whole asset shelf.** The uniqueness
+  check queried every record to find same-kind ones, so a shelf holding reference-doc PDFs
+  paid for deserializing all of them on a path that used to read a single record by key —
+  measured at ~50–100ms and ~24MB per save with three 8MB documents on the shelf, against
+  ~0.3–13ms before. It now reads the `kind` index, which is both cheaper (~0.7–13ms) and
+  the precise question, since the invariant is per-kind.
 - **Fixed: two saved assets could end up sharing one name.** The three faculties each
   refuse a name another record holds, but they read a snapshot refreshed on save — so a
   second tab, or a workspace restore behind an open faculty, made the check blind and the

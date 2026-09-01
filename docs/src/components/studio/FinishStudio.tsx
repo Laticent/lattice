@@ -40,6 +40,8 @@ import {
 } from './finish-generate';
 import { type StudioFinish, safeSaveSlug, saveStudioFinish } from './finish-library';
 import { Joystick } from './Joystick';
+import { REFUSAL_PREFIX } from './library/asset-store.js';
+import { findNameClash } from './library/save-guard.js';
 import { type HandleStyle, loadSettings, SETTINGS_EVENT } from './studio-store';
 
 // The Finish faculty — the third Fabricate workbench (beside Theme + Component),
@@ -193,9 +195,10 @@ export function FinishStudio({
 	// records land on `ledger-custom`. Same hole on a FRESH save, where it silently
 	// overwrote the existing `ledger-custom` instead of refusing.
 	const savedSlug = safeSaveSlug(name);
-	// Fires only when id-pinned — see the long note on `compNameTakenBy` in `Fabricate`.
-	// A save without an id cannot create a duplicate; `putAsset` dedupes it by name.
-	const finishTakenBy = editingId ? savedFinishes.find((f) => f.name === savedSlug && f.id !== editingId) : undefined;
+	// The same rule the two Fabricate tabs use, from the same function — including the
+	// part that says it applies only when pinned. Note it takes `savedSlug`, not `name`:
+	// the guard must compare what the store will WRITE, per the note just above.
+	const finishTakenBy = findNameClash(savedFinishes, savedSlug, editingId);
 	// What Save and Export would actually WRITE — the slug form, not the preview form.
 	// Two generators would be two things to keep in step, so the view reads the same
 	// `generateFinishCss` those two call, with the same argument they pass.
@@ -289,7 +292,7 @@ export function FinishStudio({
 			// failure would send them to check private mode for a name clash. Anything
 			// without a message is a genuine storage failure and keeps the old wording.
 			const why = (e as Error)?.message;
-			notify(why?.startsWith("Can't save") ? why : 'Could not save — your browser may block storage (private mode?).');
+			notify(why?.startsWith(REFUSAL_PREFIX) ? why : 'Could not save — your browser may block storage (private mode?).');
 		} finally {
 			setSaving(false);
 		}

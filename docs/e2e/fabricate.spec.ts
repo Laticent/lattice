@@ -222,7 +222,12 @@ async function saveAsset(page: import('@playwright/test').Page) {
  * hand-edit round trip above does — the export is the artifact a human receives, so
  * two downloads ask the question the claim is actually about.
  */
-test('an edit over a saved theme is recoverable — the earlier version restores byte-identical', async ({ page }) => {
+// @smoke — this test and the one below it are the only coverage anywhere for SAVING THE
+// SAME THEME TWICE, and #1839 shipped a change that made the second save impossible: the
+// button was disabled, permanently, naming the record the author had just created. Both
+// went red and CI stayed green, because the pull-request tier is `--grep @smoke` and this
+// file carried no tag. A regression net that CI does not run is not a net.
+test('@smoke an edit over a saved theme is recoverable — the earlier version restores byte-identical', async ({ page }) => {
 	await page.getByRole('textbox', { name: 'Theme name' }).fill('versioned');
 
 	// 1. Author version A and save it. This is a CREATE — there is no previous record,
@@ -271,7 +276,8 @@ test('an edit over a saved theme is recoverable — the earlier version restores
  * a mis-click costs you the edit you were trying to compare against — which is the
  * failure the kernel's "restore-that-checkpoints-first" shape exists to prevent.
  */
-test('restoring checkpoints the current version, so a mis-clicked restore is itself recoverable', async ({ page }) => {
+// @smoke — see the note on the test above; this one saves the same theme twice too.
+test('@smoke restoring checkpoints the current version, so a mis-clicked restore is itself recoverable', async ({ page }) => {
 	await page.getByRole('textbox', { name: 'Theme name' }).fill('roundtrip');
 	const generated = await exportedCss(page);
 	const versionA = `${generated}\n/* A */\n`;

@@ -391,3 +391,79 @@ round would finish it" but that **this subsystem — the interaction of id-pinni
 guards and save semantics — has a defect density that four rounds have not exhausted.** That
 belongs in the merge decision as a property of the change, not as a queue of items to keep
 fixing quietly. The loop stops here; what is left goes to the human.
+
+---
+
+## Round 5 — the fix for round 4 shipped a deadlock, and the card missed it
+
+The loop did not stop there. Two things happened after the paragraph above was written,
+and the second is the reason this section exists.
+
+**First, the sampling was replaced with enumeration.** Nine of the ten defects lived in one
+small cross-product — whether a save carries an `id`, how its name relates to what is on the
+shelf, which kind it is — and each round had sampled that space by inspection, found a real
+defect, and shipped a fix that created the next round's. That space is finite, so
+`asset-save-states.test.ts` enumerates it: seven reachable store states, driven against the
+real store on `fake-indexeddb`. Seven rows failed on first run. `putAsset` then took the
+`(kind, name)` invariant inside its own write transaction, where a faculty's stale React
+snapshot cannot bypass it.
+
+**Second, an independent checker read that commit — the only one on the branch no
+adversarial round had seen — and found the branch was shipping a dead Save button.**
+
+Scoping the collision guard to reopened records (round 4's fix) was correct, and it was
+applied to the component and finish faculties. The theme faculty's copy was left unscoped,
+and in the same commit the theme's id pin became conditional. Either change alone is fine.
+Together: a fresh theme save leaves `editingId` empty while the record it just wrote now
+holds the name, so the unscoped guard is truthy forever and Save is disabled — permanently,
+for that theme — with a tooltip naming the record the author had just created. The escapes
+were a rename (which forks) or leaving the faculty (which discards the unsaved draft). It is
+the round-3 deadlock, re-created on a different tab by the fix for the round-3 deadlock.
+
+Two `fabricate.spec.ts` tests that pass on `main` went red. **Neither is in the smoke tier,
+which is the tier CI runs on a pull request** — so the branch was green on every gate while
+breaking a test the repo already owned. That is the more durable finding: the regression was
+caught by a test that existed and was not run, not by one nobody had written.
+
+### What changed as a result
+
+- **The rule is one function.** `library/save-guard.ts` holds `findNameClash`, and all
+  three faculties call it. The bug was possible because a rule with two halves — the id
+  comparison, and the fact that it applies only when pinned — existed in three copies, and
+  a fix updated two. `save-guard.test.ts` enumerates its nine cells; reverting the scope
+  reddens exactly the deadlock rows.
+- **The id-pinned save reads the `kind` index, not the whole shelf.** The checker measured
+  the uniqueness check at ~50–100 ms and ~24 MB per save with three 8 MB reference docs
+  present, on a path that previously read one record by key. The index is both cheaper and
+  the precise question.
+- **The refusal message is an exported constant with a test.** Two faculties branch on the
+  message text to decide whether to show the store's reason or the storage-failure
+  fallback; it was a bare literal in three files, so rewording it would have silently
+  reverted the fix with the suite still green.
+- **The two `fabricate` tests that caught it are now in the smoke tier.** They were the
+  only coverage anywhere for saving one theme twice, and the pull-request tier is
+  `--grep @smoke`, which that file carried no tag for. Tagging them is a cost every future
+  PR pays, which is why it is written down rather than done quietly: two tests on a tier
+  that ran 38, for the one class of defect this branch demonstrated CI could not see.
+- **The enumeration's own docblock was overstated.** It declared a four-value `id` axis, but
+  the store cannot distinguish "another live record's id" from "its own" — it sees only
+  whether the id and the name each match something live. It now states the seven states it
+  actually covers, says plainly that `kind` is inert for all but the `scene` row, and lists
+  the two gaps (exact-match names, cross-kind ids) as unreachable-by-construction rather
+  than implying they were covered. One assertion could not fail for the property in its
+  name and now checks the id directly.
+
+### What this says about the pre-merge card
+
+The card graded the change `high` with the floor on `unknowns`, and named one thing that
+would raise it: enumerate the faculty save/pin lifecycle the way the store's was. **The
+defect the checker found is precisely what that gap was hiding** — so the raise-path was
+right, and shipping without spending it would have shipped the deadlock.
+
+The card was also wrong in a way worth recording. It graded `independent eyes` at the top of
+the scale on the strength of four rounds, when the newest and most load-bearing commit had
+had none, and the summary of those rounds ("the trio ran four times over") described
+something that did not happen: across four rounds all three lenses ran, but no single round
+ran the full trio. HARD RULE #25 requires the trio on *what will actually ship*, and a count
+of agents that reviewed earlier commits does not satisfy it. **The check that catches this
+is asking, per axis, which commit the evidence came from.**

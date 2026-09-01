@@ -91,6 +91,20 @@ export { HISTORY_STORE, openDB, reqAsPromise } from './asset-db.js';
 const VERSIONED_KINDS = new Set(['theme', 'component', 'finish']);
 
 /**
+ * The opening words of a refusal WE raised, as opposed to a storage failure the browser
+ * raised. Exported because the faculties branch on it: a `(kind, name)` clash is the
+ * author's to fix and its message names the fix, while anything else is reported as
+ * "your browser may block storage".
+ *
+ * It is a constant rather than a literal repeated in three files because the coupling is
+ * invisible otherwise — reword the message and the faculties silently fall back to the
+ * storage-failure text, which is the exact defect the branch that added this fixed, and
+ * no test would have gone red. `refusal-prefix.test.ts` pins the message against it and
+ * drives both branch arms in both faculties.
+ */
+export const REFUSAL_PREFIX = "Can't save —";
+
+/**
  * Fields that move on every save whether or not anything was authored.
  *
  * `addedAt` is the Library's sort key and every faculty re-stamps it with
@@ -232,11 +246,18 @@ export async function putAsset(record, { historyLabel = 'Before save', ts = Date
       //
       // Deliberately scoped to a DIFFERENT record: pinning a record onto its own name is
       // the ordinary edit, and must stay free.
-      const dupes = assets.getAll();
+      //
+      // Read through the `kind` index, not `getAll()`. The shelf holds `refdoc` records
+      // that are whole PDFs, and a bare `getAll()` deserializes every one of them on a
+      // path that previously read a single record by key. Measured in real Chromium with
+      // three 8 MB reference docs on the shelf: ~50–100 ms and ~24 MB of strings per
+      // save, against ~0.3–13 ms before and ~0.7–13 ms through the index. The index is
+      // also exactly the right question — the invariant is per-kind.
+      const dupes = assets.index('kind').getAll(record.kind);
       dupes.onsuccess = () => {
-        const clash = (dupes.result || []).find((a) => a.kind === record.kind && a.name === record.name && a.id !== record.id);
+        const clash = (dupes.result || []).find((a) => a.name === record.name && a.id !== record.id);
         if (clash) {
-          refusal = new Error(`Can't save — “${record.name}” is already another saved ${record.kind}. Rename that one first.`);
+          refusal = new Error(`${REFUSAL_PREFIX} “${record.name}” is already another saved ${record.kind}. Rename that one first.`);
           t.abort();
           return;
         }

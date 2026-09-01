@@ -7,11 +7,37 @@
 // the next round's. Sampling is the wrong instrument for a space this small — it is
 // finite, so enumerate it and assert every transition instead of drawing another sample.
 //
-// The space:
+// WHAT THE SPACE ACTUALLY IS — stated as the store sees it, which is narrower than the
+// author's mental model and was overstated here in the first draft.
 //
-//   id        ∈ { none, the record's own, ANOTHER live record's, one nothing holds }
-//   name      ∈ { unused, its own, another live record's }
-//   kind      ∈ { theme, component, finish }
+// `putAsset` has no notion of "which record the author meant". It sees two facts, and
+// branches on nothing else:
+//
+//   does the record carry an id?            → none | present
+//   does its (kind, name) match a live one?  → no match | matches THIS id | matches ANOTHER id
+//
+// So "another live record's id" is not a separable case: a save carrying B's id IS a
+// save of B, whatever the author intended, and it reduces to one of the rows below.
+// Seven reachable states result, and all seven are here:
+//
+//   1. no id, name unused                    → create
+//   2. no id, name held                      → update the holder
+//   3. id of a live record, name unused      → rename it, id kept
+//   4. id of a live record, its own name     → update it
+//   5. id of a live record, another's name   → REFUSED
+//   6. id nothing holds, name unused         → create under that id
+//   7. id nothing holds, name held           → REFUSED
+//
+// `kind` is a THIRD axis only at row 8: `putAsset` branches on kind in exactly one place
+// (`VERSIONED_KINDS.has(...)`), and theme/component/finish are all in that set — so the
+// three `describe.each` passes run identical code and are a regression net, not new
+// coverage. The `scene` block below is the one place the kind axis discriminates. Read
+// the count honestly: 23 tests over 7 distinct store states plus 2 properties.
+//
+// KNOWN GAPS, listed rather than implied away. Names are compared with `===`, so `beta`,
+// `Beta` and `beta ` are three records, and a cross-kind id silently rewrites a record's
+// kind. Neither is reachable from the UI — every faculty slugifies before saving, and no
+// faculty holds another kind's id — so they are unguarded by choice, not by oversight.
 //
 // Driven against the REAL `asset-store.js` on `fake-indexeddb`, for the reason the id
 // pinning and history tests give: a double would agree with whatever the store happens to
@@ -21,7 +47,7 @@
 
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { deleteAsset, listAssets, putAsset } from './asset-store.js';
+import { deleteAsset, getAsset, listAssets, putAsset } from './asset-store.js';
 
 const KINDS = ['theme', 'component', 'finish'] as const;
 type Kind = (typeof KINDS)[number];
@@ -92,10 +118,14 @@ describe.each(KINDS)('putAsset — the save state table (%s)', (kind) => {
 		expect((await listAssets(kind)).find((r: { id: string }) => r.id === a.id)?.text).toBe('A1');
 	});
 
-	it('an id NOTHING holds + an unused name creates a record under that id', async () => {
+	it('an id NOTHING holds + an unused name creates a record under THAT id', async () => {
 		const { a, b } = await seed(kind);
 		await putAsset({ kind, id: 'ghost-id', name: 'gamma', label: 'Gamma', text: 'G1' });
 		expect(await shelf(kind, { a: a.id, b: b.id })).toEqual(['alpha#a', 'beta#b', 'gamma#new']);
+		// The shelf shape above passes whether the store honored `ghost-id` or minted a
+		// fresh one — `shelf()` renders any unknown id as `new`. Assert the id itself, or
+		// this row cannot fail for the property in its name. (Caught in review.)
+		expect(await getAsset('ghost-id')).toMatchObject({ name: 'gamma', text: 'G1' });
 	});
 
 	it('an id NOTHING holds + a name ALREADY HELD is REFUSED', async () => {

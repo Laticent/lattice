@@ -27,6 +27,8 @@ import { downloadText } from './download';
 import { FinishStudio } from './FinishStudio';
 import type { StudioFinish } from './finish-library';
 import { type Finding, LayoutStudio, STARTER_CSS, STARTER_DESCRIPTION, STARTER_META, STARTER_NAME, STARTER_SKELETON } from './LayoutStudio';
+import { REFUSAL_PREFIX } from './library/asset-store.js';
+import { findNameClash } from './library/save-guard.js';
 import { MotionStudio } from './MotionStudio';
 import { manifestJsonCompletion } from './manifest-complete';
 import { useReferenceDoc } from './reference-doc-ui';
@@ -643,28 +645,16 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 		notify(`Exported ${compName} — manifest, styles & skeleton (drop into lib/components/).`);
 	}
 
-	// A NAME ALREADY TAKEN BY A DIFFERENT RECORD. Save is id-pinned, and `putAsset`
-	// skips its (kind, name) dedupe when an id is given — so renaming this theme onto
-	// another one's name writes two records with one name, and the picker resolves by
-	// name (`savedThemes.find(t => t.name === palette)`), leaving the older card
-	// listed but unreachable. Refuse rather than silently make one of them a ghost.
-	const nameTakenBy = savedThemes.find((t) => t.name === themeName && t.id !== editingId);
-	// The component tab's twin — AND IT ONLY FIRES WHEN THIS FACULTY IS ID-PINNED, which
-	// is the whole of the reasoning it took three review rounds to get right.
+	// A NAME ALREADY TAKEN BY A DIFFERENT RECORD, for both tabs. The rule — including the
+	// part that says it applies only when the faculty is pinned to a reopened record —
+	// lives in `findNameClash`, with the reasoning and the table that pins it.
 	//
-	// `putAsset` creates a duplicate only on the id path: given an id it writes blind,
-	// so a REOPENED record renamed onto another's name lands as a second live record
-	// under one name, and `_class: <name>` in a deck then resolves to whichever sorts
-	// newest, leaving the other listed and never again invokable. That is worth refusing.
-	//
-	// Without an id there is no such hazard: `putAsset` resolves `(kind, name)`, so a
-	// same-name save is an UPDATE of the record already holding it, snapshotted to
-	// history first. Refusing that was over-reach, and it cost two dead ends — first
-	// "you cannot save the same asset twice", then, after a `lastSavedId` patch, "you
-	// cannot rename back to a name you used earlier in this session", whose only escape
-	// discarded the author's unsaved edit. Both had the same root: guarding a path that
-	// cannot produce the state being guarded against.
-	const compNameTakenBy = compEditingId ? savedComponents.find((c) => c.name === compName && c.id !== compEditingId) : undefined;
+	// It is a shared function because it was three copies, and a fix scoped two of them:
+	// the theme copy stayed unscoped, which paired with the conditional pin below to
+	// deadlock Save on this tab after the first save. Three copies of a rule with two
+	// halves is how that happens twice.
+	const nameTakenBy = findNameClash(savedThemes, themeName, editingId);
+	const compNameTakenBy = findNameClash(savedComponents, compName, compEditingId);
 	const canSave = !saving && (tab === 'theme' ? themeNameOk && !!derived.css && !nameTakenBy : compOk && compNameOk && !compNameTakenBy);
 	/**
 	 * WHY SAVE IS DEAD ON A REOPENED IMPORT, said on the button rather than left to be
@@ -762,7 +752,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 			// failure would send them to check private mode for a name clash. Anything
 			// without a message is a genuine storage failure and keeps the old wording.
 			const why = (e as Error)?.message;
-			notify(why?.startsWith("Can't save") ? why : 'Could not save — your browser may block storage (private mode?).');
+			notify(why?.startsWith(REFUSAL_PREFIX) ? why : 'Could not save — your browser may block storage (private mode?).');
 		} finally {
 			setSaving(false);
 		}
