@@ -555,4 +555,33 @@ test('agent kit structure', { skip }, async (t) => {
 		assert.doesNotMatch(skills, /~3k each/, 'the skills row is hand-typed again; measure it');
 		assert.match(skills, /[\d.]+k–[\d.]+k each/, 'the skills row should quote the measured range');
 	});
+
+	/**
+	 * A fixed ``` wrapper splits the moment its payload carries one at the start
+	 * of a line, and the rest then parses as markup instead of the quoted text it
+	 * is meant to be. The canons this kit wraps — DECK_CANON, THEME_CANON,
+	 * COMPONENT_CANON — are prose anyone may edit, and COMPONENT_CANON already
+	 * carries inline ``` runs. Latent, not live, which is exactly the kind that
+	 * ships.
+	 */
+	await t.test('fenced picks a rail longer than anything inside the payload', async () => {
+		const { fenced } = await import('../../../tools/build-agent-kit.mjs');
+		const plain = fenced('no fences here');
+		assert.equal(plain[0], '```', 'a payload with no fence should not escalate');
+		assert.equal(plain[2], plain[0], 'the closer must match the opener');
+
+		for (const [payload, why] of [
+			['before\n```\nafter', 'a bare line-leading fence'],
+			['before\n```js\ncode\n```\nafter', 'a full nested block'],
+			['before\n````\nfour\n````\nafter', 'a four-tick block'],
+			['   ```\nindented up to three spaces still opens a fence', 'an indented fence'],
+		]) {
+			const [open, body, close] = fenced(payload);
+			assert.equal(open, close, `${why}: opener and closer must match`);
+			assert.ok(open.length >= 4, `${why}: the rail did not escalate past the payload`);
+			// The decisive property: no line in the body may open or close the rail.
+			const rail = new RegExp(`^ {0,3}\\\`{${open.length},}`, 'm');
+			assert.doesNotMatch(body, rail, `${why}: the payload can still break out of the fence`);
+		}
+	});
 });

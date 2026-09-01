@@ -53,7 +53,6 @@
  * it reads their output. `tools/build.js` places it accordingly.
  */
 
-import { execFileSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -102,6 +101,25 @@ const bytesOf = (files, key) => files.get(key)?.length || 0;
  * edit, and a broken table is exactly the kind of silent wrongness this kit is
  * meant not to ship.
  */
+/**
+ * Wrap a payload in a fence LONGER than anything line-leading inside it.
+ *
+ * A fixed ``` splits the moment a payload carries one at the start of a line,
+ * and the remainder then parses as markup rather than as the quoted text it is
+ * meant to be. COMPONENT_CANON already contains inline ``` runs — not
+ * line-leading yet, so this is latent rather than live, and the canons are
+ * prose anyone may edit. CommonMark lets the opening run be any length >= 3 as
+ * long as the closer matches, so this is free.
+ */
+function fenced(payload, info = '') {
+  const longest = [...String(payload).matchAll(/^ {0,3}(`{3,})/gm)].reduce(
+    (n, m) => Math.max(n, m[1].length),
+    2,
+  );
+  const rail = '`'.repeat(Math.max(3, longest + 1));
+  return [`${rail}${info}`, String(payload), rail];
+}
+
 const mdCell = (v) =>
   String(v)
     .replace(/\\/g, '\\\\')
@@ -432,11 +450,19 @@ function reviewBundle() {
         '',
       ].join('\n'),
     );
-    execFileSync(
-      path.join(ROOT, 'node_modules', '.bin', 'esbuild'),
-      [entry, '--bundle', '--format=esm', '--platform=node', `--outfile=${out}`, '--log-level=error'],
-      { cwd: ROOT, stdio: ['ignore', 'ignore', 'pipe'] },
-    );
+    // esbuild's own API, the idiom the other ten build tools use (HARD RULE #15).
+    // Spawning `node_modules/.bin/esbuild` instead relied on an extensionless
+    // shim that Windows cannot execute directly — and this build runs from
+    // `prepare`, so a spawn failure there is an INSTALL failure for a consumer.
+    require('esbuild').buildSync({
+      entryPoints: [entry],
+      bundle: true,
+      format: 'esm',
+      platform: 'node',
+      outfile: out,
+      logLevel: 'error',
+      absWorkingDir: ROOT,
+    });
     // esbuild writes each module's path as a comment, and the ENTRY lives in a
     // randomly named temp dir — so two builds of identical source differ by one
     // line and the freshness gate fails on every CI run. Normalize it to a stable
@@ -688,9 +714,7 @@ function deckCanonDoc() {
     '',
     '## The canon',
     '',
-    '```',
-    DECK_CANON.trim(),
-    '```',
+    ...fenced(DECK_CANON.trim()),
     '',
     '## The short form',
     '',
@@ -698,9 +722,7 @@ function deckCanonDoc() {
     'this reduced canon to local models instead. Use it when context is very tight — it is',
     'the load-bearing subset, not a summary.',
     '',
-    '```',
-    DECK_CANON_SHORT.trim(),
-    '```',
+    ...fenced(DECK_CANON_SHORT.trim()),
     '',
     '---',
     '',
@@ -844,17 +866,13 @@ function studioPromptsDoc() {
     '',
     `Sent when generating a palette. See \`${SKILLS}/theme.md\` for the full method.`,
     '',
-    '```',
-    String(THEME_CANON).trim(),
-    '```',
+    ...fenced(String(THEME_CANON).trim()),
     '',
     '## COMPONENT_CANON',
     '',
     `Sent when generating a layout. See \`${SKILLS}/component.md\`.`,
     '',
-    '```',
-    String(COMPONENT_CANON).trim(),
-    '```',
+    ...fenced(String(COMPONENT_CANON).trim()),
     '',
     '## FINISH_SYSTEM — not shipped, and why',
     '',
@@ -1413,4 +1431,4 @@ if (invokedDirectly) {
   );
 }
 
-export { buildKit, main, mdCell, OUT_DIR };
+export { buildKit, fenced, main, mdCell, OUT_DIR };
