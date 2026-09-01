@@ -49,7 +49,7 @@ builds-on: 2026-09-01-composition-is-an-engine-measure.md, 2026-06-22-the-fit-sp
 
 # Cards laid side by side need one vertical-alignment policy, and there is none
 
-**Date:** 2026-09-01 · **Status:** In progress (design model; all four of its defect cells now resolved in code — §9) ·
+**Date:** 2026-09-01 · **Status:** In progress (design model; three of its four defect cells fixed in code, the fourth a non-defect — §9; plus the 42 cards §9d logged off-path — §9f) ·
 **Decision owner:** Sharmarke
 
 `2026-09-01-composition-is-an-engine-measure.md` argued that the engine should measure
@@ -807,10 +807,42 @@ extra line. §9d had already stated the principle — "cross-card alignment beat
 centering" — about `stats`, and §5c did not apply it here. **A `read`-grade row in §5c is worth
 less than it looks for any component that lays a multi-card row.**
 
-**The fix is the container, not the card.** `align-content: space-evenly` makes each wrapped line
-content-height and distributes what is left between the lines: the void goes, the cards within a
-line stay equal height (flex's default cross-axis `stretch`), and the titles stay level. At one
-line it is exactly "band centered" — `shrink-center`.
+**The fix is the container, not the card** — and the first value chosen for it was wrong too.
+`align-content` on the wrap container makes each line content-height: the void goes, the cards
+within a line stay equal height (flex's default cross-axis `stretch`), and the titles stay level.
+**But `space-evenly` pours the leftover into the ROW GUTTER**, and a checker measured what that
+costs on the exact slides that ship as the docs landing images:
+
+| slide | column gutter | row gutter, `space-evenly` |
+|---|---|---|
+| `cards-grid` default (gallery p. 2) | 24px | **89.9px — 3.7×** |
+| `cards-grid compact` (p. 8) | 18px | **97.2px — 5.4×** |
+| `verdict-grid` default (gallery p. 2) | 16px | **67.5px — 4.2×** |
+
+A grid whose rows sit four times further apart than its columns has stopped being a grid; the 2×2
+reads as two separated bands. **`align-content: center` is the value**, and it is also the one that
+matches §5b's definition of `shrink-center` — *"cards sized to their content, the band centered in
+the stage"*. It keeps the gutter at `gap` and puts the slack outside the band. Rendered both ways
+at wide and square and looked at: `center` is the composition, `space-evenly` was a near miss.
+
+**The cost of `center`, stated because §5c originally rejected this composition over exactly it.**
+The first draft's objection was that under `shrink-center` *"the band stops short of the stage
+floor, and the accent-filled 'recommended' card loses the presence its fill is there to give it"*.
+That is real and `center` makes it larger than `space-evenly` would: on `verdict-grid`'s own
+gallery slide the band's top and bottom padding goes from **0 to 51.5px each**. It is accepted
+here, and the reason is that the objection was written against the wrong comparison — it weighed
+`shrink-center` against a full-height card that looked *composed*, when that card is two-fifths
+empty. A coherent block of content-height cards, inset from the stage edge, reads better than
+either a card carrying 40% white or two rows shoved apart. **This is the one judgment in the
+change that a measurement cannot settle**, so it is named in the merge card rather than buried.
+
+**Where `space-evenly` survives, and why it is not a per-family accident.** `cards-grid` keeps it
+at tall and strip. There the cards are `width: 100%`, so the layout is a single COLUMN of
+full-width cards down a long frame: there is no column gutter for the row gutter to match, no grid
+rhythm to protect, and a stack pinned into the middle of a tall page reads worse than one paced
+down it. The value follows the SHAPE the cards are in — a grid or a column — not the family label,
+which is why `verdict-grid` (a flex column at tall/strip, where `align-content` governs the
+horizontal axis entirely) resets to `stretch` there instead.
 
 | card | before | after |
 |---|---|---|
@@ -820,18 +852,44 @@ line it is exactly "band centered" — `shrink-center`.
 
 **Portrait is untouched, and that is measured rather than assumed.** Re-rendering both decks at
 all three families from the pre-change tree and diffing every card signature: landscape and square
-move on exactly the four rows above, and **portrait's 19 card signatures are identical**. At tall
+move on exactly the three rows above, and **portrait's 19 card signatures are identical**. At tall
 and strip the `verdict-grid` list is a COLUMN, where `align-content` governs the horizontal axis —
 so that component keeps an explicit `align-content: stretch` reset there rather than inheriting a
-declaration that would mean something else.
+declaration that would mean something else. Confirmed in the live DOM at `size: portrait`: the list
+computes `flex-direction: column` / `align-content: stretch`, and all three cards keep `flex: 1 1 0%`
+with `justify-content: safe center`, which is the pre-change composition exactly.
 
-**One thing the hoist fixes that the family override never could.** `cards-grid` has three emit
-paths — the marp-native `ul`/`ol`, the lattice.js `.cards-grid-inner`, and the VS Code
-`:not(:has())` fallback — and the family override reached only the first. The other two ran on
-`stretch` at **every** family, wide included. Moving the declaration to the three base row rules
-closes that as a side effect and leaves all three paths saying the same thing (HARD RULE #1).
+**The reset covers `[data-orientation="portrait"]` too, and that is a property of the engine rather
+than a coincidence.** `verdict-grid` also reflows on the deck-wide `data-orientation` stamp, so a
+portrait deck outside `tall`/`strip` would have slipped past a family-keyed reset. It cannot exist:
+`lib/adaptive/families.js` derives orientation FROM the family through `FAMILY_TO_ORIENTATION`
+(`tall` and `strip` → `portrait`), and its comment records that the two used to disagree at aspect
+0.9–0.95 and were unified for exactly this reason.
+
+**Which `cards-grid` rule was actually governing, and the dead path underneath it.** An earlier
+draft of this section claimed the hoist ALSO fixed two emit paths the family override never
+reached, at every family. **That is false and was caught by a checker**, which rebuilt the
+pre-change bundle and re-rendered: the hoist changes **wide and only wide** — square and portrait
+are byte-identical, exactly as adding `wide` to the old override's `:where()` list would have been.
+Here is what is actually true.
+`cards-grid.styles.css` carries three container rule sets, written for three emit paths: the
+marp-native `ul`/`ol` at (0,2,2), the lattice.js `.cards-grid-inner` at (0,2,1), and a
+`:not(:has(.cards-grid-inner))` editor fallback at (0,3,2) — `:has()` contributes its argument's
+specificity, so that last one outranks the base rule and is what governed the landscape family.
+The deleted family override sat at (0,3,2) too and won at square, tall and strip only by coming
+later in the file. So the correction has to land on the fallback as well as the base rule, which
+is why all three now carry it (HARD RULE #1).
+
+**And `.cards-grid-inner` is a dead path.** The string appears nowhere in the tree outside this
+stylesheet — no transform, no runtime module, no docs-site builder emits it — so its rule set never
+matches and its `:not()` guard is always true. That is a PRE-EXISTING finding, off the path of this
+change, logged here rather than pulled into the diff (HARD RULE #18): removing it is a separate
+question about whether the lattice.js post-processing path is coming back.
 
 **Corpus after:** 19 of 2,908 cards flagged, down from 61 at the previous merge and 374 at the
 start. All 19 are the `stats` cards §9d identified as CORRECT — an equal-height row sharing a
 number baseline — so **every remaining flag is a card that should not be changed**, and the
-declarative pass over the four defect cells is complete.
+declarative pass over the four defect cells is complete. The count is the same under `center` and
+under `space-evenly`: the slack probe measures the void INSIDE a card, and both values take it to
+zero. The gutter defect that separates them is invisible to this instrument — a fifth thing it
+cannot see, and the fifth correction that came from somewhere other than the corpus.

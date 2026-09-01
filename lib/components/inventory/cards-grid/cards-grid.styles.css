@@ -11,11 +11,11 @@
 section.cards-grid > .cell-stage { display:flex; flex-direction:column; }
 /* — Marp CLI native path —
  * flex mirror of `grid-template-columns:1fr 1fr; grid-auto-rows:1fr`: a 2-col tiling (matrix
- * idiom — `width` on the cells) whose wrapped rows stretch to share the bounded stage. Each
+ * idiom — `width` on the cells) whose wrapped rows are content-height and centered in the bounded stage. Each
  * card is itself the two-cells-then-full-width pattern (actors §11.A): title + badge on the
  * header row, the body wraps to a full-width row 2. */
 section.cards-grid > .cell-stage > ul, section.cards-grid > .cell-stage > ol {
-  display:flex; flex-wrap:wrap; align-content: space-evenly;
+  display:flex; flex-wrap:wrap; align-content: center;
   gap:var(--sp-md); flex:1;
   list-style:none; padding:0; margin:0;
 }
@@ -52,7 +52,7 @@ section.cards-grid > .cell-stage > ol > li > ul > li, section.cards-grid > .cell
 /* — lattice.js post-processed path — */
 section.cards-grid .cards-grid-inner,
 section.cards-grid .cards-grid-inner--ordered {
-  display:flex; flex-wrap:wrap; align-content: space-evenly;
+  display:flex; flex-wrap:wrap; align-content: center;
   gap:var(--sp-md); flex:1;
 }
 section.cards-grid .card {
@@ -102,7 +102,7 @@ section.cards-grid .cards-grid-inner--ordered > .card::before {
  * ul/ol > li (nested list format) → mimic .cards-grid-inner > .card             */
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul,
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol {
-  display:flex; flex-wrap:wrap; align-content: space-evenly;
+  display:flex; flex-wrap:wrap; align-content: center;
   gap:var(--sp-md); flex:1; list-style:none; padding:0; margin:0;
 }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li,
@@ -206,12 +206,32 @@ section.cards-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  * `:not(:has(.cards-grid-inner))` base grid rule and wins on source order — the
  * role the old `[data-orientation]` attribute played. */
 /* `align-content: space-evenly` used to be stamped here for square, tall and strip
- * while `wide` kept `align-content: stretch`. It is not a family behavior — a row of
- * peers wants content-height cards at every aspect — so it moved up to the three base
- * row rules and this override is gone. Two things that fixes beyond the wide gap:
- * the override reached only `> .cell-stage > ul, > ol`, so the lattice.js
- * (`.cards-grid-inner`) and VS Code (`:not(:has())`) emit paths never got it at ANY
- * family; and hoisting it keeps all three paths saying the same thing. */
+ * while `wide` kept `align-content: stretch`, which is why the family nearly every deck
+ * uses ran ~38% empty below each card's text. The distribution moved up to the container
+ * rules, and what stays here is the TALL/STRIP arm of it, unchanged.
+ *
+ * WHY `center` UP THERE AND `space-evenly` HERE — the layouts are different shapes.
+ * At wide and square this is a wrap GRID: `space-evenly` pours the leftover into the row
+ * gutter, measured 24px -> 89.9px on the 2x2 (3.7x the column gutter), and a grid whose
+ * rows sit four times further apart than its columns stops reading as a grid. `center`
+ * keeps the gutter at `gap` and puts the slack outside the band, which is what
+ * `shrink-center` means in the design note.
+ * At tall and strip the cards are `width: 100%`, so this is a single COLUMN of full-width
+ * cards down a long frame — there is no column gutter to match and no grid rhythm to keep,
+ * and a stack pinned into the middle of a tall page reads worse than one paced down it.
+ * So the value is not a per-family accident: it follows the shape the cards are IN.
+ *
+ * WHY IT HAS TO LAND ON MORE THAN THE BASE RULE UP THERE: the rule that actually governs
+ * is the `:not(:has(.cards-grid-inner))` one, because `:has()` contributes its argument's
+ * specificity and puts it at (0,3,2) over the base rule's (0,2,2). This override is (0,3,2)
+ * as well and won at square/tall/strip only on source order — so leaving that rule on
+ * `stretch` would have kept the landscape defect exactly where it was. All three container
+ * rule sets now agree (HARD RULE #1).
+ * See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §9f. */
+section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul,
+section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
+  align-content: space-evenly;   /* content-height cards paced down a tall frame */
+}
 /* SQUARE KEEPS THE 2-UP GRID — only tall/strip go single-column. A square box is
  * the `balanced` family (lib/adaptive/families.js: "2×2 grids, 2-up"), and it has
  * the width for two cards, and one column fights the family's own definition.

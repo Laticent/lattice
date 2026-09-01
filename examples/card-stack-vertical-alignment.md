@@ -53,13 +53,13 @@ Five layouts were handed the full height of the stage and pinned their content t
 ## A row of peers keeps its titles level.
 
 - Content-height rows.
-  - The line takes what its tallest card needs.
+  - The line takes what its tallest card needs, and nothing more than that.
 - Equal within the line.
   - Cards still stretch to each other.
 - Titles stay put.
-  - Centering each card alone would drop this one.
-- Three emit paths.
-  - Native, post-processed and fallback now agree.
+  - Center each card alone and this title drops below its neighbors.
+- One gutter.
+  - Rows sit `gap` apart, like the columns.
 
 ---
 
@@ -69,17 +69,17 @@ Five layouts were handed the full height of the stage and pinned their content t
 ## The same correction, on a scored grid.
 
 - **Center the card.**
-  - [ ] Void gone
+  - [x] Void gone
   - [ ] Titles level
-  - Empties the card, staggers the names.
+  - Empties the card, then staggers the option names against each other.
 - **Stretch the row.**
   - [ ] Void gone
   - [x] Titles level
-  - Honest alignment, 35% of the panel empty.
-- **Distribute the rows.**
+  - Honest alignment, 35% empty.
+- **Center the rows.**
   - [x] Void gone
   - [x] Titles level
-  - Content-height lines, spread down the stage.
+  - Content-height lines, one gutter.
 
 ---
 
@@ -96,7 +96,7 @@ Five layouts were handed the full height of the stage and pinned their content t
    - is empty now
 3. 148
    - split pages fixed
-4. 313
+4. 355
    - flagged cards gone
 
 ---

@@ -12,12 +12,12 @@
 	"cards-grid.light": {
 		"src": "lib/components/inventory/cards-grid/cards-grid.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "628635ccf9f1632a4bda99c134635832ed4e4c5a2e90cd9285203c3fee24ef68"
+		"srcSha256": "ac7e74c0cbce9df354f014bfd1e3154a61d1a724a625e1c2445938396e80f7e3"
 	},
 	"cards-grid.dark": {
 		"src": "lib/components/inventory/cards-grid/cards-grid.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "06e89b1eba3b928000cf1594be90643a8d7d53a90634e80d00006195f6ca58c4"
+		"srcSha256": "67dd281400a837f306d2bbafea9992667deec330569b5598d2db6a651429c021"
 	},
 	"checklist.light": {
 		"src": "lib/components/inventory/checklist/checklist.gallery.light.pdf",
@@ -142,11 +142,11 @@
 	"verdict-grid.light": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "53696ae150084d47aad4279da90ae572817c72f3268bbbd154e7d893171a9556"
+		"srcSha256": "195b47dfbde021a568aca65e0edcc1e12a346cb23a9dcd2d6a4fd90082275fde"
 	},
 	"verdict-grid.dark": {
 		"src": "lib/components/comparison/verdict-grid/verdict-grid.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "c8cbb73970050cc9c72c287c397102c7622cda65069f95f6bd9c01783a3541df"
+		"srcSha256": "194be66ff25ad78189c076e50f993824229b83357ab880dc5d511c7cdbc0908b"
 	}
 }
