@@ -436,10 +436,26 @@ function checkFamily(errors, fam, { root = ROOT, dir = null, ajv = makeAjv() } =
     // plus a bare `must match "then" schema`, which names no field and tells the
     // author nothing. The hand-written walker this replaced emitted one line, and
     // a replacement that talks more while saying the same thing is a regression.
+    // THE FALLBACK IS THE POINT. Filtering a keyword risks the worst outcome this
+    // gate has: a manifest that FAILED validation and reports nothing, which reads
+    // exactly like a manifest that passed. An 8,456-mutation fuzz plus five
+    // hand-built adversarial schema/data pairs found no case where `if` is the sole
+    // error — but "we could not find one" is not a guarantee, and the invariant
+    // rests on ajv behavior nothing in this repo pins. So the filter cannot swallow
+    // the last error: if everything got dropped, say so, loudly and with the raw
+    // ajv text. A noisy line beats a silent pass.
     if (!validate(data)) {
+      const before = errors.length;
       for (const err of validate.errors) {
         if (err.keyword === 'if') continue;
         errors.push(`${label} ${formatError(err, data, fam.schema)}`);
+      }
+      if (errors.length === before) {
+        errors.push(
+          `${label} failed validation against ${fam.schema}, but every reported error was a ` +
+            'conditional (`if`) wrapper with no actionable field. This is a gate defect, not just a ' +
+            `manifest defect — please report it. Raw ajv errors: ${JSON.stringify(validate.errors)}`,
+        );
       }
     }
 

@@ -48,3 +48,9 @@
 - `checkAjvBoundary` covers the whole ajv package family (`ajv-formats`,
   `ajv-keywords` are the same devDependency leak), dedupes per file, and now has
   tests that watch it fail.
+- **The `if`-error filter can no longer swallow a manifest's last error.** Dropping
+  ajv's bare `must match "then" schema` line risked the gate's worst outcome — a
+  manifest that failed validation and reported nothing, indistinguishable from one
+  that passed. A fallback now fires if every error was filtered, naming it a gate
+  defect and carrying the raw ajv text.
+

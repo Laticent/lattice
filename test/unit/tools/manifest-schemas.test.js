@@ -568,3 +568,40 @@ test('checkAjvBoundary reports one file importing ajv two ways ONCE', () => {
     fs.rmSync(probe, { force: true });
   }
 });
+
+test('the `if` filter can never swallow the LAST error — a failed manifest always reports', () => {
+  // The worst outcome this gate has is a manifest that FAILED validation and says
+  // nothing, which is indistinguishable from one that passed.
+  //
+  // This drives the fallback through an INJECTED validator rather than a real
+  // schema, on purpose. No natural if-only case exists: five hand-built adversarial
+  // schema/data pairs and an 8,456-mutation fuzz all produced a concrete keyword
+  // error alongside the `if` one (a `then: false` arm, for instance, also emits
+  // `boolean schema is false`). The fallback exists for a case nobody can currently
+  // produce — so a test that waits for one would assert nothing, and an earlier cut
+  // of this test did exactly that: it passed while the fallback never ran.
+  const stubAjv = {
+    compile() {
+      const fn = () => false;
+      fn.errors = [{ keyword: 'if', instancePath: '', schemaPath: '#/if', params: {}, message: 'must match "then" schema' }];
+      return fn;
+    },
+  };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-iffall-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'x.schema.json'), JSON.stringify({ type: 'object' }));
+    fs.writeFileSync(path.join(dir, 'probe.manifest.json'), JSON.stringify({ kind: 'banned' }));
+    const errors = [];
+    checkFamily(
+      errors,
+      { family: 'probe', schema: 'x.schema.json', dir: '.', ext: '.manifest.json' },
+      { root: dir, dir, ajv: stubAjv },
+    );
+    assert.equal(errors.length, 1, `expected exactly the fallback, got ${JSON.stringify(errors)}`);
+    assert.match(errors[0], /gate defect/, 'the fallback must say this is a GATE defect, not just a manifest one');
+    // The raw text is JSON.stringify'd, so its inner quotes arrive escaped.
+    assert.match(errors[0], /must match \\"then\\" schema/, 'it must carry the raw ajv text for diagnosis');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
