@@ -362,6 +362,60 @@ inputs).
 **Eviction:** `npm run clean:scratch` (14-day GC). Returned PDF paths
 are owned by the cache; callers MUST NOT `unlinkSync` them.
 
+## Waiting for a slow job
+
+**Never hand-roll a wait.** Every wait goes through `tools/wait-for.sh`, and
+**one job gets one waiter**.
+
+The shape to never write again is the obvious one:
+
+```bash
+# WRONG — unbounded, anonymous, and it outlives everything.
+until grep -q "done" build.log; do sleep 5; done   # in a background Bash call
+```
+
+It has no deadline and no identity, and both gaps have been paid for. One
+session left **fifteen** of these resident — six of them waiting on the same
+integration run, still polling after five hours. They multiply because a
+condition that never matches produces no notification, so the next turn assumes
+the wait was never started and spawns another with slightly different wording.
+
+Idling costs nothing measurable (about 16 seconds of CPU over five hours). The
+expense is the **late fire**: a waiter that finally matches hours later wakes the
+session with an expired prompt cache, so the whole conversation re-enters at full
+input price rather than the roughly 10% cache-read price — once per duplicate.
+That is why the helper's deadline is capped under the cache TTL.
+
+Two modes. Prefer the first:
+
+```bash
+# Run the job AND wait, as ONE background task. Its exit is the notification,
+# so there is no second shell polling for it.
+tools/wait-for.sh --job integration -- npm run test:integration
+
+# Only when the job is already running elsewhere: poll a predicate, bounded.
+tools/wait-for.sh --job docs-server --timeout 120 --until 'grep -q ready /tmp/astro.log'
+```
+
+Run it through the harness's `run_in_background` when you want to keep working;
+the helper is what guarantees it ends. What it gives you:
+
+- **A deadline on every wait.** Default 1800s, ceiling 3600s. Overrun exits 124.
+- **One waiter per job.** A second wait on a live job exits 2 and names the
+  holder rather than adding a duplicate. `--force` replaces it deliberately.
+- **One line of output, at the end.** In run mode the command's own output goes
+  to `.scratch/waits/<job>.log`, and only the tail is echoed, only on failure.
+
+A lock never wedges a job name: a dead holder is reclaimed, a **zombie** holder
+is reclaimed (a killed-but-unreaped process still answers `kill -0`, which is a
+bug this helper had and a test now pins), and any lock older than the ceiling is
+reclaimed regardless.
+
+**A waiter waits.** Do not attach an action to a condition — a background shell
+that runs `build:check` when some file appears will happily run it three hours
+later against a tree that has moved on. Run the job, or wait for it; not both.
+
+
 ## Editor setup
 
 `jsconfig.json` gives VS Code / JetBrains / Neovim project-wide

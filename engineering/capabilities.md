@@ -447,3 +447,4 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/verify-narrated-player.mjs` | Real-surface verification for the baked-narration player (#1393). |
 | `tools/verify-player-input.mjs` | Real-surface verification for the exported HTML player: TOUCH input (#1558) and the deck's |
 | `tools/verify-studio-syntax.js` | Verify the Studio's derived syntax ink tier against the REAL built Studio — every |
+| `tools/wait-for.sh` | Wait for one long job — bounded, deduped by job name, and silent until it ends. |
