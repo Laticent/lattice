@@ -3628,7 +3628,10 @@ async function renderBody(browser, g, closeBrowser) {
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
     fs.writeFileSync(outFile, pinPdfTimestamps(finalBytes).bytes);
-    const noteCount = slideNotes.filter(Boolean).length;
+    // materializedNotes, NOT slideNotes — see the sidecar write below. Counting the
+    // unstripped array made this line claim "3 slides with speaker notes" on a run that
+    // had just stripped all three, which reads as reassurance that the flag did nothing.
+    const noteCount = materializedNotes.filter(Boolean).length;
     if (!QUIET) {
       const tags = [];
       if (paperSheet) {
@@ -3642,7 +3645,10 @@ async function renderBody(browser, g, closeBrowser) {
       if (EMBED_SOURCE) tags.push('source embedded');
       console.log(`PDF: ${outFile} (${tags.join(', ')})`);
     }
-    if (NOTES_SIDECAR) writeNotesSidecar(outFile, slideNotes);
+    // materializedNotes, NOT slideNotes — the same rule the vector-PDF path above and the
+    // HTML path below already follow. `--raster` / `--paper` land here instead, so handing
+    // this sidecar the unstripped array shipped the notes the flag exists to remove.
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
   } else if (OUT_FORMAT === 'imageset') {
     // IMAGE SET (.zip): one raster per slide in the chosen format, opt-in thumbnails,
     // and opt-in standalone chart/diagram SVGs — packed via the SHARED image-set kernel
@@ -4054,7 +4060,12 @@ async function renderBody(browser, g, closeBrowser) {
         company: `Lattice · ${paletteName}`,
         width: slideW,
         height: slideH,
-      }, slideNotes, slideDescriptions);
+        // materializedNotes, NOT slideNotes — under `--strip-notes` the former is all-null.
+        // PowerPoint shows `ppt/notesSlides/*.xml` to anyone who opens the file, so this is
+        // the one format whose native viewer puts the author's private text in front of the
+        // recipient by default. This call site was the last one still reading the unstripped
+        // array (#1837).
+      }, materializedNotes, slideDescriptions);
       if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}`);
     }
   }

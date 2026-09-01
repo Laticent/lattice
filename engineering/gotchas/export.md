@@ -296,3 +296,26 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   would not close the leak anyway, because the engine bakes the value onto the section. Only
   the author can fix it, by rewording the note — which is what the warning asks for.
   `lib/authoring/notes-core.js` › `directiveShapedProse`; `design/skills/speaker-notes.md`.
+
+## `--strip-notes` shipped the note anyway — in the `.pptx`, and in the raster PDF's sidecar
+
+- **Symptom:** `lattice deck.md out.pptx --strip-notes` produces a file whose
+  `ppt/notesSlides/*.xml` still carries the speaker text, where PowerPoint shows it to
+  anyone who opens the file. Same flag, same deck, `--raster` or `--paper`: the
+  `<out>.notes.txt` sidecar carries it too, and the run's own log line claims "3 slides
+  with speaker notes" on the render that just stripped all three.
+- **Cause:** the emulator materializes two arrays — `slideNotes` (as authored) and
+  `materializedNotes` (all-null under `--strip-notes`) — and each writer picks one. Three
+  call sites still read `slideNotes`. Coverage was per-path, so each export path had its
+  own test and a path nobody thought about was simply untested.
+- **Fix:** every writer takes `materializedNotes`. The durable guard is
+  `test/integration/export/strip-notes-every-format.test.js`, which drives ONE deck to
+  every row of the emulator's closed `OUT_FORMATS` table — and to the flag variants that
+  select a different write path, since the sidecar leak was in `.pdf`, the same table row
+  as the vector path that was already correct. Adding a format row without a case fails
+  the suite by name.
+- **When you write that test yourself, do not grep the PDF.** `embedNotesInPdf` writes the
+  note as an annotation and pdf-lib deflates the object stream carrying it, so a raw byte
+  scan of a definitely-leaking PDF returns ZERO hits. Inflate every `stream…endstream`
+  first. The same suite carries a control render WITHOUT the flag for exactly this reason:
+  a probe that cannot see the note when it IS there proves nothing when it is gone.
