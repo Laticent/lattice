@@ -2,6 +2,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { unified } from '@astrojs/markdown-remark';
 import react from '@astrojs/react';
 import starlight from '@astrojs/starlight';
 import tailwindcss from '@tailwindcss/vite';
@@ -120,7 +121,21 @@ export default defineConfig({
 	// Markdown-wide rehype: give every content table a tab stop so its horizontal
 	// scroll is reachable without a pointer (WCAG 2.1.1). See the plugin's header for
 	// why it adds a tabindex and NOT a role.
-	markdown: { rehypePlugins: [rehypeScrollableTables] },
+	// Astro 7 made Satteri the default Markdown processor and DEPRECATED the
+	// `markdown.rehypePlugins` shorthand this used to pass. The shorthand still works
+	// — astro builds this same `unified()` processor from it and warns on every run —
+	// but it does so by importing `@astrojs/markdown-remark`, which astro 7 no longer
+	// installs and which reached us only as a transitive dependency of Starlight's
+	// `@astrojs/mdx`. A WCAG fix should not rest on another package's dependency
+	// graph, so the processor is named here and the package is a direct dependency.
+	//
+	// This keeps TODAY's pipeline exactly — unified/remark, not Sätteri — and the
+	// built site is byte-identical across the change, all 92 pages. Moving to Sätteri
+	// means porting the plugin to its `hastPlugins` API and re-verifying every page;
+	// that is its own change, not a rider on a dependency bump.
+	markdown: {
+		processor: unified({ rehypePlugins: [rehypeScrollableTables] }),
+	},
 	integrations: [
 		starlight({
 			title: 'Lattice',

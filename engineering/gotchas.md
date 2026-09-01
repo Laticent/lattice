@@ -110,6 +110,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [`build:check` fails: "embeds a `<style>` element but does not call `sanitizeStyleText`" (HARD RULE #22)](gotchas/docs-site.md#buildcheck-fails-embeds-a-style-element-but-does-not-call-sanitizestyletext-hard-rule-22)
 - [Docs build fails `stale: <name>.<mood>: gallery PDF changed since the WebP was generated`](gotchas/docs-site.md#docs-build-fails-stale-namemood-gallery-pdf-changed-since-the-webp-was-generated)
 - [A docs panel is dead in `astro dev` only (source CJS served over `/@fs`)](gotchas/docs-site.md#a-docs-panel-is-dead-in-astro-dev-only-source-cjs-served-over-fs)
+- [Playwright dies with `Process from config.webServer exited early` — `astro preview` is a daemon](gotchas/docs-site.md#playwright-dies-with-process-from-configwebserver-exited-early--astro-preview-is-a-daemon)
 - [Docs `npm run dev` → `sh: 1: astro: not found`](gotchas/docs-site.md#docs-npm-run-dev--sh-1-astro-not-found)
 - [`pkill -f astro` kills the shell that's launching astro](gotchas/docs-site.md#pkill--f-astro-kills-the-shell-thats-launching-astro)
 - [An `<astro-island>` without `ssr` is mounted, not yet wired — clicks still vanish](gotchas/docs-site.md#an-astro-island-without-ssr-is-mounted-not-yet-wired--clicks-still-vanish)

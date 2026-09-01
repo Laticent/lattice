@@ -119,6 +119,34 @@ owe nothing here. See
 - **Commit:** `fix(docs): load Architect authoring cores via an esbuild bundle so
   they work in astro dev`.
 
+## Playwright dies with `Process from config.webServer exited early` — `astro preview` is a daemon
+
+- **Symptom:** every Playwright run against the docs site fails before a single test
+  body executes, with `Process from config.webServer exited early`. The build step
+  before it succeeded, and pointing a browser at `http://localhost:4321/studio/` by
+  hand serves the site perfectly well. Identical in CI and locally.
+- **Cause:** astro 7 made `astro preview` FORK. It starts the server, prints
+  `Preview server running at … (pid N)`, and the command RETURNS. Playwright's
+  `webServer` needs a process that stays up for as long as the run, so a command that
+  exits with rc=0 is reported as an early exit and the whole run is abandoned. The
+  `--background` flag does not select this behavior — it is opt-in *reporting* of a
+  daemon that is already the default.
+- **Measured, on astro 7.2.10:** the foreground invocation returns in 3.05s with rc=0,
+  while `astro preview status` still answers
+  `Preview server running at http://localhost:4399 (pid 4984, uptime 1s, background)`
+  and the port serves HTTP 200.
+- **Mitigation:** `docs/scripts/preview-e2e.mjs` — `npm run preview:e2e` runs it
+  instead of `astro preview` directly. It starts the server, blocks in the foreground
+  by following its logs for as long as the server lives, and stops it on the way out,
+  including on the SIGTERM Playwright sends when the run ends.
+- **Why the stop matters as much as the block:** a daemon left behind by an earlier run
+  keeps answering on 4321 with a STALE `dist/`, and `reuseExistingServer` (on locally,
+  off in CI) then picks it up and tests the old build silently. The wrapper therefore
+  also stops any leftover daemon before it starts its own.
+- **Triggered by:** the astro 6 → 7 bump (#1483).
+- **Removable when:** astro offers a documented foreground preview, or Playwright grows
+  a way to adopt a daemonizing server command.
+
 ## Docs `npm run dev` → `sh: 1: astro: not found`
 
 - **Symptom:** `cd docs && npm run dev` (or `npm run start`) prints the
