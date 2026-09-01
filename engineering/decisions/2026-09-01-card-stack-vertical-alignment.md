@@ -16,8 +16,9 @@ summary: >
   the optical middle — is what TWO of the four defect cells actually needed and the first cut
   could not name, and `fill-top` is what a `kanban` lane legitimately wants. §5c recommends a
   composition for each of the 17, three of them settled by shipped code. **§10 IS THE OUTCOME AND OVERRIDES
-  §5c's DIRECTION** — the owner ruled the default stays `stretch` and all four alignments go to the
-  author, so the `cards:` register ships and NO component default changes. FOUR OF THE NOTE'S LOAD-BEARING
+  §5c's DIRECTION** — the owner ruled `center` the default and the other three compositions the
+  author's to name, so the `cards:` register ships and a card row centers unless a deck says
+  otherwise. FOUR OF THE NOTE'S LOAD-BEARING
   CLAIMS ARE NOW REFUTED BY MEASUREMENT, and §9 is where the branches that fixed the defects record
   what they found. (1) The grid switch is not needed: `align-content` works on a WRAPPED FLEX
   container, the 2x2 never flattens, and flattening is exclusive to `grid-auto-flow: column` — so
@@ -37,9 +38,9 @@ summary: >
   cards whose bodies wrap to equal line counts, and on the uneven cases centering inside the card
   staggers the titles across a row of peers. Both take `shrink-center` on the CONTAINER instead
   (§9f). Three cells are fixed and shipped — `decision` at wide, `matrix-2x2` at every family and
-  `stats` on autosplit pages — one CSS property each. `cards-grid` and `verdict-grid` keep their
-  stretching default and gain the register instead (§10), which is the one piece of §5 that did get
-  built, with a vocabulary §5b did not anticipate. Scope was settled by
+  `stats` on autosplit pages — one CSS property each. `cards-grid` and `verdict-grid` get the
+  register instead (§10), which is the one piece of §5 that did get built, with a vocabulary §5b
+  did not anticipate and `center` as the default. Scope was settled by
   RENDERING all 26 candidates and looking at them, which corrected five: `authority-chain`,
   `cycle` and `roadmap` are cards, not diagrams; `contact` and `wifi` are single cards whose
   internal zones the detector miscounted as a row. A second look at full resolution corrected two
@@ -52,7 +53,7 @@ builds-on: 2026-09-01-composition-is-an-engine-measure.md, 2026-06-22-the-fit-sp
 
 # Cards laid side by side need one vertical-alignment policy, and there is none
 
-**Date:** 2026-09-01 · **Status:** In progress (design model; three of its four defect cells fixed in code, the fourth a non-defect — §9; plus the 42 cards §9d logged off-path — §9f) ·
+**Date:** 2026-09-01 · **Status:** In progress (design model; three of its four defect cells fixed in code, the fourth a non-defect — §9. The 42 cards §9d logged off-path are closed by a REGISTER rather than a bare default change: the owner ruled `center` the default and the other three compositions the author's to name — §10) ·
 **Decision owner:** Sharmarke
 
 `2026-09-01-composition-is-an-engine-measure.md` argued that the engine should measure
@@ -905,20 +906,25 @@ under `space-evenly`: the slack probe measures the void INSIDE a card, and both 
 zero. The gutter defect that separates them is invisible to this instrument — a fifth thing it
 cannot see, and the fifth correction that came from somewhere other than the corpus.
 
-## 10 · What shipped: the register, not a new default
+## 10 · What shipped: the register, with `center` as the default
 
-**The owner rejected changing the default, and directed the opposite of what §5c and §9f
-were converging on.** In their words: *"why can't all options be available to the author?
-default should be stretch."* That settles a question this note had been answering the hard
-way — by trying to find the single composition that is right for every sparse card row —
-and the answer is that there isn't one, which is why three successive values each looked
-right until the next render.
+**The owner settled it in two moves.** First: *"why can't all options be available to the
+author?"* — which answers a question this note had been trying to solve the hard way, by
+hunting for the single composition right for every sparse card row. There isn't one, which
+is why three successive values each looked right until the next render. Then, on the
+default: *"center should be default, all other options can be specified by the author."*
 
-**So the default is untouched.** `cards-grid` and `verdict-grid` render exactly as they did
-before this branch: `align-content: stretch`, cards filling their row. §9a's `decision`,
-`matrix-2x2` and `stats` fixes are unaffected — those were cards whose height was
-*definite* and whose content simply never distributed, which is a mechanism void the engine
-owes; this section is about where a SHRUNK band sits, which is a composition the deck owns.
+**So `center` is the default and the other three are the author's to ask for.** A card row
+sizes its cards to their text and centers the band unless the deck says otherwise. §9a's
+`decision`, `matrix-2x2` and `stats` fixes are untouched by this — those were cards whose
+height was *definite* and whose content never distributed, a mechanism void the engine owes;
+this section is about where a SHRUNK band sits, which is a composition the deck owns and can
+now name.
+
+**This IS a behavior change, and the changelog leads with it.** A sparse `cards-grid` or
+`verdict-grid` slide renders shorter cards than before — 211.11 → 133.88 on the measured
+case, which is exactly the ~35% of each card that was empty. `cards: stretch` restores the
+old fill deck-wide, `_class: cards-stretch` for one slide.
 
 ### 10a · The register
 
@@ -927,14 +933,16 @@ owes; this section is about where a SHRUNK band sits, which is a composition the
 
 | value | token | where the spare height goes |
 |---|---|---|
-| `stretch` | *(none)* | nowhere — the cards absorb it. **The default.** |
-| `center` | `cards-center` | split above and below the band |
+| `center` | *(none)* | split above and below the band. **The default.** |
+| `stretch` | `cards-stretch` | nowhere — the cards absorb it. What every deck did before. |
 | `top` | `cards-top` | all below, band under the headline rule |
 | `spread` | `cards-spread` | shared between the rows, widening the row gutter |
 
-Per slide, `_class: cards-center` sets one slide, and `_class: cards-stretch` puts one
-slide back to the default inside a deck that chose otherwise — which is why the override
-set carries a token for the default even though the deck value stamps none.
+Per slide, `_class: cards-stretch` fills one slide's row, and `_class: cards-center` puts
+one slide back to the default inside a deck that chose otherwise — which is why the override
+set carries a token for the default even though the deck value stamps none. **At tall and
+strip that distinction is not cosmetic:** a rule's own fallback there is `space-evenly`, so
+omitting `cards:` paces the column while `_class: cards-center` centers it.
 
 **The names are the CSS values in plain English**, not §5b's proposed `auto|fill|spread|
 shrink`. That vocabulary was built for a register that would have *decided* the composition
@@ -949,10 +957,11 @@ card row reads `align-content: var(--cards-align, <its own default>)`. Three con
 all of them the reason this shape was chosen over a `section.cards-center .card-row { … }`
 rule:
 
-- **An absent register resolves to the component's own value.** There is deliberately NO
-  `:root` default for `--cards-align`; the variable simply is not set, so every fallback
-  wins. That is why `cards: stretch` stamps nothing — it is the absence of the variable,
-  not a value of it.
+- **The default lives in each rule's fallback, not in a `:root` declaration.** There is
+  deliberately NO `:root` value for `--cards-align`; the variable is simply unset unless a
+  non-default value is stamped, so every fallback wins. That is why `cards: center` stamps
+  nothing — it is the absence of the variable, not a value of it, which is also what keeps
+  the explicit value and the omitted one identical rather than subtly different.
 - **A per-family default survives.** `cards-grid` paces its cards down a tall frame
   (`space-evenly`) rather than centering them, and its family arm carries THAT value in its
   own fallback. A single global default would have flattened it.
@@ -966,10 +975,10 @@ component at a time with a render check on each rather than as a catalog sweep.
 ### 10c · What is verified, and what is not
 
 - **The export path**, in real Chromium, on the geometry: all four values plus no-register
-  measured on the same deck. No register and `cards: stretch` both give card height 211.11
-  and `align-content: stretch` — byte-identical to `main`. `center` → 133.88 with
-  padTop/padBot 77.23; `top` → 0/154.47; `spread` → 51.48/51.50 with the row gutter at
-  67.86 against a 16px column gutter.
+  measured on the same deck. No register and `cards: center` are identical — card height
+  133.88, `align-content: center`, padTop/padBot 77.23. `stretch` → 211.11 with 0/0 (the
+  pre-register rendering, reachable on demand); `top` → 133.88 with 0/154.47; `spread` →
+  133.88 with 51.48/51.50 and the row gutter at 67.86 against a 16px column gutter.
 - **The runtime path**, driving the shipped `dist/lattice-runtime.js` in real Chromium:
   the correct `cards-*` class is stamped for each value, none is stamped when the register
   is absent, and a slide carrying `cards-stretch` correctly does NOT receive the deck

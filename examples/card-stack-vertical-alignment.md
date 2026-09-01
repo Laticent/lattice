@@ -3,44 +3,43 @@ marp: true
 theme: indaco
 paginate: true
 header: "Lattice · the cards: register"
-cards: center
 ---
 
 <!-- _class: title silent -->
 
 # The author decides where a card row's spare height goes
 
-`cards: stretch · center · top · spread`
+`cards: center · stretch · top · spread`
 
 A row of cards gets the whole stage. When the cards are sparse, that height goes somewhere — and only the author knows where.
 
 ---
 
 <!-- _class: cards-grid cards-stretch -->
-<!-- _footer: "cards: stretch — the default. Every deck rendered this way before the register, and still does." -->
+<!-- _footer: "cards: stretch — what every deck did before the register. Now opt in." -->
 
 ## Stretch fills the row, and a short card carries the difference.
 
-- The default.
-  - Omit the key; nothing changes.
+- What this used to do.
+  - Every deck rendered card rows this way.
 - Right when cards are full.
   - A three-line card uses what it gets.
 - Wrong when they are sparse.
   - A one-line card is as tall as the row.
-- The author's call.
-  - The engine cannot tell sparse from composed.
+- Still worth asking for.
+  - A full grid, or one above a key-insight panel.
 
 ---
 
 <!-- _class: cards-grid -->
-<!-- _footer: "cards: center — cards shrink to their text and the band sits at the optical middle." -->
+<!-- _footer: "cards: center — the default. This slide names no value at all." -->
 
 ## Center shrinks the cards and centers the band.
 
+- The default now.
+  - Omit the key and you get this.
 - Cards fit their text.
   - Each line takes what its tallest card needs.
-- The band centers.
-  - Spare height splits above and below.
 - One gutter.
   - Rows stay `gap` apart, matching the columns.
 - The cost.
@@ -88,7 +87,7 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 ---
 
-<!-- _class: list-criteria cards-stretch -->
+<!-- _class: list-criteria -->
 <!-- _footer: "How the register is built." -->
 
 ## One token, and every default survives it.
@@ -97,15 +96,15 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
   - `cards: center` stamps a class that sets `--cards-align`.
 - **Each row keeps its own default**
   - Each row reads the variable with its own fallback.
-- **So silence changes nothing**
-  - No register, no variable, no change.
+- **So a rule keeps its own default**
+  - `cards: center` stamps nothing; each fallback wins.
 - **And the splitter still wins**
   - Split pages override it, so a run stays uniform.
 
 ---
 
-<!-- _class: closing cards-stretch -->
+<!-- _class: closing -->
 
 ## Four values, one default, nothing forced.
 
-`stretch stays the default — the engine never decides a composition the author owns.`
+`center is the default — every other composition is one line of front matter away.`

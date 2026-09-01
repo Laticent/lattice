@@ -1496,28 +1496,32 @@ section.flat {
   --elevation-berth: 0;
 }
 
-/* ── `cards:` — where a sparse CARD ROW puts the height it does not need ─────────────
- * A row of cards is a wrapped flex container handed the full stage height. Its lines
- * STRETCH to share that height by default, so a card holding one line of text is as tall
- * as the row and carries the difference as empty space inside itself. Right when the
- * cards are full, wrong when they are sparse — and only the author knows which, so the
- * engine keeps stretching and the register hands over the other three.
+/* ── `cards:` — where a CARD ROW puts the height it does not need ────────────────────
+ * A row of cards is a wrapped flex container handed the full stage height. Stretching its
+ * lines to share that height makes a card holding one line of text as tall as the row,
+ * carrying the difference as empty space inside itself — so the DEFAULT is to size the
+ * cards to their text and center the band, and the register hands the author the rest:
+ * `stretch` for the old fill, `top` to sit the band under the headline, `spread` to share
+ * the height out between the rows.
  *
  * NO `:root` DEFAULT ON PURPOSE. `--cards-align` is deliberately left UNSET unless a
- * value is stamped, so every consumer reads `align-content: var(--cards-align, <its own
- * default>)` and an absent register resolves to exactly what that component shipped —
- * including a per-family default, which a single global default would flatten. That is
- * why `cards: stretch` maps to no token at all (resolve-cards.js): it is the absence of
- * the variable, not a value of it.
+ * non-default value is stamped, so every consumer reads `align-content: var(--cards-align,
+ * <its own default>)` and the default resolves to exactly what that RULE says — including
+ * a per-family one, which a single global default would flatten: cards-grid at tall/strip
+ * is a column of full-width cards rather than a grid, and paces them down the frame. That
+ * is why `cards: center` maps to no token at all (resolve-cards.js) — it is the absence of
+ * the variable, not a value of it, which is also what keeps the explicit value and the
+ * omitted one identical instead of subtly different.
  *
- * Deck-wide via `cards:`; per slide via `_class: cards-center` / `-top` / `-spread` /
- * `-stretch`, the last of which opts one slide back out of a deck-wide choice. Section
- * specificity beats :root, so the per-slide class is order-independent.
- * See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §5. */
-section.cards-center { --cards-align: center; }
-section.cards-top    { --cards-align: flex-start; }
-section.cards-spread { --cards-align: space-evenly; }
-/* `cards-stretch` names the default explicitly so a slide can opt out of a deck-wide
- * value. It sets the variable rather than unsetting it, because a consumer's fallback is
- * its own family default, which may not be `stretch`. */
+ * Deck-wide via `cards:`; per slide via `_class: cards-stretch` / `-top` / `-spread` /
+ * `-center`, the last of which opts one slide back to the default inside a deck that chose
+ * otherwise. Section specificity beats :root, so the per-slide class is order-independent.
+ * See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §10. */
 section.cards-stretch { --cards-align: stretch; }
+section.cards-top     { --cards-align: flex-start; }
+section.cards-spread  { --cards-align: space-evenly; }
+/* `cards-center` names the DEFAULT explicitly so one slide can opt back into it inside a
+ * deck that chose otherwise. It sets the variable rather than unsetting it — and that is a
+ * real difference at tall/strip, where a rule's own fallback is `space-evenly`: omitting
+ * `cards:` paces the column, while `_class: cards-center` centers it. */
+section.cards-center { --cards-align: center; }

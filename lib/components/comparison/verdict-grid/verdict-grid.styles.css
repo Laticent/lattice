@@ -55,14 +55,15 @@ section.verdict-grid > .cell-stage { display:flex; flex-direction:column; }
 section.verdict-grid > .cell-stage > ul {
   /* flex mirror of `grid-template-columns:1fr 1fr; grid-auto-rows:minmax(0,1fr)`: a 2-col
    * tiling (matrix-2x2 idiom — `width` on the cells, not a flex-shorthand calc basis) whose
-   * wrapped rows stretch to share the bounded stage, so a dense grid shrinks to fit instead
-   * of clipping the last row.
-   * THE STRETCH IS THE DEFAULT, NOT THE ONLY OPTION. It fills a sparse card with empty space
-   * — right when the cards are full, wrong when they are not, and only the author knows
-   * which. `var(--cards-align, stretch)` reads the deck's `cards:` register (center / top /
-   * spread) and falls back to the value this component has always had, so a deck that says
-   * nothing renders exactly as before. lib/core/resolve-cards.js; the note's §10. */
-  display:flex; flex-wrap:wrap; align-content: var(--cards-align, stretch);
+   * wrapped rows are content-height and CENTERED in the bounded stage. A dense grid still
+   * shrinks rather than clipping the last row: the cards have no explicit height, so a
+   * crowded line just gets taller.
+   * THIS USED TO STRETCH, which made a card holding one line of text as tall as the row and
+   * left ~35% of it empty (#1979). Centering is the default now; `var(--cards-align, center)`
+   * reads the deck's `cards:` register, so an author who wants the old fill back writes
+   * `cards: stretch`, and `top` / `spread` place the band differently.
+   * lib/core/resolve-cards.js; the note's §10. */
+  display:flex; flex-wrap:wrap; align-content: var(--cards-align, center);
   gap:var(--sp-sm); flex:1; list-style:none; padding:0; margin:0;
 }
 section.verdict-grid > .cell-stage > ul > li {

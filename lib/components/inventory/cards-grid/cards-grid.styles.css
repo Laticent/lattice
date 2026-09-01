@@ -15,7 +15,7 @@ section.cards-grid > .cell-stage { display:flex; flex-direction:column; }
  * card is itself the two-cells-then-full-width pattern (actors §11.A): title + badge on the
  * header row, the body wraps to a full-width row 2. */
 section.cards-grid > .cell-stage > ul, section.cards-grid > .cell-stage > ol {
-  display:flex; flex-wrap:wrap; align-content: var(--cards-align, stretch);
+  display:flex; flex-wrap:wrap; align-content: var(--cards-align, center);
   gap:var(--sp-md); flex:1;
   list-style:none; padding:0; margin:0;
 }
@@ -52,7 +52,7 @@ section.cards-grid > .cell-stage > ol > li > ul > li, section.cards-grid > .cell
 /* — lattice.js post-processed path — */
 section.cards-grid .cards-grid-inner,
 section.cards-grid .cards-grid-inner--ordered {
-  display:flex; flex-wrap:wrap; align-content: var(--cards-align, stretch);
+  display:flex; flex-wrap:wrap; align-content: var(--cards-align, center);
   gap:var(--sp-md); flex:1;
 }
 section.cards-grid .card {
@@ -102,7 +102,7 @@ section.cards-grid .cards-grid-inner--ordered > .card::before {
  * ul/ol > li (nested list format) → mimic .cards-grid-inner > .card             */
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul,
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol {
-  display:flex; flex-wrap:wrap; align-content: var(--cards-align, stretch);
+  display:flex; flex-wrap:wrap; align-content: var(--cards-align, center);
   gap:var(--sp-md); flex:1; list-style:none; padding:0; margin:0;
 }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li,

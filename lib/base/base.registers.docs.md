@@ -34,7 +34,7 @@ model, see `design/concepts.md`.
 | [`eyebrow:`](#the-eyebrow-front-matter-register-kicker-decoration) | The kicker decoration | *(none)* |
 | [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
-| [`cards:`](#the-cards-front-matter-register-where-a-sparse-card-row-puts-its-spare-height) | Where a sparse card row puts the height it does not need | `stretch` |
+| [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | `center` |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 
 ## The `mode:` front-matter register (rendering mode)
@@ -459,37 +459,40 @@ left panel) never lift, even when `lift` is on. Toggle it from the **Deck Settin
 (a **Card lift** switch alongside Auto-glossary / Page numbers) or by hand in the front
 matter. See `engineering/decisions/2026-07-12-struck-elevation.md`.
 
-## The `cards:` front-matter register (where a sparse card row puts its spare height)
+## The `cards:` front-matter register (where a card row puts its spare height)
 
 A row of cards (`cards-grid`, `verdict-grid`) is a wrapped flex container handed the full
-height of the stage. Its wrapped lines **stretch** to share that height, so a card holding
-one line of text is as tall as the row and carries the difference as empty space inside
-itself. That is right when the cards are full and wrong when they are sparse — and only
-the author knows which, so the engine keeps stretching and `cards:` hands over the rest.
-Sibling of the registers above (`lib/core/resolve-cards.js`), propagated to every section,
-overridable per slide.
+height of the stage. **Stretching** its lines to share that height makes a card holding one
+line of text as tall as the row, carrying the difference as empty space inside itself — so
+the cards are sized to their text and the band is centered by default, and `cards:` hands
+the author the rest. Sibling of the registers above (`lib/core/resolve-cards.js`),
+propagated to every section, overridable per slide.
 
 | `cards:` value | Token | Effect |
 |---|---|---|
-| `stretch` | *(none)* | Cards fill their row; a sparse card carries the empty space inside it. **The default** (omit the key). |
-| `center` | `cards-center` | Cards shrink to their text; the band sits at the stage's optical middle. |
+| `center` | *(none)* | Cards shrink to their text; the band sits at the stage's optical middle. **The default** (omit the key). |
+| `stretch` | `cards-stretch` | Cards fill their row; a sparse card carries the empty space inside it. This is what every deck did before the register. |
 | `top` | `cards-top` | Cards shrink; the band sits under the headline rule and the spare height collects at the bottom. |
 | `spread` | `cards-spread` | Cards shrink; the spare height is shared out between the rows, widening the gaps between them. |
 
-Per slide, `<!-- _class: cards-center -->` sets one slide in a stretching deck, and
-`<!-- _class: cards-stretch -->` puts one slide back to stretching in a deck that set
+Per slide, `<!-- _class: cards-stretch -->` fills one slide's row in a centered deck, and
+`<!-- _class: cards-center -->` puts one slide back to the default in a deck that set
 something else (include the layout too, e.g. `_class: cards-grid cards-stretch`).
 
 **Pick by how full the cards are, and check the gutter.** `center` and `top` both keep the
 gap between rows equal to the gap between columns, so the grid still reads as a grid;
 `spread` deliberately widens the row gap, which suits two rows of one-line cards and looks
-wrong when the rows are already close. On a slide that ends in a key-insight blockquote,
-`stretch` is usually still right — anything else pulls the cards away from the panel.
+wrong when the rows are already close. Two cases where `stretch` still earns its keep: a
+grid whose cards are genuinely full (nothing to reclaim, and stretching keeps the band
+flush to the stage), and a slide that ends in a **key-insight blockquote**, where shrinking
+the cards pulls them away from the panel below.
 
-**How it works, and why the default is untouched.** Each value sets `--cards-align`, and a
-card row reads `align-content: var(--cards-align, …)` with **its own** default in the
-fallback. A deck that says nothing therefore renders exactly as it always has, and a
-component that paces its cards differently at one aspect keeps doing so. The split-page
+**How it works, and why a per-family default survives.** Each non-default value sets
+`--cards-align`, and a card row reads `align-content: var(--cards-align, …)` with **its
+own** default in the fallback — so `cards: center` stamps nothing and every rule resolves
+to its own value. That matters at tall and strip, where `cards-grid` is a single column of
+full-width cards rather than a grid and paces them down the frame: omitting `cards:` keeps
+that pacing, while `_class: cards-center` centers the column. The split-page
 rules override `align-content` outright at higher specificity, so a run's pages still look
 alike whatever the deck asked for. Wired today on `cards-grid` and `verdict-grid`; other
 card components still stretch until they opt in. See

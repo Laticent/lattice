@@ -1,11 +1,11 @@
 /**
  * Unit: the `cards:` register resolver (lib/core/resolve-cards.js).
  *
- * Where a sparse CARD ROW puts the height it does not need. `stretch` is the default —
- * the behavior every deck has always had — and carries NO token, so an absent register
- * changes nothing. `center` / `top` / `spread` each map to a `cards-*` class the render
- * paths append to every section; a per-slide `_class: cards-*` overrides the deck value,
- * including `cards-stretch`, which is how one slide opts back out.
+ * Where a CARD ROW puts the height it does not need. `center` is the DEFAULT and carries
+ * NO token, so an absent register leaves every rule on its own fallback. `stretch` / `top`
+ * / `spread` each map to a `cards-*` class the render paths append to every section; a
+ * per-slide `_class: cards-*` overrides the deck value, including `cards-center`, which is
+ * how one slide opts back to the default.
  * Sibling of resolve-lift / resolve-finish / resolve-mode.
  */
 
@@ -25,45 +25,46 @@ const {
 const read = (p) => fs.readFileSync(path.join(__dirname, '../../../', p), 'utf8');
 
 describe('resolve-cards', () => {
-  test('the three non-default values map to their tokens; stretch maps to none', () => {
-    assert.equal(cardsClass('center'), 'cards-center');
+  test('the three non-default values map to their tokens; center maps to none', () => {
+    assert.equal(cardsClass('stretch'), 'cards-stretch');
     assert.equal(cardsClass('top'), 'cards-top');
     assert.equal(cardsClass('spread'), 'cards-spread');
-    assert.equal(cardsClass('stretch'), '', 'stretch is the baseline — no class');
+    assert.equal(cardsClass('center'), '', 'center is the baseline — no class');
   });
 
-  test('omitted / unrecognized resolve to no class (stretch)', () => {
+  test('omitted / unrecognized resolve to no class (center)', () => {
     assert.equal(cardsClass(''), '');
     assert.equal(cardsClass('   '), '');
-    assert.equal(cardsClass('centre'), '', 'typo → stretch (deck-lint flags it)');
+    assert.equal(cardsClass('centre'), '', 'typo → the default (deck-lint flags it)');
     assert.equal(cardsClass('flex-start'), '', 'the CSS value is not the author-facing name');
     assert.equal(cardsClass(undefined), '');
     assert.equal(cardsClass(null), '');
   });
 
   test('value is case- and whitespace-insensitive', () => {
-    assert.equal(cardsClass('  CENTER  '), 'cards-center');
+    assert.equal(cardsClass('  STRETCH  '), 'cards-stretch');
     assert.equal(cardsClass('Top'), 'cards-top');
+    assert.equal(cardsClass('  Center '), '', 'the default is recognized in any casing');
   });
 
   test('isKnownCards recognizes the four names only', () => {
     for (const n of CARDS_NAMES) assert.ok(isKnownCards(n), `${n} should be known`);
-    assert.ok(!isKnownCards('cards-center'), 'the class token is not a deck value');
+    assert.ok(!isKnownCards('cards-stretch'), 'the class token is not a deck value');
     assert.ok(!isKnownCards(''));
     assert.ok(!isKnownCards(undefined));
   });
 
   test('CARDS_NAMES / CARDS_TOKENS list the recognized + override sets', () => {
-    assert.deepEqual([...CARDS_NAMES], ['stretch', 'center', 'top', 'spread']);
-    // The override set carries `cards-stretch` even though the DECK value `stretch`
-    // stamps nothing: a slide inside a `cards: center` deck needs a way back out.
+    assert.deepEqual([...CARDS_NAMES], ['center', 'stretch', 'top', 'spread']);
+    // The override set carries `cards-center` even though the DECK value `center` stamps
+    // nothing: a slide inside a `cards: top` deck needs a way back to the default.
     assert.deepEqual([...CARDS_TOKENS], ['cards-stretch', 'cards-center', 'cards-top', 'cards-spread']);
   });
 
   test('readFrontMatterCards extracts the value from the front-matter block only', () => {
-    const md = '---\nmarp: true\ncards: center\n---\n\n# H\n\n`cards: not-this` in body\n';
-    assert.equal(readFrontMatterCards(md), 'center');
-    assert.equal(cardsClassFromSource(md), 'cards-center');
+    const md = '---\nmarp: true\ncards: stretch\n---\n\n# H\n\n`cards: not-this` in body\n';
+    assert.equal(readFrontMatterCards(md), 'stretch');
+    assert.equal(cardsClassFromSource(md), 'cards-stretch');
   });
 
   test('readFrontMatterCards accepts quotes and returns null when absent', () => {
@@ -99,12 +100,18 @@ describe('resolve-cards', () => {
   test('the wired components consume --cards-align on every card-row container', () => {
     const cg = read('lib/components/inventory/cards-grid/cards-grid.styles.css');
     const vg = read('lib/components/comparison/verdict-grid/verdict-grid.styles.css');
-    assert.equal((cg.match(/align-content:\s*var\(--cards-align,\s*stretch\)/g) || []).length, 3,
+    assert.equal((cg.match(/align-content:\s*var\(--cards-align,\s*center\)/g) || []).length, 3,
       'cards-grid has three emit paths; all three must read the register');
     assert.match(cg, /align-content:\s*var\(--cards-align,\s*space-evenly\)/,
       'the family arm must keep ITS default in the fallback, not the base rule\'s');
-    assert.equal((vg.match(/align-content:\s*var\(--cards-align,\s*stretch\)/g) || []).length, 1,
+    assert.equal((vg.match(/align-content:\s*var\(--cards-align,\s*center\)/g) || []).length, 1,
       'verdict-grid\'s card row must read the register');
+    // The default must live in the FALLBACKS, never as a hard-coded `stretch` that the
+    // register cannot reach — that was the shape before the register existed.
+    assert.equal((cg.match(/align-content:\s*stretch\b/g) || []).length, 0,
+      'no cards-grid container may hard-code stretch');
+    assert.equal((vg.match(/align-content:\s*stretch\b/g) || []).length, 0,
+      'no verdict-grid container may hard-code stretch');
   });
 
   // Rot-guard 3: the two render paths must append the same token, or a deck renders one
