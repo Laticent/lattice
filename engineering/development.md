@@ -412,20 +412,26 @@ the helper is what guarantees it ends. What it gives you:
 - **One line of output, at the end.** In run mode the command's own output goes
   to `.scratch/waits/<job>.log`, and the tail is echoed on any failure.
 
-The lock is a file created by hard-linking one whose contents are **already
-written** — pid on line 1, claim time on line 2. That ordering is load-bearing:
-writing metadata after the lock exists left a window where it had no pid, and a
-second waiter read that as abandoned and took it from a holder still mid-claim.
+The lock is **`flock`** — the kernel's, not ours. This is the fourth version of
+it and the first correct one: `mkdir`, then an atomic hard link, then a reclaim
+path guarded by pid liveness and age. Review defeated all three, six different
+ways, always the same failure — two live waiters on one job. Each needed
+compare-and-swap semantics that a create plus a separate remove cannot provide,
+and every fix opened a new hole.
 
-Around that: a dead holder is reclaimed; a **zombie** holder is reclaimed (a
-killed-but-unreaped process still answers `kill -0` — a bug this helper had, and
-one that then bit its own tests); a lock naming a pid that is not a `wait-for.sh`
-process is reclaimed, because a pid can be reused and `--force` signals whatever
-the lock names; a lock older than any legal deadline is reclaimed; and a waiter
-only ever releases a lock **it still owns**, so one exiting on its own deadline
-cannot delete the lock of whoever replaced it. Anything reclaimed from a holder
-that is still running gets stopped first — taking a lock without stopping the
-holder just produces the two-waiters case the lock exists to prevent.
+`flock -n` is atomic, and the kernel releases the lock when the holder dies —
+SIGKILL, OOM, a reaped container, anything. So the whole class stops existing
+rather than being handled: no stale-lock detection, no zombie check, no
+pid-reuse hazard, no age backstop, no reclaim race, and no unlink on release, so
+a lock cannot be deleted out from under whoever replaced it. The file's contents
+are now purely informational — who to name in a refusal, who to signal on
+`--force`. Every correctness decision belongs to the kernel.
+
+One sharp edge worth knowing, since it cost a measured bug: **a flock lives on
+an open file descriptor, and children inherit descriptors.** The job this tool
+runs must therefore be started with `9>&-` to close the lock fd, or it keeps the
+lock held after the waiter itself is killed — reintroducing precisely the stale
+lock flock was adopted to delete.
 
 **A hook nudges you if you forget.** `.claude/hooks/warn-unbounded-wait.sh` runs
 on every Bash call, spots the loop shape above, and prints a one-line pointer at
