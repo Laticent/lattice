@@ -117,6 +117,6 @@
     "proxy-agent": "^8.0.2",
     "puppeteer-core": "^25.1.0",
     "typescript": "^6.0.3",
-    "vitest": "^3.2.6"
+    "vitest": "^4.1.11"
   }
 }
