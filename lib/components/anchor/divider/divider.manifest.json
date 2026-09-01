@@ -116,7 +116,7 @@
   "variantDocs": {
     "numbered": {
       "label": "numbered",
-      "summary": "Stamps the running section number at the top-left edge.",
+      "summary": "Masthead — the running section number over a hairline, top-left.",
       "sample": "<!-- _class: divider silent numbered -->\n\n`divider numbered`\n\n## The stamp counts this divider for you.\n"
     },
     "light": {

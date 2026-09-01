@@ -52,6 +52,7 @@ const DECK = `---
 marp: true
 theme: indaco
 header: "Deck header"
+footer: "Deck footer"
 ---
 
 <!-- _class: divider -->
@@ -102,14 +103,14 @@ const EXPECTED = [
   // Header VISIBLE here, and asserted: it proves the deck's `header:` really reaches a
   // divider, so the `display: none` asserted on every stamped row below is doing work
   // rather than describing a deck that never had a header to begin with.
-  { cls: 'divider', counter: null, header: 'block' },
+  { cls: 'divider', counter: null, header: 'block', footer: 'block' },
   { cls: 'divider numbered', counter: 'lat-divider' },
   { cls: 'divider silent numbered', counter: 'lat-divider' },
   { cls: 'divider light numbered', counter: 'lat-divider' },
   { cls: 'closing numbered', counter: null },
   // The PIXEL control: silent, so no header and no page number, and unstamped. Paired
   // with `divider silent numbered` above, the numeral is the only thing that can differ.
-  { cls: 'divider silent', counter: null, header: 'none' },
+  { cls: 'divider silent', counter: null, header: 'none', footer: 'none' },
 ];
 /** Indices of the pixel pair — same chrome, one stamped. */
 const PIXEL_CONTROL = 5;
@@ -127,10 +128,13 @@ function readStamps(page, sectionSelector) {
     return [...document.querySelectorAll(sel)].map((s) => {
       const heading = s.querySelector('h1, h2');
       const header = s.querySelector(':scope > header');
+      // Both frames: the legacy `> footer` and the Form migration's `.cell-footer > footer`.
+      const footer = s.querySelector(':scope > footer, :scope > .cell-footer > footer');
       return {
         cls: [...s.classList].filter((c) => c !== 'form').join(' '),
         content: heading ? getComputedStyle(heading, '::after').content : '<no heading>',
         header: header ? getComputedStyle(header).display : '<no header>',
+        footer: footer ? getComputedStyle(footer).display : '<no footer>',
       };
     });
   }, sectionSelector);
@@ -148,6 +152,7 @@ function assertStamps(rows, surface) {
       // defect, and worth failing on.
       assert.equal(row.content, 'none', `${surface}: "${want.cls}" grew a stamp it must not have`);
       if (want.header) assert.equal(row.header, want.header, `${surface}: "${want.cls}" header display`);
+      if (want.footer) assert.equal(row.footer, want.footer, `${surface}: "${want.cls}" footer display`);
       return;
     }
     assert.match(
@@ -155,11 +160,13 @@ function assertStamps(rows, surface) {
       new RegExp(`^counter\\(${want.counter},`),
       `${surface}: "${want.cls}" lost its stamp (computed content: ${row.content})`
     );
-    // The stamp takes the corner the running header occupies, so a numbered divider
-    // suppresses it. Asserted as computed `display`, not class presence: the deck
-    // declares a `header:`, so a slide that still paints one has two labels in one
-    // corner.
-    assert.equal(row.header, 'none', `${surface}: "${want.cls}" still paints a running header under the stamp`);
+    // The masthead owns the top band, so a numbered divider stands the header AND the
+    // footer down. Asserted as computed `display`, not class presence — and the deck
+    // declares both, so the plain-divider row above (which asserts `block` for each)
+    // proves this assertion is doing work rather than describing a deck that never had
+    // chrome to begin with.
+    assert.equal(row.header, 'none', `${surface}: "${want.cls}" still paints a running header under the masthead`);
+    assert.equal(row.footer, 'none', `${surface}: "${want.cls}" still paints a footer`);
   });
 }
 

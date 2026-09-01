@@ -52,12 +52,12 @@
 	"divider.light": {
 		"src": "lib/components/anchor/divider/divider.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "7700f408f273602ddd1f644c84b6d4f4a272de3e7ed1096037d2d6da2ba5fd5d"
+		"srcSha256": "3b6b6763801da27174e1ae27349405185114cd272a15a7ef8d737ff069072498"
 	},
 	"divider.dark": {
 		"src": "lib/components/anchor/divider/divider.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "12355e479e4716ac34ad881fdae0e9988be83b5b56df269c5178de7db27264f9"
+		"srcSha256": "657185d11c31b0bda1b6489e68cc7985c30398debe5360ae211122ca0e5c6c64"
 	},
 	"funnel.light": {
 		"src": "lib/components/chart/funnel/funnel.gallery.light.pdf",

@@ -12,7 +12,7 @@ meta: "numbered · divider / closing section stamp"
 
 # The section stamp, back on the canvas
 
-`numbered` stamps a running section index on a divider. It wrote that numeral onto `section::after` — the pseudo the engine reserves for the page number — and two separate owners took it back. It now rides the slide heading, at the top-left edge.
+`numbered` stamps a running section index on a divider. It wrote that numeral onto `section::after` — the pseudo the engine reserves for the page number — and two separate owners took it back. It now rides the slide heading, as a masthead in the top band.
 
 ---
 
@@ -78,12 +78,12 @@ meta: "numbered · divider / closing section stamp"
 
 The numeral now rides `section.divider.numbered :is(h1, h2)::after` — a selector the pagination mask cannot cross, sharing no pseudo with `silent`.
 
-- The corner did not move
-  - `position: absolute` still resolves against the section, which every slide sets to `relative`, so `top` and `right` measure from the same slide corner.
+- The heading carries it, the section anchors it
+  - `position: absolute` resolves against the section, so the mark measures from the slide corner rather than from wherever the heading sits.
 - The heading is undisturbed
   - An absolutely positioned pseudo is out of flow, so `text-wrap: balance` and the bookend measure are unaffected.
 - The page number came back
-  - `numbered` no longer eats the pagination pseudo, so this slide shows both its stamp and its page number.
+  - `numbered` no longer eats the pagination pseudo, so this slide shows both its mark and its page number.
 
 ---
 
@@ -96,11 +96,28 @@ The numeral now rides `section.divider.numbered :is(h1, h2)::after` — a select
 Drawing again exposed a second defect: the numeral sat on the 12% decoration rung under an `opacity` — 1.4:1.
 
 - The rung was wrong, not the value
-  - The ramp's rule is that text takes `primary` or `secondary`; `ghost` draws lines. The stamp now takes the same rungs the eyebrow beside it uses.
+  - The ramp's rule is that text takes `primary` or `secondary` and `ghost` draws lines. The numeral takes `secondary`; the hairline under it takes `ghost`.
 - The `opacity` is gone, not re-tuned
   - A wash steps ink and backdrop down together, by whatever headroom each already had.
 - Measured, not asserted
   - 5.05:1 to 11.79:1 across the shipped palettes.
+
+---
+
+<!-- _class: content -->
+
+`The fix · placement`
+
+## Pinned to the section, chosen on stability
+
+Three shapes were rendered and stressed against headings of one to five lines. The masthead was the only one that neither drifts nor collides.
+
+- Locked into the headline block
+  - Read beautifully in a still, and its height on the canvas moved 22% to 14% as the heading grew. For a running marker that is a defect.
+- Pinned bottom-left
+  - Held position, but the block grows toward it: clear at three lines, overlapping at five.
+- Pinned top, block grows away
+  - The headline is vertically centered, so it never reaches a mark in the top band.
 
 ---
 
@@ -116,8 +133,8 @@ Three counters used to run in parallel — `divider`, `divider light` and `closi
   - `divider` and `divider light` share `lat-divider`, so mixing them never restarts the count.
 - No bookends
   - `closing` and `title` do not take the modifier. A bookend is not a section.
-- The header steps aside
-  - A numbered divider suppresses its running header: the stamp takes that corner, and two labels stacked there is not a layout.
+- The chrome steps aside
+  - A numbered divider suppresses its header and footer: the masthead owns the top band. The page number stays.
 
 ---
 

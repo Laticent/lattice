@@ -75,7 +75,7 @@ Marks the start of a major section. Use sparingly — every divider is a context
 
 ### `numbered` — numbered
 
-Stamps the running section number at the top-left edge.
+Masthead — the running section number over a hairline, top-left.
 
 ```markdown
 <!-- _class: divider silent numbered -->

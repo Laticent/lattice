@@ -714,13 +714,25 @@ ignore it.
 
 ### `numbered`
 
-Stamps the running section index on a `divider`, in the slide's own headline
-column and running off the **top** edge — set as **display** type
-(`--font-display`, weight 700, no tracking, at `--fs-hero × 1.28`, which is
-`split-panel`'s section-numeral size). That is the treatment every oversized
-mark in the engine takes: the `form watermark` Tile, `split-panel`'s section
-numeral and its pullquote glyph. It clears the left spectrum rail and shares
-the left margin of the eyebrow and heading beneath it.
+Stamps the running section index as a **masthead**: a display numeral in the
+top band on the divider's own left margin, with a hairline running right
+underneath it that stops just past mid-canvas so the top-right corner stays
+free for a deck logo.
+
+The numeral is `--fs-hero` in `--font-display` at weight 700, no tracking —
+the treatment every oversized mark in the engine takes. The two rungs follow
+the on-dark ramp's own division of labour: `--on-dark-secondary` for the
+numeral (text) and `--on-dark-ghost` for the hairline (a line), resetting to
+`--text-secondary` / `--border` on `divider light`.
+
+**It is pinned to the section, not to the heading, and that is load-bearing.**
+The headline block is vertically centered, so it grows away from a mark in the
+top band: the numeral holds the same position on every divider regardless of
+how long the heading runs. Two alternatives were rendered and rejected on
+exactly this — one locked into the headline block (it drifts 22% → 14% down
+the canvas as the heading grows from one line to three) and one pinned
+bottom-left (it holds position, but the block grows toward it and overlaps at
+five lines).
 
 **Dividers only, and one counter for all of them.** `divider` and
 `divider light` share a single `lat-divider` count, so a deck that mixes
@@ -744,10 +756,10 @@ across the shipped palettes, clear of AA everywhere. It sits on
 The counter is set on `body` and walks the deck once. Authors do not number
 sections manually — the layout does it.
 
-**It suppresses the running header** on the slides that carry it. The header
-band sits in the corner the numeral takes, and two labels stacked there is
-not a layout; a section start is also the one slide that does not need to be
-told which deck it is in. The footer and the page number are untouched.
+**It suppresses the running header and the footer** on the slides that carry
+it. The masthead owns the top band, and a section start is the one slide that
+does not need to be told which deck it is in. The page number is deliberately
+untouched — it sits bottom-right, nowhere near the mark.
 
 The numeral rides the slide HEADING's `::after`, so a `numbered` slide needs
 its heading — the required slot here anyway. It deliberately does NOT ride

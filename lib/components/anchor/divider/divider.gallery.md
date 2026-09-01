@@ -26,7 +26,7 @@ Section boundary slide. Dark canvas with a single heading.
 ---
 
 <!-- _class: divider silent numbered -->
-<!-- _footer: "numbered · divider numbered — Stamps the running section number at the top-left edge." -->
+<!-- _footer: "numbered · divider numbered — Masthead — the running section number over a hairline, top-left." -->
 
 `divider numbered`
 
