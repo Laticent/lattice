@@ -363,9 +363,9 @@ jobs:
           # to start at column 0 to avoid leading spaces in the issue text, and a column-0 line
           # ENDS the `run: |` block scalar — the workflow then parses as something else entirely.
           {
-            echo "Measured green on \`main@${{ github.sha }}\`: the corpus rendered in full and no deck clips more slides than its baseline.\"
-            echo \""
-            echo \"**Left open deliberately.** The ratchet is scored against a committed baseline, and \`npm run overflow:bless\` raises that floor to accept the current clips — the issue body above says so itself when it fires. A clean sweep therefore cannot distinguish a trimmed deck from a raised floor. Check which happened and close by hand; a recurrence appends here."
+            echo "Measured green on \`main@${{ github.sha }}\`: the corpus rendered in full and no deck clips more slides than its baseline."
+            echo ""
+            echo "**Left open deliberately.** The ratchet is scored against a committed baseline, and \`npm run overflow:bless\` raises that floor to accept the current clips — the issue body above says so itself when it fires. A clean sweep therefore cannot distinguish a trimmed deck from a raised floor. Check which happened and close by hand; a recurrence appends here."
             echo ""
             echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
           } > "$GITHUB_WORKSPACE/stand-down.md"

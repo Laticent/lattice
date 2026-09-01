@@ -270,9 +270,9 @@ jobs:
           # start at column 0 to avoid leading spaces in the issue text, and a column-0 line
           # ENDS the `run: |` block scalar — the workflow then parses as something else.
           {
-            echo "Measured green on \`main@${{ github.sha }}\`: the deterministic Studio E2E suite passed (${PASSED}).\"
-            echo \""
-            echo \"**Left open deliberately.** Part of this suite asserts screenshots against committed baselines, and CI retries a failing spec once — so a green night cannot distinguish a fix from a blessed baseline or a flaky spec that passed on its second try. Check which happened and close by hand; a recurrence appends here."
+            echo "Measured green on \`main@${{ github.sha }}\`: the deterministic Studio E2E suite passed (${PASSED})."
+            echo ""
+            echo "**Left open deliberately.** Part of this suite asserts screenshots against committed baselines, and CI retries a failing spec once — so a green night cannot distinguish a fix from a blessed baseline or a flaky spec that passed on its second try. Check which happened and close by hand; a recurrence appends here."
             echo ""
             echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
           } > "$GITHUB_WORKSPACE/stand-down.md"
@@ -503,9 +503,9 @@ jobs:
           # start at column 0 to avoid leading spaces in the issue text, and a column-0 line
           # ENDS the `run: |` block scalar — the workflow then parses as something else.
           {
-            echo "Measured green on \`main@${{ github.sha }}\`: the live AI Studio scenarios passed against a real model (${PASSED}), so the key was present and the specs really ran.\"
-            echo \""
-            echo \"**Left open deliberately.** This tier drives a live model, so one passing night is weaker evidence than it looks — the same prompt can pass and fail on consecutive runs, and CI retries once. Close by hand once a couple of nights agree; a recurrence appends here."
+            echo "Measured green on \`main@${{ github.sha }}\`: the live AI Studio scenarios passed against a real model (${PASSED}), so the key was present and the specs really ran."
+            echo ""
+            echo "**Left open deliberately.** This tier drives a live model, so one passing night is weaker evidence than it looks — the same prompt can pass and fail on consecutive runs, and CI retries once. Close by hand once a couple of nights agree; a recurrence appends here."
             echo ""
             echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
           } > "$GITHUB_WORKSPACE/stand-down.md"

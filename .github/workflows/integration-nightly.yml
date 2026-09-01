@@ -448,9 +448,9 @@ jobs:
           # to start at column 0 to avoid leading spaces in the issue text, and a column-0 line
           # ENDS the `run: |` block scalar — the workflow then parses as something else entirely.
           {
-            echo "Measured green on \`main@${{ github.sha }}\`: every arm of the render-regression tier passed — integration slice, adaptive family tiers, player contrast, palette matrix, code-line budgets and committed-golden freshness.\"
-            echo \""
-            echo \"**Left open deliberately.** Three of those arms score against committed baselines (\`test/oracle/*.json\`, the golden PDFs), and blessing a baseline turns them green without fixing anything. This run cannot tell a fix from a re-bless. Check which happened and close by hand; a recurrence appends here."
+            echo "Measured green on \`main@${{ github.sha }}\`: every arm of the render-regression tier passed — integration slice, adaptive family tiers, player contrast, palette matrix, code-line budgets and committed-golden freshness."
+            echo ""
+            echo "**Left open deliberately.** Three of those arms score against committed baselines (\`test/oracle/*.json\`, the golden PDFs), and blessing a baseline turns them green without fixing anything. This run cannot tell a fix from a re-bless. Check which happened and close by hand; a recurrence appends here."
             echo ""
             echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
           } > "$GITHUB_WORKSPACE/stand-down.md"

@@ -46,6 +46,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const YAML = require('yaml');
+const { spawnSync } = require('node:child_process');
 
 const WF_DIR = path.join(__dirname, '..', '..', '..', '.github', 'workflows');
 
@@ -156,6 +157,52 @@ function createdTitle(step) {
   for (const [k, v] of Object.entries(shellVars(step))) t = t.split(`$${k}`).join(v);
   return t;
 }
+
+/**
+ * EVERY `run:` BLOCK IN THE FAMILY MUST PARSE AS SHELL.
+ *
+ * This is the arm that was missing, and its absence shipped four broken steps.
+ * A find/replace that rewrote these stand-downs from closing to commenting
+ * escaped three quotes wrong — `."` became `.\"`, `echo ""` became `echo \""` —
+ * and every other gate stayed green: the YAML is valid, `npm run lint` does not
+ * read shell inside a string, `build:check` has no opinion, and the assertions
+ * below all passed because they read the `if:` condition and grep the run text
+ * for `gh issue close` without ever asking whether the script RUNS.
+ *
+ * BASH PARSES LAZILY, which is what makes this so quiet. `MARKER=…`, the issue
+ * lookup and the `[ -n … ] || exit 0` early-exit all execute fine; the `{ … }`
+ * group then fails to parse and bash aborts. So on a night with NO open thread
+ * the early exit fires first and the step passes — and the break only surfaces
+ * on the one night the step exists for: an open alarm and a green tier.
+ *
+ * Checked over every run block in every workflow, not just the stand-downs: the
+ * defect was in a step this file already covered, so covering only what it
+ * already knew about would have missed it.
+ */
+function shellParses(run) {
+  const r = spawnSync('bash', ['-n'], { input: String(run), encoding: 'utf8' });
+  return { ok: r.status === 0, err: (r.stderr || '').trim().split('\n')[0] };
+}
+
+test('every workflow run block is valid shell', () => {
+  const offenders = [];
+  let checked = 0;
+  for (const file of fs.readdirSync(WF_DIR).filter((f) => f.endsWith('.yml'))) {
+    const doc = YAML.parse(fs.readFileSync(path.join(WF_DIR, file), 'utf8'));
+    for (const [job, spec] of Object.entries(doc?.jobs || {})) {
+      for (const step of spec.steps || []) {
+        if (!step.run) continue;
+        checked++;
+        const { ok, err } = shellParses(step.run);
+        if (!ok) offenders.push(`${file} / ${job} / ${step.name || '(unnamed)'}: ${err}`);
+      }
+    }
+  }
+  // Anti-vacuity: a YAML shape change that stopped finding `run:` blocks would
+  // otherwise pass this silently.
+  assert.ok(checked >= 50, `expected >=50 run blocks across the workflows, found ${checked}`);
+  assert.deepEqual(offenders, [], `unparseable shell in ${offenders.length} run block(s)`);
+});
 
 test('nightly alarm contract', async (t) => {
   const jobs = alarmJobs();

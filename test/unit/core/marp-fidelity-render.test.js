@@ -49,10 +49,9 @@
  * A ROW WITH NO PROBE IS A GAP, NOT A PASS. `AWAITING_PROBE` lists the rows
  * that have no comparison yet, each with the reason, and the test fails on a
  * stale entry — a row that has since gained a probe, or that no longer claims
- * `mirrored`. The list can only shrink. That is the difference between this
- * and the assertion it replaces: the old one certified all ten rows and
- * verified none, while this one verifies seven and says out loud that three
- * are unverified.
+ * `mirrored`. The list can only shrink, and it is currently EMPTY: all ten
+ * rows are probed. That is the difference between this and the assertion it
+ * replaces, which certified all ten rows and verified none.
  */
 
 const test = require('node:test');

@@ -915,30 +915,20 @@ The contract, and its limits — be precise about what it does and doesn't cover
   pre-merge re-rebase dance — the queue now owns it** (so step 2 of §Keeping
   mergeable no longer applies before an authorized merge). Background:
   `decisions/2026-06-17-workflow-efficiency-review.md` §F.
-- **Arming auto-merge does not give you the squash, even when you ask for it — and
-  in an agent session the arming step is NOT yours to do.** The method is set through
-  GraphQL's `enablePullRequestAutoMerge(mergeMethod:)`, and on both paths anyone has
-  actually watched, an explicitly requested squash was not what got stored:
+- **`auto_merge.merge_method` is NOT the method that will land, and on this repo it
+  reads `merge` on essentially every PR.** That field is what was *requested*; when a
+  merge queue governs the branch, the **queue's own merge method decides**, and
+  GitHub's merge-queue settings expose it as exactly that — *"Merge method: select
+  which method to use when merging queued pull requests"*. `gh` says so at the time:
+  *"The merge strategy for main is set by the merge queue."*
 
-  - `enable_pr_auto_merge` with `mergeMethod: SQUASH` returned success reading
-    `(method: MERGE)` on #1870, and the REST API *and* GitHub's own
-    `pull_request.auto_merge_enabled` webhook both independently confirmed
-    `merge_method: "merge"`.
-  - `sync-backlog.yml` runs `gh pr merge --auto --squash`, and PR #1613 stores
-    `merge_method: "merge"` today. `gh` says why at the time — *"The merge strategy
-    for main is set by the merge queue"* — and records the repository default, which
-    is `merge` because this repo allows all three methods.
+  So a stored `"merge"` is a stale label, not a pending violation of § Merging's
+  *"never a merge commit"*. **The repo's history settles it:
+  `git rev-list --count --merges origin/main` is `0`** — no merge commit has ever
+  landed here, including from PR #1613, whose `auto_merge.merge_method` has read
+  `"merge"` for weeks. Every PR above lands as a squash.
 
-  Two different tools, two different explanations, one outcome: **a PR armed to land
-  the merge commit § Merging forbids outright.** An agent that trusts a green tool
-  response puts one on `main`.
-
-  **So the arming belongs to the human, from the PR page, in one click.** An agent
-  cannot reliably set the method from a session, so it does not arm auto-merge at
-  all. Its job stops at: **green, rebased, pre-merge card posted, and "ready for you
-  to enable auto-merge (squash)."**
-
-  **Verify either way — after anything arms it, read back what was actually stored:**
+  **Read it, but do not act on it alone.** After anything arms auto-merge:
 
   ```console
   $ curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" \
@@ -946,21 +936,22 @@ The contract, and its limits — be precise about what it does and doesn't cover
     | python3 -c "import json,sys; print(json.load(sys.stdin)['auto_merge'])"
   ```
 
-  Confirm `merge_method == "squash"`. **If it is anything else, disable auto-merge
-  immediately** rather than leaving it armed while you work out why.
+  On a queue-governed branch (`main`), `"merge"` here is expected and harmless — do
+  **not** disable auto-merge over it. **On a branch the queue does NOT govern, this
+  field IS what lands**, and it defaults to the repository default, which is `merge`
+  because this repo allows all three methods. That is the case worth checking.
 
-  **Do NOT route around this by merging directly.** `merge_pull_request` does honor
-  `squash`, which makes it tempting — and it skips the queue's rebase-and-retest
+  **A narrower claim is unresolved.** #1912 reports that `enable_pr_auto_merge`
+  *ignores* a passed `mergeMethod` — `SQUASH` in, `(method: MERGE)` back. The
+  observable evidence here cannot separate "the argument was ignored" from "the queue
+  governs, so the argument is moot", and the zero-merge-commit history is consistent
+  with the second. Pass the method explicitly anyway; it costs one argument.
+
+  **Do NOT route around any of this by merging directly.** `merge_pull_request` does
+  honor `squash`, which makes it tempting — and it skips the queue's rebase-and-retest
   against a `main` the PR has never seen, the protection added after #1535/#1547. On
   #1870 that mattered: `main` moved nine times during the PR, twice touching files it
-  depended on. The queue is the right mechanism; only the arming is broken.
-
-  *(On `main` today the queue's own `squash` governs at merge time, so a stored
-  `"merge"` is a misleading label rather than a landed merge commit. That is a
-  property of the current ruleset, not of the tool — it stops holding for a PR
-  targeting a branch the queue does not cover, or if the ruleset is edited or the
-  queue turned off. What is ARMED and what will LAND are two different facts, and
-  only the first is readable from the PR.)*
+  depended on.
 
 - **An ejection CLEARS auto-merge, and nothing tells you** (observed on #1535, #1547).
   The queue tests your
