@@ -224,6 +224,28 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   its running header AND its footer (the masthead owns the top band; the page number stays). Worth knowing as a class: **a feature
   that renders nowhere accumulates design defects silently**, and fixing the render is
   where you find them, not where you finish.
+- **A FOURTH one, and it is the one no channel could see: an OVERLAP IS NOT AN OVERFLOW.**
+  The masthead is `position: absolute` on the heading's pseudo; the divider's headline
+  block is flex-CENTERED. The two lay out independently, so as the heading wrapped to more
+  lines the block grew in both directions from the middle and its top edge climbed into the
+  mark — at five lines the numeral struck through the eyebrow and the hairline cut the copy.
+  Nothing in the engine said so. `probeSectionOverflow` measures FLOWED children spilling
+  PAST the section's rect, and neither box left the rect; they simply painted on top of each
+  other. So the `⚠ OVERFLOW` line, the red ring, the "Content clipped" tag and autosplit were
+  all quiet on a slide whose mark was struck through. **If two boxes on a slide can reach each
+  other, no overflow channel is watching that — you have to make the collision impossible or
+  turn it into a real overflow.** Here, both: `section.divider.numbered` reserves the mark's
+  band with SYMMETRIC padding (symmetric so the centered block's midpoint does not move — one-
+  and two-line headings render byte-identically) and centers with `justify-content: safe
+  center`, which falls back to `start` exactly when the block would overflow. Plain `center`
+  is not enough on its own and this is the trap worth remembering: **a `center`ed flex line
+  overflows in BOTH directions**, so a reserved band with plain centering still let the block
+  spill straight back through `padding-top` into the band (measured: eyebrow at 172.4px
+  against a mark bottom of 178.7). With `safe`, the top edge pins at the band and the growth
+  goes downward — where a slide running long eventually leaves the FRAME, which every existing
+  channel already knows how to report. Pinned by
+  `test/integration/parity/numbered-bookend-stamp.test.js`, which asserts the geometric
+  invariant on the real packed surface and fails if either declaration is removed.
 - **A SECOND defect was hiding behind the first, and it is the more interesting one.**
   Once the numeral drew, it measured **1.4:1** — inked `--on-dark-watermark`, the 12%
   DECORATION rung of the on-dark ramp, under a CSS `opacity: 0.85`. It had been written

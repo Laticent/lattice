@@ -92,7 +92,7 @@
     },
     {
       "mistake": "Reaching for `numbered` on a slide with no heading, or expecting it on a `title` / `closing`.",
-      "fix": "The mark rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-paginate` null it. No heading, no numeral — and the counter still advances, so the next divider reads one higher and the series silently skips. The heading is a required slot here anyway. `numbered` is a divider modifier only: a bookend is not a section, so `title` and `closing` do not take it. It also suppresses the header and footer, so a numbered divider cannot carry a `_footer:` caption."
+      "fix": "The mark rides the heading's `::after` — deliberately, because `section::after` is the engine's page number and `silent` / `no-paginate` null it. No heading, no numeral — and the counter still advances, so the next divider reads one higher and the series silently skips. The heading is a required slot here anyway. `numbered` is a divider modifier only: a bookend is not a section, so `title` and `closing` do not take it. It also suppresses the header and footer, so a numbered divider cannot carry a `_footer:` caption. The mark's band is reserved, so a long heading can no longer climb into the numeral — it pins under the band and grows downward instead, and far enough down the slide genuinely overflows and the export says so."
     }
   ],
   "variantDecisionRule": [

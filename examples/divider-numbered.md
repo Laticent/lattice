@@ -110,14 +110,31 @@ Drawing again exposed a second defect: the numeral sat on the 12% decoration run
 
 ## Pinned to the section, chosen on stability
 
-Three shapes were rendered and stressed against headings of one to five lines. The masthead was the only one that neither drifts nor collides.
+Three shapes were rendered and stressed against headings of one to five lines. The masthead was the only one that holds the same position on every divider.
 
 - Locked into the headline block
   - Read beautifully in a still, and its height on the canvas moved 22% to 14% as the heading grew. For a running marker that is a defect.
 - Pinned bottom-left
   - Held position, but the block grows toward it: clear at three lines, overlapping at five.
-- Pinned top, block grows away
-  - The headline is vertically centered, so it never reaches a mark in the top band.
+- Pinned top, and the band reserved
+  - Pinning alone was not enough. The next slide is why.
+
+---
+
+<!-- _class: content -->
+
+`The fix · the band`
+
+## Reserve the band, and the failure gets loud
+
+A centered block grows both ways, so at five lines the heading climbed into the mark.
+
+- Padding, plus `safe center`
+  - The padding reserves the band; `safe center` falls back to `start` when the block would overflow, so its top edge stops there.
+- Short headings do not move
+  - The reservation is symmetric, so one and two lines render byte-identically.
+- The overflow machinery takes over
+  - Growth runs at the frame now, so a long heading trips the export warning. An overlap was never an overflow.
 
 ---
 

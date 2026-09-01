@@ -1517,6 +1517,73 @@ section.divider.numbered > header,
 section.divider.numbered > footer,
 section.divider.numbered > .cell-footer > footer { display: none; }
 
+/* THE BAND IS RESERVED, so the copy cannot reach the mark. This is the half of the
+ * problem the advisory rule below only WARNS about, solved in layout instead.
+ *
+ * The masthead is `position: absolute` and the headline block is flex-CENTERED, so the
+ * two are laid out independently: as the heading wraps to more lines the block grows in
+ * both directions from the middle and its top edge climbs into the mark. Measured on the
+ * shipped build at 1280x720/indaco, with the eyebrow present (the documented divider
+ * shape — it is the TOP of the block, not the heading, that arrives first):
+ *
+ *     1 line   block top 302.8   clearance +124.1
+ *     2 lines            264.4              +85.7
+ *     3 lines            226.0              +47.3
+ *     4 lines            187.6               +8.9   ← 8.9px of air is not clearance
+ *     5 lines            149.2              -29.5   OVERLAP: the numeral strikes through
+ *     6 lines            110.8              -67.9              the eyebrow and the rule
+ *                                                              cuts the first line
+ *
+ * Two declarations close it, and they only work together:
+ *
+ *   · `padding` reserves the mark's band at the block-start edge. SYMMETRIC, so the
+ *     centered block's midpoint does not move — every heading of three lines or fewer
+ *     renders BYTE-IDENTICALLY to the unreserved build (verified: 0 differing pixels on
+ *     the 1-, 2- and 3-line cases at --overview raster). The band only bites where the
+ *     collision was.
+ *   · `safe center` is what makes the reservation hold. Plain `center` overflows a flex
+ *     line in BOTH directions, so the block spills straight back past `padding-top` into
+ *     the band — measured, a reserved band with plain centering still put the eyebrow at
+ *     172.4px against a mark bottom of 178.7. `safe` falls back to `start` exactly when
+ *     the block would overflow, which pins the top edge at the padding and sends the
+ *     growth downward, where a slide is allowed to run long. An engine that does not
+ *     support the keyword drops the declaration and inherits the component's plain
+ *     `center` (divider.styles.css) — i.e. today's behavior plus the band, which is a
+ *     degradation, not a break.
+ *
+ * With both, the block top pins at the band and clearance holds at +32.5px from four
+ * lines all the way out to 182 characters — the collision is not warned about, it is
+ * unreachable.
+ *
+ * WHAT THIS DOES NOT BUY IS AN OVERFLOW SIGNAL, and the expectation is worth writing
+ * down because it is the natural one. Past the band the section's raw scrollHeight does
+ * climb (720 -> 767 -> 844 -> 921 across four, five and six lines), but
+ * `probeSectionOverflow` still reports `over: false`: it measures FLOWED CHILDREN
+ * spilling past the section's rect, and the block's bottom edge stays inside it (709.6
+ * of 720 at the worst case) — the growth is consumed out of `padding-bottom`. The probe
+ * is right to decline; the emulator's own warning says as much ("a slide that overflows
+ * by padding alone is not tagged"). So the ⚠ OVERFLOW line, the red ring and the clipped
+ * tab stay quiet here BY DESIGN, and the author-facing channel is the review rule. Making
+ * this band a bounded, clipping cell would hand the collision to the overflow machinery —
+ * that is a frame-level change, not a modifier one.
+ *
+ * The band is derived from the mark's own geometry through the three custom properties
+ * below rather than restated as a magic length, so re-tuning the numeral cannot silently
+ * un-reserve the space it needs. HARD RULE #20: padding, never margin. */
+section.divider.numbered {
+  --_mark-top: calc(var(--_sec-1cqi, 1cqi) * 5);
+  --_mark-rule-gap: calc(var(--_sec-1cqi, 1cqi) * 1.6);
+  /* mark top + the numeral's own height (`line-height: 1`, so it is exactly the font
+   * size) + the gap down to its rule + the 1px rule + air below it. */
+  --_mark-band: calc(
+    var(--_mark-top) + var(--fs-hero) + var(--_mark-rule-gap) + 1px +
+    var(--_sec-1cqi, 1cqi) * 2.5
+  );
+  padding-top: var(--_mark-band);
+  padding-bottom: var(--_mark-band);
+  justify-content: safe center;
+}
+
 section.divider.numbered :is(h1, h2)::after {
   position: absolute;
   /* PINNED TO THE SECTION, at the top. The headline block is vertically CENTERED, so it
@@ -1548,14 +1615,15 @@ section.divider.numbered :is(h1, h2)::after {
    *
    * FIVE LINES IS OFF-CONTRACT — `--measure-bookend-heading` caps the slot at 16em (~33
    * characters) and divider.docs.md tells authors a section name sits on one line — but
-   * off-contract is not the same as impossible, and NOTHING IN THE ENGINE GATES IT. The
-   * overflow probe compares scrollHeight to clientHeight, and an absolutely-positioned
-   * pseudo sitting on top of the copy is an overlap, not an overflow: the colliding
-   * render prints no warning at all. `lib/authoring/lint-core.js` now warns the author
-   * instead (`divider-numbered-heading`), which is the coaching posture HARD RULE #29
-   * describes rather than a refusal. If you move this mark, re-measure — and render the
-   * long case, which is the step that was skipped here. */
-  top: calc(var(--_sec-1cqi, 1cqi) * 5);
+   * off-contract is not the same as impossible, so the block above RESERVES this mark's
+   * band rather than trusting the copy to stay short. The clearance table there is the
+   * live one; the numbers above it are the unreserved build they replaced, kept because
+   * they are what the shape was chosen against. `lib/authoring/review-core.js` warns the
+   * author at the length where the copy starts running off the BOTTOM instead
+   * (`divider-numbered-heading`) — coaching, per HARD RULE #29, not a refusal. If you move
+   * this mark, re-measure with an eyebrow on the slide: the eyebrow is the top of the
+   * block, and measuring the heading alone reads a line late. */
+  top: var(--_mark-top);
   /* The divider's own `padding-left`, so the masthead shares the left margin of the
    * eyebrow and heading below it — and clears the 0.46875cqi left spectrum rail twenty
    * times over. `divider.light` zeroes its own padding and centers; the mark stays here
@@ -1565,7 +1633,7 @@ section.divider.numbered :is(h1, h2)::after {
    * the top-RIGHT corner entirely to the deck logo. */
   width: calc(var(--_sec-1cqi, 1cqi) * 45);
   border-bottom: 1px solid var(--on-dark-ghost);
-  padding-bottom: calc(var(--_sec-1cqi, 1cqi) * 1.6);
+  padding-bottom: var(--_mark-rule-gap);
   /* EXPLICIT, because the pseudo inherits the heading's alignment: `divider.light`
    * centers, and a centered numeral inside a 45cqi box floats to the middle of its own
    * rule. The masthead is chrome pinned to the left margin, so it does not follow

@@ -734,6 +734,22 @@ the canvas as the heading grows from one line to three) and one pinned
 bottom-left (it holds position, but the block grows toward it and overlaps at
 five lines).
 
+**The band is reserved, so a long heading cannot climb into the mark.** Pinning
+alone was not enough: a centered block grows in both directions, and at five
+lines its top edge crossed the hairline and the numeral struck through the
+eyebrow. The slide now reserves the mark's band with symmetric padding and
+centers the block with `safe center`, which falls back to `start` exactly when
+the block would overflow. So the top edge stops at the band and the growth goes
+downward. Two things follow. A heading of one or two lines renders byte-identically
+to the unreserved build — the reservation is symmetric, so the block's midpoint
+does not move; from three lines on it pins, a few pixels lower than before. And a
+heading long enough to fill the band keeps going until it leaves the FRAME, which
+the engine already knows how to say: the export prints `⚠ OVERFLOW`, tags the
+slide "Content clipped" and the runtime rings it. The old failure was silent
+because a pseudo lying on top of the copy is an overlap, and the overflow probe
+measures spill past the frame. `review-core.js` warns one line earlier
+(`divider-numbered-heading`, past ~128 characters).
+
 **Dividers only, and one counter for all of them.** `divider` and
 `divider light` share a single `lat-divider` count, so a deck that mixes
 them still reads 01, 02, 03 straight through. `closing` and `title` do not

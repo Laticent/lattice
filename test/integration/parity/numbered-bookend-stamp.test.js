@@ -260,6 +260,84 @@ describe('numbered bookend stamp — both render paths', { skip: skipWithoutChro
     }
   });
 
+  // The mark's BAND, measured rather than trusted.
+  //
+  // The masthead is `position: absolute` and the headline block is flex-CENTERED, so the
+  // two lay out independently: as the heading wraps to more lines the block grows in both
+  // directions from the middle and its top edge climbs toward the mark. Before the band
+  // was reserved it reached it — at five lines the numeral struck through the eyebrow and
+  // the hairline cut the first line of copy — and NOTHING SAW IT, because an absolutely
+  // positioned pseudo lying on top of the copy is an OVERLAP, and every overflow channel
+  // in the engine measures content spilling PAST the frame.
+  //
+  // So this asserts the geometric invariant directly: the top of the flowed block never
+  // crosses the bottom of the mark, at any heading length. It measures the BLOCK, not the
+  // heading — the eyebrow is the first thing up there, and an earlier cut of the authoring
+  // rule measured the h2 alone and read a line late as a result.
+  const BAND_DECK = ['---', 'marp: true', 'theme: indaco', 'paginate: true', '---'].join('\n') +
+    [3, 6, 9, 12, 15, 18, 24, 30]
+      .map((n) => `\n\n<!-- _class: divider numbered -->\n\n\`section\`\n\n## ${'model '.repeat(n).trim()}\n\n---`)
+      .join('')
+      .replace(/\n---$/, '');
+
+  test('a heading of any length stays clear of the section mark', async () => {
+    const engine = require(path.join(ROOT, 'lib', 'engine'));
+    const { composeCss } = require(path.join(ROOT, 'lib', 'engine', 'css.js'));
+    const out = engine.render(BAND_DECK, 'indaco', { preview: true });
+    const css = composeCss({
+      themeCss: fs.readFileSync(path.join(ROOT, 'themes', 'indaco.css'), 'utf8'),
+      baseLatticeCss: fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8'),
+      sizeName: out.sizeName,
+    });
+    const page = await browser.newPage();
+    try {
+      await page.setViewport({ width: 1280, height: 720 });
+      await page.setContent(
+        `<!doctype html><html><head><style>${css}\n` +
+          'html,body{margin:0}.lattice>section{width:1280px;height:720px}</style></head>' +
+          `<body><article class="lattice">${out.html}</article></body></html>`,
+        { waitUntil: 'networkidle0' }
+      );
+      const rows = await page.evaluate(() => {
+        return [...document.querySelectorAll('article.lattice > section')].map((s, i) => {
+          const sr = s.getBoundingClientRect();
+          const h = s.querySelector('h2');
+          let blockTop = Infinity;
+          for (const c of s.children) {
+            if (c.hasAttribute('data-lattice-berth')) continue;
+            const st = getComputedStyle(c);
+            if (st.position === 'absolute' || st.position === 'fixed') continue;
+            const r = c.getBoundingClientRect();
+            if (!r.height) continue;
+            blockTop = Math.min(blockTop, r.top - sr.top);
+          }
+          const a = getComputedStyle(h, '::after');
+          return {
+            slide: i + 1,
+            chars: h.textContent.trim().length,
+            blockTop,
+            markBottom: parseFloat(a.top) + parseFloat(a.height),
+          };
+        });
+      });
+      assert.equal(rows.length, 8, 'the band deck did not render the slides it declares');
+      // A range wide enough that the block is pinned by the band on the long end and
+      // freely centered on the short end — if BOTH ends read the same the deck stopped
+      // exercising the wrap and this test has gone vacuous.
+      assert.ok(rows[0].blockTop > rows.at(-1).blockTop + 40,
+        'every heading laid out at the same height — the deck is no longer wrapping, so ' +
+        'the clearance assertion below proves nothing');
+      for (const r of rows) {
+        assert.ok(r.blockTop > r.markBottom,
+          `a ${r.chars}-character heading put the block top at ${r.blockTop.toFixed(1)}px, ` +
+          `at or above the mark's bottom edge at ${r.markBottom.toFixed(1)}px — the copy is ` +
+          'in the mark\'s band. Reserve more of it (`--_mark-band`, base.modifiers.css).');
+      }
+    } finally {
+      await page.close();
+    }
+  });
+
   test('the emulator / CLI export path stamps every numbered bookend', async () => {
     fs.mkdirSync(OUT, { recursive: true });
     const md = path.join(OUT, 'deck.md');
