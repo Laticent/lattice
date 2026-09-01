@@ -377,6 +377,21 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   can run Dependabot's lockfile writer to prove it. What IS measured is the survival: regenerate
   with a peer-ignoring resolver (`npm install --package-lock-only --legacy-peer-deps`) and the
   declared copy is still there, where the undeclared one vanishes.
+- **The hard edge is CONFIRMED, which the bullet above could only predict.** #1996 landed it on
+  `main` on 2026-09-01. Dependabot regenerated three of the four blocked `/docs` PRs against the
+  new base within the hour — #1484 (vitest 4), #1485 (typescript 7), #1486 (`@astrojs/react` 6) —
+  and all three went fully green, `docs-build` and `studio-smoke` included, where every earlier
+  run of the same three died on `npm ci`. That is Dependabot's own lockfile writer producing an
+  installable lockfile for that directory, which is the one thing nobody here can run locally.
+- **A PR whose RECREATE itself errors never moves, and needs the bump by hand.** #1489 is the PR
+  the diagnosis was built on and the one the fix did not rescue. Dependabot answers every
+  regeneration of it with "Dependabot tried to update this pull request, but something went
+  wrong" — six times between 2026-08-10 and 2026-09-01 — so its head never left the base it was
+  cut from and it never saw the fix. Another `@dependabot recreate` cannot clear that: recreate
+  is the step failing. Make the bump yourself instead — `npm update <package> --package-lock-only`
+  in that directory, which for `brace-expansion 1.1.15 → 1.1.18` was a three-line edit that
+  installs clean under `npm ci`, against Dependabot's 3-added / 231-deleted version of the same
+  bump. Dependabot closes its own PR once `main` carries the version.
 - **The hard edge is not a universal remedy, and the gate's own advice says so.** Hoisting only
   absorbs the peer when the root copy SATISFIES the peer range. Two consumers wanting different
   majors leaves a nested copy that is still optional-peer-only, and the fix has to be worked out
