@@ -723,10 +723,24 @@ gates and a rendered-DOM scan are complements, not alternatives.
 
 The pinned Chromium is **pre-installed** at `PLAYWRIGHT_BROWSERS_PATH=
 /opt/pw-browsers` (build 1194 ↔ `@playwright/test` 1.56.1) — do **NOT** run
-`playwright install` *for Chromium*. One thing genuinely can't run here: the
-`@visual` snapshot bless (runner-specific AA), which stays nightly/UNVERIFIED
-locally per HARD RULE #23. `CHROME_PATH` is the *Puppeteer* cache and is
-irrelevant to Playwright.
+`playwright install` *for Chromium*. `CHROME_PATH` is the *Puppeteer* cache and
+is irrelevant to Playwright.
+
+**The `@visual` snapshot bless DOES run here** (corrected 2026-09-01). This
+section used to say it "genuinely can't run here (runner-specific AA)" and
+stayed "nightly/UNVERIFIED locally per HARD RULE #23". The stated *cause* was
+right; the conclusion did not follow. #1426 measured it: CI's own rendered PNGs,
+range-fetched out of the nightly's 3.6 GB artifact and diffed against the
+sandbox's renders of the same commit, differ by 2,627 px (desktop), 1,078
+(tablet) and 765 (mobile) — ratios 0.0011–0.0023, **4–9x inside** the
+`maxDiffPixelRatio: 0.01` the config already carries, and confined to a single
+text run's subpixel fringing rather than spread across the image.
+
+So the sandbox and CI do **not** render identically, and a baseline blessed here
+still passes there. The margin is what makes a sandbox bless valid, not
+identity — and the margin scales with how much small text the shot contains, so
+a Studio change that puts much more small type on screen eats into it. Watch it
+rather than assuming it.
 
 **The PDF-export journeys DO run here** (corrected 2026-08-10). This section used
 to say they need a Google-Fonts CDN the sandbox blocks; `journeys/author-export`
