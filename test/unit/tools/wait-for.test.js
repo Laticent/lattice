@@ -23,7 +23,7 @@ const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
-const { spawnSync } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const SCRIPT = path.join(REPO, 'tools', 'wait-for.sh');
@@ -38,6 +38,61 @@ const run = (args, opts = {}) => {
 /** A job name unique to one test, so cases never collide over a lock. */
 let n = 0;
 const jobName = (label) => `test-${label}-${process.pid}-${++n}`;
+
+/**
+ * Start a long wait in ITS OWN PROCESS GROUP, so killing it reaps the grandchild
+ * (`timeout`/`sleep`) too. Killing only the shell left orphaned sleeps and stale
+ * lock dirs behind after every `npm test` — leaked waiters inside the suite that
+ * pins "no leaked waiters".
+ */
+const spawnHolder = (job, seconds = 30) =>
+  spawn(SCRIPT, ['--job', job, '--timeout', String(seconds), '--', 'sleep', String(seconds)],
+    { cwd: REPO, stdio: 'ignore', detached: true });
+
+/** Kill a holder and everything it started. */
+const reap = (child) => {
+  try { process.kill(-child.pid, 'SIGKILL'); } catch { /* group already gone */ }
+  try { child.kill('SIGKILL'); } catch { /* already gone */ }
+};
+
+/** Wait for a condition instead of sleeping a guessed interval (flaky on a loaded runner). */
+const until = (fn, budgetMs = 10_000) => {
+  const deadline = Date.now() + budgetMs;
+  while (Date.now() < deadline) {
+    if (fn()) return true;
+    spawnSync('sleep', ['0.05']);
+  }
+  return false;
+};
+
+const lockDir = (job) => path.join(LOCK_ROOT, `${job}.lock`);
+const lockHeld = (job) => fs.existsSync(lockDir(job));
+
+// A SIGKILLed holder cannot run its trap, so cases that kill one leave a lock
+// behind. That is correct for the tool (the stale reclaim handles it) and untidy
+// for the suite, which should not silt up .scratch/waits across runs.
+after(() => {
+  for (const entry of fs.readdirSync(LOCK_ROOT, { withFileTypes: true })) {
+    if (entry.name.startsWith(`test-`) && entry.name.includes(`-${process.pid}-`)) {
+      fs.rmSync(path.join(LOCK_ROOT, entry.name), { recursive: true, force: true });
+    }
+  }
+});
+
+/**
+ * Is this pid a live process — treating a ZOMBIE as dead, exactly as the script
+ * does. `process.kill(pid, 0)` succeeds on a killed-but-unreaped child, so the
+ * naive check reports a TERMed holder as still running and fails a passing fix.
+ * This is the same trap the helper itself had; it bites the test too.
+ */
+const isLive = (pid) => {
+  try {
+    const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8');
+    return stat.slice(stat.lastIndexOf(')') + 1).trim().split(/\s+/)[0] !== 'Z';
+  } catch {
+    return false;
+  }
+};
 
 const USAGE_ERROR = 64;
 
@@ -100,18 +155,12 @@ describe('wait-for — one waiter per job', () => {
 
   before(() => {
     job = jobName('dupe');
-    // A live wait holding the lock for the duration of this block.
-    holder = require('node:child_process').spawn(
-      SCRIPT, ['--job', job, '--timeout', '30', '--', 'sleep', '30'],
-      { cwd: REPO, stdio: 'ignore', detached: false },
-    );
-    // Give it long enough to claim the lock before the duplicate races it.
-    spawnSync('sleep', ['1']);
+    holder = spawnHolder(job);
+    // Poll for the lock rather than sleeping a guessed interval.
+    assert.ok(until(() => lockHeld(job)), 'holder never claimed the lock');
   });
 
-  after(() => {
-    try { holder.kill('SIGKILL'); } catch { /* already gone */ }
-  });
+  after(() => reap(holder));
 
   // This is the defect the tool exists for: five waiters on one integration run.
   test('refuses a second wait on a live job, and names the holder', () => {
@@ -124,9 +173,69 @@ describe('wait-for — one waiter per job', () => {
   test('leaves a different job name alone', () => {
     assert.equal(run(['--job', jobName('other'), '--', 'true']).code, 0);
   });
+});
 
-  test('--force takes a held lock', () => {
-    assert.equal(run(['--job', job, '--force', '--', 'true']).code, 0);
+describe('wait-for — a signal actually stops the wait', () => {
+  // A canceled wait that runs to its deadline anyway and still fires is the
+  // failure this tool exists to prevent. Before the fix, bash deferred the trap
+  // until the FOREGROUND child finished: TERM at t=1s on a 12s job exited at
+  // t=11s reporting "hit the deadline".
+  test('SIGTERM stops it promptly and releases the lock', () => {
+    const job = jobName('term');
+    const holder = spawnHolder(job, 20);
+    assert.ok(until(() => lockHeld(job)), 'holder never claimed the lock');
+
+    const started = Date.now();
+    process.kill(holder.pid, 'SIGTERM');
+    const stopped = until(() => !lockHeld(job), 10_000);
+    const elapsed = Date.now() - started;
+    reap(holder);
+
+    assert.ok(stopped, 'lock was never released after SIGTERM');
+    assert.ok(elapsed < 8_000, `should stop on the signal, took ${elapsed}ms`);
+  });
+});
+
+describe('wait-for — --force replaces the holder', () => {
+  test('stops the waiter it forces out, rather than running two at once', () => {
+    const job = jobName('force');
+    const victim = spawnHolder(job, 30);
+    assert.ok(until(() => lockHeld(job)), 'victim never claimed the lock');
+
+    const { code } = run(['--job', job, '--force', '--', 'true']);
+    assert.equal(code, 0);
+    // Two live waiters on one job is exactly what this tool forbids.
+    const gone = until(() => !isLive(victim.pid));
+    reap(victim);
+    assert.ok(gone, '--force stole the lock but left the old waiter running');
+  });
+
+  // The EXIT trap used to `rm -rf` unconditionally, so a forced-out waiter
+  // deleted the CURRENT holder's lock on its way out and a third wait was let
+  // straight through while the holder was still live.
+  test('a forced-out waiter does not delete the new holder\'s lock', () => {
+    const job = jobName('steal');
+    const first = spawnHolder(job, 4);
+    assert.ok(until(() => lockHeld(job)), 'first never claimed the lock');
+
+    const second = spawnHolder(job, 30);
+    // The forced path is what the second one needs; start it explicitly.
+    reap(second);
+    const forced = spawn(SCRIPT, ['--job', job, '--force', '--timeout', '30', '--', 'sleep', '30'],
+      { cwd: REPO, stdio: 'ignore', detached: true });
+    assert.ok(until(() => lockHeld(job)), 'forced waiter never claimed the lock');
+
+    // Let the first one reach its own exit and run its trap.
+    until(() => !isLive(first.pid), 15_000);
+    spawnSync('sleep', ['1']);
+
+    const stillHeld = lockHeld(job);
+    const third = run(['--job', job, '--', 'true']);
+    reap(forced);
+    reap(first);
+
+    assert.ok(stillHeld, "the exiting waiter deleted the live holder's lock");
+    assert.equal(third.code, 2, 'a duplicate was admitted while a holder was live');
   });
 });
 
@@ -159,6 +268,19 @@ describe('wait-for — lock hygiene', () => {
     victim.kill('SIGKILL');
     spawnSync('sleep', ['1']);
     assert.equal(run(['--job', job, '--', 'true']).code, 0);
+  });
+
+  // Metadata lands after `mkdir`, so a reader can see a lock with a pid and no
+  // epoch yet. Defaulting that missing epoch to 0 made the age ~1.8e9s and the
+  // backstop robbed a LIVE holder. Unknown age must mean "leave it alone".
+  test('does not rob a live holder whose epoch has not landed yet', () => {
+    const job = jobName('noepoch');
+    const lock = lockDir(job);
+    fs.mkdirSync(lock, { recursive: true });
+    fs.writeFileSync(path.join(lock, 'pid'), String(process.pid)); // unambiguously live
+    const { code } = run(['--job', job, '--', 'true']);
+    fs.rmSync(lock, { recursive: true, force: true });
+    assert.equal(code, 2, 'stole the lock from a live holder mid-write');
   });
 
   test('reclaims a lock left by a live process but older than the ceiling', () => {
@@ -199,6 +321,12 @@ describe('wait-for — argument validation', () => {
     'neither a predicate nor a command': ['--job', 'j'],
     'an unknown flag': ['--job', 'j', '--bogus'],
   };
+
+  // `${2:?...}` exited 1 here, colliding with the documented "predicate never
+  // became true" code and bypassing the script's own 64-for-usage convention.
+  for (const flag of ['--job', '--timeout', '--interval', '--until']) {
+    rejected[`${flag} with no value`] = ['--job', 'j', flag];
+  }
 
   for (const [label, args] of Object.entries(rejected)) {
     test(`rejects ${label}`, () => {

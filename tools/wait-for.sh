@@ -31,13 +31,18 @@
 #   --job <name>      Required. Lock key, [A-Za-z0-9._-]. One live wait per name.
 #   --timeout <sec>   Deadline. Default 1800 (30m), max 3600 (the cache TTL).
 #   --interval <sec>  Poll gap in --until mode. Default 5.
-#   --force           Take the lock even if a live wait holds it.
+#   --force           Replace a live wait on this job -- it STOPS that waiter first.
 #
 # Exit codes:
 #   0    the command succeeded, or the predicate became true
 #   1    predicate never became true before the deadline
 #   2    refused: another live wait already holds this job name
-#   124  the command hit the deadline (GNU timeout's code)
+#   64   usage error
+#   124  the command hit the deadline and took the TERM
+#   137  the command was SIGKILLed -- either it ignored the deadline TERM, or
+#        something else killed it (an OOM). The message says which, from the
+#        clock; do not read every 137 as a timeout.
+#   143  the wait itself was TERMed (it stops promptly and drops its lock)
 #   *    in run mode, the command's own exit code
 #
 # Examples:
@@ -62,12 +67,16 @@ cmd=()
 
 die() { printf 'wait-for: %s\n' "$1" >&2; exit "${2:-64}"; }
 
+# `${2:?...}` would exit 1 here, colliding with the documented "predicate never
+# became true" code and bypassing this script's own 64-for-usage convention.
+need() { [ "$1" -ge 2 ] || die "$2 needs a value"; }
+
 while [ $# -gt 0 ]; do
   case "$1" in
-    --job)      job="${2:?--job needs a value}"; shift 2 ;;
-    --timeout)  timeout_s="${2:?--timeout needs a value}"; shift 2 ;;
-    --interval) interval_s="${2:?--interval needs a value}"; shift 2 ;;
-    --until)    predicate="${2:?--until needs a value}"; shift 2 ;;
+    --job)      need $# --job;      job="$2";        shift 2 ;;
+    --timeout)  need $# --timeout;  timeout_s="$2";  shift 2 ;;
+    --interval) need $# --interval; interval_s="$2"; shift 2 ;;
+    --until)    need $# --until;    predicate="$2";  shift 2 ;;
     --force)    force=1; shift ;;
     --)         shift; cmd=("$@"); break ;;
     # Print the whole header comment, however long it grows -- a hardcoded line
@@ -100,6 +109,21 @@ mkdir -p "$lock_root"
 lock_dir="$lock_root/$job.lock"
 log_file="$lock_root/$job.log"
 
+# Who does the lock currently say owns it?
+lock_owner() { cat "$lock_dir/pid" 2>/dev/null || true; }
+
+# Drop the lock, but ONLY if we still hold it.
+#
+# An unconditional `rm -rf` here is a duplicate-admitting bug: a waiter that was
+# forced out, or whose stale lock was reclaimed by someone else, deletes the
+# CURRENT holder's lock on its way out, and the next wait on that job is let
+# straight through while the holder is still live. Reproduced before the fix --
+# two live waiters on one job, the exact defect this tool exists to prevent.
+release_lock() {
+  [ "$(lock_owner)" = "$$" ] || return 0
+  rm -rf "$lock_dir"
+}
+
 # Is this PID a genuinely live holder?
 #
 # `kill -0` alone is NOT enough, and getting this wrong wedges the lock forever:
@@ -126,10 +150,15 @@ claim_lock() {
   if mkdir "$lock_dir" 2>/dev/null; then
     return 0
   fi
-  local holder="" born=0 age=0
-  [ -r "$lock_dir/pid" ] && holder=$(cat "$lock_dir/pid" 2>/dev/null || true)
-  [ -r "$lock_dir/epoch" ] && born=$(cat "$lock_dir/epoch" 2>/dev/null || echo 0)
-  age=$(( $(date +%s) - ${born:-0} ))
+  local holder="" born="" age=0
+  holder=$(lock_owner)
+  [ -r "$lock_dir/epoch" ] && born=$(cat "$lock_dir/epoch" 2>/dev/null || true)
+  # A lock whose metadata has not landed YET is newborn, not ancient. Defaulting
+  # a missing epoch to 0 put the age at ~1.8e9s, so the backstop below happily
+  # stole the lock from a live holder in the window between `mkdir` and the
+  # metadata write. Unknown age must mean "leave it alone".
+  case "$born" in (''|*[!0-9]*) born=$(date +%s) ;; esac
+  age=$(( $(date +%s) - born ))
 
   # Second, independent backstop: nothing is permitted to wait longer than the
   # ceiling, so a lock older than that cannot belong to a legitimate wait no
@@ -148,6 +177,18 @@ claim_lock() {
 
 if ! claim_lock; then
   if [ "$force" -eq 1 ]; then
+    # Forcing REPLACES the holder, so it has to stop the holder. Merely stealing
+    # the lock left both waiters running to their own deadlines, both firing,
+    # and -- in run mode -- the second truncating the first's log mid-run.
+    victim=$(lock_owner)
+    if [ -n "$victim" ] && is_live "$victim"; then
+      kill -TERM "$victim" 2>/dev/null || true
+      for _ in 1 2 3 4 5 6 7 8 9 10; do
+        is_live "$victim" || break
+        sleep 0.5
+      done
+      is_live "$victim" && kill -KILL "$victim" 2>/dev/null || true
+    fi
     rm -rf "$lock_dir"
     mkdir -p "$lock_dir"
   else
@@ -163,7 +204,22 @@ fi
 echo "$$" > "$lock_dir/pid"
 date -u '+%Y-%m-%dT%H:%M:%SZ' > "$lock_dir/started"
 date '+%s' > "$lock_dir/epoch"
-trap 'rm -rf "$lock_dir"' EXIT INT TERM
+child=""
+
+# A signal must STOP the wait, not just tidy the lock. With the command run in
+# the foreground, bash defers trap handling until it finishes, so a TERM was
+# swallowed for the whole job: the waiter kept running and still fired at its
+# deadline. Measured -- TERM at t=1s on a 12s job, waiter exited at t=11s
+# reporting "hit the deadline". A wait you cannot cancel is the thing this tool
+# exists to prevent, so the child runs in the background and is `wait`ed on.
+on_signal() {
+  [ -n "$child" ] && kill -TERM "$child" 2>/dev/null || true
+  release_lock
+  exit $((128 + $1))
+}
+trap 'release_lock' EXIT
+trap 'on_signal 15' TERM
+trap 'on_signal 2' INT
 
 # ── wait ─────────────────────────────────────────────────────────────────────
 started_at=$SECONDS
@@ -174,14 +230,33 @@ if [ ${#cmd[@]} -gt 0 ]; then
   # Run mode: one process, bounded. Its exit IS the notification, so there is
   # no second shell polling for it — that pairing is the bug this tool removes.
   status=0
-  timeout --signal=TERM --kill-after=10s "$timeout_s" "${cmd[@]}" > "$log_file" 2>&1 || status=$?
+  timeout --signal=TERM --kill-after=10s "$timeout_s" "${cmd[@]}" > "$log_file" 2>&1 &
+  child=$!
+  # `wait` rather than a foreground run, so the traps above can fire while the
+  # job is still going. See on_signal.
+  wait "$child" || status=$?
+  child=""
 
+  rel_log="${log_file#"$repo_root"/}"
   if [ "$status" -eq 0 ]; then
-    printf 'wait-for: %s finished OK in %s (log: %s)\n' "$job" "$(elapsed)" "${log_file#"$repo_root"/}"
-  elif [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
-    printf 'wait-for: %s hit the %ss deadline (log: %s)\n' "$job" "$timeout_s" "${log_file#"$repo_root"/}" >&2
+    printf 'wait-for: %s finished OK in %s (log: %s)\n' "$job" "$(elapsed)" "$rel_log"
+  elif [ "$status" -eq 124 ]; then
+    printf 'wait-for: %s hit the %ss deadline (log: %s)\n' "$job" "$timeout_s" "$rel_log" >&2
+    tail -n 20 "$log_file" >&2 || true
+  elif [ "$status" -eq 137 ]; then
+    # 137 is SIGKILL, which is NOT necessarily the deadline: it is also what an
+    # OOM kill looks like. Reporting both as "hit the deadline" would send you
+    # hunting a timeout that never happened, so say which one the clock supports.
+    if [ "$((SECONDS - started_at))" -ge "$timeout_s" ]; then
+      printf 'wait-for: %s ignored the deadline TERM and was killed at %ss (log: %s)\n' \
+        "$job" "$timeout_s" "$rel_log" >&2
+    else
+      printf 'wait-for: %s was KILLED after %s, well inside its %ss budget — not the deadline (OOM?) (log: %s)\n' \
+        "$job" "$(elapsed)" "$timeout_s" "$rel_log" >&2
+    fi
+    tail -n 20 "$log_file" >&2 || true
   else
-    printf 'wait-for: %s failed with exit %s after %s (log: %s)\n' "$job" "$status" "$(elapsed)" "${log_file#"$repo_root"/}" >&2
+    printf 'wait-for: %s failed with exit %s after %s (log: %s)\n' "$job" "$status" "$(elapsed)" "$rel_log" >&2
     tail -n 20 "$log_file" >&2 || true
   fi
   exit "$status"

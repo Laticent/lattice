@@ -400,16 +400,24 @@ tools/wait-for.sh --job docs-server --timeout 120 --until 'grep -q ready /tmp/as
 Run it through the harness's `run_in_background` when you want to keep working;
 the helper is what guarantees it ends. What it gives you:
 
-- **A deadline on every wait.** Default 1800s, ceiling 3600s. Overrun exits 124.
+- **A deadline on every wait.** Default 1800s, ceiling 3600s. Overrunning and
+  taking the TERM exits 124; a job that ignores it and gets SIGKILLed exits 137,
+  reported separately because a 137 is just as often an OOM as a timeout.
 - **One waiter per job.** A second wait on a live job exits 2 and names the
-  holder rather than adding a duplicate. `--force` replaces it deliberately.
+  holder rather than adding a duplicate. `--force` replaces it and **stops the
+  waiter it replaces** — otherwise both run to their own deadlines and both fire.
+- **A signal stops it.** TERM or INT ends the wait promptly, kills the job, and
+  releases the lock (exit 143). A wait you cannot cancel is the same defect as a
+  wait that never ends.
 - **One line of output, at the end.** In run mode the command's own output goes
-  to `.scratch/waits/<job>.log`, and only the tail is echoed, only on failure.
+  to `.scratch/waits/<job>.log`, and the tail is echoed on any failure.
 
-A lock never wedges a job name: a dead holder is reclaimed, a **zombie** holder
-is reclaimed (a killed-but-unreaped process still answers `kill -0`, which is a
-bug this helper had and a test now pins), and any lock older than the ceiling is
-reclaimed regardless.
+A lock never wedges a job name, and never admits a second holder either. A dead
+holder is reclaimed; a **zombie** holder is reclaimed (a killed-but-unreaped
+process still answers `kill -0` — a bug this helper had, and one that bit its own
+tests); any lock older than the ceiling is reclaimed regardless; and a waiter
+only ever releases a lock **it still owns**, so one exiting on its own deadline
+cannot delete the lock of whoever replaced it.
 
 **A waiter waits.** Do not attach an action to a condition — a background shell
 that runs `build:check` when some file appears will happily run it three hours
