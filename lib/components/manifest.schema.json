@@ -221,7 +221,7 @@
             "axisRetired": {
               "type": "string",
               "minLength": 1,
-              "description": "A TOMBSTONE, and it is load-bearing: `axis` was deliberately removed here, and this records why so nobody restores it. The absence IS the behavior — `splitFactsFor` in lib/core/split-facts.js reads `adapt.capacity.axis` as an opt-in (`enrolled: Boolean(axis || split)`), so re-adding the key enrolls the component in a per-item split its own design resolution forbids. That is what happened to matrix-2x2 (an ATOMIC 2x2 read: splitting between quadrants shows 2 of 4 cells with no axis structure) and split-compare (a READ-ACROSS whose meaning lives in the cross-reading between the two sides). Prose, never read by the engine, and `lib/authoring/lint.js` filters it out of the browser lint vocabulary by name rather than shipping ~750 characters of rationale into every bundle."
+              "description": "A TOMBSTONE: `axis` was deliberately removed here, and the ABSENCE is the behavior \u2014 `splitFactsFor` (lib/core/split-facts.js) reads `adapt.capacity.axis` as a split opt-in, so restoring the key re-enrolls the component in a split its own design resolution forbids. Prose, never read by the engine; `lib/authoring/lint.js` filters it from the lint vocabulary by name. Why, per component: engineering/decisions/2026-09-01-manifest-schema-gate.md."
             }
           },
           "patternProperties": {
@@ -256,7 +256,7 @@
                 "note": {
                   "type": "string",
                   "minLength": 1,
-                  "description": "One-line human consequence of overflowing THIS box — the per-family counterpart of the flat `capacity.note`, which has always been declared. The two blocks are alternatives (a component declares one or the other), so an author who moves to per-family counts reasonably expects the same field to travel with them; kpi wrote one and it went undeclared. It is real shipped data: `capacityBlock` in tools/build-component-docs.js spreads the family block, so the note reaches dist/docs/components.json, the machine-readable catalog agents read. The generated prose line does not print it today."
+                  "description": "One-line human consequence of overflowing THIS box \u2014 the per-family counterpart of the flat `capacity.note`. Note that the flat form's consumer (lib/authoring/lint-core.js) does NOT read this per-family one; it reaches agents through dist/docs/components.json. See engineering/decisions/2026-09-01-manifest-schema-gate.md."
                 }
               }
             }
@@ -339,6 +339,7 @@
       "type": "object",
       "additionalProperties": {
         "type": "object",
+        "additionalProperties": false,
         "required": [
           "selector",
           "description"

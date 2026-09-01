@@ -7160,6 +7160,50 @@ function checkAnimaBoundary(errors) {
 // promise. Reuses the robust multi-form Suono specifier patterns.
 const LENTE_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'lente');
 
+/**
+ * ajv STAYS OUT OF `lib/`. The manifest-schema gate's one safety property, gated
+ * rather than asserted.
+ *
+ * `tools/manifest-schemas.js` is the only module that may require ajv, and it lives
+ * in `tools/`, which `package.json` `files` does not publish. A `require('ajv')` in
+ * `lib/` would therefore ship a DEVdependency to consumers — `@workwel/lattice` would
+ * throw on import for anyone who installed it — and esbuild would inline a validator
+ * into the browser bundles that `lib/layout` and `lib/forms` feed.
+ *
+ * The temptation is real and already one import away: docs/src/components/studio/
+ * Fabricate.tsx validates AI-authored manifests in the browser through a hand-written
+ * validator, and "why not use the real one?" is the most natural follow-up this gate's
+ * own existence invites. The honest answer is that the real one is 3 MB of dev
+ * tooling. That answer needs a gate, not a comment — a boundary held only by prose
+ * fails exactly the way the schemas this gate checks used to: silently, and past
+ * every other check.
+ *
+ * NOTE the scope. This is about the ajv LIBRARY, not about schema JSON, which
+ * lib/layout/gate.js deliberately requires and ships to the Studio.
+ */
+function checkAjvBoundary(errors) {
+  for (const dir of [LIB_DIR, path.join(ROOT, 'docs', 'src')]) {
+    if (!fs.existsSync(dir)) continue;
+    for (const file of listSourceFiles(dir)) {
+      const rel = path.relative(ROOT, file).split(path.sep).join('/');
+      const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+      for (const pattern of SUONO_SPEC_PATTERNS) {
+        for (const m of src.matchAll(pattern)) {
+          const spec = m[1];
+          if (spec !== 'ajv' && !spec.startsWith('ajv/')) continue;
+          errors.push(
+            `${rel} imports '${spec}'. ajv is a devDependency and may be required ONLY from tools/ ` +
+            '(tools/manifest-schemas.js). tools/ is not in package.json `files`, so an ajv import here ' +
+            'ships a missing dependency to every consumer of the published package and inlines a 3 MB ' +
+            'validator into the browser bundle. Validate manifests at BUILD time instead, or hand the ' +
+            'browser a narrow hand-written check as docs/src/components/studio/Fabricate.tsx does.',
+          );
+        }
+      }
+    }
+  }
+}
+
 function checkLenteBoundary(errors) {
   if (!fs.existsSync(LENTE_DIR)) return; // library not present — nothing to guard
   for (const file of listSourceFiles(LENTE_DIR)) {
@@ -10966,6 +11010,7 @@ function run() {
   checkAudioPlaybackBoundary(errors);
   checkSanctionedGestures(errors);
   checkManifestSchemas(errors);
+  checkAjvBoundary(errors);
   checkThemeManifestCoverage(errors);
   checkThemeRoles(errors);
   checkThemeModes(errors);
@@ -11025,6 +11070,7 @@ module.exports = {
   // against synthetic fixtures rather than only asserting the shipped tree is clean —
   // a gate only proves something if you can watch it fail.
   checkManifestSchemas,
+  checkAjvBoundary,
   checkThemeManifestCoverage,
   checkThemeManifestShape,
   checkThemeRoles,

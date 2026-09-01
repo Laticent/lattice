@@ -40,13 +40,21 @@
  * WHY ajv, AND WHY IT IS dev-ONLY. ajv understands the whole JSON Schema
  * language, so there is no rule we forgot to implement that then fails silently
  * — which is the very failure mode being fixed here, and a homegrown walker
- * reproduces it by construction. It is a devDependency and this module is
- * required only from tools/, never from lib/. That boundary matters: the
- * hand-copied enums in lib/forms/index.js and lib/components/index.js exist to
- * keep schema JSON out of the browser bundles, and reaching the component gate
- * through the wrong door once pulled a 41 KB manifest schema into the theme
- * bundle (changelog.d/1841). Manifests are validated at BUILD time, by the
- * build's own tooling; nothing here ships to a browser.
+ * reproduces it by construction. It is a devDependency, and this module is
+ * required only from tools/, never from lib/ — `checkAjvBoundary` in
+ * tools/check-ownership.js enforces that rather than trusting this sentence.
+ * The boundary is about the LIBRARY: `tools/` is not in package.json `files`,
+ * so a `require('ajv')` in lib/ would ship a devDependency to consumers and
+ * inline a validator into a browser bundle.
+ *
+ * It is NOT about the schema JSON, and an earlier draft of this comment claimed
+ * otherwise. lib/layout/gate.js:34 already requires manifest.schema.json on
+ * purpose, and esbuild inlines the whole file — descriptions included — into
+ * docs/src/playground/layout-core.generated.js for the Studio. So a `description`
+ * here is not a private note to a maintainer: it is shipped bytes in a browser
+ * bundle and a tooltip in an author's editor. Keep them to a line and a pointer
+ * at the decision record; two of them landed at 778 and 589 characters and had
+ * to be cut.
  *
  * Wired into `checkManifestSchemas` in tools/check-ownership.js, which
  * `npm run build:check` already runs in CI and in the pre-push hook — so this
@@ -109,14 +117,54 @@ const FAMILIES = Object.freeze([
 ]);
 
 /**
- * Directories a repo-wide manifest sweep must not walk: generated output, third-party
- * code, and the sanctioned throwaway area. A manifest under any of these is not
+ * Top-level directories the repo-wide sweep must not walk: generated output,
+ * third-party code, the throwaway area. A manifest under any of these is not
  * hand-authored, so it is not this gate's business.
+ *
+ * ANCHORED AT THE ROOT, deliberately. Matching a bare name at any depth would
+ * also skip `lib/coverage/` or a `dist/` inside a real family — a hiding place
+ * for exactly the unchecked manifest arm 1 exists to find.
  */
-const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', 'test-results', '.scratch', 'coverage']);
+const SKIP_ROOTS = new Set(['node_modules', 'dist', 'test-results', 'coverage']);
+
+/**
+ * A directory the sweep and the family listers both skip at ANY depth.
+ *
+ * Two rules, and both mirror the runtime loaders rather than inventing policy:
+ *   · a DOT directory — `.git`, `.scratch`, `.vscode`, and critically
+ *     `.claude/worktrees/`, which `.gitignore` reserves for transient agent
+ *     worktrees. Walking it made a single `git worktree add` fail `build:check`
+ *     (and therefore the pre-push hook) with one bogus error per manifest in the
+ *     checkout — up to 131, none of them real. A gate that fires on work the
+ *     author never touched is the one people learn to bypass.
+ *   · an UNDERSCORE-prefixed directory — `loadDir` in lib/forms/index.js and
+ *     `loadAll` in lib/components/index.js both skip these, so a parked
+ *     `_draft/` is by convention not part of the catalog. The gate must agree
+ *     with the loaders about what exists, or it polices files nothing loads.
+ */
+const isSkippedDir = (name) => name.startsWith('.') || name.startsWith('_');
+
+/**
+ * The filename suffixes the sweep looks for, DERIVED from the registry rather
+ * than hardcoded — plus the one legacy shape a lister cannot express.
+ *
+ * Hardcoding the two suffixes reintroduced this gate's own disease one level up:
+ * a sixth family with a new suffix (`foo.lens.json`) was invisible to the very
+ * sweep that exists to catch a sixth family. Deriving them means adding a row to
+ * FAMILIES is enough.
+ *
+ * `manifest.json` is listed separately because it is NOT a suffix match:
+ * `'manifest.json'.endsWith('.manifest.json')` is false. `loadAll` still accepts
+ * that pre-Phase-1 folder shape (lib/components/index.js), so without this entry
+ * a component could be loaded into the shipped catalog while slipping BOTH arms.
+ */
+function sweptNames(families = FAMILIES) {
+  return { suffixes: [...new Set(families.map((f) => f.ext))], exact: ['manifest.json'] };
+}
 
 /** Every hand-authored manifest path in the tree, repo-relative, sorted. */
-function listAllManifests(root = ROOT) {
+function listAllManifests(root = ROOT, families = FAMILIES) {
+  const { suffixes, exact } = sweptNames(families);
   const out = [];
   const walk = (rel) => {
     let entries;
@@ -127,8 +175,10 @@ function listAllManifests(root = ROOT) {
     }
     for (const e of entries) {
       if (e.isDirectory()) {
-        if (!SKIP_DIRS.has(e.name)) walk(rel ? `${rel}/${e.name}` : e.name);
-      } else if (e.name.endsWith('.manifest.json') || e.name.endsWith('.cell.json')) {
+        if (isSkippedDir(e.name)) continue;
+        if (!rel && SKIP_ROOTS.has(e.name)) continue;
+        walk(rel ? `${rel}/${e.name}` : e.name);
+      } else if (suffixes.some((s) => e.name.endsWith(s)) || exact.includes(e.name)) {
         out.push(rel ? `${rel}/${e.name}` : e.name);
       }
     }
@@ -142,27 +192,31 @@ function listFamilyManifests(fam, root = ROOT) {
   const base = path.join(root, fam.dir);
   if (!fs.existsSync(base)) return [];
   const out = [];
+  // `_`-prefixed directories are skipped to match the runtime loaders, which
+  // treat them as parked and never load them (see isSkippedDir).
+  const subdirs = (dir) =>
+    fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && !isSkippedDir(d.name))
+      .map((d) => d.name);
+
   if (fam.flat) {
     for (const f of fs.readdirSync(base)) {
-      if (f.endsWith(fam.ext)) out.push(`${fam.dir}/${f}`);
+      if (f.endsWith(fam.ext) && !f.startsWith('_')) out.push(`${fam.dir}/${f}`);
     }
     return out.sort();
   }
   // <dir>/<name>/<name><ext>, or <dir>/<bucket>/<name>/<name><ext> when nested.
   const leaves = fam.nested
-    ? fs
-        .readdirSync(base, { withFileTypes: true })
-        .filter((d) => d.isDirectory())
-        .flatMap((b) =>
-          fs
-            .readdirSync(path.join(base, b.name), { withFileTypes: true })
-            .filter((d) => d.isDirectory())
-            .map((d) => `${fam.dir}/${b.name}/${d.name}/${d.name}${fam.ext}`),
-        )
-    : fs
-        .readdirSync(base, { withFileTypes: true })
-        .filter((d) => d.isDirectory())
-        .map((d) => `${fam.dir}/${d.name}/${d.name}${fam.ext}`);
+    ? subdirs(base).flatMap((b) =>
+        subdirs(path.join(base, b)).flatMap((d) => [
+          `${fam.dir}/${b}/${d}/${d}${fam.ext}`,
+          // The pre-Phase-1 folder shape `loadAll` still accepts. Claimed here so
+          // it is SHAPE-checked rather than merely reported as an orphan.
+          `${fam.dir}/${b}/${d}/manifest.json`,
+        ]),
+      )
+    : subdirs(base).map((d) => `${fam.dir}/${d}/${d}${fam.ext}`);
   for (const p of leaves) if (fs.existsSync(path.join(root, p))) out.push(p);
   return out.sort();
 }
@@ -196,8 +250,20 @@ function valueAt(data, instancePath) {
   return cur;
 }
 
-/** `/adapt/capacity/wide` → `adapt.capacity.wide`; the root → ''. */
-const dotted = (instancePath) => instancePath.replace(/^\//, '').replace(/\//g, '.');
+/**
+ * `/adapt/capacity/wide` → `adapt.capacity.wide`; the root → ''.
+ *
+ * Unescapes each JSON Pointer token (`~1` → `/`, `~0` → `~`, in that order per
+ * RFC 6901) so the field NAME in a message matches the field whose value the
+ * same message quotes — `valueAt` already unescapes, and the two disagreeing
+ * would print a name that does not exist.
+ */
+const dotted = (instancePath) =>
+  instancePath
+    .split('/')
+    .slice(1)
+    .map((t) => t.replace(/~1/g, '/').replace(/~0/g, '~'))
+    .join('.');
 
 /**
  * Render one ajv error in the house wording.
@@ -216,6 +282,10 @@ function formatError(err, data, schemaPath) {
   // instancePath itself; for `required`/`additionalProperties` it is a child of it.
   const child = (name) => (scope ? `${scope}.${name}` : name);
   const shown = (v) => (v === undefined ? 'undefined' : JSON.stringify(v));
+  // The root has no field name, so every branch that interpolates `scope` bare
+  // needs this — `has \`: [1,2]\`` reads as a formatting bug, not a defect report.
+  // The guard existed on `enum` only and was missing from the other four.
+  const where = scope || 'the manifest root';
 
   switch (err.keyword) {
     case 'required':
@@ -227,22 +297,22 @@ function formatError(err, data, schemaPath) {
       );
     case 'enum':
       return (
-        `has \`${scope || 'the manifest root'}: ${shown(valueAt(data, err.instancePath))}\`, which is not one of ` +
+        `has \`${where}: ${shown(valueAt(data, err.instancePath))}\`, which is not one of ` +
         `${(p.allowedValues ?? []).map((v) => JSON.stringify(v)).join(' | ')}.`
       );
     case 'pattern':
-      return `has \`${scope}: ${shown(valueAt(data, err.instancePath))}\`, which does not match ${p.pattern}.`;
+      return `has \`${where}: ${shown(valueAt(data, err.instancePath))}\`, which does not match ${p.pattern}.`;
     case 'type':
-      return `has \`${scope}: ${shown(valueAt(data, err.instancePath))}\` but the schema says ${JSON.stringify(p.type)}.`;
+      return `has \`${where}: ${shown(valueAt(data, err.instancePath))}\` but the schema says ${JSON.stringify(p.type)}.`;
     case 'minimum':
     case 'maximum':
     case 'minLength':
     case 'maxLength':
     case 'minItems':
     case 'maxItems':
-      return `has \`${scope}: ${shown(valueAt(data, err.instancePath))}\` — ${err.message}.`;
+      return `has \`${where}: ${shown(valueAt(data, err.instancePath))}\` — ${err.message}.`;
     case 'uniqueItems':
-      return `has duplicate entries in \`${scope}\`.`;
+      return `has duplicate entries in \`${where}\`.`;
     default:
       return `${at}${err.message}.`;
   }
@@ -304,7 +374,12 @@ function checkFamily(errors, fam, { root = ROOT, dir = null, ajv = makeAjv() } =
       `${fam.schema} is not a valid JSON Schema: ${e.message}. ` +
         'Fix the schema — every manifest in this family is unchecked until it compiles.',
     );
-    return [];
+    // STILL CLAIM the family's files. The family exists and is registered; its
+    // schema merely cannot compile. Returning [] instead dropped all 61 component
+    // manifests out of `claimed`, so one `patttern` typo in the schema produced 62
+    // errors — 61 of them telling a reviewer to DELETE shipped components. One
+    // cause should read as one error.
+    return dir ? [] : listFamilyManifests(fam, root);
   }
 
   // A fixture dir stands in for the family's own directory, so read it flat: a
@@ -337,22 +412,50 @@ function checkFamily(errors, fam, { root = ROOT, dir = null, ajv = makeAjv() } =
     }
 
     // Arm 2 — SHAPE.
+    //
+    // `if` errors are dropped. ajv reports the CONDITIONAL alongside the real
+    // failure, so a theme missing `tier` produced two lines — the actionable one
+    // plus a bare `must match "then" schema`, which names no field and tells the
+    // author nothing. The hand-written walker this replaced emitted one line, and
+    // a replacement that talks more while saying the same thing is a regression.
     if (!validate(data)) {
       for (const err of validate.errors) {
+        if (err.keyword === 'if') continue;
         errors.push(`${label} ${formatError(err, data, fam.schema)}`);
       }
     }
 
     // Arm 3 — SELF-REFERENCE. Skipped for fixture dirs, whose relative depth is
     // not the real tree's, so a correct link there would resolve wrong here.
-    if (!dir && typeof data.$schema === 'string' && !/^https?:/.test(data.$schema)) {
-      const resolved = path.relative(root, path.resolve(path.dirname(abs), data.$schema)).split(path.sep).join('/');
-      if (resolved !== fam.schema) {
+    //
+    // A MISSING or ABSOLUTE `$schema` fails too, and both were silent before.
+    // Exempting `https?:` let through the single most plausible wrong paste —
+    // `http://json-schema.org/draft-07/schema#`, which is what theme.schema.json
+    // itself carried until this change — and an editor following it gets the
+    // META-schema, not the theme contract. That is precisely the harm this arm
+    // names, so the arm cannot be the thing that waves it through.
+    if (!dir) {
+      const ref = data.$schema;
+      if (typeof ref !== 'string' || ref === '') {
         errors.push(
-          `${label} declares \`"$schema": "${data.$schema}"\`, which resolves to ${resolved || '(outside the repo)'}, ` +
-            `but this is a ${fam.family} manifest governed by ${fam.schema}. An editor follows that link for inline ` +
-            'completion, so a wrong one offers the author the wrong contract.',
+          `${label} declares no \`$schema\`. Every manifest links to the contract that governs it ` +
+            `(${fam.schema}) — that link is what gives an editor inline completion, and all 131 manifests carry one.`,
         );
+      } else if (/^[a-z][a-z0-9+.-]*:/i.test(ref)) {
+        errors.push(
+          `${label} declares \`"$schema": "${ref}"\`, an absolute URL. It must be a RELATIVE path to ` +
+            `${fam.schema}; an absolute one points an editor at whatever that URL serves (often the JSON Schema ` +
+            'meta-schema) rather than at this repo\'s contract.',
+        );
+      } else {
+        const resolved = path.relative(root, path.resolve(path.dirname(abs), ref)).split(path.sep).join('/');
+        if (resolved !== fam.schema) {
+          errors.push(
+            `${label} declares \`"$schema": "${ref}"\`, which resolves to ${resolved || '(outside the repo)'}, ` +
+              `but this is a ${fam.family} manifest governed by ${fam.schema}. An editor follows that link for inline ` +
+              'completion, so a wrong one offers the author the wrong contract.',
+          );
+        }
       }
     }
   }

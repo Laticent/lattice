@@ -1,11 +1,11 @@
 - **Every hand-authored manifest is now checked against its JSON Schema.** All
-  four families already shipped a `*.schema.json` beside their manifests, and all
-  four already declared `additionalProperties: false` — but nothing in the repo
+  five families already shipped a `*.schema.json` beside their manifests, and all
+  five already declared `additionalProperties: false` — but nothing in the repo
   ran a JSON-Schema validator, so each family grew its own hand-written checker
   and the three disagreed about how much they checked. `tools/manifest-schemas.js`
   now holds one registry of the families and validates all 131 manifests with
-  `ajv` (a devDependency; build-time only, so no schema JSON reaches a browser
-  bundle). It runs inside `check-ownership.js`, which `npm run build:check`
+  `ajv` (a devDependency, build-time only; `checkAjvBoundary` gates it out of
+  `lib/`, where it would ship to consumers and into browser bundles). It runs inside `check-ownership.js`, which `npm run build:check`
   already invokes in CI and the pre-push hook — no new CI step, no new git hook.
 - **The Form model's frames, cells and tiles were never checked at all.** Their
   validators never read their schemas — the enums are hand-copied — so unknown
@@ -26,3 +26,15 @@
   another family's contract — the link editors follow for inline completion.
 - `themes/theme.schema.json` moved from JSON Schema draft-07 to 2020-12, matching
   the other four schemas.
+- **The gate closed a hole of its own kind in `slots`.** `slots.<name>` accepted
+  any key, leaving 180 nested paths unchecked — and `slot.required`, which 61
+  manifests set, drives the "required" column of every generated Agent contract.
+  A `requird` typo silently flipped it. Now closed; all 180 slots already used
+  only the three declared keys.
+- **The sweep no longer walks dot-directories**, so a `.claude/worktrees/`
+  checkout (reserved in `.gitignore`) stops failing `build:check` with a bogus
+  error per manifest. It also skips `_`-prefixed directories, matching the two
+  runtime loaders, which treat a parked `_draft/` as outside the catalog.
+- The swept filename set is derived from the family registry rather than
+  hardcoded, one schema typo now reports one error instead of 62, and a missing
+  or absolute `$schema` is caught rather than exempted.

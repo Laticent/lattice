@@ -21,6 +21,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+const components = require('../../../lib/components/index.js');
+const forms = require('../../../lib/forms/index.js');
+const ownership = require('../../../tools/check-ownership.js');
+
 const {
   FAMILIES,
   checkManifestSchemas,
@@ -245,4 +249,191 @@ test('the components that carry those fields still validate', () => {
     const errors = biteWith('component', 'probe.manifest.json', read(rel));
     assert.deepEqual(errors, [], `${rel} must pass: ${errors.join('; ')}`);
   }
+});
+
+// ── The registry vs. the runtime loaders ─────────────────────────────────────
+
+/**
+ * THE ONLY ARM THAT CAN REPORT WHAT THE REGISTRY IS MISSING.
+ *
+ * `FAMILIES` is a hand-maintained list with directory-shape assumptions baked in,
+ * and this PR's whole premise is that a hand-maintained list cannot report its own
+ * gaps. The coverage arm catches a manifest nobody claims, but only for filenames
+ * it thinks to look for — so the registry could still drift from what the engine
+ * ACTUALLY loads and every arm would stay green.
+ *
+ * The loaders are the independent producer. `loadAll`, `loadCatalog` and
+ * `listThemeManifests` decide what really exists at runtime; if the gate's list and
+ * theirs disagree, one of them is wrong and a human should look. This is what
+ * caught nothing today and will catch the sixth family.
+ */
+test('the registry claims exactly what the component loader loads', () => {
+  const loaded = new Set(components.loadAll().map((m) => m.name));
+  const claimed = new Set(
+    listFamilyManifests(family('component')).map((f) => path.basename(path.dirname(f))),
+  );
+  assert.deepEqual(
+    [...loaded].filter((n) => !claimed.has(n)),
+    [],
+    'loadAll() loads a component the schema gate never checks',
+  );
+  assert.deepEqual(
+    [...claimed].filter((n) => !loaded.has(n)),
+    [],
+    'the gate checks a component the engine never loads',
+  );
+});
+
+test('the registry claims exactly what the forms loader loads', () => {
+  const cat = forms.loadCatalog();
+  for (const [famName, rows] of [
+    ['form frame', cat.frames],
+    ['form cell', cat.cells],
+    ['form tile', cat.tiles],
+  ]) {
+    const loaded = new Set(rows.map((r) => r.id));
+    const claimed = new Set(
+      listFamilyManifests(family(famName)).map((f) => path.basename(path.dirname(f))),
+    );
+    assert.deepEqual([...loaded].filter((n) => !claimed.has(n)), [], `${famName}: loaded but unchecked`);
+    assert.deepEqual([...claimed].filter((n) => !loaded.has(n)), [], `${famName}: checked but never loaded`);
+  }
+});
+
+test('the registry claims exactly the theme manifests the theme gates enumerate', () => {
+  const loaded = new Set([...ownership.listThemeManifests().keys()]);
+  const claimed = new Set(
+    listFamilyManifests(family('theme')).map((f) => path.basename(f).replace(/\.manifest\.json$/, '')),
+  );
+  assert.deepEqual([...loaded].filter((n) => !claimed.has(n)), [], 'enumerated but unchecked');
+  assert.deepEqual([...claimed].filter((n) => !loaded.has(n)), [], 'checked but not a known theme');
+});
+
+// ── Regressions found by the adversarial trio ────────────────────────────────
+
+test('BITES: a typo inside a SLOT — 61 manifests set slots.*.required', () => {
+  // `build-component-docs.js:264` reads `slot.required` to write the "required"
+  // column of every Agent contract. `slots.additionalProperties` had no
+  // `additionalProperties: false`, so `required` -> `requird` silently flipped that
+  // column to "no" — the slicng failure mode, in the family the gate covers most.
+  const kpi = read('lib/components/evidence/kpi/kpi.manifest.json');
+  kpi.slots.title.requird = kpi.slots.title.required;
+  delete kpi.slots.title.required;
+  const errors = biteWith('component', 'probe.manifest.json', kpi);
+  assert.ok(
+    errors.some((e) => /unknown field `slots\.title\.requird`/.test(e)),
+    `expected the slot typo to be caught, got ${JSON.stringify(errors)}`,
+  );
+});
+
+test('the slots subschema is closed, and all 180 slots use only its three keys', () => {
+  const slot = read('lib/components/manifest.schema.json').properties.slots.additionalProperties;
+  assert.equal(slot.additionalProperties, false, 'slots.<name> must reject undeclared keys');
+  const used = new Set();
+  for (const f of listFamilyManifests(family('component'))) {
+    for (const s of Object.values(read(f).slots ?? {})) for (const k of Object.keys(s)) used.add(k);
+  }
+  assert.deepEqual([...used].sort(), ['description', 'required', 'selector']);
+});
+
+test('the sweep skips dot-directories and parked `_` directories', () => {
+  // A `.claude/worktrees/` checkout (reserved in .gitignore) made ONE `git worktree
+  // add` fail build:check with a bogus error per manifest in it. A parked `_draft/`
+  // is skipped by both runtime loaders, so the gate must skip it too.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-skip-'));
+  try {
+    for (const rel of ['.claude/worktrees/feat/themes', '.scratch-exp', 'lib/forms/frame/_draft']) {
+      fs.mkdirSync(path.join(tmp, rel), { recursive: true });
+      fs.writeFileSync(path.join(tmp, rel, 'x.manifest.json'), '{"totally":"unchecked"}');
+    }
+    assert.deepEqual(listAllManifests(tmp), [], 'the sweep must not walk dot- or `_`-directories');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('the swept filename set is DERIVED from the registry, not hardcoded', () => {
+  // Hardcoding `.manifest.json` / `.cell.json` made a sixth family with a new
+  // suffix invisible to the very sweep that exists to catch a sixth family.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-ext-'));
+  try {
+    fs.mkdirSync(path.join(tmp, 'x'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, 'x/a.lens.json'), '{}');
+    fs.writeFileSync(path.join(tmp, 'x/b.manifest.json'), '{}');
+    const fake = [...FAMILIES, { family: 'lens', schema: 'x', dir: 'x', ext: '.lens.json' }];
+    assert.ok(listAllManifests(tmp, fake).includes('x/a.lens.json'), 'a registered suffix must be swept');
+    assert.ok(!listAllManifests(tmp, [FAMILIES[0]]).includes('x/a.lens.json'), 'an unregistered one must not');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('BITES: a `$schema` that is absolute, or missing entirely', () => {
+  // `http://json-schema.org/draft-07/schema#` is the likeliest wrong paste — it is
+  // what themes/theme.schema.json itself carried until this change — and an editor
+  // following it gets the META-schema, not the theme contract.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-ref-'));
+  try {
+    fs.cpSync(path.join(ROOT, 'themes'), path.join(tmp, 'themes'), { recursive: true });
+    for (const [label, mutate, pattern] of [
+      ['absolute', (j) => { j.$schema = 'http://json-schema.org/draft-07/schema#'; }, /an absolute URL/],
+      ['missing', (j) => { delete j.$schema; }, /declares no `\$schema`/],
+    ]) {
+      const p = path.join(tmp, 'themes/indaco.manifest.json');
+      const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+      mutate(j);
+      fs.writeFileSync(p, JSON.stringify(j, null, 2));
+      const errors = [];
+      checkFamily(errors, family('theme'), { root: tmp });
+      assert.ok(errors.some((e) => pattern.test(e)), `${label}: got ${JSON.stringify(errors)}`);
+      fs.copyFileSync(path.join(ROOT, 'themes/indaco.manifest.json'), p);
+    }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('one typo in a schema reports ONE cause, not one error per shipped manifest', () => {
+  // Returning [] on compile failure dropped all 61 component manifests out of
+  // `claimed`, so the coverage arm then told a reviewer to DELETE each of them.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-compile-'));
+  try {
+    fs.cpSync(path.join(ROOT, 'lib/components'), path.join(tmp, 'lib/components'), { recursive: true });
+    const sp = path.join(tmp, 'lib/components/manifest.schema.json');
+    const schema = JSON.parse(fs.readFileSync(sp, 'utf8'));
+    schema.properties.name.patttern = '^x$';
+    fs.writeFileSync(sp, JSON.stringify(schema, null, 2));
+    const errors = [];
+    checkManifestSchemas(errors, tmp);
+    // Only lib/components is copied here, so the other four families correctly
+    // report "governs zero files"; scope the assertion to the component family.
+    const componentErrors = errors.filter((e) => /lib\/components/.test(e));
+    assert.equal(
+      componentErrors.length,
+      1,
+      `expected one cause, got ${componentErrors.length}:\n${componentErrors.join('\n')}`,
+    );
+    assert.match(componentErrors[0], /unknown keyword: "patttern"/);
+    assert.deepEqual(errors.filter((e) => /delete the file/.test(e)), [], 'must not tell anyone to delete a shipped manifest');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('a failing `if`/`then` arm reports the missing field ONCE', () => {
+  // ajv reports the conditional alongside the real failure; the hand-written walker
+  // this replaced emitted one line, and talking more while saying the same thing is
+  // a regression.
+  const noTier = read('themes/indaco.manifest.json');
+  delete noTier.tier;
+  const errors = biteWith('theme', 'probe.manifest.json', noTier);
+  assert.equal(errors.length, 1, `expected one line, got ${JSON.stringify(errors)}`);
+  assert.match(errors[0], /missing required field `tier`/);
+});
+
+test('a root-level type error names the root instead of an empty field', () => {
+  assert.ok(
+    biteWith('form cell', 'probe.cell.json', [1, 2]).some((e) => /the manifest root/.test(e)),
+    'a top-level array must not render as ``: [1,2]``',
+  );
 });
