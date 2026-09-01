@@ -342,3 +342,74 @@ B2 matches the precedent the repo already set. B1 ships sooner. **Not decided he
 Nothing in §0–§6. It re-orders the build: **slice 1 is Cost A** (extract the
 verdict builder), not §7.1's reference retirement, which measurement showed is not
 needed. Cost B is a design fork for the decision owner before any runtime code.
+
+---
+
+## Amendment 2 (2026-09-01) — Cost B resolved by measurement: B2
+
+Amendment 1 left B1 (string round-trip) vs B2 (DOM applicator) open. Prototyped
+both against the real kernel in real Chromium and measured. **B2.**
+
+### The rig
+
+A portrait (`size: story`) probe deck rendered by the emulator with `--no-split`,
+driven in headless Chromium with `lib/core/auto-split.js` bundled for the browser
+(113 KB, itself a number Option B owes `npm run bench`). Node identity is measured
+with an expando (`el.__pid`) **and** a live event listener — both are properties of
+the node OBJECT, so both survive a node being MOVED and neither survives
+serialize → re-parse. That is precisely the distinction between B1 and B2.
+
+B1 was measured in its **strongest** form, not the naive one: run the kernel on the
+serialized document, then splice in only the sections the split produced and leave
+every other node alone.
+
+### The numbers
+
+| | slides | nodes | identity kept | listeners still firing |
+|---|---|---|---|---|
+| **B1** (round-trip, best form) | 3 → 5 | 145 | **94 (64.8 %)** | 2 of 5 |
+| **B2** (DOM applicator) | 3 → 5 | 126 | **122 (96.8 %)** | 3 of 5 |
+
+B1's 51 lost nodes are **the entire splitting run** — the slide the reader is
+looking at, and nowhere else once B1 is written carefully. B2's 4 are the section
+and list shells the split genuinely creates; every node that existed before the
+split still exists after it, and every pre-existing slide's listener still fires.
+
+### The finding that actually decides it
+
+**B1 cannot be scoped without building most of B2 anyway.** `resplitDoc` renumbers
+`data-lattice-slide` on every section *downstream* of the split, so "replace only
+what changed" replaces the whole tail of the deck. To avoid that, B1 has to patch
+the renumber as an attribute write on the surviving nodes — which is the DOM-side
+machinery B2 is made of. B1's advantage was that it reuses the pure functions
+verbatim; it does not, quite, and what it saves is smaller than it looks.
+
+And B1 cannot meet the issue's own acceptance check. #506 requires *"scroll
+position is preserved when the on-screen slide splits."* B1 destroys the on-screen
+slide's nodes, so there is no anchor left inside it to preserve a position against.
+
+### So §7.2 (scroll anchor) is answered too
+
+Under B2 the reader's anchor node survives the split by construction — it is the
+same node, moved. The anchor is "the node you were looking at", not a run-id
+lookup, and no reconciliation pass is needed for it.
+
+### What is NOT verified
+
+- **Scroll preservation itself.** Both runs measured `scroll 0 → 0`: the probe deck
+  at that viewport does not scroll, so the arm proved nothing. It has to be
+  re-measured on a surface that actually scrolls (the playground, or the player's
+  Read·Slides view) before the acceptance check can be signed off.
+- **The measurer.** The verdict was SUPPLIED to the kernel in this rig, not
+  measured — deliberately, because what was under test is how a split is applied.
+  Finding the overflow is Cost A, and this rig re-confirmed Cost A on the way past:
+  the shared probe returns `overV: null` on the very slide the export itself marked
+  `overflow clip-marked`, because on the exported sidecar the clipping cell already
+  contains the spill. A runtime measurer is more than `probeSectionOverflow`.
+
+### Consequence for the build order
+
+Unchanged: **slice 1 is still Cost A** (extract the verdict builder into a shared
+browser-safe kernel). Slice 2 is the B2 applicator, with the cut decision staying in
+`resplitDoc` and only the application differing — the `applyToHtml` / `applyToDom`
+shape `lib/transformers/registry.js` already uses on every render path.
