@@ -21,7 +21,7 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const KIT = path.join(ROOT, 'dist', 'agent-kit');
-const BOOTSTRAP = path.join(KIT, 'BOOTSTRAP.md');
+const BOOTSTRAP = path.join(KIT, 'README.md');
 const built = fs.existsSync(BOOTSTRAP);
 
 const skip = built ? false : 'dist/agent-kit not built — run `npm run build`';
@@ -30,7 +30,7 @@ test('agent kit structure', { skip }, async (t) => {
 	const text = fs.readFileSync(BOOTSTRAP, 'utf8');
 
 	await t.test('the four task folders exist and are non-empty', () => {
-		for (const dir of ['authoring', 'components', 'skills', 'reference']) {
+		for (const dir of ['authoring', 'components', 'skills', 'reference', 'review']) {
 			const p = path.join(KIT, dir);
 			assert.ok(fs.existsSync(p), `${dir}/ is missing from the kit`);
 			assert.ok(
@@ -62,7 +62,7 @@ test('agent kit structure', { skip }, async (t) => {
 	await t.test('every components/ file is reachable from the bootstrap', () => {
 		const onDisk = fs
 			.readdirSync(path.join(KIT, 'components'))
-			.filter((f) => f.endsWith('.md') && f !== '_index.md')
+			.filter((f) => f.endsWith('.md') && f !== '_index.md' && f !== 'README.md')
 			.map((f) => f.replace(/\.md$/, ''));
 		const unreferenced = onDisk.filter(
 			(n) => !text.includes(`\`${n}\``) && !text.includes(`${n}.md`),
@@ -83,10 +83,14 @@ test('agent kit structure', { skip }, async (t) => {
 		const src = fs.readdirSync(srcDir).filter((f) => f.endsWith('.md')).sort();
 		const kit = fs
 			.readdirSync(path.join(KIT, 'skills'))
-			.filter((f) => f.endsWith('.md'))
+			.filter((f) => f.endsWith('.md') && f !== 'README.md')
 			.sort();
-		assert.deepEqual(kit, src, 'the kit ships a different set of skills than design/skills/');
-		for (const f of src) {
+		assert.deepEqual(
+			kit,
+			src.filter((f) => f !== 'README.md'),
+			'the kit ships a different set of skills than design/skills/',
+		);
+		for (const f of src.filter((f) => f !== 'README.md')) {
 			assert.ok(
 				fs.readFileSync(path.join(srcDir, f)).equals(fs.readFileSync(path.join(KIT, 'skills', f))),
 				`skills/${f} has drifted from design/skills/${f}. The kit copies them verbatim; ` +
@@ -148,6 +152,102 @@ test('agent kit structure', { skip }, async (t) => {
 				'disagree. 2026-07-19 found these prompts had silently drifted twice; without the ' +
 				'precedence note a reader may follow the drifted one.',
 		);
+	});
+
+	await t.test('every folder has its own README — the local bootstrap', () => {
+		// "Ala carte": you open a folder and it tells you what is inside and in what
+		// order to read it. GitHub renders these automatically, so a human browsing
+		// lands oriented with no clicks.
+		for (const dir of ['authoring', 'components', 'skills', 'reference', 'review']) {
+			assert.ok(
+				fs.existsSync(path.join(KIT, dir, 'README.md')),
+				`${dir}/README.md is missing — every folder is meant to be its own entry point.`,
+			);
+		}
+		assert.ok(
+			!fs.existsSync(path.join(KIT, 'BOOTSTRAP.md')),
+			'BOOTSTRAP.md is back alongside README.md. One front door: two is how they drifted ' +
+				'into redundancy last time.',
+		);
+	});
+
+	await t.test('the checker ships, runs, and finds real defects', () => {
+		const check = path.join(KIT, 'review', 'check.mjs');
+		assert.ok(fs.existsSync(check), 'review/check.mjs is missing — the kit has no checker');
+		const { execFileSync } = require('node:child_process');
+		const os = require('node:os');
+		const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kit-check-'));
+		const deck = path.join(tmp, 'd.md');
+		fs.writeFileSync(
+			deck,
+			['---', 'theme: cuoio', '---', '', '## Next Steps', '', '- Continue monitoring', ''].join('\n'),
+		);
+		const out = execFileSync(process.execPath, [check, deck, '--json'], { encoding: 'utf8' });
+		const findings = JSON.parse(out);
+		fs.rmSync(tmp, { recursive: true, force: true });
+		assert.ok(
+			findings.some((f) => f.rule === 'label-title'),
+			'the shipped checker did not flag a label heading. It is the kit\'s only independent ' +
+				'quality gate; if it stops biting, an agent grades its own work.',
+		);
+		assert.ok(findings.every((f) => f.message), 'findings must carry a human-readable message');
+	});
+
+	await t.test('the checker bundle is byte-stable across builds', () => {
+		// esbuild writes each module's path as a comment, and the CLI entry lives in a
+		// randomly named temp dir — so two builds of identical source differed by one
+		// line, and the freshness gate would have failed on every CI run. The generator
+		// normalizes that banner; this is the pin.
+		const body = fs.readFileSync(path.join(KIT, 'review', 'check.mjs'), 'utf8');
+		assert.doesNotMatch(
+			body,
+			/lattice-review-[A-Za-z0-9]+/,
+			'check.mjs carries its build-time temp path, so it differs between builds and the ' +
+				'freshness gate will fail spuriously. Normalize the banner in build-agent-kit.mjs.',
+		);
+		assert.match(body, /<CLI entry, generated by tools\/build-agent-kit\.mjs>/);
+	});
+
+	await t.test('the rubric ships every check the reviewer runs', () => {
+		const doc = fs.readFileSync(path.join(KIT, 'review', 'rubric.md'), 'utf8');
+		const { RUBRIC } = require(path.join(ROOT, 'lib', 'authoring', 'review-core.js'));
+		for (const r of RUBRIC) {
+			assert.ok(
+				doc.includes(String(r.trap)),
+				`rubric.md is missing the "${r.id}" trap. It must list what check.mjs actually ` +
+					'applies, or a human following it looks for a different set.',
+			);
+		}
+	});
+
+	await t.test('components/README carries when-NOT-to-use, not just when-to-use', () => {
+		// The pick list truncates to a first sentence and says so. Choosing between
+		// two plausible components is where an agent goes wrong, and the deciding
+		// fact is the anti-pattern.
+		const doc = fs.readFileSync(path.join(KIT, 'components', 'README.md'), 'utf8');
+		const notFor = (doc.match(/^\s+- \*not for:\*/gm) || []).length;
+		const instead = (doc.match(/^\s+- \*use `[a-z0-9-]+` when\*/gm) || []).length;
+		assert.ok(notFor >= 50, `only ${notFor} "not for" lines — expected one per component`);
+		assert.ok(instead >= 50, `only ${instead} "use X instead when" lines — the disambiguation edges`);
+	});
+
+	await t.test('the skills index resolves the rules the skills cite', () => {
+		const doc = fs.readFileSync(path.join(KIT, 'skills', 'README.md'), 'utf8');
+		const cited = new Set();
+		for (const f of fs.readdirSync(path.join(KIT, 'skills'))) {
+			if (!f.endsWith('.md') || f === 'README.md') continue;
+			const body = fs.readFileSync(path.join(KIT, 'skills', f), 'utf8');
+			for (const m of body.matchAll(/HARD RULE #(\d+)/g)) cited.add(m[1]);
+		}
+		assert.ok(cited.size > 0, 'no HARD RULE citations found — has the glossary become unnecessary?');
+		for (const n of cited) {
+			assert.match(
+				doc,
+				new RegExp(`\\| #${n} \\|`),
+				`the skills cite HARD RULE #${n} and the index does not resolve it. A kit reader ` +
+					'has no CLAUDE.md, so an unresolved citation is a dead reference.',
+			);
+		}
 	});
 
 	await t.test('the routing file stays cheap', () => {

@@ -53,8 +53,19 @@
  * it reads their output. `tools/build.js` places it accordingly.
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -65,6 +76,7 @@ const SKILLS_DIR = path.join(ROOT, 'design', 'skills');
 const OUT_DIR = path.join(ROOT, 'dist', 'agent-kit');
 
 const AUTHORING = 'authoring';
+const REVIEW = 'review';
 const COMPONENTS = 'components';
 const SKILLS = 'skills';
 const REFERENCE = 'reference';
@@ -158,6 +170,221 @@ function skillDocs() {
     .filter((f) => f.endsWith('.md'))
     .sort()
     .map((f) => ({ name: f, body: readFileSync(path.join(SKILLS_DIR, f)) }));
+}
+
+/**
+ * review/check.mjs — the INDEPENDENT checker, and the only executable in the kit.
+ *
+ * An LLM reviewing its own draft against a rubric it just read will declare it
+ * fine; that is the failure this exists to stop. So the kit ships the REAL
+ * reviewer — the same `reviewText` the Studio runs on decks its own model
+ * writes — as one dependency-free file. `node check.mjs deck.md` prints
+ * structured findings in ~0.1s at ZERO token cost, which is the whole point: an
+ * agent writes once, checks deterministically, fixes what is named, ships.
+ *
+ * It wires the kit's OWN `reference/components.json` for `bucketOf`/`densityOf`.
+ * That is not optional polish — without the catalog the reviewer silently skips
+ * a whole class: a matrix-2x2 element at 28 words against a ~10-word budget is
+ * found only when the catalog is passed (measured).
+ *
+ * THIS BUNDLE IS lib/ → lib/ ONLY. An earlier attempt to bundle a DOCS module
+ * broke `npm ci` for everyone, because `prepare` runs this build and the docs
+ * workspace's deps are not installed by a root-only install. review-core's
+ * whole graph is `lib/`, verified to run with `docs/node_modules` hidden.
+ */
+function reviewBundle() {
+  const tmp = mkdtempSync(path.join(tmpdir(), 'lattice-review-'));
+  try {
+    const entry = path.join(tmp, 'entry.mjs');
+    const out = path.join(tmp, 'check.mjs');
+    writeFileSync(
+      entry,
+      [
+        "import { readFileSync } from 'node:fs';",
+        "import { dirname, join } from 'node:path';",
+        "import { fileURLToPath } from 'node:url';",
+        `import { reviewText, RUBRIC } from ${JSON.stringify(path.join(ROOT, 'lib', 'authoring', 'review-core.js'))};`,
+        '',
+        '// The catalog lives beside this file in the kit. Without it the reviewer',
+        '// cannot judge per-element word budgets, so it is loaded, not optional.',
+        'function catalogLookups() {',
+        '  try {',
+        "    const here = dirname(fileURLToPath(import.meta.url));",
+        "    const raw = readFileSync(join(here, '..', 'reference', 'components.json'), 'utf8');",
+        '    const byName = new Map(JSON.parse(raw).components.map((c) => [c.name, c]));',
+        '    return {',
+        '      bucketOf: (n) => byName.get(n)?.bucket || null,',
+        '      densityOf: (n) => byName.get(n)?.density || null,',
+        '      found: byName.size,',
+        '    };',
+        '  } catch {',
+        '    return { found: 0 };',
+        '  }',
+        '}',
+        '',
+        'export function review(source) {',
+        '  const { bucketOf, densityOf } = catalogLookups();',
+        '  return reviewText(source, { bucketOf, densityOf });',
+        '}',
+        'export { RUBRIC };',
+        '',
+        'const invoked = process.argv[1] && import.meta.url.endsWith(process.argv[1].split(/[\\\\/]/).pop());',
+        'if (invoked) {',
+        '  const args = process.argv.slice(2);',
+        "  const strict = args.includes('--strict');",
+        "  const asJson = args.includes('--json');",
+        "  const file = args.find((a) => !a.startsWith('--'));",
+        '  if (!file) {',
+        '    console.error([',
+        "      'Lattice deck checker',",
+        "      '',",
+        "      '  node check.mjs <deck.md> [--json] [--strict]',",
+        "      '',",
+        "      'Prints what is wrong with a deck: placeholder titles, label headings, a missing',",
+        "      'ask, elements past their word budget. Deterministic, offline and free — it is',",
+        "      'code, not a model, so it cannot talk itself into approving. It catches the',",
+        "      'checkable half; taste is still yours.',",
+        "      '',",
+        "      '  --json    machine-readable findings',",
+        "      '  --strict  exit 1 when anything is found (default exits 0)',",
+        "    ].join('\\n'));",
+        '    process.exit(2);',
+        '  }',
+        '  const { bucketOf, densityOf, found } = catalogLookups();',
+        "  const findings = reviewText(readFileSync(file, 'utf8'), { bucketOf, densityOf });",
+        '  if (asJson) {',
+        '    console.log(JSON.stringify(findings, null, 2));',
+        '  } else if (!findings.length) {',
+        "    console.log(found",
+        "      ? 'No findings. The checkable half is clean — now read it and judge the argument.'",
+        "      : 'No findings — but see the note below; this was a PARTIAL check.');",
+        '  } else {',
+        '    console.log(findings.length + (findings.length === 1 ? \' finding\' : \' findings\'));',
+        "    console.log('');",
+        '    for (const f of findings) {',
+        '      const where = f.slide ? \'slide \' + f.slide : \'deck\';',
+        '      console.log(\'  \' + where + \'  [\' + f.rule + \']  \' + f.message);',
+        '      if (f.fix) console.log(\'            fix: \' + f.fix);',
+        '    }',
+        '  }',
+        '  // Warn on a PARTIAL check whether or not anything was found. Reporting',
+        '  // "clean" when a whole rule class was skipped is the silent under-report',
+        '  // this checker exists to prevent.',
+        '  if (!found && !asJson) {',
+        "    console.log('');",
+        "    console.log('  note: reference/components.json was not found beside this file, so');",
+        "    console.log('        per-element word budgets were NOT checked. Keep check.mjs inside');",
+        "    console.log('        the kit for the full set.');",
+        '  }',
+        '  process.exit(strict && findings.length ? 1 : 0);',
+        '}',
+        '',
+      ].join('\n'),
+    );
+    execFileSync(
+      path.join(ROOT, 'node_modules', '.bin', 'esbuild'),
+      [entry, '--bundle', '--format=esm', '--platform=node', `--outfile=${out}`, '--log-level=error'],
+      { cwd: ROOT, stdio: ['ignore', 'ignore', 'pipe'] },
+    );
+    // esbuild writes each module's path as a comment, and the ENTRY lives in a
+    // randomly named temp dir — so two builds of identical source differ by one
+    // line and the freshness gate fails on every CI run. Normalize it to a stable
+    // label, which also tells a reader of check.mjs where the CLI came from.
+    const body = readFileSync(out, 'utf8').replace(
+      /^\/\/ .*lattice-review-[A-Za-z0-9]+\/entry\.mjs$/m,
+      '// <CLI entry, generated by tools/build-agent-kit.mjs>',
+    );
+    rmSync(tmp, { recursive: true, force: true });
+    return Buffer.from(body, 'utf8');
+  } catch (err) {
+    rmSync(tmp, { recursive: true, force: true });
+    throw new Error(
+      `build-agent-kit: could not bundle the deck checker — ${err?.message || err}\n` +
+        '  review-core.js and its lib/ graph must bundle for the node platform with no bare imports.\n' +
+        '  If a new import reached in from the docs workspace, that is the bug: a docs dep here breaks\n' +
+        '  `npm ci` for every consumer, because `prepare` runs this build.',
+    );
+  }
+}
+
+/** review/rubric.md — the same 17 checks, for a reader rather than a runtime. */
+function rubricDoc() {
+  const { RUBRIC } = require(path.join(ROOT, 'lib', 'authoring', 'review-core.js'));
+  return [
+    '# The review rubric',
+    '',
+    `The ${RUBRIC.length} checks \`check.mjs\` applies, in plain form — so you can see what it looks for,`,
+    'and so a human reviewing by hand looks for the same things.',
+    '',
+    '**Prefer running the checker.** It is deterministic and costs nothing; reading this',
+    'list and self-assessing costs a full pass over the deck and is easy to be generous with.',
+    '',
+    '| Trap | Fix |',
+    '|---|---|',
+    ...RUBRIC.map((r) => `| ${String(r.trap).replace(/\|/g, '\\|')} | ${String(r.fix).replace(/\|/g, '\\|')} |`),
+    '',
+    '---',
+    '',
+    'Source: `RUBRIC` in `lib/authoring/review-core.js` — the same array the checker runs.',
+    '',
+  ].join('\n');
+}
+
+/** review/README.md — the local bootstrap for checking your work. */
+function reviewReadme(files) {
+  return [
+    '# Check your work',
+    '',
+    'You have written a deck. Before you hand it over, find what is wrong with it.',
+    '',
+    '## Run the checker',
+    '',
+    '```sh',
+    'node check.mjs your-deck.md',
+    '```',
+    '',
+    'It prints findings like this:',
+    '',
+    '```',
+    '3 findings',
+    '',
+    '  slide 1  [title-incomplete]  the title slide has no subtitle — one line of framing orients the room',
+    '  slide 4  [label-title]       "Next Steps" is a label, not a takeaway — say what the slide proves',
+    '  deck     [no-ask]            no clear ask or recommendation — what should the audience do?',
+    '```',
+    '',
+    'Add `--json` for machine-readable output, `--strict` to exit non-zero when anything is found.',
+    '',
+    '## Why run it rather than self-review',
+    '',
+    'It is **code, not a model.** It cannot be talked into approving a deck, it costs',
+    '**no tokens**, and it runs in about a tenth of a second offline. It is the same',
+    'reviewer the Lattice Studio runs on decks its own model writes, so it cannot drift',
+    'into a second opinion.',
+    '',
+    'A model checking its own draft against a rubric it read two minutes ago will tell you',
+    'the draft is fine. That is the failure this file exists to prevent.',
+    '',
+    '## What it does and does not catch',
+    '',
+    '**Catches** the falsifiable half: placeholder titles, headings that are labels rather',
+    'than takeaways, a data slide with no "so what", a hero number with nothing to compare',
+    'it to, elements past their word budget, a deck with no ask, duplicate claims, missing',
+    'image alt text.',
+    '',
+    '**Does not catch** whether the argument is any good. No checker can. Clean output means',
+    'the floor is met — then read the deck and judge it, against',
+    `\`../${AUTHORING}/deck-canon.md\`.`,
+    '',
+    '## Files',
+    '',
+    `- \`check.mjs\` — the checker (${(bytesOf(files, `${REVIEW}/check.mjs`) / 1024).toFixed(0)} KB, no dependencies, needs Node 18+)`,
+    '- `rubric.md` — the same checks in plain form, for reading or for a human pass',
+    '',
+    'The checker reads `../reference/components.json` for per-element word budgets. Keep the',
+    'kit together and it just works; move `check.mjs` alone and it still runs, minus that check.',
+    '',
+  ].join('\n');
 }
 
 /** authoring/deck-canon.md — what good looks like. */
@@ -312,11 +539,8 @@ async function buildPrimer() {
   return { text, layoutCount: catalog.length, authoringRules: AUTHORING_RULES };
 }
 
-/**
- * BOOTSTRAP.md — the routing file, and deliberately the smallest thing here.
- * An agent with a tight budget reads this, then exactly the folder it needs.
- */
-function bootstrap(components, skills, files, layoutCount, selfBytes = 0) {
+/** The bucket → members map, shared by the root and components READMEs. */
+function bucketIndex(components) {
   const byBucket = new Map();
   for (const c of components) {
     if (!byBucket.has(c.bucket)) byBucket.set(c.bucket, []);
@@ -324,151 +548,289 @@ function bootstrap(components, skills, files, layoutCount, selfBytes = 0) {
   }
   const { BUCKET_BLURBS } = require(path.join(ROOT, 'tools', 'build-bucket-galleries.js'));
   const { BUCKETS } = require(path.join(ROOT, 'lib', 'components'));
+  return BUCKETS.filter((b) => byBucket.has(b)).map((b) => ({
+    bucket: b,
+    blurb: String(BUCKET_BLURBS[b] || b).replace(/^[^—]*—\s*/, ''),
+    members: byBucket.get(b).filter((c) => !c.family),
+    families: byBucket.get(b).filter((c) => c.family),
+  }));
+}
 
-  const bucketRows = BUCKETS.filter((b) => byBucket.has(b)).map((b) => {
-    const list = byBucket.get(b);
-    const blurb = String(BUCKET_BLURBS[b] || b).replace(/^[^—]*—\s*/, '');
-    const names = list
-      .filter((c) => !c.family)
-      .map((c) => `\`${c.name}\``)
-      .join(' · ');
-    const fam = list.filter((c) => c.family);
-    const famNote = fam.length
-      ? `\n  Shared contract for this family: ${fam.map((c) => `\`${COMPONENTS}/${c.name}.md\``).join(', ')} — read it too.`
-      : '';
-    return `- **${b}** — ${blurb}\n  ${names}${famNote}`;
-  });
-
-  const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
-  const compMedian = median(components.map((c) => c.body.length));
-  const canonB = bytesOf(files, `${AUTHORING}/deck-canon.md`);
-  const rulesB = bytesOf(files, `${AUTHORING}/rules.md`);
-  const indexB = bytesOf(files, `${COMPONENTS}/_index.md`);
-  const primerB = bytesOf(files, `${AUTHORING}/primer.md`);
-
-  const skillRow = (f, label) =>
-    skills.some((s) => s.name === f) ? `| ${label} | \`${SKILLS}/${f}\` |` : null;
-
+/**
+ * components/README.md — the local bootstrap, and the one that carries the
+ * WHEN-NOT-TO-USE signal.
+ *
+ * `components/_index.md` (the repo's pick list) deliberately truncates each
+ * component to a first sentence and says so: "the half telling you when NOT to
+ * use a component is deliberately not on this surface". That is right for a
+ * ~3.8k-token grep surface and wrong for routing — picking between `matrix-2x2`
+ * and `quadrant` is exactly where an agent goes wrong, and the deciding fact is
+ * the anti-pattern, not the purpose.
+ *
+ * So this file pairs each component with its FIRST anti-pattern (~727 tokens for
+ * all 61, measured) and the `related` edges that name what to use instead. Both
+ * come from the manifests; nothing here is restated by hand.
+ */
+function componentsReadme(components, files) {
+  const cat = JSON.parse(readFileSync(path.join(DOCS_DIR, 'components.json'), 'utf8'));
+  const byName = new Map(cat.components.map((c) => [c.name, c]));
+  const rows = [];
+  for (const { bucket, blurb, members, families } of bucketIndex(components)) {
+    rows.push(`### ${bucket} — ${blurb}`, '');
+    for (const m of members) {
+      const c = byName.get(m.name) || {};
+      const use = String(c.description || c.purpose || '').split(/(?<=\.)\s/)[0];
+      const not = (c.antiPatterns || [])[0];
+      rows.push(`- **\`${m.name}\`** — ${use}`);
+      if (not) rows.push(`  - *not for:* ${not.title}`);
+      const alts = (c.related || []).filter((r) => r.when).slice(0, 2);
+      for (const a of alts) rows.push(`  - *use \`${a.name}\` when* ${a.when}`);
+    }
+    for (const f of families) {
+      rows.push(`- **\`${f.name}.md\`** — the shared contract every ${bucket} component wraps in. Read it too.`);
+    }
+    rows.push('');
+  }
   return [
-    '# Lattice agent kit — START HERE',
+    '# Which layout, and how to author it',
     '',
-    'You are working with **Lattice**: decks are plain Markdown, one layout per slide, chosen',
-    'with `<!-- _class: NAME -->`, slides separated by a line containing only `---`.',
+    'One file per component. Open the one you picked and it tells you everything: slots,',
+    'variants, budgets, common mistakes, the data shape.',
     '',
-    '**Read the least you need.** Everything here is split so you never load the whole catalog.',
+    '## How to pick',
     '',
-    '## What are you doing?',
+    '1. Find your intent in the families below. Each entry says what it is **for**, what it',
+    '   is **not for**, and which component to use **instead** when yours is the wrong fit.',
+    `2. Open \`<name>.md\` — median ${fmtTok(median(components.map((c) => c.body.length)))} tokens.`,
+    '3. Author the slide against that file, plus the rules in `../authoring/rules.md`.',
     '',
-    '| Task | Read, in order | ~tokens |',
-    '|---|---|---|',
-    `| **Writing a deck**, one slide at a time | \`${AUTHORING}/deck-canon.md\` + \`${AUTHORING}/rules.md\` + \`${COMPONENTS}/<name>.md\` | **${fmtTok(canonB + rulesB + compMedian)}** |`,
-    `| **Writing a whole deck** in one pass | \`${AUTHORING}/deck-canon.md\` + \`${AUTHORING}/primer.md\` | ${fmtTok(canonB + primerB)} |`,
-    `| **Choosing** a layout | \`${COMPONENTS}/_index.md\`, then the one file it points to | ${fmtTok(indexB + compMedian)} |`,
-    `| **Creating** a theme / component / finish / lens | the matching \`${SKILLS}/\` file | ~3k each |`,
-    `| **Building a tool** over the catalog | \`${REFERENCE}/components.json\` (+ \`grammar.json\`) | ${fmtTok(bytesOf(files, `${REFERENCE}/components.json`))} |`,
+    `\`_index.md\` (${fmtTok(bytesOf(files, `${COMPONENTS}/_index.md`))} tokens) is the same catalog as a flat, greppable table —`,
+    'reach for it when you want to search by tag or capacity rather than browse by intent.',
     '',
-    '**If you read only one thing before writing slides, read `authoring/deck-canon.md`.** It is',
-    'what the Studio sends itself on every turn: how a boardroom deck argues, and the 18 traps',
-    'its reviewer flags, each with the fix.',
+    '**The "not for" lines are the ones that save you.** Choosing between two plausible',
+    'components is where an agent goes wrong, and the deciding fact is almost always the',
+    'anti-pattern, not the purpose.',
     '',
-    '## The four folders',
+    '## The families',
     '',
-    `- **\`${AUTHORING}/\`** — writing a deck. \`deck-canon.md\` (what good looks like),`,
-    `  \`rules.md\` (rules for every slide), \`primer.md\` (all ${layoutCount} layouts + skeletons).`,
-    `- **\`${COMPONENTS}/\`** — \`_index.md\` to choose, then one file per component: slots,`,
-    `  variants, budgets, common mistakes, data shape. Median ${fmtTok(compMedian)} tokens.`,
-    `- **\`${SKILLS}/\`** — creating a NEW artifact from a blank file. Self-contained: each names`,
-    '  the 10/10 bar, a recipe, what good and bad look like, and a ship checklist.',
-    `- **\`${REFERENCE}/\`** — machine catalogs for tools, plus the Studio's own generator prompts.`,
-    '',
-    '## Creating something new',
-    '',
-    '| You want to create… | Open |',
-    '|---|---|',
-    ...[
-      skillRow('deck.md', 'A **deck** from a blank file'),
-      skillRow('theme.md', 'A **theme** — a palette'),
-      skillRow('component.md', 'A **component** — a new `_class` layout'),
-      skillRow('chart-component.md', 'A **chart component**'),
-      skillRow('finish.md', 'A **finish** — a backdrop layer stack'),
-      skillRow('lens.md', 'A **lens** — a reader-side subset of a deck'),
-      skillRow('speaker-notes.md', '**Speaker notes, reviews, captions**'),
-    ].filter(Boolean),
-    '',
-    `The \`${SKILLS}/\` files are copied verbatim from the Lattice repo's \`design/skills/\`, and a`,
-    'test pins them byte-for-byte so this copy cannot drift.',
-    '',
-    `## The ${bucketRows.length} component families`,
-    '',
-    ...bucketRows,
-    '',
+    ...rows,
     '---',
     '',
-    '_Generated by `tools/build-agent-kit.mjs`. Do not hand-edit — a stale copy fails the build_',
-    `_gate. This file is ${fmtTok(selfBytes)} tokens._`,
+    '_Generated from the component manifests. Every line here is derived; nothing is restated by hand._',
     '',
   ].join('\n');
 }
 
-function readme(files, layoutCount, componentCount, skillCount) {
-  const kb = (k) => (bytesOf(files, k) / 1024).toFixed(0);
+const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
+
+/** authoring/README.md — the local bootstrap for writing a deck. */
+function authoringReadme(files, layoutCount) {
   return [
-    '# Lattice — the LLM agent kit',
+    '# Writing a deck',
     '',
-    'Everything an LLM or coding agent needs to author Lattice artifacts correctly, with no',
-    'clone, no `npm install` and no build step. Fetch one file by URL.',
+    'Read these in order. The first one matters most.',
     '',
-    '> **Start at [`BOOTSTRAP.md`](./BOOTSTRAP.md).** It routes you by task and costs each path',
-    '> in tokens. This file is the inventory; that one is the map.',
+    `1. **[\`deck-canon.md\`](./deck-canon.md)** (${fmtTok(bytesOf(files, `${AUTHORING}/deck-canon.md`))} tokens) — what a good deck IS.`,
+    '   How a boardroom deck argues: one idea per slide, a narrative arc, rhythm, restraint,',
+    '   stereotyped bookends. Ends with the traps a reviewer flags, each with its fix. This is',
+    '   what the Lattice Studio sends its own model on every turn. **If you read one file',
+    '   before writing slides, read this one.**',
+    `2. **[\`rules.md\`](./rules.md)** (${fmtTok(bytesOf(files, `${AUTHORING}/rules.md`))} tokens) — the mechanics that apply to every slide:`,
+    '   how classes compose, how card layouts nest, what a title slide is.',
+    `3. **[\`../${COMPONENTS}/\`](../${COMPONENTS}/)** — pick the layout, then author it from its own file.`,
+    `4. **[\`../${REVIEW}/\`](../${REVIEW}/)** — run the checker before you hand it over.`,
     '',
-    '## Layout',
+    '## primer.md — the other way to work',
     '',
-    '```',
-    'BOOTSTRAP.md          route by task',
-    'authoring/            writing a deck',
-    `  deck-canon.md         what good looks like + 18 traps   (${kb(`${AUTHORING}/deck-canon.md`)} KB)`,
-    `  rules.md              rules for every slide             (${kb(`${AUTHORING}/rules.md`)} KB)`,
-    `  primer.md             all ${layoutCount} layouts + skeletons      (${kb(`${AUTHORING}/primer.md`)} KB)`,
-    'components/           which layout, and how',
-    `  _index.md             the pick list                     (${kb(`${COMPONENTS}/_index.md`)} KB)`,
-    `  <name>.md             one per component                 (${componentCount} files)`,
-    'skills/               creating a NEW artifact from blank',
-    `  <artifact>.md         self-contained, 10/10 bar         (${skillCount} files)`,
-    'reference/            machine records for tools',
-    '  components.json · grammar.json · forms.json · concepts.json',
-    "  components.md         the prose catalog whole",
-    "  studio-prompts.md     the Studio's generator prompts",
-    '```',
+    `**[\`primer.md\`](./primer.md)** (${fmtTok(bytesOf(files, `${AUTHORING}/primer.md`))} tokens) carries all ${layoutCount} layouts with their`,
+    'authoring skeletons in one document. Use it when you are drafting a whole deck in one',
+    'pass and want every option in front of you.',
     '',
-    '## What each thing is for',
+    `Authoring ONE slide? Do not load it — \`../${COMPONENTS}/<name>.md\` is the same content for`,
+    'the layout you actually chose, at a fraction of the cost.',
     '',
-    '**`authoring/deck-canon.md`** — the deck canon the Studio chat sends itself on every turn:',
-    'one idea per slide, narrative arc, rhythm, restraint, bookends, and the 18 traps its',
-    'reviewer flags with the fix for each. The component files tell you how to author a layout',
-    'correctly; this tells you whether the deck is worth showing.',
+  ].join('\n');
+}
+
+/** reference/README.md — the local bootstrap for tool builders. */
+function referenceReadme(files) {
+  const row = (f, what) =>
+    `| \`${f}\` | ${what} | ${fmtTok(bytesOf(files, `${REFERENCE}/${f}`))} |`;
+  return [
+    '# Reference — machine records',
     '',
-    '**`components/<name>.md`** — slots, variants, budgets, common mistakes and data shape for',
-    'one component. The unit to read once you have picked. `_index.md` is how you pick.',
+    'For building a tool over Lattice, not for authoring a deck. If you are writing slides,',
+    `you want [\`../${AUTHORING}/\`](../${AUTHORING}/) and [\`../${COMPONENTS}/\`](../${COMPONENTS}/) instead —`,
+    'everything here is either bulk or internals.',
     '',
-    '**`skills/`** — the seven "create a killer X from scratch" guides, verbatim from the repo.',
-    'Each stands alone: the 10/10 bar for that artifact, a mental model, a numbered recipe, a',
-    'copy-paste contract, what good and bad look like, a ship checklist, common mistakes.',
+    '| File | What it is | ~tokens |',
+    '|---|---|---|',
+    row('components.json', 'The full machine record for every component: slots, skeletons, variants, capacity, density, when-to-use and anti-patterns.'),
+    row('grammar.json', 'Which class tokens, variants and modifiers are legal where. What a linter or validator keys off.'),
+    row('forms.json', 'The Form vocabulary — how a slide is composed (cells, mastheads, stage regions), one level above components.'),
+    row('concepts.json', 'The ontology joining the two levels: what a component, modifier, token and Form each are, and how they relate.'),
+    row('components.md', 'The prose catalog, whole. Almost never what you want — one component file is the same content for one component.'),
+    row('studio-prompts.md', "The prompts Lattice's product sends its own model when generating a theme or component."),
     '',
-    "**`reference/studio-prompts.md`** — the prompts Lattice's product sends its own model when",
-    'generating a theme, component or finish. Where one disagrees with the matching `skills/`',
-    'file, the skill is the safer bet; see that file for why.',
+    '~token figures are bytes ÷ 4, a rough cross-model approximation. Your tokenizer will differ;',
+    'the ratios are what matter.',
     '',
-    '## Freshness',
+  ].join('\n');
+}
+
+/**
+ * skills/README.md — GENERATED for the kit, unlike the seven skills beside it.
+ *
+ * The repo's own `design/skills/README.md` is written for someone inside the
+ * repo and points at paths a kit reader does not have. The seven SKILLS still
+ * ship verbatim and byte-pinned; only this index is rewritten for the audience,
+ * and it carries the glossary that makes their HARD RULE citations legible.
+ */
+function skillsReadme(skills) {
+  const files = skills.map((s) => s.name).filter((n) => n !== 'README.md');
+  const cited = new Set();
+  for (const s of skills) {
+    for (const m of String(s.body).matchAll(/HARD RULE #(\d+)/g)) cited.add(Number(m[1]));
+  }
+  const claude = readFileSync(path.join(ROOT, 'CLAUDE.md'), 'utf8');
+  const titles = new Map();
+  for (const m of claude.matchAll(/^- \*\*#(\d+) — (.+?)\*\*/gm)) {
+    titles.set(Number(m[1]), m[2].replace(/\.$/, ''));
+  }
+  const glossary = [...cited]
+    .sort((a, b) => a - b)
+    .filter((n) => titles.has(n))
+    .map((n) => `| #${n} | ${titles.get(n)} |`);
+
+  const LABEL = {
+    'deck.md': 'A **deck** — a full presentation from a blank `.md`',
+    'theme.md': 'A **theme** — a palette',
+    'component.md': 'A **component** — a new `<!-- _class: X -->` layout',
+    'chart-component.md': 'A **chart component** — a data visualization',
+    'finish.md': 'A **finish** — a backdrop layer stack',
+    'lens.md': 'A **lens** — a reader-side subset of a deck',
+    'speaker-notes.md': '**Speaker notes, reviews and captions**',
+  };
+
+  return [
+    '# Creating something new',
     '',
-    'Republished on every push to `main` that changes an input, with a nightly backstop. It',
-    'tracks `main`, which may be ahead of the newest release.',
+    'Each file here teaches you to build **one** kind of Lattice artifact from a blank file,',
+    'end to end. They are self-contained on purpose: the tokens, slots, budgets and commands',
+    'are inlined so you never have to chase a link mid-task.',
     '',
-    'Do not hand-edit anything here — it is regenerated by `npm run build` and a stale copy',
-    'fails the build gate. Edit the source in the Lattice repo instead.',
+    '## Which one',
     '',
-    '## License',
+    '| You want to create… | Open |',
+    '|---|---|',
+    ...files.map((f) => `| ${LABEL[f] || `\`${f.replace(/\.md$/, '')}\``} | [\`${f}\`](./${f}) |`),
     '',
-    'Same as Lattice — see `LICENSE` in the repository root.',
+    '## What each one gives you',
+    '',
+    'Every skill follows the same nine-part shape, so once you have read one you can navigate',
+    'all of them: the **10/10 bar** for that artifact · a **mental model** · **where it lives** ·',
+    'a numbered **recipe** · a copy-paste **contract** · **what good and bad look like** ·',
+    'a **ship checklist** · **common mistakes** · **canonical sources**.',
+    '',
+    'They name the falsifiable bar — the rules you can check. The last mile is taste, and every',
+    'skill ends in the same place for that reason: **render it and actually look at it.**',
+    '',
+    '## Reading these outside the Lattice repository',
+    '',
+    'These files ship **verbatim** from the Lattice repo, so they cite things a kit reader does',
+    'not have. That is deliberate — rewriting them would fork a second copy that drifts from the',
+    'originals. Read the references as context, not instructions:',
+    '',
+    '- **`npm run …` commands and paths like `lib/…`, `tools/…`** assume a clone of the Lattice',
+    '  repository. Skip them unless you have one.',
+    '- **"HARD RULE #N"** cites the engine\'s own engineering rules. The ones these skills',
+    '  actually reference:',
+    '',
+    '| Rule | What it says |',
+    '|---|---|',
+    ...glossary,
+    '',
+    'Nothing in the recipes depends on being able to follow those citations — they explain',
+    '*why* a step exists, not *how* to do it.',
+    '',
+  ].join('\n');
+}
+
+/**
+ * README.md — the ONE front door, at the kit root.
+ *
+ * GitHub renders a folder's README automatically, so a human who opens the
+ * branch lands oriented with no clicks and an agent handed the folder URL has
+ * one obvious entry point. There is no separate BOOTSTRAP.md: two front doors
+ * is how the previous cut drifted into redundancy.
+ */
+function bootstrap(components, skills, files, layoutCount, selfBytes = 0) {
+  const idx = bucketIndex(components);
+  const compMedian = median(components.map((c) => c.body.length));
+  const canonB = bytesOf(files, `${AUTHORING}/deck-canon.md`);
+  const rulesB = bytesOf(files, `${AUTHORING}/rules.md`);
+  const primerB = bytesOf(files, `${AUTHORING}/primer.md`);
+  const compReadmeB = bytesOf(files, `${COMPONENTS}/README.md`);
+
+  return [
+    '# Lattice agent kit',
+    '',
+    '**Lattice turns plain Markdown into boardroom-quality slides.** One layout per slide,',
+    'chosen with `<!-- _class: NAME -->`; slides separated by a line containing only `---`.',
+    '',
+    'This kit is everything you need to author Lattice artifacts well — no clone, no install.',
+    'It works with any model; nothing here is vendor-specific.',
+    '',
+    '## Start here',
+    '',
+    '| You are… | Read, in order | ~tokens |',
+    '|---|---|---|',
+    `| **writing a deck** | \`${AUTHORING}/deck-canon.md\` → \`${AUTHORING}/rules.md\` → \`${COMPONENTS}/README.md\` → one \`${COMPONENTS}/<name>.md\` → \`${REVIEW}/\` | **${fmtTok(canonB + rulesB + compReadmeB + compMedian)}** |`,
+    `| **drafting a whole deck** in one pass | \`${AUTHORING}/deck-canon.md\` → \`${AUTHORING}/primer.md\` | ${fmtTok(canonB + primerB)} |`,
+    `| **creating a theme, component, finish or lens** | \`${SKILLS}/README.md\` → the one skill | ~3k each |`,
+    `| **checking a deck you already wrote** | \`${REVIEW}/README.md\` | ${fmtTok(bytesOf(files, `${REVIEW}/README.md`))} |`,
+    `| **building a tool** over the catalog | \`${REFERENCE}/README.md\` | ${fmtTok(bytesOf(files, `${REFERENCE}/README.md`))} |`,
+    '',
+    '**Every folder has its own README.** Open the folder and it tells you what is inside and',
+    'in what order to read it. Take only what you need — nothing here expects you to load it all.',
+    '',
+    '## The five folders',
+    '',
+    `| Folder | For | Contains |`,
+    '|---|---|---|',
+    `| [\`${AUTHORING}/\`](./${AUTHORING}/) | Writing a deck | The canon (what good looks like), the cross-cutting rules, and all ${layoutCount} layouts with skeletons |`,
+    `| [\`${COMPONENTS}/\`](./${COMPONENTS}/) | Choosing and authoring a layout | One file per component — what it is for, what it is **not** for, slots, budgets, mistakes |`,
+    `| [\`${SKILLS}/\`](./${SKILLS}/) | Creating a NEW artifact from blank | ${skills.filter((x) => x.name !== 'README.md').length} self-contained guides, each with its own 10/10 bar |`,
+    `| [\`${REVIEW}/\`](./${REVIEW}/) | Checking your work | A runnable checker + the rubric it applies |`,
+    `| [\`${REFERENCE}/\`](./${REFERENCE}/) | Building a tool | The machine catalogs and the Studio's own prompts |`,
+    '',
+    '## Two things worth knowing before you start',
+    '',
+    `**Read \`${AUTHORING}/deck-canon.md\` before you write slides.** It is what the Lattice Studio`,
+    'sends its own model on every turn: how a deck argues, and the traps its reviewer flags with',
+    'the fix for each. The component files tell you how to author a layout *correctly*; the canon',
+    'is what makes the deck worth showing.',
+    '',
+    `**Run \`${REVIEW}/check.mjs\` when you are done.** It is code, not a model — it costs no tokens,`,
+    'runs offline in about a tenth of a second, and cannot be talked into approving a deck. A model',
+    'checking its own draft will tell you the draft is fine.',
+    '',
+    `## The ${idx.length} component families`,
+    '',
+    ...idx.map(({ bucket, blurb, members, families }) => {
+      const names = members.map((c) => `\`${c.name}\``).join(' · ');
+      const fam = families.length
+        ? `\n  Shared contract: ${families.map((c) => `\`${COMPONENTS}/${c.name}.md\``).join(', ')}`
+        : '';
+      return `- **${bucket}** — ${blurb}\n  ${names}${fam}`;
+    }),
+    '',
+    `Which one, and which to avoid: [\`${COMPONENTS}/README.md\`](./${COMPONENTS}/README.md).`,
+    '',
+    '---',
+    '',
+    '_Generated from the Lattice sources — do not hand-edit. Republished whenever an input_',
+    `_changes. ~token figures are bytes ÷ 4, a rough cross-model approximation. This file is ${fmtTok(selfBytes)} tokens._`,
     '',
   ].join('\n');
 }
@@ -496,6 +858,10 @@ async function buildKit() {
   files.set(`${AUTHORING}/rules.md`, Buffer.from(rulesDoc(authoringRules), 'utf8'));
   files.set(`${REFERENCE}/studio-prompts.md`, Buffer.from(studioPromptsDoc(), 'utf8'));
 
+  // The checker and its rubric. check.mjs is the only executable in the kit.
+  files.set(`${REVIEW}/check.mjs`, reviewBundle());
+  files.set(`${REVIEW}/rubric.md`, Buffer.from(rubricDoc(), 'utf8'));
+
   const components = componentDocs();
   const componentCount = components.filter((c) => !c.family).length;
   if (componentCount !== layoutCount) {
@@ -505,23 +871,33 @@ async function buildKit() {
   }
   for (const c of components) files.set(`${COMPONENTS}/${c.name}.md`, c.body);
 
+  // The seven skills ship VERBATIM and are byte-pinned. Their index does not:
+  // the repo's own README is written for someone inside the repo, so the kit
+  // generates its own, carrying the glossary that makes the skills' HARD RULE
+  // citations legible to an outside reader.
   const skills = skillDocs();
   if (!skills.length) {
     throw new Error(
       `build-agent-kit: no skills found in ${SKILLS_DIR}. The kit ships them verbatim; an empty skills/ is a silently short kit.`,
     );
   }
-  for (const s of skills) files.set(`${SKILLS}/${s.name}`, s.body);
+  for (const s of skills) {
+    if (s.name === 'README.md') continue;
+    files.set(`${SKILLS}/${s.name}`, s.body);
+  }
+  files.set(`${SKILLS}/README.md`, Buffer.from(skillsReadme(skills), 'utf8'));
 
-  // Two passes: the bootstrap quotes its own token cost, so the first measures
+  // Local bootstraps. Order matters: each quotes sizes of files already set.
+  files.set(`${COMPONENTS}/README.md`, Buffer.from(componentsReadme(components, files), 'utf8'));
+  files.set(`${AUTHORING}/README.md`, Buffer.from(authoringReadme(files, layoutCount), 'utf8'));
+  files.set(`${REFERENCE}/README.md`, Buffer.from(referenceReadme(files), 'utf8'));
+  files.set(`${REVIEW}/README.md`, Buffer.from(reviewReadme(files), 'utf8'));
+
+  // Two passes: the root README quotes its own token cost, so the first measures
   // and the second states it. Converges — only a same-order number changes.
   const pass1 = bootstrap(components, skills, files, layoutCount, 0);
   const pass2 = bootstrap(components, skills, files, layoutCount, Buffer.byteLength(pass1, 'utf8'));
-  files.set('BOOTSTRAP.md', Buffer.from(pass2, 'utf8'));
-  files.set(
-    'README.md',
-    Buffer.from(readme(files, layoutCount, components.length, skills.length), 'utf8'),
-  );
+  files.set('README.md', Buffer.from(pass2, 'utf8'));
   return files;
 }
 
@@ -604,4 +980,4 @@ if (invokedDirectly) {
   );
 }
 
-export { buildKit, main, OUT_DIR, readme };
+export { buildKit, main, OUT_DIR };

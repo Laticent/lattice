@@ -267,6 +267,78 @@ plausible-and-wrong skill gets shipped in the most authoritative-looking place: 
 house-spine file that reads exactly like the seven written properly. It is its own
 piece of work, against the real implementation, with a checker.
 
+## 3d. À la carte, and a checker that is not the author
+
+Two further defects, both named by the owner: the kit was still "shoved in there" —
+one global entry point and no local ones — and it taught authoring with no way to
+check the result. An agent wrote a deck and nothing independent ever looked at it.
+
+**Every folder is now its own entry point.** A `README.md` in each of the five
+folders says what is inside and in what order to read it; GitHub renders it on
+open, so a human browsing the branch lands oriented with no clicks, and an agent
+handed a folder URL gets the same. The root `README.md` is the single front door
+and `BOOTSTRAP.md` is gone — two front doors is how the previous cut drifted into
+redundancy.
+
+**`components/README.md` carries the when-NOT-to-use signal, which already existed
+as data and was on no surface.** All 61 components declare `antiPatterns`, and
+there are **244 `related` edges every one of which carries a `when` clause**
+("use `quadrant` when items have continuous x/y coordinates"). The pick list
+truncates to a first sentence and says so in its own header: the half telling you
+when *not* to use a component "is deliberately not on this surface". That is right
+for a greppable table and wrong for routing — choosing between two plausible
+components is exactly where an agent goes wrong, and the deciding fact is the
+anti-pattern, not the purpose. Cost of adding it: ~727 tokens for the first
+anti-pattern of all 61, measured before it was written.
+
+### The checker is the load-bearing addition
+
+`review/check.mjs` is the real reviewer — the same `reviewText` the Studio runs on
+decks its own model writes — bundled as one dependency-free file. Measured:
+
+| | |
+|---|---|
+| Runtime on a real deck | **0.066 s** |
+| Token cost | **zero** |
+| Dependencies | none; runs in an empty directory |
+| Bundle | 0.28 s, lib/ → lib/ only |
+
+**Why it had to be code rather than a rubric.** A model reviewing its own draft
+against a rubric it read two minutes ago will declare the draft fine; that is the
+failure the owner asked to prevent, and a prose rubric cannot fix it — the grader
+is the author. The checker is code, so it cannot be talked into approving. It
+returned three findings on a deliberately plausible LLM-written deck (placeholder
+title, a `Next Steps` label heading, no ask) that a self-review would have passed.
+
+**It wires the kit's own catalog, and that is not polish.** Without
+`reference/components.json` the reviewer silently skips per-element word budgets:
+a matrix-2x2 element at 28 words against a ~10-word target is found only with the
+catalog passed (measured, both ways). So `check.mjs` loads its sibling — and when
+it cannot, it says the check was **partial** rather than reporting "clean". An
+under-report that reads as a pass is the exact defect this whole folder exists to
+prevent.
+
+**Two defects caught before CI, both worth recording.** The generated CLI printed
+literal `\n` for a turn (double-escaped through the generator's string layers) —
+fixed by moving to `console.log`, which supplies its own newline and removes the
+class. And the bundle was **not idempotent**: esbuild writes each module's path as
+a comment, the CLI entry lives in a randomly named temp dir, so two builds of
+identical source differed by one line and the freshness gate would have failed on
+every CI run. The banner is normalized, and a test pins it.
+
+**The skills stay verbatim; their index does not.** The seven skills remain
+byte-identical to `design/skills/` — the drift pin holds — so their 22 HARD RULE
+citations and 86 repo paths ship with them. `skills/README.md` is now generated for
+the kit rather than copied: it carries a glossary resolving every rule the skills
+actually cite (parsed from CLAUDE.md, so it cannot go stale by hand) and states
+plainly that repo paths and `npm run` commands assume a clone. Rewriting the skills
+themselves was considered and rejected: it forks a second copy of seven hand-written
+files, which is the failure `2026-07-19` documented.
+
+**Vendor neutrality was measured, not assumed:** zero mentions of any model vendor
+across the kit or the source skills. The token figures are stated as bytes ÷ 4, a
+rough cross-model approximation, wherever they appear.
+
 ## 4. The cost of one branch instead of two, and the trap it opens
 
 Consolidating moves the Marp kit from the branch **root** into `marp/`. Its
