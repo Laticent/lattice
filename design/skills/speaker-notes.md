@@ -52,7 +52,15 @@ hidden PDF annotation (`--notes-icon` reveals it), a hidden HTML `aside`, a
 plaintext sidecar (`--notes`), the **PPTX presenter-notes field**, and the
 Present-mode teleprompter. `--strip-notes` removes them for a clean export — from **every**
 format, and the exported player then shows no notes affordance at all: no button, no panel,
-and the `n` key does nothing, so the file never hints that notes were there.
+and the `n` key does nothing.
+
+**What `--strip-notes` guarantees is that the note TEXT is gone, not that the file is
+indistinguishable from one that never had notes.** The distinction is worth stating because
+it is easy to assume the stronger one. A determined recipient can still infer that notes were
+removed: stripping deletes the comment node and leaves the whitespace around it, so
+re-rendering the deck's own embedded source and diffing reveals a one-byte-per-slide residue
+that says *which* slides carried a note — though never what it said. Treat the flag as
+removing the content, not as concealing that you used it.
 
 **What makes a great note:**
 

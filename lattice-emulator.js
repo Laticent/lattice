@@ -4136,7 +4136,14 @@ async function renderBody(browser, g, closeBrowser) {
         // `captions: {…}` form would echo here. Under `--strip-captions` drop the key outright
         // so the envelope config can't carry ANY caption-labeled text (privacy, not just the map).
         config: STRIP_CAPTIONS ? { ...deckFm, captions: undefined } : deckFm,
-        notes: !STRIP_NOTES,
+        // Describes the ARTIFACT — does this file carry notes — not the FLAG that made it.
+        // `!STRIP_NOTES` was a one-bit answer to "did the author run the privacy flag?", sitting
+        // in plain base64 at the bottom of a file you email to someone: a deck that never had a
+        // note said `true`, and only a STRIPPED one said `false`, so `false` meant "there were
+        // notes here and they were removed". Reading the materialized array instead collapses
+        // those two cases — a stripped deck and a note-free deck now both say `false` — which is
+        // also the honest meaning of the field. Nothing in the tree reads it (#1833).
+        notes: materializedNotes.some(Boolean),
         // Term→definition projection from the acronym registry (#920) — carried in the manifest
         // for downstream tools; gated on the `glossary: auto` opt-in, so a deck that merely defines
         // terms (without opting in) is byte-identical. Empty → omitted (lean envelope).
@@ -4165,6 +4172,19 @@ async function renderBody(browser, g, closeBrowser) {
       fs.writeFileSync(outHtml, finalPlayerHtml);
       if (!QUIET) {
         console.log(`Player: ${outHtml} (${report.images} image(s) inlined)`);
+        // A player is the copy you SEND someone, and it carries your speaker notes by
+        // default — the recipient reads them with one keypress in Present view. That is
+        // the intended feature (you present the shared file yourself from any machine),
+        // so the default stays opt-OUT; what was wrong is that it was SILENT. An author
+        // who forgets `--strip-notes` ships their private remarks and is never told, and
+        // the `player: true` front-matter path has no CLI moment at which to remember it.
+        // So the export says what it is about to disclose, and names the flag. Counts the
+        // MATERIALIZED array, so under `--strip-notes` there is nothing to warn about and
+        // this stays silent (#1833).
+        const shippedNotes = materializedNotes.filter(Boolean).length;
+        if (shippedNotes) {
+          console.warn(`  ⚠ ${shippedNotes} slide${shippedNotes > 1 ? 's' : ''} ship speaker notes in this player — anyone who opens the file can read them. Export with --strip-notes to remove them.`);
+        }
         if (report.missing.length) console.warn(`  honesty: ${report.missing.length} asset(s) could not be inlined — ${report.missing.slice(0, 3).join(', ')}`);
         if (inflatedPlayerHtml && (hasStateChart || hasFunctionPlot)) console.log('  baked dynamic components (state-chart / function-plot) to static SVG');
         else if (report.strippedScripts.length) console.warn(`  note: ${report.strippedScripts.length} runtime component(s) could not be baked — they will be blank in the player`);

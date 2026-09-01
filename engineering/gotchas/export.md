@@ -330,6 +330,19 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Fix:** `hasNotes` gates the button, the panel and the key together. Verified on a real
   browser, not a harness (HARD RULE #23): panel `display:none`, `n` inert, 0px.
   `lib/export/player-core.mjs`.
+- **A second tell in the same class, found by review:** the `lattice-doc` envelope's `notes`
+  field was `!STRIP_NOTES` — set from the FLAG, not from the artifact. It sits in plain base64
+  at the bottom of the shared file, so a deck that never had a note said `true` and only a
+  stripped one said `false`: a one-bit answer to "were there notes here?". It now reads the
+  materialized array, so both cases say `false`. Two writers, both changed —
+  `lattice-emulator.js` and `docs/src/components/studio/share-export.ts`.
+- **What is NOT fixed — do not claim the file is indistinguishable.** Stripping removes the
+  comment NODE and leaves the whitespace around it, so re-rendering the deck's own embedded
+  source and diffing shows a one-byte-per-slide residue naming WHICH slides carried a note
+  (never what it said) — computable from the shipped file alone. Closing it means changing
+  whitespace handling in `stripCommentNodes`, which is on the render path for every deck, so
+  it wants its own change and its own verification. `--strip-notes` removes the content; it
+  does not conceal that it ran.
 
 ## A `tier:` / `galleryAuthored:` pragma shipped as the speaker note in every format
 
