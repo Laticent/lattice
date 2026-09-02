@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: >
   Of five checks reported as wired to nothing, only two are actually unguarded.
   The premise is right about the SCRIPTS and wrong about three of the DEFECTS. All five
@@ -12,8 +12,8 @@ summary: >
   belong nightly. `check:chart-fit` also exited 0 with "SKIPPED, nothing verified" when no
   Chromium was found — the exact green-having-measured-nothing shape this swimlane exists to
   remove — which is fixed here so the check is safe to wire whenever the wiring is approved.
-  Wiring itself is deliberately NOT done: adding a job or step is the CI-contract change
-  CLAUDE.md reserves for the owner.
+  Wiring was deliberately NOT done in the census; it was authorized and landed the next day in
+  PR #2044 (see the closing section), which found the wiring is four edits rather than three.
 ---
 
 # Five orphaned checks: what is actually unguarded
@@ -130,3 +130,30 @@ arms, the filing condition, AND the marker list.
 **Not done here.** Adding a job or a step is the CI-contract change CLAUDE.md's second filter
 reserves for the owner: every future PR pays the cost, and a bad gate is a permanent tax. The
 census and the numbers are the deliverable; the wiring waits on a decision.
+
+## Wired, 2026-09-02 (PR #2044)
+
+Option A was authorized and both arms are in `integration-nightly.yml` as `chartfit` and
+`geometry`, sitting after `codewidth` and before the 72-minute `regress` arm. Four things the
+option table and the three-edit note above got wrong or did not reach:
+
+- **It is FOUR edits, not three.** The stand-down step ANDs every arm the filing step ORs, so
+  an arm added to one and not the other is not a partial wiring — it is a contradiction: on a
+  night where only the new arm is red the tier would file the failure and comment "measured
+  green" on the same issue. `nightly-alarm-contract.test.js` already gates that symmetry, and
+  the omission was mutation-proved to fail CI, so this one was never invisible.
+- **`check-chart-fit` has THREE failure headlines, not one.** `N clip(s)`, `N re-derived outer
+  inset(s)` and `N STALE sanction(s)`, printed by three separate branches. The note above named
+  only the first, and matching only that would have reproduced #1529 on the other two the same
+  week the note cited #1529 as the reason to be careful.
+- **The marker grep appears TWICE**, identically — the job summary and the issue body. The
+  issue body is the one that matters: #1529's damage was a rolling issue carrying a bare count.
+- **Nothing in the tree could see a missing marker,** which is why it survived fifteen nights.
+  The sibling assertions in `nightly-alarm-contract.test.js` read `if:` expressions, which a
+  workflow parser can reach; this question is whether a regex matches text a *different file*
+  prints, and the two files reference each other in neither direction. A backstop now pins it,
+  with the samples captured from real runs rather than read off the tools' sources.
+
+The precondition held: both gates were re-measured green on `main@f43364b`, the tree they were
+wired into, rather than taken from this note. That re-measurement is what the paragraph above
+asks for, and it is the second time in two days that doing it changed the answer.
