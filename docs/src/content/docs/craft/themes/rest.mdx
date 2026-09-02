@@ -15,9 +15,13 @@ listing — and you set them once.
 Six colors: three inks and three tinted grounds.
 
 ```css
---pass: #2D6A3F;  --pass-bg: /* a tint of it */
---warn: #B45309;  --warn-bg:
---fail: #991B1B;  --fail-bg:
+--pass: #2D6A3F;   /* the ink */
+--warn: #B45309;
+--fail: #991B1B;
+
+--pass-bg: …       /* a tint of it, behind a badge */
+--warn-bg: …
+--fail-bg: …
 ```
 
 One thing to get right: **warn must not look like fail.** Amber against
