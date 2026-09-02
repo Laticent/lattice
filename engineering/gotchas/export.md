@@ -379,12 +379,78 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   implementations in separate runtimes — a CJS CLI and a browser TS module — and the first port
   of the measurement to the Studio was a hand-written copy with nothing holding the two together,
   which is the mechanism that produced the divergence in the first place. The one piece they must
-  agree on is the ordered candidates, so it is `notesCore.NOTE_SCRUB_BOUNDARIES` and both read it
+  agree on is the ordered candidates, so it is `notesCore.SCRUB_BOUNDARIES` and both read it
   from there. `test/unit/authoring/notes-core.test.js` fails if either caller writes the literal
   out again; `docs/src/components/studio/strip-notes-guard.test.ts` pins the three outcomes
   (preserve wins, drop wins, neither does) — without it, narrowing the loop back to one cut left
   every gate in the tree green, the strip-notes e2e included, because that spec asserts only that
   the note text is gone and that is true on all three.
+- **`--strip-captions` carried the same tell for one release, and closing it merged the two
+  passes (#2003).** The #1985 fix was note-only: `stripCaptionsFromSource` stayed a span-only
+  replace and nothing re-rendered from it, so the caption comment's line was left behind as an
+  empty one AND the authored render still went through `stripCommentNodes`. Measured on a
+  three-slide deck — one caption, one note, one neither — exported with both flags and diffed
+  against a re-render of its own envelope source: the captioned slide differed from its
+  neighbours by one byte, and the note channel was clean. `--strip-captions` alone had it too.
+  The fix gives the caption strip the same line-aware cut (both now go through one
+  `removeCommentSpans` in `notes-core.js`, so the channels cannot drift apart again) and makes
+  pass 2 render the composed source the export actually ships — under ONE measured cut for both
+  channels, since they scrub one document. Two separately measured cuts would each describe a
+  document nothing renders. Pinned by the caption arms of
+  `test/integration/export/strip-notes-no-fingerprint.test.js`, against a committed
+  caption-free twin.
+- **"The two comment classes are disjoint, so the order is free" is HALF a truth, and the half
+  it misses reintroduced the fingerprint.** Chaining the strips — scrub notes, then scrub
+  captions — is what shipped first. Disjoint BODIES is real (a `caption:` body is never a note
+  body) and it is not the whole interaction: once both cuts became line-aware the two channels
+  meet through BLANK-LINE ACCOUNTING. The first scrub takes a line and, under `preserve`, may
+  leave an empty one, so the second reads neighbours the author never wrote. Measured by an
+  independent checker: 350 of 13,122 (source × cut) pairs come out differently depending which
+  scrub runs first, and a note comment sitting directly above a caption comment shipped a 1-byte
+  residue against the deck written with neither. The fix is `stripChannelsFromSource` — ONE pass
+  with a combined predicate, so every comment is judged against the source's own neighbours and
+  there is no order left to get wrong. `notes-core.test.js` pins the divergent shape as a guard:
+  if chaining ever stops diverging, that test says so rather than passing quietly.
+- **What is NOT closed, and is shared with the note channel:** two whole-line comments adjacent
+  at the END of the input still leave one blank line under the `preserve` cut, where the
+  counterfactual has none. `drop` reproduces it exactly, but both cuts render identically, so
+  pass 2's render-equivalence measurement keeps `preserve` (tried first, deliberately — see the
+  candidate-list note above). This predates #2003 and reproduces on `--strip-notes` alone with
+  two adjacent notes; the residue is invisible to the re-render attack (it renders the same) and
+  is not a `\n\n\n` run, so `grep -c` does not see it either. Recorded rather than fixed, because
+  the fix is to change which cut wins a tie, and that preference is a decided thing with its own
+  rationale.
+- **The natural way to trim that residue is an exponential regex, and the input that proves it
+  is not the one you would guess.** Dropping what a removed `captions:` block leaves behind reads
+  as one regex over the rejoined body — `/(?:[ \t]*(?:\r\n|\r|\n))*$/` — and CodeQL failed the
+  PR that shipped it. It has two backtracking behaviors. Polynomial on a long run of spaces with
+  no newline (10k 163 ms, 20k 627 ms, 40k 2.5 s, 80k 10 s) is the one you find by reaching for a
+  big string. The one that matters is EXPONENTIAL on repetitions of `\r\n`: the alternation is
+  ambiguous — `\r\n` matches either as its own branch or as `\r` then `\n` on the next turn of
+  the outer `*` — so a failing tail forces a 2^n search. 20 pairs 100 ms, 22 pairs 400 ms, 24
+  pairs 1.6 s, i.e. **48 characters for a second and a half**; a hostile deck needs no size at
+  all. A regression test written against the SPACES shape passes at any realistic size while the
+  exponential bug is live, which is why the arm in `notes-core.test.js` uses `\r\n`. The fix is
+  not a cleverer regex: `stripCaptionsFrontMatter` trims the line ARRAY it already has, which is
+  linear on both (100k `\r\n` pairs in 99 ms). Same hazard class as the comment matcher's own
+  quadratic note at the top of that file — this file has now produced it twice.
+- **A scrub that rewrites front matter must scope the rewrite to the block it removed.** The
+  first cut of the front-matter half normalized the rebuilt body's tail unconditionally, on the
+  belief that `FRONT_MATTER_BLOCK`'s close fence always carries the last body line's terminator
+  so `body` can never end with one. It can: the close group is a single `\r?\n---`, so an
+  author's BLANK LINE before the fence leaves that newline inside `body`. A deck with **no
+  `captions:` key at all** then came back a byte shorter — `themes/palette-audit.md`, shipped
+  here, was the measured case — and a deck with an EMPTY front matter lost the whole fence.
+  Neither changes the render, so the fidelity guard cannot see either, and the envelope's
+  "verbatim source for lossless re-import" quietly was not. A source with no top-level
+  `captions:` key now returns byte-identical from an early return, pinned across all 1306 `.md`
+  files in the tree.
+- **Front matter is part of the caption strip, and therefore part of pass 2's input.**
+  `--strip-captions` also drops the top-level `captions:` map, so pass 2 renders a deck with
+  different front matter. That is intended — it is why the map's text cannot survive in the
+  envelope — and the fidelity guard covers it: the map is not a directive, so the rendered
+  sections are unchanged and the two passes agree. A future front-matter key that DOES affect
+  the render would show up as a guard fallback, not as a silent difference.
 
 ## A `tier:` / `galleryAuthored:` pragma shipped as the speaker note in every format
 

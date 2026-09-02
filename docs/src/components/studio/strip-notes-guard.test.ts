@@ -125,7 +125,7 @@ describe('stripNotesCut', () => {
 		// wins on a deck where the two disagree.
 		const src = 'first line\n<!-- a note -->\nsecond line\n';
 		const authored = await authoredOf(src);
-		const reversed = { ...notesCore, NOTE_SCRUB_BOUNDARIES: ['drop', 'preserve'] };
+		const reversed = { ...notesCore, SCRUB_BOUNDARIES: ['drop', 'preserve'] };
 
 		expect((await stripNotesCut(src, notesCore, new Set(['a note']), authored, sectionsOf, render)).source)
 			.toBe((await stripNotesCut(src, reversed, new Set(['a note']), authored, sectionsOf, render)).source);
