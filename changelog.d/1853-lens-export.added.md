@@ -48,12 +48,13 @@
   so a hash taken afterwards blessed whatever that rewrite produced. Separately, the export now
   re-splits the body it emitted and writes nothing if the slide count disagrees with the projection —
   the baked view map is indexed by position, so one lost slide shifts every view after it.
-- **`--lens-default <id>` picks the view a carrier opens on.** Without it the file opens on the first
-  id you named, which is also the order the switcher lists them in. Naming a view the export does not
-  carry exits non-zero naming the id, rather than falling back to the first and shipping a
-  correct-looking file that opens on the wrong view.
+- **`--lens-default <id>` picks the view a carrier opens on.** Without it the deck's own
+  `lens-default:` decides; the first id you named is only the last resort, because argv order already
+  decides what the switcher lists and should not quietly also override a landing view the author
+  wrote down. Naming a view the export does not carry exits non-zero naming the id, rather than
+  falling back and shipping a correct-looking file that opens on the wrong view.
 - **The carrier's view switcher is a dropdown.** A view's name is the author's own noun and no icon
   can stand for one, so a button per view sized the whole top bar to how many views a deck declares
-  and how long each name is — three long names wanted 418px of a 390px phone bar and truncated to
-  "B… E… T…". One `<select>` costs one control however many views ship, keeps the full names in the
+  and how long each name is — three long names crowded a 390px phone bar until the theme toggle
+  had nowhere to go, and the width caps that fixed that truncated the names to "B… E… T…". One `<select>` costs one control however many views ship, keeps the full names in the
   platform's own picker, and flexes with the bar instead of budgeting it.

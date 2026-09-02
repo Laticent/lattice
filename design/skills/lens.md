@@ -194,12 +194,14 @@ after it — the failure that shows a reader a slide their view excludes. The ex
 re-splits what it wrote, checks it against what it said it kept, and writes nothing on a
 mismatch.
 
-**`--lens-default <id>` picks the view the file opens on.** Without it a carrier opens on
-the first id you named, which is also the order the dropdown lists them in — two jobs for
-one piece of syntax, and the opening view is a real editorial choice (the board gets the
-brief, the analyst gets the evidence). Naming a view the export does not carry is a
-refusal, not a fallback: otherwise you would ship a correct-looking file that opens on the
-wrong view and never be told.
+**`--lens-default <id>` picks the view the file opens on.** Without it the deck's own
+`lens-default:` decides, and only if the deck names no default (or names one you are not
+exporting) does it fall back to the first id you typed. Argv order is already spoken for —
+it is what the dropdown lists — and the opening view is a real editorial choice (the board
+gets the brief, the analyst gets the evidence), so the order you happened to type is the
+last thing consulted, not the first. Naming a view the export does not carry is a refusal,
+not a fallback: otherwise you would ship a correct-looking file that opens on the wrong
+view and never be told.
 
 **The switcher is a dropdown, not a row of buttons.** A view's name is your own noun and
 there is no icon that could stand for one, so the control has to show words — and a button

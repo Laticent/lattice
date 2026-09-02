@@ -4357,7 +4357,8 @@ async function renderBody(browser, g, closeBrowser) {
         // Only past two views does the player build a switcher: one view is not a carrier,
         // it is an ordinary player of a deck that was already reduced.
         lensViews: LENS_VIEWS,
-        // Which of them the file OPENS on (`--lens-default`, else the first id named).
+        // Which of them the file OPENS on: `--lens-default`, else the deck's own
+        // `lens-default:` when it names an exported view, else the first id named.
         lensDefault: LENS_OPENS_ON,
         // What this envelope IS, when it is not the whole deck — so a re-import can say
         // "4 of 16 slides, under `brief`" rather than looking like a deck that lost twelve

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyTag, parseSlideTags, stripExtraLensTags, taggedLensIds } from './tags';
+import { applyTag, inlineCodeRanges, parseSlideTags, stripExtraLensTags, taggedLensIds } from './tags';
 
 describe('taggedLensIds', () => {
 	it('collects include AND exclude ids across all slides (union)', () => {
@@ -125,5 +125,35 @@ describe('stripExtraLensTags', () => {
 	it('does not splice lines when an extra tag is inline', () => {
 		const src = '<!-- _lens: brief -->\n\nProse. <!-- _lens: secret -->\n\nMore prose.\n';
 		expect(stripExtraLensTags(src)).toBe('<!-- _lens: brief -->\n\nProse. \n\nMore prose.\n');
+	});
+});
+
+describe('inline code is quoted material, not a directive', () => {
+	// `fenceRanges` covered the block form; nothing covered the inline one. A slide teaching
+	// the syntax — ``Write `<!-- _lens: ask -->` at the top`` — had its example DELETED by
+	// stripExtraLensTags, leaving two bare backticks and a broken sentence. Inline code is a
+	// rendered surface (HARD RULE #29 says so in its own scope note), so this is the same
+	// class of damage the sweep exists to prevent, arriving through a different door.
+	it('leaves a backticked example alone', () => {
+		const src = '<!-- _lens: brief -->\n\nWrite `<!-- _lens: ask -->` at the top of the slide.\n';
+		expect(stripExtraLensTags(src)).toBe(src);
+	});
+
+	it('does not mistake a backticked example for the slide’s own tag', () => {
+		// Example FIRST: without the inline-code skip the example is taken as the keeper and
+		// the real tag below it is deleted as a duplicate — strictly worse than the case above.
+		const src = 'Write `<!-- _lens: ask -->` at the top.\n\n<!-- _lens: brief -->\n\n# Slide\n';
+		expect(stripExtraLensTags(src)).toBe(src);
+	});
+
+	it('still strips a real duplicate that sits beside an example', () => {
+		const src = '<!-- _lens: brief -->\n<!-- _lens: secret -->\n\nSee `<!-- _lens: ask -->` for the syntax.\n';
+		expect(stripExtraLensTags(src)).toBe('<!-- _lens: brief -->\n\nSee `<!-- _lens: ask -->` for the syntax.\n');
+	});
+
+	it('handles multi-backtick spans and leaves an unmatched run literal', () => {
+		expect(inlineCodeRanges('a ``x `` b')).toEqual([[2, 8]]);
+		expect(inlineCodeRanges('a ` b')).toEqual([]);
+		expect(inlineCodeRanges('```\n`x`\n```')).toEqual([]); // inside a fence — the fence owns it
 	});
 });

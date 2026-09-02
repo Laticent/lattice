@@ -367,3 +367,39 @@ test('a chunk that ends mid-paragraph still gets the separator pad', () => {
 	assert.equal(renderedSections(out.source), 2, 'two slides ship, and the paragraph is still on the first');
 	assert.match(out.source, /prose/, 'the paragraph survived rather than becoming a heading');
 });
+
+test('a `_lens` example written in INLINE code survives the projection', () => {
+	// The prune rewrites the author's slide text, and the sweep for duplicate tags knew about
+	// FENCED code but not inline code. A slide that teaches the syntax — the natural deck to
+	// export with `--lens` for a demo — had its backticked example deleted, leaving two bare
+	// backticks and a sentence that no longer parses. The `unsplittable` net cannot see this:
+	// the slide count does not change, so the damaged deck passes every gate.
+	const chunks = [
+		'<!-- _lens: brief -->\n\n# How to tag a slide\n\nWrite `<!-- _lens: ask -->` at the top of the slide.\n',
+		'\n# Second\n\nBody.\n',
+	];
+	const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
+	const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
+	const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks.join('\n---\n')}`;
+
+	const out = projectForExport(src, ['brief']);
+	assert.equal(out.ok, true, `expected a projection, got ${out.reason}`);
+	assert.match(out.source, /Write `<!-- _lens: ask -->` at the top/, 'the author’s example is still on the slide');
+	assert.doesNotMatch(out.source, /Write `` at the top/, 'and was not gutted to a pair of backticks');
+});
+
+test('`--lens full` returns the identity even when a slide would prune to nothing', () => {
+	// The re-split invariant used to run BEFORE the `full` exemption, so a deck whose first
+	// slide's entire content is a withheld tag — the exact shape `applyTag` writes when you tag
+	// an empty slide — pruned to nothing, failed the check, and `--lens full` REFUSED a deck it
+	// is supposed to hand back untouched. The CLI then listed `full` as exportable while
+	// refusing it.
+	const chunks = ['<!-- _lens: ask -->\n', '\n# Heading\n\nBody.\n', '\n# Second\n\nMore.\n'];
+	const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
+	const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
+	const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks[0]}\n***\n${chunks[1]}\n---\n${chunks[2]}`;
+
+	const out = projectForExport(src, ['full']);
+	assert.equal(out.ok, true, `\`full\` must never refuse a deck it does not touch (got ${out.reason})`);
+	assert.equal(out.source, src, 'and it hands back the caller’s own string');
+});

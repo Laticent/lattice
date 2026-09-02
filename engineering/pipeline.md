@@ -113,9 +113,11 @@ The export also re-splits the body it emitted and refuses if the slide count dis
 the projection. The baked view map is indexed by position, so a slide lost or gained
 between the two shifts every view after it.
 
-`--lens-default <id>` names which of the exported views a carrier opens on (default: the
-first id given). Naming a view the export does not carry exits non-zero rather than
-falling back, so a typo cannot ship a file that opens on the wrong view.
+`--lens-default <id>` names which of the exported views a carrier opens on. Without it the
+deck's own `lens-default:` wins, and the first id given is only the last resort — argv order
+already decides what the switcher lists, so letting it also pick the landing view would
+discard a choice the author wrote down. Naming a view the export does not carry exits
+non-zero rather than falling back, so a typo cannot ship a file that opens on the wrong view.
 
 **Palette resolution** (highest wins): CLI positional/`--palette` flag →
 `LATTICE_PALETTE` env → the deck's own front-matter `theme:` → default
