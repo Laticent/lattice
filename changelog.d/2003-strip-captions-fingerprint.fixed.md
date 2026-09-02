@@ -8,7 +8,14 @@
   implementation, so the two channels cannot drift apart again), and the export renders the
   composed source it actually ships — under one measured cut, because both flags scrub one
   document. (#2003)
+- `--strip-notes --strip-captions` now removes both channels in **one pass** rather than
+  chaining the two scrubs. Chaining was order-dependent — not through comment bodies, which are
+  disjoint, but through blank-line accounting: the first scrub could leave an empty line where a
+  comment had been, so the second read neighbors the author never wrote. A note comment directly
+  above a caption comment shipped a one-byte residue against the deck written with neither,
+  which is the same disclosure the flags exist to remove. (#2003)
 - `--strip-captions` also no longer leaves a blank line in front matter where the `captions:`
-  map was, and a deck whose front matter held nothing else keeps rendering as it did: an
-  emptied `---` / `---` fence is not front matter to the engine, so the whole block goes rather
-  than becoming a thematic break in the deck. (#2003)
+  map was, including one the author had put above the block, and a deck whose front matter held
+  nothing else keeps rendering as it did: an emptied `---` / `---` fence is not front matter to
+  the engine, so the whole block goes rather than becoming a thematic break in the deck. A deck
+  with no `captions:` key is returned byte-identical whatever shape its front matter has. (#2003)

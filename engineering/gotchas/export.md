@@ -394,11 +394,43 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   neighbours by one byte, and the note channel was clean. `--strip-captions` alone had it too.
   The fix gives the caption strip the same line-aware cut (both now go through one
   `removeCommentSpans` in `notes-core.js`, so the channels cannot drift apart again) and makes
-  pass 2 render `composeStrippedSource` — the composed source the export actually ships —
-  under ONE measured cut for both channels, since they scrub one document. Two separately
-  measured cuts would each describe a document nothing renders. Pinned by the caption arms of
+  pass 2 render the composed source the export actually ships — under ONE measured cut for both
+  channels, since they scrub one document. Two separately measured cuts would each describe a
+  document nothing renders. Pinned by the caption arms of
   `test/integration/export/strip-notes-no-fingerprint.test.js`, against a committed
   caption-free twin.
+- **"The two comment classes are disjoint, so the order is free" is HALF a truth, and the half
+  it misses reintroduced the fingerprint.** Chaining the strips — scrub notes, then scrub
+  captions — is what shipped first. Disjoint BODIES is real (a `caption:` body is never a note
+  body) and it is not the whole interaction: once both cuts became line-aware the two channels
+  meet through BLANK-LINE ACCOUNTING. The first scrub takes a line and, under `preserve`, may
+  leave an empty one, so the second reads neighbours the author never wrote. Measured by an
+  independent checker: 350 of 13,122 (source × cut) pairs come out differently depending which
+  scrub runs first, and a note comment sitting directly above a caption comment shipped a 1-byte
+  residue against the deck written with neither. The fix is `stripChannelsFromSource` — ONE pass
+  with a combined predicate, so every comment is judged against the source's own neighbours and
+  there is no order left to get wrong. `notes-core.test.js` pins the divergent shape as a guard:
+  if chaining ever stops diverging, that test says so rather than passing quietly.
+- **What is NOT closed, and is shared with the note channel:** two whole-line comments adjacent
+  at the END of the input still leave one blank line under the `preserve` cut, where the
+  counterfactual has none. `drop` reproduces it exactly, but both cuts render identically, so
+  pass 2's render-equivalence measurement keeps `preserve` (tried first, deliberately — see the
+  candidate-list note above). This predates #2003 and reproduces on `--strip-notes` alone with
+  two adjacent notes; the residue is invisible to the re-render attack (it renders the same) and
+  is not a `\n\n\n` run, so `grep -c` does not see it either. Recorded rather than fixed, because
+  the fix is to change which cut wins a tie, and that preference is a decided thing with its own
+  rationale.
+- **A scrub that rewrites front matter must scope the rewrite to the block it removed.** The
+  first cut of the front-matter half normalized the rebuilt body's tail unconditionally, on the
+  belief that `FRONT_MATTER_BLOCK`'s close fence always carries the last body line's terminator
+  so `body` can never end with one. It can: the close group is a single `\r?\n---`, so an
+  author's BLANK LINE before the fence leaves that newline inside `body`. A deck with **no
+  `captions:` key at all** then came back a byte shorter — `themes/palette-audit.md`, shipped
+  here, was the measured case — and a deck with an EMPTY front matter lost the whole fence.
+  Neither changes the render, so the fidelity guard cannot see either, and the envelope's
+  "verbatim source for lossless re-import" quietly was not. A source with no top-level
+  `captions:` key now returns byte-identical from an early return, pinned across all 1306 `.md`
+  files in the tree.
 - **Front matter is part of the caption strip, and therefore part of pass 2's input.**
   `--strip-captions` also drops the top-level `captions:` map, so pass 2 renders a deck with
   different front matter. That is intended — it is why the map's text cannot survive in the

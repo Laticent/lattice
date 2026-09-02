@@ -452,20 +452,27 @@ const STRIP_NOTES = !!flags['strip-notes'];
 const STRIP_CAPTIONS = !!flags['strip-captions'];
 // Compose the privacy strips for any re-embedded SOURCE copy (the player envelope, the
 // PDF-attached source): scrub note comments under `--strip-notes` and/or caption comments
-// under `--strip-captions`. Order-independent — the two comment classes are disjoint (a
-// `note:` body is never a `caption:` body). `noteBodies` is the set lifted from the render.
+// under `--strip-captions`. `noteBodies` is the set lifted from the render.
 // Which cut `strippedSlidesOrAuthored` measured as reproducing the deck. Read here so the
 // SOURCE this ships is the one that was rendered — see the note at that function. ONE cut for
 // both channels, because pass 2 renders ONE combined source; a per-channel cut would be a
 // measurement of a document nothing renders.
 let scrubBoundary = 'preserve';
-// The composition, with no reporting — the pure half, so `strippedSlidesOrAuthored` can call it
-// once per candidate cut without warning the author twice about the same deck.
+// ONE PASS, NOT TWO CHAINED — `stripChannelsFromSource`, not `stripNotes…` then `stripCaptions…`.
+// This line used to run them in sequence and call that "order-independent, the two comment
+// classes are disjoint". Disjoint bodies is not the whole interaction: once both cuts became
+// line-aware they meet through BLANK-LINE ACCOUNTING, and a checker measured 350 of 13,122
+// (source × cut) pairs disagreeing on order — a note comment directly above a caption comment
+// shipping the 1-byte residue this flag pair exists to remove. The kernel judges every comment
+// against the source's own neighbours, so there is no order left to get wrong.
+// The composition carries no reporting — the pure half, so `strippedSlidesOrAuthored` can call
+// it once per candidate cut without warning the author twice about the same deck.
 function composeStrippedSource(src, noteBodies, boundary = scrubBoundary) {
-  let out = src;
-  if (STRIP_NOTES) out = notesCore.stripNotesFromSource(out, noteBodies, { boundary });
-  if (STRIP_CAPTIONS) out = notesCore.stripCaptionsFromSource(out, { boundary });
-  return out;
+  return notesCore.stripChannelsFromSource(src, {
+    noteBodies: STRIP_NOTES ? noteBodies : null,
+    captions: STRIP_CAPTIONS,
+    boundary,
+  });
 }
 function stripSharedSource(src, noteBodies) {
   const out = composeStrippedSource(src, noteBodies);

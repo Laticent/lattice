@@ -18,6 +18,7 @@ This deck exists to prove `--strip-captions` leaves no trace of which slides car
 - Another point
 
 <!-- PRIVATELEAKTOKEN bravo: the author's private remark, slide two. -->
+<!-- caption: CAPTIONLEAKTOKEN bravo, the read-as override for slide two. -->
 
 ---
 
