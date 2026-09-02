@@ -147,3 +147,16 @@
   so the ordinary linked-image idiom `[![icon](x)](url)`, which puts the `<img>` at depth two, lost
   its marker without gaining its type step. The comment above them asserted the two tested the same
   thing. They now do, and `test/unit/css/lone-member-selector-parity.test.js` fails if they drift.
+- **Fixed: `q-and-a` printed `010` for item ten.** Its index was a literal `"0"` prefix rather
+  than `decimal-leading-zero`. Unreachable while a page held several pairs; one element per page
+  plus the offset seed drives the counter past nine on any run that long. Verified on a rendered
+  page: `09 · 10 · 11`.
+- **Fixed: the ordinal gate was blind to 7 of the 30 enrolled components.** It selected on
+  `capacity.axis` while the engine enrolls on `axis || split`, so every component enrolled by a
+  carousel RECIPE was invisible to it — and four of those carried unseeded counters
+  (`list-tabular`, `split-panel` ×2, `compare-prose`, `redline`). The gate now uses the engine's
+  own predicate and also matches `counter-set`, which restarts a run exactly as `counter-reset`
+  does. Its docblock now states what it does NOT prove: it is a declaration check, the
+  recipe-driven seeds are insurance rather than a demonstrated fix (measured, none of those four
+  renders a numeric ordinal on a split page today), and a recipe-driven run receives no
+  `--lat-split-offset` at all because `applyRails` computes it on a hardcoded `item` axis.

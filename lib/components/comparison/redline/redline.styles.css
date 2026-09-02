@@ -188,7 +188,7 @@ section.redline.annotated > .cell-stage > blockquote sup {
   vertical-align:super;
 }
 section.redline.annotated > .cell-stage > :is(ol, ul) {
-  counter-reset:rl;
+  counter-reset:rl var(--lat-split-offset, 0);
   padding-top:var(--sp-md);
 }
 section.redline.annotated > .cell-stage > :is(ol, ul) > li {

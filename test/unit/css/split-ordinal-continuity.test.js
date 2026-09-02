@@ -23,6 +23,29 @@
  * SOURCE-LEVEL, on purpose. The rendered check needs a browser and one deck per
  * component; this needs neither, and the defect is fully visible in the declaration.
  * `examples/split-structure.md` carries the rendered evidence for the real surface.
+ *
+ * WHAT THIS DOES NOT PROVE, stated because a gate that reads broader than it is, is worse than
+ * a narrow one:
+ *
+ *   · It checks the DECLARATION, not the rendered page. For the AXIS-driven components the proxy
+ *     is sound and was confirmed the hard way — measured on a real portrait render, a three-item
+ *     `list-criteria` read `01 · 01 · 01` before the seed and `01 · 02 · 03` after. For the seven
+ *     RECIPE-driven ones (`compare-code`, `compare-prose`, `decision`, `redline`, `glossary`,
+ *     `list-tabular`, `split-panel`) it proves nothing either way: their strategies re-author the
+ *     body, and measured on their own galleries at `portrait` none of them renders a numeric
+ *     ordinal on a split page — nor on an unsplit one, because those counters live in variants the
+ *     galleries do not exercise. Their seeds are insurance, not a demonstrated fix.
+ *   · A recipe-driven run receives NO `--lat-split-offset` at all today. `applyRails` computes it
+ *     with `countAxis(inner, 'item')` whatever axis the run was cut on, so a `row`-axis run
+ *     (`glossary`, `compare-table`) gets none and a `col`-axis one (`roadmap`) gets a count of the
+ *     wrong thing. Until that is fixed, seeding a recipe-driven counter changes nothing at render
+ *     time — which is exactly why those seeds cannot be read as evidence.
+ *   · It reads only `<name>.styles.css`. A counter in `base.modifiers.css`, in a theme, or in a
+ *     second stylesheet in the component directory is invisible to it.
+ *
+ * The population was itself a hole: the first version selected on `capacity.axis` alone while the
+ * engine enrolls on `axis || split`, so it was blind to those same seven components — four of
+ * which carried unseeded counters. Found by the HARD RULE #25 red team.
  */
 
 const { describe, test } = require('node:test');
@@ -59,13 +82,22 @@ function components() {
       .map((c) => ({ name: c.name, dir: path.join(COMPONENTS, b.name, c.name) })));
 }
 
-/** Does the manifest declare a split axis (`capacity.axis` or `adapt.capacity.axis`)? */
+/**
+ * Is this component enrolled for splitting?
+ *
+ * `axis || split`, WHICH IS THE ENGINE'S OWN PREDICATE (`lattice-emulator.js`: the capacity map
+ * takes a component when `axis || m.split`). The first version of this gate asked only about
+ * `capacity.axis` and was therefore blind to every component enrolled by a carousel RECIPE —
+ * `compare-code`, `compare-prose`, `decision`, `redline`, `glossary`, `list-tabular` and
+ * `split-panel`, 7 of the 30 enrolled — four of which carry unseeded private counters. A gate
+ * whose population is narrower than the engine's certifies the components it cannot see.
+ */
 function declaresAxis({ name, dir }) {
   const file = path.join(dir, `${name}.manifest.json`);
   if (!fs.existsSync(file)) return false;
   const m = JSON.parse(fs.readFileSync(file, 'utf8'));
   const cap = m.capacity || m.adapt?.capacity || {};
-  return Boolean(cap.axis);
+  return Boolean(cap.axis || m.split);
 }
 
 /** Every `counter-reset` declaration in the component's stylesheet, as { name, value, line }. */
@@ -76,7 +108,10 @@ function counterResets({ name, dir }) {
   fs.readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
     // Skip comment-only lines — the prose explaining the pattern is not a declaration.
     if (/^\s*(\*|\/\*|\/\/)/.test(line)) return;
-    for (const m of line.matchAll(/counter-reset:\s*([^;}]+)/g)) {
+    // `counter-set` restarts a run exactly as `counter-reset` does — `counter-set: qa 5` on a
+    // body page is the same defect in another property, and the first version matched neither it
+    // nor anything outside this one file (see the coverage note in the docblock).
+    for (const m of line.matchAll(/counter-(?:reset|set):\s*([^;}]+)/g)) {
       // A declaration may reset several counters: `counter-reset: a b c`.
       const decl = m[1].trim();
       // Split into `name [value]` pairs; a value is a number or a var()/function call.
