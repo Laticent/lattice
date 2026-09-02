@@ -143,4 +143,56 @@ describe('stripExtraLensTags', () => {
 		const src = 'Budget 5` per unit.\n\n<!-- _lens: brief -->\n<!-- _lens: secret -->\n\n`Measured`\n';
 		expect(stripExtraLensTags(src)).not.toContain('_lens: secret');
 	});
+
+	// `fenceRanges` finds a fence by scanning for ``` at the START of a line, so it cannot see one
+	// opened inside a blockquote. markdown-it emits no html_block for the comment below at all; an
+	// unbounded sweep read it as a duplicate, DELETED the author's documented example and spliced
+	// `> ``` ` onto the marker. Requiring the directive to be alone on its line is what stops it.
+	it('leaves an example inside a BLOCKQUOTED fence alone — the shape fenceRanges cannot see', () => {
+		const src =
+			'<!-- _lens: brief -->\n\n# How to tag\n\n> Put this at the top:\n>\n> ```markdown\n> <!-- _lens: secret -->\n> ```\n';
+		expect(stripExtraLensTags(src)).toBe(src);
+	});
+
+	it('leaves any container-prefixed duplicate alone rather than splice its marker', () => {
+		for (const src of [
+			'<!-- _lens: brief -->\n\n> <!-- _lens: secret -->\n> The point.\n',
+			'<!-- _lens: brief -->\n\n- <!-- _lens: secret -->\n- Second bullet\n',
+		]) {
+			expect(stripExtraLensTags(src)).toBe(src);
+		}
+	});
+});
+
+// The trio's critical finding, wearing a container prefix. `opensItsLine` says `- <!-- … -->` IS a
+// directive — correctly, markdown-it opens the html_block inside the list item — so the commit that
+// treated "is a directive" as "is alone on its line" ate the newline and spliced the next line onto
+// the marker. On a line followed by a fence that destroys slide structure and shows a reader a slide
+// their view excludes, and the export's re-split net does not catch it.
+describe('removing a container-prefixed tag never splices the next line onto its marker', () => {
+	const cases: Array<[string, string, string]> = [
+		['list item then a fence', '- <!-- _lens: secret -->\n```\nfoo\n---\nbar\n```\n', '- \n```\nfoo\n---\nbar\n```\n'],
+		['blockquote', '> <!-- _lens: secret -->\n> The quoted point.\n', '> \n> The quoted point.\n'],
+		['bullet', '- <!-- _lens: secret -->\n- Second bullet\n', '- \n- Second bullet\n'],
+		['ordered', '1. <!-- _lens: secret -->\n1. Second item\n', '1. \n1. Second item\n'],
+	];
+	for (const [name, src, want] of cases) {
+		it(name, () => {
+			expect(applyTag(src, 'secret', false, 'none')).toBe(want);
+		});
+	}
+
+	it('still takes the whole line when the tag is alone on it', () => {
+		expect(applyTag('<!-- _lens: secret -->\nBody line.\n', 'secret', false, 'none')).toBe('Body line.\n');
+	});
+
+	// "Alone on its line" means NOTHING before it, not "nothing but whitespace". Three spaces is a
+	// legal directive indent; splicing the next line onto them is harmless until that line starts
+	// with a space of its own, at which point four columns make an indented code block out of a
+	// paragraph. Keeping the newline leaves a whitespace-only line, which renders as nothing.
+	it('a three-space indent keeps its newline rather than risk a four-column splice', () => {
+		expect(applyTag('   <!-- _lens: secret -->\n Body line.\n', 'secret', false, 'none')).toBe(
+			'   \n Body line.\n',
+		);
+	});
 });

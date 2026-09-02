@@ -186,6 +186,30 @@ the syntax exports intact. (It did not always: three attempts to detect quoted t
 directly each shipped something worse, including one that gutted the example to two bare
 backticks. Adopting the renderer's own rule removed the shape instead of guarding it.)
 
+**A tag behind a `>` or a `-` is read, and never rewritten.** `> <!-- _lens: brief -->` is
+a real directive — the renderer opens one there too — but the export will not delete or
+prune it, because removing a comment that shares its line with a container marker splices
+the next line onto that marker. So write your membership tag at the start of its own line,
+which is where Lattice writes it: a tag tucked inside a list or a quote keeps its slide's
+membership and quietly declines to be pruned, and a withheld id in one reaches the file.
+`lint:deck` cannot see this yet (#2034).
+
+**Two things the prune deliberately does NOT do.** It never writes an approval digest: the
+views in a projected deck ship without `approved:`, so re-importing the artifact reads them
+as `unapproved` — which is true, because a machine reduced the deck and your approval
+described it before the reduction. (An earlier version re-stamped them, which made the
+projection self-certifying: the prune rewrites your slide text, so a hash taken afterwards
+would have blessed a damaged deck as approved.) And `--lens full` on its own is the
+identity — it changes nothing, registry included. A `full` recipient was denied nothing, so
+there is no disclosure to close; naming views alongside it (`--lens full,brief`) is a real
+selection and does prune.
+
+**A projection that cannot re-split refuses.** The baked view map is indexed by position,
+so a slide lost or gained between the projection and the emitted file shifts every view
+after it — the failure that shows a reader a slide their view excludes. The export
+re-splits what it wrote, checks it against what it said it kept, and writes nothing on a
+mismatch.
+
 **`--lens-default <id>` picks the view the file opens on.** Without it the deck's own
 `lens-default:` decides, and only if the deck names no default (or names one you are not
 exporting) does it fall back to the first id you typed. Argv order is already spoken for —
