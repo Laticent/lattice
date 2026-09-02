@@ -336,3 +336,55 @@ outside our timeline.
 whose package follows the engine pick**: flubber if v1 stays engine-free, anime.js `morphTo` if
 anime.js is adopted for `createDrawable` as well. Round two did not turn up a better painter; it
 turned up the missing *primitive*, and part-level morph is that primitive.
+
+---
+
+## 11. The idea list, decomposed into primitives — the build order
+
+Twenty candidate features were sorted against the primitives the bake-off actually measured.
+`✅` built and measured · `◐` spec'd but unpainted, or needs migration · `✚` net-new.
+
+Two facts frame the sort. **Input-verb parity is shipped** — every surface showing a slide takes
+keyboard, wheel and touch through `lib/core/present-transport.mjs`, which also holds `zoomStep`
+and `createZoomGesture` — but the **exported HTML player is deliberately one verb short**
+(2026-08-10-input-verb-parity.md; export bytes need sign-off). And **no component has any
+interactive chrome**: zero `tabindex` / `role="button"` / `aria-expanded` across every component
+transform, so a scene's whole interaction surface is one play/pause button (`hydrate.ts:203`).
+Every hover, click, drag and toggle below is therefore a new surface, not a wiring job.
+
+| # | Idea | Decomposes into | Status |
+|---|---|---|---|
+| 6 | ViewBox panning | `camera` ✅ | Best ratio on the list — crisp at zoom, deterministic, poster-safe |
+| 5 | Exploded views | `explode` ✅ | A **migration**: the verb is `built`-only today, so it moves to SVG groups |
+| 15 | Step-by-step build | `draw`+`reveal-text`+`sequence` ✅ + slide-advance clock | Painting is done; the clock is the narrative step model (proposed, unbuilt) |
+| 1 | 360 swapper | `angle-set` ✅ + `morph` ✅ + drag-scrub ✚ | Buildable now; drag-scrub follows the `createZoomGesture` pattern |
+| 11 | Dark-mode inversion | — | **Already shipped** — HARD RULE #3 + `resolveColor` re-resolves on theme switch |
+| 9 | Material injection | color ✅ / texture ✚ | Color half free; texture half reuses `--cat-N-texture`, never an injected `<image>` |
+| 13 | Text-triggered highlight | `highlight` ✅ + term→part binding ✚ | Precedent in `chart-narration.js`, `svg-a11y-names.js`; authored version is print-safe |
+| 12 | Measurement overlay | `getBBox` ✅ + line injection ✚ | Authored beats hover — then it survives print |
+| 7 | Layer toggle | group visibility ✅ + checklist UI ✚ | Split: authored layer state per step is cheap, a live checklist is new chrome |
+| 16 | Data-driven deformation | `fill` ◐ + data binding ✚ | Honest form is "animate our own charts" — the 07-19 highest-tractability on-ramp |
+| 8 | X-ray slider | scrub ✅ + reveal mask ✚ + slider ✚ | A mask avoids injecting a `clipPath`, dodging most of the #22 work |
+| 2 | Angle hotspots | `angle-set` ✅ + `camera` ✅ + hit-test ✚ | Needs the id-mapping pass anyway; reads as a product configurator |
+| 3, 14 | Scroll-driven | `angle-set` / `draw` ✅ + scroll clock | Not Anima's — the step model already names scroll a driver; same feature as #15 |
+| 20 | Heatmaps | `fill` ◐ + color ramp ✅ | Data-driven form works; click-frequency needs analytics a static deck cannot have |
+| 19 | Focus blurring | dim ✅ / `feGaussianBlur` ✚ | Do the dim — a filter means injection into untrusted SVG *and* unpredictable rasterization |
+| 4 | Gyroscope | `angle-set` ✅ + DeviceOrientation ✚ | ~20 lines, but an iOS permission flow that cannot be verified from here (#23) |
+| 10 | Cursor lighting | — | **Cut** — fails the admission test; there is no cursor on a projected slide |
+| 17 | Stateful UI morphs | `morph` ✅ | **Cut the use case, keep the primitive** — app chrome, not deck content |
+| 18 | Magnetic connectors | — | **Cut** — a diagram canvas editor; mermaid already renders connected diagrams |
+
+**Three conclusions.**
+
+1. **The list is two products.** Six ideas are *deck motion* — a slide that assembles, a drawing
+   that draws, a camera that moves (#5, #6, #12, #13, #15, #3/#14). They fit Lattice's grain and
+   survive as a poster. Ten are *an interactive object viewer* (#1, #2, #4, #7, #8, #9, #10, #17,
+   #19, #20) — a different artifact that happens to sit on a slide. Decide which ships first;
+   they have different homes.
+2. **Fourteen of twenty collapse to a still in PDF.** By design — but their value then lives on
+   the docs site, present mode and the `--player` export, and the player is the surface
+   deliberately short an input verb. A *shared* deck is the weakest surface for the most
+   interactive half of the list.
+3. **Build order: `camera` (#6), `explode` (#5), step-driven build (#15).** All three are measured,
+   need no new interaction surface, no sanitizer work and no new UI — and together they cover the
+   opening thesis: hand-draw an SVG, reveal text, animate a set.
