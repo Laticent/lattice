@@ -1,0 +1,30 @@
+---
+/**
+ * Page-level wrapper for the Craft track's hands-on pane.
+ *
+ * Its only job is to resolve the three runtime-fetched engine endpoints (the
+ * cache-busted engine bundle, the runtime, and the theme CSS base) at build time
+ * and hand them to the React island. Every Craft page imports THIS, not the
+ * island — so the endpoint wiring lives in one place and a content page stays
+ * plain prose plus a tag. Same resolution the Playground, the Studio and the
+ * component Specimens use (asset-version.mjs).
+ *
+ * Props are the island's, verbatim — see CraftLab.tsx for what each one means.
+ *
+ * `client:visible`: a lab below the fold costs nothing until the reader scrolls
+ * to it, and a Craft page carries several.
+ */
+import { joinBase } from '../../lib/base-url.mjs';
+import { assetBase } from '../../playground/asset-version.mjs';
+import CraftLab from './CraftLab.tsx';
+
+const base = import.meta.env.BASE_URL;
+const pg = assetBase();
+const options = {
+	themeBase: joinBase(base, pg + 'themes/'),
+	runtimeUrl: joinBase(base, pg + 'lattice-runtime.js'),
+	engineUrl: joinBase(base, pg + 'lattice-playground.js'),
+};
+---
+
+<CraftLab client:visible options={options} {...Astro.props} />

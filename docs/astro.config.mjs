@@ -211,6 +211,52 @@ export default defineConfig({
 					],
 				},
 				{
+					// The CRAFT track — how to MAKE the three things a deck is dressed in:
+					// a theme (color), a component (layout), a finish (backdrop). It is
+					// deliberately its own group rather than more "Guides" pages: Guides
+					// teach you to USE what ships, Craft teaches you to author your own,
+					// and each track is a learning sequence you read in order rather than
+					// a reference you dip into. Every page carries a live lab (CraftLab)
+					// so the reader edits real CSS against a real slide.
+					label: 'Craft',
+					items: [
+						{ label: 'Make it yours', slug: 'craft' },
+						{
+							label: 'Themes',
+							items: [
+								{ label: 'Theme anatomy', slug: 'craft/themes/anatomy' },
+								{ label: 'The token tour', slug: 'craft/themes/tokens' },
+								{ label: 'Build your first theme', slug: 'craft/themes/first-theme' },
+								{ label: 'Contrast and readability', slug: 'craft/themes/contrast' },
+								{ label: 'Colors for charts and diagrams', slug: 'craft/themes/categorical' },
+								{ label: 'Light and dark', slug: 'craft/themes/light-dark' },
+								{ label: 'Ship your theme', slug: 'craft/themes/checklist' },
+							],
+						},
+						{
+							label: 'Components',
+							items: [
+								{ label: 'Component anatomy', slug: 'craft/components/anatomy' },
+								{ label: 'Slots and the skeleton', slug: 'craft/components/slots' },
+								{ label: 'Build your first component', slug: 'craft/components/first-component' },
+								{ label: 'The three CSS rules', slug: 'craft/components/css-rules' },
+								{ label: 'How much fits', slug: 'craft/components/capacity' },
+								{ label: 'Ship your component', slug: 'craft/components/checklist' },
+							],
+						},
+						{
+							label: 'Finishes',
+							items: [
+								{ label: 'Finish anatomy', slug: 'craft/finishes/anatomy' },
+								{ label: 'The four layers', slug: 'craft/finishes/layers' },
+								{ label: 'Build your first finish', slug: 'craft/finishes/first-finish' },
+								{ label: 'Screen and print', slug: 'craft/finishes/screen-and-print' },
+								{ label: 'Ship your finish', slug: 'craft/finishes/checklist' },
+							],
+						},
+					],
+				},
+				{
 					// The engine's design MODEL — distinct from the LFM standard below.
 					// The concept map is the umbrella over the whole four-axis system;
 					// the Form model is the structural detail of one axis (Form). Both

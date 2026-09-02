@@ -21,7 +21,7 @@ finish:
   and an OPAQUE export face (every full-bleed fade ends on `var(--fin-canvas)`, patterns
   are hard-stop opaque lines) — with **identical layer counts**.
 - Is **palette-blind**: every color is `color-mix()` of `var(--accent)` /
-  `var(--fin-canvas)` / `var(--ink)`. A theme swap or `dark` recolors it automatically.
+  `var(--fin-canvas)` / `var(--text-heading)`. A theme swap or `dark` recolors it automatically.
 - Has a **point of view** — a signature layer type (a mesh, a lattice, a pinstripe,
   a frame) — not just "a gradient wash of the accent the theme already paints."
 
@@ -117,7 +117,7 @@ values, and both faces must keep the **same layer count**.
    / `--fin-repeat` — one entry per background layer, in compositor order (texture
    first, then wash).
 3. **Keep it palette-blind**: every color is `color-mix(in srgb, var(--accent) N%,
-   transparent | var(--fin-canvas))` or `var(--ink)`. No hex, no `url()`, no `mask-image`,
+   transparent | var(--fin-canvas))` or `var(--text-heading)`. No hex, no `url()`, no `mask-image`,
    no `margin`.
 4. **Default glyph marks to empty** — `--fin-mark-text: ""`. A deck-wide finish
    paints no monogram/numeral until the author personalizes it per slide.
@@ -145,9 +145,9 @@ section.finish-myfinish {
 
   /* texture (z2) — hard-stop lines, transparent gaps in both faces */
   --fin-texture: repeating-linear-gradient(0deg,
-                color-mix(in srgb, var(--ink) 6%, transparent) 0 1px, transparent 1px 28px);
+                color-mix(in srgb, var(--text-heading) 6%, transparent) 0 1px, transparent 1px 28px);
   --fin-texture-opaque: repeating-linear-gradient(0deg,
-                color-mix(in srgb, var(--ink) 6%, var(--fin-canvas)) 0 1px, transparent 1px 28px);
+                color-mix(in srgb, var(--text-heading) 6%, var(--fin-canvas)) 0 1px, transparent 1px 28px);
 
   /* mark (z3) — empty by default; author opts in per slide */
   --fin-mark-text: "";

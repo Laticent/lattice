@@ -1,0 +1,167 @@
+---
+title: The token tour
+description: Every group of colors a theme sets, what each one paints, and how to see it on a real slide.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { SLIDE_CARDS, SLIDE_CODE, SLIDE_KPI, THEME_MINI } from '../../../../components/craft/samples.ts';
+
+A theme's colors come in six groups. Learn the groups and you have learned
+the theme file, because everything inside a group behaves the same way.
+
+| Group | Roughly | Sets |
+|---|---|---|
+| **Surfaces** | the paper | 4 colors |
+| **Ink** | the writing | 6 colors |
+| **Accent** | the brand | 3 colors |
+| **Signals** | good, careful, bad | 6 colors |
+| **Code** | syntax highlighting | 12 colors |
+| **Categorical** | charts and diagrams | 12 pairs |
+
+The first four are what you tune by hand and what this page covers. Code
+and categorical get their own treatment on
+[Colors for charts and diagrams](/craft/themes/categorical/).
+
+## Surfaces — the paper
+
+Four colors, and every slide is built on them.
+
+```css
+--bg:              #FBFCFE;  /* the slide itself */
+--bg-alt:          #EEF2F8;  /* cards, panels, alternate table rows */
+--border:          #CBD6E4;  /* hairlines between things */
+--surface-inverse: #0A1628;  /* the dark bookends: title, divider, closing */
+```
+
+`--bg` and `--bg-alt` want to be **close together**. A card should read as a
+slightly raised area of the same paper, not as a second color. If you can
+name the difference between them ("the cards are gray"), they are too far
+apart.
+
+`--surface-inverse` is the odd one out: it is the dark panel your title and
+closing slides paint on, and it stays dark even in a light deck. Think of
+it as the cover of the document.
+
+<CraftLab
+	label="Surfaces on a card slide"
+	kind="theme"
+	css={THEME_MINI}
+	markdown={SLIDE_CARDS}
+	size="tall"
+	hint="Push --bg-alt toward #D6E0EE. The cards separate from the page, and past a point they stop reading as paper and start reading as boxes. That threshold is a judgment call, and it is yours."
+/>
+
+## Ink — the writing
+
+Six colors, loudest to quietest. Each is a **tier**, and the tiers matter
+more than the exact values.
+
+```css
+--text-display:   #F4F7FB;  /* text on the DARK surface */
+--text-heading:   #0A1628;  /* headings */
+--text-body:      #1C2A3E;  /* prose */
+--text-secondary: #3A4A61;  /* subtitles, captions, table headers */
+--text-muted:     #5A6A80;  /* page numbers, footers, code comments */
+--muted-mark:     #6B7B92;  /* rules and hairlines — never text */
+```
+
+Two rules keep the ramp honest.
+
+**Every tier down to `--text-muted` must stay readable.** Quiet is not the
+same as faint. `--text-muted` sets page numbers and captions, and a reader
+in the back row still has to read them, so it carries the same
+readability floor as body prose. If you want something genuinely
+decorative, that is the next line.
+
+**`--muted-mark` never carries words.** It is the color of a rule, a
+hairline, an empty-cell tick, a faint wash — decoration, held to a lower
+floor precisely because nothing is spelled in it. Set a caption in
+`--muted-mark` and it will pass every automatic check and still be too
+faint to read.
+
+**`--text-display` is for the dark surface only.** It pairs with
+`--surface-inverse`, not with `--bg`.
+
+## Accent — the brand
+
+Three colors, and this is where a palette gets its personality.
+
+```css
+--accent:      #2E5C8A;  /* the brand color: emphasis, borders, marks */
+--accent-soft: #DCE7F3;  /* a pale wash of it, for panels */
+--on-accent:   #FFFFFF;  /* text placed ON the accent fill */
+```
+
+Accent shows up in two shapes, and the difference is worth internalizing.
+
+**Bold** is `--accent` as a fill — a verdict bar, a timeline node, a corner
+tag. Anything written on it uses `--on-accent`, which you tune by hand for
+this specific accent. Never `#fff` and never a "dark text" token: on a pale
+accent, white disappears.
+
+**Soft** is `--accent-soft` as a fill — a recommended option, a quiet
+callout. Text on it is ordinary body ink, and emphasis on it is `--accent`
+itself.
+
+<CraftLab
+	label="Accent, both shapes"
+	kind="theme"
+	css={THEME_MINI}
+	markdown={SLIDE_KPI}
+	size="tall"
+	hint="The panel behind $2.4B is accent-soft. Set --accent to #7A1F3D and the whole slide follows: tags, rules, the panel wash, the emphasis. Then try --accent: #F0C674 and watch --on-accent fail — white on pale gold. That is the one you have to tune by hand."
+/>
+
+## Signals — good, careful, bad
+
+Six colors: three inks and three tinted grounds.
+
+```css
+--pass: #2D6A3F;  --pass-bg: /* a tint of it */
+--warn: #B45309;  --warn-bg:
+--fail: #991B1B;  --fail-bg:
+```
+
+One thing to get right: **warn must not look like fail.** Amber against
+red, not two reds. When a slide shows a status board, the difference
+between "watch this" and "this is broken" is doing real work, and a reader
+seeing them side by side should never have to squint.
+
+## Code — syntax highlighting
+
+Twelve colors for the parts of a code block: comments, keywords, strings,
+numbers, function names, and so on.
+
+Two things constrain them. They all sit on `--code-bg`, and every one of
+them is **small text a person reads**, so each has to be genuinely legible
+against that background — comments and punctuation included. The temptation
+to make comments nearly invisible is exactly the mistake: de-emphasis is
+about where a color sits relative to the code around it, not about whether
+it can be read at all.
+
+<CraftLab
+	label="A code slide"
+	kind="theme"
+	css={THEME_MINI}
+	markdown={SLIDE_CODE}
+	size="tall"
+	hint="This theme sets no --hljs-* colors, so the code block is wearing the engine's defaults. That is the fallback in action: leave a group out and something sensible still renders."
+/>
+
+## What you did not have to set
+
+The lab above renders a complete code slide from a theme that never
+mentions code. Everything a theme omits falls back to the engine's own
+defaults, which is why a half-written theme still shows you a slide instead
+of black text on white.
+
+That is a good development experience and a bad shipping plan. A theme that
+stops at the twenty colors on this page is, in the parts it skipped,
+quietly wearing the default palette's clothes — it will look almost right
+and be subtly not yours. [Ship your theme](/craft/themes/checklist/) lists
+the full set.
+
+## Next
+
+Colors are only half the job. The other half is whether anyone can read
+them: [Contrast and readability](/craft/themes/contrast/).

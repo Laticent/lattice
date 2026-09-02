@@ -1,0 +1,138 @@
+---
+title: The four layers
+description: Wash, texture, mark and edge — what each does, when to use it, and how they stack.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { CSS_FINISH_TWO_LAYERS, CSS_FINISH_WASH, SLIDE_FINISH } from '../../../../components/craft/samples.ts';
+
+A finish is a stack of up to four layers. Each has a job, a slot name, and
+a fixed place in the pile.
+
+| Layer | What it is | Examples |
+|---|---|---|
+| **1 · Wash**<br/>`--fin-wash` | an ambient field of color | corner glow, spotlight, mesh, duotone |
+| **2 · Texture**<br/>`--fin-texture` | a repeating pattern | grid, dots, hatch, ruled, pinstripe, lattice |
+| **3 · Mark**<br/>`--fin-mark` | a placed emblem | monogram, rings, a ghost numeral |
+| **4 · Edge**<br/>`--fin-edge` | the boundary | vignette, margin rule, fold, keyline frame |
+
+Content sits above all four, always.
+
+You do not need all of them. Most good finishes use two. `atrium`, the
+quietest one that ships, is a corner glow plus a dissolving grid plus a
+left margin rule — and you would struggle to describe it after seeing it,
+which is the compliment.
+
+## 1 · Wash — the color field
+
+A gradient of the accent, fading out. It gives the page a direction: light
+falling from a corner, a soft pool behind the title.
+
+```css
+--fin-wash:
+  radial-gradient(ellipse 120% 95% at 100% 0%,
+    color-mix(in srgb, var(--accent) 14%, transparent) 0%,
+    transparent 60%);
+```
+
+Two things carry the whole effect. **The alpha** — 14% here — decides
+whether this is atmosphere or a stain. Stay between about 5% and 16%. **The
+position** — `at 100% 0%` — puts it in the top-right corner; move it and
+the light moves.
+
+<CraftLab
+	label="Layer 1 — wash"
+	kind="css"
+	css={CSS_FINISH_WASH}
+	markdown={SLIDE_FINISH}
+	size="tall"
+	hint="Move the hotspot: try at 0% 100% for a glow from the bottom-left, or at 50% 50% for a centered pool. Then push the percentage up until it is clearly too much, so you know where the edge is."
+/>
+
+## 2 · Texture — the pattern
+
+Repeating lines, dots or hatching. Where a wash gives direction, a texture
+gives the page a surface — the difference between paper and glass.
+
+```css
+--fin-texture:
+  repeating-linear-gradient(0deg,
+    color-mix(in srgb, var(--text-heading) 6%, transparent) 0 1px,
+    transparent 1px 34px);
+```
+
+Read that as: a 1-pixel line, then 33 pixels of nothing, forever. Change
+`0deg` to `90deg` for verticals; declare both for a grid. Textures mix
+toward the ink color rather than the accent, because a colored pattern
+reads as decoration while a gray one reads as paper.
+
+Keep the alpha even lower than a wash — 4% to 8%. A texture covers the
+whole page, so it accumulates.
+
+## Stacking two layers
+
+Here is where the one real piece of bookkeeping lives.
+
+The wash and the texture share one CSS `background-image`, so they are one
+list, and **texture is listed first**. Three companion properties describe
+that list — size, position, repeat — and each needs **one entry per layer,
+in the same order**:
+
+```css
+--fin-size:     auto,   auto;
+--fin-position: center, 0% 100%;
+--fin-repeat:   repeat, no-repeat;
+/*              ^texture ^wash */
+```
+
+Get the counts out of step and the layers take each other's settings —
+which usually looks like a texture that has stopped repeating.
+
+<CraftLab
+	label="Layers 1 and 2 together"
+	kind="css"
+	css={CSS_FINISH_TWO_LAYERS}
+	markdown={SLIDE_FINISH}
+	size="tall"
+	hint="Change the texture's 0deg to 90deg for vertical rules. Then delete one entry from --fin-repeat and watch the wash start tiling — that is the counts falling out of step."
+/>
+
+## 3 · Mark — the emblem
+
+A single placed glyph: a monogram in the corner, a ghost numeral behind the
+heading, a small rule.
+
+```css
+--fin-mark-text: "";
+```
+
+**Default it to empty**, always. A deck-wide finish with `"ACME"` baked in
+is a finish only one organization can use. Leave it blank and let the
+author fill it in per slide when they want it:
+
+```css
+section.finish-myfinish { --fin-mark-text: "Q3"; }
+```
+
+## 4 · Edge — the boundary
+
+What happens at the rim of the page: a vignette darkening the corners, a
+rule down the left margin, a keyline frame all the way around.
+
+A full frame is drawn with stacked inset shadows through `--fin-frame`, not
+with a border and not with the section's own `::after` — that one is
+reserved for the page number, and a frame drawn there erases it.
+
+## Composing them
+
+A finish worth shipping has **a point of view** — one signature layer that
+makes it recognizable. `loom` weaves a lattice at 45 degrees. `savile` is a
+tailored pinstripe. `gallery` hangs a museum keyline.
+
+A wash of the accent, on its own, is not a finish. It is what every deck
+would look like if nobody had decided anything.
+
+## Next
+
+Everything above renders beautifully on screen. Making it survive a PDF is
+a separate problem: [Screen and print](/craft/finishes/screen-and-print/).

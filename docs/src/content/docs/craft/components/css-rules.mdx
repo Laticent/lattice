@@ -1,0 +1,129 @@
+---
+title: The three CSS rules
+description: Colors are tokens, space is padding and gap, and everything hangs off the stage cell — with the reason behind each.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { CSS_CUSTOM_COMPONENT, SLIDE_CUSTOM_COMPONENT } from '../../../../components/craft/samples.ts';
+
+Component CSS follows three rules. Each looks like a style preference and
+is actually load-bearing — break one and something downstream stops
+working, usually somewhere you were not looking.
+
+## 1. Every color is a token
+
+```css
+background: var(--bg-alt);        /* yes */
+background: #f4f4f4;              /* no  */
+```
+
+A hard-coded color is a color that does not change when the theme does. One
+hex in one component is all it takes for a deck to look right in the
+default palette and wrong in every other — and the failure is silent,
+because the slide still renders.
+
+This is why the whole engine is **palette-blind**: not one layout anywhere
+names a color. The build fails on a hex literal in layout CSS, with a small
+allowlist for the handful of genuinely fixed colors.
+
+You are not limited to plain tokens. Mixing is fine, as long as the input
+is a token:
+
+```css
+border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+```
+
+## 2. Space with `padding` and `gap`, never `margin`
+
+```css
+padding: var(--sp-md);            /* yes */
+gap: var(--sp-sm);                /* yes */
+margin: 12px;                     /* no  */
+margin-bottom: 1rem;              /* no  */
+```
+
+This one surprises people, so here is the actual reason.
+
+The engine **measures every slide** after rendering to find out whether the
+content overflowed the page — that is what produces the overflow warning
+when a slide has too much on it. The measurement reads each box's height.
+
+`margin` sits *outside* the box. It does not appear in the height, and
+adjacent margins collapse into each other in ways that are hard to predict.
+So a layout spaced with margins measures smaller than it draws, and the
+overflow check quietly under-reports. `padding` is inside the box and
+`gap` is a property of the container — both measure exactly.
+
+A bare `margin: 0` reset is fine; it adds no space. Everything else —
+lengths, `auto`, negatives — is out. If you find a case where nothing else
+works, that is a real conversation, not a silent exception.
+
+Use the spacing scale rather than pixels: `--sp-3xs` through `--sp-2xl`.
+Those scale with the page, so your layout survives a change of aspect ratio.
+
+## 3. Everything hangs off `.cell-stage`
+
+```css
+section.takeaway > .cell-stage { }              /* yes */
+section.takeaway > .cell-stage > ul > li { }    /* yes */
+section.takeaway { }                            /* no  */
+```
+
+The section is the whole page — header, footer, page number, backdrop and
+all. The stage is the part your content occupies. Style the section and you
+are reaching into chrome that belongs to the deck, not to your layout.
+
+The heading is not in the stage either. It has its own cell above, which
+the engine fills and styles for every component, so headings line up across
+a deck that mixes layouts.
+
+<CraftLab
+	label="All three rules, in twenty lines"
+	kind="css"
+	css={CSS_CUSTOM_COMPONENT}
+	markdown={SLIDE_CUSTOM_COMPONENT}
+	editMarkdown
+	size="tall"
+	hint="Try breaking rule 1: replace var(--accent) with #C0392B, then use the palette picker in the top bar. The tick stays red while everything around it moves. That is the failure mode, and it never throws an error."
+/>
+
+## A fourth thing, about specificity
+
+The engine scopes its own rules one step more specifically than the CSS you
+type into a lab here. So a rule that looks ignored is usually losing a tie
+rather than mis-typed. The fix is to write the component's class twice:
+
+```css
+section.takeaway.takeaway > .cell-stage > ul { list-style: none; }
+```
+
+That is doubled deliberately in the lab above, and the comment says so.
+
+**A shipped component does not need this.** Its file goes through the same
+scoping the engine's own rules do, so it competes on equal footing. Two
+places where doubling is genuinely needed in a real component: when your
+rule has to beat a base rule for the same element, and when you scope by
+slide shape:
+
+```css
+section.takeaway.takeaway:where([data-family="tall"], [data-family="strip"])
+  > .cell-stage > ul { /* … */ }
+```
+
+`:where()` adds no specificity at all — that is what it is for — so the
+class is doubled to make up the difference.
+
+## Do not wrap your file in `@layer`
+
+CSS layers change which rule wins in a way that ignores specificity
+entirely: an unlayered rule beats a layered one, whatever the selectors
+say. The engine's CSS is unlayered, so a component that wraps itself in a
+layer loses every contest it would otherwise win — silently, and everywhere
+at once.
+
+Match every other component: bare selectors, no wrapper.
+
+## Next
+
+How much content a layout can actually hold, and what to do when it runs
+out: [How much fits](/craft/components/capacity/).

@@ -1,0 +1,95 @@
+---
+title: Contrast and readability
+description: The two floors every theme has to clear, why one of them is not about text, and how to fix a value that fails.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { SLIDE_KPI, THEME_MINI } from '../../../../components/craft/samples.ts';
+
+Contrast is the difference in lightness between two colors, written as a
+ratio. Black on white is 21:1. Two shades of the same gray might be 1.4:1.
+Lattice holds every theme to two floors, and the difference between them is
+the single most useful thing on this page.
+
+## The two floors
+
+**4.5:1 for anything with words in it.** Body prose, headings, captions,
+page numbers, code comments, the label inside a chart segment. This is the
+WCAG AA standard, and it is not negotiable in a theme that ships.
+
+**3:1 for anything without words.** A rule between rows, the border of a
+diagram box, the tick marking an empty cell. These are shapes, not
+sentences; a reader has to *see* them, not read them.
+
+That is why the ink ramp has two bottom rungs that look almost the same.
+`--text-muted` is quiet text and takes the 4.5:1 floor. `--muted-mark` is
+decoration and takes 3:1. Use the wrong one and you get a caption that
+passes every automated check and is still too faint to read — because the
+check was never asked about that color.
+
+## Fix the color, not the standard
+
+When a value fails, there are two directions to move, and only one is
+right.
+
+**Right:** darken the ink, or lighten the surface. Hold the hue and the
+saturation and move only the lightness, so the color still belongs to your
+palette.
+
+**Wrong:** decide that this particular caption does not really need to be
+readable.
+
+The repo has a helper for the right move — `ensureContrast` in
+`lib/theme/color.js` walks a color's lightness until it clears a target
+while holding its hue and chroma. Reach for it rather than nudging hex
+digits by eye.
+
+## Try it
+
+The lab starts compliant. Break it and watch what actually happens on the
+slide — not in a report.
+
+<CraftLab
+	label="Push a color until it fails"
+	kind="theme"
+	css={THEME_MINI}
+	markdown={SLIDE_KPI}
+	size="tall"
+	hint="Lighten --text-body one step at a time: #1C2A3E, #55637A, #8A94A6, #B4BBC7. Somewhere in there it stops being quiet and starts being unreadable, and it happens sooner than the hex codes suggest. Then press Dark and check the same value on the other canvas."
+/>
+
+## Check both canvases, always
+
+A color that clears 4.5:1 on your light background can fail on the dark
+one, and vice versa. Every theme file that supports dark mode is really two
+palettes, and both have to hold. The Dark button in every lab on this site
+exists for this reason.
+
+## What the tooling checks
+
+You do not have to compute ratios by hand. Three things run over a palette:
+
+```bash
+node tools/contrast-audit.js      # every text token against its surface
+node tools/cvd-audit.js           # how the palette reads to color-blind viewers
+npm run build:check               # the gates, including the categorical contract
+```
+
+`build:check` is the one that blocks. It holds the ink-on-fill and
+mark-on-canvas floors across your whole categorical cycle, in both
+canvases, and it fails the build rather than warning.
+
+## The part no checker can see
+
+A ratio says a color is legible. It says nothing about whether the deck
+reads as one document. Two palettes can both clear every floor and only one
+of them looks like it was designed.
+
+That is why [Build your first theme](/craft/themes/first-theme/) ends by
+telling you to render the gallery and look at it. The checker catches what
+is wrong; you have to catch what is merely fine.
+
+## Next
+
+The trickiest colors in any theme are the ones a chart uses:
+[Colors for charts and diagrams](/craft/themes/categorical/).

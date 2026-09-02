@@ -1,0 +1,111 @@
+---
+title: Light and dark
+description: How one theme file dresses two decks, and why the dark variant is three lines long.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { SLIDE_CARDS, THEME_MINI, THEME_PAIRS } from '../../../../components/craft/samples.ts';
+
+A theme covers both canvases from one file. There is no second palette to
+maintain and no duplicated list of colors. The whole mechanism is one CSS
+function.
+
+## `light-dark()`
+
+Write each color as a pair — the light value first, the dark value second:
+
+```css
+--bg:          light-dark(#FBFCFE, #0C1119);
+--text-body:   light-dark(#1C2A3E, #D2DCEA);
+--accent:      light-dark(#2E5C8A, #7FB2E5);
+```
+
+The browser picks a side based on the canvas the slide is currently
+painting, at every place the color is used. Nothing in the engine
+intervenes: no plugin, no class switching, no second stylesheet. It is the
+browser's own mechanism, which is why it behaves identically in the
+command-line renderer, the Studio, and the editor preview.
+
+<CraftLab
+	label="One file, two canvases"
+	kind="theme"
+	css={THEME_PAIRS}
+	markdown={SLIDE_CARDS}
+	size="tall"
+	hint="Press Dark. Every color moves to the second half of its pair — and the file did not change. Then edit a dark value and press Dark again to see it land."
+/>
+
+## Which value wins
+
+The rule is per-token and mechanical:
+
+- **Light canvas** → the first value.
+- **Dark canvas** → the second value.
+
+So each token names both futures once, at the place it is defined, instead
+of being redefined somewhere else. Reading a theme file, you can see both
+canvases at the same time.
+
+## The dark variant file
+
+This is why `evergreen-dark.css` is three lines:
+
+```css
+/* @theme evergreen-dark */
+@import 'evergreen';
+:root { color-scheme: dark; }
+```
+
+It imports the palette you already wrote and flips one switch. Every
+`light-dark()` pair resolves to its second value, and you are done. There is
+no second set of colors to keep in step, which means there is no way for
+the two to drift apart.
+
+## How a deck picks a canvas
+
+Deck authors have five ways to get a dark deck, and it is worth knowing
+them so your theme is tested the way people will use it.
+
+| What the author wants | What they write |
+|---|---|
+| The whole deck dark | `color-mode: dark` |
+| The whole deck light | `color-mode: light` |
+| Follow the reader's system setting | `color-mode: system` |
+| Adopt the surrounding page's mode | `color-mode: inherited` |
+| One slide dark in a light deck | `<!-- _class: dark -->` on that slide |
+
+Picking `theme: evergreen-dark` also works and does the same thing as the
+first row.
+
+The default is light.
+
+## Getting the dark side right
+
+Three things that catch people out.
+
+**A dark canvas is not an inverted light one.** Pure white text on pure
+black is harsh at projector brightness. Pull both ends in: a near-black
+page, an off-white ink.
+
+**Accents usually have to get lighter.** A deep navy that sings on white
+disappears on near-black. The dark half of `--accent` is often a
+noticeably paler version of the same hue, not the same value.
+
+**`--on-accent` has to work on both.** It is the text placed on the accent
+fill, and since the accent itself flipped, the ink over it probably has to
+flip as well.
+
+<CraftLab
+	label="A single-canvas theme, in dark mode"
+	kind="theme"
+	css={THEME_MINI}
+	markdown={SLIDE_CARDS}
+	startMode="dark"
+	size="tall"
+	hint="This theme writes flat colors instead of pairs, so it has nothing to switch to. The canvas here is set to dark and the slide is still light — press Light and back and nothing moves at all. A theme without pairs has exactly one canvas, whatever the deck asks for."
+/>
+
+## Next
+
+You have all the pieces. Here is the list that says when it is finished:
+[Ship your theme](/craft/themes/checklist/).

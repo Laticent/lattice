@@ -1,0 +1,123 @@
+---
+title: Colors for charts and diagrams
+description: The twelve-slot categorical cycle, the three layers each slot has to satisfy, and why the colors swap places in dark mode.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { SLIDE_DIAGRAM, THEME_MINI } from '../../../../components/craft/samples.ts';
+
+A pie chart needs one color per slice. A flowchart needs one per stage. A
+timeline needs one per period. Lattice calls these **categorical colors**,
+and a theme supplies twelve of them.
+
+They are the hardest colors in a palette, because each one has to do three
+jobs at once.
+
+## Each slot is a pair
+
+A slot is not one color. It is two, and they are tiers of the **same hue**:
+
+```css
+--cat-1-fill: #BCD5EC;   /* the area: a pie slice, a node's inside */
+--cat-1-mark: #2E608A;   /* the edge: its border, a line, a dot */
+```
+
+The fill is pale. The mark is deep. Together they make a box that reads as
+one thing: a soft area with a definite edge.
+
+There is a third, generated value per slot — `--cat-1-ink` — for when that
+category has to appear as **small text on the slide** rather than as a
+shape. You do not pick these by hand; `node tools/derive-cat-ink.js`
+computes them from your marks and writes the block into your file.
+
+## The three layers
+
+Every slot has to satisfy all three at once, in **both** canvases.
+
+**① The edge reads against the page.** `--cat-N-mark` against `--bg`, at
+least 3:1. This is the layer that stops boxes from floating: without a
+definite border, a pale fill on a pale page has no shape.
+
+**② The fill is deliberately quiet.** `--cat-N-fill` against `--bg` is
+*intentionally* low contrast. It is not a failure, it is the design: the
+edge from layer ① is what defines the shape, so the fill is free to be a
+whisper. This is the one layer no checker measures, because "quiet enough"
+is a judgment.
+
+**③ The label reads on the fill.** Whatever text sits inside that pie slice
+uses `--cat-on-fill`, and it needs 4.5:1 against the fill it lands on.
+
+And one anti-rule: **fill and mark must not be the same color.** Set them
+equal and the box collapses into a flat blob with no edge. That was a real
+bug, and there is now a gate that fails the build for it.
+
+## The pairs swap in dark mode
+
+This is the part that surprises people.
+
+On a light page, the fill is the pale tier and the mark is the deep one. On
+a dark page **they trade places**: the fill becomes a jewel tone and the
+mark becomes a pale tint. Both tiers are written as a light/dark pair, so
+one line covers both:
+
+```css
+--cat-1-fill: light-dark(#BCD5EC, #006398);  /* pale ↔ jewel */
+--cat-1-mark: light-dark(#2E608A, #D4DFE8);  /* deep ↔ pale  */
+```
+
+Because the fill flips from pale to deep, **the label ink has to flip
+too**:
+
+```css
+--cat-on-fill: var(--text-heading);           /* flips with the canvas */
+--cat-on-mark: light-dark(#FFFFFF, #0A1628);  /* also flips */
+```
+
+Set `--cat-on-fill` to a fixed dark color and it works beautifully in light
+mode, then paints dark text on a dark jewel fill the moment someone opens
+the deck in dark mode. That is the single most common mistake in a new
+theme, and the build refuses it.
+
+<CraftLab
+	label="A diagram in your categorical colors"
+	kind="theme"
+	css={THEME_MINI}
+	markdown={SLIDE_DIAGRAM}
+	mermaid
+	size="tall"
+	startMode="light"
+	hint="This theme sets no --cat-* colors, so the diagram is wearing the engine's defaults. Press Dark and watch the boxes flip tiers — nothing in the markdown changed."
+/>
+
+Notice that the flowchart carries no styling instructions at all. The
+author wrote the shape; the theme supplied every color.
+
+## Author for six, not twelve
+
+Twelve slots exist so that a long timeline does not run out. They are not
+an invitation to use twelve.
+
+Past roughly six categories, people stop telling hues apart — this is a
+limit of perception, not of the palette, and no amount of care in choosing
+the colors gets around it. If you genuinely have more than six categories,
+the answer is not a thirteenth color. It is either fewer categories or a
+palette that separates by **pattern** instead of hue: `onyx`, `concrete`
+and the `a11y-*` family fill each category with a texture, and a theme opts
+in by declaring twelve `--cat-N-texture` tokens.
+
+## The shortcut you should take
+
+Do not invent twelve hues from nothing. `npm run new:theme` copies the
+default palette's categorical block, which already satisfies all three
+layers in both canvases — re-hue it toward your brand rather than starting
+from a blank list. Then run:
+
+```bash
+node tools/derive-cat-ink.js     # regenerate the twelve --cat-N-ink values
+npm run build:check              # the three-layer gate
+```
+
+## Next
+
+You have now seen `light-dark()` three times. Here is what it actually
+does: [Light and dark](/craft/themes/light-dark/).

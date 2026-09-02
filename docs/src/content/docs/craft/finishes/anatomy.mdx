@@ -1,0 +1,101 @@
+---
+title: Finish anatomy
+description: What a finish is, where it sits in the slide, and how it differs from a theme and from a mode.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { CSS_FINISH_WASH, SLIDE_FINISH } from '../../../../components/craft/samples.ts';
+
+A finish is **atmosphere behind the words**. A faint wash of the brand
+color in one corner. A grid so pale you notice it only when it is gone. A
+museum keyline around the page.
+
+It is the layer that makes a deck feel like a document rather than a
+sequence of slides — and the layer most likely to ruin one, because a
+finish that draws attention has stopped being a finish.
+
+## Try it
+
+<CraftLab
+	label="One finish, one layer"
+	kind="css"
+	css={CSS_FINISH_WASH}
+	markdown={SLIDE_FINISH}
+	size="tall"
+	hint="Change 14% to 40%. The wash stops being atmosphere and starts competing with the sentence. Somewhere around 5-16% is where finishes live."
+/>
+
+Notice the color: the wash never names one. It is a mix of `var(--accent)`
+— your theme's brand color — so the same finish recolors itself when the
+palette changes, and works on a dark canvas without a second version.
+
+## How an author turns one on
+
+One line in the deck's front matter:
+
+```yaml
+---
+theme: cuoio
+finish: atrium
+---
+```
+
+Ten values ship: `none` (the baseline), `atrium`, `meridian`, `strata`,
+`halo`, `ledger`, `nimbus`, `loom`, `savile`, `gallery`.
+
+A busy slide can opt out on its own: `<!-- _class: finish-none -->`.
+
+## Where it sits
+
+The engine adds a backdrop layer as the first thing inside every finished
+slide, and paints the finish there — **beneath** everything the author
+wrote. Your content is never touched, never tinted, never moved.
+
+```text
+┌─ section ──────────────────────────┐
+│  ┌─ .backdrop ────────────────┐    │  ← the finish paints here
+│  │  wash · texture · mark · edge│  │
+│  └────────────────────────────┘    │
+│  the heading, the words, the chart │  ← untouched, painted above
+└────────────────────────────────────┘
+```
+
+Four layer roles, always in that order. The next page takes them one at a
+time.
+
+## Three things it is not
+
+**Not a theme.** A theme sets the colors; a finish uses them. A finish that
+names a color of its own is broken by definition, because it will not follow
+the palette.
+
+**Not a component.** A component arranges the content. A finish never
+touches the content.
+
+**Not `mode:`.** That is the deck's typographic hand — `boardroom` (the
+default) or one of the hand-drawn `sketch` modes. It is a separate
+front-matter key and composes freely with a finish:
+
+```yaml
+mode: sketch
+finish: atrium
+```
+
+The two get confused because `sketch` used to be a `finish:` value. It
+moved. `finish:` is backdrops only.
+
+## What a finish is made of
+
+Pure CSS gradients, and nothing else. No images, no image masks — a finish
+is a handful of `linear-gradient` and `radial-gradient` values assigned to
+named slots.
+
+That constraint is not aesthetic. Gradients survive PDF export, scale to
+any page size, cost nothing to download, and — because they are built from
+`color-mix()` of your theme's tokens — recolor themselves for free. An
+image would fail all four.
+
+## Next
+
+The four layers, one at a time:
+[The four layers](/craft/finishes/layers/).

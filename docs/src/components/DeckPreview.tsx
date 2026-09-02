@@ -544,7 +544,12 @@ export function DeckPreview({
 		const host = stageRef.current as (HTMLElement & { __latticeCoalesce?: number }) | null;
 		if (host) host.__latticeCoalesce = coalesceRef.current || 1;
 		coalesceRef.current = 0;
-		engineRef.current?.prefetchTheme?.(paletteOverride, modeOverride);
+		// Skip the prefetch entirely when this host renders against a RAW in-memory theme:
+		// `extraTheme.name` is not a file under `themeBase`, so the warm-up fetch is a
+		// guaranteed 404. It is swallowed (prefetchTheme catches) and the render is
+		// unaffected — but every such host logged a console error per render, and the
+		// docs Craft track puts nineteen of them across one reading path.
+		if (!extraTheme) engineRef.current?.prefetchTheme?.(paletteOverride, modeOverride);
 		// NOTE (intentional, do NOT "fix" by hoisting whenReady out of the timed span):
 		// the scheduler's wall-clock heavy backstop times this whole thunk, so `whenReady()`
 		// is inside the measured span here — unlike the old inline loop, which timed only

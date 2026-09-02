@@ -1,0 +1,119 @@
+---
+title: Slots and the skeleton
+description: How plain markdown becomes the boxes your CSS styles, and the two conventions that carry almost every layout.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { CSS_CUSTOM_COMPONENT, SLIDE_CUSTOM_COMPONENT } from '../../../../components/craft/samples.ts';
+
+A component does not invent its own syntax. The author writes ordinary
+markdown — a heading, a list, a quote — and the component decides what each
+piece means.
+
+That mapping is the component's **slots**, and it is the contract between
+the person writing the deck and the person writing the CSS.
+
+## A slot is a name for a selector
+
+Here is a slot table from a real component:
+
+```jsonc
+"slots": {
+  "title":   { "selector": "h2",         "required": true,
+               "description": "Slide heading." },
+  "cards":   { "selector": "ul > li",    "required": true,
+               "description": "Each list item is one card." },
+  "insight": { "selector": "blockquote", "required": false,
+               "description": "Key-insight panel." }
+}
+```
+
+Three claims, and each is load-bearing:
+
+- The author's `h2` is the slide's title.
+- Each `li` is one card. Not "a bullet" — a card.
+- A blockquote, if there is one, is the insight panel.
+
+Write those down before writing CSS. They are what turns "some markdown"
+into "a layout with parts," and they are what the documentation, the
+editor's autocomplete and the deck linter are all generated from.
+
+## Two conventions carry most layouts
+
+Almost every component in the catalog uses one of two markdown shapes.
+
+**Flat list — one item per line.** Reasons, criteria, principles.
+
+```markdown
+- Price held flat for two years
+- Migration cost exceeds the saving
+```
+
+**Nested list — a title and its body.** Cards, KPI figures, stacked
+entries. The top bullet is the title; the nested bullet is the body.
+
+```markdown
+- Demand held
+  - Renewals closed at 94%, two points above plan.
+- Costs fell
+  - Hosting spend down 18% after the migration.
+```
+
+The nested form is the house style for anything card-shaped, and it is
+worth insisting on. The alternative people reach for —
+`- **Demand held.** Renewals closed at 94%` — puts the title inside the
+body's paragraph, so CSS can style the whole item but not the title on its
+own. The nested form gives the title its own element, which is what lets a
+card set it in a different size, weight or color.
+
+## The skeleton
+
+Every component ships a **skeleton**: the smallest slide that uses it,
+which is what an author gets when they insert the component from the
+editor.
+
+```markdown
+<!-- _class: takeaway -->
+
+## The recommendation, as a sentence.
+
+- The first reason
+- The second reason
+```
+
+Keep it minimal and keep it real. It is a starting point someone will edit,
+not a demonstration of everything the component can do — that is what the
+`sample` is for.
+
+## Try it
+
+Switch to the **Slide** tab and change the markdown. The CSS does not know
+how many reasons there are, so the layout absorbs whatever you write —
+which is the difference between describing a shape and drawing a picture.
+
+<CraftLab
+	label="Change the slide, not the CSS"
+	kind="css"
+	css={CSS_CUSTOM_COMPONENT}
+	markdown={SLIDE_CUSTOM_COMPONENT}
+	editMarkdown
+	size="tall"
+	hint="Add a fourth reason. Then a fifth, a sixth, a seventh. Somewhere the slide stops working — not because the CSS broke, but because the design has a limit. Naming that limit is what 'How much fits' is about."
+/>
+
+## What is not a slot
+
+Three parts of the slide are the engine's, and no component declares them:
+
+- **The heading.** It lives in the masthead cell, styled once for the whole
+  deck.
+- **The header, footer and page number.** Deck-level chrome.
+- **The backdrop.** That is the [finish](/craft/finishes/anatomy/).
+
+A component owns the stage and nothing else. That constraint is why sixty-one
+layouts can be mixed in one deck without any of them fighting.
+
+## Next
+
+Build one from an empty file:
+[Build your first component](/craft/components/first-component/).

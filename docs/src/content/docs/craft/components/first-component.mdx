@@ -1,0 +1,130 @@
+---
+title: Build your first component
+description: Scaffold, describe, style, preview — a new layout end to end.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { CSS_CUSTOM_COMPONENT, SLIDE_CUSTOM_COMPONENT } from '../../../../components/craft/samples.ts';
+
+We will build `takeaway`: a recommendation stated as a sentence, with the
+reasons under it. It does not ship, and nothing in the catalog quite does
+its job — a list is too plain, a card grid is too busy for three reasons.
+
+## 1. Answer the three questions
+
+Before any file exists:
+
+- **Function** — what does the audience leave knowing? A position and its
+  support. That is a **statement**.
+- **Form** — how is it laid out? One block, centered. That is a **canvas**.
+- **Substance** — what does the author write? A heading and a list. That is
+  **structure**.
+
+`statement.canvas` is a combination the system already sanctions, so
+nothing here is a new design decision. If your answer lands on a pair
+nobody uses, stop and reconsider — a genuinely new combination is a
+decision worth making deliberately rather than by accident.
+
+## 2. Scaffold
+
+```bash
+npm run new:component -- takeaway --bucket statement \
+  --function statement --form canvas --substance structure
+```
+
+The `--` matters. Without it npm swallows the flags and the tool has
+nothing to work with.
+
+You get two files:
+
+```text
+lib/components/statement/takeaway/
+  takeaway.manifest.json    ← the contract, with TODOs
+  takeaway.styles.css       ← an empty, palette-blind stub
+```
+
+## 3. Fill in the manifest
+
+The manifest is the source of truth. Everything else — the documentation
+page, the catalog entry, the editor's autocomplete, the gallery — is
+generated from it.
+
+```jsonc
+{
+  "name": "takeaway",
+  "function": "statement",
+  "form": "canvas",
+  "substance": "structure",
+  "description": "A recommendation stated as a sentence, with its reasons beneath.",
+  "tags": ["recommendation", "decision", "close"],
+  "capacity": { "axis": "reason", "sweet": 3, "soft": 4, "hard": 5,
+                "escalateTo": ["list-tabular"],
+                "note": "past five reasons it reads as a list, not a position" },
+  "slots": {
+    "title":   { "selector": "h2",      "required": true,
+                 "description": "The recommendation, as one sentence." },
+    "reasons": { "selector": "ul > li", "required": true,
+                 "description": "One reason per item." }
+  },
+  "skeleton": "<!-- _class: takeaway -->\n\n## The recommendation.\n\n- The first reason\n"
+}
+```
+
+Two fields hard-block the build if you leave them empty, and both are the
+build refusing to generate documentation nobody wrote: `tags` must have
+real entries, and every variant you declare needs a matching `variantDocs`
+entry. Tags must also say something the other fields do not — `["statement",
+"canvas"]` just repeats the axes.
+
+## 4. Write the CSS
+
+Three rules govern it, and they get [their own page](/craft/components/css-rules/).
+For now: colors are tokens, space is padding and gap, and every selector
+hangs off `> .cell-stage`.
+
+<CraftLab
+	label="takeaway.styles.css"
+	kind="css"
+	css={CSS_CUSTOM_COMPONENT}
+	markdown={SLIDE_CUSTOM_COMPONENT}
+	editMarkdown
+	size="tall"
+	hint="This is the whole component. Twenty-odd lines, no JavaScript. Try swapping --accent-soft for --bg-alt, or turning the flex column into a two-column grid."
+/>
+
+That is the finished layout. Most components are this size; the ones that
+are not are usually charts, which build an SVG and are a different kind of
+job.
+
+## 5. Preview it while you work
+
+Two ways, both faster than a full build:
+
+```bash
+npm run preview -- examples/takeaway.md   # render and diff a PNG
+npm run lint:deck -- examples/takeaway.md # check the deck against the catalog
+```
+
+## 6. Ship a demo deck
+
+Six to ten slides in `examples/takeaway.md`, with a rendered PDF beside it.
+This is not paperwork: it is the only artifact that shows the component
+under real content rather than lorem ipsum, and it is where you discover
+that four reasons fit and six do not.
+
+## 7. Build and check
+
+```bash
+npm run build         # regenerates the docs, the gallery, the catalog
+npm run build:check   # the gates
+npm test              # the unit suite
+```
+
+`npm run build` writes `takeaway.docs.md` and `takeaway.gallery.md` from
+your manifest. Never edit those by hand — edit the manifest and rebuild, or
+your changes vanish on the next build.
+
+## Next
+
+The three rules the CSS has to follow, and why each exists:
+[The three CSS rules](/craft/components/css-rules/).

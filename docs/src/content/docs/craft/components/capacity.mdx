@@ -1,0 +1,106 @@
+---
+title: How much fits
+description: Capacity, density, and the escalation target — the three numbers that stop a layout being used past the point where it works.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { CSS_CUSTOM_COMPONENT, SLIDE_CUSTOM_COMPONENT } from '../../../../components/craft/samples.ts';
+
+Every layout has a point where it stops working. A card grid reads at
+three; at eight it is a wall. Nothing in the CSS prevents the eighth card —
+it will render, it will just be bad.
+
+So each component declares its own limits, and the tooling holds authors to
+them.
+
+## Capacity — how many
+
+```jsonc
+"capacity": {
+  "axis": "reason",
+  "sweet": 3,
+  "soft": 4,
+  "hard": 5,
+  "escalateTo": ["list-tabular"],
+  "note": "past five reasons it reads as a list, not a position"
+}
+```
+
+- **axis** — what you are counting. Say `reason` or `card` or `column`,
+  something a person can point at on the slide. If you cannot count it in
+  your own sample, the axis is wrong.
+- **sweet** — where the layout is at its best.
+- **soft** — still fine.
+- **hard** — the ceiling. Past this the linter tells the author to move.
+- **escalateTo** — *which* component to move to. This is the field that
+  makes the limit useful rather than annoying: it turns "too many" into "use
+  `list-tabular` instead."
+
+Declaring a capacity means also shipping a `stressDoc` — a sample at the
+hard limit, so the ceiling is a thing someone rendered and looked at rather
+than a number someone guessed.
+
+## Density — how much per item
+
+```jsonc
+"density": { "axis": "reason", "soft": 15, "hard": 24,
+             "note": "aim for about fifteen words per reason" }
+```
+
+Capacity counts the items; density is how much fits inside one. Four cards
+of six words each and four cards of forty are different slides, and only
+one of them is readable from the back of a room.
+
+## Find the limits by rendering
+
+Do not guess these numbers. Add items until the slide stops working, and
+write down where that was.
+
+<CraftLab
+	label="Find the ceiling yourself"
+	kind="css"
+	css={CSS_CUSTOM_COMPONENT}
+	markdown={SLIDE_CUSTOM_COMPONENT}
+	editMarkdown
+	size="tall"
+	hint="On the Slide tab, keep adding reasons. Note the count where it first feels crowded — that is soft. Keep going until it is unusable — one before that is hard. Then double the length of each reason and watch the same slide fail at a lower count. That is why density is a separate number."
+/>
+
+## What happens when an author goes past
+
+Three things, escalating:
+
+1. **The deck linter warns**, naming the component you escalate to.
+2. **The engine measures the rendered slide** and flags a real overflow —
+   content that does not fit the page rather than content that merely reads
+   badly.
+3. **Nothing blocks the render.** The author is not stopped. They are told,
+   and given somewhere to go.
+
+That posture is deliberate throughout Lattice: warn, explain, suggest the
+fix. An author who has a reason to break a rule keeps their slide.
+
+## Reflow
+
+A component can also declare that it rearranges for narrow or square page
+shapes:
+
+```jsonc
+"adapt": { "mode": "reflow" }
+```
+
+Then scope the reflow rules by the slide's family:
+
+```css
+section.takeaway.takeaway:where([data-family="square"], [data-family="tall"], [data-family="strip"])
+  > .cell-stage > ul { /* one column instead of two */ }
+```
+
+The engine stamps `data-family` on the section from the deck's page shape.
+Wide is the default and carries no stamp, so name the shapes you are
+targeting and leave wide out.
+
+## Next
+
+The list that says a component is done:
+[Ship your component](/craft/components/checklist/).

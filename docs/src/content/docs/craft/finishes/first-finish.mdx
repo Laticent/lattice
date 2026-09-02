@@ -1,0 +1,120 @@
+---
+title: Build your first finish
+description: Register a name, write the preset, personalize the mark — a complete finish from scratch.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { CSS_FINISH_TWO_LAYERS, SLIDE_FINISH } from '../../../../components/craft/samples.ts';
+
+A finish is one name and one CSS block. Here is the whole job.
+
+## 1. Register the name
+
+Add a row to `FINISH_REGISTER` in `lib/core/resolve-finish.js`:
+
+```js
+const FINISH_REGISTER = Object.freeze({
+  none: '',
+  atrium: 'finish finish-atrium',
+  // …
+  quarry: 'finish finish-quarry',   // ← yours
+});
+```
+
+That one line does more than it looks like. `finish: quarry` starts
+working in front matter, the deck linter accepts it as a real value (and
+keeps flagging typos like `quary`), and the Studio's picker offers it.
+
+The register is deliberately open. Adding a finish is a row, not a change
+to the engine.
+
+## 2. Write the preset
+
+In `lib/base/base.finish.css`:
+
+```css
+section.finish-quarry {
+  /* every layer you use, and the -opaque twin of each */
+}
+```
+
+Two disciplines make the difference between a preset that works and one
+that mostly works.
+
+**Declare all four slot families**, even the ones you do not use — set them
+to `none`. A finish is a set of custom properties, and an undeclared one
+inherits, so an unset slot can pick up a stray layer from elsewhere. Saying
+`none` is saying *deliberately nothing*.
+
+**Write the `-opaque` twin of every full-bleed layer** as you write the
+layer, not afterwards. [Screen and print](/craft/finishes/screen-and-print/)
+explains why; doing it in the same edit is how you avoid discovering it
+after export.
+
+<CraftLab
+	label="A two-layer preset"
+	kind="css"
+	css={CSS_FINISH_TWO_LAYERS}
+	markdown={SLIDE_FINISH}
+	size="tall"
+	hint="This is a complete finish. Give it a point of view: change the texture to 45deg for a diagonal weave, or move the wash's hotspot to a corner and drop it to 8%."
+/>
+
+## 3. Keep it palette-blind
+
+Every color comes from a token:
+
+```css
+color-mix(in srgb, var(--accent) 12%, transparent)      /* screen */
+color-mix(in srgb, var(--accent) 12%, var(--fin-canvas)) /* export */
+color-mix(in srgb, var(--text-heading) 6%, transparent)  /* an ink pattern */
+```
+
+No hex. No `url()`. No `mask-image`. No `margin`.
+
+Get this right and your finish works in every palette that ships, in both
+canvases, for free. Get it wrong once and it works in exactly the palette
+you tested.
+
+## 4. Leave the mark empty
+
+```css
+--fin-mark-text: "";
+```
+
+A monogram baked into a shared finish makes it one organization's finish.
+Empty is the default; the author opts in per deck.
+
+## 5. Register the display metadata
+
+Add an entry to `docs/src/components/studio/finish-catalog.ts` — a label, a
+one-line blurb, a group and a swatch — so the Studio's picker can show it.
+A guard test fails if the catalog and the register disagree, which is what
+stops one from quietly rotting behind the other.
+
+## 6. Ship a demo deck and export it
+
+`examples/quarry.md`, six to ten slides, PDF committed. Include a title
+slide: that is where a finish written against the wrong canvas token shows
+its failure.
+
+Then export through both paths, in both canvases, and look at all four
+files. A finish changes exported bytes, so this is not optional and a
+screen preview does not substitute for it.
+
+## Trying one without registering it
+
+You can test a finish on a single slide before touching the register, by
+putting the class on the slide directly:
+
+```markdown
+<!-- _class: content finish-quarry -->
+```
+
+The engine treats any `finish-*` class as a finish and wires up the
+backdrop for it. That is exactly what the labs on these pages do — every
+one of them is an unregistered finish on one slide.
+
+## Next
+
+[Ship your finish](/craft/finishes/checklist/).

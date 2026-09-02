@@ -1,0 +1,119 @@
+---
+title: Build your first theme
+description: A blank file to a working palette, in the order that makes each decision easy.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { SLIDE_KPI, THEME_MINI } from '../../../../components/craft/samples.ts';
+
+Here is the whole job, in the order that works. Each step feeds the next,
+so doing them out of order means redoing them.
+
+## 0. Scaffold the file
+
+```bash
+npm run new:theme evergreen
+```
+
+This copies the default palette to `themes/evergreen.css`, rewrites the
+`@theme` line, and writes the three-line dark variant beside it. You now
+have a complete, working theme that happens to be the wrong colors — which
+is a much better place to start than an empty file.
+
+Render something with it right away, so you know the loop works:
+
+```bash
+node lattice-emulator.js examples/finish-backdrops.md /tmp/check.pdf -p evergreen
+```
+
+## 1. Pick the brand axis
+
+Before touching a token, choose **two to six anchor colors**. A deep one, a
+mid one, a bright one. Write them at the top of the file as plain notes:
+
+```css
+:root {
+  /* Brand axis — the source of every hue below */
+  --brand-canvas: #0B3A34;
+  --brand-accent: #0E8C7A;
+  --brand-bright: #17B89E;
+```
+
+These are not tokens the engine reads. They are your reference, so that
+every later value is derived from a decision you already made rather than
+picked one at a time.
+
+## 2. Surfaces
+
+Set `--bg`, `--bg-alt`, `--border`, `--surface-inverse`.
+
+Keep `--bg` and `--bg-alt` close. Tint them toward your brand hue by a
+degree or two — a warm brand wants warm paper — but stay pale. Everything
+else in the deck is judged against these two, so a saturated background
+poisons every decision downstream.
+
+## 3. The ink ramp
+
+Set the six ink tokens, loudest to quietest, and check each against the
+surface it lands on as you go. Write the ratio in a comment beside it:
+
+```css
+--text-heading:   #0A211D;   /* 17:1 on --bg */
+--text-body:      #1C2E2A;   /* 11:1 */
+--text-secondary: #3A4E49;   /*  7:1 */
+--text-muted:     #5A6A66;   /*  5:1 — still readable */
+--muted-mark:     #6B7B77;   /*  3:1 — decoration only */
+```
+
+The comments are not ceremony. Writing the number is what makes you
+actually check it.
+
+## 4. Accent
+
+Set `--accent`, then `--accent-soft`, then `--on-accent`.
+
+Do `--on-accent` last and by eye, on a real slide. It is the one value the
+engine cannot derive for you, because it depends on exactly how light or
+dark your accent turned out.
+
+## 5. Everything else
+
+Signals, code colors, chart colors, the categorical cycle. These are
+volume, not difficulty — and the scaffold has already given you a working
+set to re-hue rather than invent.
+
+The categorical cycle deserves its own read before you touch it:
+[Colors for charts and diagrams](/craft/themes/categorical/).
+
+## 6. Look at it
+
+Render the component gallery in your palette, in both canvases, and
+actually look at every page:
+
+```bash
+node lattice-emulator.js test/integration/baseline-decks/gallery.md \
+  /tmp/gallery.pdf -p evergreen
+```
+
+This is the step people skip, and it is the step that catches the things no
+checker can: a stroke so pale that diagram boxes float, a warn that reads
+as a second red, an accent that fights every photograph in the deck.
+
+## Practice run
+
+The lab below is the whole of step 2 through 4, on one slide. Work down the
+file in order and watch each decision land.
+
+<CraftLab
+	label="Steps 2 to 4, live"
+	kind="theme"
+	css={THEME_MINI}
+	markdown={SLIDE_KPI}
+	size="tall"
+	hint="Try it as a discipline: change --bg and --bg-alt first, then the whole ink ramp, then the accent. Doing it in that order once is worth reading this page twice."
+/>
+
+## Next
+
+Two of those steps had a number in them. Here is where the numbers come
+from: [Contrast and readability](/craft/themes/contrast/).
