@@ -131,6 +131,7 @@ it is load-bearing.
 
 ### Active — proposed · in-progress · blocked
 
+- ☐ [2026-09-02-nightly-liveness.md](2026-09-02-nightly-liveness.md) — A liveness alarm for the nightly family is worth having, but the two numbers the brief proposed for it are both wrong, and measuring them…
 - ◐ [2026-09-01-card-stack-vertical-alignment.md](2026-09-01-card-stack-vertical-alignment.md) — Design model for the vertical alignment of cards laid side by side — the holistic version of #1979/#1980/#1981, which are three symptoms of…
 - ☐ [2026-09-01-composition-is-an-engine-measure.md](2026-09-01-composition-is-an-engine-measure.md) — Card (2) of the #1966 spike: should the ENGINE measure composition at all?
 - ◐ [2026-09-01-orphaned-check-census.md](2026-09-01-orphaned-check-census.md) — Of five checks reported as wired to nothing, only two are actually unguarded.
