@@ -43,14 +43,20 @@ describe('split veto — a hoistable lede + note must not veto the split', () =>
     assert.ok(sections.length >= 3, `expected the one slide to split, got ${sections.length} section(s)`);
     const roles = sections.map((p) => (p.openTag.match(/\sdata-split-role="([^"]*)"/) || [])[1] || null);
     assert.equal(roles[0], 'cover', `the run must open with a cover — roles were ${JSON.stringify(roles)}`);
-    assert.ok(roles.slice(1).every((r) => r === 'body'), `the rest are body pages — ${JSON.stringify(roles)}`);
+    // cover → body(1…n) → closing. The trailing `closing` is not an exception to "the rest are
+    // body pages"; it is the run's ending, and this fixture earns one because it HAS a note —
+    // which is the very hoist the veto had to account for (2026-09-01).
+    assert.ok(roles.slice(1, -1).every((r) => r === 'body'), `the middle must be body pages — ${JSON.stringify(roles)}`);
+    assert.equal(roles.at(-1), 'closing', `a run with a trailing note ends on a closing page — ${JSON.stringify(roles)}`);
 
-    // The two hoists the veto has to account for, landing where §0a says: the lede on the COVER,
-    // the note on the LAST body page only.
+    // The two hoists the veto has to account for, landing where the envelope says: the lede on
+    // the COVER, the note on the CLOSING page (it rode the last BODY page until 2026-09-01).
     assert.match(sections[0].inner, /split-feat-lede/, 'the lede did not reach the cover');
-    const noted = sections.filter((p) => /lat-split-note/.test(p.inner));
+    const noted = sections.filter((p) => /\bbelow-note\b/.test(p.inner));
     assert.equal(noted.length, 1, 'the below-note must ride exactly one page');
-    assert.equal(noted[0].inner, sections.at(-1).inner, 'and that page is the LAST body page');
+    assert.equal(noted[0].inner, sections.at(-1).inner, 'and that page is the CLOSING page');
+    assert.ok(!sections.some((p) => /lat-split-note/.test(p.inner)),
+      'the compact marker is gone with the body page it was for');
 
     // Every checklist item survives the cut (§8 rule 6, at the render surface).
     const items = sections.reduce((n, p) => n + (p.inner.match(/<li\b/g) || []).length, 0);

@@ -1,10 +1,19 @@
 /**
  * THE FOOTER BAND's ALLOCATION POLICY, in the real cascade and real Chromium.
  *
- * The band is a shared, finite width with up to four marks in it, and for a long time nothing
+ * The band is a shared, finite width with up to THREE marks in it, and for a long time nothing
  * said who yields. Three attempts to arbitrate it at layout time failed, each by re-deriving a
- * plausible number that was not the truth. The policy is now an ORDER
+ * plausible number that was not the truth. The policy is an ORDER
  * (engineering/decisions/2026-07-27-footer-band-allocation.md):
+ *
+ * THREE, not four. The k-of-N split rail used to be a fourth mark competing here, and it was the
+ * worst of them — it grows with the run, so a long split pushed the author's words into an
+ * ellipsis on every page of it. It is not in this band any more: a split page carries no deck
+ * header, footer or section rail at all (2026-09-01-autosplit-splits-on-structure.md § "The
+ * chrome a split page carries"), so the rail shares its band with nothing but the page number and
+ * this suite's subject exists only on slides the splitter did not touch. That is also why the
+ * fixture is prose and atomic layouts: when splitting went structural every list slide in it
+ * split, lost its band, and the suite measured ZERO bands.
  *
  *   1. the page number   — never yields
  *   2. the dots          — never yield; bucketed to MAX_DOTS in progress.transform.js, so the
