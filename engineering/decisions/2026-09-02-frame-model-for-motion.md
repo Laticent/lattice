@@ -220,11 +220,25 @@ becomes unreadable. That is a design input: put the `cqi` sizing on the `<svg>` 
 viewBox in dot-units so the interior scales as the flex version did, and prove it with
 `npm run regress` before anything else lands.
 
-**The one real trade.** `gap: var(--sp-sm)` is a token resolved by CSS. Inside one SVG the gap
-becomes viewBox geometry and stops responding to that token — the rail composes from tokens via
-flexbox today and would compose from geometry instead. Small, but it is a genuine loss of token
-reach and should be chosen rather than discovered: either bake the ratio, or drive the SVG's width
-from the container and keep the interior proportional. **Open.**
+**The gap — SETTLED: today's spacing is the basis, and it transfers exactly.** The dots and the
+space between them are already measured against the same ruler, so there is no conversion and no
+judgment call:
+
+| | value |
+|---|---|
+| small dot | `0.85cqi` |
+| gap (`--sp-sm` = `calc(1.25 * 1cqi * var(--canvas-scale))`) | `1.25cqi` |
+| current pill | `2.6cqi` |
+
+The SVG's interior uses those same three numbers and its outer width is set in `cqi`, so
+`--canvas-scale` keeps applying exactly as it does now. That also hands the band-allocation policy
+its single number: at the full ten dots, nine small (7.65) plus one pill (2.6) plus nine gaps
+(11.25) is **21.5cqi** — one declared width instead of a sum that varies with section count.
+
+**The trade is smaller than an earlier draft of this section claimed.** It said the rail "loses
+token reach." What is actually lost is narrower: the value is inherited exactly, and the only thing
+given up is that a later edit to `--sp-sm` would no longer move the rail's internal gap. Minor, and
+worth stating accurately rather than dramatically.
 
 ## 11. Chrome targets that are already SVG
 

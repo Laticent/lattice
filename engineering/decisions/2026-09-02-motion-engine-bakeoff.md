@@ -52,7 +52,22 @@ companion:
 
 # The motion engine bake-off — measure the painter, not the timeline
 
-**Date:** 2026-09-02 · **Status:** findings settled; the engine pick is pending a human decision.
+**Date:** 2026-09-02 · **Status:** findings settled; the engine question is CLOSED — see the box below.
+
+> **CLOSED: no engine.** This note left the pick to a human. The frame model
+> (`2026-09-02-frame-model-for-motion.md`) then removed the question rather than answering it.
+>
+> An animation library does two jobs: work out what a thing should look like right now, and change
+> the picture to match. It is sold on the first. Under the frame model there is no first job — a
+> motion is a handful of pictures we draw on purpose, so "what does it look like now" is "show
+> picture 4". Nothing is being computed, so there is nothing to buy. The library's whole offer is to
+> invent the in-between pictures, and inventing them is what we are deliberately not doing.
+>
+> Two consequences worth stating. The invented pictures cannot be checked — they exist for a
+> fraction of a second and there are dozens of them; pictures we draw can be saved and compared
+> against last month's to catch a regression. And a library is third-party code carried forever.
+>
+> This reopens only if the frame model is abandoned for continuous, physics-style motion.
 
 > **Naming.** The library is renamed **Animals**. The 2026-07-17 ADR set "Anima" explicitly as a
 > naming call ("All three are naming calls (alternatives: `Moto`, `Diorama`)"), so this supersedes
