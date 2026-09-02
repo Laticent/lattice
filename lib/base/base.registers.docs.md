@@ -516,9 +516,14 @@ whatever the author asked for, in this order:
 
 The engine stamps the answer as `data-cards`, `base.tokens.css` turns that into
 `--cards-align`, and each card row reads it in **one** declaration. **No component encodes a
-default in CSS**, which is why opting a new component in is a manifest field rather than a
-stylesheet edit — and why a component that declares nothing is not governed at all: nothing
-is stamped and its stylesheet is untouched. The split-page
+default in CSS.**
+
+**To opt a new component in**, two things: add `"cards": { "default": … }` to its manifest,
+and make its card-row rule read `align-content: var(--cards-align)`. The field alone does
+nothing — the attribute lands and the variable is set, but a stylesheet that still hard-codes
+its own value ignores it — so a unit test fails any component that declares a composition its
+CSS never reads. A component that declares nothing is not governed at all: nothing is stamped
+and its stylesheet is untouched. The split-page
 rules override `align-content` outright at higher specificity, so a run's pages still look
 alike whatever the deck asked for. Wired today on `cards-grid` and `verdict-grid`; other
 card components still stretch until they opt in. See

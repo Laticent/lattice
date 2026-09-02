@@ -1503,7 +1503,8 @@ section.flat {
  * on the component and on the slide's shape, so nobody guesses: the COMPONENT declares its
  * default in its manifest (`cards`), the AUTHOR overrides it with `cards:` front matter or
  * a per-slide `_class: cards-*`, and the ENGINE resolves the two and stamps the answer as
- * `data-cards` (lib/core/resolve-cards.js). These four rules are the whole CSS side of it.
+ * `data-cards` (lib/core/resolve-cards.js). These eight rules are the whole CSS side of it —
+ * four for the resolved value, four for the coda arm below.
  *
  * NO `:root` DEFAULT, and no component-side fallback either. `--cards-align` is set here or
  * nowhere, so a card row reads it in ONE declaration — `align-content: var(--cards-align)`
@@ -1516,7 +1517,7 @@ section.flat {
  * it (48px becomes 239px centered, 431px topped). The engine cannot settle that on the
  * export path — the cell is built after the token stream — so the manifest's `withCoda`
  * value rides along as `data-cards-coda` and the shape test happens here, on the same
- * `:has(> .cell-coda)` condition coda.css already keys on. The VALUE is the manifest's;
+ * direct-child `.cell-coda` contract coda.js builds to (`lib/core/coda.js`). The VALUE is the manifest's;
  * only the test is CSS's.
  * See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §10. */
 section[data-cards="center"]  { --cards-align: center; }

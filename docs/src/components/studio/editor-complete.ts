@@ -39,7 +39,7 @@ const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'finish', info: 'Finish backdrop — e.g. atrium, halo, gallery.' },
 	{ key: 'finish-override', info: 'Override the applied finish — a nested map (backdrop: { strength, clearance }, wash, …).' },
 	{ key: 'lift', info: 'Card lift — the "Struck" shadow on card surfaces. on / off.' },
-	{ key: 'cards', info: 'Where a card row puts spare height — center (default) / stretch / top / spread.' },
+	{ key: 'cards', info: 'Where a card row puts spare height — center / stretch / top / spread. Omit it and the component decides.' },
 	{ key: 'corners', info: 'Slide surface corners — square (default) / rounded.' },
 	{ key: 'claim', info: 'How much frame the content sits inside — framed (default) / quiet / hero / bleed.' },
 	// Chrome

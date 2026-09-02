@@ -167,6 +167,32 @@ describe('resolve-cards', () => {
     assert.deepEqual(offenders, [], 'a component must declare its default in its manifest, not in CSS');
   });
 
+  // A component that DECLARES a composition but whose stylesheet never reads the token gets
+  // the attribute, sets the variable, and changes nothing — silently, past the schema, the
+  // catalog gate and every render test. That makes "opting a component in is a manifest
+  // field" false, which is a claim this branch makes in five places. So: every governed
+  // component must read `--cards-align` somewhere in its own stylesheet.
+  test('every component that declares a composition actually consumes it', () => {
+    const root = path.join(__dirname, '../../../lib/components');
+    const styles = {};
+    const walk = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) walk(full);
+        else if (e.name.endsWith('.styles.css')) {
+          styles[e.name.replace(/\.styles\.css$/, '')] = fs.readFileSync(full, 'utf8');
+        }
+      }
+    };
+    walk(root);
+    for (const name of Object.keys(CATALOG)) {
+      const css = styles[name];
+      assert.ok(css, `${name} declares a cards composition but has no stylesheet`);
+      assert.match(css.replace(/\/\*[\s\S]*?\*\//g, ' '), /align-content:\s*var\(\s*--cards-align\s*\)/,
+        `${name} declares a cards composition its CSS never reads — the declaration is a no-op`);
+    }
+  });
+
   test('base.tokens.css maps every value, and sets no :root default', () => {
     const css = read('lib/base/base.tokens.css');
     const bare = css.replace(/\/\*[\s\S]*?\*\//g, ' ');
@@ -187,5 +213,28 @@ describe('resolve-cards', () => {
       assert.match(src, /resolveCardsAlign\(/, `${p} must call the resolver`);
       assert.match(src, /data-cards/, `${p} must stamp the resolved value`);
     }
+  });
+
+  // REACHABILITY, which the text match above cannot see. Both paths once hung their stamp off
+  // a hook that skips the common case — the exporter off a deck-token pass that returns early
+  // when a deck contributes no tokens, the runtime off that AND off a family CHANGE, which
+  // never fires at `wide` because the attribute is removed rather than set. The result was that
+  // every wide section on a runtime-only surface (export-to-Marp, where Lattice's engine never
+  // runs) got no `data-cards` at all and an explicit `_class: cards-spread` was ignored.
+  // Neither is visible to a grep for the call, so pin the SHAPE that makes them reachable.
+  test('the exporter stamps from its own ruler, not the deck-token pass', () => {
+    const src = read('lib/integrations/markdown-it/plugins.js');
+    assert.match(src, /core\.ruler\.push\(\s*'cards_align_stamp'/,
+      'the stamp needs a rule of its own: the deck-token pass returns early on a deck with no tokens');
+  });
+
+  test('the runtime stamps unconditionally, not only when the family changes', () => {
+    const src = read('lib/runtime/index.js');
+    const fn = src.slice(src.indexOf('function stampOrientation'));
+    const body = fn.slice(0, fn.indexOf('\n  }\n'));
+    assert.match(body, /(^|\n)\s*stampCardsAlign\(s\);/,
+      'stampCardsAlign must run for every section, not behind a family-changed guard');
+    assert.doesNotMatch(body, /!==\s*\(before\s*\|\|\s*null\)\)\s*stampCardsAlign/,
+      'a family-change guard never fires at the wide family, where the attribute is removed');
   });
 });

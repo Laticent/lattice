@@ -215,8 +215,8 @@ section.cards-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  * The engine bakes that into cards-catalog.generated.js, resolves it against whatever the
  * author asked for, and stamps `data-cards`; the three container rules above read the
  * result in ONE declaration. Nothing about this component's composition lives in CSS any
- * more, which is why opting a fourth component in is a manifest field rather than a
- * stylesheet edit.
+ * more — a fourth component opts in with a manifest field plus that one declaration, and a
+ * unit test fails it if the declaration is missing, since the field alone would do nothing.
  *
  * WHY TALL AND STRIP DIFFER: there the cards go `width: 100%` (below), so the layout is a
  * single column down a long frame — no column gutter to match, no grid rhythm to keep, and

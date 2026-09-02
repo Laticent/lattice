@@ -954,6 +954,14 @@ is the one name that survives from §5b, with the same meaning.
 
 ### 10b · The mechanism, and why silence changes nothing
 
+> **SUPERSEDED BY §11.** This section describes the CSS-fallback mechanism that shipped
+> before the composition moved into the manifest. Three of its statements are false of the
+> tree today: a card row no longer reads `align-content: var(--cards-align, <its own
+> default>)` (there are no fallbacks — a unit test forbids them); `cards: center` no longer
+> stamps nothing (all four values stamp, and the default is the absence of the key); and
+> `cards-grid`'s family arm no longer carries a value in its fallback (it is a manifest
+> `byFamily` entry). Kept unedited because §11 is the record of what replaced it and why.
+
 A token, not a specificity fight. Each value sets `--cards-align` on the section, and a
 card row reads `align-content: var(--cards-align, <its own default>)`. Three consequences,
 all of them the reason this shape was chosen over a `section.cards-center .card-row { … }`
@@ -1061,8 +1069,10 @@ the runtime bundle cannot fs-load manifests*. `cards` now follows that road exac
 | the engine STAMPS | `plugins.js` and `runtime/index.js` → `data-cards` on the section |
 | CSS READS | `base.tokens.css` maps it to `--cards-align`; each row is `align-content: var(--cards-align)` |
 
-Eight scattered fallbacks became four base declarations and two manifest fields. A component
-that declares nothing resolves to null, is never stamped, and is untouched.
+Eight scattered fallbacks became eight base declarations — four for the resolved value, four
+for the coda arm — and two manifest fields. That is not fewer lines; it is the same rules in
+ONE place the engine can see, instead of spread across component stylesheets it cannot. A
+component that declares nothing resolves to null, is never stamped, and is untouched.
 
 ### 11b · What this forced, and it was a real bug
 
@@ -1088,6 +1098,42 @@ really are different, and now they differ in the direction that makes sense: omi
   family moves. Nothing else re-runs the deck-token pass on a resize, so without it a box
   dragged from wide to tall would keep the wide answer.
 
+### 11c-bis · The runtime had the SAME early-return bug, one layer down
+
+§11c above records the exporter's trap: the deck-token pass returns early when a deck
+contributes no tokens, so a stamp hung off it never fires on a deck whose front matter says
+nothing. **The runtime kept the broken shape, and a checker drove the surface that exposed
+it.** Two hooks, both of which skip the common case:
+
+- `applyCachedDeckClass` returns early for exactly the same reason as the exporter's pass;
+- the family hook fired only when `data-family` CHANGED — and at the wide family the
+  attribute is *removed*, so before and after are both null and the guard never fires.
+
+The consequence was a cross-surface divergence on a shipped path. On **export-to-Marp**,
+where `dist/lattice-runtime.js` is the only stamper because Lattice's engine never runs, a
+wide `cards-grid` got no `data-cards` at all: `--cards-align` unset, `align-content` computing
+`normal`, and an explicit `_class: cards-spread` silently ignored. Measured by stripping the
+engine's stamps from the HTML and letting only the runtime bundle run:
+
+```
+wide,  silent                 data-cards=null    align-content=normal
+wide,  _class: cards-spread   data-cards=null    align-content=normal
+square, silent                data-cards=center  align-content=center
+tall,   silent                data-cards=spread  align-content=space-evenly
+```
+
+The fix is to stamp unconditionally from `stampOrientation`, which runs for every section at
+bootstrap and on every geometry pass — the one hook nothing can skip. It is idempotent, so
+re-running costs nothing.
+
+**And the verification that missed it is worth recording.** The earlier "drove the shipped
+runtime in real Chromium" check fed the runtime HTML that the ENGINE had already stamped, so
+it proved the attribute existed without proving who put it there. Stripping `data-cards` from
+the input is what turns that harness into a test. Two of the three checks in the unit file
+were text matches against the call site, which cannot see reachability at all; the file now
+pins the SHAPE that makes each path reachable — the exporter's own ruler, and the runtime's
+unguarded call.
+
 ### 11d · The one thing still resolved in CSS, and why
 
 The CODA arm. Whether a slide ends in a key-insight panel is a DOM fact, and on the export path
@@ -1095,6 +1141,10 @@ the `.cell-coda` cell is built after the token stream — a token cannot see it.
 `withCoda` VALUE rides along as `data-cards-coda` and the shape TEST happens in CSS, under
 `:has(> .cell-coda)` — the same condition `coda.css` already keys on. The declaration is still
 the manifest's; only the question "does this slide have one?" is CSS's, which is the one thing
-CSS is better at than the token stream. The runtime, which can see the cell, resolves it
-directly and stamps the same two attributes, so a server-rendered section and a
-runtime-stamped one are identical.
+CSS is better at than the token stream.
+
+**The runtime deliberately does NOT resolve it directly, even though the browser could see the
+cell.** An earlier draft of this section said it did — it never has, and the docblock claiming
+so was corrected. Resolving the arm in one path and riding it along in the other would make
+the two disagree the moment a slide gained or lost a coda after stamping. Byte-identical
+output on both paths is the contract (#1), so the shape test stays in CSS for both.

@@ -16,12 +16,14 @@
   override, and an optional `withCoda` one; `tools/build-stage-catalog.js` bakes every
   declaration into `lib/core/cards-catalog.generated.js`, and `lib/core/resolve-cards.js`
   resolves it against the author's `cards:` / `_class: cards-*` and stamps `data-cards`.
-  Both render paths share that one kernel, so every surface answers identically.
+  Both render paths share that one kernel and stamp the same two attributes, so every surface
+  answers identically — including export-to-Marp, where the runtime bundle is the only stamper.
   - `cards-grid` declares `center`, `spread` at tall and strip (there it is a single column of
     full-width cards, not a grid), and `stretch` on a slide ending in a Key Insight coda
     (that panel's step is measured from the stage, so shrinking the cards would widen it).
     `verdict-grid` declares `center`, and `stretch` with a coda.
   - No component encodes a default in CSS any more — a card row reads
-    `align-content: var(--cards-align)` and nothing else, so opting a new component in is a
-    manifest field rather than a stylesheet edit. A component that declares nothing is not
-    governed: nothing is stamped and its stylesheet is untouched.
+    `align-content: var(--cards-align)` and nothing else. Opting a new component in is a
+    manifest field plus that one declaration; a unit test fails a component that declares a
+    composition its CSS never reads, so the opt-in cannot be a silent no-op. A component that
+    declares nothing is not governed: nothing is stamped and its stylesheet is untouched.
