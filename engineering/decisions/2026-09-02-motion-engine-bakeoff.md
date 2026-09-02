@@ -28,11 +28,15 @@ summary: >
   hand-rolled whichever engine wins. Recommendation: no engine for v1 (2.2 KB gzip total,
   including the scene layer), adopting anime.js's pathLength-normalization TECHNIQUE rather than
   the package. A SECOND round covered the three categories the first missed — supplied-format
-  players (Lottie, Rive), native SMIL, and SVG-native libraries. One addition survives: FLUBBER,
-  pure path interpolation whose output is byte-identical in bare node, jsdom and Chromium because
-  it never touches the DOM — adopt it as the lazily-loaded morph primitive, which also gives the
-  angle swapper a part-level morph that reads as rotation instead of the double-exposure crossfade
-  or a flip-book cut. Lottie scrubs and serializes but CRASHES in jsdom, costs 79 KB gzip, and is
+  players (Lottie, Rive), native SMIL, and SVG-native libraries. One addition survives, and it is a
+  PRIMITIVE rather than a package: PART-LEVEL MORPH. Because the angle SVGs carry identical part
+  ids, each part can morph to its counterpart in the next angle, which reads as rotation instead of
+  the double-exposure crossfade or a flip-book cut. Two packages supply it and the pick follows the
+  engine pick, not the other way round: flubber (pure `(t) => pathString`, byte-identical in bare
+  node, jsdom and Chromium, exact at both endpoints, 18,958 B, unmaintained since 2022) if v1 stays
+  engine-free; anime.js `morphTo` (14,523 B including the engine, maintained) if anime.js is adopted
+  for `createDrawable` too — but it SILENTLY no-ops in jsdom, the same criterion that decided GSAP,
+  and emits a 155-point polyline even at t=0 and t=1 instead of the author's exact `d`. Lottie scrubs and serializes but CRASHES in jsdom, costs 79 KB gzip, and is
   playback of After Effects output rather than choreography — reconsider it later as an import
   feature, never as the engine. SMIL scrubs natively for zero bytes but the animated value never
   reaches the serialized markup, so it cannot make a poster, and `<animate>` is already on the
@@ -260,7 +264,8 @@ exist, and each was measured rather than reasoned about.
 
 | Candidate | Category | License | Last publish | gzip | Verdict |
 |---|---|---|---|---|---|
-| **flubber** | pure path interpolation | MIT | 2022-06-18 | 18,950 B | **Adopt as the morph primitive** |
+| **flubber** | pure path interpolation | MIT | 2022-06-18 | 18,958 B | **Morph primitive — if v1 takes no engine** |
+| anime.js `morphTo` | morph inside a tween engine | MIT | 2026-08-17 | 14,523 B | **Morph primitive — if v1 takes anime.js** |
 | lottie-web | supplied vector-animation format | MIT | 2025-05-21 | 79,382 B | Out as an engine; possible import path |
 | `@lottiefiles/dotlottie-web` | same, WASM player | MIT | 2026-08-28 | — | Out — canvas, rasterizes |
 | `@rive-app/*` | runtime + SaaS editor | MIT | 2026-09-01 | — | Out — every renderer is canvas/WebGL |
@@ -270,19 +275,45 @@ exist, and each was measured rather than reasoned about.
 | `@theatre/core` | scrubbable sequencer | Apache-2.0 | **2024-05-19** | — | Out — 2+ years stale, the Vivus risk again |
 | popmotion · velocity · snap.svg | tween engines | MIT/Apache | 2022–2023 | — | Out — abandoned |
 
-**flubber is the one addition, and it is the best architectural fit measured so far.**
-`interpolate(pathA, pathB)` returns a pure `(t) => pathString`. It touches no DOM: output is
-byte-identical in bare node, in jsdom, and in Chromium, and it is deterministic at a repeated `t`.
-It is the only candidate in either round that is fully environment-independent, because it never
-looks at a rendered document. 18,950 B gzip is steep for one primitive, so it loads lazily behind
-the morph verb rather than sitting in the base painter.
+**Correction — anime.js `morphTo` was not tested before flubber was named, and it should have
+been.** It exists (`svg/morphto.js`), it works, and it is *cheaper*: 14,523 B gzip including the
+whole anime engine, against flubber's 18,958 B standalone. Rendered side by side over the same
+front → side lid at t = 0 / .25 / .5 / .75 / 1, the two are visually equivalent at slide scale;
+anime's corners read a touch softer because its output is a 155-point polyline under
+`stroke-linejoin: round`. **Morph quality does not separate them.** Three other things do:
 
-**It also changes the angle-swap answer.** §5 found the crossfade reads as a double exposure and
-recommended a hard cut. With part-level morphing there is a third and better option: because the
-angle SVGs carry **identical part ids**, each part can morph to its counterpart in the next angle.
-Rendered front → side for the lid, the chamfered corner grows in smoothly with straight edges and
-no wobble. That reads as a rotation rather than a dissolve or a flip-book, and it is the strongest
-form of the 360-swapper idea.
+| | anime.js `morphTo` | flubber |
+|---|---|---|
+| Shape | `FunctionValue` — needs the anime engine to tween it | pure `(t) => pathString` |
+| Morph target | must be a **mounted DOM element** | a path **string** |
+| Method | `getTotalLength` + `getPointAtLength` resampling | topology-aware interpolation |
+| **In jsdom** | **silent no-op** — `d` never changes, no error | ✓ works, byte-identical to Chromium |
+| At t=0 and t=1 | a 155-point polyline (2,804 / 2,932 chars) | the author's **exact** `d` (17 / 23 chars) |
+| gzip | **14,523 B** | 18,958 B |
+| Maintained | ✓ 2026-08-17 | ✗ 2022-06-18 (pure fn — low drift risk) |
+
+The jsdom row is the one that matters, because it is the same criterion that decided GSAP in §5:
+anime's `morphTo` reports success, leaves the `d` attribute untouched, and throws nothing. The
+endpoint row is a smaller but real cost against the poster contract — a morph-capable part would
+bake a 155-point polyline into the PDF instead of `M60 62h200v34H60z`, losing the author's geometry
+and inflating the poster. It is fixable with a two-line snap-to-exact guard at t ≤ 0 and t ≥ 1, so
+it is a caveat, not a disqualifier.
+
+**So the morph choice is downstream of the engine choice, and should not be stated on its own:**
+
+- **v1 = no engine → flubber.** Pure, headless, exact at the endpoints; it matches an architecture
+  whose whole test tier is jsdom and whose poster is a serialized SVG. Its 2022 staleness is
+  lower-risk than it looks: it is a pure function over path strings with no browser-API surface to
+  drift against — but it is unmaintained, and a bug in it is ours to fix.
+- **v1 = anime.js → use its `morphTo`.** Marginal cost is zero, it is maintained, and it is the
+  cheaper total. Accept that morph then has no headless test and add the endpoint snap.
+
+Either way, **flubber's real contribution to this note is not the package — it is the finding that
+part-level morph works at all.** Because the angle SVGs carry identical part ids, each part can
+morph to its counterpart in the next angle, and the front → side lid renders with the chamfer
+growing in on straight edges and no wobble. That reads as a rotation, which neither the
+double-exposure crossfade nor the flip-book cut does — and it is the strongest form of the
+360-swapper idea regardless of which package supplies the interpolation.
 
 **Lottie deserves its own line, because it is the obvious answer and it does not fit.** It is the
 industry format for *supplied* vector animation with large free asset libraries — squarely on the
@@ -301,7 +332,7 @@ the animated value never reaches the serialized markup (`inSerialized: false`; t
 `<animate>` is on the strip list in the untrusted-SVG parse, deliberately, as uncontrolled motion
 outside our timeline.
 
-**Revised recommendation.** Unchanged for v1 — no engine, 2,226 B gzip. The reserve slot changes:
-**flubber for morph** (pure, headless, exact), with **anime.js v4** kept only if we later want its
-`createDrawable` and motion-path helpers as a package rather than a technique. Round two did not
-turn up a better painter; it turned up the missing *primitive*.
+**Revised recommendation.** Unchanged for v1 — no engine, 2,226 B gzip. Morph is an **add-on
+whose package follows the engine pick**: flubber if v1 stays engine-free, anime.js `morphTo` if
+anime.js is adopted for `createDrawable` as well. Round two did not turn up a better painter; it
+turned up the missing *primitive*, and part-level morph is that primitive.
