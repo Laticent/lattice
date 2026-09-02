@@ -262,8 +262,9 @@ owe nothing here. See
   `docs/node_modules`. The SessionStart hook does install it separately
   (`.claude/hooks/session-start.sh:91`, step 4) — but best-effort and
   silenced, so a failed install still leaves you with no `astro`: run
-  `cd docs && npm install` by hand. That same gate is why a *stale* tree is
-  never repaired either — see "Docs build dies at config load" below.
+  `cd docs && npm install` by hand. That step was also, until 2026-09-02, gated
+  in a way that never repaired a *stale* tree — see "Docs build dies at config
+  load" below.
   (2) Even installed, the `dev`/`start`
   scripts chain `… && astro dev` and `astro` doesn't resolve on PATH in
   this sandbox's script shell.
@@ -304,22 +305,33 @@ owe nothing here. See
   (`.github/workflows/docs.yml:40`, `.github/workflows/docs-preview.yml:82`), so CI
   builds against the lockfile every time. Only a warm sandbox lives long enough to
   drift.
-- **Why the SessionStart hook doesn't repair it:** step 4 of
-  `.claude/hooks/session-start.sh:91` gates the docs install on the astro **binary
+- **Why the SessionStart hook used to miss it — fixed 2026-09-02:** step 4 of
+  `.claude/hooks/session-start.sh` gated the docs install on the astro **binary
   existing**:
 
   ```sh
   if [ ! -x "$CLAUDE_PROJECT_DIR/docs/node_modules/.bin/astro" ]; then
   ```
 
-  A stale tree has that bin (6.3.7 ships one), so the gate reads "already
-  installed" and skips. The gate distinguishes EMPTY from installed; it cannot
-  distinguish STALE from current — which is exactly this failure mode. The
-  skip is silent, so nothing in the session's startup output hints at it.
-- **Mitigation:** `cd docs && npm ci` — **32s measured**, then `npm run build`
-  completes in **18s (88 pages)**. Prefer `ci` over `install`: it deletes the tree
-  and materializes the lockfile exactly, which is what CI does and what makes a
-  local build comparable to CI at all. This is the unblock for any Studio or
+  Every astro version ships that bin (`./bin/astro.mjs`, confirmed on the registry
+  for 6.3.7), so on a stale tree the gate read "already installed" and skipped —
+  silently, on precisely the tree that needed repairing. It could tell EMPTY from
+  installed; it could never tell STALE from current. **That gate is now gone** and
+  the install runs unconditionally: measured at **~2.4s** when the tree is already
+  current and **~4s** when it is stale, in which case it heals the drift
+  (astro 6.3.7 → 7.2.10, verified). It runs with **`--no-save`**, which is
+  load-bearing rather than tidiness: a plain `npm install` rewrites
+  `docs/package-lock.json` even on a current tree (it re-derives `dev: true` on
+  optional platform packages), so without it every session would open with a dirty
+  lockfile. A session started after that change should not meet this failure at
+  all — what follows is the manual repair, for a container predating it or a drift
+  `npm install` cannot reconcile.
+- **Mitigation** (when you are already broken): `cd docs && npm ci` — **32s
+  measured**, then `npm run build` completes in **18s (88 pages)**. Prefer `ci`
+  here: it deletes the tree and materializes the lockfile exactly, which is what CI
+  does and what makes a local build comparable to CI at all. That is a different
+  job from the hook's `install --no-save` above, which reconciles a working tree
+  cheaply on every start; reach for `ci` when you want the tree CI would have. This is the unblock for any Studio or
   Playground check under HARD RULE #23 — the docs site builds and serves locally,
   it is not an environment limit.
 - **The whole verified round trip**, end to end on 2026-09-02, if you need to drive
@@ -338,12 +350,13 @@ owe nothing here. See
   the cwd — so a script in a scratch dir dies with `Cannot find package
   'playwright'` no matter where you run it from. Measured: `/playground/` loads with
   zero page errors and renders its 8-slide deck.
-- **Triggered by:** the first docs-site build in a warm container — so, every
-  session that reaches for the real Studio/Playground surface rather than a
-  stand-in.
-- **Removable when:** the hook's gate compares the INSTALLED astro version against
-  the range `docs/package.json` declares, instead of testing for the bin. Until
-  then a stale tree is repaired only by hand.
+- **Triggered by:** the first docs-site build in a warm container whose session
+  started before the hook was ungated.
+- **Removable when:** arguably already — the ungated hook should stop a tree going
+  stale unnoticed. Kept because the diagnosis is what makes the error message
+  readable if it ever resurfaces (a container predating the fix, or a drift
+  `npm install` will not reconcile), and because the build/serve/drive recipe
+  above stands on its own.
 
 ## `pkill -f astro` kills the shell that's launching astro
 

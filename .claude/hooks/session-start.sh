@@ -86,11 +86,29 @@ fi
 #    the root install above never touches it — yet any docs/src/** preview or
 #    screenshot needs it. Install best-effort so docs work is never blocked on a
 #    manual `cd docs && npm install` (the single most-rediscovered friction).
-#    GATED on the astro bin so a warm container (and every non-docs session)
-#    skips the heavy Astro/CodeMirror install. Non-fatal and quiet.
-if [ ! -x "$CLAUDE_PROJECT_DIR/docs/node_modules/.bin/astro" ]; then
-  ( cd "$CLAUDE_PROJECT_DIR/docs" && npm install --no-audit --no-fund ) >/dev/null 2>&1 || true
-fi
+#    Non-fatal and quiet.
+#
+#    DELIBERATELY UNGATED. This used to be wrapped in a test for the astro BIN
+#    existing, to spare a warm container the heavy Astro/CodeMirror install. That
+#    gate could tell an EMPTY tree from an installed one, but not a STALE tree
+#    from a current one — and a stale docs/node_modules is exactly what a warm
+#    container carries. The bin exists in every astro version, so the gate
+#    short-circuited on precisely the tree that needed repairing, silently, and
+#    the next `npm run build` died at config load blaming one package's missing
+#    export (see engineering/gotchas/docs-site.md, "Docs build dies at config
+#    load"). Measured cost of dropping it: ~2.4s when the tree is already current,
+#    ~4s when it is stale — in which case it heals the drift (astro 6.3.7 ->
+#    7.2.10, verified). That is what the gate was buying, against a silent dead end.
+#
+#    --no-save IS LOAD-BEARING, not tidiness. A plain `npm install` REWRITES
+#    docs/package-lock.json even when the tree is already current (measured: it
+#    re-derives `dev: true` on optional platform packages), so an unconditional
+#    install would hand every session a dirty lockfile before the first prompt —
+#    noise in `git status`, and a real chance of being swept into an unrelated
+#    commit. --no-save still reconciles node_modules against package.json, so it
+#    heals the drift; it just does not write the lockfile back. Verified: lockfile
+#    clean across repeated runs, stale tree still healed.
+( cd "$CLAUDE_PROJECT_DIR/docs" && npm install --no-save --no-audit --no-fund ) >/dev/null 2>&1 || true
 
 # 5. Point every session at the centralized standard-practice digest. The hook's
 #    stdout lands in the session's initial context, so this one line is what
