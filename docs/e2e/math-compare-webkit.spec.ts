@@ -118,10 +118,13 @@ type Dupe = { text: string; at: [number, number]; alsoAt: [number, number]; scor
  *     `TypeError: Load failed`. A synthetic "big" URL built by padding a small one is
  *     therefore measuring its own invalidity. (For scale, this slide's screenshot is
  *     87 KB — a 116 KB data URL, not a multi-megabyte one.)
- *   · A CSP meta set through `setContent` STICKS TO THE PAGE: a later `setContent`
- *     with a CSP-free document is still governed by it, and only a fresh page or
- *     context clears it. So an A/B that runs the no-CSP arm second on the same page
- *     reads as a failure with no policy in sight.
+ *   · `setContent` does not make a NEW DOCUMENT — it is `document.open/write/close` on
+ *     the existing one — so it cannot drop the previous content's CSP. Measured in both
+ *     engines: after a CSP document is replaced by a CSP-free one, `window.__marker`
+ *     survives and `document.querySelectorAll('meta[http-equiv]')` is EMPTY, and the
+ *     policy is still enforced. Any real navigation (`page.goto`) clears it; a fresh
+ *     page is not required. So an A/B whose no-CSP arm runs second on the same page
+ *     reads as a failure with no policy anywhere in sight.
  */
 async function h3sPaintedTwice(page: import('@playwright/test').Page, png: Buffer, h3s: H3Box[]): Promise<Dupe[]> {
 	return page.evaluate(async ({ b64, boxes }) => {

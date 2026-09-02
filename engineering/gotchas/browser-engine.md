@@ -259,10 +259,18 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
     "1.9 MB fails with no CSP" cell was measuring its own invalid input. Build a
     large payload with real bytes (`Buffer.alloc(n).toString('base64')`), never by
     repeating a character onto a padded string.
-  - **A CSP meta set through `setContent` STICKS TO THE PAGE.** A later
-    `setContent` carrying a CSP-free document is still governed by the earlier
-    policy; only a fresh page or context clears it. So an A/B whose no-CSP arm runs
-    second on the same page reports a failure with no policy anywhere in sight.
+  - **`setContent` cannot drop the previous content's CSP, because it does not make
+    a new document.** It is `document.open`/`write`/`close` on the existing one, so a
+    later `setContent` carrying a CSP-free document is still governed by the earlier
+    policy. The tell is unambiguous — measured in BOTH WebKit and Chromium, after the
+    replacement `window.__marker` survives and
+    `document.querySelectorAll('meta[http-equiv]')` returns **zero**, yet the fetch is
+    still refused: the meta is gone from the DOM and the policy is still in force,
+    because it is the same document throughout. **Any real navigation clears it** —
+    `page.goto('about:blank')` on the SAME page in the SAME context is enough; a fresh
+    page or context is not required (an earlier version of this entry said it was).
+    So an A/B whose no-CSP arm runs second on the same page reports a failure with no
+    policy anywhere in sight.
   For scale, the screenshot that started this is **87 KB** — a 116 KB data URL.
   The multi-megabyte premise was never even in play.
 - **Fix:** Do not load the bytes; hand them over. Pass base64 as a `page.evaluate`

@@ -338,24 +338,32 @@ doesn't vary with Node version; matrix-testing the slow tier is paranoia,
 not insurance. Only `integration` needs Chromium — `lint` and `unit` skip
 the download (~150 MB) since neither renders.
 
-**Every job carries a `timeout-minutes`.** GitHub's default is six hours and only
-`studio-smoke` had a cap. `npm ci` on node 24 wedged twice on 2026-09-02 — 42m23s on
-#2028's merge-queue run and 75m58s on a PR run — against 16 seconds on node 22; both
-were cancelled, so six hours is the ceiling an uncancelled wedge would reach rather
-than one this repo has paid. Caps: `changes` 5 · `lint` 10 · `unit` 15 ·
-`integration` 25 · `golden-diff` 25 · `docs-build` 20 · `studio-smoke` 15 · `ci` 5.
+**Every job carries a `timeout-minutes`.** GitHub's default is six hours and before
+this only `studio-smoke` had a cap. `npm ci` on node 24 wedges: **four times in the
+26 hours to 2026-09-02T14:21Z** — 75m58s, 42m23s (that one on #2028's merge-queue
+run), 29m11s and 11m04s — every one of them `unit (node 24)`, every one ending
+*cancelled* rather than finishing, against 16–19s for node 22 in those same runs. Six
+hours is the exposure an uncancelled wedge would reach, not a bill the repo has paid.
+Caps: `changes` 5 · `lint` 10 · `unit` 15 · `integration` 25 · `golden-diff` 25 ·
+`docs-build` 20 · `studio-smoke` 15 · `ci` 5.
 
-**Read the ratios, not the round number.** Measured across the last 100 completed
-`ci.yml` runs, cap-over-worst-observed spans **1.1x to 27x**, and the two ends are the
-interesting ones. `studio-smoke` is the thinnest in the file: its worst run took 829s
-and *passed*, 501s of which was the Playwright browser download — an unbounded external
-fetch against a ~40s norm — so it sits 71 seconds inside its cap, not nine minutes.
-`golden-diff` is input-dependent rather than slow-but-stable (p50 91s, p90 511s), since
-it rasterizes only the goldens a PR moved; a corpus-wide re-bless has no ceiling that
-sample can see. The full table lives in the `ci.yml` comment block. Being wrong high
-costs one slow run before a wedge is cut off; being wrong low reds a PR that would have
-passed. If a job outgrows its cap, raise the number and say what the new measured
-duration is — don't delete the line.
+**A cap is a ceiling, not a detector — and it does not catch every wedge.** 15m on
+`unit` catches three of those four; the 11m04s one finishes underneath it and still
+holds a runner. The wedge itself is unfixed and untracked.
+
+**Read the ratios, not the round number, and read the method with them.** The caps were
+set at ~3x off an initial *two-run* reading; the 100-run pull in the `ci.yml` comment
+block was a post-hoc check of that guess, which held everywhere except `studio-smoke`.
+Cap-over-worst-observed spans **1.1x to 27x**. `studio-smoke` is the thinnest: its worst
+run took 829s and *passed*, 501s of which was `npx playwright install --with-deps
+chromium` — a browser download plus an apt system-dependency install, both unbounded
+external fetches, against a median of 22s and a p90 of 35s over 176 samples. That left
+71 seconds of headroom, not nine minutes. `golden-diff` is input-dependent rather than
+slow-but-stable (p50 91s, p90 511s), since it rasterizes only the goldens a PR moved.
+Three things the table's `n` column hides and the comment block spells out: skipped jobs
+are dropped, cancelled jobs are counted at their truncated duration (which flatters every
+percentile), and the window is ~13 hours. If a job outgrows its cap, raise the number and
+say what the new measured duration is — don't delete the line.
 
 ## Integration test cache
 
