@@ -102,6 +102,16 @@ const SANCTIONED_CLIPS = [
   // it was genuinely blocked; #1209's split recipe (`roadmap-horizons`) closed it, so
   // the entry was DELETED rather than left to rot. The stale check below would have
   // failed the gate if it had not been — which is exactly the behavior the list is for.
+  //
+  // Portrait roadmap REOPENED at 75.4px on 2026-09-02 and was closed again the same day,
+  // without an entry. Worth knowing because the second cause had nothing to do with the
+  // first: #2016 made the split's forward-pointer signal universal and seats it INSIDE
+  // `.cell-stage`, and roadmap floored its chart-body at `min-height: 100%`, so the stage
+  // was already exactly full when the sibling arrived. Two rules each correct alone. The
+  // fix is `flex: 1 0 auto` on that body (roadmap.styles.css) — grow into the free space
+  // the signal did not take, never shrink, so `overflow-probe.js` still sees an
+  // overstuffed body. A sanction would have hidden a live regression in a shipped deck
+  // (`examples/portrait-roadmap.md`, 5 pages) behind a line saying "known".
 ];
 
 // The three supported deck shapes. `size:` is the front-matter key the emulator

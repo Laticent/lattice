@@ -676,20 +676,60 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
  * pin gives the body its NATURAL height, so an overstuffed chart makes the
  * BODY itself exceed the stage (`stage.scrollHeight > clientHeight`). Set
  * `flex: 1 1 0` and the body is exactly stage height, its overflow clipped
- * inside it, and `overflow-probe.js` goes blind — which would silently
- * disable this component's own pagination.
+ * inside it, and `overflow-probe.js` goes blind.
+ *
+ * WHAT BLINDING IT COSTS CHANGED WITH #2016, and this comment said the old thing
+ * until 2026-09-02: it used to read "would silently disable this component's own
+ * pagination", which was true while the probe WAS the split trigger. Since #2016
+ * the split fires on STRUCTURE (`auto-split.js` — "fit has NOT stopped being
+ * measured, it has stopped being a TRIGGER"), so a blinded probe no longer stops
+ * roadmap paginating. It costs the two things that still read it: the export's
+ * overflow ring, and the `overflow:check` corpus ratchet. Still worth preventing —
+ * a silent clip is exactly what this whole rule is about — but do not reason about
+ * a change here on the belief that pagination depends on it.
  *
  * So keep natural growth and add a FLOOR. `min-height: 100%` makes the body at
  * least the stage's height when content is smaller (the split case → it
  * fills), while `flex: 0 0 auto` still lets it grow PAST the stage when
- * content is larger (the overstuffed case → the probe still fires and the
- * split still triggers). One property, both behaviors, no pin to fight.
+ * content is larger (the overstuffed case → the probe still fires, and the page
+ * rings). One property, both behaviors, no pin to fight.
  *
- * Both directions are covered by tests: `check:chart-fit` renders the split
- * pages, and the carousel suite asserts an overstuffed roadmap still divides.
- * See #1209. */
+ * Both directions are covered, but MIND WHICH ONE ACTUALLY RUNS. `check:chart-fit`
+ * renders the split pages and is the sharpest check here — and it is wired to NO CI
+ * job (`grep -rn chart-fit .github/` is empty), so it only ever runs when somebody
+ * types it. The guard that runs unattended is `overflow:check` via
+ * `overflow-nightly.yml`: a regression of this rule pushes the corpus from 7 clipped
+ * slides to 12, because `examples/portrait-roadmap.md` clips five pages. The carousel
+ * suite asserts an overstuffed roadmap still divides. See #1209.
+ *
+ * THE FLOOR IS `flex-grow`, NOT `min-height: 100%` — changed 2026-09-02, and the
+ * difference is a sibling. #2016 made the split's forward-pointer signal
+ * (`.lat-split-rel`) universal: a component that declares no `capacity.relationship`
+ * now defaults to `sequence` instead of being skipped, and `injectTrailing` seats
+ * that signal INSIDE `.cell-stage` (split-envelope.js — the coda seat is only for a
+ * coda cell). Every roadmap body page but the last gained a 62.2px sibling, above a
+ * 13.2px `row-gap`, in a stage this rule had floored at exactly 100%. Measured:
+ * 801.25 + 13.16 + 62.2 = 876.6 in an 801px stage — the signal painted 75.4px past
+ * the clip on `[portrait]` and on five pages of `examples/portrait-roadmap.md`.
+ *
+ * `min-height: 100%` cannot be right once the stage holds two children: it asks for
+ * the WHOLE stage regardless of what else is in it. Subtracting a guessed band
+ * (`calc(100% - 75px)`) would be worse — the signal wraps to two lines in a narrow
+ * box, as its own `text-wrap: balance` comment records, so the band is not a
+ * constant.
+ *
+ * `flex: 1 0 auto` says the same thing declaratively and lets the layout measure it:
+ *   - grow 1  — take the FREE space, i.e. whatever the signal did not, so an
+ *               under-full split page still fills (what #1209 asked for);
+ *   - shrink 0 — never compress, so an overstuffed body still exceeds the stage and
+ *               `overflow-probe.js` still sees `scrollHeight > clientHeight`. This is
+ *               the half the comment above is about, and it is why `flex: 1 1 0` and
+ *               `flex: 1 1 auto` are both still wrong: either one shrinks to fit and
+ *               blinds the probe.
+ * Grow distributes only free space, so a wrapped two-line signal is accommodated
+ * without this rule knowing its height. */
 section.chart-frame.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) > .cell-stage > .chart-body {
-  min-height: 100%;
+  flex: 1 0 auto;
 }
 /* With the body floored, these can finally hand the height down: `1fr` rows
  * stretch the cards that remain on the page, and the card's own rows spread

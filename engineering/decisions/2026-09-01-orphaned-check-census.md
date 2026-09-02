@@ -28,7 +28,7 @@ is not a gate, and three of the five defects are already caught elsewhere:
 | check | script wired? | defect covered elsewhere? | runtime | verdict | deterministic? |
 |---|---|---|---|---|---|
 | `check:responsive` | no | **yes, fully** — `test/unit/tools/chart-responsiveness.test.js` | 0.3s | pass | yes |
-| `check:chart-fit` | no | **no** | 30s | **pass** (was: fail, 1 clip — fixed by #2030) | no — real Chromium |
+| `check:chart-fit` | no | **no** | 30s | **pass** — first green at #2032; NEVER green before it | no — real Chromium |
 | `equiv:check` | no | **yes, fully** — `test/unit/diagnostics/slice-equivalence-baseline.test.js` | 3s | pass | yes |
 | `oracle:check` | no | **yes** — `checkSplitOracle` in `check-ownership.js` | 0.3s | pass | yes |
 | `geometry:check` | no | **partly** — `checkSectionCqAnchoring` catches one of two causes | 2m08s | pass | no — real Chromium |
@@ -61,9 +61,19 @@ records a drift it caused). Nothing runs either one.
   `lib/core/overflow-probe.js` is structurally blind to it because the SVG crops before the
   DOM measures. **Was red when this note was written**, stably so — `[square]` slide 15
   (progress) painted 10.9px below the stage, cut silently because the stage is
-  `overflow: clip`. **That clip is now FIXED (#1920 / PR #2030)** and the gate exits 0
-  across all three sizes with no `SANCTIONED_CLIPS` entry, so the "handle the red first"
-  precondition below no longer applies.
+  `overflow: clip`. That clip was fixed by #1920 / PR #2030.
+  **CAUTION — this note asserted the gate was green, in THREE places, when it never was.** The line
+  above said so, the bullet you are reading said so, and the Recommendation said so —
+  all three added by #2030's commit, and all three already false the moment it merged.
+  #2016 landed **51 minutes earlier** and reopened the gate at a DIFFERENT site,
+  `roadmap` at portrait (+75.4px on two pages) and at strip (+80px), by seating the
+  split's new universal forward-pointer signal inside a stage `roadmap` had floored at
+  exactly 100%. **There was never a green window**: the gate went fail(progress) ->
+  fail(progress + roadmap) at 10:58 -> fail(roadmap) at 11:49 -> pass only at #2032.
+  Read no sequence into it that implies otherwise. Nothing caught the contradiction
+  because #2030's branch measured a tree without #2016 on it, and the gate this note is
+  about runs in no CI job — the swimlane's own thesis, demonstrated on this note. Closed
+  by #2032; the gate exits 0 across all three sizes with no `SANCTIONED_CLIPS` entry.
 - **`geometry:check`** renders five example decks and compares section padding box, stage
   height and overflow verdict across four viewport sizes and again with sections
   transform-scaled the way the filmstrip preview scales them. It catches a slide whose
@@ -100,9 +110,14 @@ verdict can move with the runner belongs off it. That leaves three options:
 | **C. Leave both on-demand, documented** | Nothing. | `check:chart-fit` stays red with nobody watching, which is where it has been. The known clip does not regress silently — but a SECOND clip would appear the same way, and nobody would know. |
 
 **Recommendation: A.** The "handle the red first" precondition this note originally carried
-is **discharged**: the 10.9px clip on `[square]` slide 15 was fixed in #1920 / PR #2030, so
-`check:chart-fit` now exits 0 and can be wired green with no `SANCTIONED_CLIPS` entry and no
-alarm on night one.
+is discharged **twice over**: #1920 / PR #2030 closed the `[square] progress` clip, and #2032
+closed the `[portrait] roadmap` clip that #2016 opened an hour later. `check:chart-fit` exits 0
+across all three sizes with no `SANCTIONED_CLIPS` entry.
+
+**Read the precondition as standing, not as spent.** It has now been discharged twice and
+falsified once in a single day, by a change that touched neither of the components involved.
+Re-run the gate against the tree you are actually about to wire, not against the tree the
+branch was cut from — this note was wrong on exactly that point for 51 minutes.
 
 One wiring detail this note did not anticipate, found while preparing the change: the job
 summary in `integration-nightly.yml` greps a FIXED list of failure markers, and neither new
