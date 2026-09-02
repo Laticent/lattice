@@ -128,3 +128,22 @@
   regenerated. The page counts roughly 1.7× across the family — `adaptive-sweep` 34 → 64,
   `split-envelope` 26 → 52, `adaptive-sizing` 8 → 25 — which is the change working, and worth
   seeing rather than inferring.
+- **Fixed: a split run deleted an author's own `<header>` / `<footer>`.** `stripDeckChrome`
+  removed them by TAG from every page of a run — but an author may write a literal `<footer>` in
+  markdown, and the engine hoists it into the very same `.cell-footer` as the deck's own, where
+  the two are siblings indistinguishable by tag, depth or position. So authored content vanished
+  from every page of a run while surviving on an unsplit slide. The deck's chrome is now
+  identified by its `header:` / `footer:` directive text, compared on visible text so a directive
+  holding markdown still matches.
+- **Fixed: `<!-- stress-slide -->` — the only per-slide opt-out — had never worked.** It is not a
+  Marp directive, so Marp consumes it as a SPEAKER NOTE and the comment never reaches the DOM; the
+  pattern tested the section's inner HTML for a comment that was never there. A 4-item `checklist`
+  marked as a specimen still split into a cover plus four pages. Dormant while the trigger was
+  measured (a specimen that fit was not split anyway), live the moment it became structural — and
+  53 files under `lib/components` mark a capacity-ceiling specimen this way, each one existing
+  precisely to show N members on ONE slide. Both the note form and the comment form now match.
+- **Fixed: the lone-bare-member treatment applied by halves.** Its two rules excluded nested
+  content with different combinators — a CHILD test on the list, a DESCENDANT test on the item —
+  so the ordinary linked-image idiom `[![icon](x)](url)`, which puts the `<img>` at depth two, lost
+  its marker without gaining its type step. The comment above them asserted the two tested the same
+  thing. They now do, and `test/unit/css/lone-member-selector-parity.test.js` fails if they drift.

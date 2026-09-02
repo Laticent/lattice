@@ -2636,7 +2636,18 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
    CSS on a webview claim that was retested and did not hold; the rule was retired in place on
    2026-07-10 and this is the shape it was blocking.)
 
-   THE TWO SELECTORS TEST THE SAME THING IN TWO SHAPES, and the difference is not cosmetic.
+   THE TWO SELECTORS MUST TEST THE SAME THING IN TWO SHAPES, and keeping them in step is not
+   cosmetic. The `ul` test first hoisted its exclusion as `:not(:has(> li > :is(…)))` — a CHILD
+   combinator — while the `li` test uses `:not(:has(ul, ol, …))`, a DESCENDANT. They agree on a
+   block that is a direct child of the member and disagree on anything deeper, which the ordinary
+   linked-image idiom `[![icon](x.png)](url)` produces: the `<img>` sits inside the `<a>`, at depth
+   two. Measured on a real render, such a member got the marker dropped and the indent reclaimed
+   (the `ul` rule matched) but NOT the type step (the `li` rule did not) — a half-applied treatment
+   leaving a body-size fragment adrift in a page-tall box, which is defect three in the list above.
+   Found by the HARD RULE #25 red team. Both are descendant tests now; a change to one is a change
+   to the other, and `test/unit/css/lone-member-selector-parity.test.js` fails if they drift.
+
+   The rest of this note is why the two are written differently AT ALL:
    `:has()` MAY NOT NEST INSIDE `:has()` — the relational pseudo-class is forbidden inside its
    own argument, so a browser rejects the whole selector and drops the rule with no error
    anywhere. The first draft wrote the `ul` test as `:has(> li:only-child:not(:has(…)))`, which
@@ -2646,7 +2657,7 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
    page: `list-style-type: disc`, `padding-inline-start: 52.65px`, with `font-size` already at
    68.04px against a 46.98px body. So the `ul` test hoists the exclusion out to its own
    top-level `:not(:has(> li > …))`, which reads the same members and parses. */
-section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol):has(> li:only-child):not(:has(> li > :is(ul, ol, dl, table, blockquote, figure, img, pre, h3, h4, h5, h6))) {
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol):has(> li:only-child):not(:has(> li :is(ul, ol, dl, table, blockquote, figure, img, pre, h3, h4, h5, h6))) {
   list-style: none;
   padding-inline-start: 0;
 }
