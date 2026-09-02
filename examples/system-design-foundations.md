@@ -1271,7 +1271,7 @@ flowchart TB
   subgraph b["Route by content"]
     direction LR
     B1["L7 balancer"] -->|"/api"| B2["Service"] --> B4[("Database")]
-    B1 -->|"/media"| B5["CDN"] --> B3[("Bucket")]
+    B1 -->|"/media"| B5["Media service"] --> B3[("Bucket")]
   end
   subgraph a["Cache at the edge"]
     direction LR
@@ -1723,7 +1723,8 @@ flowchart TB
   end
   subgraph d["A reply is input too"]
     direction LR
-    D1["Service"] -->|"signed request"| D2["Third party"] -->|"reply, untrusted"| D3["Service validates<br/>before use"]
+    D1["Service<br/>validates the reply"] -->|"signed request"| D2["Third party"]
+    D2 -.->|"reply, untrusted"| D1
   end
   subgraph c["Private bytes need a signed link"]
     direction LR
@@ -2093,7 +2094,7 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 - One strategy for everyone
   - Simple to explain, guaranteed to fail at one end. Push drowns on celebrities; pull costs hundreds of reads per page for everyone else.
 - Split at the threshold
-  - Push from ordinary accounts, pull from high-follower accounts, merge the two at read time. Ordinary posts land in a page that is already built; the celebrities she follows are fetched on demand and merged in, so no writer ever fans out to millions. The read costs one lookup plus a handful of fetches, and each strategy runs where its cost curve is the lower one.
+  - Push from ordinary accounts, pull from high-follower accounts, merge the two at read time. Ordinary posts land in a page that is already built; the celebrities she follows are fetched on demand and merged in, so no writer ever fans out to millions. The read costs one lookup plus ten to thirty fetches, and each strategy runs where its cost curve is the lower one.
 
 > The threshold is not a preference. It is where two cost curves cross, and the graph draws it.
 
