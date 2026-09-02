@@ -1,0 +1,156 @@
+---
+title: Build your first component
+description: Scaffold, describe, style, preview — a new layout end to end.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { CSS_COMPONENT_STUB, SLIDE_CUSTOM_COMPONENT } from '../../../../components/craft/samples.ts';
+
+We will build `takeaway`: a recommendation stated as a sentence, with the
+reasons under it. It does not ship, and nothing in the catalog quite does
+its job — a list is too plain, a card grid is too busy for three reasons.
+
+## 1. Answer the three questions
+
+Before any file exists:
+
+- **Function** — what does the audience leave knowing? A position and its
+  support. That is a **statement**.
+- **Form** — how is it laid out? One block, centered. That is a **canvas**.
+- **Substance** — what does the author write? A heading and a list. That is
+  **structure**.
+
+`statement.canvas` is a combination the system already sanctions, so
+nothing here is a new design decision. If your answer lands on a pair
+nobody uses, stop: a genuinely new combination is a decision to make
+deliberately, not one to arrive at by accident.
+
+## 2. Scaffold
+
+```bash
+npm run new:component -- takeaway --bucket statement \
+  --function statement --form canvas --substance structure
+```
+
+The `--` matters. Without it npm swallows the flags and the tool has
+nothing to work with.
+
+You get two files:
+
+```text
+lib/components/statement/takeaway/
+  takeaway.manifest.json    ← the contract, with TODOs
+  takeaway.styles.css       ← a header comment and one empty rule
+```
+
+## 3. Fill in the manifest
+
+The manifest is the source of truth. Everything else — the documentation
+page, the catalog entry, the editor's autocomplete, the gallery — is
+generated from it.
+
+```jsonc
+{
+  "name": "takeaway",
+  "function": "statement",
+  "form": "canvas",
+  "substance": "structure",
+  "description": "A recommendation stated as a sentence, with its reasons beneath.",
+  "tags": ["recommendation", "positioning", "board-deck"],
+  "capacity": { "axis": "item", "sweet": 3, "soft": 4, "hard": 5,
+                "escalateTo": ["list-tabular"],
+                "note": "past five reasons it reads as a list, not a position" },
+  "stressDoc": {
+    "summary": "five reasons at the density ceiling",
+    "sample": "<!-- _class: takeaway -->\n\n## …the slide at its hard limit…\n"
+  },
+  "slots": {
+    "title":   { "selector": "h2",      "required": true,
+                 "description": "The recommendation, as one sentence." },
+    "reasons": { "selector": "ul > li", "required": true,
+                 "description": "One reason per item." }
+  },
+  "skeleton": "<!-- _class: takeaway -->\n\n## The recommendation.\n\n- The first reason\n"
+}
+```
+
+Three things here fail the build, and each one is the build refusing to
+generate documentation nobody wrote.
+
+**`tags` come from a fixed vocabulary.** Three to five terms, each drawn from
+`TAG_GROUPS` in `lib/components/index.js` — sixty terms in four groups —
+and each has to be one at least one other component also uses. Invented
+words are rejected, and so is a term that says what the axes already said:
+`["statement", "canvas"]` just repeats them.
+
+**Declaring `capacity` obliges a `stressDoc`.** The numbers only mean
+something if someone rendered the slide at the ceiling and looked at it, so
+the manifest carries that slide. Leave it out and validation names it.
+
+**Every variant you declare needs a matching `variantDocs` entry.**
+
+## 4. Write the CSS
+
+Three rules govern it, and they get [their own page](/craft/components/css-rules/).
+For now: colors are tokens, space is padding and gap, and every selector
+hangs off `> .cell-stage`.
+
+The lab below opens on the scaffold's stub exactly as it is written to disk:
+a header comment and one empty rule. Note where that rule is anchored —
+`section.takeaway`, the whole page. Moving it to `> .cell-stage` is step one,
+and it is rule 3 of the next page doing real work rather than being asserted.
+
+<CraftLab
+	label="takeaway.styles.css — build it"
+	kind="css"
+	css={CSS_COMPONENT_STUB}
+	markdown={SLIDE_CUSTOM_COMPONENT}
+	editMarkdown
+	size="tall"
+	hint="Five steps, one at a time. 1) Change the selector to section.takeaway > .cell-stage — nothing moves yet, but every rule after this one lands on your content instead of the whole page. 2) Add display: flex; flex-direction: column; justify-content: center; — the reasons move to the middle. 3) padding: var(--sp-lg); background: var(--accent-soft); border-radius: var(--radius-md); — the panel appears. 4) A second rule for the list: section.takeaway.takeaway > .cell-stage > ul { display: flex; flex-direction: column; gap: var(--sp-sm); list-style: none; padding: 0; } — the bullets go and the reasons separate. Note the class twice, or the engine wins. 5) A third for the ticks: section.takeaway.takeaway > .cell-stage > ul > li { padding-left: var(--sp-md); border-left: 4px solid var(--accent); }"
+/>
+
+That is the whole component: about twenty lines, no JavaScript. Most
+components are about this size. The ones that are not are usually charts,
+which build an SVG and are a different kind of job.
+
+## 5. Preview it while you work
+
+Two ways, both faster than a full build:
+
+```bash
+npm run preview -- examples/takeaway.md   # render and diff a PNG
+npm run lint:deck -- examples/takeaway.md # check the deck against the catalog
+```
+
+## 6. Ship a demo deck
+
+Six to ten slides in `examples/takeaway.md`, with a rendered PDF beside it.
+It is the only artifact that shows the component under real content rather
+than placeholder text, and it is where you find out that four reasons fit
+and six do not.
+
+## 7. Build and check
+
+```bash
+npm run build         # regenerates the docs, the gallery, the catalog
+npm run build:check   # the gates
+npm test              # the unit suite
+```
+
+**Some of those tests are meant to fail, and the scaffold told you which.**
+A new component is a deliberate change to the catalog, so a few tests
+enumerate what ships and fail until you say the new layout belongs. The one
+you will always hit is `test/unit/forms/stage-catalog.test.js` — add
+`takeaway` to the list matching your manifest's `stage`. Run `npm test` on a
+half-filled manifest and you will get far more than that; fill the manifest
+in first, then read what is left.
+
+`npm run build` writes `takeaway.docs.md` and `takeaway.gallery.md` from
+your manifest. Never edit those by hand — edit the manifest and rebuild, or
+your changes vanish on the next build.
+
+## Next
+
+The three rules the CSS has to follow, and why each exists:
+[The three CSS rules](/craft/components/css-rules/).

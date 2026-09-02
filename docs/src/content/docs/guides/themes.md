@@ -50,9 +50,14 @@ tokens, light or dark.
 A palette is a pure token-declaration job — no per-palette layout CSS.
 Copy `themes/indaco.css` to `themes/<name>.css`, change the `@theme`
 directive, and edit the tokens. Layouts that rely on a missing token
-fall back to unstyled rendering, which makes gaps easy to spot during
+fall back to the engine's defaults, which makes gaps easy to spot during
 development. Diagram theming comes for free: palette-blind per-diagram
 Mermaid overrides live in the engine and resolve against your tokens.
+
+**The Craft track teaches this end to end, with a live editor on every
+page** — what each color paints, both contrast floors, the categorical
+cycle, and light/dark from one file. Start at
+[Theme anatomy](/craft/themes/anatomy/).
 
 See [`design/theming.md`](https://github.com/slidewright/lattice/blob/main/design/theming.md)
 in the repository for the full token reference and the Mermaid contract.

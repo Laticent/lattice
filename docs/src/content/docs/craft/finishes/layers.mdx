@@ -1,0 +1,163 @@
+---
+title: The four layers
+description: Wash, texture, mark and edge — what each does, when to use it, and how they stack.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { CSS_FINISH_TWO_LAYERS, CSS_FINISH_WASH, SLIDE_FINISH } from '../../../../components/craft/samples.ts';
+
+A finish is a stack of up to four layers. Each has a job, a slot name, and
+a fixed place in the pile.
+
+| Layer | What it is | Examples |
+|---|---|---|
+| **1 · Wash**<br/>`--fin-wash` | an ambient field of color | corner glow, spotlight, mesh, duotone |
+| **2 · Texture**<br/>`--fin-texture` | a repeating pattern | grid, dots, hatch, ruled, pinstripe, lattice |
+| **3 · Mark**<br/>`--fin-mark` | a placed emblem | monogram, rings, a ghost numeral |
+| **4 · Edge**<br/>`--fin-edge` | the boundary | vignette, margin rule, fold, keyline frame |
+
+Content sits above all four, always.
+
+You do not need all of them. No shipped finish uses four: four of them use
+two layer families, four use three, and `savile` gets by on one. `atrium`, the quietest, is a corner glow, a dissolving grid and a
+left margin rule, and most people cannot describe it after looking at a deck
+that uses it. That is the effect working.
+
+## 1 · Wash — the color field
+
+A gradient of the accent, fading out. It gives the page a direction: light
+falling from a corner, a soft pool behind the title.
+
+```css
+--fin-wash:
+  radial-gradient(ellipse 120% 95% at 100% 0%,
+    color-mix(in srgb, var(--accent) 14%, transparent) 0%,
+    transparent 60%);
+```
+
+Two numbers carry the whole effect. **The percentage** — 14% here — is how
+much of the accent shows through, and it decides whether this is atmosphere
+or a stain; across the whole page, stay between about 5% and 16%. **The
+position** — `at 100% 0%` — puts the bright point in the top-right corner.
+Move it and the light moves.
+
+That band is about how much of the page a color covers, not about the
+number itself. A layer confined to a narrow band can go far higher without
+competing with the words: `strata` opens its wash on bare `var(--accent)`
+at the left edge before falling away, and `ledger` paints a solid accent bar
+about fourteen pixels wide down one side. The rule is *quiet across the
+field*, not *quiet everywhere*.
+
+<CraftLab
+	label="Layer 1 — wash"
+	kind="css"
+	css={CSS_FINISH_WASH}
+	markdown={SLIDE_FINISH}
+	size="tall"
+	hint="Edit the top gradient only — the -opaque twin below it is the export face and is invisible here. Move its bright point: at 0% 100% for a glow from the bottom-left, at 50% 50% for a centered pool. Then push its 14% up until it is clearly too much."
+/>
+
+## 2 · Texture — the pattern
+
+Repeating lines, dots or hatching. A wash gives the page a direction; a
+texture gives it a grain, the way laid paper has one and a screen does
+not.
+
+```css
+--fin-texture:
+  repeating-linear-gradient(0deg,
+    color-mix(in srgb, var(--text-heading) 6%, transparent) 0 1px,
+    transparent 1px 34px);
+```
+
+Read that as: a 1-pixel line, then 33 pixels of nothing, forever. Change
+`0deg` to `90deg` for verticals; declare both for a grid.
+
+Every shipped texture mixes toward `var(--accent)`, between 8% and 15%.
+That looks like a lot beside a wash, and it is not: a hairline covering 1
+pixel in 34 puts far less color on the page than a gradient covering all of
+it. Mixing toward an ink token instead — `var(--text-heading)` — gives a
+grayer, more paper-like grain, which is what the sample below does. Both
+are palette-blind; pick by whether you want the pattern to carry the brand
+or to disappear.
+
+## Stacking two layers
+
+Here is where the one real piece of bookkeeping lives.
+
+The wash and the texture share one CSS `background-image`, so they are one
+list, and **texture is listed first**. Three companion properties describe
+that list — size, position, repeat — and each needs **one entry per layer,
+in the same order**:
+
+```css
+--fin-size:     auto,   auto;
+--fin-position: center, 0% 100%;
+--fin-repeat:   repeat, no-repeat;
+/*              ^texture ^wash */
+```
+
+Get the counts out of step and the layers take each other's settings —
+which usually looks like a texture that has stopped repeating.
+
+<CraftLab
+	label="Layers 1 and 2 together"
+	kind="css"
+	css={CSS_FINISH_TWO_LAYERS}
+	markdown={SLIDE_FINISH}
+	size="tall"
+	hint="Change the texture's FIRST 0deg to 90deg and the rules turn vertical. Then delete one entry from --fin-repeat and watch the wash start tiling — three settings, two layers, and the list has slid out of step."
+/>
+
+## 3 · Mark — the emblem
+
+A single placed thing: a monogram in the corner, a ghost numeral behind the
+heading, a bar down one edge.
+
+The mark has **two** slots, and a preset declares both:
+
+```css
+--fin-mark: none;       /* a gradient — a bar, a rule, a shape */
+--fin-mark-text: "";    /* a glyph — a monogram, a ghost numeral */
+```
+
+`--fin-mark` is painted as a background image, so it draws shapes;
+`--fin-mark-text` is set as text, so it draws characters. `ledger`, the
+shipped finish with the boldest mark, uses only the first — a solid accent
+bar at the left edge, `linear-gradient(var(--accent), var(--accent))`.
+
+**Default the glyph to empty**, always. A deck-wide finish with `"ACME"`
+baked in is a finish only one organization can use. Leave it blank and let
+the author fill it in per slide:
+
+```css
+section.finish-myfinish { --fin-mark-text: "Q3"; }
+```
+
+## 4 · Edge — the boundary
+
+What happens at the rim of the page: a vignette darkening the corners, a
+rule down the left margin, a keyline frame all the way around.
+
+A full frame is drawn with stacked inset shadows through `--fin-frame`, not
+with a border and not with the section's own `::after` — that one is
+reserved for the page number, and a frame drawn there erases it.
+
+## Composing them
+
+Some pairs work and some fight. **Wash plus texture** is the safe
+combination and the one most shipped finishes use: the wash gives direction,
+the texture gives grain, and they occupy different frequencies so neither
+hides the other. **Wash plus edge** is the next safest — a soft field with a
+definite boundary. **Texture plus mark** is the pair to avoid: both are
+figures rather than fields, so they compete, and the mark loses.
+
+Give the finish **one signature layer** that makes it recognizable. `loom`
+weaves a lattice at 45 degrees, `savile` runs a tailored pinstripe,
+`gallery` hangs a keyline frame. A wash of the accent on its own is the
+default every deck would have if nobody decided anything.
+
+## Next
+
+Put one together from scratch:
+[Build your first finish](/craft/finishes/first-finish/).

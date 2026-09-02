@@ -1,0 +1,103 @@
+---
+title: Screen and print
+description: Why every finish is written twice, what a fade to transparent does to a PDF, and the one token that keeps title slides from going blank.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { CSS_FINISH_WASH, SLIDE_FINISH } from '../../../../components/craft/samples.ts';
+
+Every layer in a finish is written twice: once for the screen, once for
+export. The two faces are genuinely different, and skipping the second one
+is the most common way a finish ships broken.
+
+## Why two faces
+
+A screen gradient fades to `transparent` and the page shows through.
+Perfect on screen.
+
+The PDF exporter encodes a large fade-toward-transparent as a fade toward
+**transparent black**, and what comes out is a muddy gray cloud across the
+page. It looks nothing like the preview, and you only find out after
+exporting.
+
+So each layer gets an opaque twin that ends on the actual page color
+instead of on nothing:
+
+```css
+/* screen: fades to transparent */
+--fin-wash:
+  radial-gradient(ellipse 120% 95% at 100% 0%,
+    color-mix(in srgb, var(--accent) 14%, transparent) 0%,
+    transparent 60%);
+
+/* export: the same shape, ending on the canvas */
+--fin-wash-opaque:
+  radial-gradient(ellipse 120% 95% at 100% 0%,
+    color-mix(in srgb, var(--accent) 14%, var(--fin-canvas)) 0%,
+    var(--fin-canvas) 60%);
+```
+
+Same geometry, same percentage. The only change is what the fade ends on.
+Under `@media print` and during an export the engine swaps every slot for
+its `-opaque` twin automatically — you supply the values, it does the
+switching.
+
+**The two faces must have the same number of layers.** The size, position
+and repeat lists are shared between them, so a screen face with two layers
+and an export face with one leaves the export reading the wrong settings.
+
+<CraftLab
+	label="Both faces of one wash"
+	kind="css"
+	css={CSS_FINISH_WASH}
+	markdown={SLIDE_FINISH}
+	size="tall"
+	hint="Two blocks, one shape — read them line by line and find the single difference. Then break the export face on purpose: in --fin-wash-opaque, change var(--fin-canvas) to var(--bg). Nothing happens here, because the browser never renders that face. That is exactly the problem this page describes: the only place it shows up is the PDF."
+/>
+
+## Textures print differently too
+
+A screen texture can be a faint alpha line. The export version should be a
+**hard-stop opaque line with transparent gaps**: no soft edges, no partial
+alpha across a large area.
+
+```css
+--fin-texture-opaque:
+  repeating-linear-gradient(0deg,
+    color-mix(in srgb, var(--text-heading) 6%, var(--fin-canvas)) 0 1px,
+    transparent 1px 34px);
+```
+
+## `--fin-canvas`, not `--bg`
+
+Mix toward `var(--fin-canvas)` — never `var(--bg)` directly. Getting this
+one wrong costs you the title slide.
+
+`--fin-canvas` means *the surface this slide is painting*. On an
+ordinary slide it is exactly `--bg`, so nothing changes. It differs on the
+three inverse bookends — `title`, `closing`, and a dark `divider` — which
+paint the dark surface instead.
+
+A finish written against `--bg` composites a light-colored wash over those
+dark slides. The white display text disappears into it, and the deck's
+title page exports as a nearly blank sheet. Using the canvas token is the
+entire fix, and it costs nothing anywhere else.
+
+## Signing it off
+
+A finish changes the bytes of an exported file, so a preview is not
+evidence. Before shipping, export through **both** paths — the command-line
+PDF and the in-browser export — in **both** canvases, and look at all four:
+
+```bash
+node lattice-emulator.js examples/my-finish.md /tmp/light.pdf
+node lattice-emulator.js examples/my-finish.md /tmp/dark.pdf -p cuoio-dark
+```
+
+Look at the full-bleed areas first. A gray cloud where a fade should be is
+the signature of a missing opaque twin.
+
+## Next
+
+The list that says a finish is ready to ship:
+[Ship your finish](/craft/finishes/checklist/).

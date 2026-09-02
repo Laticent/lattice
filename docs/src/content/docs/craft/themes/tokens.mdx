@@ -1,0 +1,129 @@
+---
+title: The token tour
+description: Surfaces, ink and accent — the three groups you tune by hand, and what each one paints.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { SLIDE_CARDS, SLIDE_KPI, THEME_MINI } from '../../../../components/craft/samples.ts';
+
+A theme's colors come in six groups. Learn the groups and you have learned
+the theme file, because everything inside a group behaves the same way.
+
+This page covers the three you tune by hand and spend the most time on.
+[The rest of the colors](/craft/themes/rest/) covers the other three.
+
+| Group | Roughly | Sets |
+|---|---|---|
+| **Surfaces** | the paper | 4 colors |
+| **Ink** | the writing | 7 colors |
+| **Accent** | the brand | 3 colors |
+| **Signals** | good, careful, bad | 6 colors |
+| **Code** | syntax highlighting | 12 colors |
+| **Categorical** | charts and diagrams | 12 pairs |
+
+Surfaces, ink and accent are below. Signals and code are on
+[the rest of the colors](/craft/themes/rest/); categorical gets a page of
+its own, [Colors for charts and diagrams](/craft/themes/categorical/).
+
+## Surfaces — the paper
+
+Four colors, and every slide is built on them.
+
+```css
+--bg:              #FBFCFE;  /* the slide itself */
+--bg-alt:          #EEF2F8;  /* cards, panels, alternate table rows */
+--border:          #CBD6E4;  /* hairlines between things */
+--surface-inverse: #0A1628;  /* the dark bookends: title, divider, closing */
+```
+
+`--bg` and `--bg-alt` want to be **close together**. A card should read as a
+slightly raised area of the same paper, not as a second color. If you can
+name the difference between them ("the cards are gray"), they are too far
+apart.
+
+`--surface-inverse` is the odd one out: it is the dark panel your title and
+closing slides paint on, and it stays dark even in a light deck. Think of
+it as the cover of the document.
+
+<CraftLab
+	label="Surfaces on a card slide"
+	kind="theme"
+	css={THEME_MINI}
+	canvasToggle={false}
+	markdown={SLIDE_CARDS}
+	size="tall"
+	hint="Push --bg-alt toward #D6E0EE, then #B9C9DE. Watch for the point where the cards stop reading as raised paper and start reading as gray boxes."
+/>
+
+## Ink — the writing
+
+Seven colors, loudest to quietest. Each is a **tier**, and the tiers matter
+more than the exact values.
+
+```css
+--text-display:   #F4F7FB;  /* text on the DARK surface */
+--text-heading:   #0A1628;  /* headings */
+--text-body:      #1C2A3E;  /* prose */
+--text-label:     #2E5C8A;  /* small uppercase labels — table headers */
+--text-secondary: #3A4A61;  /* subtitles and captions */
+--text-muted:     #5A6A80;  /* page numbers, footers, code comments */
+--muted-mark:     #6B7B92;  /* rules and hairlines — never text */
+```
+
+`--text-label` is the odd one in the ramp: it is not a step down in
+loudness but a step sideways in hue. It sets the small uppercase labels a
+deck is full of — table headers most of all — and most shipped themes tint
+it toward the brand rather than the ink, which is why it sits beside
+`--text-secondary` rather than below it. It carries words, so it takes the
+same readability floor as prose.
+
+Three rules keep the ramp honest.
+
+**Every tier down to `--text-muted` must stay readable.** Quiet is not the
+same as faint. `--text-muted` sets page numbers and captions, and a reader
+in the back row still has to read them, so it carries the same
+readability floor as body prose. If you want something genuinely
+decorative, that is the next line.
+
+**`--muted-mark` never carries words.** It is the color of a rule, a
+hairline, an empty-cell tick, a faint wash: decoration, held to a lower
+readability floor precisely because nothing is spelled in it.
+
+**`--text-display` is for the dark surface only.** It pairs with
+`--surface-inverse`, not with `--bg`.
+
+## Accent — the brand
+
+Three colors, and this is where a palette gets its personality.
+
+```css
+--accent:      #2E5C8A;  /* the brand color: emphasis, borders, marks */
+--accent-soft: #DCE7F3;  /* a pale wash of it, for panels */
+--on-accent:   #FFFFFF;  /* text placed ON the accent fill */
+```
+
+Accent shows up in two shapes, and the difference is worth internalizing.
+
+**Bold** is `--accent` as a fill — a verdict bar, a timeline node, a corner
+tag. Anything written on it uses `--on-accent`, which you tune by hand for
+this specific accent. Never `#fff` and never a "dark text" token: on a pale
+accent, white disappears.
+
+**Soft** is `--accent-soft` as a fill — a recommended option, a quiet
+callout. Text on it is ordinary body ink, and emphasis on it is `--accent`
+itself.
+
+<CraftLab
+	label="Accent, both shapes"
+	kind="theme"
+	css={THEME_MINI}
+	canvasToggle={false}
+	markdown={SLIDE_KPI}
+	size="tall"
+	hint="The panel behind $2.4B is accent-soft. Set --accent to #7A1F3D and the whole slide follows: tags, rules, the panel wash, the emphasis. Then try --accent: #F0C674 and watch --on-accent fail — white on pale gold. That is the one you have to tune by hand."
+/>
+
+## Next
+
+The three quieter groups — the ones you set once and stop thinking about:
+[the rest of the colors](/craft/themes/rest/).

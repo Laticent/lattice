@@ -1,0 +1,150 @@
+---
+title: Build your first finish
+description: Register a name, write the preset, personalize the mark — a complete finish from scratch.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { CSS_FINISH_TWO_LAYERS, SLIDE_FINISH } from '../../../../components/craft/samples.ts';
+
+A finish is one name and one CSS block. Here is the whole job.
+
+## 1. Register the name
+
+Add a row to `FINISH_REGISTER` in `lib/core/resolve-finish.js`:
+
+```js
+const FINISH_REGISTER = Object.freeze({
+  none: '',
+  atrium: 'finish finish-atrium',
+  // …
+  quarry: 'finish finish-quarry',   // ← yours
+});
+```
+
+That one line does two things: `finish: quarry` starts working in front
+matter, and the deck linter accepts it as a real value while still flagging
+typos like `quary`. It does *not* put the finish in the Studio's picker —
+that needs step 5, and until you do it a guard test fails.
+
+The register is deliberately open: adding a finish is a row in a list,
+never a change to the engine.
+
+## 2. Write the preset
+
+In `lib/base/base.finish.css`:
+
+```css
+section.finish-quarry {
+  /* every layer you use, and the -opaque twin of each */
+}
+```
+
+Two disciplines make the difference between a preset that works and one
+that mostly works.
+
+**Declare all four slot families**, even the ones you do not use. A finish is
+a set of custom properties, and an undeclared one inherits, so an unset slot
+can pick up a stray layer from elsewhere.
+
+The empty value depends on where the slot lands. `--fin-wash`, `--fin-texture`,
+`--fin-mark` and `--fin-edge` become **background layers**, where `none` is the
+empty value. `--fin-frame` is the exception: it composes into a **box-shadow
+list**, where `none` is legal only as the sole value — write it there and the
+whole declaration goes invalid, taking the tone rail down with it on any
+`tone-*` slide. Its empty value is `0 0 transparent`.
+
+**Write the `-opaque` twin of every full-bleed layer** as you write the
+layer, not afterwards. [Screen and print](/craft/finishes/screen-and-print/)
+explains why; doing it in the same edit is how you avoid discovering it
+after export.
+
+<CraftLab
+	label="A two-layer preset"
+	kind="css"
+	css={CSS_FINISH_TWO_LAYERS}
+	markdown={SLIDE_FINISH}
+	size="tall"
+	hint="This is a complete finish. Give it a signature: change the texture's first 0deg to 45deg for a diagonal weave, or move the wash to a corner and drop it to 8%. Edit the top copy of each pair — the -opaque twins are the export face."
+/>
+
+## 3. Keep it palette-blind
+
+Every color comes from a token:
+
+```css
+color-mix(in srgb, var(--accent) 12%, transparent)      /* screen */
+color-mix(in srgb, var(--accent) 12%, var(--fin-canvas)) /* export */
+color-mix(in srgb, var(--text-heading) 6%, transparent)  /* an ink pattern */
+```
+
+No hex. No `url()`. No `mask-image`. No `margin`.
+
+Get this right and your finish works in every palette that ships, in both
+canvases, for free. Get it wrong once and it works in exactly the palette
+you tested.
+
+## 4. Leave the mark empty
+
+The mark family has two slots. Declare both — the gradient as `none`, the
+glyph as an empty string:
+
+```css
+--fin-mark: none;
+--fin-mark-text: "";
+```
+
+A monogram baked into a shared finish makes it one organization's finish.
+Empty is the default; the author opts in per deck.
+
+## 5. Tell the rest of the tree the name exists
+
+The register in step 1 is what the *engine* reads. Three other places keep
+their own list, and each has a gate that fails until you add yours.
+
+**The Studio's picker** — an entry in
+`docs/src/components/studio/finish-catalog.ts`. Seven fields, not the three
+that sound like display metadata: `name`, `label`, `blurb`, `group`,
+`nature`, `zone` and `swatch`. Miss `nature` or `zone` and TypeScript stops
+the build with "missing the following properties from type `FinishEntry`".
+Copy the entry above yours and edit it.
+
+**The reserved-name list** — `RESERVED_FINISH_NAMES` in
+`docs/src/components/studio/finish-library.ts`. A saved user finish is
+allowed to take any name that is not reserved, and a user finish outranks a
+built-in preset of the same name — so a shipped name that is not on this list
+can be silently shadowed. `finish-preset-parity.test.ts` fails until it is.
+
+**The skill's own count** — `design/skills/finish.md` states how many
+finishes ship, and the ownership guard compares that number against the
+register. It will tell you the exact number to write.
+
+None of the three is optional and none of them is subtle to fix: each gate
+names the file and the change.
+
+## 6. Ship a demo deck and export it
+
+`examples/quarry.md`, six to ten slides, PDF committed. Include a title
+slide: that is where a finish written against the wrong canvas token shows
+its failure.
+
+Then export through both paths, in both canvases, and look at all four
+files. A finish changes exported bytes, so this is not optional and a
+screen preview does not substitute for it.
+
+## Trying one without registering it
+
+You can test a finish on a single slide before touching the register, by
+putting the class on the slide directly:
+
+```markdown
+<!-- _class: content finish-quarry -->
+```
+
+The engine treats any `finish-*` class as a finish and wires up the
+backdrop for it. That is exactly what the labs on these pages do — every
+one of them is an unregistered finish on one slide.
+
+## Next
+
+Everything above renders beautifully on screen. Making it survive a PDF is
+a separate problem: [Screen and print](/craft/finishes/screen-and-print/).

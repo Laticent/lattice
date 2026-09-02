@@ -1,0 +1,114 @@
+---
+title: Theme anatomy
+description: What a Lattice theme is, what lives inside the file, and what it does — and does not — control.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { SLIDE_KPI, THEME_MINI } from '../../../../components/craft/samples.ts';
+
+A theme is **one file of colors**. Nothing else. No layout, no fonts, no
+spacing — just a list of colors with names, and the engine paints every
+slide with them.
+
+That is possible because of one rule the engine keeps: **a layout never
+names a color.** When the card layout needs a background, it does not ask
+for pale blue. It asks for `--bg-alt`, "the secondary surface," and
+whatever color your theme put there is what appears. Swap the theme and
+every slide in every deck changes at once, because nothing downstream ever
+knew the color in the first place.
+
+## Change one color, watch nine things move
+
+Edit a color in the box below. The slide above it repaints as you type.
+
+<CraftLab
+	label="A theme, and a slide wearing it"
+	kind="theme"
+	css={THEME_MINI}
+	canvasToggle={false}
+	markdown={SLIDE_KPI}
+	size="tall"
+	hint="Scroll the box down to the Brand block and change --accent to #B03A2E. The tags, the rules and the emphasis all follow. One value, many places — that is the whole idea."
+/>
+
+Notice what you did *not* have to touch: the tags, the numbers, the
+dividing rules, the status pills. They all read `--accent` for you.
+
+## What is in the file
+
+Every theme has the same three parts, in this order.
+
+```css
+/* @theme evergreen */    ← the name. Must match the filename.
+@import 'lattice';        ← pulls in the engine: layouts, structure, defaults.
+
+:root {                   ← your colors. This is the part you write.
+  --bg:     #FBFCFE;
+  --accent: #2E5C8A;
+  /* … */
+}
+```
+
+**The name.** `/* @theme evergreen */` registers the palette, and it has to
+match the filename — `themes/evergreen.css`. A deck then picks it up with
+`theme: evergreen` in its front matter.
+
+**The import.** `@import 'lattice'` brings in the engine — all sixty-one
+layouts, the structural tokens, and a set of sensible color defaults. This
+is why the lab above still renders something reasonable on seventeen colors:
+everything you leave out falls back to the engine's default. A finished
+theme fills them all in, but a half-finished one still shows you a
+slide.
+
+**The colors.** A `:root` block of named values. Each name is called a
+**token**, and each names a **role** rather than a color: `--text-body` is
+"the color body prose is set in", not "dark gray". That is why themes stay
+swappable — the role is the same in every palette; only the value differs.
+
+Theme and palette mean the same thing here. The picker in the site header
+uses the second word.
+
+Real palettes carry a small companion file too,
+`themes/evergreen.manifest.json`, which records the palette's identity: its
+slug, which group the picker files it under, whether it is a base palette or
+a variant of one, and one `swatch` hex for the picker's own chip. It carries
+no token names and no token values — those are the CSS's job, and the two
+are checked against each other on every build.
+
+## What a theme does not control
+
+A theme owns color and nothing else. Four things that look like theme
+decisions are not:
+
+| Not a theme decision | Where it actually lives |
+|---|---|
+| Where the cards sit, how wide the columns are | The **component** — see [Component anatomy](/craft/components/anatomy/) |
+| How big the heading is | The engine's twelve type sizes, shared by every theme |
+| The wash or pattern behind the words | The **finish** — see [Finish anatomy](/craft/finishes/anatomy/) |
+| Whether the deck is hand-drawn or boardroom | `mode:` in the deck's front matter |
+
+Nothing in that table is a color. That is what keeps the four jobs from
+colliding: each is owned by a different file, and none of them can break
+another's work.
+
+## Where the file lives
+
+```text
+themes/
+  evergreen.css                   ← your colors
+  evergreen.manifest.json         ← the palette's identity
+  evergreen-dark.css              ← the dark wrapper; see Light and dark
+  evergreen-dark.manifest.json    ← the wrapper's identity
+```
+
+Four files, and `npm run new:theme` writes all four. The dark wrapper does
+only one thing, in three declarations — you will see why on
+[Light and dark](/craft/themes/light-dark/) — though the generated file wraps
+them in a header comment, so do not be surprised when it is longer than three
+lines. Its manifest is three fields: the name, `role: "variant-dark"`, and
+`extends` pointing back at the base.
+
+## Next
+
+Now that you know what the file is, go and learn what each color paints:
+[The token tour](/craft/themes/tokens/).

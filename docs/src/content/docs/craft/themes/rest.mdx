@@ -1,0 +1,98 @@
+---
+title: The rest of the colors
+description: Signals, code, and what happens to every color a theme leaves out.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { SLIDE_CODE, THEME_MINI } from '../../../../components/craft/samples.ts';
+
+Surfaces, ink and accent decide how a deck looks. These two groups decide
+whether two particular kinds of slide work — a status board and a code
+listing — and you set them once.
+
+## Signals — good, careful, bad
+
+Six colors: three inks and three tinted grounds.
+
+```css
+--pass: #2D6A3F;   /* the ink */
+--warn: #B45309;
+--fail: #991B1B;
+
+--pass-bg: …       /* a tint of it, behind a badge */
+--warn-bg: …
+--fail-bg: …
+```
+
+One thing to get right: **warn must not look like fail.** Amber against
+red, not two reds. When a slide shows a status board, the difference
+between "watch this" and "this is broken" is doing real work, and a reader
+seeing them side by side should never have to squint.
+
+## Code — syntax highlighting
+
+Twelve colors for the parts of a code block: comments, keywords, strings,
+numbers, function names, and so on.
+
+```css
+--code-text:         #E6EDF6;  /* everything the twelve below do not claim */
+
+--hljs-comment:      #8B9FB8;  /* comments and quotes */
+--hljs-keyword:      #F0A6C0;  /* function, const, return */
+--hljs-string:       #93D3A8;  /* string and regex literals */
+--hljs-number:       #F2C88B;  /* numeric literals */
+--hljs-literal:      #F2C88B;  /* true, false, null */
+--hljs-built_in:     #8FD3E8;  /* built-in names */
+--hljs-title:        #8CB8F0;  /* the names of functions and classes */
+--hljs-type:         #C4AEF0;  /* type names, symbols, meta */
+--hljs-variable:     #E8DDB5;  /* variables, attributes, bullets */
+--hljs-params:       #DCE3EC;  /* a parameter list */
+--hljs-tag:          #F0A6C0;  /* markup tags and attribute names */
+--hljs-punctuation:  #AAB8C9;  /* braces, operators */
+```
+
+Two things constrain them. They all sit on `--code-bg` — the panel behind
+the block, which defaults to `--surface-inverse` — and every one of them is
+**small text a person reads**, so each has to be genuinely legible against
+that background. The values above clear 4.5:1 on `#0A1628`, comments and
+punctuation included.
+
+The temptation to make comments nearly invisible is exactly the mistake:
+de-emphasis is about where a color sits relative to the code around it, not
+about whether it can be read at all. `--hljs-comment` is the quietest color
+in the block above and still clears the floor with room to spare.
+
+<CraftLab
+	label="The code colors you never set"
+	kind="theme"
+	css={THEME_MINI}
+	canvasToggle={false}
+	markdown={SLIDE_CODE}
+	size="tall"
+	hint="This theme sets none of the twelve, so the code block is wearing the engine's defaults. Paste --hljs-comment: #8B9FB8; into the :root block and watch just the comment line move — then --hljs-keyword: #F0A6C0; and function, const and return follow."
+/>
+
+## What happens to the ones you skip
+
+The lab above renders a complete code slide from a theme that never
+mentions code, because the engine carries a default for every color on this
+page. That is good while you work and a bad way to ship: a theme that stops
+at the colors on these two pages is, in every group it skipped, quietly
+wearing somebody else's.
+
+**One family has no default at all.** The twelve categorical pairs fall
+through to nothing rather than to a fallback, so a theme that omits them
+does not draw its charts in the wrong colors — it draws them in none, and a
+flowchart comes out as four identical boxes with unreadable labels. That is
+why the contract requires all twenty-four values, and why
+[Colors for charts and diagrams](/craft/themes/categorical/) is the one
+group with a page to itself.
+
+[Ship your theme](/craft/themes/checklist/) lists the full 98, and
+[a finished theme](/craft/examples/theme/) shows the hand-written half
+whole.
+
+## Next
+
+Colors are only half the job. The other half is whether anyone can read
+them: [Contrast and readability](/craft/themes/contrast/).

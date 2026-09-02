@@ -1,0 +1,143 @@
+---
+title: Build your first theme
+description: A blank file to a working palette, in the order that makes each decision easy.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { SLIDE_KPI, THEME_MINI } from '../../../../components/craft/samples.ts';
+
+Seven steps take a blank file to a palette you could ship — about fifteen
+minutes for a first pass. They only work in this order: each step decides
+something the next one needs.
+
+## 1. Scaffold the file
+
+```bash
+npm run new:theme evergreen
+```
+
+This copies the default palette to `themes/evergreen.css`, rewrites the
+`@theme` line, and writes the dark wrapper and both manifests beside it. You
+now have a complete, working theme that happens to be the wrong colors —
+which is a much better place to start than an empty file.
+
+**Expect the gates to go red, and do not panic.** A brand-new palette makes
+two generated artifacts stale, so `npm run build:check` fails until you run
+`npm run build` once. And `npm run test:palette` will keep failing while your
+palette is still a byte-copy of the default — several of its checks compare
+palettes against each other or against frozen per-theme measurements that do
+not exist for a name nobody has shipped yet. Both go quiet as you do the work
+below; the checklist at the end of the track says how to close the last of
+them.
+
+One thing to fix now, because nothing will remind you: the manifest ships a
+placeholder swatch, `#FF00FF`. That magenta dot is what the palette picker
+shows until you replace it with a real color from your palette.
+
+Render something with it right away, so you know the loop works:
+
+```bash
+node lattice-emulator.js examples/finish-backdrops.md /tmp/check.pdf -p evergreen
+```
+
+## 2. Pick two or three brand colors first
+
+Before touching a token, choose **two to six anchor colors**. A deep one, a
+mid one, a bright one. Write them at the top of the file as plain notes:
+
+```css
+:root {
+  /* Brand axis — the source of every hue below */
+  --brand-canvas: #0B3A34;
+  --brand-accent: #0E8C7A;
+  --brand-bright: #17B89E;
+```
+
+These are not tokens the engine reads. They are your reference, so that
+every later value is derived from a decision you already made rather than
+picked one at a time.
+
+(`--brand-canvas` is a naming convention several shipped themes use for
+their deepest brand color. It has nothing to do with the light and dark
+*canvases* further down this page — same word, unrelated jobs.)
+
+## 3. Surfaces
+
+Set `--bg`, `--bg-alt`, `--border`, `--surface-inverse`.
+
+Keep `--bg` and `--bg-alt` close. Tint them toward your brand hue by a
+degree or two — a warm brand wants warm paper — but stay pale. Everything
+else in the deck is judged against these two, so a saturated background
+distorts every later choice.
+
+## 4. The ink ramp
+
+Set the seven ink tokens, loudest to quietest, and check each against the
+surface it lands on as you go. Write the ratio in a comment beside it:
+
+```css
+--text-display:   #F2F8F6;   /* 15.7:1 on --surface-inverse, not on --bg */
+--text-heading:   #0A211D;   /* 16.5:1 on --bg */
+--text-body:      #1C2E2A;   /* 13.9:1 */
+--text-label:     #1F6E60;   /*  6.0:1 — brand-hued, still carries words */
+--text-secondary: #3A4E49;   /*  8.7:1 */
+--text-muted:     #5A6A66;   /*  5.6:1 — quiet, floor is 4.5 */
+--muted-mark:     #6B7B77;   /*  4.4:1 — decoration, floor is 3 */
+```
+
+`--text-display` is the exception to "check it against `--bg`": it only ever
+lands on `--surface-inverse`, so that is the surface to measure it against.
+
+Write the number down. That is what makes you check it.
+
+## 5. Accent
+
+Set `--accent`, then `--accent-soft`, then `--on-accent`.
+
+Do `--on-accent` last and by eye, on a real slide. It is the one value the
+engine cannot derive for you, because it depends on exactly how light or
+dark your accent turned out.
+
+## 6. Everything else
+
+Signals, code colors, chart colors, the categorical cycle. These are
+volume, not difficulty — and the scaffold has already given you a working
+set to re-hue rather than invent.
+
+The categorical cycle deserves its own read before you touch it:
+[Colors for charts and diagrams](/craft/themes/categorical/).
+
+## 7. Look at it
+
+Render the component gallery in your palette, in both canvases — the light
+version of the deck and the dark one — and look at every page:
+
+```bash
+node lattice-emulator.js test/integration/baseline-decks/gallery.md \
+  /tmp/gallery.pdf -p evergreen
+```
+
+This catches what no tool will: a stroke so pale that diagram boxes float,
+a warn that reads as a second red, an accent that fights every photograph
+in the deck.
+
+## Practice run
+
+Steps 3 through 5 — surfaces, ink, accent — on one slide. Work down the file
+in that order and watch each decision land.
+
+<CraftLab
+	label="Surfaces, then ink, then accent"
+	kind="theme"
+	css={THEME_MINI}
+	canvasToggle={false}
+	markdown={SLIDE_KPI}
+	size="tall"
+	hint="Work top down. Set --bg: #FDFBF7 and --bg-alt: #F5EEE2 for warm paper, re-warm the six inks below them, then set --accent: #9A5B1E last. Try it in the other order and you will come back to redo the surfaces — that is what the order is for."
+/>
+
+## Next
+
+Two of those steps had a ratio in them. Here is where the ratios come from
+and what they have to clear:
+[Contrast and readability](/craft/themes/contrast/).

@@ -1,0 +1,83 @@
+---
+title: A finished theme
+description: The complete evergreen.css the themes track builds, in one piece, with the reasoning in the comments.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { SLIDE_KPI, THEME_EVERGREEN } from '../../../../components/craft/samples.ts';
+
+The themes track builds a palette called `evergreen` a few tokens at a
+time. Here it is whole, so you can check your own file against a finished
+one.
+
+This is not the full 98-token contract — it is the part you write by hand,
+which is the part that carries the design. The rest is volume: the twelve
+code colors, the twelve categorical pairs, the chart palette. [Ship your
+theme](/craft/themes/checklist/) lists them, and `npm run new:theme` gives
+you a working set to re-hue rather than invent.
+
+<CraftLab
+	label="evergreen.css, entire"
+	kind="theme"
+	css={THEME_EVERGREEN}
+	markdown={SLIDE_KPI}
+	size="tall"
+	hint="Scroll the file. Every value is a decision the track explains, and every one is annotated with the ratio it clears. Change --brand-accent at the top and nothing happens — it is a note to yourself, not a token the engine reads."
+/>
+
+## What to notice
+
+**The brand axis at the top does nothing.** `--brand-canvas`,
+`--brand-accent` and `--brand-bright` are not tokens the engine reads. They
+are the three colors every later value was derived from, written down so
+the file records the decision rather than just its consequences.
+
+**Every ink carries its ratio in a comment.** Not ceremony — writing the
+number is what makes you check it, and it is what lets the next person see
+which values have headroom and which are at the floor.
+
+**Both canvases are in one file.** Every surface, ink and accent token is a
+`light-dark()` pair, so `evergreen-dark.css` needs only the three
+declarations above.
+
+**`--on-accent` is hand-picked.** Nothing derives it. It is the one value
+you tune by eye against your own accent, in both canvases.
+
+**Nothing here is a color name.** Every token names a role. That is what
+makes the file swappable.
+
+## The dark variant, entire
+
+```css
+/* @theme evergreen-dark */
+@import 'evergreen';
+:root { color-scheme: dark; }
+```
+
+That is the whole file. Every `light-dark()` pair above resolves to its
+second value.
+
+## The manifest
+
+```json
+{
+  "$schema": "./theme.schema.json",
+  "name": "evergreen",
+  "role": "base",
+  "family": "brand",
+  "tier": "curated",
+  "modes": ["light", "dark"],
+  "darkCounterpart": "evergreen-dark",
+  "order": 20,
+  "swatch": "#0E8C7A"
+}
+```
+
+No token names, no token values — identity only. `role: "base"` is the line
+that puts your palette in the token-contract suite's scope; without it a
+green test run says nothing about your file.
+
+## Next
+
+- The layout to put it on: [a finished component](/craft/examples/component/).
+- The backdrop to sit it against: [a finished finish](/craft/examples/finish/).

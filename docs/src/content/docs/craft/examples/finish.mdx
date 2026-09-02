@@ -1,0 +1,86 @@
+---
+title: A finished finish
+description: The complete quarry preset — all four layers, both faces — with the register row and the catalog entry.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { CSS_FINISH_QUARRY, SLIDE_FINISH_QUARRY } from '../../../../components/craft/samples.ts';
+
+The finishes track builds `quarry` one layer at a time. Here it is
+complete: all four slot families declared, every full-bleed layer twinned
+for export, and nothing in it naming a color.
+
+<CraftLab
+	label="quarry, entire"
+	kind="css"
+	css={CSS_FINISH_QUARRY}
+	markdown={SLIDE_FINISH_QUARRY}
+	size="tall"
+	hint="Read it in pairs: every --fin-* has a --fin-*-opaque twin with the same geometry and a different ending. Change a value in the first of a pair to see it; the second is the export face and never renders here."
+/>
+
+## What to notice
+
+**All four families are declared, including the ones it does not use.**
+The mark carries both of its slots — `--fin-mark: none` for the gradient,
+`--fin-mark-text: ""` for the glyph — and `--fin-edge` is `none`. A finish
+is a set of custom properties, and an undeclared one inherits, so an empty
+value is how you say *deliberately nothing*.
+
+`--fin-frame` is the one that is **not** `none`. It composes into a
+box-shadow list rather than a background list, and `none` is legal there only
+as the sole value — write it and the whole declaration goes invalid, taking
+the tone rail with it. Its empty value is `0 0 transparent`.
+
+**Every full-bleed layer is twinned.** Same geometry, same percentage; the
+only difference is where the color lands. The wash covers the whole page,
+so its screen face fades to `transparent` and its export face fades to
+`var(--fin-canvas)` instead. The texture is the other case: it is a
+hairline on a transparent field, so only its *line* mixes into the canvas —
+the gaps stay `transparent` in both faces, because an opaque gap would
+flood the page. [Screen and print](/craft/finishes/screen-and-print/) is
+the page that separates the two.
+
+**The bookkeeping lists match the layer count.** Two background layers, so
+`--fin-size`, `--fin-position` and `--fin-repeat` each carry two entries,
+in the same order the layers are listed — texture first.
+
+**Nothing names a color.** Every value is a `color-mix()` of `--accent`,
+`--text-heading` or `--fin-canvas`, which is what makes it work in every
+palette and both canvases for free.
+
+**The mark is empty.** A monogram baked into a shared finish makes it one
+organization's finish.
+
+## The register row
+
+In `lib/core/resolve-finish.js`:
+
+```js
+quarry: 'finish finish-quarry',
+```
+
+One line. `finish: quarry` starts working in front matter and the deck
+linter accepts it while still flagging typos.
+
+## The catalog entry
+
+In `docs/src/components/studio/finish-catalog.ts` — seven fields, of which
+`nature` and `zone` are the two that look optional and are not. The name also
+goes in `RESERVED_FINISH_NAMES` (`finish-library.ts`) so a saved user finish
+cannot shadow it, and the shipped-finish count in `design/skills/finish.md`
+has to be bumped. Each of the three has a gate;
+[Build your first finish](/craft/finishes/first-finish/) step 5 walks them.
+
+## What is not on this page
+
+The export sign-off. A finish changes the bytes of every exported file, and
+its failure mode — a gray cloud across a fade, a title slide washed to
+near-blank — appears only in the PDF. No screen preview substitutes for
+rendering it through both engines, in both canvases, and looking at all
+four.
+
+## Next
+
+- The colors it tints: [a finished theme](/craft/examples/theme/).
+- The layout it sits behind: [a finished component](/craft/examples/component/).

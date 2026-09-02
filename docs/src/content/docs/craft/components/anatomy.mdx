@@ -1,0 +1,170 @@
+---
+title: Component anatomy
+description: What a Lattice component is, the three nouns it is built from, and the one place its CSS attaches.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { CSS_CUSTOM_COMPONENT, SLIDE_CUSTOM_COMPONENT } from '../../../../components/craft/samples.ts';
+
+A component is **a named arrangement you put on one slide**. You write
+`<!-- _class: kpi -->` at the top of a slide, and from then on the engine
+knows that this slide's heading, its numbered list and its labels are a
+KPI board — not a bulleted list that happens to have numbers in it.
+
+Sixty-one of them ship. Writing your own means answering three questions
+and then writing about twenty lines of CSS.
+
+## A component that does not exist yet
+
+Below is a component that does not ship — `takeaway`, a recommendation
+with its reasons. Everything that makes it look like anything is in the
+CSS box.
+
+<CraftLab
+	label="A component you could write today"
+	kind="css"
+	css={CSS_CUSTOM_COMPONENT}
+	markdown={SLIDE_CUSTOM_COMPONENT}
+	editMarkdown
+	size="tall"
+	hint="Change the padding, the background, the border. Then switch to the Slide tab and add a fourth reason — the layout absorbs it, because you described a shape, not a picture."
+/>
+
+## The three nouns
+
+Lattice describes a slide's structure with three words, and they nest in
+that order.
+
+**A Frame slices the slide.** Into two columns, into a grid of four, into
+a header band over a body. The Frame is the cut, nothing else.
+
+**Each slice is a Cell.** A Cell is an empty, sized, positioned box. It
+holds nothing yet.
+
+**A Tile fills a Cell.** Your words are the Tile — the heading, the list,
+the quote.
+
+Every component picks a Frame, and puts one Tile in each Cell the Frame
+produced. `cards-grid` picks the grid Frame and makes each list item a
+Tile. `list-tabular` picks the ledger Frame and makes each row a Tile.
+
+Frames do not nest inside Cells. A component's internal arrangement is
+plain CSS inside its own box — which keeps the model shallow enough to
+hold in your head.
+
+## The one place CSS attaches
+
+Every slide the engine renders comes out in the same shape. Here is the
+`takeaway` slide above, cut down to the parts you style. The real section
+carries more — an `id`, a `data-class`, a `form` class, an inline `style`, an
+empty `.masthead-bay` beside the lede, and the engine's own overflow and
+fix-me tabs. None of it is yours to touch:
+
+```html
+<section class="takeaway content">
+  <div class="cell-masthead">      ← the heading's cell. The engine owns this.
+    <div class="masthead-lede">
+      <h2>We should renew the contract.</h2>
+      <hr class="masthead-rule">
+    </div>
+  </div>
+  <div class="cell-stage">         ← your content's cell. You own this.
+    <ul>…</ul>
+  </div>
+</section>
+```
+
+Three things to take from that.
+
+**The heading is not yours to style.** It lives in `.cell-masthead`, a Cell
+the engine fills and styles, so headings line up across a deck no matter
+which layouts it mixes. A selector like `section.takeaway > .cell-stage h2`
+matches nothing, because the `h2` is not in there.
+
+**Anchor everything on `.cell-stage`.** It is the space left once the
+masthead, the footer and the page number have taken theirs:
+
+```css
+section.takeaway > .cell-stage { /* … */ }
+```
+
+Not `section.takeaway` directly. Style the section and you are reaching the
+whole page, including the header, footer and page number the deck puts on
+every slide; style the stage and you are styling the area your content
+occupies. Two thirds of the shipped catalog does the latter, and every
+component that is not sovereign should.
+
+**The `content` class is the engine's doing.** A slide whose class names no
+component it knows falls back to `content`, the catch-all layout, which is
+why the lab's slide had a properly set heading before you had written a
+single rule. Once `takeaway` is a real registered component, the fallback
+stops applying.
+
+**Not every component gets this shape.** Ten layouts are *sovereign*: they
+own the whole page and take neither cell, because their design is the
+full-bleed slide. `title`, `closing`, `divider`, `image`, `scene`, `math`,
+`premise`, `compare-code`, `split-compare` and `split-panel` style
+`section.<name>` directly, which is the one legitimate exception to the rule
+above. If you are building a full-bleed cover or a two-halves layout, open
+one of those and follow it. Everything else — the large majority — is the
+shape shown here.
+
+## The three questions
+
+Before writing a line of CSS, answer these. They decide which Frame you
+select and what the engine expects your markdown to look like.
+
+| Question | The axis | Example answers |
+|---|---|---|
+| What does the audience leave knowing? | **Function** | anchor · statement · inventory · comparison · progression · evidence · imagery |
+| How is it laid out? | **Form** | grid · split · panel · ledger · matrix · timeline · canvas |
+| What does the author write? | **Substance** | prose · structure · series · graph |
+
+`takeaway` above is a **statement** in a **canvas** Frame made of
+**structure** (a heading and a list). That is the whole design decision.
+
+A canvas Frame is one undivided block — no columns, no grid. It is
+unrelated to the light and dark *canvases* in the themes track; the word
+does two jobs in this system.
+
+Substance decides how much work you are in for:
+
+- **prose** — a heading and paragraphs. CSS only.
+- **structure** — nested lists with a convention ("the top bullet is the
+  title, the nested bullet is the body"). Usually still CSS only.
+- **series** or **graph** — numbers or relationships that have to become an
+  SVG. This needs a transform, which is a real program.
+
+Most new components are prose or structure and never leave CSS. You need a
+transform only when the markdown has to be *rebuilt* into different
+elements before the CSS can lay it out — which is most charts, and a handful
+of others that assemble something the author did not write, like the QR code
+on a contact slide.
+
+## What a real component ships as
+
+A component that ships in the catalog is a folder:
+
+```text
+lib/components/statement/takeaway/
+  takeaway.manifest.json   ← the contract: axes, slots, budgets, prose
+  takeaway.styles.css      ← the CSS you wrote above
+  takeaway.docs.md         ← generated from the manifest
+  takeaway.gallery.md      ← generated
+```
+
+The manifest is the source of truth, and the documentation, the catalog
+entry and the editor's autocomplete are all generated from it. You write
+the manifest and the CSS; the build writes the rest.
+
+Scaffold the pair with one command:
+
+```bash
+npm run new:component -- takeaway --bucket statement \
+  --function statement --form canvas --substance structure
+```
+
+## Next
+
+Learn how your markdown becomes the boxes the CSS styles:
+[Slots and the skeleton](/craft/components/slots/).
