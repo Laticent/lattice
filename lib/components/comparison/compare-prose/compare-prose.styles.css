@@ -535,8 +535,8 @@ section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-
    FIDELITY revision (2026-06-23-read-across-carousel.md): the earlier editorial finish
    (drop-caps, pull-quote, magazine kicker) read a step off the deck. This is the same
    accent cover→content finish approved for split-panel, so a split comparison reads as
-   the same deck: a cover (the question), one subject per page, then a verdict.
-   lib/core/carousel.js emits `content compare-split compare-split-{cover,points,verdict} form`. */
+   the same deck: a cover (the question), one subject per page, then the shared closing page.
+   lib/core/carousel.js emits `content compare-split compare-split-{cover,points} form`. */
 section.compare-split-cover {
   background: var(--accent); color: var(--on-accent);
   display: flex; flex-direction: column; justify-content: center; position: relative;
@@ -562,13 +562,15 @@ section.compare-split-points .split-pt-t {
   display: block; font-weight: 800; color: var(--text-heading); font-size: var(--fs-h3); padding-bottom: var(--sp-xs);
 }
 section.compare-split-points .split-pt-b { color: var(--text-body); font-size: var(--fs-emphasis); line-height: var(--lh-relaxed); max-width: 20em; }
-section.compare-split-verdict { display: flex; flex-direction: column; justify-content: center; }
-section.compare-split-verdict .split-runhead {
-  font-size: var(--fs-meta); letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); padding-bottom: var(--sp-md);
-}
-section.compare-split-verdict .split-pullq {
-  font-size: var(--fs-h2); font-weight: 300; line-height: var(--lh-snug); color: var(--text-heading); max-width: 14em;
-}
+/* THERE IS NO `compare-split-verdict` RULE ANY MORE, and the deletion is the point.
+   `cover-sides` used to close its run with a frame of its own — "The verdict" over the
+   slide's trailing below-note, re-authored as a `.split-pullq`. That CONSUMED the note, so a
+   slide carrying a note AND a key insight ended with the two beats on separate pages: the
+   retired 2026-07-26 placement, in the one strategy that had dressed it up. The run closes on
+   the kernel's shared CLOSING page now (lib/core/split-envelope.js `closingPageFromMaterial`,
+   2026-09-01) and the note wears its ordinary `.below-note` hairline inside the coda cell.
+   Nothing emits these three selectors, and a rule with no emitter is dead weight the next
+   reader has to disprove before touching anything near it. */
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't

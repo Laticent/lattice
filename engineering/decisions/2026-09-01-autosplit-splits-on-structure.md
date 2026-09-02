@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Auto-split fires on STRUCTURE, not on measured fit, and a split page carries ONE structural element. Reverses the trigger set on 2026-07-29 and the packing policy that read `capacity.perPage ?? sweet ?? soft ?? hard`. Also records why the owner's own structural ruling stopped being what the engine did — the 2026-07-22 note that specified it was retro-edited on 2026-07-28 to defer to the fit trigger, inside its own document, so every later note built on a clause its author had not written. Every run now opens on a cover, gives each element a page, ends on a CLOSING page carrying the below-note and key insight together, and carries a forward pointer on every page (four of sixty-one components got one before). Two components that could never split are enrolled — `content` and `list-criteria`. Four more were enrolled and backed out the same day, `journey` on a render that showed it emitting duplicate pages.
+summary: Auto-split fires on STRUCTURE, not on measured fit, and a split page carries ONE structural element. Reverses the trigger set on 2026-07-29 and the packing policy that read `capacity.perPage ?? sweet ?? soft ?? hard`. Also records why the owner's own structural ruling stopped being what the engine did — the 2026-07-22 note that specified it was retro-edited on 2026-07-28 to defer to the fit trigger, inside its own document, so every later note built on a clause its author had not written. Every run now opens on a cover, gives each element a page, ends on a CLOSING page carrying the below-note and key insight together, and carries a forward pointer on every page (four of sixty-one components got one before). (That closing-page clause was written as fact and was not one: five carousel strategies still shipped the retired 2026-07-26 placement, and `split-panel` lost both beats outright. Both were fixed on 2026-09-02 — see § "What is not resolved", where each entry now records what it cost to find.) Two components that could never split are enrolled — `content` and `list-criteria`. Four more were enrolled and backed out the same day, `journey` on a render that showed it emitting duplicate pages.
 builds-on: 2026-07-22-structure-derived-split-patterns.md, 2026-07-29-autosplit-is-not-a-toggle.md, 2026-06-22-the-fit-spine.md
 supersedes: the trigger clause of 2026-07-29-autosplit-is-not-a-toggle.md; the pacing policy of 2026-07-22-structure-derived-split-patterns.md §0b; the 2026-07-26 "note rides the last body page" review
 ---
@@ -357,35 +357,84 @@ change to the gate is a separate decision and is not made here.
   than walked past. Not fixed: the fix is inside `journey`'s vertical board layout, which nothing
   else in this change touches, and pulling it in would widen the diff past what HARD RULE #17 and
   #8 allow. Found by the HARD RULE #25 independent checker.
-- **FIVE CAROUSEL STRATEGIES STILL USE THE RETIRED 2026-07-26 PLACEMENT, so the closing page is
-  not yet universal.** This note's own front matter says every run "ends on a CLOSING page carrying
-  the below-note and key insight together". That is true of the plain envelope and `cover-cards`.
-  It is NOT true of `feature-cover` (`split-panel`), `cover-sides` (`compare-prose`),
-  `cover-decision` (`decision`), `cover-code` (`compare-code`) or `cover-rows` (`list-tabular`) —
-  five of the thirty enrolled components. `lib/core/carousel.js` is untouched by this change on
-  that path: it still injects the note into the LAST BODY page and gives the insight a separate
-  `insight`-role page. Measured on a real render of `compare-prose` carrying both:
-  `cover · body · body · body(+note) · insight`. The two beats are split apart, which is the exact
-  shape the 2026-07-26 review was superseded for.
-  **A fix was attempted on 2026-09-02 and reverted.** Routing those strategies through a
-  `closingPageFrom` builder produced the right page for `compare-prose` — verified on a render,
-  note consumed into the verdict page, insight closing the run — and then failed the CONSERVATION
-  gate on 14 tests ("every source text leaf survives somewhere"). The old path conserves content
-  and the new one did not, so it was reverted rather than shipped: a misplaced note is a worse
-  page, a dropped note is a lost sentence. The gate was right and is why this is recorded instead
-  of merged.
-  Anyone taking it up should start from the reason the naive fix loses text: these strategies
-  RE-AUTHOR their body from parsed parts, so the trailing region has to be carried forward
-  explicitly, and `closingPage`'s "splice out the lede and the collection, keep everything else"
-  shortcut has no collection span to splice against.
-- **`feature-cover` LOSES a trailing note and key insight outright when it splits — pre-existing,
-  and worse than the misplacement above.** Measured: the same `split-panel` slide renders both at
-  `wide` (unsplit) and neither at `portrait` (split), on this branch AND on `origin/main` at
-  13020f8, so this change neither caused it nor worsened it. The cause is that `split-panel`
-  renders with no `.cell-stage` and no `.cell-coda` — a non-Form layout with its own DOM — so
-  `trailingMaterialOf` and `trailingSlotMaterialOf` both find nothing to hoist, and the
-  dispatcher's containment guard cannot report a shortfall for material it never located. Logged
-  per HARD RULE #18's off-path arm; the fix belongs with whoever owns `split-panel`'s DOM.
+- **The five carousel strategies now use the closing page — RESOLVED 2026-09-02.** This note's
+  front matter says every run "ends on a CLOSING page carrying the below-note and key insight
+  together". That was true of the plain envelope, `cover-paginate` and `cover-cards`; it was NOT
+  true of `feature-cover` (`split-panel`), `cover-sides` (`compare-prose`), `cover-decision`
+  (`decision`), `cover-code` (`compare-code`) or `cover-rows` (`list-tabular`) — five of the
+  thirty enrolled components, which still injected the note into the LAST BODY page and gave the
+  insight a separate `insight`-role page. Measured then on a real render of `compare-prose`:
+  `cover · body · body · body(+note) · insight`. Measured now, on the same shape:
+  `cover · body · body · closing`, and the same for the other four.
+  **Why the first attempt lost text, and what replaced it.** That attempt routed the five through
+  a `closingPageFrom` built on `closingPage`'s subtractive shortcut — the section with the lede
+  and the collection spliced out, so whatever it does not name survives by construction. These
+  strategies have no collection span to subtract against: `cover-code` resolves none at all, and
+  on `split-panel` the only list sits inside a panel whose sibling would ride onto the closing
+  page with it. So the builder returned null and the material was LOST, on 14 conservation cases.
+  The replacement is `closingPageFromMaterial` (`lib/core/split-envelope.js`), which COMPOSES the
+  page — header, an empty `.cell-stage`, one `.cell-coda` holding the beats, the footer cell —
+  from the parsed material rather than from the source markup. Composition is safe here precisely
+  because the material IS the input: nothing else can be forgotten. The two cells are what the
+  closing page's CSS addresses and where the KEY INSIGHT panel and the below-note hairline both
+  attach, which answers the objection that kept the beats apart ("a re-authored verdict page has
+  no `.cell-stage` to match") — the answer is to build the cell, not to keep them on two pages.
+  **Two strategy-level CONSUMPTIONS had to go with it**, and they are the reason the naive fix
+  looked like it worked on `compare-prose`. `cover-sides` re-authored the trailing `.below-note`
+  as its own "The verdict" page, and `cover-rows` promoted one to the cover lede. Both consumed
+  the note, so the dispatcher's containment guard saw its text already emitted and stood down —
+  the note landed somewhere, the insight landed elsewhere, and no gate objected. Neither
+  strategy owns that decision now; `compare-split-verdict`'s CSS is deleted, having no emitter.
+  **The dispatcher's guard is STRUCTURAL now, not textual.** It asks whether the strategy already
+  emitted a `data-split-role="closing"` page. The old text-containment test was unreliable in
+  both directions: it cannot see a DUPLICATE (containment only ever reports a shortfall), and it
+  reads a false positive whenever the material's words occur in the body — which would silently
+  drop the page.
+
+- **`feature-cover` lost a trailing note and key insight outright — RESOLVED 2026-09-02, and the
+  cause was not where this note said it was.** The record blamed `split-panel` rendering with no
+  `.cell-stage` and no `.cell-coda`, and concluded "the fix belongs with whoever owns
+  `split-panel`'s DOM". The first half is true and the conclusion did not follow.
+  `trailingSlotMaterialOf` exists precisely for a layout that keeps its body in its own slot, and
+  it descends into the section's LAST top-level element to find that slot. A rendered section
+  does not end with `.panel-right`: it ends with the three fit-berth marker divs
+  (`overflow-tab` · `illegible-tab` · `fixme-tab`), so the descent picked an empty berth, found
+  nothing, and the containment guard could not report a shortfall for material it never located.
+  The berths are chrome — `fit-berth.js` says `data-lattice-berth` "is what makes a berth
+  IDENTIFIABLE as one", and `overflow-probe.js` already qualifies on the same attribute — so
+  `isChrome` recognizes them, by attribute rather than by their three class names.
+  A second, narrower cause sat behind it: the descent admitted only a `<blockquote>` or a
+  `div.below-note`, never a bare `<p>`, so `split-panel`'s trailing SENTENCE was still invisible
+  once the blockquote was found. That exclusion was reaching for a real distinction — a
+  component's own closing prose must not be hoisted off its page — and the rule that draws it
+  already existed: `coda.js`'s promotion test, "a list, then a concluding sentence" is a
+  footnote, "a paragraph, then another paragraph" is prose. It is reused rather than re-derived,
+  and both directions are pinned.
+  **No committed fixture carries a berth**, which is why every gate in `carousel.test.js` was
+  green while this shipped: removing the fix and re-running the whole file still passed
+  (mutation-checked). The new arm builds its input from `BERTH_HTML` — the engine's own export —
+  rather than typing the markup, so the test's population comes from what ships.
+  What is NOT fixed, and stays logged: `split-panel` CLAIMS both beats (`coda.claims`) and then
+  renders neither, so on an UNSPLIT slide the author's `> …` and trailing sentence are still
+  swallowed unstyled into `.panel-right`. That is `split-panel`'s own DOM and off the path of this
+  change (HARD RULE #18's off-path arm). On the closing page the layout class is `content`, which
+  claims nothing, so the beats get the treatments they were always owed there.
+
+- **`kanban`, `roadmap` and `redline` repeated a beat on every page — FOUND AND FIXED 2026-09-02,
+  and the gate could not have caught it.** These three do not re-author their body; they re-emit
+  SLICES of the source, which is what makes them robust against whatever chrome their component
+  family emits. The same property made them sweep up the slide's trailing material: everything
+  after the last lane / card / passage rides the slice, and the slice repeats per page. Measured
+  on a two-lane `kanban` with a key insight: three copies of one blockquote, and rule 6 green.
+  The conservation gate is a word-multiset CONTAINMENT check, so counts that RISE always pass —
+  it reports a shortfall and never a duplicate. The gate that does catch it is new and drives off
+  the same strategy table.
+  **`roadmap-horizons` was not in that table at all**, and had never been: the table is
+  hand-written, so for as long as the strategy has existed it sat outside BOTH gates the table
+  drives. Its population is derived from `CAROUSEL_STRATEGIES` now, and the derivation is itself
+  asserted. This is the failure this note is about, one layer down — a check whose population
+  came from its author's memory rather than from the engine.
+
 - **The trigger is UNCONDITIONAL, and nothing bounds a run's length.** A slide splits at two
   members, whether or not it fit: there is no threshold, no cap, and no author opt-out — the
   `autosplit:` directive was retired on 2026-07-29 and `--no-split` is instrumentation, not

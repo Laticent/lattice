@@ -280,9 +280,16 @@ describe('the annotation stamp and the wrapper consumers', () => {
   // BEHAVIORAL, on purpose. An earlier version of this arm asserted only on
   // `tagHasClass` with literal tag strings, so it never loaded carousel.js — and an
   // independent checker showed that restoring the exact-string matcher there left 269
-  // tests green. `cover-sides` is the observable path: the note becomes the verdict
-  // page's pull-quote, so a matcher that misses the wrapper drops a whole page.
-  test('the carousel finds its verdict note whatever the wrapper carries', () => {
+  // tests green. `cover-sides` is the observable path: a matcher that misses the wrapper
+  // finds no trailing note, and a whole page of the run disappears with it.
+  //
+  // The page it observes changed on 2026-09-01 and the arm is deliberately kept pointed at
+  // the same question. It used to be this strategy's own `compare-split-verdict` frame, which
+  // re-authored the note as a `.split-pullq`; the note now rides the run's shared CLOSING page
+  // in its own `.below-note` wrapper inside the coda cell. Either way the note is the ONLY
+  // reason that last page exists on this fixture, so its presence still answers "was the
+  // wrapper recognized".
+  test('the carousel finds its trailing note whatever the wrapper carries', () => {
     const fs2 = require('node:fs');
     const path2 = require('node:path');
     const { carouselize } = require('../../../lib/core/carousel');
@@ -292,23 +299,23 @@ describe('the annotation stamp and the wrapper consumers', () => {
     const [sec] = splitSections(fixture).filter((p) => p.type === 'section');
     const PLAIN = '<div class="below-note">';
     assert.ok(sec.inner.includes(PLAIN), 'fixture no longer carries a plain below-note wrapper');
-    const verdictOf = (openTag) => {
+    const closingOf = (openTag) => {
       const parts = carouselize(sec.openTag, sec.inner.replace(PLAIN, openTag), { strategy: 'cover-sides' });
-      const last = parts && parts[parts.length - 1];
-      return last && /class="split-pullq"/.test(last) ? last : null;
+      const last = parts?.[parts.length - 1];
+      return last && /\sdata-split-role="closing"/.test(last) ? last : null;
     };
-    // The stamp this PR adds, and the two attribute orders the old `">`-anchored
+    // The stamp the coda kernel adds, and the two attribute orders the old `">`-anchored
     // regex could not both accept.
     for (const tag of [PLAIN, '<div class="below-note is-annotation">',
       '<div id="x" class="below-note">', '<div class="below-note" data-k="1">']) {
-      const v = verdictOf(tag);
-      assert.ok(v, `no verdict page for ${tag} — the note was not found`);
-      assert.match(v, /two retrospective cycles/, `verdict lost its text for ${tag}`);
+      const v = closingOf(tag);
+      assert.ok(v, `no closing page for ${tag} — the note was not found`);
+      assert.match(v, /two retrospective cycles/, `the closing page lost its text for ${tag}`);
     }
-    // Not vacuous: strip the wrapper's class and the verdict page must disappear.
-    assert.equal(verdictOf('<div class="below-note-inner">'), null,
-      'a look-alike class still produced a verdict page — the assertion above proves nothing');
-    assert.equal(verdictOf('<section data-class="below-note">'), null,
+    // Not vacuous: strip the wrapper's class and the closing page must disappear.
+    assert.equal(closingOf('<div class="below-note-inner">'), null,
+      'a look-alike class still produced a closing page — the assertion above proves nothing');
+    assert.equal(closingOf('<section data-class="below-note">'), null,
       'data-class carries the RAW _class: payload, not the resolved list (#1358)');
   });
 });

@@ -2744,9 +2744,12 @@ section[data-split-role="cover"][data-split-role="cover"] .tile-progress .dot.on
    page — never shared with the note or the body (owner review, 2026-07-26; §0a, rule 9).
    It is the run's TAKEAWAY, not a caption, so unlike the note (below) it earns a page to
    itself: vertically centered, and sized up a rung, so it reads as a small climax rather
-   than a paragraph stranded in a tall empty stage — matching the read-across family's own
-   precedent for a dedicated verdict page (`compare-split-verdict`,
-   compare-prose.styles.css). Deliberately NOT a second accent field: it keeps the run's
+   than a paragraph stranded in a tall empty stage, matching the read-across family's own
+   precedent for a dedicated closing frame. (That precedent was `compare-split-verdict` in
+   compare-prose.styles.css; the selector was DELETED on 2026-09-02 when `cover-sides` stopped
+   building a page of its own and its trailing note moved to the shared closing page, so the
+   citation is history rather than a pointer to follow.)
+   Deliberately NOT a second accent field: it keeps the run's
    own layout class, masthead and content cell, so the blockquote wears the SAME "KEY
    INSIGHT" panel it always has (the base rule above, scoped `section.<layout> >
    blockquote`) — only its placement and size change. Palette-blind; no new color, no
@@ -2838,6 +2841,26 @@ section.form.lat-split-closing.lat-split-closing > .cell-coda {
   padding-top: 0;
   flex: 1 1 auto;
   justify-content: center;
+}
+/* The RUNHEAD on a COMPOSED closing page (lib/core/split-envelope.js
+   `closingPageFromMaterial`), which the carousel strategies emit.
+   The subtractive `closingPage` keeps the section's own `.cell-masthead`, so a plain-path
+   closing page still names its slide. A composed one has no masthead to keep, and without a
+   runhead it shipped a lone note sentence in a page-tall box with nothing saying which slide it
+   closed — three pages after the cover that named it (seen by rasterizing
+   `examples/read-across-carousel.pdf`, not by any assertion).
+   It is the same `.split-runhead` element the body pages of those runs carry, so the finish
+   below matches theirs — each strategy scopes its own copy to its own points class
+   (`section.compare-split-points .split-runhead` and four siblings), and this is the closing
+   page's, written once for all of them because the closing page wears the neutral `content`
+   field rather than any layout's class. Palette-blind; padding, never margin (#3, #20). */
+section.form.lat-split-closing.lat-split-closing > .cell-stage > .split-runhead {
+  font-size: var(--fs-meta);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--sp-xs);
 }
 
 /* ── Shared split NOTE (lib/core/split-envelope.js `markNote` / `injectTrailing`) ───────
