@@ -80,6 +80,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A Playwright test for a settling-round race passes on the broken code](gotchas/ci.md#a-playwright-test-for-a-settling-round-race-passes-on-the-broken-code)
 - [An integration test that asks the export to BEAT a timer ejects PRs from the merge queue](gotchas/ci.md#an-integration-test-that-asks-the-export-to-beat-a-timer-ejects-prs-from-the-merge-queue)
 - [Every Dependabot PR in a directory is red, and `npm ci` blames a package none of them touched](gotchas/ci.md#every-dependabot-pr-in-a-directory-is-red-and-npm-ci-blames-a-package-none-of-them-touched)
+- [The Studio E2E nightly is GREEN while specs fail — the signal is issue #1705, not the badge](gotchas/ci.md#the-studio-e2e-nightly-is-green-while-specs-fail--the-signal-is-issue-1705-not-the-badge)
 
 ### [CSS](gotchas/css.md)
 

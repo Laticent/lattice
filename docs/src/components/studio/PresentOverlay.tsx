@@ -64,14 +64,21 @@ function sameFractions(a: number[], b: number[]): boolean {
 	return true;
 }
 
-// The narration-source priority read-aloud speaks: a slide's speaker note (the real
-// talk track) — else a recognized chart's computed facts — else the component-aware
-// DOM projection (`projectDeckSpeech`, the SAME shared kernel the CLI export narrates,
-// run in-browser) — else, until that projection is ready, the generic markdown
-// flatten. The projection is the unification: it makes live read-aloud speak a deck
-// exactly as the exported captions do (label-first KPIs, hidden-gloss handling,
-// stripped URLs). Resolved per-index (below, `narrationAt`) so the current slide's
-// reader AND the autoplay warm-ahead prefetch derive the same text for a slide.
+// The narration-source priority read-aloud speaks: an author's inline `<!-- caption: … -->`
+// — else the front-matter `captions:` entry for the slide — else a recognized chart's
+// computed facts — else the component-aware DOM projection (`projectDeckSpeech`, the SAME
+// shared kernel the CLI export narrates, run in-browser) — else, until that projection is
+// ready, the generic markdown flatten. The projection is the unification: it makes live
+// read-aloud speak a deck exactly as the exported captions do (label-first KPIs,
+// hidden-gloss handling, stripped URLs). Resolved per-index (below, `narrationAt`) so the
+// current slide's reader AND the autoplay warm-ahead prefetch derive the same text.
+//
+// A SPEAKER NOTE IS NOT IN THAT LIST. It was the top rung once, and this comment went on
+// saying so after the rung was removed — while `narrationAt` below says "NO NOTE RUNG" and
+// `narration-resolve.ts` carries the reasoning. A note is the author's alone; it reaches
+// the presenter's own panel and nothing else. The stale half of this sentence is what an
+// e2e journey spec was written against, so it waited on a caption the code is built to
+// keep out.
 
 // A reader-facing explanation for a withheld lens. Fail-closed projection (design §6.3) never shows the
 // full deck as a fallback for a scoped lens — it says, plainly, why the view isn't available, so the

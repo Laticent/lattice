@@ -412,3 +412,35 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Triggered by:** #1491; gated by `checkLockfileOptionalPeers` (`tools/check-ownership.js`, via
   `build:check`), tested in `test/unit/tools/lockfile-optional-peers.test.js`.
 - **Removable when:** Dependabot's lockfile writer materializes optional peers the way npm does.
+
+## The Studio E2E nightly is GREEN while specs fail — the signal is issue #1705, not the badge
+
+- **Symptom:** `studio-e2e-nightly.yml` reports `conclusion: success` night after night, so
+  `main` looks covered — and specs have been failing in it the whole time. Measured on
+  2026-09-02: the last eight scheduled runs were all `success`, and every one of them had a
+  failing suite. `vetrina-geometry.spec.ts:35` was red in **every** nightly comment on record
+  (from 2026-08-18), `author-present.spec.ts` in every one from 2026-08-26 — its first nightly
+  after the spec landed.
+- **Cause, and it is deliberate:** the run step is written as
+  `if npm run test:e2e -- --grep-invert @perf …; then echo "failed=false" …; else echo
+  "failed=true" …; fi`. The `if` swallows Playwright's exit code, so the STEP succeeds
+  whatever the suite did, and nothing downstream calls `exit 1`. The job conclusion is
+  therefore a statement about the runner, not about the tests. The same shape is in the
+  `e2e-ai` job and in the sibling nightlies.
+- **Where the truth is:** the `Open / append regression issue` step, gated on
+  `steps.e2e.outputs.failed == 'true'`, appends the failing spec list to the rolling issue
+  **[#1705] `[studio-e2e] Studio E2E suite failing on main`**. So the real signal is
+  whether that issue got a new comment for last night's SHA — and, positively, whether the
+  `failed == 'false'` step that records a green ran at all.
+- **Reading it from the API without downloading logs:** list the run's jobs and look at the
+  `Open / append regression issue` step. `conclusion: "skipped"` means the suite passed;
+  `conclusion: "success"` means it RAN, which means the suite failed. That one field is the
+  fastest true read of a nightly, and it inverts the intuition — the step succeeding is the
+  bad news.
+- **Why it is built this way:** the workflow wants the report artifact uploaded and the issue
+  filed on a failure, which a hard `exit 1` at the run step would skip. The cost is that a
+  green badge cannot be trusted, and a session was nearly misled by exactly that: eight green
+  runs argued the two red desktop specs must be new, when the nightly's own comment history
+  showed them red from the day each landed.
+- **So "is the nightly green again?" is not answerable from the run list.** Check #1705 for a
+  comment on the SHA you care about; no comment for that night is the pass.

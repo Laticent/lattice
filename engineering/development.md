@@ -755,6 +755,20 @@ identity — and the margin scales with how much small text the shot contains, s
 a Studio change that puts much more small type on screen eats into it. Watch it
 rather than assuming it.
 
+**The shot's subject is a fixture, not the seeded deck** (2026-09-02). It used
+to be `DECKS[0]`, whose editor pane fills a third of the frame — so the welcome
+deck's copy was baked into all three PNGs, and one line of that copy is the live
+catalog count (`61 components / 14 themes`), held current by
+`test/unit/playground/welcome-deck-counts.test.js`. Adding a component therefore
+turned three baselines red in a PR that never touched the Studio, and the only
+available answer was a re-bless — the one thing this section tells you not to do
+casually. `docs/e2e/visual-fixture.ts` now supplies a seven-slide deck carrying
+no number the repo tracks. **Editing that file means re-blessing**, which is the
+point: the re-bless is now a deliberate act, not a side effect. The spec asserts
+the fixture's slide count against the slide rail before shooting — seed the deck
+without JSON-encoding the source and the store silently boots the one-slide
+blank starter, which is a starter deck photographed as a baseline.
+
 **The PDF-export journeys DO run here** (corrected 2026-08-10). This section used
 to say they need a Google-Fonts CDN the sandbox blocks; `journeys/author-export`
 and `journeys/chart-export` were driven green repeatedly against the real Share
