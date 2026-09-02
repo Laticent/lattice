@@ -14,7 +14,18 @@ section.list-steps > .cell-stage { display:flex; flex-direction:column; min-heig
  * of restarting at 01 on every page — which is what it did the moment §0b's `perPage: 1`
  * landed (seen on a real render: page 2 of the run read "STEP 01 · Circulate for comment").
  * 0 (the default) on an unsplit slide, so nothing else changes. Same idiom as q-and-a. */
-section.list-steps ol { list-style:none; counter-reset:step-counter var(--lat-split-offset, 0); display:flex; gap:var(--sp-xl); flex:1; padding:0; margin:0; align-items:stretch; }
+/* `min-height:0` is load-bearing (flex cell-tree §6, same fix as cards-stack): a flex
+ * item's default `min-height:auto` floors the row at its CONTENT height, so one dense
+ * step grew the `ol` past the bounded stage and the stage's `overflow:clip` sheared the
+ * bottom border, radius and shadow off EVERY card — `align-items:stretch` gives them all
+ * the tallest card's height, so a single overstuffed step took the whole row's bottom
+ * edge with it. Measured at `size: hd`: a 460.3px row in a 438.2px stage, 22px shorn,
+ * with not one word of text actually lost. With the floor released the row is exactly
+ * stage-height, the card chrome closes, and a genuinely over-long body spends the card's
+ * bottom padding first and only then overflows — where the export's clip warning is the
+ * right channel. Landscape (hd/4k) hits it first: a 16:9 stage is the shortest one a
+ * four-column strip has to fit into. */
+section.list-steps ol { list-style:none; counter-reset:step-counter var(--lat-split-offset, 0); display:flex; gap:var(--sp-xl); flex:1; min-height:0; padding:0; margin:0; align-items:stretch; }
 section.list-steps ol > li { counter-increment:step-counter; flex:1; background:var(--bg-alt); border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); display:flex; flex-direction:column; gap:var(--sp-xs); position:relative; font-size:var(--fs-body); line-height:var(--lh-snug); font-weight:700; color:var(--text-heading); }
 section.list-steps ol > li:not(:last-child)::after {
   content:'';

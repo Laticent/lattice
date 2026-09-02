@@ -22,7 +22,7 @@
     "axis": "item",
     "soft": 14,
     "hard": 22,
-    "note": "one sentence per step, not a paragraph"
+    "note": "one sentence per step, not a paragraph. The strip gives every card the tallest card's height, so one long step tightens the whole row, and a body that outgrows the card spills past its bottom edge and is clipped at the stage"
   },
   "function": "progression",
   "form": "timeline",
