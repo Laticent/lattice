@@ -474,8 +474,8 @@ function composeStrippedSource(src, noteBodies, boundary = scrubBoundary) {
     boundary,
   });
 }
-function stripSharedSource(src, noteBodies) {
-  const out = composeStrippedSource(src, noteBodies);
+function stripSharedSource(src, noteBodies, boundary = undefined) {
+  const out = composeStrippedSource(src, noteBodies, boundary ?? scrubBoundary);
   if (STRIP_NOTES) {
     // FAIL-CLOSED. The scrub matches note bodies lifted from the RENDER against comments in
     // the SOURCE, and every leak this has had was a new way for those two sides to disagree.
@@ -2290,6 +2290,45 @@ function strippedSlidesOrAuthored() {
     + 'embedded source will re-import with that block boundary changed.'
   );
   return slidesAsAuthored;
+}
+// THE PDF ATTACHMENT IS A DIFFERENT DOCUMENT FROM THE ONE THAT WAS MEASURED, and until this
+// guard nothing said so. `strippedSlidesOrAuthored` measures the cut against `rawMd` — after the
+// Mermaid pre-render and the auto-glossary append — because that is what pass 2 renders and what
+// the player envelope ships. `--embed-source` attaches `md`: the deck as the author wrote it, so
+// the artifact round-trips to an editable deck rather than to machine-expanded output. That is
+// the right thing to attach and it is why the two differ. Applying `scrubBoundary` to `md`
+// applied a measurement taken on one document to another one, which the fidelity guard never saw.
+//
+// Three steps, cheapest first, because the expensive one is reached by no deck in this tree.
+//   1. `md === rawMd` — no pre-render, no glossary. The measurement is OF this document.
+//   2. The two cuts produce the same bytes on `md`. Then the choice cannot change what ships,
+//      whatever it was measured on. Two string scrubs, no render. This is the case that covers
+//      all 51 decks here that carry a comment AND get pre-processed.
+//   3. Otherwise the choice genuinely matters on an unmeasured document, so measure it: render
+//      `md` and each cut of it, and keep the one that reproduces it. Fail-closed — if neither
+//      does, keep scrubbing (the text still goes from every copy) and say what was given up.
+// Memoized because `embedSourceInPdf` has two call sites — the vector path and the raster one —
+// and step 3 renders. One export reaches only one of them today; the memo is what keeps that an
+// implementation detail rather than a thing to re-check before adding a third.
+let attachmentCutMemo = null;
+function attachmentCut() {
+  if (attachmentCutMemo) return attachmentCutMemo;
+  const settle = (boundary, measured) => (attachmentCutMemo = { boundary, measured });
+  if (md === rawMd) return settle(scrubBoundary, true);
+  const cuts = notesCore.SCRUB_BOUNDARIES.map((b) => composeStrippedSource(md, noteStripSet, b));
+  if (cuts.every((c) => c === cuts[0])) return settle(scrubBoundary, true);
+  // Same whitespace-blind shape comparison pass 2 uses: what must match is the MARKUP — the
+  // paragraph that split in two, the slide that appeared — and the residue the cut exists to
+  // drop is whitespace, so a byte compare would report every noted slide as a divergence.
+  const shape = (sec) => notesCore.stripCommentNodes(sec).replace(/\s+/g, '');
+  const authored = engineSlides(md);
+  for (const [i, boundary] of notesCore.SCRUB_BOUNDARIES.entries()) {
+    const rendered = engineSlides(cuts[i]);
+    if (rendered.length === authored.length && rendered.every((s, j) => shape(s) === shape(authored[j]))) {
+      return settle(boundary, true);
+    }
+  }
+  return settle(scrubBoundary, false);
 }
 const slides = STRIP_NOTES || STRIP_CAPTIONS ? strippedSlidesOrAuthored() : slidesAsAuthored;
 const slideNotes = notesCore.extractSlideNotes(slides);
@@ -4753,7 +4792,20 @@ async function embedSourceInPdf(pdfBytes) {
     const doc = await PDFDocument.load(pdfBytes);
     // Under --strip-notes / --strip-captions the attached source is scrubbed too — else
     // the PDF leaks the speaker notes and/or caption text the outputs were careful to remove.
-    const attachSource = stripSharedSource(md, noteStripSet);
+    // Under the cut measured against THIS document (`attachmentCut`), not the one measured
+    // against the re-rendered `rawMd` — they are the same string on most decks and the guard
+    // says so for free, but where they are not, a cut measured elsewhere is a guess.
+    const cut = STRIP_NOTES || STRIP_CAPTIONS ? attachmentCut() : { boundary: undefined, measured: true };
+    if (!cut.measured) {
+      console.warn(
+        '  WARNING: the Markdown attached to the PDF could not have a note or caption comment '
+        + 'removed without changing the deck — the same block-boundary case --strip-notes reports, '
+        + 'here on the pre-Mermaid source the attachment carries rather than on the rendered one. '
+        + 'The text is still removed from every copy; the attached source will re-import with that '
+        + 'block boundary changed. Drop --embed-source, or move the comment out of the list.'
+      );
+    }
+    const attachSource = stripSharedSource(md, noteStripSet, cut.boundary);
     await doc.attach(Buffer.from(attachSource, 'utf8'), path.basename(mdFile), {
       mimeType: 'text/markdown',
       description: 'Lattice deck source (Markdown). Re-render with: lattice-emulator <this file> out.pdf',

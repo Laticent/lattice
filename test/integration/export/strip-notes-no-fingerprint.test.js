@@ -77,6 +77,9 @@ describe('strip-notes: no whitespace fingerprint', () => {
   const NO_CAPTIONS = path.join(ROOT, 'test', 'fixtures', 'strip-captions-deck-no-captions.md');
   const BARE = path.join(ROOT, 'test', 'fixtures', 'strip-captions-deck-bare.md');
   const CAPTION_BOUNDARY = path.join(ROOT, 'test', 'fixtures', 'strip-captions-deck-boundary.md');
+  // A deck whose ATTACHED document is not the one the export renders: a Mermaid fence makes the
+  // two differ, and a note indented inside a list item makes the cut choice change the bytes.
+  const PREPROCESSED = path.join(ROOT, 'test', 'fixtures', 'strip-notes-deck-preprocessed.md');
   const TIMEOUT = 180000;
 
   // Rendered slide bytes, and ONLY those. A whole-file diff is not the question: the two
@@ -216,6 +219,84 @@ describe('strip-notes: no whitespace fingerprint', () => {
       stripped, twin,
       'the shipped source differs from the deck written without captions, so it still names which '
       + 'slides carried one'
+    );
+  });
+
+  test('the SOURCE the envelope ships is the note-free deck, byte for byte (#2039)', { timeout: TIMEOUT }, () => {
+    // THE ARM THE NOTE CHANNEL WAS MISSING, and its absence is why a one-byte residue shipped
+    // for two releases. The caption channel got the byte-for-byte arm above in #2003; the note
+    // channel had only the rendered-bytes arms, which cannot see this class at all — a trailing
+    // blank line renders identically, and one blank is not a `\n\n\n` run either. So both of the
+    // probes that exist looked straight past it, and the fixture's own hand-written twin — the
+    // deck "as a person would have written it with nothing to say" — was sitting in the tree
+    // holding the answer. When the artifact IS the bytes, assert on the bytes.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-note-source-'));
+    const { parseEnvelope } = require(path.join(ROOT, 'lib', 'core', 'lattice-doc.js'));
+    const sourceOf = (file) => parseEnvelope(fs.readFileSync(file, 'utf8')).source;
+
+    const stripped = sourceOf(exportHtml(dir, NOTED, 'stripped.html', ['--player', '--strip-notes']));
+    const twin = sourceOf(exportHtml(dir, TWIN, 'twin.html', ['--player']));
+    const asAuthored = sourceOf(exportHtml(dir, NOTED, 'authored.html', ['--player']));
+
+    // The probe can see something, and the control shows it can see the note when it is there.
+    assert.match(stripped, /Third slide/, 'guard: the envelope carries the deck source');
+    assert.match(asAuthored, /PRIVATELEAKTOKEN alpha/, 'control: the unstripped export carries the note');
+    assert.doesNotMatch(twin, /PRIVATELEAKTOKEN/, 'guard: the twin never had a note');
+
+    assert.doesNotMatch(stripped, /PRIVATELEAKTOKEN/, 'no note text survives in the shipped source');
+    assert.doesNotMatch(stripped, /\n[ \t]*\n[ \t]*\n/, 'no blank-line run marks where a note was');
+    assert.equal(
+      stripped, twin,
+      'the shipped source differs from the deck written without notes, so it still names which '
+      + 'slides carried one'
+    );
+  });
+
+  test('the PDF attachment is cut under a boundary measured on the document it ships (#2040)', { timeout: TIMEOUT }, () => {
+    // `--embed-source` attaches `md` — the deck as the author wrote it, pre-Mermaid — while the
+    // boundary was measured against `rawMd`, the pre-rendered source pass 2 renders. On a deck
+    // where those differ, the cut used to be one measured on the other document.
+    //
+    // THE FIXTURE IS BUILT TO REACH THAT, and no deck this repo ships does: it needs BOTH a
+    // Mermaid fence (so the two documents differ) AND a note where the cut choice changes the
+    // bytes (indented inside a list item — `preserve` puts a blank line there and turns the
+    // author's TIGHT list LOOSE, `drop` reproduces it). The assertion is the list: `- Revenue`
+    // followed directly by `- Costs`, which is the author's own tight list.
+    //
+    // WHAT THIS ARM DOES NOT PROVE, stated because the obvious reading is wrong: it is NOT
+    // mutation-discriminating for the boundary. Back the `attachmentCut` change out and it still
+    // passes — the Mermaid pre-render does not touch the lines around a note inside a list, so
+    // `rawMd` and `md` happen to want the SAME cut here and the old code reached the right answer
+    // by luck. Making it discriminate needs a deck where the pre-render changes a comment's own
+    // neighbours, and no realistic shape was found that does. That is the same fact the guard was
+    // written for and #2040 records: the exposure is structural, with zero live instances. So this
+    // is PATH COVERAGE — it drives the three-step guard end to end on a real export and pins that
+    // the attachment stays the author's document, notes gone, list intact. The discriminating
+    // half is the unit-level measurement in test/unit/authoring/notes-core.test.js.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-attach-'));
+    const out = path.join(dir, 'attached.pdf');
+    const r = spawnSync(
+      process.execPath,
+      [EMULATOR, PREPROCESSED, out, '--quiet', '--embed-source', '--strip-notes'],
+      { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT }
+    );
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+
+    // DO NOT grep the PDF: pdf-lib deflates the object stream carrying the attachment, so a raw
+    // byte scan of a definitely-leaking file returns zero hits (same trap as `embedNotesInPdf`,
+    // see engineering/gotchas/export.md). Inflate first.
+    const zlib = require('zlib');
+    const bytes = fs.readFileSync(out);
+    const attached = [...bytes.toString('latin1').matchAll(/stream\r?\n([\s\S]*?)endstream/g)]
+      .map((m) => { try { return zlib.inflateSync(Buffer.from(m[1], 'latin1')).toString('utf8'); } catch { return m[1]; } })
+      .find((t) => t.includes('Revenue up 12 percent'));
+    assert.ok(attached, 'control: the attachment is readable — if this fails the probe proves nothing');
+
+    assert.doesNotMatch(attached, /PREPROCLEAKTOKEN/, 'the attached source carries no note text');
+    assert.match(attached, /```mermaid/, 'the attachment is the AUTHOR\'s source, not the pre-rendered one');
+    assert.match(
+      attached, /- Revenue up 12 percent\n- Costs flat/,
+      'the list stays tight: the cut was measured on the attached document, not on the rendered one'
     );
   });
 
