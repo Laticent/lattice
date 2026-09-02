@@ -35,17 +35,6 @@ command-line renderer, the Studio, and the editor preview.
 	hint="Press Dark. Every color moves to the second half of its pair — and the file did not change. Then edit a dark value and press Dark again to see it land."
 />
 
-## Which value wins
-
-The rule is per-token and mechanical:
-
-- **Light canvas** → the first value.
-- **Dark canvas** → the second value.
-
-So each token names both futures once, at the place it is defined, instead
-of being redefined somewhere else. Reading a theme file, you can see both
-canvases at the same time.
-
 ## The dark variant file
 
 This is why `evergreen-dark.css` is three lines:
@@ -57,14 +46,12 @@ This is why `evergreen-dark.css` is three lines:
 ```
 
 It imports the palette you already wrote and flips one switch. Every
-`light-dark()` pair resolves to its second value, and you are done. There is
-no second set of colors to keep in step, which means there is no way for
-the two to drift apart.
+`light-dark()` pair resolves to its second value, and you are done.
 
 ## How a deck picks a canvas
 
-Deck authors have five ways to get a dark deck, and it is worth knowing
-them so your theme is tested the way people will use it.
+Deck authors have five ways to get a dark deck. Know them, so your theme
+is tested the way people will use it.
 
 | What the author wants | What they write |
 |---|---|
@@ -80,8 +67,6 @@ first row.
 The default is light.
 
 ## Getting the dark side right
-
-Three things that catch people out.
 
 **A dark canvas is not an inverted light one.** Pure white text on pure
 black is harsh at projector brightness. Pull both ends in: a near-black
@@ -107,5 +92,5 @@ flip as well.
 
 ## Next
 
-You have all the pieces. Here is the list that says when it is finished:
+You have all the pieces. Now go and finish the file:
 [Ship your theme](/craft/themes/checklist/).

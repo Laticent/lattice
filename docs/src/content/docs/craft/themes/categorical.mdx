@@ -38,11 +38,10 @@ Every slot has to satisfy all three at once, in **both** canvases.
 least 3:1. This is the layer that stops boxes from floating: without a
 definite border, a pale fill on a pale page has no shape.
 
-**② The fill is deliberately quiet.** `--cat-N-fill` against `--bg` is
-*intentionally* low contrast. It is not a failure, it is the design: the
-edge from layer ① is what defines the shape, so the fill is free to be a
-whisper. This is the one layer no checker measures, because "quiet enough"
-is a judgment.
+**② The fill is deliberately quiet.** `--cat-N-fill` against `--bg` sits
+*low* on purpose: the edge from layer ① is what defines the shape, so the
+fill is free to be a whisper. This is the one layer no checker measures,
+because "quiet enough" is a judgment.
 
 **③ The label reads on the fill.** Whatever text sits inside that pie slice
 uses `--cat-on-fill`, and it needs 4.5:1 against the fill it lands on.
@@ -52,8 +51,6 @@ equal and the box collapses into a flat blob with no edge. That was a real
 bug, and there is now a gate that fails the build for it.
 
 ## The pairs swap in dark mode
-
-This is the part that surprises people.
 
 On a light page, the fill is the pale tier and the mark is the deep one. On
 a dark page **they trade places**: the fill becomes a jewel tone and the
@@ -119,5 +116,6 @@ npm run build:check              # the three-layer gate
 
 ## Next
 
-You have now seen `light-dark()` three times. Here is what it actually
-does: [Light and dark](/craft/themes/light-dark/).
+Those flipping pairs have a mechanism behind them, and it is the same one
+that dresses a whole deck for two canvases:
+[Light and dark](/craft/themes/light-dark/).

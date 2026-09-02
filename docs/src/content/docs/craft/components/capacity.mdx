@@ -7,8 +7,8 @@ import CraftLab from '../../../../components/craft/CraftLab.astro';
 import { CSS_CUSTOM_COMPONENT, SLIDE_CUSTOM_COMPONENT } from '../../../../components/craft/samples.ts';
 
 Every layout has a point where it stops working. A card grid reads at
-three; at eight it is a wall. Nothing in the CSS prevents the eighth card —
-it will render, it will just be bad.
+three; at eight it is a wall. Nothing in the CSS prevents the eighth card:
+it renders, it is just bad.
 
 So each component declares its own limits, and the tooling holds authors to
 them.
@@ -63,7 +63,7 @@ write down where that was.
 	markdown={SLIDE_CUSTOM_COMPONENT}
 	editMarkdown
 	size="tall"
-	hint="On the Slide tab, keep adding reasons. Note the count where it first feels crowded — that is soft. Keep going until it is unusable — one before that is hard. Then double the length of each reason and watch the same slide fail at a lower count. That is why density is a separate number."
+	hint="On the Slide tab, keep adding reasons. The count where it first feels crowded is your soft limit; one before unusable is your hard limit. Now double the length of every reason and run it again — the same slide fails several items earlier."
 />
 
 ## What happens when an author goes past
@@ -74,11 +74,10 @@ Three things, escalating:
 2. **The engine measures the rendered slide** and flags a real overflow —
    content that does not fit the page rather than content that merely reads
    badly.
-3. **Nothing blocks the render.** The author is not stopped. They are told,
-   and given somewhere to go.
+3. **Nothing blocks the render.**
 
-That posture is deliberate throughout Lattice: warn, explain, suggest the
-fix. An author who has a reason to break a rule keeps their slide.
+That last one is the posture throughout Lattice: warn, explain, suggest the
+fix. An author with a reason to break a rule keeps their slide.
 
 ## Reflow
 
@@ -102,5 +101,5 @@ targeting and leave wide out.
 
 ## Next
 
-The list that says a component is done:
-[Ship your component](/craft/components/checklist/).
+[Ship your component](/craft/components/checklist/) — the files, the gates,
+and what to check before you push.

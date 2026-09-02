@@ -7,9 +7,8 @@ import CraftLab from '../../../../components/craft/CraftLab.astro';
 import { CSS_FINISH_WASH, SLIDE_FINISH } from '../../../../components/craft/samples.ts';
 
 Every layer in a finish is written twice: once for the screen, once for
-export. That sounds like duplication and is not — the two faces are
-genuinely different, and skipping the second one is the most common way a
-finish ships broken.
+export. The two faces are genuinely different, and skipping the second one
+is the most common way a finish ships broken.
 
 ## Why two faces
 
@@ -53,7 +52,7 @@ and an export face with one leaves the export reading the wrong settings.
 	css={CSS_FINISH_WASH}
 	markdown={SLIDE_FINISH}
 	size="tall"
-	hint="Only the screen face is visible here — the browser preview never uses the opaque twin. That is exactly why the export has to be checked separately, on a real PDF."
+	hint="Only the screen face is visible here; the browser preview never uses the opaque twin. Which is why the export has to be checked on a real PDF."
 />
 
 ## Textures print differently too
@@ -71,11 +70,10 @@ alpha across a large area.
 
 ## `--fin-canvas`, not `--bg`
 
-This is the one that costs people a title slide.
+Mix toward `var(--fin-canvas)` — never `var(--bg)` directly. Getting this
+one wrong costs you the title slide.
 
-Mix toward `var(--fin-canvas)` — never `var(--bg)` directly.
-
-`--fin-canvas` means *the surface this slide is actually painting*. On an
+`--fin-canvas` means *the surface this slide is painting*. On an
 ordinary slide it is exactly `--bg`, so nothing changes. It differs on the
 three inverse bookends — `title`, `closing`, and a dark `divider` — which
 paint the dark surface instead.
@@ -84,18 +82,6 @@ A finish written against `--bg` composites a light-colored wash over those
 dark slides. The white display text disappears into it, and the deck's
 title page exports as a nearly blank sheet. Using the canvas token is the
 entire fix, and it costs nothing anywhere else.
-
-## Never reach for an image
-
-No `url()`, no `mask-image`. Four reasons, and all of them bite:
-
-- an image fetch inside an exported document is a data-exfiltration path;
-- it will not be there when the file is opened offline;
-- it does not scale cleanly across page sizes;
-- it cannot recolor itself when the palette changes.
-
-Gradients have none of those problems. Everything a finish needs can be
-built from them.
 
 ## Signing it off
 
@@ -113,4 +99,5 @@ the signature of a missing opaque twin.
 
 ## Next
 
+The list that says a finish is ready to ship:
 [Ship your finish](/craft/finishes/checklist/).

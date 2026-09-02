@@ -10,12 +10,12 @@ you to touch the engine.
 | Layer | What it decides | The file you write |
 |---|---|---|
 | **Theme** | Every color in the deck | `themes/<name>.css` — a list of colors |
-| **Component** | How one slide is arranged | `<name>.styles.css` — about twenty CSS rules |
+| **Component** | How one slide is arranged | `<name>.styles.css` — about twenty lines of CSS |
 | **Finish** | The texture or glow behind the words | One block in `base.finish.css` |
 
 They stay separate on purpose. A theme designer picks colors without
 touching layout. A layout designer arranges boxes without picking colors.
-Change one and the other two keep working — that is why a deck can swap
+Change one and the other two keep working, which is why a deck can swap
 palettes without a single slide breaking.
 
 ## Start here
@@ -43,9 +43,10 @@ The labs run the same engine that renders your PDFs, so what you see is
 what you would get. Two differences worth knowing:
 
 - The lab renders one slide, not a deck.
-- The lab CSS is layered on top of the engine's own, so a rule that looks
-  ignored is usually losing a specificity contest rather than a typo. Each
-  track says where that bites.
+- When two CSS rules both apply to the same thing, the browser picks a
+  winner. The engine's own rules are written so that they usually win, so a
+  rule you type into a lab that seems to do nothing is more often being
+  overruled than mis-typed. Each track says where that bites.
 
 Read the pages in the order the sidebar lists them. Each one assumes the
 one before it.

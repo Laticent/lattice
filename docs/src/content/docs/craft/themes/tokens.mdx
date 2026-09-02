@@ -48,7 +48,7 @@ it as the cover of the document.
 	css={THEME_MINI}
 	markdown={SLIDE_CARDS}
 	size="tall"
-	hint="Push --bg-alt toward #D6E0EE. The cards separate from the page, and past a point they stop reading as paper and start reading as boxes. That threshold is a judgment call, and it is yours."
+	hint="Push --bg-alt toward #D6E0EE, then further. Watch for the point where the cards stop reading as raised paper and start reading as gray boxes."
 />
 
 ## Ink — the writing
@@ -74,10 +74,8 @@ readability floor as body prose. If you want something genuinely
 decorative, that is the next line.
 
 **`--muted-mark` never carries words.** It is the color of a rule, a
-hairline, an empty-cell tick, a faint wash — decoration, held to a lower
-floor precisely because nothing is spelled in it. Set a caption in
-`--muted-mark` and it will pass every automatic check and still be too
-faint to read.
+hairline, an empty-cell tick, a faint wash: decoration, held to a lower
+readability floor precisely because nothing is spelled in it.
 
 **`--text-display` is for the dark surface only.** It pairs with
 `--surface-inverse`, not with `--bg`.
@@ -145,23 +143,18 @@ it can be read at all.
 	css={THEME_MINI}
 	markdown={SLIDE_CODE}
 	size="tall"
-	hint="This theme sets no --hljs-* colors, so the code block is wearing the engine's defaults. That is the fallback in action: leave a group out and something sensible still renders."
+	hint="This theme sets no --hljs-* colors, so the code block is wearing the engine's defaults. Add --hljs-comment: #6A7C93 and watch just the comment line move."
 />
 
 ## What you did not have to set
 
 The lab above renders a complete code slide from a theme that never
-mentions code. Everything a theme omits falls back to the engine's own
-defaults, which is why a half-written theme still shows you a slide instead
-of black text on white.
-
-That is a good development experience and a bad shipping plan. A theme that
-stops at the twenty colors on this page is, in the parts it skipped,
-quietly wearing the default palette's clothes — it will look almost right
-and be subtly not yours. [Ship your theme](/craft/themes/checklist/) lists
-the full set.
+mentions code, because everything a theme omits falls back to the engine's
+defaults. Good while you work, and a bad way to ship —
+[Ship your theme](/craft/themes/checklist/) says why, and lists the full
+set.
 
 ## Next
 
-Colors are only half the job. The other half is whether anyone can read
-them: [Contrast and readability](/craft/themes/contrast/).
+You now know what the colors do. Time to pick some:
+[Build your first theme](/craft/themes/first-theme/).

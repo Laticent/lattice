@@ -22,8 +22,8 @@ Before any file exists:
 
 `statement.canvas` is a combination the system already sanctions, so
 nothing here is a new design decision. If your answer lands on a pair
-nobody uses, stop and reconsider — a genuinely new combination is a
-decision worth making deliberately rather than by accident.
+nobody uses, stop: a genuinely new combination is a decision to make
+deliberately, not one to arrive at by accident.
 
 ## 2. Scaffold
 
@@ -70,11 +70,11 @@ generated from it.
 }
 ```
 
-Two fields hard-block the build if you leave them empty, and both are the
-build refusing to generate documentation nobody wrote: `tags` must have
+Two fields fail the build if you leave them empty, and in both cases the
+build is refusing to generate documentation nobody wrote: `tags` must have
 real entries, and every variant you declare needs a matching `variantDocs`
-entry. Tags must also say something the other fields do not — `["statement",
-"canvas"]` just repeats the axes.
+entry. Tags also have to say something the other fields do not —
+`["statement", "canvas"]` just repeats the axes.
 
 ## 4. Write the CSS
 
@@ -89,12 +89,12 @@ hangs off `> .cell-stage`.
 	markdown={SLIDE_CUSTOM_COMPONENT}
 	editMarkdown
 	size="tall"
-	hint="This is the whole component. Twenty-odd lines, no JavaScript. Try swapping --accent-soft for --bg-alt, or turning the flex column into a two-column grid."
+	hint="This is the whole component: about twenty lines, no JavaScript. Try swapping --accent-soft for --bg-alt, or turning the flex column into a two-column grid."
 />
 
-That is the finished layout. Most components are this size; the ones that
-are not are usually charts, which build an SVG and are a different kind of
-job.
+That is the finished layout. Most components are about this size. The ones
+that are not are usually charts, which build an SVG and are a different
+kind of job.
 
 ## 5. Preview it while you work
 
@@ -108,9 +108,9 @@ npm run lint:deck -- examples/takeaway.md # check the deck against the catalog
 ## 6. Ship a demo deck
 
 Six to ten slides in `examples/takeaway.md`, with a rendered PDF beside it.
-This is not paperwork: it is the only artifact that shows the component
-under real content rather than lorem ipsum, and it is where you discover
-that four reasons fit and six do not.
+It is the only artifact that shows the component under real content rather
+than placeholder text, and it is where you find out that four reasons fit
+and six do not.
 
 ## 7. Build and check
 

@@ -21,12 +21,12 @@ const FINISH_REGISTER = Object.freeze({
 });
 ```
 
-That one line does more than it looks like. `finish: quarry` starts
-working in front matter, the deck linter accepts it as a real value (and
-keeps flagging typos like `quary`), and the Studio's picker offers it.
+That one line does three things. `finish: quarry` starts working in front
+matter, the deck linter accepts it as a real value while still flagging
+typos like `quary`, and the Studio's picker offers it.
 
-The register is deliberately open. Adding a finish is a row, not a change
-to the engine.
+The register is deliberately open: adding a finish is a row in a list,
+never a change to the engine.
 
 ## 2. Write the preset
 
@@ -43,8 +43,8 @@ that mostly works.
 
 **Declare all four slot families**, even the ones you do not use — set them
 to `none`. A finish is a set of custom properties, and an undeclared one
-inherits, so an unset slot can pick up a stray layer from elsewhere. Saying
-`none` is saying *deliberately nothing*.
+inherits, so an unset slot can pick up a stray layer from elsewhere.
+Writing `none` says *deliberately nothing*.
 
 **Write the `-opaque` twin of every full-bleed layer** as you write the
 layer, not afterwards. [Screen and print](/craft/finishes/screen-and-print/)
@@ -57,7 +57,7 @@ after export.
 	css={CSS_FINISH_TWO_LAYERS}
 	markdown={SLIDE_FINISH}
 	size="tall"
-	hint="This is a complete finish. Give it a point of view: change the texture to 45deg for a diagonal weave, or move the wash's hotspot to a corner and drop it to 8%."
+	hint="This is a complete finish. Give it a signature: change the texture to 45deg for a diagonal weave, or move the wash to a corner and drop it to 8%."
 />
 
 ## 3. Keep it palette-blind
@@ -89,8 +89,8 @@ Empty is the default; the author opts in per deck.
 
 Add an entry to `docs/src/components/studio/finish-catalog.ts` — a label, a
 one-line blurb, a group and a swatch — so the Studio's picker can show it.
-A guard test fails if the catalog and the register disagree, which is what
-stops one from quietly rotting behind the other.
+A guard test fails if the catalog and the register disagree, so neither can
+quietly rot behind the other.
 
 ## 6. Ship a demo deck and export it
 
@@ -117,4 +117,5 @@ one of them is an unregistered finish on one slide.
 
 ## Next
 
-[Ship your finish](/craft/finishes/checklist/).
+Everything above renders beautifully on screen. Making it survive a PDF is
+a separate problem: [Screen and print](/craft/finishes/screen-and-print/).

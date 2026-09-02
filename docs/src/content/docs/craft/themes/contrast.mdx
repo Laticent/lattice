@@ -9,13 +9,14 @@ import { SLIDE_KPI, THEME_MINI } from '../../../../components/craft/samples.ts';
 Contrast is the difference in lightness between two colors, written as a
 ratio. Black on white is 21:1. Two shades of the same gray might be 1.4:1.
 Lattice holds every theme to two floors, and the difference between them is
-the single most useful thing on this page.
+the most useful thing on this page.
 
 ## The two floors
 
 **4.5:1 for anything with words in it.** Body prose, headings, captions,
 page numbers, code comments, the label inside a chart segment. This is the
-WCAG AA standard, and it is not negotiable in a theme that ships.
+WCAG AA standard — the accessibility bar most organizations are held to —
+and a theme that ships has to clear it.
 
 **3:1 for anything without words.** A rule between rows, the border of a
 diagram box, the tick marking an empty cell. These are shapes, not
@@ -78,16 +79,6 @@ npm run build:check               # the gates, including the categorical contrac
 `build:check` is the one that blocks. It holds the ink-on-fill and
 mark-on-canvas floors across your whole categorical cycle, in both
 canvases, and it fails the build rather than warning.
-
-## The part no checker can see
-
-A ratio says a color is legible. It says nothing about whether the deck
-reads as one document. Two palettes can both clear every floor and only one
-of them looks like it was designed.
-
-That is why [Build your first theme](/craft/themes/first-theme/) ends by
-telling you to render the gallery and look at it. The checker catches what
-is wrong; you have to catch what is merely fine.
 
 ## Next
 

@@ -11,11 +11,11 @@ render a real deck and look at it. This page is that list.
 
 The tour covered around twenty colors. A shipping theme defines **98**.
 
-The gap is not decoration. Every color a theme leaves out falls back to the
-default palette's value — so a theme that stops at the surfaces, the ink
-and the accent renders its charts, its code blocks and its diagrams in
-*somebody else's colors*, and does it quietly. It will look almost right.
-That is worse than looking wrong.
+Skipping a color has a cost. Every one a theme leaves out falls back to the
+default palette's value, so a theme that stops at the surfaces, the ink and
+the accent renders its charts, its code blocks and its diagrams in
+*somebody else's colors*, and does it quietly. It will look almost right,
+which is worse than looking wrong.
 
 Beyond the groups on [the token tour](/craft/themes/tokens/), define:
 
@@ -32,22 +32,24 @@ Beyond the groups on [the token tour](/craft/themes/tokens/), define:
 
 The exact list lives in `test/unit/palette/token-parity.test.js`.
 
-### Two that catch everyone
+### Two worth reading twice
 
-**`--seq-500`** anchors a ramp: the engine derives nine more steps from it,
-receding toward the page and advancing away from it. Both halves of its
-light/dark pair have to sit **mid-range on their own canvas**. Anchor it
-near either end and the derived steps have nowhere to travel, so they
-collapse into each other while every one of them still technically clears
-the page. Check where the steps land, not where the anchor sits:
+**`--seq-500`** is the middle of a ten-step ramp: the engine builds nine
+more shades around it, some closer to the page color, some further from it.
+Both halves of its light/dark pair have to sit **mid-range on their own
+canvas**. Put the anchor near white or near black and the nine have nowhere
+to go — they bunch up and stop looking like separate steps, even though
+each one is still readable on its own. Check where the steps land, not
+where the anchor sits:
 
 ```bash
 node tools/composed-contrast.js evergreen
 ```
 
-**`--on-accent`** is curated by hand, per theme, for that theme's accent, in
-both canvases. Nothing derives it, and no derived quieter tier of it may
-carry text — the derivation spends exactly the margin the curation buys.
+**`--on-accent`** you pick yourself, by eye, for both canvases. Nothing
+computes it for you. Do not fade it to a quieter shade for small text
+either: you tuned it to clear the contrast floor with nothing to spare, and
+fading it spends exactly that.
 
 ## The checklist
 
@@ -88,12 +90,12 @@ node lattice-emulator.js test/integration/baseline-decks/gallery.md \
   /tmp/gallery.pdf -p evergreen    # render the gallery and LOOK at it
 ```
 
-## The last step is not a command
+## The step with no command
 
 Every item above is checkable, which means every item above can pass while
 the palette is merely acceptable. The gap between "clears the floors" and
 "reads like a designed document" is taste, and the only way through it is
-to render a real deck, look at every page, and fix what is short of good.
+to render a real deck, look at every page, and fix what falls short.
 
 ## Where to go next
 

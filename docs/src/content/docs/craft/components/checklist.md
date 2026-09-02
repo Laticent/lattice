@@ -19,8 +19,8 @@ plus
   examples/takeaway.pdf       ← its rendered PDF
 ```
 
-Two files are yours. The rest the build writes from your manifest, and
-hand-editing any of them means losing the edit on the next build.
+Two files are yours. The build writes the rest from your manifest, so
+hand-editing any of them loses the edit on the next build.
 
 ## The thirteen buckets
 
@@ -69,9 +69,9 @@ writes or by the domain.
 ## Do not list universal variants
 
 Modifiers like `dark`, `compact`, `accent` and the state markers are added
-to every component automatically. Listing them in your manifest's
-`variants` is an error, not a shortcut: that field is for variants
-**specific to your layout** — `numbered`, `four`, `wide`.
+to every component automatically, and listing them in your manifest's
+`variants` fails the build. That field is for variants **specific to your
+layout** — `numbered`, `four`, `wide`.
 
 ## The commands
 

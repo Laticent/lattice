@@ -19,9 +19,9 @@ a fixed place in the pile.
 Content sits above all four, always.
 
 You do not need all of them. Most good finishes use two. `atrium`, the
-quietest one that ships, is a corner glow plus a dissolving grid plus a
-left margin rule — and you would struggle to describe it after seeing it,
-which is the compliment.
+quietest one that ships, is a corner glow, a dissolving grid and a left
+margin rule, and most people cannot describe it after looking at a deck
+that uses it. That is the effect working.
 
 ## 1 · Wash — the color field
 
@@ -35,10 +35,11 @@ falling from a corner, a soft pool behind the title.
     transparent 60%);
 ```
 
-Two things carry the whole effect. **The alpha** — 14% here — decides
-whether this is atmosphere or a stain. Stay between about 5% and 16%. **The
-position** — `at 100% 0%` — puts it in the top-right corner; move it and
-the light moves.
+Two numbers carry the whole effect. **The percentage** — 14% here — is how
+much of the accent shows through, and it decides whether this is atmosphere
+or a stain; stay between about 5% and 16%. **The position** — `at 100% 0%`
+— puts the bright point in the top-right corner. Move it and the light
+moves.
 
 <CraftLab
 	label="Layer 1 — wash"
@@ -46,13 +47,14 @@ the light moves.
 	css={CSS_FINISH_WASH}
 	markdown={SLIDE_FINISH}
 	size="tall"
-	hint="Move the hotspot: try at 0% 100% for a glow from the bottom-left, or at 50% 50% for a centered pool. Then push the percentage up until it is clearly too much, so you know where the edge is."
+	hint="Move the bright point: try at 0% 100% for a glow from the bottom-left, or at 50% 50% for a centered pool. Then push the percentage up until it is clearly too much."
 />
 
 ## 2 · Texture — the pattern
 
-Repeating lines, dots or hatching. Where a wash gives direction, a texture
-gives the page a surface — the difference between paper and glass.
+Repeating lines, dots or hatching. A wash gives the page a direction; a
+texture gives it a grain, the way laid paper has one and a screen does
+not.
 
 ```css
 --fin-texture:
@@ -94,7 +96,7 @@ which usually looks like a texture that has stopped repeating.
 	css={CSS_FINISH_TWO_LAYERS}
 	markdown={SLIDE_FINISH}
 	size="tall"
-	hint="Change the texture's 0deg to 90deg for vertical rules. Then delete one entry from --fin-repeat and watch the wash start tiling — that is the counts falling out of step."
+	hint="Change the texture's 0deg to 90deg for vertical rules. Then delete one entry from --fin-repeat and watch the wash start tiling."
 />
 
 ## 3 · Mark — the emblem
@@ -108,7 +110,7 @@ heading, a small rule.
 
 **Default it to empty**, always. A deck-wide finish with `"ACME"` baked in
 is a finish only one organization can use. Leave it blank and let the
-author fill it in per slide when they want it:
+author fill it in per slide:
 
 ```css
 section.finish-myfinish { --fin-mark-text: "Q3"; }
@@ -125,14 +127,19 @@ reserved for the page number, and a frame drawn there erases it.
 
 ## Composing them
 
-A finish worth shipping has **a point of view** — one signature layer that
-makes it recognizable. `loom` weaves a lattice at 45 degrees. `savile` is a
-tailored pinstripe. `gallery` hangs a museum keyline.
+Some pairs work and some fight. **Wash plus texture** is the safe
+combination and the one most shipped finishes use: the wash gives direction,
+the texture gives grain, and they occupy different frequencies so neither
+hides the other. **Wash plus edge** is the next safest — a soft field with a
+definite boundary. **Texture plus mark** is the pair to avoid: both are
+figures rather than fields, so they compete, and the mark loses.
 
-A wash of the accent, on its own, is not a finish. It is what every deck
-would look like if nobody had decided anything.
+Give the finish **one signature layer** that makes it recognizable. `loom`
+weaves a lattice at 45 degrees, `savile` runs a tailored pinstripe,
+`gallery` hangs a keyline frame. A wash of the accent on its own is the
+default every deck would have if nobody decided anything.
 
 ## Next
 
-Everything above renders beautifully on screen. Making it survive a PDF is
-a separate problem: [Screen and print](/craft/finishes/screen-and-print/).
+Put one together from scratch:
+[Build your first finish](/craft/finishes/first-finish/).

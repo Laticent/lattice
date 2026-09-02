@@ -59,12 +59,11 @@ entries. The top bullet is the title; the nested bullet is the body.
   - Hosting spend down 18% after the migration.
 ```
 
-The nested form is the house style for anything card-shaped, and it is
-worth insisting on. The alternative people reach for —
-`- **Demand held.** Renewals closed at 94%` — puts the title inside the
-body's paragraph, so CSS can style the whole item but not the title on its
-own. The nested form gives the title its own element, which is what lets a
-card set it in a different size, weight or color.
+The nested form is the house style for anything card-shaped. The obvious
+alternative — `- **Demand held.** Renewals closed at 94%` — puts the title
+inside the body's paragraph, so CSS can style the whole item but not the
+title on its own. The nested form gives the title its own element, which is
+what lets a card set it in a different size, weight or color.
 
 ## The skeleton
 
@@ -98,16 +97,15 @@ which is the difference between describing a shape and drawing a picture.
 	markdown={SLIDE_CUSTOM_COMPONENT}
 	editMarkdown
 	size="tall"
-	hint="Add a fourth reason. Then a fifth, a sixth, a seventh. Somewhere the slide stops working — not because the CSS broke, but because the design has a limit. Naming that limit is what 'How much fits' is about."
+	hint="Add a fourth reason, then a fifth, then a sixth. The CSS never breaks; the slide just gets worse. Naming the point where that happens is what 'How much fits' is about."
 />
 
 ## What is not a slot
 
 Three parts of the slide are the engine's, and no component declares them:
 
-- **The heading.** It lives in the masthead cell, styled once for the whole
-  deck.
-- **The header, footer and page number.** Deck-level chrome.
+- **The heading.** It lives in the masthead cell.
+- **The header, footer and page number.** The deck sets those.
 - **The backdrop.** That is the [finish](/craft/finishes/anatomy/).
 
 A component owns the stage and nothing else. That constraint is why sixty-one

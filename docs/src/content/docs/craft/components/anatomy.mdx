@@ -44,10 +44,10 @@ holds nothing yet.
 **A Tile fills a Cell.** Your words are the Tile — the heading, the list,
 the quote.
 
-Every component picks a Frame, and binds your markdown into the Cells the
-Frame produced. `cards-grid` picks the grid Frame and puts one list item in
-each Cell. `split-panel` picks the split Frame and puts the prose in one
-Cell, the figure in the other.
+Every component picks a Frame, and puts one Tile in each Cell the Frame
+produced. `cards-grid` picks the grid Frame and makes each list item a
+Tile. `split-panel` picks the split Frame and fills its two Cells with two
+Tiles: the prose and the figure.
 
 Frames do not nest inside Cells. A component's internal arrangement is
 plain CSS inside its own box — which keeps the model shallow enough to
@@ -87,16 +87,16 @@ masthead, the footer and the page number have taken theirs:
 section.takeaway > .cell-stage { /* … */ }
 ```
 
-Not `section.takeaway` directly. Style the section and you are styling the
-whole page, chrome included; style the stage and you are styling the area
-your content actually occupies. Every one of the sixty-one shipped
-components does the latter.
+Not `section.takeaway` directly. Style the section and you are reaching the
+whole page, including the header, footer and page number the deck puts on
+every slide; style the stage and you are styling the area your content
+occupies. Every one of the sixty-one shipped components does the latter.
 
-**Where did `content` come from?** The engine appends it. A slide whose
-class names no component it knows falls back to `content`, the catch-all
-layout — which is why the lab's slide had a properly set heading before you
-had written a single rule. Once `takeaway` is a real registered component,
-the fallback stops applying.
+The `content` class is the engine's doing. A slide whose class names no
+component it knows falls back to `content`, the catch-all layout, which is
+why the lab's slide had a properly set heading before you had written a
+single rule. Once `takeaway` is a real registered component, the fallback
+stops applying.
 
 ## The three questions
 
@@ -112,7 +112,7 @@ select and what the engine expects your markdown to look like.
 `takeaway` above is a **statement** in a **canvas** Frame made of
 **structure** (a heading and a list). That is the whole design decision.
 
-Substance is the one that decides how much work you are in for:
+Substance decides how much work you are in for:
 
 - **prose** — a heading and paragraphs. CSS only. No code.
 - **structure** — nested lists with a convention ("the top bullet is the

@@ -24,7 +24,8 @@ Four files, one of them a single line.
       `var(--fin-canvas)`.
 - [ ] The two faces have the **same layer count**.
 - [ ] `--fin-size`, `--fin-position` and `--fin-repeat` each carry one
-      entry per layer, in compositor order — texture first, then wash.
+      entry per layer, in the same order the layers are listed: texture
+      first, then wash.
 - [ ] Accent alpha stays in the 5–16% range.
 - [ ] `--fin-mark-text` defaults to `""`.
 - [ ] A full frame uses `--fin-frame`, not the section's `::after`.
@@ -43,16 +44,16 @@ Four files, one of them a single line.
 - [ ] `npm run build:check` green.
 - [ ] `npm test` green.
 
-**The sign-off that is not automatable**
+**The sign-off no script can do**
 
 - [ ] Exported through **both** engines — the command-line PDF and the
       in-browser export — in **both** canvases, all four files opened and
       looked at.
 
-That last one is a hard requirement rather than a nicety. A finish changes
-the bytes of every exported file, and the failure mode — a gray cloud
-across a full-bleed fade, a title slide washed to near-blank — appears only
-in the export. Nothing on screen predicts it.
+That last one is a hard requirement. A finish changes the bytes of every
+exported file, and its failure mode — a gray cloud across a full-bleed
+fade, a title slide washed to near-blank — appears only in the export.
+Nothing on screen predicts it.
 
 ## The five mistakes, in order of frequency
 
