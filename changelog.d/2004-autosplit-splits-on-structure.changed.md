@@ -215,3 +215,16 @@
   `.form` and so still missed `premise`, which is not a Form layout (`class="premise
   lat-split-native"`); the gate certified that incomplete fix because every fixture in it was a
   Form page. Both the rule and the gate now cover a non-Form shape.
+- **Fixed: a `stats` or `kpi` run pointed at its own numbers, never at its metrics.** Those
+  components lead a member with the VALUE and nest the metric name under it, so `labelOf` took the
+  figure: measured on `examples/adaptive-sizing.pdf`, every page read "next: $0.9M" and the cover
+  lead-in was "$48.2M". A figure is not a name, so when the lead is a bare value token — carries a
+  digit, holds no space — the member's own following text is preferred if it yields a name. The
+  same run now reads "next: Gross margin", "next: Net revenue retention", and the cover introduces
+  "Annual recurring revenue".
+  This also settles the "next: 31" case recorded earlier: a bullet led by a bolded count falls
+  through to its own sentence, which is not a name, and declines to the un-labeled pointer rather
+  than claiming a number is the next page's subject. A figure with NOTHING after it keeps the
+  figure — a roadmap horizon authored as `2026` alone still points at 2026, because there the
+  numeral IS the name. That is why this is not a blanket ban on numeric labels, which was the
+  option considered and rejected when the limitation was first recorded.

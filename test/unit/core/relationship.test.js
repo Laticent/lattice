@@ -151,6 +151,30 @@ describe('core: relationship — refusals and reading', () => {
       'The one thing it holds, set at full size');
   });
 
+  test('a FIGURE is not a name — the member\'s own text is preferred when it yields one', () => {
+    // `stats` and `kpi` lead a member with the VALUE, the metric name nested under it, so taking
+    // the leading `<strong>` pointed a whole run at its own numbers: measured on
+    // `examples/adaptive-sizing.pdf`, every page read "next: $0.9M" and the cover lead-in was
+    // "$48.2M". The reader was told which figure came next, never which metric.
+    assert.equal(labelOf('<li><strong>119%</strong><ul><li>Net revenue retention</li></ul></li>'),
+      'Net revenue retention');
+    assert.equal(labelOf('<li><strong>4.2x</strong> Pipeline coverage</li>'), 'Pipeline coverage');
+  });
+
+  test('a figure with NOTHING after it keeps the figure; one with an unusable follow declines', () => {
+    // A roadmap horizon authored as `2026` alone still points at 2026 — there the numeral IS the
+    // name, which is why this is not a blanket ban on numeric labels.
+    assert.equal(labelOf('<li><strong>2026</strong></li>'), '2026');
+    // But a bullet led by a bolded COUNT falls through to its own sentence, which is not a name,
+    // and declines rather than claiming a number is the next page's subject. This is the
+    // "next: 31" case the decision record carries.
+    assert.equal(labelOf('<li><strong>31</strong> keep whole and ring on overflow, each for a recorded reason</li>'), '');
+  });
+
+  test('an ordinary named card is untouched by the figure rule', () => {
+    assert.equal(labelOf('<li><strong>Draft the policy.</strong><ul><li>body</li></ul></li>'), 'Draft the policy');
+  });
+
   test('criteriaOf reads the badge labels a verdict/pricing member carries', () => {
     const m = '<li><strong>Build</strong><ul><li><span class="badge pass state-full">Residency</span></li>' +
       '<li><span class="badge warn state-half">Self-serve</span></li><li>rationale</li></ul></li>';
