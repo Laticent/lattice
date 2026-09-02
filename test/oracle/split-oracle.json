@@ -10,6 +10,11 @@
       "deck": "examples/split-structure.md",
       "by": "#2004 (rendered at size: portrait, indaco, and read page by page)",
       "note": "Cover p8, one criterion per page, closing page carrying the italic annotation. The numbered row fills the measure -- this component is what caught the lone-member width fix (`width: 100%` sheared its text; `width: auto` is correct). soft/hard match what its own stress doc holds."
+    },
+    "journey": {
+      "deck": "examples/split-structure.md",
+      "by": "#2004 (rendered at size: portrait, indaco, and read page by page)",
+      "note": "Cover, one stage per page. Renders inside a `chart-frame` but keeps a real top-level <ul>, which is exactly why it splits and timeline-list/progress do not — their transforms REPLACE the list with a custom DOM, so the seam is unreachable. Enrollment follows the seam, not the bucket."
     }
   },
   "components": {
@@ -279,14 +284,14 @@
     },
     "journey": {
       "treatment": "connected",
-      "axis": null,
-      "declaredIn": null,
-      "enrolled": false,
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
       "strategy": null,
       "reshape": null,
-      "coverClass": null,
-      "perPage": null,
-      "relationship": null
+      "coverClass": "lat-split-cover",
+      "perPage": 1,
+      "relationship": "sequence"
     },
     "kanban": {
       "treatment": "read-across",

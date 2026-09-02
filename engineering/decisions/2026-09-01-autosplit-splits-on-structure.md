@@ -130,11 +130,11 @@ Two practices come out of this, and they are the durable part of this note:
 
 ## Enrollment: what splits, what rings
 
-30 of 61 components split. The other 31 are single structural elements already — an anchor, a
+31 of 61 components split. The other 30 are single structural elements already — an anchor, a
 viewBox graphic, a bitmap asset, one atomic text unit or shared-geometry grid — and ring on
 overflow. Each has its treatment and its reason in `lib/core/split-facts.js`.
 
-Two that could not split now do: `content` and `list-criteria`.
+Three that could not split now do: `content`, `list-criteria` and `journey`.
 `content` is the notable one — the commonest slide in any deck could
 not split at all, so a long one could only clip. Its axis is declared in `adapt.capacity`
 rather than top-level, following `inventory/list`: the canonical sample is prose, and a
@@ -142,15 +142,19 @@ top-level contract against a prose sample is inert, which the manifest validator
 rejects. The split axis is derived from the rendered DOM anyway, so a paragraph-only content
 slide resolves no collection and is left whole.
 
-**A FOURTH came out on the owner's instruction: `journey`.** It splits cleanly — it was rendered
-and signed off — but it lives in the `chart` bucket and renders inside a `chart-frame`, and the
-owner's ruling is that charts and diagrams stay whole for now. So enrollment is not decided by
-whether a seam exists; where a seam and a category disagree, the category wins until the owner
-says otherwise. Two chart-bucket components remain enrolled — `kanban` and `roadmap` — and are
-deliberately untouched: both shipped long before this change with their own decision record
-(#1209 for `roadmap`), so removing them is a separate call, not this change's to make.
+**The rule is the SEAM, not the bucket (owner ruling, 2026-09-02).** A chart that cannot be
+split stays whole; a chart that can, splits. `journey` was briefly backed out on a bucket
+reading — it lives under `chart/` and renders inside a `chart-frame` — and that was the wrong
+discriminator. It keeps a real top-level `<ul>` of independent stages, so the seam is there and
+it splits. `kanban` (per lane) and `roadmap` (per horizon card) are chart-bucket components that
+have always split, for the same reason, and are consistent with this rather than exceptions to it.
 
-**Three more were enrolled and backed out the same day.** `pricing` came out on a gate: the
+§0c already encoded this and is the authority: `graphic`, `asset`, `anchor` and `atomic` are the
+treatments that mean "no seam", and they cover 25 of the 31 components that do not split. A
+viewBox figure has nothing to cut between; a shared-geometry grid loses its whole read if you cut
+it. That is a fact about the artifact, and no bucket name is needed to see it.
+
+**Three more were enrolled and backed out the same day.****Three more were enrolled and backed out the same day.** `pricing` came out on a gate: the
 `band` conformance rule requires a component's stress doc to sit inside the capacity band it
 declares, and `pricing`'s stress doc holds THREE tiers while its own gallery ships a supported
 `.four` variant with four. No band satisfies both, so the component's tier ceiling is genuinely

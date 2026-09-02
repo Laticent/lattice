@@ -59,7 +59,7 @@ _list-criteria could not split at all before this change._
 
 <!-- _class: journey -->
 
-## Reading a split run — and a chart that stays whole
+## Reading a split run
 
 - Arrive
   - Meet the cover `@reader` `:1`
@@ -70,7 +70,7 @@ _list-criteria could not split at all before this change._
 - Close
   - Read the note and the insight together `@reader` `:2`
 
-_This slide does not split. A chart is one picture; cutting it apart would say something the author did not draw._
+_A chart splits when it has a seam. This one does — independent stages. A pie chart does not._
 
 ---
 

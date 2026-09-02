@@ -23,9 +23,9 @@
   split into pages with nothing joining them. Every run now carries a forward pointer; a declared
   relationship still chooses the phrasing. The last body page points at the closing page and names
   what it holds.
-- **Changed: two components can split that never could.** `content` — the commonest slide in any
-  deck — and `list-criteria` declared no split axis, so a long one could only clip.
-  30 of 61 components now split; the other 31 are single structural elements already
+- **Changed: three components can split that never could.** `content` — the commonest slide in any
+  deck — plus `list-criteria` and `journey` declared no split axis, so a long one could only clip.
+  31 of 61 components now split; the other 30 are single structural elements already
   (an anchor, a graphic, an asset, one atomic text unit) and ring on overflow, each with its
   reason recorded in `lib/core/split-facts.js`.
 - **Fixed: a member alone on its page takes the whole measure.** A component that states its track
