@@ -48,7 +48,7 @@ Two files are yours.
 
   "description": "A recommendation stated as a sentence, with its reasons beneath.",
   "purpose": "Use when the audience needs to leave holding one position and knowing why.",
-  "tags": ["recommendation", "decision", "close"],
+  "tags": ["recommendation", "positioning", "board-deck"],
 
   "capacity": {
     "axis": "item", "sweet": 3, "soft": 4, "hard": 5,
@@ -105,8 +105,12 @@ hard limit because the sixth reason was tried and it did not work.
 **`axis` is `item`, not `reason`.** It is a closed set — `item`, `row`,
 `col`, `cell`, `line` — and the human word goes in `note`.
 
-**`tags` say something the axes do not.** `["statement", "canvas"]` would
-just repeat the manifest.
+**`tags` come from a fixed vocabulary.** They are not free text: `validate()`
+checks each one against `TAG_GROUPS` in `lib/components/index.js` — sixty
+terms in four groups — and a further gate rejects a term only one component
+uses, because a tag that clusters nothing fragments search instead of
+grouping it. Pick three to five that say something the axes do not;
+`["statement", "canvas"]` would just repeat the manifest.
 
 ## The demo deck
 

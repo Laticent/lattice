@@ -56,10 +56,14 @@ generated from it.
   "form": "canvas",
   "substance": "structure",
   "description": "A recommendation stated as a sentence, with its reasons beneath.",
-  "tags": ["recommendation", "decision", "close"],
+  "tags": ["recommendation", "positioning", "board-deck"],
   "capacity": { "axis": "item", "sweet": 3, "soft": 4, "hard": 5,
                 "escalateTo": ["list-tabular"],
                 "note": "past five reasons it reads as a list, not a position" },
+  "stressDoc": {
+    "summary": "five reasons at the density ceiling",
+    "sample": "<!-- _class: takeaway -->\n\n## …the slide at its hard limit…\n"
+  },
   "slots": {
     "title":   { "selector": "h2",      "required": true,
                  "description": "The recommendation, as one sentence." },
@@ -70,11 +74,20 @@ generated from it.
 }
 ```
 
-Two fields fail the build if you leave them empty, and in both cases the
-build is refusing to generate documentation nobody wrote: `tags` must have
-real entries, and every variant you declare needs a matching `variantDocs`
-entry. Tags also have to say something the other fields do not —
-`["statement", "canvas"]` just repeats the axes.
+Three things here fail the build, and each one is the build refusing to
+generate documentation nobody wrote.
+
+**`tags` come from a fixed vocabulary.** Three to five terms, each drawn from
+`TAG_GROUPS` in `lib/components/index.js` — sixty terms in four groups —
+and each has to be one at least one other component also uses. Invented
+words are rejected, and so is a term that says what the axes already said:
+`["statement", "canvas"]` just repeats them.
+
+**Declaring `capacity` obliges a `stressDoc`.** The numbers only mean
+something if someone rendered the slide at the ceiling and looked at it, so
+the manifest carries that slide. Leave it out and validation names it.
+
+**Every variant you declare needs a matching `variantDocs` entry.**
 
 ## 4. Write the CSS
 

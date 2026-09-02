@@ -76,9 +76,10 @@ flowchart LR
 `;
 
 /**
- * A theme small enough to read in one screen. It sets the ten colors everything
- * else leans on; the engine's own defaults cover the rest, which is exactly why
- * a half-finished theme still renders instead of collapsing to black on white.
+ * A theme small enough to read in one screen. It sets the seventeen colors
+ * everything else leans on; the engine's own defaults cover the rest, which is
+ * exactly why a half-finished theme still renders instead of collapsing to
+ * black on white.
  */
 export const THEME_MINI = `/* @theme craft-lab */
 @import 'lattice';
@@ -96,6 +97,7 @@ export const THEME_MINI = `/* @theme craft-lab */
   --text-display:   #F4F7FB;
   --text-heading:   #0A1628;
   --text-body:      #1C2A3E;
+  --text-label:     #2E5C8A;
   --text-secondary: #3A4A61;
   --text-muted:     #5A6A80;
   --muted-mark:     #6B7B92;
@@ -109,35 +111,6 @@ export const THEME_MINI = `/* @theme craft-lab */
   --pass: #2D6A3F;
   --warn: #B45309;
   --fail: #991B1B;
-}
-`;
-
-/** The same theme, re-hued warm — the "change three values" exercise. */
-export const THEME_WARM_ACCENT = `/* @theme craft-lab */
-@import 'lattice';
-
-:where(:root) { color-scheme: light; }
-
-:root {
-  --bg:              #FDFBF7;
-  --bg-alt:          #F5EEE2;
-  --border:          #E0D3BE;
-  --surface-inverse: #2A1F14;
-
-  --text-display:   #FBF6EE;
-  --text-heading:   #2A1F14;
-  --text-body:      #3D2E1E;
-  --text-secondary: #5A4632;
-  --text-muted:     #6E5A44;
-  --muted-mark:     #806B54;
-
-  --accent:      #9A5B1E;
-  --accent-soft: #F2E3CE;
-  --on-accent:   #FFFFFF;
-
-  --pass: #4A6A2D;
-  --warn: #B45309;
-  --fail: #9A3412;
 }
 `;
 
@@ -158,6 +131,7 @@ export const THEME_PAIRS = `/* @theme craft-lab */
   --text-display:   light-dark(#F4F7FB, #0A1628);
   --text-heading:   light-dark(#0A1628, #EDF2F9);
   --text-body:      light-dark(#1C2A3E, #D2DCEA);
+  --text-label:     light-dark(#2E5C8A, #7FB2E5);
   --text-secondary: light-dark(#3A4A61, #A9B8CC);
   --text-muted:     light-dark(#5A6A80, #93A3B8);
   --muted-mark:     light-dark(#6B7B92, #7C8CA2);
@@ -201,14 +175,16 @@ export const THEME_EVERGREEN = `/* @theme evergreen
   --border:          light-dark(#CBDBD6, #24403A);
   --surface-inverse: light-dark(#0A211D, #EAF3F0);
 
-  /* Ink — loudest to quietest, each annotated with what it clears on --bg. */
-  --text-display:   light-dark(#F2F8F6, #0A211D);  /* on the dark surface */
-  --text-heading:   light-dark(#0A211D, #EAF3F0);  /* 17:1 */
-  --text-body:      light-dark(#1C2E2A, #D2E2DD);  /* 11:1 */
-  --text-secondary: light-dark(#3A4E49, #A9C0BA);  /*  7:1 */
-  --text-label:     light-dark(#1F6E60, #7FD3C2);  /* accent-hued label tier */
-  --text-muted:     light-dark(#5A6A66, #94AAA4);  /*  5:1 — quiet TEXT */
-  --muted-mark:     light-dark(#6B7B77, #7E938D);  /*  3:1 — DECORATION only */
+  /* Ink — loudest to quietest. Each comment is the measured ratio on --bg,
+   * light canvas then dark; --text-display is measured on --surface-inverse,
+   * the only surface it ever lands on. */
+  --text-display:   light-dark(#F2F8F6, #0A211D);  /* 15.7 · 14.9 — on the dark surface */
+  --text-heading:   light-dark(#0A211D, #EAF3F0);  /* 16.5 · 15.8 */
+  --text-body:      light-dark(#1C2E2A, #D2E2DD);  /* 13.9 · 13.3 */
+  --text-label:     light-dark(#1F6E60, #7FD3C2);  /*  6.0 · 10.2 — brand-hued label tier */
+  --text-secondary: light-dark(#3A4E49, #A9C0BA);  /*  8.7 ·  9.3 */
+  --text-muted:     light-dark(#5A6A66, #94AAA4);  /*  5.6 ·  7.3 — quiet TEXT, floor 4.5 */
+  --muted-mark:     light-dark(#6B7B77, #7E938D);  /*  4.4 ·  5.5 — DECORATION, floor 3 */
 
   /* Accent — --on-accent is picked by eye, per canvas. Nothing derives it. */
   --accent:      light-dark(#0E8C7A, #17B89E);
@@ -334,7 +310,10 @@ export const CSS_FINISH_QUARRY = `section.finish-quarry {
       color-mix(in srgb, var(--accent) 11%, var(--fin-canvas)) 0%,
       var(--fin-canvas) 58%);
 
-  /* ── z3 · MARK — empty by default. The author opts in per slide. */
+  /* ── z3 · MARK — both of its slots declared. The gradient slot is none,
+   *    so it cannot inherit one; the glyph is empty so the author opts in
+   *    per slide rather than inheriting somebody's monogram. */
+  --fin-mark: none;
   --fin-mark-text: "";
 
   /* ── z4 · EDGE — declared as nothing, so it cannot inherit a stray layer. */

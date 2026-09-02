@@ -43,7 +43,8 @@ writes or by the domain.
 
 - [ ] The `function.form` pair is one the system already sanctions.
 - [ ] `description` is a real sentence about when to reach for this.
-- [ ] Three to five `tags` that say something the axes do not.
+- [ ] Three to five `tags`, each from `TAG_GROUPS` in
+      `lib/components/index.js` and each shared with another component.
 - [ ] `slots` name every part, with a selector and a description each.
 - [ ] `skeleton` is the smallest usable slide.
 - [ ] `sample` is real prose, not placeholder text.

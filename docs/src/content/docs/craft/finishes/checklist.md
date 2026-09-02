@@ -30,8 +30,10 @@ Four files, one of them a single line.
 - [ ] `--fin-size`, `--fin-position` and `--fin-repeat` each carry one
       entry per layer, in the same order the layers are listed: texture
       first, then wash.
-- [ ] Accent alpha stays in the 5–16% range.
-- [ ] `--fin-mark-text` defaults to `""`.
+- [ ] Accent alpha stays in the 5–16% range wherever a layer covers the
+      whole page. A narrow band — an edge strip, a mark bar — may go higher.
+- [ ] Both mark slots declared: `--fin-mark: none` and
+      `--fin-mark-text: ""`.
 - [ ] A full frame uses `--fin-frame`, not the section's `::after`.
 
 **Palette-blind**
@@ -63,7 +65,8 @@ Nothing on screen predicts it.
 
 1. **A fade ending on `transparent` in the opaque face.** A gray cloud in
    every PDF.
-2. **Accent alpha too high.** The backdrop competes with the words.
+2. **Accent alpha too high across the full page.** The backdrop competes
+   with the words.
 3. **`url()`, `mask-image`, a hex, or a `margin`** anywhere in the preset.
 4. **A monogram baked into a deck-wide finish.**
 5. **Mismatched layer counts** between the two faces, which quietly

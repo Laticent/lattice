@@ -91,8 +91,11 @@ Either `axis` is not one of `item`, `row`, `col`, `cell`, `line`, or you
 declared a capacity without a `stressDoc`.
 
 **Your tags were rejected.**
-Three to five, and they have to say something the axes do not. `["statement",
-"canvas"]` just repeats the manifest.
+Three to five, each from the controlled vocabulary — `TAG_GROUPS` in
+`lib/components/index.js` — and each shared with at least one other
+component. An invented word fails at load; a real term nothing else uses
+fails the clustering gate. They also have to say something the axes do not:
+`["statement", "canvas"]` just repeats the manifest.
 
 **A generated file keeps coming back.**
 It is generated. Edit the manifest and run `npm run build`; the `.docs.md`

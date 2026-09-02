@@ -34,12 +34,33 @@ seeing them side by side should never have to squint.
 Twelve colors for the parts of a code block: comments, keywords, strings,
 numbers, function names, and so on.
 
-Two things constrain them. They all sit on `--code-bg`, and every one of
-them is **small text a person reads**, so each has to be genuinely legible
-against that background — comments and punctuation included. The temptation
-to make comments nearly invisible is exactly the mistake: de-emphasis is
-about where a color sits relative to the code around it, not about whether
-it can be read at all.
+```css
+--code-text:         #E6EDF6;  /* everything the twelve below do not claim */
+
+--hljs-comment:      #8B9FB8;  /* comments and quotes */
+--hljs-keyword:      #F0A6C0;  /* function, const, return */
+--hljs-string:       #93D3A8;  /* string and regex literals */
+--hljs-number:       #F2C88B;  /* numeric literals */
+--hljs-literal:      #F2C88B;  /* true, false, null */
+--hljs-built_in:     #8FD3E8;  /* built-in names */
+--hljs-title:        #8CB8F0;  /* the names of functions and classes */
+--hljs-type:         #C4AEF0;  /* type names, symbols, meta */
+--hljs-variable:     #E8DDB5;  /* variables, attributes, bullets */
+--hljs-params:       #DCE3EC;  /* a parameter list */
+--hljs-tag:          #F0A6C0;  /* markup tags and attribute names */
+--hljs-punctuation:  #AAB8C9;  /* braces, operators */
+```
+
+Two things constrain them. They all sit on `--code-bg` — the panel behind
+the block, which defaults to `--surface-inverse` — and every one of them is
+**small text a person reads**, so each has to be genuinely legible against
+that background. The values above clear 4.5:1 on `#0A1628`, comments and
+punctuation included.
+
+The temptation to make comments nearly invisible is exactly the mistake:
+de-emphasis is about where a color sits relative to the code around it, not
+about whether it can be read at all. `--hljs-comment` is the quietest color
+in the block above and still clears the floor with room to spare.
 
 <CraftLab
 	label="The code colors you never set"
@@ -48,7 +69,7 @@ it can be read at all.
 	canvasToggle={false}
 	markdown={SLIDE_CODE}
 	size="tall"
-	hint="This theme sets no --hljs-* colors, so the code block is wearing the engine's defaults. Add --hljs-comment: #6A7C93 and watch just the comment line move."
+	hint="This theme sets none of the twelve, so the code block is wearing the engine's defaults. Paste --hljs-comment: #8B9FB8; into the :root block and watch just the comment line move — then --hljs-keyword: #F0A6C0; and function, const and return follow."
 />
 
 ## What happens to the ones you skip

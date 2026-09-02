@@ -59,16 +59,21 @@ distorts every later choice.
 
 ## 4. The ink ramp
 
-Set the six ink tokens, loudest to quietest, and check each against the
+Set the seven ink tokens, loudest to quietest, and check each against the
 surface it lands on as you go. Write the ratio in a comment beside it:
 
 ```css
---text-heading:   #0A211D;   /* 17:1 on --bg */
---text-body:      #1C2E2A;   /* 11:1 */
---text-secondary: #3A4E49;   /*  7:1 */
---text-muted:     #5A6A66;   /*  5:1 — still readable */
---muted-mark:     #6B7B77;   /*  3:1 — decoration only */
+--text-display:   #F2F8F6;   /* 15.7:1 on --surface-inverse, not on --bg */
+--text-heading:   #0A211D;   /* 16.5:1 on --bg */
+--text-body:      #1C2E2A;   /* 13.9:1 */
+--text-label:     #1F6E60;   /*  6.0:1 — brand-hued, still carries words */
+--text-secondary: #3A4E49;   /*  8.7:1 */
+--text-muted:     #5A6A66;   /*  5.6:1 — quiet, floor is 4.5 */
+--muted-mark:     #6B7B77;   /*  4.4:1 — decoration, floor is 3 */
 ```
+
+`--text-display` is the exception to "check it against `--bg`": it only ever
+lands on `--surface-inverse`, so that is the surface to measure it against.
 
 Write the number down. That is what makes you check it.
 

@@ -37,9 +37,16 @@ falling from a corner, a soft pool behind the title.
 
 Two numbers carry the whole effect. **The percentage** — 14% here — is how
 much of the accent shows through, and it decides whether this is atmosphere
-or a stain; stay between about 5% and 16%. **The position** — `at 100% 0%`
-— puts the bright point in the top-right corner. Move it and the light
-moves.
+or a stain; across the whole page, stay between about 5% and 16%. **The
+position** — `at 100% 0%` — puts the bright point in the top-right corner.
+Move it and the light moves.
+
+That band is about how much of the page a color covers, not about the
+number itself. A layer confined to a narrow band can go far higher without
+competing with the words: `strata` opens its wash on bare `var(--accent)`
+at the left edge before falling away, and `ledger` paints a solid accent bar
+a single hairline wide. The rule is *quiet across the field*, not *quiet
+everywhere*.
 
 <CraftLab
 	label="Layer 1 — wash"
@@ -104,16 +111,24 @@ which usually looks like a texture that has stopped repeating.
 
 ## 3 · Mark — the emblem
 
-A single placed glyph: a monogram in the corner, a ghost numeral behind the
-heading, a small rule.
+A single placed thing: a monogram in the corner, a ghost numeral behind the
+heading, a bar down one edge.
+
+The mark has **two** slots, and a preset declares both:
 
 ```css
---fin-mark-text: "";
+--fin-mark: none;       /* a gradient — a bar, a rule, a shape */
+--fin-mark-text: "";    /* a glyph — a monogram, a ghost numeral */
 ```
 
-**Default it to empty**, always. A deck-wide finish with `"ACME"` baked in
-is a finish only one organization can use. Leave it blank and let the
-author fill it in per slide:
+`--fin-mark` is painted as a background image, so it draws shapes;
+`--fin-mark-text` is set as text, so it draws characters. `ledger`, the
+shipped finish with the boldest mark, uses only the first — a solid accent
+bar at the left edge, `linear-gradient(var(--accent), var(--accent))`.
+
+**Default the glyph to empty**, always. A deck-wide finish with `"ACME"`
+baked in is a finish only one organization can use. Leave it blank and let
+the author fill it in per slide:
 
 ```css
 section.finish-myfinish { --fin-mark-text: "Q3"; }

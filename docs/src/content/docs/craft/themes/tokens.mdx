@@ -15,7 +15,7 @@ This page covers the three you tune by hand and spend the most time on.
 | Group | Roughly | Sets |
 |---|---|---|
 | **Surfaces** | the paper | 4 colors |
-| **Ink** | the writing | 6 colors |
+| **Ink** | the writing | 7 colors |
 | **Accent** | the brand | 3 colors |
 | **Signals** | good, careful, bad | 6 colors |
 | **Code** | syntax highlighting | 12 colors |
@@ -57,19 +57,27 @@ it as the cover of the document.
 
 ## Ink — the writing
 
-Six colors, loudest to quietest. Each is a **tier**, and the tiers matter
+Seven colors, loudest to quietest. Each is a **tier**, and the tiers matter
 more than the exact values.
 
 ```css
 --text-display:   #F4F7FB;  /* text on the DARK surface */
 --text-heading:   #0A1628;  /* headings */
 --text-body:      #1C2A3E;  /* prose */
---text-secondary: #3A4A61;  /* subtitles, captions, table headers */
+--text-label:     #2E5C8A;  /* small uppercase labels — table headers */
+--text-secondary: #3A4A61;  /* subtitles and captions */
 --text-muted:     #5A6A80;  /* page numbers, footers, code comments */
 --muted-mark:     #6B7B92;  /* rules and hairlines — never text */
 ```
 
-Two rules keep the ramp honest.
+`--text-label` is the odd one in the ramp: it is not a step down in
+loudness but a step sideways in hue. It sets the small uppercase labels a
+deck is full of — table headers most of all — and most shipped themes tint
+it toward the brand rather than the ink, which is why it sits beside
+`--text-secondary` rather than below it. It carries words, so it takes the
+same readability floor as prose.
+
+Three rules keep the ramp honest.
 
 **Every tier down to `--text-muted` must stay readable.** Quiet is not the
 same as faint. `--text-muted` sets page numbers and captions, and a reader

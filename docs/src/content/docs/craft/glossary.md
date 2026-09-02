@@ -48,7 +48,7 @@ tell them apart.
 | **Palette** | The same thing. The site header's picker uses this word. |
 | **Token** | A named color, written `--like-this`. The name is a **role**, not a color. |
 | **Role** | What a token is *for* — `--text-body` is "the color body prose is set in", not "dark gray". |
-| **Ink** | The colors text is set in. Six of them, loudest to quietest. |
+| **Ink** | The colors text is set in. Seven of them, loudest to quietest. |
 | **Surface** | The colors things are painted on: the page, cards, the dark bookends. |
 | **Accent** | The brand color, plus its pale wash and the ink that goes on top. |
 | **Signal** | Success, warning, failure — three inks and three tinted grounds. |

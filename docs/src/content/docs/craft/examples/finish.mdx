@@ -22,13 +22,19 @@ for export, and nothing in it naming a color.
 ## What to notice
 
 **All four families are declared, including the ones it does not use.**
-`--fin-mark-text` is empty and `--fin-edge` is `none`. A finish is a set of
-custom properties, and an undeclared one inherits — saying `none` says
-*deliberately nothing*.
+The mark carries both of its slots — `--fin-mark: none` for the gradient,
+`--fin-mark-text: ""` for the glyph — and `--fin-edge` is `none`. A finish
+is a set of custom properties, and an undeclared one inherits, so `none` is
+how you say *deliberately nothing*.
 
 **Every full-bleed layer is twinned.** Same geometry, same percentage; the
-only difference is what the fade ends on. The screen face ends on
-`transparent`, the export face on `var(--fin-canvas)`.
+only difference is where the color lands. The wash covers the whole page,
+so its screen face fades to `transparent` and its export face fades to
+`var(--fin-canvas)` instead. The texture is the other case: it is a
+hairline on a transparent field, so only its *line* mixes into the canvas —
+the gaps stay `transparent` in both faces, because an opaque gap would
+flood the page. [Screen and print](/craft/finishes/screen-and-print/) is
+the page that separates the two.
 
 **The bookkeeping lists match the layer count.** Two background layers, so
 `--fin-size`, `--fin-position` and `--fin-repeat` each carry two entries,
