@@ -714,23 +714,89 @@ ignore it.
 
 ### `numbered`
 
-Stamps an auto-incrementing index in the top-right corner of bookend
-slides. Each layout carries its own counter — a `divider numbered`
-series and a `closing numbered` series number independently.
+Stamps the running section index as a **masthead**: a display numeral in the
+top band on the divider's own left margin, with a hairline running right
+underneath it that stops just past mid-canvas so the top-right corner stays
+free for a deck logo.
 
-| Layout | Counter token | Stamp position |
-|---|---|---|
-| `divider` | `lat-divider` | top-right |
-| `divider light` | `lat-divider-light` | top-right |
-| `closing` | `lat-closing` | top-right |
+The numeral is `--fs-hero` in `--font-display` at weight 700, no tracking —
+the treatment every oversized mark in the engine takes. The two rungs follow
+the on-dark ramp's own division of labour: `--on-dark-secondary` for the
+numeral (text) and `--on-dark-ghost` for the hairline (a line), resetting to
+`--text-secondary` / `--border` on `divider light`.
+
+**It is pinned to the section, not to the heading, and that is load-bearing.**
+The headline block is vertically centered, so it grows away from a mark in the
+top band: the numeral holds the same position on every divider regardless of
+how long the heading runs. Two alternatives were rendered and rejected on
+exactly this — one locked into the headline block (it drifts 22% → 14% down
+the canvas as the heading grows from one line to three) and one pinned
+bottom-left (it holds position, but the block grows toward it and overlaps at
+five lines).
+
+**The band is reserved, so a long heading cannot climb into the mark.** Pinning alone
+was not enough: a centered block grows in both directions, and at four lines its top
+edge crossed the hairline and the numeral struck through the eyebrow. The slide now
+reserves the mark's band with symmetric padding and centers the block with
+`safe center`, which falls back to `start` exactly when the block would overflow. So the
+top edge stops at the band and the growth goes downward.
+
+Measure clearance against the mark's **painted** bottom edge — the numeral's pseudo is
+`content-box`, so beneath its height sit the gap and the hairline itself, 21.48px at
+1280x720. Against that edge: a heading of one or two lines renders byte-identically to
+the unreserved build (the reservation is symmetric, so the block's midpoint does not
+move); three lines shifts 6.14px down, because a 3-line block is taller than the band
+and pins; from there on the block pins and clearance holds at +32.0px, which is `2.5cqi`
+by construction and so the same at every size family.
+
+`divider light` and `divider qr` need the band too. A light divider carrying the lede its
+own subtitle rule styles sits at −15.2 without it, and `divider numbered qr` at −85.3 —
+both +32.0 with it. The cost is that a block taller than the band stops centering on
+those variants, and on `qr` the payload then sits 18.9px off the frame edge.
+
+And a heading long enough to fill the band keeps going until it leaves the FRAME, which
+the engine already knows how to say: the export prints `⚠ OVERFLOW`, tags the slide
+"Content clipped" and the runtime rings it. The old failure was silent because a pseudo
+lying on top of the copy is an overlap, and the overflow probe measures spill past the
+frame. `review-core.js` warns one line earlier on the dark divider
+(`divider-numbered-heading`, past ~128 characters of prose — a character count is a loose
+proxy for line count, so wide-set text can clip without it firing).
 
 ```markdown
-<!-- _class: divider numbered -->   → first stamps "01", next "02", …
-<!-- _class: closing numbered -->   → independent counter, starts at "01"
+<!-- _class: divider numbered -->         → stamps "01", then "02", …
+<!-- _class: divider light numbered -->   → same series, no restart
 ```
 
-The counter is set on `body` and walks the deck once. Authors do not
-number sections manually — the layout does it.
+The number is stamped as `data-lat-section` by `lib/core/section-index.js` and read
+with `attr()` — it is NOT a CSS counter, because a counter cannot count across Marp's
+per-slide containers and produced `01` on every divider there. Authors do not number
+sections manually. Where nothing stamps it (a surface that runs no script and that we
+do not render ourselves, e.g. marp-cli's PDF output) the numeral does not draw at all,
+which is deliberate: a blank mark is a gap you can see, a wrong one is not.
+
+**It suppresses the running header and the footer** on the slides that carry
+it. The masthead owns the top band, and a section start is the one slide that
+does not need to be told which deck it is in. The page number is deliberately
+untouched — it sits bottom-right, nowhere near the mark.
+
+One consequence worth knowing before you reach for it: **a numbered divider
+cannot carry a `_footer:` caption.** The component galleries label each variant
+in the footer, so the two numbered slides in the baseline gallery are labelled
+by their eyebrow instead. If a slide needs a visible footer, it cannot also be
+`numbered`.
+
+**A heading is required, and the count advances either way.** The numeral rides
+the heading's pseudo, so a numbered divider with no heading paints nothing — but
+it still increments the series, so the next divider reads one higher. A deck
+that does this silently skips a number; `lint:deck` does not catch it.
+
+The numeral rides the slide HEADING's `::after`, so a `numbered` slide needs
+its heading — the required slot here anyway. It deliberately does NOT ride
+`section::after`: that pseudo is the engine's page number, which `silent` /
+`no-paginate` null and which the browser-path stylesheet reserves for the
+pagination attribute. On the heading it composes cleanly — `divider silent
+numbered` stamps the index with no other chrome, and a paginated `divider
+numbered` keeps both the index and its page number.
 
 ### `silent`
 

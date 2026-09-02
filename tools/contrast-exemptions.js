@@ -38,8 +38,24 @@
  *
  * Deliberately NOT here, because they were fixed instead of excused: the four `split-*`
  * running headers at 1.00:1 (a paint-order bug in the prober), the three `journey` stage
- * labels at 1.87:1 (#1702), and the `journey` mood legend, whose worst pair sat 0.07 above
- * the 3:1 floor and now clears it by 2.
+ * labels at 1.87:1 (#1702), the `journey` mood legend, whose worst pair sat 0.07 above
+ * the 3:1 floor and now clears it by 2, and the `numbered` bookend stamp at 1.4:1.
+ *
+ * THAT LAST ONE WAS BRIEFLY WRITTEN INTO THIS LIST, and pulling it back out is the more
+ * useful record. It reads like the entry above it — an oversized numeral, declared onto
+ * the atmosphere plane, in the watermark's ornament family — and the resemblance is what
+ * made the wrong call available. It is not decoration: the stamp is there so a reader and
+ * a room can tell WHICH SECTION THEY ARE IN, which is content, and content does not get
+ * excused from a ratio for being large. The tell was in the ink ramp all along —
+ * `--on-dark-watermark` is the 12% DECORATION rung, and the ramp's own rule is that text
+ * on a dark panel takes primary or secondary. Rebound to `--on-dark-secondary` (worst
+ * case 7.17:1 across the shipped palettes) with the CSS `opacity` dropped, it clears AA
+ * on its own and needs nothing from this file.
+ *
+ * THE GENERAL TEST, since this list will be asked the question again: an entry here is
+ * for a run that CARRIES NO INFORMATION — texture, an ornament, a measurement of the
+ * wrong surface. "It is big", "it is faint by design" and "it looks like something
+ * already on the list" are none of those.
  */
 const SANCTIONED_CONTRAST_EXEMPTIONS = [
   {

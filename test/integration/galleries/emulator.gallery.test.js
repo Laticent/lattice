@@ -18,10 +18,13 @@ const { runEmulator } = require('../../helpers/render');
 const { pageCount }   = require('../../helpers/pdf');
 
 const GALLERY = path.join(__dirname, '..', 'baseline-decks', 'gallery.md');
-// 117 since cycle (progression) and policy-recommendation (legal) graduated
-// into the deck (was 115 for the full-coverage extension, 87 before that) —
-// every one of the 55 components now appears at least once.
-const EXPECTED_PAGES = 117;
+// 116 since the `closing numbered` demo was deleted with the variant itself —
+// `numbered` is a divider modifier now, a bookend is not a section. `closing` is
+// still covered twice over (plain at the top of the deck, `accent` near the end),
+// so the every-component floor holds. Was 117 when cycle (progression) and
+// policy-recommendation (legal) graduated in; 115 for the full-coverage
+// extension, 87 before that.
+const EXPECTED_PAGES = 116;
 
 describe('emulator.gallery', () => {
   test('emulator: gallery.md builds and produces expected page count', { timeout: 180000 }, () => {

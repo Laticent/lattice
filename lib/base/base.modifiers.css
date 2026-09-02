@@ -1418,64 +1418,306 @@ section.compare-prose.mirror > .cell-stage > :is(ul, ol) {
  * Bookend modifier — numbered
  * Reference: proposals.md §2.2 divider/closing; appendix matrix
  *
- * Stamps an auto-incrementing index in the top-right corner of any
- * divider (incl. the `light` variant) or closing slide that opts in via
- * .numbered. Each carries its own counter so authors can mix them without collisions
- * (e.g. "01 / divider" and "01 / closing" both read as 01 within their
- * own series).
+ * Stamps the running section index on a `divider` that opts in via `.numbered`.
  *
- * Counter scope: counter-reset is applied at body level so the counter
- * walks the whole deck once. No author bookkeeping required.
+ * DIVIDERS ONLY, AND ONE SERIES FOR ALL OF THEM. The modifier used to reach
+ * `closing` too, and to run THREE independent counters — `divider`, `divider.light`
+ * and `closing` each restarting at 01. That is the opposite of what a section number
+ * is for: a deck whose light dividers restart the count, or whose closing announces
+ * itself as section 01, has a number that tells the room nothing. There is now one
+ * series, `divider.light` shares it, and `closing` (like `title`) does not carry the
+ * modifier at all — a bookend is not a section.
  *
- * Visual: large display-weight numeral, accent-tinted, anchored to the
- * top-right corner, sized so it does not collide with section chrome.
+ * THE VALUE IS AN ATTRIBUTE, NOT A CSS COUNTER, and that is not a style choice.
+ * A counter cannot cross Marpit's per-slide `<svg><foreignObject>` containers, and
+ * Marpit's selector scoping rewrites `body { counter-reset }` into `section body`,
+ * which matches nothing — so on marp-cli and marp-vscode a counter produced `01` on
+ * EVERY divider in the deck. Measured on real marp-cli 4.5.0. Marpit's own pagination
+ * is `attr(data-marpit-pagination)` for exactly this reason; `lib/core/section-index.js`
+ * follows it, stamps `data-lat-section` from one kernel on both the engine's HTML and a
+ * live DOM, and carries the full derivation. The selector below is qualified on the
+ * attribute deliberately: where nothing stamped it the numeral does not draw AT ALL,
+ * because a blank mark is a gap an author can see and a wrong one is misinformation the
+ * room cannot check.
+ *
+ * Visual: a MASTHEAD — a display numeral in the top band, on the divider's own left
+ * margin, with a hairline running right underneath it and stopping just past mid-canvas
+ * so the top-right corner stays free for the deck logo. The header and footer stand down;
+ * the page number does not.
+ *
+ * CHOSEN ON LAYOUT STABILITY, not on the still. Three shapes were rendered and stressed
+ * against headings of one to five lines: this one, a numeral locked into the headline
+ * block, and a numeral pinned bottom-left. Only this one neither drifts nor collides,
+ * because the headline block is vertically centered and therefore grows AWAY from a mark
+ * pinned at the top. The declaration block below records what the other two did and the
+ * measurements behind it.
+ *
+ * AND IT SUPPRESSES THE RUNNING HEADER, which occupies the same corner. Two labels
+ * stacked in one corner is not a layout, and the header is the one that can be spared:
+ * `divider.docs.md` already tells authors not to reinstate chrome on a divider, and a
+ * section start is the one slide in a deck that does not need to be told which deck it
+ * is in. The stamp does not touch the footer or the page number.
+ *
+ * IT IS INK, NOT DECORATION, and that decides its color. The stamp exists so a reader
+ * and a room can tell which section they are in — it is the only thing on the slide
+ * that says so once the headline has scrolled past in memory. It was inked
+ * `--on-dark-watermark` (the 12% DECORATION rung) at `opacity: 0.85` and measured
+ * 1.4:1: present, and not readable. That is the wrong-rung binding
+ * `engineering/decisions/2026-08-11-on-dark-ink-tiers.md` is about, and the `closing`
+ * eyebrow had already been moved off `ghost` for exactly it. The ramp's own rule is
+ * "text on a dark panel uses primary or secondary; ghost draws lines" — so the stamp
+ * takes `--on-dark-secondary` on the dark divider and `--text-secondary` on
+ * `divider.light`, which is verbatim what the eyebrow BESIDE it already uses (see the
+ * before-heading eyebrow rules above). Secondary's worst case across the shipped
+ * palettes is 7.17:1.
+ *
+ * AND THE CSS `opacity` IS GONE, not re-tuned. De-emphasis here is a role ink plus
+ * size and weight; a wash composites ink and backdrop together and steps each down in
+ * proportion to the headroom it already had, which is how `agenda` ended up with its
+ * BIGGEST, BOLDEST element as its least legible one. Same lesson, recorded in
+ * `slide-contrast.test.js` § PREEXISTING_CONTRAST_BACKLOG.
+ *
+ * CARRIER: the numeral rides the slide HEADING's `::after`, NOT the section's.
+ * `section…::after` is the engine's PAGINATION pseudo and it is spoken for twice
+ * over. Between the two, this modifier drew nothing in any browser host, and nothing
+ * anywhere on the samples this repo ships:
+ *
+ *   1. `packTheme` (lib/engine/css.js) mirrors Marpit's pagination plugin and
+ *      COMMENTS OUT every `content` declaration on a `section…::after` rule that
+ *      isn't `attr(data-lattice-pagination)`. The packed path is what the docs
+ *      Playground, the Studio and lib/runtime load, so the counter text was
+ *      stripped there while the unpacked emulator/CLI path kept it — one modifier,
+ *      two render paths, two different pictures.
+ *   2. `silent` / `no-paginate` null that same pseudo with
+ *      `section.silent.silent::after { content: none }` (base.variants.css), which
+ *      ties this rule's (0,2,2) specificity and wins on source order. Every sample
+ *      this repo ships — divider.docs.md, the manifest, divider.gallery.md — reads
+ *      `divider silent numbered`, i.e. precisely the losing combination.
+ *
+ * A heading descendant selector sidesteps both: it carries a space, so the
+ * pagination regex (`^section[^\s>+~]*::?after$`) cannot match it, and it shares no
+ * pseudo with `silent`. It also stops `numbered` silently EATING the page number on
+ * a paginated deck — the two now coexist, which is what `silent` is for.
+ *
+ * `:is(h1, h2)` because the divider takes `h2` as its heading slot and tolerates an
+ * author's `h1` (base.modifiers.css ships the eyebrow rules for both). Exactly one
+ * heading per slide is the contract; a slide with two would stamp twice.
  * ──────────────────────────────────────────────────────────────────────── */
 
-body {
-  counter-reset: lat-divider lat-divider-light lat-closing;
+
+/* ONE increment, matching every divider including `.light` — no `.light` override and
+ * no second counter, so a deck that mixes the two still counts 01, 02, 03 straight
+ * through. */
+
+/* The masthead owns the top band, so the running header and the footer both stand
+ * down. `> header` and `> footer` reach the legacy frame; the Form migration wrapped
+ * the footer in a `.cell-footer` and left the header a direct child
+ * (lib/forms/cell/stage/stage.css), so the footer needs both forms. The `.cell-footer`
+ * arm is DEFENSIVE, not exercised: `divider` renders on the legacy frame today, so no
+ * such DOM exists — it is here so a future Form migration does not silently restore the
+ * footer. The PAGE NUMBER is
+ * deliberately untouched — it lives bottom-right, nowhere near this, and it is the one
+ * piece of chrome a section start still benefits from. */
+section.divider.numbered > header,
+section.divider.numbered > footer,
+section.divider.numbered > .cell-footer > footer { display: none; }
+
+/* THE BAND IS RESERVED, so the copy cannot reach the mark.
+ *
+ * The masthead is `position: absolute` and the headline block is flex-CENTERED, so the
+ * two are laid out independently: as the heading wraps to more lines the block grows in
+ * both directions from the middle and its top edge climbs into the mark.
+ *
+ * MEASURE AGAINST THE PAINTED EDGE, NOT THE CONTENT BOX. The numeral's pseudo is
+ * `content-box`, so its `height` is the NUMERAL alone; beneath it sit
+ * `padding-bottom` (--_mark-rule-gap) and the `border-bottom` that IS the hairline. At
+ * 1280x720/indaco that is top 64 + 114.672 = 178.67 content-box against a painted
+ * 200.15 — a 21.48px difference, and the hairline is the thing the copy actually has to
+ * clear. The first cut of this work measured the content box and so understated every
+ * clearance by that much; a checker shrank the band and the test still passed on a
+ * render whose hairline struck through the eyebrow.
+ *
+ * Measured on the shipped build at 1280x720/indaco with the eyebrow present — the
+ * eyebrow is the TOP of the block, so a measurement of the heading alone reads a line
+ * late — against the painted 200.15:
+ *
+ *     1 line   block top 302.8   clearance +102.6
+ *     2 lines            264.4              +64.2
+ *     3 lines            226.0              +25.8
+ *     4 lines            187.6              -12.6   OVERLAP starts HERE
+ *     5 lines            149.2              -51.0   the numeral strikes through the
+ *     6 lines            110.8              -89.4   eyebrow, the rule cuts the copy
+ *
+ * Two declarations close it, and they only work together:
+ *
+ *   · `padding` reserves the mark's band at the block-start edge. SYMMETRIC, so the
+ *     centered block's midpoint does not move — a heading of ONE OR TWO lines renders
+ *     byte-identically to the unreserved build (0 differing pixels at --overview
+ *     raster). THREE lines is NOT identical: it shifts 6.14px down, because a 3-line
+ *     block is taller than the band and pins. An earlier revision of this comment
+ *     claimed identity through three lines and attached the two-line artifact to it.
+ *   · `safe center` is what makes the reservation hold. Plain `center` overflows a flex
+ *     line in BOTH directions, so the block spills straight back past `padding-top` into
+ *     the band — measured, a reserved band with plain centering still put the eyebrow at
+ *     172.4px. `safe` falls back to `start` exactly when the block would overflow, which
+ *     pins the top edge at the padding and sends the growth downward, where a slide is
+ *     allowed to run long. An engine that does not support the keyword drops the
+ *     declaration at PARSE time and inherits the component's plain `center`
+ *     (divider.styles.css) — today's behavior plus the band, a degradation, not a break.
+ *     (Verified: with `safe` removed the block tops match the pre-band build exactly.)
+ *
+ * With both, the block top pins at the band and clearance holds at +32.0px — which is
+ * `2.5cqi` by construction, so it is the same 2.5cqi at every size family, not a length
+ * that decays as the heading wraps. Verified out to 359 characters.
+ *
+ * AND THE FAILURE GETS LOUD, which the collision never was. Past the band the growth
+ * runs at the FRAME: the block bottom reaches 730.5 of 720 at six lines and 884 at
+ * eight, so `probeSectionOverflow` reports `over: true` and the export prints
+ * `⚠ OVERFLOW`, tags the slide "Content clipped" and the runtime rings it — all
+ * machinery that already existed and had nothing to fire on, because a pseudo lying on
+ * top of the copy is an OVERLAP and the probe measures spill PAST the frame. At the
+ * first clipping length the geometric spill is 10.5px, under the probe's TOL of 12; it
+ * reports because `flowedSpill` folds the heading's own rounded internal overflow on
+ * top. So the "one line of notice, then the engine speaks" contract has ~1.5px of margin
+ * at that boundary length, and more at every length past it.
+ *
+ * `divider light` and `divider qr` BOTH need this band — the claim that light never
+ * reaches the mark was measured heading-only and is false. Measured pre-band: a light
+ * divider carrying the lede its own subtitle rule styles sits at -15.2, and
+ * `divider numbered qr` at -85.3. Both are +32.0 with the band. The cost is that a block
+ * taller than the band no longer centers on those variants; on `qr` the payload then
+ * sits 18.9px off the frame edge, which fits but is tight.
+ *
+ * The band is derived from the mark's own geometry through the three custom properties
+ * below rather than restated as a magic length, so re-tuning the numeral cannot silently
+ * un-reserve the space it needs. It DOES depend on `--fs-hero` resolving to a length:
+ * that token is engine-owned and size-responsive (8.9583cqi at hd, 10.2 and 13.9 at
+ * other families), so no fallback is given — a constant here would be wrong at three of
+ * the four families, and a `--fs-hero` that is not a length has already broken the
+ * numeral itself. HARD RULE #20: padding, never margin. */
+section.divider.numbered {
+  --_mark-top: calc(var(--_sec-1cqi, 1cqi) * 5);
+  --_mark-rule-gap: calc(var(--_sec-1cqi, 1cqi) * 1.6);
+  /* mark top + the numeral's own height (`line-height: 1`, so it is exactly the font
+   * size) + the gap down to its rule + the 1px rule + air below it. */
+  --_mark-band: calc(
+    var(--_mark-top) + var(--fs-hero) + var(--_mark-rule-gap) + 1px +
+    var(--_sec-1cqi, 1cqi) * 2.5
+  );
+  padding-top: var(--_mark-band);
+  padding-bottom: var(--_mark-band);
+  justify-content: safe center;
 }
 
-section.divider.numbered        { counter-increment: lat-divider; }
-/* divider.light (former subtopic) keeps its own counter, independent of the
- * dark dividers — higher specificity wins over the rule above. */
-section.divider.light.numbered  { counter-increment: lat-divider-light; }
-section.closing.numbered        { counter-increment: lat-closing; }
-
-section.divider.numbered::after,
-section.closing.numbered::after {
+section.divider.numbered :is(h1, h2)::after {
   position: absolute;
-  top: var(--sp-xl);
-  right: var(--sp-xl);
+  /* PINNED TO THE SECTION, at the top. The headline block is vertically CENTERED, so it
+   * grows in BOTH directions from the middle and this numeral does not move by a pixel
+   * at any heading length — which is the property the shape was chosen for.
+   *
+   * IT DOES NOT MEAN THE MARK NEVER MEETS THE COPY, and an earlier revision of this
+   * comment claimed exactly that. It was wrong, and the way it went wrong is worth more
+   * than the number: the three candidate shapes were stress-tested at one to five lines,
+   * but THIS one was only ever rendered at three. The claim was written from a test that
+   * had not been run. Measured properly, on the packed browser path at 1280x720/indaco —
+   * the mark's bottom edge sits at 200px (top 64 + --fs-hero 114.67 + padding 20.48 +
+   * the 1px rule) and the heading's top climbs to meet it:
+   *
+   *     1 line  heading top 321.6   clearance +121.5
+   *     3 lines             244.8              +44.7
+   *     4 lines             206.4               +6.3   ← last safe length
+   *     5 lines             168.0              -32.1   OVERLAP: the rule cuts the
+   *                                                    headline and the numeral strikes
+   *                                                    through the eyebrow
+   *
+   * So the honest comparison with the shape this beat: a numeral pinned BOTTOM-left also
+   * holds position and also overlaps at five lines. The masthead's real advantage is over
+   * the third candidate, anchored to the HEADING's own box (`bottom: 100%`), which locks
+   * into the block and reads beautifully in a still — and then moves 22% / 17% / 14% down
+   * the canvas at one, two and three lines. For a RUNNING marker that is the defect,
+   * because the eye expects it in the same place on every divider; and the lock-up and
+   * the drift are the same property, so you cannot keep one and drop the other.
+   *
+   * FIVE LINES IS OFF-CONTRACT — `--measure-bookend-heading` caps the slot at 16em (~33
+   * characters) and divider.docs.md tells authors a section name sits on one line — but
+   * off-contract is not the same as impossible, so the block above RESERVES this mark's
+   * band rather than trusting the copy to stay short. The clearance table there is the
+   * live one; the numbers above it are the unreserved build they replaced, kept because
+   * they are what the shape was chosen against. `lib/authoring/review-core.js` warns the
+   * author at the length where the copy starts running off the BOTTOM instead
+   * (`divider-numbered-heading`) — coaching, per HARD RULE #29, not a refusal. If you move
+   * this mark, re-measure with an eyebrow on the slide: the eyebrow is the top of the
+   * block, and measuring the heading alone reads a line late. */
+  top: var(--_mark-top);
+  /* The divider's own `padding-left`, so the masthead shares the left margin of the
+   * eyebrow and heading below it — and clears the 0.46875cqi left spectrum rail twenty
+   * times over. `divider.light` zeroes its own padding and centers; the mark stays here
+   * anyway, so a deck that mixes the two does not shuffle it. */
+  left: calc(var(--_sec-1cqi, 1cqi) * 9.375);
+  /* The rule stops just past mid-canvas — 9.375 + 45 = 54.375cqi of 100 — which leaves
+   * the top-RIGHT corner entirely to the deck logo. */
+  width: calc(var(--_sec-1cqi, 1cqi) * 45);
+  border-bottom: 1px solid var(--on-dark-ghost);
+  padding-bottom: var(--_mark-rule-gap);
+  /* EXPLICIT, because the pseudo inherits the heading's alignment: `divider.light`
+   * centers, and a centered numeral inside a 45cqi box floats to the middle of its own
+   * rule. The masthead is chrome pinned to the left margin, so it does not follow
+   * `--headline-align` either. */
+  text-align: left;
   font-family: var(--font-display);
-  font-size: var(--fs-h1);
+  /* THE DISPLAY ROLE, not a heading one. `base.tokens.css` maps "KPI / watermark /
+   * display" to `--fs-hero` and headings to `--fs-h*` (HARD RULE #4), and this is a
+   * display numeral that happens to ride a heading's pseudo — measured against the other
+   * oversized marks this engine draws, all of them `--font-display`:
+   *
+   *     form watermark Tile ........ 44cqi     wt 700
+   *     stamp-mark (DRAFT) ......... 16cqi     wt 900   (rotated, full-slide)
+   *     split-panel pullquote " .... 17.19cqi  wt 700
+   *     split-panel section numeral  11.46cqi  wt 700
+   *     split-panel steps eyebrow .. --fs-hero wt 900
+   *
+   * Plain `--fs-hero` rather than a multiple: the rule underneath carries part of the
+   * mark's weight, so the numeral does not have to. Setting `--fs-hero` on a heading's
+   * PSEUDO does not set it on the heading — the pseudo's generated content is its own
+   * box — so the token's "never on h*" note is not in play (`split-panel.metric` puts it
+   * on a real `h2` in any case). */
+  font-size: var(--fs-hero);
+  /* 700, the section-numeral weight across the family above. The two 900s are a rotated
+   * DRAFT stamp and a step eyebrow, neither of which is this. At display size Playfair's
+   * thick/thin contrast is the face's whole argument, and 900 flattens it. */
   font-weight: 700;
   line-height: 1;
-  letter-spacing: 0.04em;
-  color: var(--accent);
-  opacity: 0.55;
+  /* ZERO, explicitly. Positive tracking is a LABEL idiom — it opens up small mono chrome
+   * like the eyebrow — and on a display numeral it read as chrome rather than as ink. */
+  letter-spacing: 0;
+  /* THE TEXT RUNG for the numeral, the RULE RUNG for the hairline, which is the on-dark
+   * ramp's own division of labour: "text on a dark panel uses primary or secondary;
+   * ghost draws lines" (base.tokens.css, 2026-08-11-on-dark-ink-tiers.md). Ghost is 42%
+   * precisely because that is the lowest step clearing WCAG 1.4.11's 3:1 for a hairline
+   * on every panel; secondary is 76%, worst case 7.17:1 across the shipped palettes.
+   * Inking the NUMERAL at ghost would be the wrong-rung binding this modifier already
+   * shipped once. */
+  color: var(--on-dark-secondary);
   pointer-events: none;
-  /* The oversized section numeral is DECORATION behind the words, not a chrome mark —
-   * same family as the watermark ghost and split-panel's giant step numeral. Its old
-   * `1` sat below the finish rule's blanket `2`, which is the order this preserves. */
-  z-index: var(--z-atmosphere);
+  /* The heading is the CARRIER, not the anchor: `position: absolute` resolves against
+   * the nearest positioned ancestor, which is the section (`base.elements.css` sets
+   * `position: relative` on every slide). Out of flow, so the heading's own
+   * `text-wrap: balance` and `max-width` are untouched and the Fit Spine measures the
+   * same box it always did. */
+  /* THE WORDS' plane. `--z-atmosphere` is documented as "decoration BEHIND the words"
+   * and is where this sat while it was a ghost; a section marker a reader is meant to
+   * READ is content, so the plane should say so. */
+  z-index: var(--z-content);
 }
 
-/* On dark canvases the accent is muted; lift the numeral with the dark
- * watermark color so it reads against the dark bg. divider.light is a bright
- * canvas, so it keeps the accent color set above (overrides the dark rule). */
-section.divider.numbered::after,
-section.closing.numbered::after {
-  color: var(--on-dark-watermark, var(--accent));
-  opacity: 0.85;
-}
-section.divider.light.numbered::after {
-  color: var(--accent);
-  opacity: 0.55;
+/* `divider.light` is the bright-canvas variant, so both rungs reset to their light-canvas
+ * equivalents — the same tokens the eyebrow and the engine's hairlines already take. */
+section.divider.light.numbered :is(h1, h2)::after {
+  color: var(--text-secondary);
+  border-bottom-color: var(--border);
 }
 
-section.divider.numbered::after        { content: counter(lat-divider,  decimal-leading-zero); }
-section.divider.light.numbered::after  { content: counter(lat-divider-light, decimal-leading-zero); }
-section.closing.numbered::after        { content: counter(lat-closing,  decimal-leading-zero); }
+section.divider.numbered :is(h1, h2)[data-lat-section]::after { content: attr(data-lat-section); }
 
 /* ════════════════════════════════════════════════════════════════════════
  * OVERFLOW WARNING — visual signal when content exceeds the 1280×720 frame

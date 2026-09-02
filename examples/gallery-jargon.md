@@ -308,9 +308,9 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 
 ---
 
-<!-- _class: closing numbered -->
+<!-- _class: closing -->
 <!-- _paginate: false -->
-<!-- _footer: "Section close · closing numbered" -->
+<!-- _footer: "Section close · closing" -->
 
 `Section 01 of 05 complete`
 

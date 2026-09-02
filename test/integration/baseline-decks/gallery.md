@@ -938,24 +938,11 @@ Somebody renumbered this deck at one in the morning, once. The sections number t
 <!-- _header: '' -->
 <!-- _footer: "Modifier — divider light numbered · divider light numbered" -->
 
-`Section Breaks · Two Ledgers`
+`Section Breaks · One Ledger`
 
-## Every series keeps its own count.
+## The light break keeps the same count.
 
-Light bookends and dark bookends keep separate scores, like the teams — a mid-deck light break opens at 01 while the dark ones already read 04.
-
----
-
-<!-- _class: closing numbered -->
-<!-- _header: '' -->
-<!-- _footer: "Modifier — closing numbered · closing numbered" -->
-<!-- _paginate: false -->
-
-`Signal To Strategy · Part Three`
-
-## Each part earns its own ending.
-
-`Use it for multi-part decks where the closing slide of each part should carry the part number — this deck, for example, is a trilogy.`
+Dark and light dividers share one series, so a mid-deck light break reads 05 straight after 04 — a section number that restarts is a section number nobody can use.
 
 ---
 

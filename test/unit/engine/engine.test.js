@@ -527,15 +527,96 @@ describe('lattice-engine: CSS-pack (load-bearing rules)', () => {
     }
   });
 
-  test('divider/closing counters reset on the dead root selector', () => {
-    const re = /counter-reset:\s*lat-divider/;
-    const e = declaringSelector(enginePack, re);
-    assert.match(e, /section body$/); // dead → implicit root reset
+  // The counter is RETIRED. It used to reset on `body`, which Marpit's theme scoping
+  // rewrites to `section body` — a `<body>` inside a section, matching nothing — and that
+  // dead selector is exactly why the Marp path stamped `01` on every divider in the deck.
+  // This arm now pins the absence, so a counter cannot creep back in and reintroduce it.
+  // The mechanism that replaced it is `lib/core/section-index.js`.
+  test('no section counter survives — the value is an attribute', () => {
+    const packed = strip(enginePack);
+    assert.ok(!/counter-(?:reset|increment)\s*:\s*[^;}]*lat-divider/.test(packed),
+      'a lat-divider counter is back; it cannot count across Marpit slide containers');
+    assert.ok(!/counter\(\s*lat-divider/.test(packed),
+      'the stamp reads a counter again rather than the stamped attribute');
   });
 
-  test('no live non-pagination ::after content', () => {
-    const live = (css) => /content:\s*counter\(lat-/.test(strip(css));
-    assert.equal(live(enginePack), false);
+  // The SLIDE'S OWN `::after` is the engine's pagination marker, so the pack comments
+  // out every `content` on it that isn't `attr(data-lattice-pagination)` — that is what
+  // stops a theme clobbering the page number, and it is the behavior this arm pins.
+  //
+  // It used to be pinned as `no live content: counter(lat-…) anywhere in the packed
+  // output`, which read like the same claim and was not. `counter(lat-divider)` is the
+  // `numbered` bookend stamp; asserting it never survives the pack CERTIFIED a bug —
+  // the modifier rendered in the unpacked emulator/CLI PDF and rendered nothing in the
+  // packed stylesheet the docs Playground, the Studio and lib/runtime load. A test
+  // naming the SELECTOR SHAPE the mask exists for says what the mask is for; a test
+  // naming one victim's counter token only says what happened to it.
+  test('the slide-own ::after carries no non-pagination content', () => {
+    const offenders = [];
+    for (const rule of strip(enginePack).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const [, selectorList, block] = rule;
+      if (!/content\s*:/.test(block)) continue;
+      for (const one of selectorList.split(',').map((x) => x.trim().replace(/\s+/g, ' '))) {
+        // `article.lattice > section<compound>::after` and nothing further — a descendant
+        // (`… h2::after`) is a different pseudo and the mask deliberately leaves it alone.
+        if (!/^(?:article\.lattice > )?section[^\s>+~]*::?after$/.test(one)) continue;
+        for (const d of block.matchAll(/content\s*:\s*([^;}]+)/g)) {
+          if (!/attr\(\s*data-lattice-pagination/.test(d[1])) offenders.push(`${one} { content: ${d[1].trim()} }`);
+        }
+      }
+    }
+    assert.deepEqual(offenders, [], 'a non-pagination content survived on the slide-own ::after');
+  });
+
+  // The other half of the same contract: the `numbered` stamp must SURVIVE the pack,
+  // and it does so by riding the heading's pseudo rather than the slide's own.
+  test('the numbered divider stamp survives the pack on the heading pseudo', () => {
+    const re = /content:\s*attr\(data-lat-section\)/;
+    assert.match(strip(enginePack), re, 'the section stamp was stripped from the packed stylesheet');
+    const sel = declaringSelector(enginePack, re);
+    assert.match(sel, /:is\(h1, h2\)\[data-lat-section\]::after$/, 'the stamp is not on the heading pseudo');
+    // Qualified on the attribute, and the attribute sits on the HEADING rather than the
+    // section: `attr()` resolves against the pseudo's ORIGINATING element, so a stamp on
+    // the section resolves to the empty string and the mark silently does not draw. And
+    // gating on its presence is deliberate — where nothing stamped it the numeral must not
+    // draw at all, because a blank mark is a gap an author sees and a wrong one is
+    // misinformation the room cannot check.
+  });
+
+  // ONE counter, and no second one hiding behind it. `divider.light` and `closing` each
+  // used to run their own, so a light divider restarted the count and a closing announced
+  // itself as section 01. A regex for the surviving token cannot see a NEW sibling being
+  // added, so this asserts the whole set.
+  test('exactly one section counter exists', () => {
+    // BOTH declaration forms, because the first cut of this matched NEITHER: its pattern
+    // had no `:` between the property and its value, so `counter-reset: lat-divider` and
+    // `counter-increment: lat-closing` both fell through and the only hit came from the
+    // `content: counter(...)` function — i.e. it was exactly the "regex for the surviving
+    // token" the comment above says it is not. A sibling counter re-added on the
+    // SLIDE-OWN `::after` (the bug this PR fixes) would have been invisible to it twice
+    // over, since `packTheme` comments that declaration out and `strip()` deletes the
+    // comment.
+    const packed = strip(enginePack);
+    const tokens = new Set();
+    for (const m of packed.matchAll(/counter-(?:reset|increment)\s*:\s*([^;}]+)/g)) {
+      for (const t of m[1].match(/lat-[\w-]+/g) || []) tokens.add(t);
+    }
+    for (const m of packed.matchAll(/counters?\(\s*(lat-[\w-]+)/g)) tokens.add(m[1]);
+    // NOT `assert.ok(tokens.size)` any more: the bookend counters are retired outright, so
+    // an empty bookend set is now the CORRECT answer and the old liveness guard would fail
+    // on success. The pattern's liveness is proved by the unrelated split counter instead,
+    // which is a real declaration this regex must still be able to see.
+    assert.ok([...tokens].some((t) => t.startsWith('lat-split')),
+      'no counter found at all — the pattern stopped matching');
+    // SCOPED to the bookend family, not to every `lat-*` counter in the engine: the split
+    // machinery runs its own `lat-split-offset`, and asserting a repo-wide count of one
+    // would fail on an unrelated feature. Caught by mutation-testing this very assertion.
+    assert.deepEqual([...tokens].filter((t) => /^lat-(divider|closing)/.test(t)).sort(), []);
+    // And the two retired siblings are gone from the packed output entirely — not merely
+    // absent from a counter declaration, which a `content:` reference could still smuggle.
+    for (const retired of ['lat-divider-light', 'lat-closing', 'lat-divider']) {
+      assert.ok(!packed.includes(retired), `${retired} was retired but still appears in the packed stylesheet`);
+    }
   });
 });
 

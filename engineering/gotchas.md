@@ -88,6 +88,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A contrast gate reports sub-AA for a run the rendered pixels show clearing (phantom underlay)](gotchas/css.md#a-contrast-gate-reports-sub-aa-for-a-run-the-rendered-pixels-show-clearing-phantom-underlay)
 - [`margin` corrupts measured layout (virtual lists, the Fit Spine) — HARD RULE #20](gotchas/css.md#margin-corrupts-measured-layout-virtual-lists-the-fit-spine--hard-rule-20)
 - [A finish `::after` EDGE layer is clobbered by the pagination marker](gotchas/css.md#a-finish-after-edge-layer-is-clobbered-by-the-pagination-marker)
+- [A `section::after` `content` renders in the PDF and is BLANK in the browser (`numbered`)](gotchas/css.md#a-sectionafter-content-renders-in-the-pdf-and-is-blank-in-the-browser-numbered)
 - [On a `finish:` deck the running header/footer/logo moved, and ate stage height](gotchas/css.md#on-a-finish-deck-the-running-headerfooterlogo-moved-and-ate-stage-height)
 - [Something decorative on a slide is painting on the wrong side of something else](gotchas/css.md#something-decorative-on-a-slide-is-painting-on-the-wrong-side-of-something-else)
 - [`white-space:nowrap` on `section code` collapsed code blocks + overflowed eyebrows](gotchas/css.md#white-spacenowrap-on-section-code-collapsed-code-blocks--overflowed-eyebrows)

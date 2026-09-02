@@ -21,7 +21,6 @@ Last slide of every deck. Restates the takeaway or call-to-action. Like title, s
 ### Variant decision rule
 
 - **default (no modifier).** A single-sentence takeaway or call-to-action closes the deck — the common case.
-- **`numbered`.** The deck's dividers also use the `numbered` variant — keeps the closing's corner stamp consistent with that numbering scheme.
 - **`qr`.** The audience should leave with a scannable link (docs URL, contact card) rather than just a text call-to-action.
 - **`index`.** The closing is a reference/see-also list of multiple next steps or resources, not a single takeaway sentence.
 - **`spectrum`.** `title` also carries `spectrum` — closes the bookend pair with the same generated gradient bar, echoing the deck's own multi-step color story one last time.
@@ -73,18 +72,6 @@ Last slide of every deck. Restates the takeaway or call-to-action. Like title, s
 ```
 
 ## Variants (component-specific)
-
-### `numbered` — numbered
-
-Counts closings apart from dividers.
-
-```markdown
-<!-- _class: closing silent numbered -->
-
-## The closing counts itself, apart from the dividers.
-
-`Closing 04`
-```
 
 ### `qr` — qr
 

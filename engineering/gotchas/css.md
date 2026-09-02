@@ -168,6 +168,136 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   reworked inside the nimbus/loom/savile/gallery preset change; relocating those edges
   off `::after` is a separate fix.
 
+## A `section::after` `content` renders in the PDF and is BLANK in the browser (`numbered`)
+
+- **Symptom:** `<!-- _class: divider numbered -->` stamps its `01` in the emulator/CLI
+  PDF and stamps nothing in the docs Playground, the Studio or `lib/runtime`. Add
+  `silent` — which every sample this repo ships does, `divider.docs.md`, the manifest
+  and `divider.gallery.md` alike — and the stamp disappears on **both** paths, so the
+  modifier reads as simply broken.
+- **Cause:** two independent owners of the same `section…::after` pseudo, one per path.
+  1. `packTheme` (`lib/engine/css.js`) mirrors Marpit's pagination plugin: on any rule
+     whose selector matches `^section[^\s>+~]*::?after$` it COMMENTS OUT every `content`
+     declaration that isn't `attr(data-lattice-pagination)`, so a theme cannot clobber the
+     page number. That mask runs over the whole inlined base bundle, so
+     `section.divider.numbered::after { content: counter(lat-divider, …) }` came out as
+     `/* content: … */`. The emulator/CLI path does not pack, which is why one modifier
+     rendered two different pictures.
+  2. `silent` / `no-paginate` null the same pseudo with
+     `section.silent.silent::after { content: none }` (`base.variants.css`) — deliberately
+     doubled to (0,2,2) to beat the engine's pagination rule. `section.divider.numbered::after`
+     is (0,2,2) too, and `base.variants.css` loads after `base.modifiers.css`, so the tie
+     went to `content: none`.
+- **The third surface, and the one a user is most likely to hit: marp-vscode.** The
+  "Marp for VS Code" preview loads `lattice.css` as a Marp THEME, so marp-core runs its
+  own copy of this mask — `@marp-team/marpit/lib/postcss/pagination.js`, whose selector
+  test is byte-for-byte the shape ours mirrors:
+  `/^section(?![\w-])[^\s>+~]*::?after$/`. Marp then MINIFIES the theme, which drops the
+  comment the mask leaves behind, so the declaration is not commented in that output —
+  it is simply absent. Measured through real marp-core on both bundles: the pre-fix
+  `dist/lattice.css` yields **zero** occurrences of `counter(lat-…)` in the emitted CSS,
+  the fixed one yields all three, live. Worth stating plainly because both natural
+  guesses are wrong: this is not `lattice-runtime.js` failing to load and it is not the
+  counter. `numbered` is a plain `_class:` token, so Marpit itself puts the class on the
+  `<section>` (the probe reads `class="divider numbered"` in both builds), and
+  `counter-reset` / `counter-increment` survive the mask untouched — the ONLY thing
+  removed is the `content` declaration that reads the counter back out.
+- **Mitigation:** the `numbered` numeral rides the slide HEADING's pseudo —
+  `section.divider.numbered :is(h1, h2)::after` (`base.modifiers.css`). The descendant
+  combinator puts a space in the selector, which the pagination regex cannot cross, and it
+  shares no pseudo with `silent`. `position: absolute` still resolves against the section
+  (`base.elements.css` sets `position: relative` on every slide), so the mark measures from
+  the slide corner rather than from wherever the heading sits; being out of flow it does not
+  disturb the heading's `text-wrap: balance` or `max-width`. The mark itself was later
+  restyled as a MASTHEAD in the top band (numeral over a hairline, left margin) — the
+  carrier is what this entry is about, not the geometry. A side effect worth knowing:
+  `numbered` no longer EATS the page number, so a paginated `divider numbered` shows both.
+- **The general lesson:** `section::after` belongs to pagination on every path. Anything
+  that must survive a real render goes on the section itself (see the finish-edge entry
+  above) or on a descendant's pseudo — never on the slide's own `::after`.
+- **A THIRD thing the fix exposed, for the record:** the modifier's SCOPE was wrong in the
+  same way its ink was. It ran three independent counters — `divider`, `divider light` and
+  `closing` each restarting at 01 — so a deck that mixed dark and light breaks restarted
+  mid-count and a closing announced itself as section 01. Nobody had seen it, because on
+  every browser surface nothing rendered at all. It is now ONE `lat-divider` series shared
+  by both dividers, `closing` does not take the modifier, and a numbered divider suppresses
+  its running header AND its footer (the masthead owns the top band; the page number stays). Worth knowing as a class: **a feature
+  that renders nowhere accumulates design defects silently**, and fixing the render is
+  where you find them, not where you finish.
+- **A FOURTH one, and it is the one no channel could see: an OVERLAP IS NOT AN OVERFLOW.**
+  The masthead is `position: absolute` on the heading's pseudo; the divider's headline
+  block is flex-CENTERED. The two lay out independently, so as the heading wrapped to more
+  lines the block grew in both directions from the middle and its top edge climbed into the
+  mark — at FOUR lines the numeral struck through the eyebrow and the hairline cut the copy.
+  Nothing in the engine said so. `probeSectionOverflow` measures FLOWED children spilling
+  PAST the section's rect, and neither box left the rect; they simply painted on top of each
+  other. So the `⚠ OVERFLOW` line, the red ring, the "Content clipped" tag and autosplit were
+  all quiet on a slide whose mark was struck through. **If two boxes on a slide can reach each
+  other, no overflow channel is watching that — you have to make the collision impossible or
+  turn it into a real overflow.** Here, both: `section.divider.numbered` reserves the mark's
+  band with SYMMETRIC padding (symmetric so the centered block's midpoint does not move — one-
+  and two-line headings render byte-identically) and centers with `justify-content: safe
+  center`, which falls back to `start` exactly when the block would overflow. Plain `center`
+  is not enough on its own and this is the trap worth remembering: **a `center`ed flex line
+  overflows in BOTH directions**, so a reserved band with plain centering still let the block
+  spill straight back through `padding-top` into the band (measured: eyebrow at 172.4px
+  against a painted mark bottom of 200.2). With `safe`, the top edge pins at the band and the growth
+  goes downward — where a slide running long eventually leaves the FRAME, which every existing
+  channel already knows how to report. Pinned by
+  `test/integration/parity/numbered-bookend-stamp.test.js`, which asserts the geometric
+  invariant on the real packed surface and fails if either declaration is removed.
+  **Measure against the mark's PAINTED edge.** The numeral's pseudo is `content-box`, so
+  `getComputedStyle(el,'::after').height` is the numeral alone — beneath it sit its
+  `padding-bottom` and the `border-bottom` that IS the hairline, 21.48px at 1280x720. The
+  first cut of both the clearance table and the test used the content box, which understated
+  every clearance by that much and moved the reported first collision from four lines to
+  five; a checker shrank the band and the test still passed on a render whose hairline
+  struck through the eyebrow. Any pseudo you are treating as a keep-out zone has this
+  trap — take `top + height + paddingBottom + borderBottomWidth`, not `top + height`.
+- **A FIFTH, and it is the one only the REAL CLI could show: a CSS counter cannot count
+  across Marp's slides.** The stamp was a `counter()`, and on marp-cli every divider in the
+  deck rendered `01`. Two facts compose into it. Marpit **scopes a theme by prefixing its
+  selectors**, so `body { counter-reset: lat-divider }` is rewritten to
+  `div#\:\$p > svg > foreignObject > section body { … }` — a `<body>` inside a section,
+  which never exists (measured: `querySelectorAll('section body')` returns 0), so the reset
+  never lands. And Marpit **puts each slide in its own `<svg><foreignObject>`**, so the
+  sections are not siblings — five sections, five distinct parents — and with no reset in
+  scope CSS creates the counter implicitly *on the incrementing element*, whose scope is
+  itself, its descendants and its following siblings. Each divider is alone in its subtree,
+  so each starts again at 1. `inlineSVG: false` does not help. **This is why Marpit's own
+  pagination is `attr(data-marpit-pagination)` and not a counter**, and the fix follows it:
+  `lib/core/section-index.js` stamps `data-lat-section` from one kernel through an HTML
+  adapter (the engine) and a DOM adapter (the runtime, the only producer that reaches Marp),
+  and the stylesheet reads `attr()`. **Stamp at BOOT, not only at the end of a transform
+  pass**: marp-cli's PDF conversion captures the page early, and a number that needs no
+  transform to compute should not wait behind one. With the boot stamp, real marp-cli 4.5.0
+  numbers BOTH its HTML and its PDF output correctly (measured, four dividers, 01-04). **Put the attribute on the element the pseudo belongs
+  to** — `attr()` resolves against the ORIGINATING element, so a value stamped on the
+  section while the numeral rides `:is(h1,h2)::after` resolves to the empty string and the
+  mark silently does not draw. The general lesson is about the evidence, not the CSS: this
+  survived a test asserting the packed stylesheet contained `counter(lat-divider,` — the
+  declaration was present and correct on every surface, and resolved to the same wrong digit
+  on one of them. **Assert what a rule PRODUCES, not that it is declared.**
+- **A SECOND defect was hiding behind the first, and it is the more interesting one.**
+  Once the numeral drew, it measured **1.4:1** — inked `--on-dark-watermark`, the 12%
+  DECORATION rung of the on-dark ramp, under a CSS `opacity: 0.85`. It had been written
+  that way as a watermark ghost, and it read as one; it was briefly sanctioned in
+  `tools/contrast-exemptions.js` on that reading. That was wrong. The stamp is how a
+  reader and a room tell WHICH SECTION THEY ARE IN — content, not texture — and content
+  is not excused from a ratio for being large. The ramp's own rule had the answer:
+  *text on a dark panel uses primary or secondary; ghost draws lines*
+  (`base.tokens.css`, `engineering/decisions/2026-08-11-on-dark-ink-tiers.md`), and the
+  `closing` eyebrow had already been moved off `ghost` for exactly this. Rebound to
+  `--on-dark-secondary` / `--text-secondary` — verbatim what the eyebrow beside it
+  takes — with the `opacity` dropped rather than re-tuned, it measures 5.05:1 (cuoio,
+  light canvas) to 11.79:1 (onyx). **The reusable tell:** a run that is faint, oversized
+  and resembles an ornament already on an exemption list is not thereby an ornament. Ask
+  what it would cost a reader to miss it. And when the answer is "de-emphasize it", the
+  lever is a role ink plus size and weight — never a CSS `opacity`, which composites ink
+  and backdrop together and steps each down in proportion to the headroom it already
+  had (the `agenda` case, where that made the biggest, boldest element the least
+  legible one).
+
 ## On a `finish:` deck the running header/footer/logo moved, and ate stage height
 
 - **Symptom:** Anything on a slide carrying a `finish:` (deck-wide or per-slide
