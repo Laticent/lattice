@@ -379,12 +379,32 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   implementations in separate runtimes — a CJS CLI and a browser TS module — and the first port
   of the measurement to the Studio was a hand-written copy with nothing holding the two together,
   which is the mechanism that produced the divergence in the first place. The one piece they must
-  agree on is the ordered candidates, so it is `notesCore.NOTE_SCRUB_BOUNDARIES` and both read it
+  agree on is the ordered candidates, so it is `notesCore.SCRUB_BOUNDARIES` and both read it
   from there. `test/unit/authoring/notes-core.test.js` fails if either caller writes the literal
   out again; `docs/src/components/studio/strip-notes-guard.test.ts` pins the three outcomes
   (preserve wins, drop wins, neither does) — without it, narrowing the loop back to one cut left
   every gate in the tree green, the strip-notes e2e included, because that spec asserts only that
   the note text is gone and that is true on all three.
+- **`--strip-captions` carried the same tell for one release, and closing it merged the two
+  passes (#2003).** The #1985 fix was note-only: `stripCaptionsFromSource` stayed a span-only
+  replace and nothing re-rendered from it, so the caption comment's line was left behind as an
+  empty one AND the authored render still went through `stripCommentNodes`. Measured on a
+  three-slide deck — one caption, one note, one neither — exported with both flags and diffed
+  against a re-render of its own envelope source: the captioned slide differed from its
+  neighbours by one byte, and the note channel was clean. `--strip-captions` alone had it too.
+  The fix gives the caption strip the same line-aware cut (both now go through one
+  `removeCommentSpans` in `notes-core.js`, so the channels cannot drift apart again) and makes
+  pass 2 render `composeStrippedSource` — the composed source the export actually ships —
+  under ONE measured cut for both channels, since they scrub one document. Two separately
+  measured cuts would each describe a document nothing renders. Pinned by the caption arms of
+  `test/integration/export/strip-notes-no-fingerprint.test.js`, against a committed
+  caption-free twin.
+- **Front matter is part of the caption strip, and therefore part of pass 2's input.**
+  `--strip-captions` also drops the top-level `captions:` map, so pass 2 renders a deck with
+  different front matter. That is intended — it is why the map's text cannot survive in the
+  envelope — and the fidelity guard covers it: the map is not a directive, so the rendered
+  sections are unchanged and the two passes agree. A future front-matter key that DOES affect
+  the render would show up as a guard fallback, not as a silent difference.
 
 ## A `tier:` / `galleryAuthored:` pragma shipped as the speaker note in every format
 

@@ -1,6 +1,6 @@
 /**
- * Integration: a `--strip-notes` export is byte-identical to the same deck written
- * WITHOUT notes.
+ * Integration: a `--strip-notes` / `--strip-captions` export is byte-identical to the same
+ * deck written WITHOUT the channel it strips.
  *
  * `strip-notes-every-format.test.js` asks "is the note text gone?". This file asks the
  * question that survived it: "can a recipient still tell WHICH slides had one?" — #1985.
@@ -43,7 +43,14 @@
  * its own claim on two empty arrays, which is precisely what the control below exists to
  * catch.
  *
- * Slow tier: three CLI player exports (~10s each — the player bakes its DOM in Chromium).
+ * THE CAPTION ARMS ARE THE SAME CLAIM ONE CHANNEL OVER (#2003). The #1985 fix was note-only:
+ * `stripCaptionsFromSource` stayed a span-only replace and nothing re-rendered from it, so a
+ * captioned slide carried the byte a noted slide had just stopped carrying. That the two flags
+ * now share one cut is pinned in `test/unit/authoring/notes-core.test.js`; what CANNOT be pinned
+ * there is the wiring — whether the export renders the composed source it ships — which is
+ * exactly where #1985 lived and where #2003 lived after it. So these are real CLI exports too.
+ *
+ * Slow tier: ten CLI player exports (~10s each — the player bakes its DOM in Chromium).
  * See engineering/pipeline.md.
  */
 
@@ -62,6 +69,14 @@ describe('strip-notes: no whitespace fingerprint', () => {
   const TWIN = path.join(ROOT, 'test', 'fixtures', 'strip-notes-deck-no-notes.md');
   // A deck whose notes sit where a comment line is load-bearing — no blank line on either side.
   const BOUNDARY = path.join(ROOT, 'test', 'fixtures', 'strip-notes-deck-boundary.md');
+  // The caption channel's three (#2003). CAPTIONED carries an inline caption on slide 1, a
+  // front-matter `captions:` entry for slide 3 and a speaker note on slide 2 — so the two flags
+  // can be measured apart. NO_CAPTIONS is the same deck with the caption material never typed
+  // and the note kept; BARE has neither channel.
+  const CAPTIONED = path.join(ROOT, 'test', 'fixtures', 'strip-captions-deck.md');
+  const NO_CAPTIONS = path.join(ROOT, 'test', 'fixtures', 'strip-captions-deck-no-captions.md');
+  const BARE = path.join(ROOT, 'test', 'fixtures', 'strip-captions-deck-bare.md');
+  const CAPTION_BOUNDARY = path.join(ROOT, 'test', 'fixtures', 'strip-captions-deck-boundary.md');
   const TIMEOUT = 180000;
 
   // Rendered slide bytes, and ONLY those. A whole-file diff is not the question: the two
@@ -147,5 +162,107 @@ describe('strip-notes: no whitespace fingerprint', () => {
         + `${stripped[i].length - twin[i].length} byte(s), which names this slide as one that carried a note`
       );
     }
+  });
+
+  // ── The caption channel (#2003) ────────────────────────────────────────────────────────────
+  test('a --strip-captions export and the caption-free twin render identical bytes', { timeout: TIMEOUT }, () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-caption-fingerprint-'));
+    // `--strip-captions` ALONE, with the note channel left on: the configuration the issue
+    // measured, and the one that had no second pass at all before this fix.
+    const stripped = sections(exportHtml(dir, CAPTIONED, 'stripped.html', ['--player', '--strip-captions']));
+    const twin = sections(exportHtml(dir, NO_CAPTIONS, 'twin.html', ['--player']));
+    const asAuthored = sections(exportHtml(dir, CAPTIONED, 'authored.html', ['--player']));
+
+    assert.equal(stripped.length, 3, `expected the fixture's three slides, got ${stripped.length}`);
+    assert.equal(stripped.length, twin.length, 'the two fixtures must be the same deck minus its captions');
+    // CONTROL — without the flag the caption comment's whitespace residue is still in the
+    // rendered bytes, so the sections MUST differ. This is the defect itself, held in place: a
+    // probe that could not see it would pass the claim below on any pair of blind arrays.
+    assert.notDeepEqual(asAuthored, twin, 'control failed: the captioned deck should differ from the caption-free one');
+
+    for (let i = 0; i < stripped.length; i++) {
+      assert.equal(
+        stripped[i], twin[i],
+        `slide ${i + 1}: a --strip-captions export differs from the caption-free deck by `
+        + `${stripped[i].length - twin[i].length} byte(s), which names this slide as one that carried a caption`
+      );
+    }
+  });
+
+  test('the SOURCE the envelope ships is the caption-free deck, byte for byte', { timeout: TIMEOUT }, () => {
+    // THE ARM THE RENDERED-BYTES ONE CANNOT REPLACE, and the mutation that proved it: give the
+    // caption strip its old span-only cut back and every section arm above still passes, because
+    // pass 2 re-renders and markdown-it collapses the blank line the span left behind. The tell
+    // survives one level down — in the source the envelope carries for re-import, where a blank
+    // line, or a `\n\n\n` run, marks each slide that had a caption. That one is the CHEAPER tell:
+    // `grep -c` on the shipped file, no re-render needed. So compare the shipped source itself.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-caption-source-'));
+    const { parseEnvelope } = require(path.join(ROOT, 'lib', 'core', 'lattice-doc.js'));
+    const sourceOf = (file) => parseEnvelope(fs.readFileSync(file, 'utf8')).source;
+
+    const stripped = sourceOf(exportHtml(dir, CAPTIONED, 'stripped.html', ['--player', '--strip-captions']));
+    const twin = sourceOf(exportHtml(dir, NO_CAPTIONS, 'twin.html', ['--player']));
+    const asAuthored = sourceOf(exportHtml(dir, CAPTIONED, 'authored.html', ['--player']));
+
+    // The probe can see something, and the control shows it can see the caption material when
+    // it is there — otherwise "identical" would just mean "read nothing".
+    assert.match(stripped, /Second slide/, 'guard: the envelope carries the deck source');
+    assert.match(asAuthored, /CAPTIONLEAKTOKEN alpha/, 'control: the unstripped export carries the caption');
+    assert.doesNotMatch(twin, /CAPTIONLEAKTOKEN/, 'guard: the twin never had a caption');
+
+    assert.doesNotMatch(stripped, /CAPTIONLEAKTOKEN/, 'no caption text survives in the shipped source');
+    assert.doesNotMatch(stripped, /\n[ \t]*\n[ \t]*\n/, 'no blank-line run marks where a caption was');
+    assert.equal(
+      stripped, twin,
+      'the shipped source differs from the deck written without captions, so it still names which '
+      + 'slides carried one'
+    );
+  });
+
+  test('--strip-notes and --strip-captions compose to the deck with neither channel', { timeout: TIMEOUT }, () => {
+    // The two flags scrub ONE document, so the export measures ONE cut for the composed source.
+    // Running them separately and hoping they agree is the shape this arm exists to refuse.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-caption-compose-'));
+    const strippedPath = exportHtml(dir, CAPTIONED, 'stripped.html', ['--player', '--strip-notes', '--strip-captions']);
+    const stripped = sections(strippedPath);
+    const bare = sections(exportHtml(dir, BARE, 'bare.html', ['--player']));
+
+    assert.equal(stripped.length, bare.length, 'the two fixtures must be the same deck minus both channels');
+    assert.doesNotMatch(
+      logs.get(strippedPath), /could not remove/,
+      'the fidelity guard had to fall back, so one of the two scrubs is not preserving the block boundary'
+    );
+    for (let i = 0; i < stripped.length; i++) {
+      assert.equal(
+        stripped[i], bare[i],
+        `slide ${i + 1}: a --strip-notes --strip-captions export differs from the deck written with `
+        + `neither channel by ${stripped[i].length - bare[i].length} byte(s)`
+      );
+    }
+  });
+
+  test('a --strip-captions export does not gain or lose a slide', { timeout: TIMEOUT }, () => {
+    // A caption comment is an HTML BLOCK exactly as a note comment is, so removing one can
+    // re-cut the deck the same way — `Some text\n---` is a setext H2, not a slide break. The
+    // fixture puts a caption in both load-bearing positions the note fixture uses.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-caption-boundary-'));
+    const authored = sections(exportHtml(dir, CAPTION_BOUNDARY, 'authored.html', ['--player']));
+    const strippedPath = exportHtml(dir, CAPTION_BOUNDARY, 'stripped.html', ['--player', '--strip-captions']);
+    const stripped = sections(strippedPath);
+    assert.equal(authored.length, 2, 'guard: the fixture is a two-slide deck');
+    assert.doesNotMatch(
+      logs.get(strippedPath), /could not remove/,
+      'the fidelity guard had to fall back, so the caption scrub is not preserving the block boundary'
+    );
+    assert.equal(
+      stripped.length, authored.length,
+      `--strip-captions exported ${stripped.length} slides for a ${authored.length}-slide deck: `
+      + 'a caption comment was acting as a block boundary and removing it re-cut the deck'
+    );
+    assert.equal(
+      (stripped[1].match(/<p>/g) || []).length,
+      (authored[1].match(/<p>/g) || []).length,
+      'slide 2: the two paragraphs the author wrote are still two paragraphs'
+    );
   });
 });

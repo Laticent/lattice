@@ -455,12 +455,21 @@ const STRIP_CAPTIONS = !!flags['strip-captions'];
 // under `--strip-captions`. Order-independent — the two comment classes are disjoint (a
 // `note:` body is never a `caption:` body). `noteBodies` is the set lifted from the render.
 // Which cut `strippedSlidesOrAuthored` measured as reproducing the deck. Read here so the
-// SOURCE this ships is the one that was rendered — see the note at that function.
-let noteScrubBoundary = 'preserve';
-function stripSharedSource(src, noteBodies) {
+// SOURCE this ships is the one that was rendered — see the note at that function. ONE cut for
+// both channels, because pass 2 renders ONE combined source; a per-channel cut would be a
+// measurement of a document nothing renders.
+let scrubBoundary = 'preserve';
+// The composition, with no reporting — the pure half, so `strippedSlidesOrAuthored` can call it
+// once per candidate cut without warning the author twice about the same deck.
+function composeStrippedSource(src, noteBodies, boundary = scrubBoundary) {
   let out = src;
+  if (STRIP_NOTES) out = notesCore.stripNotesFromSource(out, noteBodies, { boundary });
+  if (STRIP_CAPTIONS) out = notesCore.stripCaptionsFromSource(out, { boundary });
+  return out;
+}
+function stripSharedSource(src, noteBodies) {
+  const out = composeStrippedSource(src, noteBodies);
   if (STRIP_NOTES) {
-    out = notesCore.stripNotesFromSource(out, noteBodies, { boundary: noteScrubBoundary });
     // FAIL-CLOSED. The scrub matches note bodies lifted from the RENDER against comments in
     // the SOURCE, and every leak this has had was a new way for those two sides to disagree.
     // So check the OUTPUT rather than trusting the matcher: a comment still standing that is
@@ -480,7 +489,6 @@ function stripSharedSource(src, noteBodies) {
       );
     }
   }
-  if (STRIP_CAPTIONS) out = notesCore.stripCaptionsFromSource(out);
   return out;
 }
 const {
@@ -2178,7 +2186,7 @@ const escapeHtml = (s) => String(s)
 // attachment). NOT the `\n\n`-joined note split apart, which shatters a single
 // blank-line note and leaks it.
 const noteStripSet = STRIP_NOTES ? new Set(slidesAsAuthored.flatMap((sec) => notesCore.noteBodiesFromHtml(sec))) : null;
-// PASS 2 — `--strip-notes` SHIPS THE RENDER OF THE SCRUBBED SOURCE, not a scrubbed render
+// PASS 2 — A PRIVACY STRIP SHIPS THE RENDER OF THE SCRUBBED SOURCE, not a scrubbed render
 // of the authored source. Blanking the note copies after the fact left the comment's own
 // whitespace behind, and one byte per noted slide named WHICH slides had notes — computable
 // from the shipped file alone, since the player envelope carries the same scrubbed source to
@@ -2186,7 +2194,17 @@ const noteStripSet = STRIP_NOTES ? new Set(slidesAsAuthored.flatMap((sec) => not
 // always kept a consumed directive from leaving a trace, and it makes the exported bytes
 // byte-identical to the same deck written without notes.
 //
-// Costs one extra engine render, on this flag's path and only when the deck HAS a note.
+// BOTH STRIPS, ONE PASS, and that is the #2003 fix. `--strip-captions` had the fingerprint
+// `--strip-notes` had just lost: its scrub was span-only and nothing re-rendered from it, so
+// `stripCommentNodes` removed the caption comment's node from the authored render and left its
+// whitespace — measured at one byte per captioned slide, on `--strip-captions` alone as well as
+// alongside `--strip-notes`. The channels are disjoint but the DOCUMENT is one, so pass 2
+// renders the composed source (`composeStrippedSource`) — the same bytes `stripSharedSource`
+// ships — under one measured cut. Two separately-measured cuts would each describe a document
+// nothing renders.
+//
+// Costs one extra engine render, on these flags' path and only when the deck HAS something
+// either of them removes.
 // Measured on the real CLI with the engine instrumented, across two runs: 54-85 ms for the
 // second pass on a 6-slide deck, 157-286 ms on the 117-slide gallery — against an export
 // that spawns Chromium for several seconds. (An earlier note here said "~5 ms / ~94 ms";
@@ -2196,14 +2214,15 @@ const noteStripSet = STRIP_NOTES ? new Set(slidesAsAuthored.flatMap((sec) => not
 // `a<!-- n -->\nb`. See engineering/gotchas/export.md.
 //
 // FAIL-CLOSED ON FIDELITY, because pass 2 renders a DIFFERENT markdown document and a
-// privacy flag must not restructure a deck. `stripNotesFromSource` preserves the block
-// boundary a comment line was providing, so on every deck this repo ships the two passes
-// agree exactly — but that is a property of markdown-it, not something this file can prove.
-// So compare them, and on any disagreement keep the deck the author wrote and say what was
-// given up. Same shape as the bake gate in the Studio and the chart-narration guard below:
-// stand down, loudly, rather than ship a silently different artifact.
+// privacy flag must not restructure a deck. Both scrubs preserve the block boundary a comment
+// line was providing, so on every deck this repo ships the two passes agree exactly — but that
+// is a property of markdown-it, not something this file can prove. So compare them, and on any
+// disagreement keep the deck the author wrote and say what was given up. Same shape as the bake
+// gate in the Studio and the chart-narration guard below: stand down, loudly, rather than ship a
+// silently different artifact. The guard covers the COMBINED source, because a caption comment
+// is an HTML block exactly as a note comment is and can re-cut a deck the same way — and because
+// the composed cut is what actually ships.
 function strippedSlidesOrAuthored() {
-  if (!noteStripSet || noteStripSet.size === 0) return slidesAsAuthored; // nothing to scrub
   // WHITESPACE-BLIND, necessarily: the whole point of pass 2 is that it does NOT carry the
   // comment's leftover whitespace, so a byte comparison reports every noted slide as a
   // divergence. COLLAPSING to one space is not enough either — the residue is one space on one
@@ -2223,37 +2242,48 @@ function strippedSlidesOrAuthored() {
   // this renders each and keeps the one that reproduces the deck the author wrote. The CANDIDATE
   // LIST is the kernel's (#1): the Studio's `stripNotesCut` reads the same one, so neither path
   // can quietly gain a cut or reorder them without the other.
-  for (const boundary of notesCore.NOTE_SCRUB_BOUNDARIES) {
-    const source = notesCore.stripNotesFromSource(rawMd, noteStripSet, { boundary });
+  for (const boundary of notesCore.SCRUB_BOUNDARIES) {
+    const source = composeStrippedSource(rawMd, noteStripSet, boundary);
+    // Nothing either flag removes from this deck — no note, no caption comment, no
+    // front-matter `captions:` map. Every cut would render the same document, so pass 2 is
+    // pure cost. Asked of the SOURCE rather than of the note set, because `--strip-captions`
+    // has no set to be empty: its material is structural.
+    if (source === rawMd) return slidesAsAuthored;
     const rendered = engineSlides(source);
     if (matches(rendered)) {
       // The source that SHIPS is the source that was rendered. It used to be recomputed
       // independently for the envelope, so a fallback shipped authored slides beside a
       // restructured source and the "verbatim source for lossless re-import" re-imported as a
       // different deck.
-      noteScrubBoundary = boundary;
+      scrubBoundary = boundary;
       return rendered;
     }
   }
   // Neither cut reproduces the deck. Fidelity wins for the SLIDES — a privacy flag must not
-  // restructure a deck, which is the whole point — and the note TEXT still goes from every
-  // copy. What cannot also be had is a source that matches: any removal at all restructures
+  // restructure a deck, which is the whole point — and the note and caption TEXT still goes from
+  // every copy. What cannot also be had is a source that matches: any removal at all restructures
   // this deck, so the embedded source re-imports slightly differently. Say so, rather than let
   // the envelope's "verbatim" claim stand unqualified.
+  //
+  // NAMES THE FLAGS THAT ARE ON, not `--strip-notes` unconditionally. An author who ran only
+  // `--strip-captions` and was told a NOTE comment could not be removed would go looking for a
+  // note the deck does not have.
+  const flagList = [STRIP_NOTES && '--strip-notes', STRIP_CAPTIONS && '--strip-captions'].filter(Boolean).join(' + ');
+  const kind = STRIP_NOTES && STRIP_CAPTIONS ? 'a note or caption comment' : (STRIP_NOTES ? 'a note comment' : 'a caption comment');
   console.warn(
-    '  WARNING: --strip-notes could not remove a note comment without changing this deck, '
-    + 'either by leaving a blank line in its place or by taking the line. A note comment is '
-    + 'acting as a block boundary. The usual cause is a note at column 0 BETWEEN two list '
-    + 'items, where the comment is what splits them into two lists and no removal can keep '
-    + 'that — move the note inside an item, or out of the list. (Adding blank lines around it '
-    + 'does NOT help here, whatever a note above a `---` may need.) '
-    + 'Exporting the deck AS WRITTEN: the note text is still removed '
+    `  WARNING: ${flagList} could not remove ${kind} without changing this deck, `
+    + 'either by leaving a blank line in its place or by taking the line. That comment is '
+    + 'acting as a block boundary. The usual cause is a comment at column 0 BETWEEN two list '
+    + 'items, where it is what splits them into two lists and no removal can keep '
+    + 'that — move it inside an item, or out of the list. (Adding blank lines around it '
+    + 'does NOT help here, whatever a comment above a `---` may need.) '
+    + 'Exporting the deck AS WRITTEN: the text is still removed '
     + 'from every copy, but this export no longer hides which slides carried one, and the '
     + 'embedded source will re-import with that block boundary changed.'
   );
   return slidesAsAuthored;
 }
-const slides = STRIP_NOTES ? strippedSlidesOrAuthored() : slidesAsAuthored;
+const slides = STRIP_NOTES || STRIP_CAPTIONS ? strippedSlidesOrAuthored() : slidesAsAuthored;
 const slideNotes = notesCore.extractSlideNotes(slides);
 // Belt and braces: pass 2 already renders a note-free deck, so this is a second, independent
 // guarantee that no materialized copy carries note text even if a note ever survived the scrub.
@@ -2263,6 +2293,11 @@ const slideDescriptions = notesCore.extractSlideDescriptions(slides);
 // narration source. Extracted from the rendered slides (index-aligned) exactly as notes are. A
 // caption is public-facing narration (the caption track), not a private note, so it is NOT blanked
 // by `--strip-notes` (which removes the note channel) — the two flags compose.
+//
+// Under `--strip-captions` this is empty BY CONSTRUCTION, not by a second rule: pass 2 rendered a
+// source with the caption comments already gone, so there is nothing here to extract and every
+// slide falls back to the generated projection. The explicit `inlineForMerge` / `fmForMerge`
+// clearing further down stays as belt and braces, the same way `materializedNotes` does.
 const slideCaptions = notesCore.extractSlideCaptions(slides);
 const slidesWithNotes = slides.map((sec, i) => {
   const stripped = notesCore.stripCommentNodes(sec);

@@ -72,6 +72,13 @@ removed everywhere, but that export no longer hides which slides carried one, an
 source re-imports with that one block boundary changed. (The slides are what is kept as written;
 the source cannot also be, because on that deck any removal at all restructures it.)
 
+**`--strip-captions` carries the same guarantee**, and for one release it did not: its scrub took
+the caption comment's span and left the line, so a captioned slide shipped one byte more than the
+same slide written without a caption — the tell the note flag had just lost, one channel over. Both
+strips now take the same cut, and when the two flags run together the export renders one composed
+source under one measured cut, because they scrub one document. The fallback above reads the same
+way for either channel; the warning names the flags you actually ran.
+
 **What the flag removes is the NOTE channel, and specifically not the DESCRIPTION channel.** A
 `<!-- describe: … -->` comment is the slide's WCAG 1.1.1 text alternative — what a screen
 reader says the slide SHOWS, not what you say over it — so it survives `--strip-notes` and

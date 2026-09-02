@@ -7,7 +7,7 @@
 // literal's keys survive minification, and at this call site they cost more than the code they
 // name. Measured: inline, the studio route went 82 bytes past its budget.
 //
-// What it must NOT own is the candidate list. That is `notesCore.NOTE_SCRUB_BOUNDARIES`, read
+// What it must NOT own is the candidate list. That is `notesCore.SCRUB_BOUNDARIES`, read
 // through the injected kernel, because a second hand-kept copy of it is exactly how this path
 // and the CLI's came to disagree — and pinned by `test/unit/authoring/notes-core.test.js` plus
 // this module's own test.
@@ -41,7 +41,7 @@ type NotesKernel = {
 	stripCommentNodes: (html: string) => string;
 	/** The candidate cuts, in the order they are tried. Read from the kernel rather than written
 	 *  out here — two hand-kept copies of this list is how the CLI and the Studio diverged. */
-	NOTE_SCRUB_BOUNDARIES: readonly string[];
+	SCRUB_BOUNDARIES: readonly string[];
 };
 
 export type StrippedCut<R> = {
@@ -92,7 +92,7 @@ export async function stripNotesCut<R extends { html: string }>(
 	if (bodies.size === 0) return { source: src };
 	const shape = (sec: string) => notes.stripCommentNodes(sec).replace(/\s+/g, '');
 	const want = authored.map(shape);
-	for (const boundary of notes.NOTE_SCRUB_BOUNDARIES) {
+	for (const boundary of notes.SCRUB_BOUNDARIES) {
 		const source = notes.stripNotesFromSource(src, bodies, { boundary });
 		const out = await render(source);
 		const sections = sectionsOf(out.html);

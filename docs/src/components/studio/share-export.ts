@@ -164,7 +164,7 @@ type NotesCore = {
 	stripCommentNodes: (html: string) => string;
 	noteBodiesFromHtml: (sectionHtml: string) => string[];
 	stripNotesFromSource: (source: string, noteBodies: Set<string> | string[], opts?: { boundary?: string }) => string;
-	NOTE_SCRUB_BOUNDARIES: readonly string[];
+	SCRUB_BOUNDARIES: readonly string[];
 	auditStrippedSource: (strippedSource: string) => string[];
 	slideNoteRecord: (sections: string[]) => SlideNoteRecord[];
 };
