@@ -493,6 +493,77 @@ test('`--lens full` returns the identity even when a slide would prune to nothin
 	assert.equal(out.source, src, 'and it hands back the caller’s own string');
 });
 
+/**
+ * THE HAND-WRITTEN HALF OF THE PIN, and the reason it exists.
+ *
+ * The fuzz below is a good net and a poor oracle: whatever expression it uses to say "these render
+ * the same" tends to share a MODEL with the kernel's, and twice now it has shared the kernel's blind
+ * spot and certified a corruption instead of finding it. These cases carry their expected outcome
+ * WRITTEN OUT, derived from what markdown-it actually does rather than from any check in this repo,
+ * so they cannot drift with the implementation. Each one is a defect an independent checker found in
+ * a commit the whole suite passed.
+ */
+test.describe('the shapes eight attempts got wrong, with their answers written down', () => {
+	const deckOf = (slide) => {
+		const chunks = [slide, '\n# Two\n\nBody two.\n'];
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
+		return `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks[0]}\n---\n${chunks[1]}`;
+	};
+
+	test('a blank-wrapped tag BETWEEN TWO LISTS is not removable — it would weld them', () => {
+		// The eighth attempt shipped this: an oracle that stripped the comment from the SOURCE and
+		// rendered turned the directive into a BLANK LINE, and a blank line makes one loose list
+		// where a comment at column 0 makes two. Two ordered lists became one and `Pilot` renumbered
+		// from 1 to 3, in a real exported artifact, `ok: true`. The skill doc said this case refuses;
+		// it did not, until now.
+		const out = projectForExport(deckOf('<!-- _lens: brief -->\n\n## Timeline\n\n1. Discovery\n2. Build\n\n<!-- _lens: -ask -->\n\n1. Pilot\n2. Rollout\n'), ['brief']);
+		assert.equal(out.ok, false, 'welding two lists is a structural change and must not ship');
+		assert.equal(out.reason, 'unprunable');
+	});
+
+	test('a MID-SENTENCE directive is disclosure — it is an html_inline, not an html_block', () => {
+		// Scanning only `html_block` let `Revenue is up. <!-- _lens: internal -->` ride out in the
+		// envelope source, the channel this kernel's own docblock calls the worst of the four.
+		const out = projectForExport(deckOf('<!-- _lens: brief -->\n\n# One\n\nRevenue is up. <!-- _lens: ask -->\n'), ['brief']);
+		assert.equal(out.ok, false, 'an inline directive names a withheld view to the recipient');
+		assert.equal(out.reason, 'unprunable');
+		assert.equal(out.lensId, 'ask');
+	});
+
+	test('a `>` inside a directive body does not make it invisible', () => {
+		// `[^>]*?` cannot cross a `>`, so this matched NOTHING and the withheld id vanished from the
+		// check. Deleting the `>` alone flipped the same deck to a refusal.
+		const out = projectForExport(deckOf('<!-- _lens: brief -->\n\n# One\n\nProse.\n<!-- _lens: a>b -ask -->\nMore.\n'), ['brief']);
+		assert.equal(out.ok, false, 'the id after the `>` must still be seen');
+		assert.equal(out.reason, 'unprunable');
+	});
+
+	test('a directive inside DISPLAY MATH leaves the equation exactly as the author wrote it', () => {
+		// `boundaryParser` installs `math_block` with no renderer rule, so every `$$…$$` renders as
+		// `<div />` whatever is inside. Without the math content in the comparison, a directive line
+		// could be cut out of an equation and the check would report no change — while the engine's
+		// KaTeX pass typesets the two differently. With it, the prune reverts and the equation stands.
+		//
+		// It does NOT then refuse, and that is the same judgment as a fenced example: the engine
+		// typesets that line, so a reader SEES it. It is the author's own visible content, not a
+		// machine-inserted leak, and refusing an export over text the author chose to display would
+		// be the check overreaching. Recorded here because the reasoning is not obvious from the code.
+		const out = projectForExport(deckOf('<!-- _lens: brief -->\n\n# One\n\n$$\nx = 1\n<!-- _lens: -ask -->\ny = 2\n$$\n'), ['brief']);
+		assert.equal(out.ok, true);
+		assert.match(out.source, /x = 1\n<!-- _lens: -ask -->\ny = 2/, 'the equation is byte-intact');
+	});
+
+	test('an author\u2019s own comment beside a directive survives, and is compared', () => {
+		// Dropping the whole `html_block` whenever it contained `_lens:` made two different `<pre>`
+		// bodies compare equal. The directives are trimmed OUT of the block now; everything else in it
+		// stays in the comparison.
+		const out = projectForExport(deckOf('<!-- _lens: brief -->\n\n# One\n\n<div>\n<!-- an author note -->\n<!-- _lens: brief -->\nAlpha\n</div>\n'), ['brief']);
+		assert.equal(out.ok, true, 'nothing withheld is named, so nothing is refused');
+		assert.match(out.source, /<!-- an author note -->/, 'and the author\u2019s own comment is untouched');
+	});
+});
+
 test.describe('structural fuzz — a prune never moves a slide\u2019s block structure', () => {
 	test('zero divergences across the shapes six commits got wrong', async () => {
 		// An independent checker measured 152 structural changes across 1,445 inputs against the
@@ -514,13 +585,24 @@ test.describe('structural fuzz — a prune never moves a slide\u2019s block stru
 			});
 			return out.map((ls) => ls.join('\n'));
 		};
-		// THE ORACLE MUST NOT BE THE IMPLEMENTATION'S OWN CHECK (HARD RULE #23). The first version of
-		// this fuzz copied `blockShape` out of lens-export.mjs, so it could not fail on anything that
-		// check was blind to — and it certified a gap instead of finding it: adding ONE atom
-		// (`[ref]: /x`) to the corpus took it from 0 divergences to 2. The property is what a reader
-		// SEES, so the oracle renders. It is deliberately not the same expression as the kernel's:
-		// this one keeps whitespace structure and strips only the directive comments.
-		const shape = (src) => boundaryParser.render(src.replace(/<!--\s*_lens:[\s\S]*?-->/g, ''), {}).trim();
+		// THIS FUZZ IS A NET, NOT AN ORACLE, AND THE DISTINCTION HAS BITTEN TWICE. Any expression
+		// written here to mean "these render the same" tends to share a MODEL with the kernel's, and
+		// twice it shared the kernel's blind spot and certified a corruption: first as a verbatim copy
+		// of the token signature, then as "strip the comment from the source and render", which turns
+		// a directive into a BLANK LINE — and a blank line makes one loose list where a comment at
+		// column 0 makes two. Claiming independence for it was wrong both times, so this no longer
+		// claims it. The independent half is the hand-written table above, whose expected outcomes come
+		// from what markdown-it does rather than from anything in this repo.
+		//
+		// What this still earns: breadth. It runs the shapes nobody thought to write down.
+		const shape = (src) => {
+			const kept = [];
+			for (const t of boundaryParser.parse(src, {})) {
+				if (t.type === 'html_block' && t.content.includes('_lens:')) continue;
+				kept.push(t);
+			}
+			return boundaryParser.renderer.render(kept, boundaryParser.options, {}).trim();
+		};
 
 		const ATOMS = [
 			'Prose line\n', 'more prose\n', '\n', '# Head\n', '===\n', '---\n', '- item\n', '- next\n',

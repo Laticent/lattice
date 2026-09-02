@@ -207,8 +207,8 @@ recipient is not getting, so nothing is written:
 
 A blank line above and below the tag is the shape most likely to survive, and it is where
 Lattice itself writes one — though not a guarantee: a comment at column 0 also TERMINATES a
-list, so a tag blank-wrapped between two list items still cannot be removed without welding
-them together, and that refuses too. Indentation and trailing spaces are fine. A tag naming
+list, so a tag blank-wrapped between two lists cannot be removed without welding them into
+one and renumbering the second, and that refuses. Indentation and trailing spaces are fine. A tag naming
 only views you ARE exporting is left alone and ships as written — the refusal is about
 disclosure, not tidiness.
 
