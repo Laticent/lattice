@@ -2262,7 +2262,12 @@ function strippedSlidesOrAuthored() {
     // front-matter `captions:` map. Every cut would render the same document, so pass 2 is
     // pure cost. Asked of the SOURCE rather than of the note set, because `--strip-captions`
     // has no set to be empty: its material is structural.
-    if (source === rawMd) return slidesAsAuthored;
+    // SETTLED, not unmeasured — and the difference is a warning the author should never see.
+    // Every cut renders the same document here, so the boundary question has an answer even
+    // though no render was needed to get it. Leaving the flag false made `attachmentCut` inherit
+    // "nothing measured" and made `--embed-source` warn about a block-boundary comment on a deck
+    // with no comments at all.
+    if (source === rawMd) { scrubBoundaryMeasured = true; return slidesAsAuthored; }
     const rendered = engineSlides(source);
     if (matches(rendered)) {
       // The source that SHIPS is the source that was rendered. It used to be recomputed

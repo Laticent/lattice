@@ -422,8 +422,29 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   survived. The two-comment shape only made that visible: with ONE comment that already has a
   blank line above it, `A\n\n<!-- n -->\n` came out `A\n\n` under **both** cuts, because the
   boundary argument is not consulted on that branch at all. No choice of tie-break reaches it.
-  The cut now takes the blank on the LEFT at end of input — there is no block below for it to
-  be separating. `removeCommentSpans` in `lib/authoring/notes-core.js`.
+  At end of input the WHOLE trailing run of blank lines comes off, from either side — there is no
+  block below for any of it to be separating, so every variant lands on `text\n`. That is more
+  than the counterfactual strictly requires, and it is the anti-fingerprint answer: 1318 of the
+  1325 markdown files here end with a single newline, so a trailing blank is itself the anomaly.
+  `removeCommentSpans` in `lib/authoring/notes-core.js`.
+- **"End of input" is not "the comment's newline is the last byte", and getting that wrong put
+  the residue straight back.** The first cut keyed on `nl2 === -1`. A file ending with a BLANK
+  LINE after the comment still has a newline to find, so the ordinary blank-below branch fired,
+  took the blank below and left the one above — same residue, one keystroke away, on
+  `examples/kaizen-craftsmanship.md`, which ships. The test is whether the REMAINDER is all
+  whitespace. **And the whitespace class is `[ \t\r\n]`, not `\s`:** `\s` also matches U+00A0,
+  U+3000, U+FEFF and the vertical tab, none of which markdown reads as a blank line, so a deck
+  ending in a non-breaking-space paragraph lost a whole `<p>`. Worse, the differential fuzz that
+  cleared the change used `/\s+/` as its comparator — **the bug and the check shared a character
+  class**, so the oracle reported "no content change" on the exact input that changed content.
+  When a fuzz oracle normalizes, it must not normalize using the thing under test.
+- **A `measured` flag that skips its own no-op path turns a privacy warning into noise.**
+  `attachmentCut` reports whether the boundary it used was measured, and inherits that from pass
+  2 — but pass 2's early return for "this deck has nothing either flag removes" set the boundary
+  without recording that the question was settled. So `--embed-source --strip-notes` on a deck
+  with **no comments at all** told the author to move a comment out of a list. Nothing covered
+  the flag's no-op path, so 8001 unit tests and the whole export tier stayed green over it. A
+  warning that fires when nothing is wrong is how a privacy flag's real warnings stop being read.
 - **The measurement that found it is the repo's own twin fixture, and the reason it hid for two
   releases is that the guard compares RENDERS.** `test/fixtures/strip-notes-deck-no-notes.md` is
   committed precisely as the deck "a person would have written with nothing to say", so it IS
@@ -455,6 +476,13 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   ambiguous — `\r\n` matches either as its own branch or as `\r` then `\n` on the next turn of
   the outer `*` — so a failing tail forces a 2^n search. 20 pairs 100 ms, 22 pairs 400 ms, 24
   pairs 1.6 s, i.e. **48 characters for a second and a half**; a hostile deck needs no size at
+  all. **Do not over-generalize this to every tail regex, though — the ambiguity is the cause,
+  not the `*` over a tail.** `/(?:[ \t]*\r?\n)+$/` was rejected once on this page's authority and
+  the reasoning was wrong: `\r?\n` has one parse per segment, so it is not exponential (0.01 ms
+  where the alternation form takes 5.9 s). It is merely QUADRATIC — 78 ms at 5k CRLF pairs, 36 s
+  at 100k — which is still reason enough not to ship it, but the reason is the polynomial arm,
+  not the exponential one. `trimTrailingBlankLines` uses a backward index scan instead (3.6 ms at
+  100k, 15 ms at a million), which is the same answer as `stripCaptionsFrontMatter`'s line array.
   all. A regression test written against the SPACES shape passes at any realistic size while the
   exponential bug is live, which is why the arm in `notes-core.test.js` uses `\r\n`. The fix is
   not a cleverer regex: `stripCaptionsFrontMatter` trims the line ARRAY it already has, which is

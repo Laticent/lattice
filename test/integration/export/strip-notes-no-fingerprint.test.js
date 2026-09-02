@@ -305,6 +305,35 @@ describe('strip-notes: no whitespace fingerprint', () => {
     );
   });
 
+  test('a deck with nothing to strip gets NO block-boundary warning from --embed-source (#2040)', { timeout: TIMEOUT }, () => {
+    // A REGRESSION THIS PR CAUSED AND AN INDEPENDENT CHECKER CAUGHT. `attachmentCut` reports
+    // whether the boundary it used was measured, and it inherits that from pass 2. But pass 2
+    // has an early return for "this deck has nothing either flag removes" — and that path set
+    // the boundary without recording that it had settled the question. So `--embed-source
+    // --strip-notes` on a deck with no comments at all printed a warning telling the author to
+    // move a comment out of a list, on a deck with neither.
+    //
+    // The class matters more than the case: a warning that fires when nothing is wrong is how a
+    // privacy flag's real warnings stop being read. Nothing in the suite covered the flag's
+    // no-op path, which is why 8001 unit tests and the whole export tier stayed green.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-nowarn-'));
+    const r = spawnSync(
+      process.execPath,
+      // NOT `--quiet`: the control below needs the run's own log to be observable, and `--quiet`
+      // suppresses the very line that proves the probe is reading the right channel.
+      [EMULATOR, BARE, path.join(dir, 'bare.pdf'), '--embed-source', '--strip-notes', '--strip-captions'],
+      { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT }
+    );
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const log = `${r.stdout}${r.stderr}`;
+    assert.doesNotMatch(
+      log, /could not have a note or caption comment removed/,
+      'the deck has neither channel, so there is nothing the cut could have failed to remove'
+    );
+    // Control: the probe can see that log at all, and the export really did attach the source.
+    assert.match(log, /source embedded/, 'control: this run did attach the source');
+  });
+
   test('--strip-notes and --strip-captions compose to the deck with neither channel', { timeout: TIMEOUT }, () => {
     // The two flags scrub ONE document, so the export measures ONE cut for the composed source.
     // Running them separately and hoping they agree is the shape this arm exists to refuse.

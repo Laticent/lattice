@@ -965,18 +965,21 @@ describe('notes-core: caption channel (caption:)', () => {
     // orders agree, which is why a plausible-looking fixture does not measure this.
     //
     // THIS GUARD IS A SEARCH, NOT A LITERAL, and the reason is that the literal it used to be
-    // stopped measuring — TWICE, within one change. It was
+    // stopped measuring — THREE TIMES, all inside one change. It was
     // `'## Third slide\n\nClosing.\n<!-- caption: c -->\n<!-- n -->\n'`; closing the
     // end-of-input residual (#2039) made the two orders agree on it, exactly as the comment here
-    // predicted it would. The literal that replaced it went quiet the same way one revision
-    // later, when the end-of-input rule was widened to cover a blank line AFTER the comment.
-    // Divergence is still real — it needs a blank RUN between the two comments now — but a
-    // hand-picked shape is evidently just the next one to go quiet, so the corpus does the
-    // finding and the literal below is only there to be readable.
-    const LINES = ['Text.', '', '<!-- n -->', '<!-- caption: c -->'];
+    // predicted it would. Its replacement went quiet when the rule was widened to cover a blank
+    // line AFTER the comment, and the replacement for THAT went quiet when the whole trailing
+    // run started coming off. Each time the literal still passed as an assertion while measuring
+    // nothing. Divergence is still real and has simply moved off the end of the file — so the
+    // corpus does the finding, and the literal below exists only to be readable.
+    // `' '` — a WHITESPACE-ONLY line — is load-bearing in this alphabet. The surviving
+    // divergence is now mid-deck rather than at the end, and it is the two orders disagreeing
+    // about whether the author's whitespace-only line survives between the comments.
+    const LINES = ['Text.', '', '<!-- n -->', '<!-- caption: c -->', ' '];
     const divergent = [];
-    // Depth 5: the surviving shape is `text / note / blank / blank / caption`, which four lines
-    // cannot express. Measured at ~90ms for the whole sweep, so the depth is affordable.
+    // Depth 5: the shape is `text / note / caption / whitespace-line / text`, which four lines
+    // cannot express. Measured at ~160ms for the whole sweep, so the depth is affordable.
     const walk = (acc, depth) => {
       if (depth === 0) {
         for (const trail of ['', '\n']) {
@@ -997,7 +1000,7 @@ describe('notes-core: caption channel (caption:)', () => {
       + 'shape — do not delete the test, widen it and re-measure.'
     );
     // The shape the search finds today, pinned so a reader can see what it is without running it.
-    const src = 'Text.\n<!-- n -->\n\n\n<!-- caption: c -->';
+    const src = 'Text.\n<!-- n -->\n<!-- caption: c -->\n \nText.';
     assert.ok(divergent.includes(src), 'the recorded divergent shape is still in the corpus');
     assert.notEqual(
       core.stripCaptionsFromSource(core.stripNotesFromSource(src, bodies)),
@@ -1061,6 +1064,26 @@ describe('notes-core: caption channel (caption:)', () => {
       for (const tail of ['\n', '\n\n', '']) {
         assert.equal(core.stripNotesFromSource(`A\n<!-- n -->${tail}`, new Set(['n']), { boundary }), 'A\n');
       }
+      // A RUN of blank lines on either side goes too, and this is the rule the first two cuts of
+      // the fix got wrong in opposite directions: one took a single blank and left `A\n\n`, the
+      // next took every blank BELOW but only one above, so the branch was asymmetric and the
+      // comment describing it was false. At end of input the whole trailing run goes, from
+      // whichever side — there is no block below for any of it to be separating.
+      assert.equal(core.stripNotesFromSource('A\n\n\n<!-- n -->\n', new Set(['n']), { boundary }), 'A\n');
+      assert.equal(core.stripNotesFromSource('A\n\n\n\n<!-- n -->\n', new Set(['n']), { boundary }), 'A\n');
+      assert.equal(core.stripNotesFromSource('A\n<!-- n -->\n\n\n', new Set(['n']), { boundary }), 'A\n');
+      assert.equal(core.stripNotesFromSource('A\r\n\r\n\r\n<!-- n -->\r\n', new Set(['n']), { boundary }), 'A\r\n');
+      // Trailing spaces on the last CONTENT line are the author's and stay — the trim takes
+      // blank LINES, not whitespace.
+      assert.equal(core.stripNotesFromSource('A  \n\n<!-- n -->\n', new Set(['n']), { boundary }), 'A  \n');
+      // `[ \t\r\n]`, NOT `\s`: a non-breaking space is a paragraph to markdown, not a blank line.
+      // With `\s` the deck below lost a whole `<p>`, and a fuzz oracle written with `\s` could
+      // not see it — the bug and the check shared a character class.
+      assert.equal(
+        core.stripNotesFromSource('A\n\n<!-- n -->\n \n', new Set(['n']), { boundary }),
+        'A\n\n \n',
+        'a non-breaking-space line is content, so this is not end of input at all'
+      );
       // A CRLF deck takes its own terminator with it rather than leaving a lone carriage return.
       assert.equal(core.stripNotesFromSource('A\r\n\r\n<!-- n -->\r\n', new Set(['n']), { boundary }), 'A\r\n');
       // Start-of-file is the same branch with nothing emitted yet — there is no blank to take,
