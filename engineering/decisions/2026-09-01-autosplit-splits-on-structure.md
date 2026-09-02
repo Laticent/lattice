@@ -130,11 +130,12 @@ Two practices come out of this, and they are the durable part of this note:
 
 ## Enrollment: what splits, what rings
 
-31 of 61 components split. The other 30 are single structural elements already — an anchor, a
-viewBox graphic, a bitmap asset, one atomic text unit or shared-geometry grid — and ring on
-overflow. Each has its treatment and its reason in `lib/core/split-facts.js`.
+30 of 61 components split. The other 31 are single structural elements already — an anchor, a
+viewBox graphic, a bitmap asset, one atomic text unit or shared-geometry grid — or a component
+whose seam the splitter cannot reach; all of them ring on overflow. Each has its treatment and
+its reason in `lib/core/split-facts.js`.
 
-Three that could not split now do: `content`, `list-criteria` and `journey`.
+Two that could not split now do: `content` and `list-criteria`.
 `content` is the notable one — the commonest slide in any deck could
 not split at all, so a long one could only clip. Its axis is declared in `adapt.capacity`
 rather than top-level, following `inventory/list`: the canonical sample is prose, and a
@@ -142,19 +143,39 @@ top-level contract against a prose sample is inert, which the manifest validator
 rejects. The split axis is derived from the rendered DOM anyway, so a paragraph-only content
 slide resolves no collection and is left whole.
 
-**The rule is the SEAM, not the bucket (owner ruling, 2026-09-02).** A chart that cannot be
-split stays whole; a chart that can, splits. `journey` was briefly backed out on a bucket
-reading — it lives under `chart/` and renders inside a `chart-frame` — and that was the wrong
-discriminator. It keeps a real top-level `<ul>` of independent stages, so the seam is there and
-it splits. `kanban` (per lane) and `roadmap` (per horizon card) are chart-bucket components that
-have always split, for the same reason, and are consistent with this rather than exceptions to it.
+**The rule is the SEAM, not the bucket (owner ruling, 2026-09-02), and the seam has to be
+REACHABLE.** A chart that cannot be split stays whole; a chart that can, splits. The bucket is
+the wrong discriminator either way: `kanban` (per lane) and `roadmap` (per horizon card) are
+chart-bucket components that have always split.
 
-§0c already encoded this and is the authority: `graphic`, `asset`, `anchor` and `atomic` are the
-treatments that mean "no seam", and they cover 25 of the 31 components that do not split. A
-viewBox figure has nothing to cut between; a shared-geometry grid loses its whole read if you cut
-it. That is a fact about the artifact, and no bucket name is needed to see it.
+`journey` is where that distinction got its teeth. It was enrolled under this rule — it authors a
+real top-level `<ul>` of independent stages, so the seam looked present — then backed out on a
+bucket reading, then RE-ENROLLED when the bucket reading was corrected. It was never re-rendered
+across any of those moves. On the render it did not merely decline to split: it produced a
+SIX-PAGE run in which every body page carried the whole five-stage board, identical, with the
+section band labels colliding with the rows. Its transform rewrites the authored list into a
+`.journey-board`, so the members the splitter reaches at count time are gone by the time the page
+is assembled — and the envelope (page count, rail, "next:" pointer) is built from the count. An
+unreachable seam is therefore not a no-op; it is a run of duplicates that passes every gate.
+`journey` keeps whole, with `progress` and `timeline-list`, for one shared reason.
 
-**Three more were enrolled and backed out the same day.****Three more were enrolled and backed out the same day.** `pricing` came out on a gate: the
+**But "unreachable" was too strong, and the correction matters for what happens next.** The seam
+is unreachable *from the authored markup*, which is all `capacity.axis` can see. It is plainly
+reachable in the RENDERED DOM: measured, each of these keeps its members as clean repeated blocks
+— `.progress-row`, `.timeline-item`, `.journey-vtask` inside `.journey-vstage`, and
+`split-compare`'s 2 × `.option`. Reading a post-transform shape and re-authoring it into pages is
+what `kanban-lanes` and `roadmap-horizons` already do. So enrolling these is one READER per shape
+plus a recipe, not a new mechanism — a tractable follow-on, not a blocked one. What is genuinely
+not splittable is a component that renders as ONE figure over a shared axis (`matrix-grid`,
+`gantt`): cutting those leaves rows with nothing to read them against, and no reader fixes it.
+
+§0c already encoded the no-seam half and is the authority: `graphic`, `asset`, `anchor` and
+`atomic` are the treatments that mean "no seam". A viewBox figure has nothing to cut between; a
+shared-geometry grid loses its whole read if you cut it. That is a fact about the artifact, and no
+bucket name is needed to see it. What §0c does NOT encode is reachability — a treatment describes
+the artifact, not whether the transform left the splitter anything to hold.
+
+**Four more were enrolled and backed out the same day.** `pricing` came out on a gate: the
 `band` conformance rule requires a component's stress doc to sit inside the capacity band it
 declares, and `pricing`'s stress doc holds THREE tiers while its own gallery ships a supported
 `.four` variant with four. No band satisfies both, so the component's tier ceiling is genuinely
@@ -163,7 +184,7 @@ That is `pricing`'s own decision (which axis it declares, and a stress doc that 
 resolving it inside this change would have meant editing a shipped exhibit to fit a contract
 written an hour earlier. It keeps whole and rings, as before.
 
-`timeline-list` and `progress` came out on the render. They declare a list and RENDER a diagram — their transforms replace the authored `<ul>`
+`timeline-list`, `progress` and `journey` came out on the render. They declare a list and RENDER a diagram — their transforms replace the authored `<ul>`
 with a `.chart-body` / `.timeline-spine`, so `deriveAxis` resolves no collection on the page and
 the declared axis could never fire. An inert contract is worse than none, because it reads as
 coverage. Splitting either needs a carousel strategy that re-authors the transformed shape, the
@@ -245,6 +266,21 @@ change to the gate is a separate decision and is not made here.
 
 ## What is not resolved
 
+- **Backing a component out of splitting also takes away its CROWDING guidance, and the schema
+  gives no way to keep one without the other.** `capacity.axis` is required whenever `capacity`
+  is present, so removing the axis means removing `sweet`/`soft`/`hard` too — and with them the
+  `lint:deck` warning an author gets for an over-full slide. `journey` loses its "~4 items (over
+  5 overflows)" line, as `progress`, `timeline-list` and `glossary` already had. Splitting an
+  authoring band from a split contract is a manifest-schema change with its own consumers, and it
+  is not made here.
+- **A bold lead that is a STATISTIC, not a name, produces a pointer nobody can read.** `labelOf`
+  takes a member's leading `<strong>` as its label, which is the card contract — and a member
+  reading `- **31** keep whole and ring on overflow` therefore signals "next: 31". The engine
+  cannot fix this by rejecting numeric labels: "next: 2026" on a roadmap and "next: Q3" on a plan
+  are both good wayfinding, and nothing distinguishes them from "31". So the contract stands —
+  **a bold lead is a NAME** — and `examples/split-structure.md` says so on the slide where it
+  would otherwise have been wrong. A `lint:deck` coaching rule for it is a separate change.
+
 - **The galleries and example decks will export with different page counts.** That is the
   change, not a defect, but the committed PDFs are regenerated in this change and every one
   wants an eye on it.
@@ -253,12 +289,10 @@ change to the gate is a separate decision and is not made here.
   packing — caught by a census of the split kernels rather than by any gate. There is no gate
   that would catch the next one: `perPage` is a manifest field, and a strategy that groups in
   code is invisible to it.
-- **A one-element page can be sparse.** One bullet on a portrait page is a lot of white — visible
-  on p3–p6 of `examples/split-structure.pdf`. A lone member already claims the stage's HEIGHT
-  (`base.modifiers.css` § lone-member fill, extended here to claim its WIDTH too), so the box is
-  right; what is unresolved is the TYPE — a single bullet set at body size in a page-tall box
-  reads as an accident rather than a decision. That is a layout question, not a reason to pack,
-  and it is not attempted here.
+- **A one-element page can be sparse — RESOLVED, see § The lone member below.** A single bullet
+  set at body size in a page-tall box read as an accident rather than a decision. It now drops
+  the list marker, reclaims the indent and steps to `--fs-emphasis`. Kept in this list because
+  the reasoning is worth the pointer, not because anything is outstanding.
 - **`progress` shears its own status badges at `portrait`** — a "Content clipped" tag on an
   UNSPLIT page. Pre-existing and off the path of this change: every CSS rule added here is scoped
   to `lat-split-closing`, `lat-split-native` or the rail, none of which an unsplit page carries,
@@ -272,3 +306,77 @@ change to the gate is a separate decision and is not made here.
   enrollment was deferred, and every component that atomizes today is a tiling one that answers
   width by another route. It is kept because the defect is real for the next component with an
   arithmetic track width, and pinned by unit test rather than by a committed render.
+
+## The lone member, and the three things that were wrong with it
+
+One structural element per page makes the commonest split page hold a SINGLE bullet. Four
+defects showed up there, and they are worth separating because only one of them was a design
+question — the other three were the kind that pass every machine gate.
+
+### The type (a design question)
+
+A bullet alone on a page keeps a marker whose whole job is to separate it from siblings it no
+longer has, at a size chosen for one item among many that are not there. So it reads as a
+fragment torn out of a list. The fix is to stop treating it as a list item: drop the marker,
+reclaim its indent, set it at `--fs-emphasis` — the rung the insight page already uses for the
+same reason, that a page holding ONE thing sets that thing up.
+
+Scoped to a BARE member. A heavy member — a card carrying a title and a body clause (HARD RULE
+#5's nested `- Title` / `  - body`) — already fills its page and carries its own internal type;
+stepping it up would blow out a `cards-grid` card. `strong` is deliberately absent from the
+exclusion list: a bare bullet routinely carries inline emphasis, and testing for it would misread
+every emphasized bullet as a card.
+
+### The selector that was never applied
+
+The first draft of that rule wrote the `ul` test as `:has(> li:only-child:not(:has(…)))`.
+**`:has()` may not nest inside `:has()`**, so Chromium rejected the selector — and a stylesheet
+parser drops an invalid selector with no error anywhere. The neighbouring `li` rule put its
+`:has()` inside a top-level `:not()`, which is legal, so exactly HALF the fix applied: the type
+stepped up and the marker stayed. It took a portrait render plus a computed-style probe
+(`list-style-type: disc`, `padding-inline-start: 52.65px`, `font-size` already at 68.04px against
+a 46.98px body) to see why.
+
+Neither existing tier could have caught it. `build:check` runs the bundle through css-tree, which
+accepts the nesting and re-serializes it unchanged (measured). And a render proves nothing — a
+dropped rule renders fine, it just renders without the rule. So the gate asks the parser that
+actually ships: `test/unit/css/selector-validity.test.js` puts every selector in the built bundle
+through `querySelector`, which uses the same grammar the stylesheet parser does and throws on
+exactly what that parser would reject. Run against the pre-fix bundle it named one selector out
+of 1.6MB — the right one.
+
+### The numbering that restarted on every page
+
+Eight components draw a per-member ordinal from a private CSS counter, and a fresh `<ol>`/`<ul>`
+resets it. A three-item `list-criteria` therefore read **`01 · 01 · 01`**, which tells a reader
+there are three first criteria.
+
+The kernel already did its half, twice over: `auto-split.js` writes `--lat-split-offset` on every
+body page (the count of members on prior pages), and `collections.js` sets `start="N"` on a split
+`<ol>`. Three components read the offset (`list-steps`, `q-and-a`, `authority-chain`) and one
+rides the built-in `list-item` counter that `start` seeds for free (`premise`). The rest read
+neither. That stayed invisible while a page held several members — numbering was at least
+sequential within a page — and `perPage: 1` is what made it read as an error on every page.
+
+`list-criteria`, `list`, `agenda`, `inventory`, `cards-grid`, `cards-stack` and
+`regulatory-update` now seed from the offset, the pattern the three already used (HARD RULE #15).
+Writing the gate turned up an eighth: `list-steps.timeline` added its own counter later and did
+not inherit the note, in the very file that carries the explanation. That is the failure mode the
+gate exists for, and it is why the check enumerates counters rather than components:
+`test/unit/css/split-ordinal-continuity.test.js` fails any component that declares a split axis
+and resets an ordinal counter without the offset. `journey`'s `mood` and `volume` counters are
+exempt and the exemption is checked — they print a datum the author supplied, not a position.
+
+### Two components centered their lone row on the wrong axis
+
+The shared lone-member rule centers with `align-content`, which only moves WRAPPED lines.
+`agenda`'s row is `flex-wrap: nowrap`, so it was inert: measured, a 948px row held its ordinal and
+title at the very top. `inventory`'s ordinal is absolutely positioned at the row's top — it has to
+stay out of a flow that stacks a block title over body prose — so centering the prose left the
+numeral ~370px above it, two unrelated marks.
+
+There is no single property that fixes both: `align-items` is the live axis on a nowrap row, but
+on a COLUMN flex member (`cards-stack`) it is the horizontal axis and would center that card's
+text. So each is a component-local rule, scoped to a member alone on its page. This is the one
+place in this change where the general rule genuinely did not generalize, and saying so is better
+than a blanket declaration that silently mis-centers a third component.

@@ -23,15 +23,6 @@
     "landscape",
     "portrait"
   ],
-  "capacity": {
-    "axis": "item",
-    "sweet": 4,
-    "soft": 5,
-    "hard": 5,
-    "perPage": 1,
-    "relationship": "sequence",
-    "note": "Journey stages follow one another (§0c places it `connected`)."
-  },
   "tags": [
     "process",
     "assessment",

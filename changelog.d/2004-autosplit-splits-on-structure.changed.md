@@ -23,11 +23,22 @@
   split into pages with nothing joining them. Every run now carries a forward pointer; a declared
   relationship still chooses the phrasing. The last body page points at the closing page and names
   what it holds.
-- **Changed: three components can split that never could.** `content` — the commonest slide in any
-  deck — plus `list-criteria` and `journey` declared no split axis, so a long one could only clip.
-  31 of 61 components now split; the other 30 are single structural elements already
-  (an anchor, a graphic, an asset, one atomic text unit) and ring on overflow, each with its
-  reason recorded in `lib/core/split-facts.js`.
+- **Changed: two components can split that never could.** `content` — the commonest slide in any
+  deck — and `list-criteria` declared no split axis, so a long one could only clip. 30 of 61
+  components now split; the other 31 either are single structural elements already (an anchor, a
+  graphic, an asset, one atomic text unit) or rewrite their authored list into a custom DOM the
+  splitter cannot reach. All of them ring on overflow, each with its reason recorded in
+  `lib/core/split-facts.js`.
+- **Fixed: `journey` was enrolled and produced a run of duplicate pages.** It authors a real
+  top-level `<ul>` of independent stages, so the seam looked reachable — but its transform
+  rewrites that list into a `.journey-board`, and the split envelope is built from the member
+  COUNT, which is read from markup the transform has already discarded. The result was a
+  six-page run in which every body page carried the whole five-stage board, identical, with the
+  section band labels colliding with the rows. It keeps whole and rings, alongside `progress` and
+  `timeline-list`, which fail the same way. What these three need is a carousel strategy that
+  reads their POST-TRANSFORM shape — measured, each keeps its members as clean repeated blocks in
+  the rendered DOM — which is what `kanban-lanes` and `roadmap-horizons` already do for theirs. Its `verified` attestation in the split oracle — which
+  claimed the deck had been rendered and read page by page — is removed: it had not been.
 - **Fixed: a member alone on its page takes the whole measure.** A component that states its track
   width arithmetically kept that width with one member on the page — `pricing` sets
   `width: calc(100% / 3 - …)` on every tier, so a lone tier rendered at a third of the measure and
@@ -74,3 +85,31 @@
   pages' "next:" uses, so the cover points at page one exactly as page one points at page two.
   It declines rather than clips: a member with no name (a bare sentence) leaves the cover
   title-only instead of printing a truncated fragment.
+- **Fixed: a run's numbering continues across its pages instead of restarting at 01.** Eight
+  components draw a per-member ordinal from a private CSS counter, and a fresh `<ol>`/`<ul>` on
+  every page resets it — so a three-item `list-criteria` read `01 · 01 · 01`, telling the reader
+  there were three first criteria. The kernel already did its half (`--lat-split-offset` on every
+  body page, `start="N"` on a split `<ol>`); three components read it and the rest never did,
+  which stayed invisible while a page held several members and their numbering was at least
+  sequential within it. `list-criteria`, `list`, `agenda`, `inventory`, `cards-grid`,
+  `cards-stack`, `regulatory-update` and `list-steps.timeline` now seed from the offset, and
+  `test/unit/css/split-ordinal-continuity.test.js` fails a splittable component that adds an
+  unseeded counter.
+- **Fixed: a lone BARE bullet is set as the page's statement, not as a list item.** One element
+  per page makes the commonest split page a single bullet, and it kept its marker (a separator
+  from siblings it no longer has) at body size in a page-tall box. It now drops the marker,
+  reclaims the indent and steps to `--fs-emphasis`. Scoped to a bare member: a card carrying a
+  title and a body clause already fills its page and is left alone.
+- **Fixed: `agenda` and `inventory` centered their lone row.** The shared lone-member rule centers
+  with `align-content`, which only moves wrapped lines — inert on `agenda`'s `nowrap` row, which
+  held its ordinal and title at the top of a 948px box. `inventory`'s ordinal is absolutely
+  positioned at the row's top to stay out of its flow, so centering the prose left the numeral
+  ~370px above it. Each now centers on the axis that is live for it, only when the member is
+  alone on its page.
+- **Fixed: a selector that Chromium rejected was silently dropping its rule.** `:has()` may not
+  nest inside `:has()`, and a stylesheet parser drops an invalid selector without raising — the
+  lone-bare-member rule was written as `:has(> li:only-child:not(:has(…)))` and never applied,
+  which took a real render and a computed-style probe to see. `build:check`'s css-tree pass
+  accepts the nesting and re-serializes it unchanged, so `test/unit/css/selector-validity.test.js`
+  asks the browser instead: every selector in the built bundle is put through `querySelector`,
+  which uses the same grammar the stylesheet parser does.

@@ -70,7 +70,8 @@ _list-criteria could not split at all before this change._
 - Close
   - Read the note and the insight together `@reader` `:2`
 
-_A chart splits when it has a seam. This one does — independent stages. A pie chart does not._
+_A chart splits when the splitter can reach its seam. These stages are independent, so the seam is
+real — but journey rewrites the authored list into its own board, leaving nothing to cut._
 
 ---
 
@@ -78,12 +79,12 @@ _A chart splits when it has a seam. This one does — independent stages. A pie 
 
 ## Enrollment across the catalog
 
-- **32 of 61** components split — four of them could not before
-- **29** are single structural elements already, and ring on overflow
-- **0** pack, at any count, on any component
-- **Every** run carries a forward pointer; four did before
+- **Enrolled** — 30 of 61 components split, two of which could not before
+- **Whole** — the other 31 ring on overflow, each for a reason recorded in the kernel
+- **Packed** — none, at any count, on any component
+- **Pointed** — every run carries a forward pointer; four components did before
 
-_Each of the 29 has its reason recorded in `lib/core/split-facts.js`._
+_A bold lead is a name: it becomes the next page's pointer. `**31**` would point at "31"._
 
 ---
 
