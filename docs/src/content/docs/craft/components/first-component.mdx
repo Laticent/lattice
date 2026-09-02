@@ -4,7 +4,7 @@ description: Scaffold, describe, style, preview — a new layout end to end.
 ---
 
 import CraftLab from '../../../../components/craft/CraftLab.astro';
-import { CSS_CUSTOM_COMPONENT, SLIDE_CUSTOM_COMPONENT } from '../../../../components/craft/samples.ts';
+import { CSS_COMPONENT_STUB, SLIDE_CUSTOM_COMPONENT } from '../../../../components/craft/samples.ts';
 
 We will build `takeaway`: a recommendation stated as a sentence, with the
 reasons under it. It does not ship, and nothing in the catalog quite does
@@ -82,19 +82,22 @@ Three rules govern it, and they get [their own page](/craft/components/css-rules
 For now: colors are tokens, space is padding and gap, and every selector
 hangs off `> .cell-stage`.
 
+The lab below opens on the scaffold's stub — one rule, no opinions. Build
+it up in four steps and watch each one land.
+
 <CraftLab
-	label="takeaway.styles.css"
+	label="takeaway.styles.css — build it"
 	kind="css"
-	css={CSS_CUSTOM_COMPONENT}
+	css={CSS_COMPONENT_STUB}
 	markdown={SLIDE_CUSTOM_COMPONENT}
 	editMarkdown
 	size="tall"
-	hint="This is the whole component: about twenty lines, no JavaScript. Swap --accent-soft for --bg-alt and the panel goes from tinted to plain paper. Then change padding: var(--sp-lg) to var(--sp-3xs) and watch the panel shrink onto the words."
+	hint="Add these one at a time, inside the rule that is already there. 1) justify-content: center; — the reasons move to the middle. 2) gap: var(--sp-sm); — they stop touching. 3) padding: var(--sp-lg); background: var(--accent-soft); border-radius: var(--radius-md); — the panel appears. 4) Then a second rule for the ticks: section.takeaway.takeaway > .cell-stage > ul > li { padding-left: var(--sp-md); border-left: 4px solid var(--accent); }"
 />
 
-That is the finished layout. Most components are about this size. The ones
-that are not are usually charts, which build an SVG and are a different
-kind of job.
+That is the whole component: about twenty lines, no JavaScript. Most
+components are about this size. The ones that are not are usually charts,
+which build an SVG and are a different kind of job.
 
 ## 5. Preview it while you work
 

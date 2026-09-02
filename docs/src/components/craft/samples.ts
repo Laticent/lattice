@@ -224,6 +224,19 @@ section.takeaway.takeaway > .cell-stage > ul > li {
 }
 `;
 
+/**
+ * The scaffold's starting point — what `npm run new:component` actually leaves
+ * you with. The capstone lab opens on THIS, not on the finished component, so the
+ * reader builds the thing rather than reading it.
+ */
+export const CSS_COMPONENT_STUB = `/* takeaway.styles.css — as the scaffold writes it.
+ * One rule, no opinions. Everything below is yours. */
+section.takeaway > .cell-stage {
+  display: flex;
+  flex-direction: column;
+}
+`;
+
 /** The slide every finish lab paints behind. `finish-lab` is a per-slide finish class. */
 export const SLIDE_FINISH = `<!-- _class: content finish-lab -->
 
