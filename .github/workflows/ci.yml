@@ -23,26 +23,43 @@ concurrency:
   cancel-in-progress: true
 
 # ── Every job carries a timeout-minutes ───────────────────────────────────────
-# GitHub's default is SIX HOURS, and a job that wedges runs to it. Measured on
-# #2028's merge-queue run: `npm ci` on node 24 hung for 44 minutes where the same
-# step takes 16 seconds on node 22, and nothing in the pipeline would have stopped
-# it. Only `studio-smoke` had a cap at the time.
+# GitHub's default is SIX HOURS, and only `studio-smoke` had a cap. `npm ci` on
+# node 24 wedged TWICE on 2026-09-02 — 42m23s on #2028's merge-queue run and
+# 75m58s on a pull_request run — against 16 seconds on node 22. Both were
+# eventually cancelled, so six hours is the documented ceiling rather than a bill
+# this repo has actually paid; it is still what an uncancelled wedge costs.
 #
-# The numbers are ~3x the worst duration measured on two runs (one pull_request,
-# one merge_group) on 2026-09-02:
+# The caps, and the REAL distribution behind them — every job across the last 100
+# completed `ci.yml` runs (pull_request + merge_group), measured 2026-09-02:
 #
-#   changes 18-23s -> 5   ·  lint 62-67s -> 10  ·  unit 1m37s-3m03s -> 15
-#   integration 10m41-48s -> 25  ·  golden-diff 8m45s -> 25
-#   docs-build 7m23-31s -> 20    ·  ci 4-9s -> 5   ·  studio-smoke 5m42-46s (15, unchanged)
+#   job                     n    p50    p90    max    cap    cap/max
+#   changes                99    19s    21s    23s     5m    13.0x
+#   lint                   99    61s    66s    76s    10m     7.9x
+#   unit (node 22)         86   170s   183s   188s    15m     4.8x
+#   unit (node 24)         86   103s   112s  4580s    15m      —  (the wedge)
+#   integration (node 22)  86   601s   648s   669s    25m     2.2x
+#   golden-diff            69    91s   511s   554s    25m     2.7x
+#   docs-build             89   420s   445s   466s    20m     2.6x
+#   studio-smoke           89   342s   364s   829s    15m     1.1x  <-- thin
+#   ci                     99     5s     7s    11s     5m    27.3x
 #
-# 3x is deliberately generous: being wrong HIGH costs one slow run before a wedge
-# is cut off, being wrong LOW kills a job that would have passed and reds a PR for
-# nothing. `unit` is not the only job that matters here — five of these run the
-# same `npm ci` that hung, so capping only the one that happened to wedge would
-# leave the same failure mode everywhere else.
+# TWO CAVEATS THE TABLE DOES NOT SHOW, both worth reading before trusting a ratio:
 #
-# RAISE A NUMBER rather than deleting it if a job legitimately outgrows its cap,
-# and say in the PR what the new measured duration is.
+#   · `studio-smoke` has the thinnest margin in the file, and it is NOT 3x. Its
+#     worst run took 829s and PASSED, of which 501s was the Playwright browser
+#     download — an unbounded external fetch against a ~40s norm. One slow CDN
+#     night cuts it at 15m. Its cap predates this block and was left alone; it is
+#     flagged here rather than quietly re-derived. The immediate cost of a false
+#     red is bounded: `studio-smoke` is deliberately outside `ci`'s `needs`.
+#   · `golden-diff` is input-dependent, not slow-but-stable — it rasterizes only
+#     the goldens a PR actually moved, hence p50 91s against p90 511s. A
+#     corpus-wide re-bless has no ceiling this sample can see, so read 25m as a
+#     bound on the common case, not as 3x a stable number.
+#
+# Being wrong HIGH costs one slow run before a wedge is cut off; being wrong LOW
+# kills a job that would have passed and reds a PR for nothing. RAISE a number
+# rather than deleting it if a job outgrows its cap, and say in the PR what the
+# new measured duration is.
 
 jobs:
   # ── Change classifier ──────────────────────────────────────────────────

@@ -338,15 +338,24 @@ doesn't vary with Node version; matrix-testing the slow tier is paranoia,
 not insurance. Only `integration` needs Chromium — `lint` and `unit` skip
 the download (~150 MB) since neither renders.
 
-**Every job carries a `timeout-minutes`.** GitHub's default is six hours, and a
-job that wedges runs to it — measured on #2028's merge-queue run, where `npm ci`
-on node 24 hung for 44 minutes against 16 seconds on node 22. The caps are ~3x the
-worst duration measured across one `pull_request` and one `merge_group` run
-(2026-09-02): `changes` 5 · `lint` 10 · `unit` 15 · `integration` 25 ·
-`golden-diff` 25 · `docs-build` 20 · `studio-smoke` 15 · `ci` 5. Being wrong high
-costs one slow run before a wedge is cut off; being wrong low reds a PR that would
-have passed, so 3x is deliberate. If a job legitimately outgrows its cap, raise the
-number and say what the new measured duration is — don't delete the line.
+**Every job carries a `timeout-minutes`.** GitHub's default is six hours and only
+`studio-smoke` had a cap. `npm ci` on node 24 wedged twice on 2026-09-02 — 42m23s on
+#2028's merge-queue run and 75m58s on a PR run — against 16 seconds on node 22; both
+were cancelled, so six hours is the ceiling an uncancelled wedge would reach rather
+than one this repo has paid. Caps: `changes` 5 · `lint` 10 · `unit` 15 ·
+`integration` 25 · `golden-diff` 25 · `docs-build` 20 · `studio-smoke` 15 · `ci` 5.
+
+**Read the ratios, not the round number.** Measured across the last 100 completed
+`ci.yml` runs, cap-over-worst-observed spans **1.1x to 27x**, and the two ends are the
+interesting ones. `studio-smoke` is the thinnest in the file: its worst run took 829s
+and *passed*, 501s of which was the Playwright browser download — an unbounded external
+fetch against a ~40s norm — so it sits 71 seconds inside its cap, not nine minutes.
+`golden-diff` is input-dependent rather than slow-but-stable (p50 91s, p90 511s), since
+it rasterizes only the goldens a PR moved; a corpus-wide re-bless has no ceiling that
+sample can see. The full table lives in the `ci.yml` comment block. Being wrong high
+costs one slow run before a wedge is cut off; being wrong low reds a PR that would have
+passed. If a job outgrows its cap, raise the number and say what the new measured
+duration is — don't delete the line.
 
 ## Integration test cache
 
@@ -781,11 +790,15 @@ number:
   lossy JPEG screencast frames, not the lossless comparison image. #1426's
   range-fetch worked because there were actuals to fetch; on green baselines there
   are none. Getting the number needs a run deliberately instrumented to FAIL
-  (tolerance pinned to 0, so the comparator reports the true pixel count), and the
-  only two ways to run these specs in CI both have a cost outside the change:
-  `studio-e2e-nightly.yml` posts to the rolling issue #1705, and `ci.yml` fires on
-  `pull_request` only, so the instrumented run reds a live PR. Neither is a thing
-  to fire off in passing — ask first.
+  (tolerance pinned to 0, so the comparator reports the true pixel count), and every
+  route to one costs something outside the change. **`studio-e2e-nightly.yml`** is the
+  only CI workflow that runs these specs, and its issue step has no event guard, so a
+  `workflow_dispatch` posts to the rolling issue #1705 like a scheduled failure would.
+  **`ci.yml` cannot be used as-is**: its one Playwright step is `test:e2e:smoke`
+  (`--project=desktop --grep @smoke`), and `@visual` is neither `@smoke` nor
+  desktop-only — so reaching it there takes a job edit, not just a push, and the
+  instrumented run reds a live PR either way. Neither is a thing to fire off in
+  passing — ask first.
 
 **The shot's subject is a fixture, not the seeded deck** (2026-09-02). It used
 to be `DECKS[0]`, whose editor pane fills a third of the frame — so the welcome

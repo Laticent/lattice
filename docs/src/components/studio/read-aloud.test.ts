@@ -72,17 +72,22 @@ vi.mock('@/lib/suono', () => ({
 }));
 // The file's voice-model stub, as a NAMED factory rather than an inline arrow.
 //
-// Two describes below need their OWN voice-model for one test (a constructor that
-// throws; one that resolves on a gate), so they `vi.doMock` over this one. What they
-// must NOT do is `vi.doUnmock` to clean up: `doUnmock` drops the module's mock
+// ONE describe below needs its OWN voice-model for one test (a constructor that
+// throws), so it `vi.doMock`s over this one. What it must NOT do is `vi.doUnmock` to
+// clean up: `doUnmock` drops the module's mock
 // registration ENTIRELY — this hoisted `vi.mock` included — so the next dynamic
 // `import('@/playground/voice-model.js')` resolves the REAL module. `read-aloud.ts`
 // reaches voice-model only through dynamic imports (its `getVoice()` singleton at
 // :203, `listTtsCatalog` at :1211, `listTtsModels` at :1249), so every later test
 // that touches the top-level import silently ran against the real voice model.
-// In declaration order those describes run last and nothing observes the aftermath;
-// under `--sequence.shuffle.tests` they can run first, which is #1814.
-// Naming the factory lets them RESTORE it (`vi.doMock(path, voiceModelStub)`) instead.
+// In declaration order that describe runs last and nothing observes the aftermath;
+// under `--sequence.shuffle.tests` it can run first, which is #1814.
+// Naming the factory lets it RESTORE it (`vi.doMock(path, voiceModelStub)`) instead.
+//
+// A SECOND describe used to `doMock` here too — the voice-arming-window one, which
+// needed the model held behind a gate. It does not any more, and the reason is the
+// race documented above that describe: parameterizing THIS stub (`voiceState.gate`)
+// beats registering a second factory the dynamic import may or may not be served.
 // A `function` declaration, so `vi.mock`'s hoisting still finds it.
 function voiceModelStub() {
 	return {

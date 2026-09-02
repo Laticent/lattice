@@ -230,7 +230,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   is the same class — add the guard there if a linked component surfaces the blank
   in Studio).
 
-## `fetch('data:…')` fails inside a preview/export document — twice over, and the error names neither reason
+## `fetch('data:…')` fails inside a preview/export document — the CSP, and two things that impersonate a size limit
 
 - **Symptom:** Code running in a document the engine built — a preview frame, a
   presented slide, an exported `.html`, or a spec that re-hosts one — calls
@@ -238,27 +238,37 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   (`TypeError: Failed to fetch` in Chromium). The URL is well-formed and decodes
   fine anywhere else. `docs/e2e/math-compare-webkit.spec.ts` hit this passing a
   screenshot into `page.evaluate` for raster analysis.
-- **Cause — there are TWO, and either alone is enough:**
-  1. **The remote-subresource CSP.** `lib/core/subresource-csp.mjs` (#1753/#2009)
-     closes `connect-src` to `'self'`, and `data:` is not a source there. Every
-     document that carries the meta refuses ANY `fetch('data:…')`, at any size.
-     A spec that re-hosts a presented document inherits the meta with it.
-  2. **WebKit's own limit.** WebKit refuses a multi-megabyte `data:` URL from
-     `fetch()` with no CSP in play at all, and a slide screenshot clears that
-     line easily.
-  Measured in Playwright's WebKit across the four cells:
+- **Cause — the CSP, and only the CSP.** `lib/core/subresource-csp.mjs`
+  (#1753/#2009) closes `connect-src` to `'self'`, and `data:` is not a source
+  there, so ANY `fetch('data:…')` in a document carrying that meta is refused at
+  any size. A spec that re-hosts a presented document inherits the meta with it.
+  Measured in Playwright's WebKit with VALID base64, raw payloads 100 B to 16 MB:
 
-  | policy      | 70-byte PNG | ~1.9MB data URL |
-  |-------------|------------:|----------------:|
-  | none        |          OK |          FAILED |
-  | preview CSP |      FAILED |          FAILED |
+  | policy      | 100 B | 1 MB | 1.9 MB | 4 MB | 16 MB |
+  |-------------|-------|------|--------|------|-------|
+  | none        |    OK |   OK |     OK |   OK |    OK |
+  | preview CSP |  FAIL | FAIL |   FAIL | FAIL |  FAIL |
 
-  Both cells report the same message, so the error cannot tell you which one you
-  are in — and fixing only the CSP would leave the size limit standing.
+- **THERE IS NO SIZE LIMIT, and two separate things impersonate one.** An earlier
+  version of this entry claimed WebKit refuses multi-megabyte `data:` URLs from
+  `fetch()` and shipped a table saying so. It was wrong twice over, and both traps
+  are easy to walk back into:
+  - **Padding a small base64 string to make a big one produces MALFORMED base64.**
+    Characters appended after the `==` break the payload, and WebKit reports that
+    decode failure with the identical `TypeError: Load failed`. The original
+    "1.9 MB fails with no CSP" cell was measuring its own invalid input. Build a
+    large payload with real bytes (`Buffer.alloc(n).toString('base64')`), never by
+    repeating a character onto a padded string.
+  - **A CSP meta set through `setContent` STICKS TO THE PAGE.** A later
+    `setContent` carrying a CSP-free document is still governed by the earlier
+    policy; only a fresh page or context clears it. So an A/B whose no-CSP arm runs
+    second on the same page reports a failure with no policy anywhere in sight.
+  For scale, the screenshot that started this is **87 KB** — a 116 KB data URL.
+  The multi-megabyte premise was never even in play.
 - **Fix:** Do not load the bytes; hand them over. Pass base64 as a `page.evaluate`
   argument and decode with `atob` → `Uint8Array` → `Blob` → `createImageBitmap`.
-  That path touches no loader and no network, so neither limit applies (measured
-  under the preview CSP).
+  That path touches no loader and no network, so the CSP has nothing to refuse
+  (measured under the policy, in both engines).
 - **Don't reintroduce:** reach for `fetch()` on a `data:`/`blob:` URL inside any
   engine-built document and assume it works because it works on a plain page. It
   is a `connect-src` fetch like any other. The same applies to `XMLHttpRequest`

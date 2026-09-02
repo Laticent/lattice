@@ -97,25 +97,31 @@ type Dupe = { text: string; at: [number, number]; alsoAt: [number, number]; scor
  * Runs inside the page: the PNG goes in as base64 and is decoded with
  * createImageBitmap, so the suite needs no image-decoding dependency.
  *
- * WHY NOT `fetch(dataUrl)`, which is the obvious way to do this. It fails in the
- * probe page for TWO independent reasons, and both are permanent — measured in
- * Playwright's WebKit at four cells of {no CSP, preview CSP} x {70-byte PNG, ~1.9MB
- * data URL}:
+ * WHY NOT `fetch(dataUrl)`, which is the obvious way to do this. The probe page
+ * re-hosts the PRESENTED document, and that document carries the remote-subresource
+ * CSP meta (`lib/core/subresource-csp.mjs`, #1753/#2009) — whose `connect-src 'self'`
+ * does not list `data:`. So every `fetch('data:…')` in that page is refused, at any
+ * size, and the whole error is the bare `TypeError: Load failed`, which names nothing.
+ * Measured in Playwright's WebKit, valid base64, raw payloads from 100 B to 16 MB:
  *
- *   | policy      | tiny PNG | ~1.9MB url |
- *   |-------------|---------:|-----------:|
- *   | none        |       OK |     FAILED |
- *   | preview CSP |   FAILED |     FAILED |
+ *   | policy      | 100 B | 1 MB | 1.9 MB | 4 MB | 16 MB |
+ *   |-------------|-------|------|--------|------|-------|
+ *   | none        |    OK |   OK |     OK |   OK |    OK |
+ *   | preview CSP |  FAIL | FAIL |   FAIL | FAIL |  FAIL |
  *
- *   1. `connect-src 'self'` — the preview/export remote-subresource policy
- *      (`lib/core/subresource-csp.mjs`, #1753/#2009) does not list `data:` under
- *      `connect-src`, so ANY `fetch('data:…')` is refused. The probe page inherits
- *      that policy because it re-hosts the presented document, meta tag and all.
- *   2. WebKit refuses a multi-megabyte `data:` URL from `fetch()` even with no CSP
- *      at all, and a real slide screenshot is comfortably over the line.
+ * `atob` + `Blob` reaches no loader and no network, so the CSP has nothing to refuse.
  *
- * Both surface as the same bare `TypeError: Load failed`, which names neither.
- * `atob` + `Blob` reaches no loader and no network, so it answers to neither limit.
+ * TWO THINGS THAT LOOK LIKE A SIZE LIMIT AND ARE NOT — both cost this file a wrong
+ * docblock, which is why they are written down rather than left to be re-derived:
+ *   · `atob`-style padding. Appending characters AFTER a base64 string's `==` makes
+ *     the payload malformed, and WebKit reports that decode failure with the SAME
+ *     `TypeError: Load failed`. A synthetic "big" URL built by padding a small one is
+ *     therefore measuring its own invalidity. (For scale, this slide's screenshot is
+ *     87 KB — a 116 KB data URL, not a multi-megabyte one.)
+ *   · A CSP meta set through `setContent` STICKS TO THE PAGE: a later `setContent`
+ *     with a CSP-free document is still governed by it, and only a fresh page or
+ *     context clears it. So an A/B that runs the no-CSP arm second on the same page
+ *     reads as a failure with no policy in sight.
  */
 async function h3sPaintedTwice(page: import('@playwright/test').Page, png: Buffer, h3s: H3Box[]): Promise<Dupe[]> {
 	return page.evaluate(async ({ b64, boxes }) => {
