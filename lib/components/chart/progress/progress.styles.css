@@ -163,15 +163,15 @@ section.progress:where([data-family="square"], [data-family="tall"], [data-famil
 :where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.progress .progress-bars {
   height: 100%;
   justify-content: space-evenly;
-  row-gap: var(--sp-md);
+  /* Rows are two lines tall once the label takes its own row, so the
+   * between-row rhythm tightens to keep five of them inside the stage. Declared
+   * HERE rather than on a second rule sharing this selector — see the note on
+   * `.progress-track` below for why a duplicate selector blinds the gate. */
+  row-gap: var(--sp-sm);
 }
-section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-track,
-:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.progress .progress-track { height: 4cqi; }
-section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-label,
-:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.progress .progress-label { font-size: var(--fs-message); }
 
 
-/* ── Family STACK (tall only, ≤0.9): the label gets its own full-width row.
+/* ── Family STACK (square, tall and strip — ≤1.05): the label gets its own full-width row.
  *
  * The three-column row (`18.75cqi 1fr 7.5cqi`) pulls apart at portrait because
  * its two halves scale in OPPOSITE directions. `cqi` is a share of container
@@ -190,26 +190,29 @@ section.progress:where([data-family="square"], [data-family="tall"], [data-famil
  * (`buildPortrait`) and word-cloud with its size key. The bar also gets the FULL
  * width, which is a straight win: length is the datum this component encodes.
  *
- * Scoped ≤0.9, not ≤1.05 — but NOT because square fits. This comment used to say
- * square had 178.1px of headroom. It does not, and it is off by 189px: measured on
- * the real square render, `.progress-bars` is 677.8px inside a 666.9px stage, so
- * 10.9px paints below `.cell-stage` and is cut, silently, by the same
- * `overflow: clip`. The very mechanism this arm describes is already at work at
- * square, just smaller — at `--canvas-scale` 1.65 `--fs-message` resolves to
- * 37.8px in a 182.25px label column, and four of the five labels wrap to two lines.
+ * SQUARE IS IN SCOPE AS OF #1920, and the comment here used to say the opposite:
+ * "square already fits (measured -178.1px of headroom)". It did not fit, and that
+ * number was wrong by 189px. Measured on the real square render, `.progress-bars`
+ * came to 677.8px inside a 666.9px stage — 10.9px painted below `.cell-stage` and
+ * was cut, silently, by the same `overflow: clip`. `check-chart-fit` reported it as
+ * the only clip left across all three deck shapes.
  *
- * The clip is pre-existing and deliberately NOT fixed here. Extending STACK to
- * square is one of several levers that clear it, and choosing among them is a
- * design call about how `progress` should read on a square canvas rather than a
- * tuning — so it wants its own change. Recorded in
- * 2026-08-12-chart-body-block-padding.md §8, in
- * 2026-09-01-orphaned-check-census.md, and in changelog.d/1629-chart-body-no-
- * padding.fixed.md. `check:chart-fit` is the ONLY thing that reports it: the
- * runtime overflow probe reads dy=11 against a TOL of 12 and stays quiet, and no
- * committed square deck uses `progress`, so nothing else has ever surfaced it.
- * See #1209, #1210 and 2026-06-19-chart-adaptive-sizing.md. */
-section.progress:where([data-family="tall"], [data-family="strip"]) .progress-row,
-:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-row {
+ * It is the SAME mechanism this block already describes, just smaller. At square
+ * `--canvas-scale` is 1.65, so the ≤1.05 block above steps the label to
+ * `--fs-message` = 37.8px inside an 18.75cqi (182.25px) column, and four of the
+ * five labels wrap to two lines. Widening the column cannot fix that here either.
+ *
+ * Extending STACK rather than tuning the row gap or the track was deliberate: the
+ * gap and the track are symptoms. Measured, dropping the row gap to `--sp-sm`
+ * alone leaves only 33px of slack, so a sixth row or a longer label clips again;
+ * giving the label its own row removes the competition for width outright, and the
+ * bar gets the FULL width, which is the datum this component encodes. With this
+ * arm applied at square, `check-chart-fit` exits 0 across landscape, portrait and
+ * square with no `SANCTIONED_CLIPS` entry.
+ *
+ * See #1209, #1210, #1920 and 2026-06-19-chart-adaptive-sizing.md. */
+section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-row,
+:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.progress .progress-row {
   grid-template-columns: 1fr auto;
   grid-template-areas:
     "label label"
@@ -217,8 +220,8 @@ section.progress:where([data-family="tall"], [data-family="strip"]) .progress-ro
   row-gap: var(--sp-2xs);
   column-gap: var(--sp-sm);
 }
-section.progress:where([data-family="tall"], [data-family="strip"]) .progress-label,
-:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-label {
+section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-label,
+:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.progress .progress-label {
   grid-area: label;
   /* Left-aligned now that it heads the row instead of butting against the
    * bar's origin — right-alignment only reads as a gutter beside the track. */
@@ -231,23 +234,29 @@ section.progress:where([data-family="tall"], [data-family="strip"]) .progress-la
    * (engineering/typography.md). */
   font-size: var(--fs-body);
 }
-section.progress:where([data-family="tall"], [data-family="strip"]) .progress-track,
-:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-track { grid-area: track; }
-section.progress:where([data-family="tall"], [data-family="strip"]) .progress-row > .chart-status,
-:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-row > .chart-status,
-section.progress:where([data-family="tall"], [data-family="strip"]) .progress-row > .chart-status-empty,
-:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-row > .chart-status-empty {
+section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-track,
+:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.progress .progress-track {
+  grid-area: track;
+  /* Thicker track, from the FILL arm. It lives HERE and not in a second rule
+   * sharing this exact selector: `check-family-tiers.js` keys its A/B maps by
+   * selector TEXT, so two rules with the same selector overwrite each other and
+   * the gate judges both on the last one's properties — it goes blind to the
+   * first. Extending STACK to square made FILL's family list identical to this
+   * one, which is what created that collision. */
+  height: 4cqi;
+}
+section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-row > .chart-status,
+:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.progress .progress-row > .chart-status,
+section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-row > .chart-status-empty,
+:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.progress .progress-row > .chart-status-empty {
   grid-area: pill;
 }
 /* The note follows the bar it annotates; `grid-column: 2/3` above targets the
  * three-column template and would land it under the pill here. */
-section.progress:where([data-family="tall"], [data-family="strip"]) .progress-note,
-:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-note {
+section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-note,
+:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.progress .progress-note {
   grid-area: track;
   grid-row: 3;
 }
-/* Rows are now two lines tall, so the between-row rhythm tightens to keep the
- * five of them inside the stage. */
-section.progress:where([data-family="tall"], [data-family="strip"]) .progress-bars,
-:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-bars { row-gap: var(--sp-sm); }
+
 
