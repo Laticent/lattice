@@ -329,10 +329,16 @@ change to the gate is a separate decision and is not made here.
   packing — caught by a census of the split kernels rather than by any gate. There is no gate
   that would catch the next one: `perPage` is a manifest field, and a strategy that groups in
   code is invisible to it.
-- **A one-element page can be sparse — RESOLVED, see § The lone member below.** A single bullet
-  set at body size in a page-tall box read as an accident rather than a decision. It now drops
-  the list marker, reclaims the indent and steps to `--fs-emphasis`. Kept in this list because
-  the reasoning is worth the pointer, not because anything is outstanding.
+- **A one-element page can be sparse — the BROKEN cases are fixed; a THIN one remains, and the
+  difference is worth stating.** A single bullet set at body size in a page-tall box read as an
+  accident; it now drops the marker, reclaims the indent and steps to `--fs-emphasis` (§ The lone
+  member). `agenda` and `inventory` centered on the wrong axis, and `glossary`'s lone row sat
+  against the masthead with two-thirds of the page blank — all three fixed and each measured.
+  What a deck sweep of ~140 changed slides did NOT find is a fourth broken case: `list-steps`,
+  `statute-stack`, `cards-stack` and `stats` all center their lone member acceptably. `stats` is
+  the thin one — a single KPI name and two pills, correctly centered but small for a page-tall
+  box. That is a question about the component's own type scale rather than a split defect, and
+  raising it would be a `stats` decision, so it is named here and left alone.
 - **`progress` shears its own status badges at `portrait`** — a "Content clipped" tag on an
   UNSPLIT page. Pre-existing and off the path of this change — though not for the reason first
   given here, which was that every CSS rule added is scoped to a split class. That is not true:
