@@ -43,7 +43,9 @@ section.list > .cell-stage > ul > li > ul > li {
   line-height:var(--lh-snug); background:none; border:none; padding:0;
 }
 /* Default ordered: leading accent counter, content centered. */
-section.list > .cell-stage > ol { counter-reset:list-counter; }
+/* `var(--lat-split-offset, 0)` continues the run's numbering across split pages —
+   without it every atomized page restarts at 01 (test/unit/css/split-ordinal-continuity.test.js). */
+section.list > .cell-stage > ol { counter-reset:list-counter var(--lat-split-offset, 0); }
 section.list > .cell-stage > ol > li {
   counter-increment:list-counter;
   background:var(--bg-alt); border:1px solid var(--border);
@@ -73,7 +75,7 @@ section.list.takeaway > .cell-stage > :is(ul,ol) > li::marker { content:''; }
 section.list.takeaway > .cell-stage > :is(ul,ol) > li:last-child { border-bottom:none; }
 /* numbered — accent counter as a fixed leading column, centered with the text. */
 section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li { counter-increment:list-take-counter; gap:var(--sp-md); }
-section.list.takeaway.numbered > .cell-stage > :is(ul,ol) { counter-reset:list-take-counter; }
+section.list.takeaway.numbered > .cell-stage > :is(ul,ol) { counter-reset:list-take-counter var(--lat-split-offset, 0); }
 section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li::before {
   content:counter(list-take-counter, decimal-leading-zero);
   font-family:var(--font-label); font-size:var(--fs-emphasis); font-weight:700;
@@ -84,7 +86,7 @@ section.list.takeaway.numbered > .cell-stage > :is(ul,ol) > li::before {
 /* ── principles register — former `principles` component (inventory.list.principles) ──
  * Display-weight declarations with a large accent counter. ol only;
  * lettered/roman/bullet switch the counter format. Merged 2026-06-07. */
-section.list.principles > .cell-stage > ol { counter-reset:list-principle-counter; gap:0; }
+section.list.principles > .cell-stage > ol { counter-reset:list-principle-counter var(--lat-split-offset, 0); gap:0; }
 section.list.principles > .cell-stage > ol > li {
   counter-increment:list-principle-counter;
   /* flex mirror of `grid-template-columns:auto 1fr` — natural-width counter, declaration

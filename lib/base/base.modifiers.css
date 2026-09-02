@@ -2607,6 +2607,55 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
   align-content: center;
 }
 
+/* ── A LONE BARE MEMBER is the page's statement, not a list item ────────────────────────
+   One structural element per page means the commonest split page holds a single BULLET —
+   and a bullet alone on a page is three defects at once, all visible on the first real
+   portrait render of a split `content` slide:
+
+     · the MARKER survives. A bullet exists to separate a member from its siblings, and on
+       this page it has none. It reads as a fragment torn out of a list rather than as the
+       thing the page is about.
+     · the TYPE is body size. That sentence is the page's entire content, but it is set as
+       one item among many that are not there.
+     · so it floats — a small grey run adrift in a page-tall box.
+
+   The fix is to stop treating it as a list item: drop the marker, reclaim its indent, and
+   set it one step up at `--fs-emphasis` — the same rung the insight page already uses for
+   the same reason (a page holding ONE thing sets that thing up). Palette-blind, and the
+   size comes from the 12-token scale rather than a literal (HARD RULE #4).
+
+   SCOPED TO A *BARE* MEMBER, which is the whole subtlety. A HEAVY member — a card carrying
+   a title and a body clause (HARD RULE #5's nested `- Title` / `  - body`) — already fills
+   its page and carries its own internal type; stepping that up would blow out a `cards-grid`
+   card. The `:not(:has(…))` excludes exactly that: any member with nested BLOCK content is a
+   card, not a bullet. Inline emphasis does not count, which is why `strong` is absent from
+   the list — a bare bullet routinely contains one ("The trigger is **structure**"), and
+   testing for it would have misread every emphasised bullet as a card.
+
+   (`:has()` and `:not(:has())` are both used deliberately. HARD RULE #12 banned them in theme
+   CSS on a webview claim that was retested and did not hold; the rule was retired in place on
+   2026-07-10 and this is the shape it was blocking.)
+
+   THE TWO SELECTORS TEST THE SAME THING IN TWO SHAPES, and the difference is not cosmetic.
+   `:has()` MAY NOT NEST INSIDE `:has()` — the relational pseudo-class is forbidden inside its
+   own argument, so a browser rejects the whole selector and drops the rule with no error
+   anywhere. The first draft wrote the `ul` test as `:has(> li:only-child:not(:has(…)))`, which
+   is exactly that nesting; it parsed as invalid, the rule never applied, and the render showed a
+   bullet marker still sitting beside type that HAD stepped up — because the `li` selector below
+   puts its `:has()` inside a `:not()` at the TOP level, which is legal. Measured on the real
+   page: `list-style-type: disc`, `padding-inline-start: 52.65px`, with `font-size` already at
+   68.04px against a 46.98px body. So the `ul` test hoists the exclusion out to its own
+   top-level `:not(:has(> li > …))`, which reads the same members and parses. */
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol):has(> li:only-child):not(:has(> li > :is(ul, ol, dl, table, blockquote, figure, img, pre, h3, h4, h5, h6))) {
+  list-style: none;
+  padding-inline-start: 0;
+}
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:only-child:not(:has(ul, ol, dl, table, blockquote, figure, img, pre, h3, h4, h5, h6)) {
+  font-size: var(--fs-emphasis);
+  line-height: var(--lh-snug);
+  text-wrap: pretty;
+}
+
 /* ── Split COVER chrome — readable on the accent field ─────────────────────────────
    Every cover page is a full-bleed ACCENT field with `color: var(--on-accent)`, but the slide
    chrome kept the colors tuned for the ordinary surface, where the field is behind it:

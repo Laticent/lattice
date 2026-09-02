@@ -180,6 +180,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `test:core` | Unit scope: lib/core/* (token resolver, splits, marp bundle, …). |
 | `test:coverage` | c8 coverage over the unit suite (→ .scratch/coverage/). |
 | `test:coverage:all` | c8 coverage over unit + integration. |
+| `test:css` | Unit scope: the BUILT CSS bundle — selector validity in real Chromium, split ordinal continuity. |
 | `test:diagnostics` | Unit scope: lib/diagnostics/* — the pure core shared by the headless preview-fidelity sweep (`npm run equiv`) and the Studio overlay. |
 | `test:engine` | Unit scope: lattice-engine internals. |
 | `test:exemplars` | Unit scope: the exemplar decks and the exemplar-core bundle. |

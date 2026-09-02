@@ -28,7 +28,9 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul 
    * seat four rows + the band inside the bounded stage under Form, where the masthead
    * claims the height that let the legacy slide-height layout breathe. */
   list-style: none; padding: 0 0 var(--sp-xs);
-  display: flex; flex-direction: column; counter-reset: r;
+/* `var(--lat-split-offset, 0)` continues the run's numbering across split pages —
+   without it every atomized page restarts at 01 (test/unit/css/split-ordinal-continuity.test.js). */
+  display: flex; flex-direction: column; counter-reset: r var(--lat-split-offset, 0);
   /* The ordinal's own box, and the gutter the row leaves for it, from ONE source — they
    * cannot drift apart. The ordinal is absolutely positioned (it must not join the row's
    * flow, which stacks a block <strong> title over its body prose), so nothing pushes the
@@ -102,7 +104,7 @@ section.inventory.timeline > .cell-stage > blockquote {
 section.inventory.timeline > .cell-stage > ul {
   list-style: none; padding: var(--sp-md) 0 0;
   display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
-  gap: var(--sp-lg); counter-reset: t;
+  gap: var(--sp-lg); counter-reset: t var(--lat-split-offset, 0);
 }
 section.inventory.timeline > .cell-stage > ul > li {
   counter-increment: t; position: relative; list-style: none;
@@ -237,4 +239,21 @@ section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) >
 section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage > blockquote,
 section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   grid-column: 1; grid-row: auto;
+}
+
+/* ── A LONE ROW ON A SPLIT PAGE keeps its ordinal beside its prose ─────────────────
+   The ordinal is ABSOLUTELY positioned at `top: var(--sp-2xs)` — it has to stay out of the
+   row's flow, which stacks a block <strong> title over its body prose (see the gutter note
+   above). That top offset aligns it with the FIRST LINE of a content-height row, which is
+   where the row's text is.
+   One structural element per page breaks that assumption: the row becomes page-tall, the
+   shared lone-member rule centers its prose (`align-content` is live here — the row is a
+   block container, not a flex box), and the out-of-flow ordinal stayed pinned to the top.
+   Measured on a real portrait render: a 926px row with `01` at the top edge and its text
+   ~370px below it, reading as two unrelated marks.
+   So the ordinal takes the same optical center the prose took. Only ever matches a member
+   alone on its page; a row with siblings keeps the first-line alignment. */
+section.inventory.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ul > li:only-child::before {
+  top: 50%;
+  transform: translateY(-50%);
 }

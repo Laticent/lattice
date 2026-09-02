@@ -13,7 +13,9 @@
 section.list-criteria > .cell-stage { display:flex; flex-direction:column; min-height:0; }
 
 section.list-criteria > .cell-stage > :is(ol, ul) {
-  list-style:none; counter-reset:crit-counter;
+/* `var(--lat-split-offset, 0)` continues the run's numbering across split pages —
+   without it every atomized page restarts at 01 (test/unit/css/split-ordinal-continuity.test.js). */
+  list-style:none; counter-reset:crit-counter var(--lat-split-offset, 0);
   display:flex; flex-direction:column; gap:var(--sp-sm);
   flex:1; justify-content:space-between; margin:0; padding:0;
 }

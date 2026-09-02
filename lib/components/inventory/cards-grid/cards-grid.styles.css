@@ -73,7 +73,9 @@ section.cards-grid .card > code { flex:0 0 auto;
 section.cards-grid .card > ul, section.cards-grid .card > ol { list-style:none; padding:var(--sp-xs) 0 0 0; flex:0 0 100%; }
 section.cards-grid .card > ul > li, section.cards-grid .card > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
 /* — numbered cards (ol): flush corner tag via absolute ::before — */
-section.cards-grid > .cell-stage > ol { counter-reset:card; }
+/* `var(--lat-split-offset, 0)` continues the run's numbering across split pages —
+   without it every atomized page restarts at 01 (test/unit/css/split-ordinal-continuity.test.js). */
+section.cards-grid > .cell-stage > ol { counter-reset:card var(--lat-split-offset, 0); }
 section.cards-grid > .cell-stage > ol > li {
   counter-increment:card;
   position:relative; padding-top:calc(var(--sp-sm) + 2.34375cqi);
@@ -85,7 +87,7 @@ section.cards-grid > .cell-stage > ol > li::before {
   font-family:var(--font-label); font-size:var(--fs-meta); font-weight:700; line-height:1;
   color:var(--on-accent, var(--on-dark-primary)); background:var(--accent);
 }
-section.cards-grid .cards-grid-inner--ordered { counter-reset:card; }
+section.cards-grid .cards-grid-inner--ordered { counter-reset:card var(--lat-split-offset, 0); }
 section.cards-grid .cards-grid-inner--ordered > .card {
   counter-increment:card;
   position:relative; padding-top:calc(var(--sp-sm) + 2.34375cqi);
@@ -132,7 +134,7 @@ section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ul > li > ol > l
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li > ul > li,
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
 /* — numbered cards (ol source, VS Code fallback) — */
-section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol { counter-reset:card; }
+section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol { counter-reset:card var(--lat-split-offset, 0); }
 section.cards-grid:not(:has(.cards-grid-inner)) > .cell-stage > ol > li {
   counter-increment:card;
   position:relative; padding-top:calc(var(--sp-sm) + 2.34375cqi);
