@@ -3,9 +3,9 @@ title: Make it yours
 description: Three short tracks that teach you to build a Lattice theme, component, and finish from scratch — with a live editor on nearly every page.
 ---
 
-Lattice dresses a slide in three separable layers, and you can author all
-three yourself. Each is a small, self-contained file. None of them requires
-you to touch the engine.
+You can change how every Lattice slide looks by writing three small files:
+one picks the colors, one arranges the words, one paints the background.
+Each is short enough to read in a sitting.
 
 | Layer | What it decides | The file you write |
 |---|---|---|
@@ -17,6 +17,28 @@ They stay separate on purpose. A theme designer picks colors without
 touching layout. A layout designer arranges boxes without picking colors.
 Change one and the other two keep working, which is why a deck can swap
 palettes without a single slide breaking.
+
+## Before you start
+
+**Themes and components are files you add.** Drop a `.css` file in `themes/`,
+or a folder in `lib/components/`, and the engine picks it up — you are adding
+to it, not changing it.
+
+**A finish is different, and the finishes track says so where it matters.** A
+finish needs its name registered in `lib/core/resolve-finish.js`, which is
+engine code, plus an entry in the docs site's own catalog. It is two small
+edits, but they are edits to files you did not create.
+
+**All three tracks assume a checkout and a terminal.** Every "build your first
+X" page opens with a command — `npm run new:theme`, `npm run new:component` —
+that runs inside a clone of the repo. If you do not have one,
+[Getting started](/getting-started/) sets it up in a few minutes.
+
+**You can read every page and use every lab without any of that.** The labs
+run in your browser, and nothing on these pages needs installing to follow
+along. What needs a checkout is *shipping* what you built. If you want to
+design without ever opening a terminal, the [Studio](/studio/) builds all
+three visually and hands you the finished file.
 
 ## Start here
 

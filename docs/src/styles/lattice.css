@@ -225,3 +225,28 @@ starlight-menu-button[aria-expanded='true'] button {
 		display: none;
 	}
 }
+
+/* GitHub-flavored task lists (`- [ ] …`) — used by the Craft checklists and the
+ * LFM spec pages. Starlight styles the <li> as an ordinary list item, so every
+ * row rendered with BOTH a disc marker and a checkbox: `• ☐ The file declares
+ * no @size`. GFM's own styling drops the marker, because the checkbox IS the
+ * marker; without that the artifact a reader is meant to work down reads as a
+ * double-bulleted list. Scoped to the task-list class markdown-it stamps, so an
+ * ordinary bulleted list beside it is untouched.
+ *
+ * The boxes stay `disabled` — that is markdown-it's output and the honest state:
+ * nothing persists a tick, so an interactive box would promise progress it
+ * cannot keep. They are decorative here, which is why the row's text carries the
+ * meaning and the box is not a control. */
+.sl-markdown-content .contains-task-list {
+	padding-left: 0;
+}
+.sl-markdown-content .task-list-item {
+	list-style: none;
+}
+.sl-markdown-content .task-list-item > input[type='checkbox'] {
+	margin-inline-end: 0.4em;
+	/* The box is not a control, so it must not read as a disabled one. */
+	opacity: 1;
+	accent-color: var(--sl-color-text-accent);
+}
