@@ -682,7 +682,6 @@ test.describe('structural fuzz — a prune never moves a slide\u2019s block stru
 			// records in `hidden` and a type/tag/nesting comparison cannot see.
 			'[ref]: /url\n', 'See [ref] here.\n', '- outer\n', '  - nested\n', '\n  ',
 		];
-		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
 		let seed = 20260902;
 		const rand = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
 		let checked = 0;
