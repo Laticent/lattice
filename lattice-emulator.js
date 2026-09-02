@@ -188,8 +188,11 @@ OPTIONS
                           overflow marks the slide <!-- stress-slide --> instead
       --strip-notes       Scrub speaker notes from every output copy (the player
                           DOM, the PDF annotations, AND the embedded source) — a
-                          shareable file with no speaker text. Captions are
-                          unaffected: they narrate slide content, not notes
+                          shareable file with no speaker text. Removes the NOTE
+                          channel only: a <!-- describe: --> accessibility
+                          description survives (it is the slide's text
+                          alternative, not speaker text), and so do captions,
+                          which narrate slide content and have --strip-captions
       --strip-captions    Scrub the author's caption OVERRIDES (inline <!-- caption: -->
                           and front-matter captions:) from the .vtt and embedded
                           source; those slides fall back to the generated projection.
@@ -451,10 +454,13 @@ const STRIP_CAPTIONS = !!flags['strip-captions'];
 // PDF-attached source): scrub note comments under `--strip-notes` and/or caption comments
 // under `--strip-captions`. Order-independent — the two comment classes are disjoint (a
 // `note:` body is never a `caption:` body). `noteBodies` is the set lifted from the render.
+// Which cut `strippedSlidesOrAuthored` measured as reproducing the deck. Read here so the
+// SOURCE this ships is the one that was rendered — see the note at that function.
+let noteScrubBoundary = 'preserve';
 function stripSharedSource(src, noteBodies) {
   let out = src;
   if (STRIP_NOTES) {
-    out = notesCore.stripNotesFromSource(out, noteBodies);
+    out = notesCore.stripNotesFromSource(out, noteBodies, { boundary: noteScrubBoundary });
     // FAIL-CLOSED. The scrub matches note bodies lifted from the RENDER against comments in
     // the SOURCE, and every leak this has had was a new way for those two sides to disagree.
     // So check the OUTPUT rather than trusting the matcher: a comment still standing that is
@@ -2057,7 +2063,11 @@ function splitTopLevelSections(latticeHtml) {
   return out;
 }
 
-function engineSlides() {
+// `deckSource` defaults to the deck's own source. `--strip-notes` re-enters with the
+// SCRUBBED source (see the call below), which is what makes the exported bytes the bytes of
+// a deck that never carried a note. Named for the parameter it is, not `md` — the module
+// already has an `md` (the print-mode source) and shadowing it here reads as a bug.
+function engineSlides(deckSource = rawMd) {
   const latticeEngine = require('./lib/engine');
   // `htmlAndMathml` — KaTeX's default, and the ONLY setting under which math is
   // readable by a screen reader.
@@ -2107,7 +2117,7 @@ function engineSlides() {
   // the output directory (the path-bug fix —
   // engineering/decisions/2026-06-17-image-rearchitecture.md).
   const deckBaseUrl = pathToFileURL(path.dirname(path.resolve(mdFile)) + path.sep).href;
-  const rendered = engine.render(bgImage.liftBgImages(rawMd, deckBaseUrl), paletteName);
+  const rendered = engine.render(bgImage.liftBgImages(deckSource, deckBaseUrl), paletteName);
   // logo-wall marks ride as CSS `mask` in the preview; for the PDF we swap each
   // mask span for the mark's real `<svg>` vector (CSS mask isn't reliable in
   // print-to-PDF). Read against the deck dir, the same base `![bg]` uses.
@@ -2145,7 +2155,9 @@ function engineSlides() {
   });
 }
 
-const slides = engineSlides();
+// PASS 1 — the deck as the author wrote it. Under `--strip-notes` this render exists only
+// to lift the note bodies; the file ships pass 2.
+const slidesAsAuthored = engineSlides();
 
 // ── Speaker notes ──────────────────────────────────────────────────────────
 // A non-directive HTML comment on a slide is that slide's speaker note
@@ -2158,15 +2170,91 @@ const slides = engineSlides();
 const notesCore = require('./lib/authoring/notes-core');
 const escapeHtml = (s) => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const slideNotes = notesCore.extractSlideNotes(slides);
-// `--strip-notes` blanks every MATERIALIZED note copy (DOM aside, PDF annotation,
-// sidecar) while `slideNotes` stays intact for the envelope source-scrub set below.
-const materializedNotes = STRIP_NOTES ? slideNotes.map(() => null) : slideNotes;
 // The set of INDIVIDUAL note bodies straight from the render — the directive-safe
 // key for scrubbing the SOURCE copies (the player envelope AND the PDF `--embed-source`
 // attachment). NOT the `\n\n`-joined note split apart, which shatters a single
 // blank-line note and leaks it.
-const noteStripSet = STRIP_NOTES ? new Set(slides.flatMap((sec) => notesCore.noteBodiesFromHtml(sec))) : null;
+const noteStripSet = STRIP_NOTES ? new Set(slidesAsAuthored.flatMap((sec) => notesCore.noteBodiesFromHtml(sec))) : null;
+// PASS 2 — `--strip-notes` SHIPS THE RENDER OF THE SCRUBBED SOURCE, not a scrubbed render
+// of the authored source. Blanking the note copies after the fact left the comment's own
+// whitespace behind, and one byte per noted slide named WHICH slides had notes — computable
+// from the shipped file alone, since the player envelope carries the same scrubbed source to
+// re-render (#1985). Removing the comment BEFORE markdown-it is how `directives.js` has
+// always kept a consumed directive from leaving a trace, and it makes the exported bytes
+// byte-identical to the same deck written without notes.
+//
+// Costs one extra engine render, on this flag's path and only when the deck HAS a note.
+// Measured on the real CLI with the engine instrumented, across two runs: 54-85 ms for the
+// second pass on a 6-slide deck, 157-286 ms on the 117-slide gallery — against an export
+// that spawns Chromium for several seconds. (An earlier note here said "~5 ms / ~94 ms";
+// that was `engine.render` alone in a warm loop, not what the CLI actually pays.) The alternative — consuming the residue in
+// `stripCommentNodes` — sits on the render path for EVERY deck and cannot tell a block
+// comment from an inline one in already-rendered HTML, so it would join two words in
+// `a<!-- n -->\nb`. See engineering/gotchas/export.md.
+//
+// FAIL-CLOSED ON FIDELITY, because pass 2 renders a DIFFERENT markdown document and a
+// privacy flag must not restructure a deck. `stripNotesFromSource` preserves the block
+// boundary a comment line was providing, so on every deck this repo ships the two passes
+// agree exactly — but that is a property of markdown-it, not something this file can prove.
+// So compare them, and on any disagreement keep the deck the author wrote and say what was
+// given up. Same shape as the bake gate in the Studio and the chart-narration guard below:
+// stand down, loudly, rather than ship a silently different artifact.
+function strippedSlidesOrAuthored() {
+  if (!noteStripSet || noteStripSet.size === 0) return slidesAsAuthored; // nothing to scrub
+  // WHITESPACE-BLIND, necessarily: the whole point of pass 2 is that it does NOT carry the
+  // comment's leftover whitespace, so a byte comparison reports every noted slide as a
+  // divergence. COLLAPSING to one space is not enough either — the residue is one space on one
+  // side and NOTHING on the other (`</header> <p>` vs `</header><p>`), which collapsing cannot
+  // equalize; it flagged 10 of the 23 shipped noted decks. What must match is the MARKUP: the
+  // paragraph that split in two, the slide that appeared. Both are TAG differences, and tags
+  // survive dropping whitespace entirely.
+  const shape = (sec) => notesCore.stripCommentNodes(sec).replace(/\s+/g, '');
+  const matches = (rendered) => rendered.length === slidesAsAuthored.length
+    && rendered.every((sec, i) => shape(sec) === shape(slidesAsAuthored[i]));
+  // TRY BOTH CUTS AND MEASURE, rather than pick one and hope. The `text / text` case is
+  // genuinely ambiguous and review found both answers being right on different decks: a note
+  // above a `---` needs an empty line left in its place (delete the line and the `---` becomes
+  // a setext underline, so the export gains a slide), while a note indented inside a LIST item
+  // needs the line simply gone (an empty line turns a tight list loose, which is a visible
+  // change to a deck that did nothing unusual). Same neighbours, opposite right answers — so
+  // this renders each and keeps the one that reproduces the deck the author wrote. The CANDIDATE
+  // LIST is the kernel's (#1): the Studio's `stripNotesCut` reads the same one, so neither path
+  // can quietly gain a cut or reorder them without the other.
+  for (const boundary of notesCore.NOTE_SCRUB_BOUNDARIES) {
+    const source = notesCore.stripNotesFromSource(rawMd, noteStripSet, { boundary });
+    const rendered = engineSlides(source);
+    if (matches(rendered)) {
+      // The source that SHIPS is the source that was rendered. It used to be recomputed
+      // independently for the envelope, so a fallback shipped authored slides beside a
+      // restructured source and the "verbatim source for lossless re-import" re-imported as a
+      // different deck.
+      noteScrubBoundary = boundary;
+      return rendered;
+    }
+  }
+  // Neither cut reproduces the deck. Fidelity wins for the SLIDES — a privacy flag must not
+  // restructure a deck, which is the whole point — and the note TEXT still goes from every
+  // copy. What cannot also be had is a source that matches: any removal at all restructures
+  // this deck, so the embedded source re-imports slightly differently. Say so, rather than let
+  // the envelope's "verbatim" claim stand unqualified.
+  console.warn(
+    '  WARNING: --strip-notes could not remove a note comment without changing this deck, '
+    + 'either by leaving a blank line in its place or by taking the line. A note comment is '
+    + 'acting as a block boundary. The usual cause is a note at column 0 BETWEEN two list '
+    + 'items, where the comment is what splits them into two lists and no removal can keep '
+    + 'that — move the note inside an item, or out of the list. (Adding blank lines around it '
+    + 'does NOT help here, whatever a note above a `---` may need.) '
+    + 'Exporting the deck AS WRITTEN: the note text is still removed '
+    + 'from every copy, but this export no longer hides which slides carried one, and the '
+    + 'embedded source will re-import with that block boundary changed.'
+  );
+  return slidesAsAuthored;
+}
+const slides = STRIP_NOTES ? strippedSlidesOrAuthored() : slidesAsAuthored;
+const slideNotes = notesCore.extractSlideNotes(slides);
+// Belt and braces: pass 2 already renders a note-free deck, so this is a second, independent
+// guarantee that no materialized copy carries note text even if a note ever survived the scrub.
+const materializedNotes = STRIP_NOTES ? slideNotes.map(() => null) : slideNotes;
 const slideDescriptions = notesCore.extractSlideDescriptions(slides);
 // Per-slide inline `<!-- caption: … -->` read-as text (Layer 1, §16) — the highest-precedence
 // narration source. Extracted from the rendered slides (index-aligned) exactly as notes are. A

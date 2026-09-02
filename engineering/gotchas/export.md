@@ -336,13 +336,55 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   stripped one said `false`: a one-bit answer to "were there notes here?". It now reads the
   materialized array, so both cases say `false`. Two writers, both changed —
   `lattice-emulator.js` and `docs/src/components/studio/share-export.ts`.
-- **What is NOT fixed — do not claim the file is indistinguishable.** Stripping removes the
-  comment NODE and leaves the whitespace around it, so re-rendering the deck's own embedded
-  source and diffing shows a one-byte-per-slide residue naming WHICH slides carried a note
-  (never what it said) — computable from the shipped file alone. Closing it means changing
-  whitespace handling in `stripCommentNodes`, which is on the render path for every deck, so
-  it wants its own change and its own verification. `--strip-notes` removes the content; it
-  does not conceal that it ran.
+- **A third tell in the same class, now closed (#1985).** Stripping used to remove the comment
+  NODE from already-rendered HTML and leave the whitespace around it, so re-rendering the deck's
+  own embedded source and diffing showed a one-byte-per-slide residue naming WHICH slides
+  carried a note — computable from the shipped file alone. The fix is NOT whitespace surgery in
+  `stripCommentNodes`: that sits on the render path for every deck, and already-rendered HTML
+  cannot tell a block comment from an inline one, so consuming the trailing newline would join
+  two words in `a<!-- n -->\nb`. Instead `--strip-notes` scrubs the SOURCE and renders that —
+  removing the comment before markdown-it ever sees it, which is how `directives.js` has always
+  kept a consumed directive from leaving a trace. Costs one extra engine render on this flag's
+  path only. Both writers changed, so the two paths stay in step — `lattice-emulator.js`
+  ("PASS 2") and the Studio's Webpage export, whose half of the measurement lives in
+  `docs/src/components/studio/strip-notes-guard.ts` (loaded on demand from `share-export.ts`;
+  it is off the studio route's eager bundle deliberately). Pinned by
+  `test/integration/export/strip-notes-no-fingerprint.test.js`, which exports the fixture and a
+  committed note-free twin and compares the rendered section bytes.
+- **A whole-line cut is not enough on its own, and the review of the fix found both halves.**
+  (1) Taking only the note's line leaves the author's blank lines on BOTH sides, so a note
+  between two blanks leaves a `\n\n\n` run in the embedded source. That was measured on 16 of
+  the 23 decks this repo ships with notes, and it is a CHEAPER tell than the one #1985 closed —
+  `grep -c` on the shipped file, no re-render needed. So a note between two blank lines takes one
+  of them with it. (2) A comment line is an HTML BLOCK, so deleting it moves the deck: measured
+  on the real CLI, `Some text` / `<!-- note -->` / `---` exported 3 slides where the author wrote
+  2 (`Some text\n---` is a setext H2), and the `.vtt` bound the author's front-matter caption for
+  slide 2 onto the phantom; separately, two paragraphs merged into one with a `<br>`. So a note
+  between two lines of TEXT is replaced by a blank line, keeping the boundary. All three cases
+  converge on `text\n\ntext`, which is why no shape is left that says a note was here.
+- **And the export is fail-closed on fidelity.** Pass 2 renders a different markdown document,
+  and no comment in this file can prove markdown-it will agree. So both paths compare the two
+  renders ignoring whitespace — whitespace being exactly what pass 2 exists to drop. There are
+  TWO candidate cuts and the right one is deck-dependent: a note above a `---` needs a blank line
+  left in its place, a note indented inside a list item needs the line simply gone (a blank there
+  turns a tight list loose). So both are rendered and the matching one is kept — and the SOURCE
+  that ships is the one that was rendered, which review found was not true of the first cut: the
+  envelope was scrubbed on an unguarded path, so a fallback shipped authored slides beside a
+  restructured source and the "verbatim source for lossless re-import" re-imported as a different
+  deck. If neither cut matches (a note at column 0 between two list items, where the comment is
+  what splits them), the SLIDES ship as written and the warning says the embedded source will
+  differ — because on such a deck no removal preserves the boundary. All 23 shipped noted decks
+  take the first cut.
+- **The two paths share the CANDIDATE LIST, not just the idea of one.** They are separate
+  implementations in separate runtimes — a CJS CLI and a browser TS module — and the first port
+  of the measurement to the Studio was a hand-written copy with nothing holding the two together,
+  which is the mechanism that produced the divergence in the first place. The one piece they must
+  agree on is the ordered candidates, so it is `notesCore.NOTE_SCRUB_BOUNDARIES` and both read it
+  from there. `test/unit/authoring/notes-core.test.js` fails if either caller writes the literal
+  out again; `docs/src/components/studio/strip-notes-guard.test.ts` pins the three outcomes
+  (preserve wins, drop wins, neither does) — without it, narrowing the loop back to one cut left
+  every gate in the tree green, the strip-notes e2e included, because that spec asserts only that
+  the note text is gone and that is true on all three.
 
 ## A `tier:` / `galleryAuthored:` pragma shipped as the speaker note in every format
 

@@ -54,13 +54,32 @@ Present-mode teleprompter. `--strip-notes` removes them for a clean export — f
 format, and the exported player then shows no notes affordance at all: no button, no panel,
 and the `n` key does nothing.
 
-**What `--strip-notes` guarantees is that the note TEXT is gone, not that the file is
-indistinguishable from one that never had notes.** The distinction is worth stating because
-it is easy to assume the stronger one. A determined recipient can still infer that notes were
-removed: stripping deletes the comment node and leaves the whitespace around it, so
-re-rendering the deck's own embedded source and diffing reveals a one-byte-per-slide residue
-that says *which* slides carried a note — though never what it said. Treat the flag as
-removing the content, not as concealing that you used it.
+**`--strip-notes` ships the render of the SCRUBBED source**, so the exported slides are
+byte-identical to the same deck written without notes — measured across every deck in
+`examples/` and the 117-slide baseline gallery. That matters because the shared player
+carries the deck's own scrubbed source for re-import, which used to make the counterfactual
+computable from the shipped file alone: re-render that source, diff, and a one-byte residue
+per noted slide named *which* slides had one (never what it said). It does not any more.
+
+The scrub is **structure-preserving**, which matters more than it sounds. A comment line is an
+HTML block, so it separates what is above it from what is below — delete it outright and
+`Some text` / `<!-- note -->` / `---` turns into a setext heading, and the export gains a slide
+the author never wrote. So the cut is decided per line: a note between two blank lines takes one
+of them with it (no run left behind to mark the spot), and a note between two lines of text is
+replaced by a blank line (the boundary it was providing survives). If the two renders ever
+disagree anyway, the export **keeps the deck you wrote** and says so — the note text is still
+removed everywhere, but that export no longer hides which slides carried one, and its embedded
+source re-imports with that one block boundary changed. (The slides are what is kept as written;
+the source cannot also be, because on that deck any removal at all restructures it.)
+
+**What the flag removes is the NOTE channel, and specifically not the DESCRIPTION channel.** A
+`<!-- describe: … -->` comment is the slide's WCAG 1.1.1 text alternative — what a screen
+reader says the slide SHOWS, not what you say over it — so it survives `--strip-notes` and
+still rides into the PPTX image `altText` and the HTML `aria-describedby`. That is deliberate:
+stripping it would take accessibility away from the recipient to protect the sender, and the
+two comments are opposite registers. But it IS an author-written comment channel outliving a
+privacy flag, so write a description as something the audience may read. `caption:` is the same:
+it is public-facing narration and has its own flag, `--strip-captions`.
 
 **What makes a great note:**
 

@@ -64,6 +64,23 @@ describe('notes-core: isLatticePragma', () => {
     'color-mode: system',
     'color-mode: inherited',
     'color-mode: print',
+    // #1986 — the five deck-logo registers and the finish override. Hyphenated like
+    // `color-mode:`, so the engine cannot read the comment form either, and they shipped as
+    // reader-visible "notes" on slides whose author wrote none.
+    'logo-style: auto',
+    'logo-style: brand',
+    'logo-style: BRAND', // the producer lowercases the VALUE
+    'logo-style: "brand"', // frontMatterScalar strips a wrapping quote pair
+    'logo-on: all',
+    'logo-on: title',
+    'logo-x: 12',
+    'logo-y: 88.5',
+    'logo-x: -3',
+    'logo-x: .5',
+    'logo-x: 1.', // Number('1.') is 1, so the producer reads it
+    'logo-scale: 1.5',
+    "logo-scale: '2'",
+    'finish-override:', // a BLOCK key: the header carries no value
   ]) {
     test(`pragma excluded: "${pragma}"`, () => {
       assert.equal(core.isLatticePragma(pragma), true);
@@ -90,6 +107,22 @@ describe('notes-core: isLatticePragma', () => {
     // `tier-filter.js` tolerates no space before the colon, so this does NOT filter the deck.
     // A marker the producer misses must stay VISIBLE as a note, not be silently suppressed.
     'tier : full',
+    // #1986, the over-strip direction. Every line here shares a KEY with a matcher above and
+    // must stay a note purely on its value or its key CASE.
+    'logo-style: neon', // not in the register's two words
+    'logo-on: the second half',
+    'logo-on: slides 3 and 7',
+    'logo-x: we should move it left',
+    'logo-x: 1.2.3', // matches [\d.]+ but Number() gives NaN, so the producer ignores it
+    'logo-x: 1e3', // ditto — exponent notation is outside the producer's character class
+    'logo-scale: bigger',
+    'finish-override: ask design first', // the block key takes no value
+    // The KEY is case-sensitive in the producer (`frontMatterValue` builds its regex without
+    // `i`), so an upper-case marker configures NOTHING. Suppressing it would hide the
+    // producer's own miss — the failure the module docblock names in the other direction.
+    'LOGO-STYLE: brand',
+    'Logo-On: title',
+    'LOGO-X: 12',
   ]) {
     test(`note kept: "${note}"`, () => {
       assert.equal(core.isLatticePragma(note), false);
@@ -126,6 +159,82 @@ describe('notes-core: isLatticePragma', () => {
     }
   });
 
+  // ── #1986 parity: the six hyphenated keys, against their real producers ───────────────
+  //
+  // These call the PRODUCER rather than reading its doc comment, for the reason the
+  // color-mode test above gives: a test that greps a comment for names it already knows
+  // cannot see drift in the direction that matters.
+
+  test('logo-x / logo-y / logo-scale accept exactly what readDeckLogoFrontMatter accepts', () => {
+    const { readDeckLogoFrontMatter } = require('../../../lib/integrations/markdown-it/plugins.js');
+    // BOTH DIRECTIONS over one corpus. Looser than the producer suppresses a marker that
+    // configured nothing; stricter leaks it into the notes channel. Neither is visible from
+    // one direction alone, which is why this compares booleans rather than asserting a list.
+    const VALUES = [
+      '0', '1', '12', '1.5', '88.5', '-3', '-0.5', '.5', '-.5', '1.',
+      '1.2.3', '.', '-', '..', 'abc', '1e3', '12px', '50%', '', ' ',
+      '"1.5"', "'2'", 'we should move it left', 'TBD',
+    ];
+    for (const axis of ['logo-x', 'logo-y', 'logo-scale']) {
+      const field = axis === 'logo-scale' ? 'scale' : axis.slice(-1);
+      for (const v of VALUES) {
+        const line = `${axis}: ${v}`;
+        const cfg = readDeckLogoFrontMatter(`---\nlogo: ./m.svg\n${line}\n---\n\n# D\n`);
+        const producerReads = cfg != null && cfg[field] != null;
+        assert.equal(
+          core.isLatticePragma(line), producerReads,
+          producerReads
+            ? `plugins.js reads "${line}" as ${cfg[field]}, but the pragma matcher does not — `
+              + `so <!-- ${line} --> ships as a speaker note (#1350's shape)`
+            : `plugins.js ignores "${line}", but the pragma matcher suppresses it — a marker `
+              + 'that configured nothing disappears instead of staying visible as a note',
+        );
+      }
+    }
+  });
+
+  test('logo-style / logo-on cover every value the producer acts on', () => {
+    const { readDeckLogoFrontMatter } = require('../../../lib/integrations/markdown-it/plugins.js');
+    const read = (line) => readDeckLogoFrontMatter(`---\nlogo: ./m.svg\n${line}\n---\n\n# D\n`);
+    // These two COLLAPSE rather than validate — the producer asks one question of the
+    // lowercased value and everything else means the default — so there is no register to
+    // iterate. What IS checkable, and is the leak direction: every value the producer acts
+    // on must be matched here.
+    for (const v of ['brand', 'BRAND', 'Brand', '"brand"', "'brand'"]) {
+      assert.equal(read(`logo-style: ${v}`).brand, true, `guard: the producer reads ${v} as brand`);
+      assert.equal(core.isLatticePragma(`logo-style: ${v}`), true, `logo-style: ${v}`);
+    }
+    for (const v of ['title', 'TITLE', '"title"']) {
+      assert.equal(read(`logo-on: ${v}`).on, 'title', `guard: the producer reads ${v} as title`);
+      assert.equal(core.isLatticePragma(`logo-on: ${v}`), true, `logo-on: ${v}`);
+    }
+    // The default word is in the domain too — an author writing it out is configuring, not
+    // narrating — and the producer's own docs name the two.
+    assert.equal(core.isLatticePragma('logo-style: auto'), true);
+    assert.equal(core.isLatticePragma('logo-on: all'), true);
+    // KEY case: the producer does not read it, so neither does this.
+    assert.equal(read('LOGO-STYLE: brand').brand, false, 'guard: the producer ignores an upper-case key');
+    assert.equal(core.isLatticePragma('LOGO-STYLE: brand'), false);
+  });
+
+  test('finish-override mirrors the block key parseFinishOverride looks up', () => {
+    // The producer is TypeScript in the docs site, so this is a SOURCE assertion rather than
+    // a call — and it is the drift that actually happens: a rename of the front-matter key.
+    // It reads the lookup itself, not a comment about it.
+    const fs = require('fs');
+    const path = require('path');
+    const src = fs.readFileSync(
+      path.join(__dirname, '..', '..', '..', 'docs', 'src', 'components', 'studio', 'front-matter.ts'),
+      'utf8',
+    );
+    const m = src.match(/parseFinishOverride[\s\S]*?blocks\.find\(\(\[k\]\) => k === '([^']+)'\)/);
+    assert.ok(m, 'parseFinishOverride no longer looks a block key up this way — re-derive the matcher');
+    assert.equal(
+      core.isLatticePragma(`${m[1]}:`), true,
+      `front-matter.ts reads the block key "${m[1]}", but <!-- ${m[1]}: --> still ships as a speaker note`,
+    );
+  });
+
   // The two sets are deliberately separate, for PROVENANCE — one records what an upstream
   // project excluded, the other what this repo emits. Not because a gate enforces it: there
   // is no Marpit parity test and there cannot be one (the dependency is gone), so a Lattice
@@ -145,6 +254,30 @@ describe('notes-core: isLatticePragma', () => {
 
   test('a slide carrying only pragmas has no note at all', () => {
     assert.equal(core.notesFromHtml(sec('<!-- tier: full --><!-- color-mode: dark --><h1>A</h1>')), null);
+  });
+
+  // Classification is not the same question as EXTRACTION, and #1350 was visible only in the
+  // second: the six matchers could all be right while nothing consulted them on the path that
+  // builds the notes field. Measured end to end on this deck exported to .pptx — slides
+  // carrying only these six get `ppt/notesSlides/*.xml` with no text, and before the matchers
+  // existed all six shipped as the slide's note.
+  test('#1986: the six hyphenated registers are not LIFTED as notes, and a real note beside them is', () => {
+    const html = sec(
+      '<!-- logo-style: brand --><!-- logo-on: title --><!-- logo-x: 12 --><!-- logo-y: 88.5 -->'
+      + '<!-- logo-scale: 1.5 --><!-- finish-override: --><h1>Q3</h1>'
+    );
+    assert.equal(core.notesFromHtml(html), null, 'a slide of nothing but logo/finish registers has no note');
+    assert.deepEqual(
+      core.noteBodiesFromHtml(sec('<!-- logo-x: 12 --><h1>Q3</h1><!-- Pause here. -->')),
+      ['Pause here.'],
+      'the author\'s own note still comes through'
+    );
+    // The over-strip direction, at the extraction level: a prose value is a NOTE, and eating
+    // it would be silent — the author has no way to tell what removed it.
+    assert.equal(
+      core.notesFromHtml(sec('<h1>Q3</h1><!-- logo-on: the second half -->')),
+      'logo-on: the second half'
+    );
   });
 });
 
@@ -664,10 +797,159 @@ describe('notes-core: caption channel (caption:)', () => {
 // fails on a deck where a directive survives into the rendered section — the directive is
 // lifted as a note and then deleted from the verbatim source the envelope carries, so the
 // recipient re-imports a deck whose slide has silently lost its class.
+describe('notes-core: stripNotesFromSource leaves no line where a note was (#1985)', () => {
+  test('stripNotesFromSource takes the whole LINE, so no blank line marks where a note was (#1985)', () => {
+    // The residue IS the disclosure. Replacing the `<!-- … -->` span alone leaves the line
+    // behind as an empty one, and an empty line where a note used to sit names WHICH slides
+    // carried a note — in the very source the player envelope ships for re-import. It also
+    // reaches the rendered bytes, because the export re-renders this scrubbed source.
+    //
+    // A blank line on EACH side means one of them goes too, so no run is left where the note
+    // was. Measured on the 23 decks this repo ships with notes: taking the line alone added a
+    // `\n\n\n` run to 16 of them, which is a cheaper tell than the one #1985 closed —
+    // `grep -c` on the shipped file, no re-render needed. This rule adds one to none.
+    assert.equal(
+      core.stripNotesFromSource('# Slide\n\n<!-- Pause here. -->\n\nBody.\n', new Set(['Pause here.'])),
+      '# Slide\n\nBody.\n',
+      'the note line and one of its blank neighbours go; one blank line remains'
+    );
+    // Indented, as a nested-list author would write it.
+    assert.equal(
+      core.stripNotesFromSource('a\n  <!-- n -->\nb\n', new Set(['n'])),
+      'a\n\nb\n',
+      'the leading indent goes with the line, and the block boundary it was providing stays'
+    );
+    // Last line, no trailing newline: there is no terminator to take, and the PRECEDING
+    // one belongs to the line above and must survive.
+    assert.equal(
+      core.stripNotesFromSource('a\n<!-- n -->', new Set(['n'])),
+      'a\n',
+      'a note on the final line leaves the previous line intact'
+    );
+    // CRLF: the `\r` is part of this line's terminator and travels with it, rather than
+    // being left dangling as a lone carriage return in a Windows-authored deck.
+    assert.equal(
+      core.stripNotesFromSource('a\r\n\r\n<!-- n -->\r\n\r\nb\r\n', new Set(['n'])),
+      'a\r\n\r\nb\r\n',
+      'a CRLF deck keeps CRLF throughout'
+    );
+    // TWO notes on ONE line, with nothing else on it: the line goes.
+    assert.equal(
+      core.stripNotesFromSource('a\n\n<!-- one --><!-- two -->\n\nb\n', new Set(['one', 'two'])),
+      'a\n\nb\n',
+      'two notes sharing a line take the line with them'
+    );
+    // The whole file.
+    assert.equal(core.stripNotesFromSource('<!-- n -->', new Set(['n'])), '');
+  });
+
+  test('stripNotesFromSource offers BOTH cuts, because the right one is deck-dependent (#1985 checker)', () => {
+    // The `text / text` case has two right answers and no local test can pick between them.
+    // Above a `---` the comment IS the block boundary, so an empty line must take its place —
+    // delete the line and `Some text\n---` becomes a setext H2. Inside a LIST item the opposite
+    // holds: an empty line turns a tight list loose, and simply taking the line reproduces the
+    // author's own tight list. Same neighbours, opposite answers, so the caller measures.
+    const setext = 'Some text\n<!-- n -->\n---\n';
+    assert.equal(core.stripNotesFromSource(setext, new Set(['n']), { boundary: 'preserve' }), 'Some text\n\n---\n');
+    assert.equal(core.stripNotesFromSource(setext, new Set(['n']), { boundary: 'drop' }), 'Some text\n---\n');
+    const list = '- one\n  <!-- n -->\n- two\n';
+    assert.equal(core.stripNotesFromSource(list, new Set(['n']), { boundary: 'drop' }), '- one\n- two\n');
+    // `preserve` is the default, so a caller that does not opt in gets the pre-existing shape.
+    assert.equal(
+      core.stripNotesFromSource(setext, new Set(['n'])),
+      core.stripNotesFromSource(setext, new Set(['n']), { boundary: 'preserve' })
+    );
+    // Neither mode touches the other branches: a blank on both sides still takes one blank with
+    // the line, and an inline note still loses only its span.
+    for (const boundary of ['preserve', 'drop']) {
+      assert.equal(core.stripNotesFromSource('a\n\n<!-- n -->\n\nb\n', new Set(['n']), { boundary }), 'a\n\nb\n');
+      assert.equal(core.stripNotesFromSource('a <!-- n --> b', new Set(['n']), { boundary }), 'a  b');
+    }
+  });
+
+  test('the word registers mirror frontMatterScalar, comment and quoted-span included (#1986 checker)', () => {
+    // `frontMatterScalar` strips a WHITESPACE-preceded `#` comment, and for a quoted value
+    // returns the quoted span and discards what trails it. An anchored `["']?word["']?$` matched
+    // neither, so both of these were read as `brand` by the producer AND shipped as the slide's
+    // speaker note — the #1350 shape in a form an author plausibly writes.
+    const { readDeckLogoFrontMatter } = require('../../../lib/integrations/markdown-it/plugins.js');
+    const read = (line) => readDeckLogoFrontMatter(`---\nlogo: ./m.svg\n${line}\n---\n\n# D\n`);
+    for (const v of ['brand # our brand mark', '"brand" only on the cover', 'BRAND # x', "'brand'"]) {
+      assert.equal(read(`logo-style: ${v}`).brand, true, `guard: the producer reads "${v}" as brand`);
+      assert.equal(core.isLatticePragma(`logo-style: ${v}`), true, `logo-style: ${v}`);
+    }
+    for (const v of ['title # cover only', '"title" for now']) {
+      assert.equal(read(`logo-on: ${v}`).on, 'title', `guard: the producer reads "${v}" as title`);
+      assert.equal(core.isLatticePragma(`logo-on: ${v}`), true, `logo-on: ${v}`);
+    }
+    // And what the producer does NOT read stays a note. `#` needs whitespace before it to open
+    // a comment, so `brand#nospace` is the whole value; unquoted trailing words likewise.
+    for (const v of ['brand extra words', 'brand#nospace', 'neon']) {
+      assert.equal(read(`logo-style: ${v}`).brand, false, `guard: the producer ignores "${v}"`);
+      assert.equal(core.isLatticePragma(`logo-style: ${v}`), false, `logo-style: ${v} must stay a note`);
+    }
+  });
+
+  test('anyCase refuses a word whose uppercase is not one-to-one (#1986 checker)', () => {
+    // `'ß'.toUpperCase()` is `'SS'`, which would emit the class `[ßSS]` — ß or S, not the pair
+    // intended. Unreachable with today's four words; this is here so the next one is not silent.
+    assert.throws(() => core.anyCase('straße'), RangeError);
+    assert.equal(core.anyCase('ab'), '[aA][bB]');
+  });
+
+  test('stripNotesFromSource keeps the BLOCK BOUNDARY a note comment was providing (#1985 checker)', () => {
+    // A comment line is an HTML block, so it separates what is above it from what is below.
+    // Deleting it outright moves the deck, and both of these were measured on the real CLI:
+    // the first exported 3 slides where the author wrote 2 (`Some text\n---` is a setext H2,
+    // not a slide break) and mis-bound the author's front-matter caption for slide 2 onto the
+    // phantom; the second collapsed two paragraphs into one with a `<br>`. A privacy flag
+    // must not restructure a deck.
+    assert.equal(
+      core.stripNotesFromSource('Some text\n<!-- Remember the numbers. -->\n---\n', new Set(['Remember the numbers.'])),
+      'Some text\n\n---\n',
+      'the `---` stays a thematic break rather than becoming a setext underline'
+    );
+    assert.equal(
+      core.stripNotesFromSource('First paragraph.\n<!-- Pause. -->\nSecond paragraph.\n', new Set(['Pause.'])),
+      'First paragraph.\n\nSecond paragraph.\n',
+      'two paragraphs stay two paragraphs'
+    );
+    // Only where it is load-bearing. With a blank line already on one side there is nothing
+    // to preserve, so the line simply goes and no run is left.
+    assert.equal(core.stripNotesFromSource('a\n<!-- n -->\n\nb\n', new Set(['n'])), 'a\n\nb\n');
+    assert.equal(core.stripNotesFromSource('a\n\n<!-- n -->\nb\n', new Set(['n'])), 'a\n\nb\n');
+  });
+
+  test('stripNotesFromSource leaves an INLINE note\'s surrounding whitespace alone (#1985)', () => {
+    // The opposite error, and the reason the line rule is conditional. A note written mid
+    // sentence has an author-typed space on each side; deleting one would JOIN two words.
+    // `a <!-- n --> b` scrubs to `a  b` — which is also exactly what the counterfactual
+    // source (the author never typing the comment) contains, so the span-only cut is
+    // already the right answer here.
+    assert.equal(core.stripNotesFromSource('a <!-- n --> b', new Set(['n'])), 'a  b');
+    assert.equal(core.stripNotesFromSource('a<!-- n -->b', new Set(['n'])), 'ab');
+    // A comment that ENDS a line of prose is not a whole-line comment either: the prose
+    // before it is not whitespace, so the line stays and only the span goes.
+    assert.equal(core.stripNotesFromSource('a <!-- n -->\nb\n', new Set(['n'])), 'a \nb\n');
+    // TWO inline notes after real text. "Own line" is judged against what has been EMITTED,
+    // not against source offsets — otherwise the second note sees nothing since the cursor,
+    // concludes whole-line, and eats the terminator, joining `hello` to the line below. With
+    // `---` on that next line it destroyed a slide on the real CLI (#1985 checker).
+    assert.equal(
+      core.stripNotesFromSource('hello <!-- a --> <!-- b -->\nworld\n', new Set(['a', 'b'])),
+      'hello  \nworld\n',
+      'the line terminator survives two inline notes'
+    );
+  });
+
+});
+
 describe('notes-core: a directive is never a note', () => {
   test('parity — the mirrored directive names match lib/engine/directives.js', () => {
-    // Same discipline as the Marpit pragma mirror above: this module stays dependency-free,
-    // and this test fails the moment the engine's registry gains or loses a name.
+    // This module stays dependency-free, and this test fails the moment the engine's registry
+    // gains or loses a name. Deliberately NOT described as "the same discipline as the Marpit
+    // pragma mirror": that set has no test and cannot have one (the dependency is gone), so the
+    // comparison advertised this test's guarantee for a set that has none (#1987).
     const engine = require('../../../lib/engine/directives.js');
     assert.deepEqual(
       [...core.KNOWN_DIRECTIVE_NAMES].sort(),
@@ -883,4 +1165,49 @@ describe('notes-core: the comment matcher reads `--!>` as a terminator', () => {
     assert.doesNotMatch(out, /Board only/, 'the note is scrubbed');
     assert.match(out, /_class: title/, 'the directive is untouched');
   });
+});
+
+// ── The candidate cut order is ONE list, and both export paths read it ────────
+//
+// The checker's finding on the Studio port: `stripNotesCut` was a hand-written copy of
+// `strippedSlidesOrAuthored`, with no shared code and nothing pinning them together — the exact
+// mechanism that produced the divergence the port was fixing. `NOTE_SCRUB_BOUNDARIES` makes the
+// one piece they must agree on shared, and this pins that neither of them quietly writes its own
+// again. It is a SOURCE assertion because the two callers live in different runtimes (a CJS CLI
+// and a browser TS module) and cannot be imported into one process to be compared behaviorally.
+describe('notes-core: NOTE_SCRUB_BOUNDARIES', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const ROOT = path.join(__dirname, '..', '..', '..');
+  const CALLERS = [
+    'lattice-emulator.js',
+    'docs/src/components/studio/strip-notes-guard.ts',
+  ];
+
+  test('is the two cuts, conservative one first', () => {
+    assert.deepEqual([...core.NOTE_SCRUB_BOUNDARIES], ['preserve', 'drop']);
+    assert.ok(Object.isFrozen(core.NOTE_SCRUB_BOUNDARIES));
+  });
+
+  test('every value it carries is one stripNotesFromSource actually implements', () => {
+    // A cut nobody implements would silently render the same document twice: `boundary` falls
+    // through to the default, both passes agree, and the second is pure cost.
+    const src = 'Some text\n<!-- a note -->\n---\n\nMore text\n';
+    const bodies = new Set(['a note']);
+    const cuts = new Set(
+      core.NOTE_SCRUB_BOUNDARIES.map((boundary) => core.stripNotesFromSource(src, bodies, { boundary })),
+    );
+    assert.equal(cuts.size, core.NOTE_SCRUB_BOUNDARIES.length, 'two cuts produced the same source');
+  });
+
+  for (const rel of CALLERS) {
+    test(`${rel} reads the shared list rather than writing its own`, () => {
+      const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+      assert.match(text, /NOTE_SCRUB_BOUNDARIES/, `${rel} no longer reads the shared cut order`);
+      // The literal the constant replaced, in either quote style, in any order. A caller that
+      // writes it out again is a caller that can be reordered on its own.
+      const literal = /\[\s*(['"])(?:preserve|drop)\1\s*,\s*(['"])(?:preserve|drop)\2\s*\]/;
+      assert.doesNotMatch(text, literal, `${rel} writes its own boundary list — use the kernel's`);
+    });
+  }
 });
