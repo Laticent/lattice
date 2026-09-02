@@ -119,6 +119,56 @@ owe nothing here. See
 - **Commit:** `fix(docs): load Architect authoring cores via an esbuild bundle so
   they work in astro dev`.
 
+## Every Fabricate preview is EMPTY in `astro dev` only (StrictMode disposes the renderer, and the sentinel hides it)
+
+- **Symptom:** In `astro dev`, the Studio's Fabricate view shows an empty box where
+  every live preview should be — `LIVE PREVIEW — your component, rendered` on the
+  Component tab, and the `Theme specimen` / `Chart specimen` / `Diagram specimen`
+  figures on the Theme tab. The `<figure>` is present and correctly sized (620x349)
+  but has **zero children**. There is no error card, no console error, no failed
+  request, and no unhandled rejection — it looks like a dead surface, not a broken
+  one. The Craft view's own `Live deck preview` renders fine in the same session,
+  which is what makes this read as "Fabricate is broken" rather than "dev is". The
+  **built site is correct** — this is dev-only.
+- **Cause:** `StudioIsland.tsx` wraps the shell in `<StrictMode>` on purpose (its
+  comment says so: it surfaces effects that add a listener/timer without a cleanup,
+  and it is "a no-op in production builds"). StrictMode double-invokes mount effects
+  in dev, so `DeckPreview`'s unmount cleanup runs and calls
+  `engineRef.current?.dispose()` (`DeckPreview.tsx:650`). But the renderer is created
+  in the RENDER BODY, behind `if (engineRef.current === null)`
+  (`DeckPreview.tsx:224`) — and a StrictMode remount re-runs *effects*, not the
+  render body. So the host keeps a **disposed** renderer for the rest of its life.
+  Every later render then resolves `{ ok: false, slides: 0, error: 'renderer
+  disposed' }`, forever.
+  **The silence is the second half of the cause, and it is deliberate.** #1164
+  excludes exactly `'renderer disposed'` from the failure surface, because it is
+  normally a *transient* sentinel — a host detached mid-render (a mobile pane swap,
+  an unmount) — and the reconnected host re-renders. Here it is permanent, so the
+  one signal that would have shown a card is the one that is suppressed.
+- **How it was pinned** (do this before believing any theory here — two plausible
+  ones were wrong): instrument `runRenderRef` to push `renderInto`'s status onto a
+  `window` array and read it from Puppeteer. The trace names the cause in one line.
+  Removing `<StrictMode>` makes the preview render (measured); nulling `engineRef`
+  in the cleanup does **not** (it turns a disposed renderer into no renderer, since
+  the render body never re-runs), and neither does dropping `coalesce`.
+- **Why the Craft preview survives:** measured, its host logs a single mount effect
+  and one successful write, while all four Fabricate hosts log two. It is not
+  remounted in the same StrictMode pass. Recorded as an observation — the reason it
+  is not is not established.
+- **Consequence for verification (HARD RULE #23):** a verification run against
+  `npm run dev` alone reports the OPPOSITE of the truth here, in both directions —
+  a dev-only break reads as shipped, and a dev-only pass would too. **Drive
+  `docs/dist`** (`cd docs && npm run build && npx astro preview --port 4322`).
+- **Not fixed** (pre-existing, and off the path of the change that found it — HARD
+  RULE #18). The candidate fix is to re-create the renderer when it has been
+  disposed rather than only when the ref is null — i.e. make the lazy init an effect
+  that owns the whole lifecycle, not a render-body guard paired with an effect
+  cleanup.
+- **Unrelated, despite arriving together:** the `/playground/v/<hash>/themes/fab-<id>.css`
+  **404**. A theme authored in the browser cannot exist under a build-time staged
+  asset path. It is present on the built site too, where the preview renders
+  correctly, so it neither causes nor worsens this.
+
 ## astro 7 backgrounds `preview` and `dev` FOR AN AGENT, and Playwright then dies with `Process from config.webServer exited early`
 
 - **Symptom:** every Playwright run against the docs site fails before a single test
