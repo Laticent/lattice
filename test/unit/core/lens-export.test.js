@@ -78,18 +78,27 @@ test('several views ship their union, in author order, each view indexed into it
 	assert.deepEqual(both.views.find((v) => v.id === 'ask').indices, [2]);
 });
 
-test('`full` alone carries NO other view, and leaves the body byte-identical', () => {
-	// `--lens full` is a selection, not a no-op: the author asked for the whole deck AND for
-	// no other view, so the registry and every foreign membership tag go with the others.
-	// What must not change is a single byte of the SLIDES.
+test('`full` ALONE is the identity — it is not a selection against the other views', () => {
+	// The prune exists because naming a view a recipient was not given tells them something
+	// about content they were denied. A `full` recipient was denied nothing, so there is
+	// nothing to close — and deleting the author's view catalog from an envelope that exists
+	// to round-trip into an editable deck is pure loss. An earlier version pruned here, which
+	// also contradicted the kernel's own documented promise.
 	const src = deckWith(VIEWS, MEMBERSHIP);
 	const full = projectForExport(src, ['full']);
 	assert.equal(full.ok, true);
-	assert.equal(full.source.slice(frontMatterBlockOf(full.source).length), src.slice(frontMatterBlockOf(src).length).replace(/<!-- _lens: [^>]*-->\n/g, ''),
-		'the slides are the author’s own text, minus the membership tags for views this export does not carry');
-	assert.doesNotMatch(full.source, /lenses:/, 'no view but `full` is exported, so no registry ships');
-	assert.doesNotMatch(full.source, /_lens:/, 'and no slide still declares membership in one');
-	assert.equal(renderedSections(full.source), renderedSections(src), 'every slide still ships');
+	assert.equal(full.source, src, 'the caller gets its OWN string back, byte for byte');
+	assert.match(full.source, /ask: \{/, 'and the deck keeps every view it declared');
+});
+
+test('`full` ALONGSIDE a named view is a selection, and prunes', () => {
+	// `--lens full,brief` offers two views in a carrier, so it discloses two — the exemption
+	// above is for `full` on its own, not for the token appearing anywhere in the request.
+	const src = deckWith(VIEWS, MEMBERSHIP);
+	const out = projectForExport(src, ['full', 'brief']);
+	assert.equal(out.ok, true);
+	assert.match(out.source, /brief: \{/, 'the view it carries is declared');
+	assert.doesNotMatch(out.source, /ask/, 'the view it does not carry is named nowhere');
 });
 
 test('a deck with nothing to prune gets its OWN string back — the identity shortcut', () => {
@@ -138,16 +147,70 @@ test.describe('an export carries ONLY the views it exports', () => {
 		}
 	});
 
-	test('the re-stamped approval still opens the view in the artifact', () => {
-		// A copied digest covers the PRE-projection member bodies and foreign tags, so it reads
-		// `drifted` the moment anyone re-opens the exported deck — the view would refuse to open
-		// in the file that exists to show it. Re-parsing the projection is the only honest check.
+	test('NO approval digest is written by the export', () => {
+		// Re-deriving the digest over the projection made the projection SELF-CERTIFYING:
+		// `pruneTags` rewrites the author's slide text, so a hash taken afterwards describes
+		// whatever that rewrite produced, damage included — and the fail-closed net cannot fire
+		// against a hash written after the corruption. It was also computed four pipeline stages
+		// before the envelope it describes, so `--strip-notes` shipped `drifted` views anyway.
+		// A projected artifact re-imports as `unapproved`, which is true: a machine reduced it.
 		const src = deckWith(VIEWS, MEMBERSHIP);
 		const out = projectForExport(src, ['brief', 'ask']);
 		assert.equal(out.ok, true);
+		assert.doesNotMatch(out.source, /approved:/, 'the export never signs a deck a human has not seen');
 		const again = projectForExport(out.source, ['brief']);
-		assert.equal(again.ok, true, `the exported deck must still project its own views (got ${again.reason})`);
-		assert.equal(again.kept.length, MEMBERSHIP.brief.length, 'and to the same slides');
+		assert.equal(again.ok, false, 'so re-projecting the artifact refuses');
+		assert.equal(again.reason, 'unapproved', 'and says a human has to look first');
+	});
+
+	test('the emitted body must re-split into exactly the slides that were kept', () => {
+		// The baked view map is indexed by POSITION, so a slide lost or gained between the chunk
+		// array and the emitted string shifts every view after it — a reader is then shown a
+		// slide their view excludes. Here slide 0's entire content is a withheld tag: pruning
+		// empties it and the leading-empty rule absorbs it, so three slides would ship as two.
+		// The export refuses rather than writing a file with a shifted map.
+		const views = [{ id: 'wide', label: 'Wide', base: 'all' }, { id: 'secret', label: 'S', base: 'none' }];
+		const chunks = ['<!-- _lens: secret -->\n', '\n# Heading\n\nBody.\n', '\n# Second\n\nMore.\n'];
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...views], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
+		const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks[0]}\n***\n${chunks[1]}\n---\n${chunks[2]}`;
+		const out = projectForExport(src, ['wide']);
+		assert.equal(out.ok, false, 'a projection that cannot re-split must not ship');
+		assert.equal(out.reason, 'unsplittable');
+		assert.ok(REFUSAL_REASONS.unsplittable, 'the reason carries an explanation the CLI can print');
+	});
+
+	test('a second `_lens` comment on one slide does not ride along', () => {
+		// Lente reads only a slide's FIRST tag, so a second one was invisible to the prune and
+		// reached the artifact verbatim. Nothing has ever read it; it is a withheld view's id
+		// to a recipient and dead weight to everyone else.
+		// The extra tag is part of the slide body, so it has to be there BEFORE the fixture is
+		// approved — hashing first and editing after is just a `drifted` deck.
+		const chunks = ['<!-- _lens: brief -->\n<!-- _lens: ask -->\n\n# One\n\nBody one.\n', '\n# Two\n\nBody two.\n'];
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
+		const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks.join('\n---\n')}`;
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true, `expected a projection, got ${out.reason}`);
+		assert.doesNotMatch(out.source, /ask/, 'the extra tag is gone, not merely unparsed');
+		assert.match(out.source, /_lens: brief/, 'and the tag that IS read survives');
+	});
+
+	test('a tombstone cannot smuggle a withheld id through, in any spelling', () => {
+		// `upsertLensRegistry` deliberately re-attaches every tombstone it finds. Filtering the
+		// SOURCE for a tombstone shape missed `{ drop: true, }` and `{ label: "L", drop: true }`,
+		// which Lente's parser reads perfectly well and its writer then canonicalized into the
+		// artifact. The filter is an allowlist over the EMITTED block instead: it does not have
+		// to recognize a tombstone, only an id.
+		const src = deckWith(VIEWS, MEMBERSHIP).replace(
+			'lenses:\n',
+			'lenses:\n  chimera: { label: "Project Chimera", drop: true }\n  trailing: { drop: true, }\n',
+		);
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true, `expected a projection, got ${out.reason}`);
+		for (const id of ['chimera', 'Chimera', 'trailing', 'drop: true']) {
+			assert.ok(!out.source.includes(id), `${id} must not survive`);
+		}
 	});
 
 	test('the label a reader sees survives the prune', () => {
@@ -161,6 +224,22 @@ test.describe('the view the artifact opens on', () => {
 	test('defaults to the first view asked for', () => {
 		const src = deckWith(VIEWS, MEMBERSHIP);
 		assert.equal(projectForExport(src, ['ask', 'brief']).default, 'ask');
+	});
+
+	test('the DECK’s own `lens-default:` beats the order the ids were typed in', () => {
+		// argv order is already spoken for — it is what the switcher lists. Letting it also
+		// decide the landing view discarded a decision the author wrote into the deck.
+		const src = deckWith(VIEWS, MEMBERSHIP).replace('lenses:\n', 'lens-default: ask\nlenses:\n');
+		assert.equal(projectForExport(src, ['brief', 'ask']).default, 'ask');
+		assert.equal(projectForExport(src, ['brief', 'ask'], { default: 'brief' }).default, 'brief',
+			'an explicit --lens-default still wins over the deck');
+	});
+
+	test('naming no view at all REFUSES — it is not "project everything"', () => {
+		const src = deckWith(VIEWS, MEMBERSHIP);
+		const out = projectForExport(src, []);
+		assert.equal(out.ok, false, 'the union of zero views used to return an EMPTY deck, ok:true');
+		assert.equal(out.reason, 'no-view-named');
 	});
 
 	test('an explicit default is recorded in the deck it ships', () => {

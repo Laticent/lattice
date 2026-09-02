@@ -131,12 +131,57 @@ export function taggedLensIds(slides: string[]): Set<string> {
 	return ids;
 }
 
+/**
+ * Remove every non-fenced `_lens` comment on a slide EXCEPT the first — returning the slide
+ * unchanged when there is at most one, which is every slide Lente itself wrote.
+ *
+ * `parseSlideTags` and `writeTags` both stop at the first comment, by design: one slide has one
+ * membership, and a second tag has no defined meaning. The consequence is that a second tag is
+ * READ by nothing and REWRITTEN by nothing — so an export that prunes a deck's tags down to the
+ * views it carries could not see it, and a withheld view's id rode into the artifact verbatim
+ * (`lib/core/lens-export.mjs`). Deleting it is not a behavior change for any reader: nothing
+ * consulted it before.
+ *
+ * A comment's own line goes with it, on the same rule `writeTags` uses — take the newline only
+ * when the comment owned the line, so an inline tag cannot splice the next line onto this one.
+ */
+export function stripExtraLensTags(slideSrc: string): string {
+	let src = String(slideSrc ?? '');
+	const first = findDirectiveComment(src, 'lens');
+	if (!first) return src;
+	// Walk from the end of the first tag, removing each subsequent one. Re-scanning the tail each
+	// time keeps the fence ranges honest as the string shrinks.
+	let cursor = first.end;
+	for (;;) {
+		const tail = src.slice(cursor);
+		const next = findDirectiveComment(tail, 'lens');
+		if (!next) return src;
+		const start = cursor + next.start;
+		let end = cursor + next.end;
+		if (src[end] === '\n' && ownsItsLine(src, start)) end += 1;
+		src = src.slice(0, start) + src.slice(end);
+		cursor = start;
+	}
+}
+
 /** Render the two token sets to the shortest canonical, deterministically-ordered token string.
  *  Includes first (sorted), then `-`excludes (sorted). Empty => ''. */
 function emitTokens(tags: SlideTags): string {
 	const inc = [...tags.include].sort();
 	const exc = [...tags.exclude].sort().map((id) => `-${id}`);
 	return [...inc, ...exc].join(' ');
+}
+
+/** Is everything between the start of `at`'s line and `at` itself whitespace — i.e. does the comment
+ *  starting there OWN its line? Lente always writes the tag on its own line, so this is true for every
+ *  tag Lente itself produced; a hand-authored one can sit at the end of a line of prose. */
+function ownsItsLine(src: string, at: number): boolean {
+	let i = at - 1;
+	while (i >= 0 && src[i] !== '\n') {
+		if (src[i] !== ' ' && src[i] !== '\t') return false;
+		i--;
+	}
+	return true;
 }
 
 /** Write the `<!-- _lens: … -->` comment for a slide from its token sets. Replaces the slide's first
@@ -149,7 +194,15 @@ function writeTags(slideSrc: string, tags: SlideTags): string {
 	const existing = findDirectiveComment(src, 'lens');
 	if (existing) {
 		let end = existing.end;
-		if (!tokens && src[end] === '\n') end += 1; // drop the now-empty tag's trailing newline
+		// Removing the tag takes its line's newline WITH it — but only when the tag owned that line.
+		// Unconditionally, this ate the author's line break after an INLINE tag and spliced the next
+		// line onto the previous one. On prose that silently merged two paragraphs; on a line
+		// followed by a ``` fence it spliced the fence opener into the prose, so the fence never
+		// opened, its closer became an opener, and a `---` inside the code became a setext underline —
+		// one authored slide rendered as two, with another view's slide text on screen. An export
+		// (lib/core/lens-export.mjs) re-stamps the approval digest AFTER this rewrite, so the damaged
+		// deck certified itself as approved and the fail-closed net could not fire.
+		if (!tokens && src[end] === '\n' && ownsItsLine(src, existing.start)) end += 1;
 		return src.slice(0, existing.start) + (tokens ? comment : '') + src.slice(end);
 	}
 	if (!tokens) return src;

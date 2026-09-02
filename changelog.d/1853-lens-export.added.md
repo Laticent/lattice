@@ -37,10 +37,17 @@
 - **A projected export carries only the views it exports.** `--lens brief` withheld every non-member
   slide and then, in the envelope's own front matter, named `evidence` and `ask`, printed their human
   labels, published their approval digests, and marked on every kept slide whether it belonged to
-  them. The `lenses:` block and the per-slide `_lens` tags are now pruned to the exported views, and
-  the survivors' approval digests are re-stamped against the projected deck so the views still open
-  in the artifact that ships them. `--lens-source full` is unchanged — that flag is the author asking
-  for the whole deck by name.
+  them. The `lenses:` block and the per-slide `_lens` tags are now pruned to the exported views.
+  `--lens full` on its own is exempt — it is the identity, because a full-deck recipient was denied
+  nothing — and `--lens-source full` is unchanged, that flag being the author asking for the whole
+  deck by name.
+- **A projected export never writes an approval digest, and refuses a deck it cannot re-split.** The
+  views in a projection ship without `approved:`, so re-importing reads them as `unapproved` — a
+  machine reduced the deck, and the human's approval described it before the reduction. Re-deriving
+  the digest instead made the projection self-certifying: the prune rewrites the author's slide text,
+  so a hash taken afterwards blessed whatever that rewrite produced. Separately, the export now
+  re-splits the body it emitted and writes nothing if the slide count disagrees with the projection —
+  the baked view map is indexed by position, so one lost slide shifts every view after it.
 - **`--lens-default <id>` picks the view a carrier opens on.** Without it the file opens on the first
   id you named, which is also the order the switcher lists them in. Naming a view the export does not
   carry exits non-zero naming the id, rather than falling back to the first and shipping a

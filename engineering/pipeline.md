@@ -104,9 +104,14 @@ in the player's re-import envelope, which undoes that for everything except the 
 The reduction covers the **views** as well as the slides: the projected source's `lenses:`
 block and every kept slide's `_lens` tag name only the views being exported, so a withheld
 view's id, label, approval digest and membership are absent from the artifact rather than
-merely absent from its switcher. Surviving views get their approval digests re-stamped
-against the projected deck — the digest binds the member bodies, so a copied one reads
-`drifted` in the artifact that exists to show the view.
+merely absent from its switcher. The surviving views ship WITHOUT an approval digest — a
+machine reduced the deck, so re-importing reads them as `unapproved`, and the export never
+signs bytes a human has not seen. `--lens full` on its own is exempt: it is the identity,
+because a full-deck recipient was denied nothing.
+
+The export also re-splits the body it emitted and refuses if the slide count disagrees with
+the projection. The baked view map is indexed by position, so a slide lost or gained
+between the two shifts every view after it.
 
 `--lens-default <id>` names which of the exported views a carrier opens on (default: the
 first id given). Naming a view the export does not carry exits non-zero rather than

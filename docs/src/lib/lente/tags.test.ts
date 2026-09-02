@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyTag, parseSlideTags, taggedLensIds } from './tags';
+import { applyTag, parseSlideTags, stripExtraLensTags, taggedLensIds } from './tags';
 
 describe('taggedLensIds', () => {
 	it('collects include AND exclude ids across all slides (union)', () => {
@@ -69,5 +69,61 @@ describe('applyTag — base:all (subtractive)', () => {
 	it('re-including a member clears the -exclude token', () => {
 		const out = applyTag('<!-- _lens: -evidence -->\n# X', 'evidence', true, 'all');
 		expect(out).toBe('# X');
+	});
+});
+
+describe('removing a tag does not damage the slide around it', () => {
+	// The newline after a `_lens` comment used to be consumed unconditionally when the tag
+	// cleared. That is right for the shape Lente itself writes (the tag owns its line) and
+	// wrong for a hand-authored inline one, where it deletes the author's line break and
+	// splices the next line onto this one. Reached through a `--lens` export
+	// (lib/core/lens-export.mjs) that was a fail-OPEN: the splice collapsed slide structure,
+	// the view map shifted, and a reader was shown a slide their view excludes.
+	it('keeps the line break after an INLINE tag', () => {
+		const src = 'The variance is in the loader. <!-- _lens: secret -->\n\nSecond paragraph.\n';
+		expect(applyTag(src, 'secret', false, 'none')).toBe('The variance is in the loader. \n\nSecond paragraph.\n');
+	});
+
+	it('does not splice a code fence onto the line above', () => {
+		const src = 'Prose. <!-- _lens: secret -->\n\n```python\nx = 1\n```\n';
+		const out = applyTag(src, 'secret', false, 'none');
+		expect(out).toContain('Prose. \n\n```python');
+		expect(out).not.toContain('Prose. \n```python');
+	});
+
+	it('still takes the whole line when the tag OWNED it — the shape Lente writes', () => {
+		const src = '<!-- _class: content -->\n<!-- _lens: secret -->\n\n# Heading\n';
+		expect(applyTag(src, 'secret', false, 'none')).toBe('<!-- _class: content -->\n\n# Heading\n');
+	});
+});
+
+describe('stripExtraLensTags', () => {
+	// Lente reads only a slide's FIRST tag, so a second one is parsed by nothing and rewritten
+	// by nothing — which made it invisible to an export pruning a deck's tags down to the views
+	// it carries, and it rode into the artifact naming a view the recipient was not given.
+	it('keeps the first tag and removes the rest', () => {
+		const src = '<!-- _class: title -->\n<!-- _lens: brief -->\n<!-- _lens: secret -->\n\n# Hi\n';
+		expect(stripExtraLensTags(src)).toBe('<!-- _class: title -->\n<!-- _lens: brief -->\n\n# Hi\n');
+	});
+
+	it('removes a third and a fourth too', () => {
+		const src = '<!-- _lens: a -->\n<!-- _lens: b -->\n<!-- _lens: c -->\n<!-- _lens: d -->\n\n# Hi\n';
+		expect(stripExtraLensTags(src)).toBe('<!-- _lens: a -->\n\n# Hi\n');
+	});
+
+	it('leaves a slide with one tag, or none, exactly as it was', () => {
+		for (const src of ['<!-- _lens: brief -->\n\n# Hi\n', '# Hi\n\nNo tags here.\n', '']) {
+			expect(stripExtraLensTags(src)).toBe(src);
+		}
+	});
+
+	it('never touches a tag inside a fence — that is documentation on a rendered slide', () => {
+		const src = '<!-- _lens: brief -->\n\n```markdown\n<!-- _lens: doc-example -->\n```\n';
+		expect(stripExtraLensTags(src)).toBe(src);
+	});
+
+	it('does not splice lines when an extra tag is inline', () => {
+		const src = '<!-- _lens: brief -->\n\nProse. <!-- _lens: secret -->\n\nMore prose.\n';
+		expect(stripExtraLensTags(src)).toBe('<!-- _lens: brief -->\n\nProse. \n\nMore prose.\n');
 	});
 });

@@ -175,10 +175,24 @@ carries `brief` and nothing else: the front matter's `lenses:` block names only 
 you exported, and each kept slide's `_lens` tag names only those views. So a withheld
 view's id, its human label (which is prose you wrote — "Board only — restructuring"), its
 approval digest and its per-slide membership are all absent from the file, not merely
-absent from the switcher. The approval digests of the views that DO ship are re-stamped
-against the projected deck, because the digest binds the member bodies and a copied one
-would read `drifted` in the very artifact that exists to show the view. `--lens-source
-full` is the one exception, and it is you asking for the whole deck by name.
+absent from the switcher. `--lens-source full` is the one exception, and it is you asking
+for the whole deck by name.
+
+**Two things the prune deliberately does NOT do.** It never writes an approval digest: the
+views in a projected deck ship without `approved:`, so re-importing the artifact reads them
+as `unapproved` — which is true, because a machine reduced the deck and your approval
+described it before the reduction. (An earlier version re-stamped them, which made the
+projection self-certifying: the prune rewrites your slide text, so a hash taken afterwards
+would have blessed a damaged deck as approved.) And `--lens full` on its own is the
+identity — it changes nothing, registry included. A `full` recipient was denied nothing, so
+there is no disclosure to close; naming views alongside it (`--lens full,brief`) is a real
+selection and does prune.
+
+**A projection that cannot re-split refuses.** The baked view map is indexed by position,
+so a slide lost or gained between the projection and the emitted file shifts every view
+after it — the failure that shows a reader a slide their view excludes. The export
+re-splits what it wrote, checks it against what it said it kept, and writes nothing on a
+mismatch.
 
 **`--lens-default <id>` picks the view the file opens on.** Without it a carrier opens on
 the first id you named, which is also the order the dropdown lists them in — two jobs for
