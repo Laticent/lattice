@@ -138,9 +138,18 @@ reaching *readable content*, because that is the defect: #2005's numeral struck 
 text and its hairline cut the copy. An anchor overlapping a painted box or another generated
 one is reported as `CHROME` and does not fail the run — shipped `cycle` centers its hub dot
 *on* the ring it straddles, and a geometry rig cannot tell that deliberate composition from a
-mistake. It is still **measured and printed**, so nothing goes unseen; only the verdict
-changes. A slide with no text at all falls back to the whole ink, because measuring nothing
-there would be a silent clean.
+mistake. It is still **measured and printed** — chrome stays in the ink, so it moves `ink top`,
+`ink bot`, `breathe` and CROWDING exactly as before; only the COLLISION verdict asks whether
+what was struck is readable. A slide with no readable content at all falls back to the whole
+ink, so a text-free layout cannot pass by having nothing to measure.
+
+**What counts as readable is a classifier, and it has three edges worth knowing.** A box
+carrying its own text is content, and so is a replaced element. A box that only paints —
+a card surface, a rule — is chrome, and the walk *continues through it*: an earlier cut
+stopped there, so a painting ancestor swallowed the text beneath it and a mark laid across an
+`h2` on any Form component exited 0, because `.cell-masthead` carries a `border-bottom`. And
+a generated box is chrome only when it generates no text: the bundle has 20 positioned pseudo
+rules whose `content` is a counter, an `attr()` or a quoted label.
 
 **A collision is never acceptable and never "unlikely".** The reachable heading length is
 whatever an author types. If a collision exists anywhere in the sweep, either make it

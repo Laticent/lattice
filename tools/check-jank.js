@@ -54,8 +54,8 @@
  *    than being dropped — and the descent CONTINUES past a painting box, because stopping
  *    there left 66 positioned pseudos in the shipped gallery unseen with no `unplaced` note.
  *    A positioned pseudo's own TRANSFORM is applied: the `translate(-50%, 50%)` centering
- *    idiom put a shipped mark 15.3px from where it paints, and six pseudos in the bundle
- *    carry one.
+ *    idiom put a shipped mark 15.3px from where it paints, and 21 positioned pseudo rules in
+ *    the bundle carry one.
  *    What the ink deliberately is NOT: the element's scroll extent. Text escaping its border
  *    box on the inline axis is not in the ink, because both richer measures tried for it
  *    invented collisions on layouts that are fine — a Range's line boxes carry the font's
@@ -337,6 +337,18 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
   const num = (v) => Number.parseFloat(v) || 0;
   const round = (v) => (Number.isFinite(v) ? +v.toFixed(1) : null);
 
+  /**
+   * Does this pseudo put TEXT on the slide? Its resolved `content` answers: a quoted
+   * string, a `counter()`, an `attr()` — words. An empty string or a bare image is
+   * decoration. Errs toward content, which errs toward reporting a collision rather than
+   * missing one.
+   */
+  const generatesText = (ps) => {
+    const c = (ps.content || '').trim();
+    if (!c || c === 'none' || c === 'normal' || c === '""' || c === "''") return false;
+    return !/^(?:url|image-set|-webkit-image-set|linear-gradient|radial-gradient|conic-gradient)\(/.test(c);
+  };
+
   /** A fully transparent background paints nothing, whatever its channels say. */
   const transparent = (color) => {
     if (color === 'transparent') return true;
@@ -464,7 +476,7 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
    * area whether it holds one line or twelve — so stopping at the section's children
    * measures the grid, not the content.
    */
-  function ink(el, acc, unplaced, skip, collectElement = true) {
+  function ink(el, acc, unplaced, skip) {
     if (el === skip.el && !skip.pseudo) return;
     if (el.hasAttribute('data-lattice-berth')) return;
     const cs = getComputedStyle(el);
@@ -489,10 +501,12 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       if (ps.content === 'none' || ps.display === 'none' || ps.visibility === 'hidden') continue;
       if (ps.position === 'absolute' || ps.position === 'fixed') {
         const box = placedBox(el, ps);
-        // CHROME. A generated box carries no readable content — `content: ""` is the
-        // overwhelming case in this engine — so it is collected and reported, but it does
-        // not decide the COLLISION verdict. See the kind split below.
-        if (box) acc.push({ ...box, kind: 'chrome' });
+        // A generated box is CHROME only when it generates no text. Hardcoding it chrome
+        // was wrong: the bundle carries 20 absolutely positioned pseudo rules whose
+        // `content` is a counter, an `attr()` or a quoted label — card numerals, 'DECISION',
+        // the matrix axis names — every one of them words a reader reads. The tool printed
+        // "no readable content in it" over a 32-character label.
+        if (box) acc.push({ ...box, kind: generatesText(ps) ? 'content' : 'chrome' });
         else unplaced.push(`${el.tagName.toLowerCase()}${pseudo}`);
         continue;
       }
@@ -509,7 +523,6 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
 
     const r = el.getBoundingClientRect();
     const ownText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
-    const own = ownText || REPLACED.has(el.tagName.toUpperCase()) || paints(cs);
     // THE BORDER BOX, and nothing cleverer. Two richer measures were tried and BOTH
     // manufactured collisions on layouts that are fine:
     //   · a Range over the contents returns LINE boxes, which carry the font's leading, so
@@ -533,18 +546,26 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
     // to close, one level down: a lime block painted through the section mark went back to
     // reporting `COLLISION none` the moment the wrapper above it had a background.
     // So the element's own rect is taken once, and the descent continues for pseudos.
-    if (own && r.width > 0 && r.height > 0) {
-      // CONTENT is what a reader reads: a box with its own text, or a replaced element.
-      // Everything else that paints — a card's surface, a rule, a badge fill — is CHROME.
-      // The split decides the verdict, not what is measured: both are collected, both are
-      // reported, and only content can raise a COLLISION.
-      const kind = ownText || REPLACED.has(el.tagName.toUpperCase()) ? 'content' : 'chrome';
-      if (collectElement) acc.push(Object.assign({
-        top: r.top, left: r.left, bottom: r.bottom, right: r.right, width: r.width, height: r.height,
-      }, { kind }));
-      collectElement = false;
+    const box = (kind) => acc.push({
+      top: r.top, left: r.left, bottom: r.bottom, right: r.right, width: r.width, height: r.height, kind,
+    });
+
+    // CONTENT is what a reader reads: a box with its own text, or a replaced element. Its
+    // border box already covers its descendants, so the walk stops here.
+    if ((ownText || REPLACED.has(el.tagName.toUpperCase())) && r.width > 0 && r.height > 0) {
+      box('content');
+      return;
     }
-    for (const kid of el.children) ink(kid, acc, unplaced, skip, collectElement);
+
+    // A PAINTING BOX IS CHROME AND THE WALK CONTINUES THROUGH IT. Stopping here — which is
+    // what the first cut of the content split did — meant a painting ANCESTOR swallowed
+    // every text box beneath it and left behind a stand-in rect that carried no text and so
+    // classified as chrome. The engine puts `border-bottom` on `.cell-masthead`, so on every
+    // Form component the heading and the eyebrow — the exact surfaces #2005's numeral and
+    // hairline struck — became decoration, and a mark laid straight through an `h2` exited 0.
+    // One cosmetic hairline decided whether a heading strike was a defect.
+    if (paints(cs) && r.width > 0 && r.height > 0) box('chrome');
+    for (const kid of el.children) ink(kid, acc, unplaced, skip);
   }
 
   /**
@@ -652,9 +673,13 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       left: Math.min(...list.map((r) => r.left)),
       right: Math.max(...list.map((r) => r.right)),
     } : null);
-    // Fall back to the whole ink when a slide carries no text at all (an image-only or
-    // all-chrome layout): measuring nothing there would be a silent clean.
-    const inkBox = union(contentRects) || union(rects);
+    // THE INK IS EVERYTHING THAT PAINTS — chrome included. Narrowing it to content moved
+    // `ink top`, `ink bot`, `clearance` and `breathe` on 12 of 12 sampled components (a
+    // masthead band vanished from the block, overstating clearance by 90–280px) and left
+    // CROWDING blind: a painted box eating the top padding printed no row at all. The split
+    // belongs to the VERDICT and nowhere else — everything is measured, everything is
+    // printed, and only `intersects` asks whether what was struck is readable.
+    const inkBox = union(rects);
 
     // Breathing room: how far the ink stays inside the section's content box, worst edge.
     // Negative means it has eaten into the padding — inside the frame, past the margin the
@@ -706,7 +731,12 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       clearance: round(clearance),
       intersects,
       chromeHit,
-      chromeOnly: !contentRects.length,
+      // Counted per slide so the classifier is OBSERVABLE. Without this the only way to
+      // check that a painted box reached the measurement is through the ink union, and a
+      // union moves for layout reasons too — an arm written that way passed while chrome
+      // collection was mutated out entirely.
+      contentBoxes: contentRects.length,
+      chromeBoxes: chromeRects.length,
       breathing: round(worst[1]),
       breathingEdge: worst[0],
       section: { width: round(sr.width), height: round(sr.height) },

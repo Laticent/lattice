@@ -128,14 +128,44 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
     // it guards was the box being absent from the measurement, not the verdict it earns.
     const overlap = 'section.divider.numbered p::before { content:""; position:absolute; '
       + 'top:64px; left:100px; width:400px; height:120px; background:red; }';
+    const base = sweep([], { max: '4' });
     const r = sweep(['--style', overlap], { max: '4' });
-    assert.ok(r.summary.chromeTouch,
-      'a painted pseudo lying on the anchor was not seen at all — the walk is blind to '
-      + 'generated boxes again');
+
+    // VISIBILITY IS ASSERTED ON THE INK, not on the verdict. An earlier cut asserted
+    // `chromeTouch` and read as if it proved the box was collected — but `chromeTouch`
+    // requires `!intersects`, so a mutation that reclassified the box flipped the arm red
+    // with the message "the walk is blind to generated boxes again" while the walk was
+    // seeing it perfectly. That sends the next debugger to the wrong half of the tool.
+    // The box paints at y=64; the un-styled sweep's ink starts at 311.8.
+    assert.ok(r.rows[0].inkTop < base.rows[0].inkTop - 200,
+      `the painted pseudo is absent from the ink (ink top ${r.rows[0].inkTop} vs ${base.rows[0].inkTop} `
+      + 'un-styled) — the walk is blind to generated boxes again');
+    assert.ok(r.summary.chromeTouch, 'the anchor overlaps it, and no CHROME advisory was raised');
     assert.equal(r.summary.collision, null,
       'decoration overlapping decoration was failed on; that is the cry-wolf the content '
       + 'rule exists to stop');
     assert.equal(r.status, 0);
+  });
+
+  test('a slide with no readable content cannot pass by having nothing to measure', () => {
+    // THE FALLBACK, which is the one safeguard the content rule leans on and was shipped
+    // untested: deleting it passed all five arms. With every text box hidden, `contentRects`
+    // is empty and the verdict falls back to the whole ink — so two painted boxes reaching
+    // each other is a collision again, because there is no content for the rule to be about.
+    const allChrome = [
+      'section.divider.numbered code { display: none; }',
+      'section.divider.numbered h2 { display: none; }',
+      'section.divider.numbered p::before { content:""; position:absolute; top:200px; left:120px; width:200px; height:60px; background:red; }',
+      'section.divider.numbered p::after { content:""; position:absolute; top:230px; left:150px; width:200px; height:60px; background:blue; }',
+    ].join('\n');
+    const r = spawnSync(process.execPath,
+      [TOOL, 'divider numbered', '--anchor', 'p::before', '--max', '3', '--json', '--style', allChrome],
+      { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, CHROME_PATH: resolveChrome() } });
+    const parsed = JSON.parse(r.stdout);
+    assert.ok(parsed.summary.collision,
+      'an all-chrome slide whose two painted boxes overlap reported nothing — the fallback '
+      + 'is gone, and every text-free layout is now incapable of raising a collision');
+    assert.equal(r.status, 1);
   });
 
   // THE CONTENT RULE, both directions, on REAL shipped CSS and on an injected defect.
@@ -159,6 +189,63 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
     assert.ok(onText.summary.collision,
       'the mark was laid over the heading TEXT and the tool called it clean');
     assert.equal(onText.status, 1);
+  });
+
+  // THE CONTENT CLASSIFIER, guarded in the three places it can silently go wrong. All three
+  // were shipped unguarded in the first cut of the content rule and found by a checker: every
+  // one of these mutations passed the arms that existed.
+  test('a painting ancestor does not turn the text beneath it into decoration', () => {
+    // THE REGRESSION THAT ALMOST SHIPPED. A box that paints used to end the walk, so a
+    // painting ANCESTOR swallowed every text box under it and left a stand-in rect carrying
+    // no text — classified as decoration. The engine puts `border-bottom` on `.cell-masthead`,
+    // so on every Form component the heading became chrome and a mark laid straight through
+    // an `h2` exited 0. One cosmetic hairline decided whether a heading strike was a defect.
+    const mark = 'section.cards-grid > .cell-stage::before { content:""; position:absolute; '
+      + 'top:100px; left:80px; width:600px; height:50px; background:red; }';
+    const run = (extra) => spawnSync(process.execPath,
+      [TOOL, 'cards-grid', '--anchor', '.cell-stage::before', '--axis', 'count', '--max', '3',
+        '--json', '--style', mark + extra],
+      { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, CHROME_PATH: resolveChrome() } });
+
+    const withBorder = run('');
+    assert.equal(withBorder.status, 1,
+      `a mark laid across the heading of a Form component was called clean:\n${withBorder.stdout.slice(-400)}`);
+    // And the verdict must not depend on a decoration on some ancestor. Removing the
+    // masthead's hairline is a cosmetic change; it must not change whether this is a defect.
+    const withoutBorder = run(' section.cards-grid > .cell-masthead { border-bottom: none; }');
+    assert.equal(withoutBorder.status, withBorder.status,
+      'removing a 1px hairline from an ancestor changed the verdict on a heading strike');
+  });
+
+  test('a generated box carrying words is content, not decoration', () => {
+    // The bundle has 20 absolutely positioned pseudo rules whose `content` is a counter, an
+    // `attr()` or a quoted label — card numerals, 'DECISION', the matrix axis names. Calling
+    // every generated box decoration printed "no readable content in it" over 32 characters
+    // of set type.
+    const label = 'section.divider.numbered p::before { content:"CONFIDENTIAL — DO NOT DISTRIBUTE"; '
+      + 'position:absolute; top:100px; left:200px; font-size:28px; color:black; }';
+    const r = sweep(['--style', label], { max: '3' });
+    assert.ok(r.summary.collision,
+      'a mark laid over a pseudo carrying 32 characters of text was reported as a decoration touch');
+    assert.equal(r.status, 1);
+  });
+
+  test('a painted element is in the ink even though it carries no text', () => {
+    // The `paints()` branch, which is how a card surface or a rule reaches the measurement.
+    // Chrome belongs in `ink top`/`breathe`/CROWDING even when it never touches the anchor —
+    // narrowing the ink to content left a painted box eating the top padding entirely
+    // unprinted, while the commit message claimed nothing goes unseen.
+    const band = 'section.divider.numbered p { background: red; position: relative; height: 420px; }';
+    const base = sweep([], { max: '3' });
+    const r = sweep(['--style', band], { max: '3' });
+    // ASSERTED ON THE COUNT, not on the ink union. The union moves for layout reasons too —
+    // a taller band pushes its own text down — so an arm written against it passed while
+    // chrome collection was mutated out entirely.
+    assert.ok(r.rows[0].chromeBoxes > base.rows[0].chromeBoxes,
+      `a painted band never reached the measurement (chrome boxes ${r.rows[0].chromeBoxes} vs `
+      + `${base.rows[0].chromeBoxes} un-styled)`);
+    assert.ok(r.rows[0].inkBottom > base.rows[0].inkBottom,
+      'and it is not in the ink either');
   });
 
   test('text escaping its own box is not claimed as measured — the probe owns that case', () => {
