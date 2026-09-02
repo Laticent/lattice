@@ -825,7 +825,7 @@ flowchart TB
 - Walk away when
   - One table outgrows one machine's writes, or the schema genuinely differs per row.
 - The constraint you inherit
-  - Joins and transactions assume a single coordinator. Sharding gives up both.
+  - Joins and transactions need a coordinator. Self-sharding loses both; a distributed engine charges a round trip.
 
 ---
 
@@ -836,7 +836,7 @@ flowchart TB
 ## A key-value store is a hash map with an operations team.
 
 - Reach for it when
-  - You always know the exact key, and you need microseconds rather than milliseconds.
+  - You always know the exact key, and you need sub-millisecond rather than tens of milliseconds.
 - Walk away when
   - You need to ask any question about the value's contents.
 - The constraint you inherit
@@ -893,11 +893,11 @@ flowchart TB
 
 `Halfway through the data kit`
 
-## The five stores above can hold truth. The seven below mostly borrow it.
+## Some stores hold truth, some borrow it, and the split surprises people.
 
-A relational, key-value, document, wide-column or graph store can be the place a fact lives. The rest — search, vector, cache, warehouse, log — are almost always derived from one of those, and that changes how you treat them.
+The five above can be where a fact lives — and so can two below: an object store is usually where media first lands, and a time-series store is where a metric first lands. Nothing regenerates either.
 
-Anything derived must be rebuildable, must be allowed to lag, and must never be the only copy.
+The genuinely derived ones are search, vector, cache and warehouse. Anything derived must be rebuildable, must be allowed to lag, and must never be the only copy.
 
 ---
 
@@ -1014,7 +1014,7 @@ Anything derived must be rebuildable, must be allowed to lag, and must never be 
 
 | Store | Access | Consistency | Scales by | Weak at |
 | --- | --- | --- | --- | --- |
-| Relational | Key, range, join | Strong | Vertical, read replicas | Cross-shard writes |
+| Relational | Key, range, join | Strong | Replicas, then partitioning | Cross-shard writes |
 | Key-value | Exact key | Tunable | Horizontal | Any other query |
 | Document | Key, secondary index | Per document | Horizontal | Cross-document facts |
 | Wide-column | Partition plus range | Tunable | Horizontal | New query patterns |
@@ -1065,7 +1065,7 @@ flowchart TB
 3. Causal
    - Related events ordered, unrelated ones maybe not.
 4. Read your writes
-   - You see your own edits. The minimum.
+   - You see your own edits. The least a live editor accepts.
 5. Eventual
    - Replicas converge in the end. Cheapest.
 
@@ -1098,8 +1098,8 @@ Both are correct. The question is whether the cost of being briefly wrong is hig
   - You can name the exact query each index exists to serve.
 - The cost is on writes
   - Five indexes mean five extra structures updated per insert.
-- Selectivity decides
-  - An index over a column with three distinct values will be ignored.
+- Selectivity decides, not cardinality
+  - Three evenly spread values get ignored; three where one is 0.1 percent do not.
 
 ---
 
@@ -1174,7 +1174,7 @@ flowchart TB
 | Read committed | Dirty reads | Non-repeatable reads | The common default |
 | Repeatable read | Non-repeatable reads | Phantoms, write skew | Reports inside a transaction |
 | Snapshot | Most read anomalies | Write skew | Read-heavy applications |
-| Serializable | Everything | Nothing, at a cost | Money, inventory, bookings |
+| Serializable | Every ordering anomaly | Real-time ordering, unless strict | Money, inventory, bookings |
 
 *Read committed is the default in most systems, which means most applications tolerate anomalies they never chose.*
 
@@ -1257,14 +1257,14 @@ flowchart LR
 
 `Compute kit · Functions`
 
-## A function is compute you rent by the millisecond and cannot keep warm.
+## A function is compute you rent by the millisecond, so idle costs you nothing.
 
 - Reach for it when
   - Traffic is spiky or rare, work is short, and per-request isolation is welcome.
 - Walk away when
-  - Latency floors matter, runs are long, or steady traffic makes per-request pricing expensive.
+  - Runs are long, or steady traffic makes per-request pricing more expensive than a machine.
 - The constraint you inherit
-  - Cold starts and no local state. Every connection pool is rebuilt or externalized.
+  - Cold starts unless you pay to keep instances warm, which is paying for idle again.
 
 ---
 
@@ -1348,7 +1348,7 @@ flowchart LR
    - 0.1 ms
 4. Datacenter hop
    - 0.5 ms
-5. Cross-continent hop
+5. Cross-continent hop, measured
    - 150 ms
 
 ---
@@ -1359,7 +1359,7 @@ flowchart LR
 
 ## Light in fiber travels about 200 kilometers per millisecond, and that is final.
 
-No caching layer, protocol version, or vendor changes it. A design that requires three sequential round trips between continents has a floor near half a second before it has executed a single instruction.
+The measured 150 milliseconds is well above that fiber floor, because packets do not travel in straight lines. A design needing three sequential intercontinental round trips spends half a second before it executes an instruction.
 
 This is why replication, caching and edge delivery exist. All three are ways of buying distance, and none of them makes distance free.
 
@@ -1436,7 +1436,7 @@ flowchart LR
 | Style | Best at | Weak at | Choose when |
 | --- | --- | --- | --- |
 | REST | Cacheable resources | Chatty multi-entity reads | Public, resource-shaped APIs |
-| RPC | Typed internal calls | Browser reach, evolution | Service-to-service traffic |
+| RPC | Typed internal calls | Browser reach, client coupling | Service-to-service traffic |
 | GraphQL | Client-shaped queries | Caching, cost control | Many clients, one backend |
 | Streaming | Continuous updates | Simplicity, statelessness | Live feeds and progress |
 
@@ -1537,7 +1537,7 @@ It also explains the failure: if latency triples during an incident, concurrency
 
 ## The average request is a fiction; users live in the tail.
 
-*Why does a fast service feel slow?* A page that makes 100 parallel calls waits for the slowest. With a one-percent chance of a slow call, roughly two thirds of pages hit at least one.
+*Why does a fast service feel slow?* A page that makes 100 parallel calls waits for the slowest. With a one-percent chance of a slow call, 63 percent of pages hit at least one.
 
 - You know you're here when
   - You report the 99th percentile, not the mean, and you report it per dependency.
@@ -1741,7 +1741,7 @@ flowchart TB
 2. 99.9 percent
    - 8.8 hours per year
 3. 99.99 percent
-   - 52 minutes per year
+   - 53 minutes per year
 4. 99.999 percent
    - 5.3 minutes per year
 
@@ -1753,7 +1753,7 @@ flowchart TB
 
 ## Past three nines, the humans stop being fast enough.
 
-Fifty-two minutes a year is less than one incident with a page, a login, a look at a dashboard and a decision. Four nines therefore means automatic failover and automatic rollback, not a faster on-call engineer.
+Fifty-three minutes a year is less than one incident with a page, a login, a look at a dashboard and a decision. Four nines therefore means automatic failover and automatic rollback, not a faster on-call engineer.
 
 Each nine roughly multiplies cost. Pick the number the business actually needs, and write down what you are not buying.
 
@@ -1869,7 +1869,7 @@ flowchart LR
 
 `Security kit · Encryption`
 
-## Encryption has three states, and the keys matter more than the algorithm.
+## Encryption has three states, and a fourth thing that outranks all of them.
 
 1. In transit
    - TLS everywhere, including between your own services. Networks are untrusted.
@@ -1983,14 +1983,14 @@ flowchart LR
 
 ## Four guarantees decide the architecture more than the features do.
 
-1. Feed loads in under 200 milliseconds
-   - At the 99th percentile, on a mobile network, anywhere.
-2. Reads dominate writes by about a hundred to one
+1. The feed serves in under 200 milliseconds
+   - Server-side, 99th percentile, measured from the reader's own region.
+2. Reads dominate writes by about sixty to one
    - Every design decision should favor the reader.
-3. Media is durable forever
-   - A lost photo is unrecoverable and unforgivable. Metadata can be rebuilt.
-4. Eventual consistency is acceptable on the feed
-   - A post appearing a few seconds late is fine. A missing like count is not.
+3. Posts and media are durable forever
+   - A lost photo or a lost follow graph is unrecoverable. Only derived data rebuilds.
+4. Eventual consistency is fine on the feed
+   - A late post and a lagging count are fine; a blank one is not.
 
 ---
 
@@ -2006,8 +2006,8 @@ flowchart LR
    - 100 M
 3. Average writes
    - 1.2 K per second
-4. Peak feed reads
-   - 200 K per second
+4. Average feed reads
+   - 70 K per second
 5. Media stored daily
    - 200 TB
 
@@ -2019,9 +2019,9 @@ flowchart LR
 
 ## The ratio, not the totals, is what the design has to answer.
 
-Two hundred thousand reads against twelve hundred writes is a hundred-to-one product. That single ratio says: precompute the feed, cache aggressively, and pay whatever the write path costs to make the read path trivial.
+Seventy thousand reads against twelve hundred writes is sixty to one — both averages, compared like for like. A 3× peak gives 200K reads and 3.5K writes; the ratio holds, the absolute numbers do not.
 
-The storage numbers say something else. Two hundred terabytes a day of immutable media belongs in an object store, and never in a database.
+So: precompute the feed and pay whatever the write path costs. The storage line says something else — 200 terabytes a day of immutable media belongs in an object store, never a database.
 
 ---
 
@@ -2086,7 +2086,7 @@ flowchart LR
   C(["Client"]) -->|"upload"| OS[("Object store<br/>media")]
   C -->|"post"| API["API gateway"]
   API --> W["Post service"]
-  W --> PDB[("Post store<br/>sharded by post id")]
+  W --> PDB[("Post store<br/>sharded by author id")]
   W --> Q["Event log"]
   Q --> FAN["Fan-out worker"]
   FAN --> FC[("Feed cache<br/>per user, in memory")]
@@ -2095,6 +2095,8 @@ flowchart LR
   FR -.->|"cache miss or<br/>celebrity author"| PDB
   OS --> CDN["CDN"] --> C
 ```
+
+*Author id is the shard key because every read that reaches the post store asks for one author's recent posts. Post ids embed the author, so a single-post lookup still routes in one hop.*
 
 ---
 
@@ -2259,9 +2261,9 @@ That single fact reshapes queuing, batching, caching and cost.
 
 ## Little's Law turns a request rate into a hardware order.
 
-Forty thousand requests per second, each holding a slot for ten seconds, is four hundred thousand concurrent generations. Divide by the sequences one accelerator can hold in memory at once, and you have the fleet size before you have chosen a framework.
+Forty thousand requests per second, each holding a slot for ten seconds, is four hundred thousand concurrent generations. Divide by the sequences one accelerator holds in memory, and you have the fleet size before choosing a framework.
 
-Latency and fleet size are the same number here. Halve generation time and you halve the hardware.
+Little's Law also says which lever shrinks it. Halve the tokens per reply and you halve the fleet. Halve the time per token and you do not — decode speed is set by memory bandwidth, so buying it back costs the accelerators you were saving.
 
 ---
 
@@ -2338,10 +2340,10 @@ flowchart LR
 
 `Chat service · what you cache`
 
-## Four caches, and only one of them is safe to share between users.
+## Four caches, and only the first is shareable without a per-user key.
 
 - Prefix cache
-  - Reuses the KV state of a shared system prompt. Safe, and a large win.
+  - Reuses the KV state of a public system prompt. A large win; a hit is faster, so scope it per tenant.
 - Conversation KV
   - Keeps a live chat's state warm between turns. Per user, never shared.
 - Retrieval cache
@@ -2480,11 +2482,11 @@ flowchart LR
 
 ## Five sentences worth keeping longer than any of the kits.
 
-- Simple systems that work grow into complex systems that work. The reverse has never been observed.
+- Every complex system that works evolved from a simple one that worked. None was ever designed complex from scratch.
 - A model is defined by what it leaves out, and an unstated omission is a bug you have not found.
 - Constraints are the good news: they turn infinite answers into a choice you can defend.
 - Name the solution type before the architecture, or you will design a beautiful answer to another question.
-- Every system has exactly one bottleneck at a time, and everything else is decoration until it moves.
+- At any moment one constraint binds, and everything else is decoration until that one moves.
 
 ---
 
@@ -2576,7 +2578,7 @@ flowchart LR
 - WAL
   - An append-only record written before a change, so a crash replays forward.
 - Write amplification
-  - One logical write becoming several physical ones, across indexes, replicas and caches.
+  - One logical write becoming several physical ones: compaction, erase blocks, secondary indexes.
 
 ---
 
