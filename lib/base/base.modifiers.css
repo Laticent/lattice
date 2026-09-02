@@ -2371,11 +2371,19 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
   position: absolute; right: 12cqi; bottom: 2.35cqi; left: auto;
   display: flex; align-items: center; gap: 0.55cqi; pointer-events: none;
 }
+/* The pills carry the whole k-of-N reading, so both states have to be legible AT FEED SIZE —
+   the size these decks are actually read at. At 0.22 the off state was a ghost: rasterized at
+   story size the rail read as a broken hairline rather than as "page 3 of 6", which is the one
+   thing it exists to say. 0.34 keeps it clearly subordinate to the on state (still ~1:3) while
+   staying visible; the on state goes to full currentColor for the same reason the pointer took
+   `--text-secondary`. The pills also gain 0.1cqi of height, so they read as pills rather than
+   as dashes when the page is scaled down. `currentColor` throughout — palette-blind (#3), and
+   it is what lets the same rule work on the accent cover and in the print band. */
 .lat-split-rail .seg {
-  width: 2.2cqi; height: 0.5cqi; border-radius: 1cqi;
-  background: currentColor; opacity: 0.22;
+  width: 2.2cqi; height: 0.6cqi; border-radius: 1cqi;
+  background: currentColor; opacity: 0.34;
 }
-.lat-split-rail .seg.on { opacity: 0.8; }
+.lat-split-rail .seg.on { opacity: 1; }
 /* The long-run form: past `RAIL_DOT_MAX` pages the rail prints "k/N" rather than drawing a
    pill per page (lib/core/auto-split.js).
 
@@ -2811,14 +2819,23 @@ section.form.lat-split-closing.lat-split-closing > .cell-coda {
    `examples/read-across-carousel.pdf`, not by any assertion).
    It is the same `.split-runhead` element the body pages of those runs carry, so the finish
    below matches theirs — each strategy scopes its own copy to its own points class
-   (`section.compare-split-points .split-runhead` and four siblings), and this is the closing
+   (`section.compare-split-points .split-runhead` and five siblings), and this is the closing
    page's, written once for all of them because the closing page wears the neutral `content`
-   field rather than any layout's class. Palette-blind; padding, never margin (#3, #20). */
+   field rather than any layout's class. Palette-blind; padding, never margin (#3, #20).
+
+   The face, case, tracking and ink are no longer written here: all seven copies read the shared
+   runhead register (`--runhead-face` / `--runhead-ls` / `--runhead-case` / `--runhead-ink`,
+   base.tokens.css), which is where the 2026-09-02 change from wide-tracked uppercase micro-caps
+   to a normal-case standfirst in the body face is recorded and reasoned — including why the
+   SIZE is written out here rather than tokenized with them. Seven scoped copies of one setting
+   had already drifted to five different values; a component that wants to diverge overrides the
+   property, and compare-code and compare-table both still do. */
 section.form.lat-split-closing.lat-split-closing > .cell-stage > .split-runhead {
+  font-family: var(--runhead-face);
   font-size: var(--fs-meta);
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  letter-spacing: var(--runhead-ls);
+  text-transform: var(--runhead-case);
+  color: var(--runhead-ink);
   border-bottom: 1px solid var(--border);
   padding-bottom: var(--sp-xs);
 }
@@ -2915,24 +2932,78 @@ section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > .be
    widening. `data-split-role` alone is the precise test: the attribute exists on split pages and
    nowhere else, so nothing narrower is needed and anything narrower encodes an assumption about
    the page that the signal does not depend on. */
+/* THE MARGIN MARKER (owner's call, 2026-09-02). This used to be a full-bleed ruled band —
+   `--fs-meta` mono, `--text-muted`, `letter-spacing: 0.06em`, a 1px rule across 90% of the page.
+   Four legibility-reducing choices stacked on the ONE element whose job is telling a reader the
+   slide continues: it was dressed as chrome while doing wayfinding, and it read as a section
+   divider competing with the content it was annotating.
+
+   Measured before: 30px mono at 5.13:1 on a 2000px page whose heading is 76px, spanning 5%->95%
+   with its own rule, directly above a SECOND furniture band (caption + rail + page number).
+
+   Now it is a marker in the bottom-right corner, the way a book cues a page turn:
+     · RIGHT-ALIGNED and rule-less, so it leaves the content's full measure alone and stops
+       reading as a divider. `justify-content: flex-end` moves the flex row, not the text, so the
+       drawn mark still leads the label.
+     · `--text-secondary` (7.71:1) instead of `--text-muted` (5.13:1). Its own token comment
+       calls it "secondary prose / subtitle / caption", which is the register this is in.
+     · `--fs-body-compact` instead of `--fs-meta` — one step up the #4 ladder (1.4cqi vs 1.17).
+       These decks are shared on social, where a slide is read small in a feed, and the smallest
+       chrome step is the wrong home for the only continuation cue on the page.
+     · Tracking cut 0.06em -> 0.02em. Loose tracking on a mono face at caption size separates
+       glyphs faster than it aids them; it is a display device, not a legibility one. */
 section[data-split-role] .lat-split-rel,
 section.form.lat-split-native > .cell-stage > .lat-split-rel,
 section.form.lat-split-native > .lat-split-rel {
   font-family: var(--font-label);
-  font-size: var(--fs-meta);
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border);
+  font-size: var(--fs-body-compact);
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  justify-content: flex-end;
+  text-align: right;
   padding-top: var(--sp-xs);
   /* A comparison signal is the long one ("Option 2 of 4 · comparing Residency · Self-serve ·
      SOC 2") and wraps in a portrait box; `balance` keeps it from orphaning a two-character
      fragment on line two, which is what it did on the real render. */
   text-wrap: balance;
-  /* The mark sits on the first line, not above a wrapped block, so this is a flex row with the
-     text as the one growing member rather than an inline `::before` that a `text-wrap: balance`
-     line box would carry along. */
-  display: flex; align-items: baseline; gap: 0.45em;
+  /* A BLOCK, not a flex row — and this is a correction, not a preference.
+
+     It was `display: flex; align-items: baseline; gap: 0.45em` with the mark as a flex SIBLING
+     of the text, on the reasoning that the mark should sit on the first line rather than above a
+     wrapped block. It does sit on the first line. It also sits at the far LEFT of the page while
+     the text sits at the far right, whenever the signal wraps: two flex items, the text's
+     max-content wider than the row, so the text item shrinks to exactly the space left over and
+     there is no free space for `justify-content: flex-end` to distribute — the mark stays put at
+     the row's left edge, and `text-align: right` then pushes line one away from it. Measured on
+     `examples/read-across-carousel.md`: a 972px row with the arrow at x=0 and its text starting
+     at x=390. Seen on the raster before it was explained.
+
+     As a block with the mark as an inline `::before`, the mark is the first inline box of line
+     one and is right-aligned WITH it, at every width, wrapped or not. `content: ""` sits directly
+     against the text node with no whitespace between them, so there is no break opportunity for
+     `balance` to take — which is the hazard the flex row was reaching for. */
+  display: block;
 }
+/* The split page's own CAPTION — the author's `_footer:` words, rank 3 of the band's
+   allocation policy — takes the pointer's INK and nothing else.
+
+   CONTRAST ONLY, and the restraint is load-bearing: the size stays `--fs-meta`. A step up the
+   #4 ladder here re-creates a regression this branch already shipped and fixed once — the
+   caption is the one growable item in a fixed-height band, and a wider string is what put
+   CONTENT CLIPPED on six pages of `examples/portrait-journey.pdf`. 5.13:1 -> 7.71:1 costs the
+   band no width at all.
+
+   Scoped to split pages, not to every deck. The same argument (read small, in a feed) would
+   apply to any caption, but re-inking every deck's footer is a change to shared visual state
+   well outside this branch, and it is the owner's to make.
+
+   `--marp-slide-footer-color` stays the first term so a deck that sets its own footer ink
+   still wins, exactly as in the `section footer` rule this overrides. */
+section[data-split-role] > .cell-footer > footer,
+section.form.lat-split-native > .cell-footer > footer {
+  color: var(--marp-slide-footer-color, var(--text-secondary));
+}
+
 /* The signal's MARK, DRAWN per `data-mark` (lib/core/relationship.js). Four shapes for the four
    relationships: a run continues (→), a cycle returns (↻), a hierarchy governs downward (↓) or
    sits under (↑). A comparison gets none — "Option 2 of 4" is a count, and an arrow on it would
@@ -2941,12 +3012,21 @@ section.form.lat-split-native > .lat-split-rel {
    All four were typed HTML entities until 2026-09-01. HARD RULE #29's gate could not see them
    (it matches literal characters, not entities), so they shipped as the exact defect the rule
    describes: the deck's own face carries none of `→ ↻ ↓ ↑`, so each fell back per machine.
-   `align-self: center` on a baseline row keeps the mask centred on the first line's x-height —
+   `align-self: center` on a baseline row keeps the mask centered on the first line's x-height —
    a mask has no baseline of its own to align. */
+/* Inline-block so it joins line one's line box (see the block/flex correction above). The gap
+   to the text is `padding-right`, never a margin (#20) — and the mask is clipped to the CONTENT
+   box so that padding stays empty instead of stretching the shape across it. `-0.16em` sets the
+   drawn arrow on the text's optical center rather than its baseline; a mask has no baseline of
+   its own to align to. */
 .lat-split-rel[data-mark]:not([data-mark="count"])::before {
-  content: ""; flex: none; align-self: center; width: 1.05em; height: 1.05em;
+  content: ""; display: inline-block; width: 1.05em; height: 1.05em;
+  vertical-align: -0.16em;
+  padding-right: 0.45em;
   background-color: currentColor;
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-origin: content-box; mask-origin: content-box;
+  -webkit-mask-clip: content-box; mask-clip: content-box;
 }
 .lat-split-rel[data-mark="next"]::before {
   -webkit-mask: var(--shape-arrow-right) var(--shape-paint);

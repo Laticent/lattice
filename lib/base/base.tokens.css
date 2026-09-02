@@ -1529,3 +1529,57 @@ section[data-cards-coda="center"]:has(> .cell-coda)  { --cards-align: center; }
 section[data-cards-coda="stretch"]:has(> .cell-coda) { --cards-align: stretch; }
 section[data-cards-coda="top"]:has(> .cell-coda)     { --cards-align: flex-start; }
 section[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-evenly; }
+
+/* ── Split-page RUNHEAD register — one setting, seven consumers ───────────────────────
+ * The runhead is the mark that names the slide a split page came from
+ * (`.split-runhead`, lib/core/split-envelope.js). Six components scope their own copy of its
+ * finish to their own points class, and the composed closing page carries a seventh in
+ * base.modifiers.css — seven rules that had drifted to five different settings while all
+ * meaning the same thing. These four tokens are that setting; a component that WANTS to
+ * diverge overrides the property directly (compare-code paints its runhead `--accent` and
+ * compare-table `--text-label`, both deliberately, and both keep doing so).
+ *
+ * THE SETTING CHANGED 2026-09-02, on owner review of real social-size renders. It was
+ * `--fs-meta` + `text-transform: uppercase` + `0.2em` tracking + `--text-muted`, in whatever
+ * face the section handed down. Wide-tracked uppercase is a treatment for a one-to-three-word
+ * label; the runhead is fed a slide TITLE, so "The evaluation came down to three things"
+ * arrived as a two-line wall of letter-spaced capitals — 110px tall on
+ * `examples/read-across-carousel.md` against 62px for a three-word one. It was the least
+ * readable type on the page, and it was furniture.
+ *
+ * Every runhead in that deck is now ONE line, 62px, measured. The readability came from case,
+ * tracking, ink and FACE — not from size:
+ *   · case `none` and tracking 0.01em: 0.2em at this size adds ~6px between every pair of
+ *     glyphs, which is a display device, not a legibility one.
+ *   · `--runhead-face` is `--font-body`, NOT `--font-label`. The label face is documented two
+ *     hundred lines up as "the label voice — small uppercase tracked labels", and a de-
+ *     capitalized runhead is no longer one of those; it is a standfirst. It also defaults to
+ *     the MONO face, where dropping uppercase saves no width at all (a monospace advance is
+ *     the same either way) — the wrap only broke when the face went proportional.
+ *   · `--text-secondary` (7.71:1) over `--text-muted` (5.13:1), for the same reason the
+ *     pointer took it: these decks are read small in a feed.
+ *
+ * THE SIZE STAYS `--fs-meta`, and that is a measurement, not a shrug. A rung up to
+ * `--fs-body-compact` was built and rendered: the long runheads wrap again (62 / 78 / 142px
+ * across the same deck). A runhead that wraps has stopped being furniture, so the rung costs
+ * more than it buys — and it keeps the mark quieter than the content it sits over, which is
+ * the job. The pointer, alone in a margin with nothing to compete with, does take the rung.
+ *
+ * THE SIZE IS DELIBERATELY NOT IN THIS REGISTER, and the reason is a trap worth knowing.
+ * `--runhead-fs: var(--fs-meta)` declared HERE resolved to 13.61px on a runhead whose own
+ * `font-size: var(--fs-body-compact)` resolved to 39.96px on the same element, in the same
+ * document — measured, not reasoned. `--fs-*` are `cqi` values, and a container-relative length
+ * laundered through a SECOND custom property at `:root` is resolved against the ROOT's query
+ * container rather than the using element's, so the indirection silently shrinks it to a third.
+ * (`em` does not behave this way — `--runhead-ls` below is font-relative and resolves at the
+ * element, verified in the same probe. The hazard is specific to container units.) So each of
+ * the seven rules names `var(--fs-meta)` directly: one ladder token (#4), written seven times,
+ * rather than one register entry that quietly means something else.
+ *
+ * Palette-blind (#3); every value is a token. */
+:root {
+  --runhead-face: var(--font-body);
+  --runhead-ls: 0.01em;
+  --runhead-case: none;
+  --runhead-ink: var(--text-secondary);
+}

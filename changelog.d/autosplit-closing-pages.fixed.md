@@ -56,3 +56,24 @@
   which is the class most likely to be broken. The stated reason (keyframe percentages) never
   applied: those parse as ordinary selector lists. A keyframe step is now excluded by being inside
   a keyframes block, which is the real reason to skip it, and everything else reaches the browser.
+- **Changed: the furniture on a split page is redesigned for a slide read small.** Owner review of
+  real social-size renders. The forward pointer is a margin marker in the bottom-right, one rung up
+  the type ladder, at 7.71:1 instead of 5.13:1, with its tracking cut and its rule dropped. The
+  runhead that names the source slide loses the wide-tracked uppercase treatment it was wearing —
+  it is fed a slide TITLE, and 0.2em capitals turned a forty-character title into a two-line wall;
+  it is a normal-case standfirst in the body face now, and every runhead in
+  `examples/read-across-carousel.md` fits on one line. The k-of-N rail's off state was a ghost at
+  0.22 opacity and read as a broken hairline rather than as progress. The page's own caption takes
+  the same ink lift, and nothing else — a wider caption is what put CONTENT CLIPPED on six pages
+  once already. Seven scoped copies of the runhead's finish now read one register.
+- **Fixed: a split page's forward pointer stranded its arrow at the far left of the page whenever
+  the text wrapped.** The mark was a flex sibling of the text; a text item wider than its row
+  shrinks to exactly the space left over, so there is no free space for `justify-content: flex-end`
+  to distribute and the mark stays at the row's left edge while the text is pushed right — 390px
+  apart on a 972px row. It is an inline mark in the text flow now, right-aligned with line one at
+  any width.
+- **Fixed: a split `journey` stage sat high on its page with both legends stranded near the floor.**
+  Three parts each took their own share of the height instead of composing: the board fills the
+  cell, the stack fills the board, and the stage's rows fill the stack, so the cell's own centering
+  had nothing left to center. On a split page all three stop growing and the board centers the
+  stage and its legends as one group. The unsplit render is byte-identical.

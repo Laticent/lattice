@@ -857,6 +857,52 @@ section.journey .journey-vstage[data-section="3"] { --section-accent: var(--cat-
 section.journey .journey-vstage[data-section="4"] { --section-accent: var(--cat-5-mark); }
 section.journey .journey-vstage[data-section="5"] { --section-accent: var(--cat-6-mark); }
 
+/* A STAGE IS ONE OBJECT ON A SPLIT PAGE (owner's call, 2026-09-02).
+ *
+ * Unsplit, a portrait journey stacks every stage down the canvas and each one grows to its
+ * `--span`, so the rows filling their band is right — the bands tile the stage between them.
+ * Split to ONE stage per page that same rule strands it: `.journey-vrows` takes `flex: 1 1 auto`
+ * and centers inside a band that is now the height of the whole stage, so the band pins to the
+ * top, the legends pin to the bottom, and the rows float in between. Measured on
+ * `examples/portrait-journey.md`: a 1484px stage holding 676-739px of ink, with a 307-410px void
+ * ABOVE the rows and an identical one BELOW. Three elements distributed independently rather
+ * than composed — which is exactly what it looked like.
+ *
+ * On a split page the band and its rows are ONE block: the rows stop growing, so the stage's own
+ * free space collects as a single balanced pair of margins around a coherent object instead of
+ * two holes inside it. Scoped to `.lat-split-native` — the unsplit render, where the tiling is
+ * correct, is untouched.
+ *
+ * THAT WAS ONLY HALF OF IT, and the second half is the one the eye actually reads. Stopping the
+ * rows from growing composes the STAGE; the stage then still sat high on the page with the two
+ * legends stranded near the floor, because `.journey-board` is `flex: 1 1 0%` (it fills the
+ * cell) with `justify-content: flex-start`, and `.journey-vstack` inside it is `flex: 1 1 auto`
+ * (it fills the board). Measured: a 1391px board holding one 490px stage, a 261px role legend
+ * and an 84px mood legend, with the stage stretched to 1017px to absorb the difference — so the
+ * cell's own `justify-content: center` had nothing left to center. The three parts were each
+ * being placed on their own.
+ *
+ * The stack stops absorbing and the board centers what is left. Now the stage, the role legend
+ * and the mood legend are ONE group with equal air above and below it, which is what "center the
+ * swim lane" means on a page holding a single lane. Split-only, again: unsplit, the stack
+ * carries every stage and MUST take the free height.
+ *
+ * ALL THREE levels stop growing, and the vstage is the one that cannot be skipped. Its unsplit
+ * rule is `flex: var(--span, 1) 1 0` — a flex-basis of ZERO, deliberately, so that stages share
+ * the column in proportion to their task counts. Freezing the stack alone therefore collapsed
+ * the lane to 0px: the stack's auto height is the sum of its children's bases, and that sum was
+ * zero. Caught on the render, not in review. Content-sizing the vstage is also what makes the
+ * `justify-content: center` this block used to carry unnecessary — with no free space inside the
+ * stage there is nothing left to center, so the declaration went with it. */
+section.journey.lat-split-native .journey-vstage,
+section.journey.lat-split-native .journey-vrows,
+section.journey.lat-split-native .journey-vstack {
+  flex: 0 0 auto;
+}
+section.journey.lat-split-native .journey-board {
+  justify-content: center;
+}
+
 section.journey .journey-vrows {
   display: flex;
   flex-direction: column;
