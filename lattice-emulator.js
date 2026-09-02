@@ -791,6 +791,9 @@ const { MEASURE_ROUGH_INK_SRC, PAINT_ROUGH_INK_SRC } = require('./lib/core/rough
 // comment-directive.js, boundary-parser.js, math-block-rule.js all do it).
 // See engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md.
 const { sanitizeStyleText } = require('./lib/core/sanitize-style-text.mjs');
+// The remote-subresource policy for the LIVE html this run writes — shared with the docs-site
+// preview frames so an author's preview and their reader's file cannot disagree (HARD RULE #1).
+const { subresourceCspMeta } = require('./lib/core/subresource-csp.mjs');
 // Pin /CreationDate + /ModDate on the way out, so re-rendering an unchanged deck
 // writes byte-identical bytes and git stores nothing new (HARD RULE #1: both PDF
 // write sites below call the one kernel).
@@ -3131,6 +3134,10 @@ async function renderBody(browser, g, closeBrowser) {
   // here only because the autosplit loop between here and there may re-render the
   // page, and a capture taken before that would be stale.
   let inflatedPlayerHtml = null;
+  // Did the assembled player actually land at outHtml? Only true after a SUCCESSFUL write
+  // below; a player-assembly failure leaves the clean render there, which does want the
+  // subresource policy.
+  let playerOwnsOutHtml = false;
   // Detect sections whose content exceeds the 1280×720 frame, to WARN the
   // author (with exact pages) — but keep the EXPORT itself clean: the red ring
   // + "OVERFLOWS" tab are NOT burned into the deliverable PDF. A loud red box in
@@ -4120,6 +4127,10 @@ async function renderBody(browser, g, closeBrowser) {
         pruneNotes.push(`  note: player optimization skipped (${e?.message}); shipping full CSS + fonts`);
       }
       fs.writeFileSync(outHtml, finalPlayerHtml);
+      // The player carries its own, STRICTER policy (`default-src 'none'`). Record that it
+      // is what landed at outHtml, so the subresource injection below skips it — see the
+      // note there on why this is a flag and not a text match.
+      playerOwnsOutHtml = true;
       if (!QUIET) {
         console.log(`Player: ${outHtml} (${report.images} image(s) inlined)`);
         // A player is the copy you SEND someone, and it carries your speaker notes by
@@ -4165,6 +4176,48 @@ async function renderBody(browser, g, closeBrowser) {
       toFluidViewer(cleanDocHtml) + exportSettingsBlock({ overflowMarker: OVERFLOW_MARKER.marker }),
     );
     if (!QUIET) console.log(`Fluid viewer: ${outHtml}`);
+  }
+  // ── The LIVE document's remote-subresource policy ────────────────────────────────────
+  // Whatever HTML this run leaves at `outHtml` is a document someone OPENS — the `.html`
+  // deliverable, the `--fluid` viewer, or the sidecar written beside a pdf/pptx/png — and
+  // `--fluid`'s own help calls its output "a single emailable file". A deck's remote image
+  // therefore beacons on the RECIPIENT's machine, on every open: measured, 2 requests from a
+  // plain `.html` and 2 from a `--fluid` export, against 0 from the player. That is the same
+  // harm the preview CSP exists to stop, in a file that has left the building.
+  //
+  // AFTER THE RASTER, DELIBERATELY, and this placement is the whole reason the PDF/PPTX/PNG
+  // bytes do not move: those were rendered from the clean file written above, before this
+  // line. The raster class keeps fetching, which is the decided posture — its fetch happens
+  // on the EXPORTING author's machine and hands the recipient baked pixels, so containing it
+  // would blank a picture the author asked for and buy the recipient nothing.
+  //
+  // SKIPPED ONLY FOR THE ASSEMBLED PLAYER, and decided from STATE rather than from the
+  // document's text. This was `!/http-equiv=["']Content-Security-Policy["']/i.test(live)` —
+  // a match against the WHOLE rendered file, deck body included — and that let a deck switch
+  // off its own export's policy, which is the one actor this control exists to defend
+  // against. Two vectors, both measured firing a beacon:
+  //
+  //   · a raw `<meta http-equiv="Content-Security-Policy">` written in the deck BODY. A CSP
+  //     meta outside <head> is ignored by browsers, so the artifact ended up with no
+  //     effective policy at all;
+  //   · markdown-it's `escapeHtml` does not escape `'`, so an unhighlighted code block, an
+  //     inline code span, or a front-matter `style:` comment carrying
+  //     `http-equiv='Content-Security-Policy'` suppressed it by ACCIDENT, on a deck whose
+  //     author was documenting the feature rather than attacking it.
+  //
+  // A `<head>`-scoped text match would still fall to the second one, because a deck's
+  // `style:` lands in a `<style>` inside <head>. Nothing the deck writes can reach this
+  // flag, which is why the skip is a flag.
+  //
+  // See engineering/decisions/2026-09-01-export-remote-subresource-posture.md.
+  if (!playerOwnsOutHtml && fs.existsSync(outHtml)) {
+    const live = fs.readFileSync(outHtml, 'utf8');
+    // Immediately after `<head>`, because a CSP meta governs only what the parser has not
+    // already reached — a stylesheet link above it is already in flight. Measured on a real
+    // export: the meta lands at byte 56, the charset at 253, the KaTeX <link> at ~865k.
+    const withCsp = live.replace(/<head(\s[^>]*)?>/i, (tag) => `${tag}${subresourceCspMeta()}`);
+    if (withCsp !== live) fs.writeFileSync(outHtml, withCsp);
+    else if (!QUIET) console.warn(`  warning: ${outHtml} has no <head>, so it carries no remote-subresource policy.`);
   }
   // Read-along captions ride alongside ANY output format — a .vtt is a sidecar next to the deck,
   // not baked into its bytes. `--strip-notes` blanks the note channel (materializedNotes) but NOT

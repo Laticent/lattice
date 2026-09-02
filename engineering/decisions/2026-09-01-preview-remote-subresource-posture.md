@@ -12,8 +12,8 @@ summary: >
   sources, deliberately NO `default-src` so script and style loading are untouched. Measured
   before/after on the real assembled srcdoc: 3 beacon requests to 0, payload still in the DOM.
   Cost measured at zero — no shipped deck references a remote image. The full Playground round
-  trip is UNVERIFIED here: the docs e2e suite fails identically with and without the change in
-  this sandbox.
+  trip is now driven on the real app: 4 beacon requests with the meta neutered, 0 with it,
+  payload present in the DOM both times, pinned by docs/e2e/preview-remote-subresource.spec.ts.
 ---
 
 # The preview frame's remote-subresource posture
@@ -139,40 +139,63 @@ font origin follows `katexUrl`, and a **census** asserting all three builders ca
 `previewCspMeta`. The census is by source text because two builders are not Node-importable —
 the same shape #22's own guards use, for the same reason.
 
-## UNVERIFIED, and stated rather than glossed
+## The Playground round trip, driven
 
-**The full Playground round trip was not driven here.** The docs e2e suite cannot render a
-seeded deck in this sandbox: `docs/e2e/mermaid-post-sanitize.spec.ts` fails identically **with
-and without** this change (11/11, `locator('#preview').contentFrame().locator('.lattice')`
-never appears), so the failure is environmental and pre-existing, not caused by this work — but
-it also means the browser-level assertion above rests on the assembled document rather than on
-the Playground shell around it. The document under test is the real one the frame receives; the
-shell is not exercised. Re-run `docs/e2e/` on a machine where that suite is green before
-treating the Playground round trip as covered.
+**Measured on the real running Playground**, not on the assembled document: the built docs
+site served by `astro preview`, a deck seeded as the visitor's draft carrying all three
+vectors, request interception on `attacker.invalid`, Chromium.
 
-**The deployed Cloudflare Pages preview was tried too, and is also out of reach from here** —
-recorded so nobody spends the time again. The PR bot posts a per-commit deployment
-(`https://<hash>.lattice-docs-5ji.pages.dev`) which *is* the real deployed Playground and would
-settle this. `curl` reaches it (HTTP 200); **Chromium cannot** — `net::ERR_CONNECTION_RESET`,
-with and without `--proxy-server=$HTTPS_PROXY`. The sandbox allows the CLI fetcher out and not
-the browser, so the one surface that would close the gap is exactly the one a headless browser
-here cannot open. On a machine with ordinary network access, driving that preview URL is the
-cheapest way to finish this verification — no local docs build required.
+| | beacon requests | payload elements in the frame DOM |
+|---|---|---|
+| with the CSP (shipped) | **0** | 3 |
+| with `previewCspMeta` neutered in the served bundle | **4–5** | 3 |
+
+More than three in the control because a blocked image is re-requested on re-render: two
+independent runs of the same probe measured 4 and 5, against three distinct URLs. The number is
+a floor on "the probe can see a beacon when one fires", not a fixed count — do not pin it. The payload is in
+the DOM both times, so the fetch is refused rather than the markup rewritten, and the probe
+is demonstrably able to see a beacon when one fires. Zero page errors either way — the CSP
+starves no directive the app needs.
+
+**Pinned by `docs/e2e/preview-remote-subresource.spec.ts`**, which is the same measurement as
+a spec: it reads the CSP off the LIVE frame document (not off the builder), settles on
+`img.complete` rather than a fixed wait — a refused load still completes, so the absence
+assertion has a real signal to poll — and asserts both that the payload survived and that
+nothing was fetched. Run red against the same neutered bundle.
+
+**What this cost to learn, recorded so nobody re-pays it.** The prior session concluded the
+docs e2e suite "cannot render a seeded deck in this sandbox" from
+`mermaid-post-sanitize.spec.ts` failing 11/11 with `.lattice` never appearing. That
+conclusion was too wide by one step: THAT suite loads the real Mermaid from the CDN the
+preview names, which this sandbox cannot reach, so its preview never settles. A seeded deck
+with no Mermaid in it renders here in about three seconds. The deployed Cloudflare Pages
+preview remains out of reach for a browser (`net::ERR_CONNECTION_RESET`, with and without
+`--proxy-server=$HTTPS_PROXY`, while `curl` gets HTTP 200) — but it is no longer the only
+route to a real Playground.
 
 ## What this does not do
 
 Script execution out of a preview frame is #22's territory and is covered elsewhere (#1752,
 `2026-08-18-post-sanitize-injection-queue.md` §3.1). This record is about resource loads only.
 
-**It does not contain EXPORTS, on either path, and that is the open question this leaves.** The
-CLI (`lattice-emulator.js`) emits no CSP into the documents it rasterizes, and the Studio's
-capture frame now explicitly opts out to match it. So a deck carrying a remote image still
-fetches it while a `.pdf` / `.pptx` / `.png` is being produced — which leaks the *exporting
-author's* IP, not a recipient's, and that is a materially weaker harm than the preview case: the
-author chose the deck and chose to export it. It is still a real question for a deck that
-arrived from someone else, and the answer has to cover both export paths at once or it just
-recreates the CLI/Studio divergence in the other direction. Deciding it means moving exported
-bytes, so it needs its own change and its own sign-off.
+**It did not contain EXPORTS, and that open question is now SETTLED — see
+`2026-09-01-export-remote-subresource-posture.md`.** Read that record before quoting this
+paragraph, because the framing this one used was measurably wrong in half the cases.
+
+It said the export harm is "materially weaker — it leaks the *exporting author's* IP, not a
+recipient's". True of the RASTER artifacts (pdf/pptx/png), where the fetch happens on the
+author's machine and the recipient receives baked pixels. **False of the CLI's `.html` and
+`--fluid` exports**, which are LIVE DOCUMENTS a recipient opens — `--fluid`'s own `--help` calls
+its output "a single emailable file" — and which fired 2 requests each on the recipient's
+machine, measured. That is the same harm this record was written to stop, in a file that has
+left the building.
+
+The decision there: contain the live class, leave the raster class fetching. And the standing
+objection this paragraph raised — that any answer must cover both export paths or recreate the
+CLI/Studio divergence — does not bite, because the classes do not straddle the two paths the
+same way. The live class is CLI-only (the Studio's sole HTML export is the player, already
+contained), so containing it REMOVES a divergence; the raster class has one on each path, and
+they stay together by staying untouched.
 
 The exported **player** is the one artifact already contained (`img-src data:`), and that
 predates this work.
