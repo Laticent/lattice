@@ -86,8 +86,8 @@ node tools/check-jank.js "divider numbered" --anchor 'h2::after' --style 'sectio
 The positional is the whole `_class` string, modifiers included — sweeping the modifier
 that owns the anchor is the normal case. `--anchor` is a CSS selector resolved inside the
 section, and a trailing `::before` / `::after` names a pseudo, which is what an
-engine-drawn mark usually is. `--help` is the tool's header; every flag is documented
-there.
+engine-drawn mark usually is. `--help` prints the flags and exits 0; the tool's
+header is the long form of each.
 
 **`--style` is the lever that turns a description into evidence.** It injects CSS through
 the deck's own front-matter `style:`, so you can sweep once as shipped and once with the
@@ -164,7 +164,10 @@ different `--axis` rather than banking the green.
 - **A generated box is not a child**, and the first version of that walk could not see one:
   a pseudo painting chrome on a text-free wrapper was simply absent from the ink, and a
   hard, full-width overlap with the anchor reported `COLLISION none` and exit 0. Positioned
-  pseudos are now reconstructed and folded in. An in-flow one **offset by `relative`** still
+  pseudos are now reconstructed and folded in, and the **descent continues past a painting
+  box** — stopping there left 66 positioned pseudos in the shipped gallery unseen, with no
+  `UNPLACED` note, which is the same false clean one level down. An in-flow one **offset by
+  `relative`** still
   cannot be placed — the DOM does not expose a pseudo's static position — so it is counted
   and printed as `UNPLACED`, and the clean line stops saying `ok`. A rig that cannot see
   something must say so rather than certify around it.
