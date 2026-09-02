@@ -2739,80 +2739,26 @@ section[data-split-role="cover"][data-split-role="cover"] .tile-progress .dot.on
   opacity: 0.9;
 }
 
-/* ── Shared split INSIGHT page (lib/core/split-envelope.js) ────────────────────────
-   The envelope's optional final beat: a trailing key-insight `<blockquote>` gets its OWN
-   page — never shared with the note or the body (owner review, 2026-07-26; §0a, rule 9).
-   It is the run's TAKEAWAY, not a caption, so unlike the note (below) it earns a page to
-   itself: vertically centered, and sized up a rung, so it reads as a small climax rather
-   than a paragraph stranded in a tall empty stage, matching the read-across family's own
-   precedent for a dedicated closing frame. (That precedent was `compare-split-verdict` in
-   compare-prose.styles.css; the selector was DELETED on 2026-09-02 when `cover-sides` stopped
-   building a page of its own and its trailing note moved to the shared closing page, so the
-   citation is history rather than a pointer to follow.)
-   Deliberately NOT a second accent field: it keeps the run's
-   own layout class, masthead and content cell, so the blockquote wears the SAME "KEY
-   INSIGHT" panel it always has (the base rule above, scoped `section.<layout> >
-   blockquote`) — only its placement and size change. Palette-blind; no new color, no
-   margin (#3, #20).
+/* ── The split INSIGHT page is RETIRED (2026-09-02) ────────────────────────────────────
+   A trailing key insight used to get a page of its own — `insightPage` / `insightPageFrom`
+   built it, `.lat-split-insight` styled it, and four selectors here gave it a collapsed stage,
+   a centered coda and a size bump. The 2026-09-01 ruling puts the insight on the run's CLOSING
+   page beside the below-note instead; both builders were deleted with their last caller, and a
+   census across four galleries measured zero pages carrying either the role or the class. Four
+   selectors shipping in `dist/lattice.css` with nothing to match is dead weight the next reader
+   has to disprove, which is the same argument this change makes when it deletes
+   `compare-split-verdict`. The geometry survives unchanged in the closing-page block below,
+   where it was always measured.
 
-   SIZE: `--fs-emphasis` is not a new value picked for this — it is ALREADY documented
-   (engineering/typography.md) as "Lead paragraph, key-insight callout, step-forward
-   block. *One* block per slide that should read first," which is exactly this page now
-   that key insight is never shared with anything else (HARD RULE #15 — reuse the token
-   the scale already reserved for this, don't invent one).
-
-   SPECIFICITY: the doubled `.lat-split-insight` on the FIRST rule below is a deliberate
-   weight bump (the same idiom as `section.decision.decision`, `section.verdict-grid
-   .verdict-grid`, `section.list.list`), NOT a typo — components legitimately own their
-   stage's placement at up to (0,3,1) (`section.inventory.cards > .cell-stage {
-   justify-content: safe center }`, `section.list-steps.timeline`) and would otherwise win.
-
-   The SECOND rule (the font-size) USED TO NEED A MUCH BIGGER BUMP, and the reason it no
-   longer does is worth recording, because the fix was not to this rule.
-
-   The base KEY INSIGHT rule was `section:not(.quote):not(.math):not(.citation-card)
-   :not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"])
-   > .cell-stage > blockquote p` — SEVEN `:not()` clauses plus `.cell-stage`, eight
-   class-level units, because a `:not(.X)` costs the same specificity as `.X`. That is an
-   accidental weight: nothing about the panel's styling wanted to win a fight, the number
-   was a side effect of enumerating exclusions IN THE SELECTOR. It beat this rule outright
-   on 13 of the 15 enrolled components (measured with `CSS.getMatchedStylesForNode`; only
-   `inventory` and `policy-recommendation` escaped, by being in that rule's own exclusion
-   list), so the insight rendered at `--fs-body` and never reached `--fs-emphasis`. The
-   answer at the time was to out-specify it: `.lat-split-insight` five times, `.form`
-   twice, `.cell-stage` twice — nine units.
-
-   The exclusions are DECLARED now (`coda.claims`, lib/core/coda.js), so the base rule is
-   `section .cell-coda > blockquote p` — ONE class-level unit. The nine-unit stack was
-   answering a problem that no longer exists, and keeping it would leave a rule nobody
-   could safely touch guarding against a chain that is gone. It is back to the ordinary
-   bump: a doubled `.lat-split-insight` clears the (0,3,1) a component legitimately owns
-   on its own stage, and `.cell-coda` in the path adds the unit that settles it. Layering
-   is still not available (HARD RULE #26 — the bundle is never half-layered), so the weight
-   stays explicit; it is simply no longer extreme. */
-/* The stage on an insight page is EMPTY — the beat is the page's content and rides the
-   coda Cell beside it, since the frame peels that cell out of the stage wrap. So the
-   centering that used to live here has to move one cell over: an empty `flex: 1 1 auto`
-   stage would eat the whole column and strand the beat on the floor. The stage stops
-   growing, the CELL takes the slack, and it centers its own one child — which is what
-   this rule has always been for, on the element that now holds the thing. */
-section.form.lat-split-insight.lat-split-insight > .cell-stage {
-  flex: 0 0 auto;
-  align-items: stretch;   /* a component's centered stage would otherwise shrink-wrap the cell */
-}
-/* An insight PAGE is the beat by itself — there is no body above it for the band to sit
-   under, so the step that separates them has nothing to separate. Zero it, or the cell's
-   `--coda-step` pushes the one thing on the page off its optical center. */
-section.form.lat-split-insight.lat-split-insight > .cell-coda {
-  padding-top: 0;
-  flex: 1 1 auto;
-  justify-content: center;
-}
-section.form.lat-split-insight.lat-split-insight > .cell-coda > blockquote p,
-section.form.lat-split-insight.lat-split-insight > .cell-coda > blockquote li {
-  font-size: var(--fs-emphasis); line-height: var(--lh-snug);
-}
-
+   ONE THING FROM THAT BLOCK IS WORTH KEEPING, because it is about a rule that still exists.
+   The base KEY INSIGHT panel rule used to be `section:not(.quote):not(.math)…> .cell-stage >
+   blockquote p` — seven `:not()` clauses, eight class-level units, because `:not(.X)` costs the
+   same as `.X`. That weight was an accident of enumerating exclusions IN THE SELECTOR, and it
+   beat the insight page's own font-size rule on 13 of 15 components (measured with
+   `CSS.getMatchedStylesForNode`), which is why that rule once carried a nine-unit stack. The
+   exclusions are DECLARED now (`coda.claims`, lib/core/coda.js), so the base rule is
+   `section .cell-coda > blockquote p` — one unit. The stack it forced is gone with the page it
+   defended. */
 /* ── The split run's CLOSING page (lib/core/split-envelope.js `closingPage`) ────────────
    A split run opens on an accent cover and ENDS on a page that carries what the section
    said ABOUT its content — the below-note, the key insight, and the `<!-- annotation: -->`

@@ -435,6 +435,56 @@ change to the gate is a separate decision and is not made here.
   asserted. This is the failure this note is about, one layer down — a check whose population
   came from its author's memory rather than from the engine.
 
+- **A claimed element is the component's own anatomy, and the split kernel now asks — FIXED
+  2026-09-02, after it shipped a regression on a gallery.** The trailing scan classified by
+  element SHAPE alone: a `<blockquote>` is a key insight, a `<p>` is a below-note. That is only
+  true of a layout which has not CLAIMED the element. `coda.claims` is exactly that declaration
+  and twenty-nine components carry one. `redline` claims `blockquote`, and its two passages ARE
+  blockquotes — so on a redline slide with no optional why-list to terminate the backward walk,
+  the whole trailing run (both passages AND the citation) was read as beats and moved to the
+  closing page, leaving two body pages carrying nothing but a heading. It shipped on
+  `lib/components/legal/legal.gallery.md` slide 31 and no gate saw it: content was conserved, only
+  its placement was destroyed, and both redline fixtures happen to carry the why-list.
+  **The claim is honored only where honoring it is safe, and that line is the interesting part.**
+  A SOURCE-SLICE strategy (`redline-blocks`, `kanban-lanes`, `roadmap-horizons`) re-emits the
+  section's own markup, so a claimed element stays on a body page in its component's treatment.
+  A RE-AUTHORING strategy rebuilds its body from parsed parts, so an element its parser does not
+  read reaches NO page — and `split-panel` claims BOTH beats and renders NEITHER, sweeping them
+  into `.panel-right` unstyled (one of the swallowed cases `lib/core/coda.js` exists to end).
+  Honoring that claim would have restored the outright loss the closing page was built to fix. So
+  the question is not "did the layout claim it" but "would this text survive if I left it", and
+  the answer differs by strategy shape. Only the BARE shapes are gated; a `.below-note` wrapper
+  and a `.cell-coda` are the harvest's own output, and the harvest runs only where the beat is
+  rendered.
+  A consequence worth stating: a third `<blockquote>` on a redline slide no longer gets a page of
+  its own. It rides the last body page, once, as another passage — which is what the unsplit
+  slide does with it.
+- **The gates' sentinels were in an order the engine cannot emit.** Both the conservation gate and
+  the closing-page gate appended `NOTE + INSIGHT`. `coda.js`'s `BEATS` is `['key-insight',
+  'below-note']` and its comment says the insight "can never come after the note"; `harvestBody`
+  peels the tail in that order, so a `.below-note` wrapper before a bare blockquote is a shape no
+  author can author and no harvest can emit. It was harmless while nothing depended on order, and
+  stopped being harmless the moment the scan began asking `coda.claims` — the walk is over a
+  CONTIGUOUS run, so a claimed element at the very end terminates it, and the inverted sentinels
+  hid a note behind `redline`'s claimed blockquote. That read as a duplication defect in the
+  engine rather than a defect in the fixture. The order is derived from `BEATS` now.
+- **The `insight` split role and its two builders are RETIRED (2026-09-02).** `insightPage` and
+  `insightPageFrom` each built a page for a trailing key insight ALONE — the 2026-07-26 placement
+  this note supersedes. Removing the carousel hoist took the last caller, and a census across four
+  galleries measured zero `data-split-role="insight"` pages emitted anywhere. Both functions, the
+  role itself, and the four `.lat-split-insight` selectors that shipped in `dist/lattice.css` are
+  gone; the half-span regression pins they carried MOVED onto `closingPageFromMaterial`, which
+  unwraps a coda-cell span and so depends on the same whole-cell invariant. Retiring the pins with
+  their old caller would have kept the hazard and dropped the coverage.
+- **`codaSpans` keeps only the FIRST blockquote of a coda cell holding two.** `kids.find(isKeyInsightEl)`
+  takes one, so the composed closing page unwraps a cell rewritten to hold that one and the second
+  is dropped. NOT REACHABLE through the engine: `harvestBody` takes at most one blockquote plus one
+  paragraph, and a real render of two trailing blockquotes emits no cell at all (all of them land as
+  bare siblings and all survive — measured). Reachable only from author-written raw
+  `<div class="cell-coda">` markup. The subtractive `closingPage` is immune because it keeps the whole
+  cell; this is a hazard the composed builder introduces. Logged per HARD RULE #18's off-path arm
+  rather than fixed, because fixing it means deciding what two key insights on one slide MEAN, which
+  is a `coda` decision and not this change's. Found by the HARD RULE #25 checker.
 - **The trigger is UNCONDITIONAL, and nothing bounds a run's length.** A slide splits at two
   members, whether or not it fit: there is no threshold, no cap, and no author opt-out — the
   `autosplit:` directive was retired on 2026-07-29 and `--no-split` is instrumentation, not

@@ -13,13 +13,16 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { carouselize, readSubjects, readFeature, readRows, CAROUSEL_STRATEGIES } = require('../../../lib/core/carousel');
+const { carouselize, readSubjects, readFeature, readRows, CAROUSEL_STRATEGIES, SOURCE_SLICE_STRATEGIES } = require('../../../lib/core/carousel');
 const { splitSections } = require('../../../lib/core/split-sections');
 // The content-cell reader + depth-aware top-level walk the engine itself uses to place
 // trailing material — the rule-6 gate below appends its sentinels at the SAME position
 // rather than guessing one (HARD RULE #15).
 const { extractStage } = require('../../../lib/core/below-note');
 const { topLevelElements } = require('../../../lib/core/split-envelope');
+// The engine's own beat ORDER — the sentinels below are assembled from it, not typed in an
+// order someone remembered (HARD RULE #15).
+const { BEATS, rendersBeat } = require('../../../lib/core/coda');
 
 const fixture = fs.readFileSync(path.join(__dirname, 'fixtures/compare-prose.rendered.html'), 'utf8');
 const [section] = splitSections(fixture).filter((p) => p.type === 'section');
@@ -490,7 +493,7 @@ describe('core: carousel — redline-blocks (redline portrait SPLIT)', () => {
     assert.equal(carouselize(rlTag, one, rlRecipe), null);
   });
 
-  test('a THIRD blockquote is the key insight — its own closing page, printed ONCE', () => {
+  test('a THIRD blockquote is redline\'s own passage, not a beat — it rides page 2, printed ONCE', () => {
     // FM-2 by another route, and the one the rule-6 conservation gate structurally cannot see:
     // a third top-level blockquote was in neither drop-set, so it survived on BOTH pages, and
     // the hoist's containment check then found its text already emitted and stood down. The
@@ -501,8 +504,17 @@ describe('core: carousel — redline-blocks (redline portrait SPLIT)', () => {
     );
     const out = carouselize(rlTag, withInsight, rlRecipe);
     const copies = out.join('').split('One duty is cheaper to audit').length - 1;
-    assert.equal(copies, 1, 'the key insight appears exactly once across the run');
-    assert.equal(out.filter((p) => /\sdata-split-role="closing"/.test(p)).length, 1);
+    assert.equal(copies, 1, 'the extra blockquote appears exactly once across the run');
+    // IT DOES NOT GET A CLOSING PAGE, and that changed on 2026-09-02 for a reason worth keeping.
+    // `redline` declares `coda.claims: ["blockquote"]` — it renders blockquotes as its OWN
+    // passages, which is why the coda harvest steps over them and why an author's `> …` on a
+    // redline slide is a passage rather than a KEY INSIGHT panel. Promoting a third one to a
+    // closing page invented a beat the unsplit slide never had, and the same shape-only
+    // classification was simultaneously moving BOTH passages off their pages when the optional
+    // why-list was absent. It rides the last body page instead: present, once, in its own
+    // component's treatment.
+    assert.equal(out.filter((p) => /\sdata-split-role="closing"/.test(p)).length, 0,
+      'a claimed blockquote must not be promoted to a closing page');
     assert.match(out.at(-1), /One duty is cheaper to audit/);
     // …and the two passages are still where they belong.
     assert.match(out[0], /blockquote class="rl-old"/);
@@ -733,6 +745,23 @@ describe('core: carousel — no strategy drops content (§8 rule 6)', () => {
 
   const SENTINEL_INSIGHT = '<blockquote><p>Zq the run takeaway sentinel.</p></blockquote>';
   const SENTINEL_NOTE = '<div class="below-note"><p>Zn the footnote sentinel.</p></div>';
+  // IN THE ENGINE'S OWN BEAT ORDER, derived from `coda.js` rather than typed here.
+  //
+  // This gate appended NOTE + INSIGHT, which is an order the engine cannot produce. `harvestBody`
+  // peels the tail as "an optional trailing `<p>` (the note), then an optional `<blockquote>`
+  // before it (the insight)" — BEATS is `['key-insight', 'below-note']` and its comment says the
+  // insight "can never come after the note". A `.below-note` wrapper sitting before a bare
+  // blockquote is therefore a shape no author can author and no harvest can emit, which is the
+  // thing this gate's own docblock warns against two paragraphs above ("Hand-placing it anywhere
+  // else … tests a shape the engine never emits").
+  //
+  // It went unnoticed while nothing depended on order. It stopped being harmless the moment the
+  // trailing scan began asking a layout's `coda.claims`: the scan walks BACKWARD over a
+  // CONTIGUOUS run, so a claimed element at the very end terminates it — and with the beats
+  // inverted, `redline`'s claimed blockquote sat last and hid the note behind it, which read as a
+  // duplication defect in the engine rather than a defect in the fixture.
+  const SENTINEL_FOR = { 'key-insight': SENTINEL_INSIGHT, 'below-note': SENTINEL_NOTE };
+  const BOTH_BEATS = BEATS.map((b) => SENTINEL_FOR[b]).join('');
 
   // Append at the END OF THE CONTENT CELL — where below-note.js places trailing material on a
   // `.cell-stage` slide, and the end of the section otherwise. Hand-placing it anywhere else
@@ -753,7 +782,7 @@ describe('core: carousel — no strategy drops content (§8 rule 6)', () => {
     // so a fixture that already has one gets its own replaced rather than a second added.
     ['+note+insight', (inner) => withTrailing(
       inner.replace(/<div class="below-note">[\s\S]*?<\/div>\s*<\/div>|<div class="below-note">[\s\S]*?<\/div>/, ''),
-      SENTINEL_NOTE + SENTINEL_INSIGHT,
+      BOTH_BEATS,
     )],
   ];
 
@@ -815,6 +844,10 @@ describe('core: carousel — no strategy drops content (§8 rule 6)', () => {
 describe('core: carousel — the run closes on ONE page carrying both beats (2026-09-01)', () => {
   const INSIGHT = '<blockquote><p>Zq the run takeaway sentinel.</p></blockquote>';
   const NOTE = '<div class="below-note"><p>Zn the footnote sentinel.</p></div>';
+  // The engine's beat order, from `coda.js` — see the rule-6 gate above for why typing it here
+  // instead produced a shape no harvest can emit.
+  const SENTINEL_FOR = { 'key-insight': INSIGHT, 'below-note': NOTE };
+  const BOTH = BEATS.map((b) => SENTINEL_FOR[b]).join('');
   // The same placement `withTrailing` uses in the conservation gate — the end of the content
   // cell, which is where the engine renders trailing material. Duplicated here rather than
   // shared because the two describes are independent gates; if they ever disagree about where
@@ -831,19 +864,42 @@ describe('core: carousel — the run closes on ONE page carrying both beats (202
   // below-note.js wraps ONE trailing region, so two would be a shape the engine never emits.
   const withBothBeats = (inner) => atCellEnd(
     inner.replace(/<div class="below-note">[\s\S]*?<\/div>\s*<\/div>|<div class="below-note">[\s\S]*?<\/div>/, ''),
-    NOTE + INSIGHT,
+    BOTH,
   );
 
+  // WHICH beats a layout hoists is the layout's own declaration, and the expectation is read from
+  // it rather than assumed uniform. A SOURCE-SLICE strategy (`SOURCE_SLICE_STRATEGIES`) re-emits
+  // the section's markup, so a shape the component CLAIMS stays on a body page in that
+  // component's own treatment — `redline` claims `blockquote`, and hoisting its passages is what
+  // emptied two body pages onto a closing page. A re-authoring strategy rebuilds its body, so an
+  // unparsed element reaches no page at all and every shape is hoisted whatever the manifest says.
+  //
+  // Only the BARE shapes are gated. The NOTE sentinel is a `.below-note` WRAPPER, which is the
+  // coda harvest's own output — the harvest runs only where the beat is rendered, so its presence
+  // is already the answer and the kernel hoists it unconditionally. The INSIGHT sentinel is a bare
+  // `<blockquote>`, which is the shape a claim can speak for.
+  const hoists = (name, tag, beat) => (beat === 'below-note'
+    || !SOURCE_SLICE_STRATEGIES.has(name)
+    || rendersBeat(clsOf(tag), beat));
+  // …and the expectation must not be able to go vacuous: most cases must still carry both.
+  test('the closing-page expectation is not vacuous — most strategies hoist both beats', () => {
+    const both = STRATEGY_CASES.filter(([n, t]) => hoists(n, t, 'key-insight') && hoists(n, t, 'below-note'));
+    assert.ok(both.length >= STRATEGY_CASES.length - 1,
+      `only ${both.length}/${STRATEGY_CASES.length} cases expect both beats — the arm below is weakening`);
+  });
+
   for (const [name, tag, inner, rec] of STRATEGY_CASES) {
-    test(`${name}: both beats land on ONE closing page, and it is last`, () => {
+    test(`${name}: the beats it hoists land on ONE closing page, and it is last`, () => {
       const parts = carouselize(tag, withBothBeats(inner), rec, 2, name);
       assert.ok(Array.isArray(parts) && parts.length >= 2, `${name}: expected a split`);
+      const wantInsight = hoists(name, tag, 'key-insight');
+      const wantNote = hoists(name, tag, 'below-note');
       const closing = parts.filter((p) => roleOf(p) === 'closing');
       assert.equal(closing.length, 1, `${name}: expected exactly one closing page, got ${closing.length} ` +
         `(roles: ${parts.map(roleOf).join(',')})`);
       assert.equal(roleOf(parts.at(-1)), 'closing', `${name}: the closing page is not last`);
-      assert.match(closing[0], /Zq the run takeaway sentinel/, `${name}: the key insight is not on the closing page`);
-      assert.match(closing[0], /Zn the footnote sentinel/, `${name}: the below-note is not on the closing page`);
+      if (wantInsight) assert.match(closing[0], /Zq the run takeaway sentinel/, `${name}: the key insight is not on the closing page`);
+      if (wantNote) assert.match(closing[0], /Zn the footnote sentinel/, `${name}: the below-note is not on the closing page`);
       // TOGETHER means the same page, and there must be no `insight`-role page left over —
       // that role is what the retired placement used for the takeaway's separate beat.
       assert.equal(parts.filter((p) => roleOf(p) === 'insight').length, 0,
