@@ -287,43 +287,65 @@ re-derived before being recorded.
 
 ## 8. Verified on the real surface — and what is still not
 
-**The core claim now has a real-surface artifact.** `docs/e2e/anima-motion-frames.spec.ts`
-drives the **real Playground on the built site** — not a harness — with a real `funnel` deck, and
-measures three things against the **live** marks (`.scene-live`, the animated copy; the figure's
-first svg is a `display:none` poster whose attributes never move):
+**The core claim has a real-surface artifact.** `docs/e2e/anima-motion-frames.spec.ts` drives the
+**real Playground on the built site** — not a harness — with a real `funnel` deck, and measures the
+**live** marks. (`.scene-live` holds the animated copy; the figure's first svg is a `display:none`
+poster whose `opacity` is never written, so a bare `[data-anima-role]` selector reads frozen nulls.)
 
 | Claim | Measured on the real Playground |
 |---|---|
-| The shipped painter emits an ordered frame sequence | **169 distinct frames** over 4 real bands; every mark monotonic non-decreasing; staggered in reading order; settles at `[1,1,1,1]` |
-| anime.js can paint every frame our model emits | **676 value comparisons**, max delta **4.98e-7** — 0.00013 of one 8-bit opacity step, so the two cannot differ by a pixel |
-| `createDrawable` needs no geometry measurement | it stamps `pathLength="1000"` on a real funnel polygon and works in normalized units — never calling the `getTotalLength()` that throws in jsdom and silently disabled Vivus |
-| A frame is a deterministic still | seeking to the same frame from three different journeys (forward, from 0, from the end) yields the identical `stroke-dasharray` |
+| The build really runs, ordered | every mark observed **below 1** mid-reveal, monotonic non-decreasing, and each band completes **strictly after** the one above it |
+| anime.js loses nothing as a painter | every frame value our painter emitted, written through `anime.utils.set` and read back, within **~5e-7** — 4 orders of magnitude inside one 8-bit opacity step |
+| `createDrawable` needs no geometry | stamps `pathLength="1000"` on a real funnel polygon; `getTotalLength` instrumented and **never called** |
+| anime's seek is path-independent | the same frame reached forward, from 0, and from the end yields an identical `stroke-dasharray` |
 
-**One difference the migration must carry: the CHANNEL.** anime.js writes the **CSS property**
+**Read the second row precisely.** It measures anime as a **painter** — handed a frame value our
+model produced, does it land that value on the element without loss? It is **not** a comparison of
+two tween curves; no anime-generated easing is involved, and the residual is anime's own
+6-significant-digit formatting rather than any disagreement about motion. That is the property the
+frame model actually requires ("two painters, one `at(t)`"): the model owns the frames, the painter
+only paints them. The bake-off's pixel comparison of two *animations* remains a harness result.
+
+**Counts here are per-run, not constants.** The frame count is however many `requestAnimationFrame`
+ticks the build spans on the machine running it — measured **167–169** distinct frames across five
+runs here, with the max delta ranging **4.88e-7 – 5.15e-7**. The spec asserts floors (`> 20` frames,
+`> 80` comparisons) and a bound, never these figures. An earlier draft of this section quoted
+"169 / 676 / 4.98e-7" as if they were fixed; they are timing artifacts of one run.
+
+**The CHANNEL differs, and precedence is not a race.** anime writes the **CSS property**
 (`style.opacity`); the shipped painter writes the **`opacity` presentation attribute**. Inline style
-outranks a presentation attribute, so a half-migrated mark is driven by whichever painter ran last
-rather than by document order. Both channels are asserted in the spec so the difference cannot
-drift silently.
+outranks a presentation attribute, so once anime has touched a mark **the CSS channel wins
+unconditionally** — the shipped painter can run last, on every frame, and still lose. Measured:
+style `0.75`, then `setAttribute('opacity','0.1')` afterwards, computed stays **`0.75`**. An earlier
+draft of this note said a half-migrated mark would be driven by "whichever painter ran last", which
+is backwards and would send someone hunting for an ordering bug that does not exist.
 
-**Each assertion is mutation-proved**, because a green test that asserts nothing is worse than no
-test: dropping `.scene-live` from the selector collapses the frame count to 0 (it reads the frozen
-poster); `pathLength` expected as `999` reports the real `1000`; and a `1e-12` tolerance reports the
-real `4.98e-7`. All three fail as they should.
+**Mutation-proved: the five assertions that carry the argument.** Not every assertion in the file —
+the earlier claim of "each" was an overclaim. Each of these was broken deliberately and fails as it
+should: sampling only after settle (the frozen-chart regression — *"every mark was observed
+mid-reveal"* fails); asserting the reverse stagger order (real indices `[49, 84, …]`); expecting
+`pathLength` `999` (reports `1000`); a `1e-12` delta bound (reports the real ~5e-7); and claiming the
+presentation attribute wins precedence (reports `0.75`). The first of those matters most: **before
+it was added, the whole test passed on a chart with zero motion** — a regression that mounts every
+mark at 1 satisfies "monotonic" and "settles at 1" perfectly.
 
-**This also closes a gap this note itself found.** Across 82 specs in `docs/e2e/`, none referenced
-`data-scene-spec`, `scene-live`, `data-anima` or `hydrateScene` — live motion shipped with no
-coverage on any real surface. It has some now.
+**This narrows a gap this note found, and the narrowing is partial.** At the parent commit, none of
+the 82 specs in `docs/e2e/` referenced `data-scene-spec`, `scene-live`, `data-anima` or
+`hydrateScene`; this is the 83rd and references all four. But it carries no `@smoke` tag, so it runs
+**only in the nightly** (`studio-e2e-nightly.yml`) — `ci.yml` runs `test:e2e:smoke` and pre-push runs
+no e2e at all. Live motion now has real-surface coverage that **cannot block a merge**, which is the
+exact shape of the #780 drift `docs/e2e/studio-fixture.ts` documents.
 
 ### Still not verified
 
-- **The presenter window and the `--player` export are untouched.** Both are reachable; neither was
-  driven. Print stays the final frame either way (§3), so this bears on live surfaces only.
-- **The pixel-identity number from the bake-off (0.000% mean diff) remains a HARNESS result.** What
-  the Playground now proves is value-parity on real marks, which is a stronger claim about *our*
-  markup but is not the same measurement. The bake-off harness still lives in gitignored
-  `.scratch/`, so §5, §10 and §12's numbers are still not re-derivable from the tree.
-- **`morphTo` is still unproven.** It no-ops in jsdom, and nothing here exercises it on a real
-  surface.
+- **The presenter window and the `--player` export are untouched.** Both reachable; neither driven.
+  Print stays the final frame either way (§3), so this bears on live surfaces only.
+- **The bake-off's `0.000% mean diff` is still a HARNESS result**, and its harness is in gitignored
+  `.scratch/`, so §5, §10 and §12's numbers are not re-derivable from the tree.
+- **`morphTo` is unproven.** It no-ops in jsdom and nothing here exercises it on a real surface.
+- **Nothing here measures OUR frame model.** No Lattice code implements it yet; the determinism row
+  establishes a precondition about the library, not a property of a model that does not exist.
+- The spec runs on `desktop` Chromium only — no cross-engine or mobile exposure.
 - The frame-count-from-content rule in §5 is specified, not implemented; `speedToDurationMs`'s
   current arithmetic is read from source but its reinterpretation is untested.
 - Whether a chart's existing scene builder can enumerate frames without a live re-compile is

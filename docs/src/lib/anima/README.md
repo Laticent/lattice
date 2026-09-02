@@ -160,9 +160,15 @@ hydrate.ts        the host: owns the clock and the rAF loop, scans a rendered de
                   and enforces the reduced-motion tiers as an accessibility FLOOR
 backends/zdog.ts  the built-primitive backend
 backends/vivus.ts the svg stroke-reveal backend (being replaced — see the audit)
-backends/paint.ts the shared element painter both backends call
+backends/paint.ts shared COLOR helpers both backends call (resolveColor / withAlpha).
+                  The per-element painter is `paintElements`, inside vivus.ts
 ```
 
-Every module is pure and unit-tested (`*.test.ts`, run with `vitest`). The core stays
+Most modules carry a `*.test.ts` (run with `vitest`); five do not — `index.ts` (a re-export
+barrel), `types.ts` and `vocabulary.ts` (types and consts), `renderer.ts` (an interface) and
+`scene-palette.ts` (a recommendation list). **"Every module is pure" was never true of this
+folder as a whole** and is why the split above exists: the pure core is DOM-free, while
+`hydrate.ts` and everything under `backends/` touch the DOM by design — `paint.ts` says so in its
+own first line. The core stays
 self-contained by a build gate (`checkAnimaBoundary` in `tools/check-ownership.js`): a
 non-relative, non-`node:` import fails the build.

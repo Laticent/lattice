@@ -134,19 +134,34 @@ test('the shipped painter emits a monotonic frame sequence on the real Playgroun
 	expect(rows.length, 'the host wrote per-frame opacity on the live marks').toBeGreaterThan(0);
 	expect(rows[0], 'the funnel renders four bands').toHaveLength(4);
 
+	const marks = [0, 1, 2, 3];
+
+	// MOTION ACTUALLY RAN. This assertion is the reason the rest of the test means anything:
+	// a regression that mounts every mark at 1 and never tweens (a collapsed duration, or
+	// `at(1)` painted once) satisfies "monotonic", "staggered" and "settles at 1" perfectly,
+	// because a frozen series of 1s passes all three. Requiring each mark to have been SEEN
+	// below 1 is what separates a live build from a still.
+	const seenMidReveal = marks.map((m) => rows.some((r) => Number(r[m]) < 1));
+	expect(seenMidReveal, 'every mark was observed mid-reveal, so the build really ran').toEqual([true, true, true, true]);
+
 	// Every mark's reveal is monotonic non-decreasing — the frame model's ordering claim.
 	// A tween that overshoots or rewinds would break this even while ending correctly.
-	for (let mark = 0; mark < 4; mark++) {
+	for (const mark of marks) {
 		const series = rows.map((r) => Number(r[mark]));
 		for (let i = 1; i < series.length; i++) {
 			expect(series[i], `mark ${mark} never rewinds between frames ${i - 1} and ${i}`).toBeGreaterThanOrEqual(series[i - 1]);
 		}
 	}
 
-	// The build is STAGGERED in reading order: the first band is never behind the last.
-	const first = rows.map((r) => Number(r[0]));
-	const last = rows.map((r) => Number(r[3]));
-	expect(Math.max(...first)).toBeGreaterThanOrEqual(Math.max(...last));
+	// The build is STAGGERED in reading order — each band completes strictly after the one
+	// above it. Comparing the two series' MAXIMA instead is a tautology: every mark ends at
+	// 1, so `max(first) >= max(last)` reads `1 >= 1` and passes on a bottom-up build.
+	// Compare the frame index at which each mark first reaches full opacity.
+	const completedAt = marks.map((m) => rows.findIndex((r) => Number(r[m]) >= 1));
+	expect(completedAt.every((i) => i >= 0), 'every mark completed inside the sample window').toBe(true);
+	for (let m = 1; m < marks.length; m++) {
+		expect(completedAt[m], `mark ${m} completes after mark ${m - 1} (reading order)`).toBeGreaterThan(completedAt[m - 1]);
+	}
 
 	// And it settles fully opaque — the last frame IS the still the PDF already ships.
 	await expect
@@ -190,24 +205,43 @@ test('anime.js paints every frame the shipped painter emits, on the real marks',
 					maxDelta = Math.max(maxDelta, Math.abs(got - Number(want[i])));
 				});
 			}
-			// The CHANNEL differs, and the migration has to know: anime writes the CSS
-			// property, the shipped painter writes the `opacity` PRESENTATION ATTRIBUTE.
-			// Inline style outranks a presentation attribute, so a half-migrated mark would
-			// be driven by whichever ran last — not by document order.
+			// The CHANNEL differs, and the migration has to know. anime writes the CSS
+			// property; the shipped painter writes the `opacity` PRESENTATION ATTRIBUTE, and
+			// inline style outranks a presentation attribute. So once anime has touched a
+			// mark the CSS channel wins UNCONDITIONALLY — the shipped painter can run last,
+			// on every frame, and still lose. That is a precedence fact, not a race, so
+			// measure it: write style, then write the attribute AFTER it, and read back.
 			const probe = bars[0] as SVGElement;
-			return { checked, maxDelta, writesStyle: probe.style.opacity !== '', keepsAttribute: probe.getAttribute('opacity') !== null };
+			anime.utils.set(probe, { opacity: 0.75 });
+			probe.setAttribute('opacity', '0.1');
+			return {
+				checked,
+				maxDelta,
+				writesStyle: probe.style.opacity !== '',
+				attributeWroteLast: probe.getAttribute('opacity'),
+				computedAfterAttributeWroteLast: Number(w.getComputedStyle(probe).opacity),
+			};
 		},
 		[LIVE_BAR, frames] as const,
 	);
 
 	expect(result.error).toBeUndefined();
 	expect(result.checked).toBeGreaterThan(80);
-	// Opacity composites to 8 bits, so one representable step is 1/255 ≈ 0.0039. anime
-	// quantizes to ~6 decimals; the bound below is two orders of magnitude INSIDE a single
-	// step, i.e. the two painters cannot differ by a pixel. Measured max: ~5.2e-7.
-	expect(result.maxDelta, 'anime reproduces each frame well within one 8-bit opacity step').toBeLessThan(1e-5);
+	// WHAT THIS MEASURES, precisely: anime as a PAINTER — handed a frame value our model
+	// produced, does it put that value on the element without loss? It is NOT a comparison
+	// of two tween curves; no anime-generated easing is involved. That distinction matters
+	// because the frame model's whole premise is that the model owns the frames and the
+	// painter only paints them ("two painters, one at(t)"), so painter fidelity is the
+	// property actually required of the library.
+	// The residual is anime's own 6-significant-digit formatting. Opacity composites to 8
+	// bits, so one representable step is 1/255 ≈ 0.0039 — the bound below sits ~2 orders of
+	// magnitude inside a single step, i.e. the two cannot differ by a pixel.
+	expect(result.maxDelta, 'anime reproduces each frame value well within one 8-bit opacity step').toBeLessThan(1e-5);
+	expect(result.maxDelta, 'and the residual is real, not a no-op comparison').toBeGreaterThan(0);
 	expect(result.writesStyle, 'anime drives the CSS channel').toBe(true);
-	expect(result.keepsAttribute, 'the presentation attribute the shipped painter writes is a separate channel').toBe(true);
+	// The precedence fact, measured: the attribute was written LAST and still lost.
+	expect(result.attributeWroteLast).toBe('0.1');
+	expect(result.computedAfterAttributeWroteLast, 'the CSS channel wins regardless of write order').toBe(0.75);
 });
 
 test('createDrawable normalizes real marks and seeks deterministically', async ({ page }) => {
@@ -235,15 +269,22 @@ test('createDrawable normalizes real marks and seeks deterministically', async (
 		// Three different journeys to the SAME frame. Reading one value twice would pass on
 		// a painter that never wrote anything, which is how the first draft of this
 		// assertion compared two empty strings and reported success.
+		//
+		// SCOPE: this establishes that ANIME's seek is deterministic. It does not measure
+		// our frame model, because no Lattice code is in this loop — the model is a design
+		// and nothing implements it yet. What it buys is the precondition: a library whose
+		// seek was path-dependent could not back a model built on "frame k is a still".
 		const forward = at(500);
 		a.seek(0);
 		const fromStart = at(500);
 		a.seek(1000);
 		const fromEnd = at(500);
+		const drawnOf = (dash: string) => Number(dash.split('|')[0].split(/\s+/)[0]);
 		return {
 			tag: target.tagName,
 			pathLength: target.getAttribute('pathLength'),
 			mid: forward,
+			drawnAtMid: drawnOf(forward),
 			deterministic: forward === fromStart && fromStart === fromEnd,
 			start: at(0),
 			end: at(1000),
@@ -255,7 +296,11 @@ test('createDrawable normalizes real marks and seeks deterministically', async (
 	// `pathLength` and works in NORMALIZED units, so it never calls `getTotalLength()` — the
 	// call that throws in jsdom and silently disabled the Vivus draw channel.
 	expect(out.pathLength, 'createDrawable normalizes rather than measuring geometry').toBe('1000');
-	expect(out.mid, 'the mid frame actually painted').toMatch(/\d/);
+	// The mid frame is genuinely BETWEEN the ends, in normalized units: `stroke-dasharray`
+	// reads "<drawn> <gap>", so the drawn length at t=0.5 must sit strictly inside (0, 1000).
+	// `toMatch(/\d/)` was the first version of this and it passes on the t=0 frame too.
+	expect(out.drawnAtMid, 'the mid frame is partway drawn, not an endpoint').toBeGreaterThan(0);
+	expect(out.drawnAtMid).toBeLessThan(1000);
 	expect(out.deterministic, 'the same frame index yields the same still from any seek path').toBe(true);
 	expect(out.start).not.toBe(out.end);
 });

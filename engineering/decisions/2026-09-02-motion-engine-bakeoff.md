@@ -65,7 +65,8 @@ companion:
 >
 > **Confirmed on the real surface since this was written.** `docs/e2e/anima-motion-frames.spec.ts`
 > drives the real Playground and measures anime.js against the SHIPPED painter on real funnel
-> marks: 676 comparisons, max delta 4.98e-7 (0.00013 of one 8-bit opacity step), and
+> marks: every frame value round-trips through anime within ~5e-7 (four orders of magnitude
+> inside one 8-bit opacity step — a PAINTER-fidelity result, not a tween comparison), and
 > `createDrawable` stamping `pathLength="1000"` on a real polygon — the normalization that makes
 > it work without `getTotalLength()`. The numbers in §5/§10/§12 below are still HARNESS results
 > from gitignored `.scratch/` and remain un-re-derivable; the real-surface record is
@@ -135,10 +136,14 @@ Eight findings, each verified against the source.
    returns 1 on every frame, and Vivus is constructed, destructively rewrites the DOM, and is
    then pinned at full progress for the life of the animation. Every visible pixel of chart
    motion comes from `paintElements`. We pay the rewrite and 208 KB for a no-op.
-7. **Nobody has seen it work.** Across 82 specs in `docs/e2e/`, none references
-   `data-scene-spec`, `scene-live`, `data-anima` or `hydrateScene`. Combined with (4), the draw
-   channel has no verification anywhere — not unit, not e2e. Under HARD RULE #23, nothing about
-   live motion is currently verified.
+7. **Nobody had seen it work.** Across the 82 specs in `docs/e2e/` at the time of this audit,
+   none referenced `data-scene-spec`, `scene-live`, `data-anima` or `hydrateScene`. Combined with
+   (4), the draw channel had no verification anywhere — not unit, not e2e. Under HARD RULE #23,
+   nothing about live motion was verified.
+   **Partly addressed since:** `docs/e2e/anima-motion-frames.spec.ts` is the 83rd spec and
+   references all four, driving the real Playground
+   (`2026-09-02-frame-model-for-motion.md` §8). It is **nightly-only** — no `@smoke` tag, so it
+   cannot block a merge — and it covers the chart path, not the draw channel this finding is about.
 8. **A designed subsystem is dead.** `Timeline.poster()` and `Renderer.poster()` — the
    deterministic-still contract the PDF story rests on — have zero call sites outside tests. Both
    backends implement `poster()` for nobody, because no render path mounts a backend: the PDF
@@ -287,10 +292,15 @@ here, and adopting it later is additive.
 
 ## 9. What is NOT verified
 
-- **No claim here is about the real Studio.** The bake-off ran in a standalone harness in real
-  Chromium — that is a real browser, but it is not the Playground, the presenter window, or an
-  exported `--player` file. Under HARD RULE #23 the candidate must still clear the proof gate on
-  the surface a human actually drives. Marked **UNVERIFIED** until then.
+- **No claim IN THIS NOTE is about the real Studio.** The bake-off ran in a standalone harness in
+  real Chromium — that is a real browser, but it is not the Playground, the presenter window, or an
+  exported `--player` file. Every number in §5, §10 and §12 is a harness number and stays
+  **UNVERIFIED** in the HARD RULE #23 sense; the harness also lives in gitignored `.scratch/`, so
+  none of them is re-derivable from the tree.
+  **The candidate has since cleared a real surface, elsewhere:** the Playground, in
+  `2026-09-02-frame-model-for-motion.md` §8. Read that as painter fidelity on real chart marks —
+  it does not retroactively verify this note's pixel comparison of two animations, and it does not
+  touch the presenter window or a `--player` export.
 - Bundle bytes are the harness's own bundles, not a rebuilt `anima-player-bundle.generated.mjs`.
   The relative costs are sound; the absolute export delta is not yet measured.
 - Nothing was measured for PPTX. Only the PDF and HTML-player paths were traced.
