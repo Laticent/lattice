@@ -59,7 +59,7 @@ _list-criteria could not split at all before this change._
 
 <!-- _class: journey -->
 
-## Reading a split run
+## Reading a split run — and a chart that stays whole
 
 - Arrive
   - Meet the cover `@reader` `:1`
@@ -69,6 +69,8 @@ _list-criteria could not split at all before this change._
   - Follow the pointer to the next `@reader` `:4`
 - Close
   - Read the note and the insight together `@reader` `:2`
+
+_This slide does not split. A chart is one picture; cutting it apart would say something the author did not draw._
 
 ---
 

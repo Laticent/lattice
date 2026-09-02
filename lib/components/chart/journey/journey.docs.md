@@ -12,8 +12,6 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 
 ## Agent contract
 
-**Capacity** ~4 items (over 5 overflows).
-
 ### Slots
 
 | Slot | Selector | Required | Description |

@@ -130,17 +130,25 @@ Two practices come out of this, and they are the durable part of this note:
 
 ## Enrollment: what splits, what rings
 
-31 of 61 components split. The other 30 are single structural elements already — an anchor, a
+30 of 61 components split. The other 31 are single structural elements already — an anchor, a
 viewBox graphic, a bitmap asset, one atomic text unit or shared-geometry grid — and ring on
 overflow. Each has its treatment and its reason in `lib/core/split-facts.js`.
 
-Three that could not split now do: `content`, `list-criteria` and `journey`.
+Two that could not split now do: `content` and `list-criteria`.
 `content` is the notable one — the commonest slide in any deck could
 not split at all, so a long one could only clip. Its axis is declared in `adapt.capacity`
 rather than top-level, following `inventory/list`: the canonical sample is prose, and a
 top-level contract against a prose sample is inert, which the manifest validator correctly
 rejects. The split axis is derived from the rendered DOM anyway, so a paragraph-only content
 slide resolves no collection and is left whole.
+
+**A FOURTH came out on the owner's instruction: `journey`.** It splits cleanly — it was rendered
+and signed off — but it lives in the `chart` bucket and renders inside a `chart-frame`, and the
+owner's ruling is that charts and diagrams stay whole for now. So enrollment is not decided by
+whether a seam exists; where a seam and a category disagree, the category wins until the owner
+says otherwise. Two chart-bucket components remain enrolled — `kanban` and `roadmap` — and are
+deliberately untouched: both shipped long before this change with their own decision record
+(#1209 for `roadmap`), so removing them is a separate call, not this change's to make.
 
 **Three more were enrolled and backed out the same day.** `pricing` came out on a gate: the
 `band` conformance rule requires a component's stress doc to sit inside the capacity band it

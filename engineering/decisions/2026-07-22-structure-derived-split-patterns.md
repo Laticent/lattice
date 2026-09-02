@@ -338,7 +338,7 @@ one: the map in `split-facts.js` is the source, and
 | **List → item · light** (1/slide; a light member is one bullet or tile) | `agenda` · `checklist` · `content` · `inventory` · `list` · `list-criteria` |
 | **List → item · heavy** (1/slide; a heavy member carries a title AND a body) | `actors` · `cards-grid` · `cards-stack` · `kpi` · `policy-recommendation` · `q-and-a` · `stats` *(tile — watch)* |
 | **Record-shaped → 1 per slide** (glossary pivots via its table transform; the rest are `ol/ul>li` → list-item split) | `glossary` · `list-tabular` · `regulatory-update` · `statute-stack` |
-| **Connected / related → 1/slide + relationship signal** | `authority-chain` *(governs↓)* · `cycle` *(↻loop)* · `journey` *(→next)* · `list-steps` *(→next)* · `pricing`° *(compare N/M)* · `timeline-list`° *(→next)* · `verdict-grid` *(compare N/M)* |
+| **Connected / related → 1/slide + relationship signal** | `authority-chain` *(governs↓)* · `cycle` *(↻loop)* · `journey`° *(→next)* · `list-steps` *(→next)* · `pricing`° *(compare N/M)* · `timeline-list`° *(→next)* · `verdict-grid` *(compare N/M)* |
 | **Read-across → keep whole / carousel** | `compare-code` · `compare-prose` · `compare-table` · `decision` · `kanban` *(per-lane — loses the cross-lane read; a keep-whole is arguably better)* · `premise` *(one claim beside the points that substantiate it — same shape as split-panel)* · `redline` · `roadmap` *(the TABLE rings; only the transposed `horizons` card form has a seam (#1209))* · `split-compare` · `split-panel` |
 | **Code → code-cards** (by line / block — PROPOSED) | `code` |
 | **Needs an opt-in call** | `progress` *(CSS bars, not a viewBox graphic — so NOT "scale like a graphic"; list-heavy if enrolled, else whole-slide)* |
