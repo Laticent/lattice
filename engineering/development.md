@@ -453,7 +453,12 @@ dependency, and poll mode burned the whole deadline before blaming your
 predicate.
 
 **macOS itself remains UNVERIFIED** (HARD RULE #23): what is tested is the
-mechanism the macOS path would use, on Linux. If neither mechanism is present,
+mechanism the macOS path would use, on Linux. Nothing in reach can close that —
+every runner in `.github/workflows/` is `ubuntu-latest`, and a Linux transcript
+is not evidence about a Mac. It takes someone running the four checks on a real
+Mac: `--job x -- true` exits 0; a second waiter on a live job exits 2; a
+SIGKILLed holder frees the job; and without coreutils it exits 69 naming
+gtimeout. If neither mechanism is present,
 the wait fails loudly with exit 69 rather than being folded into "already being
 waited on" — which is what a naive non-zero check did, reporting a phantom
 holder forever.
