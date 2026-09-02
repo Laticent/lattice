@@ -166,7 +166,7 @@ Same four people, both days.
 
 It had a goal it did not meet, and one hour that decided whether it would. Two things fed themselves in circles, one of them in her shower. Something invisible held the whole thing up until nine o'clock, when it stopped. One promise never broke, on the day everything else did.
 
-The reviewer woke at three and the window shut at four. Everything Maya did in the sixteen hours around that hour reached the outcome only through it — and she spent twenty of its sixty minutes answering questions about the thing she was trying to finish.
+The reviewer woke at three and the window shut at four. Everything Maya did in the sixteen hours around that hour reached the outcome only through it — and for twenty of those sixty minutes she was answering questions about 482 instead of standing ready to act on whatever came back about it.
 
 You have watched all ten. You do not yet have the words.
 
@@ -210,7 +210,7 @@ flowchart TB
     direction LR
     T1["Maya"] <--> T2["Priya"]
     T2 <--> T3["Dev"]
-    T4["Manager"] -.->|"listens"| T2
+    T2 -.->|"tells him after"| T4["Manager"]
     T2 --> OUT2(["One sentence<br/>saves a morning"])
   end
   subgraph mon["Monday · they report upward"]
@@ -423,9 +423,9 @@ Wifi, the VPN, the package registry, the build fleet, the identity provider. May
 
 Nothing merges on Thursdays. Maya checked six weeks. It is a rhythm, and nobody built a rhythm.
 
-Three things feed each other rather than add up. Work that misses the window waits at the front of tomorrow. A review that comes back with comments sends the same change to the back of the queue. And the queue is served one hour a day. Wednesday is planning day and puts nothing through, so Thursday inherits two days at once.
+Three things feed each other rather than add up. Work that misses the window waits at the front of tomorrow. A review that comes back with comments sends the same change to the back of the queue. And the queue is served one hour a day. Monday's misses are Tuesday's queue, so the backlog climbs all week until it is bigger than one hour can clear — and the weekend empties it, which is why it happens again next week.
 
-No policy says Thursday. You find it by watching the queue for six weeks.
+No policy names Thursday. You find it by watching the queue for six weeks.
 
 ---
 
