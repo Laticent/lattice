@@ -2034,15 +2034,20 @@ Hold that design in your head. Now a single account with fifty million followers
 
 ---
 
-<!-- _class: content -->
+<!-- _class: split-panel metric -->
 
-`Instagram · what actually happens`
+`One post, one celebrity`
 
-## One photograph becomes twenty-five gigabytes of writes and an eight-minute queue.
+## 25 GB
 
-Five hundred million feed inserts, at roughly fifty bytes each, is 25 GB of cache writes from one API call. At a fan-out rate of a million inserts a second that is 500 seconds — eight and a half minutes — during which the queue serves nobody else.
+Five hundred million feed inserts at roughly fifty bytes each, from a single API call.
 
-The whole platform's ordinary load is 1.2K posts a second times about 150 pushed followers, or 180 thousand inserts a second. So one celebrity post is roughly forty-five minutes of everyone else's work, arriving at once.
+- 500 seconds of queue
+  - At a million inserts a second, that is eight and a half minutes serving nobody else.
+- 180K inserts a second
+  - The whole platform's ordinary load: 1.2K posts times about 150 pushed followers.
+- 45 minutes of backlog
+  - One celebrity post is that much of everyone else's work, arriving at once.
 
 ---
 
