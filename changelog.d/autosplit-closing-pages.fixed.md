@@ -50,3 +50,8 @@
   page titled "Q2", two fields of one row run together), and a kanban lane page found no list at
   all, so those runs carried no pointer. The splitter now names the member it cut, because it is
   the only thing that knows; runs read "next: Q2" and "next: In progress".
+- **Fixed: the CSS selector gate skipped the selectors most likely to be invalid.** It handed
+  Chromium every rule prelude css-tree could parse, and silently dropped the ones it could not —
+  which is the class most likely to be broken. The stated reason (keyframe percentages) never
+  applied: those parse as ordinary selector lists. A keyframe step is now excluded by being inside
+  a keyframes block, which is the real reason to skip it, and everything else reaches the browser.

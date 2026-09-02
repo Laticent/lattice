@@ -561,6 +561,28 @@ change to the gate is a separate decision and is not made here.
   A function that says it clips, called by two sites that say they never clip, is a contradiction a
   reader must resolve before touching anything near it; the hazard it carried was a hazard in code
   that cannot run. `LABEL_MAX` is still the budget, enforced where the decision to decline is made.
+- **A NATIVE-SLICE RUN OPENS ON ITS FIRST MEMBER, NOT ON A COVER — an open question, not a
+  defect.** The five re-authoring strategies build an accent COVER page that introduces the run;
+  the four native ones (`redline-blocks`, `kanban-lanes`, `roadmap-horizons`, `journey-stages`)
+  emit `body` pages only, so a split roadmap opens straight into "Phase 01 · Q1". The first page
+  does carry the run's heading, so the reader is not lost — but a deck that splits a `content`
+  slide and a `roadmap` slide reads two different shapes for the same operation. Adding a cover
+  would be a real change to all four (a new page per run, and a decision about what the cover
+  says when the component's own heading is already repeated on every page), which is why it is
+  written down rather than done. **Owner's call.**
+- **`selector-validity.test.js` skipped the selectors most likely to be invalid, for a stated
+  reason that never applied. FIXED 2026-09-02.** The reader took `node.prelude` only when it was
+  a `SelectorList`, annotated "@keyframes percentages". Measured against the pinned css-tree,
+  `from` / `50%` / `to` each parse AS a `SelectorList`, so that branch never once fired for the
+  reason it named — and this bundle carries no keyframe rule at all (0 of 3241 preludes). What
+  the branch actually excluded is `Raw`, the type css-tree emits for a prelude it CANNOT PARSE
+  (`section..double` is one). So the gate handed the browser every selector except the ones it
+  could not understand, and reported green. The bundle has zero `Raw` preludes, so this was a
+  hole rather than a live defect — but one that widens silently, because a new bad selector
+  arrives already exempt. A keyframe step is now excluded by its CONTEXT (`this.atrule`), which
+  is the real reason to skip it, and everything else goes to Chromium including `Raw`. Three
+  browser-free arms pin the reader itself, because the Chromium arm passes whatever the reader
+  does for as long as the bundle is clean — which is how this sat here.
 - **`applyRails` sets `--lat-split-offset` only on `lat-split-native` pages, and counts on a
   hardcoded `item` axis. LATENT, not live — recorded rather than changed.** A re-authored page
   (the five cover strategies) carries neither, so no offset is ever set on one. Four components
