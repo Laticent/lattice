@@ -1271,7 +1271,7 @@ flowchart TB
   subgraph b["Route by content"]
     direction LR
     B1["L7 balancer"] -->|"/api"| B2["Service"] --> B4[("Database")]
-    B1 -->|"/media"| B3[("Bucket")] --> B5["CDN"]
+    B1 -->|"/media"| B5["CDN"] --> B3[("Bucket")]
   end
   subgraph a["Cache at the edge"]
     direction LR
@@ -1574,8 +1574,8 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  R["Region"] --> Z1(["Zone A"]) --> M1(["Machine"]) --> P1(["Process"])
-  R --> Z2(["Zone B"]) --> M2(["Machine"]) --> P2(["Process"])
+  R["Region"] --> Z1["Zone A"] --> M1["Machine"] --> P1["Process"]
+  R --> Z2["Zone B"] --> M2["Machine"] --> P2["Process"]
   P1 -.->|"same config, same deploy,<br/>same upstream"| C(["Correlated failure:<br/>both die together"])
   P2 -.-> C
 ```
@@ -1723,7 +1723,7 @@ flowchart TB
   end
   subgraph d["A reply is input too"]
     direction LR
-    D1["Service"] -->|"signed request"| D2["Third party"] -->|"reply"| D3["Validate before use"]
+    D1["Service"] -->|"signed request"| D2["Third party"] -->|"reply, untrusted"| D3["Service validates<br/>before use"]
   end
   subgraph c["Private bytes need a signed link"]
     direction LR
@@ -2093,7 +2093,7 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 - One strategy for everyone
   - Simple to explain, guaranteed to fail at one end. Push drowns on celebrities; pull costs hundreds of reads per page for everyone else.
 - Split at the threshold
-  - Push from ordinary accounts, pull from high-follower accounts, merge the two at read time. Ordinary posts land in a page that is already built, so the common read stays one lookup. Celebrity posts are fetched on demand, so no writer ever fans out to millions. Each strategy runs only where its cost curve is the lower one.
+  - Push from ordinary accounts, pull from high-follower accounts, merge the two at read time. Ordinary posts land in a page that is already built; the celebrities she follows are fetched on demand and merged in, so no writer ever fans out to millions. The read costs one lookup plus a handful of fetches, and each strategy runs where its cost curve is the lower one.
 
 > The threshold is not a preference. It is where two cost curves cross, and the graph draws it.
 
@@ -2370,7 +2370,7 @@ Solution type MVP  ·  scaled  ·  optimized  ·  optimal  ·  specialized
 1. Pick the unglamorous system
    - Not a famous one. The service you were debugging on Thursday, or the pipeline nobody wants to own.
 2. Cast it before you draw it
-   - Protagonist and antagonist first, two sentences each. If you cannot name them, you do not understand it yet.
+   - Protagonist and antagonist first, one sentence each. If you cannot name them, you do not understand it yet.
 3. Fill the other seven fields
    - Let them argue with you. A field you cannot answer is the design question you have been avoiding.
 4. Bring the page to your one-on-one
