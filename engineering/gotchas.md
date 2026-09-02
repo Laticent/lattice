@@ -116,6 +116,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [astro 7 backgrounds `preview` and `dev` FOR AN AGENT, and Playwright then dies with `Process from config.webServer exited early`](gotchas/docs-site.md#astro-7-backgrounds-preview-and-dev-for-an-agent-and-playwright-then-dies-with-process-from-configwebserver-exited-early)
 - [A CSS custom property reads back as `#1478dc` where the source says `rgb(20, 120, 220)`](gotchas/docs-site.md#a-css-custom-property-reads-back-as-1478dc-where-the-source-says-rgb20-120-220)
 - [Docs `npm run dev` → `sh: 1: astro: not found`](gotchas/docs-site.md#docs-npm-run-dev--sh-1-astro-not-found)
+- [Docs build dies at config load: "does not provide an export named `unified`"](gotchas/docs-site.md#docs-build-dies-at-config-load-does-not-provide-an-export-named-unified)
 - [`pkill -f astro` kills the shell that's launching astro](gotchas/docs-site.md#pkill--f-astro-kills-the-shell-thats-launching-astro)
 - [An `<astro-island>` without `ssr` is mounted, not yet wired — clicks still vanish](gotchas/docs-site.md#an-astro-island-without-ssr-is-mounted-not-yet-wired--clicks-still-vanish)
 

@@ -258,9 +258,14 @@ owe nothing here. See
 - **Symptom:** `cd docs && npm run dev` (or `npm run start`) prints the
   sync-step output then dies with `sh: 1: astro: not found`; no server.
 - **Cause:** Two compounding things. (1) `docs/` is a **separate npm
-  package, not a root workspace**, so a fresh sandbox's root `npm install`
-  (and the SessionStart hook) never installs `docs/node_modules` — run
-  `cd docs && npm install` once. (2) Even installed, the `dev`/`start`
+  package, not a root workspace**, so the root `npm install` never touches
+  `docs/node_modules`. The SessionStart hook does install it separately
+  (`.claude/hooks/session-start.sh`, step 4) — but best-effort and
+  silenced, so a failed install still leaves you with no `astro`: run
+  `cd docs && npm install` by hand. That step was also, until 2026-09-02, gated
+  in a way that never repaired a *stale* tree — see "Docs build dies at config
+  load" below.
+  (2) Even installed, the `dev`/`start`
   scripts chain `… && astro dev` and `astro` doesn't resolve on PATH in
   this sandbox's script shell.
 - **Mitigation:** Install docs deps once, then invoke the binary directly:
@@ -270,6 +275,109 @@ owe nothing here. See
 - **Triggered by:** Starting the docs site for a preview/screenshot.
 - **Removable when:** docs becomes a real workspace AND the script PATH
   resolves — until then, the direct-bin invocation is the reliable path.
+
+## Docs build dies at config load: "does not provide an export named `unified`"
+
+- **Symptom:** `cd docs && npm run build` clears the `showcase:check` /
+  `sync:portal` / `sync:playground` steps, then dies before Astro starts:
+
+  ```
+  [astro] Unable to load your Astro config
+  [vite] The requested module '@astrojs/markdown-remark' does not provide an
+  export named 'unified'
+  ```
+
+  **CI is green on the same commit**, which is the part that misleads — it reads
+  like a corrupt install or a bad lockfile, and it is neither.
+- **Cause: `docs/node_modules` is STALE, not broken.** A warm container carries a
+  tree installed against an OLDER `docs/package.json`. Measured on a 2026-09-02
+  sandbox at `e30e5fe`: **astro 6.3.7** installed against a declared `^7.2.0`, and
+  `@astrojs/markdown-remark` **7.1.2** against a lockfile pin of **7.3.0** — plus
+  `@astrojs/react`, `typescript`, `vitest` and `proxy-agent` each a major behind
+  and `@emnapi/core` missing outright (5 major mismatches of 77 deps).
+
+  **The config names the package directly.** `docs/astro.config.mjs:5` is a
+  **static** import — `import { unified } from '@astrojs/markdown-remark'` —
+  because astro 7 deprecated the `markdown.rehypePlugins` shorthand this site used
+  to pass, so it now builds the processor itself
+  (`markdown: { processor: unified(…) }`). 7.3.0 exports `unified`; 7.1.2 does
+  not. A static named import is exactly the shape that yields vite's "does not
+  provide an export named" wording, and it fails while the config MODULE IS
+  LINKING — which is why astro's own line is "Unable to load your Astro config",
+  emitted before any validation runs. A whole-tree drift therefore surfaces as one
+  package's missing export, naming neither astro nor the drift.
+
+  **It is not astro's own lazy `unified` import** in `core/config/validate.js`,
+  which an earlier revision of this entry blamed. That path is dead for this site
+  three times over: it is guarded on `markdown.remarkPlugins` / `rehypePlugins` /
+  `remarkRehype`, none of which this config sets; its `catch` throws a different
+  message telling you to install the package; and it runs only *after* the config
+  module has linked. Following that diagnosis leads away from the actual line.
+- **Why CI never sees it:** every docs job runs a fresh `npm ci` before building
+  (`.github/workflows/docs.yml:40`, `.github/workflows/docs-preview.yml:82`), so CI
+  builds against the lockfile every time. Only a warm sandbox lives long enough to
+  drift.
+- **Why the SessionStart hook used to miss it — fixed 2026-09-02:** step 4 of
+  `.claude/hooks/session-start.sh` gated the docs install on the astro **binary
+  existing**:
+
+  ```sh
+  if [ ! -x "$CLAUDE_PROJECT_DIR/docs/node_modules/.bin/astro" ]; then
+  ```
+
+  Every astro version ships that bin (`./bin/astro.mjs`, confirmed on the registry
+  for 6.3.7), so on a stale tree the gate read "already installed" and skipped —
+  silently, on precisely the tree that needed repairing. It could tell EMPTY from
+  installed; it could never tell STALE from current. **That gate is now gone** and
+  the install runs unconditionally: measured at **~2.4s** when the tree is already
+  current and **~4s** when it is stale, in which case it heals the drift
+  (astro 6.3.7 → 7.2.10, verified). It runs with **`--no-save`**, which is
+  load-bearing rather than tidiness: a plain `npm install` rewrites
+  `docs/package-lock.json` even on a current tree (it re-derives `dev: true` on
+  optional platform packages), so without it every session would open with a dirty
+  lockfile. It is also **bounded at 180s**: ungating created a new stall, because
+  npm burns its fetch-retry backoff when it genuinely needs the network and cannot
+  reach it (measured 73s against a refusing registry, 300s ceiling; `--no-save`
+  makes no difference). A timeout is safe here — npm stages before it reifies, so
+  killing it leaves `node_modules` empty rather than half-written, and the next
+  install repairs it.
+
+  **That repair reaches web sessions only.** The hook exits at its top unless
+  `CLAUDE_CODE_REMOTE=true`, deliberately, so it never mutates a developer's own
+  machine. On a local checkout nothing repairs `docs/node_modules` for you and the
+  manual fix below is the whole story — as it is on a container predating the
+  change, or for a drift `npm install` cannot reconcile.
+- **Mitigation** (when you are already broken): `cd docs && npm ci` — **32s
+  measured**, then `npm run build` completes in **18s (88 pages)**. Prefer `ci`
+  here: it deletes the tree and materializes the lockfile exactly, which is what CI
+  does and what makes a local build comparable to CI at all. That is a different
+  job from the hook's `install --no-save` above, which reconciles a working tree
+  cheaply on every start; reach for `ci` when you want the tree CI would have. This is the unblock for any Studio or
+  Playground check under HARD RULE #23 — the docs site builds and serves locally,
+  it is not an environment limit.
+- **The whole verified round trip**, end to end on 2026-09-02, if you need to drive
+  the real Studio/Playground rather than a stand-in:
+
+  ```sh
+  cd docs && npm ci && npm run build      # 32s + 18s, 88 pages
+  ( cd dist && python3 -m http.server 8791 --bind 127.0.0.1 & )
+  ```
+
+  Two traps on the driving half. Serve `dist` **statically** rather than reaching
+  for `astro preview` — that one backgrounds itself for an agent (see the astro 7
+  entry above), and a plain static server sidesteps the question entirely. And a
+  Playwright script must **live under `docs/`**: `playwright` is a docs-only dep
+  (root has `puppeteer` instead), and Node resolves from the SCRIPT's location, not
+  the cwd — so a script in a scratch dir dies with `Cannot find package
+  'playwright'` no matter where you run it from. Measured: `/playground/` loads with
+  zero page errors and renders its 8-slide deck.
+- **Triggered by:** the first docs-site build in a warm container whose session
+  started before the hook was ungated.
+- **Removable when:** never entirely — the ungated hook stops a tree going stale
+  unnoticed **in a web session only**, and a local checkout is deliberately left
+  alone, so the manual repair stays the answer there. Kept also because the
+  diagnosis is what makes the error message readable if it resurfaces, and because
+  the build/serve/drive recipe above stands on its own.
 
 ## `pkill -f astro` kills the shell that's launching astro
 

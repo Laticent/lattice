@@ -86,11 +86,53 @@ fi
 #    the root install above never touches it — yet any docs/src/** preview or
 #    screenshot needs it. Install best-effort so docs work is never blocked on a
 #    manual `cd docs && npm install` (the single most-rediscovered friction).
-#    GATED on the astro bin so a warm container (and every non-docs session)
-#    skips the heavy Astro/CodeMirror install. Non-fatal and quiet.
-if [ ! -x "$CLAUDE_PROJECT_DIR/docs/node_modules/.bin/astro" ]; then
-  ( cd "$CLAUDE_PROJECT_DIR/docs" && npm install --no-audit --no-fund ) >/dev/null 2>&1 || true
-fi
+#    Non-fatal and quiet.
+#
+#    DELIBERATELY UNGATED. This used to be wrapped in a test for the astro BIN
+#    existing, to spare a warm container the heavy Astro/CodeMirror install. That
+#    gate could tell an EMPTY tree from an installed one, but not a STALE tree
+#    from a current one — and a stale docs/node_modules is exactly what a warm
+#    container carries. The bin exists in every astro version, so the gate
+#    short-circuited on precisely the tree that needed repairing, silently, and
+#    the next `npm run build` died at config load blaming one package's missing
+#    export (see engineering/gotchas/docs-site.md, "Docs build dies at config
+#    load"). Measured cost of dropping it: ~2.4s when the tree is already current,
+#    ~4s when it is stale — in which case it heals the drift (astro 6.3.7 ->
+#    7.2.10, verified). That is what the gate was buying, against a silent dead end.
+#
+#    --no-save IS LOAD-BEARING, not tidiness. A plain `npm install` REWRITES
+#    docs/package-lock.json even when the tree is already current, so an
+#    unconditional install would hand every session a dirty lockfile before the
+#    first prompt — noise in `git status`, and a real chance of being swept into an
+#    unrelated commit. The rewrite is two-sided and the second half is the worse
+#    one: it adds `dev: true` to ~20 optional platform packages AND DELETES the
+#    four `libc` arrays on lightningcss-linux-*-{gnu,musl}. `libc` is what npm
+#    reads to pick a musl vs glibc binary, and the committed lock carries it
+#    because Dependabot writes with a newer npm than the node 22 pinned here.
+#    --no-save still reconciles node_modules against package.json, so it heals the
+#    drift; it just does not write the lockfile back. Verified: lockfile
+#    byte-identical across repeated runs, stale tree still healed.
+#
+#    KNOWN, ACCEPTED: docs/package.json's postinstall is
+#    `patch-package --error-on-fail`, and the `>/dev/null 2>&1 || true` here
+#    swallows it. Reify has already finished by then, so a patch that stops
+#    matching (a sonner bump vs docs/patches/sonner+2.0.7.patch) leaves an
+#    INSTALLED BUT UNPATCHED tree with no signal — and this step now runs every
+#    session rather than once. Applies cleanly today (sonner@2.0.7); if the docs
+#    site starts misbehaving around sonner/toasts, run `cd docs && npx
+#    patch-package --error-on-fail` by hand to see what this hook is hiding.
+#
+#    BOUNDED at 180s because ungating created a new stall. When npm genuinely needs
+#    the network and cannot reach it, it burns its fetch-retry backoff before giving
+#    up: measured 73s against a refusing registry, with a 300s ceiling from npm's own
+#    fetch-timeout (--no-save makes no difference — 72.9s vs 73.9s). The old bin gate
+#    skipped the install entirely on a warm container, so that wait is a cost this
+#    change introduced, not one it inherited. 180s is ~5x the 36s cold install and
+#    ~75x the 2.4s warm one. Killing npm mid-flight is safe: it stages before it
+#    reifies, so a timeout leaves node_modules EMPTY rather than half-written, and
+#    the next install repairs it (measured: killed at 8s -> 0 entries -> clean 22s
+#    install -> astro 7.2.10).
+( cd "$CLAUDE_PROJECT_DIR/docs" && timeout 180 npm install --no-save --no-audit --no-fund ) >/dev/null 2>&1 || true
 
 # 5. Point every session at the centralized standard-practice digest. The hook's
 #    stdout lands in the session's initial context, so this one line is what
