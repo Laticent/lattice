@@ -17,9 +17,22 @@ npm run new:theme evergreen
 ```
 
 This copies the default palette to `themes/evergreen.css`, rewrites the
-`@theme` line, and writes the three-line dark variant beside it. You now
-have a complete, working theme that happens to be the wrong colors — which
-is a much better place to start than an empty file.
+`@theme` line, and writes the dark wrapper and both manifests beside it. You
+now have a complete, working theme that happens to be the wrong colors —
+which is a much better place to start than an empty file.
+
+**Expect the gates to go red, and do not panic.** A brand-new palette makes
+two generated artifacts stale, so `npm run build:check` fails until you run
+`npm run build` once. And `npm run test:palette` will keep failing while your
+palette is still a byte-copy of the default — several of its checks compare
+palettes against each other or against frozen per-theme measurements that do
+not exist for a name nobody has shipped yet. Both go quiet as you do the work
+below; the checklist at the end of the track says how to close the last of
+them.
+
+One thing to fix now, because nothing will remind you: the manifest ships a
+placeholder swatch, `#FF00FF`. That magenta dot is what the palette picker
+shows until you replace it with a real color from your palette.
 
 Render something with it right away, so you know the loop works:
 

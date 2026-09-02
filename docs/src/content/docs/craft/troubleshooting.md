@@ -44,11 +44,13 @@ twenty-four values; `npm run new:theme` copies a working set.
 
 **The rule is right and nothing happens, in a lab on this site.**
 A lost tie. CSS typed into a lab is appended raw, while the engine's own
-rules are prefixed with `article.lattice >` — one class step higher, so
-yours loses. Write the component class twice —
-`section.takeaway.takeaway > .cell-stage` — which buys the point back. A
-**shipped** component file goes through the same prefixing and ties, so it
-needs the doubling only in the two cases
+rules are prefixed with `article.lattice >` — which adds both a class and an
+element name, so yours loses. Repeating the component class —
+`section.takeaway.takeaway > .cell-stage` — buys back the class, and that is
+enough against an engine rule that names no class of its own. Against one
+that does, notably `section.form > .cell-stage`, you need the class a third
+time. A **shipped** component file goes through the same prefixing and ties,
+so it needs none of this except in the two cases
 [The three CSS rules](/craft/components/css-rules/) names.
 
 **Your whole stylesheet lost at once.**

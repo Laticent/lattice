@@ -79,7 +79,8 @@ it.
 - [ ] `node tools/derive-cat-ink.js` run and its output committed.
 - [ ] `--seq-500`'s dark half re-anchored mid-range, checked with
       `composed-contrast`.
-- [ ] `<name>-dark.css` is the three-line wrapper.
+- [ ] `<name>-dark.css` is the wrapper and nothing more — the `@theme` line,
+      `@import`, and `:root { color-scheme: dark; }`.
 - [ ] All 98 tokens defined directly, not inherited.
 - [ ] `themes/<name>.manifest.json` declares `role: "base"` — that is what
       puts the palette in the token-contract suite's scope. `npm run
@@ -87,6 +88,16 @@ it.
 - [ ] The theme added to `.vscode/settings.json` under
       `markdown.marp.themes`, if you preview decks in VS Code. Nothing
       checks this; it only affects that editor's preview.
+- [ ] `swatch` in the manifest replaced — the scaffold stamps `#FF00FF`, and
+      nothing fails if you leave it.
+- [ ] `npm run build` run once, so the generated theme catalog and the docs
+      site's landing tokens pick up the new palette. `build:check` fails
+      until you do.
+- [ ] `node tools/bless-palette-baselines.js` run and its diff committed
+      (`--dry-run` first, to see what it would write) —
+      this adds your palette's frozen contrast and color-blindness
+      measurements. Until it exists, the palette suite has nothing to compare
+      your theme against and reports it as new.
 - [ ] `npm run test:palette` green.
 - [ ] `npm run build:check` green.
 - [ ] The component gallery rendered in **both** canvases and looked at.

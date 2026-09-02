@@ -107,7 +107,7 @@ and it is rule 3 of the next page doing real work rather than being asserted.
 	markdown={SLIDE_CUSTOM_COMPONENT}
 	editMarkdown
 	size="tall"
-	hint="Five steps, one at a time. 1) Change the selector to section.takeaway > .cell-stage — nothing visibly moves yet, but every rule after this one now lands on your content instead of the whole page. 2) Add display: flex; flex-direction: column; justify-content: center; — the reasons move to the middle. 3) gap: var(--sp-sm); — they stop touching. 4) padding: var(--sp-lg); background: var(--accent-soft); border-radius: var(--radius-md); — the panel appears. 5) Then a second rule for the ticks: section.takeaway.takeaway > .cell-stage > ul > li { padding-left: var(--sp-md); border-left: 4px solid var(--accent); }"
+	hint="Five steps, one at a time. 1) Change the selector to section.takeaway > .cell-stage — nothing moves yet, but every rule after this one lands on your content instead of the whole page. 2) Add display: flex; flex-direction: column; justify-content: center; — the reasons move to the middle. 3) padding: var(--sp-lg); background: var(--accent-soft); border-radius: var(--radius-md); — the panel appears. 4) A second rule for the list: section.takeaway.takeaway > .cell-stage > ul { display: flex; flex-direction: column; gap: var(--sp-sm); list-style: none; padding: 0; } — the bullets go and the reasons separate. Note the class twice, or the engine wins. 5) A third for the ticks: section.takeaway.takeaway > .cell-stage > ul > li { padding-left: var(--sp-md); border-left: 4px solid var(--accent); }"
 />
 
 That is the whole component: about twenty lines, no JavaScript. Most
@@ -137,6 +137,14 @@ npm run build         # regenerates the docs, the gallery, the catalog
 npm run build:check   # the gates
 npm test              # the unit suite
 ```
+
+**Some of those tests are meant to fail, and the scaffold told you which.**
+A new component is a deliberate change to the catalog, so a few tests
+enumerate what ships and fail until you say the new layout belongs. The one
+you will always hit is `test/unit/forms/stage-catalog.test.js` — add
+`takeaway` to the list matching your manifest's `stage`. Run `npm test` on a
+half-filled manifest and you will get far more than that; fill the manifest
+in first, then read what is left.
 
 `npm run build` writes `takeaway.docs.md` and `takeaway.gallery.md` from
 your manifest. Never edit those by hand — edit the manifest and rebuild, or

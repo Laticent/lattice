@@ -216,7 +216,7 @@ export default defineConfig({
 					// deliberately its own group rather than more "Guides" pages: Guides
 					// teach you to USE what ships, Craft teaches you to author your own,
 					// and each track is a learning sequence you read in order rather than
-					// a reference you dip into. Every page carries a live lab (CraftLab)
+					// a reference you dip into. Nineteen of the 25 pages carry a live lab (CraftLab)
 					// so the reader edits real CSS against a real slide.
 					label: 'Craft',
 					items: [

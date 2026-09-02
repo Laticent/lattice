@@ -69,6 +69,9 @@ writes or by the domain.
 - [ ] `examples/takeaway.md` written, six to ten slides, PDF committed.
 - [ ] `npm run build` run; nothing generated was hand-edited.
 - [ ] `npm run build:check` green.
+- [ ] The roster tests updated — `test/unit/forms/stage-catalog.test.js` at
+      least. They are written to fail on a new component so the catalog
+      cannot grow by accident.
 - [ ] `npm test` green.
 - [ ] The light and dark gallery pages rendered — and looked at.
 

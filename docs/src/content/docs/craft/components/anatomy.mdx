@@ -55,9 +55,10 @@ hold in your head.
 ## The one place CSS attaches
 
 Every slide the engine renders comes out in the same shape. Here is the
-`takeaway` slide above, simplified — the real section also carries an `id`, a
-`data-class` and a `form` class, and the masthead has an empty second child
-(`.masthead-bay`) that layouts use to park a corner label:
+`takeaway` slide above, cut down to the parts you style. The real section
+carries more — an `id`, a `data-class`, a `form` class, an inline `style`, an
+empty `.masthead-bay` beside the lede, and the engine's own overflow and
+fix-me tabs. None of it is yours to touch:
 
 ```html
 <section class="takeaway content">

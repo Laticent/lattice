@@ -95,13 +95,18 @@ another's work.
 
 ```text
 themes/
-  evergreen.css              ← your colors
-  evergreen.manifest.json    ← the palette's identity
-  evergreen-dark.css         ← three lines; see Light and dark
+  evergreen.css                   ← your colors
+  evergreen.manifest.json         ← the palette's identity
+  evergreen-dark.css              ← the dark wrapper; see Light and dark
+  evergreen-dark.manifest.json    ← the wrapper's identity
 ```
 
-The dark variant really is three lines. You will see why on
-[Light and dark](/craft/themes/light-dark/).
+Four files, and `npm run new:theme` writes all four. The dark wrapper does
+only one thing, in three declarations — you will see why on
+[Light and dark](/craft/themes/light-dark/) — though the generated file wraps
+them in a header comment, so do not be surprised when it is longer than three
+lines. Its manifest is three fields: the name, `role: "variant-dark"`, and
+`extends` pointing back at the base.
 
 ## Next
 

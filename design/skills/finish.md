@@ -152,8 +152,12 @@ section.finish-myfinish {
   /* mark (z3) — empty by default; author opts in per slide */
   --fin-mark-text: "";
 
-  /* edge (z4) — a full frame is stacked inset box-shadows (::after is reserved) */
-  --fin-frame: none;
+  /* edge (z4) — a full frame is stacked inset box-shadows (::after is reserved).
+   * `0 0 transparent`, NOT `none`: this slot composes into a box-shadow LIST
+   * (base.finish.css § compositor), where `none` is legal only as the sole
+   * value — writing it invalidates the whole declaration and takes the tone
+   * rail down with it. */
+  --fin-frame: 0 0 transparent;
 
   /* compositor bookkeeping — one entry per background layer, texture then wash */
   --fin-size: auto, auto;  --fin-position: center, 12% 8%;  --fin-repeat: repeat, no-repeat;

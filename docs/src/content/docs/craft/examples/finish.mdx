@@ -24,8 +24,13 @@ for export, and nothing in it naming a color.
 **All four families are declared, including the ones it does not use.**
 The mark carries both of its slots — `--fin-mark: none` for the gradient,
 `--fin-mark-text: ""` for the glyph — and `--fin-edge` is `none`. A finish
-is a set of custom properties, and an undeclared one inherits, so `none` is
-how you say *deliberately nothing*.
+is a set of custom properties, and an undeclared one inherits, so an empty
+value is how you say *deliberately nothing*.
+
+`--fin-frame` is the one that is **not** `none`. It composes into a
+box-shadow list rather than a background list, and `none` is legal there only
+as the sole value — write it and the whole declaration goes invalid, taking
+the tone rail with it. Its empty value is `0 0 transparent`.
 
 **Every full-bleed layer is twinned.** Same geometry, same percentage; the
 only difference is where the color lands. The wash covers the whole page,

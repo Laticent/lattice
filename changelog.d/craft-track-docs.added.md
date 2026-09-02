@@ -39,3 +39,20 @@
   component-versus-engine; nothing gates an empty `whenToUse`; `ledger`'s mark is
   ~14px, not a hairline; `color-mode:` has five values and one of them is `print`;
   and nineteen of twenty-five pages carry a lab, not twenty-two.
+- **The specificity remedy the track taught did not work.** Repeating a component's
+  class buys back one class, but the `article.lattice >` prefix the engine adds is a
+  class *and* an element name — so against a base rule that names a class of its own
+  (`section.form > .cell-stage`, the first one an author meets) the doubled selector
+  still loses. Measured in the built lab: plain 8px, doubled 8px, tripled 42px. Both
+  pages that gave the advice now say what doubling buys and when it is not enough.
+- **Following the tracks end to end, rather than reading them.** Running
+  `npm run new:theme` and `npm run new:component` and doing what the pages say turned
+  up what no reading pass could: the theme scaffold writes four files (the track showed
+  three), leaves `build:check` red until `npm run build`, stamps a `#FF00FF` placeholder
+  swatch nothing reminds you to replace, and leaves the palette suite red until
+  `bless-palette-baselines` has frozen the new palette's measurements — while the
+  component scaffold makes `npm test` fail *by design*, which the checklist listed as a
+  green checkbox. All now documented where the reader meets them.
+- **The scaffold seed is gated, not trusted.** `test/unit/tools/craft-scaffold-seed.test.js`
+  renders the generator's own template and compares it byte for byte with the lab's
+  seed — the one place the track claims a match with a command the reader just ran.

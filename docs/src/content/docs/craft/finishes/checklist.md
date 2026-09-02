@@ -63,7 +63,7 @@ exported file, and its failure mode — a gray cloud across a full-bleed
 fade, a title slide washed to near-blank — appears only in the export.
 Nothing on screen predicts it.
 
-## The six mistakes, in order of frequency
+## Six ways a finish goes wrong
 
 1. **A fade ending on `transparent` in the opaque face.** A gray cloud in
    every PDF.

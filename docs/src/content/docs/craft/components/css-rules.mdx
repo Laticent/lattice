@@ -90,15 +90,26 @@ both.
 ## When your rule seems to do nothing
 
 When two rules both apply, the browser breaks the tie by counting how
-specific each selector is. The engine's own rules count one step higher
-than CSS typed into a lab here, so a rule that looks ignored is usually
-losing that count. Writing the component's class twice adds one:
+specific each selector is. CSS typed into a lab here is appended raw, while
+the engine's own rules are rewritten with an `article.lattice >` prefix — so
+every engine rule carries **one extra class and one extra element name** than
+what you type. A rule that looks ignored is usually losing that count.
+
+Repeating the component's class buys back the class, not the element name:
 
 ```css
 section.takeaway.takeaway > .cell-stage > ul { list-style: none; }
 ```
 
-That is doubled deliberately in the lab above, and the comment says so.
+That is enough when the engine rule you are up against names no class of its
+own — which covers most of them, including the two doubled in the lab above.
+It is **not** enough against a base rule that carries a class. The stage's own
+`section.form > .cell-stage` is the one you will meet first: packed, it scores
+higher than your doubled selector, so a `gap` you set on `> .cell-stage`
+silently keeps the engine's. Repeating the class a third time wins it.
+
+None of this is something you tune by feel — if a rule does nothing, count the
+classes and element names on both sides.
 
 **A shipped component does not need this.** Its file goes through the same
 scoping the engine's own rules do, so it competes on equal footing. Two

@@ -266,8 +266,10 @@ section.takeaway > .cell-stage {
 
 /* The reasons. One flat list, each with an accent tick down its left.
  * The class is written TWICE here so the rule outranks the fallback
- * layout's own list styling — see "The three CSS rules". A registered
- * component does not need the doubling. */
+ * layout's own list styling — see "The three CSS rules". That is enough
+ * because the base rules these two beat name no class of their own; a rule
+ * contending with the stage's own section.form rule would need it three
+ * times. A registered component does not need the doubling at all. */
 section.takeaway.takeaway > .cell-stage > ul {
   display: flex;
   flex-direction: column;
@@ -381,9 +383,10 @@ export const CSS_FINISH_WASH = `section.finish-lab {
       color-mix(in srgb, var(--accent) 14%, var(--fin-canvas)) 0%,
       var(--fin-canvas) 60%);
 
-  /* Two entries, because the compositor always emits two background layers:
-   * the (here empty) texture slot first, then the wash. Every shipped preset
-   * counts the empty slot rather than letting CSS repeat a short list. */
+  /* Two entries: this preset's background-image list is the (empty) texture
+   * slot first, then the wash. One entry per layer INCLUDING the empty ones —
+   * every shipped preset counts them rather than letting CSS repeat a short
+   * list. Presets with more layers carry more entries. */
   --fin-size:     auto,      auto;
   --fin-position: top left,  100% 0%;
   --fin-repeat:   repeat,    no-repeat;
