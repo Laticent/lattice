@@ -41,8 +41,11 @@ summary: >
   feature, never as the engine. SMIL scrubs natively for zero bytes but the animated value never
   reaches the serialized markup, so it cannot make a poster, and `<animate>` is already on the
   untrusted-SVG strip list. Rive rasterizes (every renderer is canvas/WebGL); Theatre.js is 2+
-  years stale; KUTE.js uses the browser's getTotalLength for paths. Engine pick is a human call
-  and is NOT yet made.
+  years stale; KUTE.js uses the browser's getTotalLength for paths. ENGINE PICK, DECIDED BY THE
+  HUMAN: anime.js v4 — superseding this note's no-engine recommendation, which was about whether a
+  library was NEEDED rather than whether this one works; it measured pixel-identical here. Use its
+  createDrawable, which runs in the jsdom test tier; its morphTo is the one caveat and needs a
+  real-browser check rather than a unit test. GSAP is out on both counts settled in §5-6.
 companion:
   - ./2026-07-19-anima-svg-first-cut-zdog.md
   - ./2026-07-17-anima-animation-library.md
@@ -52,33 +55,24 @@ companion:
 
 # The motion engine bake-off — measure the painter, not the timeline
 
-**Date:** 2026-09-02 · **Status:** findings settled; the engine question is CLOSED — see the box below.
+**Date:** 2026-09-02 · **Status:** findings settled; the engine pick is DECIDED — anime.js v4.
 
-> **CLOSED: no engine.** This note left the pick to a human. The frame model
-> (`2026-09-02-frame-model-for-motion.md`) then removed the question rather than answering it.
+> **CLOSED: anime.js v4.** This note recommended no engine and left the pick to a human. **The
+> human picked anime.js v4, and that is the decision.** MIT, maintained, and it measured
+> pixel-identical to the hand-rolled painter here (0.000% mean diff), so nothing in §5 argues
+> against it — the recommendation was about whether a library was *needed*, not whether this one
+> works.
 >
-> An animation library does two jobs: work out what a thing should look like right now, and change
-> the picture to match. It is sold on the first. Under the frame model there is no first job — a
-> motion is a handful of pictures we draw on purpose, so "what does it look like now" is "show
-> picture 4". Nothing is being computed, so there is nothing to buy. The library's whole offer is to
-> invent the in-between pictures, and inventing them is what we are deliberately not doing.
+> **Use its `createDrawable`.** It needs no geometry measurement, so it runs in our jsdom test tier
+> exactly as it does in a browser — the property that disqualified GSAP.
 >
-> Two consequences worth stating. The invented pictures cannot be checked — they exist for a
-> fraction of a second and there are dozens of them; pictures we draw can be saved and compared
-> against last month's to catch a regression. And a library is third-party code carried forever.
+> **Its `morphTo` is the one caveat**, and it is a testing caveat rather than a reason to avoid it:
+> it silently no-ops in jsdom, so anything built on morph needs a real-browser check rather than a
+> unit test. It also emits a resampled polyline at t=0 and t=1 instead of the author's exact path,
+> so snap to the exact path at the endpoints.
 >
-> This reopens only if the frame model is abandoned for continuous, physics-style motion.
-
-> **Naming.** The library is renamed **Animals**. The 2026-07-17 ADR set "Anima" explicitly as a
-> naming call ("All three are naming calls (alternatives: `Moto`, `Diorama`)"), so this supersedes
-> it rather than contradicting it. **This note records the decision; the code still says `anima`.**
-> A sweep is 1,049 references across 146 files, and it is not a find-and-replace: it moves the
-> `docs/src/lib/anima/` folder (23 files), the boundary gate's `ANIMA_DIR` / `ANIMA_ADAPTER_DEPS` /
-> `checkAnimaBoundary` / `checkAnimaColorVocabulary` (24 hits in `tools/check-ownership.js`), the
-> `kind:'scene'` asset rail, the generated player bundle and its build step, and **149 occurrences
-> of `data-anima-role` that are SHIPPED MARKUP** — a rendered-attribute rename, so it breaks any
-> saved scene asset and any exported player already in the wild. Do it as its own PR with a
-> migration for stored assets, not folded into feature work.
+> GSAP is out and stays out: its licence conflicts with AGPL redistribution AND its DrawSVG plugin
+> paints nothing in our test tier. Both were settled in §5–6; neither is revisited.
 
 This note does three things. §1–2 audit what Anima ships today and why its SVG backend has to go.
 §3–9 report a four-way engine bake-off that was **built and measured**, not argued. §10 covers a

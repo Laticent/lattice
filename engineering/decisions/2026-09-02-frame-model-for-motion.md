@@ -7,8 +7,8 @@ summary: >
   golden-test (a continuous tween you cannot, which is exactly why live motion has zero e2e coverage
   today); the last frame IS the reduced-motion still, so there is no second code path; the hero can
   only ever BE a known frame, which dissolves the transitional-poster bug the logo prototype caught;
-  and it needs no animation engine at all, because `at(k/N)` wants no easing curve and no clock —
-  which is why the bake-off's no-engine result stops being a close call and becomes the obvious fit.
+  and it asks very little of the engine, because `at(k/N)` wants no easing curve and no clock, so
+  the library (anime.js v4, decided) is used narrowly as a painter rather than as a timeline.
   PRINT POLICY, DECIDED: frames are a LIVE-SURFACE capability only. PDF and PPTX always render the
   FINAL frame, so every existing deck stays byte-identical and the 0-pixel guarantee is absolute.
   The price is named rather than hidden: motion is worth nothing in the artifact a recipient
@@ -63,8 +63,10 @@ Continuous motion fights a deterministic engine. Frames do not — they turn mot
    — striking on screen, wrong on paper — and noted "nothing in the spec enforces that today."
    When the beats *are* the frames, a hero can only ever be one of them. The class of bug is gone,
    not guarded against.
-4. **It needs no engine.** `at(k/N)` wants no easing and no clock. The bake-off's no-engine
-   recommendation stops being a narrow win over anime.js and becomes the obvious fit.
+4. **It asks very little of the engine.** `at(k/N)` wants no easing curve and no clock, so
+   whatever library we carry is used narrowly — as a painter, not as a timeline. The engine pick
+   is **anime.js v4** (decided; `2026-09-02-motion-engine-bakeoff.md`), and the frame model means
+   we lean on a small part of it: `createDrawable` for stroke work, and little else.
 5. **It is diffable.** A frame set is data. That keeps motion inside the property the whole
    product rests on — same Markdown plus same tokens yields the same output.
 
@@ -102,8 +104,10 @@ Verified against source, because the distinction decides how many painters exist
 | **Header · footer · pagination** | **DOM** | `.cell-footer` is a flex row (`lib/core/footer-dock.js`) |
 | **Deck logo** | **DOM (and not yet SVG at all)** | `<img class="deck-logo">` (`lib/core/bg-image.js:190`). An SVG painter cannot reach it until something inlines it |
 
-So: **one pure `at(t)`, two painters.** The SVG painter is already written and measured (the
-bake-off's no-engine candidate: 2,226 B gzip, byte-identical in jsdom and Chromium). The DOM
+So: **one pure `at(t)`, two painters.** The SVG painter is already written and measured — the
+bake-off's hand-rolled candidate at 2,226 B gzip, byte-identical in jsdom and Chromium, and
+anime.js measured pixel-identical to it (0.000% mean diff), so either paints the same picture. The
+DOM
 painter is new, small, and is transform-plus-opacity over tagged units.
 
 Note the logo row. "Animate the SVG logo" is a reasonable ask that has a prerequisite: today it is
@@ -148,8 +152,9 @@ the thing to refuse. Deferred until charts and the DOM chrome are real.
 
 ## 7. What this note does NOT do
 
-- **It does not pick the engine.** The bake-off recommends no engine and the frame model
-  strengthens that, but the pick is still a human call and is still open.
+- **It does not re-open the engine pick.** That is decided: **anime.js v4**
+  (`2026-09-02-motion-engine-bakeoff.md`). The frame model narrows what we use it for — a painter,
+  not a timeline — but does not revisit the choice.
 - **It does not settle morph.** Part-level morph is measured and works, but under a frame model its
   role is narrower — it interpolates *between* two known frames, if we want that at all.
 - **It does not change any exported byte.** By construction, per §3.
