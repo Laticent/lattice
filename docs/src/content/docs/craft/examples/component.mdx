@@ -96,8 +96,10 @@ Two files are yours.
 
 **Every field is either a contract or prose someone will read.** The axes
 and slots are the contract. `whenToUse`, `antiPatterns` and `related` are
-generated into the component's documentation page — which is why the build
-refuses empty ones.
+generated into the component's documentation page — the build emits each
+section only if you filled it in, so leaving one empty ships a component
+whose documentation quietly has a hole. Nothing fails; every shipped
+manifest carries all three by convention, and yours should too.
 
 **The capacity numbers came from rendering, not guessing.** Five is the
 hard limit because the sixth reason was tried and it did not work.

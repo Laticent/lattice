@@ -86,8 +86,10 @@ moved. `finish:` is backdrops only.
 
 ## What a finish is made of
 
-CSS gradients, and nothing else. A finish is a handful of
-`linear-gradient` and `radial-gradient` values assigned to named slots.
+Gradients, almost entirely. A finish is a handful of `linear-gradient` and
+`radial-gradient` values assigned to named slots — plus, for two of the four
+layers, a string for the mark's glyph and a stack of inset shadows for a
+full frame. No images, ever.
 
 That constraint buys four things, and an image would cost all four. A
 gradient survives PDF export. It scales to any page size. It costs nothing

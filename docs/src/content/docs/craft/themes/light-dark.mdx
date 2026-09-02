@@ -50,8 +50,9 @@ It imports the palette you already wrote and flips one switch. Every
 
 ## How a deck picks a canvas
 
-Deck authors have five ways to get a dark deck. Know them, so your theme
-is tested the way people will use it.
+`color-mode:` is how an author picks a canvas. Know the values, so your
+theme is tested the way people will use it — three of the five can land a
+reader on your dark half.
 
 | What the author wants | What they write |
 |---|---|
@@ -59,12 +60,13 @@ is tested the way people will use it.
 | The whole deck light | `color-mode: light` |
 | Follow the reader's system setting | `color-mode: system` |
 | Adopt the surrounding page's mode | `color-mode: inherited` |
-| One slide dark in a light deck | `<!-- _class: dark -->` on that slide |
+| Ink on white, for paper | `color-mode: print` |
 
-Picking `theme: evergreen-dark` is a sixth route to a dark deck. It works
-differently — the variant pins `color-scheme: dark` at the root, where
-`color-mode: dark` marks each slide — so reach for `color-mode:` unless you
-specifically want the palette swapped.
+Two more routes exist outside that key. `<!-- _class: dark -->` on a single
+slide makes just that slide dark in a light deck. And picking
+`theme: evergreen-dark` swaps the palette itself — the variant pins
+`color-scheme: dark` at the root, where `color-mode: dark` marks each slide,
+so reach for `color-mode:` unless you specifically want the swap.
 
 The default is light.
 

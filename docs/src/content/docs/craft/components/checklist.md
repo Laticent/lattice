@@ -50,7 +50,8 @@ writes or by the domain.
 - [ ] `sample` is real prose, not placeholder text.
 - [ ] `capacity` and `density` are numbers you found by rendering.
 - [ ] A `stressDoc` at the hard limit.
-- [ ] `whenToUse` — three or four entries.
+- [ ] `whenToUse` — three or four entries. (Not gated. An empty one ships a
+      docs page with a hole in it.)
 - [ ] `antiPatterns` — three or four, each naming where to go instead.
 - [ ] `related` components, each with a `when` clause.
 - [ ] Every declared variant has a `variantDocs` entry.

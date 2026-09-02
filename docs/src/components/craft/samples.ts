@@ -285,15 +285,23 @@ section.takeaway.takeaway > .cell-stage > ul > li {
 `;
 
 /**
- * The scaffold's starting point — what `npm run new:component` actually leaves
- * you with. The capstone lab opens on THIS, not on the finished component, so the
- * reader builds the thing rather than reading it.
+ * The scaffold's starting point — byte-for-byte what `npm run new:component
+ * takeaway --bucket statement --function statement --form canvas --substance
+ * structure` writes to `takeaway.styles.css` (tools/new-component.js). The capstone
+ * lab opens on THIS, not on the finished component, so the reader builds the thing
+ * rather than reading it — and the first move is a real one: the scaffold anchors on
+ * `section.takeaway`, and rule 3 says to move it to `> .cell-stage`.
+ *
+ * Keep this in sync with the generator's template. It is the one seed in this file
+ * that claims to MATCH a command the reader just ran in their own terminal.
  */
-export const CSS_COMPONENT_STUB = `/* takeaway.styles.css — as the scaffold writes it.
- * One rule, no opinions. Everything below is yours. */
-section.takeaway > .cell-stage {
-  display: flex;
-  flex-direction: column;
+export const CSS_COMPONENT_STUB = `/* takeaway — statement · canvas · structure
+ *
+ * Palette-blind: every color goes through var(--token). No hex literals.
+ * See lib/base/ for the cascade and design/design-system.md for the model.
+ */
+section.takeaway {
+	/* TODO: layout rules */
 }
 `;
 
@@ -337,9 +345,14 @@ export const CSS_FINISH_QUARRY = `section.finish-quarry {
   --fin-mark: none;
   --fin-mark-text: "";
 
-  /* ── z4 · EDGE — declared as nothing, so it cannot inherit a stray layer. */
+  /* ── z4 · EDGE — declared as nothing, so it cannot inherit a stray layer.
+   *    --fin-edge is a background layer, where none is the empty value.
+   *    --fin-frame is NOT: it composes into a box-shadow LIST, where none is
+   *    legal only as the sole value and would invalidate the whole declaration —
+   *    taking the tone rail down with it on a tone-* slide. Its empty value is
+   *    a no-op shadow. */
   --fin-edge: none;
-  --fin-frame: none;
+  --fin-frame: 0 0 transparent;
 
   /* ── Bookkeeping: one entry per background layer, in the order above. */
   --fin-size:     auto, auto;
@@ -368,9 +381,12 @@ export const CSS_FINISH_WASH = `section.finish-lab {
       color-mix(in srgb, var(--accent) 14%, var(--fin-canvas)) 0%,
       var(--fin-canvas) 60%);
 
-  --fin-size: auto;
-  --fin-position: 100% 0%;
-  --fin-repeat: no-repeat;
+  /* Two entries, because the compositor always emits two background layers:
+   * the (here empty) texture slot first, then the wash. Every shipped preset
+   * counts the empty slot rather than letting CSS repeat a short list. */
+  --fin-size:     auto,      auto;
+  --fin-position: top left,  100% 0%;
+  --fin-repeat:   repeat,    no-repeat;
 }
 `;
 

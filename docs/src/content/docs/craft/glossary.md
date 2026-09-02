@@ -92,7 +92,7 @@ tell them apart.
 | **Screen face** | The version a browser shows, fading to transparent. |
 | **Opaque face** | The `-opaque` twin used for print and export, ending on a real color. |
 | **Register** | The list of recognized `finish:` names. Adding one is a row in it. |
-| **Mode** | A separate front-matter key for the deck's handwriting — `boardroom` or `sketch`. Not a finish. |
+| **Mode** | A separate front-matter key for the deck's handwriting — `boardroom`, `sketch` or `sketch-clean`. Not a finish. |
 
 ## Words that are not Lattice's
 

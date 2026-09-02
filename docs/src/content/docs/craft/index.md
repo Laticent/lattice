@@ -57,8 +57,9 @@ grid, a keyline frame.
 
 ## How to read these
 
-Every page except the three checklists carries a **live lab**: the slide on
-top, its source underneath. Edit the source and the slide repaints as you
+Nineteen of the twenty-five pages carry a **live lab**: the slide on top,
+its source underneath. The three checklists, this hub, the glossary and the
+troubleshooting page are reading, not doing. Edit the source and the slide repaints as you
 type. Nothing is saved, so break things freely — a **Reset** button appears
 in the lab's header the moment you change anything, and puts it back.
 

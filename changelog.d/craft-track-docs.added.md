@@ -27,3 +27,15 @@
   four verified slot pairs, and the track names the exception where it matters.
 - **Craft labs serve Mermaid from our own origin**, the copy the Playground and Studio
   already use, instead of falling back to the jsdelivr CDN.
+- **A third review pass over the track's claims, run before merge.** Seven refutations,
+  two of them things a reader would have shipped. The component scaffold seed did not
+  match what `npm run new:component` writes — it is now byte-identical to the
+  generator's template, and the capstone lab opens on the real thing, whose selector
+  the reader's first move corrects. The finish worked example declared
+  `--fin-frame: none`; that slot composes into a box-shadow list where `none` is legal
+  only as the sole value, so the declaration went invalid and took the tone rail with
+  it (measured live: the rail resolves with `0 0 transparent` and vanishes with
+  `none`). Also corrected: the specificity gap is lab-versus-engine, not
+  component-versus-engine; nothing gates an empty `whenToUse`; `ledger`'s mark is
+  ~14px, not a hairline; `color-mode:` has five values and one of them is `print`;
+  and nineteen of twenty-five pages carry a lab, not twenty-two.

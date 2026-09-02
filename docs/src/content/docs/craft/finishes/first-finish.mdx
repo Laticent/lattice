@@ -42,10 +42,16 @@ section.finish-quarry {
 Two disciplines make the difference between a preset that works and one
 that mostly works.
 
-**Declare all four slot families**, even the ones you do not use — set them
-to `none`. A finish is a set of custom properties, and an undeclared one
-inherits, so an unset slot can pick up a stray layer from elsewhere.
-Writing `none` says *deliberately nothing*.
+**Declare all four slot families**, even the ones you do not use. A finish is
+a set of custom properties, and an undeclared one inherits, so an unset slot
+can pick up a stray layer from elsewhere.
+
+The empty value depends on where the slot lands. `--fin-wash`, `--fin-texture`,
+`--fin-mark` and `--fin-edge` become **background layers**, where `none` is the
+empty value. `--fin-frame` is the exception: it composes into a **box-shadow
+list**, where `none` is legal only as the sole value — write it there and the
+whole declaration goes invalid, taking the tone rail down with it on any
+`tone-*` slide. Its empty value is `0 0 transparent`.
 
 **Write the `-opaque` twin of every full-bleed layer** as you write the
 layer, not afterwards. [Screen and print](/craft/finishes/screen-and-print/)

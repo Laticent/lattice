@@ -23,7 +23,9 @@ Four files, one of them a single line.
 **The preset**
 
 - [ ] One row added to `FINISH_REGISTER`.
-- [ ] All four slot families declared — unused ones set to `none`.
+- [ ] All four slot families declared. Unused background slots are `none`;
+      unused `--fin-frame` is `0 0 transparent` — `none` is invalid in a
+      shadow list and silently kills the tone rail.
 - [ ] Every full-bleed layer has a `-opaque` twin ending on
       `var(--fin-canvas)`.
 - [ ] The two faces have the **same layer count**.
@@ -61,15 +63,17 @@ exported file, and its failure mode — a gray cloud across a full-bleed
 fade, a title slide washed to near-blank — appears only in the export.
 Nothing on screen predicts it.
 
-## The five mistakes, in order of frequency
+## The six mistakes, in order of frequency
 
 1. **A fade ending on `transparent` in the opaque face.** A gray cloud in
    every PDF.
 2. **Accent alpha too high across the full page.** The backdrop competes
    with the words.
-3. **`url()`, `mask-image`, a hex, or a `margin`** anywhere in the preset.
-4. **A monogram baked into a deck-wide finish.**
-5. **Mismatched layer counts** between the two faces, which quietly
+3. **`--fin-frame: none`.** Invalid inside a shadow list, so the declaration
+   dies and takes the tone rail with it. Use `0 0 transparent`.
+4. **`url()`, `mask-image`, a hex, or a `margin`** anywhere in the preset.
+5. **A monogram baked into a deck-wide finish.**
+6. **Mismatched layer counts** between the two faces, which quietly
    corrupts the shared size and position lists.
 
 ## Where to go next

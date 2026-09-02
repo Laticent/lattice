@@ -40,7 +40,7 @@ You get two files:
 ```text
 lib/components/statement/takeaway/
   takeaway.manifest.json    ← the contract, with TODOs
-  takeaway.styles.css       ← an empty, palette-blind stub
+  takeaway.styles.css       ← a header comment and one empty rule
 ```
 
 ## 3. Fill in the manifest
@@ -95,8 +95,10 @@ Three rules govern it, and they get [their own page](/craft/components/css-rules
 For now: colors are tokens, space is padding and gap, and every selector
 hangs off `> .cell-stage`.
 
-The lab below opens on the scaffold's stub — one rule, no opinions. Build
-it up in four steps and watch each one land.
+The lab below opens on the scaffold's stub exactly as it is written to disk:
+a header comment and one empty rule. Note where that rule is anchored —
+`section.takeaway`, the whole page. Moving it to `> .cell-stage` is step one,
+and it is rule 3 of the next page doing real work rather than being asserted.
 
 <CraftLab
 	label="takeaway.styles.css — build it"
@@ -105,7 +107,7 @@ it up in four steps and watch each one land.
 	markdown={SLIDE_CUSTOM_COMPONENT}
 	editMarkdown
 	size="tall"
-	hint="Add these one at a time, inside the rule that is already there. 1) justify-content: center; — the reasons move to the middle. 2) gap: var(--sp-sm); — they stop touching. 3) padding: var(--sp-lg); background: var(--accent-soft); border-radius: var(--radius-md); — the panel appears. 4) Then a second rule for the ticks: section.takeaway.takeaway > .cell-stage > ul > li { padding-left: var(--sp-md); border-left: 4px solid var(--accent); }"
+	hint="Five steps, one at a time. 1) Change the selector to section.takeaway > .cell-stage — nothing visibly moves yet, but every rule after this one now lands on your content instead of the whole page. 2) Add display: flex; flex-direction: column; justify-content: center; — the reasons move to the middle. 3) gap: var(--sp-sm); — they stop touching. 4) padding: var(--sp-lg); background: var(--accent-soft); border-radius: var(--radius-md); — the panel appears. 5) Then a second rule for the ticks: section.takeaway.takeaway > .cell-stage > ul > li { padding-left: var(--sp-md); border-left: 4px solid var(--accent); }"
 />
 
 That is the whole component: about twenty lines, no JavaScript. Most

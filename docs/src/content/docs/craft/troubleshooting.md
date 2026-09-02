@@ -42,11 +42,14 @@ twenty-four values; `npm run new:theme` copies a working set.
 
 ## A CSS rule does nothing
 
-**The rule is right and nothing happens.**
-Almost always a lost tie. The engine's own rules are scored one step higher
-than component CSS, so yours loses. Write the component class twice —
-`section.takeaway.takeaway > .cell-stage` — which buys the point back.
-[The three CSS rules](/craft/components/css-rules/).
+**The rule is right and nothing happens, in a lab on this site.**
+A lost tie. CSS typed into a lab is appended raw, while the engine's own
+rules are prefixed with `article.lattice >` — one class step higher, so
+yours loses. Write the component class twice —
+`section.takeaway.takeaway > .cell-stage` — which buys the point back. A
+**shipped** component file goes through the same prefixing and ties, so it
+needs the doubling only in the two cases
+[The three CSS rules](/craft/components/css-rules/) names.
 
 **Your whole stylesheet lost at once.**
 You wrapped it in `@layer`. An unlayered rule beats a layered one whatever

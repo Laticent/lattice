@@ -35,7 +35,7 @@ Beyond the groups on [the token tour](/craft/themes/tokens/), define:
 | `--pass-bg` / `--warn-bg` / `--fail-bg` | 3 | tinted signal grounds |
 | `--seq-500` | 1 | anchors a ten-step gradient ramp |
 | `--text-label`, `--code-text` | 2 | the accent-hued label tier, and code text |
-| `--c-container*`, `--c-subcontainer*` | 6 | the diagram grouping boxes — see below |
+| `--c-container`/`-edge`, `--c-subcontainer`/`-edge`, `--c-on-container`, `--c-on-subcontainer` | 6 | the diagram grouping boxes — see below |
 
 The exact list is the `CONTRACT` array in
 `test/unit/palette/token-parity.test.js`. The twelve `--cat-N-ink` values
