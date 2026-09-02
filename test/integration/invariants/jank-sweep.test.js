@@ -129,14 +129,23 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
     assert.equal(r.status, 1);
   });
 
-  test('text escaping its own box moves the numbers', () => {
-    // `nowrap` sends the glyphs ~3900px past a 1144px border box. Measuring the box alone
-    // reported breathing 0 on every step AND `vacuous: true` — "this axis is not moving the
-    // content" — on the run where the content had left the slide entirely.
+  test('text escaping its own box is not claimed as measured — the probe owns that case', () => {
+    // THE COVERAGE BOUNDARY, pinned deliberately. Two richer ink measures were tried for
+    // this case and both manufactured collisions on layouts that are fine: a Range union
+    // (line boxes carry the font's leading) and `scrollWidth`/`scrollHeight` (they include
+    // absolutely positioned descendants, so the named anchor came back in through its own
+    // container and shipped `list-steps` reported a -219.1px collision against unmodified
+    // CSS). The ink is the border box, and the escape is left to the channel that already
+    // sees it. This arm asserts that division rather than a coverage claim we do not have.
     const r = sweep(['--style', 'section.divider.numbered h2 { white-space: nowrap; }'], { max: '20' });
     assert.equal(r.summary.vacuous, false,
-      'the sweep called itself vacuous while the ink ran off the slide');
-    assert.ok(r.summary.crowded, 'ink outside the content box was not reported as crowding');
+      'the sweep declared itself inert while the heading was growing every step');
+    assert.ok(r.summary.firstOverflow != null,
+      'a heading running off the slide was flagged by no channel at all — the probe column is '
+      + 'the coverage this tool defers to for inline escape, so if it goes quiet the case is '
+      + 'genuinely unmeasured');
+    assert.equal(r.summary.collision, null,
+      'the ink measure grew a false collision on a heading that only escapes on the inline axis');
   });
 
   test('a sweep it cannot fully measure refuses instead of reporting clean', () => {

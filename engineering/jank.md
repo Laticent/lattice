@@ -157,6 +157,10 @@ different `--axis` rather than banking the green.
   ~9px lower than the paragraph that contains it (its line box has leading). It has never
   changed a step-level verdict — a line is four times that — but it is why a number here
   can differ slightly from one measured off a block box.
+- **A positioned pseudo's own `transform` is applied.** The `translate(-50%, 50%)` centering
+  idiom put a shipped mark 15.3px from where it paints; six positioned pseudos in the bundle
+  carry a transform. A `matrix3d`, or a transform on the containing block itself (which mixes
+  coordinate spaces), is refused rather than approximated.
 - **A generated box is not a child**, and the first version of that walk could not see one:
   a pseudo painting chrome on a text-free wrapper was simply absent from the ink, and a
   hard, full-width overlap with the anchor reported `COLLISION none` and exit 0. Positioned
@@ -164,9 +168,15 @@ different `--axis` rather than banking the green.
   cannot be placed — the DOM does not expose a pseudo's static position — so it is counted
   and printed as `UNPLACED`, and the clean line stops saying `ok`. A rig that cannot see
   something must say so rather than certify around it.
-- **Text is not bounded by its border box**, so a text-bearing element contributes its
-  scroll extent as well: a `nowrap` heading measured 1144px wide with its glyphs running
-  past 3900px, off the slide, while every column read as if nothing had moved.
+- **The ink is the border box, and text escaping it on the inline axis is NOT in the ink.**
+  Two richer measures were tried and both invented collisions on layouts that are fine: a
+  Range's rects are line boxes carrying the font's leading, and `scrollWidth` includes the
+  border boxes of absolutely positioned descendants — so every out-of-flow box the walk
+  drops, the named anchor included, came back through its own container, and shipped
+  `list-steps` reported a −219.1px collision against unmodified CSS. The escape is not
+  silent: the engine's own probe flags it, in the `probe` column of the same row. A measure
+  that invents collisions on shipped components to catch a case another channel already
+  catches is a bad trade.
 - **Out-of-flow boxes are excluded from the ink by construction.** An absolutely positioned
   mark is what an anchor *is*; to measure one, name it with `--anchor`. The named anchor is
   excluded from its own ink, or every sweep would collide with itself.

@@ -45,9 +45,18 @@
  *    wrapper was invisible (the engine bundle carries hundreds of such rules) — positioned
  *    pseudos are now reconstructed and folded in, and an offset in-flow one, whose static
  *    position the DOM does not expose, is COUNTED and suppresses the clean verdict rather
- *    than being dropped. And TEXT IS NOT BOUNDED BY ITS BORDER BOX — a `nowrap` heading
- *    measured 1144px wide while its glyphs ran to 4200px — so a Range over each text-bearing
- *    element's contents joins the union.
+ *    than being dropped — and the descent CONTINUES past a painting box, because stopping
+ *    there left 66 positioned pseudos in the shipped gallery unseen with no `unplaced` note.
+ *    A positioned pseudo's own TRANSFORM is applied: the `translate(-50%, 50%)` centering
+ *    idiom put a shipped mark 15.3px from where it paints, and six pseudos in the bundle
+ *    carry one.
+ *    What the ink deliberately is NOT: the element's scroll extent. Text escaping its border
+ *    box on the inline axis is not in the ink, because both richer measures tried for it
+ *    invented collisions on layouts that are fine — a Range's line boxes carry the font's
+ *    leading, and `scrollWidth` includes absolutely positioned descendants, so the named
+ *    anchor returned through its own container and shipped `list-steps` reported a -219.1px
+ *    collision against unmodified CSS. That case is not silent: the engine's overflow probe
+ *    flags it, on the same row, in the `probe` column.
  *  · THE ANCHOR'S PAINTED EDGE, NOT ITS CONTENT BOX. A `::after` is `content-box`, so
  *    `getComputedStyle(el, '::after').height` is the glyph alone — beneath it sit its
  *    padding and the border that IS the hairline (21.48px in the case this came from).
@@ -170,7 +179,11 @@ if (opts.get('help')) { console.log(USAGE); process.exit(0); }
 const flag = (name, def) => (opts.has(name) ? opts.get(name) : def);
 const num = (name, def) => {
   const raw = flag(name, def);
-  const v = NUMERIC[name] === 'int' ? parseInt(raw, 10) : parseFloat(raw);
+  const v = NUMERIC[name] === 'int' ? Number(raw) : Number.parseFloat(raw);
+  if (NUMERIC[name] === 'int' && Number.isFinite(v) && !Number.isInteger(v)) {
+    // `parseInt` truncated silently: `--max 2.9` swept 2 steps and `--max 2e1` swept 2.
+    die(`--${name} needs a whole number, got '${raw}'.`);
+  }
   // NaN is the silent one: `--max-drift banana` used to print "(limit NaN) ok" and exit 0
   // on a sweep with real drift, because every comparison against NaN is false.
   if (!Number.isFinite(v)) die(`--${name} needs a number, got '${raw}'.`);
@@ -179,7 +192,16 @@ const num = (name, def) => {
 
 const JSON_OUT = !!opts.get('json');
 const ADVISORY = !!opts.get('advisory');
-const ANCHOR = flag('anchor', null);
+// An EMPTY anchor is a missing one. `--anchor ''` (an unset shell variable) kept the empty
+// string, which is falsy, so the anchor path was skipped AND the partial-anchor refusal was
+// skipped — reproducing the first-cut failure verbatim: no DRIFT line, no COLLISION line,
+// exit 0.
+const ANCHOR = (() => {
+  const raw = flag('anchor', null);
+  if (raw == null) return null;
+  if (!raw.trim()) die('--anchor was given an empty selector. Drop the flag, or name what must hold still.');
+  return raw.trim();
+})();
 const FAMILY = flag('family', 'wide');
 const THEME = flag('theme', 'indaco');
 const TIGHT = num('tight', '12');
@@ -197,6 +219,16 @@ const STYLE = (() => {
   if (!fs.existsSync(raw)) {
     die(`--style '${raw}' is neither a readable file nor CSS (no \`{\` in it). `
       + 'A missing stylesheet would inject nothing and the sweep would silently match its baseline.');
+  }
+  // AND THE FILE HAS TO CARRY CSS. The missing-path refusal was written because an empty
+  // injection makes the "swept with the fix neutralized" run byte-identical to its baseline
+  // and read as proof the fix held — and a file that EXISTS and is empty, or is prose, does
+  // exactly the same thing. Measured: `--style empty.css` produced JSON identical to the
+  // un-styled run.
+  const text = fs.readFileSync(raw, 'utf8');
+  if (!/\{|^\s*@/m.test(text)) {
+    die(`--style '${raw}' exists but carries no CSS (no rule block, no at-rule). It would `
+      + 'inject nothing, and the sweep would silently match its own baseline.');
   }
   return raw;
 })();
@@ -302,9 +334,14 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
   /** A fully transparent background paints nothing, whatever its channels say. */
   const transparent = (color) => {
     if (color === 'transparent') return true;
-    const m = /^rgba?\(([^)]+)\)$/.exec(color);
+    // `rgb()`/`hsl()`/`#rrggbbaa` all serialize to `rgba(...)` in Chromium, but `oklch()`,
+    // `lab()` and `color()` keep their own form — and an alpha-0 one of those read as
+    // PAINTING, which stops the walk at an invisible wrapper and pushes its whole rect.
+    const m = /^(?:rgba?|hsla?|oklch|oklab|lch|lab|color)\(([^)]+)\)$/.exec(color);
     if (!m) return false;
-    const parts = m[1].split(/[,/]/).map((v) => v.trim());
+    const alpha = /\/\s*([\d.]+%?)\s*$/.exec(m[1]);
+    if (alpha) return Number.parseFloat(alpha[1]) === 0;
+    const parts = m[1].split(',').map((v) => v.trim());
     return parts.length > 3 && Number.parseFloat(parts[3]) === 0;
   };
 
@@ -332,12 +369,49 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
     const cs = getComputedStyle(el);
     if (cs.position !== 'static') return true;
     if (cs.transform !== 'none' || cs.perspective !== 'none') return true;
-    if (cs.filter !== 'none' || cs.backdropFilter && cs.backdropFilter !== 'none') return true;
-    if (cs.willChange && /transform|perspective|filter/.test(cs.willChange)) return true;
+    if (cs.filter !== 'none' || (cs.backdropFilter && cs.backdropFilter !== 'none')) return true;
+    // The INDIVIDUAL longhands establish one too and do NOT show up in `transform`, which
+    // computes to `none` beside them — measured 340px of silent error apiece.
+    if (['translate', 'rotate', 'scale'].some((k) => cs[k] && cs[k] !== 'none')) return true;
+    if (cs.contentVisibility && cs.contentVisibility !== 'visible') return true;
+    if (cs.willChange && /transform|perspective|filter|contain/.test(cs.willChange)) return true;
     if (cs.contain && /(^|\s)(layout|paint|strict|content)(\s|$)/.test(cs.contain)) return true;
     if (cs.containerType && cs.containerType !== 'normal') return true;
     return false;
   };
+
+  /**
+   * A 2D transform applied to a reconstructed box, as its axis-aligned bounding box.
+   * `placedBox` builds the box from `top`/`left`/`width`/`height`, which are the UNtransformed
+   * used values — so a mark placed with the near-universal `translate(-50%, 50%)` centering
+   * idiom was reported 15.3px from where it paints (measured against CDP `DOM.getBoxModel` on
+   * the shipped `cycle` component, and six positioned pseudos in the bundle carry one).
+   * `matrix3d` and anything unparseable return null, which becomes a refusal upstream: a
+   * confident wrong number is the one thing this tool must not produce.
+   */
+  function applyTransform(box, cs) {
+    if (!cs.transform || cs.transform === 'none') return box;
+    const m = /^matrix\(([^)]+)\)$/.exec(cs.transform);
+    if (!m) return null;
+    const [a, b, c, d, e, f] = m[1].split(',').map((v) => Number.parseFloat(v));
+    if ([a, b, c, d, e, f].some((v) => !Number.isFinite(v))) return null;
+    const [ox, oy] = (cs.transformOrigin || '0px 0px').split(/\s+/).map(num);
+    const px = box.left + ox;
+    const py = box.top + oy;
+    const pts = [[box.left, box.top], [box.right, box.top], [box.left, box.bottom], [box.right, box.bottom]]
+      .map(([x, y]) => {
+        const dx = x - px;
+        const dy = y - py;
+        return [px + (a * dx) + (c * dy) + e, py + (b * dx) + (d * dy) + f];
+      });
+    const xs = pts.map((q) => q[0]);
+    const ys = pts.map((q) => q[1]);
+    const top = Math.min(...ys);
+    const left = Math.min(...xs);
+    const bottom = Math.max(...ys);
+    const right = Math.max(...xs);
+    return { top, left, bottom, right, width: right - left, height: bottom - top };
+  }
 
   function placedBox(base, cs) {
     if (!/px$/.test(cs.top) || !/px$/.test(cs.left)) return null;
@@ -353,6 +427,10 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       if (!cb) return null;
       const cbr = cb.getBoundingClientRect();
       const cbs = getComputedStyle(cb);
+      // A TRANSFORMED containing block mixes coordinate spaces: its rect comes back
+      // post-transform while the pseudo's `top`/`width` are its own untransformed used
+      // values, so under a `scale` the two cannot be added. Refuse rather than report.
+      if (cbs.transform !== 'none') return null;
       originTop = cbr.top + num(cbs.borderTopWidth);
       originLeft = cbr.left + num(cbs.borderLeftWidth);
     }
@@ -369,7 +447,9 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
     const height = num(cs.height) + grow.h;
     const width = num(cs.width) + grow.w;
     if (!(width > 0) || !(height > 0)) return null;
-    return { top, left, bottom: top + height, right: left + width, width, height };
+    return applyTransform({
+      top, left, bottom: top + height, right: left + width, width, height,
+    }, cs);
   }
 
   /**
@@ -378,7 +458,7 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
    * area whether it holds one line or twelve — so stopping at the section's children
    * measures the grid, not the content.
    */
-  function ink(el, acc, unplaced, skip) {
+  function ink(el, acc, unplaced, skip, collectElement = true) {
     if (el === skip.el && !skip.pseudo) return;
     if (el.hasAttribute('data-lattice-berth')) return;
     const cs = getComputedStyle(el);
@@ -421,27 +501,34 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
     const r = el.getBoundingClientRect();
     const ownText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
     const own = ownText || REPLACED.has(el.tagName.toUpperCase()) || paints(cs);
+    // THE BORDER BOX, and nothing cleverer. Two richer measures were tried and BOTH
+    // manufactured collisions on layouts that are fine:
+    //   · a Range over the contents returns LINE boxes, which carry the font's leading, so
+    //     every text element grew ~5px upward and a mark just above one read as a hit;
+    //   · `scrollWidth`/`scrollHeight` include the border boxes of ABSOLUTELY POSITIONED
+    //     descendants for which the element is the containing block — so every out-of-flow
+    //     box this walk deliberately drops, the named ANCHOR included, came straight back
+    //     in through its own container's scroll extent. Measured: shipped `list-steps`
+    //     (a `position: relative` li with a painting `li::after` chevron) reported a
+    //     -219.1px COLLISION against unmodified CSS, and `divider numbered` collided with
+    //     its own numeral the moment the heading was made `position: relative`. They also
+    //     count CLIPPED text, which paints nowhere.
+    // What that costs: text escaping its box on the inline axis (a `nowrap` heading) is not
+    // in the ink. That case is not silent — the engine's own overflow probe flags it, and
+    // the `probe` column reports it on the same row. A measure that invents collisions on
+    // shipped components to catch a case another channel already catches is a bad trade.
+    // A PAINTING BOX ENDS THE ELEMENT INK, NOT THE WALK. Returning here left every
+    // positioned pseudo BELOW a painting wrapper unseen — 66 of them across the shipped
+    // gallery (verdict-grid's 16 badge marks among them) — with no `unplaced` entry, so
+    // the clean line still said `ok`. That is the same false clean this walk was rewritten
+    // to close, one level down: a lime block painted through the section mark went back to
+    // reporting `COLLISION none` the moment the wrapper above it had a background.
+    // So the element's own rect is taken once, and the descent continues for pseudos.
     if (own && r.width > 0 && r.height > 0) {
-      // THE CONTENT'S EXTENT, NOT JUST THE BOX. Text is not bounded by its border box: one
-      // `white-space: nowrap` heading measured 1144px wide with its glyphs running past
-      // 3900px, off the slide entirely, while every column here read as if nothing had
-      // moved. `scrollWidth`/`scrollHeight` measure the overflow from the PADDING box, so
-      // they catch the escape exactly and add nothing when there is none (measured: +3px of
-      // block axis on an ordinary heading).
-      // A Range over the text was tried first and is wrong for this: its rects are LINE
-      // boxes, which carry the font's leading, so every text element grew ~5px upward and a
-      // mark sitting just above one read as a collision. (RTL/upward overflow is not
-      // covered — `scrollWidth` measures in the inline start direction only.)
-      const padLeft = r.left + num(cs.borderLeftWidth);
-      const padTop = r.top + num(cs.borderTopWidth);
-      const right = Math.max(r.right, padLeft + el.scrollWidth);
-      const bottom = Math.max(r.bottom, padTop + el.scrollHeight);
-      acc.push({
-        top: r.top, left: r.left, right, bottom, width: right - r.left, height: bottom - r.top,
-      });
-      return;
+      if (collectElement) acc.push(r);
+      collectElement = false;
     }
-    for (const kid of el.children) ink(kid, acc, unplaced, skip);
+    for (const kid of el.children) ink(kid, acc, unplaced, skip, collectElement);
   }
 
   /**
@@ -683,8 +770,17 @@ async function main() {
   // Height AND width: a sweep can move the content sideways (a `nowrap` heading runs off
   // the slide without gaining a pixel of height), and calling that "vacuous" told the
   // operator the axis was inert on the exact run where it was doing the most damage.
-  const spreadRange = (key) => Math.max(...measured.map((r) => r[key])) - Math.min(...measured.map((r) => r[key]));
-  const spread = measured.length > 1 ? Math.max(spreadRange('inkHeight'), spreadRange('inkWidth')) : 0;
+  const spreadRange = (key) => {
+    const vals = measured.map((r) => r[key]).filter((v) => v != null);
+    return vals.length > 1 ? Math.max(...vals) - Math.min(...vals) : 0;
+  };
+  // SIZE **AND** POSITION. Measuring the ink union's dimensions alone declared a sweep
+  // "not moving the content" four lines under a DRIFT line reporting 300px of movement —
+  // the block kept its shape and changed where it sat. Anything that moves counts.
+  const spread = measured.length > 1
+    ? Math.max(spreadRange('inkHeight'), spreadRange('inkWidth'),
+      spreadRange('inkTop'), spreadRange('inkBottom'), spreadRange('anchorTop'), spreadRange('anchorLeft'))
+    : 0;
 
   const summary = {
     component: CLASS, family: FAMILY, theme: THEME, axis: AXIS, steps: sweep.steps.length,
@@ -700,6 +796,16 @@ async function main() {
     inkHeightSpread: +spread.toFixed(1),
     vacuous: spread <= SLACK,
   };
+
+  // THE REFUSAL COMES FIRST. Printing the report and then dying meant `--json` emitted a
+  // complete payload reading `collision: null` before exit 2, and the human-readable path
+  // printed `COLLISION none … ok` on its way out — a clean verdict on a sweep with no
+  // verdict, in the one place the tool is supposed to be loudest.
+  if (ANCHOR && withAnchor.length < measured.length) {
+    die(`the anchor '${ANCHOR}' was measurable on ${withAnchor.length} of ${measured.length} slides `
+      + `(${anchorErrors.join('; ') || 'no reason recorded'}) — drift and clearance are claims across the `
+      + 'whole sweep, so a partial one has no verdict.');
+  }
 
   if (JSON_OUT) {
     console.log(JSON.stringify({ summary, rows }, null, 2));
@@ -786,17 +892,6 @@ async function main() {
   // collision" for the same reason an unplugged alarm reports no fire — and the one-line
   // ANCHOR note above is easy to read past. Exit 2, with the other tools' meaning: the rig
   // did not run, as distinct from the 1 that means it found something.
-  // AN ANCHOR MEASURED ON SOME SLIDES IS NOT A SWEEP. The first cut refused only at ZERO
-  // measurable slides, so an anchor that resolved on one of twelve gave a confident
-  // "COLLISION none" drawn from that single slide, no DRIFT line at all (the spread needs
-  // two), and exit 0. Drift and clearance are claims ACROSS the sweep; a partial one cannot
-  // support them.
-  if (ANCHOR && withAnchor.length < measured.length) {
-    die(`the anchor '${ANCHOR}' was measurable on ${withAnchor.length} of ${measured.length} slides `
-      + `(${anchorErrors.join('; ') || 'no reason recorded'}) — drift and clearance are claims across the `
-      + 'whole sweep, so a partial one has no verdict.');
-  }
-
   const failed = (drift != null && drift > MAX_DRIFT) || !!collision;
   process.exitCode = failed && !ADVISORY ? 1 : 0;
 }
