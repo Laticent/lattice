@@ -4,7 +4,7 @@
   "kind": "review",
   "fits": ["overlay"],
   "z": 4,
-  "population": "authoring grammar — the `<!-- annotation -->` review comment",
+  "population": "DECLARED, NOT BUILT — no render path emits this Tile. It was described as a `<!-- annotation: … -->` review comment producing a corner overlay; measured on a real render, that comment is swallowed by the speaker-notes channel (`<aside class=\"lattice-notes\" hidden>`) and nothing paints, on any layout. There is no CSS for it. The editorial-note job is done by the ANNOTATION register — an italic-only trailing paragraph, which docks in the `coda` Cell, not here (lib/base/base.modifiers.css § THE TRAILING BEATS' CHROME).",
   "hideToken": "silent",
-  "status": "shipped"
+  "status": "new"
 }

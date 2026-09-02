@@ -162,7 +162,6 @@ section:is(.head-center, .head-right):not(.quote):not(.math):not(.citation-card)
    frame seats beside the stage, so neither arm above reaches it any more. */
 section:is(.head-center, .head-right):not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-coda > blockquote,
 section:is(.head-center, .head-right) .below-note,
-section:is(.head-center, .head-right).diagram .diagram-caption,
 section:is(.head-center, .head-right) .chart-caption {
   display: flex; flex-direction: column; align-items: var(--headline-justify, flex-start);
 }
