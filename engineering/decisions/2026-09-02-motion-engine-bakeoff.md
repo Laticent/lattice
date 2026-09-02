@@ -27,8 +27,18 @@ summary: >
   duplicates the string. Neither can reveal text inside a supplied SVG; that primitive is
   hand-rolled whichever engine wins. Recommendation: no engine for v1 (2.2 KB gzip total,
   including the scene layer), adopting anime.js's pathLength-normalization TECHNIQUE rather than
-  the package, with anime.js v4 (MIT) named as the reserve if `morphTo` is ever needed. Engine
-  pick is a human call and is NOT yet made.
+  the package. A SECOND round covered the three categories the first missed — supplied-format
+  players (Lottie, Rive), native SMIL, and SVG-native libraries. One addition survives: FLUBBER,
+  pure path interpolation whose output is byte-identical in bare node, jsdom and Chromium because
+  it never touches the DOM — adopt it as the lazily-loaded morph primitive, which also gives the
+  angle swapper a part-level morph that reads as rotation instead of the double-exposure crossfade
+  or a flip-book cut. Lottie scrubs and serializes but CRASHES in jsdom, costs 79 KB gzip, and is
+  playback of After Effects output rather than choreography — reconsider it later as an import
+  feature, never as the engine. SMIL scrubs natively for zero bytes but the animated value never
+  reaches the serialized markup, so it cannot make a poster, and `<animate>` is already on the
+  untrusted-SVG strip list. Rive rasterizes (every renderer is canvas/WebGL); Theatre.js is 2+
+  years stale; KUTE.js uses the browser's getTotalLength for paths. Engine pick is a human call
+  and is NOT yet made.
 companion:
   - ./2026-07-19-anima-svg-first-cut-zdog.md
   - ./2026-07-17-anima-animation-library.md
@@ -40,8 +50,9 @@ companion:
 
 **Date:** 2026-09-02 · **Status:** findings settled; the engine pick is pending a human decision.
 
-This note does two things. §1–2 audit what Anima ships today and why its SVG backend has to go.
-§3–6 report a four-way engine bake-off that was **built and measured**, not argued.
+This note does three things. §1–2 audit what Anima ships today and why its SVG backend has to go.
+§3–9 report a four-way engine bake-off that was **built and measured**, not argued. §10 covers a
+second round over the three categories the first one missed.
 
 ---
 
@@ -239,3 +250,58 @@ here, and adopting it later is additive.
 - Bundle bytes are the harness's own bundles, not a rebuilt `anima-player-bundle.generated.mjs`.
   The relative costs are sound; the absolute export delta is not yet measured.
 - Nothing was measured for PPTX. Only the PDF and HTML-player paths were traced.
+
+---
+
+## 10. Round two — the categories the first bake-off missed
+
+The first four candidates were all one category: **generic tween engines**. Three other categories
+exist, and each was measured rather than reasoned about.
+
+| Candidate | Category | License | Last publish | gzip | Verdict |
+|---|---|---|---|---|---|
+| **flubber** | pure path interpolation | MIT | 2022-06-18 | 18,950 B | **Adopt as the morph primitive** |
+| lottie-web | supplied vector-animation format | MIT | 2025-05-21 | 79,382 B | Out as an engine; possible import path |
+| `@lottiefiles/dotlottie-web` | same, WASM player | MIT | 2026-08-28 | — | Out — canvas, rasterizes |
+| `@rive-app/*` | runtime + SaaS editor | MIT | 2026-09-01 | — | Out — every renderer is canvas/WebGL |
+| Native SMIL | zero-dependency, in-browser | — | — | **0 B** | Out — cannot serialize a poster |
+| KUTE.js | tween engine | MIT | 2026-03-26 | — | Out — browser `getTotalLength()`; will not bundle |
+| `@svgdotjs/svg.js` | SVG construction + animation | MIT | 2026-08-04 | 31,004 B | Skipped — we receive SVG, we do not build it |
+| `@theatre/core` | scrubbable sequencer | Apache-2.0 | **2024-05-19** | — | Out — 2+ years stale, the Vivus risk again |
+| popmotion · velocity · snap.svg | tween engines | MIT/Apache | 2022–2023 | — | Out — abandoned |
+
+**flubber is the one addition, and it is the best architectural fit measured so far.**
+`interpolate(pathA, pathB)` returns a pure `(t) => pathString`. It touches no DOM: output is
+byte-identical in bare node, in jsdom, and in Chromium, and it is deterministic at a repeated `t`.
+It is the only candidate in either round that is fully environment-independent, because it never
+looks at a rendered document. 18,950 B gzip is steep for one primitive, so it loads lazily behind
+the morph verb rather than sitting in the base painter.
+
+**It also changes the angle-swap answer.** §5 found the crossfade reads as a double exposure and
+recommended a hard cut. With part-level morphing there is a third and better option: because the
+angle SVGs carry **identical part ids**, each part can morph to its counterpart in the next angle.
+Rendered front → side for the lid, the chamfered corner grows in smoothly with straight edges and
+no wobble. That reads as a rotation rather than a dissolve or a flip-book, and it is the strongest
+form of the 360-swapper idea.
+
+**Lottie deserves its own line, because it is the obvious answer and it does not fit.** It is the
+industry format for *supplied* vector animation with large free asset libraries — squarely on the
+"user-supplied assets" thesis. Measured: its SVG renderer scrubs deterministically via
+`goToAndStop(f, true)` and the painted state does survive `innerHTML`. But it **crashes in jsdom** —
+`getContext()` on a null canvas, a hard throw at load, not the silent no-op GSAP and Vivus give — it
+costs 79 KB gzip, and it is *playback of After Effects output*, not choreography of a drawing we
+were handed. It cannot serve the choreograph surface. It is worth reconsidering later as a separate
+**import** feature ("place a supplied `.lottie`"), never as the engine.
+
+**SMIL is the interesting near-miss.** `pauseAnimations()` + `setCurrentTime(t)` is a native,
+deterministic, zero-byte scrub, and it works: computed opacity stepped 0 → 0.25 → 0.5 → 1 at
+t = 0, 1, 2, 4, exactly linear. It fails on the poster contract for the same reason Motion does —
+the animated value never reaches the serialized markup (`inSerialized: false`; the attribute stays
+`null` while only the computed style moves). It is also barred by the other side of the house:
+`<animate>` is on the strip list in the untrusted-SVG parse, deliberately, as uncontrolled motion
+outside our timeline.
+
+**Revised recommendation.** Unchanged for v1 — no engine, 2,226 B gzip. The reserve slot changes:
+**flubber for morph** (pure, headless, exact), with **anime.js v4** kept only if we later want its
+`createDrawable` and motion-path helpers as a package rather than a technique. Round two did not
+turn up a better painter; it turned up the missing *primitive*.
