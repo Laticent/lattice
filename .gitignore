@@ -94,6 +94,14 @@ themes/*.html
 .perf-out/
 .scratch-*
 
+# Scratch decks written NEXT TO a fixture by a size-sweeping gate. `check-chart-fit.js`
+# rewrites the fixture's front matter per deck shape and writes `.chart-fit-<size>-<pid>.md`
+# beside it; its own comment records that a run exiting early "would strand the per-size
+# scratch decks in test/fixtures/" — the path that always runs while a gate is being fixed.
+# An agent reproducing a clip leaves the same shape behind. None of these is ever tracked,
+# and an untracked one trips the repo's commit-and-push hook on every turn.
+test/fixtures/.*.md
+
 # Astro scratch written by a root-level `astro sync` / `astro preview` run.
 # docs/.gitignore covers docs/.astro; nothing covered the repo root, so a stray
 # run left preview.json/preview.log tracked (and tripped the lint-coverage gate).
