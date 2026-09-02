@@ -5,8 +5,8 @@
   cut their bottom border, radii and filled panels while every word still fitted. Each
   fix is inert while the content fits, and a body that genuinely cannot fit still spills
   where the "Content clipped" warning reports it.
-- `cycle` and `citation-card split` no longer lose text off the TOP of a slide with no
-  warning. Both centered a box that could overflow, which threw content off the
+- `statute-stack preemption`, `cycle` and `citation-card split` no longer lose text off the
+  TOP of a slide with no warning. Both centered a box that could overflow, which threw content off the
   block-start edge where nothing in the engine can measure it — 16.75px of real text on
   `cycle`, 21.02px on `citation-card split`. On `cycle` the return arc and the repeat
   mark were falling below the clip too, so a loop rendered as a plain row of cards.

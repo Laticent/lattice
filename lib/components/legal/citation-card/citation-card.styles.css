@@ -138,8 +138,13 @@ section.citation-card.pull-quote > .cell-stage > blockquote {
    * clipping cell, and a flex item's default `min-height:auto` floors it at its
    * CONTENT height — so it held its floor and pushed the gloss list below it past the
    * cell that clips it, cutting the gloss's accent-soft fill, radius and left rule.
-   * Measured at `size: hd`: a 294px quote against a 249.50px share, the gloss hanging
-   * 8.17px past the clip edge with the deepest ink 21.16px inside it. Chrome only.
+   * Measured at `size: hd` on the fixture this file's test pins: a 294px quote where the
+   * stage could give it 249.50px, the gloss hanging 44.50px past the clip edge — and at
+   * that density the clip was into TEXT, 15.17px of the gloss outside it. So unlike most
+   * of this sweep the floor here was costing words as well as chrome, and releasing it
+   * recovers both: the quote sits at exactly its 249.50px share, nothing hangs, and the
+   * deepest ink lands 29.33px inside the clip. (At lighter densities the same shape
+   * loses chrome only; the shear window is the gloss's own bottom padding.)
    *
    * `safe center` is the other half and is NOT optional. This box is a ROW flex
    * container, so `align-items` is its VERTICAL axis: clamped and centered, an

@@ -37,12 +37,16 @@ section.matrix-2x2 > .cell-stage > ol {
    * 10.56px with their last item 18.11px inside — the bottom of the fourth cell's
    * `--accent-soft` outcome ring among what was cut.
    *
-   * This releases the LIST's floor, not the cell's, and the difference decides one
-   * case: with UNEVEN item counts the cells resolve to half the list either way and
-   * the fullest cell's own `overflow:hidden` (below) eats its tail INSIDE the frame —
-   * measured, ink 13.86px past the clip. That is real content loss, it is not this
-   * declaration's to fix, and clamping harder would only hide it further (see
-   * kpi.styles.css on #1277) */
+   * This releases the LIST's floor, not the cell's, and with UNEVEN item counts that
+   * distinction is worth spelling out, because the cells DO get shorter. Measured on a
+   * four-quadrant fixture whose third cell carries two extra lines: the list goes
+   * 495.09 → 438.22px and every cell 235.55 → 207.11px, so the full cell's own
+   * `overflow:hidden` (below) eats 57px of its 262px instead of 28px. That reads like a
+   * loss and is not one — before the release, the bottom row hung 56.87px past the stage
+   * on top of the cell's own clip, so a bottom cell showed ~177px of its content; after,
+   * it shows 205px, with the chrome intact. The fullest cell is still clipped INSIDE the
+   * frame either way, which the stage probe cannot see; that part is the cell's to
+   * answer, not this declaration's. */
   min-height:0;
   list-style:none; padding:0; margin:0;
 }

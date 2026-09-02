@@ -242,7 +242,20 @@ section.statute-stack.preemption > .cell-stage > ol {
   /* inter-card spacing as a flex gap (was margin-bottom on each card) — measurable,
    * inside the flex content box; the chevron ::after still centers in this gap band. */
   gap:var(--sp-md);
-  justify-content:center;
+  /* `safe`, not bare `center` — stage.css § safe alignment (#1299), and it became
+   * load-bearing the moment the base rule above released this list's content-height
+   * floor. These cards are `flex:0 0 auto`, so a clamped list cannot shrink them: it
+   * centers them instead, and the excess goes off BOTH edges. Block-start overflow does
+   * not grow `scrollHeight`, so the half that goes off the top is invisible to the
+   * probe, to the export tag and to every scroll-dims measure here — a cut tail
+   * announces itself, a cut head does not. Measured at `size: hd` on a four-card
+   * preemption stack, with the floor released and this keyword absent: 53.53px of real
+   * text above the stage's top edge (129.56px on a five-card one), taking the FEDERAL
+   * label, its citation pill and the card's top border off the slide. Unclamped the
+   * same deck put all 125.97px of the loss out the bottom, where it is visible.
+   * `safe` falls back to `start` only once the content overflows, so a fitting slide is
+   * byte-identical. */
+  justify-content:safe center;
 }
 section.statute-stack.preemption > .cell-stage > ul > li,
 section.statute-stack.preemption > .cell-stage > ol > li {

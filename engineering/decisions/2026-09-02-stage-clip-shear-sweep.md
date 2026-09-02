@@ -76,9 +76,20 @@ without the declaration, and an overstuffed control that must keep reporting ove
 | `matrix-2x2` (the quadrant list) | 448.78px in a 438.22px stage, both bottom quadrants 10.56px out | no hang |
 | `statute-stack` (the three rails) | 446.63px in a 438.22px stage, ALL THREE rails 8.41px out | no hang |
 | `policy-recommendation` (the rationale list) | held 282.56px against a 276.12px share and pushed the ask bar 6.44px out | no hang |
-| `citation-card.pull-quote` (the hero quote) | 294px quote against a 249.50px share pushed the gloss 8.17px out | no hang |
+| `citation-card.pull-quote` (the hero quote) | a 294px quote where the stage could give it 249.50px, pushing the gloss 44.50px out — and here the clip was into TEXT, 15.17px of the gloss outside it | no hang, ink 29.33px inside |
 | `citation-card.split` (both centerings) | the gloss sat 25.02px ABOVE the stage top, 21.02px of text gone | nothing above the top edge |
 | `cycle` (the ring, and the stage's centering) | 471.94px ring in a 400.44px stage, 35.75px off EACH edge, 16.75px of text gone off the top, the return arc and ↻ mark entirely below the clip | ring is exactly stage height, arc and mark back |
+
+| `statute-stack.preemption` (its centering) | **self-inflicted, caught by the checker** — releasing the base list's floor above let `.preemption`'s bare `center` split the excess both ways: 53.53px of real text above the stage top on a four-card stack, 129.56px on a five-card one, taking the FEDERAL label, its citation pill and the card's top border off the slide. Unclamped, the same deck put all 125.97px of its loss out the bottom, where it is visible | nothing above the top edge, and the rail chrome the base fix bought is kept |
+
+So ten declarations, not nine: the `.preemption` keyword is the base fix's own cost, found by
+the independent checker and fixed before the PR. It is the exact hazard the gotchas entry
+this change ships describes — a fair thing to walk into, a bad thing to ship.
+
+**"Chrome only" holds for six of the nine, not all nine.** On `citation-card.pull-quote`,
+`citation-card.split` and `cycle` the fixture loses words as well, so the fix recovers text
+too and the residual spill stays visible with `over: true`. The dense arms in the test mean
+"the box would have overrun", not "this slide fits".
 
 `redline` is scoped `:not(.stacked):not(.annotated)` and the exclusions are measured, not
 cautious — see below.
@@ -148,9 +159,36 @@ now use `safe`, which falls back to `start` only once content overflows, so a fi
 is byte-identical.
 
 Two of the `min-height` fixes needed a `safe` keyword WITH them, for the same reason in the
-other direction: released and still centered, `policy-recommendation` would have overprinted
-its ask bar by 12.03px and `citation-card.pull-quote` its gloss by 140.25px, with the stage
-probe reading clean both times.
+other direction: released and still centered, `policy-recommendation` and
+`citation-card.pull-quote` throw their own content off the top — measured one density past
+the shear fixtures at 103.50px and 30.14px of real text above the stage edge. A third,
+`statute-stack.preemption`, is the same story and is the one this sweep briefly shipped
+broken (above).
+
+**Which of the four `safe` keywords is load-bearing, measured by reverting each to a bare
+`center`:** `policy-recommendation` (103.50px), `citation-card.pull-quote` (30.14px) and
+`statute-stack.preemption` (53.53px) each reintroduce head loss, and each is pinned by its
+own test arm. `cycle`'s stage keyword is **inert** once the ring's own `min-height: 0`
+landed — identical geometry either way — so it is belt-and-braces and is deliberately not
+claimed as pinned. The three that matter were invisible to the shear arms, because those
+fixtures are not dense enough for the CLAMPED box to overflow its own share; they needed one
+density more, which is why the test gives them a separate table.
+
+## Found, not fixed — pre-existing, off the path of this change
+
+Two more silent head-loss surfaces turned up while checking this one, both measured
+**identical before and after** every declaration here, so they are found rather than caused
+(HARD RULE #18 logs those rather than pulling them into the diff):
+
+- **`decision.banner-tag`** — the card body already carries `min-height: 0` with a bare
+  `justify-content: center` inside an `overflow: hidden` card
+  (`compare-prose.styles.css:318`). Measured at `size: hd` on a six-line card: **119.88px of
+  real text above the stage's top edge with the probe reading `over: false`** — the card's
+  own clip absorbs the rest, so nothing in the system sees any of it. 160px of a 594px body
+  eaten inside a 434px client box.
+- **`compare-prose.axis`** — the same shape in the same file, ~103px.
+
+Both are one `safe` keyword away from fixed, and neither is on this change's path.
 
 ## What the static filter got wrong
 

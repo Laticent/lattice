@@ -14,9 +14,13 @@
  * measured shearing at `size: hd` and fixed; each one is pinned here by the two arms
  * that made the fix defensible in the first place:
  *
- *   1. DENSE — content thick enough that the box would have overrun, but every word
- *      still fits. Nothing may hang past the stage's clip edge, and nothing may sit
- *      ABOVE the stage's top edge either (see the head-loss arms below).
+ *   1. DENSE — content thick enough that the box would have overrun. Nothing may hang
+ *      past the stage's clip edge, and nothing may sit ABOVE the stage's top edge
+ *      either (see the head-loss arms below). On six of the nine the loss was chrome
+ *      only, with every word still inside; on `citation-card.pull-quote`,
+ *      `citation-card.split` and `cycle` the fixture also loses text, so the fix
+ *      recovers words as well as chrome and the residual spill stays visible with
+ *      `over: true`. Do not read the dense arm as "this slide fits".
  *   2. OVERSTUFFED — content that genuinely cannot fit. The real overflow probe must
  *      still read `over: true`. Releasing a floor buys a closed frame; it must not buy
  *      it by swallowing an overflow the export's "Content clipped" tag exists to
@@ -421,6 +425,76 @@ Fifty state regimes now bind the same scoring model, and the cheapest of them se
   },
 ];
 
+// The HEAD-LOSS arms, and they are a separate table because they pin a separate
+// declaration. Four `safe` keywords in this sweep guard the block-start edge, and three
+// of them are invisible to the dense arms above: those fixtures are not dense enough for
+// the CLAMPED box to overflow its own share, so the bare `center` they replaced never
+// gets the chance to split the excess. Each fixture below is one density further on, and
+// each was measured reporting the px in its comment with its keyword reverted to a bare
+// `center`. (The fourth — `cycle`'s stage — is genuinely inert once the ring's own
+// `min-height: 0` landed, measured identical either way, so it is belt-and-braces and is
+// deliberately NOT claimed here.)
+const HEAD_CASES = [
+  {
+    key: 'policy-recommendation-head',
+    what: 'policy-recommendation · six reasons',
+    note: 'reverted to bare `center`, 103.50px of real text sits above the stage top',
+    sample: `<!-- _class: policy-recommendation adopt -->
+
+## Six reasons, one-line impact.
+
+Fifty state regimes bind the same scoring model.
+
+- The audit trail already exists
+  - Every score is logged and signed \`SB 24-205\`.
+- Compliance is a moat, not a cost
+  - Disputes fell 31% in the sampled cohort \`HAI 2025\`.
+- One federal floor beats fifty ceilings
+  - The state duties retire without lowering the bar \`Title III\`.
+- The record is already portable
+  - It exports in the schema the assessment asks for \`Annex IV\`.
+- The deployer duty is where the harm lands
+  - Ninety-one percent of complaints name the deployer \`FTC 2025\`.
+- The markup window closes on the eighteenth
+  - No later vehicle carries the same floor this session \`Cal. AB 331\`.
+
+> Co-sponsor the deployer-duties title in § 4.`,
+  },
+  {
+    key: 'citation-card-pull-quote-head',
+    what: 'citation-card pull-quote · a quote at the ceiling',
+    note: 'reverted to bare `center`, 30.14px of real text sits above the stage top',
+    sample: `<!-- _class: citation-card pull-quote -->
+
+## pull-quote at the ceiling.
+
+\`Cal. Civ. Code §1798.140(o) · CCPA/CPRA\`
+
+> Information that identifies, relates to, describes, is reasonably capable of being associated with, or could reasonably be linked, directly or indirectly, with a particular consumer or household, including but not limited to a real name, an alias, a postal address, a unique personal identifier, an online identifier, an internet protocol address, an email address, an account name, commercial information including records of personal property and products purchased, biometric information, internet activity including browsing and search history, geolocation data, and any inference drawn from any of that information to create a profile reflecting preferences or predispositions.
+
+- **What we must do.**
+  - Audit pixel inventory; treat household identifiers as personal information in every DSAR workflow we run.`,
+  },
+  {
+    key: 'statute-stack-preemption-head',
+    what: 'statute-stack preemption · four cards',
+    note: 'reverted to bare `center`, 53.53px of real text sits above the stage top; '
+      + 'the same deck unclamped put all 125.97px of its loss out the BOTTOM, where it is visible',
+    sample: `<!-- _class: statute-stack preemption -->
+
+## preemption marks which law yields, at density.
+
+- Federal \`15 U.S.C. §6501\` \`Preempts state rules\`
+  - Sets the floor for under-13 personal data collection, and the floor is a floor rather than a ceiling: a state may go further, and several have.
+- State \`Cal. Civ. §1798.120\` \`Survives preemption\`
+  - Stricter opt-in regime on top of COPPA's baseline, with a private right of action the federal statute withholds and a cure period the regulator may waive.
+- Local \`NYC §22-1201\` \`Independent of preemption\`
+  - Bias-audit obligation distinct from privacy preemption scope, so it binds whatever the federal analysis concludes about the two statutes above.
+- Sector \`16 C.F.R. 312\` \`Rulemaking authority\`
+  - The implementing rule carries the operative definitions, and it is the one that moves: three revisions in five years, each narrowing what counts as actual knowledge.`,
+  },
+];
+
 describe('the stage clip does not shear a component whose body fills it', () => {
   const chrome = resolveChrome();
   let browser;
@@ -522,6 +596,30 @@ describe('the stage clip does not shear a component whose body fills it', () => 
           + 'reporting overflow. Releasing a content-height floor must let an over-long body spill where the '
           + 'probe still sees it; clamping it into a centered box moves the loss inside the frame, where the '
           + 'stage clip can no longer catch it (kpi.styles.css records that exact regression, #1277).',
+      );
+    });
+  }
+
+  // These fixtures OVERFLOW by construction — that is the point. The claim is not that
+  // they fit, it is that the whole loss goes out the visible tail, where the probe
+  // reports it, instead of half of it going off the head where nothing can.
+  for (const c of HEAD_CASES) {
+    test(`${c.what}: an overfull centered body loses nothing off the TOP`, async () => {
+      const m = await measure(c.sample, `stage-shear-head-${c.key}`);
+      assert.ok(m, `${c.key}: the fixture should render a .cell-stage`);
+      assert.ok(
+        m.worstAbove.px <= 0.5,
+        `REGRESSION: ${c.what} — ${m.worstAbove.el} sits ${m.worstAbove.px}px ABOVE the .cell-stage top `
+          + 'edge. A box that centers and then overflows splits the excess both ways, and block-start '
+          + 'overflow does not grow `scrollHeight`, so the half that goes off the top is invisible to the '
+          + 'probe, to the export tag and to every scroll-dims measure here. The `safe` keyword on this '
+          + `alignment is missing or ineffective (stage.css, #1299). Was measured at: ${c.note}.`,
+      );
+      assert.equal(
+        m.over,
+        true,
+        `${c.what}: this fixture is meant to overflow — if it no longer does, it has stopped `
+          + 'exercising the alignment and the arm above is vacuous.',
       );
     });
   }
