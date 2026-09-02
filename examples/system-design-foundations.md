@@ -33,7 +33,7 @@ We start with one engineer's Tuesday, and we finish by designing Instagram.
 
 <!-- _class: agenda -->
 
-## What we do, and where it ends up.
+## Where this goes.
 
 1. A Tuesday — one engineer, wake to sleep
 2. The words — naming what you just watched
@@ -187,12 +187,12 @@ You have watched all ten. You do not yet have the words.
 
 ## A system is parts, connected, doing something together.
 
-Maya's morning is one. The alarm, the shower, the train, the laptop and the registry all combine to produce a thing none of them produces alone: Maya at her desk, able to work, at nine.
+Maya's morning is one. The shower, the train, the laptop and the registry between them do what none of them does alone: put Maya at a desk, able to work, at nine.
 
 - In Maya's day
-  - Every part of her morning was useless alone, and the morning still put her at a desk at nine.
+  - Take the registry out at 09:05 and the same parts stop producing the same morning.
 - Listing the parts is easy
-  - Phone, badge, laptop, transit card. Anyone can write that list.
+  - Shower, train, laptop, registry. Anyone can write that list.
 - The connections are the system
   - Change what depends on what, and the behavior changes with the same parts.
 
@@ -234,7 +234,7 @@ flowchart TB
 Maya wrote it on a sticky note at half past nine: get 482 merged before four. At four o'clock it had not merged, and the gap between those two facts is the clearest thing in her whole day.
 
 - In Maya's day
-  - One sentence at 09:30, one outcome at 16:00, and the distance between them.
+  - She wrote hers down. The three teams blocked at 09:05 never wrote theirs, and argued all morning about which fix came first.
 - Write it down or you will drift
   - An unwritten purpose gets quietly replaced by whatever arrived most recently.
 - A system's purpose is what it does
@@ -270,7 +270,7 @@ At quarter past ten another team asked Maya to fix a flaky test in their reposit
 A signal failure held her train for nine minutes. A page pulled her into an outage in a service she does not own. Neither was load, neither was a bug, and neither was hers.
 
 - In Maya's day
-  - Two arrivals, one benign and one hostile, neither of them load, and no say over either one.
+  - She had no say over either. She did have a say over what happened to 482 while she was gone, and had not decided it in advance.
 - It is not the same as load
   - Regulation, a partner's outage and a colleague's holiday are environment too.
 - You design for it, not against it
@@ -288,7 +288,7 @@ A signal failure held her train for nine minutes. A page pulled her into an outa
 Push, wait twelve minutes for the build, read a comment, fix, push again. Maya ran that loop twice. Every process has inputs, a transformation, outputs, a rate, and something it leaves behind.
 
 - In Maya's day
-  - Two full loops at twelve minutes each, plus a branch nobody deleted.
+  - Twenty-four minutes of her day were spent waiting for a machine, and she chose none of them.
 - The rate is part of the definition
   - "Run the tests" is not a process until you say twelve minutes, and how often.
 - Leftover state is where bugs live
@@ -325,7 +325,7 @@ flowchart LR
 The transit map Maya read at five past eight is geographically false. Distances are invented, angles are fiction, the river is the wrong shape. She has never once been lost using it.
 
 - In Maya's day
-  - A map that lies about distance, tells the truth about order, and never loses her.
+  - Her plan for Tuesday was a model too, and it left out a six-hour time difference.
 - It keeps what answers one question
   - "Which line, which direction, how many stops." It throws away everything else.
 - Name what you left out
@@ -433,7 +433,7 @@ No policy names Thursday. You find it by watching the queue for six weeks.
 
 ## Five words describe the thing itself.
 
-You did not learn these from a definition. You watched each one happen first, which is the only order that sticks.
+You did not learn these from a definition. You watched each one happen first, which is the order that sticks.
 
 1. System
    - Parts, connected, with a purpose.
@@ -499,9 +499,9 @@ You never handle the system itself. You handle a drawing of it, its limits and i
 
 `The frame`
 
-## Name the person and the force, and the design starts talking.
+## Name the person and the force, and everything downstream has an answer.
 
-Juniors reliably skip both. They write "users" instead of one person with one goal, and they write "scale" instead of a force with a number on it. Neither produces a single design decision.
+Juniors skip both, almost every time. They write "users" instead of one person with one goal, and they write "scale" instead of a force with a number on it. Neither produces a single design decision.
 
 The protagonist is who the system is for. The antagonist is what makes serving them hard. Everything downstream — the purpose, the boundary, the invariants, the first move — falls out of that pair.
 
@@ -548,7 +548,7 @@ Antagonist:   But <W> — and W is <a number>.
 
 Instagram has at least four: the reader opening the app, the ordinary poster, the celebrity with five hundred million followers, and the engineer carrying the pager. They want incompatible things.
 
-Naming one as the protagonist is not a slogan, it is a decision about who waits. Say who you are not designing for, out loud, and half the arguments later in the design stop happening.
+Naming one as the protagonist is not a slogan, it is a decision about who waits. Say who you are not designing for, out loud, and most of the arguments later in the design turn out to be about that.
 
 ---
 
@@ -593,7 +593,7 @@ She opens the app a dozen times a day, on a cellular network, usually while doin
 
 ## The antagonist is not scale. It is the shape of the follow graph.
 
-Scale is a quantity, and quantities are boring: you buy more machines. The thing you cannot buy your way out of is a distribution. Follower counts are heavy-tailed, so the average is a lie and the far tail sits six orders of magnitude from the middle.
+Scale is a quantity, and quantities have a price you can pay. The thing you cannot buy your way out of is a distribution. Follower counts are heavy-tailed, so the average is a lie and the far tail sits six orders of magnitude from the middle.
 
 - The number that matters
   - The median account has a few hundred followers. The largest has five hundred million.
@@ -626,7 +626,7 @@ Gall's law says it plainly: a complex system that works is invariably found to h
 
 <!-- _class: premise -->
 
-## Five rungs, and each one costs more and commits harder than the last.
+## Each rung costs more and commits harder than the one below it.
 
 You move up when the rung you are standing on stops paying, and you move up one rung at a time.
 
@@ -757,7 +757,7 @@ Custom silicon, a purpose-built storage engine, a scheduler that knows your phys
 
 `Part four`
 
-## Six kits, and every entry answers the same three questions.
+## Every kit entry answers the same three questions, in the same order.
 
 ---
 
@@ -765,7 +765,7 @@ Custom silicon, a purpose-built storage engine, a scheduler that knows your phys
 
 `How to read a kit`
 
-## Reach for it when. Walk away when. The constraint you inherit.
+## Every entry answers the same three questions in the same order.
 
 One shape for every entry, so you can hold two options side by side without re-reading a manual. Each kit opens with a diagram of the patterns it covers, and closes with the invariants that hold across all of them.
 
@@ -813,7 +813,7 @@ flowchart TB
 
 <!-- _class: premise -->
 
-## Five questions pick a store, and the product name comes last.
+## The product name is the last thing you decide about a store.
 
 Answer these before anyone says a brand. Most database arguments are really a disagreement about question two.
 
@@ -839,7 +839,7 @@ Answer these before anyone says a brand. Most database arguments are really a di
 
 `Data kit · the decision`
 
-## Start at relational and branch out, because that is how anyone decides.
+## Start at relational and branch out. That is how the decision actually gets made.
 
 ```mermaid
 flowchart LR
@@ -951,7 +951,7 @@ flowchart LR
 
 `Halfway`
 
-## Five stores hold truth, and two of the derived ones secretly do too.
+## Two stores you filed as derived are holding truth.
 
 An object store and a time-series store are usually where a fact first lands — nothing regenerates a photograph or last Tuesday's CPU samples. They are sources of truth wearing the clothes of a derived tier.
 
@@ -1348,7 +1348,7 @@ A design that needs three sequential intercontinental round trips has spent half
 
 Every waiting request holds a connection, a thread and some memory. Under a slow dependency, unbounded waits turn one struggling service into a queue of stuck callers — which is the shape of the page that pulled Maya in at twenty to eleven.
 
-- The tell
+- What good looks like
   - Every outbound call has a deadline, and the deadline shrinks as it propagates.
 - Retries need a budget
   - Retrying without a cap turns a brief failure into a flood you built yourself.
@@ -1386,7 +1386,7 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
 
 `Scale kit · the patterns`
 
-## The four moves, drawn.
+## Every scaling change is reduce, spread, duplicate or defer.
 
 ```mermaid
 flowchart TB
@@ -1449,7 +1449,7 @@ It also explains the outage. If latency triples during an incident, concurrency 
 
 A page that makes 100 parallel calls waits for the slowest one. With a one-percent chance of a slow call, 63 percent of pages hit at least one — that is one minus 0.99 to the hundredth, and you can redo it on a napkin.
 
-- The tell
+- The check
   - You report the 99th percentile per dependency, and the mean nowhere.
 - Fan-out amplifies it
   - More parallel calls turn a rare slow response into a common slow page.
@@ -1462,7 +1462,7 @@ A page that makes 100 parallel calls waits for the slowest one. With a one-perce
 
 `Scale kit · caching`
 
-## Four caching patterns, and the failure each one owns.
+## Each caching pattern owns a different failure.
 
 - Cache-aside
   - The app fills the cache on a miss. Simple, and it stampedes on a cold key.
@@ -1486,7 +1486,7 @@ A page that makes 100 parallel calls waits for the slowest one. With a one-perce
 
 Networks duplicate, clients retry, queues redeliver. The only question is whether the second delivery is harmless or charges somebody twice.
 
-- The tell
+- The rule
   - Every mutating endpoint takes a client-supplied key and deduplicates on it.
 - The key comes from the caller
   - Generated before the first attempt, reused on every retry of that same intent.
@@ -1606,7 +1606,7 @@ flowchart LR
 
 `Reliability kit · the nines`
 
-## An availability target is a budget, and it shrinks fast.
+## An availability target is a budget that shrinks fast.
 
 1. 99 percent
    - 3.65 days per year
@@ -1635,7 +1635,7 @@ Each nine roughly multiplies the cost. Pick the number the business actually nee
 
 `Reliability kit · observability`
 
-## Three signals answer three different questions, and none replaces the others.
+## Three signals answer three different questions. None replaces another.
 
 - Metrics
   - Cheap, aggregate, always on. They tell you that something is wrong.
@@ -1657,7 +1657,7 @@ Each nine roughly multiplies the cost. Pick the number the business actually nee
 
 Under pressure something has to give. Either you decided in advance which features degrade, or the system decides at random and drops the one that takes money.
 
-- The tell
+- The rule
   - Every feature has a stated tier, and the lowest tier fails first by design.
 - Read paths outlive write paths
   - Serving something slightly stale beats serving an error page, for almost every product.
@@ -1761,7 +1761,7 @@ flowchart LR
 
 Assume any single credential eventually leaks. The design question is not whether that happens; it is how far the person holding it can travel, and for how long.
 
-- The tell
+- The check
   - You can say in one sentence what each service account could reach if stolen.
 - Scope it and expire it
   - Narrow permissions, short lifetimes and automatic rotation beat a careful human.
@@ -1809,7 +1809,7 @@ Assume any single credential eventually leaks. The design question is not whethe
 ## Sign your name to a design only when these four are true.
 
 1. Every request is authorized against the specific object
-   - Not the endpoint. Object-level checks are where real breaches actually happen.
+   - Not the endpoint. Object-level checks are where the breaches happen.
 2. Secrets never enter the repository or a log line
    - They live in a managed store, are injected at runtime, and they rotate.
 3. All input is untrusted, including from your own services
@@ -1897,7 +1897,7 @@ The twelve is the only number doing real work. Change the 500 million while hold
 
 `Instagram · the envelope`
 
-## Five numbers, and the architecture is already arguing with you.
+## The architecture starts arguing at five numbers.
 
 1. Daily active users
    - 500 M
@@ -1920,7 +1920,7 @@ The twelve is the only number doing real work. Change the 500 million while hold
 
 Fifty million daily users, opening the app four times a day, posting two million photos. Work out reads per second, writes per second, and the ratio between them.
 
-Do it now, on paper, in under a minute. The answer is on the next slide, and the point is not the answer — it is that you can produce one at all when somebody asks in a room.
+Do it now, on paper, in under a minute. Cover the next slide until you have one. The point is not the answer; it is that you can produce one at all, in the meeting where it is being decided.
 
 ---
 
@@ -2061,7 +2061,7 @@ Five hundred million feed inserts at roughly fifty bytes each, from a single API
 
 `Why the hybrid is forced`
 
-## Two cost curves, and the graph decides where they cross.
+## The graph decides where the two cost curves cross.
 
 Pushing costs one write per follower, and the follower count is unbounded. Pulling costs one read per followee, and the followee count is capped at seven and a half thousand. So push is cheap exactly where the unbounded side is small, and pull is cheap exactly where the bounded side is what you walk.
 
@@ -2090,7 +2090,7 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 
 `Instagram · the threshold`
 
-## Around fifty thousand followers, and it is a rate, not a count.
+## Fifty thousand followers is the line. The real predicate is a rate.
 
 Fifty thousand puts a fraction of a percent of accounts on the pull path. Readers concentrate on popular accounts, so someone following three hundred typically has ten to thirty above the line.
 
@@ -2107,7 +2107,7 @@ The better predicate is fan-out work per day, not followers: fifty thousand foll
 
 ## The celebrity is a protagonist of the product and the antagonist of your design.
 
-The product exists partly for her. She is the reason a hundred million people opened the app this morning, and the reason the write path cannot be one code path. Both things are true at once, and holding both is what designing actually feels like.
+The product exists partly for her. She is the reason a hundred million people opened the app this morning, and the reason the write path cannot be one code path. Both things are true at once, and holding both is what designing feels like.
 
 - For the product
   - She is the most valuable account on the platform, and she must post instantly.
@@ -2159,7 +2159,7 @@ flowchart LR
 
 `Instagram · assembling a page`
 
-## A feed read is four stages, and the last one costs the most.
+## Hydration costs more than the other three stages together.
 
 1. Fetch and merge
    - Read the precomputed page, then pull recent posts from the celebrities she follows.
@@ -2193,8 +2193,8 @@ Batch every hydration, and cache the post row and its media variants — they ba
 
 The feed is eventually consistent, which is correct for everyone else's posts and completely wrong for your own. A person who posts and does not see it reads that as data loss, not as staleness, and posts again.
 
-- The tell
-  - Read-your-writes, the consistency rung from part four, finally applied to something.
+- Where it comes from
+  - Read-your-writes, the consistency rung from part four, applied to something.
 - Write your own feed synchronously
   - Inside the POST request, before it returns. One extra write, on one key.
 - And let the client help
@@ -2226,7 +2226,7 @@ flowchart LR
 
 `Instagram · where it breaks`
 
-## Four failures are certain, and each has an answer you already have.
+## You already have the answer to every failure that is certain here.
 
 - Celebrity post
   - The fan-out queue floods. Answer: the pull path above the threshold.
@@ -2266,7 +2266,7 @@ flowchart LR
 
 `The tie-back · store and run`
 
-## Where each kit entry landed in the Instagram design.
+## Each store-and-run entry landed somewhere specific in the design.
 
 | Kit entry | Where it landed | Why that one |
 | --- | --- | --- |
@@ -2283,7 +2283,7 @@ flowchart LR
 
 `The tie-back · scale and defense`
 
-## And where the other three kits landed.
+## The scale, reliability and security kits landed here.
 
 | Kit entry | Where it landed | Why that one |
 | --- | --- | --- |
@@ -2303,7 +2303,7 @@ flowchart LR
 
 ## The most useful entry here is the one we refused.
 
-Every junior asked to design Instagram reaches for a graph database, because the words "social graph" are right there. The data kit already answered it, fifty slides before anybody had heard of a super node.
+Most juniors asked to design Instagram reach for a graph database, because the words "social graph" are right there. The data kit already answered it, fifty slides before anybody had heard of a super node.
 
 - What the card said
   - Walk away when you have relationships but only ever join two hops.
@@ -2354,7 +2354,7 @@ Solution type MVP  ·  scaled  ·  optimized  ·  optimal  ·  specialized
 
 `What to do on Monday`
 
-## Four moves, and the last one is the one that teaches you.
+## The last of these four is the one that teaches you.
 
 1. Pick the unglamorous system
    - Not a famous one. The service you were debugging on Thursday, or the pipeline nobody wants to own.
@@ -2369,7 +2369,7 @@ Solution type MVP  ·  scaled  ·  optimized  ·  optimal  ·  specialized
 
 <!-- _class: closing silent spectrum -->
 
-## Name the person. Name the force. The design follows.
+## Name the person, name the force, and the design follows.
 
 `How to Think About Systems`
 
