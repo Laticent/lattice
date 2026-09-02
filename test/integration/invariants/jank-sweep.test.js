@@ -44,12 +44,25 @@ const TIMEOUT = 300000;
 const NO_BAND = 'section.divider.numbered { padding-top: 0; padding-bottom: 0; justify-content: center; }';
 
 /** Run the sweep and hand back its exit code with the parsed `--json` payload. */
-function sweep(extraArgs) {
-  const args = [TOOL, 'divider numbered', '--anchor', 'h2::after', '--max', '18', '--json', ...extraArgs];
+function sweep(extraArgs, { max = '18' } = {}) {
+  const args = [TOOL, 'divider numbered', '--anchor', 'h2::after', '--max', max, '--json', ...extraArgs];
   const r = spawnSync(process.execPath, args, {
     cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, CHROME_PATH: resolveChrome() },
   });
   if (r.status === 2) assert.fail(`check-jank could not run (exit 2): ${r.stderr || r.stdout}`);
+  return parse(r);
+}
+
+/** The same, for the runs that are SUPPOSED to refuse — exit 2 is the assertion there. */
+function sweepRaw(extraArgs, { max = '6' } = {}) {
+  const args = [TOOL, 'divider numbered', '--max', max, ...extraArgs];
+  const r = spawnSync(process.execPath, args, {
+    cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, CHROME_PATH: resolveChrome() },
+  });
+  return { status: r.status, stderr: r.stderr || '', stdout: r.stdout || '' };
+}
+
+function parse(r) {
   let parsed;
   try {
     parsed = JSON.parse(r.stdout);
@@ -97,5 +110,61 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
       + 'premise this tool was built on has changed');
     assert.equal(broken.summary.firstOverflow, null,
       'some slide in the swept range overflows, so the sweep no longer isolates a silent collision');
+  });
+
+  // THE THREE FALSE CLEANS AN INDEPENDENT CHECKER FOUND IN THE FIRST CUT. Each one is a
+  // real defect the tool reported as `COLLISION none … ok`, exit 0 — the exact failure this
+  // file exists to make impossible, and none of them was reachable through the sweep above,
+  // because that one happens to pair an element carrying direct text with the pseudo it
+  // names as the anchor.
+  test('ink painted by a generated box is not invisible to the sweep', () => {
+    // A pseudo on the eyebrow wrapper, painting a 400x120 block straight through the
+    // section mark. The wrapper has no direct text and no background of its own, so the
+    // walk used to treat it as a pure container and descend past it — and generated boxes
+    // are not children, so every pixel it painted was absent from the measurement.
+    const overlap = 'section.divider.numbered p::before { content:""; position:absolute; '
+      + 'top:64px; left:100px; width:400px; height:120px; background:red; }';
+    const r = sweep(['--style', overlap], { max: '4' });
+    assert.ok(r.summary.collision, 'a painted pseudo lying on the anchor was not seen at all');
+    assert.equal(r.status, 1);
+  });
+
+  test('text escaping its own box moves the numbers', () => {
+    // `nowrap` sends the glyphs ~3900px past a 1144px border box. Measuring the box alone
+    // reported breathing 0 on every step AND `vacuous: true` — "this axis is not moving the
+    // content" — on the run where the content had left the slide entirely.
+    const r = sweep(['--style', 'section.divider.numbered h2 { white-space: nowrap; }'], { max: '20' });
+    assert.equal(r.summary.vacuous, false,
+      'the sweep called itself vacuous while the ink ran off the slide');
+    assert.ok(r.summary.crowded, 'ink outside the content box was not reported as crowding');
+  });
+
+  test('a sweep it cannot fully measure refuses instead of reporting clean', () => {
+    // Four ways the first cut answered "clean, exit 0" to a question it had not measured.
+    // Exit 2 is the contract for every one: the rig did not run, as distinct from the 1
+    // that means it found something.
+    const cases = [
+      { why: 'an unknown flag', args: ['--ancor', 'h2::after'] },
+      { why: 'a non-numeric limit', args: ['--anchor', 'h2::after', '--max-drift', 'banana'] },
+      { why: 'a --style path that does not exist', args: ['--anchor', 'h2::after', '--style', './no-such-fix.css'] },
+      {
+        why: 'an anchor measurable on some slides but not all',
+        args: ['--anchor', 'h2::after', '--style',
+          'section[data-lattice-slide]:not([data-lattice-slide="1"]) h2::after { position: static !important; }'],
+      },
+    ];
+    for (const c of cases) {
+      const r = sweepRaw(c.args);
+      assert.equal(r.status, 2, `${c.why}: expected exit 2, got ${r.status}\n${r.stderr}${r.stdout}`);
+    }
+    // And the flag form that silently dropped the anchor entirely: `--anchor=…` was never
+    // matched by the old scanner, so the sweep ran with no anchor, printed no DRIFT and no
+    // COLLISION line, and exited 0 looking clean.
+    const eq = spawnSync(process.execPath,
+      [TOOL, 'divider numbered', '--anchor=h2::after', '--max=4', '--json'],
+      { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, CHROME_PATH: resolveChrome() } });
+    const parsed = JSON.parse(eq.stdout);
+    assert.equal(parsed.summary.anchor, 'h2::after', 'the --flag=value form dropped the anchor');
+    assert.equal(parsed.rows.length, 4, 'the --flag=value form dropped --max');
   });
 });

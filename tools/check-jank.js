@@ -9,7 +9,9 @@
  * is: a fixed visual element does not stay fixed as the content around it varies. Three
  * failure modes, three different measurements:
  *
- *   DRIFT      an anchor that is supposed to hold position moves as content grows. A
+ *   DRIFT      an anchor that is supposed to hold position moves as content grows —
+ *              measured on BOTH axes, because a mark can walk sideways off the slide
+ *              without changing altitude by a pixel. A
  *              running section mark 22% down the canvas on a one-line heading and 14%
  *              down on a three-line one is a defect PRECISELY because the eye expects it
  *              in the same place on every slide. Fine in a still; it wobbles across a deck.
@@ -32,13 +34,20 @@
  *
  * WHAT IT MEASURES, and the two traps already paid for:
  *
- *  · THE INK, NOT THE BOX. The flowed block is the union of the border boxes of every
- *    element that actually paints — one carrying direct text, a replaced element, or one
- *    painting its own surface — descending THROUGH pure wrappers. Measuring a section's
- *    top-level children instead reads the Form's `.cell-stage`, which spans its whole grid
- *    area whatever is inside it, so a crowded slide and an empty one measure identical.
- *    Absolutely positioned boxes are excluded by construction: they are what an anchor IS,
- *    so name one with `--anchor` to measure it.
+ *  · THE INK, NOT THE BOX. The flowed block is the union of every box that actually paints
+ *    — one carrying direct text, a replaced element, or one painting its own surface —
+ *    descending THROUGH pure wrappers. Measuring a section's top-level children instead
+ *    reads the Form's `.cell-stage`, which spans its whole grid area whatever is inside it,
+ *    so a crowded slide and an empty one measure identical. Absolutely positioned boxes are
+ *    excluded by construction: they are what an anchor IS, so name one with `--anchor`.
+ *    Two things the first cut of that walk missed, both of which reported a hard overlap as
+ *    CLEAN: a GENERATED box is not a child, so a pseudo painting chrome on a text-free
+ *    wrapper was invisible (the engine bundle carries hundreds of such rules) — positioned
+ *    pseudos are now reconstructed and folded in, and an offset in-flow one, whose static
+ *    position the DOM does not expose, is COUNTED and suppresses the clean verdict rather
+ *    than being dropped. And TEXT IS NOT BOUNDED BY ITS BORDER BOX — a `nowrap` heading
+ *    measured 1144px wide while its glyphs ran to 4200px — so a Range over each text-bearing
+ *    element's contents joins the union.
  *  · THE ANCHOR'S PAINTED EDGE, NOT ITS CONTENT BOX. A `::after` is `content-box`, so
  *    `getComputedStyle(el, '::after').height` is the glyph alone — beneath it sit its
  *    padding and the border that IS the hairline (21.48px in the case this came from).
@@ -73,14 +82,20 @@
  *                     with the fix's declarations neutralized, and the difference between
  *                     the two tables IS the evidence.
  *   --tight PX        clearance at or under this is reported TIGHT. Default 12.
- *   --max-drift PX    anchor movement over this fails. Default 2 (sub-pixel rounding).
+ *   --max-drift PX    anchor movement over this fails, on either axis. Default 2 (sub-pixel
+ *                     rounding, not a tolerance).
+ *   --help            print the flags and exit 0.
  *   --json            machine-readable rows + summary.
  *   --advisory        always exit 0.
  *
  * ON-DEMAND, NOT A CI GATE — same reasoning as `overflow:check` and `bench:check`: it is a
  * Chromium sweep, and a wall-clock-ish diagnostic in the merge train is a flake generator.
- * Exit 1 on a collision or drift past the limit, 2 on a setup failure (no Chromium, no
- * manifest) so a broken rig never reads as a clean sweep, 0 otherwise.
+ * Exit 1 on a collision or drift past the limit, 2 on a setup failure, 0 otherwise. The
+ * exit-2 set is deliberately wide, because the failure that matters for a measurement rig is
+ * not a crash — it is a confident CLEAN over something it never measured: no Chromium, no
+ * manifest, an unknown or unusable flag, a `--style` path that does not exist (it would
+ * inject nothing and silently match its own baseline), or an anchor that resolves on some
+ * slides but not all (drift and clearance are claims across the whole sweep).
  */
 
 const fs = require('node:fs');
@@ -94,42 +109,103 @@ const { resolveChrome } = require('./lib/resolve-chrome.js');
 const SLACK = 1.0;
 
 // ── argv ──────────────────────────────────────────────────────────────────
-const argv = process.argv.slice(2);
-const has = (f) => argv.includes(`--${f}`);
-const flag = (name, def) => {
-  const i = argv.indexOf(`--${name}`);
-  return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : def;
-};
-const JSON_OUT = has('json');
-const ADVISORY = has('advisory');
-const ANCHOR = flag('anchor', null);
-const FAMILY = flag('family', 'wide');
-const THEME = flag('theme', 'indaco');
-const TIGHT = parseFloat(flag('tight', '12'));
-const MAX_DRIFT = parseFloat(flag('max-drift', '2'));
-const COUNT = parseInt(flag('count', '3'), 10);
-// Read verbatim, not through `flag`: injected CSS legitimately starts with `--` (a custom
-// property is the most natural thing to neutralize), and `flag` reads a `--`-leading value
-// as a missing one.
-const STYLE = (() => {
-  const i = argv.indexOf('--style');
-  return i >= 0 && argv[i + 1] !== undefined ? argv[i + 1] : null;
-})();
+//
+// PARSED, NOT SCANNED. The first cut used `argv.indexOf('--max')` per flag, which
+// silently ignored BOTH the `--flag=value` form (the one `lattice-emulator.js` itself
+// accepts, so the natural thing to type) and any misspelling. `--anchor='h2::after'`
+// therefore ran a full sweep with NO anchor: no DRIFT line, no COLLISION line, exit 0
+// — a rig reporting clean because it was never told what to look at. Unknown flags and
+// unusable values are now refusals, not shrugs.
+const VALUE_FLAGS = new Set([
+  'anchor', 'axis', 'family', 'max', 'count', 'words', 'theme', 'tight', 'max-drift', 'style',
+]);
+const BOOL_FLAGS = new Set(['json', 'advisory', 'help']);
+const NUMERIC = { max: 'int', count: 'int', words: 'int', tight: 'float', 'max-drift': 'float' };
 
 function die(msg, code = 2) { console.error(`check-jank: ${msg}`); process.exit(code); }
 
-// The positional is the whole class string, so `"divider numbered"` sweeps the modifier
-// that owns the anchor. Flag VALUES are skipped, or `--family tall` would read as one.
-const CLASS = (() => {
-  const skip = new Set();
-  for (const name of ['anchor', 'axis', 'family', 'max', 'count', 'words', 'theme', 'tight', 'max-drift', 'style']) {
-    const i = argv.indexOf(`--${name}`);
-    if (i >= 0 && argv[i + 1]) skip.add(i + 1);
+const USAGE = [
+  "usage: node tools/check-jank.js <component> [--anchor 'h2::after'] [options]",
+  '',
+  '  --anchor <sel>   what must hold still (a trailing ::before/::after names a pseudo)',
+  '  --axis           heading | count | words',
+  '  --family         wide | square | tall | strip        --theme <name>',
+  '  --max N          last step             --count N     --words N',
+  '  --tight PX       clearance at or under this is TIGHT (default 12)',
+  '  --max-drift PX   anchor movement over this fails (default 2)',
+  '  --style <css|f>  CSS injected as the deck\'s front-matter `style:`',
+  '  --json           machine-readable      --advisory    always exit 0',
+  '',
+  'The header of tools/check-jank.js is the long form. engineering/jank.md is the method.',
+].join('\n');
+
+const { opts, positionals } = (() => {
+  const o = new Map();
+  const pos = [];
+  const argv = process.argv.slice(2);
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (!a.startsWith('--')) { pos.push(a); continue; }
+    const eq = a.indexOf('=');
+    const name = (eq >= 0 ? a.slice(2, eq) : a.slice(2)).trim();
+    if (BOOL_FLAGS.has(name)) {
+      if (eq >= 0) die(`--${name} takes no value.`);
+      o.set(name, true);
+      continue;
+    }
+    if (!VALUE_FLAGS.has(name)) {
+      die(`unknown option '--${name}'. Known: ${[...VALUE_FLAGS, ...BOOL_FLAGS].sort().join(', ')}.\n\n${USAGE}`);
+    }
+    // A VALUE may legitimately begin with `--`: injected CSS often neutralizes a custom
+    // property. So the next argv entry is taken verbatim rather than sniffed.
+    const value = eq >= 0 ? a.slice(eq + 1) : argv[++i];
+    if (value === undefined) die(`--${name} requires a value.`);
+    o.set(name, value);
   }
-  const at = argv.findIndex((a, i) => !a.startsWith('--') && !skip.has(i));
-  return at >= 0 ? argv[at] : null;
+  return { opts: o, positionals: pos };
 })();
-if (!CLASS) die('usage: node tools/check-jank.js <component> [--anchor \'h2::after\'] [--axis heading|count|words]');
+
+if (opts.get('help')) { console.log(USAGE); process.exit(0); }
+
+const flag = (name, def) => (opts.has(name) ? opts.get(name) : def);
+const num = (name, def) => {
+  const raw = flag(name, def);
+  const v = NUMERIC[name] === 'int' ? parseInt(raw, 10) : parseFloat(raw);
+  // NaN is the silent one: `--max-drift banana` used to print "(limit NaN) ok" and exit 0
+  // on a sweep with real drift, because every comparison against NaN is false.
+  if (!Number.isFinite(v)) die(`--${name} needs a number, got '${raw}'.`);
+  return v;
+};
+
+const JSON_OUT = !!opts.get('json');
+const ADVISORY = !!opts.get('advisory');
+const ANCHOR = flag('anchor', null);
+const FAMILY = flag('family', 'wide');
+const THEME = flag('theme', 'indaco');
+const TIGHT = num('tight', '12');
+const MAX_DRIFT = num('max-drift', '2');
+const COUNT = num('count', '3');
+
+// A path that does not exist is a REFUSAL, not CSS. `--style ./my-fix.css` with a typo
+// used to inject the path text itself, which the engine drops — so the "sweep with the fix
+// neutralized" run came back byte-identical to the baseline and read as proof that the fix
+// held. The falsifiability lever must not fail open. A value carrying `{` is inline CSS.
+const STYLE = (() => {
+  const raw = flag('style', null);
+  if (raw == null) return null;
+  if (raw.includes('{')) return raw;
+  if (!fs.existsSync(raw)) {
+    die(`--style '${raw}' is neither a readable file nor CSS (no \`{\` in it). `
+      + 'A missing stylesheet would inject nothing and the sweep would silently match its baseline.');
+  }
+  return raw;
+})();
+
+const CLASS = positionals[0] || null;
+if (!CLASS) die(`a component is required.\n\n${USAGE}`);
+if (positionals.length > 1) {
+  die(`more than one component given (${positionals.join(', ')}). Quote a class string with modifiers: "divider numbered".`);
+}
 
 const COMP = CLASS.trim().split(/\s+/)[0];
 const manifest = findManifest(COMP);
@@ -141,7 +217,7 @@ if (!SIZE_ALIAS[FAMILY]) die(`unknown family '${FAMILY}'. Known: ${FAMILIES.join
 // one heading, no repeating element) has exactly one thing that can grow — the heading.
 const AXIS = flag('axis', manifest.capacity?.axis && BUILDERS[COMP] ? 'count' : 'heading');
 if (!['heading', 'count', 'words'].includes(AXIS)) die(`unknown --axis '${AXIS}' (heading | count | words).`);
-const MAX = parseInt(flag('max', AXIS === 'count' ? '9' : '24'), 10);
+const MAX = num('max', AXIS === 'count' ? '9' : '24');
 if (!(MAX > 1)) die('--max must be at least 2 — a sweep of one step measures nothing.');
 
 // ── the sweep deck ────────────────────────────────────────────────────────
@@ -179,7 +255,7 @@ function countSweep() {
     die(`no element builder for '${COMP}' — add one to tools/lib/calibrate-core.js BUILDERS, or `
       + 'sweep --axis heading.');
   }
-  const per = parseInt(flag('words', manifest.density?.soft || 12), 10);
+  const per = num('words', String(manifest.density?.soft || 12));
   return {
     steps: Array.from({ length: MAX }, (_, i) => i + 1),
     slideFor: (n) => ({
@@ -223,13 +299,78 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
   const num = (v) => Number.parseFloat(v) || 0;
   const round = (v) => (Number.isFinite(v) ? +v.toFixed(1) : null);
 
+  /** A fully transparent background paints nothing, whatever its channels say. */
+  const transparent = (color) => {
+    if (color === 'transparent') return true;
+    const m = /^rgba?\(([^)]+)\)$/.exec(color);
+    if (!m) return false;
+    const parts = m[1].split(/[,/]/).map((v) => v.trim());
+    return parts.length > 3 && Number.parseFloat(parts[3]) === 0;
+  };
+
   /** Does this box paint a surface of its own? Then IT is the visible edge, not its text. */
   const paints = (cs) => (
-    !/^(?:transparent|rgba\(0,\s*0,\s*0,\s*0\))$/.test(cs.backgroundColor)
+    !transparent(cs.backgroundColor)
     || cs.backgroundImage !== 'none'
     || [cs.borderTopWidth, cs.borderRightWidth, cs.borderBottomWidth, cs.borderLeftWidth]
       .some((w) => num(w) > 0)
   );
+
+  /**
+   * The rect an ABSOLUTELY POSITIONED pseudo paints, reconstructed from computed style —
+   * there is no rect API for a generated box. Shared by the anchor and by the ink walk,
+   * because the same reconstruction answers both "where is the mark" and "is there other
+   * chrome up here". Returns null when the box cannot be placed.
+   *
+   * The containing block is the nearest ancestor that ESTABLISHES one — and `position` is
+   * not the only property that does. `transform`, `filter`, `perspective`, `contain` and
+   * `container-type` all make a static element the containing block for an absolutely
+   * positioned descendant, and this engine puts `container-type: size` on every section.
+   * Walking on `position` alone silently misplaced such a pseudo (measured: 37px off).
+   */
+  const establishesCb = (el) => {
+    const cs = getComputedStyle(el);
+    if (cs.position !== 'static') return true;
+    if (cs.transform !== 'none' || cs.perspective !== 'none') return true;
+    if (cs.filter !== 'none' || cs.backdropFilter && cs.backdropFilter !== 'none') return true;
+    if (cs.willChange && /transform|perspective|filter/.test(cs.willChange)) return true;
+    if (cs.contain && /(^|\s)(layout|paint|strict|content)(\s|$)/.test(cs.contain)) return true;
+    if (cs.containerType && cs.containerType !== 'normal') return true;
+    return false;
+  };
+
+  function placedBox(base, cs) {
+    if (!/px$/.test(cs.top) || !/px$/.test(cs.left)) return null;
+    let originTop = 0;
+    let originLeft = 0;
+    if (cs.position !== 'fixed') {
+      // FROM THE ORIGINATING ELEMENT, not its parent. A pseudo is a child of the element it
+      // hangs on, so that element is its own containing block the moment it establishes one
+      // — and that is the shape of the design this tool exists to reject: a mark hung on a
+      // positioned heading rides the heading and drifts with it.
+      let cb = base;
+      while (cb && !establishesCb(cb)) cb = cb.parentElement;
+      if (!cb) return null;
+      const cbr = cb.getBoundingClientRect();
+      const cbs = getComputedStyle(cb);
+      originTop = cbr.top + num(cbs.borderTopWidth);
+      originLeft = cbr.left + num(cbs.borderLeftWidth);
+    }
+    // A `fixed` box resolves against the viewport, which IS the coordinate space every rect
+    // here already lives in — so its origin is 0,0 and no ancestor is consulted.
+    const grow = cs.boxSizing === 'border-box'
+      ? { w: 0, h: 0 }
+      : {
+        w: num(cs.paddingLeft) + num(cs.paddingRight) + num(cs.borderLeftWidth) + num(cs.borderRightWidth),
+        h: num(cs.paddingTop) + num(cs.paddingBottom) + num(cs.borderTopWidth) + num(cs.borderBottomWidth),
+      };
+    const top = originTop + num(cs.top) + num(cs.marginTop);
+    const left = originLeft + num(cs.left) + num(cs.marginLeft);
+    const height = num(cs.height) + grow.h;
+    const width = num(cs.width) + grow.w;
+    if (!(width > 0) || !(height > 0)) return null;
+    return { top, left, bottom: top + height, right: left + width, width, height };
+  }
 
   /**
    * The ink: the union of every painting box, descending through pure wrappers.
@@ -237,18 +378,70 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
    * area whether it holds one line or twelve — so stopping at the section's children
    * measures the grid, not the content.
    */
-  function ink(el, acc, skipEl) {
-    if (el === skipEl || el.hasAttribute('data-lattice-berth')) return;
+  function ink(el, acc, unplaced, skip) {
+    if (el === skip.el && !skip.pseudo) return;
+    if (el.hasAttribute('data-lattice-berth')) return;
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden') return;
     // Out-of-flow boxes are excluded on purpose: an absolutely positioned mark is what an
     // ANCHOR is, and folding it into the ink would hide the very collision we are after.
     if (cs.position === 'absolute' || cs.position === 'fixed') return;
+
+    // GENERATED BOXES ARE NOT CHILDREN, and the first cut of this walk therefore could not
+    // see them: a wrapper with no direct text and no background read as a pure wrapper, so
+    // the walk descended into `el.children` and every pixel its pseudo painted was invisible
+    // to the tool. That is not an exotic case — the eyebrow `<p><code>` is exactly that
+    // shape, and the engine bundle carries hundreds of `::before`/`::after` rules painting
+    // chrome. A hard, full-width overlap with the anchor reported COLLISION none, exit 0.
+    for (const pseudo of ['::before', '::after']) {
+      // THE ANCHOR IS NOT ITS OWN OBSTACLE. Folding the named pseudo into the ink makes
+      // every sweep collide with itself — the shipped divider reported a -136.2px
+      // collision against its own section mark the moment this walk learned to see
+      // generated boxes.
+      if (el === skip.el && pseudo === skip.pseudo) continue;
+      const ps = getComputedStyle(el, pseudo);
+      if (ps.content === 'none' || ps.display === 'none' || ps.visibility === 'hidden') continue;
+      if (ps.position === 'absolute' || ps.position === 'fixed') {
+        const box = placedBox(el, ps);
+        if (box) acc.push(box);
+        else unplaced.push(`${el.tagName.toLowerCase()}${pseudo}`);
+        continue;
+      }
+      // An in-flow pseudo lays out inside its originating element's box, so the element's
+      // own rect already covers it — UNLESS it is offset out of that box by `relative`,
+      // which paints somewhere this tool cannot compute (its static position is not
+      // exposed). Counted, never silently dropped: a clean verdict is not claimed over ink
+      // nobody measured.
+      if (ps.position === 'relative'
+        && [ps.top, ps.left, ps.bottom, ps.right].some((v) => /px$/.test(v) && num(v) !== 0)) {
+        unplaced.push(`${el.tagName.toLowerCase()}${pseudo}`);
+      }
+    }
+
     const r = el.getBoundingClientRect();
     const ownText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
     const own = ownText || REPLACED.has(el.tagName.toUpperCase()) || paints(cs);
-    if (own && r.width > 0 && r.height > 0) { acc.push(r); return; }
-    for (const kid of el.children) ink(kid, acc, skipEl);
+    if (own && r.width > 0 && r.height > 0) {
+      // THE CONTENT'S EXTENT, NOT JUST THE BOX. Text is not bounded by its border box: one
+      // `white-space: nowrap` heading measured 1144px wide with its glyphs running past
+      // 3900px, off the slide entirely, while every column here read as if nothing had
+      // moved. `scrollWidth`/`scrollHeight` measure the overflow from the PADDING box, so
+      // they catch the escape exactly and add nothing when there is none (measured: +3px of
+      // block axis on an ordinary heading).
+      // A Range over the text was tried first and is wrong for this: its rects are LINE
+      // boxes, which carry the font's leading, so every text element grew ~5px upward and a
+      // mark sitting just above one read as a collision. (RTL/upward overflow is not
+      // covered — `scrollWidth` measures in the inline start direction only.)
+      const padLeft = r.left + num(cs.borderLeftWidth);
+      const padTop = r.top + num(cs.borderTopWidth);
+      const right = Math.max(r.right, padLeft + el.scrollWidth);
+      const bottom = Math.max(r.bottom, padTop + el.scrollHeight);
+      acc.push({
+        top: r.top, left: r.left, right, bottom, width: right - r.left, height: bottom - r.top,
+      });
+      return;
+    }
+    for (const kid of el.children) ink(kid, acc, unplaced, skip);
   }
 
   /**
@@ -271,30 +464,11 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
     if (cs.position !== 'absolute' && cs.position !== 'fixed') {
       return { error: `${pseudo} is \`position: ${cs.position}\` — an in-flow pseudo has no measurable rect; name an element anchor instead` };
     }
-    if (!/px$/.test(cs.top) || !/px$/.test(cs.left)) {
-      return { error: `${pseudo} resolves \`top: ${cs.top}\` / \`left: ${cs.left}\` — an offset that is not a length cannot be placed` };
+    const rect = placedBox(base, cs);
+    if (!rect) {
+      return { error: `${pseudo} resolves \`top: ${cs.top}\` / \`left: ${cs.left}\` at ${cs.width}x${cs.height} — that box cannot be placed` };
     }
-    // FROM THE ORIGINATING ELEMENT, not its parent. A pseudo is a child of the element it
-    // hangs on, so that element is its own containing block the moment it is positioned —
-    // and that is not a corner case, it is the shape of the design this tool exists to
-    // reject: a mark hung on a positioned heading rides the heading and drifts with it.
-    // Starting the walk one level up reported such a mark as pinned to the section.
-    let cb = base;
-    while (cb && getComputedStyle(cb).position === 'static') cb = cb.parentElement;
-    if (!cb) return { error: `${pseudo} has no positioned containing block` };
-    const cbr = cb.getBoundingClientRect();
-    const cbs = getComputedStyle(cb);
-    const border = cs.boxSizing === 'border-box'
-      ? { w: 0, h: 0 }
-      : {
-        w: num(cs.paddingLeft) + num(cs.paddingRight) + num(cs.borderLeftWidth) + num(cs.borderRightWidth),
-        h: num(cs.paddingTop) + num(cs.paddingBottom) + num(cs.borderTopWidth) + num(cs.borderBottomWidth),
-      };
-    const top = cbr.top + num(cbs.borderTopWidth) + num(cs.top) + num(cs.marginTop);
-    const left = cbr.left + num(cbs.borderLeftWidth) + num(cs.left) + num(cs.marginLeft);
-    const height = num(cs.height) + border.h;
-    const width = num(cs.width) + border.w;
-    return { rect: { top, left, bottom: top + height, right: left + width, width, height } };
+    return { rect };
   }
 
   const rows = [];
@@ -314,7 +488,7 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
     let anchor = null;
     let anchorError = null;
     let anchorCount = 0;
-    let skipEl = null;
+    const skip = { el: null, pseudo: anchorPseudo };
     if (anchorSel) {
       let found = [];
       try {
@@ -328,22 +502,24 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       } else if (!found.length) {
         anchorError = 'no match';
       } else {
-        if (!anchorPseudo) skipEl = found[0];
+        skip.el = found[0];
         const box = anchorBox(found[0], anchorPseudo);
         if (box.error) anchorError = box.error; else anchor = box.rect;
       }
     }
 
     const rects = [];
-    for (const kid of sec.children) ink(kid, rects, skipEl);
+    const unplaced = [];
+    for (const kid of sec.children) ink(kid, rects, unplaced, skip);
     const heading = sec.querySelector('h1, h2, h3');
-    // Line boxes, not an estimate: a Range over the heading's own text returns one rect per
-    // rendered line, which is the unit a reader actually sees the block grow in.
+    // Line boxes, not an estimate: a Range over the heading's text returns a rect per inline
+    // BOX, so `<strong>` in a heading would count twice on one line. Distinct rounded tops,
+    // which is the unit a reader actually sees the block grow in.
     let lines = null;
     if (heading) {
       const range = document.createRange();
       range.selectNodeContents(heading);
-      lines = range.getClientRects().length;
+      lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size || null;
     }
 
     const row = {
@@ -352,6 +528,7 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       lines,
       anchorCount,
       anchorError,
+      unplaced: [...new Set(unplaced)],
     };
 
     if (!rects.length) {
@@ -384,9 +561,15 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       const inkMid = (inkBox.top + inkBox.bottom) / 2;
       side = anchorMid <= inkMid ? 'above' : 'below';
       clearance = side === 'above' ? inkBox.top - anchor.bottom : anchor.top - inkBox.bottom;
-      const overlapY = Math.min(anchor.bottom, inkBox.bottom) - Math.max(anchor.top, inkBox.top);
-      const overlapX = Math.min(anchor.right, inkBox.right) - Math.max(anchor.left, inkBox.left);
-      intersects = overlapY > slack && overlapX > slack;
+      // PER RECT, NOT THE UNION. `inkBox` is a bounding box over everything that paints,
+      // so an anchor sitting in a GAP between two pieces of ink — a mark centered between a
+      // heading above and a body below — is enveloped by the union while touching neither.
+      // Asserting on the union made that a COLLISION and a failing exit; the union is the
+      // right thing to REPORT a clearance against, and the wrong thing to fail on.
+      intersects = rects.some((r) => (
+        Math.min(anchor.bottom, r.bottom) - Math.max(anchor.top, r.top) > slack
+        && Math.min(anchor.right, r.right) - Math.max(anchor.left, r.left) > slack
+      ));
     }
 
     rows.push({
@@ -394,8 +577,14 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       inkTop: round(inkBox.top - sr.top),
       inkBottom: round(inkBox.bottom - sr.top),
       inkHeight: round(inkBox.bottom - inkBox.top),
+      inkWidth: round(inkBox.right - inkBox.left),
       anchorTop: anchor ? round(anchor.top - sr.top) : null,
       anchorBottom: anchor ? round(anchor.bottom - sr.top) : null,
+      // BOTH AXES. Drift used to be read off the block axis alone, so a mark that walked
+      // 604px sideways — off the edge of the slide on the first step — reported 0.0px and
+      // "ok". An anchor holds a POSITION, not an altitude.
+      anchorLeft: anchor ? round(anchor.left - sr.left) : null,
+      anchorRight: anchor ? round(anchor.right - sr.left) : null,
       side,
       clearance: round(clearance),
       intersects,
@@ -468,12 +657,16 @@ async function main() {
   const withAnchor = measured.filter((r) => r.anchorTop != null);
   const anchorErrors = [...new Set(rows.map((r) => r.anchorError).filter(Boolean))];
 
-  const drift = withAnchor.length > 1
-    ? Math.max(
-      Math.max(...withAnchor.map((r) => r.anchorTop)) - Math.min(...withAnchor.map((r) => r.anchorTop)),
-      Math.max(...withAnchor.map((r) => r.anchorBottom)) - Math.min(...withAnchor.map((r) => r.anchorBottom)),
-    )
+  // DRIFT ON BOTH AXES, and the axis is named. The first cut maxed over `anchorTop` and
+  // `anchorBottom` only, so a mark that walked 604px SIDEWAYS across the sweep — entirely
+  // off the slide on step 1 — reported `0.0px  ok` while the header promised "anchor
+  // movement". An anchor holds a position, not an altitude.
+  const spreadOf = (key) => Math.max(...withAnchor.map((r) => r[key])) - Math.min(...withAnchor.map((r) => r[key]));
+  const driftAxes = withAnchor.length > 1
+    ? { vertical: Math.max(spreadOf('anchorTop'), spreadOf('anchorBottom')), horizontal: Math.max(spreadOf('anchorLeft'), spreadOf('anchorRight')) }
     : null;
+  const drift = driftAxes ? Math.max(driftAxes.vertical, driftAxes.horizontal) : null;
+  const driftAxis = driftAxes && driftAxes.horizontal > driftAxes.vertical ? 'horizontal' : 'vertical';
   // A COLLISION is an intersection on BOTH axes, not merely a negative gap on one. An
   // anchor in a corner and ink in a column beside it can pass each other on the block axis
   // for a whole sweep without ever touching, and failing that would make the tool cry wolf
@@ -487,14 +680,18 @@ async function main() {
 
   // A sweep whose steps all lay out identically proves nothing — it means the axis never
   // moved the content, so every clean verdict below is vacuous. Say so rather than pass.
-  const spread = measured.length > 1
-    ? Math.max(...measured.map((r) => r.inkHeight)) - Math.min(...measured.map((r) => r.inkHeight))
-    : 0;
+  // Height AND width: a sweep can move the content sideways (a `nowrap` heading runs off
+  // the slide without gaining a pixel of height), and calling that "vacuous" told the
+  // operator the axis was inert on the exact run where it was doing the most damage.
+  const spreadRange = (key) => Math.max(...measured.map((r) => r[key])) - Math.min(...measured.map((r) => r[key]));
+  const spread = measured.length > 1 ? Math.max(spreadRange('inkHeight'), spreadRange('inkWidth')) : 0;
 
   const summary = {
     component: CLASS, family: FAMILY, theme: THEME, axis: AXIS, steps: sweep.steps.length,
     anchor: ANCHOR, anchorErrors,
-    drift, maxDrift: MAX_DRIFT,
+    drift, driftAxis, driftAxes, maxDrift: MAX_DRIFT,
+    unplaced: [...new Set(rows.flatMap((r) => r.unplaced || []))],
+    anchorMatches: [...new Set(rows.map((r) => r.anchorCount).filter((n) => n > 1))],
     collision: collision && { step: collision.step, slide: collision.slide, clearance: collision.clearance },
     passesOnOneAxis: passes && { step: passes.step, clearance: passes.clearance },
     tight: tight && { step: tight.step, clearance: tight.clearance },
@@ -545,16 +742,28 @@ async function main() {
 
     console.log('');
     if (anchorErrors.length) console.log(`  ANCHOR    unmeasurable on some slides: ${anchorErrors.join('; ')}`);
+    if (summary.anchorMatches.length) {
+      console.log(`  ANCHOR    '${ANCHOR}' matches more than one element (${summary.anchorMatches.join(', ')}) — `
+        + 'the FIRST in document order is measured and the rest are folded into the ink. Narrow it.');
+    }
+    if (summary.unplaced.length) {
+      console.log(`  UNPLACED  ${summary.unplaced.length} generated box(es) paint where this tool cannot place them `
+        + `(${summary.unplaced.join(', ')}) — an offset in-flow pseudo has no exposed static position. `
+        + 'A clean verdict below does NOT cover them.');
+    }
     if (drift != null) {
-      console.log(`  DRIFT     the anchor moved ${drift.toFixed(1)}px across the sweep (limit ${MAX_DRIFT})`
+      console.log(`  DRIFT     the anchor moved ${drift.toFixed(1)}px across the sweep, ${driftAxis} (limit ${MAX_DRIFT})`
         + `${drift > MAX_DRIFT ? '  ✗ it does not hold position' : '  ok'}`);
     }
     if (collision) {
       console.log(`  COLLISION step ${collision.step} (${collision.lines ?? '—'} lines, ${collision.chars ?? '—'} chars): `
         + `clearance ${collision.clearance}px${collision.over ? '' : ' — and the overflow probe says this slide is fine'}  ✗`);
     } else if (withAnchor.length) {
+      // Never the bare word "ok" while something up there went unmeasured — that is the
+      // shape of every false clean this tool is built to refuse.
       console.log(`  COLLISION none through step ${sweep.steps.at(-1)}`
-        + `${tight ? `  (tightest ${tight.clearance}px at step ${tight.step} — at or under --tight ${TIGHT})` : ''}  ok`);
+        + `${tight ? `  (tightest ${tight.clearance}px at step ${tight.step} — at or under --tight ${TIGHT})` : ''}`
+        + `${summary.unplaced.length ? '  — among the ink it could place; see UNPLACED' : '  ok'}`);
     }
     if (passes) {
       console.log(`  PASSES    step ${passes.step}: the ink is ${Math.abs(passes.clearance)}px past the anchor on the `
@@ -577,9 +786,15 @@ async function main() {
   // collision" for the same reason an unplugged alarm reports no fire — and the one-line
   // ANCHOR note above is easy to read past. Exit 2, with the other tools' meaning: the rig
   // did not run, as distinct from the 1 that means it found something.
-  if (ANCHOR && !withAnchor.length) {
-    die(`the anchor '${ANCHOR}' was measurable on no slide (${anchorErrors.join('; ') || 'no reason recorded'}) `
-      + '— nothing was compared against it, so this sweep has no verdict.');
+  // AN ANCHOR MEASURED ON SOME SLIDES IS NOT A SWEEP. The first cut refused only at ZERO
+  // measurable slides, so an anchor that resolved on one of twelve gave a confident
+  // "COLLISION none" drawn from that single slide, no DRIFT line at all (the spread needs
+  // two), and exit 0. Drift and clearance are claims ACROSS the sweep; a partial one cannot
+  // support them.
+  if (ANCHOR && withAnchor.length < measured.length) {
+    die(`the anchor '${ANCHOR}' was measurable on ${withAnchor.length} of ${measured.length} slides `
+      + `(${anchorErrors.join('; ') || 'no reason recorded'}) — drift and clearance are claims across the `
+      + 'whole sweep, so a partial one has no verdict.');
   }
 
   const failed = (drift != null && drift > MAX_DRIFT) || !!collision;

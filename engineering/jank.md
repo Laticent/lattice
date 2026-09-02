@@ -104,10 +104,18 @@ unplugged smoke alarm reports no fire.
 | `anchor` | the anchor's painted edge **facing the content** — its bottom when it sits above, its top when below |
 | `clearance` | the signed gap between the two. Negative means they have reached each other; `✱` means the boxes genuinely intersect on both axes, not merely on one |
 | `breathe` | how far the ink stays inside the section's content box, worst edge, with that edge's initial. `0 L` is normal — text begins where the content box begins. Negative means the ink is into the padding: inside the frame, so no channel tags it |
+| `UNPLACED` | generated boxes that paint where the tool cannot place them. When this appears, a clean COLLISION line says "among the ink it could place" and withholds the word `ok` — see below |
 | `probe` | the engine's own overflow verdict for that page. A collision with `·` here is the silent case |
 
-Exit 1 on a collision or drift past `--max-drift`; exit 2 when the rig could not run (no
-Chromium, no manifest), never a silent 0.
+Exit 1 on a collision or drift past `--max-drift`; exit 2 when the rig could not run,
+never a silent 0. **The exit-2 set is deliberately wide**, because the dangerous failure for
+a measurement rig is not a crash — it is a confident CLEAN over something it never measured.
+So: no Chromium, no manifest, an unknown or misspelled flag, a non-numeric `--tight` /
+`--max-drift` / `--max`, a `--style` path that does not exist (it would inject nothing and
+the sweep would silently match its own baseline, which is the *proof* the flag exists to
+produce), and an anchor that resolves on some slides but not all — drift and clearance are
+claims across the whole sweep, so a partial one has no verdict. Every one of those was a
+silent exit 0 in the first cut, found by an independent checker.
 
 ## The judgment
 
@@ -115,8 +123,9 @@ Chromium, no manifest), never a silent 0.
 looks fine — that is what makes drift a deck-level defect and a slide-level non-event.
 Judge an anchor across the sweep, and judge it on the numbers.
 
-**Any drift at all is a defect for an anchor you named.** `--max-drift` defaults to 2px,
-which is sub-pixel rounding, not a tolerance. Naming something with `--anchor` asserts it
+**Any drift at all is a defect for an anchor you named**, on either axis — the tool
+measures both, and names the one that set the number. `--max-drift` defaults to 2px, which
+is sub-pixel rounding, not a tolerance. Naming something with `--anchor` asserts it
 holds position; if it moves, either the design is wrong or it was never an anchor. The
 design killed by this measurement in #2005 kept a *constant* clearance on every slide and
 still wandered 70px down the canvas, because it rode the heading. Constant clearance is
@@ -141,15 +150,30 @@ different `--axis` rather than banking the green.
 
 ## What it does not do
 
-- **It measures the ink, not the box.** The flowed block is the union of every element that
+- **It measures the ink, not the box.** The flowed block is the union of every box that
   actually paints, descending through pure wrappers — because the Form's `.cell-stage`
   spans its whole grid area whatever is inside it, so a section's top-level children read
   identical on a crowded slide and an empty one. The cost is that an inline eyebrow reads
   ~9px lower than the paragraph that contains it (its line box has leading). It has never
   changed a step-level verdict — a line is four times that — but it is why a number here
   can differ slightly from one measured off a block box.
+- **A generated box is not a child**, and the first version of that walk could not see one:
+  a pseudo painting chrome on a text-free wrapper was simply absent from the ink, and a
+  hard, full-width overlap with the anchor reported `COLLISION none` and exit 0. Positioned
+  pseudos are now reconstructed and folded in. An in-flow one **offset by `relative`** still
+  cannot be placed — the DOM does not expose a pseudo's static position — so it is counted
+  and printed as `UNPLACED`, and the clean line stops saying `ok`. A rig that cannot see
+  something must say so rather than certify around it.
+- **Text is not bounded by its border box**, so a text-bearing element contributes its
+  scroll extent as well: a `nowrap` heading measured 1144px wide with its glyphs running
+  past 3900px, off the slide, while every column read as if nothing had moved.
 - **Out-of-flow boxes are excluded from the ink by construction.** An absolutely positioned
-  mark is what an anchor *is*; to measure one, name it with `--anchor`.
+  mark is what an anchor *is*; to measure one, name it with `--anchor`. The named anchor is
+  excluded from its own ink, or every sweep would collide with itself.
+- **A collision is judged per painted rect, not against the ink's bounding box.** An anchor
+  sitting in a *gap* between two pieces of ink is enveloped by the union while touching
+  neither; the union is the right thing to report a clearance against and the wrong thing
+  to fail on.
 - **One component, one family, one theme per run.** There is no corpus mode and no
   committed oracle — see below.
 - **It is not a CI gate.** It is a Chromium sweep, and a wall-clock-ish diagnostic in the

@@ -312,14 +312,18 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   "feature".** A layout, modifier, token, theme or chart change — or a fix to one —
   owes a deck, because the deck IS how a reviewer sees it. Work that renders no new
   or changed slide surface does not: tooling, CI/infra, export plumbing, a perf change
-  whose output is byte-identical, docs. `workflow.md`'s escape already said half of
-  this ("a code-level feature's demo lives with the implementation"), but this line
-  stated the rule flatly, so every tooling PR had to argue its way out of a HARD RULE
-  in its own body — which is a tax on the honest ones and an invitation to the rest.
-  **A path test is NOT the trigger, and the measurement is why:** of the last 40
-  commits, 19 touched `lib/` or `themes/` and 6 shipped a deck, so a mechanical
-  `lib/` ⇒ deck rule would have called 13 of them violations. Judge the surface a
-  human sees, not the directory the diff lands in.
+  whose output is byte-identical, docs. `workflow.md`'s existing escape does NOT cover
+  this — it RELOCATES a code-level feature's demo ("live with the feature
+  implementation"), it never excused one — so this line stating the rule flatly left
+  every tooling PR arguing its way out of a HARD RULE in its own body, a tax on the
+  honest ones and an invitation to the rest.
+  **A path test is NOT the trigger, and the measurement is why:** over the 40 commits
+  ending at `4c9075c`, 21 touched `lib/` or `themes/` and 6 shipped a deck, so a
+  mechanical `lib/` ⇒ deck rule would have called 15 of them violations. Judge the
+  surface a human sees, not the directory the diff lands in. (Re-derive with
+  `git log --no-merges -40 --name-only <base>`; the window moves with HEAD, so quote a
+  base or the number will not reproduce — an earlier draft of this line said 19,
+  counted from a moving HEAD, and did not.)
   **Non-visual work still owes its EVIDENCE in the PR body** — the before/after
   numbers, the measured table, the arm that proves the thing can fail. A deck is one
   form of proof, not the only one; shipping neither is what this rule exists to stop.
