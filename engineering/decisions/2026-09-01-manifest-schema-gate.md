@@ -466,14 +466,46 @@ against the built site renders it correctly (see below).
 **Nothing shipped is broken, and one trap is worth writing down.** On the Astro
 DEV server Fabricate's `LIVE PREVIEW` figure has zero children — it looks like a
 dead surface. On the built site the same figure holds the `srcdoc` iframe and
-renders the slide. Two consequences: the empty preview is a dev-server artifact
-and not a defect, and **a verification run against `npm run dev` alone would have
-reported the opposite of the truth here** — in both directions, since a dev-only
-break reads as shipped and a dev-only pass would too. Drive `docs/dist`.
+renders the slide. The consequence for how we verify is the durable one: **a
+verification run against `npm run dev` alone would have reported the opposite of
+the truth here** — in both directions, since a dev-only break reads as shipped and
+a dev-only pass would too. Drive `docs/dist`.
+
+### CORRECTION: it is a dev-only DEFECT, not an artifact — and the cause is named
+
+This record called the empty preview "a dev-server artifact and not a defect".
+That was the limit of what had been established, not a finding, and #2016
+root-caused it. It is a real defect that happens to be invisible in production,
+and the distinction matters because "artifact" invites walking past it.
+
+`StudioIsland.tsx` wraps the shell in `<StrictMode>` deliberately, and StrictMode
+double-invokes mount effects in dev only. `DeckPreview`'s unmount cleanup calls
+`engineRef.current?.dispose()` (`DeckPreview.tsx:650`), but the renderer is built
+in the RENDER BODY behind `if (engineRef.current === null)`
+(`DeckPreview.tsx:224`) — and a StrictMode remount re-runs effects, not the render
+body. The host therefore keeps a DISPOSED renderer for the rest of its life, and
+every later render resolves `{ ok: false, slides: 0, error: 'renderer disposed' }`.
+The silence is the other half: #1164 excludes exactly that sentinel from the
+failure surface because it is normally TRANSIENT (a host detached mid-render), so
+the one signal that would have drawn a card is the one suppressed. Measured:
+removing `<StrictMode>` renders the preview; nulling the ref in the cleanup does
+NOT (it trades a disposed renderer for no renderer), and neither does dropping
+`coalesce` — both plausible theories, both wrong, which is why this was pinned by
+instrumenting `renderInto`'s status rather than by reading.
+
+All four Fabricate hosts are affected (Component preview, Theme / Chart / Diagram
+specimens), not just the one this record named. Written up as a symptom in
+`engineering/gotchas.md` → `engineering/gotchas/docs-site.md`, beside the
+`/@fs` source-CJS trap it rhymes with. NOT fixed here: pre-existing and off this
+change's path (HARD RULE #18); the candidate fix is to let an effect own the
+renderer's whole lifecycle instead of a render-body guard paired with an effect
+cleanup.
 
 Both surfaces also log a 404 for the fabricated theme's CSS
 (`/playground/v/<hash>/themes/fab-<id>.css`) — a theme authored in the browser
 cannot exist under a staged asset path. It is present with the pre-change bundle
 rebuilt in place, so it is neither caused nor worsened here, it costs one failed
 request, and the preview renders regardless. Recorded, not fixed: off the path of
-this change (HARD RULE #18).
+this change (HARD RULE #18). **It does NOT share the empty-preview root cause**
+(#2016 checked): it appears identically on the built site, where the preview
+renders correctly.
