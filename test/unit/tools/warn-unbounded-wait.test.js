@@ -17,6 +17,10 @@
  *   2. It stays QUIET on ordinary commands. A warning that cries wolf is one
  *      somebody switches off, so the false-positive cases below are as
  *      load-bearing as the true-positive ones — arguably more.
+ *   3. It stays quiet where the fix it names CANNOT RUN. `tools/wait-for.sh`
+ *      needs a timeout(1) for the deadline and flock(1)-or-perl for the lock,
+ *      and exits 69 without them — which is a stock macOS, where neither
+ *      timeout nor flock ships. Coaching toward a wall is worse than silence.
  *
  * The wiring case matters too: a hook that is written but not registered is an
  * elaborate no-op, and nothing else in the tree would notice.
@@ -26,6 +30,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const fs = require('node:fs');
+const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 
 const REPO = path.join(__dirname, '..', '..', '..');
@@ -87,6 +92,91 @@ describe('warn-unbounded-wait — it can never break a tool call', () => {
   })) {
     test(`exits 0 on ${label}`, () => {
       assert.equal(fire(payload).code, 0);
+    });
+  }
+});
+
+describe('warn-unbounded-wait — it stays quiet where the helper cannot run', () => {
+  // The nudge names one fix. On a box where that fix refuses to start, printing
+  // it sends the reader to a tool that exits 69 — so the hook says nothing.
+  // `tools/wait-for.sh` needs BOTH a timeout(1) (macOS ships none; coreutils
+  // installs gtimeout) and flock(1)-or-perl (macOS ships no flock(1), but perl
+  // by default), so the quiet cases below are exactly its two dependency
+  // classes, one missing at a time.
+  //
+  // These drive the REAL hook with a PATH we control, because that is the only
+  // thing that actually decides the branch. The hook itself needs bash (its
+  // `#!/usr/bin/env bash` line resolves through PATH) and cat, so those two are
+  // linked into the sandbox — and the positive control below is what proves the
+  // sandbox is not silencing the hook for some other reason, e.g. a broken
+  // `cat` leaving the payload empty.
+  const LOOP = 'until grep -q done build.log; do sleep 5; done';
+
+  /** First executable `name` on the real PATH, or null. */
+  const onPath = (name) => {
+    for (const dir of (process.env.PATH || '').split(path.delimiter)) {
+      if (!dir) continue;
+      const candidate = path.join(dir, name);
+      try {
+        fs.accessSync(candidate, fs.constants.X_OK);
+        return fs.realpathSync(candidate);
+      } catch { /* keep looking */ }
+    }
+    return null;
+  };
+
+  /** A bin dir holding bash + cat, plus a stub for each name in `stubs`. */
+  const sandbox = (stubs) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wait-hook-'));
+    // Linked under the name we looked up, NOT the basename of what it resolves
+    // to: on a busybox box `cat` resolves to /bin/busybox, and naming the link
+    // after the target would leave the sandbox with no `cat` at all.
+    for (const name of ['bash', 'cat']) {
+      fs.symlinkSync(onPath(name), path.join(dir, name));
+    }
+    for (const name of stubs) {
+      const stub = path.join(dir, name);
+      fs.writeFileSync(stub, '#!/bin/sh\nexit 0\n');
+      fs.chmodSync(stub, 0o755);
+    }
+    return dir;
+  };
+
+  const fireWith = (stubs) => {
+    const bin = sandbox(stubs);
+    try {
+      const r = spawnSync(HOOK, {
+        input: bash(LOOP), encoding: 'utf8', cwd: REPO, timeout: 10_000,
+        env: { PATH: bin },
+      });
+      return { code: r.status, out: (r.stdout || '').trim() };
+    } finally {
+      fs.rmSync(bin, { recursive: true, force: true });
+    }
+  };
+
+  const haveSandboxParts = Boolean(onPath('bash') && onPath('cat'));
+
+  test('warns when both dependencies are present (the control)', { skip: !haveSandboxParts }, () => {
+    // A stock Mac with `brew install coreutils`: gtimeout for the deadline,
+    // perl for the lock. The helper runs there, so the coaching still fires —
+    // and a green here is what makes the silences below mean something.
+    const { code, out } = fireWith(['gtimeout', 'perl']);
+    assert.equal(code, 0);
+    assert.match(out, /wait-for\.sh/, 'the sandbox itself must not silence the hook');
+  });
+
+  const silent = {
+    'nothing at all — a stock macOS': [],
+    'a timeout but no lock mechanism': ['timeout'],
+    'a lock mechanism but no timeout': ['flock'],
+  };
+
+  for (const [label, stubs] of Object.entries(silent)) {
+    test(`says nothing with ${label}`, { skip: !haveSandboxParts }, () => {
+      const { code, out } = fireWith(stubs);
+      assert.equal(code, 0, 'a warning hook must still exit 0');
+      assert.equal(out, '', 'the fix it names cannot run here, so it must not name it');
     });
   }
 });
