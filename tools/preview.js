@@ -290,6 +290,30 @@ function pageDeltaNote(baseline, fresh) {
   return null;
 }
 
+// ImageMagick `compare -metric AE` prints the changed-pixel COUNT to stderr — and
+// once that count passes 1,000,000 it prints it in SCIENTIFIC NOTATION
+// (`1.15966e+06`), not as a bare integer. Both copies of this parse tested
+// `/^\d+$/` and fell back to **0**, so a page differing by more than a million
+// pixels was recorded as IDENTICAL. The worse the drift, the more likely it
+// vanished: measured on `examples/gallery-jargon.pdf`, page 12 (976,578 px at
+// 72dpi) was reported and page 17 (1,159,660 px — a quarter of the page) was not,
+// by the tools whose entire job is to answer "what changed" (`golden-diff.mjs`,
+// `regression-gate.mjs`, `preview.js`). A false PASS in a freshness gate, and it
+// hid four pages of real drift in the PR that found it.
+//
+// An unreadable count is now `-1`, the same "cannot tell" sentinel the page-add /
+// page-resize guards use, which every caller already treats as CHANGED. Silence
+// from `compare` is not evidence of sameness, and that is the direction to fail in.
+// ONE definition, imported by pixel-check.js, so the two cannot drift apart again
+// (HARD RULE #1) — the same shape `pageDeltaNote` above is in for the same reason.
+function parseAeCount(stderr) {
+  const first = String(stderr || '').trim().split(/\s+/)[0] || '';
+  if (!/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(first)) return -1;
+  const n = Number(first);
+  if (!Number.isFinite(n) || n < 0) return -1;
+  return Math.round(n);
+}
+
 function diffPages(committedPdf, freshPdf, deck) {
   if (!fs.existsSync(committedPdf) || !fs.existsSync(freshPdf)) {
     return { ok: false, error: 'PDF missing for diff' };
@@ -315,9 +339,8 @@ function diffPages(committedPdf, freshPdf, deck) {
     const r = spawnSync('compare', ['-metric', 'AE', oldP, newP, diffPng], { encoding: 'utf8' });
     // ImageMagick `compare` prints the pixel count to stderr and exits non-zero
     // when any pixels differ; that's the documented behavior.
-    const raw = (r.stderr || '').trim();
-    const px = /^\d+$/.test(raw) ? parseInt(raw, 10) : 0;
-    if (px > 0) {
+    const px = parseAeCount(r.stderr);
+    if (px !== 0) {
       diffs.push({ page: i + 1, pixels: px, diffPng });
     }
   }
@@ -521,5 +544,6 @@ module.exports = {
   detectScope,
   decksUsingComponent,
   pageDeltaNote,
+  parseAeCount,
   preview,
 };
