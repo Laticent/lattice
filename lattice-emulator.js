@@ -3299,7 +3299,7 @@ async function renderBody(browser, g, closeBrowser) {
   // does not fit even at one element per page rings, which is the honest terminal: there is no
   // smaller cut left to make.
   if (AUTOSPLIT_APPLIES) {
-    const { splitDoc, applyRails, applyRelationshipSignals, stripDeckChrome } = require('./lib/core/auto-split');
+    const { splitDoc, applyRails, applyRelationshipSignals, stripDeckChrome, deckChromeFrom } = require('./lib/core/auto-split');
     const r = splitDoc(cleanDocHtml, SPLIT_CAP);
     if (r.changed) {
       cleanDocHtml = r.html;
@@ -3325,7 +3325,7 @@ async function renderBody(browser, g, closeBrowser) {
     // so cannot tell the deck's repeated band from this slide's own caption. Reading the section
     // deleted the author's caption from every page of a run (measured on portrait-journey and
     // portrait-roadmap, both of which declare a per-slide footer and no deck-level one).
-    const deckChrome = { header: frontMatterValue(_mdFm, 'header'), footer: frontMatterValue(_mdFm, 'footer') };
+    const deckChrome = deckChromeFrom(md);
     const railed = fitBerth.applyToDocHtml(applyRails(applyRelationshipSignals(stripDeckChrome(cleanDocHtml, deckChrome), SPLIT_CAP)));
     if (railed !== cleanDocHtml) {
       cleanDocHtml = railed;

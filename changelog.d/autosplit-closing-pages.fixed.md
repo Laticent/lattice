@@ -21,9 +21,10 @@
 - **Fixed: a `redline` slide with no why-list no longer has both its passages moved off their
   pages.** The split kernel classified trailing material by element shape alone, so it read
   `redline`'s two quoted passages as universal beats and swept them onto the run's closing page,
-  leaving two body pages carrying only a heading. It asks the layout's `coda.claims` now — on the
-  strategies that re-emit the section's own markup, where a claimed element survives being left
-  alone.
+  leaving two body pages carrying only a heading. It asks the layout's `coda.claims` now — but only
+  where the claimed element rides a MEMBER, which is `redline` alone. A strategy that re-emits
+  source repeats everything outside its member set on every page, so a claimed beat left there is
+  duplicated rather than preserved.
 - **Removed: the `insight` split role, its two page builders, and the four `.lat-split-insight`
   selectors that shipped with no emitter.** A key insight closes the run beside the note now, so
   nothing built or styled a page for it alone.

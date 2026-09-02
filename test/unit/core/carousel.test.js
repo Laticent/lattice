@@ -1274,6 +1274,38 @@ describe('core: carousel — a native slice stamps the member it carries', () =>
     assert.ok(!/data-split-label="[^"]*"[^>]*big/.test(parts[0]), 'title text leaked outside the attribute');
   });
 
+  // FOUND BY THE INDEPENDENT CHECKER. The extractor matched `([\\s\\S]*?)</[a-z0-9]+>` — lazy, and
+  // any closing tag name — so it stopped at the first NESTED close instead of the title's own.
+  // `kanban` and `roadmap` both pass an author's inline markup straight into the title, so a lane
+  // written `- **Backlog** and triage` labelled itself "Backlog" and the pointer named half a
+  // title. `journey` is immune because its transform strips tags first, which is exactly why the
+  // committed decks never showed it and the first round of these tests, written with plain-text
+  // titles, could not have.
+  test('a title containing markup is taken whole, not cut at the first nested tag', () => {
+    const inner = '<div class="chart-header"><h2>Board</h2></div><div class="chart-body">'
+      + buildKanbanBoard(
+        '<li><strong>Backlog</strong> and triage<ul><li>a</li></ul></li>'
+        + '<li><strong>In flight</strong> this sprint<ul><li>b</li></ul></li>')
+      + '</div>';
+    const parts = carouselize(kbTag, inner, { strategy: 'kanban-lanes' }, 2, 'kanban');
+    const labels = parts.filter((p) => /\sdata-split-role="body"/.test(p))
+      .map((p) => (p.match(/\sdata-split-label="([^"]*)"/) || [])[1]);
+    assert.deepEqual(labels, ['Backlog and triage', 'In flight this sprint'],
+      'the title was cut at a nested closing tag — the pointer would name half a lane');
+  });
+
+  // An entity in a title survives ONE decode on read. The slice is rendered HTML, where an
+  // author's `&` is already `&amp;`; escaping that again stores `&amp;amp;` and the reader hands
+  // the pointer a literal `&amp;`.
+  test('an ampersand in a title round-trips to one ampersand', () => {
+    const inner = '<div class="chart-header"><h2>Board</h2></div><div class="chart-body">'
+      + buildKanbanBoard('<li>Ops &amp; IT<ul><li>a</li></ul></li><li>Second<ul><li>b</li></ul></li>')
+      + '</div>';
+    const parts = carouselize(kbTag, inner, { strategy: 'kanban-lanes' }, 2, 'kanban');
+    const raw = (parts[0].match(/\sdata-split-label="([^"]*)"/) || [])[1];
+    assert.equal(raw, 'Ops &amp; IT', 'stored double-escaped — one decode on read yields `&amp;`');
+  });
+
   // A strategy that declares no `label` must not stamp a blank one: an empty attribute would be
   // read as a member named '' and print a bare "continues" where the heuristic had a real name.
   test('no label class, no stamp — the heuristic still runs', () => {

@@ -29,7 +29,7 @@ The landscape board is three parallel column-grids; you can't make a stage label
 ---
 
 <!-- _class: journey -->
-<!-- _footer: "Vertical board · the Workspace dip reads twice" -->
+<!-- _footer: "Vertical board · the dip reads twice" -->
 
 ## Customer onboarding · trial to activation.
 
@@ -64,7 +64,7 @@ The landscape board is three parallel column-grids; you can't make a stage label
 ---
 
 <!-- _class: journey heatmap -->
-<!-- _footer: "Variants unify to the vertical board in portrait" -->
+<!-- _footer: "Variants unify to the vertical board" -->
 
 ## Heatmap · where the trial drops off.
 
