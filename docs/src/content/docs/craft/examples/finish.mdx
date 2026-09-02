@@ -65,9 +65,12 @@ linter accepts it while still flagging typos.
 
 ## The catalog entry
 
-In `docs/src/components/studio/finish-catalog.ts` — the label, blurb and
-swatch the Studio's picker shows. A guard test fails if this and the
-register disagree, so neither can quietly rot behind the other.
+In `docs/src/components/studio/finish-catalog.ts` — seven fields, of which
+`nature` and `zone` are the two that look optional and are not. The name also
+goes in `RESERVED_FINISH_NAMES` (`finish-library.ts`) so a saved user finish
+cannot shadow it, and the shipped-finish count in `design/skills/finish.md`
+has to be bumped. Each of the three has a gate;
+[Build your first finish](/craft/finishes/first-finish/) step 5 walks them.
 
 ## What is not on this page
 

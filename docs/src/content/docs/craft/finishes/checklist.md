@@ -10,13 +10,16 @@ list.
 ## What you touch
 
 ```text
-lib/core/resolve-finish.js                    ← one row in FINISH_REGISTER
-lib/base/base.finish.css                      ← the preset block
-docs/src/components/studio/finish-catalog.ts  ← the Studio's display metadata
-examples/quarry.md + quarry.pdf               ← the demo deck
+lib/core/resolve-finish.js                     ← one row in FINISH_REGISTER
+lib/base/base.finish.css                       ← the preset block
+docs/src/components/studio/finish-catalog.ts   ← the Studio's picker entry
+docs/src/components/studio/finish-library.ts   ← the reserved-name list
+design/skills/finish.md                        ← the count of shipped finishes
+examples/quarry.md + quarry.pdf                ← the demo deck
 ```
 
-Four files, one of them a single line.
+Six files. Only the second one is real work — the other four are a line
+each, and every one of them has a gate that fails until you write it.
 
 ## The checklist
 
@@ -46,7 +49,12 @@ Four files, one of them a single line.
 
 **Around it**
 
-- [ ] `finish-catalog.ts` entry added — the guard test passes.
+- [ ] `finish-catalog.ts` entry added, all seven fields (`nature` and `zone`
+      are easy to miss and TypeScript will stop you).
+- [ ] The name added to `RESERVED_FINISH_NAMES` in `finish-library.ts`, so a
+      saved user finish cannot shadow your preset.
+- [ ] The shipped-finish count in `design/skills/finish.md` bumped — the
+      ownership guard checks it against the register.
 - [ ] `examples/quarry.md` written, six to ten slides, PDF committed.
 - [ ] A changelog fragment in `changelog.d/`.
 - [ ] `npm run build:check` green.

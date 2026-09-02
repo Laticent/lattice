@@ -56,3 +56,11 @@
 - **The scaffold seed is gated, not trusted.** `test/unit/tools/craft-scaffold-seed.test.js`
   renders the generator's own template and compares it byte for byte with the lab's
   seed — the one place the track claims a match with a command the reader just ran.
+- **Executing the finishes track too.** Building the worked-example finish for real,
+  by following the page, found the same shape of gap as the other two tracks: step 5
+  named four fields for the Studio catalog entry where the type requires seven
+  (`nature` and `zone` fail the TypeScript build), and it named one of the three
+  places a new finish name has to be registered. The other two — the reserved-name
+  list that stops a saved user finish shadowing a shipped preset, and the finish count
+  the ownership guard reads out of `design/skills/finish.md` — each have a gate that
+  fails until you write them. The checklist listed four files to touch; there are six.

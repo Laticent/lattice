@@ -96,12 +96,30 @@ glyph as an empty string:
 A monogram baked into a shared finish makes it one organization's finish.
 Empty is the default; the author opts in per deck.
 
-## 5. Register the display metadata
+## 5. Tell the rest of the tree the name exists
 
-Add an entry to `docs/src/components/studio/finish-catalog.ts` — a label, a
-one-line blurb, a group and a swatch — so the Studio's picker can show it.
-A guard test fails if the catalog and the register disagree, so neither can
-quietly rot behind the other.
+The register in step 1 is what the *engine* reads. Three other places keep
+their own list, and each has a gate that fails until you add yours.
+
+**The Studio's picker** — an entry in
+`docs/src/components/studio/finish-catalog.ts`. Seven fields, not the three
+that sound like display metadata: `name`, `label`, `blurb`, `group`,
+`nature`, `zone` and `swatch`. Miss `nature` or `zone` and TypeScript stops
+the build with "missing the following properties from type `FinishEntry`".
+Copy the entry above yours and edit it.
+
+**The reserved-name list** — `RESERVED_FINISH_NAMES` in
+`docs/src/components/studio/finish-library.ts`. A saved user finish is
+allowed to take any name that is not reserved, and a user finish outranks a
+built-in preset of the same name — so a shipped name that is not on this list
+can be silently shadowed. `finish-preset-parity.test.ts` fails until it is.
+
+**The skill's own count** — `design/skills/finish.md` states how many
+finishes ship, and the ownership guard compares that number against the
+register. It will tell you the exact number to write.
+
+None of the three is optional and none of them is subtle to fix: each gate
+names the file and the change.
 
 ## 6. Ship a demo deck and export it
 
