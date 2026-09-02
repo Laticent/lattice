@@ -294,6 +294,15 @@ change to the gate is a separate decision and is not made here.
   now. The biggest moves: `adaptive-sweep` 34 → 64 pages, `split-envelope` 26 → 52,
   `adaptive-sizing` 8 → 25, `portrait-roadmap` 5 → 13, `cover-paginate` 30 → 43. Roughly a 1.7×
   page count across the family, and every one wants an eye on it.
+- **`list`'s card runs its title into its body when the title is a bare text node.** A member
+  authored as HARD RULE #5's card shape — `- Sequence` / `  - Each page names the step that
+  follows it.` — renders as "SequenceEach page names…", the two abutting with no gutter and
+  misaligned baselines, because the card is a flex ROW and the title is a bare text node rather
+  than the `<strong>`-lifted slot the row's sizing assumes. PRE-EXISTING and OFF-PATH: rendered
+  unsplit at `wide` the collision is identical, so this change neither caused it nor worsened it —
+  it only makes it more visible, since a lone card on a page-tall box draws the eye. Fixing it is
+  inside `list`'s own card CSS, which nothing here touches. Logged per HARD RULE #18's off-path
+  arm; found by rasterizing `examples/split-relationship.pdf` and reading it.
 - **`journey`'s section band labels collide with its rows at `portrait`, and that is its own
   defect, not the split's.** On the demo deck's "Reading a split run" slide the "Close" band label
   is sheared by the row beneath it and a red band strikes through "Learn what the run is about".
