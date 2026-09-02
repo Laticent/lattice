@@ -2327,11 +2327,14 @@ function strippedSlidesOrAuthored() {
 let attachmentCutMemo = null;
 function attachmentCut() {
   if (attachmentCutMemo) return attachmentCutMemo;
-  // The decision itself is `notesCore.measureScrubBoundary` — pure, with the scrub and the render
-  // injected, so its three steps are asserted against synthetic documents in the unit suite. It
-  // used to be written out here, where step 3 was reachable only through a real deck fixture and
-  // its ANSWER was never asserted at all: back the whole guard out and the integration arm still
-  // passed, because that fixture's two documents happen to want the same cut.
+  // The decision itself is `notesCore.measureScrubBoundary`, with the scrub and the render
+  // injected, so all four of its branches are asserted against synthetic documents in the unit
+  // suite. It used to be written out here, where step 3 was reachable only through a real deck
+  // fixture. Be exact about what that cost, because the first version of this comment was not:
+  // the step-3 ANSWER *was* asserted — the integration arm pins the attachment's tight list, and
+  // a wrong boundary fails it. What nothing could see was the guard's PRESENCE: degenerate this
+  // to "always inherit" and both strip-notes integration files still pass 28/28, because that
+  // fixture's two documents happen to want the same cut.
   return (attachmentCutMemo = notesCore.measureScrubBoundary({
     attached: md,
     rendered: rawMd,

@@ -1160,8 +1160,14 @@ describe('notes-core: caption channel (caption:)', () => {
 // case states outright which source renders to what and the assertion is purely about which
 // branch fires and which answer comes back. That is the whole reason the function was extracted:
 // while it lived inline in `lattice-emulator.js`, step 3 was reachable only through a deck
-// fixture whose two documents happen to want the SAME cut — so backing the entire guard out left
-// every test green, and the answer it produced was never asserted anywhere.
+// fixture whose two documents happen to want the SAME cut, so backing the entire guard out left
+// every test green.
+//
+// SAY THAT PRECISELY, because an earlier version of this comment did not. The step-3 ANSWER was
+// asserted even then — `strip-notes-no-fingerprint.test.js` pins the attachment's tight list, and
+// a wrong boundary fails it. What no test could see was the guard's PRESENCE. Overstating it as
+// "the answer was never asserted" is exactly the kind of claim nobody re-derives that this whole
+// branch exists to stop shipping.
 describe('notes-core: measureScrubBoundary picks the cut for the attached document (#2040)', () => {
   // A render is a lookup: `SOURCE → sections`. Anything unlisted renders to a distinct nonsense
   // shape, so a wrong branch shows up as a mismatch rather than an accidental pass.
@@ -1174,7 +1180,14 @@ describe('notes-core: measureScrubBoundary picks the cut for the attached docume
     if (log) log.push({ src, boundary });
     return Object.hasOwn(table, `${src}|${boundary}`) ? table[`${src}|${boundary}`] : src;
   };
-  const base = { attached: 'ATTACHED', rendered: 'RENDERED', inherited: 'preserve' };
+  // `inherited: 'drop'` is LOAD-BEARING, and the first cut of these tests got it wrong. It was
+  // `'preserve'` — which is also `SCRUB_BOUNDARIES[0]`, so "returns the INHERITED boundary" and
+  // "returns the FIRST candidate" produced the same string and three of the four branches could
+  // not tell them apart. Swapping the fail-closed branch's `inherited` for `boundaries[0]` left
+  // the whole suite green. Only step 1's test escaped, because it overrides this on purpose.
+  // Any value here that is not the head of `SCRUB_BOUNDARIES` restores the discrimination.
+  const base = { attached: 'ATTACHED', rendered: 'RENDERED', inherited: 'drop' };
+  assert.notEqual(base.inherited, core.SCRUB_BOUNDARIES[0], 'guard: see the comment above — this must not be the first candidate');
 
   test('step 1 — the same document: inherit the answer AND its confidence', () => {
     const renders = [];
@@ -1201,7 +1214,7 @@ describe('notes-core: measureScrubBoundary picks the cut for the attached docume
       render: renderer({}, renders),
       inheritedMeasured: false,
     });
-    assert.deepEqual(got, { boundary: 'preserve', measured: true, step: 'cuts-agree' });
+    assert.deepEqual(got, { boundary: 'drop', measured: true, step: 'cuts-agree' });
     assert.equal(got.measured, true, 'measured is TRUE on its own terms even when the inherited answer was not');
     assert.deepEqual(renders, [], 'step 2 renders nothing — it is two string scrubs');
   });
@@ -1220,7 +1233,7 @@ describe('notes-core: measureScrubBoundary picks the cut for the attached docume
       { boundary: 'drop', measured: true, step: 'measured' }
     );
     // `preserve` wins: a note above a `---`, where taking the line makes the rule a setext
-    // underline and the deck GAINS a slide. Same neighbours, opposite right answer.
+    // underline and the deck GAINS a slide. Same neighbors, opposite right answer.
     assert.deepEqual(
       core.measureScrubBoundary({
         ...base, scrub,
@@ -1254,7 +1267,7 @@ describe('notes-core: measureScrubBoundary picks the cut for the attached docume
     });
     // The caller still scrubs — the note text must go from every copy — and `measured: false` is
     // what turns the author's warning on.
-    assert.deepEqual(got, { boundary: 'preserve', measured: false, step: 'unmeasured' });
+    assert.deepEqual(got, { boundary: 'drop', measured: false, step: 'unmeasured' });
   });
 
   test('a render that throws costs the MEASUREMENT, not the artifact', () => {
@@ -1267,7 +1280,7 @@ describe('notes-core: measureScrubBoundary picks the cut for the attached docume
       render: () => { throw new Error('engine exploded'); },
       onRenderError: (e) => seen.push(e.message),
     });
-    assert.deepEqual(got, { boundary: 'preserve', measured: false, step: 'unmeasured' });
+    assert.deepEqual(got, { boundary: 'drop', measured: false, step: 'unmeasured' });
     assert.deepEqual(seen, ['engine exploded'], 'the caller is told, once');
     // And it is optional: without a handler the throw is still swallowed rather than escaping.
     assert.equal(
@@ -1277,6 +1290,24 @@ describe('notes-core: measureScrubBoundary picks the cut for the attached docume
       }).step,
       'unmeasured'
     );
+  });
+
+  test('the two defaults fail CLOSED — an omitted confidence, and an empty candidate list', () => {
+    // `inheritedMeasured` exists to distinguish a measured boundary from the initial value a
+    // fidelity fallback leaves behind. Defaulting it to `true` answered that question in the one
+    // direction it was invented to prevent, and nothing pinned the default either way.
+    assert.deepEqual(
+      core.measureScrubBoundary({ ...base, attached: 'SAME', rendered: 'SAME', scrub: () => '', render: () => [] }),
+      { boundary: 'drop', measured: false, step: 'inherited' },
+      'an omitted confidence is not a measurement'
+    );
+    // `[].every()` is vacuously true, so an empty candidate list used to report `cuts-agree` —
+    // a measurement off zero candidates, handing back `cuts[0]`, which is `undefined`.
+    const got = core.measureScrubBoundary({
+      ...base, boundaries: [], scrub: () => assert.fail('nothing to scrub'), render: () => assert.fail('nothing to render'),
+    });
+    assert.deepEqual(got, { boundary: 'drop', measured: false, step: 'unmeasured' });
+    assert.notEqual(got.boundary, undefined, 'and the boundary it hands back is a real one');
   });
 
   test('candidates are tried in the order given, and default to the shared list', () => {
@@ -1723,6 +1754,22 @@ describe('notes-core: SCRUB_BOUNDARIES', () => {
       // writes it out again is a caller that can be reordered on its own.
       const literal = /\[\s*(['"])(?:preserve|drop)\1\s*,\s*(['"])(?:preserve|drop)\2\s*\]/;
       assert.doesNotMatch(text, literal, `${rel} writes its own boundary list — use the kernel's`);
+    });
+
+    // THE SAME PIN, FOR THE SAME REASON, ON THE OTHER SHARED PIECE. The whitespace-blind slide
+    // comparison had been hand-written in all three cut measurements — both CLI ones and the
+    // Studio's — and `sameSlideShape` collapsed them onto one kernel function. Without this arm
+    // the claim "so they cannot drift" had nothing behind it: the hand-written form is
+    // behaviorally identical today, so no behavioral test can tell it from the shared one, and
+    // `stripCommentNodes` is still exported for its other callers. Re-inlining it would be
+    // silent — which is precisely the mechanism #2003 recorded.
+    test(`${rel} reads the shared slide-shape comparison rather than writing its own`, () => {
+      const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+      assert.match(text, /sameSlideShape/, `${rel} no longer reads the shared shape comparison`);
+      assert.doesNotMatch(
+        text, /stripCommentNodes\s*\([^)]*\)\s*\.replace\s*\(\s*\/\\s\+\/g/,
+        `${rel} writes its own whitespace-blind shape — use the kernel's \`sameSlideShape\``
+      );
     });
   }
 });

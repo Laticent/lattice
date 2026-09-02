@@ -522,8 +522,12 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   deck as the author wrote it, so the artifact round-trips to an editable deck rather than to
   machine-expanded output. That difference is deliberate and correct; applying `scrubBoundary` to
   `md` anyway was not. The fidelity guard never saw the attached document.
-- **Fix:** `attachmentCut()` in `lattice-emulator.js`, three steps cheapest-first, because the
-  expensive one is reached by no deck here. (1) `md === rawMd` — the measurement is *of* this
+- **Fix:** `notesCore.measureScrubBoundary` in `lib/authoring/notes-core.js`, three steps
+  cheapest-first, because the expensive one is reached by no deck here. (`attachmentCut()` in
+  `lattice-emulator.js` is now just the call site that supplies the two documents and injects the
+  scrub and the render — the decision moved into the kernel so its branches could be asserted
+  against synthetic documents, which needs no deck whose pre-render moves a comment's own
+  neighbors. No such deck was ever found.) (1) `md === rawMd` — the measurement is *of* this
   document. (2) The two cuts produce the same bytes on `md`, so the choice cannot change what
   ships; two string scrubs, no render. **This covers every pre-processed file in the tree** — 45
   markdown files carry a comment and get pre-processed (42 decks, the rest prose docs that are
