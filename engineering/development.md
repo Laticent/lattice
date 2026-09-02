@@ -765,6 +765,28 @@ identity — and the margin scales with how much small text the shot contains, s
 a Studio change that puts much more small type on screen eats into it. Watch it
 rather than assuming it.
 
+**What that margin is for the CURRENT baselines is still unmeasured, and the
+reason is worth knowing** (2026-09-02). #1426's 0.0011-0.0023 were measured on the
+images #2028 replaced, so they do not carry over. Two halves, one of them now a
+number:
+
+- **Sandbox vs. the committed baseline: exactly zero.** Re-rendered here and
+  compared at `maxDiffPixels: 0` **and `threshold: 0`** — no per-pixel tolerance at
+  all — all three viewports are pixel-identical. So these baselines are sandbox
+  renders, and the whole `maxDiffPixelRatio: 0.01` is available to absorb the
+  sandbox-to-CI divergence rather than partly spent before CI sees them.
+- **CI vs. the committed baseline: not obtainable from a green run.** A PASSING
+  `toHaveScreenshot` writes no actual, expected or diff PNG, and the nightly
+  uploads only `playwright-report/**` + `test-results/**` — whose traces carry
+  lossy JPEG screencast frames, not the lossless comparison image. #1426's
+  range-fetch worked because there were actuals to fetch; on green baselines there
+  are none. Getting the number needs a run deliberately instrumented to FAIL
+  (tolerance pinned to 0, so the comparator reports the true pixel count), and the
+  only two ways to run these specs in CI both have a cost outside the change:
+  `studio-e2e-nightly.yml` posts to the rolling issue #1705, and `ci.yml` fires on
+  `pull_request` only, so the instrumented run reds a live PR. Neither is a thing
+  to fire off in passing — ask first.
+
 **The shot's subject is a fixture, not the seeded deck** (2026-09-02). It used
 to be `DECKS[0]`, whose editor pane fills a third of the frame — so the welcome
 deck's copy was baked into all three PNGs, and one line of that copy is the live
