@@ -843,7 +843,7 @@ Answer these before anyone says a brand. Most database arguments are really a di
 
 ```mermaid
 flowchart LR
-  REL[("Relational<br/>start here")] --> Q1{"Does one table<br/>outgrow one machine?"}
+  REL[("Relational<br/>start here")] --> Q1{"Do one table's WRITES<br/>outgrow one machine?"}
   Q1 -->|"no"| STAY(["Stay. You are done."])
   Q1 -->|"yes"| Q2{"Do you query by<br/>exact key only?"}
   Q2 -->|"yes"| KV[("Key-value")]
@@ -910,10 +910,10 @@ flowchart LR
 | Store | Access | Consistency | Scales by | Weak at |
 | --- | --- | --- | --- | --- |
 | Relational | Key, range, join | Strong on the leader | Replicas, then partitioning | Cross-shard writes |
-| Key-value | Exact key | Tunable | Horizontal | Any other question |
-| Document | Key, secondary index | Per document | Horizontal | Cross-document facts |
+| Key-value | Exact key | Engine-specific | Horizontal | Rich queries |
+| Document | Key, secondary index | Engine-specific | Horizontal | Facts split across documents |
 | Wide-column | Partition plus range | Tunable | Horizontal | New query patterns |
-| Graph | Traversal | Engine-specific | Poorly | Partitioning at all |
+| Graph | Traversal | Engine-specific | Horizontal, with effort | Cutting the graph across machines |
 
 ---
 
@@ -1008,15 +1008,18 @@ The genuinely derived stores are the search index, the vector index, the cache a
 
 `Data kit · under a partition`
 
-## CAP is a decision you make during a network fault, and only then.
+## CAP decides what a partition costs. Consistency charges you the rest of the time too.
 
 ```mermaid
 flowchart LR
   N["A link breaks<br/>nodes cannot reach each other"] --> C{"A write arrives on<br/>one side of the split"}
   C -->|"take it"| AP(["Available<br/>answer now, reconcile later"])
   C -->|"refuse it"| CP(["Consistent<br/>refuse rather than diverge"])
-  AP --> APC(["Feeds, carts, presence, metrics"])
+  AP --> APC(["Feeds, presence, metrics"])
   CP --> CPC(["Balances, inventory, bookings"])
+  N2["No link breaks"] --> C2{"A read arrives"}
+  C2 -->|"answer locally"| L1(["Fast, possibly stale"])
+  C2 -->|"coordinate first"| L2(["Correct, one round trip"])
 ```
 
 ---
@@ -1325,14 +1328,14 @@ A design that needs three sequential intercontinental round trips has spent half
 
 `Network kit · the CDN`
 
-## A CDN moves bytes closer to readers and moves nothing else.
+## A CDN moves bytes closer to readers, and ends the connection there too.
 
 - Reach for it when
   - The content is large, popular, and identical for many people.
 - Walk away when
-  - Every response is personal and cacheable for exactly one reader.
+  - Nothing is shared and nothing is far. A personal response still wins the handshake back.
 - The constraint you inherit
-  - Purging is eventual. Put a version in the URL and never invalidate anything again.
+  - A second copy with its own staleness. Version immutable URLs; purge the rest, and time the purge.
 
 ---
 
@@ -1983,7 +1986,7 @@ following                              followers
   CK  (target_id)                        CK  (created_at DESC, source_id)
   "does A follow B?" is a point read     the follower list, newest first
   capped at 7,500 rows                   bucket = hash(source) % B(target)
-                                         B = clamp(followers / 1e6, 1, 512)
+                                         B = clamp(followers / 10_000, 1, 512)
 ```
 
 *The forward edge is the source of truth; the reverse is materialized from the log and repaired by a background job. `B` may only ratchet upward — shrink it and edges become unreachable — and because early edges were written under a smaller `B`, the low buckets carry several times the average.*
@@ -2002,7 +2005,7 @@ following                              followers
 | Who does A follow? | `following (A)` range | 7,500 rows, one partition |
 | Who follows B, ordinary B? | `followers (B, 0)` range | ~10⁴ rows, one partition |
 | Follower count | `user_edge_stats` | One point read, cached |
-| **Who follows B, celebrity B?** | `followers (B, 0..499)` | **5×10⁸ rows, 500 partitions** |
+| **Who follows B, celebrity B?** | `followers (B, 0..511)` | **5×10⁸ rows, 512 partitions** |
 
 ---
 
@@ -2285,7 +2288,7 @@ flowchart LR
 | Kit entry | Where it landed | Why that one |
 | --- | --- | --- |
 | Reduce | One cached list per celebrity | Written once, read five hundred million times |
-| Spread | Posts by author, edges by bucket | The bucket keeps a super node off one partition |
+| Spread | Posts by author, edges by bucket | The bucket bounds the biggest list we still fan out |
 | Defer | Fan-out on write, below the threshold | Moves the cost out of the reader's 200 milliseconds |
 | CDN with versioned URLs | Every photo variant | Same bytes for many readers, and purging is eventual |
 | Bulkhead | Fan-out workers kept off the read path | A burst of ordinary fan-out must not starve the pool serving feeds |
