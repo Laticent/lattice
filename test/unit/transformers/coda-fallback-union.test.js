@@ -277,16 +277,38 @@ describe('the annotation stamp and the wrapper consumers', () => {
       `a slot containing a note is not itself the note; got ${JSON.stringify(note.map((n) => n.outer.slice(0, 40)))}`);
   });
 
-  test('the carousel reads a lede from a STAMPED wrapper, and agrees with the kernel', () => {
-    const { tagHasClass } = require('../../../lib/core/coda');
-    // The two implementations used to disagree on attribute ORDER: the carousel's regex
-    // ended `">`, so it silently required `class` last. One predicate now answers both.
-    for (const tag of ['<div class="below-note">', '<div class="below-note is-annotation">',
+  // BEHAVIORAL, on purpose. An earlier version of this arm asserted only on
+  // `tagHasClass` with literal tag strings, so it never loaded carousel.js — and an
+  // independent checker showed that restoring the exact-string matcher there left 269
+  // tests green. `cover-sides` is the observable path: the note becomes the verdict
+  // page's pull-quote, so a matcher that misses the wrapper drops a whole page.
+  test('the carousel finds its verdict note whatever the wrapper carries', () => {
+    const fs2 = require('node:fs');
+    const path2 = require('node:path');
+    const { carouselize } = require('../../../lib/core/carousel');
+    const { splitSections } = require('../../../lib/core/split-sections');
+    const fixture = fs2.readFileSync(
+      path2.join(__dirname, '../core/fixtures/compare-prose.rendered.html'), 'utf8');
+    const [sec] = splitSections(fixture).filter((p) => p.type === 'section');
+    const PLAIN = '<div class="below-note">';
+    assert.ok(sec.inner.includes(PLAIN), 'fixture no longer carries a plain below-note wrapper');
+    const verdictOf = (openTag) => {
+      const parts = carouselize(sec.openTag, sec.inner.replace(PLAIN, openTag), { strategy: 'cover-sides' });
+      const last = parts && parts[parts.length - 1];
+      return last && /class="split-pullq"/.test(last) ? last : null;
+    };
+    // The stamp this PR adds, and the two attribute orders the old `">`-anchored
+    // regex could not both accept.
+    for (const tag of [PLAIN, '<div class="below-note is-annotation">',
       '<div id="x" class="below-note">', '<div class="below-note" data-k="1">']) {
-      assert.equal(tagHasClass(tag, 'below-note'), true, `should match: ${tag}`);
+      const v = verdictOf(tag);
+      assert.ok(v, `no verdict page for ${tag} — the note was not found`);
+      assert.match(v, /two retrospective cycles/, `verdict lost its text for ${tag}`);
     }
-    assert.equal(tagHasClass('<div class="below-note-inner">', 'below-note'), false);
-    assert.equal(tagHasClass('<section data-class="below-note">', 'below-note'), false,
+    // Not vacuous: strip the wrapper's class and the verdict page must disappear.
+    assert.equal(verdictOf('<div class="below-note-inner">'), null,
+      'a look-alike class still produced a verdict page — the assertion above proves nothing');
+    assert.equal(verdictOf('<section data-class="below-note">'), null,
       'data-class carries the RAW _class: payload, not the resolved list (#1358)');
   });
 });
