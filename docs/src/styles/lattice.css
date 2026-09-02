@@ -275,3 +275,34 @@ starlight-menu-button[aria-expanded='true'] button {
 	border: 3px solid var(--sl-color-bg, #fff);
 	border-radius: 999px;
 }
+
+/* The Craft lab escapes the prose column on wide screens.
+ *
+ * The slide is the point of the lab and renders at whatever width the lab gets:
+ * measured 692px at 1440 (0.54x scale, ~11.6px body text on the slide).
+ * Starlight caps prose at 720px however wide the window is, so on a large
+ * display the lab sat in a 720px column inside a 1020px panel.
+ *
+ * THE SLACK IS ALL ON THE LEFT, and that is the whole design of this rule. The
+ * prose column is NOT centered in its panel — Starlight pushes it toward the
+ * table of contents. Measured (viewport -> left slack / right slack inside the
+ * panel): 1440 -> 36/24, 1512 -> 72/24, 1600 -> 116/24, 1728 -> 180/24,
+ * 1920 -> 276/24, 2560 -> 596/24. A symmetric bleed therefore overflows the
+ * panel on the right and lands on the table of contents: measured at -14px of
+ * overlap at 1728, -50px at 1920, -99px at 2560. This grows the lab LEFTWARD
+ * only, into slack that is actually there.
+ *
+ * The coefficient stays under the measured left slack at every width
+ * (25 of 72 at 1512, 168 of 276 at 1920, capped 280 of 596 at 2560), so the
+ * lab cannot reach the panel's left edge either. Below 1440 there is nothing
+ * to win: the lab already fills its panel, the 48px difference being the
+ * panel's own padding.
+ *
+ * Capped at 280px (lab ~1000px): past that the slide outgrows the prose that
+ * explains it. */
+@media (min-width: 90rem) {
+	.craft-lab {
+		--craft-bleed: clamp(0px, (100vw - 90rem) * 0.35, 280px);
+		margin-inline-start: calc(-1 * var(--craft-bleed));
+	}
+}
