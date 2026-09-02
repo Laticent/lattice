@@ -21,7 +21,15 @@ const { unlockSpy, synthSampleSpy, voiceState, stageCtl } = vi.hoisted(() => ({
 	// voice-model is byte-source-only now: the Voice-tab preview SYNTHESIZES bytes here; read-aloud
 	// plays them on the (mocked) Suono stage. So the speed-clamp assertions read synthSample's args.
 	synthSampleSpy: vi.fn(async (_o: { rung: 'openrouter' | 'kokoro'; voice?: string; model?: string; speed?: number }) => ({ ok: true, bytes: {} as unknown as Blob, key: 'sample-key' })),
-	voiceState: { rung: 'silent' as string },
+	// `gate` and `created` exist for the arming-window test below; every other test
+	// leaves `gate` null and the stub behaves exactly as it always did.
+	//   · gate    — when set, `createVoiceModel` returns a promise that resolves to the
+	//               model only once the gate does, so a test can hold the voice load in
+	//               flight for as long as it needs.
+	//   · created — how many times `createVoiceModel` has been called, so a test can
+	//               assert the voice load has actually STARTED rather than infer it from
+	//               elapsed time (see the arming-window test for why that matters).
+	voiceState: { rung: 'silent' as string, gate: null as Promise<void> | null, created: 0 },
 	stageCtl: {
 		clockMs: 0,
 		state: 'running' as 'none' | 'suspended' | 'running',
@@ -64,46 +72,62 @@ vi.mock('@/lib/suono', () => ({
 }));
 // The file's voice-model stub, as a NAMED factory rather than an inline arrow.
 //
-// Two describes below need their OWN voice-model for one test (a constructor that
-// throws; one that resolves on a gate), so they `vi.doMock` over this one. What they
-// must NOT do is `vi.doUnmock` to clean up: `doUnmock` drops the module's mock
+// ONE describe below needs its OWN voice-model for one test (a constructor that
+// throws), so it `vi.doMock`s over this one. What it must NOT do is `vi.doUnmock` to
+// clean up: `doUnmock` drops the module's mock
 // registration ENTIRELY — this hoisted `vi.mock` included — so the next dynamic
 // `import('@/playground/voice-model.js')` resolves the REAL module. `read-aloud.ts`
 // reaches voice-model only through dynamic imports (its `getVoice()` singleton at
 // :203, `listTtsCatalog` at :1211, `listTtsModels` at :1249), so every later test
 // that touches the top-level import silently ran against the real voice model.
-// In declaration order those describes run last and nothing observes the aftermath;
-// under `--sequence.shuffle.tests` they can run first, which is #1814.
-// Naming the factory lets them RESTORE it (`vi.doMock(path, voiceModelStub)`) instead.
+// In declaration order that describe runs last and nothing observes the aftermath;
+// under `--sequence.shuffle.tests` it can run first, which is #1814.
+// Naming the factory lets it RESTORE it (`vi.doMock(path, voiceModelStub)`) instead.
+//
+// A SECOND describe used to `doMock` here too — the voice-arming-window one, which
+// needed the model held behind a gate. It does not any more, and the reason is the
+// race documented above that describe: parameterizing THIS stub (`voiceState.gate`)
+// beats registering a second factory the dynamic import may or may not be served.
 // A `function` declaration, so `vi.mock`'s hoisting still finds it.
 function voiceModelStub() {
 	return {
-		createVoiceModel: () => ({
-			synthOne: async () => ({ rung: voiceState.rung, bytes: null, key: 'test-key' }),
-			speakThis: () => {},
-			warm: () => {},
-			stop() {},
-			pause() {},
-			resume() {},
-			rung: () => voiceState.rung,
-			orModel: () => 'test/model',
-			orVoice: () => 'test-voice',
-			// Empty kokoro voice → the resolved calibration key is voiceKeyOf('kokoro · ?') === 'kokoro'
-			// (the label's non-alphanumerics collapse away), which the calibration tests below assert on.
-			kokoroVoice: () => '',
-			speedPref: () => 1,
-			synthSample: synthSampleSpy,
-			// The two explicit-identity entry points the webpage export bakes through. Recorded
-			// rather than stubbed flat, so a test can see EXACTLY what the wrapper passed down.
-			clipKeyFor: (o: Record<string, unknown>) => {
-				clipKeyForCalls.push(o);
-				return JSON.stringify([o.rung, o.model, o.voice, o.speed, o.text]);
-			},
-			synthFor: async (o: Record<string, unknown>) => {
-				synthForCalls.push(o);
-				return { ok: true, bytes: { size: 8 }, key: 'k' };
-			},
-		}),
+		createVoiceModel: () => {
+			voiceState.created++;
+			// A gate, when a test has set one, holds the voice load in flight — the same
+			// shape a real `createVoiceModel` has (it resolves a model asynchronously).
+			// Null for every other test, which then gets the model synchronously as before.
+			return voiceState.gate ? voiceState.gate.then(() => voiceModel()) : voiceModel();
+		},
+	};
+}
+/** The stub voice model itself, split out so `voiceModelStub` can hand it back either
+ *  synchronously or behind `voiceState.gate`. */
+function voiceModel() {
+	return {
+		synthOne: async () => ({ rung: voiceState.rung, bytes: null, key: 'test-key' }),
+		speakThis: () => {},
+		warm: () => {},
+		stop() {},
+		pause() {},
+		resume() {},
+		rung: () => voiceState.rung,
+		orModel: () => 'test/model',
+		orVoice: () => 'test-voice',
+		// Empty kokoro voice → the resolved calibration key is voiceKeyOf('kokoro · ?') === 'kokoro'
+		// (the label's non-alphanumerics collapse away), which the calibration tests below assert on.
+		kokoroVoice: () => '',
+		speedPref: () => 1,
+		synthSample: synthSampleSpy,
+		// The two explicit-identity entry points the webpage export bakes through. Recorded
+		// rather than stubbed flat, so a test can see EXACTLY what the wrapper passed down.
+		clipKeyFor: (o: Record<string, unknown>) => {
+			clipKeyForCalls.push(o);
+			return JSON.stringify([o.rung, o.model, o.voice, o.speed, o.text]);
+		},
+		synthFor: async (o: Record<string, unknown>) => {
+			synthForCalls.push(o);
+			return { ok: true, bytes: { size: 8 }, key: 'k' };
+		},
 	};
 }
 vi.mock('@/playground/voice-model.js', voiceModelStub);
@@ -369,30 +393,42 @@ describe('useReadAloud — resilience when the voice model fails to load', () =>
 // fix, just reached via pause/resume instead of a fresh play(). armedRef gates
 // this: the loop only starts once the mode is actually decided, whichever of
 // resume() or the pending getVoice().then() callback gets there second.
+// WHY THIS TEST HOLDS THE VOICE ON `voiceState.gate` RATHER THAN ON ITS OWN `doMock`.
+//
+// It used to `vi.doMock` a private voice-model whose `createVoiceModel` resolved on a
+// local promise. That lost a race about 1 run in 6 under CPU contention (5/30 measured,
+// 6 hogs on 4 cores): `read-aloud.ts` reaches voice-model only through a DYNAMIC import
+// inside `getVoice()`, and intermittently that import was served the file's hoisted
+// `vi.mock` stub instead of the `doMock` registered moments earlier. The hoisted stub
+// hands back a model SYNCHRONOUSLY, so the voice never was in flight: the hook armed at
+// once, the estimate advanced, and `active` was `{cueIndex: 0, wordIndex: 1}` where the
+// test demanded null — a report of the exact product regression this test guards, from a
+// run in which the product did nothing wrong.
+//
+// It reads as a timing flake and is not one. The tell is `rung`: on a failing run it was
+// `'silent'`, the hoisted stub's value, and not the `'kokoro'` the private mock returns.
+// (Nor was it `null`, which is what a REJECTED import would have left — that was the
+// other candidate, and this ruled it out.)
+//
+// Gating the file's own stub removes the race by construction: whichever registration
+// wins, both are `voiceModelStub`, and both honor the gate. Nothing here depends on a
+// `doMock` having landed.
 describe('useReadAloud — pause/resume during the voice-arming window', () => {
 	afterEach(async () => {
-		// RESTORE the file's stub, never `vi.doUnmock` — see voiceModelStub above (#1814).
-		vi.doMock('@/playground/voice-model.js', voiceModelStub);
+		voiceState.gate = null;
+		voiceState.rung = 'silent';
+		voiceState.created = 0;
 		vi.resetModules();
 	});
 
 	it('resuming before the voice resolves does not race the loop into a stale mode', async () => {
 		vi.resetModules();
 		let resolveVoice: () => void = () => {};
-		const gate = new Promise<void>((res) => {
+		voiceState.gate = new Promise<void>((res) => {
 			resolveVoice = () => res();
 		});
-		vi.doMock('@/playground/voice-model.js', () => ({
-			createVoiceModel: () =>
-				gate.then(() => ({
-					synthOne: async () => ({ rung: 'kokoro', bytes: null, key: 'k' }),
-					speakThis() {},
-					stop() {},
-					pause() {},
-					resume() {},
-					rung: () => 'kokoro',
-				})),
-		}));
+		voiceState.rung = 'kokoro'; // a CLOCKED rung, so arming lands in 'audio' mode
+		voiceState.created = 0;
 		const { useReadAloud: useReadAloudFresh } = await import('./read-aloud');
 		vi.useFakeTimers();
 		try {
@@ -405,14 +441,31 @@ describe('useReadAloud — pause/resume during the voice-arming window', () => {
 			await act(async () => {
 				await vi.advanceTimersByTimeAsync(500);
 			});
+			// The PREMISE, asserted rather than assumed: the voice load has actually
+			// started and is being held by the gate. Without this, an environment that
+			// never got as far as loading a voice would satisfy the null below for the
+			// wrong reason, and the test would certify a window it never opened.
+			expect(voiceState.created, 'the voice load never started — the window under test never opened').toBeGreaterThan(0);
 			expect(result.current.active).toBeNull();
 			// The voice resolves now — arming completes. Since we're not paused, the
 			// pending callback starts the loop itself, already in 'audio' mode.
 			resolveVoice();
-			await act(async () => {
-				await Promise.resolve();
-				await Promise.resolve();
-			});
+			// Wait for the loop to START on an OBSERVABLE signal (`active` turns non-null),
+			// not on a fixed number of microtask ticks — the arming chain is several promise
+			// adoptions long and its exact tick count is not the contract. Microtasks alone
+			// never get there (measured): the first highlight comes from a rAF tick, so the
+			// clock has to move. Step it in small slices rather than one 500ms jump, so the
+			// wait costs only as much fake time as arming actually needs.
+			// (`vi.waitFor` is not usable here — under fake timers it expires without ever
+			// seeing the state change.)
+			for (let i = 0; i < 50 && result.current.active === null; i++) {
+				await act(async () => {
+					await vi.advanceTimersByTimeAsync(20);
+				});
+			}
+			expect(result.current.active, 'the loop never started after the voice resolved').not.toBeNull();
+			// THEN advance the clock, so "held at word 0" is measured over a full 500ms in
+			// which a loop running on the estimate would have moved on.
 			await act(async () => {
 				await vi.advanceTimersByTimeAsync(500);
 			});

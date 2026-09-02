@@ -22,6 +22,78 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# ── Every job carries a timeout-minutes ───────────────────────────────────────
+# GitHub's default is SIX HOURS, and before this only `studio-smoke` had a cap.
+# `npm ci` on node 24 wedges — FOUR times in the 26 hours to 2026-09-02T14:21Z,
+# every one of them `unit (node 24)`, every one ending `cancelled` by a human or a
+# superseding push rather than finishing:
+#
+#   4558s (75m58s)  pull_request  run 33582248943
+#   2543s (42m23s)  merge_group   run 33586223061   <- #2028's queue run
+#   1751s (29m11s)  pull_request  run 33519483686
+#    664s (11m04s)  pull_request  run 33593380463
+#
+# Node 22 did the identical step in 16-19s in those same runs. Six hours is the
+# ceiling an UNCANCELLED wedge would reach; none has actually run that far, so read
+# it as the exposure, not a bill this repo has paid.
+#
+# WHAT THE 15m CAP ON `unit` DOES AND DOES NOT BUY — say it plainly, because the
+# obvious reading is wrong: it catches THREE of those four. The 664s wedge finishes
+# inside the cap and would still tie up a runner for 11 minutes. A cap is a ceiling
+# on the worst case, not a detector for the failure mode; the wedge itself is
+# unfixed and untracked here.
+#
+# THE DISTRIBUTION, and how to reproduce it. Every job across the last 100 completed
+# `ci.yml` runs (`pull_request` + `merge_group`), sampled 2026-09-02T12:17Z:
+#
+#   job                     n    p50    p90    max    cap    cap/max
+#   changes                99    19s    21s    23s     5m    13.0x
+#   lint                   99    61s    66s    76s    10m     7.9x
+#   unit (node 22)         86   170s   183s   188s    15m     4.8x
+#   unit (node 24)         86   103s   112s  4580s    15m      —  (the wedge)
+#   integration (node 22)  86   601s   648s   669s    25m     2.2x
+#   golden-diff            69    91s   511s   554s    25m     2.7x
+#   docs-build             89   420s   445s   466s    20m     2.6x
+#   studio-smoke           89   342s   364s   829s    15m     1.1x  <-- thin
+#   ci                     99     5s     7s    11s     5m    27.3x
+#
+# THREE METHOD NOTES, without which the table does not reproduce:
+#   · SKIPPED jobs are dropped (the API returns them with started_at ==
+#     completed_at). That is what the `n` column is showing. Keep them and
+#     `golden-diff`'s p90 reads 380s instead of 511s — a 34% error in the
+#     conservative direction.
+#   · CANCELLED jobs ARE counted, at their truncated duration. That biases every
+#     p50/p90 DOWNWARD, i.e. it flatters the caps. `integration` had 6 cancelled
+#     jobs in this window, `docs-build` 6, `studio-smoke` 4.
+#   · The window is ~13 hours, not a season. The two ends this block reasons about
+#     (`studio-smoke` 1.1x, `ci` 27x) are stable across re-sampling; the middle
+#     ratios move by a few tenths.
+#
+# HOW THE NUMBERS WERE ACTUALLY ARRIVED AT, since the order matters: the caps were
+# set at ~3x off an initial TWO-run reading, and the 100-run pull below was a
+# post-hoc check of that guess. It held everywhere except `studio-smoke`, which is
+# why that one is called out rather than quietly re-derived. The caps were not
+# changed in response — see the next note.
+#
+# TWO SPOTS WORTH KNOWING BEFORE TRUSTING A RATIO:
+#   · `studio-smoke` has the thinnest margin in the file and it is NOT 3x. Its
+#     worst run took 829s and PASSED, of which 501s was step 7, `npx playwright
+#     install --with-deps chromium` — a browser download AND an apt system-dependency
+#     install, both unbounded external fetches. Norm for that step over 176 samples:
+#     median 22s, p90 35s, second-highest 61s. So 501s is a ~23x outlier against the
+#     median, and it left 71 seconds of headroom. Its cap predates this block and was
+#     left alone; the immediate cost of a false red is bounded because `studio-smoke`
+#     is deliberately outside `ci`'s `needs`.
+#   · `golden-diff` is input-dependent, not slow-but-stable — it rasterizes only the
+#     goldens a PR actually moved, hence p50 91s against p90 511s. A corpus-wide
+#     re-bless has no ceiling this sample can see, so read 25m as a bound on the
+#     common case, not as 3x a stable number.
+#
+# Being wrong HIGH costs one slow run before a wedge is cut off; being wrong LOW
+# kills a job that would have passed and reds a PR for nothing. RAISE a number
+# rather than deleting it if a job outgrows its cap, and say in the PR what the new
+# measured duration is.
+
 jobs:
   # ── Change classifier ──────────────────────────────────────────────────
   # Splits a change into two independent tiers:
@@ -36,6 +108,7 @@ jobs:
   # docs build also reads the engine (loadAll + staged dist/ + themes/).
   changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       # On merge_group (the merge queue's combined-state run) run EVERYTHING:
       # it's the final pre-merge gate, so path-skipping is the wrong economy,
@@ -93,6 +166,7 @@ jobs:
   # that nothing here uses.
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       PUPPETEER_SKIP_DOWNLOAD: '1'
     steps:
@@ -157,6 +231,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -265,6 +340,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     name: integration (node 22)
     steps:
       - uses: actions/checkout@v4
@@ -351,6 +427,7 @@ jobs:
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     permissions:
       contents: write # push before/after PNGs to the orphan ci-drift-images branch
       pull-requests: write
@@ -506,6 +583,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       PUPPETEER_SKIP_DOWNLOAD: '1' # the build is render-free; overflow uses a system Chrome
     steps:
@@ -652,6 +730,7 @@ jobs:
     if: always()
     needs: [lint, unit, integration, docs-build]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       pull-requests: write # post the CI-green beacon comment that wakes a subscribed session
     steps:

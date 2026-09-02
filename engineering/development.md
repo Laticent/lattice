@@ -338,6 +338,33 @@ doesn't vary with Node version; matrix-testing the slow tier is paranoia,
 not insurance. Only `integration` needs Chromium — `lint` and `unit` skip
 the download (~150 MB) since neither renders.
 
+**Every job carries a `timeout-minutes`.** GitHub's default is six hours and before
+this only `studio-smoke` had a cap. `npm ci` on node 24 wedges: **four times in the
+26 hours to 2026-09-02T14:21Z** — 75m58s, 42m23s (that one on #2028's merge-queue
+run), 29m11s and 11m04s — every one of them `unit (node 24)`, every one ending
+*cancelled* rather than finishing, against 16–19s for node 22 in those same runs. Six
+hours is the exposure an uncancelled wedge would reach, not a bill the repo has paid.
+Caps: `changes` 5 · `lint` 10 · `unit` 15 · `integration` 25 · `golden-diff` 25 ·
+`docs-build` 20 · `studio-smoke` 15 · `ci` 5.
+
+**A cap is a ceiling, not a detector — and it does not catch every wedge.** 15m on
+`unit` catches three of those four; the 11m04s one finishes underneath it and still
+holds a runner. The wedge itself is unfixed and untracked.
+
+**Read the ratios, not the round number, and read the method with them.** The caps were
+set at ~3x off an initial *two-run* reading; the 100-run pull in the `ci.yml` comment
+block was a post-hoc check of that guess, which held everywhere except `studio-smoke`.
+Cap-over-worst-observed spans **1.1x to 27x**. `studio-smoke` is the thinnest: its worst
+run took 829s and *passed*, 501s of which was `npx playwright install --with-deps
+chromium` — a browser download plus an apt system-dependency install, both unbounded
+external fetches, against a median of 22s and a p90 of 35s over 176 samples. That left
+71 seconds of headroom, not nine minutes. `golden-diff` is input-dependent rather than
+slow-but-stable (p50 91s, p90 511s), since it rasterizes only the goldens a PR moved.
+Three things the table's `n` column hides and the comment block spells out: skipped jobs
+are dropped, cancelled jobs are counted at their truncated duration (which flatters every
+percentile), and the window is ~13 hours. If a job outgrows its cap, raise the number and
+say what the new measured duration is — don't delete the line.
+
 ## Integration test cache
 
 `test/helpers/render.js` hashes all renderer inputs and reuses
@@ -754,6 +781,32 @@ still passes there. The margin is what makes a sandbox bless valid, not
 identity — and the margin scales with how much small text the shot contains, so
 a Studio change that puts much more small type on screen eats into it. Watch it
 rather than assuming it.
+
+**What that margin is for the CURRENT baselines is still unmeasured, and the
+reason is worth knowing** (2026-09-02). #1426's 0.0011-0.0023 were measured on the
+images #2028 replaced, so they do not carry over. Two halves, one of them now a
+number:
+
+- **Sandbox vs. the committed baseline: exactly zero.** Re-rendered here and
+  compared at `maxDiffPixels: 0` **and `threshold: 0`** — no per-pixel tolerance at
+  all — all three viewports are pixel-identical. So these baselines are sandbox
+  renders, and the whole `maxDiffPixelRatio: 0.01` is available to absorb the
+  sandbox-to-CI divergence rather than partly spent before CI sees them.
+- **CI vs. the committed baseline: not obtainable from a green run.** A PASSING
+  `toHaveScreenshot` writes no actual, expected or diff PNG, and the nightly
+  uploads only `playwright-report/**` + `test-results/**` — whose traces carry
+  lossy JPEG screencast frames, not the lossless comparison image. #1426's
+  range-fetch worked because there were actuals to fetch; on green baselines there
+  are none. Getting the number needs a run deliberately instrumented to FAIL
+  (tolerance pinned to 0, so the comparator reports the true pixel count), and every
+  route to one costs something outside the change. **`studio-e2e-nightly.yml`** is the
+  only CI workflow that runs these specs, and its issue step has no event guard, so a
+  `workflow_dispatch` posts to the rolling issue #1705 like a scheduled failure would.
+  **`ci.yml` cannot be used as-is**: its one Playwright step is `test:e2e:smoke`
+  (`--project=desktop --grep @smoke`), and `@visual` is neither `@smoke` nor
+  desktop-only — so reaching it there takes a job edit, not just a push, and the
+  instrumented run reds a live PR either way. Neither is a thing to fire off in
+  passing — ask first.
 
 **The shot's subject is a fixture, not the seeded deck** (2026-09-02). It used
 to be `DECKS[0]`, whose editor pane fills a third of the frame — so the welcome

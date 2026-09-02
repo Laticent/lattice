@@ -94,12 +94,44 @@ type Dupe = { text: string; at: [number, number]; alsoAt: [number, number]; scor
 
 /**
  * Search a slide raster for any h3 whose ink appears a second time.
- * Runs inside the page: the PNG goes in as a data URL and is decoded with
+ * Runs inside the page: the PNG goes in as base64 and is decoded with
  * createImageBitmap, so the suite needs no image-decoding dependency.
+ *
+ * WHY NOT `fetch(dataUrl)`, which is the obvious way to do this. The probe page
+ * re-hosts the PRESENTED document, and that document carries the remote-subresource
+ * CSP meta (`lib/core/subresource-csp.mjs`, #1753/#2009) — whose `connect-src 'self'`
+ * does not list `data:`. So every `fetch('data:…')` in that page is refused, at any
+ * size, and the whole error is the bare `TypeError: Load failed`, which names nothing.
+ * Measured in Playwright's WebKit, valid base64, raw payloads from 100 B to 16 MB:
+ *
+ *   | policy      | 100 B | 1 MB | 1.9 MB | 4 MB | 16 MB |
+ *   |-------------|-------|------|--------|------|-------|
+ *   | none        |    OK |   OK |     OK |   OK |    OK |
+ *   | preview CSP |  FAIL | FAIL |   FAIL | FAIL |  FAIL |
+ *
+ * `atob` + `Blob` reaches no loader and no network, so the CSP has nothing to refuse.
+ *
+ * TWO THINGS THAT LOOK LIKE A SIZE LIMIT AND ARE NOT — both cost this file a wrong
+ * docblock, which is why they are written down rather than left to be re-derived:
+ *   · `atob`-style padding. Appending characters AFTER a base64 string's `==` makes
+ *     the payload malformed, and WebKit reports that decode failure with the SAME
+ *     `TypeError: Load failed`. A synthetic "big" URL built by padding a small one is
+ *     therefore measuring its own invalidity. (For scale, this slide's screenshot is
+ *     87 KB — a 116 KB data URL, not a multi-megabyte one.)
+ *   · `setContent` does not make a NEW DOCUMENT — it is `document.open/write/close` on
+ *     the existing one — so it cannot drop the previous content's CSP. Measured in both
+ *     engines: after a CSP document is replaced by a CSP-free one, `window.__marker`
+ *     survives and `document.querySelectorAll('meta[http-equiv]')` is EMPTY, and the
+ *     policy is still enforced. Any real navigation (`page.goto`) clears it; a fresh
+ *     page is not required. So an A/B whose no-CSP arm runs second on the same page
+ *     reads as a failure with no policy anywhere in sight.
  */
 async function h3sPaintedTwice(page: import('@playwright/test').Page, png: Buffer, h3s: H3Box[]): Promise<Dupe[]> {
-	return page.evaluate(async ({ dataUrl, boxes }) => {
-		const bmp = await createImageBitmap(await (await fetch(dataUrl)).blob());
+	return page.evaluate(async ({ b64, boxes }) => {
+		const bin = atob(b64);
+		const bytes = new Uint8Array(bin.length);
+		for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+		const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
 		const cv = new OffscreenCanvas(bmp.width, bmp.height);
 		const ctx = cv.getContext('2d')!;
 		ctx.drawImage(bmp, 0, 0);
@@ -178,7 +210,7 @@ async function h3sPaintedTwice(page: import('@playwright/test').Page, png: Buffe
 			}
 		}
 		return found;
-	}, { dataUrl: `data:image/png;base64,${png.toString('base64')}`, boxes: h3s });
+	}, { b64: png.toString('base64'), boxes: h3s });
 }
 
 test('every math compare h3 paints exactly once in WebKit (#1554) @webkit-tablet', async ({ page, context, baseURL }) => {
