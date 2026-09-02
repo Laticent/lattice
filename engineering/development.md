@@ -458,10 +458,9 @@ every runner in `.github/workflows/` is `ubuntu-latest`, and a Linux transcript
 is not evidence about a Mac. It takes someone running the four checks on a real
 Mac: `--job x -- true` exits 0; a second waiter on a live job exits 2; a
 SIGKILLed holder frees the job; and without coreutils it exits 69 naming
-gtimeout. If neither mechanism is present,
-the wait fails loudly with exit 69 rather than being folded into "already being
-waited on" — which is what a naive non-zero check did, reporting a phantom
-holder forever.
+gtimeout. If neither mechanism is present, the wait fails loudly with exit 69
+rather than being folded into "already being waited on" — which is what a naive
+non-zero check did, reporting a phantom holder forever.
 
 One sharp edge worth knowing, since it cost a measured bug: **a flock lives on
 an open file descriptor, and children inherit descriptors.** The job this tool
@@ -484,6 +483,15 @@ against 36ms to start node for an accurate parse. Twenty times the cost on every
 call is not worth the precision, for a warning. Note what this means: a repo
 gate could never have done this job at all — `check-ownership.js` walks the
 filesystem, and these waits are tool calls that never become files.
+
+**It also says nothing where the helper cannot run.** The nudge names one fix,
+and `tools/wait-for.sh` refuses with exit 69 unless the box has both a
+`timeout(1)` and `flock(1)`-or-perl — so on a stock macOS, which ships neither
+`timeout` nor `flock(1)`, the coaching would point at a wall. The check is the
+last thing the hook does and only on a match, so the fast path above is
+unchanged. Both dependency classes are tested one at a time, against the real
+hook with a controlled `PATH`, alongside a positive control that fires with
+`gtimeout` + perl present — a Mac that has run `brew install coreutils`.
 
 **A waiter waits.** Do not attach an action to a condition — a background shell
 that runs `build:check` when some file appears will happily run it three hours
