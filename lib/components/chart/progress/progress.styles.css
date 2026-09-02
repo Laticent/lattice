@@ -190,9 +190,24 @@ section.progress:where([data-family="square"], [data-family="tall"], [data-famil
  * (`buildPortrait`) and word-cloud with its size key. The bar also gets the FULL
  * width, which is a straight win: length is the datum this component encodes.
  *
- * Scoped ≤0.9, not ≤1.05: square already fits (measured -178.1px of headroom)
- * and a layout change there would be churn without a defect behind it. See
- * #1209, #1210 and 2026-06-19-chart-adaptive-sizing.md. */
+ * Scoped ≤0.9, not ≤1.05 — but NOT because square fits. This comment used to say
+ * square had 178.1px of headroom. It does not, and it is off by 189px: measured on
+ * the real square render, `.progress-bars` is 677.8px inside a 666.9px stage, so
+ * 10.9px paints below `.cell-stage` and is cut, silently, by the same
+ * `overflow: clip`. The very mechanism this arm describes is already at work at
+ * square, just smaller — at `--canvas-scale` 1.65 `--fs-message` resolves to
+ * 37.8px in a 182.25px label column, and four of the five labels wrap to two lines.
+ *
+ * The clip is pre-existing and deliberately NOT fixed here. Extending STACK to
+ * square is one of several levers that clear it, and choosing among them is a
+ * design call about how `progress` should read on a square canvas rather than a
+ * tuning — so it wants its own change. Recorded in
+ * 2026-08-12-chart-body-block-padding.md §8, in
+ * 2026-09-01-orphaned-check-census.md, and in changelog.d/1629-chart-body-no-
+ * padding.fixed.md. `check:chart-fit` is the ONLY thing that reports it: the
+ * runtime overflow probe reads dy=11 against a TOL of 12 and stays quiet, and no
+ * committed square deck uses `progress`, so nothing else has ever surfaced it.
+ * See #1209, #1210 and 2026-06-19-chart-adaptive-sizing.md. */
 section.progress:where([data-family="tall"], [data-family="strip"]) .progress-row,
 :where([data-family="tall"], [data-family="strip"]) figure.progress .progress-row {
   grid-template-columns: 1fr auto;
