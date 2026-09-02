@@ -76,27 +76,28 @@ the deck in dark mode. That is the single most common mistake in a new
 theme, and the build refuses it.
 
 <CraftLab
-	label="The categorical cycle, in the engine's defaults"
+	label="The categorical cycle, both canvases"
 	kind="theme"
 	css={THEME_PAIRS}
 	markdown={SLIDE_DIAGRAM}
 	mermaid
 	size="tall"
 	startMode="light"
-	hint="Each box takes the next slot in the cycle. This theme sets no --cat-* colors, so they are the engine's defaults. Press Dark and watch every box flip tiers at once — nothing in the markdown changed."
+	hint="Each box takes the next slot in the cycle — four of the twelve are set in the file below. Press Dark and watch every box flip tiers at once: nothing in the markdown changed, and no second palette exists. Then push --cat-3-fill toward #8A5A12 and watch the label on that one box stop being readable while the other three are fine — layer ③, failing in one slot."
 />
-
-:::note
-This lab draws its diagram with Mermaid, which the page fetches from a CDN
-when you open it. Offline or behind a strict firewall the slide comes up
-empty — the deck itself is unaffected, since the command-line renderer
-carries its own copy.
-:::
 
 Notice that the flowchart carries no styling instructions at all. The
 author wrote the shape; the theme supplied every color. A roadmap or a
 kanban board on the same deck reads the same twelve slots — same cycle,
 different shape.
+
+One thing this particular lab does *not* show is layer ①. A Mermaid
+flowchart draws every node's border from a single token, `--diagram-stroke`,
+rather than from each slot's own `--cat-N-mark` — so the edges here are all
+one color by design. The per-slot mark does the edge job where the shapes
+are genuinely per-category: a pie slice, a chart series, a timeline dot. If
+your diagram boxes look like they are floating, `--diagram-stroke` is the
+token to darken.
 
 ## Author for six, not twelve
 

@@ -34,6 +34,12 @@ refuses this one, so you will see it as a failure rather than in the deck.
 **Diagram boxes float with no edge.**
 `--diagram-stroke` is too pale. It has to read against white.
 
+**Every node in a diagram is the same dark box with unreadable text.**
+Your theme defines none of the `--cat-N-fill` / `--cat-N-mark` pairs. Unlike
+most tokens these have **no engine default** — they resolve to nothing, and
+the nodes fall back to the surface color with body ink on top. Define the
+twenty-four values; `npm run new:theme` copies a working set.
+
 ## A CSS rule does nothing
 
 **The rule is right and nothing happens.**
@@ -107,11 +113,6 @@ The token-contract suite takes its scope from the manifests. Until
 it.
 
 ## Something is wrong in the lab on this site
-
-**The slide is empty on the categorical page.**
-That lab draws a Mermaid diagram, fetched from a CDN when the page opens.
-Offline or behind a strict firewall it cannot load. Your exported deck is
-unaffected — the command-line renderer carries its own copy.
 
 **You edited a number in a finish lab and nothing happened.**
 Every finish value appears twice: once in the screen face and once in the

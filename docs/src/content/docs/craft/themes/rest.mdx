@@ -75,10 +75,18 @@ in the block above and still clears the floor with room to spare.
 ## What happens to the ones you skip
 
 The lab above renders a complete code slide from a theme that never
-mentions code, because everything a theme omits falls back to the engine's
-defaults. That is good while you work and a bad way to ship: a theme that
-stops at the colors on these two pages is, in every group it skipped,
-quietly wearing the default palette's clothes.
+mentions code, because the engine carries a default for every color on this
+page. That is good while you work and a bad way to ship: a theme that stops
+at the colors on these two pages is, in every group it skipped, quietly
+wearing somebody else's.
+
+**One family has no default at all.** The twelve categorical pairs fall
+through to nothing rather than to a fallback, so a theme that omits them
+does not draw its charts in the wrong colors — it draws them in none, and a
+flowchart comes out as four identical boxes with unreadable labels. That is
+why the contract requires all twenty-four values, and why
+[Colors for charts and diagrams](/craft/themes/categorical/) is the one
+group with a page to itself.
 
 [Ship your theme](/craft/themes/checklist/) lists the full 98, and
 [a finished theme](/craft/examples/theme/) shows the hand-written half

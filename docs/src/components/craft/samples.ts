@@ -114,7 +114,13 @@ export const THEME_MINI = `/* @theme craft-lab */
 }
 `;
 
-/** A theme with BOTH canvases in one file — the light-dark() lesson. */
+/**
+ * A theme with BOTH canvases in one file — the light-dark() lesson, and the one
+ * seed that carries categorical pairs. It needs them: the engine ships no default
+ * for the --cat-* family (a theme that omits them renders unstyled, which is why
+ * the token contract requires all twenty-four), so a diagram lab seeded without
+ * them draws every node in --surface-inverse.
+ */
 export const THEME_PAIRS = `/* @theme craft-lab */
 @import 'lattice';
 
@@ -143,6 +149,21 @@ export const THEME_PAIRS = `/* @theme craft-lab */
   --pass: light-dark(#2D6A3F, #4ADE80);
   --warn: light-dark(#B45309, #F59E0B);
   --fail: light-dark(#991B1B, #F87171);
+
+  /* Categorical — four of the twelve slots. Each is a PAIR of the same hue, and
+   * the two tiers trade places between the canvases: pale fill + deep mark on the
+   * light page, jewel fill + pale mark on the dark one. The label inks flip with
+   * them, which is the mistake the categorical page is mostly about. */
+  --cat-1-fill: light-dark(#BCD5EC, #00558C);  --cat-1-mark: light-dark(#2E608A, #CFE0EE);
+  --cat-2-fill: light-dark(#BFE3DC, #0A5F52);  --cat-2-mark: light-dark(#1F6E60, #CBE7E1);
+  --cat-3-fill: light-dark(#F3DFB8, #7A4E0A);  --cat-3-mark: light-dark(#8A5A12, #EFDCBB);
+  --cat-4-fill: light-dark(#E3CFE8, #5E2F6E);  --cat-4-mark: light-dark(#6D3E7C, #E2CFE7);
+
+  --cat-on-fill: var(--text-heading);
+  --cat-on-mark: light-dark(#FFFFFF, #0A1628);
+
+  --diagram-stroke: light-dark(#2E608A, #CFE0EE);
+  --diagram-line:   light-dark(#0A1628, #EDF2F9);
 }
 `;
 

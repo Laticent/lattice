@@ -11,11 +11,16 @@ render a real deck and look at it. This page is that list.
 
 The tour covered about twenty colors. A shipping theme defines **98**.
 
-Skipping a color has a cost. Every one a theme leaves out falls back to the
-default palette's value, so a theme that stops at the surfaces, the ink and
-the accent renders its charts, its code blocks and its diagrams in
-*somebody else's colors*, and does it quietly. It will look almost right,
-which is worse than looking wrong.
+Skipping a color has a cost, and it comes in two sizes. Most omitted tokens
+fall back to an engine default, so a theme that stops at the surfaces, the
+ink and the accent renders its code blocks and its diagrams in *somebody
+else's colors*, quietly. It will look almost right, which is worse than
+looking wrong.
+
+The twelve categorical pairs are the exception: **there is no engine default
+for them.** Omit them and they resolve to nothing, so a chart or a flowchart
+draws every category in the same surface color with unreadable labels. That
+is the one skipped group that fails loudly rather than quietly.
 
 Beyond the groups on [the token tour](/craft/themes/tokens/), define:
 

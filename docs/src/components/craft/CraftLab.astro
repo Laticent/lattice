@@ -2,12 +2,12 @@
 /**
  * Page-level wrapper for the Craft track's hands-on pane.
  *
- * Its only job is to resolve the three runtime-fetched engine endpoints (the
- * cache-busted engine bundle, the runtime, and the theme CSS base) at build time
- * and hand them to the React island. Every Craft page imports THIS, not the
- * island — so the endpoint wiring lives in one place and a content page stays
- * plain prose plus a tag. Same resolution the Playground, the Studio and the
- * component Specimens use (asset-version.mjs).
+ * Its only job is to resolve the runtime-fetched engine endpoints (the
+ * cache-busted engine bundle, the runtime, the theme CSS base and the vendored
+ * Mermaid) at build time and hand them to the React island. Every Craft page
+ * imports THIS, not the island — so the endpoint wiring lives in one place and a
+ * content page stays plain prose plus a tag. Same resolution the Playground, the
+ * Studio and the component Specimens use (asset-version.mjs).
  *
  * Props are the island's, verbatim — see CraftLab.tsx for what each one means.
  *
@@ -24,6 +24,11 @@ const options = {
 	themeBase: joinBase(base, pg + 'themes/'),
 	runtimeUrl: joinBase(base, pg + 'lattice-runtime.js'),
 	engineUrl: joinBase(base, pg + 'lattice-playground.js'),
+	// Self-hosted Mermaid, the same copy the Playground and the Studio use. Without
+	// it createSingleSlideRenderer falls back to the jsdelivr CDN, which puts the
+	// one diagram lab on the track (themes/categorical) behind a third-party
+	// request that a firewall or an offline reader can refuse.
+	mermaidUrl: joinBase(base, pg + 'export/mermaid-v11.min.js'),
 };
 ---
 

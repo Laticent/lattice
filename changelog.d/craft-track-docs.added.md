@@ -19,3 +19,11 @@
   distinguish `--fin-mark` from `--fin-mark-text` and scope the 5–16% accent band to
   layers that cover the whole page, which two shipped presets deliberately exceed in a
   narrow one.
+- **The diagram lab shows the categorical cycle it teaches.** The `--cat-*` family is
+  the one group with **no engine default** — omit it and the tokens resolve to nothing,
+  so every node in a flowchart draws in `--surface-inverse` with body ink on top. The
+  themes track said omitted tokens "fall back to the engine's defaults" as a general
+  rule; that is true of every other group and false of this one. The seed now carries
+  four verified slot pairs, and the track names the exception where it matters.
+- **Craft labs serve Mermaid from our own origin**, the copy the Playground and Studio
+  already use, instead of falling back to the jsdelivr CDN.
