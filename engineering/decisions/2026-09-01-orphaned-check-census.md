@@ -28,7 +28,7 @@ is not a gate, and three of the five defects are already caught elsewhere:
 | check | script wired? | defect covered elsewhere? | runtime | verdict | deterministic? |
 |---|---|---|---|---|---|
 | `check:responsive` | no | **yes, fully** — `test/unit/tools/chart-responsiveness.test.js` | 0.3s | pass | yes |
-| `check:chart-fit` | no | **no** | 30s | **fail** (1 clip) | no — real Chromium |
+| `check:chart-fit` | no | **no** | 30s | **pass** (was: fail, 1 clip — fixed by #2030) | no — real Chromium |
 | `equiv:check` | no | **yes, fully** — `test/unit/diagnostics/slice-equivalence-baseline.test.js` | 3s | pass | yes |
 | `oracle:check` | no | **yes** — `checkSplitOracle` in `check-ownership.js` | 0.3s | pass | yes |
 | `geometry:check` | no | **partly** — `checkSectionCqAnchoring` catches one of two causes | 2m08s | pass | no — real Chromium |
@@ -59,10 +59,11 @@ records a drift it caused). Nothing runs either one.
   content does not paint outside `.cell-stage`, does not overflow its **SVG viewBox**, and
   that the body box is not needlessly narrowed. The viewBox arm is caught by nothing else:
   `lib/core/overflow-probe.js` is structurally blind to it because the SVG crops before the
-  DOM measures. **Currently red**, and stably so — `[square]` slide 15 (progress) paints
-  10.9px below the stage, which `changelog.d/1629-chart-body-no-padding.fixed.md` already
-  records as the surviving clip of three. The stage is `overflow: clip`, so it is cut
-  silently.
+  DOM measures. **Was red when this note was written**, stably so — `[square]` slide 15
+  (progress) painted 10.9px below the stage, cut silently because the stage is
+  `overflow: clip`. **That clip is now FIXED (#1920 / PR #2030)** and the gate exits 0
+  across all three sizes with no `SANCTIONED_CLIPS` entry, so the "handle the red first"
+  precondition below no longer applies.
 - **`geometry:check`** renders five example decks and compares section padding box, stage
   height and overflow verdict across four viewport sizes and again with sections
   transform-scaled the way the filmstrip preview scales them. It catches a slide whose
@@ -98,11 +99,18 @@ verdict can move with the runner belongs off it. That leaves three options:
 | **B. A new nightly workflow for the two** | A new workflow file, its own Chromium setup and `npm ci` (~4 min of setup for ~3 min of work), and its own rolling issue and stand-down step. | A new workflow is a new thing to maintain, and the setup cost roughly doubles the real work. Its own thread is the only real advantage over A. |
 | **C. Leave both on-demand, documented** | Nothing. | `check:chart-fit` stays red with nobody watching, which is where it has been. The known clip does not regress silently — but a SECOND clip would appear the same way, and nobody would know. |
 
-**Recommendation: A**, and the red must be handled first either way. Wiring `check:chart-fit`
-as-is files an alarm on night one for a clip that is already known and recorded. Either fix
-the 10.9px clip on `[square]` slide 15 first, or land the wiring with that slide's expected
-clip acknowledged — otherwise the first thing the new alarm does is cry wolf, which is how a
-gate gets switched off.
+**Recommendation: A.** The "handle the red first" precondition this note originally carried
+is **discharged**: the 10.9px clip on `[square]` slide 15 was fixed in #1920 / PR #2030, so
+`check:chart-fit` now exits 0 and can be wired green with no `SANCTIONED_CLIPS` entry and no
+alarm on night one.
+
+One wiring detail this note did not anticipate, found while preparing the change: the job
+summary in `integration-nightly.yml` greps a FIXED list of failure markers, and neither new
+check's failure line matches it — `check-chart-fit` prints `N clip(s) across M size(s)` and
+`check-geometry-parity` prints `N geometry disagreement(s)`. Wiring the arms without extending
+that list reproduces #1529, where a rolling issue carried a bare failure count for fifteen
+nights with the one explanatory line dropped. So the wiring is three edits, not two: the two
+arms, the filing condition, AND the marker list.
 
 **Not done here.** Adding a job or a step is the CI-contract change CLAUDE.md's second filter
 reserves for the owner: every future PR pays the cost, and a bad gate is a permanent tax. The
