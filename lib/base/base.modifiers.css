@@ -2739,6 +2739,20 @@ section[data-split-role="cover"][data-split-role="cover"] .tile-progress .dot.on
   opacity: 0.9;
 }
 
+/* A member's sub-bullets keep their own lines on a re-authored split page.
+   `subjectBody` (lib/core/carousel.js) used to join them with a bare space, which fused fields
+   the author wrote as separate ones: `list-tabular` authors a row as `- Term` / `  - what it
+   measures` / `  - how it scores`, and the join rendered "Penalizes signals that swing Also
+   penalizes the early-warning ones" — one run-on clause on a slide whose title promises "what
+   they measure, and how they score". A single bullet emits no wrapper, so the common case is
+   unchanged. Padding, never margin (#20); no color of its own (#3). */
+section .split-pt-b > .split-pt-line {
+  display: block;
+}
+section .split-pt-b > .split-pt-line + .split-pt-line {
+  padding-top: var(--sp-xs);
+}
+
 /* ── The split INSIGHT page is RETIRED (2026-09-02) ────────────────────────────────────
    A trailing key insight used to get a page of its own — `insightPage` / `insightPageFrom`
    built it, `.lat-split-insight` styled it, and four selectors here gave it a collapsed stage,

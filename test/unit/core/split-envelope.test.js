@@ -888,6 +888,38 @@ describe('core: the universal CODA cell rides the split (lib/core/coda.js)', () 
 });
 
 
+describe('core: the CLOSING page does not repeat what the COVER hoisted', () => {
+  // `closingPage` removes the lede (hoisted to the cover) and the collection (the body pages'
+  // whole job). It called `spliceSpans` directly, which REPLACES a span with its own `outer` when
+  // the span carries one — and a lede span does. So the lede was substituted for itself and the
+  // closing page repeated the cover's framing paragraph. The collection span carries no `outer`,
+  // so that one went, which is why the page looked almost right.
+  //
+  // Measured on `examples/split-relationship.md`, where the duplicated sentence is the one
+  // claiming it "hoists to the run's cover instead of repeating on every body page". Two
+  // reviewers found it in the QUALITY BAR sweep; the conservation gate cannot: it counts words,
+  // and a duplicate only ever raises a count.
+  const inner = () =>
+    '<div class="cell-masthead"><div class="masthead-lede"><h2>Readiness</h2></div></div>' +
+    '<div class="cell-stage"><p>FRAMING-PARA hoists to the cover.</p>' +
+    `<ul>${['a', 'b', 'c'].map((x) => `<li>item ${x}</li>`).join('')}</ul></div>` +
+    '<div class="cell-coda"><div class="below-note"><p>NOTE-TEXT</p></div></div>';
+
+  test('the lede appears exactly once across the run, on the cover', () => {
+    const src = inner();
+    const parts = splitEnvelope('<section data-lattice-slide="8" id="s8" class="checklist form">',
+      src, chromeOf(src), { axis: 'item', per: 1 });
+    assert.ok(Array.isArray(parts) && parts.length >= 3, 'expected a split');
+    const copies = parts.join('').split('FRAMING-PARA').length - 1;
+    assert.equal(copies, 1, `the lede appears ${copies} times across the run`);
+    assert.match(parts[0], /FRAMING-PARA/, 'the cover must carry the lede');
+    const closing = parts.filter((p) => /\sdata-split-role="closing"/.test(p));
+    assert.equal(closing.length, 1, 'expected one closing page');
+    assert.doesNotMatch(closing[0], /FRAMING-PARA/, 'the closing page repeated the cover lede');
+    assert.match(closing[0], /NOTE-TEXT/, 'the closing page must still carry the note');
+  });
+});
+
 describe('core: the CLOSING page carries a two-beat coda without losing or breaking it', () => {
   // Regression pins for the half-span design that shipped in the first cut of the coda:
   // `codaSpans` returned cell-open..cut and cut..cell-close, which is correct ONLY for a caller

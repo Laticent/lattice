@@ -287,6 +287,30 @@ describe('core: relationship — through the real emission path (post-convergenc
   });
 });
 
+describe('core: relationship — a clause break is not an ABBREVIATION', () => {
+  // `named()` and the flat path each carried their own copy of the clause-break regex, and both
+  // ended the sentence arm at `\.\s+` — which fires on any abbreviation. A shipped deck printed
+  // "→ next: FTC v" for a member named "FTC v. Avast": a truncated, mis-spelled party name shown
+  // as wayfinding. Three reviewers found it independently on three different decks; none of the
+  // unit tests did, because none carried an abbreviation.
+  const li = (t) => `<li>${t}</li>`;
+
+  test('an abbreviation does not end the name', () => {
+    assert.equal(labelOf(li('FTC v. Avast')), 'FTC v. Avast');
+    assert.equal(labelOf(li('Acme Inc. filing')), 'Acme Inc. filing');
+    assert.equal(labelOf(li('Reg. 4 disclosure')), 'Reg. 4 disclosure');
+  });
+
+  test('a real sentence still ends the name', () => {
+    assert.equal(labelOf(li('Draft the policy. Then circulate it to the council')), 'Draft the policy');
+  });
+
+  test('the other two clause breaks are unchanged', () => {
+    assert.equal(labelOf(li('Sequence — each page names the step that follows')), 'Sequence');
+    assert.equal(labelOf(li('Recency: the decay half-life')), 'Recency');
+  });
+});
+
 describe('core: relationship — a RE-AUTHORED member carries a labelled title slot', () => {
   // `coverWindow` (lib/core/carousel.js) rebuilds each member of the five cover strategies as
   // `<span class="split-pt-t">title</span><span class="split-pt-b">body</span>`. That title is not

@@ -955,6 +955,46 @@ describe('core: carousel — the run closes on ONE page carrying both beats (202
 // and re-running the whole file still passes (mutation-checked). That is the failure mode this
 // arm exists for, and it is why the berth markup comes from `BERTH_HTML` rather than being
 // typed here: the input is the engine's own, so it cannot drift away from what ships.
+describe('core: carousel — a member\'s sub-bullets keep their own lines', () => {
+  // `subjectBody` joined them with a bare space, fusing fields the author wrote as separate ones.
+  // `list-tabular` authors a row as `- Term` / `  - what it measures` / `  - how it scores`, and
+  // the join rendered "Penalizes signals that swing Also penalizes the early-warning ones" — one
+  // run-on clause a reader has to re-parse, on a slide whose own title promises "what they
+  // measure, and how they score".
+  //
+  // No gate could have caught it. The conservation check counts WORDS, and every word was
+  // present; only the sentence boundaries were gone. It was found by rasterizing the run and
+  // reading it (QUALITY BAR), which is the only instrument that sees this class of defect.
+  const row = (title, ...bullets) =>
+    `<li>${title}<ul>${bullets.map((b) => `<li>${b}</li>`).join('')}</ul></li>`;
+  const inner = (...rows) => `<h2>Signals</h2><ol>${rows.join('')}</ol>`;
+
+  test('two sub-bullets emit two lines, not one run-on string', () => {
+    const [r] = readRows(inner(row('Volatility', 'Penalizes signals that swing', 'Also penalizes the early-warning ones')));
+    assert.ok(r, 'no row parsed');
+    assert.doesNotMatch(r.body, /swing Also/,
+      'the two authored fields were fused into one clause — this is the defect, not a formatting nit');
+    assert.match(r.body, /<span class="split-pt-line">Penalizes signals that swing<\/span>/);
+    assert.match(r.body, /<span class="split-pt-line">Also penalizes the early-warning ones<\/span>/);
+  });
+
+  test('a SINGLE sub-bullet emits no wrapper — the common case is byte-identical', () => {
+    const [r] = readRows(inner(row('Recency', 'Time-decay on a configurable half-life')));
+    assert.equal(r.body, 'Time-decay on a configurable half-life');
+  });
+
+  test('the separation survives into the emitted page', () => {
+    const src = inner(
+      row('Volatility', 'Penalizes signals that swing', 'Also penalizes the early-warning ones'),
+      row('Recency', 'Time-decay on a configurable half-life', 'Two-week default surprises everyone'),
+    );
+    const parts = carouselize('<section data-lattice-slide="1" id="s1" class="list-tabular form">',
+      src, { strategy: 'cover-rows', perPage: 1 }, 2, 'list-tabular');
+    assert.ok(parts, 'expected a split');
+    assert.doesNotMatch(parts.join(''), /swing Also/, 'the fused clause reached an emitted page');
+  });
+});
+
 describe('core: carousel — a rendered section ends in BERTHS, and they are not the content slot', () => {
   const { BERTH_HTML } = require('../../../lib/core/fit-berth');
   const { trailingSlotMaterialOf } = require('../../../lib/core/split-envelope');
