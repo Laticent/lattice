@@ -475,6 +475,43 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 :is(section, figure) .pieCircle:nth-of-type(12n+11) { fill: var(--cat-11-texture, var(--cat-11-fill)) !important; }
 :is(section, figure) .pieCircle:nth-of-type(12n)    { fill: var(--cat-12-texture, var(--cat-12-fill)) !important; }
 
+/* ── PIE LEGEND SWATCH — the same channel as the wedge it names ──
+ * The key has to match the pie by PATTERN, not just by value. On a texture-first
+ * palette (a11y-*, onyx, concrete) the wedges above carry twelve distinct patterns
+ * while the legend swatches were twelve flat fills, so the key could not be read
+ * against the chart it explains. The tree already solved this for the NATIVE pie —
+ * `themes/a11y-base.css` textures `.chart-key-swatch[data-cat]` "so the key matches
+ * by pattern, not just value" — and never for the Mermaid one.
+ *
+ * WHY THIS WORKS, since the note that logged it (2026-08-31, off-path finding 1)
+ * gave the opposite reason: Mermaid writes the resolved flat color as an INLINE style
+ * (`<rect style="fill: rgb(223,221,221); …">`), and an inline declaration outranks any
+ * selector — but NOT importance. An author `!important` rule beats a NORMAL inline
+ * declaration in the cascade; only an important inline one would win. The architecture
+ * rule below already leans on exactly that. So the blocker was the second half of that
+ * finding — no `.legend rect` rule existed — and this is it.
+ *
+ * `nth-of-type` counts <g> siblings, and inside the pie's chart group the twelve legend
+ * groups are the ONLY <g> children (slices are <path>, values are <text>), so the index
+ * tracks slot order the way it does for the wedges. Mod-12 matches the wedge rotation
+ * above, so a 13th entry re-uses slot 1 in both places at once.
+ *
+ * The inline `stroke` is deliberately left alone: it is the same flat color, and it
+ * keeps a crisp edge on a swatch too small to show more than about two tile periods
+ * (18x18 against an 8x8 pattern — the ratio the native key already accepts). */
+:is(section, figure) g.legend:nth-of-type(12n+1) rect { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; }
+:is(section, figure) g.legend:nth-of-type(12n+2) rect { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; }
+:is(section, figure) g.legend:nth-of-type(12n+3) rect { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; }
+:is(section, figure) g.legend:nth-of-type(12n+4) rect { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; }
+:is(section, figure) g.legend:nth-of-type(12n+5) rect { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; }
+:is(section, figure) g.legend:nth-of-type(12n+6) rect { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; }
+:is(section, figure) g.legend:nth-of-type(12n+7) rect { fill: var(--cat-7-texture, var(--cat-7-fill)) !important; }
+:is(section, figure) g.legend:nth-of-type(12n+8) rect { fill: var(--cat-8-texture, var(--cat-8-fill)) !important; }
+:is(section, figure) g.legend:nth-of-type(12n+9) rect { fill: var(--cat-9-texture, var(--cat-9-fill)) !important; }
+:is(section, figure) g.legend:nth-of-type(12n+10) rect { fill: var(--cat-10-texture, var(--cat-10-fill)) !important; }
+:is(section, figure) g.legend:nth-of-type(12n+11) rect { fill: var(--cat-11-texture, var(--cat-11-fill)) !important; }
+:is(section, figure) g.legend:nth-of-type(12n)    rect { fill: var(--cat-12-texture, var(--cat-12-fill)) !important; }
+
 /* ── GITGRAPH ARROW FILLS ──
  * Mermaid's gitgraph emits .arrow0..N with a "stroke" declaration but no
  * "fill". SVG paths default fill to black when not specified, so the

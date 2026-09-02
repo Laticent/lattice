@@ -43,10 +43,10 @@ test('a11y literal sets paint with literal hex — no var(), no <style> (iOS reg
 test('onyx scheme-aware set flips fill + ink via light-dark() in a <style>', () => {
   const defs = texturePatternDefs();
   assert.equal((defs.match(/id="latt-onyx-tex-\d+"/g) || []).length, 12);
-  // slot 1 rect flips light #e8e8e8 ↔ dark #161616 (mirrors onyx's --cat-1-fill ramp;
+  // slot 1 rect flips light #e8e8e8 ↔ dark #1e1e1e (mirrors onyx's --cat-1-fill ramp;
   // the dark half moved with the 2026-09-01 categorical re-tune, which widened onyx's
   // dark wash ramp to clear the separation floor).
-  assert.match(defs, /\.latt-onyx-tex-r1\{fill:light-dark\(#e8e8e8,#161616\)\}/);
+  assert.match(defs, /\.latt-onyx-tex-r1\{fill:light-dark\(#e8e8e8,#1e1e1e\)\}/);
   // slot 1 ink flips a subtle mid-gray #8a8a8a (on the light chip, so black text stays
   // dominant) ↔ light #f5f5f5 (on the dark chip).
   assert.match(defs, /\.latt-onyx-tex-i1\{[^}]*light-dark\(#8a8a8a,#f5f5f5\)/);
@@ -61,10 +61,10 @@ test('scheme-aware patterns carry a literal light-mode fallback presentation att
   const defs = texturePatternDefs();
   // onyx slot-1 rect: class for the flip AND fill="#e8e8e8" fallback attribute.
   assert.match(defs, /<rect class="latt-onyx-tex-r1" fill="#e8e8e8" width="8" height="8"\/>/);
-  // concrete slot-1 rect: fallback to its near-white light chip. Still near-white
-  // after the re-tune gave concrete §6's luminance spread — the ramp now DESCENDS from
-  // #FDFBFB rather than sitting flat at #DFDDDD on all twelve slots.
-  assert.match(defs, /<rect class="latt-concrete-tex-r1" fill="#FDFBFB" width="8" height="8"\/>/);
+  // concrete slot-1 rect: fallback to its light chip. The re-tune gave concrete a
+  // luminance spread, so the ramp now DESCENDS from
+  // #D6D4D4 rather than sitting flat at #DFDDDD on all twelve slots.
+  assert.match(defs, /<rect class="latt-concrete-tex-r1" fill="#D6D4D4" width="8" height="8"\/>/);
 });
 
 // concrete gets a SEPARATE scheme-aware set with BESPOKE raw-concrete motifs and its
@@ -72,10 +72,10 @@ test('scheme-aware patterns carry a literal light-mode fallback presentation att
 test('concrete scheme-aware set flips its own ramp with bespoke motifs', () => {
   const defs = texturePatternDefs();
   assert.equal((defs.match(/id="latt-concrete-tex-\d+"/g) || []).length, 12);
-  // slot 1 rect flips concrete's #FDFBFB (light) ↔ #6A4E4E (dark), mirroring its ramp.
+  // slot 1 rect flips concrete's #D6D4D4 (light) ↔ #6A4E4E (dark), mirroring its ramp.
   // The dark half is unchanged: concrete's dark wash is a sanctioned shortfall (every
   // wider ramp costs its --cat-N-ink arm), so only the light ramp took the spread.
-  assert.match(defs, /\.latt-concrete-tex-r1\{fill:light-dark\(#FDFBFB,#6A4E4E\)\}/);
+  assert.match(defs, /\.latt-concrete-tex-r1\{fill:light-dark\(#D6D4D4,#6A4E4E\)\}/);
   // slot 1 motif is board-form plank lines (two horizontals) — bespoke, NOT the onyx/a11y diagonal.
   assert.match(defs, /<pattern id="latt-concrete-tex-1"[^>]*>[\s\S]*?<path d="M0 2\.5 H8 M0 5\.5 H8"\/>/);
 });

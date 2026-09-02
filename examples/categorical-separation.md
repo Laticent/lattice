@@ -128,7 +128,7 @@ mindmap
 ## What it promises, and what it does not.
 
 The pale tier holds all sixty-six pairs apart; the saturated tier holds
-neighbours apart. Both floors are what `indaco` and `cuoio` already reached.
+neighbors apart. Both floors are what `indaco` and `cuoio` already reached.
 
 It does not promise twelve distinct *hues* — five ramps cannot reach that
 without repainting brand colors. We recommend consolidating past six.

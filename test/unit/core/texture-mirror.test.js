@@ -27,15 +27,23 @@ const { mergedVars } = require('../../../tools/composed-contrast.js');
 /** Which theme, which canvas, and which token each baked ramp is a copy of. */
 const MIRRORS = [
   { ramp: 'CAT_FILLS', theme: 'a11y-base', dark: false, token: 'fill' },
+  // The chart family's own spectrum, and the one this file originally missed. The
+  // declaration's comment governs CAT_FILLS and CHART_FILLS together and names
+  // `--chart-catN` explicitly, but only the categorical half was covered — so a
+  // re-tune of a11y-base's chart ramp (plausible: this change just re-tuned the
+  // neighboring --cat-N block in the same file) would have drifted the native pie
+  // wedge away from its texture chip with every gate green.
+  { ramp: 'CHART_FILLS', theme: 'a11y-base', dark: false, token: 'chart', slots: 8 },
   { ramp: 'CAT_FILLS_DARK', theme: 'onyx', dark: true, token: 'fill' },
   { ramp: 'CONCRETE_FILLS_LIGHT', theme: 'concrete', dark: false, token: 'fill' },
   { ramp: 'CONCRETE_FILLS_DARK', theme: 'concrete', dark: true, token: 'fill' },
 ];
 
-const shipped = ({ theme, dark, token }) => {
+const shipped = ({ theme, dark, token, slots = 12 }) => {
   const vars = mergedVars(theme);
-  return Array.from({ length: 12 }, (_, i) =>
-    String(resolveTokenExpr(vars[`cat-${i + 1}-${token}`], vars, dark)).trim().toLowerCase());
+  const name = (i) => (token === 'chart' ? `chart-cat${i + 1}` : `cat-${i + 1}-${token}`);
+  return Array.from({ length: slots }, (_, i) =>
+    String(resolveTokenExpr(vars[name(i)], vars, dark)).trim().toLowerCase());
 };
 
 describe('baked texture chips mirror their themes', () => {
@@ -49,10 +57,12 @@ describe('baked texture chips mirror their themes', () => {
   });
 
   for (const mirror of MIRRORS) {
-    test(`${mirror.ramp} matches ${mirror.theme} ${mirror.dark ? 'dark' : 'light'} --cat-N-${mirror.token}`, () => {
+    const label = mirror.token === 'chart' ? '--chart-catN' : `--cat-N-${mirror.token}`;
+    test(`${mirror.ramp} matches ${mirror.theme} ${mirror.dark ? 'dark' : 'light'} ${label}`, () => {
       const baked = MIRRORED_RAMPS[mirror.ramp].map((h) => h.toLowerCase());
       const theme = shipped(mirror);
-      assert.equal(baked.length, 12, `${mirror.ramp} has ${baked.length} entries, not 12.`);
+      const slots = mirror.slots ?? 12;
+      assert.equal(baked.length, slots, `${mirror.ramp} has ${baked.length} entries, not ${slots}.`);
       const drifted = baked
         .map((h, i) => (h === theme[i] ? null : `slot ${i + 1}: baked ${h}, theme ${theme[i]}`))
         .filter(Boolean);

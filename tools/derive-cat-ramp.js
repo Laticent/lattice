@@ -50,7 +50,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { resolveTokenExpr } = require('../lib/core/resolve-token-expr.js');
-const { hexToOklab, oklabDistance, contrastRatio, withLightness } = require('../lib/theme/color.js');
+const { hexToOklab, hexToOklch, oklabDistance, contrastRatio, withLightness } = require('../lib/theme/color.js');
 const { solveRamp, requiredPairs, tierOf, FLOOR, SCOPE } = require('../lib/theme/cat-ramp.js');
 const { solveInkArm } = require('../lib/theme/cat-ink.js');
 const { mergedVars } = require('./composed-contrast.js');
@@ -82,9 +82,27 @@ const TEXTURE_FIRST = new Set(['a11y-base', 'onyx', 'concrete']);
  * Mermaid pie actually paints on the light canvas — did take §6's spread.
  */
 const SANCTIONED_SHORTFALLS = {
-  'a11y-base light mark wash': 0.0285,
-  'a11y-base dark mark wash': 0.0285,
-  'concrete dark mark wash': 0.0013,
+  // Flat hex: ONE mark ramp serves both canvases and owes a legible `--cat-N-ink` arm
+  // on both. Clearing the floor needs a span `derive-cat-ink` cannot lift twelve inks
+  // clear of #000000 over. 0.0289 is the widest ramp whose ink arm still solves.
+  'a11y-base light mark wash': 0.0289,
+  'a11y-base dark mark wash': 0.0289,
+  // The monochromacy floor and the chroma budget both bite here. Reaching 0.1050
+  // adjacent needs lightness range these ramps can only buy by clipping chroma past
+  // the 80% rung or by placing two slots at the same L — which is what
+  // LIGHTNESS_SPREAD_MIN exists to stop. Improved from 0.0298 / 0.0584 / 0.0564.
+  'ardesia dark fill sat': 0.1021,
+  'crepuscolo light mark sat': 0.1034,
+  'carbone dark mark sat': 0.0755,
+  // `concrete`'s fills sit between a light canvas and white. A twelve-step ramp needs
+  // more range than that gap holds while each chip keeps its footing on the canvas
+  // (GROUND_COMFORT), and the chips are what a `list-steps` badge paints with no
+  // border. §6's luminance ramp is not reachable without giving that up.
+  'concrete light fill wash': 0.0054,
+  'concrete dark mark wash': 0.0054,
+  // Same shape as concrete, one rung better: onyx's dark fills reach 0.0276 before the
+  // ink arm and the canvas floor between them close the band.
+  'onyx dark fill wash': 0.0276,
 };
 /** The contrast thresholds `checkCatContrast` holds; the bands mirror them exactly. */
 const EDGE_FLOOR = 3.0;
@@ -99,6 +117,45 @@ const TEXT_FLOOR = 4.5;
  * of its own fill. A margin that rejects the tree it is measuring is too big.
  */
 const COLLAPSE_FLOOR = 1.26;
+/**
+ * How far above the collapse gate a solve should actually land. 1.26 is the margin that
+ * keeps a value from ROUNDING through the 1.25 gate; it is not a target. Solving to it
+ * put `onyx` and the whole a11y family at 1.266 on slot 12 — one percent of headroom on
+ * a gate whose failure message is "fill == mark". So a slot keeps the separation it
+ * shipped with, up to this, and a palette already below it is simply not eroded.
+ */
+const COLLAPSE_COMFORT = 1.40;
+/**
+ * The most chroma a solved value may lose to gamut clipping.
+ *
+ * "Lightness only, hue and chroma held" was not true of the first cut, and the place it
+ * broke is the place it matters: `carbone`'s pale mint `--cat-1-fill` sits at L 0.966,
+ * and pushing it to 0.990 leaves nowhere to put the chroma, so `oklchToHex` clipped 65%
+ * of it away and the chip went effectively white. A palette whose whole identity is
+ * pale tints cannot pay for separation in the one channel that carries it. Two slots on
+ * `carbone` crossed 25%; this bounds it for every palette.
+ *
+ * A LADDER, like the collapse comfort below it: 90% is the default, and a ramp that
+ * cannot reach its separation floor inside that budget may spend down to 80% rather
+ * than give up the floor entirely. What is not on offer is the 65% the first cut took
+ * silently. Both rungs are reported, so a palette that spent the second one says so.
+ */
+const CHROMA_KEEP = [0.90, 0.80];
+/**
+ * How much contrast a fill keeps against its own canvas.
+ *
+ * `checkCatContrast` never measures fill-vs-bg — the wash tier is deliberately low
+ * contrast, delineated by the mark's border — so nothing caught `onyx-dark`'s slot 1
+ * dropping to 1.16:1 against #000000 and 1.04:1 against --bg-alt, which on a
+ * `list-steps` badge (no border, by construction) is a black chip on black.
+ *
+ * A flat floor is wrong here: the tier IS meant to sit close to the canvas, and
+ * `atelier` already ships a slot at 1.00 against --bg-alt. A pure no-erosion ratchet is
+ * wrong too — it froze `carbone`, whose pale fills sit far from a dark canvas, because
+ * every move toward that canvas erodes a ratio that had enormous margin. So: hold this
+ * much, but never ask for more than the palette already delivered.
+ */
+const GROUND_COMFORT = 1.25;
 const SLOTS = 12;
 
 /** Palettes that declare their own cycle. The `-dark` faces just @import and flip scheme. */
@@ -130,7 +187,22 @@ function cycleOwners() {
  * (measured by walking the ramp's bottom down against `solveInkArm` — it stays green
  * to 0.239 and the shipped bottom is 0.301).
  */
-function bandFor(hex, kind, { bg, onFill, onMark }, unbound, counterpart) {
+function bandFor(hex, kind, { bg, bgAlt, onFill, onMark }, unbound, counterpart, collapseTarget = COLLAPSE_COMFORT, chromaKeep = CHROMA_KEEP[0]) {
+  const shippedChroma = hexToOklch(hex).C;
+  // Gamut clipping is the only way lightness can spend chroma; bound it rather than
+  // discovering it in a rendered deck. A slot with no chroma to lose is unaffected.
+  const keepsChroma = (h) => shippedChroma < 1e-4 || hexToOklch(h).C >= chromaKeep * shippedChroma;
+  // A fill keeps its footing on its own canvas — see GROUND_COMFORT.
+  // MEASURED AGAINST `--bg` ONLY, not min(bg, bg-alt). `--bg-alt` sits INSIDE the wash
+  // band by construction, so a fill moving down through it dips to 1.00 against it and
+  // back out — a measure-zero crossing that a contiguous band reads as a wall. On
+  // `carbone`, whose two canvases straddle the fills, that left 0.014 of lightness range
+  // and froze the ramp. A fill darker than `--bg-alt` is not a defect; a fill that has
+  // vanished into the canvas is, and `--bg` is what catches that.
+  const ground = (h) => contrastRatio(h, bg);
+  const groundNeeded = kind === 'fill' ? Math.min(GROUND_COMFORT, ground(hex)) : 0;
+  const holdsGround = (h) => kind !== 'fill' || ground(h) >= groundNeeded - 1e-9;
+  void bgAlt;
   const contrastOk = kind === 'fill'
     ? (h) => contrastRatio(onFill, h) >= TEXT_FLOOR
     : (h) => contrastRatio(h, bg) >= EDGE_FLOOR && contrastRatio(onMark, h) >= TEXT_FLOOR;
@@ -139,8 +211,15 @@ function bandFor(hex, kind, { bg, onFill, onMark }, unbound, counterpart) {
   // because a lightness NEAR the counterpart's collapses the two tiers into one
   // color. So the band is scanned as intervals and the one holding the shipped
   // value is returned, rather than [min, max] spanning straight across the hole.
+  // Keep the separation the slot shipped with, up to COLLAPSE_COMFORT — never solve to
+  // the gate's wall, and never demand more than the palette already delivered.
+  const collapseNeeded = counterpart
+    ? Math.max(COLLAPSE_FLOOR, Math.min(collapseTarget, contrastRatio(hex, counterpart)))
+    : 0;
   const ok = (h) => (unbound || contrastOk(h))
-    && (!counterpart || contrastRatio(h, counterpart) >= COLLAPSE_FLOOR);
+    && keepsChroma(h)
+    && holdsGround(h)
+    && (!counterpart || contrastRatio(h, counterpart) >= collapseNeeded);
 
   const shippedL = hexToOklab(hex).L;
   const intervals = [];
@@ -151,12 +230,28 @@ function bandFor(hex, kind, { bg, onFill, onMark }, unbound, counterpart) {
   }
   if (open !== null) intervals.push([open, 0.99]);
   if (!intervals.length) return null;
+  // TWO KINDS OF HOLE, and telling them apart is what makes this band usable.
+  //
+  // A hole at the COUNTERPART's lightness may not be crossed: moving a mark past its
+  // own fill inverts the slot's two tiers. A hole at the CANVAS may be — a chip darker
+  // than the slide is ordinary, and only a chip sitting AT the canvas lightness
+  // disappears. Treating both as walls trapped `concrete`'s fills between a light
+  // canvas and white with 0.09 of range, which is not enough for twelve slots and cost
+  // it §6's luminance ramp.
+  //
+  // So: prefer the interval holding the shipped value; if it is too small to be useful,
+  // take the largest interval on the SAME SIDE of the counterpart, which is exactly the
+  // set reachable without a tier inversion.
+  const counterL = counterpart ? hexToOklch(counterpart).L : null;
+  const sameSide = ([lo, hi]) => counterL === null
+    || (shippedL > counterL ? lo > counterL - 1e-9 : hi < counterL + 1e-9);
   const holding = intervals.find(([lo, hi]) => shippedL >= lo - 1e-9 && shippedL <= hi + 1e-9);
+  const room = ([lo, hi]) => hi - lo;
+  const reachable = intervals.filter(sameSide);
+  const widest = reachable.length ? reachable.reduce((a, b) => (room(b) > room(a) ? b : a)) : null;
+  if (holding && (!widest || room(holding) >= room(widest))) return holding;
+  if (widest) return widest;
   if (holding) return holding;
-  // The shipped value sits in a hole — usually a hair outside the collapse margin.
-  // Take the NEAREST interval, not the widest: the widest is often on the far side
-  // of the counterpart tier, and moving a mark across its own fill to gain range
-  // inverts the slot's two tiers to satisfy a rounding margin.
   const distance = ([lo, hi]) => (shippedL < lo ? lo - shippedL : shippedL - hi);
   return intervals.reduce((a, b) => (distance(b) < distance(a) ? b : a));
 }
@@ -173,13 +268,13 @@ function readMode(palette, isDark) {
     fill,
     mark,
     saturated: tierOf(fill, mark),
-    surfaces: { bg: at('bg'), onFill: at('cat-on-fill'), onMark: at('cat-on-mark') },
+    surfaces: { bg: at('bg'), bgAlt: at('bg-alt'), onFill: at('cat-on-fill'), onMark: at('cat-on-mark') },
   };
 }
 
 /** Solve one palette's four ramps (fill/mark x light/dark). */
-function solvePalette(palette) {
-  const out = { palette, ramps: [], errors: [], shortfalls: [] };
+function solvePalette(palette, { measureOnly = false } = {}) {
+  const out = { palette, ramps: [], errors: [], shortfalls: [], spent: [] };
   // A FLAT-HEX palette declares one value per token instead of `light-dark(L, D)`,
   // so a single ramp serves BOTH canvases and owes a legible ink arm on both. Every
   // other palette solves its two canvases as separate ramps, and vetoing a light-mode
@@ -204,10 +299,33 @@ function solvePalette(palette) {
         continue;
       }
       const other = kind === 'fill' ? placed.mark : placed.fill;
-      const bands = hexes.map((h, i) => bandFor(h, kind, read.surfaces, /^a11y-/.test(palette), other?.[i]));
-      if (bands.some((b) => !b)) {
+      // COMFORT IS SPENT, NOT DEMANDED. Holding 1.40 between a slot's two tiers is the
+      // right default — solving to the 1.25 gate's wall is what put `onyx` slot 12 at
+      // 1.266 — but on `carbone` that margin costs the fill ramp more lightness range
+      // than twelve slots need, and the ramp then cannot move at all. So the comfort
+      // level is tried first and given back only when it is the thing in the way.
+      const needRoom = SCOPE[tier] === 'all-pairs' ? FLOOR[tier] * (SLOTS - 1) : FLOOR[tier];
+      let bands = null;
+      let spent = null;
+      for (const chromaKeep of CHROMA_KEEP) {
+        for (const target of [COLLAPSE_COMFORT, COLLAPSE_FLOOR]) {
+          const attempt = hexes.map((h, i) => bandFor(h, kind, read.surfaces, /^a11y-/.test(palette), other?.[i], target, chromaKeep));
+          if (attempt.some((b) => !b)) continue;
+          if (!bands) { bands = attempt; spent = { chromaKeep, target }; }
+          if (Math.min(...attempt.map(([lo, hi]) => hi - lo)) >= needRoom) {
+            bands = attempt;
+            spent = { chromaKeep, target };
+            break;
+          }
+        }
+        if (bands && Math.min(...bands.map(([lo, hi]) => hi - lo)) >= needRoom) break;
+      }
+      if (!bands) {
         out.errors.push(`${palette} ${isDark ? 'dark' : 'light'} ${kind}: a slot has no lightness that satisfies the contrast contract — the hue itself has to change.`);
         continue;
+      }
+      if (spent.chromaKeep !== CHROMA_KEEP[0] || spent.target !== COLLAPSE_COMFORT) {
+        out.spent.push(`${palette} ${isDark ? 'dark' : 'light'} ${kind}: kept ${(spent.chromaKeep * 100).toFixed(0)}% chroma, held ${spent.target.toFixed(2)}:1 between tiers (defaults ${(CHROMA_KEEP[0] * 100).toFixed(0)}% / ${COLLAPSE_COMFORT.toFixed(2)}) — the floor needed the room.`);
       }
       // Rounded to the same 4dp the solver reports, so an untouched ramp cannot trip
       // the anti-erosion guard below on a float tail.
@@ -236,6 +354,16 @@ function solvePalette(palette) {
         return true;
       };
       const r = solveRamp(hexes, { floor: FLOOR[tier], scope: SCOPE[tier], bandLo: bands.map((b) => b[0]), bandHi: bands.map((b) => b[1]), accept });
+      // `--check` asks what the COMMITTED ramp measures, not what a fresh solve would
+      // produce. Re-solving there re-enters the ladder from an already-solved start and
+      // can land a hair lower, which trips the anti-erosion guard below and reports a
+      // refusal that describes nothing in the tree.
+      if (measureOnly) {
+        placed[kind] = hexes;
+        out.ramps.push({ mode: isDark ? 'dark' : 'light', kind, tier, hexes, before, worst: before, worstPair: '-', moved: 0, ok: before >= FLOOR[tier] });
+        continue;
+      }
+
       // A CONSTRAINT SET WITH NO SOLUTION STILL RETURNS A RAMP, and cyclic projection
       // under infeasibility settles on a compromise that can be WORSE than where it
       // started — `a11y-base` came back at 0.016 against a shipped 0.018 while the
@@ -273,15 +401,17 @@ function main() {
   const mode = process.argv.includes('--check') ? 'check' : process.argv.includes('--report') ? 'report' : 'write';
   const errors = [];
   const shortfalls = [];
+  const spent = [];
   const committed = new Map();
   let wrote = 0;
   let movedTotal = 0;
   const rows = [];
 
   for (const palette of cycleOwners()) {
-    const solved = solvePalette(palette);
+    const solved = solvePalette(palette, { measureOnly: mode === 'check' });
     errors.push(...solved.errors);
     shortfalls.push(...solved.shortfalls);
+    spent.push(...solved.spent);
     const file = path.join(THEMES, `${palette}.css`);
     let css = fs.readFileSync(file, 'utf8');
     const flat = !/--cat-1-fill:\s*light-dark\(/.test(css);
@@ -337,6 +467,9 @@ function main() {
   // A SHORTFALL IS NOT AN ERROR. A palette can be improved as far as its own
   // contract allows and still not reach the floor; saying so is the point, and
   // burying it in an exit code would just get the tool switched off.
+  if (spent.length) {
+    console.log(`\nspent a comfort margin to reach the floor:\n  ${spent.join('\n  ')}`);
+  }
   if (shortfalls.length) {
     console.log(`\nshort of the floor, improved as far as the palette allows:\n  ${shortfalls.join('\n  ')}`);
   }

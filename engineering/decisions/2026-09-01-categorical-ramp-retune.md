@@ -47,7 +47,7 @@ Measured on the shipped tree before this change:
 | concrete | light fill | 0.898 – 0.903 |
 
 At equal lightness the entire OKLab distance between two slots is their distance in the a/b
-plane — their hue and chroma. So any two neighbours on the color wheel had nothing at all, and the
+plane — their hue and chroma. So any two neighbors on the color wheel had nothing at all, and the
 ramp's separation was an accident of how the twelve curated hues happened to be ordered.
 
 **The fix is to solve the twelve together.** Lightness is the lever, for two reasons: it is the one
@@ -68,8 +68,8 @@ pair**, and an adjacency gate structurally cannot see it:
 
 | indaco light fill | before | after |
 |---|---|---|
-| slots 5 ^ 10 (`#D1C5DC` vs `#D9C7DC`) | **0.0130** | **0.0574** |
-| slots 3 ^ 8 (`#E7BEBE` vs `#E6C1C8`) | **0.0132** | **0.0321** |
+| slots 5 ^ 10 (`#D1C5DC` vs `#D9C7DC`) | **0.0130** | **0.0584** |
+| slots 3 ^ 8 (`#E7BEBE` vs `#E6C1C8`) | **0.0132** | **0.0296** |
 
 Those are the two hex pairs the 2026-08-31 note quoted as "the same color in the render". Under an
 adjacent-only re-tune both would have survived untouched while every gate went green — which is the
@@ -102,8 +102,20 @@ folklore.
 **255 values across 15 palette files** (the 18 `-dark` faces `@import` and flip scheme; they
 declare no cycle of their own). Every value is a lightness move on a held hue.
 
-**The catalog: 75 readings below floor -> 6.** All six are sanctioned in both
-`tools/derive-cat-ramp.js` and the gate, each with the conflict that causes it:
+**The catalog, counted two ways — and the units matter, because an earlier draft of this
+note quoted "75 -> 6" and those are two different measurements:**
+
+| metric | before | after |
+|---|---|---|
+| `(theme, tier)` readings below their floor | **50** | **11** |
+| individual slot pairs below their floor | **456** of 2442 | **69** of 2442 |
+
+(The "75" that appears in `2026-08-31-categorical-adjacency-tier-swap.md` is a third
+metric again — the OLD gate's window of adjacent pairs among the first six slots. It is
+not comparable to either column here, and this note does not use it.)
+
+Every one of the 11 remaining readings is sanctioned in both `tools/derive-cat-ramp.js`
+and the gate, each with the conflict that causes it:
 
 | ramp | reaches | floor | why it cannot get there |
 |---|---|---|---|
@@ -115,6 +127,56 @@ declare no cycle of their own). Every value is a lightness move on a held hue.
 2026-08-31 note called that out by name: *"`concrete` is exempt … because it really does carry a
 texture channel, not because 0.0013 is a design."* Its light chips were twelve grays differing by
 ±2 in one channel; they are now a ramp.
+
+## What the adversarial trio changed, and what it cost
+
+The first cut of this change was measurably wrong in four ways, all found by the tier-2
+review (HARD RULE #25) and all reproduced before being fixed. They are recorded here
+because each one is a guardrail the solver now carries, and together they are why the
+catalog lands at 11 sanctioned shortfalls rather than 3.
+
+1. **"Hue and chroma are held exactly" was false.** Lightness is the only lever, but
+   `withLightness` clips at the sRGB gamut, and a pale tint pushed toward white has
+   nowhere to put its chroma. `carbone`'s `--cat-1-fill` lost **65%** of its chroma and
+   `--cat-3-fill` **73%** — a mint and a cyan chip rendering as near-neutral grays, on
+   the palette whose entire identity is pale tints. Now bounded by `CHROMA_KEEP`, a
+   two-rung budget (90%, then 80%) that reports which ramps spent the second rung.
+2. **Three ramps gained a pair at ΔE exactly 0.000 under achromatopsia** —
+   `carbone-dark`, `crepuscolo-dark` and `magnolia`. The saturated tier is held
+   adjacent-only, which left the solver free to place two NON-adjacent slots at the same
+   lightness; monochromacy keeps lightness and nothing else. That is the exact inverse of
+   this change's own argument for using lightness, and `cvd-audit.js` exits 0, so nothing
+   was going to say so. Now `LIGHTNESS_SPREAD_MIN` holds every pair on every ramp apart
+   in L, whatever the tier's scope.
+3. **`onyx` and the a11y family solved to the collapse gate's wall** — slot 12 at
+   1.266:1 against a 1.25 floor whose failure message reads "fill == mark". A margin is
+   not a target; `COLLAPSE_COMFORT` now holds the separation the slot shipped with, up to
+   1.40, and is spent only when it is the thing standing between a ramp and its floor.
+4. **`onyx-dark`'s fills lost their footing on the canvas** — slot 1 to 1.16:1 against
+   `#000000`, which on a `list-steps` badge (no border, by construction) is a black chip
+   on black. `checkCatContrast` never measures fill-vs-canvas, so nothing caught it.
+   `GROUND_COMFORT` now does, measured against `--bg` only: `--bg-alt` sits INSIDE the
+   wash band, so including it punched a hole at the crossing and froze `carbone` with
+   0.014 of range.
+
+**The cost is honest and worth stating plainly: these guardrails buy safety with
+separation.** Before them the solver reached the floor on all but 3 readings; after them,
+11 fall short. Every one of those is a measured conflict between this floor and a
+contract that already existed, not a rounding excuse — but a future reader should know
+that the number could be made to look better by removing a guard, and that would be the
+wrong trade.
+
+**The alternative that was measured and rejected.** The inversion argued this whole
+re-tune compensates in the TOKEN layer for a missing declaration in the RENDER layer:
+give the Mermaid pie a per-wedge `stroke: var(--cat-N-mark)` and the badges a border, and
+both surfaces gain a channel already separated at 0.1050+, with no brand value moved.
+Rendered, it does not work. On `indaco` the outline and the fill of the SAME wedge
+disagree by up to **165 degrees** of hue — the two tiers are different hue sequences on
+`indaco`, `carta` and `cuoio` — so a pale yellow wedge gets a rust outline: a conflicting
+channel, not a redundant one. On `concrete` and `onyx` the marks are muted near-grays by
+identity, so all twelve outlines look alike and carry no category at all. Making it work
+would mean re-hueing the mark tier to match the fill tier, which is a larger brand-value
+change than the re-tune it was proposed to avoid.
 
 ## The gate stops being a ratchet
 
@@ -145,14 +207,15 @@ one-byte drift.
 
 **The floor is a floor, not a target.** The 2026-08-31 note measured that inside indaco's own wash
 band and chroma ceiling there is room for 15 slots at ΔE 0.05 and 7 at 0.075. The catalog is now at
-0.0295–0.0318, so the headroom that note identified is still there and still unspent. Raising the
+0.0295–0.0317, so the headroom that note identified is still there and still unspent. Raising the
 floor is a separate decision with its own visual cost, and it would move the references.
 
-**The rendered change is real but subtle on a light canvas.** A before/after of the same twelve-wedge
-Mermaid pie on `indaco` differs in 62,356 pixels — the collapsed pairs genuinely separate — but the
-pale band is pale, and nobody will call it dramatic. That is what a 0.0295 floor buys. The honest
-claim is that categories which previously rendered as one color no longer do, not that the pie got
-prettier.
+**The rendered change is real but subtle on a light canvas.** The collapsed pairs genuinely
+separate, but the pale band is pale and nobody will call it dramatic. That is what a 0.0295 floor
+buys. The honest claim is that categories which previously rendered as one color no longer do — not
+that the pie got prettier. An independent audit put it more sharply: measured against this repo's
+own 0.15 distinctness reference (`lib/theme/color.js`), all 66 of `indaco`'s light wash pairs are
+still below it. #1864 asked for 0.15 and 0.15 is not reachable by lightness alone.
 
 ## Verification
 
@@ -162,7 +225,7 @@ Rendered and looked at, real export path, both canvases (HARD RULE #23): `exampl
 on the reasoning that the tier swap is where the failure mode could invert; it is now rendered and
 correct, twelve distinguishable jewel tones with legible labels.
 
-Gates: `npm run lint`, `npm test` (7757 pass), `npm run build:check`. The solver is idempotent —
+Gates: `npm run lint`, `npm test` (7761 pass), `npm run build:check`. The solver is idempotent —
 a second run rewrites nothing — and `node tools/derive-cat-ramp.js --check` verifies the committed
 ramps against the contract rather than against byte-identity, because the values stay
 hand-authorable and a designer who re-hues a slot must not be told they are wrong.

@@ -44,7 +44,7 @@
  *     too, but because all-pairs is not reachable: holding hue and chroma fixed, five
  *     ramps (`brina` light, `burgundy` dark, `carbone` light, both `cuoio` faces)
  *     cannot pairwise clear 0.1050 inside their own contrast bands. Getting there
- *     means re-hueing brand colours, which is a larger decision than this one and is
+ *     means re-hueing brand colors, which is a larger decision than this one and is
  *     recorded as not taken.
  *
  * BOTH FLOORS ARE §5's NAMED REFERENCES' OWN PRE-RE-TUNE VALUES — the smallest reading
@@ -84,7 +84,7 @@ const REFERENCES = ['indaco', 'indaco-dark', 'cuoio', 'cuoio-dark'];
 /**
  * §6's exempt bucket for the SATURATED floor: their categorical channel is the
  * `--cat-N-texture` pattern, not hue, so measuring hue separation measures the wrong
- * thing — and a twelve-step luminance ramp cannot reach 0.1050 between neighbours in
+ * thing — and a twelve-step luminance ramp cannot reach 0.1050 between neighbors in
  * any case (it would need more lightness range than the axis has). Membership is
  * checked against the tree below. They are NOT exempt from the wash floor: that is
  * the channel the pie paints, and `onyx` and `concrete` both clear it.
@@ -113,58 +113,84 @@ const TEXTURE_FIRST = new Set([
  * §6's luminance spread, 0.0013 -> 0.0316.
  */
 const SANCTIONED_SHORTFALLS = new Map([
-  ['a11y-achromatopsia wash', 0.0285],
-  ['a11y-base wash', 0.0285],
-  ['a11y-deuteranopia wash', 0.0285],
-  ['a11y-protanopia wash', 0.0285],
-  ['a11y-tritanopia wash', 0.0285],
-  ['concrete-dark wash', 0.0013],
+  // The a11y family declares FLAT hex, so ONE mark ramp serves both canvases and owes a
+  // legible `--cat-N-ink` arm on both. Clearing the floor needs a lightness span
+  // `derive-cat-ink` cannot lift twelve inks clear of the #000000 canvas over. 0.0289 is
+  // the widest ramp whose ink arm still solves, against a shipped 0.0180.
+  ['a11y-achromatopsia wash', 0.0289],
+  ['a11y-base wash', 0.0289],
+  ['a11y-deuteranopia wash', 0.0289],
+  ['a11y-protanopia wash', 0.0289],
+  ['a11y-tritanopia wash', 0.0289],
+  // Reaching 0.1050 adjacent on these three needs lightness range they can only buy by
+  // clipping chroma past the solver's second rung, or by placing two slots at the same
+  // L — which is exactly what the monochromacy floor exists to stop. Improved from
+  // 0.0298, 0.0564 and 0.0584 respectively.
+  ['ardesia-dark sat', 0.1021],
+  ['carbone-dark sat', 0.0755],
+  ['crepuscolo sat', 0.1034],
+  // `concrete`'s chips sit between a light canvas and white. A twelve-step ramp needs
+  // more range than that gap holds while each chip keeps its footing on the canvas —
+  // and the chips are what a `list-steps` badge paints, with no border. §6's luminance
+  // ramp is not reachable without giving that up. `onyx` is the same shape, one rung
+  // better.
+  ['concrete wash', 0.0054],
+  ['concrete-dark wash', 0.0054],
+  ['onyx-dark wash', 0.0276],
 ]);
 /** Absorbs last-digit movement in the pinned table, nothing more — the sibling arm's value. */
 const EROSION_TOLERANCE = 0.002;
 
 /**
- * theme -> { saturated, sat, wash } on the theme's SHIPPED canvas mode, where `sat`
- * and `wash` are each that tier's WORST reading at its own scope.
+ * theme -> { saturated, sat, wash } on the theme's SHIPPED canvas mode, where `sat` and
+ * `wash` are each that tier's FIVE LOWEST readings at its own scope, ascending.
+ *
+ * FIVE, NOT ONE, and that is a coverage fix rather than decoration. An earlier cut of
+ * this rewrite pinned only the worst reading per tier, and an audit mutation-proved what
+ * that misses: eroding `onyx`'s pair 1^2 from 0.0304 to 0.0273 — past the tolerance —
+ * left the minimum sitting elsewhere at 0.0258, so the gate certified it. The version
+ * this file replaced pinned five explicit pairs per tier and would have caught it. Five
+ * LOWEST rather than five NAMED pairs, because the scopes differ per tier (11 adjacent
+ * against 66 all-pairs) and the at-risk pairs are the small ones wherever they sit.
  *
  * `saturated` names which TOKEN carries the chroma, recorded as well as checked: it is
  * derived, so a derivation change that silently swapped it would otherwise be
  * invisible, and reading the wrong tier is a factor-of-twelve error.
  */
 const PINNED = new Map([
-  ['a11y-achromatopsia', { saturated: 'fill', sat: 0.0258, wash: 0.0285 }],
-  ['a11y-base', { saturated: 'fill', sat: 0.0258, wash: 0.0285 }],
-  ['a11y-deuteranopia', { saturated: 'fill', sat: 0.0258, wash: 0.0285 }],
-  ['a11y-protanopia', { saturated: 'fill', sat: 0.0258, wash: 0.0285 }],
-  ['a11y-tritanopia', { saturated: 'fill', sat: 0.0258, wash: 0.0285 }],
-  ['ardesia', { saturated: 'mark', sat: 0.1053, wash: 0.0301 }],
-  ['ardesia-dark', { saturated: 'fill', sat: 0.1052, wash: 0.0298 }],
-  ['atelier', { saturated: 'mark', sat: 0.1050, wash: 0.0307 }],
-  ['atelier-dark', { saturated: 'fill', sat: 0.1071, wash: 0.0297 }],
-  ['brina', { saturated: 'mark', sat: 0.1644, wash: 0.0295 }],
-  ['brina-dark', { saturated: 'fill', sat: 0.1569, wash: 0.0296 }],
-  ['burgundy', { saturated: 'mark', sat: 0.1054, wash: 0.0295 }],
-  ['burgundy-dark', { saturated: 'fill', sat: 0.1053, wash: 0.0305 }],
-  ['carbone', { saturated: 'mark', sat: 0.1051, wash: 0.0298 }],
-  ['carbone-dark', { saturated: 'mark', sat: 0.1051, wash: 0.0308 }],
-  ['carta', { saturated: 'mark', sat: 0.1072, wash: 0.0297 }],
-  ['carta-dark', { saturated: 'fill', sat: 0.1050, wash: 0.0299 }],
-  ['concrete', { saturated: 'mark', sat: 0.0255, wash: 0.0295 }],
-  ['concrete-dark', { saturated: 'fill', sat: 0.0322, wash: 0.0013 }],
-  ['crepuscolo', { saturated: 'mark', sat: 0.1063, wash: 0.0301 }],
-  ['crepuscolo-dark', { saturated: 'fill', sat: 0.1058, wash: 0.0298 }],
-  ['cuoio', { saturated: 'mark', sat: 0.1070, wash: 0.0300 }],
-  ['cuoio-dark', { saturated: 'fill', sat: 0.1655, wash: 0.0305 }],
-  ['indaco', { saturated: 'mark', sat: 0.1072, wash: 0.0297 }],
-  ['indaco-dark', { saturated: 'fill', sat: 0.1050, wash: 0.0299 }],
-  ['laguna', { saturated: 'mark', sat: 0.1059, wash: 0.0296 }],
-  ['laguna-dark', { saturated: 'fill', sat: 0.1059, wash: 0.0295 }],
-  ['magnolia', { saturated: 'mark', sat: 0.1110, wash: 0.0303 }],
-  ['magnolia-dark', { saturated: 'fill', sat: 0.1096, wash: 0.0305 }],
-  ['mustard', { saturated: 'mark', sat: 0.1051, wash: 0.0295 }],
-  ['mustard-dark', { saturated: 'fill', sat: 0.1064, wash: 0.0303 }],
-  ['onyx', { saturated: 'fill', sat: 0.0258, wash: 0.0302 }],
-  ['onyx-dark', { saturated: 'mark', sat: 0.0258, wash: 0.0302 }],
+  ['a11y-achromatopsia', { saturated: 'fill', sat: [0.0258, 0.0267, 0.0276, 0.0278, 0.0280], wash: [0.0289, 0.0294, 0.0306, 0.0309, 0.0313] }],
+  ['a11y-base', { saturated: 'fill', sat: [0.0258, 0.0267, 0.0276, 0.0278, 0.0280], wash: [0.0289, 0.0294, 0.0306, 0.0309, 0.0313] }],
+  ['a11y-deuteranopia', { saturated: 'fill', sat: [0.0258, 0.0267, 0.0276, 0.0278, 0.0280], wash: [0.0289, 0.0294, 0.0306, 0.0309, 0.0313] }],
+  ['a11y-protanopia', { saturated: 'fill', sat: [0.0258, 0.0267, 0.0276, 0.0278, 0.0280], wash: [0.0289, 0.0294, 0.0306, 0.0309, 0.0313] }],
+  ['a11y-tritanopia', { saturated: 'fill', sat: [0.0258, 0.0267, 0.0276, 0.0278, 0.0280], wash: [0.0289, 0.0294, 0.0306, 0.0309, 0.0313] }],
+  ['ardesia', { saturated: 'mark', sat: [0.1053, 0.1060, 0.1066, 0.1698, 0.2105], wash: [0.0310, 0.0325, 0.0353, 0.0354, 0.0362] }],
+  ['ardesia-dark', { saturated: 'fill', sat: [0.1021, 0.1037, 0.1149, 0.2007, 0.2073], wash: [0.0299, 0.0301, 0.0307, 0.0313, 0.0319] }],
+  ['atelier', { saturated: 'mark', sat: [0.1050, 0.1305, 0.1778, 0.1951, 0.2241], wash: [0.0312, 0.0324, 0.0341, 0.0351, 0.0365] }],
+  ['atelier-dark', { saturated: 'fill', sat: [0.1063, 0.1530, 0.1792, 0.2004, 0.2771], wash: [0.0297, 0.0301, 0.0302, 0.0306, 0.0311] }],
+  ['brina', { saturated: 'mark', sat: [0.1655, 0.1997, 0.2122, 0.2168, 0.2308], wash: [0.0299, 0.0305, 0.0318, 0.0324, 0.0441] }],
+  ['brina-dark', { saturated: 'fill', sat: [0.1572, 0.2047, 0.2067, 0.2121, 0.2302], wash: [0.0305, 0.0305, 0.0307, 0.0317, 0.0389] }],
+  ['burgundy', { saturated: 'mark', sat: [0.1055, 0.1078, 0.1994, 0.2130, 0.2557], wash: [0.0299, 0.0305, 0.0324, 0.0324, 0.0441] }],
+  ['burgundy-dark', { saturated: 'fill', sat: [0.1050, 0.1353, 0.1534, 0.1926, 0.2375], wash: [0.0303, 0.0304, 0.0320, 0.0324, 0.0368] }],
+  ['carbone', { saturated: 'mark', sat: [0.1084, 0.1092, 0.1193, 0.1253, 0.1265], wash: [0.0306, 0.0310, 0.0312, 0.0312, 0.0313] }],
+  ['carbone-dark', { saturated: 'mark', sat: [0.0755, 0.0896, 0.0912, 0.0930, 0.0943], wash: [0.0317, 0.0319, 0.0320, 0.0322, 0.0326] }],
+  ['carta', { saturated: 'mark', sat: [0.1051, 0.1051, 0.1637, 0.1886, 0.1976], wash: [0.0295, 0.0297, 0.0298, 0.0310, 0.0337] }],
+  ['carta-dark', { saturated: 'fill', sat: [0.1426, 0.1649, 0.1705, 0.1837, 0.2263], wash: [0.0295, 0.0298, 0.0299, 0.0301, 0.0301] }],
+  ['concrete', { saturated: 'mark', sat: [0.0255, 0.0368, 0.0390, 0.0409, 0.0501], wash: [0.0054, 0.0080, 0.0106, 0.0108, 0.0127] }],
+  ['concrete-dark', { saturated: 'fill', sat: [0.0322, 0.0368, 0.0452, 0.0478, 0.0501], wash: [0.0054, 0.0080, 0.0106, 0.0108, 0.0127] }],
+  ['crepuscolo', { saturated: 'mark', sat: [0.1034, 0.1079, 0.1333, 0.2030, 0.2151], wash: [0.0310, 0.0325, 0.0353, 0.0354, 0.0362] }],
+  ['crepuscolo-dark', { saturated: 'fill', sat: [0.1070, 0.1125, 0.1414, 0.2125, 0.2461], wash: [0.0299, 0.0301, 0.0307, 0.0313, 0.0319] }],
+  ['cuoio', { saturated: 'mark', sat: [0.1055, 0.1066, 0.1453, 0.1815, 0.1828], wash: [0.0302, 0.0306, 0.0310, 0.0323, 0.0330] }],
+  ['cuoio-dark', { saturated: 'fill', sat: [0.1780, 0.2045, 0.2113, 0.2332, 0.2355], wash: [0.0296, 0.0299, 0.0302, 0.0305, 0.0312] }],
+  ['indaco', { saturated: 'mark', sat: [0.1051, 0.1051, 0.1637, 0.1886, 0.1976], wash: [0.0296, 0.0305, 0.0312, 0.0318, 0.0328] }],
+  ['indaco-dark', { saturated: 'fill', sat: [0.1428, 0.1652, 0.1714, 0.1854, 0.2259], wash: [0.0295, 0.0298, 0.0299, 0.0301, 0.0301] }],
+  ['laguna', { saturated: 'mark', sat: [0.1057, 0.1073, 0.1545, 0.2193, 0.2290], wash: [0.0315, 0.0318, 0.0320, 0.0355, 0.0369] }],
+  ['laguna-dark', { saturated: 'fill', sat: [0.1204, 0.1357, 0.1368, 0.2173, 0.2344], wash: [0.0302, 0.0302, 0.0306, 0.0314, 0.0316] }],
+  ['magnolia', { saturated: 'mark', sat: [0.1091, 0.1517, 0.1898, 0.2094, 0.2258], wash: [0.0301, 0.0306, 0.0310, 0.0328, 0.0441] }],
+  ['magnolia-dark', { saturated: 'fill', sat: [0.1084, 0.1757, 0.1808, 0.2024, 0.2308], wash: [0.0305, 0.0307, 0.0314, 0.0316, 0.0394] }],
+  ['mustard', { saturated: 'mark', sat: [0.1056, 0.2143, 0.2202, 0.2752, 0.2973], wash: [0.0299, 0.0306, 0.0326, 0.0345, 0.0444] }],
+  ['mustard-dark', { saturated: 'fill', sat: [0.1060, 0.2238, 0.2364, 0.2523, 0.2545], wash: [0.0299, 0.0299, 0.0301, 0.0304, 0.0367] }],
+  ['onyx', { saturated: 'fill', sat: [0.0258, 0.0267, 0.0276, 0.0278, 0.0280], wash: [0.0303, 0.0308, 0.0315, 0.0325, 0.0326] }],
+  ['onyx-dark', { saturated: 'mark', sat: [0.0258, 0.0267, 0.0276, 0.0278, 0.0280], wash: [0.0276, 0.0280, 0.0284, 0.0286, 0.0294] }],
 ]);
 
 const themeCss = (theme) => themeChain(theme, THEME_EDGES)
@@ -212,17 +238,18 @@ function measure(theme) {
   }));
   const satIsFill = peak(fill) > peak(mark);
   const worst = (hexes, scope) => {
-    let low = Infinity;
-    let pair = '';
-    for (const [i, j] of pairsFor(scope)) {
-      const d = +oklabDistance(hexes[i], hexes[j]).toFixed(4);
-      if (d < low) { low = d; pair = `${i + 1}^${j + 1}`; }
-    }
-    return { d: low, pair };
+    const readings = pairsFor(scope)
+      .map(([i, j]) => ({ d: +oklabDistance(hexes[i], hexes[j]).toFixed(4), pair: `${i + 1}^${j + 1}` }))
+      .sort((a, b) => a.d - b.d);
+    return { d: readings[0].d, pair: readings[0].pair, low: readings.slice(0, 5).map((r) => r.d) };
   };
   const sat = worst(satIsFill ? fill : mark, SCOPE.sat);
   const wash = worst(satIsFill ? mark : fill, SCOPE.wash);
-  return { saturated: satIsFill ? 'fill' : 'mark', sat: sat.d, satPair: sat.pair, wash: wash.d, washPair: wash.pair };
+  return {
+    saturated: satIsFill ? 'fill' : 'mark',
+    sat: sat.d, satPair: sat.pair, satLow: sat.low,
+    wash: wash.d, washPair: wash.pair, washLow: wash.low,
+  };
 }
 
 const now = new Map();
@@ -324,9 +351,12 @@ describe('categorical separation (reference-calibrated floors, per-tier scope)',
       const m = now.get(theme);
       if (!m) continue;
       for (const tier of ['sat', 'wash']) {
-        if (m[tier] < pin[tier] - EROSION_TOLERANCE) {
-          eroded.push(`${theme} ${tier}: pinned ${pin[tier].toFixed(4)}, now ${m[tier].toFixed(4)} (pair ${m[`${tier}Pair`]})`);
-        }
+        pin[tier].forEach((was, i) => {
+          const is = m[`${tier}Low`][i];
+          if (is != null && is < was - EROSION_TOLERANCE) {
+            eroded.push(`${theme} ${tier} rank ${i + 1}: pinned ${was.toFixed(4)}, now ${is.toFixed(4)}`);
+          }
+        });
       }
     }
     assert.deepEqual(eroded, [], `${eroded.length} pinned reading(s) eroded:\n  ${eroded.join('\n  ')}`);
