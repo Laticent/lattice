@@ -44,7 +44,7 @@ jobs:
       docs: ${{ steps.filter.outputs.docs == 'true' || github.event_name == 'merge_group' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         if: github.event_name != 'merge_group'
         with:
