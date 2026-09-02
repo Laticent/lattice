@@ -268,7 +268,10 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   pagination is `attr(data-marpit-pagination)` and not a counter**, and the fix follows it:
   `lib/core/section-index.js` stamps `data-lat-section` from one kernel through an HTML
   adapter (the engine) and a DOM adapter (the runtime, the only producer that reaches Marp),
-  and the stylesheet reads `attr()`. **Put the attribute on the element the pseudo belongs
+  and the stylesheet reads `attr()`. **Stamp at BOOT, not only at the end of a transform
+  pass**: marp-cli's PDF conversion captures the page early, and a number that needs no
+  transform to compute should not wait behind one. With the boot stamp, real marp-cli 4.5.0
+  numbers BOTH its HTML and its PDF output correctly (measured, four dividers, 01-04). **Put the attribute on the element the pseudo belongs
   to** — `attr()` resolves against the ORIGINATING element, so a value stamped on the
   section while the numeral rides `:is(h1,h2)::after` resolves to the empty string and the
   mark silently does not draw. The general lesson is about the evidence, not the CSS: this
