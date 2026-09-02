@@ -235,29 +235,58 @@ describe('the annotation is trailing-only', () => {
  * `/^<div class="below-note"/` and `class="below-note">`. Stamping a second class
  * (`.is-annotation`) silently stopped all four from matching an annotation note: measured,
  * an annotation on a splitting slide was no longer recognized as a trailing note at all.
- * They now share `hasClassToken` with the kernel (HARD RULE #1). This pins that, because
+ * They now share `tagHasClass` with the kernel (HARD RULE #1). This pins that, because
  * the failure is invisible — nothing throws, the note just lands somewhere else.
  */
 describe('the annotation stamp and the wrapper consumers', () => {
-  const { hasClassToken } = require('../../../lib/core/coda');
-  const fs2 = require('node:fs');
+  const { tagHasClass } = require('../../../lib/core/coda');
   const PLAIN = '<div class="below-note"><p>x</p></div>';
   const ANNOTATED = '<div class="below-note is-annotation"><p><em>x</em></p></div>';
 
-  test('hasClassToken matches a stamped wrapper and rejects a lookalike', () => {
-    assert.equal(hasClassToken(PLAIN, 'below-note'), true);
-    assert.equal(hasClassToken(ANNOTATED, 'below-note'), true, 'the stamp must not hide the wrapper');
-    assert.equal(hasClassToken('<div class="below-note-inner"><p>x</p></div>', 'below-note'), false,
+  test('tagHasClass matches a stamped wrapper and rejects a lookalike', () => {
+    assert.equal(tagHasClass(PLAIN, 'below-note'), true);
+    assert.equal(tagHasClass(ANNOTATED, 'below-note'), true, 'the stamp must not hide the wrapper');
+    assert.equal(tagHasClass('<div class="below-note-inner"><p>x</p></div>', 'below-note'), false,
       'a hyphenated lookalike must not match — `-` is a regex word boundary');
   });
 
-  test('no consumer still matches the wrapper by exact string', () => {
-    for (const rel of ['lib/core/split-envelope.js', 'lib/core/carousel.js']) {
-      const src = fs2.readFileSync(path.join(__dirname, '..', '..', '..', rel), 'utf8');
-      assert.equal(/\/\^<div class="below-note"\//.test(src), false,
-        `${rel} matches the wrapper by exact string — a second class silently breaks it`);
-      assert.equal(/class="below-note">/.test(src), false,
-        `${rel} matches the wrapper by exact string — a second class silently breaks it`);
+  /**
+   * BEHAVIORAL, not a source grep. The first cut of this test grepped two files for two
+   * literal spellings — and an independent checker showed that a mutation restoring the
+   * exact-string matcher passed it 16/16, as did the correct fix. A test that green-lights
+   * both the defect and its repair pins nothing. These call the real functions instead.
+   */
+  test('a STAMPED wrapper is still found as a trailing note', () => {
+    const { trailingMaterialOf } = require('../../../lib/core/split-envelope');
+    const inner = '<h2>T</h2><ul><li>a</li></ul>'
+      + '<div class="below-note is-annotation"><p><em>note</em></p></div>';
+    const note = trailingMaterialOf(inner).note;
+    assert.equal(note.length, 1, 'the `.is-annotation` stamp must not hide the wrapper');
+  });
+
+  test('a wrapper NESTED in a slot does not make the whole slot the note', () => {
+    // `el.outer` is the element INCLUDING descendants. Testing it made any block that
+    // merely CONTAINS a `.below-note` count as the note — a `.panel-right` slot came back
+    // as the note in full. The predicate must read the OPEN TAG.
+    const { trailingMaterialOf } = require('../../../lib/core/split-envelope');
+    const inner = '<h2>T</h2><div class="panel-left"><p>l</p></div>'
+      + '<div class="panel-right"><ul><li>a</li></ul>'
+      + '<div class="below-note"><p>note</p></div></div>';
+    const note = trailingMaterialOf(inner).note;
+    assert.equal(note.length, 0,
+      `a slot containing a note is not itself the note; got ${JSON.stringify(note.map((n) => n.outer.slice(0, 40)))}`);
+  });
+
+  test('the carousel reads a lede from a STAMPED wrapper, and agrees with the kernel', () => {
+    const { tagHasClass } = require('../../../lib/core/coda');
+    // The two implementations used to disagree on attribute ORDER: the carousel's regex
+    // ended `">`, so it silently required `class` last. One predicate now answers both.
+    for (const tag of ['<div class="below-note">', '<div class="below-note is-annotation">',
+      '<div id="x" class="below-note">', '<div class="below-note" data-k="1">']) {
+      assert.equal(tagHasClass(tag, 'below-note'), true, `should match: ${tag}`);
     }
+    assert.equal(tagHasClass('<div class="below-note-inner">', 'below-note'), false);
+    assert.equal(tagHasClass('<section data-class="below-note">', 'below-note'), false,
+      'data-class carries the RAW _class: payload, not the resolved list (#1358)');
   });
 });
