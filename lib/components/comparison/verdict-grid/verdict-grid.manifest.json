@@ -20,7 +20,11 @@
       "compare-table",
       "split across slides"
     ],
-    "note": "the cards crowd and badges lose legibility past four; a split run spotlights ONE option per page and carries a derived \u201cOption N of M \u00b7 comparing \u2026\u201d signal so the atomized tiers still read as a compared set (\u00a70b connected members)"
+    "note": "the cards crowd and badges lose legibility past four; a split run spotlights ONE option per page and carries a derived “Option N of M · comparing …” signal so the atomized tiers still read as a compared set (§0b connected members)"
+  },
+  "cards": {
+    "default": "center",
+    "withCoda": "stretch"
   },
   "density": {
     "axis": "item",

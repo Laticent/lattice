@@ -2533,7 +2533,9 @@ section.lat-split-cover.split-cover-compare-table .split-feat-h::after {
 /* ── Split BODY pages — a member looks the same on every page of the run ──────────
    A collection normally DISTRIBUTES its members to fill the bounded stage: checklist
    spreads its rows (`checklist.styles.css` — "rows distribute to fill the bounded
-   stage"), cards-grid tiles with `align-content: stretch`. That is right for a single
+   stage"), list-steps gives each step `flex:1`. (`cards-grid` used to be the example
+   here; its rows are content-height as of
+   2026-09-01-card-stack-vertical-alignment.md §9f.) That is right for a single
    slide, where filling the box is the composition — and wrong for a SPLIT run, where it
    means a page holding fewer members renders each one visibly larger. A 14-item
    checklist cut 5/5/4 would still show one page of noticeably taller rows; cut 6/6/2 (the
@@ -2601,9 +2603,11 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
   /* …and its content sits in the card's optical center rather than hugging the top edge
      of a now page-tall box. Every heavy member's card is the same shape — a wrap-flex row
      — and `actors` ALREADY resolves to `align-content: center`, so this brings cards-grid
-     and cards-stack (`flex-start`/`start`, right for a multi-card grid where cards align
-     at their tops) into line with it rather than inventing a treatment. Only ever applies
-     to a card that is alone on its page. */
+     and cards-stack into line with it rather than inventing a treatment. Only ever applies
+     to a card that is alone on its page. (When this was written, cards-grid and cards-stack
+     resolved to `flex-start`/`start` on their own containers. cards-grid resolves to
+     `center` now — §9f of the card-alignment note — which changes nothing here: this rule
+     wins at (0,6,2) on a split page either way.) */
   align-content: center;
 }
 

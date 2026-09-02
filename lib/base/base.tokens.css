@@ -1496,3 +1496,36 @@ section.flat {
   --elevation-card: 0 0 transparent;  /* a no-op shadow, not `none` — see the :root note */
   --elevation-berth: 0;
 }
+
+/* ── `cards:` — where a CARD ROW puts the height it does not need ────────────────────
+ * A row of cards is a wrapped flex container handed the full stage height. Stretching its
+ * lines to share that height makes a card holding one line of text as tall as the row,
+ * carrying the difference as empty space inside itself. Which composition is right depends
+ * on the component and on the slide's shape, so nobody guesses: the COMPONENT declares its
+ * default in its manifest (`cards`), the AUTHOR overrides it with `cards:` front matter or
+ * a per-slide `_class: cards-*`, and the ENGINE resolves the two and stamps the answer as
+ * `data-cards` (lib/core/resolve-cards.js). These eight rules are the whole CSS side of it —
+ * four for the resolved value, four for the coda arm below.
+ *
+ * NO `:root` DEFAULT, and no component-side fallback either. `--cards-align` is set here or
+ * nowhere, so a card row reads it in ONE declaration — `align-content: var(--cards-align)`
+ * — and no stylesheet encodes a default the engine cannot see. A component that declares
+ * nothing in its manifest is never stamped and never governed.
+ *
+ * THE CODA ARM. A slide ending in a key-insight / below-note panel wants a different
+ * composition, because `--coda-step` is measured from the STAGE: shrinking the cards adds
+ * the freed height to that step and the panel stops reading as a comment on the cards above
+ * it (48px becomes 239px centered, 431px topped). The engine cannot settle that on the
+ * export path — the cell is built after the token stream — so the manifest's `withCoda`
+ * value rides along as `data-cards-coda` and the shape test happens here, on the same
+ * direct-child `.cell-coda` contract coda.js builds to (`lib/core/coda.js`). The VALUE is the manifest's;
+ * only the test is CSS's.
+ * See engineering/decisions/2026-09-01-card-stack-vertical-alignment.md §10. */
+section[data-cards="center"]  { --cards-align: center; }
+section[data-cards="stretch"] { --cards-align: stretch; }
+section[data-cards="top"]     { --cards-align: flex-start; }
+section[data-cards="spread"]  { --cards-align: space-evenly; }
+section[data-cards-coda="center"]:has(> .cell-coda)  { --cards-align: center; }
+section[data-cards-coda="stretch"]:has(> .cell-coda) { --cards-align: stretch; }
+section[data-cards-coda="top"]:has(> .cell-coda)     { --cards-align: flex-start; }
+section[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-evenly; }

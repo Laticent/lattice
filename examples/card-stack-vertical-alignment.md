@@ -2,103 +2,109 @@
 marp: true
 theme: indaco
 paginate: true
-header: "Lattice · card-stack vertical alignment"
+header: "Lattice · the cards: register"
 ---
 
 <!-- _class: title silent -->
 
-# Cards that fill a box now use it
+# The author decides where a card row's spare height goes
 
-`Comparison · Evidence · Inventory`
+`cards: center · stretch · top · spread`
 
-Three layouts were handed the full height of the stage and pinned their content to the top of it.
-
----
-
-<!-- _class: decision -->
-<!-- _footer: "decision — the justification sits at the card's optical middle in every family." -->
-
-## A verdict card distributes the height the row gives it.
-
-- The pick, stated plainly.
-  - The chosen option leads with the verdict treatment and the reason it won, in one breath.
-- The road not taken.
-  - The alternative keeps its honest case — a decision against a straw man persuades no one.
+A row of cards gets the whole stage. When the cards are sparse, that height goes somewhere — and only the author knows where.
 
 ---
 
-<!-- _class: matrix-2x2 -->
-<!-- _footer: "matrix-2x2 — each quadrant is exactly half the stage, so its content is centered in it." -->
+<!-- _class: cards-grid cards-stretch -->
+<!-- _footer: "cards: stretch — what every deck did before the register. Now opt in." -->
 
-## Every quadrant is half the stage whether or not it needs to be.
+## Stretch fills the row, and a short card carries the difference.
 
-- High impact · Low effort.
-  - Quick wins
-  - Two per cell
-- High impact · High effort.
-  - Strategic bets
-  - Named plainly
-- Low impact · Low effort.
-  - Habit fillers
-  - Prune here
-- Low impact · High effort.
-  - Time sinks
-  - One suffices
+- What this used to do.
+  - Every deck rendered card rows this way.
+- Right when cards are full.
+  - A three-line card uses what it gets.
+- Wrong when they are sparse.
+  - A one-line card is as tall as the row.
+- Still worth asking for.
+  - A full grid, or one above a key-insight panel.
 
 ---
 
-<!-- _class: stats -->
-<!-- _footer: "stats — the tile is sized by its content. This fix only fires on an autosplit page, which no landscape deck produces." -->
+<!-- _class: cards-grid -->
+<!-- _footer: "cards: center — the default. This slide names no value at all." -->
 
-## A stat is a tile, not a panel.
+## Center shrinks the cards and centers the band.
 
-`The numbers the row was built to carry`
-
-1. 52.7%
-   - of the tile was empty
-2. 0.9%
-   - is empty now
-3. 148
-   - split pages fixed
-4. 313
-   - flagged cards gone
+- The default now.
+  - Omit the key and you get this.
+- Cards fit their text.
+  - Each line takes what its tallest card needs.
+- One gutter.
+  - Rows stay `gap` apart, matching the columns.
+- The cost.
+  - The band stops short of the stage floor.
 
 ---
 
-<!-- _class: list-tabular -->
-<!-- _footer: "list-tabular — the ledger was never a defect; its figures baseline-align by design." -->
+<!-- _class: verdict-grid cards-top -->
+<!-- _footer: "cards: top — the band sits under the headline rule; spare height collects at the bottom." -->
 
-## A ledger aligns its figures with the first line of the label.
+## Top anchors the band where the eye enters.
 
-1. Signal modernization
-   - Replaces 14 interlockings past their design life.
-2. Track and structures
-   - Clears 22 slow-orders and four at-risk bridges.
-3. Rolling stock overhaul
-   - Extends service life on 90 rail cars by 15 years.
-4. Power and substations
-   - Replaces three substations running beyond peak capacity.
+- **Under the rule.**
+  - [x] Gutter kept
+  - [/] Band centered
+  - Cards start below the headline. Nothing floats.
+- **Spare height below.**
+  - [x] Gutter kept
+  - [/] Band centered
+  - Spare height collects at the bottom.
+- **Composition void.**
+  - [x] Gutter kept
+  - [/] Band centered
+  - Where the content ends is the deck's business.
+
+---
+
+<!-- _class: verdict-grid cards-spread -->
+<!-- _footer: "cards: spread — the spare height is shared out between the rows." -->
+
+## Spread shares the height out between the rows.
+
+- **Rows move apart.**
+  - [x] Void gone
+  - [ ] Gutter kept
+  - The row gap grows; the column gap does not.
+- **Measured.**
+  - [x] Void gone
+  - [ ] Gutter kept
+  - Measured at 4.2x the column gutter.
+- **Use it deliberately.**
+  - [x] Void gone
+  - [ ] Gutter kept
+  - Two sparse rows carry it; a dense grid cannot.
 
 ---
 
 <!-- _class: list-criteria -->
-<!-- _footer: "What the measurement says the fix actually is." -->
+<!-- _footer: "How the register is built." -->
 
-## The defect is declarative, so the fix is a declaration.
+## One token, and every default survives it.
 
-- **Where the void lives picks the property**
-  - A definite height takes `justify-content`; a stretched card takes `align-content`.
-- **The axis picks it again, per family**
-  - The same list is a column at portrait and a row at square.
-- **A threshold cannot draw the line**
-  - Past 19% slack, 2,908 cards are one continuum.
-- **The computed style can**
-  - All 350 flagged cards compute `flex-start`; no centered card is flagged.
+- **A class sets a variable**
+  - `cards: top` stamps a class that sets `--cards-align`.
+- **Each row keeps its own default**
+  - Each row reads the variable with its own fallback.
+- **So a rule keeps its own default**
+  - `cards: center` stamps nothing; each fallback wins.
+- **And the splitter still wins**
+  - Split pages override it, so a run stays uniform.
 
 ---
 
 <!-- _class: closing -->
 
-## Three cells fixed, one retired.
+## Four values, one default, nothing forced.
 
-`One CSS property each — no register, no manifest field, no runtime measurement.`
+`center is the default — every other composition is one line of front matter away.`
