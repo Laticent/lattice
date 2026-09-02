@@ -8,79 +8,187 @@ header: "System design"
 acronyms:
   ACID: { expansion: atomicity consistency isolation durability, definition: "The four guarantees a classic transaction gives you: it all happens, the rules hold, concurrent work does not interleave visibly, and a commit survives a crash." }
   API: { expansion: application programming interface, definition: "The contract one system offers another — the operations, their inputs, and what they promise in return." }
-  CAP: { expansion: consistency availability partition tolerance, definition: "The observation that a system split by a network fault must choose between answering with possibly stale data and refusing to answer at all." }
-  CDN: { expansion: content delivery network, definition: "A fleet of caches placed near readers so bytes travel a short distance instead of crossing an ocean." }
-  CQRS: { expansion: command query responsibility segregation, definition: "Serving reads from a store shaped for reading and writes from a store shaped for writing, kept in step by a stream." }
-  CRUD: { expansion: create read update delete, definition: "The four operations most storage APIs expose, and the smallest useful vocabulary for a data model." }
+  CAP: { expansion: consistency availability partition tolerance, definition: "Split by a network fault, a system must answer with possibly stale data or refuse to answer." }
+  CDN: { expansion: content delivery network, definition: "Caches placed near readers so bytes travel a short distance instead of crossing an ocean." }
+  CI: { expansion: continuous integration, definition: "The build and test run that gates every change before it can merge." }
   DNS: { expansion: domain name system, definition: "The global lookup that turns a name a human types into an address a packet can be sent to." }
-  GPU: { expansion: graphics processing unit, definition: "A processor with thousands of small cores and very fast attached memory, used for the dense matrix work that model inference is made of." }
-  HSM: { expansion: hardware security module, definition: "A tamper-resistant device that holds a private key and signs on request, so the key itself never leaves it." }
-  IOPS: { expansion: input output operations per second, definition: "How many separate reads or writes a storage device can serve each second — usually the limit before raw bandwidth is." }
-  JWT: { expansion: JSON web token, definition: "A signed bundle of claims a client carries, letting a server check who is calling without a database lookup." }
-  KV: { expansion: key value, definition: "A store that maps an exact key to an opaque value and offers no way to search the value's contents." }
-  MVP: { expansion: minimum viable product, definition: "The smallest build that puts a real answer in front of a real user, chosen to buy information rather than to last." }
-  OLAP: { expansion: online analytical processing, definition: "Query work that scans many rows and few columns to answer an aggregate question — the warehouse's job." }
-  OLTP: { expansion: online transaction processing, definition: "Query work that touches few rows across many columns on behalf of one user action — the operational database's job." }
-  PACELC: { expansion: partition availability consistency else latency consistency, definition: "The extension of CAP that names the everyday tradeoff: even with no partition, a replicated store trades latency against consistency." }
-  RAG: { expansion: retrieval augmented generation, definition: "Fetching relevant documents at request time and putting them in the model's context, so answers cite current facts the weights never learned." }
-  REST: { expansion: representational state transfer, definition: "An API style that models everything as an addressable resource acted on by a small fixed set of verbs, which is what makes its responses cacheable." }
-  RPC: { expansion: remote procedure call, definition: "An API style that presents a network call as an ordinary function call with a typed signature." }
-  GB: gigabyte
-  TB: terabyte
-  BASE: { expansion: basically available soft state eventual consistency, definition: "The alternative to ACID: accept that replicas diverge for a while and converge afterwards, paying for it in application complexity rather than in latency." }
-  RPS: { expansion: requests per second, definition: "The arrival rate a system must serve — the first number to estimate and the last one to trust." }
-  SLA: { expansion: service level agreement, definition: "The contractual promise made to a customer about a service level, usually with a penalty attached." }
-  SLI: { expansion: service level indicator, definition: "The measurement itself — the number you actually collect, such as the share of requests served under 300 milliseconds." }
-  SLO: { expansion: service level objective, definition: "The target you hold an indicator to, and the line that decides whether you ship features or fix reliability." }
-  TLS: { expansion: transport layer security, definition: "The protocol that encrypts and authenticates a connection, so a network you do not own cannot read or alter what crosses it." }
-  TTL: { expansion: time to live, definition: "How long a cached or replicated copy may be served before it must be discarded or refreshed." }
-  WAL: { expansion: write ahead log, definition: "An append-only record written before a change is applied, so a crash can be replayed forward instead of leaving a half-finished update." }
+  MVP: { expansion: minimum viable product, definition: "The smallest build that puts a real answer in front of a real user." }
+  PR: { expansion: pull request, definition: "A proposed change, open for review before it merges." }
+  RPS: { expansion: requests per second }
+  SLI: { expansion: service level indicator }
+  SLO: { expansion: service level objective }
+  TLS: { expansion: transport layer security }
+  TTL: { expansion: time to live }
 ---
 
 <!-- _class: title silent spectrum -->
 
-# Systems, and How to Design Them
+# How to Think About Systems
 
-`A mentorship kit`
+`A tutorial for new engineers`
 
-Seven words, five kinds of solution, six kits, and two systems designed end to end.
-
----
-
-<!-- _class: quote bare -->
-
-> A complex system that works is invariably found to have evolved from a simple system that worked.
-
-*John Gall, 1975 — the sentence most system design goes wrong by ignoring*
-
----
-
-<!-- _class: cards-grid three -->
-
-`Why this is hard`
-
-## Nobody is stuck on the technology. They are stuck on the thinking.
-
-- No vocabulary
-  - Without words for boundary and invariant, the discussion becomes a list of product names.
-- No frame
-  - "Design Instagram" has no answer until someone says which solution is wanted.
-- No reference
-  - Advice arrives as folklore, one anecdote at a time, never as a kit you carry.
-
-> A small vocabulary, one framing question, and six kits you keep for a career.
+We start with one engineer's Tuesday, and we finish by designing Instagram.
 
 ---
 
 <!-- _class: agenda -->
 
-## What we build together, in five parts.
+## What we do, and where it ends up.
 
-1. The vocabulary — system, process, model, and five more
-2. Model your day — the method on a problem you know
-3. Solution types — which answer is being asked for
-4. Six kits — data, compute, network, scale, reliability, security
-5. Two systems — a photo feed and a chat model
+1. A Tuesday — one engineer, wake to sleep
+2. The words — naming what you just watched
+3. Protagonist and antagonist — where a design starts
+4. Solution types — which answer is wanted
+5. Six kits — data, compute, network, scale, security
+6. Instagram — the graph, the design, and the worksheet you keep
+
+---
+
+<!-- _class: divider numbered -->
+
+`Part zero`
+
+## Before anything is a system, it is a Tuesday.
+
+---
+
+<!-- _class: content -->
+
+`The rules of this part`
+
+## Maya has been an engineer for seven months, and today she wants one thing.
+
+She wants pull request 482 merged before the release window closes at four o'clock.
+
+Watch her Tuesday without naming anything. There is no vocabulary in this part on purpose — every idea in this deck is in the next nine slides, unlabeled, and we come back afterwards to give each one its word.
+
+---
+
+<!-- _class: journey curve -->
+
+`Sixteen hours, one goal`
+
+## Maya's Tuesday, hour by hour.
+
+- Morning
+  - Shower runs hot, then cold `@maya` `:2`
+  - Train sits for nine minutes `@maya` `:2`
+  - Package registry is down `@team` `:1`
+  - Standup, then a plan `@team` `:4`
+- Midday
+  - Deep work on 482 `@maya` `:5`
+  - Another team asks for a favor `@maya` `:3`
+  - A page, not her service `@oncall` `:1`
+- Afternoon
+  - Five pull requests, one reviewer `@maya` `:2`
+  - Batches her replies, gets back to it `@maya` `:4`
+  - Four o'clock. 482 does not land `@maya` `:1`
+
+---
+
+<!-- _class: timeline-list -->
+
+`Morning`
+
+## The day is already pushing back before Maya reaches the office.
+
+1. `06:55` The shower
+   - Too hot. She turns it down. Too cold. She overshoots twice before it settles.
+2. `08:05` The train map
+   - Wildly wrong about geography. She has never once been lost using it.
+3. `08:20` A signal failure
+   - The train sits for nine minutes. Nobody on it can do anything about that.
+4. `08:50` At her desk
+   - Wifi, the VPN, the package registry. She notices none of them.
+5. `09:05` The registry goes down
+   - Three teams cannot build. Now she notices.
+
+---
+
+<!-- _class: content -->
+
+`09:15 · standup`
+
+## Five people, and it matters enormously which way they are wired.
+
+The same five stand in a circle for ten minutes. On Monday they each reported upward to the manager and the meeting took twenty minutes and settled nothing. Today they talk across to each other, and Maya learns in one sentence that Priya has already read the code she was about to start on.
+
+Same five people, both days.
+
+---
+
+<!-- _class: quote bare -->
+
+> Get 482 merged before the window closes.
+
+*Maya's sticky note, 09:30. It is the only thing on it.*
+
+---
+
+<!-- _class: cards-grid four -->
+
+`09:45 · in the way`
+
+## Four things bound Maya's day, and none of them is her.
+
+- The build takes twelve minutes
+  - Every push costs twelve minutes she cannot compress, argue with, or skip.
+- The team is three people
+  - Nobody is free to take the review off her hands this morning.
+- The one reviewer is asleep
+  - He is six time zones away and will not read anything before three o'clock.
+- Production data stays in production
+  - She may not copy it to her laptop to reproduce the bug. That is not negotiable.
+
+---
+
+<!-- _class: timeline-list -->
+
+`Midday`
+
+## By lunchtime the day belongs to other people.
+
+1. `10:15` A favor
+   - Another team asks her to fix a flaky test in their repository. She says no.
+2. `10:40` A page
+   - Checkout is failing. Not her service. She is secondary on the rotation.
+3. `11:00` The loop
+   - Push, wait twelve minutes, read a review comment, fix, push again. Twice.
+4. `12:30` A branch left behind
+   - Her second attempt is still sitting there, half-finished, and she forgets it.
+5. `13:30` The queue
+   - Five pull requests are waiting. There is one reviewer, and he is asleep.
+
+---
+
+<!-- _class: timeline-list -->
+
+`Afternoon`
+
+## Maya loses the afternoon to being asked how the afternoon is going.
+
+1. `15:30` The spiral
+   - 482 sits. Someone asks for status. She stops to answer. It sits longer.
+2. `15:50` She stops answering
+   - She declines the fourth request and batches every reply until four o'clock.
+3. `16:00` The window closes
+   - The reviewer wakes at three. It is not enough. 482 does not land today.
+4. `16:30` One thing held
+   - Main was deployable every single minute of the day, including this one.
+5. `17:00` A small realization
+   - Nothing merges on Thursdays either. She checks. Nobody planned that.
+
+---
+
+<!-- _class: content -->
+
+`22:40 · the reveal`
+
+## You just watched a system run for sixteen hours.
+
+It had a goal it did not meet, and a bottleneck Maya found at half past one. Two things fed themselves in circles, one of them in her shower. Something invisible held the whole thing up until nine o'clock, when it stopped. One promise never broke, on the day everything else did.
+
+You have every concept in this deck. You do not yet have the words.
 
 ---
 
@@ -88,317 +196,309 @@ Seven words, five kinds of solution, six kits, and two systems designed end to e
 
 `Part one`
 
-## Seven words do most of the work.
+## Now we give each of those things its name.
 
 ---
 
-<!-- _class: premise -->
+<!-- _class: split-panel proof cat-1 -->
+<!-- _header: "" -->
 
-## Stop calling everything "the system" and the design gets easier.
-
-Four words separate what you are building from the world it sits in.
-
-1. System
-   - Parts joined by relationships.
-   - What does the whole do?
-2. Boundary
-   - The line between in and out.
-   - What is mine to fix?
-3. Environment
-   - What acts on you from outside.
-   - What can I not control?
-4. Process
-   - A repeatable transformation.
-   - What turns input into output?
-
----
-
-<!-- _class: premise -->
-
-## Three more words are what you actually reason with.
-
-You never handle the system itself. You handle a drawing of it, its limits, and its promises.
-
-1. Model
-   - A chosen simplification.
-   - What did I leave out?
-2. Constraint
-   - A limit you design within.
-   - What is not negotiable?
-3. Invariant
-   - A claim that must stay true.
-   - What would mean broken?
-
----
-
-<!-- _class: split-panel proof -->
-
-`Word one · System`
+`Word one · system`
 
 ## A system is parts, connected, doing something together.
 
-*What is it made of, and what is it for?* Parts, the relationships between them, and a purpose no part serves alone. Remove one and you have a pile.
+Maya's morning is one. The alarm, the shower, the train, the laptop and the registry all combine to produce a thing none of them produces alone: Maya at her desk, able to work, at nine.
 
-- You know you're here when
-  - You can name a behavior the whole has that no single part has.
-- The parts are the easy half
-  - Servers, queues, people, a database, a payment provider. You can list them.
-- The relationships are the system
-  - Same parts, different wiring, completely different behavior.
-
----
-
-<!-- _class: diagram -->
-
-`The definition, drawn`
-
-## The same parts, wired differently, are a different system.
-
-```mermaid
-flowchart LR
-  subgraph pile["A pile of parts"]
-    direction TB
-    P1["Web server"]
-    P2["Database"]
-    P3["Worker"]
-  end
-  subgraph sys["A system"]
-    direction TB
-    S1["Web server"] -->|"writes"| S2["Database"]
-    S1 -->|"enqueues"| S3["Worker"]
-    S3 -->|"updates"| S2
-  end
-  pile -.->|"add relationships<br/>and a purpose"| sys
-  sys --> OUT(["Behavior no part has alone"])
-```
-
----
-
-<!-- _class: split-panel proof -->
-
-`Word two · Boundary`
-
-## The boundary is the line you are accountable for.
-
-*What is mine, and what is merely near me?* Inside, you change things. Outside, you make requests and handle refusals. Drawing that line is the first real design decision.
-
-- You know you're here when
-  - You can say which failures page you at 3am and which ones do not.
-- Inside is what you change
-  - Your code, your schema, your deploys, your rotation.
-- Outside is what you negotiate
-  - A payment provider, an identity service, a customer's browser.
-
----
-
-<!-- _class: split-panel proof -->
-
-`Word three · Environment`
-
-## The environment acts on you and never asks permission.
-
-*What arrives that I did not choose?* Traffic spikes, hostile users, dying disks, changing laws, a partner shipping a breaking version on a Friday. None of it is yours.
-
-- You know you're here when
-  - You have written down what arrives, not what you plan to build.
-- It is not the same as load
-  - Regulation, competitors and staff turnover are environment too.
-- You design for it, not against it
-  - You cannot stop a partition. You can decide what happens during one.
-
----
-
-<!-- _class: split-panel proof -->
-
-`Word four · Process`
-
-## A process is a repeatable transformation that takes time.
-
-*What turns this input into that output?* A system is a noun; a process is a verb. Each one has inputs, a transformation, outputs, a rate, and state it leaves behind.
-
-- You know you're here when
-  - Someone else could run the sequence without asking you a question.
-- Rate is part of the definition
-  - "Resize an image" is not a process until you say how many per second.
-- Leftover state is where bugs live
-  - Half-finished work, retries and duplicates all come from an interrupted run.
+- In Maya's day
+  - Every part of her morning was useless alone, and the morning still put her at a desk at nine.
+- Listing the parts is easy
+  - Phone, badge, laptop, transit card. Anyone can write that list.
+- The connections are the system
+  - Change what depends on what, and the behavior changes with the same parts.
 
 ---
 
 <!-- _class: diagram -->
 
-`Process, drawn`
+`09:15 · the same five people`
 
-## Every process is five things, and four of them are usually left unsaid.
-
-```mermaid
-flowchart LR
-  IN(["Input<br/>arrival rate"]) --> T["Transformation<br/>the work itself"]
-  T --> OUT(["Output<br/>and its contract"])
-  T --> ST[("State left behind<br/>partial work, retries")]
-  ST -.->|"resume or clean up"| T
-  T -.->|"exceeds capacity"| Q["Queue<br/>where waiting happens"]
-  Q --> T
-```
-
----
-
-<!-- _class: split-panel proof -->
-
-`Word five · Model`
-
-## A model is a simplification you chose on purpose.
-
-*What did I leave out, and can I defend it?* Not a smaller copy of the system. It keeps what matters for one question and drops the rest, so you reason faster than you build.
-
-- You know you're here when
-  - You can name something real your drawing deliberately does not show.
-- Fidelity is not the goal
-  - A model as detailed as the system is as hard to think about.
-- Each model answers one question
-  - The data-flow diagram is the wrong one for explaining failure.
-
----
-
-<!-- _class: compare-prose axis -->
-
-`Two facets of one idea`
-
-## A model is useful because it is wrong in a way you control.
-
-The value is not in what a model captures. It is in what it drops.
-
-1. What it keeps
-   - The few variables that move the answer to the one question you are asking.
-2. What it drops
-   - Everything else, named out loud. An unstated omission is a bug you have not found.
-
-*Ask an engineer what their diagram leaves out. The ones who can answer drew it on purpose.*
-
----
-
-<!-- _class: split-panel proof -->
-
-`Word six · Constraint`
-
-## A constraint is a limit that does not care what you prefer.
-
-*What is genuinely not negotiable?* Constraints narrow the design space, and that is the good news: a problem with no constraints has infinite answers and no way to choose.
-
-- You know you're here when
-  - Naming the limit removes options rather than adding caveats.
-- Real constraints are measurable
-  - "Fast" is a wish. "Under 200ms at the 99th percentile" is a constraint.
-- Some constraints are chosen
-  - A team of three and one cloud provider are elected limits you can revisit.
-
----
-
-<!-- _class: cards-grid four -->
-
-`Constraint families`
-
-## Constraints come from four places, and they behave differently.
-
-- Physical
-  - Light speed, disk seeks, memory bandwidth. Nothing negotiates these.
-- Economic
-  - Budget, headcount, the price of a GPU-hour. Money moves these slowly.
-- Human
-  - What the team knows, what a user tolerates, what a rotation sustains.
-- Regulatory
-  - Residency, retention, consent, audit. Breaking these beats an outage.
-
-> Physical constraints set the ceiling. Human constraints decide whether you reach it.
-
----
-
-<!-- _class: split-panel proof -->
-
-`Word seven · Invariant`
-
-## An invariant is a sentence that must never become false.
-
-*What would mean this is broken, even with nothing crashed?* An invariant outranks a requirement. It holds during a deploy, a partition, a retry storm, and a live migration.
-
-- You know you're here when
-  - The claim is true now and must still be true tomorrow.
-- Write them as sentences
-  - "A balance is never negative." "Every order has exactly one payment."
-- They tell you where to test
-  - Each one names a check, an alert, and usually a database constraint.
-
----
-
-<!-- _class: split-panel capstone -->
-
-`The eighth word`
-
-## Infrastructure is the part you rely on and do not want to think about.
-
-*What holds everything else up?* Compute, storage, network, identity, deployment, observability. The word names a relationship, not a technology: infrastructure is whatever you build on and expect to keep working.
-
-- The test
-  - If it vanishing stops many unrelated things at once, it is infrastructure.
-- It is someone else's product
-  - Your infrastructure is another team's system, with its own invariants.
-- Boring is the requirement
-  - It earns its place by being predictable, not by being interesting.
-
----
-
-<!-- _class: diagram -->
-
-`How systems misbehave`
-
-## Feedback loops explain almost every surprise a system gives you.
+## Rewire a system without changing a single part, and it behaves differently.
 
 ```mermaid
 flowchart TB
-  subgraph rein["Reinforcing loop · gets worse fast"]
+  subgraph tue["Tuesday · they talk across"]
     direction LR
-    R1["Requests slow down"] --> R2["Clients retry"]
-    R2 --> R3["Load increases"]
-    R3 --> R1
+    T1["Maya"] <--> T2["Priya"]
+    T2 <--> T3["Dev"]
+    T2 --> OUT2(["One sentence<br/>saves a morning"])
   end
-  subgraph bal["Balancing loop · pulls back to target"]
+  subgraph mon["Monday · they report upward"]
     direction LR
-    B1["Queue grows"] --> B2["Autoscaler adds capacity"]
-    B2 --> B3["Queue drains"]
-    B3 --> B1
+    M1["Maya"] --> MM["Manager"]
+    M2["Priya"] --> MM
+    M3["Dev"] --> MM
+    MM --> OUT1(["Twenty minutes,<br/>nothing settled"])
   end
-  rein -.->|"add a limit:<br/>timeouts, budgets, breakers"| bal
 ```
 
 ---
 
-<!-- _class: list-steps -->
+<!-- _class: split-panel proof cat-2 -->
+<!-- _header: "" -->
 
-`The method · framing`
+`Word two · purpose`
 
-## Three questions turn a vague ask into a bounded problem.
+## A purpose becomes visible at the moment you miss it.
 
-1. Name the boundary
-   - What is inside, what is outside, who owns each side.
-2. Name the environment
-   - What arrives uninvited: load, failures, adversaries, rules.
-3. Name the constraints
-   - Physical, economic, human, regulatory — as numbers where numbers exist.
+Maya wrote it on a sticky note at half past nine: get 482 merged before four. At four o'clock it had not merged, and the gap between those two facts is the clearest thing in her whole day.
+
+- In Maya's day
+  - One sentence at 09:30, one outcome at 16:00, and the distance between them.
+- Write it down or you will drift
+  - An unwritten purpose gets quietly replaced by whatever arrived most recently.
+- A system's purpose is what it does
+  - Not what its owners say it does. Watch the outputs, not the mission statement.
 
 ---
 
-<!-- _class: list-steps -->
+<!-- _class: split-panel proof cat-3 -->
+<!-- _header: "" -->
 
-`The method · deciding`
+`Word three · boundary`
 
-## Three more turn a bounded problem into a design.
+## The boundary is the line between what you change and what you ask for.
 
-1. Name the invariants
-   - The sentences that must never go false, and how you would notice.
-2. Choose the solution type
-   - An MVP and an optimal build are different answers to the same words.
-3. Find the bottleneck
-   - One resource limits the whole; everything else is decoration until it moves.
+At quarter past ten another team asked Maya to fix a flaky test in their repository. She said no. That refusal is the boundary, and she could feel exactly where it was because saying no was uncomfortable.
+
+- In Maya's day
+  - She could decline the favor. She could not decline the release window.
+- Inside is what you change
+  - Your code, your schema, your deploys, the alerts that wake you.
+- Outside is what you negotiate
+  - The reviewer's time zone, the registry, the build, another team's repository.
+
+---
+
+<!-- _class: split-panel proof cat-4 -->
+<!-- _header: "" -->
+
+`Word four · environment`
+
+## The environment is everything that arrives without asking.
+
+A signal failure held her train for nine minutes. A page pulled her into an outage in a service she does not own. Neither was load, neither was a bug, and neither was hers.
+
+- In Maya's day
+  - Two arrivals, one benign and one hostile, neither of them load, and no say over either one.
+- It is not the same as load
+  - Regulation, a partner's outage and a colleague's holiday are environment too.
+- You design for it, not against it
+  - You cannot stop the page. You can decide what happens to 482 when it comes.
+
+---
+
+<!-- _class: split-panel proof cat-5 -->
+<!-- _header: "" -->
+
+`Word five · process`
+
+## A process is a repeatable transformation, and it runs at a rate.
+
+Push, wait twelve minutes for the build, read a comment, fix, push again. Maya ran that loop twice. Every process has inputs, a transformation, outputs, a rate, and something it leaves behind.
+
+- In Maya's day
+  - Two full loops at twelve minutes each, plus a branch nobody deleted.
+- The rate is part of the definition
+  - "Run the tests" is not a process until you say twelve minutes, and how often.
+- Leftover state is where bugs live
+  - Her abandoned branch is the same shape as a half-applied database migration.
+
+---
+
+<!-- _class: diagram -->
+
+`11:00 · the loop, drawn`
+
+## Every process leaves something behind, and that is the part nobody draws.
+
+```mermaid
+flowchart LR
+  IN(["Change"]) --> PUSH["Push"]
+  PUSH --> CI["Build and test<br/>12 minutes, fixed"]
+  CI --> REV{"Review"}
+  REV -->|"approved"| OUT(["Merged"])
+  REV -->|"comment"| FIX["Fix"]
+  FIX --> PUSH
+  FIX -.->|"abandoned attempt"| ST[("Stale branch<br/>still there at 22:40")]
+```
+
+---
+
+<!-- _class: split-panel proof cat-6 -->
+<!-- _header: "" -->
+
+`Word six · model`
+
+## A model is a deliberate simplification, and it is useful because it is wrong.
+
+The transit map Maya read at five past eight is geographically false. Distances are invented, angles are fiction, the river is the wrong shape. She has never once been lost using it.
+
+- In Maya's day
+  - A map that lies about distance, tells the truth about order, and never loses her.
+- It keeps what answers one question
+  - "Which line, which direction, how many stops." It throws away everything else.
+- Name what you left out
+  - An omission you cannot state is not a simplification. It is a bug you have not found.
+
+---
+
+<!-- _class: split-panel proof cat-7 -->
+<!-- _header: "" -->
+
+`Word seven · constraint`
+
+## A constraint is a limit that removes options rather than adding caveats.
+
+Four of them bounded Maya's day, and each one came from a different place: a build that takes twelve minutes, a team of three, a sleeping reviewer, and a rule about production data.
+
+- In Maya's day
+  - Physical, economic, human and legal limits, all four of them landing before ten in the morning.
+- Real constraints carry numbers
+  - "The build is slow" is a complaint. "Twelve minutes" is something you can design against.
+- Some you chose, and can revisit
+  - A team of three is a decision. The speed of the build is arithmetic.
+
+---
+
+<!-- _class: split-panel proof cat-8 -->
+<!-- _header: "" -->
+
+`Word eight · invariant`
+
+## An invariant is a claim that stays true on the day everything else fails.
+
+Main was deployable every minute of Maya's Tuesday. It was true while the registry was down, while she was paged, and at four o'clock when 482 did not land.
+
+- In Maya's day
+  - She missed her goal and broke no invariant, and those are two different kinds of bad day.
+- Write them as sentences
+  - "Main is always deployable." "A balance is never negative." Then name the alert.
+- They constrain other people
+  - A real invariant changes what your teammates are allowed to merge.
+
+---
+
+<!-- _class: diagram -->
+
+`06:55 and 15:30 · two loops`
+
+## Two loops look identical until you find the sign.
+
+```mermaid
+flowchart TB
+  subgraph rein["Reinforcing · the status spiral"]
+    direction LR
+    R1["482 sits"] --> R2["Someone asks"]
+    R2 --> R3["Maya stops<br/>to answer"]
+    R3 --> R1
+    R4["Batch replies<br/>at 15:50"] -.->|"cuts it"| R3
+  end
+  subgraph bal["Balancing · the shower, with a delay"]
+    direction LR
+    B1["Too hot"] --> B2["Turn it down"]
+    B2 --> B3["Pipe lags<br/>eight seconds"]
+    B3 --> B4["Too cold"]
+    B4 --> B2
+  end
+```
+
+---
+
+<!-- _class: split-panel capstone cat-1 -->
+<!-- _header: "" -->
+
+`Word nine · infrastructure`
+
+## Infrastructure is what you only notice on the day it stops.
+
+Wifi, the VPN, the package registry, the build fleet, the identity provider. Maya used every one of them before nine o'clock and thought about none of them until 09:05, when the registry went down and three teams stopped.
+
+- The test
+  - If it vanishing stops several unrelated things at once, it is infrastructure.
+- Boring is the requirement
+  - It earns its place by being predictable, never by being interesting.
+- It is someone else's system
+  - Your infrastructure is another team's product, with its own boundary and invariants.
+
+---
+
+<!-- _class: content -->
+
+`17:00 · the last word`
+
+## Emergence is behavior that belongs to no part, and to no decision.
+
+Nothing merges on Thursdays. Maya checked. No person decided it, no policy states it, and no team owns it. It falls out of three things that have nothing to do with each other: the Friday release freeze, a reviewer six time zones east, and a Wednesday planning meeting that pushes work later.
+
+You cannot find emergence by reading any single part. You find it by watching the whole thing for long enough.
+
+---
+
+<!-- _class: premise -->
+
+## Five words describe the thing itself.
+
+You did not learn these from a definition. You watched each one happen first, which is the only order that sticks.
+
+1. System
+   - Parts, connected, with a purpose.
+   - The whole morning.
+2. Purpose
+   - What the system is for.
+   - The sticky note.
+3. Boundary
+   - What you change, not ask for.
+   - The favor she declined.
+4. Environment
+   - What arrives uninvited.
+   - The page.
+5. Process
+   - A transformation with a rate.
+   - Push, build, review.
+
+---
+
+<!-- _class: premise -->
+
+## Three more are the tools you think with.
+
+You never handle the system itself. You handle a drawing of it, its limits and its promises — standing on infrastructure you notice only when it stops.
+
+1. Model
+   - A simplification you chose.
+   - The transit map.
+2. Constraint
+   - A limit that removes options.
+   - Twelve minutes.
+3. Invariant
+   - What must never go false.
+   - Main is deployable.
+
+---
+
+<!-- _class: compare-table -->
+
+`The translation`
+
+## Every move in Maya's day has a name in software.
+
+| In her Tuesday | In a system | What it decides |
+| --- | --- | --- |
+| Five pull requests, one reviewer | The bottleneck | Where any improvement has to land |
+| Declining the fourth status ask | Admission control | Whether load sheds or the system collapses |
+| A twelve-minute build | A fixed cost per attempt | How many attempts a day can hold |
+| The abandoned branch | Leftover state | What a retry finds when it arrives |
+| Nothing merges on Thursdays | Emergence | What no single owner can fix |
 
 ---
 
@@ -406,146 +506,116 @@ flowchart TB
 
 `Part two`
 
-## Model a Tuesday before you model a datacenter.
+## Every design starts with someone who wants something, and something in the way.
 
 ---
 
 <!-- _class: content -->
 
-`The worked example`
+`The frame`
 
-## You already run a system with hard constraints and a real bottleneck.
+## Name the person and the force, and the design starts talking.
 
-Your day has inputs you do not choose, a boundary you defend badly, constraints you never wrote down, and at least one queue that keeps growing. Modeling it takes ten minutes and teaches every move you will use on a distributed system.
+Juniors reliably skip both. They write "users" instead of one person with one goal, and they write "scale" instead of a force with a number on it. Neither produces a single design decision.
 
-We will do it once, in full, and then name what transfers.
+The protagonist is who the system is for. The antagonist is what makes serving them hard. Everything downstream — the purpose, the boundary, the invariants, the first move — falls out of that pair.
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: code -->
 
-`Step one · draw the process`
+`The drill`
 
-## A day is a pipeline with one shared resource and no admission control.
+## Two sentences, ninety seconds, and four things you no longer have to guess.
 
-```mermaid
-flowchart LR
-  IN(["Requests in<br/>messages, tickets, people"]) --> TRI{"Triage"}
-  TRI -->|"now"| DO["Focused work<br/>the only thing that ships"]
-  TRI -->|"later"| BACK[("Backlog<br/>unbounded queue")]
-  BACK --> TRI
-  DO --> OUT(["Work shipped"])
-  INT["Interrupts"] --> DO
-  DO -.->|"context switch cost"| DO
+```text
+Protagonist:  <name> wants to <do X> so that <Y>.
+Antagonist:   But <W> — and W is <a number>.
+
+  Purpose       one sentence: what counts as this working
+  Boundary      what is mine when W happens, and what I only ask for
+  Invariant     what must stay true or <name> stops trusting this
+  First move    what W does to the cheapest design that could work
 ```
 
----
-
-<!-- _class: list-tabular def -->
-
-`Step two · name the parts`
-
-## Four questions describe a day exactly as they describe a datacenter.
-
-1. Elements
-   - Your attention, your calendar, your inbox, your colleagues, your tools.
-2. Boundary
-   - What you can decline is inside. What you must answer is outside.
-3. Environment
-   - Meetings you did not book, outages, a manager's priorities, your own energy curve.
-4. Purpose
-   - What the day is actually for, stated as one outcome rather than a task list.
+*Run it on a turnstile, then a cash machine, then the thing on your screen right now. It gets fast.*
 
 ---
 
-<!-- _class: cards-grid four -->
+<!-- _class: compare-prose -->
 
-`Step three · name the constraints`
+`The drill, on Tuesday`
 
-## Four limits shape every day, and only one of them is time.
+## Maya is the protagonist of her own day, and the interruptions are the antagonist.
 
-- Attention
-  - Roughly four hours of deep work exist per day. Physical, not negotiable.
-- Switching
-  - Every interrupt costs the reload, not just the interruption.
-- Dependency
-  - Work blocked on a review moves at someone else's pace.
-- Energy
-  - Capacity is not flat. The same task costs more at 5pm than at 9am.
-
-> Only one of these is measured in hours, which is why a calendar never fixes a day.
-
----
-
-<!-- _class: big-number -->
-
-`Step four · the bottleneck`
-
-- 4h
-  - of deep work per day, versus the 8 hours a calendar sells you. Everything else queues behind it.
-
----
-
-<!-- _class: diagram -->
-
-`Step five · find the loop`
-
-## Bad days repeat because the system is wired to reinforce them.
-
-```mermaid
-flowchart LR
-  A["Attention runs out"] --> B["Work slips"]
-  B --> C["More status requests"]
-  C --> D["More interrupts"]
-  D --> A
-  E["Admission control:<br/>decline, batch, protect a block"] -.->|"breaks the loop"| D
-```
-
----
-
-<!-- _class: split-panel proof -->
-
-`Step six · state the invariant`
-
-## An invariant on your day reads exactly like one on a service.
-
-*What must never go false?* "One protected block of two hours exists every working day." It survives a busy week, a launch, and a manager's reorganized calendar — or it was never an invariant, only a preference.
-
-- You know you're here when
-  - You can name the alert: the day the block disappears, something is wrong.
-- It constrains other people
-  - A real invariant changes what others may put on your calendar.
-- It is falsifiable
-  - You can look at last week and say plainly whether it held.
-
----
-
-<!-- _class: list-steps capsule -->
-
-`The transferable method`
-
-## Five moves model anything, from a Tuesday to a global service.
-
-1. Draw the process
-   - Inputs, transformation, outputs, and every queue between them.
-2. Name the boundary
-   - Split what you control from what you only negotiate with.
-3. Measure the constraints
-   - Write each limit as a number, even a rough one.
-4. Find the bottleneck and the loop
-   - One resource is scarce; one feedback loop makes it worse.
+- Maya wants 482 merged before four o'clock
+  - So that a bug affecting real users stops affecting them, and so that she is not carrying it into next week.
+- But she is interrupted roughly fourteen times
+  - Not once by anything unreasonable. A page, a favor, four status requests. Each one costs the reload, not just the minute.
 
 ---
 
 <!-- _class: content -->
 
-`What transfers`
+`The trap`
 
-## Every move you just made has a direct counterpart in software.
+## Most systems have several protagonists, and you must say which one loses.
 
-The backlog is an unbounded queue. Interrupts are context switches. Declining work is admission control. A protected block is a reserved resource pool. The energy curve is a system that performs differently under sustained load than in a benchmark.
+Instagram has at least four: the reader opening the app, the ordinary poster, the celebrity with fifty million followers, and the engineer carrying the pager. They want incompatible things.
 
-Nothing about the method changes when the parts become machines. Only the units do.
+Naming one as the protagonist is not a slogan, it is a decision about who waits. Say who you are not designing for, out loud, and half the arguments later in the design stop happening.
+
+---
+
+<!-- _class: compare-table -->
+
+`The join`
+
+## The antagonist chooses which kind of solution you are allowed to build.
+
+| The antagonist is… | You are building | Because |
+| --- | --- | --- |
+| Nobody knows if they exist | An MVP | The risk is demand, not load |
+| Growth — the protagonist multiplies | A scaled system | The limit is real and namable |
+| Cost on a path you have profiled | An optimized system | The measurement came first |
+| Physics — you are near a real bound | An optimal system | Only here is a proof worth it |
+| A person who wants in | Security work, at any rung | It is not a rung, it is a floor |
+
+---
+
+<!-- _class: split-panel proof cat-2 -->
+<!-- _header: "" -->
+
+`Instagram · the casting`
+
+## Our protagonist reads on a phone and gives us about a second.
+
+She opens the app a dozen times a day, on a cellular network, usually while doing something else. She wants photographs from the people she chose, recent, ranked, and hers. The poster is a supporting character: he tolerates a spinner, and every time the design has a choice, work goes onto his side.
+
+- The reader's demand
+  - A fresh, personal page in under a second, twelve times a day, from anywhere.
+- The poster can wait
+  - Uploading, transcoding and delivery may all take their time. Nobody is watching.
+- That casting alone decides a lot
+  - It is why the feed is built when someone posts, not when someone reads.
+
+---
+
+<!-- _class: split-panel capstone cat-3 -->
+<!-- _header: "" -->
+
+`Instagram · the antagonist`
+
+## The antagonist is not scale. It is the shape of the follow graph.
+
+Scale is a quantity, and quantities are boring: you buy more machines. The thing you cannot buy your way out of is a distribution. Follower counts are power-law, so the average is a lie and the far tail sits eight orders of magnitude from the middle.
+
+- The number that matters
+  - The median account has a few hundred followers. The largest has five hundred million.
+- One algorithm cannot serve both
+  - Nothing else in this design spans six orders of magnitude. That is why there are two paths.
+- Hold on to this
+  - Every hard decision in Part six is this one fact, arriving again in a new costume.
 
 ---
 
@@ -557,31 +627,23 @@ Nothing about the method changes when the parts become machines. Only the units 
 
 ---
 
-<!-- _class: quote bare -->
-
-> Premature optimization is the root of all evil. Yet we should not pass up our opportunities in that critical three percent.
-
-*Donald Knuth, 1974 — usually quoted with the second sentence removed*
-
----
-
 <!-- _class: content -->
 
-`The framing question`
+`Before the boxes`
 
-## Before you design anything, ask which kind of answer is wanted.
+## Before you design anything, say which kind of answer is wanted.
 
-The same words — "design a photo sharing app" — have five legitimate answers that share almost no architecture. An MVP that takes a week and a specialized build that takes two years are both correct, for different questions.
+The same words — design a photo sharing app — have five legitimate answers that share almost no architecture. A build that takes a week and a build that takes two years are both correct, for different questions.
 
-Getting this wrong is the most expensive mistake in the room, and it happens before a single box is drawn.
+Gall's law says it plainly: a complex system that works is invariably found to have evolved from a simple system that worked. You climb this ladder. You do not parachute onto it.
 
 ---
 
 <!-- _class: premise -->
 
-## Five kinds of solution, and each one is right somewhere.
+## Five rungs, and each one costs more and commits harder than the last.
 
-Each rung costs more, commits harder, and buys a different thing. You move up only when the rung below stops paying.
+You move up when the rung you are standing on stops paying, and you move up one rung at a time.
 
 1. MVP
    - Buys information fast.
@@ -601,127 +663,93 @@ Each rung costs more, commits harder, and buys a different thing. You move up on
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- _class: split-panel proof cat-4 -->
+<!-- _header: "" -->
 
-`Type one · MVP`
+`Rung one · MVP`
 
 ## An MVP is an experiment wearing a product's clothes.
 
-*Does anyone want this?* Its job is to produce a decision, not to last. Every hour spent making it durable is an hour spent on a system you may correctly delete next month.
+Its job is to produce a decision, not to last. Every hour spent making it durable is an hour spent on a system you may correctly delete next month.
 
-- You know you're here when
-  - The riskiest thing is demand, not scale, and a wrong answer is cheap.
+- The tell
+  - The riskiest thing is whether anyone wants it, and being wrong is cheap.
 - Buy simplicity, not capacity
-  - One database, one service, one region, boring technology, no cleverness.
-- The exit is planned
-  - Name in advance the metric that means "stop, this must now be built properly."
+  - One database, one service, one region, boring technology, nothing clever anywhere.
+- Name the exit in advance
+  - Write down the number that means "stop, this now has to be built properly."
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- _class: split-panel proof cat-5 -->
+<!-- _header: "" -->
 
-`Type two · Scaled`
+`Rung two · scaled`
 
 ## A scaled system survives ten times the load without a rewrite.
 
-*Will it survive success?* You are no longer buying information; you are buying headroom. The design question shifts from "does it work" to "what breaks first, and how do I move that limit."
+You have stopped buying information and started buying headroom. The question moves from "does it work" to "what breaks first, and how do I move that limit."
 
-- You know you're here when
-  - Growth is real and the current design has a limit you can name.
+- The tell
+  - Growth is real, and the current design has a ceiling you can point at.
 - Add axes, not machines
-  - Statelessness, partitioning, caching and queues buy scale. A bigger box only postpones.
-- Cost per unit matters now
-  - Cost per request stops being noise and starts being the second constraint.
+  - Statelessness, partitioning, caching and queues buy scale. A bigger box postpones.
+- Cost per unit starts counting
+  - Cost per request stops being noise and becomes the second constraint on every choice.
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- _class: split-panel proof cat-6 -->
+<!-- _header: "" -->
 
-`Type three · Optimized`
+`Rung three · optimized`
 
-## Optimizing means moving one measured number on one known path.
+## Optimizing means moving one measured number on one hot path.
 
-*Where is the cost actually going?* Optimization without a profile is decoration. You need the measurement first, the target second, and the willingness to accept the complexity you are about to add.
+Optimization without a profile is decoration. You need the measurement first, the target second, and a willingness to accept the complexity you are about to add.
 
-- You know you're here when
+- The tell
   - A profile shows which tenth of the work is most of the cost.
-- The path must be hot
-  - Optimizing a path that runs twice a day avoids the real problem.
-- Complexity is the price
-  - Each optimization narrows the assumptions the system may safely break.
+- Premature is the famous half of the quote
+  - Knuth also wrote that we should not pass up the critical three percent. Both halves.
+- Complexity is the invoice
+  - Each optimization narrows the assumptions the system is allowed to break.
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- _class: split-panel proof cat-7 -->
+<!-- _header: "" -->
 
-`Type four · Optimal`
+`Rung four · optimal`
 
 ## Optimal means provably best against an objective you wrote down.
 
-*What is the actual limit?* This is a rarer thing than it sounds. It requires a stated objective, a stated model, and a proof or a bound — and it is only optimal for the assumptions you fixed.
+Rarer than it sounds. It needs a stated objective, a stated model, and a proof or a bound — and it is optimal only for the assumptions you fixed in place.
 
-- You know you're here when
-  - The objective is written as a function and the constraints are written as inequalities.
+- The tell
+  - The objective is a function and the constraints are inequalities, on paper.
 - The proof is against a model
-  - Change the assumptions and the optimal answer changes with them.
+  - Change the assumptions and the optimal answer changes underneath you.
 - It ages badly
   - An optimal design pinned to last year's hardware is a legacy system with a certificate.
 
 ---
 
-<!-- _class: split-panel capstone -->
+<!-- _class: split-panel capstone cat-8 -->
+<!-- _header: "" -->
 
-`Type five · Specialized`
+`Rung five · specialized`
 
-## A specialized system trades generality for an advantage nobody can copy.
+## A specialized system trades generality for something nobody can copy.
 
-*What can only we do?* Custom silicon, a purpose-built storage engine, a physics-aware scheduler. You give up flexibility, portability and hiring pool in exchange for a capability the market cannot buy.
+Custom silicon, a purpose-built storage engine, a scheduler that knows your physics. You give up flexibility, portability and hiring pool for a capability the market cannot sell you.
 
 - The signal
   - The advantage is durable, measurable, and central to why customers choose you.
-- The cost is permanent
-  - You now maintain what everyone else gets for free from a vendor.
+- The cost never ends
+  - You now maintain what everyone else gets free from a vendor, forever.
 - Almost nobody is here
-  - Most teams reaching for this rung actually needed the optimized one.
-
----
-
-<!-- _class: compare-table -->
-
-`The ladder, compared`
-
-## Each rung buys a different thing, and charges for it differently.
-
-| Type | Buys | Costs | Reversible |
-| --- | --- | --- | --- |
-| MVP | Information | Almost nothing | Fully |
-| Scaled | Headroom | Design effort | Mostly |
-| Optimized | Cost or latency | Complexity | Partly |
-| Optimal | A proven bound | Rigor and assumptions | Rarely |
-| Specialized | An advantage | Permanent maintenance | No |
-
-*Move up one rung at a time, and only when the rung you are on has stopped paying.*
-
----
-
-<!-- _class: matrix-2x2 -->
-
-`When to climb`
-
-## Two questions decide which rung you belong on.
-
-- **Low uncertainty · Low cost of error.**
-  - Ship the MVP
-  - Learn from real usage
-- **Low uncertainty · High cost of error.**
-  - Optimize or prove optimal
-  - The path is known and expensive
-- **High uncertainty · Low cost of error.**
-  - Always the MVP
-  - Buy information before capacity
-- **High uncertainty · High cost of error.**
-  - Reduce uncertainty first
-  - Prototype, model, measure, then build
+  - Most teams reaching for this rung needed the optimized one and got excited.
 
 ---
 
@@ -729,14 +757,14 @@ Each rung costs more, commits harder, and buys a different thing. You move up on
 
 `The rule`
 
-## Climb the ladder one rung at a time, and never skip on a hunch.
+## Climb one rung at a time, and only on evidence.
 
-- Move up when the current rung fails on evidence
-  - A measured limit, a real cost, a named risk — not an anticipated one.
-- Move up one rung only
-  - Skipping from MVP to optimal buys rigor for assumptions you have not yet tested.
+- Move up when the current rung fails on a measurement
+  - A number, a profile, a named risk. Not a feeling that things are getting big.
+- Move up exactly one rung
+  - Jumping from MVP to optimal buys rigor for assumptions nobody has tested yet.
 - Move back down when the evidence changes
-  - A rewrite that simplifies is a legitimate move, not an admission of failure.
+  - A rewrite that simplifies is a legitimate move, not an admission of anything.
 
 ---
 
@@ -744,7 +772,7 @@ Each rung costs more, commits harder, and buys a different thing. You move up on
 
 `Part four`
 
-## Six kits, to keep for the rest of your career.
+## Six kits, and every entry answers the same three questions.
 
 ---
 
@@ -752,27 +780,57 @@ Each rung costs more, commits harder, and buys a different thing. You move up on
 
 `How to read a kit`
 
-## Every kit entry answers the same three questions, on purpose.
+## Reach for it when. Walk away when. The constraint you inherit.
 
-Reach for it when. Walk away when. The constraint you inherit. One shape for every entry, so you can compare two options without re-reading a manual. Each kit then closes with the invariants that hold across all of its entries.
+One shape for every entry, so you can hold two options side by side without re-reading a manual. Each kit opens with a diagram of the patterns it covers, and closes with the invariants that hold across all of them.
 
-The entries name concepts, not products. Products change every three years; the constraint an append-only store puts on your reads does not.
+The entries name concepts, not products. Products turn over every few years. The constraint that an append-only store puts on your reads does not.
 
 ---
 
 <!-- _class: divider -->
 
-`Kit one`
+`Data`
 
-## Data: where state lives, and what that costs you.
+## Every storage choice is a bet about how you will read it later.
+
+---
+
+<!-- _class: diagram -->
+
+`Data kit · the patterns`
+
+## Four shapes cover almost everything you will store.
+
+```mermaid
+flowchart TB
+  subgraph b["Event fan-out"]
+    direction LR
+    B1["Producer"] --> B2[["Durable log"]] --> B3["Two consumers"]
+  end
+  subgraph a["Read-heavy app"]
+    direction LR
+    A1["Client"] --> A2[("Cache")] --> A3[("Relational")]
+  end
+  subgraph d["Search"]
+    direction LR
+    D1[("Relational")] --> D2["Indexer"] --> D3[("Search index")]
+  end
+  subgraph c["Media"]
+    direction LR
+    C1["Upload"] --> C2[("Object store")] --> C3["CDN"]
+  end
+  a ~~~ c
+  b ~~~ d
+```
 
 ---
 
 <!-- _class: premise -->
 
-## Five questions pick a data store, and the product name comes last.
+## Five questions pick a store, and the product name comes last.
 
-Answer these before naming a technology. Most arguments about databases are really disagreements about question two.
+Answer these before anyone says a brand. Most database arguments are really a disagreement about question two.
 
 1. Shape
    - How the data is structured.
@@ -794,34 +852,33 @@ Answer these before naming a technology. Most arguments about databases are real
 
 <!-- _class: diagram -->
 
-`The decision tree`
+`Data kit · the decision`
 
-## Access pattern picks the store; the data's shape only narrows the field.
+## Start at relational and branch out, because that is how anyone decides.
 
 ```mermaid
-flowchart TB
-  Q1{"Do you query by<br/>an exact key only?"} -->|"yes"| KV["Key-value"]
-  Q1 -->|"no"| Q2{"Are relationships<br/>the query itself?"}
-  Q2 -->|"yes"| GR["Graph"]
-  Q2 -->|"no"| Q3{"Is every query<br/>time-ordered?"}
-  Q3 -->|"yes"| TS["Time-series"]
-  Q3 -->|"no"| Q4{"Do you scan many rows<br/>and few columns?"}
-  Q4 -->|"yes"| OLAP["Columnar warehouse"]
-  Q4 -->|"no"| Q5{"Do writes cross<br/>several entities at once?"}
-  Q5 -->|"yes"| REL["Relational"]
-  Q5 -->|"no"| DOC["Document"]
+flowchart LR
+  REL[("Relational<br/>start here")] --> Q1{"Does one table<br/>outgrow one machine?"}
+  Q1 -->|"no"| STAY(["Stay. You are done."])
+  Q1 -->|"yes"| Q2{"Do you query by<br/>exact key only?"}
+  Q2 -->|"yes"| KV[("Key-value")]
+  Q2 -->|"no"| Q3{"Is every query a<br/>partition plus a range?"}
+  Q3 -->|"yes"| WC[("Wide-column")]
+  Q3 -->|"no"| Q4{"Are the bytes large<br/>and written once?"}
+  Q4 -->|"yes"| OS[("Object store")]
+  Q4 -->|"no"| SPLIT(["Split the problem.<br/>One store is not enough."])
 ```
 
 ---
 
 <!-- _class: cards-stack -->
 
-`Data kit · Relational`
+`Data kit · relational`
 
 ## A relational store is the default until you can name why it is not.
 
 - Reach for it when
-  - Entities relate, writes touch several at once, and the questions will change.
+  - Entities relate, writes touch several at once, and the questions will keep changing.
 - Walk away when
   - One table outgrows one machine's writes, or the schema genuinely differs per row.
 - The constraint you inherit
@@ -831,44 +888,60 @@ flowchart TB
 
 <!-- _class: cards-stack -->
 
-`Data kit · Key-value`
+`Data kit · key-value`
 
 ## A key-value store is a hash map with an operations team.
 
 - Reach for it when
   - You always know the exact key, and you need sub-millisecond rather than tens of milliseconds.
 - Walk away when
-  - You need to ask any question about the value's contents.
+  - You need to ask any question at all about what is inside the value.
 - The constraint you inherit
-  - No secondary access path. Every new query means a new key you must write yourself.
+  - There is no second way in. Every new query means a new key you write and maintain yourself.
 
 ---
 
 <!-- _class: cards-stack -->
 
-`Data kit · Document`
+`Data kit · document`
 
-## A document store trades joins for keeping one object whole.
+## Choosing a document store means choosing to keep one object whole.
 
 - Reach for it when
-  - Reads fetch one self-contained object and the shape varies between records.
+  - A read fetches one self-contained object, and the shape varies between records.
 - Walk away when
-  - The same fact appears in many documents and must stay consistent across them.
+  - The same fact lives in many documents and has to stay consistent across them.
 - The constraint you inherit
-  - Denormalized copies. Every update is a fan-out you now own.
+  - Denormalized copies. Every update to a shared fact becomes a fan-out you now own.
+
+---
+
+<!-- _class: compare-table -->
+
+`Data kit · the scan`
+
+## Five columns, applied to the five stores that can hold truth.
+
+| Store | Access | Consistency | Scales by | Weak at |
+| --- | --- | --- | --- | --- |
+| Relational | Key, range, join | Strong | Replicas, then partitioning | Cross-shard writes |
+| Key-value | Exact key | Tunable | Horizontal | Any other question |
+| Document | Key, secondary index | Per document | Horizontal | Cross-document facts |
+| Wide-column | Partition plus range | Tunable | Horizontal | New query patterns |
+| Graph | Traversal | Strong | Poorly | Partitioning at all |
 
 ---
 
 <!-- _class: cards-stack -->
 
-`Data kit · Wide-column`
+`Data kit · wide-column`
 
-## A wide-column store buys enormous write throughput with a fixed query shape.
+## A wide-column store buys enormous write throughput and freezes your queries.
 
 - Reach for it when
   - Writes are relentless, and every read is a partition key plus a sorted range.
 - Walk away when
-  - Query patterns are still moving, or you need cross-partition transactions.
+  - Query patterns are still moving, or you need a transaction across partitions.
 - The constraint you inherit
   - The primary key is the schema. Changing how you query means rewriting the data.
 
@@ -876,7 +949,7 @@ flowchart TB
 
 <!-- _class: cards-stack -->
 
-`Data kit · Graph`
+`Data kit · graph`
 
 ## A graph store is for questions that traverse, not questions that filter.
 
@@ -885,77 +958,32 @@ flowchart TB
 - Walk away when
   - You have relationships but only ever join two hops. A relational store does that faster.
 - The constraint you inherit
-  - Traversals are hard to partition, so scale-out is genuinely harder here than elsewhere.
+  - Traversals resist partitioning, so scaling out is genuinely harder here than anywhere else.
 
 ---
 
 <!-- _class: content -->
 
-`Halfway through the data kit`
+`Halfway`
 
-## Some stores hold truth, some borrow it, and the split surprises people.
+## Five stores hold truth, and two of the derived ones secretly do too.
 
-The five above can be where a fact lives — and so can two below: an object store is usually where media first lands, and a time-series store is where a metric first lands. Nothing regenerates either.
+An object store and a time-series store are usually where a fact first lands — nothing regenerates a photograph or last Tuesday's CPU samples. They are sources of truth wearing the clothes of a derived tier.
 
-The genuinely derived ones are search, vector, cache and warehouse. Anything derived must be rebuildable, must be allowed to lag, and must never be the only copy.
-
----
-
-<!-- _class: cards-stack -->
-
-`Data kit · Time-series`
-
-## A time-series store assumes time is the primary key and never changes.
-
-- Reach for it when
-  - Appends dominate, records are immutable, and every read has a time range.
-- Walk away when
-  - Records get updated, or the interesting axis is anything other than time.
-- The constraint you inherit
-  - Retention and downsampling become design decisions, not settings.
+The genuinely derived stores are the search index, the vector index, the cache and the warehouse. Anything derived must be rebuildable, must be allowed to lag, and must never be the only copy.
 
 ---
 
 <!-- _class: cards-stack -->
 
-`Data kit · Search index`
+`Data kit · object store`
 
-## A search index is a derived view, never a source of truth.
-
-- Reach for it when
-  - Users query text they typed, and ranking and relevance matter more than exactness.
-- Walk away when
-  - The result must be transactionally correct at the instant it is read.
-- The constraint you inherit
-  - It lags. Every search index is eventually consistent with whatever feeds it.
-
----
-
-<!-- _class: cards-stack -->
-
-`Data kit · Vector index`
-
-## A vector index answers "most similar to this", not "equal to this".
+## An object store is the cheapest home for a write-once file.
 
 - Reach for it when
-  - Retrieval is by meaning: semantic search, recommendations, grounding a model's answer.
+  - Items are large, written once, fetched by key, and must survive for a decade.
 - Walk away when
-  - An exact filter or a keyword match would do. It is slower and approximate.
-- The constraint you inherit
-  - Results are approximate by construction, and the embedding model becomes part of your schema.
-
----
-
-<!-- _class: cards-stack -->
-
-`Data kit · Object store`
-
-## An object store is the cheapest durable place to put large immutable bytes.
-
-- Reach for it when
-  - Items are large, written once, read by key, and must survive for years.
-- Walk away when
-  - You need to modify part of an object, or list and filter by content.
+  - You need to modify part of an object, or to list and filter by what is inside it.
 - The constraint you inherit
   - Listing is slow and expensive. The index of what you stored belongs somewhere else.
 
@@ -963,158 +991,111 @@ The genuinely derived ones are search, vector, cache and warehouse. Anything der
 
 <!-- _class: cards-stack -->
 
-`Data kit · Cache`
+`Data kit · cache`
 
-## A cache is a bet that the same answer will be wanted again soon.
+## A cache converts a correctness problem into a timing problem.
 
 - Reach for it when
-  - Reads repeat, the source is expensive, and slightly stale is acceptable.
+  - Reads repeat, the source is expensive, and slightly stale is genuinely acceptable.
 - Walk away when
-  - Staleness is unsafe, or the working set is larger than the cache.
+  - Staleness is unsafe, or the working set is larger than the cache will ever be.
 - The constraint you inherit
-  - Invalidation. A cache converts a correctness problem into a timing problem.
+  - Invalidation. You now own a second copy whose wrongness is measured in seconds.
 
 ---
 
 <!-- _class: cards-stack -->
 
-`Data kit · Log and queue`
+`Data kit · durable log`
 
 ## A durable log turns "do it now" into "do it reliably, soon."
 
 - Reach for it when
-  - Producers outpace consumers, or several systems need the same events.
+  - Producers outpace consumers, or several systems need to see the same events.
 - Walk away when
-  - The caller needs the result in the same request.
+  - The caller needs the result inside the same request.
 - The constraint you inherit
-  - At-least-once delivery. Every consumer must be idempotent or you will double-charge someone.
-
----
-
-<!-- _class: cards-stack -->
-
-`Data kit · Columnar warehouse`
-
-## A warehouse is built to scan billions of rows and read four columns.
-
-- Reach for it when
-  - Questions are aggregate, analysts write them, and minutes are an acceptable answer time.
-- Walk away when
-  - A user is waiting for the result, or you need single-row updates.
-- The constraint you inherit
-  - It is loaded from somewhere else, so it is always behind the operational store.
-
----
-
-<!-- _class: compare-table -->
-
-`The scan table`
-
-## Five columns compare any two stores you are choosing between.
-
-| Store | Access | Consistency | Scales by | Weak at |
-| --- | --- | --- | --- | --- |
-| Relational | Key, range, join | Strong | Replicas, then partitioning | Cross-shard writes |
-| Key-value | Exact key | Tunable | Horizontal | Any other query |
-| Document | Key, secondary index | Per document | Horizontal | Cross-document facts |
-| Wide-column | Partition plus range | Tunable | Horizontal | New query patterns |
-| Object store | Key | Read-after-write | Effectively unbounded | Listing, partial updates |
+  - At-least-once delivery. Every consumer must be idempotent or you will charge somebody twice.
 
 ---
 
 <!-- _class: diagram -->
 
-`The theorem everyone misquotes`
+`Data kit · under a partition`
 
-## CAP is a choice you make during a partition, and only then.
+## CAP is a decision you make during a network fault, and only then.
 
 ```mermaid
-flowchart TB
-  N["Network partition happens<br/>nodes cannot reach each other"] --> C{"A write arrives on<br/>one side of the split"}
-  C -->|"Accept it"| AP["Available<br/>answer now, reconcile later"]
-  C -->|"Refuse it"| CP["Consistent<br/>refuse rather than diverge"]
-  AP --> APC(["Shopping carts, feeds,<br/>presence, metrics"])
-  CP --> CPC(["Balances, inventory,<br/>bookings, identity"])
+flowchart LR
+  N["A link breaks<br/>nodes cannot reach each other"] --> C{"A write arrives on<br/>one side of the split"}
+  C -->|"take it"| AP["Available<br/>answer now, reconcile later"]
+  C -->|"refuse it"| CP["Consistent<br/>refuse rather than diverge"]
+  AP --> APC(["Feeds, carts, presence, metrics"])
+  CP --> CPC(["Balances, inventory, bookings"])
 ```
-
----
-
-<!-- _class: compare-prose -->
-
-`The everyday version`
-
-## PACELC is the more useful theorem, because partitions are rare and latency is not.
-
-- During a partition
-  - Choose availability or consistency. This is CAP, and it applies for the few minutes a year a link is actually broken.
-- In normal operation
-  - Choose latency or consistency. Every replicated write pays a round trip to be safe, and that is the choice you make a billion times a day.
 
 ---
 
 <!-- _class: list-tabular -->
 
-`The consistency ladder`
+`Data kit · consistency`
 
-## Consistency is a ladder, not a switch, and each rung has a price.
+## Three rungs cover almost every argument you will have about consistency.
 
 1. Linearizable
-   - The latest write, always. Costs a round trip.
-2. Sequential
-   - One shared order, possibly behind. Cheaper.
-3. Causal
-   - Related events ordered, unrelated ones maybe not.
-4. Read your writes
-   - You see your own edits. The least a live editor accepts.
-5. Eventual
-   - Replicas converge in the end. Cheapest.
+   - Every read sees the latest write. Costs a coordination round trip, every time.
+2. Read your writes
+   - You always see your own edits. The least a person who just typed something accepts.
+3. Eventual
+   - Replicas agree in the end. Cheapest, and correct for feeds, counters and presence.
 
 ---
 
 <!-- _class: compare-prose axis -->
 
-`Two transaction philosophies`
+`Data kit · two philosophies`
 
-## ACID and BASE are not rivals; they are answers to different questions.
+## ACID and BASE answer different questions.
 
-Both are correct. The question is whether the cost of being briefly wrong is higher than the cost of coordinating.
+Ask whether coordinating now costs less than reconciling later.
 
 1. ACID
-   - Coordinate first, so the data is never observably wrong. Pay in latency and in a limit on how far you can partition.
+   - Coordinate first, so the data is never observably wrong. You pay in latency and in how far you can partition.
 2. BASE
-   - Accept divergence, converge afterwards. Pay in application complexity: every reader must tolerate stale or conflicting state.
+   - Diverge now, converge later. You pay in application code, because every reader must tolerate stale state.
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- _class: split-panel proof cat-1 -->
+<!-- _header: "" -->
 
-`Data kit · Indexes`
+`Data kit · indexes`
 
-## An index is a second copy of your data, sorted for one question.
+## An index is a second copy of your data, sorted for exactly one question.
 
-*What does it really cost?* Indexes make reads fast by making writes slower and storage larger. Every index is a promise to maintain a sorted structure on every single write, forever.
+Indexes make reads fast by making writes slower and storage larger. Each one is a promise to maintain a sorted structure on every single insert, update and delete, forever.
 
-- You know you're here when
-  - You can name the exact query each index exists to serve.
-- The cost is on writes
-  - Five indexes mean five extra structures updated per insert.
+- The tell
+  - You can name the exact query each index exists to serve, out loud, right now.
+- The bill arrives on writes
+  - Five indexes mean five extra structures touched per insert, not one.
 - Selectivity decides, not cardinality
-  - Three evenly spread values get ignored; three where one is 0.1 percent do not.
+  - Three evenly spread values get ignored. Three where one appears in 0.1 percent do not.
 
 ---
 
 <!-- _class: diagram -->
 
-`Partitioning`
+`Data kit · partitioning`
 
 ## Sharding buys throughput by giving up the questions that cross shards.
 
 ```mermaid
 flowchart LR
-  R["Router<br/>needs the shard key"] --> S1[("Shard A<br/>keys 0-3")]
-  R --> S2[("Shard B<br/>keys 4-7")]
-  R --> S3[("Shard C<br/>keys 8-11")]
-  S1 -.->|"cross-shard join<br/>or transaction"| X(["Slow, or unavailable"])
+  R["Router<br/>must know the key"] --> S1[("Shard A")]
+  R --> S2[("Shard B")]
+  R --> S3[("Shard C")]
+  S1 -.-> X(["Cross-shard join:<br/>slow, or unavailable"])
   S2 -.-> X
   S3 -.-> X
 ```
@@ -1123,124 +1104,95 @@ flowchart LR
 
 <!-- _class: cards-grid three -->
 
-`Choosing a shard key`
+`Data kit · the shard key`
 
-## The shard key is the hardest decision, and the one you cannot undo cheaply.
+## The shard key is the decision you cannot undo cheaply.
 
 - By hash of the key
-  - Spreads load evenly, destroys range queries. The safe default.
+  - Spreads load evenly and destroys range queries. The safe default.
 - By range
-  - Keeps ranges fast, invites hot spots on the newest range.
+  - Keeps ranges fast and invites a hot spot on the newest range.
 - By tenant or region
-  - Matches the access pattern and the law, until one tenant grows enormous.
+  - Matches both the access pattern and the law, until one tenant grows enormous.
 
-> A skewed shard key produces a system where one machine is on fire and the rest idle.
-
----
-
-<!-- _class: diagram -->
-
-`Replication`
-
-## Replication topology decides what you lose when a machine dies.
-
-```mermaid
-flowchart TB
-  subgraph sl["Single leader"]
-    direction LR
-    L1["Leader<br/>all writes"] --> F1["Follower"]
-    L1 --> F2["Follower"]
-  end
-  subgraph ml["Multi leader / leaderless"]
-    direction LR
-    M1["Node"] <--> M2["Node"]
-    M2 <--> M3["Node"]
-    M1 <--> M3
-  end
-  sl -.->|"simple, one write path,<br/>failover has a gap"| OUT1(["Pick when writes fit one node"])
-  ml -.->|"always writable,<br/>conflicts are yours to resolve"| OUT2(["Pick when writes must never block"])
-```
-
----
-
-<!-- _class: compare-table -->
-
-`Isolation`
-
-## Isolation levels name exactly which anomaly you have agreed to tolerate.
-
-| Level | Prevents | Still allows | Typical use |
-| --- | --- | --- | --- |
-| Read committed | Dirty reads | Non-repeatable reads | The common default |
-| Repeatable read | Non-repeatable reads | Phantoms, write skew | Reports inside a transaction |
-| Snapshot | Most read anomalies | Write skew | Read-heavy applications |
-| Serializable | Every ordering anomaly | Real-time ordering, unless strict | Money, inventory, bookings |
-
-*Read committed is the default in most systems, which means most applications tolerate anomalies they never chose.*
+> Name the query that will now cross shards. If you cannot, you have not chosen a key — you have chosen a hash.
 
 ---
 
 <!-- _class: list-criteria -->
 
-`Data invariants`
+`Data kit · the invariants`
 
-## Four sentences should hold in any data design you ship.
+## Four sentences should hold in any data design. Which does yours break?
 
 1. Exactly one source of truth per fact
-   - Every other copy is derived, and is labeled as derived.
+   - Every other copy is derived, and is labeled as derived where people can see it.
 2. Every derived store can be rebuilt
-   - If the search index burns down, a job restores it from the source.
+   - If the search index burns down, a job restores it from the source, unattended.
 3. Every consumer of a queue is idempotent
-   - At-least-once delivery is the only delivery you actually get.
-4. Every write path has a stated consistency level
+   - At-least-once delivery is the only delivery anyone actually gets.
+4. Every write path states its consistency level
    - "Whatever the database does by default" is not a stated level.
 
 ---
 
 <!-- _class: divider -->
 
-`Kit two`
+`Compute`
 
-## Compute: where work happens, and who owns the machine.
+## Choosing compute is choosing how much of the machine you still own.
 
 ---
 
 <!-- _class: diagram -->
 
-`The compute ladder`
+`Compute kit · the patterns`
 
-## Every rung hands more of the machine to someone else, and takes flexibility back.
+## Each of these hands the machine to somebody else.
 
 ```mermaid
-flowchart LR
-  BM["Bare metal<br/>you own the box"] --> VM["Virtual machine<br/>you own the OS"]
-  VM --> CT["Container<br/>you own the process"]
-  CT --> FN["Function<br/>you own the handler"]
-  FN --> ED["Edge<br/>you own a few milliseconds"]
-  BM -.->|"more control, more toil"| ED
-  ED -.->|"less control, less toil"| BM
+flowchart TB
+  subgraph b["Defer behind a queue"]
+    direction LR
+    B1["API returns now"] --> B2[["Bounded queue"]] --> B3["Worker pool"]
+  end
+  subgraph a["Stateless behind a balancer"]
+    direction LR
+    A1["Balancer"] --> A2["Any instance"] --> A3[("Shared state")]
+  end
+  subgraph d["One log, two budgets"]
+    direction LR
+    D1[["Event log"]] --> D2["Stream, seconds"]
+    D1 --> D3["Batch, hourly"]
+  end
+  subgraph c["Event triggers a function"]
+    direction LR
+    C1[("Object store")] --> C2["Function"] --> C3[("Index")]
+  end
+  a ~~~ c
+  b ~~~ d
 ```
 
 ---
 
 <!-- _class: cards-stack -->
 
-`Compute kit · Virtual machines`
+`Compute kit · virtual machines`
 
-## A virtual machine is the unit you reach for when the process is long-lived.
+## A virtual machine is what you reach for when the process outlives the request.
 
 - Reach for it when
   - The workload runs continuously, holds state in memory, or needs unusual kernel settings.
 - Walk away when
-  - Traffic is spiky and idle machines dominate the bill.
+  - Traffic is spiky and idle machines start to dominate the bill.
 - The constraint you inherit
-  - You now own patching, capacity planning, and the difference between staging and production.
+  - Patching, capacity planning, and the gap between staging and production are now yours.
 
 ---
 
 <!-- _class: cards-stack -->
 
-`Compute kit · Containers`
+`Compute kit · containers`
 
 ## A container makes the deployable unit identical everywhere it runs.
 
@@ -1249,221 +1201,179 @@ flowchart LR
 - Walk away when
   - You have one small service. An orchestrator costs more than it saves at that size.
 - The constraint you inherit
-  - The orchestrator becomes infrastructure, with its own failure modes and its own on-call.
+  - The orchestrator is now infrastructure, with its own failure modes and its own pager.
 
 ---
 
 <!-- _class: cards-stack -->
 
-`Compute kit · Functions`
+`Compute kit · functions`
 
 ## A function is compute you rent by the millisecond, so idle costs you nothing.
 
 - Reach for it when
-  - Traffic is spiky or rare, work is short, and per-request isolation is welcome.
+  - Traffic is spiky or rare, the work is short, and per-request isolation is welcome.
 - Walk away when
-  - Runs are long, or steady traffic makes per-request pricing more expensive than a machine.
+  - Runs are long, or steady traffic makes per-request pricing dearer than a machine.
 - The constraint you inherit
-  - Cold starts unless you pay to keep instances warm, which is paying for idle again.
-
----
-
-<!-- _class: cards-stack -->
-
-`Compute kit · Edge`
-
-## Edge compute buys distance, and pays for it in capability.
-
-- Reach for it when
-  - The work is small, the user is far away, and the round trip is the cost.
-- Walk away when
-  - The work needs your database, which is not at the edge.
-- The constraint you inherit
-  - Tight memory and time limits, a restricted runtime, and data that is far from the code.
+  - Cold starts, unless you pay to keep instances warm — which is paying for idle again.
 
 ---
 
 <!-- _class: compare-prose -->
 
-`The property that decides everything`
+`Compute kit · the property`
 
-## Statelessness is not a style; it is what makes a machine replaceable.
+## Statelessness is what makes a machine replaceable.
 
-- Stateful services
-  - The instance holds something no other instance has: a session, a lock, a cache, a connection. Scaling means moving state, and failure means losing it.
-- Stateless services
-  - Any instance can serve any request because the state lives elsewhere. Scaling is arithmetic, and failure is a routing change.
-
----
-
-<!-- _class: compare-prose transition -->
-
-`Two ways to process`
-
-## Batch and stream are the same computation with different latency budgets.
-
-- Batch
-  - Collect, then process a bounded set on a schedule. Simple to reason about, easy to re-run, and always behind by one interval.
-- Stream
-  - Process each event as it arrives, holding windows and watermarks. Fresh answers, at the cost of handling late and out-of-order events forever.
+- A stateful instance
+  - It holds something no other instance has: a session, a lock, a warm cache, an open connection. Scaling means moving that state, and a crash means losing it.
+- A stateless instance
+  - Any instance serves any request because the state lives somewhere else. Scaling is arithmetic and failure is a routing change.
 
 ---
 
 <!-- _class: list-criteria -->
 
-`Compute invariants`
+`Compute kit · the invariants`
 
-## Anything you run should satisfy these four claims.
+## Anything you run should satisfy these four. Which does yours break?
 
 1. Any instance can be killed without a customer noticing
-   - If that is false, you have hidden state you have not named.
+   - If that is false, you have state you have not named yet.
 2. Deployments are reversible
    - A rollback is a routine operation, not an incident response.
-3. Capacity is a number someone owns
-   - Not "it autoscales" — the ceiling, the cost, and who is paged when it is hit.
+3. Capacity is a number somebody owns
+   - Not "it autoscales" — the ceiling, the cost, and who gets paged at it.
 4. Startup does not depend on startup order
-   - Services retry into each other rather than requiring a sequence.
+   - Services retry into each other instead of requiring a sequence.
 
 ---
 
 <!-- _class: divider -->
 
-`Kit three`
+`Network`
 
-## Network: distance is a cost you cannot optimize away.
+## Distance is the one cost you cannot optimize away.
+
+---
+
+<!-- _class: diagram -->
+
+`Network kit · the patterns`
+
+## Distance costs you differently in each of these.
+
+```mermaid
+flowchart TB
+  subgraph b["Route by content"]
+    direction LR
+    B1["L7 balancer"] -->|"/api"| B2["Service"]
+    B1 -->|"/media"| B3[("Bucket")]
+  end
+  subgraph a["Cache at the edge"]
+    direction LR
+    A1(["Client"]) --> A2["CDN"] -.->|"miss"| A3[("Origin")]
+  end
+  subgraph d["Ask once, or subscribe"]
+    direction LR
+    D1(["Client"]) -->|"request"| D2["API"]
+    D1 <-->|"open stream"| D3["Live socket"]
+  end
+  subgraph c["Every hop carries a deadline"]
+    direction LR
+    C1["300 ms left"] --> C2["Breaker"] --> C3["200 ms left"]
+  end
+  a ~~~ c
+  b ~~~ d
+```
+
+---
+
+<!-- _class: diagram -->
+
+`Network kit · the request path`
+
+## Four hops separate a tap from your service, each spending budget.
+
+```mermaid
+flowchart LR
+  U(["Phone"]) -->|"~50 ms cellular"| D["DNS"]
+  D -->|"cached, ~0 ms"| E["CDN edge"]
+  E -->|"hit ends here"| U
+  E -->|"~30 ms"| LB["Balancer"]
+  LB -->|"~0.5 ms"| GW["Gateway"]
+  GW -->|"~0.5 ms"| SVC["Your service"]
+  SVC --> DB[("Store")]
+```
 
 ---
 
 <!-- _class: list-tabular metric -->
 
-`The numbers to memorize`
+`Network kit · the numbers`
 
-## Five numbers explain most latency arguments before they start.
+## Three numbers settle most latency arguments before they start.
 
-1. L1 cache read
-   - 1 ns
-2. Main memory read
+1. Memory read
    - 100 ns
-3. Flash random read
-   - 0.1 ms
-4. Datacenter hop
+2. Datacenter hop
    - 0.5 ms
-5. Cross-continent hop, measured
+3. Cross-continent round trip
    - 150 ms
 
 ---
 
 <!-- _class: content -->
 
-`Why the numbers matter`
+`Why that number is final`
 
-## Light in fiber travels about 200 kilometers per millisecond, and that is final.
+## Light in fiber covers about 200 kilometers per millisecond.
 
-The measured 150 milliseconds is well above that fiber floor, because packets do not travel in straight lines. A design needing three sequential intercontinental round trips spends half a second before it executes an instruction.
+Nothing changes that. The measured 150 milliseconds is well above the straight-line floor, because packets do not travel in straight lines and every hop queues.
 
-This is why replication, caching and edge delivery exist. All three are ways of buying distance, and none of them makes distance free.
-
----
-
-<!-- _class: diagram -->
-
-`The request path`
-
-## Four hops sit between a tap and your service, and each one can fail.
-
-```mermaid
-flowchart LR
-  U(["User device"]) --> D["DNS<br/>name to address"]
-  D --> E["Edge / CDN<br/>cached, or forwarded"]
-  E --> LB["Load balancer<br/>picks a healthy instance"]
-  LB --> GW["Gateway<br/>authn, rate limit, routing"]
-  GW --> SVC["Your service"]
-  SVC --> DB[("Data store")]
-  E -.->|"cache hit ends here"| U
-```
+A design that needs three sequential intercontinental round trips has spent half a second before it executes an instruction. Replication, caching and edge delivery all exist to buy that distance back, and none of them makes it free.
 
 ---
 
 <!-- _class: cards-stack -->
 
-`Network kit · DNS`
-
-## DNS is the first request, the slowest to change, and a real dependency.
-
-- Reach for it when
-  - You need a stable name in front of an address that will change.
-- Walk away when
-  - You need failover in seconds. Caches downstream ignore your intentions.
-- The constraint you inherit
-  - TTL is a promise about the past. Old answers stay in resolvers you cannot reach.
-
----
-
-<!-- _class: cards-stack -->
-
-`Network kit · CDN`
+`Network kit · the CDN`
 
 ## A CDN moves bytes closer to readers and moves nothing else.
 
 - Reach for it when
-  - Content is large, popular, and the same for many users.
+  - The content is large, popular, and identical for many people.
 - Walk away when
-  - Every response is personalized and cacheable for nobody but one person.
+  - Every response is personal and cacheable for exactly one reader.
 - The constraint you inherit
-  - Purging is eventual. Versioned URLs beat invalidation every time.
+  - Purging is eventual. Put a version in the URL and never invalidate anything again.
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- _class: split-panel proof cat-2 -->
+<!-- _header: "" -->
 
-`Two ways to balance load`
+`Network kit · timeouts`
 
-## A layer-four balancer moves packets; a layer-seven balancer reads requests.
+## A request with no timeout is a resource leak waiting for a bad afternoon.
 
-- Layer four
-  - Routes by address and port without looking inside. Very fast, protocol agnostic, and blind to what the request actually asks for.
-- Layer seven
-  - Parses the request, so it can route by path, retry safely, split traffic and terminate encryption. More capable, more expensive, and now it is a system with opinions.
+Every waiting request holds a connection, a thread and some memory. Under a slow dependency, unbounded waits turn one struggling service into a total outage — which is exactly what happened to checkout at one o'clock.
 
----
-
-<!-- _class: compare-table -->
-
-`API styles`
-
-## Four API styles, and the one question that separates them.
-
-| Style | Best at | Weak at | Choose when |
-| --- | --- | --- | --- |
-| REST | Cacheable resources | Chatty multi-entity reads | Public, resource-shaped APIs |
-| RPC | Typed internal calls | Browser reach, client coupling | Service-to-service traffic |
-| GraphQL | Client-shaped queries | Caching, cost control | Many clients, one backend |
-| Streaming | Continuous updates | Simplicity, statelessness | Live feeds and progress |
-
----
-
-<!-- _class: split-panel proof -->
-
-`Network kit · Timeouts`
-
-## A request without a timeout is a resource leak waiting for a bad day.
-
-*What does an unbounded wait actually cost?* Every waiting request holds a connection, a thread and memory. Under a slow dependency, unbounded waits convert one slow service into a total outage.
-
-- You know you're here when
+- The tell
   - Every outbound call has a deadline, and the deadline shrinks as it propagates.
 - Retries need a budget
-  - Retrying without a cap turns a brief failure into a self-inflicted flood.
+  - Retrying without a cap turns a brief failure into a flood you built yourself.
 - Backoff must be random
-  - Synchronized retries arrive together and rebuild the exact spike you just survived.
+  - Synchronized retries arrive together and rebuild the spike you just survived.
 
 ---
 
 <!-- _class: list-criteria -->
 
-`Network invariants`
+`Network kit · the invariants`
 
-## A call that leaves your process owes you four promises.
+## A call that leaves your process owes you these four.
 
 1. Every remote call has a deadline
    - Inherited from the caller, and always shorter than the caller's own.
@@ -1472,50 +1382,61 @@ flowchart LR
 3. Every write is idempotent or keyed
    - The network will deliver your request twice. Decide now what that means.
 4. Distance appears in the design
-   - Round trips between regions are counted, not discovered in production.
+   - Round trips between regions are counted on purpose, not discovered in production.
 
 ---
 
 <!-- _class: divider -->
 
-`Kit four`
+`Scale`
 
-## Scale: four moves, and knowing which one the bottleneck needs.
+## Every scaling change is one of four moves.
 
 ---
 
-<!-- _class: premise -->
+<!-- _class: diagram -->
 
-## There are only four ways to make a system handle more.
+`Scale kit · the patterns`
 
-Everything else is a variation. When someone proposes a scaling change, ask which of these four it is, and which bottleneck it moves.
+## The four moves, drawn.
 
-1. Reduce
-   - Do less work per request.
-   - Can this be reused?
-2. Spread
-   - Split work across machines.
-   - Can this be partitioned?
-3. Defer
-   - Move work out of the request.
-   - Must this happen now?
-4. Duplicate
-   - Copy data closer to readers.
-   - Are reads the pressure?
+```mermaid
+flowchart TB
+  subgraph b["Spread · partition by key"]
+    direction LR
+    B1["Router"] --> B2[("Shard A")]
+    B1 --> B3[("Shard B")]
+  end
+  subgraph a["Reduce · do less per request"]
+    direction LR
+    A1["Request"] --> A2[("Cache hit")] --> A3(["No work done"])
+  end
+  subgraph d["Duplicate · copy toward readers"]
+    direction LR
+    D1[("Leader")] --> D2[("Replica, US")]
+    D1 --> D3[("Replica, EU")]
+  end
+  subgraph c["Defer · answer now, work later"]
+    direction LR
+    C1["Accept"] --> C2[["Bounded queue"]] --> C3["Worker"]
+  end
+  a ~~~ c
+  b ~~~ d
+```
 
 ---
 
 <!-- _class: math -->
 
-`The one formula to memorize`
+`Scale kit · the one formula`
 
-## Concurrency, throughput and latency are one equation, not three numbers.
+## Concurrency, throughput and latency are one equation.
 
 $$ L = \lambda W $$
 
-- $L$ — requests in the system at once (concurrency)
-- $\lambda$ — arrival rate (requests per second)
-- $W$ — time each request spends inside (latency)
+- $L$ — requests in flight at once
+- $\lambda$ — arrivals per second
+- $W$ — time each one spends inside
 
 ---
 
@@ -1523,59 +1444,42 @@ $$ L = \lambda W $$
 
 `Using it`
 
-## The formula tells you the thread pool size before you guess it.
+## The formula sizes your thread pool before anyone guesses.
 
-At 2,000 requests per second with an average of 50 milliseconds each, 100 requests are in flight at any moment. That is your minimum concurrency, and no amount of tuning makes it smaller while both other numbers hold.
+At 2,000 requests per second averaging 50 milliseconds each, 100 requests are in flight at any moment. That is your minimum concurrency, and no tuning makes it smaller while the other two numbers hold.
 
-It also explains the failure: if latency triples during an incident, concurrency triples too, and a pool sized for the good case is now the outage.
+It also explains the outage. If latency triples during an incident, concurrency triples with it, and a pool sized for the good day is now the thing that fails. Find your own numbers: arrivals on the load balancer, duration in the handler.
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- _class: split-panel proof cat-3 -->
+<!-- _header: "" -->
 
-`Scale kit · Tail latency`
+`Scale kit · tail latency`
 
-## The average request is a fiction; users live in the tail.
+## The average request is a fiction, and your users live in the tail.
 
-*Why does a fast service feel slow?* A page that makes 100 parallel calls waits for the slowest. With a one-percent chance of a slow call, 63 percent of pages hit at least one.
+A page that makes 100 parallel calls waits for the slowest one. With a one-percent chance of a slow call, 63 percent of pages hit at least one — that is one minus 0.99 to the hundredth, and you can redo it on a napkin.
 
-- You know you're here when
-  - You report the 99th percentile, not the mean, and you report it per dependency.
+- The tell
+  - You report the 99th percentile per dependency, and the mean nowhere.
 - Fan-out amplifies it
-  - More parallel calls make a rare slow response into a common slow page.
+  - More parallel calls turn a rare slow response into a common slow page.
 - Hedging buys it back
-  - Send a duplicate request after the 95th percentile and take whichever answers first.
-
----
-
-<!-- _class: diagram -->
-
-`Scale kit · Caching`
-
-## A cache exists at every layer, and each one lies to you differently.
-
-```mermaid
-flowchart LR
-  U(["Client"]) --> B["Browser cache<br/>you cannot purge"]
-  B --> C["CDN<br/>purge is eventual"]
-  C --> A["Application cache<br/>you control"]
-  A --> D["Database buffer pool<br/>invisible but real"]
-  D --> S[("Source of truth")]
-  A -.->|"stale window = TTL"| S
-```
+  - Send a duplicate after the 95th percentile and take whichever answers first.
 
 ---
 
 <!-- _class: cards-grid four -->
 
-`Cache strategies`
+`Scale kit · caching`
 
 ## Four caching patterns, and the failure each one owns.
 
 - Cache-aside
-  - The app fills the cache on a miss. Simple, and stampedes on a cold key.
+  - The app fills the cache on a miss. Simple, and it stampedes on a cold key.
 - Read-through
-  - The cache fetches for you. Cleaner code, and the cache is now on the critical path.
+  - The cache fetches for you. Cleaner code, and now the cache is on the critical path.
 - Write-through
   - Write both together. Always fresh, and every write pays the cache's latency.
 - Write-behind
@@ -1585,129 +1489,109 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: split-panel proof cat-4 -->
+<!-- _header: "" -->
 
-`Scale kit · Consistent hashing`
-
-## Consistent hashing exists so adding a machine does not move all the keys.
-
-```mermaid
-flowchart LR
-  subgraph naive["Hash modulo N"]
-    direction TB
-    NA["4 nodes to 5 nodes"] --> NB["About 80% of keys move"]
-    NB --> NC["Every cache is cold at once"]
-  end
-  subgraph ring["Consistent hash ring"]
-    direction TB
-    RA["4 nodes to 5 nodes"] --> RB["About 20% of keys move"]
-    RB --> RC["Virtual nodes even out the spread"]
-  end
-  naive -.->|"the reason the ring exists"| ring
-```
-
----
-
-<!-- _class: split-panel proof -->
-
-`Scale kit · Idempotency`
+`Scale kit · idempotency`
 
 ## Idempotency is what makes a retry safe, and retries are not optional.
 
-*What happens when the same request arrives twice?* Networks duplicate. Clients retry. Queues redeliver. The only question is whether the second delivery is harmless or charges a customer again.
+Networks duplicate, clients retry, queues redeliver. The only question is whether the second delivery is harmless or charges somebody twice.
 
-- You know you're here when
+- The tell
   - Every mutating endpoint takes a client-supplied key and deduplicates on it.
 - The key comes from the caller
   - Generated before the first attempt, reused on every retry of that same intent.
-- Store the result, not just the fact
-  - A repeat must return the original answer, not an error saying it already happened.
-
----
-
-<!-- _class: cards-stack -->
-
-`Scale kit · Rate limiting`
-
-## A rate limit protects the system from its users, and from itself.
-
-- Reach for it when
-  - Any shared resource can be exhausted by one caller, deliberately or accidentally.
-- Walk away when
-  - The limit is applied so late that the work is already done when you reject.
-- The constraint you inherit
-  - Limits are per-key state, so a distributed limiter is itself a consistency problem.
-
----
-
-<!-- _class: compare-prose -->
-
-`The oldest question`
-
-## Scaling up is faster to do; only scaling out keeps working.
-
-- Vertical, a bigger machine
-  - No code changes, no distribution, no new failure modes. It works until the largest machine is not large enough, and it never removes the single point of failure.
-- Horizontal, more machines
-  - Unbounded headroom and real redundancy, bought with partitioning, coordination and a distributed system's whole class of new bugs.
+- Store the result, not the fact
+  - A repeat returns the original answer, not an error saying it already happened.
 
 ---
 
 <!-- _class: list-criteria -->
 
-`Scale invariants`
+`Scale kit · the invariants`
 
-## Check these four before calling any design scalable.
+## Check these four before you call anything scalable.
 
 1. The bottleneck is named and measured
    - Not suspected. A number, a graph, and the resource it belongs to.
 2. Every queue is bounded
-   - An unbounded queue converts a throughput problem into a memory outage.
+   - An unbounded queue turns a throughput problem into a memory outage.
 3. Load sheds before it collapses
    - The system rejects work at the edge rather than failing everywhere at once.
-4. Adding a machine is a routine act
-   - No manual steps, no rebalancing outage, no cold cache stampede.
+4. Adding a machine is routine
+   - No manual steps, no rebalancing outage, no cold-cache stampede.
 
 ---
 
 <!-- _class: divider -->
 
-`Kit five`
+`Reliability`
 
-## Reliability: failure is the environment, not an exception.
+## Failure is the environment, not the exception.
 
 ---
 
 <!-- _class: diagram -->
 
-`Failure domains`
+`Reliability kit · the patterns`
 
-## Redundancy only helps when the copies fail independently.
+## Each of these keeps one failure from becoming every failure.
 
 ```mermaid
 flowchart TB
-  R["Region"] --> Z1["Zone A"]
-  R --> Z2["Zone B"]
-  Z1 --> H1["Rack"] --> M1["Machine"] --> P1["Process"]
-  Z2 --> H2["Rack"] --> M2["Machine"] --> P2["Process"]
-  P1 -.->|"shared config, shared deploy,<br/>shared dependency"| CORR(["Correlated failure:<br/>both copies die together"])
-  P2 -.-> CORR
+  subgraph b["Degrade to stale"]
+    direction LR
+    B1["Reader"] --> B2["Breaker open"] -.-> B3[("Last good copy")]
+  end
+  subgraph a["Copies that fail apart"]
+    direction LR
+    A1["Traffic"] --> A2["Zone A"]
+    A1 --> A3["Zone B"]
+  end
+  subgraph d["Shed at the edge"]
+    direction LR
+    D1["Arrivals"] --> D2["Over budget"] --> D3(["Fast reject"])
+  end
+  subgraph c["One pool per dependency"]
+    direction LR
+    C1["Service"] --> C2["Pool A"]
+    C1 --> C3["Pool B"]
+  end
+  a ~~~ c
+  b ~~~ d
+```
+
+---
+
+<!-- _class: diagram -->
+
+`Reliability kit · failure domains`
+
+## Redundancy only helps when the copies can fail apart.
+
+```mermaid
+flowchart LR
+  R["Region"] --> Z1["Zone A"] --> M1["Machine"] --> P1["Process"]
+  R --> Z2["Zone B"] --> M2["Machine"] --> P2["Process"]
+  P1 -.->|"same config, same deploy,<br/>same upstream"| C(["Correlated failure:<br/>both die together"])
+  P2 -.-> C
 ```
 
 ---
 
 <!-- _class: list-steps -->
 
-`Reliability kit · Containment`
+`Reliability kit · containment`
 
-## Four mechanisms stop one failure from becoming every failure.
+## Four mechanisms keep a slow dependency from taking the building.
 
 1. Timeout
-   - Bound how long you wait, so a slow dependency cannot hold your resources.
+   - Bound the wait, so a slow callee cannot hold your resources.
 2. Retry with backoff
    - Recover from a blip, with a budget and jitter so you do not amplify it.
 3. Circuit breaker
-   - Stop calling a service that is clearly down, and let it recover.
+   - Stop calling something that is clearly down, and let it recover.
 4. Bulkhead
    - Give each dependency its own pool, so one queue cannot drain them all.
 
@@ -1715,16 +1599,16 @@ flowchart TB
 
 <!-- _class: list-tabular def -->
 
-`Reliability kit · Objectives`
+`Reliability kit · the objectives`
 
-## Four terms, often confused, that decide what you are allowed to ship.
+## Four terms decide what you are allowed to ship this week.
 
-1. Indicator
-   - The SLI: the share of requests served under 300 milliseconds.
-2. Objective
-   - The SLO: your internal target, such as 99.9 percent over 28 days.
-3. Agreement
-   - The SLA: the external promise, with money attached and always looser.
+1. SLI
+   - The measurement: the share of requests served under 300 milliseconds.
+2. SLO
+   - Your internal target for it, such as 99.9 percent over 28 days.
+3. SLA
+   - The external promise, with money attached, and always looser than the SLO.
 4. Budget
    - What the objective lets you spend. Exhausted, feature work stops.
 
@@ -1732,12 +1616,12 @@ flowchart TB
 
 <!-- _class: list-tabular metric -->
 
-`What the nines cost`
+`Reliability kit · the nines`
 
-## Availability targets are budgets, and the budget shrinks fast.
+## An availability target is a budget, and it shrinks fast.
 
 1. 99 percent
-   - 3.65 days down per year
+   - 3.65 days per year
 2. 99.9 percent
    - 8.8 hours per year
 3. 99.99 percent
@@ -1751,131 +1635,163 @@ flowchart TB
 
 `Reading that table`
 
-## Past three nines, the humans stop being fast enough.
+## Past three nines the humans stop being fast enough.
 
-Fifty-three minutes a year is less than one incident with a page, a login, a look at a dashboard and a decision. Four nines therefore means automatic failover and automatic rollback, not a faster on-call engineer.
+Fifty-three minutes a year is less than one incident with a page, a login, a look at a dashboard and a decision. So four nines does not mean a faster on-call engineer. It means automatic failover and automatic rollback, because a person is no longer in the loop.
 
-Each nine roughly multiplies cost. Pick the number the business actually needs, and write down what you are not buying.
+Each nine roughly multiplies the cost. Pick the number the business actually needs, and write down what you are choosing not to buy.
 
 ---
 
 <!-- _class: cards-grid three -->
 
-`Reliability kit · Observability`
+`Reliability kit · observability`
 
-## Three signals answer three different questions; none of them replaces the others.
+## Three signals answer three different questions, and none replaces the others.
 
 - Metrics
-  - Cheap, aggregate, always on. Tells you that something is wrong.
+  - Cheap, aggregate, always on. They tell you that something is wrong.
 - Logs
-  - Detailed, expensive, per event. Tells you what happened in one case.
+  - Detailed, expensive, one event at a time. They tell you what happened in one case.
 - Traces
-  - One request across every service. Tells you where the time went.
+  - One request across every service. They tell you where the time actually went.
 
-> If you cannot answer "which dependency is slow" in one minute, you have metrics but not observability.
+> If you cannot answer "which dependency is slow" inside a minute, you have metrics, not observability.
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- _class: split-panel proof cat-5 -->
+<!-- _header: "" -->
 
-`Reliability kit · Degradation`
+`Reliability kit · degradation`
 
-## A well-designed system gets worse in an order you chose.
+## A well-designed system gets worse in an order somebody chose.
 
-*What do you drop first?* Under pressure something must give. Either you decided in advance which features degrade, or the system decides at random and drops the checkout page.
+Under pressure something has to give. Either you decided in advance which features degrade, or the system decides at random and drops the one that takes money.
 
-- You know you're here when
+- The tell
   - Every feature has a stated tier, and the lowest tier fails first by design.
 - Read paths outlive write paths
-  - Serving stale data beats serving an error page for most products.
-- The fallback is tested
-  - An untested degraded mode is an untested code path in your worst hour.
+  - Serving something slightly stale beats serving an error page, for almost every product.
+- The fallback is exercised
+  - An untested degraded mode is untested code running in your worst hour.
 
 ---
 
 <!-- _class: list-criteria -->
 
-`Reliability invariants`
+`Reliability kit · the invariants`
 
-## Trust a system in production only when these four hold.
+## Trust nothing in production until these four hold.
 
 1. Every dependency has a defined failure behavior
    - Written down: degrade, queue, or fail fast. Never "we will see."
 2. Redundant copies fail independently
    - Different zones, different deploys, different upstreams. Otherwise it is one copy.
 3. Recovery is practiced
-   - Restores, failovers and rollbacks are exercised on a schedule, not improvised.
-4. The system tells you before the user does
-   - Alerts fire on the indicator, not on the complaint.
+   - Restores, failovers and rollbacks happen on a schedule, not for the first time at 3am.
+4. The system tells you before a user does
+   - Alerts fire on the indicator, never on the complaint.
 
 ---
 
 <!-- _class: divider -->
 
-`Kit six`
+`Security`
 
-## Security: assume the boundary is already crossed.
+## Assume the boundary is already crossed.
 
 ---
 
 <!-- _class: diagram -->
 
-`Trust boundaries`
+`Security kit · the patterns`
+
+## All four of these assume somebody is already inside.
+
+```mermaid
+flowchart TB
+  subgraph b["Short, narrow, rotated"]
+    direction LR
+    B1["Service"] --> B2["Token, 15 min<br/>read only"] --> B3[("Store")]
+  end
+  subgraph a["Identity once, permission always"]
+    direction LR
+    A1(["Caller"]) -->|"authn"| A2["Edge"] -->|"authz on this object"| A3[("Object")]
+  end
+  subgraph d["A reply is input too"]
+    direction LR
+    D1["Service"] -->|"signed request"| D2["Third party"] -.->|"validate"| D1
+  end
+  subgraph c["Private bytes need a signed link"]
+    direction LR
+    C1(["Viewer"]) --> C2["Authorizer<br/>mints URL"] --> C3["CDN verifies"]
+  end
+  a ~~~ c
+  b ~~~ d
+```
+
+---
+
+<!-- _class: diagram -->
+
+`Security kit · trust boundaries`
 
 ## Every arrow that crosses a trust boundary needs a check on the far side.
 
 ```mermaid
 flowchart LR
-  U(["User<br/>fully untrusted"]) -->|"authn, input validation"| E["Edge"]
+  U(["User<br/>fully untrusted"]) -->|"authn, validate input"| E["Edge"]
   E -->|"authz, rate limit"| S["Service"]
-  S -->|"service identity, least privilege"| D[("Data")]
-  S -->|"signed request, allowlist"| T["Third party"]
-  T -.->|"treat the reply as untrusted too"| S
+  S -->|"service identity,<br/>least privilege"| D[("Data")]
+  S -->|"signed request"| T["Third party"]
+  T -.->|"the reply is untrusted too"| S
 ```
 
 ---
 
 <!-- _class: compare-prose -->
 
-`The pair everyone conflates`
+`Security kit · the pair`
 
-## Authentication asks who you are; authorization asks what you may do.
+## Authentication asks who you are. Authorization asks what you may touch.
 
 - Authentication
-  - Establishes identity once, at the edge, and hands down a verifiable claim. Getting it wrong lets the wrong person in.
+  - Establishes identity once, at the edge, and hands down a claim anyone downstream can verify. Getting it wrong lets the wrong person in.
 - Authorization
-  - Decides, on every single request, whether this identity may touch this specific object. Getting it wrong lets the right person read someone else's data.
+  - Decides, on every single request, whether this identity may touch this specific object. Getting it wrong lets the right person read somebody else's data.
 
 ---
 
-<!-- _class: split-panel proof -->
+<!-- _class: split-panel proof cat-6 -->
+<!-- _header: "" -->
 
-`Security kit · Least privilege`
+`Security kit · least privilege`
 
-## Least privilege is measured by what a stolen credential can reach.
+## Least privilege is measured by what one stolen credential can reach.
 
-*How far does one compromise travel?* Assume any single credential will eventually leak. The design question is what an attacker holding it can do, and for how long.
+Assume any single credential eventually leaks. The design question is not whether that happens; it is how far the person holding it can travel, and for how long.
 
-- You know you're here when
-  - You can state the blast radius of each service account in one sentence.
+- The tell
+  - You can state the blast radius of every service account in one sentence.
 - Scope it and expire it
-  - Narrow permissions, short lifetimes, and automatic rotation beat a careful human.
+  - Narrow permissions, short lifetimes and automatic rotation beat a careful human.
 - Separate read from write
-  - Most services need one or the other, and almost none need to delete.
+  - Most services need one or the other. Almost none needs to delete.
 
 ---
 
 <!-- _class: list-tabular def -->
 
-`Security kit · Encryption`
+`Security kit · encryption`
 
 ## Encryption has three states, and a fourth thing that outranks all of them.
 
-1. In transit
+1. Transit
    - TLS everywhere, including between your own services. Networks are untrusted.
-2. At rest
+2. Rest
    - Disk and backup encryption. Stops a stolen device, not a stolen credential.
-3. In use
+3. Use
    - Decrypted in memory to be processed. The hardest state, and the one attacked.
 4. Keys
    - A managed store or an HSM, rotated on a schedule, never in the repository.
@@ -1884,33 +1800,33 @@ flowchart LR
 
 <!-- _class: checklist -->
 
-`Security kit · Threat modeling`
+`Security kit · threat modeling`
 
-## Six questions find most of the holes before an attacker does.
+## Six questions find most of the holes before somebody else does.
 
 - [x] Can someone pretend to be another identity? `spoofing`
 - [x] Can data be changed in transit or at rest? `tampering`
 - [x] Can an actor deny having done something? `repudiation`
-- [x] Can private data leak to the wrong reader? `disclosure`
+- [x] Can private data reach the wrong reader? `disclosure`
 - [x] Can one caller exhaust a shared resource? `denial`
-- [x] Can a caller gain rights they were not granted? `elevation`
+- [x] Can a caller gain rights nobody granted? `elevation`
 
 ---
 
 <!-- _class: list-criteria -->
 
-`Security invariants`
+`Security kit · the invariants`
 
-## Sign your name to a design only if these four are true.
+## Sign your name to a design only when these four are true.
 
 1. Every request is authorized against the specific object
-   - Not the endpoint. Object-level checks are where real breaches happen.
+   - Not the endpoint. Object-level checks are where real breaches actually happen.
 2. Secrets never enter the repository or a log line
-   - They live in a managed store, are injected at runtime, and rotate.
+   - They live in a managed store, are injected at runtime, and they rotate.
 3. All input is untrusted, including from your own services
    - A compromised internal caller is the ordinary case, not the exotic one.
 4. Every privileged action is attributable
-   - An immutable audit record naming who, what, when, and from where.
+   - An immutable record of who, what, when, and from where.
 
 ---
 
@@ -1918,60 +1834,42 @@ flowchart LR
 
 `Part five`
 
-## Two systems, designed end to end.
+## Now we design the thing Maya was scrolling at half past nine.
 
 ---
 
-<!-- _class: list-steps -->
+<!-- _class: code -->
 
-`The method · frame it`
+`Instagram · the worksheet`
 
-## Three steps before a single box goes on the whiteboard.
+## Nine fields, filled in before a single box goes on the board.
 
-1. Requirements
-   - What it must do, what it must guarantee, and which solution type is wanted.
-2. Estimates
-   - Users, requests per second, bytes per day, and the read-to-write ratio.
-3. Interfaces and data
-   - The handful of API calls, and the entities behind them.
-
----
-
-<!-- _class: list-steps -->
-
-`The method · build it`
-
-## Three steps that turn the frame into a defensible design.
-
-1. Architecture
-   - The components, the request path, and the store behind each one.
-2. Bottleneck and tradeoff
-   - Name the scarce resource, then name the choice you made and what it cost.
-3. Failure modes
-   - What breaks first, what degrades, and which invariants must survive.
-
----
-
-<!-- _class: divider -->
-
-`Design one`
-
-## A photo feed at global scale.
+```text
+Protagonist   A reader on a phone. Twelve opens a day, on cellular.
+Antagonist    The shape of the follow graph — a tail at 5×10⁸ edges.
+Purpose       A fresh, personal, ranked page in under a second.
+Boundary      In: feed, posts, edges, media. Out: the phone, the network, the law.
+Environment   Spiky traffic, partitions, duplicate deliveries, people who want in.
+Constraints   200 ms p99 · 60 reads per write · media durable forever
+Invariants    A post reaches eligible followers · media never lost · a like counts once
+Bottleneck    Read throughput, at 70K feed reads per second
+Solution type Scaled. Not an MVP, not optimal.
+```
 
 ---
 
 <!-- _class: list-criteria -->
 
-`Instagram · functional`
+`Instagram · what it must do`
 
-## Four operations carry the whole product.
+## Four operations carry the entire product.
 
 1. Post a photo
-   - Upload media, attach a caption, publish to followers.
+   - Upload media, attach a caption, publish it to the people who follow you.
 2. Follow an account
-   - Build the social graph that decides whose posts you see.
+   - Build the directed graph that decides whose posts you are eligible to see.
 3. Read a feed
-   - A ranked, paginated list of recent posts from accounts you follow.
+   - A ranked, paginated page of recent posts from the accounts you follow.
 4. React
    - Like and comment, with counts visible on every post.
 
@@ -1979,26 +1877,40 @@ flowchart LR
 
 <!-- _class: list-criteria -->
 
-`Instagram · non-functional`
+`Instagram · what it must guarantee`
 
 ## Four guarantees decide the architecture more than the features do.
 
 1. The feed serves in under 200 milliseconds
    - Server-side, 99th percentile, measured from the reader's own region.
 2. Reads dominate writes by about sixty to one
-   - Every design decision should favor the reader.
-3. Posts and media are durable forever
-   - A lost photo or a lost follow graph is unrecoverable. Only derived data rebuilds.
+   - Every decision should favor the reader, and the poster should absorb the cost.
+3. Posts, media and the graph are durable forever
+   - Lose any of the three and nothing rebuilds them. Only derived data rebuilds.
 4. Eventual consistency is fine on the feed
-   - A late post and a lagging count are fine; a blank one is not.
+   - A late post and a lagging count are fine. A blank count is not.
+
+---
+
+<!-- _class: content -->
+
+`Instagram · the estimate, worked`
+
+## Two assumptions and some division give you every number that matters.
+
+Assume 500 million daily users who open the feed twelve times a day, and 100 million photos posted a day. Everything else is arithmetic:
+
+`500M × 12 = 6B reads/day ÷ 86,400 = 70K reads/s` · `100M ÷ 86,400 = 1.2K writes/s` · `100M × 2MB = 200 TB/day` · `ratio ≈ 60:1`
+
+The twelve is the only number doing real work. Change it and everything moves; change the 500 million and the ratio does not.
 
 ---
 
 <!-- _class: list-tabular metric -->
 
-`Instagram · envelope`
+`Instagram · the envelope`
 
-## Five numbers, and the architecture is already half decided.
+## Five numbers, and the architecture is already arguing with you.
 
 1. Daily active users
    - 500 M
@@ -2015,101 +1927,153 @@ flowchart LR
 
 <!-- _class: content -->
 
-`Reading the envelope`
+`Your turn`
 
-## The ratio, not the totals, is what the design has to answer.
+## Redo it for a smaller product before you turn the page.
 
-Seventy thousand reads against twelve hundred writes is sixty to one — both averages, compared like for like. A 3× peak gives 200K reads and 3.5K writes; the ratio holds, the absolute numbers do not.
+Fifty million daily users, opening the app four times a day, posting two million photos. Work out reads per second, writes per second, and the ratio between them.
 
-So: precompute the feed and pay whatever the write path costs. The storage line says something else — 200 terabytes a day of immutable media belongs in an object store, never a database.
+Do it now, on paper, in under a minute. The answer is on the next slide, and the point is not the answer — it is that you can produce one at all when somebody asks in a room.
+
+---
+
+<!-- _class: content -->
+
+`The answer`
+
+## Two and a half thousand reads a second, and a ratio that barely moved.
+
+`50M × 4 = 200M reads/day ÷ 86,400 ≈ 2.3K reads/s` · `2M ÷ 86,400 ≈ 23 writes/s` · `ratio ≈ 100:1`
+
+A hundredth of the traffic and the same shape. That is what makes the ratio worth finding first: it survives being wrong about the size, and it is the number the design actually answers to.
+
+---
+
+<!-- _class: diagram -->
+
+`Instagram · the graph`
+
+## The follow graph is directed, and the two directions are not the same size.
+
+```mermaid
+flowchart LR
+  M(["Maya<br/>follows 300"]) -->|"follows"| A["Friend"]
+  M -->|"follows"| B["Photographer"]
+  M -->|"follows"| C(["Celebrity<br/>followed by 5×10⁸"])
+  D["Fan"] -->|"follows"| C
+  E["Fan"] -->|"follows"| C
+  F["…499,999,997 more"] -->|"follows"| C
+```
+
+*Out-degree is capped at 7,500 by product policy. In-degree is capped by nothing. Every hard problem in this design lives on the right-hand side of this picture.*
+
+---
+
+<!-- _class: split-panel capstone cat-7 -->
+<!-- _header: "" -->
+
+`Instagram · the one sentence`
+
+## Your following list is capped. Your followers list is capped by nothing.
+
+Instagram limits how many accounts you may follow to seven and a half thousand. Nobody limits how many people may follow you. Bounded out-degree, unbounded in-degree — and every hard problem in this design lives on the unbounded side.
+
+- Following, per person
+  - At most 7,500. A read of that list is one partition and a sorted range.
+- Followers, per person
+  - Median a few hundred. Maximum five hundred million. Six orders of magnitude apart.
+- Everything after this
+  - Is a consequence of that asymmetry. Nothing else in the design spans that range.
 
 ---
 
 <!-- _class: code -->
 
-`Instagram · the interface`
+`Instagram · the storage`
 
-## Eight endpoints, and one pagination choice that stops duplicates.
+## The edge is stored twice, because it answers two different questions.
 
-```http
-POST   /v1/media          -> { upload_url, media_id }   # presigned, direct to blob
-POST   /v1/posts          { media_id, caption }         # Idempotency-Key required
-GET    /v1/feed?cursor=   -> { items[], next_cursor }   # cursor, never offset
-GET    /v1/posts/{id}     -> { post, media, counts }    # single post, cache friendly
-GET    /v1/users/{id}/posts?cursor=                     # profile grid, same cursor
-POST   /v1/posts/{id}/like                              # idempotent by (user, post)
-POST   /v1/follows        { target_id }                 # idempotent by (user, target)
-DELETE /v1/posts/{id}                                   # tombstone, feeds filter it
+```text
+following                              followers
+  PK  (source_id)                        PK  (target_id, bucket)
+  CK  (target_id)                        CK  (created_at DESC, source_id)
+  "does A follow B?" is a point read     the follower list, newest first
+  capped at 7,500 rows                   bucket = hash(source) % B(target)
+                                         B = clamp(followers / 1e6, 1, 512)
 ```
 
-*A cursor encodes the last item seen. An offset renumbers itself every time somebody posts, so page two repeats what page one already showed.*
+*Two copies means they can diverge. The forward edge is the source of truth; the reverse is materialized from the log and repaired by a background job.*
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: compare-table -->
 
-`Instagram · the data`
+`Instagram · what each read costs`
 
-## Six entities, and the one you read from is not a source of truth.
+## Four of these reads are cheap. The fifth is the whole problem.
 
-```mermaid
-erDiagram
-  USER ||--o{ POST : authors
-  USER ||--o{ FOLLOW : follows
-  POST ||--o{ LIKE : receives
-  POST ||--|| MEDIA : references
-  USER ||--o{ FEED_ENTRY : reads
-  MEDIA {
-    string media_id
-    string blob_url
-    int size_bytes
-  }
-  FEED_ENTRY {
-    string user_id
-    string post_id
-    int rank_score
-  }
-```
-
-*FEED_ENTRY is the precomputed feed, held in cache and rebuildable from POST. Everything else is stored.*
+| The read | The path | What it costs |
+| --- | --- | --- |
+| Does A follow B? | `following (A)` then `B` | One point read |
+| Who does A follow? | `following (A)` range | 7,500 rows, one partition |
+| Who follows B, ordinary B? | `followers (B, 0)` range | ~10⁴ rows, one partition |
+| Follower count | `user_edge_stats` | One point read, cached |
+| **Who follows B, celebrity B?** | `followers (B, 0..511)` | **5×10⁸ rows, 512 partitions** |
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: content -->
 
-`Instagram · the architecture`
+`Let us get this wrong`
 
-## The write path does the work so the read path stays a lookup.
+## Design it the obvious way: when you post, write into every follower's feed.
 
-```mermaid
-flowchart LR
-  C(["Client"]) -->|"upload"| OS[("Object store<br/>media")]
-  C -->|"post"| API["API gateway"]
-  API --> W["Post service"]
-  W --> PDB[("Post store<br/>sharded by author id")]
-  W --> Q["Event log"]
-  Q --> FAN["Fan-out worker"]
-  FAN --> FC[("Feed cache<br/>per user, in memory")]
-  C -->|"read feed"| API --> FR["Feed service"]
-  FR --> FC
-  FR -.->|"cache miss or<br/>celebrity author"| PDB
-  OS --> CDN["CDN"] --> C
-```
+The reader then does almost nothing. One lookup, one page, no merging, no ranking across sources. It is fast, it is simple, and for an account with two hundred followers it is unambiguously correct: two hundred small writes, and every reader gets a page in a millisecond.
 
-*Author id is the shard key because every read that reaches the post store asks for one author's recent posts. Post ids embed the author, so a single-post lookup still routes in one hop.*
+Hold that design in your head. Now a single account with fifty million followers posts one photograph. Before you turn the page, predict what happens.
 
 ---
 
-<!-- _class: compare-prose -->
+<!-- _class: content -->
 
-`Instagram · the central tradeoff`
+`Instagram · what actually happens`
 
-## Fan-out on write and fan-out on read fail at opposite ends of one graph.
+## One photograph becomes twenty-five gigabytes of writes and an eight-minute queue.
 
-- Fan-out on write
-  - Push each post into every follower's feed when it is published. Reads become one lookup, and a celebrity turns one post into 50 million writes.
-- Fan-out on read
-  - Assemble the feed at request time from the accounts you follow. Writes are trivial, and every read now costs hundreds of queries.
+Five hundred million feed inserts, at roughly fifty bytes each, is 25 GB of cache writes from one API call. At a fan-out rate of a million inserts a second that is 500 seconds — eight and a half minutes — during which the queue serves nobody else.
+
+The whole platform's ordinary load is 1.2K posts a second times about 150 pushed followers, or 180 thousand inserts a second. So one celebrity post is roughly forty-five minutes of everyone else's work, arriving at once.
+
+---
+
+<!-- _class: cards-grid four -->
+
+`One super node, four fires`
+
+## The write amplification is only the first thing that breaks.
+
+- The fan-out queue
+  - 25 GB of inserts from one call, in front of everybody else's posts.
+- The hot partition
+  - Unbucketed, those edges are one partition key on one replica set.
+- The cache
+  - 25 GB of churn evicts the working set of readers who did nothing wrong.
+- The thundering herd
+  - One cache key, invalidated on publish, missed by a million readers at once.
+
+> A skewed key produces a system where one machine is on fire and the rest are idle.
+
+---
+
+<!-- _class: content -->
+
+`Why the hybrid is forced`
+
+## Two cost curves, and the graph decides where they cross.
+
+Pushing costs one write per follower, and the follower count is unbounded. Pulling costs one read per followee, and the followee count is capped at seven and a half thousand. So push is cheap exactly where the unbounded side is small, and pull is cheap exactly where the bounded side is what you walk.
+
+There is a second reason, and it is the one that makes a senior nod: a celebrity's recent-posts list is written once and read five hundred million times. It is the most cacheable object in the entire system.
 
 ---
 
@@ -2117,34 +2081,149 @@ flowchart LR
 
 `Decision`
 
-## Use both, and let follower count choose between them.
+## Push below the threshold, pull above it, and merge at read.
 
-The two strategies fail in opposite directions, so the design uses each where the other breaks.
+The two strategies fail at opposite ends of the same graph, so the design uses each one where the other breaks.
 
-- Pick one strategy for everyone
-  - Simple to build and simple to explain. It is also guaranteed to fail at one end: write fan-out drowns on celebrities, read fan-out blows the latency budget for everyone.
-- Hybrid, split at a follower threshold
-  - Push from ordinary accounts, pull from high-follower accounts, merge at read time. Two code paths instead of one, and the threshold becomes a tuning knob you own forever.
+- Pick a single strategy for everyone
+  - Simple to build and simple to explain, and guaranteed to fail at one end: push drowns on celebrities, pull blows the latency budget for everyone else.
+- Split at a follower threshold
+  - Push from ordinary accounts, pull from high-follower accounts, merge at read.
 
-> Fan out on write below the threshold, pull at read above it, and merge in the feed service.
+> The threshold is not a preference. It is where two cost curves cross, and the graph draws it.
+
+---
+
+<!-- _class: content -->
+
+`Instagram · the threshold`
+
+## Around fifty thousand followers, and it is a rate, not a count.
+
+Fifty thousand puts roughly the top ten-thousandth of accounts on the pull path, so a reader following three hundred accounts merges ten to thirty celebrity lists — which the tail-latency arithmetic says survives, and a hundred does not.
+
+The better predicate is fan-out work per day, not followers: an account with fifty thousand followers posting forty times a day costs more than one with two hundred thousand posting weekly. Crossing the threshold does not rewrite history; old entries simply age out.
+
+---
+
+<!-- _class: split-panel capstone cat-8 -->
+<!-- _header: "" -->
+
+`Instagram · the hinge`
+
+## The celebrity is a protagonist of the product and the antagonist of your design.
+
+The product exists partly for her. She is the reason a hundred million people opened the app this morning, and the reason the write path cannot be one code path. Both things are true at once, and holding both is what designing actually feels like.
+
+- For the product
+  - She is the most valuable account on the platform, and she must post instantly.
+- For the design
+  - She is a five-hundred-million-edge node that breaks every uniform assumption.
+- What you do about it
+  - You do not resolve the tension. You build a second path and name why it exists.
 
 ---
 
 <!-- _class: diagram -->
 
-`Instagram · media`
+`Instagram · the write path`
 
-## Media never touches your API servers, in either direction.
+## The graph service is the box everyone forgets to draw.
+
+```mermaid
+flowchart LR
+  C(["Client"]) -->|"1 · bytes"| OS[("Object store")]
+  C -->|"2 · post"| API["Gateway"] --> W["Post service"]
+  W -->|"3 · store it"| PDB[("Post store<br/>by author id")]
+  W -->|"4 · publish"| Q[["Event log"]]
+  Q --> FAN["Fan-out worker"]
+  FAN -->|"5 · who follows me?"| GS[("Graph service<br/>followers, bucketed")]
+  FAN -->|"6 · push, if below threshold"| FC[("Feed cache<br/>per reader")]
+```
+
+---
+
+<!-- _class: diagram -->
+
+`Instagram · the read path`
+
+## The read path is one lookup, plus whatever the celebrities added.
+
+```mermaid
+flowchart LR
+  C(["Client"]) -->|"read feed"| API["Gateway"] --> FR["Feed service"]
+  FR -->|"the pushed page"| FC[("Feed cache")]
+  FR -->|"who do I follow?"| GS[("Graph service")]
+  FR -.->|"pull, above threshold"| PDB[("Post store")]
+  FR --> OUT(["Merge · filter · rank · hydrate"])
+  CDN["CDN"] -->|"media, separately"| C
+```
+
+---
+
+<!-- _class: list-steps -->
+
+`Instagram · assembling a page`
+
+## A feed read is five stages, and the last one costs the most.
+
+1. Fetch and merge
+   - Read the precomputed page, then pull recent posts from the celebrities she follows.
+2. Filter
+   - Drop blocked accounts, deleted posts and private accounts she does not follow.
+3. Rank
+   - Score the candidates. Paginate on a stable key, never on the score.
+4. Hydrate
+   - Fetch each post, its media URLs, its counts, and whether she already liked it.
+
+---
+
+<!-- _class: content -->
+
+`The number we missed`
+
+## Seventy thousand feed reads a second is really five million lookups a second.
+
+A twenty-item page needs, per item, the post row, the media variants, the counts, and whether this reader liked it. Call it four lookups an item, eighty a page.
+
+Seventy thousand pages a second times eighty is 5.6 million backend lookups a second. Sizing a fleet from the 70K and discovering the 5.6M in production is exactly the failure the envelope exists to prevent. Denormalize the counts into the feed entry, and batch every hydration.
+
+---
+
+<!-- _class: split-panel proof cat-1 -->
+<!-- _header: "" -->
+
+`Instagram · the likely bug`
+
+## Your own post must appear instantly, or people think the upload failed.
+
+The feed is eventually consistent, which is correct for everyone else's posts and completely wrong for your own. A person who posts and does not see it reads that as data loss, not as staleness, and posts again.
+
+- The tell
+  - Read-your-writes, the consistency rung from part four, finally applied to something.
+- Write your own feed synchronously
+  - Inside the POST request, before it returns. One extra write, on one key.
+- And let the client help
+  - It inserts the post it just created optimistically, and reconciles on the next fetch.
+
+---
+
+<!-- _class: diagram -->
+
+`Instagram · the media path`
+
+## Media never touches your API servers, and private media never touches an open URL.
 
 ```mermaid
 flowchart LR
   C(["Client"]) -->|"1 · ask"| API["API"]
   API -->|"2 · presigned URL"| C
-  C -->|"3 · upload bytes"| OS[("Object store")]
-  OS -->|"4 · event"| TR["Transcode workers"]
+  C -->|"3 · bytes"| OS[("Object store")]
+  OS -->|"4 · event"| TR["Transcode"]
   TR -->|"5 · variants"| OS
-  TR -->|"6 · ready"| PDB[("Post store")]
-  OS --> CDN["CDN"] -->|"7 · serve"| C
+  V(["Viewer"]) -->|"6 · request"| AZ["Authorizer<br/>checks follow and block"]
+  AZ -->|"7 · signed URL, minutes"| CDN["CDN verifies"]
+  CDN -->|"8 · serves"| V
 ```
 
 ---
@@ -2153,271 +2232,31 @@ flowchart LR
 
 `Instagram · where it breaks`
 
-## Four failures are certain, and each has a designed answer.
+## Four failures are certain, and each has an answer you already have.
 
 - Celebrity post
-  - Fan-out queue floods. Answer: the read-time pull path above the threshold.
+  - The fan-out queue floods. Answer: the pull path above the threshold.
 - Feed cache eviction
-  - Cold users cost a rebuild. Answer: rebuild from the post store, lazily.
-- Transcode backlog
-  - Uploads outpace workers. Answer: bounded queue, serve the original meanwhile.
-- Region loss
-  - A whole zone disappears. Answer: media replicated, feeds rebuildable from source.
-
-> Every answer here is either a queue with a bound or a store that can be rebuilt.
+  - Cold readers cost a rebuild. Answer: rebuild lazily from posts and edges.
+- Redelivery
+  - The queue delivers twice. Answer: the feed entry is keyed on reader and post.
+- Zone loss
+  - A whole zone disappears. Answer: media replicated, every derived store rebuildable.
 
 ---
 
 <!-- _class: checklist -->
 
-`Instagram · invariants`
+`Instagram · the invariants`
 
-## Five sentences hold, or the design is not finished.
+## Six sentences hold, or the design is not finished.
 
-- [x] A published post reaches every follower's feed. `eventually`
+- [x] A post is visible to every eligible follower who reaches it. `eventually`
 - [x] Media is never lost once an upload is acknowledged. `durable`
-- [x] A like counts exactly once per user and post. `idempotent`
-- [x] A feed page never repeats or skips an item. `cursor`
-- [x] Every derived store rebuilds from the post store. `rebuildable`
-
----
-
-<!-- _class: divider -->
-
-`Design two`
-
-## A conversational model service.
-
----
-
-<!-- _class: content -->
-
-`Why this one is different`
-
-## The scarce resource is not the database. It is attached memory on a GPU.
-
-Every design so far treated storage and network as the limits. Model serving moves the bottleneck: a request holds a slice of GPU memory for the entire time it is generating, and generation is slow on purpose because the user reads it as it arrives.
-
-That single fact reshapes queuing, batching, caching and cost.
-
----
-
-<!-- _class: list-criteria -->
-
-`Chat service · functional`
-
-## Four operations, and the second one is the whole product.
-
-1. Send a message
-   - A prompt plus the conversation so far, returning a generated reply.
-2. Stream the reply
-   - Tokens arrive as they are produced, not in one block at the end.
-3. Keep conversation history
-   - Prior turns are retrievable and become part of the next request's context.
-4. Ground answers in documents
-   - Retrieve relevant text at request time so answers cite current facts.
-
----
-
-<!-- _class: list-criteria -->
-
-`Chat service · non-functional`
-
-## Four guarantees, and the first two are in direct conflict.
-
-1. First token in under 500 milliseconds
-   - Perceived speed is time to first token, not time to the last one.
-2. Cost per million tokens must fall every quarter
-   - Which means large batches, which means waiting, which fights the line above.
-3. No prompt or reply leaks between users
-   - A shared cache keyed carelessly is a data breach, not a bug.
-4. Degrade rather than refuse
-   - Under load, route to a smaller model before returning an error.
-
----
-
-<!-- _class: list-tabular metric -->
-
-`Chat service · envelope`
-
-## Five numbers, all order-of-magnitude, all decisive.
-
-1. Messages per day
-   - 1 B
-2. Peak requests
-   - 40 K per second
-3. Tokens per reply
-   - 500
-4. Seconds per slot
-   - 10 s
-5. Concurrent streams
-   - 400 K
-
----
-
-<!-- _class: content -->
-
-`Reading the envelope`
-
-## Little's Law turns a request rate into a hardware order.
-
-Forty thousand requests per second, each holding a slot for ten seconds, is four hundred thousand concurrent generations. Divide by the sequences one accelerator holds in memory, and you have the fleet size before choosing a framework.
-
-Little's Law also says which lever shrinks it. Halve the tokens per reply and you halve the fleet. Halve the time per token and you do not — decode speed is set by memory bandwidth, so buying it back costs the accelerators you were saving.
-
----
-
-<!-- _class: diagram -->
-
-`Chat service · the architecture`
-
-## Two stores, one scheduler, and a fleet that is always the constraint.
-
-```mermaid
-flowchart LR
-  C(["Client"]) --> GW["Gateway<br/>authn, quota, safety in"]
-  GW --> CH[("Conversation store")]
-  GW --> RET["Retriever"] --> VEC[("Vector index")]
-  GW --> SCH["Scheduler<br/>continuous batching"]
-  SCH --> GPU["Inference fleet<br/>KV cache in GPU memory"]
-  GPU -->|"token stream"| GW --> C
-  GPU --> SAFE["Safety out"] --> GW
-  SCH -.->|"overloaded"| SMALL["Smaller model<br/>or a queue"]
-```
-
----
-
-<!-- _class: split-panel proof -->
-
-`Chat service · the constraint`
-
-## Generation is memory-bound, which is why batching is the only real lever.
-
-*Why is one request per accelerator wasteful?* Producing one token reads the entire model from memory and does very little arithmetic with it. The hardware sits idle waiting on memory unless many sequences share that read.
-
-- You know you're here when
-  - Utilization is low while latency is high, and adding machines barely helps.
-- Batching amortizes the read
-  - Sixty-four sequences share one weight read, so throughput rises almost linearly.
-- The KV cache is the ceiling
-  - Each sequence holds attention state for every token, and that memory is the limit.
-
----
-
-<!-- _class: compare-prose -->
-
-`Chat service · the tradeoff`
-
-## Bigger batches make it cheaper for everyone and slower for each person.
-
-- Large batches
-  - More sequences per weight read, so cost per token falls and the fleet shrinks. Each request waits longer to join a batch and generates more slowly inside it.
-- Small batches
-  - First token arrives fast and generation feels responsive. The same traffic now needs several times the hardware, and cost per token rises with it.
-
----
-
-<!-- _class: diagram -->
-
-`Chat service · the request`
-
-## Two phases with opposite shapes hide inside one request.
-
-```mermaid
-flowchart LR
-  IN(["Prompt"]) --> PRE["Prefill<br/>all prompt tokens at once<br/>compute-bound, fast"]
-  PRE --> KV[("KV cache<br/>grows per token")]
-  PRE --> DEC["Decode<br/>one token at a time<br/>memory-bound, slow"]
-  KV --> DEC
-  DEC -->|"token"| OUT(["Stream to user"])
-  DEC -->|"loop until stop"| DEC
-  KV -.->|"evict when memory is full"| EV(["Recompute or drop"])
-```
-
----
-
-<!-- _class: cards-grid four -->
-
-`Chat service · what you cache`
-
-## Four caches, and only the first is shareable without a per-user key.
-
-- Prefix cache
-  - Reuses the KV state of a public system prompt. A large win; a hit is faster, so scope it per tenant.
-- Conversation KV
-  - Keeps a live chat's state warm between turns. Per user, never shared.
-- Retrieval cache
-  - Caches document lookups. Shared only across users with identical access.
-- Response cache
-  - Caches whole answers. Tempting, and the usual route to a cross-user leak.
-
-> A cache key that omits the identity is how private text reaches a stranger.
-
----
-
-<!-- _class: diagram -->
-
-`Chat service · grounding`
-
-## Retrieval puts current facts in the context the weights never learned.
-
-```mermaid
-flowchart LR
-  Q(["User question"]) --> EMB["Embed"]
-  EMB --> VEC[("Vector index")]
-  VEC --> RANK["Rank and filter<br/>by permission"]
-  RANK --> CTX["Assemble context<br/>budgeted in tokens"]
-  CTX --> M["Model"]
-  M --> A(["Answer with citations"])
-  RANK -.->|"nothing relevant"| SAY(["Say so, do not invent"])
-```
-
----
-
-<!-- _class: cards-grid three -->
-
-`Chat service · safety`
-
-## Safety is three checks in three places, not one filter in the middle.
-
-- On input
-  - Classify the request before spending a GPU-second on it.
-- On output
-  - Check the generated text before the user sees it, streaming in chunks.
-- On action
-  - Any tool the model can call is authorized as the user, never as the service.
-
-> The output check must work on a stream, because the user is already reading.
-
----
-
-<!-- _class: checklist -->
-
-`Chat service · invariants`
-
-## The service is not safe to run unless these five hold.
-
-- [x] No user's text reaches another user's context. `isolation`
-- [x] Every cache key names the identity that may read it. `scoped`
-- [x] A tool call carries the user's rights, not the service's. `delegated`
-- [x] Every request has a token budget and a deadline. `bounded`
-- [x] Overload degrades to a smaller model, never an error. `graceful`
-
----
-
-<!-- _class: compare-table -->
-
-`Side by side`
-
-## The method is identical; only the scarce resource changes.
-
-| Dimension | Photo feed | Chat service |
-| --- | --- | --- |
-| Scarce resource | Read throughput | GPU memory |
-| Central tradeoff | Fan-out on write or read | Batch size against latency |
-| Consistency | Eventual on the feed | Strict per conversation |
-| Degrades by | Serving a stale feed | Routing to a smaller model |
-| Cost driver | Storage and egress | Accelerator hours |
+- [x] A like counts exactly once per reader and post. `idempotent`
+- [x] A feed page never repeats or skips an item. `stable cursor`
+- [x] A blocked account is filtered at read, never only at write. `retroactive`
+- [x] Every derived store rebuilds from posts and edges. `rebuildable`
 
 ---
 
@@ -2425,24 +2264,80 @@ flowchart LR
 
 `Part six`
 
-## What to do with this on Monday.
+## Every choice came out of a kit, including the one we refused.
 
 ---
 
-<!-- _class: list-steps capsule -->
+<!-- _class: compare-table -->
 
-`The practice`
+`The tie-back · store and run`
 
-## Four habits turn a reference into judgment.
+## Where each kit entry landed in the Instagram design.
 
-1. Model one a week
-   - Draw a system you use. Name its bottleneck.
-2. Say the type out loud
-   - Name the rung before you design anything.
-3. Invariants first
-   - Three sentences that must never go false.
-4. Estimate, then argue
-   - Two numbers end most debates in a minute.
+| Kit entry | Where it landed | Why that one |
+| --- | --- | --- |
+| Wide-column | The two edge tables | A partition key plus a sorted range is an adjacency list |
+| Object store | Photo bytes and variants | Large, immutable, fetched by key, kept for years |
+| Key-value | The feed cache | The key is known exactly and nothing is asked of the value |
+| Durable log | Post events into fan-out | Producers outpace consumers, deliberately |
+| Stateless services | Feed and post service | Any instance serves any reader; state lives elsewhere |
+| Bounded queue | Fan-out and transcode | Unbounded, one celebrity means an outage |
+
+---
+
+<!-- _class: compare-table -->
+
+`The tie-back · scale and defense`
+
+## And where the other three kits landed.
+
+| Kit entry | Where it landed | Why that one |
+| --- | --- | --- |
+| Reduce | One cached list per celebrity | Written once, read five hundred million times |
+| Spread | Posts by author, edges by bucket | The bucket keeps a super node off one partition |
+| Defer | Fan-out on write, below the threshold | Moves the cost out of the reader's 200 milliseconds |
+| CDN with versioned URLs | Every photo variant | Same bytes for many readers, and purging is eventual |
+| Bulkhead | A separate celebrity fan-out pool | Her eight-minute job must not delay everyone else |
+| Object-level authorization | Every hydration | The endpoint check passes; the object check stops the breach |
+
+---
+
+<!-- _class: split-panel capstone cat-2 -->
+<!-- _header: "" -->
+
+`The entry we refused`
+
+## The most useful entry here is the one we refused.
+
+Every junior asked to design Instagram reaches for a graph database, because the words "social graph" are right there. The data kit already answered it, three slides before anybody had heard of a super node.
+
+- What the card said
+  - Walk away when you have relationships but only ever join two hops.
+- What the feed actually does
+  - Walks exactly one hop: me, to the people I follow, to their recent posts.
+- Why the refusal matters most
+  - A kit that only says yes is a catalog. One that says no is a tool.
+
+---
+
+<!-- _class: code -->
+
+`The artifact`
+
+## This is the whole method, and it fits on one page.
+
+```text
+Protagonist   ______________________  wants to ______________  so that ________
+Antagonist    But ________________  —  and it is this big: ____________________
+
+Purpose       ______________________________________________________________
+Boundary      In: _________________________  Out: _________________________
+Environment   ______________________________________________________________
+Constraints   physical ______  economic ______  human ______  legal ______
+Invariants    1 ____________________  2 ____________________  3 ____________
+Bottleneck    ______________________________  measured at ____________________
+Solution type  MVP  ·  scaled  ·  optimized  ·  optimal  ·  specialized
+```
 
 ---
 
@@ -2450,142 +2345,33 @@ flowchart LR
 
 `The review`
 
-## Six questions to ask of any design, including your own.
+## Six questions to ask of any design, starting with your own.
 
-- [x] Which solution type is this, and does everyone agree? `frame`
-- [x] What is the bottleneck, and what number proves it? `evidence`
-- [x] Which invariants must never go false? `correctness`
-- [x] What breaks first under ten times the load? `scale`
+- [x] Who is the protagonist, and who are we not designing for? `casting`
+- [x] What is the antagonist, and what number describes it? `evidence`
+- [x] Which rung of the ladder is this, and does everyone agree? `frame`
+- [x] What breaks first at ten times the load? `scale`
 - [x] What happens when each dependency is slow rather than down? `failure`
 - [x] What can one stolen credential reach? `security`
 
 ---
 
-<!-- _class: q-and-a -->
+<!-- _class: content -->
 
-## Four questions expose more than an hour of diagrams.
+`What to do on Monday`
 
-- What did this drawing leave out on purpose?
-  - No answer means a picture, not a model.
-- Which resource runs out first, at what number?
-  - No number means it was never sized.
-- What does a user see during a partition?
-  - This forces the consistency choice open.
-- How would you rebuild this from the source?
-  - A store you cannot rebuild fails silently.
+## Take one system you touched this week and fill in the nine fields.
 
----
+Not a famous one. The service you were debugging on Thursday, or the pipeline nobody wants to own. Write the protagonist and the antagonist first, in two sentences, and let the other seven fields argue with you.
 
-<!-- _class: list takeaway numbered -->
-
-`The principles`
-
-## Five sentences worth keeping longer than any of the kits.
-
-- Every complex system that works evolved from a simple one that worked. None was ever designed complex from scratch.
-- A model is defined by what it leaves out, and an unstated omission is a bug you have not found.
-- Constraints are the good news: they turn infinite answers into a choice you can defend.
-- Name the solution type before the architecture, or you will design a beautiful answer to another question.
-- At any moment one constraint binds, and everything else is decoration until that one moves.
-
----
-
-<!-- _class: glossary -->
-
-## Glossary, A to C
-
-- ACID
-  - The four transaction guarantees: all-or-nothing, rules hold, no visible interleaving, survives a crash.
-- API
-  - The contract one system offers another: the operations and what they promise.
-- Backpressure
-  - A slow consumer telling a fast producer to stop, instead of silently queueing forever.
-- BASE
-  - Accept that replicas diverge and converge later, paying in application complexity.
-- Blast radius
-  - Everything that stops working when one component, credential or zone fails.
-- Bottleneck
-  - The one resource that limits the whole. Improving anything else changes nothing.
-- CAP
-  - Split by a network fault, a system must answer with stale data or refuse.
-- CDN
-  - Caches placed near readers so bytes travel a short distance.
-- CQRS
-  - Read from a store shaped for reading, write to one shaped for writing.
-
----
-
-<!-- _class: glossary -->
-
-## Glossary, C to I
-
-- CRUD
-  - Create, read, update, delete: the smallest useful vocabulary for a data model.
-- DNS
-  - The global lookup turning a name a human types into an address.
-- Fan-out
-  - One event becoming many writes or many reads, depending on where you pay.
-- GPU
-  - A processor with fast attached memory, used for the matrix work inference is made of.
-- HSM
-  - A tamper-resistant device that signs on request, so the key never leaves it.
-- Idempotent
-  - Doing it twice has the same effect as doing it once. What makes a retry safe.
-- Invariant
-  - A claim that must never go false, during a deploy, a partition or a migration.
-- IOPS
-  - Separate reads or writes per second, usually the limit before raw bandwidth.
-
----
-
-<!-- _class: glossary -->
-
-## Glossary, J to R
-
-- JWT
-  - A signed bundle of claims a client carries, checkable without a database lookup.
-- MVP
-  - The smallest build that puts a real answer in front of a real user.
-- OLAP
-  - Query work that scans many rows and few columns to answer an aggregate question.
-- OLTP
-  - Query work that touches few rows across many columns for one user action.
-- PACELC
-  - Partitioned, choose availability or consistency; otherwise, latency or consistency.
-- Partition
-  - A network split that leaves nodes unable to reach each other, but still running.
-- RAG
-  - Fetching documents at request time so answers cite facts the weights never learned.
-- REST
-  - Resources acted on by a small fixed set of verbs, which is what makes responses cacheable.
-
----
-
-<!-- _class: glossary -->
-
-## Glossary, S to W
-
-- Shard
-  - One slice of a partitioned dataset. The shard key decides which questions stay cheap.
-- SLI, SLO, SLA
-  - The measurement, the internal target held against it, and the external promise.
-- Tail latency
-  - What the slowest few percent of requests experience. Where users actually live.
-- TLS
-  - Encrypts and authenticates a connection, so an untrusted network cannot read it.
-- TTL
-  - How long a cached or replicated copy may be served before it must be refreshed.
-- WAL
-  - An append-only record written before a change, so a crash replays forward.
-- Write amplification
-  - One logical write becoming several physical ones: compaction, erase blocks, secondary indexes.
+Then bring the page to your next one-on-one and ask the person across from you which field you got wrong. That conversation is the whole point of learning this.
 
 ---
 
 <!-- _class: closing silent spectrum -->
 
-## Draw the boundary, name the constraint, state the invariant. Then design.
+## Name the person. Name the force. The design follows.
 
-`Systems, and How to Design Them`
+`How to Think About Systems`
 
-The kits will age. The seven words and the six questions will not — they are how you will read whatever replaces the technology in them.
+Maya never designed anything on Tuesday, and she used every idea in this deck before lunch.
