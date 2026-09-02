@@ -9,7 +9,13 @@ superseded-by: 2026-09-02-frame-model-for-motion.md
 
 # The animation component — from image-mirror baseline to fit-for-purpose
 
-**Status:** superseded. This note treated the `scene` component — a host that frames a fabricated motion asset — as the delivery vehicle for motion. The current scope applies motion to what the engine already renders (charts, the section rail, the deck logo) rather than to a separate asset hosted in its own component. The `scene` component itself still ships and this note remains the record of its layout reasoning. Current state of record: [`2026-09-02-frame-model-for-motion.md`](2026-09-02-frame-model-for-motion.md).
+**Status:** superseded as a *plan*, but **its central critique was right and the new direction answers it.** An earlier draft of this banner missed that, having been written without reading the note.
+
+This note assessed the `scene` component — an image-mirror baseline — and found five failure points, the sharpest being that it is **SOVEREIGN** (it owns the whole canvas), so "a true supporting-actor mode — animation embedded ALONGSIDE substantial content — does not exist yet." It argued prominence should resolve by **ROLE** (lead vs supporting actor), not by the poster's aspect.
+
+The current scope is **entirely supporting-actor**: motion applies to charts, the section rail and the deck logo — things embedded alongside content that never own the canvas. So the gap this note named is closed by changing *what motion attaches to*, rather than by building the fit-for-purpose component it proposed. Its backlog item (§4) is therefore superseded; its diagnosis (§2, §3) reads as validated.
+
+The `scene` component still ships, and this note remains the record of its layout reasoning. Current state of record: [`2026-09-02-frame-model-for-motion.md`](2026-09-02-frame-model-for-motion.md).
 
 **Date:** 2026-07-18
 **Status:** Backlog / vision (no rework scheduled; the Stage-5 baseline ships as-is)

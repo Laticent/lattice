@@ -45,8 +45,8 @@ This note settles the shape of the motion capability after the engine bake-off
 | Superseded | What it got wrong |
 |---|---|
 | `2026-07-17-anima-animation-library.md` | Motion as a **continuous timeline** with three engines (Zdog, Vivus, a Three.js tier) and a scene-asset faculty. All three engines are dead; the timeline is replaced by known frames. |
-| `2026-07-18-anima-motion-faculty-modes.md` | A Studio shell (Director / Rig) for composing **3-D primitive trees** — the retired Zdog model. |
-| `2026-07-18-animation-component-fit-for-purpose.md` | The `scene` component as motion's delivery vehicle. Motion now applies to what the engine already renders. |
+| `2026-07-18-anima-motion-faculty-modes.md` | Superseded **by scope, not by error** — its thesis (author-persona modes over one shared spec) is spec-agnostic and sound. What is out of scope is the `kind:'scene'` asset model and the fourth Fabricate tab. **Its §6.2 records that the two v1 modes SHIPPED**, so this retires a live Studio surface — an open decision, not a paper one. |
+| `2026-07-18-animation-component-fit-for-purpose.md` | Its *plan* is superseded; its **critique is validated**. It found the `scene` component SOVEREIGN, with no supporting-actor mode for motion embedded alongside content. The new scope is entirely supporting-actor, so the gap closes by changing what motion attaches to. |
 | `2026-07-19-anima-svg-first-cut-zdog.md` | **Direction right** (SVG over 3-D, retire Zdog, drop Three.js) — but the seven-verb continuous motion set, the Director/Rig rebuild and the AI-SVG faculty are all superseded. |
 
 The bake-off note is **not** superseded: it is the evidence behind the library pick and the audit of

@@ -9,7 +9,13 @@ superseded-by: 2026-09-02-frame-model-for-motion.md
 
 # Anima — the Motion faculty as author-persona MODES over one scene spec
 
-**Status:** superseded. This note designed the Studio's two-mode authoring shell (Director / Rig) around composing **3-D primitive trees** — the Zdog scene model that is now retired. The scope has also narrowed: motion is applied to charts, chrome and logos that the engine already renders, not authored as standalone scene assets. Current state of record: [`2026-09-02-frame-model-for-motion.md`](2026-09-02-frame-model-for-motion.md).
+**Status:** superseded — **by scope, not by error.** An earlier draft of this banner said the note designed its shell "around composing 3-D primitive trees." That was wrong, and it was written without reading the note. Its actual thesis is *author-persona MODES over one shared scene spec* — Director, Storyboard, Track, Rig, Stage+Spec as a floor→ceiling spectrum, all tune-bodies over the same spec so switching is loss-free. That idea is **spec-agnostic and survives on its own terms**; it is not tied to Zdog.
+
+What supersedes it is the narrowed scope: motion now applies to what the engine **already renders** — charts, chrome, logos — rather than being authored as a standalone `kind:'scene'` asset in a fourth Fabricate tab. So the asset model (§4), the Stage 4→5→7 sequencing (§5) and the five-mode roadmap are out of scope, and the faculty they describe is not the plan.
+
+**Note for whoever picks this up:** §6.2 records that the two v1 modes **shipped** (`MotionStudio.tsx`), which contradicts this note's own summary line "Design only; nothing built." So superseding this note puts a *shipped* Studio surface out of scope — that surface's fate is a real decision, not a paper one, and it is not settled here.
+
+Current state of record: [`2026-09-02-frame-model-for-motion.md`](2026-09-02-frame-model-for-motion.md).
 
 **Date:** 2026-07-18
 **Status:** Proposed (design model; build not yet started)
