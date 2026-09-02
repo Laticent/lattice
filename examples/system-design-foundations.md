@@ -60,7 +60,7 @@ We start with one engineer's Tuesday, and we finish by designing Instagram.
 
 She wants pull request 482 merged before the release window closes at four o'clock.
 
-Watch her Tuesday without naming anything. There is no vocabulary in this part on purpose — every idea in this deck is in the slides that follow, unlabeled, and we come back afterwards to give each one its word.
+Watch her Tuesday without naming anything. There is no vocabulary in this part on purpose — every word we define in Part one happens in the slides that follow, unlabeled, and we come back afterwards to name each one.
 
 ---
 
@@ -164,11 +164,11 @@ Same four people, both days.
 
 ## You just watched a system run for sixteen hours.
 
-It had a goal it did not meet, and one place that decided the outcome. Two things fed themselves in circles, one of them in her shower. Something invisible held the whole thing up until nine o'clock, when it stopped. One promise never broke, on the day everything else did.
+It had a goal it did not meet, and one hour that decided whether it would. Two things fed themselves in circles, one of them in her shower. Something invisible held the whole thing up until nine o'clock, when it stopped. One promise never broke, on the day everything else did.
 
-Maya did fix something, at ten to four. It was real, it worked, and it was not the place that decided the outcome — so the day ended exactly as it would have anyway.
+The reviewer woke at three and the window shut at four. Everything Maya did in the sixteen hours around that hour reached the outcome only through it — and she spent twenty of its sixty minutes answering questions about the thing she was trying to finish.
 
-You have every concept in this deck. You do not yet have the words.
+You have watched all ten. You do not yet have the words.
 
 ---
 
@@ -419,11 +419,13 @@ Wifi, the VPN, the package registry, the build fleet, the identity provider. May
 
 `17:00 · the last word`
 
-## Emergence is behavior that belongs to no part, and to no decision.
+## Emergence is a pattern the parts fall into, that none of them contains.
 
-Nothing merges on Thursdays. Maya checked six weeks of history. No person decided it, no policy states it, and no team owns it. It falls out of three unrelated decisions: Wednesday is planning day, so no code gets reviewed and Thursday opens with two days of backlog; the only reviewer sits six time zones east and reads nothing before three; and the window closes at four. One hour, against the longest queue of the week.
+Nothing merges on Thursdays. Maya checked six weeks. It is a rhythm, and nobody built a rhythm.
 
-Change any one of the three and Thursday stops being special. Nobody who made those three decisions was thinking about Thursday, and no one of them is wrong on its own.
+Three things feed each other rather than add up. Work that misses the window waits at the front of tomorrow. A review that comes back with comments sends the same change to the back of the queue. And the queue is served one hour a day. Wednesday is planning day and puts nothing through, so Thursday inherits two days at once.
+
+No policy says Thursday. You find it by watching the queue for six weeks.
 
 ---
 
@@ -437,8 +439,8 @@ You did not learn these from a definition. You watched each one happen first, wh
    - Parts, connected, with a purpose.
    - The whole morning.
 2. Purpose
-   - What the system is for.
-   - The sticky note.
+   - What it does, not what it says.
+   - The gap at four o'clock.
 3. Boundary
    - What you change, not ask for.
    - The favor she declined.
@@ -598,7 +600,7 @@ Scale is a quantity, and quantities are boring: you buy more machines. The thing
 - One algorithm cannot serve both
   - Nothing else in this design spans six orders of magnitude. That is why there are two paths.
 - Hold on to this
-  - Every hard decision in Part six is this one fact, arriving again in a new costume.
+  - Every hard decision in Part five is this one fact again.
 
 ---
 
@@ -675,8 +677,8 @@ You have stopped buying information and started buying headroom. The question mo
 
 - The tell
   - Growth is real, and the current design has a ceiling you can point at.
-- Add axes, not machines
-  - Statelessness, partitioning, caching and queues buy scale. A bigger box postpones.
+- A bigger box first, then axes
+  - Vertical scaling is reversible and buys years. Statelessness, caching and queues come next. Partitioning is the one you cannot undo cheaply, so it goes last.
 - Cost per unit starts counting
   - Cost per request stops being noise and becomes the second constraint on every choice.
 
@@ -895,7 +897,7 @@ flowchart LR
 - Walk away when
   - The same fact lives in many documents and has to stay consistent across them.
 - The constraint you inherit
-  - Denormalized copies. Every update to a shared fact becomes a fan-out you now own.
+  - Denormalized copies. Every update to a shared fact becomes a fan-out — one write you now owe to many places.
 
 ---
 
@@ -907,7 +909,7 @@ flowchart LR
 
 | Store | Access | Consistency | Scales by | Weak at |
 | --- | --- | --- | --- | --- |
-| Relational | Key, range, join | Strong | Replicas, then partitioning | Cross-shard writes |
+| Relational | Key, range, join | Strong on the leader | Replicas, then partitioning | Cross-shard writes |
 | Key-value | Exact key | Tunable | Horizontal | Any other question |
 | Document | Key, secondary index | Per document | Horizontal | Cross-document facts |
 | Wide-column | Partition plus range | Tunable | Horizontal | New query patterns |
@@ -1413,7 +1415,7 @@ flowchart TB
 
 `Scale kit · the one formula`
 
-## Concurrency, throughput and latency are one equation.
+## Little's law ties concurrency, throughput and latency together.
 
 $$ L = \lambda W $$
 
@@ -1757,7 +1759,7 @@ flowchart LR
 Assume any single credential eventually leaks. The design question is not whether that happens; it is how far the person holding it can travel, and for how long.
 
 - The tell
-  - You can state the blast radius of every service account in one sentence.
+  - You can say in one sentence what each service account could reach if stolen.
 - Scope it and expire it
   - Narrow permissions, short lifetimes and automatic rotation beat a careful human.
 - Separate read from write
@@ -1868,7 +1870,7 @@ Solution type Scaled. Not an MVP, not optimal.
 1. The feed serves in under 200 milliseconds
    - Server-side, 99th percentile, measured from the reader's own region.
 2. Reads dominate writes by about sixty to one
-   - Every decision should favor the reader, and the poster should absorb the cost.
+   - At the API. Push fan-out inverts it underneath: 180K feed writes a second against 70K reads.
 3. Posts, media and the graph are durable forever
    - Lose any of the three and nothing rebuilds them. Only derived data rebuilds.
 4. Eventual consistency is fine on the feed
@@ -2037,7 +2039,7 @@ Five hundred million feed inserts at roughly fifty bytes each, from a single API
 
 `One super node, four fires`
 
-## The write amplification is only the first thing that breaks.
+## Writing 25 GB from one call is only the first thing that breaks.
 
 - The fan-out queue
   - 25 GB of inserts from one call, in front of everybody else's posts.
@@ -2060,7 +2062,7 @@ Five hundred million feed inserts at roughly fifty bytes each, from a single API
 
 Pushing costs one write per follower, and the follower count is unbounded. Pulling costs one read per followee, and the followee count is capped at seven and a half thousand. So push is cheap exactly where the unbounded side is small, and pull is cheap exactly where the bounded side is what you walk.
 
-There is a second reason, and it is the one that makes a senior nod: a celebrity's recent-posts list is written once and read five hundred million times. It is the most cacheable object in the entire system.
+There is a second reason, and it is the better one: a celebrity's recent-posts list is written once and read five hundred million times. It is the most cacheable object in the system. It is the most cacheable object in the entire system.
 
 ---
 
@@ -2087,9 +2089,11 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 
 ## Around fifty thousand followers, and it is a rate, not a count.
 
-Fifty thousand puts a fraction of a percent of accounts on the pull path. Following is not random — readers concentrate on popular accounts — so someone following three hundred typically has ten to thirty above the line. The tail-latency arithmetic says ten to thirty survives and a hundred does not. Measure it on your own graph.
+Fifty thousand puts a fraction of a percent of accounts on the pull path. Readers concentrate on popular accounts, so someone following three hundred typically has ten to thirty above the line.
 
-The better predicate is fan-out work per day, not followers: an account with fifty thousand followers posting forty times a day costs more than one with two hundred thousand posting weekly. Crossing the threshold does not rewrite history; old entries simply age out.
+Run the tail arithmetic on that: at thirty pulls and a one-percent slow call, `1 - 0.99^30` is twenty-six percent of pages hitting at least one. So **cap the pulls** — newest N sources, page the rest — and let the cap bound the tail instead of the graph.
+
+The better predicate is fan-out work per day, not followers: fifty thousand followers posting forty times a day costs more than two hundred thousand posting weekly.
 
 ---
 
@@ -2171,9 +2175,9 @@ flowchart LR
 
 ## Seventy thousand feed reads a second is really five million lookups a second.
 
-A twenty-item page needs, per item, the post row, the media variants, the counts, and whether this reader liked it. Call it four lookups an item, eighty a page.
+A twenty-item page needs four lookups an item — the post row, the media variants, the counts, and whether this reader liked it. Eighty a page, times seventy thousand pages a second, is 5.6 million. Sizing a fleet from the 70K and meeting the 5.6M in production is the failure the envelope exists to prevent.
 
-Seventy thousand pages a second times eighty is 5.6 million backend lookups a second. Sizing a fleet from the 70K and discovering the 5.6M in production is exactly the failure the envelope exists to prevent. Denormalize the counts into the feed entry, and batch every hydration.
+Batch every hydration, and cache the post row and its media variants — they barely change. Do not fold the count into the feed entry: that entry is written at post time, when the count is zero, and updating it later is the fan-out this design exists to avoid. Counts get their own keyed store, and "did I like this" is per reader and cannot be folded in at all.
 
 ---
 
@@ -2366,4 +2370,4 @@ Solution type MVP  ·  scaled  ·  optimized  ·  optimal  ·  specialized
 
 `How to Think About Systems`
 
-Maya never designed anything on Tuesday, and she used every idea in this deck before lunch.
+Maya never designed anything on Tuesday, and she used every word in Part one before she went to bed.
