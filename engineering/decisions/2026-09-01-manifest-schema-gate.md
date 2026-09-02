@@ -24,7 +24,13 @@ summary: >
   coverage and diagnosis gaps; all fixed. It cleared the two real risks: zero regressions
   against the retired walker, and zero draft-07 vs 2020-12 disagreements — both now
   re-derivable by running `test/unit/tools/manifest-schema-equivalence.test.js` rather
-  than only in an agent's transcript.
+  than only in an agent's transcript. That harness was then itself reviewed (#2016), which
+  was worth doing: three of its arms measured less than they claimed — a coverage guard
+  keyed on six hardcoded keyword NAMES, a generator blind to the schema's own conditional
+  and to any nested block, and a draft comparison that was a tautology because both
+  dialects compile this schema to byte-identical code. All three are fixed, the superset
+  is now checked in both directions, and the corpus is pinned by fingerprint as well as
+  by size.
   Schemas stay beside their manifests (the relative `$schema` link is what gives editors
   inline completion). themes/theme.schema.json moved draft-07 -> 2020-12.
 ---
@@ -267,30 +273,113 @@ mutations by hand — one per `required` / `enum` / `pattern` / `type` / `minimu
 uses, over two real seeds that sit on opposite arms of the schema's one
 `if`/`then`/`else`.
 
-| | trio's report | the committed harness |
-|---|---|---|
-| walker-equivalence mutations | 39 | **51** |
-| ajv passed what the walker caught | 0 | **0** |
-| mutations only ajv catches | not reported | **2** |
-| draft-comparison cases | 33 manifests + 20 mutations | **33 manifests + 51 mutations** |
-| draft disagreements | 0 | **0** |
+| | trio's report | first harness | after review (#2016) |
+|---|---|---|---|
+| walker-equivalence mutations | 39 | 51 | **55** |
+| ajv passed what the walker caught | 0 | 0 | **0** |
+| mutations only ajv catches | not reported | 2 | **4** |
+| legal variants compared (the other direction) | not compared | not compared | **210** |
+| walker rejected what ajv accepts | not compared | not compared | **0** |
+| draft comparison | 33 manifests + 20 mutations | 33 manifests + 51 mutations | **the compiled validators, directly** |
+| draft disagreements | 0 | 0 | **0** |
 
-The counts differ because the corpora are built differently, not because either
-is wrong — and 51 is the one a reader can reproduce. Three things the harness
-adds that the transcript did not:
+The counts differ because the corpora are built differently, not because any is
+wrong — and 55 is the one a reader can reproduce. Four things the harness adds
+that the transcript did not:
 
-- **The superset margin is named.** "Strict superset" is two claims, and only the
-  second is a reason to swap. The margin is exactly the walker's own
-  `if (k === '$schema') continue;` — it never checked the link that gives an
-  author's editor its completion, which is now arm 3 of the gate.
-- **Every mutation is proved to be a defect first.** A generator emitting legal
-  manifests would report a flattering equivalence over cases neither side rejects.
-- **The drafts are compared on WHY, not just whether.** Two validators can agree a
-  manifest is broken and disagree about which field, and the field is the line an
-  author reads. Compared as a set of `keyword@instancePath`: identical.
+- **The superset margin is named**, and the first naming of it was wrong. See the
+  correction below.
+- **Every mutation is proved to be a defect first**, and proved to break the rule
+  it is NAMED for. A generator emitting legal manifests would report a flattering
+  equivalence over cases neither side rejects; a generator emitting manifests
+  broken for the wrong reason would report a real-looking one over cases that say
+  nothing about the rule.
+- **The superset is checked in BOTH directions.** Every probe being a defect means
+  the case that makes `superset` false — the walker rejecting something ajv
+  accepts — cannot be observed at all. 210 legal variants drawn from the shipped
+  tree now check it.
+- **The corpus is pinned by composition, not just by size**, so an offsetting edit
+  cannot hold the number while moving what is actually compared.
 
-The corpus size is pinned in the test, so growing `theme.schema.json` fails here
-and forces this table to be updated with it.
+### CORRECTION: three of the first harness's arms measured less than they claimed
+
+The harness above shipped as a *measuring instrument* that nothing independent had
+measured, and its own pre-merge card said so — capped at `high` on the
+independent-eyes axis, naming this review as the raise path. It was worth running.
+A checker and a red team, working separately, converged on the same three holes,
+and all three are the flattering-green failure mode rather than a crash:
+
+- **The coverage guard did not bind.** It scanned for six hardcoded keyword NAMES
+  and treated a namesake anywhere as covering a keyword everywhere. Four ordinary
+  tightenings (`note.maxLength`, `name.minLength`, `order.maximum`,
+  `modes.maxItems`) were added to the schema and enforced by ajv while the corpus
+  stayed at 51, `missing` stayed empty, and all seven arms passed. The census is
+  now derived from the schema and keyed by JSON POINTER, and it REFUSES a
+  construct the generator has no strategy for rather than skipping it.
+- **The generator could not reach the schema's own conditional, or any nested
+  object.** It walked only top-level `properties`, so `allOf[0].then` — the one
+  region this schema puts logic in — and any nested block were invisible. That is
+  the `adapt.capacity` defect family this whole gate was built to catch, alive
+  inside the instrument built to certify it. Demonstrated: a `pattern` on
+  `then.properties.swatch` that ajv enforces and the walker cannot see, with the
+  harness green at 51.
+- **The draft arm was a tautology.** Both dialects compile this schema to
+  BYTE-IDENTICAL validator code (10,324 characters, measured after normalizing
+  ajv's gensym numbering and dropping the 2020-12 `evaluated` preamble, which is
+  dead unless a schema uses `unevaluated*`). So "33 manifests + 51 mutations, zero
+  disagreements" was one trivially true fact repeated 84 times, and a 200,000-case
+  fuzz across both validators found zero disagreements for the same reason. The
+  identity is now asserted DIRECTLY, which is strictly stronger: it holds for every
+  possible input rather than for the 84 tried. A negative control proves the rig
+  can still detect a real divergence, and a third arm proves the two ajv classes
+  refuse each other's `$schema` — so a mis-wired comparison throws rather than
+  passing.
+
+Two smaller corrections, both to claims this record made:
+
+- **The margin was misattributed.** This record said the margin was the walker's
+  `if (k === '$schema') continue;` and credited it to "arm 3 of the gate". Arm 3 is
+  `checkFamily`'s `$schema`-LINK check in `tools/manifest-schemas.js`, which this
+  test file never calls. What the walker actually misses is (a) that `$schema` must
+  be a STRING — it `continue`s past the key entirely — and (b) **any undeclared key
+  whose name is an `Object.prototype` member**. `const spec = props[k]` is an
+  unguarded index, so `constructor`, `toString`, `valueOf` and `__proto__` all
+  resolve truthy against the prototype, `if (!spec)` never fires, and the
+  `additionalProperties` branch is skipped. ajv emits a `hasOwnProperty` guard. That
+  second class is a real divergence the first corpus could not express, and it is
+  why the margin is four cases rather than two.
+- **`Ajv7` was ajv 8.20.0.** The dialect comes from the CLASS — ajv's default export
+  is its draft-07 implementation, `ajv/dist/2020` is the 2020-12 one — not from the
+  `$schema` string the harness re-points. The name and its comment invited the
+  opposite reading, which is the misunderstanding that would let someone
+  "simplify" both sides onto one class and make the arm decorative. Renamed to
+  `AjvDraft07`.
+
+**One gap is closed by refusing rather than by covering.** The legal-variant arm
+draws its values from the shipped tree, so a property NO theme carries yet gets no
+legal probe — and a newly declared `boolean` field is exactly the case the walker's
+`typeOk` cannot handle (it knows `string | integer | array | null | object` and
+returns false for `number` and `boolean`, so it would reject every legal value).
+Measured: with a `boolean` field a theme carries, the arm fires; with the same
+field unused, the whole file passed. The arm now fails by name on any declared
+property no theme exercises.
+
+**Also corrected: the recovery command in the test's own docblock.**
+`checkThemeManifestShape` spans lines 698-**766** at `71539f7`, not 698-760; the
+cited range dropped the `uniqueItems` and `minItems` checks, so a reader following
+it literally diffed a copy missing two of the nine rules. The transcription itself
+is sound — diffed mechanically against the original under exactly its three
+declared changes (signature, schema passed in, manifest list passed in) and
+identical. And the NAME survives at HEAD: `tools/check-ownership.js:710` is now a
+four-line delegator to `checkFamily`, so grepping it finds an ajv shim rather than
+the implementation under test.
+
+**Cost of this round:** 2 agents, ~225k tokens. Six of the seven original arms
+changed; the corpus grew 51 → 55 and the margin 2 → 4.
+
+The corpus is pinned in the test BY SIZE AND BY FINGERPRINT (a hash of the sorted
+mutation ids), so growing or reshaping `theme.schema.json` fails here and forces
+this table to be updated with it. Both numbers must move together.
 
 ## The checker's second pass — the fix for a finding introduced three more
 
