@@ -135,6 +135,39 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   A generator wanting a true byte-diff says so in its own `--check`.
 - **Triggered by:** #1783, found while pushing #1779.
 
+## A `vi.doMock` intermittently loses to the file's hoisted `vi.mock` — under LOAD, not under shuffle
+
+- **Symptom:** A docs test that `vi.doMock`s a private stub over the file's hoisted
+  `vi.mock` passes alone and passes most whole-file runs, then fails perhaps 1 run in 6
+  once the machine is busy. It reports a plausible PRODUCT regression — in
+  `read-aloud.test.ts` (:408) the read-aloud loop appeared to start before the voice
+  model resolved, `active` reading `{cueIndex: 0, wordIndex: 1}` where the test demanded
+  `null`. Measured 5 failures in 30 whole-file runs under 6 CPU hogs on 4 cores; 0 in 12
+  when filtered to that one test.
+- **Cause:** the dependency is reached only through a DYNAMIC `import()` deep inside the
+  module under test (`read-aloud.ts`'s `getVoice()` singleton), and that import is
+  intermittently served the file's HOISTED stub rather than the `vi.doMock` registered
+  moments earlier in the test body. The hoisted stub returns its model synchronously, so
+  the window the test meant to hold open — a voice load in flight — never opened: the hook
+  armed at once and the estimate advanced, exactly as a real regression would look.
+  Same "only a dynamic import can see the registry change" property as the `doUnmock`
+  mechanism above, reached from the other direction.
+- **How to tell it apart from a real regression, in one reading:** find a value the two
+  stubs disagree on and print it in the assertion message. Here it was `rung` —
+  `'silent'` on every failing run (the hoisted stub's value) rather than the `'kokoro'`
+  the private mock returns. That one field also ruled out the other candidate: a REJECTED
+  dynamic import would take `getVoice()`'s `.catch(() => null)` path and leave `rung`
+  `null`, which is not what any failing run showed.
+- **Fix — do not race the registry, remove the need for a second registration.** Put the
+  control on the file's OWN stub (`voiceState.gate`: a promise the stub resolves its model
+  behind, null for every other test) and drop the `doMock` entirely. Whichever
+  registration wins is then the same factory, and both honor the gate. Assert the premise
+  too: count the stub's constructor calls and require it to have run, or an environment
+  that never started the load satisfies the negative assertion for the wrong reason.
+- **Don't reintroduce:** a `vi.doMock` over a hoisted `vi.mock` for anything the module
+  under test reaches by dynamic `import()`. Parameterize the hoisted stub instead.
+- **Triggered by:** the flake #2028 hit as a red docs-build; fixed alongside #1554.
+
 ## A docs test passes in declaration order and fails under `--sequence.shuffle.tests`
 
 - **Symptom:** A `docs/` test file is green in every ordinary run and red the

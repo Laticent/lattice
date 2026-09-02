@@ -77,6 +77,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [The `CodeQL` check reports a verdict BEFORE its `Analyze` jobs finish](gotchas/ci.md#the-codeql-check-reports-a-verdict-before-its-analyze-jobs-finish)
 - [Rendering in the cloud sandbox needs `CHROME_PATH`](gotchas/ci.md#rendering-in-the-cloud-sandbox-needs-chrome_path)
 - [A generated `dist/` artifact goes "stale" after a rebase, and that is not a defect](gotchas/ci.md#a-generated-dist-artifact-goes-stale-after-a-rebase-and-that-is-not-a-defect)
+- [A `vi.doMock` intermittently loses to the file's hoisted `vi.mock` — under LOAD, not under shuffle](gotchas/ci.md#a-vidomock-intermittently-loses-to-the-files-hoisted-vimock--under-load-not-under-shuffle)
 - [A docs test passes in declaration order and fails under `--sequence.shuffle.tests`](gotchas/ci.md#a-docs-test-passes-in-declaration-order-and-fails-under---sequenceshuffletests)
 - [A Playwright test for a settling-round race passes on the broken code](gotchas/ci.md#a-playwright-test-for-a-settling-round-race-passes-on-the-broken-code)
 - [An integration test that asks the export to BEAT a timer ejects PRs from the merge queue](gotchas/ci.md#an-integration-test-that-asks-the-export-to-beat-a-timer-ejects-prs-from-the-merge-queue)
