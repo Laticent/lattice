@@ -115,7 +115,7 @@ Three shapes were rendered and stressed against headings of one to five lines. T
 - Locked into the headline block
   - Read beautifully in a still, and its height on the canvas moved 22% to 14% as the heading grew. For a running marker that is a defect.
 - Pinned bottom-left
-  - Held position, but the block grows toward it: clear at three lines, overlapping at five.
+  - Held position, but the block grows toward it: clear at three lines, overlapping at five. The masthead does the same at four — which is what the band is for.
 - Pinned top, and the band reserved
   - Pinning alone was not enough. The next slide is why.
 
@@ -127,7 +127,7 @@ Three shapes were rendered and stressed against headings of one to five lines. T
 
 ## Reserve the band, and the failure gets loud
 
-A centered block grows both ways, so at five lines the heading climbed into the mark.
+A centered block grows both ways, so at four lines the heading climbed into the mark.
 
 - Padding, plus `safe center`
   - The padding reserves the band; `safe center` falls back to `start` when the block would overflow, so its top edge stops there.

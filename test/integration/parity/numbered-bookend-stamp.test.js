@@ -311,12 +311,23 @@ describe('numbered bookend stamp — both render paths', { skip: skipWithoutChro
             if (!r.height) continue;
             blockTop = Math.min(blockTop, r.top - sr.top);
           }
+          // THE PAINTED BOTTOM EDGE, not the content box — and the difference is the
+          // whole assertion. The pseudo is `content-box`, so `height` counts the
+          // NUMERAL only; beneath it sit `padding-bottom` (--_mark-rule-gap) and the
+          // `border-bottom` that IS the hairline — the very thing the copy must clear.
+          // Measured at 1280x720/indaco: top 64 + height 114.672 = 178.67 content-box,
+          // against a painted 200.15. The first cut of this arm used the content-box
+          // sum and so carried 21.48px of hidden slack; a checker shrank the band to
+          // `--_mark-top + --fs-hero + 1px` and this test PASSED on a render whose
+          // hairline struck straight through the eyebrow. Anything added below the
+          // numeral must be added here too.
           const a = getComputedStyle(h, '::after');
+          const px = (v) => parseFloat(v) || 0;
           return {
             slide: i + 1,
             chars: h.textContent.trim().length,
             blockTop,
-            markBottom: parseFloat(a.top) + parseFloat(a.height),
+            markBottom: px(a.top) + px(a.height) + px(a.paddingBottom) + px(a.borderBottomWidth),
           };
         });
       });
@@ -330,7 +341,7 @@ describe('numbered bookend stamp — both render paths', { skip: skipWithoutChro
       for (const r of rows) {
         assert.ok(r.blockTop > r.markBottom,
           `a ${r.chars}-character heading put the block top at ${r.blockTop.toFixed(1)}px, ` +
-          `at or above the mark's bottom edge at ${r.markBottom.toFixed(1)}px — the copy is ` +
+          `at or above the mark's PAINTED bottom edge at ${r.markBottom.toFixed(1)}px — the copy is ` +
           'in the mark\'s band. Reserve more of it (`--_mark-band`, base.modifiers.css).');
       }
     } finally {

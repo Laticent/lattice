@@ -228,7 +228,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   The masthead is `position: absolute` on the heading's pseudo; the divider's headline
   block is flex-CENTERED. The two lay out independently, so as the heading wrapped to more
   lines the block grew in both directions from the middle and its top edge climbed into the
-  mark — at five lines the numeral struck through the eyebrow and the hairline cut the copy.
+  mark — at FOUR lines the numeral struck through the eyebrow and the hairline cut the copy.
   Nothing in the engine said so. `probeSectionOverflow` measures FLOWED children spilling
   PAST the section's rect, and neither box left the rect; they simply painted on top of each
   other. So the `⚠ OVERFLOW` line, the red ring, the "Content clipped" tag and autosplit were
@@ -241,11 +241,19 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   is not enough on its own and this is the trap worth remembering: **a `center`ed flex line
   overflows in BOTH directions**, so a reserved band with plain centering still let the block
   spill straight back through `padding-top` into the band (measured: eyebrow at 172.4px
-  against a mark bottom of 178.7). With `safe`, the top edge pins at the band and the growth
+  against a painted mark bottom of 200.2). With `safe`, the top edge pins at the band and the growth
   goes downward — where a slide running long eventually leaves the FRAME, which every existing
   channel already knows how to report. Pinned by
   `test/integration/parity/numbered-bookend-stamp.test.js`, which asserts the geometric
   invariant on the real packed surface and fails if either declaration is removed.
+  **Measure against the mark's PAINTED edge.** The numeral's pseudo is `content-box`, so
+  `getComputedStyle(el,'::after').height` is the numeral alone — beneath it sit its
+  `padding-bottom` and the `border-bottom` that IS the hairline, 21.48px at 1280x720. The
+  first cut of both the clearance table and the test used the content box, which understated
+  every clearance by that much and moved the reported first collision from four lines to
+  five; a checker shrank the band and the test still passed on a render whose hairline
+  struck through the eyebrow. Any pseudo you are treating as a keep-out zone has this
+  trap — take `top + height + paddingBottom + borderBottomWidth`, not `top + height`.
 - **A SECOND defect was hiding behind the first, and it is the more interesting one.**
   Once the numeral drew, it measured **1.4:1** — inked `--on-dark-watermark`, the 12%
   DECORATION rung of the on-dark ramp, under a CSS `opacity: 0.85`. It had been written

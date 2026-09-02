@@ -734,35 +734,33 @@ the canvas as the heading grows from one line to three) and one pinned
 bottom-left (it holds position, but the block grows toward it and overlaps at
 five lines).
 
-**The band is reserved, so a long heading cannot climb into the mark.** Pinning
-alone was not enough: a centered block grows in both directions, and at five
-lines its top edge crossed the hairline and the numeral struck through the
-eyebrow. The slide now reserves the mark's band with symmetric padding and
-centers the block with `safe center`, which falls back to `start` exactly when
-the block would overflow. So the top edge stops at the band and the growth goes
-downward. Two things follow. A heading of one or two lines renders byte-identically
-to the unreserved build — the reservation is symmetric, so the block's midpoint
-does not move; from three lines on it pins, a few pixels lower than before. And a
-heading long enough to fill the band keeps going until it leaves the FRAME, which
-the engine already knows how to say: the export prints `⚠ OVERFLOW`, tags the
-slide "Content clipped" and the runtime rings it. The old failure was silent
-because a pseudo lying on top of the copy is an overlap, and the overflow probe
-measures spill past the frame. `review-core.js` warns one line earlier
-(`divider-numbered-heading`, past ~128 characters).
+**The band is reserved, so a long heading cannot climb into the mark.** Pinning alone
+was not enough: a centered block grows in both directions, and at four lines its top
+edge crossed the hairline and the numeral struck through the eyebrow. The slide now
+reserves the mark's band with symmetric padding and centers the block with
+`safe center`, which falls back to `start` exactly when the block would overflow. So the
+top edge stops at the band and the growth goes downward.
 
-**Dividers only, and one counter for all of them.** `divider` and
-`divider light` share a single `lat-divider` count, so a deck that mixes
-them still reads 01, 02, 03 straight through. `closing` and `title` do not
-take the modifier: a bookend is not a section, and a closing that announced
-itself as "01" was the clearest symptom of the three-counter design this
-replaced.
+Measure clearance against the mark's **painted** bottom edge — the numeral's pseudo is
+`content-box`, so beneath its height sit the gap and the hairline itself, 21.48px at
+1280x720. Against that edge: a heading of one or two lines renders byte-identically to
+the unreserved build (the reservation is symmetric, so the block's midpoint does not
+move); three lines shifts 6.14px down, because a 3-line block is taller than the band
+and pins; from there on the block pins and clearance holds at +32.0px, which is `2.5cqi`
+by construction and so the same at every size family.
 
-**It is ink, not ornament.** The stamp is how a reader and a room tell which
-section they are in, so it is inked to be read: `--on-dark-secondary` on the
-dark divider and `--text-secondary` on `divider light` — the same rungs the
-eyebrow beside it takes. Measured 5.05:1 (cuoio, light) to 11.79:1 (onyx)
-across the shipped palettes, clear of AA everywhere. It sits on
-`--z-content`, not the decorative plane.
+`divider light` and `divider qr` need the band too. A light divider carrying the lede its
+own subtitle rule styles sits at −15.2 without it, and `divider numbered qr` at −85.3 —
+both +32.0 with it. The cost is that a block taller than the band stops centering on
+those variants, and on `qr` the payload then sits 18.9px off the frame edge.
+
+And a heading long enough to fill the band keeps going until it leaves the FRAME, which
+the engine already knows how to say: the export prints `⚠ OVERFLOW`, tags the slide
+"Content clipped" and the runtime rings it. The old failure was silent because a pseudo
+lying on top of the copy is an overlap, and the overflow probe measures spill past the
+frame. `review-core.js` warns one line earlier on the dark divider
+(`divider-numbered-heading`, past ~128 characters of prose — a character count is a loose
+proxy for line count, so wide-set text can clip without it firing).
 
 ```markdown
 <!-- _class: divider numbered -->         → stamps "01", then "02", …

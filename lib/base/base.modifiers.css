@@ -1517,59 +1517,79 @@ section.divider.numbered > header,
 section.divider.numbered > footer,
 section.divider.numbered > .cell-footer > footer { display: none; }
 
-/* THE BAND IS RESERVED, so the copy cannot reach the mark. This is the half of the
- * problem the advisory rule below only WARNS about, solved in layout instead.
+/* THE BAND IS RESERVED, so the copy cannot reach the mark.
  *
  * The masthead is `position: absolute` and the headline block is flex-CENTERED, so the
  * two are laid out independently: as the heading wraps to more lines the block grows in
- * both directions from the middle and its top edge climbs into the mark. Measured on the
- * shipped build at 1280x720/indaco, with the eyebrow present (the documented divider
- * shape — it is the TOP of the block, not the heading, that arrives first):
+ * both directions from the middle and its top edge climbs into the mark.
  *
- *     1 line   block top 302.8   clearance +124.1
- *     2 lines            264.4              +85.7
- *     3 lines            226.0              +47.3
- *     4 lines            187.6               +8.9   ← 8.9px of air is not clearance
- *     5 lines            149.2              -29.5   OVERLAP: the numeral strikes through
- *     6 lines            110.8              -67.9              the eyebrow and the rule
- *                                                              cuts the first line
+ * MEASURE AGAINST THE PAINTED EDGE, NOT THE CONTENT BOX. The numeral's pseudo is
+ * `content-box`, so its `height` is the NUMERAL alone; beneath it sit
+ * `padding-bottom` (--_mark-rule-gap) and the `border-bottom` that IS the hairline. At
+ * 1280x720/indaco that is top 64 + 114.672 = 178.67 content-box against a painted
+ * 200.15 — a 21.48px difference, and the hairline is the thing the copy actually has to
+ * clear. The first cut of this work measured the content box and so understated every
+ * clearance by that much; a checker shrank the band and the test still passed on a
+ * render whose hairline struck through the eyebrow.
+ *
+ * Measured on the shipped build at 1280x720/indaco with the eyebrow present — the
+ * eyebrow is the TOP of the block, so a measurement of the heading alone reads a line
+ * late — against the painted 200.15:
+ *
+ *     1 line   block top 302.8   clearance +102.6
+ *     2 lines            264.4              +64.2
+ *     3 lines            226.0              +25.8
+ *     4 lines            187.6              -12.6   OVERLAP starts HERE
+ *     5 lines            149.2              -51.0   the numeral strikes through the
+ *     6 lines            110.8              -89.4   eyebrow, the rule cuts the copy
  *
  * Two declarations close it, and they only work together:
  *
  *   · `padding` reserves the mark's band at the block-start edge. SYMMETRIC, so the
- *     centered block's midpoint does not move — every heading of three lines or fewer
- *     renders BYTE-IDENTICALLY to the unreserved build (verified: 0 differing pixels on
- *     the 1-, 2- and 3-line cases at --overview raster). The band only bites where the
- *     collision was.
+ *     centered block's midpoint does not move — a heading of ONE OR TWO lines renders
+ *     byte-identically to the unreserved build (0 differing pixels at --overview
+ *     raster). THREE lines is NOT identical: it shifts 6.14px down, because a 3-line
+ *     block is taller than the band and pins. An earlier revision of this comment
+ *     claimed identity through three lines and attached the two-line artifact to it.
  *   · `safe center` is what makes the reservation hold. Plain `center` overflows a flex
  *     line in BOTH directions, so the block spills straight back past `padding-top` into
  *     the band — measured, a reserved band with plain centering still put the eyebrow at
- *     172.4px against a mark bottom of 178.7. `safe` falls back to `start` exactly when
- *     the block would overflow, which pins the top edge at the padding and sends the
- *     growth downward, where a slide is allowed to run long. An engine that does not
- *     support the keyword drops the declaration and inherits the component's plain
- *     `center` (divider.styles.css) — i.e. today's behavior plus the band, which is a
- *     degradation, not a break.
+ *     172.4px. `safe` falls back to `start` exactly when the block would overflow, which
+ *     pins the top edge at the padding and sends the growth downward, where a slide is
+ *     allowed to run long. An engine that does not support the keyword drops the
+ *     declaration at PARSE time and inherits the component's plain `center`
+ *     (divider.styles.css) — today's behavior plus the band, a degradation, not a break.
+ *     (Verified: with `safe` removed the block tops match the pre-band build exactly.)
  *
- * With both, the block top pins at the band and clearance holds at +32.5px from four
- * lines all the way out to 182 characters — the collision is not warned about, it is
- * unreachable.
+ * With both, the block top pins at the band and clearance holds at +32.0px — which is
+ * `2.5cqi` by construction, so it is the same 2.5cqi at every size family, not a length
+ * that decays as the heading wraps. Verified out to 359 characters.
  *
- * WHAT THIS DOES NOT BUY IS AN OVERFLOW SIGNAL, and the expectation is worth writing
- * down because it is the natural one. Past the band the section's raw scrollHeight does
- * climb (720 -> 767 -> 844 -> 921 across four, five and six lines), but
- * `probeSectionOverflow` still reports `over: false`: it measures FLOWED CHILDREN
- * spilling past the section's rect, and the block's bottom edge stays inside it (709.6
- * of 720 at the worst case) — the growth is consumed out of `padding-bottom`. The probe
- * is right to decline; the emulator's own warning says as much ("a slide that overflows
- * by padding alone is not tagged"). So the ⚠ OVERFLOW line, the red ring and the clipped
- * tab stay quiet here BY DESIGN, and the author-facing channel is the review rule. Making
- * this band a bounded, clipping cell would hand the collision to the overflow machinery —
- * that is a frame-level change, not a modifier one.
+ * AND THE FAILURE GETS LOUD, which the collision never was. Past the band the growth
+ * runs at the FRAME: the block bottom reaches 730.5 of 720 at six lines and 884 at
+ * eight, so `probeSectionOverflow` reports `over: true` and the export prints
+ * `⚠ OVERFLOW`, tags the slide "Content clipped" and the runtime rings it — all
+ * machinery that already existed and had nothing to fire on, because a pseudo lying on
+ * top of the copy is an OVERLAP and the probe measures spill PAST the frame. At the
+ * first clipping length the geometric spill is 10.5px, under the probe's TOL of 12; it
+ * reports because `flowedSpill` folds the heading's own rounded internal overflow on
+ * top. So the "one line of notice, then the engine speaks" contract has ~1.5px of margin
+ * at that boundary length, and more at every length past it.
+ *
+ * `divider light` and `divider qr` BOTH need this band — the claim that light never
+ * reaches the mark was measured heading-only and is false. Measured pre-band: a light
+ * divider carrying the lede its own subtitle rule styles sits at -15.2, and
+ * `divider numbered qr` at -85.3. Both are +32.0 with the band. The cost is that a block
+ * taller than the band no longer centers on those variants; on `qr` the payload then
+ * sits 18.9px off the frame edge, which fits but is tight.
  *
  * The band is derived from the mark's own geometry through the three custom properties
  * below rather than restated as a magic length, so re-tuning the numeral cannot silently
- * un-reserve the space it needs. HARD RULE #20: padding, never margin. */
+ * un-reserve the space it needs. It DOES depend on `--fs-hero` resolving to a length:
+ * that token is engine-owned and size-responsive (8.9583cqi at hd, 10.2 and 13.9 at
+ * other families), so no fallback is given — a constant here would be wrong at three of
+ * the four families, and a `--fs-hero` that is not a length has already broken the
+ * numeral itself. HARD RULE #20: padding, never margin. */
 section.divider.numbered {
   --_mark-top: calc(var(--_sec-1cqi, 1cqi) * 5);
   --_mark-rule-gap: calc(var(--_sec-1cqi, 1cqi) * 1.6);
