@@ -47,7 +47,11 @@ describe('--lens: the projected export', () => {
 		{ id: 'brief', label: 'Brief', base: 'none', kind: 'rung' },
 		{ id: 'ask', label: 'The ask', base: 'none' },
 	];
-	const MEMBERSHIP = { brief: [0, 2, 5], ask: [3] };
+	// `ask` OVERLAPS `brief` on slide 0 deliberately. With disjoint memberships no kept
+	// `brief` slide ever carried an `ask` tag, so the "or on any slide's tag" half of the
+	// fifth-channel assertion below certified nothing — disabling `pruneTags` entirely left
+	// it green. One shared slide is what makes the tag prune observable from the artifact.
+	const MEMBERSHIP = { brief: [0, 2, 5], ask: [0, 3] };
 
 	/** An eight-slide deck, tagged and genuinely approved. Slides 1, 4, 6 and 7 are withheld. */
 	function buildDeck() {

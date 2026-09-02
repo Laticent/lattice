@@ -57,9 +57,3 @@
   and how long each name is — three long names wanted 418px of a 390px phone bar and truncated to
   "B… E… T…". One `<select>` costs one control however many views ship, keeps the full names in the
   platform's own picker, and flexes with the bar instead of budgeting it.
-- **`--lens` works for an installed consumer, not only inside the repo.** `dist/lattice-emulator.js`
-  left `require("@workwel/lente")` and three `require("@workwel/cadenza")` calls bare, and those are
-  npm-workspace members: they resolve through a symlink in this repo and resolve nowhere after
-  `npm install @workwel/lattice`. The CLI bundle now inlines the workspace packages like the rest of
-  the local graph, so `--lens`, read-along, chart narration and the caption kernel run outside a
-  clone. Verified by running a `--lens` export with those packages made unresolvable.

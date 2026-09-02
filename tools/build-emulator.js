@@ -64,11 +64,21 @@ const MIN_FILE = path.join(ROOT, 'dist', 'lattice-emulator.min.js');
  * SOURCE, not the sibling `dist/index.cjs`, for one reason: build order. Each library's
  * dist is generated (tools/build-lente-lib.js et al), gitignored, and — in tools/build.js —
  * produced in the BACKGROUND, joined only before build-read-along-core.js, long after this
- * step runs. Bundling it would make a committed artifact a function of an uncommitted one
- * built later, and `--check` would report drift on a cold tree. The `.ts` files are
- * committed and esbuild reads TypeScript natively, so pointing at them removes the ordering
- * question entirely. The result is equivalent by construction: those dists are themselves
- * `esbuild --bundle` of this same barrel, with zero dependencies to inline.
+ * step runs. Bundling it would make this artifact a function of one produced LATER in the
+ * same build, so `--check` would report drift on a cold tree. (Nothing under dist/ is
+ * committed — an earlier draft of this comment said "a committed artifact", which is simply
+ * wrong; the ordering is the reason, not the tracking.) The `.ts` files ARE committed and
+ * esbuild reads TypeScript natively, so pointing at them removes the ordering question
+ * entirely.
+ *
+ * The two builds are equivalent in the way that matters and NOT identical in every way, and
+ * the difference is worth stating rather than glossing: each dist is `esbuild --bundle` of
+ * this same zero-dependency barrel, so the module graph is the same — but the lib builds
+ * target node18 while this one targets node22, and the `.min.js` twin adds minification. So
+ * "equivalent by construction" holds for what the code DOES, not for the bytes. Measured:
+ * `makeCursor.toString()` — the one place a workspace function's SOURCE is embedded in an
+ * exported artifact — is byte-identical between cadenza's dist and a fresh build of its
+ * barrel, and the exported `.html` is unchanged with this plugin on or off.
  */
 const inlineWorkspacePackages = {
   name: 'workwel-workspace-inline',
