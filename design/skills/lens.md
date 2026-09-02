@@ -208,9 +208,25 @@ recipient is not getting, so nothing is written:
 A blank line above and below the tag is the shape most likely to survive, and it is where
 Lattice itself writes one — though not a guarantee: a comment at column 0 also TERMINATES a
 list, so a tag blank-wrapped between two lists cannot be removed without welding them into
-one and renumbering the second, and that refuses. Indentation and trailing spaces are fine. A tag naming
-only views you ARE exporting is left alone and ships as written — the refusal is about
-disclosure, not tidiness.
+one and renumbering the second, and that refuses. Up to three spaces of indent and any
+trailing space are fine; **four spaces or a tab is not** — CommonMark makes that an
+indented code block, so the tag is typeset rather than read, and it neither prunes nor
+counts as membership. A tag naming only views you ARE exporting is left alone and ships as
+written — the refusal is about disclosure, not tidiness.
+
+**Two more things an export refuses, both about the deck AROUND a slide.** A slide you keep
+can render differently once the slides you dropped are gone: a `footer:`, `header:`,
+`class:`, `paginate:` or `backgroundColor:` directive applies *from that slide onward*, and a
+`[ref]: url` link definition resolves across the whole deck. Set one of those on a slide a
+view excludes and the kept slides silently lose it — a `CONFIDENTIAL` footer disappearing
+from the very file you are sending. The export renders the deck both ways, compares each
+kept slide against itself, and refuses rather than shipping the difference. Put deck-wide
+settings in the front matter, or on a slide every view keeps.
+
+**And your `captions:` travel with the slides.** The block is keyed by slide number, so a
+projection renumbers it: entries for withheld slides are dropped, and the rest are
+renumbered to their new positions. Before that, a withheld slide's caption shipped in the
+file and — with `--captions` — was read aloud over a different slide.
 
 **Two things the prune deliberately does NOT do.** It never writes an approval digest: the
 views in a projected deck ship without `approved:`, so re-importing the artifact reads them

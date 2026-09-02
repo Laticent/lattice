@@ -19,7 +19,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { projectForExport, exportableViews, REFUSAL_REASONS } = require('../../../lib/core/lens-export.mjs');
+const { authoredIndexDrift, crossSlideDrift, projectForExport, exportableViews, REFUSAL_REASONS } = require('../../../lib/core/lens-export.mjs');
 const { frontMatterBlockOf, slideBoundaries } = require('../../../lib/core/slide-boundaries.mjs');
 const { approvalHash, applyTag, emitRegistry } = require('@workwel/lente');
 const engine = require('../../../lib/engine/index.js');
@@ -53,6 +53,27 @@ const VIEWS = [
 	{ id: 'ask', label: 'The ask', base: 'none' },
 ];
 const MEMBERSHIP = { brief: [0, 2, 5], ask: [3] };
+
+/** A deck from explicit chunk bodies, with digests computed over the split the export actually
+ *  makes — the fixture mistake that made six earlier cases refuse as `drifted` and hide what they
+ *  were written to test. `VIEWS`/`brief` membership comes from whatever `_lens` tags the chunks carry. */
+function deckFrom(chunks) {
+	const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
+	const body = chunks.join('\n---\n');
+	const seps = new Set(slideBoundaries(body).lines);
+	const real = [[]];
+	body.split('\n').forEach((line, i) => {
+		if (seps.has(i)) real.push([]);
+		else real[real.length - 1].push(line);
+	});
+	const split = real.map((ls) => ls.join('\n'));
+	const reg = {
+		lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(split, bare, l.id) })),
+		default: 'full',
+	};
+	return `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${body}`;
+}
+
 
 test('projects to exactly the slides the view shows, and the engine agrees', () => {
 	const src = deckWith(VIEWS, MEMBERSHIP);
@@ -565,13 +586,30 @@ test.describe('the shapes eight attempts got wrong, with their answers written d
 		assert.match(out.source, /x = 1\n<!-- _lens: -ask -->\ny = 2/, 'the equation is byte-intact');
 	});
 
-	test('an author\u2019s own comment beside a directive survives, and is compared', () => {
-		// Dropping the whole `html_block` whenever it contained `_lens:` made two different `<pre>`
-		// bodies compare equal. The directives are trimmed OUT of the block now; everything else in it
-		// stays in the comparison.
-		const out = projectForExport(deckOf('<!-- _lens: brief -->\n\n# One\n\n<div>\n<!-- an author note -->\n<!-- _lens: brief -->\nAlpha\n</div>\n'), ['brief']);
+	test('a raw HTML block keeps the content the directives sat beside', () => {
+		// Dropping the whole `html_block` whenever it contained `_lens:` threw the author's content away
+		// with the directive, so two different `<pre>` bodies compared equal and a prune that deleted a
+		// line from one was accepted. The directives are trimmed OUT of the block now.
+		//
+		// THE DISCRIMINATOR IS THE SHIPPED SOURCE, NOT THE VERDICT, and finding that cost three tries.
+		// Both kernels REFUSE when a withheld id survives, and both revert when the block ends up with
+		// no directive at all — the whole-block rule is asymmetric there, since the pruned side no
+		// longer matches it. The case that separates them keeps a directive in the block (one sharing
+		// its line, so the sweep cannot take it) naming a view that IS exported: no refusal either way,
+		// and the block is byte-intact only when the comparison could see inside it.
+		//
+		// The earlier version of this test pinned nothing at all — its fixture reverted wholesale, so
+		// both assertions held because nothing had been changed, and it survived all seven mutations.
+		const src = deckOf(
+			'<!-- _lens: brief -->\n\n# One\n\n<pre>\nalpha <!-- _lens: brief --> tail\n<!-- _lens: brief -->\ngamma\n</pre>\n',
+		);
+		const out = projectForExport(src, ['brief']);
 		assert.equal(out.ok, true, 'nothing withheld is named, so nothing is refused');
-		assert.match(out.source, /<!-- an author note -->/, 'and the author\u2019s own comment is untouched');
+		assert.match(
+			out.source,
+			/<pre>\nalpha <!-- _lens: brief --> tail\n<!-- _lens: brief -->\ngamma\n<\/pre>/,
+			'and the author\u2019s block is byte-intact — dropping it whole ships it a line short',
+		);
 	});
 
 	test('a tag at the end of a raw HTML block is not removable — its newline is rendered content', () => {
@@ -653,9 +691,11 @@ test.describe('structural fuzz — a prune never moves a slide\u2019s block stru
 			let slide = '';
 			for (let k = 0, n = 2 + Math.floor(rand() * 6); k < n; k++) slide += ATOMS[Math.floor(rand() * ATOMS.length)];
 			if (!slide.includes('_lens:')) continue;
-			const chunks = [slide, '\n# Two\n\nBody two.\n'];
-			const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
-			const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks[0]}\n---\n${chunks[1]}`;
+			// THE SAME FIXTURE BUG THE HELPER ABOVE WAS FIXED FOR, and it was still here: assuming two
+			// chunks when the generated slide contains a separator makes the digest describe a split
+			// the export does not make, so the case refuses as `drifted` and `if (!out.ok) continue`
+			// discards it. Measured: 418 of 2,301 candidates thrown away, 18% of the corpus, silently.
+			const src = deckFrom([slide, '\n# Two\n\nBody two.\n']);
 			const out = projectForExport(src, ['brief']);
 			if (!out.ok) continue; // a refusal ships nothing, so it cannot corrupt anything
 			checked++;
@@ -670,5 +710,121 @@ test.describe('structural fuzz — a prune never moves a slide\u2019s block stru
 		}
 		assert.ok(checked > 100, `the corpus must exercise the prune (checked ${checked})`);
 		assert.deepEqual(moved.slice(0, 3), [], `${moved.length}/${checked} prunes moved block structure`);
+	});
+});
+
+/**
+ * THE CLASS SIX CHECKERS NEVER LOOKED AT: a deck has document-wide state, and dropping a slide
+ * changes the ones that remain. `renderedShape` compares a slide against ITSELF before and after its
+ * own tags are edited — the right question for the edit, and structurally blind to this. An
+ * adversarial pass put it at ~4% of projections.
+ */
+test.describe('dropping a slide changes the slides that stay — checked, not assumed', () => {
+	const render = (src) => engine.render(src).html;
+
+	test('a `footer:` set on a WITHHELD slide would vanish from the kept ones — refused', () => {
+		// Measured on the real CLI before this check existed: `<!-- footer: CONFIDENTIAL - do not
+		// distribute -->` on a slide the view excludes appeared 6 times in the full export and 0 times
+		// in `--lens brief`. The confidentiality marking was stripped from the file that is actually
+		// SENT, while the sender previewed it with the marking on. Exit 0, no warning.
+		const chunks = [
+			'<!-- _lens: brief -->\n\n# Cover\n\nQ3 board pack.\n',
+			'\n<!-- footer: CONFIDENTIAL - do not distribute -->\n\n# Internal\n\nSecret.\n',
+			'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
+		];
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true, 'the projection itself is fine — this is not a per-slide defect');
+		const drift = crossSlideDrift(src, out.source, out.kept, render);
+		assert.ok(drift, 'but a kept slide renders differently, and that must refuse');
+		assert.equal(drift.authored, 2, 'and it names the slide that changed');
+		assert.ok(REFUSAL_REASONS['cross-slide'], 'the reason carries an explanation the CLI can print');
+	});
+
+	test('a link reference definition on a withheld slide — same class, different mechanism', () => {
+		// markdown-it resolves `[ref]: url` document-wide, so dropping the slide that defines one turns
+		// every reference on kept slides into the literal text `[label][ref]`.
+		const chunks = [
+			'<!-- _lens: brief -->\n\n# Cover\n\nSee [the pack][pk].\n',
+			'\n# Internal\n\n[pk]: https://internal.example/q3\n',
+			'<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
+		];
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true);
+		assert.ok(crossSlideDrift(src, out.source, out.kept, render), 'the reference degrades, so it refuses');
+	});
+
+	test('and an ordinary deck does NOT refuse — the check has to stay silent to be usable', () => {
+		const chunks = [
+			'<!-- _lens: brief -->\n\n# Cover\n\nQ3 board pack.\n',
+			'\n# Internal\n\nSecret.\n',
+			'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
+		];
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true);
+		assert.equal(crossSlideDrift(src, out.source, out.kept, render), null, 'no drift on a clean deck');
+	});
+});
+
+test.describe('the render must number its slides the way the projection did', () => {
+	test('a page-multiplier that forgets to mark its break is caught', () => {
+		// `_focusSteps` did exactly this: each focus copy counted as a new authored slide, so the
+		// carrier's map pointed at the wrong slides on `examples/focus.md`. The mark is fixed, and this
+		// checks the INVARIANT rather than that one rule, so the next multiplier fails here too.
+		const html = '<section data-authored-slide="0"></section><section data-authored-slide="1"></section>';
+		assert.equal(authoredIndexDrift(html, 2), null, 'agreeing renders pass');
+		assert.deepEqual(authoredIndexDrift(html, 3), { saw: [0, 1] }, 'a short count is caught');
+		const shifted = '<section data-authored-slide="0"></section><section data-authored-slide="2"></section>';
+		assert.deepEqual(authoredIndexDrift(shifted, 2), { saw: [0, 2] }, 'so is a gap');
+	});
+
+	test('_focusSteps keeps every copy on ONE authored slide', () => {
+		const src = '---\nmarp: true\ntheme: indaco\n---\n\n# One\n\n---\n\n<!-- _focusSteps: a | b | c -->\n\n# Two\n\n---\n\n# Three\n';
+		const ids = [...engine.render(src).html.matchAll(/data-authored-slide="(\d+)"/g)].map((m) => m[1]).join(',');
+		assert.equal(ids, '0,1,1,1,2', 'three focus copies, one authored slide');
+	});
+});
+
+test.describe('front-matter `captions:` is projected onto the slides that ship', () => {
+	// A SECOND INDEX-KEYED CHANNEL the prune did not see. `captions:` is keyed by 1-based AUTHOR
+	// SLIDE NUMBER, so leaving it alone leaked a withheld slide's caption verbatim into the envelope
+	// — "LEAKED CAPTION - we expect to lose the Acme suit" in an export that withheld the slide it
+	// belonged to — and, with `--captions`, spoke it over a DIFFERENT slide, because key 2 still
+	// addressed the second slide and the second slide had changed.
+	const capDeck = (chunks) => deckFrom(chunks).replace(
+		'---\nmarp: true\ntheme: indaco\n',
+		'---\nmarp: true\ntheme: indaco\ncaptions:\n  1: Welcome.\n  2: LEAKED - we expect to lose the Acme suit.\n  3: Please approve.\n',
+	);
+	const chunks = [
+		'<!-- _lens: brief -->\n\n# Cover\n\nQ3.\n',
+		'\n# Internal\n\nSecret.\n',
+		'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
+	];
+
+	test('a withheld slide\u2019s caption does not ship, and the survivors are renumbered', () => {
+		const out = projectForExport(capDeck(chunks), ['brief']);
+		assert.equal(out.ok, true);
+		assert.doesNotMatch(out.source, /LEAKED/, 'the withheld slide\u2019s caption is gone');
+		assert.match(out.source, /\n {2}1: Welcome\./, 'slide 1 keeps its number');
+		assert.match(out.source, /\n {2}2: Please approve\./, 'and slide 3 becomes slide 2, so it narrates the right slide');
+	});
+
+	test('a deck with no captions block is untouched', () => {
+		const out = projectForExport(deckFrom(chunks), ['brief']);
+		assert.equal(out.ok, true);
+		assert.doesNotMatch(out.source, /captions:/);
+	});
+
+	test('and a captions block whose every entry was withheld loses its dangling header', () => {
+		const only2 = deckFrom(chunks).replace(
+			'---\nmarp: true\ntheme: indaco\n',
+			'---\nmarp: true\ntheme: indaco\ncaptions:\n  2: LEAKED - internal only.\n',
+		);
+		const out = projectForExport(only2, ['brief']);
+		assert.equal(out.ok, true);
+		assert.doesNotMatch(out.source, /LEAKED/);
+		assert.doesNotMatch(out.source, /captions:/, 'no empty block left behind');
 	});
 });

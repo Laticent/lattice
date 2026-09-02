@@ -50,3 +50,24 @@
   pruner was blind, and a withheld id reached a real envelope with `ok: true`. The message names both
   causes and the fix: give the tag a line of its own with a blank line above and below, clear of any
   list.
+- **Fixed: a projected export no longer silently loses what the slides around it were carrying.**
+  Marp global directives apply from their slide onward and link reference definitions resolve
+  document-wide, so dropping a slide changes the ones that remain. A
+  `<!-- footer: CONFIDENTIAL - do not distribute -->` set on a slide a view excludes vanished from
+  every kept slide — the marking stripped from the very file being sent, while the sender previewed
+  it with the marking on (measured: 6 occurrences in the full export, 0 under `--lens`). A `[ref]:`
+  definition on a dropped slide turned every reference on kept slides into literal `[text][ref]`. An
+  adversarial fuzz put the class at ~4% of projections. The export now renders the deck both ways and
+  compares each kept slide against itself, refusing rather than shipping the difference; the message
+  names the likely directive and the fix.
+- **Fixed: front-matter `captions:` are projected with the slides.** The block is keyed by 1-based
+  slide number, and the prune only ever touched `lenses:` — so a withheld slide's caption shipped
+  verbatim in the embedded envelope, and with `--captions` was read aloud over whichever slide had
+  moved into that position. Entries for withheld slides are dropped and the survivors renumbered.
+- **Fixed: `_focusSteps` no longer breaks the reader-view page map.** The rule rebuilds the token
+  stream and emitted its slide separators unmarked, so every focus copy counted as a new authored
+  slide — and every heading split in the deck lost its mark with them. In a carrier that shifted the
+  baked view map: a `brief` reader was shown a slide the view excludes while one of its own members
+  was unreachable, on `examples/focus.md`, a deck this repo ships. Each break now carries the flag it
+  should, and the export additionally refuses if the rendered deck numbers its slides differently
+  from the projection — so the next rule that forgets is caught without being named.

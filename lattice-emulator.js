@@ -830,7 +830,7 @@ let LENS_TOTAL = 0;
 let LENS_OPENS_ON = null;
 let lensProjected = mdRaw;
 if (LENS_IDS.length) {
-  const { projectForExport, exportableViews, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
+  const { authoredIndexDrift, projectForExport, exportableViews, crossSlideDrift, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
   const out = projectForExport(mdRaw, LENS_IDS, { default: LENS_DEFAULT || undefined });
   // FAIL CLOSED. A view is often a deliberate REDUCTION, so falling through to the
   // full deck would hand the reader every slide the author kept out — the one
@@ -839,6 +839,33 @@ if (LENS_IDS.length) {
     const offered = exportableViews(mdRaw).map((v) => v.id);
     console.error(`error: reader view '${out.lensId}' is unavailable (${out.reason}) — ${REFUSAL_REASONS[out.reason]}`);
     console.error(`       nothing was exported. Views this deck can export right now: ${offered.join(', ')}`);
+    process.exit(1);
+  }
+  // AND ONE MORE CHECK, ONE SCOPE WIDER THAN THE KERNEL CAN SEE ON ITS OWN. `projectForExport`
+  // verifies each slide's own edit; it cannot see that DROPPING a slide changes the ones that
+  // remain — a `footer:`/`header:`/`class:`/`paginate:` directive applies "from here on", and a
+  // `[ref]: url` definition resolves document-wide. Measured on this CLI: a
+  // `<!-- footer: CONFIDENTIAL - do not distribute -->` set on a withheld slide vanished from every
+  // kept slide, so the marking was stripped from the file that is actually sent while the sender
+  // previewed it with the marking on.
+  //
+  // The kernel owns the comparison and this passes it the RENDERER, because `lib/core` must not
+  // depend on `lib/engine` — a capability, not a promise that one was used.
+  const projectedHtml = require('./lib/engine/index.js').render(out.source).html;
+  // The carrier's map is indexed by AUTHORED slide, so the render has to agree with the projection
+  // about how many there are. Checked rather than assumed: every rule that turns one authored slide
+  // into several pages marks its own breaks, and when `_focusSteps` did not, the map pointed at the
+  // wrong slides on a deck this repo ships. This catches the next one without naming it.
+  const indexDrift = authoredIndexDrift(projectedHtml, out.kept.length);
+  if (indexDrift) {
+    console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (authored-index) — ${REFUSAL_REASONS['authored-index']}`);
+    console.error(`       the projection kept ${out.kept.length} slides; the render numbered them ${indexDrift.saw.join(', ')}. Nothing was exported.`);
+    process.exit(1);
+  }
+  const drift = crossSlideDrift(mdRaw, out.source, out.kept, (src) => require('./lib/engine/index.js').render(src).html);
+  if (drift) {
+    console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (cross-slide) — ${REFUSAL_REASONS['cross-slide']}`);
+    console.error(`       slide ${drift.authored + 1} of the deck renders differently once the view's other slides are gone. Nothing was exported.`);
     process.exit(1);
   }
   LENS_VIEWS = out.views;
