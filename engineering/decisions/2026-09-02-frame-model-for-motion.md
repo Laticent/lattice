@@ -52,6 +52,16 @@ This note settles the shape of the motion capability after the engine bake-off
 The bake-off note is **not** superseded: it is the evidence behind the library pick and the audit of
 what ships today. Read it for *why anime.js*; read this for *what motion is*.
 
+**Superseding these notes leaves 37 citations pointing at them, and that is intended.** They are
+cited as design-of-record from **24 files outside the decisions folder** — module headers across
+`docs/src/lib/anima/**`, `lib/components/imagery/scene/scene.transform.js`, the Studio surfaces, and
+`tools/check-ownership.js`, where a gate names 2026-07-17 as its rationale. Those citations are not
+broken by the supersession: each note now opens with a banner naming what it got wrong and pointing
+here, which is precisely what the repo's `superseded` status is for — the note survives as the
+rationale of record for how the code came to be written. **One exception was fixed**, because it is
+author-facing rather than engineering-facing: `lib/base/base.docs.md` sent deck authors to
+2026-07-19 §0.75 and now points here.
+
 **Three things from the superseded notes are carried forward and remain binding:**
 
 1. **The admission test** (2026-07-17 §2, §12). Motion earns its place only when it carries
@@ -190,6 +200,26 @@ the thing to refuse. Deferred until charts and the DOM chrome are real.
 - **It does not renumber the twenty ideas.** Most of them are a binding away from this model; the
   interactive half still needs an interaction surface that does not exist (zero `tabindex`,
   `role="button"` or `aria-expanded` across every component transform).
+
+## 7b. The shipped Motion Studio is now out of scope — undecided
+
+Superseding `2026-07-18-anima-motion-faculty-modes.md` retires a surface that **shipped**, not a
+paper design. Its §6.2 records the two v1 modes landing, and the code is there:
+`docs/src/components/studio/MotionStudio.tsx` (667 lines, Director + Rig), registered as the fourth
+Fabricate tab, with `scene-library.ts`, `architect.ts` and the `kind:'scene'` asset rail behind it.
+
+Under the narrowed scope, motion attaches to what the engine already renders. Nothing in that scope
+needs a Studio surface for authoring standalone scene assets. **So this faculty has no role in the
+plan, and no decision has been made about it.** Three options, none taken:
+
+| | |
+|---|---|
+| **Leave it** | Costs nothing today; leaves a live Studio tab whose output the new direction does not consume, and which cites a superseded note as its design. |
+| **Retire the tab, keep the code** | Removes the user-facing surface without deleting work, pending a decision on whether scene assets ever return. |
+| **Delete it with the Zdog excision** | Cleanest, and the prove-then-cut sequencing already schedules a Zdog removal pass — this would ride it. |
+
+This is a human call and is deliberately left open. It should be made **before** the Zdog excision,
+because that pass is where the cost of each option is lowest.
 
 ## 7a. Two loose ends this note does not close
 

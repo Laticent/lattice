@@ -47,7 +47,7 @@ On the live surfaces (Studio, Playground, Present), **`chart-anima`** brings a r
 - **Playback + accessibility for free.** An animated chart runs through the same host as an Anima `scene`, so it gets the corner playback control (pause / play / replay), honors the viewer's `prefers-reduced-motion` (dropping to the safe, legible build), and pauses off-screen. Bound the policy per slide/deck with `data-scene-motion` (`still` / `legible`).
 - **Funnel + pie today.** The remaining SVG charts (quadrant, radar, map) follow as each gets its choreography defaults and a real-surface check; the gradient-fill plumbing they share is now fixed (their `url(#…)` fills would namespace the same way), though not yet verified on those charts.
 
-See `engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md` §0.75.
+See `engineering/decisions/2026-09-02-frame-model-for-motion.md` (the current state of record; it carries forward §0.75 of the superseded `2026-07-19-anima-svg-first-cut-zdog.md`).
 
 ## Auto-detected authoring patterns
 
