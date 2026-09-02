@@ -39,7 +39,7 @@ We start with one engineer's Tuesday, and we finish by designing Instagram.
 2. The words — naming what you just watched
 3. Protagonist and antagonist — where a design starts
 4. Solution types — which answer is wanted
-5. Six kits — data, compute, network, scale, security
+5. Six kits — data, compute, network, scale, reliability, security
 6. Instagram — the graph, the design, and the worksheet you keep
 
 ---
@@ -412,6 +412,8 @@ flowchart TB
   end
 ```
 
+*A balancing loop pushes back toward a target, and the eight-second delay in the pipe is exactly why she overshoots. A reinforcing loop pushes harder in the direction it is already going.*
+
 ---
 
 <!-- _class: split-panel capstone cat-1 -->
@@ -438,7 +440,7 @@ Wifi, the VPN, the package registry, the build fleet, the identity provider. May
 
 ## Emergence is behavior that belongs to no part, and to no decision.
 
-Nothing merges on Thursdays. Maya checked. No person decided it, no policy states it, and no team owns it. It falls out of three things that have nothing to do with each other: the Friday release freeze, a reviewer six time zones east, and a Wednesday planning meeting that pushes work later.
+Nothing merges on Thursdays. Maya checked. No person decided it, no policy states it, and no team owns it. It falls out of three things with nothing to do with each other: a reviewer six time zones east who reads nothing before three, a window that closes at four, and a review queue that only ever grows.
 
 You cannot find emergence by reading any single part. You find it by watching the whole thing for long enough.
 
@@ -549,9 +551,9 @@ Antagonist:   But <W> — and W is <a number>.
 ## Maya is the protagonist of her own day, and the interruptions are the antagonist.
 
 - Maya wants 482 merged before four o'clock
-  - So that a bug affecting real users stops affecting them, and so that she is not carrying it into next week.
-- But she is interrupted roughly fourteen times
-  - Not once by anything unreasonable. A page, a favor, four status requests. Each one costs the reload, not just the minute.
+  - So that a bug affecting real users stops affecting them, and so she is not carrying it into next week.
+- But she is interrupted about half a dozen times
+  - Not once by anything unreasonable. A page, a favor, four status requests. Each costs the reload, not just the minute.
 
 ---
 
@@ -561,7 +563,7 @@ Antagonist:   But <W> — and W is <a number>.
 
 ## Most systems have several protagonists, and you must say which one loses.
 
-Instagram has at least four: the reader opening the app, the ordinary poster, the celebrity with fifty million followers, and the engineer carrying the pager. They want incompatible things.
+Instagram has at least four: the reader opening the app, the ordinary poster, the celebrity with five hundred million followers, and the engineer carrying the pager. They want incompatible things.
 
 Naming one as the protagonist is not a slogan, it is a decision about who waits. Say who you are not designing for, out loud, and half the arguments later in the design stop happening.
 
@@ -608,7 +610,7 @@ She opens the app a dozen times a day, on a cellular network, usually while doin
 
 ## The antagonist is not scale. It is the shape of the follow graph.
 
-Scale is a quantity, and quantities are boring: you buy more machines. The thing you cannot buy your way out of is a distribution. Follower counts are power-law, so the average is a lie and the far tail sits eight orders of magnitude from the middle.
+Scale is a quantity, and quantities are boring: you buy more machines. The thing you cannot buy your way out of is a distribution. Follower counts are heavy-tailed, so the average is a lie and the far tail sits six orders of magnitude from the middle.
 
 - The number that matters
   - The median account has a few hundred followers. The largest has five hundred million.
@@ -893,7 +895,7 @@ flowchart LR
 ## A key-value store is a hash map with an operations team.
 
 - Reach for it when
-  - You always know the exact key, and you need sub-millisecond rather than tens of milliseconds.
+  - You always know the exact key, and handing the value back is the store's only job.
 - Walk away when
   - You need to ask any question at all about what is inside the value.
 - The constraint you inherit
@@ -928,7 +930,7 @@ flowchart LR
 | Key-value | Exact key | Tunable | Horizontal | Any other question |
 | Document | Key, secondary index | Per document | Horizontal | Cross-document facts |
 | Wide-column | Partition plus range | Tunable | Horizontal | New query patterns |
-| Graph | Traversal | Strong | Poorly | Partitioning at all |
+| Graph | Traversal | Engine-specific | Poorly | Partitioning at all |
 
 ---
 
@@ -1199,7 +1201,7 @@ flowchart TB
 - Reach for it when
   - You run many services, deploy often, and want one packaging story across all of them.
 - Walk away when
-  - You have one small service. An orchestrator costs more than it saves at that size.
+  - You run one small service. An orchestrator costs more than it saves at that size.
 - The constraint you inherit
   - The orchestrator is now infrastructure, with its own failure modes and its own pager.
 
@@ -1358,7 +1360,7 @@ A design that needs three sequential intercontinental round trips has spent half
 
 ## A request with no timeout is a resource leak waiting for a bad afternoon.
 
-Every waiting request holds a connection, a thread and some memory. Under a slow dependency, unbounded waits turn one struggling service into a total outage — which is exactly what happened to checkout at one o'clock.
+Every waiting request holds a connection, a thread and some memory. Under a slow dependency, unbounded waits turn one struggling service into a queue of stuck callers — which is the shape of the page that pulled Maya in at twenty to eleven.
 
 - The tell
   - Every outbound call has a deadline, and the deadline shrinks as it propagates.
@@ -1637,7 +1639,7 @@ flowchart LR
 
 ## Past three nines the humans stop being fast enough.
 
-Fifty-three minutes a year is less than one incident with a page, a login, a look at a dashboard and a decision. So four nines does not mean a faster on-call engineer. It means automatic failover and automatic rollback, because a person is no longer in the loop.
+Fifty-three minutes a year is about one incident with a page, a login, a look at a dashboard and a decision. So four nines does not mean a faster on-call engineer. It means automatic failover and automatic rollback, because a person is no longer in the loop.
 
 Each nine roughly multiplies the cost. Pick the number the business actually needs, and write down what you are choosing not to buy.
 
@@ -1852,7 +1854,7 @@ Boundary      In: feed, posts, edges, media. Out: the phone, the network, the la
 Environment   Spiky traffic, partitions, duplicate deliveries, people who want in.
 Constraints   200 ms p99 · 60 reads per write · media durable forever
 Invariants    A post reaches eligible followers · media never lost · a like counts once
-Bottleneck    Read throughput, at 70K feed reads per second
+Bottleneck    Hydration lookups: 70K feed reads/s, but ~5.6M backend reads/s
 Solution type Scaled. Not an MVP, not optimal.
 ```
 
@@ -1902,7 +1904,7 @@ Assume 500 million daily users who open the feed twelve times a day, and 100 mil
 
 `500M × 12 = 6B reads/day ÷ 86,400 = 70K reads/s` · `100M ÷ 86,400 = 1.2K writes/s` · `100M × 2MB = 200 TB/day` · `ratio ≈ 60:1`
 
-The twelve is the only number doing real work. Change it and everything moves; change the 500 million and the ratio does not.
+The twelve is the only number doing real work. Change the 500 million while holding opens and posts per user fixed, and the ratio does not move. Change how often people post, and it does.
 
 ---
 
@@ -1941,11 +1943,11 @@ Do it now, on paper, in under a minute. The answer is on the next slide, and the
 
 `The answer`
 
-## Two and a half thousand reads a second, and a ratio that barely moved.
+## The ratio moved, and the reason it moved is the lesson.
 
 `50M × 4 = 200M reads/day ÷ 86,400 ≈ 2.3K reads/s` · `2M ÷ 86,400 ≈ 23 writes/s` · `ratio ≈ 100:1`
 
-A hundredth of the traffic and the same shape. That is what makes the ratio worth finding first: it survives being wrong about the size, and it is the number the design actually answers to.
+A thirtieth of the read traffic, and the ratio went from 60:1 to 100:1. It moved because you changed how often each person posts, not just how many people there are. The ratio is opens per user divided by posts per user: it survives being wrong about population, never about behavior.
 
 ---
 
@@ -2002,7 +2004,7 @@ following                              followers
                                          B = clamp(followers / 1e6, 1, 512)
 ```
 
-*Two copies means they can diverge. The forward edge is the source of truth; the reverse is materialized from the log and repaired by a background job.*
+*The forward edge is the source of truth; the reverse is materialized from the log and repaired by a background job. `B` may only ratchet upward — shrink it and edges become unreachable — and because early edges were written under a smaller `B`, the low buckets carry several times the average.*
 
 ---
 
@@ -2018,7 +2020,7 @@ following                              followers
 | Who does A follow? | `following (A)` range | 7,500 rows, one partition |
 | Who follows B, ordinary B? | `followers (B, 0)` range | ~10⁴ rows, one partition |
 | Follower count | `user_edge_stats` | One point read, cached |
-| **Who follows B, celebrity B?** | `followers (B, 0..511)` | **5×10⁸ rows, 512 partitions** |
+| **Who follows B, celebrity B?** | `followers (B, 0..499)` | **5×10⁸ rows, 500 partitions** |
 
 ---
 
@@ -2030,7 +2032,7 @@ following                              followers
 
 The reader then does almost nothing. One lookup, one page, no merging, no ranking across sources. It is fast, it is simple, and for an account with two hundred followers it is unambiguously correct: two hundred small writes, and every reader gets a page in a millisecond.
 
-Hold that design in your head. Now a single account with fifty million followers posts one photograph. Before you turn the page, predict what happens.
+Hold that design in your head. Now a single account with five hundred million followers posts one photograph. Before you turn the page, predict what happens.
 
 ---
 
@@ -2043,7 +2045,7 @@ Hold that design in your head. Now a single account with fifty million followers
 Five hundred million feed inserts at roughly fifty bytes each, from a single API call.
 
 - 500 seconds of queue
-  - At a million inserts a second, that is eight and a half minutes serving nobody else.
+  - At a million inserts a second, that is eight minutes serving nobody else.
 - 180K inserts a second
   - The whole platform's ordinary load: 1.2K posts times about 150 pushed followers.
 - 45 minutes of backlog
@@ -2091,7 +2093,7 @@ There is a second reason, and it is the one that makes a senior nod: a celebrity
 The two strategies fail at opposite ends of the same graph, so the design uses each one where the other breaks.
 
 - Pick a single strategy for everyone
-  - Simple to build and simple to explain, and guaranteed to fail at one end: push drowns on celebrities, pull blows the latency budget for everyone else.
+  - Simple to build and simple to explain, and guaranteed to fail at one end: push drowns on celebrities, pull costs hundreds of reads per page for everyone else.
 - Split at a follower threshold
   - Push from ordinary accounts, pull from high-follower accounts, merge at read.
 
@@ -2105,7 +2107,7 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 
 ## Around fifty thousand followers, and it is a rate, not a count.
 
-Fifty thousand puts roughly the top ten-thousandth of accounts on the pull path, so a reader following three hundred accounts merges ten to thirty celebrity lists — which the tail-latency arithmetic says survives, and a hundred does not.
+Fifty thousand puts a fraction of a percent of accounts on the pull path. Following is not random — readers concentrate on popular accounts — so someone following three hundred typically has ten to thirty above the line. The tail-latency arithmetic says ten to thirty survives and a hundred does not. Measure it on your own graph.
 
 The better predicate is fan-out work per day, not followers: an account with fifty thousand followers posting forty times a day costs more than one with two hundred thousand posting weekly. Crossing the threshold does not rewrite history; old entries simply age out.
 
@@ -2170,7 +2172,7 @@ flowchart LR
 
 `Instagram · assembling a page`
 
-## A feed read is five stages, and the last one costs the most.
+## A feed read is four stages, and the last one costs the most.
 
 1. Fetch and merge
    - Read the precomputed page, then pull recent posts from the celebrities she follows.
@@ -2302,7 +2304,7 @@ flowchart LR
 | Spread | Posts by author, edges by bucket | The bucket keeps a super node off one partition |
 | Defer | Fan-out on write, below the threshold | Moves the cost out of the reader's 200 milliseconds |
 | CDN with versioned URLs | Every photo variant | Same bytes for many readers, and purging is eventual |
-| Bulkhead | A separate celebrity fan-out pool | Her eight-minute job must not delay everyone else |
+| Bulkhead | Fan-out workers kept off the read path | A burst of ordinary fan-out must not starve the pool serving feeds |
 | Object-level authorization | Every hydration | The endpoint check passes; the object check stops the breach |
 
 ---
@@ -2314,12 +2316,12 @@ flowchart LR
 
 ## The most useful entry here is the one we refused.
 
-Every junior asked to design Instagram reaches for a graph database, because the words "social graph" are right there. The data kit already answered it, three slides before anybody had heard of a super node.
+Every junior asked to design Instagram reaches for a graph database, because the words "social graph" are right there. The data kit already answered it, fifty slides before anybody had heard of a super node.
 
 - What the card said
   - Walk away when you have relationships but only ever join two hops.
 - What the feed actually does
-  - Walks exactly one hop: me, to the people I follow, to their recent posts.
+  - Walks one graph hop, me to the people I follow, then a keyed lookup that is not a traversal.
 - Why the refusal matters most
   - A kit that only says yes is a catalog. One that says no is a tool.
 
