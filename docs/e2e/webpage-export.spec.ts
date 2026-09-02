@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
+import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './studio-fixture';
 
 /** Open an exported artifact and read its slide sections back out of a real DOM. */
 async function exportedSections(page: import('@playwright/test').Page, file: string): Promise<string[]> {
@@ -28,10 +28,17 @@ async function exportWebpage(
 	await gotoStudio(page);
 	await setEditorContent(page, deck);
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
-	await page.getByRole('dialog').getByRole('button', { name: /^Webpage \(\.html\)/ }).click();
+	// The ROW and CONFIRM labels come from the fixture's `SHARE_EXPORTS` contract, never from
+	// literals here. Four specs open-coding this two-step flow is what #1507 cost a month of
+	// timeouts against a working pipeline, and the contract exists so a chrome rename is one
+	// edit. The two clicks still happen HERE rather than through `shareExport`, because the
+	// strip-notes switch lives between them and the download oracle must be armed before the
+	// second — neither of which that helper's shape can express.
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('button', { name: SHARE_EXPORTS.webpage.row }).click();
 	if (opts.stripNotes) await page.getByRole('switch', { name: 'Strip speaker notes' }).click();
 	const downloadPromise = page.waitForEvent('download', { timeout: 150_000 });
-	await page.getByRole('button', { name: /Download webpage|Exporting/ }).click();
+	await dialog.getByRole('button', { name: SHARE_EXPORTS.webpage.confirm }).click();
 	const file = path.join(testInfo.outputDir, opts.as);
 	await (await downloadPromise).saveAs(file);
 	return file;
@@ -243,6 +250,14 @@ test('the Studio webpage export keeps the deck the author wrote — the note was
 	const a = await sectionsOf(stripped);
 	const b = await sectionsOf(twin);
 
+	// ANCHOR FIRST. Every assertion below is an equality or a negation, and all of them are
+	// satisfied by the empty set — measured: with zero sections found, this whole cell passes.
+	// Two ways that happens without anyone noticing: `section[data-lattice-slide]` gets renamed
+	// so `exportedSections` returns nothing, or `setEditorContent` silently no-ops (the
+	// selector-drift class the fixture documents for #780/#1507) and BOTH exports are the
+	// default seed deck. So pin what this deck must actually contain before comparing.
+	expect(a.length, 'the export produced the three slides this deck declares').toBe(3);
+	expect(a.join(''), 'the export is THIS deck, not the Studio’s default seed').toContain('Some text');
 	// The deck did not gain or lose a slide, and the `---` did not become a heading.
 	expect(a.length, 'the stripped export has the slide count the author wrote').toBe(b.length);
 	expect(a.join(''), 'the slide break did not turn into a setext heading').not.toMatch(/<h2[^>]*>Some text/);
@@ -264,7 +279,11 @@ test('the Studio webpage export keeps a tight list tight — the note was inside
 		const viewer = await page.context().newPage();
 		await viewer.goto(`file://${file}`);
 		const out = await viewer.evaluate(() => {
-			const items = [...document.querySelectorAll('li')];
+			// SCOPED TO THE SLIDES. A bare `li` query also catches the player's own chrome — it
+			// returned 4 on a two-item deck — so an unscoped count measures the viewer as much as
+			// the deck, and the tightness ratio it feeds would be diluted by furniture that has
+			// nothing to do with the scrub.
+			const items = [...document.querySelectorAll('section[data-lattice-slide] li')];
 			return { items: items.length, wrapped: items.filter((li) => li.querySelector(':scope > p')).length };
 		});
 		await viewer.close();
@@ -276,6 +295,9 @@ test('the Studio webpage export keeps a tight list tight — the note was inside
 
 	const a = await listShape(stripped);
 	const b = await listShape(twin);
+	// ANCHOR, for the reason the cell above gives at length: `0 === 0` passes every comparison
+	// here, so a renamed selector or a no-op seed would certify a scrub nobody observed.
+	expect(a.items, 'the export produced the two list items this deck declares').toBe(2);
 	expect(a.items, 'both items survive').toBe(b.items);
 	expect(a.wrapped, 'the list stayed TIGHT — a blank line in the note’s place would wrap each item in <p>').toBe(b.wrapped);
 	expect(a.wrapped, 'the authored list is tight to begin with, so this cell can fail').toBe(0);
@@ -307,7 +329,11 @@ test('the Studio webpage export stands down loudly when NO cut reproduces the de
 	// The privacy promise holds: no note text in the DOM, and none in the re-import source.
 	expect(html, 'the note text is gone from the DOM').not.toContain(SECRET);
 	const { parseEnvelope } = (await import('../../lib/core/lattice-doc.js')) as { parseEnvelope: (h: string) => { source?: string } };
-	expect(parseEnvelope(html).source || '', 'the note text is gone from the envelope').not.toContain(SECRET);
+	const envelope = parseEnvelope(html).source || '';
+	// Anchor before negating: `|| ''` makes the absence check vacuous if the envelope ever
+	// carries the deck under a different key, and an absence assertion against nothing passes.
+	expect(envelope, 'the envelope carries THIS deck').toContain('# Numbers');
+	expect(envelope, 'the note text is gone from the envelope').not.toContain(SECRET);
 
 	// The deck was NOT restructured: the author's two separate lists are still two lists.
 	const lists = await (async () => {
