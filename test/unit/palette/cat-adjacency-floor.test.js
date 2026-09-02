@@ -127,15 +127,17 @@ const SANCTIONED_SHORTFALLS = new Map([
   // L — which is exactly what the monochromacy floor exists to stop. Improved from
   // 0.0298, 0.0564 and 0.0584 respectively.
   ['ardesia-dark sat', 0.1021],
-  ['carbone-dark sat', 0.0755],
+  ['carbone-dark sat', 0.0869],
   ['crepuscolo sat', 0.1034],
-  // `concrete`'s chips sit between a light canvas and white. A twelve-step ramp needs
-  // more range than that gap holds while each chip keeps its footing on the canvas —
-  // and the chips are what a `list-steps` badge paints, with no border. §6's luminance
-  // ramp is not reachable without giving that up. `onyx` is the same shape, one rung
-  // better.
-  ['concrete wash', 0.0054],
-  ['concrete-dark wash', 0.0054],
+  // `concrete`'s light chips sit between a light canvas and white. A twelve-step ramp
+  // needs more range than that gap holds while each chip keeps its footing on the canvas
+  // — and the chips are what a `list-steps` badge paints, with no border. `onyx` is the
+  // same shape, one rung better. `concrete-dark` is held at its SHIPPED ramp entirely
+  // (HELD_AT_SHIPPED in tools/derive-cat-ramp.js): widening it moved the journey
+  // weighted badge's 28%-mood blend into its own ink's lightness and took six mood pairs
+  // under AA, which `journey-chip-contrast.test.js` catches and no palette gate would.
+  ['concrete wash', 0.0112],
+  ['concrete-dark wash', 0.0013],
   ['onyx-dark wash', 0.0276],
 ]);
 /** Absorbs last-digit movement in the pinned table, nothing more — the sibling arm's value. */
@@ -172,11 +174,11 @@ const PINNED = new Map([
   ['burgundy', { saturated: 'mark', sat: [0.1055, 0.1078, 0.1994, 0.2130, 0.2557], wash: [0.0299, 0.0305, 0.0324, 0.0324, 0.0441] }],
   ['burgundy-dark', { saturated: 'fill', sat: [0.1050, 0.1353, 0.1534, 0.1926, 0.2375], wash: [0.0303, 0.0304, 0.0320, 0.0324, 0.0368] }],
   ['carbone', { saturated: 'mark', sat: [0.1084, 0.1092, 0.1193, 0.1253, 0.1265], wash: [0.0306, 0.0310, 0.0312, 0.0312, 0.0313] }],
-  ['carbone-dark', { saturated: 'mark', sat: [0.0755, 0.0896, 0.0912, 0.0930, 0.0943], wash: [0.0317, 0.0319, 0.0320, 0.0322, 0.0326] }],
+  ['carbone-dark', { saturated: 'mark', sat: [0.0869, 0.0870, 0.0875, 0.0875, 0.0889], wash: [0.0317, 0.0319, 0.0320, 0.0322, 0.0326] }],
   ['carta', { saturated: 'mark', sat: [0.1051, 0.1051, 0.1637, 0.1886, 0.1976], wash: [0.0295, 0.0297, 0.0298, 0.0310, 0.0337] }],
   ['carta-dark', { saturated: 'fill', sat: [0.1426, 0.1649, 0.1705, 0.1837, 0.2263], wash: [0.0295, 0.0298, 0.0299, 0.0301, 0.0301] }],
-  ['concrete', { saturated: 'mark', sat: [0.0255, 0.0368, 0.0390, 0.0409, 0.0501], wash: [0.0054, 0.0080, 0.0106, 0.0108, 0.0127] }],
-  ['concrete-dark', { saturated: 'fill', sat: [0.0322, 0.0368, 0.0452, 0.0478, 0.0501], wash: [0.0054, 0.0080, 0.0106, 0.0108, 0.0127] }],
+  ['concrete', { saturated: 'mark', sat: [0.0255, 0.0368, 0.0390, 0.0409, 0.0501], wash: [0.0112, 0.0119, 0.0132, 0.0134, 0.0139] }],
+  ['concrete-dark', { saturated: 'fill', sat: [0.0322, 0.0368, 0.0452, 0.0478, 0.0501], wash: [0.0013, 0.0013, 0.0013, 0.0013, 0.0014] }],
   ['crepuscolo', { saturated: 'mark', sat: [0.1034, 0.1079, 0.1333, 0.2030, 0.2151], wash: [0.0310, 0.0325, 0.0353, 0.0354, 0.0362] }],
   ['crepuscolo-dark', { saturated: 'fill', sat: [0.1070, 0.1125, 0.1414, 0.2125, 0.2461], wash: [0.0299, 0.0301, 0.0307, 0.0313, 0.0319] }],
   ['cuoio', { saturated: 'mark', sat: [0.1055, 0.1066, 0.1453, 0.1815, 0.1828], wash: [0.0302, 0.0306, 0.0310, 0.0323, 0.0330] }],

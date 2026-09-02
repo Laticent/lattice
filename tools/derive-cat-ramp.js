@@ -81,6 +81,21 @@ const TEXTURE_FIRST = new Set(['a11y-base', 'onyx', 'concrete']);
  * that widening the marks at all costs the ink arm. Its LIGHT fills — the ramp the
  * Mermaid pie actually paints on the light canvas — did take §6's spread.
  */
+/**
+ * Ramps held at their SHIPPED values because widening them breaks a surface downstream
+ * that no palette-level gate can see.
+ *
+ * `concrete`'s dark marks feed the journey weighted badge, which paints `--cat-N-ink` on
+ * a 28% mood + 72% `--bg-alt` blend (`journey.styles.css`, gated by
+ * `journey-chip-contrast.test.js`). Widening the ramp moved that blend into the ink's
+ * own lightness and took six mood pairs to 4.31-4.49 against a 4.5 floor. The ramp is a
+ * sanctioned shortfall either way — 0.0013 shipped against a 0.0295 floor — so the
+ * improvement it gives up is 0.0118, and the thing it buys back is AA on a shipped
+ * component. Modelling one component's blend recipe inside the palette solver would be
+ * the wrong trade; naming the one ramp it constrains is not.
+ */
+const HELD_AT_SHIPPED = new Set(['concrete dark mark']);
+
 const SANCTIONED_SHORTFALLS = {
   // Flat hex: ONE mark ramp serves both canvases and owes a legible `--cat-N-ink` arm
   // on both. Clearing the floor needs a span `derive-cat-ink` cannot lift twelve inks
@@ -93,13 +108,12 @@ const SANCTIONED_SHORTFALLS = {
   // LIGHTNESS_SPREAD_MIN exists to stop. Improved from 0.0298 / 0.0584 / 0.0564.
   'ardesia dark fill sat': 0.1021,
   'crepuscolo light mark sat': 0.1034,
-  'carbone dark mark sat': 0.0755,
-  // `concrete`'s fills sit between a light canvas and white. A twelve-step ramp needs
-  // more range than that gap holds while each chip keeps its footing on the canvas
-  // (GROUND_COMFORT), and the chips are what a `list-steps` badge paints with no
-  // border. §6's luminance ramp is not reachable without giving that up.
-  'concrete light fill wash': 0.0054,
-  'concrete dark mark wash': 0.0054,
+  'carbone dark mark sat': 0.0869,
+  // `concrete`'s light fills sit between a light canvas and white. A twelve-step ramp
+  // needs more range than that gap holds while each chip keeps its footing on the canvas
+  // (GROUND_COMFORT), and the chips are what a `list-steps` badge paints with no border.
+  // Its DARK marks are not here but in HELD_AT_SHIPPED — that ramp is not solved at all.
+  'concrete light fill wash': 0.0112,
   // Same shape as concrete, one rung better: onyx's dark fills reach 0.0276 before the
   // ink arm and the canvas floor between them close the band.
   'onyx dark fill wash': 0.0276,
@@ -293,6 +307,11 @@ function solvePalette(palette, { measureOnly = false } = {}) {
     for (const kind of order) {
       const tier = read.saturated === kind ? 'sat' : 'wash';
       const hexes = read[kind];
+      if (HELD_AT_SHIPPED.has(`${palette} ${isDark ? 'dark' : 'light'} ${kind}`)) {
+        placed[kind] = hexes;
+        out.ramps.push({ mode: isDark ? 'dark' : 'light', kind, tier, hexes, before: null, worst: null, moved: 0, held: true });
+        continue;
+      }
       if (tier === 'sat' && TEXTURE_FIRST.has(palette)) {
         placed[kind] = hexes;
         out.ramps.push({ mode: isDark ? 'dark' : 'light', kind, tier, hexes, exempt: true, moved: 0 });
@@ -435,7 +454,7 @@ function main() {
 
     movedTotal += moved;
     for (const r of solved.ramps) {
-      if (r.exempt) continue;
+      if (r.exempt || r.held) continue;
       committed.set(`${palette} ${r.mode} ${r.kind} ${r.tier}`, r.before);
       rows.push(`${palette.padEnd(11)} ${r.mode.padEnd(5)} ${r.kind.padEnd(4)} ${r.tier.padEnd(4)} ${String(r.before).padEnd(7)} -> ${String(r.worst).padEnd(7)} (floor ${FLOOR[r.tier]}, worst pair ${r.worstPair}, ${r.moved}/12 slots)`);
     }

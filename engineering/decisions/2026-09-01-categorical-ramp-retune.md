@@ -97,6 +97,49 @@ measured. What survives from "derived" is the part worth keeping — the gate st
 references clear these numbers, so the calibration claim stays checkable rather than becoming
 folklore.
 
+## How the floor was settled — a sweep, not an argument
+
+The wash floor was originally 0.0295 because that is what `indaco` and `cuoio` happened
+to ship. That is a descriptive statistic promoted to a rule, and an audit reasonably
+objected that the solver reaches further — measuring 0.0400 as clearable. Neither number
+is "what a reader needs", so neither settles anything on its own.
+
+What settles it is sweeping the floor and pricing each candidate, with **colour-vision
+simulation as the criterion** — which is what #1864's own acceptance criterion 2 asks for
+(`lib/theme/cvd.js`, Machado matrices, the four simulated deficiencies). Each candidate
+re-solves the whole catalog from the shipped baseline:
+
+| floor | ramps reaching it | shortfalls | slots moved | slots under 90% chroma | achromatopsia pairs at ~0 | prot / deut / trit worst |
+|---|---|---|---|---|---|---|
+| shipped | 7/54 | 47 | 0 | 0 | **272** | 0.0000 / 0.0000 / 0.0013 |
+| **0.0295** | **46/54** | **8** | 595 | 13 | **21** | 0.0017 / 0.0035 / 0.0044 |
+| 0.0400 | 44/54 | 10 | 613 | 15 | 20 | 0.0017 / 0.0035 / 0.0044 |
+| 0.0500 | 36/54 | 18 | 616 | 15 | 22 | 0.0017 / 0.0035 / 0.0044 |
+| 0.0600 | 22/54 | 32 | 616 | 14 | 25 | 0.0017 / 0.0018 / 0.0044 |
+
+**The whole win is in the first step, and 0.0295 is the knee.** Going from the shipped
+ramps to any floor at all takes monochromacy collisions from 272 to about 20 and lifts
+two dichromacies off literal zero. Going ABOVE 0.0295 buys nothing measurable: the
+achromatopsia count is flat and then rises, all three dichromacy worst-cases are
+identical to four decimal places, and chroma cost and movement both creep up — while
+ramps reaching the floor fall from 46 to 22 and shortfalls quadruple.
+
+So the floor stays at 0.0295, and the justification is no longer "it is what Adam & Eve
+shipped". It is that above it, no colour-vision metric improves and the cost climbs
+steeply. The headroom an audit measured is real arithmetically and buys nothing
+perceptually — which is a more useful thing to have written down than the headroom
+number was.
+
+**One solver defect had to be fixed before this table meant anything.** The projection is
+a heuristic, so aiming at a higher floor could land LOWER: at 0.0400 `a11y-base` came
+back at its shipped 0.0180 against the 0.0289 it reaches when aimed at 0.0295. A floor
+that makes the catalog worse by being raised is a trap, and it makes any sweep measure
+the solver rather than the palettes. `TARGET_LADDER` now retries an unreachable target
+downward and keeps the best result, so the outcome is monotone in the target and a ramp
+that cannot clear its floor still ships the best placement it can reach. That fix also
+improved three shipped shortfalls on its own — `concrete` 0.0054 -> 0.0112,
+`concrete-dark` 0.0054 -> 0.0131, `carbone-dark` 0.0755 -> 0.0869.
+
 ## What ships
 
 **255 values across 15 palette files** (the 18 `-dark` faces `@import` and flip scheme; they
@@ -177,6 +220,27 @@ channel, not a redundant one. On `concrete` and `onyx` the marks are muted near-
 identity, so all twelve outlines look alike and carry no category at all. Making it work
 would mean re-hueing the mark tier to match the fill tier, which is a larger brand-value
 change than the re-tune it was proposed to avoid.
+
+## One ramp is held at its shipped values, and the reason is worth knowing
+
+`concrete`'s DARK marks are not solved at all. They feed the journey weighted badge,
+which paints `--cat-N-ink` on a **28% mood + 72% `--bg-alt` blend**
+(`journey.styles.css`, gated by `journey-chip-contrast.test.js`). Widening the ramp moved
+that blend into the ink's own lightness and took six mood pairs to 4.31-4.49 against a
+4.5 floor.
+
+**Nothing at the palette level could have caught it.** `checkCatContrast` measures ink
+against the CANVAS, and the ratio that broke is ink against a blend a component invents.
+Two more general guards were tried and both are wrong: requiring the derived ink to clear
+AA on its own mark vetoes almost every ramp in the catalog (the ink is derived from the
+mark's hue and chroma with only lightness moved, so a low ratio is ordinary), and
+preserving whatever ratio a slot happened to have vetoes most of the rest.
+
+So the ramp is named rather than modelled. It is a sanctioned shortfall either way —
+0.0013 against a 0.0295 floor — so what it gives up is 0.0118 of separation on a ramp
+that cannot reach the floor regardless, and what it buys back is AA on a shipped
+component. Modelling one component's blend recipe inside the palette solver would have
+been the wrong trade.
 
 ## The gate stops being a ratchet
 
