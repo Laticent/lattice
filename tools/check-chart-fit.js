@@ -60,10 +60,15 @@
  *   node tools/check-chart-fit.js --report          # per-slide numbers
  *   node tools/check-chart-fit.js --size portrait   # one size only
  *
- * Needs a Chromium (CHROME_PATH or the puppeteer cache). With none it SKIPS
- * loudly and exits 0 — never a false green (HARD RULE #23). On-demand, like its
- * siblings: it costs three emulator renders, so it is not in the browser-free
- * `build:check`.
+ * Needs a Chromium (CHROME_PATH or the puppeteer cache). With none it EXITS 2
+ * having verified nothing — never a false green (HARD RULE #23). This header said
+ * "SKIPS loudly and exits 0" until 2026-09-02, describing behavior #1988 had
+ * already replaced; the correction matters because the nightly wiring rests on
+ * exit 2 being true (see `main()`'s own note at the `resolveChrome()` call, and
+ * `integration-nightly.yml`'s `chartfit` arm). 2 rather than 1 keeps a SETUP
+ * failure distinct from a real clip finding.
+ *
+ * NOT browser-free, so not in `build:check`: it costs three emulator renders.
  */
 
 const fs = require('node:fs');

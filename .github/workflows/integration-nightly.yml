@@ -192,6 +192,68 @@ jobs:
           else
             echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
+      # TWO STRUCTURAL GEOMETRY GATES THAT RUN IN NO CI JOB AT ALL. Both need the
+      # Chromium this job already caches, both were written as gates, and neither was
+      # ever wired — so a `SANCTIONED_CLIPS` entry, a re-derived inset or a
+      # window-dependent slide could only ever be caught by someone running them by
+      # hand. `2026-09-01-orphaned-check-census.md` is the census that found them.
+      #
+      #   check:chart-fit   does a chart paint OUTSIDE `.cell-stage` (which is
+      #                     `overflow: clip`, so it is CUT silently), re-derive an
+      #                     inset the stage already owns, or spill its own viewBox?
+      #                     Three emulator renders, one per @size.
+      #   geometry:check    does a slide measure differently depending on the window
+      #                     it is viewed in? Renders 5 decks across 8 surfaces,
+      #                     including transform-scaled ones.
+      #
+      # WHY THEY ARE HERE AND NOT ON A PR. Both drive a real browser through the real
+      # emulator — 44s and 2m03s measured on this tree, against a job that already runs
+      # ~2h04m. That is nothing here and it is a third of the PR unit job there, and the
+      # PR unit job is contractually render-free (`PUPPETEER_SKIP_DOWNLOAD`), so neither
+      # could run on it without giving that up. Same argument as `codewidth` above.
+      #
+      # BOTH EXIT 2 WITH NO CHROMIUM rather than skipping green, which is why they can be
+      # trusted here: a puppeteer cache that restores without the binary (a failure
+      # `overflow-nightly.yml` documents as recurring) fails the arm instead of reporting
+      # an unmeasured night as health. `check-chart-fit.js`'s own comment records that it
+      # used to exit 0 there and why that was changed before anyone wired it.
+      #
+      # THEY WERE RED ON `main` UNTIL TODAY. `check:chart-fit` went red at #2016 and was
+      # first green at `f43364b` (#2043) — this branch's own base, and the FIRST green in
+      # its life. The census note that called it "green and safe to wire" was already false
+      # when it merged.
+      # Both were re-measured green on `main@f43364b`, the tree this wires them into,
+      # rather than taken from the note. A wiring change that lands red teaches people to
+      # ignore the alarm on its first night.
+      - name: Chart fit (stage clip / re-derived inset / viewBox)
+        id: chartfit
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
+          {
+            echo ''
+            echo '--- chart fit (stage clip / re-derived inset / viewBox) ---'
+          } >> "$REPORT"
+          if npm run --silent check:chart-fit 2>&1 | tee -a "$REPORT"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Geometry parity (a slide must not measure by its window)
+        id: geometry
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
+          {
+            echo ''
+            echo '--- geometry parity (5 decks x 8 surfaces, scaled included) ---'
+          } >> "$REPORT"
+          if npm run --silent geometry:check 2>&1 | tee -a "$REPORT"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
 
       # COMMITTED-GOLDEN FRESHNESS — the cadence `2026-08-04-committed-pdf-freshness.md`
       # prescribed and nobody wired. `tools/regression-gate.mjs` renders every committed
@@ -292,13 +354,48 @@ jobs:
       # oracle half's clip findings rather than a distinct, and as it turned out
       # spurious, one. The lesson generalizes past this pattern: a gate that reports
       # per-row instead of per-marker is invisible here until someone adds its shape.
+      #
+      # THE `chartfit` / `geometry` ALTERNATES WERE ADDED WITH THOSE ARMS, and the
+      # count is the point: `check-chart-fit.js` has THREE failure headlines, not one —
+      # `N clip(s)`, `N re-derived outer inset(s)` and `N STALE sanction(s)` — each
+      # printed by a separate branch, and wiring the arm while matching only the first
+      # would have reproduced #1529 on the other two the same week it was cited as the
+      # reason not to. Both alternates are written GLYPH-FREE (`[0-9]+ clip\(s\)`, not
+      # the `✗` the tools actually print) because the bullet glyph is decoration the
+      # tool may restyle, while the counted noun is the finding.
+      #
+      # `no Chrom` covers BOTH arms' setup failure — `check-chart-fit: no Chromium` and
+      # `✗ no Chrome found`. Both exit 2 rather than skipping green, so the arm already
+      # goes red; this is so the issue says WHY instead of showing a bare section header
+      # over an empty section. `geometry parity measured ZERO slides` is the same class:
+      # a run that measured nothing, which must never read as a run that found nothing.
+      #
+      # `check-chart-fit: [^0-9]` AND `geometry-parity error:` ARE THE CATCH-ALLS, and
+      # leaving them out was this change's own near-repeat of #1529. Matching each FINDING
+      # headline is not enough: both tools end in a `.catch` that prints the stack and
+      # exits 2, and for a step that drives a browser through three emulator renders THAT
+      # is the likeliest failure — a dead subprocess, a missing sidecar, a navigation
+      # timeout — not a clip. Every such line was unmatched, so a crash would have filed an
+      # issue whose marker block held the section header and nothing else, while the
+      # `tail -n 120` under it showed only `regress` output (that step prints one line per
+      # artifact across ~274 decks and galleries, so it buries the tail on its own).
+      #
+      # The chart-fit half is a RULE rather than a list, which is why it is a negated class
+      # and not an enumeration of `Error|fixture not found|unknown --size`: the tool
+      # prefixes every line it prints with `check-chart-fit: `, and a COUNT after that
+      # prefix means either a finding headline (matched explicitly above) or the all-clear.
+      # Anything else is an error, a setup failure, or a `SANCTIONED clip` notice — and all
+      # three belong in the report, the sanction notice included, because "this component
+      # is knowingly clipping" is context a reader of the other findings wants. An
+      # enumeration would go stale the first time either tool grew a fourth error branch,
+      # which is the exact way the pattern rotted the last time.
       - name: Job summary
         if: always()
         run: |
           {
             echo '### Integration nightly — render-regression tier'
             echo '```'
-            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|^not ok |^--- ' \
+            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|check-chart-fit: [^0-9]|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|geometry-parity error:|no Chrom|^not ok |^--- ' \
               "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers)'
             echo '```'
             echo '<details><summary>Last 120 lines</summary>'
@@ -322,7 +419,7 @@ jobs:
       # title marker). Self-labeled at creation with the four-axis taxonomy (a
       # GITHUB_TOKEN-opened issue can't trigger the triage gate). Skipped when green.
       - name: Open / append regression issue
-        if: steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.regress.outputs.failed == 'true'
+        if: steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.regress.outputs.failed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -335,7 +432,7 @@ jobs:
             echo "What failed (full log in the run's artifact):"
             echo ""
             echo '```'
-            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|^not ok |^--- ' \
+            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|check-chart-fit: [^0-9]|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|geometry-parity error:|no Chrom|^not ok |^--- ' \
               "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers — see the tail below)'
             echo '```'
             echo ""
@@ -412,11 +509,17 @@ jobs:
       # NOT attempted here: it needs full git history in a job that may be shallow, and a
       # `git log` that silently returns nothing would close on no evidence at all.
       #
-      # ALL SIX ARMS, NAMED INDIVIDUALLY. The filing step ORs six outputs; standing down has
-      # to AND the same six, because any one still red means the tier is still failing.
+      # ALL EIGHT ARMS, NAMED INDIVIDUALLY. The filing step ORs eight outputs; standing down
+      # has to AND the same eight, because any one still red means the tier is still failing.
       # Spelling them out rather than negating the filing step's expression is deliberate: a
-      # `!` around that OR is satisfied by six EMPTY strings, which is the no-measurement
+      # `!` around that OR is satisfied by eight EMPTY strings, which is the no-measurement
       # state, not health.
+      #
+      # THE TWO LISTS MOVE TOGETHER OR THE ALARM LIES. Adding an arm to the filing OR and
+      # not to this AND is not a partial wiring, it is a contradiction: on a night where
+      # only the new arm is red the tier would file the failure AND comment "measured
+      # green" on the same issue, in that order. That is worse than either alone, and it is
+      # why `chartfit` and `geometry` landed in both expressions in one change.
       #
       # EXPECT THIS NOT TO FIRE FOR A WHILE, and that is the step working rather than
       # broken. The `regress` arm is knowingly red — 196 genuinely drifted goldens, with the
@@ -431,6 +534,8 @@ jobs:
           && steps.contrast.outcome == 'success' && steps.contrast.outputs.failed == 'false'
           && steps.palette.outcome == 'success' && steps.palette.outputs.failed == 'false'
           && steps.codewidth.outcome == 'success' && steps.codewidth.outputs.failed == 'false'
+          && steps.chartfit.outcome == 'success' && steps.chartfit.outputs.failed == 'false'
+          && steps.geometry.outcome == 'success' && steps.geometry.outputs.failed == 'false'
           && steps.regress.outcome == 'success' && steps.regress.outputs.failed == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -448,7 +553,7 @@ jobs:
           # to start at column 0 to avoid leading spaces in the issue text, and a column-0 line
           # ENDS the `run: |` block scalar — the workflow then parses as something else entirely.
           {
-            echo "Measured green on \`main@${{ github.sha }}\`: every arm of the render-regression tier passed — integration slice, adaptive family tiers, player contrast, palette matrix, code-line budgets and committed-golden freshness."
+            echo "Measured green on \`main@${{ github.sha }}\`: every arm of the render-regression tier passed — integration slice, adaptive family tiers, player contrast, palette matrix, code-line budgets, chart fit, geometry parity and committed-golden freshness."
             echo ""
             echo "**Left open deliberately.** Three of those arms score against committed baselines (\`test/oracle/*.json\`, the golden PDFs), and blessing a baseline turns them green without fixing anything. This run cannot tell a fix from a re-bless. Check which happened and close by hand; a recurrence appends here."
             echo ""
