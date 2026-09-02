@@ -105,12 +105,25 @@ section.citation-card > .cell-stage > :is(ul, ol) > li > strong:first-child {
 section.citation-card.split > .cell-stage { display:flex; flex-direction:row; column-gap:var(--sp-lg); align-items:stretch; }
 /* Quote fills its column; the verbatim text is CENTERED inside the accent box so the
  * filled panel reads as deliberate, not a half-empty box. */
+/* Both centerings are `safe` — stage.css § safe alignment (#1299). A box that centers
+ * and then OVERFLOWS throws content off the BLOCK-START edge as well as the end, and
+ * block-start overflow does not grow `scrollHeight`, so nothing in the system can see
+ * it: a cut tail announces itself, a cut head does not. Measured here at `size: hd` on
+ * a six-line gloss, before these keywords landed: the gloss `ul` 488.27px in a 438.22px
+ * stage, sitting 25.02px above the stage's top edge with 21.02px of real text gone
+ * above it (369.70px / 365.70px on the overstuffed control). `safe` falls back to
+ * `start` only once the content overflows, so a fitting slide is byte-identical.
+ *
+ * Note what is NOT here: `min-height:0`. This stage is `flex-direction: row`, so the
+ * flex auto-minimum on these two items is a WIDTH, not the content-height floor the
+ * rest of this sweep is about — measured, clamping either child changes no geometry at
+ * any density. */
 section.citation-card.split > .cell-stage > blockquote {
   flex:1; min-width:0; align-self:stretch; margin-top:0;
-  display:flex; flex-direction:column; justify-content:center;
+  display:flex; flex-direction:column; justify-content:safe center;
 }
 /* Gloss is centered to the quote so the two columns balance across the full height. */
-section.citation-card.split > .cell-stage > :is(ul, ol) { flex:1; min-width:0; align-self:center; }
+section.citation-card.split > .cell-stage > :is(ul, ol) { flex:1; min-width:0; align-self:safe center; }
 
 /* .pull-quote — hero quote dominant. */
 section.citation-card.pull-quote > .cell-stage > blockquote {
@@ -120,7 +133,23 @@ section.citation-card.pull-quote > .cell-stage > blockquote {
   background:none;
   border-left:6px solid var(--accent);
   position:relative;
-  flex:1; display:flex; align-items:center;
+  /* `min-height:0` is load-bearing (flex cell-tree §6, the same fix list-steps and
+   * cards-stack carry). The hero quote is a flex item of `.cell-stage`, a bounded
+   * clipping cell, and a flex item's default `min-height:auto` floors it at its
+   * CONTENT height — so it held its floor and pushed the gloss list below it past the
+   * cell that clips it, cutting the gloss's accent-soft fill, radius and left rule.
+   * Measured at `size: hd`: a 294px quote against a 249.50px share, the gloss hanging
+   * 8.17px past the clip edge with the deepest ink 21.16px inside it. Chrome only.
+   *
+   * `safe center` is the other half and is NOT optional. This box is a ROW flex
+   * container, so `align-items` is its VERTICAL axis: clamped and centered, an
+   * over-long quote spills off both ends and overprints the gloss — measured one
+   * density up at 149.25px above / 148.25px below, 140.25px of text on text, with the
+   * stage probe reading clean. That is the trap kpi.styles.css records (#1277), and
+   * block-start overflow does not grow `scrollHeight`, so nothing can see it. `safe`
+   * falls back to `start` only once the content overflows, so a fitting slide is
+   * byte-identical (stage.css § safe alignment, #1299). */
+  flex:1; min-height:0; display:flex; align-items:safe center;
 }
 section.citation-card.pull-quote.pull-quote > .cell-stage > blockquote::before {
   content:'\201C';

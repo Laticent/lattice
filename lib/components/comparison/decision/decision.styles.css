@@ -24,11 +24,26 @@ section.decision h2 {
   font-size:var(--fs-h2);
   line-height:var(--lh-tight);
 }
+/* `min-height:0` is load-bearing (flex cell-tree §6, the same fix list-steps and
+ * cards-stack carry). The row is a flex item of `.cell-stage`, a bounded clipping cell,
+ * and a flex item's default `min-height:auto` floors it at its CONTENT height — so it
+ * refused to shrink into the cell that clips it and the stage sheared the option cards'
+ * bottom edge, the 3px `--decision-accent` border among it: the component's categorical
+ * signal, gone. Measured at `size: hd` on three rationale cards under a two-line
+ * heading: a 412.88px row in a 393.44px stage, 19.44px shorn, the deepest ink 11.75px
+ * INSIDE the clip. The same three cards under a ONE-line heading fit with 43.86px to
+ * spare — the shear window (28px card padding + the 3px border) is narrower than the
+ * 34.20px body-line quantum, so whether an overfull slide sheared chrome or lost a word
+ * turned on the phase of the heading. The card already carries `justify-content: safe
+ * center` (below), so releasing this floor cannot throw a card's content off its top —
+ * measured on the overstuffed control, the ink stays exactly where it was and the tail
+ * is still lost visibly. */
 section.decision > .cell-stage > ul,
 section.decision > .cell-stage > ol {
   display:flex;
   gap:var(--sp-md);
   flex:1;
+  min-height:0;
   list-style:none; padding:0; margin:0;
 }
 section.decision > .cell-stage > ul > li,

@@ -27,6 +27,23 @@ section.matrix-2x2 > .cell-stage > ul,
 section.matrix-2x2 > .cell-stage > ol {
   display:flex; flex-wrap:wrap; align-content:stretch;
   gap:var(--sp-md); flex:1;
+  /* `min-height:0` is load-bearing (flex cell-tree §6, the same fix list-steps and
+   * cards-stack carry). This list is a flex item of `.cell-stage`, a bounded clipping
+   * cell, and a flex item's default `min-height:auto` floors it at its CONTENT height,
+   * so it refused to shrink into the cell that clips it and the stage sheared the card
+   * chrome — bottom border, both bottom radii, the panel fill's bottom edge — while
+   * every word was still inside. Measured at `size: hd` on four cells whose quadrant titles
+   * all wrap: a 448.78px list in a 438.22px stage, both bottom quadrants hanging
+   * 10.56px with their last item 18.11px inside — the bottom of the fourth cell's
+   * `--accent-soft` outcome ring among what was cut.
+   *
+   * This releases the LIST's floor, not the cell's, and the difference decides one
+   * case: with UNEVEN item counts the cells resolve to half the list either way and
+   * the fullest cell's own `overflow:hidden` (below) eats its tail INSIDE the frame —
+   * measured, ink 13.86px past the clip. That is real content loss, it is not this
+   * declaration's to fix, and clamping harder would only hide it further (see
+   * kpi.styles.css on #1277) */
+  min-height:0;
   list-style:none; padding:0; margin:0;
 }
 section.matrix-2x2 > .cell-stage > ul > li,

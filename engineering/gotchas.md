@@ -219,6 +219,8 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A slide clips 30-70px in the Playground that the exported PDF renders whole](gotchas/overflow.md#a-slide-clips-30-70px-in-the-playground-that-the-exported-pdf-renders-whole)
 - [The Playground and the Studio disagree about which slides overflow (and a slide's own padding changes when the preview pane is resized)](gotchas/overflow.md#the-playground-and-the-studio-disagree-about-which-slides-overflow-and-a-slides-own-padding-changes-when-the-preview-pane-is-resized)
 - [Exported fluid viewer: an overflowing slide shows NO marker tab, or the red author ring leaks to a reader](gotchas/overflow.md#exported-fluid-viewer-an-overflowing-slide-shows-no-marker-tab-or-the-red-author-ring-leaks-to-a-reader)
+- [A dense slide loses its card borders and corners, but not one word of text](gotchas/overflow.md#a-dense-slide-loses-its-card-borders-and-corners-but-not-one-word-of-text)
+- [A slide silently loses its FIRST line, and every gate reads clean](gotchas/overflow.md#a-slide-silently-loses-its-first-line-and-every-gate-reads-clean)
 
 ### [The Studio and the Playground (docs-site app surfaces)](gotchas/studio-playground.md)
 

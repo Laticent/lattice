@@ -44,6 +44,18 @@ section.statute-stack > .cell-stage > ol {
    * own flex-direction). */
   display:flex; flex-direction:row;
   gap:var(--sp-md); flex:1;
+  /* `min-height:0` is load-bearing (flex cell-tree §6, the same fix list-steps and
+   * cards-stack carry). This row is a flex item of `.cell-stage`, a bounded clipping
+   * cell, and a flex item's default `min-height:auto` floors it at its CONTENT height,
+   * so it refused to shrink into the cell that clips it and the stage sheared the rail
+   * chrome — bottom border, both bottom radii — while every word was still inside.
+   * Measured at `size: hd` on one over-long federal obligation: a 446.63px row in a
+   * 438.22px stage and ALL THREE rails hanging 8.41px. The state and local rails carry
+   * half the text and their own ink stops 21.66px inside, but `li { flex:1 }` in a row
+   * makes every rail as tall as the tallest, so one long obligation takes all three
+   * bottom edges — and all three status pills, which the body list pins to the card
+   * foot — down with it. */
+  min-height:0;
 }
 section.statute-stack > .cell-stage > ul > li,
 section.statute-stack > .cell-stage > ol > li {

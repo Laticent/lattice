@@ -351,3 +351,58 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   both its states, so its behavior is unchanged. See `lib/runtime/index.js`
   `startOverflowWatcher`, `engineering/decisions/2026-07-20-adaptive-viewport-fill.md`,
   `engineering/decisions/2026-07-30-overflow-marker-register.md`.
+
+## A dense slide loses its card borders and corners, but not one word of text
+
+- **Symptom:** cards on a full slide come out with the bottom border, the bottom
+  radii and the shadow sliced off — sometimes on EVERY card, including ones that are
+  half empty — while every word is still readable. The export then tags the slide
+  "Content clipped", which is true of the box and false of the text.
+- **Cause:** `.cell-stage` is a bounded clipping cell (`flex: 1 1 auto; min-height: 0;
+  overflow: clip`, `lib/forms/cell/stage/stage.css`), so every direct child of it is a
+  flex ITEM — and a flex item's default `min-height: auto` is a CONTENT-height floor.
+  A component body that does not set `min-height: 0` refuses to shrink into the cell
+  that clips it, so the box grows past the stage and the clip takes whatever sits
+  between the last line of text and the box's own bottom edge. `align-items: stretch`
+  (or `flex:1` cells in a row) is why HALF-EMPTY cards lose their edge too: every card
+  is as tall as the tallest, so one dense card takes the whole row's bottom edge with
+  it. It is aspect ratio, not resolution — 16:9 is the shortest landscape stage, so
+  `hd` and `4k` shear the same proportion and `standard` (4:3) often does not
+  reproduce at all.
+- **Mitigation:** `min-height: 0` on that body — but **only after measuring**, because
+  it is the wrong answer more often than the right one. It is inoperative on a
+  `<table>` (row boxes drive the used height), inert on a WRAPPING row whose
+  `align-content` gives each line its own height (`cards-grid`, `verdict-grid`,
+  `pricing`), and actively harmful where the clamped box then centers its own content —
+  it moves the overflow INSIDE the frame, where the stage clip can no longer catch it
+  and no gate can see it. `lib/components/evidence/kpi/kpi.styles.css` carries that
+  regression in full (#1277). Pair it with a `safe` alignment wherever the box centers.
+  The measurement that decides it is the deepest INK versus the box: ink inside means
+  chrome-only damage and the clamp is right; ink outside means the content genuinely
+  does not fit and clamping only relocates the loss.
+- **Where:** `engineering/decisions/2026-09-02-stage-clip-shear-sweep.md` (the class,
+  the nine fixes, and the components where the fix does NOT apply);
+  `test/integration/parity/stage-clip-chrome-shear.test.js` and
+  `test/integration/parity/list-steps-card-chrome-clip.test.js` pin it.
+
+## A slide silently loses its FIRST line, and every gate reads clean
+
+- **Symptom:** the top of a slide is missing — a card's title sliced in half, the first
+  item gone — and nothing reports it. The overflow probe, the export tag and the
+  committed page count all read normal.
+- **Cause:** a container that centers or end-aligns and then OVERFLOWS throws content
+  off the BLOCK-START edge, and block-start overflow does not grow `scrollHeight`. A
+  cut tail announces itself to every scroll-dims measure in the system; a cut head
+  announces itself to none of them. `stage.css` has required `safe` on the stage's own
+  alignment modifiers since #1299, but a component that sets its own
+  `justify-content: center` / `align-items: center` / `align-self: center` on a box
+  that can overflow re-opens the same hole. Measured instances: `cycle` lost 16.75px of
+  real text off the top of a slide that looked fine, `citation-card.split` 21.02px.
+- **Mitigation:** `safe center` (or `safe flex-end`). It falls back to `start` the
+  instant the content overflows and keeps the intended alignment while it fits, so a
+  fitting slide is byte-identical. Note `safe` is INVALID on the distributed values —
+  `space-between` / `space-around` / `space-evenly` take no keyword and were measured
+  falling back to start on overflow in Chromium 131 anyway; writing `safe space-evenly`
+  drops the whole declaration.
+- **Where:** `lib/forms/cell/stage/stage.css` § safe alignment,
+  `engineering/decisions/2026-09-02-stage-clip-shear-sweep.md` § The head-loss half.

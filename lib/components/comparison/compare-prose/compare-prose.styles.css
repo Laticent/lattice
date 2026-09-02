@@ -49,6 +49,18 @@ section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > ol {
    * and it takes only its own width while the cards flex:1 to fill. (The `.decision`
    * DECISION tag below stays absolute — it's a label annotation, not the connector.) */
   display:flex; align-items:stretch; flex:1;
+  /* `min-height:0` is load-bearing (flex cell-tree §6, the same fix list-steps and
+   * cards-stack carry). This row is a flex item of `.cell-stage`, a bounded clipping
+   * cell, and a flex item's default `min-height:auto` floors it at its CONTENT height
+   * — so it refused to shrink into the cell that clips it, and `align-items:stretch`
+   * hands every card the tallest card's height, so one dense side takes BOTH cards'
+   * bottom edges. Measured at `size: hd` on two ~12-line cards: a 445.06px row in a
+   * 438.22px stage, 6.84px of card border, radius and `--elevation-card` shadow shorn
+   * off, with the deepest ink still 14.34px inside the clip. Not one word lost.
+   * Releasing the floor collapses the row to exactly 438.22px and moves no ink at all
+   * (measured: `inkPastClip` unchanged at -14.34); a body that genuinely cannot fit
+   * still spills past the card and keeps its overflow ring. */
+  min-height:0;
   gap:var(--sp-lg);
   list-style:none; padding:0; margin:0; position:relative;
 }
