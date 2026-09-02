@@ -162,6 +162,10 @@ type NotesCore = {
 	extractSlideDescriptions: (sections: string[]) => (string | null)[];
 	extractSlideCaptions: (sections: string[]) => (string | null)[];
 	stripCommentNodes: (html: string) => string;
+	/** Same deck? Same slide count, same markup per slide, whitespace ignored. Declared here
+	 *  because this object is handed to `stripNotesCut`, whose own kernel type requires it —
+	 *  the two must stay in step or the Studio's cut measurement stops typechecking. */
+	sameSlideShape: (a: string[], b: string[]) => boolean;
 	noteBodiesFromHtml: (sectionHtml: string) => string[];
 	stripNotesFromSource: (source: string, noteBodies: Set<string> | string[], opts?: { boundary?: string }) => string;
 	SCRUB_BOUNDARIES: readonly string[];

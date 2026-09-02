@@ -963,13 +963,48 @@ describe('notes-core: caption channel (caption:)', () => {
     // The divergence needs the pair at the END of the input, where "end of file counts as blank
     // on the right" meets a blank the first scrub just emitted on the left. Mid-deck the two
     // orders agree, which is why a plausible-looking fixture does not measure this.
-    const src = '## Third slide\n\nClosing.\n<!-- caption: c -->\n<!-- n -->\n';
-    const seqNotesFirst = core.stripCaptionsFromSource(core.stripNotesFromSource(src, bodies));
-    const seqCaptionsFirst = core.stripNotesFromSource(core.stripCaptionsFromSource(src), bodies);
+    //
+    // THIS GUARD IS A SEARCH, NOT A LITERAL, and the reason is that the literal it used to be
+    // stopped measuring — THREE TIMES, all inside one change. It was
+    // `'## Third slide\n\nClosing.\n<!-- caption: c -->\n<!-- n -->\n'`; closing the
+    // end-of-input residual (#2039) made the two orders agree on it, exactly as the comment here
+    // predicted it would. Its replacement went quiet when the rule was widened to cover a blank
+    // line AFTER the comment, and the replacement for THAT went quiet when the whole trailing
+    // run started coming off. Each time the literal still passed as an assertion while measuring
+    // nothing. Divergence is still real and has simply moved off the end of the file — so the
+    // corpus does the finding, and the literal below exists only to be readable.
+    // `' '` — a WHITESPACE-ONLY line — is load-bearing in this alphabet. The surviving
+    // divergence is now mid-deck rather than at the end, and it is the two orders disagreeing
+    // about whether the author's whitespace-only line survives between the comments.
+    const LINES = ['Text.', '', '<!-- n -->', '<!-- caption: c -->', ' '];
+    const divergent = [];
+    // Depth 5: the shape is `text / note / caption / whitespace-line / text`, which four lines
+    // cannot express. Measured at ~160ms for the whole sweep, so the depth is affordable.
+    const walk = (acc, depth) => {
+      if (depth === 0) {
+        for (const trail of ['', '\n']) {
+          const s = acc.join('\n') + trail;
+          const notesFirst = core.stripCaptionsFromSource(core.stripNotesFromSource(s, bodies));
+          const captionsFirst = core.stripNotesFromSource(core.stripCaptionsFromSource(s), bodies);
+          if (notesFirst !== captionsFirst) divergent.push(s);
+        }
+        return;
+      }
+      for (const l of LINES) walk([...acc, l], depth - 1);
+    };
+    for (let d = 1; d <= 5; d++) walk([], d);
+    assert.ok(
+      divergent.length > 0,
+      'guard: chaining the two scrubs is order-dependent, which is WHY the export runs one pass. '
+      + 'If this search finds nothing, either the cut changed or this corpus stopped reaching the '
+      + 'shape — do not delete the test, widen it and re-measure.'
+    );
+    // The shape the search finds today, pinned so a reader can see what it is without running it.
+    const src = 'Text.\n<!-- n -->\n<!-- caption: c -->\n \nText.';
+    assert.ok(divergent.includes(src), 'the recorded divergent shape is still in the corpus');
     assert.notEqual(
-      seqNotesFirst, seqCaptionsFirst,
-      'guard: this shape is the one that made chaining order-dependent — if it stops diverging, '
-      + 'this test is no longer measuring anything'
+      core.stripCaptionsFromSource(core.stripNotesFromSource(src, bodies)),
+      core.stripNotesFromSource(core.stripCaptionsFromSource(src), bodies)
     );
     // ONE PASS judges every comment against the SOURCE's own neighbours, so there is no order.
     const onePass = core.stripChannelsFromSource(src, { noteBodies: bodies, captions: true });
@@ -986,39 +1021,113 @@ describe('notes-core: caption channel (caption:)', () => {
     );
   });
 
-  test('KNOWN RESIDUAL: two whole-line comments at END of input leave one blank under `preserve`', () => {
-    // Pinned as KNOWN, not as correct. The `preserve` cut emits an empty line for the first
-    // comment (text above, comment below — neither side blank), and the second then sees a blank
-    // on its left and end-of-file on its right. That branch takes "one of the two blanks", but
-    // the only blank is the one already EMITTED, behind the cursor, so nothing is taken and a
-    // line survives where the counterfactual has none. `drop` reproduces the counterfactual
-    // exactly — and both cuts render the same document, so the export's render-equivalence
-    // measurement keeps `preserve` (tried first, deliberately) and ships the extra byte.
+  test('a comment at END of input takes the blank line ABOVE it, under BOTH cuts (#2039)', () => {
+    // This was the KNOWN RESIDUAL, recorded as "the tie-break's to fix" and pinned as wrong.
+    // It was neither. End-of-file counts as blank on the right, but it is the file ENDING, not
+    // a line that can be taken — so `prevBlank && nextBlank`'s "one of the two blanks goes"
+    // consumed nothing, and the blank ABOVE a trailing comment survived. The cut now takes that
+    // one instead: there is no block below for it to be separating.
     //
-    // It PREDATES #2003 and belongs to the shared cut, not to the caption channel: the same
-    // shape with two adjacent NOTES reproduces it on the pre-#2003 kernel byte for byte. Fixing
-    // it means changing which cut wins a tie, which is a decided thing with its own rationale
-    // and its own 23-deck measurement — so it is recorded here rather than changed under a
-    // caption-channel issue. The residue is invisible to the re-render attack (it renders
-    // identically) and is not a `\n\n\n` run, so neither disclosure probe sees it.
-    const tail = '## Third slide\n\nClosing.\n<!-- caption: c -->\n<!-- n -->\n';
+    // WHY THE TIE-BREAK COULD NEVER HAVE CLOSED IT. The record said `drop` reproduced the
+    // counterfactual and `preserve` did not, which reads as a `preserve`/`drop` question. That
+    // held only for the two-adjacent-comment shape, where the first comment's emitted blank is
+    // what the second one misreads. Take ONE comment with a blank line already above it and
+    // both cuts left the blank — `'A\n\n<!-- n -->\n'` came out `'A\n\n'` either way. No choice
+    // of tie-break reaches that, because the boundary argument is not consulted on this branch.
     const opts = { noteBodies: new Set(['n']), captions: true };
-    assert.equal(
-      core.stripChannelsFromSource(tail, { ...opts, boundary: 'preserve' }),
-      '## Third slide\n\nClosing.\n\n',
-      'preserve leaves one blank line at end of input — the known residual'
+    for (const boundary of core.SCRUB_BOUNDARIES) {
+      assert.equal(
+        core.stripChannelsFromSource('## Third slide\n\nClosing.\n<!-- caption: c -->\n<!-- n -->\n', { ...opts, boundary }),
+        '## Third slide\n\nClosing.\n',
+        `two comments at end of input reproduce the counterfactual under \`${boundary}\``
+      );
+      // The single-comment shape, which the tie-break reading did not cover at all.
+      assert.equal(
+        core.stripNotesFromSource('A\n\n<!-- n -->\n', new Set(['n']), { boundary }),
+        'A\n',
+        `one comment with a blank above it, at end of input, under \`${boundary}\``
+      );
+      // END OF INPUT IS NOT "THE COMMENT'S NEWLINE IS THE LAST BYTE", and the first cut of this
+      // fix got that wrong. A file ending with a BLANK LINE after the comment still has a
+      // newline to find, so the "blank below goes too" branch fired, took the blank below and
+      // left the one above — the same one-byte residue, one keystroke from the shape that was
+      // fixed. `examples/kaizen-craftsmanship.md` is that shape and is shipped. Every
+      // end-of-input variant now lands on `A\n`, whichever side the author's blank was on.
+      for (const tail of ['\n', '\n\n', '\n \n', '\n\n\n', '']) {
+        assert.equal(
+          core.stripNotesFromSource(`A\n\n<!-- n -->${tail}`, new Set(['n']), { boundary }),
+          'A\n',
+          `blank above, ${JSON.stringify(tail)} after, under \`${boundary}\``
+        );
+      }
+      // Text above rather than a blank, same tails — no blank line is invented at the end.
+      for (const tail of ['\n', '\n\n', '']) {
+        assert.equal(core.stripNotesFromSource(`A\n<!-- n -->${tail}`, new Set(['n']), { boundary }), 'A\n');
+      }
+      // A RUN of blank lines on either side goes too, and this is the rule the first two cuts of
+      // the fix got wrong in opposite directions: one took a single blank and left `A\n\n`, the
+      // next took every blank BELOW but only one above, so the branch was asymmetric and the
+      // comment describing it was false. At end of input the whole trailing run goes, from
+      // whichever side — there is no block below for any of it to be separating.
+      assert.equal(core.stripNotesFromSource('A\n\n\n<!-- n -->\n', new Set(['n']), { boundary }), 'A\n');
+      assert.equal(core.stripNotesFromSource('A\n\n\n\n<!-- n -->\n', new Set(['n']), { boundary }), 'A\n');
+      assert.equal(core.stripNotesFromSource('A\n<!-- n -->\n\n\n', new Set(['n']), { boundary }), 'A\n');
+      assert.equal(core.stripNotesFromSource('A\r\n\r\n\r\n<!-- n -->\r\n', new Set(['n']), { boundary }), 'A\r\n');
+      // Trailing spaces on the last CONTENT line are the author's and stay — the trim takes
+      // blank LINES, not whitespace.
+      assert.equal(core.stripNotesFromSource('A  \n\n<!-- n -->\n', new Set(['n']), { boundary }), 'A  \n');
+      // `[ \t\r\n]`, NOT `\s`: a non-breaking space is a paragraph to markdown, not a blank line.
+      // With `\s` the deck below lost a whole `<p>`, and a fuzz oracle written with `\s` could
+      // not see it — the bug and the check shared a character class.
+      assert.equal(
+        core.stripNotesFromSource('A\n\n<!-- n -->\n \n', new Set(['n']), { boundary }),
+        'A\n\n \n',
+        'a non-breaking-space line is content, so this is not end of input at all'
+      );
+      // A CRLF deck takes its own terminator with it rather than leaving a lone carriage return.
+      assert.equal(core.stripNotesFromSource('A\r\n\r\n<!-- n -->\r\n', new Set(['n']), { boundary }), 'A\r\n');
+      // Start-of-file is the same branch with nothing emitted yet — there is no blank to take,
+      // and trimming an empty output must not throw or invent one.
+      assert.equal(core.stripNotesFromSource('<!-- n -->\n', new Set(['n']), { boundary }), '');
+      // NOT at end of input: the blank BELOW still goes, exactly as before. This is the half of
+      // the branch that was always right, and the fix must not move it.
+      assert.equal(
+        core.stripNotesFromSource('# S\n\n<!-- n -->\n\nBody.\n', new Set(['n']), { boundary }),
+        '# S\n\nBody.\n'
+      );
+    }
+  });
+
+  test('a scrubbed source equals the repo\'s own hand-written note-free twin, byte for byte (#2039)', () => {
+    // The measurement that found it. `strip-notes-deck-no-notes.md` is committed precisely as
+    // "the fixture as a person would have written it with nothing to say", so it IS the
+    // counterfactual — and the scrub missed it by one byte, the trailing blank line, under both
+    // cuts. The integration guard could not see this: it compares RENDERED sections, and the
+    // residue renders identically. The bytes are the artifact, so the bytes are the assertion.
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const read = (rel) => fs.readFileSync(path.join(__dirname, '..', '..', '..', 'test', 'fixtures', rel), 'utf8');
+    const noted = read('strip-notes-deck.md');
+    const bodies = new Set(
+      [...noted.matchAll(/<!--([\s\S]*?)-->/g)].map((m) => m[1].trim()).filter((b) => !/^[a-zA-Z-]+:/.test(b))
     );
-    assert.equal(
-      core.stripChannelsFromSource(tail, { ...opts, boundary: 'drop' }),
-      '## Third slide\n\nClosing.\n',
-      'drop reproduces the counterfactual exactly'
-    );
-    // Same shape, NOTES ONLY, on this same kernel — the proof it is not the caption channel's.
-    assert.equal(
-      core.stripNotesFromSource('## Third slide\n\nClosing.\n<!-- a -->\n<!-- b -->\n', new Set(['a', 'b'])),
-      '## Third slide\n\nClosing.\n\n',
-      'the note channel alone has always done this'
-    );
+    assert.ok(bodies.size >= 3, 'guard: the fixture still carries the notes this measures');
+    for (const boundary of core.SCRUB_BOUNDARIES) {
+      assert.equal(
+        core.stripNotesFromSource(noted, bodies, { boundary }),
+        read('strip-notes-deck-no-notes.md'),
+        `the stripped source is byte-identical to the note-free twin under \`${boundary}\``
+      );
+      // THE CAPTION CHANNEL GETS THE SAME ASSERTION, and not for symmetry: the two channels share
+      // one cut, so a regression of exactly this class would land in both. It held before this
+      // test existed — but unguarded, which is how the note channel came to ship the residue for
+      // two releases with the caption channel's own byte arm sitting one file away.
+      assert.equal(
+        core.stripCaptionsFromSource(read('strip-captions-deck.md'), { boundary }),
+        read('strip-captions-deck-no-captions.md'),
+        `the stripped source is byte-identical to the caption-free twin under \`${boundary}\``
+      );
+    }
   });
 
   test('stripChannelsFromSource is a no-op when neither channel is asked for', () => {
@@ -1042,6 +1151,192 @@ describe('notes-core: caption channel (caption:)', () => {
 // fails on a deck where a directive survives into the rendered section — the directive is
 // lifted as a note and then deleted from the verbatim source the envelope carries, so the
 // recipient re-imports a deck whose slide has silently lost its class.
+// ── Which cut fits the document that SHIPS ──────────────────────────────────
+// `measureScrubBoundary` is the decision `--embed-source` needs and pass 2 cannot make for it:
+// the PDF attaches the deck as the author wrote it, pass 2 renders the pre-processed one, and a
+// boundary measured on the second is a claim about the wrong file.
+//
+// THESE ASSERT THE DECISION, NOT A MARKDOWN MODEL. `scrub` and `render` are injected, so each
+// case states outright which source renders to what and the assertion is purely about which
+// branch fires and which answer comes back. That is the whole reason the function was extracted:
+// while it lived inline in `lattice-emulator.js`, step 3 was reachable only through a deck
+// fixture whose two documents happen to want the SAME cut, so backing the entire guard out left
+// every test green.
+//
+// SAY THAT PRECISELY, because an earlier version of this comment did not. The step-3 ANSWER was
+// asserted even then — `strip-notes-no-fingerprint.test.js` pins the attachment's tight list, and
+// a wrong boundary fails it. What no test could see was the guard's PRESENCE. Overstating it as
+// "the answer was never asserted" is exactly the kind of claim nobody re-derives that this whole
+// branch exists to stop shipping.
+describe('notes-core: measureScrubBoundary picks the cut for the attached document (#2040)', () => {
+  // A render is a lookup: `SOURCE → sections`. Anything unlisted renders to a distinct nonsense
+  // shape, so a wrong branch shows up as a mismatch rather than an accidental pass.
+  const renderer = (table, log) => (src) => {
+    if (log) log.push(src);
+    return table[src] || [`<section>unlisted:${src}</section>`];
+  };
+  // A scrub is a lookup too, keyed by source AND boundary, recording what it was asked to cut.
+  const scrubber = (table, log) => (src, boundary) => {
+    if (log) log.push({ src, boundary });
+    return Object.hasOwn(table, `${src}|${boundary}`) ? table[`${src}|${boundary}`] : src;
+  };
+  // `inherited: 'drop'` is LOAD-BEARING, and the first cut of these tests got it wrong. It was
+  // `'preserve'` — which is also `SCRUB_BOUNDARIES[0]`, so "returns the INHERITED boundary" and
+  // "returns the FIRST candidate" produced the same string and three of the four branches could
+  // not tell them apart. Swapping the fail-closed branch's `inherited` for `boundaries[0]` left
+  // the whole suite green. Only step 1's test escaped, because it overrides this on purpose.
+  // Any value here that is not the head of `SCRUB_BOUNDARIES` restores the discrimination.
+  const base = { attached: 'ATTACHED', rendered: 'RENDERED', inherited: 'drop' };
+  assert.notEqual(base.inherited, core.SCRUB_BOUNDARIES[0], 'guard: see the comment above — this must not be the first candidate');
+
+  test('step 1 — the same document: inherit the answer AND its confidence', () => {
+    const renders = [];
+    for (const inheritedMeasured of [true, false]) {
+      const got = core.measureScrubBoundary({
+        ...base, attached: 'SAME', rendered: 'SAME', inherited: 'drop', inheritedMeasured,
+        scrub: () => assert.fail('step 1 must not scrub'), render: renderer({}, renders),
+      });
+      assert.deepEqual(got, { boundary: 'drop', measured: inheritedMeasured, step: 'inherited' });
+    }
+    // A fidelity fallback leaves `scrubBoundary` at its initial value, which is not a measurement.
+    // Inheriting the boundary while silently upgrading its confidence is how `--embed-source`
+    // came to warn about a block-boundary comment on a deck that had no comments at all.
+    assert.deepEqual(renders, [], 'step 1 renders nothing');
+  });
+
+  test('step 2 — every cut agrees, so no choice can change what ships and none is rendered', () => {
+    const renders = [];
+    const got = core.measureScrubBoundary({
+      ...base,
+      // Both cuts of ATTACHED come out the same, so the boundary is irrelevant HERE whatever the
+      // other document decided.
+      scrub: scrubber({ 'ATTACHED|preserve': 'CUT', 'ATTACHED|drop': 'CUT' }),
+      render: renderer({}, renders),
+      inheritedMeasured: false,
+    });
+    assert.deepEqual(got, { boundary: 'drop', measured: true, step: 'cuts-agree' });
+    assert.equal(got.measured, true, 'measured is TRUE on its own terms even when the inherited answer was not');
+    assert.deepEqual(renders, [], 'step 2 renders nothing — it is two string scrubs');
+  });
+
+  test('step 3 — renders the ATTACHED document and keeps the cut that reproduces it', () => {
+    // THE ASSERTION THE OLD SHAPE COULD NOT MAKE. Two cuts that differ, and only one reproduces
+    // the deck: the answer is now checked, not merely reached.
+    const fits = ['<section>A</section>', '<section>B</section>'];
+    const scrub = scrubber({ 'ATTACHED|preserve': 'LOOSE', 'ATTACHED|drop': 'TIGHT' });
+    // `drop` wins: a note indented in a list item, where an empty line turns a tight list loose.
+    assert.deepEqual(
+      core.measureScrubBoundary({
+        ...base, scrub,
+        render: renderer({ ATTACHED: fits, TIGHT: fits, LOOSE: ['<section>A</section>', '<section>B<p></p></section>'] }),
+      }),
+      { boundary: 'drop', measured: true, step: 'measured' }
+    );
+    // `preserve` wins: a note above a `---`, where taking the line makes the rule a setext
+    // underline and the deck GAINS a slide. Same neighbors, opposite right answer.
+    assert.deepEqual(
+      core.measureScrubBoundary({
+        ...base, scrub,
+        render: renderer({ ATTACHED: fits, LOOSE: fits, TIGHT: ['<section>AB</section>'] }),
+      }),
+      { boundary: 'preserve', measured: true, step: 'measured' }
+    );
+  });
+
+  test('step 3 cuts the ATTACHED document, never the one the inherited answer came from', () => {
+    // The defect in one assertion. Scrubbing `rendered` here would find two agreeing cuts and
+    // return `cuts-agree`; scrubbing `attached` finds two that differ and measures them.
+    const asked = [];
+    const got = core.measureScrubBoundary({
+      ...base,
+      scrub: scrubber({
+        'ATTACHED|preserve': 'X', 'ATTACHED|drop': 'Y',
+        'RENDERED|preserve': 'SAME', 'RENDERED|drop': 'SAME',
+      }, asked),
+      render: renderer({ ATTACHED: ['<section>k</section>'], Y: ['<section>k</section>'] }),
+    });
+    assert.deepEqual(got, { boundary: 'drop', measured: true, step: 'measured' });
+    assert.deepEqual([...new Set(asked.map((a) => a.src))], ['ATTACHED'], 'only the attached document is cut');
+  });
+
+  test('fail-closed — no cut reproduces the deck: keep the inherited boundary, say it is unmeasured', () => {
+    const got = core.measureScrubBoundary({
+      ...base,
+      scrub: scrubber({ 'ATTACHED|preserve': 'P', 'ATTACHED|drop': 'D' }),
+      render: renderer({ ATTACHED: ['<section>original</section>'] }),
+    });
+    // The caller still scrubs — the note text must go from every copy — and `measured: false` is
+    // what turns the author's warning on.
+    assert.deepEqual(got, { boundary: 'drop', measured: false, step: 'unmeasured' });
+  });
+
+  test('a render that throws costs the MEASUREMENT, not the artifact', () => {
+    // The caller is an export step whose own `catch` drops the attachment and blames the PDF
+    // library. This must not propagate.
+    const seen = [];
+    const got = core.measureScrubBoundary({
+      ...base,
+      scrub: scrubber({ 'ATTACHED|preserve': 'P', 'ATTACHED|drop': 'D' }),
+      render: () => { throw new Error('engine exploded'); },
+      onRenderError: (e) => seen.push(e.message),
+    });
+    assert.deepEqual(got, { boundary: 'drop', measured: false, step: 'unmeasured' });
+    assert.deepEqual(seen, ['engine exploded'], 'the caller is told, once');
+    // And it is optional: without a handler the throw is still swallowed rather than escaping.
+    assert.equal(
+      core.measureScrubBoundary({
+        ...base, scrub: scrubber({ 'ATTACHED|preserve': 'P', 'ATTACHED|drop': 'D' }),
+        render: () => { throw new Error('boom'); },
+      }).step,
+      'unmeasured'
+    );
+  });
+
+  test('the two defaults fail CLOSED — an omitted confidence, and an empty candidate list', () => {
+    // `inheritedMeasured` exists to distinguish a measured boundary from the initial value a
+    // fidelity fallback leaves behind. Defaulting it to `true` answered that question in the one
+    // direction it was invented to prevent, and nothing pinned the default either way.
+    assert.deepEqual(
+      core.measureScrubBoundary({ ...base, attached: 'SAME', rendered: 'SAME', scrub: () => '', render: () => [] }),
+      { boundary: 'drop', measured: false, step: 'inherited' },
+      'an omitted confidence is not a measurement'
+    );
+    // `[].every()` is vacuously true, so an empty candidate list used to report `cuts-agree` —
+    // a measurement off zero candidates, handing back `cuts[0]`, which is `undefined`.
+    const got = core.measureScrubBoundary({
+      ...base, boundaries: [], scrub: () => assert.fail('nothing to scrub'), render: () => assert.fail('nothing to render'),
+    });
+    assert.deepEqual(got, { boundary: 'drop', measured: false, step: 'unmeasured' });
+    assert.notEqual(got.boundary, undefined, 'and the boundary it hands back is a real one');
+  });
+
+  test('candidates are tried in the order given, and default to the shared list', () => {
+    const fits = ['<section>same</section>'];
+    // Both cuts reproduce the deck, so ORDER decides — the same property `SCRUB_BOUNDARIES`
+    // exists to keep identical across the CLI and the Studio.
+    const opts = {
+      ...base,
+      scrub: scrubber({ 'ATTACHED|preserve': 'P', 'ATTACHED|drop': 'D' }),
+      render: renderer({ ATTACHED: fits, P: fits, D: fits }),
+    };
+    assert.equal(core.measureScrubBoundary(opts).boundary, 'preserve', 'the shared list is conservative-first');
+    assert.equal(core.measureScrubBoundary({ ...opts, boundaries: ['drop', 'preserve'] }).boundary, 'drop');
+  });
+
+  test('sameSlideShape is whitespace-blind but not markup-blind, and slide COUNT is part of it', () => {
+    // The comparison all three cut measurements now share. It has to ignore exactly the residue
+    // the cut exists to drop, and nothing else.
+    assert.ok(core.sameSlideShape(['<section> <p>a</p>\n</section>'], ['<section><p>a</p></section>']));
+    assert.ok(core.sameSlideShape(['<section><!-- n --><p>a</p></section>'], ['<section><p>a</p></section>']),
+      'a comment node is not a difference — the scrubbed render has none and the authored one does');
+    assert.ok(!core.sameSlideShape(['<section><li>a</li></section>'], ['<section><li><p>a</p></li></section>']),
+      'tight vs loose IS a difference — it is the whole reason two cuts are offered');
+    assert.ok(!core.sameSlideShape(['<section>a</section>'], ['<section>a</section>', '<section>b</section>']),
+      'a gained slide is a difference');
+    assert.ok(!core.sameSlideShape(null, []), 'a non-array is never a match');
+  });
+});
+
 describe('notes-core: stripNotesFromSource leaves no line where a note was (#1985)', () => {
   test('stripNotesFromSource takes the whole LINE, so no blank line marks where a note was (#1985)', () => {
     // The residue IS the disclosure. Replacing the `<!-- … -->` span alone leaves the line
@@ -1459,6 +1754,22 @@ describe('notes-core: SCRUB_BOUNDARIES', () => {
       // writes it out again is a caller that can be reordered on its own.
       const literal = /\[\s*(['"])(?:preserve|drop)\1\s*,\s*(['"])(?:preserve|drop)\2\s*\]/;
       assert.doesNotMatch(text, literal, `${rel} writes its own boundary list — use the kernel's`);
+    });
+
+    // THE SAME PIN, FOR THE SAME REASON, ON THE OTHER SHARED PIECE. The whitespace-blind slide
+    // comparison had been hand-written in all three cut measurements — both CLI ones and the
+    // Studio's — and `sameSlideShape` collapsed them onto one kernel function. Without this arm
+    // the claim "so they cannot drift" had nothing behind it: the hand-written form is
+    // behaviorally identical today, so no behavioral test can tell it from the shared one, and
+    // `stripCommentNodes` is still exported for its other callers. Re-inlining it would be
+    // silent — which is precisely the mechanism #2003 recorded.
+    test(`${rel} reads the shared slide-shape comparison rather than writing its own`, () => {
+      const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+      assert.match(text, /sameSlideShape/, `${rel} no longer reads the shared shape comparison`);
+      assert.doesNotMatch(
+        text, /stripCommentNodes\s*\([^)]*\)\s*\.replace\s*\(\s*\/\\s\+\/g/,
+        `${rel} writes its own whitespace-blind shape — use the kernel's \`sameSlideShape\``
+      );
     });
   }
 });

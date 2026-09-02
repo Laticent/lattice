@@ -139,6 +139,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [`--strip-notes` could not remove a note that opens with a directive keyword](gotchas/export.md#--strip-notes-could-not-remove-a-note-that-opens-with-a-directive-keyword)
 - [`--strip-notes` shipped the note anyway — in the `.pptx`, and in the raster PDF's sidecar](gotchas/export.md#--strip-notes-shipped-the-note-anyway--in-the-pptx-and-in-the-raster-pdfs-sidecar)
 - [The exported player told the recipient a deck HAD notes, after `--strip-notes` removed them](gotchas/export.md#the-exported-player-told-the-recipient-a-deck-had-notes-after---strip-notes-removed-them)
+- [The PDF's embedded source was scrubbed under a cut measured on a different document](gotchas/export.md#the-pdfs-embedded-source-was-scrubbed-under-a-cut-measured-on-a-different-document)
 - [A `tier:` / `galleryAuthored:` pragma shipped as the speaker note in every format](gotchas/export.md#a-tier--galleryauthored-pragma-shipped-as-the-speaker-note-in-every-format)
 
 ### [Fonts and emoji](gotchas/fonts.md)

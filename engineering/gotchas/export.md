@@ -409,19 +409,69 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   scrub runs first, and a note comment sitting directly above a caption comment shipped a 1-byte
   residue against the deck written with neither. The fix is `stripChannelsFromSource` — ONE pass
   with a combined predicate, so every comment is judged against the source's own neighbours and
-  there is no order left to get wrong. `notes-core.test.js` pins the divergent shape as a guard:
-  if chaining ever stops diverging, that test says so rather than passing quietly.
-- **What is NOT closed, and is shared with the note channel:** two whole-line comments adjacent
-  at the END of the input still leave one blank line under the `preserve` cut, where the
-  counterfactual has none. `drop` reproduces it exactly, but both cuts render identically, so
-  pass 2's render-equivalence measurement keeps `preserve` (tried first, deliberately — see the
-  candidate-list note above). This predates #2003 and reproduces on `--strip-notes` alone with
-  two adjacent notes; the residue is invisible to the re-render attack (it renders the same) and
-  is not a `\n\n\n` run, so `grep -c` does not see it either. Recorded rather than fixed, because
-  the fix is to change which cut wins a tie, and that preference is a decided thing with its own
-  rationale.
-- **The natural way to trim that residue is an exponential regex, and the input that proves it
-  is not the one you would guess.** Dropping what a removed `captions:` block leaves behind reads
+  there is no order left to get wrong. `notes-core.test.js` pins the divergence as a guard: if
+  chaining ever stops being order-dependent, that test says so rather than passing quietly. (It
+  pinned one hand-picked shape until #2039 made that shape converge; it searches a corpus now —
+  see two bullets down.)
+- **That residue is now closed, and it was never the tie-break's to close (#2039).** It was
+  recorded here as "two whole-line comments at the END of the input leave one blank under
+  `preserve`, and `drop` reproduces the counterfactual" — which reads as a `preserve`/`drop`
+  question and is why it sat unfixed. It is not one. End-of-file counts as blank on the RIGHT,
+  but it is the file *ending*, not a line that can be taken, so `prevBlank && nextBlank`'s "one
+  of the two blanks goes too" consumed **nothing** and the blank ABOVE the trailing comment
+  survived. The two-comment shape only made that visible: with ONE comment that already has a
+  blank line above it, `A\n\n<!-- n -->\n` came out `A\n\n` under **both** cuts, because the
+  boundary argument is not consulted on that branch at all. No choice of tie-break reaches it.
+  At end of input the WHOLE trailing run of blank lines comes off, from either side — there is no
+  block below for any of it to be separating, so every variant lands on `text\n`. That is more
+  than the counterfactual strictly requires, and it is the anti-fingerprint answer: 1318 of the
+  1325 markdown files here end with a single newline, so a trailing blank is itself the anomaly.
+  `removeCommentSpans` in `lib/authoring/notes-core.js`.
+- **"End of input" is not "the comment's newline is the last byte", and getting that wrong put
+  the residue straight back.** The first cut keyed on `nl2 === -1`. A file ending with a BLANK
+  LINE after the comment still has a newline to find, so the ordinary blank-below branch fired,
+  took the blank below and left the one above — same residue, one keystroke away, on
+  `examples/kaizen-craftsmanship.md`, which ships. The test is whether the REMAINDER is all
+  whitespace. **And the whitespace class is `[ \t\r\n]`, not `\s`:** `\s` also matches U+00A0,
+  U+3000, U+FEFF and the vertical tab, none of which markdown reads as a blank line, so a deck
+  ending in a non-breaking-space paragraph lost a whole `<p>`. Worse, the differential fuzz that
+  cleared the change used `/\s+/` as its comparator — **the bug and the check shared a character
+  class**, so the oracle reported "no content change" on the exact input that changed content.
+  When a fuzz oracle normalizes, it must not normalize using the thing under test.
+- **A `measured` flag that skips its own no-op path turns a privacy warning into noise.**
+  `attachmentCut` reports whether the boundary it used was measured, and inherits that from pass
+  2 — but pass 2's early return for "this deck has nothing either flag removes" set the boundary
+  without recording that the question was settled. So `--embed-source --strip-notes` on a deck
+  with **no comments at all** told the author to move a comment out of a list. Nothing covered
+  the flag's no-op path, so 8001 unit tests and the whole export tier stayed green over it. A
+  warning that fires when nothing is wrong is how a privacy flag's real warnings stop being read.
+- **The measurement that found it is the repo's own twin fixture, and the reason it hid for two
+  releases is that the guard compares RENDERS.** `test/fixtures/strip-notes-deck-no-notes.md` is
+  committed precisely as the deck "a person would have written with nothing to say", so it IS
+  the counterfactual — and the scrubbed source missed it by exactly one byte, under both cuts.
+  `strip-notes-no-fingerprint.test.js` could not see that: it compares rendered sections, and a
+  trailing blank line renders identically. Neither did the `\n\n\n` probe, since one blank is not
+  a run. **When the artifact is the bytes, assert on the bytes** — the byte comparison against
+  both twins now lives in `test/unit/authoring/notes-core.test.js`. Verified end to end on the
+  real CLI, not the kernel: `--embed-source --strip-notes` on the fixture attached 204 bytes
+  ending `Closing.\n\n` before and 203 bytes byte-identical to the twin after.
+- **Closing it made the `#2003` chaining guard stop measuring, exactly as that guard predicted —
+  and then did it twice more.** Its comment said "if this shape stops diverging, this test is no
+  longer measuring anything", and the end-of-input fix is what made the two orders agree on it.
+  The replacement went quiet when the rule was widened to cover a blank line *after* the comment;
+  its replacement went quiet again when the whole trailing run started coming off. Three literals
+  died inside one change, each still passing as an assertion while measuring nothing — which is
+  the argument for the guard being a **search over a corpus** that reports its own silence.
+  **This page deliberately does not name the surviving shape.** A fourth attempt to do so was
+  already stale by the time it was written: the shape moved from end-of-file to mid-deck, and a
+  reader trusting this sentence would have been checking a literal that converges. The current one
+  lives in `test/unit/authoring/notes-core.test.js`, next to the search that finds it, which is
+  the only place that cannot go stale without going red. The count is in the test for the same
+  reason; a bigger number from a throwaway sweep is a figure nobody can re-derive.
+- **The natural way to tidy the FRONT-MATTER half's leftovers is an exponential regex, and the
+  input that proves it is not the one you would guess.** (A different residue from the one above:
+  this is the blank tail a removed `captions:` block leaves in the rebuilt front matter, not the
+  comment cut's end-of-input case.) Dropping what a removed `captions:` block leaves behind reads
   as one regex over the rejoined body — `/(?:[ \t]*(?:\r\n|\r|\n))*$/` — and CodeQL failed the
   PR that shipped it. It has two backtracking behaviors. Polynomial on a long run of spaces with
   no newline (10k 163 ms, 20k 627 ms, 40k 2.5 s, 80k 10 s) is the one you find by reaching for a
@@ -429,7 +479,14 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   ambiguous — `\r\n` matches either as its own branch or as `\r` then `\n` on the next turn of
   the outer `*` — so a failing tail forces a 2^n search. 20 pairs 100 ms, 22 pairs 400 ms, 24
   pairs 1.6 s, i.e. **48 characters for a second and a half**; a hostile deck needs no size at
-  all. A regression test written against the SPACES shape passes at any realistic size while the
+  all. **Do not over-generalize this to every tail regex, though — the ambiguity is the cause,
+  not the `*` over a tail.** `/(?:[ \t]*\r?\n)+$/` was rejected once on this page's authority and
+  the reasoning was wrong: `\r?\n` has one parse per segment, so it is not exponential (0.01 ms
+  where the alternation form takes 5.9 s). It is merely QUADRATIC — 78 ms at 5k CRLF pairs, 36 s
+  at 100k — which is still reason enough not to ship it, but the reason is the polynomial arm,
+  not the exponential one. `trimTrailingBlankLines` uses a backward index scan instead (3.6 ms at
+  100k, 15 ms at a million), which is the same answer as `stripCaptionsFrontMatter`'s line array.
+  A regression test written against the SPACES shape passes at any realistic size while the
   exponential bug is live, which is why the arm in `notes-core.test.js` uses `\r\n`. The fix is
   not a cleverer regex: `stripCaptionsFrontMatter` trims the line ARRAY it already has, which is
   linear on both (100k `\r\n` pairs in 99 ms). Same hazard class as the comment matcher's own
@@ -451,6 +508,38 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   envelope — and the fidelity guard covers it: the map is not a directive, so the rendered
   sections are unchanged and the two passes agree. A future front-matter key that DOES affect
   the render would show up as a guard fallback, not as a silent difference.
+
+## The PDF's embedded source was scrubbed under a cut measured on a different document
+
+- **Symptom:** none yet, on any deck in this tree — which is the point of the entry. `lattice
+  deck.md out.pdf --embed-source --strip-notes` attaches Markdown cut under a boundary that was
+  chosen by rendering something else, so on the deck where the two disagree the attachment either
+  re-imports restructured or keeps the one-byte residue the flag exists to remove, and nothing
+  reports it.
+- **Cause:** two documents, one measurement. `strippedSlidesOrAuthored` measures the cut against
+  `rawMd` — the source AFTER the Mermaid pre-render and the auto-glossary append — because that
+  is what pass 2 renders and what the player envelope ships. `--embed-source` attaches `md`, the
+  deck as the author wrote it, so the artifact round-trips to an editable deck rather than to
+  machine-expanded output. That difference is deliberate and correct; applying `scrubBoundary` to
+  `md` anyway was not. The fidelity guard never saw the attached document.
+- **Fix:** `notesCore.measureScrubBoundary` in `lib/authoring/notes-core.js`, three steps
+  cheapest-first, because the expensive one is reached by no deck here. (`attachmentCut()` in
+  `lattice-emulator.js` is now just the call site that supplies the two documents and injects the
+  scrub and the render — the decision moved into the kernel so its branches could be asserted
+  against synthetic documents, which needs no deck whose pre-render moves a comment's own
+  neighbors. No such deck was ever found.) (1) `md === rawMd` — the measurement is *of* this
+  document. (2) The two cuts produce the same bytes on `md`, so the choice cannot change what
+  ships; two string scrubs, no render. **This covers every pre-processed file in the tree** — 45
+  markdown files carry a comment and get pre-processed (42 decks, the rest prose docs that are
+  never exported), and on none of them does the cut choice change the bytes. The exposure was
+  structural, not live. Count the fence the way CommonMark does (`/^ {0,3}```{3,} *mermaid/m`): a
+  bare substring match reports 51, because it also counts files that merely *document* the fence
+  in a code sample and never trigger the pre-render. (3) Only otherwise, render `md` and each cut of it and keep the one that
+  reproduces it; fail-closed, with the same block-boundary warning pass 2 gives, worded for the
+  attachment. The only file in the tree that reaches step 3 is the fixture added to exercise it.
+- **The general shape:** a measurement is about the document it was taken on. When one export
+  writes the same source into two artifacts and pre-processing sits between them, "we already
+  measured this" is a claim about the *other* file.
 
 ## A `tier:` / `galleryAuthored:` pragma shipped as the speaker note in every format
 
