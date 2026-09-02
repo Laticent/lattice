@@ -203,3 +203,12 @@
   none), that a below-note rides the last body page (it closes the run), and that a title-less
   slide keeps the plain partition (it gets the envelope minus the cover). A deck about the
   envelope's invariants, printing the previous ones.
+- **Fixed: the split's wayfinding signal was unstyled on every carousel-strategy page.** Its
+  treatment was keyed on `section.form.lat-split-native`, which only the PLAIN envelope's body
+  pages carry — the ten carousel strategies give their pages their own classes, so all of them
+  missed it, and so did the closing page. The rule carries the `display: flex` the drawn mark
+  needs, so the cost was not cosmetic: measured on `examples/read-across-carousel.pdf`, a
+  `compare-prose` body page rendered "continues" as plain body text at full size with no mark and
+  no hairline, two pages after the identical signal read as muted mono chrome. It is now keyed on
+  `data-split-role` — a page a split emitted, whatever built it — because the signal is a
+  RUN-level fact rather than a property of the page's layout.

@@ -2911,6 +2911,16 @@ section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > .be
    text. Sits at the foot of the content cell, after the trailing note, with a hairline above it
    separating it from the body. Palette-blind (#3), spaced with padding + border only (#20).
    The text itself is DERIVED at build time and never authored, so nothing here can go stale. */
+/* KEYED ON `data-split-role`, NOT on a layout class. Every page a split emitted carries that
+   attribute whatever built it; only the PLAIN envelope's body pages carry `lat-split-native`. The
+   ten carousel strategies give their pages their own classes (`content compare-split
+   compare-split-points form`), so this treatment missed all of them — and with it the
+   `display: flex` the drawn mark needs to lay out. Measured on `examples/read-across-carousel.pdf`:
+   a `compare-prose` body page rendered its signal as PLAIN BODY TEXT, full size, no mark, no
+   hairline, jammed under the card — while the identical signal two pages earlier read as muted
+   mono chrome. The signal is a RUN-level fact, so its styling follows the element, not the page's
+   layout. Found by rasterizing the changed decks and reading them. */
+section.form[data-split-role] .lat-split-rel,
 section.form.lat-split-native > .cell-stage > .lat-split-rel,
 section.form.lat-split-native > .lat-split-rel {
   font-family: var(--font-label);
