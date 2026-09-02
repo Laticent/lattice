@@ -31,3 +31,15 @@
   the page it points at.** Every body page read "→ continues" because the member's title lives in
   a labelled span the pointer's label reader did not know, so it fell through to a path that
   declined on length.
+- **Added: a `journey` splits by STAGE on a tall deck** — one stage per page, carrying its own
+  band label, its own task rows with their actor dots and mood faces, and both legends, because a
+  page of mood faces without the mood key is unreadable. Portrait only: at landscape a journey is
+  one figure over a shared axis (every task holds an absolute grid column), so a slice would draw
+  tasks into columns that are no longer there — the splitter declines there and the slide rings,
+  unchanged.
+- **Fixed: a slide's own `_footer:` no longer disappears from every page when the slide splits.**
+  The strip that removes the deck's repeated header and footer from a split run identified them by
+  the section's `data-footer` — which Marp also fills from a per-slide override, so it could not
+  tell the deck's band from this slide's caption and deleted the caption, which then appeared
+  nowhere at all. It reads the deck's front matter now. This was live: all three journey slides of
+  `portrait-journey` and both roadmap slides of `portrait-roadmap` lost their captions.

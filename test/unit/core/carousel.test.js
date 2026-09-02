@@ -13,12 +13,13 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { carouselize, readSubjects, readFeature, readRows, CAROUSEL_STRATEGIES, SOURCE_SLICE_STRATEGIES } = require('../../../lib/core/carousel');
+const { carouselize, readSubjects, readFeature, readRows, CAROUSEL_STRATEGIES, MEMBER_CLAIM_STRATEGIES } = require('../../../lib/core/carousel');
 const { splitSections } = require('../../../lib/core/split-sections');
 // The content-cell reader + depth-aware top-level walk the engine itself uses to place
 // trailing material — the rule-6 gate below appends its sentinels at the SAME position
 // rather than guessing one (HARD RULE #15).
 const { extractStage } = require('../../../lib/core/below-note');
+const { transformSection: journeyTransform } = require('../../../lib/components/chart/journey/journey.transform');
 const { topLevelElements } = require('../../../lib/core/split-envelope');
 // The engine's own beat ORDER — the sentinels below are assembled from it, not typed in an
 // order someone remembered (HARD RULE #15).
@@ -636,6 +637,35 @@ const kbInner = '<div class="chart-header"><h2>Board</h2></div><div class="chart
   '<div class="kanban-column"><h3>Doing</h3><div class="kanban-card">b</div></div>' +
   '</div></div>';
 
+// ── journey: the fixture is DERIVED FROM THE ENGINE, not transcribed from a render ──
+// Every other fixture above is hand-written, and that is the standing hazard this file already
+// names: a gate whose population comes from its author's memory certifies the memory. journey's
+// board is built by `journey.transform.js`, which is pure and takes `(html, ctx)` — so the two
+// forms are asked for here rather than reproduced. If the transform's DOM ever moves, these
+// fixtures move with it and the strategy is tested against what actually ships.
+//
+// The two forms are the whole point of the enrollment: PORTRAIT emits `ol.journey-vstack` and
+// slices one stage per page; LANDSCAPE emits a shared-axis grid (absolute `--col` per task,
+// `grid-column: span var(--span)` bands) and must NOT slice. Both are pinned below.
+const jnAuthored = '<h2>Path</h2><ul>' +
+  '<li>Evaluate<ul><li>Read case study <code>@buyer</code> <code>:5</code></li>' +
+  '<li>Book demo <code>@buyer</code> <code>:4</code></li></ul></li>' +
+  '<li>Trial<ul><li>Trial signup <code>@buyer</code> <code>:3</code></li></ul></li>' +
+  '<li>Activate<ul><li>First report <code>@user</code> <code>:4</code></li></ul></li>' +
+  '</ul>';
+const jnBoard = (orientation) =>
+  journeyTransform(jnAuthored, { cls: 'journey', orientation });
+const jnTag = '<section data-lattice-slide="1" id="s1" class="journey form chart-frame">';
+// The chart family wraps the board in `.cell-stage > .chart-body`; the splitter walks past both
+// into the prefix, so the wrap has to be here or the fixture is not the shape that ships.
+const jnSection = (orientation) =>
+  `<div class="cell-masthead"><div class="masthead-lede"><h2>Path</h2></div></div>` +
+  `<div class="cell-stage"><div class="chart-body">` +
+  `${jnBoard(orientation).replace('<h2>Path</h2>', '')}` +
+  `</div></div><div class="cell-footer"><footer>journey</footer></div>`;
+const jnInner = jnSection('portrait');
+const jnLandscapeInner = jnSection('landscape');
+
 const STRATEGY_CASES = [
   ['cover-sides',    section.openTag,   section.inner,   { strategy: 'cover-sides' }],
   ['feature-cover',  spSection.openTag, spSection.inner, { strategy: 'feature-cover', perPage: 2 }],
@@ -647,6 +677,7 @@ const STRATEGY_CASES = [
   ['redline-blocks', rlTag,             rlInner,         { strategy: 'redline-blocks' }],
   ['kanban-lanes',   kbTag,             kbInner,         { strategy: 'kanban-lanes' }],
   ['roadmap-horizons', rmTag,           rmInner,         { strategy: 'roadmap-horizons' }],
+  ['journey-stages', jnTag,             jnInner,         { strategy: 'journey-stages' }],
 ];
 
 // THE TABLE'S POPULATION COMES FROM THE ENGINE, not from whatever fixtures anyone happened to
@@ -868,18 +899,21 @@ describe('core: carousel — the run closes on ONE page carrying both beats (202
   );
 
   // WHICH beats a layout hoists is the layout's own declaration, and the expectation is read from
-  // it rather than assumed uniform. A SOURCE-SLICE strategy (`SOURCE_SLICE_STRATEGIES`) re-emits
-  // the section's markup, so a shape the component CLAIMS stays on a body page in that
-  // component's own treatment — `redline` claims `blockquote`, and hoisting its passages is what
-  // emptied two body pages onto a closing page. A re-authoring strategy rebuilds its body, so an
-  // unparsed element reaches no page at all and every shape is hoisted whatever the manifest says.
+  // it rather than assumed uniform. A claim is honored ONLY where the claimed element rides a
+  // MEMBER (`MEMBER_CLAIM_STRATEGIES`) — `redline` claims `blockquote` and its two passages ARE
+  // the members, so hoisting them is what emptied two body pages onto a closing page. Everywhere
+  // else the beat is hoisted whatever the manifest says: a re-authoring strategy rebuilds its
+  // body, so an unparsed element reaches no page; and a native slice repeats everything outside
+  // the member set on every page, so a claimed beat there is DUPLICATED (journey, measured: a
+  // below-note on both pages of a two-stage run) or, when the component docks its coda outside
+  // the sliced subtree, lost entirely (roadmap, measured: zero copies).
   //
   // Only the BARE shapes are gated. The NOTE sentinel is a `.below-note` WRAPPER, which is the
   // coda harvest's own output — the harvest runs only where the beat is rendered, so its presence
   // is already the answer and the kernel hoists it unconditionally. The INSIGHT sentinel is a bare
   // `<blockquote>`, which is the shape a claim can speak for.
   const hoists = (name, tag, beat) => (beat === 'below-note'
-    || !SOURCE_SLICE_STRATEGIES.has(name)
+    || !MEMBER_CLAIM_STRATEGIES.has(name)
     || rendersBeat(clsOf(tag), beat));
   // …and the expectation must not be able to go vacuous: most cases must still carry both.
   test('the closing-page expectation is not vacuous — most strategies hoist both beats', () => {
@@ -1121,5 +1155,64 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
 
   test('a single-phase board → null (nothing to split between)', () => {
     assert.equal(split('Only'), null);
+  });
+});
+
+// ── journey-stages: the enrollment is SCOPED, and the scope is the whole claim ─────
+//
+// journey is enrolled at PORTRAIT ONLY. At landscape it is one figure over a shared axis —
+// `.journey-board` sets `--task-count`, every task carries an absolute `--col`, and the stage
+// ribbon spans its tasks with `grid-column: span var(--span)` — so a slice would leave a page
+// holding tasks at columns 4-5 of a grid whose columns 1-3 are gone. That is the same test
+// `matrix-grid` and `gantt` fail, and journey fails it in exactly one of its two rendered forms.
+//
+// Nothing else in the suite can see that. `STRATEGY_CASES` proves the PORTRAIT form splits
+// correctly and says nothing about the landscape one, and a strategy that quietly began
+// splitting landscape too would pass every gate above while shredding the grid — which is
+// precisely how `matrix-2x2` shipped a portrait render showing two of four quadrants (#1193).
+// So the negative is pinned here, from the same engine-derived fixture as the positive.
+describe('core: carousel — journey-stages splits the vertical stack and never the grid', () => {
+  test('portrait: one page per stage, and the stage bands survive the cut', () => {
+    const parts = carouselize(jnTag, jnInner, { strategy: 'journey-stages' }, 2, 'journey');
+    assert.ok(Array.isArray(parts), 'portrait journey did not split');
+    assert.equal(parts.length, 3, `expected one page per authored stage, got ${parts.length}`);
+    for (const [i, p] of parts.entries()) {
+      assert.equal((p.match(/class="journey-vstage"/g) || []).length, 1,
+        `page ${i + 1} carries ${(p.match(/class="journey-vstage"/g) || []).length} stages, not 1`);
+    }
+    // The categorical accent is `[data-section="N"]`, written on the member by the transform —
+    // which is the ONLY reason the colour sequence survives being sliced. `timeline-list` picks
+    // its dot spectrum with `:nth-child(6n+k)` on an element carrying no index, so one member
+    // per page makes every page `:nth-child(1)` and the whole run collapses to cat-1. If this
+    // assertion ever fails, journey has acquired that defect and the enrollment must come out.
+    const sections = parts.map((p) => (p.match(/class="journey-vstage" data-section="(\d+)"/) || [])[1]);
+    assert.deepEqual(sections, ['0', '1', '2'],
+      `stage accents must stay distinct across the run — got ${JSON.stringify(sections)}`);
+  });
+
+  test('portrait: every authored task reaches exactly one page', () => {
+    const parts = carouselize(jnTag, jnInner, { strategy: 'journey-stages' }, 2, 'journey');
+    const before = (jnInner.match(/class="journey-vtask"/g) || []).length;
+    const after = parts.reduce((n, p) => n + (p.match(/class="journey-vtask"/g) || []).length, 0);
+    assert.equal(after, before, `${before} tasks in, ${after} out — the run must neither drop nor duplicate`);
+    assert.ok(before >= 4, 'fixture too small to be evidence of anything');
+  });
+
+  test('portrait: both legends ride every page — a mood face without its key is unreadable', () => {
+    const parts = carouselize(jnTag, jnInner, { strategy: 'journey-stages' }, 2, 'journey');
+    for (const [i, p] of parts.entries()) {
+      assert.ok(/journey-legend/.test(p), `page ${i + 1} lost the actor legend`);
+      assert.ok(/journey-mood-legend/.test(p), `page ${i + 1} lost the mood key`);
+    }
+  });
+
+  test('landscape: the shared-axis grid is left WHOLE', () => {
+    assert.ok(/--task-count/.test(jnLandscapeInner) && !/journey-vstack/.test(jnLandscapeInner),
+      'fixture is not the landscape grid form — the negative below would prove nothing');
+    const parts = carouselize(jnTag, jnLandscapeInner, { strategy: 'journey-stages' }, 2, 'journey');
+    assert.equal(parts, null,
+      'the landscape journey was split. Every task carries an absolute --col into a ' +
+      'repeat(var(--task-count), 1fr) grid, so a sliced page draws its tasks into columns that ' +
+      'are no longer there. It must ring instead.');
   });
 });

@@ -838,6 +838,7 @@
             "redline-blocks",
             "kanban-lanes",
             "roadmap-horizons",
+            "journey-stages",
             "cover-cards",
             "cover-paginate"
           ],

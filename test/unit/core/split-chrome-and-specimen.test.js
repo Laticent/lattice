@@ -11,6 +11,15 @@
  *    or position. So the strip deleted authored content from every page of a run while leaving
  *    it untouched on an unsplit slide.
  *
+ *    The fix keyed the strip on the section's `data-header` / `data-footer`, and that was the
+ *    SAME MISTAKE ONE LEVEL DOWN (2026-09-02): Marp writes a per-slide `_footer:` override into
+ *    that attribute too, so it identifies "this slide's caption" exactly as readily as "the
+ *    deck's band" — and the strip went on deleting the author's words, now from any slide that
+ *    set its own footer. Shipped live on `examples/portrait-roadmap.pdf`, and reproduced on
+ *    `examples/portrait-journey.md`, whose front matter declares NO footer at all while all
+ *    three of its journey slides set one. The deck's strings now come from the DECK — parsed
+ *    from its front matter by the caller and passed in — and no section attribute is consulted.
+ *
  * 2. `SPECIMEN_RE` tested the section's inner HTML for `<!-- stress-slide -->`. That marker is
  *    not a Marp directive, so Marp consumes it as a SPEAKER NOTE and the comment never reaches
  *    the DOM — the section carries `<aside class="lattice-notes">stress-slide</aside>` instead.
@@ -27,37 +36,59 @@ const section = (attrs, inner) =>
   `<main><section data-lattice-slide="1" ${attrs} class="content">${inner}</section></main>`;
 
 describe('stripDeckChrome removes the DECK\'s chrome, not an author\'s', () => {
-  const body = 'data-split-role="body" data-header="DECK HEADER" data-footer="DECK FOOTER"';
+  const body = 'data-split-role="body"';
+  const DECK = { header: 'DECK HEADER', footer: 'DECK FOOTER' };
 
   test('the deck\'s own footer and header go', () => {
     const out = stripDeckChrome(section(body,
-      '<header>DECK HEADER</header><div class="cell-footer"><footer>DECK FOOTER</footer></div>'));
+      '<header>DECK HEADER</header><div class="cell-footer"><footer>DECK FOOTER</footer></div>'), DECK);
     assert.ok(!/<footer>DECK FOOTER<\/footer>/.test(out), 'the deck footer survived');
     assert.ok(!/<header>DECK HEADER<\/header>/.test(out), 'the deck header survived');
   });
 
   test('an author\'s footer beside it stays — the case that shipped broken', () => {
     const out = stripDeckChrome(section(body,
-      '<div class="cell-footer"><footer>AUTHOR-FOOTER</footer><footer>DECK FOOTER</footer></div>'));
+      '<div class="cell-footer"><footer>AUTHOR-FOOTER</footer><footer>DECK FOOTER</footer></div>'), DECK);
     assert.match(out, /<footer>AUTHOR-FOOTER<\/footer>/, 'the author\'s footer was deleted');
     assert.ok(!/<footer>DECK FOOTER<\/footer>/.test(out), 'the deck footer survived');
   });
 
   test('a directive carrying markdown still matches — comparison is on visible text', () => {
-    const out = stripDeckChrome(section(
-      'data-split-role="body" data-footer="Q3 review"',
-      '<div class="cell-footer"><footer><strong>Q3</strong> review</footer></div>'));
+    const out = stripDeckChrome(
+      section(body, '<div class="cell-footer"><footer><strong>Q3</strong> review</footer></div>'),
+      { footer: 'Q3 review' });
     assert.ok(!/<footer>/.test(out), 'a markdown-rendered deck footer was not recognized');
   });
 
-  test('a section with NO footer directive keeps every footer it has', () => {
-    const out = stripDeckChrome(section('data-split-role="body"',
-      '<div class="cell-footer"><footer>AUTHOR-ONLY</footer></div>'));
+  test('a DECK that declares no footer keeps every footer its slides have', () => {
+    const out = stripDeckChrome(section(body,
+      '<div class="cell-footer"><footer>AUTHOR-ONLY</footer></div>'), { header: 'DECK HEADER' });
     assert.match(out, /<footer>AUTHOR-ONLY<\/footer>/);
   });
 
+  // THE REGRESSION THIS FILE EXISTS TO HOLD, in its second costume. A per-slide `_footer:`
+  // lands in `data-footer` exactly as a deck-level one does, so a strip that reads the section
+  // deletes the author's caption from every page of the run — and prints it nowhere else.
+  // Keyed on a footer the SECTION advertises and the DECK never declared: the old
+  // implementation removed it, this one must not.
+  test('a per-slide _footer: override is NOT the deck\'s chrome', () => {
+    const out = stripDeckChrome(section(
+      'data-split-role="body" data-header="DECK HEADER" data-footer="Vertical board · the dip reads twice"',
+      '<header>DECK HEADER</header>' +
+      '<div class="cell-footer"><footer>Vertical board · the dip reads twice</footer></div>'),
+      { header: 'DECK HEADER' });
+    assert.match(out, /<footer>Vertical board · the dip reads twice<\/footer>/,
+      'the slide\'s own _footer: was stripped as if the deck had written it — the words reach no page at all');
+    assert.ok(!/<header>DECK HEADER<\/header>/.test(out), 'the deck header should still go');
+  });
+
   test('a slide the split did not emit is untouched', () => {
-    const html = section('data-footer="DECK FOOTER"',
+    const html = section('', '<div class="cell-footer"><footer>DECK FOOTER</footer></div>');
+    assert.equal(stripDeckChrome(html, DECK), html);
+  });
+
+  test('no deck argument strips nothing — forgetting it costs de-duplication, never words', () => {
+    const html = section(body, '<header>DECK HEADER</header>' +
       '<div class="cell-footer"><footer>DECK FOOTER</footer></div>');
     assert.equal(stripDeckChrome(html), html);
   });

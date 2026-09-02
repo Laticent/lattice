@@ -139,12 +139,12 @@ Two practices come out of this, and they are the durable part of this note:
 
 ## Enrollment: what splits, what rings
 
-30 of 61 components split. The other 31 are single structural elements already — an anchor, a
+31 of 61 components split. The other 30 are single structural elements already — an anchor, a
 viewBox graphic, a bitmap asset, one atomic text unit or shared-geometry grid — or a component
 whose seam the splitter cannot reach; all of them ring on overflow. Each has its treatment and
 its reason in `lib/core/split-facts.js`.
 
-Two that could not split now do: `content` and `list-criteria`.
+Three that could not split now do: `content`, `list-criteria` and `journey` (portrait only).
 `content` is the notable one — the commonest slide in any deck could
 not split at all, so a long one could only clip. Its axis is declared in `adapt.capacity`
 rather than top-level, following `inventory/list`: the canonical sample is prose, and a
@@ -181,6 +181,49 @@ plus a recipe, not a new mechanism — a tractable follow-on, not a blocked one.
 not splittable is a component that renders as ONE figure over a shared axis (`matrix-grid`,
 `gantt`): cutting those leaves rows with nothing to read them against, and no reader fixes it.
 
+**That paragraph was written from the DOM and it was wrong about three of its four components
+(2026-09-02).** The reader was built — `nativeSliceSplit`, the kernel `kanban-lanes` and
+`roadmap-horizons` now share — and pointed at each shape in turn. Only `journey` survived, and
+only in one of its two rendered forms. The paragraph's own last sentence is what decided the
+other three: each of them IS a figure over a shared axis, and the DOM is simply not where that
+shows.
+
+* **`timeline-list` — declined.** `.timeline-spine::before` draws ONE horizontal rail across the
+  whole set, and the dot spectrum is `:nth-child(6n+k)` on an element the transform gives no
+  index. Sliced to one item per page, the rail renders full-width beneath a single dot — a rule
+  to nowhere, confirmed on a real render — and every page is `:nth-child(1)`, so six categorical
+  colors collapse to one. Both are fixable (hide the rail, stamp the index), and fixing them is
+  the tell: a timeline with its spine removed and one milestone per page is not a timeline. The
+  left-to-right reading IS the component.
+* **`progress` — declined.** The one whose CSS is genuinely slice-clean: no counter, no
+  structural selector, no connector, and a section-relative track, so bars stay comparable
+  across pages. It is declined on the render anyway. A progress chart is a comparison — three
+  bars off a shared left baseline say "92, 68, 12" in one look — and one bar per page asks the
+  reader to hold three numbers across three page turns to learn what one slide showed at a
+  glance. "Comparable if you remember the previous page" is not the read the component gives.
+* **`split-compare` — declined.** N is 2 by contract (`adapt.capacity` is `{sweet: 2, soft: 2,
+  hard: 2}` on all four families, and the manifest's own anti-pattern says "strictly two"), so a
+  run is two pages that destroy the side-by-side the component exists for. Mechanically it is
+  worse: `.verdict` is a SIBLING of `.options`, so a prefix+member+suffix slice repeats the
+  verdict card on every page, and one `.option` in a `1fr 1fr` grid leaves half the slide empty
+  at landscape. Its manifest already carried the decision — `axisRetired: "READ-ACROSS — keep
+  whole"` — and this note was contradicting it.
+* **`journey` — ENROLLED, portrait only.** At landscape it is the shared-axis figure exactly:
+  `.journey-board` sets `--task-count`, each task carries an ABSOLUTE `--col`, and the stage
+  ribbon spans its tasks with `grid-column: span var(--span)`. But at portrait the transform
+  emits a different DOM — `ol.journey-vstack > li.journey-vstage > ol.journey-vrows` — whose
+  rules are flex throughout, where `--span` is a growth factor and `--col` is unread. A stage is
+  a genuine unit there, and its categorical accent survives the cut because it is
+  `[data-section="N"]` written on the member rather than picked by position. That last property
+  is the whole difference from `timeline-list`, and it is the thing to check first next time.
+
+**The lesson is narrower than "we were wrong", and worth carrying.** Every one of these four was
+judged from the rendered DOM, and the DOM said "clean repeated blocks" for all four. What
+separates them is in the STYLESHEET and on the PAGE: whether a rule spans the whole set, whether
+a selector is positional, and whether the read the component gives is a comparison between
+members rather than a sequence of them. A component is sliceable when its members are
+independent in the CSS, not when they look independent in the markup.
+
 §0c already encoded the no-seam half and is the authority: `graphic`, `asset`, `anchor` and
 `atomic` are the treatments that mean "no seam". A viewBox figure has nothing to cut between; a
 shared-geometry grid loses its whole read if you cut it. That is a fact about the artifact, and no
@@ -203,6 +246,18 @@ coverage. Splitting either needs a carousel strategy that re-authors the transfo
 way `roadmap-horizons` does. This is §8 rule 1's authoring/render mismatch seen from the other
 side: `glossary` authors a list and renders a table, and the rule exists because those two can
 disagree — here they disagree in the direction that removes the seam rather than moving it.
+
+**One diagnosis in that paragraph was wrong, and the correction is about a different file
+(2026-09-02).** `deriveAxis` does not read the authored markup — it reads the RENDERED page, so
+"the axis could never fire" named the wrong cause. What actually happened to `journey` is in
+`lib/core/collections.js`: `firstList` takes the list with the most `<li>` children, and on a
+rendered journey that is the MOOD LEGEND (one item per mood level), not the stages. So the
+envelope was built from the legend's length while the body was never sliced, which is exactly
+the run of identical pages that was observed. That is a fact about `firstList`, not about
+`journey`, and it is why the enrollment that finally landed goes through a STRATEGY — which
+reads `ol.journey-vstack` by name — rather than an axis, which would ask `firstList` again and
+get the legend again. `progress` and `timeline-list` are declined on their own merits above,
+not on this.
 
 `logo-wall` moved `list-light` → `atomic`. Its members are not independent — the claim is the
 wall — so one logo per slide says something the author did not write, and any packing is what

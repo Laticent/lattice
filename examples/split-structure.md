@@ -70,8 +70,7 @@ _list-criteria could not split at all before this change._
 - Close
   - Read the note and the insight together `@reader` `:2`
 
-_A chart splits when the splitter can reach its seam. These stages are independent, so the seam is
-real — but journey rewrites the authored list into its own board, leaving nothing to cut._
+_A chart splits when the splitter can reach its seam. On a tall deck journey stacks its stages, so each is a unit and this slide becomes three. On a wide deck the same list draws one grid over one shared axis, and the splitter declines._
 
 ---
 
@@ -79,8 +78,8 @@ real — but journey rewrites the authored list into its own board, leaving noth
 
 ## Enrollment across the catalog
 
-- **Enrolled** — 30 of 61 components split, two of which could not before
-- **Whole** — the other 31 ring on overflow, each for a reason recorded in the kernel
+- **Enrolled** — 31 of 61 components split, three of which could not before
+- **Whole** — the other 30 ring on overflow, each for a reason recorded in the kernel
 - **Packed** — none, at any count, on any component
 - **Pointed** — every run carries a forward pointer; four components did before
 

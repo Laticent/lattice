@@ -3320,7 +3320,13 @@ async function renderBody(browser, g, closeBrowser) {
     // …and RE-BERTH, in the same re-render (see below).
     // …and STRIP THE DECK'S CHROME from the emitted pages first, so the rail is docked into
     // whatever band is left rather than into one that is about to lose three of its four marks.
-    const railed = fitBerth.applyToDocHtml(applyRails(applyRelationshipSignals(stripDeckChrome(cleanDocHtml), SPLIT_CAP)));
+    // The deck's OWN header/footer strings, read from the front matter — not from a section's
+    // `data-header`/`data-footer`, which Marp also fills from a per-slide `_footer:` override and
+    // so cannot tell the deck's repeated band from this slide's own caption. Reading the section
+    // deleted the author's caption from every page of a run (measured on portrait-journey and
+    // portrait-roadmap, both of which declare a per-slide footer and no deck-level one).
+    const deckChrome = { header: frontMatterValue(_mdFm, 'header'), footer: frontMatterValue(_mdFm, 'footer') };
+    const railed = fitBerth.applyToDocHtml(applyRails(applyRelationshipSignals(stripDeckChrome(cleanDocHtml, deckChrome), SPLIT_CAP)));
     if (railed !== cleanDocHtml) {
       cleanDocHtml = railed;
       fs.writeFileSync(outHtml, cleanDocHtml);

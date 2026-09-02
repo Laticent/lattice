@@ -10,6 +10,11 @@
       "deck": "examples/split-structure.md",
       "by": "#2004 (rendered at size: portrait, indaco, and read page by page)",
       "note": "Cover p8, one criterion per page, closing page carrying the italic annotation. The numbered row fills the measure -- this component is what caught the lone-member width fix (`width: 100%` sheared its text; `width: auto` is correct). soft/hard match what its own stress doc holds."
+    },
+    "journey": {
+      "deck": "examples/portrait-journey.md",
+      "by": "#2042 (rendered at size: story, indaco, and read page by page)",
+      "note": "PORTRAIT ONLY, which is the whole enrollment. All three journey slides split to one `li.journey-vstage` per page (pages 6-8, 9-11, 12-14 of 15): stage band, that stage's rows with their actor dots and per-task mood faces, and BOTH legends repeated -- a page of mood faces without the mood key is unreadable. Tasks conserved 3+2+2, 2+3+1, 2+2+1 against the unsplit render; `data-section` stays 0/1/2 across each run, so the three categorical stage accents survive the cut (this is the attribute-driven property `timeline-list` lacks, which is why it is placed atomic instead). The forward pointer names the next STAGE -- 'next: Trial', 'next: Activate' -- not an actor, verified against a 4-actor deck. LANDSCAPE is untouched and must stay so: `examples/data-viz-gallery.md` renders byte-identical through the split (sha 4c1f75b0-era A/B), because the grid form carries an absolute `--col` per task into `repeat(var(--task-count), 1fr)` and a slice would draw tasks into columns that are no longer there. `journeyStageSplit` returns null without an `ol.journey-vstack`, which is what enforces that. Reshape is `paginator`: the split paginates a vertical stack and cannot narrow anything, so it must not be marked width-reducing."
     }
   },
   "components": {
@@ -278,13 +283,13 @@
       "relationship": null
     },
     "journey": {
-      "treatment": "connected",
+      "treatment": "read-across",
       "axis": null,
       "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
+      "enrolled": true,
+      "strategy": "journey-stages",
+      "reshape": "paginator",
+      "coverClass": "journey-cover",
       "perPage": null,
       "relationship": null
     },
@@ -465,7 +470,7 @@
       "relationship": null
     },
     "progress": {
-      "treatment": "needs-call",
+      "treatment": "atomic",
       "axis": null,
       "declaredIn": null,
       "enrolled": false,
@@ -619,7 +624,7 @@
       "relationship": null
     },
     "timeline-list": {
-      "treatment": "connected",
+      "treatment": "atomic",
       "axis": null,
       "declaredIn": null,
       "enrolled": false,

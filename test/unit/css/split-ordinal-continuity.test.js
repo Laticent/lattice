@@ -61,17 +61,35 @@ const COMPONENTS = path.join(ROOT, 'lib/components');
  * supplied, seeded from a custom property that IS the value. Continuing those across
  * a run would be meaningless: they count nothing.
  *
- * EMPTY, and that is the point: it stays empty until a component that ACTUALLY SPLITS
- * needs an entry. It briefly held `journey`'s `mood`/`volume`, added while `journey` was
- * enrolled — and when `journey` was backed out the entry became dead weight that the
- * staleness check below still certified, because the check asked whether the COUNTER still
- * existed rather than whether the EXEMPTION was doing anything. An allowlist that cannot
- * tell a live entry from a dead one is the defect every other allowlist in this repo
- * (`SANCTIONED_HEX`, `SANCTIONED_MARGINS`, `SANCTIONED_GLYPH_*`) fails on by design.
- * An entry here needs BOTH halves: the counter must exist, and its component must be
- * enrolled — otherwise it is exempting nothing and it goes.
+ * It was empty, and it held `journey`'s `mood`/`volume` before that — added while `journey` was
+ * enrolled, then left behind when `journey` was backed out, where it became dead weight the
+ * staleness check below still certified because it asked whether the COUNTER existed rather than
+ * whether the EXEMPTION was doing anything. An allowlist that cannot tell a live entry from a
+ * dead one is the defect every other allowlist in this repo (`SANCTIONED_HEX`,
+ * `SANCTIONED_MARGINS`, `SANCTIONED_GLYPH_*`) fails on by design. An entry needs BOTH halves:
+ * the counter must exist, AND its component must be enrolled.
+ *
+ * `journey` is enrolled again (2026-09-02, `journey-stages`, portrait only), so both halves hold
+ * and the two entries are back. THE TEST FOR AN ENTRY IS MECHANICAL, and both counters pass it
+ * twice over:
+ *
+ *   · NEITHER IS EVER INCREMENTED. `journey.styles.css` contains no `counter-increment` at all,
+ *     so neither counter counts anything. `counter-reset: mood var(--mood)` followed by
+ *     `content: counter(mood)` is the CSS idiom for printing a custom property as text — the
+ *     reset IS the value. Seeding it from `--lat-split-offset` would print `offset + mood`: a
+ *     mood of 4 on page three would read 6. The seed this gate asks for is not a no-op here, it
+ *     is a corruption.
+ *   · NEITHER RULE REACHES A SPLIT PAGE. Both are scoped to `.journey-task`, the LANDSCAPE grid
+ *     chip. `journey-stages` splits only the portrait `.journey-vtask` stack and declines at
+ *     landscape, so the two declarations are not on any page of any run.
+ *
+ * The first bullet is the durable reason and the one to check when the next candidate arrives:
+ * a counter with no `counter-increment` anywhere in its stylesheet is a value-printer, not an
+ * ordinal, and continuing it across a run is meaningless by construction.
  */
-const NOT_AN_ORDINAL = new Map([]);
+const NOT_AN_ORDINAL = new Map([
+  ['journey', ['mood', 'volume']],
+]);
 
 /** Every component directory, as { name, dir }. */
 function components() {
