@@ -268,11 +268,16 @@ describe('strip-notes: no whitespace fingerprint', () => {
     // passes — the Mermaid pre-render does not touch the lines around a note inside a list, so
     // `rawMd` and `md` happen to want the SAME cut here and the old code reached the right answer
     // by luck. Making it discriminate needs a deck where the pre-render changes a comment's own
-    // neighbours, and no realistic shape was found that does. That is the same fact the guard was
+    // neighbors, and no realistic shape was found that does. That is the same fact the guard was
     // written for and #2040 records: the exposure is structural, with zero live instances. So this
     // is PATH COVERAGE — it drives the three-step guard end to end on a real export and pins that
-    // the attachment stays the author's document, notes gone, list intact. The discriminating
-    // half is the unit-level measurement in test/unit/authoring/notes-core.test.js.
+    // the attachment stays the author's document, notes gone, list intact.
+    //
+    // NOTHING ELSE COVERS THE DECISION, and it would be wrong to imply otherwise: no test names
+    // `attachmentCut`, and `notes-core.test.js` cannot — it exercises a pure kernel that knows
+    // nothing of `md`, `rawMd` or `scrubBoundary`. What bounds the risk is not coverage but the
+    // shape of the thing: `boundary` only ever changes WHITESPACE, never which comments are
+    // removed, so a wrong answer here costs re-import fidelity and cannot leak a note.
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-attach-'));
     const out = path.join(dir, 'attached.pdf');
     const r = spawnSync(

@@ -434,14 +434,16 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   both twins now lives in `test/unit/authoring/notes-core.test.js`. Verified end to end on the
   real CLI, not the kernel: `--embed-source --strip-notes` on the fixture attached 204 bytes
   ending `Closing.\n\n` before and 203 bytes byte-identical to the twin after.
-- **Closing it made the `#2003` chaining guard stop measuring, exactly as that guard predicted.**
-  Its comment said "if this shape stops diverging, this test is no longer measuring anything",
-  and the end-of-input fix is what made the two orders agree on it. Chaining is still
-  order-dependent — 440 of 666,660 (source × cut) pairs — but the surviving shape now needs a
-  whitespace-only line with no terminator after it, where the orders disagree about whether the
-  author's trailing spaces survive. The guard is therefore a **search over a small corpus**, not
-  a second hand-picked literal: a literal is just the next one to go quiet, and a search says so
-  itself.
+- **Closing it made the `#2003` chaining guard stop measuring, exactly as that guard predicted —
+  and then did it again to the literal that replaced it.** Its comment said "if this shape stops
+  diverging, this test is no longer measuring anything", and the end-of-input fix is what made the
+  two orders agree on it. The replacement literal went quiet one revision later, when the
+  end-of-input rule was widened to cover a blank line *after* the comment. Chaining is still
+  order-dependent — the surviving shape needs a blank RUN between the two comments
+  (`Text.\n<!-- n -->\n\n\n<!-- caption: c -->`) — but two literals dying inside one change is the
+  argument: the guard is now a **search over a corpus**, which reports its own silence, and the
+  literal is kept only so a reader can see the shape. The count the test finds is in the test;
+  quoting a bigger number from a throwaway sweep would be a figure nobody can re-derive.
 - **The natural way to tidy the FRONT-MATTER half's leftovers is an exponential regex, and the
   input that proves it is not the one you would guess.** (A different residue from the one above:
   this is the blank tail a removed `captions:` block leaves in the rebuilt front matter, not the
@@ -492,10 +494,12 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Fix:** `attachmentCut()` in `lattice-emulator.js`, three steps cheapest-first, because the
   expensive one is reached by no deck here. (1) `md === rawMd` — the measurement is *of* this
   document. (2) The two cuts produce the same bytes on `md`, so the choice cannot change what
-  ships; two string scrubs, no render. **This covers all 51 decks in the tree that carry a comment
-  and get pre-processed** — the exposure was structural, not live. (3) Only otherwise, render `md`
-  and each cut of it and keep the one that reproduces it; fail-closed, with the same
-  block-boundary warning pass 2 gives, worded for the attachment.
+  ships; two string scrubs, no render. **This covers every pre-processed file in the tree** — 51
+  markdown files carry a comment and get pre-processed (41 actual decks, the rest prose docs that
+  are never exported), and on none of them does the cut choice change the bytes. The exposure was
+  structural, not live. (3) Only otherwise, render `md` and each cut of it and keep the one that
+  reproduces it; fail-closed, with the same block-boundary warning pass 2 gives, worded for the
+  attachment. The only file in the tree that reaches step 3 is the fixture added to exercise it.
 - **The general shape:** a measurement is about the document it was taken on. When one export
   writes the same source into two artifacts and pre-processing sits between them, "we already
   measured this" is a claim about the *other* file.

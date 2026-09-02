@@ -965,25 +965,31 @@ describe('notes-core: caption channel (caption:)', () => {
     // orders agree, which is why a plausible-looking fixture does not measure this.
     //
     // THIS GUARD IS A SEARCH, NOT A LITERAL, and the reason is that the literal it used to be
-    // stopped measuring. It was `'## Third slide\n\nClosing.\n<!-- caption: c -->\n<!-- n -->\n'`,
-    // and closing the end-of-input residual (#2039) made the two orders agree on exactly that
-    // shape — the previous comment here predicted it and asked for this test to be revisited
-    // rather than left passing on nothing. Divergence is still real: it now needs a
-    // whitespace-only tail with no terminator, where the two orders disagree about whether the
-    // author's trailing spaces survive. A search says so on its own; a second hand-picked
-    // literal would just be the next one to go quiet.
-    const LINES = ['Text.', '', '<!-- n -->', '  <!-- n -->', '<!-- caption: c -->', '## H', '- item', '---'];
+    // stopped measuring — TWICE, within one change. It was
+    // `'## Third slide\n\nClosing.\n<!-- caption: c -->\n<!-- n -->\n'`; closing the
+    // end-of-input residual (#2039) made the two orders agree on it, exactly as the comment here
+    // predicted it would. The literal that replaced it went quiet the same way one revision
+    // later, when the end-of-input rule was widened to cover a blank line AFTER the comment.
+    // Divergence is still real — it needs a blank RUN between the two comments now — but a
+    // hand-picked shape is evidently just the next one to go quiet, so the corpus does the
+    // finding and the literal below is only there to be readable.
+    const LINES = ['Text.', '', '<!-- n -->', '<!-- caption: c -->'];
     const divergent = [];
-    for (const a of LINES) for (const b of LINES) for (const c of LINES) {
-      // `'\n   '` is load-bearing: the surviving divergence needs a whitespace-only LINE with no
-      // terminator after it, which `'   '` glued onto the last line is not.
-      for (const trail of ['\n', '', '\n   ']) {
-        const s = [a, b, c].join('\n') + trail;
-        const notesFirst = core.stripCaptionsFromSource(core.stripNotesFromSource(s, bodies));
-        const captionsFirst = core.stripNotesFromSource(core.stripCaptionsFromSource(s), bodies);
-        if (notesFirst !== captionsFirst) divergent.push(s);
+    // Depth 5: the surviving shape is `text / note / blank / blank / caption`, which four lines
+    // cannot express. Measured at ~90ms for the whole sweep, so the depth is affordable.
+    const walk = (acc, depth) => {
+      if (depth === 0) {
+        for (const trail of ['', '\n']) {
+          const s = acc.join('\n') + trail;
+          const notesFirst = core.stripCaptionsFromSource(core.stripNotesFromSource(s, bodies));
+          const captionsFirst = core.stripNotesFromSource(core.stripCaptionsFromSource(s), bodies);
+          if (notesFirst !== captionsFirst) divergent.push(s);
+        }
+        return;
       }
-    }
+      for (const l of LINES) walk([...acc, l], depth - 1);
+    };
+    for (let d = 1; d <= 5; d++) walk([], d);
     assert.ok(
       divergent.length > 0,
       'guard: chaining the two scrubs is order-dependent, which is WHY the export runs one pass. '
@@ -991,7 +997,7 @@ describe('notes-core: caption channel (caption:)', () => {
       + 'shape — do not delete the test, widen it and re-measure.'
     );
     // The shape the search finds today, pinned so a reader can see what it is without running it.
-    const src = 'Text.\n<!-- n -->\n<!-- caption: c -->\n   ';
+    const src = 'Text.\n<!-- n -->\n\n\n<!-- caption: c -->';
     assert.ok(divergent.includes(src), 'the recorded divergent shape is still in the corpus');
     assert.notEqual(
       core.stripCaptionsFromSource(core.stripNotesFromSource(src, bodies)),
@@ -1038,6 +1044,23 @@ describe('notes-core: caption channel (caption:)', () => {
         'A\n',
         `one comment with a blank above it, at end of input, under \`${boundary}\``
       );
+      // END OF INPUT IS NOT "THE COMMENT'S NEWLINE IS THE LAST BYTE", and the first cut of this
+      // fix got that wrong. A file ending with a BLANK LINE after the comment still has a
+      // newline to find, so the "blank below goes too" branch fired, took the blank below and
+      // left the one above — the same one-byte residue, one keystroke from the shape that was
+      // fixed. `examples/kaizen-craftsmanship.md` is that shape and is shipped. Every
+      // end-of-input variant now lands on `A\n`, whichever side the author's blank was on.
+      for (const tail of ['\n', '\n\n', '\n \n', '\n\n\n', '']) {
+        assert.equal(
+          core.stripNotesFromSource(`A\n\n<!-- n -->${tail}`, new Set(['n']), { boundary }),
+          'A\n',
+          `blank above, ${JSON.stringify(tail)} after, under \`${boundary}\``
+        );
+      }
+      // Text above rather than a blank, same tails — no blank line is invented at the end.
+      for (const tail of ['\n', '\n\n', '']) {
+        assert.equal(core.stripNotesFromSource(`A\n<!-- n -->${tail}`, new Set(['n']), { boundary }), 'A\n');
+      }
       // A CRLF deck takes its own terminator with it rather than leaving a lone carriage return.
       assert.equal(core.stripNotesFromSource('A\r\n\r\n<!-- n -->\r\n', new Set(['n']), { boundary }), 'A\r\n');
       // Start-of-file is the same branch with nothing emitted yet — there is no blank to take,
@@ -1071,6 +1094,15 @@ describe('notes-core: caption channel (caption:)', () => {
         core.stripNotesFromSource(noted, bodies, { boundary }),
         read('strip-notes-deck-no-notes.md'),
         `the stripped source is byte-identical to the note-free twin under \`${boundary}\``
+      );
+      // THE CAPTION CHANNEL GETS THE SAME ASSERTION, and not for symmetry: the two channels share
+      // one cut, so a regression of exactly this class would land in both. It held before this
+      // test existed — but unguarded, which is how the note channel came to ship the residue for
+      // two releases with the caption channel's own byte arm sitting one file away.
+      assert.equal(
+        core.stripCaptionsFromSource(read('strip-captions-deck.md'), { boundary }),
+        read('strip-captions-deck-no-captions.md'),
+        `the stripped source is byte-identical to the caption-free twin under \`${boundary}\``
       );
     }
   });

@@ -458,6 +458,12 @@ const STRIP_CAPTIONS = !!flags['strip-captions'];
 // both channels, because pass 2 renders ONE combined source; a per-channel cut would be a
 // measurement of a document nothing renders.
 let scrubBoundary = 'preserve';
+// Whether that value is a MEASUREMENT or still the initial guess. `strippedSlidesOrAuthored`
+// can fall back with neither cut reproducing the deck, and then `scrubBoundary` stays at
+// `'preserve'` because nothing set it — which reads identically to a deck that measured
+// `'preserve'` and matched. `attachmentCut` reports its own confidence, so it must not inherit
+// this one's without knowing which it is.
+let scrubBoundaryMeasured = false;
 // ONE PASS, NOT TWO CHAINED — `stripChannelsFromSource`, not `stripNotes…` then `stripCaptions…`.
 // This line used to run them in sequence and call that "order-independent, the two comment
 // classes are disjoint". Disjoint bodies is not the whole interaction: once both cuts became
@@ -2264,6 +2270,7 @@ function strippedSlidesOrAuthored() {
       // restructured source and the "verbatim source for lossless re-import" re-imported as a
       // different deck.
       scrubBoundary = boundary;
+      scrubBoundaryMeasured = true;
       return rendered;
     }
   }
@@ -2303,7 +2310,10 @@ function strippedSlidesOrAuthored() {
 //   1. `md === rawMd` — no pre-render, no glossary. The measurement is OF this document.
 //   2. The two cuts produce the same bytes on `md`. Then the choice cannot change what ships,
 //      whatever it was measured on. Two string scrubs, no render. This is the case that covers
-//      all 51 decks here that carry a comment AND get pre-processed.
+//      every pre-processed file in the tree: 51 markdown files carry a comment AND get
+//      pre-processed (41 of them actual decks, the rest prose docs that are never exported), and
+//      on none of them does the cut choice change the bytes. The only file that reaches step 3
+//      is `test/fixtures/strip-notes-deck-preprocessed.md`, added to exercise it.
 //   3. Otherwise the choice genuinely matters on an unmeasured document, so measure it: render
 //      `md` and each cut of it, and keep the one that reproduces it. Fail-closed — if neither
 //      does, keep scrubbing (the text still goes from every copy) and say what was given up.
@@ -2314,19 +2324,32 @@ let attachmentCutMemo = null;
 function attachmentCut() {
   if (attachmentCutMemo) return attachmentCutMemo;
   const settle = (boundary, measured) => (attachmentCutMemo = { boundary, measured });
-  if (md === rawMd) return settle(scrubBoundary, true);
+  // Step 1 inherits pass 2's ANSWER and its confidence with it. `scrubBoundary` alone cannot say
+  // whether it was measured or is still the initial `'preserve'` after a fidelity fallback.
+  if (md === rawMd) return settle(scrubBoundary, scrubBoundaryMeasured);
   const cuts = notesCore.SCRUB_BOUNDARIES.map((b) => composeStrippedSource(md, noteStripSet, b));
+  // Step 2 is `true` on its own terms, whatever pass 2 concluded: if every cut produces the same
+  // bytes then no choice of boundary can change what ships, so there is nothing left to measure.
   if (cuts.every((c) => c === cuts[0])) return settle(scrubBoundary, true);
   // Same whitespace-blind shape comparison pass 2 uses: what must match is the MARKUP — the
   // paragraph that split in two, the slide that appeared — and the residue the cut exists to
   // drop is whitespace, so a byte compare would report every noted slide as a divergence.
-  const shape = (sec) => notesCore.stripCommentNodes(sec).replace(/\s+/g, '');
-  const authored = engineSlides(md);
-  for (const [i, boundary] of notesCore.SCRUB_BOUNDARIES.entries()) {
-    const rendered = engineSlides(cuts[i]);
-    if (rendered.length === authored.length && rendered.every((s, j) => shape(s) === shape(authored[j]))) {
-      return settle(boundary, true);
+  //
+  // GUARDED, because this is the one step that renders and its caller is `embedSourceInPdf`,
+  // whose `catch` drops the attachment entirely and blames pdf-lib. A render that throws here
+  // must cost the measurement, not the feature: fall through to the fail-closed answer, which
+  // still scrubs and still warns.
+  try {
+    const shape = (sec) => notesCore.stripCommentNodes(sec).replace(/\s+/g, '');
+    const authored = engineSlides(md);
+    for (const [i, boundary] of notesCore.SCRUB_BOUNDARIES.entries()) {
+      const rendered = engineSlides(cuts[i]);
+      if (rendered.length === authored.length && rendered.every((s, j) => shape(s) === shape(authored[j]))) {
+        return settle(boundary, true);
+      }
     }
+  } catch (e) {
+    console.warn(`  ⚠ Could not measure the attached source's cut (${e.message}); using the rendered deck's.`);
   }
   return settle(scrubBoundary, false);
 }

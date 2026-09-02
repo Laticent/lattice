@@ -11,7 +11,7 @@
   on the document it actually ships.** The boundary was measured against the re-rendered source
   (after the Mermaid pre-render and the auto-glossary append) and then applied to the author's
   original, which is deliberately a different document and which the fidelity guard never
-  checked. No deck in the tree was affected — for all 51 that carry a comment and get
-  pre-processed, the two cuts produce identical bytes — so this closes an unguarded join rather
-  than a shipped artifact. The check short-circuits on that equality, and only renders to
-  measure when the choice could genuinely change what ships.
+  checked. Nothing in the tree was affected — of the 51 markdown files that carry a comment and
+  get pre-processed, the two cuts produce identical bytes on every one — so this closes an
+  unguarded join rather than a shipped artifact. The check short-circuits on that equality, and
+  only renders to measure when the choice could genuinely change what ships.
