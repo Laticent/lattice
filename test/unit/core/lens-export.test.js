@@ -180,6 +180,71 @@ test.describe('an export carries ONLY the views it exports', () => {
 		assert.ok(REFUSAL_REASONS.unsplittable, 'the reason carries an explanation the CLI can print');
 	});
 
+	test('a prune that would move the slide\u2019s block structure is dropped, not applied', () => {
+		// SIX commits tried to decide from the bytes which edits are safe. The answer is a property of
+		// the PARSER: deleting a tag line joins the blocks around it. Here the tag sits between two
+		// paragraphs; removing its line merges them into one, which reached a real artifact with
+		// `ok: true` and no warning. The prune is now checked against the engine-pinned parser and
+		// reverted whole when it moves anything but the directive.
+		const slide = '<!-- _lens: brief -->\n\n# One\n\nThe board summary sentence.\n<!-- _lens: -ask -->\nThe detail line for analysts.\n';
+		const chunks = [slide, '\n# Two\n\nBody two.\n'];
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
+		const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks[0]}\n---\n${chunks[1]}`;
+		const out = projectForExport(src, ['brief']);
+		// `ask` is withheld and its tag could not be pruned without damage, so the export refuses
+		// rather than shipping either the corrupted prose or the undisclosed id.
+		assert.equal(out.ok, false, 'it must not ship a slide whose structure the prune moved');
+		assert.equal(out.reason, 'unprunable');
+		assert.equal(out.lensId, 'ask');
+	});
+
+	test('but a prune that leaves structure alone is applied as normal', () => {
+		// The complement, so the check above cannot pass by refusing everything: the same tag with a
+		// blank line on each side deletes cleanly, because blank lines already separate the blocks.
+		const slide = '<!-- _lens: brief -->\n\n# One\n\nThe board summary sentence.\n\n<!-- _lens: -ask -->\n\nThe detail line for analysts.\n';
+		const chunks = [slide, '\n# Two\n\nBody two.\n'];
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
+		const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks[0]}\n---\n${chunks[1]}`;
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true, 'a safe prune still happens');
+		assert.doesNotMatch(out.source, /_lens: -ask/, 'and the withheld id is gone');
+		assert.match(out.source, /The detail line for analysts\./, 'with the author\u2019s prose intact');
+	});
+
+	test('disclosure is judged by what the RENDERER sees, not by Lente\u2019s fence scan', () => {
+		// `fenceRanges` opens a fence on ```` ```js` ```` — an info string carrying a backtick — where
+		// markdown-it opens none. So Lente called the directive below "fenced" and left it alone,
+		// while a reader is shown a real html_block naming a withheld view. A check that reads
+		// through the same scanner as the pruner is blind wherever the pruner is blind; this one
+		// asks the engine-pinned parser instead.
+		const slide = '<!-- _lens: brief -->\n\n## Snippet\n\n```js`\n<!-- _lens: -ask -->\n';
+		const chunks = [slide, '\n# Two\n\nBody two.\n'];
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
+		const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks[0]}\n---\n${chunks[1]}`;
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, false, 'the id a reader would be shown must not ride out');
+		assert.equal(out.reason, 'unprunable');
+		assert.equal(out.lensId, 'ask');
+	});
+
+	test('an indented or trailing-space tag is pruned, not refused', () => {
+		// The bound before this demanded column 0 and a newline immediately after, so one invisible
+		// trailing space refused an entire export — and told the author to put the tag on a line of
+		// its own, which is where they had already put it.
+		for (const tag of ['  <!-- _lens: brief -ask -->', '<!-- _lens: brief -ask --> ']) {
+			const chunks = [`${tag}\n\n# One\n\nBody.\n`, '\n# Two\n\nBody two.\n'];
+			const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
+			const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
+			const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks[0]}\n---\n${chunks[1]}`;
+			const out = projectForExport(src, ['brief']);
+			assert.equal(out.ok, true, `refused on ${JSON.stringify(tag)}`);
+			assert.doesNotMatch(out.source, /-ask/, 'and the withheld token is pruned');
+		}
+	});
+
 	test('a withheld id the prune cannot safely rewrite REFUSES the export, it does not ride out', () => {
 		// `pruneTags` edits only a directive that is the WHOLE of its line — the bound Lente reached
 		// after four string splices each corrupted a real deck. A tag sharing its line is therefore
@@ -426,4 +491,67 @@ test('`--lens full` returns the identity even when a slide would prune to nothin
 	const out = projectForExport(src, ['full']);
 	assert.equal(out.ok, true, `\`full\` must never refuse a deck it does not touch (got ${out.reason})`);
 	assert.equal(out.source, src, 'and it hands back the caller’s own string');
+});
+
+test.describe('structural fuzz — a prune never moves a slide\u2019s block structure', () => {
+	test('zero divergences across the shapes six commits got wrong', async () => {
+		// An independent checker measured 152 structural changes across 1,445 inputs against the
+		// rule this replaced. The property is not "the rule is right", which is what every previous
+		// attempt asserted — it is "whatever the prune did, the parser sees the same blocks". Held
+		// to ZERO, because a single one is a corrupted deck shipped with `ok: true`.
+		const { boundaryParser } = await import('../../../lib/core/boundary-parser.mjs');
+		const { frontMatterBlockOf, slideBoundaries } = await import('../../../lib/core/slide-boundaries.mjs');
+		// Split BOTH sides with the splitter the export itself uses. A naive `/^---$/m` split
+		// disagrees with it (setext underlines, `***`), and that disagreement is a property of the
+		// TEST, not of the prune — it reported 16 false positives, every one on a fuzz case whose
+		// "slide" happened to contain a separator.
+		const split = (body) => {
+			const seps = new Set(slideBoundaries(body).lines);
+			const out = [[]];
+			body.split('\n').forEach((line, i) => {
+				if (seps.has(i)) out.push([]);
+				else out[out.length - 1].push(line);
+			});
+			return out.map((ls) => ls.join('\n'));
+		};
+		const shape = (src) =>
+			boundaryParser
+				.parse(src, {})
+				.filter((t) => !(t.type === 'html_block' && t.content.includes('_lens:')))
+				.map((t) => `${t.type}:${t.tag}:${t.nesting}`)
+				.join('|');
+
+		const ATOMS = [
+			'Prose line\n', 'more prose\n', '\n', '# Head\n', '===\n', '---\n', '- item\n', '- next\n',
+			'> quote\n', '    indented\n', '```\nfence\n```\n', '```js`\n', '~~~\n', '1. one\n', '2. two\n',
+			'  <!-- _lens: brief -ask -->\n', '<!-- _lens: brief -ask -->\n', '<!-- _lens: brief -ask --> \n',
+			'- <!-- _lens: brief -ask -->\n', '> <!-- _lens: brief -ask -->\n', '\t', '   ',
+		];
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
+		let seed = 20260902;
+		const rand = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+		let checked = 0;
+		const moved = [];
+		for (let i = 0; i < 4000; i++) {
+			let slide = '';
+			for (let k = 0, n = 2 + Math.floor(rand() * 6); k < n; k++) slide += ATOMS[Math.floor(rand() * ATOMS.length)];
+			if (!slide.includes('_lens:')) continue;
+			const chunks = [slide, '\n# Two\n\nBody two.\n'];
+			const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
+			const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks[0]}\n---\n${chunks[1]}`;
+			const out = projectForExport(src, ['brief']);
+			if (!out.ok) continue; // a refusal ships nothing, so it cannot corrupt anything
+			checked++;
+			// Compare each KEPT slide against the one it came from — `out.kept` maps shipped position
+			// back to authored index, so a withheld slide is not mistaken for a structural change.
+			const authored = split(src.slice(frontMatterBlockOf(src).length));
+			const shipped = split(out.source.slice(frontMatterBlockOf(out.source).length));
+			if (shipped.length !== out.kept.length) { moved.push(`count ${shipped.length}/${out.kept.length}: ${slide}`); continue; }
+			for (let n = 0; n < out.kept.length; n++) {
+				if (shape(shipped[n]) !== shape(authored[out.kept[n]])) { moved.push(slide); break; }
+			}
+		}
+		assert.ok(checked > 100, `the corpus must exercise the prune (checked ${checked})`);
+		assert.deepEqual(moved.slice(0, 3), [], `${moved.length}/${checked} prunes moved block structure`);
+	});
 });

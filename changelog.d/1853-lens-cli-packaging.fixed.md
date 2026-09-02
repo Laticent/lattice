@@ -4,20 +4,25 @@
   `npm install @workwel/lattice`. The CLI bundle now inlines the workspace packages like the rest of
   the local graph, so `--lens`, read-along, chart narration and the caption kernel run outside a
   clone. Verified by running a `--lens` export with those packages made unresolvable.
-- **Fixed: removing a slide's reader-view tag no longer eats the author's line break.** Lente's tag
-  writer dropped the newline after a `<!-- _lens: … -->` comment whenever the tag cleared, which is
-  right for a tag on its own line and wrong for one at the end of a line of prose: the next line was
-  spliced onto the previous one. On prose that silently merged two paragraphs; on a line followed by
-  a code fence it spliced the fence opener into the prose, so the fence never opened, its closer
-  became an opener, and a `---` inside the code became a setext underline — one authored slide
-  rendered as two. Reached through a `--lens` export, that put another view's slide on a reader's
-  screen. The newline now travels with the comment only when the comment owned the line.
+- **Fixed: a reader-view export never rewrites a slide into something that renders differently.**
+  Removing a `<!-- _lens: … -->` tag is a text edit, and a text edit to markdown moves the blocks
+  around it. Taking the tag's newline spliced the next line onto whatever preceded it — on a line
+  followed by a code fence the fence never opened, its closer became an opener, one authored slide
+  rendered as two, and a reader on one view was shown a slide from another. Leaving the newline was
+  no better: the residue `- ` is a setext underline, so the paragraph above became a heading, and a
+  whitespace-only line inside a tight list turned it loose and gave every item a paragraph wrapper.
+  Even a clean deletion of a tag on its own line merges the paragraphs it sat between, turns a
+  paragraph above a `===` into a heading, and welds two lists into one. Six rules were written for
+  this and all six were wrong, because which edits are safe is a property of the PARSER, not of the
+  text. So the export stopped deciding: it re-parses each slide with the engine's own markdown-it
+  and keeps the prune only when the slide's block structure is unchanged, otherwise returning the
+  author's bytes untouched. Held to zero across a structural fuzz that finds 21 corruptions in 699
+  decks the moment the check is removed.
 - **Fixed: a second `_lens` comment on one slide is no longer invisible.** Lente reads only a slide's
   first tag, so a second one was never parsed and never rewritten — dead weight to every reader, and
-  a withheld view's id to the recipient of a projected export. `stripExtraLensTags` removes it, as
-  long as it is the whole of its own line. One that shares its line with anything — a `>` or `-`
-  marker, a list item's content indent, another comment — is left alone deliberately, and the export
-  refuses rather than shipping a withheld id it could not safely rewrite (below).
+  a withheld view's id to the recipient of a projected export. `stripExtraLensTags` removes it when
+  its line, trimmed, is just the tag; one sharing its line with a container marker or other text is
+  left alone, as is any removal the structural check above rejects.
 - **Fixed: a `_lens` or `_class` comment an author QUOTED is no longer treated as a directive.** A
   backticked `` `<!-- _lens: ask -->` `` example, or one written mid-sentence, was read as the
   slide's reader-view membership — and a `--lens` export, which rewrites tags to prune views it does
@@ -32,16 +37,11 @@
   claimed absent. Fence detection also gained CommonMark's three-space indent cap in the same pass —
   a four-space-indented ``` is an indented code block, not a fence, and reading it as one made a
   following directive vanish.
-- **Fixed: a reader-view tag that shares its line is read and never rewritten, and an export that
-  would have to rewrite one refuses.** `- <!-- _lens: x -->` is a real directive — the renderer opens
-  one inside the list item too — and every way of deleting it corrupted the line's residue, which is
-  itself markdown. Taking the newline spliced the next line onto the marker, so `- <!-- _lens: secret -->`
-  followed by a fence became `- ``` `: the fence never opened, one authored slide rendered as two,
-  and the position-indexed view map shifted under a reader who was then shown a slide their view
-  excludes. Leaving the newline left a bare `-`, which is a setext underline — the paragraph above
-  became a heading. Leaving it inside a tight list left a blank line, turning the list loose and
-  giving every item a paragraph wrapper. The export's re-split check caught none of them, because
-  none changes the slide count. Nothing sharing its line is edited now, in either direction; the
-  cost is that a withheld id in such a tag cannot be pruned, so the export **re-reads what it
-  emitted and refuses**, naming the id. That check is a verification rather than a fifth attempt at
-  the rule, so it also covers the fence-detection gap still open in #2034.
+- **New: an export that cannot withhold a view refuses instead of leaking it.** A tag the prune
+  could not remove still names a view the recipient is not getting. The export re-reads what it
+  emitted and refuses, naming the id — and it asks the ENGINE'S PARSER which directives a reader
+  would actually be shown, not Lente's own fence scan. That distinction is load-bearing: Lente
+  opens a fence on ```` ```js` ```` (an info string carrying a backtick) where markdown-it opens
+  none, so a check reading through the same scanner as the pruner was blind exactly where the
+  pruner was blind, and a withheld id reached a real envelope with `ok: true`. The message tells an
+  author the fix: put the tag on a blank line of its own.

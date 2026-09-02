@@ -186,22 +186,26 @@ the syntax exports intact. (It did not always: three attempts to detect quoted t
 directly each shipped something worse, including one that gutted the example to two bare
 backticks. Adopting the renderer's own rule removed the shape instead of guarding it.)
 
-**Write the membership tag on a line of its own — a tag sharing its line is read but never
-rewritten, and an export that would have to rewrite one REFUSES.** `> <!-- _lens: brief -->`
-and `- <!-- _lens: brief -->` are real directives; the renderer opens one inside the quote or
-the list item too, and Lattice reads them. What it will not do is edit them. The residue of a
-partial line is itself markdown, and every attempt to splice one cleanly corrupted a real
-deck: a bare `-` left behind is a setext underline that turns the paragraph above it into a
-heading, a whitespace-only line is a blank line that turns a tight list loose, and deleting
-the comment inside `> ```markdown` guts an example the author wrote on purpose. So the tag is
-left exactly as typed.
+**Write the membership tag on a blank line of its own.** Not for style — because a tag wedged
+into surrounding text usually cannot be removed. Deleting a line joins the blocks around it:
+a tag between two paragraphs merges them, a tag above a `===` turns the paragraph before it
+into a heading, a tag between two lists welds them into one. Six attempts to decide from the
+text alone which removals are safe each corrupted a real deck, so the export stopped
+deciding: it re-renders the slide with the engine's own parser, keeps the prune only if the
+slide's structure is unchanged, and otherwise leaves your text exactly as you wrote it.
 
-That is safe for your file and, on its own, would leak: a withheld view's id in such a tag
-would ride out in the artifact. It does not, because the export re-reads what it emitted and
-**refuses**, naming the id and the fix — put the tag on its own line. You will see
-`a slide names a view this export does not carry, in a tag the projection cannot safely
-rewrite`. A tag naming only views you ARE exporting is left alone and ships as written.
-`lint:deck` cannot warn about this yet (#2034).
+**And then it refuses rather than leaking.** A tag it could not remove still names a view the
+recipient is not getting, so nothing is written:
+
+> `error: reader view 'internal' is unavailable (unprunable) — a slide still names a view
+> this export does not carry — the tag could not be removed without changing how the slide
+> renders, so nothing was written. Put the tag on a blank line of its own, away from the
+> prose around it`
+
+A blank line above and below the tag is always removable, because a blank line already
+separates the blocks. That is where Lattice itself writes one. Indentation and trailing
+spaces are fine. A tag naming only views you ARE exporting is left alone and ships as
+written — the refusal is about disclosure, not tidiness.
 
 **Two things the prune deliberately does NOT do.** It never writes an approval digest: the
 views in a projected deck ship without `approved:`, so re-importing the artifact reads them

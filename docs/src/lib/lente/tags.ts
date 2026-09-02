@@ -133,20 +133,36 @@ function opensItsLine(text: string, at: number): boolean {
  *                                      the syntax ships with the syntax deleted.
  *
  * There is no string splice that is safe on all of them, because the residue of a partial line is
- * itself markdown. So this predicate is the bound instead: an edit touches a directive ONLY when
- * removing the whole line removes exactly the directive and nothing an author wrote. Everything
- * else is READ and returned untouched — provably safe, because not editing cannot corrupt.
+ * itself markdown. So this predicate is the bound: an edit touches a directive only when the whole
+ * of its line, trimmed, IS that directive. Everything else is read and returned untouched.
  *
- * WHAT IT COSTS, AND WHY THAT IS NOT A LEAK. A withheld view's id inside an uneditable tag would ride
- * into the artifact. `lib/core/lens-export.mjs` does not trust this bound: it re-reads what the prune
- * emitted and REFUSES the export if any withheld id survives. A verification, not a fifth derivation —
- * the same shape as the re-split net, and it catches the gap after this one too.
+ * AND THE BOUND IS NOT THE SAFETY ARGUMENT — that was the sixth mistake. Deleting a whole line is
+ * itself a structural edit: between two paragraphs it merges them, above a `===` it turns the
+ * paragraph before it into a heading, between two lists it welds them into one. A rule cannot know;
+ * only the parser knows. So this predicate is a cheap first filter, and `lib/core/lens-export.mjs`
+ * decides: it re-parses the slide with the engine's own markdown-it, keeps the prune only if the
+ * block structure is unchanged, and refuses the export if a withheld id survives in a directive the
+ * RENDERER can see. Two checks against the real parser, in the one place a parser is available.
+ *
+ * WHAT IS STILL ONLY BOUNDED, NOT CHECKED: a direct Lente caller with no parser — the Studio. There
+ * the predicate is the whole protection, and the cases above are the ones it is measured against.
  */
-function editableDirective(text: string, span: { start: number; end: number } | null): boolean {
-	if (!span) return false;
-	const startsTheLine = text.lastIndexOf('\n', span.start - 1) + 1 === span.start;
-	const endsTheLine = span.end === text.length || text[span.end] === '\n';
-	return startsTheLine && endsTheLine;
+function editableDirective(text: string, span: { start: number; end: number } | null): { start: number; end: number } | null {
+	if (!span) return null;
+	const lineStart = text.lastIndexOf('\n', span.start - 1) + 1;
+	let lineEnd = text.indexOf('\n', span.end);
+	if (lineEnd < 0) lineEnd = text.length;
+	// THE WHOLE LINE, TRIMMED, IS THE DIRECTIVE. Indentation and trailing spaces are part of the
+	// line and go with it, so they are not a reason to refuse — an earlier version demanded the
+	// comment sit at exactly column 0 and end at exactly the newline, which refused an entire export
+	// over one invisible trailing space and told the author to put the tag on a line of its own,
+	// which is where they had already put it.
+	if (text.slice(lineStart, span.start).trim() !== '' || text.slice(span.end, lineEnd).trim() !== '') return null;
+	// RETURNS THE LINE, NOT THE COMMENT, and that distinction is a bug this caught on its way in:
+	// checking that the prefix is blank and then cutting from the COMMENT leaves the indent behind
+	// and splices the next line onto it — `"- a\n  <!-- … -->\n  b"` became `"- a\n    b"`, four
+	// columns, which is an indented code block. The caller removes exactly what was measured.
+	return { start: lineStart, end: lineEnd };
 }
 
 /** True if `s` is empty or all ASCII whitespace (a char scan, so no `\s`-quantified regex touches
@@ -281,17 +297,18 @@ export function stripExtraLensTags(slideSrc: string): string {
 		const next = findDirectiveComment(tail, 'lens');
 		if (!next) return src;
 		const start = cursor + next.start;
-		let end = cursor + next.end;
+		const end = cursor + next.end;
 		// Anything sharing its line is left exactly as the author typed it — see `editableDirective`.
 		// The residue of a partial line is itself markdown, and four different splices each corrupted
 		// a real deck.
-		if (!editableDirective(src, { start, end })) {
+		const line = editableDirective(src, { start, end });
+		if (!line) {
 			cursor = end;
 			continue;
 		}
-		if (src[end] === '\n') end += 1; // the whole line was the directive, so the newline goes too
-		src = src.slice(0, start) + src.slice(end);
-		cursor = start;
+		const cut = src[line.end] === '\n' ? line.end + 1 : line.end;
+		src = src.slice(0, line.start) + src.slice(cut);
+		cursor = line.start;
 	}
 }
 
@@ -317,10 +334,14 @@ function writeTags(slideSrc: string, tags: SlideTags): string {
 		// replacing it edits an author's text just as surely, because the shape that hides from
 		// `fenceRanges` is a documented EXAMPLE inside a blockquoted fence, and rewriting its tokens
 		// ships a slide teaching the syntax with the syntax altered.
-		if (!editableDirective(src, existing)) return src;
-		let end = existing.end;
-		if (!tokens && src[end] === '\n') end += 1; // the whole line was the directive
-		return src.slice(0, existing.start) + (tokens ? comment : '') + src.slice(end);
+		const line = editableDirective(src, existing);
+		if (!line) return src;
+		// Replacing swaps the comment in place and leaves the line's whitespace alone; removing takes
+		// the WHOLE line, indent and trailing spaces included, because a half-removed line is the
+		// residue every earlier attempt tripped over.
+		if (tokens) return src.slice(0, existing.start) + comment + src.slice(existing.end);
+		const cut = src[line.end] === '\n' ? line.end + 1 : line.end;
+		return src.slice(0, line.start) + src.slice(cut);
 	}
 	if (!tokens) return src;
 	const cls = findDirectiveComment(src, 'class');

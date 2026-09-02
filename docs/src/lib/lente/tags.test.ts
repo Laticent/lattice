@@ -177,9 +177,6 @@ describe('a directive sharing its line is never edited — remove or replace', (
 		// which is a SETEXT H2 UNDERLINE and turned the paragraph above into a heading.
 		['a list marker, followed by a fence', '- <!-- _lens: secret -->\n```\nfoo\n---\nbar\n```\n'],
 		['prose above and a list marker', 'Prose above\n- <!-- _lens: secret -->\n  more text\n'],
-		// A whitespace-only line is a CommonMark BLANK line: the list went tight -> loose and every
-		// item in it gained a paragraph wrapper.
-		['content indent inside a tight list', '- item text\n  <!-- _lens: secret -->\n  more text\n- second\n'],
 		// `fenceRanges` cannot see a fence opened behind a container marker, so this looked like a
 		// directive and a slide teaching the syntax shipped with the syntax deleted.
 		['inside a blockquoted fence', '> ```markdown\n> <!-- _lens: secret -->\n> ```\n'],
@@ -206,5 +203,18 @@ describe('a directive sharing its line is never edited — remove or replace', (
 
 	it('including at end of file with no trailing newline', () => {
 		expect(applyTag('# Hi\n\n<!-- _lens: secret -->', 'secret', false, 'none')).toBe('# Hi\n\n');
+	});
+
+	// WHERE THIS BOUND STOPS, AND WHO CATCHES THE REST. A line whose trimmed content is just the
+	// directive IS edited — indentation and trailing spaces go with it. That is deliberate: demanding
+	// column 0 and an immediate newline refused a whole export over one invisible trailing space.
+	// But deleting even a clean line is a structural edit — here it pulls `more text` into the item
+	// above as a lazy continuation — and no byte-level rule can know that. `lib/core/lens-export.mjs`
+	// re-parses the slide and reverts any prune that moves block structure, so the export is safe;
+	// a direct Lente caller with no parser (the Studio) is not, which is #2034's second half. This
+	// test pins the ACTUAL behavior rather than the behavior three docblocks used to claim.
+	it('a clean line inside a list IS edited — the parser check upstream is what makes that safe', () => {
+		const src = '- item text\n  <!-- _lens: secret -->\n  more text\n- second\n';
+		expect(applyTag(src, 'secret', false, 'none')).toBe('- item text\n  more text\n- second\n');
 	});
 });
