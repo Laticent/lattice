@@ -54,6 +54,17 @@ companion:
 
 **Date:** 2026-09-02 · **Status:** findings settled; the engine pick is pending a human decision.
 
+> **Naming.** The library is renamed **Animals**. The 2026-07-17 ADR set "Anima" explicitly as a
+> naming call ("All three are naming calls (alternatives: `Moto`, `Diorama`)"), so this supersedes
+> it rather than contradicting it. **This note records the decision; the code still says `anima`.**
+> A sweep is 1,049 references across 146 files, and it is not a find-and-replace: it moves the
+> `docs/src/lib/anima/` folder (23 files), the boundary gate's `ANIMA_DIR` / `ANIMA_ADAPTER_DEPS` /
+> `checkAnimaBoundary` / `checkAnimaColorVocabulary` (24 hits in `tools/check-ownership.js`), the
+> `kind:'scene'` asset rail, the generated player bundle and its build step, and **149 occurrences
+> of `data-anima-role` that are SHIPPED MARKUP** — a rendered-attribute rename, so it breaks any
+> saved scene asset and any exported player already in the wild. Do it as its own PR with a
+> migration for stored assets, not folded into feature work.
+
 This note does three things. §1–2 audit what Anima ships today and why its SVG backend has to go.
 §3–9 report a four-way engine bake-off that was **built and measured**, not argued. §10 covers a
 second round over the three categories the first one missed.
@@ -388,3 +399,50 @@ Every hover, click, drag and toggle below is therefore a new surface, not a wiri
 3. **Build order: `camera` (#6), `explode` (#5), step-driven build (#15).** All three are measured,
    need no new interaction surface, no sanitizer work and no new UI — and together they cover the
    opening thesis: hand-draw an SVG, reveal text, animate a set.
+
+---
+
+## 12. Prototype — the whole motion set, on the Lattice logo
+
+Built at `.scratch/logo-proto/`, driving `design/logo/lattice-lockup.svg` — a real supplied asset
+with no ids, which is exactly the Bring on-ramp's starting condition.
+
+**The id-mapping pass runs headless and is the piece that makes Bring work.** `prepare.mjs` takes
+raw markup and returns addressable parts: it runs the #22 inert strip, groups stacked circles that
+are visually one node (halo + fill + ring), tags roles, and orders everything center-out so a
+`sequence` needs no hand-authored windows. On the lockup that is **22 parts — 12 bonds, 9 nodes, 1
+label**, and it works in jsdom because element centers are read from the element's own attributes
+rather than `getBBox()`.
+
+**The scene uses every primitive the bake-off measured**: bonds `draw` center-out with real
+per-element windows; nodes `reveal` with a scale overshoot as their bonds land; the `camera` pushes
+into the center node's ring and pulls out to the full lockup; `highlight` swells the center node;
+`explode` pushes every node out along its own radius and settles; and the wordmark reveals letter
+by letter through `<tspan>` — the primitive both GSAP's and anime.js's SplitText destroy (§5). The
+poster serializes to **5,470 bytes of vector**, which is what a PDF bakes.
+
+**Four bugs the prototype caught that the synthetic harness could not.**
+
+1. **`stroke-dasharray="1 0"`.** A finished stroke emitted a zero-length gap, which Chrome renders
+   as a repeating dash under `stroke-linecap: round` — every bond in the logo came out dotted. Two
+   causes at once: the epsilon was rounded away by a 3-dp formatter, and a zero gap is not a safe
+   "solid". **A finished stroke must drop the attribute, not tend toward it.**
+2. **"Center-out" measured from the wrong center.** The order radiated from the *viewBox* center,
+   which on the lockup is `[235, 64]` — the middle of the wordmark — instead of the drawing's
+   `[64, 64]`. The mark assembled right-to-left. The center has to come from the drawable
+   geometry's own bounding box, and the fix is visible as the lockup's bond order becoming
+   identical to the bare mark's.
+3. **The poster sat on a transitional beat.** `hero` at 0.80 froze the print still mid-explode with
+   the wordmark half-revealed — striking on screen, wrong on paper. **A hero must land on a
+   resolved beat**, and nothing in the spec enforces that today.
+4. **A group fade ghosts a punch-out.** Fading a node group as a unit let the bond show straight
+   through the halo while it arrived, and the assembly read muddy. The halo has to lead the
+   coloured fill. Generalized: **a supplied asset's occlusion is part of its meaning**, so a naive
+   per-part opacity is not always the right reveal.
+
+**And one finding for the sanitizer.** The mark's own dark-mode mechanism is a `<style>` block with
+`prefers-color-scheme`, and the #22 inert parse **strips `<style>` wholesale** — deliberately, as
+an `@import` beacon vector. So a supplied logo silently loses its dark-mode swap. The mark still
+renders because every element also carries a hardcoded `stroke`/`fill` attribute, but the theme
+response is gone. Any Bring path needs to either recover those rules into our own token mapping or
+tell the author their asset's theming will not survive.
