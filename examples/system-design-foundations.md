@@ -75,7 +75,7 @@ Watch her Tuesday without naming anything. There is no vocabulary in this part o
 2. `08:05` The train map
    - Wildly wrong about geography. She has never once been lost using it.
 3. `08:20` A signal failure
-   - The train sits nine minutes. She opens Instagram without deciding to. Nobody aboard can do a thing about the signal.
+   - Nine minutes, stopped, and nothing anyone aboard can do. She opens Instagram without deciding to.
 4. `08:50` At her desk
    - Wifi, the VPN, the package registry. She notices none of them.
 5. `09:05` The registry goes down
