@@ -17,11 +17,11 @@
     "escalateTo": [
       "split across slides"
     ],
-    "note": "columns INCLUDING the leading workstream label column, so 4 = three phases. Past four phases the landscape grid crushes; at portrait the horizons cards paginate instead (max 4 pages)"
+    "note": "columns INCLUDING the leading workstream label column, so 4 = three phases. Past four phases the landscape grid crushes; at portrait the horizons cards paginate instead (one card per page since #2016 — the four-page budget it used to name is gone)"
   },
   "split": {
     "strategy": "roadmap-horizons",
-    "note": "Portrait only, and CARD FORM only. The roadmap TABLE stays atomic per §0c — paginating a workstream x phase grid destroys the cross-reading. But at portrait chart-family.js auto-selects `horizons`, which transposes the grid into N INDEPENDENT .horizon-card phase units (each a phase header plus that phase's workstream rows), so the seam is real there the way kanban's lanes are. The splitter returns null when there is no .horizons grid, so the table form is untouched. Budget 2-4 pages, 4 max (#1209): perSlide = ceil(N/4) caps the run and evenGroups balances it, so 3 phases -> 3 pages and 6 phases -> 2+2+1+1, never 6. lib/core/carousel.js roadmap-horizons."
+    "note": "Portrait only, and CARD FORM only. The roadmap TABLE stays atomic per §0c — paginating a workstream x phase grid destroys the cross-reading. But at portrait chart-family.js auto-selects `horizons`, which transposes the grid into N INDEPENDENT .horizon-card phase units (each a phase header plus that phase's workstream rows), so the seam is real there the way kanban's lanes are. The splitter returns null when there is no .horizons grid, so the table form is untouched. One card per page. #2016 made the split structural and set the pace to a constant 1, deleting MAX_HORIZON_PAGES and evenGroups from roadmapHorizonSplit — so 3 phases -> 3 pages and 6 phases -> 6, not the 2+2+1+1 the old ceil(N/4) budget produced. lib/core/carousel.js roadmap-horizons."
   },
   "families": [
     "state-markers"
@@ -36,7 +36,11 @@
     "figureClass": "roadmap-figure"
   },
   "stage": "canvas",
-  "coda": { "claims": ["trailing-paragraph"] },
+  "coda": {
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
   "orientation": [
     "landscape",
     "portrait"

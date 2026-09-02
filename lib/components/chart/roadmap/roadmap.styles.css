@@ -687,9 +687,36 @@ section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .hor
  *
  * Both directions are covered by tests: `check:chart-fit` renders the split
  * pages, and the carousel suite asserts an overstuffed roadmap still divides.
- * See #1209. */
+ * See #1209.
+ *
+ * THE FLOOR IS `flex-grow`, NOT `min-height: 100%` — changed 2026-09-02, and the
+ * difference is a sibling. #2016 made the split's forward-pointer signal
+ * (`.lat-split-rel`) universal: a component that declares no `capacity.relationship`
+ * now defaults to `sequence` instead of being skipped, and `injectTrailing` seats
+ * that signal INSIDE `.cell-stage` (split-envelope.js — the coda seat is only for a
+ * coda cell). Every roadmap body page but the last gained a 62.2px sibling, above a
+ * 13.2px `row-gap`, in a stage this rule had floored at exactly 100%. Measured:
+ * 801.25 + 13.16 + 62.2 = 876.6 in an 801px stage — the signal painted 75.4px past
+ * the clip on `[portrait]` and on five pages of `examples/portrait-roadmap.md`.
+ *
+ * `min-height: 100%` cannot be right once the stage holds two children: it asks for
+ * the WHOLE stage regardless of what else is in it. Subtracting a guessed band
+ * (`calc(100% - 75px)`) would be worse — the signal wraps to two lines in a narrow
+ * box, as its own `text-wrap: balance` comment records, so the band is not a
+ * constant.
+ *
+ * `flex: 1 0 auto` says the same thing declaratively and lets the layout measure it:
+ *   - grow 1  — take the FREE space, i.e. whatever the signal did not, so an
+ *               under-full split page still fills (what #1209 asked for);
+ *   - shrink 0 — never compress, so an overstuffed body still exceeds the stage and
+ *               `overflow-probe.js` still sees `scrollHeight > clientHeight`. This is
+ *               the half the comment above is about, and it is why `flex: 1 1 0` and
+ *               `flex: 1 1 auto` are both still wrong: either one shrinks to fit and
+ *               blinds the probe.
+ * Grow distributes only free space, so a wrapped two-line signal is accommodated
+ * without this rule knowing its height. */
 section.chart-frame.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) > .cell-stage > .chart-body {
-  min-height: 100%;
+  flex: 1 0 auto;
 }
 /* With the body floored, these can finally hand the height down: `1fr` rows
  * stretch the cards that remain on the page, and the card's own rows spread
