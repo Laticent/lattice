@@ -1,6 +1,6 @@
 ---
 title: Make it yours
-description: Three short tracks that teach you to build a Lattice theme, component, and finish from scratch — with a live editor on every page.
+description: Three short tracks that teach you to build a Lattice theme, component, and finish from scratch — with a live editor on nearly every page.
 ---
 
 Lattice dresses a slide in three separable layers, and you can author all
@@ -35,18 +35,17 @@ grid, a keyline frame.
 
 ## How to read these
 
-Every page carries a **live lab** — a real slide beside a real editor.
-Change the CSS and the slide repaints as you type. Nothing is saved, so
-break things freely; **Reset** puts each lab back the way it was.
+Every page except the three checklists carries a **live lab**: the slide on
+top, its source underneath. Edit the source and the slide repaints as you
+type. Nothing is saved, so break things freely — a **Reset** button appears
+in the lab's header the moment you change anything, and puts it back.
 
 The labs run the same engine that renders your PDFs, so what you see is
 what you would get. Two differences worth knowing:
 
 - The lab renders one slide, not a deck.
-- When two CSS rules both apply to the same thing, the browser picks a
-  winner. The engine's own rules are written so that they usually win, so a
-  rule you type into a lab that seems to do nothing is more often being
-  overruled than mis-typed. Each track says where that bites.
+- A rule you type into a lab can lose to the engine's own rule, even when it
+  is written correctly. Each track says where that bites.
 
 Read the pages in the order the sidebar lists them. Each one assumes the
 one before it.

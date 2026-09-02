@@ -28,7 +28,7 @@ Beyond the groups on [the token tour](/craft/themes/tokens/), define:
 | `--diagram-*` | several | stroke, line, lifecycle, alarm |
 | `--scheme-dark-*` | 10 | the dark inputs your pairs read |
 | `--pass-bg` / `--warn-bg` / `--fail-bg` | 3 | tinted signal grounds |
-| `--seq-500` | 1 | anchors a nine-step gradient ramp |
+| `--seq-500` | 1 | anchors a ten-step gradient ramp |
 | `--text-label`, `--code-text` | 2 | the accent-hued label tier, and code text |
 | `--c-container*`, `--c-subcontainer*` | 6 | the grouping boxes diagrams draw around related nodes: two fills, two edges, two label inks. Not optional — the fill is a barely-there step from the canvas, so a theme that omits them gets an invisible box and unreadable labels |
 

@@ -3,6 +3,10 @@ title: Ship your finish
 description: What a finish touches, the gates it has to clear, and the export sign-off that cannot be skipped.
 ---
 
+A finish is finished when it works in every palette, in both canvases, and
+— the part no script can check — in the exported PDF. This page is that
+list.
+
 ## What you touch
 
 ```text

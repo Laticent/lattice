@@ -3,6 +3,10 @@ title: Ship your component
 description: The files, the gates, and the list that says a layout is finished.
 ---
 
+A component is finished when the manifest describes it honestly, the CSS
+obeys the three rules, and a demo deck proves the numbers were found by
+rendering rather than guessed. This page is that list.
+
 ## What ships
 
 ```text

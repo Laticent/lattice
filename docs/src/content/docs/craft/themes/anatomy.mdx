@@ -17,9 +17,9 @@ whatever color your theme put there is what appears. Swap the theme and
 every slide in every deck changes at once, because nothing downstream ever
 knew the color in the first place.
 
-## Try it
+## Change one color, watch nine things move
 
-Edit a color below. The slide beside it repaints as you type.
+Edit a color in the box below. The slide above it repaints as you type.
 
 <CraftLab
 	label="A theme, and a slide wearing it"
@@ -27,7 +27,7 @@ Edit a color below. The slide beside it repaints as you type.
 	css={THEME_MINI}
 	markdown={SLIDE_KPI}
 	size="tall"
-	hint="Change --accent to #B03A2E and watch the tags, the rules and the emphasis all follow. One value, many places — that is the whole idea."
+	hint="Scroll the box down to the Brand block and change --accent to #B03A2E. The tags, the rules and the emphasis all follow. One value, many places — that is the whole idea."
 />
 
 Notice what you did *not* have to touch: the tags, the numbers, the
@@ -59,10 +59,13 @@ everything you leave out falls back to the engine's default. A finished
 theme fills them all in, but a half-finished one still shows you a
 slide.
 
-**The colors.** A `:root` block of named values. Each name is a **role**,
-not a color: `--text-body` is "the color body prose is set in," not "dark
-gray." That is why themes stay swappable — the role is the same in every
-palette; only the value differs.
+**The colors.** A `:root` block of named values. Each name is called a
+**token**, and each names a **role** rather than a color: `--text-body` is
+"the color body prose is set in", not "dark gray". That is why themes stay
+swappable — the role is the same in every palette; only the value differs.
+
+Theme and palette mean the same thing here. The picker in the site header
+uses the second word.
 
 Real palettes carry a small companion file too,
 `themes/evergreen.manifest.json`, which records the palette's identity: its

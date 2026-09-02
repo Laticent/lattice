@@ -6,10 +6,11 @@ description: A blank file to a working palette, in the order that makes each dec
 import CraftLab from '../../../../components/craft/CraftLab.astro';
 import { SLIDE_KPI, THEME_MINI } from '../../../../components/craft/samples.ts';
 
-Here is the whole job, in the order that works. Each step feeds the next,
-so doing them out of order means redoing them.
+Seven steps take a blank file to a palette you could ship — about fifteen
+minutes for a first pass. They only work in this order: each step decides
+something the next one needs.
 
-## 0. Scaffold the file
+## 1. Scaffold the file
 
 ```bash
 npm run new:theme evergreen
@@ -26,7 +27,7 @@ Render something with it right away, so you know the loop works:
 node lattice-emulator.js examples/finish-backdrops.md /tmp/check.pdf -p evergreen
 ```
 
-## 1. Pick the brand axis
+## 2. Pick two or three brand colors first
 
 Before touching a token, choose **two to six anchor colors**. A deep one, a
 mid one, a bright one. Write them at the top of the file as plain notes:
@@ -43,7 +44,7 @@ These are not tokens the engine reads. They are your reference, so that
 every later value is derived from a decision you already made rather than
 picked one at a time.
 
-## 2. Surfaces
+## 3. Surfaces
 
 Set `--bg`, `--bg-alt`, `--border`, `--surface-inverse`.
 
@@ -52,7 +53,7 @@ degree or two — a warm brand wants warm paper — but stay pale. Everything
 else in the deck is judged against these two, so a saturated background
 distorts every later choice.
 
-## 3. The ink ramp
+## 4. The ink ramp
 
 Set the six ink tokens, loudest to quietest, and check each against the
 surface it lands on as you go. Write the ratio in a comment beside it:
@@ -67,7 +68,7 @@ surface it lands on as you go. Write the ratio in a comment beside it:
 
 Write the number down. That is what makes you check it.
 
-## 4. Accent
+## 5. Accent
 
 Set `--accent`, then `--accent-soft`, then `--on-accent`.
 
@@ -75,7 +76,7 @@ Do `--on-accent` last and by eye, on a real slide. It is the one value the
 engine cannot derive for you, because it depends on exactly how light or
 dark your accent turned out.
 
-## 5. Everything else
+## 6. Everything else
 
 Signals, code colors, chart colors, the categorical cycle. These are
 volume, not difficulty — and the scaffold has already given you a working
@@ -84,10 +85,10 @@ set to re-hue rather than invent.
 The categorical cycle deserves its own read before you touch it:
 [Colors for charts and diagrams](/craft/themes/categorical/).
 
-## 6. Look at it
+## 7. Look at it
 
-Render the component gallery in your palette, in both canvases, and
-actually look at every page:
+Render the component gallery in your palette, in both canvases — the light
+version of the deck and the dark one — and look at every page:
 
 ```bash
 node lattice-emulator.js test/integration/baseline-decks/gallery.md \
@@ -100,16 +101,16 @@ in the deck.
 
 ## Practice run
 
-The lab below is the whole of step 2 through 4, on one slide. Work down the
-file in order and watch each decision land.
+Steps 3 through 5 — surfaces, ink, accent — on one slide. Work down the file
+in that order and watch each decision land.
 
 <CraftLab
-	label="Steps 2 to 4, live"
+	label="Surfaces, then ink, then accent"
 	kind="theme"
 	css={THEME_MINI}
 	markdown={SLIDE_KPI}
 	size="tall"
-	hint="Work in order: change --bg and --bg-alt first, then the whole ink ramp, then the accent. Going back to fix a surface after picking an accent is how the order earns itself."
+	hint="Work top down. Set --bg: #FDFBF7 and --bg-alt: #F5EEE2 for warm paper, re-warm the six inks below them, then set --accent: #9A5B1E last. Try it in the other order and you will come back to redo the surfaces — that is what the order is for."
 />
 
 ## Next

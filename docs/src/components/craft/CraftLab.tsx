@@ -7,7 +7,7 @@ import { PillTabs } from '@/components/ui/pill-tabs';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 
-// CraftLab — the docs' hands-on pane: an editable source box beside a live slide.
+// CraftLab — the docs' hands-on pane: a live slide above an editable source box.
 //
 // It is the ONE interactive surface the Craft track uses, on every page of all
 // three tracks (themes · components · finishes), because the reader's loop is the
@@ -118,11 +118,18 @@ export function CraftLab({
 						<RotateCcw className="size-3.5" aria-hidden="true" /> Reset
 					</Button>
 				) : null}
+				{/* The visible label names the canvas you would switch TO, which is the
+				    convention the page hints depend on ("Press Dark"). That makes this an
+				    ACTION, not a toggle showing its own state — so it carries an aria-label
+				    matching the title and NOT `aria-pressed`. With both, a screen reader in
+				    dark mode announced "Light, toggle button, pressed" — i.e. "Light is on"
+				    — while the canvas was dark: the label and the state contradicting each
+				    other, because they described different things. */}
 				<Button
 					variant="ghost"
 					size="sm"
-					aria-pressed={mode === 'dark'}
 					onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')}
+					aria-label={mode === 'dark' ? 'Show the light canvas' : 'Show the dark canvas'}
 					title={mode === 'dark' ? 'Show the light canvas' : 'Show the dark canvas'}
 				>
 					{mode === 'dark' ? <Sun className="size-3.5" aria-hidden="true" /> : <Moon className="size-3.5" aria-hidden="true" />}
