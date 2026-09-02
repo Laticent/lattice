@@ -254,3 +254,47 @@ explicitly accepts cross-origin `https://`, protocol-relative and `data:` values
 opaque image into **third-party markup entering the document**, which puts it on the HARD RULE #22
 path — a sanitize boundary and a registered sink, not a free change. That is the real cost of
 animating logos.
+
+---
+
+## 13. Logo policy — the asset's format decides the capability
+
+**Decision.** Respect what the author supplied. A logo we can obtain as SVG markup is placed with
+**SVG constructs** and is independently animatable. A raster logo is placed with **raster
+constructs** and animation is **disabled** — never coerced, never converted, never faked.
+
+**The test is not "is it SVG" but "can we obtain the markup without a network fetch."** That third
+case is forced by an existing decision, not by taste: inlining a remote SVG would require the export
+to wait on a fetch, and `lib/core/author-deferral-probe.js` settles that — *"There is no finite wait
+that is correct — the next deck can always pick a longer one — so the export declines the wait."*
+
+| `logo:` value | Construct | Animation |
+|---|---|---|
+| `./mark.svg` — relative local | inline `<svg>` | **enabled** |
+| `data:image/svg+xml,…` | inline `<svg>` | **enabled** |
+| `https://…/mark.svg` — remote | `<img>` | **disabled** |
+| `.png` / `.jpg`, any location | `<img>` | **disabled** |
+
+The discrimination already exists in the tree: `lib/core/deck-front-matter.js:108` tests
+`/^(?:https?:|data:|\/\/|\/)/i` to separate a relative local path from an absolute, remote, site-
+relative or `data:` one — written for a different reason (a local path cannot survive being baked
+into an export) and exactly the predicate this needs.
+
+**Disabled must be VISIBLE.** A silent no-op is the failure mode this whole line of work exists to
+escape — Vivus's `ready = false`, GSAP's DrawSVG painting nothing in jsdom, both SplitText
+implementations reporting success while destroying the text. When an author asks for logo motion and
+supplies a raster or a remote SVG, `lint:deck` warns and names the fix. That is HARD RULE #29's
+posture — *"we warn, we coach"* — and it is already the house pattern for author-facing limits.
+
+**It also shrinks the security surface rather than growing it.** Only a logo we inline becomes
+third-party markup in the document, so only the local-SVG and `data:` rows touch HARD RULE #22.
+Raster and remote logos stay `<img>`, exactly as they ship today, and carry no new risk. A blanket
+"inline every logo" would have put the cross-origin case on the sanitize path for no gain.
+
+**Do the logo BEFORE the rail.** The two are the same technique — replace a DOM construct with an
+inline SVG and prove pixel identity with `npm run regress` — but the blast radii differ by two
+orders of magnitude. Only **7 files** reference `logo:` (4 example decks plus the logo gallery and
+docs), so the goldens at risk are the logo gallery in both modes plus 4 example PDFs: **6, against
+the rail's 367.** Validate the technique where a surprise is cheap. And expect one: an `<img>` takes
+intrinsic sizing from the file, while an inline `<svg>` falls back to its viewBox or to 300×150
+unless width and height are carried across explicitly. This supersedes §10's implied ordering.
