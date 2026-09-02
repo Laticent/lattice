@@ -180,22 +180,6 @@ test.describe('an export carries ONLY the views it exports', () => {
 		assert.ok(REFUSAL_REASONS.unsplittable, 'the reason carries an explanation the CLI can print');
 	});
 
-	test('a second `_lens` comment on one slide does not ride along', () => {
-		// Lente reads only a slide's FIRST tag, so a second one was invisible to the prune and
-		// reached the artifact verbatim. Nothing has ever read it; it is a withheld view's id
-		// to a recipient and dead weight to everyone else.
-		// The extra tag is part of the slide body, so it has to be there BEFORE the fixture is
-		// approved — hashing first and editing after is just a `drifted` deck.
-		const chunks = ['<!-- _lens: brief -->\n<!-- _lens: ask -->\n\n# One\n\nBody one.\n', '\n# Two\n\nBody two.\n'];
-		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
-		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
-		const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks.join('\n---\n')}`;
-		const out = projectForExport(src, ['brief']);
-		assert.equal(out.ok, true, `expected a projection, got ${out.reason}`);
-		assert.doesNotMatch(out.source, /ask/, 'the extra tag is gone, not merely unparsed');
-		assert.match(out.source, /_lens: brief/, 'and the tag that IS read survives');
-	});
-
 	test('a tombstone cannot smuggle a withheld id through, in any spelling', () => {
 		// `upsertLensRegistry` deliberately re-attaches every tombstone it finds. Filtering the
 		// SOURCE for a tombstone shape missed `{ drop: true, }` and `{ label: "L", drop: true }`,
@@ -366,26 +350,6 @@ test('a chunk that ends mid-paragraph still gets the separator pad', () => {
 	assert.match(out.source, /prose\n\n---\n/, 'the pad was written — without it the separator underlines the paragraph');
 	assert.equal(renderedSections(out.source), 2, 'two slides ship, and the paragraph is still on the first');
 	assert.match(out.source, /prose/, 'the paragraph survived rather than becoming a heading');
-});
-
-test('a `_lens` example written in INLINE code survives the projection', () => {
-	// The prune rewrites the author's slide text, and the sweep for duplicate tags knew about
-	// FENCED code but not inline code. A slide that teaches the syntax — the natural deck to
-	// export with `--lens` for a demo — had its backticked example deleted, leaving two bare
-	// backticks and a sentence that no longer parses. The `unsplittable` net cannot see this:
-	// the slide count does not change, so the damaged deck passes every gate.
-	const chunks = [
-		'<!-- _lens: brief -->\n\n# How to tag a slide\n\nWrite `<!-- _lens: ask -->` at the top of the slide.\n',
-		'\n# Second\n\nBody.\n',
-	];
-	const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
-	const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
-	const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks.join('\n---\n')}`;
-
-	const out = projectForExport(src, ['brief']);
-	assert.equal(out.ok, true, `expected a projection, got ${out.reason}`);
-	assert.match(out.source, /Write `<!-- _lens: ask -->` at the top/, 'the author’s example is still on the slide');
-	assert.doesNotMatch(out.source, /Write `` at the top/, 'and was not gutted to a pair of backticks');
 });
 
 test('`--lens full` returns the identity even when a slide would prune to nothing', () => {

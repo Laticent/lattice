@@ -34,7 +34,11 @@
   slides however the deck happens to paginate. Export-to-Marp still materializes those breaks as real
   separators — a baked deck genuinely has more slides — and a view carried into one refuses as
   `drifted` rather than guessing.
-- **A projected export carries only the views it exports.** `--lens brief` withheld every non-member
+- **A projected export carries only the views it exports** — with one documented gap: a slide that
+  quotes the `_lens` syntax in INLINE code has that example read as its tag, so the slide's real tag
+  is not pruned. Fenced examples are handled; inline ones need a shared inline-context reader across
+  every consumer, which is a slice of its own. `design/skills/lens.md` says so where authors read.
+  Otherwise: `--lens brief` withheld every non-member
   slide and then, in the envelope's own front matter, named `evidence` and `ask`, printed their human
   labels, published their approval digests, and marked on every kept slide whether it belonged to
   them. The `lenses:` block and the per-slide `_lens` tags are now pruned to the exported views.
@@ -55,6 +59,7 @@
   falling back and shipping a correct-looking file that opens on the wrong view.
 - **The carrier's view switcher is a dropdown.** A view's name is the author's own noun and no icon
   can stand for one, so a button per view sized the whole top bar to how many views a deck declares
-  and how long each name is — three long names crowded a 390px phone bar until the theme toggle
-  had nowhere to go, and the width caps that fixed that truncated the names to "B… E… T…". One `<select>` costs one control however many views ship, keeps the full names in the
+  and how long each name is — a button per view sizes the bar to how many views a deck
+  declares and how long each is named, and the width caps that kept it inside a phone screen
+  truncated the names to "B… E… T…". One `<select>` costs one control however many views ship, keeps the full names in the
   platform's own picker, and flexes with the bar instead of budgeting it.

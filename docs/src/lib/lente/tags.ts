@@ -46,46 +46,6 @@ export function fenceRanges(src: string): Array<[number, number]> {
 
 const inFence = (i: number, ranges: Array<[number, number]>) => ranges.some(([a, b]) => i >= a && i < b);
 
-/** Char ranges [start, end) of INLINE code spans (`` `…` ``), so a `_lens` example written in
- *  backticks on a slide is not mistaken for a real directive — and, more sharply, is not EDITED
- *  as one.
- *
- *  `fenceRanges` covers the block form and this covers the inline one; the two are the same rule
- *  applied to the two ways an author quotes code. The gap between them shipped a defect: a slide
- *  reading ``Write `<!-- _lens: ask -->` at the top`` had the example deleted by
- *  `stripExtraLensTags`, leaving two bare backticks and a sentence that no longer parses. Inline
- *  code is a RENDERED surface here — HARD RULE #29 already says so in its own scope note ("a
- *  backticked eyebrow is set on the slide") — so a deck that teaches reader views is exactly the
- *  deck a projection would corrupt.
- *
- *  CommonMark's rule, and no more: a run of N backticks opens a span, and the next run of exactly
- *  N closes it. A run with no matching partner is literal text, so it opens nothing. Backticks
- *  inside a fence are skipped, since the fence already owns them. Char scan, no regex — the same
- *  reason `fenceRanges` is one (js/polynomial-redos). */
-export function inlineCodeRanges(src: string, fences?: Array<[number, number]>): Array<[number, number]> {
-	const text = String(src ?? '');
-	const blocks = fences ?? fenceRanges(text);
-	const out: Array<[number, number]> = [];
-	let i = 0;
-	while (i < text.length) {
-		if (text[i] !== '`' || inFence(i, blocks)) { i++; continue; }
-		let j = i;
-		while (j < text.length && text[j] === '`') j++;
-		const n = j - i;
-		let k = j;
-		let closed = false;
-		while (k < text.length) {
-			if (text[k] !== '`' || inFence(k, blocks)) { k++; continue; }
-			let m = k;
-			while (m < text.length && text[m] === '`') m++;
-			if (m - k === n) { out.push([i, m]); i = m; closed = true; break; }
-			k = m;
-		}
-		if (!closed) i = j; // an unmatched run is literal text, not an opener
-	}
-	return out;
-}
-
 /** True if `s` is empty or all ASCII whitespace (a char scan, so no `\s`-quantified regex touches
  *  library input). */
 function isBlank(s: string): boolean {
@@ -171,47 +131,39 @@ export function taggedLensIds(slides: string[]): Set<string> {
 	return ids;
 }
 
-/**
- * Remove every non-fenced `_lens` comment on a slide EXCEPT the first — returning the slide
- * unchanged when there is at most one, which is every slide Lente itself wrote.
+/*
+ * WHY THERE IS NO DUPLICATE-TAG SWEEP HERE, AND WHAT IT COSTS.
  *
- * `parseSlideTags` and `writeTags` both stop at the first comment, by design: one slide has one
- * membership, and a second tag has no defined meaning. The consequence is that a second tag is
- * READ by nothing and REWRITTEN by nothing — so an export that prunes a deck's tags down to the
- * views it carries could not see it, and a withheld view's id rode into the artifact verbatim
- * (`lib/core/lens-export.mjs`). Deleting it is not a behavior change for any reader: nothing
- * consulted it before.
+ * A slide can carry more than one `_lens` comment, and this module reads only the first
+ * (`parseSlideTags` and `writeTags` both stop there). So a second one is invisible: nothing
+ * reads it, nothing rewrites it, and a `--lens` export that prunes a deck's tags down to the
+ * views it carries cannot see it either — the second tag rides into the artifact naming a view
+ * the recipient was not given. That is a real, if narrow, disclosure, and it is KNOWN AND
+ * ACCEPTED rather than fixed. The obvious fix was written, measured, and withdrawn; this is the
+ * record, so nobody re-derives it from scratch.
  *
- * A comment's own line goes with it, on the same rule `writeTags` uses — take the newline only
- * when the comment owned the line, so an inline tag cannot splice the next line onto this one.
+ * A sweep that deletes every tag after the first must know which text is QUOTED, or it edits an
+ * author's documented example. Fenced code is easy — `fenceRanges` above already does it.
+ * Inline code is not: doing it correctly means parsing the slide's inline context AFTER block
+ * structure and backslash escapes, which is a CommonMark implementation, not a helper. A
+ * hand-rolled backtick scanner shipped three defects, each measured on the real CLI:
+ *   · it deleted a backticked `<!-- _lens: … -->` example from a slide that documented the
+ *     syntax, shipping "Write `` at the top" — two bare backticks and a broken sentence;
+ *   · with the example BEFORE the real tag, the sweep and `parseSlideTags` disagreed about which
+ *     comment was "the tag", so the real tag's withheld token was never pruned — a NEW leak, in
+ *     the exact direction the prune exists to prevent;
+ *   · one unmatched backtick anywhere on the slide paired with a later one, swallowed both tags
+ *     into a phantom span and silently disabled the sweep (0 → 2356 fail-opens across a
+ *     60,000-slide differential fuzz against markdown-it).
+ * It was closing a MEDIUM leak that needs an unusual authoring shape, and it kept producing
+ * worse ones. Removing it restores a single reader of record: whatever `findDirectiveComment`
+ * returns is the slide's tag, for every consumer, with no second opinion to disagree with.
+ *
+ * To close the leak properly, give every reader in this module ONE shared inline-context scanner
+ * so they cannot diverge — markdown-it is already an engine dependency and is the obvious
+ * oracle. That is a slice of its own, not a patch to this one.
  */
-export function stripExtraLensTags(slideSrc: string): string {
-	let src = String(slideSrc ?? '');
-	// QUOTED CODE IS NOT A DIRECTIVE — fenced OR inline. Passing both range sets means a
-	// backticked `<!-- _lens: … -->` example is neither mistaken for this slide's tag nor
-	// deleted as a duplicate of it. Without the inline half, a slide that documents the syntax
-	// lost its example to this sweep (two bare backticks and a broken sentence), and a slide
-	// whose example came BEFORE its real tag lost the real tag instead.
-	const quoted = (text: string) => {
-		const fences = fenceRanges(text);
-		return [...fences, ...inlineCodeRanges(text, fences)];
-	};
-	const first = findDirectiveComment(src, 'lens', quoted(src));
-	if (!first) return src;
-	// Walk from the end of the first tag, removing each subsequent one. Re-scanning the tail each
-	// time keeps the fence ranges honest as the string shrinks.
-	let cursor = first.end;
-	for (;;) {
-		const tail = src.slice(cursor);
-		const next = findDirectiveComment(tail, 'lens', quoted(tail));
-		if (!next) return src;
-		const start = cursor + next.start;
-		let end = cursor + next.end;
-		if (src[end] === '\n' && ownsItsLine(src, start)) end += 1;
-		src = src.slice(0, start) + src.slice(end);
-		cursor = start;
-	}
-}
+
 
 /** Render the two token sets to the shortest canonical, deterministically-ordered token string.
  *  Includes first (sorted), then `-`excludes (sorted). Empty => ''. */

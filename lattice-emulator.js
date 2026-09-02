@@ -263,7 +263,8 @@ OPTIONS
                           per file for a recipient who must not have the others.
       --lens-default <id> Which of the --lens views the player OPENS on. Must be
                           one of the ids you exported; naming any other exits
-                          non-zero. Defaults to the first one you named.
+                          non-zero. Without it the deck's own 'lens-default:'
+                          decides; the first id you named is the last resort.
       --lens-source <s>   What a --lens player's embedded envelope carries:
                           'projected' (default) ships only the slides that
                           shipped; 'full' keeps the deck exactly as authored, so

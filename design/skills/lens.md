@@ -178,6 +178,17 @@ approval digest and its per-slide membership are all absent from the file, not m
 absent from the switcher. `--lens-source full` is the one exception, and it is you asking
 for the whole deck by name.
 
+**Two known gaps, both narrow, both about a slide that QUOTES the syntax.** The reader that
+finds a slide's tag skips fenced code but not inline code, so on a slide carrying a
+backticked `` `<!-- _lens: … -->` `` example, that example is what gets read as the slide's
+membership — and the slide's real tag is then neither read nor pruned, so a withheld id in
+it reaches the artifact. A slide can also carry a second `_lens` comment, which nothing
+reads and nothing prunes, with the same result. Both predate the export path and neither is
+closed here: the fix is one shared inline-context reader for every consumer, and a
+hand-rolled backtick scanner tried in this branch shipped a corrupted example, a worse leak
+and a silently disabled sweep before being withdrawn. If a slide of yours documents the
+`_lens` syntax, check the exported envelope.
+
 **Two things the prune deliberately does NOT do.** It never writes an approval digest: the
 views in a projected deck ship without `approved:`, so re-importing the artifact reads them
 as `unapproved` — which is true, because a machine reduced the deck and your approval
