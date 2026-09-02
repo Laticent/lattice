@@ -147,6 +147,11 @@ coherence. The long-running decks pick up the new layout in a separate
 
 ### Authoring
 
+*These steps are for a branch that owes a deck by the trigger above. A branch
+that renders no new or changed slide surface skips this section entirely and
+carries its evidence in the PR body instead — the before/after numbers, the
+measured table, the arm that proves the thing can fail.*
+
 1. Create `examples/<feature-slug>.md`. The slug matches the branch noun
    (e.g. branch `feat/legal-layouts` → `examples/legal-layouts.md`,
    branch `fix/mermaid-catdeep` → `examples/mermaid-catdeep.md`).

@@ -181,8 +181,13 @@ Narrower than the word suggests. It means: *one* anchor you named, on *one* comp
 *one* family and *one* theme, on *one* axis, with autosplit suppressed, moved less than
 `--max-drift` and did not intersect a readable box — among the ink the tool could place.
 
-- **Only DRIFT and COLLISION can fail the run.** CROWDING, `CHROME`, `PASSES` and `UNPLACED`
-  are advisory, so two of the three headline failure modes never set the exit code.
+- **Only DRIFT and COLLISION can fail the run.** CROWDING is advisory, so one of the three
+  headline failure modes never sets the exit code — as are `CHROME`, `PASSES`, `SUBTREE` and
+  `UNPLACED`. A run that prints an advisory and exits 0 has still told you something.
+- **A `--anchors` candidate matching several boxes per slide is not one mark.** Its `moves`
+  number is one item's travel, not the set's, and `per > 1` says so on the row. The
+  `Sweep one with:` line prefers a candidate that matches exactly once, precisely because
+  naming a `per: 5` selector measures whichever box happens to be first in document order.
 - **The sweep renders `--no-split`** so page N stays step N. That is a no-op at `wide`, where
   autosplit does not apply — and an active suppression at `square`, `tall` and `strip`, where
   the sweep then measures a slide shape the real render may never emit. The tool prints this
@@ -197,24 +202,43 @@ Narrower than the word suggests. It means: *one* anchor you named, on *one* comp
 - **It measures the ink, not the box.** The flowed block is the union of every box that
   actually paints, descending through pure wrappers — because the Form's `.cell-stage`
   spans its whole grid area whatever is inside it, so a section's top-level children read
-  identical on a crowded slide and an empty one. The cost is that an inline eyebrow reads
-  ~9px lower than the paragraph that contains it (its line box has leading). It has never
-  changed a step-level verdict — a line is four times that — but it is why a number here
-  can differ slightly from one measured off a block box.
-- **A positioned pseudo's own `transform` is applied.** The `translate(-50%, 50%)` centering
-  idiom put a shipped mark 15.3px from where it paints; six positioned pseudos in the bundle
-  carry a transform. A `matrix3d`, or a transform on the containing block itself (which mixes
-  coordinate spaces), is refused rather than approximated.
+  identical on a crowded slide and an empty one. Two boxes, not one, and the difference is
+  the whole content/chrome split: what an element **paints** is its border box, and what a
+  reader **reads** is its **content box**, inside the border and the padding.
+- **Taking the border box for text was a false-positive generator**, and not a subtle one:
+  padding is how the engine RESERVES room for a mark, so a bullet drawn in its own host's
+  `padding-left` intersects that host's border box by construction. Shipped `roadmap`
+  reported `COLLISION step 1: clearance −233.5px` against unmodified CSS, on the sweep its
+  own `--anchors` output tells you to run — over a status dot sitting exactly where the
+  padding reserved for it, touching nothing a reader can see. Crying wolf is the more
+  corrosive failure mode: the next person to see it stops trusting the tool.
+- **A positioned pseudo's own `transform` is applied.** 21 positioned pseudo rules in the
+  bundle carry one, and the `translate(-50%, 50%)` centering idiom displaces a box by half
+  its own size — 15.3px for shipped `cycle`'s repeat mark, which is `1em` at `--fs-h3`
+  (2.3958cqi, so 30.67px in a 1280px-wide section), halved. A `matrix3d`, a transform on
+  the containing block itself (which mixes coordinate spaces), and the individual
+  `translate` / `rotate` / `scale` longhands are all **refused** rather than approximated —
+  the longhands compute to `transform: none` beside themselves, so reading `transform`
+  alone dropped the displacement silently and placed the box where it does not paint.
 - **A generated box is not a child**, and the first version of that walk could not see one:
   a pseudo painting chrome on a text-free wrapper was simply absent from the ink, and a
   hard, full-width overlap with the anchor reported `COLLISION none` and exit 0. Positioned
-  pseudos are now reconstructed and folded in, and the **descent continues past a painting
-  box** — stopping there left 66 positioned pseudos in the shipped gallery unseen, with no
-  `UNPLACED` note, which is the same false clean one level down. An in-flow one **offset by
-  `relative`** still
-  cannot be placed — the DOM does not expose a pseudo's static position — so it is counted
-  and printed as `UNPLACED`, and the clean line stops saying `ok`. A rig that cannot see
-  something must say so rather than certify around it.
+  pseudos are reconstructed and folded in, and the **descent continues past both a painting
+  box and a text-bearing one** — stopping at either left every positioned pseudo below it
+  unreachable with no `UNPLACED` note, which is the same false clean one level down.
+  Measured on shipped `pricing`: 2 positioned pseudos per slide, 0 of them reached, and
+  `--anchors` answering "this component draws no positioned pseudo the walk can place" over
+  two marks it places fine. An in-flow pseudo **offset by `relative`** still cannot be
+  placed — the DOM does not expose a pseudo's static position — so it is counted and
+  printed as `UNPLACED`, **with the reason it could not be placed**, and the clean line
+  stops saying `ok`. A rig that cannot see something must say so rather than certify around
+  it.
+- **The section's own pseudos are in the walk.** The engine's entire running-mark family is
+  `section::before` / `section::after` — `mark-orbit`, `mark-ticks`, `mark-chevron` and the
+  rest, 12 rules — which is the archetype this whole tool was built for. The walk started at
+  the section's *children*, and `sec.querySelectorAll` matches descendants, so for a while
+  the one shape in the opening paragraph was the one shape the tool could neither see as an
+  obstacle nor name as an anchor: `--anchor 'section::before'` refused with "no match".
 - **The ink is the border box, and text escaping it on the inline axis is NOT in the ink.**
   Two richer measures were tried and both invented collisions on layouts that are fine: a
   Range's rects are line boxes carrying the font's leading, and `scrollWidth` includes the
@@ -224,19 +248,35 @@ Narrower than the word suggests. It means: *one* anchor you named, on *one* comp
   silent: the engine's own probe flags it, in the `probe` column of the same row. A measure
   that invents collisions on shipped components to catch a case another channel already
   catches is a bad trade.
-- **Out-of-flow boxes are excluded from the ink by construction.** An absolutely positioned
-  mark is what an anchor *is*; to measure one, name it with `--anchor`. The named anchor is
-  excluded from its own ink, or every sweep would collide with itself.
+- **Only the ANCHOR is out of the ink — not everything out of flow.** The walk used to
+  return on any absolutely positioned element, on the reasoning that "an absolutely
+  positioned mark is what an anchor *is*". That reasoning covers the anchor, which is
+  excluded by name; it never covered readable content, and the engine positions plenty of
+  that: `image`'s spotlight headline block, `scene`'s `.scene-text`, `pricing`'s corner tag,
+  `state-chart`'s `.state-index`. Laying the divider's eyebrow through its numeral out of
+  flow reported `COLLISION none … ok` over a 61 × 117px two-axis overlap, and on `image` the
+  tool went further and blamed the operator — the heading grew 1 → 4 lines in its own
+  `lines` column while the vacuity warning said the axis was not moving the content and told
+  them to raise `--max`. Naming an anchor still drops **its whole subtree**, which is right
+  for a mark (its children ride with it) and wrong for a container, so a run that drops one
+  says so on a `SUBTREE` line rather than looking clean.
 - **A collision is judged per painted rect, not against the ink's bounding box.** An anchor
   sitting in a *gap* between two pieces of ink is enveloped by the union while touching
   neither; the union is the right thing to report a clearance against and the wrong thing
   to fail on.
+- **CROWDING is measured over the whole ink, and the named anchor is not in it.** So the
+  same component reports 168.1px of top crowding on its own and none under `--anchor
+  'h2::after'` — because the 168.1px *is* the numeral you would have named. The number alone
+  is ambiguous in a way that reads as a broken tool, so the row names what is sitting in the
+  band.
 - **One component, one family, one theme per run.** There is no corpus mode and no
   committed oracle — see below.
-- **It is not a CI gate.** It is a Chromium sweep, and a wall-clock-ish diagnostic in the
-  merge train is a flake generator. Same reasoning as `overflow:check` and `bench:check`.
-  What *does* run per PR is the falsifiability test above, which is a different claim: that
-  the tool still works.
+- **The tool is not a CI gate; its falsifiability test is.** Sweeping the corpus per PR
+  would be the flake generator — dozens of Chromium renders whose verdicts are
+  wall-clock-adjacent, which is why `overflow:check` and `bench:check` are held back too.
+  What runs per PR is `test/integration/invariants/jank-sweep.test.js`: 16 arms, ~31 sweeps,
+  **measured 78s serial** against the `integration` job's p50 of 601s. It makes a different
+  claim from any sweep — not that a component is clean, but that this rig can still go red.
 
 ## Two traps this already paid for
 

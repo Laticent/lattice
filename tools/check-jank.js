@@ -52,10 +52,13 @@
  *    pseudos are now reconstructed and folded in, and an offset in-flow one, whose static
  *    position the DOM does not expose, is COUNTED and suppresses the clean verdict rather
  *    than being dropped — and the descent CONTINUES past a painting box, because stopping
- *    there left 66 positioned pseudos in the shipped gallery unseen with no `unplaced` note.
- *    A positioned pseudo's own TRANSFORM is applied: the `translate(-50%, 50%)` centering
- *    idiom put a shipped mark 15.3px from where it paints, and 21 positioned pseudo rules in
- *    the bundle carry one.
+ *    there left every positioned pseudo below a painting box unseen, with no `unplaced`
+ *    note — and the same held one level further down at any box carrying TEXT, which on
+ *    shipped `pricing` meant 2 positioned pseudos per slide and 0 of them reached.
+ *    A positioned pseudo's own TRANSFORM is applied: 21 positioned pseudo rules in the
+ *    bundle carry one, and the `translate(-50%, 50%)` centering idiom displaces a box by
+ *    half its own size — 15.3px for shipped `cycle`'s repeat mark, which is `1em` at
+ *    `--fs-h3` (2.3958cqi, so 30.67px in a 1280px-wide section), halved.
  *    What the ink deliberately is NOT: the element's scroll extent. Text escaping its border
  *    box on the inline axis is not in the ink, because both richer measures tried for it
  *    invented collisions on layouts that are fine — a Range's line boxes carry the font's
@@ -101,10 +104,19 @@
  *                     rounding, not a tolerance).
  *   --help            print the flags and exit 0.
  *   --json            machine-readable rows + summary.
- *   --advisory        always exit 0.
+ *   --advisory        never exit 1. A SETUP failure still exits 2 — suppressing a verdict
+ *                     the rig did produce is a choice; suppressing the news that it did not
+ *                     run is the false clean this whole tool is built against.
  *
- * ON-DEMAND, NOT A CI GATE — same reasoning as `overflow:check` and `bench:check`: it is a
- * Chromium sweep, and a wall-clock-ish diagnostic in the merge train is a flake generator.
+ * THE TOOL IS ON-DEMAND; ITS FALSIFIABILITY TEST IS NOT — and the distinction is worth
+ * stating precisely, because the two are easy to conflate. Sweeping the CORPUS on every PR
+ * would be the flake generator (`overflow:check` and `bench:check` are held back for the
+ * same reason): dozens of Chromium renders whose verdicts are wall-clock-adjacent. What
+ * runs per PR is `test/integration/invariants/jank-sweep.test.js` — 16 arms, ~31 sweeps,
+ * measured 78s serial against the `integration` job's p50 of 601s — and it makes a
+ * different claim: not that any component is clean, but that this rig can still go red. A
+ * geometry rig degrades quietly, and every sweep after that reports "no collision" for the
+ * same reason an unplugged smoke alarm reports no fire.
  * Exit 1 on a collision or drift past the limit, 2 on a setup failure, 0 otherwise. The
  * exit-2 set is deliberately wide, because the failure that matters for a measurement rig is
  * not a crash — it is a confident CLEAN over something it never measured: no Chromium, no
@@ -150,7 +162,7 @@ const USAGE = [
   '  --max-drift PX   anchor movement over this fails (default 2)',
   '  --style <css|f>  CSS injected as the deck\'s front-matter `style:`',
   '  --anchors        list the marks this component HAS, and how far each moves',
-  '  --json           machine-readable      --advisory    always exit 0',
+  '  --json           machine-readable      --advisory    never exit 1 (setup failures still exit 2)',
   '',
   'The header of tools/check-jank.js is the long form. engineering/jank.md is the method.',
 ].join('\n');
@@ -233,7 +245,18 @@ const STYLE = (() => {
   // and read as proof the fix held — and a file that EXISTS and is empty, or is prose, does
   // exactly the same thing. Measured: `--style empty.css` produced JSON identical to the
   // un-styled run.
-  const text = fs.readFileSync(raw, 'utf8');
+  // AND IT HAS TO BE READABLE AS A FILE. `existsSync` is true for a DIRECTORY, and the read
+  // then threw EISDIR at module scope — outside `main()`'s catch — so Node exited **1** with
+  // a stack trace. Exit 1 is this tool's "a collision or drift was found": a wrapper keying
+  // on the exit code read a mistyped path as a found defect, inverting the refusal contract
+  // this whole flag list is built on.
+  let text;
+  try {
+    text = fs.readFileSync(raw, 'utf8');
+  } catch (err) {
+    die(`--style '${raw}' cannot be read (${err.code || err.message}). A stylesheet that does `
+      + 'not load would inject nothing, and the sweep would silently match its own baseline.');
+  }
   if (!/\{|^\s*@/m.test(text)) {
     die(`--style '${raw}' exists but carries no CSS (no rule block, no at-rule). It would `
       + 'inject nothing, and the sweep would silently match its own baseline.');
@@ -383,7 +406,11 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
    * not the only property that does. `transform`, `filter`, `perspective`, `contain` and
    * `container-type` all make a static element the containing block for an absolutely
    * positioned descendant, and this engine puts `container-type: size` on every section.
-   * Walking on `position` alone silently misplaced such a pseudo (measured: 37px off).
+   * Walking on `position` alone resolves the SECTION-level case correctly by accident (the
+   * section is `position: relative` as well as `container-type: size`) and the nested one
+   * wrongly: shipped `list-criteria` puts `container-type: size` on a STATIC `ol`/`ul` that
+   * hosts a positioned `li::before`, so a position-only walk skips past it to the section
+   * and places every bullet against the wrong origin.
    */
   const establishesCb = (el) => {
     const cs = getComputedStyle(el);
@@ -391,7 +418,7 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
     if (cs.transform !== 'none' || cs.perspective !== 'none') return true;
     if (cs.filter !== 'none' || (cs.backdropFilter && cs.backdropFilter !== 'none')) return true;
     // The INDIVIDUAL longhands establish one too and do NOT show up in `transform`, which
-    // computes to `none` beside them — measured 340px of silent error apiece.
+    // computes to `none` beside them. `applyTransform` refuses them for the same reason.
     if (['translate', 'rotate', 'scale'].some((k) => cs[k] && cs[k] !== 'none')) return true;
     if (cs.contentVisibility && cs.contentVisibility !== 'visible') return true;
     if (cs.willChange && /transform|perspective|filter|contain/.test(cs.willChange)) return true;
@@ -410,6 +437,15 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
    * confident wrong number is the one thing this tool must not produce.
    */
   function applyTransform(box, cs) {
+    // THE INDIVIDUAL LONGHANDS ARE A SEPARATE CHANNEL, and `transform` computes to `none`
+    // beside them — so reading `transform` alone drops the displacement silently and places
+    // the box where it does not paint. Measured on `pricing`: the same mark spelled
+    // `translate: 0 400px` reported COLLISION none and exit 0, while `transform:
+    // translateY(400px)` reported the -40px strike. `establishesCb` already knew these
+    // exist; the geometry did not. REFUSED rather than composed — the composition order and
+    // the percentage basis are two more chances to be confidently wrong, and no rule in the
+    // bundle puts one on a positioned pseudo today (0 of 92).
+    if (['translate', 'rotate', 'scale'].some((k) => cs[k] && cs[k] !== 'none')) return null;
     if (!cs.transform || cs.transform === 'none') return box;
     const m = /^matrix\(([^)]+)\)$/.exec(cs.transform);
     if (!m) return null;
@@ -433,8 +469,16 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
     return { top, left, bottom, right, width: right - left, height: bottom - top };
   }
 
+  /**
+   * Returns `{ box }` or `{ why }` — never a bare null. FOUR different conditions leave a
+   * generated box unplaceable, and the report attributed all four to the first one: a box
+   * that is neither in-flow nor offset was announced as "an offset in-flow pseudo has no
+   * exposed static position", which sends the next debugger to the wrong branch.
+   */
   function placedBox(base, cs) {
-    if (!/px$/.test(cs.top) || !/px$/.test(cs.left)) return null;
+    if (!/px$/.test(cs.top) || !/px$/.test(cs.left)) {
+      return { why: `its top/left resolve to '${cs.top}'/'${cs.left}', not px` };
+    }
     let originTop = 0;
     let originLeft = 0;
     if (cs.position !== 'fixed') {
@@ -444,13 +488,15 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       // positioned heading rides the heading and drifts with it.
       let cb = base;
       while (cb && !establishesCb(cb)) cb = cb.parentElement;
-      if (!cb) return null;
+      if (!cb) return { why: 'no ancestor establishes a containing block for it' };
       const cbr = cb.getBoundingClientRect();
       const cbs = getComputedStyle(cb);
       // A TRANSFORMED containing block mixes coordinate spaces: its rect comes back
       // post-transform while the pseudo's `top`/`width` are its own untransformed used
       // values, so under a `scale` the two cannot be added. Refuse rather than report.
-      if (cbs.transform !== 'none') return null;
+      if (cbs.transform !== 'none') {
+        return { why: `its containing block <${cb.tagName.toLowerCase()}> is transformed, which mixes coordinate spaces` };
+      }
       originTop = cbr.top + num(cbs.borderTopWidth);
       originLeft = cbr.left + num(cbs.borderLeftWidth);
     }
@@ -466,59 +512,64 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
     const left = originLeft + num(cs.left) + num(cs.marginLeft);
     const height = num(cs.height) + grow.h;
     const width = num(cs.width) + grow.w;
-    if (!(width > 0) || !(height > 0)) return null;
-    return applyTransform({
+    if (!(width > 0) || !(height > 0)) return { why: `it resolves to ${width}x${height} — no box` };
+    const box = applyTransform({
       top, left, bottom: top + height, right: left + width, width, height,
     }, cs);
+    if (!box) {
+      return {
+        why: cs.transform && cs.transform !== 'none'
+          ? `its transform '${cs.transform}' is not a 2D matrix this walk can apply`
+          : 'it carries an individual translate/rotate/scale, which this walk refuses rather than guesses',
+      };
+    }
+    return { box };
   }
 
   /**
-   * The ink: the union of every painting box, descending through pure wrappers.
-   * A wrapper contributes nothing of its own — the Form's `.cell-stage` fills its grid
-   * area whether it holds one line or twelve — so stopping at the section's children
-   * measures the grid, not the content.
+   * Every generated box an element hangs, folded into the ink and recorded as a candidate.
+   * Split out of `ink()` because THE SECTION HANGS THEM TOO and the walk starts at the
+   * section's CHILDREN: the engine's whole running-mark family is `section::before` /
+   * `section::after` (12 such rules in the bundle — `mark-orbit`, `mark-ticks`,
+   * `mark-chevron` and the rest), so the archetype this tool was built for, a mark 22% down
+   * the canvas that a longer heading walks into, was the one thing it could neither see as
+   * an obstacle nor name as an anchor. `--anchor 'section::before'` refused with "no match",
+   * because `sec.querySelectorAll` matches descendants and the section is not its own.
    */
-  function ink(el, acc, unplaced, skip, candidates) {
-    if (el === skip.el && !skip.pseudo) return;
-    if (el.hasAttribute('data-lattice-berth')) return;
-    const cs = getComputedStyle(el);
-    if (cs.display === 'none' || cs.visibility === 'hidden') return;
-    // Out-of-flow boxes are excluded on purpose: an absolutely positioned mark is what an
-    // ANCHOR is, and folding it into the ink would hide the very collision we are after.
-    if (cs.position === 'absolute' || cs.position === 'fixed') return;
-
-    // GENERATED BOXES ARE NOT CHILDREN, and the first cut of this walk therefore could not
-    // see them: a wrapper with no direct text and no background read as a pure wrapper, so
-    // the walk descended into `el.children` and every pixel its pseudo painted was invisible
-    // to the tool. That is not an exotic case — the eyebrow `<p><code>` is exactly that
-    // shape, and the engine bundle carries hundreds of `::before`/`::after` rules painting
-    // chrome. A hard, full-width overlap with the anchor reported COLLISION none, exit 0.
+  function pseudoBoxes(el, acc, unplaced, skip, candidates) {
+    const tag = el.tagName.toLowerCase();
     for (const pseudo of ['::before', '::after']) {
-      // THE ANCHOR IS NOT ITS OWN OBSTACLE. Folding the named pseudo into the ink makes
-      // every sweep collide with itself — the shipped divider reported a -136.2px
-      // collision against its own section mark the moment this walk learned to see
-      // generated boxes.
-      if (el === skip.el && pseudo === skip.pseudo) continue;
       const ps = getComputedStyle(el, pseudo);
       if (ps.content === 'none' || ps.display === 'none' || ps.visibility === 'hidden') continue;
-      // Every reconstructable generated box is recorded, whether or not it is the named
-      // anchor — this is what `--anchors` prints. The tool's own thesis is that nobody forms
-      // the suspicion by looking, so a mode that only verifies an anchor you already
-      // suspected contradicts it. The walk already does the work.
+      // `opacity: 0` paints nothing while reporting a full background and border. The
+      // bundle really does ship one (`.scene-control`), so an invisible box would otherwise
+      // enter the ink as chrome and move `ink top`, `breathe` and CROWDING on that sweep.
+      if (num(ps.opacity) === 0) continue;
+      const named = el === skip.el && pseudo === skip.pseudo;
       if (ps.position === 'absolute' || ps.position === 'fixed') {
-        const box = placedBox(el, ps);
-        // A generated box is CHROME only when it generates no text. Hardcoding it chrome
-        // was wrong: the bundle carries 20 absolutely positioned pseudo rules whose
-        // `content` is a counter, an `attr()` or a quoted label — card numerals, 'DECISION',
-        // the matrix axis names — every one of them words a reader reads. The tool printed
-        // "no readable content in it" over a 32-character label.
-        const sel = `${el.tagName.toLowerCase()}${[...el.classList].map((c) => `.${c}`).join('')}${pseudo}`;
-        if (box) {
-          candidates.push({ sel, top: box.top, left: box.left, width: box.width, height: box.height });
-          acc.push({ ...box, kind: generatesText(ps) ? 'content' : 'chrome' });
-        } else unplaced.push(`${el.tagName.toLowerCase()}${pseudo}`);
+        const { box, why } = placedBox(el, ps);
+        if (!box) { unplaced.push(`${tag}${pseudo} — ${why}`); continue; }
+        // DISCOVERY SEES THE NAMED ANCHOR TOO. `--anchors` reads this list, so excluding the
+        // anchor from it made `--anchors --anchor 'h2::after'` print "this component draws no
+        // positioned pseudo the walk can place" about the very box it was measuring — adding
+        // a flag to a command that worked turned a correct table into a false statement.
+        const sel = `${tag}${[...el.classList].map((c) => `.${c}`).join('')}${pseudo}`;
+        candidates.push({ sel, top: box.top, left: box.left, width: box.width, height: box.height, named });
+        // THE ANCHOR IS NOT ITS OWN OBSTACLE. Folding the named pseudo into the ink makes
+        // every sweep collide with itself — the shipped divider reported a -136.2px
+        // collision against its own section mark the moment this walk learned to see
+        // generated boxes.
+        if (named) continue;
+        // A generated box is CHROME only when it generates no text. Hardcoding it chrome was
+        // wrong: the bundle carries a couple of dozen absolutely positioned pseudo rules
+        // (17 by the narrowest reading of `content`, 20 by the broadest) whose `content` is
+        // a counter, an `attr()` or a quoted label — card numerals, 'DECISION', the matrix
+        // axis names — every one of them words a reader reads. The tool printed "no readable
+        // content in it" over a 32-character label.
+        acc.push({ ...box, kind: generatesText(ps) ? 'content' : 'chrome' });
         continue;
       }
+      if (named) continue;
       // An in-flow pseudo lays out inside its originating element's box, so the element's
       // own rect already covers it — UNLESS it is offset out of that box by `relative`,
       // which paints somewhere this tool cannot compute (its static position is not
@@ -526,55 +577,116 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       // nobody measured.
       if (ps.position === 'relative'
         && [ps.top, ps.left, ps.bottom, ps.right].some((v) => /px$/.test(v) && num(v) !== 0)) {
-        unplaced.push(`${el.tagName.toLowerCase()}${pseudo}`);
+        unplaced.push(`${tag}${pseudo} — an offset in-flow pseudo has no exposed static position`);
+      }
+    }
+  }
+
+  /**
+   * The ink: the union of every box that paints, descending through pure wrappers.
+   * A wrapper contributes nothing of its own — the Form's `.cell-stage` fills its grid
+   * area whether it holds one line or twelve — so stopping at the section's children
+   * measures the grid, not the content.
+   *
+   * TWO BOXES, NOT ONE, and the difference is the whole content/chrome split:
+   *  · what an element PAINTS is its border box;
+   *  · what a reader READS is its CONTENT box — inside the border and the padding.
+   * Taking the border box for text was a false-positive generator, and not a subtle one:
+   * padding is how the engine RESERVES room for a mark, so a bullet drawn in its own host's
+   * `padding-left` intersects that host's border box by construction. Shipped `roadmap`
+   * reported `COLLISION step 1: clearance -233.5px` against unmodified CSS on the sweep its
+   * own `--anchors` output tells you to run — the status dot sitting exactly where the
+   * padding reserved for it, touching nothing a reader can see. Crying wolf is the more
+   * corrosive failure: the next person to see it stops trusting the tool.
+   */
+  function ink(el, acc, unplaced, skip, candidates, covered = false) {
+    if (el === skip.el && !skip.pseudo) { skip.dropped += 1 + el.querySelectorAll('*').length; return; }
+    if (el.hasAttribute('data-lattice-berth')) return;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden' || num(cs.opacity) === 0) return;
+
+    // GENERATED BOXES ARE NOT CHILDREN, and the first cut of this walk therefore could not
+    // see them: a wrapper with no direct text and no background read as a pure wrapper, so
+    // the walk descended into `el.children` and every pixel its pseudo painted was invisible
+    // to the tool. That is not an exotic case — the eyebrow `<p><code>` is exactly that
+    // shape, and the engine bundle carries hundreds of `::before`/`::after` rules painting
+    // chrome. A hard, full-width overlap with the anchor reported COLLISION none, exit 0.
+    pseudoBoxes(el, acc, unplaced, skip, candidates);
+
+    const r = el.getBoundingClientRect();
+    // OUT OF FLOW IS NOT OUT OF THE INK. This walk used to return on any absolutely
+    // positioned element, on the reasoning that "an absolutely positioned mark is what an
+    // anchor IS". That reasoning covers the ANCHOR, which `skip` already excludes — it
+    // never covered readable content, and the engine positions plenty: `image`'s whole
+    // spotlight headline block, `scene`'s `.scene-text`, `pricing`'s corner tag,
+    // `state-chart`'s `.state-index`. Laying the divider's eyebrow over its numeral out of
+    // flow reported `COLLISION none … ok` on a strike 61px x 116.8px on both axes, and on
+    // `image` the tool went further and blamed the operator: the heading grew 1 → 4 lines
+    // in its own `lines` column while the vacuity warning said the axis was not moving the
+    // content and told them to raise `--max`.
+    const outOfFlow = cs.position === 'absolute' || cs.position === 'fixed';
+    // An out-of-flow box is a candidate an operator can name, the same as a generated one —
+    // `--anchors` walked pseudos only, so `pricing`'s actual mark, an absolutely positioned
+    // `<em>`, was invisible to discovery for the same reason it was invisible to the ink.
+    if (outOfFlow && r.width > 0 && r.height > 0) {
+      candidates.push({
+        sel: `${el.tagName.toLowerCase()}${[...el.classList].map((c) => `.${c}`).join('')}`,
+        top: r.top, left: r.left, width: r.width, height: r.height, named: false,
+      });
+    }
+
+    const ownText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+    const readable = ownText || REPLACED.has(el.tagName.toUpperCase());
+    // COVERED means an ancestor's own box already accounts for this one — true for an
+    // in-flow descendant of a readable element, false for anything out of flow, which can
+    // paint anywhere.
+    const accounted = covered && !outOfFlow;
+
+    if (!accounted) {
+      // THE BORDER BOX for what paints, and nothing cleverer. Two richer measures were tried
+      // and BOTH manufactured collisions on layouts that are fine:
+      //   · a Range over the contents returns LINE boxes, which carry the font's leading, so
+      //     every text element grew ~5px upward and a mark just above one read as a hit;
+      //   · `scrollWidth`/`scrollHeight` include the border boxes of ABSOLUTELY POSITIONED
+      //     descendants for which the element is the containing block — so every out-of-flow
+      //     box came back in through its container's scroll extent, the named ANCHOR
+      //     included. Measured: shipped `list-steps` (a `position: relative` li with a
+      //     painting `li::after` chevron) reported a -219.1px COLLISION against unmodified
+      //     CSS. They also count CLIPPED text, which paints nowhere.
+      // What that costs: text escaping its box on the inline axis (a `nowrap` heading) is not
+      // in the ink. That case is not silent — the engine's own overflow probe flags it, and
+      // the `probe` column reports it on the same row.
+      if (paints(cs) && r.width > 0 && r.height > 0) {
+        acc.push({
+          top: r.top, left: r.left, bottom: r.bottom, right: r.right, width: r.width, height: r.height, kind: 'chrome',
+        });
+      }
+      // CONTENT is what a reader reads: a box with its own text, or a replaced element,
+      // measured at its CONTENT box. A PAINTING ANCESTOR DOES NOT SWALLOW IT — an earlier
+      // cut stopped the walk at any painting box, and the engine puts `border-bottom` on
+      // `.cell-masthead`, so on every Form component the heading and the eyebrow became
+      // decoration and a mark laid straight through an `h2` exited 0. One cosmetic hairline
+      // decided whether a heading strike was a defect.
+      if (readable) {
+        const top = r.top + num(cs.borderTopWidth) + num(cs.paddingTop);
+        const left = r.left + num(cs.borderLeftWidth) + num(cs.paddingLeft);
+        const bottom = r.bottom - num(cs.borderBottomWidth) - num(cs.paddingBottom);
+        const right = r.right - num(cs.borderRightWidth) - num(cs.paddingRight);
+        if (right - left > 0 && bottom - top > 0) {
+          acc.push({ top, left, bottom, right, width: right - left, height: bottom - top, kind: 'content' });
+        }
       }
     }
 
-    const r = el.getBoundingClientRect();
-    const ownText = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
-    // THE BORDER BOX, and nothing cleverer. Two richer measures were tried and BOTH
-    // manufactured collisions on layouts that are fine:
-    //   · a Range over the contents returns LINE boxes, which carry the font's leading, so
-    //     every text element grew ~5px upward and a mark just above one read as a hit;
-    //   · `scrollWidth`/`scrollHeight` include the border boxes of ABSOLUTELY POSITIONED
-    //     descendants for which the element is the containing block — so every out-of-flow
-    //     box this walk deliberately drops, the named ANCHOR included, came straight back
-    //     in through its own container's scroll extent. Measured: shipped `list-steps`
-    //     (a `position: relative` li with a painting `li::after` chevron) reported a
-    //     -219.1px COLLISION against unmodified CSS, and `divider numbered` collided with
-    //     its own numeral the moment the heading was made `position: relative`. They also
-    //     count CLIPPED text, which paints nowhere.
-    // What that costs: text escaping its box on the inline axis (a `nowrap` heading) is not
-    // in the ink. That case is not silent — the engine's own overflow probe flags it, and
-    // the `probe` column reports it on the same row. A measure that invents collisions on
-    // shipped components to catch a case another channel already catches is a bad trade.
-    // A PAINTING BOX ENDS THE ELEMENT INK, NOT THE WALK. Returning here left every
-    // positioned pseudo BELOW a painting wrapper unseen — 66 of them across the shipped
-    // gallery (verdict-grid's 16 badge marks among them) — with no `unplaced` entry, so
-    // the clean line still said `ok`. That is the same false clean this walk was rewritten
-    // to close, one level down: a lime block painted through the section mark went back to
-    // reporting `COLLISION none` the moment the wrapper above it had a background.
-    // So the element's own rect is taken once, and the descent continues for pseudos.
-    const box = (kind) => acc.push({
-      top: r.top, left: r.left, bottom: r.bottom, right: r.right, width: r.width, height: r.height, kind,
-    });
-
-    // CONTENT is what a reader reads: a box with its own text, or a replaced element. Its
-    // border box already covers its descendants, so the walk stops here.
-    if ((ownText || REPLACED.has(el.tagName.toUpperCase())) && r.width > 0 && r.height > 0) {
-      box('content');
-      return;
-    }
-
-    // A PAINTING BOX IS CHROME AND THE WALK CONTINUES THROUGH IT. Stopping here — which is
-    // what the first cut of the content split did — meant a painting ANCESTOR swallowed
-    // every text box beneath it and left behind a stand-in rect that carried no text and so
-    // classified as chrome. The engine puts `border-bottom` on `.cell-masthead`, so on every
-    // Form component the heading and the eyebrow — the exact surfaces #2005's numeral and
-    // hairline struck — became decoration, and a mark laid straight through an `h2` exited 0.
-    // One cosmetic hairline decided whether a heading strike was a defect.
-    if (paints(cs) && r.width > 0 && r.height > 0) box('chrome');
-    for (const kid of el.children) ink(kid, acc, unplaced, skip, candidates);
+    // THE DESCENT CONTINUES THROUGH BOTH KINDS. Returning at a text-bearing element left
+    // every positioned pseudo BELOW it unreachable, with no `unplaced` note, so the clean
+    // line still said `ok` — the same false clean this walk was rewritten to close, one
+    // level down. Measured on shipped `pricing`: 2 positioned pseudos per slide, 0 of them
+    // reached, and `--anchors` answered "this component draws no positioned pseudo the walk
+    // can place" over two marks it places fine. What the descent must NOT do is re-count an
+    // in-flow descendant whose ancestor's box already covers it, which is what `covered`
+    // carries down.
+    for (const kid of el.children) ink(kid, acc, unplaced, skip, candidates, accounted || readable);
   }
 
   /**
@@ -597,11 +709,9 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
     if (cs.position !== 'absolute' && cs.position !== 'fixed') {
       return { error: `${pseudo} is \`position: ${cs.position}\` — an in-flow pseudo has no measurable rect; name an element anchor instead` };
     }
-    const rect = placedBox(base, cs);
-    if (!rect) {
-      return { error: `${pseudo} resolves \`top: ${cs.top}\` / \`left: ${cs.left}\` at ${cs.width}x${cs.height} — that box cannot be placed` };
-    }
-    return { rect };
+    const { box, why } = placedBox(base, cs);
+    if (!box) return { error: `${pseudo} cannot be placed: ${why}` };
+    return { rect: box };
   }
 
   const rows = [];
@@ -621,11 +731,14 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
     let anchor = null;
     let anchorError = null;
     let anchorCount = 0;
-    const skip = { el: null, pseudo: anchorPseudo };
+    const skip = { el: null, pseudo: anchorPseudo, dropped: 0 };
     if (anchorSel) {
       let found = [];
       try {
-        found = sec.querySelectorAll(anchorSel);
+        // THE SECTION IS NOT ITS OWN DESCENDANT. `querySelectorAll` alone could not resolve
+        // `section::before` — the engine's entire running-mark family — so the archetype in
+        // this tool's own opening paragraph refused with "no match".
+        found = [...(sec.matches(anchorSel) ? [sec] : []), ...sec.querySelectorAll(anchorSel)];
       } catch {
         anchorError = `'${anchorSel}' is not a valid CSS selector`;
       }
@@ -644,6 +757,7 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
     const rects = [];
     const unplaced = [];
     const candidates = [];
+    pseudoBoxes(sec, rects, unplaced, skip, candidates);
     for (const kid of sec.children) ink(kid, rects, unplaced, skip, candidates);
     const heading = sec.querySelector('h1, h2, h3');
     // Line boxes, not an estimate: a Range over the heading's text returns a rect per inline
@@ -662,6 +776,12 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       lines,
       anchorCount,
       anchorError,
+      // NAMING A CONTAINER DELETES ITS CONTENTS. The anchor element and its whole subtree
+      // are dropped from the ink, which is right for a mark (its children ride with it) and
+      // silently wrong for a container: `--anchor '.cell-stage'` measured the masthead alone
+      // and reported `COLLISION none  ok` on the same row where the overflow probe read
+      // OVER. Counted so the run can say so instead of looking clean.
+      anchorSubtree: skip.dropped,
       unplaced: [...new Set(unplaced)],
       // Section-relative, so a candidate's spread across the sweep IS its drift.
       candidates: candidates.map((c) => ({
@@ -708,6 +828,16 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       right: content.right - inkBox.right,
     };
     const worst = Object.entries(edges).sort((a, b) => a[1] - b[1])[0];
+    // WHICH boxes are in the crowded band. A reserved keep-out band reads as CROWDING, and
+    // the number moves depending on whether the mark that lives there was named as the
+    // anchor — so the row says what is in the band rather than leaving the operator to
+    // guess whether the ink eating the margin is copy or a deliberate decoration.
+    const crowdBand = [...new Set(candidates.filter((c) => (
+      worst[0] === 'top' ? c.top < content.top
+        : worst[0] === 'bottom' ? c.top + c.height > content.bottom
+          : worst[0] === 'left' ? c.left < content.left
+            : c.left + c.width > content.right
+    )).map((c) => c.sel))];
 
     let clearance = null;
     let side = null;
@@ -756,6 +886,7 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       chromeBoxes: chromeRects.length,
       breathing: round(worst[1]),
       breathingEdge: worst[0],
+      crowdBand,
       section: { width: round(sr.width), height: round(sr.height) },
     });
   }
@@ -875,15 +1006,35 @@ async function main() {
     passesOnOneAxis: passes && { step: passes.step, clearance: passes.clearance },
     tight: tight && { step: tight.step, clearance: tight.clearance },
     crowded: crowded && { step: crowded.step, breathing: crowded.breathing, edge: crowded.breathingEdge },
+    // Reported so the operator can tell "the words are eating the margin" from "a mark lives
+    // in that band on purpose". CROWDING is measured over the whole ink and the named anchor
+    // is excluded from it, so the same component reports 168.1px of crowding without
+    // `--anchor` and none with it — which reads as a broken tool until you know that the
+    // 168.1px IS the mark you would have named.
+    crowdedBand: crowded ? crowded.crowdBand : [],
+    anchorSubtree: Math.max(0, ...rows.map((r) => r.anchorSubtree || 0)),
     firstOverflow: firstOver ? firstOver.step : null,
     inkHeightSpread: +spread.toFixed(1),
     vacuous: spread <= SLACK,
+    // The `--no-split` caveat reached the HUMAN path only, so a `--json` consumer at
+    // `--family tall` got no signal that the sweep measured a slide shape the real render
+    // may never emit. A machine reader needs the caveat more than a person does, not less.
+    autosplitSuppressed: FAMILY !== 'wide',
   };
 
   // THE REFUSAL COMES FIRST. Printing the report and then dying meant `--json` emitted a
   // complete payload reading `collision: null` before exit 2, and the human-readable path
   // printed `COLLISION none … ok` on its way out — a clean verdict on a sweep with no
   // verdict, in the one place the tool is supposed to be loudest.
+  // A SWEEP THAT MEASURED NOTHING IS NOT A CLEAN SWEEP. `withAnchor.length < measured.length`
+  // is false when BOTH are zero, so a sweep whose every slide came back empty — one `display:
+  // none` away, and `--style 'section.x > * { display: none }'` is exactly that — skipped the
+  // refusal and printed no DRIFT line, no COLLISION line and exit 0, with an anchor named.
+  // That is the one shape this tool exists to never produce.
+  if (measured.length === 0) {
+    die(`no slide in the sweep had any ink to measure (${rows.length} rendered) — there is `
+      + 'nothing here to hold still, so every verdict below would be about an empty page.');
+  }
   if (ANCHOR && withAnchor.length < measured.length) {
     die(`the anchor '${ANCHOR}' was measurable on ${withAnchor.length} of ${measured.length} slides `
       + `(${anchorErrors.join('; ') || 'no reason recorded'}) — drift and clearance are claims across the `
@@ -934,7 +1085,13 @@ async function main() {
           + `${f.per > 1 ? '  (many per slide — the FIRST is measured)' : ''}`
           + `${f.drift > MAX_DRIFT && f.per === 1 ? '  ← does not hold position' : ''}`);
       }
-      console.log(`\n  Sweep one with:  node tools/check-jank.js "${CLASS}" --anchor '${found[0].sel}'`);
+      // RECOMMEND ONE THAT CAN ACTUALLY BE SWEPT. A selector matching five boxes per slide
+      // is not one mark, and the sweep that names it measures whichever is first in document
+      // order — so offering it as the next command sent the operator straight into a run
+      // whose drift number is sibling spread. Prefer a candidate matching once.
+      const pick = found.find((f) => f.per === 1 && f.slides === rows.length) || found[0];
+      console.log(`\n  Sweep one with:  node tools/check-jank.js "${CLASS}" --anchor '${pick.sel}'`
+        + `${pick.per > 1 ? '   ← but narrow it first: it matches ' + pick.per + ' per slide' : ''}`);
       console.log('  `slides` is how many of the swept slides it appeared on — fewer than all means the\n'
         + '  mark is conditional, and a sweep naming it will refuse rather than half-measure.\n'
         + '  `moves` is the spread of the FIRST match across the sweep; for a selector matching\n'
@@ -990,9 +1147,13 @@ async function main() {
         + 'the FIRST in document order is measured and the rest are folded into the ink. Narrow it.');
     }
     if (summary.unplaced.length) {
-      console.log(`  UNPLACED  ${summary.unplaced.length} generated box(es) paint where this tool cannot place them `
-        + `(${summary.unplaced.join(', ')}) — an offset in-flow pseudo has no exposed static position. `
-        + 'A clean verdict below does NOT cover them.');
+      // EACH ONE SAYS WHY. The reason used to be a single hardcoded sentence naming one of
+      // the four conditions that produce this note, so a box that was neither in-flow nor
+      // offset was announced as "an offset in-flow pseudo", pointing the next debugger at
+      // the wrong branch of `placedBox`.
+      console.log(`  UNPLACED  ${summary.unplaced.length} generated box(es) paint where this tool cannot place them. `
+        + 'A clean verdict below does NOT cover them:');
+      for (const u of summary.unplaced) console.log(`              · ${u}`);
     }
     if (drift != null) {
       console.log(`  DRIFT     the anchor moved ${drift.toFixed(1)}px across the sweep, ${driftAxis} (limit ${MAX_DRIFT})`
@@ -1022,6 +1183,20 @@ async function main() {
     if (crowded) {
       console.log(`  CROWDING  step ${crowded.step}: the ink is ${Math.abs(crowded.breathing)}px into the section's `
         + `${crowded.breathingEdge} padding — inside the frame, so no channel tags it  (advisory)`);
+      // WHAT IS IN THE BAND, because the number alone is ambiguous and moves with an
+      // unrelated flag. The named anchor is excluded from the ink, so `divider numbered`
+      // reports 168.1px of top crowding on its own and none under `--anchor 'h2::after'` —
+      // the 168.1px IS the numeral you would have named. Saying which box sits there turns
+      // a confusing number into a decision.
+      if (summary.crowdedBand.length) {
+        console.log(`              a positioned box sits in that band: ${summary.crowdedBand.join(', ')} — if that `
+          + 'is a deliberate keep-out mark, name it with --anchor and the band is its own.');
+      }
+    }
+    if (summary.anchorSubtree > 0) {
+      console.log(`  SUBTREE   the anchor element and everything inside it (${summary.anchorSubtree} boxes) are out of `
+        + 'the ink by construction — a mark\'s children ride with it. Naming a CONTAINER '
+        + 'therefore deletes its contents from the measurement  (advisory)');
     }
     console.log(`  SWEEP     moved: ink height ${spreadRange('inkHeight').toFixed(1)}px · `
       + `ink width ${spreadRange('inkWidth').toFixed(1)}px · ink top ${spreadRange('inkTop').toFixed(1)}px`
@@ -1033,8 +1208,20 @@ async function main() {
         + '\n    render may never emit. The heading axis is unaffected (a heading is one element).');
     }
     if (summary.vacuous) {
-      console.log('\n  ⚠ every step laid out at the same height — this axis is not moving the content, '
-        + 'so the verdicts above are vacuous. Raise --max, or sweep a different --axis.');
+      // AND SAY WHEN THE ADVICE WOULD NOT HELP. The heading really can grow — the `lines`
+      // column in the same table showed 1 → 4 — while the ink does not move, because the
+      // thing that grew is not in the ink. Telling the operator to raise `--max` there is
+      // worse than silence: it converts a coverage hole into a confident misdiagnosis.
+      const linesMoved = spreadRange('lines') > 0;
+      console.log(`\n  ⚠ every step laid out in the same place — this axis is not moving the ink, `
+        + `so the clean verdicts above are vacuous.${linesMoved
+          ? '\n    But the `lines` column DID move, so the growing thing is outside the ink:'
+            + '\n    clipped, or a box this walk could not place (see UNPLACED). Raising --max will not help.'
+          : ' Raise --max, or sweep a different --axis.'}`);
+      if (collision) {
+        console.log('    The COLLISION above is still real — it was found on a single step, which a '
+          + 'vacuous sweep can still show.');
+      }
     }
   }
 

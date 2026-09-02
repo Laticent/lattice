@@ -53,6 +53,36 @@ function sweep(extraArgs, { max = '18' } = {}) {
   return parse(r);
 }
 
+/** A sweep with NO anchor — the natural first invocation, and the one CROWDING is read from. */
+function sweepRawJson(extraArgs) {
+  const args = [TOOL, 'divider numbered', '--json', ...extraArgs];
+  const r = spawnSync(process.execPath, args, {
+    cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, CHROME_PATH: resolveChrome() },
+  });
+  if (r.status === 2) assert.fail(`check-jank could not run (exit 2): ${r.stderr || r.stdout}`);
+  return parse(r);
+}
+
+/** A sweep naming an anchor other than the divider's numeral. */
+function sweepAnchor(anchorSel, extraArgs, max) {
+  const args = [TOOL, 'divider numbered', '--anchor', anchorSel, '--max', max, '--json', ...extraArgs.flatMap((s) => ['--style', s])];
+  const r = spawnSync(process.execPath, args, {
+    cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, CHROME_PATH: resolveChrome() },
+  });
+  if (r.status === 2) assert.fail(`check-jank could not run (exit 2): ${r.stderr || r.stdout}`);
+  return parse(r);
+}
+
+/** Discovery mode: what marks does this component HAVE. */
+function anchors(component, max) {
+  const args = [TOOL, component, '--anchors', '--max', max, '--json'];
+  const r = spawnSync(process.execPath, args, {
+    cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, CHROME_PATH: resolveChrome() },
+  });
+  if (r.status === 2) assert.fail(`check-jank could not run (exit 2): ${r.stderr || r.stdout}`);
+  return parse(r);
+}
+
 /** The same, for the runs that are SUPPOSED to refuse — exit 2 is the assertion there. */
 function sweepRaw(extraArgs, { max = '6' } = {}) {
   const args = [TOOL, 'divider numbered', '--max', max, ...extraArgs];
@@ -281,6 +311,17 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
         args: ['--anchor', 'h2::after', '--style',
           'section[data-lattice-slide]:not([data-lattice-slide="1"]) h2::after { position: static !important; }'],
       },
+      // `existsSync` is true for a DIRECTORY and the read then threw EISDIR at module scope,
+      // outside `main()`'s catch — so Node exited **1**, which is this tool's "a collision was
+      // found". A wrapper keying on the exit code read a mistyped path as a found defect.
+      { why: 'a --style path that is a directory', args: ['--anchor', 'h2::after', '--style', 'tools'] },
+      // `withAnchor.length < measured.length` is false when BOTH are zero, so a sweep whose
+      // every slide came back empty skipped the refusal and printed no DRIFT line, no
+      // COLLISION line and exit 0 — with an anchor named.
+      {
+        why: 'a sweep with no ink on any slide',
+        args: ['--anchor', 'h2::after', '--style', 'section.divider.numbered > * { display: none; }'],
+      },
     ];
     for (const c of cases) {
       const r = sweepRaw(c.args);
@@ -295,5 +336,166 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
     const parsed = JSON.parse(eq.stdout);
     assert.equal(parsed.summary.anchor, 'h2::after', 'the --flag=value form dropped the anchor');
     assert.equal(parsed.rows.length, 4, 'the --flag=value form dropped --max');
+  });
+
+  // ── The measurements that had no arm at all ─────────────────────────────────────────
+  //
+  // Two independent mutation passes ran the nine arms above against one-line mutants of
+  // `tools/check-jank.js` and agreed: only the COLLISION path was guarded. `const drift = 0`,
+  // dropping the horizontal axis, `const crowded = null`, `applyTransform` returning its
+  // input unchanged, `unplaced.push` as a no-op, an empty candidate list, and `establishesCb`
+  // narrowed back to `position` — every one of them passed all nine. DRIFT is one of the two
+  // verdicts that can set exit 1 and nothing proved the tool could go red on it.
+
+  test('DRIFT alone reds the run, and it is measured on BOTH axes', () => {
+    // A mark hung on a shrink-to-fit centered heading rides the heading's left edge as the
+    // words accumulate, and sits 300px above the ink so nothing collides. Two mutants die
+    // here: `drift = 0` (or dropping drift from the exit code) makes this exit 0, and
+    // `drift = driftAxes.vertical` reports the 70px the heading also fell instead of the
+    // 460px it slid — the exact regression `0e1e731` fixed, where a mark that walked 604px
+    // sideways reported `0.0px  ok`.
+    const r = sweep(['--style',
+      'section.divider.numbered { align-items: center; }'
+      + 'section.divider.numbered h2 { position: relative; display: inline-block; max-width: 40ch; }'
+      + 'section.divider.numbered h2::after { top: -300px; left: 0; }'], { max: '12' });
+
+    assert.equal(r.summary.collision, null, 'this case is meant to drift WITHOUT colliding');
+    assert.equal(r.status, 1, 'drift over the limit did not fail the run — either the anchor '
+      + 'stopped moving (the injection no longer bites) or drift left the exit code');
+    assert.ok(r.summary.driftAxes.horizontal > 200,
+      `expected the mark to slide sideways, got ${JSON.stringify(r.summary.driftAxes)}`);
+    assert.ok(r.summary.driftAxes.horizontal > r.summary.driftAxes.vertical * 2,
+      'this case is horizontal-dominant by construction; if it is not, the injection changed');
+    assert.equal(r.summary.driftAxis, 'horizontal');
+    assert.equal(r.summary.drift, r.summary.driftAxes.horizontal,
+      'drift reported the smaller axis — the block axis is not the whole of a position');
+  });
+
+  test('CROWDING is measured, and it says what is sitting in the band', () => {
+    // Unmodified CSS, no anchor named: the divider's own numeral lives in the reserved top
+    // band, so the ink is 168px into the section's top padding with nothing overflowing.
+    // `const crowded = null` passes all nine of the arms above.
+    const r = sweepRawJson(['--max', '4']);
+    assert.ok(r.summary.crowded, 'CROWDING went unreported on a component whose mark sits in '
+      + 'the reserved band — either the band moved or the measurement is dead');
+    assert.equal(r.summary.crowded.edge, 'top');
+    // And the band names its occupant. Without this the number is ambiguous in a way that
+    // reads as a broken tool: the same component reports 168px of crowding on its own and
+    // none under `--anchor 'h2::after'`, because the 168px IS the numeral you would name.
+    assert.ok(r.summary.crowdedBand.includes('h2::after'),
+      `the crowded band did not name the box in it: ${JSON.stringify(r.summary.crowdedBand)}`);
+  });
+
+  test('the anchor box tracks the two things that move it: its own transform, and its containing block', () => {
+    // `applyTransform` returning its argument unchanged passed all nine arms, and the
+    // `translate(-50%, 50%)` centering idiom it exists for displaces a box by half its own
+    // size — 15.3px on shipped `cycle`. `establishesCb` narrowed to `position` likewise.
+    const base = sweep([], { max: '3' });
+    const shifted = sweep(['--style', 'section.divider.numbered h2::after { transform: translateY(-100px); }'], { max: '3' });
+    assert.ok(Math.abs((base.rows[0].anchorTop - shifted.rows[0].anchorTop) - 100) < 1,
+      `a 100px transform on the anchor moved its reported box by `
+      + `${(base.rows[0].anchorTop - shifted.rows[0].anchorTop).toFixed(1)}px — the pseudo's own `
+      + 'transform is being ignored, so the box is reported where it does not paint');
+
+    // `filter` makes a STATIC element the containing block for an absolutely positioned
+    // descendant. The browser re-resolves the mark against the heading; a walk that looks at
+    // `position` alone does not, and reports the old box for a mark that moved.
+    const cb = sweep(['--style', 'section.divider.numbered h2 { filter: blur(0px); }'], { max: '3' });
+    assert.notEqual(cb.rows[0].anchorTop, base.rows[0].anchorTop,
+      'making the heading a containing block did not move the reported anchor — `establishesCb` '
+      + 'is resolving on `position` alone, which places every nested mark against the wrong origin');
+  });
+
+  test('a generated box it cannot place is named, with the reason it could not place it', () => {
+    // `unplaced.push` as a no-op passed all nine arms. Three shapes, three DIFFERENT reasons:
+    // the report used to attribute all of them to "an offset in-flow pseudo", pointing the
+    // next debugger at the wrong branch of `placedBox`.
+    const r = sweep(['--style',
+      'section.divider.numbered p::before { content: "x"; position: relative; top: 40px; }'
+      + 'section.divider.numbered p::after { content: "y"; position: absolute; top: 0; left: 0;'
+      + ' width: 20px; height: 20px; translate: 0 400px; }'
+      // And a box that paints nothing at all must not enter the ink as if it did.
+      + 'section.divider.numbered code::before { content: "z"; position: absolute; top: 0; left: 0;'
+      + ' width: 900px; height: 900px; background: red; opacity: 0; }'], { max: '3' });
+
+    const joined = r.summary.unplaced.join(' | ');
+    assert.ok(/p::before .* static position/.test(joined),
+      `the offset in-flow pseudo went unreported: ${joined}`);
+    assert.ok(/p::after .*translate/.test(joined),
+      `an individual \`translate\` was silently dropped instead of refused: ${joined}`);
+    // The `opacity: 0` box is neither ink nor a candidate — it paints nothing, whatever its
+    // background says. The bundle ships one (`.scene-control`).
+    const cands = r.rows.flatMap((row) => row.candidates.map((c) => c.sel));
+    assert.ok(!cands.includes('code::before'),
+      `a fully transparent box entered the measurement: ${JSON.stringify(cands)}`);
+  });
+
+  test('discovery reaches the marks that hang below TEXT, and the ones that are not pseudos at all', () => {
+    // Shipped `pricing`, whose badge marks hang off a `<li>` that carries the card title.
+    // The walk used to stop at any element with its own text, so 2 positioned pseudos per
+    // slide were reached 0 times and `--anchors` answered "this component draws no positioned
+    // pseudo the walk can place" over marks it places fine. An empty candidate list passed
+    // all nine arms above.
+    const r = anchors('pricing', '4');
+    const sels = r.candidates.map((c) => c.sel);
+    assert.ok(sels.some((s) => /\.badge.*::after$/.test(s)),
+      `discovery missed the marks below the card title: ${JSON.stringify(sels)}`);
+    // And `pricing`'s corner tag is an absolutely positioned ELEMENT, not a pseudo — invisible
+    // to a walk that enumerates pseudos only, for the same reason it was invisible to the ink.
+    assert.ok(sels.includes('em'),
+      `discovery is pseudo-only: it missed the positioned element mark: ${JSON.stringify(sels)}`);
+  });
+
+  test('a section-level running mark can be named and measured', () => {
+    // The engine's whole running-mark family is `section::before` / `section::after` — the
+    // archetype in the tool's own opening paragraph — and `sec.querySelectorAll` matches
+    // descendants, so the section is not its own. `--anchor 'section::before'` refused with
+    // "no match" on every one of them.
+    const args = [TOOL, 'divider numbered mark-orbit', '--anchor', 'section::before', '--max', '3', '--json'];
+    const raw = spawnSync(process.execPath, args, {
+      cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, CHROME_PATH: resolveChrome() },
+    });
+    assert.notEqual(raw.status, 2, `a shipped section mark could not be measured: ${raw.stderr}`);
+    const r = JSON.parse(raw.stdout);
+    assert.ok(r.rows.every((row) => row.anchorTop != null), 'the section mark resolved on some slides only');
+
+    // And it has to be in the INK WALK, not just resolvable as an anchor — those are two
+    // different code paths, and a mutant that drops the section from the walk leaves the
+    // anchor working while the mark stops being an obstacle to anything else and stops
+    // appearing in discovery.
+    const d = anchors('divider numbered mark-orbit', '3');
+    assert.ok(d.candidates.some((c) => /^section[\w.-]*::/.test(c.sel)),
+      `discovery did not reach the section's own mark: ${JSON.stringify(d.candidates.map((c) => c.sel))}`);
+  });
+
+  test('readable content that is out of flow is ink, and a mark drawn in reserved padding is not a collision', () => {
+    // TWO failures that pull in opposite directions, on the same run pair.
+    //
+    // The false CLEAN: the walk used to return on any absolutely positioned element, so
+    // laying the eyebrow straight through the numeral out of flow reported COLLISION none
+    // and exit 0. The engine positions readable content all over — `image`'s spotlight
+    // headline, `scene`'s text block, `pricing`'s corner tag.
+    const overlaid = sweep(['--style',
+      'section.divider.numbered p { position: absolute; top: 100px; left: 200px; font-size: 36px; }'], { max: '3' });
+    assert.equal(overlaid.status, 1, 'an out-of-flow eyebrow laid over the mark did not register as a strike');
+    assert.ok(overlaid.summary.collision, 'no collision recorded for a two-axis overlap on readable text');
+
+    // The false POSITIVE, which is the more corrosive one: padding is how the engine RESERVES
+    // room for a mark, so a bullet drawn in its own host's `padding-left` intersects that
+    // host's BORDER box by construction. Shipped `roadmap` reported `clearance -233.5px`
+    // against unmodified CSS on the sweep its own `--anchors` output told you to run.
+    const reserved = 'section.divider.numbered code { position: relative; padding-left: 30px; }'
+      + 'section.divider.numbered code::before { content: ""; position: absolute; left: 6px; top: 0.3em;'
+      + ' width: 12px; height: 12px; background: red; }';
+    const inPadding = sweepAnchor('code::before', [reserved], '3');
+    assert.equal(inPadding.status, 0,
+      `a mark drawn inside its own host's reserved padding was called a collision `
+      + `(clearance ${inPadding.summary.collision?.clearance})`);
+
+    // And the control, so this is not just a tool that stopped looking: take the padding
+    // away and the same mark lands on the words.
+    const noPadding = sweepAnchor('code::before', [reserved.replace('padding-left: 30px', 'padding-left: 0')], '3');
+    assert.equal(noPadding.status, 1,
+      'with the reserved padding gone the mark sits on the text and the tool still said nothing');
   });
 });
