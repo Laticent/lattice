@@ -13,7 +13,7 @@ summary: >
   Chromium was found — the exact green-having-measured-nothing shape this swimlane exists to
   remove — which is fixed here so the check is safe to wire whenever the wiring is approved.
   Wiring was deliberately NOT done in the census; it was authorized and landed the next day in
-  PR #2044 (see the closing section), which found the wiring is four edits rather than three.
+  PR #2045 (see the closing section), which found the wiring is four edits rather than three.
 ---
 
 # Five orphaned checks: what is actually unguarded
@@ -131,7 +131,7 @@ arms, the filing condition, AND the marker list.
 reserves for the owner: every future PR pays the cost, and a bad gate is a permanent tax. The
 census and the numbers are the deliverable; the wiring waits on a decision.
 
-## Wired, 2026-09-02 (PR #2044)
+## Wired, 2026-09-02 (PR #2045)
 
 Option A was authorized and both arms are in `integration-nightly.yml` as `chartfit` and
 `geometry`, sitting after `codewidth` and before the 72-minute `regress` arm. Four things the
