@@ -31,6 +31,75 @@ const CATALOG = require('../../../lib/core/cards-catalog.generated.js');
 
 const read = (p) => fs.readFileSync(path.join(__dirname, '../../../', p), 'utf8');
 
+/** Blank out comments and string/template literals in ONE left-to-right pass, so a brace or a
+ *  call name written inside prose or a string cannot be mistaken for code. A pass per construct
+ *  cannot do this: stripping `//` comments first eats the tail of any string holding a URL. */
+function stripJs(src) {
+  let out = '';
+  for (let i = 0; i < src.length; i += 1) {
+    const c = src[i];
+    if (c === '/' && src[i + 1] === '*') {
+      const end = src.indexOf('*/', i + 2);
+      i = (end < 0 ? src.length : end + 1);
+      out += ' ';
+    } else if (c === '/' && src[i + 1] === '/') {
+      while (i < src.length && src[i] !== '\n') i += 1;
+      out += ' \n';
+    } else if (c === "'" || c === '"' || c === '`') {
+      i += 1;
+      while (i < src.length && src[i] !== c) i += (src[i] === '\\' ? 2 : 1);
+      out += '""';
+    } else out += c;
+  }
+  return out;
+}
+
+/** The body of the first function whose declaration starts with `head`, brace-matched. */
+function functionBody(src, head) {
+  const code = stripJs(src);
+  const at = code.indexOf(head);
+  assert.ok(at >= 0, `${head} not found`);
+  const open = code.indexOf('{', at);
+  let depth = 0;
+  for (let i = open; i < code.length; i += 1) {
+    if (code[i] === '{') depth += 1;
+    else if (code[i] === '}') { depth -= 1; if (!depth) return code.slice(open + 1, i); }
+  }
+  assert.fail(`unbalanced braces after ${head}`);
+}
+
+/** Occurrences of `name(` that are a STATEMENT at the body's own brace depth: nothing but
+ *  whitespace since the last `;` `{` or `}`. Catches `if (x) f();`, `if (x) { f(); }`,
+ *  `x && f();` and `x ? f() : g();` alike — none of them survive. */
+function unconditionalCalls(body, name) {
+  const hits = [];
+  const re = new RegExp(`\\b${name}\\s*\\(`, 'g');
+  let m;
+  while ((m = re.exec(body))) {
+    let depth = 0;
+    for (let i = 0; i < m.index; i += 1) {
+      if (body[i] === '{') depth += 1;
+      else if (body[i] === '}') depth -= 1;
+    }
+    if (depth !== 0) continue;
+    const boundary = Math.max(body.lastIndexOf(';', m.index), body.lastIndexOf('{', m.index),
+      body.lastIndexOf('}', m.index));
+    if (!body.slice(boundary + 1, m.index).trim()) hits.push(m.index);
+  }
+  return hits;
+}
+
+/** Innermost `selector { body }` rules, comments stripped. `[^{}]*` on the body confines each
+ *  match to a leaf block, so an at-rule prelude is never mistaken for a selector. */
+function cssRules(css) {
+  const bare = css.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const out = [];
+  const re = /([^{}]+)\{([^{}]*)\}/g;
+  let m;
+  while ((m = re.exec(bare))) out.push({ selector: m[1], body: m[2] });
+  return out;
+}
+
 describe('resolve-cards', () => {
   test('every value stamps a token — there is no silent default', () => {
     for (const n of CARDS_NAMES) assert.equal(cardsClass(n), `cards-${n}`);
@@ -188,8 +257,18 @@ describe('resolve-cards', () => {
     for (const name of Object.keys(CATALOG)) {
       const css = styles[name];
       assert.ok(css, `${name} declares a cards composition but has no stylesheet`);
-      assert.match(css.replace(/\/\*[\s\S]*?\*\//g, ' '), /align-content:\s*var\(\s*--cards-align\s*\)/,
+      // A bare text match certifies a DEAD selector: `.matches-nothing { align-content:
+      // var(--cards-align) }` passes it while the real card row hard-codes its value two lines
+      // below. So find the RULES that read the token and require each to be anchored on this
+      // component's own section — which is the only selector shape that can reach its cards.
+      const anchor = new RegExp(`(^|[\\s,>+~])section\\.${name}(?![\\w-])`);
+      const reading = cssRules(css).filter((r) => /align-content:\s*var\(\s*--cards-align\s*\)/.test(r.body));
+      assert.ok(reading.length > 0,
         `${name} declares a cards composition its CSS never reads — the declaration is a no-op`);
+      for (const r of reading) {
+        assert.ok(anchor.test(r.selector),
+          `${name} reads --cards-align from a rule that cannot reach its own cards: ${r.selector.trim()}`);
+      }
     }
   });
 
@@ -228,13 +307,17 @@ describe('resolve-cards', () => {
       'the stamp needs a rule of its own: the deck-token pass returns early on a deck with no tokens');
   });
 
+  // A text match here pins a SPELLING, not the shape: `if (fam !== 'wide') { stampCardsAlign(s); }`
+  // reintroduces the exact bug and still contains a line reading `stampCardsAlign(s);`. So walk
+  // the function body and demand the call be an UNCONDITIONAL STATEMENT — brace depth 0 inside
+  // the body (no `{ … }` around it) and nothing between it and the previous statement boundary
+  // (no `if (…)`, no `&&`, no `?`).
   test('the runtime stamps unconditionally, not only when the family changes', () => {
     const src = read('lib/runtime/index.js');
-    const fn = src.slice(src.indexOf('function stampOrientation'));
-    const body = fn.slice(0, fn.indexOf('\n  }\n'));
-    assert.match(body, /(^|\n)\s*stampCardsAlign\(s\);/,
-      'stampCardsAlign must run for every section, not behind a family-changed guard');
-    assert.doesNotMatch(body, /!==\s*\(before\s*\|\|\s*null\)\)\s*stampCardsAlign/,
-      'a family-change guard never fires at the wide family, where the attribute is removed');
+    const body = functionBody(src, 'function stampOrientation');
+    assert.ok(/stampCardsAlign\(s\)/.test(body), 'stampOrientation must call stampCardsAlign');
+    assert.ok(unconditionalCalls(body, 'stampCardsAlign').length > 0,
+      'stampCardsAlign(s) must be a bare statement in stampOrientation — a guard of ANY shape ' +
+      'never fires at the wide family, where data-family is removed rather than set');
   });
 });

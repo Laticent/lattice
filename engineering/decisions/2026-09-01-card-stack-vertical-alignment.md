@@ -1134,13 +1134,55 @@ were text matches against the call site, which cannot see reachability at all; t
 pins the SHAPE that makes each path reachable — the exporter's own ruler, and the runtime's
 unguarded call.
 
+**Then the fifth checker read those replacement tests and found the same failure one level up.**
+Both were still TEXT MATCHES wearing a shape's clothes, and each certified the bug it was
+written to catch:
+
+- A block guard reintroduces the wide-family bug exactly and still contains a line reading
+  `stampCardsAlign(s);`. **The checker's own example did not reproduce**, and the reason is
+  worth keeping: the old regex was `/(^|\n)\s*stampCardsAlign\(s\);/`, so the one-line form
+  `if (fam !== 'wide') { stampCardsAlign(s); }` fails it on the `if` sitting between the
+  newline and the call. Written across three lines it passes, because the call then has a line
+  of its own. Measured both ways: the old file scores 18/0 on the multi-line guard and 17/1 on
+  the one-line one. A regex that a newline defeats is the definition of pinning a spelling.
+- `.this-selector-matches-nothing-at-all { align-content: var(--cards-align) }` appended to a
+  stylesheet whose real card rows hard-code `stretch` passed the "actually consumes it" check,
+  because that check only asked whether the string occurred anywhere in the file. Measured:
+  the old file scores 18/0 with the component's real rows hard-coded.
+
+Both now parse rather than match. The runtime check walks `stampOrientation`'s brace-matched
+body and demands the call be a bare STATEMENT at the body's own depth — nothing between it and
+the previous statement boundary — which rejects a block guard, a bare `if`, a `&&` and a
+ternary alike. The consumption check splits the stylesheet into leaf rules and requires EVERY
+rule reading `--cards-align` to be anchored on `section.<component>`, the only selector shape
+that can reach that component's cards. Five mutations were run against the new file — a
+one-line block guard, a multi-line block guard, a bare `if`, an `&&`, and the dead selector —
+and every one fails it 17/1; the tree restored passes 18/18.
+
+The general lesson is the one this whole branch keeps re-learning: a test that greps for the
+fix is a test that greps for the fix. `grep` cannot see reachability, and it cannot see whether
+a selector matches anything.
+
+**So the third thing the checker found is the one that actually mattered: there was no
+BEHAVIORAL coverage at all.** `grep -rln 'stampCardsAlign\|data-cards' test/` returned one
+file, and it was the unit file above — the bug was invisible to 7,913 unit and 574 integration
+tests, which is why it reached a checker rather than a gate.
+`test/integration/parity/runtime-cards-align.test.js` closes that: it boots the ACTUAL bundled
+`dist/lattice-runtime.js` in jsdom (the harness `runtime-frontmatter-refire.test.js`
+established) on input carrying no `data-cards`, and reads the attribute back off the DOM at all
+four families. Restoring the guard makes it fail with the shipped bug's exact signature — wide
+red, square, tall and strip green, four of eight — which is the fingerprint no shape-pin can
+produce. jsdom has no layout, so the box is stubbed; that stub stands in for the geometry and
+never for the stamp.
+
 ### 11d · The one thing still resolved in CSS, and why
 
 The CODA arm. Whether a slide ends in a key-insight panel is a DOM fact, and on the export path
 the `.cell-coda` cell is built after the token stream — a token cannot see it. So the manifest's
 `withCoda` VALUE rides along as `data-cards-coda` and the shape TEST happens in CSS, under
-`:has(> .cell-coda)` — the same condition `coda.css` already keys on. The declaration is still
-the manifest's; only the question "does this slide have one?" is CSS's, which is the one thing
+`:has(> .cell-coda)` — the same direct-child contract `lib/core/coda.js` builds to. (`coda.css`
+keys on that cell too, but always with a dock qualifier — `section:has(> .cell-coda[data-dock="row"])`
+— so what the two share is the CONTRACT, not the selector.) The declaration is still the manifest's; only the question "does this slide have one?" is CSS's, which is the one thing
 CSS is better at than the token stream.
 
 **The runtime deliberately does NOT resolve it directly, even though the browser could see the
