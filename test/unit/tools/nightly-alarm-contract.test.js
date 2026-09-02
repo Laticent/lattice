@@ -662,32 +662,51 @@ test('nightly alarm contract', async (t) => {
     // POSIX ERE in production, and the two dialects disagree.
     const MARKER_SAMPLES = {
       'integration-nightly.yml::nightly': {
-        // Each line must be matched. `needle` is a distinctive fragment that must
-        // still exist in `source` — without it a tool could reword its output and
-        // this test would keep passing while the real grep went blind, which is
-        // the same defect one level up.
+        // Each line must be matched, and every string in `needles` must still occur
+        // in `source`. Without that tripwire a tool could reword its output while
+        // this test kept passing on a stale hard-coded sample — the same defect one
+        // level up. The needles cover BOTH halves the pattern keys on, which a first
+        // cut got wrong: pinning only the counted noun (`clip(s) across`) leaves a
+        // renamed PREFIX invisible, and the alternates require the literal
+        // `check-chart-fit: ` before the count. Plain substrings, never the source's
+        // template text, so the tripwire does not itself contain `${`.
         matches: [
           { line: 'check-chart-fit: 2 clip(s) across 1 size(s):',
-            source: 'tools/check-chart-fit.js', needle: 'clip(s) across',
+            source: 'tools/check-chart-fit.js', needles: ['check-chart-fit: ', 'clip(s) across'],
             how: 'real run, roadmap.styles.css reverted to 4c9075c' },
           { line: 'check-chart-fit: 1 STALE sanction(s) — the clip no longer occurs:',
-            source: 'tools/check-chart-fit.js', needle: 'STALE sanction(s)',
+            source: 'tools/check-chart-fit.js', needles: ['check-chart-fit: ', 'STALE sanction(s)'],
             how: 'real run, a bogus SANCTIONED_CLIPS entry' },
           { line: 'check-chart-fit: 3 re-derived outer inset(s) across 3 size(s):',
-            source: 'tools/check-chart-fit.js', needle: 're-derived outer inset(s) across',
+            source: 'tools/check-chart-fit.js', needles: ['check-chart-fit: ', 're-derived outer inset(s) across'],
             how: 'from-source — the template, instantiated' },
           { line: 'check-chart-fit: no Chromium (set CHROME_PATH) — nothing was verified.',
-            source: 'tools/check-chart-fit.js', needle: 'no Chromium (set CHROME_PATH)',
+            source: 'tools/check-chart-fit.js', needles: ['check-chart-fit: no Chromium (set CHROME_PATH)'],
             how: 'from-source — exit 2, no browser' },
           { line: '✗ 1 geometry disagreement(s) — a slide measured differently depending on the window:',
-            source: 'tools/check-geometry-parity.js', needle: 'geometry disagreement(s)',
+            source: 'tools/check-geometry-parity.js', needles: ['geometry disagreement(s)'],
             how: 'real run, a deck path that does not resolve' },
           { line: '✗ geometry parity measured ZERO slides — the selectors found no sections.',
-            source: 'tools/check-geometry-parity.js', needle: 'geometry parity measured ZERO slides',
+            source: 'tools/check-geometry-parity.js', needles: ['geometry parity measured ZERO slides'],
             how: 'from-source — a defensive branch no input reached' },
           { line: '✗ no Chrome found — set CHROME_PATH (the SessionStart hook exports it).',
-            source: 'tools/check-geometry-parity.js', needle: 'no Chrome found',
+            source: 'tools/check-geometry-parity.js', needles: ['no Chrome found'],
             how: 'from-source — exit 2, no browser' },
+          // THE CATCH-ALLS, and the ones the first cut of this arm missed. Both tools
+          // end in a `.catch` that prints and exits 2, and for a step driving a browser
+          // through several emulator renders that is the LIKELIEST failure — a dead
+          // subprocess, a missing sidecar, a navigation timeout — not a finding. Matching
+          // every finding headline and no error headline files an issue whose marker
+          // block is a section header over nothing.
+          { line: 'check-chart-fit: Error: emulator produced no HTML sidecar for landscape',
+            source: 'tools/check-chart-fit.js', needles: ['check-chart-fit: ', 'err?.stack'],
+            how: 'from-source — the top-level .catch, exit 2' },
+          { line: 'check-chart-fit: fixture not found: /repo/test/fixtures/chart-fit.md',
+            source: 'tools/check-chart-fit.js', needles: ['check-chart-fit: fixture not found:'],
+            how: 'from-source — a setup failure, exit 2' },
+          { line: 'geometry-parity error: Navigation timeout of 120000 ms exceeded',
+            source: 'tools/check-geometry-parity.js', needles: ['geometry-parity error:'],
+            how: 'from-source — the top-level .catch, exit 2' },
         ],
         // A pattern loose enough to match a GREEN line reports health as a
         // finding. Both captured from real green runs on main@f43364b.
@@ -707,20 +726,51 @@ test('nightly alarm contract', async (t) => {
     }
 
     for (const [id, spec] of Object.entries(MARKER_SAMPLES)) {
-      const { filing } = jobs.find((j) => j.id === id);
-      const m = code(filing.run).match(/grep -E '([^']*)'/);
-      assert.ok(m, `${id}: the filing step has no \`grep -E '…'\` marker pattern`);
-      const pattern = m[1];
+      const { file, job, filing } = jobs.find((j) => j.id === id);
+
+      // EVERY marker grep in the JOB, not just the filing step's. A job reports the
+      // same markers twice — once into `$GITHUB_STEP_SUMMARY`, once into the issue
+      // body — and the two are separate copies of one pattern. Reading only the
+      // filing step would certify the issue body while the run summary quietly
+      // showed `(no failure markers)`, which is this arm's own defect one level up.
+      // The issue body is the copy that matters (#1529's damage was to the rolling
+      // issue), but a reader who opens the run first sees the summary, so both are
+      // pinned and both must be the SAME pattern — a divergence means someone wired
+      // an arm into one and forgot the other.
+      const doc = YAML.parse(fs.readFileSync(path.join(WF_DIR, file), 'utf8'));
+      const patterns = [];
+      for (const step of doc.jobs[job].steps || []) {
+        const mm = code(step.run).match(/grep -E '([^']*)'/);
+        if (mm) patterns.push(mm[1]);
+      }
+      assert.ok(
+        patterns.length >= 2,
+        `${id}: expected a marker grep in BOTH the job summary and the issue body, found ` +
+          `${patterns.length} — did one of them lose its \`grep -E\`?`,
+      );
+      assert.equal(
+        new Set(patterns).size,
+        1,
+        `${id}: its ${patterns.length} marker greps are NOT the same pattern. One of them ` +
+          'will show findings the other drops.',
+      );
+      const fm = code(filing.run).match(/grep -E '([^']*)'/);
+      assert.ok(fm, `${id}: the filing step has no \`grep -E '…'\` marker pattern`);
+      const pattern = fm[1];
+      assert.equal(pattern, patterns[0], `${id}: the filing step's pattern is not the job's`);
 
       const matches = (line) =>
         spawnSync('grep', ['-E', pattern], { input: `${line}\n`, encoding: 'utf8' }).status === 0;
 
       for (const s of spec.matches) {
-        assert.ok(
-          fs.readFileSync(path.join(REPO, s.source), 'utf8').includes(s.needle),
-          `${id}: ${s.source} no longer prints "${s.needle}" — re-capture the sample AND ` +
-            'check the grep still matches whatever it prints now',
-        );
+        const src = fs.readFileSync(path.join(REPO, s.source), 'utf8');
+        for (const needle of s.needles) {
+          assert.ok(
+            src.includes(needle),
+            `${id}: ${s.source} no longer contains "${needle}" — re-capture the sample AND ` +
+              'check the grep still matches whatever it prints now',
+          );
+        }
         assert.ok(
           matches(s.line),
           `${id}: the marker grep does not match a real failure line (${s.how}):\n  ${s.line}\n` +

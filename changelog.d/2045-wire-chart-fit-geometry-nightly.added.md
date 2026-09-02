@@ -4,11 +4,13 @@
   already owns, or a slide whose geometry depends on the window viewing it could only be
   caught by someone running the script by hand. Both drive a real browser and add ~3 minutes
   to a job that already runs ~2h04m; neither belongs on the PR critical path.
-- The nightly's failure-marker list now matches every headline those two arms can print,
-  including `check-chart-fit`'s two less obvious ones (`re-derived outer inset(s)` and
-  `STALE sanction(s)`). Without that, an arm can fail and the rolling issue shows a bare
-  section header with no reason under it — the #1529 defect, which ran for fifteen nights.
-- `nightly-alarm-contract.test.js` now checks that a nightly's marker grep actually matches
-  its own arms' failure lines, against samples captured from real runs. Nothing in the tree
-  could see that before: the question is whether a regex matches text a different file
-  prints, and the two files reference each other in neither direction.
+- The nightly's failure-marker list now covers both new arms: each of `check-chart-fit`'s
+  three finding headlines, `geometry:check`'s two, and — the ones a first cut missed — the
+  top-level error each tool prints when it crashes rather than finds something. Without
+  those, an arm can fail and the rolling issue shows a bare section header with no reason
+  under it, which is the #1529 defect that ran for fifteen nights.
+- `nightly-alarm-contract.test.js` now checks that a nightly's marker greps actually match
+  its own arms' failure lines, and that a job's two copies of the pattern (run summary and
+  issue body) have not drifted apart. Nothing in the tree could see either before: the
+  question is whether a regex matches text a different file prints, and the two files
+  reference each other in neither direction.

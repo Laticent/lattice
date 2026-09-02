@@ -1,5 +1,5 @@
 ---
-status: shipped
+status: in-progress
 summary: >
   Of five checks reported as wired to nothing, only two are actually unguarded.
   The premise is right about the SCRIPTS and wrong about three of the DEFECTS. All five
@@ -12,8 +12,10 @@ summary: >
   belong nightly. `check:chart-fit` also exited 0 with "SKIPPED, nothing verified" when no
   Chromium was found — the exact green-having-measured-nothing shape this swimlane exists to
   remove — which is fixed here so the check is safe to wire whenever the wiring is approved.
-  Wiring was deliberately NOT done in the census; it was authorized and landed the next day in
+  Wiring was deliberately NOT done in the census; it was authorized and wired the next day in
   PR #2045 (see the closing section), which found the wiring is four edits rather than three.
+  Still `in-progress`, not `shipped`: the arms exist but no scheduled run has executed them,
+  and `shipped` here means built AND verified.
 ---
 
 # Five orphaned checks: what is actually unguarded
@@ -28,7 +30,7 @@ is not a gate, and three of the five defects are already caught elsewhere:
 | check | script wired? | defect covered elsewhere? | runtime | verdict | deterministic? |
 |---|---|---|---|---|---|
 | `check:responsive` | no | **yes, fully** — `test/unit/tools/chart-responsiveness.test.js` | 0.3s | pass | yes |
-| `check:chart-fit` | no | **no** | 30s | **pass** — first green at #2032; NEVER green before it | no — real Chromium |
+| `check:chart-fit` | no | **no** | 30s | **pass** — first green at `f43364b` (#2043); NEVER green before it | no — real Chromium |
 | `equiv:check` | no | **yes, fully** — `test/unit/diagnostics/slice-equivalence-baseline.test.js` | 3s | pass | yes |
 | `oracle:check` | no | **yes** — `checkSplitOracle` in `check-ownership.js` | 0.3s | pass | yes |
 | `geometry:check` | no | **partly** — `checkSectionCqAnchoring` catches one of two causes | 2m08s | pass | no — real Chromium |
@@ -69,11 +71,11 @@ records a drift it caused). Nothing runs either one.
   `roadmap` at portrait (+75.4px on two pages) and at strip (+80px), by seating the
   split's new universal forward-pointer signal inside a stage `roadmap` had floored at
   exactly 100%. **There was never a green window**: the gate went fail(progress) ->
-  fail(progress + roadmap) at 10:58 -> fail(roadmap) at 11:49 -> pass only at #2032.
+  fail(progress + roadmap) at 10:58 -> fail(roadmap) at 11:49 -> pass only at `f43364b`.
   Read no sequence into it that implies otherwise. Nothing caught the contradiction
   because #2030's branch measured a tree without #2016 on it, and the gate this note is
   about runs in no CI job — the swimlane's own thesis, demonstrated on this note. Closed
-  by #2032; the gate exits 0 across all three sizes with no `SANCTIONED_CLIPS` entry.
+  by `f43364b` (#2043); the gate exits 0 across all three sizes with no `SANCTIONED_CLIPS` entry.
 - **`geometry:check`** renders five example decks and compares section padding box, stage
   height and overflow verdict across four viewport sizes and again with sections
   transform-scaled the way the filmstrip preview scales them. It catches a slide whose
@@ -110,7 +112,7 @@ verdict can move with the runner belongs off it. That leaves three options:
 | **C. Leave both on-demand, documented** | Nothing. | `check:chart-fit` stays red with nobody watching, which is where it has been. The known clip does not regress silently — but a SECOND clip would appear the same way, and nobody would know. |
 
 **Recommendation: A.** The "handle the red first" precondition this note originally carried
-is discharged **twice over**: #1920 / PR #2030 closed the `[square] progress` clip, and #2032
+is discharged **twice over**: #1920 / PR #2030 closed the `[square] progress` clip, and PR #2043
 closed the `[portrait] roadmap` clip that #2016 opened an hour later. `check:chart-fit` exits 0
 across all three sizes with no `SANCTIONED_CLIPS` entry.
 
@@ -142,10 +144,12 @@ option table and the three-edit note above got wrong or did not reach:
   night where only the new arm is red the tier would file the failure and comment "measured
   green" on the same issue. `nightly-alarm-contract.test.js` already gates that symmetry, and
   the omission was mutation-proved to fail CI, so this one was never invisible.
-- **`check-chart-fit` has THREE failure headlines, not one.** `N clip(s)`, `N re-derived outer
-  inset(s)` and `N STALE sanction(s)`, printed by three separate branches. The note above named
-  only the first, and matching only that would have reproduced #1529 on the other two the same
-  week the note cited #1529 as the reason to be careful.
+- **`check-chart-fit` has THREE failure headlines, not one** — `N clip(s)`, `N re-derived outer
+  inset(s)` and `N STALE sanction(s)`, printed by three separate branches — **and counting only
+  the FINDING headlines was still not enough.** The note above named the first; a first cut of
+  the wiring named all three and still missed the top-level `.catch` in each tool, which is the
+  branch a dead emulator subprocess or a navigation timeout takes. For a step that drives a
+  browser, that is the likelier failure than a clip.
 - **The marker grep appears TWICE**, identically — the job summary and the issue body. The
   issue body is the one that matters: #1529's damage was a rolling issue carrying a bare count.
 - **Nothing in the tree could see a missing marker,** which is why it survived fifteen nights.
@@ -157,3 +161,20 @@ option table and the three-edit note above got wrong or did not reach:
 The precondition held: both gates were re-measured green on `main@f43364b`, the tree they were
 wired into, rather than taken from this note. That re-measurement is what the paragraph above
 asks for, and it is the second time in two days that doing it changed the answer.
+
+**This note stays `in-progress` until a scheduled run executes the arms.** Wiring a step is not
+the same as watching it work, and every claim above is about the pieces: the commands, the
+patterns, the `if:` expressions, each checked on its own. What settles it is one
+`integration-nightly` run whose job summary carries the two new section headers with green arms
+under them — and, incidentally, the first honest reading of their cost on a real runner rather
+than a sandbox. Until then the assembled job is UNVERIFIED, which is the distinction HARD
+RULE #23 exists to keep.
+
+An independent checker over the wiring diff found the marker grep matched every FINDING headline
+and no ERROR headline. Both tools end in a `.catch` that prints a stack and exits 2, and for a
+step that drives a browser through several emulator renders that is the likelier failure — so a
+crash would have filed an issue whose marker block held a section header and nothing else, with
+the `tail` under it showing only `regress` output. That is #1529, reproduced by the change whose
+subject is #1529. It is fixed, and the fix is a rule rather than a list: any `check-chart-fit:`
+line not beginning with a count is an error, a setup failure or a sanction notice, and all three
+belong in the report. An enumeration of today's error branches would have rotted the same way.

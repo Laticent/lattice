@@ -219,8 +219,9 @@ jobs:
       # used to exit 0 there and why that was changed before anyone wired it.
       #
       # THEY WERE RED ON `main` UNTIL TODAY. `check:chart-fit` went red at #2016 and was
-      # first green at #2032 — it has never had a green window before that, and the census
-      # note that called it "green and safe to wire" was already false when it merged.
+      # first green at `f43364b` (#2043) — this branch's own base, and the FIRST green in
+      # its life. The census note that called it "green and safe to wire" was already false
+      # when it merged.
       # Both were re-measured green on `main@f43364b`, the tree this wires them into,
       # rather than taken from the note. A wiring change that lands red teaches people to
       # ignore the alarm on its first night.
@@ -368,13 +369,33 @@ jobs:
       # goes red; this is so the issue says WHY instead of showing a bare section header
       # over an empty section. `geometry parity measured ZERO slides` is the same class:
       # a run that measured nothing, which must never read as a run that found nothing.
+      #
+      # `check-chart-fit: [^0-9]` AND `geometry-parity error:` ARE THE CATCH-ALLS, and
+      # leaving them out was this change's own near-repeat of #1529. Matching each FINDING
+      # headline is not enough: both tools end in a `.catch` that prints the stack and
+      # exits 2, and for a step that drives a browser through three emulator renders THAT
+      # is the likeliest failure — a dead subprocess, a missing sidecar, a navigation
+      # timeout — not a clip. Every such line was unmatched, so a crash would have filed an
+      # issue whose marker block held the section header and nothing else, while the
+      # `tail -n 120` under it showed only `regress` output (that step prints one line per
+      # artifact across ~274 decks and galleries, so it buries the tail on its own).
+      #
+      # The chart-fit half is a RULE rather than a list, which is why it is a negated class
+      # and not an enumeration of `Error|fixture not found|unknown --size`: the tool
+      # prefixes every line it prints with `check-chart-fit: `, and a COUNT after that
+      # prefix means either a finding headline (matched explicitly above) or the all-clear.
+      # Anything else is an error, a setup failure, or a `SANCTIONED clip` notice — and all
+      # three belong in the report, the sanction notice included, because "this component
+      # is knowingly clipping" is context a reader of the other findings wants. An
+      # enumeration would go stale the first time either tool grew a fourth error branch,
+      # which is the exact way the pattern rotted the last time.
       - name: Job summary
         if: always()
         run: |
           {
             echo '### Integration nightly — render-regression tier'
             echo '```'
-            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|no Chrom|^not ok |^--- ' \
+            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|check-chart-fit: [^0-9]|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|geometry-parity error:|no Chrom|^not ok |^--- ' \
               "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers)'
             echo '```'
             echo '<details><summary>Last 120 lines</summary>'
@@ -411,7 +432,7 @@ jobs:
             echo "What failed (full log in the run's artifact):"
             echo ""
             echo '```'
-            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|no Chrom|^not ok |^--- ' \
+            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|check-chart-fit: [^0-9]|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|geometry-parity error:|no Chrom|^not ok |^--- ' \
               "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers — see the tail below)'
             echo '```'
             echo ""
