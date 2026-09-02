@@ -18,8 +18,10 @@
   before and after, keeps the prune only when the two renders match, and otherwise returns the
   author's bytes untouched. Comparing parse tokens instead was tried and is not enough — a link
   reference definition emits no token at all, so deleting the line above one killed the definition
-  and printed its URL on the slide while a token comparison reported no change. Held to zero across
-  a fuzz whose oracle is the render, not the kernel's own check.
+  and printed its URL on the slide while a token comparison reported no change. The shapes that
+  broke each attempt are pinned by hand, with answers derived from markdown-it; a fuzz runs beside
+  them for breadth, and does not claim to be an independent oracle — twice it shared the kernel's
+  model and certified a corruption instead of finding it.
 - **Fixed: a second `_lens` comment on one slide is no longer invisible.** Lente reads only a slide's
   first tag, so a second one was never parsed and never rewritten — dead weight to every reader, and
   a withheld view's id to the recipient of a projected export. `stripExtraLensTags` removes it when
@@ -45,5 +47,6 @@
   would actually be shown, not Lente's own fence scan. That distinction is load-bearing: Lente
   opens a fence on ```` ```js` ```` (an info string carrying a backtick) where markdown-it opens
   none, so a check reading through the same scanner as the pruner was blind exactly where the
-  pruner was blind, and a withheld id reached a real envelope with `ok: true`. The message tells an
-  author the fix: put the tag on a blank line of its own.
+  pruner was blind, and a withheld id reached a real envelope with `ok: true`. The message names both
+  causes and the fix: give the tag a line of its own with a blank line above and below, clear of any
+  list.

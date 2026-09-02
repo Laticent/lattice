@@ -20,7 +20,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { projectForExport, exportableViews, REFUSAL_REASONS } = require('../../../lib/core/lens-export.mjs');
-const { frontMatterBlockOf } = require('../../../lib/core/slide-boundaries.mjs');
+const { frontMatterBlockOf, slideBoundaries } = require('../../../lib/core/slide-boundaries.mjs');
 const { approvalHash, applyTag, emitRegistry } = require('@workwel/lente');
 const engine = require('../../../lib/engine/index.js');
 
@@ -504,11 +504,22 @@ test('`--lens full` returns the identity even when a slide would prune to nothin
  * a commit the whole suite passed.
  */
 test.describe('the shapes eight attempts got wrong, with their answers written down', () => {
+	// THE DIGEST IS COMPUTED OVER THE REAL SPLIT, not over the chunks this helper was handed. Some of
+	// the shapes below (an unterminated `<pre>`, a fence) change where `slideBoundaries` puts a
+	// boundary, so assuming a two-chunk deck produced a hash that did not match and every such case
+	// refused as `drifted` — a fixture artifact that would have hidden the defect it was written for.
 	const deckOf = (slide) => {
-		const chunks = [slide, '\n# Two\n\nBody two.\n'];
 		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
+		const body = `${slide}\n---\n\n# Two\n\nBody two.\n`;
+		const seps = new Set(slideBoundaries(body).lines);
+		const real = [[]];
+		body.split('\n').forEach((line, i) => {
+			if (seps.has(i)) real.push([]);
+			else real[real.length - 1].push(line);
+		});
+		const chunks = real.map((ls) => ls.join('\n'));
 		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
-		return `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks[0]}\n---\n${chunks[1]}`;
+		return `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${body}`;
 	};
 
 	test('a blank-wrapped tag BETWEEN TWO LISTS is not removable — it would weld them', () => {
@@ -561,6 +572,24 @@ test.describe('the shapes eight attempts got wrong, with their answers written d
 		const out = projectForExport(deckOf('<!-- _lens: brief -->\n\n# One\n\n<div>\n<!-- an author note -->\n<!-- _lens: brief -->\nAlpha\n</div>\n'), ['brief']);
 		assert.equal(out.ok, true, 'nothing withheld is named, so nothing is refused');
 		assert.match(out.source, /<!-- an author note -->/, 'and the author\u2019s own comment is untouched');
+	});
+
+	test('a tag at the end of a raw HTML block is not removable — its newline is rendered content', () => {
+		// TWO DEFECTS IN ONE `.trim()`, and this is the case that discriminates them. Inside a `<pre>`
+		// the newline a deleted tag line takes with it is VISIBLE, so removing the tag renders one
+		// blank line short of the author's deck. Trimming the rendered string put that difference in
+		// the trimmed region and the comparison called the two identical — measured on the real CLI,
+		// against this function's own docblock, which said a collapse "would have hidden a real
+		// difference inside a `<pre>`."
+		//
+		// It also fixes the direction of the block trimming. `withoutLensComments` leaves the tag's
+		// newline where the prune deletes the whole line, so untrimmed the two sides differ and the
+		// prune reverts. Trimmed, it accepted 216 prunes in 3,000 randomized raw-HTML decks that
+		// dropping the block whole would have reverted, and zero the other way — the opposite of the
+		// "more precise" it was introduced as. Precision here means CONSERVATIVE.
+		const out = projectForExport(deckOf('<!-- _lens: brief -->\n\n# One\n\n<div>\nalpha\n<!-- _lens: ask -->\n'), ['brief']);
+		assert.equal(out.ok, false, 'removing it would change the rendered block, so the prune reverts');
+		assert.equal(out.reason, 'unprunable', 'and the surviving withheld id refuses rather than shipping');
 	});
 });
 

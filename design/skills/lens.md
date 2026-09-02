@@ -175,8 +175,8 @@ carries `brief` and nothing else: the front matter's `lenses:` block names only 
 you exported, and each kept slide's `_lens` tag names only those views. So a withheld
 view's id, its human label (which is prose you wrote — "Board only — restructuring"), its
 approval digest and its per-slide membership are all absent from the file, not merely
-absent from the switcher. `--lens-source full` is the one exception, and it is you asking
-for the whole deck by name.
+absent from the switcher. `--lens-source full` is one exception, and it is you asking
+for the whole deck by name; `--lens full` on its own is the other, for the same reason.
 
 **A `_lens` you QUOTED is prose, not membership.** A comment is a directive only when it
 opens its line — which is exactly when the renderer makes one of it — so a backticked
@@ -201,9 +201,9 @@ the definition and printed the URL on the slide while the check reported no chan
 recipient is not getting, so nothing is written:
 
 > `error: reader view 'internal' is unavailable (unprunable) — a slide still names a view
-> this export does not carry — the tag could not be removed without changing how the slide
-> renders, so nothing was written. Put the tag on a blank line of its own, away from the
-> prose around it`
+> this export does not carry, in a tag this export will not rewrite — either it shares its
+> line with other text, or removing it would change how the slide renders. Give the tag a
+> line of its own with a blank line above and below, clear of any list`
 
 A blank line above and below the tag is the shape most likely to survive, and it is where
 Lattice itself writes one — though not a guarantee: a comment at column 0 also TERMINATES a
