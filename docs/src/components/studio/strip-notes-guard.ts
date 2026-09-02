@@ -38,7 +38,10 @@
 
 type NotesKernel = {
 	stripNotesFromSource: (source: string, noteBodies: Set<string>, o?: { boundary?: string }) => string;
-	stripCommentNodes: (html: string) => string;
+	/** Same deck? Same slide count, same markup per slide, whitespace ignored. Read from the
+	 *  kernel rather than re-typed here — a hand-written copy of THIS measurement in the browser
+	 *  runtime is how the CLI and the Studio diverged in the first place (#2003). */
+	sameSlideShape: (a: string[], b: string[]) => boolean;
 	/** The candidate cuts, in the order they are tried. Read from the kernel rather than written
 	 *  out here — two hand-kept copies of this list is how the CLI and the Studio diverged. */
 	SCRUB_BOUNDARIES: readonly string[];
@@ -90,14 +93,11 @@ export async function stripNotesCut<R extends { html: string }>(
 	// (`strippedSlidesOrAuthored`); without it a note-free deck exported with the flag on paid a
 	// whole extra render on the browser's main thread to arrive at the source it started with.
 	if (bodies.size === 0) return { source: src };
-	const shape = (sec: string) => notes.stripCommentNodes(sec).replace(/\s+/g, '');
-	const want = authored.map(shape);
 	for (const boundary of notes.SCRUB_BOUNDARIES) {
 		const source = notes.stripNotesFromSource(src, bodies, { boundary });
 		const out = await render(source);
 		const sections = sectionsOf(out.html);
-		if (sections.length !== want.length) continue;
-		if (sections.some((sec, i) => shape(sec) !== want[i])) continue;
+		if (!notes.sameSlideShape(sections, authored)) continue;
 		return { out, sections, source };
 	}
 	// Neither cut reproduces the deck. Fidelity wins for the SLIDES — a privacy flag must not

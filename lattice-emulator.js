@@ -2237,16 +2237,12 @@ const noteStripSet = STRIP_NOTES ? new Set(slidesAsAuthored.flatMap((sec) => not
 // is an HTML block exactly as a note comment is and can re-cut a deck the same way — and because
 // the composed cut is what actually ships.
 function strippedSlidesOrAuthored() {
-  // WHITESPACE-BLIND, necessarily: the whole point of pass 2 is that it does NOT carry the
-  // comment's leftover whitespace, so a byte comparison reports every noted slide as a
-  // divergence. COLLAPSING to one space is not enough either — the residue is one space on one
-  // side and NOTHING on the other (`</header> <p>` vs `</header><p>`), which collapsing cannot
-  // equalize; it flagged 10 of the 23 shipped noted decks. What must match is the MARKUP: the
-  // paragraph that split in two, the slide that appeared. Both are TAG differences, and tags
-  // survive dropping whitespace entirely.
-  const shape = (sec) => notesCore.stripCommentNodes(sec).replace(/\s+/g, '');
-  const matches = (rendered) => rendered.length === slidesAsAuthored.length
-    && rendered.every((sec, i) => shape(sec) === shape(slidesAsAuthored[i]));
+  // WHITESPACE-BLIND, necessarily, and the argument for it is on `notesCore.sameSlideShape` —
+  // which is where this comparison now lives, because THREE call sites had written it out by
+  // hand (here, `attachmentCut`, and the Studio's `stripNotesCut`) and a hand-written copy of
+  // this measurement in the browser runtime is exactly how the CLI and the Studio came to
+  // disagree (#2003).
+  const matches = (rendered) => notesCore.sameSlideShape(rendered, slidesAsAuthored);
   // TRY BOTH CUTS AND MEASURE, rather than pick one and hope. The `text / text` case is
   // genuinely ambiguous and review found both answers being right on different decks: a note
   // above a `---` needs an empty line left in its place (delete the line and the `---` becomes
@@ -2331,35 +2327,24 @@ function strippedSlidesOrAuthored() {
 let attachmentCutMemo = null;
 function attachmentCut() {
   if (attachmentCutMemo) return attachmentCutMemo;
-  const settle = (boundary, measured) => (attachmentCutMemo = { boundary, measured });
-  // Step 1 inherits pass 2's ANSWER and its confidence with it. `scrubBoundary` alone cannot say
-  // whether it was measured or is still the initial `'preserve'` after a fidelity fallback.
-  if (md === rawMd) return settle(scrubBoundary, scrubBoundaryMeasured);
-  const cuts = notesCore.SCRUB_BOUNDARIES.map((b) => composeStrippedSource(md, noteStripSet, b));
-  // Step 2 is `true` on its own terms, whatever pass 2 concluded: if every cut produces the same
-  // bytes then no choice of boundary can change what ships, so there is nothing left to measure.
-  if (cuts.every((c) => c === cuts[0])) return settle(scrubBoundary, true);
-  // Same whitespace-blind shape comparison pass 2 uses: what must match is the MARKUP — the
-  // paragraph that split in two, the slide that appeared — and the residue the cut exists to
-  // drop is whitespace, so a byte compare would report every noted slide as a divergence.
-  //
-  // GUARDED, because this is the one step that renders and its caller is `embedSourceInPdf`,
-  // whose `catch` drops the attachment entirely and blames pdf-lib. A render that throws here
-  // must cost the measurement, not the feature: fall through to the fail-closed answer, which
-  // still scrubs and still warns.
-  try {
-    const shape = (sec) => notesCore.stripCommentNodes(sec).replace(/\s+/g, '');
-    const authored = engineSlides(md);
-    for (const [i, boundary] of notesCore.SCRUB_BOUNDARIES.entries()) {
-      const rendered = engineSlides(cuts[i]);
-      if (rendered.length === authored.length && rendered.every((s, j) => shape(s) === shape(authored[j]))) {
-        return settle(boundary, true);
-      }
-    }
-  } catch (e) {
-    console.warn(`  ⚠ Could not measure the attached source's cut (${e.message}); using the rendered deck's.`);
-  }
-  return settle(scrubBoundary, false);
+  // The decision itself is `notesCore.measureScrubBoundary` — pure, with the scrub and the render
+  // injected, so its three steps are asserted against synthetic documents in the unit suite. It
+  // used to be written out here, where step 3 was reachable only through a real deck fixture and
+  // its ANSWER was never asserted at all: back the whole guard out and the integration arm still
+  // passed, because that fixture's two documents happen to want the same cut.
+  return (attachmentCutMemo = notesCore.measureScrubBoundary({
+    attached: md,
+    rendered: rawMd,
+    inherited: scrubBoundary,
+    // Pass 2's answer AND its confidence. `scrubBoundary` alone cannot say whether it was
+    // measured or is still the initial `'preserve'` left behind by a fidelity fallback.
+    inheritedMeasured: scrubBoundaryMeasured,
+    scrub: (src, boundary) => composeStrippedSource(src, noteStripSet, boundary),
+    render: engineSlides,
+    onRenderError: (e) => console.warn(
+      `  ⚠ Could not measure the attached source's cut (${e.message}); using the rendered deck's.`
+    ),
+  }));
 }
 const slides = STRIP_NOTES || STRIP_CAPTIONS ? strippedSlidesOrAuthored() : slidesAsAuthored;
 const slideNotes = notesCore.extractSlideNotes(slides);

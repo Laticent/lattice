@@ -1151,6 +1151,161 @@ describe('notes-core: caption channel (caption:)', () => {
 // fails on a deck where a directive survives into the rendered section — the directive is
 // lifted as a note and then deleted from the verbatim source the envelope carries, so the
 // recipient re-imports a deck whose slide has silently lost its class.
+// ── Which cut fits the document that SHIPS ──────────────────────────────────
+// `measureScrubBoundary` is the decision `--embed-source` needs and pass 2 cannot make for it:
+// the PDF attaches the deck as the author wrote it, pass 2 renders the pre-processed one, and a
+// boundary measured on the second is a claim about the wrong file.
+//
+// THESE ASSERT THE DECISION, NOT A MARKDOWN MODEL. `scrub` and `render` are injected, so each
+// case states outright which source renders to what and the assertion is purely about which
+// branch fires and which answer comes back. That is the whole reason the function was extracted:
+// while it lived inline in `lattice-emulator.js`, step 3 was reachable only through a deck
+// fixture whose two documents happen to want the SAME cut — so backing the entire guard out left
+// every test green, and the answer it produced was never asserted anywhere.
+describe('notes-core: measureScrubBoundary picks the cut for the attached document (#2040)', () => {
+  // A render is a lookup: `SOURCE → sections`. Anything unlisted renders to a distinct nonsense
+  // shape, so a wrong branch shows up as a mismatch rather than an accidental pass.
+  const renderer = (table, log) => (src) => {
+    if (log) log.push(src);
+    return table[src] || [`<section>unlisted:${src}</section>`];
+  };
+  // A scrub is a lookup too, keyed by source AND boundary, recording what it was asked to cut.
+  const scrubber = (table, log) => (src, boundary) => {
+    if (log) log.push({ src, boundary });
+    return Object.hasOwn(table, `${src}|${boundary}`) ? table[`${src}|${boundary}`] : src;
+  };
+  const base = { attached: 'ATTACHED', rendered: 'RENDERED', inherited: 'preserve' };
+
+  test('step 1 — the same document: inherit the answer AND its confidence', () => {
+    const renders = [];
+    for (const inheritedMeasured of [true, false]) {
+      const got = core.measureScrubBoundary({
+        ...base, attached: 'SAME', rendered: 'SAME', inherited: 'drop', inheritedMeasured,
+        scrub: () => assert.fail('step 1 must not scrub'), render: renderer({}, renders),
+      });
+      assert.deepEqual(got, { boundary: 'drop', measured: inheritedMeasured, step: 'inherited' });
+    }
+    // A fidelity fallback leaves `scrubBoundary` at its initial value, which is not a measurement.
+    // Inheriting the boundary while silently upgrading its confidence is how `--embed-source`
+    // came to warn about a block-boundary comment on a deck that had no comments at all.
+    assert.deepEqual(renders, [], 'step 1 renders nothing');
+  });
+
+  test('step 2 — every cut agrees, so no choice can change what ships and none is rendered', () => {
+    const renders = [];
+    const got = core.measureScrubBoundary({
+      ...base,
+      // Both cuts of ATTACHED come out the same, so the boundary is irrelevant HERE whatever the
+      // other document decided.
+      scrub: scrubber({ 'ATTACHED|preserve': 'CUT', 'ATTACHED|drop': 'CUT' }),
+      render: renderer({}, renders),
+      inheritedMeasured: false,
+    });
+    assert.deepEqual(got, { boundary: 'preserve', measured: true, step: 'cuts-agree' });
+    assert.equal(got.measured, true, 'measured is TRUE on its own terms even when the inherited answer was not');
+    assert.deepEqual(renders, [], 'step 2 renders nothing — it is two string scrubs');
+  });
+
+  test('step 3 — renders the ATTACHED document and keeps the cut that reproduces it', () => {
+    // THE ASSERTION THE OLD SHAPE COULD NOT MAKE. Two cuts that differ, and only one reproduces
+    // the deck: the answer is now checked, not merely reached.
+    const fits = ['<section>A</section>', '<section>B</section>'];
+    const scrub = scrubber({ 'ATTACHED|preserve': 'LOOSE', 'ATTACHED|drop': 'TIGHT' });
+    // `drop` wins: a note indented in a list item, where an empty line turns a tight list loose.
+    assert.deepEqual(
+      core.measureScrubBoundary({
+        ...base, scrub,
+        render: renderer({ ATTACHED: fits, TIGHT: fits, LOOSE: ['<section>A</section>', '<section>B<p></p></section>'] }),
+      }),
+      { boundary: 'drop', measured: true, step: 'measured' }
+    );
+    // `preserve` wins: a note above a `---`, where taking the line makes the rule a setext
+    // underline and the deck GAINS a slide. Same neighbours, opposite right answer.
+    assert.deepEqual(
+      core.measureScrubBoundary({
+        ...base, scrub,
+        render: renderer({ ATTACHED: fits, LOOSE: fits, TIGHT: ['<section>AB</section>'] }),
+      }),
+      { boundary: 'preserve', measured: true, step: 'measured' }
+    );
+  });
+
+  test('step 3 cuts the ATTACHED document, never the one the inherited answer came from', () => {
+    // The defect in one assertion. Scrubbing `rendered` here would find two agreeing cuts and
+    // return `cuts-agree`; scrubbing `attached` finds two that differ and measures them.
+    const asked = [];
+    const got = core.measureScrubBoundary({
+      ...base,
+      scrub: scrubber({
+        'ATTACHED|preserve': 'X', 'ATTACHED|drop': 'Y',
+        'RENDERED|preserve': 'SAME', 'RENDERED|drop': 'SAME',
+      }, asked),
+      render: renderer({ ATTACHED: ['<section>k</section>'], Y: ['<section>k</section>'] }),
+    });
+    assert.deepEqual(got, { boundary: 'drop', measured: true, step: 'measured' });
+    assert.deepEqual([...new Set(asked.map((a) => a.src))], ['ATTACHED'], 'only the attached document is cut');
+  });
+
+  test('fail-closed — no cut reproduces the deck: keep the inherited boundary, say it is unmeasured', () => {
+    const got = core.measureScrubBoundary({
+      ...base,
+      scrub: scrubber({ 'ATTACHED|preserve': 'P', 'ATTACHED|drop': 'D' }),
+      render: renderer({ ATTACHED: ['<section>original</section>'] }),
+    });
+    // The caller still scrubs — the note text must go from every copy — and `measured: false` is
+    // what turns the author's warning on.
+    assert.deepEqual(got, { boundary: 'preserve', measured: false, step: 'unmeasured' });
+  });
+
+  test('a render that throws costs the MEASUREMENT, not the artifact', () => {
+    // The caller is an export step whose own `catch` drops the attachment and blames the PDF
+    // library. This must not propagate.
+    const seen = [];
+    const got = core.measureScrubBoundary({
+      ...base,
+      scrub: scrubber({ 'ATTACHED|preserve': 'P', 'ATTACHED|drop': 'D' }),
+      render: () => { throw new Error('engine exploded'); },
+      onRenderError: (e) => seen.push(e.message),
+    });
+    assert.deepEqual(got, { boundary: 'preserve', measured: false, step: 'unmeasured' });
+    assert.deepEqual(seen, ['engine exploded'], 'the caller is told, once');
+    // And it is optional: without a handler the throw is still swallowed rather than escaping.
+    assert.equal(
+      core.measureScrubBoundary({
+        ...base, scrub: scrubber({ 'ATTACHED|preserve': 'P', 'ATTACHED|drop': 'D' }),
+        render: () => { throw new Error('boom'); },
+      }).step,
+      'unmeasured'
+    );
+  });
+
+  test('candidates are tried in the order given, and default to the shared list', () => {
+    const fits = ['<section>same</section>'];
+    // Both cuts reproduce the deck, so ORDER decides — the same property `SCRUB_BOUNDARIES`
+    // exists to keep identical across the CLI and the Studio.
+    const opts = {
+      ...base,
+      scrub: scrubber({ 'ATTACHED|preserve': 'P', 'ATTACHED|drop': 'D' }),
+      render: renderer({ ATTACHED: fits, P: fits, D: fits }),
+    };
+    assert.equal(core.measureScrubBoundary(opts).boundary, 'preserve', 'the shared list is conservative-first');
+    assert.equal(core.measureScrubBoundary({ ...opts, boundaries: ['drop', 'preserve'] }).boundary, 'drop');
+  });
+
+  test('sameSlideShape is whitespace-blind but not markup-blind, and slide COUNT is part of it', () => {
+    // The comparison all three cut measurements now share. It has to ignore exactly the residue
+    // the cut exists to drop, and nothing else.
+    assert.ok(core.sameSlideShape(['<section> <p>a</p>\n</section>'], ['<section><p>a</p></section>']));
+    assert.ok(core.sameSlideShape(['<section><!-- n --><p>a</p></section>'], ['<section><p>a</p></section>']),
+      'a comment node is not a difference — the scrubbed render has none and the authored one does');
+    assert.ok(!core.sameSlideShape(['<section><li>a</li></section>'], ['<section><li><p>a</p></li></section>']),
+      'tight vs loose IS a difference — it is the whole reason two cuts are offered');
+    assert.ok(!core.sameSlideShape(['<section>a</section>'], ['<section>a</section>', '<section>b</section>']),
+      'a gained slide is a difference');
+    assert.ok(!core.sameSlideShape(null, []), 'a non-array is never a match');
+  });
+});
+
 describe('notes-core: stripNotesFromSource leaves no line where a note was (#1985)', () => {
   test('stripNotesFromSource takes the whole LINE, so no blank line marks where a note was (#1985)', () => {
     // The residue IS the disclosure. Replacing the `<!-- … -->` span alone leaves the line
