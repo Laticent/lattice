@@ -46,8 +46,7 @@ the quote.
 
 Every component picks a Frame, and puts one Tile in each Cell the Frame
 produced. `cards-grid` picks the grid Frame and makes each list item a
-Tile. `split-panel` picks the split Frame and fills its two Cells with two
-Tiles: the prose and the figure.
+Tile. `list-tabular` picks the ledger Frame and makes each row a Tile.
 
 Frames do not nest inside Cells. A component's internal arrangement is
 plain CSS inside its own box — which keeps the model shallow enough to
@@ -56,7 +55,8 @@ hold in your head.
 ## The one place CSS attaches
 
 Every slide the engine renders comes out in the same shape. Here is the
-`takeaway` slide above, as the browser actually sees it:
+`takeaway` slide above, with the engine's bookkeeping attributes trimmed
+away:
 
 ```html
 <section class="takeaway content">
@@ -72,13 +72,12 @@ Every slide the engine renders comes out in the same shape. Here is the
 </section>
 ```
 
-Two things to take from that.
+Three things to take from that.
 
 **The heading is not yours to style.** It lives in `.cell-masthead`, a Cell
-the engine fills and styles for every slide in every component, so headings
-line up across a deck no matter which layouts it mixes. A selector like
-`section.takeaway > .cell-stage h2` matches nothing, because the `h2` is not
-in there.
+the engine fills and styles, so headings line up across a deck no matter
+which layouts it mixes. A selector like `section.takeaway > .cell-stage h2`
+matches nothing, because the `h2` is not in there.
 
 **Anchor everything on `.cell-stage`.** It is the space left once the
 masthead, the footer and the page number have taken theirs:
@@ -90,13 +89,23 @@ section.takeaway > .cell-stage { /* … */ }
 Not `section.takeaway` directly. Style the section and you are reaching the
 whole page, including the header, footer and page number the deck puts on
 every slide; style the stage and you are styling the area your content
-occupies. Every one of the sixty-one shipped components does the latter.
+occupies. Two thirds of the shipped catalog does the latter, and every
+component that is not sovereign should.
 
-The `content` class is the engine's doing. A slide whose class names no
+**The `content` class is the engine's doing.** A slide whose class names no
 component it knows falls back to `content`, the catch-all layout, which is
 why the lab's slide had a properly set heading before you had written a
 single rule. Once `takeaway` is a real registered component, the fallback
 stops applying.
+
+**Not every component gets this shape.** Ten layouts are *sovereign*: they
+own the whole page and take neither cell, because their design is the
+full-bleed slide. `title`, `closing`, `divider`, `image`, `scene`, `math`,
+`premise`, `compare-code`, `split-compare` and `split-panel` style
+`section.<name>` directly, which is the one legitimate exception to the rule
+below. If you are building a full-bleed cover or a two-halves layout, open
+one of those and follow it. Everything else — the large majority — is the
+shape above.
 
 ## The three questions
 
@@ -114,13 +123,17 @@ select and what the engine expects your markdown to look like.
 
 Substance decides how much work you are in for:
 
-- **prose** — a heading and paragraphs. CSS only. No code.
+- **prose** — a heading and paragraphs. CSS only.
 - **structure** — nested lists with a convention ("the top bullet is the
   title, the nested bullet is the body"). Usually still CSS only.
-- **series** or **graph** — numbers or relationships that must become an
+- **series** or **graph** — numbers or relationships that have to become an
   SVG. This needs a transform, which is a real program.
 
-Most new components are prose or structure, and never leave CSS.
+Most new components are prose or structure and never leave CSS. You need a
+transform only when the markdown has to be *rebuilt* into different
+elements before the CSS can lay it out — which is most charts, and a handful
+of others that assemble something the author did not write, like the QR code
+on a contact slide.
 
 ## What a real component ships as
 

@@ -64,12 +64,15 @@ not.
 ```
 
 Read that as: a 1-pixel line, then 33 pixels of nothing, forever. Change
-`0deg` to `90deg` for verticals; declare both for a grid. Textures mix
-toward the ink color rather than the accent, because a colored pattern
-reads as decoration while a gray one reads as paper.
+`0deg` to `90deg` for verticals; declare both for a grid.
 
-Keep the alpha even lower than a wash — 4% to 8%. A texture covers the
-whole page, so it accumulates.
+Every shipped texture mixes toward `var(--accent)`, between 8% and 15%.
+That looks like a lot beside a wash, and it is not: a hairline covering 1
+pixel in 34 puts far less color on the page than a gradient covering all of
+it. Mixing toward an ink token instead — `var(--text-heading)` — gives a
+grayer, more paper-like grain, which is what the sample below does. Both
+are palette-blind; pick by whether you want the pattern to carry the brand
+or to disappear.
 
 ## Stacking two layers
 

@@ -9,7 +9,7 @@ description: The files, the gates, and the list that says a layout is finished.
 lib/components/<bucket>/takeaway/
   takeaway.manifest.json      ← you write this
   takeaway.styles.css         ← you write this
-  takeaway.transform.js       ← only for charts and diagrams
+  takeaway.transform.js       ← only if the DOM has to be rebuilt
   takeaway.docs.md            ← GENERATED
   takeaway.gallery.md         ← GENERATED
   takeaway.gallery.light.pdf  ← rendered
@@ -71,7 +71,7 @@ writes or by the domain.
 Modifiers like `dark`, `compact`, `accent` and the state markers are added
 to every component automatically, and listing them in your manifest's
 `variants` fails the build. That field is for variants **specific to your
-layout** — `numbered`, `four`, `wide`.
+layout** — `numbered`, `four`, `three`.
 
 ## The commands
 

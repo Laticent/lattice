@@ -54,19 +54,22 @@ match the filename — `themes/evergreen.css`. A deck then picks it up with
 
 **The import.** `@import 'lattice'` brings in the engine — all sixty-one
 layouts, the structural tokens, and a set of sensible color defaults. This
-is why the lab above still renders something reasonable even though the
-theme sets only twenty-odd colors: everything you leave out falls back to
-the engine's default. A finished theme fills them all in, but a
-half-finished one still shows you a slide.
+is why the lab above still renders something reasonable on sixteen colors:
+everything you leave out falls back to the engine's default. A finished
+theme fills them all in, but a half-finished one still shows you a
+slide.
 
 **The colors.** A `:root` block of named values. Each name is a **role**,
 not a color: `--text-body` is "the color body prose is set in," not "dark
 gray." That is why themes stay swappable — the role is the same in every
 palette; only the value differs.
 
-Real palettes carry a small companion file too, `themes/evergreen.manifest.json`,
-which records the palette's identity: its display name, which picker group
-it belongs to, and which theme it extends. It holds no colors.
+Real palettes carry a small companion file too,
+`themes/evergreen.manifest.json`, which records the palette's identity: its
+slug, which group the picker files it under, whether it is a base palette or
+a variant of one, and one `swatch` hex for the picker's own chip. It carries
+no token names and no token values — those are the CSS's job, and the two
+are checked against each other on every build.
 
 ## What a theme does not control
 

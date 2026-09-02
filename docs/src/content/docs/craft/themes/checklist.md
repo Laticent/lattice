@@ -9,7 +9,7 @@ render a real deck and look at it. This page is that list.
 
 ## The full contract
 
-The tour covered around twenty colors. A shipping theme defines **98**.
+The tour covered about twenty colors. A shipping theme defines **98**.
 
 Skipping a color has a cost. Every one a theme leaves out falls back to the
 default palette's value, so a theme that stops at the surfaces, the ink and
@@ -29,8 +29,12 @@ Beyond the groups on [the token tour](/craft/themes/tokens/), define:
 | `--scheme-dark-*` | 10 | the dark inputs your pairs read |
 | `--pass-bg` / `--warn-bg` / `--fail-bg` | 3 | tinted signal grounds |
 | `--seq-500` | 1 | anchors a nine-step gradient ramp |
+| `--text-label`, `--code-text` | 2 | the accent-hued label tier, and code text |
+| `--c-container*`, `--c-subcontainer*` | 6 | the grouping boxes diagrams draw around related nodes: two fills, two edges, two label inks. Not optional — the fill is a barely-there step from the canvas, so a theme that omits them gets an invisible box and unreadable labels |
 
-The exact list lives in `test/unit/palette/token-parity.test.js`.
+The exact list is the `CONTRACT` array in
+`test/unit/palette/token-parity.test.js`. The twelve `--cat-N-ink` values
+sit outside it and have their own gate.
 
 ### Two worth reading twice
 
@@ -66,11 +70,12 @@ fading it spends exactly that.
       `composed-contrast`.
 - [ ] `<name>-dark.css` is the three-line wrapper.
 - [ ] All 98 tokens defined directly, not inherited.
-- [ ] The theme added to `THEMES` in
-      `test/unit/palette/token-parity.test.js` — until it is there, a green
-      test run proves nothing about your palette.
+- [ ] `themes/<name>.manifest.json` declares `role: "base"` — that is what
+      puts the palette in the token-contract suite's scope. `npm run
+      new:theme` writes it for you; a theme without it is never tested.
 - [ ] The theme added to `.vscode/settings.json` under
-      `markdown.marp.themes`.
+      `markdown.marp.themes`, if you preview decks in VS Code. Nothing
+      checks this; it only affects that editor's preview.
 - [ ] `npm run test:palette` green.
 - [ ] `npm run build:check` green.
 - [ ] The component gallery rendered in **both** canvases and looked at.

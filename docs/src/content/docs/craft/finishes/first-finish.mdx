@@ -21,9 +21,10 @@ const FINISH_REGISTER = Object.freeze({
 });
 ```
 
-That one line does three things. `finish: quarry` starts working in front
-matter, the deck linter accepts it as a real value while still flagging
-typos like `quary`, and the Studio's picker offers it.
+That one line does two things: `finish: quarry` starts working in front
+matter, and the deck linter accepts it as a real value while still flagging
+typos like `quary`. It does *not* put the finish in the Studio's picker —
+that needs step 5, and until you do it a guard test fails.
 
 The register is deliberately open: adding a finish is a row in a list,
 never a change to the engine.

@@ -17,7 +17,7 @@ them.
 
 ```jsonc
 "capacity": {
-  "axis": "reason",
+  "axis": "item",
   "sweet": 3,
   "soft": 4,
   "hard": 5,
@@ -26,9 +26,10 @@ them.
 }
 ```
 
-- **axis** — what you are counting. Say `reason` or `card` or `column`,
-  something a person can point at on the slide. If you cannot count it in
-  your own sample, the axis is wrong.
+- **axis** — what you are counting, from a fixed set of five: `item`,
+  `row`, `col`, `cell`, `line`. Anything else fails validation, so a layout
+  counting reasons or cards says `item`, a table says `row`, and a grid of
+  columns says `col`. Put the human word in `note`.
 - **sweet** — where the layout is at its best.
 - **soft** — still fine.
 - **hard** — the ceiling. Past this the linter tells the author to move.
@@ -43,7 +44,7 @@ than a number someone guessed.
 ## Density — how much per item
 
 ```jsonc
-"density": { "axis": "reason", "soft": 15, "hard": 24,
+"density": { "axis": "item", "soft": 15, "hard": 24,
              "note": "aim for about fifteen words per reason" }
 ```
 

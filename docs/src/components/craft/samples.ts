@@ -220,7 +220,7 @@ section.takeaway.takeaway > .cell-stage > ul > li {
   padding-left: var(--sp-md);
   border-left: 4px solid var(--accent);
   color: var(--text-body);
-  font-size: var(--fs-emphasis);
+  font-size: var(--fs-body);
 }
 `;
 
