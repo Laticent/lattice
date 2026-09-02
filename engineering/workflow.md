@@ -128,9 +128,13 @@ asserted (but still long-running and shared):
 
 ## Feature decks
 
-**Every feature or visual-bug branch ships a per-feature demo deck.** This
-is how reviewers see the work: a small, focused PDF on the branch, linked
-directly from the PR body. It is independent of all six long-running
+**Every branch whose change a human can SEE ON A SLIDE ships a per-feature
+demo deck.** This is how reviewers see the work: a small, focused PDF on the
+branch, linked directly from the PR body. The trigger is the rendered
+surface, not the word "feature" — a layout, modifier, token, theme or chart
+change owes one; tooling, infra, export plumbing and docs work that renders
+no new or changed slide surface does not, and owes its evidence in the PR
+body instead (HARD RULE #9). It is independent of all six long-running
 decks listed above.
 
 **Feature/fix content is isolated to the feature deck until merge.** Do

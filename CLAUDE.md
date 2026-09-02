@@ -306,8 +306,25 @@ anchors). Both are binding; the split tells you *where the enforcement lives*.
   shared by CLI / `validate()` / browser. Never duplicate.
 - **#8 — Isolate feature/fix content from the six long-running galleries** —
   layouts graduate in a separate post-review commit. See `engineering/workflow.md`.
-- **#9 — Ship a per-feature demo deck** `examples/<slug>.md` (+ committed `.pdf`),
-  6–10 slides. Contract in `engineering/workflow.md`.
+- **#9 — A change a human can SEE ON A SLIDE ships a per-feature demo deck**
+  `examples/<slug>.md` (+ committed `.pdf`), 6–10 slides. Contract in
+  `engineering/workflow.md`. **The trigger is the rendered surface, not the word
+  "feature".** A layout, modifier, token, theme or chart change — or a fix to one —
+  owes a deck, because the deck IS how a reviewer sees it. Work that renders no new
+  or changed slide surface does not: tooling, CI/infra, export plumbing, a perf change
+  whose output is byte-identical, docs. `workflow.md`'s escape already said half of
+  this ("a code-level feature's demo lives with the implementation"), but this line
+  stated the rule flatly, so every tooling PR had to argue its way out of a HARD RULE
+  in its own body — which is a tax on the honest ones and an invitation to the rest.
+  **A path test is NOT the trigger, and the measurement is why:** of the last 40
+  commits, 19 touched `lib/` or `themes/` and 6 shipped a deck, so a mechanical
+  `lib/` ⇒ deck rule would have called 13 of them violations. Judge the surface a
+  human sees, not the directory the diff lands in.
+  **Non-visual work still owes its EVIDENCE in the PR body** — the before/after
+  numbers, the measured table, the arm that proves the thing can fail. A deck is one
+  form of proof, not the only one; shipping neither is what this rule exists to stop.
+  *(discipline — no automated gate; the test is whether a reviewer can see the change
+  without checking out the branch.)*
 - **#10 — Record every user-visible change in a `changelog.d/` fragment** as it
   lands — one file per PR, `changelog.d/<slug>.<category>.md`, bullets only; lead
   with `**Breaking:**` for anything that breaks a deck/consumer. **Do NOT append
@@ -724,6 +741,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | Where we stand vs Marp (independence scorecard) | `engineering/marp-independence.md` |
 | The CSS cascade / `@layer` (declared-but-inert; the trap) | `engineering/cascade.md` |
 | **Layering a slide** — which z-plane a thing lives on, and the local 0–9 band | `design/forms.md` §5.2 + `lib/base/base.tokens.css` § depth axis |
+| **A fixed element that must HOLD POSITION as content grows** — a running mark, a reserved band, anything an author's longer heading could reach | `engineering/jank.md` + `npm run check:jank`. Every fit gate asks whether content FITS; this is the one that asks whether the layout MOVES, and drift/collision/crowding are invisible to a still |
 | Typography scales | `engineering/typography.md` |
 | Running the render pipeline (PDF/HTML/PPTX) | `engineering/pipeline.md` |
 | Authoring/rendering Mermaid diagrams | `engineering/mermaid.md` |
