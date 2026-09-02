@@ -122,11 +122,43 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
     // section mark. The wrapper has no direct text and no background of its own, so the
     // walk used to treat it as a pure container and descend past it — and generated boxes
     // are not children, so every pixel it painted was absent from the measurement.
+    //
+    // It is DECORATION, so under the content rule it is reported and does not fail: the
+    // assertion is that the tool SEES it. That is the whole point of the arm — the defect
+    // it guards was the box being absent from the measurement, not the verdict it earns.
     const overlap = 'section.divider.numbered p::before { content:""; position:absolute; '
       + 'top:64px; left:100px; width:400px; height:120px; background:red; }';
     const r = sweep(['--style', overlap], { max: '4' });
-    assert.ok(r.summary.collision, 'a painted pseudo lying on the anchor was not seen at all');
-    assert.equal(r.status, 1);
+    assert.ok(r.summary.chromeTouch,
+      'a painted pseudo lying on the anchor was not seen at all — the walk is blind to '
+      + 'generated boxes again');
+    assert.equal(r.summary.collision, null,
+      'decoration overlapping decoration was failed on; that is the cry-wolf the content '
+      + 'rule exists to stop');
+    assert.equal(r.status, 0);
+  });
+
+  // THE CONTENT RULE, both directions, on REAL shipped CSS and on an injected defect.
+  test('the verdict keys on readable content, not on any two boxes touching', () => {
+    // `cycle` draws its hub dot centered ON the ring it straddles — real geometry, entirely
+    // deliberate. Failing that is crying wolf on a component that works, which is the
+    // failure mode opposite to a false clean and the more corrosive one: the next person to
+    // see it stops trusting the tool. No injected CSS here; this is the shipped component.
+    const shipped = spawnSync(process.execPath,
+      [TOOL, 'cycle', '--anchor', 'ul::before', '--max', '6', '--json'],
+      { cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, CHROME_PATH: resolveChrome() } });
+    assert.equal(shipped.status, 0,
+      `shipped \`cycle\` reported a defect against unmodified CSS:\n${shipped.stderr}`);
+    assert.equal(JSON.parse(shipped.stdout).summary.collision, null,
+      'a deliberate decoration overlap was reported as a collision');
+
+    // And the other direction, so this arm cannot pass by the tool simply never failing:
+    // make the mark ride the heading and it lands ON the heading text — readable content —
+    // which is the #2005 defect and must exit 1.
+    const onText = sweep(['--style', 'section.divider.numbered h2 { position: relative; }'], { max: '4' });
+    assert.ok(onText.summary.collision,
+      'the mark was laid over the heading TEXT and the tool called it clean');
+    assert.equal(onText.status, 1);
   });
 
   test('text escaping its own box is not claimed as measured — the probe owns that case', () => {

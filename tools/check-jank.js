@@ -15,11 +15,17 @@
  *              running section mark 22% down the canvas on a one-line heading and 14%
  *              down on a three-line one is a defect PRECISELY because the eye expects it
  *              in the same place on every slide. Fine in a still; it wobbles across a deck.
- *   COLLISION  two boxes reach each other. The fatal case: one is `position: absolute`
- *              and the other flex-centered, so they lay out independently and NEITHER
- *              overflows anything. `probeSectionOverflow` measures flowed children
- *              spilling past the section's rect; two boxes painting on top of each other
- *              never leave it, so no ⚠ OVERFLOW line, no red ring, no clipped tag.
+ *   COLLISION  the anchor reaches READABLE CONTENT — text, or a replaced element. The
+ *              fatal case: one box is `position: absolute` and the other flex-centered, so
+ *              they lay out independently and NEITHER overflows anything.
+ *              `probeSectionOverflow` measures flowed children spilling past the section's
+ *              rect; two boxes painting on top of each other never leave it, so no
+ *              ⚠ OVERFLOW line, no red ring, no clipped tag. The anchor touching mere
+ *              DECORATION is reported as CHROME and does not fail: one engine-drawn mark
+ *              deliberately touching another is a design choice a geometry rig cannot
+ *              second-guess, and shipped `cycle` makes it — its hub dot is centered ON the
+ *              ring it straddles. Failing that cried wolf on a working component; the
+ *              defect this tool was built from struck the eyebrow TEXT and cut the COPY.
  *   CROWDING   content stays inside the frame and eats all its breathing room — the
  *              engine's own warning text admits this case is untagged.
  *
@@ -483,7 +489,10 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       if (ps.content === 'none' || ps.display === 'none' || ps.visibility === 'hidden') continue;
       if (ps.position === 'absolute' || ps.position === 'fixed') {
         const box = placedBox(el, ps);
-        if (box) acc.push(box);
+        // CHROME. A generated box carries no readable content — `content: ""` is the
+        // overwhelming case in this engine — so it is collected and reported, but it does
+        // not decide the COLLISION verdict. See the kind split below.
+        if (box) acc.push({ ...box, kind: 'chrome' });
         else unplaced.push(`${el.tagName.toLowerCase()}${pseudo}`);
         continue;
       }
@@ -525,7 +534,14 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
     // reporting `COLLISION none` the moment the wrapper above it had a background.
     // So the element's own rect is taken once, and the descent continues for pseudos.
     if (own && r.width > 0 && r.height > 0) {
-      if (collectElement) acc.push(r);
+      // CONTENT is what a reader reads: a box with its own text, or a replaced element.
+      // Everything else that paints — a card's surface, a rule, a badge fill — is CHROME.
+      // The split decides the verdict, not what is measured: both are collected, both are
+      // reported, and only content can raise a COLLISION.
+      const kind = ownText || REPLACED.has(el.tagName.toUpperCase()) ? 'content' : 'chrome';
+      if (collectElement) acc.push(Object.assign({
+        top: r.top, left: r.left, bottom: r.bottom, right: r.right, width: r.width, height: r.height,
+      }, { kind }));
       collectElement = false;
     }
     for (const kid of el.children) ink(kid, acc, unplaced, skip, collectElement);
@@ -622,12 +638,23 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       rows.push({ ...row, empty: true });
       continue;
     }
-    const inkBox = {
-      top: Math.min(...rects.map((r) => r.top)),
-      bottom: Math.max(...rects.map((r) => r.bottom)),
-      left: Math.min(...rects.map((r) => r.left)),
-      right: Math.max(...rects.map((r) => r.right)),
-    };
+    // THE INK IS THE CONTENT — the words and the pictures, which is what the reader reads
+    // and what the #2005 defect actually struck (the numeral through the eyebrow, the
+    // hairline through the copy). Chrome is measured too, and reported, but it does not
+    // decide the verdict: a component can draw one decoration deliberately touching
+    // another, and shipped `cycle` does exactly that — its hub dot is centered ON the ring
+    // it straddles. Failing that is crying wolf on a component that is working as designed.
+    const contentRects = rects.filter((r) => r.kind === 'content');
+    const chromeRects = rects.filter((r) => r.kind !== 'content');
+    const union = (list) => (list.length ? {
+      top: Math.min(...list.map((r) => r.top)),
+      bottom: Math.max(...list.map((r) => r.bottom)),
+      left: Math.min(...list.map((r) => r.left)),
+      right: Math.max(...list.map((r) => r.right)),
+    } : null);
+    // Fall back to the whole ink when a slide carries no text at all (an image-only or
+    // all-chrome layout): measuring nothing there would be a silent clean.
+    const inkBox = union(contentRects) || union(rects);
 
     // Breathing room: how far the ink stays inside the section's content box, worst edge.
     // Negative means it has eaten into the padding — inside the frame, past the margin the
@@ -643,6 +670,7 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
     let clearance = null;
     let side = null;
     let intersects = false;
+    let chromeHit = false;
     if (anchor) {
       const anchorMid = (anchor.top + anchor.bottom) / 2;
       const inkMid = (inkBox.top + inkBox.bottom) / 2;
@@ -653,10 +681,12 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       // heading above and a body below — is enveloped by the union while touching neither.
       // Asserting on the union made that a COLLISION and a failing exit; the union is the
       // right thing to REPORT a clearance against, and the wrong thing to fail on.
-      intersects = rects.some((r) => (
+      const hits = (list) => list.some((r) => (
         Math.min(anchor.bottom, r.bottom) - Math.max(anchor.top, r.top) > slack
         && Math.min(anchor.right, r.right) - Math.max(anchor.left, r.left) > slack
       ));
+      intersects = hits(contentRects.length ? contentRects : rects);
+      chromeHit = hits(chromeRects);
     }
 
     rows.push({
@@ -675,6 +705,8 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       side,
       clearance: round(clearance),
       intersects,
+      chromeHit,
+      chromeOnly: !contentRects.length,
       breathing: round(worst[1]),
       breathingEdge: worst[0],
       section: { width: round(sr.width), height: round(sr.height) },
@@ -760,6 +792,9 @@ async function main() {
   // on every side-set mark. The one-axis case is still worth saying out loud — it is a
   // collision waiting for a wider line — so it is reported, not failed.
   const collision = withAnchor.find((r) => r.intersects) || null;
+  // Reported, never failed on. Two engine-drawn decorations touching is a design choice a
+  // geometry rig cannot second-guess: shipped `cycle` centers its hub dot ON the ring.
+  const chromeTouch = withAnchor.find((r) => !r.intersects && r.chromeHit) || null;
   const passes = withAnchor.find((r) => !r.intersects && r.clearance < 0) || null;
   const tight = withAnchor.find((r) => !r.intersects && r.clearance >= 0 && r.clearance <= TIGHT) || null;
   const crowded = measured.find((r) => r.breathing < -SLACK) || null;
@@ -789,6 +824,7 @@ async function main() {
     unplaced: [...new Set(rows.flatMap((r) => r.unplaced || []))],
     anchorMatches: [...new Set(rows.map((r) => r.anchorCount).filter((n) => n > 1))],
     collision: collision && { step: collision.step, slide: collision.slide, clearance: collision.clearance },
+    chromeTouch: chromeTouch && { step: chromeTouch.step, slide: chromeTouch.slide },
     passesOnOneAxis: passes && { step: passes.step, clearance: passes.clearance },
     tight: tight && { step: tight.step, clearance: tight.clearance },
     crowded: crowded && { step: crowded.step, breathing: crowded.breathing, edge: crowded.breathingEdge },
@@ -869,7 +905,13 @@ async function main() {
       // shape of every false clean this tool is built to refuse.
       console.log(`  COLLISION none through step ${sweep.steps.at(-1)}`
         + `${tight ? `  (tightest ${tight.clearance}px at step ${tight.step} — at or under --tight ${TIGHT})` : ''}`
+        + `${chromeTouch ? '  (it does touch DECORATION — see CHROME)' : ''}`
         + `${summary.unplaced.length ? '  — among the ink it could place; see UNPLACED' : '  ok'}`);
+    }
+    if (chromeTouch) {
+      console.log(`  CHROME    step ${chromeTouch.step}: the anchor overlaps DECORATION — a painted box or a `
+        + 'generated one, no readable content in it. Reported, not failed: one engine-drawn mark '
+        + 'deliberately touching another is a design choice  (advisory)');
     }
     if (passes) {
       console.log(`  PASSES    step ${passes.step}: the ink is ${Math.abs(passes.clearance)}px past the anchor on the `

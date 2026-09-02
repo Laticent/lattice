@@ -20,8 +20,9 @@ section mark that sits 22% down the canvas on a one-line heading and 14% down on
 three-line one is a defect *precisely because* the eye expects it in the same place on
 every slide. In a still it looks fine. Across a deck it wobbles.
 
-**Collision.** Two boxes reach each other. The fatal case: one is `position: absolute` and
-the other flex-centered, so they lay out independently and **neither overflows anything**.
+**Collision.** The anchor reaches **readable content** — text, or a replaced element. The
+fatal case: one box is `position: absolute` and the other flex-centered, so they lay out
+independently and **neither overflows anything**.
 `probeSectionOverflow` measures flowed children spilling past the section's rect, and two
 boxes painting on top of each other never leave it — so no `⚠ OVERFLOW` line, no red ring,
 no "Content clipped" tag, no autosplit. See the *an OVERLAP IS NOT AN OVERFLOW* entry in
@@ -102,7 +103,8 @@ unplugged smoke alarm reports no fire.
 |---|---|
 | `ink top` / `ink bot` | the flowed content's painted extent, relative to the top of the slide |
 | `anchor` | the anchor's painted edge **facing the content** — its bottom when it sits above, its top when below |
-| `clearance` | the signed gap between the two. Negative means they have reached each other; `✱` means the boxes genuinely intersect on both axes, not merely on one |
+| `clearance` | the signed gap between the anchor and the **content** ink. Negative means they have reached each other; `✱` means the boxes genuinely intersect on both axes, not merely on one |
+| `CHROME` | the anchor overlaps decoration rather than content — reported, never failed on |
 | `breathe` | how far the ink stays inside the section's content box, worst edge, with that edge's initial. `0 L` is normal — text begins where the content box begins. Negative means the ink is into the padding: inside the frame, so no channel tags it |
 | `UNPLACED` | generated boxes that paint where the tool cannot place them. When this appears, a clean COLLISION line says "among the ink it could place" and withholds the word `ok` — see below |
 | `probe` | the engine's own overflow verdict for that page. A collision with `·` here is the silent case |
@@ -130,6 +132,15 @@ holds position; if it moves, either the design is wrong or it was never an ancho
 design killed by this measurement in #2005 kept a *constant* clearance on every slide and
 still wandered 70px down the canvas, because it rode the heading. Constant clearance is
 not the same as holding position, and only the drift row can tell them apart.
+
+**Decoration touching decoration is not a collision.** The verdict keys on the anchor
+reaching *readable content*, because that is the defect: #2005's numeral struck the eyebrow
+text and its hairline cut the copy. An anchor overlapping a painted box or another generated
+one is reported as `CHROME` and does not fail the run — shipped `cycle` centers its hub dot
+*on* the ring it straddles, and a geometry rig cannot tell that deliberate composition from a
+mistake. It is still **measured and printed**, so nothing goes unseen; only the verdict
+changes. A slide with no text at all falls back to the whole ink, because measuring nothing
+there would be a silent clean.
 
 **A collision is never acceptable and never "unlikely".** The reachable heading length is
 whatever an author types. If a collision exists anywhere in the sweep, either make it
