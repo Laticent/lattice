@@ -4,7 +4,7 @@ description: The twelve-slot categorical cycle, the three layers each slot has t
 ---
 
 import CraftLab from '../../../../components/craft/CraftLab.astro';
-import { SLIDE_DIAGRAM, THEME_MINI } from '../../../../components/craft/samples.ts';
+import { SLIDE_DIAGRAM, THEME_PAIRS } from '../../../../components/craft/samples.ts';
 
 A pie chart needs one color per slice. A flowchart needs one per stage. A
 timeline needs one per period. Lattice calls these **categorical colors**,
@@ -78,7 +78,7 @@ theme, and the build refuses it.
 <CraftLab
 	label="The categorical cycle, in the engine's defaults"
 	kind="theme"
-	css={THEME_MINI}
+	css={THEME_PAIRS}
 	markdown={SLIDE_DIAGRAM}
 	mermaid
 	size="tall"

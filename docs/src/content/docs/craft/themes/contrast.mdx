@@ -54,17 +54,22 @@ slide — not in a report.
 	label="Push a color until it fails"
 	kind="theme"
 	css={THEME_MINI}
+	canvasToggle={false}
 	markdown={SLIDE_KPI}
 	size="tall"
-	hint="Lighten --text-body one step at a time: #1C2A3E, #55637A, #8A94A6, #B4BBC7. Somewhere in there it stops being quiet and starts being unreadable, and it happens sooner than the hex codes suggest. Then press Dark and check the same value on the other canvas."
+	hint="Lighten --text-body one step at a time: #1C2A3E, #55637A, #8A94A6, #B4BBC7. Somewhere in there it stops being quiet and starts being unreadable, and it happens sooner than the hex codes suggest. Try to name the step where it crosses."
 />
 
 ## Check both canvases, always
 
 A color that clears 4.5:1 on your light background can fail on the dark
 one, and vice versa. Every theme file that supports dark mode is really two
-palettes, and both have to hold. The Dark button in every lab on this site
-exists for this reason.
+palettes, and both have to hold.
+
+The lab above cannot show you that, because the theme it starts from sets
+one flat value per color and so has only one canvas. Giving a theme its
+second canvas is the next page — and once you have, every lab from there on
+carries a **Dark** button that genuinely switches.
 
 ## What the tooling checks
 

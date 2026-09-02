@@ -51,6 +51,16 @@ export type CraftLabProps = {
 	hint?: string;
 	/** Open on a specific canvas instead of the site's current one. */
 	startMode?: 'light' | 'dark';
+	/**
+	 * Show the light/dark canvas toggle. Set FALSE on a lab whose seed theme cannot
+	 * answer it — a theme written with flat colors instead of `light-dark()` pairs has
+	 * one canvas, so the button flips its own label and nothing else changes. On the
+	 * pages that teach the token groups that is the reader's first interaction with a
+	 * lab, and an inert control is worse than no control. The one lab that keeps it
+	 * while being inert is `light-dark`'s second, where the inertness IS the lesson and
+	 * the hint says so.
+	 */
+	canvasToggle?: boolean;
 	/** The deck needs the Mermaid runtime. */
 	mermaid?: boolean;
 	/** Editor height. Tall panes (a whole theme file) want "tall". */
@@ -70,6 +80,7 @@ export function CraftLab({
 	label,
 	hint,
 	startMode,
+	canvasToggle = true,
 	mermaid = false,
 	size = 'short',
 	className,
@@ -126,6 +137,8 @@ export function CraftLab({
 					<Button variant="outline" size="sm" onClick={reset} disabled={!dirty} title={dirty ? 'Put this lab back the way it was' : 'Nothing changed yet'}>
 						<RotateCcw className="size-3.5" aria-hidden="true" /> Reset
 					</Button>
+					{canvasToggle ? (
+					<>
 					{/* The visible label names the canvas you would switch TO, which is the
 					    convention the page hints depend on ("Press Dark"). That makes this an
 					    ACTION, not a toggle showing its own state — so it carries an aria-label
@@ -143,6 +156,8 @@ export function CraftLab({
 						{mode === 'dark' ? <Sun className="size-3.5" aria-hidden="true" /> : <Moon className="size-3.5" aria-hidden="true" />}
 						{mode === 'dark' ? 'Light' : 'Dark'}
 					</Button>
+					</>
+					) : null}
 				</div>
 			</div>
 			{/* STACKED, not side by side. The docs content column is ~720px wide, so a
