@@ -165,6 +165,13 @@ ring, and the gap is logged in Risks below rather than papered over.
 
 ### 2. Split fires on FIT, never on an authored count
 
+> **[REVERSED 2026-09-01 — the trigger is STRUCTURE.](2026-09-01-autosplit-splits-on-structure.md)** The half of this section that RETIRED the
+> `autoSplitDeck` count pre-cut stands. The half this heading states — that fit is the trigger —
+> does not. A slide now splits when its collection holds more than one member, read from the
+> markup; no render is measured to decide it. Fit is still measured, AFTER the split, for the
+> overflow ring only. Read the heading as "split does not fire on a capacity BUDGET", which is
+> what it was arguing, and take nothing below it as current about what the trigger IS.
+
 The engine had **two** split triggers, and the second one was quietly the more aggressive.
 A pre-render pass (`autoSplitDeck`) counted each collection against `capacity.hard` and
 handed every over-budget slide to the measured loop as a candidate — explicitly including

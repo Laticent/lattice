@@ -19,6 +19,19 @@ the spine's original objection no longer apply.
 
 ## 0. The decision in one paragraph
 
+> **[THE MECHANISM THIS NOTE LOCKS NO LONGER EXISTS (2026-09-01).](2026-09-01-autosplit-splits-on-structure.md)**
+> The build-time path is no longer a measure→split→re-measure loop, and `resplitDoc` — the
+> measurement-fed kernel this note's whole reuse argument rests on (§3, "Option B adds no new
+> splitting algorithm") — was deleted. The split is a pure function of the MARKUP now, so there
+> are no overflow ratios to point at a live element. Option B is not thereby refuted: a runtime
+> split still needs the eventual-consistency, run-id addressing and portrait gating this note
+> works out, and those survive intact. What does NOT survive is the claim that it costs no new
+> algorithm — with a structural trigger, a runtime split needs no measurer at all, which is
+> simpler than what this note planned rather than harder. **Anyone reviving Option B should read
+> §0 and §3 as a problem statement, not as a design.** (This note was amended three times on
+> 2026-09-01 from the chart-dispatch workstream; none of those touched §0 or §3, so a reader
+> could reasonably have assumed they had been reviewed. They had not.)
+
 We keep **build-time auto-split (Option A)** — the emulator's measure→split→
 re-measure loop over `lib/core/auto-split.js` — as the only shipping path **for
 now**. We **lock Option B**, *runtime* auto-split, as the chosen future
@@ -109,6 +122,9 @@ from frame one.
 ---
 
 ## 3. The kernel is already runtime-shaped — reuse, don't rebuild (HARD #1)
+
+**[`resplitDoc` WAS DELETED 2026-09-01](2026-09-01-autosplit-splits-on-structure.md) — the rest
+of this section describes a kernel that no longer exists; see the banner at §0.**
 
 `resplitDoc` (`lib/core/auto-split.js`) **does not measure anything**. It takes
 overflow ratios in (`scrollHeight/clientHeight` per slide) and splits. The

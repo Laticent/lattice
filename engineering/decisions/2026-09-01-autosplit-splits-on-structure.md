@@ -115,9 +115,15 @@ The structural trigger was overwritten inside the document that specified it. No
 the clause as later or as contested; it reads as part of the original ruling. Every note
 written afterward built on it, and there are many: **335 of 501 decision notes mention
 splitting** (re-derived 2026-09-02; it was 334 of 501 when this note was written, and the
-denominator printed here was wrong). The four longest of them run to about 26,000 words:
+denominator printed here was wrong). Four of the heaviest — the ones a reader
+actually has to reconcile to answer "what is auto-split" — run to about 26,000 words together:
 `2026-07-22-structure-derived-split-patterns.md`, `2026-07-29-autosplit-is-not-a-toggle.md`,
-`2026-06-23-read-across-carousel.md` and `2026-08-06-runtime-autosplit-eventual-consistency.md`. A reader assembling "what is
+`2026-06-23-read-across-carousel.md` and `2026-06-25-runtime-autosplit-eventual-consistency.md`.
+(Two corrections, 2026-09-02: the fourth was cited as `2026-08-06-…`, which is not a file that
+exists — the note is dated 2026-06-25, so a reader following the pointer found nothing. And these
+are not the four LONGEST notes mentioning splitting; the longest is
+`2026-07-03-semantic-html-accessibility.md` at 20,882 words, and `read-across-carousel` is only
+2,029. The 26,000 total is right; the superlative was not.) A reader assembling "what is
 auto-split" from that corpus arrives at the fit trigger with no indication that it displaced
 something.
 
@@ -203,6 +209,40 @@ wall — so one logo per slide says something the author did not write, and any 
 the single-element rule forbids. It keeps whole and rings, which is what it already did by
 declaring no axis; this records the reason so the next sweep does not "fix" the omission.
 
+## A split run numbers ITSELF — 2 · 2.2 · 2.3
+
+An owner ruling, and the record carried it nowhere until 2026-09-02: it was in the code, in the
+tests and in the PR body, but not in this note. That is the same failure this note is about — a
+requirement that lives only in the owner's head and the implementation is one a later session
+"simplifies" without knowing it was load-bearing.
+
+**The rule.** A slide that splits into three becomes `2`, `2.2`, `2.3`. The first page keeps the
+authored number. Every slide AFTER the run keeps the number it already had — the next authored
+slide is still `3`, not `5`. The per-deck TOTAL is never rewritten either, so "3 of 12" stays true
+on a page numbered `2.3`.
+
+**Why, in the owner's words: "think index in a library."** A library index does not renumber every
+book when one is split into volumes; it addresses the volumes inside the shelf mark it already has.
+The three properties that buys are the reason it is a requirement and not a preference:
+
+- **Performance.** Nothing downstream re-renders. Sections after a split come out BYTE-IDENTICAL to
+  their unsplit form — asserted on the bytes in `test/unit/core/auto-split.test.js`, not on the
+  numbers, because a number can match while the markup around it moved.
+- **Determinism.** A slide's address is a function of what the author wrote, not of how many pages
+  some earlier slide happened to produce. Two decks that differ only in slide 2 still agree on
+  every address after it.
+- **Stability.** A citation, a bookmark, a printed note or a review comment that names slide 7
+  still finds slide 7 after slide 2 grows by four pages.
+
+**Where it lives.** `repaginate` (`lib/core/auto-split.js`) touches only sections carrying
+`data-split-run`; page k≥2 of a run takes a `.k` suffix on `data-lattice-slide`,
+`data-lattice-pagination` and the rendered `.lat-pagination` span. Totals are not rewritten.
+
+**The cost, recorded because it is real.** The page number is no longer an integer. Anything
+downstream that parses it as one sees a change — and one such consumer is ours: the player's chrome
+counts positionally, so a split page can show "5 / 33" in the chrome while its own footer band reads
+`2.3`. That is logged under "What is not resolved" rather than fixed here.
+
 ## The chrome a split page carries
 
 **The page number and the k-of-N pill rail. Nothing else.** No deck header, no running
@@ -279,13 +319,18 @@ change to the gate is a separate decision and is not made here.
   5 overflows)" line, as `progress`, `timeline-list` and `glossary` already had. Splitting an
   authoring band from a split contract is a manifest-schema change with its own consumers, and it
   is not made here.
-- **A bold lead that is a STATISTIC, not a name, produces a pointer nobody can read.** `labelOf`
-  takes a member's leading `<strong>` as its label, which is the card contract — and a member
-  reading `- **31** keep whole and ring on overflow` therefore signals "next: 31". The engine
-  cannot fix this by rejecting numeric labels: "next: 2026" on a roadmap and "next: Q3" on a plan
-  are both good wayfinding, and nothing distinguishes them from "31". So the contract stands —
-  **a bold lead is a NAME** — and `examples/split-structure.md` says so on the slide where it
-  would otherwise have been wrong. A `lint:deck` coaching rule for it is a separate change.
+- **A bold lead that is a STATISTIC, not a name — RESOLVED 2026-09-02, see below.** Left here
+  because the reasoning for the option REJECTED is worth keeping.
+  The problem: `labelOf` takes a member's leading `<strong>` as its label, which is the card
+  contract — so a member reading `- **31** keep whole and ring on overflow` signalled "next: 31".
+  **The option rejected was banning numeric labels outright.** "next: 2026" on a roadmap and
+  "next: Q3" on a plan are both good wayfinding, and nothing in the label itself distinguishes
+  them from "31" — a ban would have taken those down with it. That dead end is worth keeping,
+  because it is what forced the right question: not *is the label numeric*, but *does the member
+  carry a name the figure can yield to*. See § "A figure is not a name" below for the rule that
+  answers it. (This bullet said for a day that the contract therefore stood and the demo deck
+  said so too. Both were corrected on 2026-09-02, a day after the rule that superseded them
+  shipped — the same lag this note is about, inside this note.)
 
 - **The example decks export with different page counts, and the increase is large.** That is
   the change, not a defect — but the size of it is worth writing down rather than implying.
@@ -312,6 +357,35 @@ change to the gate is a separate decision and is not made here.
   than walked past. Not fixed: the fix is inside `journey`'s vertical board layout, which nothing
   else in this change touches, and pulling it in would widen the diff past what HARD RULE #17 and
   #8 allow. Found by the HARD RULE #25 independent checker.
+- **FIVE CAROUSEL STRATEGIES STILL USE THE RETIRED 2026-07-26 PLACEMENT, so the closing page is
+  not yet universal.** This note's own front matter says every run "ends on a CLOSING page carrying
+  the below-note and key insight together". That is true of the plain envelope and `cover-cards`.
+  It is NOT true of `feature-cover` (`split-panel`), `cover-sides` (`compare-prose`),
+  `cover-decision` (`decision`), `cover-code` (`compare-code`) or `cover-rows` (`list-tabular`) —
+  five of the thirty enrolled components. `lib/core/carousel.js` is untouched by this change on
+  that path: it still injects the note into the LAST BODY page and gives the insight a separate
+  `insight`-role page. Measured on a real render of `compare-prose` carrying both:
+  `cover · body · body · body(+note) · insight`. The two beats are split apart, which is the exact
+  shape the 2026-07-26 review was superseded for.
+  **A fix was attempted on 2026-09-02 and reverted.** Routing those strategies through a
+  `closingPageFrom` builder produced the right page for `compare-prose` — verified on a render,
+  note consumed into the verdict page, insight closing the run — and then failed the CONSERVATION
+  gate on 14 tests ("every source text leaf survives somewhere"). The old path conserves content
+  and the new one did not, so it was reverted rather than shipped: a misplaced note is a worse
+  page, a dropped note is a lost sentence. The gate was right and is why this is recorded instead
+  of merged.
+  Anyone taking it up should start from the reason the naive fix loses text: these strategies
+  RE-AUTHOR their body from parsed parts, so the trailing region has to be carried forward
+  explicitly, and `closingPage`'s "splice out the lede and the collection, keep everything else"
+  shortcut has no collection span to splice against.
+- **`feature-cover` LOSES a trailing note and key insight outright when it splits — pre-existing,
+  and worse than the misplacement above.** Measured: the same `split-panel` slide renders both at
+  `wide` (unsplit) and neither at `portrait` (split), on this branch AND on `origin/main` at
+  13020f8, so this change neither caused it nor worsened it. The cause is that `split-panel`
+  renders with no `.cell-stage` and no `.cell-coda` — a non-Form layout with its own DOM — so
+  `trailingMaterialOf` and `trailingSlotMaterialOf` both find nothing to hoist, and the
+  dispatcher's containment guard cannot report a shortfall for material it never located. Logged
+  per HARD RULE #18's off-path arm; the fix belongs with whoever owns `split-panel`'s DOM.
 - **The trigger is UNCONDITIONAL, and nothing bounds a run's length.** A slide splits at two
   members, whether or not it fit: there is no threshold, no cap, and no author opt-out — the
   `autosplit:` directive was retired on 2026-07-29 and `--no-split` is instrumentation, not
@@ -356,6 +430,30 @@ change to the gate is a separate decision and is not made here.
   enrollment was deferred, and every component that atomizes today is a tiling one that answers
   width by another route. It is kept because the defect is real for the next component with an
   arithmetic track width, and pinned by unit test rather than by a committed render.
+
+## A figure is not a name
+
+`stats` and `kpi` lead a member with the VALUE and nest the metric name beneath it —
+`<strong>119%</strong>` over "Net revenue retention". `labelOf` took the leading `<strong>`, so an
+entire run pointed at its own numbers: measured on `examples/adaptive-sizing.pdf`, every page read
+"next: $0.9M" and the cover lead-in was "$48.2M". The reader was told which figure came next and
+never which metric.
+
+**The rule.** When the lead is a bare VALUE TOKEN — carries a digit, holds no space, which is what
+a figure looks like and what a name does not — the member's own following text is preferred if it
+yields a name: its nested list's first item, else whatever runs on after the `</strong>`.
+
+Three cases, and the second and third are why this is not the blanket ban on numeric labels that
+was considered and rejected when the limitation was first recorded:
+
+| authored | pointer |
+|---|---|
+| `**119%**` over "Net revenue retention" | `next: Net revenue retention` |
+| `**2026**` with nothing after it | `next: 2026` — the numeral IS the name there |
+| `**31** keep whole and ring on overflow…` | the follow if it is a name; `continues` if it is a sentence |
+
+A blanket ban would have taken the roadmap case down with the rest. What distinguishes them is not
+whether the label is numeric — it is whether the member carries a name the figure can yield to.
 
 ## The lone member, and the three things that were wrong with it
 

@@ -33,8 +33,10 @@
   top-level `<ul>` of independent stages, so the seam looked reachable — but its transform
   rewrites that list into a `.journey-board`, and the split envelope is built from the member
   COUNT, which is read from markup the transform has already discarded. The result was a
-  six-page run in which every body page carried the whole five-stage board, identical, with the
-  section band labels colliding with the rows. It keeps whole and rings, alongside `progress` and
+  multi-page run in which every body page carried the whole five-stage board, identical.
+  (The page count depends on the deck; an earlier draft said six. The band-label collision that
+  draft also blamed on the run is `journey`'s own — pixel-identical on the unsplit page against
+  `main`.) It keeps whole and rings, alongside `progress` and
   `timeline-list`, which fail the same way. What these three need is a carousel strategy that
   reads their POST-TRANSFORM shape — measured, each keeps its members as clean repeated blocks in
   the rendered DOM — which is what `kanban-lanes` and `roadmap-horizons` already do for theirs. Its `verified` attestation in the split oracle — which
@@ -223,8 +225,19 @@
   same run now reads "next: Gross margin", "next: Net revenue retention", and the cover introduces
   "Annual recurring revenue".
   This also settles the "next: 31" case recorded earlier: a bullet led by a bolded count falls
-  through to its own sentence, which is not a name, and declines to the un-labeled pointer rather
-  than claiming a number is the next page's subject. A figure with NOTHING after it keeps the
+  through to its own following text. Where that text is a NAME it is used — `**31** keep whole and
+  ring on overflow` points at "keep whole and ring on overflow" — and where it is a sentence too
+  long to be a name, the pointer declines to "continues". Either way it stops claiming a number is
+  the next page's subject. (An earlier draft of this bullet said it always declines; measured, it
+  declines only on the second case.) A figure with NOTHING after it keeps the
   figure — a roadmap horizon authored as `2026` alone still points at 2026, because there the
   numeral IS the name. That is why this is not a blanket ban on numeric labels, which was the
   option considered and rejected when the limitation was first recorded.
+- **Changed: a split run numbers ITSELF — 2 · 2.2 · 2.3 — and nothing else in the deck moves.** The
+  first page of a run keeps the authored number; page k takes a `.k` suffix. Every slide after the
+  run keeps the number it already had, and the per-deck total is never rewritten, so "3 of 12" stays
+  true on a page numbered 2.3. Sections after a split come out BYTE-IDENTICAL to their unsplit form.
+  The owner's framing is "think index in a library": a library index does not renumber every book
+  when one is split into volumes. **Breaking for anything that reads a page number as an integer** —
+  including our own player, whose chrome counts positionally, so a split page can show "5 / 33" in
+  the chrome while its footer band reads 2.3.

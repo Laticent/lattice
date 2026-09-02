@@ -84,7 +84,7 @@ real — but journey rewrites the authored list into its own board, leaving noth
 - **Packed** — none, at any count, on any component
 - **Pointed** — every run carries a forward pointer; four components did before
 
-_A bold lead is a name: it becomes the next page's pointer. `**31**` would point at "31"._
+_A bold lead becomes the next page's pointer — unless it is a FIGURE, which yields to the name beneath it._
 
 ---
 

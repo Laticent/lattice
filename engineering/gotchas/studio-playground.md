@@ -543,7 +543,7 @@ never turn "passed in headless" into "works on iOS."
   `slideCount` and `slideMarkdown`; omit all three only for a genuinely standalone slide (a
   landing island, a component specimen), where 1-of-1 is the truth. Note the preview number can still differ from the exported PDF's for a
   portrait/square/story deck: auto-split runs only in `lattice-emulator.js` (the export path,
-  `resplitDoc`), never in the browser render, so an export may legitimately have more pages
+  `splitDoc`; it was `resplitDoc` until 2026-09-01), never in the browser render, so an export may legitimately have more pages
   than the deck has slides.
 
 ## Playground renders broken in mobile Safari/WebKit (counters "00", chart text overlaps, marks drop)

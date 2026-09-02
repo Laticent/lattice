@@ -164,16 +164,24 @@ Three properties make this the spine and not just a list:
   `2026-07-29-autosplit-is-not-a-toggle.md` §"Two corrections". It runs
   at render time against a known target
   geometry (the per-device export the emailed-link reader receives), in ONE pass
-  over one kernel (`lib/core/auto-split.js`): a **measured** loop renders the
-  deck headless, finds the slides that *actually* clip (by their
-  `scrollHeight/clientHeight` ratio), divides each by that ratio, and re-renders +
-  re-measures until the deck fits. It catches **density**
+  over one kernel (`lib/core/auto-split.js`). **[REVERSED 2026-09-01 — the measured loop described in the rest of this paragraph is GONE.](2026-09-01-autosplit-splits-on-structure.md)**
+  What it used to do, and no longer does: a **measured** loop rendered the
+  deck headless, found the slides that *actually* clipped (by their
+  `scrollHeight/clientHeight` ratio), divided each by that ratio, and re-rendered +
+  re-measured until the deck fit. The split is now a pure function of the markup —
+  `splitDoc(html, cap)`, one pass, no render — and `resplitDoc` no longer exists.
+  The SPINE's own ruling is untouched: fit is still measured and a page that cannot
+  be cut smaller still rings. Only the trigger moved. It catches **density**
   overflow — few but tall items that no count threshold sees — the dominant cause
   in a tall/portrait box. There was once a second, **count-based** pre-cut that split a
   slide past its layout's `capacity.hard`; it was **retired 2026-07-29** because a count
   is not a fit — it cut slides that fit their box comfortably. `capacity` is an editorial
-  budget read by `lint:deck`, and the splitter now reads it only for *pacing* once the
-  measured pass has decided to cut. **Live runtime re-pagination is rejected** — re-breaking
+  budget read by `lint:deck` — that half stands, and 2026-09-01 made it literal.
+  **[REVERSED 2026-09-01.](2026-09-01-autosplit-splits-on-structure.md)** The splitter no longer
+  reads `capacity` for pacing either, nor for anything else: a page carries ONE structural element,
+  `splitTargetOf` is the constant 1, and every `perPage` in the catalog is 1. And the count trigger
+  this paragraph retired is, in effect, back — not as a `capacity.hard` budget, but as the member
+  count itself: more than one member and the slide splits, whether or not it fits. **Live runtime re-pagination is rejected** — re-breaking
   and re-numbering slides as a phone rotates is churn and a navigation/anchor
   maintenance nightmare (the inversion in §4 derives this). **Narrowed 2026-06-25:**
 only the *unbounded* form stays rejected; a *bounded* runtime split — portrait
@@ -316,7 +324,10 @@ throughout. Ordered by the inversion: **unmask first, unify second, build third.
   (`col`/`cell`/`line`) so the caller escalates. *Slice 2 (the build-time wiring):*
   `lib/core/auto-split.js` drives the kernel from the MEASURED overflow verdict at
   export (in `lattice-emulator.js`, after the render that produces it, so copies
-  renumber for free). ~~**OPT-IN** per deck (`autosplit: on`)~~ — **RETIRED 2026-07-29:
+  renumber for free). **[REVERSED 2026-09-01](2026-09-01-autosplit-splits-on-structure.md) — copies
+  do NOT renumber.** A split run addresses itself (2 · 2.2 · 2.3) and every slide after it keeps the
+  number it already had; totals are never rewritten. The owner's requirement, for determinism and
+  for stable citations. ~~**OPT-IN** per deck (`autosplit: on`)~~ — **RETIRED 2026-07-29:
   splitting is intrinsic.** The opt-in existed so existing decks and galleries stayed
   byte-unchanged, and the note that added it said default-on was "a later decision,
   once the catalog is audited". That audit ran, and then the directive went entirely:
