@@ -287,6 +287,39 @@ describe('core: relationship — through the real emission path (post-convergenc
   });
 });
 
+describe('core: relationship — a RE-AUTHORED member carries a labelled title slot', () => {
+  // `coverWindow` (lib/core/carousel.js) rebuilds each member of the five cover strategies as
+  // `<span class="split-pt-t">title</span><span class="split-pt-b">body</span>`. That title is not
+  // inferred from shape, it is LABELLED — so `labelOf` reads it rather than falling through to the
+  // flat-run path, which took the whole member ("Recency Time-decay against a configurable
+  // half-life."), found no clause break, ran past the budget and declined.
+  //
+  // Measured on a real `list-tabular` split before this: every page read "→ continues" while the
+  // page it pointed at was plainly named. That is §0b's own failure — atomised members with no
+  // adornment joining them — on the five strategies that re-author their body.
+  const member = (title, body) =>
+    `<li><span class="split-pt-t">${title}</span><span class="split-pt-b">${body}</span></li>`;
+
+  test('the slot title becomes the pointer label', () => {
+    assert.equal(labelOf(member('Recency', 'Time-decay against a configurable half-life.')), 'Recency');
+    assert.equal(labelOf(member('Why not buy', 'Every vendor contract assumed a schema we do not have.')), 'Why not buy');
+  });
+
+  test('an over-long slot title still DECLINES rather than clipping', () => {
+    // The budget is the same one every other path applies: a truncated fragment reads as a
+    // rendering bug, so the pointer says nothing rather than something broken.
+    assert.equal(labelOf(member('A title that is far too long to serve as a wayfinding label at all', 'b')), '');
+  });
+
+  test('a slot title with a clause break is cut at the break, not clipped', () => {
+    assert.equal(labelOf(member('Recency — the decay half-life', 'b')), 'Recency');
+  });
+
+  test('trailing sentence punctuation is dropped', () => {
+    assert.equal(labelOf(member('Draft the policy.', 'b')), 'Draft the policy');
+  });
+});
+
 describe('core: relationship — degenerate inputs say nothing rather than lie', () => {
   test('a table with no <tbody> does not count its HEADER row as a member', () => {
     // markdown-it always emits a `<tbody>`, so this is the raw-HTML / hand-authored path. Left

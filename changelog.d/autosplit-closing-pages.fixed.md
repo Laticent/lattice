@@ -27,3 +27,7 @@
 - **Removed: the `insight` split role, its two page builders, and the four `.lat-split-insight`
   selectors that shipped with no emitter.** A key insight closes the run beside the note now, so
   nothing built or styled a page for it alone.
+- **Fixed: a split run of `compare-prose`, `split-panel`, `decision` or `list-tabular` now names
+  the page it points at.** Every body page read "→ continues" because the member's title lives in
+  a labelled span the pointer's label reader did not know, so it fell through to a path that
+  declined on length.

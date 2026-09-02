@@ -485,6 +485,39 @@ change to the gate is a separate decision and is not made here.
   cell; this is a hazard the composed builder introduces. Logged per HARD RULE #18's off-path arm
   rather than fixed, because fixing it means deciding what two key insights on one slide MEAN, which
   is a `coda` decision and not this change's. Found by the HARD RULE #25 checker.
+- **The five re-authoring strategies printed "continues" instead of naming the next page — FIXED
+  2026-09-02.** `coverWindow` rebuilds each member as
+  `<span class="split-pt-t">title</span><span class="split-pt-b">body</span>`, and `labelOf` knew
+  neither span. The member carries no `<strong>` and no `<h3>`, so the flat path took the WHOLE
+  run ("Recency Time-decay against a configurable half-life."), found no clause break, ran past
+  the 42-character budget and declined. Measured on a real `list-tabular` split: every body page
+  read "→ continues" while the page it pointed at was plainly named "Recency". That is §0b's own
+  argument — atomising members WITHOUT the adornment is what makes atomisation unreadable — live
+  on the five strategies this note's own carousel section is about. `labelOf` reads the title slot
+  first now, because it is the most explicit signal there is: the title is not inferred from
+  shape, it is labelled. The budget still applies, so an over-long slot title declines as before.
+  `compare-code` remains pointer-less by shape — its members are `<pre>` blocks, so there is no
+  list for `membersIn` to read; its runhead names each block instead.
+- **`clip`'s truncation branch was UNREACHABLE, and is deleted rather than hardened.** It was
+  recorded as "clip() can slice through an HTML entity". It cannot: both call sites bound the
+  length THEMSELVES and decline rather than clip, so the branch never runs — verified by making it
+  throw and finding 34 unit tests and five real deck renders (including the two whose whole
+  subject is this signal) never entered it. The call is a no-op at both sites for the same reason.
+  A function that says it clips, called by two sites that say they never clip, is a contradiction a
+  reader must resolve before touching anything near it; the hazard it carried was a hazard in code
+  that cannot run. `LABEL_MAX` is still the budget, enforced where the decision to decline is made.
+- **`applyRails` sets `--lat-split-offset` only on `lat-split-native` pages, and counts on a
+  hardcoded `item` axis. LATENT, not live — recorded rather than changed.** A re-authored page
+  (the five cover strategies) carries neither, so no offset is ever set on one. Four components
+  that reset an ordinal counter from that custom property route through a re-authoring strategy —
+  `compare-prose`, `list-tabular`, `split-panel`, `redline` — so the numbering would restart on
+  every page. It renders nothing today because the counter CSS is scoped to the component's OWN
+  markup (`section.list-tabular ol`) and a split page emits `.split-pts` under a
+  `list-tabular-points` section, which that selector cannot match (measured). The hardcoded axis is
+  the same shape of latency: a `row`-axis run counts zero, and no `row`-axis component resets an
+  ordinal. Both become live the day a re-authoring strategy emits its component's native list, so
+  they are written down here rather than fixed on speculation — changing the offset would move
+  numbering on decks that render correctly today.
 - **The trigger is UNCONDITIONAL, and nothing bounds a run's length.** A slide splits at two
   members, whether or not it fit: there is no threshold, no cap, and no author opt-out — the
   `autosplit:` directive was retired on 2026-07-29 and `--no-split` is instrumentation, not

@@ -75,26 +75,55 @@ describe('split-envelope CSS outcomes (Form on, real cascade)', () => {
     if (browser) await browser.close();
   });
 
-  test('insight page blockquote reads at --fs-emphasis, not the base --fs-body', async () => {
+  /**
+   * THIS USED TO ASSERT THE INSIGHT PAGE'S SIZE BUMP, and the page it asserted no longer exists.
+   *
+   * A trailing key insight once got a page to itself, classed `.lat-split-insight`, whose CSS set
+   * the blockquote a rung up to `--fs-emphasis` — the whole point being that a page holding ONE
+   * thing sets that thing up. The 2026-09-01 ruling gives the insight the run's CLOSING page
+   * beside the below-note instead; both builders and all four `.lat-split-insight` selectors were
+   * deleted on 2026-09-02 once nothing emitted the class.
+   *
+   * The fixture had gone on hand-stamping `lat-split-insight` — it is a CSS harness, so its
+   * slides never actually split — which is why deleting the rule turned this red rather than the
+   * class disappearing with it. A hand-stamped class in a fixture is not evidence a rule is live;
+   * it is the harness for the rule. (Worth recording: the emitter census that justified the
+   * deletion swept `lib/`, `tools/`, `docs/src` and four rendered galleries, and did NOT sweep
+   * test fixtures. It should have.)
+   *
+   * So the harness moves to the page that exists, and asserts what the closing page's own CSS
+   * block says: the size bump is DELIBERATELY NOT repeated there, because a closing page can hold
+   * a note AND an insight AND an annotation, which already carry three distinct sizes — scaling
+   * the group would flatten a hierarchy the theme draws correctly. The `notEqual` arm is what
+   * keeps that a decision rather than a drift: re-add a bump and this fails.
+   */
+  test('closing page: the key insight keeps its panel and is NOT bumped to --fs-emphasis', async () => {
     for (const slide of [1, 2]) { // checklist, stats — two distinct components
       const got = await page.evaluate((slide) => {
-        // The beat lives in the frame's coda cell now (lib/core/coda.js), not as a
-        // direct child of the stage — the whole point of that change being that the
-        // panel stops depending on an exact DOM position.
+        // The beat lives in the frame's coda cell (lib/core/coda.js), not as a direct child of
+        // the stage — the point of that change being that the panel stops depending on an exact
+        // DOM position.
         const p = document.querySelector(
           `section[data-lattice-slide="${slide}"] > .cell-coda > blockquote p`,
         );
         if (!p) return null;
-        const probe = document.createElement('span');
-        probe.style.fontSize = 'var(--fs-emphasis)';
-        p.parentElement.appendChild(probe);
-        const emphasis = getComputedStyle(probe).fontSize;
-        probe.remove();
-        return { fontSize: getComputedStyle(p).fontSize, emphasis };
+        const mk = (name) => {
+          const probe = document.createElement('span');
+          probe.style.fontSize = `var(${name})`;
+          p.parentElement.appendChild(probe);
+          const px = getComputedStyle(probe).fontSize;
+          probe.remove();
+          return px;
+        };
+        return { fontSize: getComputedStyle(p).fontSize, emphasis: mk('--fs-emphasis'), body: mk('--fs-body') };
       }, slide);
-      assert.ok(got, `slide ${slide}: insight blockquote p not found`);
-      assert.equal(got.fontSize, got.emphasis,
-        `slide ${slide}: insight blockquote computed ${got.fontSize}, expected --fs-emphasis (${got.emphasis}) — lost the cascade to the base KEY INSIGHT rule`);
+      assert.ok(got, `slide ${slide}: closing-page insight blockquote p not found`);
+      assert.notEqual(got.fontSize, got.emphasis,
+        `slide ${slide}: the closing page bumped its insight to --fs-emphasis (${got.emphasis}). That bump belonged to the retired insight PAGE; the closing page carries three beats at three sizes and must not flatten them.`);
+      assert.equal(got.fontSize, got.body,
+        `slide ${slide}: closing-page insight computed ${got.fontSize}, expected the base --fs-body (${got.body}) — it lost the KEY INSIGHT panel's own cascade`);
+      // Not vacuous: the two rungs must stay distinguishable.
+      assert.notEqual(got.emphasis, got.body, '--fs-emphasis and --fs-body resolved to the same px');
     }
   });
 
