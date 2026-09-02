@@ -178,32 +178,13 @@ approval digest and its per-slide membership are all absent from the file, not m
 absent from the switcher. `--lens-source full` is the one exception, and it is you asking
 for the whole deck by name.
 
-**Two known gaps, both narrow, both about a slide that QUOTES the syntax.** The reader that
-finds a slide's tag skips fenced code but not inline code, so on a slide carrying a
-backticked `` `<!-- _lens: … -->` `` example, that example is what gets read as the slide's
-membership — and the slide's real tag is then neither read nor pruned, so a withheld id in
-it reaches the artifact. A slide can also carry a second `_lens` comment, which nothing
-reads and nothing prunes, with the same result. Both predate the export path and neither is
-closed here: the fix is one shared inline-context reader for every consumer, and a
-hand-rolled backtick scanner tried in this branch shipped a corrupted example, a worse leak
-and a silently disabled sweep before being withdrawn. If a slide of yours documents the
-`_lens` syntax, check the exported envelope.
-
-**Two things the prune deliberately does NOT do.** It never writes an approval digest: the
-views in a projected deck ship without `approved:`, so re-importing the artifact reads them
-as `unapproved` — which is true, because a machine reduced the deck and your approval
-described it before the reduction. (An earlier version re-stamped them, which made the
-projection self-certifying: the prune rewrites your slide text, so a hash taken afterwards
-would have blessed a damaged deck as approved.) And `--lens full` on its own is the
-identity — it changes nothing, registry included. A `full` recipient was denied nothing, so
-there is no disclosure to close; naming views alongside it (`--lens full,brief`) is a real
-selection and does prune.
-
-**A projection that cannot re-split refuses.** The baked view map is indexed by position,
-so a slide lost or gained between the projection and the emitted file shifts every view
-after it — the failure that shows a reader a slide their view excludes. The export
-re-splits what it wrote, checks it against what it said it kept, and writes nothing on a
-mismatch.
+**A `_lens` you QUOTED is prose, not membership.** A comment is a directive only when it
+opens its line — which is exactly when the renderer makes one of it — so a backticked
+`` `<!-- _lens: ask -->` `` example, a fenced one, or one written mid-sentence is left
+alone by every reader in the chain, and by the export that rewrites tags. A slide teaching
+the syntax exports intact. (It did not always: three attempts to detect quoted text
+directly each shipped something worse, including one that gutted the example to two bare
+backticks. Adopting the renderer's own rule removed the shape instead of guarding it.)
 
 **`--lens-default <id>` picks the view the file opens on.** Without it the deck's own
 `lens-default:` decides, and only if the deck names no default (or names one you are not

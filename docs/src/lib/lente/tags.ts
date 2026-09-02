@@ -10,11 +10,19 @@ import type { LensBase, SlideTags } from './types';
 // (js/polynomial-redos), even when it is provably linear; string scanning sidesteps the query entirely
 // and is genuinely O(n). The only regexes left in this file are trivial whitespace SPLIT delimiters.
 
-/** The fence marker a line opens/closes with (e.g. "```"), or null — 3+ backticks/tildes after only
- *  leading whitespace. Pure char scan, no regex. */
+/** The fence marker a line opens/closes with (e.g. "```"), or null — 3+ backticks/tildes after AT
+ *  MOST THREE SPACES. Pure char scan, no regex.
+ *
+ *  The indent cap is CommonMark's and it is load-bearing: a line indented four spaces (or by a tab)
+ *  is an INDENTED CODE BLOCK, so its backticks are literal text and open no fence. Accepting any
+ *  leading whitespace made this module see a fence where markdown-it sees none, and everything
+ *  downstream inherited the disagreement — a `_lens` directive after such a line was written off as
+ *  "inside a fence" and its slide silently lost its membership. Caught by the differential fuzz in
+ *  `test/unit/core/lens-tag-quoting.test.js`, which is the whole reason that fuzz exists; the
+ *  engine's own `FENCE_OPEN` (lib/core/class-directive-scan.mjs) has always carried the cap. */
 function fenceMarker(line: string): string | null {
 	let i = 0;
-	while (i < line.length && (line[i] === ' ' || line[i] === '\t')) i++;
+	while (i < 3 && line[i] === ' ') i++;
 	const ch = line[i];
 	if (ch !== '`' && ch !== '~') return null;
 	let j = i;
@@ -46,6 +54,40 @@ export function fenceRanges(src: string): Array<[number, number]> {
 
 const inFence = (i: number, ranges: Array<[number, number]>) => ranges.some(([a, b]) => i >= a && i < b);
 
+/**
+ * Does the comment at `at` OPEN ITS LINE'S CONTENT — the only shape that can be a directive?
+ *
+ * THIS IS THE ENGINE'S RULE, NOT A NEW ONE. markdown-it opens an `html_block` for a comment only
+ * when `<!--` begins the line (after at most three spaces, and after any container markers), and
+ * the engine reads directives off that token. A comment starting mid-sentence is a `code_inline`
+ * or `text` child, which is PROSE — so this is also, for free, the answer to "is it quoted?": a
+ * backticked `` `<!-- _lens: ask -->` `` example never begins its line.
+ *
+ * The canonical statement lives in `lib/core/class-directive-scan.mjs` (`COMMENT_OPEN`), which
+ * reached it by hitting the identical defect: a deck documenting its own syntax overrode its own
+ * layout, because a raw text scan counted the quoted example as the last directive on the slide.
+ * Lente cannot import that module — it is a zero-dependency package outside the engine's tree —
+ * so the predicate is restated here and PINNED AGAINST IT by
+ * `test/unit/core/lens-tag-quoting.test.js`. A restatement that nothing checks is how five correct
+ * copies and one wrong one become indistinguishable by reading; that is what `lib/core/slide-rule.js`
+ * exists to say, and the pin is this module's version of it.
+ *
+ * WHY NOT DETECT INLINE CODE DIRECTLY. That was tried, three times, and each attempt shipped a
+ * defect worse than the one it closed — the last a hand-rolled backtick scanner that still diverged
+ * from markdown-it on 179 of 40,000 fuzzed inputs. Answering "did this comment open its line?" needs
+ * no parser and agrees with the renderer by construction, because it IS the renderer's condition.
+ *
+ * CONTAINER PREFIXES COUNT AS THE BEGINNING — markdown-it opens the `html_block` INSIDE the
+ * container, so `> <!-- … -->` and `- <!-- … -->` are real directives. `[ ]{0,3}` and not `\s{0,3}`,
+ * because a TAB-indented line is an indented code block, where a comment is not a directive.
+ */
+const COMMENT_OPEN = /^[ ]{0,3}(?:>[ \t]*|(?:[-*+]|\d{1,9}[.)])[ \t]+)*$/;
+
+function opensItsLine(text: string, at: number): boolean {
+	const lineStart = text.lastIndexOf('\n', at - 1) + 1;
+	return COMMENT_OPEN.test(text.slice(lineStart, at));
+}
+
 /** True if `s` is empty or all ASCII whitespace (a char scan, so no `\s`-quantified regex touches
  *  library input). */
 function isBlank(s: string): boolean {
@@ -71,7 +113,9 @@ export function findDirectiveComment(
 		const close = text.indexOf('-->', open + 4);
 		if (close < 0) return null;
 		i = close + 3;
-		if (inFence(open, fences)) continue; // documented example, not a real directive
+		// A documented example is not a directive — whether it is fenced, or quoted inline, or
+		// simply written mid-sentence. Both tests are the renderer's own.
+		if (inFence(open, fences) || !opensItsLine(text, open)) continue;
 		const inner = text.slice(open + 4, close); // between `<!--` and `-->`
 		const k = inner.indexOf(marker);
 		if (k >= 0 && isBlank(inner.slice(0, k))) return { start: open, end: close + 3, body: inner.slice(k + marker.length) };
@@ -91,7 +135,7 @@ export function allDirectiveBodies(src: string, key: 'lens' | 'class'): string[]
 		const close = text.indexOf('-->', open + 4);
 		if (close < 0) break;
 		i = close + 3;
-		if (inFence(open, fences)) continue;
+		if (inFence(open, fences) || !opensItsLine(text, open)) continue;
 		const inner = text.slice(open + 4, close);
 		const k = inner.indexOf(marker);
 		if (k >= 0 && isBlank(inner.slice(0, k))) out.push(inner.slice(k + marker.length));
@@ -131,39 +175,40 @@ export function taggedLensIds(slides: string[]): Set<string> {
 	return ids;
 }
 
-/*
- * WHY THERE IS NO DUPLICATE-TAG SWEEP HERE, AND WHAT IT COSTS.
+/**
+ * Remove every `_lens` directive on a slide EXCEPT the first — returning the slide unchanged when
+ * there is at most one, which is every slide Lente itself wrote.
  *
- * A slide can carry more than one `_lens` comment, and this module reads only the first
- * (`parseSlideTags` and `writeTags` both stop there). So a second one is invisible: nothing
- * reads it, nothing rewrites it, and a `--lens` export that prunes a deck's tags down to the
- * views it carries cannot see it either — the second tag rides into the artifact naming a view
- * the recipient was not given. That is a real, if narrow, disclosure, and it is KNOWN AND
- * ACCEPTED rather than fixed. The obvious fix was written, measured, and withdrawn; this is the
- * record, so nobody re-derives it from scratch.
+ * `parseSlideTags` and `writeTags` both stop at the first, by design: one slide has one membership,
+ * and a second tag has no defined meaning. The consequence is that a second tag is READ by nothing
+ * and REWRITTEN by nothing — so an export pruning a deck's tags down to the views it carries could
+ * not see it, and a withheld view's id rode into the artifact verbatim.
  *
- * A sweep that deletes every tag after the first must know which text is QUOTED, or it edits an
- * author's documented example. Fenced code is easy — `fenceRanges` above already does it.
- * Inline code is not: doing it correctly means parsing the slide's inline context AFTER block
- * structure and backslash escapes, which is a CommonMark implementation, not a helper. A
- * hand-rolled backtick scanner shipped three defects, each measured on the real CLI:
- *   · it deleted a backticked `<!-- _lens: … -->` example from a slide that documented the
- *     syntax, shipping "Write `` at the top" — two bare backticks and a broken sentence;
- *   · with the example BEFORE the real tag, the sweep and `parseSlideTags` disagreed about which
- *     comment was "the tag", so the real tag's withheld token was never pruned — a NEW leak, in
- *     the exact direction the prune exists to prevent;
- *   · one unmatched backtick anywhere on the slide paired with a later one, swallowed both tags
- *     into a phantom span and silently disabled the sweep (0 → 2356 fail-opens across a
- *     60,000-slide differential fuzz against markdown-it).
- * It was closing a MEDIUM leak that needs an unusual authoring shape, and it kept producing
- * worse ones. Removing it restores a single reader of record: whatever `findDirectiveComment`
- * returns is the slide's tag, for every consumer, with no second opinion to disagree with.
- *
- * To close the leak properly, give every reader in this module ONE shared inline-context scanner
- * so they cannot diverge — markdown-it is already an engine dependency and is the obvious
- * oracle. That is a slice of its own, not a patch to this one.
+ * THIS IS SAFE ONLY BECAUSE THE PREDICATE IS SHARED. An earlier version of this function decided
+ * "is that comment quoted?" its own way, and the sweep and the reader then disagreed about which
+ * comment was the slide's tag — which was worse than the leak it closed: the real tag's withheld
+ * token went unpruned. Everything here goes through `findDirectiveComment`, so the comment this
+ * KEEPS is by construction the comment `parseSlideTags` READS, and the ones it removes are the ones
+ * nothing has ever read. A quoted or mid-sentence example is not a directive to either of them.
  */
-
+export function stripExtraLensTags(slideSrc: string): string {
+	let src = String(slideSrc ?? '');
+	const first = findDirectiveComment(src, 'lens');
+	if (!first) return src;
+	// Walk forward from the end of the first tag, removing each subsequent one. The tail is
+	// re-scanned each time so fence ranges stay honest as the string shrinks.
+	let cursor = first.end;
+	for (;;) {
+		const tail = src.slice(cursor);
+		const next = findDirectiveComment(tail, 'lens');
+		if (!next) return src;
+		const start = cursor + next.start;
+		let end = cursor + next.end;
+		if (src[end] === '\n') end += 1; // a directive owns its line, so the newline goes with it
+		src = src.slice(0, start) + src.slice(end);
+		cursor = start;
+	}
+}
 
 /** Render the two token sets to the shortest canonical, deterministically-ordered token string.
  *  Includes first (sorted), then `-`excludes (sorted). Empty => ''. */
@@ -171,18 +216,6 @@ function emitTokens(tags: SlideTags): string {
 	const inc = [...tags.include].sort();
 	const exc = [...tags.exclude].sort().map((id) => `-${id}`);
 	return [...inc, ...exc].join(' ');
-}
-
-/** Is everything between the start of `at`'s line and `at` itself whitespace — i.e. does the comment
- *  starting there OWN its line? Lente always writes the tag on its own line, so this is true for every
- *  tag Lente itself produced; a hand-authored one can sit at the end of a line of prose. */
-function ownsItsLine(src: string, at: number): boolean {
-	let i = at - 1;
-	while (i >= 0 && src[i] !== '\n') {
-		if (src[i] !== ' ' && src[i] !== '\t') return false;
-		i--;
-	}
-	return true;
 }
 
 /** Write the `<!-- _lens: … -->` comment for a slide from its token sets. Replaces the slide's first
@@ -195,15 +228,18 @@ function writeTags(slideSrc: string, tags: SlideTags): string {
 	const existing = findDirectiveComment(src, 'lens');
 	if (existing) {
 		let end = existing.end;
-		// Removing the tag takes its line's newline WITH it — but only when the tag owned that line.
-		// Unconditionally, this ate the author's line break after an INLINE tag and spliced the next
-		// line onto the previous one. On prose that silently merged two paragraphs; on a line
-		// followed by a ``` fence it spliced the fence opener into the prose, so the fence never
-		// opened, its closer became an opener, and a `---` inside the code became a setext underline —
-		// one authored slide rendered as two, with another view's slide text on screen. An export
-		// (lib/core/lens-export.mjs) re-stamps the approval digest AFTER this rewrite, so the damaged
-		// deck certified itself as approved and the fail-closed net could not fire.
-		if (!tokens && src[end] === '\n' && ownsItsLine(src, existing.start)) end += 1;
+		// Removing the tag takes its line's newline with it, unconditionally — because a directive
+		// OPENS ITS LINE by definition now (`opensItsLine`, above `findDirectiveComment`), so there
+		// is no line content in front of it to splice onto.
+		//
+		// That was not always true, and the failure is worth keeping written down. While a comment
+		// starting mid-sentence still counted as a directive, this line ate the author's break after
+		// an INLINE tag: on prose it merged two paragraphs, and on a line followed by a ``` fence it
+		// spliced the fence opener into the prose — the fence never opened, its closer became an
+		// opener, a `---` inside the code became a setext underline, one authored slide rendered as
+		// two, and a reader on one view was shown another view's slide. Adopting the renderer's own
+		// rule for what a directive IS removed the shape entirely, rather than guarding against it.
+		if (!tokens && src[end] === '\n') end += 1;
 		return src.slice(0, existing.start) + (tokens ? comment : '') + src.slice(end);
 	}
 	if (!tokens) return src;

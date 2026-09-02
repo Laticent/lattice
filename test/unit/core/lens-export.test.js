@@ -180,6 +180,37 @@ test.describe('an export carries ONLY the views it exports', () => {
 		assert.ok(REFUSAL_REASONS.unsplittable, 'the reason carries an explanation the CLI can print');
 	});
 
+	test('a second `_lens` directive on one slide does not ride along', () => {
+		// Only the first is ever read, so a second was invisible to the prune and reached the
+		// artifact naming a withheld view. The sweep and the reader now ask `findDirectiveComment`
+		// the same question, so they cannot disagree about which comment is the tag — an earlier
+		// version that answered it two ways turned the disagreement itself into a leak.
+		const chunks = ['<!-- _lens: brief -->\n<!-- _lens: ask -->\n\n# One\n\nBody one.\n', '\n# Two\n\nBody two.\n'];
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
+		const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks.join('\n---\n')}`;
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true, `expected a projection, got ${out.reason}`);
+		assert.doesNotMatch(out.source, /ask/, 'the extra directive is gone, not merely unparsed');
+	});
+
+	test('a `_lens` example the author QUOTED survives the projection untouched', () => {
+		// The prune rewrites slide text, so it must not edit prose. A slide teaching the syntax —
+		// the natural deck to export for a demo — had its backticked example gutted to two bare
+		// backticks. It is not a directive at all now, to any reader in the chain.
+		const chunks = [
+			'<!-- _lens: brief -->\n\n# How to tag a slide\n\nWrite `<!-- _lens: ask -->` at the top, or fence it:\n\n```markdown\n<!-- _lens: ask -->\n```\n',
+			'\n# Second\n\nBody.\n',
+		];
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
+		const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks.join('\n---\n')}`;
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true, `expected a projection, got ${out.reason}`);
+		assert.match(out.source, /Write `<!-- _lens: ask -->` at the top/, 'the inline example is intact');
+		assert.match(out.source, /```markdown\n<!-- _lens: ask -->\n```/, 'and so is the fenced one');
+	});
+
 	test('a tombstone cannot smuggle a withheld id through, in any spelling', () => {
 		// `upsertLensRegistry` deliberately re-attaches every tombstone it finds. Filtering the
 		// SOURCE for a tombstone shape missed `{ drop: true, }` and `{ label: "L", drop: true }`,

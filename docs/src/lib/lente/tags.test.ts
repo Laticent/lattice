@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyTag, parseSlideTags, taggedLensIds } from './tags';
+import { applyTag, parseSlideTags, stripExtraLensTags, taggedLensIds } from './tags';
 
 describe('taggedLensIds', () => {
 	it('collects include AND exclude ids across all slides (union)', () => {
@@ -73,26 +73,74 @@ describe('applyTag — base:all (subtractive)', () => {
 });
 
 describe('removing a tag does not damage the slide around it', () => {
-	// The newline after a `_lens` comment used to be consumed unconditionally when the tag
-	// cleared. That is right for the shape Lente itself writes (the tag owns its line) and
-	// wrong for a hand-authored inline one, where it deletes the author's line break and
-	// splices the next line onto this one. Reached through a `--lens` export
-	// (lib/core/lens-export.mjs) that was a fail-OPEN: the splice collapsed slide structure,
-	// the view map shifted, and a reader was shown a slide their view excludes.
-	it('keeps the line break after an INLINE tag', () => {
+	// A tag removal rewrites the author's file, so what it must NOT do is edit anything but the tag.
+	// The original defect: an inline `<!-- _lens: … -->` at the end of a prose line was treated as a
+	// directive, and clearing it took the line's newline too — splicing the next line onto it. On a
+	// line followed by a fence that collapsed the slide's structure and put another view's slide on
+	// a reader's screen. The shape is gone rather than guarded: an inline comment is not a directive.
+	it('an inline comment is left completely alone — it was never a directive', () => {
 		const src = 'The variance is in the loader. <!-- _lens: secret -->\n\nSecond paragraph.\n';
-		expect(applyTag(src, 'secret', false, 'none')).toBe('The variance is in the loader. \n\nSecond paragraph.\n');
+		expect(applyTag(src, 'secret', false, 'none')).toBe(src);
 	});
 
-	it('does not splice a code fence onto the line above', () => {
+	it('and so cannot splice a code fence onto the line above', () => {
 		const src = 'Prose. <!-- _lens: secret -->\n\n```python\nx = 1\n```\n';
-		const out = applyTag(src, 'secret', false, 'none');
-		expect(out).toContain('Prose. \n\n```python');
-		expect(out).not.toContain('Prose. \n```python');
+		expect(applyTag(src, 'secret', false, 'none')).toBe(src);
 	});
 
-	it('still takes the whole line when the tag OWNED it — the shape Lente writes', () => {
+	it('takes the whole line when the tag OWNS it — the shape Lente writes', () => {
 		const src = '<!-- _class: content -->\n<!-- _lens: secret -->\n\n# Heading\n';
 		expect(applyTag(src, 'secret', false, 'none')).toBe('<!-- _class: content -->\n\n# Heading\n');
+	});
+});
+
+describe('a documented example is prose, and the sweep respects that', () => {
+	// Three attempts to detect quoted text directly each shipped a defect worse than the one they
+	// closed. The rule now is the renderer's: a comment is a directive only when it OPENS its line.
+	// The cross-kernel pin lives in test/unit/core/lens-tag-quoting.test.js.
+	it('a backticked example is not read as membership', () => {
+		expect([...parseSlideTags('Write `<!-- _lens: secret -->` here.\n').include]).toEqual([]);
+	});
+
+	it('a mid-sentence comment is not a directive either', () => {
+		expect([...parseSlideTags('Prose <!-- _lens: secret --> more.\n').include]).toEqual([]);
+	});
+
+	it('container prefixes still open the line, so they ARE directives', () => {
+		for (const src of ['> <!-- _lens: brief -->\n', '- <!-- _lens: brief -->\n', '   <!-- _lens: brief -->\n']) {
+			expect([...parseSlideTags(src).include]).toEqual(['brief']);
+		}
+	});
+
+	it('a tab-indented comment is an indented code block, not a directive', () => {
+		expect([...parseSlideTags('\t<!-- _lens: secret -->\n').include]).toEqual([]);
+	});
+});
+
+describe('stripExtraLensTags', () => {
+	it('keeps the first directive and removes the rest', () => {
+		const src = '<!-- _class: title -->\n<!-- _lens: brief -->\n<!-- _lens: secret -->\n\n# Hi\n';
+		expect(stripExtraLensTags(src)).toBe('<!-- _class: title -->\n<!-- _lens: brief -->\n\n# Hi\n');
+	});
+
+	it('leaves a slide with one directive, or none, exactly as it was', () => {
+		for (const src of ['<!-- _lens: brief -->\n\n# Hi\n', '# Hi\n\nNo tags.\n', '']) {
+			expect(stripExtraLensTags(src)).toBe(src);
+		}
+	});
+
+	it('never touches a quoted example, fenced or inline', () => {
+		for (const src of [
+			'<!-- _lens: brief -->\n\n```markdown\n<!-- _lens: doc -->\n```\n',
+			'<!-- _lens: brief -->\n\nWrite `<!-- _lens: doc -->` here.\n',
+			'Write `<!-- _lens: doc -->` here.\n\n<!-- _lens: brief -->\n',
+		]) {
+			expect(stripExtraLensTags(src)).toBe(src);
+		}
+	});
+
+	it('is not disabled by a stray backtick elsewhere on the slide', () => {
+		const src = 'Budget 5` per unit.\n\n<!-- _lens: brief -->\n<!-- _lens: secret -->\n\n`Measured`\n';
+		expect(stripExtraLensTags(src)).not.toContain('_lens: secret');
 	});
 });

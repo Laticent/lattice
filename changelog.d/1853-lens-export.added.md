@@ -34,11 +34,7 @@
   slides however the deck happens to paginate. Export-to-Marp still materializes those breaks as real
   separators — a baked deck genuinely has more slides — and a view carried into one refuses as
   `drifted` rather than guessing.
-- **A projected export carries only the views it exports** — with one documented gap: a slide that
-  quotes the `_lens` syntax in INLINE code has that example read as its tag, so the slide's real tag
-  is not pruned. Fenced examples are handled; inline ones need a shared inline-context reader across
-  every consumer, which is a slice of its own. `design/skills/lens.md` says so where authors read.
-  Otherwise: `--lens brief` withheld every non-member
+- **A projected export carries only the views it exports.** `--lens brief` withheld every non-member
   slide and then, in the envelope's own front matter, named `evidence` and `ask`, printed their human
   labels, published their approval digests, and marked on every kept slide whether it belonged to
   them. The `lenses:` block and the per-slide `_lens` tags are now pruned to the exported views.

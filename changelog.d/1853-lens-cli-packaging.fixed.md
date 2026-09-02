@@ -15,3 +15,14 @@
 - **Fixed: a second `_lens` comment on one slide is no longer invisible.** Lente reads only a slide's
   first tag, so a second one was never parsed and never rewritten — dead weight to every reader, and
   a withheld view's id to the recipient of a projected export. `stripExtraLensTags` removes it.
+- **Fixed: a `_lens` or `_class` comment an author QUOTED is no longer treated as a directive.** A
+  backticked `` `<!-- _lens: ask -->` `` example, or one written mid-sentence, was read as the
+  slide's reader-view membership — and a `--lens` export, which rewrites tags to prune views it does
+  not carry, then EDITED it, shipping "Write `` at the top" where the author wrote an example. Lente
+  now recognizes a directive only when the comment opens its line, which is precisely when
+  markdown-it makes an `html_block` of it, so the reader agrees with the renderer by construction
+  rather than by a scan of its own. The engine reached the same rule after the identical defect
+  (`lib/core/class-directive-scan.mjs`); the two are pinned against each other, and against
+  markdown-it, by a differential fuzz. Fence detection also gained CommonMark's three-space indent
+  cap in the same pass — a four-space-indented ``` is an indented code block, not a fence, and
+  reading it as one made a following directive vanish.
