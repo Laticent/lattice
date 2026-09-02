@@ -297,6 +297,7 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
+- ☑ [2026-09-02-bounded-wait-stays-an-index-row.md](2026-09-02-bounded-wait-stays-an-index-row.md) — The bounded-wait discipline stays a CLAUDE.md index row and does NOT become HARD RULE #31.
 - ☑ [2026-09-01-export-remote-subresource-posture.md](2026-09-01-export-remote-subresource-posture.md) — The preview frame was contained in #1753; exports were left open and written up as an open question.
 - ☑ [2026-09-01-manifest-driven-chart-dispatch.md](2026-09-01-manifest-driven-chart-dispatch.md) — Adding a chart used to cost four hand-edits to one 1650-line file — a layout array, a kernel require, a thin adapter, and a figure-class…
 - ☑ [2026-09-01-manifest-schema-gate.md](2026-09-01-manifest-schema-gate.md) — All five manifest families (61 components, 33 themes, 12 frames, 10 cells, 15 tiles) already shipped a JSON Schema beside them, and all…
