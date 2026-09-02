@@ -170,13 +170,20 @@ test.describe('the container shapes where this rule is not CommonMark', () => {
 		});
 	}
 
-	test('and no write path can act on one — every deletion is bounded by ownsItsLine', () => {
-		// The property that matters to an author: a container-prefixed directive is READ and never
-		// EDITED, so neither of these can splice the next line onto its marker or delete an example.
-		for (const [name, raw] of SHARED_DIVERGENCES.map(([n, s]) => [n, s.replace(/_class: kpi/g, '_lens: kpi')])) {
-			assert.equal(stripExtraLensTags(`<!-- _lens: brief -->\n\n${raw}`), `<!-- _lens: brief -->\n\n${raw}`, name);
-			assert.equal(applyTag(raw, 'kpi', false, 'none').split('\n').length, raw.split('\n').length,
-				`${name}: clearing the tag changed the line count`);
+	test('and no write path can act on one — BYTE equality, not a line count', () => {
+		// The property that matters to an author: a directive sharing its line is READ and returned
+		// UNTOUCHED. An earlier version of this test compared line COUNTS, which every one of the
+		// five corruptions preserved — it certified the property it was written to check while
+		// `applyTag` was deleting a documented example out of a blockquoted fence.
+		for (const [name, src, lenteSaysDirective] of SHARED_DIVERGENCES) {
+			const raw = src.replace(/_class: kpi/g, '_lens: kpi');
+			const slide = `<!-- _lens: brief -->\n\n${raw}`;
+			assert.equal(stripExtraLensTags(slide), slide, `${name}: the sweep edited it`);
+			assert.equal(applyTag(raw, 'kpi', false, 'none'), raw, `${name}: clearing the tag edited it`);
+			// The last row is the inverse divergence — markdown-it sees a directive and Lente does
+			// not, so that slide is UNTAGGED to us and inserting a tag is the right answer. Asserting
+			// no-edit there would pin a bug rather than the property.
+			if (lenteSaysDirective) assert.equal(applyTag(raw, 'other', true, 'none'), raw, `${name}: adding a tag edited it`);
 		}
 	});
 });

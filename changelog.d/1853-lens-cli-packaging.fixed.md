@@ -15,9 +15,9 @@
 - **Fixed: a second `_lens` comment on one slide is no longer invisible.** Lente reads only a slide's
   first tag, so a second one was never parsed and never rewritten — dead weight to every reader, and
   a withheld view's id to the recipient of a projected export. `stripExtraLensTags` removes it, as
-  long as it sits at the start of its own line. One tucked behind a `>` or a `-` is left alone
-  deliberately: deleting a comment that shares its line with a container marker splices the next line
-  onto that marker, and fence detection cannot see a fence opened inside a blockquote either (#2034).
+  long as it is the whole of its own line. One that shares its line with anything — a `>` or `-`
+  marker, a list item's content indent, another comment — is left alone deliberately, and the export
+  refuses rather than shipping a withheld id it could not safely rewrite (below).
 - **Fixed: a `_lens` or `_class` comment an author QUOTED is no longer treated as a directive.** A
   backticked `` `<!-- _lens: ask -->` `` example, or one written mid-sentence, was read as the
   slide's reader-view membership — and a `--lens` export, which rewrites tags to prune views it does
@@ -32,11 +32,16 @@
   claimed absent. Fence detection also gained CommonMark's three-space indent cap in the same pass —
   a four-space-indented ``` is an indented code block, not a fence, and reading it as one made a
   following directive vanish.
-- **Fixed: clearing a reader-view tag written inside a list or a blockquote no longer splices the
-  next line onto its marker.** `- <!-- _lens: x -->` is a real directive — the renderer opens one
-  inside the list item too — but removing it took the newline with it, so `- <!-- _lens: secret -->`
-  followed by a fence became `- ``` `: the fence never opened, its closer became an opener, one
-  authored slide rendered as two, and the position-indexed view map shifted under a reader who was
-  then shown a slide their view excludes. The export's re-split check did not catch it, because the
-  engine and the splitter both report the old count on that input. Deleting a tag now takes its
-  newline only when the tag is alone on its line.
+- **Fixed: a reader-view tag that shares its line is read and never rewritten, and an export that
+  would have to rewrite one refuses.** `- <!-- _lens: x -->` is a real directive — the renderer opens
+  one inside the list item too — and every way of deleting it corrupted the line's residue, which is
+  itself markdown. Taking the newline spliced the next line onto the marker, so `- <!-- _lens: secret -->`
+  followed by a fence became `- ``` `: the fence never opened, one authored slide rendered as two,
+  and the position-indexed view map shifted under a reader who was then shown a slide their view
+  excludes. Leaving the newline left a bare `-`, which is a setext underline — the paragraph above
+  became a heading. Leaving it inside a tight list left a blank line, turning the list loose and
+  giving every item a paragraph wrapper. The export's re-split check caught none of them, because
+  none changes the slide count. Nothing sharing its line is edited now, in either direction; the
+  cost is that a withheld id in such a tag cannot be pruned, so the export **re-reads what it
+  emitted and refuses**, naming the id. That check is a verification rather than a fifth attempt at
+  the rule, so it also covers the fence-detection gap still open in #2034.

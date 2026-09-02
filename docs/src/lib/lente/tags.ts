@@ -92,8 +92,8 @@ const inFence = (i: number, ranges: Array<[number, number]>) => ranges.some(([a,
  * module and markdown-it accept one. An earlier version of this docblock said "agrees with the
  * renderer by construction", which was the broader claim and was not true.
  *
- * NONE OF IT IS REACHABLE BY THE WRITE PATHS BELOW, which is what `ownsItsLine` guarantees rather
- * than assumes: a directive sharing its line with a container marker is READ and never edited.
+ * NONE OF IT IS REACHABLE BY THE WRITE PATHS BELOW, which `editableDirective` guarantees rather than
+ * assumes: a directive sharing its line with anything is READ and returned untouched.
  *
  * CONTAINER PREFIXES COUNT AS THE BEGINNING — markdown-it opens the `html_block` INSIDE the
  * container, so `> <!-- … -->` and `- <!-- … -->` are real directives. `[ ]{0,3}` and not `\s{0,3}`,
@@ -107,33 +107,46 @@ function opensItsLine(text: string, at: number): boolean {
 }
 
 /**
- * Is the comment at `at` ALONE on its line — nothing before it but indentation?
+ * Is this directive SAFE TO EDIT — the whole of its line, and nothing else on it?
  *
- * A DIFFERENT QUESTION FROM `opensItsLine`, AND THE COMMIT THAT CONFLATED THEM SHIPPED A CRITICAL
- * REGRESSION. `opensItsLine` answers *is this a directive* — and it says yes to `- <!-- _lens: x -->`,
- * correctly, because markdown-it opens the `html_block` inside the list item. This answers *what does
- * deleting it consume*, and there the container marker is line content like any other: take the
- * newline as well and the next line is spliced onto that marker. Measured, on the real writer:
+ * A DIFFERENT QUESTION FROM `opensItsLine`, AND FIVE COMMITS IN A ROW ANSWERED IT BY GUESSING.
+ * `opensItsLine` answers *is this a directive*, and it says yes to `- <!-- _lens: x -->` — correctly,
+ * because markdown-it opens the `html_block` inside the list item. This answers *may I rewrite it*,
+ * and the honest answer for anything sharing its line is NO. Each attempt to find a cleverer answer
+ * shipped a worse defect than the one it closed, every one of them past every gate in the repo:
  *
- *     "- <!-- _lens: secret -->\n- Second bullet\n"   ->  "- - Second bullet\n"      nested list
- *     "> <!-- _lens: secret -->\n> The point.\n"      ->  "> > The point.\n"         nested quote
- *     "- <!-- _lens: secret -->\n```\nfoo\n---\n```"  ->  "- ```\nfoo\n---\n```"     fence never opens
+ *   eat the newline unconditionally    "- <!-- _lens: x -->\n```\nfoo\n---\n```"
+ *                                   -> "- ```\nfoo\n---\n```"        the fence never opens; one
+ *                                      authored slide renders as two, and a reader on one view is
+ *                                      shown another view's slide.
+ *   keep the newline, drop the text    "Prose\n- <!-- _lens: x -->\n  more"
+ *                                   -> "Prose\n- \n  more"            a bare `-` is a SETEXT H2
+ *                                      UNDERLINE: the author's paragraph becomes a heading, and the
+ *                                      slide gains a page the CLI does not count.
+ *   ditto, inside a tight list         "- a\n  <!-- _lens: x -->\n  b"
+ *                                   -> "- a\n  \n  b"                 a whitespace-only line is a
+ *                                      CommonMark BLANK line: the list goes tight -> loose and every
+ *                                      item in it gains a paragraph wrapper.
+ *   drop the text but not the line     "> ```md\n> <!-- _lens: x -->\n> ```"
+ *                                   -> "> ```md\n> \n> ```"           `fenceRanges` cannot see a
+ *                                      fence opened behind a container marker, so a slide teaching
+ *                                      the syntax ships with the syntax deleted.
  *
- * The third is the trio's original critical finding wearing a container prefix: the fence does not
- * open, its closer becomes an opener, the `---` inside becomes a setext underline, one authored slide
- * renders as two, and the position-indexed view map shifts under a reader who is then shown a slide
- * their view excludes. `lib/core/lens-export.mjs`'s re-split net does NOT catch it — the engine and
- * the splitter both report the old count on that input, so the projection returns `ok: true`.
+ * There is no string splice that is safe on all of them, because the residue of a partial line is
+ * itself markdown. So this predicate is the bound instead: an edit touches a directive ONLY when
+ * removing the whole line removes exactly the directive and nothing an author wrote. Everything
+ * else is READ and returned untouched — provably safe, because not editing cannot corrupt.
  *
- * NOTHING AT ALL BEFORE IT, not "nothing but whitespace". Three spaces of indent is a legal directive
- * and treating it as owning its line splices the next line onto those spaces — harmless until that
- * line itself starts with one, at which point four columns make an indented code block out of the
- * author's paragraph. `lineStart === at` cannot do that to anything: the guard then only ever KEEPS a
- * newline that would otherwise be eaten, so the worst it leaves behind is a whitespace-only line,
- * which renders as nothing.
+ * WHAT IT COSTS, AND WHY THAT IS NOT A LEAK. A withheld view's id inside an uneditable tag would ride
+ * into the artifact. `lib/core/lens-export.mjs` does not trust this bound: it re-reads what the prune
+ * emitted and REFUSES the export if any withheld id survives. A verification, not a fifth derivation —
+ * the same shape as the re-split net, and it catches the gap after this one too.
  */
-function ownsItsLine(text: string, at: number): boolean {
-	return text.lastIndexOf('\n', at - 1) + 1 === at;
+function editableDirective(text: string, span: { start: number; end: number } | null): boolean {
+	if (!span) return false;
+	const startsTheLine = text.lastIndexOf('\n', span.start - 1) + 1 === span.start;
+	const endsTheLine = span.end === text.length || text[span.end] === '\n';
+	return startsTheLine && endsTheLine;
 }
 
 /** True if `s` is empty or all ASCII whitespace (a char scan, so no `\s`-quantified regex touches
@@ -239,22 +252,22 @@ export function taggedLensIds(slides: string[]): Set<string> {
  * KEEPS is by construction the comment `parseSlideTags` READS, and the ones it removes are the ones
  * nothing has ever read. A quoted or mid-sentence example is not a directive to either of them.
  *
- * IT REMOVES ONLY A DIRECTIVE THAT IS ALONE ON ITS LINE, and that bound is what makes DELETING safe
- * rather than merely READING safe. `fenceRanges` finds a fence by scanning for ``` at the start of a
- * line, so it cannot see one opened inside a container: in
+ * IT REMOVES ONLY A DIRECTIVE THAT IS THE WHOLE OF ITS LINE, and that bound is what makes DELETING
+ * safe rather than merely READING safe. `fenceRanges` finds a fence by scanning for ``` at the start
+ * of a line, so it cannot see one opened inside a container: in
  *
  *     > ```markdown
  *     > <!-- _lens: secret -->
  *     > ```
  *
  * markdown-it emits no `html_block` at all, this module sees a directive, and an unbounded sweep
- * DELETED the author's documented example and spliced `> ``` ` onto the marker — measured, through
- * the real CLI, on a slide whose whole job is teaching the syntax. Requiring `ownsItsLine` costs the
- * sweep only container-prefixed duplicates, which no deck in this repo has and which Lente itself
- * never writes; the blindness underneath is older than this module and shared verbatim with
- * `lib/core/class-directive-scan.mjs`, so it is tracked as #2034 rather than re-derived here. Four
- * hand-rolled answers to "what is quoted?" have now each shipped a worse defect than they closed;
- * the fifth is not going to be a container parser written at the same seam.
+ * DELETED the author's documented example — measured, through the real CLI, on a slide whose whole
+ * job is teaching the syntax. The bound costs the sweep every duplicate that shares its line: behind
+ * a container marker, indented under a list item, or written second on the same line. Lente never
+ * writes one of those and no deck in this repo has one, and the blindness underneath is older than
+ * this module and shared verbatim with `lib/core/class-directive-scan.mjs` (#2034). What makes the
+ * cost safe rather than a leak is that `lib/core/lens-export.mjs` VERIFIES the prune instead of
+ * trusting it — a withheld id surviving in the emitted source refuses the export.
  */
 export function stripExtraLensTags(slideSrc: string): string {
 	let src = String(slideSrc ?? '');
@@ -269,14 +282,14 @@ export function stripExtraLensTags(slideSrc: string): string {
 		if (!next) return src;
 		const start = cursor + next.start;
 		let end = cursor + next.end;
-		// Leave a container-prefixed duplicate alone entirely: deleting it would splice the next line
-		// onto its marker, and `fenceRanges` cannot tell a real one from an example inside a
-		// blockquoted fence. See the docblock.
-		if (!ownsItsLine(src, start)) {
+		// Anything sharing its line is left exactly as the author typed it — see `editableDirective`.
+		// The residue of a partial line is itself markdown, and four different splices each corrupted
+		// a real deck.
+		if (!editableDirective(src, { start, end })) {
 			cursor = end;
 			continue;
 		}
-		if (src[end] === '\n') end += 1; // alone on its line, so the newline goes with it
+		if (src[end] === '\n') end += 1; // the whole line was the directive, so the newline goes too
 		src = src.slice(0, start) + src.slice(end);
 		cursor = start;
 	}
@@ -299,13 +312,14 @@ function writeTags(slideSrc: string, tags: SlideTags): string {
 	const comment = `<!-- _lens: ${tokens} -->`;
 	const existing = findDirectiveComment(src, 'lens');
 	if (existing) {
+		// A DIRECTIVE SHARING ITS LINE IS READ AND RETURNED UNTOUCHED — replace as well as remove.
+		// Removing it corrupts the line's residue (`editableDirective` has the four measured shapes);
+		// replacing it edits an author's text just as surely, because the shape that hides from
+		// `fenceRanges` is a documented EXAMPLE inside a blockquoted fence, and rewriting its tokens
+		// ships a slide teaching the syntax with the syntax altered.
+		if (!editableDirective(src, existing)) return src;
 		let end = existing.end;
-		// Removing the tag takes its line's newline with it ONLY when the tag is alone on that line.
-		// `ownsItsLine`, not `opensItsLine` — see that docblock: a directive may legitimately sit
-		// behind a container marker (`- <!-- _lens: x -->`), and eating the newline there splices the
-		// next line onto the marker. On a line followed by a ``` fence that destroys slide structure
-		// and shows a reader a slide their view excludes, with the export's re-split net silent.
-		if (!tokens && src[end] === '\n' && ownsItsLine(src, existing.start)) end += 1;
+		if (!tokens && src[end] === '\n') end += 1; // the whole line was the directive
 		return src.slice(0, existing.start) + (tokens ? comment : '') + src.slice(end);
 	}
 	if (!tokens) return src;

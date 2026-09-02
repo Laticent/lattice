@@ -164,35 +164,47 @@ describe('stripExtraLensTags', () => {
 	});
 });
 
-// The trio's critical finding, wearing a container prefix. `opensItsLine` says `- <!-- … -->` IS a
-// directive — correctly, markdown-it opens the html_block inside the list item — so the commit that
-// treated "is a directive" as "is alone on its line" ate the newline and spliced the next line onto
-// the marker. On a line followed by a fence that destroys slide structure and shows a reader a slide
-// their view excludes, and the export's re-split net does not catch it.
-describe('removing a container-prefixed tag never splices the next line onto its marker', () => {
-	const cases: Array<[string, string, string]> = [
-		['list item then a fence', '- <!-- _lens: secret -->\n```\nfoo\n---\nbar\n```\n', '- \n```\nfoo\n---\nbar\n```\n'],
-		['blockquote', '> <!-- _lens: secret -->\n> The quoted point.\n', '> \n> The quoted point.\n'],
-		['bullet', '- <!-- _lens: secret -->\n- Second bullet\n', '- \n- Second bullet\n'],
-		['ordered', '1. <!-- _lens: secret -->\n1. Second item\n', '1. \n1. Second item\n'],
+// Five string splices in a row corrupted a real deck here. The rule that held is not a cleverer
+// splice: a directive sharing its line with ANYTHING is read and returned untouched, because the
+// residue of a partial line is itself markdown. Each case below is the output of one of the
+// attempts, and each is a real corruption verified through markdown-it.
+describe('a directive sharing its line is never edited — remove or replace', () => {
+	const SHARED: Array<[string, string]> = [
+		['a list marker before it', '- <!-- _lens: secret -->\n- Second bullet\n'],
+		['a blockquote marker', '> <!-- _lens: secret -->\n> The quoted point.\n'],
+		['an ordered marker', '1. <!-- _lens: secret -->\n1. Second item\n'],
+		// Eating the newline spliced the fence opener onto the marker; keeping it left a bare `-`,
+		// which is a SETEXT H2 UNDERLINE and turned the paragraph above into a heading.
+		['a list marker, followed by a fence', '- <!-- _lens: secret -->\n```\nfoo\n---\nbar\n```\n'],
+		['prose above and a list marker', 'Prose above\n- <!-- _lens: secret -->\n  more text\n'],
+		// A whitespace-only line is a CommonMark BLANK line: the list went tight -> loose and every
+		// item in it gained a paragraph wrapper.
+		['content indent inside a tight list', '- item text\n  <!-- _lens: secret -->\n  more text\n- second\n'],
+		// `fenceRanges` cannot see a fence opened behind a container marker, so this looked like a
+		// directive and a slide teaching the syntax shipped with the syntax deleted.
+		['inside a blockquoted fence', '> ```markdown\n> <!-- _lens: secret -->\n> ```\n'],
+		['trailing text on the same line', '<!-- _lens: secret --> and prose after.\n'],
 	];
-	for (const [name, src, want] of cases) {
-		it(name, () => {
-			expect(applyTag(src, 'secret', false, 'none')).toBe(want);
+
+	for (const [name, src] of SHARED) {
+		it(`${name} — removing is a no-op`, () => {
+			expect(applyTag(src, 'secret', false, 'none')).toBe(src);
 		});
 	}
 
-	it('still takes the whole line when the tag is alone on it', () => {
+	// Replacing edits the author's text just as surely as removing: on the blockquoted-fence shape
+	// the "tag" being rewritten is a documented EXAMPLE.
+	it('and neither is replacing — the whole tag is left alone', () => {
+		const src = '> ```markdown\n> <!-- _lens: brief secret -->\n> ```\n';
+		expect(applyTag(src, 'secret', false, 'none')).toBe(src);
+		expect(applyTag(src, 'story', true, 'none')).toBe(src);
+	});
+
+	it('still takes the whole line when the directive IS the whole line', () => {
 		expect(applyTag('<!-- _lens: secret -->\nBody line.\n', 'secret', false, 'none')).toBe('Body line.\n');
 	});
 
-	// "Alone on its line" means NOTHING before it, not "nothing but whitespace". Three spaces is a
-	// legal directive indent; splicing the next line onto them is harmless until that line starts
-	// with a space of its own, at which point four columns make an indented code block out of a
-	// paragraph. Keeping the newline leaves a whitespace-only line, which renders as nothing.
-	it('a three-space indent keeps its newline rather than risk a four-column splice', () => {
-		expect(applyTag('   <!-- _lens: secret -->\n Body line.\n', 'secret', false, 'none')).toBe(
-			'   \n Body line.\n',
-		);
+	it('including at end of file with no trailing newline', () => {
+		expect(applyTag('# Hi\n\n<!-- _lens: secret -->', 'secret', false, 'none')).toBe('# Hi\n\n');
 	});
 });

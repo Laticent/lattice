@@ -186,13 +186,22 @@ the syntax exports intact. (It did not always: three attempts to detect quoted t
 directly each shipped something worse, including one that gutted the example to two bare
 backticks. Adopting the renderer's own rule removed the shape instead of guarding it.)
 
-**A tag behind a `>` or a `-` is read, and never rewritten.** `> <!-- _lens: brief -->` is
-a real directive — the renderer opens one there too — but the export will not delete or
-prune it, because removing a comment that shares its line with a container marker splices
-the next line onto that marker. So write your membership tag at the start of its own line,
-which is where Lattice writes it: a tag tucked inside a list or a quote keeps its slide's
-membership and quietly declines to be pruned, and a withheld id in one reaches the file.
-`lint:deck` cannot see this yet (#2034).
+**Write the membership tag on a line of its own — a tag sharing its line is read but never
+rewritten, and an export that would have to rewrite one REFUSES.** `> <!-- _lens: brief -->`
+and `- <!-- _lens: brief -->` are real directives; the renderer opens one inside the quote or
+the list item too, and Lattice reads them. What it will not do is edit them. The residue of a
+partial line is itself markdown, and every attempt to splice one cleanly corrupted a real
+deck: a bare `-` left behind is a setext underline that turns the paragraph above it into a
+heading, a whitespace-only line is a blank line that turns a tight list loose, and deleting
+the comment inside `> ```markdown` guts an example the author wrote on purpose. So the tag is
+left exactly as typed.
+
+That is safe for your file and, on its own, would leak: a withheld view's id in such a tag
+would ride out in the artifact. It does not, because the export re-reads what it emitted and
+**refuses**, naming the id and the fix — put the tag on its own line. You will see
+`a slide names a view this export does not carry, in a tag the projection cannot safely
+rewrite`. A tag naming only views you ARE exporting is left alone and ships as written.
+`lint:deck` cannot warn about this yet (#2034).
 
 **Two things the prune deliberately does NOT do.** It never writes an approval digest: the
 views in a projected deck ship without `approved:`, so re-importing the artifact reads them

@@ -180,6 +180,35 @@ test.describe('an export carries ONLY the views it exports', () => {
 		assert.ok(REFUSAL_REASONS.unsplittable, 'the reason carries an explanation the CLI can print');
 	});
 
+	test('a withheld id the prune cannot safely rewrite REFUSES the export, it does not ride out', () => {
+		// `pruneTags` edits only a directive that is the WHOLE of its line — the bound Lente reached
+		// after four string splices each corrupted a real deck. A tag sharing its line is therefore
+		// read and left alone, which is safe for the author's bytes and, on its own, a fail-OPEN:
+		// the withheld id would ship in the envelope naming a view the recipient was never given.
+		// So the emitted body is RE-READ and a survivor refuses, exactly like the re-split check.
+		// This is a verification, not a fifth derivation: it catches the next gap in the class too,
+		// and `fenceRanges` is known to have at least one left (#2034).
+		const chunks = ['<!-- _lens: brief -->\n\n# One\n\nProse.\n- <!-- _lens: ask -->\n  more\n', '\n# Two\n\nBody two.\n'];
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
+		const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks[0]}\n---\n${chunks[1]}`;
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, false, 'an export that cannot prove it withheld what it said must not write');
+		assert.equal(out.reason, 'unprunable');
+		assert.equal(out.lensId, 'ask', 'and it names the id that survived, so an author can fix the deck');
+		assert.ok(REFUSAL_REASONS.unprunable, 'the reason carries an explanation the CLI can print');
+	});
+
+	test('but an EXPORTED id in such a tag is fine — the refusal is about disclosure, not tidiness', () => {
+		const chunks = ['<!-- _lens: brief -->\n\n# One\n\nProse.\n- <!-- _lens: brief -->\n  more\n', '\n# Two\n\nBody two.\n'];
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(chunks, bare, l.id) })), default: 'full' };
+		const src = `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${chunks[0]}\n---\n${chunks[1]}`;
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true, 'nothing is disclosed, so nothing is refused');
+		assert.match(out.source, /- <!-- _lens: brief -->/, 'and the author\u2019s line is returned byte-intact');
+	});
+
 	test('a second `_lens` directive on one slide does not ride along', () => {
 		// Only the first is ever read, so a second was invisible to the prune and reached the
 		// artifact naming a withheld view. The sweep and the reader now ask `findDirectiveComment`
