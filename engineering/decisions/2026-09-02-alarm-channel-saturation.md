@@ -6,10 +6,10 @@ summary: >
   single night and neither has ever closed: #1532 (perf) has 21 comments over 23 days, and #1845
   (integration) has 9 since 08-25. #1532 cannot close by construction — #1988 gave the
   `engine-perf` job a stand-down and left the `watch` job without one, so nothing in that job can
-  ever retract. And it is firing on noise: the tripping metric changes night to night (08-29 was
-  LCP twice, 09-01 was script-size twice), while the perf score itself never moves. The same `/`
-  page measures 151KB to 256KB of script across sampled runs, and on one commit pair desktop went
-  -21KB while mobile went +99KB. So the channel these alarms speak on is already saturated.
+  ever retract. And it is firing on noise, which is now PROVED rather than inferred: three
+  consecutive runs measured the IDENTICAL commit pair b4d202c -> 0c920ca and disagreed by up to
+  100KB of script on the same page, with the same row passing on 08-28 and filing a regression on
+  08-30. So the channel these alarms speak on is already saturated.
   Making four more filing conditions exhaustive (the silent-night fix) would add signal to a
   channel nobody reads, which is why that work should go SECOND, not first.
 ---
@@ -52,23 +52,43 @@ Through all of it the metric that matters is flat: desktop `/` perf score 0.99 o
 mobile `/` 0.63 → 0.60 → 0.71 → 0.72. On 09-01 the mobile `/` score actually **improved**
 (0.710 → 0.720) and TBT **improved** (265ms → 207ms) on the same page the alarm flagged.
 
-**The script-size metric is classified as deterministic and is not.** Its config comment says
-*"script-size = bundle bytes; no runner/network noise → tight"*, and it gets a 3% tolerance on
-that basis (`docs/scripts/perf-regression.mjs:64-70`). But it is collected from Lighthouse
-network records — `it.resourceType === 'script'`, summing `transferSize` (`:105-115`) — so it
-measures **what happened to load during that run**, not what the build produced. The readings
-say so:
+**The script-size metric is classified as deterministic and is not. This is proved, not
+inferred, and the proof is in the alarm's own thread.** Its config comment says *"script-size =
+bundle bytes; no runner/network noise → tight"*, and it gets a 3% tolerance on that basis
+(`docs/scripts/perf-regression.mjs:64-70`). But it is summed from Lighthouse network records —
+`it.resourceType === 'script'`, adding `transferSize` (`:105-115`) — so it measures **what
+happened to load during that run**, not what the build produced.
 
-- The `/` page's script total across sampled runs: **209, 172, 157, 151, 256 KB.**
-- On the 09-01 commit pair, **desktop `/` moved −21KB while mobile `/` moved +99KB** — same
-  two commits, same page, opposite directions, 120KB apart.
+**Three consecutive nightly runs measured the IDENTICAL commit pair** — base
+`b4d202c7ca54b078e6c3f240b07ded89492f0f80` → head `0c920ca0fe7f1442ca599c5463fd735806016295`.
+Same two builds, same pages, three nights:
 
-A bundle change moves both form factors the same way. This does not, so the quantity being
-compared is not bundle bytes.
+| night | run | desktop `/` base → head | mobile `/` base → head | mobile `/` verdict |
+|---|---|---|---|---|
+| 08-28 | `33195788680` | 172 → **151** KB | 254 → **209** KB | −45KB ✓ |
+| 08-29 | `33250889056` | 209 → **172** KB | 172 → **151** KB | −21KB ✓ |
+| 08-30 | `33306976109` | 178 → **172** KB | 151 → **251** KB | **+100KB ❌** |
 
-*(Strong inference, not proof: confirming it wants either a local repro against a fixed build,
-or one more night's readings. The facts above — the comment counts, the missing stand-down step,
-the metric that changes nightly, the 151–256KB spread — are all measured.)*
+The same head commit reads 151, 172 and 172 KB on desktop `/`, and 209, 151 and 251 KB on
+mobile `/`. The same base commit reads 172, 209, 178 and 254, 172, 151. **A 100KB spread on
+bytes that never changed.**
+
+The verdict column is the part that matters: **on 08-30 that noise filed a ❌ regression on the
+exact row that passed ✓ two nights earlier, for the same two commits.** The metric is not merely
+noisy, it is noisy well past its own 3%-and-10KB gate, so it manufactures regressions.
+
+*(One thing remains inference, and it is adjacent: precisely WHICH stage of the capture admits
+the variance — lazy-chunk timing, prefetch, an aborted request. The recommendation does not
+depend on it. Whatever the stage, a quantity that moves 100KB at a fixed commit cannot be
+compared at a 3% tolerance, and the fix is to read built bundle bytes off disk rather than to
+widen a band around a number that is not measuring what its name says.)*
+
+**A third failure mode is mixed into the same thread**, worth separating before anyone tunes
+anything: on 08-30 `mobile /playground/` tripped on **Perf score −0.010**, well inside the 0.05
+tolerance. That is the `floor` backstop — an absolute catastrophe guard independent of the delta
+— firing because the score sits at 0.46. That one is arguably a real signal. So #1532 carries at
+least three different things under one title: absolute-floor breaches, LCP timing noise, and
+script-size capture noise. Undifferentiated, in a thread that cannot close.
 
 ## Why this reverses the order of the remaining work
 
