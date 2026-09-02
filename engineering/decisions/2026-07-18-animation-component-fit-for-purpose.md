@@ -1,12 +1,15 @@
 ---
-status: proposed
+status: superseded
 summary: The Stage-5 `scene` component ships as a faithful MIRROR of the adaptive `image` layout — a deliberately strong BASELINE, not the end state. Vision (owner): animation is sometimes the LEAD (the motion IS the argument) and sometimes the SUPPORTING ACTOR (motion reinforces a point owned by other content); a fit-for-purpose animation component must resolve prominence by that ROLE, not only by the poster's aspect the way image does. Assessed failure points of the image-mirror baseline: (1) it resolves by SHAPE, not ROLE; (2) it is designed around a STILL with motion deferred to hydration, so playback/scrub/loop/hero-frame are not first-class; (3) it inherits image's weak cover-photo compositions (spotlight/statement) that don't fit contained motion; (4) it has no attention/"weight" model to modulate a quiet ambient loop vs a dominant demonstration; (5) it is SOVEREIGN (owns the whole canvas), so a true supporting-actor mode — animation embedded ALONGSIDE substantial content — does not exist yet. Backlog: design a fit-for-purpose animation component (or role-modes) with lead/supporting as the organizing axis, motion as a first-class layout citizen, and a non-sovereign embeddable mode. Baseline stands and merges; this is roadmap, not immediate rework.
 companion:
   - ./2026-07-18-anima-motion-faculty-modes.md
   - ./2026-07-17-anima-animation-library.md
+superseded-by: 2026-09-02-frame-model-for-motion.md
 ---
 
 # The animation component — from image-mirror baseline to fit-for-purpose
+
+**Status:** superseded. This note treated the `scene` component — a host that frames a fabricated motion asset — as the delivery vehicle for motion. The current scope applies motion to what the engine already renders (charts, the section rail, the deck logo) rather than to a separate asset hosted in its own component. The `scene` component itself still ships and this note remains the record of its layout reasoning. Current state of record: [`2026-09-02-frame-model-for-motion.md`](2026-09-02-frame-model-for-motion.md).
 
 **Date:** 2026-07-18
 **Status:** Backlog / vision (no rework scheduled; the Stage-5 baseline ships as-is)

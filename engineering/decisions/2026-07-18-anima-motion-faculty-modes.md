@@ -1,12 +1,15 @@
 ---
-status: proposed
+status: superseded
 summary: Decide the shape of Anima's AUTHORING surface (the 4th "Motion" Fabricate tab, beside Theme · Component · Finish) — NOT one design but a small set of author-persona MODES over one shared scene spec. The five design-competition surfaces are a floor→ceiling spectrum, one per archetype (Presenter→Director, Storyteller→Storyboard, Maker→Track, Analyst→Rig, Builder→Stage+Spec); because all are tune-BODIES over the same Anima Scene spec (Stage-1 core), a mode is just how you edit it, so switching is loss-free and cheap. Shared chrome (header · the "Describe a motion scene" front door as the universal low-floor on-ramp · a scrub/poster strip · Save/Export); only the tune body swaps per mode; the Studio shell does not change. v1 = Director Mode (Guided) + Rig Mode (floor + ceiling); Storyboard/Track/Stage+Spec are roadmap modes, no rework. Deliberately called MODE (the author's word) to stay distinct from reader LENSES (@slidewright/lente, the audience's). Stage 4 kind:'scene' asset record shape + poster-storage decision: the SPEC is canonical and the stored poster keeps var(--token) (theme-agnostic thumbnail); the export-frozen-vs-rerender choice stays Stage-5 export-sign-off-gated. Build sequencing is foundation-up (Stage 4 asset → Stage 5 host component → Stage 7 faculty); design landed ahead of its build slot. Design only; nothing built.
 companion:
   - ./2026-07-17-anima-animation-library.md
   - ./2026-07-13-lente-reader-lenses.md
+superseded-by: 2026-09-02-frame-model-for-motion.md
 ---
 
 # Anima — the Motion faculty as author-persona MODES over one scene spec
+
+**Status:** superseded. This note designed the Studio's two-mode authoring shell (Director / Rig) around composing **3-D primitive trees** — the Zdog scene model that is now retired. The scope has also narrowed: motion is applied to charts, chrome and logos that the engine already renders, not authored as standalone scene assets. Current state of record: [`2026-09-02-frame-model-for-motion.md`](2026-09-02-frame-model-for-motion.md).
 
 **Date:** 2026-07-18
 **Status:** Proposed (design model; build not yet started)

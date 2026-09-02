@@ -35,7 +35,36 @@ companion:
 
 This note settles the shape of the motion capability after the engine bake-off
 (`2026-09-02-motion-engine-bakeoff.md`). The bake-off answered *what paints*. This answers
-*what motion is*, and the answer is deliberately more modest than the two ADRs before it.
+*what motion is*, and the answer is deliberately more modest than the ADRs before it.
+
+## 0. This note governs — and what it supersedes
+
+**Where this note and any earlier motion note disagree, this one wins.** Four notes are marked
+`status: superseded` and point here, so they no longer appear in the index's active list:
+
+| Superseded | What it got wrong |
+|---|---|
+| `2026-07-17-anima-animation-library.md` | Motion as a **continuous timeline** with three engines (Zdog, Vivus, a Three.js tier) and a scene-asset faculty. All three engines are dead; the timeline is replaced by known frames. |
+| `2026-07-18-anima-motion-faculty-modes.md` | A Studio shell (Director / Rig) for composing **3-D primitive trees** — the retired Zdog model. |
+| `2026-07-18-animation-component-fit-for-purpose.md` | The `scene` component as motion's delivery vehicle. Motion now applies to what the engine already renders. |
+| `2026-07-19-anima-svg-first-cut-zdog.md` | **Direction right** (SVG over 3-D, retire Zdog, drop Three.js) — but the seven-verb continuous motion set, the Director/Rig rebuild and the AI-SVG faculty are all superseded. |
+
+The bake-off note is **not** superseded: it is the evidence behind the library pick and the audit of
+what ships today. Read it for *why anime.js*; read this for *what motion is*.
+
+**Three things from the superseded notes are carried forward and remain binding:**
+
+1. **The admission test** (2026-07-17 §2, §12). Motion earns its place only when it carries
+   information a still cannot. Ornament is banned. That is the quality bar and it survives the
+   architecture that carried it.
+2. **Power tracks source structure** (2026-07-19 §0.75). The more we own a thing's render, the more
+   meaningful and automatic its motion — which is exactly why charts are the first slice.
+3. **Untrusted SVG is a sanitize boundary** (2026-07-19 §4.6), not an afterthought. This governs the
+   logo-inlining work in §13.
+
+**Two decisions live outside this note and are unchanged:** the library is **anime.js v4**
+(`2026-09-02-motion-engine-bakeoff.md`), and Zdog is retired on the prove-then-cut sequencing — build
+the replacement, clear the bar on a real surface, then excise.
 
 ---
 
@@ -161,6 +190,33 @@ the thing to refuse. Deferred until charts and the DOM chrome are real.
 - **It does not renumber the twenty ideas.** Most of them are a binding away from this model; the
   interactive half still needs an interaction surface that does not exist (zero `tabindex`,
   `role="button"` or `aria-expanded` across every component transform).
+
+## 7a. Two loose ends this note does not close
+
+**`docs/src/lib/anima/README.md` is stale and was NOT fixed here.** It is the first file anyone
+opens in that folder and it still says "Stage 1 is the pure core — no backend yet" (both backends
+ship and `hydrate.ts` imports them), presents the retired three-engine table (Zdog · Vivus ·
+Three.js), and describes motion as a continuous timeline with an authored easing set. A banner
+pointing here was written and then withdrawn, because editing any file under `docs/` trips the
+`docs-typecheck` pre-push hook, which is currently red for a reason unrelated to motion — see below.
+Fix it with the first code slice, when something under `docs/` has to change anyway.
+
+**`docs-typecheck` is broken on `main`, for everyone who touches `docs/`.** Not a motion problem and
+not caused by this branch; recorded because it blocks the doc fix above and will block the first
+code slice.
+
+- `docs/astro.config.mjs:5` imports `unified` from `@astrojs/markdown-remark`, and the installed
+  `@astrojs/markdown-remark@7.1.2` exports no such name (its exports are `createMarkdownProcessor`,
+  `createShikiHighlighter`, `extractFrontmatter`, … — `unified` is not among them).
+- `docs/astro.config.mjs:137` sets `markdown.processor`, which is not a valid key in Astro 7's
+  markdown config.
+
+Both trace to `650712c` *"move the site to astro 7 + starlight 0.41, surgically"*. The config's own
+comment at that line says porting the `rehypeScrollableTables` plugin to the new API "is its own
+change, not a rider on a dependency bump" — so this is a deliberately deferred port that shipped
+half-done. `astro sync` fails to load the config at all, which is also why the type errors cascade
+into `astro:content` and `?raw` module declarations. **Its own change, with the 92-page
+re-verification the comment calls for.**
 
 ## 8. Unverified
 
