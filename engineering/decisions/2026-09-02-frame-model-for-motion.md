@@ -254,32 +254,35 @@ plan, and no decision has been made about it.** Three options, none taken:
 This is a human call and is deliberately left open. It should be made **before** the Zdog excision,
 because that pass is where the cost of each option is lowest.
 
-## 7a. Two loose ends this note does not close
+## 7a. One loose end, closed — and a claim retracted
 
-**`docs/src/lib/anima/README.md` is stale and was NOT fixed here.** It is the first file anyone
-opens in that folder and it still says "Stage 1 is the pure core — no backend yet" (both backends
-ship and `hydrate.ts` imports them), presents the retired three-engine table (Zdog · Vivus ·
-Three.js), and describes motion as a continuous timeline with an authored easing set. A banner
-pointing here was written and then withdrawn, because editing any file under `docs/` trips the
-`docs-typecheck` pre-push hook, which is currently red for a reason unrelated to motion — see below.
-Fix it with the first code slice, when something under `docs/` has to change anyway.
+**`docs/src/lib/anima/README.md` was stale and IS fixed here.** It is the first file anyone opens
+in that folder, and it said "Stage 1 is the pure core — no backend yet" (both backends ship and
+`hydrate.ts` imports them), presented a three-engine table naming a Three.js backend that was
+**never built**, pointed at the superseded 2026-07-17 note as its design contract, and listed 7 of
+the 14 non-test modules in the folder (11 top-level + 3 backends). It now carries a banner pointing here, and each of those claims is
+corrected against the tree.
 
-**`docs-typecheck` is broken on `main`, for everyone who touches `docs/`.** Not a motion problem and
-not caused by this branch; recorded because it blocks the doc fix above and will block the first
-code slice.
+**RETRACTED: the claim that `docs-typecheck` is broken on `main`.** An earlier draft of this
+section said `docs/astro.config.mjs` imported a name `@astrojs/markdown-remark@7.3.0` does not
+export, set a `markdown.processor` key invalid in Astro 7, and left `astro sync` unable to load the
+config — and used that to explain why the README fix was withheld. **All three are false.**
+Measured on this branch, `2026-09-02`:
 
-- `docs/astro.config.mjs:5` imports `unified` from `@astrojs/markdown-remark`, and the installed
-  `@astrojs/markdown-remark@7.3.0` exports no such name — its `exports` map offers only `"."` and
-  `"./shiki"`, and `unified` is not among the named exports of either.
-- `docs/astro.config.mjs:137` sets `markdown.processor`, which is not a valid key in Astro 7's
-  markdown config.
+- `npm --prefix docs run typecheck` (`astro sync && tsc --noEmit`) exits **0** with no diagnostics.
+- `@astrojs/markdown-remark@7.3.0` **does** export `unified` — a real ESM import from the `docs`
+  workspace resolves it, alongside `createMarkdownProcessor`, `rehypeShiki` and nine others.
+- `markdown.processor` **is** a valid Astro 7 key. `astro.config.mjs` carries `// @ts-check` and is
+  inside the tsc program (confirmed via `--listFiles`), and tsc accepts the object. The check is
+  sensitive at exactly that position: planting a bogus sibling key next to `processor` raises
+  `TS2353`, and the error text enumerates the valid keys **including** `processor?:
+  MarkdownProcessor<...>`.
 
-Both trace to `650712c` *"move the site to astro 7 + starlight 0.41, surgically"*. The config's own
-comment at that line says porting the `rehypeScrollableTables` plugin to the new API "is its own
-change, not a rider on a dependency bump" — so this is a deliberately deferred port that shipped
-half-done. `astro sync` fails to load the config at all, which is also why the type errors cascade
-into `astro:content` and `?raw` module declarations. **Its own change, with the 92-page
-re-verification the comment calls for.**
+So `650712c` is not half-done, no port is owed, and nothing blocks a `docs/` edit. The retraction is
+kept in place rather than deleted, because the false claim was load-bearing: it was the stated
+reason this note left a stale doc unfixed, and it was written from a failure that was never
+re-derived before being recorded.
+
 
 ## 8. Unverified
 
