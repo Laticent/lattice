@@ -2667,6 +2667,26 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
   text-wrap: pretty;
 }
 
+/* ── A LONE ROW ON A SPLIT PAGE sits in the page's optical center ──────────────────────
+   The lone-member rules above reach a LIST member (`> .cell-stage > ul|ol > li:only-child`).
+   A record-shaped component splits on the ROW axis instead — `glossary` pivots into a table and
+   `list-tabular` into rows — and a `<table>` is not a flex item whose row can be stretched, so
+   nothing above touches it. Measured on `examples/adaptive-sweep.pdf` after this change took
+   `glossary` from `perPage: 8` to 1: a single term-and-definition row sat at the very top of a
+   portrait page with the lower two-thirds empty, which reads as a page that failed to render
+   rather than as a page holding one thing.
+
+   Centering the whole table — its repeated `<thead>` included, since the header is what makes a
+   lone row legible as a row — is the smallest move that fixes it. No type step: a glossary row is
+   already a term-and-definition pair carrying its own hierarchy, unlike the bare bullet above.
+
+   `:has()` at the top level of the compound, NOT nested inside another `:has()` — see the note on
+   the lone-member rules above for why that distinction is load-bearing. Only ever matches a body
+   page whose table holds exactly one row. */
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage:has(> table > tbody > tr:only-child) {
+  justify-content: center;
+}
+
 /* ── Split COVER chrome — readable on the accent field ─────────────────────────────
    Every cover page is a full-bleed ACCENT field with `color: var(--on-accent)`, but the slide
    chrome kept the colors tuned for the ordinary surface, where the field is behind it:

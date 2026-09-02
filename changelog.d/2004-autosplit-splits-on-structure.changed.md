@@ -190,3 +190,16 @@
   record asserted a `journey` counter exemption that had been deleted. `journey`'s band-label
   collision at portrait is recorded as its own pre-existing defect (pixel-identical on `main`)
   rather than blamed on the split.
+- **Fixed: a lone table ROW sat at the top of a portrait page with two-thirds of it empty.** The
+  lone-member rules reach a LIST member; a record-shaped component splits on the ROW axis instead,
+  and a `<table>` is not a flex item whose row can be stretched — so `glossary`, taken from
+  `perPage: 8` to 1 by this change, put a single term-and-definition row against the masthead and
+  left the rest of the page blank. It reads as a page that failed to render rather than one
+  holding a single thing. The table now centers, its repeated `<thead>` with it, since the header
+  is what makes a lone row legible as a row. Found by rasterizing five changed decks and looking
+  at them — not by any gate, and not by either adversarial pass.
+- **Fixed: `examples/split-envelope.md`'s "The invariant" slide stated three invariants this
+  change had broken.** It said every run begins with exactly one cover (a title-less run now has
+  none), that a below-note rides the last body page (it closes the run), and that a title-less
+  slide keeps the plain partition (it gets the envelope minus the cover). A deck about the
+  envelope's invariants, printing the previous ones.
