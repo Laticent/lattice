@@ -172,6 +172,69 @@ export const THEME_PAIRS = `/* @theme craft-lab */
 }
 `;
 
+/**
+ * The complete `evergreen` palette the themes track builds — the hand-written
+ * half, annotated. Shown whole on the worked-example page so a learner can
+ * check their own file against a finished one, which no other page in the
+ * track lets them do.
+ */
+export const THEME_EVERGREEN = `/* @theme evergreen
+ *
+ * A cool green palette. Pale surfaces, one saturated brand stroke, and red
+ * reserved for alarm — so a deck reads as ink on paper rather than a chart
+ * of colors.
+ */
+@import 'lattice';
+
+:where(:root) { color-scheme: light; }
+
+:root {
+  /* Brand axis — three anchors every value below was derived from. The engine
+   * never reads these; they are here so the file records the decision. */
+  --brand-canvas: #0B3A34;
+  --brand-accent: #0E8C7A;
+  --brand-bright: #17B89E;
+
+  /* Surfaces — kept close together, tinted a degree toward the brand hue. */
+  --bg:              light-dark(#FBFDFC, #0C1A17);
+  --bg-alt:          light-dark(#EEF5F3, #12241F);
+  --border:          light-dark(#CBDBD6, #24403A);
+  --surface-inverse: light-dark(#0A211D, #EAF3F0);
+
+  /* Ink — loudest to quietest, each annotated with what it clears on --bg. */
+  --text-display:   light-dark(#F2F8F6, #0A211D);  /* on the dark surface */
+  --text-heading:   light-dark(#0A211D, #EAF3F0);  /* 17:1 */
+  --text-body:      light-dark(#1C2E2A, #D2E2DD);  /* 11:1 */
+  --text-secondary: light-dark(#3A4E49, #A9C0BA);  /*  7:1 */
+  --text-label:     light-dark(#1F6E60, #7FD3C2);  /* accent-hued label tier */
+  --text-muted:     light-dark(#5A6A66, #94AAA4);  /*  5:1 — quiet TEXT */
+  --muted-mark:     light-dark(#6B7B77, #7E938D);  /*  3:1 — DECORATION only */
+
+  /* Accent — --on-accent is picked by eye, per canvas. Nothing derives it. */
+  --accent:      light-dark(#0E8C7A, #17B89E);
+  --accent-soft: light-dark(#D7ECE7, #123B34);
+  --on-accent:   light-dark(#FFFFFF, #04120F);
+
+  /* Signals — warn is amber, not a second red. */
+  --pass: light-dark(#2D6A3F, #4ADE80);
+  --warn: light-dark(#B45309, #F59E0B);
+  --fail: light-dark(#991B1B, #F87171);
+
+  /* Structural — the stroke has to read on white. */
+  --diagram-stroke: #1F6E60;
+  --diagram-line:   light-dark(#0A211D, #EAF3F0);
+
+  /* Code — the syntax colors, each readable on --code-bg. Twelve in a real
+   * file; the tour covers why comments and punctuation are not exempt. */
+  --code-text:    light-dark(#EAF3F0, #EAF3F0);
+  --hljs-comment: light-dark(#7FA79E, #7FA79E);
+
+  /* Sequential ramp anchor — mid-range on BOTH canvases, or the nine stops
+   * the engine derives from it bunch against one end. */
+  --seq-500: light-dark(#2E8B79, #35A08C);
+}
+`;
+
 /** The slide the component labs style. Plain markdown, no component class yet. */
 export const SLIDE_PLAIN = `<!-- _class: content -->
 
@@ -234,6 +297,54 @@ export const CSS_COMPONENT_STUB = `/* takeaway.styles.css — as the scaffold wr
 section.takeaway > .cell-stage {
   display: flex;
   flex-direction: column;
+}
+`;
+
+/** The slide the finished-finish example paints behind — its class matches the
+ *  real preset name, so the lab shows exactly the CSS a shipped finish carries. */
+export const SLIDE_FINISH_QUARRY = `<!-- _class: content finish-quarry -->
+
+## Atmosphere behind the words, never ornament on top of them.
+`;
+
+/**
+ * The complete `quarry` finish the finishes track builds — all four slot
+ * families, every full-bleed layer twinned for export. Shown whole on the
+ * worked-example page.
+ */
+export const CSS_FINISH_QUARRY = `section.finish-quarry {
+  /* ── z2 · TEXTURE — a fine ruled grain. Listed FIRST in the shared
+   *    background-image, so it sits above the wash. */
+  --fin-texture:
+    repeating-linear-gradient(0deg,
+      color-mix(in srgb, var(--text-heading) 5%, transparent) 0 1px,
+      transparent 1px 30px);
+  --fin-texture-opaque:
+    repeating-linear-gradient(0deg,
+      color-mix(in srgb, var(--text-heading) 5%, var(--fin-canvas)) 0 1px,
+      transparent 1px 30px);
+
+  /* ── z1 · WASH — light falling from the top-left. */
+  --fin-wash:
+    radial-gradient(ellipse 110% 90% at 0% 0%,
+      color-mix(in srgb, var(--accent) 11%, transparent) 0%,
+      transparent 58%);
+  --fin-wash-opaque:
+    radial-gradient(ellipse 110% 90% at 0% 0%,
+      color-mix(in srgb, var(--accent) 11%, var(--fin-canvas)) 0%,
+      var(--fin-canvas) 58%);
+
+  /* ── z3 · MARK — empty by default. The author opts in per slide. */
+  --fin-mark-text: "";
+
+  /* ── z4 · EDGE — declared as nothing, so it cannot inherit a stray layer. */
+  --fin-edge: none;
+  --fin-frame: none;
+
+  /* ── Bookkeeping: one entry per background layer, in the order above. */
+  --fin-size:     auto, auto;
+  --fin-position: center, 0% 0%;
+  --fin-repeat:   repeat, no-repeat;
 }
 `;
 

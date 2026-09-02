@@ -1,13 +1,16 @@
 ---
 title: The token tour
-description: Every group of colors a theme sets, what each one paints, and how to see it on a real slide.
+description: Surfaces, ink and accent — the three groups you tune by hand, and what each one paints.
 ---
 
 import CraftLab from '../../../../components/craft/CraftLab.astro';
-import { SLIDE_CARDS, SLIDE_CODE, SLIDE_KPI, THEME_MINI } from '../../../../components/craft/samples.ts';
+import { SLIDE_CARDS, SLIDE_KPI, THEME_MINI } from '../../../../components/craft/samples.ts';
 
 A theme's colors come in six groups. Learn the groups and you have learned
 the theme file, because everything inside a group behaves the same way.
+
+This page covers the three you tune by hand and spend the most time on.
+[The rest of the colors](/craft/themes/rest/) covers the other three.
 
 | Group | Roughly | Sets |
 |---|---|---|
@@ -18,9 +21,9 @@ the theme file, because everything inside a group behaves the same way.
 | **Code** | syntax highlighting | 12 colors |
 | **Categorical** | charts and diagrams | 12 pairs |
 
-The first four are what you tune by hand and what this page covers. Code
-and categorical get their own treatment on
-[Colors for charts and diagrams](/craft/themes/categorical/).
+Surfaces, ink and accent are below. Signals and code are on
+[the rest of the colors](/craft/themes/rest/); categorical gets a page of
+its own, [Colors for charts and diagrams](/craft/themes/categorical/).
 
 ## Surfaces — the paper
 
@@ -112,52 +115,7 @@ itself.
 	hint="The panel behind $2.4B is accent-soft. Set --accent to #7A1F3D and the whole slide follows: tags, rules, the panel wash, the emphasis. Then try --accent: #F0C674 and watch --on-accent fail — white on pale gold. That is the one you have to tune by hand."
 />
 
-## Signals — good, careful, bad
-
-Six colors: three inks and three tinted grounds.
-
-```css
---pass: #2D6A3F;  --pass-bg: /* a tint of it */
---warn: #B45309;  --warn-bg:
---fail: #991B1B;  --fail-bg:
-```
-
-One thing to get right: **warn must not look like fail.** Amber against
-red, not two reds. When a slide shows a status board, the difference
-between "watch this" and "this is broken" is doing real work, and a reader
-seeing them side by side should never have to squint.
-
-## Code — syntax highlighting
-
-Twelve colors for the parts of a code block: comments, keywords, strings,
-numbers, function names, and so on.
-
-Two things constrain them. They all sit on `--code-bg`, and every one of
-them is **small text a person reads**, so each has to be genuinely legible
-against that background — comments and punctuation included. The temptation
-to make comments nearly invisible is exactly the mistake: de-emphasis is
-about where a color sits relative to the code around it, not about whether
-it can be read at all.
-
-<CraftLab
-	label="The code colors you never set"
-	kind="theme"
-	css={THEME_MINI}
-	canvasToggle={false}
-	markdown={SLIDE_CODE}
-	size="tall"
-	hint="This theme sets no --hljs-* colors, so the code block is wearing the engine's defaults. Add --hljs-comment: #6A7C93 and watch just the comment line move."
-/>
-
-## What you did not have to set
-
-The lab above renders a complete code slide from a theme that never
-mentions code, because everything a theme omits falls back to the engine's
-defaults. Good while you work, and a bad way to ship —
-[Ship your theme](/craft/themes/checklist/) says why, and lists the full
-98.
-
 ## Next
 
-You now know what the colors do. Time to pick some:
-[Build your first theme](/craft/themes/first-theme/).
+The three quieter groups — the ones you set once and stop thinking about:
+[the rest of the colors](/craft/themes/rest/).

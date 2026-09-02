@@ -226,6 +226,7 @@ export default defineConfig({
 							items: [
 								{ label: 'Theme anatomy', slug: 'craft/themes/anatomy' },
 								{ label: 'The token tour', slug: 'craft/themes/tokens' },
+								{ label: 'The rest of the colors', slug: 'craft/themes/rest' },
 								{ label: 'Build your first theme', slug: 'craft/themes/first-theme' },
 								{ label: 'Contrast and readability', slug: 'craft/themes/contrast' },
 								{ label: 'Light and dark', slug: 'craft/themes/light-dark' },
@@ -254,6 +255,19 @@ export default defineConfig({
 								{ label: 'Ship your finish', slug: 'craft/finishes/checklist' },
 							],
 						},
+						{
+							// The finished artifacts. A learner following a track sees only
+							// fragments of the file they are building, so there is nowhere to
+							// check their own work against — these are that.
+							label: 'Worked examples',
+							items: [
+								{ label: 'A finished theme', slug: 'craft/examples/theme' },
+								{ label: 'A finished component', slug: 'craft/examples/component' },
+								{ label: 'A finished finish', slug: 'craft/examples/finish' },
+							],
+						},
+						{ label: 'When something looks wrong', slug: 'craft/troubleshooting' },
+						{ label: 'Glossary', slug: 'craft/glossary' },
 					],
 				},
 				{

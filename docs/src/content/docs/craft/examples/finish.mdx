@@ -1,0 +1,72 @@
+---
+title: A finished finish
+description: The complete quarry preset — all four layers, both faces — with the register row and the catalog entry.
+---
+
+import CraftLab from '../../../../components/craft/CraftLab.astro';
+import { CSS_FINISH_QUARRY, SLIDE_FINISH_QUARRY } from '../../../../components/craft/samples.ts';
+
+The finishes track builds `quarry` one layer at a time. Here it is
+complete: all four slot families declared, every full-bleed layer twinned
+for export, and nothing in it naming a color.
+
+<CraftLab
+	label="quarry, entire"
+	kind="css"
+	css={CSS_FINISH_QUARRY}
+	markdown={SLIDE_FINISH_QUARRY}
+	size="tall"
+	hint="Read it in pairs: every --fin-* has a --fin-*-opaque twin with the same geometry and a different ending. Change a value in the first of a pair to see it; the second is the export face and never renders here."
+/>
+
+## What to notice
+
+**All four families are declared, including the ones it does not use.**
+`--fin-mark-text` is empty and `--fin-edge` is `none`. A finish is a set of
+custom properties, and an undeclared one inherits — saying `none` says
+*deliberately nothing*.
+
+**Every full-bleed layer is twinned.** Same geometry, same percentage; the
+only difference is what the fade ends on. The screen face ends on
+`transparent`, the export face on `var(--fin-canvas)`.
+
+**The bookkeeping lists match the layer count.** Two background layers, so
+`--fin-size`, `--fin-position` and `--fin-repeat` each carry two entries,
+in the same order the layers are listed — texture first.
+
+**Nothing names a color.** Every value is a `color-mix()` of `--accent`,
+`--text-heading` or `--fin-canvas`, which is what makes it work in every
+palette and both canvases for free.
+
+**The mark is empty.** A monogram baked into a shared finish makes it one
+organization's finish.
+
+## The register row
+
+In `lib/core/resolve-finish.js`:
+
+```js
+quarry: 'finish finish-quarry',
+```
+
+One line. `finish: quarry` starts working in front matter and the deck
+linter accepts it while still flagging typos.
+
+## The catalog entry
+
+In `docs/src/components/studio/finish-catalog.ts` — the label, blurb and
+swatch the Studio's picker shows. A guard test fails if this and the
+register disagree, so neither can quietly rot behind the other.
+
+## What is not on this page
+
+The export sign-off. A finish changes the bytes of every exported file, and
+its failure mode — a gray cloud across a fade, a title slide washed to
+near-blank — appears only in the PDF. No screen preview substitutes for
+rendering it through both engines, in both canvases, and looking at all
+four.
+
+## Next
+
+- The colors it tints: [a finished theme](/craft/examples/theme/).
+- The layout it sits behind: [a finished component](/craft/examples/component/).

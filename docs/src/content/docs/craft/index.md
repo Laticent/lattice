@@ -72,6 +72,13 @@ what you would get. Two differences worth knowing:
 Read the pages in the order the sidebar lists them. Each one assumes the
 one before it.
 
+Three things sit outside the tracks, for when you need them:
+**[worked examples](/craft/examples/theme/)** show each finished file whole,
+so you can check your own against one; **[when something looks
+wrong](/craft/troubleshooting/)** is sorted by what you are looking at; and
+the **[glossary](/craft/glossary/)** covers the vocabulary, including the
+three words that mean different things in different rooms.
+
 ## When you would rather click than type
 
 The [Studio](/studio/) has visual workbenches for all three: pick ten
