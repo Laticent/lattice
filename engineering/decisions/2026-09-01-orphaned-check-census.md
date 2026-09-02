@@ -28,7 +28,7 @@ is not a gate, and three of the five defects are already caught elsewhere:
 | check | script wired? | defect covered elsewhere? | runtime | verdict | deterministic? |
 |---|---|---|---|---|---|
 | `check:responsive` | no | **yes, fully** — `test/unit/tools/chart-responsiveness.test.js` | 0.3s | pass | yes |
-| `check:chart-fit` | no | **no** | 30s | **pass** (fail -> pass #2030; red again by #2016; green #2032) | no — real Chromium |
+| `check:chart-fit` | no | **no** | 30s | **pass** — first green at #2032; NEVER green before it | no — real Chromium |
 | `equiv:check` | no | **yes, fully** — `test/unit/diagnostics/slice-equivalence-baseline.test.js` | 3s | pass | yes |
 | `oracle:check` | no | **yes** — `checkSplitOracle` in `check-ownership.js` | 0.3s | pass | yes |
 | `geometry:check` | no | **partly** — `checkSectionCqAnchoring` catches one of two causes | 2m08s | pass | no — real Chromium |
@@ -62,11 +62,15 @@ records a drift it caused). Nothing runs either one.
   DOM measures. **Was red when this note was written**, stably so — `[square]` slide 15
   (progress) painted 10.9px below the stage, cut silently because the stage is
   `overflow: clip`. That clip was fixed by #1920 / PR #2030.
-  **CAUTION — this note twice asserted the gate was green when it was not.** The line
-  above said so, and it was already false the moment #2030 merged: #2016 landed 51
-  minutes earlier and reopened the gate at a DIFFERENT site, `roadmap` at portrait,
-  +75.4px on two pages, by seating the split's new universal forward-pointer signal
-  inside a stage `roadmap` had floored at exactly 100%. Nothing caught the contradiction
+  **CAUTION — this note asserted the gate was green, in THREE places, when it never was.** The line
+  above said so, the bullet you are reading said so, and the Recommendation said so —
+  all three added by #2030's commit, and all three already false the moment it merged.
+  #2016 landed **51 minutes earlier** and reopened the gate at a DIFFERENT site,
+  `roadmap` at portrait (+75.4px on two pages) and at strip (+80px), by seating the
+  split's new universal forward-pointer signal inside a stage `roadmap` had floored at
+  exactly 100%. **There was never a green window**: the gate went fail(progress) ->
+  fail(progress + roadmap) at 10:58 -> fail(roadmap) at 11:49 -> pass only at #2032.
+  Read no sequence into it that implies otherwise. Nothing caught the contradiction
   because #2030's branch measured a tree without #2016 on it, and the gate this note is
   about runs in no CI job — the swimlane's own thesis, demonstrated on this note. Closed
   by #2032; the gate exits 0 across all three sizes with no `SANCTIONED_CLIPS` entry.
