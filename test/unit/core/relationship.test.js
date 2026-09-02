@@ -14,6 +14,18 @@ const assert = require('node:assert/strict');
 const { RELATIONSHIPS, relationshipSignals, membersIn, labelOf, criteriaOf } = require('../../../lib/core/relationship');
 const { applyRelationshipSignals } = require('../../../lib/core/auto-split');
 
+// Reads a signal as { mark, label } rather than matching its markup.
+//
+// These assertions were regexes of the shape `/data-mark="next">next: X</`, which pinned the fact
+// that the label was a BARE TEXT NODE sitting directly after the div's opening tag. Wrapping it in
+// a `.lat-split-label` span — so the pill can ellipsise, which needs an element — failed sixteen
+// of them without one behavior changing. What they actually mean is "this page's signal is a NEXT
+// pointing at X", and that is what they say now.
+const signalOf = (html) => {
+  const m = /<div class="lat-split-rel" data-mark="([a-z]+)"[^>]*>([\s\S]*?)<\/div>/.exec(html);
+  return m && { mark: m[1], label: m[2].replace(/<[^>]*>/g, '').trim() };
+};
+
 const li = (title, body) => `<li><strong>${title}</strong><ul><li>${body}</li></ul></li>`;
 const steps = (titles) => titles.map((t, k) => li(t, `body for ${t} ${k}`));
 /** Each step on its own page — the `perPage: 1` pacing §0b gives a connected member. */
@@ -25,22 +37,22 @@ describe('core: relationship — the four kinds', () => {
   test('sequence: every non-terminal page names the NEXT member; the last has no next', () => {
     const out = relationshipSignals('sequence', oneEach(TITLES));
     assert.equal(out.length, 4);
-    assert.match(out[0], /data-mark="next">next: Circulate for comment</);
-    assert.match(out[1], /data-mark="next">next: Sign off</);
-    assert.match(out[2], /data-mark="next">next: Publish</);
+    assert.deepEqual(signalOf(out[0]), { mark: 'next', label: 'next: Circulate for comment' });
+    assert.deepEqual(signalOf(out[1]), { mark: 'next', label: 'next: Sign off' });
+    assert.deepEqual(signalOf(out[2]), { mark: 'next', label: 'next: Publish' });
     assert.equal(out[3], '', 'the terminal page of a sequence has nothing to point at');
   });
 
   test('cycle: flows forward, then the LAST page loops back to stage 1 (never dropped)', () => {
     const out = relationshipSignals('cycle', oneEach(TITLES));
-    assert.match(out[0], /data-mark="next">next: Circulate for comment</);
-    assert.match(out.at(-1), /data-mark="loop">back to Draft the policy</);
+    assert.deepEqual(signalOf(out[0]), { mark: 'next', label: 'next: Circulate for comment' });
+    assert.deepEqual(signalOf(out.at(-1)), { mark: 'loop', label: 'back to Draft the policy' });
   });
 
   test('hierarchy: governs ↓ down the chain, under ↑ on the last tier — never a temporal "next"', () => {
     const out = relationshipSignals('hierarchy', oneEach(TITLES));
-    assert.match(out[0], /data-mark="down">governs Circulate for comment</);
-    assert.match(out.at(-1), /data-mark="up">under Sign off</);
+    assert.deepEqual(signalOf(out[0]), { mark: 'down', label: 'governs Circulate for comment' });
+    assert.deepEqual(signalOf(out.at(-1)), { mark: 'up', label: 'under Sign off' });
     for (const s of out) assert.doesNotMatch(s, /next/, 'a hierarchy is not a sequence');
   });
 
@@ -99,8 +111,8 @@ describe('core: relationship — DERIVED, never authored (§8 rule 12a)', () => 
   test('a hierarchy\'s "under ↑" follows an edit to the PREVIOUS member', () => {
     const before = relationshipSignals('hierarchy', oneEach(['Statute', 'Regulation', 'Case law']));
     const after = relationshipSignals('hierarchy', oneEach(['Statute', 'Implementing regulation', 'Case law']));
-    assert.match(before.at(-1), /data-mark="up">under Regulation</);
-    assert.match(after.at(-1), /data-mark="up">under Implementing regulation</);
+    assert.deepEqual(signalOf(before.at(-1)), { mark: 'up', label: 'under Regulation' });
+    assert.deepEqual(signalOf(after.at(-1)), { mark: 'up', label: 'under Implementing regulation' });
   });
 });
 
@@ -212,8 +224,8 @@ describe('core: relationship — through the real emission path (post-convergenc
     const out = applyRelationshipSignals(deck([['Draft'], ['Circulate'], ['Publish']]), CAP);
     const sections = out.split('<section').slice(1);
     assert.doesNotMatch(sections[0], /lat-split-rel/, 'the accent cover is not a member');
-    assert.match(sections[1], /data-mark="next">next: Circulate</);
-    assert.match(sections[2], /data-mark="next">next: Publish</);
+    assert.deepEqual(signalOf(sections[1]), { mark: 'next', label: 'next: Circulate' });
+    assert.deepEqual(signalOf(sections[2]), { mark: 'next', label: 'next: Publish' });
     assert.doesNotMatch(sections[3], /lat-split-rel/, 'the last step has no next');
   });
 
@@ -224,7 +236,7 @@ describe('core: relationship — through the real emission path (post-convergenc
     // nothing at all. Caught on a real render, not by a unit test.
     const withContent = { ...CAP, content: { axis: 'item', relationship: null } };
     const out = applyRelationshipSignals(deck([['Draft'], ['Publish']]), withContent);
-    assert.match(out, /data-mark="next">next: Publish</);
+    assert.deepEqual(signalOf(out), { mark: 'next', label: 'next: Publish' });
   });
 
   test('IDEMPOTENT — a second call re-derives rather than appending a second signal', () => {
@@ -238,12 +250,13 @@ describe('core: relationship — through the real emission path (post-convergenc
     // Simulate the two-pass case: page 1 held [Draft, Circulate] and pointed at [Publish];
     // a later pass split it, so page 1 now holds [Draft] and its neighbor is [Circulate].
     const stale = applyRelationshipSignals(deck([['Draft', 'Circulate'], ['Publish']]), CAP);
-    assert.match(stale.split('<section')[2], /data-mark="next">next: Publish</);
+    assert.deepEqual(signalOf(stale.split('<section')[2]), { mark: 'next', label: 'next: Publish' });
     const recut = applyRelationshipSignals(stale.replace(
       /<section data-split-run="r1" data-split-role="body"[\s\S]*?<\/section>/,
       page(1, 'list-steps form lat-split-native', ['Draft']) + page(2, 'list-steps form lat-split-native', ['Circulate']),
     ), CAP);
-    assert.match(recut.split('<section')[2], /data-mark="next">next: Circulate</,
+    assert.deepEqual(signalOf(recut.split('<section')[2]),
+      { mark: 'next', label: 'next: Circulate' },
       'the re-split page kept a signal pointing past its real neighbor');
     assert.equal((recut.match(/lat-split-rel/g) || []).length, 2, 'and it is not doubled');
   });
@@ -254,7 +267,7 @@ describe('core: relationship — through the real emission path (post-convergenc
     // so every other split run's pages ended with nothing joining them. `sequence` is the
     // default because it is the relationship a split run HAS — the pages were one slide.
     const out = applyRelationshipSignals(deck([['Draft'], ['Publish']]), { 'list-steps': { axis: 'item' } });
-    assert.match(out, /data-mark="next">next: Publish</);
+    assert.deepEqual(signalOf(out), { mark: 'next', label: 'next: Publish' });
     assert.equal((out.match(/lat-split-rel/g) || []).length, 1, 'the last body page has no next member');
   });
 
@@ -267,7 +280,7 @@ describe('core: relationship — through the real emission path (post-convergenc
     const bare = (n, label) => `<section data-split-run="r1" data-split-role="body" data-lattice-slide="${n}" `
       + `class="list-steps form lat-split-native"><h2>T</h2><ul><li>${label}</li></ul></section>`;
     const out = applyRelationshipSignals(bare(1, long) + bare(2, `${long} again`), { 'list-steps': { axis: 'item' } });
-    assert.match(out, /data-mark="next">continues</, 'it still points forward');
+    assert.deepEqual(signalOf(out), { mark: 'next', label: 'continues' }, 'it still points forward');
     assert.doesNotMatch(out, /…/, 'and never with a truncated sentence');
   });
 

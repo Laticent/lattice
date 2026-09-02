@@ -77,3 +77,20 @@
   cell, the stack fills the board, and the stage's rows fill the stack, so the cell's own centering
   had nothing left to center. On a split page all three stop growing and the board centers the
   stage and its legends as one group. The unsplit render is byte-identical.
+- **Changed: the forward pointer is a pill.** Owner's call, on the redesigned furniture: a subtle
+  on-brand pill with the drawn arrow and the label inside it, rather than bare text on the canvas.
+  It reuses the universal `--pill-*` register — same radius, padding, weight and tracking as every
+  other pill in the engine — and names the two axes it overrides at its own site: `--bg-alt` for
+  the fill, because a signal on the page's own canvas needs to separate from it, and
+  `--text-secondary` for the ink, because this is wayfinding beside content. The numbers back the
+  shape: across the six shipped decks there are 98 signals, median label sixteen characters, 63%
+  at or under twenty, and not one of them lands on a split cover — so the pill never has to
+  survive the inverse surface. `align-self: flex-end` shrink-wraps it, right-anchors it without a
+  margin, and is what makes a flex row safe here: the arrow was stranded before because the box
+  was full-width, and a box sized to its content has no free space to strand it across.
+- **Fixed: the run's CLOSING pointer was built by a second producer, and drifted the moment the
+  first one changed.** `closingSignal` in `auto-split.js` hand-assembled the same
+  `.lat-split-rel` div that `relationship.js` builds (HARD RULE #1). The two agreed for as long as
+  the element was a bare div: when the label needed wrapping in a span so the pill could ellipsise
+  — `text-overflow` never applies to a flex container — the kernel grew one and the copy did not,
+  so a closing pointer rendered unwrapped. Both go through the one builder now.

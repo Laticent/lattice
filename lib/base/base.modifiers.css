@@ -2984,6 +2984,60 @@ section.form.lat-split-native > .lat-split-rel {
      `balance` to take — which is the hazard the flex row was reaching for. */
   display: block;
 }
+/* THE SIGNAL IS A PILL (owner's call, 2026-09-02): "why can't next just be a subtle on-brand
+   pill with an arrow and the text inside it?" Nothing stopped it, and the numbers argue for it —
+   across the six shipped decks there are 98 signals, median label SIXTEEN characters, 63% at or
+   under 20 ("next: Trial", "next: Q2"). That is a pill's natural size. And no signal ever lands
+   on a split COVER (counted: 0), so this never has to survive the inverse surface — the one
+   constraint that would have forced `currentColor` and no fill.
+
+   It reuses the universal `--pill-*` register (#15) rather than inventing a fourth pill: same
+   radius, padding, weight and tracking as every other pill in the engine, and `--pill-fs`, which
+   the typography generator emits per SECTION so it tracks the slide's orientation instead of
+   baking in the landscape meta size. Following the register's own convention, the axes this
+   deliberately overrides are named here: the FILL is `--bg-alt` rather than the register's `--bg`
+   (a signal on the page's own canvas needs to separate from it — `--bg` would be an outline with
+   no body), and the INK is `--text-secondary` rather than `--text-body`, because this is
+   wayfinding beside content, not content.
+
+   `align-self: flex-end` is doing three jobs at once and replaces three earlier mechanisms. It
+   shrink-wraps the box to its content, which is what makes it a pill rather than a full-width
+   bar; it right-anchors without a margin (#20 — the universal pill needs the sanctioned
+   `margin-left:auto` because it sits in a row it does not control; this one is a column child, so
+   it does not); and it is what makes the flex row SAFE again. The mark was stranded at the left
+   edge under `display: flex` precisely because the box was full-width and the text absorbed all
+   the free space. A shrink-wrapped box has no free space to strand it across.
+
+   The 7 signals past 40 characters ellipsise rather than wrap, on the label span. A pill that
+   wraps has stopped being a pill, and nothing is lost: the label names the NEXT page, which
+   arrives one page later carrying that title in full on its own masthead. */
+section[data-split-role] .lat-split-rel,
+section.form.lat-split-native > .cell-stage > .lat-split-rel,
+section.form.lat-split-native > .lat-split-rel {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  max-width: 100%;
+  font-family: var(--pill-font);
+  font-size: var(--pill-fs);
+  font-weight: var(--pill-weight);
+  letter-spacing: var(--pill-tracking);
+  line-height: 1;
+  border: 1px solid var(--pill-border, var(--muted-mark));
+  background: var(--pill-bg, var(--bg-alt));
+  color: var(--pill-fg, var(--text-secondary));
+  border-radius: var(--pill-radius);
+  padding: var(--pill-pad-y) var(--pill-pad-x);
+}
+/* The label carries the clip, not the pill: `text-overflow` never applies to a flex CONTAINER,
+   so on the container it would have clipped mid-word with no ellipsis. */
+.lat-split-rel > .lat-split-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* The split page's own CAPTION — the author's `_footer:` words, rank 3 of the band's
    allocation policy — takes the pointer's INK and nothing else.
 
@@ -3020,13 +3074,9 @@ section.form.lat-split-native > .cell-footer > footer {
    drawn arrow on the text's optical center rather than its baseline; a mask has no baseline of
    its own to align to. */
 .lat-split-rel[data-mark]:not([data-mark="count"])::before {
-  content: ""; display: inline-block; width: 1.05em; height: 1.05em;
-  vertical-align: -0.16em;
-  padding-right: 0.45em;
+  content: ""; flex: none; width: 1.05em; height: 1.05em;
   background-color: currentColor;
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
-  -webkit-mask-origin: content-box; mask-origin: content-box;
-  -webkit-mask-clip: content-box; mask-clip: content-box;
 }
 .lat-split-rel[data-mark="next"]::before {
   -webkit-mask: var(--shape-arrow-right) var(--shape-paint);

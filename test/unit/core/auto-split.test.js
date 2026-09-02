@@ -156,7 +156,11 @@ describe('core: the envelope — cover → bodies → closing', () => {
 describe('core: the carousel points at what is next — on EVERY run', () => {
   const card = (t, b) => `<li><strong>${t}</strong> ${b}</li>`;
   const steps = `<ul>${card('Draft the policy.', 'Legal owns it.')}${card('Circulate.', 'Two weeks.')}${card('Sign off.', 'The chair signs.')}</ul>`;
-  const sigsOf = (html) => [...html.matchAll(/<div class="lat-split-rel"[^>]*>([\s\S]*?)<\/div>/g)].map((m) => m[1]);
+  // The signal's LABEL, not its markup. The label rides a `.lat-split-label` span (so the pill can
+  // ellipsise — `text-overflow` needs an element), and these assertions compare label TEXT, so the
+  // wrapper is stripped here rather than written into every expectation.
+  const sigsOf = (html) => [...html.matchAll(/<div class="lat-split-rel"[^>]*>([\s\S]*?)<\/div>/g)]
+    .map((m) => m[1].replace(/<[^>]*>/g, '').trim());
 
   test('a component declaring NO relationship still gets a forward pointer', () => {
     // The signal used to require `capacity.relationship`, which four of sixty-one components
@@ -397,7 +401,11 @@ describe('the marker berths survive a split, one set per page', () => {
 // element it cut. These pin the PREFERENCE — that the stamp wins, that its absence changes
 // nothing, and that a stamp is read as text rather than as markup.
 describe('auto-split: data-split-label names the page, over the first-list heuristic', () => {
-  const sigsOf = (html) => [...html.matchAll(/<div class="lat-split-rel"[^>]*>([\s\S]*?)<\/div>/g)].map((m) => m[1]);
+  // The signal's LABEL, not its markup. The label rides a `.lat-split-label` span (so the pill can
+  // ellipsise — `text-overflow` needs an element), and these assertions compare label TEXT, so the
+  // wrapper is stripped here rather than written into every expectation.
+  const sigsOf = (html) => [...html.matchAll(/<div class="lat-split-rel"[^>]*>([\s\S]*?)<\/div>/g)]
+    .map((m) => m[1].replace(/<[^>]*>/g, '').trim());
   const cap = { cards: { axis: 'item', hard: 4 } };
   // A run of three body pages, each holding a titled card whose OWN list would otherwise be read
   // as the page's members — the roadmap shape, reduced.
