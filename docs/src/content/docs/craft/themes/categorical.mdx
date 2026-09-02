@@ -76,18 +76,27 @@ the deck in dark mode. That is the single most common mistake in a new
 theme, and the build refuses it.
 
 <CraftLab
-	label="A diagram in the engine's default categorical colors"
+	label="The categorical cycle, in the engine's defaults"
 	kind="theme"
 	css={THEME_MINI}
 	markdown={SLIDE_DIAGRAM}
 	mermaid
 	size="tall"
 	startMode="light"
-	hint="This theme sets no --cat-* colors, so the diagram is wearing the engine's defaults. Press Dark and watch the boxes flip tiers — nothing in the markdown changed."
+	hint="Each box takes the next slot in the cycle. This theme sets no --cat-* colors, so they are the engine's defaults. Press Dark and watch every box flip tiers at once — nothing in the markdown changed."
 />
 
+:::note
+This lab draws its diagram with Mermaid, which the page fetches from a CDN
+when you open it. Offline or behind a strict firewall the slide comes up
+empty — the deck itself is unaffected, since the command-line renderer
+carries its own copy.
+:::
+
 Notice that the flowchart carries no styling instructions at all. The
-author wrote the shape; the theme supplied every color.
+author wrote the shape; the theme supplied every color. A roadmap or a
+kanban board on the same deck reads the same twelve slots — same cycle,
+different shape.
 
 ## Author for six, not twelve
 
