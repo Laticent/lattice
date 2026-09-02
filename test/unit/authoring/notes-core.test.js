@@ -350,6 +350,22 @@ describe('notes-core: malformed input is linear (no ReDoS)', () => {
     assert.ok(elapsed < 5000, `extraction took ${elapsed}ms — expected linear (the quadratic bug hung >30s)`);
   });
 
+  test('a front matter ending in a long CRLF run strips its captions block quickly', () => {
+    // The shape CodeQL actually named, and the worse of the two the replaced regex had: the
+    // alternation `(?:\r\n|\r|\n)` inside an outer `*` is AMBIGUOUS — `\r\n` matches either as
+    // one branch or as `\r` then `\n` on the next iteration — so a failing tail forces a 2^n
+    // search. Measured on the replaced form: 20 pairs 100ms, 22 pairs 400ms, 24 pairs 1.6s, i.e.
+    // 2x per added pair, which is 48 characters for a second and a half. The first cut of this
+    // arm tested a long run of SPACES instead, which is only the polynomial half and would have
+    // passed at these sizes on the exponential bug.
+    const src = `---\ntheme: x\ncaptions:\n  1: a\n${'\r\n'.repeat(100000)}---\n\n# S\n`;
+    const t = Date.now();
+    const out = core.stripCaptionsFromSource(src);
+    const elapsed = Date.now() - t;
+    assert.doesNotMatch(out, /1: a/, 'the caption still goes');
+    assert.ok(elapsed < 5000, `strip took ${elapsed}ms — expected linear (the regex form took 1.6s on 24 pairs)`);
+  });
+
   test('a front matter ending in a long whitespace run strips its captions block quickly', () => {
     // The second one in this file, same class, found by CodeQL on the PR that introduced it
     // (#2003). The natural way to drop the residue a removed `captions:` block leaves is one

@@ -420,6 +420,20 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   is not a `\n\n\n` run, so `grep -c` does not see it either. Recorded rather than fixed, because
   the fix is to change which cut wins a tie, and that preference is a decided thing with its own
   rationale.
+- **The natural way to trim that residue is an exponential regex, and the input that proves it
+  is not the one you would guess.** Dropping what a removed `captions:` block leaves behind reads
+  as one regex over the rejoined body — `/(?:[ \t]*(?:\r\n|\r|\n))*$/` — and CodeQL failed the
+  PR that shipped it. It has two backtracking behaviors. Polynomial on a long run of spaces with
+  no newline (10k 163 ms, 20k 627 ms, 40k 2.5 s, 80k 10 s) is the one you find by reaching for a
+  big string. The one that matters is EXPONENTIAL on repetitions of `\r\n`: the alternation is
+  ambiguous — `\r\n` matches either as its own branch or as `\r` then `\n` on the next turn of
+  the outer `*` — so a failing tail forces a 2^n search. 20 pairs 100 ms, 22 pairs 400 ms, 24
+  pairs 1.6 s, i.e. **48 characters for a second and a half**; a hostile deck needs no size at
+  all. A regression test written against the SPACES shape passes at any realistic size while the
+  exponential bug is live, which is why the arm in `notes-core.test.js` uses `\r\n`. The fix is
+  not a cleverer regex: `stripCaptionsFrontMatter` trims the line ARRAY it already has, which is
+  linear on both (100k `\r\n` pairs in 99 ms). Same hazard class as the comment matcher's own
+  quadratic note at the top of that file — this file has now produced it twice.
 - **A scrub that rewrites front matter must scope the rewrite to the block it removed.** The
   first cut of the front-matter half normalized the rebuilt body's tail unconditionally, on the
   belief that `FRONT_MATTER_BLOCK`'s close fence always carries the last body line's terminator
