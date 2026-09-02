@@ -82,7 +82,15 @@ still, and a Motion faculty (`docs/src/components/studio/MotionStudio.tsx`, 667 
 Both engine dependencies are MIT and both are abandoned: **vivus 0.4.6 last published
 2022-06-28, zdog 1.1.3 last published 2022-05-25.** Both are minified verbatim into
 `lib/export/anima-player-bundle.generated.mjs` — 63,846 committed bytes that ship in the npm
-package and bake into every standalone `--player` HTML export a recipient downloads.
+package.
+
+**Correction (2026-09-02).** An earlier draft of this section said those bytes "bake into every
+standalone `--player` HTML export a recipient downloads." **That is wrong**, and it was this
+note's own load-bearing cost argument. The export gates the bundle on content:
+`lib/export/player-core.mjs:2298` sets `hasScene` by testing the document for
+`data-scene-spec`, and `:2348` passes `hasScene ? ANIMA_PLAYER_JS : ''` — so **a scene-free deck
+pays zero bytes**. The npm half of the claim stands; the per-export half does not. The engine's
+weight is a cost to decks that use motion, not a tax on every export.
 
 ## 2. Why the SVG backend has to go
 
