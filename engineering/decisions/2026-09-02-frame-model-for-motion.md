@@ -166,3 +166,91 @@ the thing to refuse. Deferred until charts and the DOM chrome are real.
   current arithmetic is read from source but its reinterpretation is untested.
 - Whether a chart's existing scene builder can enumerate frames without a live re-compile is
   unchecked — it depends on `chart-anima-hydrate.ts`'s body, which has not been read.
+
+---
+
+## 9. Three clocks, not one
+
+The frame model (§1) describes a slide's own motion. Two targets do not fit it, and the reason is
+that they answer to different time axes. Naming them now stops them being retrofitted later.
+
+| Clock | What drives it | Targets |
+|---|---|---|
+| **Slide-local frames** | the slide's own frame set | charts, content builds, `state-chart` edges |
+| **Persistent chrome** | navigation between slides | the section rail — the pill travels |
+| **Signature** | first appearance, once per deck | the logo |
+
+The rail is z3 chrome, which the narrative step model says **persists through a build** — so it is
+not part of any slide's frame set. Its motion happens *between* slides. The logo is the only element
+that is identical on every slide and is not content, which is why it earns a signature treatment
+rather than a per-slide effect: it is a title sequence, and it plays once.
+
+## 10. The rail becomes ONE engine-generated SVG
+
+**Decision.** The engine emits the section rail as a single `<svg>` rather than N `<span class="dot">`.
+
+**What ships today** (`lib/forms/tile/progress/progress.transform.js`, `progress.css`): one
+`<span class="dot">` per deck section, derived from `divider` slides and bucketed past a cap of ten;
+the current section's dot carries `.on`. Appearance is `width: 0.85cqi` circular for a dot and
+`width: 2.6cqi` with `border-radius: 999px` for the current one — a pill three times wider. The
+rail is `aria-hidden` decorative chrome and carries no section label, deliberately
+(`2026-07-27-footer-band-allocation.md`: the band's priority is pagination > dots > the author's
+words, and a `nowrap` label could not yield).
+
+**Why one SVG is the better substrate — including the point that reverses an earlier concern:**
+
+1. **The width budget gets simpler.** Today the rail's total width is EMERGENT — N dots plus N−1
+   gaps, varying with section count. That is exactly what the band-allocation policy has to defend
+   against. One SVG has ONE declared width, so the policy becomes a single number rather than a sum.
+   The first draft of this analysis treated `cqi` sizing as an argument *against* SVG; it is an
+   argument for it.
+2. **It fixes the two-rail drift.** `lib/core/footer-dock.js` exists because `div.tile-progress` and
+   `div.lat-split-rail` kept diverging. One geometry generator serving both extends that guarantee
+   from how they dock to how they draw.
+3. **Motion becomes an interpolation instead of a reflow.** In SVG the pill is a `<rect>` with a
+   stable id, so travelling from section 2 to section 3 is one x/width interpolation between two
+   known frames. In flex-DOM the same move reflows every sibling.
+4. **Palette-blindness is unaffected.** SVG `fill` accepts `var(--accent)` and `color-mix()`, so
+   HARD RULE #3 costs nothing in the conversion.
+
+**The governing constraint: pixel identity.** The rail renders on every `form` slide inside a
+section, in every deck that has dividers, and the repo carries **367 committed PDF goldens**. The
+SVG MUST render pixel-identically to the spans, or every affected golden re-blesses and the diff
+becomes unreadable. That is a design input: put the `cqi` sizing on the `<svg>` root, keep the
+viewBox in dot-units so the interior scales as the flex version did, and prove it with
+`npm run regress` before anything else lands.
+
+**The one real trade.** `gap: var(--sp-sm)` is a token resolved by CSS. Inside one SVG the gap
+becomes viewBox geometry and stops responding to that token — the rail composes from tokens via
+flexbox today and would compose from geometry instead. Small, but it is a genuine loss of token
+reach and should be chosen rather than discovered: either bake the ratio, or drive the SVG's width
+from the container and keep the interior proportional. **Open.**
+
+## 11. Chrome targets that are already SVG
+
+Two components are `render: hybrid`, and in both the SVG half is exactly the connective chrome worth
+animating. Neither needs a new painter.
+
+- **`state-chart`** — the best chrome target in the catalog. Its manifest records that the HTML
+  `<ol>` is measured and then **nodes, edges and edge labels are painted into an `<svg>` overlay**;
+  once painted the list is hidden, so "a default slide is SVG in practice." Edges drawing on is
+  precisely the draw primitive's home. Only the `inline` variant's chip row keeps it hybrid.
+- **`journey`** — the board is an HTML/CSS grid, but the **mood curve and mood faces** are inline
+  `<svg>`, "the only parts with real geometry." The manifest states the gap outright: *"Neither side
+  animates today — journey emits no motion roles, so chart-motion skips it."* A documented gap with
+  a named fix: emit `data-anima-role` on the curve and the faces.
+
+## 12. Logos — the source is SVG, the render is not
+
+`logo:` accepts a path or URL and **SVG and PNG both work** (`lib/base/_logo/logo.docs.md`); the
+shipped sample is `acme-logo.svg`. But every path emits `<img class="deck-logo">`
+(`lib/core/bg-image.js:190`), and **an `<img>` pointing at an SVG is opaque** — nothing in the host
+document can reach inside it. So per-part logo animation is impossible today regardless of the
+file's format.
+
+**Inlining is the fix, and it has a price worth deciding before it is discovered.** `logo:`
+explicitly accepts cross-origin `https://`, protocol-relative and `data:` values, and the docs say
+"nothing in the engine, the sanitizer or the docs site filters it." Inlining converts a logo from an
+opaque image into **third-party markup entering the document**, which puts it on the HARD RULE #22
+path — a sanitize boundary and a registered sink, not a free change. That is the real cost of
+animating logos.
