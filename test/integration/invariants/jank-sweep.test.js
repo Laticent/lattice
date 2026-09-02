@@ -139,7 +139,8 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
     // The box paints at y=64; the un-styled sweep's ink starts at 311.8.
     assert.ok(r.rows[0].inkTop < base.rows[0].inkTop - 200,
       `the painted pseudo is absent from the ink (ink top ${r.rows[0].inkTop} vs ${base.rows[0].inkTop} `
-      + 'un-styled) — the walk is blind to generated boxes again');
+      + 'un-styled). TWO SUSPECTS: (1) the divider\'s eyebrow is no longer a `p` wrapping a `code`, '
+      + 'so this style targets nothing; (2) the pseudo branch of ink() in tools/check-jank.js');
     assert.ok(r.summary.chromeTouch, 'the anchor overlaps it, and no CHROME advisory was raised');
     assert.equal(r.summary.collision, null,
       'decoration overlapping decoration was failed on; that is the cry-wolf the content '

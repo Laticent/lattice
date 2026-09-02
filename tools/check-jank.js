@@ -134,7 +134,7 @@ const SLACK = 1.0;
 const VALUE_FLAGS = new Set([
   'anchor', 'axis', 'family', 'max', 'count', 'words', 'theme', 'tight', 'max-drift', 'style',
 ]);
-const BOOL_FLAGS = new Set(['json', 'advisory', 'help']);
+const BOOL_FLAGS = new Set(['json', 'advisory', 'help', 'anchors']);
 const NUMERIC = { max: 'int', count: 'int', words: 'int', tight: 'float', 'max-drift': 'float' };
 
 function die(msg, code = 2) { console.error(`check-jank: ${msg}`); process.exit(code); }
@@ -149,6 +149,7 @@ const USAGE = [
   '  --tight PX       clearance at or under this is TIGHT (default 12)',
   '  --max-drift PX   anchor movement over this fails (default 2)',
   '  --style <css|f>  CSS injected as the deck\'s front-matter `style:`',
+  '  --anchors        list the marks this component HAS, and how far each moves',
   '  --json           machine-readable      --advisory    always exit 0',
   '',
   'The header of tools/check-jank.js is the long form. engineering/jank.md is the method.',
@@ -197,6 +198,7 @@ const num = (name, def) => {
 };
 
 const JSON_OUT = !!opts.get('json');
+const ANCHORS_MODE = !!opts.get('anchors');
 const ADVISORY = !!opts.get('advisory');
 // An EMPTY anchor is a missing one. `--anchor ''` (an unset shell variable) kept the empty
 // string, which is falsy, so the anchor path was skipped AND the partial-anchor refusal was
@@ -476,7 +478,7 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
    * area whether it holds one line or twelve — so stopping at the section's children
    * measures the grid, not the content.
    */
-  function ink(el, acc, unplaced, skip) {
+  function ink(el, acc, unplaced, skip, candidates) {
     if (el === skip.el && !skip.pseudo) return;
     if (el.hasAttribute('data-lattice-berth')) return;
     const cs = getComputedStyle(el);
@@ -499,6 +501,10 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       if (el === skip.el && pseudo === skip.pseudo) continue;
       const ps = getComputedStyle(el, pseudo);
       if (ps.content === 'none' || ps.display === 'none' || ps.visibility === 'hidden') continue;
+      // Every reconstructable generated box is recorded, whether or not it is the named
+      // anchor — this is what `--anchors` prints. The tool's own thesis is that nobody forms
+      // the suspicion by looking, so a mode that only verifies an anchor you already
+      // suspected contradicts it. The walk already does the work.
       if (ps.position === 'absolute' || ps.position === 'fixed') {
         const box = placedBox(el, ps);
         // A generated box is CHROME only when it generates no text. Hardcoding it chrome
@@ -506,8 +512,11 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
         // `content` is a counter, an `attr()` or a quoted label — card numerals, 'DECISION',
         // the matrix axis names — every one of them words a reader reads. The tool printed
         // "no readable content in it" over a 32-character label.
-        if (box) acc.push({ ...box, kind: generatesText(ps) ? 'content' : 'chrome' });
-        else unplaced.push(`${el.tagName.toLowerCase()}${pseudo}`);
+        const sel = `${el.tagName.toLowerCase()}${[...el.classList].map((c) => `.${c}`).join('')}${pseudo}`;
+        if (box) {
+          candidates.push({ sel, top: box.top, left: box.left, width: box.width, height: box.height });
+          acc.push({ ...box, kind: generatesText(ps) ? 'content' : 'chrome' });
+        } else unplaced.push(`${el.tagName.toLowerCase()}${pseudo}`);
         continue;
       }
       // An in-flow pseudo lays out inside its originating element's box, so the element's
@@ -565,7 +574,7 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
     // hairline struck — became decoration, and a mark laid straight through an `h2` exited 0.
     // One cosmetic hairline decided whether a heading strike was a defect.
     if (paints(cs) && r.width > 0 && r.height > 0) box('chrome');
-    for (const kid of el.children) ink(kid, acc, unplaced, skip);
+    for (const kid of el.children) ink(kid, acc, unplaced, skip, candidates);
   }
 
   /**
@@ -634,7 +643,8 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
 
     const rects = [];
     const unplaced = [];
-    for (const kid of sec.children) ink(kid, rects, unplaced, skip);
+    const candidates = [];
+    for (const kid of sec.children) ink(kid, rects, unplaced, skip, candidates);
     const heading = sec.querySelector('h1, h2, h3');
     // Line boxes, not an estimate: a Range over the heading's text returns a rect per inline
     // BOX, so `<strong>` in a heading would count twice on one line. Distinct rounded tops,
@@ -653,6 +663,13 @@ function measureInPage(anchorSel, anchorPseudo, slack) {
       anchorCount,
       anchorError,
       unplaced: [...new Set(unplaced)],
+      // Section-relative, so a candidate's spread across the sweep IS its drift.
+      candidates: candidates.map((c) => ({
+        sel: c.sel,
+        top: round(c.top - sr.top),
+        left: round(c.left - sr.left),
+        size: `${round(c.width)}x${round(c.height)}`,
+      })),
     };
 
     if (!rects.length) {
@@ -873,6 +890,60 @@ async function main() {
       + 'whole sweep, so a partial one has no verdict.');
   }
 
+  // ── DISCOVERY. The tool's own thesis is that nobody forms the suspicion by looking, so a
+  // mode that can only verify an anchor you already suspected contradicts it — and without
+  // `--anchor` the run cannot fail at all, which makes the natural first invocation a
+  // report-only mode that exits 0 on everything. This lists what there IS to watch, with the
+  // spread of each across the sweep, so the operator picks an anchor from evidence.
+  if (ANCHORS_MODE) {
+    // ONE OCCURRENCE PER SLIDE, the first in document order. A selector like `li::before`
+    // matches every item, so pooling all of them measures the spread BETWEEN SIBLINGS — a
+    // list's second bullet is of course lower than its first — and reports it as drift. The
+    // question is whether a given mark moves ACROSS THE SWEEP, so compare like with like.
+    const seen = new Map();
+    for (const r of rows) {
+      const firstPerSel = new Map();
+      for (const c of r.candidates || []) if (!firstPerSel.has(c.sel)) firstPerSel.set(c.sel, c);
+      for (const [sel, c] of firstPerSel) {
+        if (!seen.has(sel)) seen.set(sel, { tops: [], lefts: [], size: c.size, perSlide: [] });
+        seen.get(sel).tops.push(c.top);
+        seen.get(sel).lefts.push(c.left);
+        seen.get(sel).perSlide.push((r.candidates || []).filter((x) => x.sel === sel).length);
+      }
+    }
+    const spread = (v) => (v.length > 1 ? Math.max(...v) - Math.min(...v) : 0);
+    const found = [...seen.entries()].map(([sel, v]) => ({
+      sel,
+      size: v.size,
+      slides: v.tops.length,
+      // How many match per slide — a selector matching several is not one mark, and naming
+      // it measures whichever happens to be first in document order.
+      per: Math.max(...v.perSlide),
+      drift: +Math.max(spread(v.tops), spread(v.lefts)).toFixed(1),
+    })).sort((a, b) => b.drift - a.drift);
+    if (JSON_OUT) { console.log(JSON.stringify({ component: CLASS, family: FAMILY, candidates: found }, null, 2)); return; }
+    console.log(`\n  ${CLASS} · ${FAMILY} · ${AXIS} sweep, ${rows.length} slides — generated boxes this tool can watch\n`);
+    if (!found.length) {
+      console.log('  none. This component draws no positioned pseudo the walk can place, so there is\n'
+        + '  nothing for --anchor to name. Crowding and the probe column still apply.');
+    } else {
+      console.log(`  ${'candidate'.padEnd(38)} ${'size'.padStart(12)} ${'slides'.padStart(6)} ${'per'.padStart(4)} ${'moves'.padStart(8)}`);
+      for (const f of found) {
+        console.log(`  ${f.sel.padEnd(38)} ${f.size.padStart(12)} ${String(f.slides).padStart(6)} `
+          + `${String(f.per).padStart(4)} ${`${f.drift}px`.padStart(8)}`
+          + `${f.per > 1 ? '  (many per slide — the FIRST is measured)' : ''}`
+          + `${f.drift > MAX_DRIFT && f.per === 1 ? '  ← does not hold position' : ''}`);
+      }
+      console.log(`\n  Sweep one with:  node tools/check-jank.js "${CLASS}" --anchor '${found[0].sel}'`);
+      console.log('  `slides` is how many of the swept slides it appeared on — fewer than all means the\n'
+        + '  mark is conditional, and a sweep naming it will refuse rather than half-measure.\n'
+        + '  `moves` is the spread of the FIRST match across the sweep; for a selector matching\n'
+        + '  several per slide that is one item\'s travel, not the set\'s, and it may be layout\n'
+        + '  rather than drift. Narrow the selector before believing it.');
+    }
+    return;
+  }
+
   if (JSON_OUT) {
     console.log(JSON.stringify({ summary, rows }, null, 2));
   } else {
@@ -952,7 +1023,15 @@ async function main() {
       console.log(`  CROWDING  step ${crowded.step}: the ink is ${Math.abs(crowded.breathing)}px into the section's `
         + `${crowded.breathingEdge} padding — inside the frame, so no channel tags it  (advisory)`);
     }
+    console.log(`  SWEEP     moved: ink height ${spreadRange('inkHeight').toFixed(1)}px · `
+      + `ink width ${spreadRange('inkWidth').toFixed(1)}px · ink top ${spreadRange('inkTop').toFixed(1)}px`
+      + `${withAnchor.length ? ` · anchor ${drift == null ? '—' : drift.toFixed(1)}px` : ''}`);
     console.log(`  OVERFLOW  ${firstOver ? `the probe first flags step ${firstOver.step}` : 'the probe flags no step'}`);
+    if (FAMILY !== 'wide') {
+      console.log(`\n  ⚠ the sweep renders --no-split so page N stays step N, and autosplit is a NO-OP at`
+        + `\n    wide but ACTIVE at ${FAMILY} — so this run measures a slide shape the real ${FAMILY}`
+        + '\n    render may never emit. The heading axis is unaffected (a heading is one element).');
+    }
     if (summary.vacuous) {
       console.log('\n  ⚠ every step laid out at the same height — this axis is not moving the content, '
         + 'so the verdicts above are vacuous. Raise --max, or sweep a different --axis.');

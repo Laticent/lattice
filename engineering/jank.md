@@ -90,6 +90,13 @@ section, and a trailing `::before` / `::after` names a pseudo, which is what an
 engine-drawn mark usually is. `--help` prints the flags and exits 0; the tool's
 header is the long form of each.
 
+**`--anchors` is where you start on a component you did not write.** The tool's own premise
+is that nobody forms the suspicion by looking — so a mode that only verifies an anchor you
+already suspected would contradict it, and without `--anchor` a run *cannot fail*: drift and
+collision are both undefined, every other line is advisory, and it exits 0 on everything.
+`--anchors` lists the generated boxes the walk can actually place, with how far each moves
+across the sweep and how many match per slide. Pick the anchor from that, then sweep it.
+
 **`--style` is the lever that turns a description into evidence.** It injects CSS through
 the deck's own front-matter `style:`, so you can sweep once as shipped and once with the
 fix's declarations neutralized. The difference between the two tables *is* the proof, and
@@ -167,6 +174,23 @@ fires: `cards-grid` crowds at five elements and overflows at six.
 **A clean sweep on an axis that never moved anything proves nothing.** The tool says so
 itself (`vacuous`) when every step lays out at the same height. Raise `--max` or pick a
 different `--axis` rather than banking the green.
+
+## What a green run does NOT mean
+
+Narrower than the word suggests. It means: *one* anchor you named, on *one* component, at
+*one* family and *one* theme, on *one* axis, with autosplit suppressed, moved less than
+`--max-drift` and did not intersect a readable box — among the ink the tool could place.
+
+- **Only DRIFT and COLLISION can fail the run.** CROWDING, `CHROME`, `PASSES` and `UNPLACED`
+  are advisory, so two of the three headline failure modes never set the exit code.
+- **The sweep renders `--no-split`** so page N stays step N. That is a no-op at `wide`, where
+  autosplit does not apply — and an active suppression at `square`, `tall` and `strip`, where
+  the sweep then measures a slide shape the real render may never emit. The tool prints this
+  warning on every non-wide run. The heading axis is unaffected: a heading is one element, so
+  the structural splitter has nothing to split.
+- **Read the `SWEEP moved` line before believing a clean verdict.** It names which dimension
+  actually changed. Four byte-identical-looking rows under a clean verdict are normal when the
+  only thing moving is ink *width*, which the table has no column for.
 
 ## What it does not do
 
