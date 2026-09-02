@@ -60,29 +60,7 @@ We start with one engineer's Tuesday, and we finish by designing Instagram.
 
 She wants pull request 482 merged before the release window closes at four o'clock.
 
-Watch her Tuesday without naming anything. There is no vocabulary in this part on purpose — every idea in this deck is in the next nine slides, unlabeled, and we come back afterwards to give each one its word.
-
----
-
-<!-- _class: journey curve -->
-
-`Sixteen hours, one goal`
-
-## Maya's Tuesday, hour by hour.
-
-- Morning
-  - Shower runs hot, then cold `@maya` `:2`
-  - Train sits for nine minutes `@maya` `:2`
-  - Package registry is down `@team` `:1`
-  - Standup, then a plan `@team` `:4`
-- Midday
-  - Deep work on 482 `@maya` `:5`
-  - Another team asks for a favor `@maya` `:3`
-  - A page, not her service `@oncall` `:1`
-- Afternoon
-  - Five pull requests, one reviewer `@maya` `:2`
-  - Batches her replies, gets back to it `@maya` `:4`
-  - Four o'clock. 482 does not land `@maya` `:1`
+Watch her Tuesday without naming anything. There is no vocabulary in this part on purpose — every idea in this deck is in the slides that follow, unlabeled, and we come back afterwards to give each one its word.
 
 ---
 
@@ -97,7 +75,7 @@ Watch her Tuesday without naming anything. There is no vocabulary in this part o
 2. `08:05` The train map
    - Wildly wrong about geography. She has never once been lost using it.
 3. `08:20` A signal failure
-   - The train sits for nine minutes. Nobody on it can do anything about that.
+   - The train sits nine minutes. She opens Instagram without deciding to. Nobody aboard can do a thing about the signal.
 4. `08:50` At her desk
    - Wifi, the VPN, the package registry. She notices none of them.
 5. `09:05` The registry goes down
@@ -109,11 +87,11 @@ Watch her Tuesday without naming anything. There is no vocabulary in this part o
 
 `09:15 · standup`
 
-## Five people, and it matters enormously which way they are wired.
+## Four people, and it matters enormously which way they are wired.
 
-The same five stand in a circle for ten minutes. On Monday they each reported upward to the manager and the meeting took twenty minutes and settled nothing. Today they talk across to each other, and Maya learns in one sentence that Priya has already read the code she was about to start on.
+The same four stand in a circle for ten minutes. On Monday they each reported upward to the manager and the meeting took twenty minutes and settled nothing. Today they talk across to each other, and Maya learns in one sentence that Priya has already read the code she was about to start on.
 
-Same five people, both days.
+Same four people, both days.
 
 ---
 
@@ -186,7 +164,9 @@ Same five people, both days.
 
 ## You just watched a system run for sixteen hours.
 
-It had a goal it did not meet, and a bottleneck Maya found at half past one. Two things fed themselves in circles, one of them in her shower. Something invisible held the whole thing up until nine o'clock, when it stopped. One promise never broke, on the day everything else did.
+It had a goal it did not meet, and one place that decided the outcome. Two things fed themselves in circles, one of them in her shower. Something invisible held the whole thing up until nine o'clock, when it stopped. One promise never broke, on the day everything else did.
+
+Maya did fix something, at ten to four. It was real, it worked, and it was not the place that decided the outcome — so the day ended exactly as it would have anyway.
 
 You have every concept in this deck. You do not yet have the words.
 
@@ -220,7 +200,7 @@ Maya's morning is one. The alarm, the shower, the train, the laptop and the regi
 
 <!-- _class: diagram -->
 
-`09:15 · the same five people`
+`09:15 · the same four people`
 
 ## Rewire a system without changing a single part, and it behaves differently.
 
@@ -230,6 +210,7 @@ flowchart TB
     direction LR
     T1["Maya"] <--> T2["Priya"]
     T2 <--> T3["Dev"]
+    T4["Manager"] -.->|"listens"| T2
     T2 --> OUT2(["One sentence<br/>saves a morning"])
   end
   subgraph mon["Monday · they report upward"]
@@ -440,9 +421,9 @@ Wifi, the VPN, the package registry, the build fleet, the identity provider. May
 
 ## Emergence is behavior that belongs to no part, and to no decision.
 
-Nothing merges on Thursdays. Maya checked. No person decided it, no policy states it, and no team owns it. It falls out of three things with nothing to do with each other: a reviewer six time zones east who reads nothing before three, a window that closes at four, and a review queue that only ever grows.
+Nothing merges on Thursdays. Maya checked six weeks of history. No person decided it, no policy states it, and no team owns it. It falls out of three unrelated decisions: Wednesday is planning day, so no code gets reviewed and Thursday opens with two days of backlog; the only reviewer sits six time zones east and reads nothing before three; and the window closes at four. One hour, against the longest queue of the week.
 
-You cannot find emergence by reading any single part. You find it by watching the whole thing for long enough.
+Change any one of the three and Thursday stops being special. Nobody who made those three decisions was thinking about Thursday, and no one of them is wrong on its own.
 
 ---
 
@@ -1837,7 +1818,7 @@ Assume any single credential eventually leaks. The design question is not whethe
 
 `Part five`
 
-## Now we design the thing Maya was scrolling at half past nine.
+## Now we design the thing Maya opened while the train sat.
 
 ---
 
