@@ -62,6 +62,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [A long press on a button selects its label on iOS (Copy / Look Up callout)](gotchas/browser-engine.md#a-long-press-on-a-button-selects-its-label-on-ios-copy--look-up-callout)
 - [Tapping an input zooms the page on iOS (sub-16px text controls)](gotchas/browser-engine.md#tapping-an-input-zooms-the-page-on-ios-sub-16px-text-controls)
 - [Tapping an in-slide link blanks the live preview on iOS](gotchas/browser-engine.md#tapping-an-in-slide-link-blanks-the-live-preview-on-ios)
+- [`fetch('data:…')` fails inside a preview/export document — twice over, and the error names neither reason](gotchas/browser-engine.md#fetchdata-fails-inside-a-previewexport-document--twice-over-and-the-error-names-neither-reason)
 
 ### [Charts](gotchas/charts.md)
 

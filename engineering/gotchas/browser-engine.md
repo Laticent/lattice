@@ -229,3 +229,37 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   `single-slide-render.ts`, scales the iframe ELEMENT rather than each section, but
   is the same class — add the guard there if a linked component surfaces the blank
   in Studio).
+
+## `fetch('data:…')` fails inside a preview/export document — twice over, and the error names neither reason
+
+- **Symptom:** Code running in a document the engine built — a preview frame, a
+  presented slide, an exported `.html`, or a spec that re-hosts one — calls
+  `fetch()` on a `data:` URL and gets a bare `TypeError: Load failed` in WebKit
+  (`TypeError: Failed to fetch` in Chromium). The URL is well-formed and decodes
+  fine anywhere else. `docs/e2e/math-compare-webkit.spec.ts` hit this passing a
+  screenshot into `page.evaluate` for raster analysis.
+- **Cause — there are TWO, and either alone is enough:**
+  1. **The remote-subresource CSP.** `lib/core/subresource-csp.mjs` (#1753/#2009)
+     closes `connect-src` to `'self'`, and `data:` is not a source there. Every
+     document that carries the meta refuses ANY `fetch('data:…')`, at any size.
+     A spec that re-hosts a presented document inherits the meta with it.
+  2. **WebKit's own limit.** WebKit refuses a multi-megabyte `data:` URL from
+     `fetch()` with no CSP in play at all, and a slide screenshot clears that
+     line easily.
+  Measured in Playwright's WebKit across the four cells:
+
+  | policy      | 70-byte PNG | ~1.9MB data URL |
+  |-------------|------------:|----------------:|
+  | none        |          OK |          FAILED |
+  | preview CSP |      FAILED |          FAILED |
+
+  Both cells report the same message, so the error cannot tell you which one you
+  are in — and fixing only the CSP would leave the size limit standing.
+- **Fix:** Do not load the bytes; hand them over. Pass base64 as a `page.evaluate`
+  argument and decode with `atob` → `Uint8Array` → `Blob` → `createImageBitmap`.
+  That path touches no loader and no network, so neither limit applies (measured
+  under the preview CSP).
+- **Don't reintroduce:** reach for `fetch()` on a `data:`/`blob:` URL inside any
+  engine-built document and assume it works because it works on a plain page. It
+  is a `connect-src` fetch like any other. The same applies to `XMLHttpRequest`
+  and to `new EventSource`/`WebSocket` against a same-document payload.

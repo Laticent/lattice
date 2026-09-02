@@ -94,12 +94,35 @@ type Dupe = { text: string; at: [number, number]; alsoAt: [number, number]; scor
 
 /**
  * Search a slide raster for any h3 whose ink appears a second time.
- * Runs inside the page: the PNG goes in as a data URL and is decoded with
+ * Runs inside the page: the PNG goes in as base64 and is decoded with
  * createImageBitmap, so the suite needs no image-decoding dependency.
+ *
+ * WHY NOT `fetch(dataUrl)`, which is the obvious way to do this. It fails in the
+ * probe page for TWO independent reasons, and both are permanent — measured in
+ * Playwright's WebKit at four cells of {no CSP, preview CSP} x {70-byte PNG, ~1.9MB
+ * data URL}:
+ *
+ *   | policy      | tiny PNG | ~1.9MB url |
+ *   |-------------|---------:|-----------:|
+ *   | none        |       OK |     FAILED |
+ *   | preview CSP |   FAILED |     FAILED |
+ *
+ *   1. `connect-src 'self'` — the preview/export remote-subresource policy
+ *      (`lib/core/subresource-csp.mjs`, #1753/#2009) does not list `data:` under
+ *      `connect-src`, so ANY `fetch('data:…')` is refused. The probe page inherits
+ *      that policy because it re-hosts the presented document, meta tag and all.
+ *   2. WebKit refuses a multi-megabyte `data:` URL from `fetch()` even with no CSP
+ *      at all, and a real slide screenshot is comfortably over the line.
+ *
+ * Both surface as the same bare `TypeError: Load failed`, which names neither.
+ * `atob` + `Blob` reaches no loader and no network, so it answers to neither limit.
  */
 async function h3sPaintedTwice(page: import('@playwright/test').Page, png: Buffer, h3s: H3Box[]): Promise<Dupe[]> {
-	return page.evaluate(async ({ dataUrl, boxes }) => {
-		const bmp = await createImageBitmap(await (await fetch(dataUrl)).blob());
+	return page.evaluate(async ({ b64, boxes }) => {
+		const bin = atob(b64);
+		const bytes = new Uint8Array(bin.length);
+		for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+		const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
 		const cv = new OffscreenCanvas(bmp.width, bmp.height);
 		const ctx = cv.getContext('2d')!;
 		ctx.drawImage(bmp, 0, 0);
@@ -178,7 +201,7 @@ async function h3sPaintedTwice(page: import('@playwright/test').Page, png: Buffe
 			}
 		}
 		return found;
-	}, { dataUrl: `data:image/png;base64,${png.toString('base64')}`, boxes: h3s });
+	}, { b64: png.toString('base64'), boxes: h3s });
 }
 
 test('every math compare h3 paints exactly once in WebKit (#1554) @webkit-tablet', async ({ page, context, baseURL }) => {
