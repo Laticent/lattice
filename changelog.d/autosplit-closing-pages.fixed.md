@@ -102,3 +102,12 @@
   the other two kinds, and the difference is the point: an arrow carries "next", but `↓` and `↑`
   distinguish a hierarchy's two directions without naming them, so `governs` and `under` are still
   doing work. `comparison` draws no mark at all and is untouched.
+- **Fixed: four hand-rolled copies of the same tag strip, three of them flagged by CodeQL.**
+  `replace(/<[^>]*>/g, '')` had been written out separately in two test files and in
+  `withMemberLabel`, and code scanning raised three high-severity alerts for incomplete
+  multi-character sanitization on the test copies. All four call the kernel's `textOf` now, which
+  strips to a fixpoint. The loop is the gate's accepted remediation rather than a fix for a
+  demonstrated bypass — replacing it with a single pass leaves every test green, because
+  `<[^>]*>` consumes from a `<` to the next `>` and a surviving `>` has no `<` left to pair with.
+  Both the kernel comment and the new property test say so, and the property they pin — nothing
+  `textOf` returns carries a tag — holds whatever the implementation.

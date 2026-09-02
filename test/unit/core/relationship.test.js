@@ -11,7 +11,7 @@
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { RELATIONSHIPS, relationshipSignals, membersIn, labelOf, criteriaOf } = require('../../../lib/core/relationship');
+const { RELATIONSHIPS, relationshipSignals, membersIn, labelOf, criteriaOf, textOf } = require('../../../lib/core/relationship');
 const { applyRelationshipSignals } = require('../../../lib/core/auto-split');
 
 // Reads a signal as { mark, label } rather than matching its markup.
@@ -21,9 +21,49 @@ const { applyRelationshipSignals } = require('../../../lib/core/auto-split');
 // a `.lat-split-label` span — so the pill can ellipsise, which needs an element — failed sixteen
 // of them without one behavior changing. What they actually mean is "this page's signal is a NEXT
 // pointing at X", and that is what they say now.
+describe('core: relationship — textOf leaves no tag behind', () => {
+  // The kernel's tag strip, pinned as a PROPERTY rather than as example outputs.
+  //
+  // THIS DOES NOT GUARD THE FIXPOINT LOOP, and saying otherwise would be the kind of claim this
+  // suite exists to prevent. Mutation-tested: replacing the loop with a single pass leaves all of
+  // these green, because `<[^>]*>` consumes from a `<` to the next `>`, so nothing here needs a
+  // second pass. The loop is there for CodeQL's js/incomplete-multi-character-sanitization, which
+  // keys on the one-pass SHAPE — it raised three high-severity alerts (206-208) on hand-rolled
+  // copies of that line in this file and in auto-split.test.js, and the fix was to delete all
+  // three and call the kernel.
+  //
+  // What these DO guard is the contract itself — whatever the implementation, nothing that comes
+  // out of `textOf` carries a tag — so a future rewrite has a spec to meet.
+  //
+  // What "sanitized" means here is narrow and worth stating, because the obvious stronger claim is
+  // false: `textOf('<<span>span>x')` is `'span>x'`, NOT `'x'`. It does not recover the text an
+  // attacker meant to hide — it guarantees that what comes out carries no tag for a later parser
+  // to act on. Asserting the recovered string would pin an accident of the regex; asserting the
+  // property pins the contract.
+  for (const payload of [
+    '<span>Trial</span>',
+    '<<span>span>Trial<</span>/span>',
+    '<scr<script>ipt>alert(1)</scr</script>ipt>',
+    '<b>a</b><b>b</b>',
+    '<<<a>>>x',
+    '<a<b<c>>>y',
+    'plain — no markup at all',
+  ]) {
+    test(`no tag survives ${JSON.stringify(payload)}`, () => {
+      assert.doesNotMatch(textOf(payload), /<[^>]*>/, 'a tag survived the strip');
+    });
+  }
+
+  test('adjacent elements stay separate words', () => {
+    // The separator is a space, not ''. `<b>a</b><b>b</b>` is two words; joining them makes one,
+    // and every label assertion in this file compares text.
+    assert.equal(textOf('<b>a</b><b>b</b>'), 'a b');
+  });
+});
+
 const signalOf = (html) => {
   const m = /<div class="lat-split-rel" data-mark="([a-z]+)"[^>]*>([\s\S]*?)<\/div>/.exec(html);
-  return m && { mark: m[1], label: m[2].replace(/<[^>]*>/g, '').trim() };
+  return m && { mark: m[1], label: textOf(m[2]) };
 };
 
 const li = (title, body) => `<li><strong>${title}</strong><ul><li>${body}</li></ul></li>`;

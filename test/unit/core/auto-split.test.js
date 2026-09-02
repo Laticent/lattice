@@ -26,6 +26,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { splitDoc, capacityForClass, applyRails, applyRelationshipSignals } = require('../../../lib/core/auto-split');
+const { textOf } = require('../../../lib/core/relationship');
 
 const sec = (cls, inner) => `<section class="${cls}">${inner}</section>`;
 const docSec = (n, cls, inner) => `<section data-lattice-slide="${n}" class="${cls}">${inner}</section>`;
@@ -158,9 +159,12 @@ describe('core: the carousel points at what is next — on EVERY run', () => {
   const steps = `<ul>${card('Draft the policy.', 'Legal owns it.')}${card('Circulate.', 'Two weeks.')}${card('Sign off.', 'The chair signs.')}</ul>`;
   // The signal's LABEL, not its markup. The label rides a `.lat-split-label` span (so the pill can
   // ellipsise — `text-overflow` needs an element), and these assertions compare label TEXT, so the
-  // wrapper is stripped here rather than written into every expectation.
+  // wrapper comes off here rather than being written into every expectation. Via the KERNEL's
+  // `textOf`, not a local regex: three hand-rolled copies of that strip earned three high-severity
+  // CodeQL alerts for incomplete multi-character sanitization, and one function is the fix for all
+  // of them.
   const sigsOf = (html) => [...html.matchAll(/<div class="lat-split-rel"[^>]*>([\s\S]*?)<\/div>/g)]
-    .map((m) => m[1].replace(/<[^>]*>/g, '').trim());
+    .map((m) => textOf(m[1]));
 
   test('a component declaring NO relationship still gets a forward pointer', () => {
     // The signal used to require `capacity.relationship`, which four of sixty-one components
@@ -403,9 +407,12 @@ describe('the marker berths survive a split, one set per page', () => {
 describe('auto-split: data-split-label names the page, over the first-list heuristic', () => {
   // The signal's LABEL, not its markup. The label rides a `.lat-split-label` span (so the pill can
   // ellipsise — `text-overflow` needs an element), and these assertions compare label TEXT, so the
-  // wrapper is stripped here rather than written into every expectation.
+  // wrapper comes off here rather than being written into every expectation. Via the KERNEL's
+  // `textOf`, not a local regex: three hand-rolled copies of that strip earned three high-severity
+  // CodeQL alerts for incomplete multi-character sanitization, and one function is the fix for all
+  // of them.
   const sigsOf = (html) => [...html.matchAll(/<div class="lat-split-rel"[^>]*>([\s\S]*?)<\/div>/g)]
-    .map((m) => m[1].replace(/<[^>]*>/g, '').trim());
+    .map((m) => textOf(m[1]));
   const cap = { cards: { axis: 'item', hard: 4 } };
   // A run of three body pages, each holding a titled card whose OWN list would otherwise be read
   // as the page's members — the roadmap shape, reduced.
