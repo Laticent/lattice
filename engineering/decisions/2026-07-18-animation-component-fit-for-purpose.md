@@ -18,7 +18,7 @@ The current scope is **entirely supporting-actor**: motion applies to charts, th
 The `scene` component still ships, and this note remains the record of its layout reasoning. Current state of record: [`2026-09-02-frame-model-for-motion.md`](2026-09-02-frame-model-for-motion.md).
 
 **Date:** 2026-07-18
-**Status:** Backlog / vision (no rework scheduled; the Stage-5 baseline ships as-is)
+**Status:** SUPERSEDED (see the banner above). Historic line: "Backlog / vision (no rework scheduled; the Stage-5 baseline ships as-is)".
 **Follows:** `2026-07-18-anima-motion-faculty-modes.md` §5–6.1 (the Stage-5 `scene`
 host component, shipped as a mirror of the adaptive `image` layout).
 

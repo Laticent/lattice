@@ -18,7 +18,7 @@ What supersedes it is the narrowed scope: motion now applies to what the engine 
 Current state of record: [`2026-09-02-frame-model-for-motion.md`](2026-09-02-frame-model-for-motion.md).
 
 **Date:** 2026-07-18
-**Status:** Proposed (design model; build not yet started)
+**Status:** SUPERSEDED (see the banner above). Historic line: "Proposed (design model; build not yet started)" — contradicted by §6.2, which records the two v1 modes SHIPPING (`MotionStudio.tsx`).
 **Follows:** `2026-07-17-anima-animation-library.md` (the Anima ADR — Stages 1–3 shipped:
 the pure core, the Zdog backend, the Vivus backend). This doc decides the shape of the
 *authoring* surface (nominally Stage 7) and refines the Stage 4 asset — designed ahead of

@@ -16,7 +16,7 @@ superseded-by: 2026-09-02-frame-model-for-motion.md
 
 **What survives and is carried forward:** §2's admission test — motion earns its place only when it carries information a still cannot — and §12's ban on ornament. Those are the quality bar, not the architecture, and they still hold.
 
-**Date:** 2026-07-17 · **Status:** direction proposed; field spec + build staged.
+**Date:** 2026-07-17 · **Status:** SUPERSEDED (see the banner above). Historic status line: "direction proposed; field spec + build staged" — but §14.6a records Stage 6a and three 6b slices as SHIPPED, so the front-matter summary's "Design only; nothing built" is wrong.
 **Working names:** the **library** = *Anima*; the fabricated **asset** = a *scene* (`kind:'scene'`);
 the **host component** = `scene`. All three are naming calls (alternatives: `Moto`, `Diorama`).
 

@@ -71,7 +71,7 @@ companion:
 > unit test. It also emits a resampled polyline at t=0 and t=1 instead of the author's exact path,
 > so snap to the exact path at the endpoints.
 >
-> GSAP is out and stays out: its licence conflicts with AGPL redistribution AND its DrawSVG plugin
+> GSAP is out and stays out: its license conflicts with AGPL redistribution AND its DrawSVG plugin
 > paints nothing in our test tier. Both were settled in §5–6; neither is revisited.
 
 This note does three things. §1–2 audit what Anima ships today and why its SVG backend has to go.
@@ -245,7 +245,11 @@ obstacle, and it is a human decision rather than a technical one.
 This is a reading of published terms, not legal advice. Adopting GSAP would want written consent
 from Webflow first. The measured result in §5 means we do not need to seek it.
 
-## 7. Recommendation (pending the human pick)
+## 7. Recommendation (SUPERSEDED — kept as the reasoning of record)
+
+> **The pick was made and it is anime.js v4** (see the CLOSED box at the top). This section is the
+> recommendation as written *before* that call, kept because its reasoning is what the decision was
+> taken against. Do not build from it.
 
 **No engine for v1.** Adopt anime.js's `pathLength`-normalization *technique* — set
 `pathLength="1"`, then drive `stroke-dasharray`/`stroke-dashoffset` in fractional units — rather
@@ -360,7 +364,7 @@ the animated value never reaches the serialized markup (`inSerialized: false`; t
 `<animate>` is on the strip list in the untrusted-SVG parse, deliberately, as uncontrolled motion
 outside our timeline.
 
-**Revised recommendation.** Unchanged for v1 — no engine, 2,226 B gzip. Morph is an **add-on
+**Revised recommendation (SUPERSEDED — the human picked anime.js v4).** As written: unchanged for v1 — no engine, 2,226 B gzip. Morph is an **add-on
 whose package follows the engine pick**: flubber if v1 stays engine-free, anime.js `morphTo` if
 anime.js is adopted for `createDrawable` as well. Round two did not turn up a better painter; it
 turned up the missing *primitive*, and part-level morph is that primitive.
@@ -454,7 +458,7 @@ poster serializes to **5,470 bytes of vector**, which is what a PDF bakes.
    resolved beat**, and nothing in the spec enforces that today.
 4. **A group fade ghosts a punch-out.** Fading a node group as a unit let the bond show straight
    through the halo while it arrived, and the assembly read muddy. The halo has to lead the
-   coloured fill. Generalized: **a supplied asset's occlusion is part of its meaning**, so a naive
+   colored fill. Generalized: **a supplied asset's occlusion is part of its meaning**, so a naive
    per-part opacity is not always the right reveal.
 
 **And one finding for the sanitizer.** The mark's own dark-mode mechanism is a `<style>` block with

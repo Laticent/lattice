@@ -44,7 +44,7 @@ superseded-by: 2026-09-02-frame-model-for-motion.md
 **What survives and is carried forward:** §0.75's *power tracks source structure* (our own charts are the most tractable on-ramp because we own the render), and §4.6's insistence that untrusted SVG is a sanitize boundary rather than an afterthought.
 
 **Date:** 2026-07-19
-**Status:** Proposed (design model; nothing cut or built yet)
+**Status:** SUPERSEDED (see the banner above). Historic line: "Proposed (design model; nothing cut or built yet)" — contradicted by §5.2, which records the chart on-ramp LANDED and verified on the real Playground, and the Play/Style/Speed register BUILT.
 **Follows / refocuses:** `2026-07-17-anima-animation-library.md` (the Anima ADR — zdog was the
 first/primary backend; Vivus the svg secondary; Three the gated fidelity tier) and
 `2026-07-18-anima-motion-faculty-modes.md` (the Director/Rig mode shell). This doc **re-orders the

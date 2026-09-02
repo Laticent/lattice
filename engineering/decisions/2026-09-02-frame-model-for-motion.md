@@ -53,7 +53,7 @@ The bake-off note is **not** superseded: it is the evidence behind the library p
 what ships today. Read it for *why anime.js*; read this for *what motion is*.
 
 **Superseding these notes leaves 37 citations pointing at them, and that is intended.** They are
-cited as design-of-record from **24 files outside the decisions folder** — module headers across
+cited as design-of-record from **21 files outside the decisions folder** — module headers across
 `docs/src/lib/anima/**`, `lib/components/imagery/scene/scene.transform.js`, the Studio surfaces, and
 `tools/check-ownership.js`, where a gate names 2026-07-17 as its rationale. Those citations are not
 broken by the supersession: each note now opens with a banner naming what it got wrong and pointing
@@ -96,8 +96,16 @@ Continuous motion fights a deterministic engine. Frames do not — they turn mot
    is precisely why live motion has **zero e2e coverage** today: across 82 specs in `docs/e2e/`,
    none references `data-scene-spec`, `scene-live`, `data-anima` or `hydrateScene`
    (`2026-09-02-motion-engine-bakeoff.md` §2 finding 7).
-2. **Reduced motion is free.** The last frame *is* the still. `hydrate.ts`'s three-tier ladder
-   stays useful for *how* to walk frames, but the floor stops needing its own rendering path.
+2. **Reduced motion is simpler, but NOT free — and one shipped decision survives it.** The last
+   frame *is* the still, so the floor needs no separate rendering path. **What must not be dropped
+   is the VIEWER OPT-IN.** `2026-07-17` §12.2 settled that `prefers-reduced-motion` bounds the
+   *default* and the *author*, not the *viewer*: a scene held still **by the floor alone** shows a
+   labelled "Play the motion" control that mounts the full author-intended motion, because the
+   viewer explicitly asked. That shipped — `docs/src/lib/anima/hydrate.ts:188` (`ControlMode`
+   includes `'optin'`), `:194` (the aria label), `:237` (`floorSuppressed`), `:242` (an opt-in plays
+   the FULL scene, not the legible projection). An earlier draft of this line said only that "the
+   floor stops needing its own rendering path", which reads as license to delete that control.
+   **It is binding: a reduced-motion viewer gets frame N *plus* an opt-in to walk the frames.**
 3. **The poster bug dissolves.** §12 of the bake-off found the hero sitting on a transitional beat
    — striking on screen, wrong on paper — and noted "nothing in the spec enforces that today."
    When the beats *are* the frames, a hero can only ever be one of them. The class of bug is gone,
@@ -136,18 +144,18 @@ Verified against source, because the distinction decides how many painters exist
 
 | Target | Channel | Evidence |
 |---|---|---|
-| **Charts** | **SVG** | 9 components declare `render: svg`; 12 kernels emit `data-anima-role` (`funnel.transform.js:132-138`, gantt, map, quadrant, piechart, radar, state-chart) |
-| **Diagram** | **SVG** | 1 component. Mermaid is contested — its SVG is third-party and DOMPurify strips `<foreignObject>`/`<style>`, i.e. every node label |
+| **Charts** | **SVG** | **7** chart components declare `render: svg` (funnel, gantt, map, piechart, quadrant, radar, word-cloud); **8** files emit `data-anima-role` — those 7 transforms minus word-cloud, plus `state-chart` (hybrid) and the shared `_chart-family/svg-label.js` |
+| **Diagram** | **SVG** | 1 component (`render: svg`, so 8 with the charts above). Mermaid is contested — its SVG is third-party and DOMPurify strips `<foreignObject>`/`<style>`, i.e. every node label |
 | **Rails** | **DOM** | `lib/forms/tile/progress` emits `<div>` only — zero `<svg>`. Same for `div.lat-split-rail` |
 | **Masthead** | **DOM** | `lib/forms/cell/masthead/` — its own Cell transform plus CSS |
 | **Header · footer · pagination** | **DOM** | `.cell-footer` is a flex row (`lib/core/footer-dock.js`) |
-| **Deck logo** | **DOM (and not yet SVG at all)** | `<img class="deck-logo">` (`lib/core/bg-image.js:190`). An SVG painter cannot reach it until something inlines it |
+| **Deck logo** | **DOM (and not yet SVG at all)** | `<img class="deck-logo">`, emitted at `lib/integrations/markdown-it/plugins.js:604` and mirrored in `lib/runtime/index.js:1623`. An SVG painter cannot reach it until something inlines it |
 
-So: **one pure `at(t)`, two painters.** The SVG painter is already written and measured — the
-bake-off's hand-rolled candidate at 2,226 B gzip, byte-identical in jsdom and Chromium, and
-anime.js measured pixel-identical to it (0.000% mean diff), so either paints the same picture. The
-DOM
-painter is new, small, and is transform-plus-opacity over tagged units.
+So: **one pure `at(t)`, two painters — and the SVG one is anime.js v4** (§2.4), used narrowly:
+`createDrawable` for stroke work, direct attribute writes for the rest. The bake-off's hand-rolled
+candidate (2,226 B gzip, byte-identical in jsdom and Chromium) is **not** what ships; it is the
+measuring stick anime.js was compared against, and the two came out pixel-identical (0.000% mean
+diff). The **DOM painter is new**, small, and is transform-plus-opacity over tagged units.
 
 Note the logo row. "Animate the SVG logo" is a reasonable ask that has a prerequisite: today it is
 a raster reference, so inlining it is a separate, small piece of work that has to land first.
@@ -201,6 +209,31 @@ the thing to refuse. Deferred until charts and the DOM chrome are real.
   interactive half still needs an interaction surface that does not exist (zero `tabindex`,
   `role="button"` or `aria-expanded` across every component transform).
 
+## 7c. A LIVE data-loss defect, re-logged here because its only record moved to Historical
+
+`2026-07-18-anima-motion-faculty-modes.md` §7 carried an adversarial-trio finding that is **still
+unfixed in shipped code**. Superseding that note filed its only record under Historical, which
+would de-log it — and HARD RULE #18 requires a found defect to stay logged. So it is restated here.
+
+**The defect.** A saved scene whose spec no longer validates is silently dropped from the Library,
+and therefore silently absent from the user's backup.
+
+- `docs/src/components/studio/scene-library.ts:67-72` — `toStudioScene` returns `null` when
+  `parseScene` fails, deliberately fail-closed so a corrupt record never yields an unrenderable
+  scene.
+- `:107-113` — `listStudioScenes` then does `.filter((s) => s != null)`.
+- `docs/src/components/studio/workspace-backup.ts:65` — the workspace backup is built **from
+  `listStudioScenes()`**.
+
+So: tighten the schema, and every record saved under the old shape vanishes from the list *and*
+from the next backup, with no message. Restore onto a clean profile and they are gone. The three
+fixes §7 named — stamp a `specVersion`, make reads non-destructive, surface a dropped count — are
+all unimplemented: `grep -rn specVersion docs/src lib/` returns **nothing**.
+
+**This constrains §7b.** Its "delete it with the Zdog excision" option makes the defect *worse*:
+deleting the faculty without a migration destroys the only copy of those records. **Any retirement
+path for the Motion Studio owes a migration or an export first.**
+
 ## 7b. The shipped Motion Studio is now out of scope — undecided
 
 Superseding `2026-07-18-anima-motion-faculty-modes.md` retires a surface that **shipped**, not a
@@ -236,8 +269,8 @@ not caused by this branch; recorded because it blocks the doc fix above and will
 code slice.
 
 - `docs/astro.config.mjs:5` imports `unified` from `@astrojs/markdown-remark`, and the installed
-  `@astrojs/markdown-remark@7.1.2` exports no such name (its exports are `createMarkdownProcessor`,
-  `createShikiHighlighter`, `extractFrontmatter`, … — `unified` is not among them).
+  `@astrojs/markdown-remark@7.3.0` exports no such name — its `exports` map offers only `"."` and
+  `"./shiki"`, and `unified` is not among the named exports of either.
 - `docs/astro.config.mjs:137` sets `markdown.processor`, which is not a valid key in Astro 7's
   markdown config.
 
@@ -305,7 +338,7 @@ words, and a `nowrap` label could not yield).
    HARD RULE #3 costs nothing in the conversion.
 
 **The governing constraint: pixel identity.** The rail renders on every `form` slide inside a
-section, in every deck that has dividers, and the repo carries **367 committed PDF goldens**. The
+section, in every deck that has dividers, and the repo carries **369 committed PDF goldens**. The
 SVG MUST render pixel-identically to the spans, or every affected golden re-blesses and the diff
 becomes unreadable. That is a design input: put the `cqi` sizing on the `<svg>` root, keep the
 viewBox in dot-units so the interior scales as the flex version did, and prove it with
@@ -398,8 +431,8 @@ Raster and remote logos stay `<img>`, exactly as they ship today, and carry no n
 
 **Do the logo BEFORE the rail.** The two are the same technique — replace a DOM construct with an
 inline SVG and prove pixel identity with `npm run regress` — but the blast radii differ by two
-orders of magnitude. Only **7 files** reference `logo:` (4 example decks plus the logo gallery and
-docs), so the goldens at risk are the logo gallery in both modes plus 4 example PDFs: **6, against
-the rail's 367.** Validate the technique where a surprise is cheap. And expect one: an `<img>` takes
+orders of magnitude. **8 files** carry a `logo:` key (4 example decks, the logo gallery and docs, `base.docs.md`, and
+`test/fixtures/deck-logo.md`), so the goldens at risk are the logo gallery in both modes plus 4 example PDFs: **6, against
+the rail's 369.** Validate the technique where a surprise is cheap. And expect one: an `<img>` takes
 intrinsic sizing from the file, while an inline `<svg>` falls back to its viewBox or to 300×150
 unless width and height are carried across explicitly. This supersedes §10's implied ordering.
