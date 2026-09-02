@@ -44,7 +44,7 @@ We start with one engineer's Tuesday, and we finish by designing Instagram.
 
 ---
 
-<!-- _class: divider numbered -->
+<!-- _class: divider -->
 
 `Part zero`
 
@@ -598,7 +598,7 @@ She opens the app a dozen times a day, on a cellular network, usually while doin
   - A fresh, personal page in under a second, twelve times a day, from anywhere.
 - The poster can wait
   - Uploading, transcoding and delivery may all take their time. Nobody is watching.
-- That casting alone decides a lot
+- Casting decides the design
   - It is why the feed is built when someone posts, not when someone reads.
 
 ---
@@ -712,7 +712,7 @@ Optimization without a profile is decoration. You need the measurement first, th
 
 - The tell
   - A profile shows which tenth of the work is most of the cost.
-- Premature is the famous half of the quote
+- Premature is half the quote
   - Knuth also wrote that we should not pass up the critical three percent. Both halves.
 - Complexity is the invoice
   - Each optimization narrows the assumptions the system is allowed to break.
@@ -1030,8 +1030,8 @@ The genuinely derived stores are the search index, the vector index, the cache a
 ```mermaid
 flowchart LR
   N["A link breaks<br/>nodes cannot reach each other"] --> C{"A write arrives on<br/>one side of the split"}
-  C -->|"take it"| AP["Available<br/>answer now, reconcile later"]
-  C -->|"refuse it"| CP["Consistent<br/>refuse rather than diverge"]
+  C -->|"take it"| AP(["Available<br/>answer now, reconcile later"])
+  C -->|"refuse it"| CP(["Consistent<br/>refuse rather than diverge"])
   AP --> APC(["Feeds, carts, presence, metrics"])
   CP --> CPC(["Balances, inventory, bookings"])
 ```
@@ -1164,8 +1164,8 @@ flowchart TB
   end
   subgraph d["One log, two budgets"]
     direction LR
-    D1[["Event log"]] --> D2["Stream, seconds"]
-    D1 --> D3["Batch, hourly"]
+    D1[["Event log"]] --> D2["Stream, seconds"] --> D4["Live counters"]
+    D1 --> D3["Batch, hourly"] --> D5[("Warehouse")]
   end
   subgraph c["Event triggers a function"]
     direction LR
@@ -1270,8 +1270,8 @@ flowchart TB
 flowchart TB
   subgraph b["Route by content"]
     direction LR
-    B1["L7 balancer"] -->|"/api"| B2["Service"]
-    B1 -->|"/media"| B3[("Bucket")]
+    B1["L7 balancer"] -->|"/api"| B2["Service"] --> B4[("Database")]
+    B1 -->|"/media"| B3[("Bucket")] --> B5["CDN"]
   end
   subgraph a["Cache at the edge"]
     direction LR
@@ -1279,8 +1279,8 @@ flowchart TB
   end
   subgraph d["Ask once, or subscribe"]
     direction LR
-    D1(["Client"]) -->|"request"| D2["API"]
-    D1 <-->|"open stream"| D3["Live socket"]
+    D1(["Client"]) -->|"one request"| D2["API"] --> D4(["One answer"])
+    D1 <-->|"open stream"| D3["Live socket"] --> D5(["Many updates"])
   end
   subgraph c["Every hop carries a deadline"]
     direction LR
@@ -1406,8 +1406,8 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
 flowchart TB
   subgraph b["Spread · partition by key"]
     direction LR
-    B1["Router"] --> B2[("Shard A")]
-    B1 --> B3[("Shard B")]
+    B1["Request"] --> B2["Router, by key"] --> B3[("Shard A")]
+    B2 --> B4[("Shard B")]
   end
   subgraph a["Reduce · do less per request"]
     direction LR
@@ -1415,8 +1415,8 @@ flowchart TB
   end
   subgraph d["Duplicate · copy toward readers"]
     direction LR
-    D1[("Leader")] --> D2[("Replica, US")]
-    D1 --> D3[("Replica, EU")]
+    D1["Writes"] --> D2[("Leader")] --> D3[("Replica, US")]
+    D2 --> D4[("Replica, EU")]
   end
   subgraph c["Defer · answer now, work later"]
     direction LR
@@ -1548,8 +1548,8 @@ flowchart TB
   end
   subgraph a["Copies that fail apart"]
     direction LR
-    A1["Traffic"] --> A2["Zone A"]
-    A1 --> A3["Zone B"]
+    A1["Traffic"] --> A2["Balancer"] --> A3["Zone A"]
+    A2 --> A4["Zone B"]
   end
   subgraph d["Shed at the edge"]
     direction LR
@@ -1557,8 +1557,8 @@ flowchart TB
   end
   subgraph c["One pool per dependency"]
     direction LR
-    C1["Service"] --> C2["Pool A"]
-    C1 --> C3["Pool B"]
+    C1["Service"] --> C2["Pool A"] --> C3[("Dependency A")]
+    C1 --> C4["Pool B"] --> C5[("Dependency B")]
   end
   a ~~~ c
   b ~~~ d
@@ -1574,8 +1574,8 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  R["Region"] --> Z1["Zone A"] --> M1["Machine"] --> P1["Process"]
-  R --> Z2["Zone B"] --> M2["Machine"] --> P2["Process"]
+  R["Region"] --> Z1(["Zone A"]) --> M1(["Machine"]) --> P1(["Process"])
+  R --> Z2(["Zone B"]) --> M2(["Machine"]) --> P2(["Process"])
   P1 -.->|"same config, same deploy,<br/>same upstream"| C(["Correlated failure:<br/>both die together"])
   P2 -.-> C
 ```
@@ -1723,7 +1723,7 @@ flowchart TB
   end
   subgraph d["A reply is input too"]
     direction LR
-    D1["Service"] -->|"signed request"| D2["Third party"] -.->|"validate"| D1
+    D1["Service"] -->|"signed request"| D2["Third party"] -->|"reply"| D3["Validate before use"]
   end
   subgraph c["Private bytes need a signed link"]
     direction LR
@@ -1806,12 +1806,12 @@ Assume any single credential eventually leaks. The design question is not whethe
 
 ## Six questions find most of the holes before somebody else does.
 
-- [x] Can someone pretend to be another identity? `spoofing`
-- [x] Can data be changed in transit or at rest? `tampering`
-- [x] Can an actor deny having done something? `repudiation`
-- [x] Can private data reach the wrong reader? `disclosure`
-- [x] Can one caller exhaust a shared resource? `denial`
-- [x] Can a caller gain rights nobody granted? `elevation`
+- [ ] Can someone pretend to be another identity? `spoofing`
+- [ ] Can data be changed in transit or at rest? `tampering`
+- [ ] Can an actor deny having done something? `repudiation`
+- [ ] Can private data reach the wrong reader? `disclosure`
+- [ ] Can one caller exhaust a shared resource? `denial`
+- [ ] Can a caller gain rights nobody granted? `elevation`
 
 ---
 
@@ -1900,9 +1900,7 @@ Solution type Scaled. Not an MVP, not optimal.
 
 ## Two assumptions and some division give you every number that matters.
 
-Assume 500 million daily users who open the feed twelve times a day, and 100 million photos posted a day. Everything else is arithmetic:
-
-`500M × 12 = 6B reads/day ÷ 86,400 = 70K reads/s` · `100M ÷ 86,400 = 1.2K writes/s` · `100M × 2MB = 200 TB/day` · `ratio ≈ 60:1`
+Assume 500 million daily users opening the feed twelve times a day, and 100 million photos posted a day. The rest is division: reads are `500M × 12 ÷ 86,400`, or about `70K/s`; writes are `100M ÷ 86,400`, or about `1.2K/s`; bytes are `100M × 2MB`, or `200 TB/day`. That puts the ratio near `60:1`.
 
 The twelve is the only number doing real work. Change the 500 million while holding opens and posts per user fixed, and the ratio does not move. Change how often people post, and it does.
 
@@ -2092,10 +2090,10 @@ There is a second reason, and it is the one that makes a senior nod: a celebrity
 
 The two strategies fail at opposite ends of the same graph, so the design uses each one where the other breaks.
 
-- Pick a single strategy for everyone
-  - Simple to build and simple to explain, and guaranteed to fail at one end: push drowns on celebrities, pull costs hundreds of reads per page for everyone else.
-- Split at a follower threshold
-  - Push from ordinary accounts, pull from high-follower accounts, merge at read.
+- One strategy for everyone
+  - Simple to explain, guaranteed to fail at one end. Push drowns on celebrities; pull costs hundreds of reads per page for everyone else.
+- Split at the threshold
+  - Push from ordinary accounts, pull from high-follower accounts, merge the two at read time. Ordinary posts land in a page that is already built, so the common read stays one lookup. Celebrity posts are fetched on demand, so no writer ever fans out to millions. Each strategy runs only where its cost curve is the lower one.
 
 > The threshold is not a preference. It is where two cost curves cross, and the graph draws it.
 
@@ -2343,7 +2341,7 @@ Environment   ______________________________________________________________
 Constraints   physical ______  economic ______  human ______  legal ______
 Invariants    1 ____________________  2 ____________________  3 ____________
 Bottleneck    ______________________________  measured at ____________________
-Solution type  MVP  ·  scaled  ·  optimized  ·  optimal  ·  specialized
+Solution type MVP  ·  scaled  ·  optimized  ·  optimal  ·  specialized
 ```
 
 ---
@@ -2354,24 +2352,29 @@ Solution type  MVP  ·  scaled  ·  optimized  ·  optimal  ·  specialized
 
 ## Six questions to ask of any design, starting with your own.
 
-- [x] Who is the protagonist, and who are we not designing for? `casting`
-- [x] What is the antagonist, and what number describes it? `evidence`
-- [x] Which rung of the ladder is this, and does everyone agree? `frame`
-- [x] What breaks first at ten times the load? `scale`
-- [x] What happens when each dependency is slow rather than down? `failure`
-- [x] What can one stolen credential reach? `security`
+- [ ] Who is the protagonist, and who are we not designing for? `casting`
+- [ ] What is the antagonist, and what number describes it? `evidence`
+- [ ] Which rung of the ladder is this, and does everyone agree? `frame`
+- [ ] What breaks first at ten times the load? `scale`
+- [ ] What happens when each dependency is slow rather than down? `failure`
+- [ ] What can one stolen credential reach? `security`
 
 ---
 
-<!-- _class: content -->
+<!-- _class: list-steps -->
 
 `What to do on Monday`
 
-## Take one system you touched this week and fill in the nine fields.
+## Four moves, and the last one is the one that teaches you.
 
-Not a famous one. The service you were debugging on Thursday, or the pipeline nobody wants to own. Write the protagonist and the antagonist first, in two sentences, and let the other seven fields argue with you.
-
-Then bring the page to your next one-on-one and ask the person across from you which field you got wrong. That conversation is the whole point of learning this.
+1. Pick the unglamorous system
+   - Not a famous one. The service you were debugging on Thursday, or the pipeline nobody wants to own.
+2. Cast it before you draw it
+   - Protagonist and antagonist first, two sentences each. If you cannot name them, you do not understand it yet.
+3. Fill the other seven fields
+   - Let them argue with you. A field you cannot answer is the design question you have been avoiding.
+4. Bring the page to your one-on-one
+   - Ask the person across from you which field you got wrong. That conversation is the whole point of learning this.
 
 ---
 
