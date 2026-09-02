@@ -767,8 +767,12 @@ proxy for line count, so wide-set text can clip without it firing).
 <!-- _class: divider light numbered -->   → same series, no restart
 ```
 
-The counter is set on `body` and walks the deck once. Authors do not number
-sections manually — the layout does it.
+The number is stamped as `data-lat-section` by `lib/core/section-index.js` and read
+with `attr()` — it is NOT a CSS counter, because a counter cannot count across Marp's
+per-slide containers and produced `01` on every divider there. Authors do not number
+sections manually. Where nothing stamps it (a surface that runs no script and that we
+do not render ourselves, e.g. marp-cli's PDF output) the numeral does not draw at all,
+which is deliberate: a blank mark is a gap you can see, a wrong one is not.
 
 **It suppresses the running header and the footer** on the slides that carry
 it. The masthead owns the top band, and a section start is the one slide that

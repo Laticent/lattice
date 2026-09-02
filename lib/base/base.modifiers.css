@@ -1420,16 +1420,25 @@ section.compare-prose.mirror > .cell-stage > :is(ul, ol) {
  *
  * Stamps the running section index on a `divider` that opts in via `.numbered`.
  *
- * DIVIDERS ONLY, AND ONE COUNTER FOR ALL OF THEM. The modifier used to reach
+ * DIVIDERS ONLY, AND ONE SERIES FOR ALL OF THEM. The modifier used to reach
  * `closing` too, and to run THREE independent counters — `divider`, `divider.light`
  * and `closing` each restarting at 01. That is the opposite of what a section number
  * is for: a deck whose light dividers restart the count, or whose closing announces
  * itself as section 01, has a number that tells the room nothing. There is now one
- * `lat-divider` counter, `divider.light` shares it, and `closing` (like `title`) does
- * not carry the modifier at all — a bookend is not a section.
+ * series, `divider.light` shares it, and `closing` (like `title`) does not carry the
+ * modifier at all — a bookend is not a section.
  *
- * Counter scope: counter-reset is applied at body level so the counter walks the whole
- * deck once. No author bookkeeping required.
+ * THE VALUE IS AN ATTRIBUTE, NOT A CSS COUNTER, and that is not a style choice.
+ * A counter cannot cross Marpit's per-slide `<svg><foreignObject>` containers, and
+ * Marpit's selector scoping rewrites `body { counter-reset }` into `section body`,
+ * which matches nothing — so on marp-cli and marp-vscode a counter produced `01` on
+ * EVERY divider in the deck. Measured on real marp-cli 4.5.0. Marpit's own pagination
+ * is `attr(data-marpit-pagination)` for exactly this reason; `lib/core/section-index.js`
+ * follows it, stamps `data-lat-section` from one kernel on both the engine's HTML and a
+ * live DOM, and carries the full derivation. The selector below is qualified on the
+ * attribute deliberately: where nothing stamped it the numeral does not draw AT ALL,
+ * because a blank mark is a gap an author can see and a wrong one is misinformation the
+ * room cannot check.
  *
  * Visual: a MASTHEAD — a display numeral in the top band, on the divider's own left
  * margin, with a hairline running right underneath it and stopping just past mid-canvas
@@ -1495,14 +1504,10 @@ section.compare-prose.mirror > .cell-stage > :is(ul, ol) {
  * heading per slide is the contract; a slide with two would stamp twice.
  * ──────────────────────────────────────────────────────────────────────── */
 
-body {
-  counter-reset: lat-divider;
-}
 
 /* ONE increment, matching every divider including `.light` — no `.light` override and
  * no second counter, so a deck that mixes the two still counts 01, 02, 03 straight
  * through. */
-section.divider.numbered { counter-increment: lat-divider; }
 
 /* The masthead owns the top band, so the running header and the footer both stand
  * down. `> header` and `> footer` reach the legacy frame; the Form migration wrapped
@@ -1712,7 +1717,7 @@ section.divider.light.numbered :is(h1, h2)::after {
   border-bottom-color: var(--border);
 }
 
-section.divider.numbered :is(h1, h2)::after { content: counter(lat-divider, decimal-leading-zero); }
+section.divider.numbered :is(h1, h2)[data-lat-section]::after { content: attr(data-lat-section); }
 
 /* ════════════════════════════════════════════════════════════════════════
  * OVERFLOW WARNING — visual signal when content exceeds the 1280×720 frame

@@ -104,9 +104,9 @@ const EXPECTED = [
   // divider, so the `display: none` asserted on every stamped row below is doing work
   // rather than describing a deck that never had a header to begin with.
   { cls: 'divider', counter: null, header: 'block', footer: 'block' },
-  { cls: 'divider numbered', counter: 'lat-divider' },
-  { cls: 'divider silent numbered', counter: 'lat-divider' },
-  { cls: 'divider light numbered', counter: 'lat-divider' },
+  { cls: 'divider numbered', stamp: '01' },
+  { cls: 'divider silent numbered', stamp: '02' },
+  { cls: 'divider light numbered', stamp: '03' },
   { cls: 'closing numbered', counter: null },
   // `silent` WITHOUT `numbered`: proves the chrome assertions above are reading the
   // modifier and not just `silent`, which suppresses header and footer on its own.
@@ -148,7 +148,7 @@ function assertStamps(rows, surface) {
   rows.forEach((row, i) => {
     const want = EXPECTED[i];
     assert.equal(row.cls, want.cls, `${surface}: slide ${i + 1} classes`);
-    if (want.counter === null) {
+    if (want.stamp == null) {
       // Chromium reports `none` — not the `normal` initial value — for a pseudo that
       // generates no box, which is what "nothing declared a stamp here" looks like. A
       // stray stamp on a plain divider would be the modifier leaking, a different
@@ -158,9 +158,15 @@ function assertStamps(rows, surface) {
       if (want.footer) assert.equal(row.footer, want.footer, `${surface}: "${want.cls}" footer display`);
       return;
     }
-    assert.match(
+    // THE RESOLVED VALUE, not the declaration. It used to assert `^counter\(lat-divider,`
+    // — the shape of the rule rather than what it produces — which could not have caught
+    // the defect that retired the counter: on the Marp path the declaration was present
+    // and correct on every divider and every one of them resolved to `01`. Asserting the
+    // digits also pins the SERIES: 01/02/03 across a dark, a silent and a light divider is
+    // the one-shared-count contract, and a per-variant counter would read 01/01/01 here.
+    assert.equal(
       row.content,
-      new RegExp(`^counter\\(${want.counter},`),
+      `"${want.stamp}"`,
       `${surface}: "${want.cls}" lost its stamp (computed content: ${row.content})`
     );
     // The masthead owns the top band, so a numbered divider stands the header AND the

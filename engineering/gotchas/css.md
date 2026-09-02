@@ -254,6 +254,27 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   five; a checker shrank the band and the test still passed on a render whose hairline
   struck through the eyebrow. Any pseudo you are treating as a keep-out zone has this
   trap — take `top + height + paddingBottom + borderBottomWidth`, not `top + height`.
+- **A FIFTH, and it is the one only the REAL CLI could show: a CSS counter cannot count
+  across Marp's slides.** The stamp was a `counter()`, and on marp-cli every divider in the
+  deck rendered `01`. Two facts compose into it. Marpit **scopes a theme by prefixing its
+  selectors**, so `body { counter-reset: lat-divider }` is rewritten to
+  `div#\:\$p > svg > foreignObject > section body { … }` — a `<body>` inside a section,
+  which never exists (measured: `querySelectorAll('section body')` returns 0), so the reset
+  never lands. And Marpit **puts each slide in its own `<svg><foreignObject>`**, so the
+  sections are not siblings — five sections, five distinct parents — and with no reset in
+  scope CSS creates the counter implicitly *on the incrementing element*, whose scope is
+  itself, its descendants and its following siblings. Each divider is alone in its subtree,
+  so each starts again at 1. `inlineSVG: false` does not help. **This is why Marpit's own
+  pagination is `attr(data-marpit-pagination)` and not a counter**, and the fix follows it:
+  `lib/core/section-index.js` stamps `data-lat-section` from one kernel through an HTML
+  adapter (the engine) and a DOM adapter (the runtime, the only producer that reaches Marp),
+  and the stylesheet reads `attr()`. **Put the attribute on the element the pseudo belongs
+  to** — `attr()` resolves against the ORIGINATING element, so a value stamped on the
+  section while the numeral rides `:is(h1,h2)::after` resolves to the empty string and the
+  mark silently does not draw. The general lesson is about the evidence, not the CSS: this
+  survived a test asserting the packed stylesheet contained `counter(lat-divider,` — the
+  declaration was present and correct on every surface, and resolved to the same wrong digit
+  on one of them. **Assert what a rule PRODUCES, not that it is declared.**
 - **A SECOND defect was hiding behind the first, and it is the more interesting one.**
   Once the numeral drew, it measured **1.4:1** — inked `--on-dark-watermark`, the 12%
   DECORATION rung of the on-dark ramp, under a CSS `opacity: 0.85`. It had been written
