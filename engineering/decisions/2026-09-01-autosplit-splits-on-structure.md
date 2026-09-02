@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Auto-split fires on STRUCTURE, not on measured fit, and a split page carries ONE structural element. Reverses the trigger set on 2026-07-29 and the packing policy that read `capacity.perPage ?? sweet ?? soft ?? hard`. Also records why the owner's own structural ruling stopped being what the engine did — the 2026-07-22 note that specified it was retro-edited on 2026-07-28 to defer to the fit trigger, inside its own document, so every later note built on a clause its author had not written. Every run now opens on a cover, gives each element a page, ends on a CLOSING page carrying the below-note and key insight together, and carries a forward pointer on every page (four of sixty-one components got one before). Six components that could never split are enrolled, `content` among them.
+summary: Auto-split fires on STRUCTURE, not on measured fit, and a split page carries ONE structural element. Reverses the trigger set on 2026-07-29 and the packing policy that read `capacity.perPage ?? sweet ?? soft ?? hard`. Also records why the owner's own structural ruling stopped being what the engine did — the 2026-07-22 note that specified it was retro-edited on 2026-07-28 to defer to the fit trigger, inside its own document, so every later note built on a clause its author had not written. Every run now opens on a cover, gives each element a page, ends on a CLOSING page carrying the below-note and key insight together, and carries a forward pointer on every page (four of sixty-one components got one before). Two components that could never split are enrolled — `content` and `list-criteria`. Four more were enrolled and backed out the same day, `journey` on a render that showed it emitting duplicate pages.
 builds-on: 2026-07-22-structure-derived-split-patterns.md, 2026-07-29-autosplit-is-not-a-toggle.md, 2026-06-22-the-fit-spine.md
 supersedes: the trigger clause of 2026-07-29-autosplit-is-not-a-toggle.md; the pacing policy of 2026-07-22-structure-derived-split-patterns.md §0b; the 2026-07-26 "note rides the last body page" review
 ---
@@ -113,8 +113,11 @@ heading added a week after it was authored — to say:
 
 The structural trigger was overwritten inside the document that specified it. Nothing marked
 the clause as later or as contested; it reads as part of the original ruling. Every note
-written afterward built on it, and there are many: **334 of 494 decision notes mention
-splitting**, and four of them alone run to 26,000 words. A reader assembling "what is
+written afterward built on it, and there are many: **335 of 501 decision notes mention
+splitting** (re-derived 2026-09-02; it was 334 of 501 when this note was written, and the
+denominator printed here was wrong). The four longest of them run to about 26,000 words:
+`2026-07-22-structure-derived-split-patterns.md`, `2026-07-29-autosplit-is-not-a-toggle.md`,
+`2026-06-23-read-across-carousel.md` and `2026-08-06-runtime-autosplit-eventual-consistency.md`. A reader assembling "what is
 auto-split" from that corpus arrives at the fit trigger with no indication that it displaced
 something.
 
@@ -152,8 +155,11 @@ chart-bucket components that have always split.
 real top-level `<ul>` of independent stages, so the seam looked present — then backed out on a
 bucket reading, then RE-ENROLLED when the bucket reading was corrected. It was never re-rendered
 across any of those moves. On the render it did not merely decline to split: it produced a
-SIX-PAGE run in which every body page carried the whole five-stage board, identical, with the
-section band labels colliding with the rows. Its transform rewrites the authored list into a
+multi-page run in which every body page carried the whole five-stage board, identical. (An
+earlier draft of this paragraph said SIX pages and blamed the band-label collision on the run.
+Both are corrected: the page count depends on the deck, and the collision is `journey`'s own —
+rendered against `origin/main` the single unsplit page collides identically. See the separate
+entry for it below.) Its transform rewrites the authored list into a
 `.journey-board`, so the members the splitter reaches at count time are gone by the time the page
 is assembled — and the envelope (page count, rail, "next:" pointer) is built from the count. An
 unreachable seam is therefore not a no-op; it is a run of duplicates that passes every gate.
@@ -219,7 +225,7 @@ change inside each builder — ten carousel strategies plus the plain envelope a
 pages and three of them splice the deck's chrome back in by construction. Keying on the role
 also means it cannot touch a slide the split did not emit, which is the whole distinction.
 
-**The pill rail follows from it.** `RAIL_DOT_MAX` was 4 for one commit, set while the band still
+**The pill rail follows from it.** `RAIL_DOT_MAX` was 4 across two commits, set while the band still
 carried the footer; with three marks gone the constraint that set it is gone, and the threshold
 is now a readability call — twelve, about the limit for a row the eye reads as a shape rather
 than counts.
@@ -288,6 +294,15 @@ change to the gate is a separate decision and is not made here.
   now. The biggest moves: `adaptive-sweep` 34 → 64 pages, `split-envelope` 26 → 52,
   `adaptive-sizing` 8 → 25, `portrait-roadmap` 5 → 13, `cover-paginate` 30 → 43. Roughly a 1.7×
   page count across the family, and every one wants an eye on it.
+- **`journey`'s section band labels collide with its rows at `portrait`, and that is its own
+  defect, not the split's.** On the demo deck's "Reading a split run" slide the "Close" band label
+  is sheared by the row beneath it and a red band strikes through "Learn what the run is about".
+  Rendered against `origin/main` in a separate worktree the collision is pixel-identical, so this
+  change neither caused it nor worsened it — but it is squarely on the path (the deck is a new
+  deliverable of this change and that slide was authored for it), so it is recorded here rather
+  than walked past. Not fixed: the fix is inside `journey`'s vertical board layout, which nothing
+  else in this change touches, and pulling it in would widen the diff past what HARD RULE #17 and
+  #8 allow. Found by the HARD RULE #25 independent checker.
 - **The trigger is UNCONDITIONAL, and nothing bounds a run's length.** A slide splits at two
   members, whether or not it fit: there is no threshold, no cap, and no author opt-out — the
   `autosplit:` directive was retired on 2026-07-29 and `--no-split` is instrumentation, not
@@ -310,10 +325,14 @@ change to the gate is a separate decision and is not made here.
   the list marker, reclaims the indent and steps to `--fs-emphasis`. Kept in this list because
   the reasoning is worth the pointer, not because anything is outstanding.
 - **`progress` shears its own status badges at `portrait`** — a "Content clipped" tag on an
-  UNSPLIT page. Pre-existing and off the path of this change: every CSS rule added here is scoped
-  to `lat-split-closing`, `lat-split-native` or the rail, none of which an unsplit page carries,
-  and `progress` neither split before this change nor splits after it. Logged rather than fixed
-  (HARD RULE #18's off-path arm); the demo deck uses `content` for that slide instead.
+  UNSPLIT page. Pre-existing and off the path of this change — though not for the reason first
+  given here, which was that every CSS rule added is scoped to a split class. That is not true:
+  eight component stylesheets gained `counter-reset: <name> var(--lat-split-offset, 0)` on
+  UNSCOPED selectors (`section.agenda ol` and the like), which match every slide of those
+  components. The conclusion survives on the narrower fact that `progress.styles.css` is untouched
+  and those declarations are inert while the custom property is unset. `progress` neither split
+  before this change nor splits after it. Logged rather than fixed (HARD RULE #18's off-path
+  arm); the demo deck uses `content` for that slide instead.
 - **`timeline-list`, `progress` and `pricing` still ring**, for the two different reasons above —
   an unreachable seam for the first two, an undecided capacity contract for the third. Nothing
   regressed for any of them; the gaps are now recorded rather than latent.
@@ -359,7 +378,7 @@ dropped rule renders fine, it just renders without the rule. So the gate asks th
 actually ships: `test/unit/css/selector-validity.test.js` puts every selector in the built bundle
 through `querySelector`, which uses the same grammar the stylesheet parser does and throws on
 exactly what that parser would reject. Run against the pre-fix bundle it named one selector out
-of 1.6MB — the right one.
+of the 3,244 in a 1.7MB bundle — the right one.
 
 ### The numbering that restarted on every page
 
@@ -380,8 +399,11 @@ Writing the gate turned up an eighth: `list-steps.timeline` added its own counte
 not inherit the note, in the very file that carries the explanation. That is the failure mode the
 gate exists for, and it is why the check enumerates counters rather than components:
 `test/unit/css/split-ordinal-continuity.test.js` fails any component that declares a split axis
-and resets an ordinal counter without the offset. `journey`'s `mood` and `volume` counters are
-exempt and the exemption is checked — they print a datum the author supplied, not a position.
+and resets an ordinal counter without the offset. The exemption map is EMPTY, and
+stays that way until a component that actually splits needs an entry: it briefly held `journey`'s
+`mood`/`volume` counters, and when `journey` was backed out that entry became dead weight the
+staleness check still certified. An entry now has to name a counter that exists AND a component
+that is still enrolled.
 
 ### Two components centered their lone row on the wrong axis
 

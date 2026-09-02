@@ -318,9 +318,26 @@ describe('core: splitEnvelope — conservation and refusal', () => {
     }
   });
 
-  test('refuses (null) when there is no title to cover with', () => {
+  test('with no title: no COVER page, but the rest of the envelope still builds', () => {
+    // Was `null` — which handed the slide to the caller's bare partition, and that hoists only a
+    // note a PREVIOUS pass already marked. On a first cut there is none, so a title-less slide's
+    // key insight was copied onto every body page with no closing page to land on. The cover is
+    // the only part that needs a title.
     const inner = `<div class="cell-stage">${items(9)}</div>`;
-    assert.equal(build(inner, 4), null);
+    const parts = build(inner, 4);
+    assert.ok(Array.isArray(parts) && parts.length >= 2, 'a title-less slide still splits');
+    assert.ok(!parts.some((p) => /\blat-split-cover\b/.test(p)), 'emitted a cover with no title');
+    assert.ok(parts.every((p) => /data-split-role="(?:body|closing)"/.test(p)),
+      'every page of a title-less run is a body or the closing page');
+  });
+
+  test('with no title, the FIRST body page keeps the engine id the cover would have held', () => {
+    const inner = `<div class="cell-stage">${items(9)}</div>`;
+    const tag = '<section data-lattice-slide="1" id="7" class="cards">';
+    const parts = splitEnvelope(tag, inner, chromeOf(inner), { axis: 'item', per: 4 });
+    const ids = parts.filter((p) => /\sid="7"/.test(p));
+    assert.equal(ids.length, 1, 'the id must appear exactly once across the run');
+    assert.match(parts[0], /\sid="7"/, 'it belongs on the first page');
   });
 
   test('refuses when the collection already fits the per-page cut', () => {

@@ -772,7 +772,8 @@ const { renderDiagrams } = require('./lib/core/render-diagrams');
 const { slideClassSpans, slideClassAt, slideIndexAt } = require('./lib/core/slide-class-spans');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 // The verdict half of the same measurement — extent + legibility → the
-// `{ ratio, canSplit, splitRatio }` resplitDoc eats. See lib/core/split-verdict.js.
+// `{ ratio, canSplit, splitRatio }` the overflow RING reads. (It fed `resplitDoc` until
+// 2026-09-01; the split is structural now and consults no measurement.) See lib/core/split-verdict.js.
 const { SPLIT_VERDICT_SRC } = require('./lib/core/split-verdict');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const { ROUGH_INK_STRUCTURES, pathsForPlan } = require('./lib/core/rough-ink');
@@ -1877,7 +1878,7 @@ const PLAYER = !!flags.player || /^\s*player:\s*(?:true|yes|on)\s*$/im.test(fm);
 const PLAYER_VERSION = '1';
 const ENGINE_BUILD = pkgVersion() ?? '';
 // Auto-split — the Fit Ladder's SPLIT move. ONE trigger: a real render MEASURED the slide
-// overflowing its box, and the slide has a seam (lib/core/auto-split.js `resplitDoc`, driven
+// overflowing its box, and the slide has a seam (lib/core/auto-split.js `splitDoc`, driven
 // by the `measureOverflow` evaluate below). The capacity map is hoisted to module scope so
 // the measured loop can read each layout's split AXIS + pacing from the top-level `capacity`
 // OR the per-family `adapt.capacity`, so a layout whose budget lives only in adapt is still
@@ -3157,7 +3158,7 @@ async function renderBody(browser, g, closeBrowser) {
     //     internal overflow is folded back into the section's effective extent;
     //     otherwise autosplit never sees an over-stuffed cell and content is lost.
     //   · probeFigureLegibility — the §8 rule 8 type floor.
-    //   · buildSplitVerdict — extent + legibility → the VERDICT resplitDoc eats.
+    //   · buildSplitVerdict — extent + legibility → the VERDICT the overflow ring reads.
     //     It used to be 150 lines inline right here, which is why the runtime
     //     could not become a second measurer without re-deriving them
     //     (2026-06-25-runtime-autosplit-eventual-consistency.md Amendment 1 § Cost A).

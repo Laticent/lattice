@@ -121,13 +121,34 @@ describe('core: relationship — refusals and reading', () => {
     assert.ok(Object.isFrozen(RELATIONSHIPS));
   });
 
-  test('labelOf reads a card title, a subheading, or the leading text — and clips a long one', () => {
+  test('labelOf reads a card title, a subheading, or the leading text', () => {
     assert.equal(labelOf(li('Draft the policy.', 'body')), 'Draft the policy');
     assert.equal(labelOf('<li><h3>Tier one</h3><p>body</p></li>'), 'Tier one');
     assert.equal(labelOf('<li>Just leading text<ul><li>nested</li></ul></li>'), 'Just leading text');
+  });
+
+  test('a NAMED member declines rather than clipping — every path, not just the flat run', () => {
+    // Was: the `<strong>` path clipped to 41 chars + `…`. `<strong>` was read as "the author
+    // named this, so it is short", but a component TRANSFORM can wrap a member's whole text in
+    // it — `list-criteria` does — so the named path clipped full sentences. The committed
+    // `examples/split-structure.pdf` carried "next: A heading that says which run it belongs…"
+    // and "next: A way back to the whole — the k-of-N rail…", which is character-for-character
+    // the shape the decision record claims was removed. Found by the independent checker,
+    // against the shipped artifact.
     const long = labelOf(li('A step whose authored title runs on well past the adornment budget', 'b'));
-    assert.ok(long.length <= 42, `clipped to ${long.length}`);
-    assert.match(long, /…$/);
+    assert.equal(long, '', 'a name with no clause break and no end must decline, not clip');
+    assert.ok(!/…/.test(long));
+    assert.equal(labelOf('<li><h3>A subheading that also runs on well past the adornment budget</h3></li>'), '',
+      'the subheading path declines the same way');
+  });
+
+  test('a clause break is cut FIRST, so a long member still yields a real name', () => {
+    // The fix must not trade truncated labels for no labels: this is the two-step the flat path
+    // already used, now applied to the named paths too.
+    assert.equal(labelOf(li('A way back to the whole — the k-of-N rail in the footer band', 'b')),
+      'A way back to the whole');
+    assert.equal(labelOf(li('The one thing it holds, set at full size — not shrunk to share', 'b')),
+      'The one thing it holds, set at full size');
   });
 
   test('criteriaOf reads the badge labels a verdict/pricing member carries', () => {

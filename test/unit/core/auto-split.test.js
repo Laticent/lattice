@@ -199,7 +199,9 @@ describe('core: document-level bookkeeping across a split', () => {
     const tags = out.match(/<section[^>]*>/g) || [];
     assert.equal(tags.length, 3);
     for (const t of tags) {
-      assert.match(t, /\sclass="cards"/);
+      // The layout class TOKEN, not the whole attribute: a title-less slide now routes through
+      // the envelope rather than the bare partition, so its pages also carry `lat-split-native`.
+      assert.match(t, /\sclass="[^"]*\bcards\b/);
       assert.match(t, /\sdata-x="1"/);
       assert.match(t, /\sdata-split-role="body"/);
     }

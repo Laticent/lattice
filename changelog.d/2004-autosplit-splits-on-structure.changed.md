@@ -160,3 +160,33 @@
   recipe-driven seeds are insurance rather than a demonstrated fix (measured, none of those four
   renders a numeric ordinal on a split page today), and a recipe-driven run receives no
   `--lat-split-offset` at all because `applyRails` computes it on a hardcoded `item` axis.
+- **Fixed: a leading key-insight `<blockquote>` repeated on every body page.** Several components
+  document one ABOVE the collection as a slot — `cards-grid`'s manifest calls it "Optional
+  key-insight panel above the cards" — but the region reader admitted only `<p>`, so it was
+  neither lede nor trailing material and stayed in the trunk. Measured on a portrait render, a
+  four-member `cards-grid` repeated its insight four times. It now rides the COVER, which is the
+  run's framing page and keeps the authored reading order; a trailing insight still closes the run.
+- **Fixed: a TITLE-LESS slide got no cover, no closing page, and a repeated insight.** With no
+  masthead the envelope returned null and the slide fell to the bare partition, which hoists only
+  a note a previous pass already marked — on a first cut there is none. The cover is the only part
+  that needs a title, so a title-less slide now gets bodies and a closing page, and the first body
+  page keeps the engine id the cover would have held.
+- **Fixed: `labelOf` clipped where the record says it declines.** The decline guard was on the
+  flat-sentence path only; the `<strong>` path had none, and `list-criteria`'s transform wraps a
+  member's whole text in `<strong>`. The committed demo deck carried "next: A heading that says
+  which run it belongs…" and "next: A way back to the whole — the k-of-N rail…" — the exact shape
+  the record claims was removed. Every path now cuts at the clause break first and then declines,
+  so a long member still yields a real name ("A way back to the whole") instead of a fragment or
+  nothing.
+- **Fixed: six files taught a function that no longer exists.** `auto-split.js`'s module docblock
+  still described `resplitDoc` and the measure→split→re-measure loop as the current design, and
+  five other modules named it in the present tense. The docblock now describes `splitDoc` and says
+  plainly what was removed and when.
+- **Fixed: five wrong numbers and one non-existent exemption in the decision record.** The front
+  matter said six components were newly enrolled (two); "334 of 494 decision notes" had a
+  denominator matching no tree state (335 of 501, re-derived); `RAIL_DOT_MAX` was 4 across two
+  commits, not one; the selector gate found one invalid selector out of 3,244 in a 1.7MB bundle,
+  not "out of 1.6MB"; the four longest split notes are now named rather than counted; and the
+  record asserted a `journey` counter exemption that had been deleted. `journey`'s band-label
+  collision at portrait is recorded as its own pre-existing defect (pixel-identical on `main`)
+  rather than blamed on the split.
