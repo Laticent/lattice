@@ -6038,6 +6038,15 @@ const SANCTIONED_EOL_BOUNDARIES = [
     why: 'coerceComponent — a generated component skeleton is markdown spliced into deck source, '
        + 'so a trailing `\\r` arrives as part of a card title.',
   },
+  {
+    file: 'tools/check-jank.js',
+    why: '`--style` — a user\'s stylesheet, spliced into the sweep deck as a YAML BLOCK SCALAR. '
+       + 'The damage shape is the block scalar rather than a defeated `^---` anchor (the deck '
+       + 'itself is generated, so it is LF by construction): a CR rides to the end of every '
+       + 'injected line and a BOM lands mid-document, and the deck that comes out is not the '
+       + 'one the operator wrote. A measurement rig fed a silently different deck reports '
+       + 'numbers for a render nobody asked for.',
+  },
 ];
 
 /**
