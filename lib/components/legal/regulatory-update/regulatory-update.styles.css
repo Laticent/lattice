@@ -70,7 +70,9 @@ section.regulatory-update.regulatory-update > .cell-stage > p:has(> code:only-ch
 section.regulatory-update.regulatory-update > .cell-stage > ol,
 section.regulatory-update.regulatory-update > .cell-stage > ul {
   list-style:none; padding:0; margin:0;
-  counter-reset:upd;
+/* `var(--lat-split-offset, 0)` continues the run's numbering across split pages —
+   without it every atomized page restarts at 01 (test/unit/css/split-ordinal-continuity.test.js). */
+  counter-reset:upd var(--lat-split-offset, 0);
   display:flex; flex-direction:column;
   gap:var(--sp-xs);
   flex:1;

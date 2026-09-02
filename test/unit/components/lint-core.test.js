@@ -117,15 +117,19 @@ describe('lint-core: the capacity budget speaks, and autosplit is retired', () =
     assert.equal(out.find((x) => x.rule === 'capacity-overflow'), undefined);
   });
 
-  // The advisory is CONDITIONAL and bounded from below, because the count no longer forces
-  // anything: the splitter fires on measured overflow only (2026-07-29), and when it does fire
-  // it paces at the tighter of the authored target and the measured ratio — so the real run can
-  // be longer than the number here, and a slide that fits is not divided at all.
-  test('the advisory promises neither that a split happens nor exactly how long it is', () => {
+  // The advisory states the split EXACTLY, because the split is now knowable without rendering
+  // (2026-09-01): one structural element per page, and the trigger is the structure the author
+  // can see in their own markup. It used to be conditional ("if it does not fit") and bounded
+  // from below ("or more pages"), because the measured trigger could decline to fire at all and
+  // could cut smaller pages than the manifest asked for. Neither hedge is true any more, and a
+  // hedge that is not true is worse than no advisory — the author cannot act on it.
+  test('the advisory states the split exactly — no "if it fits", no "or more"', () => {
     const f = core.lintTextWith(overflowDeck('size: portrait\n'), capVocab)
       .find((x) => x.rule === 'capacity-autosplit');
-    assert.match(f.message, /if it does not fit/, 'the split is conditional on fit, not on the count');
-    assert.match(f.message, /or more pages/, 'and the page count is a floor, not a promise');
+    assert.match(f.message, /pages of 1 — one item per page/, 'the pacing is stated, not bounded');
+    assert.doesNotMatch(f.message, /if it does not fit/, 'the split is not conditional on fit');
+    assert.doesNotMatch(f.message, /or more/, 'and the page count is exact');
+    assert.match(f.message, /this slide has 14, so at tall auto-split makes it a cover \+ 14 pages of 1/);
   });
 
   // The advisory's fix text describes what the split will DO, so it must not promise a
@@ -544,7 +548,7 @@ describe('lint-core: capacity rule', () => {
     const f = capRule(portrait, 'capacity-autosplit');
     assert.ok(f, 'expected a capacity-autosplit finding at 8 items');
     assert.equal(f.severity, 'info', 'advisory tier — a deliberate split must not red --strict');
-    assert.match(f.message, /auto-split divides it/);
+    assert.match(f.message, /auto-split makes it a cover \+ 8 pages of 1/);
     assert.equal(capRule(portrait, 'capacity-crowd'), undefined);
   });
   test('table layout counts the row axis', () => {

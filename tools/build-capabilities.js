@@ -181,6 +181,7 @@ const SCRIPT_META = {
   'test:transform-dsl':       ['Test & verify', 'Unit scope: the declarative component-transform DSL and its safety validator (lib/core/transform-dsl).'],
   'test:authoring':           ['Test & verify', 'Unit scope: authoring helpers (speaker notes, …).'],
   'test:core':                ['Test & verify', 'Unit scope: lib/core/* (token resolver, splits, marp bundle, …).'],
+  'test:css':                 ['Test & verify', 'Unit scope: the BUILT CSS bundle — selector validity in real Chromium, split ordinal continuity.'],
   'test:export':              ['Test & verify', 'Unit scope: the owned export writers (PPTX, …).'],
   'test:release':             ['Test & verify', 'Unit scope: the release tooling.'],
   'test:theme':               ['Test & verify', 'Unit scope: lib/theme/chain.mjs — the theme chain and the one content-addressed `@import` scan (the caller-supplied `--css` layout sheet).'],

@@ -417,7 +417,7 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
  * upper-roman because this variant pairs two FACETS of one idea (I / II), where
  * arabic would read as sequence. */
 section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > ol {
-  counter-reset: axis-facet;
+  counter-reset: axis-facet var(--lat-split-offset, 0);
 }
 section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > ol > li {
   counter-increment: axis-facet;

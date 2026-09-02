@@ -125,9 +125,10 @@ Source: vendor evaluation, Q3 procurement review.
 
 ## The invariant
 
-- Every split run begins with **exactly one** cover and carries **at most one** key-insight page
-- A below-note rides the **last body page** — never its own, never repeated
-- A title-less slide has no masthead to cover with, so it keeps the plain partition
+- A run carries **at most one** cover — and a title-less slide gets **none**, because a cover
+  needs a heading. It still gets bodies and a closing page
+- The below-note and the key insight **close the run together**, on one page, at full size
+- A leading key insight rides the **cover**, so framing material is said once, first
 - Nothing is dropped: every page is the source slide with spans **removed**
 
 ---

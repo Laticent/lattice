@@ -1,6 +1,17 @@
 {
   "$comment": "BLESSED RECORD — §8 rule 5 of engineering/decisions/2026-07-22-structure-derived-split-patterns.md. The `components` map is RECOMPUTED from the component manifests by tools/bless-split-oracle.js and gated by checkSplitOracle in tools/check-ownership.js (build:check). A diff there is a SPLIT-BEHAVIOR CHANGE to review, not noise: run `npm run oracle:bless` only when you intend it, and justify each moved entry in the PR. The `verified` map is AUTHORED, never recomputed — it is rule 11's precondition (the record documents a verified default, it never mints one), so an ENROLLED component must name the committed deck that exercises its split and who signed the derived facts off. Blessing REFUSES to write an entry for a newly-enrolled component that has neither. The components enrolled before that precondition landed are frozen in GRANDFATHERED (tools/bless-split-oracle.js), a shrink-only backlog, not an exemption.",
-  "verified": {},
+  "verified": {
+    "content": {
+      "deck": "examples/split-structure.md",
+      "by": "#2004 (rendered at size: portrait, indaco, and read page by page)",
+      "note": "Slide 2 -> cover p2, one bullet per page p3-p6, closing p7 carrying the key insight. Axis `item` derived from the rendered <ul>; a paragraph-only content slide resolves no collection and is left whole (slide 1 of the same deck)."
+    },
+    "list-criteria": {
+      "deck": "examples/split-structure.md",
+      "by": "#2004 (rendered at size: portrait, indaco, and read page by page)",
+      "note": "Cover p8, one criterion per page, closing page carrying the italic annotation. The numbered row fills the measure -- this component is what caught the lone-member width fix (`width: 100%` sheared its text; `width: auto` is correct). soft/hard match what its own stress doc holds."
+    }
+  },
   "components": {
     "actors": {
       "treatment": "list-heavy",
@@ -32,7 +43,7 @@
       "strategy": "cover-paginate",
       "reshape": "paginator",
       "coverClass": "lat-split-cover",
-      "perPage": 4,
+      "perPage": 1,
       "relationship": "hierarchy"
     },
     "big-number": {
@@ -158,12 +169,12 @@
     },
     "content": {
       "treatment": "list-light",
-      "axis": null,
-      "declaredIn": null,
-      "enrolled": false,
+      "axis": "item",
+      "declaredIn": "adapt.capacity",
+      "enrolled": true,
       "strategy": null,
       "reshape": null,
-      "coverClass": null,
+      "coverClass": "lat-split-cover",
       "perPage": null,
       "relationship": null
     },
@@ -241,7 +252,7 @@
       "strategy": "cover-paginate",
       "reshape": "paginator",
       "coverClass": "lat-split-cover",
-      "perPage": 8,
+      "perPage": 1,
       "relationship": null
     },
     "image": {
@@ -312,13 +323,13 @@
     },
     "list-criteria": {
       "treatment": "list-light",
-      "axis": null,
-      "declaredIn": null,
-      "enrolled": false,
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
       "strategy": null,
       "reshape": null,
-      "coverClass": null,
-      "perPage": null,
+      "coverClass": "lat-split-cover",
+      "perPage": 1,
       "relationship": null
     },
     "list-steps": {
@@ -340,11 +351,11 @@
       "strategy": "cover-rows",
       "reshape": "paginator",
       "coverClass": "list-tabular-cover",
-      "perPage": 3,
+      "perPage": 1,
       "relationship": null
     },
     "logo-wall": {
-      "treatment": "list-light",
+      "treatment": "atomic",
       "axis": null,
       "declaredIn": null,
       "enrolled": false,
@@ -439,7 +450,7 @@
       "strategy": "cover-paginate",
       "reshape": "paginator",
       "coverClass": "lat-split-cover",
-      "perPage": 4,
+      "perPage": 1,
       "relationship": null
     },
     "pricing": {
@@ -472,7 +483,7 @@
       "strategy": "cover-paginate",
       "reshape": "paginator",
       "coverClass": "lat-split-cover",
-      "perPage": 3,
+      "perPage": 1,
       "relationship": null
     },
     "quadrant": {
@@ -527,7 +538,7 @@
       "strategy": "cover-paginate",
       "reshape": "paginator",
       "coverClass": "lat-split-cover",
-      "perPage": 4,
+      "perPage": 1,
       "relationship": null
     },
     "roadmap": {
@@ -571,7 +582,7 @@
       "strategy": "feature-cover",
       "reshape": "paginator",
       "coverClass": "split-panel-cover",
-      "perPage": 3,
+      "perPage": 1,
       "relationship": null
     },
     "state-chart": {
@@ -604,7 +615,7 @@
       "strategy": "cover-paginate",
       "reshape": "paginator",
       "coverClass": "lat-split-cover",
-      "perPage": 2,
+      "perPage": 1,
       "relationship": null
     },
     "timeline-list": {

@@ -1,12 +1,23 @@
 ---
-status: proposed
+status: shipped
 summary: Make auto-split less component-centric — hardened by TWO HARD RULE #25 trio passes (§12) + owner design review. The split kernel is generic. The rendered structure supplies a CANDIDATE axis (list→item, table→row, svg→container-responsive), realized only for opted-in seams; one per-component discriminator (connected/read-across) plus a small retained vector (opt-in gate, heavy/light, reshape, pacing) decides treatment. Graphics are container-responsive (not "scaled"); a viewBox graphic still needs a legibility floor→ring; atomic text-grid tables (roadmap/obligation-matrix, no viewBox) can't scale or split — ring on overflow — unlike glossary, which pivots its table. Every split rides a universal envelope (COVER → BODY → optional CLOSING, §0a); heavy members atomize deterministically (1 per slide) and connected/related members carry a relationship signal (→next / ↻loop / compare N-of-M). Every component in the catalog is placed (§0c — that table is GENERATED from lib/core/split-facts.js, so it cannot drift from the code again). The mechanism win is collapsing the 9 carousel DOM-parsers into content-conservation-gated slot re-authors.
 builds-on: 2026-06-22-the-fit-spine.md, 2026-06-21-reflow-as-form-capability.md, 2026-06-23-read-across-carousel.md, 2026-06-25-retire-landscape-locks-portrait-everything.md
 ---
 
 # Structure-derived split patterns — structure supplies the mechanism, not the policy
 
-**Date:** 2026-07-22 · **Status:** Proposed (design model; no code) — **hardened
+> **SUPERSEDED IN PART (2026-09-01).** This note's STRUCTURAL ruling is what the engine now does, and the §0a envelope is built. Two things in it are not current, and BOTH were edited into it after it was authored: the "it fires on measured FIT" clause in the ★ section below (added 2026-07-28, seven days later, and it overwrote this note's own trigger), and §0b's per-component PACING — a page now carries ONE structural element, so nothing reads `perPage`/`sweet`/`soft`/`hard` to size a cut. §0b's own point, that atomizing WITHOUT a wayfinding signal is unreadable, is kept and widened: every run carries one now, not the four components that declared a `relationship`. See
+> [`2026-09-01-autosplit-splits-on-structure.md`](2026-09-01-autosplit-splits-on-structure.md).
+> Read that note before acting on anything below about the split TRIGGER or its PACING.
+>
+> **TWO MORE reversals, added 2026-09-02 because this banner named only the first two.** §0a's
+> "footer, pagination and the progress rail ride every slide" is reversed — a split page carries
+> the page number and the k-of-N rail and nothing else. And §9's "below-note rides the LAST BODY
+> page, one size down" is reversed — the note closes the run beside the key insight, at full size.
+> Both are marked inline at their own clauses below; this list is the index, not the marker.
+
+
+**Date:** 2026-07-22 · **Status:** Shipped (the structural ruling is what the engine does; see the banner for what was reversed) — **hardened
 by two HARD RULE #25 adversarial trio passes, §12** · **Decision owner:** Sharmarke
 
 ## ★ Read this with its sibling — the two rungs of the Fit Ladder
@@ -51,7 +62,12 @@ other. **Three things to carry across the boundary:**
    judged; a landscape slide that does not fit rings, and `lint:deck`'s
    `capacity-overflow` names the non-split so the silence is never mistaken for a bug.
    It fires on measured FIT, never on a slide's authored count against `capacity.hard`
-   — that number is an editorial budget with one consumer, `lint:deck`. The only
+   — that number is an editorial budget with one consumer, `lint:deck`.
+   **[SUPERSEDED 2026-09-01 — and note that this sentence was added to this note on
+   2026-07-28, a week after it was authored, where it overwrote the structural trigger this
+   very note specifies. The trigger is STRUCTURE. `capacity.hard` remaining an editorial
+   budget with one consumer is the part that stands — which is also why the splitter no
+   longer reads it, or `sweet`, or `soft`, to size a cut.]** The only
    opt-outs are per-SLIDE (`<!-- stress-slide -->`, for a specimen that means to show
    overflow) and the emulator's `--no-split` (for a measurement rig).
    The two blessed oracles still look like they contradict each other and still do
@@ -139,8 +155,13 @@ envelope**, not a per-component variable:
 - **Closing — conditional.** A final slide carries the universal trailing material
   (below-note, key-insight, verdict) **only when it exists** — never an empty
   closing slide. Generalizes what `splitCoverSides` already does for one family.
-- **Footer, pagination, and the progress rail ride every slide** in the envelope
-  (cover and closing included).
+- ~~**Footer, pagination, and the progress rail ride every slide** in the envelope
+  (cover and closing included).~~ **[REVERSED
+  2026-09-01](2026-09-01-autosplit-splits-on-structure.md) — a split page carries the page number
+  and the k-of-N pill rail, and nothing else.** No deck header, no running `footer:` string, no
+  section rail. This rule was written when a split was two or three pages, where the deck frame
+  reads as continuity; at one element per page it is repetition, and the four marks shared one
+  width budget, which is why a long run pushed a deck's own `footer:` into an ellipsis.
 
 **Consequence for the model.** Dimension (d) "accent-cover vs bare" leaves the
 per-component intent vector entirely — it is now a **constant**. The vector shrinks
@@ -324,9 +345,9 @@ one: the map in `split-facts.js` is the source, and
 | **Anchor — never splits** | `closing` · `divider` · `title` |
 | **viewBox graphic — container-responsive + legibility-floor→ring** | `diagram` · `funnel` · `map` · `piechart` · `quadrant` · `radar` · `scene` · `state-chart` *(JS-scaled; no-JS UNVERIFIED)* · `word-cloud` |
 | **Bitmap asset — responsive, no split** | `image` · `video` |
-| **Atomic — whole slide, overflow→ring** (single text units + shared-geometry grids that can't scale or split) | `big-number` · `citation-card` · `contact` · `gantt` · `math` · `matrix-2x2` · `matrix-grid` *(a positional grid — a row means nothing without every other row)* · `obligation-matrix` · `quote` · `wifi` |
-| **List → item · light** (pack a fixed uniform count) | `agenda` · `checklist` · `content`° · `inventory` · `list` · `list-criteria`° · `logo-wall`° *(by image)* |
-| **List → item · heavy** (1/slide, deterministic) | `actors` · `cards-grid` · `cards-stack` · `kpi` · `policy-recommendation` · `q-and-a` · `stats` *(tile — watch)* |
+| **Atomic — whole slide, overflow→ring** (single text units + shared-geometry grids that can't scale or split) | `big-number` · `citation-card` · `contact` · `gantt` · `logo-wall` *(by image)* · `math` · `matrix-2x2` · `matrix-grid` *(a positional grid — a row means nothing without every other row)* · `obligation-matrix` · `quote` · `wifi` |
+| **List → item · light** (1/slide; a light member is one bullet or tile) | `agenda` · `checklist` · `content` · `inventory` · `list` · `list-criteria` |
+| **List → item · heavy** (1/slide; a heavy member carries a title AND a body) | `actors` · `cards-grid` · `cards-stack` · `kpi` · `policy-recommendation` · `q-and-a` · `stats` *(tile — watch)* |
 | **Record-shaped → 1 per slide** (glossary pivots via its table transform; the rest are `ol/ul>li` → list-item split) | `glossary` · `list-tabular` · `regulatory-update` · `statute-stack` |
 | **Connected / related → 1/slide + relationship signal** | `authority-chain` *(governs↓)* · `cycle` *(↻loop)* · `journey`° *(→next)* · `list-steps` *(→next)* · `pricing`° *(compare N/M)* · `timeline-list`° *(→next)* · `verdict-grid` *(compare N/M)* |
 | **Read-across → keep whole / carousel** | `compare-code` · `compare-prose` · `compare-table` · `decision` · `kanban` *(per-lane — loses the cross-lane read; a keep-whole is arguably better)* · `premise` *(one claim beside the points that substantiate it — same shape as split-panel)* · `redline` · `roadmap` *(the TABLE rings; only the transposed `horizons` card form has a seam (#1209))* · `split-compare` · `split-panel` |
@@ -1034,8 +1055,14 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
     size is not a new value: `--fs-emphasis` is documented in `engineering/typography.md`
     as "Lead paragraph, key-insight callout... *one* block per slide that should read
     first" — exactly this page, now that it is never shared with anything else.
-  - **Below-note is a FOOTNOTE of the content immediately above it — it rides the LAST
-    BODY page, one size down (`--fs-body-compact`), never a page of its own.** Its
+  - ~~**Below-note is a FOOTNOTE of the content immediately above it — it rides the LAST
+    BODY page, one size down (`--fs-body-compact`), never a page of its own.**~~ **[REVERSED
+    2026-09-01](2026-09-01-autosplit-splits-on-structure.md) — the note CLOSES the run**, beside the
+    key insight and the annotation, at full size, on a page with nothing else on it. The premise
+    here (a note is a footnote of the content above it) was accepted and the conclusion does not
+    follow: pinning it to a page already full of list items, shrunk so as not to compete, is the
+    packing the single-element rule forbids, applied to the one element that had already earned a
+    page. This is the 2026-07-26 review the new note names in its `supersedes:` front matter. Its
     wrap/exclude decision is completely untouched (`lib/core/below-note.js` is not
     touched); only WHERE it lands and its size change. `--fs-body-compact` is likewise
     not a new value — the scale's documented next rung down from the default body size.

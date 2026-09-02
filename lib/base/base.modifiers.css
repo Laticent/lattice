@@ -2347,6 +2347,19 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
   /* Gap above the lead-in. <div>, no bg, in a no-gap flex column — padding-top reads
    * identically to the old margin-top, and measures cleanly (HARD RULE #20). */
   padding-top: var(--sp-lg); font-size: var(--fs-emphasis); letter-spacing: 0.02em; opacity: 0.9;
+  display: flex; align-items: center; gap: 0.4em;
+}
+/* The forward arrow, DRAWN (HARD RULE #29). It was a typed `&rarr;` written into the rendered
+   DOM — an entity, which is why `checkTypedGlyphs` never saw it: that gate matches literal
+   characters, and an entity is not one until the parser has run. The deck's type family carries
+   almost no arrow, so the typed form fell back to whatever face the rendering machine had.
+   Sized in `em` so it tracks the lead-in's type, and painted `currentColor` so it works on the
+   accent cover and in the print band without a second rule (HARD RULE #3). */
+.split-cover-lead::after {
+  content: ""; flex: none; width: 1em; height: 1em;
+  background-color: currentColor;
+  -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
+          mask: var(--shape-arrow-right) var(--shape-paint);
 }
 /* Shares the deck pagination's baseline (bottom-right, vertically centered on the page
    number) but stands well clear of it horizontally — the rail and the page count are two
@@ -2363,6 +2376,22 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
   background: currentColor; opacity: 0.22;
 }
 .lat-split-rail .seg.on { opacity: 0.8; }
+/* The long-run form: past `RAIL_DOT_MAX` pages the rail prints "k/N" rather than drawing a
+   pill per page (lib/core/auto-split.js).
+
+   Set EXPLICITLY in the band's meta register, not `font: inherit`. Inherit was right while a
+   `<footer>` sat beside it and set the size; a split page no longer carries one (the deck's
+   chrome is stripped, 2026-09-01), so the count inherited the SLIDE's body size and rendered
+   larger than the page number next to it — the quietest mark in the band shouting over the
+   one that orients the reader. Measured on a real portrait render. */
+.lat-split-rail .seg-count {
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+  white-space: nowrap;
+}
 /* …UNLESS the deck's SECTION rail is in the same band. `12cqi` clears the page number, but
    it lands squarely inside the berth the section rail (`.tile-progress`, the progress-center
    Cell) reserves — right of `--footer-pag-reserve`, up to `--footer-center-w` wide — so on
@@ -2536,9 +2565,15 @@ section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li 
    one member, so every page fills identically. It cannot re-open the runt-page defect
    either, since that needs pages with DIFFERENT counts, and a light member packed to a
    group never lands a lone member on a page.
-   (Width needs no rule — a tiling component already answers it: cards-grid promotes
-   `li:last-child:nth-child(odd)` to `width:100%`, which a single card matches. Verified on
-   the real render at the full 1000px measure.)
+   (Width DOES need a rule, and this comment used to say it did not. The claim was that "a
+   tiling component already answers it: cards-grid promotes `li:last-child:nth-child(odd)` to
+   `width:100%`" — true of cards-grid, and true of nothing else. A component that states its
+   track width ARITHMETICALLY keeps that width with one member on the page: pricing sets
+   `width: calc(100% / 3 - 2 * var(--sp-md) / 3)` on every tier, so a lone tier rendered at a
+   third of the measure and sheared its own copy — a "Content clipped" tag on a page holding
+   one card and two-thirds white. It was invisible while the components that atomize were all
+   tiling ones; enrolling pricing is what surfaced it. So the fill is stated here, once, for
+   every component rather than per tiling idiom.)
 
    WEIGHT: these two rules repeat `.lat-split-native` FOUR times, not the two the natural-height
    rules above need. A component's BOX-LOCAL PORTRAIT REFLOW is the thing they have to beat, and
@@ -2554,6 +2589,15 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
 }
 section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:only-child {
   flex: 1 1 auto;           /* the column case (cards-stack, actors) */
+  /* …and the ROW case: a member alone on its page takes the whole measure, whatever track
+     width its component computed for a row of N.
+     `auto`, NOT `100%`. Both fill a lone tier, and `100%` also imposes a box on the
+     components that never set one — list-criteria's numbered row sheared its own text under
+     it, because its `li` is not the padded flex child the arithmetic assumes. `auto` returns
+     the item to a content basis and lets the `flex-grow: 1` above claim the line, so a
+     component that stated a track width is neutralized and one that stated nothing is
+     untouched. */
+  width: auto;
   /* …and its content sits in the card's optical center rather than hugging the top edge
      of a now page-tall box. Every heavy member's card is the same shape — a wrap-flex row
      — and `actors` ALREADY resolves to `align-content: center`, so this brings cards-grid
@@ -2561,6 +2605,86 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
      at their tops) into line with it rather than inventing a treatment. Only ever applies
      to a card that is alone on its page. */
   align-content: center;
+}
+
+/* ── A LONE BARE MEMBER is the page's statement, not a list item ────────────────────────
+   One structural element per page means the commonest split page holds a single BULLET —
+   and a bullet alone on a page is three defects at once, all visible on the first real
+   portrait render of a split `content` slide:
+
+     · the MARKER survives. A bullet exists to separate a member from its siblings, and on
+       this page it has none. It reads as a fragment torn out of a list rather than as the
+       thing the page is about.
+     · the TYPE is body size. That sentence is the page's entire content, but it is set as
+       one item among many that are not there.
+     · so it floats — a small grey run adrift in a page-tall box.
+
+   The fix is to stop treating it as a list item: drop the marker, reclaim its indent, and
+   set it one step up at `--fs-emphasis` — the same rung the insight page already uses for
+   the same reason (a page holding ONE thing sets that thing up). Palette-blind, and the
+   size comes from the 12-token scale rather than a literal (HARD RULE #4).
+
+   SCOPED TO A *BARE* MEMBER, which is the whole subtlety. A HEAVY member — a card carrying
+   a title and a body clause (HARD RULE #5's nested `- Title` / `  - body`) — already fills
+   its page and carries its own internal type; stepping that up would blow out a `cards-grid`
+   card. The `:not(:has(…))` excludes exactly that: any member with nested BLOCK content is a
+   card, not a bullet. Inline emphasis does not count, which is why `strong` is absent from
+   the list — a bare bullet routinely contains one ("The trigger is **structure**"), and
+   testing for it would have misread every emphasised bullet as a card.
+
+   (`:has()` and `:not(:has())` are both used deliberately. HARD RULE #12 banned them in theme
+   CSS on a webview claim that was retested and did not hold; the rule was retired in place on
+   2026-07-10 and this is the shape it was blocking.)
+
+   THE TWO SELECTORS MUST TEST THE SAME THING IN TWO SHAPES, and keeping them in step is not
+   cosmetic. The `ul` test first hoisted its exclusion as `:not(:has(> li > :is(…)))` — a CHILD
+   combinator — while the `li` test uses `:not(:has(ul, ol, …))`, a DESCENDANT. They agree on a
+   block that is a direct child of the member and disagree on anything deeper, which the ordinary
+   linked-image idiom `[![icon](x.png)](url)` produces: the `<img>` sits inside the `<a>`, at depth
+   two. Measured on a real render, such a member got the marker dropped and the indent reclaimed
+   (the `ul` rule matched) but NOT the type step (the `li` rule did not) — a half-applied treatment
+   leaving a body-size fragment adrift in a page-tall box, which is defect three in the list above.
+   Found by the HARD RULE #25 red team. Both are descendant tests now; a change to one is a change
+   to the other, and `test/unit/css/lone-member-selector-parity.test.js` fails if they drift.
+
+   The rest of this note is why the two are written differently AT ALL:
+   `:has()` MAY NOT NEST INSIDE `:has()` — the relational pseudo-class is forbidden inside its
+   own argument, so a browser rejects the whole selector and drops the rule with no error
+   anywhere. The first draft wrote the `ul` test as `:has(> li:only-child:not(:has(…)))`, which
+   is exactly that nesting; it parsed as invalid, the rule never applied, and the render showed a
+   bullet marker still sitting beside type that HAD stepped up — because the `li` selector below
+   puts its `:has()` inside a `:not()` at the TOP level, which is legal. Measured on the real
+   page: `list-style-type: disc`, `padding-inline-start: 52.65px`, with `font-size` already at
+   68.04px against a 46.98px body. So the `ul` test hoists the exclusion out to its own
+   top-level `:not(:has(> li > …))`, which reads the same members and parses. */
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol):has(> li:only-child):not(:has(> li :is(ul, ol, dl, table, blockquote, figure, img, pre, h3, h4, h5, h6))) {
+  list-style: none;
+  padding-inline-start: 0;
+}
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:only-child:not(:has(ul, ol, dl, table, blockquote, figure, img, pre, h3, h4, h5, h6)) {
+  font-size: var(--fs-emphasis);
+  line-height: var(--lh-snug);
+  text-wrap: pretty;
+}
+
+/* ── A LONE ROW ON A SPLIT PAGE sits in the page's optical center ──────────────────────
+   The lone-member rules above reach a LIST member (`> .cell-stage > ul|ol > li:only-child`).
+   A record-shaped component splits on the ROW axis instead — `glossary` pivots into a table and
+   `list-tabular` into rows — and a `<table>` is not a flex item whose row can be stretched, so
+   nothing above touches it. Measured on `examples/adaptive-sweep.pdf` after this change took
+   `glossary` from `perPage: 8` to 1: a single term-and-definition row sat at the very top of a
+   portrait page with the lower two-thirds empty, which reads as a page that failed to render
+   rather than as a page holding one thing.
+
+   Centering the whole table — its repeated `<thead>` included, since the header is what makes a
+   lone row legible as a row — is the smallest move that fixes it. No type step: a glossary row is
+   already a term-and-definition pair carrying its own hierarchy, unlike the bare bullet above.
+
+   `:has()` at the top level of the compound, NOT nested inside another `:has()` — see the note on
+   the lone-member rules above for why that distinction is load-bearing. Only ever matches a body
+   page whose table holds exactly one row. */
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage:has(> table > tbody > tr:only-child) {
+  justify-content: center;
 }
 
 /* ── Split COVER chrome — readable on the accent field ─────────────────────────────
@@ -2682,6 +2806,36 @@ section.form.lat-split-insight.lat-split-insight > .cell-coda > blockquote li {
   font-size: var(--fs-emphasis); line-height: var(--lh-snug);
 }
 
+/* ── The split run's CLOSING page (lib/core/split-envelope.js `closingPage`) ────────────
+   A split run opens on an accent cover and ENDS on a page that carries what the section
+   said ABOUT its content — the below-note, the key insight, and the `<!-- annotation: -->`
+   — together, with nothing else on the page (owner ruling, 2026-09-01).
+
+   Geometrically this is the insight page: an EMPTY stage, everything in the coda Cell
+   beside it, so the same two corrections apply and for the same reasons documented above
+   — the stage must stop growing or it eats the column and strands the content on the
+   floor, and the coda's `--coda-step` must go, because there is no body above for the
+   band to sit under. Written as its own block rather than folded into the insight
+   selectors so that reasoning stays attached to the page it was measured on, and so the
+   two can diverge later without unpicking a shared `:is()`.
+
+   What is deliberately NOT repeated here is the insight page's size bump. That page holds
+   ONE thing and sets it a step up; a closing page can hold a note AND an insight AND an
+   annotation, which already carry three distinct sizes (`--fs-body`, the key-insight
+   panel's own, and ANNOTATION's `--fs-meta`). Scaling the group would flatten a hierarchy
+   the theme already draws correctly. The note is at its NORMAL size here, not the compact
+   step it used to take: that step existed only because the note shared a page with body
+   content, and on the closing page it does not. */
+section.form.lat-split-closing.lat-split-closing > .cell-stage {
+  flex: 0 0 auto;
+  align-items: stretch;   /* a component's centered stage would otherwise shrink-wrap the cell */
+}
+section.form.lat-split-closing.lat-split-closing > .cell-coda {
+  padding-top: 0;
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
 /* ── Shared split NOTE (lib/core/split-envelope.js `markNote` / `injectTrailing`) ───────
    The envelope's other trailing beat: a `.below-note` (or, on a layout below-note's
    EXCLUDED list keeps raw, an unwrapped trailing `<p>`) rides the LAST BODY page instead
@@ -2757,6 +2911,24 @@ section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > .be
    text. Sits at the foot of the content cell, after the trailing note, with a hairline above it
    separating it from the body. Palette-blind (#3), spaced with padding + border only (#20).
    The text itself is DERIVED at build time and never authored, so nothing here can go stale. */
+/* KEYED ON `data-split-role`, NOT on a layout class. Every page a split emitted carries that
+   attribute whatever built it; only the PLAIN envelope's body pages carry `lat-split-native`. The
+   ten carousel strategies give their pages their own classes (`content compare-split
+   compare-split-points form`), so this treatment missed all of them — and with it the
+   `display: flex` the drawn mark needs to lay out. Measured on `examples/read-across-carousel.pdf`:
+   a `compare-prose` body page rendered its signal as PLAIN BODY TEXT, full size, no mark, no
+   hairline, jammed under the card — while the identical signal two pages earlier read as muted
+   mono chrome. The signal is a RUN-level fact, so its styling follows the element, not the page's
+   layout. Found by rasterizing the changed decks and reading them.
+
+   NO `.form` IN THE SELECTOR EITHER, and that was a second miss in the same fix. The first pass
+   widened this to `section.form[data-split-role]`, which still assumed every split page is a Form
+   layout. `premise` is not — its section is `class="premise lat-split-native"`, no `form` — so it
+   kept rendering "next: Analyze" as plain body text on `examples/split-horizontal.pdf` after the
+   widening. `data-split-role` alone is the precise test: the attribute exists on split pages and
+   nowhere else, so nothing narrower is needed and anything narrower encodes an assumption about
+   the page that the signal does not depend on. */
+section[data-split-role] .lat-split-rel,
 section.form.lat-split-native > .cell-stage > .lat-split-rel,
 section.form.lat-split-native > .lat-split-rel {
   font-family: var(--font-label);
@@ -2769,6 +2941,41 @@ section.form.lat-split-native > .lat-split-rel {
      SOC 2") and wraps in a portrait box; `balance` keeps it from orphaning a two-character
      fragment on line two, which is what it did on the real render. */
   text-wrap: balance;
+  /* The mark sits on the first line, not above a wrapped block, so this is a flex row with the
+     text as the one growing member rather than an inline `::before` that a `text-wrap: balance`
+     line box would carry along. */
+  display: flex; align-items: baseline; gap: 0.45em;
+}
+/* The signal's MARK, DRAWN per `data-mark` (lib/core/relationship.js). Four shapes for the four
+   relationships: a run continues (→), a cycle returns (↻), a hierarchy governs downward (↓) or
+   sits under (↑). A comparison gets none — "Option 2 of 4" is a count, and an arrow on it would
+   claim a direction the relationship does not have.
+
+   All four were typed HTML entities until 2026-09-01. HARD RULE #29's gate could not see them
+   (it matches literal characters, not entities), so they shipped as the exact defect the rule
+   describes: the deck's own face carries none of `→ ↻ ↓ ↑`, so each fell back per machine.
+   `align-self: center` on a baseline row keeps the mask centred on the first line's x-height —
+   a mask has no baseline of its own to align. */
+.lat-split-rel[data-mark]:not([data-mark="count"])::before {
+  content: ""; flex: none; align-self: center; width: 1.05em; height: 1.05em;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+}
+.lat-split-rel[data-mark="next"]::before {
+  -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
+          mask: var(--shape-arrow-right) var(--shape-paint);
+}
+.lat-split-rel[data-mark="loop"]::before {
+  -webkit-mask: var(--shape-refresh) var(--shape-paint);
+          mask: var(--shape-refresh) var(--shape-paint);
+}
+.lat-split-rel[data-mark="down"]::before {
+  -webkit-mask: var(--shape-arrow-down) var(--shape-paint);
+          mask: var(--shape-arrow-down) var(--shape-paint);
+}
+.lat-split-rel[data-mark="up"]::before {
+  -webkit-mask: var(--shape-arrow-up) var(--shape-paint);
+          mask: var(--shape-arrow-up) var(--shape-paint);
 }
 
 /* ── Shared split NOTE, the `cover-cards` shape (lib/core/carousel.js `coverCardsSections`) ──

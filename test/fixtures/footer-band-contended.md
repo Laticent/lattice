@@ -22,14 +22,20 @@ reproduces the original defect rather than a mild version of it.
 
 ---
 
-<!-- _class: checklist -->
+<!-- _class: quote -->
 
-## A list long enough to split, so the band gets a fourth mark.
+## The band is contended on an AUTHORED slide, and it has three marks.
 
-This fixture must actually SPLIT, so the band carries all four marks — footer text, section
-dots, the k-of-N split rail, page number — and the allocation policy is exercised rather than
-merely present. A fixture that renders one page exercises none of it, which is how the first
-version of this file let seven of nine mutations through.
+> Footer text, section dots, page number. The k-of-N split rail is not a fourth mark here and
+> cannot be: a split page carries no deck header, footer or section rail at all (2026-09-01), so
+> the band this suite measures only ever exists on a slide the splitter did not touch.
+
+This fixture used to say the opposite — "must actually SPLIT, so the band gets a fourth mark" —
+and every slide in it was a list. When splitting went structural, all of them split, every one
+lost its band, and the suite measured ZERO bands rather than a contended one. That is why the
+slides here are prose and atomic layouts now: they cannot split, so they keep their band. A
+fixture that renders no band exercises nothing, which is the same failure as the first version
+of this file, which let seven of nine mutations through.
 
 It also carries **eleven dividers**, deliberately, so the rail reaches its `MAX_DOTS` cap of ten
 and the `--footer-center-w` reserve is actually under load. A previous version had ONE divider,
@@ -42,18 +48,6 @@ The footer carries accented CAPITALS on purpose: `overflow: hidden` on a `line-h
 box clips everything above cap height, so `ÜBERPRÜFUNG` printed as `UBERPRUFUNG` and no box
 or ink measurement could see it.
 
-- [x] Signal intake wired end to end, with the latency budget agreed
-- [x] Scoring model recalibrated on eighteen months of settled outcomes
-- [x] Decision log live, with a written owner and a date on every call
-- [x] Calibration loop running weekly against the shipped scores
-- [ ] Risk register populated and reviewed by the second line
-- [ ] Budget tracker reconciled against the ledger for the quarter
-- [ ] Hiring plan approved by the committee that owns the headcount
-- [ ] Roadmap published with the dependencies named
-- [ ] Retrospective template ready and agreed with the chairs
-- [ ] Metrics review automated end to end
-- [ ] Customer interviews booked through the end of the quarter
-- [ ] Residency review closed with no open findings
 
 ---
 
@@ -72,10 +66,9 @@ or ink measurement could see it.
 ## A railed body page in section 2.
 
 One body page per section, so every dot in the rail is reachable and the band is measured on a
-page that actually carries the full rail.
+page that actually carries the full rail. Prose, not a list, deliberately: a list would split,
+and a split page carries no band for this suite to measure.
 
-- A line
-- Another line
 ---
 
 <!-- _class: divider -->
@@ -93,10 +86,9 @@ page that actually carries the full rail.
 ## A railed body page in section 3.
 
 One body page per section, so every dot in the rail is reachable and the band is measured on a
-page that actually carries the full rail.
+page that actually carries the full rail. Prose, not a list, deliberately: a list would split,
+and a split page carries no band for this suite to measure.
 
-- A line
-- Another line
 ---
 
 <!-- _class: divider -->
@@ -114,10 +106,9 @@ page that actually carries the full rail.
 ## A railed body page in section 4.
 
 One body page per section, so every dot in the rail is reachable and the band is measured on a
-page that actually carries the full rail.
+page that actually carries the full rail. Prose, not a list, deliberately: a list would split,
+and a split page carries no band for this suite to measure.
 
-- A line
-- Another line
 ---
 
 <!-- _class: divider -->
@@ -135,10 +126,9 @@ page that actually carries the full rail.
 ## A railed body page in section 5.
 
 One body page per section, so every dot in the rail is reachable and the band is measured on a
-page that actually carries the full rail.
+page that actually carries the full rail. Prose, not a list, deliberately: a list would split,
+and a split page carries no band for this suite to measure.
 
-- A line
-- Another line
 ---
 
 <!-- _class: divider -->
@@ -156,10 +146,9 @@ page that actually carries the full rail.
 ## A railed body page in section 6.
 
 One body page per section, so every dot in the rail is reachable and the band is measured on a
-page that actually carries the full rail.
+page that actually carries the full rail. Prose, not a list, deliberately: a list would split,
+and a split page carries no band for this suite to measure.
 
-- A line
-- Another line
 ---
 
 <!-- _class: divider -->
@@ -177,10 +166,9 @@ page that actually carries the full rail.
 ## A railed body page in section 7.
 
 One body page per section, so every dot in the rail is reachable and the band is measured on a
-page that actually carries the full rail.
+page that actually carries the full rail. Prose, not a list, deliberately: a list would split,
+and a split page carries no band for this suite to measure.
 
-- A line
-- Another line
 ---
 
 <!-- _class: divider -->
@@ -198,10 +186,9 @@ page that actually carries the full rail.
 ## A railed body page in section 8.
 
 One body page per section, so every dot in the rail is reachable and the band is measured on a
-page that actually carries the full rail.
+page that actually carries the full rail. Prose, not a list, deliberately: a list would split,
+and a split page carries no band for this suite to measure.
 
-- A line
-- Another line
 ---
 
 <!-- _class: divider -->
@@ -219,10 +206,9 @@ page that actually carries the full rail.
 ## A railed body page in section 9.
 
 One body page per section, so every dot in the rail is reachable and the band is measured on a
-page that actually carries the full rail.
+page that actually carries the full rail. Prose, not a list, deliberately: a list would split,
+and a split page carries no band for this suite to measure.
 
-- A line
-- Another line
 ---
 
 <!-- _class: divider -->
@@ -240,10 +226,9 @@ page that actually carries the full rail.
 ## A railed body page in section 10.
 
 One body page per section, so every dot in the rail is reachable and the band is measured on a
-page that actually carries the full rail.
+page that actually carries the full rail. Prose, not a list, deliberately: a list would split,
+and a split page carries no band for this suite to measure.
 
-- A line
-- Another line
 ---
 
 <!-- _class: divider -->
@@ -261,10 +246,9 @@ page that actually carries the full rail.
 ## A railed body page in section 11.
 
 One body page per section, so every dot in the rail is reachable and the band is measured on a
-page that actually carries the full rail.
+page that actually carries the full rail. Prose, not a list, deliberately: a list would split,
+and a split page carries no band for this suite to measure.
 
-- A line
-- Another line
 ---
 
 <!-- _class: content -->
@@ -277,8 +261,9 @@ promoted footer is an in-flow item with auto height, so without a cap this grows
 21.6px to 103px — and the band is bottom-anchored, so it grows UPWARD into the stage and the
 page number jumps between slides. The plain-text footer on every other page cannot catch it.
 
-- A line
-- Another line
+Prose here for the same reason as the railed pages above: a list would split this slide, and a
+split page carries no band — so the one slide that exists to test a tall footer would stop
+having a footer to test.
 
 ---
 

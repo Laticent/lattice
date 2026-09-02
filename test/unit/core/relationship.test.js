@@ -25,22 +25,22 @@ describe('core: relationship — the four kinds', () => {
   test('sequence: every non-terminal page names the NEXT member; the last has no next', () => {
     const out = relationshipSignals('sequence', oneEach(TITLES));
     assert.equal(out.length, 4);
-    assert.match(out[0], /class="lat-split-rel">&rarr; next: Circulate for comment</);
-    assert.match(out[1], /&rarr; next: Sign off</);
-    assert.match(out[2], /&rarr; next: Publish</);
+    assert.match(out[0], /data-mark="next">next: Circulate for comment</);
+    assert.match(out[1], /data-mark="next">next: Sign off</);
+    assert.match(out[2], /data-mark="next">next: Publish</);
     assert.equal(out[3], '', 'the terminal page of a sequence has nothing to point at');
   });
 
   test('cycle: flows forward, then the LAST page loops back to stage 1 (never dropped)', () => {
     const out = relationshipSignals('cycle', oneEach(TITLES));
-    assert.match(out[0], /&rarr; next: Circulate for comment</);
-    assert.match(out.at(-1), /&#8635; back to Draft the policy</);
+    assert.match(out[0], /data-mark="next">next: Circulate for comment</);
+    assert.match(out.at(-1), /data-mark="loop">back to Draft the policy</);
   });
 
   test('hierarchy: governs ↓ down the chain, under ↑ on the last tier — never a temporal "next"', () => {
     const out = relationshipSignals('hierarchy', oneEach(TITLES));
-    assert.match(out[0], /governs &darr; Circulate for comment</);
-    assert.match(out.at(-1), /under &uarr; Sign off</);
+    assert.match(out[0], /data-mark="down">governs Circulate for comment</);
+    assert.match(out.at(-1), /data-mark="up">under Sign off</);
     for (const s of out) assert.doesNotMatch(s, /next/, 'a hierarchy is not a sequence');
   });
 
@@ -99,8 +99,8 @@ describe('core: relationship — DERIVED, never authored (§8 rule 12a)', () => 
   test('a hierarchy\'s "under ↑" follows an edit to the PREVIOUS member', () => {
     const before = relationshipSignals('hierarchy', oneEach(['Statute', 'Regulation', 'Case law']));
     const after = relationshipSignals('hierarchy', oneEach(['Statute', 'Implementing regulation', 'Case law']));
-    assert.match(before.at(-1), /under &uarr; Regulation</);
-    assert.match(after.at(-1), /under &uarr; Implementing regulation</);
+    assert.match(before.at(-1), /data-mark="up">under Regulation</);
+    assert.match(after.at(-1), /data-mark="up">under Implementing regulation</);
   });
 });
 
@@ -121,13 +121,58 @@ describe('core: relationship — refusals and reading', () => {
     assert.ok(Object.isFrozen(RELATIONSHIPS));
   });
 
-  test('labelOf reads a card title, a subheading, or the leading text — and clips a long one', () => {
+  test('labelOf reads a card title, a subheading, or the leading text', () => {
     assert.equal(labelOf(li('Draft the policy.', 'body')), 'Draft the policy');
     assert.equal(labelOf('<li><h3>Tier one</h3><p>body</p></li>'), 'Tier one');
     assert.equal(labelOf('<li>Just leading text<ul><li>nested</li></ul></li>'), 'Just leading text');
+  });
+
+  test('a NAMED member declines rather than clipping — every path, not just the flat run', () => {
+    // Was: the `<strong>` path clipped to 41 chars + `…`. `<strong>` was read as "the author
+    // named this, so it is short", but a component TRANSFORM can wrap a member's whole text in
+    // it — `list-criteria` does — so the named path clipped full sentences. The committed
+    // `examples/split-structure.pdf` carried "next: A heading that says which run it belongs…"
+    // and "next: A way back to the whole — the k-of-N rail…", which is character-for-character
+    // the shape the decision record claims was removed. Found by the independent checker,
+    // against the shipped artifact.
     const long = labelOf(li('A step whose authored title runs on well past the adornment budget', 'b'));
-    assert.ok(long.length <= 42, `clipped to ${long.length}`);
-    assert.match(long, /…$/);
+    assert.equal(long, '', 'a name with no clause break and no end must decline, not clip');
+    assert.ok(!/…/.test(long));
+    assert.equal(labelOf('<li><h3>A subheading that also runs on well past the adornment budget</h3></li>'), '',
+      'the subheading path declines the same way');
+  });
+
+  test('a clause break is cut FIRST, so a long member still yields a real name', () => {
+    // The fix must not trade truncated labels for no labels: this is the two-step the flat path
+    // already used, now applied to the named paths too.
+    assert.equal(labelOf(li('A way back to the whole — the k-of-N rail in the footer band', 'b')),
+      'A way back to the whole');
+    assert.equal(labelOf(li('The one thing it holds, set at full size — not shrunk to share', 'b')),
+      'The one thing it holds, set at full size');
+  });
+
+  test('a FIGURE is not a name — the member\'s own text is preferred when it yields one', () => {
+    // `stats` and `kpi` lead a member with the VALUE, the metric name nested under it, so taking
+    // the leading `<strong>` pointed a whole run at its own numbers: measured on
+    // `examples/adaptive-sizing.pdf`, every page read "next: $0.9M" and the cover lead-in was
+    // "$48.2M". The reader was told which figure came next, never which metric.
+    assert.equal(labelOf('<li><strong>119%</strong><ul><li>Net revenue retention</li></ul></li>'),
+      'Net revenue retention');
+    assert.equal(labelOf('<li><strong>4.2x</strong> Pipeline coverage</li>'), 'Pipeline coverage');
+  });
+
+  test('a figure with NOTHING after it keeps the figure; one with an unusable follow declines', () => {
+    // A roadmap horizon authored as `2026` alone still points at 2026 — there the numeral IS the
+    // name, which is why this is not a blanket ban on numeric labels.
+    assert.equal(labelOf('<li><strong>2026</strong></li>'), '2026');
+    // But a bullet led by a bolded COUNT falls through to its own sentence, which is not a name,
+    // and declines rather than claiming a number is the next page's subject. This is the
+    // "next: 31" case the decision record carries.
+    assert.equal(labelOf('<li><strong>31</strong> keep whole and ring on overflow, each for a recorded reason</li>'), '');
+  });
+
+  test('an ordinary named card is untouched by the figure rule', () => {
+    assert.equal(labelOf('<li><strong>Draft the policy.</strong><ul><li>body</li></ul></li>'), 'Draft the policy');
   });
 
   test('criteriaOf reads the badge labels a verdict/pricing member carries', () => {
@@ -167,8 +212,8 @@ describe('core: relationship — through the real emission path (post-convergenc
     const out = applyRelationshipSignals(deck([['Draft'], ['Circulate'], ['Publish']]), CAP);
     const sections = out.split('<section').slice(1);
     assert.doesNotMatch(sections[0], /lat-split-rel/, 'the accent cover is not a member');
-    assert.match(sections[1], /&rarr; next: Circulate</);
-    assert.match(sections[2], /&rarr; next: Publish</);
+    assert.match(sections[1], /data-mark="next">next: Circulate</);
+    assert.match(sections[2], /data-mark="next">next: Publish</);
     assert.doesNotMatch(sections[3], /lat-split-rel/, 'the last step has no next');
   });
 
@@ -179,7 +224,7 @@ describe('core: relationship — through the real emission path (post-convergenc
     // nothing at all. Caught on a real render, not by a unit test.
     const withContent = { ...CAP, content: { axis: 'item', relationship: null } };
     const out = applyRelationshipSignals(deck([['Draft'], ['Publish']]), withContent);
-    assert.match(out, /&rarr; next: Publish</);
+    assert.match(out, /data-mark="next">next: Publish</);
   });
 
   test('IDEMPOTENT — a second call re-derives rather than appending a second signal', () => {
@@ -193,19 +238,37 @@ describe('core: relationship — through the real emission path (post-convergenc
     // Simulate the two-pass case: page 1 held [Draft, Circulate] and pointed at [Publish];
     // a later pass split it, so page 1 now holds [Draft] and its neighbor is [Circulate].
     const stale = applyRelationshipSignals(deck([['Draft', 'Circulate'], ['Publish']]), CAP);
-    assert.match(stale.split('<section')[2], /&rarr; next: Publish</);
+    assert.match(stale.split('<section')[2], /data-mark="next">next: Publish</);
     const recut = applyRelationshipSignals(stale.replace(
       /<section data-split-run="r1" data-split-role="body"[\s\S]*?<\/section>/,
       page(1, 'list-steps form lat-split-native', ['Draft']) + page(2, 'list-steps form lat-split-native', ['Circulate']),
     ), CAP);
-    assert.match(recut.split('<section')[2], /&rarr; next: Circulate</,
+    assert.match(recut.split('<section')[2], /data-mark="next">next: Circulate</,
       'the re-split page kept a signal pointing past its real neighbor');
     assert.equal((recut.match(/lat-split-rel/g) || []).length, 2, 'and it is not doubled');
   });
 
-  test('a layout that declares no relationship gets no signal at all', () => {
+  test('a layout that declares NO relationship still gets one — sequence is the default', () => {
+    // The carousel is universal as of 2026-09-01. This test asserted the opposite until then:
+    // the signal required `capacity.relationship`, which four of sixty-one components declare,
+    // so every other split run's pages ended with nothing joining them. `sequence` is the
+    // default because it is the relationship a split run HAS — the pages were one slide.
     const out = applyRelationshipSignals(deck([['Draft'], ['Publish']]), { 'list-steps': { axis: 'item' } });
-    assert.doesNotMatch(out, /lat-split-rel/);
+    assert.match(out, /data-mark="next">next: Publish</);
+    assert.equal((out.match(/lat-split-rel/g) || []).length, 1, 'the last body page has no next member');
+  });
+
+  test('an UNNAMED member points forward without inventing a label', () => {
+    // A member with no `<strong>`, no subheading and no clause break has only a sentence. The
+    // budget would clip it to "→ next: A page carries one structural element; no…", which reads
+    // as a bug rather than wayfinding — seen on the first real render after the carousel went
+    // universal, and the reason `labelOf` now returns '' rather than a truncated fragment.
+    const long = 'A page carries one structural element and nothing else at all';
+    const bare = (n, label) => `<section data-split-run="r1" data-split-role="body" data-lattice-slide="${n}" `
+      + `class="list-steps form lat-split-native"><h2>T</h2><ul><li>${label}</li></ul></section>`;
+    const out = applyRelationshipSignals(bare(1, long) + bare(2, `${long} again`), { 'list-steps': { axis: 'item' } });
+    assert.match(out, /data-mark="next">continues</, 'it still points forward');
+    assert.doesNotMatch(out, /…/, 'and never with a truncated sentence');
   });
 
   test('an unsplit deck (no run ids) and an empty capacity map are no-ops', () => {

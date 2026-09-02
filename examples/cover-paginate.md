@@ -13,7 +13,7 @@ footer: "Cover-paginate"
 
 `Fit Ladder · the cover-paginate move`
 
-A long register can't shrink to fit — so when it overflows, the engine leads with a cover, then flows the layout's own cards on. Same deck, just more of it.
+A long register can't shrink to fit — so when it holds more than one record, the engine leads with a cover, then gives each record a page. Structure decides the cut, not a measured overflow.
 
 ---
 
@@ -24,7 +24,7 @@ A long register can't shrink to fit — so when it overflows, the engine leads w
 - A dense list overflows? It can't drop a type size — readability is the floor
 - So the engine **leads with an accent cover** — a heading, a semantic intro, a forward arrow
 - Then it flows the layout's **own native cards** — never generic rows
-- A small **progress rail** ties the run together — k-of-N, beside the page number (`autosplit: on`)
+- A small **progress rail** ties the run together — k-of-N, beside the page number
 
 ---
 

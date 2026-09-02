@@ -85,7 +85,11 @@ section.q-and-a > .cell-stage > :is(ul, ol) > li {
   line-height: var(--lh-snug);
 }
 section.q-and-a > .cell-stage > :is(ul, ol) > li::before {
-  content: "0" counter(qa);
+  /* `decimal-leading-zero`, NOT a literal "0" prefix: the prefix printed `010` at item ten.
+     Unreachable while a page held several members and the counter effectively never passed
+     `perPage`; one structural element per page plus the `--lat-split-offset` seed drives it
+     to 10 on any run that long. Found by the HARD RULE #25 red team on a rendered page. */
+  content: counter(qa, decimal-leading-zero);
   position: absolute;
   left: var(--sp-xs);
   top: 0;
@@ -373,7 +377,11 @@ section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-
   border-left: 2px solid var(--accent);
 }
 section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li::before {
-  content: "0" counter(qa);
+  /* `decimal-leading-zero`, NOT a literal "0" prefix: the prefix printed `010` at item ten.
+     Unreachable while a page held several members and the counter effectively never passed
+     `perPage`; one structural element per page plus the `--lat-split-offset` seed drives it
+     to 10 on any run that long. Found by the HARD RULE #25 red team on a rendered page. */
+  content: counter(qa, decimal-leading-zero);
   position: absolute;
   left: var(--sp-md);
   top: 0;

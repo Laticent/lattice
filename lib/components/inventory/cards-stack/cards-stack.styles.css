@@ -89,7 +89,9 @@ section.cards-stack .card > ul > li, section.cards-stack .card > ol > li {
  * on the ordered shape (`> ol` / `--ordered` modifier class). Composes with
  * `horizontal`: the badge sits in the same corner whether cards stack
  * vertically or flow as a row. ── */
-section.cards-stack > .cell-stage > ol { counter-reset:stack; }
+/* `var(--lat-split-offset, 0)` continues the run's numbering across split pages —
+   without it every atomized page restarts at 01 (test/unit/css/split-ordinal-continuity.test.js). */
+section.cards-stack > .cell-stage > ol { counter-reset:stack var(--lat-split-offset, 0); }
 section.cards-stack > .cell-stage > ol > li {
   counter-increment:stack;
   position:relative; padding-top:calc(var(--sp-xs) + 1.875cqi);
@@ -101,7 +103,7 @@ section.cards-stack > .cell-stage > ol > li::before {
   font-family:var(--font-label); font-size:var(--fs-meta); font-weight:700; line-height:1;
   color:var(--on-accent, var(--on-dark-primary)); background:var(--accent);
 }
-section.cards-stack .cards-stack-inner--ordered { counter-reset:stack; }
+section.cards-stack .cards-stack-inner--ordered { counter-reset:stack var(--lat-split-offset, 0); }
 section.cards-stack .cards-stack-inner--ordered > .card {
   counter-increment:stack;
   position:relative; padding-top:calc(var(--sp-xs) + 1.875cqi);

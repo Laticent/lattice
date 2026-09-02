@@ -6,6 +6,11 @@ builds-on: 2026-06-22-the-fit-spine.md, 2026-07-22-structure-derived-split-patte
 
 # Auto-split is not a toggle
 
+> **SUPERSEDED IN PART (2026-09-01).** The retirement of the `autosplit:` DIRECTIVE stands — splitting is still intrinsic, and still gated to `square` · `tall` · `strip`. What is reversed is this note's other ruling, that split "fires on FIT, never on an authored count": the trigger is now STRUCTURE, read from the markup, and no render is measured to decide it. See
+> [`2026-09-01-autosplit-splits-on-structure.md`](2026-09-01-autosplit-splits-on-structure.md).
+> Read that note before acting on anything below about the split TRIGGER or its PACING.
+
+
 **Date:** 2026-07-29 · **Status:** Shipped · **Decision owner:** Sharmarke
 
 This supersedes a decision made two commits earlier on the same branch. #1234 flipped
@@ -159,6 +164,13 @@ primitive only works if the signal is real. The lint fix text has been rewritten
 ring, and the gap is logged in Risks below rather than papered over.
 
 ### 2. Split fires on FIT, never on an authored count
+
+> **[REVERSED 2026-09-01 — the trigger is STRUCTURE.](2026-09-01-autosplit-splits-on-structure.md)** The half of this section that RETIRED the
+> `autoSplitDeck` count pre-cut stands. The half this heading states — that fit is the trigger —
+> does not. A slide now splits when its collection holds more than one member, read from the
+> markup; no render is measured to decide it. Fit is still measured, AFTER the split, for the
+> overflow ring only. Read the heading as "split does not fire on a capacity BUDGET", which is
+> what it was arguing, and take nothing below it as current about what the trigger IS.
 
 The engine had **two** split triggers, and the second one was quietly the more aggressive.
 A pre-render pass (`autoSplitDeck`) counted each collection against `capacity.hard` and

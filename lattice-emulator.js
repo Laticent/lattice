@@ -772,7 +772,8 @@ const { renderDiagrams } = require('./lib/core/render-diagrams');
 const { slideClassSpans, slideClassAt, slideIndexAt } = require('./lib/core/slide-class-spans');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 // The verdict half of the same measurement — extent + legibility → the
-// `{ ratio, canSplit, splitRatio }` resplitDoc eats. See lib/core/split-verdict.js.
+// `{ ratio, canSplit, splitRatio }` the overflow RING reads. (It fed `resplitDoc` until
+// 2026-09-01; the split is structural now and consults no measurement.) See lib/core/split-verdict.js.
 const { SPLIT_VERDICT_SRC } = require('./lib/core/split-verdict');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 const { ROUGH_INK_STRUCTURES, pathsForPlan } = require('./lib/core/rough-ink');
@@ -1877,7 +1878,7 @@ const PLAYER = !!flags.player || /^\s*player:\s*(?:true|yes|on)\s*$/im.test(fm);
 const PLAYER_VERSION = '1';
 const ENGINE_BUILD = pkgVersion() ?? '';
 // Auto-split — the Fit Ladder's SPLIT move. ONE trigger: a real render MEASURED the slide
-// overflowing its box, and the slide has a seam (lib/core/auto-split.js `resplitDoc`, driven
+// overflowing its box, and the slide has a seam (lib/core/auto-split.js `splitDoc`, driven
 // by the `measureOverflow` evaluate below). The capacity map is hoisted to module scope so
 // the measured loop can read each layout's split AXIS + pacing from the top-level `capacity`
 // OR the per-family `adapt.capacity`, so a layout whose budget lives only in adapt is still
@@ -3157,7 +3158,7 @@ async function renderBody(browser, g, closeBrowser) {
     //     internal overflow is folded back into the section's effective extent;
     //     otherwise autosplit never sees an over-stuffed cell and content is lost.
     //   · probeFigureLegibility — the §8 rule 8 type floor.
-    //   · buildSplitVerdict — extent + legibility → the VERDICT resplitDoc eats.
+    //   · buildSplitVerdict — extent + legibility → the VERDICT the overflow ring reads.
     //     It used to be 150 lines inline right here, which is why the runtime
     //     could not become a second measurer without re-deriving them
     //     (2026-06-25-runtime-autosplit-eventual-consistency.md Amendment 1 § Cost A).
@@ -3173,26 +3174,27 @@ async function renderBody(browser, g, closeBrowser) {
     });
     return out;
   }, { structuralCarousel: STRUCTURAL_CAROUSEL_NAMES, paginatorCarousel: PAGINATOR_CAROUSEL_NAMES, clipSel: CLIP_CELL_SELECTOR, ignoreSel: IGNORED_CLIP_SELECTOR, probeSrc: PROBE_SRC, legibilitySrc: LEGIBILITY_SRC, verdictSrc: SPLIT_VERDICT_SRC, floorRatio: FIGURE_TEXT_FLOOR_RATIO }), 'measure overflow');
-  let overflow = await measureOverflow();
-  // MEASURED auto-split — the ONLY split trigger, and the loop that makes "split" fit REAL
-  // boxes. Divide every overflowing SPLITTABLE slide by how much it overflows, re-render,
-  // re-measure, until the deck fits or only un-splittable overflow remains (read-across /
-  // atomic / a single item taller than the page — those stay for the ring). This is the pass
-  // that catches DENSITY overflow, which no count threshold can see: whether a slide fits is
-  // a fact about glyphs in a box, not about how many bullets someone typed.
+  // STRUCTURAL auto-split — ONE pass, before anything is measured.
   //
-  // Nothing is fed in here from a count estimate. That is the point of the 2026-07-29
-  // correction: a slide over `capacity.hard` that FITS is left exactly as authored, at every
-  // size the gate admits. See lib/core/auto-split.js + the-fit-spine.md §3.
+  // Every enrolled slide whose collection holds more than one member becomes
+  // COVER → BODY(one element each) → CLOSING. The trigger is the slide's STRUCTURE, which is
+  // in the markup, so this needs no render to decide and no loop to converge: there is exactly
+  // one cut to make and it is made once.
+  //
+  // This replaces the measure→split→re-measure loop that ran here from 2026-07-29 (owner
+  // ruling, 2026-09-01). That loop asked "does it fit" and cut by however much it did not,
+  // which made the page count a property of the RENDERER — the same deck cut differently on a
+  // machine with different fonts, and a slide could be re-cut on a later pass, so a run's own
+  // membership was not known until it converged. Structure is knowable without rendering, so
+  // the linter, the authoring surface and the export now agree on what a deck becomes.
+  //
+  // Fit is still MEASURED, immediately below — it just no longer decides anything. A page that
+  // does not fit even at one element per page rings, which is the honest terminal: there is no
+  // smaller cut left to make.
   if (AUTOSPLIT_APPLIES) {
-    const { resplitDoc, applyRails, applyRelationshipSignals } = require('./lib/core/auto-split');
-    for (let pass = 1; pass <= 5 && overflow.some((o) => o.canSplit); pass++) {
-      // Only the slides whose OWN collection drives the overflow (canSplit); size each
-      // split from its collection-relative ratio so the loop converges instead of
-      // re-splitting a slide a tall non-list block keeps over the box.
-      const splittable = overflow.filter((o) => o.canSplit).map((o) => ({ slide: o.slide, ratio: o.splitRatio }));
-      const r = resplitDoc(cleanDocHtml, splittable, SPLIT_CAP);
-      if (!r.changed) break;
+    const { splitDoc, applyRails, applyRelationshipSignals, stripDeckChrome } = require('./lib/core/auto-split');
+    const r = splitDoc(cleanDocHtml, SPLIT_CAP);
+    if (r.changed) {
       cleanDocHtml = r.html;
       fs.writeFileSync(outHtml, cleanDocHtml);
       // `load` for the same measured reason as the initial navigation above.
@@ -3201,24 +3203,17 @@ async function renderBody(browser, g, closeBrowser) {
         try { await Promise.all([...document.fonts].map((f) => f.load().catch(() => {}))); await document.fonts.ready; } catch (_e) { /* fonts API unavailable */ }
       }), 'load fonts (autosplit)');
       await settleDeferredMedia(' (autosplit)');
-      overflow = await measureOverflow();
-      if (!QUIET) console.log(`  auto-split (measured) pass ${pass}: ${r.changed} slide(s) divided to fit`);
+      if (!QUIET) console.log(`  auto-split (structural): ${r.changed} slide(s) split to one element per page`);
     }
-    // Splitting has converged — NOW stamp the two RUN-LEVEL adornments, run by run (a slide may
-    // have split across several passes; only the final grouping knows each run's true length and
-    // membership): the k-of-N progress rail, and the §0b relationship signal a connected
-    // component's atomized members carry ("→ next: …" / "↻ back to …" / "governs ↓ …" /
-    // "Option N of M"). One re-render so both land in the exported DOM.
-    // …and RE-BERTH, in the same re-render. The splitter builds each cover page
-    // fresh, so a cover carries none of the marker chrome the engine emitted onto
-    // the slide it came from — leaving `berth()`'s mint-on-miss as the only thing
-    // that would draw its ring. That net works, and it is documented as a branch
-    // that should never be taken; a split deck taking it on every cover would make
-    // that false. Idempotent, so every page the split preserved is untouched, and
-    // it runs AFTER the split rather than before so the pages it berths are the
-    // final ones. (lib/core/fit-berth.js applyToDocHtml — the assembled-document
-    // form, which slices the head prefix off for the same reason resplitDoc does.)
-    const railed = fitBerth.applyToDocHtml(applyRails(applyRelationshipSignals(cleanDocHtml, SPLIT_CAP)));
+    // The two RUN-LEVEL adornments — the k-of-N progress rail, and the carousel signal every
+    // body page carries ("→ next: …" / "↻ back to …" / "governs ↓ …" / "Option N of M", and on
+    // the last body page a pointer at the closing page). Both need the run's final membership,
+    // which after a single structural pass is simply "now" — but they stay a separate pass
+    // because they are facts ABOUT a run rather than about any one page.
+    // …and RE-BERTH, in the same re-render (see below).
+    // …and STRIP THE DECK'S CHROME from the emitted pages first, so the rail is docked into
+    // whatever band is left rather than into one that is about to lose three of its four marks.
+    const railed = fitBerth.applyToDocHtml(applyRails(applyRelationshipSignals(stripDeckChrome(cleanDocHtml), SPLIT_CAP)));
     if (railed !== cleanDocHtml) {
       cleanDocHtml = railed;
       fs.writeFileSync(outHtml, cleanDocHtml);
@@ -3230,6 +3225,10 @@ async function renderBody(browser, g, closeBrowser) {
       await settleDeferredMedia(' (rails)');
     }
   }
+  // MEASURE FIT — after the split, and for the RING only. Nothing downstream of here changes
+  // the page count; this verdict feeds the author warnings and the overflow marker, which is
+  // the honest terminal for a page that still does not fit at one element per page.
+  const overflow = await measureOverflow();
   // §8 rule 8's figures are reported on their OWN line: "clipped" would be a lie (the box fits)
   // and so would "trim content" (the fix is a simpler figure, or a bigger box).
   const illegible = overflow.filter((o) => o.illegible);

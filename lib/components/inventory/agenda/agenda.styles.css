@@ -37,7 +37,9 @@ section.agenda > .cell-stage {
 section.agenda h2 { font-size: var(--fs-emphasis); }
 section.agenda ol {
   list-style: none; padding: 0; margin: 0;
-  counter-reset: agenda-counter;
+/* `var(--lat-split-offset, 0)` continues the run's numbering across split pages —
+   without it every atomized page restarts at 01 (test/unit/css/split-ordinal-continuity.test.js). */
+  counter-reset: agenda-counter var(--lat-split-offset, 0);
   display: flex; flex-direction: column;
 }
 section.agenda ol > li {
@@ -298,4 +300,16 @@ section.agenda.checks.progress-6 ol > li:nth-child(6)::after {
   content: ""; position: absolute; left: 0; width: 1.5em; height: 1.5em; top: 50%; transform: translateY(-50%);
   background-color: var(--on-accent);
   -webkit-mask: var(--ag-arrow) no-repeat center / contain; mask: var(--ag-arrow) no-repeat center / contain;
+}
+
+/* ── A LONE ROW ON A SPLIT PAGE sits in the page's optical center ──────────────────
+   One structural element per page makes the row page-tall, and the shared lone-member
+   rule (base.modifiers.css § "A lone member") centers it with `align-content: center`.
+   That property only moves WRAPPED lines, and this row is `flex-wrap: nowrap`, so it was
+   inert: measured on a real portrait render, a 948px row held its ordinal and title at the
+   very top with the rest of the page empty. `align-items` is the axis that is live on a
+   nowrap row — cross axis, so it centers the ordinal and the title vertically together
+   rather than moving them apart. Only ever matches a member alone on its page. */
+section.agenda.lat-split-native.lat-split-native.lat-split-native > .cell-stage > ol > li:only-child {
+  align-items: center;
 }

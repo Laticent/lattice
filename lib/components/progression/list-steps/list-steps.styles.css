@@ -215,7 +215,9 @@ section.list-steps.timeline > .cell-stage > :is(ol,ul) > li {
   background:none; border:none; border-radius:0; padding:0;
   font-size:var(--fs-meta); line-height:var(--lh-snug); font-weight:700; color:var(--text-heading);
 }
-section.list-steps.timeline > .cell-stage > ol { counter-reset:ls-timeline-counter; }
+/* Seeded from `--lat-split-offset` for the same reason as `step-counter` above — the
+   `.timeline` modifier added its own counter later and did not inherit the note. */
+section.list-steps.timeline > .cell-stage > ol { counter-reset:ls-timeline-counter var(--lat-split-offset, 0); }
 section.list-steps.timeline > .cell-stage > ol > li::before {
   counter-increment:ls-timeline-counter;
   content:counter(ls-timeline-counter);

@@ -14,6 +14,16 @@ summary: The Fit Ladder's SPLIT move, extended to READ-ACROSS layouts that can't
 > family was **unified on that one finish**: compare-prose's editorial was retired for
 > `cover-sides`, and decision / compare-code were built to match. "It fits" is the floor;
 > a split must also wear the deck's finish. The shared `coverWindow` builder is that spine.
+>
+> **[SUPERSEDED IN PART 2026-09-01.](2026-09-01-autosplit-splits-on-structure.md)** The FIDELITY bar
+> above stands and is why the cover finish is universal. Three things below are not current.
+> (1) The trigger: carouselizing no longer happens "on vertical overflow" — a slide splits when
+> its collection holds more than one member, read from the markup, and `resplitDoc` and the
+> measured loop are gone. (2) `autosplit: on`, cited here as the opt-in, was retired 2026-07-29.
+> (3) The chrome half of "the deck, just more of it": a split page now carries the page number
+> and the k-of-N rail only — no deck header, footer or section rail — because repeating the deck
+> frame fourteen times says only that the deck is still the deck. The COVER finish is what wears
+> the deck; the running chrome is not.
 
 ## The problem
 

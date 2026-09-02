@@ -388,18 +388,21 @@ describe('core: carousel — cover-cards (compare-table portrait RESHAPE)', () =
   );
   const trailingParts = carouselize(ctTag, ctWithTrailing, ctRecipe, 2, 'compare-table');
 
-  test('a trailing key-insight blockquote gets its OWN final page, not dropped', () => {
-    assert.equal(trailingParts.length, 4); // cover + 2 card pages + insight
-    assert.match(trailingParts.at(-1), /lat-split-insight/);
-    assert.match(trailingParts.at(-1), /Build only wins if we actually staff it\./);
+  // `cover-cards` re-authors its own body from a transposed table, so it never goes through
+  // `splitEnvelope` — which is why it kept the retired 2026-07-26 placement (note on the last
+  // card page, insight on a page of its own) for one change longer than every other path. It
+  // now calls the SAME `closingPage` builder (HARD RULE #1).
+  test('the note and the key insight close the run TOGETHER, on one page', () => {
+    assert.equal(trailingParts.length, 4); // cover + 2 card pages + closing
+    const closing = trailingParts.at(-1);
+    assert.match(closing, /lat-split-closing/);
+    assert.match(closing, /Build only wins if we actually staff it\./);
+    assert.match(closing, /Source: procurement review\./);
+    // Neither beat may appear on a card page.
     assert.ok(trailingParts.slice(1, -1).every((p) => !p.includes('Build only wins')));
-  });
-
-  test('a trailing below-note rides the LAST card page, marked, not its own page', () => {
-    const lastCardPage = trailingParts.at(-2); // last card page, before the insight page
-    assert.match(lastCardPage, /class="below-note lat-split-note"/);
-    assert.match(lastCardPage, /Source: procurement review\./);
-    assert.ok(!trailingParts[1].includes('procurement review')); // not on the FIRST card page
+    assert.ok(trailingParts.slice(1, -1).every((p) => !p.includes('procurement review')));
+    // …and the note is at full size, not the compact step it took while sharing a page.
+    assert.ok(!trailingParts.some((p) => /lat-split-note/.test(p)));
   });
 
   // The density figure is a CEILING, so chunking `i += per` by it left a runt last page —
@@ -419,11 +422,13 @@ describe('core: carousel — cover-cards (compare-table portrait RESHAPE)', () =
     assert.ok(Math.max(...counts) <= 3, 'a balanced page must not exceed the density ceiling');
   });
 
-  test('a trailing note with no insight still lands on the last card page (no insight page emitted)', () => {
+  test('a note with NO insight still earns the closing page — trailing material is trailing material', () => {
     const noteOnly = ctInner.replace('</table>', '</table><div class="below-note"><p>Source only.</p></div>');
     const parts2 = carouselize(ctTag, noteOnly, ctRecipe, 2, 'compare-table');
-    assert.equal(parts2.length, 3); // cover + 2 card pages, no extra insight page
-    assert.match(parts2.at(-1), /class="below-note lat-split-note"/);
+    assert.equal(parts2.length, 4); // cover + 2 card pages + closing
+    assert.match(parts2.at(-1), /lat-split-closing/);
+    assert.match(parts2.at(-1), /Source only\./);
+    assert.ok(!parts2.slice(1, -1).some((p) => p.includes('Source only')));
   });
 });
 
@@ -792,12 +797,17 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
     assert.match(parts[2], /horizon-title">Scale</);
   });
 
-  test('never more than 4 pages, and never fewer than 2 — for every phase count', () => {
+  test('one page per phase at EVERY count — the 2–4 page budget is retired', () => {
+    // The budget (#1209: "2–4 parts, 4 being the max") grouped a 6-phase roadmap into
+    // 2+2+1+1. That is packing, and packing is what the single-element rule forbids
+    // (2026-09-01). The budget's own sentence had already conceded the point — "One card per
+    // page reads best" — and then paid it away to stay under the cap.
     for (let n = 2; n <= 16; n += 1) {
       const phases = Array.from({ length: n }, (_, i) => `P${i + 1}`);
       const parts = split(...phases);
-      assert.ok(parts.length >= 2 && parts.length <= 4,
-        `${n} phases produced ${parts.length} pages — outside the 2–4 budget`);
+      assert.equal(parts.length, n, `${n} phases must produce ${n} pages`);
+      assert.ok(parts.every((p) => (p.match(/horizon-card"/g) || []).length === 1),
+        `${n} phases: a page carried more than one card`);
       // Conservation: every phase appears exactly once across the run.
       const seen = parts.flatMap((p) => [...p.matchAll(/horizon-title">([^<]*)</g)].map((m) => m[1]));
       assert.deepStrictEqual(seen.sort(), phases.slice().sort(),

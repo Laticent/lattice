@@ -193,6 +193,43 @@ describe('split-envelope CSS outcomes (Form on, real cascade)', () => {
       `the em-only note kept the below-note's accent hairline instead of the annotation's dotted rule (got ${got.rule})`);
   });
 
+  // ── the LONE-MEMBER FILL (base.modifiers.css § lone-member) ────────────────────────────
+  // A member alone on its split page claims the stage. Height was already covered; WIDTH was
+  // not, on the stated reasoning that "a tiling component already answers it" — true of
+  // cards-grid and of nothing else. A component that computes its track width arithmetically
+  // (pricing: `width: calc(100% / 3 - 2 * var(--sp-md) / 3)`) kept a third of the measure with
+  // one member on the page and sheared its own copy.
+  //
+  // Pinned HERE rather than as a unit assertion on the CSS text, because the claim is about a
+  // CASCADE outcome — whether the base rule actually beats the component's own width — and only
+  // a real render answers that (HARD RULE #23). Slide 8 is the lone member; slide 9 is the same
+  // component un-split, which is what makes the assertion mean something: without it the test
+  // passes for any reason that makes every tier full-width, including a broken component.
+  test('a lone member fills the measure; the same component un-split keeps its N-up tracks', async () => {
+    const got = await page.evaluate(() => {
+      const widthsOn = (slide) => {
+        const ul = document.querySelector(`section[data-lattice-slide="${slide}"] .cell-stage ul`);
+        if (!ul) return null;
+        const inner = ul.clientWidth - parseFloat(getComputedStyle(ul).paddingLeft) - parseFloat(getComputedStyle(ul).paddingRight);
+        return { inner, items: [...ul.children].map((li) => li.getBoundingClientRect().width) };
+      };
+      return { lone: widthsOn(8), packed: widthsOn(9) };
+    });
+    assert.ok(got.lone, 'slide 8: lone-member pricing <ul> not found');
+    assert.ok(got.packed, 'slide 9: three-tier pricing <ul> not found');
+    assert.equal(got.lone.items.length, 1, 'slide 8 must hold exactly one tier');
+    // The lone tier takes essentially the whole measure — within a pixel of the content box.
+    assert.ok(Math.abs(got.lone.items[0] - got.lone.inner) <= 1.5,
+      `a lone tier must fill the measure: got ${got.lone.items[0]}px in a ${got.lone.inner}px box`);
+    // …and the control: three tiers still tile at about a third each, so the fill is scoped to
+    // the only-child case and has not flattened the component's own grid.
+    assert.equal(got.packed.items.length, 3, 'slide 9 must hold three tiers');
+    for (const w of got.packed.items) {
+      assert.ok(w < got.packed.inner * 0.5,
+        `an un-split tier must keep its track: got ${w}px in a ${got.packed.inner}px box`);
+    }
+  });
+
   test('the note in the shape the SPLITTER emits — a .cell-coda BESIDE the stage — still reads compact', async () => {
     // Every other slide in this fixture hand-authors the note as a direct `.cell-stage`
     // child, which is the shape the splitter emitted BEFORE the coda Cell was peeled out

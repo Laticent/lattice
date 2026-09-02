@@ -43,7 +43,7 @@
   "split": {
     "strategy": "cover-paginate",
     "axis": "item",
-    "perPage": 4,
+    "perPage": 1,
     "intro": "From statute to case law",
     "note": "Overflowing chain splits as an accent cover → its own native tiers paginated (never flattened). lib/core/carousel.js cover-paginate."
   },

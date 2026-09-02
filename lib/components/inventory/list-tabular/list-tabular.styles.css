@@ -39,7 +39,7 @@
 
 /* ── Base (default = hairline ledger) ─────────────────────────────────── */
 section.list-tabular ol {
-  list-style:none; counter-reset:tabular-counter;
+  list-style:none; counter-reset:tabular-counter var(--lat-split-offset, 0);
   padding:0; margin:0;
   display:flex; flex-direction:column;
 }

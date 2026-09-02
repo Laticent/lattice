@@ -141,8 +141,8 @@
   "split": {
     "strategy": "cover-paginate",
     "axis": "item",
-    "perPage": 4,
+    "perPage": 1,
     "intro": "The claim the ledger supports",
-    "note": "§0c places premise as READ-ACROSS — the rows are read against each other (a ladder), so paginating between them bare would destroy the cross-reading the layout exists for. cover-paginate leads every run with the claim as an accent cover, so each page still carries the frame the rows are read inside. perPage 4 sits under the measured tall ceiling (run tools/calibrate-capacity.js premise --family tall; currently 6) — the note names the command rather than a constant, because this number moved three times during review and three different values ended up published at once. Same recipe as its peers authority-chain, regulatory-update and statute-stack."
+    "note": "§0c places premise as READ-ACROSS — the rows are read against each other (a ladder), so paginating between them bare would destroy the cross-reading the layout exists for. cover-paginate leads every run with the claim as an accent cover, so each page still carries the frame the rows are read inside. perPage is 1 as of 2026-09-01 — a split page carries ONE structural element, so no measured ceiling sizes the cut any more. (This note used to say `perPage 4`, three lines under a perPage of 1, which is the drift it was written to warn about.) Same recipe as its peers authority-chain, regulatory-update and statute-stack."
   }
 }

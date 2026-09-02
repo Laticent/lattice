@@ -33,7 +33,7 @@
   "split": {
     "strategy": "cover-rows",
     "family": "tabular",
-    "perPage": 3,
+    "perPage": 1,
     "roles": [
       "cover",
       "points"

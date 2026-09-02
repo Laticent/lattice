@@ -66,9 +66,10 @@ plus a megabyte-plus artifact nobody asked for. That win is real at any deck
 size, unlike the percentage above.
 
 `.html` is a **full browser render minus the PDF encode**, not a browser-free
-path: auto-split and the overflow/legibility passes measure laid-out DOM, and
-the written file is their post-split result — an `.html` render pages
-identically to the same deck's `.pdf`. For markup with **no** layout (0.78s,
+path: the overflow/legibility passes measure laid-out DOM, and the written file
+is the post-split result — an `.html` render pages identically to the same
+deck's `.pdf`. (Auto-split itself stopped measuring on 2026-09-01; it reads the
+markup. The browser is still needed here for everything else.) For markup with **no** layout (0.78s,
 and no fonts/measurement/overflow/split), call `lib/engine` directly instead —
 a different coverage tier, not a faster version of this one.
 `node lattice-emulator.js --help` is the full reference (flags for speaker
@@ -155,8 +156,11 @@ SOURCE_DATE_EPOCH=$(git log -1 --format=%ct) node lattice-emulator.js deck.md ou
 than people expect.** Skia's rasterization is CPU-dispatched and not
 bit-identical across hosts, so a golden blessed on another machine still
 differs — measured on one sandbox against the committed deck goldens, most sit
-under 2% but **29 decks exceed 5%, one reaches 64%, and one re-paginates
-entirely** (auto-split is height-driven, so it flips when font metrics shift).
+under 2% but **29 decks exceed 5% and one reaches 64%**. A thirtieth used to
+**re-paginate entirely** — auto-split was height-driven, so its page count
+flipped when font metrics shifted. It cannot any more: the cut is read from the
+markup (2026-09-01), so page COUNT is now stable across hosts and only pixels
+drift. The percentages above predate that change and have not been re-measured.
 That is why `tools/regression-gate.mjs` compares pixels with a tolerance rather
 than bytes, and why it stays a local spot-check instead of a CI gate.
 

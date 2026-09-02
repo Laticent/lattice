@@ -24,6 +24,14 @@
     "hard": 22,
     "note": "one criterion with a short proof, not a spec"
   },
+  "capacity": {
+    "axis": "item",
+    "sweet": 4,
+    "soft": 5,
+    "hard": 5,
+    "perPage": 1,
+    "note": "Counts mirror the existing `density` block, which already measured this axis."
+  },
   "tags": [
     "requirements",
     "assessment",
