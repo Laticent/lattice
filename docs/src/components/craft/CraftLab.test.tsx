@@ -75,11 +75,15 @@ describe('CraftLab — the editing loop', () => {
 		await waitFor(() => expect(lastCall()[6]).toBe(CSS));
 	});
 
-	it('Reset is offered only once something has changed', async () => {
+	// Reset is PRESENT from the start and DISABLED until there is something to undo.
+	// It used to be absent until dirty, which put the reassurance after the risk: a
+	// reader who has never written CSS looks for the undo before touching anything.
+	it('Reset is on screen from the start, and inert until something changes', async () => {
 		render(<CraftLab options={opts} kind="css" css={CSS} markdown={MD} label="Lab" />);
-		expect(screen.queryByRole('button', { name: /reset/i })).toBeNull();
+		const reset = screen.getByRole('button', { name: /reset/i }) as HTMLButtonElement;
+		expect(reset.disabled).toBe(true);
 		fireEvent.change(screen.getByLabelText('Lab — CSS'), { target: { value: 'x{}' } });
-		expect(screen.getByRole('button', { name: /reset/i })).toBeTruthy();
+		expect((screen.getByRole('button', { name: /reset/i }) as HTMLButtonElement).disabled).toBe(false);
 	});
 });
 

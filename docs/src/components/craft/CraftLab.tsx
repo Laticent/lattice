@@ -107,34 +107,43 @@ export function CraftLab({
 		// squashes the preview's fixed 1280x720 frame to the column width BEFORE the
 		// renderer's own scale transform, so the slide paints at scale twice.
 		<figure className={cn('not-content lx-ui craft-lab my-8 overflow-hidden rounded-xl border border-border bg-background', className)}>
+			{/* Label left, controls right, and the controls stay a GROUP so they wrap as
+			    one. The first version used a `flex-1` spacer, which wrapped first at
+			    390 and dropped the buttons onto their own row LEFT-aligned — the
+			    opposite of every other width. `ml-auto` on the group keeps them right
+			    whether they wrap or not. */}
 			<div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-				<span className="text-sm font-semibold text-foreground">{label}</span>
-				{tabs.length > 1 ? (
-					<PillTabs tabs={tabs} value={pane} onValueChange={(v) => setPane(v as 'css' | 'markdown')} ariaLabel="Edit the CSS or the slide" className="ml-1" />
-				) : null}
-				<span className="flex-1" />
-				{dirty ? (
-					<Button variant="ghost" size="sm" onClick={reset}>
+				<span className="min-w-0 text-sm font-semibold text-foreground">{label}</span>
+				<div className="ml-auto flex items-center gap-2">
+					{tabs.length > 1 ? (
+						<PillTabs tabs={tabs} value={pane} onValueChange={(v) => setPane(v as 'css' | 'markdown')} ariaLabel="Edit the CSS or the slide" />
+					) : null}
+					{/* Reset is PERMANENT, not conditional. For a reader who has never written
+					    CSS, "can I break this?" is asked at rest — so the answer has to be on
+					    screen before they touch anything, not after. Disabled until something
+					    changes, which says the same thing without promising an undo that has
+					    nothing to undo. */}
+					<Button variant="outline" size="sm" onClick={reset} disabled={!dirty} title={dirty ? 'Put this lab back the way it was' : 'Nothing changed yet'}>
 						<RotateCcw className="size-3.5" aria-hidden="true" /> Reset
 					</Button>
-				) : null}
-				{/* The visible label names the canvas you would switch TO, which is the
-				    convention the page hints depend on ("Press Dark"). That makes this an
-				    ACTION, not a toggle showing its own state — so it carries an aria-label
-				    matching the title and NOT `aria-pressed`. With both, a screen reader in
-				    dark mode announced "Light, toggle button, pressed" — i.e. "Light is on"
-				    — while the canvas was dark: the label and the state contradicting each
-				    other, because they described different things. */}
-				<Button
-					variant="ghost"
-					size="sm"
-					onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')}
-					aria-label={mode === 'dark' ? 'Show the light canvas' : 'Show the dark canvas'}
-					title={mode === 'dark' ? 'Show the light canvas' : 'Show the dark canvas'}
-				>
-					{mode === 'dark' ? <Sun className="size-3.5" aria-hidden="true" /> : <Moon className="size-3.5" aria-hidden="true" />}
-					{mode === 'dark' ? 'Light' : 'Dark'}
-				</Button>
+					{/* The visible label names the canvas you would switch TO, which is the
+					    convention the page hints depend on ("Press Dark"). That makes this an
+					    ACTION, not a toggle showing its own state — so it carries an aria-label
+					    matching the title and NOT `aria-pressed`. With both, a screen reader in
+					    dark mode announced "Light, toggle button, pressed" — i.e. "Light is on"
+					    — while the canvas was dark: the label and the state contradicting each
+					    other, because they described different things. */}
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={() => setMode(mode === 'dark' ? 'light' : 'dark')}
+						aria-label={mode === 'dark' ? 'Show the light canvas' : 'Show the dark canvas'}
+						title={mode === 'dark' ? 'Show the light canvas' : 'Show the dark canvas'}
+					>
+						{mode === 'dark' ? <Sun className="size-3.5" aria-hidden="true" /> : <Moon className="size-3.5" aria-hidden="true" />}
+						{mode === 'dark' ? 'Light' : 'Dark'}
+					</Button>
+				</div>
 			</div>
 			{/* STACKED, not side by side. The docs content column is ~720px wide, so a
 			    50/50 split leaves the slide about 335px across — legible only if you
@@ -155,14 +164,28 @@ export function CraftLab({
 					aria-label={`${label} — live preview`}
 				/>
 			</div>
-			<div className={cn('overflow-auto border-t border-border', size === 'tall' ? 'max-h-[22rem]' : 'max-h-[14rem]')}>
+			{/* The hint is the EXERCISE — the only words a reader reads while doing
+			    something — so it sits above the box it is about, at body size. It used
+			    to render as a 12px muted figcaption BELOW a scrolling editor, where on
+			    a tall lab it could be off screen at the moment the reader started
+			    typing: the instruction styled as a footnote. */}
+			{hint ? (
+				<p className="border-t border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
+					<span className="font-semibold">Try this. </span>
+					{hint}
+				</p>
+			) : null}
+			{/* `overscroll-contain` keeps a wheel gesture inside the editor from scrolling
+			    the page once the box bottoms out. The pane clips ~420px of CSS on a tall
+			    lab and reserved NO scrollbar track, so nothing on screen said there was
+			    more — `scrollbar-thin` (see lattice.css) paints a permanent one. */}
+			<div className={cn('craft-lab-editor overflow-auto overscroll-contain border-t border-border', size === 'tall' ? 'max-h-[26rem]' : 'max-h-[16rem]')}>
 				{pane === 'css' && hasCss ? (
 					<CodeField value={cssText} onChange={setCssText} language="css" ariaLabel={`${label} — CSS`} className="border-0" />
 				) : (
 					<CodeField value={mdText} onChange={setMdText} language="markdown" ariaLabel={`${label} — slide source`} className="border-0" />
 				)}
 			</div>
-			{hint ? <figcaption className="border-t border-border px-3 py-2 text-xs text-muted-foreground">{hint}</figcaption> : null}
 		</figure>
 	);
 }

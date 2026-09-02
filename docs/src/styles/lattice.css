@@ -250,3 +250,28 @@ starlight-menu-button[aria-expanded='true'] button {
 	opacity: 1;
 	accent-color: var(--sl-color-text-accent);
 }
+
+/* The Craft lab's editor pane clips its CSS — measured 422px hidden of 773px on a
+ * tall lab — and reserved NO scrollbar track, so `offsetWidth - clientWidth` was 0
+ * and nothing on screen said more existed. On the contrast page the token the
+ * exercise names sat 25px past the fold. A reader who has never written CSS reads
+ * "the thing the instruction names is not here" as being in the wrong place, not
+ * as needing to scroll. Paint a permanent, quiet track instead of an overlay one.
+ *
+ * Firefox takes the standard properties; WebKit/Blink need the pseudo-elements,
+ * and `::-webkit-scrollbar` only reserves space when a width is set. */
+.craft-lab-editor {
+	scrollbar-width: thin;
+	scrollbar-color: var(--sl-color-gray-4, #888) transparent;
+}
+.craft-lab-editor::-webkit-scrollbar {
+	width: 10px;
+}
+.craft-lab-editor::-webkit-scrollbar-track {
+	background: transparent;
+}
+.craft-lab-editor::-webkit-scrollbar-thumb {
+	background: var(--sl-color-gray-4, #888);
+	border: 3px solid var(--sl-color-bg, #fff);
+	border-radius: 999px;
+}
