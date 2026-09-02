@@ -59,11 +59,12 @@ section.verdict-grid > .cell-stage > ul {
    * shrinks rather than clipping the last row: the cards have no explicit height, so a
    * crowded line just gets taller.
    * THIS USED TO STRETCH, which made a card holding one line of text as tall as the row and
-   * left ~35% of it empty (#1979). Centering is the default now; `var(--cards-align, center)`
-   * reads the deck's `cards:` register, so an author who wants the old fill back writes
-   * `cards: stretch`, and `top` / `spread` place the band differently.
+   * left ~35% of it empty (#1979). This component now DECLARES its composition in its
+   * manifest (`cards`), the engine resolves it against the deck's `cards:` register and any
+   * per-slide `_class: cards-*`, and stamps the answer as `data-cards`. This declaration
+   * just reads the result — it carries no default of its own.
    * lib/core/resolve-cards.js; the note's §10. */
-  display:flex; flex-wrap:wrap; align-content: var(--cards-align, center);
+  display:flex; flex-wrap:wrap; align-content: var(--cards-align);
   gap:var(--sp-sm); flex:1; list-style:none; padding:0; margin:0;
 }
 section.verdict-grid > .cell-stage > ul > li {
@@ -124,13 +125,9 @@ section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { just
 /* Family reflow (2026-06-18-component-adaptive-sizing.md): tall+strip
  * (≤0.9) collapse the verdict grid to one column, keyed on the deck's `data-family` stamp so it fires on any tall or strip deck. Doubled
  * class reaches (0,2,2) to match the [data-orientation] reflow it mirrors. */
-/* A verdict grid that ends in a CODA keeps stretching, for the reason cards-grid does:
- * `--coda-step` is measured from the stage, so shrinking the cards adds the freed height to
- * the gap and the panel stops reading as a comment on the cards. `cards:` still overrides. */
-section.verdict-grid.verdict-grid:has(> .cell-coda) > .cell-stage > ul {
-  align-content: var(--cards-align, stretch);
-}
-
+/* The CODA arm that used to sit here is gone — `verdict-grid.manifest.json` declares
+ * `"cards": { "default": "center", "withCoda": "stretch" }` and the engine resolves it,
+ * stamping `data-cards`. lib/core/resolve-cards.js; the note's §10. */
 section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   flex-direction: column;
 }

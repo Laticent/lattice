@@ -1,12 +1,14 @@
 /**
  * Unit: the `cards:` register resolver (lib/core/resolve-cards.js).
  *
- * Where a CARD ROW puts the height it does not need. `center` is the DEFAULT and carries
- * NO token, so an absent register leaves every rule on its own fallback. `stretch` / `top`
- * / `spread` each map to a `cards-*` class the render paths append to every section; a
- * per-slide `_class: cards-*` overrides the deck value, including `cards-center`, which is
- * how one slide opts back to the default.
- * Sibling of resolve-lift / resolve-finish / resolve-mode.
+ * Where a CARD ROW puts the height it does not need. The COMPONENT declares its own default
+ * in its manifest (baked into cards-catalog.generated.js); the AUTHOR overrides it deck-wide
+ * with `cards:` or on one slide with `_class: cards-*`; this kernel resolves the two and the
+ * engine stamps the answer as `data-cards`.
+ *
+ * The load-bearing distinction: OMITTING `cards:` is not the same as writing `cards: center`.
+ * Omission means "the component decides" — and a component may decide differently per shape.
+ * That is why all four values stamp a token and none is a silent default.
  */
 
 const { test, describe } = require('node:test');
@@ -16,35 +18,32 @@ const path = require('node:path');
 const {
   CARDS_NAMES,
   CARDS_TOKENS,
+  CARDS_CSS,
   readFrontMatterCards,
   isKnownCards,
   cardsClass,
   cardsClassFromSource,
+  governedComponent,
+  componentCardsAlign,
+  resolveCardsAlign,
 } = require('../../../lib/core/resolve-cards');
+const CATALOG = require('../../../lib/core/cards-catalog.generated.js');
 
 const read = (p) => fs.readFileSync(path.join(__dirname, '../../../', p), 'utf8');
 
 describe('resolve-cards', () => {
-  test('the three non-default values map to their tokens; center maps to none', () => {
-    assert.equal(cardsClass('stretch'), 'cards-stretch');
-    assert.equal(cardsClass('top'), 'cards-top');
-    assert.equal(cardsClass('spread'), 'cards-spread');
-    assert.equal(cardsClass('center'), '', 'center is the baseline — no class');
-  });
-
-  test('omitted / unrecognized resolve to no class (center)', () => {
-    assert.equal(cardsClass(''), '');
-    assert.equal(cardsClass('   '), '');
-    assert.equal(cardsClass('centre'), '', 'typo → the default (deck-lint flags it)');
+  test('every value stamps a token — there is no silent default', () => {
+    for (const n of CARDS_NAMES) assert.equal(cardsClass(n), `cards-${n}`);
+    assert.equal(cardsClass('centre'), '', 'typo → nothing (deck-lint flags it)');
     assert.equal(cardsClass('flex-start'), '', 'the CSS value is not the author-facing name');
+    assert.equal(cardsClass(''), '');
     assert.equal(cardsClass(undefined), '');
     assert.equal(cardsClass(null), '');
   });
 
   test('value is case- and whitespace-insensitive', () => {
     assert.equal(cardsClass('  STRETCH  '), 'cards-stretch');
-    assert.equal(cardsClass('Top'), 'cards-top');
-    assert.equal(cardsClass('  Center '), '', 'the default is recognized in any casing');
+    assert.equal(cardsClass('Center'), 'cards-center');
   });
 
   test('isKnownCards recognizes the four names only', () => {
@@ -54,76 +53,139 @@ describe('resolve-cards', () => {
     assert.ok(!isKnownCards(undefined));
   });
 
-  test('CARDS_NAMES / CARDS_TOKENS list the recognized + override sets', () => {
+  test('the vocabulary and its CSS mapping stay in step', () => {
     assert.deepEqual([...CARDS_NAMES], ['center', 'stretch', 'top', 'spread']);
-    // The override set carries `cards-center` even though the DECK value `center` stamps
-    // nothing: a slide inside a `cards: top` deck needs a way back to the default.
-    assert.deepEqual([...CARDS_TOKENS], ['cards-stretch', 'cards-center', 'cards-top', 'cards-spread']);
+    assert.deepEqual([...CARDS_TOKENS], CARDS_NAMES.map((n) => `cards-${n}`));
+    assert.deepEqual(Object.keys(CARDS_CSS).sort(), [...CARDS_NAMES].sort());
+    assert.equal(CARDS_CSS.top, 'flex-start', 'the author-facing name is not the CSS value');
+    assert.equal(CARDS_CSS.spread, 'space-evenly');
   });
 
   test('readFrontMatterCards extracts the value from the front-matter block only', () => {
     const md = '---\nmarp: true\ncards: stretch\n---\n\n# H\n\n`cards: not-this` in body\n';
     assert.equal(readFrontMatterCards(md), 'stretch');
     assert.equal(cardsClassFromSource(md), 'cards-stretch');
-  });
-
-  test('readFrontMatterCards accepts quotes and returns null when absent', () => {
     assert.equal(readFrontMatterCards('---\ncards: "top"\n---\n'), 'top');
-    assert.equal(readFrontMatterCards("---\ncards: 'spread'\n---\n"), 'spread');
     assert.equal(readFrontMatterCards('---\ntheme: carta\n---\n'), null);
     assert.equal(readFrontMatterCards(''), null);
   });
 
-  // Rot-guard 1: every token the resolver can emit must have an activation rule, and
-  // `--cards-align` must NOT carry a :root default — a global default would flatten each
-  // component's own per-family value, which is the whole point of the var() fallback.
-  test('base.tokens.css: every cards token activates, and there is no :root default', () => {
-    const css = read('lib/base/base.tokens.css');
-    for (const t of CARDS_TOKENS) {
-      const rule = css.match(new RegExp(`section\\.${t}\\s*\\{[^}]*\\}`));
-      assert.ok(rule, `section.${t} activation rule missing`);
-      assert.match(rule[0], /--cards-align:\s*\S/, `${t} must set --cards-align`);
+  // ── the component's own declaration ──────────────────────────────────────────
+  test('a component with no manifest entry is not governed at all', () => {
+    assert.equal(governedComponent(['kpi', 'form']), null);
+    assert.equal(componentCardsAlign('kpi'), null);
+    assert.equal(resolveCardsAlign({ classes: ['kpi', 'form'] }), null,
+      'null means the engine stamps nothing and that component is untouched');
+  });
+
+  test('the manifest default applies when the author says nothing', () => {
+    assert.equal(resolveCardsAlign({ classes: ['cards-grid'] }), 'center');
+    assert.equal(resolveCardsAlign({ classes: ['verdict-grid'] }), 'center');
+  });
+
+  test('byFamily beats default, and withCoda beats both', () => {
+    assert.equal(resolveCardsAlign({ classes: ['cards-grid'], family: 'tall' }), 'spread');
+    assert.equal(resolveCardsAlign({ classes: ['cards-grid'], family: 'strip' }), 'spread');
+    assert.equal(resolveCardsAlign({ classes: ['cards-grid'], family: 'square' }), 'center',
+      'square keeps the 2-up grid, so it is NOT in byFamily');
+    assert.equal(resolveCardsAlign({ classes: ['cards-grid'], hasCoda: true }), 'stretch');
+    assert.equal(resolveCardsAlign({ classes: ['cards-grid'], family: 'tall', hasCoda: true }), 'stretch');
+  });
+
+  test('an absent family reads as wide, which is how the engine stamps it', () => {
+    assert.equal(resolveCardsAlign({ classes: ['cards-grid'] }),
+      resolveCardsAlign({ classes: ['cards-grid'], family: 'wide' }));
+  });
+
+  // ── the author overrides the component ───────────────────────────────────────
+  test('a cards-* token in the class list beats every manifest rule', () => {
+    for (const [name, extra] of [['top', {}], ['stretch', { family: 'tall' }], ['spread', { hasCoda: true }]]) {
+      assert.equal(resolveCardsAlign({ classes: ['cards-grid', `cards-${name}`], ...extra }), name);
     }
-    // Strip comments first: this file DISCUSSES `--cards-align` a few lines above the
-    // rules, and a naive scan walks a `:root {` opener straight into that prose.
+  });
+
+  // THE case the manifest model exists to get right: `center` is a real value the author can
+  // ask for, not a synonym for silence. Where the component's own default differs — tall, or
+  // a coda slide — writing it must WIN, which a stamp-nothing default could never do.
+  test('`cards: center` overrides a component default that is not center', () => {
+    assert.equal(resolveCardsAlign({ classes: ['cards-grid'], family: 'tall' }), 'spread');
+    assert.equal(resolveCardsAlign({ classes: ['cards-grid', 'cards-center'], family: 'tall' }), 'center');
+    assert.equal(resolveCardsAlign({ classes: ['cards-grid'], hasCoda: true }), 'stretch');
+    assert.equal(resolveCardsAlign({ classes: ['cards-grid', 'cards-center'], hasCoda: true }), 'center');
+  });
+
+  // ── rot guards ───────────────────────────────────────────────────────────────
+  test('the catalog is manifest-derived, and every entry is a legal value', () => {
+    const FAMILIES = ['wide', 'square', 'tall', 'strip'];
+    for (const [name, entry] of Object.entries(CATALOG)) {
+      assert.ok(CARDS_NAMES.includes(entry.default), `${name}.default must be a cards value`);
+      if (entry.withCoda) assert.ok(CARDS_NAMES.includes(entry.withCoda), `${name}.withCoda`);
+      for (const [fam, v] of Object.entries(entry.byFamily || {})) {
+        assert.ok(FAMILIES.includes(fam), `${name}.byFamily.${fam} is not a family`);
+        assert.ok(CARDS_NAMES.includes(v), `${name}.byFamily.${fam} value`);
+      }
+    }
+    // …and the catalog is the MANIFESTS, not a hand-kept list beside them.
+    const root = path.join(__dirname, '../../../lib/components');
+    const fromManifests = {};
+    const walk = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) walk(full);
+        else if (e.name.endsWith('.manifest.json')) {
+          const m = JSON.parse(fs.readFileSync(full, 'utf8'));
+          if (m.cards?.default) fromManifests[m.name] = m.cards;
+        }
+      }
+    };
+    walk(root);
+    assert.deepEqual(Object.keys(CATALOG).sort(), Object.keys(fromManifests).sort(),
+      'cards-catalog.generated.js is stale — run `node tools/build-stage-catalog.js`');
+    for (const [name, entry] of Object.entries(CATALOG)) {
+      assert.equal(entry.default, fromManifests[name].default, `${name} default drifted from its manifest`);
+      assert.equal(entry.withCoda, fromManifests[name].withCoda, `${name} withCoda drifted`);
+    }
+  });
+
+  // No component may re-encode a default in CSS: the whole point is that the manifest is the
+  // only place a composition is declared. A `var(--cards-align, X)` fallback would be exactly
+  // that, invisible to the engine and to the catalog.
+  test('no component stylesheet carries a --cards-align fallback', () => {
+    const root = path.join(__dirname, '../../../lib/components');
+    const offenders = [];
+    const walk = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) walk(full);
+        else if (e.name.endsWith('.styles.css')) {
+          const css = fs.readFileSync(full, 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ');
+          if (/var\(\s*--cards-align\s*,/.test(css)) offenders.push(path.relative(root, full));
+        }
+      }
+    };
+    walk(root);
+    assert.deepEqual(offenders, [], 'a component must declare its default in its manifest, not in CSS');
+  });
+
+  test('base.tokens.css maps every value, and sets no :root default', () => {
+    const css = read('lib/base/base.tokens.css');
     const bare = css.replace(/\/\*[\s\S]*?\*\//g, ' ');
-    const rootBlocks = (bare.match(/:root[^{]*\{[^}]*\}/g) || [])
-      .filter((b) => /--cards-align\s*:/.test(b));
-    assert.equal(rootBlocks.length, 0,
-      'a :root --cards-align default would override every component fallback');
-    assert.match(bare, /section\.cards-center\s*\{/, 'comment-stripping must not eat the rules');
+    for (const n of CARDS_NAMES) {
+      assert.match(bare, new RegExp(`section\\[data-cards="${n}"\\][^{]*\\{[^}]*--cards-align:\\s*${CARDS_CSS[n]}`),
+        `data-cards="${n}" must map to ${CARDS_CSS[n]}`);
+      assert.match(bare, new RegExp(`section\\[data-cards-coda="${n}"\\]:has\\(> \\.cell-coda\\)`),
+        `the coda arm must carry ${n} too`);
+    }
+    const rootDefaults = (bare.match(/:root[^{]*\{[^}]*\}/g) || []).filter((b) => /--cards-align\s*:/.test(b));
+    assert.deepEqual(rootDefaults, [], 'a :root default would override every component declaration');
   });
 
-  // Rot-guard 2: a consumer that hard-codes `align-content` is deaf to the register. Pin
-  // that the two wired components read the variable on EVERY container rule they have —
-  // cards-grid has three (one per emit path) plus its family arm.
-  test('the wired components consume --cards-align on every card-row container', () => {
-    const cg = read('lib/components/inventory/cards-grid/cards-grid.styles.css');
-    const vg = read('lib/components/comparison/verdict-grid/verdict-grid.styles.css');
-    assert.equal((cg.match(/align-content:\s*var\(--cards-align,\s*center\)/g) || []).length, 3,
-      'cards-grid has three emit paths; all three must read the register');
-    assert.match(cg, /align-content:\s*var\(--cards-align,\s*space-evenly\)/,
-      'the family arm must keep ITS default in the fallback, not the base rule\'s');
-    assert.equal((vg.match(/align-content:\s*var\(--cards-align,\s*center\)/g) || []).length, 1,
-      'verdict-grid\'s card row must read the register');
-    // The default must live in the FALLBACKS, never as a hard-coded `stretch` that the
-    // register cannot reach — that was the shape before the register existed.
-    assert.equal((cg.match(/align-content:\s*stretch\b/g) || []).length, 0,
-      'no cards-grid container may hard-code stretch');
-    assert.equal((vg.match(/align-content:\s*stretch\b/g) || []).length, 0,
-      'no verdict-grid container may hard-code stretch');
-  });
-
-  // Rot-guard 3: the two render paths must append the same token, or a deck renders one
-  // way through the CLI and another in the browser (HARD RULE #1).
-  test('both render paths resolve and append the cards token', () => {
+  test('both render paths resolve and stamp through the one kernel', () => {
     for (const p of ['lib/integrations/markdown-it/plugins.js', 'lib/runtime/index.js']) {
       const src = read(p);
       assert.match(src, /require\((['"]).*resolve-cards\1\)/, `${p} must load the resolver`);
-      assert.match(src, /cardsClass\(cardsName\)/, `${p} must map the front-matter value`);
-      assert.match(src, /\.\.\.cardsTokens\]/, `${p} must append the token to deckTokens`);
-      assert.match(src, /slideHasOwnCards && CARDS_TOKENS\.includes\(t\)/,
-        `${p} must let a per-slide cards-* token evict the deck one`);
+      assert.match(src, /resolveCardsAlign\(/, `${p} must call the resolver`);
+      assert.match(src, /data-cards/, `${p} must stamp the resolved value`);
     }
   });
 });

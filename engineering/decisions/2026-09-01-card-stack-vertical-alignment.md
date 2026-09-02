@@ -1032,3 +1032,69 @@ and strip, false at square; all six are corrected.
 - **NOT verified: any component other than `cards-grid` and `verdict-grid`.** They still
   stretch, which is the default, so nothing regresses — but nothing was rendered for them
   either.
+
+## 11 · The declaration moved to the manifest, and the engine honors it
+
+**The owner's ruling:** *"components should declare their default alignment in their manifest
+and it should be honored by the core engine. I hope what we are doing is in the core engine
+kernel shared among all surfaces."* Half of §10 was; the important half was not.
+
+**What was in the kernel.** `lib/core/resolve-cards.js` — pure, dependency-free, required by
+both render paths and the linter. The author's `cards:` value → class token was genuinely one
+source of truth.
+
+**What was not.** The per-component DEFAULT was eight `var(--cards-align, X)` fallbacks
+scattered across two stylesheets. The engine had no idea what a component's composition was;
+it was CSS cascade, not a declared contract, and opting a third component in meant hand-editing
+its CSS and hoping you matched the idiom.
+
+### 11a · The shape, which the repo already had
+
+`coda.dock` and `stage` are manifest fields baked into a `*-catalog.generated.js` — *because
+the runtime bundle cannot fs-load manifests*. `cards` now follows that road exactly:
+
+| step | where |
+|---|---|
+| the component DECLARES | `<name>.manifest.json` → `"cards": { default, byFamily?, withCoda? }` |
+| the build BAKES | `tools/build-stage-catalog.js` → `lib/core/cards-catalog.generated.js` (`--check` gates freshness) |
+| the kernel RESOLVES | `lib/core/resolve-cards.js` → `resolveCardsAlign({ classes, family, hasCoda })` |
+| the engine STAMPS | `plugins.js` and `runtime/index.js` → `data-cards` on the section |
+| CSS READS | `base.tokens.css` maps it to `--cards-align`; each row is `align-content: var(--cards-align)` |
+
+Eight scattered fallbacks became four base declarations and two manifest fields. A component
+that declares nothing resolves to null, is never stamped, and is untouched.
+
+### 11b · What this forced, and it was a real bug
+
+**`cards: center` used to stamp nothing**, on the reasoning that centering was "the default".
+Under a manifest model that is unresolvable: with `cards-grid` declaring `spread` at tall, a
+deck writing `cards: center` would stamp no token, resolve to the component's `spread`, and
+the author's explicit instruction would silently lose. **All four values stamp now**, and the
+default is the absence of the key rather than a value among them. That also settles the thing a
+checker flagged as a doc contradiction in §10 — omitting `cards:` and writing `cards: center`
+really are different, and now they differ in the direction that makes sense: omission means
+"the component decides", naming a value means "this one, everywhere".
+
+### 11c · Two things the wiring taught
+
+- **The deck-token pass returns early when a deck contributes no tokens** (`if
+  (!deckTokens.length) return`), so a stamp hung off it never fires on a deck whose front
+  matter says nothing — the common case, and exactly when the component's default matters most.
+  The stamp is its own core rule, PUSHED to the end of the chain rather than anchored after a
+  named one: `lattice_default_component` is registered by a later plugin function, so
+  `ruler.after` on it throws `Parser rule not found` at load time.
+- **The runtime re-stamps `data-family` from the measured aspect**, and a `byFamily`
+  declaration is a function of that, so the runtime re-resolves `data-cards` whenever the
+  family moves. Nothing else re-runs the deck-token pass on a resize, so without it a box
+  dragged from wide to tall would keep the wide answer.
+
+### 11d · The one thing still resolved in CSS, and why
+
+The CODA arm. Whether a slide ends in a key-insight panel is a DOM fact, and on the export path
+the `.cell-coda` cell is built after the token stream — a token cannot see it. So the manifest's
+`withCoda` VALUE rides along as `data-cards-coda` and the shape TEST happens in CSS, under
+`:has(> .cell-coda)` — the same condition `coda.css` already keys on. The declaration is still
+the manifest's; only the question "does this slide have one?" is CSS's, which is the one thing
+CSS is better at than the token stream. The runtime, which can see the cell, resolves it
+directly and stamps the same two attributes, so a server-rendered section and a
+runtime-stamped one are identical.

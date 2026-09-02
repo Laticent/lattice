@@ -34,7 +34,7 @@ model, see `design/concepts.md`.
 | [`eyebrow:`](#the-eyebrow-front-matter-register-kicker-decoration) | The kicker decoration | *(none)* |
 | [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
-| [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | `center` |
+| [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 
 ## The `mode:` front-matter register (rendering mode)
@@ -470,10 +470,16 @@ propagated to every section, overridable per slide.
 
 | `cards:` value | Token | Effect |
 |---|---|---|
-| `center` | *(none)* | Cards shrink to their text; the band sits at the stage's optical middle. **The default** (omit the key). |
+| `center` | `cards-center` | Cards shrink to their text; the band sits at the stage's optical middle. |
 | `stretch` | `cards-stretch` | Cards fill their row; a sparse card carries the empty space inside it. This is what every deck did before the register. |
 | `top` | `cards-top` | Cards shrink; the band sits under the headline rule and the spare height collects at the bottom. |
 | `spread` | `cards-spread` | Cards shrink; the spare height is shared out between the rows, widening the gaps between them. |
+
+**Omit the key and the COMPONENT decides.** Each card component declares its own composition
+in its manifest, and the engine honors it — `cards-grid` centers a grid but paces a tall
+single column, and either component stretches on a slide that ends in a Key Insight coda.
+So omitting `cards:` is *not* the same as writing `cards: center`: omission takes the
+component's answer for that slide's shape, and naming a value takes that value everywhere.
 
 Per slide, `<!-- _class: cards-stretch -->` fills one slide's row in a centered deck, and
 `<!-- _class: cards-center -->` centers one slide in a deck that set something else (include
@@ -490,14 +496,29 @@ are genuinely full — nothing to reclaim, and stretching keeps the band flush t
 (A slide ending in a **Key Insight coda** already keeps stretching without being asked; see
 below.)
 
-**How it works, and why a per-shape default survives.** Each non-default value sets
-`--cards-align`, and a card row reads `align-content: var(--cards-align, …)` with **its own**
-default in the fallback — so `cards: center` stamps nothing and every rule resolves to its own
-value. Two shapes use that: `cards-grid` at **tall and strip**, where the cards go full-width
-and it is a single column rather than a grid, paces them down the frame; and **any slide
-ending in a Key Insight coda** keeps stretching, because that panel's step is measured from
-the stage, so shrinking the cards would add the freed height to it (48px becomes 239px under
-`center`, 431px under `top`). Naming a value in `cards:` overrides both. The split-page
+**How it works — declared in the manifest, resolved by the engine.** A component states its
+composition in `<name>.manifest.json`:
+
+```json
+"cards": { "default": "center",
+           "byFamily": { "tall": "spread", "strip": "spread" },
+           "withCoda": "stretch" }
+```
+
+`tools/build-stage-catalog.js` bakes every such declaration into
+`lib/core/cards-catalog.generated.js` (the runtime bundle cannot read manifests), and
+`lib/core/resolve-cards.js` — one kernel, shared by both render paths — resolves it against
+whatever the author asked for, in this order:
+
+1. a per-slide `_class: cards-*`
+2. the deck's `cards:`
+3. the manifest's `withCoda`, then `byFamily[family]`, then `default`
+
+The engine stamps the answer as `data-cards`, `base.tokens.css` turns that into
+`--cards-align`, and each card row reads it in **one** declaration. **No component encodes a
+default in CSS**, which is why opting a new component in is a manifest field rather than a
+stylesheet edit — and why a component that declares nothing is not governed at all: nothing
+is stamped and its stylesheet is untouched. The split-page
 rules override `align-content` outright at higher specificity, so a run's pages still look
 alike whatever the deck asked for. Wired today on `cards-grid` and `verdict-grid`; other
 card components still stretch until they opt in. See
