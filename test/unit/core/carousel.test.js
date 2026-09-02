@@ -1231,7 +1231,7 @@ describe('core: carousel — journey-stages splits the vertical stack and never 
 // holds ONE member that may contain lists of its own. Measured on the real decks before this:
 //
 //   · `roadmap` — the first list on a phase page is `ul.horizon-rows` INSIDE the card, so every
-//     pointer named a workstream row rather than the phase: "next: Signal Intake Scoring v2",
+//     pointer named a workstream row rather than the phase: "Signal Intake Scoring v2",
 //     two fields of one row run together, on a page titled "Q2".
 //   · `kanban`  — lanes are built from `<div>`s, so `membersIn` found nothing and the runs
 //     carried NO pointer at all.

@@ -4,7 +4,7 @@
  *
  * The rule's own acceptance test is the DERIVATION one: "a test asserts editing member N+1
  * changes member N's emitted signal". That is the whole point of the mechanism — an authored
- * "next: …" line is a second copy of the next step's title, and the second copy is the one
+ * "…" line is a second copy of the next step's title, and the second copy is the one
  * that goes stale. The rest of this file pins the four kinds' texts, the terminal-page cases
  * (a sequence has no next; a cycle loops back; a hierarchy looks up), and the refusals.
  */
@@ -37,15 +37,15 @@ describe('core: relationship — the four kinds', () => {
   test('sequence: every non-terminal page names the NEXT member; the last has no next', () => {
     const out = relationshipSignals('sequence', oneEach(TITLES));
     assert.equal(out.length, 4);
-    assert.deepEqual(signalOf(out[0]), { mark: 'next', label: 'next: Circulate for comment' });
-    assert.deepEqual(signalOf(out[1]), { mark: 'next', label: 'next: Sign off' });
-    assert.deepEqual(signalOf(out[2]), { mark: 'next', label: 'next: Publish' });
+    assert.deepEqual(signalOf(out[0]), { mark: 'next', label: 'Circulate for comment' });
+    assert.deepEqual(signalOf(out[1]), { mark: 'next', label: 'Sign off' });
+    assert.deepEqual(signalOf(out[2]), { mark: 'next', label: 'Publish' });
     assert.equal(out[3], '', 'the terminal page of a sequence has nothing to point at');
   });
 
   test('cycle: flows forward, then the LAST page loops back to stage 1 (never dropped)', () => {
     const out = relationshipSignals('cycle', oneEach(TITLES));
-    assert.deepEqual(signalOf(out[0]), { mark: 'next', label: 'next: Circulate for comment' });
+    assert.deepEqual(signalOf(out[0]), { mark: 'next', label: 'Circulate for comment' });
     assert.deepEqual(signalOf(out.at(-1)), { mark: 'loop', label: 'back to Draft the policy' });
   });
 
@@ -86,15 +86,15 @@ describe('core: relationship — the four kinds', () => {
 });
 
 describe('core: relationship — DERIVED, never authored (§8 rule 12a)', () => {
-  // THE rule-12a acceptance test. If the signal were authored (a literal "next: …" line in the
+  // THE rule-12a acceptance test. If the signal were authored (a literal "…" line in the
   // markdown, or a value copied into a manifest) this assertion could not hold: editing the
   // NEXT member would leave the previous page's text untouched, and the deck would ship a
   // confident pointer to a step that no longer exists under that name.
   test('editing member N+1 changes member N\'s emitted signal', () => {
     const before = relationshipSignals('sequence', oneEach(['Draft', 'Circulate', 'Publish']));
     const after = relationshipSignals('sequence', oneEach(['Draft', 'Circulate for comment', 'Publish']));
-    assert.match(before[0], /next: Circulate</);
-    assert.match(after[0], /next: Circulate for comment</);
+    assert.match(before[0], /Circulate</);
+    assert.match(after[0], /Circulate for comment</);
     assert.notEqual(before[0], after[0], 'member 1\'s signal did NOT follow the edit to member 2');
     // …and only the signal that READS the edited member moves. Page 2's own signal points at
     // page 3, which did not change.
@@ -143,8 +143,8 @@ describe('core: relationship — refusals and reading', () => {
     // Was: the `<strong>` path clipped to 41 chars + `…`. `<strong>` was read as "the author
     // named this, so it is short", but a component TRANSFORM can wrap a member's whole text in
     // it — `list-criteria` does — so the named path clipped full sentences. The committed
-    // `examples/split-structure.pdf` carried "next: A heading that says which run it belongs…"
-    // and "next: A way back to the whole — the k-of-N rail…", which is character-for-character
+    // `examples/split-structure.pdf` carried "A heading that says which run it belongs…"
+    // and "A way back to the whole — the k-of-N rail…", which is character-for-character
     // the shape the decision record claims was removed. Found by the independent checker,
     // against the shipped artifact.
     const long = labelOf(li('A step whose authored title runs on well past the adornment budget', 'b'));
@@ -166,7 +166,7 @@ describe('core: relationship — refusals and reading', () => {
   test('a FIGURE is not a name — the member\'s own text is preferred when it yields one', () => {
     // `stats` and `kpi` lead a member with the VALUE, the metric name nested under it, so taking
     // the leading `<strong>` pointed a whole run at its own numbers: measured on
-    // `examples/adaptive-sizing.pdf`, every page read "next: $0.9M" and the cover lead-in was
+    // `examples/adaptive-sizing.pdf`, every page read "$0.9M" and the cover lead-in was
     // "$48.2M". The reader was told which figure came next, never which metric.
     assert.equal(labelOf('<li><strong>119%</strong><ul><li>Net revenue retention</li></ul></li>'),
       'Net revenue retention');
@@ -179,7 +179,7 @@ describe('core: relationship — refusals and reading', () => {
     assert.equal(labelOf('<li><strong>2026</strong></li>'), '2026');
     // But a bullet led by a bolded COUNT falls through to its own sentence, which is not a name,
     // and declines rather than claiming a number is the next page's subject. This is the
-    // "next: 31" case the decision record carries.
+    // "31" case the decision record carries.
     assert.equal(labelOf('<li><strong>31</strong> keep whole and ring on overflow, each for a recorded reason</li>'), '');
   });
 
@@ -224,8 +224,8 @@ describe('core: relationship — through the real emission path (post-convergenc
     const out = applyRelationshipSignals(deck([['Draft'], ['Circulate'], ['Publish']]), CAP);
     const sections = out.split('<section').slice(1);
     assert.doesNotMatch(sections[0], /lat-split-rel/, 'the accent cover is not a member');
-    assert.deepEqual(signalOf(sections[1]), { mark: 'next', label: 'next: Circulate' });
-    assert.deepEqual(signalOf(sections[2]), { mark: 'next', label: 'next: Publish' });
+    assert.deepEqual(signalOf(sections[1]), { mark: 'next', label: 'Circulate' });
+    assert.deepEqual(signalOf(sections[2]), { mark: 'next', label: 'Publish' });
     assert.doesNotMatch(sections[3], /lat-split-rel/, 'the last step has no next');
   });
 
@@ -236,7 +236,7 @@ describe('core: relationship — through the real emission path (post-convergenc
     // nothing at all. Caught on a real render, not by a unit test.
     const withContent = { ...CAP, content: { axis: 'item', relationship: null } };
     const out = applyRelationshipSignals(deck([['Draft'], ['Publish']]), withContent);
-    assert.deepEqual(signalOf(out), { mark: 'next', label: 'next: Publish' });
+    assert.deepEqual(signalOf(out), { mark: 'next', label: 'Publish' });
   });
 
   test('IDEMPOTENT — a second call re-derives rather than appending a second signal', () => {
@@ -250,13 +250,13 @@ describe('core: relationship — through the real emission path (post-convergenc
     // Simulate the two-pass case: page 1 held [Draft, Circulate] and pointed at [Publish];
     // a later pass split it, so page 1 now holds [Draft] and its neighbor is [Circulate].
     const stale = applyRelationshipSignals(deck([['Draft', 'Circulate'], ['Publish']]), CAP);
-    assert.deepEqual(signalOf(stale.split('<section')[2]), { mark: 'next', label: 'next: Publish' });
+    assert.deepEqual(signalOf(stale.split('<section')[2]), { mark: 'next', label: 'Publish' });
     const recut = applyRelationshipSignals(stale.replace(
       /<section data-split-run="r1" data-split-role="body"[\s\S]*?<\/section>/,
       page(1, 'list-steps form lat-split-native', ['Draft']) + page(2, 'list-steps form lat-split-native', ['Circulate']),
     ), CAP);
     assert.deepEqual(signalOf(recut.split('<section')[2]),
-      { mark: 'next', label: 'next: Circulate' },
+      { mark: 'next', label: 'Circulate' },
       'the re-split page kept a signal pointing past its real neighbor');
     assert.equal((recut.match(/lat-split-rel/g) || []).length, 2, 'and it is not doubled');
   });
@@ -267,7 +267,7 @@ describe('core: relationship — through the real emission path (post-convergenc
     // so every other split run's pages ended with nothing joining them. `sequence` is the
     // default because it is the relationship a split run HAS — the pages were one slide.
     const out = applyRelationshipSignals(deck([['Draft'], ['Publish']]), { 'list-steps': { axis: 'item' } });
-    assert.deepEqual(signalOf(out), { mark: 'next', label: 'next: Publish' });
+    assert.deepEqual(signalOf(out), { mark: 'next', label: 'Publish' });
     assert.equal((out.match(/lat-split-rel/g) || []).length, 1, 'the last body page has no next member');
   });
 

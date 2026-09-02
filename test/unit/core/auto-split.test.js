@@ -166,7 +166,7 @@ describe('core: the carousel points at what is next — on EVERY run', () => {
     // The signal used to require `capacity.relationship`, which four of sixty-one components
     // declare — so the ordinary bulleted slide split into pages with nothing joining them.
     const out = applyRelationshipSignals(split(docify(sec('cards', `<h2>T</h2>${steps}`))).html, cap);
-    assert.deepEqual(sigsOf(out), ['next: Circulate', 'next: Sign off']);
+    assert.deepEqual(sigsOf(out), ['Circulate', 'Sign off']);
   });
 
   test('a declared relationship still chooses the PHRASING', () => {
@@ -179,7 +179,7 @@ describe('core: the carousel points at what is next — on EVERY run', () => {
   test('the LAST body page points at the closing page, naming what it carries', () => {
     const inner = `<h2>T</h2>${steps}<blockquote><p>Ship it.</p></blockquote>`;
     const out = applyRelationshipSignals(split(docify(sec('cards', inner))).html, cap);
-    assert.equal(sigsOf(out).at(-1), 'next: the key insight');
+    assert.equal(sigsOf(out).at(-1), 'the key insight');
   });
 
   test('no signal on the cover or the closing page — neither is a member', () => {
@@ -393,7 +393,7 @@ describe('the marker berths survive a split, one set per page', () => {
 //
 // It is wrong on a NATIVE SLICE, where the page carries ONE member that has lists of its own.
 // Measured on `examples/portrait-roadmap.md`: the first list on a phase page is `ul.horizon-rows`
-// INSIDE the card, so the pointer named a workstream row rather than the phase — "next: Signal
+// INSIDE the card, so the pointer named a workstream row rather than the phase — "Signal
 // Intake Scoring v2" on a page titled "Q2". `kanban` builds its lanes from `<div>`s, so nothing
 // resolved and its runs carried no pointer at all.
 //
@@ -417,19 +417,19 @@ describe('auto-split: data-split-label names the page, over the first-list heuri
 
   test('the stamp names the next page; the row inside the card is not the member', () => {
     const out = applyRelationshipSignals(doc('Q1', 'Q2', 'Q3'), cap);
-    assert.deepEqual(sigsOf(out), ['next: Q2', 'next: Q3'],
+    assert.deepEqual(sigsOf(out), ['Q2', 'Q3'],
       'the pointer must name the stamped member, not the first list nested inside it');
   });
 
   test('with no stamp the heuristic still runs — the old behavior is intact', () => {
     const out = applyRelationshipSignals(doc(null, null, null), cap);
-    assert.deepEqual(sigsOf(out), ['next: Workstream row one', 'next: Workstream row one'],
+    assert.deepEqual(sigsOf(out), ['Workstream row one', 'Workstream row one'],
       'an unstamped page must fall through to membersIn exactly as before');
   });
 
   test('a stamp is TEXT — an escaped quote comes back as a quote, not as markup', () => {
     // The label under test is on page TWO, because page one's pointer names page two.
     const out = applyRelationshipSignals(doc('First', 'The &quot;big&quot; lane', 'Third'), cap);
-    assert.equal(sigsOf(out)[0], 'next: The "big" lane');
+    assert.equal(sigsOf(out)[0], 'The "big" lane');
   });
 });

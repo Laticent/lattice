@@ -94,3 +94,11 @@
   the element was a bare div: when the label needed wrapping in a span so the pill could ellipsise
   — `text-overflow` never applies to a flex container — the kernel grew one and the copy did not,
   so a closing pointer rendered unwrapped. Both go through the one builder now.
+- **Changed: the forward pointer drops the word "next" and puts its arrow after the label.** Owner's
+  call: the arrow already says it. A sequence or cycle page now reads `Trial →` rather than
+  `→ next: Trial`, which is six characters of chrome removed from every one of them. The mark moved
+  to the trailing edge for every kind that draws one, not just `next` — a `↻` still on the left
+  while a `→` sat on the right would read as two widgets rather than one system. The WORDS stay on
+  the other two kinds, and the difference is the point: an arrow carries "next", but `↓` and `↑`
+  distinguish a hierarchy's two directions without naming them, so `governs` and `under` are still
+  doing work. `comparison` draws no mark at all and is untouched.

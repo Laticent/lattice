@@ -104,7 +104,7 @@ describe('the split signal reads as chrome on every page a split emitted', () =>
       + ` style="width:960px;display:flex;flex-direction:column">`
       + (p.stage === false ? '' : `<div class="cell-stage" style="display:flex;flex-direction:column">`)
       + `<ul><li>member</li></ul>`
-      + signalMarkup('next: Something', 'next').replace('class="lat-split-rel"', `class="lat-split-rel" id="sig${i}"`)
+      + signalMarkup('Something', 'next').replace('class="lat-split-rel"', `class="lat-split-rel" id="sig${i}"`)
       + (p.stage === false ? '' : `</div>`)
       + `</section>`).join('');
     await page.setContent(`<style>${css}</style><main>${sections}</main>`, { waitUntil: 'load' });
@@ -118,7 +118,7 @@ describe('the split signal reads as chrome on every page a split emitted', () =>
       const got = await page.evaluate((id) => {
         const el = document.getElementById(id);
         const cs = getComputedStyle(el);
-        const before = getComputedStyle(el, '::before');
+        const mark = getComputedStyle(el, '::after');   // the mark TRAILS the label since 2026-09-02
         return {
           display: cs.display,
           alignSelf: cs.alignSelf,
@@ -131,7 +131,7 @@ describe('the split signal reads as chrome on every page a split emitted', () =>
           stageWidth: el.parentElement.getBoundingClientRect().width,
           hasLabelSpan: !!el.querySelector('.lat-split-label'),
           bodyFontSize: getComputedStyle(el.closest('section')).fontSize,
-          markWidth: before.width,
+          markWidth: mark.width,
         };
       }, `sig${i}`);
 

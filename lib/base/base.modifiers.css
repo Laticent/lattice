@@ -3068,29 +3068,37 @@ section.form.lat-split-native > .cell-footer > footer {
    describes: the deck's own face carries none of `→ ↻ ↓ ↑`, so each fell back per machine.
    `align-self: center` on a baseline row keeps the mask centered on the first line's x-height —
    a mask has no baseline of its own to align. */
-/* Inline-block so it joins line one's line box (see the block/flex correction above). The gap
-   to the text is `padding-right`, never a margin (#20) — and the mask is clipped to the CONTENT
-   box so that padding stays empty instead of stretching the shape across it. `-0.16em` sets the
-   drawn arrow on the text's optical center rather than its baseline; a mask has no baseline of
-   its own to align to. */
-.lat-split-rel[data-mark]:not([data-mark="count"])::before {
+/* The mark TRAILS the label (owner's call, 2026-09-02): "we don't need the word next, it is
+   implied by the arrow which should be on the right side of the text in the pill." So the pill
+   reads `Trial →`, and the six-character `next: ` lead-in is gone from the label the kernel
+   builds — the arrow was already saying it.
+
+   `::after`, and it moved for EVERY marked kind rather than for `next` alone. The mark is one
+   chrome system: a `↻` still on the left while a `→` sat on the right would read as two different
+   widgets. The WORDS stayed on the other three, though, and the difference is that an arrow
+   carries "next" and a refresh glyph does not carry "back to" — `governs` and `under` are a
+   hierarchy's two directions, which `↓` and `↑` distinguish but do not name. `count` has no
+   drawn mark at all ("Option 2 of 4 · comparing …"), so it is untouched by both halves.
+
+   The gap to the text is the pill's own flex `gap`, never a margin (#20). */
+.lat-split-rel[data-mark]:not([data-mark="count"])::after {
   content: ""; flex: none; width: 1.05em; height: 1.05em;
   background-color: currentColor;
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
 }
-.lat-split-rel[data-mark="next"]::before {
+.lat-split-rel[data-mark="next"]::after {
   -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
           mask: var(--shape-arrow-right) var(--shape-paint);
 }
-.lat-split-rel[data-mark="loop"]::before {
+.lat-split-rel[data-mark="loop"]::after {
   -webkit-mask: var(--shape-refresh) var(--shape-paint);
           mask: var(--shape-refresh) var(--shape-paint);
 }
-.lat-split-rel[data-mark="down"]::before {
+.lat-split-rel[data-mark="down"]::after {
   -webkit-mask: var(--shape-arrow-down) var(--shape-paint);
           mask: var(--shape-arrow-down) var(--shape-paint);
 }
-.lat-split-rel[data-mark="up"]::before {
+.lat-split-rel[data-mark="up"]::after {
   -webkit-mask: var(--shape-arrow-up) var(--shape-paint);
           mask: var(--shape-arrow-up) var(--shape-paint);
 }
