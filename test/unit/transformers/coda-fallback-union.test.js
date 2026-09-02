@@ -226,3 +226,38 @@ describe('the annotation is trailing-only', () => {
       'a trailing italic-only paragraph after a structural block is the annotation');
   });
 });
+
+/**
+ * THE STAMP MUST NOT BREAK THE MODULES THAT RECOGNIZE THE WRAPPER.
+ *
+ * `.below-note` has three producers (coda.js, split-envelope.js, carousel.js) and several
+ * consumers, and two of those consumers matched it by EXACT STRING —
+ * `/^<div class="below-note"/` and `class="below-note">`. Stamping a second class
+ * (`.is-annotation`) silently stopped all four from matching an annotation note: measured,
+ * an annotation on a splitting slide was no longer recognized as a trailing note at all.
+ * They now share `hasClassToken` with the kernel (HARD RULE #1). This pins that, because
+ * the failure is invisible — nothing throws, the note just lands somewhere else.
+ */
+describe('the annotation stamp and the wrapper consumers', () => {
+  const { hasClassToken } = require('../../../lib/core/coda');
+  const fs2 = require('node:fs');
+  const PLAIN = '<div class="below-note"><p>x</p></div>';
+  const ANNOTATED = '<div class="below-note is-annotation"><p><em>x</em></p></div>';
+
+  test('hasClassToken matches a stamped wrapper and rejects a lookalike', () => {
+    assert.equal(hasClassToken(PLAIN, 'below-note'), true);
+    assert.equal(hasClassToken(ANNOTATED, 'below-note'), true, 'the stamp must not hide the wrapper');
+    assert.equal(hasClassToken('<div class="below-note-inner"><p>x</p></div>', 'below-note'), false,
+      'a hyphenated lookalike must not match — `-` is a regex word boundary');
+  });
+
+  test('no consumer still matches the wrapper by exact string', () => {
+    for (const rel of ['lib/core/split-envelope.js', 'lib/core/carousel.js']) {
+      const src = fs2.readFileSync(path.join(__dirname, '..', '..', '..', rel), 'utf8');
+      assert.equal(/\/\^<div class="below-note"\//.test(src), false,
+        `${rel} matches the wrapper by exact string — a second class silently breaks it`);
+      assert.equal(/class="below-note">/.test(src), false,
+        `${rel} matches the wrapper by exact string — a second class silently breaks it`);
+    }
+  });
+});
