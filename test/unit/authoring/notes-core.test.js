@@ -963,13 +963,39 @@ describe('notes-core: caption channel (caption:)', () => {
     // The divergence needs the pair at the END of the input, where "end of file counts as blank
     // on the right" meets a blank the first scrub just emitted on the left. Mid-deck the two
     // orders agree, which is why a plausible-looking fixture does not measure this.
-    const src = '## Third slide\n\nClosing.\n<!-- caption: c -->\n<!-- n -->\n';
-    const seqNotesFirst = core.stripCaptionsFromSource(core.stripNotesFromSource(src, bodies));
-    const seqCaptionsFirst = core.stripNotesFromSource(core.stripCaptionsFromSource(src), bodies);
+    //
+    // THIS GUARD IS A SEARCH, NOT A LITERAL, and the reason is that the literal it used to be
+    // stopped measuring. It was `'## Third slide\n\nClosing.\n<!-- caption: c -->\n<!-- n -->\n'`,
+    // and closing the end-of-input residual (#2039) made the two orders agree on exactly that
+    // shape — the previous comment here predicted it and asked for this test to be revisited
+    // rather than left passing on nothing. Divergence is still real: it now needs a
+    // whitespace-only tail with no terminator, where the two orders disagree about whether the
+    // author's trailing spaces survive. A search says so on its own; a second hand-picked
+    // literal would just be the next one to go quiet.
+    const LINES = ['Text.', '', '<!-- n -->', '  <!-- n -->', '<!-- caption: c -->', '## H', '- item', '---'];
+    const divergent = [];
+    for (const a of LINES) for (const b of LINES) for (const c of LINES) {
+      // `'\n   '` is load-bearing: the surviving divergence needs a whitespace-only LINE with no
+      // terminator after it, which `'   '` glued onto the last line is not.
+      for (const trail of ['\n', '', '\n   ']) {
+        const s = [a, b, c].join('\n') + trail;
+        const notesFirst = core.stripCaptionsFromSource(core.stripNotesFromSource(s, bodies));
+        const captionsFirst = core.stripNotesFromSource(core.stripCaptionsFromSource(s), bodies);
+        if (notesFirst !== captionsFirst) divergent.push(s);
+      }
+    }
+    assert.ok(
+      divergent.length > 0,
+      'guard: chaining the two scrubs is order-dependent, which is WHY the export runs one pass. '
+      + 'If this search finds nothing, either the cut changed or this corpus stopped reaching the '
+      + 'shape — do not delete the test, widen it and re-measure.'
+    );
+    // The shape the search finds today, pinned so a reader can see what it is without running it.
+    const src = 'Text.\n<!-- n -->\n<!-- caption: c -->\n   ';
+    assert.ok(divergent.includes(src), 'the recorded divergent shape is still in the corpus');
     assert.notEqual(
-      seqNotesFirst, seqCaptionsFirst,
-      'guard: this shape is the one that made chaining order-dependent — if it stops diverging, '
-      + 'this test is no longer measuring anything'
+      core.stripCaptionsFromSource(core.stripNotesFromSource(src, bodies)),
+      core.stripNotesFromSource(core.stripCaptionsFromSource(src), bodies)
     );
     // ONE PASS judges every comment against the SOURCE's own neighbours, so there is no order.
     const onePass = core.stripChannelsFromSource(src, { noteBodies: bodies, captions: true });
@@ -986,39 +1012,67 @@ describe('notes-core: caption channel (caption:)', () => {
     );
   });
 
-  test('KNOWN RESIDUAL: two whole-line comments at END of input leave one blank under `preserve`', () => {
-    // Pinned as KNOWN, not as correct. The `preserve` cut emits an empty line for the first
-    // comment (text above, comment below — neither side blank), and the second then sees a blank
-    // on its left and end-of-file on its right. That branch takes "one of the two blanks", but
-    // the only blank is the one already EMITTED, behind the cursor, so nothing is taken and a
-    // line survives where the counterfactual has none. `drop` reproduces the counterfactual
-    // exactly — and both cuts render the same document, so the export's render-equivalence
-    // measurement keeps `preserve` (tried first, deliberately) and ships the extra byte.
+  test('a comment at END of input takes the blank line ABOVE it, under BOTH cuts (#2039)', () => {
+    // This was the KNOWN RESIDUAL, recorded as "the tie-break's to fix" and pinned as wrong.
+    // It was neither. End-of-file counts as blank on the right, but it is the file ENDING, not
+    // a line that can be taken — so `prevBlank && nextBlank`'s "one of the two blanks goes"
+    // consumed nothing, and the blank ABOVE a trailing comment survived. The cut now takes that
+    // one instead: there is no block below for it to be separating.
     //
-    // It PREDATES #2003 and belongs to the shared cut, not to the caption channel: the same
-    // shape with two adjacent NOTES reproduces it on the pre-#2003 kernel byte for byte. Fixing
-    // it means changing which cut wins a tie, which is a decided thing with its own rationale
-    // and its own 23-deck measurement — so it is recorded here rather than changed under a
-    // caption-channel issue. The residue is invisible to the re-render attack (it renders
-    // identically) and is not a `\n\n\n` run, so neither disclosure probe sees it.
-    const tail = '## Third slide\n\nClosing.\n<!-- caption: c -->\n<!-- n -->\n';
+    // WHY THE TIE-BREAK COULD NEVER HAVE CLOSED IT. The record said `drop` reproduced the
+    // counterfactual and `preserve` did not, which reads as a `preserve`/`drop` question. That
+    // held only for the two-adjacent-comment shape, where the first comment's emitted blank is
+    // what the second one misreads. Take ONE comment with a blank line already above it and
+    // both cuts left the blank — `'A\n\n<!-- n -->\n'` came out `'A\n\n'` either way. No choice
+    // of tie-break reaches that, because the boundary argument is not consulted on this branch.
     const opts = { noteBodies: new Set(['n']), captions: true };
-    assert.equal(
-      core.stripChannelsFromSource(tail, { ...opts, boundary: 'preserve' }),
-      '## Third slide\n\nClosing.\n\n',
-      'preserve leaves one blank line at end of input — the known residual'
+    for (const boundary of core.SCRUB_BOUNDARIES) {
+      assert.equal(
+        core.stripChannelsFromSource('## Third slide\n\nClosing.\n<!-- caption: c -->\n<!-- n -->\n', { ...opts, boundary }),
+        '## Third slide\n\nClosing.\n',
+        `two comments at end of input reproduce the counterfactual under \`${boundary}\``
+      );
+      // The single-comment shape, which the tie-break reading did not cover at all.
+      assert.equal(
+        core.stripNotesFromSource('A\n\n<!-- n -->\n', new Set(['n']), { boundary }),
+        'A\n',
+        `one comment with a blank above it, at end of input, under \`${boundary}\``
+      );
+      // A CRLF deck takes its own terminator with it rather than leaving a lone carriage return.
+      assert.equal(core.stripNotesFromSource('A\r\n\r\n<!-- n -->\r\n', new Set(['n']), { boundary }), 'A\r\n');
+      // Start-of-file is the same branch with nothing emitted yet — there is no blank to take,
+      // and trimming an empty output must not throw or invent one.
+      assert.equal(core.stripNotesFromSource('<!-- n -->\n', new Set(['n']), { boundary }), '');
+      // NOT at end of input: the blank BELOW still goes, exactly as before. This is the half of
+      // the branch that was always right, and the fix must not move it.
+      assert.equal(
+        core.stripNotesFromSource('# S\n\n<!-- n -->\n\nBody.\n', new Set(['n']), { boundary }),
+        '# S\n\nBody.\n'
+      );
+    }
+  });
+
+  test('a scrubbed source equals the repo\'s own hand-written note-free twin, byte for byte (#2039)', () => {
+    // The measurement that found it. `strip-notes-deck-no-notes.md` is committed precisely as
+    // "the fixture as a person would have written it with nothing to say", so it IS the
+    // counterfactual — and the scrub missed it by one byte, the trailing blank line, under both
+    // cuts. The integration guard could not see this: it compares RENDERED sections, and the
+    // residue renders identically. The bytes are the artifact, so the bytes are the assertion.
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const read = (rel) => fs.readFileSync(path.join(__dirname, '..', '..', '..', 'test', 'fixtures', rel), 'utf8');
+    const noted = read('strip-notes-deck.md');
+    const bodies = new Set(
+      [...noted.matchAll(/<!--([\s\S]*?)-->/g)].map((m) => m[1].trim()).filter((b) => !/^[a-zA-Z-]+:/.test(b))
     );
-    assert.equal(
-      core.stripChannelsFromSource(tail, { ...opts, boundary: 'drop' }),
-      '## Third slide\n\nClosing.\n',
-      'drop reproduces the counterfactual exactly'
-    );
-    // Same shape, NOTES ONLY, on this same kernel — the proof it is not the caption channel's.
-    assert.equal(
-      core.stripNotesFromSource('## Third slide\n\nClosing.\n<!-- a -->\n<!-- b -->\n', new Set(['a', 'b'])),
-      '## Third slide\n\nClosing.\n\n',
-      'the note channel alone has always done this'
-    );
+    assert.ok(bodies.size >= 3, 'guard: the fixture still carries the notes this measures');
+    for (const boundary of core.SCRUB_BOUNDARIES) {
+      assert.equal(
+        core.stripNotesFromSource(noted, bodies, { boundary }),
+        read('strip-notes-deck-no-notes.md'),
+        `the stripped source is byte-identical to the note-free twin under \`${boundary}\``
+      );
+    }
   });
 
   test('stripChannelsFromSource is a no-op when neither channel is asked for', () => {
