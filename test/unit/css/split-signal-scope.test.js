@@ -35,6 +35,12 @@ const PAGES = [
   { name: 'carousel strategy body (compare-prose)', cls: 'content compare-split compare-split-points form', role: 'body' },
   { name: 'carousel strategy body (split-panel)', cls: 'content split-panel-split split-panel-points form', role: 'body' },
   { name: 'closing page', cls: 'content lat-split-closing form', role: 'closing' },
+  // A NON-FORM layout. `premise` renders as `class="premise lat-split-native"` with no `form`,
+  // and the first widening of this rule still required `.form` — so premise pages kept rendering
+  // their signal as plain body text, and this suite certified the fix because every fixture above
+  // was a Form page. A gate whose fixtures come only from the shapes already seen confirms the
+  // fix on exactly those shapes.
+  { name: 'non-Form layout (premise)', cls: 'premise lat-split-native', role: 'body' },
 ];
 
 describe('the split signal reads as chrome on every page a split emitted', () => {

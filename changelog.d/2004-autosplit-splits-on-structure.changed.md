@@ -211,4 +211,7 @@
   `compare-prose` body page rendered "continues" as plain body text at full size with no mark and
   no hairline, two pages after the identical signal read as muted mono chrome. It is now keyed on
   `data-split-role` — a page a split emitted, whatever built it — because the signal is a
-  RUN-level fact rather than a property of the page's layout.
+  RUN-level fact rather than a property of the page's layout. The first widening still required
+  `.form` and so still missed `premise`, which is not a Form layout (`class="premise
+  lat-split-native"`); the gate certified that incomplete fix because every fixture in it was a
+  Form page. Both the rule and the gate now cover a non-Form shape.

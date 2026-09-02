@@ -2919,8 +2919,16 @@ section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > .be
    a `compare-prose` body page rendered its signal as PLAIN BODY TEXT, full size, no mark, no
    hairline, jammed under the card — while the identical signal two pages earlier read as muted
    mono chrome. The signal is a RUN-level fact, so its styling follows the element, not the page's
-   layout. Found by rasterizing the changed decks and reading them. */
-section.form[data-split-role] .lat-split-rel,
+   layout. Found by rasterizing the changed decks and reading them.
+
+   NO `.form` IN THE SELECTOR EITHER, and that was a second miss in the same fix. The first pass
+   widened this to `section.form[data-split-role]`, which still assumed every split page is a Form
+   layout. `premise` is not — its section is `class="premise lat-split-native"`, no `form` — so it
+   kept rendering "next: Analyze" as plain body text on `examples/split-horizontal.pdf` after the
+   widening. `data-split-role` alone is the precise test: the attribute exists on split pages and
+   nowhere else, so nothing narrower is needed and anything narrower encodes an assumption about
+   the page that the signal does not depend on. */
+section[data-split-role] .lat-split-rel,
 section.form.lat-split-native > .cell-stage > .lat-split-rel,
 section.form.lat-split-native > .lat-split-rel {
   font-family: var(--font-label);
