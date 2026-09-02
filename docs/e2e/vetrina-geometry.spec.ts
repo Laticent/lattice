@@ -95,7 +95,17 @@ test('a spotlight cue never disagrees with the pane it circles', async ({ page }
 	await gotoStudio(page);
 	// The `quiet` tour is the shortest one that plays `reskin` — the beat that closes the
 	// Inspector (reflowing both panes) and circles the preview in the same step.
-	await page.locator('button[data-demo="show-me"]').click();
+	//
+	// REACHED THROUGH "More controls", NOT the top-bar tours button, and that is forced by
+	// this spec's own viewport. `data-demo="show-me"` carries `hidden … xl:inline-flex`, so
+	// it is `display: none` below 1280px — deliberately, because the repo judged a
+	// once-per-session detour cheap enough to bury one tap deeper on tablet (#1401). At
+	// 1180px the button is in the DOM and unclickable forever, which is how this spec was
+	// red from the day it landed: it timed out on actionability having measured nothing.
+	// The overflow menu carries the same `data-tour` items ungated, so this is the path a
+	// real presenter takes at this width. If the viewport ever moves to ≥1280, the top-bar
+	// button becomes reachable again and either path works.
+	await page.getByRole('button', { name: 'More controls' }).click();
 	await page.locator('[data-tour="quiet"]').first().click();
 	await expect(page.locator('.vetrina-stage')).toBeVisible();
 	await expect(page.locator('.vetrina-stage')).toHaveCount(0, { timeout: 220_000 });

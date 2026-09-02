@@ -1,0 +1,3 @@
+- Studio E2E: the `author-present` journey now asserts the register split it was written to prove. It waited for the slide's speaker note in the read-aloud caption, which `narration-resolve.ts` is built to keep out — a note is the author's alone and is never spoken or captioned. It now pins that separation directly: the slide's own prose is captioned, the note is not.
+- Studio E2E: `vetrina-geometry` starts its tour through "More controls" instead of the top-bar tours button. That button is `xl:`-gated (≥1280px) and the spec runs at 1180px, so it could never be clicked.
+- Both specs had failed in every nightly since they landed (#1705); neither failure was caused by the astro 7 move.
