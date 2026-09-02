@@ -349,6 +349,23 @@ describe('notes-core: malformed input is linear (no ReDoS)', () => {
     assert.equal(note, null, 'an unterminated comment is not a note');
     assert.ok(elapsed < 5000, `extraction took ${elapsed}ms — expected linear (the quadratic bug hung >30s)`);
   });
+
+  test('a front matter ending in a long whitespace run strips its captions block quickly', () => {
+    // The second one in this file, same class, found by CodeQL on the PR that introduced it
+    // (#2003). The natural way to drop the residue a removed `captions:` block leaves is one
+    // regex over the rejoined body — `/(?:[ \t]*(?:\r\n|\r|\n))*$/` — and that is a nested
+    // quantifier anchored at `$`. On front matter whose last line is a long run of spaces with
+    // no newline, the engine retries every split of the run at every start position: measured
+    // 10k spaces 163ms, 20k 627ms, 40k 2.5s, 80k 10s — 4x for every 2x, a render-DoS on a
+    // malformed deck. `stripCaptionsFrontMatter` trims the line ARRAY instead, which is linear.
+    // Same generous bound and the same reason as the arm above.
+    const src = `---\ntheme: x\ncaptions:\n  1: a\n${' '.repeat(200000)}\n---\n\n# S\n`;
+    const t = Date.now();
+    const out = core.stripCaptionsFromSource(src);
+    const elapsed = Date.now() - t;
+    assert.doesNotMatch(out, /1: a/, 'the caption still goes');
+    assert.ok(elapsed < 5000, `strip took ${elapsed}ms — expected linear (the quadratic form took 10s at 80k)`);
+  });
 });
 
 describe('notes-core: known comment-collection deltas vs marp-core', () => {
