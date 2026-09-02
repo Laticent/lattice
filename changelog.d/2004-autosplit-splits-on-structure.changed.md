@@ -113,3 +113,18 @@
   accepts the nesting and re-serializes it unchanged, so `test/unit/css/selector-validity.test.js`
   asks the browser instead: every selector in the built bundle is put through `querySelector`,
   which uses the same grammar the stylesheet parser does.
+- **Fixed: two `manifest.schema.json` descriptions taught the model this change deleted.**
+  `capacity.perPage` said the split "packs to `sweet` (falling back soft → hard)" and that the cut
+  is "BALANCED, never greedy — 14 items at a target of 6 emit 5/5/4"; `capacity.relationship` said
+  to "omit for INDEPENDENT members — a signal there would claim a relationship the content doesn't
+  have", which is the reverse of what now ships. Both are the specification an author or an agent
+  reads, and both compile into the Studio bundle, so they were teaching the deleted behavior from
+  inside the change that deleted it.
+- **Fixed: `lint:deck` told authors to trim to a number that does not keep the slide whole.**
+  `capacity-autosplit`'s fix line read "To keep it on ONE slide, trim to {hard} or fewer" — but the
+  trigger is structure, so two members split exactly as twenty do. The advisory now names the real
+  threshold instead of sending the author to do work that changes nothing.
+- **Fixed: 19 of 21 committed example-deck PDFs were stale.** Every non-`wide` example deck is
+  regenerated. The page counts roughly 1.7× across the family — `adaptive-sweep` 34 → 64,
+  `split-envelope` 26 → 52, `adaptive-sizing` 8 → 25 — which is the change working, and worth
+  seeing rather than inferring.

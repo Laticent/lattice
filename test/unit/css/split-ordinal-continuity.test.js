@@ -37,10 +37,18 @@ const COMPONENTS = path.join(ROOT, 'lib/components');
  * Counters that are NOT ordinals — a `counter()` used to print a DATUM the author
  * supplied, seeded from a custom property that IS the value. Continuing those across
  * a run would be meaningless: they count nothing.
+ *
+ * EMPTY, and that is the point: it stays empty until a component that ACTUALLY SPLITS
+ * needs an entry. It briefly held `journey`'s `mood`/`volume`, added while `journey` was
+ * enrolled — and when `journey` was backed out the entry became dead weight that the
+ * staleness check below still certified, because the check asked whether the COUNTER still
+ * existed rather than whether the EXEMPTION was doing anything. An allowlist that cannot
+ * tell a live entry from a dead one is the defect every other allowlist in this repo
+ * (`SANCTIONED_HEX`, `SANCTIONED_MARGINS`, `SANCTIONED_GLYPH_*`) fails on by design.
+ * An entry here needs BOTH halves: the counter must exist, and its component must be
+ * enrolled — otherwise it is exempting nothing and it goes.
  */
-const NOT_AN_ORDINAL = new Map([
-  ['journey', ['mood', 'volume']], // `counter-reset: mood var(--mood)` — prints the item's own score
-]);
+const NOT_AN_ORDINAL = new Map([]);
 
 /** Every component directory, as { name, dir }. */
 function components() {
@@ -111,6 +119,12 @@ describe('split runs — a numbered component keeps counting', () => {
     for (const [name, counters] of NOT_AN_ORDINAL) {
       const c = components().find((x) => x.name === name);
       assert.ok(c, `NOT_AN_ORDINAL names ${name}, which is not a component`);
+      // BOTH halves. The counter must still exist AND its component must still be
+      // enrolled — an exemption on a component that no longer splits suppresses nothing
+      // and would sit here forever reading as a considered decision.
+      assert.ok(declaresAxis(c),
+        `NOT_AN_ORDINAL exempts counters on ${name}, which no longer declares a split axis, `
+        + 'so the exemption suppresses nothing. Remove it.');
       const declared = counterResets(c).map((r) => r.name);
       for (const counter of counters) {
         assert.ok(declared.includes(counter),

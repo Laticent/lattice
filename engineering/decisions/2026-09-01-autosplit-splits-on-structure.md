@@ -281,9 +281,25 @@ change to the gate is a separate decision and is not made here.
   **a bold lead is a NAME** — and `examples/split-structure.md` says so on the slide where it
   would otherwise have been wrong. A `lint:deck` coaching rule for it is a separate change.
 
-- **The galleries and example decks will export with different page counts.** That is the
-  change, not a defect, but the committed PDFs are regenerated in this change and every one
-  wants an eye on it.
+- **The example decks export with different page counts, and the increase is large.** That is
+  the change, not a defect — but the size of it is worth writing down rather than implying.
+  Measured across every non-`wide` example deck, 19 of 21 committed PDFs were stale (this
+  record previously claimed all of them had been regenerated; two had). All 21 are regenerated
+  now. The biggest moves: `adaptive-sweep` 34 → 64 pages, `split-envelope` 26 → 52,
+  `adaptive-sizing` 8 → 25, `portrait-roadmap` 5 → 13, `cover-paginate` 30 → 43. Roughly a 1.7×
+  page count across the family, and every one wants an eye on it.
+- **The trigger is UNCONDITIONAL, and nothing bounds a run's length.** A slide splits at two
+  members, whether or not it fit: there is no threshold, no cap, and no author opt-out — the
+  `autosplit:` directive was retired on 2026-07-29 and `--no-split` is instrumentation, not
+  authoring. So a 40-row `glossary` at portrait is a 42-page run, and the only signal is a rail
+  that has given up on pills and prints `37/42`. This is the owner's ruling ("structure drives
+  splitting, one row / list item per slide"), recorded here as a consequence rather than
+  defended as an accident. The cheapest containment, if it is ever wanted, is one line in
+  `splitTargetOf`'s caller: split when the collection exceeds `capacity.hard`, then split one
+  per page with the same envelope. That keeps determinism, the absence of a render loop, the
+  single-element rule and the universal carousel, and it makes `lint:deck` agree with the export
+  exactly — the advisory already fires at `n > cap.hard` while the export splits at `n >= 2`, so
+  today the two diverge across most of a deck.
 - **The single-element rule reached the plain envelope before it reached the carousel
   strategies.** `cover-cards` and `roadmap-horizons` assemble their own pages and were still
   packing — caught by a census of the split kernels rather than by any gate. There is no gate
