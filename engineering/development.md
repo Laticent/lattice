@@ -338,6 +338,16 @@ doesn't vary with Node version; matrix-testing the slow tier is paranoia,
 not insurance. Only `integration` needs Chromium — `lint` and `unit` skip
 the download (~150 MB) since neither renders.
 
+**Every job carries a `timeout-minutes`.** GitHub's default is six hours, and a
+job that wedges runs to it — measured on #2028's merge-queue run, where `npm ci`
+on node 24 hung for 44 minutes against 16 seconds on node 22. The caps are ~3x the
+worst duration measured across one `pull_request` and one `merge_group` run
+(2026-09-02): `changes` 5 · `lint` 10 · `unit` 15 · `integration` 25 ·
+`golden-diff` 25 · `docs-build` 20 · `studio-smoke` 15 · `ci` 5. Being wrong high
+costs one slow run before a wedge is cut off; being wrong low reds a PR that would
+have passed, so 3x is deliberate. If a job legitimately outgrows its cap, raise the
+number and say what the new measured duration is — don't delete the line.
+
 ## Integration test cache
 
 `test/helpers/render.js` hashes all renderer inputs and reuses
