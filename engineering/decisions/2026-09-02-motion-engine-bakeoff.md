@@ -63,6 +63,14 @@ companion:
 > against it — the recommendation was about whether a library was *needed*, not whether this one
 > works.
 >
+> **Confirmed on the real surface since this was written.** `docs/e2e/anima-motion-frames.spec.ts`
+> drives the real Playground and measures anime.js against the SHIPPED painter on real funnel
+> marks: 676 comparisons, max delta 4.98e-7 (0.00013 of one 8-bit opacity step), and
+> `createDrawable` stamping `pathLength="1000"` on a real polygon — the normalization that makes
+> it work without `getTotalLength()`. The numbers in §5/§10/§12 below are still HARNESS results
+> from gitignored `.scratch/` and remain un-re-derivable; the real-surface record is
+> `2026-09-02-frame-model-for-motion.md` §8.
+>
 > **Use its `createDrawable`.** It needs no geometry measurement, so it runs in our jsdom test tier
 > exactly as it does in a browser — the property that disqualified GSAP.
 >

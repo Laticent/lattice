@@ -31,7 +31,8 @@ companion:
 
 # The frame model — motion is known frames, not a timeline
 
-**Date:** 2026-09-02 · **Status:** direction decided; first slice specified, not built.
+**Date:** 2026-09-02 · **Status:** direction decided; first slice specified, not built — but the
+library pick is now **confirmed on the real Playground**, not only in a harness (§8).
 
 This note settles the shape of the motion capability after the engine bake-off
 (`2026-09-02-motion-engine-bakeoff.md`). The bake-off answered *what paints*. This answers
@@ -284,17 +285,52 @@ reason this note left a stale doc unfixed, and it was written from a failure tha
 re-derived before being recorded.
 
 
-## 8. Unverified
+## 8. Verified on the real surface — and what is still not
 
-- **No claim here has been driven on the real Playground, presenter window, or a `--player`
-  export.** Under HARD RULE #23 the frame model is a design; the bake-off's painter is measured in
-  a standalone harness in real Chromium, which is not the same surface.
+**The core claim now has a real-surface artifact.** `docs/e2e/anima-motion-frames.spec.ts`
+drives the **real Playground on the built site** — not a harness — with a real `funnel` deck, and
+measures three things against the **live** marks (`.scene-live`, the animated copy; the figure's
+first svg is a `display:none` poster whose attributes never move):
+
+| Claim | Measured on the real Playground |
+|---|---|
+| The shipped painter emits an ordered frame sequence | **169 distinct frames** over 4 real bands; every mark monotonic non-decreasing; staggered in reading order; settles at `[1,1,1,1]` |
+| anime.js can paint every frame our model emits | **676 value comparisons**, max delta **4.98e-7** — 0.00013 of one 8-bit opacity step, so the two cannot differ by a pixel |
+| `createDrawable` needs no geometry measurement | it stamps `pathLength="1000"` on a real funnel polygon and works in normalized units — never calling the `getTotalLength()` that throws in jsdom and silently disabled Vivus |
+| A frame is a deterministic still | seeking to the same frame from three different journeys (forward, from 0, from the end) yields the identical `stroke-dasharray` |
+
+**One difference the migration must carry: the CHANNEL.** anime.js writes the **CSS property**
+(`style.opacity`); the shipped painter writes the **`opacity` presentation attribute**. Inline style
+outranks a presentation attribute, so a half-migrated mark is driven by whichever painter ran last
+rather than by document order. Both channels are asserted in the spec so the difference cannot
+drift silently.
+
+**Each assertion is mutation-proved**, because a green test that asserts nothing is worse than no
+test: dropping `.scene-live` from the selector collapses the frame count to 0 (it reads the frozen
+poster); `pathLength` expected as `999` reports the real `1000`; and a `1e-12` tolerance reports the
+real `4.98e-7`. All three fail as they should.
+
+**This also closes a gap this note itself found.** Across 82 specs in `docs/e2e/`, none referenced
+`data-scene-spec`, `scene-live`, `data-anima` or `hydrateScene` — live motion shipped with no
+coverage on any real surface. It has some now.
+
+### Still not verified
+
+- **The presenter window and the `--player` export are untouched.** Both are reachable; neither was
+  driven. Print stays the final frame either way (§3), so this bears on live surfaces only.
+- **The pixel-identity number from the bake-off (0.000% mean diff) remains a HARNESS result.** What
+  the Playground now proves is value-parity on real marks, which is a stronger claim about *our*
+  markup but is not the same measurement. The bake-off harness still lives in gitignored
+  `.scratch/`, so §5, §10 and §12's numbers are still not re-derivable from the tree.
+- **`morphTo` is still unproven.** It no-ops in jsdom, and nothing here exercises it on a real
+  surface.
 - The frame-count-from-content rule in §5 is specified, not implemented; `speedToDurationMs`'s
   current arithmetic is read from source but its reinterpretation is untested.
 - Whether a chart's existing scene builder can enumerate frames without a live re-compile is
   unchecked — it depends on `chart-anima-hydrate.ts`'s body, which has not been read.
 
 ---
+
 
 ## 9. Three clocks, not one
 
