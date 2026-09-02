@@ -380,3 +380,48 @@ describe('the marker berths survive a split, one set per page', () => {
     );
   });
 });
+
+// ── a page that NAMES its member beats the first-list heuristic ───────────────
+//
+// `membersIn` resolves a page's members as the first `<ul>`/`<ol>` on it and that list's `<li>`
+// children. It is a proxy for "the collection this page carries", and it is right whenever the
+// page's body IS that collection — every axis-driven run, and the plain envelope.
+//
+// It is wrong on a NATIVE SLICE, where the page carries ONE member that has lists of its own.
+// Measured on `examples/portrait-roadmap.md`: the first list on a phase page is `ul.horizon-rows`
+// INSIDE the card, so the pointer named a workstream row rather than the phase — "next: Signal
+// Intake Scoring v2" on a page titled "Q2". `kanban` builds its lanes from `<div>`s, so nothing
+// resolved and its runs carried no pointer at all.
+//
+// `nativeSliceSplit` stamps `data-split-label` because it is the only thing that knows which
+// element it cut. These pin the PREFERENCE — that the stamp wins, that its absence changes
+// nothing, and that a stamp is read as text rather than as markup.
+describe('auto-split: data-split-label names the page, over the first-list heuristic', () => {
+  const sigsOf = (html) => [...html.matchAll(/<div class="lat-split-rel"[^>]*>([\s\S]*?)<\/div>/g)].map((m) => m[1]);
+  const cap = { cards: { axis: 'item', hard: 4 } };
+  // A run of three body pages, each holding a titled card whose OWN list would otherwise be read
+  // as the page's members — the roadmap shape, reduced.
+  const page = (n, label) => '<section data-lattice-slide="1" data-split-run="r1" '
+    + `data-split-role="body"${label ? ` data-split-label="${label}"` : ''} class="cards">`
+    + `<h2>Plan</h2><div class="card"><span class="card-title">${n}</span>`
+    + '<ul><li>Workstream row one</li><li>Workstream row two</li></ul></div></section>';
+  const doc = (...labels) => `<main>${labels.map((l, i) => page(`Card ${i + 1}`, l)).join('')}</main>`;
+
+  test('the stamp names the next page; the row inside the card is not the member', () => {
+    const out = applyRelationshipSignals(doc('Q1', 'Q2', 'Q3'), cap);
+    assert.deepEqual(sigsOf(out), ['next: Q2', 'next: Q3'],
+      'the pointer must name the stamped member, not the first list nested inside it');
+  });
+
+  test('with no stamp the heuristic still runs — the old behavior is intact', () => {
+    const out = applyRelationshipSignals(doc(null, null, null), cap);
+    assert.deepEqual(sigsOf(out), ['next: Workstream row one', 'next: Workstream row one'],
+      'an unstamped page must fall through to membersIn exactly as before');
+  });
+
+  test('a stamp is TEXT — an escaped quote comes back as a quote, not as markup', () => {
+    // The label under test is on page TWO, because page one's pointer names page two.
+    const out = applyRelationshipSignals(doc('First', 'The &quot;big&quot; lane', 'Third'), cap);
+    assert.equal(sigsOf(out)[0], 'next: The "big" lane');
+  });
+});

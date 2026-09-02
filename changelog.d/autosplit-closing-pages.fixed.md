@@ -43,3 +43,10 @@
   tell the deck's band from this slide's caption and deleted the caption, which then appeared
   nowhere at all. It reads the deck's front matter now. This was live: all three journey slides of
   `portrait-journey` and both roadmap slides of `portrait-roadmap` lost their captions.
+- **Fixed: a split `roadmap` pointed at the wrong thing, and a split `kanban` pointed at nothing.**
+  The forward pointer resolves a page's members as the first list on it — right where the page's
+  body IS that list, wrong where the page holds one sliced card with lists of its own. A roadmap
+  phase page named a workstream row instead of the phase ("next: Signal Intake Scoring v2" on a
+  page titled "Q2", two fields of one row run together), and a kanban lane page found no list at
+  all, so those runs carried no pointer. The splitter now names the member it cut, because it is
+  the only thing that knows; runs read "next: Q2" and "next: In progress".

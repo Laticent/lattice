@@ -20,6 +20,7 @@ const { splitSections } = require('../../../lib/core/split-sections');
 // rather than guessing one (HARD RULE #15).
 const { extractStage } = require('../../../lib/core/below-note');
 const { transformSection: journeyTransform } = require('../../../lib/components/chart/journey/journey.transform');
+const { buildKanbanBoard } = require('../../../lib/components/chart/kanban/kanban.transform');
 const { topLevelElements } = require('../../../lib/core/split-envelope');
 // The engine's own beat ORDER — the sentinels below are assembled from it, not typed in an
 // order someone remembered (HARD RULE #15).
@@ -631,11 +632,16 @@ const rmCard = (phase) => `<div class="horizon-card"><div class="horizon-head">`
 const rmInner = '<div class="chart-header"><h2>Roadmap</h2></div><div class="chart-body">' +
   `<div class="horizons">${rmCard('H1')}${rmCard('H2')}${rmCard('H3')}</div></div>`;
 const kbTag = '<section data-lattice-slide="1" id="s1" class="kanban form">';
+// DERIVED FROM THE ENGINE, like the journey fixtures below. The hand-written version of this
+// gave each lane an `<h3>` title, and `kanban.transform.js` has never emitted one — it builds
+// `<div class="kanban-column-header">`. A fixture that invents its component's DOM cannot catch
+// a defect in how that DOM is read, and this one did not: `kanban-lanes` shipped runs with no
+// forward pointer at all, because the real lane holds no list for `membersIn` to find.
 const kbInner = '<div class="chart-header"><h2>Board</h2></div><div class="chart-body">' +
-  '<div class="kanban-board">' +
-  '<div class="kanban-column"><h3>To do</h3><div class="kanban-card">a</div></div>' +
-  '<div class="kanban-column"><h3>Doing</h3><div class="kanban-card">b</div></div>' +
-  '</div></div>';
+  buildKanbanBoard(
+    '<li>To do<ul><li>Spec the API</li></ul></li>' +
+    '<li>Doing<ul><li>Wire the client</li></ul></li>',
+  ) + '</div>';
 
 // ── journey: the fixture is DERIVED FROM THE ENGINE, not transcribed from a render ──
 // Every other fixture above is hand-written, and that is the standing hazard this file already
@@ -1214,5 +1220,68 @@ describe('core: carousel — journey-stages splits the vertical stack and never 
       'the landscape journey was split. Every task carries an absolute --col into a ' +
       'repeat(var(--task-count), 1fr) grid, so a sliced page draws its tasks into columns that ' +
       'are no longer there. It must ring instead.');
+  });
+});
+
+// ── a native-slice page NAMES the member it carries ───────────────────────────
+//
+// The forward pointer is built by `applyRelationshipSignals`, which resolves a page's members
+// with `membersIn` — the first `<ul>`/`<ol>` on the page and its `<li>` children. That proxy
+// holds where the page's body IS the collection and breaks on a native slice, where the page
+// holds ONE member that may contain lists of its own. Measured on the real decks before this:
+//
+//   · `roadmap` — the first list on a phase page is `ul.horizon-rows` INSIDE the card, so every
+//     pointer named a workstream row rather than the phase: "next: Signal Intake Scoring v2",
+//     two fields of one row run together, on a page titled "Q2".
+//   · `kanban`  — lanes are built from `<div>`s, so `membersIn` found nothing and the runs
+//     carried NO pointer at all.
+//   · `journey` — correct, and by luck: its vertical stack happens to be the page's first list.
+//
+// So the splitter says what it cut. These assert the stamp itself, because the stamp is the only
+// thing standing between the pointer and the heuristic that was wrong for two of three.
+describe('core: carousel — a native slice stamps the member it carries', () => {
+  const NATIVE = [
+    ['kanban-lanes', kbTag, kbInner, ['To do', 'Doing']],
+    ['roadmap-horizons', rmTag, rmInner, ['H1', 'H2', 'H3']],
+    ['journey-stages', jnTag, jnInner, ['Evaluate', 'Trial', 'Activate']],
+  ];
+
+  for (const [name, tag, inner, expected] of NATIVE) {
+    test(`${name}: every page names its own member, in order`, () => {
+      const parts = carouselize(tag, inner, { strategy: name }, 2, name);
+      assert.ok(Array.isArray(parts), `${name}: expected a split`);
+      const labels = parts
+        .filter((p) => /\sdata-split-role="body"/.test(p))
+        .map((p) => (p.match(/\sdata-split-label="([^"]*)"/) || [])[1]);
+      assert.deepEqual(labels, expected,
+        `${name}: the pages must name their own members. Without the stamp the pointer falls back `
+        + 'to membersIn, which names the first list on the page — a workstream row for roadmap, '
+        + 'and nothing at all for kanban.');
+    });
+  }
+
+  // The stamp carries AUTHOR TEXT into an HTML attribute, so it has to be escaped. A lane titled
+  // with a quote would otherwise close the attribute and the rest of the title would parse as
+  // markup on the page.
+  test('the label is escaped — a quote in a title cannot break out of the attribute', () => {
+    const inner = '<div class="chart-header"><h2>Board</h2></div><div class="chart-body">'
+      + buildKanbanBoard(
+        '<li>The "big" lane<ul><li>one</li></ul></li><li>Second<ul><li>two</li></ul></li>')
+      + '</div>';
+    const parts = carouselize(kbTag, inner, { strategy: 'kanban-lanes' }, 2, 'kanban');
+    const raw = (parts[0].match(/\sdata-split-label="([^"]*)"/) || [])[1];
+    assert.equal(raw, 'The &quot;big&quot; lane', 'an unescaped quote would end the attribute early');
+    assert.ok(!/data-split-label="[^"]*"[^>]*big/.test(parts[0]), 'title text leaked outside the attribute');
+  });
+
+  // A strategy that declares no `label` must not stamp a blank one: an empty attribute would be
+  // read as a member named '' and print a bare "continues" where the heuristic had a real name.
+  test('no label class, no stamp — the heuristic still runs', () => {
+    const parts = carouselize(rlTag, rlInner, { strategy: 'redline-blocks' }, 2, 'redline');
+    assert.ok(Array.isArray(parts));
+    for (const p of parts) {
+      assert.ok(!/\sdata-split-label=/.test(p),
+        'redline-blocks declares no label class, so its pages must carry no stamp at all');
+    }
   });
 });
