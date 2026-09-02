@@ -456,15 +456,18 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   real CLI, not the kernel: `--embed-source --strip-notes` on the fixture attached 204 bytes
   ending `Closing.\n\n` before and 203 bytes byte-identical to the twin after.
 - **Closing it made the `#2003` chaining guard stop measuring, exactly as that guard predicted —
-  and then did it again to the literal that replaced it.** Its comment said "if this shape stops
-  diverging, this test is no longer measuring anything", and the end-of-input fix is what made the
-  two orders agree on it. The replacement literal went quiet one revision later, when the
-  end-of-input rule was widened to cover a blank line *after* the comment. Chaining is still
-  order-dependent — the surviving shape needs a blank RUN between the two comments
-  (`Text.\n<!-- n -->\n\n\n<!-- caption: c -->`) — but two literals dying inside one change is the
-  argument: the guard is now a **search over a corpus**, which reports its own silence, and the
-  literal is kept only so a reader can see the shape. The count the test finds is in the test;
-  quoting a bigger number from a throwaway sweep would be a figure nobody can re-derive.
+  and then did it twice more.** Its comment said "if this shape stops diverging, this test is no
+  longer measuring anything", and the end-of-input fix is what made the two orders agree on it.
+  The replacement went quiet when the rule was widened to cover a blank line *after* the comment;
+  its replacement went quiet again when the whole trailing run started coming off. Three literals
+  died inside one change, each still passing as an assertion while measuring nothing — which is
+  the argument for the guard being a **search over a corpus** that reports its own silence.
+  **This page deliberately does not name the surviving shape.** A fourth attempt to do so was
+  already stale by the time it was written: the shape moved from end-of-file to mid-deck, and a
+  reader trusting this sentence would have been checking a literal that converges. The current one
+  lives in `test/unit/authoring/notes-core.test.js`, next to the search that finds it, which is
+  the only place that cannot go stale without going red. The count is in the test for the same
+  reason; a bigger number from a throwaway sweep is a figure nobody can re-derive.
 - **The natural way to tidy the FRONT-MATTER half's leftovers is an exponential regex, and the
   input that proves it is not the one you would guess.** (A different residue from the one above:
   this is the blank tail a removed `captions:` block leaves in the rebuilt front matter, not the
@@ -483,7 +486,7 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   at 100k — which is still reason enough not to ship it, but the reason is the polynomial arm,
   not the exponential one. `trimTrailingBlankLines` uses a backward index scan instead (3.6 ms at
   100k, 15 ms at a million), which is the same answer as `stripCaptionsFrontMatter`'s line array.
-  all. A regression test written against the SPACES shape passes at any realistic size while the
+  A regression test written against the SPACES shape passes at any realistic size while the
   exponential bug is live, which is why the arm in `notes-core.test.js` uses `\r\n`. The fix is
   not a cleverer regex: `stripCaptionsFrontMatter` trims the line ARRAY it already has, which is
   linear on both (100k `\r\n` pairs in 99 ms). Same hazard class as the comment matcher's own
@@ -522,10 +525,12 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Fix:** `attachmentCut()` in `lattice-emulator.js`, three steps cheapest-first, because the
   expensive one is reached by no deck here. (1) `md === rawMd` — the measurement is *of* this
   document. (2) The two cuts produce the same bytes on `md`, so the choice cannot change what
-  ships; two string scrubs, no render. **This covers every pre-processed file in the tree** — 51
-  markdown files carry a comment and get pre-processed (41 actual decks, the rest prose docs that
-  are never exported), and on none of them does the cut choice change the bytes. The exposure was
-  structural, not live. (3) Only otherwise, render `md` and each cut of it and keep the one that
+  ships; two string scrubs, no render. **This covers every pre-processed file in the tree** — 45
+  markdown files carry a comment and get pre-processed (42 decks, the rest prose docs that are
+  never exported), and on none of them does the cut choice change the bytes. The exposure was
+  structural, not live. Count the fence the way CommonMark does (`/^ {0,3}```{3,} *mermaid/m`): a
+  bare substring match reports 51, because it also counts files that merely *document* the fence
+  in a code sample and never trigger the pre-render. (3) Only otherwise, render `md` and each cut of it and keep the one that
   reproduces it; fail-closed, with the same block-boundary warning pass 2 gives, worded for the
   attachment. The only file in the tree that reaches step 3 is the fixture added to exercise it.
 - **The general shape:** a measurement is about the document it was taken on. When one export

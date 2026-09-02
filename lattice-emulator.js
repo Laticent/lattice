@@ -2315,10 +2315,13 @@ function strippedSlidesOrAuthored() {
 //   1. `md === rawMd` — no pre-render, no glossary. The measurement is OF this document.
 //   2. The two cuts produce the same bytes on `md`. Then the choice cannot change what ships,
 //      whatever it was measured on. Two string scrubs, no render. This is the case that covers
-//      every pre-processed file in the tree: 51 markdown files carry a comment AND get
-//      pre-processed (41 of them actual decks, the rest prose docs that are never exported), and
-//      on none of them does the cut choice change the bytes. The only file that reaches step 3
-//      is `test/fixtures/strip-notes-deck-preprocessed.md`, added to exercise it.
+//      every pre-processed file in the tree: 45 markdown files carry a comment AND get
+//      pre-processed (42 of them decks, the rest prose docs that are never exported), and on none
+//      of them does the cut choice change the bytes. The only file that reaches step 3 is
+//      `test/fixtures/strip-notes-deck-preprocessed.md`, added to exercise it.
+//      Count the fence the way CommonMark does — `/^ {0,3}`{3,} *mermaid/m`. A bare
+//      `includes('```mermaid')` says 51, because it also counts files that merely DOCUMENT the
+//      fence inside a code sample and never trigger the pre-render at all.
 //   3. Otherwise the choice genuinely matters on an unmeasured document, so measure it: render
 //      `md` and each cut of it, and keep the one that reproduces it. Fail-closed — if neither
 //      does, keep scrubbing (the text still goes from every copy) and say what was given up.
@@ -4824,13 +4827,22 @@ async function embedSourceInPdf(pdfBytes) {
     // against the re-rendered `rawMd` — they are the same string on most decks and the guard
     // says so for free, but where they are not, a cut measured elsewhere is a guess.
     const cut = STRIP_NOTES || STRIP_CAPTIONS ? attachmentCut() : { boundary: undefined, measured: true };
-    if (!cut.measured) {
+    // ONLY WHEN IT ADDS SOMETHING. `!cut.measured` is also true when pass 2 itself fell back, and
+    // pass 2 already warned about that in full. On a deck where `md === rawMd` — no Mermaid
+    // fence, no auto-glossary, which is the large majority — there is no second document and
+    // therefore no second problem, so repeating the warning says the same thing twice and the
+    // repeat claims a distinction ("on the pre-Mermaid source rather than the rendered one") that
+    // does not exist for that deck. Two warnings for one fault is how the real one stops being
+    // read, which is the same failure this guard's own no-op regression had.
+    if (!cut.measured && md !== rawMd) {
       console.warn(
         '  WARNING: the Markdown attached to the PDF could not have a note or caption comment '
-        + 'removed without changing the deck — the same block-boundary case --strip-notes reports, '
-        + 'here on the pre-Mermaid source the attachment carries rather than on the rendered one. '
-        + 'The text is still removed from every copy; the attached source will re-import with that '
-        + 'block boundary changed. Drop --embed-source, or move the comment out of the list.'
+        + 'removed without changing the deck. This is the block-boundary case --strip-notes '
+        + 'reports, measured separately here because --embed-source attaches the deck as you '
+        + 'wrote it, before the Mermaid pre-render, which is not the document the slides were '
+        + 'rendered from. The text is still removed from every copy; the attached source will '
+        + 're-import with that block boundary changed. Drop --embed-source, or move the comment '
+        + 'out of the list.'
       );
     }
     const attachSource = stripSharedSource(md, noteStripSet, cut.boundary);
