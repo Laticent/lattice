@@ -514,18 +514,24 @@ test.describe('structural fuzz — a prune never moves a slide\u2019s block stru
 			});
 			return out.map((ls) => ls.join('\n'));
 		};
-		const shape = (src) =>
-			boundaryParser
-				.parse(src, {})
-				.filter((t) => !(t.type === 'html_block' && t.content.includes('_lens:')))
-				.map((t) => `${t.type}:${t.tag}:${t.nesting}`)
-				.join('|');
+		// THE ORACLE MUST NOT BE THE IMPLEMENTATION'S OWN CHECK (HARD RULE #23). The first version of
+		// this fuzz copied `blockShape` out of lens-export.mjs, so it could not fail on anything that
+		// check was blind to — and it certified a gap instead of finding it: adding ONE atom
+		// (`[ref]: /x`) to the corpus took it from 0 divergences to 2. The property is what a reader
+		// SEES, so the oracle renders. It is deliberately not the same expression as the kernel's:
+		// this one keeps whitespace structure and strips only the directive comments.
+		const shape = (src) => boundaryParser.render(src.replace(/<!--\s*_lens:[\s\S]*?-->/g, ''), {}).trim();
 
 		const ATOMS = [
 			'Prose line\n', 'more prose\n', '\n', '# Head\n', '===\n', '---\n', '- item\n', '- next\n',
 			'> quote\n', '    indented\n', '```\nfence\n```\n', '```js`\n', '~~~\n', '1. one\n', '2. two\n',
 			'  <!-- _lens: brief -ask -->\n', '<!-- _lens: brief -ask -->\n', '<!-- _lens: brief -ask --> \n',
 			'- <!-- _lens: brief -ask -->\n', '> <!-- _lens: brief -ask -->\n', '\t', '   ',
+			// The two shapes that walked through the token-signature oracle. A link reference
+			// definition emits NO block token, so deleting the line above one kills the definition and
+			// prints the URL on the slide; a nested item flips a list loose->tight, which markdown-it
+			// records in `hidden` and a type/tag/nesting comparison cannot see.
+			'[ref]: /url\n', 'See [ref] here.\n', '- outer\n', '  - nested\n', '\n  ',
 		];
 		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, ...VIEWS], default: 'full' };
 		let seed = 20260902;

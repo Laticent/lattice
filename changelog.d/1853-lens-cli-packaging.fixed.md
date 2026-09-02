@@ -4,7 +4,7 @@
   `npm install @workwel/lattice`. The CLI bundle now inlines the workspace packages like the rest of
   the local graph, so `--lens`, read-along, chart narration and the caption kernel run outside a
   clone. Verified by running a `--lens` export with those packages made unresolvable.
-- **Fixed: a reader-view export never rewrites a slide into something that renders differently.**
+- **Fixed: a reader-view export checks that a pruned slide still renders the same, and keeps the author's text when it does not.**
   Removing a `<!-- _lens: … -->` tag is a text edit, and a text edit to markdown moves the blocks
   around it. Taking the tag's newline spliced the next line onto whatever preceded it — on a line
   followed by a code fence the fence never opened, its closer became an opener, one authored slide
@@ -14,10 +14,12 @@
   Even a clean deletion of a tag on its own line merges the paragraphs it sat between, turns a
   paragraph above a `===` into a heading, and welds two lists into one. Six rules were written for
   this and all six were wrong, because which edits are safe is a property of the PARSER, not of the
-  text. So the export stopped deciding: it re-parses each slide with the engine's own markdown-it
-  and keeps the prune only when the slide's block structure is unchanged, otherwise returning the
-  author's bytes untouched. Held to zero across a structural fuzz that finds 21 corruptions in 699
-  decks the moment the check is removed.
+  text. So the export stopped deciding: it RENDERS each slide with the engine's own markdown-it
+  before and after, keeps the prune only when the two renders match, and otherwise returns the
+  author's bytes untouched. Comparing parse tokens instead was tried and is not enough — a link
+  reference definition emits no token at all, so deleting the line above one killed the definition
+  and printed its URL on the slide while a token comparison reported no change. Held to zero across
+  a fuzz whose oracle is the render, not the kernel's own check.
 - **Fixed: a second `_lens` comment on one slide is no longer invisible.** Lente reads only a slide's
   first tag, so a second one was never parsed and never rewritten — dead weight to every reader, and
   a withheld view's id to the recipient of a projected export. `stripExtraLensTags` removes it when

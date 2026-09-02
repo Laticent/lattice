@@ -205,16 +205,23 @@ describe('a directive sharing its line is never edited — remove or replace', (
 		expect(applyTag('# Hi\n\n<!-- _lens: secret -->', 'secret', false, 'none')).toBe('# Hi\n\n');
 	});
 
-	// WHERE THIS BOUND STOPS, AND WHO CATCHES THE REST. A line whose trimmed content is just the
-	// directive IS edited — indentation and trailing spaces go with it. That is deliberate: demanding
-	// column 0 and an immediate newline refused a whole export over one invisible trailing space.
-	// But deleting even a clean line is a structural edit — here it pulls `more text` into the item
-	// above as a lazy continuation — and no byte-level rule can know that. `lib/core/lens-export.mjs`
-	// re-parses the slide and reverts any prune that moves block structure, so the export is safe;
-	// a direct Lente caller with no parser (the Studio) is not, which is #2034's second half. This
-	// test pins the ACTUAL behavior rather than the behavior three docblocks used to claim.
-	it('a clean line inside a list IS edited — the parser check upstream is what makes that safe', () => {
+	// TWO SCOPES, AND THE DEFAULT IS THE NARROW ONE. Deleting even a clean line is a structural edit —
+	// here it pulls `more text` into the item above as a lazy continuation — and no byte-level rule
+	// can know that. So the permissive scope is opt-in for a caller that re-renders and reverts
+	// (`lib/core/lens-export.mjs`); a caller with no parser, which is the Studio, gets the narrow one.
+	// Handing the Studio the permissive scope took its editable surface from 9,848 of 40,000
+	// adversarial slides to all 40,000, one click of which turns a paragraph into an `<h1>`.
+	it('an indented tag is left alone by default — the Studio has no parser to check the result', () => {
 		const src = '- item text\n  <!-- _lens: secret -->\n  more text\n- second\n';
-		expect(applyTag(src, 'secret', false, 'none')).toBe('- item text\n  more text\n- second\n');
+		expect(applyTag(src, 'secret', false, 'none')).toBe(src);
+	});
+
+	it('and IS edited for a caller that says it verifies — which the export does, by re-rendering', () => {
+		const src = '- item text\n  <!-- _lens: secret -->\n  more text\n- second\n';
+		expect(applyTag(src, 'secret', false, 'none', { callerVerifies: true })).toBe('- item text\n  more text\n- second\n');
+	});
+
+	it('the narrow scope still takes a column-0 tag, indentation and all of its line', () => {
+		expect(applyTag('<!-- _lens: secret -->\nBody.\n', 'secret', false, 'none')).toBe('Body.\n');
 	});
 });

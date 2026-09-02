@@ -191,8 +191,11 @@ into surrounding text usually cannot be removed. Deleting a line joins the block
 a tag between two paragraphs merges them, a tag above a `===` turns the paragraph before it
 into a heading, a tag between two lists welds them into one. Six attempts to decide from the
 text alone which removals are safe each corrupted a real deck, so the export stopped
-deciding: it re-renders the slide with the engine's own parser, keeps the prune only if the
-slide's structure is unchanged, and otherwise leaves your text exactly as you wrote it.
+deciding: it renders the slide with the engine's own parser before and after, keeps the
+prune only if the two renders match, and otherwise leaves your text exactly as you wrote
+it. (A seventh compared parse TOKENS instead of the render, which is a weaker question —
+a link reference definition emits no token at all, so deleting the line above one killed
+the definition and printed the URL on the slide while the check reported no change.)
 
 **And then it refuses rather than leaking.** A tag it could not remove still names a view the
 recipient is not getting, so nothing is written:
@@ -202,10 +205,12 @@ recipient is not getting, so nothing is written:
 > renders, so nothing was written. Put the tag on a blank line of its own, away from the
 > prose around it`
 
-A blank line above and below the tag is always removable, because a blank line already
-separates the blocks. That is where Lattice itself writes one. Indentation and trailing
-spaces are fine. A tag naming only views you ARE exporting is left alone and ships as
-written — the refusal is about disclosure, not tidiness.
+A blank line above and below the tag is the shape most likely to survive, and it is where
+Lattice itself writes one — though not a guarantee: a comment at column 0 also TERMINATES a
+list, so a tag blank-wrapped between two list items still cannot be removed without welding
+them together, and that refuses too. Indentation and trailing spaces are fine. A tag naming
+only views you ARE exporting is left alone and ships as written — the refusal is about
+disclosure, not tidiness.
 
 **Two things the prune deliberately does NOT do.** It never writes an approval digest: the
 views in a projected deck ship without `approved:`, so re-importing the artifact reads them

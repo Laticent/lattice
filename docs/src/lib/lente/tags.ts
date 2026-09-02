@@ -147,16 +147,32 @@ function opensItsLine(text: string, at: number): boolean {
  * WHAT IS STILL ONLY BOUNDED, NOT CHECKED: a direct Lente caller with no parser — the Studio. There
  * the predicate is the whole protection, and the cases above are the ones it is measured against.
  */
-function editableDirective(text: string, span: { start: number; end: number } | null): { start: number; end: number } | null {
+function editableDirective(
+	text: string,
+	span: { start: number; end: number } | null,
+	callerVerifies: boolean,
+): { start: number; end: number } | null {
 	if (!span) return null;
 	const lineStart = text.lastIndexOf('\n', span.start - 1) + 1;
 	let lineEnd = text.indexOf('\n', span.end);
 	if (lineEnd < 0) lineEnd = text.length;
-	// THE WHOLE LINE, TRIMMED, IS THE DIRECTIVE. Indentation and trailing spaces are part of the
-	// line and go with it, so they are not a reason to refuse — an earlier version demanded the
-	// comment sit at exactly column 0 and end at exactly the newline, which refused an entire export
-	// over one invisible trailing space and told the author to put the tag on a line of its own,
+	// TWO SCOPES, AND WHICH ONE YOU GET DEPENDS ON WHETHER YOU CAN CHECK THE RESULT.
+	//
+	// The permissive scope — the whole line, trimmed, is the directive — lets an indented tag or one
+	// with a trailing space be pruned, and refusing those was its own defect: an entire export failed
+	// over one invisible trailing space, telling the author to put the tag on a line of its own,
 	// which is where they had already put it.
+	//
+	// But it is only safe for a caller that VERIFIES, because deleting even a clean line is a
+	// structural edit. `lib/core/lens-export.mjs` re-renders the slide and reverts anything that
+	// moved; the Studio has no parser and cannot. Handing the Studio the permissive scope took its
+	// editable surface from 9,848 of 40,000 adversarial slides to all 40,000 — one checkbox click
+	// turning a paragraph into an `<h1>` and eating a line. So it is opt-in, and the default is the
+	// narrow scope: exactly at the line start, exactly at the newline.
+	if (!callerVerifies) {
+		const strict = lineStart === span.start && (span.end === text.length || text[span.end] === '\n');
+		return strict ? { start: lineStart, end: lineEnd } : null;
+	}
 	if (text.slice(lineStart, span.start).trim() !== '' || text.slice(span.end, lineEnd).trim() !== '') return null;
 	// RETURNS THE LINE, NOT THE COMMENT, and that distinction is a bug this caught on its way in:
 	// checking that the prefix is blank and then cutting from the COMMENT leaves the indent behind
@@ -285,7 +301,7 @@ export function taggedLensIds(slides: string[]): Set<string> {
  * cost safe rather than a leak is that `lib/core/lens-export.mjs` VERIFIES the prune instead of
  * trusting it — a withheld id surviving in the emitted source refuses the export.
  */
-export function stripExtraLensTags(slideSrc: string): string {
+export function stripExtraLensTags(slideSrc: string, opts?: { callerVerifies?: boolean }): string {
 	let src = String(slideSrc ?? '');
 	const first = findDirectiveComment(src, 'lens');
 	if (!first) return src;
@@ -301,7 +317,7 @@ export function stripExtraLensTags(slideSrc: string): string {
 		// Anything sharing its line is left exactly as the author typed it — see `editableDirective`.
 		// The residue of a partial line is itself markdown, and four different splices each corrupted
 		// a real deck.
-		const line = editableDirective(src, { start, end });
+		const line = editableDirective(src, { start, end }, opts?.callerVerifies === true);
 		if (!line) {
 			cursor = end;
 			continue;
@@ -323,7 +339,7 @@ function emitTokens(tags: SlideTags): string {
 /** Write the `<!-- _lens: … -->` comment for a slide from its token sets. Replaces the slide's first
  *  NON-fenced `_lens` comment (a fenced example is left untouched); removes it when empty; inserts a
  *  new one right after the `_class` comment (or at the top) when none exists. */
-function writeTags(slideSrc: string, tags: SlideTags): string {
+function writeTags(slideSrc: string, tags: SlideTags, callerVerifies: boolean): string {
 	const src = String(slideSrc ?? '');
 	const tokens = emitTokens(tags);
 	const comment = `<!-- _lens: ${tokens} -->`;
@@ -334,7 +350,7 @@ function writeTags(slideSrc: string, tags: SlideTags): string {
 		// replacing it edits an author's text just as surely, because the shape that hides from
 		// `fenceRanges` is a documented EXAMPLE inside a blockquoted fence, and rewriting its tokens
 		// ships a slide teaching the syntax with the syntax altered.
-		const line = editableDirective(src, existing);
+		const line = editableDirective(src, existing, callerVerifies);
 		if (!line) return src;
 		// Replacing swaps the comment in place and leaves the line's whitespace alone; removing takes
 		// the WHOLE line, indent and trailing spaces included, because a half-removed line is the
@@ -352,7 +368,7 @@ function writeTags(slideSrc: string, tags: SlideTags): string {
 /** Set (or clear) this slide's membership in one lens, emitting the SHORTEST correct tag for the
  *  lens's base: a `base:none` lens carries an include token only when a member; a `base:all` lens
  *  carries a `-id` exclude token only when NOT a member. Pure — returns new slide source. */
-export function applyTag(slideSrc: string, lensId: string, member: boolean, base: LensBase): string {
+export function applyTag(slideSrc: string, lensId: string, member: boolean, base: LensBase, opts?: { callerVerifies?: boolean }): string {
 	const tags = parseSlideTags(slideSrc);
 	if (base === 'all') {
 		tags.include.delete(lensId); // a base:all lens never uses an include token
@@ -363,5 +379,5 @@ export function applyTag(slideSrc: string, lensId: string, member: boolean, base
 		if (member) tags.include.add(lensId);
 		else tags.include.delete(lensId);
 	}
-	return writeTags(slideSrc, tags);
+	return writeTags(slideSrc, tags, opts?.callerVerifies === true);
 }
