@@ -30,13 +30,13 @@ Beyond the groups on [the token tour](/craft/themes/tokens/), define:
 | `--pass-bg` / `--warn-bg` / `--fail-bg` | 3 | tinted signal grounds |
 | `--seq-500` | 1 | anchors a ten-step gradient ramp |
 | `--text-label`, `--code-text` | 2 | the accent-hued label tier, and code text |
-| `--c-container*`, `--c-subcontainer*` | 6 | the grouping boxes diagrams draw around related nodes: two fills, two edges, two label inks. Not optional — the fill is a barely-there step from the canvas, so a theme that omits them gets an invisible box and unreadable labels |
+| `--c-container*`, `--c-subcontainer*` | 6 | the diagram grouping boxes — see below |
 
 The exact list is the `CONTRACT` array in
 `test/unit/palette/token-parity.test.js`. The twelve `--cat-N-ink` values
 sit outside it and have their own gate.
 
-### Two worth reading twice
+### Three worth reading twice
 
 **`--seq-500`** is the middle of a ten-step ramp: the engine builds nine
 more shades around it, some closer to the page color, some further from it.
@@ -54,6 +54,12 @@ node tools/composed-contrast.js evergreen
 computes it for you. Do not fade it to a quieter shade for small text
 either: you tuned it to clear the contrast floor with nothing to spare, and
 fading it spends exactly that.
+
+**The six containment tokens** are the boxes a diagram draws around related
+nodes — two fills, two edges, two label inks. They look skippable and are
+not: the fill is deliberately a barely-there step from the canvas, so a
+theme that omits them gets an invisible box with unreadable labels inside
+it.
 
 ## The checklist
 
