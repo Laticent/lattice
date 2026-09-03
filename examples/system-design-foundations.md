@@ -315,11 +315,11 @@ Push, wait twelve minutes for the build, read a comment, fix, push again. Maya r
 
 ```mermaid
 flowchart LR
-  IN(["Change"]) --> PUSH["Push"]
-  PUSH --> CI["Build and test<br/>12 minutes, fixed"]
+  IN(["Change"]) --> PUSH(["Push"])
+  PUSH --> CI(["Build and test<br/>12 minutes, fixed"])
   CI --> REV{"Review"}
   REV -->|"approved"| OUT(["Merged"])
-  REV -->|"comment"| FIX["Fix"]
+  REV -->|"comment"| FIX(["Fix"])
   FIX --> PUSH
   FIX -.->|"abandoned attempt"| ST[("Stale branch<br/>still there at 22:40")]
 ```
@@ -390,16 +390,16 @@ Main was deployable every minute of Maya's Tuesday. It was true while the regist
 flowchart TB
   subgraph rein["Reinforcing · the status spiral"]
     direction LR
-    R1["482 sits"] --> R2["Someone asks"]
-    R2 --> R3["Maya stops<br/>to answer"]
+    R1(["482 sits"]) --> R2(["Someone asks"])
+    R2 --> R3(["Maya stops<br/>to answer"])
     R3 --> R1
-    R4["Batch replies<br/>at 15:50"] -.->|"cuts it"| R3
+    R4(["Batch replies<br/>at 15:50"]) -.->|"cuts it"| R3
   end
   subgraph bal["Balancing · the shower, with a delay"]
     direction LR
-    B1["Too hot"] --> B2["Turn it down"]
-    B2 --> B3["Pipe lags<br/>eight seconds"]
-    B3 --> B4["Too cold"]
+    B1(["Too hot"]) --> B2(["Turn it down"])
+    B2 --> B3(["Pipe lags<br/>eight seconds"])
+    B3 --> B4(["Too cold"])
     B4 --> B2
   end
 ```
@@ -908,19 +908,19 @@ The entries name concepts, not products. Products turn over every few years. The
 flowchart TB
   subgraph b["Event fan-out"]
     direction LR
-    B1["Producer"] --> B2[["Durable log"]] --> B3["Two consumers"]
+    B1(["Producer"]) --> B2[["Durable log"]] --> B3(["Two consumers"])
   end
   subgraph a["Read-heavy app"]
     direction LR
-    A1["Client"] --> A2[("Cache")] --> A3[("Relational")]
+    A1(["Client"]) --> A2[("Cache")] --> A3[("Relational")]
   end
   subgraph d["Search"]
     direction LR
-    D1[("Relational")] --> D2["Indexer"] --> D3[("Search index")]
+    D1[("Relational")] --> D2(["Indexer"]) --> D3[("Search index")]
   end
   subgraph c["Media"]
     direction LR
-    C1["Upload"] --> C2[("Object store")] --> C3["CDN"]
+    C1(["Upload"]) --> C2[("Object store")] --> C3(["CDN"])
   end
   a ~~~ c
   b ~~~ d
@@ -1253,7 +1253,7 @@ flowchart LR
 - Reach for it when
   - Anything is sorted, paged or deduplicated. A sortable id carries time and writer in one value.
 - Walk away when
-  - A clock is fine as a sort key when one writer owns it and a unique id breaks the ties.
+  - One writer owns the sequence and a unique id breaks the ties. Then a clock is enough.
 - The constraint you inherit
   - An id you sort by can never change, and every page cursor comes to depend on it.
 
@@ -1313,7 +1313,7 @@ The same rule governs an API other people call. Add fields, never repurpose them
 
 `Data kit · the invariants`
 
-## A data design you can defend says all four are true. Which does yours break?
+## Four sentences hold, or the data design is not one you can defend.
 
 1. One source of truth per fact
    - Every other copy is derived and says so.
@@ -1338,26 +1338,26 @@ The same rule governs an API other people call. Add fields, never repurpose them
 
 `Compute kit · the patterns`
 
-## Each of these hands the machine to somebody else.
+## Every compute choice hands more of the machine to somebody else.
 
 ```mermaid
 flowchart TB
   subgraph b["Defer behind a queue"]
     direction LR
-    B1["API returns now"] --> B2[["Bounded queue"]] --> B3["Worker pool"]
+    B1(["API returns now"]) --> B2[["Bounded queue"]] --> B3(["Worker pool"])
   end
   subgraph a["Stateless behind a balancer"]
     direction LR
-    A1["Balancer"] --> A2["Any instance"] --> A3[("Shared state")]
+    A1(["Balancer"]) --> A2(["Any instance"]) --> A3[("Shared state")]
   end
   subgraph d["One log, two budgets"]
     direction LR
-    D1[["Event log"]] --> D2["Stream, seconds"] --> D4["Live counters"]
-    D1 --> D3["Batch, hourly"] --> D5[("Warehouse")]
+    D1[["Event log"]] --> D2(["Stream, seconds"]) --> D4(["Live counters"])
+    D1 --> D3(["Batch, hourly"]) --> D5[("Warehouse")]
   end
   subgraph c["Event triggers a function"]
     direction LR
-    C1[("Object store")] --> C2["Function"] --> C3[("Index")]
+    C1[("Object store")] --> C2(["Function"]) --> C3[("Index")]
   end
   a ~~~ c
   b ~~~ d
@@ -1427,7 +1427,7 @@ flowchart TB
 
 `Compute kit · the invariants`
 
-## Anything you run should satisfy every one of these. Which does yours break?
+## Anything you run should satisfy all four before it meets real traffic.
 
 1. Any instance can be killed without a customer noticing
    - If that is false, you have state you have not named yet.
@@ -1452,27 +1452,27 @@ flowchart TB
 
 `Network kit · the patterns`
 
-## Distance costs you differently in each of these.
+## Distance charges a different price at every hop.
 
 ```mermaid
 flowchart TB
   subgraph b["Route by content"]
     direction LR
-    B1["L7 balancer"] -->|"/api"| B2["Service"] --> B4[("Database")]
-    B1 -->|"/media"| B5["Media service"] --> B3[("Bucket")]
+    B1(["L7 balancer"]) -->|"/api"| B2(["Service"]) --> B4[("Database")]
+    B1 -->|"/media"| B5(["Media service"]) --> B3[("Bucket")]
   end
   subgraph a["Cache at the edge"]
     direction LR
-    A1(["Client"]) --> A2["CDN"] -.->|"miss"| A3[("Origin")]
+    A1(["Client"]) --> A2(["CDN"]) -.->|"miss"| A3[("Origin")]
   end
   subgraph d["Ask once, or subscribe"]
     direction LR
-    D1(["Client"]) -->|"one request"| D2["API"] --> D4(["One answer"])
-    D1 <-->|"open stream"| D3["Live socket"] --> D5(["Many updates"])
+    D1(["Client"]) -->|"one request"| D2(["API"]) --> D4(["One answer"])
+    D1 <-->|"open stream"| D3(["Live socket"]) --> D5(["Many updates"])
   end
   subgraph c["Every hop carries a deadline"]
     direction LR
-    C1["300 ms left"] --> C2["Breaker"] --> C3["200 ms left"]
+    C1(["300 ms left"]) --> C2(["Breaker"]) --> C3(["200 ms left"])
   end
   a ~~~ c
   b ~~~ d
@@ -1563,7 +1563,7 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
 
 `Network kit · the invariants`
 
-## A call that leaves your process owes you all of this before you trust it.
+## A call that leaves your process owes you four things.
 
 1. Every remote call has a deadline
    - Inherited from the caller, and always shorter than the caller's own.
@@ -1594,21 +1594,21 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
 flowchart TB
   subgraph b["Spread · partition by key"]
     direction LR
-    B1["Request"] --> B2["Router, by key"] --> B3[("Shard A")]
+    B1(["Request"]) --> B2(["Router, by key"]) --> B3[("Shard A")]
     B2 --> B4[("Shard B")]
   end
   subgraph a["Reduce · do less per request"]
     direction LR
-    A1["Request"] --> A2[("Cache hit")] --> A3(["No work done"])
+    A1(["Request"]) --> A2[("Cache hit")] --> A3(["No work done"])
   end
   subgraph d["Duplicate · copy toward readers"]
     direction LR
-    D1["Writes"] --> D2[("Leader")] --> D3[("Replica, US")]
+    D1(["Writes"]) --> D2[("Leader")] --> D3[("Replica, US")]
     D2 --> D4[("Replica, EU")]
   end
   subgraph c["Defer · answer now, work later"]
     direction LR
-    C1["Accept"] --> C2[["Bounded queue"]] --> C3["Worker"]
+    C1(["Accept"]) --> C2[["Bounded queue"]] --> C3(["Worker"])
   end
   a ~~~ c
   b ~~~ d
@@ -1638,7 +1638,7 @@ $$ L = \lambda W $$
 
 At 2,000 requests per second averaging 50 milliseconds each, 100 requests are in flight at any moment. That is your minimum concurrency, and no tuning makes it smaller while the other two numbers hold.
 
-Maya's Tuesday is the same arithmetic at human scale. Two builds a day at twelve minutes each leaves the pipeline idle almost all of it, so nothing she pushes ever queues — which is how you know the twelve minutes was never her bottleneck. The reviewer was. Find your own numbers — arrivals on the load balancer, duration in the handler.
+Maya's Tuesday is the same arithmetic at human scale. Two builds a day, twelve minutes each, leave the pipeline idle for almost the whole day, so nothing she pushes ever queues — which is how you know the twelve minutes was never her bottleneck. The reviewer was. Find your own numbers — arrivals on the load balancer, duration in the handler.
 
 ---
 
@@ -1666,7 +1666,7 @@ Neither is a tuning problem. The first is why pools have ceilings, and the secon
 A page that makes 100 parallel calls waits for the slowest one. Give each call a one-percent chance of being slow. Then 63 percent of pages hit at least one slow call. That is `1 - 0.99^100`, and you can redo it on a napkin.
 
 - The check
-  - Percentiles for what a person experiences, means for what a fleet must total. Report the 99th per dependency; keep the mean for capacity, never for latency.
+  - A percentile tells you what one person felt. An average tells you what the fleet must carry. Report the 99th per dependency, and keep the average for capacity only.
 - Fan-out amplifies it
   - More parallel calls turn a rare slow response into a common slow page.
 - Hedging buys it back, on a budget
@@ -1715,7 +1715,7 @@ Networks duplicate, clients retry, queues redeliver. The only question is whethe
 
 `Scale kit · the invariants`
 
-## Check every one of these before you call anything scalable.
+## Nothing here is scalable until the last of the four is true.
 
 1. The bottleneck is named and measured
    - Not suspected. A number, a graph, and the resource it belongs to.
@@ -1740,7 +1740,7 @@ Networks duplicate, clients retry, queues redeliver. The only question is whethe
 
 `Reliability kit · the patterns`
 
-## Each of these keeps one failure from becoming every failure.
+## Each pattern keeps one failure from becoming every failure.
 
 ```mermaid
 flowchart TB
@@ -1886,7 +1886,7 @@ Under pressure something has to give. Either you decided in advance which featur
 
 `Reliability kit · the invariants`
 
-## Trust nothing in production until all of these hold.
+## Production earns trust one of these at a time.
 
 1. Every dependency has a defined failure behavior
    - Written down: degrade, queue, or fail fast. Never "we will see."
@@ -1911,26 +1911,26 @@ Under pressure something has to give. Either you decided in advance which featur
 
 `Security kit · the patterns`
 
-## All four of these assume somebody is already inside.
+## All four defenses assume somebody is already inside.
 
 ```mermaid
 flowchart TB
   subgraph b["Short, narrow, rotated"]
     direction LR
-    B1["Service"] --> B2["Token, 15 min<br/>read only"] --> B3[("Store")]
+    B1(["Service"]) --> B2(["Token, 15 min<br/>read only"]) --> B3[("Store")]
   end
   subgraph a["Identity once, permission always"]
     direction LR
-    A1(["Caller"]) -->|"authn"| A2["Edge"] -->|"authz on this object"| A3[("Object")]
+    A1(["Caller"]) -->|"authn"| A2(["Edge"]) -->|"authz on this object"| A3[("Object")]
   end
   subgraph d["A reply is input too"]
     direction LR
-    D1["Service<br/>validates the reply"] -->|"signed request"| D2["Third party"]
+    D1(["Service<br/>validates the reply"]) -->|"signed request"| D2(["Third party"])
     D2 -.->|"reply, untrusted"| D1
   end
   subgraph c["Private bytes need a signed link"]
     direction LR
-    C1(["Viewer"]) --> C2["Authorizer<br/>mints URL"] --> C3["CDN verifies"]
+    C1(["Viewer"]) --> C2(["Authorizer<br/>mints URL"]) --> C3(["CDN verifies"])
   end
   a ~~~ c
   b ~~~ d
@@ -1946,10 +1946,10 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  U(["User<br/>fully untrusted"]) -->|"authn, validate input"| E["Edge"]
-  E -->|"authz, rate limit"| S["Service"]
+  U(["User<br/>fully untrusted"]) -->|"authn, validate input"| E(["Edge"])
+  E -->|"authz, rate limit"| S(["Service"])
   S -->|"service identity,<br/>least privilege"| D[("Data")]
-  S -->|"signed request"| T["Third party"]
+  S -->|"signed request"| T(["Third party"])
   T -.->|"the reply is untrusted too"| S
 ```
 
@@ -2007,7 +2007,7 @@ Assume any single credential eventually leaks. The design question is not whethe
 
 `Security kit · threat modeling`
 
-## Ask these before somebody else finds the holes for you.
+## Six questions find the holes before somebody else does.
 
 - [ ] Can someone pretend to be another identity? `spoofing`
 - [ ] Can data be changed in transit or at rest? `tampering`
@@ -2049,7 +2049,7 @@ Pin exact versions and commit the lock file, so the build you tested is the buil
 
 `Security kit · the invariants`
 
-## Sign your name to a design only when every one of these is true.
+## Sign your name to a design only when you can say all four.
 
 1. Every request is authorized against the specific object
    - Not the endpoint. Object-level checks are where the breaches happen.
@@ -2172,7 +2172,7 @@ One of those numbers does less work than it looks. Change the 500 million, holdi
 ## Four numbers decide something here. The 500 million users decide nothing.
 
 1. Writes · 1.2 K/s
-   - One machine could take these. The write path was never the hard part.
+   - One machine could take the posts. Each one becomes hundreds of feed writes, which is the hard part.
 2. Feed opens · 70 K/s
    - The number everyone sizes from, and an open is not a request. It is not the real one.
 3. Media · 200 TB a day
@@ -2228,12 +2228,12 @@ An open is a session: the reader scrolls, and every screenful is another fetch. 
 
 ```mermaid
 flowchart LR
-  M(["Maya<br/>follows 300"]) -->|"follows"| A["Friend"]
-  M -->|"follows"| B["Photographer"]
+  M(["Maya<br/>follows 300"]) -->|"follows"| A(["Friend"])
+  M -->|"follows"| B(["Photographer"])
   M -->|"follows"| C(["Celebrity<br/>followed by 5×10⁸"])
-  D["Fan"] -->|"follows"| C
-  E["Fan"] -->|"follows"| C
-  F["…499,999,997 more"] -->|"follows"| C
+  D(["Fan"]) -->|"follows"| C
+  E(["Fan"]) -->|"follows"| C
+  F(["…499,999,997 more"]) -->|"follows"| C
 ```
 
 *The number of accounts you follow is capped at 7,500. The number who follow you is capped by nothing. Every hard problem in this design sits on that second number.*
@@ -2254,7 +2254,7 @@ Instagram caps your following list at seven and a half thousand accounts. Nobody
 - Followers, per person
   - About 150 for most people. Five hundred million at the top. A million times apart.
 - Everything after this
-  - Is a consequence of that asymmetry. Nothing else in the design spans that range.
+  - Follows from that asymmetry. Nothing else in the design spans that range.
 
 ---
 
@@ -2273,7 +2273,7 @@ following                              followers
   capped at 7,500 rows                   B = clamp(followers / 10_000, 1, 512)
 ```
 
-*The forward edge is the source of truth, and it stores the bucket and timestamp its reverse row was written with — together those address the row exactly. That is what lets an unfollow find the reverse edge years later: `B` has grown since, so recomputing `hash(source) % B` now lands somewhere else and the edge would never be deleted. A background job rebuilds the reverse table from the forward edges and repairs drift. `B` may only grow — shrink it and you lose edges — and a fan-out worker reads it fresh rather than from the cached count a profile page shows, because a stale, smaller `B` scans too few buckets and silently skips the newest followers. Early edges were written when `B` was smaller, so the low-numbered buckets hold several times the average until `B` reaches its cap.*
+*The forward edge is the source of truth, and it stores the bucket and timestamp its reverse row was written with — together those address the row exactly. That is what lets an unfollow find the reverse edge years later: `B` has grown since, so recomputing `hash(source) % B` now lands somewhere else and the edge would never be deleted. A background job rebuilds the reverse table from the forward edges and repairs drift. `B` is a high-water mark stored on the account, not the live follower count: counts fall when people unfollow, and a smaller `B` would strand every edge in the buckets above it. It ratchets up and never down, and a fan-out worker reads it fresh rather than from the cached count a profile page shows, because a stale, smaller `B` scans too few buckets and silently skips the newest followers. Early edges were written when `B` was smaller, so the low-numbered buckets hold several times the average until `B` reaches its cap.*
 
 ---
 
@@ -2287,7 +2287,7 @@ following                              followers
 | --- | --- | --- |
 | Does A follow B? | `following (A)` then `B` | One point read |
 | Who does A follow? | `following (A)` range | 7,500 rows, one partition |
-| Who follows B, ordinary B? | `followers (B, 0)` range | ~10⁴ rows, one partition |
+| Who follows B, below the bucket line? | `followers (B, 0)` range | ~10⁴ rows, one partition |
 | Follower count | `user_edge_stats` | One point read, cached |
 | **Who follows B, celebrity B?** | `followers (B, 0..511)` | **5×10⁸ rows, 512 partitions** |
 
@@ -2313,12 +2313,12 @@ Hold that design in your head. Now a single account with five hundred million fo
 
 Five hundred million feed inserts at roughly fifty bytes each, from a single API call.
 
-- 500 seconds of queue
-  - Assume the fan-out fleet drains a million inserts a second: eight minutes serving nobody else.
+- 500 seconds to drain, alone
+  - At a million inserts a second with nothing else arriving. Ordinary posts keep coming at 330K, so the real clear is `5×10⁸ / (1M − 330K)`, about thirteen minutes.
 - 330K inserts a second
   - The platform's ordinary load: 1.2K posts times a mean fan-out near 280. Totals need the mean. The median is far lower and would halve your estimate.
-- 25 minutes of backlog
-  - One celebrity post is that much of everyone else's work, arriving at once.
+- 25 minutes of everyone else's work
+  - Not a wait — a quantity. One post equals what the whole platform normally produces in twenty-five minutes.
 
 ---
 
@@ -2394,7 +2394,7 @@ The better predicate is fan-out work per day. Fifty thousand followers posting f
 At thirty pulls and a one-percent slow call, `1 - 0.99^30` puts twenty-six percent of pages on a slow dependency. Cap at twenty and it is eighteen percent — still eighteen times a 99th-percentile budget. The cap sounded like the answer and fails its own arithmetic, which is exactly why you run the check on your own fixes.
 
 - The cache is what bounds it
-  - A celebrity's recent-posts list is written once and read five hundred million times, so those pulls hit cache and sit nowhere near one percent slow.
+  - Those pulls hit a cache, so their slow rate is far below one percent — measure it rather than assuming, because at 0.2 percent twenty pulls are still four percent of pages.
 - The deadline is the backstop
   - Fire every pull, render at eighty milliseconds with whatever arrived, and let the stragglers land on the next fetch.
 - A cap still costs someone
@@ -2520,17 +2520,17 @@ The feed is eventually consistent, which is correct for everyone else's posts an
 
 ```mermaid
 flowchart LR
-  C(["Client"]) -->|"1 · ask"| API["API"]
+  C(["Client"]) -->|"1 · ask"| API(["API"])
   API -->|"2 · presigned URL"| C
   C -->|"3 · bytes"| OS[("Object store")]
-  OS -->|"4 · event"| TR["Transcode"]
+  OS -->|"4 · event"| TR(["Transcode"])
   TR -->|"5 · variants"| OS
-  V(["Viewer"]) -->|"6 · request"| AZ["Authorizer<br/>checks follow and block"]
-  AZ -->|"7 · signed URL, minutes"| CDN["CDN verifies"]
+  V(["Viewer"]) -->|"6 · request"| AZ(["Authorizer<br/>checks follow and block"])
+  AZ -->|"7 · signed URL, minutes"| CDN(["CDN verifies"])
   CDN -->|"8 · serves"| V
 ```
 
-*Step 2 is the one place an untrusted client writes straight into your storage. So the grant carries four limits: one content type, a size ceiling, a short expiry, and a rate per account. Without them, anyone can fill your storage at your expense, and step 4 hands bytes they chose to an image decoder. All input is untrusted, including input you asked for.*
+*Step 2 is the one place an untrusted client writes straight into your storage. So the grant names the exact key it may write, and carries four limits besides: one content type, a size ceiling, a short expiry, and a rate per account. Let the client choose the key and it writes over somebody else's media. Without them, anyone can fill your storage at your expense, and step 4 hands bytes they chose to an image decoder. All input is untrusted, including input you asked for.*
 
 ---
 
@@ -2546,7 +2546,7 @@ Every like is a write against the same post id — one key, one partition, one l
 - The row is the truth
   - Store the pair once, keyed by reader and post. The count is an aggregate you rebuild from it, which is what survives a redelivery or an unlike.
 - Shard the hot counter only
-  - Increment one of a hundred sibling keys at random. One hot key becomes a hundred warm ones — and one read becomes a hundred, so cache the sum and shard only the keys you have measured as hot.
+  - Increment a random one of a hundred sibling keys, but only when the row insert actually created a row. A blind increment double-counts every redelivery, forever.
 - Comments are the second unbounded list
   - Bounded per reader, unbounded per post. Page them; never load them with the post.
 
@@ -2592,9 +2592,9 @@ Every like is a write against the same post id — one key, one partition, one l
 
 `Instagram · the invariants`
 
-## Every one of these holds, or the design is not finished.
+## Six sentences have to hold, or the design is not finished.
 
-- [x] A post is visible to every eligible follower who reaches it. `eventually`
+- [ ] A post is visible to every eligible follower who reaches it — except past the pull cap, where the same quiet accounts lose every page. `rotate the cap, or say it out loud`
 - [x] Media is never lost once an upload is acknowledged. `durable`
 - [x] A like counts exactly once per reader and post. `idempotent`
 - [x] A feed page never repeats or skips an item. `stable cursor + dedupe at merge`
@@ -2706,7 +2706,7 @@ Solution type MVP  ·  scaled  ·  optimized  ·  optimal  ·  specialized
 
 `The review`
 
-## Ask these of any design, starting with your own.
+## Run these six on any design, starting with your own.
 
 - [ ] Who is the protagonist, and who are we not designing for? `casting`
 - [ ] What is the antagonist, and what number describes it? `evidence`
