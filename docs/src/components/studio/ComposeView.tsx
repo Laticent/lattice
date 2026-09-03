@@ -1243,9 +1243,17 @@ function ComposeStyles() {
 			/* Clear the delete cap. The badge and the danger group both sit at the top-right of the
 			   slide, and at the badge's original inset the trash button LANDED ON IT — the label
 			   read "· EDIT IN MARKDO", so the one piece of chrome that explains why the slide
-			   will not take a keystroke was cut off mid-word. The cap is 28px (34px at the
-			   coarse-pointer size below), so clear the wider of the two plus a gap. */
-			.cs-host .cs-slide-locked::after{content:"◔ edit in Markdown";position:absolute;top:8px;right:calc(clamp(12px,4cqw,40px) + 42px);font-family:var(--font-mono,ui-monospace,monospace);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted,#6b7f9a);background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);padding:2px 7px;border-radius:4px;pointer-events:none}
+			   will not take a keystroke was cut off mid-word. The resting cap is 22px (28px at
+			   the coarse-pointer size below); 42px clears it with a gap. */
+			.cs-host .cs-slide-locked::after{content:"◔ edit in Markdown";position:absolute;top:8px;right:calc(clamp(12px,4cqw,40px) + 42px);transition:opacity .12s ease;font-family:var(--font-mono,ui-monospace,monospace);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted,#6b7f9a);background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);padding:2px 7px;border-radius:4px;pointer-events:none}
+			/* AND STAND DOWN WHILE THE DELETE IS ARMED. A fixed inset cannot clear the danger
+			   group in both states: at rest it is one 22px cap, and arming it expands the group
+			   to "Delete? ✓ ✗", which is 64px wider than any inset that still leaves the badge
+			   on the slide — measured, and it re-clipped the label to "· EDIT I". Yielding is
+			   the right answer rather than a wider inset: the confirm is transient (it
+			   auto-cancels after 4s), it is the thing the author is looking at, and "edit in
+			   Markdown" is not the advice that matters while a delete is pending. */
+			.cs-host .cs-slide-locked:has(.cs-sb-danger.cs-confirming)::after{opacity:0}
 			.cs-host h1{font-family:inherit;font-size:1.95rem;font-weight:700;line-height:1.12;margin:.1em 0 .35em;color:var(--text-heading,#14243a);letter-spacing:-.01em}
 			.cs-host h2{font-family:inherit;font-size:1.45rem;font-weight:700;line-height:1.18;margin:.5em 0 .32em;color:var(--text-heading,#14243a);letter-spacing:-.005em}
 			.cs-host h3{font-family:inherit;font-size:1.15rem;font-weight:600;margin:.5em 0 .25em;color:var(--text-heading,#14243a)}

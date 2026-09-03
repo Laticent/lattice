@@ -56,3 +56,8 @@
   position, and a slide's fold decoration ends exactly where the next one
   begins — so folding two adjacent slides in turn unfolded the first and left
   the second open.
+- **Fixed: the locked-slide badge no longer collides with the delete confirm.**
+  Clearing the resting trash cap was not enough — arming the delete expands the
+  group to "Delete? ✓ ✗" and re-clipped the label. The badge now stands down
+  while a delete is pending, which is the one moment "edit in Markdown" is not
+  the advice that matters.
