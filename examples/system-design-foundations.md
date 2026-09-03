@@ -498,6 +498,38 @@ You never handle the system itself. You handle a drawing of it, its limits and i
 
 ---
 
+<!-- _class: content -->
+
+`Your turn`
+
+## Take the turnstile at a station and name its parts before you turn the page.
+
+You already know how one works. Write down five things: its purpose, its boundary, one constraint, one invariant, and the infrastructure it stands on. Two minutes, on paper, and cover the next slide until you have them.
+
+Do not hunt for a clever answer. The point is that you now have words for a thing you have walked past a thousand times without ever describing.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## A turnstile, in the words you now have.
+
+1. Purpose
+   - Let paying people through, stop everyone else. Counting riders is a side effect.
+2. Boundary
+   - The gate, its reader, the local rules. Not the fare service it asks.
+3. Constraint
+   - One person at a time, about a second each. That sizes the hall.
+4. Invariant
+   - Never open without a valid fare. Never close on a person.
+5. Infrastructure
+   - Power, the link to the fare service, the floor.
+
+
+---
+
 <!-- _class: divider numbered -->
 
 `Part two`
@@ -612,6 +644,32 @@ Scale is a quantity, and quantities have a price you can pay. The thing you cann
   - That gap is why the design ends up with two paths instead of one.
 - Hold on to this
   - Every hard decision in Part five is this one fact again.
+
+---
+
+<!-- _class: content -->
+
+`Your turn`
+
+## Cast the last app you opened, in the same two sentences.
+
+`<name> wants to <do X> so that <Y>. But <W> — and W is <a number>.`
+
+Pick something ordinary: a maps app, a chat client, the thing your team ships. Fill in both lines. The second is the hard one, and if you cannot put a number on W, you have just found the first thing worth measuring.
+
+---
+
+<!-- _class: compare-prose -->
+
+`One answer`
+
+## A maps app, cast in two sentences.
+
+- The protagonist
+  - A driver already moving wants the next turn early enough to take it, so that the road and the screen never compete. Everyone else — the person searching, the person saving a place, the person reading reviews — is slower and can wait.
+- The antagonist
+  - The signal drops in the tunnel, and the tunnel is ninety seconds long. That number is the design: ninety seconds of route has to be on the phone before the phone goes quiet.
+
 
 ---
 
@@ -779,6 +837,34 @@ Antoine de Saint-Exupéry wrote that perfection arrives not when there is nothin
   - A figure nobody can act on is decoration. Turn it into a threshold or take it out.
 - Less, but better, is not less
   - Rams designed for decades of use. Removing something the system needs is not restraint, it is a defect.
+
+---
+
+<!-- _class: content -->
+
+`Your turn`
+
+## Three requests arrive this week. Name the rung each one is asking for.
+
+One: a founder wants to know whether anybody will pay for something that does not exist yet. Two: a service that works fine is about to take ten times the traffic, and nobody knows what gives first. Three: the bill for a single endpoint is now larger than the team that owns it.
+
+Write a rung for each and one sentence on what it costs. Then turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## The question sets the rung. The size of the company does not.
+
+1. Will anybody pay?
+   - MVP. You are buying information and paying for it with everything you will throw away.
+2. Ten times the traffic
+   - Scaled. You are buying headroom and paying in machines and the coordination they need.
+3. The bill is too large
+   - Optimized. You are buying back cost and paying in flexibility. Profile first, or you are decorating.
+
 
 ---
 
@@ -1548,7 +1634,21 @@ $$ L = \lambda W $$
 
 At 2,000 requests per second averaging 50 milliseconds each, 100 requests are in flight at any moment. That is your minimum concurrency, and no tuning makes it smaller while the other two numbers hold.
 
-It also explains the outage, and which way it goes depends on the pool. Leave it unbounded and tripled latency triples the requests in flight, until memory runs out. Bound it at 100 and the concurrency cannot rise, so throughput falls instead — `100 / 0.15s`, about 667 a second against the 2,000 arriving — and the queue in front grows without limit. That second failure is why every queue needs a ceiling. Find your own numbers: arrivals on the load balancer, duration in the handler.
+Maya's build is the same formula at human scale: twelve minutes inside, two attempts, so almost half an hour of her Tuesday was in flight. Find your own numbers — arrivals on the load balancer, duration in the handler.
+
+---
+
+<!-- _class: content -->
+
+`When it goes wrong`
+
+## Tripled latency breaks a bounded pool and an unbounded one in opposite directions.
+
+Leave the pool unbounded and the arithmetic runs forward: latency triples, so the requests in flight triple with it, and a machine sized for the good day runs out of memory.
+
+Bound it at 100 and concurrency cannot rise, so throughput falls instead. `100 / 0.15s` is about 667 a second against the 2,000 still arriving, and the queue in front grows without limit until something sheds it.
+
+Neither is a tuning problem. The first is why pools have ceilings, and the second is why every queue behind one needs a ceiling too.
 
 ---
 
@@ -1618,7 +1718,7 @@ Networks duplicate, clients retry, queues redeliver. The only question is whethe
 2. Every queue is bounded
    - An unbounded queue turns a throughput problem into a memory outage.
 3. Admission control sheds load before the system collapses
-   - A balancing loop from Part one: reject at the edge, not everywhere at once.
+   - A balancing loop from Part one, and the move Maya made at 15:50 when she stopped answering.
 4. Adding a machine is routine
    - No manual steps, no rebalancing outage, no cold-cache stampede.
 
@@ -1955,6 +2055,34 @@ Pin exact versions and commit the lock file, so the build you tested is the buil
    - A compromised internal caller is the ordinary case, not the exotic one.
 4. Every privileged action is attributable
    - An immutable record of who, what, when, and from where.
+
+---
+
+<!-- _class: content -->
+
+`Your turn`
+
+## Pick a store for each of these, and name the query that will hurt.
+
+One: a table of orders, ten thousand a day, where support answers questions nobody has asked yet. Two: a session token, looked up on every request and never scanned. Three: eight years of sensor readings, written once, read by device and by day.
+
+Write the store and the one query that will cross a partition. Then turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## Two of these never leave relational, and one was never a database question.
+
+1. Ten thousand orders a day
+   - Relational, for years. Ten thousand a day is nothing; the questions nobody has asked yet are the whole requirement.
+2. A session token
+   - Key-value. Exact key, no scan, expiry built in. The query that hurts is "which sessions belong to this user".
+3. Eight years of readings
+   - Wide-column, partitioned by device and ranged by time. The query that hurts is any question about one day across every device.
+
 
 ---
 
@@ -2527,6 +2655,24 @@ Most juniors asked to design Instagram reach for a graph database, because the w
   - Walks one graph hop, me to the people I follow, then a keyed lookup that is not a traversal.
 - Why the refusal matters most
   - A kit that only says yes is a catalog. One that says no is a tool.
+
+---
+
+<!-- _class: split-panel capstone cat-8 -->
+<!-- _header: "" -->
+
+`The removal test, run`
+
+## Take one box out on paper, and follow what happens to the rest.
+
+Part three set the test. A tie-back that only says where each piece landed is a catalog; deleting pieces is what tells you whether the design is finished.
+
+- The celebrity list cache
+  - Remove it and five hundred million reads a day land on the post store. It stays.
+- The event log before fan-out
+  - Remove it and the write waits for the whole fan-out before returning. It stays.
+- The follower count cache
+  - Remove it and each bucketed read fetches a number that barely moves. Worth trying.
 
 ---
 
