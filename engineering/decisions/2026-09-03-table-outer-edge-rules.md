@@ -6,8 +6,10 @@ summary: >
   in Chromium: 25.5px above `.below-note::before` on compare-table, statute-stack.lane and a
   stage-filling plain table, 25.0px on obligation-matrix, 9.0px above `.chart-caption::before`
   on roadmap. Two near-parallel rules that close together read as one thick doubled line
-  rather than two boundaries. Fixed by clearing the rule on `tbody tr:last-child td` in the
-  four surfaces where it is a ROW SEPARATOR — a separator earns its place between rows, and
+  rather than two boundaries. Fixed by clearing the rule on the table's VISUALLY
+  last row — the footer's last row when a `<tfoot>` exists at all, the last `<tbody>`'s
+  otherwise — wherever that border is a ROW SEPARATOR rather than structure. A separator
+  earns its place between rows, and
   under the last one it separates the table from the slide, which is the chrome's job.
   ROADMAP IS DELIBERATELY EXCLUDED: its `td` border is grid structure, not a separator, so
   dropping it leaves the column verticals dangling and the last row with no floor (rendered
@@ -160,6 +162,14 @@ transparent and a 7px masked wave strip on `td::after` *is* the row rule. The
 clearing the border alone left sketch drawing the last row's outer edge — and this note,
 the commit message and `base.docs.md` all said flatly that the last row draws no rule.
 The escape now covers the two table components, so the claim is true on that surface too.
+
+## Known residual
+
+A cell carrying `rowspan` that reaches into the last row belongs to an earlier row, so it
+keeps its `border-bottom` and draws a partial hairline under one column while the rest of
+the last row has none. Expressing "the visually last row, including cells spanning into it"
+is not available in CSS at a cost worth paying here, and **markdown cannot emit `rowspan`** —
+it takes hand-written HTML in a deck to reach it. Recorded rather than fixed.
 
 ## Scope
 

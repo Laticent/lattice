@@ -54,7 +54,8 @@ section.obligation-matrix td {
    last row's cards along the bottom; `.heat` runs a 6px double side rail down the first
    and last cell of every row, and the last row's border is what closes that bracket.
    Both were caught by an independent checker on the rendered slide, not by a gate. */
-section.obligation-matrix:not(.heat):not(.asymmetric) table > :last-child > tr:last-child > td { border-bottom:none; }
+section.obligation-matrix:not(.heat):not(.asymmetric) table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td,
+section.obligation-matrix:not(.heat):not(.asymmetric) table > tfoot > tr:last-child > td { border-bottom:none; }
 section.obligation-matrix td:first-child {
   text-align:left;
   font-weight:700;

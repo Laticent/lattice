@@ -487,8 +487,10 @@ section.sketch.list-tabular > .cell-stage > ol > li:last-child::after { display:
    draws no rule" false on this one surface. Scoped to the table's last row GROUP for the
    `<tfoot>` / multi-`<tbody>` reason given in base.elements.css, and skipping the two
    obligation-matrix variants whose cell border is structure, not a separator. */
-section.sketch.compare-table table > :last-child > tr:last-child > td::after,
-section.sketch.obligation-matrix:not(.heat):not(.asymmetric) table > :last-child > tr:last-child > td::after { display: none; }
+section.sketch.compare-table table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td::after,
+section.sketch.compare-table table > tfoot > tr:last-child > td::after,
+section.sketch.obligation-matrix:not(.heat):not(.asymmetric) table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td::after,
+section.sketch.obligation-matrix:not(.heat):not(.asymmetric) table > tfoot > tr:last-child > td::after { display: none; }
 
 /* ── THE HANDOVER: everything above is the fallback, this is the real thing ──
  * A slide's fallback rules switch off when — and only when — that slide is

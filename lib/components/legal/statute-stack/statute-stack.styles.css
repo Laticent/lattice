@@ -338,7 +338,8 @@ section.statute-stack.lane td {
 }
 /* Last row draws no rule — measured 25.5px above the below-note hairline. See the note
    in base.elements.css's UNIVERSAL TABLE block. */
-section.statute-stack.lane table > :last-child > tr:last-child > td { border-bottom:none; }
+section.statute-stack.lane table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td,
+section.statute-stack.lane table > tfoot > tr:last-child > td { border-bottom:none; }
 section.statute-stack.lane td:first-child {
   font-family:var(--font-label);
   font-size:var(--fs-meta);
