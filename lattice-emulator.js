@@ -2025,7 +2025,23 @@ if (LENS_PROJECTION) {
   // about how many there are. Checked rather than assumed: every rule that turns one authored slide
   // into several pages marks its own breaks, and when `_focusSteps` did not, the map pointed at the
   // wrong slides on a deck this repo ships. This catches the next one without naming it.
-  const indexDrift = authoredIndexDrift(require('./lib/engine/index.js').render(rawMd).html, LENS_PROJECTION.kept.length);
+  // How many slides the pipeline ADDED after the projection — today only the auto-glossary appendix.
+  // Derived by splitting both sources rather than by knowing which transform appends, so the next one
+  // is counted without being named.
+  const { slideBoundaries: countSlides, frontMatterBlockOf: fmOf, normalizeSourceText: normSrc } = require('./lib/core/slide-boundaries.mjs');
+  const chunkCount = (src) => countSlides(normSrc(src).slice(fmOf(normSrc(src)).length)).lines.length + 1;
+  const appendedSlides = Math.max(0, chunkCount(rawMd) - chunkCount(preGlossaryMd));
+  // AND THE REPORT SAYS SO, because "2 of 3 slides ship" beside a three-slide file is a line that
+  // describes neither. The appendix is generated from the deck-wide acronym registry, which the
+  // projection does not prune — so a definition written for a withheld slide's subject rides out on it.
+  if (appendedSlides > 0 && LENS_REPORT) {
+    LENS_REPORT += `\n  plus ${appendedSlides} appended slide${appendedSlides === 1 ? '' : 's'} (auto-glossary), built from the deck-wide acronym registry — the projection does not prune it`;
+  }
+  const indexDrift = authoredIndexDrift(
+    require('./lib/engine/index.js').render(rawMd).html,
+    LENS_PROJECTION.kept.length,
+    appendedSlides,
+  );
   if (indexDrift) {
     console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (authored-index) — ${REFUSAL_REASONS['authored-index']}`);
     console.error(`       the projection kept ${LENS_PROJECTION.kept.length} slides; the render numbered them ${indexDrift.saw.join(', ')}. Nothing was exported.`);

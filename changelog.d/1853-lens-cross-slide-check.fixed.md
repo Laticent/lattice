@@ -95,3 +95,19 @@
   quote as part of the selector made the whole single-line front-matter form invisible. Ten selector
   cases are now pinned in both spellings, and a 4,000-character pathological selector completes in
   under a millisecond.
+- **Fixed: one character in a close tag walked past the document channel.** HTML's RAWTEXT end-tag
+  state closes a `<style>` on `</style` followed by whitespace, a SLASH, or `>` — so `</style/>` and
+  `</style x>` are real close tags, and matching only `</style\s*>` was a subset of the rule rather
+  than the rule. Measured: the same deck with the same `display: none` rule refuses when the close is
+  spelled `</style>` and exports clean when it is spelled `</style/>`, with the hidden sentence
+  rendering at 770×36 pixels in the file that ships and absent from the PDF the sender previewed. It
+  evaded the author-CSS scan by the same regex, so one deck walked past both render-independent
+  checks at once. `<script>` had it too.
+- **Fixed: `glossary: auto` made every reader view unexportable, `--lens full` included.** Moving the
+  checks downstream so they would see the shipped document made them see the appended glossary slide
+  and read it as an unmarked page-multiplier — refusing the identity export this kernel promises is
+  byte-identical to no flag at all, with a message telling the author to hunt a rule that turned one
+  slide into several. An appended slide extends the numbering past the view map rather than shifting
+  it, so it belongs to no view and cannot misdirect one; the count is derived by splitting both
+  sources rather than by naming the transform, so the next appender is counted without being named.
+  The report line now says so too — "2 of 3 slides ship" beside a three-slide file described neither.
