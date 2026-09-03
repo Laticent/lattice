@@ -30,6 +30,17 @@ acronyms:
   SLO: { expansion: service level objective, definition: "Your internal target for that measurement, over a stated window." }
   TLS: { expansion: transport layer security, definition: "The encryption any connection crossing a network you do not own should have." }
   TTL: { expansion: time to live }
+
+---
+
+<!-- _class: title silent spectrum -->
+
+# How to Think About Systems
+
+`A tutorial for new engineers`
+
+We start with one engineer's Tuesday. We design Instagram, then run the whole method again on a parking app you could ship this month.
+
 ---
 
 <!-- _class: title silent spectrum -->
@@ -1059,6 +1070,7 @@ flowchart LR
 ```
 
 > Reaching the last box is not failure. It is the honest answer for a system with two jobs.
+
 ---
 
 <!-- _class: cards-stack -->
@@ -1309,6 +1321,7 @@ flowchart LR
 ```
 
 > A different question from CAP, and the one you answer on every read for years between outages.
+
 ---
 
 <!-- _class: list-tabular -->
@@ -1475,6 +1488,33 @@ The same rule governs an API other people call. Add fields, never repurpose them
    - At-least-once is the only delivery you get.
 4. Every write path states its consistency
    - "Whatever the database does" is not a level.
+
+---
+
+<!-- _class: content -->
+
+`Your turn`
+
+## Pick a store for each of these, and name the query that will hurt.
+
+One: a table of orders, ten thousand a day, where support answers questions nobody has asked yet. Two: a session token, looked up on every request and never scanned. Three: eight years of sensor readings, written once, read by device and by day.
+
+Write the store and the one query that will cross a partition. Then turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## One of these never leaves relational. The other two were never relational to begin with.
+
+1. Ten thousand orders a day
+   - Relational, for years. Ten thousand a day is nothing, and the unasked questions are the requirement. Nothing crosses a partition, because nothing is partitioned.
+2. A session token
+   - Key-value. Exact key, no scan, expiry built in. The query that hurts is "which sessions belong to this user".
+3. Eight years of readings
+   - Wide-column by device and time — or a time-series store, which is that shape with retention built in. The query that hurts is one day across every device.
 
 ---
 
@@ -2253,11 +2293,11 @@ Pin exact versions and commit the lock file, so the build you tested is the buil
 
 `Your turn`
 
-## Pick a store for each of these, and name the query that will hurt.
+## Run those six questions on one arrow: the presigned upload URL.
 
-One: a table of orders, ten thousand a day, where support answers questions nobody has asked yet. Two: a session token, looked up on every request and never scanned. Three: eight years of sensor readings, written once, read by device and by day.
+A client asks your API for a URL, then writes bytes straight into your object store with it. Nobody on your side sees those bytes until they have landed.
 
-Write the store and the one query that will cross a partition. Then turn the page.
+Name three of the six that land on that one arrow, and the limit that stops each. Then turn the page.
 
 ---
 
@@ -2265,14 +2305,14 @@ Write the store and the one query that will cross a partition. Then turn the pag
 
 `One answer`
 
-## One of these never leaves relational. The other two were never relational to begin with.
+## Three of the six land on that arrow, and one grant answers all three.
 
-1. Ten thousand orders a day
-   - Relational, for years. Ten thousand a day is nothing, and the unasked questions are the requirement. Nothing crosses a partition, because nothing is partitioned.
-2. A session token
-   - Key-value. Exact key, no scan, expiry built in. The query that hurts is "which sessions belong to this user".
-3. Eight years of readings
-   - Wide-column by device and time — or a time-series store, which is that shape with retention built in. The query that hurts is one day across every device.
+1. Tampering
+   - The client picks its own key and writes over somebody else's photo. The grant names the exact key.
+2. Denial
+   - One account fills your storage at your expense. The grant carries a size ceiling and a rate per account.
+3. Elevation
+   - Chosen bytes reach an image decoder that never expected them. The grant names one content type and expires in minutes.
 
 ---
 
@@ -2764,6 +2804,7 @@ flowchart LR
 > The merge runs after the gather, never beside it.
 
 *The pull goes through a cache, not straight to the store. That box is the whole reason the hybrid is affordable: one celebrity's recent-posts list is written once and read five hundred million times, so it is the most cacheable object in the system.*
+
 ---
 
 <!-- _class: list-steps -->
@@ -2862,6 +2903,7 @@ flowchart LR
 ```
 
 > The authorizer decides once. After that the CDN only checks a signature, and a signed link outlives the decision behind it.
+
 ---
 
 <!-- _class: content -->
@@ -3310,6 +3352,35 @@ Solution type MVP  ·  scaled  ·  optimized  ·  optimal  ·  specialized
 - [ ] What breaks first at ten times the load? `scale`
 - [ ] What happens when each dependency is slow rather than down? `failure`
 - [ ] What can one stolen credential reach? `security`
+
+---
+
+<!-- _class: content -->
+
+`Your turn`
+
+## Run the six review questions on the parking app, from memory.
+
+You have both designs and the six questions. Take the smaller one: a driver, a sticker, one table, a card form.
+
+Answer four of the six without turning back. Then turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## Four of the six, on a system you could build this month.
+
+1. The protagonist
+   - A driver in the rain, one hand, thirty seconds. Not the lot owner, and not the warden.
+2. The antagonist
+   - A weak signal underground, and a second tap on Pay. The number is one park charged twice.
+3. Ten times the load
+   - Nothing. Traffic was never the constraint; the manual warden was, and rung two fixed him.
+4. One stolen credential
+   - The webhook signing secret. With it a stranger marks any bay paid, which is why that endpoint checks a signature.
 
 ---
 
