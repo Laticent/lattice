@@ -2885,8 +2885,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// slide after the wrong slide. The empty-deck case is handled by addSlideAfter's
 	// clamp; a Blank tile carries the NEW_SLIDE body.
 	const onInsertComponent = (c: ComponentEntry) => {
-		const at = activeFullIndex + 1; // `addSlideAfter` puts the new slide directly below
-		applyDeckOp(addSlideAfter(source, activeFullIndex, c.skeleton));
+		// Take the index from the OP, not from a second derivation of it. `addSlideAfter`
+		// already returns the clamped `active`, and re-computing `activeFullIndex + 1` here
+		// diverges from it whenever the clamp bites — e.g. under a reader lens that filters
+		// every slide out, where `activeFullIndex` resolves to 0 and this said 1 while the op
+		// said 0, so `revealSlide` silently returned past the end of the doc.
+		const r = addSlideAfter(source, activeFullIndex, c.skeleton);
+		const at = r.active;
+		applyDeckOp(r);
 		notify(`Inserted “${c.name}”.`);
 		if (c.bucket) setRecentComponents((r) => [c.name, ...r.filter((n) => n !== c.name)].slice(0, 6));
 		// GO TO THE SLIDE YOU JUST ADDED. The rail moved to it and the preview painted it,

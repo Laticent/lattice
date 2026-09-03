@@ -272,7 +272,15 @@ export function collapsePlugin() {
 				if (meta && 'pos' in meta) {
 					const node = tr.doc.nodeAt(meta.pos);
 					if (node) {
-						const existing = next.find(meta.pos, meta.pos + 1);
+						// MATCH THIS SLIDE'S DECORATION, NOT THE ONE THAT ENDS WHERE IT STARTS.
+						// `DecorationSet.find(from, to)` returns everything that OVERLAPS the range,
+						// and the previous slide's node decoration ends exactly at `meta.pos` — so
+						// `find(pos, pos + 1)` matched the NEIGHBOR. Folding slide 1 and then slide 2
+						// therefore unfolded slide 1 and left slide 2 open: two clicks, fully visible,
+						// and invisible to every fuzz invariant because `aria-expanded` and the
+						// `cs-collapsed` class both derive from this same set, so they agree while
+						// being jointly wrong. Anchor on `from` instead.
+						const existing = next.find(meta.pos, meta.pos + node.nodeSize).filter((d) => d.from === meta.pos);
 						next = existing.length ? next.remove(existing) : next.add(tr.doc, [Decoration.node(meta.pos, meta.pos + node.nodeSize, { class: 'cs-collapsed' }, { collapsed: true })]);
 					}
 				}
@@ -441,9 +449,6 @@ class SlideView {
 	// second controller fixed nothing observable. (Correction: 2026-07-20-studio-audit-instrument-fix.)
 	private ac = new AbortController();
 	private locked: boolean;
-	// The slide node this view renders, kept current in `update()`. `syncFormat` reads its
-	// `directives` to decide which class-gated controls this slide gets.
-	private node: PMNode;
 	private stateful: boolean; // slide is a stateful table component (obligation-matrix / roadmap) → offer the marker picker
 	private tableHosted = false; // whether this slide's Format group currently hosts the React TableControls
 	constructor(
@@ -459,7 +464,6 @@ class SlideView {
 		// a prop change, so a getter keeps the gutter current without recreating node views.
 		private getBlocks?: () => SlideBlocks | undefined,
 	) {
-		this.node = node;
 		this.locked = !!node.attrs.locked;
 		this.stateful = isStatefulClass(node);
 		const dom = document.createElement('section');
@@ -722,7 +726,6 @@ class SlideView {
 	}
 	update(node: PMNode, decorations: readonly Decoration[]) {
 		if (node.type.name !== 'slide') return false;
-		this.node = node;
 		this.locked = !!node.attrs.locked;
 		this.stateful = isStatefulClass(node);
 		this.dom.classList.toggle('cs-slide-locked', this.locked);

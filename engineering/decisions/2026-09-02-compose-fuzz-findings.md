@@ -3,7 +3,9 @@ status: shipped
 summary: >
   A randomized Playwright walk over the real Studio — six seeds, 360 operations, four
   structural invariants checked after every op — found seven Compose defects the unit tier
-  could not, all of them at seams the unit tests do not cross. The worst is silent data loss:
+  could not, all of them at seams the unit tests do not cross. (That sweep was a scratch
+  harness; what is COMMITTED is one seed x 34 steps as a regression net, plus a named oracle
+  per defect.) The worst is silent data loss:
   the slide node's `directives` attr was not carried by `toDOM`/`parseDOM`, which is the
   CLIPBOARD contract, so copy-paste flattened every slide it touched to an unstyled `content`
   in two keystrokes an author reaches by habit. Also: folding a slide did not survive any op
@@ -29,12 +31,14 @@ harness — HARD RULE #23), driving eleven op families in random order and
 asserting four structural invariants after every single op: Compose's slide
 count == the rail's, == the persisted source's; every slide still carries a
 `_class`; and each collapse cap's `aria-expanded` agrees with its
-`cs-collapsed` class. Six seeds, 360 operations. The oracles now live in
-`docs/e2e/compose-stress.spec.ts`, which also carries a fixed-seed 34-step walk
-so the invariants stay enforced.
+`cs-collapsed` class. Six seeds, 360 operations, from a scratch harness. What is COMMITTED
+is smaller and should not be described as that sweep: `docs/e2e/compose-stress.spec.ts`
+carries a named oracle per defect plus ONE seed at 34 steps as a regression net.
 
-Every named oracle in that file was checked BOTH ways — run against the pre-fix
-build, 8 of 10 fail; against the fixed build, all 10 pass. That round is not
+Every named oracle in that file was checked BOTH ways. My own run of the first cut put it
+at 8 of 10 failing pre-fix; an independent checker pass measured 9 of 10 on a clean
+pre-fix build. Take the direction as the finding and neither number as exact — the
+difference is a clipboard race in the oracles themselves, which is finding 10 below. That round is not
 ceremony: it caught two tests that passed for the wrong reason. Both copy/paste
 oracles fired ⌘V before the clipboard held the copy, so they asserted "nothing
 changed" against a deck nothing had touched, and were green over the very defect
@@ -241,6 +245,51 @@ with one fold it jumped to slide 1.
 **Fix.** A restore transaction seeds `lastSlideRef` without publishing, so a later real
 crossing still edge-fires. The §2 oracle asserted `collapsedIndices` and never the active
 slide, so it passed throughout; it now asserts both.
+
+## 10. Three of the oracles were green for the wrong reason — twice
+
+Worth its own section because it happened three times on one branch, in three different
+disguises, and the fix that looked right the first two times was not.
+
+1. **Racing the clipboard.** Both copy/paste oracles fired ⌘V before the system clipboard
+   held the copy, so they asserted "nothing changed" against a deck nothing had touched —
+   green over the very defect they pin.
+2. **A witness is not a wait.** The remedy was to witness the paste by its text, which
+   converts a vacuous PASS into a red test rather than a correct one. An independent pass
+   measured one of them failing 6 of 6 runs.
+3. **A wait that waits for the wrong thing.** Polling for a NON-EMPTY clipboard is satisfied
+   by the previous test's contents. Polling for a marker read from `innerText` compares the
+   RENDERED text against the SOURCE: Compose upper-cases the eyebrow in CSS, so the clipboard
+   held `Why Lattice` while the marker said `WHY LATTICE`, and a correct copy timed out.
+
+Settled by clearing the clipboard to a sentinel before each copy, so "not the sentinel"
+means "this copy" unconditionally. 44 consecutive passes under the back-to-back repeat that
+reproduced the flake, against 1 in 65 before it.
+
+The same disease hit the SECURITY oracle: an e2e injection test passed with both gates
+removed. That one moved to the parser (§8). And the rail-duplicate oracle passed because
+collapsing does not move the shell's current slide, so the rail was duplicating slide 0 —
+the assertion was true for a reason unrelated to what it claimed.
+
+**The transferable lesson is that a mutation check is not optional for a test you wrote to
+pin a defect you just fixed.** Every one of these was caught by running the oracle against
+the pre-fix build, and none by reading it.
+
+## 11. Folding a slide next to a folded one unfolded the neighbor
+
+Found by the checker pass. `DecorationSet.find(from, to)` returns everything that OVERLAPS
+the range, and a slide's node decoration ends exactly where the next slide's begins — so the
+toggle's `find(pos, pos + 1)` matched the PREVIOUS slide and removed its fold instead of
+adding this one's. Fold slide 1, then slide 2: slide 1 pops open and slide 2 stays open. Two
+clicks, fully visible.
+
+**Pre-existing on `main`**, so this PR did not cause it — but squarely on its path under
+HARD RULE #18's on-path rule: §2 is entirely about collapse, it renames that very
+expression, and it shipped three collapse oracles that all fold non-adjacent slides. The
+fuzz walk could not see it either: invariant 4 compares `aria-expanded` against the
+`cs-collapsed` class, and both derive from this same decoration set, so they agree while
+being jointly wrong. Fixed by anchoring on `d.from === meta.pos`, with a unit test that
+fails on the old expression.
 
 ## Found, NOT fixed here (off the path of this change — HARD RULE #18)
 

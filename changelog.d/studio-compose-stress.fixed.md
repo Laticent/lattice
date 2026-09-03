@@ -51,3 +51,8 @@
   dragging a slide's whole selection into a neighbor silently removed the source
   slide and its component.
 - **Fixed: restoring a fold no longer snaps the preview to the first slide.**
+- **Fixed: folding a slide next to an already-folded one no longer unfolds the
+  neighbor.** The toggle matched any decoration overlapping the slide's start
+  position, and a slide's fold decoration ends exactly where the next one
+  begins — so folding two adjacent slides in turn unfolded the first and left
+  the second open.

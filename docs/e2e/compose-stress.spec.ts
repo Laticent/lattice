@@ -77,6 +77,34 @@ function slideContent(page: Page, i: number) {
 function collapseCap(page: Page, i: number) {
 	return composeSlide(page, i).locator('.cs-sc-cap').first();
 }
+/**
+ * Copy the current selection and wait until THIS copy is on the clipboard.
+ *
+ * Three traps, all hit on this file. (1) Firing ⌘V straight after ⌘C pastes before the
+ * system clipboard has the copy, so the deck is untouched and an oracle that only checks
+ * "nothing was lost" passes vacuously. (2) Polling for a NON-EMPTY clipboard is satisfied by
+ * the PREVIOUS test's contents — the clipboard is shared across the whole browser — so the
+ * wait looks like a wait and is not one. (3) Polling for a marker read from `innerText`
+ * compares the RENDERED text against the SOURCE text, and Compose upper-cases the eyebrow in
+ * CSS: the clipboard held "Why Lattice" while the marker said "WHY LATTICE", and a correct
+ * copy timed out.
+ *
+ * So: wait for the clipboard to CHANGE from what it held before this copy. Specific to this
+ * copy, and blind to how the text is cased on screen.
+ */
+const CLIP_SENTINEL = '__lattice-e2e-cleared__';
+async function copyAndSettle(page: Page): Promise<void> {
+	// CLEAR FIRST, then copy, then wait for the sentinel to be gone. Comparing against
+	// whatever the clipboard held before works until two tests copy the same text; clearing
+	// makes "not the sentinel" mean "this copy" unconditionally, which is the difference
+	// between a wait that is usually right and one that always is.
+	await page.evaluate((s) => navigator.clipboard.writeText(s).catch(() => {}), CLIP_SENTINEL);
+	await page.keyboard.press('ControlOrMeta+c');
+	await expect
+		.poll(() => page.evaluate(() => navigator.clipboard.readText().catch(() => CLIP_SENTINEL)), { message: 'the clipboard never took this copy' })
+		.not.toBe(CLIP_SENTINEL);
+}
+
 /** The indices of every folded slide, straight off the DOM. */
 function collapsedIndices(page: Page): Promise<number[]> {
 	return page.evaluate(() =>
@@ -98,6 +126,11 @@ function activeSlide(page: Page): Promise<number> {
 }
 
 test.beforeEach(async ({ page }) => {
+	// Clipboard permission for EVERY test, not per-test. `copyAndSettle` polls
+	// `navigator.clipboard.readText()`, which REJECTS without it — and the poll catches the
+	// rejection to `''`, so an ungranted test does not error, it just never observes its own
+	// copy and times out blaming the clipboard. Granting once here removes the whole class.
+	await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 	await gotoStudio(page);
 	await toCompose(page);
 });
@@ -127,7 +160,7 @@ test('copying the whole deck and pasting it back keeps every slide’s component
 	await slideContent(page, 2).click();
 	await page.keyboard.press('ControlOrMeta+a'); // this slide
 	await page.keyboard.press('ControlOrMeta+a'); // escalate to the whole deck
-	await page.keyboard.press('ControlOrMeta+c');
+	await copyAndSettle(page);
 	await page.keyboard.press('Delete');
 	// Witness: the deck is gone. Compose keeps ONE empty slide (its schema is `slide+`, so
 	// the document cannot be empty) while the rail shows none — an empty deck genuinely has
@@ -156,7 +189,7 @@ test('pasting one slide over another never leaves a slide without a component', 
 
 	await slideContent(page, 4).click();
 	await page.keyboard.press('ControlOrMeta+a');
-	await page.keyboard.press('ControlOrMeta+c');
+	await copyAndSettle(page);
 	await slideContent(page, 1).click();
 	await page.keyboard.press('ControlOrMeta+a');
 	await page.keyboard.press('ControlOrMeta+v');
@@ -178,17 +211,11 @@ test('pasting one slide over another never leaves a slide without a component', 
 // a paste/drop — AFTER the locked-slide check, which a paste still may not bypass.
 test('pasting a multi-slide clipboard over one slide grows the deck', async ({ page }) => {
 	const n = await slideCount(page);
-	// The system clipboard is shared across the whole browser, so a copy from the previous
-	// test can still be settling when this one pastes. Wait for OUR copy to land before
-	// using it — without this the paste occasionally fired against the prior contents and
-	// the deck did not grow, which looks exactly like the defect under test.
-	await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 
 	await slideContent(page, 2).click();
 	await page.keyboard.press('ControlOrMeta+a');
 	await page.keyboard.press('ControlOrMeta+a'); // the whole deck
-	await page.keyboard.press('ControlOrMeta+c');
-	await expect.poll(() => page.evaluate(() => navigator.clipboard.readText().then((t) => t.length))).toBeGreaterThan(0);
+	await copyAndSettle(page);
 
 	await slideContent(page, 1).click();
 	await page.keyboard.press('ControlOrMeta+a'); // this slide only
@@ -201,12 +228,16 @@ test('pasting a multi-slide clipboard over one slide grows the deck', async ({ p
 });
 
 // ── The clipboard bridge does not trust foreign HTML ────────────────────────
-// That property is tested at the PARSER, in `docs/src/lib/compose/deck-doc.clipboard.test.ts`,
-// and deliberately not here. An e2e version of the same attack could not be made to fail
-// even with both gates removed — driving the system clipboard's `text/html` branch through
-// a real paste turned out to be too indirect to be a sound oracle for a security property,
-// and a security test that cannot fail is worse than none. The unit test fails on the
-// mutation (the beacon URL and a forged `<style>` reach the deck source) and passes on the fix.
+// That property is pinned at the PARSER, in `docs/src/lib/compose/deck-doc.clipboard.test.ts`,
+// which fails on the mutation (the beacon URL and a forged `<style>` reach the deck source)
+// and passes on the fix.
+//
+// An earlier note here claimed an e2e version "could not be made to fail even with both gates
+// removed". That was true of MY attempt and false as a general statement — the checker pass
+// built a working one, injecting through a real `ClipboardItem({'text/html': …})` plus ⌘V, and
+// measured it dirty on the pre-fix build and clean on the fix. The claim is corrected rather
+// than the test added: the parser is the seam, a unit test there is deterministic where the
+// system clipboard is not, and it is the pin that a future edit to `readDirectives` will trip.
 
 // ── A drag is not a paste ───────────────────────────────────────────────────
 // The guard exemption briefly covered `uiEvent: 'drop'` on the same "the author declared
@@ -385,8 +416,6 @@ test('a randomized walk over the compose ops holds the structural invariants', a
 
 	const errors: string[] = [];
 	page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 200)));
-	// So the copy/paste op can WAIT on the clipboard rather than racing it (see below).
-	await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 
 	const ops: Record<string, () => Promise<void>> = {
 		async type() {
@@ -430,15 +459,17 @@ test('a randomized walk over the compose ops holds the structural invariants', a
 		async copyPaste() {
 			const n = await page.locator('.cs-slide').count();
 			const src = int(n);
+			const clipBefore = await page.evaluate(() => navigator.clipboard.readText().catch(() => ''));
 			await slideContent(page, src).click();
 			await page.keyboard.press('ControlOrMeta+a');
 			await page.keyboard.press(pick(['ControlOrMeta+c', 'ControlOrMeta+x']));
 			// WAIT FOR THE CLIPBOARD TO ACTUALLY HOLD THE COPY. Back-to-back ⌘C ⌘V fires the
 			// paste against an empty clipboard, and this op then degrades silently into
 			// "select and copy" — which is how a walk like this one stayed green over the very
-			// class-wipe defect the named tests above pin. `grantPermissions` in the test body
-			// is what makes `readText()` a real observable here rather than a caught throw.
-			await expect.poll(() => page.evaluate(() => navigator.clipboard.readText().then((t) => t.length))).toBeGreaterThan(0);
+			// class-wipe defect the named tests above pin. A non-empty check is not enough in
+			// the named tests (a previous test's contents satisfy it); here the walk has no
+			// stable marker to poll for, so it waits for the clipboard to CHANGE instead.
+			await expect.poll(() => page.evaluate(() => navigator.clipboard.readText().catch(() => ''))).not.toBe(clipBefore);
 			await slideContent(page, int(n)).click();
 			await page.keyboard.press('ControlOrMeta+v');
 		},
