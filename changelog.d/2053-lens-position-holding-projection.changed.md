@@ -7,12 +7,17 @@
   author's rule lands where they aimed, in both files. Measured on the real CLI — the rule computes
   `rgb(255,0,0)` on the same authored slide in the full deck and in a view that withholds two slides
   before it.
-  **The artifact pays nothing for the hole on any rasterized format.** Print emits no page for it; the
+  **The artifact pays nothing for the hole on any format but one.** Print emits no page for it; the
   `.pptx`, `.png`, thumbnail and image-set exporters skip it by selector (they screenshot each section
   in turn, and a hidden one cannot be shot — both died with `Node is either not visible or not an
-  HTMLElement` until they did). Only `.html` keeps the hole, empty, because there the CSS is still
-  live and must still count. That is the whole of the cost: a `.html` recipient can see that a slide
-  existed at a position, and nothing about it.
+  HTMLElement` until they did). The `--player` carrier drops it too, and that one is free rather than
+  a tradeoff: the player wraps every slide in its own `.lp-frame`, so each section is the ONLY section
+  in its parent and `nth-of-type` addresses nothing — measured on a real carrier, `nth-of-type(5)`
+  matches 0 elements and `nth-of-type(1)` matches all 8. Positional CSS is already meaningless there,
+  so a hole would buy nothing and cost the two things a hole costs.
+  **A plain `.html` export is the one format that keeps it**, because its sections are siblings and
+  `nth-of-type` is live. That is the whole of the cost, and it is bounded: a recipient of a plain
+  `.html` reader view can see that a slide existed at a position, and nothing else about it.
   **The visible page number is now a second, separate number.** A hole is not a page, so it does not
   advance the count — counting it printed `1 3 5` on a three-page export, which tells the recipient
   exactly which slides were withheld, the one thing the projection exists to prevent. So a deck
