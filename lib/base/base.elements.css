@@ -286,6 +286,54 @@ section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.de
   color:var(--text-body); vertical-align:var(--table-valign, top);
   word-wrap:break-word; overflow-wrap:break-word;
 }
+/* THE LAST ROW DRAWS NO RULE. Every `td` above gets a `border-bottom`, which makes the
+ * final row's hairline the table's outer BOTTOM EDGE — and that edge lands on whatever
+ * the stage puts under it. Measured on the shipped chrome: 25.5px above the
+ * `.below-note::before` hairline once the table fills the stage (`--table-grow`), and
+ * 9.0px above `.chart-caption::before` on a framed chart table. Two near-parallel rules
+ * that close together read as one thick doubled line, not as two boundaries.
+ *
+ * A row separator earns its place BETWEEN rows; under the last one it separates the
+ * table from the slide, which is the chrome's job and the chrome already does it. So the
+ * rule is dropped rather than the note's — the table yields to the slide, not the other
+ * way round, and no slide chrome has to know whether the page contains a `<table>`.
+ *
+ * This is the family behavior, not a new idea: `glossary` sets `border-bottom:none` on
+ * its cells outright and `math.derivation` clears `tbody tr:last-child`. Both were
+ * already free of the collision; this brings the rest of the family to the same place.
+ *
+ * TARGETED AT THE VISUALLY LAST ROW, which is not the last row in the DOM. Three shapes
+ * make that distinction real, and the obvious selectors get each of them wrong:
+ *
+ *   `tbody tr:last-child` is the last row of EACH body group — wrong twice over. With a
+ *   `<tfoot>` it clears an interior separator while the footer still draws the outer edge
+ *   (the collision survives, inverted); with two `<tbody>` groups it deletes the rule
+ *   between them.
+ *
+ *   `> :last-child > tr:last-child` is the last row of the last DOM group, which is still
+ *   not the bottom row: `<tfoot>` renders as `table-footer-group` and paints BELOW the
+ *   body wherever it sits in the source, so a `tfoot`-before-`tbody` table reproduces the
+ *   inverted case exactly. And when the last DOM child is a `<thead>` holding `td` cells,
+ *   it clears the TOP row.
+ *
+ * Hence the pair below: the footer's last row when a `<tfoot>` exists at all, and the last
+ * `<tbody>`'s last row when one does not. `thead` is never matched. A header-only table has
+ * no body group, so nothing matches.
+ *
+ * KNOWN RESIDUAL: a cell with `rowspan` reaching into the last row belongs to an earlier
+ * row, so it keeps its border and draws a partial hairline under one column. Not
+ * expressible in CSS without `:has()` gymnastics that would cost more than the defect;
+ * unreachable from markdown, which cannot emit `rowspan`. See the decision note.
+ *
+ * Carries the full deny guard like every rule in this block — a rule that drops an entry
+ * is unguarded for the property it sets (`checkUniversalTableGuard`).
+ * See engineering/decisions/2026-09-03-table-outer-edge-rules.md. */
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table > tfoot > tr:last-child > td,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table > tfoot > tr:last-child > td {
+  border-bottom:none;
+}
 /* COLUMN ALIGNMENT IS THE AUTHOR'S, ALWAYS. markdown-it compiles `:---` / `:---:` /
  * `---:` to an inline `style="text-align:…"` on the cell, which outranks anything
  * here — so nothing in this block sets `text-align` on `td` at all. The one

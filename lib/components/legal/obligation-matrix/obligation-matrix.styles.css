@@ -46,6 +46,16 @@ section.obligation-matrix td {
   vertical-align:middle;
   color:var(--text-body);
 }
+/* Last row draws no rule — measured 25.0px above the below-note hairline. See the note
+   in base.elements.css's UNIVERSAL TABLE block.
+   `.heat` and `.asymmetric` are EXEMPT, for the same reason roadmap is: in both, a cell's
+   bottom border is STRUCTURE rather than a row separator. `.asymmetric` renders each cell
+   as a card (`border` + `border-radius`, base.modifiers.css), so clearing it opens the
+   last row's cards along the bottom; `.heat` runs a 6px double side rail down the first
+   and last cell of every row, and the last row's border is what closes that bracket.
+   Both were caught by an independent checker on the rendered slide, not by a gate. */
+section.obligation-matrix:not(.heat):not(.asymmetric) table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td,
+section.obligation-matrix:not(.heat):not(.asymmetric) table > tfoot > tr:last-child > td { border-bottom:none; }
 section.obligation-matrix td:first-child {
   text-align:left;
   font-weight:700;

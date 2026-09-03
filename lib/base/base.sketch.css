@@ -479,6 +479,18 @@ section.sketch.list.principles > .cell-stage > ol > li:not(:last-child)::after {
 /* The frame already draws the ledger's last edge — drop the last row's rule. */
 section.sketch.list-tabular > ol > li:last-child::after,
 section.sketch.list-tabular > .cell-stage > ol > li:last-child::after { display: none; }
+/* Same for the two table components, which this escape used to skip. Under `finish: sketch`
+   the crisp `border-bottom` is turned transparent and the wave strip IS the row rule — so
+   the strip under the LAST row is the table's outer bottom edge, and it collided with the
+   below-note hairline exactly as the crisp border did in the default finish. Clearing the
+   border alone left sketch still drawing that edge, which made the flat claim "the last row
+   draws no rule" false on this one surface. Scoped to the table's last row GROUP for the
+   `<tfoot>` / multi-`<tbody>` reason given in base.elements.css, and skipping the two
+   obligation-matrix variants whose cell border is structure, not a separator. */
+section.sketch.compare-table table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td::after,
+section.sketch.compare-table table > tfoot > tr:last-child > td::after,
+section.sketch.obligation-matrix:not(.heat):not(.asymmetric) table:not(:has(tfoot)) > tbody:last-of-type > tr:last-child > td::after,
+section.sketch.obligation-matrix:not(.heat):not(.asymmetric) table > tfoot > tr:last-child > td::after { display: none; }
 
 /* ── THE HANDOVER: everything above is the fallback, this is the real thing ──
  * A slide's fallback rules switch off when — and only when — that slide is
