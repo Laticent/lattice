@@ -190,6 +190,34 @@ Two more silent head-loss surfaces turned up while checking this one, both measu
 
 Both are one `safe` keyword away from fixed, and neither is on this change's path.
 
+## Five more stale goldens on `main`, found and NOT touched
+
+Running `tools/regression-gate.mjs --scope galleries` — the full 75 × 2 sweep, which
+nothing appears to run routinely — reports five galleries whose committed goldens no
+longer match the engine. Measured **identical at `origin/main`** with every declaration
+and golden on this branch reverted, so none of them is this change's:
+
+| golden | pages | worst |
+|---|---|---|
+| `comparison` (bucket) | 3 | 22.28% |
+| `inventory` (bucket) | 1 | 26.19% |
+| `evidence` (bucket) | 1 | 0.22% |
+| `kpi` | 1 | 0.08% |
+| `authority-chain` | 1 | 0.11% |
+
+They are the same defect class as the four PDFs this change regenerates, and they were
+NOT hidden by the scientific-notation parse bug — every one of those pixel counts is well
+under a million, so the tool could always have reported them. Nobody had run the sweep.
+
+They are left alone deliberately: none is a component this change touches, so folding ten
+more binary artifacts in would widen the diff across buckets for no reviewer benefit (#8,
+#17). The full-sweep command above is how to pick them up.
+
+One more note for whoever does: on the first run `radar` dark returned `RENDER_ERROR`, not
+drift, and it rendered clean on the re-run. A full sweep is ~150 real Chromium renders and
+it will occasionally lose one under load — check the status field before reading a red as
+drift.
+
 ## What the static filter got wrong
 
 The candidate filter this sweep started from — "a growing flex with no `min-height: 0`" — is
