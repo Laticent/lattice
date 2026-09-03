@@ -20,10 +20,8 @@
 // docs-site dependency. This module injects NO `<script>` and builds no preview frame, so
 // it is not a #22 preview builder — it only mounts vetted geometry into an existing surface.
 
-import { vivusRenderer } from './backends/vivus';
-import { zdogRenderer } from './backends/zdog';
 import type { BuiltElement, MotionVerb, Scene } from './index';
-import { compile, negotiate, parseScene, usedVerbs } from './index';
+import { compile, parseScene, usedVerbs } from './index';
 import type { AssetMap, Renderer } from './renderer';
 
 /** The reduced-motion tiers (ADR §12.2). `system` resolves the device's setting. */
@@ -97,16 +95,22 @@ export function decodeSpec(b64: string): Scene | null {
   }
 }
 
-/** The backend for a scene's source model (built → Zdog, svg → Vivus), or null if none
- *  advertises the capabilities the scene needs. */
-export function rendererFor(scene: Scene): Renderer | null {
-  const candidate = scene.source === 'svg' ? vivusRenderer() : zdogRenderer({ zoom: 1.1 });
-  return negotiate(scene, candidate.caps).length === 0 ? candidate : null;
-}
+// `rendererFor` moved to `backends/registry.ts`. It is injected through
+// `HydrateOptions.rendererFor` rather than imported here, so an entry that can only reach
+// one backend does not ship the other — see that file's header for the measured reason.
 
 // ── The DOM host ─────────────────────────────────────────────────────────────
 
 export interface HydrateOptions {
+  /** Which backend paints a given scene — REQUIRED, and required on purpose. The host used
+   *  to import both backends and pick inline, so every entry paid for both; a chart-only
+   *  player shipped 31KB of Zdog it can never reach. Injecting the registry lets esbuild
+   *  drop what an entry cannot call. Pass `rendererFor` from `backends/registry` for the
+   *  full set, or `svgRendererFor` for a chart-only host. Not optional-with-a-default,
+   *  because the default would restore the static import this exists to remove — and a host
+   *  that quietly mounted nothing would render a poster indistinguishable from a scene the
+   *  author declared `still`. */
+  rendererFor: (scene: Scene) => Renderer | null;
   /** Force the reduced-motion decision (tests / a host that already knows the setting).
    *  Omitted → read `prefers-reduced-motion` from `matchMedia`. */
   reducedMotion?: boolean;
@@ -240,7 +244,7 @@ function hydrateOne(section: Element, resolved: ResolvedScene, opts: HydrateOpti
   // A floor-suppressed opt-in plays the FULL author-intended motion (the viewer explicitly asked
   // to see it); an un-suppressed `legible` scene autoplays its safe, vestibular-stripped projection.
   const playScene = floorSuppressed ? scene : tier === 'legible' ? toLegible(scene) : scene;
-  const maybeRenderer = rendererFor(playScene);
+  const maybeRenderer = opts.rendererFor(playScene);
   if (!maybeRenderer) return null;
   const renderer: Renderer = maybeRenderer; // non-null for the closures below
   const timeline = compile(playScene);
@@ -453,7 +457,7 @@ function hydrateOne(section: Element, resolved: ResolvedScene, opts: HydrateOpti
  *  returns a controller whose `dispose` clears it. Returns null if already live or the scene stays
  *  a poster. This is the per-section primitive createAnimaScenes diffs against so unchanged scenes
  *  keep running across a re-render. */
-export function hydrateResolved(section: Element, resolved: ResolvedScene, opts: HydrateOptions = {}): { dispose(): void } | null {
+export function hydrateResolved(section: Element, resolved: ResolvedScene, opts: HydrateOptions): { dispose(): void } | null {
   if (section.getAttribute('data-scene-live') === '1') return null; // already live
   const c = hydrateOne(section, resolved, opts);
   if (!c) return null;
@@ -469,7 +473,7 @@ export function hydrateResolved(section: Element, resolved: ResolvedScene, opts:
 /** Hydrate ONE `section.scene[data-scene-spec]`. Resolves the baked spec source, then delegates
  *  to the shared `hydrateResolved`. Returns a controller or null (bad spec / `still` / no backend /
  *  no figure / already live). */
-export function hydrateScene(section: Element, opts: HydrateOptions = {}): { dispose(): void } | null {
+export function hydrateScene(section: Element, opts: HydrateOptions): { dispose(): void } | null {
   const resolved = resolveSpecSource(section, opts.sanitize ?? ((m) => m));
   if (!resolved) return null;
   return hydrateResolved(section, resolved, opts);
@@ -479,7 +483,7 @@ export function hydrateScene(section: Element, opts: HydrateOptions = {}): { dis
  *  already-live section). Returns one controller that disposes every scene it started.
  *  For an incrementally re-rendering surface, prefer per-section `hydrateScene` with your
  *  own add/remove diff so unchanged scenes DON'T restart (createAnimaScenes does this). */
-export function hydrateScenes(root: ParentNode, opts: HydrateOptions = {}): { dispose(): void } {
+export function hydrateScenes(root: ParentNode, opts: HydrateOptions): { dispose(): void } {
   const controllers: Array<{ dispose(): void }> = [];
   for (const section of Array.from(root.querySelectorAll('section.scene[data-scene-spec]'))) {
     // Isolate each scene: a spec that validates but throws in compile/mount must not stop the

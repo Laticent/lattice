@@ -45,9 +45,13 @@ const silent = argv.includes('--silent') || check;
 // off-screen for free. Sanitize defaults to identity: the markup was DOMPurified at export
 // time and Vivus inert-parses as a runtime backstop.
 const ENTRY_CONTENTS = `
+import { rendererFor } from './backends/registry';
 import { hydrateScenes } from './hydrate';
 window.__latticeAnima = {
-  hydrateScenes: (root, opts) => hydrateScenes(root || document, opts),
+  // \`rendererFor\` is now injected rather than imported by the host, so the entry declares
+  // which backends it can reach and esbuild drops the rest. THIS entry is the scene player,
+  // which needs both (a built scene renders on Zdog, an svg scene on Vivus).
+  hydrateScenes: (root, opts) => hydrateScenes(root || document, { rendererFor, ...opts }),
 };
 `;
 
