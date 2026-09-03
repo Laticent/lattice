@@ -304,7 +304,7 @@
     "knip": "^6.24.0",
     "lefthook": "^2.1.6",
     "tinybench": "^6.0.2",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vivus": "^0.4.6",
     "wink-porter2-stemmer": "^2.0.1",
     "yaml": "^2.9.0",
