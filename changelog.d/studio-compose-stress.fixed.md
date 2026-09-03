@@ -45,7 +45,12 @@
   the exported file, with nothing visible in the editor. Pasted directives are
   now believed only when they carry this session's provenance token and are
   shaped like a single-line directive comment.
-- **Fixed: restoring a fold no longer snaps the preview to the first slide.**
+- **Fixed: restoring a fold no longer snaps the preview to the first slide.** The
+  transaction that re-applies folds after a re-import carries a fresh selection,
+  which the editor reported as a cursor move — so the preview jumped to whatever
+  slide that selection landed on, every time the rail added, moved or deleted a
+  slide. The restore is now excluded from the cursor-crossing signal: it changes
+  what is folded, not where you are.
 - **Fixed: folding a slide next to an already-folded one no longer unfolds the
   neighbor.** The toggle matched any decoration overlapping the slide's start
   position, and a slide's fold decoration ends exactly where the next one
