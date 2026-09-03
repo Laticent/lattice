@@ -216,12 +216,19 @@ written — the refusal is about disclosure, not tidiness.
 
 **Two more things an export refuses, both about the deck AROUND a slide.** A slide you keep
 can render differently once the slides you dropped are gone: a `footer:`, `header:`,
-`class:`, `paginate:` or `backgroundColor:` directive applies *from that slide onward*, and a
-`[ref]: url` link definition resolves across the whole deck. Set one of those on a slide a
-view excludes and the kept slides silently lose it — a `CONFIDENTIAL` footer disappearing
-from the very file you are sending. The export renders the deck both ways, compares each
-kept slide against itself, and refuses rather than shipping the difference. Put deck-wide
-settings in the front matter, or on a slide every view keeps.
+`class:`, `paginate:` or `backgroundColor:` directive applies *from that slide onward*, a
+`[ref]: url` link definition resolves across the whole deck, and a `<style>` block is
+document CSS wherever you wrote it. Set one of those on a slide a view excludes and the kept
+slides silently change — a `CONFIDENTIAL` footer disappearing from the very file you are
+sending, or, with `<style>`, a paragraph you had hidden coming back in it. The export renders
+the deck both ways, compares each kept slide against itself, and refuses rather than shipping
+the difference. Put deck-wide settings in the front matter, or on a slide every view keeps.
+
+**What that comparison forgives, so you know what it does not.** A shorter deck really does
+renumber its pages, shorten its divider dot rail, restart its section-number ghost and shift
+where the categorical accent lands. All four are functions of deck length, all four differ on
+a correct projection, and none is a disclosure — so the check normalizes them away. Comparing
+them refused 52 of 146 decks this repo ships. Everything else on a slide is compared as-is.
 
 **And your `captions:` travel with the slides.** The block is keyed by slide number, so a
 projection renumbers it: entries for withheld slides are dropped, and the rest are

@@ -754,6 +754,76 @@ test.describe('dropping a slide changes the slides that stay — checked, not as
 		assert.ok(crossSlideDrift(src, out.source, out.kept, render), 'the reference degrades, so it refuses');
 	});
 
+	test('a `<style>` on a withheld slide is document CSS — and dropping it UNHIDES a kept paragraph', () => {
+		// The channel a section-by-section comparison structurally cannot see. The kept slide's markup is
+		// byte-identical on both sides; only the stylesheet moved. Measured before this check existed: the
+		// author previewed a deck with the paragraph hidden, and the paragraph came BACK in the file that
+		// was sent — the one direction of this class that is a disclosure rather than a lost marking.
+		const chunks = [
+			'<!-- _lens: brief -->\n\n# Board summary\n\nRevenue is up 40 percent.\n\nWe expect to lose the Acme suit.\n',
+			'\n# Internal\n\n<style>\nsection[data-authored-slide="0"] p:nth-of-type(2) { display: none; }\n</style>\n',
+			'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
+		];
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true, 'the per-slide prune sees nothing wrong — the rule is not on a kept slide');
+		const drift = crossSlideDrift(src, out.source, out.kept, render);
+		assert.ok(drift, 'but the stylesheet governing a kept slide is gone, and that must refuse');
+		assert.equal(drift.channel, 'style', 'and it names the channel, so the CLI can say which one');
+	});
+
+	test("an author's own `</section>` no longer truncates the comparison", () => {
+		// The walk was `/<section[\s\S]*?<\/section>/`, which stops at the FIRST `</section>` in the
+		// markup — so everything after an author's inline `<section class="aside">` went unchecked, and a
+		// `footer:` lost from that region passed. The walk is now the repo's depth-aware splitter.
+		const chunks = [
+			'<!-- _lens: brief -->\n\n# Cover\n\n<section class="aside">Prepared for the board.</section>\n\nSee [the pack][pk].\n',
+			'\n# Internal\n\n[pk]: https://internal.example/q3\n',
+			'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
+		];
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true);
+		const drift = crossSlideDrift(src, out.source, out.kept, render);
+		assert.ok(drift, 'the degraded link reference sits AFTER the author section, and is still found');
+		assert.equal(drift.authored, 0);
+	});
+
+	test('hop 2 compares what actually SHIPS, not only the stand-in for it', () => {
+		// `emptyWithheld` holds deck length fixed so hop 1 can ask its question without a shorter deck's
+		// legitimate differences drowning it. That makes hop 1 a statement about a PROXY. Hop 2 closes it:
+		// the proxy and the real projection must render each kept slide the same. Feeding a projection
+		// that is not the deck's own must therefore refuse.
+		const chunks = [
+			'<!-- _lens: brief -->\n\n# Cover\n\nQ3 board pack.\n',
+			'\n# Internal\n\nSecret.\n',
+			'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
+		];
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		const tampered = out.source.replace('Q3 board pack.', 'Q3 board pack, with the reserve detail.');
+		const drift = crossSlideDrift(src, tampered, out.kept, render);
+		assert.ok(drift, 'a projection whose kept slide does not match the deck must refuse');
+		assert.equal(drift.hop, 2, 'and it says which hop, because the two mean different things');
+	});
+
+	test('a shorter deck renumbers, recolors and re-rails itself — and none of that is drift', () => {
+		// The bound this check bought, pinned. Pagination, the divider dot rail, the section-number ghost
+		// and the categorical accent are all functions of DECK LENGTH, so every one of them differs on a
+		// correct projection. Comparing them refused 52 of 146 shipped example decks — 36%, a guard that
+		// is an outage. This deck exercises pagination and the accent cycle together.
+		const chunks = [
+			'<!-- _lens: brief -->\n<!-- _paginate: true -->\n\n# Cover\n\nQ3 board pack.\n',
+			'\n# Internal one\n\nSecret.\n',
+			'\n# Internal two\n\nMore.\n',
+			'\n<!-- _lens: brief -->\n<!-- _paginate: true -->\n\n# The ask\n\nApprove.\n',
+		];
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true);
+		assert.equal(crossSlideDrift(src, out.source, out.kept, render), null, 'page 4 becoming page 2 is not a leak');
+	});
+
 	test('and an ordinary deck does NOT refuse — the check has to stay silent to be usable', () => {
 		const chunks = [
 			'<!-- _lens: brief -->\n\n# Cover\n\nQ3 board pack.\n',
@@ -764,6 +834,71 @@ test.describe('dropping a slide changes the slides that stay — checked, not as
 		const out = projectForExport(src, ['brief']);
 		assert.equal(out.ok, true);
 		assert.equal(crossSlideDrift(src, out.source, out.kept, render), null, 'no drift on a clean deck');
+	});
+});
+
+/**
+ * THE FALSE-ALARM RATE, MEASURED ON REAL DECKS RATHER THAN ARGUED ABOUT.
+ *
+ * A guard is only worth having if it stays silent on correct work, and the first three versions of
+ * this one did not: comparing a kept slide against its render in the FULL deck refused 52 of 146
+ * shipped example decks. Every refusal was a correct render that differed because the deck got
+ * shorter. So the normalizer above was not designed — it was DIAGNOSED, one refusal at a time, over
+ * this corpus, and this test is the measurement that drove it, kept so it cannot rot.
+ *
+ * It runs the real engine over every example deck this repo ships, withholding every other slide,
+ * and asserts the refusals are exactly the decks named below. `slide-class-forms.md` is a TRUE
+ * positive found this way: it carries a live `<!-- class: diagram dark -->` global that a later
+ * slide inherits, and the deck's own prose says so. A stale entry fails too, so the list cannot
+ * quietly accumulate.
+ */
+test.describe('the check stays silent on 147 real decks — measured, not assumed', () => {
+	const fs = require('node:fs');
+	const path = require('node:path');
+	const { frontMatterBlockOf, normalizeSourceText } = require('../../../lib/core/slide-boundaries.mjs');
+	const render = (src) => engine.render(src).html;
+
+	/** The kept slides re-joined under the separators that preceded them — what an export of these
+	 *  slides would emit, for a corpus that declares no reader views to project. Built from the same
+	 *  `slideBoundaries` call the kernel splits on, so the two cannot disagree about where a slide ends. */
+	function keepOnly(source, kept) {
+		const src = normalizeSourceText(source);
+		const fm = frontMatterBlockOf(src);
+		const body = src.slice(fm.length);
+		const cuts = slideBoundaries(body).lines;
+		const lines = body.split('\n');
+		const chunks = [];
+		const seps = [];
+		let from = 0;
+		for (const cut of cuts) {
+			chunks.push(lines.slice(from, cut).join('\n'));
+			seps.push(lines[cut]);
+			from = cut + 1;
+		}
+		chunks.push(lines.slice(from).join('\n'));
+		return fm + kept.map((i) => chunks[i]).join(`\n${seps[0] ?? '---'}\n`);
+	}
+
+	/** The decks that legitimately refuse, each with the cross-slide state that makes them refuse. */
+	const EXPECTED = new Map([
+		['slide-class-forms.md', 'a `class: diagram dark` global on slide 4 that slide 5 inherits'],
+	]);
+
+	test('every refusal over examples/ is a real cross-slide dependency', () => {
+		const dir = path.join(__dirname, '..', '..', '..', 'examples');
+		const refused = [];
+		let checked = 0;
+		for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.md'))) {
+			const src = fs.readFileSync(path.join(dir, file), 'utf8');
+			if (!frontMatterBlockOf(normalizeSourceText(src))) continue;
+			const total = slideBoundaries(normalizeSourceText(src).slice(frontMatterBlockOf(normalizeSourceText(src)).length)).lines.length + 1;
+			if (total < 3) continue;
+			const kept = [...Array(total).keys()].filter((i) => i % 2 === 0);
+			checked++;
+			if (crossSlideDrift(src, keepOnly(src, kept), kept, render)) refused.push(file);
+		}
+		assert.ok(checked > 100, `the corpus should be substantial, saw ${checked}`);
+		assert.deepEqual(refused.sort(), [...EXPECTED.keys()].sort(), 'a new refusal is either a real find or a regression — decide which, then update the list with its reason');
 	});
 });
 

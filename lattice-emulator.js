@@ -865,7 +865,9 @@ if (LENS_IDS.length) {
   const drift = crossSlideDrift(mdRaw, out.source, out.kept, (src) => require('./lib/engine/index.js').render(src).html);
   if (drift) {
     console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (cross-slide) — ${REFUSAL_REASONS['cross-slide']}`);
-    console.error(`       slide ${drift.authored + 1} of the deck renders differently once the view's other slides are gone. Nothing was exported.`);
+    console.error(drift.channel === 'style'
+      ? "       a <style> block on a slide the view excludes styles the slides it keeps, so dropping it changes what they show. Nothing was exported."
+      : `       slide ${drift.authored + 1} of the deck renders differently once the view's other slides are gone. Nothing was exported.`);
     process.exit(1);
   }
   LENS_VIEWS = out.views;
@@ -883,7 +885,13 @@ if (LENS_IDS.length) {
   // ALWAYS reported, not only when the projection reduced. A carrier whose views happen
   // to cover the whole deck used to print NOTHING, which is the one case where a reader
   // most needs to know the file is a carrier rather than a cut.
-  LENS_REPORT = `  reader views: ${LENS_IDS.join(', ')} — ${out.kept.length} of ${out.total} slides ship`;
+  // AND IT SAYS WHAT ACTUALLY LEAVES, WHICH IS NOT ALWAYS WHAT RENDERS. `--lens-source full` puts
+  // the WHOLE deck's markdown back into the `application/lattice+json` envelope, so a file whose
+  // pages show 4 of 8 slides carries all 8 in a channel a recipient can read. Reporting only the
+  // page count there described the artifact the sender expected rather than the one they sent.
+  LENS_REPORT = LENS_SOURCE === 'full'
+    ? `  reader views: ${LENS_IDS.join(', ')} — ${out.kept.length} of ${out.total} slides render, and --lens-source full carries ALL ${out.total} in the envelope`
+    : `  reader views: ${LENS_IDS.join(', ')} — ${out.kept.length} of ${out.total} slides ship`;
 }
 // PRINT canvas is stamped by `--print` OR by an image set's `--image-mode print`
 // (one `color-mode: print` path, so the whole set renders the B&W-safe handout).
