@@ -98,44 +98,91 @@ export type SlideBlocks = Record<string, string[]>;
 
 // Components whose grammar has no place for a table — the door Compose withholds.
 //
-// CURATED BY HAND, not derived. An earlier version of this gate read the manifest with a
-// regex over slot selectors and skeletons, which answered a different question ("does this
-// component DECLARE a table?") and got the answer badly wrong: it hid the control on 57 of
-// 61, `content` included, on the false premise that the engine drops a table anywhere else.
-// It does not — `lib/base/base.elements.css` § UNIVERSAL TABLE renders a plain pipe table at
-// the boardroom bar on almost any layout, deliberately, since 2026-08-02.
+// THE CRITERION: does this layout render a PRIMARY FIGURE or a FIXED ANATOMY that owns the
+// stage? If it does, a table is not a second block, it is a competitor for the canvas — and
+// the figure loses far more than the table gains. Measured on the shipped skeletons at
+// 1280x720, adding one three-row table:
 //
-// So the question this list answers is EDITORIAL, and a machine cannot infer it: on these
-// components a table is not an author's choice, it is a mis-set slide. Each one's whole
-// anatomy is a single thing — one statement, one number, one picture, one contact block —
-// and a grid competes with it rather than supporting it. Everything else keeps the door,
-// `content` (the catch-all) and every chart, code, legal, inventory and comparison layout
-// included; the four that take a table as their PRIMARY content obviously keep it.
+//   quadrant  figure 343px (48% of slide) -> 188px (26%)   -45%
+//   diagram   figure 446px (62%)          -> 284px (39%)   -36%
+//   piechart  figure 424px (59%)          -> 270px (38%)   -36%
+//   code      figure 438px (61%)          -> 284px (39%)   -35%
 //
-// This withholds a CONTROL, not a capability: typing a pipe table or pasting one still
-// works and still renders. That is the line HARD RULE #29 draws — we do not refuse the
-// author, we decline to hand them a tool that makes a worse slide.
+// The table itself only takes ~20% of the slide; the rest is the fit spine rebalancing. The
+// ENGINE agrees where the damage is acute — with a table added it reports quadrant's labels
+// below the type-legibility floor, and clipping or overflow on journey, kpi, logo-wall and
+// authority-chain. Those warnings are corroboration, not the rule: `diagram` never warns,
+// because Mermaid scales its own labels down instead, and a diagram at 39% of the slide is a
+// worse slide with or without a warning.
+//
+// Equally, a warning is not sufficient on its own. `policy-recommendation`, `q-and-a` and
+// `regulatory-update` also overflow with a table added — but only because their skeletons
+// already sit near capacity. That is a deck-capacity concern for `lint:deck`, not evidence
+// that a table is the wrong KIND of content there, so they keep the door.
+//
+// CURATED, NOT DERIVED, and two failed derivations are why. A regex over manifest slots
+// answers "does this component DECLARE a table?" — a different question, and it hid the
+// control on 57 of 61 including `content`. A DOM census for `svg/pre/img/canvas` misses every
+// component that builds its figure from divs and CSS (kanban, cycle, progress, matrix-2x2,
+// verdict-grid, kpi, big-number all read as 0% and are not). Both instruments have blind
+// spots; the list is judged, with the measurements as evidence.
+//
+// It withholds a CONTROL, not a capability: typing a pipe table or pasting one still works
+// and still renders. That is the line HARD RULE #29 draws — we do not refuse the author, we
+// decline to hand them a tool that makes a worse slide.
 const TABLE_UNSUITED = new Set([
-	// anchor — bookends. A table on the deck's first or last slide is never the point.
+	// ── No body flow to join: bookends and single-utterance statements ──────────
 	'title',
 	'closing',
 	'divider',
-	// statement — one utterance per slide. `content` is deliberately ABSENT: it is the
-	// catch-all body layout and a table is ordinary there.
 	'big-number',
 	'quote',
-	'premise',
+	'premise', // engine clips it with a table added
 	'split-panel',
-	// connect — "scan this" slides.
-	'contact',
-	'wifi',
-	// imagery — the picture is the slide.
+	// ── The picture IS the slide ────────────────────────────────────────────────
 	'image',
 	'scene',
 	'video',
-	// evidence — already a figure grid; a table competes with it.
-	'kpi',
+	'contact', // QR code
+	'wifi', // QR code
+	// ── A PRIMARY FIGURE owns the stage — the case that started this list ───────
+	// Every chart except the two whose table IS the figure (matrix-grid, roadmap).
+	'funnel',
+	'gantt',
+	'journey', // engine clips it with a table added
+	'kanban',
+	'map',
+	'piechart',
+	'progress',
+	'quadrant', // engine drops its labels below the legibility floor
+	'radar',
+	'state-chart',
+	'timeline-list',
+	'word-cloud',
+	'cycle',
+	'diagram', // mermaid: -36% of the figure, silently — it scales rather than warns
+	'code', // the code block owns the stage, -35%
+	'compare-code',
+	'math', // the equation owns the stage
+	// ── Fixed grids and card anatomies: the layout already allocates the stage ──
+	'kpi', // engine overflows with a table added
 	'stats',
+	'cards-grid',
+	'cards-stack',
+	'matrix-2x2',
+	'verdict-grid',
+	'pricing',
+	'logo-wall', // engine overflows with a table added
+	'authority-chain', // engine overflows with a table added
+	'citation-card',
+	'statute-stack',
+	// ── Two-sided comparisons: the anatomy IS the comparison ────────────────────
+	'compare-prose',
+	'redline',
+	'decision',
+	'split-compare', // and the engine genuinely DROPS a table here — measured
+	// ── Already renders a table from its own grammar ────────────────────────────
+	'glossary', // its entries ARE the table; a second one competes
 ]);
 
 /**
@@ -146,6 +193,12 @@ const TABLE_UNSUITED = new Set([
  * stripped of the control. Only a name on the curated list above withholds it. The LAST
  * `_class` token that matches wins, matching the engine's directive semantics, and the
  * lookup is a `Set` so a slide naming `constructor` cannot reach up a prototype chain.
+ *
+ * What KEEPS the door, and why it is the shorter list: `content` (the catch-all body
+ * layout), the open list-flow layouts a table can legitimately join (list, list-tabular,
+ * list-criteria, list-steps, agenda, actors, checklist, inventory, q-and-a,
+ * policy-recommendation, regulatory-update), and the four components whose table IS the
+ * content (compare-table, matrix-grid, obligation-matrix, roadmap).
  */
 export function slideTakesTable(directives: string[]): boolean {
 	let declared: boolean | undefined;

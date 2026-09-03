@@ -22,6 +22,37 @@ describe('slideTakesTable', () => {
 		}
 	});
 
+	// THE CASE THAT RESHAPED THIS LIST. A chart, diagram, code block or equation owns the
+	// stage, and a table does not sit beside it — it takes the canvas. Measured on the shipped
+	// skeletons: a single three-row table costs `quadrant` 45% of its figure height, `diagram`
+	// 36%, `piechart` 36%, `code` 35%, while the table itself occupies only ~20% of the slide.
+	it('withholds it wherever a PRIMARY FIGURE owns the stage', () => {
+		for (const cls of ['diagram', 'quadrant', 'piechart', 'radar', 'funnel', 'map', 'gantt', 'journey', 'kanban', 'state-chart', 'word-cloud', 'timeline-list', 'progress', 'cycle', 'code', 'compare-code', 'math']) {
+			expect(slideTakesTable(d(cls)), cls).toBe(false);
+		}
+	});
+
+	it('withholds it on fixed grids, card anatomies and two-sided comparisons', () => {
+		for (const cls of ['kpi', 'stats', 'cards-grid', 'cards-stack', 'matrix-2x2', 'verdict-grid', 'pricing', 'logo-wall', 'compare-prose', 'redline', 'split-compare']) {
+			expect(slideTakesTable(d(cls)), cls).toBe(false);
+		}
+	});
+
+	// `glossary` renders its entries AS a table from its own list grammar (confirmed by
+	// rendering the clean skeleton), so an author-added table would be the second one.
+	it('withholds it where the layout already renders a table from its own grammar', () => {
+		expect(slideTakesTable(d('glossary'))).toBe(false);
+	});
+
+	// The other direction, and the guard against over-withholding: an open list flow has no
+	// figure to damage — measured, these components show a figure height of 0 — so a table is
+	// an ordinary second block there.
+	it('offers it on open list-flow layouts, which have no figure to compete with', () => {
+		for (const cls of ['list', 'list-tabular', 'list-criteria', 'list-steps', 'agenda', 'actors', 'checklist', 'inventory', 'q-and-a', 'policy-recommendation', 'regulatory-update']) {
+			expect(slideTakesTable(d(cls)), cls).toBe(true);
+		}
+	});
+
 	it('offers it on `content` — the catch-all body layout, where a table is ordinary', () => {
 		// The single most important entry in this file: the derived gate got this one wrong,
 		// which removed the only in-Compose route to a table on the default body slide.

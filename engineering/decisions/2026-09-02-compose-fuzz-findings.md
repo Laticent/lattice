@@ -136,26 +136,52 @@ and the report had asked an EDITORIAL one. A table on a title slide renders beau
 is still the wrong slide — Lattice's whole proposition is that the engine holds the design
 line, so "it renders" was never the bar.
 
-**Third pass (shipped).** The door is withheld on a CURATED list of layouts whose whole
-anatomy is a single thing — one statement, one number, one picture, one contact block:
+**Third pass (too narrow).** The door was withheld on layouts whose anatomy is a single
+thing — one statement, one number, one picture. That caught the bookends and missed the case
+that matters most, raised in review: **a chart or diagram slide.** The figure IS the slide,
+and a table does not sit beside it, it takes the canvas.
 
-| bucket | withheld |
-|---|---|
-| anchor | `title` `closing` `divider` |
-| statement | `big-number` `quote` `premise` `split-panel` — **not `content`** |
-| connect | `contact` `wifi` |
-| imagery | `image` `scene` `video` |
-| evidence | `kpi` `stats` |
+**Fourth pass (shipped).** The criterion is now: *does this layout render a PRIMARY FIGURE or
+a FIXED ANATOMY that owns the stage?* Measured on the shipped skeletons at 1280x720, adding
+one three-row table:
 
-Everything else keeps it, including `content` — the catch-all body layout, which the derived
-gate wrongly hid, removing the only in-Compose route to a table on the default slide — and
-all four table-primary components.
+| component | figure clean | figure + table | loss |
+|---|---|---|---|
+| `quadrant` | 343px (48% of slide) | 188px (26%) | **−45%** |
+| `diagram` | 446px (62%) | 284px (39%) | **−36%** |
+| `piechart` | 424px (59%) | 270px (38%) | **−36%** |
+| `code` | 438px (61%) | 284px (39%) | **−35%** |
 
-**Curated, not derived, and that is the point.** A regex over manifest slots answers "does
-this component DECLARE a table?", a different question, and that mismatch produced the first
-pass's error. Only a person can say on which layouts a table is the wrong slide. The cost of a
-hand-written list is that it rots when a component is renamed, so a CENSUS test asserts every
-curated name still matches a real component in the shipped manifest.
+The table itself occupies only ~20% of the slide; the rest is the fit spine rebalancing. **The
+figure loses roughly twice what the table gains.**
+
+The ENGINE corroborates where the damage is acute: with a table added it reports `quadrant`'s
+labels below the type-legibility floor, and clipping or overflow on `journey`, `kpi`,
+`logo-wall` and `authority-chain`. But warnings are neither necessary nor sufficient as the
+rule. `diagram` never warns — Mermaid scales its own labels down instead — and a diagram at
+39% of the slide is a worse slide regardless. Conversely `policy-recommendation`, `q-and-a`
+and `regulatory-update` overflow only because their skeletons already sit near capacity,
+which is a `lint:deck` concern, not evidence that a table is the wrong kind of content there.
+
+**45 withheld, 16 offered.** What keeps the door: `content`, the open list-flow layouts
+(`list`, `list-tabular`, `list-criteria`, `list-steps`, `agenda`, `actors`, `checklist`,
+`inventory`, `q-and-a`, `policy-recommendation`, `regulatory-update`) — all measured with a
+figure height of ZERO, so there is nothing for a table to compete with — and the four whose
+table IS the content (`compare-table`, `matrix-grid`, `obligation-matrix`, `roadmap`).
+
+One entry earned its place by measurement alone: `glossary` renders its entries AS a table
+from its own list grammar, so an author-added table would be the second one.
+
+**Curated, not derived, and TWO failed derivations are why.** A regex over manifest slots
+answers "does this component DECLARE a table?" — a different question, and it hid the control
+on 57 of 61 including `content`. A DOM census for `svg/pre/img/canvas` then missed every
+component that builds its figure from divs and CSS: `kanban`, `cycle`, `progress`,
+`matrix-2x2`, `verdict-grid`, `kpi` and `big-number` all read as 0% figure and are not.
+Both instruments have blind spots in the same shape — they answer a mechanical question that
+resembles the real one. The list is judged, with the measurements as evidence rather than as
+the rule. The cost of a hand-written list is that it rots when a component is renamed, so a
+CENSUS test asserts every curated name still matches a real component in the shipped
+manifest.
 
 **It withholds a CONTROL, not a capability.** Typing a pipe table or pasting one still works
 and still renders correctly. That is the line HARD RULE #29 draws — we do not refuse the

@@ -18,15 +18,17 @@
   with empty cells, which serializes to `|  |  |` and renders as two hairlines —
   invisible on a dark slide, and indistinguishable from a button that did
   nothing. Its header cells now carry `Column`.
-- **Changed: Compose withholds the "Insert table" control on layouts where a
-  table is the wrong slide** — the anchors (title, closing, divider), the
-  single-utterance statements (quote, big-number, premise, split-panel), the
-  contact cards (contact, wifi), the picture slides (image, scene, video) and the
-  figure grids (kpi, stats). Everywhere else keeps it, `content` included. This
-  withholds a control, not a capability: the engine renders a plain table at the
-  boardroom bar on almost any layout, so typing or pasting one still works and
-  still looks right — Compose simply stops handing you a tool that makes a
-  mis-set slide.
+- **Changed: Compose withholds the "Insert table" control on the 45 layouts where a
+  table competes for the stage** — every chart, the diagram, code and math slides,
+  the fixed grids and card anatomies, the two-sided comparisons, the picture and
+  contact slides, and the bookends. It stays on the 16 where a table belongs: the
+  catch-all `content`, the open list-flow layouts, and the four whose table IS the
+  content. The measurement behind it: adding one three-row table costs `quadrant`
+  45% of its figure height, `diagram` 36%, `piechart` 36% and `code` 35%, while the
+  table itself occupies only ~20% of the slide — and on `quadrant` the engine
+  reports the figure's labels dropping below the legibility floor. This withholds a
+  control, not a capability: typing or pasting a table still works and still
+  renders.
 - **Fixed: deleting the slide you are editing lands on its neighbor.** The caret
   had no slide to re-anchor to, so the selection mapped to the end of the
   document and both the caret and the preview jumped to the last slide — walking
