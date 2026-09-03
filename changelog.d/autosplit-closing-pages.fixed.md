@@ -170,3 +170,13 @@
   purple and red — five colors that appear nowhere on the page, on a legend this branch repeats
   once per stage. The vertical variant drops the swatches and keeps the scale's verbal anchors
   and numerals, which is what the mood track's five gridlines are numbered by.
+- **Fixed: `(cont.)` — the marker on a split slide's repeated heading — was the most common
+  sub-threshold text run in the engine.** At `opacity: 0.5` it bottoms out at 2.96:1 against the
+  4.5:1 real text owes, measured on a real render swept across all 33 shipped palette variants;
+  126 of that sweep's 162 total offenders were this one marker. It reads on `indaco`, which is
+  the only palette the per-PR contrast gate renders, which is why nothing caught it. 0.65 still
+  fails at 4.46:1; **0.70** is the first step that clears, at 5.09:1 worst, so it is the quietest
+  this marker can be and still be text. It stays an opacity rather than an ink token on purpose:
+  it rides inside an `h1`/`h2`, and a split heading is not always on the plain canvas, so the
+  alpha keeps it compositing over whatever the heading actually sits on. The same sweep now
+  reports 36 offenders where it reported 162, and none of them is split furniture.

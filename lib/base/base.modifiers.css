@@ -2329,11 +2329,27 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
  * Appended to the repeated heading of a split slide's 2nd+ part by the auto-split
  * driver (lib/core/auto-split.js), so a continuation slide reads as part of the
  * previous one. Deliberately quiet — smaller, lighter, de-emphasized — so it says
- * "(cont.)" without competing with the title. Palette-blind (opacity, no color). */
+ * "(cont.)" without competing with the title. Palette-blind (opacity, no color).
+ *
+ * 0.7, NOT 0.5, AND THE NUMBER IS A FLOOR. At 0.5 this was the single most common
+ * sub-threshold text run in the engine: measured on a real render of a split deck, swept
+ * across all 33 shipped palette variants through `tools/palette-sweep.js`'s in-place swap,
+ * it bottoms out at 2.96:1 on `laguna` against the 4.5:1 real text owes, and 126 of the
+ * sweep's 162 total offenders were this one marker. It reads on `indaco` — which is the
+ * only palette the per-PR contrast gate renders — and that is exactly why nothing caught it.
+ * 0.65 still fails (4.46:1 on `concrete`); 0.70 is the first step that clears, at 5.09:1
+ * worst, so it is the quietest this marker can be and still be text.
+ *
+ * OPACITY RATHER THAN AN INK TOKEN, deliberately, and it is the one place this branch did
+ * NOT copy the mood-key fix (#1722, which deleted a wash and named a token instead). That
+ * marker sits in a legend on the page's canvas; this one rides inside an `h1`/`h2`, and a
+ * split heading is not always on `--bg` — a token would be canvas-relative where the
+ * heading's own inherited ink already is not. Raising the alpha keeps the property the rule
+ * was written for: it composites over whatever the heading is actually on. */
 :is(h1, h2) .lat-cont {
   font-size: 0.5em;
   font-weight: 400;
-  opacity: 0.5;
+  opacity: 0.7;
   letter-spacing: 0.04em;
   vertical-align: middle;
   white-space: nowrap;
