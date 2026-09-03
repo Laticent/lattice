@@ -1,4 +1,4 @@
-- **Added: `examples/system-design-foundations.md`, a 146-slide system-design tutorial for
+- **Added: `examples/system-design-foundations.md`, a 147-slide system-design tutorial for
   engineers in their first years.** It opens on one engineer's Tuesday told wake-to-sleep with
   no vocabulary at all, then names each thing she met — system, purpose, boundary, environment,
   process, model, constraint, invariant, infrastructure, emergence — against the timestamp that
@@ -10,4 +10,4 @@
   designs Instagram end to end around the follow graph's asymmetry: bounded out-degree,
   unbounded in-degree, and super nodes that force the hybrid fan-out rather than it being a
   preference. It closes by mapping each kit decision onto the design and handing over a
-  nine-field worksheet as the call to action. Nineteen Mermaid diagrams, `profile: teaching`.
+  nine-field worksheet as the call to action. Nineteen Mermaid diagrams, `profile: teaching`, and a generated glossary appendix from the deck's own acronym registry.

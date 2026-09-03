@@ -4,9 +4,10 @@ size: 4K
 theme: indaco
 paginate: true
 profile: teaching
+glossary: auto
 header: "System design"
 acronyms:
-  ACID: { expansion: atomicity consistency isolation durability, definition: "The four guarantees a classic transaction gives you: it all happens, the rules hold, concurrent work does not interleave visibly, and a commit survives a crash." }
+  ACID: { expansion: atomicity consistency isolation durability, definition: "A transaction happens completely or not at all, leaves the rules intact, does not interleave visibly with others, and survives a crash once committed." }
   API: { expansion: application programming interface, definition: "The contract one system offers another — the operations, their inputs, and what they promise in return." }
   CAP: { expansion: consistency availability partition tolerance, definition: "Split by a network fault, a system must answer with possibly stale data or refuse to answer." }
   CDN: { expansion: content delivery network, definition: "Caches placed near readers so bytes travel a short distance instead of crossing an ocean." }
@@ -15,6 +16,15 @@ acronyms:
   MVP: { expansion: minimum viable product, definition: "The smallest build that puts a real answer in front of a real user." }
   PR: { expansion: pull request, definition: "A proposed change, open for review before it merges." }
   RPS: { expansion: requests per second }
+  BASE: { expansion: basically available soft state eventual consistency, definition: "ACID's loose counterpart: stay answerable under failure, let replicas disagree for a while, and converge afterward." }
+  CPU: { expansion: central processing unit }
+  GB: { expansion: gigabytes }
+  HSM: { expansion: hardware security module }
+  L7: { expansion: layer seven }
+  POST: { expansion: post }
+  SLA: { expansion: service level agreement }
+  TB: { expansion: terabytes }
+  VPN: { expansion: virtual private network }
   SLI: { expansion: service level indicator }
   SLO: { expansion: service level objective }
   TLS: { expansion: transport layer security }
@@ -60,7 +70,7 @@ We start with one engineer's Tuesday, and we finish by designing Instagram.
 
 She wants pull request 482 merged before the release window closes at four o'clock.
 
-Watch her Tuesday. This part uses no technical words on purpose. Everything Part one names happens here first, so you see each idea before you have a word for it.
+Watch her Tuesday. This part uses no systems-design words on purpose. Everything Part one names happens here first, so you see each idea before you have a word for it.
 
 ---
 
@@ -232,7 +242,7 @@ flowchart TB
 
 ## A purpose becomes visible at the moment you miss it.
 
-Maya wrote it on a sticky note at half past nine: get 482 merged before four. At four o'clock it had not merged, and the gap between those two facts is the clearest thing in her whole day.
+Maya wrote it on a sticky note at nine thirty: get 482 merged before four. At four o'clock it had not merged, and the gap between those two facts is the clearest thing in her whole day.
 
 - In Maya's day
   - She wrote hers down at 09:30, which is why she could tell at 16:00 that she had missed it.
@@ -250,7 +260,7 @@ Maya wrote it on a sticky note at half past nine: get 482 merged before four. At
 
 ## The boundary is the line between what you change and what you ask for.
 
-At quarter past ten another team asked Maya to fix a flaky test in their repository. She said no. That refusal is the boundary, and she could feel exactly where it was because saying no was uncomfortable.
+At ten fifteen another team asked Maya to fix a flaky test in their repository. She said no. That refusal is the boundary, and she could feel exactly where it was because saying no was uncomfortable.
 
 - In Maya's day
   - She could decline the favor. She could not decline the release window.
@@ -273,7 +283,7 @@ A signal failure held her train for nine minutes. A page pulled her into an outa
 - In Maya's day
   - She had no say over either. She did have a say over what happened to 482 while she was gone, and had not decided it in advance.
 - It is not the same as load
-  - Regulation, a partner's outage and a colleague's holiday are environment too.
+  - Regulation, a partner's outage and a colleague's time off are environment too.
 - You design for it, not against it
   - You cannot stop the page. You can decide what happens to 482 when it comes.
 
@@ -776,7 +786,7 @@ Antoine de Saint-Exupéry wrote that perfection arrives not when there is nothin
 
 `Part four`
 
-## Six kits, and one card shape you will recognize sixteen times.
+## Six kits: twelve things you can reach for, and the invariants behind all of them.
 
 ---
 
@@ -786,7 +796,7 @@ Antoine de Saint-Exupéry wrote that perfection arrives not when there is nothin
 
 ## Reach for it when, walk away when, and the constraint you inherit.
 
-One shape for every entry, so you can hold two options side by side without re-reading a manual. Each kit opens with a diagram of the patterns it covers, and closes with the invariants that hold across all of them.
+One shape for every entry you choose between — the stores, the runtimes, the delivery tier — so you can hold two options side by side without re-reading a manual. Scale, reliability and security are patterns rather than choices, so those three kits run on diagrams and invariants instead. Every kit opens with a diagram and closes with its invariants.
 
 The entries name concepts, not products. Products turn over every few years. The constraint that an append-only store puts on your reads does not.
 
@@ -1223,7 +1233,7 @@ flowchart TB
 - Reach for it when
   - Traffic is spiky or rare, the work is short, and per-request isolation is welcome.
 - Walk away when
-  - Runs are long, or steady traffic makes per-request pricing dearer than a machine.
+  - Runs are long, or steady traffic makes per-request pricing more expensive than a machine.
 - The constraint you inherit
   - Cold starts, unless you pay to keep instances warm — which is paying for idle again.
 
@@ -2215,7 +2225,7 @@ Batching is not only throughput. Eighty parallel calls put `1 - 0.99^80`, fifty-
 The feed is eventually consistent, which is correct for everyone else's posts and completely wrong for your own. A person who posts and does not see it reads that as data loss, not as staleness, and posts again.
 
 - Where it comes from
-  - Read-your-writes, the consistency rung from Part four, applied to something.
+  - Read-your-writes, the consistency rung from Part four, applied to one reader's own posts.
 - Write your own feed synchronously
   - Inside the POST request, before it returns. One extra write, on one key.
 - And let the client help
@@ -2344,7 +2354,7 @@ Every like is a write against the same post id — one key, one partition, one l
 
 ## The most useful entry here is the one we refused.
 
-Most juniors asked to design Instagram reach for a graph database, because the words "social graph" are right there. The data kit already answered it, fifty slides before anybody had heard of an account with five hundred million followers.
+Most juniors asked to design Instagram reach for a graph database, because the words "social graph" are right there. The data kit already answered it, fifty slides before this design began.
 
 - What the card said
   - Walk away when you have relationships but only ever join two hops.
