@@ -84,3 +84,14 @@
   reported "2 of 3 slides ship" and wrote a three-slide file carrying an authored index nothing had
   verified. The checks now run against `rawMd`, the source the pipeline actually renders, and still
   before any byte is written. The glossary case is now refused.
+- **Fixed: the positional-selector scan was two catastrophic-backtracking regexes, and it missed the
+  most common way to write the rule it looks for.** CodeQL flagged both patterns high severity —
+  `section(?:[.#[:][^\s,{>+~]*)*` is a repeated group whose body can start with the characters the
+  group starts with, so `section####…` has exponentially many parses — and author CSS is untrusted
+  input on the Studio path. The scan is now a linear walk: find each structural pseudo-class or
+  sibling combinator, read back to the nearest delimiter, and ask whether that compound selects a
+  slide. Rewriting it surfaced a hole the regex had too: front-matter CSS arrives wrapped, so
+  `style: "section:nth-of-type(3) …"` puts a quote immediately before the compound, and reading that
+  quote as part of the selector made the whole single-line front-matter form invisible. Ten selector
+  cases are now pinned in both spellings, and a 4,000-character pathological selector completes in
+  under a millisecond.
