@@ -1081,7 +1081,7 @@ flowchart LR
   Q4 -->|"no"| SPLIT(["Split the problem.<br/>One store is not enough."])
 ```
 
-> Reaching the last box is not failure. It is the honest answer for a system with two jobs.
+> Reaching the last box is not failure. It is what a system with two jobs looks like.
 
 ---
 
@@ -2970,7 +2970,7 @@ flowchart LR
 
 > Step 2 is the only place an untrusted client writes straight into your storage.
 
-*So the grant names the exact key it may write — let the client choose the key and it writes over somebody else's media — and carries four limits besides: one content type, a size ceiling, a short expiry, and a rate per account. Without those four, anyone can fill your storage at your expense, and step 4 hands bytes they chose to an image decoder.*
+*So the grant names the exact key it may write. Let the client choose the key and it writes over somebody else's media. It carries four limits besides: one content type, a size ceiling, a short expiry, and a rate per account. Without those four, anyone can fill your storage at your expense, and step 4 hands bytes they chose to an image decoder.*
 
 ---
 
