@@ -27,6 +27,27 @@ section.matrix-2x2 > .cell-stage > ul,
 section.matrix-2x2 > .cell-stage > ol {
   display:flex; flex-wrap:wrap; align-content:stretch;
   gap:var(--sp-md); flex:1;
+  /* `min-height:0` is load-bearing (flex cell-tree §6, the same fix list-steps and
+   * cards-stack carry). This list is a flex item of `.cell-stage`, a bounded clipping
+   * cell, and a flex item's default `min-height:auto` floors it at its CONTENT height,
+   * so it refused to shrink into the cell that clips it and the stage sheared the card
+   * chrome — bottom border, both bottom radii, the panel fill's bottom edge — while
+   * every word was still inside. Measured at `size: hd` on four cells whose quadrant titles
+   * all wrap: a 448.78px list in a 438.22px stage, both bottom quadrants hanging
+   * 10.56px with their last item 18.11px inside — the bottom of the fourth cell's
+   * `--accent-soft` outcome ring among what was cut.
+   *
+   * This releases the LIST's floor, not the cell's, and with UNEVEN item counts that
+   * distinction is worth spelling out, because the cells DO get shorter. Measured on a
+   * four-quadrant fixture whose third cell carries two extra lines: the list goes
+   * 495.09 → 438.22px and every cell 235.55 → 207.11px, so the full cell's own
+   * `overflow:hidden` (below) eats 57px of its 262px instead of 28px. That reads like a
+   * loss and is not one — before the release, the bottom row hung 56.87px past the stage
+   * on top of the cell's own clip, so a bottom cell showed ~177px of its content; after,
+   * it shows 205px, with the chrome intact. The fullest cell is still clipped INSIDE the
+   * frame either way, which the stage probe cannot see; that part is the cell's to
+   * answer, not this declaration's. */
+  min-height:0;
   list-style:none; padding:0; margin:0;
 }
 section.matrix-2x2 > .cell-stage > ul > li,

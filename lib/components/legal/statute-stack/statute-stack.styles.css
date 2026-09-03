@@ -44,6 +44,18 @@ section.statute-stack > .cell-stage > ol {
    * own flex-direction). */
   display:flex; flex-direction:row;
   gap:var(--sp-md); flex:1;
+  /* `min-height:0` is load-bearing (flex cell-tree §6, the same fix list-steps and
+   * cards-stack carry). This row is a flex item of `.cell-stage`, a bounded clipping
+   * cell, and a flex item's default `min-height:auto` floors it at its CONTENT height,
+   * so it refused to shrink into the cell that clips it and the stage sheared the rail
+   * chrome — bottom border, both bottom radii — while every word was still inside.
+   * Measured at `size: hd` on one over-long federal obligation: a 446.63px row in a
+   * 438.22px stage and ALL THREE rails hanging 8.41px. The state and local rails carry
+   * half the text and their own ink stops 21.66px inside, but `li { flex:1 }` in a row
+   * makes every rail as tall as the tallest, so one long obligation takes all three
+   * bottom edges — and all three status pills, which the body list pins to the card
+   * foot — down with it. */
+  min-height:0;
 }
 section.statute-stack > .cell-stage > ul > li,
 section.statute-stack > .cell-stage > ol > li {
@@ -230,7 +242,20 @@ section.statute-stack.preemption > .cell-stage > ol {
   /* inter-card spacing as a flex gap (was margin-bottom on each card) — measurable,
    * inside the flex content box; the chevron ::after still centers in this gap band. */
   gap:var(--sp-md);
-  justify-content:center;
+  /* `safe`, not bare `center` — stage.css § safe alignment (#1299), and it became
+   * load-bearing the moment the base rule above released this list's content-height
+   * floor. These cards are `flex:0 0 auto`, so a clamped list cannot shrink them: it
+   * centers them instead, and the excess goes off BOTH edges. Block-start overflow does
+   * not grow `scrollHeight`, so the half that goes off the top is invisible to the
+   * probe, to the export tag and to every scroll-dims measure here — a cut tail
+   * announces itself, a cut head does not. Measured at `size: hd` on a four-card
+   * preemption stack, with the floor released and this keyword absent: 53.53px of real
+   * text above the stage's top edge (129.56px on a five-card one), taking the FEDERAL
+   * label, its citation pill and the card's top border off the slide. Unclamped the
+   * same deck put all 125.97px of the loss out the bottom, where it is visible.
+   * `safe` falls back to `start` only once the content overflows, so a fitting slide is
+   * byte-identical. */
+  justify-content:safe center;
 }
 section.statute-stack.preemption > .cell-stage > ul > li,
 section.statute-stack.preemption > .cell-stage > ol > li {

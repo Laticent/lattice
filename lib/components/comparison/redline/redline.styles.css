@@ -64,6 +64,27 @@ section.redline > .cell-stage > blockquote {
   color:var(--text-heading);
   flex:1;
 }
+/* `min-height:0` on the PLAIN clause only (flex cell-tree §6, the fix list-steps and
+ * cards-stack carry). The clause is a flex item of `.cell-stage`, a bounded clipping
+ * cell, and a flex item's default `min-height:auto` floors it at its CONTENT height —
+ * so it refused to shrink into the cell that clips it. Measured at `size: hd` on one
+ * two-paragraph clause: a 429.28px box against its 406.28px share, 23px of the card's
+ * bottom border, its `--radius-md` corner and its `--muted-mark` left rail clipped away,
+ * with the deepest ink still 6.33px inside. Releasing the floor moves no ink (429.28 →
+ * 406.28, ink unchanged) and an overstuffed clause still spills and still rings.
+ *
+ * THE EXCLUSIONS ARE THE POINT, and both were measured doing damage rather than guessed
+ * at. `.stacked` renders TWO `flex:1` clauses, i.e. basis 0: released, they split the
+ * stage evenly REGARDLESS of content (192.42/228.75 → 199.14/199.14), the longer NEW
+ * clause escapes its own box and `inkPastClip` goes -6.44 → +0.28 — a fix that starts
+ * cutting words. `.annotated` is worse: its overrun belongs to the trailing annotation
+ * list, not to this box at all, so releasing the floor takes the stage hang to nothing
+ * and the probe SILENT while the clause's own `scrollHeight/clientHeight` reads 169/92
+ * — 77px of quoted text painting over the annotation list, inside the frame where the
+ * stage clip can no longer catch it. That is #1277's failure mode exactly (see
+ * kpi.styles.css). `.split` and `.three-col` set their own `min-height:0` below and are
+ * unaffected either way. */
+section.redline:not(.stacked):not(.annotated) > .cell-stage > blockquote { min-height:0; }
 section.redline > .cell-stage > blockquote > p { margin:0; }
 section.redline > .cell-stage > blockquote > p + p { padding-top:var(--sp-sm); }
 /* Insertions and deletions — ins/del HTML, also ~~md~~ which renders as s.

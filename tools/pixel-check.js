@@ -58,7 +58,7 @@ const ROOT = path.join(__dirname, '..');
 const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
 const SNAPSHOT_ROOT = path.join(ROOT, '.scratch', 'pixel-check');
 
-const { ALL_DECKS, pageDeltaNote } = require('./preview');
+const { ALL_DECKS, pageDeltaNote, parseAeCount } = require('./preview');
 
 function ensureChrome() {
   if (process.env.PUPPETEER_EXECUTABLE_PATH) return;
@@ -176,10 +176,18 @@ function pixelDiff(baselinePdf, currentPdf, deck, opts = {}) {
     }
     const diffPng = path.join(tmpDir, `diff-${String(i + 1).padStart(3, '0')}.png`);
     const r = spawnSync('compare', [...fuzzArgs, '-metric', 'AE', oldP, newP, diffPng], { encoding: 'utf8' });
-    const raw = (r.stderr || '').trim();
-    const px = /^\d+$/.test(raw) ? parseInt(raw, 10) : 0;
-    if (px > 0) perPage.push({ page: i + 1, pixels: px, total: od.w * od.h, diffPng, oldPng: oldP, newPng: newP });
-    totalPx += px;
+    // `parseAeCount` (tools/preview.js) reads the count and returns -1 when it
+    // cannot — a count over a million arrives in scientific notation, and the
+    // regex this replaced silently scored that page 0. See its header.
+    const px = parseAeCount(r.stderr);
+    if (px !== 0) perPage.push({ page: i + 1, pixels: px, total: od.w * od.h, diffPng, oldPng: oldP, newPng: newP, ...(px < 0 ? { note: 'compare produced no readable pixel count' } : {}) });
+    // A `-1` SENTINEL counts as one, matching the page-add and page-resize branches
+    // above; an IDENTICAL page counts as zero. The first draft of this line read
+    // `px > 0 ? px : 1`, which also caught 0 — so every clean page added one and
+    // `diff()`'s `pixel_identical` (totalPx === 0) could never be true again: two
+    // byte-identical 58-page PDFs reported `totalPx 58`, and its "byte-drift only"
+    // branch became dead code. Caught by the second checker.
+    totalPx += px > 0 ? px : (px < 0 ? 1 : 0);
   }
   return { pages, perPage, totalPx, tmpDir };
 }

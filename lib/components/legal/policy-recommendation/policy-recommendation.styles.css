@@ -92,7 +92,26 @@
     flex-direction: column;
     gap: var(--sp-md);
     flex: 1;
-    justify-content: center;
+    /* `min-height:0` is load-bearing (flex cell-tree §6, the same fix list-steps and
+     * cards-stack carry). This list is a flex item of `.cell-stage`, a bounded clipping
+     * cell, and a flex item's default `min-height:auto` floors it at its CONTENT height
+     * — so it held its floor against the share the stage could give it and pushed the
+     * difference onto the ask blockquote BELOW it, whose bottom border, radius and
+     * filled stance bar the stage clip then cut. Measured at `size: hd` on a
+     * three-reason fixture: the list holding 282.56px against a 276.12px share, the ask
+     * bar hanging 6.44px past the clip edge with the deepest ink still 14.56px inside
+     * it. Pure chrome damage; not one word lost.
+     *
+     * `safe center` is the other half and is NOT optional here. Clamping a list that
+     * centers is exactly the trap kpi.styles.css records (#1277): the reasons would
+     * center inside the clamped box and spill off BOTH ends, overprinting the ask bar
+     * — measured at one density up as 21.22px above / 20.03px below, 12.03px of text
+     * on text, with the stage probe reading clean. Block-start overflow does not grow
+     * `scrollHeight`, so nothing in the system can see it. `safe` falls back to `start`
+     * the instant the content overflows and keeps the centering while it fits, so a
+     * fitting slide is byte-identical (stage.css § safe alignment, #1299). */
+    min-height: 0;
+    justify-content: safe center;
   }
   section.policy-recommendation > .cell-stage > ul > li {
     padding-left: var(--sp-md);

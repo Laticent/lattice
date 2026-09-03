@@ -15,7 +15,16 @@
 section.cycle > .cell-stage {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  /* `safe`, not bare `center` — stage.css § safe alignment (#1299). A container that
+   * centers and then OVERFLOWS throws its content off the BLOCK-START edge as well as
+   * the end, and block-start overflow does not grow `scrollHeight`, so it is invisible
+   * to every scroll-dims measure in the system: a cut tail announces itself, a cut head
+   * does not. Measured here before the fix below landed, on five wrapping stages at
+   * `hd`: a 471.94px ring in a 400.44px stage split its 71.50px excess evenly, 35.75px
+   * off each edge, putting 16.75px of real text ABOVE the clip and silently gone.
+   * `safe` falls back to `start` the instant content overflows and keeps the centering
+   * while it fits, so a fitting slide is byte-identical. */
+  justify-content: safe center;
 }
 
 /* ── The ring: a row of equal-height stage nodes, with room below for the
@@ -30,6 +39,22 @@ section.cycle > .cell-stage > ul {
   --cycle-notch: 50% 100%;
   list-style: none;
   padding: 0 0 var(--sp-xl) 0;
+  /* `min-height:0` is load-bearing (flex cell-tree §6, the same fix list-steps and
+   * cards-stack carry). The ring is a flex ITEM of `.cell-stage`, a bounded clipping
+   * cell, and a flex item's default `min-height:auto` floors it at its CONTENT height
+   * — so the ring refused to SHRINK into the cell that clips it. Note the direction:
+   * the ring is `flex: 0 1 auto`, so unlike list-steps nothing here is trying to grow.
+   * Measured at `size: hd` on five wrapping stages: a 471.94px ring in a 400.44px
+   * stage, and because the stage centers (below) the 71.50px excess was split BOTH
+   * ways — 35.75px off the bottom and 35.75px off the top. The bottom 35.75px is the
+   * return arc's own reserved band (`padding-bottom: --sp-xl` here, where `ul::after`
+   * and the ↻ `ul::before` are anchored at `bottom: 0`), so the slide rendered as a
+   * row of cards with NO LOOP — a linear process wearing a cycle's markup — while
+   * the deepest ink still stopped 33.44px inside the clip. With the floor released
+   * the ring is exactly stage-height, the arc and the mark come back, and a body
+   * that genuinely cannot fit still spends the card's padding first and then spills,
+   * where the export's clip warning is the right channel. */
+  min-height: 0;
   display: flex;
   flex-direction: row;
   align-items: stretch;
