@@ -5003,13 +5003,29 @@ async function verifyAuthorCssTracksItsSlides() {
   // The sibling failure path at the bottom of this file unlinks for exactly this reason — "absence is
   // the honest outcome" — so this takes the same exit rather than inventing a second one. The earlier
   // reader-view checks do not need it: they run at the source, long before anything is written.
+  const os = require('os');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-lens-'));
+  // THE PROBE WRITES THE WHOLE DECK TO DISK, withheld slides and all — that is what it is FOR, and it
+  // is the one thing this feature exists to keep off other people's machines. `process.exit` from
+  // inside the `try` skips the `finally`, so the refusal path — the only path where a deck is known
+  // sensitive enough to be projected AND known to have failed — was the one path that left the full
+  // render in `/tmp` permanently, under a message saying nothing was exported. Measured: four
+  // occurrences of the withheld marker in a leftover `authored.html`.
+  const clean = () => { try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } };
   const refuse = (lines) => {
+    clean();
+    // AND IT REMOVES THE DELIVERABLE, unconditionally. Sparing a file that existed before was tried and
+    // preserves nothing: `.html` is written at top level, so the pipeline has ALREADY overwritten
+    // whatever was at that path by the time this check can run — measured, a 2.6 MB render sitting where
+    // the author's previous export used to be. Sparing it therefore leaves an unvalidated artifact at
+    // the deliverable path instead of removing one, which is the worse of the two. Absence is the honest
+    // outcome, and it is the same call the render-failure path below already makes for the same reason.
+    // That the previous file is lost at all is a PRE-EXISTING property of the `.html` path, not of this
+    // check; fixing it means rendering to a temp and moving on success, which is #2054.
     if (OUT_FORMAT === 'html') { try { if (fs.existsSync(outFile)) fs.unlinkSync(outFile); } catch { /* report below */ } }
     for (const line of lines) console.error(line);
     process.exit(1);
   };
-  const os = require('os');
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-lens-'));
   // Everything the caller passed, except what must change: the deck (replaced), the output (ours), and
   // the lens flags (the authored render is the deck WITHOUT a view). Filtering rather than
   // reconstructing, so a flag nobody thought of here still reaches both renders.
@@ -5025,7 +5041,10 @@ async function verifyAuthorCssTracksItsSlides() {
   }
   const run = (deck, out) => require('child_process').execFileSync(
     process.execPath, [__filename, deck, ...passthrough, '--quiet', '-o', out],
-    { stdio: 'pipe', env: process.env, timeout: 300000 },
+    // Several warnings in this file are deliberately ungated by `--quiet` so a pipeline sees them, and
+    // a large deck emits enough of them to blow Node's 1 MB default — which threw, and the catch below
+    // turned that into a refusal of a perfectly good export.
+    { stdio: 'pipe', env: process.env, timeout: 300000, maxBuffer: 64 * 1024 * 1024 },
   );
   const authoredHtml = path.join(tmp, 'authored.html');
   const shippedHtml = path.join(tmp, 'shipped.html');
@@ -5051,11 +5070,22 @@ async function verifyAuthorCssTracksItsSlides() {
     const sets = async (file) => {
       await page.goto(`file://${file}`, { waitUntil: 'domcontentloaded' });
       return page.evaluate((cssText) => {
+        let imported = false;
         const probe = document.createElement('style');
         probe.textContent = cssText;
         document.head.appendChild(probe);
         const selectors = [];
-        const walk = (rules) => { for (const r of rules) { if (r.selectorText) selectors.push(r.selectorText); else if (r.cssRules) walk(r.cssRules); } };
+        // `@import` pulls in a whole stylesheet whose rules live on `styleSheet`, NOT on `cssRules` —
+        // so a walk that only recurses into `cssRules` never sees them, and one `@import` line carried
+        // the motivating leak straight through: measured, exit 0 and the hidden paragraph back in the
+        // shipped file. A cross-origin sheet throws on access, which is why the read is guarded.
+        const walk = (rules) => {
+          for (const r of rules) {
+            if (r.selectorText) selectors.push(r.selectorText);
+            else if (r.styleSheet) { try { walk(r.styleSheet.cssRules); } catch { imported = true; } }
+            else if (r.cssRules) walk(r.cssRules);
+          }
+        };
         try { walk(probe.sheet.cssRules); } catch { /* CSS the browser cannot parse styles nothing */ }
         probe.remove();
         // querySelectorAll cannot match a pseudo-ELEMENT, and it throws rather than returning nothing —
@@ -5073,10 +5103,19 @@ async function verifyAuthorCssTracksItsSlides() {
           }
           out[sel] = [...slides].sort((a, b) => a - b);
         }
-        return out;
+        return { sets: out, imported };
       }, css);
     };
-    const drift = selectorSlideDrift(await sets(authoredHtml), await sets(shippedHtml), LENS_PROJECTION.kept);
+    const authoredSets = await sets(authoredHtml);
+    const shippedSets = await sets(shippedHtml);
+    if (authoredSets.imported || shippedSets.imported) {
+      refuse([
+        `error: reader view '${LENS_IDS.join(',')}' cannot be exported — a stylesheet this deck @imports could not be read,`,
+        '       so whether its rules follow the slides they were written for is unknown. Inline the imported CSS',
+        '       so the export can check it. Nothing was exported.',
+      ]);
+    }
+    const drift = selectorSlideDrift(authoredSets.sets, shippedSets.sets, LENS_PROJECTION.kept);
     if (drift) {
       refuse([
         `error: reader view '${LENS_IDS.join(',')}' cannot be exported (positional-css) — ${REFUSAL_REASONS['positional-css']}`,

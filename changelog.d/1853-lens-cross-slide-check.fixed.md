@@ -114,3 +114,17 @@
 - **Changed: `--lens full` no longer pays for the browser.** An identity projection keeps every slide
   in place, so no selector can land anywhere new; the check now returns before rendering anything.
   Measured: 6.0s back to 1.6s, which is what an export with no flag at all costs.
+- **Fixed: a refused export left the whole deck, withheld slides included, in `/tmp` forever.** The
+  check renders the full deck to a temp directory — that is what it is for — and cleans up in a
+  `finally`. But a refusal exits from inside the `try`, so the `finally` never ran: the one path where
+  a deck is known sensitive enough to be projected AND known to have failed was the one path that left
+  the complete render on disk, under a message saying nothing was exported. Measured: four occurrences
+  of the withheld marker in a leftover `authored.html`. Refusals now clean up before they print.
+- **Fixed: an `@import` walked the check's own motivating leak straight through.** `CSSImportRule`
+  hangs its rules off `styleSheet`, not `cssRules`, so the walk enumerated ZERO selectors and compared
+  nothing — one extra line in a deck's CSS and the hidden paragraph came back in the shipped file at
+  exit 0. The walk now follows an imported sheet, and refuses when one cannot be read (a cross-origin
+  sheet throws) rather than passing on an unread stylesheet.
+- **Fixed: a probe whose output exceeded 1 MB refused a good export.** Several warnings in the CLI are
+  deliberately ungated by `--quiet` so a pipeline sees them, and a large deck emits enough of them to
+  blow Node's default `execFileSync` buffer — which threw, and a throw is a refusal.
