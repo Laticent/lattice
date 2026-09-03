@@ -139,7 +139,13 @@ describe('a projected export keeps its per-slide channels aligned', { skip }, ()
 		const parts = fs.readdirSync(dir).filter((f) => /^cap\.\d+\.vtt$/.test(f)).sort();
 		assert.deepEqual(parts, ['cap.01.vtt', 'cap.02.vtt', 'cap.03.vtt'], 'three shipped slides, three parts, no gap');
 		for (const [i, authored] of [1, 3, 5].entries()) {
-			const vtt = fs.readFileSync(path.join(dir, parts[i]), 'utf8').replace(/<[^>]*>/g, '');
+			// Strip the VTT CUE TIMING TAGS specifically — `<00:00:00.410>`, which Cadenza interleaves
+			// between words — not "anything in angle brackets". A general one-pass tag stripper is the
+			// incomplete-multi-character-sanitization shape CodeQL has already caught twice in this PR,
+			// and being in a test is a reason it cannot cause harm, not a reason to write it. Naming
+			// the thing actually in the file is also a better test: a real `<` in a caption would now
+			// have to survive the assertion rather than being silently swallowed.
+			const vtt = fs.readFileSync(path.join(dir, parts[i]), 'utf8').replace(/<\d\d:\d\d:\d\d\.\d{3}>/g, '');
 			assert.match(vtt, new RegExp(`CAPTION for slide ${authored}`), `part ${i + 1} narrates authored slide ${authored}`);
 		}
 	});
