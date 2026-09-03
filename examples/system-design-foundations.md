@@ -14,8 +14,6 @@ acronyms:
   CI: { expansion: continuous integration }
   DNS: { expansion: domain name system }
   MVP: { expansion: minimum viable product, definition: "The smallest build that puts a real answer in front of a real user." }
-  PR: { expansion: pull request }
-  RPS: { expansion: requests per second }
   BASE: { expansion: basically available soft state eventual consistency, definition: "ACID's loose counterpart: answer under failure, let replicas converge later." }
   CPU: { expansion: central processing unit }
   GB: { expansion: gigabytes }
