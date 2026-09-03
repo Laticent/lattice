@@ -2590,7 +2590,7 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 - Split at the threshold
   - Ordinary posts land in a page that is already built; the celebrities she follows are fetched on demand and merged in, so no writer ever fans out to millions. The read costs one lookup plus the celebrity pulls.
 
-> The threshold sits where two cost curves cross, and the graph draws it for you.
+> One writer fanning out to five hundred million is the case no amount of tuning survives. That is what sets the line.
 
 ---
 
@@ -2605,6 +2605,24 @@ Fifty thousand puts a fraction of a percent of accounts on the pull path, yet so
 Thirty pulls at a one-percent slow call puts the page in trouble, so **cap the pulls at twenty**, newest first.
 
 The better predicate is fan-out work per day. Fifty thousand followers posting forty times a day costs more than two hundred thousand posting weekly, and the product is what you pay for.
+
+---
+
+<!-- _class: diagram -->
+
+`Instagram · the honest predicate`
+
+## A follower count is a proxy. The work is followers times how often they post.
+
+```mermaid
+xychart-beta
+  title "Fan-out writes a day"
+  x-axis ["50k followers, 40 posts a day", "200k followers, one post a week"]
+  y-axis "Writes a day" 0 --> 2100000
+  bar [2000000, 28571]
+```
+
+> The smaller account costs seventy times more. A follower count on its own cannot tell you that.
 
 ---
 
