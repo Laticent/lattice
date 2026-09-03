@@ -2800,7 +2800,7 @@ The better predicate is fan-out work per day. Fifty thousand followers posting f
 ## A follower count is a proxy. The work is followers times how often they post.
 
 ```mermaid
-%%{init: {"xyChart": {"width": 1300, "height": 350, "titleFontSize": 22, "xAxis": {"labelFontSize": 20, "titleFontSize": 20}}}}%%
+%%{init: {"xyChart": {"width": 1300, "height": 350, "titleFontSize": 22, "xAxis": {"labelFontSize": 20, "titleFontSize": 20}, "yAxis": {"labelFontSize": 18, "titleFontSize": 18, "titlePadding": 34}}}}%%
 xychart-beta
   title "Fan-out writes a day"
   x-axis ["50k followers, 40 posts a day", "200k followers, one post a week"]
