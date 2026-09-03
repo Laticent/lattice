@@ -2883,12 +2883,12 @@ What the card fee takes from a three-dollar park, at thirty cents plus 2.9 perce
 
 `Parking · what we refused`
 
-## A junior would build these three first, and each one has to wait for something.
+## A junior would build these three first, and only one of them has arrived yet.
 
 | Refused | Why | What would earn it |
 | --- | --- | --- |
 | A mobile app | A driver in the rain will not install one | Regulars who park daily, once they exist |
-| Accounts and login | A screen between the sticker and the money | Rung three's settlement, which needs a known driver |
+| Accounts and login | A screen between the sticker and the money | Rung three's settlement earned it |
 | A live map of free bays | Needs a sensor in every bay | Somebody willing to pay for the sensors |
 
 ---
