@@ -590,7 +590,7 @@ Antagonist:   But <W> — and W is <a number>.
 
 Instagram has at least four: the reader opening the app, the ordinary poster, the celebrity with five hundred million followers, and the engineer carrying the pager. They want incompatible things.
 
-Naming one as the protagonist is not a slogan, it is a decision about who waits. Say who you are not designing for, out loud, and most of the arguments later in the design turn out to be about that.
+Naming one as the protagonist decides who waits. Say who you are not designing for, out loud, and most of the arguments later in the design turn out to be about that.
 
 ---
 
@@ -606,7 +606,7 @@ Naming one as the protagonist is not a slogan, it is a decision about who waits.
 | Growth — the protagonist multiplies | A scaled system | The limit is real and namable |
 | Cost on a path you have profiled | An optimized system | The measurement came first |
 | Physics — you are near a real bound | An optimal system | Only here is a proof worth it |
-| A person who wants in | Security work, at any rung | It is not a rung, it is a floor |
+| A person who wants in | Security work, at any rung | Required at every rung |
 
 ---
 
@@ -821,7 +821,7 @@ Custom silicon, a purpose-built storage engine, a scheduler that knows your phys
 - Move up exactly one rung
   - Jumping from MVP to optimal buys rigor for assumptions nobody has tested yet.
 - Move back down when the evidence changes
-  - A rewrite that simplifies is a legitimate move, not an admission of anything.
+  - A rewrite that simplifies is a legitimate move.
 
 ---
 
@@ -1207,7 +1207,7 @@ Indexes make reads fast by making writes slower and storage larger. Each one is 
 - The tell
   - You can name the exact query each index exists to serve, out loud, right now.
 - The bill arrives on writes
-  - Five indexes mean five extra structures touched per insert, not one.
+  - Five indexes mean five extra structures touched on every insert.
 - How many rows it removes, not how many values it has
   - An index earns its keep by how rare a match is. Three evenly spread values narrow nothing; three where one is rare narrow almost everything.
 
@@ -1301,7 +1301,7 @@ The same rule governs an API other people call. Add fields, never repurpose them
 ## A delete is a fan-out that reaches every copy you ever made.
 
 - The row itself
-  - A tombstone, not a gap. Replicas have to learn it is gone, not merely fail to see it.
+  - A tombstone, not a gap. Replicas have to learn the row is gone.
 - Every derived copy
   - Caches, feeds, search indexes, aggregates. Each holds its own copy and each needs telling.
 - The backups
@@ -2060,7 +2060,7 @@ Pin exact versions and commit the lock file, so the build you tested is the buil
 2. Secrets never enter the repository or a log line
    - They live in a managed store, are injected at runtime, and they rotate.
 3. All input is untrusted, including from your own services
-   - A compromised internal caller is the ordinary case, not the exotic one.
+   - A compromised internal caller is the ordinary case. Design for it.
 4. Every privileged action is attributable
    - An immutable record of who, what, when, and from where.
 5. Every dependency is pinned, inventoried and rate-limited
@@ -2178,7 +2178,7 @@ One of those numbers does less work than it looks. Change the 500 million, holdi
 1. Writes · 1.2 K/s
    - One machine could take the posts. Each one becomes hundreds of feed writes, which is the hard part.
 2. Feed opens · 70 K/s
-   - The number everyone sizes from, and an open is not a request. It is not the real one.
+   - The number everyone sizes from, and an open is not a request. The real one comes later.
 3. Media · 200 TB a day
    - An object store, not a database. Settled right here.
 4. Followers · up to 500 M
@@ -2370,7 +2370,7 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 - Split at the threshold
   - Ordinary posts land in a page that is already built; the celebrities she follows are fetched on demand and merged in, so no writer ever fans out to millions. The read costs one lookup plus the celebrity pulls.
 
-> The threshold is not a preference. It is where two cost curves cross, and the graph draws it.
+> The threshold sits where two cost curves cross, and the graph draws it for you.
 
 ---
 
@@ -2538,6 +2538,20 @@ flowchart LR
 
 ---
 
+<!-- _class: content -->
+
+`Instagram · what video changes`
+
+## Every number on the last slide assumed a two-megabyte photo.
+
+A phone uploads video in parts, because one request that dies at ninety percent would otherwise start over. So the presigned grant covers a multi-part upload rather than a single PUT.
+
+Transcoding stops being "make three sizes" and becomes a ladder of bitrates cut into short segments, so a player can step down when the signal weakens. The CDN then serves thousands of small objects per video instead of one.
+
+The fallback disappears as well. You can serve an unresized photo at full size; you cannot serve a source video, so the post stays unreadable until one rendition is ready. And two hundred terabytes a day becomes petabytes, which is where "durable forever" starts to cost real money.
+
+---
+
 <!-- _class: split-panel proof cat-4 -->
 <!-- _header: "" -->
 
@@ -2611,15 +2625,251 @@ Every like is a write against the same post id — one key, one partition, one l
 
 `Part six`
 
-## Every choice came out of a kit, including the one we refused.
+## Now run the whole method again, on something you could ship this month.
+
+---
+
+<!-- _class: content -->
+
+`Parking · the ask`
+
+## A lot owner wants drivers to scan a sticker on the bay and pay to park.
+
+No app to download. No account to create. A driver walks up, points a phone at a sticker, pays, and walks away.
+
+Instagram was one design at one rung, and it was already enormous when we met it. This one starts at nothing and climbs, which is what your first year actually looks like.
+
+---
+
+<!-- _class: compare-prose -->
+
+`Parking · the cast`
+
+## The driver has one hand free and about thirty seconds of patience.
+
+- The protagonist
+  - A driver who has already parked, standing in the rain with a phone in one hand. They want to pay and walk away. They will not install anything and they will not make an account.
+- The antagonist
+  - The garage is underground and the signal is poor. A driver whose page hesitates taps Pay again, so the same park can be charged twice.
+
+---
+
+<!-- _class: code -->
+
+`Parking · the worksheet, filled`
+
+## Nine fields before a single box goes on the board.
+
+```text
+Protagonist   A driver at the bay. One hand, thirty seconds, no app.
+Antagonist    Poor signal underground, and a second tap on Pay.
+Purpose       The car is paid for before the driver walks away.
+Boundary      In: bays, sessions, payments, enforcement. Out: the card network.
+Environment   Rain, cold hands, a low battery, a sticker somebody peeled.
+Constraints   physical: no signal   economic: card fees
+              human: thirty seconds  legal: refunds on request
+Invariants    One park charges once · an expiry never extends by accident
+Bottleneck    Suspected: none yet. Confirmed once wardens start asking.
+Solution type MVP. Nobody knows yet whether drivers scan the sticker.
+```
+
+---
+
+<!-- _class: cards-stack -->
+
+`Parking · rung one, the MVP`
+
+## One lot, a printed sticker per bay, and a page that takes a card.
+
+- What you build
+  - A sticker on every bay carrying a link with the lot and the bay in it. The page shows a price, takes a card, writes one row.
+- What it buys
+  - The only answer you need this month: do drivers scan the sticker, and do they finish paying.
+- What it charges
+  - A warden walks the lot typing bay numbers into a phone. That holds at one lot and gives out at ten.
+
+---
+
+<!-- _class: code -->
+
+`Parking · rung one, the database`
+
+## One table, no partitioning, no cache, no queue.
+
+```text
+sessions
+  id            uuid
+  lot_id, bay   which sticker was scanned
+  plate         typed by the driver
+  started_at    when the payment cleared
+  expires_at    started_at plus the minutes bought
+  amount_cents  what you charged
+  payment_ref   the provider's id for the charge
+```
+
+Relational, one machine, and it stays that way for years. Two hundred lots of forty bays turning over four times a day is 32,000 rows.
+
+---
+
+<!-- _class: content -->
+
+`Parking · what breaks first`
+
+## Traffic breaks nothing here. Two other things break anyway.
+
+Thirty-two thousand rows a day is a rounding error, so scale is not your problem and will not be for a long time. Say that out loud, because it stops a team building for a load that never arrives.
+
+The first break is a double charge. The page hesitates on a weak signal, the driver taps Pay again, and one park costs them twice. That reaches a human the same day.
+
+The second is the signal itself. The card form sits on the far side of a network that keeps disappearing.
+
+---
+
+<!-- _class: split-panel proof cat-2 -->
+<!-- _header: "" -->
+
+`Parking · rung one, charging once`
+
+## Two taps on Pay have to produce one charge, and a retry must not add another.
+
+The second tap is a different request that means the same thing. So the request carries a key the phone generated once, and the database decides, not your code.
+
+- The key comes from the page
+  - It mints one identifier when it loads and sends it with every attempt. Same tap, same key.
+- The insert is the guard
+  - Write the row with that key in a unique column first. Charge the card only if the insert created a row.
+- Never read, then decide, then write
+  - Two requests both read "not charged yet" and both charge. Let the database refuse the second insert instead.
+
+---
+
+<!-- _class: content -->
+
+`Parking · rung one, the weak signal`
+
+## The phone can drop off after the card is charged, and it often does.
+
+The card network answers your payment provider, not the driver's phone. So the provider calls you back on a webhook, and that call is what marks the session paid.
+
+Build it that way and a lost signal costs the driver a spinner rather than a park. The webhook lands, the row updates, and the warden sees a paid bay whether or not the phone ever came back.
+
+Your provider will send that webhook more than once. You already know what to do with it: key it on the payment reference and let the second one land on nothing.
+
+---
+
+<!-- _class: content -->
+
+`Your turn`
+
+## Wardens arrive. Say what they ask, how often, and what answers it.
+
+Two hundred lots have gone live. A warden walks a lot of forty bays and needs to know which cars are paid for right now.
+
+Write down the one question they ask the system, roughly how often it is asked, and the one index that answers it. Then turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## The warden asks one small question, and it stays small.
+
+1. The question
+   - Is bay 12 in lot 40 paid at this moment. One row, never a list.
+2. How often
+   - A few hundred a minute across every lot. Small enough to ignore.
+3. What answers it
+   - An index on lot, bay and expiry. The question is a point read and it stays one.
+
+---
+
+<!-- _class: cards-stack -->
+
+`Parking · rung two, scaled`
+
+## Two hundred lots, and the manual parts give out before the machine does.
+
+- What actually changed
+  - Not the traffic. The number of people who now depend on this: wardens, lot owners, a support inbox.
+- Duplicate toward the readers
+  - Lot owners pull reports all day. Send those to a read replica so a heavy report never delays a driver paying.
+- Defer what nobody waits for
+  - Receipts, nightly payouts and the owner's morning email go behind a bounded queue.
+
+---
+
+<!-- _class: split-panel metric -->
+
+`Parking · rung three, optimized`
+
+## 13%
+
+What the card fee takes from a three-dollar park, at thirty cents plus 2.9 percent.
+
+- Servers cost pennies
+  - Thirty-two thousand rows a day runs on the smallest machine sold. Tuning it saves nothing worth having.
+- The fee is the bill
+  - Thirty-nine cents of every three dollars, and most of it is a flat charge per transaction.
+- So batch the charges
+  - Hold a regular's parks and charge once at the end of the day. One flat fee instead of four.
 
 ---
 
 <!-- _class: compare-table -->
 
-`The tie-back · store and run`
+`Parking · what we refused`
 
-## Each store-and-run entry landed somewhere specific in the design.
+## Three things a junior would build first, and what each one waits for.
+
+| Refused | Why | What would earn it |
+| --- | --- | --- |
+| A mobile app | A driver in the rain will not install one | Regulars who park daily, once they exist |
+| Accounts and login | A screen between the sticker and the money | Batched charges, which need a known driver |
+| A live map of free bays | Needs a sensor in every bay | Somebody willing to pay for the sensors |
+
+---
+
+<!-- _class: list-tabular -->
+
+`Parking · the ladder, climbed`
+
+## One product, three rungs, and nothing skipped on the way up.
+
+1. MVP
+   - One lot, one table, a card form. Bought the answer to "will anyone scan this".
+2. Scaled
+   - Two hundred lots. A replica for reports, a queue for receipts. Nothing sharded.
+3. Optimized
+   - Batched charges, because the profile said the fee was the bill and the servers never were.
+
+---
+
+<!-- _class: content -->
+
+`Parking · where the kits landed`
+
+## Six kit entries carried this design, and you met all six before you saw the problem.
+
+Relational, because nothing here outgrows one machine and the questions keep changing. An index, on the one question a warden asks. Idempotency twice over: on the driver's second tap, and on a webhook your provider will send again. A read replica, to keep reports off the path a driver waits on. A bounded queue, for the work nobody is waiting for.
+
+Not one of those is a product name, and not one of them was a guess.
+
+---
+
+<!-- _class: divider numbered -->
+
+`Part seven`
+
+## Both designs came out of the same kits, including the entry one of them refused.
+
+---
+
+<!-- _class: compare-table -->
+
+`Instagram · store and run`
+
+## Every store-and-run entry landed somewhere specific in the feed design.
 
 | Kit entry | Where it landed | Why that one |
 | --- | --- | --- |
@@ -2634,9 +2884,9 @@ Every like is a write against the same post id — one key, one partition, one l
 
 <!-- _class: compare-table -->
 
-`The tie-back · scale and defense`
+`Instagram · scale and defense`
 
-## The network, scale, reliability and security kits landed here.
+## The network, scale, reliability and security kits landed here too.
 
 | Kit entry | Where it landed | Why that one |
 | --- | --- | --- |
