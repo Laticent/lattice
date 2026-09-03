@@ -31,6 +31,8 @@ const DATA: RestyleData = {
 	themeBase: '/themes/',
 	runtimeUrl: '/runtime.js',
 	engineUrl: '/engine.js',
+	mermaidUrl: '/mermaid.js',
+	katexUrl: '/katex.css',
 };
 
 beforeEach(() => {

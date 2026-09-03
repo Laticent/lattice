@@ -64,10 +64,24 @@ import { splitSections } from './preview-virtual.js';
 // lives in its own dependency-free module (see preview-csp.js for why).
 export { previewCspMeta, splitSections };
 
-export const KATEX_URL = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css';
-// UMD build sets window.mermaid, which lattice-runtime.js polls for and then
-// renders ```mermaid fences (and charts/split-panels via applyAllToDom).
-export const MERMAID_URL = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+// NO KATEX_URL / MERMAID_URL CONSTANTS HERE — deliberately, and do not add them back.
+//
+// These used to hold jsdelivr URLs, as a "back-compat" default behind every caller's
+// optional `katexUrl` / `mermaidUrl`. That default was the whole problem: a host that
+// forgot to pass a URL silently executed third-party JavaScript. It was `mermaid@11` —
+// a FLOATING major, so jsdelivr served whatever 11.x was current — with no `integrity`
+// attribute, inside the preview frame, on the surface that holds the user's OpenRouter
+// key (HARD RULE #22's threat model exactly). The landing page was live on that path:
+// index.astro gates its `diagram` field card on ```mermaid (via CARD_COMPONENTS) and passed no URL.
+//
+// Every host now passes the locally-vendored copy staged by sync-playground-assets
+// (`<assetBase>export/mermaid-v11.min.js`, `<assetBase>katex/katex.min.css`). The
+// injection sites already treat a falsy URL as "omit the tag", so a forgetful caller
+// now renders no diagram instead of reaching a CDN — a visible local failure rather
+// than an invisible remote dependency.
+//
+// Pinned by test/unit/docs/no-cdn-runtime.test.js, which fails on any CDN URL under
+// docs/src. See engineering/decisions/2026-09-03-self-hosted-runtime-deps.md.
 
 
 // The categorical/chart texture <defs> (the a11y redundant-encoding mechanism),
@@ -254,8 +268,10 @@ export function buildSrcdoc({
 	mode,
 	geom,
 	runtimeUrl,
-	katexUrl = KATEX_URL,
-	mermaidUrl = MERMAID_URL,
+	// No default: a missing URL means "do not inject that tag" (the sites below are
+	// already `url ? tag : ''`), never "fetch it from a CDN". See the note at the top.
+	katexUrl = '',
+	mermaidUrl = '',
 	fontCss = '',
 	padding = 18,
 	// Visible px between stacked slides. A per-surface knob preserving each host's
@@ -333,7 +349,11 @@ export function buildSrcdoc({
 		// FIRST in <head>, before any content or subresource link — a CSP meta governs only
 		// what the parser has not already reached (#1753).
 		(csp ? previewCspMeta({ katexUrl }) : '') +
-		(needsKatex ? '<link rel="stylesheet" href="' + katexUrl + '">' : '') +
+		// BOTH conditions, and the URL half is the one that was missing. The content gate
+		// alone emitted `<link href="">` when a math deck met a caller that passed no URL —
+		// harmless in Chromium (measured: no request), but it made the note's stated safety
+		// property ("a missing URL means no tag") false at this site. Now it is true.
+		(needsKatex && katexUrl ? '<link rel="stylesheet" href="' + katexUrl + '">' : '') +
 		// Guarded too, though `fontCss` is ours (previewFontFaceCss over a static table of
 		// bundled .woff2). `buildSrcdoc` is EXPORTED and has external callers, so "ours" is
 		// a property of today's call sites, not of this function — and the #22 gate is
@@ -377,7 +397,9 @@ export function buildSrcdoc({
 		'</style></head><body>' +
 		a11yDefs +
 		html +
-		(needsMermaid ? '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>' : '') +
+		// Same pairing as the KaTeX link above — content AND url, so a missing URL emits
+		// nothing rather than `<script src="">`.
+		(needsMermaid && mermaidUrl ? '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>' : '') +
 		'<scr' + 'ipt src="' + runtimeUrl + '"></scr' + 'ipt>' +
 		'<scr' + 'ipt>' + GEOM_GLOBALS + '</scr' + 'ipt>' +
 		'<scr' + 'ipt>' + fitAgent(gap, clamp) + '</scr' + 'ipt>' +
@@ -470,4 +492,4 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	return { state: st, count: sections.length, patched };
 }
 
-export default { renderDeck, buildSrcdoc, patchSections, splitSections, KATEX_URL, MERMAID_URL };
+export default { renderDeck, buildSrcdoc, patchSections, splitSections };

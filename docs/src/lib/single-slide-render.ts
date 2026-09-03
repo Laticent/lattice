@@ -46,7 +46,10 @@ import { renderMarkdown } from './render-engine';
 import { sanitizeSlideHtml } from './sanitize-slide-html.js';
 import { createThemeFetcher } from './theme-fetch';
 
-const MERMAID = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+// NO CDN CONSTANT HERE — deliberately. A hardcoded third-party bundle URL used to sit
+// behind `opts.mermaidUrl` as its default; see deck-preview.js's note for why it was
+// removed, and test/unit/docs/no-cdn-runtime.test.js for the pin that keeps it out
+// (that test bars the host names outright, so do not spell one out even in a comment).
 
 // `window.LatticePlayground` is declared once, canonically, in playground-global.d.ts.
 
@@ -102,18 +105,26 @@ export type SingleSlideOptions = {
 	 */
 	engineUrl?: string;
 	/**
-	 * URL of the UMD Mermaid bundle injected into a `mermaid` slide's iframe.
-	 * Absent → the jsdelivr CDN (back-compat). A docs surface that wants Mermaid
-	 * to render offline / under a strict CSP / from its own origin passes the
-	 * locally-vendored copy (`<assetBase>mermaid.min.js`, staged by
-	 * sync-playground-assets) so previews never depend on a third-party CDN.
+	 * URL of the UMD Mermaid bundle injected into a `mermaid` slide's iframe. Pass the
+	 * locally-vendored copy (`<assetBase>export/mermaid-v11.min.js`, staged by
+	 * sync-playground-assets).
+	 *
+	 * **Absent → no Mermaid at all, and the diagram does not render.** It used to mean
+	 * "fall back to the jsdelivr CDN"; that default silently executed a floating,
+	 * un-`integrity`-checked third-party bundle in the preview frame, and the landing
+	 * page was live on it. Optional only so the test fixtures need not all set it —
+	 * every real host passes it, and a missing URL is a visible local failure now.
 	 */
 	mermaidUrl?: string;
 	/**
 	 * URL of the KaTeX stylesheet for surfaces that render the full deck through the
-	 * Stage path (studio-stage). Absent → the jsdelivr CDN. A docs
-	 * surface passes the locally-vendored copy (`<assetBase>katex/katex.min.css`,
-	 * staged by sync-playground-assets) so math previews stay off a third-party CDN.
+	 * Stage path (studio-stage) or inline it into an export (share-export). Pass the
+	 * locally-vendored copy (`<assetBase>katex/katex.min.css`, staged by
+	 * sync-playground-assets).
+	 *
+	 * **Absent → no stylesheet is fetched or linked, and math ships unstyled.** Same
+	 * removed-CDN-fallback reasoning as `mermaidUrl`; for exports that fallback also
+	 * meant reaching a third party at export time.
 	 */
 	katexUrl?: string;
 	/**
@@ -732,8 +743,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		counted = true;
 		liveRenderers += 1;
 	};
-	// Prefer a locally-vendored Mermaid (no CDN); fall back to jsdelivr.
-	const mermaidUrl = opts.mermaidUrl || MERMAID;
+	// The locally-vendored Mermaid, or nothing. No CDN fallback (see the note above).
+	const mermaidUrl = opts.mermaidUrl || '';
 	const themes = createThemeFetcher(themeBase);
 
 	// Teardown bookkeeping — everything THIS renderer instance creates that would
@@ -857,7 +868,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			styleElementText(css, mode, geom, extraCss) +
 			'</style></head><body>' +
 			html;
-		if (mermaid) s += '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>';
+		// Content AND url — the URL half was missing, so a diagram slide met by a caller
+		// passing no URL emitted `<script src="">` rather than nothing. See deck-preview.js.
+		if (mermaid && mermaidUrl) s += '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>';
 		s += '<scr' + 'ipt src="' + runtimeUrl + '"></scr' + 'ipt>';
 		// Preview-only link guard: an external link tap (a video poster, a contact/qr
 		// URL) must not navigate — and blank — this scaled srcdoc frame on iOS. Also

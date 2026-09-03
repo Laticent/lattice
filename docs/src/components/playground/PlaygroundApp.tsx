@@ -69,8 +69,10 @@ export type PlaygroundData = {
 	runtimeUrl: string;
 	engineUrl: string;
 	/** Self-hosted Mermaid / KaTeX URLs (staged assets); the filmstrip injects them
-	 *  only when a deck has a diagram / math. Optional — the test harness omits them
-	 *  and the render falls back to the jsdelivr defaults. */
+	 *  only when a deck has a diagram / math AND the URL is present. Optional so the
+	 *  test harness may omit them — but there is NO CDN fallback behind them any more:
+	 *  omitted means the tag is not injected and the diagram or math simply does not
+	 *  render. See engineering/decisions/2026-09-03-self-hosted-runtime-deps.md. */
 	mermaidUrl?: string;
 	katexUrl?: string;
 	palettes: string[];

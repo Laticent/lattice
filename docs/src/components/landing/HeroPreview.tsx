@@ -17,13 +17,24 @@ export type HeroData = {
 	themeBase: string;
 	runtimeUrl: string;
 	engineUrl: string;
+	mermaidUrl: string;
+	katexUrl: string;
 };
 
 export default function HeroPreview({ data }: { data: HeroData }) {
 	const [view, setView] = React.useState<'preview' | 'source'>('preview');
+	// mermaidUrl/katexUrl are threaded from index.astro so a hero sample carrying a
+	// ```mermaid fence renders from our own origin. There is no CDN fallback behind
+	// these any more — omit them and the diagram simply does not render.
 	const options = React.useMemo(
-		() => ({ themeBase: data.themeBase, runtimeUrl: data.runtimeUrl, engineUrl: data.engineUrl }),
-		[data.themeBase, data.runtimeUrl, data.engineUrl],
+		() => ({
+			themeBase: data.themeBase,
+			runtimeUrl: data.runtimeUrl,
+			engineUrl: data.engineUrl,
+			mermaidUrl: data.mermaidUrl,
+			katexUrl: data.katexUrl,
+		}),
+		[data.themeBase, data.runtimeUrl, data.engineUrl, data.mermaidUrl, data.katexUrl],
 	);
 
 	return (

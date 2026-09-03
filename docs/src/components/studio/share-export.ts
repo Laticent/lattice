@@ -31,8 +31,12 @@ export type DeckRender = {
 	geom: { w: number; h: number };
 	runtimeUrl: string;
 	fontCss: string;
-	/** Local Mermaid URL (studio), so an exported deck's diagrams render from our
-	 *  own origin instead of the jsdelivr CDN. Absent → the exporter's CDN default. */
+	/** Local Mermaid URL (studio), so an exported deck's diagrams render from our own
+	 *  origin. Absent → NO Mermaid tag is injected and diagrams do not render; there is
+	 *  no CDN default behind this any more. That matters most here of all: this type
+	 *  feeds the export/rasterize path, and the old fallback made an EXPORT fetch from a
+	 *  third party at export time, baking those bytes into a file handed to someone else.
+	 *  See engineering/decisions/2026-09-03-self-hosted-runtime-deps.md. */
 	mermaidUrl?: string;
 };
 
@@ -341,7 +345,7 @@ export async function shareHtmlPlayer(
 		import('@/playground/authoring-core.generated.js'),
 	]);
 	const fontCss = await fontMod.buildFontEmbedCss();
-	const deck = deckMod as unknown as { A11Y_DEFS: string; splitSections: (html: string) => string[]; KATEX_URL: string };
+	const deck = deckMod as unknown as { A11Y_DEFS: string; splitSections: (html: string) => string[] };
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
 	const splitSectionsCore = (authoringMod as unknown as { splitSectionsCore: SplitSectionsCore }).splitSectionsCore;
 	const a11yDefs = deck.A11Y_DEFS;
@@ -522,13 +526,18 @@ export async function shareHtmlPlayer(
 	const needsKatex = out.html.indexOf('class="katex') !== -1;
 	let katexText: string | null = null;
 	if (needsKatex) {
-		// Fall back to the bundled KATEX_URL when the caller didn't pass one (mirrors
-		// studio-stage) — else a math deck would ship with KaTeX unstyled.
-		const katexUrl = options.katexUrl || deck.KATEX_URL;
-		try {
-			katexText = await (await fetch(katexUrl)).text();
-		} catch {
-			katexText = null; // core drops the link + reports it; math ships unstyled
+		// ONLY the caller's locally-vendored sheet. There used to be a `|| deck.KATEX_URL`
+		// fallback to jsdelivr here, which made an EXPORT reach a third party at export
+		// time to bake bytes into a file the author then hands someone. No URL now means
+		// no fetch: the core drops the link and reports it, and math ships unstyled —
+		// the same degradation the catch below already produced on a network failure.
+		const katexUrl = options.katexUrl;
+		if (katexUrl) {
+			try {
+				katexText = await (await fetch(katexUrl)).text();
+			} catch {
+				katexText = null; // core drops the link + reports it; math ships unstyled
+			}
 		}
 	}
 

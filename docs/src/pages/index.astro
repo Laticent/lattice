@@ -117,6 +117,14 @@ const cardData = CARD_COMPONENTS.reduce((acc, n) => {
 const themeBase = url(pg + 'themes/');
 const runtimeUrl = url(pg + 'lattice-runtime.js');
 const engineUrl = url(pg + 'lattice-playground.js');
+// Locally-vendored Mermaid + KaTeX, the same copies the Playground and the Studio
+// use, staged by sync-playground-assets. The landing page DOES render diagrams —
+// `needsMermaid` above gates the `diagram` field card on ```mermaid (via CARD_COMPONENTS) — so
+// without these the most-visited page on the site fetched a floating `mermaid@11`
+// from jsdelivr with no `integrity`: third-party code execution a firewall or an
+// offline reader can refuse, on every one of those renders.
+const mermaidUrl = url(pg + 'export/mermaid-v11.min.js');
+const katexUrl = url(pg + 'katex/katex.min.css');
 
 const heroData = {
 	sample: heroComp.sample,
@@ -126,8 +134,10 @@ const heroData = {
 	themeBase,
 	runtimeUrl,
 	engineUrl,
+	mermaidUrl,
+	katexUrl,
 };
-const fieldCardsData = { cards: cardData, themeBase, runtimeUrl, engineUrl };
+const fieldCardsData = { cards: cardData, themeBase, runtimeUrl, engineUrl, mermaidUrl, katexUrl };
 const restyleData = {
 	sample: restyleComp.sample || restyleComp.skeleton,
 	mermaid: needsMermaid(restyleComp.sample || restyleComp.skeleton),
@@ -135,6 +145,8 @@ const restyleData = {
 	themeBase,
 	runtimeUrl,
 	engineUrl,
+	mermaidUrl,
+	katexUrl,
 };
 
 // The Studio section's live proof. Every displayed string is DERIVED from the
@@ -153,6 +165,8 @@ const studioData = {
 	themeBase,
 	runtimeUrl,
 	engineUrl,
+	mermaidUrl,
+	katexUrl,
 };
 
 // The four next-step cards now live in sections.tsx with the rest of the landing

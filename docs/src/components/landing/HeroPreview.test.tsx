@@ -26,6 +26,10 @@ const DATA: HeroData = {
 	themeBase: '/themes/',
 	runtimeUrl: '/runtime.js',
 	engineUrl: '/engine.js',
+	// Local paths, never a CDN — these are required on the island's props precisely so
+	// a host that forgets them fails here. See test/unit/docs/no-cdn-runtime.test.js.
+	mermaidUrl: '/mermaid.js',
+	katexUrl: '/katex.css',
 };
 
 describe('HeroPreview island', () => {

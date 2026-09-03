@@ -25,6 +25,8 @@ const DATA: StudioPreviewData = {
 	themeBase: '/themes/',
 	runtimeUrl: '/runtime.js',
 	engineUrl: '/engine.js',
+	mermaidUrl: '/mermaid.js',
+	katexUrl: '/katex.css',
 };
 
 describe('StudioPreview island', () => {

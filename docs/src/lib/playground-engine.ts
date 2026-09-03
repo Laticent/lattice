@@ -40,8 +40,10 @@ export function createEngineBridge(
 	engineUrl?: string,
 	validPalettes: string[] = [],
 	// Self-hosted Mermaid / KaTeX (staged assets). Passed through to the filmstrip,
-	// which injects them only when a deck actually has a diagram / math. Omitted →
-	// deck-preview.js falls back to its jsdelivr defaults.
+	// which injects them only when a deck actually has a diagram / math AND the URL is
+	// present. Omitted → no tag is injected and the diagram or math does not render;
+	// deck-preview.js has no jsdelivr defaults any more.
+	// See engineering/decisions/2026-09-03-self-hosted-runtime-deps.md.
 	assets: { mermaidUrl?: string; katexUrl?: string } = {},
 ) {
 	const isKnownTheme = (name: string) => validPalettes.includes(name);

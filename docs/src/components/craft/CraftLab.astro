@@ -24,11 +24,13 @@ const options = {
 	themeBase: joinBase(base, pg + 'themes/'),
 	runtimeUrl: joinBase(base, pg + 'lattice-runtime.js'),
 	engineUrl: joinBase(base, pg + 'lattice-playground.js'),
-	// Self-hosted Mermaid, the same copy the Playground and the Studio use. Without
-	// it createSingleSlideRenderer falls back to the jsdelivr CDN, which puts the
-	// one diagram lab on the track (themes/categorical) behind a third-party
-	// request that a firewall or an offline reader can refuse.
+	// Self-hosted Mermaid + KaTeX, the same copies the Playground and the Studio use.
+	// The CDN fallback these used to sit in front of is gone: omit either and the
+	// diagram or the math simply does not render, rather than the one diagram lab on
+	// the track (themes/categorical) going behind a third-party request that a
+	// firewall or an offline reader can refuse.
 	mermaidUrl: joinBase(base, pg + 'export/mermaid-v11.min.js'),
+	katexUrl: joinBase(base, pg + 'katex/katex.min.css'),
 };
 ---
 
