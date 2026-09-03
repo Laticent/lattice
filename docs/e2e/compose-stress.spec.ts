@@ -36,10 +36,11 @@ import { expect, gotoStudio, persistedSource, railButtons, slideCount, test } fr
  * a regression sit on `main` for up to a day, and the three defects below are
  * SILENT DATA LOSS or the two things a human actually reported — so those three
  * carry `@smoke` and run on the PR gate (`studio-smoke` → `--project=desktop
- * --grep @smoke`). Measured cost of that choice: 12.9s of test time (3.9 + 4.8 + 4.2)
- * added to a 40-test tier on 2 CI workers — call it ~7s of wall clock — against a job
- * whose worst observed run was 829s. Measured after the caret fix below, on the code that
- * ships; the pre-fix reading was 17.3s and the difference is contention, not the fix.
+ * --grep @smoke`). Cost, measured ON THE RUNNER rather than locally, because that is the
+ * surface the claim is about: the tier went from 40 tests to 43, the three added 17.5s of
+ * test time (5.4 + 4.2 + 7.9), and `studio-smoke` ran 358s end to end against a worst
+ * observed 829s. Take the runner's number, not a local one — the same three measured 12.9s
+ * on a 4-core sandbox, which would have understated the real cost by a third.
  *
  * The rest stay nightly on purpose. The 34-step fuzz walk is the expensive one and
  * its value is breadth over time, not per-PR latency; the remaining oracles pin

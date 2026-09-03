@@ -52,12 +52,16 @@ only `@perf`), which is 17 runs: 14 on `desktop` plus the `@parity` oracle on th
 touch projects. Nightly alone would let a regression sit on `main` for up to a day, so the
 three oracles covering SILENT loss or the two things a human actually reported — the
 clipboard `_class` wipe, the fold surviving a rail move, and the table door — carry
-`@smoke` and run on the PR gate as well. Measured on the shipped code: those three add
-12.9s of test time (3.9 + 4.8 + 4.2) to a 40-test tier on 2 CI workers — ~7s of wall
-clock — against a `studio-smoke` job whose worst observed run was 829s. Quote the reading,
-not the wall time of a local run: the same three measured 26.9–28.3s end to end, and
-almost all of that is the `webServer` building and previewing the site, which the smoke
-job has already paid for. The 34-step walk stays nightly deliberately — its value is breadth
+`@smoke` and run on the PR gate as well.
+
+Cost, measured **on the runner**: the tier went from 40 tests to 43, the three added 17.5s
+of test time (5.4 + 4.2 + 7.9), and `studio-smoke` ran 358s end to end against a worst
+observed 829s. That number is quoted from CI on purpose, and the reason is the same
+HARD RULE #23 point the rest of this note keeps making — the claim is about what every PR
+will pay, so it has to come from the surface that charges it. The identical three measured
+**12.9s** on a 4-core sandbox, understating the runner by a third, and a local end-to-end
+reading is worse still (26.9-28.3s, nearly all of it the `webServer` building the site,
+which the smoke job has already paid for before these tests start). The 34-step walk stays nightly deliberately — its value is breadth
 over time, not per-PR latency.
 
 Every named oracle in that file was checked BOTH ways. My own run of the first cut put it
