@@ -1603,9 +1603,9 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  U(["Phone"]) -->|"~50 ms cellular"| D(["DNS"])
-  D -->|"cached, ~0 ms"| E(["CDN edge"])
-  E -->|"hit ends here"| U
+  U(["Phone"]) <-->|"1 · which address?<br/>~50 ms, then cached"| D(["DNS"])
+  U -->|"2 · the request itself"| E(["CDN edge"])
+  E -->|"a hit ends here"| U
   E -->|"~30 ms"| LB(["Balancer"])
   LB -->|"~0.5 ms"| GW(["Gateway"])
   GW -->|"~0.5 ms"| SVC(["Your service"])
@@ -2672,23 +2672,39 @@ flowchart LR
 
 `Instagram · the read path`
 
-## The read path is one lookup, plus whatever the celebrities added.
+## For almost everybody, reading the feed is one lookup.
 
 ```mermaid
 flowchart LR
   C(["Client"]) -->|"read feed"| API(["Gateway"]) --> FR(["Feed service"])
   FR -->|"the pushed page"| FC[("Feed cache")]
-  FR -->|"who do I follow?"| GS[("Graph service")]
-  FR -.->|"pull, above threshold"| CC[("Celebrity list cache")]
-  CC -.->|"on a miss"| PDB[("Post store")]
-  FR --> OUT(["Merge · filter · rank · hydrate"])
-  CDN(["CDN"]) -->|"media, separately"| C
+  FC -->|"the page"| C
+  C -->|"then the pictures,<br/>separately"| CDN(["CDN"])
 ```
 
-> One lookup for almost everybody. The celebrities are what turn it into four.
+> The page is already sitting there, because somebody wrote it at post time.
 
-*The pull path goes through a cache, not straight to the store. That box is the whole reason the hybrid is affordable: one celebrity's recent-posts list is written once and read five hundred million times, so it is the most cacheable object in the system. Draw it, or the design you hand someone points every one of those reads at the post store.*
+---
 
+<!-- _class: diagram -->
+
+`Instagram · the read path, above the line`
+
+## A celebrity in your feed is what turns one lookup into four.
+
+```mermaid
+flowchart LR
+  FR(["Feed service"]) -->|"who do I follow?"| GS[("Graph service")]
+  FR -->|"pull, above<br/>the threshold"| CC[("Celebrity list cache")]
+  CC -.->|"only on a miss"| PDB[("Post store")]
+  GS --> M(["Merge · filter<br/>rank · hydrate"])
+  CC --> M
+  M -->|"the page"| C(["Client"])
+```
+
+> The merge runs after the gather, never beside it.
+
+*The pull goes through a cache, not straight to the store. That box is the whole reason the hybrid is affordable: one celebrity's recent-posts list is written once and read five hundred million times, so it is the most cacheable object in the system.*
 ---
 
 <!-- _class: list-steps -->
@@ -2754,9 +2770,9 @@ The feed is eventually consistent, which is correct for everyone else's posts an
 
 <!-- _class: diagram -->
 
-`Instagram · the media path`
+`Instagram · the upload`
 
-## Media never touches your API servers, and private media never touches an open URL.
+## Media never touches your API servers.
 
 ```mermaid
 flowchart LR
@@ -2765,15 +2781,28 @@ flowchart LR
   C -->|"3 · bytes"| OS[("Object store")]
   OS -->|"4 · event"| TR(["Transcode"])
   TR -->|"5 · variants"| OS
-  V(["Viewer"]) -->|"6 · request"| AZ(["Authorizer<br/>checks follow and block"])
-  AZ -->|"7 · signed URL, minutes"| CDN(["CDN verifies"])
-  CDN -->|"8 · serves"| V
 ```
 
 > Step 2 is the only place an untrusted client writes straight into your storage.
 
-*Step 2 is the one place an untrusted client writes straight into your storage. So the grant names the exact key it may write — let the client choose the key and it writes over somebody else's media — and carries four limits besides: one content type, a size ceiling, a short expiry, and a rate per account. Without those four, anyone can fill your storage at your expense, and step 4 hands bytes they chose to an image decoder. All input is untrusted, including input you asked for.*
+*So the grant names the exact key it may write — let the client choose the key and it writes over somebody else's media — and carries four limits besides: one content type, a size ceiling, a short expiry, and a rate per account. Without those four, anyone can fill your storage at your expense, and step 4 hands bytes they chose to an image decoder.*
 
+---
+
+<!-- _class: diagram -->
+
+`Instagram · serving it back`
+
+## A private photo needs a link that expires.
+
+```mermaid
+flowchart LR
+  V(["Viewer"]) -->|"1 · request"| AZ(["Authorizer<br/>checks follow and block"])
+  AZ -->|"2 · signed URL,<br/>good for minutes"| CDN(["CDN verifies"])
+  CDN -->|"3 · serves"| V
+```
+
+> The authorizer decides once. After that the CDN only checks a signature, and a signed link outlives the decision behind it.
 ---
 
 <!-- _class: content -->
