@@ -301,7 +301,7 @@
     "github-slugger": "^2.0.0",
     "gpt-tokenizer": "^4.0.0",
     "jscpd": "^5.0.11",
-    "jsdom": "^29.1.1",
+    "jsdom": "^30.0.1",
     "jszip": "^3.10.1",
     "knip": "^6.24.0",
     "lefthook": "^2.1.6",
