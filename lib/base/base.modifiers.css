@@ -2805,10 +2805,27 @@ section.form.lat-split-closing.lat-split-closing > .cell-stage {
   flex: 0 0 auto;
   align-items: stretch;   /* a component's centered stage would otherwise shrink-wrap the cell */
 }
+/* THE CLOSING PAGE IS ONE GROUP, not a runhead pinned to the ceiling and a note floating in
+   the leftover. This was `flex: 1 1 auto; justify-content: center`, and that is what made the
+   page read as a render failure to two independent reviewers who saw it cold: measured on
+   `examples/read-across-carousel.md`, a 1350px page gave the stage 62px (the runhead alone) and
+   the coda 1110px, so the note centred itself in a 1110px void with the runhead stranded a
+   thousand pixels above it. A rule above the note and a rule under the runhead then read as two
+   hairlines framing an empty field — which is exactly how a page whose content failed to arrive
+   looks.
+
+   The PR carrying this shipped a caveat calling those two rules "neither a defect"; that was too
+   generous to my own work. The rules are fine. The 1110px between them was not.
+
+   The coda stops growing, so the section's own `justify-content: center` composes the stage and
+   the coda as ONE object with balanced air — the same correction the split `journey` needed, for
+   the same reason: a child that absorbs all the free height leaves the parent's centring nothing
+   to centre. `--sp-lg` is the gap under the runhead; it was `0` because the coda's own centring
+   used to supply the space. */
 section.form.lat-split-closing.lat-split-closing > .cell-coda {
-  padding-top: 0;
-  flex: 1 1 auto;
-  justify-content: center;
+  padding-top: var(--sp-lg);
+  flex: 0 0 auto;
+  justify-content: flex-start;
 }
 /* The RUNHEAD on a COMPOSED closing page (lib/core/split-envelope.js
    `closingPageFromMaterial`), which the carousel strategies emit.
@@ -2836,9 +2853,14 @@ section.form.lat-split-closing.lat-split-closing > .cell-stage > .split-runhead 
   letter-spacing: var(--runhead-ls);
   text-transform: var(--runhead-case);
   color: var(--runhead-ink);
-  border-bottom: 1px solid var(--border);
   padding-bottom: var(--sp-xs);
 }
+/* NO RULE UNDER THE RUNHEAD HERE, unlike the body pages that share this element's finish. The
+   closing page's note draws its OWN 1px accent hairline (`.below-note::before`), and once the
+   coda stopped absorbing the page the two landed 58px apart — two parallel full-width rules with
+   nothing between them, which two independent reviewers read as a doubled hairline before the
+   gap was even closed. One rule, the note's, does the whole job of separating the runhead from
+   what closes the run. */
 
 /* ── Shared split NOTE (lib/core/split-envelope.js `markNote` / `injectTrailing`) ───────
    The envelope's other trailing beat: a `.below-note` (or, on a layout below-note's

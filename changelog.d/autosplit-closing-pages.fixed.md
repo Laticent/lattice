@@ -111,3 +111,12 @@
   `<[^>]*>` consumes from a `<` to the next `>` and a surviving `>` has no `<` left to pair with.
   Both the kernel comment and the new property test say so, and the property they pin — nothing
   `textOf` returns carries a tag — holds whatever the implementation.
+- **Fixed: a run's closing page read as a page whose content failed to render.** Found by an
+  independent visual sweep, and the measurement is the whole story: the coda cell was
+  `flex: 1 1 auto`, so on a 1350px page it took 1110px and centered its hundred pixels of note
+  inside that, stranding the runhead a thousand pixels above with two hairlines framing the void
+  between them. The coda stops growing now, so the section's own centering composes the runhead
+  and the closing note as ONE group — the same correction the split `journey` needed, and for the
+  same reason: a child that absorbs the free height leaves the parent's centering nothing to
+  center. The runhead also drops its rule here, because the note already draws one and the two
+  became a doubled hairline 58px apart once the gap closed.
