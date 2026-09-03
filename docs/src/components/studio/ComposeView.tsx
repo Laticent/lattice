@@ -11,7 +11,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
-import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings } from '@/lib/compose/registers';
+import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, slideTakesTable } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
 import { hasFinePointer } from '@/lib/use-breakpoint';
@@ -449,6 +449,9 @@ class SlideView {
 	// second controller fixed nothing observable. (Correction: 2026-07-20-studio-audit-instrument-fix.)
 	private ac = new AbortController();
 	private locked: boolean;
+	// The slide node this view renders, kept current in `update()`. `syncFormat` reads its
+	// `directives` to decide whether this layout gets the table door.
+	private node: PMNode;
 	private stateful: boolean; // slide is a stateful table component (obligation-matrix / roadmap) → offer the marker picker
 	private tableHosted = false; // whether this slide's Format group currently hosts the React TableControls
 	constructor(
@@ -464,6 +467,7 @@ class SlideView {
 		// a prop change, so a getter keeps the gutter current without recreating node views.
 		private getBlocks?: () => SlideBlocks | undefined,
 	) {
+		this.node = node;
 		this.locked = !!node.attrs.locked;
 		this.stateful = isStatefulClass(node);
 		const dom = document.createElement('section');
@@ -561,6 +565,12 @@ class SlideView {
 		// Hide the "insert table" action while the caret is in a table — there it's a no-op, and the
 		// table-edit dropdown already shows a table icon (avoid the doubled glyph).
 		this.dom.classList.toggle('cs-caret-in-table', inTable);
+		// WITHHOLD the table door where a table is editorially wrong for the layout — a title, a
+		// quote, a picture slide. Not because the engine cannot render one there (it can, and
+		// beautifully — that was the false premise of an earlier version of this gate) but because
+		// offering it produces a mis-set slide. Typing or pasting a table still works; only the
+		// button stands down. Permissive for an unclassed or unrecognized slide.
+		this.dom.classList.toggle('cs-no-table', !slideTakesTable((this.node.attrs.directives as string[]) || []));
 		if (!inTable) this.clearTableHost(); // leaving the table unmounts the React controls
 		if (!active) {
 			if (this.fmtGroup.childElementCount) {
@@ -726,6 +736,7 @@ class SlideView {
 	}
 	update(node: PMNode, decorations: readonly Decoration[]) {
 		if (node.type.name !== 'slide') return false;
+		this.node = node;
 		this.locked = !!node.attrs.locked;
 		this.stateful = isStatefulClass(node);
 		this.dom.classList.toggle('cs-slide-locked', this.locked);
@@ -1309,6 +1320,10 @@ function ComposeStyles() {
 				.cs-mk-todo,.cs-mk-skip{color:var(--text-muted,#6b7f9a)}
 				.cs-tblc-div{flex:none;width:1px;height:14px;background:var(--border,#e4eaf2);margin:0 3px}
 				.cs-caret-in-table .cs-insert-table{display:none}
+				/* A layout whose grammar has no place for a table gets no table door. Hidden rather
+				   than dimmed, matching how the Format group drops a register the class won't
+				   render — no-ops are hidden, not disabled. */
+				.cs-no-table .cs-insert-table{display:none}
 			/* MOBILE — bigger touch targets; caps on every line, content pill on the active slide. */
 			@media (max-width:640px){
 				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}

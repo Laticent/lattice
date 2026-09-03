@@ -10,9 +10,13 @@ summary: >
   CLIPBOARD contract, so copy-paste flattened every slide it touched to an unstyled `content`
   in two keystrokes an author reaches by habit. Also: folding a slide did not survive any op
   that rewrites the deck source (the rail, the gallery), because those re-import through
-  `resyncFrom` and the unit test only ever drove the in-Compose `slideOp` path; "Insert table"
-  was offered and worked on all 61 components when 4 take a table, so the engine dropped a grid
-  the editor still showed; the structural guard read the SELECTION to judge intent, which is
+  `resyncFrom` and the unit test only ever drove the in-Compose `slideOp` path; the table door
+  took THREE passes and the first two were wrong — the engine does NOT drop a table on a layout
+  without a table slot (universal table CSS renders one at the boardroom bar), the real defect
+  was an EMPTY starter table rendering as two hairlines, and reverting that gate then answered a
+  rendering question when the report had asked an editorial one, so the door is now withheld on
+  a CURATED list of layouts where a table is the wrong slide; the structural guard read the
+  SELECTION to judge intent, which is
   right for a keystroke and wrong for a paste, making every multi-slide paste a silent no-op;
   deleting the slide you were editing flung the caret and the preview to the LAST slide; and an
   inserted slide did not take the caret. Each fix ships with an e2e oracle checked BOTH ways
@@ -105,35 +109,59 @@ because that unmounts the component. Leaving Compose is a plausible place to los
 a view-only preference, and persisting it would need a store keyed outside the
 editor.
 
-## 3. An inserted table was invisible — and the first diagnosis was WRONG
+## 3. The table door — three passes, two of them wrong
 
-The report was "slides that don't support tables allow the adding of a table," and it was
-half right in a way worth recording, because the first fix here was built on a false
-premise and shipped as far as a PR before the inversion pass caught it.
+The most instructive entry here, because the first two answers were each wrong in a
+different way and the second looked like a correction.
 
-**The claim was:** the engine drops a markdown table on a component with no table slot, so
-Compose should withhold the control on 57 of 61. **The claim was false.** The engine has
-carried a UNIVERSAL TABLE treatment since `2026-08-02-default-slide-layout.md` §4 — landed
-in `lib/base/base.elements.css`, with its own gate (`checkUniversalTableGuard`) — precisely
-so a plain pipe table on `content`, a base modifier, or no class at all renders at the
-boardroom bar instead of raw browser defaults. Rendered and looked at: a table on a `title`
-slide comes out with label-cased heads, `--spectrum-structure` underline, hairline row
-rules and accent zebra. Exactly one component of 61, `split-compare`, genuinely drops one.
+**First pass (wrong).** The control was gated to the 4 of 61 components whose manifest
+declares a table, on the claim that the engine DROPS a table anywhere else — "measured across
+all seven classes of the shipped tour deck: seven inserts, seven silent drops."
 
-**What was actually broken:** `insertStarterTable` built the table with EMPTY cells. That
-serializes to `|  |  |` / `| --- | --- |` / `|  |  |` and renders as two hairlines and
-nothing else — invisible on a dark slide, and indistinguishable from a button that did
-nothing. The engine was working perfectly on content that had no content.
+**The premise was false.** `lib/base/base.elements.css` § UNIVERSAL TABLE exists precisely so
+a plain pipe table renders at the boardroom bar on a layout that does not own one — shipped
+deliberately in `2026-08-02-default-slide-layout.md` §4, with its own gate. Rendering one
+proved it: a table on a `title` slide comes out with label-cased heads, hairline rules and
+zebra. Exactly one component, `split-compare`, actually drops it.
 
-**Fix.** The starter table's header cells carry `Column`, so an insert is visible the
-moment it lands. The control stays on every component: HARD RULE #29's stated policy for
-"an author can do this but probably shouldn't" is to warn and coach, never to remove the
-door, and the withheld-control version took the option that rule explicitly refuses.
+What was really observed: `insertStarterTable` built the table with EMPTY cells, which
+serializes to `|  |  |` and renders as two hairlines — invisible on a dark slide, and
+indistinguishable from a dead button. **The instrumentation had said so at the time**: the
+probe printed `tables=1` for the preview, and the finding was written as "the preview drops it
+entirely" anyway, off the screenshot. The measurement was there and was overruled by a glance.
 
-**How the wrong diagnosis survived to a PR**, because that is the transferable part:
-the probe printed `tables=1` for the preview and the screenshot showed no visible table.
-The number was right and the eye was wrong, and the write-up followed the eye. A
-measurement that contradicts the screenshot is the interesting result, not the noise.
+**Second pass (also wrong, differently).** Reverting the gate left the control on all 61 and
+treated that as the answer. It was not. Refuting the premise settled a RENDERING question,
+and the report had asked an EDITORIAL one. A table on a title slide renders beautifully and
+is still the wrong slide — Lattice's whole proposition is that the engine holds the design
+line, so "it renders" was never the bar.
+
+**Third pass (shipped).** The door is withheld on a CURATED list of layouts whose whole
+anatomy is a single thing — one statement, one number, one picture, one contact block:
+
+| bucket | withheld |
+|---|---|
+| anchor | `title` `closing` `divider` |
+| statement | `big-number` `quote` `premise` `split-panel` — **not `content`** |
+| connect | `contact` `wifi` |
+| imagery | `image` `scene` `video` |
+| evidence | `kpi` `stats` |
+
+Everything else keeps it, including `content` — the catch-all body layout, which the derived
+gate wrongly hid, removing the only in-Compose route to a table on the default slide — and
+all four table-primary components.
+
+**Curated, not derived, and that is the point.** A regex over manifest slots answers "does
+this component DECLARE a table?", a different question, and that mismatch produced the first
+pass's error. Only a person can say on which layouts a table is the wrong slide. The cost of a
+hand-written list is that it rots when a component is renamed, so a CENSUS test asserts every
+curated name still matches a real component in the shipped manifest.
+
+**It withholds a CONTROL, not a capability.** Typing a pipe table or pasting one still works
+and still renders correctly. That is the line HARD RULE #29 draws — we do not refuse the
+author — and it is why the answer is a hidden button rather than a blocked edit or a lint
+error. The starter table's header cells also now carry `Column`, so where the door IS offered,
+what it inserts is visible the moment you use it.
 
 ## 4. A paste could never grow the deck (and a DROP must not)
 

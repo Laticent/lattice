@@ -17,9 +17,16 @@
 - **Fixed: an inserted table is one you can see.** The starter table was built
   with empty cells, which serializes to `|  |  |` and renders as two hairlines —
   invisible on a dark slide, and indistinguishable from a button that did
-  nothing. Its header cells now carry `Column`. The control stays available on
-  every component: the engine's universal table treatment renders a plain table
-  at the boardroom bar on all but one of them, so there is nothing to withhold.
+  nothing. Its header cells now carry `Column`.
+- **Changed: Compose withholds the "Insert table" control on layouts where a
+  table is the wrong slide** — the anchors (title, closing, divider), the
+  single-utterance statements (quote, big-number, premise, split-panel), the
+  contact cards (contact, wifi), the picture slides (image, scene, video) and the
+  figure grids (kpi, stats). Everywhere else keeps it, `content` included. This
+  withholds a control, not a capability: the engine renders a plain table at the
+  boardroom bar on almost any layout, so typing or pasting one still works and
+  still looks right — Compose simply stops handing you a tool that makes a
+  mis-set slide.
 - **Fixed: deleting the slide you are editing lands on its neighbor.** The caret
   had no slide to re-anchor to, so the selection mapped to the end of the
   document and both the caret and the preview jumped to the last slide — walking

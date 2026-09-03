@@ -94,11 +94,19 @@ function collapseCap(page: Page, i: number) {
  */
 const CLIP_SENTINEL = '__lattice-e2e-cleared__';
 async function copyAndSettle(page: Page): Promise<void> {
-	// CLEAR FIRST, then copy, then wait for the sentinel to be gone. Comparing against
+	// WAIT FOR A NON-EMPTY SELECTION FIRST. ⌘C on a collapsed caret copies nothing, the
+	// sentinel below never clears, and the failure reads "the clipboard never took this copy"
+	// — which blames the clipboard for a selection that had not landed yet. This is the
+	// difference between an oracle that is usually right and one that always is, and a
+	// nightly tier that goes red once in a while is the same disease as an oracle that is
+	// green for the wrong reason: nobody trusts either.
+	await expect
+		.poll(() => page.evaluate(() => (getSelection()?.toString() ?? '').length), { message: 'the selection never became non-empty, so there was nothing to copy' })
+		.toBeGreaterThan(0);
+	// CLEAR SECOND, then copy, then wait for the sentinel to be gone. Comparing against
 	// whatever the clipboard held before works until two tests copy the same text; clearing
-	// makes "not the sentinel" mean "this copy" unconditionally, which is the difference
-	// between a wait that is usually right and one that always is.
-	await page.evaluate((s) => navigator.clipboard.writeText(s).catch(() => {}), CLIP_SENTINEL);
+	// makes "not the sentinel" mean "this copy" unconditionally.
+	await page.evaluate((v) => navigator.clipboard.writeText(v).catch(() => {}), CLIP_SENTINEL);
 	await page.keyboard.press('ControlOrMeta+c');
 	await expect
 		.poll(() => page.evaluate(() => navigator.clipboard.readText().catch(() => CLIP_SENTINEL)), { message: 'the clipboard never took this copy' })
@@ -359,32 +367,51 @@ test('deleting the slide you are editing lands on its neighbor, not the last sli
 	await expect.poll(() => activeSlide(page)).toBe(1);
 });
 
-// ── An inserted table is one you can SEE ────────────────────────────────────
-// The reported symptom was "slides that don't support tables allow adding a
-// table", and the first diagnosis here was wrong in an instructive way: the
-// button was gated to the four components whose manifest declares a table,
-// on the belief that the engine dropped one anywhere else. It does not. The
-// engine has carried a UNIVERSAL TABLE treatment since #2026-08-02
-// (`lib/base/base.elements.css`), and a real table renders at full boardroom
-// quality on `title`, `content` and 50 others — verified by rendering one.
+// ── The table door: offered where a table belongs, withheld where it does not ──
+// The reported symptom was "slides that don't support tables allow the adding of a table",
+// and the first fix here was wrong in an instructive way. It withheld the control on 57 of
+// 61 components on the premise that the engine DROPS a table without a table slot. It does
+// not — `lib/base/base.elements.css` § UNIVERSAL TABLE renders a plain pipe table at the
+// boardroom bar on almost any layout, deliberately, and rendering one proved it.
 //
-// What actually happened is that `insertStarterTable` built the table with EMPTY
-// cells, which serializes to `|  |  |` and renders as two hairlines: invisible on
-// a dark slide, and indistinguishable from a dead button. The fix is a visible
-// starter table, not a withheld control — and the control stays, because HARD
-// RULE #29's policy for "an author can do this but probably shouldn't" is to warn
-// and coach, never to remove the door.
-test('inserting a table puts a visible table on the slide', async ({ page }) => {
-	await slideContent(page, 0).click(); // `title` — a class with no table slot
-	await composeSlide(page, 0).getByRole('button', { name: 'Insert table' }).click();
+// But refuting that premise settled a RENDERING question, not the EDITORIAL one that was
+// actually asked. A table on a title slide renders beautifully and is still the wrong slide.
+// So the door is withheld on a curated list of layouts whose whole anatomy is one statement,
+// one number, or one picture — and kept everywhere else, `content` very much included.
+// Typing or pasting a table still works: the control stands down, the capability does not.
+test('the table door is withheld on a title slide and offered on content', async ({ page }) => {
+	// `title` — a bookend. Withheld.
+	await slideContent(page, 0).click();
+	await expect(composeSlide(page, 0).getByRole('button', { name: 'Insert table' })).toBeHidden();
 
-	// Visible in the editor…
-	const table = composeSlide(page, 0).locator('table');
+	// `content` — the catch-all body layout. This is the case the derived gate got wrong, and
+	// getting it wrong removed the only in-Compose route to a table on the default slide.
+	await composeSlide(page, 0).getByRole('button', { name: 'Add slide below' }).click();
+	await page.getByRole('button', { name: /^Insert content/i }).first().click();
+	await page.locator('[role="dialog"]').waitFor({ state: 'detached' });
+	await slideContent(page, 1).click();
+	await expect(composeSlide(page, 1).getByRole('button', { name: 'Insert table' })).toBeVisible();
+});
+
+// And when it IS offered, what it inserts must be visible. The starter table was built with
+// empty cells, which serializes to `|  |  |` and renders as two hairlines — invisible on a
+// dark slide, and indistinguishable from a button that did nothing. That was the real defect
+// behind the report.
+test('inserting a table puts a visible table on the slide', async ({ page }) => {
+	await slideContent(page, 0).click();
+	await composeSlide(page, 0).getByRole('button', { name: 'Add slide below' }).click();
+	await page.getByRole('button', { name: /^Insert content/i }).first().click();
+	await page.locator('[role="dialog"]').waitFor({ state: 'detached' });
+
+	await slideContent(page, 1).click();
+	await composeSlide(page, 1).getByRole('button', { name: 'Insert table' }).click();
+
+	const table = composeSlide(page, 1).locator('table');
 	await expect(table).toHaveCount(1);
 	await expect(table).toContainText('Column');
 
-	// …and carried into the deck source as a real GFM table with a non-empty
-	// header, which is what makes it visible once the engine renders it.
+	// …and it reaches the deck source as a real GFM table with a non-empty header, which is
+	// what makes it visible once the engine renders it.
 	await expect
 		.poll(async () => {
 			const src = await persistedSource(page);

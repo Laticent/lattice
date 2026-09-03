@@ -96,6 +96,73 @@ export type SlideHeadings = Record<string, ('h1' | 'h2')[]>;
 // shape (and the same one-source-of-truth reasoning) as `SlideHeadings` above.
 export type SlideBlocks = Record<string, string[]>;
 
+// Components whose grammar has no place for a table — the door Compose withholds.
+//
+// CURATED BY HAND, not derived. An earlier version of this gate read the manifest with a
+// regex over slot selectors and skeletons, which answered a different question ("does this
+// component DECLARE a table?") and got the answer badly wrong: it hid the control on 57 of
+// 61, `content` included, on the false premise that the engine drops a table anywhere else.
+// It does not — `lib/base/base.elements.css` § UNIVERSAL TABLE renders a plain pipe table at
+// the boardroom bar on almost any layout, deliberately, since 2026-08-02.
+//
+// So the question this list answers is EDITORIAL, and a machine cannot infer it: on these
+// components a table is not an author's choice, it is a mis-set slide. Each one's whole
+// anatomy is a single thing — one statement, one number, one picture, one contact block —
+// and a grid competes with it rather than supporting it. Everything else keeps the door,
+// `content` (the catch-all) and every chart, code, legal, inventory and comparison layout
+// included; the four that take a table as their PRIMARY content obviously keep it.
+//
+// This withholds a CONTROL, not a capability: typing a pipe table or pasting one still
+// works and still renders. That is the line HARD RULE #29 draws — we do not refuse the
+// author, we decline to hand them a tool that makes a worse slide.
+const TABLE_UNSUITED = new Set([
+	// anchor — bookends. A table on the deck's first or last slide is never the point.
+	'title',
+	'closing',
+	'divider',
+	// statement — one utterance per slide. `content` is deliberately ABSENT: it is the
+	// catch-all body layout and a table is ordinary there.
+	'big-number',
+	'quote',
+	'premise',
+	'split-panel',
+	// connect — "scan this" slides.
+	'contact',
+	'wifi',
+	// imagery — the picture is the slide.
+	'image',
+	'scene',
+	'video',
+	// evidence — already a figure grid; a table competes with it.
+	'kpi',
+	'stats',
+]);
+
+/**
+ * Does Compose offer the "Insert table" door on the caret's slide?
+ *
+ * PERMISSIVE BY DEFAULT, on the same guards `rendersBlock` carries: an unclassed slide and
+ * an unrecognized `_class` both say yes, so a new or custom component is never silently
+ * stripped of the control. Only a name on the curated list above withholds it. The LAST
+ * `_class` token that matches wins, matching the engine's directive semantics, and the
+ * lookup is a `Set` so a slide naming `constructor` cannot reach up a prototype chain.
+ */
+export function slideTakesTable(directives: string[]): boolean {
+	let declared: boolean | undefined;
+	for (const d of directives) {
+		const m = d.match(CLASS_PAYLOAD_RE);
+		if (!m) continue;
+		for (const token of m[1].trim().split(/\s+/)) {
+			if (token && TABLE_UNSUITED.has(token)) declared = false;
+		}
+	}
+	return declared ?? true;
+}
+
+/** The curated set, exported for the census test that keeps it from rotting when a
+ *  component is renamed or retired. Not for runtime use — call `slideTakesTable`. */
+export const TABLE_UNSUITED_NAMES: readonly string[] = [...TABLE_UNSUITED];
+
 /** The WHOLE `_class:` payload — every token, not just the leading one that `CLASS_RE`
  *  takes. Matches the running-global `<!-- class: … -->` spelling too, so a deck that
  *  sets its layout that way is gated the same as a per-slide one. */
