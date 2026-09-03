@@ -927,6 +927,18 @@ Write a rung for each and one sentence on what it costs. Then turn the page.
 
 <!-- _class: content -->
 
+`Why any of this matters`
+
+## Every constraint in Maya's Tuesday was somebody's kit choice, made before she was hired.
+
+The twelve-minute build is a compute choice. The registry that stopped three teams is an infrastructure choice. The deploy that stayed safe all day is a reliability choice that happened to work.
+
+She made none of them and lived inside all of them. What follows is the menu those choices came from, and the price on each one.
+
+---
+
+<!-- _class: content -->
+
 `How to read a kit`
 
 ## Every entry in every kit answers the same three questions.
@@ -2374,6 +2386,18 @@ Do not draw an architecture. Four lines again, then turn the page.
 
 ---
 
+<!-- _class: content -->
+
+`What you now hold`
+
+## Sixteen entries, six sets of invariants, and one thing worth admitting.
+
+You will not reach for most of these. The two designs ahead spend ten between them, and the smaller one spends five. That is what a kit is: what you own, not what you use.
+
+The entries are concepts, not products, so they outlast the names. What you carry out of here is the sentence you can now say when you did not reach for something.
+
+---
+
 <!-- _class: divider numbered -->
 
 `Part five`
@@ -3255,14 +3279,14 @@ The security kit arrived as practice, not a card: the provider's form keeps card
 
 ## Every store-and-run entry landed somewhere specific in the feed design.
 
-| Kit entry | Where it landed | Why that one |
+| Kit entry | Where it landed | What it charges you |
 | --- | --- | --- |
-| Wide-column | The two edge tables | One key, then a sorted list of who is on the other end |
-| Object store | Photo bytes and variants | Large, immutable, fetched by key, kept for years |
-| Key-value | The feed cache | The key is known exactly and nothing is asked of the value |
-| Durable log | Post events into fan-out | Producers outpace consumers, deliberately |
-| Stateless services | Feed and post service | Any instance serves any reader; state lives elsewhere |
-| Bounded queue | Fan-out and transcode | Unbounded, one celebrity means an outage |
+| Wide-column | The two edge tables | The primary key is the schema. A new question means rewriting the data |
+| Object store | Photo bytes and variants | Listing is slow, so the index of what you stored lives somewhere else |
+| Key-value | The feed cache | No second way in. Every new question is a new key you maintain |
+| Durable log | Post events into fan-out | At-least-once. Every consumer here has to be idempotent |
+| Stateless services | Feed and post service | Nothing may be remembered in the process, so state moves and costs a hop |
+| Bounded queue | Fan-out and transcode | A bound means shedding. When it fills, something waits or is dropped |
 
 ---
 
@@ -3272,14 +3296,14 @@ The security kit arrived as practice, not a card: the provider's form keeps card
 
 ## The network, scale, reliability and security kits landed here too.
 
-| Kit entry | Where it landed | Why that one |
+| Kit entry | Where it landed | What it charges you |
 | --- | --- | --- |
-| Reduce | One cached list per celebrity | Written once, read five hundred million times |
-| Spread | Posts by author, edges by bucket | The bucket bounds the biggest list we still fan out |
-| Defer | Fan-out on write, below the threshold | Moves the cost out of the reader's 200 milliseconds |
-| CDN with versioned URLs | Every photo variant | Same bytes for many readers, and purging is eventual |
-| Bulkhead | Fan-out workers kept off the read path | A burst of ordinary fan-out must not starve the pool serving feeds |
-| Object-level authorization | Every hydration | The endpoint check passes; the object check stops the breach |
+| Reduce | One cached list per celebrity | A second copy whose wrongness is measured in seconds |
+| Spread | Posts by author, edges by bucket | Any question that crosses a bucket, forever |
+| Defer | Fan-out on write, below the threshold | The follower who is not in the page yet |
+| CDN with versioned URLs | Every photo variant | Purging is eventual, so a signed link outlives the decision behind it |
+| Bulkhead | Fan-out workers kept off the read path | Reserved capacity that sits idle on a normal day |
+| Object-level authorization | Every hydration | A check on the read path, on every item of every page |
 
 ---
 
