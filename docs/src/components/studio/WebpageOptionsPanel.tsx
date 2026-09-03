@@ -11,6 +11,7 @@ import { ArrowLeft, Globe, Layers, Loader2, MicOff, Monitor, Moon, Play, Sun, X 
 import * as React from 'react';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+import { sourceAnimatesCharts } from '../../../../lib/core/resolve-motion.mjs';
 import { type NarrationChoice, NarrationExportOptions, type ProjectDeck } from './NarrationExportOptions';
 
 type Scheme = 'light' | 'dark' | 'system' | 'inherited';
@@ -64,13 +65,10 @@ export function WebpageOptionsPanel({
 	// animated chart is a switch that does nothing, which teaches the reader to distrust the
 	// panel.
 	const [playerMotion, setPlayerMotion] = React.useState(true);
-	const deckHasMotion = React.useMemo(() => {
-		const fm = source.match(/^\uFEFF?---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/);
-		const deckOn = /^[ \t]*motion:[ \t]*["']?on\b/m.test(fm?.[1] ?? '');
-		// A per-slide marker opts in with no deck-level key, so the body is checked too.
-		const slideOn = /<!--[^>]*\bmotion-(?:on|build|together|rise)\b/.test(source);
-		return deckOn || slideOn;
-	}, [source]);
+	// The SHARED rule, not a fourth hand-rolled regex. An earlier draft of this line had its
+	// own — case-sensitive, and treating the style tokens as opt-ins — so the same deck got
+	// three different answers from the panel, the exporter and the live cascade.
+	const deckHasMotion = React.useMemo(() => sourceAnimatesCharts(source), [source]);
 	// Narration is opt-in too, and for a different reason: it is the only option here that
 	// can spend money and add megabytes. See NarrationExportOptions for the bill.
 	const [narration, setNarration] = React.useState<NarrationChoice>({ captions: false, audio: false, allowPartial: false, voice: { model: '', voice: '', speed: 1 } });

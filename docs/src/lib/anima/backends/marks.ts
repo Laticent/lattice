@@ -16,9 +16,17 @@ import type { AssetMap, Renderer } from '../renderer';
 import type { Scene, SvgScene } from '../types';
 import { createSvgPainter } from './svg-paint';
 
-/** Everything the shared painter can do. `draw: false` is the load-bearing entry — `negotiate`
- *  refuses a scene carrying a draw verb, so a drawing scene can never silently mount here and
- *  render as a motionless figure. */
+/** Everything the shared painter can do. `draw: false` is the load-bearing entry: `negotiate`
+ *  refuses a scene carrying `draw` or `trace`, so such a scene cannot silently mount here and
+ *  render as a motionless figure — measured, and pinned in `svg-paint.test.ts`.
+ *
+ *  ONE GAP, stated rather than implied away: `sequence` is in the painter's `DRAW_VERBS` (so it
+ *  is excluded from the opacity channel) but `vocabulary.ts` maps it to NO capability, so
+ *  `negotiate` does NOT refuse it — a `sequence`-only scene would mount here and sit still. It
+ *  is unreachable today (`chart-anima.ts` emits only `reveal`/`slide`/`highlight`, and this
+ *  backend is only ever reached through the chart path), so this is a latent contradiction
+ *  between two files rather than a live defect. Closing it means deciding what `sequence`
+ *  means as a capability, which is the frame model's business, not this file's. */
 export const MARKS_CAPS: RendererCaps = {
   vector: true,
   poster: true,

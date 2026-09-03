@@ -350,6 +350,50 @@ the 82 specs in `docs/e2e/` referenced `data-scene-spec`, `scene-live`, `data-an
 no e2e at all. Live motion now has real-surface coverage that **cannot block a merge**, which is the
 exact shape of the #780 drift `docs/e2e/studio-fixture.ts` documents.
 
+### What a second audit found, after the engine slices landed
+
+An independent checker audited the engine and export commits (the first checker had seen only
+the decision notes). It returned **14 findings**. Two were blockers, and both are fixed here:
+
+- **Front-matter scalars reached the player's inline `<script>` unescaped.** A deck writing
+  `motion-style: "</script>…"` rendered attacker markup in the exported file AND truncated the
+  script so its sha256 CSP hash stopped matching — which blocks the **whole player** and hands
+  every recipient a dead deck. The repo's own idiom (`.replace(/</g, '\\u003c')`, used two
+  functions away in the same file) is now applied and pinned by a test that fails when the
+  escape is removed.
+- **The shipped `examples/anima-scene.md` stopped drawing in order.** Its five elements carry
+  `span: 1` with no `at`, which under Vivus's one document-order scalar drew sequentially and
+  under per-element seeking drew in lockstep — while the slide's own body text says *"The
+  drawing ORDER is the meaning — node, arrow, node."* A window per element restores it
+  (measured on the real export: `n1 → a1 → n2 → a2 → n3`, not lockstep). This is HARD RULE #18:
+  a surface that worked before the change and did not after.
+
+Three more were the same defect wearing three faces: **one question with three readers.**
+"Does this deck animate a chart?" was answered by the exporter, the Studio panel, and the live
+cascade — differently. Measured: `motion: On` animated live and exported a still; a legacy
+`chart-anima` slide did the same; a `motion-build` slide (a STYLE parameter, not a switch)
+shipped 22,845 bytes of player that never moved. The rule now lives once in
+`lib/core/resolve-motion.mjs` and is pinned against the runtime cascade by
+`docs/src/playground/motion-eligibility-parity.test.ts`.
+
+And one finding was about this work's own honesty: **four mutations to the "verbatim" extracted
+painter survived all 3,601 docs tests.** Deleting `vivus.test.ts` took 21 cases with it and the
+replacement covered only the draw channel, so the extraction's central claim was unfalsifiable.
+`svg-paint.test.ts` restores that coverage and each of the four mutations now fails.
+
+### Two behaviors this raises, not settled here
+
+- **A forwarded file no longer honors the recipient's `prefers-reduced-motion` for charts.**
+  Not a regression against the live surface — it matches it exactly, and the `legible` tier
+  deliberately keeps non-vestibular motion (a fade is not a vestibular trigger). But before
+  this change an exported file never animated charts, so it honored the setting by accident,
+  and charts pass `chrome: false`, so the recipient has no pause and no opt-out. Changing it
+  means changing the LIVE behavior too — diverging the two is what the three-readers defect
+  above cost us — so it is a product call about an accessibility floor, not a patch.
+- **A settled chart in the export keeps its `highlight` emphasis**, so one band stays outlined
+  in a way the PDF of the same deck is not. Also pre-existing on the live surface, newly
+  visible in an artifact people forward.
+
 ### Still not verified
 
 - **The `--player` export HAS now been driven, and the result was a correction, not a

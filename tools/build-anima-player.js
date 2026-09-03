@@ -3,13 +3,13 @@
  * Bundle the Anima host + vector backends into ONE self-contained IIFE string, for
  * injection into the exported `.html` player (Stage 6b, slice C).
  *
- *   docs/src/lib/anima/hydrate.ts (+ zdog / vivus backends)
+ *   docs/src/lib/anima/hydrate.ts (+ zdog / anime.js drawable backends)
  *     →  lib/export/anima-player-bundle.generated.mjs
  *        (`export const ANIMA_PLAYER_JS = "<iife source>"`)
  *
  * WHY a string constant, not a browser module: the player's runtime is a SINGLE
  * CSP-hashed inline <script> assembled by `player-core.mjs`'s `playerJs()` — it cannot
- * `import`. The backends (Zdog/Vivus) are whole libraries, so they can't be `.toString()`-
+ * `import`. The backends (Zdog, anime.js) are whole libraries, so they can't be `.toString()`-
  * inlined the way the present-transport kernel is; they must be pre-bundled. `player-core`
  * imports this string and injects it (only when the deck carries a live scene, so a
  * scene-less export stays byte-identical — the html-player golden holds). Both consumers
@@ -20,7 +20,7 @@
  * the runtime engine reads only the generated STRING, never docs/ — so `checkAnimaBoundary`
  * (the host imports only in-folder + node:) is untouched. The IIFE exposes
  * `window.__latticeAnima.hydrateScenes`; the untrusted spec is still validated by
- * `parseScene` inside the host, and svg markup is inert-parsed by the Vivus backend
+ * `parseScene` inside the host, and svg markup is inert-parsed by the shared painter
  * (defense-in-depth on top of the player's export-time DOMPurify pass).
  *
  * Flags: --check (freshness gate, exit 1 on drift), --silent.
@@ -43,14 +43,14 @@ const silent = argv.includes('--silent') || check;
 // pauses it off-screen. That works NATIVELY here (the player runs in its own top-level
 // document, not a cross-origin-scaled iframe), so the export gets play-on-view + pause-
 // off-screen for free. Sanitize defaults to identity: the markup was DOMPurified at export
-// time and Vivus inert-parses as a runtime backstop.
+// time and the shared painter inert-parses as a runtime backstop.
 const ENTRY_CONTENTS = `
 import { rendererFor } from './backends/registry';
 import { hydrateScenes } from './hydrate';
 window.__latticeAnima = {
   // \`rendererFor\` is now injected rather than imported by the host, so the entry declares
   // which backends it can reach and esbuild drops the rest. THIS entry is the scene player,
-  // which needs both (a built scene renders on Zdog, an svg scene on Vivus).
+  // which needs both (a built scene renders on Zdog, an svg scene on the drawable backend).
   hydrateScenes: (root, opts) => hydrateScenes(root || document, { rendererFor, ...opts }),
 };
 `;
@@ -78,8 +78,10 @@ window.__latticeAnimaCharts = {
     const d = root || document;
     const deck = parseDeckMotion(raw && raw.motion, raw && raw.style, raw && raw.speed);
     const controllers = [];
-    // Hide eligible charts BEFORE the first paint so a build does not flash its finished
-    // state and then restart — the same pre-hide the live surfaces use.
+    // The pre-hide the LIVE surfaces use. It is inert here and kept only for parity: the
+    // class it adds is styled by preview-only srcdoc CSS that no exported file carries, so
+    // this prevents no flash in a player. Removing it would diverge the two hosts for no
+    // gain; claiming it works would be a lie in a comment.
     const prehidden = prehideEligibleCharts(d, deck);
     const sections = deck.play === 'on'
       ? Array.from(d.querySelectorAll('section')).filter(hasAnimatableChart)

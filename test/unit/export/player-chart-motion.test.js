@@ -84,3 +84,21 @@ test('the CLI flag overrides the deck: playerMotion false wins over motion: on',
 	assert.equal(withFlag.html.includes('__latticeAnimaCharts'), false, 'the flag did not suppress the chart player');
 	assert.ok(withoutFlag.html.includes('__latticeAnimaCharts'), 'the same deck without the flag lost its chart player — the control is broken, so the assertion above proves nothing');
 });
+
+test('a front-matter scalar cannot break out of the player script', async () => {
+	const { playerJs } = await core();
+	const { ANIMA_CHART_JS } = await import('../../../lib/export/anima-player-bundle.generated.mjs');
+	// The three motion scalars are AUTHOR-CONTROLLED and land inside an inline <script>. A
+	// `</script>` in one of them does two things, and the second is the worse: it renders
+	// attacker markup in the exported document, AND it truncates the script text so its
+	// sha256 CSP hash stops matching — which blocks the whole player and hands every
+	// recipient a dead deck. Escaping `<` is the repo's standing idiom for this (see
+	// `narrationBlocks` in the same file, and lib/core/data-block.js).
+	const evil = '</script><h1 id=pwned>INJECTED</h1><script>';
+	const js = await playerJs('', null, false, undefined, {
+		js: ANIMA_CHART_JS,
+		deck: { motion: 'on', style: evil, speed: null },
+	});
+	assert.equal(js.includes('</script>'), false, 'a raw </script> survived into the player script body');
+	assert.ok(js.includes('\\u003c/script'), 'the payload should still be PRESENT, escaped — not silently dropped, which would hide the bug rather than fix it');
+});

@@ -32,9 +32,9 @@ now **superseded** by the governing note above; read it for history, not for dir
 
 > **The pure core plus two backends ship.** The spec schema, the timeline compiler, the
 > closed vocabulary and the capability model are here, and `hydrate.ts` imports both
-> `backends/zdog` and `backends/vivus` to paint a `SceneState`. **Three.js was never
+> `backends/zdog` and `backends/drawable` to paint a `SceneState`. **Three.js was never
 > built.** The pure core is still tested by asserting snapshot values at sampled `t`;
-> the Vivus backend's draw channel is not exercised in jsdom at all — see the audit in
+> the draw channel IS exercised in jsdom now, which the retired Vivus backend made impossible — see
 > [`2026-09-02-motion-engine-bakeoff.md`](../../../../engineering/decisions/2026-09-02-motion-engine-bakeoff.md) §2.
 
 ## 60-second start
@@ -76,9 +76,9 @@ const problems = negotiate(parsed.scene, zdogCaps);   // [] = the backend can re
 
 The backends share the **timeline** layer but **not** the scene layer:
 
-| | Zdog | Vivus.js | ~~Three.js~~ |
+| | Zdog | anime.js drawable | ~~Three.js~~ |
 |---|---|---|---|
-| Ships? | yes (`backends/zdog.ts`) | yes (`backends/vivus.ts`) | **never built** |
+| Ships? | yes (`backends/zdog.ts`) | yes (`backends/drawable.ts`) | **never built** |
 | Source model | **built** primitives | **svg** line-art (`source:'svg'`) | — |
 | Output | vector | vector | — |
 | Its `draw` verb | — | **stroke reveal** | — |
@@ -87,9 +87,10 @@ So the spec is a **tagged union on `source`** (`built` \| `svg`), and each backe
 the fields it paints. `compile` is engine-neutral; capability negotiation (`caps.ts`)
 makes "this scene fits that backend" a checked contract, not a hope.
 
-**Both shipped backends are on their way out.** The governing note replaces the Vivus
-draw channel with anime.js `createDrawable`, and Zdog is scheduled for a prove-then-cut
-excision. Neither has been removed yet.
+**Vivus is gone**; its draw channel is now anime.js `createDrawable` (`backends/drawable.ts`),
+and a chart — which never draws — paints on `backends/marks.ts`, which carries no third-party
+dependency at all. Zdog stays: it renders every shipped `source: "built"` scene, and is only
+excluded from bundles that cannot reach it.
 
 ## The closed vocabulary
 
@@ -102,7 +103,7 @@ keyframes (the anti-wizbang discipline, ADR §12):
 | `explode` | child outward from its parent | built | structure |
 | `reveal` / `sequence` | presence 0→1 as opacity (staggered) | built / both | mechanism |
 | `fill` | data-bound level 0→to | both | data-bound |
-| `draw` / `trace` | SVG stroke reveal | svg | drawn figure (Vivus today, anime.js next) |
+| `draw` / `trace` | SVG stroke reveal | svg | drawn figure (anime.js `createDrawable`) |
 
 The built scene is a **nested tree** (like Zdog's Anchor tree / Three's Object3D tree): a
 child's `transform` is **local** to its parent and the backend composes it, so compound
@@ -159,9 +160,11 @@ hydrate.ts        the host: owns the clock and the rAF loop, scans a rendered de
                   section.scene[data-scene-spec], mounts lazily via IntersectionObserver,
                   and enforces the reduced-motion tiers as an accessibility FLOOR
 backends/zdog.ts  the built-primitive backend
-backends/vivus.ts the svg stroke-reveal backend (being replaced — see the audit)
-backends/paint.ts shared COLOR helpers both backends call (resolveColor / withAlpha).
-                  The per-element painter is `paintElements`, inside vivus.ts
+backends/drawable.ts the svg stroke-reveal backend, on anime.js createDrawable
+backends/marks.ts    the same painter with NO draw channel — what a chart needs
+backends/svg-paint.ts the SHARED painter: inert asset parse, part resolution, and the
+                  per-frame transform / opacity / emphasis pass. No third-party dependency
+backends/paint.ts shared COLOR helpers (resolveColor / withAlpha)
 ```
 
 Most modules carry a `*.test.ts` (run with `vitest`); five do not — `index.ts` (a re-export

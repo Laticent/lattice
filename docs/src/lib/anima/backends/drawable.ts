@@ -8,10 +8,12 @@
 //     each element its own animation, so a window is just that element's own timeline.
 //  2. It needed `getTotalLength()`, which throws in jsdom — so the entire draw channel
 //     silently no-opped behind `ready = false` and nothing in the test tier could see it.
-//     `createDrawable` stamps `pathLength="1000"` and works in NORMALIZED units, so it never
-//     measures geometry. Verified on the real Playground, on a real funnel polygon, with
-//     `getTotalLength` instrumented and never called
-//     (docs/e2e/anima-motion-frames.spec.ts, and §8 of the frame-model note).
+//     `createDrawable` stamps `pathLength="1000"` and works in NORMALIZED units, so it does not
+//     need to measure geometry. What is actually asserted, on the real Playground against a
+//     real funnel polygon, is that `pathLength` — evidence FOR normalization, not the
+//     instrumented negative an earlier version of this comment claimed
+//     (docs/e2e/anima-motion-frames.spec.ts). No `getTotalLength` instrumentation exists in
+//     the tree; do not cite one.
 //
 // It also stops MUTATING the untrusted asset: Vivus's Pathformer replaced `rect`/`circle`/
 // `line` nodes with `<path>` clones in the caller's DOM. Nothing here rewrites a node.

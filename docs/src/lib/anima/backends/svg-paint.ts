@@ -125,6 +125,12 @@ export function createSvgPainter(): SvgPainter {
 
   return {
     mount(target, s, markup) {
+      // Self-teardown FIRST. The backend this was extracted from opened its `mount()` with
+      // exactly this line ("idempotent: a re-mount must not leave the prior svg behind") and
+      // the extraction dropped it. Both wrappers happen to tear down before calling, so the
+      // shipped Renderer never leaked — but this is an exported API and the next caller has
+      // no reason to know that.
+      this.teardown();
       const doc = target.ownerDocument;
       if (!doc || !markup) return false;
       const parsed = parseSvgInert(markup, doc);
