@@ -2198,7 +2198,7 @@ The invariant wants one writer and a transaction. The number wants everything sp
 
 ## Now design it, on the same four lines.
 
-You have the same kits the Instagram and parking designs drew from. Name the rung this is asking for, two entries you would reach for and what each one holds up, and one box you would take out on paper.
+You have the six kits and everything in them. Name the rung this is asking for, two entries you would reach for and what each one holds up, and one box you would take out on paper.
 
 Do not draw an architecture. Four lines again, then turn the page.
 
@@ -3161,8 +3161,8 @@ So take one design you made in these pages and build the smallest version of it 
 
 <!-- _class: closing silent spectrum -->
 
-## Name the person, name the force, and the design follows.
+## Learn the concepts and how they connect. The technology will change under you.
 
 `How to Think About Systems`
 
-Maya never designed anything on Tuesday, and she met every word in Part one before she went to bed.
+Name the person, name the force, and the design follows. Maya never designed anything on Tuesday, and she met every word in Part one before she went to bed — not one of which was a product name.
