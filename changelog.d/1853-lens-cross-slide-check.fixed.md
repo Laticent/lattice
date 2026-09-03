@@ -46,18 +46,6 @@
   further and the list only grows, so the eight axes are exported as `POSITION_NEUTRALIZERS` with a
   reason each and pinned by a test — the same discipline `slice-equivalence-core.mjs` applies to its
   own set, for the same reason.
-- **New: a reader-view export refuses CSS that counts slides.** `section:nth-of-type(3) p:nth-of-type(2)
-  { display: none }` written on a slide the view KEEPS is byte-identical in the deck the sender
-  previews and the file they send — the stylesheet did not move and neither did any slide's markup.
-  What moved is the slide the selector counts to. Measured on the real CLI: a sentence that is
-  `display: none` in the preview is `display: block`, 770×36 pixels, in the projected file, and the
-  same shape with an `::after` classification marking drops `CONFIDENTIAL` from the exported PDF
-  (`pdftotext` 1 → 0). Every other check here works by rendering the deck twice and diffing, and this
-  one is invisible to that by construction, so it is refused on sight instead: a structural
-  pseudo-class on `section`, a sibling combinator between slides, or a `data-authored-slide`
-  attribute, which the projection renumbers. Front matter is scanned too — the refusal message for a
-  real cross-slide find says "put it in the front matter", and following that advice moved a caught
-  case into this uncatchable one. Of the 147 example decks, 2 carry author CSS and neither trips it.
 - **Fixed: `<STYLE>`, `<script>` and `<link>` were all outside the document channel.** HTML tag names
   are case-insensitive and a browser applies `<STYLE>` exactly as it applies `<style>`; matching
   lowercase only walked the changelog's own worked example past the channel built for it on one
@@ -84,17 +72,6 @@
   reported "2 of 3 slides ship" and wrote a three-slide file carrying an authored index nothing had
   verified. The checks now run against `rawMd`, the source the pipeline actually renders, and still
   before any byte is written. The glossary case is now refused.
-- **Fixed: the positional-selector scan was two catastrophic-backtracking regexes, and it missed the
-  most common way to write the rule it looks for.** CodeQL flagged both patterns high severity —
-  `section(?:[.#[:][^\s,{>+~]*)*` is a repeated group whose body can start with the characters the
-  group starts with, so `section####…` has exponentially many parses — and author CSS is untrusted
-  input on the Studio path. The scan is now a linear walk: find each structural pseudo-class or
-  sibling combinator, read back to the nearest delimiter, and ask whether that compound selects a
-  slide. Rewriting it surfaced a hole the regex had too: front-matter CSS arrives wrapped, so
-  `style: "section:nth-of-type(3) …"` puts a quote immediately before the compound, and reading that
-  quote as part of the selector made the whole single-line front-matter form invisible. Ten selector
-  cases are now pinned in both spellings, and a 4,000-character pathological selector completes in
-  under a millisecond.
 - **Fixed: one character in a close tag walked past the document channel.** HTML's RAWTEXT end-tag
   state closes a `<style>` on `</style` followed by whitespace, a SLASH, or `>` — so `</style/>` and
   `</style x>` are real close tags, and matching only `</style\s*>` was a subset of the rule rather
@@ -111,3 +88,14 @@
   it, so it belongs to no view and cannot misdirect one; the count is derived by splitting both
   sources rather than by naming the transform, so the next appender is counted without being named.
   The report line now says so too — "2 of 3 slides ship" beside a three-slide file described neither.
+- **Known and stated: CSS that picks a slide by its number is not checked.** `section:nth-of-type(3)
+  p { display: none }` lands on a different slide once the deck is shorter, and comparing the two
+  renders cannot see it — the stylesheet is byte-identical on both sides and so is every slide's
+  markup. Only computed style differs, so catching it means rendering both decks in a real browser
+  (measured: +5.2s per export). Filed as a follow-up rather than built, because the class has no
+  observed instances: of the 150 decks in `examples/`, 2 carry a `<style>` at all — both
+  Studio-generated, both selecting by class — and none selects by position. A scanner for it was
+  built and removed: against 24 real CSS idioms it refused 7 of 12 harmless ones (`p:not(:last-child)`,
+  and a deck whose only CSS was a comment) while missing 6 of 12 dangerous ones, because
+  `section[id="3"]` selects by position too and the space of spellings has no end. Wrong half the time
+  in each direction is worse than a stated bound. `design/skills/lens.md` says so where authors read, and #2053 carries the measurement for the day it is built.

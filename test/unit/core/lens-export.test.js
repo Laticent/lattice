@@ -19,7 +19,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { POSITION_NEUTRALIZERS, authoredIndexDrift, crossSlideDrift, positionalCss, projectForExport, exportableViews, REFUSAL_REASONS } = require('../../../lib/core/lens-export.mjs');
+const { POSITION_NEUTRALIZERS, authoredIndexDrift, crossSlideDrift, projectForExport, exportableViews, REFUSAL_REASONS } = require('../../../lib/core/lens-export.mjs');
 const { frontMatterBlockOf, normalizeSourceText, slideBoundaries } = require('../../../lib/core/slide-boundaries.mjs');
 const { approvalHash, applyTag, emitRegistry } = require('@workwel/lente');
 const engine = require('../../../lib/engine/index.js');
@@ -860,49 +860,8 @@ test.describe('dropping a slide changes the slides that stay — checked, not as
 		}
 	});
 
-	test('CSS that counts slides is refused on sight — it is the one thing two renders cannot show', () => {
-		// `section:nth-of-type(3) p:nth-of-type(2) { display: none }` on a KEPT slide is byte-identical in
-		// every render; what moves is the slide it counts to. Measured on the real CLI: the hidden
-		// sentence comes back at 770x36 pixels in the file that is sent, and the same shape with an
-		// `::after` marking drops `CONFIDENTIAL` from the exported PDF, pdftotext 1 -> 0.
-		const chunks = [
-			'<!-- _lens: brief -->\n\n# Board summary\n\n<style>\nsection:nth-of-type(3) p:nth-of-type(2) { display: none }\n</style>\n\nRevenue is up.\n',
-			'\n# Internal\n\nSecret.\n',
-			'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n\nWe expect to lose the Acme suit.\n',
-		];
-		const src = deckFrom(chunks);
-		const out = projectForExport(src, ['brief']);
-		assert.equal(out.ok, true, 'nothing about the projection itself is wrong');
-		const drift = crossSlideDrift(src, out.source, out.kept, render);
-		assert.ok(drift, 'a selector that counts slides cannot survive a projection');
-		assert.equal(drift.channel, 'positional-css');
-		assert.match(drift.selector, /nth-of-type/);
-	});
 
-	test('…and a `--lens` that keeps every slide is NOT refused for it', () => {
-		// A projection that moves nothing gives a positional selector nothing to count differently, and
-		// refusing there would refuse the identity export.
-		const chunks = [
-			'<!-- _lens: brief -->\n\n# Board summary\n\n<style>\nsection:nth-of-type(2) p { color: red }\n</style>\n\nRevenue is up.\n',
-			'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
-		];
-		const src = deckFrom(chunks);
-		const out = projectForExport(src, ['brief']);
-		assert.equal(crossSlideDrift(src, out.source, out.kept, render), null);
-	});
 
-	test('a slide-index attribute in author CSS is refused even on a kept slide — the projection renumbers it', () => {
-		const chunks = [
-			'<!-- _lens: brief -->\n\n# Board summary\n\n<style>\nsection[data-authored-slide="2"] { color: red }\n</style>\n\nRevenue is up.\n',
-			'\n# Internal\n\nSecret.\n',
-			'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
-		];
-		const src = deckFrom(chunks);
-		const out = projectForExport(src, ['brief']);
-		const drift = crossSlideDrift(src, out.source, out.kept, render);
-		assert.ok(drift);
-		assert.equal(drift.channel, 'positional-css');
-	});
 
 	test('an accent-shaped string in PROSE is content, not a hue — the neutralizer must not eat it', () => {
 		// The unanchored `\bcat-\d+` ran over rendered text, so a footer that really did change from
@@ -1159,53 +1118,6 @@ test.describe('the guards that cannot fire yet, driven through the injected rend
 		assert.equal(drift.channel, 'proxy', 'and it says so, so the message can tell the truth');
 	});
 
-});
-
-/**
- * WHICH SELECTORS COUNT AS POSITIONAL — the line between "this rule follows the slide" and "this rule
- * follows the slide's INDEX", pinned case by case.
- *
- * The distinction is the whole usability of the refusal: `li:nth-child(2)` counts list items and must
- * pass, `section:nth-of-type(3)` counts slides and must not. Two things this table caught that the
- * corpus could not. First, front-matter CSS arrives WRAPPED — `style: "section:nth-of-type(3) …"` puts
- * a quote immediately before the compound — and reading that quote as part of the selector made the
- * entire single-line front-matter form invisible, to the regex this replaced as well as to the walk
- * that replaced it. Second, the walk was written to answer CodeQL's exponential-backtracking alert on
- * that regex; a rewrite under time pressure is exactly when a behavioral pin earns its place.
- */
-test.describe('positional selectors: the line between a slide and a slide index', () => {
-	const inStyleElement = (css) => `---\nmarp: true\n---\n\n# A\n\n<style>\n${css}\n</style>\n`;
-	const inFrontMatter = (css) => `---\nmarp: true\nstyle: "${css}"\n---\n\n# A\n`;
-
-	const CASES = [
-		['section:nth-of-type(3) p { color: red }', true, 'counts slides'],
-		['section:hover:nth-of-type(2) { color: red }', true, 'counts slides through another pseudo-class'],
-		['section[data-authored-slide="0"] { color: red }', true, 'names an index the projection renumbers'],
-		['section.cover + section { color: red }', true, 'a sibling combinator between slides'],
-		[':nth-of-type(3) { color: red }', true, 'bare — it matches sections too'],
-		['*:nth-child(2) { color: red }', true, 'the universal selector matches sections too'],
-		['li:nth-child(2) { color: red }', false, 'counts list items, not slides'],
-		['ul > li + li { color: red }', false, 'a sibling combinator between list items'],
-		['.foo:first-child { color: red }', false, 'a class, not the slide element'],
-		['section.hushed .quiet { display: none }', false, 'the remedy the refusal message recommends'],
-	];
-
-	for (const [css, positional, why] of CASES) {
-		test(`${positional ? 'refuses' : 'allows'} \`${css.split('{')[0].trim()}\` — ${why}`, () => {
-			for (const [where, deck] of [['a <style> element', inStyleElement], ['front-matter `style:`', inFrontMatter]]) {
-				assert.equal(Boolean(positionalCss(deck(css))), positional, `${where} disagreed`);
-			}
-		});
-	}
-
-	test('a pathological selector does not hang the scan', () => {
-		// CodeQL flagged the first spelling of this — `section(?:[.#[:][^\s,{>+~]*)*` — high severity on
-		// both patterns: a repeated group whose body can start with the characters the group starts with.
-		// Author CSS is untrusted input on the Studio path (HARD RULE #22), so this is not a style point.
-		const started = Date.now();
-		positionalCss(inStyleElement(`\tsection${'#'.repeat(4000)}`));
-		assert.ok(Date.now() - started < 1000, 'the scan must be linear in the selector length');
-	});
 });
 
 test.describe('the neutralizer set is a pinned decision, not a growing convenience', () => {

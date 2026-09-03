@@ -2048,15 +2048,6 @@ if (LENS_PROJECTION) {
     process.exit(1);
   }
   const drift = crossSlideDrift(mdRaw, LENS_PROJECTION.source, LENS_PROJECTION.kept, renderAsShipped);
-  if (drift && drift.channel === 'positional-css') {
-    // THE ONE REFUSAL THAT IS NOT A DIFF. Everything else here renders the deck twice and compares; a
-    // selector that counts slides is byte-identical in both renders and lands on a different slide
-    // anyway, so it is refused on sight. Measured on this CLI: a `display:none` rule written on a KEPT
-    // slide left a sentence hidden in the preview and visible, 770x36 pixels, in the file sent.
-    console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (positional-css) — ${REFUSAL_REASONS['positional-css']}`);
-    console.error(`       Found ${drift.what}: \`${drift.selector}\`. Nothing was exported.`);
-    process.exit(1);
-  }
   if (drift && drift.channel === 'proxy') {
     // NOT A FINDING ABOUT THE DECK, and it must not be reported as one. The comparison builds a
     // same-length stand-in for the projection and checks it lines up before trusting it; when it does
