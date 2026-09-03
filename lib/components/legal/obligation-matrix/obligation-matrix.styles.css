@@ -46,6 +46,9 @@ section.obligation-matrix td {
   vertical-align:middle;
   color:var(--text-body);
 }
+/* Last row draws no rule — measured 25.0px above the below-note hairline. See the note
+   in base.elements.css's UNIVERSAL TABLE block. */
+section.obligation-matrix tbody tr:last-child td { border-bottom:none; }
 section.obligation-matrix td:first-child {
   text-align:left;
   font-weight:700;
