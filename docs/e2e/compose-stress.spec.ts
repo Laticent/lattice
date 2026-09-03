@@ -271,6 +271,23 @@ test('dragging a slide’s selection into another slide does not destroy a slide
 // EditorState away, unfolding everything. The unit tier only ever exercised the
 // `slideOp` path, so it stayed green while the shipped behavior was "fold a slide
 // away, do one ordinary thing, it is open again".
+// Folding ADJACENT slides. `DecorationSet.find(from, to)` matches anything OVERLAPPING the
+// range, and a slide's fold decoration ends exactly where the next slide's begins — so the
+// old `find(pos, pos + 1)` matched the PREVIOUS slide and removed its fold instead of adding
+// this one's. Two clicks on the shipped surface. Pinned as a unit test too
+// (`compose-collapse.test.ts`), and here because that bug was only ever visible by clicking.
+test('folding a slide next to a folded one keeps both folded', async ({ page }) => {
+	await collapseCap(page, 0).click();
+	await expect.poll(() => collapsedIndices(page)).toEqual([0]);
+	await collapseCap(page, 1).click();
+	await expect.poll(() => collapsedIndices(page)).toEqual([0, 1]);
+	await collapseCap(page, 2).click();
+	await expect.poll(() => collapsedIndices(page)).toEqual([0, 1, 2]);
+	// …and unfolding the middle one takes only that one.
+	await collapseCap(page, 1).click();
+	await expect.poll(() => collapsedIndices(page)).toEqual([0, 2]);
+});
+
 test('a folded slide stays folded — and follows its slide — across a rail move', async ({ page }) => {
 	await collapseCap(page, 3).click();
 	await expect.poll(() => collapsedIndices(page)).toEqual([3]);
