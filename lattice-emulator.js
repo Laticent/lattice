@@ -4926,6 +4926,9 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
 // few-seconds-then-retry instead of a multi-minute hang to the outer timeout (#502).
 (async () => {
   try {
+    // Before anything is written. The other reader-view checks are synchronous and ran at the source;
+    // this one needs a browser and two real documents, so it lands here, still ahead of every write.
+    if (LENS_PROJECTION) await verifyAuthorCssTracksItsSlides();
     await renderExport({ hardened: false });
   } catch (e) {
     if (isTargetGone(e)) {
@@ -4953,6 +4956,128 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
   console.error(`error: ${e?.message ? e.message : e}`);
   process.exit(1);
 });
+
+
+/**
+ * DOES THE DECK'S OWN CSS STILL SELECT THE SAME SLIDES ONCE THE DECK IS SHORTER?
+ *
+ * The one cross-slide mechanism a comparison of renders cannot see. `section:nth-of-type(3) p {
+ * display: none }` written on a slide the view KEEPS is byte-identical in the deck the sender previews
+ * and the file they send, and so is every slide's markup — nothing a diff can reach has moved. What
+ * moves is the slide the selector counts to, so a paragraph they hid comes back, measured here at
+ * 770x36 pixels, and an `::after` classification marking drops out of the exported PDF entirely.
+ *
+ * So the question goes to a browser: which slides does each of the author's rules match, in the deck
+ * as authored and in the deck as projected? No selector is parsed, so `:is()`, `:has()`, CSS escapes,
+ * attribute selectors and every spelling yet to be invented are covered by construction. A SCANNER for
+ * the same question was written first and removed: against 24 real idioms it refused 7 of 12 harmless
+ * ones and missed 6 of 12 dangerous ones, because `section[id="3"]` selects by position too and the
+ * space of spellings has no end. This comparison catches 8 of 8 measured leaks and raises 0 false
+ * alarms over 14 idioms real authors write, `* + *` and `li:nth-child(2)` among them.
+ *
+ * BOTH DOCUMENTS COME FROM THIS BINARY WITH THIS ARGV, minus only `--lens` and the output path. A
+ * cheaper stand-in was tried and is unsound: `lib/engine`'s render omits `data-lattice-slide`,
+ * `data-theme` and the section `style` attribute the real document carries, so a rule selecting on any
+ * of them matches the file that ships and not the probe — which is one of the attacks verbatim.
+ *
+ * AND A SLIDE-BODY `<style>` IS READ OFF THE PARSED DOCUMENT, never the markdown. A ```css fence
+ * teaching an example renders as `<pre><code>` and applies to nothing; a regex over the source cannot
+ * tell the two apart, and refusing a deck for a fenced example is the failure this branch has already
+ * paid for six times on the `_lens` tag.
+ */
+async function verifyAuthorCssTracksItsSlides() {
+  const { carriesAuthorCss, selectorSlideDrift, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
+  // The cheap half of the gate, before anything is rendered. A `<style` in the source is only a HINT
+  // — whether it is an element or a fenced example is settled below, by the parser.
+  if (!carriesAuthorCss(mdRaw) && !/<style\b/i.test(mdRaw) && !(cssFile && !cssIsDefault)) return;
+
+  const os = require('os');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-lens-'));
+  // Everything the caller passed, except what must change: the deck (replaced), the output (ours), and
+  // the lens flags (the authored render is the deck WITHOUT a view). Filtering rather than
+  // reconstructing, so a flag nobody thought of here still reaches both renders.
+  const LENS_FLAG = /^--lens(-default|-source)?(=|$)/;
+  const OUT_FLAG = /^(-o|--output)(=|$)/;
+  const passthrough = [];
+  const argv = process.argv.slice(2);
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === mdFile || (outFile && a === outFile)) continue;
+    if (OUT_FLAG.test(a) || LENS_FLAG.test(a)) { if (!a.includes('=')) i += 1; continue; }
+    passthrough.push(a);
+  }
+  const run = (deck, out) => require('child_process').execFileSync(
+    process.execPath, [__filename, deck, ...passthrough, '--quiet', '-o', out],
+    { stdio: 'pipe', env: process.env, timeout: 300000 },
+  );
+  const authoredHtml = path.join(tmp, 'authored.html');
+  const shippedHtml = path.join(tmp, 'shipped.html');
+  const projectedMd = path.join(tmp, 'projected.md');
+  let browser;
+  try {
+    fs.writeFileSync(projectedMd, LENS_PROJECTION.source);
+    run(mdFile, authoredHtml);
+    run(projectedMd, shippedHtml);
+    const launchOpts = { args: ['--no-sandbox', '--disable-setuid-sandbox'], headless: 'new' };
+    if (CHROME_EXEC) launchOpts.executablePath = CHROME_EXEC;
+    browser = await puppeteer.launch(launchOpts);
+    const page = await browser.newPage();
+    const readCss = async (file) => {
+      await page.goto(`file://${file}`, { waitUntil: 'domcontentloaded' });
+      return page.evaluate(() => [...document.querySelectorAll('section style')].map((el) => el.textContent).join('\n'));
+    };
+    const bodyCss = await readCss(authoredHtml);
+    const layoutCss = cssFile && !cssIsDefault ? fs.readFileSync(cssFile, 'utf8') : '';
+    const { readGlobalStyle } = require('./lib/core/front-matter-key');
+    const css = [readGlobalStyle(fm), bodyCss, layoutCss].filter(Boolean).join('\n');
+    if (!carriesAuthorCss(mdRaw, bodyCss, layoutCss)) return;
+    const sets = async (file) => {
+      await page.goto(`file://${file}`, { waitUntil: 'domcontentloaded' });
+      return page.evaluate((cssText) => {
+        const probe = document.createElement('style');
+        probe.textContent = cssText;
+        document.head.appendChild(probe);
+        const selectors = [];
+        const walk = (rules) => { for (const r of rules) { if (r.selectorText) selectors.push(r.selectorText); else if (r.cssRules) walk(r.cssRules); } };
+        try { walk(probe.sheet.cssRules); } catch { /* CSS the browser cannot parse styles nothing */ }
+        probe.remove();
+        // querySelectorAll cannot match a pseudo-ELEMENT, and it throws rather than returning nothing —
+        // which left `section:nth-of-type(3)::after { content: "CONFIDENTIAL" }` unchecked. The HOST is
+        // what moves between the two decks, so match that and let the pseudo ride along on it.
+        const host = (sel) => sel.replace(/::?(?:before|after|first-line|first-letter|marker|placeholder|selection|backdrop)\b(\([^)]*\))?/gi, '').trim() || '*';
+        const out = {};
+        for (const sel of selectors) {
+          let matched;
+          try { matched = document.querySelectorAll(host(sel)); } catch { continue; }
+          const slides = new Set();
+          for (const el of matched) {
+            const sec = el.closest('section[data-authored-slide]');
+            if (sec) slides.add(Number(sec.getAttribute('data-authored-slide')));
+          }
+          out[sel] = [...slides].sort((a, b) => a - b);
+        }
+        return out;
+      }, css);
+    };
+    const drift = selectorSlideDrift(await sets(authoredHtml), await sets(shippedHtml), LENS_PROJECTION.kept);
+    if (drift) {
+      console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (positional-css) — ${REFUSAL_REASONS['positional-css']}`);
+      console.error(`       \`${drift.selector}\` matches slide${drift.was.length === 1 ? '' : 's'} ${drift.was.length ? drift.was.map((n) => n + 1).join(', ') : '(none)'} of the deck you wrote, but ${drift.now.length ? `slide${drift.now.length === 1 ? '' : 's'} ${drift.now.map((n) => n + 1).join(', ')}` : 'nothing'} of the file that would ship. Nothing was exported.`);
+      process.exit(1);
+    }
+  } catch (e) {
+    if (e?.code === 'ERR_EXIT') throw e;
+    // A probe that cannot RUN must not silently pass — this deck styles slides itself, which is the
+    // one thing the other checks cannot see.
+    console.error(`error: the reader-view export could not verify this deck's own CSS (${String(e?.message ?? e).split('\n')[0].slice(0, 120)}).`);
+    console.error('       The deck carries CSS of its own, and a rule that selects slides by position is the one');
+    console.error('       thing comparing two renders cannot show. Nothing was exported.');
+    process.exit(1);
+  } finally {
+    if (browser) await browser.close().catch(() => {});
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
 
 // Attach each slide's speaker note as a PDF "Text" annotation (a sticky note)
 // in the top-left corner of its page, so any PDF viewer surfaces it on click.

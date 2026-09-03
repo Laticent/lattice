@@ -225,23 +225,28 @@ The export renders the deck both ways, compares each kept slide against itself, 
 rather than shipping the difference. Put deck-wide settings in the front matter, or on a
 slide every view keeps.
 
-**One thing it does NOT check, said plainly: CSS that picks a slide by its number.**
-If your deck carries `section:nth-of-type(3) p { display: none }` — hide the paragraph on
-slide 3 — and you export a view that drops slides before it, the slide that *becomes*
-number 3 is a different one. A paragraph you had hidden can come back in the file you
-send. The check above cannot see this, and not by oversight: the stylesheet is
-byte-identical in both files and so is every slide's markup. Nothing moved that comparing
-renders can find; only what a browser *computes* differs.
+**And a third, if your deck carries CSS of its own: a rule that picks a slide by its
+number.** Write `section:nth-of-type(3) p { display: none }` — hide the paragraph on slide
+3 — and export a view that drops slides before it, and the slide that *becomes* number 3 is
+a different one. A paragraph you had hidden can come back in the file you send; an `::after`
+classification marking can vanish from it. This is the one thing comparing two renders
+cannot show you: the stylesheet is byte-identical in both files, and so is every slide's
+markup. Only which slide the selector counts to has moved.
 
-Catching it means rendering both decks in a real browser and comparing computed style,
-which costs about five seconds per export. That is filed as #2053 rather than built, because the
-class has no observed instances: of the 150 decks in `examples/`, two carry a `<style>` at
-all — both written by the Studio, both selecting by class — and none selects by position.
-A scanner for it was built and removed: measured against 24 real CSS idioms it refused
-seven of twelve harmless ones, including `p:not(:last-child)` and a deck whose only CSS was
-a comment, while missing six of twelve dangerous ones. If you do style by slide number,
-prefer a class you set on the slide (`<!-- _class: hushed -->`, then `section.hushed …`) —
-it travels with the slide instead of counting to it.
+So the export asks a browser instead. It renders your deck both ways and, for each rule you
+wrote, compares which slides that rule matches — before and after. A rule that matched slide
+3 must land wherever slide 3 went; one that matched a slide you withheld must match nothing.
+Anything else refuses, naming the rule and both answers. Nothing is parsed, so `:is()`,
+`:has()`, escapes and attribute selectors are covered without being listed.
+
+**This runs only when your deck has CSS of its own** — a `<style>`, a front-matter `style:`,
+or a `--css` file. Of the 150 decks in `examples/`, two do. Everything else skips it and
+pays nothing (measured: 1.7 s either way; 6.2 s when it runs). And a ```css block teaching
+an example is not styling: it renders as code, so it is read off the parsed document rather
+than the markdown, and never trips the check.
+
+**The fix, when it does refuse:** style a class you set on the slide — `<!-- _class: hushed -->`
+and `section.hushed …`. A class travels with the slide instead of counting to it.
 
 **And your `captions:` travel with the slides.** The block is keyed by slide number, so a
 projection renumbers it: entries for withheld slides are dropped, and the rest are

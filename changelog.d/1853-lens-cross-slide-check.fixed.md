@@ -88,14 +88,20 @@
   it, so it belongs to no view and cannot misdirect one; the count is derived by splitting both
   sources rather than by naming the transform, so the next appender is counted without being named.
   The report line now says so too — "2 of 3 slides ship" beside a three-slide file described neither.
-- **Known and stated: CSS that picks a slide by its number is not checked.** `section:nth-of-type(3)
-  p { display: none }` lands on a different slide once the deck is shorter, and comparing the two
-  renders cannot see it — the stylesheet is byte-identical on both sides and so is every slide's
-  markup. Only computed style differs, so catching it means rendering both decks in a real browser
-  (measured: +5.2s per export). Filed as a follow-up rather than built, because the class has no
-  observed instances: of the 150 decks in `examples/`, 2 carry a `<style>` at all — both
-  Studio-generated, both selecting by class — and none selects by position. A scanner for it was
-  built and removed: against 24 real CSS idioms it refused 7 of 12 harmless ones (`p:not(:last-child)`,
-  and a deck whose only CSS was a comment) while missing 6 of 12 dangerous ones, because
-  `section[id="3"]` selects by position too and the space of spellings has no end. Wrong half the time
-  in each direction is worse than a stated bound. `design/skills/lens.md` says so where authors read, and #2053 carries the measurement for the day it is built.
+- **New: CSS that picks a slide by its number is now checked, in a real browser.**
+  `section:nth-of-type(3) p { display: none }` lands on a different slide once a projection makes the
+  deck shorter — a paragraph the author hid comes back in the file that ships (measured: `display:none`
+  and 0x0 in the preview, `display:block` and 770x36 in the export), and an `::after` classification
+  marking drops out of the exported PDF entirely (`pdftotext` 1 to 0). Comparing two renders cannot see
+  it: the stylesheet is byte-identical on both sides and so is every slide's markup. So the export
+  renders the deck both ways and asks the browser which slides each of the author's rules matches,
+  requiring the second answer to be the first mapped through the kept set. Nothing is parsed, so
+  `:is()`, `:has()`, CSS escapes and attribute selectors on `id` or `data-lattice-pagination` are all
+  covered by construction — every one of them a spelling the scanner this replaced walked straight
+  past. Measured end to end on the real CLI: 8 of 8 leaks refuse, 14 of 14 idioms real authors write
+  ship, including `* + *` and `li:nth-child(2)`, both of which the scanner refused.
+  It is gated on the deck carrying CSS at all — 2 of the 150 decks in `examples/` — so a deck without
+  it pays nothing (1.7 s either way; 6.2 s when the check runs). A slide-body `<style>` is read off the
+  PARSED document, never the markdown, so a ```css fence teaching an example contributes nothing.
+  A `readGlobalStyle` copy is no longer local to the CLI: the export and the document are built from
+  the one reader, so they cannot disagree about whether a deck carries CSS. Closes #2053.
