@@ -2798,7 +2798,7 @@ The second tap is a different request that means the same thing. So the page min
 
 ## The phone can drop off after the card is charged, and it often does.
 
-The card network answers your payment provider, not the driver's phone. So the provider calls you back on a webhook, and that call is what marks the session paid. A lost signal then costs the driver a spinner rather than a park.
+The card network answers your payment provider, not the driver's phone. So the provider calls you back on a webhook, and that call is what marks the session paid. A lost signal then costs the driver a spinner rather than a park: the webhook lands, the row flips to paid, and the warden sees a paid bay whether or not the phone ever came back.
 
 That endpoint is on the public internet. Check the signature your provider sends before you believe a field in it, or you have built a free parking machine. And it will arrive more than once: key it on the payment reference and let the repeat land on nothing.
 
@@ -2838,9 +2838,9 @@ Write down the one question they ask the system, roughly how often it is asked, 
 ## Two hundred lots, and the manual parts give out before the machine does.
 
 - What actually changed
-  - Not the traffic. The manual work. One warden typing bay numbers held at one lot and gives out at two hundred.
+  - Not the traffic. The manual work. One warden typing bay numbers held at one lot and gave out long before two hundred.
 - Give the warden a list, not a keyboard
-  - Their phone asks the indexed question once for the whole lot and shows the bays that are not paid.
+  - The question becomes "which bays in this lot are unpaid". Forty rows, and the same index still answers it.
 - Move slow work off the path a driver waits on
   - Owner reports go to a read replica. Receipts and nightly payouts go behind a bounded queue.
 
