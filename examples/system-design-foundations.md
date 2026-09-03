@@ -1526,8 +1526,8 @@ Networks duplicate, clients retry, queues redeliver. The only question is whethe
    - Not suspected. A number, a graph, and the resource it belongs to.
 2. Every queue is bounded
    - An unbounded queue turns a throughput problem into a memory outage.
-3. Load sheds before it collapses
-   - The system rejects work at the edge rather than failing everywhere at once.
+3. Admission control sheds load before the system collapses
+   - A balancing loop from Part one: reject at the edge, not everywhere at once.
 4. Adding a machine is routine
    - No manual steps, no rebalancing outage, no cold-cache stampede.
 
@@ -1598,7 +1598,7 @@ flowchart LR
 1. Timeout
    - Bound the wait, so a slow callee cannot hold your resources.
 2. Retry with backoff
-   - Recover from a blip, with a budget and jitter so you do not amplify it.
+   - Recover from a blip, with a budget and jitter. Retries without them are a reinforcing loop.
 3. Circuit breaker
    - Stop calling something that is clearly down, and let it recover.
 4. Bulkhead
@@ -2099,7 +2099,7 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 - One strategy for everyone
   - Simple to explain, guaranteed to fail at one end. Push drowns on celebrities; pull costs hundreds of reads per page for everyone else.
 - Split at the threshold
-  - Push from ordinary accounts, pull from high-follower accounts, merge the two at read time. Ordinary posts land in a page that is already built; the celebrities she follows are fetched on demand and merged in, so no writer ever fans out to millions. The read costs one lookup plus ten to thirty fetches, and each strategy runs where its cost curve is the lower one.
+  - Ordinary posts land in a page that is already built; the celebrities she follows are fetched on demand and merged in, so no writer ever fans out to millions. The read costs one lookup plus ten to thirty fetches.
 
 > The threshold is not a preference. It is where two cost curves cross, and the graph draws it.
 
@@ -2113,7 +2113,7 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 
 Fifty thousand puts a fraction of a percent of accounts on the pull path. Someone following three hundred typically has ten to thirty above the line.
 
-Run the tail arithmetic: at thirty pulls and a one-percent slow call, `1 - 0.99^30` is twenty-six percent of pages hitting at least one. So **cap the pulls at twenty**, taking the sources that posted most recently. A cap trades completeness for a bounded tail, and you should say out loud which one you are buying: past the cap, a reader misses posts from the quietest accounts they follow. Crossing the threshold does not rewrite history — old entries age out.
+Run the tail arithmetic: at thirty pulls and a one-percent slow call, `1 - 0.99^30` is twenty-six percent of pages hitting at least one. So **cap the pulls at twenty**, taking the sources that posted most recently. A cap trades completeness for a bounded tail: past it, a reader misses posts from the quietest accounts they follow. Crossing the threshold does not rewrite history — old entries age out.
 
 The better predicate is fan-out work per day: fifty thousand followers posting forty times a day costs more than two hundred thousand posting weekly.
 
@@ -2215,7 +2215,7 @@ Batching is not only throughput. Eighty parallel calls put `1 - 0.99^80`, fifty-
 The feed is eventually consistent, which is correct for everyone else's posts and completely wrong for your own. A person who posts and does not see it reads that as data loss, not as staleness, and posts again.
 
 - Where it comes from
-  - Read-your-writes, the consistency rung from part four, applied to something.
+  - Read-your-writes, the consistency rung from Part four, applied to something.
 - Write your own feed synchronously
   - Inside the POST request, before it returns. One extra write, on one key.
 - And let the client help
@@ -2241,7 +2241,7 @@ flowchart LR
   CDN -->|"8 · serves"| V
 ```
 
-*Step 2 is the one place an untrusted client writes straight into your storage. So the grant carries four limits: one content type, a size ceiling, a short expiry, and a rate per account. Without them, anyone can fill your storage at your expense, and step 4 hands bytes they chose to an image decoder. All input is untrusted, including input you asked for.
+*Step 2 is the one place an untrusted client writes straight into your storage. So the grant carries four limits: one content type, a size ceiling, a short expiry, and a rate per account. Without them, anyone can fill your storage at your expense, and step 4 hands bytes they chose to an image decoder. All input is untrusted, including input you asked for.*
 
 ---
 
