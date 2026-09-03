@@ -251,7 +251,7 @@ flowchart TB
   end
 ```
 
-> Same four people, and nothing changed but who waits on whom. Monday spends twenty minutes and settles nothing; Tuesday spends one sentence and saves a morning.
+> Nothing changed but who waits on whom. Monday settles nothing in twenty minutes; Tuesday saves a morning with one sentence.
 
 ---
 
@@ -969,7 +969,7 @@ flowchart TB
   end
 ```
 
-> A cache and a CDN are the same idea at two distances: keep the answer nearer than the store that owns it.
+> A cache and a CDN are one idea at two distances: keep the answer nearer than its store.
 
 ---
 
@@ -1437,7 +1437,7 @@ flowchart LR
 - By tenant or region
   - Matches both the access pattern and the law, until one tenant grows enormous.
 
-> Name the query that will now cross shards. If you cannot, you have not chosen a key — you have chosen a hash.
+> Name the query that will cross shards. If you cannot, you chose a hash, not a key.
 
 ---
 
@@ -1672,7 +1672,7 @@ flowchart TB
 2. Deployments are reversible
    - A rollback is a routine operation, not an incident response.
 3. Capacity is a number somebody owns
-   - Not "it autoscales" — the ceiling, the cost, and who gets paged at it.
+   - Not "it autoscales" — the ceiling, the cost, and who gets paged at it. Maya's twelve-minute build was a ceiling nobody owned, and she paid it on every push.
 4. Startup does not depend on startup order
    - Services retry into each other instead of requiring a sequence.
 
@@ -1705,7 +1705,7 @@ flowchart TB
   end
 ```
 
-> Both spend the same currency, and it is the one you can never earn back: a hop you did not have to take.
+> Both spend the one currency you can never earn back: a hop you did not have to take.
 
 ---
 
@@ -1830,7 +1830,7 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
 3. Every write is idempotent or keyed
    - The network will deliver your request twice. Decide now what that means.
 4. Distance appears in the design
-   - Round trips between regions are counted on purpose, not discovered in production.
+   - Counted on purpose, not discovered in production. Maya's reviewer was six time zones away.
 
 ---
 
@@ -2177,7 +2177,7 @@ Under pressure something has to give. Either you decided in advance which featur
 ## Production earns trust one of these at a time.
 
 1. Every dependency has a defined failure behavior
-   - Written down: degrade, queue, or fail fast. Never "we will see."
+   - Written down: degrade, queue, or fail fast. Never "we will see." Three teams learned theirs was exactly that when the registry went down at 09:05.
 2. Redundant copies fail independently
    - Different zones, different deploys, different upstreams. Otherwise it is one copy.
 3. Recovery is practiced
@@ -2236,7 +2236,7 @@ flowchart TB
   end
 ```
 
-> You sign what leaves and you distrust what comes back, because neither one runs on a machine you own.
+> Sign what leaves, distrust what comes back: neither runs on a machine you own.
 
 ---
 
@@ -2775,7 +2775,7 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 - Split at the threshold
   - Ordinary posts land in a page that is already built; the celebrities she follows are fetched on demand and merged in, so no writer ever fans out to millions. The read costs one lookup plus the celebrity pulls.
 
-> One writer fanning out to five hundred million is the case no amount of tuning survives. That is what sets the line.
+> No tuning survives one writer fanning out to five hundred million. That is what sets the line.
 
 ---
 
@@ -3007,7 +3007,7 @@ flowchart LR
   CDN -->|"3 · serves"| V
 ```
 
-> The authorizer decides once. After that the CDN only checks a signature, and a signed link outlives the decision behind it.
+> The authorizer decides once. After that the CDN only checks a signature, and the link outlives that decision.
 
 ---
 
@@ -3058,7 +3058,7 @@ Every like is a write against the same post id — one key, one partition, one l
 - A cold celebrity key
   - A million readers miss it at once. Serve them one refill, not a million reads.
 
-> A feed is a cache of a relationship. Change the relationship, leave the cache alone, and the reader is shown something untrue.
+> A feed is a cache of a relationship. Change the relationship, leave the cache, and the reader sees a lie.
 
 ---
 
