@@ -44,7 +44,7 @@ We start with one engineer's Tuesday. We design Instagram, then run the whole me
 
 <!-- _class: agenda -->
 
-## Where this goes.
+## This deck runs in six movements.
 
 1. A Tuesday — one engineer, wake to sleep
 2. The words — naming what you just watched
@@ -554,7 +554,7 @@ The protagonist is who the system is for. The antagonist is what makes serving t
 
 `The drill`
 
-## Two sentences, ninety seconds, and four things you no longer have to guess.
+## Two sentences take ninety seconds and settle four things you were guessing at.
 
 ```text
 Protagonist:  <name> wants to <do X> so that <Y>.
@@ -894,7 +894,7 @@ Write a rung for each and one sentence on what it costs. Then turn the page.
 
 `Part four`
 
-## Six kits: fifteen things you can reach for, and the invariants behind all of them.
+## Six kits hold sixteen things you can reach for, and the invariants behind all of them.
 
 ---
 
@@ -902,7 +902,7 @@ Write a rung for each and one sentence on what it costs. Then turn the page.
 
 `How to read a kit`
 
-## Reach for it when, walk away when, and the constraint you inherit.
+## Every entry in every kit answers the same three questions.
 
 One shape for every entry you choose between — a store, a runtime, a delivery tier, a quota — so you can hold two options side by side without re-reading a manual. Scale and reliability are mostly practices rather than choices, so those two kits run on diagrams, patterns and invariants instead. Every kit opens with a diagram and closes with its invariants.
 
@@ -978,13 +978,13 @@ Answer these before anyone says a brand. Most database arguments are really a di
 
 ## Those five questions do not all fire at once. The choice runs in three passes.
 
-Pass one asks about shape and access, and it picks the store you start from. The next slide draws that pass as a tree, and for most systems it is the whole decision.
+Pass one takes three of those five — shape, access, and whether it still fits one machine — and picks the store you start from. The next slide draws it as a tree, and for most systems it is the whole decision.
 
-Pass two asks whether anything you need is a capability no shape provides. There are six, and one can delete a whole tier: a database that streams to clients is the socket service you were about to write.
+Pass two asks a sixth question the five do not cover: do you need a capability no shape provides? There are six of those, and one can delete a whole tier.
 
 Pass three runs only when two candidates both fit, and settles it on how each behaves at 3am rather than on what it stores.
 
-Consistency is not a pass. You carry it into all three, and the three slides after pass three are about nothing else.
+Consistency is not a pass. You carry it into all three.
 
 ---
 
@@ -1208,6 +1208,21 @@ The genuinely derived stores are the search index, the vector index, the cache a
 | How does data get out? | A dump, a change stream, or nothing at all |
 | How long is a restore? | Backups are easy. The restore is the number |
 | Who already runs one here? | A store your team knows beats a better one nobody has run |
+
+---
+
+<!-- _class: cards-stack -->
+
+`Data kit · replicas`
+
+## A replica serves reads and always lags the copy it follows.
+
+- Reach for it when
+  - Reads outgrow one machine, and a few seconds behind is safe for most of them.
+- Walk away when
+  - A reader must see their own write, or you hoped the copy would take writes too.
+- The constraint you inherit
+  - Lag, and promotion. A reader sees a past you have left, and a promoted replica loses whatever never reached it.
 
 ---
 
@@ -1579,9 +1594,13 @@ flowchart LR
 
 1. Memory read
    - 100 ns
-2. Datacenter hop
+2. Read from an SSD
+   - 100 us
+3. Datacenter hop
    - 0.5 ms
-3. Cross-continent round trip
+4. Seek on a spinning disk
+   - 10 ms
+5. Cross-continent round trip
    - 150 ms
 
 ---
@@ -1660,7 +1679,7 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
 
 `Scale kit · the patterns`
 
-## The four moves, and what each one costs you.
+## Each of the four moves buys throughput and charges you for it.
 
 ```mermaid
 flowchart TB
@@ -2179,7 +2198,7 @@ Write four lines: the protagonist, the antagonist, one invariant that must never
 
 `One answer · discover`
 
-## Four lines, and the last two are the ones that decide the design.
+## Four lines, and the last two decide the design.
 
 ```text
 Protagonist  A student at 08:59, one course short of a full timetable.
@@ -2212,12 +2231,12 @@ Do not draw an architecture. Four lines again, then turn the page.
 
 1. The rung
    - Scaled. The load is known and the invariant is not negotiable.
-2. Relational, with a conditional write
-   - The seat count is the one thing here that cannot be eventually consistent.
+2. Relational, and the condition goes inside the write
+   - Decrement `WHERE seats_left > 0`, then check how many rows changed. Read the count first and decide in your code, and two requests both see the last seat.
 3. A bounded queue in front of it
    - Admitted in order, each told their place. The store never sees twelve thousand at once.
 4. What you would remove
-   - The queue, out of term. It earns its place one hour a year.
+   - The queue, once registration closes. It earns its place one hour a year.
 
 ---
 
@@ -2408,7 +2427,22 @@ following                              followers
   capped at 7,500 rows                   B = clamp(followers / 10_000, 1, 512)
 ```
 
-*The forward edge is the source of truth, and it stores the bucket and timestamp its reverse row was written with — together those address the row exactly. That is what lets an unfollow find the reverse edge years later: `B` has grown since, so recomputing `hash(source) % B` now lands somewhere else and the edge would never be deleted. A background job rebuilds the reverse table from the forward edges and repairs drift. `B` is a high-water mark stored on the account, not the live follower count: counts fall when people unfollow, and a smaller `B` would strand every edge in the buckets above it. It ratchets up and never down, and a fan-out worker reads it fresh rather than from the cached count a profile page shows, because a stale, smaller `B` scans too few buckets and silently skips the newest followers. Early edges were written when `B` was smaller, so the low-numbered buckets hold several times the average until `B` reaches its cap.*
+*The forward edge stores the bucket its reverse row went into. Without that, an unfollow years later cannot find the row to delete: `B` has grown since, so recomputing `hash(source) % B` lands somewhere else. A background job rebuilds the reverse table from the forward edges and repairs any drift.*
+
+---
+
+<!-- _class: cards-stack -->
+
+`Instagram · the number that must not shrink`
+
+## B is a high-water mark on the account, not a live follower count.
+
+- Counts fall, and B does not follow them down
+  - Someone unfollows and the count drops. Shrink `B` and every edge in the buckets above it is stranded.
+- A fan-out worker reads B fresh
+  - Never from the cached count a profile page shows. A stale, smaller `B` scans too few buckets and skips the newest followers.
+- The low buckets run heavy
+  - Edges written while `B` was small crowd the early buckets, until `B` reaches its cap.
 
 ---
 
@@ -2484,7 +2518,7 @@ Five hundred million feed inserts at roughly fifty bytes each, from a single API
 
 Pushing costs one write per follower, and the follower count is unbounded. Pulling costs one read per followee, and the followee count is capped at seven and a half thousand. So push is cheap exactly where the unbounded side is small, and pull is cheap exactly where the bounded side is what you walk.
 
-There is a second reason, and it is the better one: a celebrity's recent-posts list is written once and read five hundred million times. It is the most cacheable object in the system.
+There is a second reason, and it is the better one: a celebrity's recent-posts list is written once and read five hundred million times. Nothing else in the system has a ratio like that.
 
 ---
 
@@ -2513,7 +2547,7 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 
 Fifty thousand puts a fraction of a percent of accounts on the pull path, yet someone following three hundred typically has ten to thirty above it — the accounts a person picks are not a random sample.
 
-Thirty pulls at a one-percent slow call puts the page in trouble, so **cap the pulls at twenty**, newest first. The next slide checks whether that works.
+Thirty pulls at a one-percent slow call puts the page in trouble, so **cap the pulls at twenty**, newest first.
 
 The better predicate is fan-out work per day. Fifty thousand followers posting forty times a day costs more than two hundred thousand posting weekly, and the product is what you pay for.
 
@@ -2726,7 +2760,7 @@ Every like is a write against the same post id — one key, one partition, one l
 - The same post twice
   - A crossed threshold leaves it in the pushed page and in the pull. Dedupe at the merge.
 - A cold celebrity key
-  - A million readers miss it at once. One reader refills it while the rest wait on that fill.
+  - A million readers miss it at once. Serve them one refill, not a million reads.
 
 > A feed is a cache of a relationship. Change the relationship, leave the cache alone, and the reader is shown something untrue.
 
@@ -3008,7 +3042,7 @@ What the card fee takes from a three-dollar park, at thirty cents plus 2.9 perce
 
 `Parking · where the kits landed`
 
-## Five kit entries carried this design, and you met all five before you saw the problem.
+## Five moves carried this design, and every one of them came out of a kit.
 
 Relational, because nothing here outgrows one machine and the questions keep changing — pass one ended there. An index, on the one question a warden asks. Idempotency twice over: on the driver's second tap, and on a webhook your provider will send again. A read replica, to keep reports off the path a driver waits on. A bounded queue, for the work nobody is waiting for.
 
