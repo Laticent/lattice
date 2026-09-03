@@ -1090,7 +1090,7 @@ flowchart LR
 
 ## A capability usually adds a store beside the source. Live push and retention replace the one you started from.
 
-| Capability | The question it answers | What you add |
+| Capability | The question it answers | Where it lives |
 | --- | --- | --- |
 | Similarity | What is closest in meaning to this? | A vector index |
 | Ranked text | Which document best matches these words? | A search index |
