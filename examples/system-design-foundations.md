@@ -536,8 +536,8 @@ Antagonist:   But <W> — and W is <a number>.
 
 - Maya wants 482 merged before four o'clock
   - So that a bug affecting real users stops affecting them, and so she is not carrying it into next week.
-- But she is interrupted about half a dozen times
-  - Not once by anything unreasonable. A page, a favor, four status requests. Each costs the reload, not just the minute.
+- But she is interrupted six times
+  - A page, a favor, four status requests. Not one of them unreasonable, and each costs the reload, not just the minute.
 
 ---
 
@@ -579,7 +579,7 @@ Naming one as the protagonist is not a slogan, it is a decision about who waits.
 She opens the app a dozen times a day, on a cellular network, usually while doing something else. She wants photographs from the people she chose, recent, ranked, and hers. The poster is a supporting character: he tolerates a spinner, and every time the design has a choice, work goes onto his side.
 
 - The reader's demand
-  - A fresh, personal page in under a second, twelve times a day, from anywhere.
+  - A page on her phone in under a second, which is 200 ms of server time plus the network.
 - The poster can wait
   - Uploading, transcoding and delivery may all take their time. Nobody is watching.
 - Casting decides the design
@@ -599,7 +599,7 @@ Scale is a quantity, and quantities have a price you can pay. The thing you cann
 - The number that matters
   - The median account has about 150 followers. The largest has five hundred million.
 - One algorithm cannot serve both
-  - Nothing else in this design spans six orders of magnitude. That is why there are two paths.
+  - That gap is why the design ends up with two paths instead of one.
 - Hold on to this
   - Every hard decision in Part five is this one fact again.
 
@@ -776,7 +776,7 @@ Antoine de Saint-Exupéry wrote that perfection arrives not when there is nothin
 
 `Part four`
 
-## Every kit entry answers the same three questions, in the same order.
+## Six kits, and one card shape you will recognize sixteen times.
 
 ---
 
@@ -1910,26 +1910,24 @@ Solution type Scaled. Not an MVP, not optimal.
 
 Assume 500 million daily users opening the feed twelve times a day, and 100 million photos posted a day. The rest is division. Twelve opens each, times five hundred million people, over the seconds in a day: about `70K` reads a second. A hundred million posts over the same day: `1.2K` writes. At two megabytes each: `200 TB` a day. The ratio lands near `60:1`.
 
-The twelve is the only number doing real work. Change the 500 million while holding opens and posts per user fixed, and the ratio does not move. Change how often people post, and it does.
+One of those numbers does less work than it looks. Change the 500 million, holding opens and posts per person fixed, and the ratio does not move at all.
 
 ---
 
-<!-- _class: list-tabular metric -->
+<!-- _class: list-tabular -->
 
-`Instagram · the envelope`
+`Instagram · what each number decides`
 
-## The architecture starts arguing at five numbers.
+## Four numbers decide something here. The 500 million users decide nothing.
 
-1. Daily active users
-   - 500 M
-2. Photos per day
-   - 100 M
-3. Average writes
-   - 1.2 K per second
-4. Average feed reads
-   - 70 K per second
-5. Media stored daily
-   - 200 TB
+1. Writes · 1.2 K/s
+   - One machine could take these. The write path was never the hard part.
+2. Feed reads · 70 K/s
+   - A fleet, and the number everyone sizes from. It is not the real one.
+3. Media · 200 TB a day
+   - An object store, not a database. Settled right here.
+4. Followers · up to 500 M
+   - The only number with no ceiling. Two read paths come from this.
 
 ---
 
@@ -2051,7 +2049,7 @@ Hold that design in your head. Now a single account with five hundred million fo
 Five hundred million feed inserts at roughly fifty bytes each, from a single API call.
 
 - 500 seconds of queue
-  - At a million inserts a second, that is eight minutes serving nobody else.
+  - Assume the fan-out fleet drains a million inserts a second: eight minutes serving nobody else.
 - 330K inserts a second
   - The platform's ordinary load: 1.2K posts times a mean fan-out near 280. Totals need the mean. The median is far lower and would halve your estimate.
 - 25 minutes of backlog
@@ -2082,7 +2080,7 @@ Five hundred million feed inserts at roughly fifty bytes each, from a single API
 
 `Why the hybrid is forced`
 
-## The graph decides where the two cost curves cross.
+## Neither strategy is wrong. Each one is wrong somewhere.
 
 Pushing costs one write per follower, and the follower count is unbounded. Pulling costs one read per followee, and the followee count is capped at seven and a half thousand. So push is cheap exactly where the unbounded side is small, and pull is cheap exactly where the bounded side is what you walk.
 
