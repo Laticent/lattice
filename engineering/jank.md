@@ -283,7 +283,11 @@ Narrower than the word suggests. It means: *one* anchor you named, on *one* comp
   is ambiguous in a way that reads as a broken tool, so the row names what is sitting in the
   band.
 - **One component, one family, one theme per run.** There is no corpus mode and no
-  committed oracle — see below.
+  committed oracle — see below. All four families, a second theme (`cuoio`) and both
+  non-heading axes have been driven by hand and behave; what the falsifiability suite
+  PINS is wide / indaco / heading, so a regression outside that cell would not red a gate.
+  `--axis words` needs room to bite — it was vacuous at `--max 6` on `cards-grid` and moved
+  the ink 51.3px at `--max 20`, which is the vacuity warning doing its job, not a defect.
 - **The tool is not a CI gate; its falsifiability test is.** Sweeping the corpus per PR
   would be the flake generator — dozens of Chromium renders whose verdicts are
   wall-clock-adjacent, which is why `overflow:check` and `bench:check` are held back too.
