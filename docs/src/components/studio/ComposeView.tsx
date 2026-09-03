@@ -11,7 +11,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
-import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, type SlideTables, slideTakesTable } from '@/lib/compose/registers';
+import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
 import { hasFinePointer } from '@/lib/use-breakpoint';
@@ -156,9 +156,20 @@ export function structuralGuard() {
 			// So you could never GROW a deck by pasting, which is how a non-technical author
 			// duplicates a section.
 			//
+			// PASTE ONLY — NOT DROP, and that distinction was measured, not assumed. An earlier
+			// version of this line exempted `uiEvent: 'drop'` too, on the same "the author
+			// declared intent" reasoning. A drop does not carry it: prosemirror-view's
+			// `handleDrop` puts a `deleteSelection()` AND a `replaceRange()` in ONE transaction,
+			// so dragging a slide's whole selected content into a neighbor empties the source
+			// slide, invalidates its `block+` content, and ProseMirror removes the node. On the
+			// real Studio that silently took a 7-slide deck to 6 and dropped the `big-number`
+			// slide's `_class` — the exact accident the paragraph above says this guard exists
+			// to prevent, reachable by an ordinary mouse gesture. Undo restored it, which is
+			// mitigation, not permission.
+			//
 			// This sits AFTER the locked-slide check on purpose: a paste may add slides, and it
 			// still may not silently rewrite one Compose cannot round-trip.
-			if (tr.getMeta('paste') || tr.getMeta('uiEvent') === 'paste' || tr.getMeta('uiEvent') === 'drop') return true;
+			if (tr.getMeta('paste') || tr.getMeta('uiEvent') === 'paste') return true;
 			return selectionSpansSlides(state.selection);
 		},
 	});
@@ -183,6 +194,13 @@ export const collapseKey = new PluginKey<DecorationSet>('cs-collapse');
  * ordinary thing, and it is open again. The chunk is the right key because these ops
  * MOVE and REORDER slides without rewriting their text: matching on it follows the slide
  * to its new index, drops a slide that was deleted, and leaves an inserted one open.
+ *
+ * WHAT THIS DOES NOT GUARANTEE: slides with IDENTICAL content share a key, so the greedy
+ * match may fold a different one of them than the author folded. Measured on a deck of
+ * near-identical slides — fold index 3, resync, the fold lands on index 1. Only one slide
+ * folds either way (the match is one-for-one) and collapse is view-only, so the cost is a
+ * fold in the wrong place, not lost work; but "follows its slide" is true for distinct
+ * slides, not for a deck of duplicates.
  */
 export function slideKeyOf(node: PMNode): string {
 	// Serialize BOTH sides rather than trusting `raw`: `raw` is the original chunk, so it is
@@ -440,8 +458,6 @@ class SlideView {
 		// Read LAZILY like getHeadings — the map arrives as a prop and a SlideView outlives
 		// a prop change, so a getter keeps the gutter current without recreating node views.
 		private getBlocks?: () => SlideBlocks | undefined,
-		// Read LAZILY for the same reason as the two maps above.
-		private getTables?: () => SlideTables | undefined,
 	) {
 		this.node = node;
 		this.locked = !!node.attrs.locked;
@@ -541,13 +557,6 @@ class SlideView {
 		// Hide the "insert table" action while the caret is in a table — there it's a no-op, and the
 		// table-edit dropdown already shows a table icon (avoid the doubled glyph).
 		this.dom.classList.toggle('cs-caret-in-table', inTable);
-		// WITHHOLD "Insert table" on a class whose grammar has nowhere to put one — the same
-		// posture `applicableRegisters` takes for a heading register the class won't render, and
-		// for a sharper reason: this control does not merely no-op, it writes an empty grid into
-		// the deck source that the engine then DROPS, so the author sees a table in Compose that
-		// never reaches the slide. Permissive for an unclassed slide, an unknown class, or a
-		// missing map (slideTakesTable).
-		this.dom.classList.toggle('cs-no-table', !slideTakesTable((this.node.attrs.directives as string[]) || [], this.getTables?.()));
 		if (!inTable) this.clearTableHost(); // leaving the table unmounts the React controls
 		if (!active) {
 			if (this.fmtGroup.childElementCount) {
@@ -789,7 +798,7 @@ export type ComposeHandle = {
 	revealSlide: (index: number, opts?: { focus?: boolean }) => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideTables?: SlideTables; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideTables, onInsertBelow, onCursorSlide }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, onInsertBelow, onCursorSlide }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -906,8 +915,6 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	slideHeadingsRef.current = slideHeadings;
 	const slideBlocksRef = React.useRef(slideBlocks);
 	slideBlocksRef.current = slideBlocks;
-	const slideTablesRef = React.useRef(slideTables);
-	slideTablesRef.current = slideTables;
 	const onInsertBelowRef = React.useRef(onInsertBelow);
 	onInsertBelowRef.current = onInsertBelow;
 	const [chromeRevealed, setChromeRevealed] = React.useState(true);
@@ -947,14 +954,21 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		const folded = collapsedKeys(view.state);
 		const doc = deckToDoc(src);
 		view.updateState(EditorState.create({ doc, plugins: view.state.plugins }));
+		// BASELINE FIRST, DISPATCH SECOND. Both callers wrap this in a try/catch that only
+		// logs, so a throw from the restore below would leave `updateState` already landed on
+		// the NEW doc while `baselineRef` still held the OLD doc's node identities — every
+		// slide would then miss the identity match and re-serialize, losing exactly the
+		// byte-exactness the baseline exists to keep. No reachable throw was found (every
+		// schema node that can sit inside a slide has a markdown serializer), so this is
+		// ordering hygiene against a latent hazard, not a fixed break.
+		baselineRef.current = initBaseline(doc);
+		lastEmittedRef.current = src;
+		pendingResyncRef.current = null;
 		if (folded.length) {
 			// A selection-only transaction — no doc change — so the structural guard waves it
 			// through and `dispatchTransaction`'s emit branch stays untouched (next.doc === prevDoc).
 			view.dispatch(view.state.tr.setMeta(collapseKey, { restore: folded }));
 		}
-		baselineRef.current = initBaseline(doc);
-		lastEmittedRef.current = src;
-		pendingResyncRef.current = null;
 	}, []);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: construct-once per deck; `source` seeds the doc and syncs separately.
@@ -969,7 +983,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 				state: EditorState.create({ doc, plugins: buildPlugins() }),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
-						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountTable, () => slideBlocksRef.current, () => slideTablesRef.current),
+						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountTable, () => slideBlocksRef.current),
 				},
 				// Strip merged-cell spans on paste so the no-merge invariant holds on the DOCUMENT,
 				// not just the toolbar — a pasted colspan/rowspan can't corrupt the serialized grid.
@@ -1000,11 +1014,22 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					}
 					// The caret's slide index — the top-level `slide` node it sits in. Edge-
 					// triggered so the shell only hears about real crossings.
+					//
+					// A COLLAPSE RESTORE IS NOT A CROSSING. `resyncFrom` builds a fresh
+					// EditorState, whose selection sits at doc start, and then dispatches the
+					// restore; reading that selection here edge-fired `onCursorSlide(0)` and
+					// snapped the shell's preview to slide 1 — but ONLY when something was
+					// folded, i.e. only in the state the restore exists to preserve. Measured:
+					// the same rail "move earlier" left the preview following the slide with no
+					// fold, and jumped it to slide 1 with one. The author did not move the
+					// caret, so nothing should be published. Seed the ref instead, so a later
+					// real crossing still edge-fires.
 					const { $from } = next.selection;
 					const slideIdx = $from.depth >= 1 ? next.doc.resolve($from.before(1)).index() : -1;
+					const isRestore = !!(tr.getMeta(collapseKey) as { restore?: string[] } | undefined)?.restore;
 					if (slideIdx >= 0 && slideIdx !== lastSlideRef.current) {
 						lastSlideRef.current = slideIdx;
-						onCursorSlideRef.current?.(slideIdx);
+						if (!isRestore) onCursorSlideRef.current?.(slideIdx);
 					}
 					// Selection-bar geometry LAST and guarded — a throw in coordsAtPos must never
 					// abort the transaction and swallow the emit above.
@@ -1273,10 +1298,6 @@ function ComposeStyles() {
 				.cs-mk-todo,.cs-mk-skip{color:var(--text-muted,#6b7f9a)}
 				.cs-tblc-div{flex:none;width:1px;height:14px;background:var(--border,#e4eaf2);margin:0 3px}
 				.cs-caret-in-table .cs-insert-table{display:none}
-				/* A class whose grammar takes no markdown table gets no table door — 57 of the 61
-				   components. Hidden rather than dimmed, matching how the Format group drops a
-				   register the class won't render (no-ops are hidden, not disabled). */
-				.cs-no-table .cs-insert-table{display:none}
 			/* MOBILE — bigger touch targets; caps on every line, content pill on the active slide. */
 			@media (max-width:640px){
 				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}

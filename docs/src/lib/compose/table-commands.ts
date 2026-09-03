@@ -128,17 +128,29 @@ export function setCellMarker(marker: string | null): Command {
 
 /** Insert a starter 2×2 GFM table (a header row + one body row) at the caret: replacing an empty
  *  paragraph, else inserted after the caret's top-level block. Bails inside an existing table (use
- *  the table controls) or outside a slide. */
+ *  the table controls) or outside a slide.
+ *
+ *  THE HEADER CELLS CARRY PLACEHOLDER TEXT, and that is not cosmetic. Built empty, this table
+ *  serializes to `|  |  |` / `| --- | --- |` / `|  |  |` and RENDERS as two hairlines and nothing
+ *  else — the engine's universal table treatment (`lib/base/base.elements.css` § UNIVERSAL TABLE)
+ *  is working perfectly on content that has no content. On a dark title slide that is invisible,
+ *  which reads exactly like "the button did nothing" and was misdiagnosed once as the engine
+ *  dropping the table. A table you can SEE the moment you insert it is the whole fix: the header
+ *  is the first thing an author overwrites anyway, and `Column` is the same placeholder the
+ *  `compare-table` skeleton uses. Body cells stay empty — one visible row is enough to show the
+ *  grid, and pre-filling every cell would be text to delete rather than text to replace. */
 export const insertStarterTable: Command = (state, dispatch) => {
 	const { $from } = state.selection;
 	if ($from.depth < 2 || $from.node(1).type.name !== 'slide' || isInTable(state)) return false;
 	const s = state.schema;
 	if (!s.nodes.table) return false;
 	if (dispatch) {
-		const th = s.nodes.table_header.createAndFill();
+		const th = (label: string) => s.nodes.table_header.createAndFill(null, s.text(label));
+		const th1 = th('Column');
+		const th2 = th('Column');
 		const td = s.nodes.table_cell.createAndFill();
-		if (!th || !td) return false; // unreachable for inline* cells, but report no-op honestly if it happens
-		const table = s.nodes.table.create(null, [s.nodes.table_row.create(null, [th, th]), s.nodes.table_row.create(null, [td, td])]);
+		if (!th1 || !th2 || !td) return false; // unreachable for inline* cells, but report no-op honestly if it happens
+		const table = s.nodes.table.create(null, [s.nodes.table_row.create(null, [th1, th2]), s.nodes.table_row.create(null, [td, td])]);
 		const before = $from.before(2);
 		const after = $from.after(2);
 		const block = $from.node(1).child($from.index(1));

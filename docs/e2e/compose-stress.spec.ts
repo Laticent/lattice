@@ -83,6 +83,15 @@ function collapsedIndices(page: Page): Promise<number[]> {
 		[...document.querySelectorAll('.cs-slide')].map((s, i) => (s.classList.contains('cs-collapsed') ? i : -1)).filter((i) => i >= 0),
 	);
 }
+/** The rail's currently-selected slide — what the preview is showing. */
+function railCurrent(page: Page): Promise<number> {
+	return page.evaluate(() =>
+		[...document.querySelectorAll<HTMLButtonElement>('nav[aria-label="Slide navigator"] button')].findIndex(
+			(b) => b.getAttribute('aria-current') === 'true' || b.getAttribute('aria-pressed') === 'true' || b.dataset.active === 'true',
+		),
+	);
+}
+
 /** The index of the slide the caret is in (Compose lights it `cs-slide-active`). */
 function activeSlide(page: Page): Promise<number> {
 	return page.evaluate(() => [...document.querySelectorAll('.cs-slide')].findIndex((s) => s.classList.contains('cs-slide-active')));
@@ -169,11 +178,17 @@ test('pasting one slide over another never leaves a slide without a component', 
 // a paste/drop — AFTER the locked-slide check, which a paste still may not bypass.
 test('pasting a multi-slide clipboard over one slide grows the deck', async ({ page }) => {
 	const n = await slideCount(page);
+	// The system clipboard is shared across the whole browser, so a copy from the previous
+	// test can still be settling when this one pastes. Wait for OUR copy to land before
+	// using it — without this the paste occasionally fired against the prior contents and
+	// the deck did not grow, which looks exactly like the defect under test.
+	await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 
 	await slideContent(page, 2).click();
 	await page.keyboard.press('ControlOrMeta+a');
 	await page.keyboard.press('ControlOrMeta+a'); // the whole deck
 	await page.keyboard.press('ControlOrMeta+c');
+	await expect.poll(() => page.evaluate(() => navigator.clipboard.readText().then((t) => t.length))).toBeGreaterThan(0);
 
 	await slideContent(page, 1).click();
 	await page.keyboard.press('ControlOrMeta+a'); // this slide only
@@ -183,6 +198,38 @@ test('pasting a multi-slide clipboard over one slide grows the deck', async ({ p
 	// simply that it GREW: before the fix this stayed at n, silently.
 	await expect(railButtons(page)).toHaveCount(n + n - 1);
 	await expect.poll(() => slideClasses(page)).not.toContain('∅');
+});
+
+// ── The clipboard bridge does not trust foreign HTML ────────────────────────
+// That property is tested at the PARSER, in `docs/src/lib/compose/deck-doc.clipboard.test.ts`,
+// and deliberately not here. An e2e version of the same attack could not be made to fail
+// even with both gates removed — driving the system clipboard's `text/html` branch through
+// a real paste turned out to be too indirect to be a sound oracle for a security property,
+// and a security test that cannot fail is worse than none. The unit test fails on the
+// mutation (the beacon URL and a forged `<style>` reach the deck source) and passes on the fix.
+
+// ── A drag is not a paste ───────────────────────────────────────────────────
+// The guard exemption briefly covered `uiEvent: 'drop'` on the same "the author declared
+// intent" reasoning. prosemirror-view's `handleDrop` puts a delete AND an insert in one
+// transaction, so dragging a slide's whole selection into a neighbor emptied the source
+// slide and ProseMirror removed the node: a 7-slide deck silently became 6 and the
+// `big-number` slide's `_class` went with it — by an ordinary mouse gesture.
+test('dragging a slide’s selection into another slide does not destroy a slide', async ({ page }) => {
+	await seedPersistence(page);
+	const before = await slideClasses(page);
+
+	await slideContent(page, 2).click();
+	await page.keyboard.press('ControlOrMeta+a');
+	const from = await slideContent(page, 2).boundingBox();
+	const to = await slideContent(page, 1).boundingBox();
+	if (!from || !to) throw new Error('slide 1 or 2 is not laid out');
+	await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
+	await page.mouse.up();
+
+	await expect(railButtons(page)).toHaveCount(before.length);
+	await expect.poll(() => slideClasses(page)).toEqual(before);
 });
 
 // ── Collapse is a state, not a flicker ──────────────────────────────────────
@@ -204,6 +251,12 @@ test('a folded slide stays folded — and follows its slide — across a rail mo
 	await page.getByRole('button', { name: 'Move slide earlier', exact: true }).click();
 
 	await expect.poll(() => collapsedIndices(page)).toEqual([4]);
+	// AND THE PREVIEW DID NOT SNAP. The restore dispatches a transaction on a fresh
+	// EditorState whose selection sits at doc start, which edge-fired `onCursorSlide(0)`
+	// and threw the shell's preview to slide 1 — but only when something was folded, i.e.
+	// only in the state the restore exists to preserve. The fold assertion above cannot
+	// see that; this can.
+	expect(await railCurrent(page), 'the preview must not jump to slide 1 on a fold restore').not.toBe(0);
 });
 
 test('a folded slide stays folded across a gallery insert above it', async ({ page }) => {
@@ -220,12 +273,22 @@ test('a folded slide stays folded across a gallery insert above it', async ({ pa
 });
 
 test('a folded slide stays folded across a rail duplicate', async ({ page }) => {
+	// PUT THE CARET IN THE SLIDE FIRST. Collapsing does not move the shell's current
+	// slide — `toggleCollapse` dispatches a meta-only transaction with no selection
+	// change, so `onCursorSlide` never fires — and the rail's Duplicate acts on the
+	// CURRENT slide. Without this click the rail duplicated slide 0 and the folded
+	// slide shifted 5 → 6 for a reason that had nothing to do with the restore, which
+	// is the assertion this test claims to make.
+	await slideContent(page, 5).click();
 	await collapseCap(page, 5).click();
 	await expect.poll(() => collapsedIndices(page)).toEqual([5]);
+
 	await page.getByRole('button', { name: 'Duplicate slide', exact: true }).click();
-	// Exactly ONE of the two copies stays folded (the restore is one-for-one), and it
-	// is the one that moved down by the inserted duplicate.
-	await expect.poll(() => collapsedIndices(page)).toEqual([6]);
+	// Slide 5 is duplicated in place, so the copies are at 5 and 6. Exactly ONE stays
+	// folded — the restore is greedy and one-for-one — and the count is what pins that:
+	// a restore that folded both, or neither, fails here.
+	await expect.poll(() => collapsedIndices(page)).toHaveLength(1);
+	expect([5, 6]).toContain((await collapsedIndices(page))[0]);
 });
 
 // ── Deleting the slide you are in ───────────────────────────────────────────
@@ -248,29 +311,45 @@ test('deleting the slide you are editing lands on its neighbor, not the last sli
 	await expect.poll(() => activeSlide(page)).toBe(1);
 });
 
-// ── "Insert table" only where a table renders ───────────────────────────────
-// The control was offered on all 61 components and WORKED on all 61, writing an
-// empty `|  |  |` grid into the source of a `title` or a `big-number`. The engine
-// then drops it, so the author saw a table in Compose that never reached the
-// slide and carried junk in their deck source. Measured across all seven classes
-// of the shipped tour deck: seven inserts, seven silent drops. It is now gated on
-// the manifest's own slot/skeleton contract — permissive for an unknown class.
-test('the table door is offered only on a component that takes a table', async ({ page }) => {
-	// Every class in the seed deck (title, big-number, stats, cards-grid,
-	// split-compare, list-steps, closing) is table-less.
-	const n = await slideCount(page);
-	for (let i = 0; i < n; i++) {
-		await slideContent(page, i).click();
-		await expect(composeSlide(page, i).getByRole('button', { name: 'Insert table' })).toBeHidden();
-	}
+// ── An inserted table is one you can SEE ────────────────────────────────────
+// The reported symptom was "slides that don't support tables allow adding a
+// table", and the first diagnosis here was wrong in an instructive way: the
+// button was gated to the four components whose manifest declares a table,
+// on the belief that the engine dropped one anywhere else. It does not. The
+// engine has carried a UNIVERSAL TABLE treatment since #2026-08-02
+// (`lib/base/base.elements.css`), and a real table renders at full boardroom
+// quality on `title`, `content` and 50 others — verified by rendering one.
+//
+// What actually happened is that `insertStarterTable` built the table with EMPTY
+// cells, which serializes to `|  |  |` and renders as two hairlines: invisible on
+// a dark slide, and indistinguishable from a dead button. The fix is a visible
+// starter table, not a withheld control — and the control stays, because HARD
+// RULE #29's policy for "an author can do this but probably shouldn't" is to warn
+// and coach, never to remove the door.
+test('inserting a table puts a visible table on the slide', async ({ page }) => {
+	await slideContent(page, 0).click(); // `title` — a class with no table slot
+	await composeSlide(page, 0).getByRole('button', { name: 'Insert table' }).click();
 
-	// …and a component that DOES take one still gets the door. `compare-table` is
-	// one of the four (with matrix-grid, obligation-matrix, roadmap).
-	await slideContent(page, 0).click();
-	await composeSlide(page, 0).getByRole('button', { name: 'Add slide below' }).click();
-	await page.getByRole('button', { name: /^Insert compare-table/i }).first().click();
-	await page.locator('[role="dialog"]').waitFor({ state: 'detached' });
-	await expect(composeSlide(page, 1).getByRole('button', { name: 'Insert table' })).toBeVisible();
+	// Visible in the editor…
+	const table = composeSlide(page, 0).locator('table');
+	await expect(table).toHaveCount(1);
+	await expect(table).toContainText('Column');
+
+	// …and carried into the deck source as a real GFM table with a non-empty
+	// header, which is what makes it visible once the engine renders it.
+	await expect
+		.poll(async () => {
+			const src = await persistedSource(page);
+			let text = src ?? '';
+			try {
+				const v = JSON.parse(text);
+				if (typeof v === 'string') text = v;
+			} catch {
+				/* already a bare string */
+			}
+			return /\|\s*Column\s*\|/.test(text);
+		})
+		.toBe(true);
 });
 
 // ── The slide you just added is the slide you are in ────────────────────────
@@ -294,7 +373,12 @@ test('inserting from the gallery puts the caret in the new slide', async ({ page
 // scenario: the defects above were found by ORDERS nobody would think to write
 // down — a cut, then a rail move, then a mode switch, then a paste.
 test('a randomized walk over the compose ops holds the structural invariants', async ({ page }) => {
-	let s = 20260902 >>> 0; // fixed, so a failure is replayable
+	// Fixed seed. Every op DRAWS unconditionally (see `deleteSlide`) so the stream does
+	// not depend on live DOM state, which is what makes a failure replayable rather than
+	// merely reproducible-if-you-are-lucky. Be clear about the scope, though: one seed at
+	// 34 steps is a REGRESSION NET, not the sweep that found these defects — that was six
+	// seeds x 60 ops driven from a scratch harness. This is the part worth committing.
+	let s = 20260902 >>> 0;
 	const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
 	const int = (n: number) => Math.floor(rnd() * n);
 	const pick = <T>(a: T[]): T => a[int(a.length)];
@@ -319,8 +403,12 @@ test('a randomized walk over the compose ops holds the structural invariants', a
 		},
 		async deleteSlide() {
 			const n = await page.locator('.cs-slide').count();
-			if (n <= 2) return;
+			// DRAW FIRST, then decide. An early return that skips the draw makes the RNG
+			// stream depend on the live slide count, so every op after it shifts and the
+			// "fixed seed, so a failure is replayable" claim below stops being true. Draw
+			// unconditionally; only the ACTION is conditional.
 			const i = int(n);
+			if (n <= 2) return;
 			await slideContent(page, i).click();
 			await composeSlide(page, i).getByRole('button', { name: 'Delete slide' }).click();
 			await page.getByRole('button', { name: 'Confirm delete slide' }).first().click();
@@ -330,6 +418,7 @@ test('a randomized walk over the compose ops holds the structural invariants', a
 			// the first slide, later on the last). Skipping a disabled one is the walk being
 			// correct about the app, not the walk avoiding a bug — a disabled control that the
 			// walk insisted on clicking would report a 15s timeout as if it were a defect.
+			// The draw happens before the enabled check, for the determinism reason above.
 			const name = pick(['Duplicate slide', 'Move slide earlier', 'Move slide later', 'Previous slide', 'Next slide']);
 			const btn = page.getByRole('button', { name, exact: true }).first();
 			if (await btn.isEnabled()) await btn.click();

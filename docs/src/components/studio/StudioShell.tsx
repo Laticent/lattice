@@ -283,9 +283,9 @@ const unassessedCard = (id: string): CoachCard => ({
 });
 
 // biome-ignore lint/suspicious/noExplicitAny: serialized lint vocabulary from the page.
-type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; componentNames?: string[]; catalogUrl?: string; lintVocab?: any; slideHeadings?: Record<string, ('h1' | 'h2')[]>; slideBlocks?: Record<string, string[]>; slideTables?: Record<string, boolean> };
+type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; componentNames?: string[]; catalogUrl?: string; lintVocab?: any; slideHeadings?: Record<string, ('h1' | 'h2')[]>; slideBlocks?: Record<string, string[]> };
 
-export default function StudioShell({ options, components: seedComponents = [], componentNames, catalogUrl, lintVocab, slideHeadings, slideBlocks, slideTables }: Props) {
+export default function StudioShell({ options, components: seedComponents = [], componentNames, catalogUrl, lintVocab, slideHeadings, slideBlocks }: Props) {
 	// The component catalog is FETCHED, not inlined (2026-08-17 loading audit §5, §9.3).
 	// Serialized into the island's props it was ~180KB raw — 72% of a 433KB HTML document,
 	// parsed before hydration on every launch to serve a gallery the user may never open.
@@ -3749,7 +3749,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{editMode === 'compose' ? (
 				<React.Suspense fallback={<ComposeSkeleton />}>
-				<ComposeView ref={composeRef} source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideTables={slideTables} onInsertBelow={openInsertAfter} onCursorSlide={onEditorCursorSlide} />
+				<ComposeView ref={composeRef} source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} onInsertBelow={openInsertAfter} onCursorSlide={onEditorCursorSlide} />
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>

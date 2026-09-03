@@ -125,36 +125,6 @@ try {
 	slideBlocks = {};
 }
 
-// The per-class TABLE-CAPABILITY map for Compose: a `_class` name → whether that
-// component's authoring grammar takes a markdown table. Read from the generated
-// manifest — a slot whose selector names the `table` ELEMENT, or a GFM delimiter row in
-// the component's own skeleton. Both readings agree on the same four of 61 today
-// (compare-table, matrix-grid, obligation-matrix, roadmap); keeping both means a
-// component that grows a table in either place is picked up without editing this file.
-//
-// Compose's "Insert table" was offered — and worked — on all 61, writing an empty grid
-// into the source of a `title` or a `big-number`, which the engine then drops: a table
-// visible in the editor that never reaches the slide. Threaded through so the control is
-// only offered where it will render, sharing the engine's slot contract as the one source
-// of truth (HARD RULE #1 — the same shape as slideHeadings / slideBlocks above).
-//
-// An ABSENT class stays permissive, exactly like the two maps above.
-let slideTables = {};
-try {
-	const catalogForTables = JSON.parse(readFileSync(join(process.cwd(), '..', 'dist/docs/components.json'), 'utf8'));
-	for (const c of catalogForTables.components || []) {
-		if (!c.name) continue;
-		const slotTable = Object.values(c.slots || {}).some((s) => /(?:^|[\s>,(+~])table(?![\w-])/.test(String((s && s.selector) || '')));
-		const skeletonTable = /^\s*\|[\s:|-]+\|\s*$/m.test(String(c.skeleton || ''));
-		slideTables[c.name] = slotTable || skeletonTable;
-	}
-} catch (e) {
-	// Same observable degradation as the two maps above: without it Compose offers the
-	// table control everywhere, which is exactly the pre-gate behavior.
-	console.warn('[studio] slideTables: could not read the component manifest — Compose offers "Insert table" on every layout', e && e.message);
-	slideTables = {};
-}
-
 // The deterministic lint vocabulary — built at build time from the LIVE component
 // manifests (the SAME buildVocab the Drawing Board and the Node CLI use), so the
 // editor's inline grammar linter is the canonical lint-core, not a reduced copy.
@@ -930,7 +900,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		</div>
 		<!-- client:only — the Studio is a browser app surface (no SSR/SEO need),
 		     so it never server-renders; this also sidesteps Browser-API-on-server. -->
-		<StudioIsland client:only="react" options={options} componentNames={componentNames} catalogUrl={url('studio/component-catalog.json')} lintVocab={lintVocab} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideTables={slideTables} />
+		<StudioIsland client:only="react" options={options} componentNames={componentNames} catalogUrl={url('studio/component-catalog.json')} lintVocab={lintVocab} slideHeadings={slideHeadings} slideBlocks={slideBlocks} />
 		{/* Live viz diagnostics — renders nothing until the Workspace → Diagnostics
 		    switch (or ?viz) turns it on; then reads dropped-to-black chart paint from
 		    the render pipeline. */}

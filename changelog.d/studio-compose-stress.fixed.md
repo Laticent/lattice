@@ -14,13 +14,12 @@
   on the resync that followed. Collapse is now restored across a re-import by
   matching each folded slide's source chunk, so it follows its slide through a
   reorder and survives an insert above it.
-- **Fixed: "Insert table" is offered only on a component that takes a table.**
-  The control appeared on all 61 components and worked on all 61, writing an
-  empty grid into the source of a `title` or a `big-number` — which the engine
-  then drops, so the table was visible in the editor and absent from the slide.
-  It now reads the same manifest slot/skeleton contract the engine does (four
-  components take a table today); an unclassed or unrecognized slide stays
-  permissive.
+- **Fixed: an inserted table is one you can see.** The starter table was built
+  with empty cells, which serializes to `|  |  |` and renders as two hairlines —
+  invisible on a dark slide, and indistinguishable from a button that did
+  nothing. Its header cells now carry `Column`. The control stays available on
+  every component: the engine's universal table treatment renders a plain table
+  at the boardroom bar on all but one of them, so there is nothing to withhold.
 - **Fixed: deleting the slide you are editing lands on its neighbor.** The caret
   had no slide to re-anchor to, so the selection mapped to the end of the
   document and both the caret and the preview jumped to the last slide — walking
@@ -38,3 +37,17 @@
   slides on the clipboard. Every multi-slide paste was rejected silently, so
   there was no way to duplicate a section. The guard now exempts a paste or drop,
   after the locked-slide check it still may not bypass.
+- **Fixed: a slide pasted from an external page cannot inject directives into
+  the deck source.** Slide directives ride the clipboard so a copied slide keeps
+  its component, and `parseDOM` matches `section.cs-slide` in any pasted HTML —
+  so a crafted page could put a `_backgroundImage` beacon, or a newline-forged
+  slide boundary carrying a `<style>` block, straight into the deck source and
+  the exported file, with nothing visible in the editor. Pasted directives are
+  now believed only when they carry this session's provenance token and are
+  shaped like a single-line directive comment.
+- **Fixed: dragging a selection between slides no longer destroys a slide.** The
+  paste exemption on Compose's structural guard briefly covered drag-and-drop,
+  where ProseMirror issues the delete and the insert as one transaction — so
+  dragging a slide's whole selection into a neighbor silently removed the source
+  slide and its component.
+- **Fixed: restoring a fold no longer snaps the preview to the first slide.**
