@@ -72,8 +72,8 @@ Watch her Tuesday. This part uses no technical words on purpose. Everything Part
 
 1. `06:55` The shower
    - The water runs too hot. Maya turns it down and it runs too cold. She corrects it twice more.
-2. `08:05` The train map
-   - The map shows wrong distances and wrong shapes. Maya has never got lost using it.
+2. `08:05` The plan
+   - Maya reads her plan for the day. It has the build, the review and the four o'clock window in it.
 3. `08:20` A signal failure
    - A signal fails and the train sits nine minutes. Nobody aboard can change it. Maya opens Instagram.
 4. `08:50` At her desk
@@ -321,16 +321,16 @@ flowchart LR
 
 `Word six · model`
 
-## A model is a deliberate simplification, and it is useful because it is wrong.
+## A model leaves things out on purpose. What beats you is the thing you left out by accident.
 
-The transit map Maya read at five past eight is geographically false. Distances are invented, angles are fiction, the river is the wrong shape. She has never once been lost using it.
+Maya's plan for Tuesday was a model. It held the build time, the review, and the four o'clock window. It did not hold the fact that her reviewer sleeps six time zones away, and that one gap decided the day.
 
 - In Maya's day
-  - Her plan for Tuesday was a model too, and it left out a six-hour time difference.
-- It keeps what answers one question
-  - "Which line, which direction, how many stops." It throws away everything else.
-- Name what you left out
-  - An omission you cannot state is not a simplification. It is a bug you have not found.
+  - Her plan was right about everything in it and silent about the thing that beat her.
+- Every diagram in this deck is a model
+  - Each one throws away something true so you can see one thing clearly.
+- Say what you left out
+  - An omission you can name is a simplification. One you cannot name is a bug.
 
 ---
 
@@ -462,7 +462,7 @@ You never handle the system itself. You handle a drawing of it, its limits and i
 
 1. Model
    - A simplification you chose.
-   - The transit map.
+   - Her plan for the day.
 2. Constraint
    - A limit that removes options.
    - Twelve minutes.
@@ -751,6 +751,24 @@ Custom silicon, a purpose-built storage engine, a scheduler that knows your phys
   - Jumping from MVP to optimal buys rigor for assumptions nobody has tested yet.
 - Move back down when the evidence changes
   - A rewrite that simplifies is a legitimate move, not an admission of anything.
+
+---
+
+<!-- _class: split-panel capstone cat-2 -->
+<!-- _header: "" -->
+
+`The removal test`
+
+## A design is finished when taking one more thing out would break it.
+
+Antoine de Saint-Exupéry wrote that perfection arrives not when there is nothing left to add, but when there is nothing left to take away. Dieter Rams said it in three words: less, but better. Both are tests you can run on a whiteboard at four in the afternoon.
+
+- Run it on every box
+  - Delete it on paper and follow what happens. If nothing downstream changes, it was never holding anything up.
+- Run it on every number
+  - A figure nobody can act on is decoration. Turn it into a threshold or take it out.
+- Less, but better, is not less
+  - Rams designed for decades of use. Removing something the system needs is not restraint, it is a defect.
 
 ---
 
