@@ -381,18 +381,33 @@ painter survived all 3,601 docs tests.** Deleting `vivus.test.ts` took 21 cases 
 replacement covered only the draw channel, so the extraction's central claim was unfalsifiable.
 `svg-paint.test.ts` restores that coverage and each of the four mutations now fails.
 
-### Two behaviors this raises, not settled here
+### Reduced motion in a forwarded file — DECIDED: as designed
 
-- **A forwarded file no longer honors the recipient's `prefers-reduced-motion` for charts.**
-  Not a regression against the live surface — it matches it exactly, and the `legible` tier
-  deliberately keeps non-vestibular motion (a fade is not a vestibular trigger). But before
-  this change an exported file never animated charts, so it honored the setting by accident,
-  and charts pass `chrome: false`, so the recipient has no pause and no opt-out. Changing it
-  means changing the LIVE behavior too — diverging the two is what the three-readers defect
-  above cost us — so it is a product call about an accessibility floor, not a patch.
-- **A settled chart in the export keeps its `highlight` emphasis**, so one band stays outlined
-  in a way the PDF of the same deck is not. Also pre-existing on the live surface, newly
-  visible in an artifact people forward.
+**A recipient whose OS asks for reduced motion still sees a chart build, and has no control to
+stop it.** That is the decision, taken deliberately rather than inherited by accident.
+
+The reasoning, in order:
+
+- **It is not a new behavior, it is the SAME behavior.** `effectiveTier` drops to `legible`
+  under the floor, and `toLegible` strips the vestibular verbs — of which a chart uses none. A
+  staggered opacity fade is not a vestibular trigger; the tier is *reduce*, not *remove*. The
+  live Playground has always done exactly this.
+- **The old export honored the setting by ACCIDENT, not by design.** It never animated charts
+  at all, so there was nothing to suppress. Reading that as a property we are now losing
+  mistakes an absence for a guarantee.
+- **Diverging the two surfaces is the expensive option.** Three of this change's defects were
+  one question answered differently by the exporter and the live cascade, each one silent. A
+  deliberate fourth divergence — even a well-intentioned one — buys a smaller problem with a
+  bigger one.
+
+**What is given up, stated plainly:** charts pass `chrome: false`, so unlike an authored scene
+there is no pause and no "Play the motion" opt-in. A recipient who wants it still has none.
+Revisit this by giving charts a control on BOTH surfaces — that was a considered product call
+("the control read as a gimmick"), and reversing it is its own change, not a rider on this one.
+
+**Still open, and smaller:** a settled chart keeps its `highlight` emphasis, so one band stays
+outlined in a way the PDF of the same deck is not. Pre-existing on the live surface, newly
+visible in an artifact people forward.
 
 ### Still not verified
 

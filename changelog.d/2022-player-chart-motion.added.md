@@ -15,3 +15,9 @@
   now ships a 22 KB player instead of the ~81 KB one, and neither the 3D
   backend nor the drawing library is bundled into a file that cannot reach them.
   A deck with no chart and no scene is byte-identical to before.
+- **Reduced motion:** a recipient whose system asks for reduced motion still sees
+  the chart build. The tier is *reduce*, not *remove* — a staggered fade is not a
+  vestibular trigger — and this matches what the Playground has always done, so a
+  deck behaves the same wherever it is opened. Charts carry no playback control on
+  any surface, so there is no per-viewer pause; if that matters for your audience,
+  send the still with `player-motion: off`.

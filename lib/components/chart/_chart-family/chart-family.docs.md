@@ -289,6 +289,12 @@ player-motion: off
 frame, so every existing deck stays byte-identical. And a deck with no chart and no
 authored scene ships no motion code at all.
 
+**Reduced motion behaves the same everywhere.** A viewer whose system asks for reduced
+motion still sees the build: the tier is *reduce*, not *remove*, and a staggered fade
+carries no vestibular trigger — so the exported file matches the Playground rather than
+diverging from it. Charts carry no playback control on any surface, so there is no
+per-viewer pause. When that matters for a particular audience, send them the still.
+
 | Member | Chart root | Popover | Motion | Notes |
 |---|---|---|---|---|
 | `piechart` | `.piechart-svg` | yes | yes | sectors reveal together — a staggered wedge leaves a hole |
