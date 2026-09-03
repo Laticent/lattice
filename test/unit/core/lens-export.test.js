@@ -19,7 +19,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { POSITION_NEUTRALIZERS, authorCss, authoredIndexDrift, crossSlideDrift, projectForExport, exportableViews, REFUSAL_REASONS } = require('../../../lib/core/lens-export.mjs');
+const { POSITION_NEUTRALIZERS, authorCss, authoredIndexDrift, crossSlideDrift, emptyWithheld, projectForExport, exportableViews, REFUSAL_REASONS } = require('../../../lib/core/lens-export.mjs');
 const { frontMatterBlockOf, normalizeSourceText, slideBoundaries } = require('../../../lib/core/slide-boundaries.mjs');
 const { approvalHash, applyTag, emitRegistry } = require('@workwel/lente');
 const engine = require('../../../lib/engine/index.js');
@@ -28,6 +28,14 @@ const engine = require('../../../lib/engine/index.js');
 function renderedSections(source) {
 	const { html } = engine.render(source);
 	return (html.match(/<section\b/g) || []).length;
+}
+
+/** The slides a reader actually gets — every rendered section that is not a withheld HOLE.
+ *  A projection emits one section per AUTHORED slide so `nth-of-type` still lands where the author
+ *  aimed, so `renderedSections` counts the deck's length and this counts what ships. */
+function shippedSections(source) {
+	const { html } = engine.render(source);
+	return (html.match(/<section\b(?![^>]*\blens-hole\b)[^>]*>/g) || []).length;
 }
 
 /** A deck of `n` numbered slides, tagged into the named views, with real approval hashes. */
@@ -82,10 +90,16 @@ test('projects to exactly the slides the view shows, and the engine agrees', () 
 	const brief = projectForExport(src, ['brief']);
 	assert.equal(brief.ok, true);
 	assert.equal(brief.kept.length, 3);
-	assert.equal(renderedSections(brief.source), 3, 'the projected deck RENDERS three sections');
+	// TWO NUMBERS, and asserting both is the point. The deck keeps its LENGTH — one section per
+	// authored slide — so a rule the author aimed at `nth-of-type(5)` still lands on slide 5; and
+	// three of those sections are what a reader is shown. The old assertion checked only the second,
+	// which the deleting projection satisfied while renumbering everything after a withheld slide.
+	assert.equal(renderedSections(brief.source), 6, 'the projected deck keeps the AUTHORED length');
+	assert.equal(shippedSections(brief.source), 3, 'and three of its sections are what ships');
 
 	const ask = projectForExport(src, ['ask']);
-	assert.equal(renderedSections(ask.source), 1);
+	assert.equal(renderedSections(ask.source), 6);
+	assert.equal(shippedSections(ask.source), 1);
 });
 
 test('several views ship their union, in author order, each view indexed into it', () => {
@@ -93,10 +107,15 @@ test('several views ship their union, in author order, each view indexed into it
 	const both = projectForExport(src, ['brief', 'ask']);
 	assert.equal(both.ok, true);
 	assert.deepEqual(both.kept, [0, 2, 3, 5], 'union, ascending — never the order the views were asked for');
-	assert.equal(renderedSections(both.source), 4);
-	// Indices address the PROJECTED list, which is what a carrier bakes in.
-	assert.deepEqual(both.views.find((v) => v.id === 'brief').indices, [0, 1, 3]);
-	assert.deepEqual(both.views.find((v) => v.id === 'ask').indices, [2]);
+	assert.equal(renderedSections(both.source), 6, 'the deck keeps its authored length');
+	assert.equal(shippedSections(both.source), 4, 'four slides ship');
+	// Indices are AUTHORED indices, unremapped — the projection no longer moves anything, so the
+	// remap that used to translate them into positions in a shortened deck is gone. That remap was
+	// read by the carrier to decide which slides a view shows, and two separate rewrites of the
+	// projection desynchronized it from the emitted deck, each time showing a reader a slide their
+	// view excludes.
+	assert.deepEqual(both.views.find((v) => v.id === 'brief').indices, [0, 2, 5]);
+	assert.deepEqual(both.views.find((v) => v.id === 'ask').indices, [3]);
 });
 
 test('`full` ALONE is the identity — it is not a selection against the other views', () => {
@@ -142,7 +161,8 @@ test('a leading separator survives the RE-ASSEMBLY path too, not just the shortc
 	const out = projectForExport(src, ['brief']);
 	assert.equal(out.ok, true);
 	assert.match(out.source.slice(frontMatterBlockOf(out.source).length), /^\n---\n/, 'the leading separator was re-emitted, not dropped');
-	assert.equal(renderedSections(out.source), MEMBERSHIP.brief.length, 'and it still adds no section');
+	assert.equal(renderedSections(out.source), 6, 'and it still adds no section — the deck is its authored length');
+	assert.equal(shippedSections(out.source), MEMBERSHIP.brief.length, 'and ships what brief selects');
 });
 
 test('a view containing every slide keeps the body, and still sheds its siblings', () => {
@@ -399,8 +419,9 @@ test('a non-`---` separator survives the projection', () => {
 	const src = deckWith(VIEWS, MEMBERSHIP, { sep: '***' });
 	assert.equal(renderedSections(src), 6, 'fixture sanity: `***` really does separate slides');
 	const brief = projectForExport(src, ['brief']);
-	assert.equal(renderedSections(brief.source), 3);
-	assert.match(brief.source, /\*\*\*/, 'the author’s own separator is what re-joins the kept slides');
+	assert.equal(renderedSections(brief.source), 6, 'every slot is emitted, so every `***` is still a break');
+	assert.equal(shippedSections(brief.source), 3);
+	assert.match(brief.source, /\*\*\*/, 'the author’s own separator is what re-joins the slides');
 });
 
 test('a deck whose body OPENS with a separator keeps its slide numbering', () => {
@@ -421,7 +442,8 @@ test('a deck whose body OPENS with a separator keeps its slide numbering', () =>
 
 	const out = projectForExport(src, ['brief']);
 	assert.equal(out.ok, true, `brief must still project on a leading-separator deck (got ${out.reason})`);
-	assert.equal(renderedSections(out.source), MEMBERSHIP.brief.length, 'the SAME slides brief projects on the ordinary deck');
+	assert.equal(shippedSections(out.source), MEMBERSHIP.brief.length, 'the SAME slides brief projects on the ordinary deck');
+	assert.equal(renderedSections(out.source), renderedSections(base), 'and the same authored length — a leading separator is still not a slide');
 	// The membership is the same deck either way — a leading separator is not a slide.
 	assert.deepEqual(out.kept, projectForExport(base, ['brief']).kept);
 });
@@ -475,7 +497,7 @@ test.describe('fails CLOSED — every one of the five reasons refuses', () => {
 	});
 });
 
-test('a chunk that ends mid-paragraph still gets the separator pad', () => {
+test('a chunk that ends mid-paragraph can no longer meet the WRONG separator', () => {
 	// The pad is conditional now, so the case it exists for needs its own test — and finding
 	// that case takes a `***`. `slideBoundaries` reads `---` under a prose line the way
 	// markdown-it does (a setext underline, not a boundary), so a chunk before a `---` always
@@ -493,8 +515,14 @@ test('a chunk that ends mid-paragraph still gets the separator pad', () => {
 
 	const out = projectForExport(src, ['brief']);
 	assert.equal(out.ok, true, `expected a projection, got ${out.reason}`);
-	assert.match(out.source, /prose\n\n---\n/, 'the pad was written — without it the separator underlines the paragraph');
-	assert.equal(renderedSections(out.source), 2, 'two slides ship, and the paragraph is still on the first');
+	// THE HAZARD IS GONE BY CONSTRUCTION, and that is a stronger result than padding around it.
+	// It existed because dropping the middle slide moved this chunk in front of the NEXT slide's
+	// `---`, which markdown-it reads as a setext underline rather than a break — so the paragraph
+	// became a heading and two slides merged into one. A hole keeps every slide in place, so every
+	// separator still follows the chunk the author wrote it after. `***` stays where it was.
+	assert.match(out.source, /prose\n+\*\*\*/, 'the chunk still meets its OWN separator, not the next slide’s');
+	assert.equal(renderedSections(out.source), 3, 'the deck keeps its authored length');
+	assert.equal(shippedSections(out.source), 2, 'and two slides ship');
 	assert.match(out.source, /prose/, 'the paragraph survived rather than becoming a heading');
 });
 
@@ -698,13 +726,15 @@ test.describe('structural fuzz — a prune never moves a slide\u2019s block stru
 			const out = projectForExport(src, ['brief']);
 			if (!out.ok) continue; // a refusal ships nothing, so it cannot corrupt anything
 			checked++;
-			// Compare each KEPT slide against the one it came from — `out.kept` maps shipped position
-			// back to authored index, so a withheld slide is not mistaken for a structural change.
+			// Compare each KEPT slide against the one it came from, BOTH SIDES INDEXED BY AUTHORED
+			// NUMBER. This used to read `shipped[n]` — the rank among kept slides — because the
+			// projection renumbered what it emitted. It emits a hole per withheld slide now, so the
+			// shipped deck has the authored deck's length and the two indices are the same number.
 			const authored = split(src.slice(frontMatterBlockOf(src).length));
 			const shipped = split(out.source.slice(frontMatterBlockOf(out.source).length));
-			if (shipped.length !== out.kept.length) { moved.push(`count ${shipped.length}/${out.kept.length}: ${slide}`); continue; }
-			for (let n = 0; n < out.kept.length; n++) {
-				if (shape(shipped[n]) !== shape(authored[out.kept[n]])) { moved.push(slide); break; }
+			if (shipped.length !== out.total) { moved.push(`count ${shipped.length}/${out.total}: ${slide}`); continue; }
+			for (const at of out.kept) {
+				if (shape(shipped[at]) !== shape(authored[at])) { moved.push(slide); break; }
 			}
 		}
 		assert.ok(checked > 100, `the corpus must exercise the prune (checked ${checked})`);
@@ -952,23 +982,19 @@ test.describe('the check stays silent on 147 real decks, under six projection sh
 	/** The kept slides re-joined under the separator that preceded them — what an export of these
 	 *  slides emits, for a corpus that declares no reader views to project. Built from the same
 	 *  `slideBoundaries` call the kernel splits on, so the two cannot disagree about where a slide ends. */
-	function keepOnly(source, kept) {
-		const src = normalizeSourceText(source);
-		const fm = frontMatterBlockOf(src);
-		const body = src.slice(fm.length);
-		const cuts = slideBoundaries(body).lines;
-		const lines = body.split('\n');
-		const chunks = [];
-		const seps = [];
-		let from = 0;
-		for (const cut of cuts) {
-			chunks.push(lines.slice(from, cut).join('\n'));
-			seps.push(lines[cut]);
-			from = cut + 1;
-		}
-		chunks.push(lines.slice(from).join('\n'));
-		return fm + kept.map((i) => chunks[i]).join(`\n${seps[0] ?? '---'}\n`);
-	}
+	// THE REAL PROJECTION SHAPE, from the kernel — not a hand-rolled stand-in for it.
+	//
+	// This used to re-join the kept chunks itself, which was a second implementation of the thing
+	// under test and drifted from it the moment the projection changed: the product began emitting a
+	// HOLE per withheld slide (so `nth-of-type` still lands where the author aimed) and this helper
+	// kept deleting them, so proxy and ship disagreed about every deck's shape and the sweep reported
+	// a refusal on essentially all 147. A measurement whose subject is an emulation of the product is
+	// the defect this PR has already paid for twice (#23).
+	//
+	// `emptyWithheld` IS that shape — full length, a hole in every withheld slot — and for a corpus
+	// that declares no reader views there is nothing else a projection would do to it: there are no
+	// `_lens` tags to prune and no registry to rewrite.
+	const keepOnly = (source, kept) => emptyWithheld(source, kept);
 
 	function chunkCount(source) {
 		const src = normalizeSourceText(source);

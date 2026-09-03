@@ -132,6 +132,23 @@ section.form:has(> .cell-stage) {
   display: flex;
   flex-direction: column;
 }
+/* A READER-VIEW HOLE — a withheld slide that keeps its POSITION and shows nothing.
+ * Placed here, immediately after the rule it excepts, because that rule is the one it has to
+ * beat: `section.lens-hole` is (0,1,1) and loses to `section.form:has(> .cell-stage)` at (0,2,1),
+ * so a hole styled from anywhere else rendered `display:flex` and printed a page carrying its
+ * content (measured). Matching that specificity and coming later is the whole mechanism, and
+ * `base.variants.css` — the conceptual home — is bundled BEFORE this file, so it could not win.
+ *
+ * WHY A HOLE EXISTS AT ALL. Deleting a withheld slide renumbers every slide after it, and
+ * `section:nth-of-type(3)` is DOM position — so an author's rule lands on whatever slide moved
+ * into third place, in a file whose stylesheet and markup are byte-identical to the one they
+ * previewed. Three detectors were built to catch that and all three lost. `display:none` ends the
+ * class instead: `nth-of-type` is a STRUCTURAL selector and still counts a hidden element, so the
+ * rule lands where the author aimed, while print emits no page for it and the raster exporters
+ * skip it. See `HOLE_BODY` in lib/core/lens-export.mjs. */
+section.form.lens-hole {
+  display: none;
+}
 /* The stage cell is itself a FLEX COLUMN that OWNS the inter-block vertical
  * rhythm via `gap` — the prose step that `section h2/h3/p { margin-bottom }`
  * used to carry before HARD RULE #20 retired those margins (margin is invisible

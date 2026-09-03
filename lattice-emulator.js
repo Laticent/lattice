@@ -470,6 +470,18 @@ if (positional[1]?.endsWith('.css')) {
 if (flags.css)     { cssFile = flags.css; cssIsDefault = false; }
 if (flags.output)  outFile    = flags.output;
 if (flags.palette) paletteArg = flags.palette;
+// THE SLIDES A RASTER EXPORTER SHOOTS — every slide except a reader-view HOLE.
+//
+// A hole is a withheld slide the projection keeps so that `nth-of-type` still lands where the author
+// aimed; it is `display:none`, and Puppeteer cannot screenshot a hidden element — `.pptx` and `.png`
+// both died with "Node is either not visible or not an HTMLElement" (measured). Print needs no
+// equivalent: a hidden section simply emits no page.
+//
+// Excluding it here rather than skipping inside each loop is deliberate: this selector is read at
+// four sites (pptx, png, thumbnails, image-set) and a fifth would otherwise have to remember. It is
+// also what keeps the disclosure at ZERO for every rasterized format — the hole is absent from the
+// artifact entirely, not merely blank in it.
+const SHOOTABLE_SLIDES = 'section[data-lattice-slide]:not(.lens-hole)';
 const QUIET = flags.quiet;
 const NOTES_SIDECAR = !!flags.notes;
 const CAPTIONS = !!flags.captions;
@@ -2191,9 +2203,12 @@ if (LENS_PROJECTION) {
     console.warn('         because the stylesheet and every slide\'s markup are identical on both sides — so check the');
     console.warn('         exported file, or move the CSS into a theme the renderer already ships.');
   }
+  // `total`, not `kept.length` — the projection emits a HOLE for every withheld slide, so the deck
+  // that ships has the authored deck's length and its authored numbering. That is the point of the
+  // hole: nothing after a withheld slide moves, so nothing keyed on position can retarget.
   const indexDrift = authoredIndexDrift(
     require('./lib/engine/index.js').render(rawMd).html,
-    LENS_PROJECTION.kept.length,
+    LENS_PROJECTION.total,
     appendedSlides,
   );
   if (indexDrift) {
@@ -4052,7 +4067,7 @@ async function renderBody(browser, g, closeBrowser) {
       const { resolvePrintSheet } = require('./lib/core/print-sheet.mjs');
       paperSheet = resolvePrintSheet(slideW, slideH, { paper: PAPER, orientation: ORIENTATION });
     }
-    const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
+    const handles = await g(() => page.$$(SHOOTABLE_SLIDES), 'collect slide handles');
     const jpegBuffers = [];
     for (const h of handles) {
       jpegBuffers.push(await g(() => h.screenshot({ type: 'jpeg', quality: 95 }), 'screenshot slide'));
@@ -4096,7 +4111,7 @@ async function renderBody(browser, g, closeBrowser) {
 
     // (1) Full-fidelity raster, one per slide, at the resolved `--image-size` scale. Taken
     // FIRST, before any SVG-look re-styling below, so the slides keep the export color mode.
-    const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
+    const handles = await g(() => page.$$(SHOOTABLE_SLIDES), 'collect slide handles');
     if (handles.length === 0) {
       await closeBrowser();
       console.error(`error: the deck rendered no slides — nothing to write to ${outFile}.`);
@@ -4124,7 +4139,7 @@ async function renderBody(browser, g, closeBrowser) {
     if (IMAGE_SET_OPTS.thumbnails) {
       const thumbScale = resolveThumbScale(IMAGE_SET_OPTS.thumbWidth, slideW, rasterScale);
       await g(() => page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: thumbScale }), 'set thumb viewport');
-      const thumbHandles = await g(() => page.$$('section[data-lattice-slide]'), 'collect thumb handles');
+      const thumbHandles = await g(() => page.$$(SHOOTABLE_SLIDES), 'collect thumb handles');
       for (const h of thumbHandles) {
         thumbs.push(await g(() => h.screenshot(shot), 'screenshot thumb'));
       }
@@ -4468,7 +4483,7 @@ async function renderBody(browser, g, closeBrowser) {
     // PNG / PPTX: rasterize one image per slide from the SAME rendered page.
     // Each `section[data-lattice-slide]` is exactly slideW×slideH (fixed-page),
     // so an element screenshot yields a clean full-bleed slide image.
-    const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
+    const handles = await g(() => page.$$(SHOOTABLE_SLIDES), 'collect slide handles');
     const pngBuffers = [];
     // `.png` keeps a rounded corner as transparency; `.pptx` shares this loop but was
     // squared above, so OMIT_BG is false for it and its images stay opaque.
