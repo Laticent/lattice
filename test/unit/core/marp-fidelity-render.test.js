@@ -239,6 +239,30 @@ const PROBES = {
       [...doc.querySelectorAll('li.state')].map((li) => `${cls(li)}|${li.textContent.trim()}`),
   },
 
+  listTabularMarks: {
+    min: 5,
+    section: 'list-tabular',
+    body: [
+      '## Ledger', '',
+      '1. Contracts', '   - Signed by both parties.', '   - [x] `stable`',
+      '2. Migration', '   - Data moved.', '   - [ ] `draft`',
+      '3. Runbook', '   - Half written.', '   - [-] `beta`',
+      '4. Sign-off', '   - Dropped.', '   - [/] `parked`',
+      '5. Notes', '   - No marker on this one.', '   - `internal`',
+    ].join('\n'),
+    // Three things have to agree, so the probe reads all three: the <li> is tagged
+    // `marks`, the disc span carries the right state classes (or is absent, for the
+    // pills-only row), and the typed marker is STRIPPED from the text. A transform
+    // that tagged the row but left `[x]` on the slide passes a class-only probe —
+    // and a typed marker on a rendered surface is the whole reason this exists
+    // (HARD RULE #29).
+    probe: (doc) =>
+      [...doc.querySelectorAll('li.marks')].map((li) => {
+        const disc = li.querySelector(':scope > .state');
+        return `${disc ? cls(disc) : '-'}|${li.textContent.trim()}`;
+      }),
+  },
+
   matrixGridCells: {
     min: 6,
     section: 'matrix-grid',
