@@ -7,177 +7,290 @@
 
 The live, claimable work queue — a read-only mirror of [open issues](https://github.com/SlideWright/lattice/issues),
 grouped by board column. Design lives in `engineering/decisions/`; this tracks
-only *status*. **167 open** items.
+only *status*. **278 open** items.
 
-> ⚠️ **8 cards need triage** (missing `area:`/`type:`/`priority:`): [#1502](https://github.com/SlideWright/lattice/issues/1502), [#1503](https://github.com/SlideWright/lattice/issues/1503), [#1509](https://github.com/SlideWright/lattice/issues/1509), [#1511](https://github.com/SlideWright/lattice/issues/1511), [#1513](https://github.com/SlideWright/lattice/issues/1513), [#1514](https://github.com/SlideWright/lattice/issues/1514), [#1516](https://github.com/SlideWright/lattice/issues/1516), [#1526](https://github.com/SlideWright/lattice/issues/1526).
+> ⚠️ **10 cards need triage** (missing `area:`/`type:`/`priority:`): [#1973](https://github.com/Laticent/lattice/issues/1973), [#2004](https://github.com/Laticent/lattice/issues/2004), [#2010](https://github.com/Laticent/lattice/issues/2010), [#2017](https://github.com/Laticent/lattice/issues/2017), [#2034](https://github.com/Laticent/lattice/issues/2034), [#2041](https://github.com/Laticent/lattice/issues/2041), [#2050](https://github.com/Laticent/lattice/issues/2050), [#2052](https://github.com/Laticent/lattice/issues/2052), [#2053](https://github.com/Laticent/lattice/issues/2053), [#2054](https://github.com/Laticent/lattice/issues/2054).
 
-## Backlog (156)
+## Backlog (269)
 
-- [#1437](https://github.com/SlideWright/lattice/issues/1437) Configure Release Pipeline — critical · infra
-- [#287](https://github.com/SlideWright/lattice/issues/287) refactor(engine): LPM Phase 1 — manifest `render` block + `transformSection` adapter; migrate the chart kernels — high · engine
-- [#506](https://github.com/SlideWright/lattice/issues/506) feat(runtime): runtime auto-split (Option B) via eventual consistency — high · engine
-- [#515](https://github.com/SlideWright/lattice/issues/515) feat(playground): Google Drive bring-your-own-storage — Connect / Save / Open — high · website
-- [#617](https://github.com/SlideWright/lattice/issues/617) Harden .lattice-*.zip import against zip-slip / path traversal on filesystem-backed (desktop/CLI) imports — high · engine
-- [#669](https://github.com/SlideWright/lattice/issues/669) Backdrop controls — implement strength / clearance / spotlight on a .backdrop layer — high · engine
-- [#680](https://github.com/SlideWright/lattice/issues/680) quadrant chart renders at a fraction of its container — unreadable at presentation size — high · chart
-- [#688](https://github.com/SlideWright/lattice/issues/688) regress: 10 gallery goldens are stale on main (fail the regression gate against main's own code) — high · infra
-- [#759](https://github.com/SlideWright/lattice/issues/759) fix(studio): harden the demo walkthrough — race-driven drawer/render glitches + retime to a paced ~2-min showcase — high · website
-- [#1208](https://github.com/SlideWright/lattice/issues/1208) e2e: demo.spec.ts "walkthrough reskin drives the REAL deck Inspector" fails deterministically on main — high · infra
-- [#1213](https://github.com/SlideWright/lattice/issues/1213) HARD RULE #4: human-readable chart text is sized in raw cqi with no floor — ~9px labels at portrait — high · chart
-- [#1246](https://github.com/SlideWright/lattice/issues/1246) security: Mermaid renders after sanitizeSlideHtml, so a diagram can put javascript: into a same-origin preview frame — high · website
-- [#1252](https://github.com/SlideWright/lattice/issues/1252) spike: eleven agent errors in one session cluster into three shapes — find the procedural fix, not more reviewers — high · infra
-- [#1281](https://github.com/SlideWright/lattice/issues/1281) [Bug] Reshape of Slides broken — high · website
-- [#1294](https://github.com/SlideWright/lattice/issues/1294) [Bug] Navigation Support — high · website
-- [#1295](https://github.com/SlideWright/lattice/issues/1295) [Bug] Present Screen Rework — high · website
-- [#1324](https://github.com/SlideWright/lattice/issues/1324) ci(docs-build): the docs suite is flaky on main — at least 3 tests fail nondeterministically, ejecting unrelated PRs — high · infra
-- [#1328](https://github.com/SlideWright/lattice/issues/1328) docs suite: studio.theme-depth flakes under full-suite load — on main, and it masks real failures — high · infra
-- [#1388](https://github.com/SlideWright/lattice/issues/1388) export-marp is an unlisted line-ending boundary: a BOM'd deck exports in the wrong palette, and a CRLF deck emits a CRLF .md — high · engine
-- [#1398](https://github.com/SlideWright/lattice/issues/1398) Verify narrated Present against real audio — every claim about how it SOUNDS is still unverified — high · website
-- [#1412](https://github.com/SlideWright/lattice/issues/1412) a11y palettes fail categorical layer ① (mark vs canvas) on 9 of 12 slots in dark, unremarked — high · theming
-- [#1426](https://github.com/SlideWright/lattice/issues/1426) studio: the @visual baselines are stale on main — all three viewports fail on content the snapshots predate — high · infra
-- [#1442](https://github.com/SlideWright/lattice/issues/1442) Adjacency-preserving equivalence harness + structural gating for the preview render — high · engine
-- [#1457](https://github.com/SlideWright/lattice/issues/1457) A Studio-generated theme paints Mermaid subgraph boxes solid black — `--c-*` and `--spectrum` have no safe default, and #1411 is a class — high · theming
-- [#1458](https://github.com/SlideWright/lattice/issues/1458) Untrusted theme CSS reaches the Studio preview's `<style>` verbatim — the sink is unguarded, and HARD RULE #22's gate only inspects the HTML half — high · website
-- [#1471](https://github.com/SlideWright/lattice/issues/1471) test(docs): two Studio suites fail only in a full run — order-dependent, names now captured — high · infra
-- [#1501](https://github.com/SlideWright/lattice/issues/1501) export(player): the only real guard on forged chrome is ungated, and two collection lookups are still forgeable — high · engine
-- [#1507](https://github.com/SlideWright/lattice/issues/1507) Studio E2E: the first restored run reports 16 failures — inventory, card mapping, and the 10 with no card — high · infra
-- [#1524](https://github.com/SlideWright/lattice/issues/1524) `checkLineEndingBoundaries` / `SANCTIONED_EOL_BOUNDARIES` do not exist — a gate documented as shipped in 9 places was never written — high · infra
-- [#1527](https://github.com/SlideWright/lattice/issues/1527) 150 palette declarations are dead on the export path — the base `:root` block wins the concat order — high · theming
-- [#1528](https://github.com/SlideWright/lattice/issues/1528) Hoist `var(--spectrum)` out of the `background:` shorthand, so a missing ribbon can't drop the canvas — high · theming
-- [#1529](https://github.com/SlideWright/lattice/issues/1529) [integration-nightly] render-regression tier failing on main — high · engine
-- [#1530](https://github.com/SlideWright/lattice/issues/1530) [preview-e2e] playground gallery preview fails to render — high · website
-- [#1531](https://github.com/SlideWright/lattice/issues/1531) [studio-e2e] Studio E2E suite failing on main — high · infra
-- [#1532](https://github.com/SlideWright/lattice/issues/1532) [perf-nightly] docs perf regression detected — high · website
-- [#286](https://github.com/SlideWright/lattice/issues/286) refactor(css): namespace variant classes that collide with component names — medium · engine
-- [#288](https://github.com/SlideWright/lattice/issues/288) feat(engine): implement the front-matter deck-config contract (vars, object background/logo, fonts, metadata, sizes) — medium · engine
-- [#289](https://github.com/SlideWright/lattice/issues/289) feat(engine): implement the `$`-sigil inline-code variable interpolation grammar — medium · engine
-- [#290](https://github.com/SlideWright/lattice/issues/290) test(infra): add a three-renderer transform-parity unit test — medium · infra
-- [#291](https://github.com/SlideWright/lattice/issues/291) infra: add a per-component pixel-baseline regression tier in CI — medium · infra
-- [#292](https://github.com/SlideWright/lattice/issues/292) infra: adopt a per-feature deck archive policy (`_meta: archived` + examples/MANIFEST.md) — medium · infra
-- [#293](https://github.com/SlideWright/lattice/issues/293) infra: automate the graduation-commit trigger on PR merge — medium · infra
-- [#299](https://github.com/SlideWright/lattice/issues/299) refactor(diagram): give function-plot its own `lib/integrations/function-plot/` home + honest renderPaths — medium · diagram
-- [#305](https://github.com/SlideWright/lattice/issues/305) docs: dedupe the two doc-index tables (CLAUDE.md vs skill.md drift) — medium · docs
-- [#307](https://github.com/SlideWright/lattice/issues/307) docs: prune/flip the treatments-rename ADR (shipped; still "implementation-ready") — medium · docs
-- [#308](https://github.com/SlideWright/lattice/issues/308) docs: resolve the P4 regression-gate ADR status (pivot shipped; still strikethrough "pre-code") — medium · engine
-- [#380](https://github.com/SlideWright/lattice/issues/380) Narrative step model — assemble the slide as you go (implementation) — medium · engine
-- [#414](https://github.com/SlideWright/lattice/issues/414) refactor(website): consolidate the per-surface theme/palette dropdowns onto one shared control — medium · website
-- [#476](https://github.com/SlideWright/lattice/issues/476) chart(kanban): per-card detail reveal (Tier-2, on the HTML-mark path) — medium · chart
-- [#500](https://github.com/SlideWright/lattice/issues/500) feat(legal): obligation-matrix cover-paginate — a split that survives a wide matrix — medium · legal
-- [#511](https://github.com/SlideWright/lattice/issues/511) refactor(engine): consolidate runtime + emulator — rename the CLI off "emulator", unify the Mermaid var-map — medium · engine
-- [#554](https://github.com/SlideWright/lattice/issues/554) feat(forms): N-up split Frame — compose multiple components in a grid (generalize split-panel) — medium · engine
-- [#581](https://github.com/SlideWright/lattice/issues/581) kpi: default layout overflows 4 rows under a two-line headline (masthead-lift capacity regression) — medium · evidence
-- [#582](https://github.com/SlideWright/lattice/issues/582) galleries: add a non-flaky content-drift signal so goldens don't silently rot — medium · infra
-- [#587](https://github.com/SlideWright/lattice/issues/587) redline: migrate into the .cell-stage cell-tree (the one standard component left on direct-child bodies) — medium · comparison
-- [#588](https://github.com/SlideWright/lattice/issues/588) check-ownership: extend the hex-literal gate (HARD RULE #3) to shipped component CSS — medium · infra
-- [#596](https://github.com/SlideWright/lattice/issues/596) Performance gating by metric class + E2E re-tier (PR B) — medium · infra
-- [#610](https://github.com/SlideWright/lattice/issues/610) Studio AI track (G6 → G7): model backbone, theme/component chat, voice — key-gated, budget-guarded — medium · website
-- [#648](https://github.com/SlideWright/lattice/issues/648) Studio-AI: render-in-the-loop harness — give the generator eyes so "10/10" becomes a measured target, not a wish — medium · website
-- [#660](https://github.com/SlideWright/lattice/issues/660) Spike: Living Decks — AI-assisted animation, narration & interactivity (research) — medium · engine
-- [#662](https://github.com/SlideWright/lattice/issues/662) Living Decks: write the framing ADR (medium boundary + library portfolio + roadmap) — medium · engine
-- [#757](https://github.com/SlideWright/lattice/issues/757) feat(export): the self-contained .lattice .html player + full theme/asset envelope — medium · website
-- [#783](https://github.com/SlideWright/lattice/issues/783) verify(playground): Explore surface on real iOS Safari — touch stepping, scroll snap, transcript disclosure — medium · website
-- [#1069](https://github.com/SlideWright/lattice/issues/1069) lint: proseWordCount counts fenced-code content as prose (wall-of-text false positive on decks with code/anima blocks) — medium · infra
-- [#1075](https://github.com/SlideWright/lattice/issues/1075) cards-stack: per-card overflow is unguarded (slide-level probe misses card-level clip) — medium · engine
-- [#1087](https://github.com/SlideWright/lattice/issues/1087) Motion faculty duplicates .scene-control CSS from scene.styles.css (drift trap) — medium · website
-- [#1193](https://github.com/SlideWright/lattice/issues/1193) Component manifests have drifted from §0c's owner-resolved split classifications (5 undeclared, 2 stale, 2 off-policy) — medium · engine
-- [#1216](https://github.com/SlideWright/lattice/issues/1216) studio(mobile): three claims from #1198 owed verification on a real device — and one already measured false — medium · website
-- [#1221](https://github.com/SlideWright/lattice/issues/1221) spike(engine): decorator-stamped intent — name the default variant so recipes are opt-in, not opt-out — medium · engine
-- [#1225](https://github.com/SlideWright/lattice/issues/1225) spike(engine): only the live preview stamps `--_sec-1cqi` — the export sizes stage content ~11% small — medium · engine
-- [#1241](https://github.com/SlideWright/lattice/issues/1241) ui(dropdown-menu): the only Radix portal wrapper that doesn't carry `lx-ui` — its rows sit outside the scoped reset — medium · website
-- [#1247](https://github.com/SlideWright/lattice/issues/1247) pwa: the engine/KaTeX `<script>` channel and the SW's cross-tab eviction are a second source of "part of the app didn't load" — medium · website
-- [#1249](https://github.com/SlideWright/lattice/issues/1249) studio(header): the deck-switcher title collapses to zero width between ~820px and ~1024px — medium · website
-- [#1257](https://github.com/SlideWright/lattice/issues/1257) studio(front-matter): the lexicon: / acronyms: writers still rebuild the whole block — medium · website
-- [#1270](https://github.com/SlideWright/lattice/issues/1270) Differential single-slide-vs-full-deck invariant test — the GATE half is what remains — medium · infra
-- [#1284](https://github.com/SlideWright/lattice/issues/1284) [Bug] Auto complete is not smart — medium · website
-- [#1302](https://github.com/SlideWright/lattice/issues/1302) theme(carbone): curated light-mode tokens — the one palette with no light face, now on the demo's reskin beat — medium · theming
-- [#1308](https://github.com/SlideWright/lattice/issues/1308) Make the slice/deck sweep measure what ships — then seedRenderIds, then reconcile the two slide splitters — medium · infra
-- [#1318](https://github.com/SlideWright/lattice/issues/1318) kpi: measure adapt.capacity.tall — the declared hard: 5 was never validated against an unsplit portrait render — medium · evidence
-- [#1319](https://github.com/SlideWright/lattice/issues/1319) kpi: wrap the supports so the row count leaves CSS — retire the :has(nth-child) thresholds — medium · evidence
-- [#1333](https://github.com/SlideWright/lattice/issues/1333) Preview route decision: the running-global probe over-matches, and its scan is quadratic on author input — medium · engine
-- [#1339](https://github.com/SlideWright/lattice/issues/1339) Consolidate the authoring vocabulary — four enumerations already exist and disagree — medium · engine
-- [#1346](https://github.com/SlideWright/lattice/issues/1346) Wrapped code lines continue flush-left, which reads as a dedent in indentation-sensitive languages — medium · code
-- [#1348](https://github.com/SlideWright/lattice/issues/1348) Two diagram ink pairs sit below AA in every palette — gitgraph branch labels and the parse-error box — medium · diagram
-- [#1350](https://github.com/SlideWright/lattice/issues/1350) Structured comment pragmas leak into every exported presenter-notes field — medium · engine
-- [#1354](https://github.com/SlideWright/lattice/issues/1354) The Export-to-Marp bundle ships MIT + OFL third-party files with none of their license texts — medium · engine
-- [#1363](https://github.com/SlideWright/lattice/issues/1363) below-note's layout exclusion is a substring test, so `no-progress` reads as the `progress` component — medium · engine
-- [#1364](https://github.com/SlideWright/lattice/issues/1364) check-lint-coverage writes probe files into lib/components/, breaking any render running at the same time — medium · infra
-- [#1377](https://github.com/SlideWright/lattice/issues/1377) A theme-pinned diagram gets no engine config on the export path — the last hole in Mermaid config parity — medium · diagram
-- [#1405](https://github.com/SlideWright/lattice/issues/1405) matrix-grid's ::after axis labels are never inspected for clipping — the bearer pass skips any host that owns text — medium · chart
-- [#1406](https://github.com/SlideWright/lattice/issues/1406) A relative `logo:` resolves against the OUTPUT directory, not the deck — so every render to an out-of-tree path silently drops the logo — medium · engine
-- [#1410](https://github.com/SlideWright/lattice/issues/1410) `<strong>` renders dark-on-dark on the inverse title surface — medium · theming
-- [#1424](https://github.com/SlideWright/lattice/issues/1424) studio: the mobile tour's completion toast says "Demo complete", not the deck name — demo-mobile.spec.ts:58 is red — medium · website
-- [#1430](https://github.com/SlideWright/lattice/issues/1430) Export path: 14 base :root tokens override the palette's curated values — medium · theming
-- [#1431](https://github.com/SlideWright/lattice/issues/1431) Component-generator prompt still offers --cat-N-mark as the categorical text color — medium · website
-- [#1450](https://github.com/SlideWright/lattice/issues/1450) A theme manifest: the contract already exists in code, but it governs the generated themes and not the hand-authored ones — medium · theming
-- [#1459](https://github.com/SlideWright/lattice/issues/1459) The theme token contract is hand-maintained in four places, has already drifted 95 vs 91, and `carta` is checked by none of them — medium · theming
-- [#1468](https://github.com/SlideWright/lattice/issues/1468) Code blocks outside a `.code` slide get no surface treatment — and 5 palettes had a code-surface preference that never rendered — medium · theming
-- [#1491](https://github.com/SlideWright/lattice/issues/1491) docs deps: astro 7 is gated on Starlight, so five Dependabot PRs can never go green — medium · infra
-- [#1494](https://github.com/SlideWright/lattice/issues/1494) studio(shell): move the shell CSS out of JS template literals — a backtick in a comment breaks the build 700 lines away — medium · website
-- [#1506](https://github.com/SlideWright/lattice/issues/1506) e2e: `getByText('Structure')` matches 3 elements — architect.spec.ts:31 is a strict-mode collision, not a missing scorecard — medium · website
-- [#1517](https://github.com/SlideWright/lattice/issues/1517) [Bug] Closing the add-slide gallery leaves ~70 documents (~380MB) resident — medium · website
-- [#1522](https://github.com/SlideWright/lattice/issues/1522) Classify every component's variants into variantAxes (36 components, 172 tokens) — medium · components
-- [#180](https://github.com/SlideWright/lattice/issues/180) epic(chart): resolution-independent charts — cqi-first, kill fixed-px, for any-format / 10K export — low · chart
-- [#279](https://github.com/SlideWright/lattice/issues/279) docs: reconcile Mermaid diagram-type count (README "25" vs gallery "26") — low · diagram
-- [#280](https://github.com/SlideWright/lattice/issues/280) docs: fix phantom `--hljs-name`/`--hljs-meta` token rows in highlight-js.docs.md — low · docs
-- [#283](https://github.com/SlideWright/lattice/issues/283) refactor(css): audit and reduce `!important` (~490 repo-wide) — low · engine
-- [#294](https://github.com/SlideWright/lattice/issues/294) docs: document `pixel-check` in development.md and decide on a hook — low · infra
-- [#297](https://github.com/SlideWright/lattice/issues/297) feat(website): build a visual component catalog (thumbnail picker) — low · website
-- [#298](https://github.com/SlideWright/lattice/issues/298) feat(website): implement the `.latticepack` interchange (zip export/import) — low · website
-- [#309](https://github.com/SlideWright/lattice/issues/309) docs: pick a single canonical home for the Mermaid contract (currently in 3 docs) — low · theming
-- [#310](https://github.com/SlideWright/lattice/issues/310) docs: drop/re-anchor the legacy "Part 1–11" doc numbering — low · docs
-- [#477](https://github.com/SlideWright/lattice/issues/477) chart(state-chart): tune the `tb` reveal-lift magnitude — low · chart
-- [#478](https://github.com/SlideWright/lattice/issues/478) chart(state-chart): tighten `inline`/`horizontal` variant label spacing — low · chart
-- [#527](https://github.com/SlideWright/lattice/issues/527) explore: alignment as a universal modifier (vertical top/center for tables, lists, etc.) — low
-- [#634](https://github.com/SlideWright/lattice/issues/634) AI component-gen: a status/RAG matrix should route to obligation-matrix, not emit inert [x] markers (#610) — low · website
-- [#797](https://github.com/SlideWright/lattice/issues/797) 28 of 30 gated showcase WebPs have no on-site consumer — re-point a surface at them or shrink the flags — low · website
-- [#800](https://github.com/SlideWright/lattice/issues/800) Promote the @smoke e2e subset to a PR-blocking gate (after a nightly green streak) — low · infra
-- [#867](https://github.com/SlideWright/lattice/issues/867) chart(state-chart): consolidate the third private list-walker variant onto the shared kernel — low · chart
-- [#964](https://github.com/SlideWright/lattice/issues/964) spike(lente): content-aware lens suggestions via wink-nlp (deterministic, no LLM) — low · website
-- [#970](https://github.com/SlideWright/lattice/issues/970) chore(cleanup): delete 3 superseded old-browser branches — low · infra
-- [#982](https://github.com/SlideWright/lattice/issues/982) Reintroduce AI voice-rewrite (Technical/Narrative) behind a proper diff gate (§9.5 / R4) — low · website
-- [#983](https://github.com/SlideWright/lattice/issues/983) Lens suggester: de-jargon the per-slide rationale strings (reader terms, not the function/form taxonomy) — low · website
-- [#1061](https://github.com/SlideWright/lattice/issues/1061) anima: design a fit-for-purpose animation component (lead vs supporting actor) — low · engine
-- [#1077](https://github.com/SlideWright/lattice/issues/1077) anima: live scenes on a multi-scene DeckPreview page don't pause when scrolled off-screen — low · website
-- [#1093](https://github.com/SlideWright/lattice/issues/1093) Motion faculty fast-follows: §8 non-functional gaps + Rig UX polish — low · website
-- [#1097](https://github.com/SlideWright/lattice/issues/1097) Verify: does parseFinishReply handle the complete({json:true}) object contract? — low · website
-- [#1138](https://github.com/SlideWright/lattice/issues/1138) Adaptive viewport fill — fluid viewer follow-ups (P2 edge cap) — low · engine
-- [#1162](https://github.com/SlideWright/lattice/issues/1162) Studio preview: keep the live iframe warm to avoid re-render cost on remount — low · website
-- [#1223](https://github.com/SlideWright/lattice/issues/1223) lint: nothing but vendor or generated code should be excluded — 3 of 29 exclusions fail that, and none carries a reason — low · infra
-- [#1231](https://github.com/SlideWright/lattice/issues/1231) studio: make panels URL-addressable, and retire the synthetic back-guard entry — low · website
-- [#1234](https://github.com/SlideWright/lattice/issues/1234) Adaptive ADR audit — the gaps left open by #1220 — low · docs
-- [#1267](https://github.com/SlideWright/lattice/issues/1267) studio(panel): cover the free-form panels' inputs, then gate it so a new one can't ship under the keyboard — low · website
-- [#1316](https://github.com/SlideWright/lattice/issues/1316) chart(glass): the canvas glass pane never paints — no committed deck uses the selector, and the fill doesn't render on first paint even when it matches — low · chart
-- [#1355](https://github.com/SlideWright/lattice/issues/1355) `--measure-body` is 36em because narrower clips shipped decks, not because 36em is right — low · engine
-- [#1366](https://github.com/SlideWright/lattice/issues/1366) CHANGELOG is exempt from the US-English gate, and ~30 British spellings have accumulated in `## Unreleased` — low · docs
-- [#1368](https://github.com/SlideWright/lattice/issues/1368) Four consumers read `data-class` as the slide's class identity, which it structurally cannot be — low · engine
-- [#1369](https://github.com/SlideWright/lattice/issues/1369) 15 test files still hand-roll a Chromium resolver, and one still shells out to a hard-coded /root path — low · infra
-- [#1375](https://github.com/SlideWright/lattice/issues/1375) A wrapped `Text:` row collides with its neighbours in a Mermaid requirement diagram — low · diagram
-- [#1395](https://github.com/SlideWright/lattice/issues/1395) Spike: the published package surface sits outside every line-ending boundary — how far does "no reader has to remember" actually reach? — low · engine
-- [#1396](https://github.com/SlideWright/lattice/issues/1396) Spike: can a .lattice restore misplace its comments now that ingest normalization changes a lone-CR deck's slide count? — low · engine
-- [#1407](https://github.com/SlideWright/lattice/issues/1407) `section pre.hljs` / `section code.hljs` are dead rules — no render path emits the `hljs` class — low · code
-- [#1413](https://github.com/SlideWright/lattice/issues/1413) premise's "common mistake" contradicts its own slots table and every shipped example — low · docs
-- [#1414](https://github.com/SlideWright/lattice/issues/1414) studio: the desktop tail cluster slides ~15px for ~75ms on Write→Build — low · website
-- [#1429](https://github.com/SlideWright/lattice/issues/1429) engine(overflow): move both marker registers to the bottom edge — and the measured reason the current tab metrics can't go there as-is — low · engine
-- [#1436](https://github.com/SlideWright/lattice/issues/1436) [Idea] Prefetch all assets after the homepage loads — low · website
-- [#1460](https://github.com/SlideWright/lattice/issues/1460) `tools/contrast-audit.js:53` cannot see `--hljs-built_in` — its token regex excludes underscores — low · theming
-- [#1492](https://github.com/SlideWright/lattice/issues/1492) export(narration): a per-export audio quality control, alongside the workspace one — low · website
-- [#1502](https://github.com/SlideWright/lattice/issues/1502) core: two different exported functions named buildReadAlong in lib/core/ — engine
-- [#1503](https://github.com/SlideWright/lattice/issues/1503) narration: finish the encoder integration — Gemini encodes on the main thread, clips gain untrimmed codec delay, LAME notice unlinked — engine
-- [#1509](https://github.com/SlideWright/lattice/issues/1509) narration: ask the provider for compressed audio — four response_format values have never been tried — engine
-- [#1511](https://github.com/SlideWright/lattice/issues/1511) narration: compress for export off the main thread — worker pool first, idle precompression second — engine
-- [#1513](https://github.com/SlideWright/lattice/issues/1513) Narration silently skips most of a slide on the on-device rung: the produce deadline burns down inside the serial queue
-- [#1514](https://github.com/SlideWright/lattice/issues/1514) Two rotation/orientation Studio e2e specs fail intermittently on main (~1 per full matrix run)
-- [#1516](https://github.com/SlideWright/lattice/issues/1516) Two narrow narration hazards found by red team but not reproduced: the warm drop-channel's doomed promise, and a whitespace-only cue
-- [#1526](https://github.com/SlideWright/lattice/issues/1526) Studio e2e: 34 fixed `waitForTimeout` settles across 9 specs — each needs judging, not a find-and-replace — infra
+- [#515](https://github.com/Laticent/lattice/issues/515) feat(playground): Google Drive bring-your-own-storage — Connect / Save / Open — high · website
+- [#617](https://github.com/Laticent/lattice/issues/617) Harden .lattice-*.zip import against zip-slip / path traversal on filesystem-backed (desktop/CLI) imports — high · engine
+- [#1213](https://github.com/Laticent/lattice/issues/1213) HARD RULE #4: human-readable chart text is sized in raw cqi with no floor — ~9px labels at portrait — high · chart
+- [#1246](https://github.com/Laticent/lattice/issues/1246) security: Mermaid renders after sanitizeSlideHtml, so a diagram can put javascript: into a same-origin preview frame — high · website
+- [#1252](https://github.com/Laticent/lattice/issues/1252) spike: eleven agent errors in one session cluster into three shapes — find the procedural fix, not more reviewers — high · infra
+- [#1295](https://github.com/Laticent/lattice/issues/1295) [Bug] Present Screen Rework — high · website
+- [#1398](https://github.com/Laticent/lattice/issues/1398) Verify narrated Present against real audio — every claim about how it SOUNDS is still unverified — high · website
+- [#1412](https://github.com/Laticent/lattice/issues/1412) a11y palettes fail categorical layer ① (mark vs canvas) on 9 of 12 slots in dark, unremarked — high · theming
+- [#1442](https://github.com/Laticent/lattice/issues/1442) Adjacency-preserving equivalence harness + structural gating for the preview render — high · engine
+- [#1501](https://github.com/Laticent/lattice/issues/1501) export(player): the only real guard on forged chrome is ungated, and two collection lookups are still forgeable — high · engine
+- [#1507](https://github.com/Laticent/lattice/issues/1507) Studio E2E: the first restored run reports 16 failures — inventory, card mapping, and the 10 with no card — high · infra
+- [#1513](https://github.com/Laticent/lattice/issues/1513) Narration silently skips most of a slide on the on-device rung: the produce deadline burns down inside the serial queue — high · engine
+- [#1530](https://github.com/Laticent/lattice/issues/1530) [preview-e2e] playground gallery preview fails to render — high · website
+- [#1532](https://github.com/Laticent/lattice/issues/1532) [perf-nightly] docs perf regression detected — high · website
+- [#1640](https://github.com/Laticent/lattice/issues/1640) Unblock the export-path cascade fix: flat-token dark companions first, plus three defects logged off-path by #1632 — high · theming
+- [#1791](https://github.com/Laticent/lattice/issues/1791) ai(eval): the four AI faculties are only tested against fake replies — stress-test theme/component/finish/motion across Haiku, Sonnet and Opus — high · infra
+- [#1833](https://github.com/Laticent/lattice/issues/1833) narration(export): a speaker note still reaches a recipient through the player's notes panel — high · engine
+- [#1838](https://github.com/Laticent/lattice/issues/1838) narration: an inline `&lt;!-- caption: --&gt;` may bind to the wrong page across an autosplit — high · engine
+- [#1845](https://github.com/Laticent/lattice/issues/1845) [integration-nightly] render-regression tier failing on main — high · engine
+- [#1853](https://github.com/Laticent/lattice/issues/1853) feat(export): no way to export a lens — reader views cannot leave the Studio as files — high · engine
+- [#1854](https://github.com/Laticent/lattice/issues/1854) feat(export): the .html player carries no lenses — a shipped deck has one reader view — high · engine
+- [#1858](https://github.com/Laticent/lattice/issues/1858) fix(runtime): verdict-grid/pricing badge mirror drops the last badge and prints raw markdown to the reader — high · engine
+- [#1861](https://github.com/Laticent/lattice/issues/1861) fix(theming): `--cat-N-fill` overrides are silently inert on every textured theme — the documented paint path is falsified — high · theming
+- [#1862](https://github.com/Laticent/lattice/issues/1862) fix(a11y): the Mermaid pie legend swatch is never textured — texture makes the chart HARDER to read on the a11y palettes — high · theming
+- [#1864](https://github.com/Laticent/lattice/issues/1864) theming: the categorical fill ramp is not separable — ΔE 0.013 to NORMAL vision, against a 0.15 floor — high · theming
+- [#1865](https://github.com/Laticent/lattice/issues/1865) feat(theme): `derive.js` emits no `--cat-N-texture` — every AI / Studio / Fabricate theme silently loses the channel — high · theming
+- [#1876](https://github.com/Laticent/lattice/issues/1876) studio: the Coach, Chat, Library and Views panels are unreachable between ~1024px and ~1180px — high · website
+- [#1892](https://github.com/Laticent/lattice/issues/1892) Let a component decline the coda: anchor, math and the canvas family host a band that does not belong to their composition — high · engine
+- [#1901](https://github.com/Laticent/lattice/issues/1901) Two trailing paragraphs abort the coda harvest entirely — the Key Insight prints as unstyled body text — high · engine
+- [#1902](https://github.com/Laticent/lattice/issues/1902) Nothing gates who addresses .cell-coda — six CSS families drifted silently when the cell moved — high · infra
+- [#1904](https://github.com/Laticent/lattice/issues/1904) `--chart-state-*` is in no CVD token group — a real protanopia collapse reached a green PR undetected — high · theming
+- [#1905](https://github.com/Laticent/lattice/issues/1905) `--state-*-ink` is never scored as ink — six palettes carry latent sub-AA status inks — high · theming
+- [#1912](https://github.com/Laticent/lattice/issues/1912) infra(workflow): `enable_pr_auto_merge` silently arms a MERGE commit, which the repo forbids — document the trap and the verify step — high · infra
+- [#1927](https://github.com/Laticent/lattice/issues/1927) studio(a11y): a parked preview iframe stays in the accessibility tree and tab order — Tab can land on a hidden "Live deck preview" — high · website
+- [#1928](https://github.com/Laticent/lattice/issues/1928) infra(ci): decide the CodeQL rollout — a required check that never reports on the merge group would deadlock the queue — high · infra
+- [#1931](https://github.com/Laticent/lattice/issues/1931) infra(secrets): five Actions secrets were assumed to survive the org rehost — two of them fail SILENTLY green if they did not — high · infra
+- [#1955](https://github.com/Laticent/lattice/issues/1955) verify(desktop): the SlideWright Tauri wrapper's embedding was never checked, and the routes it may embed have since been deleted — high · infra
+- [#2035](https://github.com/Laticent/lattice/issues/2035) [studio-e2e] Studio E2E suite failing on main — high · infra
+- [#286](https://github.com/Laticent/lattice/issues/286) refactor(css): namespace variant classes that collide with component names — medium · engine
+- [#288](https://github.com/Laticent/lattice/issues/288) feat(engine): implement the front-matter deck-config contract (vars, object background/logo, fonts, metadata, sizes) — medium · engine
+- [#289](https://github.com/Laticent/lattice/issues/289) feat(engine): implement the `$`-sigil inline-code variable interpolation grammar — medium · engine
+- [#290](https://github.com/Laticent/lattice/issues/290) test(infra): add a three-renderer transform-parity unit test — medium · infra
+- [#292](https://github.com/Laticent/lattice/issues/292) infra: adopt a per-feature deck archive policy (`_meta: archived` + examples/MANIFEST.md) — medium · infra
+- [#293](https://github.com/Laticent/lattice/issues/293) infra: automate the graduation-commit trigger on PR merge — medium · infra
+- [#299](https://github.com/Laticent/lattice/issues/299) refactor(diagram): give function-plot its own `lib/integrations/function-plot/` home + honest renderPaths — medium · diagram
+- [#305](https://github.com/Laticent/lattice/issues/305) docs: dedupe the two doc-index tables (CLAUDE.md vs skill.md drift) — medium · docs
+- [#307](https://github.com/Laticent/lattice/issues/307) docs: prune/flip the treatments-rename ADR (shipped; still "implementation-ready") — medium · docs
+- [#308](https://github.com/Laticent/lattice/issues/308) docs: resolve the P4 regression-gate ADR status (pivot shipped; still strikethrough "pre-code") — medium · engine
+- [#380](https://github.com/Laticent/lattice/issues/380) Narrative step model — assemble the slide as you go (implementation) — medium · engine
+- [#414](https://github.com/Laticent/lattice/issues/414) refactor(website): consolidate the per-surface theme/palette dropdowns onto one shared control — medium · website
+- [#476](https://github.com/Laticent/lattice/issues/476) chart(kanban): per-card detail reveal (Tier-2, on the HTML-mark path) — medium · chart
+- [#500](https://github.com/Laticent/lattice/issues/500) feat(legal): obligation-matrix cover-paginate — a split that survives a wide matrix — medium · legal
+- [#511](https://github.com/Laticent/lattice/issues/511) refactor(engine): consolidate runtime + emulator — rename the CLI off "emulator", unify the Mermaid var-map — medium · engine
+- [#554](https://github.com/Laticent/lattice/issues/554) feat(forms): N-up split Frame — compose multiple components in a grid (generalize split-panel) — medium · engine
+- [#581](https://github.com/Laticent/lattice/issues/581) kpi: default layout overflows 4 rows under a two-line headline (masthead-lift capacity regression) — medium · evidence
+- [#596](https://github.com/Laticent/lattice/issues/596) Performance gating by metric class + E2E re-tier (PR B) — medium · infra
+- [#610](https://github.com/Laticent/lattice/issues/610) Studio AI track (G6 → G7): model backbone, theme/component chat, voice — key-gated, budget-guarded — medium · website
+- [#648](https://github.com/Laticent/lattice/issues/648) Studio-AI: render-in-the-loop harness — give the generator eyes so "10/10" becomes a measured target, not a wish — medium · website
+- [#668](https://github.com/Laticent/lattice/issues/668) Add a real-surface Playwright smoke against the built Playground in CI — medium · infra
+- [#757](https://github.com/Laticent/lattice/issues/757) feat(export): the self-contained .lattice .html player + full theme/asset envelope — medium · website
+- [#783](https://github.com/Laticent/lattice/issues/783) verify(playground): Explore surface on real iOS Safari — touch stepping, scroll snap, transcript disclosure — medium · website
+- [#1069](https://github.com/Laticent/lattice/issues/1069) lint: proseWordCount counts fenced-code content as prose (wall-of-text false positive on decks with code/anima blocks) — medium · infra
+- [#1075](https://github.com/Laticent/lattice/issues/1075) cards-stack: per-card overflow is unguarded (slide-level probe misses card-level clip) — medium · engine
+- [#1087](https://github.com/Laticent/lattice/issues/1087) Motion faculty duplicates .scene-control CSS from scene.styles.css (drift trap) — medium · website
+- [#1193](https://github.com/Laticent/lattice/issues/1193) Component manifests have drifted from §0c's owner-resolved split classifications (5 undeclared, 2 stale, 2 off-policy) — medium · engine
+- [#1216](https://github.com/Laticent/lattice/issues/1216) studio(mobile): three claims from #1198 owed verification on a real device — and one already measured false — medium · website
+- [#1221](https://github.com/Laticent/lattice/issues/1221) spike(engine): decorator-stamped intent — name the default variant so recipes are opt-in, not opt-out — medium · engine
+- [#1241](https://github.com/Laticent/lattice/issues/1241) ui(dropdown-menu): the only Radix portal wrapper that doesn't carry `lx-ui` — its rows sit outside the scoped reset — medium · website
+- [#1247](https://github.com/Laticent/lattice/issues/1247) pwa: the engine/KaTeX `<script>` channel and the SW's cross-tab eviction are a second source of "part of the app didn't load" — medium · website
+- [#1257](https://github.com/Laticent/lattice/issues/1257) studio(front-matter): the lexicon: / acronyms: writers still rebuild the whole block — medium · website
+- [#1270](https://github.com/Laticent/lattice/issues/1270) Differential single-slide-vs-full-deck invariant test — the GATE half is what remains — medium · infra
+- [#1284](https://github.com/Laticent/lattice/issues/1284) [Bug] Auto complete is not smart — medium · website
+- [#1308](https://github.com/Laticent/lattice/issues/1308) Make the slice/deck sweep measure what ships — then seedRenderIds, then reconcile the two slide splitters — medium · infra
+- [#1318](https://github.com/Laticent/lattice/issues/1318) kpi: measure adapt.capacity.tall — the declared hard: 5 was never validated against an unsplit portrait render — medium · evidence
+- [#1319](https://github.com/Laticent/lattice/issues/1319) kpi: wrap the supports so the row count leaves CSS — retire the :has(nth-child) thresholds — medium · evidence
+- [#1333](https://github.com/Laticent/lattice/issues/1333) Preview route decision: the running-global probe over-matches, and its scan is quadratic on author input — medium · engine
+- [#1339](https://github.com/Laticent/lattice/issues/1339) Consolidate the authoring vocabulary — four enumerations already exist and disagree — medium · engine
+- [#1346](https://github.com/Laticent/lattice/issues/1346) Wrapped code lines continue flush-left, which reads as a dedent in indentation-sensitive languages — medium · code
+- [#1354](https://github.com/Laticent/lattice/issues/1354) The Export-to-Marp bundle ships MIT + OFL third-party files with none of their license texts — medium · engine
+- [#1364](https://github.com/Laticent/lattice/issues/1364) check-lint-coverage writes probe files into lib/components/, breaking any render running at the same time — medium · infra
+- [#1405](https://github.com/Laticent/lattice/issues/1405) matrix-grid's ::after axis labels are never inspected for clipping — the bearer pass skips any host that owns text — medium · chart
+- [#1406](https://github.com/Laticent/lattice/issues/1406) A relative `logo:` resolves against the OUTPUT directory, not the deck — so every render to an out-of-tree path silently drops the logo — medium · engine
+- [#1410](https://github.com/Laticent/lattice/issues/1410) `<strong>` renders dark-on-dark on the inverse title surface — medium · theming
+- [#1431](https://github.com/Laticent/lattice/issues/1431) Component-generator prompt still offers --cat-N-mark as the categorical text color — medium · website
+- [#1459](https://github.com/Laticent/lattice/issues/1459) The theme token contract is hand-maintained in four places, has already drifted 95 vs 91, and `carta` is checked by none of them — medium · theming
+- [#1468](https://github.com/Laticent/lattice/issues/1468) Code blocks outside a `.code` slide get no surface treatment — and 5 palettes had a code-surface preference that never rendered — medium · theming
+- [#1494](https://github.com/Laticent/lattice/issues/1494) studio(shell): move the shell CSS out of JS template literals — a backtick in a comment breaks the build 700 lines away — medium · website
+- [#1503](https://github.com/Laticent/lattice/issues/1503) narration: finish the encoder integration — Gemini encodes on the main thread, clips gain untrimmed codec delay, LAME notice unlinked — medium · engine
+- [#1509](https://github.com/Laticent/lattice/issues/1509) narration: ask the provider for compressed audio — four response_format values have never been tried — medium · engine
+- [#1511](https://github.com/Laticent/lattice/issues/1511) narration: compress for export off the main thread — worker pool first, idle precompression second — medium · engine
+- [#1514](https://github.com/Laticent/lattice/issues/1514) Two rotation/orientation Studio e2e specs fail intermittently on main (~1 per full matrix run) — medium · infra
+- [#1517](https://github.com/Laticent/lattice/issues/1517) [Bug] Closing the add-slide gallery leaves ~70 documents (~380MB) resident — medium · website
+- [#1522](https://github.com/Laticent/lattice/issues/1522) Classify every component's variants into variantAxes (36 components, 172 tokens) — medium · components
+- [#1534](https://github.com/Laticent/lattice/issues/1534) Spike: let the pre-paint skeletons wrap the real components instead of hand-mirroring them — medium · website
+- [#1536](https://github.com/Laticent/lattice/issues/1536) The chart categorical cycle has no curated ink — charts still run the live color-mix the --cat-* tier retired — medium · theming
+- [#1537](https://github.com/Laticent/lattice/issues/1537) SessionStart hook skips the docs install on a warm container, so docs deps go stale — medium · infra
+- [#1538](https://github.com/Laticent/lattice/issues/1538) The thumbnail preview budget is device-blind — a phone holds a workstation's working set — medium · website
+- [#1542](https://github.com/Laticent/lattice/issues/1542) Read the divider flag off the engine's token stream — `blankCode` is the last hand-written approximation on the preview path — medium · engine
+- [#1549](https://github.com/Laticent/lattice/issues/1549) math: three variants centre the MASTHEAD with the body, dropping the title ~150px off the top berth — medium · math
+- [#1550](https://github.com/Laticent/lattice/issues/1550) `coverWindow`'s balanced-chunking fix is unguarded — reverting it passes 5773 tests — medium · engine
+- [#1558](https://github.com/Laticent/lattice/issues/1558) export player: a pinch turns the slide, and the deck cannot be zoomed at all — medium · engine
+- [#1562](https://github.com/Laticent/lattice/issues/1562) A generated theme has no texture channel — `--cat-N-texture` can't join REQUIRED_TOKENS until a set can be derived per theme — medium · theming
+- [#1569](https://github.com/Laticent/lattice/issues/1569) lint: flag a `---`-delimited YAML block below offset 0 — the stray front matter that costs a slide — medium · website
+- [#1570](https://github.com/Laticent/lattice/issues/1570) studio: `splitSlides` is blind to HEADING splits, so the caller's slide count disagrees with the engine's — medium · website
+- [#1574](https://github.com/Laticent/lattice/issues/1574) theming: the chart categorical cycle needs an ON-FILL ink — text on a tint has no curated value — medium · theming
+- [#1578](https://github.com/Laticent/lattice/issues/1578) export(player): the exported .html player still has no zoom — a pinch is now inert rather than wrong — medium · engine
+- [#1579](https://github.com/Laticent/lattice/issues/1579) verify(export): the player's pinch guard is unverified on a real phone — and its latch path is unverifiable by CDP touch at all — medium · engine
+- [#1585](https://github.com/Laticent/lattice/issues/1585) export(player): a resting thumb silently disables swipe navigation — the pinch guard's disclosed cost, unmitigated — medium · engine
+- [#1591](https://github.com/Laticent/lattice/issues/1591) verify(playground): the pre-paint boot seed on real iPadOS Safari — the coarse-pointer editor metrics especially — medium · website
+- [#1600](https://github.com/Laticent/lattice/issues/1600) chart: `check:chart-fit` is red on main — progress clips at portrait AND square, timeline-list at portrait — medium · engine
+- [#1601](https://github.com/Laticent/lattice/issues/1601) export: nothing detects a player-only defect — the PDF is right, the webpage is wrong, and no gate compares them — medium · infra
+- [#1602](https://github.com/Laticent/lattice/issues/1602) export(player): the no-JS floor's ladder is width-only, so a tall deck's slide is 2.2× the screen height — medium · engine
+- [#1615](https://github.com/Laticent/lattice/issues/1615) a11y palettes: a per-slide `dark` class defeats the forced light scheme, collapsing the categorical value ramp — medium · theming
+- [#1617](https://github.com/Laticent/lattice/issues/1617) verify(studio): the crash report on real iOS Safari — discoverability, layout, and the missing memory trend — medium · website
+- [#1623](https://github.com/Laticent/lattice/issues/1623) A theme color change stales committed artifacts three hops deep, and no per-PR gate sees it — medium · infra
+- [#1633](https://github.com/Laticent/lattice/issues/1633) chart(state-chart): the layout installer rebuilds on every content pass, so the deck never settles — medium · chart
+- [#1634](https://github.com/Laticent/lattice/issues/1634) crash sentinel: onVisibility persists without a catchUpOnWipe guard — medium · website
+- [#1678](https://github.com/Laticent/lattice/issues/1678) [Feat] Saved motion scenes have no Library presence — and imported ones are silently discarded — medium · website
+- [#1685](https://github.com/Laticent/lattice/issues/1685) a11y palettes: `--chart-state-*` and `--diagram-critical` stay flat, so they now disagree with the status trio on a dark slide — medium · theming
+- [#1716](https://github.com/Laticent/lattice/issues/1716) fix(studio): tell the author when an export squares a `corners: rounded` deck — medium · website
+- [#1736](https://github.com/Laticent/lattice/issues/1736) a11y palettes: nothing prevents `color-mode: dark` on a light-only theme, and the `:root:root` pin cannot reach it — medium · theming
+- [#1747](https://github.com/Laticent/lattice/issues/1747) test(docs): PlaygroundApp's rAF loop can re-arm the shell-drop timer after unmount, failing docs-build with `window is not defined` — medium · infra
+- [#1748](https://github.com/Laticent/lattice/issues/1748) e2e: playground-first-paint.spec.ts flakes across at least four different tests under parallel load — medium · infra
+- [#1749](https://github.com/Laticent/lattice/issues/1749) test(integration): move deck-class-fm / deck-mode-fm / deck-logo to unit — lib/engine already produces what they assert, no browser needed — medium · engine
+- [#1754](https://github.com/Laticent/lattice/issues/1754) design: one guarded assembleDocument() chokepoint, instead of a fifth text-matching gate — medium · engine
+- [#1764](https://github.com/Laticent/lattice/issues/1764) refactor(playground): fold deck-config.js onto the Studio's setting rows — two of the four drifting front-matter lists collapse into one — medium · website
+- [#1784](https://github.com/Laticent/lattice/issues/1784) docs(catalog): `capacity` is absent from 40 of 61 components, and AGENTS.md presents it as the primary authoring defense — medium · docs
+- [#1790](https://github.com/Laticent/lattice/issues/1790) ai(authoring): a model must not reach for `style:` — the prompts never say so, and nothing refuses it — medium · website
+- [#1794](https://github.com/Laticent/lattice/issues/1794) docs(public): two owner-only surfaces contradict the engine — v1.0.0 Release body and repo description — medium · docs
+- [#1841](https://github.com/Laticent/lattice/issues/1841) [Feat] Hand-edit a theme's CSS and a finish's recipe — isomorphic where it round-trips, validated where it can't — medium · website
+- [#1848](https://github.com/Laticent/lattice/issues/1848) infra(gate): checkUsEnglish counts examples/**/*.html — rendering any example deck fails the build on gitignored bytes — medium · infra
+- [#1855](https://github.com/Laticent/lattice/issues/1855) `bench:check`: no browser tier sets `won`, so a >50% export/print/CLI win reports "within variance band" — medium · infra
+- [#1856](https://github.com/Laticent/lattice/issues/1856) Decide the `bench:check` comparability contract — the calibration probe is noisier than, and moves against, what it normalizes — medium · infra
+- [#1860](https://github.com/Laticent/lattice/issues/1860) fix(test): `equiv:check` has been red on main since the corpus grew — stale baseline, and no parity harness runs anywhere — medium · infra
+- [#1866](https://github.com/Laticent/lattice/issues/1866) feat(authoring): give categorical texture an author-visible switch — today there is no clean way to turn it on OR off — medium · theming
+- [#1867](https://github.com/Laticent/lattice/issues/1867) docs: `design/skills/lens.md` still carries the security wording retired on 2026-07-18 — medium · docs
+- [#1869](https://github.com/Laticent/lattice/issues/1869) decision: retire the live-DOM mirror render path, or pay for it properly — medium · engine
+- [#1871](https://github.com/Laticent/lattice/issues/1871) test(a11y): no gate reads the exported PDF's tag tree — the structure is emitted and never checked — medium · infra
+- [#1872](https://github.com/Laticent/lattice/issues/1872) test(split): the split oracle's `verified` map is empty — 28 enrolled components pinned against drift, none attested as correct — medium · infra
+- [#1874](https://github.com/Laticent/lattice/issues/1874) feat(orchestration): add the ADDITIVE TRIO — seam census, blast radius, contradiction resolution — as roster agents alongside the adversarial trio — medium · infra
+- [#1875](https://github.com/Laticent/lattice/issues/1875) Declared layout capacity is coda-blind — seven layouts clip an in-budget slide once a key insight is added — medium · engine
+- [#1878](https://github.com/Laticent/lattice/issues/1878) theme-surface-aa audits only the mode a palette PINS, so half of every palette has never been gated — medium · theming
+- [#1886](https://github.com/Laticent/lattice/issues/1886) kanban: the lane tag is sub-AA on the PLAIN card too, not just the status-washed one — medium · chart
+- [#1889](https://github.com/Laticent/lattice/issues/1889) test(export): nothing detects a bounded wait added before capture — the deferral fix traded that coverage away — medium · infra
+- [#1890](https://github.com/Laticent/lattice/issues/1890) review-core: catastrophic regex backtracking in CLASS_COMMENT_G freezes the Studio on an unterminated class directive — medium · engine
+- [#1893](https://github.com/Laticent/lattice/issues/1893) Verification gaps left open by #1884 — surfaces this sandbox cannot reach — medium · engine
+- [#1899](https://github.com/Laticent/lattice/issues/1899) spike: nothing keeps the gotchas taxonomy from rotting again — titles are the only routing signal and the generator only checks that a row exists — medium · infra
+- [#1906](https://github.com/Laticent/lattice/issues/1906) Carbone is now default-LIGHT and no web surface has ever been opened on that face — medium · website
+- [#1907](https://github.com/Laticent/lattice/issues/1907) `palette:bless` destroys hand-written prose inside the map it rewrites — medium · infra
+- [#1909](https://github.com/Laticent/lattice/issues/1909) glyphs: two engine-JS sites still TYPE a shape, so HARD RULE #29's first sentence is an objective, not a description — medium · engine
+- [#1911](https://github.com/Laticent/lattice/issues/1911) export(player): player-prune drops every runtime-injected selector, so the scene replay control ships with the wrong icon — medium · engine
+- [#1914](https://github.com/Laticent/lattice/issues/1914) docs(gotchas): prose in a deck fixture ships — an HTML comment becomes a speaker note, a PDF annotation, and lint narration — medium · docs
+- [#1919](https://github.com/Laticent/lattice/issues/1919) quadrant: two charts on adjacent slides render at different sizes, because a lede taxes the stage — medium · chart
+- [#1921](https://github.com/Laticent/lattice/issues/1921) verify(studio): the Studio suppresses Safari's own pinch events — unverified, and if it works a low-vision iOS reader loses page zoom — medium · website
+- [#1929](https://github.com/Laticent/lattice/issues/1929) studio: the theme/palette picker is unreachable at ~820px, so the QUALITY BAR's three-width evidence cannot be completed for it — medium · website
+- [#1930](https://github.com/Laticent/lattice/issues/1930) studio(perf): the boot path re-splits every deck and runs three O(n) localStorage scans — the follow-ups the storage overlay made measurable — medium · website
+- [#1932](https://github.com/Laticent/lattice/issues/1932) engine(masthead): `headline:` is a silent no-op on split-panel / split-compare, and a masthead with a bay centers beside the bay — medium · engine
+- [#1933](https://github.com/Laticent/lattice/issues/1933) studio(a11y): the toolbar dial is three independent `aria-pressed` toggles, and its segments miss the touch-target floor at 820px — medium · website
+- [#1934](https://github.com/Laticent/lattice/issues/1934) engine(cq): the container-query self-reference survives one tier down — 50 computed values on the gallery still track the host viewport — medium · engine
+- [#1935](https://github.com/Laticent/lattice/issues/1935) narration: a shared deck has no voice — `share-export` writes captions only, and the ladder floors a keyless recipient to silent — medium · engine
+- [#1936](https://github.com/Laticent/lattice/issues/1936) test(e2e): `build:e2e` skips the post-build passes, so the e2e artifact does not carry the stylesheet hoist it is meant to prove — medium · infra
+- [#1937](https://github.com/Laticent/lattice/issues/1937) test(a11y): the website accessibility gate scans one palette of 18 and twelve routes of 88, and no transient surface at all — medium · website
+- [#1938](https://github.com/Laticent/lattice/issues/1938) studio(library): the workspace backup carries no asset version history, and making it true is a workspace FORMAT change — medium · website
+- [#1939](https://github.com/Laticent/lattice/issues/1939) bench(studio): the edit-paint ratchet guards half the loop — the heavy `write` regime is never captured — medium · infra
+- [#1943](https://github.com/Laticent/lattice/issues/1943) site(landing): the Studio promotion shipped without its competition's critiques — 27 findings and the whole judging half were never applied — medium · website
+- [#1944](https://github.com/Laticent/lattice/issues/1944) studio(header): the tablet header still overflows below ~787px — curing it means an icon-only posture dial — medium · website
+- [#1945](https://github.com/Laticent/lattice/issues/1945) docs(components): 54 of 59 components never got the three agent-contract fields — the pilot's second slice was never taken — medium · docs
+- [#1951](https://github.com/Laticent/lattice/issues/1951) studio(coach/chat): three logged #18 follow-ups from the Coach + Chat migration were never ticketed — medium · website
+- [#1952](https://github.com/Laticent/lattice/issues/1952) anima(security): the Motion inspector renders an invalid scene, so an inline-style color swatch must gate on `validateColor` before Director mode or a library load — medium · website
+- [#1953](https://github.com/Laticent/lattice/issues/1953) theme(derive): `validateEssentials` accepts any hex for the light-surface `bg`/`bgAlt` slots — a dark `bg` derives an out-of-contract palette — medium · theming
+- [#1954](https://github.com/Laticent/lattice/issues/1954) anima(a11y): built scenes have no poster, so a reduced-motion viewer gets "Play the motion" over an empty stage — medium · engine
+- [#1956](https://github.com/Laticent/lattice/issues/1956) verify: the standing real-surface backlog — 91 UNVERIFIED claims across seven surfaces, what each needs and how to clear it — medium · infra
+- [#1958](https://github.com/Laticent/lattice/issues/1958) security(engine): triage the 34 open CodeQL findings — 28 polynomial-regex, 4 escaping, 2 sanitization — medium · engine
+- [#1966](https://github.com/Laticent/lattice/issues/1966) spike(exemplars): the style judges are calibrated on a corpus nobody has validated — break the circularity before deriving more — medium · docs
+- [#1975](https://github.com/Laticent/lattice/issues/1975) studio: a disabled Save explains itself to a pointer only — keyboard and screen readers get nothing — medium · website
+- [#1993](https://github.com/Laticent/lattice/issues/1993) studio(preview): patchSlideBody re-parses and re-serializes DOMPurify's output twice, which is the mXSS amplifier the sanitizer exists to stop — medium · website
+- [#1994](https://github.com/Laticent/lattice/issues/1994) engine(themes): a Studio theme named after a built-in palette replaces it in the store, and the render memo keys on that name — medium · theming
+- [#2012](https://github.com/Laticent/lattice/issues/2012) `maskCodeRegions` has three holes, and `--strip-notes` deletes code through them — medium · engine
+- [#2024](https://github.com/Laticent/lattice/issues/2024) Export CSP: media-src and connect-src have no behavioral coverage on the export path — medium · engine
+- [#2032](https://github.com/Laticent/lattice/issues/2032) read-aloud's arming-window test flakes ~50% under full-suite load — likely a real race in resume() — medium · website
+- [#2033](https://github.com/Laticent/lattice/issues/2033) docs(read-aloud): the voice-arming test races a real dynamic import against the fake clock — medium · docs
+- [#180](https://github.com/Laticent/lattice/issues/180) epic(chart): resolution-independent charts — cqi-first, kill fixed-px, for any-format / 10K export — low · chart
+- [#279](https://github.com/Laticent/lattice/issues/279) docs: reconcile Mermaid diagram-type count (README "25" vs gallery "26") — low · diagram
+- [#280](https://github.com/Laticent/lattice/issues/280) docs: fix phantom `--hljs-name`/`--hljs-meta` token rows in highlight-js.docs.md — low · docs
+- [#283](https://github.com/Laticent/lattice/issues/283) refactor(css): audit and reduce `!important` (~490 repo-wide) — low · engine
+- [#294](https://github.com/Laticent/lattice/issues/294) docs: document `pixel-check` in development.md and decide on a hook — low · infra
+- [#297](https://github.com/Laticent/lattice/issues/297) feat(website): build a visual component catalog (thumbnail picker) — low · website
+- [#309](https://github.com/Laticent/lattice/issues/309) docs: pick a single canonical home for the Mermaid contract (currently in 3 docs) — low · theming
+- [#310](https://github.com/Laticent/lattice/issues/310) docs: drop/re-anchor the legacy "Part 1–11" doc numbering — low · docs
+- [#477](https://github.com/Laticent/lattice/issues/477) chart(state-chart): tune the `tb` reveal-lift magnitude — low · chart
+- [#501](https://github.com/Laticent/lattice/issues/501) fix(inventory): glossary range pill is stale on cover-paginate split pages — low · inventory
+- [#519](https://github.com/Laticent/lattice/issues/519) examples: ship the four portrait demo decks + PDFs for the retired landscape locks — low · docs
+- [#527](https://github.com/Laticent/lattice/issues/527) explore: alignment as a universal modifier (vertical top/center for tables, lists, etc.) — low
+- [#634](https://github.com/Laticent/lattice/issues/634) AI component-gen: a status/RAG matrix should route to obligation-matrix, not emit inert [x] markers (#610) — low · website
+- [#797](https://github.com/Laticent/lattice/issues/797) 28 of 30 gated showcase WebPs have no on-site consumer — re-point a surface at them or shrink the flags — low · website
+- [#800](https://github.com/Laticent/lattice/issues/800) Promote the @smoke e2e subset to a PR-blocking gate (after a nightly green streak) — low · infra
+- [#867](https://github.com/Laticent/lattice/issues/867) chart(state-chart): consolidate the third private list-walker variant onto the shared kernel — low · chart
+- [#964](https://github.com/Laticent/lattice/issues/964) spike(lente): content-aware lens suggestions via wink-nlp (deterministic, no LLM) — low · website
+- [#970](https://github.com/Laticent/lattice/issues/970) chore(cleanup): delete 3 superseded old-browser branches — low · infra
+- [#982](https://github.com/Laticent/lattice/issues/982) Reintroduce AI voice-rewrite (Technical/Narrative) behind a proper diff gate (§9.5 / R4) — low · website
+- [#983](https://github.com/Laticent/lattice/issues/983) Lens suggester: de-jargon the per-slide rationale strings (reader terms, not the function/form taxonomy) — low · website
+- [#1061](https://github.com/Laticent/lattice/issues/1061) anima: design a fit-for-purpose animation component (lead vs supporting actor) — low · engine
+- [#1077](https://github.com/Laticent/lattice/issues/1077) anima: live scenes on a multi-scene DeckPreview page don't pause when scrolled off-screen — low · website
+- [#1093](https://github.com/Laticent/lattice/issues/1093) Motion faculty fast-follows: §8 non-functional gaps + Rig UX polish — low · website
+- [#1097](https://github.com/Laticent/lattice/issues/1097) Verify: does parseFinishReply handle the complete({json:true}) object contract? — low · website
+- [#1138](https://github.com/Laticent/lattice/issues/1138) Adaptive viewport fill — fluid viewer follow-ups (P2 edge cap) — low · engine
+- [#1162](https://github.com/Laticent/lattice/issues/1162) Studio preview: keep the live iframe warm to avoid re-render cost on remount — low · website
+- [#1231](https://github.com/Laticent/lattice/issues/1231) studio: make panels URL-addressable, and retire the synthetic back-guard entry — low · website
+- [#1234](https://github.com/Laticent/lattice/issues/1234) Adaptive ADR audit — the gaps left open by #1220 — low · docs
+- [#1267](https://github.com/Laticent/lattice/issues/1267) studio(panel): cover the free-form panels' inputs, then gate it so a new one can't ship under the keyboard — low · website
+- [#1316](https://github.com/Laticent/lattice/issues/1316) chart(glass): the canvas glass pane never paints — no committed deck uses the selector, and the fill doesn't render on first paint even when it matches — low · chart
+- [#1355](https://github.com/Laticent/lattice/issues/1355) `--measure-body` is 36em because narrower clips shipped decks, not because 36em is right — low · engine
+- [#1366](https://github.com/Laticent/lattice/issues/1366) The ungated-changelog-copy hole is closed by #1593 + #1777 — all that is left is whether to sweep 30 British spellings in a now-frozen archive — low · docs
+- [#1368](https://github.com/Laticent/lattice/issues/1368) Four consumers read `data-class` as the slide's class identity, which it structurally cannot be — low · engine
+- [#1369](https://github.com/Laticent/lattice/issues/1369) 15 test files still hand-roll a Chromium resolver, and one still shells out to a hard-coded /root path — low · infra
+- [#1375](https://github.com/Laticent/lattice/issues/1375) A wrapped `Text:` row collides with its neighbours in a Mermaid requirement diagram — low · diagram
+- [#1395](https://github.com/Laticent/lattice/issues/1395) Spike: the published package surface sits outside every line-ending boundary — how far does "no reader has to remember" actually reach? — low · engine
+- [#1396](https://github.com/Laticent/lattice/issues/1396) Spike: can a .lattice restore misplace its comments now that ingest normalization changes a lone-CR deck's slide count? — low · engine
+- [#1407](https://github.com/Laticent/lattice/issues/1407) `section pre.hljs` / `section code.hljs` are dead rules — no render path emits the `hljs` class — low · code
+- [#1413](https://github.com/Laticent/lattice/issues/1413) premise's "common mistake" contradicts its own slots table and every shipped example — low · docs
+- [#1414](https://github.com/Laticent/lattice/issues/1414) studio: the desktop tail cluster slides ~15px for ~75ms on Write→Build — low · website
+- [#1429](https://github.com/Laticent/lattice/issues/1429) engine(overflow): move both marker registers to the bottom edge — and the measured reason the current tab metrics can't go there as-is — low · engine
+- [#1436](https://github.com/Laticent/lattice/issues/1436) [Idea] Prefetch all assets after the homepage loads — low · website
+- [#1460](https://github.com/Laticent/lattice/issues/1460) `tools/contrast-audit.js:53` cannot see `--hljs-built_in` — its token regex excludes underscores — low · theming
+- [#1492](https://github.com/Laticent/lattice/issues/1492) export(narration): a per-export audio quality control, alongside the workspace one — low · website
+- [#1502](https://github.com/Laticent/lattice/issues/1502) core: two different exported functions named buildReadAlong in lib/core/ — low · engine
+- [#1516](https://github.com/Laticent/lattice/issues/1516) Two narrow narration hazards found by red team but not reproduced: the warm drop-channel's doomed promise, and a whitespace-only cue — low · engine
+- [#1539](https://github.com/Laticent/lattice/issues/1539) SLICE_CACHE_MAX (24) sits below PREVIEW_BUDGET (32), so a long overview traversal outruns the cache that makes recycling cheap — low · website
+- [#1541](https://github.com/Laticent/lattice/issues/1541) verify(studio): the presenter screen's new swipe + wheel are unverified on a real touch device — low · website
+- [#1586](https://github.com/Laticent/lattice/issues/1586) test(e2e): nothing bounds the Studio's cold first-paint time — the only de facto tripwire is a fixture timeout — low · infra
+- [#1603](https://github.com/Laticent/lattice/issues/1603) export(player): the player re-asserts a slide size the document already states — can three of the six sizing rules be deleted? — low · engine
+- [#1607](https://github.com/Laticent/lattice/issues/1607) test(e2e): split.spec.ts's component-pick test flakes ~1 in 4 at workers=2 — low · infra
+- [#1611](https://github.com/Laticent/lattice/issues/1611) authority-chain: the 8n tier cycle only defines 4 residues, so tier 5+ loses its hue — low · legal
+- [#1683](https://github.com/Laticent/lattice/issues/1683) `size: 4:3` is in the Studio's size map but absent from the engine registry, so it silently falls back to hd — low · engine
+- [#1713](https://github.com/Laticent/lattice/issues/1713) feat(export): write a slide background into PPTX so a rounded deck can keep its corner — low · engine
+- [#1765](https://github.com/Laticent/lattice/issues/1765) spike(studio): design a control for the per-slide narrative grammar — _focus / _focusStyle / _focusSteps / _build have no UI at all — low · website
+- [#1767](https://github.com/Laticent/lattice/issues/1767) golden-diff drops its montage artifact on large diffs, and blames a missing ImageMagick that is installed — low · infra
+- [#1847](https://github.com/Laticent/lattice/issues/1847) The status pill's border is 2.18:1 against the canvas on the a11y palettes' `mute` state — nothing models the border at all — low · theming
+- [#1851](https://github.com/Laticent/lattice/issues/1851) e2e: playground-first-paint's cut-document width read takes an unguarded boundingBox() and can hit null on CI — low · infra
+- [#1898](https://github.com/Laticent/lattice/issues/1898) spike: the pick surface has never been tested on briefs its author did not write — and the `see also` fix cannot be verified on the briefs that produced it — low · infra
+- [#1900](https://github.com/Laticent/lattice/issues/1900) gotchas: `studio-playground.md` is now the largest topic file (18.7k tokens) — split it at the seam the refile note already named — low · docs
+- [#1903](https://github.com/Laticent/lattice/issues/1903) coda.dock cannot express a per-variant structure — video and scene each compute two different shapes — low · engine
+- [#1908](https://github.com/Laticent/lattice/issues/1908) `themes/palette-audit.md` still presents carbone as a dark-only palette — low · theming
+- [#1910](https://github.com/Laticent/lattice/issues/1910) Decision note 2026-08-25 §9.5 cites the wrong rule for why two gate gaps were left unfixed — low · docs
+- [#1913](https://github.com/Laticent/lattice/issues/1913) spike: red-team the typed-glyph gate — a text matcher with hand-rolled escape decoding that nobody has attacked — low · infra
+- [#1915](https://github.com/Laticent/lattice/issues/1915) test(nightly): prove the e2e-ai rolling-issue alarm end-to-end in Actions — it has only ever been run locally — low · infra
+- [#1922](https://github.com/Laticent/lattice/issues/1922) infra(git): 112 stale claude/* branches on the remote make the branch list unnavigable — low · infra
+- [#1924](https://github.com/Laticent/lattice/issues/1924) infra(build): rebuilding a gallery PDF invalidates the showcase WebP, and nothing chains or checks it locally — low · infra
+- [#1925](https://github.com/Laticent/lattice/issues/1925) The print band's `--seq-pole-*` pin is inert on the export path — latent since #1891 removed the only literal poles — low · theming
+- [#1940](https://github.com/Laticent/lattice/issues/1940) forms(rule): the spectrum bar is still a `border-top` suppressed ad hoc in seven places, and the `rule` Tile manifest describes a Tile that does not exist — low · engine
+- [#1941](https://github.com/Laticent/lattice/issues/1941) theme: the `@theme` scan is bounded at 4096 characters — a narrow, unverified behavior change to a published API — low · engine
+- [#1946](https://github.com/Laticent/lattice/issues/1946) test(e2e): nothing exercises the `defaultFontSize` axis — the `minfont` project sets `minimumFontSize` only — low · infra
+- [#1947](https://github.com/Laticent/lattice/issues/1947) anima: quadrant / radar / map share the fixed gradient plumbing but were never verified on their own surfaces — low · chart
+- [#1948](https://github.com/Laticent/lattice/issues/1948) anima(svg): a `reveal`/`slide`-only path is still incidentally stroke-drawn by Vivus's aggregate scalar — low · engine
+- [#1949](https://github.com/Laticent/lattice/issues/1949) examples: other hand-drawn-diagram decks may carry the same golden staleness — the sweep was deliberately deferred and never taken — low · infra
+- [#1950](https://github.com/Laticent/lattice/issues/1950) docs(counts): four dated "53 component" measurements were left alone — whether L3 covers 61/61 today is an unrun measurement — low · docs
+- [#1995](https://github.com/Laticent/lattice/issues/1995) Studio: an invalid theme name disables Save with no message — low · website
+- [#2025](https://github.com/Laticent/lattice/issues/2025) Decide whether the Studio export e2e belongs on the per-PR gate — low · infra
+- [#1745](https://github.com/Laticent/lattice/issues/1745) contrast(sweep): 285 sub-AA text runs in the exported players — 148 genuinely low-contrast, 137 from the new 4.5:1 floor — p3 · theme
+- [#1973](https://github.com/Laticent/lattice/issues/1973) Expose categorical tokens as Mermaid-consumable node classes, so `:::` can pin an entity's color — diagram
+- [#2004](https://github.com/Laticent/lattice/issues/2004) fix(list): an inline-code chip in a list card swallows the space beside it — engine
+- [#2010](https://github.com/Laticent/lattice/issues/2010) test(infra): check-lint-coverage's JSON probe lands in lib/components/, so a concurrent render throws "Invalid manifest"
+- [#2017](https://github.com/Laticent/lattice/issues/2017) 24 committed component-gallery PDFs on `main` no longer match a fresh `build:galleries`
+- [#2034](https://github.com/Laticent/lattice/issues/2034) Directive scanning is not CommonMark inside a container: unbounded marker indent, and a fence behind a `>` is invisible
+- [#2041](https://github.com/Laticent/lattice/issues/2041) Intermittent ENOENT: the lint-teeth probe races every tree walk that reads what it enumerated
+- [#2050](https://github.com/Laticent/lattice/issues/2050) engine: a NESTED front-matter key named after a global directive is read as that directive
+- [#2052](https://github.com/Laticent/lattice/issues/2052) engine: an unterminated RAWTEXT element swallows the next slide separator, silently merging two slides
+- [#2053](https://github.com/Laticent/lattice/issues/2053) lens: CSS that selects a slide by position is unchecked by the cross-slide guard
+- [#2054](https://github.com/Laticent/lattice/issues/2054) A split run's last body page shifts its content down, because the pointer's berth is not reserved
 
 ## Ready (6)
 
-- [#667](https://github.com/SlideWright/lattice/issues/667) Verify + fix debug-overlay touch reveal on real iOS Safari (PR #658) — high · website
-- [#577](https://github.com/SlideWright/lattice/issues/577) US English sweep: convert British spellings in prose (docs, comments, manifest text) — medium · docs
-- [#668](https://github.com/SlideWright/lattice/issues/668) Add a real-surface Playwright smoke against the built Playground in CI — medium · infra
-- [#501](https://github.com/SlideWright/lattice/issues/501) fix(inventory): glossary range pill is stale on cover-paginate split pages — low · inventory
-- [#519](https://github.com/SlideWright/lattice/issues/519) examples: ship the four portrait demo decks + PDFs for the retired landscape locks — low · docs
-- [#578](https://github.com/SlideWright/lattice/issues/578) US English: rename internal UK-spelled identifiers (progress-centre, --footer-centre-*) — low · engine
+- [#1437](https://github.com/Laticent/lattice/issues/1437) Configure Release Pipeline — critical · infra
+- [#287](https://github.com/Laticent/lattice/issues/287) refactor(engine): LPM Phase 1 — manifest `render` block + `transformSection` adapter; migrate the chart kernels — high · engine
+- [#506](https://github.com/Laticent/lattice/issues/506) feat(runtime): runtime auto-split (Option B) via eventual consistency — high · engine
+- [#667](https://github.com/Laticent/lattice/issues/667) Verify + fix debug-overlay touch reveal on real iOS Safari (PR #658) — high · website
+- [#1605](https://github.com/Laticent/lattice/issues/1605) quadrant: one crowded slide sets the label size for every slide — and a name that doesn't fit is silently deleted — high · chart
+- [#1621](https://github.com/Laticent/lattice/issues/1621) fix(studio): the crash report is invisible on the browser's own post-crash reload — three designs withdrawn — high · website
 
 ## In progress (0)
 
@@ -187,10 +300,8 @@ _none_
 
 _none_
 
-## Inbox (no status) (5)
+## Inbox (no status) (3)
 
-- [#1273](https://github.com/SlideWright/lattice/issues/1273) SPIKE: recover the typing-latency regression on deck-context previews (up to 4.5× slower on the real Studio) — high · engine
-- [#1463](https://github.com/SlideWright/lattice/issues/1463) [Bug] Scrolling the add-slide gallery during search crashes the tab and the page reloads — high · website
-- [#1266](https://github.com/SlideWright/lattice/issues/1266) studio(panel): one settings row, so the keyboard pin is a property of the row and not of one file — medium · website
-- [#1461](https://github.com/SlideWright/lattice/issues/1461) Measure the LLM fit judge before building any recommender UI — medium · website
-- [#1464](https://github.com/SlideWright/lattice/issues/1464) [Bug] The search confidence meter is unreadable and needs a redesign — medium · website
+- [#1266](https://github.com/Laticent/lattice/issues/1266) studio(panel): one settings row, so the keyboard pin is a property of the row and not of one file — medium · website
+- [#1461](https://github.com/Laticent/lattice/issues/1461) Measure the LLM fit judge before building any recommender UI — medium · website
+- [#1464](https://github.com/Laticent/lattice/issues/1464) [Bug] The search confidence meter is unreadable and needs a redesign — medium · website
