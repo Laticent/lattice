@@ -1591,6 +1591,20 @@ section[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-even
  * (Dark mode was never affected: `light-dark()` inside a custom property resolves at the USING
  * element, verified in the same probe. The hazard is token REMAPS, not scheme switching.)
  *
+ * VERIFIED ON THE DOCS-SITE PLAYGROUND, the real one, driven rather than reasoned about (#23):
+ * a split-shaped deck typed into the live editor resolves `--runhead-ink` to EMPTY on
+ * `documentElement` and to `light-dark(#455C7A, #96A8B9)` on the SECTION — the register landing
+ * where this change puts it, on the surface whose packer rewrites `:root` to a section-scoped
+ * selector. `--pill-fs` resolves per section there too.
+ *
+ * And a thing worth knowing before anyone debugs split furniture in the Studio: THE PLAYGROUND
+ * HAS NO SPLITTER. `lat-split-native` appears 0 times in `docs/public/playground/
+ * lattice-playground.js` against 5 in `dist/lattice-emulator.js`, and a deck that splits into
+ * a cover plus three pages on export renders as ONE slide there. It honors `size:` — the same
+ * deck reports `data-family="tall"` at 719x899 — so this is the splitter being absent from that
+ * bundle, not the size being ignored. Every split-scoped rule in the engine is therefore inert
+ * on that surface by construction, which is a stronger guarantee than "the two paths agree".
+ *
  * Palette-blind (#3); every value is a token. */
 :root, section {
   --runhead-face: var(--font-body);

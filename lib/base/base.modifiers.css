@@ -3150,7 +3150,22 @@ section.form.lat-split-native > .lat-split-rel {
 
    Scoped to split pages, not to every deck. The same argument (read small, in a feed) would
    apply to any caption, but re-inking every deck's footer is a change to shared visual state
-   well outside this branch, and it is the owner's to make. */
+   well outside this branch, and it is the owner's to make.
+
+   A CAPTION TOO LONG FOR THE BAND ELLIPSISES, and that is a RULING (owner, 2026-09-03), not a
+   default nobody examined. The numbers it was ruled on: `examples/gallery-jargon.md` at portrait
+   reports 45 slides with a truncated caption, 49 at mobile, 16 at square — against 0 on `main`,
+   which looked cleaner only because `main` was DELETING those captions outright (the
+   `stripDeckChrome` fix on this branch is what made the words exist at all). The alternatives
+   were measured before the call: two lines needs a new split-only rule out-specifying BOTH
+   `section[data-split-role="cover"] > .cell-footer > footer` AND the deck-wide
+   `section.form > .cell-footer > footer`, and grows the band ~44px into the stage because the
+   footer cell has ZERO internal slack today (48px cell, 44px line); a smaller size is not
+   available because `--fs-meta` is already the bottom rung (#4); dropping it returns to `main`'s
+   visible result on purpose. Ellipsis won because the caption REPEATS on every page of a run, so
+   two lines pays 44px of stage on every split page to recover ~22 characters of repeated chrome,
+   and the count is driven by one gallery deck's own 43-63 character captions rather than by
+   anything structural. Do not "fix" this by shortening those deck captions. */
 section[data-split-role] > .cell-footer > footer,
 section[data-split-role] > footer,
 section.form.lat-split-native > .cell-footer > footer,
