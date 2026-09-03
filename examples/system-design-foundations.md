@@ -131,7 +131,7 @@ Same four people, both days.
 2. `10:40` A page
    - Checkout is failing. Not her service. She is secondary on the rotation.
 3. `11:00` The loop
-   - Push, wait twelve minutes, read a review comment, fix, push again. Twice.
+   - Push, wait twelve minutes, find her own mistake, fix, push again. Twice, before anyone else has read a line.
 4. `12:30` A branch left behind
    - Her second attempt is still sitting there, half-finished, and she forgets it.
 5. `13:30` The queue
@@ -190,7 +190,7 @@ You have watched all ten. You do not yet have the words.
 Maya's morning is one. The shower, the train, the laptop and the registry between them do what none of them does alone: put Maya at a desk, able to work, at nine.
 
 - In Maya's day
-  - Take the registry out at 09:05 and the same parts stop producing the same morning.
+  - Nothing on that list is a system. The order she does them in is.
 - Listing the parts is easy
   - Shower, train, laptop, registry. Anyone can write that list.
 - The connections are the system
@@ -210,8 +210,9 @@ flowchart TB
     direction LR
     T1["Maya"] <--> T2["Priya"]
     T2 <--> T3["Dev"]
-    T2 -.->|"tells him after"| T4["Manager"]
-    T2 --> OUT2(["One sentence<br/>saves a morning"])
+    T1 <--> T3
+    T4["Manager"] <--> T1
+    T3 --> OUT2(["One sentence<br/>saves a morning"])
   end
   subgraph mon["Monday · they report upward"]
     direction LR
@@ -234,7 +235,7 @@ flowchart TB
 Maya wrote it on a sticky note at half past nine: get 482 merged before four. At four o'clock it had not merged, and the gap between those two facts is the clearest thing in her whole day.
 
 - In Maya's day
-  - She wrote hers down. The three teams blocked at 09:05 never wrote theirs, and argued all morning about which fix came first.
+  - She wrote hers down at 09:30, which is why she could tell at 16:00 that she had missed it.
 - Write it down or you will drift
   - An unwritten purpose gets quietly replaced by whatever arrived most recently.
 - A system's purpose is what it does
@@ -423,7 +424,7 @@ Wifi, the VPN, the package registry, the build fleet, the identity provider. May
 
 Nothing merges on Thursdays. Maya checked six weeks. It is a rhythm, and nobody built a rhythm.
 
-Three things feed each other rather than add up. Work that misses the window waits at the front of tomorrow. A review that comes back with comments sends the same change to the back of the queue. And the queue is served one hour a day. Monday's misses are Tuesday's queue, so the backlog climbs all week until it is bigger than one hour can clear — and the weekend empties it, which is why it happens again next week.
+Four things feed each other rather than add up. Work that misses the window waits at the front of tomorrow. A review that comes back with comments sends the same change to the back of the queue. The queue is served one hour a day. And nobody ships into a weekend, so Thursday is the last window of the week — the day the backlog is deepest and the day it has to clear.
 
 No policy names Thursday. You find it by watching the queue for six weeks.
 
@@ -677,8 +678,8 @@ You have stopped buying information and started buying headroom. The question mo
 
 - The tell
   - Growth is real, and the current design has a ceiling you can point at.
-- A bigger box first, then axes
-  - Vertical scaling is reversible and buys years. Statelessness, caching and queues come next. Partitioning is the one you cannot undo cheaply, so it goes last.
+- A bigger box first, then the four moves
+  - Vertical scaling is not one of the four; it is what buys time before you need them, and it is reversible. Then reduce, duplicate, defer — and spread last, because partitioning is the one you cannot undo cheaply.
 - Cost per unit starts counting
   - Cost per request stops being noise and becomes the second constraint on every choice.
 
@@ -765,7 +766,7 @@ Custom silicon, a purpose-built storage engine, a scheduler that knows your phys
 
 `How to read a kit`
 
-## Every entry answers the same three questions in the same order.
+## Reach for it when, walk away when, and the constraint you inherit.
 
 One shape for every entry, so you can hold two options side by side without re-reading a manual. Each kit opens with a diagram of the patterns it covers, and closes with the invariants that hold across all of them.
 
@@ -843,7 +844,7 @@ Answer these before anyone says a brand. Most database arguments are really a di
 
 ```mermaid
 flowchart LR
-  REL[("Relational<br/>start here")] --> Q1{"Do one table's WRITES<br/>outgrow one machine?"}
+  REL[("Relational<br/>start here")] --> Q1{"Do one table's writes or bytes<br/>outgrow one machine?"}
   Q1 -->|"no"| STAY(["Stay. You are done."])
   Q1 -->|"yes"| Q2{"Do you query by<br/>exact key only?"}
   Q2 -->|"yes"| KV[("Key-value")]
@@ -905,7 +906,7 @@ flowchart LR
 
 `Data kit · the scan`
 
-## Five columns, applied to the five stores that can hold truth.
+## Five columns, applied to the five stores you reach for first.
 
 | Store | Access | Consistency | Scales by | Weak at |
 | --- | --- | --- | --- | --- |
@@ -1008,18 +1009,20 @@ The genuinely derived stores are the search index, the vector index, the cache a
 
 `Data kit · under a partition`
 
-## CAP decides what a partition costs. Consistency charges you the rest of the time too.
+## CAP prices a partition. Consistency charges you the rest of the time.
 
 ```mermaid
 flowchart LR
-  N["A link breaks<br/>nodes cannot reach each other"] --> C{"A write arrives on<br/>one side of the split"}
+  N(["A link breaks<br/>nodes cannot reach each other"]) --> C{"A write arrives on<br/>one side of the split"}
   C -->|"take it"| AP(["Available<br/>answer now, reconcile later"])
   C -->|"refuse it"| CP(["Consistent<br/>refuse rather than diverge"])
   AP --> APC(["Feeds, presence, metrics"])
   CP --> CPC(["Balances, inventory, bookings"])
-  N2["No link breaks"] --> C2{"A read arrives"}
+  N2(["No link breaks"]) --> C2{"A read arrives"}
   C2 -->|"answer locally"| L1(["Fast, possibly stale"])
   C2 -->|"coordinate first"| L2(["Correct, one round trip"])
+  L1 --> L1C(["A feed, a profile"])
+  L2 --> L2C(["A balance, a seat"])
 ```
 
 ---
@@ -1067,7 +1070,7 @@ Indexes make reads fast by making writes slower and storage larger. Each one is 
   - You can name the exact query each index exists to serve, out loud, right now.
 - The bill arrives on writes
   - Five indexes mean five extra structures touched per insert, not one.
-- Selectivity decides, not cardinality
+- Selectivity, not cardinality
   - Three evenly spread values get ignored. Three where one appears in 0.1 percent do not.
 
 ---
@@ -1386,7 +1389,7 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
 
 `Scale kit · the patterns`
 
-## Every scaling change is reduce, spread, duplicate or defer.
+## The four moves, and what each one costs you.
 
 ```mermaid
 flowchart TB
@@ -1873,7 +1876,7 @@ Solution type Scaled. Not an MVP, not optimal.
 1. The feed serves in under 200 milliseconds
    - Server-side, 99th percentile, measured from the reader's own region.
 2. Reads dominate writes by about sixty to one
-   - At the API. Push fan-out inverts it underneath: 180K feed writes a second against 70K reads.
+   - At the API. Push fan-out inverts it underneath: 330K feed writes a second against 70K reads.
 3. Posts, media and the graph are durable forever
    - Lose any of the three and nothing rebuilds them. Only derived data rebuilds.
 4. Eventual consistency is fine on the feed
@@ -1989,7 +1992,7 @@ following                              followers
                                          B = clamp(followers / 10_000, 1, 512)
 ```
 
-*The forward edge is the source of truth; the reverse is materialized from the log and repaired by a background job. `B` may only ratchet upward — shrink it and edges become unreachable — and because early edges were written under a smaller `B`, the low buckets carry several times the average.*
+*The forward edge is the source of truth; the reverse is materialized from the log and repaired by a background job. `B` may only ratchet upward — shrink it and edges become unreachable — and because early edges were written under a smaller `B`, the low buckets carry several times the average in the mid range — and barely more than it once `B` is capped.*
 
 ---
 
@@ -2031,9 +2034,9 @@ Five hundred million feed inserts at roughly fifty bytes each, from a single API
 
 - 500 seconds of queue
   - At a million inserts a second, that is eight minutes serving nobody else.
-- 180K inserts a second
-  - The whole platform's ordinary load: 1.2K posts times about 150 pushed followers.
-- 45 minutes of backlog
+- 330K inserts a second
+  - The platform's ordinary load: 1.2K posts times a MEAN fan-out near 280. Use the mean for a total; the median is the lie.
+- 25 minutes of backlog
   - One celebrity post is that much of everyone else's work, arriving at once.
 
 ---
@@ -2065,7 +2068,7 @@ Five hundred million feed inserts at roughly fifty bytes each, from a single API
 
 Pushing costs one write per follower, and the follower count is unbounded. Pulling costs one read per followee, and the followee count is capped at seven and a half thousand. So push is cheap exactly where the unbounded side is small, and pull is cheap exactly where the bounded side is what you walk.
 
-There is a second reason, and it is the better one: a celebrity's recent-posts list is written once and read five hundred million times. It is the most cacheable object in the system. It is the most cacheable object in the entire system.
+There is a second reason, and it is the better one: a celebrity's recent-posts list is written once and read five hundred million times. It is the most cacheable object in the system.
 
 ---
 
@@ -2092,11 +2095,11 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 
 ## Fifty thousand followers is the line. The real predicate is a rate.
 
-Fifty thousand puts a fraction of a percent of accounts on the pull path. Readers concentrate on popular accounts, so someone following three hundred typically has ten to thirty above the line.
+Fifty thousand puts a fraction of a percent of accounts on the pull path. Someone following three hundred typically has ten to thirty above the line.
 
-Run the tail arithmetic on that: at thirty pulls and a one-percent slow call, `1 - 0.99^30` is twenty-six percent of pages hitting at least one. So **cap the pulls** — newest N sources, page the rest — and let the cap bound the tail instead of the graph.
+Run the tail arithmetic: at thirty pulls and a one-percent slow call, `1 - 0.99^30` is twenty-six percent of pages hitting at least one. So **cap the pulls at twenty**, taking the sources that posted most recently; the rest arrive on the next refresh, not the next page, so the cursor stays stable. Crossing the threshold does not rewrite history either — old entries age out.
 
-The better predicate is fan-out work per day, not followers: fifty thousand followers posting forty times a day costs more than two hundred thousand posting weekly.
+The better predicate is fan-out work per day: fifty thousand followers posting forty times a day costs more than two hundred thousand posting weekly.
 
 ---
 
@@ -2283,7 +2286,7 @@ flowchart LR
 
 `The tie-back · scale and defense`
 
-## The scale, reliability and security kits landed here.
+## The network, scale, reliability and security kits landed here.
 
 | Kit entry | Where it landed | Why that one |
 | --- | --- | --- |
