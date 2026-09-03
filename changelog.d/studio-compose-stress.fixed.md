@@ -35,8 +35,8 @@
   Backspace-merge by reading the selection — the right question for a keystroke
   and the wrong one for a paste, where the author declared intent by putting
   slides on the clipboard. Every multi-slide paste was rejected silently, so
-  there was no way to duplicate a section. The guard now exempts a paste or drop,
-  after the locked-slide check it still may not bypass.
+  there was no way to duplicate a section. The guard now exempts a paste — and
+  only a paste — after the locked-slide check it still may not bypass.
 - **Fixed: a slide pasted from an external page cannot inject directives into
   the deck source.** Slide directives ride the clipboard so a copied slide keeps
   its component, and `parseDOM` matches `section.cs-slide` in any pasted HTML —
@@ -45,11 +45,6 @@
   the exported file, with nothing visible in the editor. Pasted directives are
   now believed only when they carry this session's provenance token and are
   shaped like a single-line directive comment.
-- **Fixed: dragging a selection between slides no longer destroys a slide.** The
-  paste exemption on Compose's structural guard briefly covered drag-and-drop,
-  where ProseMirror issues the delete and the insert as one transaction — so
-  dragging a slide's whole selection into a neighbor silently removed the source
-  slide and its component.
 - **Fixed: restoring a fold no longer snaps the preview to the first slide.**
 - **Fixed: folding a slide next to an already-folded one no longer unfolds the
   neighbor.** The toggle matched any decoration overlapping the slide's start
