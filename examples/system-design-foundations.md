@@ -56,11 +56,11 @@ We start with one engineer's Tuesday, and we finish by designing Instagram.
 
 `The rules of this part`
 
-## Maya has been an engineer for seven months, and today she wants one thing.
+## Maya has been an engineer for seven months. Today she wants one thing.
 
 She wants pull request 482 merged before the release window closes at four o'clock.
 
-Watch her Tuesday without naming anything. There is no vocabulary in this part on purpose — every word we define in Part one happens in the slides that follow, unlabeled, and we come back afterwards to name each one.
+Watch her Tuesday. This part uses no technical words on purpose. Everything Part one names happens here first, so you see each idea before you have a word for it.
 
 ---
 
@@ -68,18 +68,18 @@ Watch her Tuesday without naming anything. There is no vocabulary in this part o
 
 `Morning`
 
-## The day is already pushing back before Maya reaches the office.
+## Five things happen to Maya before she reaches her desk.
 
 1. `06:55` The shower
-   - Too hot. She turns it down. Too cold. She overshoots twice before it settles.
+   - The water runs too hot. Maya turns it down and it runs too cold. She corrects it twice more.
 2. `08:05` The train map
-   - Wildly wrong about geography. She has never once been lost using it.
+   - The map shows wrong distances and wrong shapes. Maya has never got lost using it.
 3. `08:20` A signal failure
-   - Nine minutes, stopped, and nothing anyone aboard can do. She opens Instagram without deciding to.
+   - A signal fails and the train sits nine minutes. Nobody aboard can change it. Maya opens Instagram.
 4. `08:50` At her desk
-   - Wifi, the VPN, the package registry. She notices none of them.
+   - Maya uses the wifi, the VPN and the package registry. She thinks about none of them.
 5. `09:05` The registry goes down
-   - Three teams cannot build. Now she notices.
+   - Three teams cannot build. Maya thinks about the registry now.
 
 ---
 
@@ -87,11 +87,11 @@ Watch her Tuesday without naming anything. There is no vocabulary in this part o
 
 `09:15 · standup`
 
-## Four people, and it matters enormously which way they are wired.
+## Four people met twice this week, and only one meeting worked.
 
-The same four stand in a circle for ten minutes. On Monday they each reported upward to the manager and the meeting took twenty minutes and settled nothing. Today they talk across to each other, and Maya learns in one sentence that Priya has already read the code she was about to start on.
+On Monday each person reported to the manager in turn. That meeting ran twenty minutes and settled nothing. Today they talked to each other instead, and Maya learned in one sentence that Priya had already read the code she was about to start.
 
-Same four people, both days.
+The four people did not change. Only who talked to whom changed.
 
 ---
 
@@ -99,7 +99,7 @@ Same four people, both days.
 
 > Get 482 merged before the window closes.
 
-*Maya's sticky note, 09:30. It is the only thing on it.*
+*Maya wrote this on a sticky note at 09:30. Nothing else is written on it.*
 
 ---
 
@@ -107,16 +107,16 @@ Same four people, both days.
 
 `09:45 · in the way`
 
-## Four things bound Maya's day, and none of them is her.
+## Four limits shape Maya's day, and she chose none of them.
 
 - The build takes twelve minutes
-  - Every push costs twelve minutes she cannot compress, argue with, or skip.
+  - Every push costs twelve minutes. Maya cannot shorten that or skip it.
 - The team is three people
-  - Nobody is free to take the review off her hands this morning.
+  - Nobody on the team is free to review her code this morning.
 - The one reviewer is asleep
   - He is six time zones away and will not read anything before three o'clock.
 - Production data stays in production
-  - She may not copy it to her laptop to reproduce the bug. That is not negotiable.
+  - She may not copy it to her laptop, even to reproduce the bug.
 
 ---
 
@@ -124,18 +124,18 @@ Same four people, both days.
 
 `Midday`
 
-## By lunchtime the day belongs to other people.
+## By lunchtime, other people decide what Maya works on.
 
 1. `10:15` A favor
-   - Another team asks her to fix a flaky test in their repository. She says no.
+   - Another team asks Maya to fix a flaky test in their repository. She says no.
 2. `10:40` A page
-   - Checkout is failing. Not her service. She is secondary on the rotation.
+   - The checkout service is failing. Maya does not own it, and she is second on call.
 3. `11:00` The loop
-   - Push, wait twelve minutes, find her own mistake, fix, push again. Twice, before anyone else has read a line.
+   - Maya pushes, waits twelve minutes, finds her own mistake and pushes again. She does this twice.
 4. `12:30` A branch left behind
-   - Her second attempt is still sitting there, half-finished, and she forgets it.
+   - Her second attempt sits half-finished on a branch, and she forgets it.
 5. `13:30` The queue
-   - Five pull requests are waiting. There is one reviewer, and he is asleep.
+   - Five pull requests are waiting for one reviewer, and he is asleep.
 
 ---
 
@@ -143,18 +143,18 @@ Same four people, both days.
 
 `Afternoon`
 
-## Maya loses the afternoon to being asked how the afternoon is going.
+## Maya spends the afternoon answering questions about the work she is not doing.
 
 1. `15:30` The spiral
-   - 482 sits. Someone asks for status. She stops to answer. It sits longer.
+   - Nobody has reviewed 482. Someone asks for a status update, so Maya stops work to answer.
 2. `15:50` She stops answering
-   - She declines the fourth request and batches every reply until four o'clock.
+   - Maya turns down the fourth request and saves every reply until four o'clock.
 3. `16:00` The window closes
-   - The reviewer wakes at three. It is not enough. 482 does not land today.
+   - The reviewer wakes at three. One hour is not enough, and 482 does not merge.
 4. `16:30` One thing held
-   - Main was deployable every single minute of the day, including this one.
+   - The main branch stayed ready to deploy every minute of the day.
 5. `17:00` A small realization
-   - Nothing merges on Thursdays either. She checks. Nobody planned that.
+   - Maya checks the history. Nothing merges on Thursdays either, and nobody planned that.
 
 ---
 
@@ -597,7 +597,7 @@ She opens the app a dozen times a day, on a cellular network, usually while doin
 Scale is a quantity, and quantities have a price you can pay. The thing you cannot buy your way out of is a distribution. Follower counts are heavy-tailed, so the average is a lie and the far tail sits six orders of magnitude from the middle.
 
 - The number that matters
-  - The median account has a few hundred followers. The largest has five hundred million.
+  - The median account has about 150 followers. The largest has five hundred million.
 - One algorithm cannot serve both
   - Nothing else in this design spans six orders of magnitude. That is why there are two paths.
 - Hold on to this
@@ -2035,7 +2035,7 @@ Five hundred million feed inserts at roughly fifty bytes each, from a single API
 - 500 seconds of queue
   - At a million inserts a second, that is eight minutes serving nobody else.
 - 330K inserts a second
-  - The platform's ordinary load: 1.2K posts times a MEAN fan-out near 280. Use the mean for a total; the median is the lie.
+  - The platform's ordinary load: 1.2K posts times a mean fan-out near 280. Totals need the mean. The median is far lower and would halve your estimate.
 - 25 minutes of backlog
   - One celebrity post is that much of everyone else's work, arriving at once.
 
@@ -2097,7 +2097,7 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 
 Fifty thousand puts a fraction of a percent of accounts on the pull path. Someone following three hundred typically has ten to thirty above the line.
 
-Run the tail arithmetic: at thirty pulls and a one-percent slow call, `1 - 0.99^30` is twenty-six percent of pages hitting at least one. So **cap the pulls at twenty**, taking the sources that posted most recently; the rest arrive on the next refresh, not the next page, so the cursor stays stable. Crossing the threshold does not rewrite history either — old entries age out.
+Run the tail arithmetic: at thirty pulls and a one-percent slow call, `1 - 0.99^30` is twenty-six percent of pages hitting at least one. So **cap the pulls at twenty**, taking the sources that posted most recently. A cap trades completeness for a bounded tail, and you should say out loud which one you are buying: past the cap, a reader misses posts from the quietest accounts they follow. Crossing the threshold does not rewrite history — old entries age out.
 
 The better predicate is fan-out work per day: fifty thousand followers posting forty times a day costs more than two hundred thousand posting weekly.
 
