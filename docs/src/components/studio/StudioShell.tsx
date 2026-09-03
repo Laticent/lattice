@@ -283,9 +283,9 @@ const unassessedCard = (id: string): CoachCard => ({
 });
 
 // biome-ignore lint/suspicious/noExplicitAny: serialized lint vocabulary from the page.
-type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; componentNames?: string[]; catalogUrl?: string; lintVocab?: any; slideHeadings?: Record<string, ('h1' | 'h2')[]>; slideBlocks?: Record<string, string[]> };
+type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; componentNames?: string[]; catalogUrl?: string; lintVocab?: any; slideHeadings?: Record<string, ('h1' | 'h2')[]>; slideBlocks?: Record<string, string[]>; slideTables?: Record<string, boolean> };
 
-export default function StudioShell({ options, components: seedComponents = [], componentNames, catalogUrl, lintVocab, slideHeadings, slideBlocks }: Props) {
+export default function StudioShell({ options, components: seedComponents = [], componentNames, catalogUrl, lintVocab, slideHeadings, slideBlocks, slideTables }: Props) {
 	// The component catalog is FETCHED, not inlined (2026-08-17 loading audit §5, §9.3).
 	// Serialized into the island's props it was ~180KB raw — 72% of a 433KB HTML document,
 	// parsed before hydration on every launch to serve a gallery the user may never open.
@@ -2885,9 +2885,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// slide after the wrong slide. The empty-deck case is handled by addSlideAfter's
 	// clamp; a Blank tile carries the NEW_SLIDE body.
 	const onInsertComponent = (c: ComponentEntry) => {
+		const at = activeFullIndex + 1; // `addSlideAfter` puts the new slide directly below
 		applyDeckOp(addSlideAfter(source, activeFullIndex, c.skeleton));
 		notify(`Inserted “${c.name}”.`);
 		if (c.bucket) setRecentComponents((r) => [c.name, ...r.filter((n) => n !== c.name)].slice(0, 6));
+		// GO TO THE SLIDE YOU JUST ADDED. The rail moved to it and the preview painted it,
+		// but the editor's caret stayed where it was — so the next thing an author typed
+		// went into the OLD slide, and filling in the skeleton they just chose meant
+		// finding it and clicking into it first. One frame's delay: the new source has to
+		// reach the editor before there is a slide `revealSlide` can land on.
+		requestAnimationFrame(() => {
+			editorRef.current?.revealSlide(at, { focus: hasFinePointer() });
+			composeRef.current?.revealSlide(at, { focus: hasFinePointer() });
+		});
 	};
 
 	// ── Version history (checkpoints) ────────────────────────────────────────
@@ -3739,7 +3749,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{editMode === 'compose' ? (
 				<React.Suspense fallback={<ComposeSkeleton />}>
-				<ComposeView ref={composeRef} source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} onInsertBelow={openInsertAfter} onCursorSlide={onEditorCursorSlide} />
+				<ComposeView ref={composeRef} source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideTables={slideTables} onInsertBelow={openInsertAfter} onCursorSlide={onEditorCursorSlide} />
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>

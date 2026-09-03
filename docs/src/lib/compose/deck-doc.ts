@@ -22,9 +22,47 @@ const nodes = proseSchema.spec.nodes
 		// to a locked slide so its identity never changes → it always emits `raw`.
 		attrs: { directives: { default: [] as string[] }, raw: { default: '' }, locked: { default: false } },
 		defining: true,
-		toDOM: (node) => ['section', { class: node.attrs.locked ? 'cs-slide cs-slide-locked' : 'cs-slide' }, 0] as const,
-		parseDOM: [{ tag: 'section.cs-slide' }],
+		// THE DIRECTIVES RIDE THE DOM, or copy/paste silently strips every slide's `_class`.
+		// `toDOM`/`parseDOM` are the CLIPBOARD contract (ProseMirror serializes a copied slice
+		// through the schema, not through the nodeView), so an attr this pair does not carry is
+		// an attr a paste re-creates at its DEFAULT. With `directives` left off, ⌘A ⌘A ⌘C ⌘V
+		// reproduced all seven slides of a deck with `directives: []` — every component
+		// assignment gone, the whole deck flattened to plain `content`, in two keystrokes an
+		// author reaches by habit. Pasting over one slide-scoped selection cost that one slide
+		// its class the same way. Measured on the real Studio, not deduced.
+		//
+		// `raw` and `locked` are deliberately NOT carried. `raw` is the byte-exact source of a
+		// slide the author has not touched, keyed by node IDENTITY in `emitDeck`'s baseline — a
+		// pasted slide is a NEW node with no baseline entry, so it must re-serialize from its
+		// content; carrying a stale `raw` would emit the bytes of the slide that was COPIED
+		// rather than the one that was pasted. `locked` follows from the same reasoning: it is
+		// the flag that says "always emit `raw`", so a pasted slide with no `raw` must not be
+		// locked. Both defaults are correct here; only `directives` needed the bridge.
+		toDOM: (node) =>
+			[
+				'section',
+				{
+					class: node.attrs.locked ? 'cs-slide cs-slide-locked' : 'cs-slide',
+					'data-directives': JSON.stringify((node.attrs.directives as string[]) || []),
+				},
+				0,
+			] as const,
+		parseDOM: [{ tag: 'section.cs-slide', getAttrs: (dom: HTMLElement) => ({ directives: readDirectives(dom.getAttribute('data-directives')) }) }],
 	});
+
+/** Read the `data-directives` bridge back off a copied slide's DOM. Fails to `[]` — the
+ *  pre-existing behavior — for anything that is not the array of strings we wrote, so a
+ *  hand-edited or foreign `section.cs-slide` can never inject a non-string directive into
+ *  the emitter (which joins them into the deck source verbatim). */
+function readDirectives(raw: string | null): string[] {
+	if (!raw) return [];
+	try {
+		const v = JSON.parse(raw);
+		return Array.isArray(v) ? v.filter((d): d is string => typeof d === 'string') : [];
+	} catch {
+		return [];
+	}
+}
 
 /** The deck schema — prosemirror-markdown's block/mark set + table nodes, wrapped in slide nodes. */
 export const deckSchema = new Schema({ nodes, marks: proseSchema.spec.marks });
@@ -58,7 +96,7 @@ const SEP = '\n\n---\n\n';
 
 /** Serialize ONE slide node → its source chunk (directives head + serialized prose).
  *  serialize(node) renders the node's CHILDREN — i.e. this slide's block prose. */
-function serializeSlideNode(slide: PMNode): string {
+export function serializeSlideNode(slide: PMNode): string {
 	const prose = latticeMarkdownSerializer.serialize(slide);
 	const directives = (slide.attrs.directives as string[]) || [];
 	return composeSlideChunk(directives, prose);

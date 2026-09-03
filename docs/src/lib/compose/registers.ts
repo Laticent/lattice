@@ -96,6 +96,45 @@ export type SlideHeadings = Record<string, ('h1' | 'h2')[]>;
 // shape (and the same one-source-of-truth reasoning) as `SlideHeadings` above.
 export type SlideBlocks = Record<string, string[]>;
 
+// A class name → whether that component's authoring grammar takes a MARKDOWN TABLE.
+// Built at the docs-site build from the generated manifest (a `table` slot, or a GFM
+// delimiter row in the component's skeleton), which today is true of exactly four of the
+// 61: compare-table, matrix-grid, obligation-matrix, roadmap. Same injection shape and
+// the same one-source-of-truth reasoning as `SlideHeadings` / `SlideBlocks` above.
+export type SlideTables = Record<string, boolean>;
+
+/**
+ * Does the caret's slide take a markdown table?
+ *
+ * Gates Compose's "Insert table" the way `rendersBlock` gates Key-insight / Below-note,
+ * and for the same reason, only louder: the button was offered on every slide and it
+ * WORKED on every slide, writing a `|  |  |` grid into the source of a `title` or a
+ * `big-number` — components with nowhere to put one. The engine then drops it, so the
+ * author sees a table in Compose that never appears on the slide, and their deck source
+ * carries junk they did not knowingly add. Measured across all seven classes of the
+ * shipped tour deck: seven inserts, seven silent drops.
+ *
+ * PERMISSIVE BY DEFAULT, on the same three guards the block gate carries: an unclassed
+ * slide, a class absent from the map, and a missing map all say yes — so an unrecognized
+ * `_class` and a build that could not read the manifest behave exactly as before the gate.
+ * The LAST `_class` token the map knows wins, and `Object.hasOwn` keeps a slide naming
+ * `constructor` off the prototype chain.
+ */
+export function slideTakesTable(directives: string[], tables?: SlideTables): boolean {
+	if (!tables) return true;
+	let declared: boolean | undefined;
+	for (const d of directives) {
+		const m = d.match(CLASS_PAYLOAD_RE);
+		if (!m) continue;
+		for (const token of m[1].trim().split(/\s+/)) {
+			if (!token || !Object.hasOwn(tables, token)) continue;
+			const entry = tables[token];
+			if (typeof entry === 'boolean') declared = entry; // later directives win, as the engine does
+		}
+	}
+	return declared ?? true;
+}
+
 /** The WHOLE `_class:` payload — every token, not just the leading one that `CLASS_RE`
  *  takes. Matches the running-global `<!-- class: … -->` spelling too, so a deck that
  *  sets its layout that way is gated the same as a per-slide one. */

@@ -297,6 +297,7 @@ it is load-bearing.
 ### Shipped — the work landed; the note stays as the record
 
 - ☑ [2026-09-02-bounded-wait-stays-an-index-row.md](2026-09-02-bounded-wait-stays-an-index-row.md) — The bounded-wait discipline stays a CLAUDE.md index row and does NOT become HARD RULE #31.
+- ☑ [2026-09-02-compose-fuzz-findings.md](2026-09-02-compose-fuzz-findings.md) — A randomized Playwright walk over the real Studio — six seeds, 360 operations, four structural invariants checked after every op — found…
 - ☑ [2026-09-02-stage-clip-shear-sweep.md](2026-09-02-stage-clip-shear-sweep.md) — The `list-steps` shear (#2046) was one instance of a class, so the class was swept: every growing flex rule under `lib/components`…
 - ☑ [2026-09-01-autosplit-splits-on-structure.md](2026-09-01-autosplit-splits-on-structure.md) — Auto-split fires on STRUCTURE, not on measured fit, and a split page carries ONE structural element.
 - ☑ [2026-09-01-export-remote-subresource-posture.md](2026-09-01-export-remote-subresource-posture.md) — The preview frame was contained in #1753; exports were left open and written up as an open question.
