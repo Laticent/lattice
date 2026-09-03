@@ -604,7 +604,7 @@ She opens the app a dozen times a day, on a cellular network, usually while doin
 
 ## The antagonist is not scale. It is the shape of the follow graph.
 
-Scale is a quantity, and quantities have a price you can pay. The thing you cannot buy your way out of is a distribution. Follower counts are heavy-tailed: almost everyone has a few hundred, and a handful have hundreds of millions. The average tells you nothing, and the far end sits six orders of magnitude from the middle.
+Scale is a quantity, and quantities have a price you can pay. The thing you cannot buy your way out of is a distribution. Follower counts are heavy-tailed: almost everyone has a few hundred, and a handful have hundreds of millions. No single account looks like the average, and the far end sits six orders of magnitude from the middle.
 
 - The number that matters
   - The median account has about 150 followers. The largest has five hundred million.
@@ -786,7 +786,7 @@ Antoine de Saint-Exupéry wrote that perfection arrives not when there is nothin
 
 `Part four`
 
-## Six kits: twelve things you can reach for, and the invariants behind all of them.
+## Six kits: fifteen things you can reach for, and the invariants behind all of them.
 
 ---
 
@@ -796,7 +796,7 @@ Antoine de Saint-Exupéry wrote that perfection arrives not when there is nothin
 
 ## Reach for it when, walk away when, and the constraint you inherit.
 
-One shape for every entry you choose between — the stores, the runtimes, the delivery tier — so you can hold two options side by side without re-reading a manual. Scale, reliability and security are patterns rather than choices, so those three kits run on diagrams and invariants instead. Every kit opens with a diagram and closes with its invariants.
+One shape for every entry you choose between — a store, a runtime, a delivery tier, a quota — so you can hold two options side by side without re-reading a manual. Scale and reliability are mostly practices rather than choices, so those two kits run on diagrams, patterns and invariants instead. Every kit opens with a diagram and closes with its invariants.
 
 The entries name concepts, not products. Products turn over every few years. The constraint that an append-only store puts on your reads does not.
 
@@ -874,7 +874,9 @@ Answer these before anyone says a brand. Most database arguments are really a di
 flowchart LR
   REL[("Relational<br/>start here")] --> Q1{"Do one table's writes or bytes<br/>outgrow one machine?"}
   Q1 -->|"no"| STAY(["Stay. You are done."])
-  Q1 -->|"yes"| Q2{"Do you query by<br/>exact key only?"}
+  Q1 -->|"yes"| QB{"Do you still need joins<br/>and transactions?"}
+  QB -->|"yes"| DS[("Distributed SQL")]
+  QB -->|"no"| Q2{"Do you query by<br/>exact key only?"}
   Q2 -->|"yes"| KV[("Key-value")]
   Q2 -->|"no"| Q3{"Is every query a<br/>partition plus a range?"}
   Q3 -->|"yes"| WC[("Wide-column")]
@@ -897,6 +899,21 @@ flowchart LR
   - One table outgrows one machine's writes, or the schema genuinely differs per row.
 - The constraint you inherit
   - Joins and transactions need a coordinator. Self-sharding loses both; a distributed engine charges a round trip.
+
+---
+
+<!-- _class: cards-stack -->
+
+`Data kit · distributed SQL`
+
+## An engine that partitions itself is the first answer now, not the last resort.
+
+- Reach for it when
+  - One table outgrew one machine and you still want joins, transactions and a schema.
+- Walk away when
+  - Every query is a single exact key, or the budget cannot carry cross-partition coordination.
+- The constraint you inherit
+  - A transaction across partitions pays a round trip, so related rows still belong together.
 
 ---
 
@@ -934,11 +951,12 @@ flowchart LR
 
 `Data kit · the scan`
 
-## Five columns, applied to the five stores you reach for first.
+## The same five questions, asked of every store you are choosing between.
 
 | Store | Access | Consistency | Scales by | Weak at |
 | --- | --- | --- | --- | --- |
 | Relational | Key, range, join | Strong on the leader | Replicas, then partitioning | Cross-shard writes |
+| Distributed SQL | Key, range, join | Strong across partitions | Horizontal | Cross-partition transactions |
 | Key-value | Exact key | Engine-specific | Horizontal | Rich queries |
 | Document | Key, secondary index | Engine-specific | Horizontal | Facts split across documents |
 | Wide-column | Partition plus range | Tunable | Horizontal | New query patterns |
@@ -1135,6 +1153,69 @@ flowchart LR
   - Matches both the access pattern and the law, until one tenant grows enormous.
 
 > Name the query that will now cross shards. If you cannot, you have not chosen a key — you have chosen a hash.
+
+---
+
+<!-- _class: cards-stack -->
+
+`Data kit · ordering and identity`
+
+## Two machines never agree on the time, so never let a clock decide an order.
+
+- Reach for it when
+  - Anything is sorted, paged or deduplicated. A sortable id carries time and writer in one value.
+- Walk away when
+  - Never, once a second writer exists. Milliseconds of clock skew both reorder and collide.
+- The constraint you inherit
+  - An id you sort by can never change, and every page cursor comes to depend on it.
+
+---
+
+<!-- _class: list-steps -->
+
+`Data kit · changing a schema`
+
+## Nothing running lets you change a column in a single step.
+
+1. Expand
+   - Add the new field. Nothing reads it yet, and old code and new code both still work.
+2. Backfill
+   - Fill it for the rows that already exist, in batches, with a job you can stop and restart.
+3. Cutover
+   - Move reads to the new field. Keep writing both, so going back costs nothing.
+4. Contract
+   - Delete the old field, and only once nothing has read it for long enough to be sure.
+
+---
+
+<!-- _class: content -->
+
+`Data kit · why those four steps`
+
+## A deploy is never atomic, so every change has to tolerate the version beside it.
+
+For the minutes or hours a rollout takes, two versions of your code run against one store. Both have to work. That is the entire reason for the four steps: each one is safe while the step before it is still live.
+
+The same rule governs an API other people call. Add fields, never repurpose them. Make anything new optional. Remove nothing until you can show that nobody calls it — and if you cannot show that, you have not earned the right to remove it.
+
+---
+
+<!-- _class: cards-grid four -->
+
+`Data kit · deleting for real`
+
+## A delete is a fan-out, and it has to reach every copy you ever made.
+
+- The row itself
+  - A tombstone, not a gap. Replicas have to learn it is gone, not merely fail to see it.
+- Every derived copy
+  - Caches, feeds, search indexes, aggregates. Each holds its own copy and each needs telling.
+- The backups
+  - You cannot rewrite a backup. Set a retention window and let the copy expire instead.
+- The bytes at the edge
+  - A CDN serves what it cached. Purging is eventual, so signed URLs need short lives.
+
+> Design the delete when you design the write. Retrofitting one across six stores is a quarter of somebody's year.
 
 ---
 
@@ -1467,7 +1548,7 @@ $$ L = \lambda W $$
 
 At 2,000 requests per second averaging 50 milliseconds each, 100 requests are in flight at any moment. That is your minimum concurrency, and no tuning makes it smaller while the other two numbers hold.
 
-It also explains the outage. If latency triples during an incident, concurrency triples with it, and a pool sized for the good day is now the thing that fails. Find your own numbers: arrivals on the load balancer, duration in the handler.
+It also explains the outage, and which way it goes depends on the pool. Leave it unbounded and tripled latency triples the requests in flight, until memory runs out. Bound it at 100 and the concurrency cannot rise, so throughput falls instead — `100 / 0.15s`, about 667 a second against the 2,000 arriving — and the queue in front grows without limit. That second failure is why every queue needs a ceiling. Find your own numbers: arrivals on the load balancer, duration in the handler.
 
 ---
 
@@ -1481,11 +1562,11 @@ It also explains the outage. If latency triples during an incident, concurrency 
 A page that makes 100 parallel calls waits for the slowest one. Give each call a one-percent chance of being slow. Then 63 percent of pages hit at least one slow call. That is `1 - 0.99^100`, and you can redo it on a napkin.
 
 - The check
-  - You report the 99th percentile per dependency, and the mean nowhere.
+  - Percentiles for what a person experiences, means for what a fleet must total. Report the 99th per dependency; keep the mean for capacity, never for latency.
 - Fan-out amplifies it
   - More parallel calls turn a rare slow response into a common slow page.
-- Hedging buys it back
-  - Send a duplicate after the 95th percentile and take whichever answers first.
+- Hedging buys it back, on a budget
+  - Send a duplicate after the 95th percentile and take whichever answers first. A hedge is a second request, so cap it — a few percent of traffic. Unbudgeted, it is the reinforcing loop again, arriving exactly when you are already slow.
 
 ---
 
@@ -1496,7 +1577,7 @@ A page that makes 100 parallel calls waits for the slowest one. Give each call a
 ## Each caching pattern owns a different failure.
 
 - Cache-aside
-  - The app fills the cache on a miss. Simple, and it stampedes on a cold key.
+  - The app fills the cache on a miss. Simple, and it stampedes on a cold key unless one reader fills it while the rest wait on that one fill.
 - Read-through
   - The cache fetches for you. Cleaner code, and now the cache is on the critical path.
 - Write-through
@@ -1833,6 +1914,33 @@ Assume any single credential eventually leaks. The design question is not whethe
 
 ---
 
+<!-- _class: content -->
+
+`Security kit · your dependencies`
+
+## Most of the code you ship, you did not write and have not read.
+
+Maya's Tuesday stopped when a package registry went down. That same registry is also the shortest path into her build: whoever can publish a version she installs can run their code on her machine, and then inside her deploy.
+
+Pin exact versions and commit the lock file, so the build you tested is the build that ships. Keep an inventory of what you actually depend on, including everything your dependencies pulled in behind you. Take updates on a schedule you chose rather than the moment they appear, and read the diff of anything that touches a credential, a network call, or a build step.
+
+---
+
+<!-- _class: cards-stack -->
+
+`Security kit · quotas`
+
+## An authorized caller can still take the whole system down.
+
+- Reach for it when
+  - Anything is shared: a database, a queue, a paid third party, an image decoder.
+- Walk away when
+  - Never entirely. Put the limit where an ordinary caller will never meet it.
+- The constraint you inherit
+  - A limit needs an identity to count against. Use the account, the key and the address.
+
+---
+
 <!-- _class: list-criteria -->
 
 `Security kit · the invariants`
@@ -1862,17 +1970,17 @@ Assume any single credential eventually leaks. The design question is not whethe
 
 `Instagram · the worksheet`
 
-## Nine fields, filled in before a single box goes on the board.
+## Eight of these you fill in before the first box. The ninth you cannot know yet.
 
 ```text
 Protagonist   A reader on a phone. Twelve opens a day, on cellular.
 Antagonist    The shape of the follow graph — a tail at 5×10⁸ edges.
 Purpose       A fresh, personal, ranked page in under a second.
 Boundary      In: feed, posts, edges, media. Out: the phone, the network, the law.
-Environment   Spiky traffic, partitions, duplicate deliveries, people who want in.
+Environment   Evening peak ~2.5x the mean, partitions, duplicate deliveries, people who want in.
 Constraints   200 ms p99 · 60 reads per write · media durable forever
 Invariants    A post reaches eligible followers · media never lost · a like counts once
-Bottleneck    Filling in each post: 70K feed reads/s, but ~5.6M backend reads/s
+Bottleneck    Suspected: filling in each post. Confirmed at ~80M reads/s once the read path exists.
 Solution type Scaled. Not an MVP, not optimal.
 ```
 
@@ -1965,6 +2073,20 @@ A thirtieth of the read traffic, and the ratio went from 60:1 to 100:1. It moved
 
 ---
 
+<!-- _class: content -->
+
+`Instagram · what the average hides`
+
+## A daily average is not a capacity number, and two multipliers separate them.
+
+Seventy thousand a second is the average across a whole day, and it counts one page per open. You size a fleet against neither.
+
+An open is a session: the reader scrolls, and each screenful is another fetch. Call it six. Traffic is not flat either — the evening peak runs a few times the daily mean. Call it two and a half.
+
+`70K × 6 × 2.5 ≈ 1M page-fetches a second.` Size against that, and put both multipliers on the slide beside it. They are the two numbers most often left out of an estimate, and leaving them out is how a fleet gets built an order of magnitude too small.
+
+---
+
 <!-- _class: diagram -->
 
 `Instagram · the graph`
@@ -2013,12 +2135,12 @@ Instagram limits how many accounts you may follow to seven and a half thousand. 
 following                              followers
   PK  (source_id)                        PK  (target_id, bucket)
   CK  (target_id)                        CK  (created_at DESC, source_id)
-  "does A follow B?" is a point read     the follower list, newest first
-  capped at 7,500 rows                   bucket = hash(source) % B(target)
-                                         B = clamp(followers / 10_000, 1, 512)
+  val bucket                             the follower list, newest first
+  "does A follow B?" is a point read     bucket = hash(source) % B(target)
+  capped at 7,500 rows                   B = clamp(followers / 10_000, 1, 512)
 ```
 
-*The forward edge is the source of truth. A background job builds the reverse one from the log and repairs it. `B` may only grow: shrink it and you lose edges. Early edges were written when `B` was smaller, so the low-numbered buckets hold several times the average until `B` reaches its cap.*
+*The forward edge is the source of truth, and it stores the bucket it was written into. That one column is what lets an unfollow find the reverse edge years later: `B` has grown since, so recomputing `hash(source) % B` now lands somewhere else and the edge would never be deleted. `B` may only grow — shrink it and you lose edges — and a fan-out worker reads it fresh rather than from the display cache, because a stale, smaller `B` scans too few buckets and silently skips the newest followers. Early edges were written when `B` was smaller, so the low-numbered buckets hold several times the average until `B` reaches its cap.*
 
 ---
 
@@ -2109,7 +2231,7 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 - One strategy for everyone
   - Simple to explain, guaranteed to fail at one end. Push drowns on celebrities; pull costs hundreds of reads per page for everyone else.
 - Split at the threshold
-  - Ordinary posts land in a page that is already built; the celebrities she follows are fetched on demand and merged in, so no writer ever fans out to millions. The read costs one lookup plus ten to thirty fetches.
+  - Ordinary posts land in a page that is already built; the celebrities she follows are fetched on demand and merged in, so no writer ever fans out to millions. The read costs one lookup plus the celebrity pulls.
 
 > The threshold is not a preference. It is where two cost curves cross, and the graph draws it.
 
@@ -2119,13 +2241,31 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 
 `Instagram · the threshold`
 
-## Fifty thousand followers is the line. The real predicate is a rate.
+## Fifty thousand followers is the line, and the honest predicate is a rate.
 
-Fifty thousand puts a fraction of a percent of accounts on the pull path. Someone following three hundred typically has ten to thirty above the line.
+Fifty thousand puts a fraction of a percent of accounts on the pull path. Someone following three hundred typically has ten to thirty above the line — not because celebrities are common, but because the accounts a person chooses to follow are not a random sample of accounts.
 
-Run the tail arithmetic: at thirty pulls and a one-percent slow call, `1 - 0.99^30` is twenty-six percent of pages hitting at least one. So **cap the pulls at twenty**, taking the sources that posted most recently. A cap trades completeness for a bounded tail: past it, a reader misses posts from the quietest accounts they follow. Crossing the threshold does not rewrite history — old entries age out.
+Crossing the threshold does not rewrite history. Entries already pushed stay where they are and age out.
 
-The better predicate is fan-out work per day: fifty thousand followers posting forty times a day costs more than two hundred thousand posting weekly.
+The better predicate is fan-out work per day. Fifty thousand followers posting forty times a day costs more than two hundred thousand posting weekly, and the product of the two is what you actually pay for.
+
+---
+
+<!-- _class: split-panel proof cat-6 -->
+<!-- _header: "" -->
+
+`Instagram · checking the fix`
+
+## Capping the pulls at twenty does not meet the promise it was chosen to meet.
+
+At thirty pulls and a one-percent slow call, `1 - 0.99^30` puts twenty-six percent of pages on a slow dependency. Cap at twenty and it is eighteen percent — still eighteen times a 99th-percentile budget. The cap sounded like the answer and fails its own arithmetic, which is exactly why you run the check on your own fixes.
+
+- The cache is what bounds it
+  - A celebrity's recent-posts list is written once and read five hundred million times, so those pulls hit cache and sit nowhere near one percent slow.
+- The deadline is the backstop
+  - Fire every pull, render at eighty milliseconds with whatever arrived, and let the stragglers land on the next fetch.
+- A cap still costs someone
+  - A reader following seven and a half thousand accounts can have hundreds above the line. For them twenty is not trimming the quietest — it is most of their pull path.
 
 ---
 
@@ -2155,14 +2295,17 @@ The product exists partly for her. She is the reason a hundred million people op
 
 ```mermaid
 flowchart LR
-  C(["Client"]) -->|"1 · bytes"| OS[("Object store")]
-  C -->|"2 · post"| API["Gateway"] --> W["Post service"]
-  W -->|"3 · store it"| PDB[("Post store<br/>by author id")]
-  W -->|"4 · publish"| Q[["Event log"]]
+  C(["Client"]) -->|"1 · presigned upload"| OS[("Object store")]
+  OS -->|"2 · acknowledged"| C
+  C -->|"3 · post"| API["Gateway"] --> W["Post service"]
+  W -->|"4 · store it"| PDB[("Post store<br/>by author id")]
+  W -->|"5 · publish"| Q[["Event log"]]
   Q --> FAN["Fan-out worker"]
-  FAN -->|"5 · who follows me?"| GS[("Graph service<br/>followers, bucketed")]
-  FAN -->|"6 · push, if below threshold"| FC[("Feed cache<br/>per reader")]
+  FAN -->|"6 · who follows me?"| GS[("Graph service<br/>followers, bucketed")]
+  FAN -->|"7 · push, if below threshold"| FC[("Feed cache<br/>per reader")]
 ```
+
+*Step 3 comes after step 2 on purpose. Publish before the bytes are acknowledged and the fan-out delivers a post whose media does not exist yet, to five hundred million people, and every one of them sees a broken tile. Transcoding may still be running — a variant that is not ready falls back to the original — but the original must be there before anyone is told about the post.*
 
 ---
 
@@ -2177,10 +2320,13 @@ flowchart LR
   C(["Client"]) -->|"read feed"| API["Gateway"] --> FR["Feed service"]
   FR -->|"the pushed page"| FC[("Feed cache")]
   FR -->|"who do I follow?"| GS[("Graph service")]
-  FR -.->|"pull, above threshold"| PDB[("Post store")]
+  FR -.->|"pull, above threshold"| CC[("Celebrity list cache")]
+  CC -.->|"on a miss"| PDB[("Post store")]
   FR --> OUT(["Merge · filter · rank · hydrate"])
   CDN["CDN"] -->|"media, separately"| C
 ```
+
+*The pull path goes through a cache, not straight to the store. That box is the whole reason the hybrid is affordable: one celebrity's recent-posts list is written once and read five hundred million times, so it is the most cacheable object in the system. Draw it, or the design you hand someone sends half a billion reads a day at the post store.*
 
 ---
 
@@ -2205,9 +2351,9 @@ flowchart LR
 
 `The number we missed`
 
-## Seventy thousand feed reads a second is really five million lookups a second.
+## Every page you serve is eighty lookups behind it, so the read number is eighty million a second.
 
-A twenty-item page needs four lookups an item — the post row, the media variants, the counts, and whether this reader liked it. Eighty a page, times seventy thousand pages a second, is 5.6 million.
+A twenty-item page needs four lookups an item — the post row, the media variants, the counts, and whether this reader liked it. Eighty a page, against the million page-fetches a second the peak estimate gave you, is eighty million.
 
 Batch them all. Do not fold the count into the feed entry — that entry is written at post time, when the count is zero. Fold the like check the other way instead: one batched read across the twenty candidates.
 
@@ -2266,8 +2412,8 @@ Every like is a write against the same post id — one key, one partition, one l
 
 - The row is the truth
   - Store the pair once, keyed by reader and post. The count is an aggregate you rebuild from it, which is what survives a redelivery or an unlike.
-- Shard the counter
-  - Increment one of a hundred sibling keys at random; sum them on read. One hot key becomes a hundred warm ones.
+- Shard the hot counter only
+  - Increment one of a hundred sibling keys at random. One hot key becomes a hundred warm ones — and one read becomes a hundred, so cache the sum and shard only the keys you have measured as hot.
 - Comments are the second unbounded list
   - Bounded per reader, unbounded per post. Page them; never load them with the post.
 
@@ -2275,9 +2421,28 @@ Every like is a write against the same post id — one key, one partition, one l
 
 <!-- _class: cards-grid four -->
 
+`Instagram · the changes nobody draws`
+
+## Every design gets drawn at rest. These four happen while it is running.
+
+- A new follow
+  - Their earlier posts were pushed before you existed. Backfill a few, or state the gap.
+- An unfollow
+  - Pushed entries do not remove themselves. Filter at read against the current edge.
+- The same post twice
+  - A crossed threshold leaves it in the pushed page and in the pull. Dedupe at the merge.
+- A cold celebrity key
+  - A million readers miss it at once. One refills it; the rest take the stale copy.
+
+> A feed is a cache of a relationship. Change the relationship, leave the cache alone, and the reader is shown something untrue.
+
+---
+
+<!-- _class: cards-grid four -->
+
 `Instagram · where it breaks`
 
-## You already have the answer to every failure that is certain here.
+## Four failures here are certain, and every one already has its answer.
 
 - Celebrity post
   - The fan-out queue floods. Answer: the pull path above the threshold.
@@ -2299,7 +2464,7 @@ Every like is a write against the same post id — one key, one partition, one l
 - [x] A post is visible to every eligible follower who reaches it. `eventually`
 - [x] Media is never lost once an upload is acknowledged. `durable`
 - [x] A like counts exactly once per reader and post. `idempotent`
-- [x] A feed page never repeats or skips an item. `stable cursor`
+- [x] A feed page never repeats or skips an item. `stable cursor + dedupe at merge`
 - [ ] A blocked account is filtered at read — but a signed media URL outlives the check. `keep the TTL short`
 - [x] Every derived store rebuilds from posts and edges. `rebuildable`
 
