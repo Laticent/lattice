@@ -64,3 +64,65 @@ describe('WebpageOptionsPanel — notes and narration are independent channels',
 		expect(screen.queryByText(/the narration you rehearsed IS your notes/i)).toBeNull();
 	});
 });
+
+// THE MOTION ROW APPEARS ONLY WHEN THE DECK HAS MOTION TO CARRY.
+//
+// A switch that does nothing is worse than a missing one: it teaches the reader that the
+// panel's controls are decorative. "Animate charts" is meaningful only for a deck that
+// actually animates, so it is conditional — and the condition has to track BOTH ways an
+// author opts in, the deck-level `motion:` key and a per-slide marker, or a deck that
+// animates on one path silently loses the choice on the other.
+const MOTION_DECK = '---\ntheme: indaco\nmotion: on\n---\n\n<!-- _class: funnel -->\n\n## F\n\n- A `1`\n';
+const SLIDE_MOTION_DECK = '---\ntheme: indaco\n---\n\n<!-- _class: funnel motion-build -->\n\n## F\n\n- A `1`\n';
+
+function panelWith(source: string) {
+	return render(
+		<WebpageOptionsPanel
+			defaultScheme="light"
+			source={source}
+			project={vi.fn(async () => ({ slides: [] })) as never}
+			onBack={noop}
+			onExport={noop}
+			onCancel={noop}
+		/>,
+	);
+}
+
+describe('WebpageOptionsPanel — chart motion in the exported file', () => {
+	it('offers no motion row for a deck with no motion', () => {
+		panelWith(DECK);
+		expect(screen.queryByRole('switch', { name: 'Animate charts' })).toBeNull();
+	});
+
+	it('offers it for a deck-level motion: on, defaulting to ON so the export inherits', () => {
+		panelWith(MOTION_DECK);
+		const sw = screen.getByRole('switch', { name: 'Animate charts' });
+		// Default ON is the contract: a deck that animates here animates for the recipient,
+		// and the author opts OUT rather than having to remember to opt in.
+		expect(sw.getAttribute('aria-checked')).toBe('true');
+	});
+
+	it('offers it for a per-slide marker with no deck-level key', () => {
+		panelWith(SLIDE_MOTION_DECK);
+		expect(screen.getByRole('switch', { name: 'Animate charts' })).not.toBeNull();
+	});
+
+	it('reports the choice to the exporter', async () => {
+		const user = userEvent.setup();
+		const onExport = vi.fn();
+		render(
+			<WebpageOptionsPanel
+				defaultScheme="light"
+				source={MOTION_DECK}
+				project={vi.fn(async () => ({ slides: [] })) as never}
+				onBack={noop}
+				onExport={onExport}
+				onCancel={noop}
+			/>,
+		);
+		await user.click(screen.getByRole('switch', { name: 'Animate charts' }));
+		await user.click(screen.getByRole('button', { name: 'Download webpage' }));
+		expect(onExport).toHaveBeenCalled();
+		expect(onExport.mock.calls[0][0].playerMotion).toBe(false);
+	});
+});

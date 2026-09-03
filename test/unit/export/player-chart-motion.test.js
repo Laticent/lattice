@@ -61,3 +61,26 @@ test('the scalars are read by the shared front-matter rule, quotes and comments 
 	assert.equal(deckMotionScalars(FM('motion-style: rise\nmotion-speed: fast\n')).speed, 'fast');
 	assert.equal(deckMotionScalars('# no front matter').motion, null);
 });
+
+test('the CLI flag overrides the deck: playerMotion false wins over motion: on', async () => {
+	const { assemblePlayer } = await core();
+	const { JSDOM } = require('jsdom');
+	// Driven through the REAL assembler, with no try/catch fallback: the precedence IS the
+	// behavior — an author sets `motion: on`, a scripted export says "not in this artifact",
+	// and the export-time act has to win. A fallback branch here would let the test pass on
+	// an assembler that stopped running at all, which is the failure it exists to catch.
+	// The reverse is deliberately NOT offered: the flag can only suppress, so a deck that
+	// says `motion: off` can never be made to move by whoever exports it.
+	const docHtml = '<section class="funnel"><svg><polygon data-anima-role="bar"/></svg></section>';
+	const caps = {
+		parseHtml: (h) => new JSDOM(h).window.document,
+		sanitize: (h) => h,
+		sha256: async () => 'x',
+		inlineAssets: (h) => ({ html: h, count: 0, missing: [] }),
+	};
+	const source = FM('motion: on\n');
+	const withFlag = await assemblePlayer({ docHtml, source, playerMotion: false }, caps);
+	const withoutFlag = await assemblePlayer({ docHtml, source }, caps);
+	assert.equal(withFlag.html.includes('__latticeAnimaCharts'), false, 'the flag did not suppress the chart player');
+	assert.ok(withoutFlag.html.includes('__latticeAnimaCharts'), 'the same deck without the flag lost its chart player — the control is broken, so the assertion above proves nothing');
+});

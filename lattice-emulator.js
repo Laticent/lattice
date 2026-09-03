@@ -193,6 +193,12 @@ OPTIONS
                           description survives (it is the slide's text
                           alternative, not speaker text), and so do captions,
                           which narrate slide content and have --strip-captions
+      --no-player-motion  Ship the STILL in the exported player, even when the deck
+                          sets motion: on. Motion in a file you forward is a
+                          separate choice from motion while you present — it costs
+                          bytes and it moves for a recipient you are not there to
+                          frame it for. The front-matter equivalent is
+                          player-motion: off; this flag is for the scripted export
       --strip-captions    Scrub the author's caption OVERRIDES (inline <!-- caption: -->
                           and front-matter captions:) from the .vtt and embedded
                           source; those slides fall back to the generated projection.
@@ -371,6 +377,7 @@ function parseArgs(argv) {
     if (a === '--captions') { flags.captions = true; continue; }
     if (a === '--no-split') { flags['no-split'] = true; continue; }
     if (a === '--strip-notes') { flags['strip-notes'] = true; continue; }
+    if (a === '--no-player-motion') { flags['no-player-motion'] = true; continue; }
     if (a === '--strip-captions') { flags['strip-captions'] = true; continue; }
     if (a === '--notes-icon') { flags['notes-icon'] = true; continue; }
     if (a === '--fluid') { flags.fluid = true; continue; }
@@ -4179,6 +4186,10 @@ async function renderBody(browser, g, closeBrowser) {
         // no speaker text and/or no caption text. A stripped file re-imports without them —
         // the stated privacy tradeoff (§Notes on export).
         source: stripSharedSource(rawMd, noteStripSet),
+        // `false` FORCES the still; `undefined` inherits the deck's own registers
+        // (`motion:`, with `player-motion: off` as the author-side opt-out). The flag can
+        // only suppress, never force motion on — a deck that says `motion: off` means it.
+        playerMotion: flags['no-player-motion'] ? false : undefined,
         title: deckTitle,
         // The deck's REAL canvas. Without it the player hardcoded 1280x720 and any deck
         // declaring a non-default `size:` exported laid out for its own canvas and then
