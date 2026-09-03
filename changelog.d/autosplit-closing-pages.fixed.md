@@ -136,12 +136,13 @@
     because it is the one relationship whose label has no length budget. `scrollWidth` could never
     have caught it: leftward overflow is invisible to it in LTR.
   - **Breaking-ish for anyone reading the ink:** the pointer's ink is `--text-body`, not
-    `--text-secondary`. Swept across all 32 shipped palettes in both schemes, `--text-secondary` on
-    `--bg-alt` is WORSE than the `--text-muted`-on-`--bg` it replaced in 14 of 28 measurable pairs,
-    and bottoms out at 4.63:1 — under the 5.13:1 this redesign names as the problem. On `cuoio`,
-    the default theme, it went 5.07 to 4.64. A "read it small in a feed" change cannot dim the
-    pointer on the default palette. `--text-body` floors at 5.46:1 and beats the old value in 27 of
-    the 28. The pointer stays subordinate by SIZE and placement, which is what was doing that job.
+    `--text-secondary`. Measured on the rendered pointer across all 33 shipped palette variants,
+    `--text-secondary` on `--bg-alt` is WORSE than the `--text-muted`-on-`--bg` it replaced on 14
+    of them and bottoms out at 4.63:1 — under the 5.13:1 this redesign names as the problem. On
+    `cuoio`, the default theme, it went 5.07 to 4.64. A "read it small in a feed" change cannot
+    dim the pointer on the default palette. `--text-body` floors at 5.46:1 and beats the
+    pre-branch value on 32 of the 33. The pointer stays subordinate by SIZE and placement, which
+    is what was doing that job.
   - The split caption's ink lift never landed. It was written as
     `var(--marp-slide-footer-color, var(--text-secondary))`, but that token is declared
     unconditionally at `:root` and again in every theme that tunes it, so the fallback could never

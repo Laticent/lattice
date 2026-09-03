@@ -3012,15 +3012,26 @@ section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > .be
 
    THE INK IS `--text-body`, AND IT GOT THERE BY MEASUREMENT AFTER A WRONG ANSWER. It was
    `--text-secondary`, on the reasoning that this is "wayfinding beside content, not content".
-   That reasoning was about hierarchy and the cost was legibility: swept across all 32 shipped
-   palettes in both schemes, `--text-secondary` on `--bg-alt` is WORSE than the `--text-muted`-
-   on-`--bg` it replaced in 14 of 28 measurable pairs, and bottoms out at 4.63:1 — under the
-   5.13:1 this whole redesign names as the problem, and on `cuoio`, the DEFAULT theme, it went
-   5.07 -> 4.64. A "read it small in a feed" change that dims the pointer on the default palette
-   is the redesign arguing against itself. `--text-body` on `--bg-alt` floors at 5.46:1 across
-   the same 28 pairs and beats the old value in 27 of them. The hierarchy is still there, and it
-   was never the ink doing it: the pill is the smallest step on the type ladder, sitting in a
-   margin, inside an outlined chip. Quiet is a matter of size and placement here, not of dimness.
+   That reasoning was about hierarchy and the cost was legibility. Measured on the RENDERED
+   pointer across all 33 shipped palette variants — one real export re-themed in place through
+   `tools/palette-sweep.js`'s own swap, not a parse of `themes/*.css` — `--text-secondary` on
+   `--bg-alt` is WORSE than the `--text-muted`-on-`--bg` it replaced on 14 of the 33, and bottoms
+   out at 4.63:1: under the 5.13:1 this whole redesign names as the problem, and on `cuoio`, the
+   DEFAULT theme, it went 5.07 -> 4.64. A "read it small in a feed" change that dims the pointer
+   on the default palette is the redesign arguing against itself. `--text-body` on `--bg-alt`
+   floors at 5.46:1 over the same 33 and beats the pre-branch value on 32 of them (the exception
+   is `concrete-dark`, 6.96 -> 6.35, still far above the floor). The hierarchy is still there,
+   and it was never the ink doing it: the pill is the smallest step on the type ladder, sitting
+   in a margin, inside an outlined chip. Quiet is a matter of size and placement here, not of
+   dimness.
+
+   THE BORDER IS WHAT MAKES IT A PILL, which is why it is not decoration. The fill separates from
+   the canvas by only 1.08:1 at the worst palette — `--bg-alt` is a near-neighbor of `--bg` by
+   design — so the shape is carried by the 1px edge, and a meaningful graphical object owes 3:1
+   (WCAG 1.4.11). Measured over the same 33: the border floors at 3.07:1 against the fill and
+   3.36:1 against the canvas, and renders 3.75 / 4.10 on indaco. A visual reviewer reported it at
+   1.64:1 off a raster; that does not reproduce against the computed color, and an anti-aliased
+   1px edge in a rasterized PDF is not the border's color.
 
    `align-self: flex-end` is doing three jobs at once and replaces three earlier mechanisms. It
    shrink-wraps the box to its content, which is what makes it a pill rather than a full-width
