@@ -1187,7 +1187,7 @@ describe('core: carousel — journey-stages splits the vertical stack and never 
         `page ${i + 1} carries ${(p.match(/class="journey-vstage"/g) || []).length} stages, not 1`);
     }
     // The categorical accent is `[data-section="N"]`, written on the member by the transform —
-    // which is the ONLY reason the colour sequence survives being sliced. `timeline-list` picks
+    // which is the ONLY reason the color sequence survives being sliced. `timeline-list` picks
     // its dot spectrum with `:nth-child(6n+k)` on an element carrying no index, so one member
     // per page makes every page `:nth-child(1)` and the whole run collapses to cat-1. If this
     // assertion ever fails, journey has acquired that defect and the enrollment must come out.
@@ -1277,7 +1277,7 @@ describe('core: carousel — a native slice stamps the member it carries', () =>
   // FOUND BY THE INDEPENDENT CHECKER. The extractor matched `([\\s\\S]*?)</[a-z0-9]+>` — lazy, and
   // any closing tag name — so it stopped at the first NESTED close instead of the title's own.
   // `kanban` and `roadmap` both pass an author's inline markup straight into the title, so a lane
-  // written `- **Backlog** and triage` labelled itself "Backlog" and the pointer named half a
+  // written `- **Backlog** and triage` labeled itself "Backlog" and the pointer named half a
   // title. `journey` is immune because its transform strips tags first, which is exactly why the
   // committed decks never showed it and the first round of these tests, written with plain-text
   // titles, could not have.

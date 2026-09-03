@@ -2406,18 +2406,29 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
    than as dashes when the page is scaled down. `currentColor` throughout — palette-blind (#3),
    and it is what lets the same rule work on the accent cover and in the print band.
 
-   THE OFF STATE IS 0.55, AND THE NUMBER IS A FLOOR, NOT A TASTE. The rail is a non-text
-   graphical object that carries meaning, so WCAG 1.4.11 asks 3:1 of it against its backdrop —
-   the same bar the engine holds every other drawn mark to. 0.22 measured 1.4:1 and 0.34
-   measured 1.89:1; both fail, and a reviewer reading a 390px feed raster still saw a broken
-   dash at 0.34. 0.55 measures 3.14:1 on indaco (#8393A7 composited on `--bg`), which clears it.
-   It is still plainly subordinate to the on state — the ratio between the two states is what
-   reads as k-of-N, and 0.55:1 is a legible pair where 0.34:1 was a legible mark beside an
-   illegible one. The on state goes to full currentColor for the same reason the pointer's ink
-   went up: these decks are read small. */
+   THE OFF STATE IS 0.70, AND THE NUMBER IS A FLOOR MEASURED ACROSS EVERY PALETTE. The rail is
+   a non-text graphical object that carries meaning, so WCAG 1.4.11 asks 3:1 of it against its
+   backdrop — the same bar the engine holds every other drawn mark to. 0.22 measured 1.4:1 and
+   0.34 measured 1.92:1; both fail, and a reviewer reading a 390px feed raster still saw a broken
+   dash at 0.34.
+
+   0.55 WAS ALSO WRONG, AND THE WAY IT WAS WRONG IS THE LESSON. It measures 3.14:1 on `indaco`,
+   which is the palette this repo renders by reflex — so it was written up as clearing the floor.
+   Swept across all 33 shipped variants on a real render it fails on SEVEN, bottoming out at
+   2.34:1 on `cuoio`, the DEFAULT theme. That is the same error this branch already made once
+   with the pointer's ink, made again with a different token, and it survived because
+   `tools/palette-sweep.js` cannot see this element at all: the sweep walks TEXT runs, and its
+   own source says so. A rail is not text, so a clean sweep says nothing about it.
+
+   Measured directly instead, on both surfaces the rail lands on — a body page and the accent
+   cover — over all 33 variants: 0.65 still fails (2.82 body / 3.03 cover), and 0.70 is the first
+   step where BOTH clear, at 3.11:1 body (`cuoio`) and 3.34:1 cover (`indaco-dark`). The on state
+   stays full `currentColor`; 0.70 against 1.0 is a smaller step than 0.55 against 1.0, and the
+   pair still reads as k-of-N on a 390px raster — checked, not assumed. `currentColor` throughout,
+   which is what lets one rule serve the accent cover and the print band alike. */
 .lat-split-rail .seg {
   width: 2.2cqi; height: 0.6cqi; border-radius: 1cqi;
-  background: currentColor; opacity: 0.55;
+  background: currentColor; opacity: 0.7;
 }
 .lat-split-rail .seg.on { opacity: 1; }
 /* The long-run form: past `RAIL_DOT_MAX` pages the rail prints "k/N" rather than drawing a
@@ -2845,7 +2856,7 @@ section.form.lat-split-closing.lat-split-closing > .cell-stage {
    the leftover. This was `flex: 1 1 auto; justify-content: center`, and that is what made the
    page read as a render failure to two independent reviewers who saw it cold: measured on
    `examples/read-across-carousel.md`, a 1350px page gave the stage 62px (the runhead alone) and
-   the coda 1110px, so the note centred itself in a 1110px void with the runhead stranded a
+   the coda 1110px, so the note centered itself in a 1110px void with the runhead stranded a
    thousand pixels above it. A rule above the note and a rule under the runhead then read as two
    hairlines framing an empty field — which is exactly how a page whose content failed to arrive
    looks.
@@ -2855,8 +2866,8 @@ section.form.lat-split-closing.lat-split-closing > .cell-stage {
 
    The coda stops growing, so the section's own `justify-content: center` composes the stage and
    the coda as ONE object with balanced air — the same correction the split `journey` needed, for
-   the same reason: a child that absorbs all the free height leaves the parent's centring nothing
-   to centre. `--sp-lg` is the gap under the runhead; it was `0` because the coda's own centring
+   the same reason: a child that absorbs all the free height leaves the parent's centering nothing
+   to center. `--sp-lg` is the gap under the runhead; it was `0` because the coda's own centering
    used to supply the space. */
 section.form.lat-split-closing.lat-split-closing > .cell-coda {
   padding-top: var(--sp-lg);
@@ -3002,11 +3013,13 @@ section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > .be
 
    The first pass moved it to the bottom-right corner as a right-aligned block, the way a book
    cues a page turn. Then: "why can't next just be a subtle on-brand pill with an arrow and the
-   text inside it?" Nothing stopped it, and the numbers argue for it — across the nine shipped
-   decks that split (`auto-split`, `split-envelope`, `split-headings`, `split-horizontal`,
-   `split-relationship`, `split-structure`, `read-across-carousel`, `portrait-journey`,
-   `portrait-roadmap`) there are 153 signals, median label THIRTEEN characters, 71% at or under
-   20 ("Trial", "Q2"). That is a pill's natural size. And no signal ever lands on a split COVER
+   text inside it?" Nothing stopped it, and the numbers argue for it — across the eight shipped
+   decks that split (`auto-split`, `split-envelope`, `split-horizontal`, `split-relationship`,
+   `split-structure`, `read-across-carousel`, `portrait-journey`, `portrait-roadmap`) there are
+   153 signals, median label THIRTEEN characters, 71% at or under 20 ("Trial", "Q2"). That is a
+   pill's natural size. (`split-headings` was in an earlier draft of this list and contributes
+   NOTHING: it carries no `size:`, so it renders wide, where the splitter never fires — 0 split
+   pages, 0 signals, measured. The total was right and the set naming it was not.) And no signal ever lands on a split COVER
    (counted: 0), so this never has to survive the inverse surface — the one constraint that would
    have forced `currentColor` and no fill.
 
@@ -3064,10 +3077,13 @@ section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > .be
    `box-sizing: border-box` IS LOAD-BEARING, not tidiness. The engine has no global border-box
    reset (measured), so under the initial `content-box` this box's `max-width: 100%` caps the
    CONTENT width and the 2x`--pill-pad-x` + 2px border is added OUTSIDE it — a border box of
-   100% + 47px at portrait. Right-anchored, the excess goes LEFT, off the content column and past
-   the page edge, taking the rounded left cap and the label's first character with it. Reproduced
-   on a split `verdict-grid`: pill 1019px in a 972px column, left edge at x=7, the label reading
-   "ption 1 of 6 ...". `verdict-grid` is the reachable case because `comparison` is the one
+   100% + 47px at portrait. Right-anchored, the excess goes LEFT, out of the content column and
+   into the page's own margin, where the column's clip cuts the rounded left cap and the label's
+   first character. Reproduced on a split `verdict-grid`: a 1019px pill in a 972px column, its
+   left edge at x=7 in a 1080px page — 47px outside the column, 7px short of the page edge —
+   reading "ption 1 of 6 ...". (An earlier revision of this note said the excess went "past the
+   page edge". It does not get that far, and the measurement sat in the next sentence the whole
+   time, which is how the overstatement was caught.) `verdict-grid` is the reachable case because `comparison` is the one
    relationship whose label has no length budget (`lib/core/relationship.js` joins every badge;
    the other kinds are capped by `LABEL_MAX`). No shipped deck reaches the cap, so this was
    authoring-reachable rather than shipped — and `scrollWidth` could never have caught it, because

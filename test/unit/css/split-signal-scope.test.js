@@ -79,12 +79,29 @@ const ROOT = path.resolve(__dirname, '../../..');
 // missing hairline that a real render has.
 const CSS = path.join(ROOT, 'dist/lattice-default.css');
 
-/** The two page shapes a split emits, as the engine actually writes them. */
+/** The page shapes a split emits, as the engine actually writes them — MEASURED, not assumed.
+ *
+ * Counted on real renders across the shipped split decks: 57 pointers sit inside a `.cell-stage`
+ * and 39 sit as a DIRECT CHILD OF THE SECTION. Both shapes are common, and which one a page gets
+ * is decided by the strategy that built it, not by anything the CSS can see. The plain envelope
+ * builds a `.cell-stage`; every carousel strategy that re-authors its body — `compare-prose`,
+ * `split-panel`, `list-tabular`, `decision` — appends the pointer to the section itself.
+ *
+ * An earlier revision of this list gave two of those a `.cell-stage`, which is the exact mistake
+ * its own comment below calls out for `premise`: a fixture describing a DOM the shape has never
+ * emitted. It passed anyway, because the CSS is right on both — verified independently at 1,110
+ * real pointers across 9 decks x 3 sizes x 33 palettes with zero anchoring violations — so the
+ * cost was not a false pass, it was a suite claiming coverage it did not have.
+ *
+ * NO CLOSING-PAGE ROW, and that is also measured. `closingSignal` (auto-split.js) attaches the
+ * pointer to the run's last BODY page, pointing AT the closing page; a `data-split-role="closing"`
+ * section never carries one. Zero observed across every shipped split deck. The row that used to
+ * be here modeled a page that does not exist, so a real fourth strategy shape takes its place. */
 const PAGES = [
   { name: 'plain envelope body', cls: 'content form lat-split-native', role: 'body' },
-  { name: 'carousel strategy body (compare-prose)', cls: 'content compare-split compare-split-points form', role: 'body' },
-  { name: 'carousel strategy body (split-panel)', cls: 'content split-panel-split split-panel-points form', role: 'body' },
-  { name: 'closing page', cls: 'content lat-split-closing form', role: 'closing' },
+  { name: 'carousel strategy body (compare-prose)', cls: 'content compare-split compare-split-points form', role: 'body', stage: false },
+  { name: 'carousel strategy body (split-panel)', cls: 'content split-panel-split split-panel-points form', role: 'body', stage: false },
+  { name: 'carousel strategy body (list-tabular)', cls: 'content list-tabular-split list-tabular-points form', role: 'body', stage: false },
   // A NON-FORM layout. `premise` renders as `class="premise lat-split-native"` with no `form`,
   // and the first widening of this rule still required `.form` — so premise pages kept rendering
   // their signal as plain body text, and this suite certified the fix because every fixture above
@@ -139,8 +156,16 @@ describe('the split signal reads as chrome on every page a split emitted', () =>
       + `<ul><li>member</li></ul>`
       // ALL SIX criteria, not a shortened stand-in. Narrowing the column instead does nothing:
       // `--pill-fs` is a `cqi` length resolved against the SECTION, so the font shrinks with the
-      // column and the label-to-column ratio is invariant. The length has to come from the label,
-      // and this is the whole string `verdict-grid` really emits for a six-by-six comparison.
+      // column and the label-to-column ratio is invariant WITHIN this harness. The length has to
+      // come from the label, and this is the whole string `verdict-grid` really emits for a
+      // six-by-six comparison.
+      //
+      // The harness's ABSOLUTE ratio is not production's, and the direction matters: measured,
+      // this fixture resolves ~85 column-widths-per-em against ~32 on a real portrait render, so
+      // a label fits here that would overflow there. The assertion is therefore STRICTLY WEAKER
+      // than the shipped condition — it cannot manufacture a false pass, only miss one. Do not
+      // read this fixture as reproducing the production geometry; the production case is covered
+      // by rendering `verdict-grid` for real.
       + signalMarkup(
         'Option 1 of 6 · comparing SOC 2 Type II attestation · Residency in the EU and UK · '
         + 'Self-serve onboarding path · Twenty-four hour support · Per-seat annual pricing · '

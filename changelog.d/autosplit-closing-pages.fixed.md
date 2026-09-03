@@ -30,7 +30,7 @@
   nothing built or styled a page for it alone.
 - **Fixed: a split run of `compare-prose`, `split-panel`, `decision` or `list-tabular` now names
   the page it points at.** Every body page read "→ continues" because the member's title lives in
-  a labelled span the pointer's label reader did not know, so it fell through to a path that
+  a labeled span the pointer's label reader did not know, so it fell through to a path that
   declined on length.
 - **Added: a `journey` splits by STAGE on a tall deck** — one stage per page, carrying its own
   band label, its own task rows with their actor dots and mood faces, and both legends, because a
@@ -63,8 +63,10 @@
   and 0.2em capitals turned a forty-character title into a two-line wall; it is a normal-case
   standfirst in the body face now, and every runhead in `examples/read-across-carousel.md` fits on
   one line. The k-of-N rail's off state was a ghost at 0.22 opacity — 1.4:1 against its backdrop,
-  reading as a broken hairline rather than as progress — and goes to 0.55, which measures 3.14:1
-  and clears the 3:1 WCAG 1.4.11 floor a meaningful graphical object owes. The page's own caption
+  reading as a broken hairline rather than as progress — and goes to 0.70, the first step that
+  clears the 3:1 WCAG 1.4.11 floor a meaningful graphical object owes on EVERY shipped palette,
+  on both surfaces the rail lands on (3.11:1 on a body page in `cuoio`, 3.34:1 on the accent
+  cover in `indaco-dark`). The page's own caption
   takes the pointer's ink lift, and nothing else — a wider caption is what put CONTENT CLIPPED on
   six pages once already. Seven scoped copies of the runhead's finish now read one register.
 - **Fixed: a split page's forward pointer stranded its arrow at the far left of the page whenever
@@ -83,8 +85,8 @@
   It reuses the universal `--pill-*` register — same radius, padding, weight and tracking as every
   other pill in the engine — and names the one axis it overrides at its own site: `--bg-alt` for
   the fill, because a signal on the page's own canvas needs to separate from it. The numbers back
-  the shape: across the nine shipped decks that split there are 153 signals, median label thirteen
-  characters, 71% at or under twenty, and not one of them lands on a split cover — so the pill
+  the shape: across the eight shipped decks that split there are 153 signals, median label
+  thirteen characters, 71% at or under twenty, and not one of them lands on a split cover — so the pill
   never has to survive the inverse surface. `align-self: flex-end` shrink-wraps it, right-anchors
   it without a margin, and is what makes a flex row safe here: the arrow was stranded before
   because the box was full-width, and a box sized to its content has no free space to strand it
@@ -130,9 +132,10 @@
     is what the typography generator has emitted for the same reason since #1375. Dark mode was
     never affected: `light-dark()` inside a custom property resolves at the using element.
   - The pointer had `max-width: 100%` under the initial `content-box`, so its padding and border
-    landed OUTSIDE that cap — and because the pill is right-anchored, the excess went left, off the
-    content column and past the page edge. A split `verdict-grid` rendered a 1019px pill in a 972px
-    column with its rounded cap and first character off-page. `comparison` is the reachable case
+    landed OUTSIDE that cap — and because the pill is right-anchored, the excess went left, out of
+    the content column and into the page margin, where the column's clip cut the rounded cap and
+    the first character. A split `verdict-grid` rendered a 1019px pill in a 972px column, its left
+    edge 47px outside that column. `comparison` is the reachable case
     because it is the one relationship whose label has no length budget. `scrollWidth` could never
     have caught it: leftward overflow is invisible to it in LTR.
   - **Breaking-ish for anyone reading the ink:** the pointer's ink is `--text-body`, not
@@ -180,3 +183,28 @@
   it rides inside an `h1`/`h2`, and a split heading is not always on the plain canvas, so the
   alpha keeps it compositing over whatever the heading actually sits on. The same sweep now
   reports 36 offenders where it reported 162, and none of them is split furniture.
+- **Fixed: fourteen committed demo PDFs this branch made stale, and a rail contrast claim that was
+  true on one palette.** Found by a second independent check.
+  - The k-of-N rail's off state went to 0.55 on a measurement taken on `indaco` alone, and the
+    changelog stated it "clears the 3:1 WCAG 1.4.11 floor". Swept across all 33 shipped variants on
+    a real render it fails on SEVEN, bottoming out at **2.34:1 on `cuoio`, the default theme** —
+    the same error this branch already made once with the pointer's ink. It survived because
+    `tools/palette-sweep.js`, the instrument used to re-derive the pointer, walks TEXT runs and
+    cannot see a rail at all. Measured directly on both surfaces the rail lands on: 0.65 still
+    fails, and **0.70** is the first step where a body page and the accent cover both clear, at
+    3.11:1 (`cuoio`) and 3.34:1 (`indaco-dark`). The on/off pair still reads as k-of-N at 200 dpi.
+  - Dropping the journey mood swatches left the scale reading as one five-digit number: five 22px
+    numerals separated by an 8.26px gap at a 39.96px type size renders `PAIN 12345 DELIGHT`. The
+    vertical legend's gap is `1.1ch` now — a digit's own advance — so the ticks stay apart at every
+    size the board renders at.
+  - Fourteen `examples/*.pdf` that were byte-current with `main` no longer matched the engine,
+    among them `split-relationship` and `split-envelope` — the decks a reviewer would open to see
+    exactly this change. Regenerated; all 21 decks this branch touches are byte-current, verified
+    by re-rendering and comparing. (`portrait-gantt-statechart`'s TYPE FLOOR warning is unchanged
+    from `main`.)
+  - Accuracy, in comments and in this file: the pill's overflow went out of the content column into
+    the page margin, not "past the page edge" (its left edge lands 7px inside a 1080px page);
+    `split-headings` was named among the decks that split and contributes nothing, because it has
+    no `size:` and renders wide; and the guard suite's fixtures gave two carousel shapes a
+    `.cell-stage` that production never emits for them — measured, four shapes attach the pointer
+    to the section itself, and no closing page ever carries one.

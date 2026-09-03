@@ -550,7 +550,7 @@ change to the gate is a separate decision and is not made here.
   argument — atomising members WITHOUT the adornment is what makes atomisation unreadable — live
   on the five strategies this note's own carousel section is about. `labelOf` reads the title slot
   first now, because it is the most explicit signal there is: the title is not inferred from
-  shape, it is labelled. The budget still applies, so an over-long slot title declines as before.
+  shape, it is labeled. The budget still applies, so an over-long slot title declines as before.
   `compare-code` remains pointer-less by shape — its members are `<pre>` blocks, so there is no
   list for `membersIn` to read; its runhead names each block instead.
 - **`clip`'s truncation branch was UNREACHABLE, and is deleted rather than hardened.** It was

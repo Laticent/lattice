@@ -336,6 +336,20 @@ section.journey .journey-mood-key[data-mood="1"] { --mood-color: var(--journey-m
 section.journey:has(.journey-board[data-orient="vertical"]) .journey-mood-key-swatch {
   display: none;
 }
+/* …AND THE GAP GROWS TO REPLACE WHAT THE SWATCH WAS HOLDING APART. Each key item was a swatch
+ * stacked over its numeral, so the swatch — 2.1cqi wide against a ~0.55em numeral — set the
+ * item's width and the five ticks were spaced by it. Take it away and every item shrinks to one
+ * glyph, and the legend's 0.85cqi gap is narrower than a word space at this size: measured on
+ * `examples/portrait-journey.pdf` p6, five 22px numerals separated by 8.26px at a 39.96px type
+ * size, which reads as the number TWELVE THOUSAND THREE HUNDRED FORTY-FIVE rather than as five
+ * tick labels. Read off the raster, not reasoned — the numbers alone looked fine.
+ *
+ * `ch` rather than `cqi`, because what has to be cleared here is a DIGIT, and `ch` is the one
+ * unit defined as the advance of one. It scales with the legend's own type instead of with the
+ * slide, so the ticks stay separated at every size the vertical board renders at. */
+section.journey:has(.journey-board[data-orient="vertical"]) .journey-mood-legend {
+  gap: 1.1ch;
+}
 
 /* ── Key placement: bottom-center ───────────────────────────────────────────
  * A journey board is a WIDE diagram, so its actor + mood keys belong at the

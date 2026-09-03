@@ -364,10 +364,10 @@ describe('core: relationship — a clause break is not an ABBREVIATION', () => {
   });
 });
 
-describe('core: relationship — a RE-AUTHORED member carries a labelled title slot', () => {
+describe('core: relationship — a RE-AUTHORED member carries a labeled title slot', () => {
   // `coverWindow` (lib/core/carousel.js) rebuilds each member of the five cover strategies as
   // `<span class="split-pt-t">title</span><span class="split-pt-b">body</span>`. That title is not
-  // inferred from shape, it is LABELLED — so `labelOf` reads it rather than falling through to the
+  // inferred from shape, it is LABELED — so `labelOf` reads it rather than falling through to the
   // flat-run path, which took the whole member ("Recency Time-decay against a configurable
   // half-life."), found no clause break, ran past the budget and declined.
   //
