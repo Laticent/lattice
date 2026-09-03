@@ -24,6 +24,11 @@ summary: >
   inserted slide did not take the caret. Each fix ships with an e2e oracle checked BOTH ways
   (8 of 10 fail pre-fix) — a round that caught two oracles passing for the wrong reason,
   because they raced the clipboard and asserted "nothing changed" against an untouched deck.
+  A later pass (§12) found a fourth disguise of that same disease: the oracles were green
+  only on an IDLE machine, failing 3 runs in 4 at the CI worker count because `.click()`
+  resolves before ProseMirror moves its selection, so the next `⌘A` landed in the previous
+  slide. Fixed by witnessing the caret at every site, and three oracles now run on the PR
+  gate rather than nightly only.
 ---
 
 # Compose fuzz sweep — what a random walk found that the unit tier could not
@@ -40,6 +45,20 @@ count == the rail's, == the persisted source's; every slide still carries a
 `cs-collapsed` class. Six seeds, 360 operations, from a scratch harness. What is COMMITTED
 is smaller and should not be described as that sweep: `docs/e2e/compose-stress.spec.ts`
 carries a named oracle per defect plus ONE seed at 34 steps as a regression net.
+
+**A regression net is only as good as the moment it fires, and that is a split.** The
+whole file runs in the nightly tier (`studio-e2e-nightly.yml`, 04:41 UTC — it greps out
+only `@perf`), which is 17 runs: 14 on `desktop` plus the `@parity` oracle on the three
+touch projects. Nightly alone would let a regression sit on `main` for up to a day, so the
+three oracles covering SILENT loss or the two things a human actually reported — the
+clipboard `_class` wipe, the fold surviving a rail move, and the table door — carry
+`@smoke` and run on the PR gate as well. Measured on the shipped code: those three add
+12.9s of test time (3.9 + 4.8 + 4.2) to a 40-test tier on 2 CI workers — ~7s of wall
+clock — against a `studio-smoke` job whose worst observed run was 829s. Quote the reading,
+not the wall time of a local run: the same three measured 26.9–28.3s end to end, and
+almost all of that is the `webServer` building and previewing the site, which the smoke
+job has already paid for. The 34-step walk stays nightly deliberately — its value is breadth
+over time, not per-PR latency.
 
 Every named oracle in that file was checked BOTH ways. My own run of the first cut put it
 at 8 of 10 failing pre-fix; an independent checker pass measured 9 of 10 on a clean
@@ -353,6 +372,35 @@ fuzz walk could not see it either: invariant 4 compares `aria-expanded` against 
 `cs-collapsed` class, and both derive from this same decoration set, so they agree while
 being jointly wrong. Fixed by anchoring on `d.from === meta.pos`, with a unit test that
 fails on the old expression.
+
+## 12. The oracles only worked on an idle machine (found by putting them on the PR gate)
+
+The fourth disguise of §10, found by asking a different question: not "is this oracle green
+for the wrong reason?" but "is it green on a LOADED machine?" It was not. At 2 workers on 4
+cores — the CI shape, `workers: isCI ? 2 : undefined` — the one-slide paste oracle failed **3
+runs out of 4**. Serially it passed 3 for 3, and the file's own comment ("These run in the
+nightly E2E tier") is why nobody had seen it: the nightly runs the whole suite at 2 workers,
+so this was already going to go red on a night nobody was reading.
+
+**The failure diff named the mechanism, which is the part worth carrying.** It expected
+slide 4's text and received slide **0**'s. `.click()` resolves once the click has been
+dispatched, not once ProseMirror has moved its selection — so the `⌘A` on the next line was
+delivered to the slide the caret had not yet left, the oracle copied slide 0, and pasted
+slide 0 over slide 1. Every assertion afterwards was about the wrong slide. Under load the
+gap is ~5x wider (the test ran 18–20s against 3.4s in isolation), which is the entire
+difference between a green file and a red one.
+
+Fixed by making `caretInto(page, i)` — click, then poll `activeSlide(page) === i` — the ONE
+way the file places a caret, at all 16 sites including those that type nothing. The file
+already had that witness at exactly one site, which is how a hazard gets half-addressed:
+uniformity is what makes the absence of a bare `.click()` mean something to the next reader.
+Measured: 12 consecutive clean runs (5 at 2 workers, 3 at 4 workers on 4 cores — twice the CI
+contention, 4 more from the single-site probe) against the 3-in-4 failure baseline.
+
+**"Flake" was available here and it would have been the wrong answer.** A load-sensitive
+oracle is not noise; it is a test whose passing depended on a condition nobody wrote down.
+The instrument that found it was running the file five times instead of once — which is also
+the answer to "is this oracle fit for the PR gate", and the reason three of them now are.
 
 ## Found, NOT fixed here (off the path of this change — HARD RULE #18)
 

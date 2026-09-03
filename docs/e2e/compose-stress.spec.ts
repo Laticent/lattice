@@ -29,7 +29,22 @@ import { expect, gotoStudio, persistedSource, railButtons, slideCount, test } fr
  *      flattened every slide it touched to an unstyled `content`.
  *   4. `aria-expanded` on each collapse cap agrees with the `cs-collapsed` class.
  *
- * These run in the nightly E2E tier, not on the PR gate.
+ * WHERE THESE RUN, and why it is a split rather than all-or-nothing. The whole
+ * file runs in the nightly E2E tier (`studio-e2e-nightly.yml`, 04:41 UTC, which
+ * greps out only `@perf`): 14 tests on `desktop`, plus the `@parity` one on the
+ * three touch projects, 17 runs in total. But a net that only fires at 04:41 lets
+ * a regression sit on `main` for up to a day, and the three defects below are
+ * SILENT DATA LOSS or the two things a human actually reported — so those three
+ * carry `@smoke` and run on the PR gate (`studio-smoke` → `--project=desktop
+ * --grep @smoke`). Measured cost of that choice: 12.9s of test time (3.9 + 4.8 + 4.2)
+ * added to a 40-test tier on 2 CI workers — call it ~7s of wall clock — against a job
+ * whose worst observed run was 829s. Measured after the caret fix below, on the code that
+ * ships; the pre-fix reading was 17.3s and the difference is contention, not the fix.
+ *
+ * The rest stay nightly on purpose. The 34-step fuzz walk is the expensive one and
+ * its value is breadth over time, not per-PR latency; the remaining oracles pin
+ * defects that fail loudly rather than silently. If you add an oracle for a defect
+ * that loses an author's work without telling them, tag it `@smoke` too.
  */
 
 const COMPOSE = 'Compose — rich editor';
@@ -63,7 +78,7 @@ async function slideClasses(page: Page): Promise<string[]> {
 
 /** Force the first persist so `slideClasses` has something to read (nothing is written on load). */
 async function seedPersistence(page: Page): Promise<void> {
-	await slideContent(page, 0).click();
+	await caretInto(page, 0);
 	await page.keyboard.type('.');
 	await expect.poll(() => slideClasses(page)).not.toHaveLength(0);
 }
@@ -133,6 +148,26 @@ function activeSlide(page: Page): Promise<number> {
 	return page.evaluate(() => [...document.querySelectorAll('.cs-slide')].findIndex((s) => s.classList.contains('cs-slide-active')));
 }
 
+/** Put the caret in slide `i` and WITNESS that it landed before returning.
+ *
+ *  `.click()` resolves once the click has been dispatched, not once ProseMirror has moved
+ *  its selection — so a keystroke sent on the next line can still be delivered to the
+ *  PREVIOUSLY focused slide. That is not a theoretical gap: at 2 workers on 4 cores (the
+ *  CI shape) the paste oracle below failed 3 runs out of 4, and the failure diff named the
+ *  mechanism outright — it expected slide 4's text and received slide 0's, because the
+ *  `⌘A` after the click had selected the slide the caret had not yet left. Serially it
+ *  passed every time, which is exactly how a load-sensitive oracle earns the "flake" label
+ *  and then gets ignored.
+ *
+ *  So this is the ONE way this file places a caret, including at the sites where nothing
+ *  is typed afterwards. Uniformity is the point: a `.click()` with no witness is the shape
+ *  that has to be absent for the next reader to trust the file, and where the caret does
+ *  not matter the poll is already true and costs nothing. */
+async function caretInto(page: Page, i: number): Promise<void> {
+	await slideContent(page, i).click();
+	await expect.poll(() => activeSlide(page), { message: `the caret never landed in slide ${i}` }).toBe(i);
+}
+
 test.beforeEach(async ({ page }) => {
 	// Clipboard permission for EVERY test, not per-test. `copyAndSettle` polls
 	// `navigator.clipboard.readText()`, which REJECTS without it — and the poll catches the
@@ -159,13 +194,13 @@ test.beforeEach(async ({ page }) => {
 // So the deck is DELETED between the copy and the paste. The empty deck is the witness
 // that the clipboard really carried something, and restoring it is what exercises the
 // slide-node round trip this defect lived in.
-test('copying the whole deck and pasting it back keeps every slide’s component', async ({ page }) => {
+test('@smoke copying the whole deck and pasting it back keeps every slide’s component', async ({ page }) => {
 	await seedPersistence(page);
 	const before = await slideClasses(page);
 	expect(before.length).toBeGreaterThan(3); // the seed deck, not a degenerate one
 	expect(before).not.toContain('∅');
 
-	await slideContent(page, 2).click();
+	await caretInto(page, 2);
 	await page.keyboard.press('ControlOrMeta+a'); // this slide
 	await page.keyboard.press('ControlOrMeta+a'); // escalate to the whole deck
 	await copyAndSettle(page);
@@ -195,10 +230,10 @@ test('pasting one slide over another never leaves a slide without a component', 
 	const before = await slideClasses(page);
 	const copied = await slideContent(page, 4).innerText();
 
-	await slideContent(page, 4).click();
+	await caretInto(page, 4);
 	await page.keyboard.press('ControlOrMeta+a');
 	await copyAndSettle(page);
-	await slideContent(page, 1).click();
+	await caretInto(page, 1);
 	await page.keyboard.press('ControlOrMeta+a');
 	await page.keyboard.press('ControlOrMeta+v');
 
@@ -220,12 +255,12 @@ test('pasting one slide over another never leaves a slide without a component', 
 test('pasting a multi-slide clipboard over one slide grows the deck', async ({ page }) => {
 	const n = await slideCount(page);
 
-	await slideContent(page, 2).click();
+	await caretInto(page, 2);
 	await page.keyboard.press('ControlOrMeta+a');
 	await page.keyboard.press('ControlOrMeta+a'); // the whole deck
 	await copyAndSettle(page);
 
-	await slideContent(page, 1).click();
+	await caretInto(page, 1);
 	await page.keyboard.press('ControlOrMeta+a'); // this slide only
 	await page.keyboard.press('ControlOrMeta+v');
 
@@ -257,7 +292,7 @@ test('dragging a slide’s selection into another slide does not destroy a slide
 	await seedPersistence(page);
 	const before = await slideClasses(page);
 
-	await slideContent(page, 2).click();
+	await caretInto(page, 2);
 	await page.keyboard.press('ControlOrMeta+a');
 	const from = await slideContent(page, 2).boundingBox();
 	const to = await slideContent(page, 1).boundingBox();
@@ -296,7 +331,7 @@ test('folding a slide next to a folded one keeps both folded', async ({ page }) 
 	await expect.poll(() => collapsedIndices(page)).toEqual([0, 2]);
 });
 
-test('a folded slide stays folded — and follows its slide — across a rail move', async ({ page }) => {
+test('@smoke a folded slide stays folded — and follows its slide — across a rail move', async ({ page }) => {
 	await collapseCap(page, 3).click();
 	await expect.poll(() => collapsedIndices(page)).toEqual([3]);
 
@@ -319,7 +354,7 @@ test('a folded slide stays folded across a gallery insert above it', async ({ pa
 	await collapseCap(page, 3).click();
 	await expect.poll(() => collapsedIndices(page)).toEqual([3]);
 
-	await slideContent(page, 0).click();
+	await caretInto(page, 0);
 	await composeSlide(page, 0).getByRole('button', { name: 'Add slide below' }).click();
 	await page.getByRole('button', { name: /^Insert Blank/i }).first().click();
 
@@ -335,7 +370,7 @@ test('a folded slide stays folded across a rail duplicate', async ({ page }) => 
 	// CURRENT slide. Without this click the rail duplicated slide 0 and the folded
 	// slide shifted 5 → 6 for a reason that had nothing to do with the restore, which
 	// is the assertion this test claims to make.
-	await slideContent(page, 5).click();
+	await caretInto(page, 5);
 	await collapseCap(page, 5).click();
 	await expect.poll(() => collapsedIndices(page)).toEqual([5]);
 
@@ -357,8 +392,7 @@ test('deleting the slide you are editing lands on its neighbor, not the last sli
 	const n = await slideCount(page);
 	expect(n).toBeGreaterThan(3);
 
-	await slideContent(page, 1).click();
-	await expect.poll(() => activeSlide(page)).toBe(1);
+	await caretInto(page, 1);
 	await composeSlide(page, 1).getByRole('button', { name: 'Delete slide' }).click();
 	await page.getByRole('button', { name: 'Confirm delete slide' }).first().click();
 
@@ -379,9 +413,9 @@ test('deleting the slide you are editing lands on its neighbor, not the last sli
 // So the door is withheld on a curated list of layouts whose whole anatomy is one statement,
 // one number, or one picture — and kept everywhere else, `content` very much included.
 // Typing or pasting a table still works: the control stands down, the capability does not.
-test('the table door is withheld on a title slide and offered on content', async ({ page }) => {
+test('@smoke the table door is withheld on a title slide and offered on content', async ({ page }) => {
 	// `title` — a bookend. Withheld.
-	await slideContent(page, 0).click();
+	await caretInto(page, 0);
 	await expect(composeSlide(page, 0).getByRole('button', { name: 'Insert table' })).toBeHidden();
 
 	// `content` — the catch-all body layout. This is the case the derived gate got wrong, and
@@ -389,7 +423,7 @@ test('the table door is withheld on a title slide and offered on content', async
 	await composeSlide(page, 0).getByRole('button', { name: 'Add slide below' }).click();
 	await page.getByRole('button', { name: /^Insert content/i }).first().click();
 	await page.locator('[role="dialog"]').waitFor({ state: 'detached' });
-	await slideContent(page, 1).click();
+	await caretInto(page, 1);
 	await expect(composeSlide(page, 1).getByRole('button', { name: 'Insert table' })).toBeVisible();
 });
 
@@ -398,12 +432,12 @@ test('the table door is withheld on a title slide and offered on content', async
 // dark slide, and indistinguishable from a button that did nothing. That was the real defect
 // behind the report.
 test('inserting a table puts a visible table on the slide', async ({ page }) => {
-	await slideContent(page, 0).click();
+	await caretInto(page, 0);
 	await composeSlide(page, 0).getByRole('button', { name: 'Add slide below' }).click();
 	await page.getByRole('button', { name: /^Insert content/i }).first().click();
 	await page.locator('[role="dialog"]').waitFor({ state: 'detached' });
 
-	await slideContent(page, 1).click();
+	await caretInto(page, 1);
 	await composeSlide(page, 1).getByRole('button', { name: 'Insert table' }).click();
 
 	const table = composeSlide(page, 1).locator('table');
@@ -433,7 +467,7 @@ test('inserting a table puts a visible table on the slide', async ({ page }) => 
 // the skeleton you had just chosen meant finding it and clicking into it first.
 test('inserting from the gallery puts the caret in the new slide', async ({ page }) => {
 	const n = await slideCount(page);
-	await slideContent(page, 1).click();
+	await caretInto(page, 1);
 	await composeSlide(page, 1).getByRole('button', { name: 'Add slide below' }).click();
 	await page.getByRole('button', { name: /^Insert Blank/i }).first().click();
 
@@ -458,7 +492,7 @@ test('inserting from the gallery puts the caret in the new slide', async ({ page
 test('@parity inserting from the gallery reveals the new slide, taking focus only on a fine pointer', async ({ page }) => {
 	const finePointer = await page.evaluate(() => window.matchMedia('(hover: hover) and (pointer: fine)').matches);
 	const n = await slideCount(page);
-	await slideContent(page, 1).click();
+	await caretInto(page, 1);
 	await composeSlide(page, 1).getByRole('button', { name: 'Add slide below' }).click();
 	await page.getByRole('button', { name: /^Insert Blank/i }).first().click();
 
