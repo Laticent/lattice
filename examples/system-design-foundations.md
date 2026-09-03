@@ -2843,7 +2843,7 @@ Solution type MVP. Nobody knows yet whether drivers scan the sticker.
 sessions
   id            uuid
   idem_key      unique. one park, one key, however many taps
-  status        pending, then paid. a stale pending is swept
+  status        waiting, then paid or declined. a stale wait is swept
   lot_id, bay   which sticker was scanned
   plate         typed by the driver
   started_at    set when the payment clears
@@ -2879,12 +2879,14 @@ The second is the signal itself. The card form sits on the far side of a network
 
 The second tap is a different request that means the same thing. So the page mints one key for this attempt and keeps it across reloads, and the unique index decides — not your code.
 
-- Insert first, in a pending state
+- Insert first, before you charge
   - The key goes in a unique column, so a second tap conflicts on it instead of starting a second payment.
 - On a conflict, read the row
-  - Paid, and you hand back the receipt. Still pending, and you charge again with that same key.
-- Charging twice with one key is safe
-  - Your provider takes the key too, and returns the first charge rather than making a second. That is what makes a retry after a crash cost nothing.
+  - Paid, hand back the receipt. Still waiting, charge again with that same key.
+- One key, one stored answer
+  - The provider saves the first result against that key and replays it, so a retry after a crash costs nothing.
+- A refusal is an answer too
+  - A declined key stays declined however often you send it. That attempt is over; the next needs a new key.
 
 ---
 
@@ -2898,7 +2900,7 @@ The card network answers your payment provider, not the driver's phone. So the p
 
 A lost signal then costs the driver a spinner rather than a park: the webhook lands, the row flips to paid, and the warden sees a paid bay whether or not the phone ever came back.
 
-A park that never gets there leaves a pending row — a declined card, a closed tab. Sweep those after an hour, and let the next attempt mint a fresh key.
+A decline is an answer, not a gap: write it down and let the driver start a fresh attempt with a fresh key. Only a row that never got any answer at all — a closed tab, a webhook that never came — is one you sweep.
 
 ---
 
