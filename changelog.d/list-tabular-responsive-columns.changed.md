@@ -5,11 +5,14 @@
   two-letter label pay for the longest one — "ID" wasted most of a 15.625cqi track
   while a long label wrapped to three lines beside an empty description column.
   `fixed` restores the old widths for a deck that was laid out around them.
-- **`list-tabular` rows carry a checkbox and pills.** A nested bullet holding only
-  a state marker (`[x]` `[-]` `[ ]` `[/]`) and/or inline `code` pills becomes the
-  row's trailing marks cell — right-aligned, and the marker drawn as the same
-  status disc checklist uses rather than left on the slide as literal `[x]` text.
-  It can follow any sublist element, and pills alone need no checkbox.
+- **`list-tabular` rows carry a checkbox and pills.** A nested bullet whose text
+  opens with a state marker (`[x]` `[-]` `[ ]` `[/]`), or that holds only inline
+  `code` pills, becomes the row's trailing marks cell — right-aligned, with the
+  marker drawn as the same status disc checklist uses rather than left on the slide
+  as literal `[x]` text. It can follow any sublist element, more than one row can
+  carry one, and pills alone need no checkbox. The disc names its state on
+  `aria-label` rather than in hidden text, so the word reaches a screen reader and
+  the narration without ever landing in the document.
 - **New `list-tabular` column modifiers.** `fit-name` `fit-body` `fit-meta` hug one
   column; `flex-name` `flex-meta` name the column that absorbs the leftover instead
   of the description. Most ledgers need none of them — the default already fits.

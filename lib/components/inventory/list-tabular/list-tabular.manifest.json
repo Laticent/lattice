@@ -81,7 +81,7 @@
     "marks": {
       "selector": "ol > li > ul > li.marks",
       "required": false,
-      "description": "A nested bullet holding only a state marker (`[x]` `[-]` `[ ]` `[/]`) and/or inline `code` pills becomes the row's trailing marks cell — the marker draws as a status disc and the pills sit beside it, right-aligned. It can follow any sublist element."
+      "description": "A nested BULLET (`-`) whose text opens with a state marker (`[x]` `[-]` `[ ]` `[/]`), or that holds only inline `code` pills, becomes the row's trailing marks cell — the marker draws as a status disc, right-aligned, and any text and pills after it follow. It can come after any sublist element, and more than one row can carry one. A marker inside a bold run or a link is not a leading marker and is left alone; a nested NUMBERED sublist is not a sublist here, since its items render as rows of their own."
     }
   },
   "skeleton": "<!-- _class: list-tabular -->\n\n## Slide heading.\n\n1. First entry\n   - Description or value for the first entry.\n2. Second entry\n   - Description or value for the second entry.\n3. Third entry\n   - Description or value for the third entry.\n4. Fourth entry\n   - Description or value for the fourth entry.\n",
@@ -159,13 +159,13 @@
     },
     "register": {
       "label": "register",
-      "summary": "Status pills on each row.",
-      "sample": "<!-- _class: list-tabular register -->\n\n## register pairs names with status chips.\n\n1. cards-grid `stable`\n2. split-panel `stable`\n3. radar `beta`\n4. word-cloud `preview`\n"
+      "summary": "Status pills, with an optional checkbox.",
+      "sample": "<!-- _class: list-tabular register -->\n\n## register pairs names with status chips.\n\n1. cards-grid\n   - [x] `stable`\n2. split-panel\n   - [-] `partial`\n3. radar\n   - [ ] `beta`\n4. word-cloud\n   - [/] `parked`\n"
     },
     "rule": {
       "label": "def + rule",
       "summary": "Accent rail down the left edge.",
-      "sample": "<!-- _class: list-tabular def rule -->\n\n## rule draws a hairline under every row.\n\n1. Hairlines `On`\n   - rule adds the horizontal separators.\n2. Density `Same`\n   - Budgets do not change with the look.\n"
+      "sample": "<!-- _class: list-tabular def rule -->\n\n## rule runs an accent rail down the register.\n\n1. Rail `Left edge`\n   - One continuous stroke, not a rule per row.\n2. Scope `def only`\n   - rule styles def; no other variant reads it.\n"
     },
     "solid": {
       "label": "metric + solid",
@@ -210,7 +210,7 @@
     "fixed": {
       "label": "fixed",
       "summary": "The pre-responsive fixed-width tracks.",
-      "sample": "<!-- _class: list-tabular fixed -->\n\n## fixed pins the columns to their old widths.\n\n1. ID\n   - Every label column is the same width again.\n2. Mid\n   - Use it when a deck was tuned around those tracks.\n3. Long enough to wrap\n   - The label wraps inside its fixed track.\n"
+      "sample": "<!-- _class: list-tabular fixed -->\n\n## fixed pins the columns to their old widths.\n\n1. ID\n   - Every label column is the same width.\n2. Mid\n   - Use it on a deck tuned around those tracks.\n3. Governance and control framework alignment\n   - A long label wraps.\n"
     }
   },
   "commonMistakes": [
@@ -224,7 +224,7 @@
     },
     {
       "mistake": "Typing a check glyph (`✓`) or a literal `[x]` in the row's description to show status.",
-      "fix": "Put the marker on its own nested bullet — a `- [x]` line, with any pills after it — so it decodes into the drawn status disc in the trailing column. A typed glyph is not a shape the deck's own type family carries, so it falls back to a different font, a color emoji, or a hollow box depending on the machine."
+      "fix": "Put the marker at the start of its own nested bullet — a `- [x]` line, with any pills after it — so it decodes into the drawn status disc in the trailing column. A typed glyph is not a shape the deck's own type family carries, so it falls back to a different font, a color emoji, or a hollow box depending on the machine."
     },
     {
       "mistake": "Reaching for a column modifier before looking at the default.",
@@ -250,7 +250,7 @@
     },
     {
       "variant": "register",
-      "useWhen": "Each row carries a status — status pills per row."
+      "useWhen": "Each row carries a status — a pill, and optionally a `[x]` marker that draws as a status disc beside it."
     },
     {
       "variant": "rule",

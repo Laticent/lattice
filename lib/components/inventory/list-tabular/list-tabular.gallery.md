@@ -74,14 +74,18 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 ---
 
 <!-- _class: list-tabular register -->
-<!-- _footer: "register · list-tabular register — Status pills on each row." -->
+<!-- _footer: "register · list-tabular register — Status pills, with an optional checkbox." -->
 
 ## register pairs names with status chips.
 
-1. cards-grid `stable`
-2. split-panel `stable`
-3. radar `beta`
-4. word-cloud `preview`
+1. cards-grid
+   - [x] `stable`
+2. split-panel
+   - [-] `partial`
+3. radar
+   - [ ] `beta`
+4. word-cloud
+   - [/] `parked`
 
 
 ---
@@ -89,12 +93,12 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 <!-- _class: list-tabular def rule -->
 <!-- _footer: "def + rule · list-tabular rule — Accent rail down the left edge." -->
 
-## rule draws a hairline under every row.
+## rule runs an accent rail down the register.
 
-1. Hairlines `On`
-   - rule adds the horizontal separators.
-2. Density `Same`
-   - Budgets do not change with the look.
+1. Rail `Left edge`
+   - One continuous stroke, not a rule per row.
+2. Scope `def only`
+   - rule styles def; no other variant reads it.
 
 
 ---
@@ -214,11 +218,11 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 ## fixed pins the columns to their old widths.
 
 1. ID
-   - Every label column is the same width again.
+   - Every label column is the same width.
 2. Mid
-   - Use it when a deck was tuned around those tracks.
-3. Long enough to wrap
-   - The label wraps inside its fixed track.
+   - Use it on a deck tuned around those tracks.
+3. Governance and control framework alignment
+   - A long label wraps.
 
 
 ---

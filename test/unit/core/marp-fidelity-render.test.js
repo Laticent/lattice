@@ -263,6 +263,49 @@ const PROBES = {
       }),
   },
 
+  // A SECOND ARM, for the same reason `verdictGridBadges@shapes` exists: the first
+  // probe used one tight, unordered, depth-2 list — exactly the shape this file's
+  // docblock warns "a divergence can hide behind forever" — and a maker-checker
+  // pass then found four real drifts it could not see. Each row below is one of
+  // them, and each is a shape a real author writes.
+  'listTabularMarks@shapes': {
+    row: 'listTabularMarks',
+    min: 3,
+    section: 'list-tabular',
+    body: [
+      '## Ledger', '',
+      // A LOOSE list: markdown-it wraps each item's content in a `<p>`, one element
+      // deeper than a tight one. The runtime stopped at that wrapper and left the
+      // typed `[x]` on the reader's slide while the engine stripped it.
+      '1. Loose', '',
+      '   - Clause.', '',
+      '   - [x] `stable`', '',
+      // Tight, with a label after the marker and two pills.
+      '2. Tight',
+      '   - Clause.',
+      '   - [-] shipped `beta` `v2`',
+      // Pills only — no marker, still a marks cell.
+      '3. Pills',
+      '   - Clause.',
+      '   - `internal`',
+      // REJECTED shapes, and a probe that compares only what it promotes would not
+      // notice the two paths disagreeing about them. A marker inside an emphasis run
+      // is not a leading marker; a nested ORDERED list is not a sublist here (its
+      // items match the component's own `ol > li` row selector).
+      '4. Not a marker',
+      '   - Clause.',
+      '   - **[x] bold** `no`',
+      '5. Ordered inner',
+      '   1. Clause.',
+      '   2. [x] `no`',
+    ].join('\n'),
+    probe: (doc) =>
+      [...doc.querySelectorAll('li.marks')].map((li) => {
+        const disc = li.querySelector('.state');
+        return `${disc ? cls(disc) : '-'}|${li.textContent.trim()}`;
+      }),
+  },
+
   matrixGridCells: {
     min: 6,
     section: 'matrix-grid',

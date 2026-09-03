@@ -81,9 +81,11 @@ describe('list-tabular marks — the render path', () => {
     assert.equal(marks.querySelector('code').textContent, 'stable');
   });
 
-  test('the disc carries a visually-hidden word — the shape alone names nothing', () => {
+  test('the disc names its state for a screen reader', () => {
     const doc = render(deck('list-tabular', '## L\n\n1. Row\n   - C.\n   - [/] `parked`'));
-    assert.equal(doc.querySelector('li.marks .state-sr-label').textContent, 'skipped');
+    const disc = doc.querySelector('li.marks .state');
+    assert.equal(disc.getAttribute('aria-label'), 'skipped');
+    assert.equal(disc.getAttribute('role'), 'img');
   });
 
   test('a pills-only bullet is promoted without a disc', () => {
@@ -117,6 +119,89 @@ describe('list-tabular marks — the render path', () => {
   test('the transform does not reach a section that merely contains the words', () => {
     const doc = render(deck('checklist', '## L\n\n- Row\n  - [x] `stable`'));
     assert.equal(doc.querySelector('li.marks'), null);
+  });
+});
+
+/**
+ * These are RENDERS, not regexes over the stylesheet. The arms in the block below
+ * read the CSS as a string and can only assert that it contains the text it
+ * contains; that is the right shape for "which selector is used", and the wrong
+ * one for "what happens on a slide". Each case here is a defect a maker-checker
+ * pass found live in the tree while the string arms were green.
+ */
+describe('list-tabular marks — the shapes that used to collide or vanish', () => {
+  const marksOf = (doc) =>
+    [...doc.querySelectorAll('li.marks')].map((li) => ({
+      col: li.style.gridColumn || null,
+      disc: !!li.querySelector('.state'),
+      text: li.textContent.trim(),
+    }));
+
+  test('a LOOSE list still decodes, and its disc is not buried in the <p> wrapper', () => {
+    // markdown-it wraps a loose item's content one element deeper. The disc used to
+    // land inside that `<p>`, where every `> .state` rule missed it and it computed
+    // 0x19px — `[x]` and `[ ]` rendered identically, i.e. the status was deleted.
+    const doc = render(deck('list-tabular', '## L\n\n1. Row\n\n   - Clause.\n\n   - [x] `stable`'));
+    const li = doc.querySelector('li.marks');
+    assert.ok(li, 'a loose list produces a marks cell');
+    // The wrapper is flattened by CSS, so the disc is a descendant, not a child.
+    assert.ok(li.querySelector('.state'), 'the disc survives the loose wrapper');
+    assert.equal(li.textContent.includes('[x]'), false);
+  });
+
+  test('two marks bullets on one row are two cells, not one painted over the other', () => {
+    const doc = render(
+      deck('list-tabular', '## L\n\n1. Row\n   - Clause.\n   - [x] `a`\n   - [ ] `b`'),
+    );
+    const marks = marksOf(doc);
+    assert.equal(marks.length, 2);
+    assert.deepEqual(marks.map((m) => m.text), ['a', 'b']);
+  });
+
+  test('the legacy 3-line meta and a marks bullet both survive', () => {
+    // The second nested `li` is a documented meta column. It and the marks cell both
+    // want the trailing column; "Q3 2019" used to be painted over entirely.
+    const doc = render(
+      deck('list-tabular', '## L\n\n1. Row\n   - Clause.\n   - _Q3 2019_\n   - [x] `stable`'),
+    );
+    const items = [...doc.querySelectorAll('section.list-tabular ol > li > ul > li')];
+    assert.equal(items.length, 3);
+    assert.ok(items.some((li) => li.textContent.includes('Q3 2019')));
+    assert.ok(items.some((li) => li.classList.contains('marks')));
+  });
+
+  test('a nested ORDERED sublist is left alone — its items are rows, not a sublist', () => {
+    // `ol > li` is the component's row selector, and an inner `ol`'s items match it,
+    // so they render as extra rows with their own counter and hairline. Promoting a
+    // marks cell into one tagged markup nothing renders.
+    const doc = render(deck('list-tabular', '## L\n\n1. Row\n   1. Clause.\n   2. [x] `no`'));
+    assert.equal(doc.querySelector('li.marks'), null);
+  });
+
+  test('a top-level BULLET list is left alone — it produces no ledger at all', () => {
+    const doc = render(deck('list-tabular', '## L\n\n- Row\n  - Clause.\n  - [x] `no`'));
+    assert.equal(doc.querySelector('li.marks'), null);
+  });
+
+  test('a marker inside an emphasis run is not a leading marker', () => {
+    // `.find()` over the whole inline array used to reach inside author markup and
+    // strip a marker that was part of a bold run or a link label.
+    for (const body of ['**[x] bold**', '*[x] em*', '[[x] link](https://e)']) {
+      const doc = render(deck('list-tabular', `## L\n\n1. Row\n   - Clause.\n   - ${body} \`p\``));
+      assert.equal(doc.querySelector('li.marks'), null, `${body} should not decode`);
+    }
+  });
+
+  test("the disc names itself for a screen reader without putting a word in the text", () => {
+    // A visually-hidden inner span was tried and removed: it joins textContent, so
+    // the narration jammed ("donestable") and a split page — whose section does not
+    // carry `.list-tabular` — printed the word on the slide.
+    const doc = render(deck('list-tabular', '## L\n\n1. Row\n   - Clause.\n   - [x] `stable`'));
+    const disc = doc.querySelector('li.marks .state');
+    assert.equal(disc.getAttribute('role'), 'img');
+    assert.equal(disc.getAttribute('aria-label'), 'done');
+    assert.equal(disc.textContent, '');
+    assert.equal(doc.querySelector('li.marks').textContent.trim(), 'stable');
   });
 });
 
@@ -169,8 +254,8 @@ describe('list-tabular — responsive column tracks', () => {
   test('def grows a fourth track for a marks cell rather than sharing the body', () => {
     // def is three tracks with no meta column. Parked in the body's area a marks
     // cell overlaps a long clause — measured, a pill painted over the sentence.
-    // The `:has()` guard means a def list WITHOUT marks keeps its three tracks
-    // exactly (verified byte-identical), so no existing def deck re-flows.
+    // The `:has()` guard keeps a def list WITHOUT marks on its three tracks, so no
+    // existing def deck re-flows on account of this rule.
     assert.match(
       CSS,
       /\.def ol:has\(> li > ul > li\.marks\) \{[^}]*grid-template-columns:var\(--lt-counter\) var\(--lt-name\) var\(--lt-body\) var\(--lt-meta\)/,
@@ -178,9 +263,18 @@ describe('list-tabular — responsive column tracks', () => {
     assert.match(CSS, /\.def ol > li > ul > li\.marks \{[^}]*grid-column:4/);
   });
 
-  test('a row carrying BOTH an inline meta and a marks cell stacks them, never overlaps', () => {
-    // Both want column 4 row 1. Author content is never hidden to make it fit.
-    assert.match(CSS, /ol > li:has\(> code\) > ul > li\.marks \{ grid-row:2; \}/);
+  test('nothing in the trailing column is pinned to a row, so nothing can overlap', () => {
+    // This replaces a regex that asserted one `:has(> code) { grid-row:2 }` rule and
+    // called it "never overlaps". It was standing in for a BEHAVIORAL claim that was
+    // false: the guard covered an inline meta `code` and missed the other two shapes
+    // that reach the same cell — the legacy 3-line meta, and simply two marks
+    // bullets. A grid item does not push, it paints over. The fix is auto-placement,
+    // so the assertion is now that NO marks rule pins a row at all.
+    for (const m of CSS.matchAll(/li\.marks[^{]*\{([^}]*)\}/g)) {
+      const pinned = /grid-row:\s*[0-9]/.test(m[1]);
+      // `def` is the one exception and says so: it spans both of its rows.
+      assert.ok(!pinned || /span/.test(m[1]), `a marks rule pins a grid row: ${m[0]}`);
+    }
   });
 
   test('the trailing column stays right-aligned', () => {

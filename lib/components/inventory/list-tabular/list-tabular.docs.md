@@ -18,7 +18,7 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading. |
 | `rows` | `ol > li` | yes | Each numbered item (`1.`) is one row — the name on the line, with an optional nested bullet for its description or value. The leading column is the auto counter. |
-| `marks` | `ol > li > ul > li.marks` | no | A nested bullet holding only a state marker (`[x]` `[-]` `[ ]` `[/]`) and/or inline `code` pills becomes the row's trailing marks cell — the marker draws as a status disc and the pills sit beside it, right-aligned. It can follow any sublist element. |
+| `marks` | `ol > li > ul > li.marks` | no | A nested BULLET (`-`) whose text opens with a state marker (`[x]` `[-]` `[ ]` `[/]`), or that holds only inline `code` pills, becomes the row's trailing marks cell — the marker draws as a status disc, right-aligned, and any text and pills after it follow. It can come after any sublist element, and more than one row can carry one. A marker inside a bold run or a link is not a leading marker and is left alone; a nested NUMBERED sublist is not a sublist here, since its items render as rows of their own. |
 
 ### Variant decision rule
 
@@ -26,7 +26,7 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 - **`def`.** Reference entries read like dictionary definitions — an eyebrow above each term and an enlarged counter spanning both lines.
 - **`metric`.** Each row's value is the point — renders the trailing value as a display-weight figure instead of the default's plain mono text.
 - **`spec`.** Rows are technical flags or parameters — monospace keys beside type chips.
-- **`register`.** Each row carries a status — status pills per row.
+- **`register`.** Each row carries a status — a pill, and optionally a `[x]` marker that draws as a status disc beside it.
 - **`rule`.** Under `def`, the register wants a visible accent rail running down the left edge of the whole list, not just the per-term counter.
 - **`solid`.** Under `metric`, the values are headline numbers that deserve a filled panel instead of an outlined tile.
 - **`stacked`.** Under `spec`, the description clause is long enough to want its own line below the key instead of trailing beside it.
@@ -42,7 +42,7 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 
 - **Pairing a secondary modifier with the wrong primary variant (e.g. `def solid` or `metric rule`).** Each secondary modifier is scoped to exactly one primary — `rule` only styles `def`, `solid` only styles `metric`, `stacked` only styles `spec`, `outline` only styles `register`; pairing across combinations does nothing because no CSS selector matches.
 - **Authoring rows as a bullet list (`-`) instead of a numbered list (`1.`).** The counter column and row styling are keyed to `ol > li` — a `ul` doesn't produce the numbered ledger at all.
-- **Typing a check glyph (`✓`) or a literal `[x]` in the row's description to show status.** Put the marker on its own nested bullet — a `- [x]` line, with any pills after it — so it decodes into the drawn status disc in the trailing column. A typed glyph is not a shape the deck's own type family carries, so it falls back to a different font, a color emoji, or a hollow box depending on the machine.
+- **Typing a check glyph (`✓`) or a literal `[x]` in the row's description to show status.** Put the marker at the start of its own nested bullet — a `- [x]` line, with any pills after it — so it decodes into the drawn status disc in the trailing column. A typed glyph is not a shape the deck's own type family carries, so it falls back to a different font, a color emoji, or a hollow box depending on the machine.
 - **Reaching for a column modifier before looking at the default.** The columns already size to their content. `fit-*` / `flex-*` name the exceptions — a label that should keep the slack, a clause that should hug — and `fixed` restores the old fixed-width tracks. Most ledgers need none of them.
 
 ## When to use
@@ -141,17 +141,21 @@ Mono keys for flags and params.
 
 ### `register` — register
 
-Status pills on each row.
+Status pills, with an optional checkbox.
 
 ```markdown
 <!-- _class: list-tabular register -->
 
 ## register pairs names with status chips.
 
-1. cards-grid `stable`
-2. split-panel `stable`
-3. radar `beta`
-4. word-cloud `preview`
+1. cards-grid
+   - [x] `stable`
+2. split-panel
+   - [-] `partial`
+3. radar
+   - [ ] `beta`
+4. word-cloud
+   - [/] `parked`
 ```
 
 ### `rule` — def + rule
@@ -161,12 +165,12 @@ Accent rail down the left edge.
 ```markdown
 <!-- _class: list-tabular def rule -->
 
-## rule draws a hairline under every row.
+## rule runs an accent rail down the register.
 
-1. Hairlines `On`
-   - rule adds the horizontal separators.
-2. Density `Same`
-   - Budgets do not change with the look.
+1. Rail `Left edge`
+   - One continuous stroke, not a rule per row.
+2. Scope `def only`
+   - rule styles def; no other variant reads it.
 ```
 
 ### `solid` — metric + solid
@@ -304,11 +308,11 @@ The pre-responsive fixed-width tracks.
 ## fixed pins the columns to their old widths.
 
 1. ID
-   - Every label column is the same width again.
+   - Every label column is the same width.
 2. Mid
-   - Use it when a deck was tuned around those tracks.
-3. Long enough to wrap
-   - The label wraps inside its fixed track.
+   - Use it on a deck tuned around those tracks.
+3. Governance and control framework alignment
+   - A long label wraps.
 ```
 
 ## Universal modifiers
