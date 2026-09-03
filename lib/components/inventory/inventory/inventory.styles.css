@@ -49,7 +49,19 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul 
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li {
   counter-increment: r; position: relative; list-style: none;
   padding: var(--sp-3xs) 0 var(--sp-3xs) calc(var(--inv-ord-w) + var(--inv-ord-gap));
-  border-bottom: 1px solid var(--border); font-size: var(--fs-body); color: var(--text-body);
+  font-size: var(--fs-body); color: var(--text-body);
+}
+/* THE RULE IS A SEPARATOR, SO IT ONLY EXISTS BETWEEN TWO ROWS. It used to ride
+ * `border-bottom` on every row, which put one under the LAST row too — where it
+ * stops separating anything and becomes the ledger's floor, landing --sp-xs above
+ * the insight band's filled accent panel. Same defect #2055 cleared across the
+ * table family (engineering/decisions/2026-09-03-table-outer-edge-rules.md).
+ * `li + li` rather than a `:last-child` override: the adjacent-sibling form can
+ * only match an interior boundary, so there is no outer edge to suppress and
+ * nothing to keep in sync. Row padding is symmetric, so the hairline lands on the
+ * same pixel it did as a bottom border. */
+section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li + li {
+  border-top: 1px solid var(--border);
 }
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li::before {
   content: counter(r, decimal-leading-zero); position: absolute; left: 0; top: var(--sp-2xs);

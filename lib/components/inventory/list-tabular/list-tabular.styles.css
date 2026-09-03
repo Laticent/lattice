@@ -82,7 +82,12 @@ section.list-tabular ol {
   display:grid;
   grid-template-columns:var(--lt-counter) var(--lt-name) var(--lt-body) var(--lt-meta);
   column-gap:var(--sp-md);
-  align-content:start;
+  /* Centered in the stage, not stranded at the top: a four-row ledger on a
+     stage-height slide read as a fragment pinned under the masthead. `safe`
+     because a centering flex/grid that OVERFLOWS throws content off the
+     block-START edge, and block-start overflow does not grow scrollHeight — a
+     cut tail announces itself, a cut head does not (#1299, stage.css). */
+  flex:1; min-height:0; align-content:safe center;
 }
 section.list-tabular ol > li {
   counter-increment:tabular-counter;
@@ -91,7 +96,6 @@ section.list-tabular ol > li {
   grid-template-columns:subgrid;
   align-items:baseline;
   padding:var(--sp-sm) 0;
-  border-bottom:1px solid var(--border);
   font-family:var(--font-display);
   font-size:var(--fs-body-compact);
   font-weight:700;
@@ -99,7 +103,21 @@ section.list-tabular ol > li {
   letter-spacing:-0.01em;
   line-height:var(--lh-snug);
 }
-section.list-tabular ol > li:first-child { border-top:1px solid var(--border); }
+/* THE RULE IS A SEPARATOR, SO IT ONLY EXISTS BETWEEN TWO ROWS.
+ * The ledger used to draw `border-bottom` on every row plus `border-top` on the
+ * first — both outer edges, and both of them collide with what the stage already
+ * draws. Under the last row the rule stops being a separator and becomes the
+ * list's floor, landing on the footer hairline; above the first it lands on the
+ * masthead's. Two rules closing with nothing between them read as one thick
+ * doubled line rather than two boundaries — the same defect #2055 measured
+ * across the table family (25px apart → 133px once cleared).
+ *
+ * `li + li` rather than clearing `:first-child`/`:last-child` after the fact:
+ * the adjacent-sibling form can only ever match an interior boundary, so there
+ * is no outer edge to suppress and no `:last-child` override to keep in sync.
+ * It is the shape `list-steps.ghost` and `list.principles` already use.
+ * See engineering/decisions/2026-09-03-table-outer-edge-rules.md. */
+section.list-tabular ol > li + li { border-top:1px solid var(--border); }
 section.list-tabular ol > li::before {
   content:counter(tabular-counter, decimal-leading-zero);
   font-family:var(--font-label);
@@ -160,7 +178,7 @@ section.list-tabular.def ol {
   --lt-name:fit-content(var(--lt-name-max, 34cqi));
   grid-template-columns:var(--lt-counter) var(--lt-name) var(--lt-body);
   row-gap:var(--sp-md);
-  flex:1; align-content:center;
+  flex:1; align-content:safe center;
 }
 section.list-tabular.def ol > li {
   grid-template-rows:auto auto;
@@ -174,7 +192,6 @@ section.list-tabular.def ol > li {
   letter-spacing:-0.01em;
   line-height:var(--lh-tight);
 }
-section.list-tabular.def ol > li:first-child { border-top:none; }
 section.list-tabular.def ol > li::before {
   grid-column:1; grid-row:1 / span 2;
   font-family:var(--font-display);
@@ -222,6 +239,16 @@ section.list-tabular.def.rule ol {
   border-left:4px solid var(--accent);
   padding-left:var(--sp-md);
 }
+
+/* The counter is baseline-aligned by default, which pairs it with the name on a
+ * one-line row. `metric` and `register` center their rows instead, and the base
+ * `align-self:baseline` on the counter did not follow — invisible while every row
+ * was one line high, and plainly wrong the moment a wrapped pill made one tall:
+ * the counter stayed pinned to the first baseline while the name sat at the
+ * midline. `auto` computes to the row's own `align-items`, so the counter now
+ * tracks whatever its variant chose. */
+section.list-tabular.metric ol > li::before,
+section.list-tabular.register ol > li::before { align-self:auto; }
 
 /* ── Variant: metric (tile) ───────────────────────────────────────────── */
 section.list-tabular.metric ol > li {
@@ -340,7 +367,9 @@ section.list-tabular.register ol > li > code {
   letter-spacing:0.1em;             /* sanctioned: wide tracking pairs with the uppercase opt-in */
   text-transform:uppercase;
   text-align:center;
-  white-space:nowrap;
+  /* wraps rather than bleeds — see the marks-cell pill above for the measurement. */
+  min-width:0;
+  overflow-wrap:anywhere;
   justify-self:end;
   align-self:center;
 }
@@ -375,11 +404,24 @@ section.list-tabular ol > li > ul > li.marks {
   display:flex;
   align-items:center;
   justify-content:flex-end;
-  flex-wrap:wrap;
-  gap:var(--sp-2xs);
+  /* nowrap, so the CONTENT wraps and the LAYOUT does not. Under `flex-wrap:wrap`
+     an item wraps on its max-content size BEFORE it is allowed to shrink, so one
+     long pill jumped to a second line and stranded the status disc alone above it
+     (measured). With `nowrap` the pill shrinks and wraps its own text instead, and
+     the disc stays beside it — while several short pills, which fit, are untouched. */
+  flex-wrap:nowrap;
+  /* --sp-xs, not --sp-2xs: at design size the tighter step put ~4px between the
+     disc and the pill beside it, which read as one crowded object rather than a
+     status and its label. This is the gap between disc, pills, and any label
+     typed after the marker; the gap to the row's TEXT is the grid's column-gap. */
+  gap:var(--sp-xs);
   justify-self:end;
   align-self:center;
   text-align:right;
+  /* The cell must be allowed to shrink below its content, or the `fit-content()`
+     cap on the trailing track is floored at this row's min-content and the track
+     grows to whatever the longest pill is. */
+  min-width:0;
 }
 section.list-tabular ol > li:has(> code) > ul > li.marks { grid-row:2; }
 /* def is a THREE-track row with no meta column, so a marks cell has nowhere of its
@@ -461,7 +503,15 @@ section.list-tabular ol > li > ul > li.marks > code {
   font-weight:700;              /* sanctioned: heavier stamp weight */
   letter-spacing:0.1em;         /* sanctioned: wide tracking pairs with the uppercase opt-in */
   text-transform:uppercase;
-  white-space:nowrap;
+  /* LONG TEXT WRAPS, IT DOES NOT BLEED. `white-space:nowrap` makes a pill's
+     min-content its WHOLE string, and `fit-content()` is floored at min-content —
+     so one long pill silently overrode the trailing track's cap and took most of
+     the row (measured: a 12-word pill ran from the description's edge to the slide
+     edge, and in the marks cell it pushed the disc onto a line of its own).
+     Wrapping at spaces costs nothing on a one-word stamp, which has none.
+     `anywhere` is the floor for an unbroken token, so nothing leaves the track. */
+  min-width:0;
+  overflow-wrap:anywhere;
 }
 section.list-tabular.register.outline ol > li > ul > li.marks > code,
 section.list-tabular.spec ol > li > ul > li.marks > code {

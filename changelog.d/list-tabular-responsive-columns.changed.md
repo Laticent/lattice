@@ -13,3 +13,19 @@
 - **New `list-tabular` column modifiers.** `fit-name` `fit-body` `fit-meta` hug one
   column; `flex-name` `flex-meta` name the column that absorbs the leftover instead
   of the description. Most ledgers need none of them — the default already fits.
+- **A ruled list's rule is a separator, so it no longer draws an outer edge.**
+  `list-tabular` drew a hairline above its first row and below its last; `inventory`
+  drew one below its last, `--sp-xs` above the insight band's filled panel. Both now
+  rule between rows only (`li + li`), which is what `list.takeaway`,
+  `list.principles` and `list-steps.ghost` already did. This is #2055's table-family
+  fix carried to the list family. `kpi`'s banding and its heavier last-row total
+  rule are a designed treatment and are deliberately untouched, as are card stacks
+  whose rows do not touch (`list-steps`, `statute-stack`).
+- **`list-tabular` centers in the stage.** A four-row ledger on a full-height slide
+  read as a fragment pinned under the masthead; it now sits on the stage's midline
+  (`safe`, so an overflowing list still loses its tail rather than its head).
+- **Fixed: a long pill no longer bleeds past its column.** `white-space: nowrap`
+  made a pill's min-content its whole string, which floored the trailing track's
+  `fit-content()` cap — one long pill took most of the row and pushed the status
+  disc onto a line of its own. Pills wrap at spaces now, and the disc stays beside
+  the first one.
