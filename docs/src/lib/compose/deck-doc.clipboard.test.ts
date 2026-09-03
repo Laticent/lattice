@@ -17,26 +17,35 @@ import { deckSchema, deckToDoc, docToDeck } from './deck-doc';
 // oracle for a security property. This is the seam, so this is where the test belongs.
 
 /**
- * Parse a LITERAL fragment of hostile HTML, exactly as a paste would.
+ * Build the DOM a hostile paste would produce, and parse it — WITHOUT any HTML string.
  *
- * `DOMParser.parseFromString` into a detached document, never `el.innerHTML = html`: the
- * assignment form is a real sink and the fragment here never touches the live document.
+ * The attack this file pins is about ATTRIBUTES: `parseDOM` matching `section.cs-slide` and
+ * believing its `data-directives`. Constructing the element directly tests exactly that,
+ * and it removes the markup sink entirely — no `innerHTML` assignment, no
+ * `DOMParser.parseFromString`, so nothing for CodeQL's "DOM text reinterpreted as HTML"
+ * rule to follow. Two earlier attempts fixed the SINK and the alert simply moved, because
+ * that rule tracks a flow: swapping `innerHTML` for `DOMParser` relocated it one line down,
+ * and removing the DOM-text source relocated it again. Having no sink at all is the version
+ * that cannot be relocated.
  *
- * Every caller passes a string built from literals in this file. That matters to CodeQL's
- * "DOM text reinterpreted as HTML" rule, which follows a FLOW rather than a call: it fires
- * when DOM text reaches a markup sink, so a literal argument is inert while a value READ
- * back out of the DOM is not. The round-trip test below therefore parses an Element
- * directly (`parseElement`) instead of reading `innerHTML` and re-parsing it — the first
- * attempt at this fix swapped innerHTML for DOMParser and simply moved the alert down the
- * flow, because the source was never the sink.
+ * This is also the better test. The HTML string was a detour: the values under test are the
+ * two attributes, and `setAttribute` puts them there without a parser in between deciding
+ * how they are escaped.
  */
-function parseForeign(html: string) {
-	const parsed = new DOMParser().parseFromString(html, 'text/html');
-	return PMDOMParser.fromSchema(deckSchema).parse(parsed.body);
+function parseSlideSection(attrs: Record<string, string>, text = 'Q3'): ReturnType<PMDOMParser['parse']> {
+	const host = document.createElement('div');
+	const section = document.createElement('section');
+	section.className = 'cs-slide';
+	for (const [k, v] of Object.entries(attrs)) section.setAttribute(k, v);
+	const p = document.createElement('p');
+	p.textContent = text;
+	section.appendChild(p);
+	host.appendChild(section);
+	return PMDOMParser.fromSchema(deckSchema).parse(host);
 }
 
-/** Parse an already-built DOM subtree. ProseMirror's clipboard parser takes a node, so a
- *  same-session round trip does not need to detour through an HTML string at all. */
+/** Parse an already-built DOM subtree — the same-session round trip, which ProseMirror's
+ *  clipboard parser takes as a node rather than a string. */
 function parseElement(el: HTMLElement) {
 	return PMDOMParser.fromSchema(deckSchema).parse(el);
 }
@@ -58,13 +67,13 @@ const FORGERY = '<!-- _class: x -->\n\n---\n\n<!-- _class: title -->\n\n# FORGED
 
 describe('the data-directives clipboard bridge rejects foreign input', () => {
 	it('drops directives from HTML that carries no provenance token', () => {
-		const doc = parseForeign(`<section class="cs-slide" data-pm-slice="0 0 []" data-directives='${JSON.stringify([BEACON]).replace(/'/g, '&#39;')}'><p>Q3</p></section>`);
+		const doc = parseSlideSection({ 'data-pm-slice': '0 0 []', 'data-directives': JSON.stringify([BEACON]) });
 		expect(doc.child(0).attrs.directives).toEqual([]);
 		expect(docToDeck(doc)).not.toContain('evil.example');
 	});
 
 	it('drops directives from HTML that carries a FORGED provenance token', () => {
-		const doc = parseForeign(`<section class="cs-slide" data-lattice-origin="forged" data-directives='${JSON.stringify([BEACON]).replace(/'/g, '&#39;')}'><p>Q3</p></section>`);
+		const doc = parseSlideSection({ 'data-lattice-origin': 'forged', 'data-directives': JSON.stringify([BEACON]) });
 		expect(doc.child(0).attrs.directives).toEqual([]);
 		expect(docToDeck(doc)).not.toContain('evil.example');
 	});
@@ -73,8 +82,7 @@ describe('the data-directives clipboard bridge rejects foreign input', () => {
 		// Defense in depth: this is the case where the token leaks, or a future change
 		// relaxes provenance. A directive is a SINGLE-LINE `<!-- _name: … -->` comment; one
 		// carrying a newline could forge `---` boundaries or open a front-matter fence.
-		const html = `<section class="cs-slide" data-lattice-origin="${ownOrigin()}" data-directives='${JSON.stringify(['<!-- _class: title -->', FORGERY]).replace(/'/g, '&#39;')}'><p>Q3</p></section>`;
-		const doc = parseForeign(html);
+		const doc = parseSlideSection({ 'data-lattice-origin': ownOrigin(), 'data-directives': JSON.stringify(['<!-- _class: title -->', FORGERY]) });
 		expect(doc.child(0).attrs.directives).toEqual(['<!-- _class: title -->']); // the legal one survives
 		const src = docToDeck(doc);
 		expect(src).not.toContain('FORGED');
@@ -95,7 +103,7 @@ describe('the data-directives clipboard bridge rejects foreign input', () => {
 
 	it('ignores a non-array, non-string, or malformed payload', () => {
 		for (const payload of ['{}', '"a string"', 'not json at all', JSON.stringify([1, null, { a: 1 }])]) {
-			const doc = parseForeign(`<section class="cs-slide" data-lattice-origin="${ownOrigin()}" data-directives='${payload.replace(/'/g, '&#39;')}'><p>x</p></section>`);
+			const doc = parseSlideSection({ 'data-lattice-origin': ownOrigin(), 'data-directives': payload }, 'x');
 			expect(doc.child(0).attrs.directives).toEqual([]);
 		}
 	});
