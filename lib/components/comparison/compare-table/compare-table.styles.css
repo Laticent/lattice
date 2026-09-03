@@ -38,7 +38,9 @@ section.compare-table.lat-split-cards .ct-field dt { font-family:var(--font-labe
    there is no fixed box to pack, so the value gets the ideal size and the row WRAPS instead
    (below) rather than the type shrinking to fit. Portrait: 4.35cqi, up from 3.7. */
 section.compare-table.lat-split-cards .ct-field dd { margin:0; font-size:var(--fs-body); color:var(--text-body); }
-section.compare-table.lat-split-cards .split-runhead { font-family:var(--font-label); font-size:var(--fs-meta); letter-spacing:0.10em; text-transform:uppercase; color:var(--text-label); padding-bottom:var(--sp-sm); opacity:0.85; }
+/* Shared runhead register (base.tokens.css); `--text-label` and the 0.85 are this card
+   grid's own — the runhead sits over a field of cards, not under a rule. */
+section.compare-table.lat-split-cards .split-runhead { font-family:var(--runhead-face); font-size:var(--fs-meta); letter-spacing:var(--runhead-ls); text-transform:var(--runhead-case); color:var(--text-label); padding-bottom:var(--sp-sm); opacity:0.85; }
 /* A card ALONE on its page FILLS the page — the reshape paces one transposed row per page
    (`split.perPage: 1`), so this is every cover-cards page. The universal split rule for this
    (base.modifiers.css § "a member ALONE on its page FILLS the page") is scoped to the

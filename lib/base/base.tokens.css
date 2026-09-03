@@ -1529,3 +1529,117 @@ section[data-cards-coda="center"]:has(> .cell-coda)  { --cards-align: center; }
 section[data-cards-coda="stretch"]:has(> .cell-coda) { --cards-align: stretch; }
 section[data-cards-coda="top"]:has(> .cell-coda)     { --cards-align: flex-start; }
 section[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-evenly; }
+
+/* ── Split-page RUNHEAD register — one setting, seven consumers ───────────────────────
+ * The runhead is the mark that names the slide a split page came from
+ * (`.split-runhead`, lib/core/split-envelope.js). Six components scope their own copy of its
+ * finish to their own points class, and the composed closing page carries a seventh in
+ * base.modifiers.css — seven rules that had drifted to five different settings while all
+ * meaning the same thing. These four tokens are that setting; a component that WANTS to
+ * diverge overrides the property directly (compare-code paints its runhead `--accent` and
+ * compare-table `--text-label`, both deliberately, and both keep doing so).
+ *
+ * THE SETTING CHANGED 2026-09-02, on owner review of real social-size renders. It was
+ * `--fs-meta` + `text-transform: uppercase` + `0.2em` tracking + `--text-muted`, in whatever
+ * face the section handed down. Wide-tracked uppercase is a treatment for a one-to-three-word
+ * label; the runhead is fed a slide TITLE, so "The evaluation came down to three things"
+ * arrived as a two-line wall of letter-spaced capitals — 110px tall on
+ * `examples/read-across-carousel.md` against 62px for a three-word one. It was the least
+ * readable type on the page, and it was furniture.
+ *
+ * Every runhead in that deck is now ONE line, 62px, measured. The readability came from case,
+ * tracking, ink and FACE — not from size:
+ *   · case `none` and tracking 0.01em: 0.2em at this size adds ~6px between every pair of
+ *     glyphs, which is a display device, not a legibility one.
+ *   · `--runhead-face` is `--font-body`, NOT `--font-label`. The label face is documented two
+ *     hundred lines up as "the label voice — small uppercase tracked labels", and a de-
+ *     capitalized runhead is no longer one of those; it is a standfirst. It also defaults to
+ *     the MONO face, where dropping uppercase saves no width at all (a monospace advance is
+ *     the same either way) — the wrap only broke when the face went proportional.
+ *   · `--text-secondary` (7.71:1) over `--text-muted` (5.13:1), for the same reason the
+ *     pointer took it: these decks are read small in a feed.
+ *
+ * THE SIZE STAYS `--fs-meta`, and that is a measurement, not a shrug. A rung up to
+ * `--fs-body-compact` was built and rendered: the long runheads wrap again (62 / 78 / 142px
+ * across the same deck). A runhead that wraps has stopped being furniture, so the rung costs
+ * more than it buys — and it keeps the mark quieter than the content it sits over, which is
+ * the job. The pointer, alone in a margin with nothing to compete with, does take the rung.
+ *
+ * THE SIZE IS DELIBERATELY NOT IN THIS REGISTER, and the reason is a trap worth knowing.
+ * `--runhead-fs: var(--fs-meta)` declared HERE resolved to 13.61px on a runhead whose own
+ * `font-size: var(--fs-body-compact)` resolved to 39.96px on the same element, in the same
+ * document — measured, not reasoned. `--fs-*` are `cqi` values, and a container-relative length
+ * laundered through a SECOND custom property at `:root` is resolved against the ROOT's query
+ * container rather than the using element's, so the indirection silently shrinks it to a third.
+ * (`em` does not behave this way — `--runhead-ls` below is font-relative and resolves at the
+ * element, verified in the same probe. The hazard is specific to container units.) So each of
+ * the seven rules names `var(--fs-meta)` directly: one ladder token (#4), written seven times,
+ * rather than one register entry that quietly means something else.
+ *
+ * DECLARED ON `:root, section`, NOT `:root` — and that is the SECOND half of the same trap.
+ * A `var()` in a custom property is substituted at the element the property is DECLARED on, and
+ * the result inherits down already resolved. So `--runhead-ink: var(--text-secondary)` written
+ * at `:root` alone freezes the THEME's screen value at `<html>`, where `section.print`'s remap
+ * (base.modifiers.css) cannot reach it: a `class: print` split page painted its runhead the
+ * theme's screen blue on an otherwise all-gray paper page — measured, #455C7A against the
+ * #3D3D3D that element's own `--text-secondary` resolves to. Naming `section` too re-resolves
+ * every entry per section, which is where the print band, `mode: sketch`'s `--font-body`
+ * re-point, and any future section-scoped remap all live. The typography generator has emitted
+ * `:root, section` for exactly this reason since #1375, which is why `--pill-fs` survives the
+ * same laundering and these four did not.
+ *
+ * (Dark mode was never affected: `light-dark()` inside a custom property resolves at the USING
+ * element, verified in the same probe. The hazard is token REMAPS, not scheme switching.)
+ *
+ * THE INK AND THE FACE ARE NOT DECLARED HERE AT ALL, and that is the third revision of this
+ * block — the one an inversion pass forced. Declaring them on `:root, section` fixed the print
+ * remap and quietly broke theme authoring: a section-scoped declaration outranks a theme's
+ * `:root`, and EVERY shipped theme declares its ink ramp at `:root`. So
+ * `:root { --runhead-ink: var(--accent) }` in a theme file was a silent no-op — measured, and it
+ * is the exact sibling of the caption bug this same branch documents at length
+ * (`--marp-slide-footer-color` declared unconditionally, so its guarded fallback could never
+ * fire). Shipping the sibling of the bug you just wrote up is worth naming.
+ *
+ * The mechanism that satisfies both: the register declares NOTHING FOR THE INK, and each of the
+ * seven consumers writes the default as a `var()` FALLBACK —
+ * `color: var(--runhead-ink, var(--text-secondary))`. A `var()` fallback is resolved at the USING
+ * element, so `section.print`'s remap reaches it exactly as the `section` arm did; and because
+ * the property is genuinely unset until somebody sets it, a theme's `:root` declaration inherits
+ * down and wins. The cost is the default written seven times instead of once, which is the same
+ * price `--fs-meta` already pays two paragraphs down, for the same kind of reason.
+ *
+ * THE FACE STAYS A PLAIN `:root` DECLARATION, and it is the one entry that does not need the
+ * fallback trick. Its only per-section hazard was `mode: sketch` re-pointing `--font-body` — and
+ * a split page never carries the `sketch` class, measured across all 24 runheads of a
+ * sketch-mode render of `examples/read-across-carousel.md`, every one of which takes the clean
+ * face. So freezing it at `:root` changes nothing, a theme's `:root` override still works
+ * (nothing re-declares it lower), and it keeps a TYPEFACE out of a `var()` fallback chain — which
+ * the token-contract gate reads as a color whose floor it cannot compare, correctly, since a
+ * face has no contrast contract to declare.
+ *
+ * What else stays here is genuinely CONSTANT — the tracking and the case. Neither is
+ * palette-dependent, nothing remaps them per section, and a theme overriding them at `:root`
+ * works for the same reason.
+ *
+ * VERIFIED ON THE DOCS-SITE PLAYGROUND, the real one, driven rather than reasoned about (#23):
+ * a split-shaped deck typed into the live editor resolves `--runhead-ink` to EMPTY on
+ * `documentElement` and to `light-dark(#455C7A, #96A8B9)` on the SECTION — the register landing
+ * where this change puts it, on the surface whose packer rewrites `:root` to a section-scoped
+ * selector. `--pill-fs` resolves per section there too.
+ *
+ * And a thing worth knowing before anyone debugs split furniture in the Studio: THE PLAYGROUND
+ * HAS NO SPLITTER. `lat-split-native` appears 0 times in `docs/public/playground/
+ * lattice-playground.js` against 5 in `dist/lattice-emulator.js`, and a deck that splits into
+ * a cover plus three pages on export renders as ONE slide there. It honors `size:` — the same
+ * deck reports `data-family="tall"` at 719x899 — so this is the splitter being absent from that
+ * bundle, not the size being ignored. So split-scoped rules do not paint there today. Treat that
+ * as a MEASUREMENT WITH A DATE, not an invariant: `lattice-playground.js` is a gitignored build
+ * artifact, the count moves with `lib/playground/index.js`, and putting the splitter behind the
+ * Playground is an obvious thing for someone to do next.
+ *
+ * Palette-blind (#3); every value is a token. */
+:root {
+  --runhead-face: var(--font-body);
+  --runhead-ls: 0.01em;
+  --runhead-case: none;
+}

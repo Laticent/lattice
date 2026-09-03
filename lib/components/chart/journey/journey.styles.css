@@ -309,6 +309,47 @@ section.journey .journey-mood-key[data-mood="4"] { --mood-color: var(--journey-m
 section.journey .journey-mood-key[data-mood="3"] { --mood-color: var(--journey-mood-3); }
 section.journey .journey-mood-key[data-mood="2"] { --mood-color: var(--journey-mood-2); }
 section.journey .journey-mood-key[data-mood="1"] { --mood-color: var(--journey-mood-1); }
+/* …AND THE VERTICAL BOARD DROPS THE SWATCHES, because on that variant they name a color
+ * encoding the page does not use. The five chips above are the categorical `--journey-mood-*`
+ * ramp, and they are correct on the LANDSCAPE board, where `.journey-mood[data-mood]` paints
+ * each face from the same ramp — key and mark are the same colors.
+ *
+ * The vertical board encodes mood twice, and neither way is that ramp. The ROW is washed off the
+ * semantic state hues (`--state-fail-hue` / `--state-warn-hue` / `--state-pass-hue`, the rules
+ * below), and the FACE is plotted by POSITION on a numbered track and drawn in the inherited
+ * body ink. Measured on `examples/portrait-journey.pdf` p6: the rows render green, every face is
+ * `--text-body` navy, and the key beside them shows brown, blue, blue, purple, red — five colors
+ * that appear nowhere on the page. The deck's own facing slide says the encoding out loud: "Row
+ * wash — pain warm, delight cool."
+ *
+ * So the swatches go and the scale keeps its verbal anchors and its numerals: `PAIN 1 2 3 4 5
+ * DELIGHT`, which is exactly what the mood track's five gridlines are numbered by and where each
+ * face is plotted. Hiding rather than not emitting, because one transform builds this legend for
+ * both variants (HARD RULE #1) and `data-orient` is the only thing that distinguishes them by
+ * the time it is styled.
+ *
+ * NOT REPLACED WITH THE WASH ITSELF, deliberately. The washes are 10-17% of a hue over
+ * `--journey-task-bg` and mood 3 is the bare task background, so five true-to-the-row chips at
+ * 2.1cqi x 1.25cqi would be five near-white rectangles, one of them invisible. Making them read
+ * needs a border and a size, which is a design pass on the legend rather than the removal of a
+ * false statement. */
+section.journey:has(.journey-board[data-orient="vertical"]) .journey-mood-key-swatch {
+  display: none;
+}
+/* …AND THE GAP GROWS TO REPLACE WHAT THE SWATCH WAS HOLDING APART. Each key item was a swatch
+ * stacked over its numeral, so the swatch — 2.1cqi wide against a ~0.55em numeral — set the
+ * item's width and the five ticks were spaced by it. Take it away and every item shrinks to one
+ * glyph, and the legend's 0.85cqi gap is narrower than a word space at this size: measured on
+ * `examples/portrait-journey.pdf` p6, five 22px numerals separated by 8.26px at a 39.96px type
+ * size, which reads as the number TWELVE THOUSAND THREE HUNDRED FORTY-FIVE rather than as five
+ * tick labels. Read off the raster, not reasoned — the numbers alone looked fine.
+ *
+ * `ch` rather than `cqi`, because what has to be cleared here is a DIGIT, and `ch` is the one
+ * unit defined as the advance of one. It scales with the legend's own type instead of with the
+ * slide, so the ticks stay separated at every size the vertical board renders at. */
+section.journey:has(.journey-board[data-orient="vertical"]) .journey-mood-legend {
+  gap: 1.1ch;
+}
 
 /* ── Key placement: bottom-center ───────────────────────────────────────────
  * A journey board is a WIDE diagram, so its actor + mood keys belong at the
@@ -856,6 +897,58 @@ section.journey .journey-vstage[data-section="2"] { --section-accent: var(--cat-
 section.journey .journey-vstage[data-section="3"] { --section-accent: var(--cat-4-mark); }
 section.journey .journey-vstage[data-section="4"] { --section-accent: var(--cat-5-mark); }
 section.journey .journey-vstage[data-section="5"] { --section-accent: var(--cat-6-mark); }
+
+/* A STAGE IS ONE OBJECT ON A SPLIT PAGE (owner's call, 2026-09-02).
+ *
+ * Unsplit, a portrait journey stacks every stage down the canvas and each one grows to its
+ * `--span`, so the rows filling their band is right — the bands tile the stage between them.
+ * Split to ONE stage per page that same rule strands it: `.journey-vrows` takes `flex: 1 1 auto`
+ * and centers inside a band that is now the height of the whole stage, so the band pins to the
+ * top, the legends pin to the bottom, and the rows float in between. Measured on
+ * `examples/portrait-journey.md`: a 1484px stage holding 676-739px of ink, with a 307-410px void
+ * ABOVE the rows and an identical one BELOW. Three elements distributed independently rather
+ * than composed — which is exactly what it looked like.
+ *
+ * On a split page the band and its rows are ONE block: the rows stop growing, so the stage's own
+ * free space collects as a single balanced pair of margins around a coherent object instead of
+ * two holes inside it. Scoped to `.lat-split-native` — the unsplit render, where the tiling is
+ * correct, is untouched.
+ *
+ * THAT WAS ONLY HALF OF IT, and the second half is the one the eye actually reads. Stopping the
+ * rows from growing composes the STAGE; the stage then still sat high on the page with the two
+ * legends stranded near the floor, because `.journey-board` is `flex: 1 1 0%` (it fills the
+ * cell) with `justify-content: flex-start`, and `.journey-vstack` inside it is `flex: 1 1 auto`
+ * (it fills the board). Measured: a 1391px board holding one 490px stage, a 261px role legend
+ * and an 84px mood legend, with the stage stretched to 1017px to absorb the difference — so the
+ * cell's own `justify-content: center` had nothing left to center. The three parts were each
+ * being placed on their own.
+ *
+ * The stack stops absorbing and the board centers what is left. Now the stage, the role legend
+ * and the mood legend are ONE group with equal air above and below it, which is what "center the
+ * swim lane" means on a page holding a single lane. Split-only, again: unsplit, the stack
+ * carries every stage and MUST take the free height.
+ *
+ * ALL THREE levels stop growing, and the vstage is the one that cannot be skipped. Its unsplit
+ * rule is `flex: var(--span, 1) 1 0` — a flex-basis of ZERO, deliberately, so that stages share
+ * the column in proportion to their task counts. Freezing the stack alone therefore collapsed
+ * the lane to 0px: the stack's auto height is the sum of its children's bases, and that sum was
+ * zero. Caught on the render, not in review. Content-sizing the vstage is also what makes the
+ * `justify-content: center` this block used to carry unnecessary — with no free space inside the
+ * stage there is nothing left to center, so the declaration went with it. */
+section.journey.lat-split-native .journey-vstage,
+section.journey.lat-split-native .journey-vrows,
+section.journey.lat-split-native .journey-vstack {
+  flex: 0 0 auto;
+}
+/* `[data-orient="vertical"]` is here to WIN, not to narrow. Without it this selector is
+   (0,3,1) — the exact specificity of the vertical board's own `justify-content: flex-start`
+   ninety lines up in this same file — so the centering held only because it is declared later.
+   A tie decided by source order breaks silently the moment either block moves. The board is
+   vertical on every page this rule can match, so the attribute costs nothing and makes the
+   override a real one at (0,4,1). */
+section.journey.lat-split-native .journey-board[data-orient="vertical"] {
+  justify-content: center;
+}
 
 section.journey .journey-vrows {
   display: flex;

@@ -2329,11 +2329,27 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
  * Appended to the repeated heading of a split slide's 2nd+ part by the auto-split
  * driver (lib/core/auto-split.js), so a continuation slide reads as part of the
  * previous one. Deliberately quiet — smaller, lighter, de-emphasized — so it says
- * "(cont.)" without competing with the title. Palette-blind (opacity, no color). */
+ * "(cont.)" without competing with the title. Palette-blind (opacity, no color).
+ *
+ * 0.7, NOT 0.5, AND THE NUMBER IS A FLOOR. At 0.5 this was the single most common
+ * sub-threshold text run in the engine: measured on a real render of a split deck, swept
+ * across all 33 shipped palette variants through `tools/palette-sweep.js`'s in-place swap,
+ * it bottoms out at 2.96:1 on `laguna` against the 4.5:1 real text owes, and 126 of the
+ * sweep's 162 total offenders were this one marker. It reads on `indaco` — which is the
+ * only palette the per-PR contrast gate renders — and that is exactly why nothing caught it.
+ * 0.65 still fails (4.46:1 on `concrete`); 0.70 is the first step that clears, at 5.09:1
+ * worst, so it is the quietest this marker can be and still be text.
+ *
+ * OPACITY RATHER THAN AN INK TOKEN, deliberately, and it is the one place this branch did
+ * NOT copy the mood-key fix (#1722, which deleted a wash and named a token instead). That
+ * marker sits in a legend on the page's canvas; this one rides inside an `h1`/`h2`, and a
+ * split heading is not always on `--bg` — a token would be canvas-relative where the
+ * heading's own inherited ink already is not. Raising the alpha keeps the property the rule
+ * was written for: it composites over whatever the heading is actually on. */
 :is(h1, h2) .lat-cont {
   font-size: 0.5em;
   font-weight: 400;
-  opacity: 0.5;
+  opacity: 0.7;
   letter-spacing: 0.04em;
   vertical-align: middle;
   white-space: nowrap;
@@ -2343,6 +2359,18 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
    A split slide gets a small k-of-N progress rail; a carousel cover gets the layout's
    manifest-declared "→" lead-in (split.intro). Both read the slide's currentColor, so
    they sit correctly on the accent cover AND the body pages. Palette-blind. */
+/* NOT THE POINTER'S PILL, and that is deliberate rather than an unconverted second producer.
+   The two look adjacent — both are an arrow beside a few words about what comes next — and a
+   reviewer read the cover's as a missed conversion. They are different elements with different
+   sources and different jobs. `.lat-split-rel` is the run's forward POINTER: relationship.js
+   builds it from the member it points AT, and it is margin furniture in the page's bottom-right.
+   This is the LAYOUT's own lead-in, declared in the manifest as `split.intro` ("Two readings",
+   "The reasoning"), and it is the last line of the cover's MASTHEAD — set beside the lede, in the
+   reading flow, at `--fs-emphasis`. Pilling it would shrink a masthead line to chrome size.
+   And it could not take the pill's fill in any case: a split cover is often an accent flood, and
+   the pill's `--bg-alt` body is the one thing it was never designed to survive — which is exactly
+   why the pointer's own note records that no signal ever lands on a cover (counted: 0). This one
+   paints `currentColor` and carries no fill, so it works on the flood and in the print band. */
 .split-cover-lead {
   /* Gap above the lead-in. <div>, no bg, in a no-gap flex column — padding-top reads
    * identically to the old margin-top, and measures cleanly (HARD RULE #20). */
@@ -2371,11 +2399,67 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
   position: absolute; right: 12cqi; bottom: 2.35cqi; left: auto;
   display: flex; align-items: center; gap: 0.55cqi; pointer-events: none;
 }
+/* The pills carry the whole k-of-N reading, so both states have to be legible AT FEED SIZE —
+   the size these decks are actually read at. At 0.22 the off state was a ghost: rasterized at
+   story size the rail read as a broken hairline rather than as "page 3 of 6", which is the one
+   thing it exists to say. The pills also gain 0.1cqi of height, so they read as pills rather
+   than as dashes when the page is scaled down. `currentColor` throughout — palette-blind (#3),
+   and it is what lets the same rule work on the accent cover and in the print band.
+
+   THE OFF STATE IS 0.70, AND THE NUMBER IS A FLOOR MEASURED ACROSS EVERY PALETTE. The rail is
+   a non-text graphical object that carries meaning, so WCAG 1.4.11 asks 3:1 of it against its
+   backdrop — the same bar the engine holds every other drawn mark to. 0.22 measured 1.4:1 and
+   0.34 measured 1.92:1; both fail, and a reviewer reading a 390px feed raster still saw a broken
+   dash at 0.34.
+
+   0.55 WAS ALSO WRONG, AND THE WAY IT WAS WRONG IS THE LESSON. It measures 3.14:1 on `indaco`,
+   which is the palette this repo renders by reflex — so it was written up as clearing the floor.
+   Swept across all 33 shipped variants on a real render it fails on SEVEN, bottoming out at
+   2.34:1 on `cuoio`, the DEFAULT theme. That is the same error this branch already made once
+   with the pointer's ink, made again with a different token, and it survived because
+   `tools/palette-sweep.js` cannot see this element at all: the sweep walks TEXT runs, and its
+   own source says so. A rail is not text, so a clean sweep says nothing about it.
+
+   THE STATE IS CARRIED BY LENGTH, NOT BY ALPHA, and that is the correction an inversion pass
+   forced. Every revision above tuned ONE quantity — the off pill against its backdrop, i.e.
+   whether you can see the pills at all — and never measured the other one, which is the whole
+   reason the rail exists: whether you can tell WHICH pill is current. Those two pull in opposite
+   directions when both states are the same color at different alphas, because the total range
+   available is currentColor-against-backdrop and the alpha only slides you along it. Measured
+   over all 33 variants on both surfaces:
+
+     alpha   presence (body / cover)     state, on-vs-off (body / cover)
+     0.22      1.36 / 1.40  fails          4.36 / 3.62  passes
+     0.34      1.64 / 1.71  fails          3.63 / 2.88  fails on the cover
+     0.55      2.34 / 2.50  fails          2.52 / 1.96  fails
+     0.70      3.11 / 3.34  passes         1.79 / 1.49  fails
+
+   There is NO alpha that satisfies both — presence wants 0.65 and up, state wants 0.34 and down.
+   The 0.22 the redesign started from was a legible k-of-N reading made of invisible pills; 0.70
+   was visible pills that no longer said which page you were on. Both were half a rail.
+
+   So the state gets LENGTH, which is immune to the alpha ceiling because it spends no contrast at
+   all. That frees the alpha to serve presence alone, where 0.70 clears the 3:1 WCAG 1.4.11 floor
+   a meaningful graphical object owes on every palette (3.11:1 body on `cuoio`, 3.34:1 cover on
+   `indaco-dark`).
+
+   THE *OFF* STATE IS THE ONE THAT SHRINKS, and that direction is load-bearing rather than a
+   coin-flip. This rail is a PROGRESS FILL, not a current-position dot: `auto-split.js` marks
+   every segment `0..k` as `on`, so on the last page of a run EVERY segment is on. Lengthening the
+   on state therefore widens the whole rail exactly when it is most complete — measured, a 6-page
+   run ended 32% wider than before (6 x 2.9cqi against 6 x 2.2cqi) — and the rail shares its band
+   with the caption, so that width comes out of the author's words. It did: `gallery-jargon` at
+   portrait went from 45 clipped captions to 46, and the two new ones were late-run pages whose
+   caption overflowed by 17px and 23px. Keeping the ON state at its original 2.2cqi and shortening
+   only the OFF state makes the footprint monotonically NON-INCREASING in k — equal to the old
+   width when the run is complete, narrower everywhere else — so the boundary still reads by
+   length and no caption pays for it. `currentColor` throughout, which is what lets one rule serve
+   the accent cover and the print band alike. */
 .lat-split-rail .seg {
-  width: 2.2cqi; height: 0.5cqi; border-radius: 1cqi;
-  background: currentColor; opacity: 0.22;
+  width: 1.15cqi; height: 0.6cqi; border-radius: 1cqi;
+  background: currentColor; opacity: 0.7;
 }
-.lat-split-rail .seg.on { opacity: 0.8; }
+.lat-split-rail .seg.on { width: 2.2cqi; opacity: 1; }
 /* The long-run form: past `RAIL_DOT_MAX` pages the rail prints "k/N" rather than drawing a
    pill per page (lib/core/auto-split.js).
 
@@ -2739,77 +2823,40 @@ section[data-split-role="cover"][data-split-role="cover"] .tile-progress .dot.on
   opacity: 0.9;
 }
 
-/* ── Shared split INSIGHT page (lib/core/split-envelope.js) ────────────────────────
-   The envelope's optional final beat: a trailing key-insight `<blockquote>` gets its OWN
-   page — never shared with the note or the body (owner review, 2026-07-26; §0a, rule 9).
-   It is the run's TAKEAWAY, not a caption, so unlike the note (below) it earns a page to
-   itself: vertically centered, and sized up a rung, so it reads as a small climax rather
-   than a paragraph stranded in a tall empty stage — matching the read-across family's own
-   precedent for a dedicated verdict page (`compare-split-verdict`,
-   compare-prose.styles.css). Deliberately NOT a second accent field: it keeps the run's
-   own layout class, masthead and content cell, so the blockquote wears the SAME "KEY
-   INSIGHT" panel it always has (the base rule above, scoped `section.<layout> >
-   blockquote`) — only its placement and size change. Palette-blind; no new color, no
-   margin (#3, #20).
-
-   SIZE: `--fs-emphasis` is not a new value picked for this — it is ALREADY documented
-   (engineering/typography.md) as "Lead paragraph, key-insight callout, step-forward
-   block. *One* block per slide that should read first," which is exactly this page now
-   that key insight is never shared with anything else (HARD RULE #15 — reuse the token
-   the scale already reserved for this, don't invent one).
-
-   SPECIFICITY: the doubled `.lat-split-insight` on the FIRST rule below is a deliberate
-   weight bump (the same idiom as `section.decision.decision`, `section.verdict-grid
-   .verdict-grid`, `section.list.list`), NOT a typo — components legitimately own their
-   stage's placement at up to (0,3,1) (`section.inventory.cards > .cell-stage {
-   justify-content: safe center }`, `section.list-steps.timeline`) and would otherwise win.
-
-   The SECOND rule (the font-size) USED TO NEED A MUCH BIGGER BUMP, and the reason it no
-   longer does is worth recording, because the fix was not to this rule.
-
-   The base KEY INSIGHT rule was `section:not(.quote):not(.math):not(.citation-card)
-   :not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"])
-   > .cell-stage > blockquote p` — SEVEN `:not()` clauses plus `.cell-stage`, eight
-   class-level units, because a `:not(.X)` costs the same specificity as `.X`. That is an
-   accidental weight: nothing about the panel's styling wanted to win a fight, the number
-   was a side effect of enumerating exclusions IN THE SELECTOR. It beat this rule outright
-   on 13 of the 15 enrolled components (measured with `CSS.getMatchedStylesForNode`; only
-   `inventory` and `policy-recommendation` escaped, by being in that rule's own exclusion
-   list), so the insight rendered at `--fs-body` and never reached `--fs-emphasis`. The
-   answer at the time was to out-specify it: `.lat-split-insight` five times, `.form`
-   twice, `.cell-stage` twice — nine units.
-
-   The exclusions are DECLARED now (`coda.claims`, lib/core/coda.js), so the base rule is
-   `section .cell-coda > blockquote p` — ONE class-level unit. The nine-unit stack was
-   answering a problem that no longer exists, and keeping it would leave a rule nobody
-   could safely touch guarding against a chain that is gone. It is back to the ordinary
-   bump: a doubled `.lat-split-insight` clears the (0,3,1) a component legitimately owns
-   on its own stage, and `.cell-coda` in the path adds the unit that settles it. Layering
-   is still not available (HARD RULE #26 — the bundle is never half-layered), so the weight
-   stays explicit; it is simply no longer extreme. */
-/* The stage on an insight page is EMPTY — the beat is the page's content and rides the
-   coda Cell beside it, since the frame peels that cell out of the stage wrap. So the
-   centering that used to live here has to move one cell over: an empty `flex: 1 1 auto`
-   stage would eat the whole column and strand the beat on the floor. The stage stops
-   growing, the CELL takes the slack, and it centers its own one child — which is what
-   this rule has always been for, on the element that now holds the thing. */
-section.form.lat-split-insight.lat-split-insight > .cell-stage {
-  flex: 0 0 auto;
-  align-items: stretch;   /* a component's centered stage would otherwise shrink-wrap the cell */
+/* A member's sub-bullets keep their own lines on a re-authored split page.
+   `subjectBody` (lib/core/carousel.js) used to join them with a bare space, which fused fields
+   the author wrote as separate ones: `list-tabular` authors a row as `- Term` / `  - what it
+   measures` / `  - how it scores`, and the join rendered "Penalizes signals that swing Also
+   penalizes the early-warning ones" — one run-on clause on a slide whose title promises "what
+   they measure, and how they score". A single bullet emits no wrapper, so the common case is
+   unchanged. Padding, never margin (#20); no color of its own (#3). */
+section .split-pt-b > .split-pt-line {
+  display: block;
 }
-/* An insight PAGE is the beat by itself — there is no body above it for the band to sit
-   under, so the step that separates them has nothing to separate. Zero it, or the cell's
-   `--coda-step` pushes the one thing on the page off its optical center. */
-section.form.lat-split-insight.lat-split-insight > .cell-coda {
-  padding-top: 0;
-  flex: 1 1 auto;
-  justify-content: center;
-}
-section.form.lat-split-insight.lat-split-insight > .cell-coda > blockquote p,
-section.form.lat-split-insight.lat-split-insight > .cell-coda > blockquote li {
-  font-size: var(--fs-emphasis); line-height: var(--lh-snug);
+section .split-pt-b > .split-pt-line + .split-pt-line {
+  padding-top: var(--sp-xs);
 }
 
+/* ── The split INSIGHT page is RETIRED (2026-09-02) ────────────────────────────────────
+   A trailing key insight used to get a page of its own — `insightPage` / `insightPageFrom`
+   built it, `.lat-split-insight` styled it, and four selectors here gave it a collapsed stage,
+   a centered coda and a size bump. The 2026-09-01 ruling puts the insight on the run's CLOSING
+   page beside the below-note instead; both builders were deleted with their last caller, and a
+   census across four galleries measured zero pages carrying either the role or the class. Four
+   selectors shipping in `dist/lattice.css` with nothing to match is dead weight the next reader
+   has to disprove, which is the same argument this change makes when it deletes
+   `compare-split-verdict`. The geometry survives unchanged in the closing-page block below,
+   where it was always measured.
+
+   ONE THING FROM THAT BLOCK IS WORTH KEEPING, because it is about a rule that still exists.
+   The base KEY INSIGHT panel rule used to be `section:not(.quote):not(.math)…> .cell-stage >
+   blockquote p` — seven `:not()` clauses, eight class-level units, because `:not(.X)` costs the
+   same as `.X`. That weight was an accident of enumerating exclusions IN THE SELECTOR, and it
+   beat the insight page's own font-size rule on 13 of 15 components (measured with
+   `CSS.getMatchedStylesForNode`), which is why that rule once carried a nine-unit stack. The
+   exclusions are DECLARED now (`coda.claims`, lib/core/coda.js), so the base rule is
+   `section .cell-coda > blockquote p` — one unit. The stack it forced is gone with the page it
+   defended. */
 /* ── The split run's CLOSING page (lib/core/split-envelope.js `closingPage`) ────────────
    A split run opens on an accent cover and ENDS on a page that carries what the section
    said ABOUT its content — the below-note, the key insight, and the `<!-- annotation: -->`
@@ -2823,22 +2870,84 @@ section.form.lat-split-insight.lat-split-insight > .cell-coda > blockquote li {
    selectors so that reasoning stays attached to the page it was measured on, and so the
    two can diverge later without unpicking a shared `:is()`.
 
-   What is deliberately NOT repeated here is the insight page's size bump. That page holds
-   ONE thing and sets it a step up; a closing page can hold a note AND an insight AND an
-   annotation, which already carry three distinct sizes (`--fs-body`, the key-insight
-   panel's own, and ANNOTATION's `--fs-meta`). Scaling the group would flatten a hierarchy
-   the theme already draws correctly. The note is at its NORMAL size here, not the compact
-   step it used to take: that step existed only because the note shared a page with body
-   content, and on the closing page it does not. */
+   What is deliberately NOT repeated here is the insight page's size bump, and the reason first
+   written here was WRONG — worth correcting in place rather than quietly deleting. It said a
+   closing page "can hold a note AND an insight AND an annotation, which already carry three
+   distinct sizes", so scaling the group would flatten a hierarchy the theme draws. Counted on
+   the shipped decks by an inversion pass: 8 of the 10 closing pages carry exactly ONE beat, and
+   on both two-beat pages the note and the key insight render at the SAME 47.0px. The three-size
+   hierarchy that argument protects does not exist in any shipped output.
+
+   The restraint still stands, on a different and smaller footing: the size step is a per-strategy
+   FINISH question, not a property of the composed page. `closingPageFromMaterial` already stamps
+   a per-strategy class (a `compare-prose` run closes on `split-closing-compare-prose`), so a
+   strategy that wants its climax back — `compare-prose` lost an accent `THE VERDICT` eyebrow at
+   `--fs-h2` when `compare-split-verdict` was deleted — can have it in one scoped rule without
+   this block deciding for all five. That is a design call on the owner's list, not a defect this
+   block should pre-empt.
+
+   The note is at its NORMAL size here, not the compact step it used to take: that step existed
+   only because the note shared a page with body content, and on the closing page it does not. */
 section.form.lat-split-closing.lat-split-closing > .cell-stage {
   flex: 0 0 auto;
   align-items: stretch;   /* a component's centered stage would otherwise shrink-wrap the cell */
 }
+/* THE CLOSING PAGE IS ONE GROUP, not a runhead pinned to the ceiling and a note floating in
+   the leftover. This was `flex: 1 1 auto; justify-content: center`, and that is what made the
+   page read as a render failure to two independent reviewers who saw it cold: measured on
+   `examples/read-across-carousel.md`, a 1350px page gave the stage 62px (the runhead alone) and
+   the coda 1110px, so the note centered itself in a 1110px void with the runhead stranded a
+   thousand pixels above it. A rule above the note and a rule under the runhead then read as two
+   hairlines framing an empty field — which is exactly how a page whose content failed to arrive
+   looks.
+
+   The PR carrying this shipped a caveat calling those two rules "neither a defect"; that was too
+   generous to my own work. The rules are fine. The 1110px between them was not.
+
+   The coda stops growing, so the section's own `justify-content: center` composes the stage and
+   the coda as ONE object with balanced air — the same correction the split `journey` needed, for
+   the same reason: a child that absorbs all the free height leaves the parent's centering nothing
+   to center. `--sp-lg` is the gap under the runhead; it was `0` because the coda's own centering
+   used to supply the space. */
 section.form.lat-split-closing.lat-split-closing > .cell-coda {
-  padding-top: 0;
-  flex: 1 1 auto;
-  justify-content: center;
+  padding-top: var(--sp-lg);
+  flex: 0 0 auto;
+  justify-content: flex-start;
 }
+/* The RUNHEAD on a COMPOSED closing page (lib/core/split-envelope.js
+   `closingPageFromMaterial`), which the carousel strategies emit.
+   The subtractive `closingPage` keeps the section's own `.cell-masthead`, so a plain-path
+   closing page still names its slide. A composed one has no masthead to keep, and without a
+   runhead it shipped a lone note sentence in a page-tall box with nothing saying which slide it
+   closed — three pages after the cover that named it (seen by rasterizing
+   `examples/read-across-carousel.pdf`, not by any assertion).
+   It is the same `.split-runhead` element the body pages of those runs carry, so the finish
+   below matches theirs — each strategy scopes its own copy to its own points class
+   (`section.compare-split-points .split-runhead` and five siblings), and this is the closing
+   page's, written once for all of them because the closing page wears the neutral `content`
+   field rather than any layout's class. Palette-blind; padding, never margin (#3, #20).
+
+   The face, case, tracking and ink are no longer written here: all seven copies read the shared
+   runhead register (`--runhead-face` / `--runhead-ls` / `--runhead-case` / `--runhead-ink`,
+   base.tokens.css), which is where the 2026-09-02 change from wide-tracked uppercase micro-caps
+   to a normal-case standfirst in the body face is recorded and reasoned — including why the
+   SIZE is written out here rather than tokenized with them. Seven scoped copies of one setting
+   had already drifted to five different values; a component that wants to diverge overrides the
+   property, and compare-code and compare-table both still do. */
+section.form.lat-split-closing.lat-split-closing > .cell-stage > .split-runhead {
+  font-family: var(--runhead-face);
+  font-size: var(--fs-meta);
+  letter-spacing: var(--runhead-ls);
+  text-transform: var(--runhead-case);
+  color: var(--runhead-ink, var(--text-secondary));
+  padding-bottom: var(--sp-xs);
+}
+/* NO RULE UNDER THE RUNHEAD HERE, unlike the body pages that share this element's finish. The
+   closing page's note draws its OWN 1px accent hairline (`.below-note::before`), and once the
+   coda stopped absorbing the page the two landed 58px apart — two parallel full-width rules with
+   nothing between them, which two independent reviewers read as a doubled hairline before the
+   gap was even closed. One rule, the note's, does the whole job of separating the runhead from
+   what closes the run. */
 
 /* ── Shared split NOTE (lib/core/split-envelope.js `markNote` / `injectTrailing`) ───────
    The envelope's other trailing beat: a `.below-note` (or, on a layout below-note's
@@ -2932,24 +3041,178 @@ section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > .be
    widening. `data-split-role` alone is the precise test: the attribute exists on split pages and
    nowhere else, so nothing narrower is needed and anything narrower encodes an assumption about
    the page that the signal does not depend on. */
+/* THE MARGIN MARKER, AND THEN THE PILL (owner's calls, 2026-09-02).
+
+   It used to be a full-bleed ruled band — `--fs-meta` mono, `--text-muted`,
+   `letter-spacing: 0.06em`, a 1px rule across 90% of the page. Four legibility-reducing choices
+   stacked on the ONE element whose job is telling a reader the slide continues: it was dressed
+   as chrome while doing wayfinding, and it read as a section divider competing with the content
+   it was annotating. Measured before: 30px mono at 5.13:1 on a 2000px page whose heading is
+   76px, spanning 5%->95% with its own rule, directly above a SECOND furniture band (caption +
+   rail + page number).
+
+   The first pass moved it to the bottom-right corner as a right-aligned block, the way a book
+   cues a page turn. Then: "why can't next just be a subtle on-brand pill with an arrow and the
+   text inside it?" Nothing stopped it, and the numbers argue for it — across the eight shipped
+   decks that split (`auto-split`, `split-envelope`, `split-horizontal`, `split-relationship`,
+   `split-structure`, `read-across-carousel`, `portrait-journey`, `portrait-roadmap`) there are
+   153 signals, median label THIRTEEN characters, 71% at or under 20 ("Trial", "Q2"). That is a
+   pill's natural size. (`split-headings` was in an earlier draft of this list and contributes
+   NOTHING: it carries no `size:`, so it renders wide, where the splitter never fires — 0 split
+   pages, 0 signals, measured. The total was right and the set naming it was not.) And no signal ever lands on a split COVER
+   (counted: 0), so this never has to survive the inverse surface — the one constraint that would
+   have forced `currentColor` and no fill.
+
+   Those numbers are re-measured, not inherited. The set they replace (98 signals, median 16, 63%)
+   was counted over six decks BEFORE the `next: ` lead-in was dropped, and then quoted in comments
+   written after the drop to justify a decision it no longer described.
+
+   ONE RULE, not two. An earlier revision left the block's declarations above this one as a
+   first pass; a full computed-style diff with them removed changed three properties and NO
+   geometry at all, so they were a dead half of a contradiction a reader had to resolve.
+
+   It reuses the universal `--pill-*` register (#15) rather than inventing a fourth pill: same
+   radius, padding, weight and tracking as every other pill in the engine, and `--pill-fs`, which
+   the typography generator emits per SECTION so it tracks the slide's orientation instead of
+   baking in the landscape meta size. Following the register's own convention, the ONE axis this
+   deliberately overrides is named here: the FILL is `--bg-alt` rather than the register's `--bg`,
+   because a signal on the page's own canvas needs to separate from it — `--bg` would be an
+   outline with no body.
+
+   THE INK IS `--text-body`, AND IT GOT THERE BY MEASUREMENT AFTER A WRONG ANSWER. It was
+   `--text-secondary`, on the reasoning that this is "wayfinding beside content, not content".
+   That reasoning was about hierarchy and the cost was legibility. Measured on the RENDERED
+   pointer across all 33 shipped palette variants — one real export re-themed in place through
+   `tools/palette-sweep.js`'s own swap, not a parse of `themes/*.css` — `--text-secondary` on
+   `--bg-alt` is WORSE than the `--text-muted`-on-`--bg` it replaced on 14 of the 33, and bottoms
+   out at 4.63:1: under the 5.13:1 this whole redesign names as the problem, and on `cuoio`, the
+   DEFAULT theme, it went 5.07 -> 4.64. A "read it small in a feed" change that dims the pointer
+   on the default palette is the redesign arguing against itself. `--text-body` on `--bg-alt`
+   floors at 5.46:1 over the same 33 and beats the pre-branch value on 32 of them (the exception
+   is `concrete-dark`, 6.96 -> 6.35, still far above the floor). The hierarchy is still there,
+   and it was never the ink doing it: the pill is the smallest step on the type ladder, sitting
+   in a margin, inside an outlined chip. Quiet is a matter of size and placement here, not of
+   dimness.
+
+   THE BORDER IS WHAT MAKES IT A PILL, which is why it is not decoration. The fill separates from
+   the canvas by only 1.08:1 at the worst palette — `--bg-alt` is a near-neighbor of `--bg` by
+   design — so the shape is carried by the 1px edge, and a meaningful graphical object owes 3:1
+   (WCAG 1.4.11). Measured over the same 33: the border floors at 3.07:1 against the fill and
+   3.36:1 against the canvas, and renders 3.75 / 4.10 on indaco. A visual reviewer reported it at
+   1.64:1 off a raster; that does not reproduce against the computed color, and an anti-aliased
+   1px edge in a rasterized PDF is not the border's color.
+
+   `align-self: flex-end` is doing three jobs at once and replaces three earlier mechanisms. It
+   shrink-wraps the box to its content, which is what makes it a pill rather than a full-width
+   bar; it right-anchors without a margin (#20 — the universal pill needs the sanctioned
+   `margin-left:auto` because it sits in a row it does not control; this one is a column child, so
+   it does not); and it is what makes the flex row SAFE again. The mark was stranded at the left
+   edge under `display: flex` precisely because the box was full-width and the text absorbed all
+   the free space. A shrink-wrapped box has no free space to strand it across. The anchor is
+   therefore a property of the PARENT, not of this box — every real pointer parent is a flex
+   column (verified over 4 decks x 4 sizes), and `test/unit/css/split-signal-scope.test.js`
+   measures the resulting geometry rather than the keyword, because the keyword's computed value
+   is the keyword whatever the parent does.
+
+   `box-sizing: border-box` IS LOAD-BEARING, not tidiness. The engine has no global border-box
+   reset (measured), so under the initial `content-box` this box's `max-width: 100%` caps the
+   CONTENT width and the 2x`--pill-pad-x` + 2px border is added OUTSIDE it — a border box of
+   100% + 47px at portrait. Right-anchored, the excess goes LEFT, out of the content column and
+   into the page's own margin, where the column's clip cuts the rounded left cap and the label's
+   first character. Reproduced on a split `verdict-grid`: a 1019px pill in a 972px column, its
+   left edge at x=7 in a 1080px page — 47px outside the column, 7px short of the page edge —
+   reading "ption 1 of 6 ...". (An earlier revision of this note said the excess went "past the
+   page edge". It does not get that far, and the measurement sat in the next sentence the whole
+   time, which is how the overstatement was caught.) `verdict-grid` is the reachable case because `comparison` is the one
+   relationship whose label has no length budget (`lib/core/relationship.js` joins every badge;
+   the other kinds are capped by `LABEL_MAX`). No shipped deck reaches the cap, so this was
+   authoring-reachable rather than shipped — and `scrollWidth` could never have caught it, because
+   leftward overflow is invisible to it in LTR.
+
+   A label past the cap ellipsises rather than wraps, on the label span. A pill that wraps has
+   stopped being a pill, and nothing is lost: the label names the NEXT page, which arrives one
+   page later carrying that title in full on its own masthead. This is CAPACITY, not a treatment
+   anything ships with: across those same nine decks the longest label is 56 characters and
+   exactly ZERO of them ellipsise at any of the four splitting sizes. The guard exists for the
+   `comparison` case, whose label has no length budget at all — measured on a six-by-six
+   `verdict-grid`, which is where the box model above was caught. */
 section[data-split-role] .lat-split-rel,
 section.form.lat-split-native > .cell-stage > .lat-split-rel,
 section.form.lat-split-native > .lat-split-rel {
-  font-family: var(--font-label);
-  font-size: var(--fs-meta);
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border);
-  padding-top: var(--sp-xs);
-  /* A comparison signal is the long one ("Option 2 of 4 · comparing Residency · Self-serve ·
-     SOC 2") and wraps in a portrait box; `balance` keeps it from orphaning a two-character
-     fragment on line two, which is what it did on the real render. */
-  text-wrap: balance;
-  /* The mark sits on the first line, not above a wrapped block, so this is a flex row with the
-     text as the one growing member rather than an inline `::before` that a `text-wrap: balance`
-     line box would carry along. */
-  display: flex; align-items: baseline; gap: 0.45em;
+  align-self: flex-end;
+  display: inline-flex;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 0.45em;
+  max-width: 100%;
+  font-family: var(--pill-font);
+  font-size: var(--pill-fs);
+  font-weight: var(--pill-weight);
+  letter-spacing: var(--pill-tracking);
+  line-height: 1;
+  border: 1px solid var(--pill-border, var(--muted-mark));
+  background: var(--pill-bg, var(--bg-alt));
+  color: var(--pill-fg, var(--text-body));
+  border-radius: var(--pill-radius);
+  padding: var(--pill-pad-y) var(--pill-pad-x);
 }
+/* The label carries the clip, not the pill: `text-overflow` never applies to a flex CONTAINER,
+   so on the container it would have clipped mid-word with no ellipsis. */
+.lat-split-rel > .lat-split-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The split page's own CAPTION — the author's `_footer:` words, rank 3 of the band's
+   allocation policy — takes the pointer's INK LIFT and nothing else.
+
+   CONTRAST ONLY, and the restraint is load-bearing: the size stays `--fs-meta`. A step up the
+   #4 ladder here re-creates a regression this branch already shipped and fixed once — the
+   caption is the one growable item in a fixed-height band, and a wider string is what put
+   CONTENT CLIPPED on six pages of `examples/portrait-journey.pdf`. The lift costs the band no
+   width at all.
+
+   IT SETS `color` DIRECTLY, and the first draft's `var(--marp-slide-footer-color, --text-secondary)`
+   was inert. The intent was "a deck that sets its own footer ink still wins", copied from the
+   `section footer` rule this overrides. But `--marp-slide-footer-color` is declared
+   UNCONDITIONALLY — at `:root` in base.tokens.css and again in every theme that tunes it — so
+   there is always a first term and the fallback can never fire. Measured: the caption computed
+   `--text-muted` on two real decks, i.e. exactly what it did before, while the changelog claimed
+   the lift had landed. A guarded `var()` only defers to an override when the token is genuinely
+   unset; here the honest mechanism is a direct declaration on the element, which the theme's
+   `:root` value loses to and a deck's own section-scoped or inline ink still beats.
+
+   BOTH FOOTER SHAPES. A Form split page carries its `<footer>` inside `.cell-footer`; a
+   `premise` split page carries it as a DIRECT child of the section (measured on
+   `examples/split-horizontal.md`) — the same page shape the CSS suite has a fixture for, and the
+   one the first draft's selectors both missed.
+
+   Scoped to split pages, not to every deck. The same argument (read small, in a feed) would
+   apply to any caption, but re-inking every deck's footer is a change to shared visual state
+   well outside this branch, and it is the owner's to make.
+
+   A CAPTION TOO LONG FOR THE BAND ELLIPSISES, and that is a RULING (owner, 2026-09-03), not a
+   default nobody examined. The numbers it was ruled on: `examples/gallery-jargon.md` at portrait
+   reports 45 slides with a truncated caption, 49 at mobile, 16 at square — against 0 on `main`,
+   which looked cleaner only because `main` was DELETING those captions outright (the
+   `stripDeckChrome` fix on this branch is what made the words exist at all). The alternatives
+   were measured before the call: two lines needs a new split-only rule out-specifying BOTH
+   `section[data-split-role="cover"] > .cell-footer > footer` AND the deck-wide
+   `section.form > .cell-footer > footer`, and grows the band ~44px into the stage because the
+   footer cell has ZERO internal slack today (48px cell, 44px line); a smaller size is not
+   available because `--fs-meta` is already the bottom rung (#4); dropping it returns to `main`'s
+   visible result on purpose. Ellipsis won because the caption REPEATS on every page of a run, so
+   two lines pays 44px of stage on every split page to recover ~22 characters of repeated chrome,
+   and the count is driven by one gallery deck's own 43-63 character captions rather than by
+   anything structural. Do not "fix" this by shortening those deck captions. */
+section[data-split-role] > .cell-footer > footer,
+section[data-split-role] > footer,
+section.form.lat-split-native > .cell-footer > footer,
+section.form.lat-split-native > footer {
+  color: var(--text-secondary);
+}
+
 /* The signal's MARK, DRAWN per `data-mark` (lib/core/relationship.js). Four shapes for the four
    relationships: a run continues (→), a cycle returns (↻), a hierarchy governs downward (↓) or
    sits under (↑). A comparison gets none — "Option 2 of 4" is a count, and an arrow on it would
@@ -2958,26 +3221,39 @@ section.form.lat-split-native > .lat-split-rel {
    All four were typed HTML entities until 2026-09-01. HARD RULE #29's gate could not see them
    (it matches literal characters, not entities), so they shipped as the exact defect the rule
    describes: the deck's own face carries none of `→ ↻ ↓ ↑`, so each fell back per machine.
-   `align-self: center` on a baseline row keeps the mask centred on the first line's x-height —
+   `align-self: center` on a baseline row keeps the mask centered on the first line's x-height —
    a mask has no baseline of its own to align. */
-.lat-split-rel[data-mark]:not([data-mark="count"])::before {
-  content: ""; flex: none; align-self: center; width: 1.05em; height: 1.05em;
+/* The mark TRAILS the label (owner's call, 2026-09-02): "we don't need the word next, it is
+   implied by the arrow which should be on the right side of the text in the pill." So the pill
+   reads `Trial →`, and the six-character `next: ` lead-in is gone from the label the kernel
+   builds — the arrow was already saying it.
+
+   `::after`, and it moved for EVERY marked kind rather than for `next` alone. The mark is one
+   chrome system: a `↻` still on the left while a `→` sat on the right would read as two different
+   widgets. The WORDS stayed on the other three, though, and the difference is that an arrow
+   carries "next" and a refresh glyph does not carry "back to" — `governs` and `under` are a
+   hierarchy's two directions, which `↓` and `↑` distinguish but do not name. `count` has no
+   drawn mark at all ("Option 2 of 4 · comparing …"), so it is untouched by both halves.
+
+   The gap to the text is the pill's own flex `gap`, never a margin (#20). */
+.lat-split-rel[data-mark]:not([data-mark="count"])::after {
+  content: ""; flex: none; width: 1.05em; height: 1.05em;
   background-color: currentColor;
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
 }
-.lat-split-rel[data-mark="next"]::before {
+.lat-split-rel[data-mark="next"]::after {
   -webkit-mask: var(--shape-arrow-right) var(--shape-paint);
           mask: var(--shape-arrow-right) var(--shape-paint);
 }
-.lat-split-rel[data-mark="loop"]::before {
+.lat-split-rel[data-mark="loop"]::after {
   -webkit-mask: var(--shape-refresh) var(--shape-paint);
           mask: var(--shape-refresh) var(--shape-paint);
 }
-.lat-split-rel[data-mark="down"]::before {
+.lat-split-rel[data-mark="down"]::after {
   -webkit-mask: var(--shape-arrow-down) var(--shape-paint);
           mask: var(--shape-arrow-down) var(--shape-paint);
 }
-.lat-split-rel[data-mark="up"]::before {
+.lat-split-rel[data-mark="up"]::after {
   -webkit-mask: var(--shape-arrow-up) var(--shape-paint);
           mask: var(--shape-arrow-up) var(--shape-paint);
 }

@@ -3,7 +3,7 @@ marp: true
 theme: indaco
 ---
 
-<!-- _class: checklist lat-split-insight -->
+<!-- _class: checklist lat-split-closing -->
 
 ## Launch readiness
 
@@ -11,7 +11,7 @@ theme: indaco
 
 ---
 
-<!-- _class: stats lat-split-insight -->
+<!-- _class: stats lat-split-closing -->
 
 ## A row of stats, equal weight
 

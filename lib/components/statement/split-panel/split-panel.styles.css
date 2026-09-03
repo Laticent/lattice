@@ -441,8 +441,10 @@ section.split-panel-cover .split-feat-lede {
 
 /* Point pages — the supporting points flow under a running header of the feature. */
 section.split-panel-points .split-runhead {
-  font-size: var(--fs-meta); letter-spacing: 0.2em; text-transform: uppercase;
-  color: var(--text-muted); border-bottom: 1px solid var(--border);
+  font-family: var(--runhead-face);
+  font-size: var(--fs-meta); letter-spacing: var(--runhead-ls);
+  text-transform: var(--runhead-case);
+  color: var(--runhead-ink, var(--text-secondary)); border-bottom: 1px solid var(--border);
   padding-bottom: var(--sp-xs);
 }
 section.split-panel-points .split-pts {

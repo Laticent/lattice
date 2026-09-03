@@ -161,8 +161,14 @@ section.compare-code-cover .split-feat-lede { font-size: var(--fs-emphasis); opa
  * a visible border-bottom, so the gap must stay OUTSIDE its box — hence
  * row-gap on the parent rather than padding on the runhead. */
 section.compare-code-block { display: flex; flex-direction: column; row-gap: var(--sp-lg); }
+/* Takes the shared runhead register (base.tokens.css) for face/size/case/tracking, and keeps
+   its ONE deliberate divergence: painted `--accent`, not `--runhead-ink`. A code run's runhead
+   sits above a `--code-bg` panel that already carries the spectrum strip, and the accent is
+   what ties the two. */
 section.compare-code-block .split-runhead {
-  font-size: var(--fs-meta); letter-spacing: 0.16em; text-transform: uppercase;
+  font-family: var(--runhead-face);
+  font-size: var(--fs-meta); letter-spacing: var(--runhead-ls);
+  text-transform: var(--runhead-case);
   color: var(--accent); border-bottom: 1px solid var(--border);
   padding-bottom: var(--sp-xs);
 }

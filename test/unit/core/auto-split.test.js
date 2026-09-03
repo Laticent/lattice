@@ -26,6 +26,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { splitDoc, capacityForClass, applyRails, applyRelationshipSignals } = require('../../../lib/core/auto-split');
+const { textOf } = require('../../../lib/core/relationship');
 
 const sec = (cls, inner) => `<section class="${cls}">${inner}</section>`;
 const docSec = (n, cls, inner) => `<section data-lattice-slide="${n}" class="${cls}">${inner}</section>`;
@@ -156,13 +157,20 @@ describe('core: the envelope — cover → bodies → closing', () => {
 describe('core: the carousel points at what is next — on EVERY run', () => {
   const card = (t, b) => `<li><strong>${t}</strong> ${b}</li>`;
   const steps = `<ul>${card('Draft the policy.', 'Legal owns it.')}${card('Circulate.', 'Two weeks.')}${card('Sign off.', 'The chair signs.')}</ul>`;
-  const sigsOf = (html) => [...html.matchAll(/<div class="lat-split-rel"[^>]*>([\s\S]*?)<\/div>/g)].map((m) => m[1]);
+  // The signal's LABEL, not its markup. The label rides a `.lat-split-label` span (so the pill can
+  // ellipsise — `text-overflow` needs an element), and these assertions compare label TEXT, so the
+  // wrapper comes off here rather than being written into every expectation. Via the KERNEL's
+  // `textOf`, not a local regex: three hand-rolled copies of that strip earned three high-severity
+  // CodeQL alerts for incomplete multi-character sanitization, and one function is the fix for all
+  // of them.
+  const sigsOf = (html) => [...html.matchAll(/<div class="lat-split-rel"[^>]*>([\s\S]*?)<\/div>/g)]
+    .map((m) => textOf(m[1]));
 
   test('a component declaring NO relationship still gets a forward pointer', () => {
     // The signal used to require `capacity.relationship`, which four of sixty-one components
     // declare — so the ordinary bulleted slide split into pages with nothing joining them.
     const out = applyRelationshipSignals(split(docify(sec('cards', `<h2>T</h2>${steps}`))).html, cap);
-    assert.deepEqual(sigsOf(out), ['next: Circulate', 'next: Sign off']);
+    assert.deepEqual(sigsOf(out), ['Circulate', 'Sign off']);
   });
 
   test('a declared relationship still chooses the PHRASING', () => {
@@ -175,7 +183,7 @@ describe('core: the carousel points at what is next — on EVERY run', () => {
   test('the LAST body page points at the closing page, naming what it carries', () => {
     const inner = `<h2>T</h2>${steps}<blockquote><p>Ship it.</p></blockquote>`;
     const out = applyRelationshipSignals(split(docify(sec('cards', inner))).html, cap);
-    assert.equal(sigsOf(out).at(-1), 'next: the key insight');
+    assert.equal(sigsOf(out).at(-1), 'the key insight');
   });
 
   test('no signal on the cover or the closing page — neither is a member', () => {
@@ -378,5 +386,57 @@ describe('the marker berths survive a split, one set per page', () => {
       pagesOf(bare.html).length,
       'the same content must split into the same number of pages with or without berths',
     );
+  });
+});
+
+// ── a page that NAMES its member beats the first-list heuristic ───────────────
+//
+// `membersIn` resolves a page's members as the first `<ul>`/`<ol>` on it and that list's `<li>`
+// children. It is a proxy for "the collection this page carries", and it is right whenever the
+// page's body IS that collection — every axis-driven run, and the plain envelope.
+//
+// It is wrong on a NATIVE SLICE, where the page carries ONE member that has lists of its own.
+// Measured on `examples/portrait-roadmap.md`: the first list on a phase page is `ul.horizon-rows`
+// INSIDE the card, so the pointer named a workstream row rather than the phase — "Signal
+// Intake Scoring v2" on a page titled "Q2". `kanban` builds its lanes from `<div>`s, so nothing
+// resolved and its runs carried no pointer at all.
+//
+// `nativeSliceSplit` stamps `data-split-label` because it is the only thing that knows which
+// element it cut. These pin the PREFERENCE — that the stamp wins, that its absence changes
+// nothing, and that a stamp is read as text rather than as markup.
+describe('auto-split: data-split-label names the page, over the first-list heuristic', () => {
+  // The signal's LABEL, not its markup. The label rides a `.lat-split-label` span (so the pill can
+  // ellipsise — `text-overflow` needs an element), and these assertions compare label TEXT, so the
+  // wrapper comes off here rather than being written into every expectation. Via the KERNEL's
+  // `textOf`, not a local regex: three hand-rolled copies of that strip earned three high-severity
+  // CodeQL alerts for incomplete multi-character sanitization, and one function is the fix for all
+  // of them.
+  const sigsOf = (html) => [...html.matchAll(/<div class="lat-split-rel"[^>]*>([\s\S]*?)<\/div>/g)]
+    .map((m) => textOf(m[1]));
+  const cap = { cards: { axis: 'item', hard: 4 } };
+  // A run of three body pages, each holding a titled card whose OWN list would otherwise be read
+  // as the page's members — the roadmap shape, reduced.
+  const page = (n, label) => '<section data-lattice-slide="1" data-split-run="r1" '
+    + `data-split-role="body"${label ? ` data-split-label="${label}"` : ''} class="cards">`
+    + `<h2>Plan</h2><div class="card"><span class="card-title">${n}</span>`
+    + '<ul><li>Workstream row one</li><li>Workstream row two</li></ul></div></section>';
+  const doc = (...labels) => `<main>${labels.map((l, i) => page(`Card ${i + 1}`, l)).join('')}</main>`;
+
+  test('the stamp names the next page; the row inside the card is not the member', () => {
+    const out = applyRelationshipSignals(doc('Q1', 'Q2', 'Q3'), cap);
+    assert.deepEqual(sigsOf(out), ['Q2', 'Q3'],
+      'the pointer must name the stamped member, not the first list nested inside it');
+  });
+
+  test('with no stamp the heuristic still runs — the old behavior is intact', () => {
+    const out = applyRelationshipSignals(doc(null, null, null), cap);
+    assert.deepEqual(sigsOf(out), ['Workstream row one', 'Workstream row one'],
+      'an unstamped page must fall through to membersIn exactly as before');
+  });
+
+  test('a stamp is TEXT — an escaped quote comes back as a quote, not as markup', () => {
+    // The label under test is on page TWO, because page one's pointer names page two.
+    const out = applyRelationshipSignals(doc('First', 'The &quot;big&quot; lane', 'Third'), cap);
+    assert.equal(sigsOf(out)[0], 'The "big" lane');
   });
 });

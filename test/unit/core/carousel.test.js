@@ -13,13 +13,18 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { carouselize, readSubjects, readFeature, readRows } = require('../../../lib/core/carousel');
+const { carouselize, readSubjects, readFeature, readRows, CAROUSEL_STRATEGIES, MEMBER_CLAIM_STRATEGIES } = require('../../../lib/core/carousel');
 const { splitSections } = require('../../../lib/core/split-sections');
 // The content-cell reader + depth-aware top-level walk the engine itself uses to place
 // trailing material — the rule-6 gate below appends its sentinels at the SAME position
 // rather than guessing one (HARD RULE #15).
 const { extractStage } = require('../../../lib/core/below-note');
+const { transformSection: journeyTransform } = require('../../../lib/components/chart/journey/journey.transform');
+const { buildKanbanBoard } = require('../../../lib/components/chart/kanban/kanban.transform');
 const { topLevelElements } = require('../../../lib/core/split-envelope');
+// The engine's own beat ORDER — the sentinels below are assembled from it, not typed in an
+// order someone remembered (HARD RULE #15).
+const { BEATS, rendersBeat } = require('../../../lib/core/coda');
 
 const fixture = fs.readFileSync(path.join(__dirname, 'fixtures/compare-prose.rendered.html'), 'utf8');
 const [section] = splitSections(fixture).filter((p) => p.type === 'section');
@@ -56,12 +61,18 @@ describe('core: carousel — readSubjects', () => {
 describe('core: carousel — cover-sides (compare-prose, the fidelity finish)', () => {
   const parts = carouselize(section.openTag, section.inner, recipe);
 
-  test('emits cover → one subject page each → verdict (the shared cover finish)', () => {
+  test('emits cover → one subject page each → the shared CLOSING page', () => {
+    // The fourth page used to be this strategy's OWN `compare-split-verdict` frame, built from
+    // the slide's trailing `.below-note`. That consumed the note, so a slide carrying a note AND
+    // a key insight ended `… body(the verdict) · insight` — the two beats on separate pages,
+    // which is the retired 2026-07-26 placement. The run closes on the kernel's one closing page
+    // now (2026-09-01), and the note rides its coda cell.
     assert.equal(parts.length, 4);
     assert.match(clsOf(parts[0]), /compare-split-cover/);
     assert.match(clsOf(parts[1]), /compare-split-points/);
     assert.match(clsOf(parts[2]), /compare-split-points/);
-    assert.match(clsOf(parts[3]), /compare-split-verdict/);
+    assert.match(clsOf(parts[3]), /lat-split-closing/);
+    assert.match(parts[3], /\sdata-split-role="closing"/);
   });
 
   test('every frame carries the Form chrome (header + footer)', () => {
@@ -87,8 +98,12 @@ describe('core: carousel — cover-sides (compare-prose, the fidelity finish)', 
     }
   });
 
-  test('the verdict is the slide synthesis line', () => {
-    assert.match(parts[3], /split-pullq">The shift from equal to calibrated weights/);
+  test('the synthesis line closes the run, in the closing page\'s coda cell', () => {
+    // Its own `.below-note` wrapper, inside `.cell-coda` — which is where the hairline footnote
+    // treatment attaches (lib/forms/cell/coda/coda.css). It used to be re-authored as a
+    // `.split-pullq`, which meant compare-prose owned a second copy of "where trailing material
+    // goes" (HARD RULE #1).
+    assert.match(parts[3], /<div class="cell-coda"[^>]*>[\s\S]*below-note[\s\S]*The shift from equal to calibrated weights/);
   });
 
   test('only the cover keeps the engine id; continuations drop it (no duplicate ids)', () => {
@@ -480,19 +495,28 @@ describe('core: carousel — redline-blocks (redline portrait SPLIT)', () => {
     assert.equal(carouselize(rlTag, one, rlRecipe), null);
   });
 
-  test('a THIRD blockquote is the key insight — its own closing page, printed ONCE', () => {
+  test('a THIRD blockquote is redline\'s own passage, not a beat — it rides page 2, printed ONCE', () => {
     // FM-2 by another route, and the one the rule-6 conservation gate structurally cannot see:
     // a third top-level blockquote was in neither drop-set, so it survived on BOTH pages, and
     // the hoist's containment check then found its text already emitted and stood down. The
-    // result was two body pages each carrying the takeaway, and no insight page at all.
+    // result was two body pages each carrying the takeaway, and no closing page at all.
     const withInsight = rlInner.replace(
       '<footer>F</footer>',
       '<blockquote><p>One duty is cheaper to audit than two.</p></blockquote><footer>F</footer>',
     );
     const out = carouselize(rlTag, withInsight, rlRecipe);
     const copies = out.join('').split('One duty is cheaper to audit').length - 1;
-    assert.equal(copies, 1, 'the key insight appears exactly once across the run');
-    assert.equal(out.filter((p) => /\sdata-split-role="insight"/.test(p)).length, 1);
+    assert.equal(copies, 1, 'the extra blockquote appears exactly once across the run');
+    // IT DOES NOT GET A CLOSING PAGE, and that changed on 2026-09-02 for a reason worth keeping.
+    // `redline` declares `coda.claims: ["blockquote"]` — it renders blockquotes as its OWN
+    // passages, which is why the coda harvest steps over them and why an author's `> …` on a
+    // redline slide is a passage rather than a KEY INSIGHT panel. Promoting a third one to a
+    // closing page invented a beat the unsplit slide never had, and the same shape-only
+    // classification was simultaneously moving BOTH passages off their pages when the optional
+    // why-list was absent. It rides the last body page instead: present, once, in its own
+    // component's treatment.
+    assert.equal(out.filter((p) => /\sdata-split-role="closing"/.test(p)).length, 0,
+      'a claimed blockquote must not be promoted to a closing page');
     assert.match(out.at(-1), /One duty is cheaper to audit/);
     // …and the two passages are still where they belong.
     assert.match(out[0], /blockquote class="rl-old"/);
@@ -602,12 +626,51 @@ const ctInner = '<h2>Build versus buy.</h2>' +
 const rlTag = '<section data-lattice-slide="1" id="s1" class="redline split form">';
 const rlInner = '<h2>Clause 4</h2><p><code>s.12</code></p>' +
   '<blockquote><p>old text</p></blockquote><blockquote><p>new text</p></blockquote><ul><li>why</li></ul>';
+const rmTag = '<section data-lattice-slide="1" id="s1" class="roadmap horizons form">';
+const rmCard = (phase) => `<div class="horizon-card"><div class="horizon-head">` +
+  `<span class="horizon-title">${phase}</span></div><ul class="horizon-rows"><li>row ${phase}</li></ul></div>`;
+const rmInner = '<div class="chart-header"><h2>Roadmap</h2></div><div class="chart-body">' +
+  `<div class="horizons">${rmCard('H1')}${rmCard('H2')}${rmCard('H3')}</div></div>`;
 const kbTag = '<section data-lattice-slide="1" id="s1" class="kanban form">';
+// DERIVED FROM THE ENGINE, like the journey fixtures below. The hand-written version of this
+// gave each lane an `<h3>` title, and `kanban.transform.js` has never emitted one — it builds
+// `<div class="kanban-column-header">`. A fixture that invents its component's DOM cannot catch
+// a defect in how that DOM is read, and this one did not: `kanban-lanes` shipped runs with no
+// forward pointer at all, because the real lane holds no list for `membersIn` to find.
 const kbInner = '<div class="chart-header"><h2>Board</h2></div><div class="chart-body">' +
-  '<div class="kanban-board">' +
-  '<div class="kanban-column"><h3>To do</h3><div class="kanban-card">a</div></div>' +
-  '<div class="kanban-column"><h3>Doing</h3><div class="kanban-card">b</div></div>' +
-  '</div></div>';
+  buildKanbanBoard(
+    '<li>To do<ul><li>Spec the API</li></ul></li>' +
+    '<li>Doing<ul><li>Wire the client</li></ul></li>',
+  ) + '</div>';
+
+// ── journey: the fixture is DERIVED FROM THE ENGINE, not transcribed from a render ──
+// Every other fixture above is hand-written, and that is the standing hazard this file already
+// names: a gate whose population comes from its author's memory certifies the memory. journey's
+// board is built by `journey.transform.js`, which is pure and takes `(html, ctx)` — so the two
+// forms are asked for here rather than reproduced. If the transform's DOM ever moves, these
+// fixtures move with it and the strategy is tested against what actually ships.
+//
+// The two forms are the whole point of the enrollment: PORTRAIT emits `ol.journey-vstack` and
+// slices one stage per page; LANDSCAPE emits a shared-axis grid (absolute `--col` per task,
+// `grid-column: span var(--span)` bands) and must NOT slice. Both are pinned below.
+const jnAuthored = '<h2>Path</h2><ul>' +
+  '<li>Evaluate<ul><li>Read case study <code>@buyer</code> <code>:5</code></li>' +
+  '<li>Book demo <code>@buyer</code> <code>:4</code></li></ul></li>' +
+  '<li>Trial<ul><li>Trial signup <code>@buyer</code> <code>:3</code></li></ul></li>' +
+  '<li>Activate<ul><li>First report <code>@user</code> <code>:4</code></li></ul></li>' +
+  '</ul>';
+const jnBoard = (orientation) =>
+  journeyTransform(jnAuthored, { cls: 'journey', orientation });
+const jnTag = '<section data-lattice-slide="1" id="s1" class="journey form chart-frame">';
+// The chart family wraps the board in `.cell-stage > .chart-body`; the splitter walks past both
+// into the prefix, so the wrap has to be here or the fixture is not the shape that ships.
+const jnSection = (orientation) =>
+  `<div class="cell-masthead"><div class="masthead-lede"><h2>Path</h2></div></div>` +
+  `<div class="cell-stage"><div class="chart-body">` +
+  `${jnBoard(orientation).replace('<h2>Path</h2>', '')}` +
+  `</div></div><div class="cell-footer"><footer>journey</footer></div>`;
+const jnInner = jnSection('portrait');
+const jnLandscapeInner = jnSection('landscape');
 
 const STRATEGY_CASES = [
   ['cover-sides',    section.openTag,   section.inner,   { strategy: 'cover-sides' }],
@@ -619,26 +682,44 @@ const STRATEGY_CASES = [
   ['cover-cards',    ctTag,             ctInner,         { strategy: 'cover-cards', axis: 'row', perPage: 1 }],
   ['redline-blocks', rlTag,             rlInner,         { strategy: 'redline-blocks' }],
   ['kanban-lanes',   kbTag,             kbInner,         { strategy: 'kanban-lanes' }],
+  ['roadmap-horizons', rmTag,           rmInner,         { strategy: 'roadmap-horizons' }],
+  ['journey-stages', jnTag,             jnInner,         { strategy: 'journey-stages' }],
 ];
+
+// THE TABLE'S POPULATION COMES FROM THE ENGINE, not from whatever fixtures anyone happened to
+// write. It did not, and the cost was exactly what that phrasing predicts: `roadmap-horizons`
+// was never in this table, so for as long as it has existed it sat outside BOTH gates the table
+// drives — the rule-9 envelope invariant and the rule-6 conservation check. It was found by
+// probing the strategies by hand, not by any gate, and it was duplicating trailing material onto
+// every horizon card. A hand-written population is a gate that certifies its author's memory.
+test('core: carousel — STRATEGY_CASES covers every registered strategy', () => {
+  const covered = new Set(STRATEGY_CASES.map(([name]) => name));
+  const missing = Object.keys(CAROUSEL_STRATEGIES).filter((k) => !covered.has(k));
+  assert.deepEqual(missing, [], `strategies with no case in STRATEGY_CASES: ${missing.join(', ')}. ` +
+    'Every gate below drives off this table, so an uncovered strategy is silently exempt from all of them.');
+  const unknown = [...covered].filter((k) => !Object.hasOwn(CAROUSEL_STRATEGIES, k));
+  assert.deepEqual(unknown, [], `STRATEGY_CASES names strategies the engine does not register: ${unknown.join(', ')}`);
+});
 
 const roleOf = (sec) => (sec.match(/\sdata-split-role="([^"]*)"/) || [])[1] || null;
 
 describe('core: carousel — every strategy emits a role-stamped envelope (§8 rule 9)', () => {
   for (const [name, tag, inner, rec] of STRATEGY_CASES) {
-    test(`${name}: every emitted page carries a valid role, cover first, insight last`, () => {
+    test(`${name}: every emitted page carries a valid role, cover first, closing last`, () => {
       const parts = carouselize(tag, inner, rec, 2, name);
       assert.ok(Array.isArray(parts) && parts.length >= 2, `${name}: expected a multi-page split, got ${parts?.length}`);
       const roles = parts.map(roleOf);
       assert.ok(
-        roles.every((r) => ['cover', 'body', 'insight'].includes(r)),
+        roles.every((r) => ['cover', 'body', 'closing'].includes(r)),
         `${name}: un-stamped or unknown role(s) — ${JSON.stringify(roles)}. Every split path must stamp ` +
         `data-split-role or it falls outside the §8 rule 9 invariant, which is how 6 of 9 strategies ` +
-        `escaped the gate.`,
+        `escaped the gate. \`insight\` is NOT a role a carousel run may END on any more: the note and ` +
+        `the key insight close it TOGETHER on one page (2026-09-01).`,
       );
       assert.ok(roles.filter((r) => r === 'cover').length <= 1, `${name}: ${roles.filter((r) => r === 'cover').length} covers`);
-      assert.ok(roles.filter((r) => r === 'insight').length <= 1, `${name}: >1 insight page`);
+      assert.ok(roles.filter((r) => r === 'closing').length <= 1, `${name}: >1 closing page`);
       if (roles.includes('cover')) assert.equal(roles[0], 'cover', `${name}: cover is not first — ${roles}`);
-      if (roles.includes('insight')) assert.equal(roles.at(-1), 'insight', `${name}: insight is not last — ${roles}`);
+      if (roles.includes('closing')) assert.equal(roles.at(-1), 'closing', `${name}: closing is not last — ${roles}`);
     });
   }
 });
@@ -701,6 +782,23 @@ describe('core: carousel — no strategy drops content (§8 rule 6)', () => {
 
   const SENTINEL_INSIGHT = '<blockquote><p>Zq the run takeaway sentinel.</p></blockquote>';
   const SENTINEL_NOTE = '<div class="below-note"><p>Zn the footnote sentinel.</p></div>';
+  // IN THE ENGINE'S OWN BEAT ORDER, derived from `coda.js` rather than typed here.
+  //
+  // This gate appended NOTE + INSIGHT, which is an order the engine cannot produce. `harvestBody`
+  // peels the tail as "an optional trailing `<p>` (the note), then an optional `<blockquote>`
+  // before it (the insight)" — BEATS is `['key-insight', 'below-note']` and its comment says the
+  // insight "can never come after the note". A `.below-note` wrapper sitting before a bare
+  // blockquote is therefore a shape no author can author and no harvest can emit, which is the
+  // thing this gate's own docblock warns against two paragraphs above ("Hand-placing it anywhere
+  // else … tests a shape the engine never emits").
+  //
+  // It went unnoticed while nothing depended on order. It stopped being harmless the moment the
+  // trailing scan began asking a layout's `coda.claims`: the scan walks BACKWARD over a
+  // CONTIGUOUS run, so a claimed element at the very end terminates it — and with the beats
+  // inverted, `redline`'s claimed blockquote sat last and hid the note behind it, which read as a
+  // duplication defect in the engine rather than a defect in the fixture.
+  const SENTINEL_FOR = { 'key-insight': SENTINEL_INSIGHT, 'below-note': SENTINEL_NOTE };
+  const BOTH_BEATS = BEATS.map((b) => SENTINEL_FOR[b]).join('');
 
   // Append at the END OF THE CONTENT CELL — where below-note.js places trailing material on a
   // `.cell-stage` slide, and the end of the section otherwise. Hand-placing it anywhere else
@@ -721,7 +819,7 @@ describe('core: carousel — no strategy drops content (§8 rule 6)', () => {
     // so a fixture that already has one gets its own replaced rather than a second added.
     ['+note+insight', (inner) => withTrailing(
       inner.replace(/<div class="below-note">[\s\S]*?<\/div>\s*<\/div>|<div class="below-note">[\s\S]*?<\/div>/, ''),
-      SENTINEL_NOTE + SENTINEL_INSIGHT,
+      BOTH_BEATS,
     )],
   ];
 
@@ -759,12 +857,233 @@ describe('core: carousel — no strategy drops content (§8 rule 6)', () => {
   test('the gate detects a real drop (negative control)', () => {
     const src = withTrailing(dcSection.inner, SENTINEL_INSIGHT);
     const parts = carouselize(dcSection.openTag, src, { strategy: 'cover-decision', perPage: 1 }, 2, 'cover-decision');
-    const withoutInsightPage = parts.filter((p) => roleOf(p) !== 'insight');
-    assert.ok(withoutInsightPage.length < parts.length, 'sentinel did not produce an insight page');
+    const withoutClosingPage = parts.filter((p) => roleOf(p) !== 'closing');
+    assert.ok(withoutClosingPage.length < parts.length, 'sentinel did not produce a closing page');
     assert.ok(
-      droppedWords(src, withoutInsightPage.join('')).some((w) => w.startsWith('Zq')),
+      droppedWords(src, withoutClosingPage.join('')).some((w) => w.startsWith('Zq')),
       'the gate did NOT notice the sentinel missing — containment check is not actually checking',
     );
+  });
+});
+
+// ── The 2026-09-01 CLOSING PAGE, across every strategy ─────────────────────────
+// "Every run ends on a CLOSING page carrying the below-note and the key insight TOGETHER."
+// That was true of the plain envelope and `cover-cards` and of nothing else: five strategies
+// still shipped the retired 2026-07-26 placement (the note spliced into the last BODY page, the
+// insight on a page of its own), and `feature-cover` lost both outright.
+//
+// TWO assertions, and the second is the one the rule-6 conservation gate structurally CANNOT
+// make. That gate is a word-multiset CONTAINMENT check, so counts that RISE always pass — it
+// reports a shortfall and never a duplicate. `kanban-lanes` and `roadmap-horizons` both re-emit
+// a source slice that carries everything after the last lane / card, and they repeat that slice
+// per page: measured before this change, a two-lane kanban printed one key insight THREE times
+// (once per lane, once on the closing page) and passed rule 6 green.
+describe('core: carousel — the run closes on ONE page carrying both beats (2026-09-01)', () => {
+  const INSIGHT = '<blockquote><p>Zq the run takeaway sentinel.</p></blockquote>';
+  const NOTE = '<div class="below-note"><p>Zn the footnote sentinel.</p></div>';
+  // The engine's beat order, from `coda.js` — see the rule-6 gate above for why typing it here
+  // instead produced a shape no harvest can emit.
+  const SENTINEL_FOR = { 'key-insight': INSIGHT, 'below-note': NOTE };
+  const BOTH = BEATS.map((b) => SENTINEL_FOR[b]).join('');
+  // The same placement `withTrailing` uses in the conservation gate — the end of the content
+  // cell, which is where the engine renders trailing material. Duplicated here rather than
+  // shared because the two describes are independent gates; if they ever disagree about where
+  // trailing material lives, that disagreement should be visible rather than averaged away.
+  const atCellEnd = (inner, extra) => {
+    const stage = extractStage(inner);
+    if (stage) return inner.slice(0, stage.bodyEnd) + extra + inner.slice(stage.bodyEnd);
+    const els = topLevelElements(inner);
+    let at = els.length;
+    while (at > 0 && ['header', 'footer', 'nav'].includes(els[at - 1].name)) at -= 1;
+    return at < els.length ? inner.slice(0, els[at].start) + extra + inner.slice(els[at].start) : inner + extra;
+  };
+  // A fixture that already carries a below-note gets its own replaced, never a second added —
+  // below-note.js wraps ONE trailing region, so two would be a shape the engine never emits.
+  const withBothBeats = (inner) => atCellEnd(
+    inner.replace(/<div class="below-note">[\s\S]*?<\/div>\s*<\/div>|<div class="below-note">[\s\S]*?<\/div>/, ''),
+    BOTH,
+  );
+
+  // WHICH beats a layout hoists is the layout's own declaration, and the expectation is read from
+  // it rather than assumed uniform. A claim is honored ONLY where the claimed element rides a
+  // MEMBER (`MEMBER_CLAIM_STRATEGIES`) — `redline` claims `blockquote` and its two passages ARE
+  // the members, so hoisting them is what emptied two body pages onto a closing page. Everywhere
+  // else the beat is hoisted whatever the manifest says: a re-authoring strategy rebuilds its
+  // body, so an unparsed element reaches no page; and a native slice repeats everything outside
+  // the member set on every page, so a claimed beat there is DUPLICATED (journey, measured: a
+  // below-note on both pages of a two-stage run) or, when the component docks its coda outside
+  // the sliced subtree, lost entirely (roadmap, measured: zero copies).
+  //
+  // Only the BARE shapes are gated. The NOTE sentinel is a `.below-note` WRAPPER, which is the
+  // coda harvest's own output — the harvest runs only where the beat is rendered, so its presence
+  // is already the answer and the kernel hoists it unconditionally. The INSIGHT sentinel is a bare
+  // `<blockquote>`, which is the shape a claim can speak for.
+  const hoists = (name, tag, beat) => (beat === 'below-note'
+    || !MEMBER_CLAIM_STRATEGIES.has(name)
+    || rendersBeat(clsOf(tag), beat));
+  // …and the expectation must not be able to go vacuous: most cases must still carry both.
+  test('the closing-page expectation is not vacuous — most strategies hoist both beats', () => {
+    const both = STRATEGY_CASES.filter(([n, t]) => hoists(n, t, 'key-insight') && hoists(n, t, 'below-note'));
+    assert.ok(both.length >= STRATEGY_CASES.length - 1,
+      `only ${both.length}/${STRATEGY_CASES.length} cases expect both beats — the arm below is weakening`);
+  });
+
+  for (const [name, tag, inner, rec] of STRATEGY_CASES) {
+    test(`${name}: the beats it hoists land on ONE closing page, and it is last`, () => {
+      const parts = carouselize(tag, withBothBeats(inner), rec, 2, name);
+      assert.ok(Array.isArray(parts) && parts.length >= 2, `${name}: expected a split`);
+      const wantInsight = hoists(name, tag, 'key-insight');
+      const wantNote = hoists(name, tag, 'below-note');
+      const closing = parts.filter((p) => roleOf(p) === 'closing');
+      assert.equal(closing.length, 1, `${name}: expected exactly one closing page, got ${closing.length} ` +
+        `(roles: ${parts.map(roleOf).join(',')})`);
+      assert.equal(roleOf(parts.at(-1)), 'closing', `${name}: the closing page is not last`);
+      if (wantInsight) assert.match(closing[0], /Zq the run takeaway sentinel/, `${name}: the key insight is not on the closing page`);
+      if (wantNote) assert.match(closing[0], /Zn the footnote sentinel/, `${name}: the below-note is not on the closing page`);
+      // TOGETHER means the same page, and there must be no `insight`-role page left over —
+      // that role is what the retired placement used for the takeaway's separate beat.
+      assert.equal(parts.filter((p) => roleOf(p) === 'insight').length, 0,
+        `${name}: still emits a separate insight page — that is the retired 2026-07-26 placement`);
+      // A COMPOSED closing page names the slide it closes. The subtractive `closingPage` keeps
+      // the section's own masthead and does so for free; a composed one has no masthead to keep,
+      // and without this it shipped a lone note in a page-tall box with nothing saying which
+      // slide it belonged to. Only asserted where the page IS composed — `cover-paginate` and
+      // `cover-cards` build the subtractive kind and carry the real masthead instead.
+      if (/\bsplit-closing-/.test(closing[0])) {
+        assert.match(closing[0], /<div class="split-runhead">\S/,
+          `${name}: the composed closing page carries no runhead — it does not name its slide`);
+      }
+    });
+
+    test(`${name}: neither beat is printed twice (the duplication rule 6 cannot see)`, () => {
+      const parts = carouselize(tag, withBothBeats(inner), rec, 2, name);
+      const all = parts.join('');
+      for (const sentinel of ['Zq the run takeaway sentinel', 'Zn the footnote sentinel']) {
+        const copies = all.split(sentinel).length - 1;
+        assert.equal(copies, 1, `${name}: "${sentinel}" appears ${copies} times across the run. ` +
+          'A strategy that re-emits a source SLICE must strip the trailing beats from it — the slice ' +
+          'is repeated per page, and the conservation gate passes a duplicate because containment ' +
+          'only ever reports a shortfall.');
+      }
+    });
+  }
+
+  // The pair above has to be able to FAIL, or a green run proves nothing. Feed a strategy a
+  // slide with NO trailing material and there must be no closing page at all — which also pins
+  // that a run with nothing to say does not end on an empty page.
+  test('no trailing material → no closing page (negative control)', () => {
+    for (const [name, tag, inner, rec] of STRATEGY_CASES) {
+      const bare = inner.replace(/<div class="below-note">[\s\S]*?<\/div>\s*<\/div>|<div class="below-note">[\s\S]*?<\/div>/, '');
+      const parts = carouselize(tag, bare, rec, 2, name);
+      if (!parts) continue;
+      const closing = parts.filter((p) => roleOf(p) === 'closing');
+      assert.equal(closing.length, 0, `${name}: emitted a closing page for a slide with no trailing material`);
+    }
+  });
+});
+
+// ── The fit BERTHS are chrome, and only a REAL section shape can prove it ──────
+// The three corner tabs `fit-berth.js` appends are the last top-level children of every
+// rendered section — and `trailingSlotMaterialOf` finds a layout's own content slot by taking
+// the LAST top-level element. So on a real render it took an empty `.fixme-tab` instead of
+// `.panel-right`, found no trailing material there, and `feature-cover` lost the author's key
+// insight and below-note OUTRIGHT: no page, no warning, and no shortfall the containment gate
+// could report, because the material was never located to begin with.
+//
+// NONE OF THE COMMITTED FIXTURES CARRY BERTHS — they are hand-sliced or captured before that
+// pass runs — so every gate in this file was green while the defect shipped. Removing the fix
+// and re-running the whole file still passes (mutation-checked). That is the failure mode this
+// arm exists for, and it is why the berth markup comes from `BERTH_HTML` rather than being
+// typed here: the input is the engine's own, so it cannot drift away from what ships.
+describe('core: carousel — a member\'s sub-bullets keep their own lines', () => {
+  // `subjectBody` joined them with a bare space, fusing fields the author wrote as separate ones.
+  // `list-tabular` authors a row as `- Term` / `  - what it measures` / `  - how it scores`, and
+  // the join rendered "Penalizes signals that swing Also penalizes the early-warning ones" — one
+  // run-on clause a reader has to re-parse, on a slide whose own title promises "what they
+  // measure, and how they score".
+  //
+  // No gate could have caught it. The conservation check counts WORDS, and every word was
+  // present; only the sentence boundaries were gone. It was found by rasterizing the run and
+  // reading it (QUALITY BAR), which is the only instrument that sees this class of defect.
+  const row = (title, ...bullets) =>
+    `<li>${title}<ul>${bullets.map((b) => `<li>${b}</li>`).join('')}</ul></li>`;
+  const inner = (...rows) => `<h2>Signals</h2><ol>${rows.join('')}</ol>`;
+
+  test('two sub-bullets emit two lines, not one run-on string', () => {
+    const [r] = readRows(inner(row('Volatility', 'Penalizes signals that swing', 'Also penalizes the early-warning ones')));
+    assert.ok(r, 'no row parsed');
+    assert.doesNotMatch(r.body, /swing Also/,
+      'the two authored fields were fused into one clause — this is the defect, not a formatting nit');
+    assert.match(r.body, /<span class="split-pt-line">Penalizes signals that swing<\/span>/);
+    assert.match(r.body, /<span class="split-pt-line">Also penalizes the early-warning ones<\/span>/);
+  });
+
+  test('a SINGLE sub-bullet emits no wrapper — the common case is byte-identical', () => {
+    const [r] = readRows(inner(row('Recency', 'Time-decay on a configurable half-life')));
+    assert.equal(r.body, 'Time-decay on a configurable half-life');
+  });
+
+  test('the separation survives into the emitted page', () => {
+    const src = inner(
+      row('Volatility', 'Penalizes signals that swing', 'Also penalizes the early-warning ones'),
+      row('Recency', 'Time-decay on a configurable half-life', 'Two-week default surprises everyone'),
+    );
+    const parts = carouselize('<section data-lattice-slide="1" id="s1" class="list-tabular form">',
+      src, { strategy: 'cover-rows', perPage: 1 }, 2, 'list-tabular');
+    assert.ok(parts, 'expected a split');
+    assert.doesNotMatch(parts.join(''), /swing Also/, 'the fused clause reached an emitted page');
+  });
+});
+
+describe('core: carousel — a rendered section ends in BERTHS, and they are not the content slot', () => {
+  const { BERTH_HTML } = require('../../../lib/core/fit-berth');
+  const { trailingSlotMaterialOf } = require('../../../lib/core/split-envelope');
+  const INSIGHT = '<blockquote><p>Zq the run takeaway sentinel.</p></blockquote>';
+  const NOTE = '<p>Zn the footnote sentinel.</p>';
+
+  // The real portrait shape: split-panel puts its body AND its running footer inside
+  // `.panel-right`, so the author's trailing beats render THERE, and the berths follow the
+  // panels as the section's own last children.
+  const withBeatsAndBerths = () => {
+    const inner = spSection.inner;
+    const footerAt = inner.lastIndexOf('<footer');
+    assert.ok(footerAt > 0, 'fixture no longer carries a footer inside its panel');
+    return inner.slice(0, footerAt) + INSIGHT + NOTE + inner.slice(footerAt) + BERTH_HTML;
+  };
+
+  test('the content slot is found behind the berths, and both beats with it', () => {
+    const found = trailingSlotMaterialOf(withBeatsAndBerths());
+    const outers = [...found.insight, ...found.note].map((sp) => sp.outer).join('');
+    assert.match(outers, /Zq the run takeaway sentinel/, 'the key insight was not located');
+    assert.match(outers, /Zn the footnote sentinel/, 'the below-note was not located');
+  });
+
+  test('feature-cover ends on a closing page carrying both, each exactly once', () => {
+    const src = withBeatsAndBerths();
+    const parts = carouselize(spSection.openTag, src, { strategy: 'feature-cover', perPage: 2 }, 2, 'split-panel');
+    assert.ok(Array.isArray(parts) && parts.length >= 2, 'expected a split');
+    const closing = parts.filter((p) => roleOf(p) === 'closing');
+    assert.equal(closing.length, 1, `expected one closing page, got ${closing.length}`);
+    for (const sentinel of ['Zq the run takeaway sentinel', 'Zn the footnote sentinel']) {
+      assert.match(closing[0], new RegExp(sentinel), `the closing page is missing "${sentinel}"`);
+      assert.equal(parts.join('').split(sentinel).length - 1, 1, `"${sentinel}" is not printed exactly once`);
+    }
+    // The bare `<p>` gets the coda kernel's own `.below-note` wrapper, so the hairline
+    // treatment attaches — without it this was the one closing page in five with no rule under
+    // the insight panel (seen by rasterizing the run, not by any assertion).
+    assert.match(closing[0], /<div class="below-note"><p>Zn the footnote sentinel/);
+  });
+
+  test('a bare trailing paragraph is a note only AFTER a structural block', () => {
+    // The widening that admits the `<p>` above is the coda kernel's own promotion rule
+    // (`STRUCTURAL`), not a new heuristic — so prose still reads as prose.
+    const slot = (body) => `<h2>T</h2><div class="panel-left"><p>l</p></div><div class="panel-right">${body}</div>`;
+    const afterList = trailingSlotMaterialOf(slot('<ul><li>a</li></ul><p>Zn concluding sentence.</p>'));
+    assert.match(afterList.note.map((n) => n.outer).join(''), /Zn concluding sentence/,
+      'a sentence after a list is a footnote and must be hoisted');
+    const afterProse = trailingSlotMaterialOf(slot('<p>first paragraph</p><p>Zn second paragraph.</p>'));
+    assert.equal(afterProse.note.length, 0,
+      'a paragraph after another paragraph is PROSE — hoisting it would move a component\'s own copy off its page');
   });
 });
 
@@ -842,5 +1161,159 @@ describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards acr
 
   test('a single-phase board → null (nothing to split between)', () => {
     assert.equal(split('Only'), null);
+  });
+});
+
+// ── journey-stages: the enrollment is SCOPED, and the scope is the whole claim ─────
+//
+// journey is enrolled at PORTRAIT ONLY. At landscape it is one figure over a shared axis —
+// `.journey-board` sets `--task-count`, every task carries an absolute `--col`, and the stage
+// ribbon spans its tasks with `grid-column: span var(--span)` — so a slice would leave a page
+// holding tasks at columns 4-5 of a grid whose columns 1-3 are gone. That is the same test
+// `matrix-grid` and `gantt` fail, and journey fails it in exactly one of its two rendered forms.
+//
+// Nothing else in the suite can see that. `STRATEGY_CASES` proves the PORTRAIT form splits
+// correctly and says nothing about the landscape one, and a strategy that quietly began
+// splitting landscape too would pass every gate above while shredding the grid — which is
+// precisely how `matrix-2x2` shipped a portrait render showing two of four quadrants (#1193).
+// So the negative is pinned here, from the same engine-derived fixture as the positive.
+describe('core: carousel — journey-stages splits the vertical stack and never the grid', () => {
+  test('portrait: one page per stage, and the stage bands survive the cut', () => {
+    const parts = carouselize(jnTag, jnInner, { strategy: 'journey-stages' }, 2, 'journey');
+    assert.ok(Array.isArray(parts), 'portrait journey did not split');
+    assert.equal(parts.length, 3, `expected one page per authored stage, got ${parts.length}`);
+    for (const [i, p] of parts.entries()) {
+      assert.equal((p.match(/class="journey-vstage"/g) || []).length, 1,
+        `page ${i + 1} carries ${(p.match(/class="journey-vstage"/g) || []).length} stages, not 1`);
+    }
+    // The categorical accent is `[data-section="N"]`, written on the member by the transform —
+    // which is the ONLY reason the color sequence survives being sliced. `timeline-list` picks
+    // its dot spectrum with `:nth-child(6n+k)` on an element carrying no index, so one member
+    // per page makes every page `:nth-child(1)` and the whole run collapses to cat-1. If this
+    // assertion ever fails, journey has acquired that defect and the enrollment must come out.
+    const sections = parts.map((p) => (p.match(/class="journey-vstage" data-section="(\d+)"/) || [])[1]);
+    assert.deepEqual(sections, ['0', '1', '2'],
+      `stage accents must stay distinct across the run — got ${JSON.stringify(sections)}`);
+  });
+
+  test('portrait: every authored task reaches exactly one page', () => {
+    const parts = carouselize(jnTag, jnInner, { strategy: 'journey-stages' }, 2, 'journey');
+    const before = (jnInner.match(/class="journey-vtask"/g) || []).length;
+    const after = parts.reduce((n, p) => n + (p.match(/class="journey-vtask"/g) || []).length, 0);
+    assert.equal(after, before, `${before} tasks in, ${after} out — the run must neither drop nor duplicate`);
+    assert.ok(before >= 4, 'fixture too small to be evidence of anything');
+  });
+
+  test('portrait: both legends ride every page — a mood face without its key is unreadable', () => {
+    const parts = carouselize(jnTag, jnInner, { strategy: 'journey-stages' }, 2, 'journey');
+    for (const [i, p] of parts.entries()) {
+      assert.ok(/journey-legend/.test(p), `page ${i + 1} lost the actor legend`);
+      assert.ok(/journey-mood-legend/.test(p), `page ${i + 1} lost the mood key`);
+    }
+  });
+
+  test('landscape: the shared-axis grid is left WHOLE', () => {
+    assert.ok(/--task-count/.test(jnLandscapeInner) && !/journey-vstack/.test(jnLandscapeInner),
+      'fixture is not the landscape grid form — the negative below would prove nothing');
+    const parts = carouselize(jnTag, jnLandscapeInner, { strategy: 'journey-stages' }, 2, 'journey');
+    assert.equal(parts, null,
+      'the landscape journey was split. Every task carries an absolute --col into a ' +
+      'repeat(var(--task-count), 1fr) grid, so a sliced page draws its tasks into columns that ' +
+      'are no longer there. It must ring instead.');
+  });
+});
+
+// ── a native-slice page NAMES the member it carries ───────────────────────────
+//
+// The forward pointer is built by `applyRelationshipSignals`, which resolves a page's members
+// with `membersIn` — the first `<ul>`/`<ol>` on the page and its `<li>` children. That proxy
+// holds where the page's body IS the collection and breaks on a native slice, where the page
+// holds ONE member that may contain lists of its own. Measured on the real decks before this:
+//
+//   · `roadmap` — the first list on a phase page is `ul.horizon-rows` INSIDE the card, so every
+//     pointer named a workstream row rather than the phase: "Signal Intake Scoring v2",
+//     two fields of one row run together, on a page titled "Q2".
+//   · `kanban`  — lanes are built from `<div>`s, so `membersIn` found nothing and the runs
+//     carried NO pointer at all.
+//   · `journey` — correct, and by luck: its vertical stack happens to be the page's first list.
+//
+// So the splitter says what it cut. These assert the stamp itself, because the stamp is the only
+// thing standing between the pointer and the heuristic that was wrong for two of three.
+describe('core: carousel — a native slice stamps the member it carries', () => {
+  const NATIVE = [
+    ['kanban-lanes', kbTag, kbInner, ['To do', 'Doing']],
+    ['roadmap-horizons', rmTag, rmInner, ['H1', 'H2', 'H3']],
+    ['journey-stages', jnTag, jnInner, ['Evaluate', 'Trial', 'Activate']],
+  ];
+
+  for (const [name, tag, inner, expected] of NATIVE) {
+    test(`${name}: every page names its own member, in order`, () => {
+      const parts = carouselize(tag, inner, { strategy: name }, 2, name);
+      assert.ok(Array.isArray(parts), `${name}: expected a split`);
+      const labels = parts
+        .filter((p) => /\sdata-split-role="body"/.test(p))
+        .map((p) => (p.match(/\sdata-split-label="([^"]*)"/) || [])[1]);
+      assert.deepEqual(labels, expected,
+        `${name}: the pages must name their own members. Without the stamp the pointer falls back `
+        + 'to membersIn, which names the first list on the page — a workstream row for roadmap, '
+        + 'and nothing at all for kanban.');
+    });
+  }
+
+  // The stamp carries AUTHOR TEXT into an HTML attribute, so it has to be escaped. A lane titled
+  // with a quote would otherwise close the attribute and the rest of the title would parse as
+  // markup on the page.
+  test('the label is escaped — a quote in a title cannot break out of the attribute', () => {
+    const inner = '<div class="chart-header"><h2>Board</h2></div><div class="chart-body">'
+      + buildKanbanBoard(
+        '<li>The "big" lane<ul><li>one</li></ul></li><li>Second<ul><li>two</li></ul></li>')
+      + '</div>';
+    const parts = carouselize(kbTag, inner, { strategy: 'kanban-lanes' }, 2, 'kanban');
+    const raw = (parts[0].match(/\sdata-split-label="([^"]*)"/) || [])[1];
+    assert.equal(raw, 'The &quot;big&quot; lane', 'an unescaped quote would end the attribute early');
+    assert.ok(!/data-split-label="[^"]*"[^>]*big/.test(parts[0]), 'title text leaked outside the attribute');
+  });
+
+  // FOUND BY THE INDEPENDENT CHECKER. The extractor matched `([\\s\\S]*?)</[a-z0-9]+>` — lazy, and
+  // any closing tag name — so it stopped at the first NESTED close instead of the title's own.
+  // `kanban` and `roadmap` both pass an author's inline markup straight into the title, so a lane
+  // written `- **Backlog** and triage` labeled itself "Backlog" and the pointer named half a
+  // title. `journey` is immune because its transform strips tags first, which is exactly why the
+  // committed decks never showed it and the first round of these tests, written with plain-text
+  // titles, could not have.
+  test('a title containing markup is taken whole, not cut at the first nested tag', () => {
+    const inner = '<div class="chart-header"><h2>Board</h2></div><div class="chart-body">'
+      + buildKanbanBoard(
+        '<li><strong>Backlog</strong> and triage<ul><li>a</li></ul></li>'
+        + '<li><strong>In flight</strong> this sprint<ul><li>b</li></ul></li>')
+      + '</div>';
+    const parts = carouselize(kbTag, inner, { strategy: 'kanban-lanes' }, 2, 'kanban');
+    const labels = parts.filter((p) => /\sdata-split-role="body"/.test(p))
+      .map((p) => (p.match(/\sdata-split-label="([^"]*)"/) || [])[1]);
+    assert.deepEqual(labels, ['Backlog and triage', 'In flight this sprint'],
+      'the title was cut at a nested closing tag — the pointer would name half a lane');
+  });
+
+  // An entity in a title survives ONE decode on read. The slice is rendered HTML, where an
+  // author's `&` is already `&amp;`; escaping that again stores `&amp;amp;` and the reader hands
+  // the pointer a literal `&amp;`.
+  test('an ampersand in a title round-trips to one ampersand', () => {
+    const inner = '<div class="chart-header"><h2>Board</h2></div><div class="chart-body">'
+      + buildKanbanBoard('<li>Ops &amp; IT<ul><li>a</li></ul></li><li>Second<ul><li>b</li></ul></li>')
+      + '</div>';
+    const parts = carouselize(kbTag, inner, { strategy: 'kanban-lanes' }, 2, 'kanban');
+    const raw = (parts[0].match(/\sdata-split-label="([^"]*)"/) || [])[1];
+    assert.equal(raw, 'Ops &amp; IT', 'stored double-escaped — one decode on read yields `&amp;`');
+  });
+
+  // A strategy that declares no `label` must not stamp a blank one: an empty attribute would be
+  // read as a member named '' and print a bare "continues" where the heuristic had a real name.
+  test('no label class, no stamp — the heuristic still runs', () => {
+    const parts = carouselize(rlTag, rlInner, { strategy: 'redline-blocks' }, 2, 'redline');
+    assert.ok(Array.isArray(parts));
+    for (const p of parts) {
+      assert.ok(!/\sdata-split-label=/.test(p),
+        'redline-blocks declares no label class, so its pages must carry no stamp at all');
+    }
   });
 });

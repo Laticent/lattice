@@ -368,8 +368,10 @@ section.list-tabular-cover .split-feat-lede {
 
 /* Row pages — the rows flow under a running header of the table title. */
 section.list-tabular-points .split-runhead {
-  font-size: var(--fs-meta); letter-spacing: 0.2em; text-transform: uppercase;
-  color: var(--text-muted); border-bottom: 1px solid var(--border);
+  font-family: var(--runhead-face);
+  font-size: var(--fs-meta); letter-spacing: var(--runhead-ls);
+  text-transform: var(--runhead-case);
+  color: var(--runhead-ink, var(--text-secondary)); border-bottom: 1px solid var(--border);
   padding-bottom: var(--sp-xs);
 }
 /* The gap below the runhead's underline rides as padding-top on the rows list (not a

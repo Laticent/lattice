@@ -8,6 +8,10 @@
       "sections"
     ]
   },
+  "split": {
+    "strategy": "journey-stages",
+    "note": "PORTRAIT ONLY, and the VERTICAL form only. At landscape a journey is one figure over a shared axis \u2014 .journey-board sets --task-count, every task carries an absolute --col, and the stage ribbon spans its tasks with grid-column: span var(--span) \u2014 so a slice leaves tasks at columns 4-5 of a grid missing columns 1-3. That is the matrix-grid/gantt test, and journey fails it at landscape: it rings there, untouched. At portrait journey.transform.js emits ol.journey-vstack > li.journey-vstage > ol.journey-vrows > li.journey-vtask and the vertical rules are flex throughout (--span is a growth factor, --col unread), so a stage is a real unit: its own band label, its own rows, a per-task mood mark rather than one polyline across the set. The categorical accent survives the cut because it is attribute-driven \u2014 .journey-vstage[data-section=\"0..5\"] picks --cat-1-mark..--cat-6-mark \u2014 and data-section is written on the member, so it travels. The actor and mood legends FOLLOW the vstack in the emitted DOM, so they ride the suffix and repeat on every page, which a page of mood faces needs. The splitter returns null when there is no ol.journey-vstack, so the landscape grid is untouched. lib/core/carousel.js journey-stages."
+  },
   "function": "progression",
   "bucket": "chart",
   "form": "timeline",

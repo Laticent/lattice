@@ -22,7 +22,7 @@ const assert = require('node:assert/strict');
 const {
   splitEnvelope, balancedPerPage, readCover, readMasthead, splitRegions, topLevelElements,
   chromeOf, footerCell, stripChrome, partitionKeepingNote, injectTrailing, markNote, deriveAxis,
-  insightPageFrom, trailingMaterialOf, existingNoteIn,
+  closingPageFromMaterial, trailingMaterialOf, existingNoteIn,
 } = require('../../../lib/core/split-envelope');
 const { dockInFooterCell } = require('../../../lib/core/footer-dock');
 const { evenGroups } = require('../../../lib/core/collections');
@@ -888,12 +888,50 @@ describe('core: the universal CODA cell rides the split (lib/core/coda.js)', () 
 });
 
 
-describe('core: the insight PAGE carries a two-beat coda without losing or breaking it', () => {
-  // Regression pins for the half-span design that shipped in the first cut of the
-  // coda: `codaSpans` returned cell-open..cut and cut..cell-close, which is correct
-  // ONLY for a caller that removes both. `insightPageFrom` keyed `keep` on a span's
-  // range and so never matched the cell (page shipped blank); `insightPage` removed
-  // just the note half and stripped `.cell-stage`'s closing tag.
+describe('core: the CLOSING page does not repeat what the COVER hoisted', () => {
+  // `closingPage` removes the lede (hoisted to the cover) and the collection (the body pages'
+  // whole job). It called `spliceSpans` directly, which REPLACES a span with its own `outer` when
+  // the span carries one — and a lede span does. So the lede was substituted for itself and the
+  // closing page repeated the cover's framing paragraph. The collection span carries no `outer`,
+  // so that one went, which is why the page looked almost right.
+  //
+  // Measured on `examples/split-relationship.md`, where the duplicated sentence is the one
+  // claiming it "hoists to the run's cover instead of repeating on every body page". Two
+  // reviewers found it in the QUALITY BAR sweep; the conservation gate cannot: it counts words,
+  // and a duplicate only ever raises a count.
+  const inner = () =>
+    '<div class="cell-masthead"><div class="masthead-lede"><h2>Readiness</h2></div></div>' +
+    '<div class="cell-stage"><p>FRAMING-PARA hoists to the cover.</p>' +
+    `<ul>${['a', 'b', 'c'].map((x) => `<li>item ${x}</li>`).join('')}</ul></div>` +
+    '<div class="cell-coda"><div class="below-note"><p>NOTE-TEXT</p></div></div>';
+
+  test('the lede appears exactly once across the run, on the cover', () => {
+    const src = inner();
+    const parts = splitEnvelope('<section data-lattice-slide="8" id="s8" class="checklist form">',
+      src, chromeOf(src), { axis: 'item', per: 1 });
+    assert.ok(Array.isArray(parts) && parts.length >= 3, 'expected a split');
+    const copies = parts.join('').split('FRAMING-PARA').length - 1;
+    assert.equal(copies, 1, `the lede appears ${copies} times across the run`);
+    assert.match(parts[0], /FRAMING-PARA/, 'the cover must carry the lede');
+    const closing = parts.filter((p) => /\sdata-split-role="closing"/.test(p));
+    assert.equal(closing.length, 1, 'expected one closing page');
+    assert.doesNotMatch(closing[0], /FRAMING-PARA/, 'the closing page repeated the cover lede');
+    assert.match(closing[0], /NOTE-TEXT/, 'the closing page must still carry the note');
+  });
+});
+
+describe('core: the CLOSING page carries a two-beat coda without losing or breaking it', () => {
+  // Regression pins for the half-span design that shipped in the first cut of the coda:
+  // `codaSpans` returned cell-open..cut and cut..cell-close, which is correct ONLY for a caller
+  // that removes both. One insight-page builder keyed `keep` on a span's range and so never
+  // matched the cell (the page shipped blank); the other removed just the note half and stripped
+  // `.cell-stage`'s closing tag.
+  //
+  // Both builders were deleted on 2026-09-02 when the closing page replaced them, and these pins
+  // MOVED here rather than going with them: `closingPageFromMaterial` unwraps a coda-cell span to
+  // merge the beats into one cell, so it depends on that span being a WHOLE, well-formed cell in
+  // exactly the way those two did. Deleting the pins with their old caller would have retired the
+  // coverage and kept the hazard.
   const bothBeats = () =>
     '<div class="cell-masthead"><div class="masthead-lede"><h2>T</h2></div></div>' +
     '<div class="cell-stage">' +
@@ -905,13 +943,21 @@ describe('core: the insight PAGE carries a two-beat coda without losing or break
     '</div>';
   const balanced = (html) => (html.match(/<div\b/g) || []).length === (html.match(/<\/div>/g) || []).length;
 
-  test('insightPageFrom keeps the insight, drops the note, and stays balanced', () => {
-    const page = insightPageFrom('<section data-lattice-slide="1" class="checklist form">', bothBeats());
-    assert.ok(page, 'an insight page must be produced');
-    assert.match(page, /INSIGHT-SENTINEL/, 'the author\'s Key Insight must survive onto its own page');
-    assert.doesNotMatch(page, /NOTE-SENTINEL/, 'the note rides the body page, not the insight page');
-    assert.match(page, /class="cell-coda"/, 'and it must still be inside a real coda cell');
-    assert.ok(balanced(page), `insight page must be balanced markup:\n${page}`);
+  const closingOf = (inner) => {
+    const { insight, note } = trailingMaterialOf(inner);
+    return closingPageFromMaterial('<section data-lattice-slide="1" class="checklist form">',
+      { header: '' }, [...insight, ...note], 'checklist', 'T');
+  };
+
+  test('the closing page keeps BOTH beats, in one cell, and stays balanced', () => {
+    const page = closingOf(bothBeats());
+    assert.ok(page, 'a closing page must be produced');
+    assert.match(page, /INSIGHT-SENTINEL/, 'the author\'s Key Insight must survive onto the closing page');
+    assert.match(page, /NOTE-SENTINEL/, 'the note closes the run BESIDE the insight (2026-09-01)');
+    assert.match(page, /class="cell-coda"/, 'and both must be inside a real coda cell');
+    // ONE cell, not two nested — the unwrap is what this pin is really about.
+    assert.equal((page.match(/class="cell-coda"/g) || []).length, 1, 'the beats must merge into ONE coda cell');
+    assert.ok(balanced(page), `closing page must be balanced markup:\n${page}`);
   });
 
   test('the stage cell is closed, and the beat survives in the coda beside it', () => {
@@ -921,22 +967,22 @@ describe('core: the insight PAGE carries a two-beat coda without losing or break
     // cell, and the stage is legitimately empty because there is no body on that page.
     // What still has to hold is what the proxy stood in for — balanced markup, the stage
     // closed, and the beat actually present.
-    const page = insightPageFrom('<section data-lattice-slide="1" class="checklist form">', bothBeats());
+    const page = closingOf(bothBeats());
     // NOT `/<div class="cell-stage">[\s\S]*?<\/div>/` — a lazy match happily ends on the
     // CODA cell's closing tag, so it passes on an unclosed stage, which is the one defect
     // this line exists to catch. Count the tags instead.
     const opens = (page.match(/<div\b/g) || []).length;
     const closes = (page.match(/<\/div>/g) || []).length;
-    assert.equal(opens, closes, `unbalanced <div> on the insight page:\n${page}`);
+    assert.equal(opens, closes, `unbalanced <div> on the closing page:\n${page}`);
     assert.match(page, /<div class="cell-stage">/, 'cell-stage must be present');
     assert.match(page, /<div class="cell-coda"[^>]*>[\s\S]*?<blockquote>/, 'the beat must survive in the coda cell');
-    assert.ok(balanced(page), `insight page must be balanced markup:\n${page}`);
+    assert.ok(balanced(page), `closing page must be balanced markup:\n${page}`);
   });
 
-  test('the OTHER caller — splitEnvelope\'s insightPage — is balanced too', () => {
-    // S2's actual path. `insightPage` removes the note span; when both beats share a
-    // cell that range is the cell's, so a remove (rather than a replace) strips its
-    // closing tag and `.cell-stage` never closes.
+  test('the OTHER caller — splitEnvelope\'s own closingPage — is balanced too', () => {
+    // S2's actual path, through the SUBTRACTIVE builder rather than the composed one. It splices
+    // the lede and the collection out of the source and keeps the coda cell whole, so a shared
+    // two-beat range must not strip the cell's closing tag and leave `.cell-stage` unclosed.
     const secs = build(codaInner({ n: 9, insight: 'Ship it.', note: 'Source: filings.' }));
     for (const sec of secs) {
       assert.equal(
@@ -956,7 +1002,7 @@ describe('core: the insight PAGE carries a two-beat coda without losing or break
     const one =
       '<div class="cell-stage">' + items(3) +
       '<div class="cell-coda" data-dock="column"><blockquote><p>ONLY-INSIGHT</p></blockquote></div></div>';
-    const page = insightPageFrom('<section data-lattice-slide="1" class="checklist form">', one);
+    const page = closingOf(one);
     assert.match(page, /ONLY-INSIGHT/);
     assert.ok(balanced(page));
   });
@@ -995,11 +1041,15 @@ describe('split-envelope — EVERY arm that reaches the sibling coda Cell is pin
     assert.equal(regions.insight.length, 1, 'the sibling insight was not merged in');
   });
 
-  test('insightPageFrom carries the sibling cell onto the insight page', () => {
-    const page = insightPageFrom('<section class="checklist form">', sib({ insight: 'INSIGHT', note: 'NOTE' }));
-    assert.ok(page, 'no insight page built');
-    assert.match(page, /INSIGHT/, 'the insight did not reach its own page');
-    assert.doesNotMatch(page, /NOTE/, 'the co-resident note leaked onto the insight page');
+  test('closingPageFromMaterial carries the sibling cell onto the closing page', () => {
+    const inner = sib({ insight: 'INSIGHT', note: 'NOTE' });
+    const { insight, note } = trailingMaterialOf(inner);
+    const page = closingPageFromMaterial('<section class="checklist form">', { header: '' },
+      [...insight, ...note], 'checklist', 'T');
+    assert.ok(page, 'no closing page built');
+    assert.match(page, /INSIGHT/, 'the insight did not reach the closing page');
+    // BOTH beats close the run now — the co-resident note is carried, not dropped (2026-09-01).
+    assert.match(page, /NOTE/, 'the co-resident note must ride the closing page beside the insight');
   });
 
   test('injectTrailing seats a coda Cell BESIDE the stage, never inside it', () => {

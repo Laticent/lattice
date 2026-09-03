@@ -1,0 +1,235 @@
+- **Fixed: every auto-split run now ends on ONE closing page carrying the below-note and the key
+  insight together.** Five carousel strategies still shipped the placement the 2026-09-01 ruling
+  replaced — the note spliced into the last body page, the takeaway on a page of its own — so a
+  split `compare-prose`, `split-panel`, `decision`, `compare-code` or `list-tabular` slide ended
+  with its two closing beats pulled apart. They route through one kernel builder now
+  (`closingPageFromMaterial`), so a run reads the same whichever layout it came from.
+- **Fixed: `split-panel` no longer loses a trailing key insight and below-note when it splits.**
+  Both were dropped outright — no page, no warning. A rendered section ends with three fit-berth
+  marker divs, and the reader that finds a layout's own content slot takes the section's last
+  element, so it picked an empty berth instead of the panel holding the author's text. Berths are
+  chrome now, and a trailing sentence after a structural block is recognized as a note at that
+  depth.
+- **Fixed: `kanban` and `roadmap` printed a slide's key insight once per lane or card.** Both
+  re-emit a slice of the source that carries everything after the last lane, and repeat it on
+  every page — a two-lane board printed one takeaway three times. The trailing beats are stripped
+  from the slice and close the run instead. `redline` did the same with a below-note.
+- **Changed: `compare-prose` no longer builds its own "The verdict" page**, and `list-tabular` no
+  longer promotes a trailing below-note onto its cover. Both consumed the note, which is what
+  split it away from the key insight; it closes the run beside it now. The unused
+  `compare-split-verdict` styling is removed with it.
+- **Fixed: a `redline` slide with no why-list no longer has both its passages moved off their
+  pages.** The split kernel classified trailing material by element shape alone, so it read
+  `redline`'s two quoted passages as universal beats and swept them onto the run's closing page,
+  leaving two body pages carrying only a heading. It asks the layout's `coda.claims` now — but only
+  where the claimed element rides a MEMBER, which is `redline` alone. A strategy that re-emits
+  source repeats everything outside its member set on every page, so a claimed beat left there is
+  duplicated rather than preserved.
+- **Removed: the `insight` split role, its two page builders, and the four `.lat-split-insight`
+  selectors that shipped with no emitter.** A key insight closes the run beside the note now, so
+  nothing built or styled a page for it alone.
+- **Fixed: a split run of `compare-prose`, `split-panel`, `decision` or `list-tabular` now names
+  the page it points at.** Every body page read "→ continues" because the member's title lives in
+  a labeled span the pointer's label reader did not know, so it fell through to a path that
+  declined on length.
+- **Added: a `journey` splits by STAGE on a tall deck** — one stage per page, carrying its own
+  band label, its own task rows with their actor dots and mood faces, and both legends, because a
+  page of mood faces without the mood key is unreadable. Portrait only: at landscape a journey is
+  one figure over a shared axis (every task holds an absolute grid column), so a slice would draw
+  tasks into columns that are no longer there — the splitter declines there and the slide rings,
+  unchanged.
+- **Fixed: a slide's own `_footer:` no longer disappears from every page when the slide splits.**
+  The strip that removes the deck's repeated header and footer from a split run identified them by
+  the section's `data-footer` — which Marp also fills from a per-slide override, so it could not
+  tell the deck's band from this slide's caption and deleted the caption, which then appeared
+  nowhere at all. It reads the deck's front matter now. This was live: all three journey slides of
+  `portrait-journey` and both roadmap slides of `portrait-roadmap` lost their captions.
+- **Fixed: a split `roadmap` pointed at the wrong thing, and a split `kanban` pointed at nothing.**
+  The forward pointer resolves a page's members as the first list on it — right where the page's
+  body IS that list, wrong where the page holds one sliced card with lists of its own. A roadmap
+  phase page named a workstream row instead of the phase ("next: Signal Intake Scoring v2" on a
+  page titled "Q2", two fields of one row run together), and a kanban lane page found no list at
+  all, so those runs carried no pointer. The splitter now names the member it cut, because it is
+  the only thing that knows; runs read "next: Q2" and "next: In progress".
+- **Fixed: the CSS selector gate skipped the selectors most likely to be invalid.** It handed
+  Chromium every rule prelude css-tree could parse, and silently dropped the ones it could not —
+  which is the class most likely to be broken. The stated reason (keyframe percentages) never
+  applied: those parse as ordinary selector lists. A keyframe step is now excluded by being inside
+  a keyframes block, which is the real reason to skip it, and everything else reaches the browser.
+- **Changed: the furniture on a split page is redesigned for a slide read small.** Owner review of
+  real social-size renders. The forward pointer leaves the full-bleed ruled band it was wearing and
+  becomes a marker in the bottom-right margin, with its rule dropped. The runhead that names the
+  source slide loses the wide-tracked uppercase treatment it was wearing — it is fed a slide TITLE,
+  and 0.2em capitals turned a forty-character title into a two-line wall; it is a normal-case
+  standfirst in the body face now, and every runhead in `examples/read-across-carousel.md` fits on
+  one line. The k-of-N rail's off state was a ghost at 0.22 opacity — 1.4:1 against its backdrop,
+  reading as a broken hairline rather than as progress — and goes to 0.70, the first step that
+  clears the 3:1 WCAG 1.4.11 floor a meaningful graphical object owes on EVERY shipped palette,
+  on both surfaces the rail lands on (3.11:1 on a body page in `cuoio`, 3.34:1 on the accent
+  cover in `indaco-dark`). The page's own caption
+  takes the pointer's ink lift, and nothing else — a wider caption is what put CONTENT CLIPPED on
+  six pages once already. Seven scoped copies of the runhead's finish now read one register.
+- **Fixed: a split page's forward pointer stranded its arrow at the far left of the page whenever
+  the text wrapped.** The mark was a flex sibling of the text; a text item wider than its row
+  shrinks to exactly the space left over, so there is no free space for `justify-content: flex-end`
+  to distribute and the mark stays at the row's left edge while the text is pushed right — 390px
+  apart on a 972px row. The pointer shrink-wraps to its content now, so there is no free space
+  left in the row to strand the mark across, and the mark rides the trailing edge of the box.
+- **Fixed: a split `journey` stage sat high on its page with both legends stranded near the floor.**
+  Three parts each took their own share of the height instead of composing: the board fills the
+  cell, the stack fills the board, and the stage's rows fill the stack, so the cell's own centering
+  had nothing left to center. On a split page all three stop growing and the board centers the
+  stage and its legends as one group. The unsplit render is byte-identical.
+- **Changed: the forward pointer is a pill.** Owner's call, on the redesigned furniture: a subtle
+  on-brand pill with the drawn arrow and the label inside it, rather than bare text on the canvas.
+  It reuses the universal `--pill-*` register — same radius, padding, weight and tracking as every
+  other pill in the engine — and names the one axis it overrides at its own site: `--bg-alt` for
+  the fill, because a signal on the page's own canvas needs to separate from it. The numbers back
+  the shape: across the eight shipped decks that split there are 153 signals, median label
+  thirteen characters, 71% at or under twenty, and not one of them lands on a split cover — so the pill
+  never has to survive the inverse surface. `align-self: flex-end` shrink-wraps it, right-anchors
+  it without a margin, and is what makes a flex row safe here: the arrow was stranded before
+  because the box was full-width, and a box sized to its content has no free space to strand it
+  across.
+- **Fixed: the run's CLOSING pointer was built by a second producer, and drifted the moment the
+  first one changed.** `closingSignal` in `auto-split.js` hand-assembled the same
+  `.lat-split-rel` div that `relationship.js` builds (HARD RULE #1). The two agreed for as long as
+  the element was a bare div: when the label needed wrapping in a span so the pill could ellipsise
+  — `text-overflow` never applies to a flex container — the kernel grew one and the copy did not,
+  so a closing pointer rendered unwrapped. Both go through the one builder now.
+- **Changed: the forward pointer drops the word "next" and puts its arrow after the label.** Owner's
+  call: the arrow already says it. A sequence or cycle page now reads `Trial →` rather than
+  `→ next: Trial`, which is six characters of chrome removed from every one of them. The mark moved
+  to the trailing edge for every kind that draws one, not just `next` — a `↻` still on the left
+  while a `→` sat on the right would read as two widgets rather than one system. The WORDS stay on
+  the other two kinds, and the difference is the point: an arrow carries "next", but `↓` and `↑`
+  distinguish a hierarchy's two directions without naming them, so `governs` and `under` are still
+  doing work. `comparison` draws no mark at all and is untouched.
+- **Fixed: four hand-rolled copies of the same tag strip, three of them flagged by CodeQL.**
+  `replace(/<[^>]*>/g, '')` had been written out separately in two test files and in
+  `withMemberLabel`, and code scanning raised three high-severity alerts for incomplete
+  multi-character sanitization on the test copies. All four call the kernel's `textOf` now, which
+  strips to a fixpoint. The loop is the gate's accepted remediation rather than a fix for a
+  demonstrated bypass — replacing it with a single pass leaves every test green, because
+  `<[^>]*>` consumes from a `<` to the next `>` and a surviving `>` has no `<` left to pair with.
+  Both the kernel comment and the new property test say so, and the property they pin — nothing
+  `textOf` returns carries a tag — holds whatever the implementation.
+- **Fixed: a run's closing page read as a page whose content failed to render.** Found by an
+  independent visual sweep, and the measurement is the whole story: the coda cell was
+  `flex: 1 1 auto`, so on a 1350px page it took 1110px and centered its hundred pixels of note
+  inside that, stranding the runhead a thousand pixels above with two hairlines framing the void
+  between them. The coda stops growing now, so the section's own centering composes the runhead
+  and the closing note as ONE group — the same correction the split `journey` needed, and for the
+  same reason: a child that absorbs the free height leaves the parent's centering nothing to
+  center. The runhead also drops its rule here, because the note already draws one and the two
+  became a doubled hairline 58px apart once the gap closed.
+- **Fixed: five defects an independent check found in the redesigned furniture.** All measured on
+  real renders, none caught by a gate.
+  - The runhead register was declared on `:root` alone, so `var(--text-secondary)` was substituted
+    at `<html>` against the theme's SCREEN value and inherited down already resolved — out of reach
+    of `section.print`'s remap. A `class: print` split page painted its runhead the theme's blue
+    (#455C7A) on an otherwise all-gray paper page. The register is on `:root, section` now, which
+    is what the typography generator has emitted for the same reason since #1375. Dark mode was
+    never affected: `light-dark()` inside a custom property resolves at the using element.
+  - The pointer had `max-width: 100%` under the initial `content-box`, so its padding and border
+    landed OUTSIDE that cap — and because the pill is right-anchored, the excess went left, out of
+    the content column and into the page margin, where the column's clip cut the rounded cap and
+    the first character. A split `verdict-grid` rendered a 1019px pill in a 972px column, its left
+    edge 47px outside that column. `comparison` is the reachable case
+    because it is the one relationship whose label has no length budget. `scrollWidth` could never
+    have caught it: leftward overflow is invisible to it in LTR.
+  - **Breaking-ish for anyone reading the ink:** the pointer's ink is `--text-body`, not
+    `--text-secondary`. Measured on the rendered pointer across all 33 shipped palette variants,
+    `--text-secondary` on `--bg-alt` is WORSE than the `--text-muted`-on-`--bg` it replaced on 14
+    of them and bottoms out at 4.63:1 — under the 5.13:1 this redesign names as the problem. On
+    `cuoio`, the default theme, it went 5.07 to 4.64. A "read it small in a feed" change cannot
+    dim the pointer on the default palette. `--text-body` floors at 5.46:1 and beats the
+    pre-branch value on 32 of the 33. The pointer stays subordinate by SIZE and placement, which
+    is what was doing that job.
+  - The split caption's ink lift never landed. It was written as
+    `var(--marp-slide-footer-color, var(--text-secondary))`, but that token is declared
+    unconditionally at `:root` and again in every theme that tunes it, so the fallback could never
+    fire and the caption kept computing `--text-muted`. It sets `color` directly now — and matches
+    the `premise` page's footer, which sits as a direct child of the section and which both of the
+    original selectors missed.
+  - `test/unit/css/split-signal-scope.test.js` passed on a pill stranded at the far LEFT, which is
+    the exact failure it was rewritten to catch: `align-self`'s computed value is the specified
+    keyword whatever the parent does, and `width < stageWidth` is true of any shrink-wrapped box at
+    either edge. It measures the box's own edges now, and gains a long-label case covering the
+    ellipsis and the box model. All three assertions were mutation-checked against the defects they
+    name.
+- **Changed: one dead rule block and one specificity tie removed from the split furniture.** The
+  pointer's pre-pill declarations survived the pill as a second, contradictory 30-line explanation
+  of the same element; a full computed-style diff with them removed changed three properties and no
+  geometry at all. And the split `journey`'s `justify-content: center` tied on specificity with the
+  vertical board's own `flex-start` ninety lines above it in the same file, winning on source order
+  alone — it carries the board's `[data-orient]` now, so it is a real override.
+- **Fixed: a split `journey`'s mood key named a color encoding the page does not use.** The five
+  swatches are the categorical `--journey-mood-*` ramp, which is right on the LANDSCAPE board,
+  where every face is painted from that same ramp. The vertical board encodes mood twice and
+  neither way is that ramp: the row is washed off the semantic state hues and the face is plotted
+  by POSITION on a numbered track in the inherited body ink. Measured on `portrait-journey.pdf`
+  p6, the rows render green, every face is navy, and the key beside them shows brown, blue, blue,
+  purple and red — five colors that appear nowhere on the page, on a legend this branch repeats
+  once per stage. The vertical variant drops the swatches and keeps the scale's verbal anchors
+  and numerals, which is what the mood track's five gridlines are numbered by.
+- **Fixed: `(cont.)` — the marker on a split slide's repeated heading — was the most common
+  sub-threshold text run in the engine.** At `opacity: 0.5` it bottoms out at 2.96:1 against the
+  4.5:1 real text owes, measured on a real render swept across all 33 shipped palette variants;
+  126 of that sweep's 162 total offenders were this one marker. It reads on `indaco`, which is
+  the only palette the per-PR contrast gate renders, which is why nothing caught it. 0.65 still
+  fails at 4.46:1; **0.70** is the first step that clears, at 5.09:1 worst, so it is the quietest
+  this marker can be and still be text. It stays an opacity rather than an ink token on purpose:
+  it rides inside an `h1`/`h2`, and a split heading is not always on the plain canvas, so the
+  alpha keeps it compositing over whatever the heading actually sits on. The same sweep now
+  reports 36 offenders where it reported 162, and none of them is split furniture.
+- **Fixed: fourteen committed demo PDFs this branch made stale, and a rail contrast claim that was
+  true on one palette.** Found by a second independent check.
+  - The k-of-N rail's off state went to 0.55 on a measurement taken on `indaco` alone, and the
+    changelog stated it "clears the 3:1 WCAG 1.4.11 floor". Swept across all 33 shipped variants on
+    a real render it fails on SEVEN, bottoming out at **2.34:1 on `cuoio`, the default theme** —
+    the same error this branch already made once with the pointer's ink. It survived because
+    `tools/palette-sweep.js`, the instrument used to re-derive the pointer, walks TEXT runs and
+    cannot see a rail at all. Measured directly on both surfaces the rail lands on: 0.65 still
+    fails, and **0.70** is the first step where a body page and the accent cover both clear, at
+    3.11:1 (`cuoio`) and 3.34:1 (`indaco-dark`). The on/off pair still reads as k-of-N at 200 dpi.
+  - Dropping the journey mood swatches left the scale reading as one five-digit number: five 22px
+    numerals separated by an 8.26px gap at a 39.96px type size renders `PAIN 12345 DELIGHT`. The
+    vertical legend's gap is `1.1ch` now — a digit's own advance — so the ticks stay apart at every
+    size the board renders at.
+  - Fourteen `examples/*.pdf` that were byte-current with `main` no longer matched the engine,
+    among them `split-relationship` and `split-envelope` — the decks a reviewer would open to see
+    exactly this change. Regenerated; all 21 decks this branch touches are byte-current, verified
+    by re-rendering and comparing. (`portrait-gantt-statechart`'s TYPE FLOOR warning is unchanged
+    from `main`.)
+  - Accuracy, in comments and in this file: the pill's overflow went out of the content column into
+    the page margin, not "past the page edge" (its left edge lands 7px inside a 1080px page);
+    `split-headings` was named among the decks that split and contributes nothing, because it has
+    no `size:` and renders wide; and the guard suite's fixtures gave two carousel shapes a
+    `.cell-stage` that production never emits for them — measured, four shapes attach the pointer
+    to the section itself, and no closing page ever carries one.
+- **Fixed: three defects the adversarial trio found in this branch's own fixes.**
+  - **The k-of-N rail was tuned on the wrong quantity.** Every earlier revision measured the off
+    pill against its backdrop — whether you can see the pills — and never measured whether you can
+    tell which one is current, which is the only thing the rail exists to say. Those pull opposite
+    ways when both states are one color at two alphas: presence wants 0.65 and up, state wants
+    0.34 and down, and no value satisfies both (at 0.70 the state separation is 1.79:1 on a body
+    page and 1.49:1 on the accent cover). The state is carried by LENGTH now — the off pill is
+    roughly half the on pill — which spends no contrast at all and frees the alpha to serve
+    presence. The **off** state is the one that shrinks, deliberately: the rail is a progress fill,
+    so on a run's last page every segment is on, and lengthening the on state widened the rail 32%
+    exactly when it is most complete, taking the room out of the caption beside it. Shortening the
+    off state instead makes the footprint non-increasing, and `gallery-jargon` at portrait goes
+    from 45 clipped captions to 43.
+  - **A `:root` override of the runhead register was a silent no-op.** Declaring the ink on
+    `:root, section` fixed the print remap and broke theme authoring, because a section-scoped
+    declaration outranks a theme's `:root` and every shipped theme declares its ink ramp there —
+    the exact sibling of the caption bug this branch documents at length. The ink is no longer
+    declared in the register; its default rides as a `var()` fallback at each of the seven
+    consumers, which resolves at the using element (so print still remaps) while leaving the
+    property genuinely unset (so a theme wins). Verified both ways on a real render.
+  - **The exporter reported the pointer pill's deliberate ellipsis as content loss.** The label is
+    engine-generated and capped by rule, so "Shorten the copy" names an edit the author cannot
+    make, and the false alarm trains authors to ignore the one signal export sign-off reads. It
+    joins the clip probe's ignore list. The split caption deliberately does NOT: those are the
+    author's own words, appearing nowhere else, and "shorten it" is exactly the right advice.
