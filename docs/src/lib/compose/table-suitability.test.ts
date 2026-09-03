@@ -40,15 +40,18 @@ describe('slideTakesTable', () => {
 
 	// `glossary` renders its entries AS a table from its own list grammar (confirmed by
 	// rendering the clean skeleton), so an author-added table would be the second one.
-	it('withholds it where the layout already renders a table from its own grammar', () => {
+	it('withholds it where the layout already renders a grid from its own grammar', () => {
+		// `glossary` emits a real <table> from its entry list; `list-tabular` reads as one by
+		// design. Either way an author-added table is the SECOND grid on the slide.
 		expect(slideTakesTable(d('glossary'))).toBe(false);
+		expect(slideTakesTable(d('list-tabular'))).toBe(false);
 	});
 
 	// The other direction, and the guard against over-withholding: an open list flow has no
 	// figure to damage — measured, these components show a figure height of 0 — so a table is
 	// an ordinary second block there.
 	it('offers it on open list-flow layouts, which have no figure to compete with', () => {
-		for (const cls of ['list', 'list-tabular', 'list-criteria', 'list-steps', 'agenda', 'actors', 'checklist', 'inventory', 'q-and-a', 'policy-recommendation', 'regulatory-update']) {
+		for (const cls of ['list', 'list-criteria', 'list-steps', 'agenda', 'actors', 'checklist', 'inventory', 'q-and-a', 'policy-recommendation', 'regulatory-update']) {
 			expect(slideTakesTable(d(cls)), cls).toBe(true);
 		}
 	});

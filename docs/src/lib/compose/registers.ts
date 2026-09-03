@@ -181,8 +181,14 @@ const TABLE_UNSUITED = new Set([
 	'redline',
 	'decision',
 	'split-compare', // and the engine genuinely DROPS a table here — measured
-	// ── Already renders a table from its own grammar ────────────────────────────
-	'glossary', // its entries ARE the table; a second one competes
+	// ── Already renders a grid from its own list grammar ────────────────────────
+	// Confirmed by rendering the clean skeletons: `glossary` emits a real <table> element from
+	// its entry list. `list-tabular` is the same idea one step softer — its whole job is the
+	// compact reference row, so it READS as a table even where the markup is a list. Either
+	// way an author-added table is the second grid on the slide, which is the one thing a
+	// reference layout cannot afford.
+	'glossary',
+	'list-tabular',
 ]);
 
 /**

@@ -11,12 +11,14 @@ summary: >
   in two keystrokes an author reaches by habit. Also: folding a slide did not survive any op
   that rewrites the deck source (the rail, the gallery), because those re-import through
   `resyncFrom` and the unit test only ever drove the in-Compose `slideOp` path; the table door
-  took THREE passes and the first two were wrong — the engine does NOT drop a table on a layout
-  without a table slot (universal table CSS renders one at the boardroom bar), the real defect
-  was an EMPTY starter table rendering as two hairlines, and reverting that gate then answered a
-  rendering question when the report had asked an editorial one, so the door is now withheld on
-  a CURATED list of layouts where a table is the wrong slide; the structural guard read the
-  SELECTION to judge intent, which is
+  took FOUR passes and three were wrong — the engine does NOT drop a table on a layout without a
+  table slot (universal table CSS renders one at the boardroom bar), the real defect was an EMPTY
+  starter table rendering as two hairlines, reverting that gate then answered a rendering
+  question when the report had asked an editorial one, and the replacement was too narrow until
+  MEASUREMENT showed a three-row table costs a chart or diagram 35-45% of its figure height while
+  taking only 20% of the slide, so the door is now withheld on a curated 46 of 61 wherever a
+  primary figure or fixed anatomy owns the stage; the structural guard read the SELECTION to
+  judge intent, which is
   right for a keystroke and wrong for a paste, making every multi-slide paste a silent no-op;
   deleting the slide you were editing flung the caret and the preview to the LAST slide; and an
   inserted slide did not take the caret. Each fix ships with an e2e oracle checked BOTH ways
@@ -109,10 +111,12 @@ because that unmounts the component. Leaving Compose is a plausible place to los
 a view-only preference, and persisting it would need a store keyed outside the
 editor.
 
-## 3. The table door — three passes, two of them wrong
+## 3. The table door — four passes, three of them wrong
 
-The most instructive entry here, because the first two answers were each wrong in a
-different way and the second looked like a correction.
+The most instructive entry here. Four passes, three wrong, and each wrong one looked like a
+correction of the last. The lesson is not "measure more" — every wrong pass HAD a measurement.
+It is that a measurement answers the question you actually asked it, and three times running
+that was not the question the report had asked.
 
 **First pass (wrong).** The control was gated to the 4 of 61 components whose manifest
 declares a table, on the claim that the engine DROPS a table anywhere else — "measured across
@@ -163,14 +167,19 @@ rule. `diagram` never warns — Mermaid scales its own labels down instead — a
 and `regulatory-update` overflow only because their skeletons already sit near capacity,
 which is a `lint:deck` concern, not evidence that a table is the wrong kind of content there.
 
-**45 withheld, 16 offered.** What keeps the door: `content`, the open list-flow layouts
-(`list`, `list-tabular`, `list-criteria`, `list-steps`, `agenda`, `actors`, `checklist`,
-`inventory`, `q-and-a`, `policy-recommendation`, `regulatory-update`) — all measured with a
-figure height of ZERO, so there is nothing for a table to compete with — and the four whose
-table IS the content (`compare-table`, `matrix-grid`, `obligation-matrix`, `roadmap`).
+**46 withheld, 15 offered.** What keeps the door: `content`, the open list-flow layouts
+(`list`, `list-criteria`, `list-steps`, `agenda`, `actors`, `checklist`, `inventory`,
+`q-and-a`, `policy-recommendation`, `regulatory-update`) — all measured with a figure height
+of ZERO, so there is nothing for a table to compete with — and the four whose table IS the
+content (`compare-table`, `matrix-grid`, `obligation-matrix`, `roadmap`).
 
-One entry earned its place by measurement alone: `glossary` renders its entries AS a table
-from its own list grammar, so an author-added table would be the second one.
+Two entries are withheld for ALREADY BEING A GRID. `glossary` earned it by measurement —
+it renders its entries as a real `<table>` from its own list grammar. `list-tabular` is the
+same idea one step softer: its whole job is the compact reference row, so it READS as a table
+even where the markup is a list. Either way an author-added table is the second grid on the
+slide, which is the one thing a reference layout cannot afford. `list-tabular` was offered in
+the first cut of this list and moved on review — a reminder that "has no figure" was necessary
+but not sufficient.
 
 **Curated, not derived, and TWO failed derivations are why.** A regex over manifest slots
 answers "does this component DECLARE a table?" — a different question, and it hid the control

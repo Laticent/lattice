@@ -18,10 +18,10 @@
   with empty cells, which serializes to `|  |  |` and renders as two hairlines —
   invisible on a dark slide, and indistinguishable from a button that did
   nothing. Its header cells now carry `Column`.
-- **Changed: Compose withholds the "Insert table" control on the 45 layouts where a
+- **Changed: Compose withholds the "Insert table" control on the 46 layouts where a
   table competes for the stage** — every chart, the diagram, code and math slides,
   the fixed grids and card anatomies, the two-sided comparisons, the picture and
-  contact slides, and the bookends. It stays on the 16 where a table belongs: the
+  contact slides, and the bookends. It stays on the 15 where a table belongs: the
   catch-all `content`, the open list-flow layouts, and the four whose table IS the
   content. The measurement behind it: adding one three-row table costs `quadrant`
   45% of its figure height, `diagram` 36%, `piechart` 36% and `code` 35%, while the
