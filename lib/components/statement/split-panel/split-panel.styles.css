@@ -444,7 +444,7 @@ section.split-panel-points .split-runhead {
   font-family: var(--runhead-face);
   font-size: var(--fs-meta); letter-spacing: var(--runhead-ls);
   text-transform: var(--runhead-case);
-  color: var(--runhead-ink); border-bottom: 1px solid var(--border);
+  color: var(--runhead-ink, var(--text-secondary)); border-bottom: 1px solid var(--border);
   padding-bottom: var(--sp-xs);
 }
 section.split-panel-points .split-pts {

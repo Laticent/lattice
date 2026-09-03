@@ -1591,6 +1591,36 @@ section[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-even
  * (Dark mode was never affected: `light-dark()` inside a custom property resolves at the USING
  * element, verified in the same probe. The hazard is token REMAPS, not scheme switching.)
  *
+ * THE INK AND THE FACE ARE NOT DECLARED HERE AT ALL, and that is the third revision of this
+ * block — the one an inversion pass forced. Declaring them on `:root, section` fixed the print
+ * remap and quietly broke theme authoring: a section-scoped declaration outranks a theme's
+ * `:root`, and EVERY shipped theme declares its ink ramp at `:root`. So
+ * `:root { --runhead-ink: var(--accent) }` in a theme file was a silent no-op — measured, and it
+ * is the exact sibling of the caption bug this same branch documents at length
+ * (`--marp-slide-footer-color` declared unconditionally, so its guarded fallback could never
+ * fire). Shipping the sibling of the bug you just wrote up is worth naming.
+ *
+ * The mechanism that satisfies both: the register declares NOTHING FOR THE INK, and each of the
+ * seven consumers writes the default as a `var()` FALLBACK —
+ * `color: var(--runhead-ink, var(--text-secondary))`. A `var()` fallback is resolved at the USING
+ * element, so `section.print`'s remap reaches it exactly as the `section` arm did; and because
+ * the property is genuinely unset until somebody sets it, a theme's `:root` declaration inherits
+ * down and wins. The cost is the default written seven times instead of once, which is the same
+ * price `--fs-meta` already pays two paragraphs down, for the same kind of reason.
+ *
+ * THE FACE STAYS A PLAIN `:root` DECLARATION, and it is the one entry that does not need the
+ * fallback trick. Its only per-section hazard was `mode: sketch` re-pointing `--font-body` — and
+ * a split page never carries the `sketch` class, measured across all 24 runheads of a
+ * sketch-mode render of `examples/read-across-carousel.md`, every one of which takes the clean
+ * face. So freezing it at `:root` changes nothing, a theme's `:root` override still works
+ * (nothing re-declares it lower), and it keeps a TYPEFACE out of a `var()` fallback chain — which
+ * the token-contract gate reads as a color whose floor it cannot compare, correctly, since a
+ * face has no contrast contract to declare.
+ *
+ * What else stays here is genuinely CONSTANT — the tracking and the case. Neither is
+ * palette-dependent, nothing remaps them per section, and a theme overriding them at `:root`
+ * works for the same reason.
+ *
  * VERIFIED ON THE DOCS-SITE PLAYGROUND, the real one, driven rather than reasoned about (#23):
  * a split-shaped deck typed into the live editor resolves `--runhead-ink` to EMPTY on
  * `documentElement` and to `light-dark(#455C7A, #96A8B9)` on the SECTION — the register landing
@@ -1602,13 +1632,14 @@ section[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-even
  * lattice-playground.js` against 5 in `dist/lattice-emulator.js`, and a deck that splits into
  * a cover plus three pages on export renders as ONE slide there. It honors `size:` — the same
  * deck reports `data-family="tall"` at 719x899 — so this is the splitter being absent from that
- * bundle, not the size being ignored. Every split-scoped rule in the engine is therefore inert
- * on that surface by construction, which is a stronger guarantee than "the two paths agree".
+ * bundle, not the size being ignored. So split-scoped rules do not paint there today. Treat that
+ * as a MEASUREMENT WITH A DATE, not an invariant: `lattice-playground.js` is a gitignored build
+ * artifact, the count moves with `lib/playground/index.js`, and putting the splitter behind the
+ * Playground is an obvious thing for someone to do next.
  *
  * Palette-blind (#3); every value is a token. */
-:root, section {
+:root {
   --runhead-face: var(--font-body);
   --runhead-ls: 0.01em;
   --runhead-case: none;
-  --runhead-ink: var(--text-secondary);
 }

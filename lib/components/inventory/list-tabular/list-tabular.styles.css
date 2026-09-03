@@ -371,7 +371,7 @@ section.list-tabular-points .split-runhead {
   font-family: var(--runhead-face);
   font-size: var(--fs-meta); letter-spacing: var(--runhead-ls);
   text-transform: var(--runhead-case);
-  color: var(--runhead-ink); border-bottom: 1px solid var(--border);
+  color: var(--runhead-ink, var(--text-secondary)); border-bottom: 1px solid var(--border);
   padding-bottom: var(--sp-xs);
 }
 /* The gap below the runhead's underline rides as padding-top on the rows list (not a

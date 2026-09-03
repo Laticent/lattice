@@ -208,3 +208,28 @@
     no `size:` and renders wide; and the guard suite's fixtures gave two carousel shapes a
     `.cell-stage` that production never emits for them — measured, four shapes attach the pointer
     to the section itself, and no closing page ever carries one.
+- **Fixed: three defects the adversarial trio found in this branch's own fixes.**
+  - **The k-of-N rail was tuned on the wrong quantity.** Every earlier revision measured the off
+    pill against its backdrop — whether you can see the pills — and never measured whether you can
+    tell which one is current, which is the only thing the rail exists to say. Those pull opposite
+    ways when both states are one color at two alphas: presence wants 0.65 and up, state wants
+    0.34 and down, and no value satisfies both (at 0.70 the state separation is 1.79:1 on a body
+    page and 1.49:1 on the accent cover). The state is carried by LENGTH now — the off pill is
+    roughly half the on pill — which spends no contrast at all and frees the alpha to serve
+    presence. The **off** state is the one that shrinks, deliberately: the rail is a progress fill,
+    so on a run's last page every segment is on, and lengthening the on state widened the rail 32%
+    exactly when it is most complete, taking the room out of the caption beside it. Shortening the
+    off state instead makes the footprint non-increasing, and `gallery-jargon` at portrait goes
+    from 45 clipped captions to 43.
+  - **A `:root` override of the runhead register was a silent no-op.** Declaring the ink on
+    `:root, section` fixed the print remap and broke theme authoring, because a section-scoped
+    declaration outranks a theme's `:root` and every shipped theme declares its ink ramp there —
+    the exact sibling of the caption bug this branch documents at length. The ink is no longer
+    declared in the register; its default rides as a `var()` fallback at each of the seven
+    consumers, which resolves at the using element (so print still remaps) while leaving the
+    property genuinely unset (so a theme wins). Verified both ways on a real render.
+  - **The exporter reported the pointer pill's deliberate ellipsis as content loss.** The label is
+    engine-generated and capped by rule, so "Shorten the copy" names an edit the author cannot
+    make, and the false alarm trains authors to ignore the one signal export sign-off reads. It
+    joins the clip probe's ignore list. The split caption deliberately does NOT: those are the
+    author's own words, appearing nowhere else, and "shorten it" is exactly the right advice.

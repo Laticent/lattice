@@ -555,7 +555,7 @@ section.compare-split-points .split-runhead {
   font-family: var(--runhead-face);
   font-size: var(--fs-meta); letter-spacing: var(--runhead-ls);
   text-transform: var(--runhead-case);
-  color: var(--runhead-ink); border-bottom: 1px solid var(--border);
+  color: var(--runhead-ink, var(--text-secondary)); border-bottom: 1px solid var(--border);
   padding-bottom: var(--sp-xs);
 }
 section.compare-split-points .split-pts { list-style: none; padding: var(--sp-xl) 0 0 0; margin: 0; }
