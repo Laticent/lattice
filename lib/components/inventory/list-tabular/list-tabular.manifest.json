@@ -59,7 +59,13 @@
     "rule",
     "solid",
     "stacked",
-    "outline"
+    "outline",
+    "fit-name",
+    "fit-body",
+    "fit-meta",
+    "flex-name",
+    "flex-meta",
+    "fixed"
   ],
   "slots": {
     "title": {
@@ -71,6 +77,11 @@
       "selector": "ol > li",
       "required": true,
       "description": "Each numbered item (`1.`) is one row — the name on the line, with an optional nested bullet for its description or value. The leading column is the auto counter."
+    },
+    "marks": {
+      "selector": "ol > li > ul > li.marks",
+      "required": false,
+      "description": "A nested bullet holding only a state marker (`[x]` `[-]` `[ ]` `[/]`) and/or inline `code` pills becomes the row's trailing marks cell — the marker draws as a status disc and the pills sit beside it, right-aligned. It can follow any sublist element."
     }
   },
   "skeleton": "<!-- _class: list-tabular -->\n\n## Slide heading.\n\n1. First entry\n   - Description or value for the first entry.\n2. Second entry\n   - Description or value for the second entry.\n3. Third entry\n   - Description or value for the third entry.\n4. Fourth entry\n   - Description or value for the fourth entry.\n",
@@ -92,6 +103,10 @@
     {
       "title": "Numbered automatically",
       "body": "Author as `ol` (`1.` source). The leading column is the counter — `def` and `spec.stacked` enlarge it to span both rows."
+    },
+    {
+      "title": "Status on a row",
+      "body": "Hang a nested `- [x]` bullet off any row, with pills after it: the marker draws as a status disc and each inline `code` renders as a pill, both right-aligned in the trailing column. Pills alone need no checkbox."
     }
   ],
   "antiPatterns": [
@@ -166,6 +181,36 @@
       "label": "register + outline",
       "summary": "Outline pills — a lighter register.",
       "sample": "<!-- _class: list-tabular register outline -->\n\n## outline boxes each row in a keyline.\n\n1. cards-grid `stable`\n2. split-panel `stable`\n3. quote `stable`\n"
+    },
+    "fit-name": {
+      "label": "fit-name",
+      "summary": "The label column hugs its content, uncapped.",
+      "sample": "<!-- _class: list-tabular fit-name -->\n\n## fit-name lets short labels keep their own width.\n\n1. API\n   - The label column shrinks to the longest label.\n2. CLI\n   - Nothing is padded out to a fixed track.\n3. SDK\n   - The clause takes every pixel that is left.\n"
+    },
+    "fit-body": {
+      "label": "fit-body",
+      "summary": "The clause column hugs; the trailing column takes the slack.",
+      "sample": "<!-- _class: list-tabular fit-body -->\n\n## fit-body hugs the clause and holds the right edge.\n\n1. Settlement window `T+1`\n   - Same day cutoff\n2. Reconciliation cadence `Nightly`\n   - Automated\n3. Exception review `Weekly`\n   - Risk committee\n"
+    },
+    "fit-meta": {
+      "label": "fit-meta",
+      "summary": "The trailing column hugs its content, uncapped.",
+      "sample": "<!-- _class: list-tabular fit-meta -->\n\n## fit-meta keeps a long trailing value on one line.\n\n1. Coverage `98.4% of policies`\n2. Backlog `31 open findings`\n3. Cadence `every two weeks`\n"
+    },
+    "flex-name": {
+      "label": "flex-name",
+      "summary": "The label column takes the leftover.",
+      "sample": "<!-- _class: list-tabular flex-name -->\n\n## flex-name hands the slack to the label.\n\n1. Board approval of the revised treasury policy\n   - Q3\n2. Migration of the settlement ledger to the new engine\n   - Q4\n3. Retirement of the legacy reconciliation batch\n   - Q1\n"
+    },
+    "flex-meta": {
+      "label": "flex-meta",
+      "summary": "The trailing column takes the leftover.",
+      "sample": "<!-- _class: list-tabular flex-meta -->\n\n## flex-meta gives the trailing column the room.\n\n1. Scope `Retail and commercial deposits, twelve markets`\n   - Phase 1\n2. Owner `Group Treasury, reporting to the CFO`\n   - Phase 1\n3. Review `Audit and Risk Committee, quarterly`\n   - Phase 2\n"
+    },
+    "fixed": {
+      "label": "fixed",
+      "summary": "The pre-responsive fixed-width tracks.",
+      "sample": "<!-- _class: list-tabular fixed -->\n\n## fixed pins the columns to their old widths.\n\n1. ID\n   - Every label column is the same width again.\n2. Mid\n   - Use it when a deck was tuned around those tracks.\n3. Long enough to wrap\n   - The label wraps inside its fixed track.\n"
     }
   },
   "commonMistakes": [
@@ -176,6 +221,14 @@
     {
       "mistake": "Authoring rows as a bullet list (`-`) instead of a numbered list (`1.`).",
       "fix": "The counter column and row styling are keyed to `ol > li` — a `ul` doesn't produce the numbered ledger at all."
+    },
+    {
+      "mistake": "Typing a check glyph (`✓`) or a literal `[x]` in the row's description to show status.",
+      "fix": "Put the marker on its own nested bullet — a `- [x]` line, with any pills after it — so it decodes into the drawn status disc in the trailing column. A typed glyph is not a shape the deck's own type family carries, so it falls back to a different font, a color emoji, or a hollow box depending on the machine."
+    },
+    {
+      "mistake": "Reaching for a column modifier before looking at the default.",
+      "fix": "The columns already size to their content. `fit-*` / `flex-*` name the exceptions — a label that should keep the slack, a clause that should hug — and `fixed` restores the old fixed-width tracks. Most ledgers need none of them."
     }
   ],
   "variantDecisionRule": [
@@ -214,6 +267,30 @@
     {
       "variant": "outline",
       "useWhen": "Under `register`, a lighter, keyline-only pill treatment fits the deck's tone better than filled pills."
+    },
+    {
+      "variant": "fit-name",
+      "useWhen": "The labels are short and uneven — hug them instead of letting the widest one set a capped track."
+    },
+    {
+      "variant": "fit-body",
+      "useWhen": "The clauses are values, not sentences — hug them and let the trailing column take the leftover so it still holds the right edge."
+    },
+    {
+      "variant": "fit-meta",
+      "useWhen": "A trailing value is long enough that the default cap wraps it, and it should stay on one line."
+    },
+    {
+      "variant": "flex-name",
+      "useWhen": "The label is the point and the clause is a short qualifier — hand the leftover width to the label."
+    },
+    {
+      "variant": "flex-meta",
+      "useWhen": "The trailing column carries a phrase rather than a stamp, and it should absorb the leftover width."
+    },
+    {
+      "variant": "fixed",
+      "useWhen": "A deck was laid out against the old fixed-cqi tracks and should keep them rather than re-flow."
     }
   ],
   "specimenVoice": true

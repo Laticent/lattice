@@ -32,25 +32,64 @@
  *               scales up and spans both rows
  *   outline   register: hairline-bordered tag instead of filled pill
  *
+ * Column modifiers (see "Responsive tracks" below):
+ *
+ *   fit-name / fit-body / fit-meta     that column hugs its content
+ *   flex-name / flex-meta              that column takes the leftover
+ *   fixed                              the pre-responsive fixed-cqi tracks
+ *
  * Counter sizing rule across the family: counter size scales with item
  * height. Single-row items → fs-md (paired with the name baseline).
  * Multi-row items (def, spec.stacked) → fs-2xl, spans rows, centered.
  * ───────────────────────────────────────────────────────────────────────── */
 
-/* ── Base (default = hairline ledger) ─────────────────────────────────── */
+/* ── Responsive tracks — the OL owns the grid, each row is a subgrid ──────
+ * Every row used to be its OWN grid with hard `cqi` track widths
+ * (`3.4375cqi 15.625cqi 1fr minmax(0,0.9fr)`), which is the only way independent
+ * per-row grids can line their columns up. It cost exactly what a fixed track
+ * costs: a two-letter name wasted 80% of a 15.625cqi column while a long one
+ * wrapped to three lines beside an empty description column.
+ *
+ * The grid now lives on the `ol` and each row takes `grid-template-columns:
+ * subgrid`, so ONE set of tracks is shared by every row and each can size to the
+ * widest content across the whole list. Subgrid, not `display:contents` on the
+ * row: `contents` removes the row's box, and with it the hairline rule and the
+ * padding that make this component a ledger.
+ *
+ * The four tracks are named custom properties so a variant can re-point a ROLE at
+ * a different column (spec's key, spec.stacked's 3-track row) and the column
+ * modifiers can retune one role without restating the whole template:
+ *
+ *   --lt-counter   the auto counter          (col 1)
+ *   --lt-name      the row label             (col 2)
+ *   --lt-body      the description clause    (col 3, takes the leftover)
+ *   --lt-meta      the trailing meta / marks (col 4, right-aligned)
+ *
+ * `fit-content(<cap>)` rather than bare `auto` for name and meta: it sizes to
+ * content AND refuses to grow past the cap, so a pathological one-word row label
+ * wraps inside its own track instead of shouldering the description off the
+ * slide. The caps are properties too, so a deck can retune without a new class.
+ * ───────────────────────────────────────────────────────────────────────── */
 section.list-tabular ol {
+  --lt-name-max:34cqi;
+  --lt-meta-max:26cqi;
+  --lt-counter:auto;
+  --lt-name:fit-content(var(--lt-name-max));
+  --lt-body:minmax(0, 1fr);
+  --lt-meta:fit-content(var(--lt-meta-max));
   list-style:none; counter-reset:tabular-counter var(--lat-split-offset, 0);
   padding:0; margin:0;
-  display:flex; flex-direction:column;
+  display:grid;
+  grid-template-columns:var(--lt-counter) var(--lt-name) var(--lt-body) var(--lt-meta);
+  column-gap:var(--sp-md);
+  align-content:start;
 }
 section.list-tabular ol > li {
   counter-increment:tabular-counter;
   display:grid;
-  /* col 4 (metadata) is bounded minmax, not auto: long legacy metadata
-   * must wrap within its share, never expand the track off the slide edge. */
-  grid-template-columns:3.4375cqi 15.625cqi 1fr minmax(0, 0.9fr);
+  grid-column:1 / -1;
+  grid-template-columns:subgrid;
   align-items:baseline;
-  column-gap:var(--sp-md);
   padding:var(--sp-sm) 0;
   border-bottom:1px solid var(--border);
   font-family:var(--font-display);
@@ -114,11 +153,16 @@ section.list-tabular ol > li > code {
 
 /* ── Variant: def (editorial) ─────────────────────────────────────────── */
 section.list-tabular.def ol {
-  gap:var(--sp-md);
-  flex:1; justify-content:center;
+  /* Three tracks, no meta: def's `code` is an EYEBROW above the name, not a
+   * trailing column. `align-content`, not `justify-content` — the ol is a grid
+   * now, and on a grid `justify-content` distributes the TRACKS horizontally
+   * (a silent no-op here, since --lt-body already eats the free space). */
+  --lt-name:fit-content(var(--lt-name-max, 34cqi));
+  grid-template-columns:var(--lt-counter) var(--lt-name) var(--lt-body);
+  row-gap:var(--sp-md);
+  flex:1; align-content:center;
 }
 section.list-tabular.def ol > li {
-  grid-template-columns:5cqi 17.1875cqi 1fr;
   grid-template-rows:auto auto;
   row-gap:0.3125cqi;
   padding:0;
@@ -217,8 +261,12 @@ section.list-tabular.metric.solid ol > li > code {
  * columns shrink below their content so a long mono key / API path wraps
  * inside its cell instead of overflowing the slide edge (which corrupted the
  * trailing glyphs). overflow-wrap on the code makes the wrap point clean. */
+section.list-tabular.spec ol {
+  /* The key can be a long API path, so it gets a wider cap than a prose label. */
+  --lt-name-max:38cqi;
+  --lt-meta-max:22cqi;
+}
 section.list-tabular.spec ol > li {
-  grid-template-columns:3.4375cqi minmax(0, 20.3125cqi) minmax(0, 1fr) minmax(0, 15.625cqi);
   font-family:var(--font-label);
   font-size:var(--fs-body-compact);
   font-weight:600;
@@ -239,8 +287,12 @@ section.list-tabular.spec ol > li > code:first-of-type { grid-column:2; grid-row
 section.list-tabular.spec ol > li > code:nth-of-type(2) { grid-column:4; grid-row:1; justify-self:start; }
 
 /* spec.stacked — description below name; counter spans rows */
+section.list-tabular.spec.stacked ol {
+  /* The key moves ONTO the body track (row 1) and the clause sits under it, so
+   * this variant is three tracks: counter · body · meta. */
+  grid-template-columns:var(--lt-counter) var(--lt-body) var(--lt-meta);
+}
 section.list-tabular.spec.stacked ol > li {
-  grid-template-columns:3.4375cqi minmax(0, 1fr) minmax(0, 15.625cqi);
   grid-template-rows:auto auto;
   row-gap:var(--sp-xs);
   font-size:var(--fs-body-compact);
@@ -300,6 +352,212 @@ section.list-tabular.register.outline ol > li > code {
   color:var(--text-label);
 }
 
+/* ── Marks cell — the row's checkbox + pills ──────────────────────────────
+ * A nested bullet holding only a state marker and/or inline `code` pills is
+ * promoted to the row's trailing cell by lib/core/list-tabular-marks.js (shared
+ * by the markdown-it plugin and the runtime's DOM mirror, HARD RULE #1):
+ *
+ *   1. Row name
+ *      - The description clause sits here.
+ *      - [x] `stable` `v2`
+ *
+ * It lands in the SAME column as the inline-`code` meta and stays right-aligned,
+ * because the trailing column is where a reader's eye already looks for a row's
+ * status. `.marks` keys on the class, not on `:nth-child`, so the bullet can sit
+ * anywhere in the sublist — after any sublist element, which is the point.
+ *
+ * When a row carries BOTH an inline meta `code` and a marks bullet, the two would
+ * land on the same cell; `:has()` drops the marks to a second row rather than
+ * overlapping them. Nothing is hidden — author content never disappears to fit.
+ * ───────────────────────────────────────────────────────────────────────── */
+section.list-tabular ol > li > ul > li.marks {
+  grid-column:4; grid-row:1;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:var(--sp-2xs);
+  justify-self:end;
+  align-self:center;
+  text-align:right;
+}
+section.list-tabular ol > li:has(> code) > ul > li.marks { grid-row:2; }
+/* def is a THREE-track row with no meta column, so a marks cell has nowhere of its
+ * own to go — parked at `grid-column:3; grid-row:2` it shares the body's area, and
+ * a clause long enough to fill the column paints straight under the pills
+ * (measured: "…where the marks cell sits" rendered beneath a STABLE pill).
+ * `:has()` grows a fourth track ONLY on a def list that actually carries one, so a
+ * def slide without marks keeps its exact three-track geometry — adding the track
+ * unconditionally would charge every existing def deck one `column-gap`. */
+section.list-tabular.def ol:has(> li > ul > li.marks) {
+  grid-template-columns:var(--lt-counter) var(--lt-name) var(--lt-body) var(--lt-meta);
+}
+section.list-tabular.def ol > li > ul > li.marks { grid-column:4; grid-row:1 / span 2; }
+section.list-tabular.spec.stacked ol > li > ul > li.marks { grid-column:3; grid-row:1; }
+section.list-tabular.spec.stacked ol > li:has(> code) > ul > li.marks { grid-row:2; }
+
+/* The disc — the fifth mirror of the geometry checklist, verdict-grid,
+ * obligation-matrix and `state-cells` each carry. Only the SCALAR knobs are
+ * shared (base.tokens.css explains why they cannot embed --state-color); the
+ * geometry belongs to the consumer, and this consumer's is INLINE — the cell is
+ * a flex row, so the disc needs its own box beside the pills rather than the
+ * absolutely-positioned rail the checklist row uses. */
+section.list-tabular ol > li > ul > li.marks > .state {
+  position:relative;
+  flex:none;
+  display:inline-block;
+  width:calc(1.15em * var(--state-disc-scale));
+  height:calc(1.15em * var(--state-disc-scale));
+  border-radius:50%;
+  box-sizing:border-box;
+  background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
+  box-shadow:
+    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-ring-mix), black),
+    inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
+}
+section.list-tabular ol > li > ul > li.marks > .state.pass { --state-color:var(--pass); }
+section.list-tabular ol > li > ul > li.marks > .state.warn { --state-color:var(--warn); }
+section.list-tabular ol > li > ul > li.marks > .state.fail { --state-color:var(--fail); }
+section.list-tabular ol > li > ul > li.marks > .state.skip { --state-color:var(--muted-mark); }
+/* todo shares --muted-mark with skip DELIBERATELY, exactly as checklist does: the
+ * two are one INK tier (de-emphasized decoration) and stay unmistakable in the
+ * SHAPE channel — todo is a hollow ring with no inner mark, skip a filled disc
+ * carrying a slash. */
+section.list-tabular ol > li > ul > li.marks > .state.todo { --state-color:var(--muted-mark); }
+section.list-tabular ol > li > ul > li.marks > .state::after {
+  content:'';
+  position:absolute;
+  inset:0;
+  background-color:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-mark-pct), var(--bg));
+  -webkit-mask:var(--state-mark) center / 100% 100% no-repeat;
+          mask:var(--state-mark) center / 100% 100% no-repeat;
+}
+/* The state's word, for anything reading the DOM rather than looking at the disc.
+ * Clipped rather than `display:none` so it stays in the accessibility tree. */
+section.list-tabular .state-sr-label {
+  position:absolute;
+  width:1px; height:1px;
+  overflow:hidden;
+  clip-path:inset(50%);
+  white-space:nowrap;
+}
+
+/* Pills inside the marks cell. The base `> code` meta rule reaches only a row's
+ * DIRECT code child, so these are styled here — as pills, matching the register
+ * variant's stamp, because a status pill beside a checkbox is what the cell is
+ * for. `register`/`metric` restyle it below to stay in their own register. */
+section.list-tabular ol > li > ul > li.marks > code {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  line-height:1;
+  background:var(--accent-soft);
+  color:var(--accent);
+  border:none;
+  padding:var(--pill-pad-y) 1.09375cqi;   /* sanctioned: wide "stamp" padding */
+  border-radius:var(--pill-radius);
+  font-family:var(--pill-font);
+  font-size:var(--pill-fs);
+  font-weight:700;              /* sanctioned: heavier stamp weight */
+  letter-spacing:0.1em;         /* sanctioned: wide tracking pairs with the uppercase opt-in */
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+section.list-tabular.register.outline ol > li > ul > li.marks > code,
+section.list-tabular.spec ol > li > ul > li.marks > code {
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--text-label);
+}
+section.list-tabular.metric ol > li > ul > li.marks > code {
+  background:var(--bg-alt);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  font-family:var(--font-label);
+  font-size:var(--fs-body-compact);
+  letter-spacing:-0.01em;
+  text-transform:none;
+}
+section.list-tabular.metric.solid ol > li > ul > li.marks > code {
+  background:var(--accent);
+  border-color:var(--accent);
+  color:var(--on-accent, var(--on-dark-primary));
+}
+/* A label typed after the marker (`- [x] shipped \`v2\``) is prose, not a pill. */
+section.list-tabular ol > li > ul > li.marks {
+  font-family:var(--font-label);
+  font-size:var(--fs-meta);
+  font-weight:600;
+  color:var(--text-label);
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+}
+
+/* ── Column modifiers — which columns are responsive ──────────────────────
+ * The tracks above are content-sized by DEFAULT, which is what a ledger wants
+ * almost always. These name the exceptions, one role at a time, so a deck can
+ * say what it means in `_class` instead of overriding CSS:
+ *
+ *   fit-name / fit-body / fit-meta   hug the content, uncapped — "these are
+ *                                    short, never wrap them"
+ *   flex-name / flex-meta            take the leftover instead of the body —
+ *                                    "the label is the point, not the clause"
+ *   fixed                            the pre-responsive fixed-cqi tracks, for a
+ *                                    deck that was built around them
+ *
+ * They compose: `flex-name fit-body` hands the label the slack and lets the
+ * clause hug. Each sets ONE property, so a variant's re-pointed template keeps
+ * working without restating it. Doubled class for (0,2,N) weight over the
+ * variants above; source order keeps these last.
+ * ───────────────────────────────────────────────────────────────────────── */
+/* `fit-name` / `fit-meta` hug ONE column and leave the slack where it is — the
+ * body still absorbs it, so the trailing column stays on the right edge. */
+section.list-tabular.list-tabular.fit-name ol { --lt-name:max-content; }
+section.list-tabular.list-tabular.fit-meta ol { --lt-meta:max-content; }
+/* `fit-body` hugs the clause, which leaves nothing absorbing the slack — so the
+ * trailing column takes it (`minmax(max-content, 1fr)`, its content still
+ * `justify-self:end`). Without that hand-off every track would be content-sized,
+ * the tracks would total less than the list, and the trailing column would strand
+ * itself mid-slide instead of holding the right edge. */
+section.list-tabular.list-tabular.fit-body ol {
+  --lt-body:max-content;
+  --lt-meta:minmax(max-content, 1fr);
+}
+/* The `flex-*` pair names the ONE column that absorbs, so each restates the other
+ * two: a class that only set its own track would SPLIT the leftover with the body
+ * (still `1fr` by default) and strand the row's tail mid-slide. They come after
+ * `fit-body` on purpose — `flex-name fit-body` means "the label takes it", and
+ * source order is what settles the trailing track between the two rules. */
+section.list-tabular.list-tabular.flex-name ol {
+  --lt-name:minmax(0, 1fr);
+  --lt-body:max-content;
+  --lt-meta:fit-content(var(--lt-meta-max));
+}
+section.list-tabular.list-tabular.flex-meta ol {
+  --lt-name:fit-content(var(--lt-name-max));
+  --lt-body:max-content;
+  --lt-meta:minmax(0, 1fr);
+}
+/* `fixed` restores the exact tracks each variant carried before the responsive
+ * pass, so a deck tuned against them renders unchanged. */
+section.list-tabular.list-tabular.fixed ol {
+  --lt-counter:3.4375cqi;
+  --lt-name:15.625cqi;
+  --lt-meta:minmax(0, 0.9fr);
+}
+section.list-tabular.list-tabular.def.fixed ol {
+  --lt-counter:5cqi;
+  --lt-name:17.1875cqi;
+}
+section.list-tabular.list-tabular.spec.fixed ol {
+  --lt-name:minmax(0, 20.3125cqi);
+  --lt-meta:minmax(0, 15.625cqi);
+}
+section.list-tabular.list-tabular.spec.stacked.fixed ol {
+  --lt-body:minmax(0, 1fr);
+  --lt-meta:minmax(0, 15.625cqi);
+}
+
 /* ── Universal modifier: compact ──────────────────────────────────────── */
 section.list-tabular.compact ol > li { padding:var(--sp-xs) 0; }
 
@@ -312,6 +570,10 @@ section.list-tabular.compact ol > li { padding:var(--sp-xs) 0; }
    order — a block flow lays them out in that order without fighting it.) Keyed on
    the deck's `data-family` stamp; the doubled class `.list-tabular.list-
    tabular` reaches the variants' (0,2,N) weight and source order keeps it last. */
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol {
+  display: block;
+  grid-template-columns: none;
+}
 section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li {
   display: block;
   grid-template-columns: none;
@@ -337,6 +599,13 @@ section.list-tabular.list-tabular:where([data-family="tall"], [data-family="stri
 section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul > li:nth-child(2) {
   display: block;
   text-align: left;
+  padding-top: var(--sp-2xs);
+}
+/* the marks cell (checkbox + pills) is a flex row in the trailing column; in block
+   flow it keeps the flex row but loses the right edge and drops onto its own line,
+   like the two meta shapes above. */
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul > li.marks {
+  justify-content: flex-start;
   padding-top: var(--sp-2xs);
 }
 
