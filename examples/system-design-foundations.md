@@ -7,27 +7,27 @@ profile: teaching
 glossary: auto
 header: "System design"
 acronyms:
-  ACID: { expansion: atomicity consistency isolation durability, definition: "A transaction happens completely or not at all, leaves the rules intact, does not interleave visibly with others, and survives a crash once committed." }
-  API: { expansion: application programming interface, definition: "The contract one system offers another — the operations, their inputs, and what they promise in return." }
-  CAP: { expansion: consistency availability partition tolerance, definition: "Split by a network fault, a system must answer with possibly stale data or refuse to answer." }
-  CDN: { expansion: content delivery network, definition: "Caches placed near readers so bytes travel a short distance instead of crossing an ocean." }
-  CI: { expansion: continuous integration, definition: "The build and test run that gates every change before it can merge." }
-  DNS: { expansion: domain name system, definition: "The global lookup that turns a name a human types into an address a packet can be sent to." }
+  ACID: { expansion: atomicity consistency isolation durability, definition: "All of it happens or none does, the rules hold, and a commit survives a crash." }
+  API: { expansion: application programming interface, definition: "The contract one system offers another: the operations and what they promise." }
+  CAP: { expansion: consistency availability partition tolerance, definition: "Split by a network fault, answer with stale data or refuse to answer." }
+  CDN: { expansion: content delivery network, definition: "Caches near readers, so bytes travel a short distance instead of an ocean." }
+  CI: { expansion: continuous integration }
+  DNS: { expansion: domain name system }
   MVP: { expansion: minimum viable product, definition: "The smallest build that puts a real answer in front of a real user." }
-  PR: { expansion: pull request, definition: "A proposed change, open for review before it merges." }
+  PR: { expansion: pull request }
   RPS: { expansion: requests per second }
-  BASE: { expansion: basically available soft state eventual consistency, definition: "ACID's loose counterpart: stay answerable under failure, let replicas disagree for a while, and converge afterward." }
+  BASE: { expansion: basically available soft state eventual consistency, definition: "ACID's loose counterpart: answer under failure, let replicas converge later." }
   CPU: { expansion: central processing unit }
   GB: { expansion: gigabytes }
   HSM: { expansion: hardware security module }
   L7: { expansion: layer seven }
   POST: { expansion: post }
-  SLA: { expansion: service level agreement }
+  SLA: { expansion: service level agreement, definition: "The external promise, with money attached, always looser than the objective." }
   TB: { expansion: terabytes }
   VPN: { expansion: virtual private network }
-  SLI: { expansion: service level indicator }
-  SLO: { expansion: service level objective }
-  TLS: { expansion: transport layer security }
+  SLI: { expansion: service level indicator, definition: "The measurement: the share of requests served inside your target." }
+  SLO: { expansion: service level objective, definition: "Your internal target for that measurement, over a stated window." }
+  TLS: { expansion: transport layer security, definition: "The encryption any connection crossing a network you do not own should have." }
   TTL: { expansion: time to live }
 ---
 
@@ -178,7 +178,7 @@ Her day had a purpose it did not meet, and one hour that decided it. Two things 
 
 The reviewer woke at three and the window shut at four. Everything Maya did that day reached the outcome only through that hour. She spent twenty of its sixty minutes answering questions about 482, instead of waiting ready to act on whatever came back.
 
-You have watched every idea in this deck happen. You do not yet have the words.
+Ten ideas ran through that day. Part one gives you the words for them.
 
 ---
 
@@ -222,14 +222,14 @@ flowchart TB
     T2 <--> T3(["Dev"])
     T1 <--> T3
     T4(["Manager"]) <--> T1
-    T3 --> OUT2(["One sentence<br/>saves a morning"])
+    T3 --> OUT2["One sentence<br/>saves a morning"]
   end
   subgraph mon["Monday · they report upward"]
     direction LR
     M1(["Maya"]) --> MM(["Manager"])
     M2(["Priya"]) --> MM
     M3(["Dev"]) --> MM
-    MM --> OUT1(["Twenty minutes,<br/>nothing settled"])
+    MM --> OUT1["Twenty minutes,<br/>nothing settled"]
   end
 ```
 
@@ -514,7 +514,7 @@ Do not hunt for a clever answer. The point is that you now have words for a thin
 
 `One answer`
 
-## A turnstile, in the words you now have.
+## Here is a turnstile, in the words you now have.
 
 1. Purpose
    - Let paying people through, stop everyone else. Counting riders is a side effect.
@@ -526,7 +526,6 @@ Do not hunt for a clever answer. The point is that you now have words for a thin
    - Never open without a valid fare. Never close on a person.
 5. Infrastructure
    - Power, the link to the fare service, the floor.
-
 
 ---
 
@@ -653,9 +652,14 @@ Scale is a quantity, and quantities have a price you can pay. The thing you cann
 
 ## Cast the last app you opened, in the same two sentences.
 
-`<name> wants to <do X> so that <Y>. But <W> — and W is <a number>.`
+Pick something ordinary: a maps app, a chat client, the thing your team ships. Fill in both lines, exactly as the drill has them:
 
-Pick something ordinary: a maps app, a chat client, the thing your team ships. Fill in both lines. The second is the hard one, and if you cannot put a number on W, you have just found the first thing worth measuring.
+```text
+Protagonist:  <name> wants to <do X> so that <Y>.
+Antagonist:   But <W> — and W is <a number>.
+```
+
+The second line is the hard one. If you cannot put a number on W, you have just found the first thing worth going and measuring.
 
 ---
 
@@ -663,13 +667,12 @@ Pick something ordinary: a maps app, a chat client, the thing your team ships. F
 
 `One answer`
 
-## A maps app, cast in two sentences.
+## A maps app casts the same way, in two sentences.
 
 - The protagonist
   - A driver already moving wants the next turn early enough to take it, so that the road and the screen never compete. Everyone else — the person searching, the person saving a place, the person reading reviews — is slower and can wait.
 - The antagonist
   - The signal drops in the tunnel, and the tunnel is ninety seconds long. That number is the design: ninety seconds of route has to be on the phone before the phone goes quiet.
-
 
 ---
 
@@ -865,7 +868,6 @@ Write a rung for each and one sentence on what it costs. Then turn the page.
 3. The bill is too large
    - Optimized. You are buying back cost and paying in flexibility. Profile first, or you are decorating.
 
-
 ---
 
 <!-- _class: divider numbered -->
@@ -1037,7 +1039,7 @@ flowchart LR
 
 `Data kit · the scan`
 
-## The same five questions, asked of every store you are choosing between.
+## The same five questions, asked of the six stores you will choose between most often.
 
 | Store | Access | Consistency | Scales by | Weak at |
 | --- | --- | --- | --- | --- |
@@ -1246,12 +1248,12 @@ flowchart LR
 
 `Data kit · ordering and identity`
 
-## Two machines never agree on the time, so never let a clock decide an order.
+## Two machines never agree on the time, so never let a clock alone decide an order.
 
 - Reach for it when
   - Anything is sorted, paged or deduplicated. A sortable id carries time and writer in one value.
 - Walk away when
-  - Never, once a second writer exists. Milliseconds of clock skew both reorder and collide.
+  - A clock is fine as a sort key when one writer owns it and a unique id breaks the ties.
 - The constraint you inherit
   - An id you sort by can never change, and every page cursor comes to depend on it.
 
@@ -1261,26 +1263,28 @@ flowchart LR
 
 `Data kit · changing a schema`
 
-## Nothing running lets you change a column in a single step.
+## Changing a column on a running system takes five steps, not one.
 
 1. Expand
-   - Add the new field. Nothing reads it yet, and old code and new code both still work.
-2. Backfill
-   - Fill it for the rows that already exist, in batches, with a job you can stop and restart.
-3. Cutover
-   - Move reads to the new field. Keep writing both, so going back costs nothing.
-4. Contract
-   - Delete the old field, and only once nothing has read it for long enough to be sure.
+   - Add the field. Nothing writes it, nothing reads it, both versions still work.
+2. Write both
+   - New code fills it alongside the old one. Nothing reads it, so mistakes are cheap.
+3. Backfill
+   - Fill rows written before step two, in restartable batches.
+4. Cutover
+   - Move reads across. Both are still written, so going back costs nothing.
+5. Contract
+   - Stop writing the old field, then drop it.
 
 ---
 
 <!-- _class: content -->
 
-`Data kit · why those four steps`
+`Data kit · why those five steps`
 
-## A deploy is never atomic, so every change has to tolerate the version beside it.
+## A deploy is never atomic, so every change must tolerate the version beside it.
 
-For the minutes or hours a rollout takes, two versions of your code run against one store. Both have to work. That is the entire reason for the four steps: each one is safe while the step before it is still live.
+For the minutes or hours a rollout takes, two versions of your code run against one store. Both have to work. That is the entire reason for the five steps: each one is safe while the step before it is still live, which is exactly what a rollout cannot promise you about any bigger jump.
 
 The same rule governs an API other people call. Add fields, never repurpose them. Make anything new optional. Remove nothing until you can show that nobody calls it — and if you cannot show that, you have not earned the right to remove it.
 
@@ -1290,7 +1294,7 @@ The same rule governs an API other people call. Add fields, never repurpose them
 
 `Data kit · deleting for real`
 
-## A delete is a fan-out, and it has to reach every copy you ever made.
+## A delete is a fan-out that reaches every copy you ever made.
 
 - The row itself
   - A tombstone, not a gap. Replicas have to learn it is gone, not merely fail to see it.
@@ -1309,16 +1313,16 @@ The same rule governs an API other people call. Add fields, never repurpose them
 
 `Data kit · the invariants`
 
-## A data design you can defend can say all of these are true. Which does yours break?
+## A data design you can defend says all four are true. Which does yours break?
 
-1. Exactly one source of truth per fact
-   - Every other copy is derived, and is labeled as derived where people can see it.
-2. Every derived store can be rebuilt
-   - If the search index burns down, a job restores it from the source, unattended.
-3. Every consumer of a queue is idempotent
-   - At-least-once delivery is the only delivery anyone actually gets.
-4. Every write path states its consistency level
-   - "Whatever the database does by default" is not a stated level.
+1. One source of truth per fact
+   - Every other copy is derived and says so.
+2. Every derived copy rebuilds — and deletes
+   - Unattended from the source, and gone from all of them on request.
+3. Every queue consumer is idempotent
+   - At-least-once is the only delivery you get.
+4. Every write path states its consistency
+   - "Whatever the database does" is not a level.
 
 ---
 
@@ -1634,7 +1638,7 @@ $$ L = \lambda W $$
 
 At 2,000 requests per second averaging 50 milliseconds each, 100 requests are in flight at any moment. That is your minimum concurrency, and no tuning makes it smaller while the other two numbers hold.
 
-Maya's build is the same formula at human scale: twelve minutes inside, two attempts, so almost half an hour of her Tuesday was in flight. Find your own numbers — arrivals on the load balancer, duration in the handler.
+Maya's Tuesday is the same arithmetic at human scale. Two builds a day at twelve minutes each leaves the pipeline idle almost all of it, so nothing she pushes ever queues — which is how you know the twelve minutes was never her bottleneck. The reviewer was. Find your own numbers — arrivals on the load balancer, duration in the handler.
 
 ---
 
@@ -1646,7 +1650,7 @@ Maya's build is the same formula at human scale: twelve minutes inside, two atte
 
 Leave the pool unbounded and the arithmetic runs forward: latency triples, so the requests in flight triple with it, and a machine sized for the good day runs out of memory.
 
-Bound it at 100 and concurrency cannot rise, so throughput falls instead. `100 / 0.15s` is about 667 a second against the 2,000 still arriving, and the queue in front grows without limit until something sheds it.
+Bound it at 100 and concurrency cannot rise, so throughput falls instead. `100/0.15s` is about 667 a second against the 2,000 still arriving, and the queue in front grows without limit until something sheds it.
 
 Neither is a tuning problem. The first is why pools have ceilings, and the second is why every queue behind one needs a ceiling too.
 
@@ -1801,7 +1805,7 @@ flowchart LR
 
 `Reliability kit · the objectives`
 
-## Whether you may ship this week is decided by words people use interchangeably.
+## Four words people use interchangeably decide whether you may ship this week.
 
 1. SLI
    - The measurement: the share of requests served under 300 milliseconds.
@@ -2035,7 +2039,7 @@ Pin exact versions and commit the lock file, so the build you tested is the buil
 - Reach for it when
   - Anything is shared: a database, a queue, a paid third party, an image decoder.
 - Walk away when
-  - Never entirely. Put the limit where an ordinary caller will never meet it.
+  - The caller is a trusted internal batch you would rather see fail loudly than throttled.
 - The constraint you inherit
   - A limit needs an identity to count against. Use the account, the key and the address.
 
@@ -2055,6 +2059,8 @@ Pin exact versions and commit the lock file, so the build you tested is the buil
    - A compromised internal caller is the ordinary case, not the exotic one.
 4. Every privileged action is attributable
    - An immutable record of who, what, when, and from where.
+5. Every dependency is pinned, inventoried and rate-limited
+   - You did not write most of your code, and an authorized caller can still exhaust you.
 
 ---
 
@@ -2074,15 +2080,14 @@ Write the store and the one query that will cross a partition. Then turn the pag
 
 `One answer`
 
-## Two of these never leave relational, and one was never a database question.
+## One of these never leaves relational. The other two were never relational to begin with.
 
 1. Ten thousand orders a day
-   - Relational, for years. Ten thousand a day is nothing; the questions nobody has asked yet are the whole requirement.
+   - Relational, for years. Ten thousand a day is nothing, and the unasked questions are the requirement. Nothing crosses a partition, because nothing is partitioned.
 2. A session token
    - Key-value. Exact key, no scan, expiry built in. The query that hurts is "which sessions belong to this user".
 3. Eight years of readings
    - Wide-column, partitioned by device and ranged by time. The query that hurts is any question about one day across every device.
-
 
 ---
 
@@ -2098,7 +2103,7 @@ Write the store and the one query that will cross a partition. Then turn the pag
 
 `Instagram · the worksheet`
 
-## Eight of these you fill in before the first box. The ninth you cannot know yet.
+## You fill in all of these before the first box, except the eighth. That one you discover.
 
 ```text
 Protagonist   A reader on a phone. Twelve opens a day, on cellular.
@@ -2106,7 +2111,7 @@ Antagonist    The shape of the follow graph — a tail at 5×10⁸ edges.
 Purpose       A fresh, personal, ranked page in under a second.
 Boundary      In: feed, posts, edges, media. Out: the phone, the network, the law.
 Environment   Evening peak ~2.5x the mean, partitions, duplicate deliveries, people who want in.
-Constraints   200 ms p99 · 60 reads per write · media durable forever
+Constraints   200 ms p99 · 60 opens per write · media durable forever
 Invariants    A post reaches eligible followers · media never lost · a like counts once
 Bottleneck    Suspected: filling in each post. Confirmed at ~80M reads/s once the read path exists.
 Solution type Scaled. Not an MVP, not optimal.
@@ -2118,7 +2123,7 @@ Solution type Scaled. Not an MVP, not optimal.
 
 `Instagram · what it must do`
 
-## The whole product rests on a very small number of operations.
+## The whole product rests on four operations.
 
 1. Post a photo
    - Upload media, attach a caption, publish it to the people who follow you.
@@ -2140,7 +2145,7 @@ Solution type Scaled. Not an MVP, not optimal.
 1. The feed serves in under 200 milliseconds
    - Server-side, 99th percentile, measured from the reader's own region.
 2. Reads dominate writes by about sixty to one
-   - At the API. Push fan-out inverts it underneath: 330K feed writes a second against 70K reads.
+   - Counted in opens. Push fan-out nearly erases that underneath: 330K feed writes a second against 420K feed reads.
 3. Posts, media and the graph are durable forever
    - Lose any of the three and nothing rebuilds them. Only derived data rebuilds.
 4. Eventual consistency is fine on the feed
@@ -2154,7 +2159,7 @@ Solution type Scaled. Not an MVP, not optimal.
 
 ## Two assumptions and some division give you every number that matters.
 
-Assume 500 million daily users opening the feed twelve times a day, and 100 million photos posted a day. The rest is division. Twelve opens each, times five hundred million people, over the seconds in a day: about `70K` reads a second. A hundred million posts over the same day: `1.2K` writes. At two megabytes each: `200 TB` a day. The ratio lands near `60:1`.
+Assume 500 million daily users opening the feed twelve times a day, and 100 million photos posted a day. The rest is division. Twelve opens each, times five hundred million people, over the seconds in a day: about `70K` feed opens a second. A hundred million posts over the same day: `1.2K` writes. At two megabytes each: `200 TB` a day. The ratio lands near `60:1`.
 
 One of those numbers does less work than it looks. Change the 500 million, holding opens and posts per person fixed, and the ratio does not move at all.
 
@@ -2168,8 +2173,8 @@ One of those numbers does less work than it looks. Change the 500 million, holdi
 
 1. Writes · 1.2 K/s
    - One machine could take these. The write path was never the hard part.
-2. Feed reads · 70 K/s
-   - A fleet, and the number everyone sizes from. It is not the real one.
+2. Feed opens · 70 K/s
+   - The number everyone sizes from, and an open is not a request. It is not the real one.
 3. Media · 200 TB a day
    - An object store, not a database. Settled right here.
 4. Followers · up to 500 M
@@ -2207,11 +2212,11 @@ A thirtieth of the read traffic, and the ratio went from 60:1 to 100:1. It moved
 
 ## A daily average is not a capacity number, and two multipliers separate them.
 
-Seventy thousand a second is the average across a whole day, and it counts one page per open. You size a fleet against neither.
+Seventy thousand a second counts opens, averaged across a whole day. A fleet serves neither opens nor averages.
 
-An open is a session: the reader scrolls, and each screenful is another fetch. Call it six. Traffic is not flat either — the evening peak runs a few times the daily mean. Call it two and a half.
+An open is a session: the reader scrolls, and every screenful is another fetch. Call it six, which already puts the mean read rate at 420K a second. Traffic is not flat either — the evening peak runs a few times the daily mean. Call it two and a half.
 
-`70K × 6 × 2.5 ≈ 1M page-fetches a second.` Size against that, and put both multipliers on the slide beside it. They are the two numbers most often left out of an estimate, and leaving them out is how a fleet gets built an order of magnitude too small.
+`70K × 6 × 2.5 ≈ 1M page-fetches a second.` Size against that, and write both multipliers next to it. Leaving them out is how a fleet gets built an order of magnitude too small, and this pair is the pair most often left out.
 
 ---
 
@@ -2268,7 +2273,7 @@ following                              followers
   capped at 7,500 rows                   B = clamp(followers / 10_000, 1, 512)
 ```
 
-*The forward edge is the source of truth, and it stores the bucket it was written into. That one column is what lets an unfollow find the reverse edge years later: `B` has grown since, so recomputing `hash(source) % B` now lands somewhere else and the edge would never be deleted. `B` may only grow — shrink it and you lose edges — and a fan-out worker reads it fresh rather than from the display cache, because a stale, smaller `B` scans too few buckets and silently skips the newest followers. Early edges were written when `B` was smaller, so the low-numbered buckets hold several times the average until `B` reaches its cap.*
+*The forward edge is the source of truth, and it stores the bucket and timestamp its reverse row was written with — together those address the row exactly. That is what lets an unfollow find the reverse edge years later: `B` has grown since, so recomputing `hash(source) % B` now lands somewhere else and the edge would never be deleted. A background job rebuilds the reverse table from the forward edges and repairs drift. `B` may only grow — shrink it and you lose edges — and a fan-out worker reads it fresh rather than from the cached count a profile page shows, because a stale, smaller `B` scans too few buckets and silently skips the newest followers. Early edges were written when `B` was smaller, so the low-numbered buckets hold several times the average until `B` reaches its cap.*
 
 ---
 
@@ -2371,11 +2376,11 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 
 ## Fifty thousand followers is the line, and the honest predicate is a rate.
 
-Fifty thousand puts a fraction of a percent of accounts on the pull path. Someone following three hundred typically has ten to thirty above the line — not because celebrities are common, but because the accounts a person chooses to follow are not a random sample of accounts.
+Fifty thousand puts a fraction of a percent of accounts on the pull path, yet someone following three hundred typically has ten to thirty above it — the accounts a person picks are not a random sample.
 
-Crossing the threshold does not rewrite history. Entries already pushed stay where they are and age out.
+Thirty pulls at a one-percent slow call puts the page in trouble, so **cap the pulls at twenty**, newest first. The next slide checks whether that works.
 
-The better predicate is fan-out work per day. Fifty thousand followers posting forty times a day costs more than two hundred thousand posting weekly, and the product of the two is what you actually pay for.
+The better predicate is fan-out work per day. Fifty thousand followers posting forty times a day costs more than two hundred thousand posting weekly, and the product is what you pay for.
 
 ---
 
@@ -2425,15 +2430,15 @@ The product exists partly for her. She is the reason a hundred million people op
 flowchart LR
   C(["Client"]) -->|"1 · presigned upload"| OS[("Object store")]
   OS -->|"2 · acknowledged"| C
-  C -->|"3 · post"| API["Gateway"] --> W["Post service"]
+  C -->|"3 · post"| API(["Gateway"]) --> W(["Post service"])
   W -->|"4 · store it"| PDB[("Post store<br/>by author id")]
   W -->|"5 · publish"| Q[["Event log"]]
-  Q --> FAN["Fan-out worker"]
+  Q --> FAN(["Fan-out worker"])
   FAN -->|"6 · who follows me?"| GS[("Graph service<br/>followers, bucketed")]
   FAN -->|"7 · push, if below threshold"| FC[("Feed cache<br/>per reader")]
 ```
 
-*Step 3 comes after step 2 on purpose. Publish before the bytes are acknowledged and the fan-out delivers a post whose media does not exist yet, to five hundred million people, and every one of them sees a broken tile. Transcoding may still be running — a variant that is not ready falls back to the original — but the original must be there before anyone is told about the post.*
+*Step 3 comes after step 2 on purpose. Publish before the bytes are acknowledged and the post becomes readable while its media does not exist, so every reader who reaches it sees a broken tile. Transcoding may still be running — a variant that is not ready falls back to the original — but the original must be there before anybody is told the post exists.*
 
 ---
 
@@ -2445,16 +2450,16 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  C(["Client"]) -->|"read feed"| API["Gateway"] --> FR["Feed service"]
+  C(["Client"]) -->|"read feed"| API(["Gateway"]) --> FR(["Feed service"])
   FR -->|"the pushed page"| FC[("Feed cache")]
   FR -->|"who do I follow?"| GS[("Graph service")]
   FR -.->|"pull, above threshold"| CC[("Celebrity list cache")]
   CC -.->|"on a miss"| PDB[("Post store")]
   FR --> OUT(["Merge · filter · rank · hydrate"])
-  CDN["CDN"] -->|"media, separately"| C
+  CDN(["CDN"]) -->|"media, separately"| C
 ```
 
-*The pull path goes through a cache, not straight to the store. That box is the whole reason the hybrid is affordable: one celebrity's recent-posts list is written once and read five hundred million times, so it is the most cacheable object in the system. Draw it, or the design you hand someone sends half a billion reads a day at the post store.*
+*The pull path goes through a cache, not straight to the store. That box is the whole reason the hybrid is affordable: one celebrity's recent-posts list is written once and read five hundred million times, so it is the most cacheable object in the system. Draw it, or the design you hand someone points every one of those reads at the post store.*
 
 ---
 
@@ -2499,7 +2504,7 @@ Batching is not only about throughput. Eighty parallel calls put fifty-five perc
 The feed is eventually consistent, which is correct for everyone else's posts and completely wrong for your own. A person who posts and does not see it reads that as data loss, not as staleness, and posts again.
 
 - Where it comes from
-  - Read-your-writes, the consistency rung from Part four, applied to one reader's own posts.
+  - Read-your-writes, the consistency level from Part four, applied to one reader's own posts.
 - Write your own feed synchronously
   - Inside the POST request, before it returns. One extra write, on one key.
 - And let the client help
@@ -2554,13 +2559,13 @@ Every like is a write against the same post id — one key, one partition, one l
 ## Every design gets drawn at rest. These four happen while it is running.
 
 - A new follow
-  - Their earlier posts were pushed before you existed. Backfill a few, or state the gap.
+  - Their earlier posts fanned out before you followed them. Backfill a few, or state the gap.
 - An unfollow
   - Pushed entries do not remove themselves. Filter at read against the current edge.
 - The same post twice
   - A crossed threshold leaves it in the pushed page and in the pull. Dedupe at the merge.
 - A cold celebrity key
-  - A million readers miss it at once. One refills it; the rest take the stale copy.
+  - A million readers miss it at once. One reader refills it while the rest wait on that fill.
 
 > A feed is a cache of a relationship. Change the relationship, leave the cache alone, and the reader is shown something untrue.
 
@@ -2570,7 +2575,7 @@ Every like is a write against the same post id — one key, one partition, one l
 
 `Instagram · where it breaks`
 
-## These are not risks here. They are certainties, and each already has its answer.
+## Three of these are certainties and one is only likely. Each already has its answer.
 
 - Celebrity post
   - The fan-out queue floods. Answer: the pull path above the threshold.
@@ -2647,7 +2652,7 @@ Every like is a write against the same post id — one key, one partition, one l
 
 ## The most useful entry here is the one we refused.
 
-Most juniors asked to design Instagram reach for a graph database, because the words "social graph" are right there. The data kit already answered it, fifty slides before this design began.
+Most juniors asked to design Instagram reach for a graph database, because the words "social graph" are right there. The data kit already answered it, sixty slides before this design began.
 
 - What the card said
   - Walk away when you have relationships but only ever join two hops.
@@ -2665,14 +2670,14 @@ Most juniors asked to design Instagram reach for a graph database, because the w
 
 ## Take one box out on paper, and follow what happens to the rest.
 
-Part three set the test. A tie-back that only says where each piece landed is a catalog; deleting pieces is what tells you whether the design is finished.
+Part three set the test. Saying where each piece landed proves nothing about whether it is needed. Deleting pieces on paper is what tells you the design is finished.
 
 - The celebrity list cache
-  - Remove it and five hundred million reads a day land on the post store. It stays.
+  - Remove it and every reader of every celebrity post reads the store directly. It stays.
 - The event log before fan-out
   - Remove it and the write waits for the whole fan-out before returning. It stays.
 - The follower count cache
-  - Remove it and each bucketed read fetches a number that barely moves. Worth trying.
+  - Remove it and every display of a profile counts rows. Keep it for display, and read `B` fresh.
 
 ---
 
