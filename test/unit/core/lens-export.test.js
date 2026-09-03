@@ -1186,6 +1186,29 @@ test.describe('a deck that carries CSS of its own cannot be projected', () => {
 		}
 	});
 
+	test('an HTML comment hides a tag, and the ABRUPT-CLOSING forms do not', () => {
+		// `<!-->` and `<!--->` are complete, empty comments per the HTML spec, so markup after them is
+		// LIVE — measured in Chrome, `<!--><style>p{color:red}</style>` really does paint the paragraph.
+		// The first version of this scan looked only for `-->` and treated everything after `<!-->` as
+		// commented out, which is the leak direction: it would have certified a deck whose positional
+		// stylesheet a browser applies. `--!>` ends a comment too.
+		const live = [
+			'<!-- c --><style>p{}</style>',
+			'<!--><style>p{}</style>',
+			'<!---><style>p{}</style>',
+			'<!----><style>p{}</style>',
+			'<!-- a --!><style>p{}</style>',
+			'<!--<!-- --><style>p{}</style>',
+			'<!--a--><style>p{}</style>',
+		];
+		for (const html of live) assert.deepEqual(authorCss(`<section>${html}</section>`, ''), { channel: 'style' }, html);
+		// Genuinely commented out, and an unclosed comment really does swallow the rest of the document —
+		// a browser finds no element after it at all, so there is no live `<style>` to refuse.
+		for (const html of ['<!-- <style>p{}</style> -->', '<!-- oops <style>p{}</style>']) {
+			assert.equal(authorCss(`<section>${html}</section>`, ''), null, html);
+		}
+	});
+
 	test('a `<script>` is a CSS channel, because it can build one at run time', () => {
 		// Three lines on a KEPT slide put a positional rule in the shipped document with no `<style>`
 		// anywhere in the markup, measured hiding a sentence in the full render and showing it in the
