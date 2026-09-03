@@ -225,28 +225,31 @@ The export renders the deck both ways, compares each kept slide against itself, 
 rather than shipping the difference. Put deck-wide settings in the front matter, or on a
 slide every view keeps.
 
-**And a third, if your deck carries CSS of its own: a rule that picks a slide by its
-number.** Write `section:nth-of-type(3) p { display: none }` — hide the paragraph on slide
-3 — and export a view that drops slides before it, and the slide that *becomes* number 3 is
-a different one. A paragraph you had hidden can come back in the file you send; an `::after`
-classification marking can vanish from it. This is the one thing comparing two renders
-cannot show you: the stylesheet is byte-identical in both files, and so is every slide's
-markup. Only which slide the selector counts to has moved.
+**And a third: a rule that picks a slide by its number.** Write
+`section:nth-of-type(3) p { display: none }` — hide the paragraph on slide 3 — and export a
+view that drops slides before it, and the slide that *becomes* number 3 is a different one.
+A paragraph you had hidden can come back in the file you send; a classification marking can
+land on a slide you never marked. This is the one thing comparing the two renders cannot
+show you, because nothing textual moves: the stylesheet is identical in both files, and so
+is every slide's markup. Only which slide the rule counts to has changed.
 
-So the export asks a browser instead. It renders your deck both ways and, for each rule you
-wrote, compares which slides that rule matches — before and after. A rule that matched slide
-3 must land wherever slide 3 went; one that matched a slide you withheld must match nothing.
-Anything else refuses, naming the rule and both answers. Nothing is parsed, so `:is()`,
-`:has()`, escapes and attribute selectors are covered without being listed.
+So the export asks a browser instead. It renders your deck both ways and compares **what a
+reader can actually see** on each slide the view keeps — every painted text node, plus what
+`::before` and `::after` print, ignoring anything the CSS hides. If a kept slide would show
+something different, it refuses and names the slide and the difference. It reads no CSS at
+all, which is the point: nesting, `@scope`, `@import`, a `<link>`, a `<style>` inside an
+inlined SVG and a stray `/*` swallowing the next stylesheet are all just *ways* of writing
+the rule, and none of them changes what the slide ends up showing.
 
-**This runs only when your deck has CSS of its own** — a `<style>`, a front-matter `style:`,
-or a `--css` file. Of the 150 decks in `examples/`, two do. Everything else skips it and
-pays nothing (measured: 1.7 s either way; 6.2 s when it runs). And a ```css block teaching
-an example is not styling: it renders as code, so it is read off the parsed document rather
-than the markdown, and never trips the check.
+**Two differences it forgives**, both because they are the deck's own furniture rather than
+your content: a page number, wherever it comes from, and an empty `content: ""`.
 
-**The fix, when it does refuse:** style a class you set on the slide — `<!-- _class: hushed -->`
-and `section.hushed …`. A class travels with the slide instead of counting to it.
+**It runs whenever a view drops a slide** — about five seconds, and nothing at all for
+`--lens full`, which keeps every slide in place and so can move nothing.
+
+**The fix, when it refuses:** style the slide through a class you set on it —
+`<!-- _class: hushed -->` and `section.hushed …`. A class travels with the slide instead of
+counting to it.
 
 **And your `captions:` travel with the slides.** The block is keyed by slide number, so a
 projection renumbers it: entries for withheld slides are dropped, and the rest are

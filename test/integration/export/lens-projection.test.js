@@ -185,7 +185,12 @@ describe('--lens: the projected export', () => {
 			const r = run(deck, path.join(dir, 'out.html'), ['--lens', 'brief']);
 			assert.notEqual(r.status, 0, 'a rule that changes which slide it hides must refuse');
 			assert.match(r.stderr, /positional-css/);
-			assert.match(r.stderr, /nth-of-type\(3\)/, 'and it names the rule, so the author can find it');
+			// It names the SLIDE and the visible difference, not the rule. The check parses no CSS — that is
+			// what makes it immune to nesting, `@scope`, `<link>` and the rest — so it cannot name a selector,
+			// and the version that tried reported the renumbered expectation as "the deck you wrote", which
+			// was a falsehood. What an author can act on is which slide changed and what changed on it.
+			assert.match(r.stderr, /Slide 3 of your deck shows/, 'it names the slide that changed');
+			assert.match(r.stderr, /SECRET|Body of slide/, 'and shows what the reader will see instead');
 			assert.equal(fs.existsSync(path.join(dir, 'out.html')), false, 'and writes nothing');
 			fs.rmSync(dir, { recursive: true, force: true });
 		});
@@ -222,11 +227,30 @@ describe('--lens: the projected export', () => {
 			fs.rmSync(dir, { recursive: true, force: true });
 		});
 
-		test('a deck with no CSS of its own never reaches the browser at all', { timeout: TIMEOUT }, () => {
-			// The gate that keeps the cost off 148 of the 150 decks in examples/.
+		test('a deck with no CSS of its own still ships — the check runs on every reducing projection', { timeout: TIMEOUT }, () => {
+			// It is deliberately NOT gated on the deck appearing to carry CSS. That gate was tried and it
+			// skipped two of the six known bypasses outright: a `<link rel=stylesheet>` and a `<style>` inside
+			// an inlined SVG both put author CSS in the document without leaving a trace in the markdown. So
+			// the check pays for two renders on every reducing projection, and this asserts what that costs on
+			// a deck with no CSS at all: nothing.
 			const { dir, deck } = setup();
 			const r = run(deck, path.join(dir, 'out.html'), ['--lens', 'brief']);
 			assert.equal(r.status, 0, r.stderr);
+			assert.ok(fs.existsSync(path.join(dir, 'out.html')));
+			fs.rmSync(dir, { recursive: true, force: true });
+		});
+
+		test('and CSS NESTING is caught — the spelling that defeated the design this replaced', { timeout: TIMEOUT }, () => {
+			// `section { &:nth-of-type(3) … }` is the rule an author is most likely to actually write, and
+			// asking the browser which slides each rule SELECTS walked straight past it: a nested rule hangs
+			// off its parent's `cssRules` with no `selectorText` of its own, so the enumeration never saw it.
+			// Comparing what a reader SEES cannot be evaded by a spelling, because it reads no spelling.
+			const { dir, deck } = setup();
+			fs.writeFileSync(deck, deckStyled('section { &:nth-of-type(3) p { display: none } }'));
+			const r = run(deck, path.join(dir, 'out.html'), ['--lens', 'brief']);
+			assert.notEqual(r.status, 0, 'a nested positional rule must refuse too');
+			assert.match(r.stderr, /positional-css/);
+			assert.equal(fs.existsSync(path.join(dir, 'out.html')), false, 'and writes nothing');
 			fs.rmSync(dir, { recursive: true, force: true });
 		});
 	});

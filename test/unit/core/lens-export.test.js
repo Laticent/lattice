@@ -19,7 +19,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { POSITION_NEUTRALIZERS, authoredIndexDrift, carriesAuthorCss, crossSlideDrift, projectForExport, exportableViews, selectorSlideDrift, REFUSAL_REASONS } = require('../../../lib/core/lens-export.mjs');
+const { POSITION_NEUTRALIZERS, authoredIndexDrift, crossSlideDrift, projectForExport, exportableViews, REFUSAL_REASONS } = require('../../../lib/core/lens-export.mjs');
 const { frontMatterBlockOf, normalizeSourceText, slideBoundaries } = require('../../../lib/core/slide-boundaries.mjs');
 const { approvalHash, applyTag, emitRegistry } = require('@workwel/lente');
 const engine = require('../../../lib/engine/index.js');
@@ -1118,69 +1118,6 @@ test.describe('the guards that cannot fire yet, driven through the injected rend
 		assert.equal(drift.channel, 'proxy', 'and it says so, so the message can tell the truth');
 	});
 
-});
-
-/**
- * CSS THAT SELECTS A SLIDE BY POSITION — the one cross-slide mechanism comparing two renders cannot
- * see, and the only one that needs a browser.
- *
- * The kernel half is arithmetic and lives here; the CLI supplies the match sets, measured in a real
- * document, for the reason it supplies the renderer. What is being asserted is the mapping rule: a
- * rule that matched authored slide N must, in the projection, match wherever N landed — and must match
- * nothing at all when N was withheld.
- *
- * A SCANNER for the same question was written first, and removed. Against 24 real CSS idioms it
- * refused 7 of 12 harmless ones — `p:not(:last-child)`, `.card > :first-child`, `* + *`, and a deck
- * whose only CSS was a comment — while missing 6 of 12 dangerous ones, because `section[id="3"]`
- * selects by position too and the space of spellings has no end. Asking the browser which slides a
- * rule matches parses nothing, so `:is()`, `:has()`, CSS escapes and attribute selectors are covered
- * by construction: measured end to end on the real CLI, 8 of 8 leaks refuse and 14 of 14 idioms ship.
- */
-test.describe('a rule must land on the slide it was written for, not the one that moved into its place', () => {
-	test('a rule that counted to a slide, and now counts to another, refuses', () => {
-		// `section:nth-of-type(3) p { display: none }` matched authored slide 2. The view keeps 0 and 2,
-		// so slide 2 becomes slide 1 and the rule should follow it there. It does not — it still counts
-		// to the third slide, which no longer exists — so the paragraph comes back in the sent file.
-		const drift = selectorSlideDrift({ 'section:nth-of-type(3) p': [2] }, { 'section:nth-of-type(3) p': [] }, [0, 2]);
-		assert.ok(drift, 'the rule stopped matching the slide it was written for');
-		assert.deepEqual(drift.was, [1], 'and the message can say where it should have landed');
-		assert.deepEqual(drift.now, []);
-	});
-
-	test('a rule that lands on a DIFFERENT slide refuses too — the direction that reveals, not hides', () => {
-		const drift = selectorSlideDrift({ 'section:nth-of-type(2)': [1] }, { 'section:nth-of-type(2)': [1] }, [0, 2, 3]);
-		assert.ok(drift, 'authored slide 1 is withheld, so the rule should match nothing');
-		assert.deepEqual(drift.was, []);
-		assert.deepEqual(drift.now, [1]);
-	});
-
-	test('a rule tied to a class follows its slide, and is not a finding', () => {
-		// The remedy the refusal recommends, asserted rather than asserted-about: a class travels with
-		// the slide instead of counting to it.
-		assert.equal(selectorSlideDrift({ 'section.hushed .quiet': [0] }, { 'section.hushed .quiet': [0] }, [0, 2]), null);
-	});
-
-	test('a rule that only ever matched a WITHHELD slide is not a finding', () => {
-		assert.equal(selectorSlideDrift({ '.only-on-one': [1] }, { '.only-on-one': [] }, [0, 2]), null);
-	});
-
-	test('a rule matching several slides has to keep all of them, renumbered', () => {
-		assert.equal(selectorSlideDrift({ '.mark': [0, 2, 4] }, { '.mark': [0, 1, 2] }, [0, 2, 4]), null);
-		const drift = selectorSlideDrift({ '.mark': [0, 2, 4] }, { '.mark': [0, 2] }, [0, 2, 4]);
-		assert.ok(drift, 'losing the middle one is a difference in what the reader sees');
-	});
-
-	test('the gate is the deck carrying CSS at all — that is why almost nobody pays for the browser', () => {
-		assert.equal(carriesAuthorCss('---\nmarp: true\n---\n\n# A\n'), false, 'no CSS, no check');
-		assert.equal(carriesAuthorCss('---\nmarp: true\nstyle: "p { color: red }"\n---\n\n# A\n'), true, 'inline front matter');
-		assert.equal(carriesAuthorCss('---\nmarp: true\nstyle: |\n  p { color: red }\n---\n\n# A\n'), true, 'block front matter');
-		assert.equal(carriesAuthorCss('---\nmarp: true\n---\n\n# A\n', '', ''), false, 'blank extras do not open the gate');
-		assert.equal(carriesAuthorCss('---\nmarp: true\n---\n\n# A\n', 'section {}'), true, 'the parsed body does');
-		// The gate deliberately does NOT read a `<style>` out of the markdown: a ```css fence teaching an
-		// example renders as <pre><code> and applies to nothing. The caller reads real elements off the
-		// parsed document and passes them in — ask the parser, not the bytes.
-		assert.equal(carriesAuthorCss('---\nmarp: true\n---\n\n# A\n\n```css\nsection:nth-of-type(2) { color: red }\n```\n'), false);
-	});
 });
 
 test.describe('the neutralizer set is a pinned decision, not a growing convenience', () => {

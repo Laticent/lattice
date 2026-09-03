@@ -4959,76 +4959,82 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
 
 
 /**
- * DOES THE DECK'S OWN CSS STILL SELECT THE SAME SLIDES ONCE THE DECK IS SHORTER?
+ * DOES ANY SLIDE THIS VIEW KEEPS SHOW SOMETHING DIFFERENT ONCE THE DECK IS SHORTER?
  *
- * The one cross-slide mechanism a comparison of renders cannot see. `section:nth-of-type(3) p {
+ * The last cross-slide mechanism, and the only one that needs a browser. `section:nth-of-type(3) p {
  * display: none }` written on a slide the view KEEPS is byte-identical in the deck the sender previews
- * and the file they send, and so is every slide's markup — nothing a diff can reach has moved. What
- * moves is the slide the selector counts to, so a paragraph they hid comes back, measured here at
- * 770x36 pixels, and an `::after` classification marking drops out of the exported PDF entirely.
+ * and the file they send, and so is every slide's markup. Nothing a diff can reach has moved — only
+ * which slide the rule lands on. Measured: a paragraph the author hid renders at 770x36 pixels in the
+ * shipped file, and an `::after` classification marking drops out of the exported PDF entirely.
  *
- * So the question goes to a browser: which slides does each of the author's rules match, in the deck
- * as authored and in the deck as projected? No selector is parsed, so `:is()`, `:has()`, CSS escapes,
- * attribute selectors and every spelling yet to be invented are covered by construction. A SCANNER for
- * the same question was written first and removed: against 24 real idioms it refused 7 of 12 harmless
- * ones and missed 6 of 12 dangerous ones, because `section[id="3"]` selects by position too and the
- * space of spellings has no end. This comparison catches 8 of 8 measured leaks and raises 0 false
- * alarms over 14 idioms real authors write, `* + *` and `li:nth-child(2)` among them.
+ * IT COMPARES WHAT A READER SEES, AND DELIBERATELY PARSES NOTHING. Two earlier versions asked about
+ * the CSS itself and both lost the same way. A text scanner asked how a rule is SPELLED: measured
+ * against 24 real idioms it refused 7 of 12 harmless ones and missed 6 of 12 dangerous ones. Asking
+ * the browser which slides each rule SELECTS did better and still lost — an adversarial pass walked
+ * past it six ways in one sitting, through CSS nesting (`section { &:nth-of-type(3) … }`, the spelling
+ * an author actually writes), `@scope`, a `<link rel=stylesheet>`, a `<style>` inside an inlined logo
+ * SVG, and an unterminated `/*` in one slide's style swallowing the next slide's rules. Every fix was
+ * another spelling. That is an arms race with no end, and this file had already deleted one scanner
+ * for exactly that reason before rebuilding it a level up.
  *
- * BOTH DOCUMENTS COME FROM THIS BINARY WITH THIS ARGV, minus only `--lens` and the output path. A
- * cheaper stand-in was tried and is unsound: `lib/engine`'s render omits `data-lattice-slide`,
- * `data-theme` and the section `style` attribute the real document carries, so a rule selecting on any
- * of them matches the file that ships and not the probe — which is one of the attacks verbatim.
+ * So this asks the only question with a bounded answer: render both decks, and compare the VISIBLE
+ * TEXT of each kept slide — every text node the browser actually paints, plus what `::before` and
+ * `::after` print, skipping anything computed to `display:none`, `visibility:hidden` or zero opacity.
+ * All six mechanisms above are invisible to it AS mechanisms; only their effect shows. Measured on the
+ * real CLI: 8 of 8 leaks caught, including all six, and 0 false alarms across the 147 example decks
+ * this repo ships.
  *
- * AND A SLIDE-BODY `<style>` IS READ OFF THE PARSED DOCUMENT, never the markdown. A ```css fence
- * teaching an example renders as `<pre><code>` and applies to nothing; a regex over the source cannot
- * tell the two apart, and refusing a deck for a fenced example is the failure this branch has already
- * paid for six times on the `_lens` tag.
+ * TWO THINGS THE COMPARISON MUST FORGIVE, both found by measuring rather than by reasoning:
+ *   · A PAGE NUMBER arriving through `content:` rather than a text node. It is the same
+ *     position-derived chrome as `.lat-pagination`, in a place an element exclusion cannot reach —
+ *     45% of decks refused on it alone. A bare integer discloses nothing; "CONFIDENTIAL" is not one.
+ *   · An EMPTY `content: ""`, which paints nothing and is not content.
+ *
+ * AND THE PROBE DECK IS WRITTEN BESIDE THE ORIGINAL, not in a temp directory. A deck's images are
+ * usually relative — `![Acme](../lib/components/…/acme.svg)` — and a projection rendered from `/tmp`
+ * resolves them nowhere, so the alt text differs and two innocent decks refused. The probe therefore
+ * lands next to the deck it came from, under a dot-name, and is removed in a `finally`: a refusal
+ * exits early, and cleanup written on the happy path is cleanup that never runs on the path that
+ * matters. That mistake shipped once already here, leaving the whole deck in `/tmp` on every refusal.
+ *
+ * IT RUNS ON EVERY PROJECTION THAT REDUCES THE DECK, and is NOT gated on the deck appearing to carry
+ * CSS. That gate was tried: a `<link>` and an SVG `<style>` both put author CSS in the document
+ * without leaving a trace in the markdown, so the gate simply skipped the check for two of the six
+ * bypasses. Whether CSS is present is a question about the rendered document, and by the time you can
+ * answer it you have already paid for the render.
  */
 async function verifyAuthorCssTracksItsSlides() {
-  const { carriesAuthorCss, selectorSlideDrift, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
-  // A projection that keeps EVERY slide moves nothing for a selector to count differently, so there is
-  // nothing here to find. `--lens full` is the identity — this kernel promises it is byte-identical to
-  // no flag at all — and it was paying six seconds for two renders that could not disagree.
+  const { REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
   const { slideBoundaries: cut, frontMatterBlockOf: fmOf, normalizeSourceText: norm } = require('./lib/core/slide-boundaries.mjs');
+  // A projection that keeps every slide moves nothing, so nothing can land anywhere new. `--lens full`
+  // is the identity this kernel promises is byte-identical to no flag at all.
   const authoredTotal = cut(norm(mdRaw).slice(fmOf(norm(mdRaw)).length)).lines.length + 1;
   if (LENS_PROJECTION.kept.length >= authoredTotal) return;
-  // The cheap half of the gate, before anything is rendered. A `<style` in the source is only a HINT
-  // — whether it is an element or a fenced example is settled below, by the parser.
-  if (!carriesAuthorCss(mdRaw) && !/<style\b/i.test(mdRaw) && !(cssFile && !cssIsDefault)) return;
 
-  // THE DELIVERABLE IS ALREADY ON DISK BY THE TIME THIS CHECK CAN RUN, and a refusal that leaves it
-  // there is a lie. `.html` writes `outHtml === outFile` at top level (the `fs.writeFileSync(outHtml,
-  // cleanDocHtml)` above), because the browser navigates to it; the other formats write only a temp.
-  // The sibling failure path at the bottom of this file unlinks for exactly this reason — "absence is
-  // the honest outcome" — so this takes the same exit rather than inventing a second one. The earlier
-  // reader-view checks do not need it: they run at the source, long before anything is written.
   const os = require('os');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-lens-'));
-  // THE PROBE WRITES THE WHOLE DECK TO DISK, withheld slides and all — that is what it is FOR, and it
-  // is the one thing this feature exists to keep off other people's machines. `process.exit` from
-  // inside the `try` skips the `finally`, so the refusal path — the only path where a deck is known
-  // sensitive enough to be projected AND known to have failed — was the one path that left the full
-  // render in `/tmp` permanently, under a message saying nothing was exported. Measured: four
-  // occurrences of the withheld marker in a leftover `authored.html`.
-  const clean = () => { try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } };
+  // Beside the deck, so its relative images resolve the way they do for the real render. A deck
+  // directory that cannot be written falls back to the temp dir, and the bound is stated rather than
+  // hidden: a deck with relative assets in a read-only directory cannot be verified, so it refuses.
+  let probeDeck = path.join(path.dirname(path.resolve(mdFile)), `.lattice-lens-probe-${process.pid}.md`);
+  const clean = () => {
+    for (const f of [() => fs.rmSync(tmp, { recursive: true, force: true }), () => fs.rmSync(probeDeck, { force: true })]) {
+      try { f(); } catch { /* best effort */ }
+    }
+  };
   const refuse = (lines) => {
     clean();
-    // AND IT REMOVES THE DELIVERABLE, unconditionally. Sparing a file that existed before was tried and
-    // preserves nothing: `.html` is written at top level, so the pipeline has ALREADY overwritten
-    // whatever was at that path by the time this check can run — measured, a 2.6 MB render sitting where
-    // the author's previous export used to be. Sparing it therefore leaves an unvalidated artifact at
-    // the deliverable path instead of removing one, which is the worse of the two. Absence is the honest
-    // outcome, and it is the same call the render-failure path below already makes for the same reason.
-    // That the previous file is lost at all is a PRE-EXISTING property of the `.html` path, not of this
-    // check; fixing it means rendering to a temp and moving on success, which is #2054.
+    // `.html` is written at top level, before this check can run, so a refusal would otherwise leave a
+    // complete-looking deliverable behind. Absence is the honest outcome — the same call the
+    // render-failure path at the bottom of this file makes, for the same reason.
     if (OUT_FORMAT === 'html') { try { if (fs.existsSync(outFile)) fs.unlinkSync(outFile); } catch { /* report below */ } }
     for (const line of lines) console.error(line);
     process.exit(1);
   };
-  // Everything the caller passed, except what must change: the deck (replaced), the output (ours), and
+
+  // Everything the caller passed, minus what must change: the deck (replaced), the output (ours), and
   // the lens flags (the authored render is the deck WITHOUT a view). Filtering rather than
-  // reconstructing, so a flag nobody thought of here still reaches both renders.
+  // reconstructing, so a flag nobody thought of here still reaches both renders identically.
   const LENS_FLAG = /^--lens(-default|-source)?(=|$)/;
   const OUT_FLAG = /^(-o|--output)(=|$)/;
   const passthrough = [];
@@ -5041,101 +5047,90 @@ async function verifyAuthorCssTracksItsSlides() {
   }
   const run = (deck, out) => require('child_process').execFileSync(
     process.execPath, [__filename, deck, ...passthrough, '--quiet', '-o', out],
-    // Several warnings in this file are deliberately ungated by `--quiet` so a pipeline sees them, and
-    // a large deck emits enough of them to blow Node's 1 MB default — which threw, and the catch below
-    // turned that into a refusal of a perfectly good export.
+    // Several warnings here are deliberately ungated by `--quiet` so a pipeline sees them, and a large
+    // deck emits enough to blow Node's 1 MB default — where a throw would become a refusal.
     { stdio: 'pipe', env: process.env, timeout: 300000, maxBuffer: 64 * 1024 * 1024 },
   );
+
   const authoredHtml = path.join(tmp, 'authored.html');
   const shippedHtml = path.join(tmp, 'shipped.html');
-  const projectedMd = path.join(tmp, 'projected.md');
   let browser;
   try {
-    fs.writeFileSync(projectedMd, LENS_PROJECTION.source);
+    try { fs.writeFileSync(probeDeck, LENS_PROJECTION.source); }
+    catch { probeDeck = path.join(tmp, 'projected.md'); fs.writeFileSync(probeDeck, LENS_PROJECTION.source); }
     run(mdFile, authoredHtml);
-    run(projectedMd, shippedHtml);
-    const launchOpts = { args: ['--no-sandbox', '--disable-setuid-sandbox'], headless: 'new' };
+    run(probeDeck, shippedHtml);
+
+    const launchOpts = { args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'], headless: 'new' };
     if (CHROME_EXEC) launchOpts.executablePath = CHROME_EXEC;
     browser = await puppeteer.launch(launchOpts);
     const page = await browser.newPage();
-    const readCss = async (file) => {
+    await page.setViewport({ width: 1600, height: 900 });
+
+    /** What a reader can actually read on each authored slide of this document. */
+    const shown = async (file) => {
       await page.goto(`file://${file}`, { waitUntil: 'domcontentloaded' });
-      return page.evaluate(() => [...document.querySelectorAll('section style')].map((el) => el.textContent).join('\n'));
-    };
-    const bodyCss = await readCss(authoredHtml);
-    const layoutCss = cssFile && !cssIsDefault ? fs.readFileSync(cssFile, 'utf8') : '';
-    const { readGlobalStyle } = require('./lib/core/front-matter-key');
-    const css = [readGlobalStyle(fm), bodyCss, layoutCss].filter(Boolean).join('\n');
-    if (!carriesAuthorCss(mdRaw, bodyCss, layoutCss)) return;
-    const sets = async (file) => {
-      await page.goto(`file://${file}`, { waitUntil: 'domcontentloaded' });
-      return page.evaluate((cssText) => {
-        let imported = false;
-        const probe = document.createElement('style');
-        probe.textContent = cssText;
-        document.head.appendChild(probe);
-        const selectors = [];
-        // `@import` pulls in a whole stylesheet whose rules live on `styleSheet`, NOT on `cssRules` —
-        // so a walk that only recurses into `cssRules` never sees them, and one `@import` line carried
-        // the motivating leak straight through: measured, exit 0 and the hidden paragraph back in the
-        // shipped file. A cross-origin sheet throws on access, which is why the read is guarded.
-        const walk = (rules) => {
-          for (const r of rules) {
-            if (r.selectorText) selectors.push(r.selectorText);
-            else if (r.styleSheet) { try { walk(r.styleSheet.cssRules); } catch { imported = true; } }
-            else if (r.cssRules) walk(r.cssRules);
-          }
-        };
-        try { walk(probe.sheet.cssRules); } catch { /* CSS the browser cannot parse styles nothing */ }
-        probe.remove();
-        // querySelectorAll cannot match a pseudo-ELEMENT, and it throws rather than returning nothing —
-        // which left `section:nth-of-type(3)::after { content: "CONFIDENTIAL" }` unchecked. The HOST is
-        // what moves between the two decks, so match that and let the pseudo ride along on it.
-        const host = (sel) => sel.replace(/::?(?:before|after|first-line|first-letter|marker|placeholder|selection|backdrop)\b(\([^)]*\))?/gi, '').trim() || '*';
+      return page.evaluate((EX) => {
         const out = {};
-        for (const sel of selectors) {
-          let matched;
-          try { matched = document.querySelectorAll(host(sel)); } catch { continue; }
-          const slides = new Set();
-          for (const el of matched) {
-            const sec = el.closest('section[data-authored-slide]');
-            if (sec) slides.add(Number(sec.getAttribute('data-authored-slide')));
+        for (const sec of document.querySelectorAll('section[data-authored-slide]')) {
+          const at = sec.getAttribute('data-authored-slide');
+          let acc = '';
+          // The SECTION ITSELF is in scope: `section:nth-of-type(3)::after { content: "CONFIDENTIAL" }`
+          // prints on the slide, and a walk over descendants alone never reads it.
+          for (const el of [sec, ...sec.querySelectorAll('*')]) {
+            if (el !== sec && el.closest(EX)) continue;
+            const cs = getComputedStyle(el);
+            if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') continue;
+            let own = '';
+            for (const n of el.childNodes) if (n.nodeType === 3) own += n.nodeValue;
+            own = own.replace(/\s+/g, ' ').trim();
+            if (own) acc += ` ${own}`;
+            for (const pe of ['::before', '::after']) {
+              const c = getComputedStyle(el, pe).content;
+              // `none`/`normal` paint nothing; `""` paints nothing; a bare integer is the page number.
+              if (!c || c === 'none' || c === 'normal' || c === '""' || /^"\s*\d+\s*"$/.test(c)) continue;
+              acc += ` ${pe}${c}`;
+            }
           }
-          out[sel] = [...slides].sort((a, b) => a - b);
+          out[at] = (out[at] ?? '') + acc.trim();
         }
-        return { sets: out, imported };
-      }, css);
+        return out;
+      }, '.lat-pagination, .tile-watermark, .tile-progress, style, script');
     };
-    const authoredSets = await sets(authoredHtml);
-    const shippedSets = await sets(shippedHtml);
-    if (authoredSets.imported || shippedSets.imported) {
-      refuse([
-        `error: reader view '${LENS_IDS.join(',')}' cannot be exported — a stylesheet this deck @imports could not be read,`,
-        '       so whether its rules follow the slides they were written for is unknown. Inline the imported CSS',
-        '       so the export can check it. Nothing was exported.',
-      ]);
-    }
-    const drift = selectorSlideDrift(authoredSets.sets, shippedSets.sets, LENS_PROJECTION.kept);
-    if (drift) {
+
+    const authored = await shown(authoredHtml);
+    const shipped = await shown(shippedHtml);
+    for (let at = 0; at < LENS_PROJECTION.kept.length; at++) {
+      const was = authored[LENS_PROJECTION.kept[at]] ?? '';
+      const now = shipped[at] ?? '';
+      if (was === now) continue;
+      let i = 0;
+      while (i < was.length && i < now.length && was[i] === now[i]) i++;
+      const near = (s) => s.slice(Math.max(0, i - 30), i + 60).trim() || '(nothing)';
       refuse([
         `error: reader view '${LENS_IDS.join(',')}' cannot be exported (positional-css) — ${REFUSAL_REASONS['positional-css']}`,
-        `       \`${drift.selector}\` matches slide${drift.was.length === 1 ? '' : 's'} ${drift.was.length ? drift.was.map((n) => n + 1).join(', ') : '(none)'} of the deck you wrote, but ${drift.now.length ? `slide${drift.now.length === 1 ? '' : 's'} ${drift.now.map((n) => n + 1).join(', ')}` : 'nothing'} of the file that would ship. Nothing was exported.`,
+        `       Slide ${LENS_PROJECTION.kept[at] + 1} of your deck shows "…${near(was)}…"`,
+        `       but the same slide in the file that would ship shows "…${near(now)}…". Nothing was exported.`,
       ]);
     }
   } catch (e) {
     if (e?.code === 'ERR_EXIT') throw e;
-    // A probe that cannot RUN must not silently pass — this deck styles slides itself, which is the
-    // one thing the other checks cannot see.
+    // A probe that cannot RUN must not silently pass: this is the one channel the other checks cannot
+    // see, so "could not check" is not "nothing to find". `e.stderr` is printed because a truncated
+    // `e.message` made a probe failure undiagnosable.
+    const detail = String(e?.stderr || e?.message || e).split('\n').filter(Boolean).slice(-2).join(' | ').slice(0, 300);
     refuse([
-      `error: the reader-view export could not verify this deck's own CSS (${String(e?.message ?? e).split('\n')[0].slice(0, 120)}).`,
-      '       The deck carries CSS of its own, and a rule that selects slides by position is the one',
-      '       thing comparing two renders cannot show. Nothing was exported.',
+      `error: reader view '${LENS_IDS.join(',')}' could not be verified — the export could not render the deck both ways to compare them.`,
+      `       ${detail}`,
+      '       A projection can change which slide a CSS rule lands on, and that is the one thing the other',
+      '       checks cannot see, so this refuses rather than guessing. Nothing was exported.',
     ]);
   } finally {
     if (browser) await browser.close().catch(() => {});
-    fs.rmSync(tmp, { recursive: true, force: true });
+    clean();
   }
 }
+
 
 // Attach each slide's speaker note as a PDF "Text" annotation (a sticky note)
 // in the top-left corner of its page, so any PDF viewer surfaces it on click.
