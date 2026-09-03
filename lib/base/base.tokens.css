@@ -1576,8 +1576,23 @@ section[data-cards-coda="spread"]:has(> .cell-coda)  { --cards-align: space-even
  * the seven rules names `var(--fs-meta)` directly: one ladder token (#4), written seven times,
  * rather than one register entry that quietly means something else.
  *
+ * DECLARED ON `:root, section`, NOT `:root` — and that is the SECOND half of the same trap.
+ * A `var()` in a custom property is substituted at the element the property is DECLARED on, and
+ * the result inherits down already resolved. So `--runhead-ink: var(--text-secondary)` written
+ * at `:root` alone freezes the THEME's screen value at `<html>`, where `section.print`'s remap
+ * (base.modifiers.css) cannot reach it: a `class: print` split page painted its runhead the
+ * theme's screen blue on an otherwise all-gray paper page — measured, #455C7A against the
+ * #3D3D3D that element's own `--text-secondary` resolves to. Naming `section` too re-resolves
+ * every entry per section, which is where the print band, `mode: sketch`'s `--font-body`
+ * re-point, and any future section-scoped remap all live. The typography generator has emitted
+ * `:root, section` for exactly this reason since #1375, which is why `--pill-fs` survives the
+ * same laundering and these four did not.
+ *
+ * (Dark mode was never affected: `light-dark()` inside a custom property resolves at the USING
+ * element, verified in the same probe. The hazard is token REMAPS, not scheme switching.)
+ *
  * Palette-blind (#3); every value is a token. */
-:root {
+:root, section {
   --runhead-face: var(--font-body);
   --runhead-ls: 0.01em;
   --runhead-case: none;

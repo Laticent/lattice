@@ -899,7 +899,13 @@ section.journey.lat-split-native .journey-vrows,
 section.journey.lat-split-native .journey-vstack {
   flex: 0 0 auto;
 }
-section.journey.lat-split-native .journey-board {
+/* `[data-orient="vertical"]` is here to WIN, not to narrow. Without it this selector is
+   (0,3,1) — the exact specificity of the vertical board's own `justify-content: flex-start`
+   ninety lines up in this same file — so the centering held only because it is declared later.
+   A tie decided by source order breaks silently the moment either block moves. The board is
+   vertical on every page this rule can match, so the attribute costs nothing and makes the
+   override a real one at (0,4,1). */
+section.journey.lat-split-native .journey-board[data-orient="vertical"] {
   justify-content: center;
 }
 

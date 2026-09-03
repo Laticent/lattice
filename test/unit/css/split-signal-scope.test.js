@@ -26,20 +26,42 @@
  *     THE FIX IS NOT "DON'T USE FLEX", and an earlier revision of this suite asserted exactly
  *     that and would now reject the correct layout. The pill is a flex row. What makes it safe is
  *     that it SHRINK-WRAPS: `align-self: flex-end` sizes the box to its content, and a box with
- *     no free space has none to strand the mark across. So the assertion is "the box does not
- *     stretch", which is the actual mechanism, and it holds whether the inside is flex or not.
+ *     no free space has none to strand the mark across.
  *
- *     A geometric assertion was tried and abandoned, and it is worth saying why so nobody
- *     re-adds it. The mark is a pseudo-element with no node to measure, so the only available
- *     reading is line one's own left edge — and on a right-aligned box that sits well inside the
- *     box BY DESIGN (7.5em on the fixture, with the mark correctly adjacent to it). The
- *     measurement cannot tell a correctly right-aligned line from a stranded mark.
+ *     SO THE ASSERTION IS GEOMETRY — where the box actually lands — and the two readings it
+ *     replaced were both vacuous. An independent checker demonstrated it: `align-self`'s computed
+ *     value is the specified keyword whatever the parent does, so `notEqual(alignSelf,'stretch')`
+ *     can never fail once the rule sets `flex-end`; and `width < stageWidth` is true of ANY
+ *     shrink-wrapped box, at the left edge or the right. Varying only the parent's display on
+ *     this suite's own fixture, both assertions passed on a pill sitting at x=40 with 821px of
+ *     air to its right — the exact stranding this file exists to catch. `rightGap` fails there,
+ *     and does not fail on the correct layout.
  *
- *   · The label is wrapped in `.lat-split-label`, and the last test below is why: `text-overflow`
- *     never applies to a flex CONTAINER, so the 7-in-98 signals longer than 40 characters could
- *     be clipped mid-word but never ellipsised without an element to carry it. That span also
- *     guards a HARD RULE #1 regression — `closingSignal` in auto-split.js used to hand-build this
- *     same div, and it was the one pointer in the deck that came out unwrapped.
+ *     The anchor is a property of the PARENT, and this suite pins the parent it is given, not the
+ *     one production emits. Every real pointer parent is a flex column — verified over 4 decks x 4
+ *     sizes with `CSS.getMatchedStylesForNode` — but nothing in the CSS guarantees it, and for
+ *     `premise` it holds only because a separate, unrelated rule makes that section a column on
+ *     exactly the families that can split. A gate that could see that lives on a real render, not
+ *     here; what this file can say is that GIVEN the parent production emits, the rule
+ *     right-anchors, and that is what it now says.
+ *
+ *     A geometric assertion on the MARK was tried and abandoned, and that is a different thing
+ *     worth keeping straight so nobody re-adds it. The mark is a pseudo-element with no node to
+ *     measure, so the only available reading was line one's own left edge — which on a
+ *     right-aligned box sits well inside it BY DESIGN. That measurement cannot tell a correctly
+ *     right-aligned line from a stranded mark. The BOX's own edges can.
+ *
+ *   · The label is wrapped in `.lat-split-label`, and the `ellipsises` test below is why:
+ *     `text-overflow` never applies to a flex CONTAINER, so a label past the pill's width could
+ *     be clipped mid-word but never ellipsised without an element to carry it.
+ *
+ *   · `box-sizing: border-box` is asserted with the ellipsis, because the two failed together.
+ *     The engine has no global border-box reset, so under `content-box` the pill's `max-width:
+ *     100%` caps the CONTENT width and the padding plus border is added outside it — and because
+ *     the box is right-anchored, the excess goes LEFT, off the page. Reproduced on a split
+ *     `verdict-grid`: a 1019px pill in a 972px column with its first character off-page.
+ *     `comparison` is the reachable case because it is the one relationship whose label has no
+ *     length budget. The long-label fixture below is that shape, minus the component.
  *   · The separating hairline is gone. The signal is a margin marker at the page's bottom-right
  *     now, not a banded row, so it separates itself by position; a rule under it was drawing a
  *     box around nothing. base.modifiers.css carries the before/after measurements.
@@ -107,7 +129,25 @@ describe('the split signal reads as chrome on every page a split emitted', () =>
       + signalMarkup('Something', 'next').replace('class="lat-split-rel"', `class="lat-split-rel" id="sig${i}"`)
       + (p.stage === false ? '' : `</div>`)
       + `</section>`).join('');
-    await page.setContent(`<style>${css}</style><main>${sections}</main>`, { waitUntil: 'load' });
+    // The LONG-LABEL shape, on the plain envelope. `comparison` is the one relationship whose
+    // label has no length budget — `relationship.js` joins every criterion badge with no
+    // `LABEL_MAX` — so this is the string a split `verdict-grid` really produces, minus the
+    // component.
+    const long = `<section class="content form lat-split-native" data-split-role="body" data-split-run="9"`
+      + ` data-lattice-slide="99" style="width:960px;display:flex;flex-direction:column">`
+      + `<div class="cell-stage" style="display:flex;flex-direction:column">`
+      + `<ul><li>member</li></ul>`
+      // ALL SIX criteria, not a shortened stand-in. Narrowing the column instead does nothing:
+      // `--pill-fs` is a `cqi` length resolved against the SECTION, so the font shrinks with the
+      // column and the label-to-column ratio is invariant. The length has to come from the label,
+      // and this is the whole string `verdict-grid` really emits for a six-by-six comparison.
+      + signalMarkup(
+        'Option 1 of 6 · comparing SOC 2 Type II attestation · Residency in the EU and UK · '
+        + 'Self-serve onboarding path · Twenty-four hour support · Per-seat annual pricing · '
+        + 'Single sign-on with SCIM', 'count')
+        .replace('class="lat-split-rel"', 'class="lat-split-rel" id="siglong"')
+      + `</div></section>`;
+    await page.setContent(`<style>${css}</style><main>${sections}${long}</main>`, { waitUntil: 'load' });
   });
 
   after(async () => { if (browser) await browser.close(); });
@@ -121,7 +161,6 @@ describe('the split signal reads as chrome on every page a split emitted', () =>
         const mark = getComputedStyle(el, '::after');   // the mark TRAILS the label since 2026-09-02
         return {
           display: cs.display,
-          alignSelf: cs.alignSelf,
           fontFamily: cs.fontFamily,
           fontSize: cs.fontSize,
           background: cs.backgroundColor,
@@ -129,6 +168,16 @@ describe('the split signal reads as chrome on every page a split emitted', () =>
           borderRadius: cs.borderTopLeftRadius,
           width: el.getBoundingClientRect().width,
           stageWidth: el.parentElement.getBoundingClientRect().width,
+          // Measured against the parent's CONTENT box, not its border box: the `premise` page's
+          // parent is the SECTION, whose 40px padding is the slide's margin and is not slack.
+          ...(() => {
+            const r = el.getBoundingClientRect();
+            const p = el.parentElement.getBoundingClientRect();
+            const ps = getComputedStyle(el.parentElement);
+            const l = p.left + parseFloat(ps.borderLeftWidth) + parseFloat(ps.paddingLeft);
+            const rt = p.right - parseFloat(ps.borderRightWidth) - parseFloat(ps.paddingRight);
+            return { leftOffset: r.left - l, rightGap: rt - r.right };
+          })(),
           hasLabelSpan: !!el.querySelector('.lat-split-label'),
           bodyFontSize: getComputedStyle(el.closest('section')).fontSize,
           markWidth: mark.width,
@@ -137,11 +186,18 @@ describe('the split signal reads as chrome on every page a split emitted', () =>
 
       // SHRINK-WRAPPED, not stretched. This is the whole anti-stranding guarantee: a box sized
       // to its content has no free space for the mark to be stranded across.
-      assert.notEqual(got.alignSelf, 'stretch',
-        'the signal stretches to its column, which is what stranded its mark at the left edge');
       assert.ok(got.width < got.stageWidth,
         `the signal is ${Math.round(got.width)}px in a ${Math.round(got.stageWidth)}px stage — `
         + 'it is not shrink-wrapped, so it is a bar rather than a pill');
+      // AND RIGHT-ANCHORED. Shrink-wrap alone is not the guarantee: a shrink-wrapped box at the
+      // LEFT edge is the stranding, wearing a pill. Measured off the box's own edges, which is
+      // the only reading that can tell the two apart.
+      assert.ok(got.rightGap <= 1,
+        `the signal sits ${Math.round(got.rightGap)}px off its column's right edge — it is not `
+        + 'right-anchored, so the marker is loose in the middle of the page');
+      assert.ok(got.leftOffset > got.rightGap,
+        `the signal is ${Math.round(got.leftOffset)}px from the left and ${Math.round(got.rightGap)}px `
+        + 'from the right — it has drifted to the left edge');
       // A pill: it has a fill and a border, so it reads as furniture rather than as body text.
       assert.notEqual(got.background, 'rgba(0, 0, 0, 0)', 'the pill has no fill');
       assert.notEqual(got.borderWidth, '0px', 'the pill has no border');
@@ -157,5 +213,46 @@ describe('the split signal reads as chrome on every page a split emitted', () =>
       assert.notEqual(parseFloat(got.markWidth), 0, 'the drawn mark collapsed to zero width');
     });
   }
+
+  test("a label past the pill's width ellipsises INSIDE the column, never outside it", async (t) => {
+    if (!exe) return t.skip('no Chromium — set CHROME_PATH (the SessionStart hook exports it)');
+    const got = await page.evaluate(() => {
+      const el = document.getElementById('siglong');
+      const lbl = el.querySelector('.lat-split-label');
+      const r = el.getBoundingClientRect();
+      const p = el.parentElement.getBoundingClientRect();
+      const ps = getComputedStyle(el.parentElement);
+      const l = p.left + parseFloat(ps.borderLeftWidth) + parseFloat(ps.paddingLeft);
+      const rt = p.right - parseFloat(ps.borderRightWidth) - parseFloat(ps.paddingRight);
+      return {
+        boxSizing: getComputedStyle(el).boxSizing,
+        textOverflow: getComputedStyle(lbl).textOverflow,
+        clipped: lbl.scrollWidth > lbl.clientWidth + 1,
+        height: r.height,
+        oneLine: r.height < parseFloat(getComputedStyle(el).fontSize) * 2.2,
+        leftOffset: r.left - l,
+        rightGap: rt - r.right,
+        width: r.width,
+        colWidth: rt - l,
+      };
+    });
+
+    // It CLIPS rather than wraps — a pill that wraps has stopped being a pill.
+    assert.ok(got.clipped, 'a label longer than the pill did not clip, so it wrapped instead');
+    assert.equal(got.textOverflow, 'ellipsis', 'the clip carries no ellipsis, so it cuts mid-word');
+    assert.ok(got.oneLine, `the pill is ${Math.round(got.height)}px tall — it has wrapped`);
+    // AND IT STAYS INSIDE THE COLUMN. Under `content-box` this is exactly where it failed:
+    // `max-width: 100%` capped the CONTENT box, the padding and border were added outside it, and
+    // the right-anchor pushed the excess LEFT — off the page, taking the rounded cap and the first
+    // characters with it. `scrollWidth` cannot see that: leftward overflow is invisible to it in
+    // LTR, which is why this is read off the box's own edges.
+    assert.equal(got.boxSizing, 'border-box',
+      'the pill is content-box, so its padding and border land outside its max-width');
+    assert.ok(got.leftOffset >= -0.5,
+      `the pill starts ${Math.round(got.leftOffset)}px OUTSIDE its column's left edge — its cap and `
+      + 'first characters are off the page');
+    assert.ok(got.width <= got.colWidth + 0.5,
+      `the pill is ${Math.round(got.width)}px in a ${Math.round(got.colWidth)}px column`);
+  });
 
 });

@@ -57,21 +57,22 @@
   applied: those parse as ordinary selector lists. A keyframe step is now excluded by being inside
   a keyframes block, which is the real reason to skip it, and everything else reaches the browser.
 - **Changed: the furniture on a split page is redesigned for a slide read small.** Owner review of
-  real social-size renders. The forward pointer is a margin marker in the bottom-right, one rung up
-  the type ladder, at 7.71:1 instead of 5.13:1, with its tracking cut and its rule dropped. The
-  runhead that names the source slide loses the wide-tracked uppercase treatment it was wearing —
-  it is fed a slide TITLE, and 0.2em capitals turned a forty-character title into a two-line wall;
-  it is a normal-case standfirst in the body face now, and every runhead in
-  `examples/read-across-carousel.md` fits on one line. The k-of-N rail's off state was a ghost at
-  0.22 opacity and read as a broken hairline rather than as progress. The page's own caption takes
-  the same ink lift, and nothing else — a wider caption is what put CONTENT CLIPPED on six pages
-  once already. Seven scoped copies of the runhead's finish now read one register.
+  real social-size renders. The forward pointer leaves the full-bleed ruled band it was wearing and
+  becomes a marker in the bottom-right margin, with its rule dropped. The runhead that names the
+  source slide loses the wide-tracked uppercase treatment it was wearing — it is fed a slide TITLE,
+  and 0.2em capitals turned a forty-character title into a two-line wall; it is a normal-case
+  standfirst in the body face now, and every runhead in `examples/read-across-carousel.md` fits on
+  one line. The k-of-N rail's off state was a ghost at 0.22 opacity — 1.4:1 against its backdrop,
+  reading as a broken hairline rather than as progress — and goes to 0.55, which measures 3.14:1
+  and clears the 3:1 WCAG 1.4.11 floor a meaningful graphical object owes. The page's own caption
+  takes the pointer's ink lift, and nothing else — a wider caption is what put CONTENT CLIPPED on
+  six pages once already. Seven scoped copies of the runhead's finish now read one register.
 - **Fixed: a split page's forward pointer stranded its arrow at the far left of the page whenever
   the text wrapped.** The mark was a flex sibling of the text; a text item wider than its row
   shrinks to exactly the space left over, so there is no free space for `justify-content: flex-end`
   to distribute and the mark stays at the row's left edge while the text is pushed right — 390px
-  apart on a 972px row. It is an inline mark in the text flow now, right-aligned with line one at
-  any width.
+  apart on a 972px row. The pointer shrink-wraps to its content now, so there is no free space
+  left in the row to strand the mark across, and the mark rides the trailing edge of the box.
 - **Fixed: a split `journey` stage sat high on its page with both legends stranded near the floor.**
   Three parts each took their own share of the height instead of composing: the board fills the
   cell, the stack fills the board, and the stage's rows fill the stack, so the cell's own centering
@@ -80,14 +81,14 @@
 - **Changed: the forward pointer is a pill.** Owner's call, on the redesigned furniture: a subtle
   on-brand pill with the drawn arrow and the label inside it, rather than bare text on the canvas.
   It reuses the universal `--pill-*` register — same radius, padding, weight and tracking as every
-  other pill in the engine — and names the two axes it overrides at its own site: `--bg-alt` for
-  the fill, because a signal on the page's own canvas needs to separate from it, and
-  `--text-secondary` for the ink, because this is wayfinding beside content. The numbers back the
-  shape: across the six shipped decks there are 98 signals, median label sixteen characters, 63%
-  at or under twenty, and not one of them lands on a split cover — so the pill never has to
-  survive the inverse surface. `align-self: flex-end` shrink-wraps it, right-anchors it without a
-  margin, and is what makes a flex row safe here: the arrow was stranded before because the box
-  was full-width, and a box sized to its content has no free space to strand it across.
+  other pill in the engine — and names the one axis it overrides at its own site: `--bg-alt` for
+  the fill, because a signal on the page's own canvas needs to separate from it. The numbers back
+  the shape: across the nine shipped decks that split there are 153 signals, median label thirteen
+  characters, 71% at or under twenty, and not one of them lands on a split cover — so the pill
+  never has to survive the inverse surface. `align-self: flex-end` shrink-wraps it, right-anchors
+  it without a margin, and is what makes a flex row safe here: the arrow was stranded before
+  because the box was full-width, and a box sized to its content has no free space to strand it
+  across.
 - **Fixed: the run's CLOSING pointer was built by a second producer, and drifted the moment the
   first one changed.** `closingSignal` in `auto-split.js` hand-assembled the same
   `.lat-split-rel` div that `relationship.js` builds (HARD RULE #1). The two agreed for as long as
@@ -120,3 +121,42 @@
   same reason: a child that absorbs the free height leaves the parent's centering nothing to
   center. The runhead also drops its rule here, because the note already draws one and the two
   became a doubled hairline 58px apart once the gap closed.
+- **Fixed: five defects an independent check found in the redesigned furniture.** All measured on
+  real renders, none caught by a gate.
+  - The runhead register was declared on `:root` alone, so `var(--text-secondary)` was substituted
+    at `<html>` against the theme's SCREEN value and inherited down already resolved — out of reach
+    of `section.print`'s remap. A `class: print` split page painted its runhead the theme's blue
+    (#455C7A) on an otherwise all-gray paper page. The register is on `:root, section` now, which
+    is what the typography generator has emitted for the same reason since #1375. Dark mode was
+    never affected: `light-dark()` inside a custom property resolves at the using element.
+  - The pointer had `max-width: 100%` under the initial `content-box`, so its padding and border
+    landed OUTSIDE that cap — and because the pill is right-anchored, the excess went left, off the
+    content column and past the page edge. A split `verdict-grid` rendered a 1019px pill in a 972px
+    column with its rounded cap and first character off-page. `comparison` is the reachable case
+    because it is the one relationship whose label has no length budget. `scrollWidth` could never
+    have caught it: leftward overflow is invisible to it in LTR.
+  - **Breaking-ish for anyone reading the ink:** the pointer's ink is `--text-body`, not
+    `--text-secondary`. Swept across all 32 shipped palettes in both schemes, `--text-secondary` on
+    `--bg-alt` is WORSE than the `--text-muted`-on-`--bg` it replaced in 14 of 28 measurable pairs,
+    and bottoms out at 4.63:1 — under the 5.13:1 this redesign names as the problem. On `cuoio`,
+    the default theme, it went 5.07 to 4.64. A "read it small in a feed" change cannot dim the
+    pointer on the default palette. `--text-body` floors at 5.46:1 and beats the old value in 27 of
+    the 28. The pointer stays subordinate by SIZE and placement, which is what was doing that job.
+  - The split caption's ink lift never landed. It was written as
+    `var(--marp-slide-footer-color, var(--text-secondary))`, but that token is declared
+    unconditionally at `:root` and again in every theme that tunes it, so the fallback could never
+    fire and the caption kept computing `--text-muted`. It sets `color` directly now — and matches
+    the `premise` page's footer, which sits as a direct child of the section and which both of the
+    original selectors missed.
+  - `test/unit/css/split-signal-scope.test.js` passed on a pill stranded at the far LEFT, which is
+    the exact failure it was rewritten to catch: `align-self`'s computed value is the specified
+    keyword whatever the parent does, and `width < stageWidth` is true of any shrink-wrapped box at
+    either edge. It measures the box's own edges now, and gains a long-label case covering the
+    ellipsis and the box model. All three assertions were mutation-checked against the defects they
+    name.
+- **Changed: one dead rule block and one specificity tie removed from the split furniture.** The
+  pointer's pre-pill declarations survived the pill as a second, contradictory 30-line explanation
+  of the same element; a full computed-style diff with them removed changed three properties and no
+  geometry at all. And the split `journey`'s `justify-content: center` tied on specificity with the
+  vertical board's own `flex-start` ninety lines above it in the same file, winning on source order
+  alone — it carries the board's `[data-orient]` now, so it is a real override.

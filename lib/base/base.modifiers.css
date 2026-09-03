@@ -2374,14 +2374,22 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
 /* The pills carry the whole k-of-N reading, so both states have to be legible AT FEED SIZE —
    the size these decks are actually read at. At 0.22 the off state was a ghost: rasterized at
    story size the rail read as a broken hairline rather than as "page 3 of 6", which is the one
-   thing it exists to say. 0.34 keeps it clearly subordinate to the on state (still ~1:3) while
-   staying visible; the on state goes to full currentColor for the same reason the pointer took
-   `--text-secondary`. The pills also gain 0.1cqi of height, so they read as pills rather than
-   as dashes when the page is scaled down. `currentColor` throughout — palette-blind (#3), and
-   it is what lets the same rule work on the accent cover and in the print band. */
+   thing it exists to say. The pills also gain 0.1cqi of height, so they read as pills rather
+   than as dashes when the page is scaled down. `currentColor` throughout — palette-blind (#3),
+   and it is what lets the same rule work on the accent cover and in the print band.
+
+   THE OFF STATE IS 0.55, AND THE NUMBER IS A FLOOR, NOT A TASTE. The rail is a non-text
+   graphical object that carries meaning, so WCAG 1.4.11 asks 3:1 of it against its backdrop —
+   the same bar the engine holds every other drawn mark to. 0.22 measured 1.4:1 and 0.34
+   measured 1.89:1; both fail, and a reviewer reading a 390px feed raster still saw a broken
+   dash at 0.34. 0.55 measures 3.14:1 on indaco (#8393A7 composited on `--bg`), which clears it.
+   It is still plainly subordinate to the on state — the ratio between the two states is what
+   reads as k-of-N, and 0.55:1 is a legible pair where 0.34:1 was a legible mark beside an
+   illegible one. The on state goes to full currentColor for the same reason the pointer's ink
+   went up: these decks are read small. */
 .lat-split-rail .seg {
   width: 2.2cqi; height: 0.6cqi; border-radius: 1cqi;
-  background: currentColor; opacity: 0.34;
+  background: currentColor; opacity: 0.55;
 }
 .lat-split-rail .seg.on { opacity: 1; }
 /* The long-run form: past `RAIL_DOT_MAX` pages the rail prints "k/N" rather than drawing a
@@ -2954,73 +2962,53 @@ section.form.lat-split-native.lat-split-native > .cell-coda.lat-split-note > .be
    widening. `data-split-role` alone is the precise test: the attribute exists on split pages and
    nowhere else, so nothing narrower is needed and anything narrower encodes an assumption about
    the page that the signal does not depend on. */
-/* THE MARGIN MARKER (owner's call, 2026-09-02). This used to be a full-bleed ruled band —
-   `--fs-meta` mono, `--text-muted`, `letter-spacing: 0.06em`, a 1px rule across 90% of the page.
-   Four legibility-reducing choices stacked on the ONE element whose job is telling a reader the
-   slide continues: it was dressed as chrome while doing wayfinding, and it read as a section
-   divider competing with the content it was annotating.
+/* THE MARGIN MARKER, AND THEN THE PILL (owner's calls, 2026-09-02).
 
-   Measured before: 30px mono at 5.13:1 on a 2000px page whose heading is 76px, spanning 5%->95%
-   with its own rule, directly above a SECOND furniture band (caption + rail + page number).
+   It used to be a full-bleed ruled band — `--fs-meta` mono, `--text-muted`,
+   `letter-spacing: 0.06em`, a 1px rule across 90% of the page. Four legibility-reducing choices
+   stacked on the ONE element whose job is telling a reader the slide continues: it was dressed
+   as chrome while doing wayfinding, and it read as a section divider competing with the content
+   it was annotating. Measured before: 30px mono at 5.13:1 on a 2000px page whose heading is
+   76px, spanning 5%->95% with its own rule, directly above a SECOND furniture band (caption +
+   rail + page number).
 
-   Now it is a marker in the bottom-right corner, the way a book cues a page turn:
-     · RIGHT-ALIGNED and rule-less, so it leaves the content's full measure alone and stops
-       reading as a divider. `justify-content: flex-end` moves the flex row, not the text, so the
-       drawn mark still leads the label.
-     · `--text-secondary` (7.71:1) instead of `--text-muted` (5.13:1). Its own token comment
-       calls it "secondary prose / subtitle / caption", which is the register this is in.
-     · `--fs-body-compact` instead of `--fs-meta` — one step up the #4 ladder (1.4cqi vs 1.17).
-       These decks are shared on social, where a slide is read small in a feed, and the smallest
-       chrome step is the wrong home for the only continuation cue on the page.
-     · Tracking cut 0.06em -> 0.02em. Loose tracking on a mono face at caption size separates
-       glyphs faster than it aids them; it is a display device, not a legibility one. */
-section[data-split-role] .lat-split-rel,
-section.form.lat-split-native > .cell-stage > .lat-split-rel,
-section.form.lat-split-native > .lat-split-rel {
-  font-family: var(--font-label);
-  font-size: var(--fs-body-compact);
-  letter-spacing: 0.02em;
-  color: var(--text-secondary);
-  justify-content: flex-end;
-  text-align: right;
-  padding-top: var(--sp-xs);
-  /* A comparison signal is the long one ("Option 2 of 4 · comparing Residency · Self-serve ·
-     SOC 2") and wraps in a portrait box; `balance` keeps it from orphaning a two-character
-     fragment on line two, which is what it did on the real render. */
-  text-wrap: balance;
-  /* A BLOCK, not a flex row — and this is a correction, not a preference.
+   The first pass moved it to the bottom-right corner as a right-aligned block, the way a book
+   cues a page turn. Then: "why can't next just be a subtle on-brand pill with an arrow and the
+   text inside it?" Nothing stopped it, and the numbers argue for it — across the nine shipped
+   decks that split (`auto-split`, `split-envelope`, `split-headings`, `split-horizontal`,
+   `split-relationship`, `split-structure`, `read-across-carousel`, `portrait-journey`,
+   `portrait-roadmap`) there are 153 signals, median label THIRTEEN characters, 71% at or under
+   20 ("Trial", "Q2"). That is a pill's natural size. And no signal ever lands on a split COVER
+   (counted: 0), so this never has to survive the inverse surface — the one constraint that would
+   have forced `currentColor` and no fill.
 
-     It was `display: flex; align-items: baseline; gap: 0.45em` with the mark as a flex SIBLING
-     of the text, on the reasoning that the mark should sit on the first line rather than above a
-     wrapped block. It does sit on the first line. It also sits at the far LEFT of the page while
-     the text sits at the far right, whenever the signal wraps: two flex items, the text's
-     max-content wider than the row, so the text item shrinks to exactly the space left over and
-     there is no free space for `justify-content: flex-end` to distribute — the mark stays put at
-     the row's left edge, and `text-align: right` then pushes line one away from it. Measured on
-     `examples/read-across-carousel.md`: a 972px row with the arrow at x=0 and its text starting
-     at x=390. Seen on the raster before it was explained.
+   Those numbers are re-measured, not inherited. The set they replace (98 signals, median 16, 63%)
+   was counted over six decks BEFORE the `next: ` lead-in was dropped, and then quoted in comments
+   written after the drop to justify a decision it no longer described.
 
-     As a block with the mark as an inline `::before`, the mark is the first inline box of line
-     one and is right-aligned WITH it, at every width, wrapped or not. `content: ""` sits directly
-     against the text node with no whitespace between them, so there is no break opportunity for
-     `balance` to take — which is the hazard the flex row was reaching for. */
-  display: block;
-}
-/* THE SIGNAL IS A PILL (owner's call, 2026-09-02): "why can't next just be a subtle on-brand
-   pill with an arrow and the text inside it?" Nothing stopped it, and the numbers argue for it —
-   across the six shipped decks there are 98 signals, median label SIXTEEN characters, 63% at or
-   under 20 ("next: Trial", "next: Q2"). That is a pill's natural size. And no signal ever lands
-   on a split COVER (counted: 0), so this never has to survive the inverse surface — the one
-   constraint that would have forced `currentColor` and no fill.
+   ONE RULE, not two. An earlier revision left the block's declarations above this one as a
+   first pass; a full computed-style diff with them removed changed three properties and NO
+   geometry at all, so they were a dead half of a contradiction a reader had to resolve.
 
    It reuses the universal `--pill-*` register (#15) rather than inventing a fourth pill: same
    radius, padding, weight and tracking as every other pill in the engine, and `--pill-fs`, which
    the typography generator emits per SECTION so it tracks the slide's orientation instead of
-   baking in the landscape meta size. Following the register's own convention, the axes this
-   deliberately overrides are named here: the FILL is `--bg-alt` rather than the register's `--bg`
-   (a signal on the page's own canvas needs to separate from it — `--bg` would be an outline with
-   no body), and the INK is `--text-secondary` rather than `--text-body`, because this is
-   wayfinding beside content, not content.
+   baking in the landscape meta size. Following the register's own convention, the ONE axis this
+   deliberately overrides is named here: the FILL is `--bg-alt` rather than the register's `--bg`,
+   because a signal on the page's own canvas needs to separate from it — `--bg` would be an
+   outline with no body.
+
+   THE INK IS `--text-body`, AND IT GOT THERE BY MEASUREMENT AFTER A WRONG ANSWER. It was
+   `--text-secondary`, on the reasoning that this is "wayfinding beside content, not content".
+   That reasoning was about hierarchy and the cost was legibility: swept across all 32 shipped
+   palettes in both schemes, `--text-secondary` on `--bg-alt` is WORSE than the `--text-muted`-
+   on-`--bg` it replaced in 14 of 28 measurable pairs, and bottoms out at 4.63:1 — under the
+   5.13:1 this whole redesign names as the problem, and on `cuoio`, the DEFAULT theme, it went
+   5.07 -> 4.64. A "read it small in a feed" change that dims the pointer on the default palette
+   is the redesign arguing against itself. `--text-body` on `--bg-alt` floors at 5.46:1 across
+   the same 28 pairs and beats the old value in 27 of them. The hierarchy is still there, and it
+   was never the ink doing it: the pill is the smallest step on the type ladder, sitting in a
+   margin, inside an outlined chip. Quiet is a matter of size and placement here, not of dimness.
 
    `align-self: flex-end` is doing three jobs at once and replaces three earlier mechanisms. It
    shrink-wraps the box to its content, which is what makes it a pill rather than a full-width
@@ -3028,16 +3016,37 @@ section.form.lat-split-native > .lat-split-rel {
    `margin-left:auto` because it sits in a row it does not control; this one is a column child, so
    it does not); and it is what makes the flex row SAFE again. The mark was stranded at the left
    edge under `display: flex` precisely because the box was full-width and the text absorbed all
-   the free space. A shrink-wrapped box has no free space to strand it across.
+   the free space. A shrink-wrapped box has no free space to strand it across. The anchor is
+   therefore a property of the PARENT, not of this box — every real pointer parent is a flex
+   column (verified over 4 decks x 4 sizes), and `test/unit/css/split-signal-scope.test.js`
+   measures the resulting geometry rather than the keyword, because the keyword's computed value
+   is the keyword whatever the parent does.
 
-   The 7 signals past 40 characters ellipsise rather than wrap, on the label span. A pill that
-   wraps has stopped being a pill, and nothing is lost: the label names the NEXT page, which
-   arrives one page later carrying that title in full on its own masthead. */
+   `box-sizing: border-box` IS LOAD-BEARING, not tidiness. The engine has no global border-box
+   reset (measured), so under the initial `content-box` this box's `max-width: 100%` caps the
+   CONTENT width and the 2x`--pill-pad-x` + 2px border is added OUTSIDE it — a border box of
+   100% + 47px at portrait. Right-anchored, the excess goes LEFT, off the content column and past
+   the page edge, taking the rounded left cap and the label's first character with it. Reproduced
+   on a split `verdict-grid`: pill 1019px in a 972px column, left edge at x=7, the label reading
+   "ption 1 of 6 ...". `verdict-grid` is the reachable case because `comparison` is the one
+   relationship whose label has no length budget (`lib/core/relationship.js` joins every badge;
+   the other kinds are capped by `LABEL_MAX`). No shipped deck reaches the cap, so this was
+   authoring-reachable rather than shipped — and `scrollWidth` could never have caught it, because
+   leftward overflow is invisible to it in LTR.
+
+   A label past the cap ellipsises rather than wraps, on the label span. A pill that wraps has
+   stopped being a pill, and nothing is lost: the label names the NEXT page, which arrives one
+   page later carrying that title in full on its own masthead. This is CAPACITY, not a treatment
+   anything ships with: across those same nine decks the longest label is 56 characters and
+   exactly ZERO of them ellipsise at any of the four splitting sizes. The guard exists for the
+   `comparison` case, whose label has no length budget at all — measured on a six-by-six
+   `verdict-grid`, which is where the box model above was caught. */
 section[data-split-role] .lat-split-rel,
 section.form.lat-split-native > .cell-stage > .lat-split-rel,
 section.form.lat-split-native > .lat-split-rel {
   align-self: flex-end;
   display: inline-flex;
+  box-sizing: border-box;
   align-items: center;
   gap: 0.45em;
   max-width: 100%;
@@ -3048,7 +3057,7 @@ section.form.lat-split-native > .lat-split-rel {
   line-height: 1;
   border: 1px solid var(--pill-border, var(--muted-mark));
   background: var(--pill-bg, var(--bg-alt));
-  color: var(--pill-fg, var(--text-secondary));
+  color: var(--pill-fg, var(--text-body));
   border-radius: var(--pill-radius);
   padding: var(--pill-pad-y) var(--pill-pad-x);
 }
@@ -3061,23 +3070,37 @@ section.form.lat-split-native > .lat-split-rel {
   white-space: nowrap;
 }
 /* The split page's own CAPTION — the author's `_footer:` words, rank 3 of the band's
-   allocation policy — takes the pointer's INK and nothing else.
+   allocation policy — takes the pointer's INK LIFT and nothing else.
 
    CONTRAST ONLY, and the restraint is load-bearing: the size stays `--fs-meta`. A step up the
    #4 ladder here re-creates a regression this branch already shipped and fixed once — the
    caption is the one growable item in a fixed-height band, and a wider string is what put
-   CONTENT CLIPPED on six pages of `examples/portrait-journey.pdf`. 5.13:1 -> 7.71:1 costs the
-   band no width at all.
+   CONTENT CLIPPED on six pages of `examples/portrait-journey.pdf`. The lift costs the band no
+   width at all.
+
+   IT SETS `color` DIRECTLY, and the first draft's `var(--marp-slide-footer-color, --text-secondary)`
+   was inert. The intent was "a deck that sets its own footer ink still wins", copied from the
+   `section footer` rule this overrides. But `--marp-slide-footer-color` is declared
+   UNCONDITIONALLY — at `:root` in base.tokens.css and again in every theme that tunes it — so
+   there is always a first term and the fallback can never fire. Measured: the caption computed
+   `--text-muted` on two real decks, i.e. exactly what it did before, while the changelog claimed
+   the lift had landed. A guarded `var()` only defers to an override when the token is genuinely
+   unset; here the honest mechanism is a direct declaration on the element, which the theme's
+   `:root` value loses to and a deck's own section-scoped or inline ink still beats.
+
+   BOTH FOOTER SHAPES. A Form split page carries its `<footer>` inside `.cell-footer`; a
+   `premise` split page carries it as a DIRECT child of the section (measured on
+   `examples/split-horizontal.md`) — the same page shape the CSS suite has a fixture for, and the
+   one the first draft's selectors both missed.
 
    Scoped to split pages, not to every deck. The same argument (read small, in a feed) would
    apply to any caption, but re-inking every deck's footer is a change to shared visual state
-   well outside this branch, and it is the owner's to make.
-
-   `--marp-slide-footer-color` stays the first term so a deck that sets its own footer ink
-   still wins, exactly as in the `section footer` rule this overrides. */
+   well outside this branch, and it is the owner's to make. */
 section[data-split-role] > .cell-footer > footer,
-section.form.lat-split-native > .cell-footer > footer {
-  color: var(--marp-slide-footer-color, var(--text-secondary));
+section[data-split-role] > footer,
+section.form.lat-split-native > .cell-footer > footer,
+section.form.lat-split-native > footer {
+  color: var(--text-secondary);
 }
 
 /* The signal's MARK, DRAWN per `data-mark` (lib/core/relationship.js). Four shapes for the four
