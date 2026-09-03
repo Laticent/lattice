@@ -560,7 +560,7 @@ A plain GFM pipe table written at the top level of the slide body gets a house
 treatment — no class needed. It renders with label-cased column heads over the
 spectrum rule, hairline row rules, a quiet accent zebra, and compact cell type.
 
-The hairlines sit **between** rows only — the last row draws none. That rule would
+The hairlines sit **between** rows only — the last row of the table draws none. That rule would
 be the table's outer bottom edge, and the stage already draws a boundary under it: a
 below-note's hairline sits about 25px below a table that fills the stage, and two
 rules that close with nothing between them read as one thick line rather than two

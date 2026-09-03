@@ -56,9 +56,11 @@ the family to where those two already were.
 The complaint that started this was "the table has a top and bottom border, and it doubles
 the masthead divider." The measurement says otherwise, and the distinction decided the fix.
 
-- The `<table>` element carries **no border at all** — `border-top` and `border-bottom`
-  both compute to `0px` on every table owner. What reads as an edge is the `thead tr`
-  `--spectrum-structure` bar at the top and the last row's `td` hairline at the bottom.
+- The `<table>` element carries **no border at all** in the default finish — `border-top`
+  and `border-bottom` both compute to `0px` on every table owner. What reads as an edge is
+  the `thead tr` `--spectrum-structure` bar at the top and the last row's `td` hairline at
+  the bottom. (`finish: sketch` is the exception: it gives the table its own 2px frame,
+  `base.sketch.css`.)
 - The masthead hairline and the thead bar sit **54-56px apart with the column heads
   between them**. That is a header band bracketed top and bottom, which is what a header
   band is supposed to look like. On roadmap the same gap is 165.5px.
@@ -120,9 +122,49 @@ Its collision is real and stays open. The fix belongs to `.chart-caption`'s clea
 caption, not table-edge styling — off the path of this change under HARD RULE #18, recorded
 here rather than pulled into the diff.
 
+## What an independent checker caught
+
+The first cut of this change shipped none of the following, and no gate saw any of it —
+`build:check`, the 8000-test unit suite and `lint` were all green with two live
+regressions in the tree. A maker-checker pass on the rendered slides found them
+(HARD RULE #25). Recording them because the *pattern* is the lesson: the diff was
+verified on the four surfaces it set out to change, and every defect was on a surface it
+did not think to look at.
+
+**Two regressions the change itself created** — HARD RULE #18, fixed before merge, not
+filed:
+
+- **`obligation-matrix.asymmetric`.** That variant renders each cell as a card
+  (`border` + `border-radius`, `base.modifiers.css`), and the new rule outranked it at
+  (0,2,4) vs (0,2,2). The last row's cards rendered open along the bottom — rounded top
+  corners, no floor, and the first-column card lost its accent edge. It ships in two
+  committed galleries.
+- **`obligation-matrix.heat`.** `.heat` runs a 6px double side rail down the first and
+  last cell of every row; the last row's `border-bottom` is what closed that bracket. It
+  ran to the last row and stopped in mid-air.
+
+Both are the exact criterion this note already used to exclude `roadmap` — a cell border
+that is STRUCTURE rather than a row separator — applied to variants that were never
+examined. Both are now exempt by selector.
+
+**The selector was targeting the wrong row.** `tbody tr:last-child` is the last row of
+*each* body group, not the table's last row. With a `<tfoot>` it cleared an interior
+separator while the footer still drew the outer edge — so the collision survived, exactly
+inverted. With two `<tbody>` groups it deleted the rule between them. Measured, both
+cases. Now `> :last-child > tr:last-child`, the last row of the last group. No shipped
+deck hits either shape today; the selector was simply wrong.
+
+**`finish: sketch` still drew the edge.** Under sketch the crisp border is turned
+transparent and a 7px masked wave strip on `td::after` *is* the row rule. The
+`:last-child { display: none }` escape beside it existed only for `list-tabular`, so
+clearing the border alone left sketch drawing the last row's outer edge — and this note,
+the commit message and `base.docs.md` all said flatly that the last row draws no rule.
+The escape now covers the two table components, so the claim is true on that surface too.
+
 ## Scope
 
 `lib/base/base.elements.css` (universal table, carrying the full deny guard like every rule
-in that block — `checkUniversalTableGuard`), `compare-table`, `obligation-matrix`,
-`statute-stack.lane`. Four declarations. `glossary` and `math.derivation` already did it;
-`roadmap` and `matrix-grid` are untouched.
+in that block — `checkUniversalTableGuard`), `base.sketch.css` (the wave-strip escape),
+`compare-table`, `obligation-matrix` (excluding `.heat` and `.asymmetric`),
+`statute-stack.lane`. `glossary` and `math.derivation` already did it; `roadmap`,
+`matrix-grid`, `.heat` and `.asymmetric` are untouched by design.

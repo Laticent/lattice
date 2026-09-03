@@ -14,7 +14,7 @@ section.compare-table td { padding:0.625cqi var(--sp-xs); border-bottom:1px soli
    measured 25.5px above the below-note hairline once the table fills the stage. A row
    separator belongs BETWEEN rows; the chrome separates the table from the slide.
    Matches base.elements.css's universal table and glossary/math.derivation. */
-section.compare-table tbody tr:last-child td { border-bottom:none; }
+section.compare-table table > :last-child > tr:last-child > td { border-bottom:none; }
 section.compare-table td:first-child { font-weight:600; color:var(--text-heading); white-space:nowrap; }
 
 /* ── portrait RESHAPE — card-per-row (carousel.js cover-cards) ──

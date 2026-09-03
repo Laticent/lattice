@@ -87,21 +87,23 @@ Cited as of the last review; check the register before relying on any row.
 | EMEA | $3.8M | $3.9M | +3% |
 | APAC | $1.9M | $2.6M | +37% |
 
-No class needed — the universal table treatment carries it, and the zebra marks the last row's end without a rule.
+No class needed — the universal table treatment carries it. The zebra falls on odd rows, so it closes this three-row table; with an even count the last row simply ends in white, which is the intent.
 
 ---
 
 <!-- _class: glossary -->
 
-## Two components already did this.
+## Who was already there, and who is exempt.
 
-| Term | Definition |
+| Component | Why it is not in the diff |
 | ---- | ---------- |
-| glossary | Sets `border-bottom: none` on its cells outright — never had the collision. |
-| math.derivation | Clears `tbody tr:last-child` — the same fix, reached independently. |
-| roadmap | Untouched: its cell border is grid structure, so clearing it opens the grid. |
+| glossary | Already sets `border-bottom: none` on its cells — never had the collision. |
+| math.derivation | Already clears its last row — the same fix, reached independently. |
+| roadmap | Exempt: its cell border is grid structure, so clearing it opens the grid. |
+| obligation-matrix `heat` | Exempt: the last row's border closes a 6px double bracket rail. |
+| obligation-matrix `asymmetric` | Exempt: each cell is a card box, not a ruled row. |
 
-The change brings the rest of the family to where these two already were.
+The test is whether a cell's bottom border is a **separator** or **structure**. Only separators go.
 
 ---
 

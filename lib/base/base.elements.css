@@ -302,11 +302,19 @@ section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.de
  * its cells outright and `math.derivation` clears `tbody tr:last-child`. Both were
  * already free of the collision; this brings the rest of the family to the same place.
  *
+ * TARGETED AT THE TABLE'S LAST ROW GROUP, not at every `tbody`. `tbody tr:last-child`
+ * is the last row of EACH body group, which is the wrong row twice over: with a `<tfoot>`
+ * it clears an interior separator while the footer still draws the outer edge (the
+ * collision survives, inverted), and with two `<tbody>` groups it deletes the rule between
+ * them. `> :last-child > tr:last-child` is the last row of the last group — the row that
+ * actually carries the outer edge. A header-only table has no body group at all, so it
+ * matches nothing.
+ *
  * Carries the full deny guard like every rule in this block — a rule that drops an entry
  * is unguarded for the property it sets (`checkUniversalTableGuard`).
  * See engineering/decisions/2026-09-03-table-outer-edge-rules.md. */
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table tbody tr:last-child td,
-section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table tbody tr:last-child td {
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > table > :last-child > tr:last-child > td,
+section:where(:not(.compare-table):not(.glossary):not(.matrix-grid):not(.math.derivation):not(.obligation-matrix):not(.roadmap):not(.statute-stack.lane)) > :where(.cell-stage) > table > :last-child > tr:last-child > td {
   border-bottom:none;
 }
 /* COLUMN ALIGNMENT IS THE AUTHOR'S, ALWAYS. markdown-it compiles `:---` / `:---:` /
