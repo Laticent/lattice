@@ -16,20 +16,28 @@ import { deckSchema, deckToDoc, docToDeck } from './deck-doc';
 // system clipboard's `text/html` branch through a real paste is too indirect to be a sound
 // oracle for a security property. This is the seam, so this is where the test belongs.
 
-/** Parse a fragment of foreign HTML exactly as a paste would. */
+/**
+ * Parse a fragment of foreign HTML exactly as a paste would.
+ *
+ * `DOMParser`, not `el.innerHTML = html`. The two build the same tree here, but the
+ * innerHTML form is a genuine sink and CodeQL flagged it high-severity — correctly, on the
+ * shape rather than on this call's literal argument. Arguing "it is only a test" with a
+ * scanner is the wrong move in a file whose whole subject is untrusted markup: parsing into
+ * a detached document is both what the rule wants and the more honest model of what a paste
+ * does, since the fragment never touches the live document.
+ */
 function parseForeign(html: string) {
-	const div = document.createElement('div');
-	div.innerHTML = html;
-	return PMDOMParser.fromSchema(deckSchema).parse(div);
+	const parsed = new DOMParser().parseFromString(html, 'text/html');
+	return PMDOMParser.fromSchema(deckSchema).parse(parsed.body);
 }
 
 /** The provenance token this session stamps — read back off our OWN serialized output,
  *  because it is deliberately not exported (nothing should be able to ask for it). */
 function ownOrigin(): string {
 	const doc = deckToDoc('<!-- _class: title -->\n\n# Hi');
-	const div = document.createElement('div');
-	div.appendChild(DOMSerializer.fromSchema(deckSchema).serializeFragment(doc.content));
-	return div.querySelector('section.cs-slide')?.getAttribute('data-lattice-origin') ?? '';
+	const host = document.createElement('div');
+	host.appendChild(DOMSerializer.fromSchema(deckSchema).serializeFragment(doc.content));
+	return host.querySelector('section.cs-slide')?.getAttribute('data-lattice-origin') ?? '';
 }
 
 const BEACON = '<!-- _backgroundImage: url(https://evil.example/beacon.png) -->';
