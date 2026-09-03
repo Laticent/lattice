@@ -228,7 +228,7 @@ Maya's morning is one. The shower, the train, the laptop and the registry betwee
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `09:15 · the same four people`
 
@@ -242,18 +242,16 @@ flowchart TB
     T2 <--> T3(["Dev"])
     T1 <--> T3
     T4(["Manager"]) <--> T1
-    T3 --> OUT2["One sentence<br/>saves a morning"]
   end
   subgraph mon["Monday · they report upward"]
     direction LR
     M1(["Maya"]) --> MM(["Manager"])
     M2(["Priya"]) --> MM
     M3(["Dev"]) --> MM
-    MM --> OUT1["Twenty minutes,<br/>nothing settled"]
   end
 ```
 
-> Change nothing but who waits on whom, and you have changed the system.
+> Same four people, and nothing changed but who waits on whom. Monday spends twenty minutes and settles nothing; Tuesday spends one sentence and saves a morning.
 
 ---
 
@@ -329,7 +327,7 @@ Push, wait twelve minutes for the build, read a comment, fix, push again. Maya r
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `11:00 · the loop, drawn`
 
@@ -404,7 +402,7 @@ Main was deployable every minute of Maya's Tuesday. It was true while the regist
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `06:55 and 15:30 · two loops`
 
@@ -421,10 +419,8 @@ flowchart TB
   end
   subgraph bal["Balancing · pushes back toward a target"]
     direction LR
-    B1(["Too hot"]) --> B2(["Turn it down"])
-    B2 -->|"eight-second lag"| B3(["Too cold"])
-    B3 --> B4(["Turn it up"])
-    B4 -->|"eight-second lag"| B1
+    B1(["Too hot"]) -->|"turn it down,<br/>eight-second lag"| B3(["Too cold"])
+    B3 -->|"turn it up,<br/>eight-second lag"| B1
   end
 ```
 
@@ -955,35 +951,47 @@ The entries name concepts, not products. Products turn over every few years. The
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
-`Data kit · the patterns`
+`Data kit · serving`
 
-## Almost everything you will ever store fits one of a few shapes.
+## In two of the four, one store answers the question it was written for.
 
 ```mermaid
 flowchart TB
-  subgraph b["Event fan-out"]
+  subgraph c["Media"]
     direction LR
-    B1(["Producer"]) --> B2[["Durable log"]] --> B3(["Two consumers"])
+    C1(["Upload"]) --> C2[("Object store")] --> C3(["CDN"])
   end
   subgraph a["Read-heavy app"]
     direction LR
     A1(["Client"]) --> A2[("Cache")] --> A3[("Relational")]
   end
+```
+
+> A cache and a CDN are the same idea at two distances: keep the answer nearer than the store that owns it.
+
+---
+
+<!-- _class: diagram compact -->
+
+`Data kit · deriving`
+
+## In the other two, a second copy exists so somebody can ask a different question.
+
+```mermaid
+flowchart TB
   subgraph d["Search"]
     direction LR
     D1[("Relational")] --> D2(["Indexer"]) --> D3[("Search index")]
   end
-  subgraph c["Media"]
+  subgraph b["Event fan-out"]
     direction LR
-    C1(["Upload"]) --> C2[("Object store")] --> C3(["CDN"])
+    B1(["Producer"]) --> B2[["Durable log"]] --> B3(["Two consumers"])
   end
-  a ~~~ c
-  b ~~~ d
 ```
 
-> Four shapes, and the boxes are interchangeable. What differs is what you may ask later.
+> The moment you copy data to answer a new question, you own the lag between the copies.
 
 ---
 
@@ -1027,7 +1035,7 @@ Consistency is not a pass. You carry it into all three.
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `Data kit · pass one, the first question`
 
@@ -1044,7 +1052,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `Data kit · pass one, keeping the joins`
 
@@ -1061,19 +1069,33 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
-`Data kit · pass one, the shape`
+`Data kit · pass one, questions one and two`
 
-## Once you give up joins, four questions about shape pick the store.
+## The first two questions ask whether you need anything more than a lookup.
 
 ```mermaid
 flowchart LR
   Q2{"Exact key only?"} -->|"yes"| KV[("Key-value")]
   Q2 -->|"no"| Q2B{"Whole records,<br/>shapes that differ?"}
   Q2B -->|"yes"| DOC[("Document")]
-  Q2B -->|"no"| Q3{"Partition plus<br/>a range?"}
-  Q3 -->|"yes"| WC[("Wide-column")]
+  Q2B -->|"no"| ON(["On to question three"])
+```
+
+> Both of these give up the join to buy a lookup that stays cheap however much you store.
+
+---
+
+<!-- _class: diagram compact -->
+
+`Data kit · pass one, questions three and four`
+
+## The last two ask whether you are spreading rows or keeping bytes.
+
+```mermaid
+flowchart LR
+  Q3{"Partition plus<br/>a range?"} -->|"yes"| WC[("Wide-column")]
   Q3 -->|"no"| Q4{"Large bytes,<br/>written once?"}
   Q4 -->|"yes"| OS[("Object store")]
   Q4 -->|"no"| SPLIT(["Split the problem.<br/>One store is not enough."])
@@ -1296,7 +1318,7 @@ The genuinely derived stores are the search index, the vector index, the cache a
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `Data kit · under a partition`
 
@@ -1315,7 +1337,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `Data kit · the rest of the time`
 
@@ -1382,7 +1404,7 @@ Indexes make reads fast by making writes slower and storage larger. Each one is 
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `Data kit · partitioning`
 
@@ -1536,11 +1558,11 @@ Write the store and the one query that will cross a partition. Then turn the pag
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
-`Compute kit · the patterns`
+`Compute kit · somebody is waiting`
 
-## Every compute choice hands more of the machine to somebody else.
+## Two of the four shapes decide whether the caller waits for the work.
 
 ```mermaid
 flowchart TB
@@ -1552,6 +1574,20 @@ flowchart TB
     direction LR
     A1(["Balancer"]) --> A2(["Any instance"]) --> A3[("Shared state")]
   end
+```
+
+> The balancer needs every instance to be interchangeable. The queue needs every worker to be repeatable.
+
+---
+
+<!-- _class: diagram compact -->
+
+`Compute kit · nobody is waiting`
+
+## The other two start from something that happened, not somebody who asked.
+
+```mermaid
+flowchart TB
   subgraph d["One log, two budgets"]
     direction LR
     D1[["Event log"]] --> D2(["Stream, seconds"]) --> D4(["Live counters"])
@@ -1561,11 +1597,9 @@ flowchart TB
     direction LR
     C1[("Object store")] --> C2(["Function"]) --> C3[("Index")]
   end
-  a ~~~ c
-  b ~~~ d
 ```
 
-> Each step hands over a machine and takes away a dial.
+> Nobody is on the phone, so the only deadline is one you promised somewhere else.
 
 ---
 
@@ -1652,11 +1686,11 @@ flowchart TB
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
-`Network kit · the patterns`
+`Network kit · before your code`
 
-## Distance charges a different price at every hop.
+## Two of the four decide how far a request travels before your code sees it.
 
 ```mermaid
 flowchart TB
@@ -1669,6 +1703,20 @@ flowchart TB
     direction LR
     A1(["Client"]) --> A2(["CDN"]) -.->|"miss"| A3[("Origin")]
   end
+```
+
+> Both spend the same currency, and it is the one you can never earn back: a hop you did not have to take.
+
+---
+
+<!-- _class: diagram compact -->
+
+`Network kit · after your code`
+
+## The other two decide what the conversation costs once it arrives.
+
+```mermaid
+flowchart TB
   subgraph d["Ask once, or subscribe"]
     direction LR
     D1(["Client"]) -->|"one request"| D2(["API"]) --> D4(["One answer"])
@@ -1678,15 +1726,13 @@ flowchart TB
     direction LR
     C1(["300 ms left"]) --> C2(["Breaker"]) --> C3(["200 ms left"])
   end
-  a ~~~ c
-  b ~~~ d
 ```
 
-> Distance is the one price on this slide you cannot negotiate.
+> A deadline is a budget you spend down. A stream is a budget you keep paying.
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `Network kit · the request path`
 
@@ -1796,11 +1842,11 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
-`Scale kit · the patterns`
+`Scale kit · adding a copy`
 
-## Each of the four moves buys throughput and charges you for it.
+## The first two moves both add a copy of something you already had.
 
 ```mermaid
 flowchart TB
@@ -1813,6 +1859,20 @@ flowchart TB
     direction LR
     A1(["Request"]) --> A2[("Cache hit")] --> A3(["No work done"])
   end
+```
+
+> Both bills arrive in the same currency: something you are reading is now out of date.
+
+---
+
+<!-- _class: diagram compact -->
+
+`Scale kit · moving the work`
+
+## The other two move the work instead — to later, or to somewhere else.
+
+```mermaid
+flowchart TB
   subgraph d["Spread · costs you the queries that cross"]
     direction LR
     D1(["Request"]) --> D2(["Router, by key"]) --> D3[("Shard A")]
@@ -1822,11 +1882,9 @@ flowchart TB
     direction LR
     C1(["Accept"]) --> C2[["Bounded queue"]] --> C3(["Worker"])
   end
-  a ~~~ c
-  b ~~~ d
 ```
 
-> Every one of the four leaves you something new to maintain.
+> Both bills arrive as an answer you cannot have right now: not yet, or not from here.
 
 ---
 
@@ -1950,41 +2008,53 @@ Networks duplicate, clients retry, queues redeliver. The only question is whethe
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
-`Reliability kit · the patterns`
+`Reliability kit · walls`
 
-## Each pattern keeps one failure from becoming every failure.
+## Two of the four put a wall between the part that failed and the part that has not.
 
 ```mermaid
 flowchart TB
-  subgraph b["Degrade to stale"]
+  subgraph c["One pool per dependency"]
     direction LR
-    B1(["Reader"]) --> B2(["Breaker open"]) -.-> B3[("Last good copy")]
+    C1(["Service"]) --> C2(["Pool A"]) --> C3[("Dependency A")]
+    C1 --> C4(["Pool B"]) --> C5[("Dependency B")]
   end
   subgraph a["Copies that fail apart"]
     direction LR
     A1(["Traffic"]) --> A2(["Balancer"]) --> A3(["Zone A"])
     A2 --> A4(["Zone B"])
   end
+```
+
+> A wall only works if the two sides do not share the thing that broke.
+
+---
+
+<!-- _class: diagram compact -->
+
+`Reliability kit · worse answers`
+
+## The other two answer anyway, with something worse than the truth.
+
+```mermaid
+flowchart TB
   subgraph d["Shed at the edge"]
     direction LR
     D1(["Arrivals"]) --> D2(["Over budget"]) --> D3(["Fast reject"])
   end
-  subgraph c["One pool per dependency"]
+  subgraph b["Degrade to stale"]
     direction LR
-    C1(["Service"]) --> C2(["Pool A"]) --> C3[("Dependency A")]
-    C1 --> C4(["Pool B"]) --> C5[("Dependency B")]
+    B1(["Reader"]) --> B2(["Breaker open"]) -.-> B3[("Last good copy")]
   end
-  a ~~~ c
-  b ~~~ d
 ```
 
-> Containment is cheaper than prevention, because you cannot prevent all of it.
+> Stale is an answer and refused is an answer. Timing out is neither.
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `Reliability kit · failure domains`
 
@@ -2125,11 +2195,11 @@ Under pressure something has to give. Either you decided in advance which featur
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
-`Security kit · the patterns`
+`Security kit · inside`
 
-## All four defenses assume somebody is already inside.
+## Two of the four limit what a caller may do once it is already inside.
 
 ```mermaid
 flowchart TB
@@ -2141,6 +2211,20 @@ flowchart TB
     direction LR
     A1(["Caller"]) -->|"authn"| A2(["Edge"]) -->|"authz on this object"| A3[("Object")]
   end
+```
+
+> Neither one asks whether the caller is honest. Both are written as if it is not.
+
+---
+
+<!-- _class: diagram compact -->
+
+`Security kit · outside`
+
+## The other two cover the two directions data crosses out of your control.
+
+```mermaid
+flowchart TB
   subgraph d["A reply is input too"]
     direction LR
     D1(["Service<br/>validates the reply"]) -->|"signed request"| D2(["Third party"])
@@ -2150,15 +2234,13 @@ flowchart TB
     direction LR
     C1(["Viewer"]) --> C2(["Authorizer<br/>mints URL"]) --> C3(["CDN verifies"])
   end
-  a ~~~ c
-  b ~~~ d
 ```
 
-> All four of these assume the edge has already failed.
+> You sign what leaves and you distrust what comes back, because neither one runs on a machine you own.
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `Security kit · trust boundaries`
 
@@ -2525,7 +2607,7 @@ An open is a session: the reader scrolls, and every screenful is another fetch. 
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `Instagram · the graph`
 
@@ -2711,18 +2793,19 @@ The better predicate is fan-out work per day. Fifty thousand followers posting f
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `Instagram · the honest predicate`
 
 ## A follower count is a proxy. The work is followers times how often they post.
 
 ```mermaid
+%%{init: {"xyChart": {"width": 1300, "height": 350, "titleFontSize": 22, "xAxis": {"labelFontSize": 20, "titleFontSize": 20}}}}%%
 xychart-beta
   title "Fan-out writes a day"
   x-axis ["50k followers, 40 posts a day", "200k followers, one post a week"]
-  y-axis "Writes a day" 0 --> 2100000
-  bar [2000000, 28571]
+  y-axis "Writes a day, in thousands" 0 --> 2100
+  bar [2000, 28.6]
 ```
 
 > The smaller account costs seventy times more. A follower count on its own cannot tell you that.
@@ -2765,7 +2848,7 @@ The product exists partly for her. She is the reason a hundred million people op
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `Instagram · the write path`
 
@@ -2776,20 +2859,20 @@ flowchart LR
   C(["Client"]) -->|"1 · presigned upload"| OS[("Object store")]
   OS -->|"2 · acknowledged"| C
   C -->|"3 · post"| API(["Gateway"]) --> W(["Post service"])
-  W -->|"4 · store it"| PDB[("Post store<br/>by author id")]
+  W -->|"4 · store"| PDB[("Post store, by author")]
   W -->|"5 · publish"| Q[["Event log"]]
   Q --> FAN(["Fan-out worker"])
-  FAN -->|"6 · who follows me?"| GS[("Graph service<br/>followers, bucketed")]
-  FAN -->|"7 · push, if below threshold"| FC[("Feed cache<br/>per reader")]
+  FAN -->|"6 · who follows me?"| GS[("Graph service, bucketed")]
+  FAN -->|"7 · push, if below threshold"| FC[("Feed cache, per reader")]
 ```
 
 > Step 3 comes after step 2 on purpose. Publish first and the post exists without its picture.
 
-*Step 3 comes after step 2 on purpose. Publish before the bytes are acknowledged and the post becomes readable while its media does not exist, so every reader who reaches it sees a broken tile. Transcoding may still be running — a variant that is not ready falls back to the original — but the original must be there before anybody is told the post exists.*
+*Publish before the bytes are acknowledged and the post becomes readable while its media does not exist, so every reader who reaches it sees a broken tile. Transcoding may still be running — a variant that is not ready falls back to the original — but the original must be there before anybody is told the post exists.*
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `Instagram · the read path`
 
@@ -2807,7 +2890,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `Instagram · the read path, above the line`
 
@@ -2890,7 +2973,7 @@ The feed is eventually consistent, which is correct for everyone else's posts an
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `Instagram · the upload`
 
@@ -2911,7 +2994,7 @@ flowchart LR
 
 ---
 
-<!-- _class: diagram -->
+<!-- _class: diagram compact -->
 
 `Instagram · serving it back`
 
