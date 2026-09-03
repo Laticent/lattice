@@ -48,12 +48,18 @@ describe('a multi-view player carrier', { skip }, () => {
 	];
 	// The union of the exported views — one frame per member, and NOTHING else in the file.
 	const UNION = [...new Set(Object.values(MEMBERSHIP).flat())].sort((a, b) => a - b);
-	// The player addresses slides by their AUTHORED index, so a view's membership needs no
-	// remap: `data-lp-i` carries the number the author wrote a lens tag next to. It used to be
-	// the slide's position inside the exported union, which is a different number the moment a
-	// view withholds anything — and one no author, deck or tag can name. Position-holding
-	// projection (#2053) made the authored index survive the projection, and the carrier reads
-	// it back off `data-authored-slide` rather than counting DOM order.
+	// Author index -> index within the exported union, which is what the player addresses.
+	//
+	// THIS REMAP WENT AWAY FOR ONE COMMIT AND HAD TO COME BACK, which is worth a note because the
+	// reason is not the obvious one. Position-holding projection made the AUTHORED index survive the
+	// export, so stamping it looked like the simpler, truer thing — the number the author wrote a
+	// lens tag next to, rather than a rank no deck can name. It is also a disclosure: measured on an
+	// 8-slide deck carrying two views, the frames read `data-lp-i="0,2,6"` in plaintext, publishing
+	// the deck's length and the exact withheld slots beside a DOM the same commit had carefully
+	// scrubbed of holes. Nothing in the player needs the authored space — it carries no holes, so
+	// there is no positional CSS for that space to keep honest — so the stamp is DENSE again, and
+	// over the shipped set a dense rank is exactly the union position this computes.
+	const inCarrier = (ids) => ids.map((i) => UNION.indexOf(i));
 
 	let browser;
 	let page;
@@ -115,10 +121,22 @@ describe('a multi-view player carrier', { skip }, () => {
 		const html = fs.readFileSync(file, 'utf8');
 		const stamps = [...html.matchAll(/<div class="lp-frame" data-lp-i="(\d+)">/g)].map((m) => Number(m[1]));
 		assert.equal(stamps.length, UNION.length, 'one frame per union member');
-		// The stamps are the AUTHORED indices, not 0..n-1. On this fixture the two disagree
-		// (slides 2, 4 and 8 are in no view), so this asserts the index space, not just its size.
-		assert.deepEqual(stamps, UNION, 'each frame is stamped with the slide the author wrote');
+		// THE STAMPS ARE DENSE, and on this fixture that is a claim with teeth: the union is
+		// [0,1,3,5,6,7], so an authored-index stamp would read `0,1,3,5,6,7` and a dense one reads
+		// `0..5`. The gaps in the first are the withheld slides, in plaintext, which is the whole
+		// reason this is asserted rather than left to whatever the implementation found convenient.
+		assert.deepEqual(stamps, UNION.map((_, i) => i), 'the frames are stamped densely — no gap spells out a withheld slot');
 		assert.ok(!html.includes('lens-hole'), 'and the withheld slots are gone — the player never carries a hole');
+		// The `lens-hole` check above reads the RAW html, and the envelope is base64, so it cannot
+		// see into it. Decode and look: the projected source legitimately carries the holes (it has
+		// to, or a re-import re-aims every positional rule in the deck), but never a withheld BODY.
+		const env = /<script type="application\/lattice\+json"[^>]*>([\s\S]*?)<\/script>/.exec(html);
+		assert.ok(env, 'the carrier has an envelope to check');
+		const envText = Buffer.from(env[1].trim(), 'base64').toString('utf8');
+		assert.ok(envText.includes('lens-hole'), 'the envelope really is the projected source, holes and all');
+		for (const away of [2, 4, 8]) {
+			assert.ok(!envText.includes(`Body of slide ${away + 1}.`), `slide ${away} is withheld from the ENVELOPE too, not just the DOM`);
+		}
 		assert.ok(UNION.length < 9, 'the fixture really does withhold slides');
 		// Slides 2, 4 and 8 are in no exported view. None of them may be in the file at all —
 		// this is the half the export CAN withhold, unlike the switching, which only hides.
@@ -138,7 +156,7 @@ describe('a multi-view player carrier', { skip }, () => {
 
 	for (const id of ['brief', 'evidence', 'ask']) {
 		test(`\`${id}\` agrees across Present, Read·Slides and Read·Article`, { timeout: TIMEOUT }, async () => {
-			const want = MEMBERSHIP[id];
+			const want = inCarrier(MEMBERSHIP[id]);
 			await page.select('#lp-lens-sel', id);
 			// Each surface is measured WHERE IT IS LAID OUT. Present hides every frame but the
 			// active one by design, so a geometric read of the frames there — or in Read·Article,
@@ -158,7 +176,7 @@ describe('a multi-view player carrier', { skip }, () => {
 	}
 
 	test('navigation stays inside the active view and clamps at both ends', { timeout: TIMEOUT }, async () => {
-		const want = MEMBERSHIP.ask;
+		const want = inCarrier(MEMBERSHIP.ask);
 		await page.select('#lp-lens-sel', 'ask');
 		await page.click('[data-lp-btn="present"]');
 		const at = () => page.evaluate(() => {
@@ -321,7 +339,7 @@ describe('a multi-view player carrier', { skip }, () => {
 				const st = document.querySelector('#lp-app > #lp-stage');
 				return [...st.querySelectorAll(':scope > .lp-frame')].filter((f) => !f.hidden).map((f) => Number(f.getAttribute('data-lp-i')));
 			});
-			assert.deepEqual(shown, MEMBERSHIP.ask, 'and the deck it shows is that view, not the first one listed');
+			assert.deepEqual(shown, inCarrier(MEMBERSHIP.ask), 'and the deck it shows is that view, not the first one listed');
 		} finally {
 			await p2.close();
 		}

@@ -994,6 +994,16 @@ test.describe('the check stays silent on 147 real decks, under six projection sh
 	// `emptyWithheld` IS that shape — full length, a hole in every withheld slot — and for a corpus
 	// that declares no reader views there is nothing else a projection would do to it: there are no
 	// `_lens` tags to prune and no registry to rewrite.
+	//
+	// WHICH MEANS THIS SWEEP EXERCISES HOP 1 ONLY, AND THE DOCBLOCK ON `crossSlideDrift` MUST NOT
+	// CLAIM OTHERWISE. `crossSlideDrift` renders `emptyWithheld(src, kept)` as its own proxy, so
+	// handing it the same string as the projection makes hop 2 compare a render against itself, 882
+	// times. An independent checker proved it by mutation: delete both hop-2 comparisons and all six
+	// shape tests below stay green — only the two dedicated stub tests fail, which is where hop 2 is
+	// actually covered. That is not a hole to be papered over with a bigger number; it is the honest
+	// scope of a corpus that declares no reader views, and the number this sweep produces is a hop-1
+	// number. Making it a hop-2 number would mean tagging all 147 decks into a synthetic registry,
+	// which measures the tagging as much as the projection.
 	const keepOnly = (source, kept) => emptyWithheld(source, kept);
 
 	function chunkCount(source) {

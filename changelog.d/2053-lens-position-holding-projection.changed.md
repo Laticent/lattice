@@ -4,9 +4,16 @@
   author hid came back in the file they sent, in a document whose stylesheet and every slide's markup
   were byte-identical to the one they previewed. A withheld slide is now emitted as an empty hole that
   keeps its slot, and `nth-of-type` is a STRUCTURAL selector: it counts a `display:none` element. The
-  author's rule lands where they aimed, in both files. Measured on the real CLI — the rule computes
-  `rgb(255,0,0)` on the same authored slide in the full deck and in a view that withholds two slides
-  before it.
+  author's rule lands where they aimed, in both files. Measured on real exported files —
+  `section:nth-of-type(4)`, `section:nth-child(6)` and `section:last-of-type` each resolve to the same
+  slide in a view withholding three slides as in the full deck.
+  **A CSS COUNTER is the family this does NOT close, and the difference is the rule worth remembering:**
+  `nth-of-type` is a STRUCTURAL selector, so it counts a hidden element; counters live on the BOX tree,
+  and a hidden element generates no box, so it does not increment one. Measured on two real PDFs of one
+  deck, a `counter()` heading reads `#4` under `--lens full` and `#2` under `--lens brief`. `counters()`,
+  a `counter-reset` chain and `::marker` numbering are the same shape. That family — plus the visible
+  page number, which moves by design — is what the author-CSS warning now names, and it is why the
+  warning still exists.
   **The artifact pays nothing for the hole on any format but one.** Print emits no page for it; the
   `.pptx`, `.png`, thumbnail and image-set exporters skip it by selector (they screenshot each section
   in turn, and a hidden one cannot be shot — both died with `Node is either not visible or not an
@@ -15,9 +22,19 @@
   in its parent and `nth-of-type` addresses nothing — measured on a real carrier, `nth-of-type(5)`
   matches 0 elements and `nth-of-type(1)` matches all 8. Positional CSS is already meaningless there,
   so a hole would buy nothing and cost the two things a hole costs.
-  **A plain `.html` export is the one format that keeps it**, because its sections are siblings and
-  `nth-of-type` is live. That is the whole of the cost, and it is bounded: a recipient of a plain
-  `.html` reader view can see that a slide existed at a position, and nothing else about it.
+  **Two things keep the hole, and both keep it on purpose.** A plain `.html` export does, because its
+  sections are siblings and `nth-of-type` is live there. So does the projected SOURCE — the player's
+  `application/lattice+json` envelope and a PDF's `--embed-source` attachment — because that source
+  exists to be re-imported, and a densified copy would re-aim every positional rule in the deck the
+  moment someone re-exported it. The cost is the same on all three and it is the same size: a recipient
+  can see that a slide existed at a position, and nothing else about it — no heading, no class, no tag,
+  no note, no caption, no body.
+  **An earlier draft of this entry claimed the cost was bounded to plain `.html`, and it was not.**
+  Four channels disclosed the withheld positions and three of them were defects rather than costs: the
+  notes sidecar labelled `# Slide 1 / 3 / 5` beside a three-page PDF, the caption parts left a gap at
+  `04`, and the player's frames were stamped with authored indices reading `0,2,6` on an eight-slide
+  carrier. All three are fixed — they number by what SHIPS now. The envelope is the one that was a real
+  cost wearing a defect's clothes, and this entry says so instead.
   **The visible page number is now a second, separate number.** A hole is not a page, so it does not
   advance the count — counting it printed `1 3 5` on a three-page export, which tells the recipient
   exactly which slides were withheld, the one thing the projection exists to prevent. So a deck

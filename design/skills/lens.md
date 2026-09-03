@@ -248,7 +248,7 @@ reader sees in both renders; it was walked past by `display:none` on a wrapper e
 enumerate something with no end to it. "Does this deck carry CSS?" has an end to it, because
 you cannot write a positional rule without writing CSS.
 
-**The cost, measured:** 3 of the 150 decks this repo ships warn — two for a `<style>`,
+**The cost, measured:** 3 of the decks this repo ships warn — two for a `<style>`,
 one for a `<script>`. All three are already refused under *some* projection shapes by the
 check above, so this widens an existing refusal rather than opening a new one; across the six
 shapes the corpus test runs, it newly refuses 10 (deck, shape) pairs. `--lens full` is
@@ -262,16 +262,31 @@ reader view. That rule is scoped to a class and could not select a slide by posi
 telling it apart from one that could is the question three checks lost, so this one takes it
 too.
 
-**What to do when it warns:** look at the exported file, and check the slides the warning
-names. If the CSS is scoped to a class you set on the slide (`<!-- _class: hushed -->` and
-`section.hushed …`) it travels with the slide and nothing has moved. If it counts to a slide
-(`section:nth-of-type(3)`), it now lands somewhere else — move it into a theme this repo
-ships, or export the whole deck.
+**What to do when it warns:** two things move and one does not, and the warning says which.
+
+A selector that COUNTS SLIDES is safe. A withheld slide is not deleted — it ships as an
+empty, hidden placeholder that keeps its slot — and `nth-of-type` is a *structural* selector,
+so it counts a `display:none` element. Measured on real exported files, `section:nth-of-type(4)`,
+`section:nth-child(6)` and `section:last-of-type` each land on the same slide in the projection
+as in the full deck.
+
+A CSS COUNTER is not safe, and it is the reason this warning still exists. Counters live on the
+box tree, and a hidden element generates no box, so it does not increment one. Measured on two
+real PDFs of one deck: a `counter()` heading reads `#4` under `--lens full` and `#2` under
+`--lens brief`. `counters()`, a `counter-reset` chain and `::marker` numbering behave the same
+way, and so does anything keyed to the visible page number
+(`section[data-lattice-pagination="3"]`) — that one by design, because a reader view really does
+renumber the pages it ships.
+
+The fix for both is the same: scope the rule to a class you set on the slide
+(`<!-- _class: hushed -->` and `section.hushed …`) and it travels with the slide. Otherwise,
+check the exported file.
 
 **It warns rather than refusing, deliberately.** Refusing was tried: it takes reader views
 away from essentially every deck the Studio hands back as `.md`, because the Studio embeds
 the palette CSS in a `<style>`, and the threat it guards has zero observed instances across
-all 150 decks. HARD RULE #29 is the house posture for a rule like that — we warn, we coach.
+every deck in `examples/`. HARD RULE #29 is the house posture for a rule like that — we warn,
+we coach.
 
 **And your `captions:` travel with the slides.** The block is keyed by slide number, so a
 projection renumbers it: entries for withheld slides are dropped, and the rest are

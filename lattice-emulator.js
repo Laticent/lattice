@@ -2127,11 +2127,23 @@ if (LENS_PROJECTION) {
   if (appendedSlides > 0 && LENS_REPORT) {
     LENS_REPORT += `\n  plus ${appendedSlides} appended slide${appendedSlides === 1 ? '' : 's'} (auto-glossary), built from the deck-wide acronym registry — the projection does not prune it`;
   }
-  // DOES THE DECK CARRY CSS OF ITS OWN? A reducing projection WARNS if it does, because CSS can
-  // select a slide by POSITION and a projection moves every slide after the first withheld one — a
-  // class no comparison of two renders can see, since the stylesheet and every slide's markup are
-  // identical on both sides. `--lens full` keeps every slide in place, so nothing can land anywhere
-  // new and the question does not arise. The rendered markup answers for `<style>`, `<link>` and
+  // DOES THE DECK CARRY CSS OF ITS OWN? A reducing projection WARNS if it does — a class no
+  // comparison of two renders can see, since the stylesheet and every slide's markup are identical
+  // on both sides. `--lens full` keeps every slide in place, so the question does not arise.
+  //
+  // WHAT THIS IS FOR CHANGED UNDER POSITION-HOLDING PROJECTION, and the warning it prints changed
+  // with it. Withheld slides used to be DELETED, so every slide after the first one moved and
+  // `section:nth-of-type(3)` landed somewhere new. Holes closed that: the slot survives, and
+  // measured on real exports `nth-of-type`, `nth-child` and `last-of-type` all resolve to the same
+  // slide in the projection as in the full deck.
+  //
+  // ONE FAMILY SURVIVED, and it is the reason this warning still exists. `nth-of-type` is a
+  // STRUCTURAL selector and counts a `display:none` element; a CSS COUNTER is not — a hidden
+  // element generates no box and does not increment it. Measured on two real PDFs of one deck, the
+  // same slide's `counter()` heading reads `#4` under `--lens full` and `#2` under `--lens brief`.
+  // The visible page number moves for the same reason and by design. So the warning names those two
+  // and explicitly clears the selector family, rather than telling an author to go hunting for a
+  // misfire that can no longer happen. The rendered markup answers for `<style>`, `<link>` and
   // `<script>` (including a `<style>` inside an inlined SVG, which leaves no trace in the markdown);
   // the front matter answers for `style:`, which the CLI injects downstream of the render. Why a
   // warning rather than a refusal is argued at the warning below; why a presence test rather than a
@@ -2180,7 +2192,7 @@ if (LENS_PROJECTION) {
   // author to write `section.hushed …`, which lives in a `<style>`, which was refused. There was
   // nowhere in a deck to put CSS the export would accept.
   //
-  // Against that: the threat has ZERO observed instances across all 150 decks — a positional selector
+  // Against that: the threat has ZERO observed instances across every deck in examples/ — a positional selector
   // of any spelling appears in none of them — and this repo already deleted a scanner for it once, by
   // name, on exactly that evidence. HARD RULE #29 says what to do with a rule that would refuse an
   // author's deck for their own good: "authors can do whatever they want… when there are better
@@ -2196,12 +2208,14 @@ if (LENS_PROJECTION) {
   if (cssChannel) {
     const moved = LENS_PROJECTION.kept.map((at, i) => (at === i ? null : `${at + 1}→${i + 1}`)).filter(Boolean);
     console.warn(`warning: this deck carries CSS of its own — ${cssChannel}.`);
-    console.warn('         CSS can select a slide by POSITION (`section:nth-of-type(3) …` counts to the third slide),');
-    console.warn(`         and this view renumbers ${moved.length} slide${moved.length === 1 ? '' : 's'}${moved.length ? ` (${moved.slice(0, 6).join(', ')}${moved.length > 6 ? ', …' : ''})` : ''}.`);
-    console.warn('         A rule written for one slide can land on another: a paragraph you hid can come back, and a');
-    console.warn('         classification marking can print on the wrong slide. Nothing in the two renders shows this,');
-    console.warn('         because the stylesheet and every slide\'s markup are identical on both sides — so check the');
-    console.warn('         exported file, or move the CSS into a theme the renderer already ships.');
+    console.warn('         Selectors that COUNT SLIDES are safe here: a withheld slide keeps its slot in the file, so');
+    console.warn('         `section:nth-of-type(3) …` still lands on the slide you wrote it for.');
+    console.warn(`         What moves is a slide's VISIBLE NUMBER — this view renumbers ${moved.length} slide${moved.length === 1 ? '' : 's'}${moved.length ? ` (${moved.slice(0, 6).join(', ')}${moved.length > 6 ? ', …' : ''})` : ''} — so:`);
+    console.warn('           · a CSS COUNTER skips the withheld slides. A hidden slide generates no box, so it does not');
+    console.warn('             increment. Measured: a `counter()` heading numbered a slide #4 in the full deck and #2 here.');
+    console.warn('           · so does a rule keyed to the page number, `section[data-lattice-pagination="3"] …`.');
+    console.warn('         Scope the rule to a class you set on the slide (`<!-- _class: hushed -->` and `section.hushed …`)');
+    console.warn('         and it travels with the slide instead. Otherwise, check the exported file.');
   }
   // `total`, not `kept.length` — the projection emits a HOLE for every withheld slide, so the deck
   // that ships has the authored deck's length and its authored numbering. That is the point of the
