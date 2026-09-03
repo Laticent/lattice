@@ -79,7 +79,6 @@ without the declaration, and an overstuffed control that must keep reporting ove
 | `citation-card.pull-quote` (the hero quote) | a 294px quote where the stage could give it 249.50px, pushing the gloss 44.50px out — and here the clip was into TEXT, 15.17px of the gloss outside it | no hang, ink 29.33px inside |
 | `citation-card.split` (both centerings) | the gloss sat 25.02px ABOVE the stage top, 21.02px of text gone | nothing above the top edge |
 | `cycle` (the ring, and the stage's centering) | 471.94px ring in a 400.44px stage, 35.75px off EACH edge, 16.75px of text gone off the top, the return arc and ↻ mark entirely below the clip | ring is exactly stage height, arc and mark back |
-
 | `statute-stack.preemption` (its centering) | **self-inflicted, caught by the checker** — releasing the base list's floor above let `.preemption`'s bare `center` split the excess both ways: 53.53px of real text above the stage top on a four-card stack, 129.56px on a five-card one, taking the FEDERAL label, its citation pill and the card's top border off the slide. Unclamped, the same deck put all 125.97px of its loss out the bottom, where it is visible | nothing above the top edge, and the rail chrome the base fix bought is kept |
 
 So ten declarations, not nine: the `.preemption` keyword is the base fix's own cost, found by
@@ -192,10 +191,10 @@ Both are one `safe` keyword away from fixed, and neither is on this change's pat
 
 ## Five more stale goldens on `main`, found and NOT touched
 
-Running `tools/regression-gate.mjs --scope galleries` — the full 75 × 2 sweep, which
-nothing appears to run routinely — reports five galleries whose committed goldens no
-longer match the engine. Measured **identical at `origin/main`** with every declaration
-and golden on this branch reverted, so none of them is this change's:
+`tools/regression-gate.mjs --scope galleries` — the full 75 × 2 sweep — reports five
+galleries whose committed goldens no longer match the engine. Measured **identical at
+`origin/main`** with every declaration and golden on this branch reverted, so none of them
+is this change's:
 
 | golden | pages | worst |
 |---|---|---|
@@ -206,8 +205,17 @@ and golden on this branch reverted, so none of them is this change's:
 | `authority-chain` | 1 | 0.11% |
 
 They are the same defect class as the four PDFs this change regenerates, and they were
-NOT hidden by the scientific-notation parse bug — every one of those pixel counts is well
-under a million, so the tool could always have reported them. Nobody had run the sweep.
+NOT hidden by the scientific-notation parse bug — a gallery page is 518,400px at 72dpi, so
+no gallery count can even reach the million where that parse broke.
+
+**And the sweep is not un-run — it runs every night.** A first draft of this section said
+"nothing appears to run routinely", which is false, and the second checker caught it:
+`.github/workflows/integration-nightly.yml:322` runs `npm run regress` (both scopes) on
+`cron: '11 3 * * *'`. What is true is narrower and more useful — that step is
+**report-only**, and its output lands in a single rolling tracking issue rather than on a
+PR. So these five have been reported nightly, to a place nobody reads. The gap is the
+channel, not the coverage, which makes "run the sweep" the wrong follow-up: read the
+rolling issue, or give the step somewhere louder to land.
 
 They are left alone deliberately: none is a component this change touches, so folding ten
 more binary artifacts in would widen the diff across buckets for no reviewer benefit (#8,
@@ -217,6 +225,20 @@ One more note for whoever does: on the first run `radar` dark returned `RENDER_E
 drift, and it rendered clean on the re-run. A full sweep is ~150 real Chromium renders and
 it will occasionally lose one under load — check the status field before reading a red as
 drift.
+
+## Two reporting shapes the `-1` sentinel reaches, left alone
+
+Both are pre-existing behavior of the page-add and page-resize sentinels; the parse fix
+above makes them reachable through a second path (a `compare` that cannot be read), so
+they are recorded rather than widened into:
+
+- **A sentinel page reports `worst 0.00%`.** `regression-gate.mjs` computes the worst
+  fraction as `pixels / total`, and `-1 / 518400` never raises it — so a page flagged
+  purely by the sentinel prints `DRIFT(1pg, worst 0.00%)`, a number a triager will read as
+  noise. The page IS counted as drift; only the headline number understates it.
+- **A sentinel page's montage shows `before | after | after`.** `montageTriptych` falls
+  back to the new tile when there is no diff image, and nothing marks the third panel as a
+  duplicate.
 
 ## What the static filter got wrong
 

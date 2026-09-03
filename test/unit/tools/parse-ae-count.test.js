@@ -23,7 +23,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 
 const { parseAeCount } = require('../../../tools/preview');
 
@@ -60,32 +62,90 @@ test('parseAeCount', async (t) => {
     }
   });
 
-  // The half that keeps the fix from being undone one file over. `parseAeCount`
-  // being right buys nothing if a call site goes back to reading stderr itself —
-  // which is exactly how this bug came to exist in two places at once.
-  await t.test('every `compare -metric AE` call site parses through the helper', () => {
-    const sites = ['tools/pixel-check.js', 'tools/preview.js'];
-    let checked = 0;
-    for (const file of sites) {
-      const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
+  // The half that keeps the fix from being undone one file over. `parseAeCount` being
+  // right buys nothing if a call site goes back to reading stderr itself — which is
+  // exactly how this bug came to exist in two places at once.
+  //
+  // This arm is a CENSUS, and both halves of that are deliberate. Its first draft took a
+  // hardcoded two-file list and asked only whether `parseAeCount(` appeared ANYWHERE in
+  // the file — which the DEFINITION satisfies, so the same bug reintroduced verbatim in
+  // `tools/preview.js`'s `diffPages` left the arm green. It guarded the importer and not
+  // the definer, and a third call site added anywhere would have been invisible to it.
+  // So: walk the tree for the call, and look at the WINDOW after each one.
+  await t.test('every `compare -metric AE` call site parses its output through the helper', () => {
+    const files = [];
+    const walk = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) walk(full);
+        else if (/\.(js|mjs|cjs)$/.test(e.name)) files.push(full);
+      }
+    };
+    walk(path.join(ROOT, 'tools'));
+
+    const CALL = /spawnSync\(\s*'compare'[\s\S]{0,200}?'-metric',\s*'AE'/g;
+    const sites = [];
+    for (const full of files) {
+      const src = fs.readFileSync(full, 'utf8');
+      for (const m of src.matchAll(CALL)) {
+        // The window is what the call site does with the result — long enough to hold a
+        // comment plus the parse, short enough not to reach an unrelated one.
+        sites.push({ file: path.relative(ROOT, full), window: src.slice(m.index, m.index + 700) });
+      }
+    }
+
+    assert.ok(
+      sites.length >= 2,
+      `expected at least the two known \`compare -metric AE\` call sites under tools/, found ${sites.length} — `
+        + 'if they moved, this census needs pointing at their new home rather than deleting.',
+    );
+
+    for (const { file, window } of sites) {
       assert.match(
-        src,
-        /'-metric', 'AE'/,
-        `${file}: no \`compare -metric AE\` call found — did it move? Point this test at it.`,
-      );
-      assert.match(
-        src,
+        window,
         /parseAeCount\(/,
-        `${file} runs \`compare -metric AE\` but does not parse its output with parseAeCount(). `
-          + 'A hand-rolled parse here is how a million-pixel page came to read as identical.',
+        `${file}: a \`compare -metric AE\` call does not hand its output to parseAeCount(). `
+          + 'A hand-rolled parse here is how a million-pixel page came to read as identical. '
+          + '(This checks the code AFTER the call, not the file — the helper\'s own definition '
+          + 'must not be what satisfies it.)',
       );
       assert.doesNotMatch(
-        src,
-        /\/\^\\d\+\$\/\.test\(raw\)/,
-        `${file} still carries the \`/^\\d+$/\` guard that drops a scientific-notation count.`,
+        window,
+        /\.test\([A-Za-z_$][\w$]*\)\s*\?\s*parseInt\(/,
+        `${file}: a \`compare -metric AE\` call site parses stderr with a regex-and-parseInt again. `
+          + 'That is the exact shape that dropped a scientific-notation count.',
       );
-      checked += 1;
     }
-    assert.equal(checked, sites.length);
+  });
+
+  // The guard that came back with this fix, and the reason it is here: `compare` on
+  // differently-sized images diffs only the overlapping top-left region and prints a
+  // SMALL count with exit 0, so a page whose geometry changed reads as a trivial diff.
+  // `pixelDiff` has guarded that since #1686's follow-on; `diffPages` did not until an
+  // independent checker noticed it sitting three lines from the parse this file is about.
+  await t.test('a page whose geometry changed is a sentinel, not a small diff', () => {
+    const { diffPages } = require('../../../tools/preview');
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ae-resize-'));
+    const im = (args) => spawnSync('convert', args, { encoding: 'utf8' });
+    if (im(['-size', '400x300', 'xc:white', '-fill', 'black', '-draw', 'rectangle 10,10 100,100',
+      path.join(tmp, 'a.png')]).status !== 0) return; // no ImageMagick here — nothing to assert
+
+    im([path.join(tmp, 'a.png'), path.join(tmp, 'a.pdf')]);
+    im([path.join(tmp, 'a.png'), '-resize', '800x600', path.join(tmp, 'b.png')]);
+    im([path.join(tmp, 'b.png'), path.join(tmp, 'b.pdf')]);
+
+    const r = diffPages(path.join(tmp, 'a.pdf'), path.join(tmp, 'b.pdf'), 'ae-resize-probe');
+    assert.equal(r.ok, true);
+    assert.equal(r.diffs.length, 1, 'the resized page should be reported');
+    assert.equal(
+      r.diffs[0].pixels,
+      -1,
+      'a page whose geometry changed must read as the -1 sentinel. Without the size guard '
+        + '`compare` diffs the overlapping corner and reports a small positive count — measured '
+        + 'at 924px for this fixture — which reads as a trivial diff instead of a geometry change.',
+    );
+    assert.match(r.diffs[0].note, /page resized 400x300/);
+    fs.rmSync(tmp, { recursive: true, force: true });
   });
 });

@@ -181,7 +181,13 @@ function pixelDiff(baselinePdf, currentPdf, deck, opts = {}) {
     // regex this replaced silently scored that page 0. See its header.
     const px = parseAeCount(r.stderr);
     if (px !== 0) perPage.push({ page: i + 1, pixels: px, total: od.w * od.h, diffPng, oldPng: oldP, newPng: newP, ...(px < 0 ? { note: 'compare produced no readable pixel count' } : {}) });
-    totalPx += px > 0 ? px : 1;
+    // A `-1` SENTINEL counts as one, matching the page-add and page-resize branches
+    // above; an IDENTICAL page counts as zero. The first draft of this line read
+    // `px > 0 ? px : 1`, which also caught 0 — so every clean page added one and
+    // `diff()`'s `pixel_identical` (totalPx === 0) could never be true again: two
+    // byte-identical 58-page PDFs reported `totalPx 58`, and its "byte-drift only"
+    // branch became dead code. Caught by the second checker.
+    totalPx += px > 0 ? px : (px < 0 ? 1 : 0);
   }
   return { pages, perPage, totalPx, tmpDir };
 }

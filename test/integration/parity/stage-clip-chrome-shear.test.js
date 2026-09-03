@@ -326,7 +326,7 @@ Fifty state regimes now bind the same scoring model, and the cheapest of them se
   {
     key: 'citation-card-pull-quote',
     what: 'citation-card pull-quote · the hero quote',
-    note: '294px quote against a 249.50px share pushed the gloss 8.17px out, ink 21.16px inside',
+    note: 'a 294px quote where the stage could give it 249.50px pushed the gloss 44.50px out, with 15.17px of the gloss text outside the clip',
     mode: 'full',
     dense: `<!-- _class: citation-card pull-quote -->
 

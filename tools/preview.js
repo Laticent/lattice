@@ -306,6 +306,14 @@ function pageDeltaNote(baseline, fresh) {
 // from `compare` is not evidence of sameness, and that is the direction to fail in.
 // ONE definition, imported by pixel-check.js, so the two cannot drift apart again
 // (HARD RULE #1) — the same shape `pageDeltaNote` above is in for the same reason.
+// Pixel dimensions of a rasterized page, or 0x0 when `identify` cannot read it. Used
+// by the page-resize guard below — see its comment for why the guard exists.
+function imgDims(p) {
+  const out = (spawnSync('identify', ['-format', '%w %h', p], { encoding: 'utf8' }).stdout || '').trim();
+  const [w, h] = out.split(/\s+/).map(Number);
+  return { w: w || 0, h: h || 0 };
+}
+
 function parseAeCount(stderr) {
   const first = String(stderr || '').trim().split(/\s+/)[0] || '';
   if (!/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(first)) return -1;
@@ -335,13 +343,33 @@ function diffPages(committedPdf, freshPdf, deck) {
       diffs.push({ page: i + 1, pixels: -1, note: pageDeltaNote(oldP, newP) });
       continue;
     }
+    // Guard the dangerous direction FIRST, the way `pixelDiff` does: ImageMagick 6's
+    // `compare` on differently-sized images diffs only the overlapping top-left region
+    // and prints a small count with exit 0 — measured, a 400x300 against an 800x600 of
+    // the same content reports 924px. So a render whose page geometry changed would
+    // read here as a trivial diff. This is the same false-PASS this function's parse fix
+    // is about, three lines away, and it was still open until the second checker named
+    // it. `pixelDiff` has carried the guard since #1686's follow-on; both copies have it
+    // now (HARD RULE #1).
+    const od = imgDims(oldP);
+    const nd = imgDims(newP);
+    if (od.w !== nd.w || od.h !== nd.h) {
+      diffs.push({ page: i + 1, pixels: -1, note: `page resized ${od.w}x${od.h}→${nd.w}x${nd.h}` });
+      continue;
+    }
     const diffPng = path.join(tmpDir, `diff-${String(i + 1).padStart(2, '0')}.png`);
     const r = spawnSync('compare', ['-metric', 'AE', oldP, newP, diffPng], { encoding: 'utf8' });
     // ImageMagick `compare` prints the pixel count to stderr and exits non-zero
     // when any pixels differ; that's the documented behavior.
     const px = parseAeCount(r.stderr);
-    if (px !== 0) {
+    if (px > 0) {
       diffs.push({ page: i + 1, pixels: px, diffPng });
+    } else if (px < 0) {
+      // No `diffPng`: when `compare` cannot read an image it writes no output file, so
+      // the path would be a phantom — and `preview()` feeds every `diffPng` straight
+      // into the list of files it hands the reviewer. The note is what `printText` has
+      // to show instead of a bare `-1 px`.
+      diffs.push({ page: i + 1, pixels: -1, note: 'compare produced no readable pixel count' });
     }
   }
   return { ok: true, diffs, totalPixels: diffs.reduce((s, d) => s + (d.pixels > 0 ? d.pixels : 0), 0) };
@@ -545,5 +573,7 @@ module.exports = {
   decksUsingComponent,
   pageDeltaNote,
   parseAeCount,
+  imgDims,
+  diffPages,
   preview,
 };
