@@ -22,6 +22,7 @@ acronyms:
   HSM: { expansion: hardware security module }
   L7: { expansion: layer seven }
   POST: { expansion: post }
+  PUT: { expansion: put }
   SLA: { expansion: service level agreement, definition: "The external promise, with money attached, always looser than the objective." }
   TB: { expansion: terabytes }
   VPN: { expansion: virtual private network }
@@ -37,7 +38,7 @@ acronyms:
 
 `A tutorial for new engineers`
 
-We start with one engineer's Tuesday, and we finish by designing Instagram.
+We start with one engineer's Tuesday. We design Instagram, then run the whole method again on a parking app you could ship this month.
 
 ---
 
@@ -50,7 +51,7 @@ We start with one engineer's Tuesday, and we finish by designing Instagram.
 3. Protagonist and antagonist — where a design starts
 4. Solution types — which answer is wanted
 5. Six kits — data, compute, network, scale, reliability, security
-6. Instagram — the graph, the design, and the worksheet you keep
+6. Two designs — Instagram, then a parking app from nothing
 
 ---
 
@@ -952,17 +953,29 @@ Answer these before anyone says a brand. Most database arguments are really a di
 
 ---
 
+<!-- _class: content -->
+
+`Data kit · the three passes`
+
+## Those five questions do not all fire at once. The choice runs in three passes.
+
+Pass one asks about shape and access, and it picks the store you start from. The next slide draws that pass as a tree, and for most systems it is the whole decision.
+
+Pass two asks whether anything you need is a capability no shape provides: similarity, ranked text, proximity, a push the instant a row changes. That last one can delete a tier — a store that streams to the client is the socket service you were about to write.
+
+Pass three runs only when two candidates both fit. It settles the tie on how each behaves at 3am, not on what it stores. Open at pass three and you will argue about pricing before you have agreed what the data is.
+
+---
+
 <!-- _class: diagram -->
 
-`Data kit · the decision`
+`Data kit · pass one`
 
 ## Start at relational. Every branch below is a reason to leave it.
 
 ```mermaid
 flowchart LR
-  REL[("Relational<br/>start here")] --> Q0{"Do questions walk<br/>relationships?"}
-  Q0 -->|"yes"| GR[("Graph")]
-  Q0 -->|"no"| Q1{"Does one table outgrow<br/>one machine?"}
+  REL[("Relational<br/>start here")] --> Q1{"Does one table outgrow<br/>one machine?"}
   Q1 -->|"no"| STAY(["Stay. You are done."])
   Q1 -->|"yes"| QB{"Still need joins<br/>and transactions?"}
   QB -->|"yes"| DS[("Distributed SQL")]
@@ -1056,21 +1069,6 @@ flowchart LR
 
 <!-- _class: cards-stack -->
 
-`Data kit · graph`
-
-## A graph store is for questions that traverse, not questions that filter.
-
-- Reach for it when
-  - The query walks relationships of unknown depth: reachability, paths, recommendations.
-- Walk away when
-  - You have relationships but only ever join two hops. A relational store does that faster.
-- The constraint you inherit
-  - Traversals resist partitioning, so scaling out is genuinely harder here than anywhere else.
-
----
-
-<!-- _class: cards-stack -->
-
 `Data kit · object store`
 
 ## An object store is the cheapest home for a write-once file.
@@ -1081,6 +1079,38 @@ flowchart LR
   - You need to modify part of an object, or to list and filter by what is inside it.
 - The constraint you inherit
   - Listing is slow and expensive. The index of what you stored belongs somewhere else.
+
+---
+
+<!-- _class: compare-table -->
+
+`Data kit · pass two`
+
+## A capability no shape provides means adding a store beside the source, not swapping the source out.
+
+| Capability | The question it answers | What you add |
+| --- | --- | --- |
+| Similarity | What is closest in meaning to this? | A vector index |
+| Ranked text | Which document best matches these words? | A search index |
+| Proximity | What is within two kilometers? | A geospatial index |
+| Live push | What changed, the moment it changed? | A store that streams |
+| Retention | What did this metric do all month? | A time-series store |
+| Traversal | Who is reachable from here? | A graph store |
+
+---
+
+<!-- _class: cards-stack -->
+
+`Data kit · graph`
+
+## A graph store is for questions that traverse, not questions that filter.
+
+- Reach for it when
+  - The query walks relationships of unknown depth: reachability, paths, recommendations.
+- Walk away when
+  - You have relationships but only ever join two hops. A relational store does that faster.
+- The constraint you inherit
+  - Traversals resist partitioning, so scaling out is genuinely harder here than anywhere else.
 
 ---
 
@@ -1140,6 +1170,23 @@ The genuinely derived stores are the search index, the vector index, the cache a
 | Document | Key, secondary index | Engine-specific | Horizontal | Facts split across documents |
 | Wide-column | Partition plus range | Tunable | Horizontal | New query patterns |
 | Graph | Traversal | Engine-specific | Horizontal, with effort | Cutting the graph across machines |
+
+---
+
+<!-- _class: compare-table -->
+
+`Data kit · pass three`
+
+## When two stores both fit, what settles it is how each one behaves on a bad night.
+
+| Ask | Why it settles the tie |
+| --- | --- |
+| Who carries the pager? | A managed service, or your own team at 3am |
+| What does a lost node cost? | Some engines lose capacity, some lose writes in flight |
+| How does the bill grow? | Per gigabyte, per request, or per machine-hour |
+| How does data get out? | A dump, a change stream, or nothing at all |
+| How long is a restore? | Backups are easy. The restore is the number |
+| Who already runs one here? | A store your team knows beats a better one nobody has run |
 
 ---
 
@@ -2542,13 +2589,13 @@ flowchart LR
 
 `Instagram · what video changes`
 
-## Every number on the last slide assumed a two-megabyte photo.
+## Every number in this design assumed a two-megabyte photo.
 
 A phone uploads video in parts, because one request that dies at ninety percent would otherwise start over. So the presigned grant covers a multi-part upload rather than a single PUT.
 
-Transcoding stops being "make three sizes" and becomes a ladder of bitrates cut into short segments, so a player can step down when the signal weakens. The CDN then serves thousands of small objects per video instead of one.
+Transcoding stops being a few still sizes and becomes a ladder of bitrates cut into short segments, so a player can step down when the signal weakens. The CDN then serves thousands of small objects per video instead of one.
 
-The fallback disappears as well. You can serve an unresized photo at full size; you cannot serve a source video, so the post stays unreadable until one rendition is ready. And two hundred terabytes a day becomes petabytes, which is where "durable forever" starts to cost real money.
+The fallback goes too. A photo whose variant is not ready can be served at full size; a source video cannot, so the post stays unreadable until one rendition finishes. And the 200 TB a day becomes petabytes, which is where "durable forever" starts to cost real money.
 
 ---
 
@@ -2658,7 +2705,7 @@ Instagram was one design at one rung, and it was already enormous when we met it
 
 `Parking · the worksheet, filled`
 
-## Nine fields before a single box goes on the board.
+## Nine fields get answered before a single box goes on the board.
 
 ```text
 Protagonist   A driver at the bay. One hand, thirty seconds, no app.
@@ -2679,10 +2726,10 @@ Solution type MVP. Nobody knows yet whether drivers scan the sticker.
 
 `Parking · rung one, the MVP`
 
-## One lot, a printed sticker per bay, and a page that takes a card.
+## Rung one is one lot, a printed sticker per bay, and a page that takes a card.
 
 - What you build
-  - A sticker on every bay carrying a link with the lot and the bay in it. The page shows a price, takes a card, writes one row.
+  - A sticker on every bay carrying a link with the lot and bay in it. The provider's own form takes the card, so the number never touches your server.
 - What it buys
   - The only answer you need this month: do drivers scan the sticker, and do they finish paying.
 - What it charges
@@ -2694,20 +2741,22 @@ Solution type MVP. Nobody knows yet whether drivers scan the sticker.
 
 `Parking · rung one, the database`
 
-## One table, no partitioning, no cache, no queue.
+## One table holds all of it: no partitioning, no cache, no queue.
 
 ```text
 sessions
   id            uuid
+  idem_key      unique. one park, one key, however many taps
+  status        pending, then paid
   lot_id, bay   which sticker was scanned
   plate         typed by the driver
-  started_at    when the payment cleared
+  started_at    set when the payment clears
   expires_at    started_at plus the minutes bought
   amount_cents  what you charged
-  payment_ref   the provider's id for the charge
+  payment_ref   the provider's id, filled on the way out
 ```
 
-Relational, one machine, and it stays that way for years. Two hundred lots of forty bays turning over four times a day is 32,000 rows.
+Two hundred lots of forty bays, turning over four times a day, is 32,000 rows. One machine holds that for years.
 
 ---
 
@@ -2732,14 +2781,14 @@ The second is the signal itself. The card form sits on the far side of a network
 
 ## Two taps on Pay have to produce one charge, and a retry must not add another.
 
-The second tap is a different request that means the same thing. So the request carries a key the phone generated once, and the database decides, not your code.
+The second tap is a different request that means the same thing. So the page mints one key for this park and keeps it across reloads, and that key decides — not your code.
 
-- The key comes from the page
-  - It mints one identifier when it loads and sends it with every attempt. Same tap, same key.
-- The insert is the guard
-  - Write the row with that key in a unique column first. Charge the card only if the insert created a row.
+- Insert first, in a pending state
+  - The key sits in a unique column. If the insert conflicts, read that row and hand back what it already says.
+- Charge with the same key
+  - Payment providers take an idempotency key too. After a crash, a retry returns the first charge instead of making a second.
 - Never read, then decide, then write
-  - Two requests both read "not charged yet" and both charge. Let the database refuse the second insert instead.
+  - Two requests both read "not charged yet" and both charge. Let the unique index refuse the second instead.
 
 ---
 
@@ -2749,11 +2798,9 @@ The second tap is a different request that means the same thing. So the request 
 
 ## The phone can drop off after the card is charged, and it often does.
 
-The card network answers your payment provider, not the driver's phone. So the provider calls you back on a webhook, and that call is what marks the session paid.
+The card network answers your payment provider, not the driver's phone. So the provider calls you back on a webhook, and that call is what marks the session paid. A lost signal then costs the driver a spinner rather than a park.
 
-Build it that way and a lost signal costs the driver a spinner rather than a park. The webhook lands, the row updates, and the warden sees a paid bay whether or not the phone ever came back.
-
-Your provider will send that webhook more than once. You already know what to do with it: key it on the payment reference and let the second one land on nothing.
+That endpoint is on the public internet. Check the signature your provider sends before you believe a field in it, or you have built a free parking machine. And it will arrive more than once: key it on the payment reference and let the repeat land on nothing.
 
 ---
 
@@ -2778,7 +2825,7 @@ Write down the one question they ask the system, roughly how often it is asked, 
 1. The question
    - Is bay 12 in lot 40 paid at this moment. One row, never a list.
 2. How often
-   - A few hundred a minute across every lot. Small enough to ignore.
+   - Two bays a minute per warden, two hundred lots: about 400 a minute. Under ten a second.
 3. What answers it
    - An index on lot, bay and expiry. The question is a point read and it stays one.
 
@@ -2791,11 +2838,11 @@ Write down the one question they ask the system, roughly how often it is asked, 
 ## Two hundred lots, and the manual parts give out before the machine does.
 
 - What actually changed
-  - Not the traffic. The number of people who now depend on this: wardens, lot owners, a support inbox.
-- Duplicate toward the readers
-  - Lot owners pull reports all day. Send those to a read replica so a heavy report never delays a driver paying.
-- Defer what nobody waits for
-  - Receipts, nightly payouts and the owner's morning email go behind a bounded queue.
+  - Not the traffic. The manual work. One warden typing bay numbers held at one lot and gives out at two hundred.
+- Give the warden a list, not a keyboard
+  - Their phone asks the indexed question once for the whole lot and shows the bays that are not paid.
+- Move slow work off the path a driver waits on
+  - Owner reports go to a read replica. Receipts and nightly payouts go behind a bounded queue.
 
 ---
 
@@ -2812,7 +2859,7 @@ What the card fee takes from a three-dollar park, at thirty cents plus 2.9 perce
 - The fee is the bill
   - Thirty-nine cents of every three dollars, and most of it is a flat charge per transaction.
 - So batch the charges
-  - Hold a regular's parks and charge once at the end of the day. One flat fee instead of four.
+  - Hold a regular's four parks and charge once: 65 cents of fees, not a dollar fifty-five.
 
 ---
 
@@ -2820,7 +2867,7 @@ What the card fee takes from a three-dollar park, at thirty cents plus 2.9 perce
 
 `Parking · what we refused`
 
-## Three things a junior would build first, and what each one waits for.
+## A junior would build these three first, and each one is still waiting on something.
 
 | Refused | Why | What would earn it |
 | --- | --- | --- |
@@ -2834,7 +2881,7 @@ What the card fee takes from a three-dollar park, at thirty cents plus 2.9 perce
 
 `Parking · the ladder, climbed`
 
-## One product, three rungs, and nothing skipped on the way up.
+## One product climbed three rungs, and nothing was skipped on the way up.
 
 1. MVP
    - One lot, one table, a card form. Bought the answer to "will anyone scan this".
@@ -2849,7 +2896,7 @@ What the card fee takes from a three-dollar park, at thirty cents plus 2.9 perce
 
 `Parking · where the kits landed`
 
-## Six kit entries carried this design, and you met all six before you saw the problem.
+## Five kit entries carried this design, and you met all five before you saw the problem.
 
 Relational, because nothing here outgrows one machine and the questions keep changing. An index, on the one question a warden asks. Idempotency twice over: on the driver's second tap, and on a webhook your provider will send again. A read replica, to keep reports off the path a driver waits on. A bounded queue, for the work nobody is waiting for.
 
@@ -2861,7 +2908,7 @@ Not one of those is a product name, and not one of them was a guess.
 
 `Part seven`
 
-## Both designs came out of the same kits, including the entry one of them refused.
+## Every kit entry landed somewhere in the feed design, including the one we refused to use.
 
 ---
 
