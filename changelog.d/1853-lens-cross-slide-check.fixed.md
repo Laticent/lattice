@@ -88,51 +88,56 @@
   it, so it belongs to no view and cannot misdirect one; the count is derived by splitting both
   sources rather than by naming the transform, so the next appender is counted without being named.
   The report line now says so too — "2 of 3 slides ship" beside a three-slide file described neither.
-- **New: CSS that picks a slide by its number is checked, by comparing what a reader sees.**
+- **New: a deck that carries CSS of its own cannot be projected into a reader view.**
   `section:nth-of-type(3) p { display: none }` lands on a different slide once a projection makes the
   deck shorter — measured, a paragraph the author hid renders at 770×36 pixels in the shipped file, and
   an `::after` classification marking drops out of the exported PDF (`pdftotext` 1 → 0). Comparing the
   two renders cannot see it: the stylesheet is byte-identical on both sides and so is every slide's
-  markup. The export therefore renders the deck both ways and compares the VISIBLE TEXT of each kept
-  slide — every painted text node plus what `::before`/`::after` print, skipping anything computed to
-  `display:none`, `visibility:hidden` or zero opacity.
-  **It parses no CSS, and that is the whole design.** Two earlier versions asked about the rules
-  themselves and both lost the same way. A text scanner asked how a rule is SPELLED: against 24 real
-  idioms it refused 7 of 12 harmless ones and missed 6 of 12 dangerous ones. Asking the browser which
-  slides each rule SELECTS did better and still lost — an adversarial pass walked past it six ways in
-  one sitting, through CSS nesting (`section { &:nth-of-type(3) … }`, the spelling an author actually
-  writes), `@scope`, a `<link rel=stylesheet>`, a `<style>` inside an inlined logo SVG, an `@import`,
-  and an unterminated `/*` in one slide's style swallowing the next slide's rules. Every fix was
-  another spelling. Comparing the effect makes all six invisible as mechanisms.
-  Measured on the real CLI: **10 of 10 leaks refuse** (including all six bypasses and the PDF marking
-  case), **14 of 14 CSS idioms real authors write still ship**, and **0 false alarms across the 147
-  example decks** this repo ships. Both documents come from this binary with this argv, minus only
-  `--lens` and the output path. The probe deck is written BESIDE the original, because a deck's images
-  are usually relative and a projection rendered from `/tmp` resolves them nowhere — that alone false-
-  refused two innocent decks. Two differences are forgiven, both diagnosed from the corpus rather than
-  guessed: a page number arriving through `content:` (the same position-derived chrome as
-  `.lat-pagination`, where an element exclusion cannot reach it — 45% of decks refused on this alone)
-  and an empty `content: ""`, which paints nothing.
-  It is NOT gated on the deck appearing to carry CSS. That gate was tried and skipped two of the six
-  bypasses outright: a `<link>` and an SVG `<style>` both put author CSS in the document without
-  leaving a trace in the markdown. It now runs on every projection that reduces the deck, and returns
-  before rendering anything for `--lens full`, which keeps every slide in place. Closes #2053.
-- **Fixed: the CSS refusal said "Nothing was exported" while the file sat on disk.** For `.html` the
-  deliverable is written at top level, well before the async entry point where a check that needs a
-  browser can run — so the one reader-view refusal that happens late left a complete, working export
-  at the output path while telling the author nothing had shipped. It now unlinks first, taking the
-  same exit the render-failure path beside it already takes for the same reason: absence is the honest
-  outcome. The earlier reader-view checks are unaffected — they run at the source, before any write.
-- **Changed: `--lens full` no longer pays for the browser.** An identity projection keeps every slide
-  in place, so nothing can land anywhere new and the two renders would be the same document; the check
-  now returns before rendering anything. Measured: 6.0s back to 1.6s, which is what an export with no
-  flag at all costs.
-- **Fixed: a refused export left the whole deck, withheld slides included, in `/tmp` forever.** The
-  check renders the full deck to a temp directory — that is what it is for — and cleans up in a
-  `finally`. But a refusal exits from inside the `try`, so the `finally` never ran: the one path where
-  a deck is known sensitive enough to be projected AND known to have failed was the one path that left
-  the complete render on disk, under a message saying nothing was exported. Measured: four occurrences
-  of the withheld marker in a leftover `authored.html`. Refusals now clean up before they print.
-- **Fixed: a probe whose output exceeded 1 MB refused a good export.** Several warnings in the CLI are
-  deliberately ungated by `--quiet` so a pipeline sees them, and a large deck emits enough of them to
-  blow Node's default `execFileSync` buffer — which threw, and a throw is a refusal.
+  markup. So a reducing projection now refuses when the deck declares a front-matter `style:`, or the
+  rendered slide markup carries a `<style>` or a `<link rel="stylesheet">`.
+  **Three checks tried to tell dangerous CSS from harmless CSS, and all three lost — each to a
+  different unbounded space.** A text scanner asked how a rule is SPELLED: against 24 real idioms it
+  refused 7 of 12 harmless ones and missed 6 of 12 dangerous ones, because `section[id="3"]` selects by
+  position too. Asking the browser which slides each rule SELECTS parsed nothing and was still walked
+  past six ways in one sitting — CSS nesting (`section { &:nth-of-type(3) … }`, the spelling an author
+  actually writes), `@scope`, a `<link>`, a `<style>` inside an inlined SVG, an `@import`, and an
+  unterminated `/*` swallowing the next slide's rules. Comparing what a READER SEES in both renders
+  parsed no CSS at all and lost to the ways a thing can be hidden: `display:none` on a WRAPPER leaves
+  the child at `display: block` in computed style (measured in Chrome), so the ordinary spelling walked
+  through the check built for it, and `color: transparent`, `font-size: 0`, `clip-path`, a hidden
+  `<img>`, a swapped `background-image` and `::marker` were invisible to it too. Each detector needed to
+  enumerate something endless. "Does this deck carry CSS?" ends, because a positional rule cannot be
+  written without CSS.
+  **It asks the RENDERED document, not the markdown**, which is what closes the two bypasses a
+  source-level gate would keep: a `<link>` and an SVG `<style>` both put author CSS in the document
+  while leaving no `<style>` in the source, and both are plainly elements once rendered. The engine's
+  own stylesheets attach downstream of the render and are not in that markup, so a `<style>` there was
+  written by the author. Front matter is read through the one reader the document is also built from.
+  **Measured cost: 2 of the 150 decks in `examples/` carry CSS of their own** — `finish-backdrops` and
+  `finish-override`, both a Studio-written `<style>` on slide 0 defining finish tokens. The cross-slide
+  check already refuses both under some projection shapes, so this widens an existing refusal rather
+  than opening a new one; it does not vanish, and the honest number is 7 newly refused (deck, shape)
+  pairs across the corpus test's six shapes, all on those two decks. A deck whose CSS is entirely
+  benign is refused too, and that is the price; the remedy is one line in the message. `--lens full`
+  is unaffected: it keeps every slide in place, so nothing can land anywhere new. Closes #2053.
+- **Fixed: `--lens` crashed on every deck carrying a mermaid diagram — 25 of the 150 in `examples/`.**
+  `preprocessMermaid` took each diagram's index from a module-level array while its render batch was
+  rebuilt per call; the declaration said in so many words that it was single-shot and to reset it if
+  that ever changed. This branch changed it — the cross-slide check renders the deck three more times —
+  so the index ran past the end of the batch and the export died with a raw `Cannot read properties of
+  undefined (reading 'replace')` stack trace, no `error:` line and no diagnosis. `--lens full`, the
+  identity export that must never fail, was among them. The index is now each diagram's position within
+  its own call, and only a render that will actually ship records the re-bake state.
+- **Fixed: `--lens full` refused a deck because Mermaid rolls dice.** With the crash gone, one deck
+  still refused: Mermaid labels each `gitGraph` commit with a RANDOM id, so two renders of byte-identical
+  source differ (`4-3c7c3cc` in one, `4-8416a93` in the next). The cross-slide check renders the deck
+  three extra times and asks whether a kept slide changed — and read the renderer's dice as the deck
+  changing. Every diagram now bakes once per process, keyed by its render request, so the answer is a
+  property of the fence rather than of how many times the deck has been rendered. The check also stops
+  re-rendering diagrams it has already seen.
+- **Fixed: a refusal left the projected document on disk for every target but `.html`.** The `.html`
+  sidecar is written at top level, before the reader-view checks can run — for an `.html` export it IS
+  the deliverable, and for a `.pdf`, `.pptx`, `.png` or `.zip` it is the companion the run announces as
+  `HTML: 3 slides → deck-brief.html`. An earlier fix removed only the first, so a refused `.pdf` printed
+  "Nothing was exported" over a complete 2.7 MB `.html` carrying the exact leak the check had just
+  found — a file a sender can attach to an email. Both paths are now removed before the message prints.

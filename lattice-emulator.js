@@ -1820,9 +1820,19 @@ const { reorientMermaidForPortrait } = require('./lib/integrations/mermaid/reori
 // rendered `.mermaid-svg`. The image-set export's cross-scheme SVG look uses this to RE-BAKE a
 // diagram in a different scheme (mmdc bakes colors at render time, so a CSS restyle can't recolor
 // baked node text/edges — re-running renderMermaid in the look mode can). Empty for decks with no
-// diagrams; only read on a cross-scheme image-set export. SINGLE-SHOT: this is a run-once CLI
-// (`preprocessMermaid` fires once per process, one deck), so the array never accumulates across
-// decks. If this module is ever reused for multiple decks in one process, reset it per deck.
+// diagrams; only read on a cross-scheme image-set export. WRITTEN BY POSITION, not appended, and only
+// by a call that is rendering the deck we will actually ship (`recordRebakes`). The index is each
+// diagram's position within its own call, so the `data-mmd-idx` stamp is a property of the deck rather
+// than of how many times this process has rendered one. It accumulated once, when the reader-view
+// check started rendering the deck three extra times, and cost both directions at once: an index past
+// the end of a per-call array crashed every deck with a diagram, and the moving stamp made the two
+// renders differ so the check refused the identity export.
+// EVERY DIAGRAM BAKES ONCE PER PROCESS, keyed by its render request. Mermaid is not a deterministic
+// renderer — a `gitGraph` gives each commit a random id — so re-rendering the same fence produces a
+// different SVG. Nothing cared while the CLI rendered a deck once; the reader-view check renders it
+// three more times and compares the results, and read Mermaid's dice as the deck changing.
+const MERMAID_BAKE_CACHE = new Map();
+const bakeKey = (r) => JSON.stringify([r.definition, r.themeVars, r.look, r.extraClass]);
 const MERMAID_REBAKE_DEFS = [];
 // The scheme each diagram was BAKED in (index-aligned with MERMAID_REBAKE_DEFS), so a cross-scheme
 // image-set look re-renders a diagram only when its own bake scheme differs from the look — keyed on
@@ -1844,7 +1854,13 @@ const MERMAID_REBAKE_LOOKS = [];
 // SAME font token, or a re-baked sketch diagram silently reverts to the clean face.
 const MERMAID_REBAKE_HAND = [];
 
-function preprocessMermaid(source) {
+// `recordRebakes: false` for a render nobody ships. The reader-view cross-slide check preprocesses
+// the deck three extra times to compare renders; those calls must not touch MERMAID_REBAKE_*, both
+// because the arrays describe the deck that is being exported and because the index they hand back is
+// stamped into the html as `data-mmd-idx`. An accumulating index made that stamp differ between the
+// real render and the probe's, and the comparison read its own bookkeeping as the deck changing —
+// refusing `--lens full`, the identity export, on every deck with a diagram.
+function preprocessMermaid(source, { recordRebakes = true } = {}) {
   const fmMatch = source.match(/^---\r?\n[\s\S]*?\r?\n---/);
   const fm = fmMatch ? fmMatch[0] : '';
   // Deck-wide orientation, resolved from the `size:` directive the same way the
@@ -1948,17 +1964,30 @@ function preprocessMermaid(source) {
     readToken: readScopeToken,
     scopeKey: diagramScopeKey,
     renderOne: (fence, themeVars, meta) => {
-      // Keep the source def AND the band it was baked in, index-aligned, so the
-      // image-set look re-bake can tell whether THIS diagram needs re-rendering.
-      const idx = MERMAID_REBAKE_DEFS.push(fence.source) - 1;
-      // The BAND, not the whole scope: `MERMAID_REBAKE_MODES` is compared against a
-      // look name (`'light'`/`'dark'`/`'print'`) to decide whether a diagram needs
-      // re-baking, and the scope became an object when the hand-type answer joined it.
-      MERMAID_REBAKE_MODES[idx] = meta.scope.band;
-      // Whether this diagram's labels are in the hand face, so a cross-scheme re-bake
-      // resolves the same font token the first bake did.
-      MERMAID_REBAKE_HAND[idx] = meta.scope.hand;
-      MERMAID_REBAKE_LOOKS[idx] = meta.look;
+      // TWO INDICES, because this function is no longer single-shot. `slot` is this call's
+      // position in `requests`/`htmls`, which are rebuilt per call. `idx` is the position in the
+      // module-level MERMAID_REBAKE_* arrays, which accumulate for the life of the process so the
+      // stamp baked into the html stays resolvable. They were the same number while the CLI really
+      // did render one deck per process — the declaration above says so, and says to reset per deck
+      // if that ever stopped being true. It stopped being true on this branch: the reader-view
+      // cross-slide check renders the deck three more times, so `htmls[idx]` read past the end of a
+      // per-call array and `--lens` died with `Cannot read properties of undefined (reading
+      // 'replace')` on every deck carrying a diagram — 25 of the 150 in examples/, `--lens full`
+      // included, which is the identity export that must never fail.
+      const idx = requests.length;
+      if (recordRebakes) {
+        // Keep the source def AND the band it was baked in, index-aligned, so the
+        // image-set look re-bake can tell whether THIS diagram needs re-rendering.
+        MERMAID_REBAKE_DEFS[idx] = fence.source;
+        // The BAND, not the whole scope: `MERMAID_REBAKE_MODES` is compared against a
+        // look name (`'light'`/`'dark'`/`'print'`) to decide whether a diagram needs
+        // re-baking, and the scope became an object when the hand-type answer joined it.
+        MERMAID_REBAKE_MODES[idx] = meta.scope.band;
+        // Whether this diagram's labels are in the hand face, so a cross-scheme re-bake
+        // resolves the same font token the first bake did.
+        MERMAID_REBAKE_HAND[idx] = meta.scope.hand;
+        MERMAID_REBAKE_LOOKS[idx] = meta.look;
+      }
       requests.push({ definition: fence.source, themeVars, look: meta.look, extraClass: null, scope: meta.scope });
       return { fence, idx };
     },
@@ -1969,16 +1998,38 @@ function preprocessMermaid(source) {
   // formality: a per-DIAGRAM failure is now degraded in place by the batch, so this
   // path is reached only when nothing rendered — where `renderMermaidOne`'s retry is
   // exactly what is wanted.
-  if (!QUIET && requests.length) {
-    const scopes = [...new Set(requests.map((r) => diagramScopeKey(r.scope)))].join(', ');
-    process.stdout.write(`  Rendering ${requests.length} mermaid diagram${requests.length === 1 ? '' : 's'} (${scopes}) in one pass...`);
+  // Everything `renderOne` was given, so a diagram baked in a different band, look or hand is a
+  // different entry. `uncached` is deduped: one fence repeated on two slides bakes once.
+  const seen = new Set();
+  const uncached = requests.filter((r) => {
+    const k = bakeKey(r);
+    if (MERMAID_BAKE_CACHE.has(k) || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  if (!QUIET && uncached.length) {
+    const scopes = [...new Set(uncached.map((r) => diagramScopeKey(r.scope)))].join(', ');
+    process.stdout.write(`  Rendering ${uncached.length} mermaid diagram${uncached.length === 1 ? '' : 's'} (${scopes}) in one pass...`);
   }
-  let htmls = renderMermaidBatch(requests);
-  if (!htmls) {
-    htmls = requests.map((r) => renderMermaidOne(r.definition, r.themeVars, r.extraClass, r.look));
-  } else if (!QUIET) {
-    console.log(' done');
+  // ONE BAKE PER DIAGRAM FOR THE LIFE OF THE PROCESS, and it is correctness before it is speed.
+  // Mermaid does not render deterministically: a `gitGraph` labels each commit with a RANDOM id, so
+  // two renders of the same fence differ (measured on `examples/cat-ink-tier.md`: `4-3c7c3cc` in one,
+  // `4-8416a93` in the next, from byte-identical source). The reader-view cross-slide check renders
+  // the deck three extra times and asks whether a kept slide changed — against a third-party renderer
+  // that answers differently every time, which refused `--lens full`, the identity export, on a deck
+  // whose diagram nobody had touched. Caching by request makes the answer a property of the fence.
+  // Keyed on everything `renderOne` is given, so a diagram baked in a different band, look or hand is
+  // a different entry. The cost saved is incidental and real: the check no longer re-renders diagrams.
+  if (uncached.length) {
+    let baked = renderMermaidBatch(uncached);
+    if (!baked) {
+      baked = uncached.map((r) => renderMermaidOne(r.definition, r.themeVars, r.extraClass, r.look));
+    } else if (!QUIET) {
+      console.log(' done');
+    }
+    for (const [n, r] of uncached.entries()) MERMAID_BAKE_CACHE.set(bakeKey(r), baked[n]);
   }
+  const htmls = requests.map((r) => MERMAID_BAKE_CACHE.get(bakeKey(r)));
   for (const r of rendered) {
     // Stamp the def index so a cross-scheme image-set export can find + re-bake
     // this exact diagram.
@@ -2018,8 +2069,8 @@ const rawMd = appendAutoGlossary(preGlossaryMd);
 // print color mode, the mermaid bake, and the auto-glossary slide. Nothing is written before this
 // point, so a refusal here still writes nothing.
 if (LENS_PROJECTION) {
-  const { authoredIndexDrift, crossSlideDrift, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
-  const asShipped = (src) => appendAutoGlossary(preprocessMermaid(WANT_PRINT ? withPrintColorMode(src) : src));
+  const { authorCss, authoredIndexDrift, crossSlideDrift, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
+  const asShipped = (src) => appendAutoGlossary(preprocessMermaid(WANT_PRINT ? withPrintColorMode(src) : src, { recordRebakes: false }));
   const renderAsShipped = (src) => require('./lib/engine/index.js').render(asShipped(src)).html;
   // The carrier's map is indexed by AUTHORED slide, so the render has to agree with the projection
   // about how many there are. Checked rather than assumed: every rule that turns one authored slide
@@ -2036,6 +2087,24 @@ if (LENS_PROJECTION) {
   // projection does not prune — so a definition written for a withheld slide's subject rides out on it.
   if (appendedSlides > 0 && LENS_REPORT) {
     LENS_REPORT += `\n  plus ${appendedSlides} appended slide${appendedSlides === 1 ? '' : 's'} (auto-glossary), built from the deck-wide acronym registry — the projection does not prune it`;
+  }
+  // DOES THE DECK CARRY CSS OF ITS OWN? A reducing projection refuses if it does, because CSS can
+  // select a slide by POSITION and a projection moves every slide after the first withheld one — a
+  // class no comparison of two renders can see, since the stylesheet and every slide's markup are
+  // identical on both sides. `--lens full` keeps every slide in place, so nothing can land anywhere
+  // new and the question does not arise. The rendered markup answers for `<style>` and `<link>`
+  // (including a `<style>` inside an inlined SVG, which leaves no trace in the markdown); the front
+  // matter answers for `style:`, which the CLI injects downstream of the render. Why a refusal rather
+  // than a detector, and the three detectors that lost: see `authorCss` in lib/core/lens-export.mjs.
+  const reducing = LENS_PROJECTION.kept.length < chunkCount(mdRaw);
+  // `fm` is not bound until much later in this file; the front-matter block comes from the same
+  // splitter the projection itself uses, so the two cannot disagree about where it ends.
+  const css = reducing && authorCss(require('./lib/engine/index.js').render(rawMd).html, fmOf(normSrc(mdRaw)));
+  if (css) {
+    const where = { 'front-matter': 'the front-matter `style:` block', style: 'a `<style>` element', link: 'a `<link rel="stylesheet">` element' }[css.channel];
+    console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (author-css) — ${REFUSAL_REASONS['author-css']}`);
+    console.error(`       Found in ${where}. Nothing was exported.`);
+    process.exit(1);
   }
   const indexDrift = authoredIndexDrift(
     require('./lib/engine/index.js').render(rawMd).html,
@@ -2254,28 +2323,11 @@ const orientationStyle = orientationCss(_geom);
 // resolved against the section's CONTENT box, rendering ~11% smaller than the
 // token coefficients are defined for. See lib/engine/css.js geometryVarsCss.
 const geometryStyle = geometryVarsCss(_geom);
-// Deck-wide `style:` directive — Marp injects this CSS verbatim into the
-// rendered output. Authors use it for ad-hoc overrides like
-// `style: ":root{color-scheme:dark}"` without needing a custom theme.
-// Two forms are supported: an inline string (`style: "..."`) and a YAML
-// block scalar (`style: |` followed by indented lines).
-function readGlobalStyle(fmText) {
-  const inline = fmText.match(/^\s*style:\s*(["'])([\s\S]*?)\1\s*$/m);
-  if (inline) return inline[2];
-  // `(?=^\S|$(?![\s\S]))` — stop at the next top-level YAML key or at the
-  // absolute end of the frontmatter string. JS regex has no `\Z` anchor,
-  // so we spell end-of-input as `$` with a negative lookahead for any
-  // remaining characters.
-  const block = fmText.match(/^\s*style:\s*\|\s*\r?\n([\s\S]*?)(?=^\S|$(?![\s\S]))/m);
-  if (block) {
-    return block[1]
-      .split(/\r?\n/)
-      .map((l) => l.replace(/^ {2}/, '')) // strip the YAML indent (≥2 spaces)
-      .join('\n')
-      .trimEnd();
-  }
-  return '';
-}
+// Deck-wide `style:` directive — Marp injects this CSS verbatim into the rendered output. Authors
+// use it for ad-hoc overrides like `style: ":root{color-scheme:dark}"` without needing a custom
+// theme. Two forms: an inline string and a YAML block scalar. The reader lives in lib/core because
+// the reader-view export asks the same question of the same text (#1) — see its docblock there.
+const { readGlobalStyle } = require('./lib/core/front-matter-key');
 const globalStyle = readGlobalStyle(fm);
 
 // `![bg …]` half-canvas image handling — the engine path uses liftBgImages
@@ -4926,9 +4978,6 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
 // few-seconds-then-retry instead of a multi-minute hang to the outer timeout (#502).
 (async () => {
   try {
-    // Before anything is written. The other reader-view checks are synchronous and ran at the source;
-    // this one needs a browser and two real documents, so it lands here, still ahead of every write.
-    if (LENS_PROJECTION) await verifyAuthorCssTracksItsSlides();
     await renderExport({ hardened: false });
   } catch (e) {
     if (isTargetGone(e)) {
@@ -4958,178 +5007,6 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
 });
 
 
-/**
- * DOES ANY SLIDE THIS VIEW KEEPS SHOW SOMETHING DIFFERENT ONCE THE DECK IS SHORTER?
- *
- * The last cross-slide mechanism, and the only one that needs a browser. `section:nth-of-type(3) p {
- * display: none }` written on a slide the view KEEPS is byte-identical in the deck the sender previews
- * and the file they send, and so is every slide's markup. Nothing a diff can reach has moved — only
- * which slide the rule lands on. Measured: a paragraph the author hid renders at 770x36 pixels in the
- * shipped file, and an `::after` classification marking drops out of the exported PDF entirely.
- *
- * IT COMPARES WHAT A READER SEES, AND DELIBERATELY PARSES NOTHING. Two earlier versions asked about
- * the CSS itself and both lost the same way. A text scanner asked how a rule is SPELLED: measured
- * against 24 real idioms it refused 7 of 12 harmless ones and missed 6 of 12 dangerous ones. Asking
- * the browser which slides each rule SELECTS did better and still lost — an adversarial pass walked
- * past it six ways in one sitting, through CSS nesting (`section { &:nth-of-type(3) … }`, the spelling
- * an author actually writes), `@scope`, a `<link rel=stylesheet>`, a `<style>` inside an inlined logo
- * SVG, and an unterminated `/*` in one slide's style swallowing the next slide's rules. Every fix was
- * another spelling. That is an arms race with no end, and this file had already deleted one scanner
- * for exactly that reason before rebuilding it a level up.
- *
- * So this asks the only question with a bounded answer: render both decks, and compare the VISIBLE
- * TEXT of each kept slide — every text node the browser actually paints, plus what `::before` and
- * `::after` print, skipping anything computed to `display:none`, `visibility:hidden` or zero opacity.
- * All six mechanisms above are invisible to it AS mechanisms; only their effect shows. Measured on the
- * real CLI: 8 of 8 leaks caught, including all six, and 0 false alarms across the 147 example decks
- * this repo ships.
- *
- * TWO THINGS THE COMPARISON MUST FORGIVE, both found by measuring rather than by reasoning:
- *   · A PAGE NUMBER arriving through `content:` rather than a text node. It is the same
- *     position-derived chrome as `.lat-pagination`, in a place an element exclusion cannot reach —
- *     45% of decks refused on it alone. A bare integer discloses nothing; "CONFIDENTIAL" is not one.
- *   · An EMPTY `content: ""`, which paints nothing and is not content.
- *
- * AND THE PROBE DECK IS WRITTEN BESIDE THE ORIGINAL, not in a temp directory. A deck's images are
- * usually relative — `![Acme](../lib/components/…/acme.svg)` — and a projection rendered from `/tmp`
- * resolves them nowhere, so the alt text differs and two innocent decks refused. The probe therefore
- * lands next to the deck it came from, under a dot-name, and is removed in a `finally`: a refusal
- * exits early, and cleanup written on the happy path is cleanup that never runs on the path that
- * matters. That mistake shipped once already here, leaving the whole deck in `/tmp` on every refusal.
- *
- * IT RUNS ON EVERY PROJECTION THAT REDUCES THE DECK, and is NOT gated on the deck appearing to carry
- * CSS. That gate was tried: a `<link>` and an SVG `<style>` both put author CSS in the document
- * without leaving a trace in the markdown, so the gate simply skipped the check for two of the six
- * bypasses. Whether CSS is present is a question about the rendered document, and by the time you can
- * answer it you have already paid for the render.
- */
-async function verifyAuthorCssTracksItsSlides() {
-  const { REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
-  const { slideBoundaries: cut, frontMatterBlockOf: fmOf, normalizeSourceText: norm } = require('./lib/core/slide-boundaries.mjs');
-  // A projection that keeps every slide moves nothing, so nothing can land anywhere new. `--lens full`
-  // is the identity this kernel promises is byte-identical to no flag at all.
-  const authoredTotal = cut(norm(mdRaw).slice(fmOf(norm(mdRaw)).length)).lines.length + 1;
-  if (LENS_PROJECTION.kept.length >= authoredTotal) return;
-
-  const os = require('os');
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-lens-'));
-  // Beside the deck, so its relative images resolve the way they do for the real render. A deck
-  // directory that cannot be written falls back to the temp dir, and the bound is stated rather than
-  // hidden: a deck with relative assets in a read-only directory cannot be verified, so it refuses.
-  let probeDeck = path.join(path.dirname(path.resolve(mdFile)), `.lattice-lens-probe-${process.pid}.md`);
-  const clean = () => {
-    for (const f of [() => fs.rmSync(tmp, { recursive: true, force: true }), () => fs.rmSync(probeDeck, { force: true })]) {
-      try { f(); } catch { /* best effort */ }
-    }
-  };
-  const refuse = (lines) => {
-    clean();
-    // `.html` is written at top level, before this check can run, so a refusal would otherwise leave a
-    // complete-looking deliverable behind. Absence is the honest outcome — the same call the
-    // render-failure path at the bottom of this file makes, for the same reason.
-    if (OUT_FORMAT === 'html') { try { if (fs.existsSync(outFile)) fs.unlinkSync(outFile); } catch { /* report below */ } }
-    for (const line of lines) console.error(line);
-    process.exit(1);
-  };
-
-  // Everything the caller passed, minus what must change: the deck (replaced), the output (ours), and
-  // the lens flags (the authored render is the deck WITHOUT a view). Filtering rather than
-  // reconstructing, so a flag nobody thought of here still reaches both renders identically.
-  const LENS_FLAG = /^--lens(-default|-source)?(=|$)/;
-  const OUT_FLAG = /^(-o|--output)(=|$)/;
-  const passthrough = [];
-  const argv = process.argv.slice(2);
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === mdFile || (outFile && a === outFile)) continue;
-    if (OUT_FLAG.test(a) || LENS_FLAG.test(a)) { if (!a.includes('=')) i += 1; continue; }
-    passthrough.push(a);
-  }
-  const run = (deck, out) => require('child_process').execFileSync(
-    process.execPath, [__filename, deck, ...passthrough, '--quiet', '-o', out],
-    // Several warnings here are deliberately ungated by `--quiet` so a pipeline sees them, and a large
-    // deck emits enough to blow Node's 1 MB default — where a throw would become a refusal.
-    { stdio: 'pipe', env: process.env, timeout: 300000, maxBuffer: 64 * 1024 * 1024 },
-  );
-
-  const authoredHtml = path.join(tmp, 'authored.html');
-  const shippedHtml = path.join(tmp, 'shipped.html');
-  let browser;
-  try {
-    try { fs.writeFileSync(probeDeck, LENS_PROJECTION.source); }
-    catch { probeDeck = path.join(tmp, 'projected.md'); fs.writeFileSync(probeDeck, LENS_PROJECTION.source); }
-    run(mdFile, authoredHtml);
-    run(probeDeck, shippedHtml);
-
-    const launchOpts = { args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'], headless: 'new' };
-    if (CHROME_EXEC) launchOpts.executablePath = CHROME_EXEC;
-    browser = await puppeteer.launch(launchOpts);
-    const page = await browser.newPage();
-    await page.setViewport({ width: 1600, height: 900 });
-
-    /** What a reader can actually read on each authored slide of this document. */
-    const shown = async (file) => {
-      await page.goto(`file://${file}`, { waitUntil: 'domcontentloaded' });
-      return page.evaluate((EX) => {
-        const out = {};
-        for (const sec of document.querySelectorAll('section[data-authored-slide]')) {
-          const at = sec.getAttribute('data-authored-slide');
-          let acc = '';
-          // The SECTION ITSELF is in scope: `section:nth-of-type(3)::after { content: "CONFIDENTIAL" }`
-          // prints on the slide, and a walk over descendants alone never reads it.
-          for (const el of [sec, ...sec.querySelectorAll('*')]) {
-            if (el !== sec && el.closest(EX)) continue;
-            const cs = getComputedStyle(el);
-            if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') continue;
-            let own = '';
-            for (const n of el.childNodes) if (n.nodeType === 3) own += n.nodeValue;
-            own = own.replace(/\s+/g, ' ').trim();
-            if (own) acc += ` ${own}`;
-            for (const pe of ['::before', '::after']) {
-              const c = getComputedStyle(el, pe).content;
-              // `none`/`normal` paint nothing; `""` paints nothing; a bare integer is the page number.
-              if (!c || c === 'none' || c === 'normal' || c === '""' || /^"\s*\d+\s*"$/.test(c)) continue;
-              acc += ` ${pe}${c}`;
-            }
-          }
-          out[at] = (out[at] ?? '') + acc.trim();
-        }
-        return out;
-      }, '.lat-pagination, .tile-watermark, .tile-progress, style, script');
-    };
-
-    const authored = await shown(authoredHtml);
-    const shipped = await shown(shippedHtml);
-    for (let at = 0; at < LENS_PROJECTION.kept.length; at++) {
-      const was = authored[LENS_PROJECTION.kept[at]] ?? '';
-      const now = shipped[at] ?? '';
-      if (was === now) continue;
-      let i = 0;
-      while (i < was.length && i < now.length && was[i] === now[i]) i++;
-      const near = (s) => s.slice(Math.max(0, i - 30), i + 60).trim() || '(nothing)';
-      refuse([
-        `error: reader view '${LENS_IDS.join(',')}' cannot be exported (positional-css) — ${REFUSAL_REASONS['positional-css']}`,
-        `       Slide ${LENS_PROJECTION.kept[at] + 1} of your deck shows "…${near(was)}…"`,
-        `       but the same slide in the file that would ship shows "…${near(now)}…". Nothing was exported.`,
-      ]);
-    }
-  } catch (e) {
-    if (e?.code === 'ERR_EXIT') throw e;
-    // A probe that cannot RUN must not silently pass: this is the one channel the other checks cannot
-    // see, so "could not check" is not "nothing to find". `e.stderr` is printed because a truncated
-    // `e.message` made a probe failure undiagnosable.
-    const detail = String(e?.stderr || e?.message || e).split('\n').filter(Boolean).slice(-2).join(' | ').slice(0, 300);
-    refuse([
-      `error: reader view '${LENS_IDS.join(',')}' could not be verified — the export could not render the deck both ways to compare them.`,
-      `       ${detail}`,
-      '       A projection can change which slide a CSS rule lands on, and that is the one thing the other',
-      '       checks cannot see, so this refuses rather than guessing. Nothing was exported.',
-    ]);
-  } finally {
-    if (browser) await browser.close().catch(() => {});
-    clean();
-  }
-}
 
 
 // Attach each slide's speaker note as a PDF "Text" annotation (a sticky note)

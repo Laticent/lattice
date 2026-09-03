@@ -19,7 +19,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { POSITION_NEUTRALIZERS, authoredIndexDrift, crossSlideDrift, projectForExport, exportableViews, REFUSAL_REASONS } = require('../../../lib/core/lens-export.mjs');
+const { POSITION_NEUTRALIZERS, authorCss, authoredIndexDrift, crossSlideDrift, projectForExport, exportableViews, REFUSAL_REASONS } = require('../../../lib/core/lens-export.mjs');
 const { frontMatterBlockOf, normalizeSourceText, slideBoundaries } = require('../../../lib/core/slide-boundaries.mjs');
 const { approvalHash, applyTag, emitRegistry } = require('@workwel/lente');
 const engine = require('../../../lib/engine/index.js');
@@ -1008,15 +1008,6 @@ test.describe('the check stays silent on 147 real decks, under six projection sh
 });
 
 /**
- * WHAT THE COMPARISON IS DELIBERATELY BLIND TO, pinned so widening it is a visible decision.
- *
- * Each neutralizer buys a class of false alarm and sells a class of finding, and the list only grows.
- * `lib/diagnostics/slice-equivalence-core.mjs` — the repo's other "compare two renders of the same
- * slide" kernel — pins its own set for exactly this reason, in its own words: "Every neutralizer
- * flatters the result, so each is named and each is a choice… adding an entry back is not a tuning
- * knob." Changing this constant is how the next entry gets a reviewer.
- */
-/**
  * TWO GUARDS THAT ARE CORRECT TODAY AND WOULD BE SILENT IF THEY BROKE. Neither fires on any deck in
  * the tree, so neither is exercised by the corpus sweep — the shape of a test that certifies nothing.
  * Both are reachable through the INJECTED renderer, which is the other reason the caller supplies it.
@@ -1080,6 +1071,93 @@ test.describe('the guards that cannot fire yet, driven through the injected rend
 	});
 });
 
+/** The decks `authorCss` refuses, across the WHOLE corpus and independent of projection shape — the
+ *  cost of refusing rather than detecting, as a number that can fail rather than a claim in a
+ *  changelog. Both also appear in the cross-slide corpus table below, but only under the shapes that
+ *  actually withhold the slide carrying their `<style>`; `authorCss` refuses them under every reducing
+ *  shape, and that difference is the real marginal cost of this decision. A third deck landing here is
+ *  a widening a reviewer should have to look at. */
+const EXPECTED_AUTHOR_CSS = ['finish-backdrops.md', 'finish-override.md'];
+
+/**
+ * THE COST OF THE REFUSAL, MEASURED OVER THE REAL CORPUS rather than asserted in prose. `authorCss`
+ * trades precision for soundness: it refuses every deck carrying CSS, including CSS that could not
+ * possibly select by position. This is the arm that says what that costs, and it fails if a third deck
+ * joins the set — the shape of a widening a reviewer should have to look at.
+ */
+test.describe('refusing on author CSS costs exactly these decks', () => {
+	test('2 of the 150 example decks carry CSS of their own', () => {
+		const fs = require('node:fs');
+		const path = require('node:path');
+		const { render } = engine;
+		const dir = path.join(__dirname, '..', '..', '..', 'examples');
+		const files = fs.readdirSync(dir).filter((f) => f.endsWith('.md'));
+		assert.equal(files.length, 150, 'the corpus is the whole examples/ directory');
+		const hits = [];
+		for (const f of files) {
+			const src = fs.readFileSync(path.join(dir, f), 'utf8');
+			// The rendered SLIDE MARKUP is what the check reads, so this is the same question the CLI asks.
+			if (authorCss(render(src).html, frontMatterBlockOf(normalizeSourceText(src)))) hits.push(f);
+		}
+		assert.deepEqual(hits.sort(), EXPECTED_AUTHOR_CSS, 'a deck joining or leaving this set is a decision');
+	});
+});
+
+/**
+ * DOES THE DECK CARRY CSS OF ITS OWN? The question a reducing projection refuses on.
+ *
+ * Not "is this CSS dangerous" — that question was asked three times, by three different instruments,
+ * and lost three times to three different unbounded spaces (spellings, then selector syntax, then
+ * ways to hide a thing). This one has a bounded answer, because you cannot write positional CSS
+ * without writing CSS.
+ *
+ * It reads the RENDERED slide markup, not the markdown, and these tests pin why that matters: a
+ * `<link>` and a `<style>` inside an inlined SVG both put author CSS in the document while leaving no
+ * `<style>` in the source, and both walked past the source-level version. The engine's own stylesheets
+ * are attached downstream of the render and are not in this markup at all, so a `<style>` here was
+ * written by the author.
+ */
+test.describe('a deck that carries CSS of its own cannot be projected', () => {
+	test('front-matter `style:`, in both YAML spellings', () => {
+		assert.deepEqual(authorCss('<section></section>', 'marp: true\nstyle: "p { color: red }"\n'), { channel: 'front-matter' });
+		assert.deepEqual(authorCss('<section></section>', 'marp: true\nstyle: |\n  p { color: red }\n'), { channel: 'front-matter' });
+	});
+
+	test('a `<style>` in the slide markup', () => {
+		assert.deepEqual(authorCss('<section><style>p{color:red}</style></section>', 'marp: true\n'), { channel: 'style' });
+	});
+
+	test('a `<style>` inside an inlined SVG — one of the six that walked past asking about selectors', () => {
+		// An SVG `<style>` is document CSS like any other. Nothing distinguishes it here, which is the
+		// point: this asks whether CSS is present, not where it came from or what it says.
+		const html = '<section><svg viewBox="0 0 10 10"><style>rect{fill:red}</style><rect/></svg></section>';
+		assert.deepEqual(authorCss(html, 'marp: true\n'), { channel: 'style' });
+	});
+
+	test('a `<link rel=stylesheet>`, quoted or bare, and the alternate spellings', () => {
+		for (const rel of ['"stylesheet"', "'stylesheet'", 'stylesheet', '"alternate stylesheet"']) {
+			assert.deepEqual(authorCss(`<section><link rel=${rel} href="x.css"></section>`, ''), { channel: 'link' }, rel);
+		}
+	});
+
+	test('and a deck with none of the three is not refused', () => {
+		assert.equal(authorCss('<section><p>Just words.</p></section>', 'marp: true\ntheme: indaco\n'), null);
+		// A front-matter key that merely CONTAINS "style" is not `style:` — `_style:` and `styles:` are
+		// different keys, and a deck should not be refused for one.
+		assert.equal(authorCss('<section></section>', 'marp: true\nstyles: nope\n'), null);
+		// An empty `style:` declares no CSS, so there is nothing that could select by position.
+		assert.equal(authorCss('<section></section>', 'marp: true\nstyle: ""\n'), null);
+		// A `<link>` that is not a stylesheet pulls in no CSS.
+		assert.equal(authorCss('<section><link rel="icon" href="f.png"></section>', ''), null);
+	});
+
+	test('the front matter is asked FIRST, because the render cannot show it', () => {
+		// The CLI injects `style:` into the document downstream of the render, so it never appears in
+		// the slide markup. A version that only read the markup would pass every deck using it.
+		assert.deepEqual(authorCss('<section><p>No style element here.</p></section>', 'style: |\n  section:nth-of-type(3) p { display: none }\n'), { channel: 'front-matter' });
+	});
+});
+
 /**
  * WHAT THE COMPARISON IS DELIBERATELY BLIND TO, pinned so widening it is a visible decision.
  *
@@ -1089,37 +1167,6 @@ test.describe('the guards that cannot fire yet, driven through the injected rend
  * flatters the result, so each is named and each is a choice… adding an entry back is not a tuning
  * knob." Changing this constant is how the next entry gets a reviewer.
  */
-/**
- * TWO GUARDS THAT ARE CORRECT TODAY AND WOULD BE SILENT IF THEY BROKE. Neither fires on any deck in
- * the tree, so neither is exercised by the corpus sweep — the shape of a test that certifies nothing.
- * Both are reachable through the INJECTED renderer, which is the other reason the caller supplies it.
- */
-test.describe('the guards that cannot fire yet, driven through the injected renderer', () => {
-	const chunks = [
-		'<!-- _lens: brief -->\n\n# Cover\n\nQ3 board pack.\n',
-		'\n# Internal\n\nSecret.\n',
-		'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
-	];
-	const sec = (at, inner) => `<section data-authored-slide="${at}">${inner}</section>`;
-
-	test('a proxy that renumbers its slides is called a PROXY defect, not a disclosure', () => {
-		// What the blank-line placeholder did to every deck whose view dropped the cover: the proxy
-		// rendered one section fewer, so hop 1 read each kept slide against a different one. Refusing was
-		// right; refusing with "a `footer:` on an excluded slide" was a lie. Here the stub renderer
-		// shortens the proxy — recognizable by the placeholder `emptyWithheld` writes — and nothing else.
-		const src = deckFrom(chunks);
-		const out = projectForExport(src, ['brief']);
-		const stub = (source) =>
-			source.includes('<!-- -->')
-				? sec(0, '<p>Cover</p>') + sec(1, '<p>The ask</p>')
-				: sec(0, '<p>Cover</p>') + sec(1, '<p>Internal</p>') + sec(2, '<p>The ask</p>');
-		const drift = crossSlideDrift(src, out.source, out.kept, stub);
-		assert.ok(drift, 'a proxy that does not line up cannot certify anything');
-		assert.equal(drift.channel, 'proxy', 'and it says so, so the message can tell the truth');
-	});
-
-});
-
 test.describe('the neutralizer set is a pinned decision, not a growing convenience', () => {
 	test('the axes the comparison forgives are exactly these eight', () => {
 		assert.deepEqual(Object.keys(POSITION_NEUTRALIZERS).sort(), [

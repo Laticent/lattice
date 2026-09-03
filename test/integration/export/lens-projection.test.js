@@ -152,21 +152,22 @@ describe('--lens: the projected export', () => {
 	});
 
 	/**
-	 * CSS THAT SELECTS A SLIDE BY POSITION — the one mechanism a comparison of renders cannot see,
-	 * driven on the real CLI because that is the only place it exists. The kernel half is arithmetic and
-	 * unit-tested; what these assert is the part no unit test can reach: that a browser is actually
-	 * consulted, that it is consulted only when it can find something, and that it refuses.
+	 * A DECK THAT CARRIES CSS OF ITS OWN CANNOT BE PROJECTED — driven on the real CLI, because the
+	 * refusal is the whole behavior and a unit test of the predicate cannot show that it fires.
+	 *
+	 * The reason is that CSS can select a slide by POSITION (`section:nth-of-type(3) p { display: none }`)
+	 * and a projection moves every slide after the first withheld one, so the rule lands on a different
+	 * slide in the file that ships. Nothing in either document shows it: the stylesheet is byte-identical
+	 * on both sides and so is every slide's markup. Three detectors were built for that and all three
+	 * lost — the kernel's `authorCss` docblock carries the record — so this refuses instead.
 	 */
-	describe('a rule that counts to a slide', () => {
-		/**
-		 * The same eight-slide deck, with one author `<style>` on slide 0 — built styled and THEN
-		 * approved. Injecting the CSS into a finished deck rewrites a slide body the digest was taken
-		 * over, so every view reads as `drifted` and the test certifies the wrong refusal. That trap has
-		 * caught this file's fixtures before; the digest has to be computed over the final slides.
-		 */
-		function deckStyled(css) {
+	describe('a deck that carries CSS of its own', () => {
+		/** The same eight-slide deck, with `head` written onto slide 0 — built with it and THEN approved.
+		 * Injecting CSS into a finished deck rewrites a slide body the digest was taken over, so every view
+		 * reads `drifted` and the test certifies the wrong refusal. That trap has caught this file before. */
+		function deckStyled(head) {
 			let slides = Array.from({ length: 8 }, (_, i) =>
-				`\n<!-- _class: content -->\n\n${i === 0 ? `<style>\n${css}\n</style>\n\n` : ''}# Slide ${i + 1}\n\n${MEMBERSHIP.brief.includes(i) || MEMBERSHIP.ask.includes(i) ? `Body of slide ${i + 1}.` : WITHHELD}\n`,
+				`\n<!-- _class: content -->\n\n${i === 0 && head ? `${head}\n\n` : ''}# Slide ${i + 1}\n\n${MEMBERSHIP.brief.includes(i) || MEMBERSHIP.ask.includes(i) ? `Body of slide ${i + 1}.` : WITHHELD}\n`,
 			);
 			for (const v of VIEWS) {
 				const mem = new Set(MEMBERSHIP[v.id]);
@@ -177,80 +178,59 @@ describe('--lens: the projected export', () => {
 			return `---\nmarp: true\ntheme: indaco\n${emitRegistry(reg)}\n---\n${slides.join('\n---\n')}`;
 		}
 
-		test('refuses when a rule lands on a different slide once the deck is shorter', { timeout: TIMEOUT }, () => {
-			// `brief` keeps 0, 2 and 5, so the third slide of the projection is authored slide 5 — not
-			// authored slide 2, which is what `:nth-of-type(3)` picked in the deck as written.
+		test('refuses a reducing projection, names the channel, and writes nothing', { timeout: TIMEOUT }, () => {
 			const { dir, deck } = setup();
-			fs.writeFileSync(deck, deckStyled('section:nth-of-type(3) p { display: none }'));
+			fs.writeFileSync(deck, deckStyled('<style>\nsection:nth-of-type(3) p { display: none }\n</style>'));
 			const r = run(deck, path.join(dir, 'out.html'), ['--lens', 'brief']);
-			assert.notEqual(r.status, 0, 'a rule that changes which slide it hides must refuse');
-			assert.match(r.stderr, /positional-css/);
-			// It names the SLIDE and the visible difference, not the rule. The check parses no CSS — that is
-			// what makes it immune to nesting, `@scope`, `<link>` and the rest — so it cannot name a selector,
-			// and the version that tried reported the renumbered expectation as "the deck you wrote", which
-			// was a falsehood. What an author can act on is which slide changed and what changed on it.
-			assert.match(r.stderr, /Slide 3 of your deck shows/, 'it names the slide that changed');
-			assert.match(r.stderr, /SECRET|Body of slide/, 'and shows what the reader will see instead');
+			assert.notEqual(r.status, 0, 'a deck carrying its own CSS cannot be verified, so it refuses');
+			assert.match(r.stderr, /author-css/);
+			assert.match(r.stderr, /Found in a `<style>` element/, 'and says which channel, so the author can find it');
+			assert.match(r.stderr, /Move the CSS into a theme/, 'and what to do about it');
 			assert.equal(fs.existsSync(path.join(dir, 'out.html')), false, 'and writes nothing');
 			fs.rmSync(dir, { recursive: true, force: true });
 		});
 
-		test('and does NOT refuse a rule tied to a class, which travels with its slide', { timeout: TIMEOUT }, () => {
-			// The remedy the refusal recommends, asserted rather than asserted-about.
+		test('refuses on CSS that could not possibly be positional, and that is the accepted price', { timeout: TIMEOUT }, () => {
+			// Deliberate, and the cost is measured rather than assumed: 2 of the 150 decks in examples/ carry
+			// CSS of their own, and the cross-slide check already refuses both under some projection shapes.
+			// Asking whether CSS is DANGEROUS instead is the question that lost three times.
 			const { dir, deck } = setup();
-			fs.writeFileSync(deck, deckStyled('section.content .quiet { display: none }'));
+			fs.writeFileSync(deck, deckStyled('<style>\np { color: red }\n</style>'));
 			const r = run(deck, path.join(dir, 'out.html'), ['--lens', 'brief']);
-			assert.equal(r.status, 0, r.stderr);
-			assert.ok(fs.existsSync(path.join(dir, 'out.html')));
+			assert.notEqual(r.status, 0);
+			assert.match(r.stderr, /author-css/);
 			fs.rmSync(dir, { recursive: true, force: true });
 		});
 
-		test('nor ordinary CSS that counts things INSIDE a slide', { timeout: TIMEOUT }, () => {
-			// The scanner this replaced refused all three of these. `* + *` and `li:nth-child(2)` are
-			// among the most common rules in any stylesheet, and neither can select a slide by position.
+		test('a `<link rel=stylesheet>` is caught, and it leaves no `<style>` in the markdown', { timeout: TIMEOUT }, () => {
+			// One of the two bypasses that killed the source-level version of this gate: nothing in the
+			// markdown says "style", but the rendered document plainly carries a stylesheet.
 			const { dir, deck } = setup();
-			fs.writeFileSync(deck, deckStyled('li:nth-child(2) { color: red }\n* + * { margin-top: 0 }\np:not(:last-child) { margin-bottom: 1rem }'));
+			// Built INTO the deck before it is approved. Adding it afterwards rewrites a slide body the
+			// digest was taken over, and the view reads `drifted` — the wrong refusal, certified.
+			fs.writeFileSync(deck, deckStyled('<link rel="stylesheet" href="evil.css">'));
 			const r = run(deck, path.join(dir, 'out.html'), ['--lens', 'brief']);
-			assert.equal(r.status, 0, r.stderr);
+			assert.notEqual(r.status, 0);
+			assert.match(r.stderr, /Found in a `<link rel="stylesheet">` element/);
 			fs.rmSync(dir, { recursive: true, force: true });
 		});
 
-		test('`--lens full` skips the check entirely — an identity keeps every slide in place', { timeout: TIMEOUT }, () => {
-			// Not a nicety: `full` is the identity this kernel promises is byte-identical to no flag at
-			// all, and it was paying for two extra renders that could not disagree about anything.
+		test('`--lens full` is unaffected — an identity keeps every slide in place', { timeout: TIMEOUT }, () => {
+			// Not a nicety: `full` is the identity this kernel promises is byte-identical to no flag at all.
+			// It reduces nothing, so no rule can land anywhere new and the question does not arise.
 			const { dir, deck } = setup();
-			fs.writeFileSync(deck, deckStyled('section:nth-of-type(3) p { display: none }'));
-			const started = Date.now();
+			fs.writeFileSync(deck, deckStyled('<style>\nsection:nth-of-type(3) p { display: none }\n</style>'));
 			const r = run(deck, path.join(dir, 'out.html'), ['--lens', 'full']);
 			assert.equal(r.status, 0, r.stderr);
-			assert.ok(Date.now() - started < 60000, 'the identity must not pay for the browser');
-			fs.rmSync(dir, { recursive: true, force: true });
-		});
-
-		test('a deck with no CSS of its own still ships — the check runs on every reducing projection', { timeout: TIMEOUT }, () => {
-			// It is deliberately NOT gated on the deck appearing to carry CSS. That gate was tried and it
-			// skipped two of the six known bypasses outright: a `<link rel=stylesheet>` and a `<style>` inside
-			// an inlined SVG both put author CSS in the document without leaving a trace in the markdown. So
-			// the check pays for two renders on every reducing projection, and this asserts what that costs on
-			// a deck with no CSS at all: nothing.
-			const { dir, deck } = setup();
-			const r = run(deck, path.join(dir, 'out.html'), ['--lens', 'brief']);
-			assert.equal(r.status, 0, r.stderr);
 			assert.ok(fs.existsSync(path.join(dir, 'out.html')));
 			fs.rmSync(dir, { recursive: true, force: true });
 		});
 
-		test('and CSS NESTING is caught — the spelling that defeated the design this replaced', { timeout: TIMEOUT }, () => {
-			// `section { &:nth-of-type(3) … }` is the rule an author is most likely to actually write, and
-			// asking the browser which slides each rule SELECTS walked straight past it: a nested rule hangs
-			// off its parent's `cssRules` with no `selectorText` of its own, so the enumeration never saw it.
-			// Comparing what a reader SEES cannot be evaded by a spelling, because it reads no spelling.
+		test('and a deck with no CSS of its own projects normally', { timeout: TIMEOUT }, () => {
 			const { dir, deck } = setup();
-			fs.writeFileSync(deck, deckStyled('section { &:nth-of-type(3) p { display: none } }'));
 			const r = run(deck, path.join(dir, 'out.html'), ['--lens', 'brief']);
-			assert.notEqual(r.status, 0, 'a nested positional rule must refuse too');
-			assert.match(r.stderr, /positional-css/);
-			assert.equal(fs.existsSync(path.join(dir, 'out.html')), false, 'and writes nothing');
+			assert.equal(r.status, 0, r.stderr);
+			assert.ok(fs.existsSync(path.join(dir, 'out.html')));
 			fs.rmSync(dir, { recursive: true, force: true });
 		});
 	});

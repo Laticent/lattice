@@ -225,7 +225,7 @@ The export renders the deck both ways, compares each kept slide against itself, 
 rather than shipping the difference. Put deck-wide settings in the front matter, or on a
 slide every view keeps.
 
-**And a third: a rule that picks a slide by its number.** Write
+**And a third: a deck that carries CSS of its own cannot be projected at all.** Write
 `section:nth-of-type(3) p { display: none }` — hide the paragraph on slide 3 — and export a
 view that drops slides before it, and the slide that *becomes* number 3 is a different one.
 A paragraph you had hidden can come back in the file you send; a classification marking can
@@ -233,23 +233,26 @@ land on a slide you never marked. This is the one thing comparing the two render
 show you, because nothing textual moves: the stylesheet is identical in both files, and so
 is every slide's markup. Only which slide the rule counts to has changed.
 
-So the export asks a browser instead. It renders your deck both ways and compares **what a
-reader can actually see** on each slide the view keeps — every painted text node, plus what
-`::before` and `::after` print, ignoring anything the CSS hides. If a kept slide would show
-something different, it refuses and names the slide and the difference. It reads no CSS at
-all, which is the point: nesting, `@scope`, `@import`, a `<link>`, a `<style>` inside an
-inlined SVG and a stray `/*` swallowing the next stylesheet are all just *ways* of writing
-the rule, and none of them changes what the slide ends up showing.
+So a reducing view refuses when your deck carries any CSS of its own — a front-matter
+`style:`, a `<style>` anywhere in the deck, or a `<link rel="stylesheet">`.
 
-**Two differences it forgives**, both because they are the deck's own furniture rather than
-your content: a page number, wherever it comes from, and an empty `content: ""`.
+**That is deliberately blunt, and it is blunt because the sharp version does not work.**
+Three checks were built to tell dangerous CSS from harmless CSS. One read the rules and
+asked how they were spelled; it refused `p:not(:last-child)` and missed `section[id="3"]`.
+One asked a browser which slides each rule selects; it was walked past by CSS nesting,
+`@scope`, `@import`, a `<link>` and a `<style>` inside an inlined SVG. One compared what a
+reader sees in both renders; it was walked past by `display:none` on a wrapper element, by
+`color: transparent`, by `font-size: 0`, and by a hidden image. Each of those checks had to
+enumerate something with no end to it. "Does this deck carry CSS?" has an end to it, because
+you cannot write a positional rule without writing CSS.
 
-**It runs whenever a view drops a slide** — about five seconds, and nothing at all for
-`--lens full`, which keeps every slide in place and so can move nothing.
+**The cost, measured:** 2 of the 150 decks this repo ships carry CSS of their own, and both
+were already refused for unrelated reasons. `--lens full` is unaffected — it keeps every
+slide in place, so nothing can land anywhere new.
 
-**The fix, when it refuses:** style the slide through a class you set on it —
-`<!-- _class: hushed -->` and `section.hushed …`. A class travels with the slide instead of
-counting to it.
+**The fix, when it refuses:** move the CSS into a theme, or style the slide through a class
+you set on it — `<!-- _class: hushed -->` and `section.hushed …`. A class travels with the
+slide instead of counting to it.
 
 **And your `captions:` travel with the slides.** The block is keyed by slide number, so a
 projection renumbers it: entries for withheld slides are dropped, and the rest are
