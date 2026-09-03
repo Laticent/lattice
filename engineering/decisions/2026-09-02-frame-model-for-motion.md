@@ -124,6 +124,20 @@ Continuous motion fights a deterministic engine. Frames do not — they turn mot
 mode, and the exported `--player`. No existing deck changes by one pixel, and the 0-pixel guarantee
 is absolute rather than conditional.
 
+> **CORRECTION — the `--player` half is an INTENTION, not the current state, and for charts it is
+> not close.** Driving a real export contradicted the sentence above. `node dist/lattice-emulator.js
+> examples/anima-chart.md --player` produces a file carrying **108 `data-anima-role` marks and ZERO
+> hydration**: no `hydrateScene`, no `scene-live`, no `data-scene-spec`, no `data-anima-state`. The
+> cause is structural rather than a bug — `player-core.mjs:2298` gates the injected player JS on
+> `hasScene = /<section[^>]*\sdata-scene-spec=/`, which only an authored `scene` component emits;
+> a chart builds its scene at runtime from rendered marks via `chartToScene`, and
+> `anima-player-bundle.generated.mjs` contains no reference to `chartToScene`, `hydrateChart` or
+> `data-anima-role` at all. `anima-scenes.ts:14` already said so in a comment —
+> *"standalone-HTML-export hydration is a separate follow-on"* — and this note restated the
+> aspiration as fact. **So today a chart's live surfaces are the Playground and present mode; the
+> exported player ships the still.** Making the player animate charts is real work and is not
+> costed here.
+
 **The price, stated plainly rather than buried.** Two things are given up, and both are real:
 
 - **Motion is worth nothing in the artifact people forward.** The PDF is what leaves the building.
@@ -338,8 +352,13 @@ exact shape of the #780 drift `docs/e2e/studio-fixture.ts` documents.
 
 ### Still not verified
 
-- **The presenter window and the `--player` export are untouched.** Both reachable; neither driven.
-  Print stays the final frame either way (§3), so this bears on live surfaces only.
+- **The `--player` export HAS now been driven, and the result was a correction, not a
+  confirmation** — chart motion does not ship there at all (§3). That closes the question for the
+  player and opens a piece of work.
+- **The presenter window is still not driven.** It is reachable, but the Studio needs a deck
+  created through its own flow, and it runs the SAME `createAnimaScenes` / `DeckPreview` path the
+  Playground already exercises — so the incremental evidence was judged not worth the cost. Named
+  rather than quietly skipped.
 - **The bake-off's `0.000% mean diff` is still a HARNESS result**, and its harness is in gitignored
   `.scratch/`, so §5, §10 and §12's numbers are not re-derivable from the tree.
 - **`morphTo` is unproven.** It no-ops in jsdom and nothing here exercises it on a real surface.
