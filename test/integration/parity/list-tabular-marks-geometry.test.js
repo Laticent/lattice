@@ -69,8 +69,23 @@ const PROBE = () =>
       const r = e.getBoundingClientRect();
       return { t: (e.textContent || '').trim().slice(0, 16), x: r.x, y: r.y, w: r.width, h: r.height };
     };
+    // The row NAME is a bare text node with no element to select, so it can only be
+    // auto-placed — which is exactly why it is the thing that moves when anything
+    // else changes what cells are occupied. Measured with a Range.
+    let nameX = null;
+    const row = ol.querySelector(':scope > li');
+    for (const n of (row ? row.childNodes : [])) {
+      if (n.nodeType === 3 && n.nodeValue.trim()) {
+        const rg = document.createRange();
+        rg.selectNodeContents(n);
+        const rr = rg.getBoundingClientRect();
+        if (rr.width > 0) { nameX = rr.x - ol.getBoundingClientRect().x; break; }
+      }
+    }
     return {
       cls: s.className,
+      nameX,
+      olWidth: Math.round(ol.getBoundingClientRect().width),
       cols: getComputedStyle(ol).gridTemplateColumns.split(' ').map((v) => Math.round(parseFloat(v))),
       olHeight: Math.round(ol.getBoundingClientRect().height),
       // Everything that competes for the trailing column, each measured once.
@@ -224,10 +239,36 @@ describe('list-tabular marks cell — laid-out geometry', () => {
     }
   });
 
-  test('the inline meta is still on the slide, at its own size', () => {
-    const metas = slides[0].trailing.filter((b) => /Q[34] 2019/.test(b.t));
+  test('the inline meta sits on its own line, not on the marks cell', () => {
+    // The earlier form of this arm asserted the meta had a box, which a painted-over
+    // box also has — it passed with the flagship defect restored. What distinguishes
+    // the two states is the meta's Y: stacked, it is on a different line from the
+    // marks cell; collided, it is on the same one.
+    const s = slides[0];
+    const metas = s.trailing.filter((b) => /Q[34] 2019/.test(b.t));
+    const marks = s.trailing.filter((b) => !/Q[34] 2019/.test(b.t));
     assert.equal(metas.length, 2, 'both row metas are present');
-    for (const m of metas) assert.ok(m.w > 4 && m.h > 4, `meta painted ${m.w}x${m.h}`);
+    assert.ok(marks.length >= 2, 'both marks cells are present');
+    for (const m of metas) {
+      assert.ok(m.w > 4 && m.h > 4, `meta painted ${m.w}x${m.h}`);
+      const sharesLine = marks.some((k) => Math.abs(k.y - m.y) < Math.min(k.h, m.h) / 2);
+      assert.ok(!sharesLine, `meta "${m.t}" shares a line with a marks cell — they are on one grid cell`);
+    }
+  });
+
+  test('the row name stays in the label column, whatever else is in the row', () => {
+    // The name has no element to select, so the grid auto-places it — and it is FIRST
+    // in document order, so any trailing cell left free is a cell the name will take.
+    // A `def` row with an eyebrow and a marks bullet put the name at the slide's right
+    // edge in display serif; the collision arm above was green on that slide, because
+    // the name did not overlap anything, it had simply moved.
+    for (const s of slides) {
+      if (s.nameX === null) continue;
+      assert.ok(
+        s.nameX < s.olWidth * 0.6,
+        `${s.cls}: the row name is ${Math.round(s.nameX)}px into a ${s.olWidth}px list — it is in the trailing column`,
+      );
+    }
   });
 
   test('dropping the trailing column never leaves the counter absorbing the slack', () => {
@@ -303,12 +344,20 @@ describe('list-tabular marks cell — the split carousel', () => {
   after(async () => { if (browser) await browser.close(); });
 
   test('every split page draws its status disc, whichever shape the row was', () => {
-    assert.ok(discs.length >= 6, `only ${discs.length} split pages carried a disc`);
-    // The three hosts must all be represented, or the fixture is not exercising the bug.
-    const hosts = new Set(discs.filter(Boolean).map((d) => d.host));
-    assert.ok(hosts.size >= 2, `only one host shape reached: ${[...hosts].join(', ')}`);
-    for (const d of discs) {
-      assert.ok(d, 'a split page lost its disc entirely');
+    // `discs` carries a null for a page with no disc, so counting the ARRAY says
+    // nothing — the floor has to count the discs that exist, and then separately
+    // insist that none is missing.
+    const found = discs.filter(Boolean);
+    assert.equal(found.length, discs.length, 'a split page lost its disc entirely');
+    assert.ok(found.length >= 6, `only ${found.length} split pages carried a disc`);
+    // All THREE host shapes, named — the carousel emits `.split-pt-line` only for a
+    // row with two or more sub-bullets, so a marks-only row lands in `.split-pt-b`
+    // and a loose row is a `<p>` deeper. `>= 2` would pass with one shape gone.
+    const hosts = new Set(found.map((d) => d.host));
+    for (const h of ['P', 'split-pt-b', 'split-pt-line']) {
+      assert.ok(hosts.has(h), `the fixture never produced a ${h} host: ${[...hosts].join(', ')}`);
+    }
+    for (const d of found) {
       assert.ok(d.w > 4 && d.h > 4, `a disc on a ${d.host} page painted ${d.w}x${d.h}`);
     }
   });

@@ -18,7 +18,7 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading. |
 | `rows` | `ol > li` | yes | Each numbered item (`1.`) is one row — the name on the line, with an optional nested bullet for its description or value. The leading column is the auto counter. |
-| `marks` | `ol > li > ul > li.marks` | no | A nested BULLET (`-`) whose text opens with a state marker (`[x]` `[-]` `[ ]` `[/]`), or that holds only inline `code` pills, becomes the row's trailing marks cell — the marker draws as a status disc, right-aligned, and any text and pills after it follow. It can come after any sublist element, and more than one row can carry one. A marker inside a bold run or a link is not a leading marker and is left alone; a nested NUMBERED sublist is not a sublist here, since its items render as rows of their own. |
+| `marks` | `ol > li > ul > li.marks` | no | A nested BULLET (`-`) whose text opens with a state marker (`[x]` `[-]` `[ ]` `[/]`), or that holds only inline `code` pills, becomes the row's trailing marks cell — the marker draws as a status disc, right-aligned, and any text and pills after it follow. It can come after any sublist element, and more than one row can carry one. It must be ONE block: a bullet that also holds a second paragraph, a nested list, a fenced code block or a rule is prose, and is left alone. A marker inside a bold run or a link is not a leading marker; and a nested NUMBERED sublist is not a sublist here, since its items render as rows of their own. |
 
 ### Variant decision rule
 
@@ -44,6 +44,7 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 - **Authoring rows as a bullet list (`-`) instead of a numbered list (`1.`).** The counter column and row styling are keyed to `ol > li` — a `ul` doesn't produce the numbered ledger at all.
 - **Typing a check glyph (`✓`) or a literal `[x]` in the row's description to show status.** Put the marker at the start of its own nested bullet — a `- [x]` line, with any pills after it — so it decodes into the drawn status disc in the trailing column. A typed glyph is not a shape the deck's own type family carries, so it falls back to a different font, a color emoji, or a hollow box depending on the machine.
 - **Reaching for a column modifier before looking at the default.** The columns already size to their content. `fit-*` / `flex-*` name the exceptions — a label that should keep the slack, a clause that should hug — and `fixed` restores the old fixed-width tracks. Most ledgers need none of them.
+- **Hanging more under a marks bullet — a second paragraph, a nested list, a code fence.** The marks cell is a status, not a place for prose: it is one line in a narrow trailing column, so a bullet carrying anything block-level is left as an ordinary description bullet, marker and all. Put the detail in the row's own clause, and keep the marker bullet to the marker and its pills.
 
 ## When to use
 

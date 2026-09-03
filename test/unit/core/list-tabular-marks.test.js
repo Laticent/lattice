@@ -251,32 +251,39 @@ describe('list-tabular — responsive column tracks', () => {
     assert.match(block, /--lt-meta:minmax\(max-content, 1fr\)/);
   });
 
-  test('def grows a fourth track for a marks cell rather than sharing the body', () => {
-    // def is three tracks with no meta column. Parked in the body's area a marks
-    // cell overlaps a long clause — measured, a pill painted over the sentence.
-    // The `:has()` guard keeps a def list WITHOUT marks on its three tracks, so no
-    // existing def deck re-flows on account of this rule.
-    assert.match(
-      CSS,
-      /\.def ol:has\(> li > ul > li\.marks\) \{[^}]*grid-template-columns:var\(--lt-counter\) var\(--lt-name\) var\(--lt-body\) var\(--lt-meta\)/,
-    );
-    assert.match(CSS, /\.def ol > li > ul > li\.marks \{[^}]*grid-column:4/);
+  test('def does NOT grow a fourth track — it places the marks cell in its own three', () => {
+    // A `:has()` rule that added a fourth track for the marks cell was tried and
+    // reverted. def's row NAME is a bare text node, so the grid can only auto-place
+    // it, and auto-placement runs in document order with the name first — so the
+    // moment a fourth column existed and was not yet definitely filled, the name took
+    // it and rendered at the slide's right edge on 42 measured slides. The cell sits
+    // in def's third column instead, under the clause it qualifies.
+    assert.doesNotMatch(CSS, /\.def ol:has\(> li > ul > li\.marks\) \{[^}]*grid-template-columns/);
+    assert.match(CSS, /\.def ol > li > ul > li\.marks \{[^}]*grid-column:3/);
   });
 
-  test('the marks cell resets its grid row, which is not the same as leaving it unset', () => {
+  test('the marks cell is definitely placed, with the exceptions enumerated', () => {
     // A NARROW claim, deliberately. An earlier arm here tried to assert "nothing
     // overlaps" by scanning rules whose selector text contains `li.marks` — and that
-    // is structurally incapable of it: the `grid-row:1` that caused the overlap
-    // arrives from `> ul > li:first-child` and `> ul > li:nth-child(2)`, selectors
-    // with no `li.marks` in them, at the same specificity and earlier in source. The
-    // scan was green while the component's own documented shape painted its meta over.
+    // is structurally incapable of it: the `grid-row` that decides the outcome can
+    // arrive from `> ul > li:first-child`, a selector with no `li.marks` in it. That
+    // scan was green while the component's documented shape painted its meta over.
     //
-    // Whether anything overlaps is a fact about laid-out boxes, so it is asserted
-    // where boxes exist: test/integration/parity/list-tabular-marks-geometry.test.js
-    // renders in Chromium and compares rectangles. What is left here is the one thing
-    // a stylesheet CAN answer — that the reset is written down at all.
-    assert.match(CSS, /li\.marks \{[^}]*grid-row:auto/, 'the base marks cell must reset its row');
-    assert.match(CSS, /\.spec\.stacked ol > li > ul > li\.marks \{[^}]*grid-row:auto/);
+    // Whether anything overlaps, and where the row name lands, are facts about
+    // laid-out boxes, so both are asserted where boxes exist:
+    // test/integration/parity/list-tabular-marks-geometry.test.js renders in Chromium
+    // and compares rectangles. What is left here is the one thing a stylesheet CAN
+    // answer — that the cell is pinned by default and the exceptions are written out
+    // rather than left to auto-placement, which is the shape both defects turned on.
+    assert.match(CSS, /li\.marks \{[^}]*grid-row:1/, 'the base marks cell must be definitely placed');
+    for (const exception of [
+      /:not\(\.spec\) ol > li:has\(> code\) > ul > li\.marks/,      // the inline meta
+      /li:has\(> ul > li:nth-child\(2\):not\(\.marks\)\) > ul > li\.marks/, // the legacy meta
+      /li > ul > li\.marks ~ li\.marks/,                            // a second marks cell
+      /\.spec ol > li:has\(> code:nth-of-type\(2\)\) > ul > li\.marks/, // spec's type chip
+    ]) {
+      assert.match(CSS, exception, `a trailing-column occupant has no auto-row exception: ${exception}`);
+    }
   });
 
   test('the trailing column stays right-aligned', () => {

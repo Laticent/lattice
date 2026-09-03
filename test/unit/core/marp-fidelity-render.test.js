@@ -298,6 +298,42 @@ const PROBES = {
       '5. Ordered inner',
       '   1. Clause.',
       '   2. [x] `no`',
+      // MULTI-BLOCK bullets, every one of which drifted at some point. A marks cell
+      // is one block of inline content; anything else is prose, and the two paths
+      // reached that rule from opposite directions before agreeing on it — the token
+      // side counted only `*_open` tokens (so `fence`, `code_block`, `html_block` and
+      // `hr`, which have no opening form, slipped through) while the DOM side keyed on
+      // a lone `<p>` (so a nested list was rejected there and promoted here). Both are
+      // now the shared BLOCK_TAGS rule, and these rows are what holds them together.
+      '6. Second paragraph',
+      '',
+      '   - Clause.',
+      '',
+      '   - [x] `no`',
+      '',
+      '     A second paragraph in the same bullet.',
+      '',
+      '7. Nested sublist',
+      '   - Clause.',
+      '   - [x] `no`',
+      '     - a sub note',
+      '8. Fenced body',
+      '',
+      '   - Clause.',
+      '',
+      '   - [x] `no`',
+      '',
+      '     ```js',
+      '     const a = 1;',
+      '     ```',
+      '',
+      '9. Rule body',
+      '',
+      '   - Clause.',
+      '',
+      '   - [x] `no`',
+      '',
+      '     ***',
     ].join('\n'),
     probe: (doc) =>
       [...doc.querySelectorAll('li.marks')].map((li) => {

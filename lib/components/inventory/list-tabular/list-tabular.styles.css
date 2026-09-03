@@ -73,7 +73,13 @@
 section.list-tabular ol {
   --lt-name-max:34cqi;
   --lt-meta-max:26cqi;
-  --lt-counter:auto;
+  /* `max-content`, NOT `auto`. Only an `auto` track absorbs leftover space, and a
+     counter must never do that. Whenever a modifier leaves the row with no flexible
+     track — `fit-body` on `def`, which has no meta column to hand the slack to — an
+     `auto` counter took ALL of it: a 24px column measured 732px wide, with the name
+     and clause shoved to the slide's right edge on 55 swept slides. `max-content`
+     sizes to the digits and stops, whatever the rest of the row is doing. */
+  --lt-counter:max-content;
   --lt-name:fit-content(var(--lt-name-max));
   --lt-body:minmax(0, 1fr);
   --lt-meta:fit-content(var(--lt-meta-max));
@@ -105,6 +111,12 @@ section.list-tabular ol > li {
   grid-column:1 / -1;
   grid-template-columns:subgrid;
   align-items:baseline;
+  /* A row-gap so two things stacked in the trailing column never touch. `metric`'s
+     value tile carries vertical padding, so at 40px tall in a 39px row its rounded
+     box grazed the marks cell on the row below by 1px — measured on 28 swept slides.
+     Nothing visibly collided, but a tile and a pill sharing an edge reads as one
+     object. Zero when a row has only one deck, since there is no second row to gap. */
+  row-gap:var(--sp-2xs);
   padding:var(--sp-sm) 0;
   font-family:var(--font-display);
   font-size:var(--fs-body-compact);
@@ -446,7 +458,15 @@ section.list-tabular ol > li > ul > li.marks {
    * 2019" completely invisible under the pill, on base, register, metric and spec
    * alike. Every committed sample happened to use the one arrangement that collides
    * with nothing, which is why three visual reviewers and the gallery PDFs missed it. */
-  grid-row:auto;
+  /* Row 1 BY DEFAULT, auto only when something else already holds the trailing
+   * column. Leaving it always-auto looks safer and is not: the row NAME is a bare
+   * text node, so the grid can only auto-place it, and auto-placement runs in
+   * document order — the name comes first. The moment column 4 row 1 was left free,
+   * the name took it and rendered at the slide's right edge (measured on `spec`
+   * rows that carry a bare name beside a `code` key). Keeping the cell definitely
+   * placed keeps that cell occupied; the three exceptions below are the complete
+   * list of things that can already be there. */
+  grid-row:1;
   grid-column:4;
   display:flex;
   align-items:center;
@@ -470,28 +490,52 @@ section.list-tabular ol > li > ul > li.marks {
      grows to whatever the longest pill is. */
   min-width:0;
 }
-/* NOTHING IS HIDDEN. An explicit `grid-row:1` collided with anything else in the
- * trailing column, and a grid item does not push — it OVERLAPS. Three shapes hit
- * it, all author-writable and all measured: an inline meta `code` beside a marks
- * bullet; the documented legacy 3-line meta beside one ("Q3 2019" painted over
- * entirely); and simply TWO marks bullets on one row (the first pill vanished
- * under the second). A `:has(> code)` guard only ever covered the first of three.
+/* NOTHING IS HIDDEN, and the exceptions are ENUMERATED rather than left to chance.
+ * A grid item does not push — it overlaps — so a marks cell pinned to row 1 painted
+ * over anything already in the trailing column. Exactly three things can be:
+ *   · the inline meta `code` on the row's own line,
+ *   · the legacy 3-line meta (the second nested `li`),
+ *   · an earlier marks cell, when a row carries more than one.
+ * Each hands the cell to auto-placement, which walks down the column to the first
+ * free cell — row 2, then row 3, for every combination of the three.
  *
- * Leaving the ROW auto while pinning the COLUMN hands the cell to grid
- * auto-placement, which walks down the column to the first free cell — the second
- * thing in the trailing column lands on row 2, a third on row 3, for every shape,
- * with no guard to keep in sync. */
-/* def is a THREE-track row with no meta column, so a marks cell has nowhere of its
- * own to go — parked at `grid-column:3; grid-row:2` it shares the body's area, and
- * a clause long enough to fill the column paints straight under the pills
- * (measured: "…where the marks cell sits" rendered beneath a STABLE pill).
- * `:has()` grows a fourth track ONLY on a def list that actually carries one, so a
- * def slide without marks keeps its exact three-track geometry — adding the track
- * unconditionally would charge every existing def deck one `column-gap`. */
-section.list-tabular.def ol:has(> li > ul > li.marks) {
-  grid-template-columns:var(--lt-counter) var(--lt-name) var(--lt-body) var(--lt-meta);
+ * An earlier cut made the cell ALWAYS auto and called that simpler. It cost the row
+ * name, which has no element to select and so can only auto-place: with column 4
+ * row 1 free it took it. That is why the default above is `grid-row:1` and these
+ * are the exceptions, rather than the other way round. */
+section.list-tabular:not(.spec) ol > li:has(> code) > ul > li.marks,
+section.list-tabular ol > li:has(> ul > li:nth-child(2):not(.marks)) > ul > li.marks,
+section.list-tabular ol > li > ul > li.marks ~ li.marks { grid-row:auto; }
+/* `spec` re-points its codes: the KEY goes to column 2 and only a SECOND code — the
+ * type chip — reaches the trailing column. So the inline-code exception above is
+ * scoped away from it, and this is spec's version. Without the split, a spec row
+ * carrying a bare name beside a single `code` freed column 4 row 1 and the name
+ * landed there, at the slide's right edge, on 15 swept slides. */
+section.list-tabular.spec ol > li:has(> code:nth-of-type(2)) > ul > li.marks { grid-row:auto; }
+/* def has no meta column, and it must not grow one. A `:has()` rule that added a
+ * fourth track for the marks cell put the row's NAME there instead: the name is a
+ * bare TEXT NODE, so the grid can only auto-place it, auto-placement runs in document
+ * order and the name comes before the nested list — so the moment column 4 existed
+ * and was not yet definitely occupied, the name took it. Measured: the name jumped
+ * from x=130 (column 2, under its eyebrow) to x=1010, in display serif at the slide's
+ * right edge, on 42 of 672 swept slides. Pinning the marks cell back to `1 / span 2`
+ * would re-fill that cell, and re-introduce the overlap between two marks bullets
+ * this file spent a round removing.
+ *
+ * So the cell stays inside def's three tracks. The description gives up its second
+ * row (it spans both only so a one-line clause centers against the two-line term),
+ * and the marks cell takes column 3 below it — right-aligned, under the clause it
+ * qualifies, with the name and eyebrow untouched. A second marks bullet auto-places
+ * onto the next implicit row rather than over the first. */
+section.list-tabular.def ol > li:has(> ul > li.marks) > ul > li:first-child {
+  grid-row:1;
+  align-self:end;
 }
-section.list-tabular.def ol > li > ul > li.marks { grid-column:4; grid-row:span 2; }
+section.list-tabular.def ol > li > ul > li.marks {
+  grid-column:3;
+  grid-row:auto;
+  justify-self:end;
+}
 section.list-tabular.spec.stacked ol > li > ul > li.marks { grid-column:3; grid-row:auto; }
 
 /* The disc — the fifth mirror of the geometry checklist, verdict-grid,
@@ -774,7 +818,13 @@ section.list-tabular-points .split-pt-b { color: var(--text-body); font-size: va
  * announced it. Same geometry as the marks cell, sized to this page's larger body
  * type; the shape→mark mapping and the scalar knobs are the shared universal ones
  * (base.modifiers.css), so only the box is restated. */
-section.list-tabular-points :is(.split-pt-line, .split-pt-b):has(> .state, > p > .state) { display: flex; align-items: center; gap: var(--sp-xs); }
+/* `flex-start`, not `center`. On a single-bullet row the carousel puts the whole
+   paragraph in `.split-pt-b`, so centering set the disc against the FULL paragraph
+   height — on a three-line clause it sat beside line 2 with line 1 hanging over it.
+   The disc belongs on the first line, which is where the status reads. */
+section.list-tabular-points :is(.split-pt-line, .split-pt-b):has(> .state, > p > .state) {
+  display: flex; align-items: flex-start; gap: var(--sp-xs);
+}
 section.list-tabular-points :is(.split-pt-line, .split-pt-b) .state {
   position: relative;
   flex: none;

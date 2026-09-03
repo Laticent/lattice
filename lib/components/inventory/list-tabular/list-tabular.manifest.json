@@ -81,7 +81,7 @@
     "marks": {
       "selector": "ol > li > ul > li.marks",
       "required": false,
-      "description": "A nested BULLET (`-`) whose text opens with a state marker (`[x]` `[-]` `[ ]` `[/]`), or that holds only inline `code` pills, becomes the row's trailing marks cell — the marker draws as a status disc, right-aligned, and any text and pills after it follow. It can come after any sublist element, and more than one row can carry one. A marker inside a bold run or a link is not a leading marker and is left alone; a nested NUMBERED sublist is not a sublist here, since its items render as rows of their own."
+      "description": "A nested BULLET (`-`) whose text opens with a state marker (`[x]` `[-]` `[ ]` `[/]`), or that holds only inline `code` pills, becomes the row's trailing marks cell — the marker draws as a status disc, right-aligned, and any text and pills after it follow. It can come after any sublist element, and more than one row can carry one. It must be ONE block: a bullet that also holds a second paragraph, a nested list, a fenced code block or a rule is prose, and is left alone. A marker inside a bold run or a link is not a leading marker; and a nested NUMBERED sublist is not a sublist here, since its items render as rows of their own."
     }
   },
   "skeleton": "<!-- _class: list-tabular -->\n\n## Slide heading.\n\n1. First entry\n   - Description or value for the first entry.\n2. Second entry\n   - Description or value for the second entry.\n3. Third entry\n   - Description or value for the third entry.\n4. Fourth entry\n   - Description or value for the fourth entry.\n",
@@ -229,6 +229,10 @@
     {
       "mistake": "Reaching for a column modifier before looking at the default.",
       "fix": "The columns already size to their content. `fit-*` / `flex-*` name the exceptions — a label that should keep the slack, a clause that should hug — and `fixed` restores the old fixed-width tracks. Most ledgers need none of them."
+    },
+    {
+      "mistake": "Hanging more under a marks bullet — a second paragraph, a nested list, a code fence.",
+      "fix": "The marks cell is a status, not a place for prose: it is one line in a narrow trailing column, so a bullet carrying anything block-level is left as an ordinary description bullet, marker and all. Put the detail in the row's own clause, and keep the marker bullet to the marker and its pills."
     }
   ],
   "variantDecisionRule": [
