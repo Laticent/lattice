@@ -871,6 +871,25 @@ Write a rung for each and one sentence on what it costs. Then turn the page.
 
 ---
 
+<!-- _class: list-steps -->
+
+`The arc`
+
+## Four movements carry a system from nothing to running, and this deck teaches the first two.
+
+1. Discover
+   - Who wants what, what is in the way, how big it is. Parts one to three.
+2. Design
+   - Which rung, which parts, what you can take out. Part four hands you the parts.
+3. Develop
+   - Build it, and find out whether the design held.
+4. Deliver
+   - Ship it and watch it. The running system names the field you guessed.
+
+> Every exercise from here asks you to discover and to design. The last two are yours to run.
+
+---
+
 <!-- _class: divider numbered -->
 
 `Part four`
@@ -2144,6 +2163,64 @@ Write the store and the one query that will cross a partition. Then turn the pag
 
 ---
 
+<!-- _class: content -->
+
+`Your turn · discover`
+
+## Registration opens at nine. Discover the system before you design any of it.
+
+Twelve thousand students, every one of them refreshing at 08:59. Six thousand courses, most with a hard seat limit. A seat handed to two people is something a human has to unpick, by hand, with an apology.
+
+Write four lines: the protagonist, the antagonist, one invariant that must never break, and the number that describes the antagonist. Then turn the page.
+
+---
+
+<!-- _class: code -->
+
+`One answer · discover`
+
+## Four lines, and the last two are the ones that decide the design.
+
+```text
+Protagonist  A student at 08:59, one course short of a full timetable.
+Antagonist   Twelve thousand people arriving in the same second.
+Invariant    A seat is held by one student or by nobody. Never two.
+The number   ~12,000 requests in the first second, then near zero all term.
+```
+
+The invariant wants one writer and a transaction. The number wants everything spread wide. Those two pulling against each other is the design.
+
+---
+
+<!-- _class: content -->
+
+`Your turn · design`
+
+## Now design it, on the same four lines.
+
+You have the same kits the Instagram and parking designs drew from. Name the rung this is asking for, two entries you would reach for and what each one holds up, and one box you would take out on paper.
+
+Do not draw an architecture. Four lines again, then turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer · design`
+
+## The invariant picks the store. The spike picks what goes in front.
+
+1. The rung
+   - Scaled. The load is known and the invariant is not negotiable.
+2. Relational, with a conditional write
+   - The seat count is the one thing here that cannot be eventually consistent.
+3. A bounded queue in front of it
+   - Admitted in order, each told their place. The store never sees twelve thousand at once.
+4. What you would remove
+   - The queue, out of term. It earns its place one hour a year.
+
+---
+
 <!-- _class: divider numbered -->
 
 `Part five`
@@ -2280,13 +2357,18 @@ An open is a session: the reader scrolls, and every screenful is another fetch. 
 ## The follow graph is directed, and the two directions are not the same size.
 
 ```mermaid
-flowchart LR
-  M(["Maya<br/>follows 300"]) -->|"follows"| A(["Friend"])
-  M -->|"follows"| B(["Photographer"])
-  M -->|"follows"| C(["Celebrity<br/>followed by 5×10⁸"])
-  D(["Fan"]) -->|"follows"| C
-  E(["Fan"]) -->|"follows"| C
-  F(["…499,999,997 more"]) -->|"follows"| C
+flowchart TB
+  M(["Maya<br/>follows 300"]) --> A(["Friend"])
+  M --> B(["Photographer"])
+  M --> C(["Celebrity<br/>followed by 5×10⁸"])
+  F1(["Fan"]) --> C
+  F2(["Fan"]) --> C
+  F3(["Fan"]) --> C
+  F4(["Fan"]) --> C
+  F5(["Fan"]) --> C
+  F6(["Fan"]) --> C
+  F7(["Fan"]) --> C
+  F8(["…and 5×10⁸ more"]) --> C
 ```
 
 *The number of accounts you follow is capped at 7,500. The number who follow you is capped by nothing. Every hard problem in this design sits on that second number.*
@@ -3043,6 +3125,18 @@ Solution type MVP  ·  scaled  ·  optimized  ·  optimal  ·  specialized
 - [ ] What breaks first at ten times the load? `scale`
 - [ ] What happens when each dependency is slow rather than down? `failure`
 - [ ] What can one stolen credential reach? `security`
+
+---
+
+<!-- _class: content -->
+
+`Develop and deliver`
+
+## The two movements this deck skipped are the only real check on the two it taught.
+
+Design is where the thinking lives, which is why the deck stops here. Building is where you find out whether the thinking held: the boundary you drew turns out to cut through another team, the invariant you wrote needs a lock nobody planned for, the number you estimated is wrong by ten.
+
+So take one design you made in these pages and build the smallest version of it that actually runs. Not to ship it. To find out which of your nine fields was a guess.
 
 ---
 
