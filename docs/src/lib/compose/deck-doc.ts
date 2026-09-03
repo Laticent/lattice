@@ -22,9 +22,98 @@ const nodes = proseSchema.spec.nodes
 		// to a locked slide so its identity never changes → it always emits `raw`.
 		attrs: { directives: { default: [] as string[] }, raw: { default: '' }, locked: { default: false } },
 		defining: true,
-		toDOM: (node) => ['section', { class: node.attrs.locked ? 'cs-slide cs-slide-locked' : 'cs-slide' }, 0] as const,
-		parseDOM: [{ tag: 'section.cs-slide' }],
+		// THE DIRECTIVES RIDE THE DOM, or copy/paste silently strips every slide's `_class`.
+		// `toDOM`/`parseDOM` are the CLIPBOARD contract (ProseMirror serializes a copied slice
+		// through the schema, not through the nodeView), so an attr this pair does not carry is
+		// an attr a paste re-creates at its DEFAULT. With `directives` left off, ⌘A ⌘A ⌘C ⌘V
+		// reproduced all seven slides of a deck with `directives: []` — every component
+		// assignment gone, the whole deck flattened to plain `content`, in two keystrokes an
+		// author reaches by habit. Pasting over one slide-scoped selection cost that one slide
+		// its class the same way. Measured on the real Studio, not deduced.
+		//
+		// `raw` and `locked` are deliberately NOT carried. `raw` is the byte-exact source of a
+		// slide the author has not touched, keyed by node IDENTITY in `emitDeck`'s baseline — a
+		// pasted slide is a NEW node with no baseline entry, so it must re-serialize from its
+		// content; carrying a stale `raw` would emit the bytes of the slide that was COPIED
+		// rather than the one that was pasted. `locked` follows from the same reasoning: it is
+		// the flag that says "always emit `raw`", so a pasted slide with no `raw` must not be
+		// locked. Both defaults are correct here; only `directives` needed the bridge.
+		toDOM: (node) =>
+			[
+				'section',
+				{
+					class: node.attrs.locked ? 'cs-slide cs-slide-locked' : 'cs-slide',
+					'data-directives': JSON.stringify((node.attrs.directives as string[]) || []),
+					// The provenance stamp. See CLIP_ORIGIN.
+					'data-lattice-origin': CLIP_ORIGIN,
+				},
+				0,
+			] as const,
+		parseDOM: [{ tag: 'section.cs-slide', getAttrs: (dom: HTMLElement) => ({ directives: readDirectives(dom.getAttribute('data-directives'), dom.getAttribute('data-lattice-origin')) }) }],
 	});
+
+/**
+ * A PER-SESSION token stamped on every slide this editor copies, and required before a
+ * pasted slide's directives are believed.
+ *
+ * `parseDOM` matches `section.cs-slide` in ANY pasted HTML, including HTML from a page
+ * the author does not control. Directive strings are not content: `composeSlideChunk`
+ * joins them and prepends them to the slide's prose, so whatever a foreign page puts in
+ * `data-directives` lands in the DECK SOURCE, and from there in the exported artifact.
+ * Measured on the real Studio: a crafted `section.cs-slide` carrying
+ * `<!-- _backgroundImage: url(https://evil.example/beacon.png) -->` pasted over one
+ * slide-scoped selection put that URL into the exported HTML three times, with nothing
+ * visible in Compose — directives are an attribute, not content, so the author sees only
+ * the innocent paragraph. A directive string containing newlines could also forge `---`
+ * slide boundaries and smuggle a `<style>` block into the export.
+ *
+ * A shape check alone does not close it, because `_backgroundImage: url(…)` is a
+ * perfectly well-formed, KNOWN directive. What actually separates the two cases is
+ * PROVENANCE: directives are trustworthy when they came out of this editor and never
+ * otherwise. The token is random per page load, so a foreign document cannot carry a
+ * valid one; a copy from this session round-trips, and anything else falls back to `[]`,
+ * which is exactly the pre-bridge behavior and therefore no regression.
+ *
+ * Cost, stated plainly: copying a slide between two Studio TABS no longer carries its
+ * `_class`. That is the pre-bridge behavior for that path, and it is the safe direction —
+ * an author who wants the class across tabs has the Markdown pane.
+ */
+const CLIP_ORIGIN = (() => {
+	try {
+		const c = globalThis.crypto;
+		if (c?.randomUUID) return c.randomUUID();
+		if (c?.getRandomValues) return Array.from(c.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+	} catch {
+		/* no crypto (an old jsdom) — fall through */
+	}
+	// Last resort. Weaker, but it still has to be GUESSED by an attacker writing a static
+	// page, and the fallback only runs where `crypto` is absent.
+	return `l${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+})();
+
+/** One directive line, as this editor writes them: a single-line `<!-- _name: … -->` HTML
+ *  comment. NEWLINES ARE THE POINT — a directive carrying one would forge a `---` slide
+ *  boundary (or open a front-matter fence) when `composeSlideChunk` joins it into the source. */
+const DIRECTIVE_SHAPE = /^<!--\s*_[A-Za-z][\w-]*:[^\n\r>]*-->$/;
+
+/** Read the `data-directives` bridge back off a copied slide's DOM.
+ *
+ *  Two gates, and both are load-bearing. PROVENANCE (`data-lattice-origin` must be this
+ *  session's token) is what makes foreign HTML inert. SHAPE is defense in depth for the
+ *  case where the token leaks or a future change relaxes it: a directive that is not a
+ *  single-line `<!-- _name: … -->` comment is dropped, so no pasted string can carry a
+ *  newline into the deck source. Anything that fails either gate falls back to `[]` — the
+ *  pre-bridge behavior, never an error. */
+function readDirectives(raw: string | null, origin: string | null): string[] {
+	if (!raw || origin !== CLIP_ORIGIN) return [];
+	try {
+		const v = JSON.parse(raw);
+		if (!Array.isArray(v)) return [];
+		return v.filter((d): d is string => typeof d === 'string' && d.length <= 512 && DIRECTIVE_SHAPE.test(d)).slice(0, 16);
+	} catch {
+		return [];
+	}
+}
 
 /** The deck schema — prosemirror-markdown's block/mark set + table nodes, wrapped in slide nodes. */
 export const deckSchema = new Schema({ nodes, marks: proseSchema.spec.marks });
@@ -58,7 +147,7 @@ const SEP = '\n\n---\n\n';
 
 /** Serialize ONE slide node → its source chunk (directives head + serialized prose).
  *  serialize(node) renders the node's CHILDREN — i.e. this slide's block prose. */
-function serializeSlideNode(slide: PMNode): string {
+export function serializeSlideNode(slide: PMNode): string {
 	const prose = latticeMarkdownSerializer.serialize(slide);
 	const directives = (slide.attrs.directives as string[]) || [];
 	return composeSlideChunk(directives, prose);

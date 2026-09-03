@@ -69,6 +69,34 @@ describe('collapse state survives structural ops (Finding 3)', () => {
 	});
 });
 
+// ADJACENT FOLDS. `DecorationSet.find(from, to)` returns everything that OVERLAPS the range,
+// and a slide's node decoration ends exactly where the next slide's begins — so the toggle's
+// old `find(pos, pos + 1)` matched the PREVIOUS slide. Folding slide 0 and then slide 1
+// unfolded slide 0 and left slide 1 open, in two clicks on the shipped surface. Neither the
+// three collapse oracles (which fold indices 3, 3 and 5) nor the fuzz walk could see it: the
+// walk compares `aria-expanded` against the `cs-collapsed` class, and both read this same
+// decoration set, so they agree while being jointly wrong.
+describe('folding a slide next to a folded one (the neighbor-match bug)', () => {
+	it('folds BOTH when two adjacent slides are toggled in turn', () => {
+		let state = make();
+		const first = state.doc.child(0);
+		const second = state.doc.child(1);
+		state = state.apply(state.tr.setMeta(collapseKey, { pos: slidePos(state, 0) }));
+		expect(collapsed(state)).toEqual([first]);
+		state = state.apply(state.tr.setMeta(collapseKey, { pos: slidePos(state, 1) }));
+		// Before the fix this was `[second]` — slide 0 silently popped open.
+		expect(collapsed(state)).toEqual([first, second]);
+	});
+
+	it('still toggles a slide OFF when it is the one addressed', () => {
+		let state = make();
+		state = state.apply(state.tr.setMeta(collapseKey, { pos: slidePos(state, 1) }));
+		expect(collapsed(state)).toHaveLength(1);
+		state = state.apply(state.tr.setMeta(collapseKey, { pos: slidePos(state, 1) }));
+		expect(collapsed(state)).toEqual([]);
+	});
+});
+
 // Finding 1's premise: a transaction the structural guard REJECTS leaves the doc unchanged even
 // though `tr.docChanged` is still true. The emit path must therefore key on the APPLIED doc
 // (`next.doc !== prevDoc`), not `tr.docChanged` — else a rejected keystroke would clear a parked

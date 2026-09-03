@@ -96,6 +96,132 @@ export type SlideHeadings = Record<string, ('h1' | 'h2')[]>;
 // shape (and the same one-source-of-truth reasoning) as `SlideHeadings` above.
 export type SlideBlocks = Record<string, string[]>;
 
+// Components whose grammar has no place for a table — the door Compose withholds.
+//
+// THE CRITERION: does this layout render a PRIMARY FIGURE or a FIXED ANATOMY that owns the
+// stage? If it does, a table is not a second block, it is a competitor for the canvas — and
+// the figure loses far more than the table gains. Measured on the shipped skeletons at
+// 1280x720, adding one three-row table:
+//
+//   quadrant  figure 343px (48% of slide) -> 188px (26%)   -45%
+//   diagram   figure 446px (62%)          -> 284px (39%)   -36%
+//   piechart  figure 424px (59%)          -> 270px (38%)   -36%
+//   code      figure 438px (61%)          -> 284px (39%)   -35%
+//
+// The table itself only takes ~20% of the slide; the rest is the fit spine rebalancing. The
+// ENGINE agrees where the damage is acute — with a table added it reports quadrant's labels
+// below the type-legibility floor, and clipping or overflow on journey, kpi, logo-wall and
+// authority-chain. Those warnings are corroboration, not the rule: `diagram` never warns,
+// because Mermaid scales its own labels down instead, and a diagram at 39% of the slide is a
+// worse slide with or without a warning.
+//
+// Equally, a warning is not sufficient on its own. `policy-recommendation`, `q-and-a` and
+// `regulatory-update` also overflow with a table added — but only because their skeletons
+// already sit near capacity. That is a deck-capacity concern for `lint:deck`, not evidence
+// that a table is the wrong KIND of content there, so they keep the door.
+//
+// CURATED, NOT DERIVED, and two failed derivations are why. A regex over manifest slots
+// answers "does this component DECLARE a table?" — a different question, and it hid the
+// control on 57 of 61 including `content`. A DOM census for `svg/pre/img/canvas` misses every
+// component that builds its figure from divs and CSS (kanban, cycle, progress, matrix-2x2,
+// verdict-grid, kpi, big-number all read as 0% and are not). Both instruments have blind
+// spots; the list is judged, with the measurements as evidence.
+//
+// It withholds a CONTROL, not a capability: typing a pipe table or pasting one still works
+// and still renders. That is the line HARD RULE #29 draws — we do not refuse the author, we
+// decline to hand them a tool that makes a worse slide.
+const TABLE_UNSUITED = new Set([
+	// ── No body flow to join: bookends and single-utterance statements ──────────
+	'title',
+	'closing',
+	'divider',
+	'big-number',
+	'quote',
+	'premise', // engine clips it with a table added
+	'split-panel',
+	// ── The picture IS the slide ────────────────────────────────────────────────
+	'image',
+	'scene',
+	'video',
+	'contact', // QR code
+	'wifi', // QR code
+	// ── A PRIMARY FIGURE owns the stage — the case that started this list ───────
+	// Every chart except the two whose table IS the figure (matrix-grid, roadmap).
+	'funnel',
+	'gantt',
+	'journey', // engine clips it with a table added
+	'kanban',
+	'map',
+	'piechart',
+	'progress',
+	'quadrant', // engine drops its labels below the legibility floor
+	'radar',
+	'state-chart',
+	'timeline-list',
+	'word-cloud',
+	'cycle',
+	'diagram', // mermaid: -36% of the figure, silently — it scales rather than warns
+	'code', // the code block owns the stage, -35%
+	'compare-code',
+	'math', // the equation owns the stage
+	// ── Fixed grids and card anatomies: the layout already allocates the stage ──
+	'kpi', // engine overflows with a table added
+	'stats',
+	'cards-grid',
+	'cards-stack',
+	'matrix-2x2',
+	'verdict-grid',
+	'pricing',
+	'logo-wall', // engine overflows with a table added
+	'authority-chain', // engine overflows with a table added
+	'citation-card',
+	'statute-stack',
+	// ── Two-sided comparisons: the anatomy IS the comparison ────────────────────
+	'compare-prose',
+	'redline',
+	'decision',
+	'split-compare', // and the engine genuinely DROPS a table here — measured
+	// ── Already renders a grid from its own list grammar ────────────────────────
+	// Confirmed by rendering the clean skeletons: `glossary` emits a real <table> element from
+	// its entry list. `list-tabular` is the same idea one step softer — its whole job is the
+	// compact reference row, so it READS as a table even where the markup is a list. Either
+	// way an author-added table is the second grid on the slide, which is the one thing a
+	// reference layout cannot afford.
+	'glossary',
+	'list-tabular',
+]);
+
+/**
+ * Does Compose offer the "Insert table" door on the caret's slide?
+ *
+ * PERMISSIVE BY DEFAULT, on the same guards `rendersBlock` carries: an unclassed slide and
+ * an unrecognized `_class` both say yes, so a new or custom component is never silently
+ * stripped of the control. Only a name on the curated list above withholds it. The LAST
+ * `_class` token that matches wins, matching the engine's directive semantics, and the
+ * lookup is a `Set` so a slide naming `constructor` cannot reach up a prototype chain.
+ *
+ * What KEEPS the door, and why it is the shorter list: `content` (the catch-all body
+ * layout), the open list-flow layouts a table can legitimately join (list, list-tabular,
+ * list-criteria, list-steps, agenda, actors, checklist, inventory, q-and-a,
+ * policy-recommendation, regulatory-update), and the four components whose table IS the
+ * content (compare-table, matrix-grid, obligation-matrix, roadmap).
+ */
+export function slideTakesTable(directives: string[]): boolean {
+	let declared: boolean | undefined;
+	for (const d of directives) {
+		const m = d.match(CLASS_PAYLOAD_RE);
+		if (!m) continue;
+		for (const token of m[1].trim().split(/\s+/)) {
+			if (token && TABLE_UNSUITED.has(token)) declared = false;
+		}
+	}
+	return declared ?? true;
+}
+
+/** The curated set, exported for the census test that keeps it from rotting when a
+ *  component is renamed or retired. Not for runtime use — call `slideTakesTable`. */
+export const TABLE_UNSUITED_NAMES: readonly string[] = [...TABLE_UNSUITED];
+
 /** The WHOLE `_class:` payload — every token, not just the leading one that `CLASS_RE`
  *  takes. Matches the running-global `<!-- class: … -->` spelling too, so a deck that
  *  sets its layout that way is gated the same as a per-slide one. */

@@ -9,9 +9,9 @@ import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
-import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
+import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
-import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings } from '@/lib/compose/registers';
+import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, slideTakesTable } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
 import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
 import { hasFinePointer } from '@/lib/use-breakpoint';
@@ -141,6 +141,35 @@ export function structuralGuard() {
 			// intentional; the pre-transaction selection is what tells them apart, and it
 			// distinguishes them for EVERY route at once (keystroke, cut, paste, drop)
 			// instead of one keymap entry at a time.
+			//
+			// EXCEPT for a PASTE or a DROP, where the selection is the wrong question and
+			// asking it made multi-slide paste silently impossible. Reading the selection
+			// works for a keystroke because a caret sitting at a slide join is genuinely
+			// ambiguous — one Backspace there is far more often an accident than an intent to
+			// merge. A paste carries its own intent: the author put slides on the clipboard
+			// and asked for them here. Judged by the selection, every useful multi-slide paste
+			// was rejected — copy three slides, click at the end of the deck, ⌘V, and NOTHING
+			// happened, with no message. Measured: pasting a seven-slide clipboard at a caret,
+			// over one slide's selection, and into an emptied deck all left the deck exactly as
+			// it was; the only case that appeared to work was pasting the whole deck over a
+			// whole-deck selection, which "worked" only because seven slides replaced seven.
+			// So you could never GROW a deck by pasting, which is how a non-technical author
+			// duplicates a section.
+			//
+			// PASTE ONLY — NOT DROP, and that distinction was measured, not assumed. An earlier
+			// version of this line exempted `uiEvent: 'drop'` too, on the same "the author
+			// declared intent" reasoning. A drop does not carry it: prosemirror-view's
+			// `handleDrop` puts a `deleteSelection()` AND a `replaceRange()` in ONE transaction,
+			// so dragging a slide's whole selected content into a neighbor empties the source
+			// slide, invalidates its `block+` content, and ProseMirror removes the node. On the
+			// real Studio that silently took a 7-slide deck to 6 and dropped the `big-number`
+			// slide's `_class` — the exact accident the paragraph above says this guard exists
+			// to prevent, reachable by an ordinary mouse gesture. Undo restored it, which is
+			// mitigation, not permission.
+			//
+			// This sits AFTER the locked-slide check on purpose: a paste may add slides, and it
+			// still may not silently rewrite one Compose cannot round-trip.
+			if (tr.getMeta('paste') || tr.getMeta('uiEvent') === 'paste') return true;
 			return selectionSpansSlides(state.selection);
 		},
 	});
@@ -152,6 +181,47 @@ export function structuralGuard() {
 // so the structural guard waves it through); the decoration maps through edits, and each
 // SlideView reads it in its constructor/update to add the `cs-collapsed` class.
 export const collapseKey = new PluginKey<DecorationSet>('cs-collapse');
+
+/**
+ * The identity of a slide ACROSS a full re-import — its serialized source chunk.
+ *
+ * Node identity carries collapse through an in-Compose `slideOp` (below), but it cannot
+ * survive `resyncFrom`, which throws the whole `EditorState` away and re-parses the deck
+ * from source. Every slide op that lives OUTSIDE Compose goes that way — the rail's
+ * add/duplicate/move/delete, the add-slide gallery, a switch to Markdown and back — so
+ * collapse was wiped by all of them while the unit tests, which only exercise the
+ * `slideOp` path, stayed green. From the author's seat: you fold a slide away, do one
+ * ordinary thing, and it is open again. The chunk is the right key because these ops
+ * MOVE and REORDER slides without rewriting their text: matching on it follows the slide
+ * to its new index, drops a slide that was deleted, and leaves an inserted one open.
+ *
+ * WHAT THIS DOES NOT GUARANTEE: slides with IDENTICAL content share a key, so the greedy
+ * match may fold a different one of them than the author folded. Measured on a deck of
+ * near-identical slides — fold index 3, resync, the fold lands on index 1. Only one slide
+ * folds either way (the match is one-for-one) and collapse is view-only, so the cost is a
+ * fold in the wrong place, not lost work; but "follows its slide" is true for distinct
+ * slides, not for a deck of duplicates.
+ */
+export function slideKeyOf(node: PMNode): string {
+	// Serialize BOTH sides rather than trusting `raw`: `raw` is the original chunk, so it is
+	// stale for a slide the author edited in Compose, and the two sides would not match.
+	return serializeSlideNode(node);
+}
+
+/** The chunk keys of every currently-collapsed slide, oldest-first. Read before a resync. */
+export function collapsedKeys(state: EditorState): string[] {
+	const set = collapseKey.getState(state);
+	if (!set) return [];
+	const keys: string[] = [];
+	for (const d of set.find()) {
+		const n = state.doc.nodeAt(d.from);
+		if (n?.type.name === 'slide') keys.push(slideKeyOf(n));
+	}
+	return keys;
+}
+
+type CollapseMeta = { pos: number } | { restore: string[] };
+
 export function collapsePlugin() {
 	return new Plugin({
 		key: collapseKey,
@@ -180,12 +250,38 @@ export function collapsePlugin() {
 				} else {
 					next = set.map(tr.mapping, tr.doc);
 				}
-				const toggle = tr.getMeta(collapseKey) as { pos: number } | undefined;
-				if (toggle) {
-					const node = tr.doc.nodeAt(toggle.pos);
+				const meta = tr.getMeta(collapseKey) as CollapseMeta | undefined;
+				if (meta && 'restore' in meta) {
+					// Re-establish collapse after a full re-import, by source chunk (slideKeyOf).
+					// GREEDY and ONE-FOR-ONE: each remembered key claims the FIRST slide that still
+					// matches it and is not already claimed, so "duplicate slide" on a collapsed
+					// slide folds one of the two copies rather than both — the copy stays where the
+					// author left it and the new one arrives open, which is the one you want to read.
+					const want = new Map<string, number>();
+					for (const k of meta.restore) want.set(k, (want.get(k) ?? 0) + 1);
+					const decos: Decoration[] = [];
+					tr.doc.forEach((node, offset) => {
+						const k = slideKeyOf(node);
+						const left = want.get(k) ?? 0;
+						if (left <= 0) return;
+						want.set(k, left - 1);
+						decos.push(Decoration.node(offset, offset + node.nodeSize, { class: 'cs-collapsed' }, { collapsed: true }));
+					});
+					return DecorationSet.create(tr.doc, decos);
+				}
+				if (meta && 'pos' in meta) {
+					const node = tr.doc.nodeAt(meta.pos);
 					if (node) {
-						const existing = next.find(toggle.pos, toggle.pos + 1);
-						next = existing.length ? next.remove(existing) : next.add(tr.doc, [Decoration.node(toggle.pos, toggle.pos + node.nodeSize, { class: 'cs-collapsed' }, { collapsed: true })]);
+						// MATCH THIS SLIDE'S DECORATION, NOT THE ONE THAT ENDS WHERE IT STARTS.
+						// `DecorationSet.find(from, to)` returns everything that OVERLAPS the range,
+						// and the previous slide's node decoration ends exactly at `meta.pos` — so
+						// `find(pos, pos + 1)` matched the NEIGHBOR. Folding slide 1 and then slide 2
+						// therefore unfolded slide 1 and left slide 2 open: two clicks, fully visible,
+						// and invisible to every fuzz invariant because `aria-expanded` and the
+						// `cs-collapsed` class both derive from this same set, so they agree while
+						// being jointly wrong. Anchor on `from` instead.
+						const existing = next.find(meta.pos, meta.pos + node.nodeSize).filter((d) => d.from === meta.pos);
+						next = existing.length ? next.remove(existing) : next.add(tr.doc, [Decoration.node(meta.pos, meta.pos + node.nodeSize, { class: 'cs-collapsed' }, { collapsed: true })]);
 					}
 				}
 				return next;
@@ -353,6 +449,9 @@ class SlideView {
 	// second controller fixed nothing observable. (Correction: 2026-07-20-studio-audit-instrument-fix.)
 	private ac = new AbortController();
 	private locked: boolean;
+	// The slide node this view renders, kept current in `update()`. `syncFormat` reads its
+	// `directives` to decide whether this layout gets the table door.
+	private node: PMNode;
 	private stateful: boolean; // slide is a stateful table component (obligation-matrix / roadmap) → offer the marker picker
 	private tableHosted = false; // whether this slide's Format group currently hosts the React TableControls
 	constructor(
@@ -368,10 +467,17 @@ class SlideView {
 		// a prop change, so a getter keeps the gutter current without recreating node views.
 		private getBlocks?: () => SlideBlocks | undefined,
 	) {
+		this.node = node;
 		this.locked = !!node.attrs.locked;
 		this.stateful = isStatefulClass(node);
 		const dom = document.createElement('section');
 		dom.className = this.locked ? 'cs-slide cs-slide-locked' : 'cs-slide';
+		// Mirror the schema's `data-directives` clipboard bridge (deck-doc.ts) onto the LIVE
+		// node DOM as well. The nodeView's element — not `toDOM`'s — is what ProseMirror
+		// re-parses when it recovers from a DOM mutation it could not map, and `parseDOM` reads
+		// the class AND this attribute. Without it a recovery re-creates the slide with
+		// `directives: []`, which is the same `_class` wipe the clipboard path had.
+		dom.dataset.directives = JSON.stringify((node.attrs.directives as string[]) || []);
 		const bar = document.createElement('div');
 		bar.className = 'cs-slide-bar';
 		bar.contentEditable = 'false';
@@ -459,6 +565,12 @@ class SlideView {
 		// Hide the "insert table" action while the caret is in a table — there it's a no-op, and the
 		// table-edit dropdown already shows a table icon (avoid the doubled glyph).
 		this.dom.classList.toggle('cs-caret-in-table', inTable);
+		// WITHHOLD the table door where a table is editorially wrong for the layout — a title, a
+		// quote, a picture slide. Not because the engine cannot render one there (it can, and
+		// beautifully — that was the false premise of an earlier version of this gate) but because
+		// offering it produces a mis-set slide. Typing or pasting a table still works; only the
+		// button stands down. Permissive for an unclassed or unrecognized slide.
+		this.dom.classList.toggle('cs-no-table', !slideTakesTable((this.node.attrs.directives as string[]) || []));
 		if (!inTable) this.clearTableHost(); // leaving the table unmounts the React controls
 		if (!active) {
 			if (this.fmtGroup.childElementCount) {
@@ -538,7 +650,18 @@ class SlideView {
 		}
 		return -1;
 	}
-	private commit(nodes: PMNode[]) {
+	/**
+	 * Rebuild the doc from `nodes` as one structural op.
+	 *
+	 * `fallbackIndex` says where the caret should land when the slide it was IN is not in
+	 * `nodes` — i.e. the author deleted the slide they were editing. Without it the caret
+	 * had nowhere to re-anchor and `replaceWith` mapped the selection to the END of the
+	 * document: delete slide 2 of 7 and both the caret AND the preview (which follows it)
+	 * jumped to slide 7, so clearing a few slides in a row threw you to the back of the
+	 * deck each time. The neighbor that slid into the deleted slide's place is the slide a
+	 * reader is now looking at, so that is where the caret belongs.
+	 */
+	private commit(nodes: PMNode[], fallbackIndex?: number) {
 		const { state } = this.view;
 		// Preserve the caret's slide across the full-doc rebuild. The delete cap now acts on NON-active
 		// slides too, so deleting a slide OTHER than the caret's must not fling the caret to doc start
@@ -557,6 +680,13 @@ class SlideView {
 			if (start >= 0) {
 				const target = Math.min(start + offsetInSlide, start + caretSlide.nodeSize - 1);
 				tr.setSelection(TextSelection.near(tr.doc.resolve(target)));
+			} else if (fallbackIndex != null && tr.doc.childCount) {
+				// The caret's own slide is gone. Land on the slide that took its place — clamped,
+				// so deleting the LAST slide lands on the new last one rather than past the end.
+				const idx = Math.min(Math.max(fallbackIndex, 0), tr.doc.childCount - 1);
+				let off = 0;
+				for (let k = 0; k < idx; k++) off += tr.doc.child(k).nodeSize;
+				tr.setSelection(Selection.near(tr.doc.resolve(Math.min(off + 1, tr.doc.content.size))));
 			}
 		}
 		this.view.dispatch(tr);
@@ -597,7 +727,7 @@ class SlideView {
 		const i = this.index();
 		if (i < 0) return;
 		nodes.splice(i, 1);
-		this.commit(nodes);
+		this.commit(nodes, i);
 	}
 	private toggleCollapse() {
 		const pos = this.getPos();
@@ -606,9 +736,11 @@ class SlideView {
 	}
 	update(node: PMNode, decorations: readonly Decoration[]) {
 		if (node.type.name !== 'slide') return false;
+		this.node = node;
 		this.locked = !!node.attrs.locked;
 		this.stateful = isStatefulClass(node);
 		this.dom.classList.toggle('cs-slide-locked', this.locked);
+		this.dom.dataset.directives = JSON.stringify((node.attrs.directives as string[]) || []);
 		this.applyDecos(decorations);
 		return true;
 	}
@@ -828,11 +960,29 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// Re-import `src` into the editor, rebuilding the emit baseline. Shared by the
 	// external-source effect and the on-blur flush.
 	const resyncFrom = React.useCallback((view: EditorView, src: string) => {
+		// Which slides the author had folded away, BEFORE the state is thrown out. A resync is
+		// how every out-of-Compose slide op reaches this editor (rail add/duplicate/move/delete,
+		// the add-slide gallery, a Markdown round trip), and each one used to silently unfold
+		// everything. Read first, restore after — the doc the keys are matched against has to be
+		// the new one.
+		const folded = collapsedKeys(view.state);
 		const doc = deckToDoc(src);
 		view.updateState(EditorState.create({ doc, plugins: view.state.plugins }));
+		// BASELINE FIRST, DISPATCH SECOND. Both callers wrap this in a try/catch that only
+		// logs, so a throw from the restore below would leave `updateState` already landed on
+		// the NEW doc while `baselineRef` still held the OLD doc's node identities — every
+		// slide would then miss the identity match and re-serialize, losing exactly the
+		// byte-exactness the baseline exists to keep. No reachable throw was found (every
+		// schema node that can sit inside a slide has a markdown serializer), so this is
+		// ordering hygiene against a latent hazard, not a fixed break.
 		baselineRef.current = initBaseline(doc);
 		lastEmittedRef.current = src;
 		pendingResyncRef.current = null;
+		if (folded.length) {
+			// A selection-only transaction — no doc change — so the structural guard waves it
+			// through and `dispatchTransaction`'s emit branch stays untouched (next.doc === prevDoc).
+			view.dispatch(view.state.tr.setMeta(collapseKey, { restore: folded }));
+		}
 	}, []);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: construct-once per deck; `source` seeds the doc and syncs separately.
@@ -878,11 +1028,22 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					}
 					// The caret's slide index — the top-level `slide` node it sits in. Edge-
 					// triggered so the shell only hears about real crossings.
+					//
+					// A COLLAPSE RESTORE IS NOT A CROSSING. `resyncFrom` builds a fresh
+					// EditorState, whose selection sits at doc start, and then dispatches the
+					// restore; reading that selection here edge-fired `onCursorSlide(0)` and
+					// snapped the shell's preview to slide 1 — but ONLY when something was
+					// folded, i.e. only in the state the restore exists to preserve. Measured:
+					// the same rail "move earlier" left the preview following the slide with no
+					// fold, and jumped it to slide 1 with one. The author did not move the
+					// caret, so nothing should be published. Seed the ref instead, so a later
+					// real crossing still edge-fires.
 					const { $from } = next.selection;
 					const slideIdx = $from.depth >= 1 ? next.doc.resolve($from.before(1)).index() : -1;
+					const isRestore = !!(tr.getMeta(collapseKey) as { restore?: string[] } | undefined)?.restore;
 					if (slideIdx >= 0 && slideIdx !== lastSlideRef.current) {
 						lastSlideRef.current = slideIdx;
-						onCursorSlideRef.current?.(slideIdx);
+						if (!isRestore) onCursorSlideRef.current?.(slideIdx);
 					}
 					// Selection-bar geometry LAST and guarded — a throw in coordsAtPos must never
 					// abort the transaction and swallow the emit above.
@@ -1090,7 +1251,20 @@ function ComposeStyles() {
 			/* a locked slide carries a construct Compose can't round-trip (table, block HTML,
 			   strikethrough…) — read-only here, edited in Markdown mode. Dim it and badge it. */
 			.cs-host .cs-slide-locked{position:relative;opacity:.72}
-			.cs-host .cs-slide-locked::after{content:"◔ edit in Markdown";position:absolute;top:8px;right:clamp(12px,4cqw,40px);font-family:var(--font-mono,ui-monospace,monospace);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted,#6b7f9a);background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);padding:2px 7px;border-radius:4px;pointer-events:none}
+			/* Clear the delete cap. The badge and the danger group both sit at the top-right of the
+			   slide, and at the badge's original inset the trash button LANDED ON IT — the label
+			   read "· EDIT IN MARKDO", so the one piece of chrome that explains why the slide
+			   will not take a keystroke was cut off mid-word. The resting cap is 22px (28px at
+			   the coarse-pointer size below); 42px clears it with a gap. */
+			.cs-host .cs-slide-locked::after{content:"◔ edit in Markdown";position:absolute;top:8px;right:calc(clamp(12px,4cqw,40px) + 42px);transition:opacity .12s ease;font-family:var(--font-mono,ui-monospace,monospace);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted,#6b7f9a);background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);padding:2px 7px;border-radius:4px;pointer-events:none}
+			/* AND STAND DOWN WHILE THE DELETE IS ARMED. A fixed inset cannot clear the danger
+			   group in both states: at rest it is one 22px cap, and arming it expands the group
+			   to "Delete? ✓ ✗", which is 64px wider than any inset that still leaves the badge
+			   on the slide — measured, and it re-clipped the label to "· EDIT I". Yielding is
+			   the right answer rather than a wider inset: the confirm is transient (it
+			   auto-cancels after 4s), it is the thing the author is looking at, and "edit in
+			   Markdown" is not the advice that matters while a delete is pending. */
+			.cs-host .cs-slide-locked:has(.cs-sb-danger.cs-confirming)::after{opacity:0}
 			.cs-host h1{font-family:inherit;font-size:1.95rem;font-weight:700;line-height:1.12;margin:.1em 0 .35em;color:var(--text-heading,#14243a);letter-spacing:-.01em}
 			.cs-host h2{font-family:inherit;font-size:1.45rem;font-weight:700;line-height:1.18;margin:.5em 0 .32em;color:var(--text-heading,#14243a);letter-spacing:-.005em}
 			.cs-host h3{font-family:inherit;font-size:1.15rem;font-weight:600;margin:.5em 0 .25em;color:var(--text-heading,#14243a)}
@@ -1146,6 +1320,10 @@ function ComposeStyles() {
 				.cs-mk-todo,.cs-mk-skip{color:var(--text-muted,#6b7f9a)}
 				.cs-tblc-div{flex:none;width:1px;height:14px;background:var(--border,#e4eaf2);margin:0 3px}
 				.cs-caret-in-table .cs-insert-table{display:none}
+				/* A layout whose grammar has no place for a table gets no table door. Hidden rather
+				   than dimmed, matching how the Format group drops a register the class won't
+				   render — no-ops are hidden, not disabled. */
+				.cs-no-table .cs-insert-table{display:none}
 			/* MOBILE — bigger touch targets; caps on every line, content pill on the active slide. */
 			@media (max-width:640px){
 				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}
