@@ -217,18 +217,43 @@ written — the refusal is about disclosure, not tidiness.
 **Two more things an export refuses, both about the deck AROUND a slide.** A slide you keep
 can render differently once the slides you dropped are gone: a `footer:`, `header:`,
 `class:`, `paginate:` or `backgroundColor:` directive applies *from that slide onward*, a
-`[ref]: url` link definition resolves across the whole deck, and a `<style>` block is
-document CSS wherever you wrote it. Set one of those on a slide a view excludes and the kept
-slides silently change — a `CONFIDENTIAL` footer disappearing from the very file you are
-sending, or, with `<style>`, a paragraph you had hidden coming back in it. The export renders
-the deck both ways, compares each kept slide against itself, and refuses rather than shipping
-the difference. Put deck-wide settings in the front matter, or on a slide every view keeps.
+`[ref]: url` link definition resolves across the whole deck, and a `<style>`, `<script>` or
+`<link>` reaches every slide wherever you wrote it. Set one of those on a slide a view
+excludes and the kept slides silently change — a `CONFIDENTIAL` footer disappearing from the
+very file you are sending, or, with `<style>`, a paragraph you had hidden coming back in it.
+The export renders the deck both ways, compares each kept slide against itself, and refuses
+rather than shipping the difference. Put deck-wide settings in the front matter, or on a
+slide every view keeps.
+
+**And one it refuses on sight, because two renders cannot show it: CSS that counts slides.**
+`section:nth-of-type(3) p:nth-of-type(2) { display: none }` is byte-identical in the deck you
+preview and the file you send — the stylesheet did not move and neither did any slide's
+markup. What moved is the slide it counts to, so a sentence you had hidden comes back, and an
+`::after` classification marking lands on a different slide or on none. Every other check here
+works by rendering the deck twice and diffing; seeing this one would take comparing computed
+style in a real browser. So a projection that reduces the deck refuses when your own CSS uses
+a structural pseudo-class on `section`, a sibling combinator between slides, or a
+`data-authored-slide` attribute — which the projection renumbers, so it retargets even from a
+slide you keep. **Note the interaction with the advice above:** moving such a rule into
+front-matter `style:` does not make it safe, and front matter is scanned for exactly that
+reason. Select the slide by a class you set on it — `<!-- _class: hushed -->` and
+`section.hushed …` — and it travels with the slide.
 
 **What that comparison forgives, so you know what it does not.** A shorter deck really does
-renumber its pages, shorten its divider dot rail, restart its section-number ghost and shift
-where the categorical accent lands. All four are functions of deck length, all four differ on
-a correct projection, and none is a disclosure — so the check normalizes them away. Comparing
-them refused 52 of 146 decks this repo ships. Everything else on a slide is compared as-is.
+renumber its pages, shorten its divider dot rail, restart its section-number ghost, shift
+where the categorical accent lands, and rename the SVG defs ids it scopes by slide. All of
+them are functions of deck length, all differ on a correct projection, and none is a
+disclosure — so the check normalizes them away, from a named list (`POSITION_NEUTRALIZERS`)
+that a test pins so widening it is a decision somebody signs. Comparing them refused 52 of the 147 decks in `examples/` that
+can be projected at all. Everything else on a slide is compared as-is.
+
+**And it is measured against six ways of picking slides, not one.** Whether a view keeps the
+cover turns out to matter: the check compares each kept slide against a same-length stand-in
+for the projection, and the first version of that stand-in blanked a withheld slide to an
+empty line — which, on slide 0, makes the deck open with a separator and renders one section
+fewer. Every authored number after it shifted, and every deck refused. The measurement that
+was supposed to catch that kept every other slide, so it always kept slide 0, and it saw
+nothing. The corpus test now runs six shapes, including three that drop the cover.
 
 **And your `captions:` travel with the slides.** The block is keyed by slide number, so a
 projection renumbers it: entries for withheld slides are dropped, and the rest are

@@ -825,12 +825,13 @@ if (LENS_DEFAULT && !LENS_IDS.length) {
   process.exit(1);
 }
 let LENS_VIEWS = null;
+let LENS_PROJECTION = null;
 let LENS_REPORT = null;
 let LENS_TOTAL = 0;
 let LENS_OPENS_ON = null;
 let lensProjected = mdRaw;
 if (LENS_IDS.length) {
-  const { authoredIndexDrift, projectForExport, exportableViews, crossSlideDrift, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
+  const { projectForExport, exportableViews, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
   const out = projectForExport(mdRaw, LENS_IDS, { default: LENS_DEFAULT || undefined });
   // FAIL CLOSED. A view is often a deliberate REDUCTION, so falling through to the
   // full deck would hand the reader every slide the author kept out — the one
@@ -851,25 +852,14 @@ if (LENS_IDS.length) {
   //
   // The kernel owns the comparison and this passes it the RENDERER, because `lib/core` must not
   // depend on `lib/engine` — a capability, not a promise that one was used.
-  const projectedHtml = require('./lib/engine/index.js').render(out.source).html;
-  // The carrier's map is indexed by AUTHORED slide, so the render has to agree with the projection
-  // about how many there are. Checked rather than assumed: every rule that turns one authored slide
-  // into several pages marks its own breaks, and when `_focusSteps` did not, the map pointed at the
-  // wrong slides on a deck this repo ships. This catches the next one without naming it.
-  const indexDrift = authoredIndexDrift(projectedHtml, out.kept.length);
-  if (indexDrift) {
-    console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (authored-index) — ${REFUSAL_REASONS['authored-index']}`);
-    console.error(`       the projection kept ${out.kept.length} slides; the render numbered them ${indexDrift.saw.join(', ')}. Nothing was exported.`);
-    process.exit(1);
-  }
-  const drift = crossSlideDrift(mdRaw, out.source, out.kept, (src) => require('./lib/engine/index.js').render(src).html);
-  if (drift) {
-    console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (cross-slide) — ${REFUSAL_REASONS['cross-slide']}`);
-    console.error(drift.channel === 'style'
-      ? "       a <style> block on a slide the view excludes styles the slides it keeps, so dropping it changes what they show. Nothing was exported."
-      : `       slide ${drift.authored + 1} of the deck renders differently once the view's other slides are gone. Nothing was exported.`);
-    process.exit(1);
-  }
+  // The two RENDER-based checks do not run here. They have to render the source the pipeline will
+  // actually render, and three more source transforms — `withPrintColorMode`, `preprocessMermaid`,
+  // `appendAutoGlossary` — run downstream of this line. Checking here certified a document nobody
+  // receives: `glossary: auto` appends a slide after this point, so the CLI reported "2 of 3 slides
+  // ship" and wrote a three-slide file carrying an authored index the check had never seen, and every
+  // baked mermaid SVG sat outside both checks entirely. They now run just below `rawMd`, which IS the
+  // shipped source, and still before any byte is written.
+  LENS_PROJECTION = out;
   LENS_VIEWS = out.views;
   LENS_TOTAL = out.total;
   LENS_OPENS_ON = out.default;
@@ -2022,6 +2012,53 @@ function preprocessMermaid(source) {
 const { appendAutoGlossary, glossaryEntries, resolveGlossaryMode } = require('./lib/core/glossary-auto.mjs');
 const preGlossaryMd = preprocessMermaid(md);
 const rawMd = appendAutoGlossary(preGlossaryMd);
+
+// THE TWO RENDER-BASED READER-VIEW CHECKS, HERE BECAUSE `rawMd` IS THE SHIPPED SOURCE. Both were run
+// against the kernel's raw projection until it was measured that three transforms run after it —
+// print color mode, the mermaid bake, and the auto-glossary slide. Nothing is written before this
+// point, so a refusal here still writes nothing.
+if (LENS_PROJECTION) {
+  const { authoredIndexDrift, crossSlideDrift, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
+  const asShipped = (src) => appendAutoGlossary(preprocessMermaid(WANT_PRINT ? withPrintColorMode(src) : src));
+  const renderAsShipped = (src) => require('./lib/engine/index.js').render(asShipped(src)).html;
+  // The carrier's map is indexed by AUTHORED slide, so the render has to agree with the projection
+  // about how many there are. Checked rather than assumed: every rule that turns one authored slide
+  // into several pages marks its own breaks, and when `_focusSteps` did not, the map pointed at the
+  // wrong slides on a deck this repo ships. This catches the next one without naming it.
+  const indexDrift = authoredIndexDrift(require('./lib/engine/index.js').render(rawMd).html, LENS_PROJECTION.kept.length);
+  if (indexDrift) {
+    console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (authored-index) — ${REFUSAL_REASONS['authored-index']}`);
+    console.error(`       the projection kept ${LENS_PROJECTION.kept.length} slides; the render numbered them ${indexDrift.saw.join(', ')}. Nothing was exported.`);
+    process.exit(1);
+  }
+  const drift = crossSlideDrift(mdRaw, LENS_PROJECTION.source, LENS_PROJECTION.kept, renderAsShipped);
+  if (drift && drift.channel === 'positional-css') {
+    // THE ONE REFUSAL THAT IS NOT A DIFF. Everything else here renders the deck twice and compares; a
+    // selector that counts slides is byte-identical in both renders and lands on a different slide
+    // anyway, so it is refused on sight. Measured on this CLI: a `display:none` rule written on a KEPT
+    // slide left a sentence hidden in the preview and visible, 770x36 pixels, in the file sent.
+    console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (positional-css) — ${REFUSAL_REASONS['positional-css']}`);
+    console.error(`       Found ${drift.what}: \`${drift.selector}\`. Nothing was exported.`);
+    process.exit(1);
+  }
+  if (drift && drift.channel === 'proxy') {
+    // NOT A FINDING ABOUT THE DECK, and it must not be reported as one. The comparison builds a
+    // same-length stand-in for the projection and checks it lines up before trusting it; when it does
+    // not, every slide-level verdict is reading one slide against another and the honest answer is
+    // that the checker is broken. Naming a `footer:` here sent authors hunting a directive that was
+    // never in their file.
+    console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported — the export's own equivalence check could not build a comparable deck.`);
+    console.error('       This is a defect in the checker, not in your deck. Nothing was exported; please file it with the deck attached.');
+    process.exit(1);
+  }
+  if (drift) {
+    console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (cross-slide) — ${REFUSAL_REASONS['cross-slide']}`);
+    console.error(drift.channel === 'style'
+      ? "       a style, script or link element on a slide the view excludes reaches the slides it keeps, so dropping it changes what they show. Nothing was exported."
+      : `       slide ${drift.authored + 1} of the deck renders differently once the view's other slides are gone. Nothing was exported.`);
+    process.exit(1);
+  }
+}
 // The manifest term→definition projection is part of the SAME `glossary: auto` opt-in as the
 // slide (design §18) — gate it so a deck with acronym definitions but no `glossary: auto` stays
 // byte-identical. Read the mode off the pre-append source: `rawMd` has had the trigger stripped

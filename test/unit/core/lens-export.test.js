@@ -19,8 +19,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { authoredIndexDrift, crossSlideDrift, projectForExport, exportableViews, REFUSAL_REASONS } = require('../../../lib/core/lens-export.mjs');
-const { frontMatterBlockOf, slideBoundaries } = require('../../../lib/core/slide-boundaries.mjs');
+const { POSITION_NEUTRALIZERS, authoredIndexDrift, crossSlideDrift, projectForExport, exportableViews, REFUSAL_REASONS } = require('../../../lib/core/lens-export.mjs');
+const { frontMatterBlockOf, normalizeSourceText, slideBoundaries } = require('../../../lib/core/slide-boundaries.mjs');
 const { approvalHash, applyTag, emitRegistry } = require('@workwel/lente');
 const engine = require('../../../lib/engine/index.js');
 
@@ -760,8 +760,8 @@ test.describe('dropping a slide changes the slides that stay — checked, not as
 		// author previewed a deck with the paragraph hidden, and the paragraph came BACK in the file that
 		// was sent — the one direction of this class that is a disclosure rather than a lost marking.
 		const chunks = [
-			'<!-- _lens: brief -->\n\n# Board summary\n\nRevenue is up 40 percent.\n\nWe expect to lose the Acme suit.\n',
-			'\n# Internal\n\n<style>\nsection[data-authored-slide="0"] p:nth-of-type(2) { display: none; }\n</style>\n',
+			'<!-- _lens: brief -->\n<!-- _class: hushed -->\n\n# Board summary\n\nRevenue is up 40 percent.\n\n<span class="quiet">We expect to lose the Acme suit.</span>\n',
+			'\n# Internal\n\n<style>\nsection.hushed .quiet { display: none; }\n</style>\n',
 			'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
 		];
 		const src = deckFrom(chunks);
@@ -810,7 +810,7 @@ test.describe('dropping a slide changes the slides that stay — checked, not as
 	test('a shorter deck renumbers, recolors and re-rails itself — and none of that is drift', () => {
 		// The bound this check bought, pinned. Pagination, the divider dot rail, the section-number ghost
 		// and the categorical accent are all functions of DECK LENGTH, so every one of them differs on a
-		// correct projection. Comparing them refused 52 of 146 shipped example decks — 36%, a guard that
+		// correct projection. Comparing them refused 52 of the 147 it could check — 35%, a guard that
 		// is an outage. This deck exercises pagination and the accent cycle together.
 		const chunks = [
 			'<!-- _lens: brief -->\n<!-- _paginate: true -->\n\n# Cover\n\nQ3 board pack.\n',
@@ -822,6 +822,101 @@ test.describe('dropping a slide changes the slides that stay — checked, not as
 		const out = projectForExport(src, ['brief']);
 		assert.equal(out.ok, true);
 		assert.equal(crossSlideDrift(src, out.source, out.kept, render), null, 'page 4 becoming page 2 is not a leak');
+	});
+
+	test('a `<STYLE>` in any spelling is the same channel — tag names are case-insensitive', () => {
+		// Measured: the changelog's own worked example, with one shifted character, exported clean. A
+		// browser applies `<STYLE>` exactly as it applies `<style>`, and the regex that read the channel
+		// did not.
+		const chunks = [
+			'<!-- _lens: brief -->\n<!-- _class: hushed -->\n\n# Board summary\n\n<span class="quiet">We expect to lose the Acme suit.</span>\n',
+			'\n# Internal\n\n<STYLE>\nsection.hushed .quiet { display: none; }\n</STYLE>\n',
+			'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
+		];
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true);
+		const drift = crossSlideDrift(src, out.source, out.kept, render);
+		assert.ok(drift, 'the stylesheet is gone whatever case it was written in');
+		assert.equal(drift.channel, 'style');
+	});
+
+	test('a `<script>` on a withheld slide is a document channel too, and so is a `<link>`', () => {
+		// The docblock claimed four mechanisms and a fuzz that "found nothing else". The fuzz did not emit
+		// `<script>` or `<link rel=stylesheet>`, and both reach every slide exactly the way a `<style>`
+		// does — measured, a withheld slide's script removed a paragraph from a kept one.
+		for (const tag of ['<script>document.querySelector(".quiet")?.remove();</script>', '<link rel="stylesheet" href="./house.css">']) {
+			const chunks = [
+				'<!-- _lens: brief -->\n\n# Board summary\n\n<span class="quiet">We expect to lose the Acme suit.</span>\n',
+				`\n# Internal\n\n${tag}\n`,
+				'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
+			];
+			const src = deckFrom(chunks);
+			const out = projectForExport(src, ['brief']);
+			assert.equal(out.ok, true);
+			const drift = crossSlideDrift(src, out.source, out.kept, render);
+			assert.ok(drift, `${tag.slice(0, 12)} reaches the kept slides, so losing it must refuse`);
+			assert.equal(drift.channel, 'style');
+		}
+	});
+
+	test('CSS that counts slides is refused on sight — it is the one thing two renders cannot show', () => {
+		// `section:nth-of-type(3) p:nth-of-type(2) { display: none }` on a KEPT slide is byte-identical in
+		// every render; what moves is the slide it counts to. Measured on the real CLI: the hidden
+		// sentence comes back at 770x36 pixels in the file that is sent, and the same shape with an
+		// `::after` marking drops `CONFIDENTIAL` from the exported PDF, pdftotext 1 -> 0.
+		const chunks = [
+			'<!-- _lens: brief -->\n\n# Board summary\n\n<style>\nsection:nth-of-type(3) p:nth-of-type(2) { display: none }\n</style>\n\nRevenue is up.\n',
+			'\n# Internal\n\nSecret.\n',
+			'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n\nWe expect to lose the Acme suit.\n',
+		];
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true, 'nothing about the projection itself is wrong');
+		const drift = crossSlideDrift(src, out.source, out.kept, render);
+		assert.ok(drift, 'a selector that counts slides cannot survive a projection');
+		assert.equal(drift.channel, 'positional-css');
+		assert.match(drift.selector, /nth-of-type/);
+	});
+
+	test('…and a `--lens` that keeps every slide is NOT refused for it', () => {
+		// A projection that moves nothing gives a positional selector nothing to count differently, and
+		// refusing there would refuse the identity export.
+		const chunks = [
+			'<!-- _lens: brief -->\n\n# Board summary\n\n<style>\nsection:nth-of-type(2) p { color: red }\n</style>\n\nRevenue is up.\n',
+			'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
+		];
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		assert.equal(crossSlideDrift(src, out.source, out.kept, render), null);
+	});
+
+	test('a slide-index attribute in author CSS is refused even on a kept slide — the projection renumbers it', () => {
+		const chunks = [
+			'<!-- _lens: brief -->\n\n# Board summary\n\n<style>\nsection[data-authored-slide="2"] { color: red }\n</style>\n\nRevenue is up.\n',
+			'\n# Internal\n\nSecret.\n',
+			'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
+		];
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		const drift = crossSlideDrift(src, out.source, out.kept, render);
+		assert.ok(drift);
+		assert.equal(drift.channel, 'positional-css');
+	});
+
+	test('an accent-shaped string in PROSE is content, not a hue — the neutralizer must not eat it', () => {
+		// The unanchored `\bcat-\d+` ran over rendered text, so a footer that really did change from
+		// `cat-9` to `cat-3` between the two renders compared equal. That is a global-directive drift the
+		// OLD check caught and this one lost: a neutralizer reaching rendered text deletes evidence.
+		const chunks = [
+			'<!-- _lens: brief -->\n\n# Board summary\n\nRevenue is up.\n',
+			'\n<!-- footer: "cat-9" -->\n\n# Internal\n\nSecret.\n',
+			'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
+		];
+		const src = deckFrom(chunks).replace('theme: indaco', 'theme: indaco\nfooter: "cat-3"');
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true);
+		assert.ok(crossSlideDrift(src, out.source, out.kept, render), 'the kept slide’s footer really did change');
 	});
 
 	test('and an ordinary deck does NOT refuse — the check has to stay silent to be usable', () => {
@@ -838,28 +933,65 @@ test.describe('dropping a slide changes the slides that stay — checked, not as
 });
 
 /**
- * THE FALSE-ALARM RATE, MEASURED ON REAL DECKS RATHER THAN ARGUED ABOUT.
+ * THE FALSE-ALARM RATE, MEASURED ON REAL DECKS UNDER SIX PROJECTION SHAPES.
  *
  * A guard is only worth having if it stays silent on correct work, and the first three versions of
- * this one did not: comparing a kept slide against its render in the FULL deck refused 52 of 146
- * shipped example decks. Every refusal was a correct render that differed because the deck got
- * shorter. So the normalizer above was not designed — it was DIAGNOSED, one refusal at a time, over
- * this corpus, and this test is the measurement that drove it, kept so it cannot rot.
+ * this one were not: comparing a kept slide against its render in the FULL deck refused 52 of the 147
+ * example decks it could check. So the normalizer above was not designed — it was DIAGNOSED, one refusal at
+ * a time, over this corpus.
  *
- * It runs the real engine over every example deck this repo ships, withholding every other slide,
- * and asserts the refusals are exactly the decks named below. `slide-class-forms.md` is a TRUE
- * positive found this way: it carries a live `<!-- class: diagram dark -->` global that a later
- * slide inherits, and the deck's own prose says so. A stale entry fails too, so the list cannot
- * quietly accumulate.
+ * SIX SHAPES, NOT ONE, AND THAT IS THE POINT OF THIS TEST. An earlier version of it kept every other
+ * slide, which always keeps slide 0 — and the defect it could not see was that withholding slide 0
+ * shifted every authored number, so hop 1 compared each kept slide against a DIFFERENT one and every
+ * deck refused. 147 of 147, on a shape one line away from the one being sampled, and on
+ * `examples/lens-export.md --lens ask` through the real CLI: the deck this feature ships to
+ * demonstrate itself. A measurement that holds one variable constant is a coincidence, and refusal
+ * was perfectly predicted by the variable it held.
+ *
+ * Each refusal below is a REAL cross-slide dependency, named with its cause. A stale entry fails too,
+ * so the list cannot quietly accumulate.
  */
-test.describe('the check stays silent on 147 real decks — measured, not assumed', () => {
+test.describe('the check stays silent on 147 real decks, under six projection shapes', () => {
 	const fs = require('node:fs');
 	const path = require('node:path');
-	const { frontMatterBlockOf, normalizeSourceText } = require('../../../lib/core/slide-boundaries.mjs');
 	const render = (src) => engine.render(src).html;
 
-	/** The kept slides re-joined under the separators that preceded them — what an export of these
-	 *  slides would emit, for a corpus that declares no reader views to project. Built from the same
+	/** Deterministic, so a run that refuses can be reproduced from the failure alone. */
+	let seed = 7;
+	const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+
+	/** Reader views are not "every other slide". A view is a cover plus an ask, or the back half, or
+	 *  a scatter — and which of those is being projected is exactly what the old measurement fixed. */
+	const SHAPES = {
+		everyOther: (n) => [...Array(n).keys()].filter((i) => i % 2 === 0),
+		firstHalf: (n) => [...Array(n).keys()].filter((i) => i < Math.ceil(n / 2)),
+		lastHalf: (n) => [...Array(n).keys()].filter((i) => i >= Math.floor(n / 2)),
+		dropFirst: (n) => [...Array(n).keys()].filter((i) => i > 0),
+		coverPlusLast: (n) => [0, n - 1],
+		random30: (n) => {
+			const k = [...Array(n).keys()].filter(() => rnd() < 0.3);
+			return k.length ? k : [1];
+		},
+	};
+
+	/** The decks that legitimately refuse, per shape, each with the cross-slide state behind it.
+	 *  `slide-class-forms.md` — a `class: diagram dark` global on one slide that a later one inherits.
+	 *  `finish-backdrops.md` / `finish-override.md` — a `<style>` on slide 0 defining the finish tokens
+	 *  every later slide is drawn with.
+	 *  `gallery-jargon.md` — two `<script src>` tags on one late slide, one of which is the deck runtime.
+	 *  All four are real, and each is found only when the shape actually withholds the slide carrying
+	 *  the state — which is the argument for running six shapes rather than one. */
+	const EXPECTED = {
+		everyOther: ['gallery-jargon.md', 'slide-class-forms.md'],
+		firstHalf: ['gallery-jargon.md'],
+		lastHalf: ['finish-backdrops.md', 'finish-override.md', 'slide-class-forms.md'],
+		dropFirst: ['finish-backdrops.md', 'finish-override.md'],
+		coverPlusLast: [],
+		random30: ['finish-backdrops.md', 'gallery-jargon.md'],
+	};
+
+	/** The kept slides re-joined under the separator that preceded them — what an export of these
+	 *  slides emits, for a corpus that declares no reader views to project. Built from the same
 	 *  `slideBoundaries` call the kernel splits on, so the two cannot disagree about where a slide ends. */
 	function keepOnly(source, kept) {
 		const src = normalizeSourceText(source);
@@ -879,26 +1011,171 @@ test.describe('the check stays silent on 147 real decks — measured, not assume
 		return fm + kept.map((i) => chunks[i]).join(`\n${seps[0] ?? '---'}\n`);
 	}
 
-	/** The decks that legitimately refuse, each with the cross-slide state that makes them refuse. */
-	const EXPECTED = new Map([
-		['slide-class-forms.md', 'a `class: diagram dark` global on slide 4 that slide 5 inherits'],
-	]);
+	function chunkCount(source) {
+		const src = normalizeSourceText(source);
+		return slideBoundaries(src.slice(frontMatterBlockOf(src).length)).lines.length + 1;
+	}
 
-	test('every refusal over examples/ is a real cross-slide dependency', () => {
-		const dir = path.join(__dirname, '..', '..', '..', 'examples');
-		const refused = [];
-		let checked = 0;
-		for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.md'))) {
-			const src = fs.readFileSync(path.join(dir, file), 'utf8');
-			if (!frontMatterBlockOf(normalizeSourceText(src))) continue;
-			const total = slideBoundaries(normalizeSourceText(src).slice(frontMatterBlockOf(normalizeSourceText(src)).length)).lines.length + 1;
-			if (total < 3) continue;
-			const kept = [...Array(total).keys()].filter((i) => i % 2 === 0);
-			checked++;
-			if (crossSlideDrift(src, keepOnly(src, kept), kept, render)) refused.push(file);
+	const dir = path.join(__dirname, '..', '..', '..', 'examples');
+	const decks = fs
+		.readdirSync(dir)
+		.filter((f) => f.endsWith('.md'))
+		.map((f) => ({ file: f, src: fs.readFileSync(path.join(dir, f), 'utf8') }))
+		.filter(({ src }) => frontMatterBlockOf(normalizeSourceText(src)) && chunkCount(src) >= 3);
+
+	test('the corpus is the whole of examples/ minus what cannot be projected', () => {
+		// Pinned exactly, not as `> 100`. A loose floor lets the front-matter filter silently start
+		// skipping decks while the rate below still reads as a measurement over everything.
+		const all = fs.readdirSync(dir).filter((f) => f.endsWith('.md'));
+		assert.equal(all.length - decks.length, 3, 'exactly 3 example decks are unprojectable: 2 with no front matter, 1 under three slides');
+		assert.ok(decks.length > 140, `expected the full corpus, saw ${decks.length}`);
+	});
+
+	for (const [shape, pick] of Object.entries(SHAPES)) {
+		test(`every refusal under \`${shape}\` is a real cross-slide dependency`, () => {
+			const refused = [];
+			for (const { file, src } of decks) {
+				const kept = pick(chunkCount(src));
+				if (!kept.length || kept.length === chunkCount(src)) continue;
+				if (crossSlideDrift(src, keepOnly(src, kept), kept, render)) refused.push(file);
+			}
+			assert.deepEqual(
+				refused.sort(),
+				[...EXPECTED[shape]].sort(),
+				'a new refusal is either a real find or a regression — decide which, then update EXPECTED with its reason',
+			);
+		});
+	}
+});
+
+/**
+ * WHAT THE COMPARISON IS DELIBERATELY BLIND TO, pinned so widening it is a visible decision.
+ *
+ * Each neutralizer buys a class of false alarm and sells a class of finding, and the list only grows.
+ * `lib/diagnostics/slice-equivalence-core.mjs` — the repo's other "compare two renders of the same
+ * slide" kernel — pins its own set for exactly this reason, in its own words: "Every neutralizer
+ * flatters the result, so each is named and each is a choice… adding an entry back is not a tuning
+ * knob." Changing this constant is how the next entry gets a reviewer.
+ */
+/**
+ * TWO GUARDS THAT ARE CORRECT TODAY AND WOULD BE SILENT IF THEY BROKE. Neither fires on any deck in
+ * the tree, so neither is exercised by the corpus sweep — the shape of a test that certifies nothing.
+ * Both are reachable through the INJECTED renderer, which is the other reason the caller supplies it.
+ */
+test.describe('the guards that cannot fire yet, driven through the injected renderer', () => {
+	const chunks = [
+		'<!-- _lens: brief -->\n\n# Cover\n\nQ3 board pack.\n',
+		'\n# Internal\n\nSecret.\n',
+		'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
+	];
+	const sec = (at, inner) => `<section data-authored-slide="${at}">${inner}</section>`;
+
+	test('a proxy that renumbers its slides is called a PROXY defect, not a disclosure', () => {
+		// What the blank-line placeholder did to every deck whose view dropped the cover: the proxy
+		// rendered one section fewer, so hop 1 read each kept slide against a different one. Refusing was
+		// right; refusing with "a `footer:` on an excluded slide" was a lie. Here the stub renderer
+		// shortens the proxy — recognizable by the placeholder `emptyWithheld` writes — and nothing else.
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		const stub = (source) =>
+			source.includes('<!-- -->')
+				? sec(0, '<p>Cover</p>') + sec(1, '<p>The ask</p>')
+				: sec(0, '<p>Cover</p>') + sec(1, '<p>Internal</p>') + sec(2, '<p>The ask</p>');
+		const drift = crossSlideDrift(src, out.source, out.kept, stub);
+		assert.ok(drift, 'a proxy that does not line up cannot certify anything');
+		assert.equal(drift.channel, 'proxy', 'and it says so, so the message can tell the truth');
+	});
+
+	test("an author's own `tile-progress` div cannot delete the slide around it", () => {
+		// The class name ships in `dist/lattice.css`, so every recipient of any export already has it.
+		// With an open-ended `<div class="tile-progress"…>[\s\S]*?</div>` neutralizer, one bare marker
+		// line above a paragraph borrows the engine's own closing tag and takes the paragraph out of the
+		// comparison — measured, that turned a caught link-reference degradation into a clean export. A
+		// depth-aware walk does not fix it; only matching the exact markup the renderer emits does,
+		// because a self-contained pattern can only remove what it matched.
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		const forged = '<div class="tile-progress">';
+		const stub = (source) => {
+			const marking = source.includes('Internal') ? '<p>CONFIDENTIAL</p>' : '<p>[CONFIDENTIAL][c]</p>';
+			return sec(0, `${forged}${marking}</div>`) + sec(1, '<p>x</p>') + sec(2, '<p>y</p>');
+		};
+		const drift = crossSlideDrift(src, out.source, out.kept, stub);
+		assert.ok(drift, 'a marking that degraded behind a forged rail marker is still a degraded marking');
+		assert.equal(drift.authored, 0);
+	});
+
+	test("the engine's own rail is still neutralized, whatever length it renders at", () => {
+		// The other half of the same decision: matching the exact emitted shape has to keep buying the
+		// 27-deck refusal class it was introduced for.
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		const rail = (dots) =>
+			`<div class="tile-progress" aria-hidden="true">${'<span class="dot"></span>'.repeat(dots)}</div>`;
+		const stub = (source) => {
+			if (source.includes('Internal')) return sec(0, rail(3) + '<p>Cover</p>') + sec(1, rail(3) + '<p>Internal</p>') + sec(2, rail(3) + '<p>The ask</p>');
+			if (source.includes('<!-- -->')) return sec(0, rail(2) + '<p>Cover</p>') + sec(1, rail(2)) + sec(2, rail(2) + '<p>The ask</p>');
+			return sec(0, rail(2) + '<p>Cover</p>') + sec(1, rail(2) + '<p>The ask</p>');
+		};
+		assert.equal(crossSlideDrift(src, out.source, out.kept, stub), null, 'a rail of a different length is not drift');
+	});
+});
+
+/**
+ * WHAT THE COMPARISON IS DELIBERATELY BLIND TO, pinned so widening it is a visible decision.
+ *
+ * Each neutralizer buys a class of false alarm and sells a class of finding, and the list only grows.
+ * `lib/diagnostics/slice-equivalence-core.mjs` — the repo's other "compare two renders of the same
+ * slide" kernel — pins its own set for exactly this reason, in its own words: "Every neutralizer
+ * flatters the result, so each is named and each is a choice… adding an entry back is not a tuning
+ * knob." Changing this constant is how the next entry gets a reviewer.
+ */
+/**
+ * TWO GUARDS THAT ARE CORRECT TODAY AND WOULD BE SILENT IF THEY BROKE. Neither fires on any deck in
+ * the tree, so neither is exercised by the corpus sweep — the shape of a test that certifies nothing.
+ * Both are reachable through the INJECTED renderer, which is the other reason the caller supplies it.
+ */
+test.describe('the guards that cannot fire yet, driven through the injected renderer', () => {
+	const chunks = [
+		'<!-- _lens: brief -->\n\n# Cover\n\nQ3 board pack.\n',
+		'\n# Internal\n\nSecret.\n',
+		'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
+	];
+	const sec = (at, inner) => `<section data-authored-slide="${at}">${inner}</section>`;
+
+	test('a proxy that renumbers its slides is called a PROXY defect, not a disclosure', () => {
+		// What the blank-line placeholder did to every deck whose view dropped the cover: the proxy
+		// rendered one section fewer, so hop 1 read each kept slide against a different one. Refusing was
+		// right; refusing with "a `footer:` on an excluded slide" was a lie. Here the stub renderer
+		// shortens the proxy — recognizable by the placeholder `emptyWithheld` writes — and nothing else.
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		const stub = (source) =>
+			source.includes('<!-- -->')
+				? sec(0, '<p>Cover</p>') + sec(1, '<p>The ask</p>')
+				: sec(0, '<p>Cover</p>') + sec(1, '<p>Internal</p>') + sec(2, '<p>The ask</p>');
+		const drift = crossSlideDrift(src, out.source, out.kept, stub);
+		assert.ok(drift, 'a proxy that does not line up cannot certify anything');
+		assert.equal(drift.channel, 'proxy', 'and it says so, so the message can tell the truth');
+	});
+
+});
+
+test.describe('the neutralizer set is a pinned decision, not a growing convenience', () => {
+	test('the axes the comparison forgives are exactly these eight', () => {
+		assert.deepEqual(Object.keys(POSITION_NEUTRALIZERS).sort(), [
+			'accent',
+			'attrs',
+			'mermaidScope',
+			'pageNumber',
+			'rail',
+			'sectionNumber',
+			'svgDefs',
+			'watermark',
+		]);
+		for (const [axis, why] of Object.entries(POSITION_NEUTRALIZERS)) {
+			assert.ok(why.length > 20, `${axis} needs a reason a reviewer can weigh, not a label`);
 		}
-		assert.ok(checked > 100, `the corpus should be substantial, saw ${checked}`);
-		assert.deepEqual(refused.sort(), [...EXPECTED.keys()].sort(), 'a new refusal is either a real find or a regression — decide which, then update the list with its reason');
 	});
 });
 
