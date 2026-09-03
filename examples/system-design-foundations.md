@@ -41,36 +41,16 @@ We start with one engineer's Tuesday. We design Instagram, then run the whole me
 
 ---
 
-<!-- _class: title silent spectrum -->
-
-# How to Think About Systems
-
-`A tutorial for new engineers`
-
-We start with one engineer's Tuesday. We design Instagram, then run the whole method again on a parking app you could ship this month.
-
----
-
-<!-- _class: title silent spectrum -->
-
-# How to Think About Systems
-
-`A tutorial for new engineers`
-
-We start with one engineer's Tuesday. We design Instagram, then run the whole method again on a parking app you could ship this month.
-
----
-
 <!-- _class: agenda -->
 
-## This deck runs in six movements.
+## This deck runs in eight parts, gathered here into six.
 
 1. A Tuesday — one engineer, wake to sleep
 2. The words — naming what you just watched
 3. Protagonist and antagonist — where a design starts
 4. Solution types — which answer is wanted
 5. Six kits — data, compute, network, scale, reliability, security
-6. Two designs — Instagram, then a parking app from nothing
+6. Two designs, then the map back — Instagram, a parking app, and what you keep
 
 ---
 
@@ -1045,7 +1025,7 @@ Consistency is not a pass. You carry it into all three.
 flowchart LR
   REL[("Relational<br/>start here")] --> Q1{"Does one table outgrow<br/>one machine?"}
   Q1 -->|"no"| STAY(["Stay. You are done."])
-  Q1 -->|"yes"| NEXT(["Two more questions,<br/>on the next slide"])
+  Q1 -->|"yes"| NEXT(["One more question,<br/>then the shape"])
 ```
 
 > Most systems answer no here. If you are not sure which you are, you are a no.
@@ -1062,7 +1042,7 @@ flowchart LR
 flowchart LR
   BIG(["One table outgrew<br/>one machine"]) --> QB{"Still need joins<br/>and transactions?"}
   QB -->|"yes"| DS[("Distributed SQL")]
-  QB -->|"no"| SHAPE(["Then the shape decides.<br/>Next slide."])
+  QB -->|"no"| SHAPE(["Then the shape decides.<br/>Four questions, two slides."])
 ```
 
 > An engine that partitions itself is the cheapest way to keep what relational gave you.
@@ -1071,16 +1051,16 @@ flowchart LR
 
 <!-- _class: diagram compact -->
 
-`Data kit · pass one, questions one and two`
+`Data kit · pass one, shape questions one and two`
 
-## The first two questions ask whether you need anything more than a lookup.
+## The first two shape questions ask whether a lookup is enough.
 
 ```mermaid
 flowchart LR
   Q2{"Exact key only?"} -->|"yes"| KV[("Key-value")]
   Q2 -->|"no"| Q2B{"Whole records,<br/>shapes that differ?"}
   Q2B -->|"yes"| DOC[("Document")]
-  Q2B -->|"no"| ON(["On to question three"])
+  Q2B -->|"no"| ON(["On to shape question three"])
 ```
 
 > Both of these give up the join to buy a lookup that stays cheap however much you store.
@@ -1089,7 +1069,7 @@ flowchart LR
 
 <!-- _class: diagram compact -->
 
-`Data kit · pass one, questions three and four`
+`Data kit · pass one, shape questions three and four`
 
 ## The last two ask whether you are spreading rows or keeping bytes.
 
@@ -1352,7 +1332,7 @@ flowchart LR
   L2 --> L2C(["A balance, a seat"])
 ```
 
-> A different question from CAP, and the one you answer on every read for years between outages.
+> CAP asks a different question. This is the one you answer on every read, for years between outages.
 
 ---
 
@@ -1672,7 +1652,7 @@ flowchart TB
 2. Deployments are reversible
    - A rollback is a routine operation, not an incident response.
 3. Capacity is a number somebody owns
-   - Not "it autoscales" — the ceiling, the cost, and who gets paged at it. Maya's twelve-minute build was a ceiling nobody owned, and she paid it on every push.
+   - Not "it autoscales" — a ceiling, a cost, an owner. Maya's build had none of the three.
 4. Startup does not depend on startup order
    - Services retry into each other instead of requiring a sequence.
 
@@ -1690,7 +1670,7 @@ flowchart TB
 
 `Network kit · before your code`
 
-## Two of the four decide how far a request travels before your code sees it.
+## Two of the four patterns decide how far a request travels before your code sees it.
 
 ```mermaid
 flowchart TB
@@ -1705,7 +1685,7 @@ flowchart TB
   end
 ```
 
-> Both spend the one currency you can never earn back: a hop you did not have to take.
+> One of them ends the trip early. The other decides where the rest of it goes.
 
 ---
 
@@ -1713,7 +1693,7 @@ flowchart TB
 
 `Network kit · after your code`
 
-## The other two decide what the conversation costs once it arrives.
+## The other two set what the conversation costs once it arrives.
 
 ```mermaid
 flowchart TB
@@ -1830,7 +1810,7 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
 3. Every write is idempotent or keyed
    - The network will deliver your request twice. Decide now what that means.
 4. Distance appears in the design
-   - Counted on purpose, not discovered in production. Maya's reviewer was six time zones away.
+   - Counted on purpose, not discovered in production. Nobody counted Maya's reviewer, six time zones away.
 
 ---
 
@@ -2012,7 +1992,7 @@ Networks duplicate, clients retry, queues redeliver. The only question is whethe
 
 `Reliability kit · walls`
 
-## Two of the four put a wall between the part that failed and the part that has not.
+## Two of the four patterns put a wall between what failed and what has not.
 
 ```mermaid
 flowchart TB
@@ -2036,7 +2016,7 @@ flowchart TB
 
 `Reliability kit · worse answers`
 
-## The other two answer anyway, with something worse than the truth.
+## The other two answer anyway, rather than make the caller wait.
 
 ```mermaid
 flowchart TB
@@ -2068,7 +2048,7 @@ flowchart LR
   P2 -.-> C
 ```
 
-> Two copies of the same mistake is one copy.
+> Two copies of one mistake are still one copy.
 
 ---
 
@@ -2177,7 +2157,7 @@ Under pressure something has to give. Either you decided in advance which featur
 ## Production earns trust one of these at a time.
 
 1. Every dependency has a defined failure behavior
-   - Written down: degrade, queue, or fail fast. Never "we will see." Three teams learned theirs was exactly that when the registry went down at 09:05.
+   - Written down: degrade, queue, or fail fast. Three teams found out at 09:05 that nobody had.
 2. Redundant copies fail independently
    - Different zones, different deploys, different upstreams. Otherwise it is one copy.
 3. Recovery is practiced
@@ -2199,7 +2179,7 @@ Under pressure something has to give. Either you decided in advance which featur
 
 `Security kit · inside`
 
-## Two of the four limit what a caller may do once it is already inside.
+## Two of the four defenses limit what a caller may do once it is already inside.
 
 ```mermaid
 flowchart TB
@@ -2213,7 +2193,7 @@ flowchart TB
   end
 ```
 
-> Neither one asks whether the caller is honest. Both are written as if it is not.
+> Neither one asks whether the caller is honest. Both are written as if the caller is lying.
 
 ---
 
@@ -2221,7 +2201,7 @@ flowchart TB
 
 `Security kit · outside`
 
-## The other two cover the two directions data crosses out of your control.
+## The last two cover both directions in which data leaves your control.
 
 ```mermaid
 flowchart TB
@@ -2628,7 +2608,7 @@ flowchart TB
   F8(["…and 5×10⁸ more"]) --> C
 ```
 
-> Every hard problem in this design sits on the number nothing caps.
+> One of these lists fits in a single request. The other does not fit anywhere.
 
 *The number of accounts you follow is capped at 7,500. The number who follow you is capped by nothing. Every hard problem in this design sits on that second number.*
 
@@ -3524,4 +3504,4 @@ So take one design you made in these pages and build the smallest version of it 
 
 `How to Think About Systems`
 
-Name the person, name the force, and the design follows. Maya never designed anything on Tuesday, and she met every word in Part one before she went to bed — not one of which was a product name.
+Name the person, name the force, and the design follows. Maya never designed anything on Tuesday, and she met every word in Part one before she went to bed.
