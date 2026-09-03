@@ -202,16 +202,28 @@ Narrower than the word suggests. It means: *one* anchor you named, on *one* comp
 - **It measures the ink, not the box.** The flowed block is the union of every box that
   actually paints, descending through pure wrappers — because the Form's `.cell-stage`
   spans its whole grid area whatever is inside it, so a section's top-level children read
-  identical on a crowded slide and an empty one. Two boxes, not one, and the difference is
+  identical on a crowded slide and an empty one. Two kinds of box, and the difference is
   the whole content/chrome split: what an element **paints** is its border box, and what a
-  reader **reads** is its **content box**, inside the border and the padding.
-- **Taking the border box for text was a false-positive generator**, and not a subtle one:
-  padding is how the engine RESERVES room for a mark, so a bullet drawn in its own host's
-  `padding-left` intersects that host's border box by construction. Shipped `roadmap`
-  reported `COLLISION step 1: clearance −233.5px` against unmodified CSS, on the sweep its
-  own `--anchors` output tells you to run — over a status dot sitting exactly where the
-  padding reserved for it, touching nothing a reader can see. Crying wolf is the more
-  corrosive failure mode: the next person to see it stops trusting the tool.
+  reader **reads** is **one box per line of its own text**, taken from that text's line
+  boxes and clamped to the element's content box.
+- **Measuring text by the box it sits in was a false-positive generator**, and it took two
+  rounds to get out of. The border box first: padding is how the engine RESERVES room for a
+  mark, so a bullet drawn in its own host's `padding-left` intersects that host's border box
+  by construction, and shipped `roadmap` reported `clearance −233.5px` against unmodified
+  CSS on the sweep its own `--anchors` output tells you to run. The content box next, which
+  is still a superset on both axes: on the inline axis it spans the whole line even when the
+  text does not — shipped `pricing` draws its badge mark on an **in-flow** `::before` disc,
+  and an in-flow pseudo is never a rect of its own, so "mark on decoration" and "mark on
+  words" were the same picture with the first glyph 6.0px clear — and on the block axis an
+  element carrying its own text AND element children has a content box spanning all of them,
+  so a card title contributed a phantom rect covering the entire card. That one made the
+  same mark a −255.1px collision.
+  A **line box** is the honest unit: its width is the text advance, exactly. Its height
+  carries the font's leading, ~5px more than the glyphs, which is why the *first* attempt at
+  this — one Range over a whole element including its descendants — read a mark just above a
+  paragraph as a strike. Per line, over an element's own text nodes only, keeps the
+  precision and drops the case that broke. Crying wolf is the more corrosive failure mode:
+  the next person to see it stops trusting the tool.
 - **A positioned pseudo's own `transform` is applied.** 21 positioned pseudo rules in the
   bundle carry one, and the `translate(-50%, 50%)` centering idiom displaces a box by half
   its own size — 15.3px for shipped `cycle`'s repeat mark, which is `1em` at `--fs-h3`
@@ -235,7 +247,8 @@ Narrower than the word suggests. It means: *one* anchor you named, on *one* comp
   it.
 - **The section's own pseudos are in the walk.** The engine's entire running-mark family is
   `section::before` / `section::after` — `mark-orbit`, `mark-ticks`, `mark-chevron` and the
-  rest, 12 rules — which is the archetype this whole tool was built for. The walk started at
+  rest: 13 distinct `section`-level pseudo selectors, counted over `dist/lattice.css` — which
+  is the archetype this whole tool was built for. The walk started at
   the section's *children*, and `sec.querySelectorAll` matches descendants, so for a while
   the one shape in the opening paragraph was the one shape the tool could neither see as an
   obstacle nor name as an anchor: `--anchor 'section::before'` refused with "no match".
@@ -274,8 +287,9 @@ Narrower than the word suggests. It means: *one* anchor you named, on *one* comp
 - **The tool is not a CI gate; its falsifiability test is.** Sweeping the corpus per PR
   would be the flake generator — dozens of Chromium renders whose verdicts are
   wall-clock-adjacent, which is why `overflow:check` and `bench:check` are held back too.
-  What runs per PR is `test/integration/invariants/jank-sweep.test.js`: 16 arms, ~31 sweeps,
-  **measured 78s serial** against the `integration` job's p50 of 601s. It makes a different
+  What runs per PR is `test/integration/invariants/jank-sweep.test.js`: 18 arms, **measured
+  100s serial** against the `integration` job's p50 of 601s (ci.yml's own
+  table, n=86). It makes a different
   claim from any sweep — not that a component is clean, but that this rig can still go red.
 
 ## Two traps this already paid for

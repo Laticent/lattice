@@ -12,7 +12,8 @@
   sweeping with it neutralized; `--json` for machine use. A setup it cannot measure —
   a bad flag, an anchor that resolves on some slides only, a sweep with no ink on any
   slide — exits 2 rather than reporting a clean 0. The tool is on-demand; its
-  falsifiability test (`test/integration/invariants/jank-sweep.test.js`, 16 arms, ~78s)
+  falsifiability test (`test/integration/invariants/jank-sweep.test.js`, 18 arms,
+  ~100s)
   runs in the PR tier, because a geometry rig that has quietly stopped finding anything
   reports "no collision" for the same reason an unplugged smoke alarm reports no fire.
   The method and its judgment calls are documented in `engineering/jank.md`.

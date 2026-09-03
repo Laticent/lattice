@@ -23,7 +23,23 @@
  * The second half is also the guard on the first: without it, "no collision as shipped"
  * is indistinguishable from a rig that can no longer find one.
  *
- * Slow tier (two emulator renders + Chromium).
+ * THAT PAIR IS THE FIRST ARM, NOT THE WHOLE SUITE, and the reason is worth recording:
+ * two independent adversarial passes mutation-tested an earlier nine-arm version of this
+ * file and agreed it guarded ONE of the three measurements the tool claims. `const drift =
+ * 0`, dropping the horizontal axis, `const crowded = null`, `applyTransform` returning its
+ * input, `unplaced.push` as a no-op, an empty candidate list and `establishesCb` narrowed
+ * back to `position` all passed 9 of 9. DRIFT is one of the two verdicts that can set
+ * exit 1 and nothing here could prove the tool went red on it.
+ *
+ * So every arm below names the mutation it exists to kill, and the standard is that a
+ * one-line change to the thing an arm claims to test must red that arm. Two arms have
+ * previously been caught asserting on something that moves for unrelated reasons — the ink
+ * union in particular moves for layout reasons, so an arm written against it passed while
+ * chrome collection was mutated out entirely. Prefer `contentBoxes` / `chromeBoxes`, an
+ * exit code, or a self-relative comparison (the same sweep with one declaration changed)
+ * over any absolute geometry.
+ *
+ * Slow tier (Chromium, one emulator render per sweep).
  */
 
 const { test, describe } = require('node:test');
@@ -66,6 +82,16 @@ function sweepRawJson(extraArgs) {
 /** A sweep naming an anchor other than the divider's numeral. */
 function sweepAnchor(anchorSel, extraArgs, max) {
   const args = [TOOL, 'divider numbered', '--anchor', anchorSel, '--max', max, '--json', ...extraArgs.flatMap((s) => ['--style', s])];
+  const r = spawnSync(process.execPath, args, {
+    cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, CHROME_PATH: resolveChrome() },
+  });
+  if (r.status === 2) assert.fail(`check-jank could not run (exit 2): ${r.stderr || r.stdout}`);
+  return parse(r);
+}
+
+/** Any component, no anchor, `--json` — for the arms that read the box counts. */
+function anchorsJson(component, extraArgs) {
+  const args = [TOOL, component, '--json', ...extraArgs];
   const r = spawnSync(process.execPath, args, {
     cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, CHROME_PATH: resolveChrome() },
   });
@@ -315,6 +341,13 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
       // outside `main()`'s catch — so Node exited **1**, which is this tool's "a collision was
       // found". A wrapper keying on the exit code read a mistyped path as a found defect.
       { why: 'a --style path that is a directory', args: ['--anchor', 'h2::after', '--style', 'tools'] },
+      // Resolving `section::before` meant admitting the section itself as an anchor match.
+      // For a BARE selector that made `--anchor 'section'` (or any class the section
+      // carries) resolve to the FRAME: everything on the slide is then ink, the frame
+      // "collides" with all of it, and the run exits 1 — this tool's "a defect was found" —
+      // on a question nobody asked. Only a pseudo anchor may name the section.
+      { why: 'a bare selector that matches the section itself', args: ['--anchor', 'section'] },
+      { why: 'a class the section carries, as a bare anchor', args: ['--anchor', '.numbered'] },
       // `withAnchor.length < measured.length` is false when BOTH are zero, so a sweep whose
       // every slide came back empty skipped the refusal and printed no DRIFT line, no
       // COLLISION line and exit 0 — with an anchor named.
@@ -497,5 +530,58 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
     const noPadding = sweepAnchor('code::before', [reserved.replace('padding-left: 30px', 'padding-left: 0')], '3');
     assert.equal(noPadding.status, 1,
       'with the reserved padding gone the mark sits on the text and the tool still said nothing');
+  });
+
+  test('what paints nothing is not ink, and text nested inside text is', () => {
+    // TWO arms an independent checker found had no coverage at all — both in the ink walk's
+    // element branch, which is the part of this tool with the worst track record.
+    //
+    // `opacity: 0` paints nothing while reporting a full box, and the bundle ships one
+    // (`.scene-control`). Dropping the check passed all sixteen arms before this one.
+    const base = sweepRawJson(['--max', '2']);
+    const faded = sweepRawJson(['--max', '2', '--style', 'section.divider.numbered p { opacity: 0; }']);
+    assert.ok(faded.rows[0].contentBoxes < base.rows[0].contentBoxes,
+      `a fully transparent element stayed in the ink: ${base.rows[0].contentBoxes} boxes `
+      + `before, ${faded.rows[0].contentBoxes} after`);
+
+    // And the inverse: an element now contributes its OWN text nodes' line boxes and
+    // nothing else, so a DESCENDANT's text is not covered by its ancestor's rects and has
+    // to be walked. An earlier cut carried a suppression flag down from any text-bearing
+    // element — correct while the ink was border boxes, silently lossy once it was not.
+    // `pricing`'s corner tag is the shape: a positioned `<em>` inside a `<li>` that carries
+    // the card title.
+    const pricing = anchorsJson('pricing', ['--max', '2']);
+    const noTag = anchorsJson('pricing', ['--max', '2', '--style', 'section.pricing li > em { display: none; }']);
+    assert.ok(noTag.rows[0].contentBoxes < pricing.rows[0].contentBoxes,
+      `readable text nested inside a text-bearing element is not being measured: `
+      + `${pricing.rows[0].contentBoxes} boxes with the corner tag, `
+      + `${noTag.rows[0].contentBoxes} without — the two should differ`);
+  });
+
+  test('the ink is where the GLYPHS are, not the whole box the text sits in', () => {
+    // An in-flow pseudo is never a rect of its own — it is absorbed into its host, and if
+    // that host carries text the whole span reads as readable content. So a mark drawn ON
+    // an in-flow decoration was indistinguishable from a mark drawn on the words, and
+    // shipped `pricing` (whose badge draws exactly that, with the first glyph 6.0px past
+    // where the mark ends) exited 1 on the sweep the tool's own `--anchors` recommends.
+    // The same shape, built here so the arm does not depend on that component's CSS: a
+    // 40px in-flow spacer pushes the glyphs right, and the mark sits on the spacer.
+    const spacer = 'section.divider.numbered code { position: relative; }'
+      + 'section.divider.numbered code::before { content: ""; display: inline-block; width: 40px; height: 1em; }';
+    const onDecoration = sweepAnchor('code::after', [`${spacer}`
+      + 'section.divider.numbered code::after { content: ""; position: absolute; left: 2px; top: 0;'
+      + ' width: 30px; height: 14px; background: red; }'], '3');
+    assert.equal(onDecoration.status, 0,
+      'a mark drawn on an in-flow decoration, clear of every glyph, was called a collision — '
+      + `the ink is measuring the element's box rather than its lines (clearance `
+      + `${onDecoration.summary.collision?.clearance})`);
+
+    // The control, in the same run pair: slide the mark 58px right, onto the words.
+    const onGlyphs = sweepAnchor('code::after', [`${spacer}`
+      + 'section.divider.numbered code::after { content: ""; position: absolute; left: 60px; top: 0;'
+      + ' width: 30px; height: 14px; background: red; }'], '3');
+    assert.equal(onGlyphs.status, 1,
+      'the same mark moved onto the glyphs was not reported — the line measurement has '
+      + 'stopped finding text at all');
   });
 });
