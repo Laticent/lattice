@@ -1833,6 +1833,12 @@ const { reorientMermaidForPortrait } = require('./lib/integrations/mermaid/reori
 // three more times and compares the results, and read Mermaid's dice as the deck changing.
 const MERMAID_BAKE_CACHE = new Map();
 const bakeKey = (r) => JSON.stringify([r.definition, r.themeVars, r.look, r.extraClass]);
+// The per-diagram id `finishMermaidSvg` stamps, and the placeholder it is parked under while cached.
+// Everything mmdc emits from one `#my-svg` — the root id, internal marker/gradient ids, `url(#…)`
+// references and every selector in the embedded `<style>` — carries this prefix, so parking and
+// re-stamping it is one substitution in each direction.
+const MERMAID_ID_STAMP = /lattice-mmd-\d+/g;
+const MERMAID_ID_SLOT = '\u0000mmd-id\u0000';
 const MERMAID_REBAKE_DEFS = [];
 // The scheme each diagram was BAKED in (index-aligned with MERMAID_REBAKE_DEFS), so a cross-scheme
 // image-set look re-renders a diagram only when its own bake scheme differs from the look — keyed on
@@ -1964,16 +1970,16 @@ function preprocessMermaid(source, { recordRebakes = true } = {}) {
     readToken: readScopeToken,
     scopeKey: diagramScopeKey,
     renderOne: (fence, themeVars, meta) => {
-      // TWO INDICES, because this function is no longer single-shot. `slot` is this call's
-      // position in `requests`/`htmls`, which are rebuilt per call. `idx` is the position in the
-      // module-level MERMAID_REBAKE_* arrays, which accumulate for the life of the process so the
-      // stamp baked into the html stays resolvable. They were the same number while the CLI really
-      // did render one deck per process — the declaration above says so, and says to reset per deck
-      // if that ever stopped being true. It stopped being true on this branch: the reader-view
-      // cross-slide check renders the deck three more times, so `htmls[idx]` read past the end of a
-      // per-call array and `--lens` died with `Cannot read properties of undefined (reading
-      // 'replace')` on every deck carrying a diagram — 25 of the 150 in examples/, `--lens full`
-      // included, which is the identity export that must never fail.
+      // A PER-CALL INDEX, because this function is no longer single-shot. It used to take the index
+      // from `MERMAID_REBAKE_DEFS.push(...)`, a module-level array, while `requests`/`htmls` are
+      // rebuilt on every call. That was the same number while the CLI really did render one deck per
+      // process — the declaration above says so, and says to reset per deck if it ever stopped being
+      // true. It stopped on this branch: the reader-view cross-slide check renders the deck three
+      // more times, so `htmls[idx]` read past the end of a per-call array and `--lens` died with
+      // `Cannot read properties of undefined (reading 'replace')` on every deck carrying a diagram —
+      // 25 of the 150 in examples/, `--lens full` among them, the identity export that must not fail.
+      // The re-bake arrays are now written BY POSITION and only by a recording call, so this index
+      // means the same thing in both places.
       const idx = requests.length;
       if (recordRebakes) {
         // Keep the source def AND the band it was baked in, index-aligned, so the
@@ -2021,15 +2027,27 @@ function preprocessMermaid(source, { recordRebakes = true } = {}) {
   // Keyed on everything `renderOne` is given, so a diagram baked in a different band, look or hand is
   // a different entry. The cost saved is incidental and real: the check no longer re-renders diagrams.
   if (uncached.length) {
+    // The bake's own id stamp is parked immediately below, so the counter values it consumes are
+    // discarded — rolled back here so a document's ids stay 1..N and the exported bytes do not shift
+    // just because a diagram was baked rather than served.
+    const counterBeforeBake = mermaidSvgCounter;
     let baked = renderMermaidBatch(uncached);
     if (!baked) {
       baked = uncached.map((r) => renderMermaidOne(r.definition, r.themeVars, r.extraClass, r.look));
     } else if (!QUIET) {
       console.log(' done');
     }
-    for (const [n, r] of uncached.entries()) MERMAID_BAKE_CACHE.set(bakeKey(r), baked[n]);
+    // STORED WITH ITS ID PARKED, because the id is not a property of the diagram. `finishMermaidSvg`
+    // gives every embedded SVG a `lattice-mmd-N` prefix so their `<style>` blocks — all written by
+    // mmdc against a hardcoded `#my-svg` — cannot step on each other, and that suffix is baked into the
+    // html the cache holds. Serving one cached entry twice therefore put TWO elements with
+    // `id="lattice-mmd-1"` in one document, with `url(#lattice-mmd-1-gradient)` in the second SVG
+    // resolving into the first one's defs: 19 duplicate ids measured on a deck repeating one fence.
+    // The cache is about not re-rendering, not about reusing an identity, so the id comes back out.
+    for (const [n, r] of uncached.entries()) MERMAID_BAKE_CACHE.set(bakeKey(r), String(baked[n]).replace(MERMAID_ID_STAMP, MERMAID_ID_SLOT));
+    mermaidSvgCounter = counterBeforeBake;
   }
-  const htmls = requests.map((r) => MERMAID_BAKE_CACHE.get(bakeKey(r)));
+  const htmls = requests.map((r) => MERMAID_BAKE_CACHE.get(bakeKey(r)).replaceAll(MERMAID_ID_SLOT, `lattice-mmd-${++mermaidSvgCounter}`));
   for (const r of rendered) {
     // Stamp the def index so a cross-scheme image-set export can find + re-bake
     // this exact diagram.
@@ -2096,12 +2114,38 @@ if (LENS_PROJECTION) {
   // (including a `<style>` inside an inlined SVG, which leaves no trace in the markdown); the front
   // matter answers for `style:`, which the CLI injects downstream of the render. Why a refusal rather
   // than a detector, and the three detectors that lost: see `authorCss` in lib/core/lens-export.mjs.
-  const reducing = LENS_PROJECTION.kept.length < chunkCount(mdRaw);
+  // THE COUNT COMES FROM THE KERNEL, which already returned it. Deriving it again here was one
+  // separator-count off on a deck whose body OPENS with a separator: Marpit's leading-group rule makes
+  // N+1 chunks render N sections, `chunksWithSeparators` applies it and a bare `slideBoundaries` count
+  // does not. So a projection that withheld nothing read as reducing, and `--lens full` — the identity
+  // export this kernel promises is byte-identical to no flag at all — refused. That is the SAME
+  // leading-group rule that once refused 147 of 147 decks, re-introduced by re-deriving a number the
+  // kernel hands back (#1).
+  const reducing = LENS_PROJECTION.kept.length < LENS_PROJECTION.total;
+  // THE AUTHOR'S DECK, NOT THE BAKED ONE. `rawMd` is post-`preprocessMermaid`, which splices mmdc's
+  // SVG inline — and mmdc emits its own `<style>` inside it. Asking the baked render meant every deck
+  // carrying a diagram was told it "carries CSS of its own" and to move CSS it had not written: 25 of
+  // the 150 decks in examples/, none of which contains a stylesheet. The corpus test did not catch it
+  // because it asked `render(src)` on the raw source — the right answer to the wrong question, which
+  // is how a measurement certifies a surface nobody ships (#23). Every channel this asks about is
+  // written by the author, so the author's source is what it reads.
   // `fm` is not bound until much later in this file; the front-matter block comes from the same
   // splitter the projection itself uses, so the two cannot disagree about where it ends.
-  const css = reducing && authorCss(require('./lib/engine/index.js').render(rawMd).html, fmOf(normSrc(mdRaw)));
+  const css = reducing && authorCss(require('./lib/engine/index.js').render(mdRaw).html, fmOf(normSrc(mdRaw)));
+  // AND A STYLESHEET PASSED ON THE COMMAND LINE IS CSS THIS EXPORT CANNOT SEE. `--css sheet.css` (or
+  // the positional form) is concatenated into the document downstream of everything above, so a
+  // positional rule in an org's house sheet ships with exactly the effect a deck-authored one would
+  // and neither channel below can find it. Measured: a `section:nth-of-type(5)` rule in a `--css`
+  // sheet hid a sentence in the full render and showed it in the projection, exit 0.
+  // `cssIsDefault` is the engine's own `dist/lattice.css`, which is not the author's CSS and is
+  // present on every export. Only a sheet the CALLER named is a channel this cannot see into.
+  if (reducing && !cssIsDefault) {
+    console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (author-css) — ${REFUSAL_REASONS['author-css']}`);
+    console.error(`       Found in the stylesheet passed on the command line (${cssFile}). Nothing was exported.`);
+    process.exit(1);
+  }
   if (css) {
-    const where = { 'front-matter': 'the front-matter `style:` block', style: 'a `<style>` element', link: 'a `<link rel="stylesheet">` element' }[css.channel];
+    const where = { 'front-matter': 'the front-matter `style:` block', style: 'a `<style>` element', link: 'a `<link>` element', script: 'a script element, which can build a stylesheet at run time' }[css.channel];
     console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (author-css) — ${REFUSAL_REASONS['author-css']}`);
     console.error(`       Found in ${where}. Nothing was exported.`);
     process.exit(1);

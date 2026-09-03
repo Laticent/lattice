@@ -93,8 +93,9 @@
   deck shorter — measured, a paragraph the author hid renders at 770×36 pixels in the shipped file, and
   an `::after` classification marking drops out of the exported PDF (`pdftotext` 1 → 0). Comparing the
   two renders cannot see it: the stylesheet is byte-identical on both sides and so is every slide's
-  markup. So a reducing projection now refuses when the deck declares a front-matter `style:`, or the
-  rendered slide markup carries a `<style>` or a `<link rel="stylesheet">`.
+  markup. So a reducing projection now refuses when the deck carries CSS of its own, or anything that
+  could build some: a front-matter `style:`, a `<style>` or a `<link>` in the author's slide markup, a
+  `<script>` (three lines of one can append a stylesheet at run time), or a sheet passed with `--css`.
   **Three checks tried to tell dangerous CSS from harmless CSS, and all three lost — each to a
   different unbounded space.** A text scanner asked how a rule is SPELLED: against 24 real idioms it
   refused 7 of 12 harmless ones and missed 6 of 12 dangerous ones, because `section[id="3"]` selects by
@@ -113,13 +114,20 @@
   while leaving no `<style>` in the source, and both are plainly elements once rendered. The engine's
   own stylesheets attach downstream of the render and are not in that markup, so a `<style>` there was
   written by the author. Front matter is read through the one reader the document is also built from.
-  **Measured cost: 2 of the 150 decks in `examples/` carry CSS of their own** — `finish-backdrops` and
-  `finish-override`, both a Studio-written `<style>` on slide 0 defining finish tokens. The cross-slide
-  check already refuses both under some projection shapes, so this widens an existing refusal rather
-  than opening a new one; it does not vanish, and the honest number is 7 newly refused (deck, shape)
-  pairs across the corpus test's six shapes, all on those two decks. A deck whose CSS is entirely
-  benign is refused too, and that is the price; the remedy is one line in the message. `--lens full`
-  is unaffected: it keeps every slide in place, so nothing can land anywhere new. Closes #2053.
+  **Measured cost: 3 of the 150 decks in `examples/`** — `finish-backdrops` and `finish-override` for a
+  Studio-written `<style>` on slide 0, `gallery-jargon` for two `<script src>` tags. The cross-slide
+  check already refuses all three under some projection shapes, so this widens an existing refusal
+  rather than opening a new one; it does not vanish, and the honest number is 10 newly refused
+  (deck, shape) pairs across the corpus test's six shapes. A deck whose CSS is entirely benign is
+  refused too, and that is the price. `--lens full` is unaffected: it keeps every slide in place, so
+  nothing can land anywhere new.
+  **One cost is a conflict inside the product, not a stranger's edge case.**
+  `lib/base/base.registers.docs.md` tells authors to set a finish's mark glyph with a per-deck
+  `<style>section.finish-meridian { --fin-mark-text: "Q3"; }</style>`, and the Studio's share and
+  export paths splice a `<style>` into the markdown they hand back for any deck using a saved finish,
+  theme or library component. Those decks cannot be projected into a reader view. That rule is
+  class-scoped and could not select by position — but telling it from one that could is the question
+  three detectors lost, so the refusal takes it too. Closes #2053.
 - **Fixed: `--lens` crashed on every deck carrying a mermaid diagram — 25 of the 150 in `examples/`.**
   `preprocessMermaid` took each diagram's index from a module-level array while its render batch was
   rebuilt per call; the declaration said in so many words that it was single-shot and to reset it if
@@ -140,4 +148,5 @@
   the deliverable, and for a `.pdf`, `.pptx`, `.png` or `.zip` it is the companion the run announces as
   `HTML: 3 slides → deck-brief.html`. An earlier fix removed only the first, so a refused `.pdf` printed
   "Nothing was exported" over a complete 2.7 MB `.html` carrying the exact leak the check had just
-  found — a file a sender can attach to an email. Both paths are now removed before the message prints.
+  found — a file a sender can attach to an email. The refusal now runs ahead of every write instead, so
+  no target reaches disk at all.

@@ -233,8 +233,10 @@ land on a slide you never marked. This is the one thing comparing the two render
 show you, because nothing textual moves: the stylesheet is identical in both files, and so
 is every slide's markup. Only which slide the rule counts to has changed.
 
-So a reducing view refuses when your deck carries any CSS of its own — a front-matter
-`style:`, a `<style>` anywhere in the deck, or a `<link rel="stylesheet">`.
+So a reducing view refuses when your deck carries any CSS of its own, or anything that could
+build some: a front-matter `style:`, a `<style>` or a `<link>` anywhere in the deck, a
+`<script>` (three lines of it can add a stylesheet while the page loads), or a stylesheet you
+passed on the command line with `--css`.
 
 **That is deliberately blunt, and it is blunt because the sharp version does not work.**
 Three checks were built to tell dangerous CSS from harmless CSS. One read the rules and
@@ -246,13 +248,23 @@ reader sees in both renders; it was walked past by `display:none` on a wrapper e
 enumerate something with no end to it. "Does this deck carry CSS?" has an end to it, because
 you cannot write a positional rule without writing CSS.
 
-**The cost, measured:** 2 of the 150 decks this repo ships carry CSS of their own, and both
-were already refused for unrelated reasons. `--lens full` is unaffected — it keeps every
-slide in place, so nothing can land anywhere new.
+**The cost, measured:** 3 of the 150 decks this repo ships are refused — two for a `<style>`,
+one for a `<script>`. All three are already refused under *some* projection shapes by the
+check above, so this widens an existing refusal rather than opening a new one; across the six
+shapes the corpus test runs, it newly refuses 10 (deck, shape) pairs. `--lens full` is
+unaffected — it keeps every slide in place, so nothing can land anywhere new.
 
-**The fix, when it refuses:** move the CSS into a theme, or style the slide through a class
-you set on it — `<!-- _class: hushed -->` and `section.hushed …`. A class travels with the
-slide instead of counting to it.
+**One cost is worth knowing up front.** `lib/base/base.registers.docs.md` tells you to set a
+finish's mark glyph with a per-deck `<style>section.finish-meridian { --fin-mark-text: "Q3";
+}</style>`, and the Studio splices a `<style>` into the markdown it hands you for any deck
+using a saved finish, theme or library component. Those decks cannot be projected into a
+reader view. That rule is scoped to a class and could not select a slide by position — but
+telling it apart from one that could is the question three checks lost, so this one takes it
+too.
+
+**The fix, when it refuses:** style the slide through a class you set on it —
+`<!-- _class: hushed -->` and `section.hushed …`. A class travels with the slide instead of
+counting to it.
 
 **And your `captions:` travel with the slides.** The block is keyed by slide number, so a
 projection renumbers it: entries for withheld slides are dropped, and the rest are

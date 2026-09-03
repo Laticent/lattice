@@ -1073,11 +1073,15 @@ test.describe('the guards that cannot fire yet, driven through the injected rend
 
 /** The decks `authorCss` refuses, across the WHOLE corpus and independent of projection shape — the
  *  cost of refusing rather than detecting, as a number that can fail rather than a claim in a
- *  changelog. Both also appear in the cross-slide corpus table below, but only under the shapes that
- *  actually withhold the slide carrying their `<style>`; `authorCss` refuses them under every reducing
- *  shape, and that difference is the real marginal cost of this decision. A third deck landing here is
- *  a widening a reviewer should have to look at. */
-const EXPECTED_AUTHOR_CSS = ['finish-backdrops.md', 'finish-override.md'];
+ *  changelog. All three also appear in the cross-slide corpus table below, but only under the shapes
+ *  that actually withhold the slide carrying their `<style>`/`<script>`; `authorCss` refuses them under
+ *  every reducing shape, and that difference is the real marginal cost of this decision. A fourth deck
+ *  landing here is a widening a reviewer should have to look at.
+ *
+ *  `gallery-jargon.md` is here for its two `<script src>` tags, not for a stylesheet — a script can
+ *  build one at run time, and that channel was measured leaking a positional rule past a version of
+ *  this gate that only read `<style>` and `<link>`. */
+const EXPECTED_AUTHOR_CSS = ['finish-backdrops.md', 'finish-override.md', 'gallery-jargon.md'];
 
 /**
  * THE COST OF THE REFUSAL, MEASURED OVER THE REAL CORPUS rather than asserted in prose. `authorCss`
@@ -1096,10 +1100,25 @@ test.describe('refusing on author CSS costs exactly these decks', () => {
 		const hits = [];
 		for (const f of files) {
 			const src = fs.readFileSync(path.join(dir, f), 'utf8');
-			// The rendered SLIDE MARKUP is what the check reads, so this is the same question the CLI asks.
+			// THE AUTHOR'S SOURCE, which is what the CLI hands the gate. This comment used to claim the
+			// same thing while the CLI was passing the MERMAID-BAKED source, and the difference was 25
+			// decks: mmdc emits a `<style>` inside every SVG it bakes, so every deck with a diagram was
+			// refused and this test reported 2. A measurement whose input is not the shipping input is the
+			// right answer to the wrong question (#23) — the number it produced went into a changelog, a
+			// skills doc and a PR body before anyone re-derived it on the real CLI.
 			if (authorCss(render(src).html, frontMatterBlockOf(normalizeSourceText(src)))) hits.push(f);
 		}
 		assert.deepEqual(hits.sort(), EXPECTED_AUTHOR_CSS, 'a deck joining or leaving this set is a decision');
+	});
+
+	test("the engine's own generated CSS is not the author's, and a diagram is the case that proves it", () => {
+		// mmdc bakes a `<style>` into every SVG it emits. If the gate is ever pointed at a post-bake
+		// document again, this fails — which is the arm the corpus count above could not be, because both
+		// it and the code under test would have moved together.
+		const mermaidSvg = '<section data-authored-slide="0"><div class="mermaid-svg"><svg id="lattice-mmd-1"><style>#lattice-mmd-1{font-family:X}</style></svg></div></section>';
+		assert.deepEqual(authorCss(mermaidSvg, 'marp: true\n'), { channel: 'style' }, 'a baked diagram DOES look like author CSS');
+		// ...which is exactly why the CLI must hand it the author's source instead. Same deck, unbaked:
+		assert.equal(authorCss('<section data-authored-slide="0"><pre class="mermaid">graph TD; A-->B</pre></section>', 'marp: true\n'), null);
 	});
 });
 
@@ -1147,8 +1166,33 @@ test.describe('a deck that carries CSS of its own cannot be projected', () => {
 		assert.equal(authorCss('<section></section>', 'marp: true\nstyles: nope\n'), null);
 		// An empty `style:` declares no CSS, so there is nothing that could select by position.
 		assert.equal(authorCss('<section></section>', 'marp: true\nstyle: ""\n'), null);
-		// A `<link>` that is not a stylesheet pulls in no CSS.
-		assert.equal(authorCss('<section><link rel="icon" href="f.png"></section>', ''), null);
+	});
+
+	test('a `<link>` is refused on its TAG NAME, favicon and all — the test has no attributes to parse', () => {
+		// The first version asked whether `rel` said `stylesheet`, which is an attribute parse spelled as
+		// a regex. `[^>]*` cannot cross a `>`, so `<link title="a>b" rel=stylesheet …>` walked past it,
+		// and a byte pattern knows nothing of entities, so `rel="&#115;tylesheet"` did too — both measured
+		// shipping a positional rule into an exported PDF at exit 0. That is the unbounded-spelling defeat
+		// the FIRST retired detector died of, smuggled back into the presence test. A tag name has no
+		// spellings. The price is a deck whose only `<link>` is a favicon; the engine emits none into slide
+		// markup, so nothing but author markup ever reaches this.
+		for (const tag of [
+			'<link rel="stylesheet" href="x.css">',
+			'<link title="a>b" rel="stylesheet" href="x.css">',
+			'<link rel="&#115;tylesheet" href="x.css">',
+			'<link rel="icon" href="f.png">',
+		]) {
+			assert.deepEqual(authorCss(`<section>${tag}</section>`, ''), { channel: 'link' }, tag);
+		}
+	});
+
+	test('a `<script>` is a CSS channel, because it can build one at run time', () => {
+		// Three lines on a KEPT slide put a positional rule in the shipped document with no `<style>`
+		// anywhere in the markup, measured hiding a sentence in the full render and showing it in the
+		// projection at exit 0. `crossSlideDrift` catches a script on a WITHHELD slide, because that one
+		// differs between the two renders; a kept-slide script is byte-identical on both sides.
+		assert.deepEqual(authorCss('<section><script>document.head.appendChild(s)</script></section>', ''), { channel: 'script' });
+		assert.deepEqual(authorCss('<section><script src="x.js"></script></section>', ''), { channel: 'script' });
 	});
 
 	test('the front matter is asked FIRST, because the render cannot show it', () => {

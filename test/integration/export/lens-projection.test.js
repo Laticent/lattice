@@ -185,7 +185,7 @@ describe('--lens: the projected export', () => {
 			assert.notEqual(r.status, 0, 'a deck carrying its own CSS cannot be verified, so it refuses');
 			assert.match(r.stderr, /author-css/);
 			assert.match(r.stderr, /Found in a `<style>` element/, 'and says which channel, so the author can find it');
-			assert.match(r.stderr, /Move the CSS into a theme/, 'and what to do about it');
+			assert.match(r.stderr, /Style the slide through a class you set on it/, 'and what to do about it');
 			assert.equal(fs.existsSync(path.join(dir, 'out.html')), false, 'and writes nothing');
 			fs.rmSync(dir, { recursive: true, force: true });
 		});
@@ -211,7 +211,25 @@ describe('--lens: the projected export', () => {
 			fs.writeFileSync(deck, deckStyled('<link rel="stylesheet" href="evil.css">'));
 			const r = run(deck, path.join(dir, 'out.html'), ['--lens', 'brief']);
 			assert.notEqual(r.status, 0);
-			assert.match(r.stderr, /Found in a `<link rel="stylesheet">` element/);
+			assert.match(r.stderr, /Found in a `<link>` element/);
+			fs.rmSync(dir, { recursive: true, force: true });
+		});
+
+		test('a `<script>` on a KEPT slide is refused — it can build a stylesheet at run time', { timeout: TIMEOUT }, () => {
+			// Measured as a leak before this channel was read: three lines appending a `<style>` to the head
+			// put a positional rule in the shipped document with no `<style>` in the markup at all, and the
+			// cross-slide check cannot see it because a kept-slide script is identical on both sides.
+			const { dir, deck } = setup();
+			fs.writeFileSync(deck, deckStyled('<script>document.head.appendChild(document.createElement("style"))</script>'));
+			const r = run(deck, path.join(dir, 'out.html'), ['--lens', 'brief']);
+			assert.notEqual(r.status, 0);
+			// The message says "a script element", not the tag spelled out: this file's own
+			// engine-script-marker census reads `lattice-emulator.js` by TEXT and cannot tell a
+			// user-facing message from markup the file emits, so a literal tag there reads as an
+			// unmarked emitter. Rewording the message was cheaper than teaching a security census a
+			// new exemption.
+			assert.match(r.stderr, /Found in a script element/);
+			assert.equal(fs.existsSync(path.join(dir, 'out.html')), false, 'and writes nothing');
 			fs.rmSync(dir, { recursive: true, force: true });
 		});
 
