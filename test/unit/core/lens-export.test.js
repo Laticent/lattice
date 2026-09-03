@@ -1116,14 +1116,20 @@ const EXPECTED_AUTHOR_CSS = ['finish-backdrops.md', 'finish-override.md', 'galle
  * joins the set — the shape of a widening a reviewer should have to look at.
  */
 test.describe('refusing on author CSS costs exactly these decks', () => {
-	test('3 of the 150 example decks carry CSS of their own', () => {
+	test('3 decks in examples/ carry CSS of their own', () => {
 		const fs = require('node:fs');
 		const path = require('node:path');
 		const { render } = engine;
 		const { appendAutoGlossary } = require('../../../lib/core/glossary-auto.mjs');
 		const dir = path.join(__dirname, '..', '..', '..', 'examples');
 		const files = fs.readdirSync(dir).filter((f) => f.endsWith('.md'));
-		assert.equal(files.length, 150, 'the corpus is the whole examples/ directory');
+		// A FLOOR, not an exact count. What this line guards is that the sweep read the whole
+		// directory rather than a subset — a wrong path or a wrong filter shows up as a small
+		// number, not as 151. Pinning the exact size instead taxed every unrelated PR that adds
+		// an example deck: `table-outer-edge.md` (#2055) landed on main and failed this arm while
+		// changing nothing it measures. The decision-visible number is the HIT SET below, and that
+		// one is still exact.
+		assert.ok(files.length >= 150, `the corpus is the whole examples/ directory (${files.length})`);
 		const hits = [];
 		for (const f of files) {
 			const src = fs.readFileSync(path.join(dir, f), 'utf8');
