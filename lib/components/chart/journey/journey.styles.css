@@ -309,6 +309,33 @@ section.journey .journey-mood-key[data-mood="4"] { --mood-color: var(--journey-m
 section.journey .journey-mood-key[data-mood="3"] { --mood-color: var(--journey-mood-3); }
 section.journey .journey-mood-key[data-mood="2"] { --mood-color: var(--journey-mood-2); }
 section.journey .journey-mood-key[data-mood="1"] { --mood-color: var(--journey-mood-1); }
+/* …AND THE VERTICAL BOARD DROPS THE SWATCHES, because on that variant they name a color
+ * encoding the page does not use. The five chips above are the categorical `--journey-mood-*`
+ * ramp, and they are correct on the LANDSCAPE board, where `.journey-mood[data-mood]` paints
+ * each face from the same ramp — key and mark are the same colors.
+ *
+ * The vertical board encodes mood twice, and neither way is that ramp. The ROW is washed off the
+ * semantic state hues (`--state-fail-hue` / `--state-warn-hue` / `--state-pass-hue`, the rules
+ * below), and the FACE is plotted by POSITION on a numbered track and drawn in the inherited
+ * body ink. Measured on `examples/portrait-journey.pdf` p6: the rows render green, every face is
+ * `--text-body` navy, and the key beside them shows brown, blue, blue, purple, red — five colors
+ * that appear nowhere on the page. The deck's own facing slide says the encoding out loud: "Row
+ * wash — pain warm, delight cool."
+ *
+ * So the swatches go and the scale keeps its verbal anchors and its numerals: `PAIN 1 2 3 4 5
+ * DELIGHT`, which is exactly what the mood track's five gridlines are numbered by and where each
+ * face is plotted. Hiding rather than not emitting, because one transform builds this legend for
+ * both variants (HARD RULE #1) and `data-orient` is the only thing that distinguishes them by
+ * the time it is styled.
+ *
+ * NOT REPLACED WITH THE WASH ITSELF, deliberately. The washes are 10-17% of a hue over
+ * `--journey-task-bg` and mood 3 is the bare task background, so five true-to-the-row chips at
+ * 2.1cqi x 1.25cqi would be five near-white rectangles, one of them invisible. Making them read
+ * needs a border and a size, which is a design pass on the legend rather than the removal of a
+ * false statement. */
+section.journey:has(.journey-board[data-orient="vertical"]) .journey-mood-key-swatch {
+  display: none;
+}
 
 /* ── Key placement: bottom-center ───────────────────────────────────────────
  * A journey board is a WIDE diagram, so its actor + mood keys belong at the

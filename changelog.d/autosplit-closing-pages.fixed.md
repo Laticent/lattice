@@ -160,3 +160,12 @@
   geometry at all. And the split `journey`'s `justify-content: center` tied on specificity with the
   vertical board's own `flex-start` ninety lines above it in the same file, winning on source order
   alone — it carries the board's `[data-orient]` now, so it is a real override.
+- **Fixed: a split `journey`'s mood key named a color encoding the page does not use.** The five
+  swatches are the categorical `--journey-mood-*` ramp, which is right on the LANDSCAPE board,
+  where every face is painted from that same ramp. The vertical board encodes mood twice and
+  neither way is that ramp: the row is washed off the semantic state hues and the face is plotted
+  by POSITION on a numbered track in the inherited body ink. Measured on `portrait-journey.pdf`
+  p6, the rows render green, every face is navy, and the key beside them shows brown, blue, blue,
+  purple and red — five colors that appear nowhere on the page, on a legend this branch repeats
+  once per stage. The vertical variant drops the swatches and keeps the scale's verbal anchors
+  and numerals, which is what the mood track's five gridlines are numbered by.

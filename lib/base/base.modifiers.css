@@ -2343,6 +2343,18 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
    A split slide gets a small k-of-N progress rail; a carousel cover gets the layout's
    manifest-declared "→" lead-in (split.intro). Both read the slide's currentColor, so
    they sit correctly on the accent cover AND the body pages. Palette-blind. */
+/* NOT THE POINTER'S PILL, and that is deliberate rather than an unconverted second producer.
+   The two look adjacent — both are an arrow beside a few words about what comes next — and a
+   reviewer read the cover's as a missed conversion. They are different elements with different
+   sources and different jobs. `.lat-split-rel` is the run's forward POINTER: relationship.js
+   builds it from the member it points AT, and it is margin furniture in the page's bottom-right.
+   This is the LAYOUT's own lead-in, declared in the manifest as `split.intro` ("Two readings",
+   "The reasoning"), and it is the last line of the cover's MASTHEAD — set beside the lede, in the
+   reading flow, at `--fs-emphasis`. Pilling it would shrink a masthead line to chrome size.
+   And it could not take the pill's fill in any case: a split cover is often an accent flood, and
+   the pill's `--bg-alt` body is the one thing it was never designed to survive — which is exactly
+   why the pointer's own note records that no signal ever lands on a cover (counted: 0). This one
+   paints `currentColor` and carries no fill, so it works on the flood and in the print band. */
 .split-cover-lead {
   /* Gap above the lead-in. <div>, no bg, in a no-gap flex column — padding-top reads
    * identically to the old margin-top, and measures cleanly (HARD RULE #20). */
