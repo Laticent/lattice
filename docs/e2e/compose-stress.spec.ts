@@ -414,6 +414,35 @@ test('inserting from the gallery puts the caret in the new slide', async ({ page
 	await expect.poll(() => activeSlide(page)).toBe(2); // directly below the one we asked from
 });
 
+// ── Both pointer states of the insert reveal (@parity) ──────────────────────
+// `onInsertComponent` reveals the new slide with `focus: hasFinePointer()`, and that
+// ternary had never been driven on its FALSE side. It is not cosmetic: focusing the editor
+// on a touch device raises the software keyboard, which on a tablet covers half the screen
+// and has to be dismissed by hand — on every single insert. So on a coarse pointer the
+// reveal must still MOVE (rail and caret land on the new slide) while declining focus, and
+// on a fine pointer it must take the caret so the next keystroke edits what you just chose.
+//
+// ONE oracle, asserting whichever half applies, because `@parity` runs in BOTH pointer
+// states by design (see playwright.config.ts) — `desktop` picks these up too, since its
+// grepInvert only excludes @mobile and @webkit. A test that hard-coded the touch answer
+// passed on `desktop-touch` and FAILED on `desktop`, which is the tag working as intended
+// and the test not. Reading the branch's own input and asserting the matching outcome pins
+// the ternary in both directions at once.
+test('@parity inserting from the gallery reveals the new slide, taking focus only on a fine pointer', async ({ page }) => {
+	const finePointer = await page.evaluate(() => window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+	const n = await slideCount(page);
+	await slideContent(page, 1).click();
+	await composeSlide(page, 1).getByRole('button', { name: 'Add slide below' }).click();
+	await page.getByRole('button', { name: /^Insert Blank/i }).first().click();
+
+	await expect(railButtons(page)).toHaveCount(n + 1);
+	// The reveal itself is unconditional — the new slide is where you are, either way.
+	await expect.poll(() => activeSlide(page)).toBe(2);
+
+	const focused = await page.evaluate(() => !!document.querySelector('.cs-host .ProseMirror')?.contains(document.activeElement));
+	expect(focused, finePointer ? 'a fine pointer should land the caret in the new slide' : 'a coarse pointer must not grab focus (it raises the keyboard)').toBe(finePointer);
+});
+
 // ── The fuzz walk itself ────────────────────────────────────────────────────
 // A deterministic random walk (fixed seed, so a failure is replayable) over the
 // op families a non-technical author actually reaches, asserting the four
