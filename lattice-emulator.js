@@ -995,7 +995,16 @@ function applyImageModePalette(name) {
   }
   return name;
 }
-const paletteName = applyImageModePalette(resolvePalette({ md, cliArg: paletteArg }).name);
+// `resolvePalette` throws on a CLI/env value that is not a palette NAME — it is joined onto the
+// themes directory to build a path, so an unvalidated one reads a stylesheet from anywhere on disk.
+// A usage error deserves a usage message rather than a stack trace.
+let paletteName;
+try {
+  paletteName = applyImageModePalette(resolvePalette({ md, cliArg: paletteArg }).name);
+} catch (e) {
+  console.error(`error: ${e.message}`);
+  process.exit(1);
+}
 // The a11y-* palettes are first-class themes (pick `theme: a11y-deuteranopia`
 // like any theme). Their categorical fills reference texture <pattern> <defs>
 // — SVG markup CSS can't hold — so the engine emits those <defs> per page.
@@ -2106,14 +2115,15 @@ if (LENS_PROJECTION) {
   if (appendedSlides > 0 && LENS_REPORT) {
     LENS_REPORT += `\n  plus ${appendedSlides} appended slide${appendedSlides === 1 ? '' : 's'} (auto-glossary), built from the deck-wide acronym registry — the projection does not prune it`;
   }
-  // DOES THE DECK CARRY CSS OF ITS OWN? A reducing projection refuses if it does, because CSS can
+  // DOES THE DECK CARRY CSS OF ITS OWN? A reducing projection WARNS if it does, because CSS can
   // select a slide by POSITION and a projection moves every slide after the first withheld one — a
   // class no comparison of two renders can see, since the stylesheet and every slide's markup are
   // identical on both sides. `--lens full` keeps every slide in place, so nothing can land anywhere
-  // new and the question does not arise. The rendered markup answers for `<style>` and `<link>`
-  // (including a `<style>` inside an inlined SVG, which leaves no trace in the markdown); the front
-  // matter answers for `style:`, which the CLI injects downstream of the render. Why a refusal rather
-  // than a detector, and the three detectors that lost: see `authorCss` in lib/core/lens-export.mjs.
+  // new and the question does not arise. The rendered markup answers for `<style>`, `<link>` and
+  // `<script>` (including a `<style>` inside an inlined SVG, which leaves no trace in the markdown);
+  // the front matter answers for `style:`, which the CLI injects downstream of the render. Why a
+  // warning rather than a refusal is argued at the warning below; why a presence test rather than a
+  // detector, and the three detectors that lost, is in `authorCss` in lib/core/lens-export.mjs.
   // THE COUNT COMES FROM THE KERNEL, which already returned it. Deriving it again here was one
   // separator-count off on a deck whose body OPENS with a separator: Marpit's leading-group rule makes
   // N+1 chunks render N sections, `chunksWithSeparators` applies it and a bare `slideBoundaries` count
@@ -2122,33 +2132,64 @@ if (LENS_PROJECTION) {
   // leading-group rule that once refused 147 of 147 decks, re-introduced by re-deriving a number the
   // kernel hands back (#1).
   const reducing = LENS_PROJECTION.kept.length < LENS_PROJECTION.total;
-  // THE AUTHOR'S DECK, NOT THE BAKED ONE. `rawMd` is post-`preprocessMermaid`, which splices mmdc's
-  // SVG inline — and mmdc emits its own `<style>` inside it. Asking the baked render meant every deck
-  // carrying a diagram was told it "carries CSS of its own" and to move CSS it had not written: 25 of
-  // the 150 decks in examples/, none of which contains a stylesheet. The corpus test did not catch it
-  // because it asked `render(src)` on the raw source — the right answer to the wrong question, which
-  // is how a measurement certifies a surface nobody ships (#23). Every channel this asks about is
-  // written by the author, so the author's source is what it reads.
+  // EVERY TRANSFORM THAT CARRIES AUTHOR TEXT FORWARD, AND NONE THAT GENERATES ENGINE CONTENT. That is
+  // the rule, and both halves were learned the hard way in consecutive rounds.
+  //
+  // `preprocessMermaid` is excluded because it GENERATES: it splices mmdc's SVG inline, and mmdc bakes
+  // its own `<style>` inside it. Asking the baked render told every deck with a diagram that it
+  // "carries CSS of its own" and to move CSS it had not written — 25 of the 150 decks in examples/.
+  //
+  // `appendAutoGlossary` is INCLUDED because it carries author text: it builds an appendix slide from
+  // the front-matter `acronyms:` registry and emits each `definition` verbatim, so a `<style>` written
+  // in a definition reaches the shipped document. Reading `mdRaw` alone missed it — measured, a
+  // positional rule in an acronym definition hid a paragraph in the full render and showed it in the
+  // projection at exit 0. That is the exact inverse of the mermaid defect, opened by fixing it.
+  //
+  // A new transform between the projection and the render has to be classified: does it move the
+  // author's words, or make our own? The first kind belongs here.
   // `fm` is not bound until much later in this file; the front-matter block comes from the same
   // splitter the projection itself uses, so the two cannot disagree about where it ends.
-  const css = reducing && authorCss(require('./lib/engine/index.js').render(mdRaw).html, fmOf(normSrc(mdRaw)));
-  // AND A STYLESHEET PASSED ON THE COMMAND LINE IS CSS THIS EXPORT CANNOT SEE. `--css sheet.css` (or
-  // the positional form) is concatenated into the document downstream of everything above, so a
-  // positional rule in an org's house sheet ships with exactly the effect a deck-authored one would
-  // and neither channel below can find it. Measured: a `section:nth-of-type(5)` rule in a `--css`
-  // sheet hid a sentence in the full render and showed it in the projection, exit 0.
-  // `cssIsDefault` is the engine's own `dist/lattice.css`, which is not the author's CSS and is
-  // present on every export. Only a sheet the CALLER named is a channel this cannot see into.
-  if (reducing && !cssIsDefault) {
-    console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (author-css) — ${REFUSAL_REASONS['author-css']}`);
-    console.error(`       Found in the stylesheet passed on the command line (${cssFile}). Nothing was exported.`);
-    process.exit(1);
-  }
-  if (css) {
-    const where = { 'front-matter': 'the front-matter `style:` block', style: 'a `<style>` element', link: 'a `<link>` element', script: 'a script element, which can build a stylesheet at run time' }[css.channel];
-    console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (author-css) — ${REFUSAL_REASONS['author-css']}`);
-    console.error(`       Found in ${where}. Nothing was exported.`);
-    process.exit(1);
+  const css = reducing && authorCss(require('./lib/engine/index.js').render(appendAutoGlossary(mdRaw)).html, fmOf(normSrc(mdRaw)));
+  // A STYLESHEET PASSED ON THE COMMAND LINE IS A SIXTH CHANNEL. `--css sheet.css` (or the positional
+  // form) is concatenated into the document downstream of everything above, so a positional rule in an
+  // org's house sheet ships with exactly the effect a deck-authored one would. Measured: a
+  // `section:nth-of-type(5)` rule in a `--css` sheet hid a sentence in the full render and showed it
+  // in the projection. `cssIsDefault` is the engine's own `dist/lattice.css`, present on every export
+  // and not the author's; only a sheet the CALLER named is a channel this cannot see into.
+  const cssChannel = css ? { 'front-matter': 'the front-matter `style:` block', style: 'a `<style>` element', link: 'a `<link>` element', script: 'a script element, which can build a stylesheet at run time' }[css.channel]
+    : (reducing && !cssIsDefault ? `the stylesheet passed on the command line (${cssFile})` : null);
+  // IT WARNS, IT DOES NOT REFUSE — and that is a decision, not an oversight.
+  //
+  // Refusing was tried and the cost was not what the corpus said. `examples/` puts it at 3 decks in
+  // 150, but the Studio embeds the palette CSS in a `<style>` on every markdown export it hands back
+  // (`share-export.ts` fetches it whenever no library theme is set; `embedThemeInMarkdown` splices it
+  // unconditionally), so in practice a refusal takes reader views away from essentially every deck
+  // that leaves the product as `.md`. And the remedy it printed could not be performed: it told the
+  // author to write `section.hushed …`, which lives in a `<style>`, which was refused. There was
+  // nowhere in a deck to put CSS the export would accept.
+  //
+  // Against that: the threat has ZERO observed instances across all 150 decks — a positional selector
+  // of any spelling appears in none of them — and this repo already deleted a scanner for it once, by
+  // name, on exactly that evidence. HARD RULE #29 says what to do with a rule that would refuse an
+  // author's deck for their own good: "authors can do whatever they want… when there are better
+  // alternatives we should present a warning and suggest fixes and help them fix it. We warn, we coach."
+  //
+  // Warning also removes the pressure that produced the worst defect this check has had. A refusal has
+  // to avoid false positives, which is why it grew a hand-rolled HTML tokenizer to skip comments — and
+  // that tokenizer read `<!--` inside an ATTRIBUTE VALUE as a comment opener, so one such attribute
+  // switched the whole guard off document-wide. A warning can over-fire harmlessly, so the test can
+  // stay a plain byte match and the tokenizer never needs to exist.
+  // UNGATED BY `--quiet`, like the other warnings in this file that a pipeline needs to see. This one
+  // is about what leaves the building; a privacy warning `--quiet` hides is a warning nobody reads.
+  if (cssChannel) {
+    const moved = LENS_PROJECTION.kept.map((at, i) => (at === i ? null : `${at + 1}→${i + 1}`)).filter(Boolean);
+    console.warn(`warning: this deck carries CSS of its own — ${cssChannel}.`);
+    console.warn('         CSS can select a slide by POSITION (`section:nth-of-type(3) …` counts to the third slide),');
+    console.warn(`         and this view renumbers ${moved.length} slide${moved.length === 1 ? '' : 's'}${moved.length ? ` (${moved.slice(0, 6).join(', ')}${moved.length > 6 ? ', …' : ''})` : ''}.`);
+    console.warn('         A rule written for one slide can land on another: a paragraph you hid can come back, and a');
+    console.warn('         classification marking can print on the wrong slide. Nothing in the two renders shows this,');
+    console.warn('         because the stylesheet and every slide\'s markup are identical on both sides — so check the');
+    console.warn('         exported file, or move the CSS into a theme the renderer already ships.');
   }
   const indexDrift = authoredIndexDrift(
     require('./lib/engine/index.js').render(rawMd).html,

@@ -233,7 +233,7 @@ land on a slide you never marked. This is the one thing comparing the two render
 show you, because nothing textual moves: the stylesheet is identical in both files, and so
 is every slide's markup. Only which slide the rule counts to has changed.
 
-So a reducing view refuses when your deck carries any CSS of its own, or anything that could
+So a reducing view **warns** when your deck carries any CSS of its own, or anything that could
 build some: a front-matter `style:`, a `<style>` or a `<link>` anywhere in the deck, a
 `<script>` (three lines of it can add a stylesheet while the page loads), or a stylesheet you
 passed on the command line with `--css`.
@@ -248,7 +248,7 @@ reader sees in both renders; it was walked past by `display:none` on a wrapper e
 enumerate something with no end to it. "Does this deck carry CSS?" has an end to it, because
 you cannot write a positional rule without writing CSS.
 
-**The cost, measured:** 3 of the 150 decks this repo ships are refused — two for a `<style>`,
+**The cost, measured:** 3 of the 150 decks this repo ships warn — two for a `<style>`,
 one for a `<script>`. All three are already refused under *some* projection shapes by the
 check above, so this widens an existing refusal rather than opening a new one; across the six
 shapes the corpus test runs, it newly refuses 10 (deck, shape) pairs. `--lens full` is
@@ -262,9 +262,16 @@ reader view. That rule is scoped to a class and could not select a slide by posi
 telling it apart from one that could is the question three checks lost, so this one takes it
 too.
 
-**The fix, when it refuses:** style the slide through a class you set on it —
-`<!-- _class: hushed -->` and `section.hushed …`. A class travels with the slide instead of
-counting to it.
+**What to do when it warns:** look at the exported file, and check the slides the warning
+names. If the CSS is scoped to a class you set on the slide (`<!-- _class: hushed -->` and
+`section.hushed …`) it travels with the slide and nothing has moved. If it counts to a slide
+(`section:nth-of-type(3)`), it now lands somewhere else — move it into a theme this repo
+ships, or export the whole deck.
+
+**It warns rather than refusing, deliberately.** Refusing was tried: it takes reader views
+away from essentially every deck the Studio hands back as `.md`, because the Studio embeds
+the palette CSS in a `<style>`, and the threat it guards has zero observed instances across
+all 150 decks. HARD RULE #29 is the house posture for a rule like that — we warn, we coach.
 
 **And your `captions:` travel with the slides.** The block is keyed by slide number, so a
 projection renumbers it: entries for withheld slides are dropped, and the rest are

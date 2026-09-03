@@ -8,9 +8,9 @@
   bodies emptied — so deck length is held fixed and the only thing that can differ is what a withheld
   slide was contributing. A second hop compares that stand-in against what actually SHIPS, so the
   check is a statement about the artifact rather than about a proxy for it. Over the same corpus it
-  now refuses exactly one deck, `examples/slide-class-forms.md`, which carries a live
-  `<!-- class: diagram dark -->` global that a later slide inherits — a true find the corpus test
-  pins by name.
+  now refuses four decks across the six projection shapes the corpus test runs — each for real
+  cross-slide state, each pinned by name with its cause, and each found only under a shape that
+  actually withholds the slide carrying it.
 - **Fixed: a `<style>` block on a withheld slide is now seen.** A `<style>` is document CSS wherever
   it is written, so `section[data-authored-slide="0"] p:nth-of-type(2) { display: none }` on slide 1
   hides a paragraph on slide 0. Dropping the slide that carried the rule UNHID the paragraph in the
@@ -39,8 +39,9 @@
 - **Fixed: the dot rail was stripped with the lazy regex two other modules refuse by name.**
   `lib/core/split-envelope.js` and `lib/diagnostics/slice-equivalence-core.mjs` both write down why
   `/<div class="tile-progress"[\s\S]*?<\/div>/` is wrong — the rail is a nestable tag, so the match
-  ends at the first inner `</div>` — and both take the depth-aware `matchingDivClose`. This now does
-  too. Latent today, since the dots are `<span>`s; a test drives it through the injected renderer,
+  ends at the first inner `</div>`. Their answer is the depth-aware `matchingDivClose`; this one went
+  further and matches the exact markup the renderer emits, because a self-contained pattern can only
+  remove what it matched, and a depth-aware walk still follows an author's forged opening tag. Latent today, since the dots are `<span>`s; a test drives it through the injected renderer,
   which is the only way to reach a guard no real deck can trip.
 - **Changed: the neutralizer list is named and pinned.** Every entry blinds the comparison a little
   further and the list only grows, so the eight axes are exported as `POSITION_NEUTRALIZERS` with a
@@ -88,46 +89,53 @@
   it, so it belongs to no view and cannot misdirect one; the count is derived by splitting both
   sources rather than by naming the transform, so the next appender is counted without being named.
   The report line now says so too — "2 of 3 slides ship" beside a three-slide file described neither.
-- **New: a deck that carries CSS of its own cannot be projected into a reader view.**
+- **New: a reader view warns when the deck carries CSS of its own.**
   `section:nth-of-type(3) p { display: none }` lands on a different slide once a projection makes the
   deck shorter — measured, a paragraph the author hid renders at 770×36 pixels in the shipped file, and
   an `::after` classification marking drops out of the exported PDF (`pdftotext` 1 → 0). Comparing the
   two renders cannot see it: the stylesheet is byte-identical on both sides and so is every slide's
-  markup. So a reducing projection now refuses when the deck carries CSS of its own, or anything that
-  could build some: a front-matter `style:`, a `<style>` or a `<link>` in the author's slide markup, a
-  `<script>` (three lines of one can append a stylesheet at run time), or a sheet passed with `--css`.
+  markup. So a reducing projection now warns when the deck carries CSS of its own, or anything that
+  could build some — a front-matter `style:`, a `<style>`, a `<link>`, a `<script>`, or a sheet passed
+  with `--css` — naming the channel and the slides the view renumbered.
   **Three checks tried to tell dangerous CSS from harmless CSS, and all three lost — each to a
   different unbounded space.** A text scanner asked how a rule is SPELLED: against 24 real idioms it
-  refused 7 of 12 harmless ones and missed 6 of 12 dangerous ones, because `section[id="3"]` selects by
-  position too. Asking the browser which slides each rule SELECTS parsed nothing and was still walked
-  past six ways in one sitting — CSS nesting (`section { &:nth-of-type(3) … }`, the spelling an author
-  actually writes), `@scope`, a `<link>`, a `<style>` inside an inlined SVG, an `@import`, and an
-  unterminated `/*` swallowing the next slide's rules. Comparing what a READER SEES in both renders
-  parsed no CSS at all and lost to the ways a thing can be hidden: `display:none` on a WRAPPER leaves
-  the child at `display: block` in computed style (measured in Chrome), so the ordinary spelling walked
-  through the check built for it, and `color: transparent`, `font-size: 0`, `clip-path`, a hidden
-  `<img>`, a swapped `background-image` and `::marker` were invisible to it too. Each detector needed to
-  enumerate something endless. "Does this deck carry CSS?" ends, because a positional rule cannot be
-  written without CSS.
-  **It asks the RENDERED document, not the markdown**, which is what closes the two bypasses a
-  source-level gate would keep: a `<link>` and an SVG `<style>` both put author CSS in the document
-  while leaving no `<style>` in the source, and both are plainly elements once rendered. The engine's
-  own stylesheets attach downstream of the render and are not in that markup, so a `<style>` there was
-  written by the author. Front matter is read through the one reader the document is also built from.
-  **Measured cost: 3 of the 150 decks in `examples/`** — `finish-backdrops` and `finish-override` for a
-  Studio-written `<style>` on slide 0, `gallery-jargon` for two `<script src>` tags. The cross-slide
-  check already refuses all three under some projection shapes, so this widens an existing refusal
-  rather than opening a new one; it does not vanish, and the honest number is 10 newly refused
-  (deck, shape) pairs across the corpus test's six shapes. A deck whose CSS is entirely benign is
-  refused too, and that is the price. `--lens full` is unaffected: it keeps every slide in place, so
-  nothing can land anywhere new.
-  **One cost is a conflict inside the product, not a stranger's edge case.**
-  `lib/base/base.registers.docs.md` tells authors to set a finish's mark glyph with a per-deck
-  `<style>section.finish-meridian { --fin-mark-text: "Q3"; }</style>`, and the Studio's share and
-  export paths splice a `<style>` into the markdown they hand back for any deck using a saved finish,
-  theme or library component. Those decks cannot be projected into a reader view. That rule is
-  class-scoped and could not select by position — but telling it from one that could is the question
-  three detectors lost, so the refusal takes it too. Closes #2053.
+  refused 7 of 12 harmless ones and missed 6 of 12 dangerous ones. Asking the browser which slides each
+  rule SELECTS parsed nothing and was still walked past six ways in one sitting — CSS nesting, `@scope`,
+  a `<link>`, an SVG `<style>`, an `@import`, and an unterminated `/*`. Comparing what a READER SEES in
+  both renders parsed no CSS at all and lost to the ways a thing can be hidden: `display:none` on a
+  WRAPPER leaves the child at `display: block` in computed style, so the ordinary spelling walked
+  through the check built for it. Asking whether CSS is PRESENT ends, because a positional rule cannot
+  be written without CSS.
+  **It warns rather than refusing, and the refusal was tried first.** On `examples/` a refusal costs 3
+  decks in 150 — but the Studio embeds the palette CSS in a `<style>` on every markdown export it hands
+  back, so in practice it takes reader views away from essentially every deck that leaves the product
+  as `.md`. And the remedy it printed could not be performed: it told the author to write
+  `section.hushed …`, which lives in a `<style>`, which was refused. Against that, the threat has
+  **zero observed instances** across all 150 decks, and this repo already deleted a scanner for it once
+  on exactly that evidence. HARD RULE #29 is the house posture for a rule that would refuse an author's
+  deck for their own good: *we warn, we coach.*
+  **Warning is also what keeps the detector safe.** A refusal has to avoid false positives, and buying
+  that precision grew the check a hand-rolled HTML tokenizer to skip comments — which read `<!--`
+  inside an ATTRIBUTE VALUE as a comment opener, so one such attribute switched the whole guard off
+  document-wide, measured shipping a hidden paragraph into an exported PDF. A warning may over-fire
+  harmlessly, so the test is a plain byte match and there is no tokenizer to be wrong.
+  It reads the AUTHOR's deck plus every transform that carries the author's words forward
+  (`appendAutoGlossary` emits each `acronyms:` definition verbatim), and none that generates engine
+  content (`preprocessMermaid` bakes mmdc's own `<style>` into every SVG). Closes #2053.
+- **Fixed: a `--palette` value was a path, not a name.** The front-matter `theme:` reader has always
+  constrained it to `[A-Za-z0-9_-]+`; the CLI argument and `LATTICE_PALETTE` did not, and the value is
+  joined onto the themes directory to build a file path — so `--palette ../elsewhere/sheet` read a
+  stylesheet from anywhere on disk, which also carried CSS past the reader-view check. It is now the
+  same constraint in all three places, and an invalid value is a usage error rather than a silent
+  fallback to the default palette.
+- **Fixed: a view that withheld a slide carrying a diagram always refused.** `preprocessMermaid` stamps
+  each diagram with its position in that render's request list, and emptying a withheld slide renumbers
+  every later stamp — so a kept slide compared unequal on nothing but `data-mmd-idx`, and the export
+  refused with a `cross-slide` message naming a `footer:`/`class:`/`<style>` the deck does not contain.
+  Reproduced on 6 of 6 shipped decks with a diagram. The stamp joins the eight neutralized axes. The
+  147-deck corpus sweep could not have caught it: it drives the engine directly with no mermaid bake,
+  so the attribute is on neither side of any of its comparisons — the same "measured on a document
+  nobody ships" defect as the author-CSS gate had, in the sibling check.
 - **Fixed: `--lens` crashed on every deck carrying a mermaid diagram — 25 of the 150 in `examples/`.**
   `preprocessMermaid` took each diagram's index from a module-level array while its render batch was
   rebuilt per call; the declaration said in so many words that it was single-shot and to reset it if

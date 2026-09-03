@@ -59,3 +59,8 @@
   declares and how long each is named, and the width caps that kept it inside a phone screen
   truncated the names to "B… E… T…". One `<select>` costs one control however many views ship, keeps the full names in the
   platform's own picker, and flexes with the bar instead of budgeting it.
+- **Changed: `--palette` and `LATTICE_PALETTE` take a palette NAME, not a path.** The value is joined
+  onto the themes directory to build a file path, and only the front-matter `theme:` reader had ever
+  constrained it — so `--palette ../elsewhere/sheet` loaded a stylesheet from anywhere on disk. All
+  three sources now take the same `[A-Za-z0-9_-]+` shape, and a value that is not a name is a usage
+  error rather than a silent fallback to the default palette.

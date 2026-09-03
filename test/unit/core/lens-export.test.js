@@ -1090,23 +1090,26 @@ const EXPECTED_AUTHOR_CSS = ['finish-backdrops.md', 'finish-override.md', 'galle
  * joins the set — the shape of a widening a reviewer should have to look at.
  */
 test.describe('refusing on author CSS costs exactly these decks', () => {
-	test('2 of the 150 example decks carry CSS of their own', () => {
+	test('3 of the 150 example decks carry CSS of their own', () => {
 		const fs = require('node:fs');
 		const path = require('node:path');
 		const { render } = engine;
+		const { appendAutoGlossary } = require('../../../lib/core/glossary-auto.mjs');
 		const dir = path.join(__dirname, '..', '..', '..', 'examples');
 		const files = fs.readdirSync(dir).filter((f) => f.endsWith('.md'));
 		assert.equal(files.length, 150, 'the corpus is the whole examples/ directory');
 		const hits = [];
 		for (const f of files) {
 			const src = fs.readFileSync(path.join(dir, f), 'utf8');
-			// THE AUTHOR'S SOURCE, which is what the CLI hands the gate. This comment used to claim the
-			// same thing while the CLI was passing the MERMAID-BAKED source, and the difference was 25
-			// decks: mmdc emits a `<style>` inside every SVG it bakes, so every deck with a diagram was
-			// refused and this test reported 2. A measurement whose input is not the shipping input is the
-			// right answer to the wrong question (#23) — the number it produced went into a changelog, a
-			// skills doc and a PR body before anyone re-derived it on the real CLI.
-			if (authorCss(render(src).html, frontMatterBlockOf(normalizeSourceText(src)))) hits.push(f);
+			// THE SAME INPUT THE CLI HANDS THE GATE, and getting that wrong is how this test has already
+			// lied twice. It once rendered the raw source while the CLI rendered the MERMAID-BAKED one,
+			// and the difference was 25 decks — mmdc bakes a `<style>` into every SVG, so every deck with
+			// a diagram was refused while this reported 2. Then the CLI moved to the author's source and
+			// gained `appendAutoGlossary`, which emits each `acronyms:` DEFINITION verbatim, so a
+			// `<style>` written in a definition ships without passing here. A measurement whose input is
+			// not the shipping input is the right answer to the wrong question (#23), and its number went
+			// into a changelog, a skills doc and a PR body before anyone re-derived it on the real CLI.
+			if (authorCss(render(appendAutoGlossary(src)).html, frontMatterBlockOf(normalizeSourceText(src)))) hits.push(f);
 		}
 		assert.deepEqual(hits.sort(), EXPECTED_AUTHOR_CSS, 'a deck joining or leaving this set is a decision');
 	});
@@ -1186,27 +1189,24 @@ test.describe('a deck that carries CSS of its own cannot be projected', () => {
 		}
 	});
 
-	test('an HTML comment hides a tag, and the ABRUPT-CLOSING forms do not', () => {
-		// `<!-->` and `<!--->` are complete, empty comments per the HTML spec, so markup after them is
-		// LIVE — measured in Chrome, `<!--><style>p{color:red}</style>` really does paint the paragraph.
-		// The first version of this scan looked only for `-->` and treated everything after `<!-->` as
-		// commented out, which is the leak direction: it would have certified a deck whose positional
-		// stylesheet a browser applies. `--!>` ends a comment too.
-		const live = [
-			'<!-- c --><style>p{}</style>',
-			'<!--><style>p{}</style>',
-			'<!---><style>p{}</style>',
-			'<!----><style>p{}</style>',
-			'<!-- a --!><style>p{}</style>',
-			'<!--<!-- --><style>p{}</style>',
-			'<!--a--><style>p{}</style>',
-		];
-		for (const html of live) assert.deepEqual(authorCss(`<section>${html}</section>`, ''), { channel: 'style' }, html);
-		// Genuinely commented out, and an unclosed comment really does swallow the rest of the document —
-		// a browser finds no element after it at all, so there is no live `<style>` to refuse.
-		for (const html of ['<!-- <style>p{}</style> -->', '<!-- oops <style>p{}</style>']) {
-			assert.equal(authorCss(`<section>${html}</section>`, ''), null, html);
-		}
+	test('a comment does NOT hide a tag, and that is the second time it was decided', () => {
+		// Skipping comments was a nicety — so a deck that merely MENTIONS `<style>` in a note is not
+		// refused — and buying it meant deciding, from a string, which bytes a PARSER calls a comment.
+		// That is a hand-rolled tokenizer, and it failed the way hand-rolled tokenizers do: a `<!--`
+		// inside an ATTRIBUTE VALUE is ordinary text to a browser and a comment opener to a backward
+		// scan, so ONE such attribute anywhere in a deck blinded all three channels on every later
+		// slide. Measured: a document-wide off switch that shipped a hidden paragraph into an exported
+		// PDF at exit 0. `<![CDATA[`, `<title>`, `<textarea>` and an unquoted attribute did it too.
+		//
+		// So the tag wins wherever it appears. The cost is refusing a deck that talks about `<style>` in
+		// a comment, which the author fixes by deleting the comment; the benefit is that there is no
+		// tokenizer to be wrong.
+		assert.deepEqual(authorCss('<section><!-- drop the <style> hack --></section>', ''), { channel: 'style' });
+		// The attribute that used to be an off switch:
+		const kill = '<span title="<!--">.</span>';
+		assert.deepEqual(authorCss(`<section>${kill}</section><section><style>p{}</style></section>`, ''), { channel: 'style' });
+		assert.deepEqual(authorCss(`<section>${kill}</section><section><link rel=stylesheet></section>`, ''), { channel: 'link' });
+		assert.deepEqual(authorCss(`<section><![CDATA[ <!-- ]]></section><section><script>x</script></section>`, ''), { channel: 'script' });
 	});
 
 	test('a `<script>` is a CSS channel, because it can build one at run time', () => {
@@ -1234,6 +1234,49 @@ test.describe('a deck that carries CSS of its own cannot be projected', () => {
  * flatters the result, so each is named and each is a choice… adding an entry back is not a tuning
  * knob." Changing this constant is how the next entry gets a reviewer.
  */
+/**
+ * A DIAGRAM'S BAKE INDEX IS POSITION-DERIVED, and the corpus sweep structurally cannot see it.
+ *
+ * `preprocessMermaid` stamps each diagram with its position in that render's own request list. The
+ * proxy empties a withheld slide's body, so it renders one fewer diagram and every later stamp shifts
+ * by one — and hop 1's section compare reported a kept slide as drifted on nothing but that number.
+ * Measured on the real CLI: 6 of 6 shipped decks with a diagram refused any view that dropped one,
+ * with a `cross-slide` message naming a `footer:`/`class:`/`<style>` none of those decks contains.
+ *
+ * The 147-deck sweep below drives `engine.render` DIRECTLY, with no mermaid bake, so `data-mmd-idx`
+ * appears on neither side of any of its 882 comparisons — it certified the check clean over a document
+ * the CLI does not produce. That is the same defect the author-CSS gate had one commit earlier, in the
+ * sibling check, and this arm exists because a corpus measurement could not be the one to catch it.
+ */
+test.describe('a diagram\'s bake index does not read as drift', () => {
+	/** A slide carrying `body`, with a diagram stamped by its position in THIS render when `idx` is
+	 *  given. The body is keyed to the slide's CONTENT, not its number — a projection renumbers the
+	 *  slide, and text that moved with the number would fail hop 2 for a reason this test is not about. */
+	const sec = (at, idx, body) =>
+		`<section data-authored-slide="${at}">${idx === null ? '' : `<div class="mermaid-svg" data-mmd-idx="${idx}"><svg></svg></div>`}<p>${body}</p></section>`;
+
+	test('a withheld diagram shifts every later stamp, and that is not a finding', () => {
+		const chunks = [
+			'<!-- _lens: brief -->\n\n# Cover\n\nQ3.\n',
+			'\n# Internal\n\n```mermaid\ngraph TD; A-->B\n```\n',
+			'\n<!-- _lens: brief -->\n\n# The ask\n\n```mermaid\ngraph TD; C-->D\n```\n',
+		];
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		// Three documents, three stampings, and the shift is the whole point: slide 2's diagram is the
+		// SECOND baked in the full deck and the FIRST once slide 1 is emptied or dropped.
+		const stub = (source) => {
+			if (source.includes('Internal')) return sec(0, null, 'Cover') + sec(1, 0, 'Internal') + sec(2, 1, 'Ask');
+			// The proxy keeps the deck's length — slide 1 is present and empty, so the Ask's diagram is
+			// the first baked rather than the second.
+			if (source.includes('<!-- -->')) return sec(0, null, 'Cover') + sec(1, null, '') + sec(2, 0, 'Ask');
+			// What ships: two slides, renumbered, same stamping as the proxy.
+			return sec(0, null, 'Cover') + sec(1, 0, 'Ask');
+		};
+		assert.equal(crossSlideDrift(src, out.source, out.kept, stub), null, 'a renumbered bake index is not the deck changing');
+	});
+});
+
 test.describe('the neutralizer set is a pinned decision, not a growing convenience', () => {
 	test('the axes the comparison forgives are exactly these eight', () => {
 		assert.deepEqual(Object.keys(POSITION_NEUTRALIZERS).sort(), [
