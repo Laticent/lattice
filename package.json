@@ -231,6 +231,7 @@
     "test:transformers": "node --test 'test/unit/transformers/*.test.js'",
     "test:authoring": "node --test 'test/unit/authoring/*.test.js'",
     "test:core": "node --test 'test/unit/core/*.test.js'",
+    "test:docs": "node --test 'test/unit/docs/*.test.js'",
     "test:css": "node --test 'test/unit/css/*.test.js'",
     "test:export": "node --test 'test/unit/export/*.test.js'",
     "test:release": "node --test 'test/unit/release/*.test.js'",

@@ -18,6 +18,8 @@ export type RestyleData = {
 	themeBase: string;
 	runtimeUrl: string;
 	engineUrl: string;
+	mermaidUrl: string;
+	katexUrl: string;
 };
 
 export default function RestyleShowcase({ data }: { data: RestyleData }) {
@@ -25,7 +27,13 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 	const [idx, setIdx] = React.useState(0);
 	const stageRef = React.useRef<HTMLDivElement>(null);
 	const engineRef = React.useRef(
-		createSingleSlideRenderer({ themeBase: data.themeBase, runtimeUrl: data.runtimeUrl, engineUrl: data.engineUrl }),
+		createSingleSlideRenderer({
+			themeBase: data.themeBase,
+			runtimeUrl: data.runtimeUrl,
+			engineUrl: data.engineUrl,
+			mermaidUrl: data.mermaidUrl,
+			katexUrl: data.katexUrl,
+		}),
 	);
 
 	const idxRef = React.useRef(idx);

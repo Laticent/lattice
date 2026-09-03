@@ -9,7 +9,7 @@
 import { resolveTokenColor, stageChromeDecls } from '@/components/studio/present/stage-chrome.js';
 import { buildStageDoc } from '@/components/studio/present/stage-window.js';
 import { currentPaletteMode, type SingleSlideOptions } from '@/lib/single-slide-render';
-import { A11Y_DEFS, KATEX_URL, MERMAID_URL } from '@/playground/deck-preview.js';
+import { A11Y_DEFS } from '@/playground/deck-preview.js';
 import { buildDeckRender, type ExtraTheme } from './share-export';
 
 /** `#rrggbb` → [r,g,b]. The letterbox is ours and always a literal, so this is all it needs. */
@@ -46,12 +46,15 @@ export async function buildStageDocument(options: SingleSlideOptions, source: st
 		// are styled on the Stage too.
 		css: render.fontCss + render.css + (extraCss ? `\n${extraCss}` : ''),
 		runtimeUrl: render.runtimeUrl,
-		// Inject KaTeX / Mermaid only when the deck actually has math / a diagram, and
-		// prefer the Studio's locally-vendored copies (studio.astro passes both) so the
-		// projected window renders from our own origin, never jsdelivr. buildStageDoc omits
-		// each when its URL is '' — so a plain deck's Stage pulls neither.
-		katexUrl: render.html.includes('katex') ? options.katexUrl || KATEX_URL : '',
-		mermaidUrl: render.html.includes('language-mermaid') ? options.mermaidUrl || MERMAID_URL : '',
+		// Inject KaTeX / Mermaid only when the deck actually has math / a diagram, from
+		// the Studio's locally-vendored copies (studio.astro passes both) so the
+		// projected window renders from our own origin. buildStageDoc omits each when its
+		// URL is '' — so a plain deck's Stage pulls neither. There is deliberately NO
+		// jsdelivr fallback here any more: if a host stops passing these the math or the
+		// diagram goes unstyled/unrendered, which is visible, rather than quietly
+		// executing a floating third-party bundle. See deck-preview.js's note.
+		katexUrl: render.html.includes('katex') ? options.katexUrl || '' : '',
+		mermaidUrl: render.html.includes('language-mermaid') ? options.mermaidUrl || '' : '',
 		a11yDefs: A11Y_DEFS,
 		// The projected window, not an iframe: this is what adds the audience-chrome
 		// hosts, the opener handshake and the `f` fallback (see buildStageDoc).

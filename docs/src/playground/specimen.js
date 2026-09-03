@@ -78,7 +78,15 @@ export function initSpecimen() {
     editor: null,
   };
 
-  const lr = createSingleSlideRenderer({ themeBase: data.themeBase, runtimeUrl: data.runtimeUrl, engineUrl: data.engineUrl });
+  // mermaidUrl/katexUrl come from Specimen.astro's `specimen-data` JSON — the
+  // locally-vendored copies. There is no CDN fallback behind them any more.
+  const lr = createSingleSlideRenderer({
+    themeBase: data.themeBase,
+    runtimeUrl: data.runtimeUrl,
+    engineUrl: data.engineUrl,
+    mermaidUrl: data.mermaidUrl,
+    katexUrl: data.katexUrl,
+  });
 
   function setStatus(msg, isErr) {
     if (!statusEl) return;

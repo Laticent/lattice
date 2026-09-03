@@ -35,6 +35,11 @@ const dataJson = JSON.stringify({
 	themeBase: url(pg + 'themes/'),
 	runtimeUrl: url(pg + 'lattice-runtime.js'),
 	engineUrl,
+	// Locally-vendored Mermaid + KaTeX. A specimen takes a `mermaid` prop, so these
+	// tiles do render diagrams; with the CDN fallback removed, omitting these would
+	// silently leave a specimen's diagram blank instead of reaching jsdelivr.
+	mermaidUrl: url(pg + 'export/mermaid-v11.min.js'),
+	katexUrl: url(pg + 'katex/katex.min.css'),
 	playgroundUrl: url('playground/'),
 });
 ---

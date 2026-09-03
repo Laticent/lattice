@@ -17,11 +17,19 @@ export type FieldCardsData = {
 	themeBase: string;
 	runtimeUrl: string;
 	engineUrl: string;
+	mermaidUrl: string;
+	katexUrl: string;
 };
 
 export default function FieldCardsLive({ data }: { data: FieldCardsData }) {
 	const engineRef = React.useRef(
-		createSingleSlideRenderer({ themeBase: data.themeBase, runtimeUrl: data.runtimeUrl, engineUrl: data.engineUrl }),
+		createSingleSlideRenderer({
+			themeBase: data.themeBase,
+			runtimeUrl: data.runtimeUrl,
+			engineUrl: data.engineUrl,
+			mermaidUrl: data.mermaidUrl,
+			katexUrl: data.katexUrl,
+		}),
 	);
 	const renderedRef = React.useRef<HTMLElement[]>([]);
 

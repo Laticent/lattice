@@ -33,6 +33,36 @@ describe('buildSrcdoc — asset gating', () => {
 		expect(doc).toContain('mermaid.js');
 		expect(doc).not.toContain('katex.css');
 	});
+
+	// THE URL HALF OF THE GATE, which was missing until 2026-09-03. These sites used to
+	// key on CONTENT alone, so a math or diagram deck meeting a caller that passed no URL
+	// emitted `<link rel="stylesheet" href="">` / `<script src=""></script>`. Harmless in
+	// Chromium (measured: neither empty attribute produces a request), but it made the
+	// self-hosting record's stated safety property — "a missing URL means no tag" — false
+	// at three of five injection sites, in a change whose whole subject was claims nobody
+	// re-derives. With the CDN fallbacks deleted there is nothing behind an absent URL, so
+	// "inject nothing" is the only correct behavior.
+	// See engineering/decisions/2026-09-03-self-hosted-runtime-deps.md.
+	it('a math deck with NO katexUrl injects no stylesheet at all — never an empty href', () => {
+		const doc = buildSrcdoc({
+			...base,
+			katexUrl: '',
+			html: '<section id="1"><span class="katex">x</span></section>',
+		});
+		expect(doc).not.toContain('href=""');
+		expect(doc).not.toContain('rel="stylesheet"');
+	});
+
+	it('a diagram deck with NO mermaidUrl injects no script at all — never an empty src', () => {
+		const doc = buildSrcdoc({
+			...base,
+			mermaidUrl: '',
+			html: '<section id="1"><pre><code class="language-mermaid">graph TD</code></pre></section>',
+		});
+		expect(doc).not.toContain('src=""');
+		// …and the runtime, which is a different URL, still ships.
+		expect(doc).toContain('/rt.js');
+	});
 });
 
 // Print CSS (browser ⌘P / "Print deck") — pick the least-wasteful standard sheet for

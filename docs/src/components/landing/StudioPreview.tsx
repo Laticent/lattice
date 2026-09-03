@@ -29,10 +29,18 @@ export type StudioPreviewData = {
 	themeBase: string;
 	runtimeUrl: string;
 	engineUrl: string;
+	mermaidUrl: string;
+	katexUrl: string;
 };
 
 export default function StudioPreview({ data }: { data: StudioPreviewData }) {
-	const options = { themeBase: data.themeBase, runtimeUrl: data.runtimeUrl, engineUrl: data.engineUrl };
+	const options = {
+		themeBase: data.themeBase,
+		runtimeUrl: data.runtimeUrl,
+		engineUrl: data.engineUrl,
+		mermaidUrl: data.mermaidUrl,
+		katexUrl: data.katexUrl,
+	};
 
 	return (
 		<div className="lx-ui min-w-0">
