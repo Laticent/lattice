@@ -1,4 +1,4 @@
-- **Added: `examples/system-design-foundations.md`, a 216-slide system-design tutorial for
+- **Added: `examples/system-design-foundations.md`, a 218-slide system-design tutorial for
   engineers in their first years.** It opens on one engineer's Tuesday told wake-to-sleep with
   no vocabulary at all, then names each thing she met — system, purpose, boundary, environment,
   process, model, constraint, invariant, infrastructure, emergence — against the timestamp that
@@ -23,7 +23,7 @@
   access, then a capability no shape provides (similarity, ranked text, proximity, live push,
   retention, traversal), then the operational properties that break a tie — so a capability adds
   a store beside the source rather than replacing it. Part seven maps the feed design back to the
-  kits, runs the removal test on it, and hands over a nine-field worksheet. Thirty-one Mermaid diagrams and one bar chart, each carrying a key insight,
+  kits, runs the removal test on it, and hands over a nine-field worksheet. Thirty-two Mermaid diagrams, each carrying a key insight,
   `profile: teaching`, and a generated glossary appendix from the deck's own acronym registry.
   Every diagram was sized against the deck's own smallest type token: the six kit-pattern
   diagrams that held four panels each are now twelve two-panel diagrams, which took their node

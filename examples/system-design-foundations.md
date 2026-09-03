@@ -1262,7 +1262,7 @@ The genuinely derived stores are the search index, the vector index, the cache a
 | Key-value | Exact key | Engine-specific | Horizontal | Rich queries |
 | Document | Key, secondary index | Engine-specific | Horizontal | Facts split across documents |
 | Wide-column | Partition plus range | Tunable | Horizontal | New query patterns |
-| Object store | Exact key | Read-after-write on new keys | Effectively unbounded | Listing, and changing part of an object |
+| Object store | Exact key | Read-after-write, overwrites included | Effectively unbounded | Listing, and changing part of an object |
 
 ---
 
@@ -1890,7 +1890,7 @@ $$ L = \lambda W $$
 
 At 2,000 requests per second averaging 50 milliseconds each, 100 requests are in flight at any moment. That is your minimum concurrency, and no tuning makes it smaller while the other two numbers hold.
 
-Maya's Tuesday is the same arithmetic at human scale. Two builds a day, twelve minutes each, leave the pipeline idle for almost the whole day, so nothing she pushes ever queues — which is how you know the twelve minutes was never her bottleneck. The reviewer was. Find your own numbers — arrivals on the load balancer, duration in the handler.
+Maya's Tuesday is the same arithmetic at human scale. Two builds a day at twelve minutes each leave the build fleet idle almost all day — which tells you it has spare capacity and nothing else. Low utilization never means off the critical path. The reviewer was her bottleneck because he was serial, had five pull requests queued in front of him, and was awake for one of the hours that mattered.
 
 ---
 
@@ -2236,9 +2236,11 @@ flowchart LR
   end
   subgraph z3["Your services"]
     S(["Service"])
+  end
+  subgraph z4["Your data"]
     D[("Data")]
   end
-  subgraph z4["Somebody else's service"]
+  subgraph z5["Somebody else's service"]
     T(["Third party"])
   end
   U -->|"authn, validate input"| E
@@ -2452,7 +2454,7 @@ Do not draw an architecture. Four lines again, then turn the page.
 
 ## Sixteen entries, six sets of invariants, and one thing worth admitting.
 
-You will not reach for most of these. The two designs ahead spend ten between them, and the smaller one spends five. That is what a kit is: what you own, not what you use.
+You will not reach for most of these. The bigger design ahead spends six of them, and the smaller one spends five. That is what a kit is: what you own, not what you use.
 
 The entries are concepts, not products, so they outlast the names. What you carry out of here is the sentence you can now say when you did not reach for something.
 
@@ -2767,28 +2769,24 @@ The two strategies fail at opposite ends of the same graph, so the design uses e
 
 Fifty thousand puts a fraction of a percent of accounts on the pull path, yet someone following three hundred typically has ten to thirty above it — the accounts a person picks are not a random sample.
 
-Thirty pulls at a one-percent slow call puts the page in trouble, so **cap the pulls at twenty**, newest first.
+Thirty pulls at a one-percent slow call puts the page in trouble, so **cap the pulls at twenty**. Which twenty is the harder question, because nothing on the read path knows when each celebrity last posted.
 
-The better predicate is fan-out work per day. Fifty thousand followers posting forty times a day costs more than two hundred thousand posting weekly, and the product is what you pay for.
+The better predicate is fan-out work per day, and it is a product of two numbers rather than one.
 
 ---
 
-<!-- _class: diagram compact -->
+<!-- _class: compare-table -->
 
 `Instagram · the honest predicate`
 
 ## A follower count is a proxy. The work is followers times how often they post.
 
-```mermaid
-%%{init: {"xyChart": {"width": 1300, "height": 350, "titleFontSize": 22, "xAxis": {"labelFontSize": 20, "titleFontSize": 20}, "yAxis": {"labelFontSize": 18, "titleFontSize": 18, "titlePadding": 34}}}}%%
-xychart-beta
-  title "Fan-out writes a day"
-  x-axis ["50k followers, 40 posts a day", "200k followers, one post a week"]
-  y-axis "Writes a day, in thousands" 0 --> 2100
-  bar [2000, 28.6]
-```
+| Account | Followers | How often they post | Fan-out writes a day |
+| --- | --- | --- | --- |
+| The busy mid-size one | 50,000 | Forty times a day | **2,000,000** |
+| The bigger quiet one | 200,000 | Once a week | **28,600** |
 
-> The smaller account costs seventy times more. A follower count on its own cannot tell you that.
+The smaller account costs seventy times more, and a follower count on its own cannot tell you that. Both numbers are the same multiplication; only one of the two factors is the one everybody quotes.
 
 ---
 
@@ -2832,23 +2830,37 @@ The product exists partly for her. She is the reason a hundred million people op
 
 `Instagram · the write path`
 
-## The graph service is the box everyone forgets to draw.
+## A post is not announced until its bytes are acknowledged.
 
 ```mermaid
 flowchart LR
   C(["Client"]) -->|"1 · presigned upload"| OS[("Object store")]
   OS -->|"2 · acknowledged"| C
   C -->|"3 · post"| API(["Gateway"]) --> W(["Post service"])
-  W -->|"4 · store"| PDB[("Post store, by author")]
-  W -->|"5 · publish"| Q[["Event log"]]
+  W -->|"4 · post row and outbox row,<br/>one transaction"| PDB[("Post store")]
+```
+
+> Step 3 comes after step 2 on purpose. Publish first and the post exists without its picture.
+
+*Transcoding may still be running — a variant that is not ready falls back to the original — but the original must be there before anybody is told the post exists.*
+
+---
+
+<!-- _class: diagram compact -->
+
+`Instagram · out to the followers`
+
+## The graph service is the box everyone forgets to draw.
+
+```mermaid
+flowchart LR
+  PDB[("Post store<br/>and outbox")] -->|"5 · a relay tails the outbox"| Q[["Event log"]]
   Q --> FAN(["Fan-out worker"])
   FAN -->|"6 · who follows me?"| GS[("Graph service, bucketed")]
   FAN -->|"7 · push, if below threshold"| FC[("Feed cache, per reader")]
 ```
 
-> Step 3 comes after step 2 on purpose. Publish first and the post exists without its picture.
-
-*Publish before the bytes are acknowledged and the post becomes readable while its media does not exist, so every reader who reaches it sees a broken tile. Transcoding may still be running — a variant that is not ready falls back to the original — but the original must be there before anybody is told the post exists.*
+> Steps 4 and 5 commit together. Two separate writes let one crash leave a post that exists and reaches nobody.
 
 ---
 
@@ -3065,7 +3077,7 @@ Every like is a write against the same post id — one key, one partition, one l
 
 ## Six sentences have to hold, or the design is not finished.
 
-- [ ] A post is visible to every eligible follower who reaches it — except past the pull cap, where the same quiet accounts lose every page. `rotate the cap, or say it out loud`
+- [ ] A post is visible to every eligible follower who reaches it — except past the pull cap, where ten of your celebrities are dropped on every page. `order the cap, rotate it, or say it out loud`
 - [x] Media is never lost once an upload is acknowledged. `durable`
 - [x] A like counts exactly once per reader and post. `idempotent`
 - [x] A feed page never repeats or skips an item. `stable cursor + dedupe at merge`
@@ -3154,7 +3166,7 @@ sessions
   id            uuid
   idem_key      unique. one park, one key, however many taps
   status        waiting, then paid or declined. a stale wait is swept
-  lot_id, bay   which sticker was scanned
+  lot_id, bay   which sticker was scanned. also how you find a live session
   plate         typed by the driver
   started_at    set when the payment clears
   expires_at    started_at plus the minutes bought
@@ -3208,9 +3220,29 @@ The second tap is a different request that means the same thing. So the page min
 
 The card network answers your payment provider, not the driver's phone. So the provider calls you back on a webhook, and that call is what marks the session paid.
 
-A lost signal then costs the driver a spinner rather than a park: the webhook lands, the row flips to paid, and the warden sees a paid bay whether or not the phone ever came back.
+The row flips to paid and the warden sees a paid bay, whether or not the phone ever came back.
 
-A decline is an answer, not a gap: write it down and let the driver start a fresh attempt with a fresh key. Only a row that never got any answer at all — a closed tab, a webhook that never came — is one you sweep.
+A decline is an answer, not a gap. Only a row that never got any answer at all — a closed tab, a webhook that never came — is one you sweep.
+
+---
+
+<!-- _class: split-panel proof cat-3 -->
+<!-- _header: "" -->
+
+`Parking · rung one, the driver's own retry`
+
+## The warden can see the bay is paid. The driver cannot, so the driver rescans.
+
+A spinner tells the driver that nothing landed. They close the tab and scan the sticker again — a fresh page, a fresh key, which is exactly why the key does not stop the second charge.
+
+- The key is per attempt
+  - It was minted for one attempt, and a rescan is a new one. There is nothing for it to conflict with.
+- The bay is per park
+  - Before minting a key, read the live session on this lot and bay.
+- Paid means a receipt, not a form
+  - Show the driver what the warden can already see.
+- Two retries, two mechanisms
+  - The key deduplicates the network's. The bay deduplicates the driver's. You need both.
 
 ---
 
@@ -3280,8 +3312,10 @@ What the card fee takes from a three-dollar park, at thirty cents plus 2.9 perce
   - Thirty-two thousand rows a day runs on the smallest machine sold. Tuning it saves nothing worth having.
 - The fee is the bill
   - Thirty-nine cents of every three dollars, and most of it is a flat charge per transaction.
-- So settle once a day
-  - Authorize each park on the spot and charge the day's four together: 65 cents of fees, not a dollar fifty-five.
+- So batch the regulars
+  - Hold one driver's card and capture their four parks as one twelve-dollar charge: 65 cents, not a dollar fifty-five. Four different drivers are still four charges.
+- And a capture is not free
+  - The fee rides the capture, never the authorization, so charging a car that has already left is a decline to chase, and it needs the account this product does not have yet.
 
 ---
 
@@ -3320,7 +3354,7 @@ What the card fee takes from a three-dollar park, at thirty cents plus 2.9 perce
 
 ## Five moves carried this design, and every one of them came out of a kit.
 
-Relational, because nothing here outgrows one machine and the questions keep changing — pass one ended there. An index, on the one question a warden asks. Idempotency twice over: on the driver's second tap, and on a webhook your provider will send again. A read replica, to keep reports off the path a driver waits on. A bounded queue, for the work nobody is waiting for.
+Relational, because nothing here outgrows one machine and the questions keep changing — pass one ended there. An index, on the one question a warden asks. Idempotency three times over: the driver's second tap, the driver's second scan, and a webhook your provider will send again. A read replica, to keep reports off the path a driver waits on. A bounded queue, for the work nobody is waiting for.
 
 The security kit arrived as practice, not a card: the provider's form keeps card numbers off your servers, and a signed webhook keeps a stranger from marking bays paid. Not one of those is a product name, and not one of them was a guess.
 
