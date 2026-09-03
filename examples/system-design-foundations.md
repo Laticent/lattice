@@ -2181,9 +2181,9 @@ flowchart LR
 
 ## Seventy thousand feed reads a second is really five million lookups a second.
 
-A twenty-item page needs four lookups an item — the post row, the media variants, the counts, and whether this reader liked it. Eighty a page, times seventy thousand pages a second, is 5.6 million. Sizing a fleet from the 70K and meeting the 5.6M in production is the failure the envelope exists to prevent.
+A twenty-item page needs four lookups an item — the post row, the media variants, the counts, and whether this reader liked it. Eighty a page, times seventy thousand pages a second, is 5.6 million. Meeting that in production having sized for the 70K is what the envelope exists to prevent.
 
-Batch every hydration, and cache the post row and its media variants — they barely change. Do not fold the count into the feed entry: that entry is written at post time, when the count is zero, and updating it later is the fan-out this design exists to avoid. Counts get their own keyed store, and "did I like this" is per reader and cannot be folded in at all.
+Batch them all. Do not fold the count into the feed entry, which is written at post time when the count is zero; fold the like the other way, as one batched read across the twenty candidates. Batched, the fleet sees 280K requests carrying the 5.6 million — and requests are what you size for.
 
 ---
 
@@ -2225,6 +2225,24 @@ flowchart LR
 
 ---
 
+<!-- _class: split-panel proof cat-4 -->
+<!-- _header: "" -->
+
+`Instagram · the path nobody designs`
+
+## A million likes on one post is the follower list again, on a different axis.
+
+Every like is a write against the same post id — one key, one partition, one leader — arriving tens of thousands a second. That is the hot key the data kit warned about, and delivery is at-least-once.
+
+- The row is the truth
+  - Store the pair once, keyed by reader and post. The count is an aggregate you rebuild from it, which is what survives a redelivery or an unlike.
+- Shard the counter
+  - Increment one of a hundred sibling keys at random; sum them on read. One hot key becomes a hundred warm ones.
+- Comments are the second unbounded list
+  - Bounded per reader, unbounded per post. Page them; never load them with the post.
+
+---
+
 <!-- _class: cards-grid four -->
 
 `Instagram · where it breaks`
@@ -2252,7 +2270,7 @@ flowchart LR
 - [x] Media is never lost once an upload is acknowledged. `durable`
 - [x] A like counts exactly once per reader and post. `idempotent`
 - [x] A feed page never repeats or skips an item. `stable cursor`
-- [x] A blocked account is filtered at read, never only at write. `retroactive`
+- [ ] A blocked account is filtered at read — but a signed media URL outlives the check. `keep the TTL short`
 - [x] Every derived store rebuilds from posts and edges. `rebuildable`
 
 ---
