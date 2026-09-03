@@ -189,6 +189,7 @@
     "contrast:player:bless": "node tools/check-player-contrast.js --quiet --bless examples/*.md",
     "contrast:palette-native": "node tools/palette-native.js",
     "check:chart-fit": "node tools/check-chart-fit.js",
+    "check:jank": "node tools/check-jank.js",
     "check:render:bless": "node tools/check-viz-render.js --bless",
     "fonts:check": "node tools/check-fonts.js",
     "fonts:emoji": "node tools/fetch-emoji-font.js",

@@ -79,6 +79,13 @@ Spawn the makers (then the checkers) **concurrently**: one message, multiple
 
 Write all PNGs under `.scratch/` (gitignored, 14-day GC).
 
+**One thing a reviewer agent cannot see, by construction: jank.** A mark that wanders as
+the heading wraps, or a box that reaches another box without overflowing anything, looks
+correct on every slide you hand an agent — the defect is the *difference between* slides,
+and each render is fine on its own. When you suspect a fixed element does not hold
+position, run `npm run check:jank` and read the clearance table; do not send more renders
+at it. `engineering/jank.md`.
+
 ### Responsive sweeps — desktop · tablet · mobile
 
 For a docs-site change, split by breakpoint: one agent per width (~1440 / ~820

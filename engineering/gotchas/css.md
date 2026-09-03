@@ -234,7 +234,9 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   other. So the `⚠ OVERFLOW` line, the red ring, the "Content clipped" tag and autosplit were
   all quiet on a slide whose mark was struck through. **If two boxes on a slide can reach each
   other, no overflow channel is watching that — you have to make the collision impossible or
-  turn it into a real overflow.** Here, both: `section.divider.numbered` reserves the mark's
+  turn it into a real overflow.** **The measurement is now a tool:** `npm run check:jank`
+  sweeps a component's content, reports the clearance per step, and reproduces this exact
+  finding when the fix below is neutralized with `--style` (`engineering/jank.md`). Here, both: `section.divider.numbered` reserves the mark's
   band with SYMMETRIC padding (symmetric so the centered block's midpoint does not move — one-
   and two-line headings render byte-identically) and centers with `justify-content: safe
   center`, which falls back to `start` exactly when the block would overflow. Plain `center`

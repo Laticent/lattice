@@ -143,11 +143,20 @@ function findManifest(name) {
  * different need from any an author has (2026-07-29-autosplit-is-not-a-toggle.md). Front matter emits no
  * `section[data-lattice-slide]`, so the emulator's `slide: i+1` aligns to
  * steps[i].
+ *
+ * `slideFor(step)` returns EITHER `{ label, body }` — the calibration shape, where the
+ * rig writes the heading and the step supplies the elements below it — OR
+ * `{ slide }`, the whole slide body verbatim under the class comment. The second form
+ * exists for a sweep whose variable IS the heading (tools/check-jank.js grows the
+ * heading and holds the component's documented chrome fixed), which the first cannot
+ * express because it owns the heading itself.
  */
 function gradedDeck({ comp, size, steps, slideFor }) {
   const slides = steps.map((step, i) => {
-    const heading = `## Calibration step ${i + 1} — ${slideFor(step).label}.`;
-    return `<!-- _class: ${comp} -->\n\n${heading}\n\n${slideFor(step).body}`;
+    const made = slideFor(step);
+    if (made.slide != null) return `<!-- _class: ${comp} -->\n\n${made.slide.trim()}\n`;
+    const heading = `## Calibration step ${i + 1} — ${made.label}.`;
+    return `<!-- _class: ${comp} -->\n\n${heading}\n\n${made.body}`;
   });
   return `---\nsize: ${size}\n---\n\n${slides.join('\n\n---\n\n')}\n`;
 }
@@ -156,14 +165,30 @@ function gradedDeck({ comp, size, steps, slideFor }) {
  * Render a deck and return the set of 1-based page numbers the overflow probe
  * flagged. Throws only when the render itself failed for a reason other than
  * overflow (the probe's own non-zero exit is the signal we came for).
+ *
+ * Options, all for the geometry rig (tools/check-jank.js) and all defaulting to
+ * the calibration behavior this started as:
+ *   format   'pdf' (default) or 'html' — the `.html` output is the same real
+ *            browser render minus the PDF encode, and it is the artifact a DOM
+ *            measurement pass needs.
+ *   palette  a theme name, passed as `-p`; omitted means the engine default.
+ *   keep     hold the temp directory and hand back `out` + `cleanup()`, so the
+ *            caller can load the rendered file. The default still deletes it
+ *            before returning, which is what the two calibrators want.
  */
-function renderProbe(deck, label) {
+function renderProbe(deck, label, { format = 'pdf', palette = null, keep = false } = {}) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'calibrate-'));
   const src = path.join(tmpDir, `${label}.md`);
-  const out = path.join(tmpDir, `${label}.pdf`);
+  const out = path.join(tmpDir, `${label}.${format}`);
+  const cleanup = () => fs.rmSync(tmpDir, { recursive: true, force: true });
   fs.writeFileSync(src, deck);
+  // A `keep` caller owns the directory only once it HAS the path — a throw before
+  // that point would strand it, so the flag decides in the finally.
+  let handedOver = false;
   try {
-    const r = spawnSync('node', [EMULATOR, src, out, '--no-split', '-q'], { cwd: ROOT, encoding: 'utf8', timeout: 180000 });
+    const args = [EMULATOR, src, '-o', out, '--no-split', '-q'];
+    if (palette) args.push('-p', palette);
+    const r = spawnSync('node', args, { cwd: ROOT, encoding: 'utf8', timeout: 180000 });
     const log = `${r.stdout || ''}\n${r.stderr || ''}`;
     if (r.status !== 0 && !/OVERFLOW/.test(log)) {
       const tail = log.trim().split('\n').slice(-8).join('\n');
@@ -171,9 +196,10 @@ function renderProbe(deck, label) {
     }
     const m = log.match(/OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/i);
     const pages = m ? m[1].split(',').map((s) => parseInt(s.trim(), 10)).filter(Boolean) : [];
-    return { overflowed: new Set(pages), log };
+    handedOver = keep;
+    return { overflowed: new Set(pages), log, out, cleanup };
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    if (!handedOver) cleanup();
   }
 }
 

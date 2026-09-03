@@ -128,9 +128,13 @@ asserted (but still long-running and shared):
 
 ## Feature decks
 
-**Every feature or visual-bug branch ships a per-feature demo deck.** This
-is how reviewers see the work: a small, focused PDF on the branch, linked
-directly from the PR body. It is independent of all six long-running
+**Every branch whose change a human can SEE ON A SLIDE ships a per-feature
+demo deck.** This is how reviewers see the work: a small, focused PDF on the
+branch, linked directly from the PR body. The trigger is the rendered
+surface, not the word "feature" — a layout, modifier, token, theme or chart
+change owes one; tooling, infra, export plumbing and docs work that renders
+no new or changed slide surface does not, and owes its evidence in the PR
+body instead (HARD RULE #9). It is independent of all six long-running
 decks listed above.
 
 **Feature/fix content is isolated to the feature deck until merge.** Do
@@ -142,6 +146,11 @@ coherence. The long-running decks pick up the new layout in a separate
 "graduation" commit after the feature has been reviewed and approved.
 
 ### Authoring
+
+*These steps are for a branch that owes a deck by the trigger above. A branch
+that renders no new or changed slide surface skips this section entirely and
+carries its evidence in the PR body instead — the before/after numbers, the
+measured table, the arm that proves the thing can fail.*
 
 1. Create `examples/<feature-slug>.md`. The slug matches the branch noun
    (e.g. branch `feat/legal-layouts` → `examples/legal-layouts.md`,
