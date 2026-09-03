@@ -399,9 +399,9 @@ flowchart TB
   subgraph bal["Balancing · the shower, with a delay"]
     direction LR
     B1(["Too hot"]) --> B2(["Turn it down"])
-    B2 --> B3(["Pipe lags<br/>eight seconds"])
-    B3 --> B4(["Too cold"])
-    B4 --> B2
+    B2 -->|"eight-second lag"| B3(["Too cold"])
+    B3 --> B4(["Turn it up"])
+    B4 -->|"eight-second lag"| B1
   end
 ```
 
@@ -1120,9 +1120,9 @@ flowchart LR
 
 `Halfway`
 
-## Two stores you filed as derived are holding truth.
+## Two of the stores on that list look derived, and both are where truth lands.
 
-An object store and a time-series store are usually where a fact first lands — nothing regenerates a photograph or last Tuesday's CPU samples. They are sources of truth wearing the clothes of a derived tier.
+Nothing regenerates a photograph or last Tuesday's CPU samples, so an object store and a time-series store are where those facts first arrive. They are sources of truth wearing the clothes of a derived tier.
 
 The genuinely derived stores are the search index, the vector index, the cache and the warehouse. Anything derived must be rebuildable, must be allowed to lag, and must never be the only copy.
 
@@ -1645,21 +1645,21 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
 
 ```mermaid
 flowchart TB
-  subgraph b["Spread · partition by key"]
+  subgraph b["Duplicate · costs you a stale reader"]
     direction LR
-    B1(["Request"]) --> B2(["Router, by key"]) --> B3[("Shard A")]
-    B2 --> B4[("Shard B")]
+    B1(["Writes"]) --> B2[("Leader")] --> B3[("Replica, US")]
+    B2 --> B4[("Replica, EU")]
   end
-  subgraph a["Reduce · do less per request"]
+  subgraph a["Reduce · costs you a copy to invalidate"]
     direction LR
     A1(["Request"]) --> A2[("Cache hit")] --> A3(["No work done"])
   end
-  subgraph d["Duplicate · copy toward readers"]
+  subgraph d["Spread · costs you the queries that cross"]
     direction LR
-    D1(["Writes"]) --> D2[("Leader")] --> D3[("Replica, US")]
-    D2 --> D4[("Replica, EU")]
+    D1(["Request"]) --> D2(["Router, by key"]) --> D3[("Shard A")]
+    D2 --> D4[("Shard B")]
   end
-  subgraph c["Defer · answer now, work later"]
+  subgraph c["Defer · costs you an answer that is not ready"]
     direction LR
     C1(["Accept"]) --> C2[["Bounded queue"]] --> C3(["Worker"])
   end
@@ -2102,7 +2102,7 @@ Pin exact versions and commit the lock file, so the build you tested is the buil
 
 `Security kit · the invariants`
 
-## Sign your name to a design only when you can say all four.
+## Sign your name to a design only when you can say all five.
 
 1. Every request is authorized against the specific object
    - Not the endpoint. Object-level checks are where the breaches happen.
@@ -2140,7 +2140,7 @@ Write the store and the one query that will cross a partition. Then turn the pag
 2. A session token
    - Key-value. Exact key, no scan, expiry built in. The query that hurts is "which sessions belong to this user".
 3. Eight years of readings
-   - Wide-column, partitioned by device and ranged by time. The query that hurts is any question about one day across every device.
+   - Wide-column by device and time — or a time-series store, which is that shape with retention built in. The query that hurts is one day across every device.
 
 ---
 
@@ -2166,7 +2166,7 @@ Boundary      In: feed, posts, edges, media. Out: the phone, the network, the la
 Environment   Evening peak ~2.5x the mean, partitions, duplicate deliveries, people who want in.
 Constraints   200 ms p99 · 60 opens per write · media durable forever
 Invariants    A post reaches eligible followers · media never lost · a like counts once
-Bottleneck    Suspected: filling in each post. Confirmed at ~80M reads/s once the read path exists.
+Bottleneck    Suspected: filling in each post. Confirm it once the read path exists.
 Solution type Scaled. Not an MVP, not optimal.
 ```
 
@@ -2321,7 +2321,7 @@ Instagram caps your following list at seven and a half thousand accounts. Nobody
 following                              followers
   PK  (source_id)                        PK  (target_id, bucket)
   CK  (target_id)                        CK  (created_at DESC, source_id)
-  val bucket                             the follower list, newest first
+  val bucket, created_at                 the follower list, newest first
   "does A follow B?" is a point read     bucket = hash(source) % B(target)
   capped at 7,500 rows                   B = clamp(followers / 10_000, 1, 512)
 ```
@@ -2541,7 +2541,19 @@ flowchart LR
 
 A twenty-item page needs four lookups an item — the post row, the media variants, the counts, and whether this reader liked it. Eighty a page, against the million page-fetches a second the peak estimate gave you, is eighty million.
 
-Batch them all. Do not fold the count into the feed entry — that entry is written at post time, when the count is zero. Fold the like check the other way instead: one batched read across the twenty candidates.
+That is the number the worksheet left open, and it is larger than every number on it.
+
+---
+
+<!-- _class: content -->
+
+`The number behind that number`
+
+## Eighty million is rows. The number you size a fleet from is calls.
+
+Batch the four lookups across the whole page and a page costs four calls, not eighty. Four million calls a second against eighty million rows. Rows are the work; calls are what your services receive, and sizing a fleet from the wrong one is a twentyfold mistake.
+
+Do not fold the count into the feed entry; it is written at post time, when the count is zero. Fold the like check at read time: one batched read across the twenty candidates.
 
 Batching is not only about throughput. Eighty parallel calls put fifty-five percent of pages on a slow dependency — that is `1 - 0.99^80`, against a 99th-percentile promise.
 
@@ -2583,7 +2595,7 @@ flowchart LR
   CDN -->|"8 · serves"| V
 ```
 
-*Step 2 is the one place an untrusted client writes straight into your storage. So the grant names the exact key it may write, and carries four limits besides: one content type, a size ceiling, a short expiry, and a rate per account. Let the client choose the key and it writes over somebody else's media. Without them, anyone can fill your storage at your expense, and step 4 hands bytes they chose to an image decoder. All input is untrusted, including input you asked for.*
+*Step 2 is the one place an untrusted client writes straight into your storage. So the grant names the exact key it may write — let the client choose the key and it writes over somebody else's media — and carries four limits besides: one content type, a size ceiling, a short expiry, and a rate per account. Without those four, anyone can fill your storage at your expense, and step 4 hands bytes they chose to an image decoder. All input is untrusted, including input you asked for.*
 
 ---
 
@@ -2647,7 +2659,7 @@ Every like is a write against the same post id — one key, one partition, one l
 - Celebrity post
   - The fan-out queue floods. Answer: the pull path above the threshold.
 - Feed cache eviction
-  - Cold readers cost a rebuild. Answer: rebuild lazily from posts and edges.
+  - Cold readers cost a rebuild. Answer: the same render deadline, then rebuild behind the request.
 - Redelivery
   - The queue delivers twice. Answer: the feed entry is keyed on reader and post.
 - Zone loss
@@ -2707,7 +2719,7 @@ Instagram was one design at one rung, and it was already enormous when we met it
 
 `Parking · the worksheet, filled`
 
-## You answer nine fields before a single box goes on the board.
+## You fill in eight of the nine before a single box goes on the board.
 
 ```text
 Protagonist   A driver at the bay. One hand, thirty seconds, no app.
@@ -3057,4 +3069,4 @@ Solution type MVP  ·  scaled  ·  optimized  ·  optimal  ·  specialized
 
 `How to Think About Systems`
 
-Maya never designed anything on Tuesday, and she used every word in Part one before she went to bed.
+Maya never designed anything on Tuesday, and she met every word in Part one before she went to bed.
