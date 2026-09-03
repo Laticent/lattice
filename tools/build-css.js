@@ -237,6 +237,11 @@ const TAIL_SOURCES = [
   // (lattice-emulator --fluid + the runtime fluid controller). Last so its
   // viewport-box override also wins on source order, not just specificity.
   'lib/base/base.fluid-view.css',
+  // The reader-view hole (`--lens`). LAST, and the only `!important` in the tail: the rule may not
+  // name a deck-controllable class (`form: off` strips `.form`, which un-hid every hole and shipped
+  // blank PDF pages at the withheld positions), so it wins on origin-order + `!important` instead of
+  // on specificity. See lib/base/base.lens-hole.css.
+  'lib/base/base.lens-hole.css',
 ];
 
 const LAYER_DECLARATION =

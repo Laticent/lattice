@@ -1,0 +1,34 @@
+/* THE READER-VIEW HOLE — the one rule that hides a withheld slide.
+ *
+ * `--lens brief` does not delete the slides a view withholds; it emits each one as an EMPTY
+ * section carrying `lens-hole`, so the slide keeps its slot in the DOM. `section:nth-of-type(3)`
+ * is a STRUCTURAL selector and counts a `display:none` element, so an author's positional rule
+ * still lands on the slide they aimed it at instead of on whatever moved into third place.
+ * `HOLE_BODY` in lib/core/lens-export.mjs emits it; this rule is the half that hides it.
+ *
+ * WHY IT IS ITS OWN FILE, LAST IN THE BUNDLE, AND `!important`. All three are the same fix for one
+ * measured defect. The rule lived in `lib/forms/cell/stage/stage.css` as `section.form.lens-hole`,
+ * because it had to beat `section.form:has(> .cell-stage)` at (0,2,1) and adding `.form` was the
+ * cheapest way to get there. But `.form` is not intrinsic — `formToggleClass` skips it entirely
+ * when a deck writes the documented front-matter key `form: off`, so the selector matched nothing
+ * and every hole became a live, empty page. Measured on a 5-slide deck exporting a 3-slide view:
+ * the PDF came out FIVE pages, blank at positions 2 and 4 — the exact withheld slots, which is
+ * precisely the disclosure the visible-page-number split in the same commit exists to prevent.
+ * The same source rasterized to 3 PNGs, so one command's two artifacts disagreed about how long
+ * the deck was.
+ *
+ * So the selector may not name a class a deck can turn off, which leaves it at (0,1,1) and losing
+ * to the stage rule it has to beat. `!important` is what buys that back without re-introducing a
+ * dependency on a deck-controlled class, and the last slot in the bundle settles the one case
+ * `!important` alone does not: another author-origin `!important` on the same property, where
+ * source order decides.
+ *
+ * THIS IS NOT THE INTEGRITY GUARD, and it must not be mistaken for one. An author's own
+ * `<style>` can still write `section.lens-hole { display: block !important }` and win on source
+ * order. What stops a forged or un-hidden hole from shipping is `holeDrift` in
+ * lib/core/lens-export.mjs, which the CLI runs against the RENDERED document: the set of holes has
+ * to equal the set of slides the projection withheld, and a hole in an export with no reader view
+ * at all is refused outright. CSS hides the hole; the check is what proves it is hidden. */
+section.lens-hole {
+  display: none !important;
+}

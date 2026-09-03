@@ -1411,7 +1411,14 @@ test.describe('front-matter `captions:` is projected onto the slides that ship',
 		assert.equal(out.ok, true);
 		assert.doesNotMatch(out.source, /LEAKED/, 'the withheld slide\u2019s caption is gone');
 		assert.match(out.source, /\n {2}1: Welcome\./, 'slide 1 keeps its number');
-		assert.match(out.source, /\n {2}2: Please approve\./, 'and slide 3 becomes slide 2, so it narrates the right slide');
+		// THIS ASSERTION USED TO READ `2: Please approve.` — "slide 3 becomes slide 2, so it narrates
+		// the right slide" — and it went on passing after position-holding projection made it the
+		// WRONG answer, because it only ever inspected the front-matter string and never the slide it
+		// addresses. The shipped deck now keeps every slot, so slide 3 is still in position 3; the
+		// renumbering had become a shift by the number of preceding holes, which spoke slide 3's
+		// caption over slide 5. All three adversarial lenses found it; no gate did.
+		assert.match(out.source, /\n {2}3: Please approve\./, 'slide 3 is still slide 3 — the hole in front of it holds its place');
+		assert.doesNotMatch(out.source, /\n {2}2: Please approve\./, 'and it is NOT renumbered to its rank among the kept slides');
 	});
 
 	test('a deck with no captions block is untouched', () => {

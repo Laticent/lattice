@@ -2542,6 +2542,47 @@ function engineSlides(deckSource = rawMd) {
   // slide that fits its box is a slide the author composed and the engine has no business
   // re-cutting it. `capacity` speaks to the author through `lint:deck`, not to the splitter.
   const html = renderedHtml;
+  // ARE THE HOLES IN THIS DOCUMENT EXACTLY THE SLIDES THE VIEW WITHHELD? Run on EVERY export, not
+  // only a reader-view one, and run HERE because this is the document the artifact is built from —
+  // the refusals above read a separate render of the source, and the whole class of defects this
+  // closes lives in the gap between the two.
+  //
+  // A hole is a marker in markdown, and no markdown pipeline can tell the projection's marker from
+  // one an author typed. Measured before this check existed: a deck writing the running form
+  // `<!-- class: lens-hole -->` on slide 2 exported a THREE-slide deck as a ONE-page PDF, silently,
+  // exit 0 — while the two swallowed slides shipped verbatim in the `.html` the same command wrote
+  // and in the player's base64 envelope. With no `--lens`, the expected set is empty and any hole at
+  // all is drift, which is what makes that a refusal.
+  //
+  // It catches the opposite direction too, and that one was also measured: `form: off` stripped the
+  // `.form` class the old hiding rule leaned on, so every hole rendered as a live empty page and a
+  // 3-slide view came out as a 5-page PDF blank at the withheld positions — the deck's length and
+  // the withheld slots, disclosed. The rule now sits in `lib/base/base.lens-hole.css` and names no
+  // deck-controllable class; this check is what proves it won.
+  {
+    const { holeDrift } = require('./lib/core/lens-export.mjs');
+    const wantHoles = LENS_PROJECTION
+      ? Array.from({ length: LENS_PROJECTION.total }, (_, i) => i).filter((i) => !LENS_PROJECTION.kept.includes(i))
+      : [];
+    const hd = holeDrift(html, wantHoles);
+    if (hd) {
+      const forged = hd.saw.filter((i) => !wantHoles.includes(i));
+      const lost = wantHoles.filter((i) => !hd.saw.includes(i));
+      console.error('error: the rendered deck does not agree with the export about which slides are withheld.');
+      if (forged.length) {
+        console.error(`       Slide${forged.length === 1 ? '' : 's'} ${forged.map((i) => i + 1).join(', ')} render${forged.length === 1 ? 's' : ''} as a reader-view HOLE, which this export did not put there.`);
+        console.error("       `lens-hole` is the class `--lens` marks a withheld slide with; a deck that sets it hides the slide from");
+        console.error('       the PDF while its text still ships in the .html and in the embedded source. Remove it and use a reader view.');
+      }
+      if (lost.length) {
+        console.error(`       Slide${lost.length === 1 ? '' : 's'} ${lost.map((i) => i + 1).join(', ')} should be a withheld hole and did not render as one.`);
+        console.error('       Something in the deck is overriding the engine rule that hides it, so the artifact would disclose the');
+        console.error('       withheld positions as blank pages. This is a defect — please file it with the deck attached.');
+      }
+      console.error('       Nothing was exported.');
+      process.exit(1);
+    }
+  }
   const imageScrim = require('./lib/transformers/image-scrim');
   return splitTopLevelSections(html).map((sec, i) => {
     // Re-tag the slide index, then apply the per-section image fixups the
@@ -2743,6 +2784,29 @@ const slideNotes = notesCore.extractSlideNotes(slides);
 // guarantee that no materialized copy carries note text even if a note ever survived the scrub.
 const materializedNotes = STRIP_NOTES ? slideNotes.map(() => null) : slideNotes;
 const slideDescriptions = notesCore.extractSlideDescriptions(slides);
+// THE SHIPPED SLIDES, AS POSITIONS IN THE AUTHORED ARRAY — the source-side twin of
+// `SHOOTABLE_SLIDES`, which does the same job against the live DOM.
+//
+// A reader-view projection keeps every authored slot and marks the withheld ones as holes, so
+// `slides` (and every per-slide array built from it — notes, descriptions, captions) is
+// AUTHORED-length while every artifact is SHIPPED-length. Pairing the two by position is then off
+// by the number of preceding holes, and it fails silently in the worst possible direction: measured
+// on a 5-slide deck exporting slides 1/3/5, the PPTX bound the note the author wrote for slide 3 to
+// the exported slide SHOWING SLIDE 5, left slide 3's own note empty, and dropped slide 5's — a
+// private speaker note under the wrong slide in the deliverable, which is the same class of harm
+// the feature exists to control. The PDF path took the other branch of the same mismatch and
+// dropped EVERY annotation while the CLI printed "3 slides with speaker notes" one line below the
+// warning that it had not written any.
+//
+// Every consumer whose output is one entry per SHIPPED slide reads through this. The ones that
+// legitimately stay authored-length are the ones that rebuild the document (`slidesWithNotes`), and
+// the counts a human reads about the deck rather than the file.
+// `\sclass="` — the leading space is the #1358 guard, not decoration. Without it the pattern also
+// matches `data-class="<raw _class: payload>"`, which is the directive as the author typed it rather
+// than the class list the engine resolved; the ownership gate caught exactly this line.
+const SHIPPED_SLIDE_AT = slides.map((_, i) => i).filter((i) => !/\sclass="[^"]*\blens-hole\b/.test(String(slides[i] || '')));
+/** One entry per shipped slide, from an array indexed by authored slide. */
+const asShippedSlides = (arr) => SHIPPED_SLIDE_AT.map((i) => arr[i]);
 // Per-slide inline `<!-- caption: … -->` read-as text (Layer 1, §16) — the highest-precedence
 // narration source. Extracted from the rendered slides (index-aligned) exactly as notes are. A
 // caption is public-facing narration (the caption track), not a private note, so it is NOT blanked
@@ -3358,7 +3422,9 @@ fs.writeFileSync(outHtml, cleanDocHtml);
 // Skipped when the HTML *is* the deliverable: this fires BEFORE the auto-split pass
 // rewrites the file, so its count is the pre-split one. The `.html` branch logs the
 // final rendered-page count instead, and one line beats two disagreeing ones.
-if (!QUIET && OUT_FORMAT !== 'html') console.log(`HTML: ${slides.length} slides → ${outHtml}`);
+// SHIPPED slides, not authored ones: a reader-view hole holds a slot in `slides` and renders
+// nothing, so this line read "HTML: 5 slides" beside a three-slide view.
+if (!QUIET && OUT_FORMAT !== 'html') console.log(`HTML: ${SHIPPED_SLIDE_AT.length} slides → ${outHtml}`);
 
 // ── PDF via Puppeteer ─────────────────────────────────────────────────────────
 // Locate puppeteer in either: a local node_modules (preferred), the project
@@ -4052,7 +4118,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (EMBED_SOURCE) tags.push('source embedded');
       console.log(`PDF: ${outFile}${tags.length ? ` (${tags.join(', ')})` : ''}`);
     }
-    if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, asShippedSlides(materializedNotes));
   } else if (OUT_FORMAT === 'pdf') {
     // Image-per-page PDF. Two triggers land here:
     //   · --raster: one FULL-BLEED slide image per slide-sized page (max-compat sharing).
@@ -4098,7 +4164,7 @@ async function renderBody(browser, g, closeBrowser) {
     // materializedNotes, NOT slideNotes — the same rule the vector-PDF path above and the
     // HTML path below already follow. `--raster` / `--paper` land here instead, so handing
     // this sidecar the unstripped array shipped the notes the flag exists to remove.
-    if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, asShippedSlides(materializedNotes));
   } else if (OUT_FORMAT === 'imageset') {
     // IMAGE SET (.zip): one raster per slide in the chosen format, opt-in thumbnails,
     // and opt-in standalone chart/diagram SVGs — packed via the SHARED image-set kernel
@@ -4358,10 +4424,13 @@ async function renderBody(browser, g, closeBrowser) {
       const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } =
         require('./lib/components/chart/_chart-family/standalone-svg.js');
       await g(() => page.evaluate(`window.__flattenSvgStyles = ${flattenSvgStyles.toString()};`), 'inject svg flattener');
-      const raw = await g(() => page.evaluate((KEYED) => {
+      const raw = await g(() => page.evaluate((KEYED, SHOOTABLE) => {
         const ser = new XMLSerializer();
         const out = [];
-        document.querySelectorAll('section[data-lattice-slide]').forEach((sec, si) => {
+        // Holes are skipped for the same reason the rasterizer skips them: `slide: si + 1` below is
+        // the slide number a consumer of the manifest reads, and counting a hole made an asset in a
+        // three-slide zip claim `assets/chart-s05-c00.svg`.
+        document.querySelectorAll(SHOOTABLE).forEach((sec, si) => {
           const push = (svg, kind, chartType, mmdIdx) => {
             try {
               const flat = window.__flattenSvgStyles(svg, window);
@@ -4382,7 +4451,7 @@ async function renderBody(browser, g, closeBrowser) {
           }
         });
         return out;
-      }, KEYED_CHART_LAYOUTS), 'extract standalone svgs');
+      }, KEYED_CHART_LAYOUTS, SHOOTABLE_SLIDES), 'extract standalone svgs');
       // For a cross-scheme look, replace each diagram's LIVE markup (flattened against the slide doc)
       // with the look-rendered one from the isolated scratch page. Diagrams that couldn't be recolored
       // (author-themed / mmdc fallback) aren't in the map and keep their live markup.
@@ -4399,11 +4468,15 @@ async function renderBody(browser, g, closeBrowser) {
     }
 
     // Per-slide titles for the manifest — the slide's first heading (unaffected by the look).
-    const slideTitles = await g(() => page.evaluate(() =>
-      Array.from(document.querySelectorAll('section[data-lattice-slide]')).map((sec) => {
+    // SHOOTABLE_SLIDES, not the bare selector: the rasterizer three blocks up already filters
+    // reader-view holes out, so titling the unfiltered list numbered every title one slot per
+    // preceding hole too high. Measured on a 3-slide view of a 5-slide deck: image 2 showed Slide
+    // Three and was titled `null`, image 3 showed Slide Five and was titled "Slide Three".
+    const slideTitles = await g(() => page.evaluate((sel) =>
+      Array.from(document.querySelectorAll(sel)).map((sec) => {
         const h = sec.querySelector('h1, h2, h3');
         return (h?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200) || null;
-      })), 'extract slide titles');
+      }), SHOOTABLE_SLIDES), 'extract slide titles');
     await closeBrowser();
 
     // (4) Pack via the shared kernel → a single .zip.
@@ -4463,7 +4536,9 @@ async function renderBody(browser, g, closeBrowser) {
     // claim this format is documented on.
     let pageCount = slides.length;
     try {
-      const n = (await page.$$('#deck > section[data-lattice-slide], body > section[data-lattice-slide]')).length;
+      // `:not(.lens-hole)` on both arms — the line reports what the FILE holds, and a hole is not a
+      // slide in it. It read "HTML: 5 slides" for a three-slide view.
+      const n = (await page.$$('#deck > section[data-lattice-slide]:not(.lens-hole), body > section[data-lattice-slide]:not(.lens-hole)')).length;
       if (n > 0) pageCount = n;
     } catch { /* keep the authored count */ }
     await closeBrowser();
@@ -4478,7 +4553,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (noteCount) tags.push(`${noteCount} slide${noteCount === 1 ? '' : 's'} with speaker notes`);
       console.log(`HTML: ${outFile} (${tags.join(', ')})`);
     }
-    if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, asShippedSlides(materializedNotes));
   } else {
     // PNG / PPTX: rasterize one image per slide from the SAME rendered page.
     // Each `section[data-lattice-slide]` is exactly slideW×slideH (fixed-page),
@@ -4515,7 +4590,7 @@ async function renderBody(browser, g, closeBrowser) {
         // the one format whose native viewer puts the author's private text in front of the
         // recipient by default. This call site was the last one still reading the unstripped
         // array (#1837).
-      }, materializedNotes, slideDescriptions);
+      }, asShippedSlides(materializedNotes), asShippedSlides(slideDescriptions));
       if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}`);
     }
   }
@@ -5126,7 +5201,14 @@ function notesPerRenderedPage(docHtml, authored) {
   if (at < 0) return authored;
   try {
     const parts = require('./lib/core/split-sections').splitSections(docHtml.slice(at))
-      .filter((p) => p.type === 'section');
+      .filter((p) => p.type === 'section')
+      // A READER-VIEW HOLE IS NOT A PAGE. It holds an authored slot in the DOM so positional CSS
+      // still lands where the author aimed it, and `display:none` keeps it out of print — so the
+      // rendered section list is longer than the artifact by exactly the number of holes. Counting
+      // them here made `embedNotesInPdf`'s own length guard fire on EVERY reducing lens export with
+      // notes: it warned "5 slide notes but 3 PDF pages" and dropped all of them, while the line
+      // below it printed "3 slides with speaker notes". The guard was right and its input was not.
+      .filter((p) => !/\sclass="[^"]*\blens-hole\b/.test(String(p.openTag || '')));
     return parts.length ? notesCore.notesPerRenderedPage(parts) : authored;
   } catch { return authored; }
 }
@@ -5336,7 +5418,11 @@ async function projectDeckSpeechFromHtml(docHtml) {
     const { projectDeckToSpeech } = await import('./lib/transformers/prose-projection.mjs');
     const sanitize = createSlideSanitizer(DOMPurify, new JSDOM('').window);
     const doc = new JSDOM(docHtml).window.document;
-    const raw = [...doc.querySelectorAll('section[data-lattice-slide]')];
+    // A READER-VIEW HOLE IS NOT A SLIDE TO NARRATE. It holds an authored slot in the DOM and shows
+    // nothing, so counting it made this list longer than the caption track's and the length guard in
+    // `writeCaptionsSidecar` then dropped the projection wholesale — "captions will be EMPTY for this
+    // deck" on every reducing lens export, for a mismatch the export itself had introduced.
+    const raw = [...doc.querySelectorAll('section[data-lattice-slide]:not(.lens-hole)')];
     // Sanitize each section in isolation, then project the clean nodes.
     const clean = raw
       .map((s) => new JSDOM(sanitize(s.outerHTML)).window.document.querySelector('section[data-lattice-slide]'))
@@ -5438,7 +5524,13 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
       // bake never touches (and withoutFences-blank any fence anyway), so they're byte-identical
       // on this input; only narrateDiagram needs the fence. See
       // 2026-07-13-mermaid-diagram-narration.md §8 (Axis B1, trio-verified).
-      const blocks = splitSourceToSections(appendAutoGlossary(md));
+      // A READER-VIEW HOLE IS DROPPED so the two lists index the same slides. `blocks` comes from the
+      // SOURCE, which under a reducing projection holds every authored slot; `projected` comes from
+      // the rendered sections, which no longer do. Left unfiltered the counts differ by exactly the
+      // holes, the equality below fails, and every chart slide in a lens export silently falls back
+      // to heading-only narration — a divergence the export introduced, reported as if the deck had
+      // caused it.
+      const blocks = splitSourceToSections(appendAutoGlossary(md)).filter((b) => !/<!--\s*_class:\s*lens-hole\s*-->/.test(String(b || '')));
       if (blocks.length === projected.length) {
         for (let i = 0; i < blocks.length; i++) {
           // Per-slide guard: one pathological chart slide can't disable narration for
@@ -5480,9 +5572,30 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
   if (fmCaptions?.size) {
     const at = cleanDocHtml.search(/<section\b[^>]*\bdata-lattice-slide=/);
     if (at >= 0) {
+      // HOLES ARE DROPPED HERE FOR THE SAME REASON SPLITS ARE REMAPPED HERE: this is the one place
+      // that converts an AUTHORED caption key into the page of the ARTIFACT that shows it, and a
+      // reader-view hole moves those pages exactly the way a split does. `pages` therefore has to be
+      // the artifact's page list, not the rendered section list.
+      //
+      // The two directions were both measured wrong within one commit of each other, which is what
+      // makes the single conversion point the point. Renumbering the KEYS instead — rank among kept —
+      // spoke slide 3's caption over a hole and slide 5's over slide 3, because the shipped deck keeps
+      // every slot. Keeping the keys authored but leaving the page list unfiltered was the mirror
+      // image. Keys stay authored (so the source in the envelope re-imports against the deck it
+      // describes, holes and all); pages are what shipped; this map is the join.
       const pages = require('./lib/core/split-sections').splitSections(cleanDocHtml.slice(at))
-        .filter((x) => x.type === 'section');
-      const origin = require('./lib/core/auto-split').authoredIndexPerPage(pages);
+        .filter((x) => x.type === 'section')
+        .filter((x) => !/\sclass="[^"]*\blens-hole\b/.test(String(x.openTag || '')));
+      // READ THE STAMP, DO NOT RECONSTRUCT IT. `authoredIndexPerPage` recovers page -> authored slide
+      // from contiguous `data-split-run` groups, which is POSITION arithmetic: hand it a list with the
+      // holes already removed and it answers `1,2,3` — the ranks it was just given back, not the
+      // authored numbers 1,3,5 this map needs. The engine stamps `data-authored-slide` on every
+      // section and split continuations copy it, so the number is on the page; the reconstruction is
+      // only the fallback for a document that carries no stamp (an older cached render).
+      const stamped = pages.map((x) => Number((String(x.openTag || '').match(/data-authored-slide="(\d+)"/) || [])[1]));
+      const origin = stamped.every((n) => Number.isInteger(n) && n >= 0)
+        ? stamped.map((n) => n + 1)
+        : require('./lib/core/auto-split').authoredIndexPerPage(pages);
       // Only rebuild when the split actually moved something; an unsplit deck keeps the
       // authored map byte-for-byte, so a deck that never paginates is unaffected.
       if (origin.length && origin[origin.length - 1] !== origin.length) {
