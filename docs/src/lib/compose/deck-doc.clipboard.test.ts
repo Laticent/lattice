@@ -17,18 +17,28 @@ import { deckSchema, deckToDoc, docToDeck } from './deck-doc';
 // oracle for a security property. This is the seam, so this is where the test belongs.
 
 /**
- * Parse a fragment of foreign HTML exactly as a paste would.
+ * Parse a LITERAL fragment of hostile HTML, exactly as a paste would.
  *
- * `DOMParser`, not `el.innerHTML = html`. The two build the same tree here, but the
- * innerHTML form is a genuine sink and CodeQL flagged it high-severity — correctly, on the
- * shape rather than on this call's literal argument. Arguing "it is only a test" with a
- * scanner is the wrong move in a file whose whole subject is untrusted markup: parsing into
- * a detached document is both what the rule wants and the more honest model of what a paste
- * does, since the fragment never touches the live document.
+ * `DOMParser.parseFromString` into a detached document, never `el.innerHTML = html`: the
+ * assignment form is a real sink and the fragment here never touches the live document.
+ *
+ * Every caller passes a string built from literals in this file. That matters to CodeQL's
+ * "DOM text reinterpreted as HTML" rule, which follows a FLOW rather than a call: it fires
+ * when DOM text reaches a markup sink, so a literal argument is inert while a value READ
+ * back out of the DOM is not. The round-trip test below therefore parses an Element
+ * directly (`parseElement`) instead of reading `innerHTML` and re-parsing it — the first
+ * attempt at this fix swapped innerHTML for DOMParser and simply moved the alert down the
+ * flow, because the source was never the sink.
  */
 function parseForeign(html: string) {
 	const parsed = new DOMParser().parseFromString(html, 'text/html');
 	return PMDOMParser.fromSchema(deckSchema).parse(parsed.body);
+}
+
+/** Parse an already-built DOM subtree. ProseMirror's clipboard parser takes a node, so a
+ *  same-session round trip does not need to detour through an HTML string at all. */
+function parseElement(el: HTMLElement) {
+	return PMDOMParser.fromSchema(deckSchema).parse(el);
 }
 
 /** The provenance token this session stamps — read back off our OWN serialized output,
@@ -77,7 +87,7 @@ describe('the data-directives clipboard bridge rejects foreign input', () => {
 		const doc = deckToDoc('<!-- _class: title -->\n\n# Hi\n\n---\n\n<!-- _class: big-number -->\n\n- 42\n  - things');
 		const div = document.createElement('div');
 		div.appendChild(DOMSerializer.fromSchema(deckSchema).serializeFragment(doc.content));
-		const round = parseForeign(div.innerHTML);
+		const round = parseElement(div);
 		expect(round.childCount).toBe(2);
 		expect(round.child(0).attrs.directives).toEqual(['<!-- _class: title -->']);
 		expect(round.child(1).attrs.directives).toEqual(['<!-- _class: big-number -->']);
