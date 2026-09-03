@@ -174,11 +174,11 @@ The four people did not change. Only who talked to whom changed.
 
 ## You just watched a system run for sixteen hours.
 
-It had a goal it did not meet, and one hour that decided whether it would. Two things fed themselves in circles, one of them in her shower. Something invisible held the whole thing up until nine o'clock, when it stopped. One promise never broke, on the day everything else did.
+Her day had a purpose it did not meet, and one hour that decided it. Two things ran in circles: the shower, and the questions about 482. Something she never thinks about held the day up until the registry stopped at nine. And main stayed deployable throughout — the one promise that held.
 
 The reviewer woke at three and the window shut at four. Everything Maya did that day reached the outcome only through that hour. She spent twenty of its sixty minutes answering questions about 482, instead of waiting ready to act on whatever came back.
 
-You have watched all ten. You do not yet have the words.
+You have watched every idea in this deck happen. You do not yet have the words.
 
 ---
 
@@ -218,17 +218,17 @@ Maya's morning is one. The shower, the train, the laptop and the registry betwee
 flowchart TB
   subgraph tue["Tuesday · they talk across"]
     direction LR
-    T1["Maya"] <--> T2["Priya"]
-    T2 <--> T3["Dev"]
+    T1(["Maya"]) <--> T2(["Priya"])
+    T2 <--> T3(["Dev"])
     T1 <--> T3
-    T4["Manager"] <--> T1
+    T4(["Manager"]) <--> T1
     T3 --> OUT2(["One sentence<br/>saves a morning"])
   end
   subgraph mon["Monday · they report upward"]
     direction LR
-    M1["Maya"] --> MM["Manager"]
-    M2["Priya"] --> MM
-    M3["Dev"] --> MM
+    M1(["Maya"]) --> MM(["Manager"])
+    M2(["Priya"]) --> MM
+    M3(["Dev"]) --> MM
     MM --> OUT1(["Twenty minutes,<br/>nothing settled"])
   end
 ```
@@ -900,7 +900,7 @@ The entries name concepts, not products. Products turn over every few years. The
 
 `Data kit · the patterns`
 
-## Four shapes cover almost everything you will store.
+## Almost everything you will ever store fits one of a few shapes.
 
 ```mermaid
 flowchart TB
@@ -1163,12 +1163,12 @@ flowchart LR
 
 `Data kit · consistency`
 
-## Three rungs cover almost every argument you will have about consistency.
+## Consistency is not one thing, and most arguments are about which kind you meant.
 
 1. Linearizable
    - Every read sees the latest write. Costs a coordination round trip, every time.
 2. Read your writes
-   - You always see your own edits. The least a person who just typed something accepts.
+   - You always see your own edits. Anyone who has just typed something expects at least this.
 3. Eventual
    - Replicas agree in the end. Cheapest, and correct for feeds, counters and presence.
 
@@ -1203,7 +1203,7 @@ Indexes make reads fast by making writes slower and storage larger. Each one is 
 - The bill arrives on writes
   - Five indexes mean five extra structures touched per insert, not one.
 - How many rows it removes, not how many values it has
-  - Three evenly spread values get ignored. Three where one appears in 0.1 percent do not.
+  - An index earns its keep by how rare a match is. Three evenly spread values narrow nothing; three where one is rare narrow almost everything.
 
 ---
 
@@ -1309,7 +1309,7 @@ The same rule governs an API other people call. Add fields, never repurpose them
 
 `Data kit · the invariants`
 
-## Four sentences should hold in any data design. Which does yours break?
+## A data design you can defend can say all of these are true. Which does yours break?
 
 1. Exactly one source of truth per fact
    - Every other copy is derived, and is labeled as derived where people can see it.
@@ -1423,7 +1423,7 @@ flowchart TB
 
 `Compute kit · the invariants`
 
-## Anything you run should satisfy these four. Which does yours break?
+## Anything you run should satisfy every one of these. Which does yours break?
 
 1. Any instance can be killed without a customer noticing
    - If that is false, you have state you have not named yet.
@@ -1480,16 +1480,16 @@ flowchart TB
 
 `Network kit · the request path`
 
-## Four hops separate a tap from your service, each spending budget.
+## A tap crosses several hops before your code sees it, and each one spends budget.
 
 ```mermaid
 flowchart LR
-  U(["Phone"]) -->|"~50 ms cellular"| D["DNS"]
-  D -->|"cached, ~0 ms"| E["CDN edge"]
+  U(["Phone"]) -->|"~50 ms cellular"| D(["DNS"])
+  D -->|"cached, ~0 ms"| E(["CDN edge"])
   E -->|"hit ends here"| U
-  E -->|"~30 ms"| LB["Balancer"]
-  LB -->|"~0.5 ms"| GW["Gateway"]
-  GW -->|"~0.5 ms"| SVC["Your service"]
+  E -->|"~30 ms"| LB(["Balancer"])
+  LB -->|"~0.5 ms"| GW(["Gateway"])
+  GW -->|"~0.5 ms"| SVC(["Your service"])
   SVC --> DB[("Store")]
 ```
 
@@ -1499,7 +1499,7 @@ flowchart LR
 
 `Network kit · the numbers`
 
-## Three numbers settle most latency arguments before they start.
+## Most latency arguments end the moment somebody says the actual numbers.
 
 1. Memory read
    - 100 ns
@@ -1559,7 +1559,7 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
 
 `Network kit · the invariants`
 
-## A call that leaves your process owes you these four.
+## A call that leaves your process owes you all of this before you trust it.
 
 1. Every remote call has a deadline
    - Inherited from the caller, and always shorter than the caller's own.
@@ -1711,7 +1711,7 @@ Networks duplicate, clients retry, queues redeliver. The only question is whethe
 
 `Scale kit · the invariants`
 
-## Check these four before you call anything scalable.
+## Check every one of these before you call anything scalable.
 
 1. The bottleneck is named and measured
    - Not suspected. A number, a graph, and the resource it belongs to.
@@ -1742,21 +1742,21 @@ Networks duplicate, clients retry, queues redeliver. The only question is whethe
 flowchart TB
   subgraph b["Degrade to stale"]
     direction LR
-    B1["Reader"] --> B2["Breaker open"] -.-> B3[("Last good copy")]
+    B1(["Reader"]) --> B2(["Breaker open"]) -.-> B3[("Last good copy")]
   end
   subgraph a["Copies that fail apart"]
     direction LR
-    A1["Traffic"] --> A2["Balancer"] --> A3["Zone A"]
-    A2 --> A4["Zone B"]
+    A1(["Traffic"]) --> A2(["Balancer"]) --> A3(["Zone A"])
+    A2 --> A4(["Zone B"])
   end
   subgraph d["Shed at the edge"]
     direction LR
-    D1["Arrivals"] --> D2["Over budget"] --> D3(["Fast reject"])
+    D1(["Arrivals"]) --> D2(["Over budget"]) --> D3(["Fast reject"])
   end
   subgraph c["One pool per dependency"]
     direction LR
-    C1["Service"] --> C2["Pool A"] --> C3[("Dependency A")]
-    C1 --> C4["Pool B"] --> C5[("Dependency B")]
+    C1(["Service"]) --> C2(["Pool A"]) --> C3[("Dependency A")]
+    C1 --> C4(["Pool B"]) --> C5[("Dependency B")]
   end
   a ~~~ c
   b ~~~ d
@@ -1772,8 +1772,8 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  R["Region"] --> Z1["Zone A"] --> M1["Machine"] --> P1["Process"]
-  R --> Z2["Zone B"] --> M2["Machine"] --> P2["Process"]
+  R(["Region"]) --> Z1(["Zone A"]) --> M1(["Machine"]) --> P1(["Process"])
+  R --> Z2(["Zone B"]) --> M2(["Machine"]) --> P2(["Process"])
   P1 -.->|"same config, same deploy,<br/>same upstream"| C(["Correlated failure:<br/>both die together"])
   P2 -.-> C
 ```
@@ -1784,7 +1784,7 @@ flowchart LR
 
 `Reliability kit · containment`
 
-## Four mechanisms keep a slow dependency from taking the building.
+## A slow dependency takes the whole building unless something bounds the wait.
 
 1. Timeout
    - Bound the wait, so a slow callee cannot hold your resources.
@@ -1801,7 +1801,7 @@ flowchart LR
 
 `Reliability kit · the objectives`
 
-## Four terms decide what you are allowed to ship this week.
+## Whether you may ship this week is decided by words people use interchangeably.
 
 1. SLI
    - The measurement: the share of requests served under 300 milliseconds.
@@ -1847,7 +1847,7 @@ Each nine roughly multiplies the cost. Pick the number the business actually nee
 
 `Reliability kit · observability`
 
-## Three signals answer three different questions. None replaces another.
+## Each signal answers a different question, and none of them replaces another.
 
 - Metrics
   - Cheap, aggregate, always on. They tell you that something is wrong.
@@ -1882,7 +1882,7 @@ Under pressure something has to give. Either you decided in advance which featur
 
 `Reliability kit · the invariants`
 
-## Trust nothing in production until these four hold.
+## Trust nothing in production until all of these hold.
 
 1. Every dependency has a defined failure behavior
    - Written down: degrade, queue, or fail fast. Never "we will see."
@@ -2003,7 +2003,7 @@ Assume any single credential eventually leaks. The design question is not whethe
 
 `Security kit · threat modeling`
 
-## Six questions find most of the holes before somebody else does.
+## Ask these before somebody else finds the holes for you.
 
 - [ ] Can someone pretend to be another identity? `spoofing`
 - [ ] Can data be changed in transit or at rest? `tampering`
@@ -2045,7 +2045,7 @@ Pin exact versions and commit the lock file, so the build you tested is the buil
 
 `Security kit · the invariants`
 
-## Sign your name to a design only when these four are true.
+## Sign your name to a design only when every one of these is true.
 
 1. Every request is authorized against the specific object
    - Not the endpoint. Object-level checks are where the breaches happen.
@@ -2118,7 +2118,7 @@ Solution type Scaled. Not an MVP, not optimal.
 
 `Instagram · what it must do`
 
-## Four operations carry the entire product.
+## The whole product rests on a very small number of operations.
 
 1. Post a photo
    - Upload media, attach a caption, publish it to the people who follow you.
@@ -2135,7 +2135,7 @@ Solution type Scaled. Not an MVP, not optimal.
 
 `Instagram · what it must guarantee`
 
-## Four guarantees decide the architecture more than the features do.
+## What you promise decides the architecture more than what you build.
 
 1. The feed serves in under 200 milliseconds
    - Server-side, 99th percentile, measured from the reader's own region.
@@ -2242,7 +2242,7 @@ flowchart LR
 
 ## Your following list is capped. Your followers list is capped by nothing.
 
-Instagram limits how many accounts you may follow to seven and a half thousand. Nobody limits how many people may follow you. An account on the far end of that second number — hundreds of millions of followers — is called a **super node**, and every hard problem here comes from one.
+Instagram caps your following list at seven and a half thousand accounts. Nobody limits how many people may follow you. An account on the far end of that second number — hundreds of millions of followers — is called a **super node**, and every hard problem here comes from one.
 
 - Following, per person
   - At most 7,500. A read of that list is one partition and a sorted range.
@@ -2485,7 +2485,7 @@ A twenty-item page needs four lookups an item — the post row, the media varian
 
 Batch them all. Do not fold the count into the feed entry — that entry is written at post time, when the count is zero. Fold the like check the other way instead: one batched read across the twenty candidates.
 
-Batching is not only throughput. Eighty parallel calls put `1 - 0.99^80`, fifty-five percent, of pages on a slow dependency — against a 99th-percentile promise.
+Batching is not only about throughput. Eighty parallel calls put fifty-five percent of pages on a slow dependency — that is `1 - 0.99^80`, against a 99th-percentile promise.
 
 ---
 
@@ -2570,7 +2570,7 @@ Every like is a write against the same post id — one key, one partition, one l
 
 `Instagram · where it breaks`
 
-## Four failures here are certain, and every one already has its answer.
+## These are not risks here. They are certainties, and each already has its answer.
 
 - Celebrity post
   - The fan-out queue floods. Answer: the pull path above the threshold.
@@ -2587,7 +2587,7 @@ Every like is a write against the same post id — one key, one partition, one l
 
 `Instagram · the invariants`
 
-## Six sentences hold, or the design is not finished.
+## Every one of these holds, or the design is not finished.
 
 - [x] A post is visible to every eligible follower who reaches it. `eventually`
 - [x] Media is never lost once an upload is acknowledged. `durable`
@@ -2701,7 +2701,7 @@ Solution type MVP  ·  scaled  ·  optimized  ·  optimal  ·  specialized
 
 `The review`
 
-## Six questions to ask of any design, starting with your own.
+## Ask these of any design, starting with your own.
 
 - [ ] Who is the protagonist, and who are we not designing for? `casting`
 - [ ] What is the antagonist, and what number describes it? `evidence`
