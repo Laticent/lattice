@@ -24,7 +24,7 @@ export type Primitive = (typeof PRIMITIVES)[number];
 // Motion verbs — the closed set. Each is valid in one or both source models and needs
 // at most one extra capability (see the maps below). Their roles map to the serious use
 // classes of §2: spin/orbit = explanatory 3D; sequence/reveal = mechanism; fill = data-
-// bound; explode = structure; draw/trace = the drawn figure (Vivus).
+// bound; explode = structure; draw/trace = the drawn figure (the drawable backend).
 export const MOTION_VERBS = [
   'spin', // continuous rotation about an axis, in the element's LOCAL frame (built)
   'orbit', // the element's local position circles an axis over a period (built)
@@ -42,7 +42,8 @@ export type MotionVerb = (typeof MOTION_VERBS)[number];
 export const AXES = ['x', 'y', 'z'] as const;
 export type Axis = (typeof AXES)[number];
 
-/** The scene source models — `built` (Zdog/Three primitives) vs `svg` (Vivus line-art). */
+/** The scene source models — `built` (Zdog primitives) vs `svg` (line-art the drawable
+ *  backend strokes, or the marks painter reveals). */
 export const SOURCE_MODELS = ['built', 'svg'] as const;
 export type SourceModel = (typeof SOURCE_MODELS)[number];
 

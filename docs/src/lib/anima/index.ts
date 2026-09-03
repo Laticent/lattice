@@ -5,7 +5,7 @@
 // engineering/decisions/2026-07-17-anima-animation-library.md
 //
 // This barrel is the PURE core surface (zero-dep, no DOM). A backend that imports an
-// engine dep (Zdog, Vivus) is NOT re-exported here — import it directly from
+// engine dep (Zdog, anime.js) is NOT re-exported here — import it directly from
 // `./backends/<engine>` — so the core stays spin-off-able. Only the pure `Renderer`
 // contract TYPES live here.
 

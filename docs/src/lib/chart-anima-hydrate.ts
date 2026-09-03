@@ -13,6 +13,7 @@
 // before it enters either `chartToScene` (a detached parse) or the AssetMap that reaches the live
 // frame. `hydrateResolved` consumes the already-sanitized markup verbatim.
 
+import { svgRendererFor } from './anima/backends/registry-svg';
 import { type HydrateOptions, hydrateResolved, readDeclaredTier } from './anima/hydrate';
 import { parseScene } from './anima/schema';
 import { type ChartAnimaStyle, chartToScene } from './chart-anima';
@@ -21,7 +22,11 @@ export interface ChartSceneController {
   dispose(): void;
 }
 
-export interface ChartHydrateOptions extends HydrateOptions {
+/** A chart never reaches the built-primitive backend — `chartToScene` always yields an
+ *  `SvgScene` — so `rendererFor` is supplied internally (`svgRendererFor`) rather than being
+ *  a caller's choice. Omitting it from the options is what lets a chart-only player bundle
+ *  drop Zdog: nothing on this path can reference it. */
+export interface ChartHydrateOptions extends Omit<HydrateOptions, 'rendererFor'> {
   /** The resolved motion STYLE for this section (the caller runs the Play/Style/Speed cascade —
    *  `resolveMotion` in anima-host-sel — and only calls when Play is on). Omitted → no motion. */
   style?: ChartAnimaStyle;
@@ -81,6 +86,6 @@ export function hydrateChart(section: Element, opts: ChartHydrateOptions = {}): 
       assetMarkup: sanitize(built.asset),
     },
     // Charts get NO playback control — motion is a one-shot "play on enter" build, not a media player.
-    { ...opts, chrome: false },
+    { ...opts, chrome: false, rendererFor: svgRendererFor },
   );
 }

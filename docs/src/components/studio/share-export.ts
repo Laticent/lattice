@@ -252,6 +252,9 @@ type PlayerCore = {
 			theme?: unknown;
 			config?: unknown;
 			notes?: boolean;
+			/** `false` ships the still even when the deck asks for motion; undefined inherits
+			 *  the deck's own `motion:` / `player-motion:` registers. Suppression only. */
+			playerMotion?: boolean;
 			glossary?: { term: string; definition: string }[];
 			narration?: unknown;
 			readAlong?: unknown;
@@ -314,6 +317,12 @@ export async function shareHtmlPlayer(
 	// that synthesizes: the bake reads this device's clip store first and bills only the
 	// sentences it does not have, in `voice`, and REFUSES if any of them cannot be prepared.
 	narration?: { captions: boolean; audio: boolean; voice: BakeVoice; allowPartial?: boolean; signal?: AbortSignal },
+	// Whether the exported file carries the deck's CHART MOTION. `false` ships the still even
+	// when the deck sets `motion: on` — the same one-way suppression the CLI's
+	// `--no-player-motion` performs, and the same field `assemblePlayer` reads, so the Studio
+	// and the CLI cannot drift on what the flag means. Undefined inherits the deck's own
+	// registers (`motion:`, with `player-motion: off` as the author-side opt-out).
+	playerMotion?: boolean,
 	// Resolves to a DEGRADATION reason when the export completed but shipped something
 	// lesser than intended (today: the diagram bake did not run), else undefined. The
 	// caller surfaces it in the completion toast — see the return at the end.
@@ -621,6 +630,11 @@ export async function shareHtmlPlayer(
 			// run the privacy flag?", in plain base64 at the bottom of a file people share. See
 			// the same field in lattice-emulator.js for the reasoning (#1833).
 			notes: !stripNotes && noteRecord.some((r) => !!r.note),
+			// Motion in a forwarded file: a separate choice from motion while presenting,
+			// because it costs bytes and it moves for a recipient the author is not there to
+			// frame it for. Suppression only — a deck that says `motion: off` cannot be made
+			// to move from here.
+			playerMotion,
 			// The auto-glossary term→definition projection, gated on the `glossary: auto` opt-in —
 			// parity with the CLI export's manifest field (#920); omitted otherwise.
 			glossary: resolveGlossaryMode(source) === 'auto' ? glossaryEntries(source) : [],

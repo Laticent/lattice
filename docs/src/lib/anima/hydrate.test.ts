@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { decodeSpec, effectiveTier, hasContinuousMotion, hydrateScene, rendererFor, toLegible, whollyVestibular } from './hydrate';
+import { rendererFor } from './backends/registry';
+import { decodeSpec, effectiveTier, hasContinuousMotion, hydrateScene, toLegible, whollyVestibular } from './hydrate';
 import { parseScene, usedVerbs } from './schema';
 import type { Scene } from './types';
 
@@ -113,14 +114,14 @@ describe('hydrateScene — reduced-motion opt-in + control gating (Stage 6b)', (
 
   it('an author-declared `still` scene keeps the poster — no controller, no control', () => {
     const section = makeSection(spinOnlySpec, 'still');
-    expect(hydrateScene(section, { reducedMotion: false })).toBeNull();
+    expect(hydrateScene(section, { reducedMotion: false, rendererFor })).toBeNull();
     expect(section.querySelector('.scene-control')).toBeNull();
     expect(section.getAttribute('data-scene-live')).toBeNull();
   });
 
   it('a floor-suppressed scene offers a "Play the motion" opt-in — poster kept, backend NOT yet mounted', () => {
     const section = makeSection(spinOnlySpec); // wholly vestibular → reduced motion floors it to still
-    const c = hydrateScene(section, { reducedMotion: true, eager: true });
+    const c = hydrateScene(section, { reducedMotion: true, eager: true, rendererFor });
     expect(c).not.toBeNull();
     const btn = section.querySelector('.scene-control') as HTMLElement;
     expect(btn?.dataset.mode).toBe('optin');
@@ -135,7 +136,7 @@ describe('hydrateScene — reduced-motion opt-in + control gating (Stage 6b)', (
 
   it('a motionless scene under reduced motion has nothing to opt into — poster stands (null)', () => {
     const section = makeSection(motionlessSpec);
-    expect(hydrateScene(section, { reducedMotion: true })).toBeNull();
+    expect(hydrateScene(section, { reducedMotion: true, rendererFor })).toBeNull();
     expect(section.querySelector('.scene-control')).toBeNull();
   });
 });

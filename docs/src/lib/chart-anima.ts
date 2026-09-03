@@ -124,7 +124,7 @@ function parseSvg(markup: string): SVGSVGElement | null {
 // display:none original" hazard is really a property of the SHARED HOST's mount strategy
 // (anima/hydrate.ts hides the poster with display:none and mounts a copy of its markup), not of the
 // chart adapter. We namespace HERE because the chart path is the only one that ships `<defs>` paint
-// servers today — spec (`data-scene-spec`) svg scenes are currently Vivus line-art (stroked paths, no
+// servers today — spec (`data-scene-spec`) svg scenes are stroked line-art (no
 // gradient defs), so their identical-markup copy has nothing to collide. If a baked svg scene ever
 // carries gradient/clip/mask defs it inherits the same bug and the host mount would need the same
 // treatment (or, categorically, `poster.remove()` instead of display:none). See gotchas.md.

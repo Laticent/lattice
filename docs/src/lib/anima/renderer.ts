@@ -13,7 +13,7 @@ import type { Scene, SceneState } from './types';
  *  SECURITY (HARD RULE #22): the markup is UNTRUSTED (a saved / AI-authored / bundle-shared
  *  scene asset). The HOST that populates this map MUST sanitize the markup with
  *  `sanitizeSlideHtml` (DOMPurify, SVG profile, ids preserved) BEFORE it enters the map — a
- *  raw asset here is an XSS sink in the same-origin Studio frame. The Vivus backend also
+ *  raw asset here is an XSS sink in the same-origin Studio frame. The shared svg painter also
  *  parses inertly + strips as defense-in-depth, but sanitization is the host's contract. */
 export type AssetMap = Record<string, string>;
 

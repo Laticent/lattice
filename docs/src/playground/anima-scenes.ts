@@ -15,6 +15,7 @@
 // preview-only enhancement here (standalone-HTML-export hydration is a separate follow-on).
 // `rebind()` re-hydrates after every srcdoc rewrite / live-edit re-render.
 
+import { rendererFor } from '@/lib/anima/backends/registry';
 import { hydrateScene } from '@/lib/anima/hydrate';
 import { hydrateChart } from '@/lib/chart-anima-hydrate';
 import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
@@ -175,7 +176,7 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
     for (const section of Array.from(doc.querySelectorAll(SCENE_SEL))) {
       if (live.has(section)) continue;
       const sig = sigOf(section, deck);
-      mount(section, sig, (settled) => hydrateScene(section, { eager: true, sanitize: sanitizeSlideHtml, startSettled: settled }));
+      mount(section, sig, (settled) => hydrateScene(section, { eager: true, sanitize: sanitizeSlideHtml, startSettled: settled, rendererFor }));
     }
     // The chart on-ramp. Two ways a chart section qualifies: an EXPLICIT per-slide opt-in class
     // (`motion-*` / legacy `chart-anima`), OR — when the deck sets Play on — ANY chart section (a

@@ -54,7 +54,7 @@ A relationship a single still can only imply: on screen the rotor spins and a be
 ---
 
 <!-- _class: scene gallery -->
-<!-- _footer: "svg · Vivus — the flow draws itself, node by node" -->
+<!-- _footer: "svg · the flow draws itself, node by node" -->
 
 ## The pipeline assembles in order.
 
@@ -69,11 +69,11 @@ The drawing ORDER is the meaning — node, arrow, node — which a static diagra
   "hero": 1,
   "asset": "flow",
   "elements": [
-    { "id": "n1", "pathRef": "n1", "color": "var(--cat-2-mark)", "motion": [{ "verb": "draw", "span": 1 }] },
-    { "id": "a1", "pathRef": "a1", "color": "var(--text-muted)", "motion": [{ "verb": "draw", "span": 1 }] },
-    { "id": "n2", "pathRef": "n2", "color": "var(--accent)", "motion": [{ "verb": "draw", "span": 1 }] },
-    { "id": "a2", "pathRef": "a2", "color": "var(--text-muted)", "motion": [{ "verb": "draw", "span": 1 }] },
-    { "id": "n3", "pathRef": "n3", "color": "var(--cat-6-mark)", "motion": [{ "verb": "draw", "span": 1 }] }
+    { "id": "n1", "pathRef": "n1", "color": "var(--cat-2-mark)", "motion": [{ "verb": "draw", "at": 0, "span": 0.2 }] },
+    { "id": "a1", "pathRef": "a1", "color": "var(--text-muted)", "motion": [{ "verb": "draw", "at": 0.2, "span": 0.15 }] },
+    { "id": "n2", "pathRef": "n2", "color": "var(--accent)", "motion": [{ "verb": "draw", "at": 0.35, "span": 0.2 }] },
+    { "id": "a2", "pathRef": "a2", "color": "var(--text-muted)", "motion": [{ "verb": "draw", "at": 0.55, "span": 0.15 }] },
+    { "id": "n3", "pathRef": "n3", "color": "var(--cat-6-mark)", "motion": [{ "verb": "draw", "at": 0.7, "span": 0.3 }] }
   ]
 }
 ```

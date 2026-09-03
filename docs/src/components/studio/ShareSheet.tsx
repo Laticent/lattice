@@ -155,7 +155,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 					allowPartial: choice.narration.allowPartial,
 					voice: choice.narration.voice,
 					signal,
-				});
+				}, choice.playerMotion);
 				// The export succeeded but shipped something lesser (today: the diagram bake did
 				// not run). Hand the reason to the toast — the progress line it was announced on
 				// is already gone by the time the file lands.

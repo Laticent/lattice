@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: superseded
 summary: Anima — a SERIOUS animation capability (not a gimmick), where motion must carry information a STILL FRAME CANNOT (geometry you must rotate to read, a sequence/causality that only unfolds in time, or a quantity bound to real data) — never bouncing-ball ornament. Three pieces on architecture that already exists: (1) the ANIMA LIBRARY — a pure, framework-free engine in the Cadenza/Vetrina mold with a DSL, a medium-independent SPEC/IR, and a PLUGGABLE capability-negotiated renderer with TWO first-class vector/poster engines on the canonical path — Zdog (builds flat-3D shapes) and Vivus.js (draws SVG line-art stroke-by-stroke) — plus Three.js present-mode-only for true-3D/GLTF (raster) and Pixi deferred, whose one idea generalizes Cadenza's "the clock is someone else's" to "the RENDERER is someone else's"; (2) an ANIMATION ASSET (kind:'scene') — a serialized scene spec you CREATE, TUNE, SAVE, and SHARE exactly like a kind:'theme' or kind:'component' asset (asset-bundle.ts / asset-store.js), authored by the LLM-plus-human loop the theme & component generators already prove; (3) ONE HOST COMPONENT (imagery bucket) framing a scene asset with variants mirroring the image component (clean/split/spotlight/gallery/statement/mirror) — asset is the payload, component is the frame. Static PDF/PPTX gets a deterministic VECTOR poster (CSS-3D-charts raster-pixelates finding); reduced-motion → poster. LLM authors DATA (the spec), never JS (HARD RULE #22); palette-blind. Ornament banned by the "information a still cannot carry" test. Design only; nothing built.
 companion:
   - ./2026-07-07-cadenza-caption-timeline.md
@@ -7,11 +7,16 @@ companion:
   - ./2026-07-08-library-shape-cadenza-vetrina.md
   - ./2026-06-19-css-3d-charts-feasibility.md
   - ./2026-06-29-ai-component-generation.md
+superseded-by: 2026-09-02-frame-model-for-motion.md
 ---
 
 # Anima — a serious animation capability: a library, an asset, and a host
 
-**Date:** 2026-07-17 · **Status:** direction proposed; field spec + build staged.
+**Status:** superseded. This note designed motion as a **continuous timeline** with THREE engines (Zdog for built primitives, Vivus for SVG line-art, a gated Three.js tier) and a scene-asset faculty. All three engine choices are dead: Zdog and Vivus are abandoned upstream and measured unfit (`2026-09-02-motion-engine-bakeoff.md` §2), Three.js was never built, and the continuous timeline itself is replaced by a finite set of known frames. The animation library is **anime.js v4**. Current state of record: [`2026-09-02-frame-model-for-motion.md`](2026-09-02-frame-model-for-motion.md).
+
+**What survives and is carried forward:** §2's admission test — motion earns its place only when it carries information a still cannot — and §12's ban on ornament. Those are the quality bar, not the architecture, and they still hold.
+
+**Date:** 2026-07-17 · **Status:** SUPERSEDED (see the banner above). Historic status line: "direction proposed; field spec + build staged" — but §14.6a records Stage 6a and three 6b slices as SHIPPED, so the front-matter summary's "Design only; nothing built" is wrong.
 **Working names:** the **library** = *Anima*; the fabricated **asset** = a *scene* (`kind:'scene'`);
 the **host component** = `scene`. All three are naming calls (alternatives: `Moto`, `Diorama`).
 

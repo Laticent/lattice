@@ -7,10 +7,11 @@
 // the CLI `--strip-notes`. Accessible slide descriptions are kept (they're the slide's
 // text alternative, not private speaker copy). See share-export.ts › shareHtmlPlayer.
 
-import { ArrowLeft, Globe, Layers, Loader2, MicOff, Monitor, Moon, Sun, X } from 'lucide-react';
+import { ArrowLeft, Globe, Layers, Loader2, MicOff, Monitor, Moon, Play, Sun, X } from 'lucide-react';
 import * as React from 'react';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+import { sourceAnimatesCharts } from '../../../../lib/core/resolve-motion.mjs';
 import { type NarrationChoice, NarrationExportOptions, type ProjectDeck } from './NarrationExportOptions';
 
 type Scheme = 'light' | 'dark' | 'system' | 'inherited';
@@ -19,6 +20,9 @@ type Scheme = 'light' | 'dark' | 'system' | 'inherited';
  *  growing positional list. */
 export type WebpageExportChoice = {
 	stripNotes: boolean;
+	/** Whether the exported file carries the deck's chart motion. Suppression only — a deck
+	 *  that never asked for motion cannot be made to move from here. */
+	playerMotion: boolean;
 	scheme: Scheme;
 	narration: NarrationChoice;
 };
@@ -55,6 +59,16 @@ export function WebpageOptionsPanel({
 }) {
 	// Default OFF: notes ride (matching the CLI player default). Stripping is opt-in.
 	const [stripNotes, setStripNotes] = React.useState(false);
+	// Default ON: the export inherits what the deck already asked for, so a deck that
+	// animates in the Playground animates for whoever opens the file. The row only appears
+	// when the deck HAS motion to carry — offering "keep the motion" on a deck with no
+	// animated chart is a switch that does nothing, which teaches the reader to distrust the
+	// panel.
+	const [playerMotion, setPlayerMotion] = React.useState(true);
+	// The SHARED rule, not a fourth hand-rolled regex. An earlier draft of this line had its
+	// own — case-sensitive, and treating the style tokens as opt-ins — so the same deck got
+	// three different answers from the panel, the exporter and the live cascade.
+	const deckHasMotion = React.useMemo(() => sourceAnimatesCharts(source), [source]);
 	// Narration is opt-in too, and for a different reason: it is the only option here that
 	// can spend money and add megabytes. See NarrationExportOptions for the bill.
 	const [narration, setNarration] = React.useState<NarrationChoice>({ captions: false, audio: false, allowPartial: false, voice: { model: '', voice: '', speed: 1 } });
@@ -83,7 +97,7 @@ export function WebpageOptionsPanel({
 	// ref went with it: closing the sheet mid-bake left three workers synthesizing and billing
 	// with nothing left to stop them, and reopening it re-mounted a Cancel button whose ref was
 	// null — the only stop control in the feature, dead. It belongs to the owner of the run.
-	const launch = (choice: NarrationChoice) => onExport({ stripNotes, scheme, narration: choice });
+	const launch = (choice: NarrationChoice) => onExport({ stripNotes, scheme, narration: choice, playerMotion });
 	// The exported player's default color mode. The panel remounts each time the export step
 	// is opened (ShareSheet renders it conditionally), so this mount-time default already
 	// re-syncs — no effect needed, so an explicit user pick is never silently clobbered.
@@ -154,6 +168,26 @@ export function WebpageOptionsPanel({
 						<Switch className="mt-0.5" aria-label="Strip speaker notes" checked={stripNotes} disabled={busy} onCheckedChange={setStripNotes} />
 					</div>
 				</div>
+
+				{/* Chart motion — only when the deck actually has some to carry. */}
+				{deckHasMotion ? (
+					<div className="rounded-xl border border-border bg-background p-3.5">
+						<div className="flex items-start justify-between gap-3">
+							<span className="flex items-start gap-2">
+								<Play className="mt-0.5 size-4 text-[var(--accent)]" />
+								<span>
+									<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Animate charts</span>
+									<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">
+										{playerMotion
+											? 'Charts build the way they do here, for whoever opens the file. Adds about 22 KB.'
+											: 'The file shows the finished charts, still. Your deck still animates while you present — this only changes the copy you send.'}
+									</span>
+								</span>
+							</span>
+							<Switch className="mt-0.5" aria-label="Animate charts" checked={playerMotion} disabled={busy} onCheckedChange={setPlayerMotion} />
+						</div>
+					</div>
+				) : null}
 
 				<NarrationExportOptions
 					source={source}

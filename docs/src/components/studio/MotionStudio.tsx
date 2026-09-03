@@ -3,6 +3,7 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { auditScene } from '@/lib/anima/audit';
+import { rendererFor } from '@/lib/anima/backends/registry';
 import { EASINGS } from '@/lib/anima/easing';
 import { hydrateScene } from '@/lib/anima/hydrate';
 import { parseScene } from '@/lib/anima/schema';
@@ -248,7 +249,7 @@ export function MotionStudio({
 		// it the way the sibling `hydrateScenes` guards each section — fall back to the empty stage.
 		let ctrl: ReturnType<typeof hydrateScene> | undefined;
 		try {
-			ctrl = hydrateScene(section, { eager: true, sanitize: sanitizeSlideHtml });
+			ctrl = hydrateScene(section, { eager: true, sanitize: sanitizeSlideHtml, rendererFor });
 		} catch {
 			host.textContent = '';
 			return;

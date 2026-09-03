@@ -1,15 +1,24 @@
 ---
-status: proposed
+status: superseded
 summary: Decide the shape of Anima's AUTHORING surface (the 4th "Motion" Fabricate tab, beside Theme · Component · Finish) — NOT one design but a small set of author-persona MODES over one shared scene spec. The five design-competition surfaces are a floor→ceiling spectrum, one per archetype (Presenter→Director, Storyteller→Storyboard, Maker→Track, Analyst→Rig, Builder→Stage+Spec); because all are tune-BODIES over the same Anima Scene spec (Stage-1 core), a mode is just how you edit it, so switching is loss-free and cheap. Shared chrome (header · the "Describe a motion scene" front door as the universal low-floor on-ramp · a scrub/poster strip · Save/Export); only the tune body swaps per mode; the Studio shell does not change. v1 = Director Mode (Guided) + Rig Mode (floor + ceiling); Storyboard/Track/Stage+Spec are roadmap modes, no rework. Deliberately called MODE (the author's word) to stay distinct from reader LENSES (@slidewright/lente, the audience's). Stage 4 kind:'scene' asset record shape + poster-storage decision: the SPEC is canonical and the stored poster keeps var(--token) (theme-agnostic thumbnail); the export-frozen-vs-rerender choice stays Stage-5 export-sign-off-gated. Build sequencing is foundation-up (Stage 4 asset → Stage 5 host component → Stage 7 faculty); design landed ahead of its build slot. Design only; nothing built.
 companion:
   - ./2026-07-17-anima-animation-library.md
   - ./2026-07-13-lente-reader-lenses.md
+superseded-by: 2026-09-02-frame-model-for-motion.md
 ---
 
 # Anima — the Motion faculty as author-persona MODES over one scene spec
 
+**Status:** superseded — **by scope, not by error.** An earlier draft of this banner said the note designed its shell "around composing 3-D primitive trees." That was wrong, and it was written without reading the note. Its actual thesis is *author-persona MODES over one shared scene spec* — Director, Storyboard, Track, Rig, Stage+Spec as a floor→ceiling spectrum, all tune-bodies over the same spec so switching is loss-free. That idea is **spec-agnostic and survives on its own terms**; it is not tied to Zdog.
+
+What supersedes it is the narrowed scope: motion now applies to what the engine **already renders** — charts, chrome, logos — rather than being authored as a standalone `kind:'scene'` asset in a fourth Fabricate tab. So the asset model (§4), the Stage 4→5→7 sequencing (§5) and the five-mode roadmap are out of scope, and the faculty they describe is not the plan.
+
+**Note for whoever picks this up:** §6.2 records that the two v1 modes **shipped** (`MotionStudio.tsx`), which contradicts this note's own summary line "Design only; nothing built." So superseding this note puts a *shipped* Studio surface out of scope — that surface's fate is a real decision, not a paper one, and it is not settled here.
+
+Current state of record: [`2026-09-02-frame-model-for-motion.md`](2026-09-02-frame-model-for-motion.md).
+
 **Date:** 2026-07-18
-**Status:** Proposed (design model; build not yet started)
+**Status:** SUPERSEDED (see the banner above). Historic line: "Proposed (design model; build not yet started)" — contradicted by §6.2, which records the two v1 modes SHIPPING (`MotionStudio.tsx`).
 **Follows:** `2026-07-17-anima-animation-library.md` (the Anima ADR — Stages 1–3 shipped:
 the pure core, the Zdog backend, the Vivus backend). This doc decides the shape of the
 *authoring* surface (nominally Stage 7) and refines the Stage 4 asset — designed ahead of

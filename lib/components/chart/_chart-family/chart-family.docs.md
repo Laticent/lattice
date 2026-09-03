@@ -265,6 +265,36 @@ scene, and no scene means the poster simply stays up.** That failure is silent �
 the chart looks right and never moves — so a member that is not SVG-native is not
 "mostly supported", it is skipped.
 
+### Motion in a file you FORWARD
+
+`motion:` decides whether the deck animates. **`player-motion:` decides whether an
+exported `--player` file carries that motion**, and it defaults to inheriting
+`motion:` — so a deck that animates on the Playground animates for a recipient too,
+with nothing new to set.
+
+They are separate keys because they answer different questions. The exported file is
+what leaves the building: motion there costs bytes in an artifact somebody may open
+offline, and it changes what the recipient sees without the author present to frame
+it. An author who wants the build while presenting and a still in the board pack
+writes:
+
+```yaml
+---
+motion: on
+player-motion: off
+---
+```
+
+**The PDF and PPTX are unaffected either way** — print always renders the final
+frame, so every existing deck stays byte-identical. And a deck with no chart and no
+authored scene ships no motion code at all.
+
+**Reduced motion behaves the same everywhere.** A viewer whose system asks for reduced
+motion still sees the build: the tier is *reduce*, not *remove*, and a staggered fade
+carries no vestibular trigger — so the exported file matches the Playground rather than
+diverging from it. Charts carry no playback control on any surface, so there is no
+per-viewer pause. When that matters for a particular audience, send them the still.
+
 | Member | Chart root | Popover | Motion | Notes |
 |---|---|---|---|---|
 | `piechart` | `.piechart-svg` | yes | yes | sectors reveal together — a staggered wedge leaves a hole |

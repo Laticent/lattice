@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: superseded
 summary: >
   Point Anima at the SVG (line-art) register as its primary engine, and rebuild the Motion
   faculty around "choreograph a drawing" rather than "compose 3-D primitives." Most boardroom
@@ -34,12 +34,17 @@ summary: >
 companion:
   - ./2026-07-17-anima-animation-library.md
   - ./2026-07-18-anima-motion-faculty-modes.md
+superseded-by: 2026-09-02-frame-model-for-motion.md
 ---
 
 # Anima — SVG/Vivus-first: choreograph a drawing (and retire zdog, after we prove it)
 
+**Status:** superseded. Its **direction was right and is carried forward** — SVG over 3-D primitives, retire Zdog, bring-your-own-asset, Three.js dropped. What is superseded is everything underneath: the seven-verb continuous-timeline motion set, the Director/Rig rebuild, the AI-generated-SVG faculty, and the assumption that a scene is a standalone authored asset. Motion is now a finite set of known frames applied to what the engine already renders, and the library is anime.js v4. Current state of record: [`2026-09-02-frame-model-for-motion.md`](2026-09-02-frame-model-for-motion.md).
+
+**What survives and is carried forward:** §0.75's *power tracks source structure* (our own charts are the most tractable on-ramp because we own the render), and §4.6's insistence that untrusted SVG is a sanitize boundary rather than an afterthought.
+
 **Date:** 2026-07-19
-**Status:** Proposed (design model; nothing cut or built yet)
+**Status:** SUPERSEDED (see the banner above). Historic line: "Proposed (design model; nothing cut or built yet)" — contradicted by §5.2, which records the chart on-ramp LANDED and verified on the real Playground, and the Play/Style/Speed register BUILT.
 **Follows / refocuses:** `2026-07-17-anima-animation-library.md` (the Anima ADR — zdog was the
 first/primary backend; Vivus the svg secondary; Three the gated fidelity tier) and
 `2026-07-18-anima-motion-faculty-modes.md` (the Director/Rig mode shell). This doc **re-orders the
