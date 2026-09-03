@@ -89,22 +89,16 @@ section.list-tabular ol {
      cut tail announces itself, a cut head does not (#1299, stage.css). */
   flex:1; min-height:0; align-content:safe center;
 }
-/* AN EMPTY TRACK STILL COSTS A GAP, so a list with nothing in the trailing column
- * must not declare one. `column-gap` is emitted between every pair of tracks
- * regardless of whether either holds anything, so a four-track row whose meta
- * column is empty stops one --sp-md short of the row rule — measured at 51px on
- * `flex-name`, where the label absorbs the slack and the row's tail should reach
- * the edge. It is the same "strand the row's tail mid-slide" failure the
- * `flex-*` rules below are written to avoid, arriving through a different door.
- *
- * The three shapes that put something in that column are the inline meta `code`,
- * the marks cell, and the legacy second nested `li`. When a list has none of
- * them, the row is three tracks. Specificity (0,1,3) via the `:has()` argument,
- * so it outranks the base template above and yields to `def` and `spec.stacked`,
- * which declare their own. */
-section.list-tabular ol:not(:has(> li > code, > li > ul > li.marks, > li > ul > li:nth-child(2))) {
-  grid-template-columns:var(--lt-counter) var(--lt-name) var(--lt-body);
-}
+/* An earlier cut of this file dropped the trailing track when nothing filled it,
+ * to reclaim the `column-gap` an empty track still costs. It is removed: the gap it
+ * bought back is ONE `--sp-md` of content movement (measured 24px; a first claim of
+ * "51px short of its own row rule" was wrong — the row rule spans the full width in
+ * both states), and it cost far more than that. `fit-body` and `flex-meta` put the
+ * list's ONLY flexible track in the trailing column, so dropping it left no `fr` at
+ * all and the `auto` counter track absorbed the free space — a 23px counter became
+ * 972px, with the row shoved to the far right. That is the exact failure the
+ * `flex-*` rules below are written to avoid. A CSS rule cannot ask "is another
+ * track still flexible?", so the safe shape is not to drop it. */
 section.list-tabular ol > li {
   counter-increment:tabular-counter;
   display:grid;
@@ -203,6 +197,12 @@ section.list-tabular.def ol {
   flex:0 1 auto; align-content:start;
 }
 section.list-tabular.def > .cell-stage { justify-content:safe center; }
+/* `.cell-stage` is built by the masthead lift, which runs only under `form`
+   (lib/forms/cell/masthead/masthead.transform.js). On a `form: off` deck or a
+   `no-form` slide there is no stage to center anything, so the list centers itself —
+   the pre-responsive behavior, rail bracket and all, which is the right trade on a
+   register that has no masthead to sit under. */
+section.list-tabular.def:not(:has(> .cell-stage)) ol { flex:1; align-content:safe center; }
 section.list-tabular.def ol > li {
   grid-template-rows:auto auto;
   row-gap:0.3125cqi;
@@ -437,6 +437,16 @@ section.list-tabular.register.outline ol > li > code {
  * rather than direct children; the cell holds nothing but them and a label. */
 section.list-tabular ol > li > ul > li.marks > p { display:contents; }
 section.list-tabular ol > li > ul > li.marks {
+  /* `grid-row:auto` EXPLICITLY. Leaving it unset does not reach auto-placement: the
+   * two sibling rules above — `> ul > li:first-child` and `> ul > li:nth-child(2)` —
+   * are (0,2,5), identical to this rule, and come earlier in source, so this one wins
+   * `grid-column` and inherits their `grid-row:1`. Auto-placement therefore began at
+   * the THIRD nested bullet, and the component's own documented shape (an inline meta
+   * `code` plus a clause plus a marks bullet) painted the meta over — measured, "Q3
+   * 2019" completely invisible under the pill, on base, register, metric and spec
+   * alike. Every committed sample happened to use the one arrangement that collides
+   * with nothing, which is why three visual reviewers and the gallery PDFs missed it. */
+  grid-row:auto;
   grid-column:4;
   display:flex;
   align-items:center;
@@ -481,8 +491,8 @@ section.list-tabular ol > li > ul > li.marks {
 section.list-tabular.def ol:has(> li > ul > li.marks) {
   grid-template-columns:var(--lt-counter) var(--lt-name) var(--lt-body) var(--lt-meta);
 }
-section.list-tabular.def ol > li > ul > li.marks { grid-column:4; grid-row:1 / span 2; }
-section.list-tabular.spec.stacked ol > li > ul > li.marks { grid-column:3; }
+section.list-tabular.def ol > li > ul > li.marks { grid-column:4; grid-row:span 2; }
+section.list-tabular.spec.stacked ol > li > ul > li.marks { grid-column:3; grid-row:auto; }
 
 /* The disc — the fifth mirror of the geometry checklist, verdict-grid,
  * obligation-matrix and `state-cells` each carry. Only the SCALAR knobs are
@@ -644,6 +654,12 @@ section.list-tabular.list-tabular.def.fixed ol {
 }
 section.list-tabular.list-tabular.spec.fixed ol {
   --lt-name:minmax(0, 20.3125cqi);
+  /* `minmax(0, 1fr)`, restated. The base `fixed` restore sets a bare `1fr`, which is
+     right for the base track but wrong here: spec's tracks are deliberately
+     `minmax(0, …)` so a long mono key wraps inside its cell instead of overflowing
+     (styles.css, "Variant: spec"). Inheriting the bare `1fr` collapsed the name and
+     type tracks to 0px and set the key one character per line. */
+  --lt-body:minmax(0, 1fr);
   --lt-meta:minmax(0, 15.625cqi);
 }
 section.list-tabular.list-tabular.spec.stacked.fixed ol {
@@ -758,8 +774,8 @@ section.list-tabular-points .split-pt-b { color: var(--text-body); font-size: va
  * announced it. Same geometry as the marks cell, sized to this page's larger body
  * type; the shape→mark mapping and the scalar knobs are the shared universal ones
  * (base.modifiers.css), so only the box is restated. */
-section.list-tabular-points .split-pt-line { display: flex; align-items: center; gap: var(--sp-xs); }
-section.list-tabular-points .split-pt-line > .state {
+section.list-tabular-points :is(.split-pt-line, .split-pt-b):has(> .state, > p > .state) { display: flex; align-items: center; gap: var(--sp-xs); }
+section.list-tabular-points :is(.split-pt-line, .split-pt-b) .state {
   position: relative;
   flex: none;
   display: inline-block;
@@ -772,12 +788,12 @@ section.list-tabular-points .split-pt-line > .state {
     0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-ring-mix), black),
     inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
 }
-section.list-tabular-points .split-pt-line > .state.pass { --state-color: var(--pass); }
-section.list-tabular-points .split-pt-line > .state.warn { --state-color: var(--warn); }
-section.list-tabular-points .split-pt-line > .state.fail { --state-color: var(--fail); }
-section.list-tabular-points .split-pt-line > .state.skip,
-section.list-tabular-points .split-pt-line > .state.todo { --state-color: var(--muted-mark); }
-section.list-tabular-points .split-pt-line > .state::after {
+section.list-tabular-points :is(.split-pt-line, .split-pt-b) .state.pass { --state-color: var(--pass); }
+section.list-tabular-points :is(.split-pt-line, .split-pt-b) .state.warn { --state-color: var(--warn); }
+section.list-tabular-points :is(.split-pt-line, .split-pt-b) .state.fail { --state-color: var(--fail); }
+section.list-tabular-points :is(.split-pt-line, .split-pt-b) .state.skip,
+section.list-tabular-points :is(.split-pt-line, .split-pt-b) .state.todo { --state-color: var(--muted-mark); }
+section.list-tabular-points :is(.split-pt-line, .split-pt-b) .state::after {
   content: '';
   position: absolute;
   inset: 0;

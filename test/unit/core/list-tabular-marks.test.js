@@ -263,18 +263,20 @@ describe('list-tabular — responsive column tracks', () => {
     assert.match(CSS, /\.def ol > li > ul > li\.marks \{[^}]*grid-column:4/);
   });
 
-  test('nothing in the trailing column is pinned to a row, so nothing can overlap', () => {
-    // This replaces a regex that asserted one `:has(> code) { grid-row:2 }` rule and
-    // called it "never overlaps". It was standing in for a BEHAVIORAL claim that was
-    // false: the guard covered an inline meta `code` and missed the other two shapes
-    // that reach the same cell — the legacy 3-line meta, and simply two marks
-    // bullets. A grid item does not push, it paints over. The fix is auto-placement,
-    // so the assertion is now that NO marks rule pins a row at all.
-    for (const m of CSS.matchAll(/li\.marks[^{]*\{([^}]*)\}/g)) {
-      const pinned = /grid-row:\s*[0-9]/.test(m[1]);
-      // `def` is the one exception and says so: it spans both of its rows.
-      assert.ok(!pinned || /span/.test(m[1]), `a marks rule pins a grid row: ${m[0]}`);
-    }
+  test('the marks cell resets its grid row, which is not the same as leaving it unset', () => {
+    // A NARROW claim, deliberately. An earlier arm here tried to assert "nothing
+    // overlaps" by scanning rules whose selector text contains `li.marks` — and that
+    // is structurally incapable of it: the `grid-row:1` that caused the overlap
+    // arrives from `> ul > li:first-child` and `> ul > li:nth-child(2)`, selectors
+    // with no `li.marks` in them, at the same specificity and earlier in source. The
+    // scan was green while the component's own documented shape painted its meta over.
+    //
+    // Whether anything overlaps is a fact about laid-out boxes, so it is asserted
+    // where boxes exist: test/integration/parity/list-tabular-marks-geometry.test.js
+    // renders in Chromium and compares rectangles. What is left here is the one thing
+    // a stylesheet CAN answer — that the reset is written down at all.
+    assert.match(CSS, /li\.marks \{[^}]*grid-row:auto/, 'the base marks cell must reset its row');
+    assert.match(CSS, /\.spec\.stacked ol > li > ul > li\.marks \{[^}]*grid-row:auto/);
   });
 
   test('the trailing column stays right-aligned', () => {
