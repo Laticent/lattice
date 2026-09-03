@@ -956,19 +956,23 @@ Answer these before anyone says a brand. Most database arguments are really a di
 
 `Data kit · the decision`
 
-## Start at relational and branch out. That is how the decision actually gets made.
+## Start at relational. Every branch below is a reason to leave it.
 
 ```mermaid
 flowchart LR
-  REL[("Relational<br/>start here")] --> Q1{"Do one table's writes or bytes<br/>outgrow one machine?"}
+  REL[("Relational<br/>start here")] --> Q0{"Do questions walk<br/>relationships?"}
+  Q0 -->|"yes"| GR[("Graph")]
+  Q0 -->|"no"| Q1{"Does one table outgrow<br/>one machine?"}
   Q1 -->|"no"| STAY(["Stay. You are done."])
-  Q1 -->|"yes"| QB{"Do you still need joins<br/>and transactions?"}
+  Q1 -->|"yes"| QB{"Still need joins<br/>and transactions?"}
   QB -->|"yes"| DS[("Distributed SQL")]
-  QB -->|"no"| Q2{"Do you query by<br/>exact key only?"}
+  QB -->|"no"| Q2{"Exact key only?"}
   Q2 -->|"yes"| KV[("Key-value")]
-  Q2 -->|"no"| Q3{"Is every query a<br/>partition plus a range?"}
+  Q2 -->|"no"| Q2B{"Whole records,<br/>shapes that differ?"}
+  Q2B -->|"yes"| DOC[("Document")]
+  Q2B -->|"no"| Q3{"Partition plus<br/>a range?"}
   Q3 -->|"yes"| WC[("Wide-column")]
-  Q3 -->|"no"| Q4{"Are the bytes large<br/>and written once?"}
+  Q3 -->|"no"| Q4{"Large bytes,<br/>written once?"}
   Q4 -->|"yes"| OS[("Object store")]
   Q4 -->|"no"| SPLIT(["Split the problem.<br/>One store is not enough."])
 ```
@@ -1035,23 +1039,6 @@ flowchart LR
 
 ---
 
-<!-- _class: compare-table -->
-
-`Data kit · the scan`
-
-## The same five questions, asked of the six stores you will choose between most often.
-
-| Store | Access | Consistency | Scales by | Weak at |
-| --- | --- | --- | --- | --- |
-| Relational | Key, range, join | Strong on the leader | Replicas, then partitioning | Cross-shard writes |
-| Distributed SQL | Key, range, join | Strong across partitions | Horizontal | Cross-partition transactions |
-| Key-value | Exact key | Engine-specific | Horizontal | Rich queries |
-| Document | Key, secondary index | Engine-specific | Horizontal | Facts split across documents |
-| Wide-column | Partition plus range | Tunable | Horizontal | New query patterns |
-| Graph | Traversal | Engine-specific | Horizontal, with effort | Cutting the graph across machines |
-
----
-
 <!-- _class: cards-stack -->
 
 `Data kit · wide-column`
@@ -1082,18 +1069,6 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
-
-`Halfway`
-
-## Two stores you filed as derived are holding truth.
-
-An object store and a time-series store are usually where a fact first lands — nothing regenerates a photograph or last Tuesday's CPU samples. They are sources of truth wearing the clothes of a derived tier.
-
-The genuinely derived stores are the search index, the vector index, the cache and the warehouse. Anything derived must be rebuildable, must be allowed to lag, and must never be the only copy.
-
----
-
 <!-- _class: cards-stack -->
 
 `Data kit · object store`
@@ -1106,6 +1081,18 @@ The genuinely derived stores are the search index, the vector index, the cache a
   - You need to modify part of an object, or to list and filter by what is inside it.
 - The constraint you inherit
   - Listing is slow and expensive. The index of what you stored belongs somewhere else.
+
+---
+
+<!-- _class: content -->
+
+`Halfway`
+
+## Two stores you filed as derived are holding truth.
+
+An object store and a time-series store are usually where a fact first lands — nothing regenerates a photograph or last Tuesday's CPU samples. They are sources of truth wearing the clothes of a derived tier.
+
+The genuinely derived stores are the search index, the vector index, the cache and the warehouse. Anything derived must be rebuildable, must be allowed to lag, and must never be the only copy.
 
 ---
 
@@ -1136,6 +1123,23 @@ The genuinely derived stores are the search index, the vector index, the cache a
   - The caller needs the result inside the same request.
 - The constraint you inherit
   - At-least-once delivery. Every consumer must be idempotent or you will charge somebody twice.
+
+---
+
+<!-- _class: compare-table -->
+
+`Data kit · the scan`
+
+## Six stores, side by side, on the four things that usually decide it.
+
+| Store | Access | Consistency | Scales by | Weak at |
+| --- | --- | --- | --- | --- |
+| Relational | Key, range, join | Strong on the leader | Replicas, then partitioning | Cross-shard writes |
+| Distributed SQL | Key, range, join | Strong across partitions | Horizontal | Cross-partition transactions |
+| Key-value | Exact key | Engine-specific | Horizontal | Rich queries |
+| Document | Key, secondary index | Engine-specific | Horizontal | Facts split across documents |
+| Wide-column | Partition plus range | Tunable | Horizontal | New query patterns |
+| Graph | Traversal | Engine-specific | Horizontal, with effort | Cutting the graph across machines |
 
 ---
 
