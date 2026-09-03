@@ -166,7 +166,7 @@ The four people did not change. Only who talked to whom changed.
 
 It had a goal it did not meet, and one hour that decided whether it would. Two things fed themselves in circles, one of them in her shower. Something invisible held the whole thing up until nine o'clock, when it stopped. One promise never broke, on the day everything else did.
 
-The reviewer woke at three and the window shut at four. Everything Maya did in the sixteen hours around that hour reached the outcome only through it — and for twenty of those sixty minutes she was answering questions about 482 instead of standing ready to act on whatever came back about it.
+The reviewer woke at three and the window shut at four. Everything Maya did that day reached the outcome only through that hour. She spent twenty of its sixty minutes answering questions about 482, instead of waiting ready to act on whatever came back.
 
 You have watched all ten. You do not yet have the words.
 
@@ -341,7 +341,7 @@ The transit map Maya read at five past eight is geographically false. Distances 
 
 ## A constraint is a limit that removes options rather than adding caveats.
 
-Four of them bounded Maya's day, and each one came from a different place: a build that takes twelve minutes, a team of three, a sleeping reviewer, and a rule about production data.
+Four limits shaped Maya's day, and each came from somewhere different. A twelve-minute build. A team of three. A reviewer asleep six time zones away. A rule about production data.
 
 - In Maya's day
   - Physical, economic, human and legal limits, all four of them landing before ten in the morning.
@@ -594,7 +594,7 @@ She opens the app a dozen times a day, on a cellular network, usually while doin
 
 ## The antagonist is not scale. It is the shape of the follow graph.
 
-Scale is a quantity, and quantities have a price you can pay. The thing you cannot buy your way out of is a distribution. Follower counts are heavy-tailed, so the average is a lie and the far tail sits six orders of magnitude from the middle.
+Scale is a quantity, and quantities have a price you can pay. The thing you cannot buy your way out of is a distribution. Follower counts are heavy-tailed: almost everyone has a few hundred, and a handful have hundreds of millions. The average tells you nothing, and the far end sits six orders of magnitude from the middle.
 
 - The number that matters
   - The median account has about 150 followers. The largest has five hundred million.
@@ -1070,7 +1070,7 @@ Indexes make reads fast by making writes slower and storage larger. Each one is 
   - You can name the exact query each index exists to serve, out loud, right now.
 - The bill arrives on writes
   - Five indexes mean five extra structures touched per insert, not one.
-- Selectivity, not cardinality
+- How many rows it removes, not how many values it has
   - Three evenly spread values get ignored. Three where one appears in 0.1 percent do not.
 
 ---
@@ -1190,7 +1190,7 @@ flowchart TB
 - Reach for it when
   - You run many services, deploy often, and want one packaging story across all of them.
 - Walk away when
-  - You run one small service. An orchestrator costs more than it saves at that size.
+  - You run one small service. The scheduler that places containers on machines costs more than it saves at that size.
 - The constraint you inherit
   - The orchestrator is now infrastructure, with its own failure modes and its own pager.
 
@@ -1450,7 +1450,7 @@ It also explains the outage. If latency triples during an incident, concurrency 
 
 ## The average request is a fiction, and your users live in the tail.
 
-A page that makes 100 parallel calls waits for the slowest one. With a one-percent chance of a slow call, 63 percent of pages hit at least one — that is one minus 0.99 to the hundredth, and you can redo it on a napkin.
+A page that makes 100 parallel calls waits for the slowest one. Give each call a one-percent chance of being slow. Then 63 percent of pages hit at least one slow call. That is `1 - 0.99^100`, and you can redo it on a napkin.
 
 - The check
   - You report the 99th percentile per dependency, and the mean nowhere.
@@ -1844,7 +1844,7 @@ Boundary      In: feed, posts, edges, media. Out: the phone, the network, the la
 Environment   Spiky traffic, partitions, duplicate deliveries, people who want in.
 Constraints   200 ms p99 · 60 reads per write · media durable forever
 Invariants    A post reaches eligible followers · media never lost · a like counts once
-Bottleneck    Hydration lookups: 70K feed reads/s, but ~5.6M backend reads/s
+Bottleneck    Filling in each post: 70K feed reads/s, but ~5.6M backend reads/s
 Solution type Scaled. Not an MVP, not optimal.
 ```
 
@@ -1890,7 +1890,7 @@ Solution type Scaled. Not an MVP, not optimal.
 
 ## Two assumptions and some division give you every number that matters.
 
-Assume 500 million daily users opening the feed twelve times a day, and 100 million photos posted a day. The rest is division: reads are `500M × 12 ÷ 86,400`, or about `70K/s`; writes are `100M ÷ 86,400`, or about `1.2K/s`; bytes are `100M × 2MB`, or `200 TB/day`. That puts the ratio near `60:1`.
+Assume 500 million daily users opening the feed twelve times a day, and 100 million photos posted a day. The rest is division. Twelve opens each, times five hundred million people, over the seconds in a day: about `70K` reads a second. A hundred million posts over the same day: `1.2K` writes. At two megabytes each: `200 TB` a day. The ratio lands near `60:1`.
 
 The twelve is the only number doing real work. Change the 500 million while holding opens and posts per user fixed, and the ratio does not move. Change how often people post, and it does.
 
@@ -1955,7 +1955,7 @@ flowchart LR
   F["…499,999,997 more"] -->|"follows"| C
 ```
 
-*Out-degree is capped at 7,500 by product policy. In-degree is capped by nothing. Every hard problem in this design lives on the right-hand side of this picture.*
+*The number of accounts you follow is capped at 7,500. The number who follow you is capped by nothing. Every hard problem in this design sits on that second number.*
 
 ---
 
@@ -1966,12 +1966,12 @@ flowchart LR
 
 ## Your following list is capped. Your followers list is capped by nothing.
 
-Instagram limits how many accounts you may follow to seven and a half thousand. Nobody limits how many people may follow you. Bounded out-degree, unbounded in-degree — and every hard problem in this design lives on the unbounded side.
+Instagram limits how many accounts you may follow to seven and a half thousand. Nobody limits how many people may follow you. An account on the far end of that second number — hundreds of millions of followers — is called a **super node**, and every hard problem here comes from one.
 
 - Following, per person
   - At most 7,500. A read of that list is one partition and a sorted range.
 - Followers, per person
-  - Median a few hundred. Maximum five hundred million. Six orders of magnitude apart.
+  - About 150 for most people. Five hundred million at the top. A million times apart.
 - Everything after this
   - Is a consequence of that asymmetry. Nothing else in the design spans that range.
 
@@ -1992,7 +1992,7 @@ following                              followers
                                          B = clamp(followers / 10_000, 1, 512)
 ```
 
-*The forward edge is the source of truth; the reverse is materialized from the log and repaired by a background job. `B` may only ratchet upward — shrink it and edges become unreachable — and because early edges were written under a smaller `B`, the low buckets carry several times the average in the mid range — and barely more than it once `B` is capped.*
+*The forward edge is the source of truth. A background job builds the reverse one from the log and repairs it. `B` may only grow: shrink it and you lose edges. Early edges were written when `B` was smaller, so the low-numbered buckets hold several times the average until `B` reaches its cap.*
 
 ---
 
@@ -2225,7 +2225,7 @@ flowchart LR
   CDN -->|"8 · serves"| V
 ```
 
-*Step 2 is the one place an untrusted client writes straight into your storage, so the grant carries its own limits: one content type, a byte ceiling, a short expiry, and a rate per account. Without them the presign is an unmetered write to storage you pay for, and step 4 hands attacker-chosen bytes to a decoder. All input is untrusted, including the input you asked for.*
+*Step 2 is the one place an untrusted client writes straight into your storage. So the grant carries four limits: one content type, a size ceiling, a short expiry, and a rate per account. Without them, anyone can fill your storage at your expense, and step 4 hands bytes they chose to an image decoder. All input is untrusted, including input you asked for.
 
 ---
 
@@ -2236,7 +2236,7 @@ flowchart LR
 
 ## A million likes on one post is the follower list again, on a different axis.
 
-Every like is a write against the same post id — one key, one partition, one leader — arriving tens of thousands a second. That is the hot key the data kit warned about, and delivery is at-least-once.
+Every like is a write against the same post id — one key, one partition, one leader — arriving tens of thousands a second. That is the hot spot the data kit warned about, and the queue will sometimes deliver the same like twice.
 
 - The row is the truth
   - Store the pair once, keyed by reader and post. The count is an aggregate you rebuild from it, which is what survives a redelivery or an unlike.
@@ -2295,7 +2295,7 @@ Every like is a write against the same post id — one key, one partition, one l
 
 | Kit entry | Where it landed | Why that one |
 | --- | --- | --- |
-| Wide-column | The two edge tables | A partition key plus a sorted range is an adjacency list |
+| Wide-column | The two edge tables | One key, then a sorted list of who is on the other end |
 | Object store | Photo bytes and variants | Large, immutable, fetched by key, kept for years |
 | Key-value | The feed cache | The key is known exactly and nothing is asked of the value |
 | Durable log | Post events into fan-out | Producers outpace consumers, deliberately |
@@ -2328,7 +2328,7 @@ Every like is a write against the same post id — one key, one partition, one l
 
 ## The most useful entry here is the one we refused.
 
-Most juniors asked to design Instagram reach for a graph database, because the words "social graph" are right there. The data kit already answered it, fifty slides before anybody had heard of a super node.
+Most juniors asked to design Instagram reach for a graph database, because the words "social graph" are right there. The data kit already answered it, fifty slides before anybody had heard of an account with five hundred million followers.
 
 - What the card said
   - Walk away when you have relationships but only ever join two hops.
