@@ -2,7 +2,7 @@
 // scene graph + motion) that owns no DOM and no WebGL; `compile` (compile.ts) turns it
 // into a Timeline whose `at(t)` yields a SceneState — the engine-neutral snapshot a
 // backend paints. The scene is a TAGGED UNION on `source`: `built` (Zdog/Three
-// primitives) or `svg` (Vivus line-art), because the three engines share the timeline
+// primitives) or `svg` (stroked or revealed line-art), because the backends share the timeline
 // layer but NOT the scene layer (2026-07-17-anima-animation-library.md §4–5).
 
 import type { Easing } from './easing';

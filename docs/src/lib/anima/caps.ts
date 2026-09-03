@@ -11,7 +11,7 @@ import { VERB_CAP } from './vocabulary';
 export interface RendererCaps {
   vector: boolean; // resolution-independent output (SVG) — the poster-capable path
   poster: boolean; // can produce a crisp still fit for the canonical PDF path
-  draw: boolean; // progressive stroke-reveal of SVG line-art (Vivus)
+  draw: boolean; // progressive stroke-reveal of SVG line-art (the anime.js drawable backend)
   true3d: boolean; // real depth/lighting, not projected pseudo-3D (Three) — reserved
   gltf: boolean; // can load external 3D model assets (Three) — reserved
   live: boolean; // animates on an interactive surface

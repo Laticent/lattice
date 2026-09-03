@@ -20,12 +20,12 @@
 import { negotiate } from '../caps';
 import type { Renderer } from '../renderer';
 import type { Scene } from '../types';
-import { vivusRenderer } from './vivus';
+import { drawableRenderer } from './drawable';
 import { zdogRenderer } from './zdog';
 
-/** The backend for a scene's source model (built → Zdog, svg → Vivus), or null if none
- *  advertises the capabilities the scene needs. */
+/** The backend for a scene's source model (built → Zdog, svg → the anime.js drawable), or
+ *  null if none advertises the capabilities the scene needs. */
 export function rendererFor(scene: Scene): Renderer | null {
-  const candidate = scene.source === 'svg' ? vivusRenderer() : zdogRenderer({ zoom: 1.1 });
+  const candidate = scene.source === 'svg' ? drawableRenderer() : zdogRenderer({ zoom: 1.1 });
   return negotiate(scene, candidate.caps).length === 0 ? candidate : null;
 }

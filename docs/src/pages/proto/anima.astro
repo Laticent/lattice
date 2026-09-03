@@ -1,5 +1,5 @@
 ---
-// ISOLATED PROTOTYPE — Anima backends live demo (Zdog 3D + Vivus draw).
+// ISOLATED PROTOTYPE — Anima backends live demo (Zdog 3D + anime.js draw).
 // Self-contained, no site imports beyond the Anima library → delete this one file to revert.
 // Route: /proto/anima/  (docs base is '/')
 //
@@ -58,13 +58,13 @@
     <h1>Anima — one spec, any engine</h1>
     <p>A declarative scene compiles to a timeline; an injected backend paints it. Two vector
        engines, both palette-blind (colors are theme tokens). Left builds &amp; rotates 3D shapes
-       (Zdog); right draws SVG line-art stroke-by-stroke (Vivus).</p>
+       (Zdog); right draws SVG line-art stroke-by-stroke (anime.js).</p>
   </header>
 
   <div class="grid">
     <div class="card"><h2>3D · Zdog</h2><div class="stage" id="zdog"></div>
       <p class="cap">A gyroscope: a rotor spinning <em>inside</em> a tilting rig (nested transforms), an orbiting bead, a base that reveals in.</p></div>
-    <div class="card draw"><h2>Draw · Vivus</h2><div class="stage" id="vivus"></div>
+    <div class="card draw"><h2>Draw · anime.js</h2><div class="stage" id="draw"></div>
       <p class="cap">A process flow assembling itself — node, arrow, node — the drawing <em>order</em> carries the meaning.</p></div>
   </div>
 
@@ -77,7 +77,7 @@
 <script>
   import { compile, parseScene } from '@/lib/anima';
   import { zdogRenderer } from '@/lib/anima/backends/zdog';
-  import { vivusRenderer } from '@/lib/anima/backends/vivus';
+  import { drawableRenderer } from '@/lib/anima/backends/drawable';
 
   // ── Scene A — a 3D gyroscope (Zdog, built source) ─────────────────────────
   const gyro = parseScene({
@@ -93,7 +93,7 @@
     ],
   });
 
-  // ── Scene B — a process flow drawing itself (Vivus, svg source) ───────────
+  // ── Scene B — a process flow drawing itself (anime.js drawable, svg source) ──
   const FLOW = `<svg viewBox="0 0 460 150" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
     <rect id="n1" x="14" y="50" width="118" height="52" rx="11" stroke="#000"/>
     <path id="a1" d="M132 76 H176 M166 68 L176 76 L166 84" stroke="#000"/>
@@ -120,16 +120,18 @@
   const gyroTl = compile(gyro.scene);
   const flowTl = compile(flow.scene);
   const zdog = zdogRenderer({ size: 360, zoom: 1.15 });
-  const vivus = vivusRenderer({ type: 'oneByOne', duration: 100 });
+  // The draw backend takes no options: the frame model owns the clock, so there is no
+  // library-side duration or sequencing mode to configure — every frame is a seek.
+  const draw = drawableRenderer();
   zdog.mount(document.getElementById('zdog'), gyro.scene);
-  vivus.mount(document.getElementById('vivus'), flow.scene, { flow: FLOW });
+  draw.mount(document.getElementById('draw'), flow.scene, { flow: FLOW });
 
   let playing = true, start = 0, raf = 0;
   function frame(t) {
     if (!start) start = t;
     const e = t - start;
     zdog.draw(gyroTl.at(e % gyroTl.durationMs));
-    vivus.draw(flowTl.at(e % flowTl.durationMs));
+    draw.draw(flowTl.at(e % flowTl.durationMs));
     if (playing) raf = requestAnimationFrame(frame);
   }
   raf = requestAnimationFrame(frame);
@@ -143,7 +145,7 @@
     playing = false; cancelAnimationFrame(raf);
     document.getElementById('toggle').textContent = 'Play';
     zdog.draw(gyroTl.poster());
-    vivus.draw(flowTl.poster());
+    draw.draw(flowTl.poster());
   });
   document.getElementById('restart').addEventListener('click', () => {
     start = 0;

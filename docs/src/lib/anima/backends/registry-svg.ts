@@ -12,12 +12,15 @@
 import { negotiate } from '../caps';
 import type { Renderer } from '../renderer';
 import type { Scene } from '../types';
-import { vivusRenderer } from './vivus';
+import { marksRenderer } from './marks';
 
-/** Everything a CHART can reach: the svg backend, or null if the scene needs more than it
- *  advertises. Importing this instead of `registry.ts` keeps Zdog out of the bundle. */
+/** Everything a CHART can reach: the marks painter, or null if the scene needs more than it
+ *  advertises — which is exactly what `negotiate` is for. A chart emits only `reveal` and
+ *  `slide`, so `MARKS_CAPS.draw = false` costs it nothing; a scene that DID carry a draw verb
+ *  gets null here rather than a silently motionless figure.
+ *  Importing this instead of `registry.ts` keeps both Zdog and the drawing library out. */
 export function svgRendererFor(scene: Scene): Renderer | null {
   if (scene.source !== 'svg') return null;
-  const candidate = vivusRenderer();
+  const candidate = marksRenderer();
   return negotiate(scene, candidate.caps).length === 0 ? candidate : null;
 }

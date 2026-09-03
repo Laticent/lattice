@@ -6,7 +6,9 @@
  * path. It was still SHIPPED there: `hydrate.ts` imported both backends at module scope and
  * picked between them inline, so any entry that touched the host dragged in both. Measured
  * on a chart-only entry, minified: Zdog was 31,018 bytes raw / 8,316 gzip of 65,613 — 47% of
- * a chart player, for code that cannot execute.
+ * a chart player, for code that cannot execute. Retiring the Vivus backend for the chart path
+ * (charts emit no draw verb, so they use `backends/marks.ts`) took the rest: the entry is now
+ * 20,981 raw / 8,183 gzip, down from 65,613 / 20,759.
  *
  * THE FIX HAS TWO PARTS, AND THIS FILE EXISTS BECAUSE THE FIRST ALONE DID NOTHING:
  *   1. the host takes `rendererFor` as a required option and imports no backend itself; and
@@ -57,9 +59,21 @@ test('the chart path drops Zdog entirely', async () => {
 	assert.equal(/[Zz]dog/.test(code), false, 'Zdog reached a chart-only bundle — check that chart-anima-hydrate.ts imports backends/registry-svg.js, not backends/registry.js');
 });
 
-test('the svg backend IS still on the chart path, so the absence check can tell them apart', async () => {
+test('the shared painter IS on the chart path, so the absence check can tell presence from emptiness', async () => {
 	const code = await bundleChartPath();
-	assert.equal(/[Vv]ivus|athformer/.test(code), true, 'the svg backend vanished from the chart path — the bundle is not what this test thinks it is');
+	// The control for the assertion above. `foreignobject` is a STRIP_TAGS literal in
+	// `backends/svg-paint.ts` — a string, so it survives minification where identifiers do
+	// not. If this ever fails, the Zdog check above is passing on a bundle that contains
+	// nothing rather than on one that correctly excludes a backend.
+	assert.ok(code.includes('foreignobject'), 'the shared svg painter is missing from the chart path — the bundle is not what this test thinks it is');
+});
+
+test('the DRAWING library is absent too — charts emit no draw verb', async () => {
+	const code = await bundleChartPath();
+	// `chart-anima.ts` builds only `reveal` + `slide`, so the chart path uses the marks
+	// backend and must not pull anime.js in. This is the other half of the byte win: the
+	// drawing library belongs only in a bundle that can reach a drawing scene.
+	assert.equal(/createDrawable/.test(code), false, 'the drawing library reached a chart-only bundle — check that registry-svg.js points at marks.js, not drawable.js');
 });
 
 test('the bundle is real, so the absence assertion is not vacuous', async () => {

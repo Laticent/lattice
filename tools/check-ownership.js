@@ -7175,7 +7175,14 @@ const ANIMA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'anima');
 // path. A backend that imports an unlisted bare dep — or the core importing ANY — fails.
 const ANIMA_ADAPTER_DEPS = {
   'backends/zdog.ts': ['zdog'],
-  'backends/vivus.ts': ['vivus'],
+  // The stroke-reveal backend, on anime.js v4 (2026-09-02-frame-model-for-motion.md). TWO
+  // specifiers rather than one because the subpath import is deliberate: `animejs/svg` pulls
+  // only the drawable helper, measured 1,773 bytes raw (754 gzip) smaller than reaching it
+  // off the package root. Replaced `backends/vivus.ts: ['vivus']` — Vivus drove the whole
+  // figure off one progress scalar (no per-element windows), destructively rewrote the
+  // untrusted asset via its Pathformer, and needed `getTotalLength()`, so its draw channel
+  // silently no-opped in jsdom and no test could see it.
+  'backends/drawable.ts': ['animejs', 'animejs/svg'],
 };
 
 function checkAnimaBoundary(errors) {

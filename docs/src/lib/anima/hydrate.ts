@@ -14,7 +14,7 @@
 // SECURITY (HARD RULE #22): the spec in `data-scene-spec` is UNTRUSTED — it is validated
 // by `parseScene` before it ever compiles. An `svg` scene's source markup is run through
 // the caller-injected `sanitize` (the docs-site passes `sanitizeSlideHtml`) before it
-// enters the backend's AssetMap (the renderer.ts contract); the Vivus backend also
+// enters the backend's AssetMap (the renderer.ts contract); the shared svg painter also
 // inert-parses + strips as defense-in-depth. The sanitizer is INJECTED, not imported, so
 // this host stays inside the spin-off-able Anima boundary (checkAnimaBoundary) — it has no
 // docs-site dependency. This module injects NO `<script>` and builds no preview frame, so
@@ -119,7 +119,7 @@ export interface HydrateOptions {
   eager?: boolean;
   /** Sanitize an `svg` scene's source markup before it enters the backend (the renderer.ts
    *  AssetMap contract). The docs-site passes `sanitizeSlideHtml`; omitted → identity (the
-   *  poster is already frame-sanitized and Vivus inert-parses as a backstop). */
+   *  poster is already frame-sanitized and the shared painter inert-parses as a backstop). */
   sanitize?: (markup: string) => string;
   /** Mount at the FINAL frame, held, WITHOUT playing the intro — for a re-render that replaces an
    *  already-played section's node with an identical twin (a live-edit surface reassigns innerHTML,
