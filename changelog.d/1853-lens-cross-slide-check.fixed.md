@@ -105,3 +105,12 @@
   PARSED document, never the markdown, so a ```css fence teaching an example contributes nothing.
   A `readGlobalStyle` copy is no longer local to the CLI: the export and the document are built from
   the one reader, so they cannot disagree about whether a deck carries CSS. Closes #2053.
+- **Fixed: the CSS refusal said "Nothing was exported" while the file sat on disk.** For `.html` the
+  deliverable is written at top level, well before the async entry point where a check that needs a
+  browser can run — so the one reader-view refusal that happens late left a complete, working export
+  at the output path while telling the author nothing had shipped. It now unlinks first, taking the
+  same exit the render-failure path beside it already takes for the same reason: absence is the honest
+  outcome. The earlier reader-view checks are unaffected — they run at the source, before any write.
+- **Changed: `--lens full` no longer pays for the browser.** An identity projection keeps every slide
+  in place, so no selector can land anywhere new; the check now returns before rendering anything.
+  Measured: 6.0s back to 1.6s, which is what an export with no flag at all costs.

@@ -4987,10 +4987,27 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
  */
 async function verifyAuthorCssTracksItsSlides() {
   const { carriesAuthorCss, selectorSlideDrift, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
+  // A projection that keeps EVERY slide moves nothing for a selector to count differently, so there is
+  // nothing here to find. `--lens full` is the identity — this kernel promises it is byte-identical to
+  // no flag at all — and it was paying six seconds for two renders that could not disagree.
+  const { slideBoundaries: cut, frontMatterBlockOf: fmOf, normalizeSourceText: norm } = require('./lib/core/slide-boundaries.mjs');
+  const authoredTotal = cut(norm(mdRaw).slice(fmOf(norm(mdRaw)).length)).lines.length + 1;
+  if (LENS_PROJECTION.kept.length >= authoredTotal) return;
   // The cheap half of the gate, before anything is rendered. A `<style` in the source is only a HINT
   // — whether it is an element or a fenced example is settled below, by the parser.
   if (!carriesAuthorCss(mdRaw) && !/<style\b/i.test(mdRaw) && !(cssFile && !cssIsDefault)) return;
 
+  // THE DELIVERABLE IS ALREADY ON DISK BY THE TIME THIS CHECK CAN RUN, and a refusal that leaves it
+  // there is a lie. `.html` writes `outHtml === outFile` at top level (the `fs.writeFileSync(outHtml,
+  // cleanDocHtml)` above), because the browser navigates to it; the other formats write only a temp.
+  // The sibling failure path at the bottom of this file unlinks for exactly this reason — "absence is
+  // the honest outcome" — so this takes the same exit rather than inventing a second one. The earlier
+  // reader-view checks do not need it: they run at the source, long before anything is written.
+  const refuse = (lines) => {
+    if (OUT_FORMAT === 'html') { try { if (fs.existsSync(outFile)) fs.unlinkSync(outFile); } catch { /* report below */ } }
+    for (const line of lines) console.error(line);
+    process.exit(1);
+  };
   const os = require('os');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-lens-'));
   // Everything the caller passed, except what must change: the deck (replaced), the output (ours), and
@@ -5061,18 +5078,20 @@ async function verifyAuthorCssTracksItsSlides() {
     };
     const drift = selectorSlideDrift(await sets(authoredHtml), await sets(shippedHtml), LENS_PROJECTION.kept);
     if (drift) {
-      console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (positional-css) — ${REFUSAL_REASONS['positional-css']}`);
-      console.error(`       \`${drift.selector}\` matches slide${drift.was.length === 1 ? '' : 's'} ${drift.was.length ? drift.was.map((n) => n + 1).join(', ') : '(none)'} of the deck you wrote, but ${drift.now.length ? `slide${drift.now.length === 1 ? '' : 's'} ${drift.now.map((n) => n + 1).join(', ')}` : 'nothing'} of the file that would ship. Nothing was exported.`);
-      process.exit(1);
+      refuse([
+        `error: reader view '${LENS_IDS.join(',')}' cannot be exported (positional-css) — ${REFUSAL_REASONS['positional-css']}`,
+        `       \`${drift.selector}\` matches slide${drift.was.length === 1 ? '' : 's'} ${drift.was.length ? drift.was.map((n) => n + 1).join(', ') : '(none)'} of the deck you wrote, but ${drift.now.length ? `slide${drift.now.length === 1 ? '' : 's'} ${drift.now.map((n) => n + 1).join(', ')}` : 'nothing'} of the file that would ship. Nothing was exported.`,
+      ]);
     }
   } catch (e) {
     if (e?.code === 'ERR_EXIT') throw e;
     // A probe that cannot RUN must not silently pass — this deck styles slides itself, which is the
     // one thing the other checks cannot see.
-    console.error(`error: the reader-view export could not verify this deck's own CSS (${String(e?.message ?? e).split('\n')[0].slice(0, 120)}).`);
-    console.error('       The deck carries CSS of its own, and a rule that selects slides by position is the one');
-    console.error('       thing comparing two renders cannot show. Nothing was exported.');
-    process.exit(1);
+    refuse([
+      `error: the reader-view export could not verify this deck's own CSS (${String(e?.message ?? e).split('\n')[0].slice(0, 120)}).`,
+      '       The deck carries CSS of its own, and a rule that selects slides by position is the one',
+      '       thing comparing two renders cannot show. Nothing was exported.',
+    ]);
   } finally {
     if (browser) await browser.close().catch(() => {});
     fs.rmSync(tmp, { recursive: true, force: true });
