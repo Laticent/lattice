@@ -42,6 +42,16 @@ We start with one engineer's Tuesday. We design Instagram, then run the whole me
 
 ---
 
+<!-- _class: title silent spectrum -->
+
+# How to Think About Systems
+
+`A tutorial for new engineers`
+
+We start with one engineer's Tuesday. We design Instagram, then run the whole method again on a parking app you could ship this month.
+
+---
+
 <!-- _class: agenda -->
 
 ## This deck runs in six movements.
@@ -234,6 +244,8 @@ flowchart TB
   end
 ```
 
+> Change nothing but who waits on whom, and you have changed the system.
+
 ---
 
 <!-- _class: split-panel proof cat-2 -->
@@ -325,6 +337,8 @@ flowchart LR
   FIX -.->|"abandoned attempt"| ST[("Stale branch<br/>still there at 22:40")]
 ```
 
+> Nothing in this loop deletes the branch. That is why it is still there at 22:40.
+
 ---
 
 <!-- _class: split-panel proof cat-6 -->
@@ -385,18 +399,18 @@ Main was deployable every minute of Maya's Tuesday. It was true while the regist
 
 `06:55 and 15:30 · two loops`
 
-## Two loops look identical until you find the sign.
+## Two loops look identical until you ask which way each one pushes.
 
 ```mermaid
 flowchart TB
-  subgraph rein["Reinforcing · the status spiral"]
+  subgraph rein["Reinforcing · pushes harder the same way"]
     direction LR
     R1(["482 sits"]) --> R2(["Someone asks"])
     R2 --> R3(["Maya stops<br/>to answer"])
     R3 --> R1
     R4(["Batch replies<br/>at 15:50"]) -.->|"cuts it"| R3
   end
-  subgraph bal["Balancing · the shower, with a delay"]
+  subgraph bal["Balancing · pushes back toward a target"]
     direction LR
     B1(["Too hot"]) --> B2(["Turn it down"])
     B2 -->|"eight-second lag"| B3(["Too cold"])
@@ -404,6 +418,8 @@ flowchart TB
     B4 -->|"eight-second lag"| B1
   end
 ```
+
+> Find the sign before you touch anything. One loop needs damping, the other needs a brake.
 
 *A balancing loop pushes back toward a target, and the eight-second delay in the pipe is exactly why she overshoots. A reinforcing loop pushes harder in the direction it is already going.*
 
@@ -443,7 +459,7 @@ No policy names Thursday. You find it by watching the queue for six weeks.
 
 <!-- _class: premise -->
 
-## Five words describe the thing itself.
+## These five words name what a system is made of.
 
 You did not learn these from a definition. You watched each one happen first, which is the order that sticks.
 
@@ -467,7 +483,7 @@ You did not learn these from a definition. You watched each one happen first, wh
 
 <!-- _class: premise -->
 
-## Three more are the tools you think with.
+## Three more are things you make, not things you find.
 
 You never handle the system itself. You handle a drawing of it, its limits and its promises — standing on infrastructure you notice only when it stops.
 
@@ -946,6 +962,8 @@ flowchart TB
   b ~~~ d
 ```
 
+> Four shapes, and the boxes are interchangeable. What differs is what you may ask later.
+
 ---
 
 <!-- _class: premise -->
@@ -1011,6 +1029,8 @@ flowchart LR
   Q4 -->|"no"| SPLIT(["Split the problem.<br/>One store is not enough."])
 ```
 
+> Most systems answer no at the first diamond and stop reading.
+
 ---
 
 <!-- _class: cards-stack -->
@@ -1032,7 +1052,7 @@ flowchart LR
 
 `Data kit · distributed SQL`
 
-## An engine that partitions itself is the first answer now, not the last resort.
+## An engine that partitions itself saves you from sharding by hand.
 
 - Reach for it when
   - One table outgrew one machine and you still want joins, transactions and a schema.
@@ -1181,7 +1201,7 @@ The genuinely derived stores are the search index, the vector index, the cache a
 
 `Data kit · the scan`
 
-## Six stores sit side by side here, on the four things that usually decide it.
+## Four columns settle most arguments about stores.
 
 | Store | Access | Consistency | Scales by | Weak at |
 | --- | --- | --- | --- | --- |
@@ -1245,6 +1265,8 @@ flowchart LR
   L1 --> L1C(["A feed, a profile"])
   L2 --> L2C(["A balance, a seat"])
 ```
+
+> The top row happens rarely. The bottom row is the bill you pay every day.
 
 ---
 
@@ -1311,6 +1333,8 @@ flowchart LR
   S2 -.-> X
   S3 -.-> X
 ```
+
+> The dotted line is the query you will want in a year and cannot have.
 
 ---
 
@@ -1450,6 +1474,8 @@ flowchart TB
   b ~~~ d
 ```
 
+> Each step hands over a machine and takes away a dial.
+
 ---
 
 <!-- _class: cards-stack -->
@@ -1565,6 +1591,8 @@ flowchart TB
   b ~~~ d
 ```
 
+> Distance is the one price on this slide you cannot negotiate.
+
 ---
 
 <!-- _class: diagram -->
@@ -1583,6 +1611,8 @@ flowchart LR
   GW -->|"~0.5 ms"| SVC(["Your service"])
   SVC --> DB[("Store")]
 ```
+
+> Eighty of those milliseconds are spent before your code runs, and none of them are yours.
 
 ---
 
@@ -1705,6 +1735,8 @@ flowchart TB
   b ~~~ d
 ```
 
+> Every one of the four leaves you something new to maintain.
+
 ---
 
 <!-- _class: math -->
@@ -1757,7 +1789,7 @@ Neither is a tuning problem. The first is why pools have ceilings, and the secon
 A page that makes 100 parallel calls waits for the slowest one. Give each call a one-percent chance of being slow. Then 63 percent of pages hit at least one slow call. That is `1 - 0.99^100`, and you can redo it on a napkin.
 
 - The check
-  - A percentile tells you what one person felt. An average tells you what the fleet must carry. Report the 99th per dependency, and keep the average for capacity only.
+  - A percentile describes requests. A person makes dozens a day, so far more than one percent of people meet your p99. Report the 99th per dependency, and keep the average for capacity only.
 - Fan-out amplifies it
   - More parallel calls turn a rare slow response into a common slow page.
 - Hedging buys it back, on a budget
@@ -1857,6 +1889,8 @@ flowchart TB
   b ~~~ d
 ```
 
+> Containment is cheaper than prevention, because you cannot prevent all of it.
+
 ---
 
 <!-- _class: diagram -->
@@ -1872,6 +1906,8 @@ flowchart LR
   P1 -.->|"same config, same deploy,<br/>same upstream"| C(["Correlated failure:<br/>both die together"])
   P2 -.-> C
 ```
+
+> Two copies of the same mistake is one copy.
 
 ---
 
@@ -2027,6 +2063,8 @@ flowchart TB
   b ~~~ d
 ```
 
+> All four of these assume the edge has already failed.
+
 ---
 
 <!-- _class: diagram -->
@@ -2037,12 +2075,27 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  U(["User<br/>fully untrusted"]) -->|"authn, validate input"| E(["Edge"])
-  E -->|"authz, rate limit"| S(["Service"])
-  S -->|"service identity,<br/>least privilege"| D[("Data")]
-  S -->|"signed request"| T(["Third party"])
+  subgraph z1["Internet · trust nothing"]
+    U(["User"])
+  end
+  subgraph z2["Your edge"]
+    E(["Edge"])
+  end
+  subgraph z3["Your services"]
+    S(["Service"])
+    D[("Data")]
+  end
+  subgraph z4["Somebody else's service"]
+    T(["Third party"])
+  end
+  U -->|"authn, validate input"| E
+  E -->|"authz, rate limit"| S
+  S -->|"service identity,<br/>least privilege"| D
+  S -->|"signed request"| T
   T -.->|"the reply is untrusted too"| S
 ```
+
+> The check belongs on the far side of the line, never the near side.
 
 ---
 
@@ -2390,6 +2443,8 @@ flowchart TB
   F8(["…and 5×10⁸ more"]) --> C
 ```
 
+> Every hard problem in this design sits on the number nothing caps.
+
 *The number of accounts you follow is capped at 7,500. The number who follow you is capped by nothing. Every hard problem in this design sits on that second number.*
 
 ---
@@ -2607,6 +2662,8 @@ flowchart LR
   FAN -->|"7 · push, if below threshold"| FC[("Feed cache<br/>per reader")]
 ```
 
+> Step 3 comes after step 2 on purpose. Publish first and the post exists without its picture.
+
 *Step 3 comes after step 2 on purpose. Publish before the bytes are acknowledged and the post becomes readable while its media does not exist, so every reader who reaches it sees a broken tile. Transcoding may still be running — a variant that is not ready falls back to the original — but the original must be there before anybody is told the post exists.*
 
 ---
@@ -2627,6 +2684,8 @@ flowchart LR
   FR --> OUT(["Merge · filter · rank · hydrate"])
   CDN(["CDN"]) -->|"media, separately"| C
 ```
+
+> One lookup for almost everybody. The celebrities are what turn it into four.
 
 *The pull path goes through a cache, not straight to the store. That box is the whole reason the hybrid is affordable: one celebrity's recent-posts list is written once and read five hundred million times, so it is the most cacheable object in the system. Draw it, or the design you hand someone points every one of those reads at the post store.*
 
@@ -2710,6 +2769,8 @@ flowchart LR
   AZ -->|"7 · signed URL, minutes"| CDN(["CDN verifies"])
   CDN -->|"8 · serves"| V
 ```
+
+> Step 2 is the only place an untrusted client writes straight into your storage.
 
 *Step 2 is the one place an untrusted client writes straight into your storage. So the grant names the exact key it may write — let the client choose the key and it writes over somebody else's media — and carries four limits besides: one content type, a size ceiling, a short expiry, and a rate per account. Without those four, anyone can fill your storage at your expense, and step 4 hands bytes they chose to an image decoder. All input is untrusted, including input you asked for.*
 
