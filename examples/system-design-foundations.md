@@ -1008,18 +1008,47 @@ Consistency is not a pass. You carry it into all three.
 
 <!-- _class: diagram -->
 
-`Data kit · pass one`
+`Data kit · pass one, the first question`
 
-## Start at relational. Every branch below is a reason to leave it.
+## Start at relational, and the first question sends most systems home.
 
 ```mermaid
 flowchart LR
   REL[("Relational<br/>start here")] --> Q1{"Does one table outgrow<br/>one machine?"}
   Q1 -->|"no"| STAY(["Stay. You are done."])
-  Q1 -->|"yes"| QB{"Still need joins<br/>and transactions?"}
+  Q1 -->|"yes"| NEXT(["Two more questions,<br/>on the next slide"])
+```
+
+> Most systems answer no here. If you are not sure which you are, you are a no.
+
+---
+
+<!-- _class: diagram -->
+
+`Data kit · pass one, keeping the joins`
+
+## If you outgrew one machine, the next question is whether you still need joins.
+
+```mermaid
+flowchart LR
+  BIG(["One table outgrew<br/>one machine"]) --> QB{"Still need joins<br/>and transactions?"}
   QB -->|"yes"| DS[("Distributed SQL")]
-  QB -->|"no"| Q2{"Exact key only?"}
-  Q2 -->|"yes"| KV[("Key-value")]
+  QB -->|"no"| SHAPE(["Then the shape decides.<br/>Next slide."])
+```
+
+> An engine that partitions itself is the cheapest way to keep what relational gave you.
+
+---
+
+<!-- _class: diagram -->
+
+`Data kit · pass one, the shape`
+
+## Once you give up joins, four questions about shape pick the store.
+
+```mermaid
+flowchart LR
+  Q2{"Exact key only?"} -->|"yes"| KV[("Key-value")]
   Q2 -->|"no"| Q2B{"Whole records,<br/>shapes that differ?"}
   Q2B -->|"yes"| DOC[("Document")]
   Q2B -->|"no"| Q3{"Partition plus<br/>a range?"}
@@ -1029,8 +1058,7 @@ flowchart LR
   Q4 -->|"no"| SPLIT(["Split the problem.<br/>One store is not enough."])
 ```
 
-> Most systems answer no at the first diamond and stop reading.
-
+> Reaching the last box is not failure. It is the honest answer for a system with two jobs.
 ---
 
 <!-- _class: cards-stack -->
@@ -1250,24 +1278,37 @@ The genuinely derived stores are the search index, the vector index, the cache a
 
 `Data kit · under a partition`
 
-## CAP prices a partition. Consistency charges you the rest of the time.
+## When a link breaks, you pick. There is no third answer.
 
 ```mermaid
 flowchart LR
-  N(["A link breaks<br/>nodes cannot reach each other"]) --> C{"A write arrives on<br/>one side of the split"}
-  C -->|"take it"| AP(["Available<br/>answer now, reconcile later"])
-  C -->|"refuse it"| CP(["Consistent<br/>refuse rather than diverge"])
+  N(["A link breaks<br/>nodes cannot reach<br/>each other"]) --> C{"A write arrives on<br/>one side of the split"}
+  C -->|"take it"| AP(["Available<br/>answer now,<br/>reconcile later"])
+  C -->|"refuse it"| CP(["Consistent<br/>refuse rather<br/>than diverge"])
   AP --> APC(["Feeds, presence, metrics"])
   CP --> CPC(["Balances, inventory, bookings"])
-  N2(["No link breaks"]) --> C2{"A read arrives"}
+```
+
+> This is CAP, and it only applies while the link is broken. That is rarer than people think.
+
+---
+
+<!-- _class: diagram -->
+
+`Data kit · the rest of the time`
+
+## The bill you actually pay is the one that arrives when nothing is broken.
+
+```mermaid
+flowchart LR
+  N2(["Every link is fine"]) --> C2{"A read arrives"}
   C2 -->|"answer locally"| L1(["Fast, possibly stale"])
   C2 -->|"coordinate first"| L2(["Correct, one round trip"])
   L1 --> L1C(["A feed, a profile"])
   L2 --> L2C(["A balance, a seat"])
 ```
 
-> The top row happens rarely. The bottom row is the bill you pay every day.
-
+> A different question from CAP, and the one you answer on every read for years between outages.
 ---
 
 <!-- _class: list-tabular -->
