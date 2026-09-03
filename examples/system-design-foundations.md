@@ -2181,9 +2181,11 @@ flowchart LR
 
 ## Seventy thousand feed reads a second is really five million lookups a second.
 
-A twenty-item page needs four lookups an item — the post row, the media variants, the counts, and whether this reader liked it. Eighty a page, times seventy thousand pages a second, is 5.6 million. Meeting that in production having sized for the 70K is what the envelope exists to prevent.
+A twenty-item page needs four lookups an item — the post row, the media variants, the counts, and whether this reader liked it. Eighty a page, times seventy thousand pages a second, is 5.6 million.
 
-Batch them all. Do not fold the count into the feed entry, which is written at post time when the count is zero; fold the like the other way, as one batched read across the twenty candidates. Batched, the fleet sees 280K requests carrying the 5.6 million — and requests are what you size for.
+Batch them all. Do not fold the count into the feed entry — that entry is written at post time, when the count is zero. Fold the like check the other way instead: one batched read across the twenty candidates.
+
+Batching is not only throughput. Eighty parallel calls put `1 - 0.99^80`, fifty-five percent, of pages on a slow dependency — against a 99th-percentile promise.
 
 ---
 
@@ -2222,6 +2224,8 @@ flowchart LR
   AZ -->|"7 · signed URL, minutes"| CDN["CDN verifies"]
   CDN -->|"8 · serves"| V
 ```
+
+*Step 2 is the one place an untrusted client writes straight into your storage, so the grant carries its own limits: one content type, a byte ceiling, a short expiry, and a rate per account. Without them the presign is an unmetered write to storage you pay for, and step 4 hands attacker-chosen bytes to a decoder. All input is untrusted, including the input you asked for.*
 
 ---
 
