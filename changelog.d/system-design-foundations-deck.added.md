@@ -1,13 +1,18 @@
-- **Added: `examples/system-design-foundations.md`, a 147-slide system-design tutorial for
+- **Added: `examples/system-design-foundations.md`, a 167-slide system-design tutorial for
   engineers in their first years.** It opens on one engineer's Tuesday told wake-to-sleep with
   no vocabulary at all, then names each thing she met — system, purpose, boundary, environment,
   process, model, constraint, invariant, infrastructure, emergence — against the timestamp that
   taught it. A protagonist/antagonist frame turns that vocabulary into a design starting point
   and picks the rung on a five-type solution ladder (MVP, scaled, optimized, optimal,
-  specialized). Six reference kits follow — data, compute, network, scale, reliability,
-  security — each opening with one left-to-right diagram of its usage patterns, every entry
-  answering the same three questions, every kit closing with its invariants. The deck then
-  designs Instagram end to end around the follow graph's asymmetry: bounded out-degree,
-  unbounded in-degree, and super nodes that force the hybrid fan-out rather than it being a
-  preference. It closes by mapping each kit decision onto the design and handing over a
-  nine-field worksheet as the call to action. Nineteen Mermaid diagrams, `profile: teaching`, and a generated glossary appendix from the deck's own acronym registry.
+  specialized), closing on a removal test drawn from Saint-Exupéry and Rams. Six reference kits
+  follow — data, compute, network, scale, reliability, security — each opening with one
+  left-to-right diagram of its usage patterns and closing with its invariants, and covering the
+  practices a junior meets in year one: ordering and identity, changing a schema without an
+  outage, deleting across every derived copy, dependency supply chain, and quotas. The deck then
+  designs Instagram end to end around the follow graph's asymmetry: bounded out-degree, unbounded
+  in-degree, and super nodes that force the hybrid fan-out rather than it being a preference.
+  Capacity is worked from a daily average up to a peak page-fetch rate, and the design's own
+  fixes are checked against the promises that motivated them. Four ask-then-answer exercises sit
+  at the ends of Parts one to four, and Part six runs the removal test on the finished design
+  before handing over a nine-field worksheet. Nineteen Mermaid diagrams, `profile: teaching`, and
+  a generated glossary appendix from the deck's own acronym registry.
