@@ -1,4 +1,4 @@
-- **Added: `examples/system-design-foundations.md`, a 187-slide system-design tutorial for
+- **Added: `examples/system-design-foundations.md`, a 188-slide system-design tutorial for
   engineers in their first years.** It opens on one engineer's Tuesday told wake-to-sleep with
   no vocabulary at all, then names each thing she met — system, purpose, boundary, environment,
   process, model, constraint, invariant, infrastructure, emergence — against the timestamp that
