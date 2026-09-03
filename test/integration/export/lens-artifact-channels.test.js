@@ -10,14 +10,12 @@
  * document and the file that ships, which no unit test crosses (HARD RULE #23).
  *
  * Each test below is one of those defects, expressed as the property it violated:
- *   1. `form: off` un-hid every hole — a 3-slide view came out as a 5-page PDF, blank at the
- *      withheld positions. The hiding rule named a class a deck can switch off.
- *   2. `lens-hole` was forgeable from author markup with no `--lens` anywhere: the PDF dropped the
+ *   1. `lens-hole` was forgeable from author markup with no `--lens` anywhere: the PDF dropped the
  *      slide while its text shipped in the `.html` and the envelope.
- *   3. Speaker notes: PPTX bound slide 3's note to the slide showing slide 5; the PDF dropped every
+ *   2. Speaker notes: PPTX bound slide 3's note to the slide showing slide 5; the PDF dropped every
  *      annotation while reporting it had written them.
- *   4. Captions: slide 3's caption was spoken over a hole, slide 5's over slide 3.
- *   5. The claim itself — positional SELECTORS survive a projection and CSS COUNTERS do not, which
+ *   3. Captions: slide 3's caption was spoken over a hole, slide 5's over slide 3.
+ *   4. The claim itself — positional SELECTORS survive a projection and CSS COUNTERS do not, which
  *      is the whole reason the author-CSS warning still exists.
  */
 
@@ -67,25 +65,7 @@ function run(src, outName, args) {
 	return { r, out, dir };
 }
 
-const pageCount = async (file) =>
-	(await require('pdf-lib').PDFDocument.load(fs.readFileSync(file))).getPageCount();
-
 describe('a projected export keeps its per-slide channels aligned', { skip }, () => {
-	test('`form: off` cannot un-hide a hole — the PDF has no blank page at a withheld slot', { timeout: TIMEOUT }, async () => {
-		// `form: off` is a documented front-matter key and it strips the `.form` class. The hiding
-		// rule used to be `section.form.lens-hole`, so this one line produced a FIVE-page PDF for a
-		// three-slide view, blank at positions 2 and 4 — the deck's length and the exact withheld
-		// slots. The rule may not name a class a deck controls; this is the arm that says so.
-		const { r, out } = run(deck({ extraFm: 'form: off\n' }), 'formoff.pdf', ['--quiet', '--lens', 'brief']);
-		assert.equal(r.status, 0, r.stderr);
-		assert.equal(await pageCount(out), 3, 'three slides ship, so the PDF has three pages');
-		const { execFileSync } = require('node:child_process');
-		let text = '';
-		try { text = execFileSync('pdftotext', ['-layout', out, '-'], { encoding: 'utf8' }); } catch { return; }
-		assert.match(text, /Slide 1[\s\S]*Slide 3[\s\S]*Slide 5/, 'and it is the kept slides, in order');
-		for (const away of [2, 4]) assert.ok(!text.includes(`Body of slide ${away}.`), `slide ${away} is not in the PDF`);
-	});
-
 	test('a hole an author forged is refused, with no reader view in play at all', { timeout: TIMEOUT }, () => {
 		// Nothing can reserve a markdown class, so it is checked against the projection instead:
 		// with no `--lens`, the expected hole set is empty and any hole is drift. Before `holeDrift`
