@@ -1277,6 +1277,50 @@ test.describe('a diagram\'s bake index does not read as drift', () => {
 	});
 });
 
+/**
+ * A DIAGRAM'S OWN STYLESHEET IS ENGINE OUTPUT, and the document channel does not count it.
+ *
+ * mmdc bakes a `<style>` into every SVG it emits, scoped to the `#lattice-mmd-N` id we stamp — so it
+ * provably cannot reach another slide. Counting it made a withheld diagram slide look like a withheld
+ * `<style>`, and the export refused with "move the `<style>` to a slide the view keeps" on 25 of the
+ * 150 shipped decks: advice with nothing to act on, about CSS the author never wrote.
+ *
+ * The AUTHOR's `<style>` still counts, which is the half that has to keep working.
+ */
+test.describe("a diagram's own stylesheet is not the author's", () => {
+	const chunks = [
+		'<!-- _lens: brief -->\n\n# Cover\n\nQ3.\n',
+		'\n# Internal\n\nSecret.\n',
+		'\n<!-- _lens: brief -->\n\n# The ask\n\nApprove.\n',
+	];
+	/** The body is keyed to the slide's CONTENT, not its number: a projection renumbers the slide, and
+	 *  text that moved with the number would fail hop 2 for a reason these tests are not about. */
+	const sec = (at, body, extra = '') => `<section data-authored-slide="${at}">${extra}<p>${body}</p></section>`;
+	const mmd = (n) => `<div class="mermaid-svg"><svg id="lattice-mmd-${n}"><style>#lattice-mmd-${n}{font-family:X}</style></svg></div>`;
+	/** Three documents, the way `crossSlideDrift` renders them: the full deck, the same-length proxy
+	 *  with the withheld body emptied, and the shorter thing that ships. `onWithheld` is what the
+	 *  withheld slide carries — present in the full deck, gone from the other two. */
+	const stubWith = (onWithheld) => (source) => {
+		if (source.includes('Internal')) return sec(0, 'Cover') + sec(1, 'Internal', onWithheld) + sec(2, 'Ask');
+		if (source.includes('<!-- -->')) return sec(0, 'Cover') + sec(1, '') + sec(2, 'Ask');
+		return sec(0, 'Cover') + sec(1, 'Ask');
+	};
+
+	test('a withheld slide taking its diagram with it is not a withheld `<style>`', () => {
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		assert.equal(crossSlideDrift(src, out.source, out.kept, stubWith(mmd(1))), null, "a diagram's own scoped sheet is engine output");
+	});
+
+	test("but an author's `<style>` on a withheld slide is still a finding", () => {
+		const src = deckFrom(chunks);
+		const out = projectForExport(src, ['brief']);
+		const drift = crossSlideDrift(src, out.source, out.kept, stubWith('<style>section p{display:none}</style>'));
+		assert.ok(drift, 'the half that has to keep working');
+		assert.equal(drift.channel, 'style');
+	});
+});
+
 test.describe('the neutralizer set is a pinned decision, not a growing convenience', () => {
 	test('the axes the comparison forgives are exactly these eight', () => {
 		assert.deepEqual(Object.keys(POSITION_NEUTRALIZERS).sort(), [
