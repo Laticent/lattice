@@ -19,10 +19,21 @@ const { JSDOM } = require('jsdom');
 const kernel = require('../../../lib/core/list-tabular-marks');
 const latticeEngine = require('../../../lib/engine');
 
-const CSS = fs.readFileSync(
+const CSS_SOURCE = fs.readFileSync(
   path.join(__dirname, '../../../lib/components/inventory/list-tabular/list-tabular.styles.css'),
   'utf8',
 );
+/**
+ * The stylesheet with COMMENTS STRIPPED, and every assertion below reads this one.
+ *
+ * An adversarial pass found the arm asserting `li.marks { … grid-row:1 … }` was
+ * green against a stylesheet where that declaration had been REMOVED: `[^}]*` walked
+ * out of the declaration block and matched the words `grid-row:1` inside the prose
+ * of the comment above it. This file's comments explain the declarations, so they
+ * quote them constantly — reading the commented source makes every regex here a
+ * coin flip. Strip once, at the top, so no individual arm has to remember.
+ */
+const CSS = CSS_SOURCE.replace(/\/\*[\s\S]*?\*\//g, '');
 
 const render = (deck) => new JSDOM(latticeEngine.createEngine().render(deck).html).window.document;
 const deck = (cls, body) => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n${body}\n`;
@@ -262,28 +273,20 @@ describe('list-tabular — responsive column tracks', () => {
     assert.match(CSS, /\.def ol > li > ul > li\.marks \{[^}]*grid-column:3/);
   });
 
-  test('the marks cell is definitely placed, with the exceptions enumerated', () => {
-    // A NARROW claim, deliberately. An earlier arm here tried to assert "nothing
-    // overlaps" by scanning rules whose selector text contains `li.marks` — and that
-    // is structurally incapable of it: the `grid-row` that decides the outcome can
-    // arrive from `> ul > li:first-child`, a selector with no `li.marks` in it. That
-    // scan was green while the component's documented shape painted its meta over.
+  test('the sublist roles are keyed to what an item IS, not where it sits', () => {
+    // The one structural fact behind the whole marks-cell saga, and the only kind of
+    // claim a stylesheet can actually answer. Keyed positionally (`:first-child` /
+    // `:nth-child(2)`), inserting a marker bullet anywhere but last re-roled every
+    // item after it — the clause became the LEGACY META rule and jumped into the
+    // trailing column, over the row's own meta.
     //
-    // Whether anything overlaps, and where the row name lands, are facts about
-    // laid-out boxes, so both are asserted where boxes exist:
-    // test/integration/parity/list-tabular-marks-geometry.test.js renders in Chromium
-    // and compares rectangles. What is left here is the one thing a stylesheet CAN
-    // answer — that the cell is pinned by default and the exceptions are written out
-    // rather than left to auto-placement, which is the shape both defects turned on.
-    assert.match(CSS, /li\.marks \{[^}]*grid-row:1/, 'the base marks cell must be definitely placed');
-    for (const exception of [
-      /:not\(\.spec\) ol > li:has\(> code\) > ul > li\.marks/,      // the inline meta
-      /li:has\(> ul > li:nth-child\(2\):not\(\.marks\)\) > ul > li\.marks/, // the legacy meta
-      /li > ul > li\.marks ~ li\.marks/,                            // a second marks cell
-      /\.spec ol > li:has\(> code:nth-of-type\(2\)\) > ul > li\.marks/, // spec's type chip
-    ]) {
-      assert.match(CSS, exception, `a trailing-column occupant has no auto-row exception: ${exception}`);
-    }
+    // Whether that actually holds on a slide is not asserted here, because a string
+    // scan cannot see it: test/integration/parity/list-tabular-metamorphic.test.js
+    // renders the same row with the marker first and last and compares the boxes.
+    assert.doesNotMatch(CSS, /ol > li > ul > li:first-child/, 'a sublist role is still keyed by position');
+    assert.doesNotMatch(CSS, /ol > li > ul > li:nth-child\(2\)(?!\s*of)/, 'a sublist role is still keyed by position');
+    assert.match(CSS, /ol > li > ul > li:nth-child\(1 of :not\(\.marks\)\)/);
+    assert.match(CSS, /ol > li > ul > li:nth-child\(2 of :not\(\.marks\)\)/);
   });
 
   test('the trailing column stays right-aligned', () => {

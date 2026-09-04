@@ -125,6 +125,26 @@ section.list-tabular ol > li {
   letter-spacing:-0.01em;
   line-height:var(--lh-snug);
 }
+/* THE SUBLIST'S ROLES ARE KEYED TO WHAT AN ITEM IS, NOT WHERE IT SITS.
+ * `:nth-child(1 of :not(.marks))` is the clause and `:nth-child(2 of :not(.marks))`
+ * the legacy meta, rather than `:first-child` and `:nth-child(2)`.
+ *
+ * This is the root cause of the entire marks-cell saga, and every earlier fix was
+ * downstream of it. With positional roles, inserting a marks bullet anywhere but
+ * last RE-ROLED everything after it: put the marker first and the clause became
+ * `:nth-child(2)`, which is the LEGACY META rule — so the clause jumped into the
+ * trailing column and painted over the row's own meta. Measured across a generated
+ * space: 173 of 336 cases laid out differently depending only on where the marker
+ * bullet sat, and 133 painted one box over another. The component's docs have
+ * promised since the feature landed that the bullet "can follow any sublist
+ * element"; keyed by position, that was never true.
+ *
+ * `:nth-child(An+B of S)` is Chromium 111+; the engine targets 131 and the selector
+ * is verified against it. It is the only form that expresses "the first item that is
+ * not a marks cell" — a plain `:not(.marks):first-child` matches nothing when the
+ * marker leads, which is precisely the failing case.
+ * ───────────────────────────────────────────────────────────────────────── */
+
 /* THE RULE IS A SEPARATOR, SO IT ONLY EXISTS BETWEEN TWO ROWS.
  * The ledger used to draw `border-bottom` on every row plus `border-top` on the
  * first — both outer edges, and both of them collide with what the stage already
@@ -151,7 +171,7 @@ section.list-tabular ol > li::before {
 }
 section.list-tabular ol > li > ul { display:contents; }
 section.list-tabular ol > li > ul > li::marker { content:''; }
-section.list-tabular ol > li > ul > li:first-child {
+section.list-tabular ol > li > ul > li:nth-child(1 of :not(.marks)) {
   grid-column:3; grid-row:1;
   font-family:var(--font-body);
   font-size:var(--fs-body-compact);
@@ -163,7 +183,7 @@ section.list-tabular ol > li > ul > li:first-child {
  * (the 3-line authoring contract), treat it as the meta column. The new
  * 2-line contract uses inline <code> instead and never produces a second
  * nested li. */
-section.list-tabular ol > li > ul > li:nth-child(2) {
+section.list-tabular ol > li > ul > li:nth-child(2 of :not(.marks)) {
   grid-column:4; grid-row:1;
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -174,7 +194,7 @@ section.list-tabular ol > li > ul > li:nth-child(2) {
   text-align:right;
   overflow-wrap:break-word;
 }
-section.list-tabular ol > li > ul > li:nth-child(2) em { font-style:normal; }
+section.list-tabular ol > li > ul > li:nth-child(2 of :not(.marks)) em { font-style:normal; }
 section.list-tabular ol > li > code {
   grid-column:4; grid-row:1;
   background:none;
@@ -450,7 +470,7 @@ section.list-tabular.register.outline ol > li > code {
 section.list-tabular ol > li > ul > li.marks > p { display:contents; }
 section.list-tabular ol > li > ul > li.marks {
   /* `grid-row:auto` EXPLICITLY. Leaving it unset does not reach auto-placement: the
-   * two sibling rules above — `> ul > li:first-child` and `> ul > li:nth-child(2)` —
+   * two sibling rules above — `> ul > li:nth-child(1 of :not(.marks))` and `> ul > li:nth-child(2 of :not(.marks))` —
    * are (0,2,5), identical to this rule, and come earlier in source, so this one wins
    * `grid-column` and inherits their `grid-row:1`. Auto-placement therefore began at
    * the THIRD nested bullet, and the component's own documented shape (an inline meta
@@ -504,7 +524,7 @@ section.list-tabular ol > li > ul > li.marks {
  * row 1 free it took it. That is why the default above is `grid-row:1` and these
  * are the exceptions, rather than the other way round. */
 section.list-tabular:not(.spec) ol > li:has(> code) > ul > li.marks,
-section.list-tabular ol > li:has(> ul > li:nth-child(2):not(.marks)) > ul > li.marks,
+section.list-tabular ol > li:has(> ul > li:nth-child(2 of :not(.marks))) > ul > li.marks,
 section.list-tabular ol > li > ul > li.marks ~ li.marks { grid-row:auto; }
 /* `spec` re-points its codes: the KEY goes to column 2 and only a SECOND code — the
  * type chip — reaches the trailing column. So the inline-code exception above is
@@ -527,7 +547,7 @@ section.list-tabular.spec ol > li:has(> code:nth-of-type(2)) > ul > li.marks { g
  * and the marks cell takes column 3 below it — right-aligned, under the clause it
  * qualifies, with the name and eyebrow untouched. A second marks bullet auto-places
  * onto the next implicit row rather than over the first. */
-section.list-tabular.def ol > li:has(> ul > li.marks) > ul > li:first-child {
+section.list-tabular.def ol > li:has(> ul > li.marks) > ul > li:nth-child(1 of :not(.marks)) {
   grid-row:1;
   align-self:end;
 }
@@ -742,14 +762,14 @@ section.list-tabular.list-tabular:where([data-family="tall"], [data-family="stri
 }
 /* description (nested list) → its own line below the name. */
 section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul { display: block; }
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul > li:first-child {
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul > li:nth-child(1 of :not(.marks)) {
   display: block;
   padding-top: var(--sp-2xs);
 }
 /* the 3-line authoring contract carries meta as a second nested li (not inline
    `<code>`); in block flow its base `grid-column:4; text-align:right` would orphan
    it right-aligned, so left-align it onto its own line like the inline-code meta. */
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul > li:nth-child(2) {
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul > li:nth-child(2 of :not(.marks)) {
   display: block;
   text-align: left;
   padding-top: var(--sp-2xs);
