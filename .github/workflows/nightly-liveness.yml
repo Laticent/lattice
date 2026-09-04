@@ -1,0 +1,172 @@
+name: Nightly liveness (does the family still run?)
+
+# THE ONE ALARM NOTHING ELSE CAN RAISE. Every other nightly reports what it measured;
+# none can report that it never measured. `studio-e2e` was silenced for weeks by a dropped
+# `runs-on`, and GitHub disables scheduled workflows after 60 days of repo inactivity.
+# Design, thresholds and the measurements behind them:
+# engineering/decisions/2026-09-02-nightly-liveness.md and the header of
+# tools/check-nightly-liveness.mjs.
+#
+# ONE JOB, ONE ROLLING ISSUE — measured, not stylistic. All the workflows watched here hit
+# their maximum inter-run gap on the SAME night, so the failure this alarm sees most often
+# is a correlated GitHub-side slip; a per-workflow design would have filed seven issues
+# that night for a single non-event.
+#
+# IT CANNOT WATCH ITSELF. This job is one more scheduled workflow, subject to the same
+# dropped `runs-on`, the same 60-day disable, the same parking it is built to detect. Only
+# an external heartbeat closes that loop. Stated here rather than discovered later.
+
+on:
+  schedule:
+    # daily 07:43 UTC — deliberately AFTER the whole family it watches (overflow 02:41,
+    # integration 03:11, preview-e2e 04:23, studio-e2e 04:41, modulepreload 05:07,
+    # perf 05:37, backlog sync 06:17, publish-kits 06:29). Watching from in front of them
+    # would read yesterday's runs and call a workflow that died this morning healthy.
+    # A non-round minute for the same reason every other cron here has one: GitHub queues
+    # heavily at the top of the hour.
+    #
+    # The 48h threshold is what makes this safe against GitHub's own dispatch lateness,
+    # which was measured at 5-7h routinely and 12.5h in the tail — a cron time cannot be
+    # used to predict when a run exists in this repo.
+    - cron: '43 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write # open / append / close the rolling liveness issue
+  # actions: read is LOAD-BEARING and was missing in the first cut of this file.
+  # An explicit `permissions:` block sets every scope it does NOT list to `none`,
+  # and the Actions API is this job's ONLY data source — both
+  # `repos/…/actions/workflows/<w>/runs` and `repos/…/actions/runs/<id>/jobs`.
+  # Without it, every read can 403; `probeWorkflow` swallows the failure and
+  # returns "no qualifying run", so all eight workflows read as dead and the job
+  # files "0/8 alive" on its very first night, then again every night after. An
+  # alarm whose debut is a maximal false positive is the one thing this family's
+  # whole history says must not happen (#1988: the flaky nightly nobody reopens).
+  # No other workflow here reads the Actions API, so there was no precedent to
+  # inherit this from.
+  actions: read
+
+concurrency:
+  group: nightly-liveness
+  cancel-in-progress: false
+
+jobs:
+  liveness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No `npm ci`, no browser: the probe is API reads and a header parse. That is the
+      # whole reason this job can be cheap enough to run every night.
+      - name: Probe the family
+        id: probe
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          # The script exits 1 when something is dead or the mirror is stale. Capture the
+          # verdict into an output and keep the STEP green, so the report always uploads
+          # and the filing step keys off `unhealthy` rather than off an exit code — the
+          # same shape perf-nightly's compare step uses, for the same reason.
+          LOG="$GITHUB_WORKSPACE/liveness.log"
+          if npm run check:nightly-liveness -- --md "$GITHUB_WORKSPACE/liveness.md" | tee "$LOG"; then
+            echo "unhealthy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "unhealthy=true" >> "$GITHUB_OUTPUT"
+          fi
+          # THE MEASUREMENT FLOOR — how many workflows were actually probed. `problems: []`
+          # is what a healthy family produces AND what an empty watch list produces; without
+          # this the close step cannot tell them apart, and a run that measured nothing would
+          # close the thread as a healthy night. Same shape preview-e2e-nightly uses.
+          COUNT=$(grep -oE '^workflows=[0-9]+' "$LOG" | tail -n 1 | cut -d= -f2 || true)
+          echo "workflows=${COUNT:-0}" >> "$GITHUB_OUTPUT"
+
+      - name: Job summary
+        if: always()
+        run: cat "$GITHUB_WORKSPACE/liveness.md" >> "$GITHUB_STEP_SUMMARY" || true
+
+      # `always()` is LOAD-BEARING and its absence is a bug this repo has shipped FOUR
+      # times (perf-nightly.yml:469 documents the first three). GitHub applies an implicit
+      # `success()` to any `if:` with no status function, so a bare condition here would be
+      # muted by any earlier step failing — filing nothing on the night a workflow died,
+      # which is precisely the outcome this alarm exists to prevent.
+      - name: Open / append the rolling liveness issue
+        if: always() && steps.probe.outputs.unhealthy == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          MARKER='[nightly-liveness]'
+          BODY="$GITHUB_WORKSPACE/liveness.md"
+          {
+            echo ""
+            echo "_Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
+          } >> "$BODY"
+          # Find the rolling issue by its title MARKER, client-side. `--search "in:title"`
+          # looks right and is not: GitHub tokenizes on the brackets and the hyphen, so it
+          # degrades to the bare words and matches human-authored issues — then `.[0]`
+          # appends to someone else's issue nightly. The three-spelling author match is the
+          # family's, unchanged. `--limit` is far above the open-issue count; a limit the
+          # backlog could outgrow would miss the issue and file a fresh duplicate nightly.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          if [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ]; then
+            gh issue comment "$ISSUE" --body-file "$BODY"
+            echo "Appended to issue #$ISSUE"
+          else
+            # SELF-LABELED at creation: a GITHUB_TOKEN-opened issue cannot trigger the
+            # triage gate (GitHub's workflow-recursion guard), so a bot must carry the
+            # four-axis taxonomy itself or land unlabelled on the board (issue #384).
+            gh issue create \
+              --title "$MARKER a scheduled workflow has stopped reporting" \
+              --label "area:infra" --label "type:fix" \
+              --label "priority:high" --label "status:backlog" \
+              --body-file "$BODY"
+          fi
+
+      # STAND THE ALARM DOWN — and unlike perf-nightly's `watch`, this one CLOSES.
+      #
+      # The distinction is the one that job's comment draws: `watch` is DIFFERENTIAL (head
+      # against a base ~24h old), so a clean night there cannot tell "fixed" from "the base
+      # now carries the regression too", and closing would be misleading on a broken site.
+      # This alarm is ABSOLUTE — it asks whether a run exists right now — so a green night
+      # is unambiguous evidence the schedule recovered, and closing is honest.
+      #
+      # `steps.probe.outcome == 'success'` as well as the output, because a probe step that
+      # DIED yields an empty `unhealthy` string, and `'' != 'true'` would otherwise read as
+      # health and close a live alarm. A green that measured nothing is not a green.
+      # The name matters: the nightly-alarm contract test finds a job's recovery step by
+      # matching `Stand down|Report … on the rolling issue` against step names, so a job
+      # that stands down under some other name reads to that gate as one that never can.
+      - name: Stand down — close the rolling issue on a healthy night
+        if: >-
+          always() && github.ref == 'refs/heads/main'
+          && steps.probe.outcome == 'success' && steps.probe.outputs.unhealthy == 'false'
+          && steps.probe.outputs.workflows != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          MARKER='[nightly-liveness]'
+          # The IDENTICAL lookup the filing step uses — two different searches is how one
+          # step appends to a thread while another closes a different one.
+          ISSUE=$(gh issue list --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title | startswith(\"$MARKER \")) | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number" || true)
+          [ -n "${ISSUE:-}" ] && [ "$ISSUE" != "null" ] || exit 0
+          # Comment BEFORE closing, naming the run that proved it: a silent close leaves the
+          # next reader unable to tell a recovered alarm from one somebody triaged away.
+          # `--body-file` rather than an inline multi-line `--body` — a continuation line
+          # starting at column 0 ENDS the `run: |` block scalar and the workflow then parses
+          # as something else entirely.
+          {
+            echo "Recovered: every watched scheduled workflow has produced a job-bearing scheduled run inside the threshold, and the backlog mirror is tracking the live queue. Closing — a fresh stoppage opens a new thread."
+            echo ""
+            echo "_Proved by run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}._"
+          } > "$GITHUB_WORKSPACE/stand-down.md"
+          gh issue comment "$ISSUE" --body-file "$GITHUB_WORKSPACE/stand-down.md" || true
+          gh issue close "$ISSUE" --reason completed || true

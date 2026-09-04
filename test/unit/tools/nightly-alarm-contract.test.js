@@ -71,6 +71,12 @@ const CLOSES = {
   'modulepreload-coverage-nightly.yml::check':
     'absolute — islands under docs/src/pages/ against the ENTRIES list, both in the tree, and ' +
     'adding the missing entry IS the fix rather than a bless',
+  'nightly-liveness.yml::liveness':
+    'absolute — it asks whether a job-bearing scheduled run exists RIGHT NOW, against a 48h ' +
+    'threshold. There is no baseline to bless and no differential to confuse: a green night ' +
+    'is unambiguous evidence the schedule recovered, so closing is honest rather than ' +
+    'misleading. Contrast its sibling in spirit, perf-nightly.yml::watch, which may not ' +
+    'close precisely because it is differential',
   'perf-nightly.yml::engine-perf':
     'differential, and closes NARROWLY because of it — only a thread whose body says the ' +
     'previous firing was a HARNESS failure (NOTHING WAS COMPARED). A false alarm is settled ' +
@@ -100,6 +106,11 @@ const CLOSES = {
 const MEASUREMENT_FLOOR = {
   'preview-e2e-nightly.yml::e2e': { step: 'e2e', output: 'cases' },
   'modulepreload-coverage-nightly.yml::check': { step: 'check', output: 'islands' },
+  // `problems: []` is what a healthy family produces AND what an empty WATCHED_WORKFLOWS
+  // produces — the same zero-of-zero-as-health shape the two above guard against, and not
+  // hypothetical here: the watch list is a hand-maintained array in
+  // tools/check-nightly-liveness.mjs.
+  'nightly-liveness.yml::liveness': { step: 'probe', output: 'workflows' },
 };
 
 const COMMENTS_ONLY = {
@@ -573,14 +584,21 @@ test('nightly alarm contract', async (t) => {
       // producer: the npm script it invokes must emit that line
       const m = run.match(/npm run ([\w:-]+)/);
       assert.ok(m, `${id}: step '${floor.step}' runs no npm script — cannot locate the producer`);
-      const cmd = docsPkg.scripts?.[m[1]];
-      assert.ok(cmd, `${id}: docs/package.json has no script '${m[1]}'`);
-      const rel = cmd.match(/(scripts\/[\w.-]+\.mjs)/);
+      // Resolve the producer from EITHER package: the docs site (`docs/scripts/*.mjs`,
+      // where the first two floors live) or the repo root (`tools/*.mjs`). The
+      // docs-only lookup was an accident of the sample rather than a rule — the first
+      // root-level closer to need a floor, nightly-liveness, is repo infra and has no
+      // business moving under docs/ to satisfy a test's search path.
+      const rootPkg = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8'));
+      const cmd = docsPkg.scripts?.[m[1]] ?? rootPkg.scripts?.[m[1]];
+      assert.ok(cmd, `${id}: neither docs/package.json nor package.json has a script '${m[1]}'`);
+      const rel = cmd.match(/((?:scripts|tools)\/[\w.-]+\.mjs)/);
       assert.ok(rel, `${id}: cannot resolve a script file from '${cmd}'`);
-      const src = fs.readFileSync(path.join(REPO, 'docs', rel[1]), 'utf8');
+      const base = rel[1].startsWith('tools/') ? REPO : path.join(REPO, 'docs');
+      const src = fs.readFileSync(path.join(base, rel[1]), 'utf8');
       assert.ok(
         src.includes(`${floor.output}=\${`),
-        `docs/${rel[1]} no longer emits a \`${floor.output}=\` line, but ${id} gates its CLOSE on ` +
+        `${rel[1]} no longer emits a \`${floor.output}=\` line, but ${id} gates its CLOSE on ` +
           'parsing one — the parse silently yields 0 and the stand-down is dead forever',
       );
       pinned++;
