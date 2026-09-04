@@ -1,0 +1,323 @@
+# list-tabular
+
+> Hairline-ruled ledger of items — name on the left, body on the right.
+
+**Function** inventory · **Form** ledger · **Substance** structure
+
+**Tags** `reference` · `overview` · `status`
+
+Use for compact reference tables: glossary-style entries, key/value pairs, specs. Four primary variants (def, metric, spec, register) tune the visual treatment; secondary modifiers (rule, solid, stacked, outline) refine each.
+
+## Agent contract
+
+**Density** aim ~12 words per item; past ~16 it reads as a wall of text — a short row label plus a clause.
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading. |
+| `rows` | `ol > li` | yes | Each numbered item (`1.`) is one row — the name on the line, with an optional nested bullet for its description or value. The leading column is the auto counter. |
+
+### Variant decision rule
+
+- **default (no modifier).** A plain hairline-ruled ledger — name left, description right, nothing tinted.
+- **`def`.** Reference entries read like dictionary definitions — an eyebrow above each term and an enlarged counter spanning both lines.
+- **`metric`.** Each row's value is the point — renders the trailing value as a display-weight figure instead of the default's plain mono text.
+- **`spec`.** Rows are technical flags or parameters — monospace keys beside type chips.
+- **`register`.** Each row carries a status — status pills per row.
+- **`rule`.** Under `def`, the register wants a visible accent rail running down the left edge of the whole list, not just the per-term counter.
+- **`solid`.** Under `metric`, the values are headline numbers that deserve a filled panel instead of an outlined tile.
+- **`stacked`.** Under `spec`, the description clause is long enough to want its own line below the key instead of trailing beside it.
+- **`outline`.** Under `register`, a lighter, keyline-only pill treatment fits the deck's tone better than filled pills.
+- **`fit-name`.** The labels are short and uneven — hug them instead of letting the widest one set a capped track.
+- **`fit-body`.** The clauses are values, not sentences — hug them and let the trailing column take the leftover so it still holds the right edge.
+- **`fit-meta`.** A trailing value is long enough that the default cap wraps it, and it should stay on one line.
+- **`flex-name`.** The label is the point and the clause is a short qualifier — hand the leftover width to the label.
+- **`flex-meta`.** The trailing column carries a phrase rather than a stamp, and it should absorb the leftover width.
+- **`fixed`.** A deck was laid out against the old fixed-cqi tracks and should keep them rather than re-flow.
+
+### Common mistakes
+
+- **Pairing a secondary modifier with the wrong primary variant (e.g. `def solid` or `metric rule`).** Each secondary modifier is scoped to exactly one primary — `rule` only styles `def`, `solid` only styles `metric`, `stacked` only styles `spec`, `outline` only styles `register`; pairing across combinations does nothing because no CSS selector matches.
+- **Authoring rows as a bullet list (`-`) instead of a numbered list (`1.`).** The counter column and row styling are keyed to `ol > li` — a `ul` doesn't produce the numbered ledger at all.
+- **Reaching for a column modifier before looking at the default.** The columns already size to their content. `fit-*` / `flex-*` name the exceptions — a label that should keep the slack, a clause that should hug — and `fixed` restores the old fixed-width tracks. Most ledgers need none of them.
+
+## When to use
+
+- **Compact reference rows.** Five or more rows where each row is a name plus a short description or value. Glossary-style entries, key/value pairs, technical specs.
+- **Pick one primary variant.** `def` for editorial, `metric` for tiled values, `spec` for technical keys, `register` for tagged pills. Default (no variant) is the hairline ledger.
+- **Numbered automatically.** Author as `ol` (`1.` source). The leading column is the counter — `def` and `spec.stacked` enlarge it to span both rows.
+
+## When NOT to use
+
+- **Three or fewer rows.** The ledger needs density to justify its shape. For two to four items, reach for cards-stack — the rows get the room to breathe.
+- **Long per-row prose.** Each row is a name plus a sentence. If the description runs two or three sentences, move to cards-stack or split across slides.
+- **Stacking two primary variants.** `def`, `metric`, `spec`, and `register` are mutually exclusive. Pair each only with its secondary modifier (def+rule, metric+solid, spec+stacked, register+outline).
+
+## Authoring
+
+```markdown
+<!-- _class: list-tabular -->
+
+## Slide heading.
+
+1. First entry
+   - Description or value for the first entry.
+2. Second entry
+   - Description or value for the second entry.
+3. Third entry
+   - Description or value for the third entry.
+4. Fourth entry
+   - Description or value for the fourth entry.
+```
+
+## Anatomy
+
+```text
+┌─────────────────────────────────────────┐
+│  header                                 │
+│  Ledger heading.                        │
+│                                         │
+│  01  Term      value     metadata       │
+│  02  Term      value     metadata       │
+│  03  Term      value     metadata       │
+│  04  Term      value     metadata       │
+│                                         │
+│  footer                           1/19  │
+└─────────────────────────────────────────┘
+```
+
+## Variants (component-specific)
+
+### `def` — Editorial (def)
+
+Counter spans rows; eyebrow above.
+
+```markdown
+<!-- _class: list-tabular def -->
+
+## def pairs each term with its role.
+
+1. Label `Term`
+   - def styles the register as definitions.
+2. Chip `Role`
+   - The inline code becomes a right-hand chip.
+3. Body `Clause`
+   - One clause under each term.
+```
+
+### `metric` — Tile (metric)
+
+Values in bordered tiles.
+
+```markdown
+<!-- _class: list-tabular metric -->
+
+## metric turns the chips into figures.
+
+1. Rows carry values `12 / 16`
+2. Figures right-align `100%`
+3. Labels stay short `4 rows`
+```
+
+### `spec` — spec
+
+Mono keys for flags and params.
+
+```markdown
+<!-- _class: list-tabular spec -->
+
+## spec documents flags and their types.
+
+1. `LATTICE_THEME` `string`
+   - spec sets code labels beside type chips.
+2. `LATTICE_DEBUG` `bool`
+   - One clause explains each flag.
+```
+
+### `register` — register
+
+Status pills on each row.
+
+```markdown
+<!-- _class: list-tabular register -->
+
+## register pairs names with status chips.
+
+1. cards-grid `stable`
+2. split-panel `stable`
+3. radar `beta`
+4. word-cloud `preview`
+```
+
+### `rule` — def + rule
+
+Accent rail down the left edge.
+
+```markdown
+<!-- _class: list-tabular def rule -->
+
+## rule draws a hairline under every row.
+
+1. Hairlines `On`
+   - rule adds the horizontal separators.
+2. Density `Same`
+   - Budgets do not change with the look.
+```
+
+### `solid` — metric + solid
+
+Filled value tiles for headlines.
+
+```markdown
+<!-- _class: list-tabular metric solid -->
+
+## solid fills the register with panel color.
+
+1. Net new rows `4`
+2. Panel fill `on`
+3. Best for `headline metrics`
+```
+
+### `stacked` — spec + stacked
+
+Clause drops below the name.
+
+```markdown
+<!-- _class: list-tabular spec stacked -->
+
+## stacked drops the clause under its label.
+
+1. `GET /plans/:name` `200 | 404`
+   - stacked gives each row two decks of text.
+2. `GET /gallery/:name` `200`
+   - The clause wraps below, full width.
+```
+
+### `outline` — register + outline
+
+Outline pills — a lighter register.
+
+```markdown
+<!-- _class: list-tabular register outline -->
+
+## outline boxes each row in a keyline.
+
+1. cards-grid `stable`
+2. split-panel `stable`
+3. quote `stable`
+```
+
+### `fit-name` — fit-name
+
+The label column hugs its content, uncapped.
+
+```markdown
+<!-- _class: list-tabular fit-name -->
+
+## fit-name lets short labels keep their own width.
+
+1. API
+   - The label column shrinks to the longest label.
+2. CLI
+   - Nothing is padded out to a fixed track.
+3. SDK
+   - The clause takes every pixel that is left.
+```
+
+### `fit-body` — fit-body
+
+The clause column hugs; the trailing column takes the slack.
+
+```markdown
+<!-- _class: list-tabular fit-body -->
+
+## fit-body hugs the clause and holds the right edge.
+
+1. Settlement window `T+1`
+   - Same day cutoff
+2. Reconciliation cadence `Nightly`
+   - Automated
+3. Exception review `Weekly`
+   - Risk committee
+```
+
+### `fit-meta` — fit-meta
+
+The trailing column hugs its content, uncapped.
+
+```markdown
+<!-- _class: list-tabular fit-meta -->
+
+## fit-meta keeps a long trailing value on one line.
+
+1. Coverage `98.4% of policies`
+2. Backlog `31 open findings`
+3. Cadence `every two weeks`
+```
+
+### `flex-name` — flex-name
+
+The label column takes the leftover.
+
+```markdown
+<!-- _class: list-tabular flex-name -->
+
+## flex-name hands the slack to the label.
+
+1. Board approval of the revised treasury policy
+   - Q3
+2. Migration of the settlement ledger to the new engine
+   - Q4
+3. Retirement of the legacy reconciliation batch
+   - Q1
+```
+
+### `flex-meta` — flex-meta
+
+The trailing column takes the leftover.
+
+```markdown
+<!-- _class: list-tabular flex-meta -->
+
+## flex-meta gives the trailing column the room.
+
+1. Scope `Retail and commercial deposits, twelve markets`
+   - Phase 1
+2. Owner `Group Treasury, reporting to the CFO`
+   - Phase 1
+3. Review `Audit and Risk Committee, quarterly`
+   - Phase 2
+```
+
+### `fixed` — fixed
+
+The pre-responsive fixed-width tracks.
+
+```markdown
+<!-- _class: list-tabular fixed -->
+
+## fixed pins the columns to their old widths.
+
+1. ID
+   - Every label column is the same width again.
+2. Mid
+   - Use it when a deck was tuned around those tracks.
+3. Long enough to wrap
+   - The label wraps inside its fixed track.
+```
+
+## Universal modifiers
+
+This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [the universal modifier catalog](../authoring/modifiers.md) for the catalog.
+
+## Related components
+
+- [`glossary`](./glossary.md) — term/definition pairs with auto-derived range pill
+- [`cards-stack`](./cards-stack.md) — two or three richer items, not a ledger
+- [`actors`](./actors.md) — the left column is a named person, not a key
+- [`list`](./list.md) — rows are bullets without a label-plus-description shape
+
+## Demo deck
+

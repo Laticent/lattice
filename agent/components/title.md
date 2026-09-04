@@ -1,0 +1,95 @@
+# title
+
+> Opening slide. Dark canvas, centered, no chrome.
+
+**Function** anchor · **Form** bookend · **Substance** prose
+
+**Tags** `pitch` · `board-deck` · `showcase` · `kickoff`
+
+First slide of every deck. Sets the topic and the visual tone. Suppresses header, footer, and pagination (or use the universal `silent` modifier for the same effect in one token). Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here.
+
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h1` | yes | Deck title. Capped at `--measure-bookend-heading` (16em ≈ 33 characters) so a long title composes as a block rather than a full-width banner; `text-wrap: balance` evens the lines. Override the token in front-matter `style:` — never hand-break with `<br>`. |
+| `eyebrow` | `p > code` | no | Optional category label rendered above the h1 (authored as an inline-code paragraph immediately after the h1; flex `order` lifts it above). |
+| `subtitle` | `p` | no | Optional plain-paragraph subtitle below the h1. Uncapped — title's subtitle is a single tagline, unlike closing's, which takes `--measure-bookend-lede`. |
+
+### Common mistakes
+
+- **Eyebrow written as bold or plain text instead of inline code, e.g. `**Category · Date**`.** Wrap the eyebrow paragraph in backticks. The eyebrow CSS matches `h1 + p:has(> code:only-child)`; without the code span the paragraph falls through to the general subtitle rule instead — it still renders styled, just as a second subtitle line, not the uppercase mono eyebrow lifted above the h1.
+- **The subtitle paragraph is authored before the eyebrow paragraph instead of after it.** The eyebrow match is an immediate-next-ELEMENT-sibling selector (`h1 + p:has(> code:only-child)`) — it only counts element siblings, so an HTML comment between the h1 and the eyebrow is harmless, but another paragraph is not. Keep the source order heading → eyebrow → subtitle.
+- **Inline emphasis (`**bold**`, `_italic_`) inside the h1 itself.** Keep the h1 to plain text. The centered, oversized type already carries full weight — nested emphasis at that scale reads as noise, not emphasis.
+- **Trying to author the spectrum bar as a markdown `---`/`***` rule instead of the `spectrum` class.** Every top-level `hr` token in a slide body is Marp's slide separator (it splits the deck into a new slide) — there is no way to hand-author a literal rule element here. Add the `spectrum` class instead; the bar is CSS-generated.
+
+## When to use
+
+- **First slide of every deck.** Sets topic, audience, and visual tone in one glance. The dark canvas anchors the deck visually so subsequent slides feel like a continuous document.
+- **Brand or section bookends.** Pair with `divider` (mid-deck section breaks) and `closing` (the final slide) for the full anchor trio. All three share the dark-bookend treatment.
+- **Pitch and proposal openings.** When the audience needs the headline and the framing line before any data. The subtitle paragraph is where the framing line goes.
+
+## When NOT to use
+
+- **Mid-deck statements.** Use `big-number` or `content` for emphatic statements inside a deck. Reaching for the title chrome mid-deck breaks the bookend signal.
+- **Multi-line h1.** Keep the h1 to one editorial line. The layout is centered and large — two-line titles get cramped and lose impact.
+- **Header or footer overrides.** Don't add back `_header:` or `_footer:` on a title slide. The dark canvas is meant to be uninterrupted; chrome belongs on body slides.
+
+## Authoring
+
+```markdown
+<!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _header: '' -->
+<!-- _footer: '' -->
+
+# Deck title goes here
+
+`Category · Date or audience`
+
+One-line subtitle that frames the deck.
+```
+
+## Anatomy
+
+```text
+┌─────────────────────────────────────────┐
+│            [dark background]            │
+│                                         │
+│              EYEBROW LABEL              │
+│                                         │
+│           Display Title Here            │
+│           Subtitle or tagline           │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+## Variants (component-specific)
+
+### `spectrum` — spectrum
+
+A generated gradient bar below the subtitle, in the theme's own six-step palette.
+
+```markdown
+<!-- _class: title silent spectrum -->
+
+# A deck built on a color-coded spectrum.
+
+`Six stages, six colors`
+
+The title echoes the same six-step story the deck's own components carry.
+```
+
+## Universal modifiers
+
+This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [the universal modifier catalog](../authoring/modifiers.md) for the catalog.
+
+## Related components
+
+- [`divider`](./divider.md) — mid-deck section breaks — same dark-bookend chrome
+- [`closing`](./closing.md) — the final slide — closes the bookend pair
+
+## Demo deck
+

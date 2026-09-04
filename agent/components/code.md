@@ -1,0 +1,81 @@
+# code
+
+> Single fenced code block as the slide's centerpiece.
+
+**Function** evidence · **Form** canvas · **Substance** prose
+
+**Tags** `snippet` · `walkthrough` · `reference`
+
+Use when the code IS the slide — an API snippet, a config example, a migration. For comparing two versions, use compare-code.
+
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing what the code shows. |
+| `code` | `pre > code` | yes | Fenced code block — language tag drives syntax highlighting. |
+
+### Common mistakes
+
+- **Fence tagged with the wrong language, e.g. ```js on a Python snippet.** Match the fence tag to the actual language exactly. The highlighter keys off the tag alone, not the code's content — a wrong tag mis-highlights every token.
+- **Shebang, import block, or file-header boilerplate left in as padding before the interesting line.** Trim to the lines that carry the point — `whenToUse`/`stressDoc` put the hard wall at fourteen lines, MEASURED by rendering fences of increasing length and detecting the clip (438px pane, 28.67px line-height at landscape), not estimated. `code` declares no enforced capacity budget, so nothing gates this besides the clip itself. Cut scaffolding with `// ...` rather than spending the budget on it.
+
+## When to use
+
+- **The code is the argument.** When a single snippet answers the question on the slide — the shape of an API call, the surface of a config, the body of a migration. Authoring follows the snippet, not the other way around.
+- **Language hint earns the highlight.** Always include the language tag on the fence (```js, ```python, ```sql). The highlighter only triggers when the language is named; without it the slide reads as undifferentiated mono.
+- **Fourteen lines is the wall.** The pane holds fourteen lines at landscape and the block does not scroll, so a fifteenth is clipped rather than shrunk. Ten reads comfortably from the back row. Trim ruthlessly — keep imports out, elide bodies with `// ...`, and let the rest of the deck carry the surrounding context. (The number follows the type size: `code` reads at `--fs-body-compact`, one role above the deck's chrome. At `--fs-meta` the pane held sixteen. The step is not one ratio — it is +19.7% at landscape, +17.1% at square and +33.1% at portrait/reel, which is why the portrait budgets fall hardest.)
+
+## When NOT to use
+
+- **Comparing two versions.** If you need before/after, use compare-code — it gives both snippets parallel framing. code is for a single snippet doing one job.
+- **Code-as-decoration.** A screenshot of an IDE or a snippet the audience cannot read defeats the layout. If the code is too long to legibly fit, the slide isn't a code slide — it's a content slide that talks about code.
+- **No language hint.** A bare fence renders as undifferentiated mono. Always tag the language so the highlighter and the reviewer both know what they are looking at.
+
+## Authoring
+
+```markdown
+<!-- _class: code -->
+
+## What the new endpoint looks like.
+
+```js
+app.post('/api/v2/auth', async (req, res) => {
+  const session = await issueSession(req.body);
+  res.json({ session });
+});
+```
+```
+
+## Anatomy
+
+```text
+┌─────────────────────────────────────────┐
+│  header                                 │
+│  Code block heading.                    │
+│                                         │
+│  ┌───────────────────────────────────┐  │
+│  │ function example() {              │  │
+│  │   return 'syntax highlighted';    │  │
+│  │ }                                 │  │
+│  └───────────────────────────────────┘  │
+│                                         │
+│  footer                           1/19  │
+└─────────────────────────────────────────┘
+```
+
+## Universal modifiers
+
+This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [the universal modifier catalog](../authoring/modifiers.md) for the catalog.
+
+## Related components
+
+- [`compare-code`](./compare-code.md) — before/after snippet comparison
+- [`diagram`](./diagram.md) — the architecture matters more than the code
+- [`math`](./math.md) — the equation is the argument, not the implementation
+- [`content`](./content.md) — code is one piece of a longer prose explanation
+
+## Demo deck
+

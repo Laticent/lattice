@@ -1,0 +1,61 @@
+# wifi
+
+> A network join card: readable Wi-Fi credentials beside a QR a phone scans to connect in one tap.
+
+**Function** statement · **Form** panel · **Substance** structure
+
+**Tags** `reference` · `onboarding` · `kickoff`
+
+Use to get a room onto the Wi-Fi without reading a password aloud. The QR encodes the standard WIFI: payload; the same details render legibly for anyone typing them by hand. Author the fields as a postfix-key list.
+
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | The card heading (e.g. "Join the room."). |
+| `fields` | `ul > li` | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Offsite-Guest `ssid``. Keys: ssid\|network (required), password\|pass, security\|auth. Omit the password for an open network. Optional keys: `caption` (CTA under the QR); the security row shows exactly what you write. |
+| `eyebrow` | `p:first-child > code` | no | Optional kicker above the heading, authored as an inline-code first line: `` `Room Wi-Fi` ``. |
+| `caption` | `ul > li` | no | Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to connect `caption` ``. |
+
+### Common mistakes
+
+- **Eyebrow written as plain or bold text instead of inline code.** The card is reassembled from its recognized parts, so the eyebrow's SOURCE position doesn't matter — but it must be backtick-wrapped: unwrapped plain or bold text matches nothing and is silently dropped from the rendered card, not shown as a stray paragraph.
+- **Using `` `pass` `` as a shorthand for the security TYPE (e.g. `` WPA2 `pass` ``), or using a genuinely unrecognized key like `` `encrypt` ``.** `pass` IS recognized, but as an alias for `password`, not `security` — `` WPA2 `pass` `` routes "WPA2" into the password field (and into the scannable QR payload as the actual password), not the security-type field. For the security type use `security`/`auth`/`encryption`. A genuinely unrecognized key isn't mapped to any card field at all, and the whole bullet is silently dropped from the rendered card — it doesn't just land in the wrong place.
+
+## When to use
+
+- **Get the room connected.** Guests scan to join instead of squinting at a password on the slide — the credentials are still shown for anyone who prefers to type.
+- **Open networks are one field short.** Drop the password bullet and the card renders an open network; the QR encodes it as `nopass`.
+
+## When NOT to use
+
+- **Not for secrets that outlive the room.** A rendered deck is persistent and shareable. Use it for guest/offsite networks, not for credentials that must not leak.
+- **Don't bold the field values.** The value leads and the key trails as a small tag — ssid last, never first. Writing the key first, bolded, breaks the transform's postfix read.
+
+## Authoring
+
+```markdown
+<!-- _class: wifi -->
+
+`Room Wi-Fi`
+
+## Join the room.
+
+- Network-Name `ssid`
+- network-password `password`
+- WPA2 `security`
+- Scan to connect `caption`
+```
+
+## Universal modifiers
+
+This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [the universal modifier catalog](../authoring/modifiers.md) for the catalog.
+
+## Related components
+
+- [`contact`](./contact.md) — the card is a person's identity rather than a network
+
+## Demo deck
+
