@@ -8,9 +8,10 @@
  *
  * The worst of them is why this file exists. The marks cell was given `grid-column:4`
  * and, deliberately, no `grid-row` — the commit said auto-placement would then walk
- * the column and stack whatever was already there. It does not: two sibling rules,
- * `> ul > li:first-child` and `> ul > li:nth-child(2)`, are the SAME specificity and
- * come earlier in source, so the cell won its column and inherited their `grid-row:1`.
+ * the column and stack whatever was already there. It does not: two sibling rules
+ * (then `> ul > li:first-child` and `> ul > li:nth-child(2)`, now the identity-based
+ * `> ul > li:nth-child(N of :not(.marks))`) were the SAME specificity and came earlier
+ * in source, so the cell won its column and inherited their `grid-row:1`.
  * A grid item does not push — it paints over. The component's own documented shape
  * (an inline meta `code`, a clause, a marks bullet) therefore rendered with the meta
  * completely invisible under the pill, on base, register, metric and spec alike. The
@@ -89,10 +90,15 @@ const PROBE = () =>
       cols: getComputedStyle(ol).gridTemplateColumns.split(' ').map((v) => Math.round(parseFloat(v))),
       olHeight: Math.round(ol.getBoundingClientRect().height),
       // Everything that competes for the trailing column, each measured once.
+      // `nth-child(2 of :not(.marks))` and NOT `nth-child(2)`: roles in the sublist are
+      // keyed to identity now, so on a marker-FIRST row the second child is the clause,
+      // which lives in column 3 and does not compete for this cell at all. Selecting it
+      // positionally would report a false collision — and would not have fired on any
+      // fixture in this file, every one of which happens to put the marker last.
       // A pill INSIDE the marks cell is `li > code` too, so the raw set contains
       // ancestor/descendant pairs — a cell always "overlaps" its own child. Keep only
       // the outermost box of each nesting chain, which is what competes for the cell.
-      trailing: [...s.querySelectorAll('li.marks, li > code, li > ul > li:nth-child(2)')]
+      trailing: [...s.querySelectorAll('li.marks, li > code, li > ul > li:nth-child(2 of :not(.marks))')]
         .filter((e, _i, a) => !a.some((o) => o !== e && o.contains(e)))
         .map(box),
       discs: [...s.querySelectorAll('li.marks .state, .split-pt-b .state, .split-pt-line .state')].map((e) => {

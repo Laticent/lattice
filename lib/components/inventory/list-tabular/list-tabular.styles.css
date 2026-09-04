@@ -278,7 +278,17 @@ section.list-tabular.def ol > li > code {
   align-self:end;
   justify-self:start;
 }
-section.list-tabular.def ol > li > ul > li {
+/* IDENTITY, not position — and the `:not(.marks)` is load-bearing for SPECIFICITY,
+ * not just for the set it matches. The two role rules above are
+ * `:nth-child(N of :not(.marks))`, which scores (0,3,5): `:nth-child()` counts as a
+ * class AND so does the `.marks` inside its `of` selector. A bare
+ * `.list-tabular.def ol > li > ul > li` is (0,2,5), so once those rules gained the
+ * `of` clause this one stopped winning on source order and started LOSING outright —
+ * def's clause took `grid-row:1` and rendered on the EYEBROW line, above the term it
+ * describes, in the committed gallery PDFs. Adding `:not(.marks)` brings this back to
+ * (0,3,5): tied, later in source, def wins. Keep the two sides' scores equal — a
+ * future edit to either selector's pseudo-class count silently re-inverts this. */
+section.list-tabular.def ol > li > ul > li:not(.marks) {
   grid-column:3; grid-row:1 / span 2;
   font-family:var(--font-body);
   font-size:var(--fs-body-compact);
@@ -469,15 +479,24 @@ section.list-tabular.register.outline ol > li > code {
  * rather than direct children; the cell holds nothing but them and a label. */
 section.list-tabular ol > li > ul > li.marks > p { display:contents; }
 section.list-tabular ol > li > ul > li.marks {
-  /* `grid-row:auto` EXPLICITLY. Leaving it unset does not reach auto-placement: the
-   * two sibling rules above — `> ul > li:nth-child(1 of :not(.marks))` and `> ul > li:nth-child(2 of :not(.marks))` —
-   * are (0,2,5), identical to this rule, and come earlier in source, so this one wins
-   * `grid-column` and inherits their `grid-row:1`. Auto-placement therefore began at
-   * the THIRD nested bullet, and the component's own documented shape (an inline meta
-   * `code` plus a clause plus a marks bullet) painted the meta over — measured, "Q3
-   * 2019" completely invisible under the pill, on base, register, metric and spec
-   * alike. Every committed sample happened to use the one arrangement that collides
-   * with nothing, which is why three visual reviewers and the gallery PDFs missed it. */
+  /* `grid-row` EXPLICITLY, always — never left unset. HISTORICALLY it had to be,
+   * because the two role rules above were POSITIONAL (`:first-child` and
+   * `:nth-child(2)`), which also matched a marks bullet: at (0,2,5) they tied with this
+   * rule and came earlier in source, so the cell won `grid-column` here and inherited
+   * their `grid-row:1` there. Auto-placement then began at the THIRD nested bullet, and
+   * the component's own documented shape (an inline meta `code` plus a clause plus a
+   * marks bullet) painted the meta over — measured, "Q3 2019" completely invisible
+   * under the pill, on base, register, metric and spec alike. Every committed sample
+   * happened to use the one arrangement that collides with nothing, which is why three
+   * visual reviewers and the gallery PDFs missed it.
+   *
+   * Those rules are `:nth-child(N of :not(.marks))` now, so they no longer match this
+   * element at all and nothing is inherited from them — the two selectors are disjoint
+   * by construction, which is the whole point of keying roles to identity. Their score
+   * also moved to (0,3,5), above this rule's (0,2,5), so a future edit cannot recreate
+   * the tie. The explicit `grid-row` below stays anyway: it is what the placement
+   * argument in the next comment actually depends on, and leaving it implicit would put
+   * the row NAME back in play. */
   /* Row 1 BY DEFAULT, auto only when something else already holds the trailing
    * column. Leaving it always-auto looks safer and is not: the row NAME is a bare
    * text node, so the grid can only auto-place it, and auto-placement runs in
@@ -542,15 +561,20 @@ section.list-tabular.spec ol > li:has(> code:nth-of-type(2)) > ul > li.marks { g
  * would re-fill that cell, and re-introduce the overlap between two marks bullets
  * this file spent a round removing.
  *
- * So the cell stays inside def's three tracks. The description gives up its second
- * row (it spans both only so a one-line clause centers against the two-line term),
- * and the marks cell takes column 3 below it — right-aligned, under the clause it
- * qualifies, with the name and eyebrow untouched. A second marks bullet auto-places
- * onto the next implicit row rather than over the first. */
-section.list-tabular.def ol > li:has(> ul > li.marks) > ul > li:nth-child(1 of :not(.marks)) {
-  grid-row:1;
-  align-self:end;
-}
+ * So the cell stays inside def's three tracks, and it takes an IMPLICIT THIRD ROW
+ * below the clause — right-aligned, under the clause it qualifies, with the name and
+ * eyebrow untouched. A second marks bullet auto-places onto row four rather than over
+ * the first.
+ *
+ * The clause KEEPS its `1 / span 2`, and that is the correction to the first cut of
+ * this rule. That cut moved the clause to `grid-row:1` so the marks cell could have
+ * row 2 — but def's row 1 is the EYEBROW's row, so the clause stopped sitting beside
+ * the term it describes and started sitting beside the eyebrow, 29px higher. The
+ * clause does not need to give anything up: it is column-definite and row-definite,
+ * the marks cell is column-definite and row-AUTO, so the cell simply auto-places into
+ * the first free row of column 3, which is row 3. Nothing frees a cell for the row
+ * NAME either — with the clause spanning rows 1-2 of column 3, the name's auto-
+ * placement cursor still stops at row 2 column 2, where it belongs. */
 section.list-tabular.def ol > li > ul > li.marks {
   grid-column:3;
   grid-row:auto;

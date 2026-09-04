@@ -151,36 +151,54 @@ function overlaps(sig) {
 
 
 /**
- * INHERITED VIOLATIONS — measured, attributed, and pinned so they cannot grow.
+ * INHERITED VIOLATIONS — measured, attributed per relation, and pinned so they
+ * cannot grow.
  *
  * The relations below are absolute: they say what a correct ledger looks like, not
- * what this branch changed. Some of what they catch predates the branch, and the
- * attribution is not a judgment call — the same generated deck rendered with the
- * stylesheet at the merge-base and at HEAD gives:
+ * what this branch changed. Some of what they catch predates the branch and some does
+ * not, and the difference is measured, not asserted — the same generated deck, 504
+ * slides, rendered twice: once with `list-tabular.styles.css` at the merge-base
+ * (df65718) and once at HEAD.
  *
- *     504 slides compared
- *     NEW name-in-trailing-column   0
- *     NEW overlaps                  0
- *     FIXED name displacement      20
- *     FIXED overlaps              154
+ *     relation                            merge-base   HEAD
+ *     R1  attaching a status moved the row          0     28
+ *     I1  the name is in the trailing column       49     29
+ *     R3  something is painted over               196     98
+ *     I3  a clause left its row name's band         98     56
+ *     R2  marker position changed the layout      266      0
  *
- * So every entry here is something the component already did. Two families:
+ * The unit is ENTRIES — one per violated check, which is what these Sets hold. An
+ * earlier version of this block quoted a mix of entry counts and slide counts as if
+ * one measurement produced both, and the two numbers could not be reconciled.
  *
- * · `spec` / `spec stacked` with a BARE NAME beside a `code`. spec's contract is
- *   two codes (`` `KEY` `type` ``) and no bare name — the generator emits the
- *   off-contract shape on purpose, to see what happens. The name has no element to
- *   select, so it auto-places into whatever cell is free, which on spec is the
- *   trailing one.
- * · the inline meta `code` and the legacy three-line meta, which have both been
- *   `grid-column:4; grid-row:1` since before this branch and so paint over each
- *   other on a row carrying both.
+ * NEW at HEAD: R1 28; I1, R3 and I3 zero. Attribution is done on CASE IDENTITY, not
+ * on the entry strings — the branch centers the list vertically, so every entry's
+ * coordinates differ between the two renders even where the defect is the same. Every
+ * head case of I1, R3 and I3 also occurs at the merge-base; the net counts fall by 20,
+ * 98 and 42 respectively, and R2 from 266 to zero.
  *
- * BOTH WERE TRIED AND REVERTED, which is why they are pinned rather than fixed.
- * Giving the legacy meta the marks cell's auto-row treatment frees column 4 row 1,
- * and the row name immediately takes it: I1 went 29 → 44 and R2 0 → 7 on that one
- * change. Fixing these properly means giving the row name a real element to sit in,
- * which is a markup change across both render paths — off this change's path
- * (HARD RULE #18), and now with a measurement saying why.
+ * · I1 / R3 / I3 are INHERITED in the strict sense — every entry reproduces at the
+ *   merge-base, and the branch strictly reduces all three. Two families: `spec` with
+ *   a BARE NAME beside a `code` (spec's contract is two codes and no bare name; the
+ *   generator emits the off-contract shape on purpose, to see what happens), and the
+ *   inline meta `code` beside the legacy three-line meta, which have both been
+ *   `grid-column:4; grid-row:1` since long before this branch.
+ *
+ * · R1's 28 are NOT inherited, and calling them inherited is the error this block
+ *   used to make. R1 is zero at the merge-base for a reason that is not a compliment
+ *   to the merge-base: there IS no marks cell there, so `- [x] tracked` renders as an
+ *   ordinary bullet and the relation is not measuring the same thing. All 28 are the
+ *   same off-contract `spec` shape as above — a bare name with nowhere to go. At the
+ *   merge-base it auto-placed into the free trailing cell (those are I1's 49); at HEAD
+ *   the marks cell holds that cell, so the name falls to the counter column instead
+ *   and takes track 0 from 23.6px to 86px. Both are the same defect — the row name has
+ *   no element to sit in — landing in different places.
+ *
+ * WHY IT IS PINNED AND NOT FIXED. Giving the row name a real element is a markup
+ * change across both render paths, which is off this change's path (HARD RULE #18),
+ * and the two cheap fixes were tried and measured: giving the legacy meta the marks
+ * cell's auto-row treatment took I1 from 29 to 44 and R2 from 0 to 7, and adding a
+ * fourth track under `def` threw the name to x=1010 on 42 of 672 swept slides.
  *
  * The list is EXACT, not a budget: a new violation fails, and so does a stale entry
  * once one of these is fixed for real.
@@ -347,6 +365,64 @@ const INHERITED = {
   "C:spec stacked|flex-name|meta|legacy The clause for row \u00d7 Q3 2019",
   "C:spec stacked|flex-name|nometa|legacy The clause for row \u00d7 Q3 2019"
 ]),
+  I3: new Set([
+  "A:spec|-|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "A:spec|-|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "A:spec|fit-body|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "A:spec|fit-body|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "A:spec|fit-meta|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "A:spec|fit-meta|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "A:spec|fit-name|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "A:spec|fit-name|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "A:spec|fixed|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "A:spec|fixed|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "A:spec|flex-meta|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "A:spec|flex-meta|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "A:spec|flex-name|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "A:spec|flex-name|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "B:spec|-|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "B:spec|-|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "B:spec|-|meta|nolegacy clause 144.9..171.8 misses name 176.7..199.7",
+  "B:spec|fit-body|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "B:spec|fit-body|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "B:spec|fit-body|meta|nolegacy clause 144.9..171.8 misses name 176.7..199.7",
+  "B:spec|fit-meta|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "B:spec|fit-meta|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "B:spec|fit-meta|meta|nolegacy clause 144.9..171.8 misses name 176.7..199.7",
+  "B:spec|fit-name|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "B:spec|fit-name|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "B:spec|fit-name|meta|nolegacy clause 144.9..171.8 misses name 176.7..199.7",
+  "B:spec|fixed|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "B:spec|fixed|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "B:spec|fixed|meta|nolegacy clause 144.9..171.8 misses name 176.7..199.7",
+  "B:spec|flex-meta|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "B:spec|flex-meta|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "B:spec|flex-meta|meta|nolegacy clause 144.9..171.8 misses name 176.7..199.7",
+  "B:spec|flex-name|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "B:spec|flex-name|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "B:spec|flex-name|meta|nolegacy clause 144.9..171.8 misses name 176.7..199.7",
+  "C:spec|-|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "C:spec|-|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "C:spec|-|meta|nolegacy clause 144.9..171.8 misses name 176.7..199.7",
+  "C:spec|fit-body|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "C:spec|fit-body|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "C:spec|fit-body|meta|nolegacy clause 144.9..171.8 misses name 176.7..199.7",
+  "C:spec|fit-meta|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "C:spec|fit-meta|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "C:spec|fit-meta|meta|nolegacy clause 144.9..171.8 misses name 176.7..199.7",
+  "C:spec|fit-name|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "C:spec|fit-name|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "C:spec|fit-name|meta|nolegacy clause 144.9..171.8 misses name 176.7..199.7",
+  "C:spec|fixed|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "C:spec|fixed|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "C:spec|fixed|meta|nolegacy clause 144.9..171.8 misses name 176.7..199.7",
+  "C:spec|flex-meta|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "C:spec|flex-meta|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "C:spec|flex-meta|meta|nolegacy clause 144.9..171.8 misses name 176.7..199.7",
+  "C:spec|flex-name|meta|legacy clause 144.9..171.8 misses name 176.7..199.7",
+  "C:spec|flex-name|meta|legacy clause 147.9..170.4 misses name 176.7..199.7",
+  "C:spec|flex-name|meta|nolegacy clause 144.9..171.8 misses name 176.7..199.7"
+]),
 };
 
 /** Everything the relation found that is not already on the inherited list. */
@@ -418,9 +494,12 @@ describe('list-tabular marks cell — metamorphic relations', () => {
     // correct behavior gets switched off, so it is worth less than no relation.
     //
     // What survives is the honest core: on a row whose upstream tracks are content-
-    // sized, attaching a status must not move the counter track, the name, or the
-    // clause — and on ANY row the trailing column's RIGHT edge must not move, because
-    // flush-right is this column's whole contract.
+    // sized, attaching a status must not move the counter track or the clause — and on
+    // ANY row the trailing column's RIGHT edge must not move, because flush-right is
+    // this column's whole contract. The row NAME is not checked here and must not be
+    // read into this arm: it has no element of its own, so its box is a Range around a
+    // text node whose width tracks the track it lands in, and comparing it phase-to-
+    // phase reports the track change twice. I1 covers the name, absolutely.
     const moved = [];
     for (const id of cases) {
       const a = byKey.get(`A:${id}`);
@@ -460,6 +539,46 @@ describe('list-tabular marks cell — metamorphic relations', () => {
     assert.deepEqual(stale(bad, 'I1'), [], 'an inherited I1 entry no longer reproduces — remove it');
   });
 
+  test('I3 — a clause sits beside the row it describes, not above it', () => {
+    // THE AXIS THIS FILE WAS BLIND TO. Every relation above compares x, or tracks, or
+    // one render against another. The regression that got past all of them was purely
+    // VERTICAL and identical in all three phases: `def`'s clause lost `grid-row:1 /
+    // span 2` and rendered on the EYEBROW's row, above the term it describes, in the
+    // committed gallery PDFs. R1 and R2 compare phase to phase, so a move present in
+    // every phase is invisible to them; I1 tests x only.
+    //
+    // WHY BANDS AND NOT A THRESHOLD. The obvious form — "no sublist starts above the
+    // row's topmost box" — cannot separate the defect from the noise. The def clause
+    // was 10.7px above its eyebrow, and an off-contract `spec` row puts its clause
+    // 3.0px above its mono key for an ordinary reason: two different font sizes on one
+    // grid row have two different line-box tops. There is no pixel threshold between
+    // 10.7 and 3.0 that means anything, and picking one would just be tuning until
+    // green.
+    //
+    // The relation that DOES separate them is the one the reader actually cares about:
+    // a clause and the row NAME are the same row of the ledger, so their vertical bands
+    // must intersect. Baseline offsets keep them intersecting; a whole grid row apart
+    // does not. `stacked` is the documented exception and the only one — dropping the
+    // clause below the name is its entire purpose.
+    const bad = [];
+    for (const id of cases) {
+      if (/stacked/.test(id)) continue;
+      for (const phase of ['A', 'B', 'C']) {
+        const s = byKey.get(`${phase}:${id}`);
+        if (!s.name) continue;
+        const n = [s.name.y, s.name.y + s.name.h];
+        for (const sub of s.subs) {
+          if (sub.marks) continue; // the marks cell is deliberately below, by design
+          if (sub.y + sub.h <= n[0] || sub.y >= n[1]) {
+            bad.push(`${phase}:${id} clause ${sub.y}..${sub.y + sub.h} misses name ${n[0]}..${n[1]}`);
+          }
+        }
+      }
+    }
+    assert.deepEqual(regressions(bad, 'I3'), [], 'a clause left its row name\'s band');
+    assert.deepEqual(stale(bad, 'I3'), [], 'an inherited I3 entry no longer reproduces — remove it');
+  });
+
   test('I2 — the counter track never absorbs the row', () => {
     // The 972px counter and the 86px counter were both this: an `auto` track taking
     // free space no other track claimed. A counter holds two or three digits.
@@ -484,8 +603,10 @@ describe('list-tabular marks cell — metamorphic relations', () => {
       const lm = last.subs.find((s) => s.marks);
       const fm = first.subs.find((s) => s.marks);
       if (!lm || !fm) { differs.push(`${id}: a marks cell is missing`); continue; }
-      if (Math.abs(lm.x - fm.x) > 1 || Math.abs(lm.w - fm.w) > 1) {
-        differs.push(`${id}: marks cell ${lm.x}/${lm.w} → ${fm.x}/${fm.w}`);
+      // x/y AND w/h. An earlier cut compared the marks cell's x and w only — the wrong
+      // pair to drop in a file whose subject is `grid-row`.
+      if (Math.abs(lm.x - fm.x) > 1 || Math.abs(lm.w - fm.w) > 1 || Math.abs(lm.y - fm.y) > 1 || Math.abs(lm.h - fm.h) > 1) {
+        differs.push(`${id}: marks cell ${lm.x},${lm.y}/${lm.w}×${lm.h} → ${fm.x},${fm.y}/${fm.w}×${fm.h}`);
       }
       const lc = last.subs.find((s) => !s.marks);
       const fc = first.subs.find((s) => !s.marks);

@@ -128,6 +128,23 @@ Columns size to what is in them, a row can carry a checkbox and pills, and the d
 
 ---
 
+<!-- _class: list-tabular def -->
+
+## def keeps the clause beside its term.
+
+1. Ledger `Term`
+   - The clause centers against the eyebrow and the term together.
+   - [x] `settled`
+2. Register `Term`
+   - A status hangs below the clause, flush right, inside def's three columns.
+   - [-] `in review`
+3. Rail `Scope`
+   - Rows without a status are untouched by rows that carry one.
+
+<!-- _footer: "`def` — the clause spans both rows; the status takes a third row beneath it." -->
+
+---
+
 <!-- _class: closing silent -->
 
 ## The columns are the content.
