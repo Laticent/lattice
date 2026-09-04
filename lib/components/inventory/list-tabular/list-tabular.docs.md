@@ -30,11 +30,18 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 - **`solid`.** Under `metric`, the values are headline numbers that deserve a filled panel instead of an outlined tile.
 - **`stacked`.** Under `spec`, the description clause is long enough to want its own line below the key instead of trailing beside it.
 - **`outline`.** Under `register`, a lighter, keyline-only pill treatment fits the deck's tone better than filled pills.
+- **`fit-name`.** The labels are short and uneven — hug them instead of letting the widest one set a capped track.
+- **`fit-body`.** The clauses are values, not sentences — hug them and let the trailing column take the leftover so it still holds the right edge.
+- **`fit-meta`.** A trailing value is long enough that the default cap wraps it, and it should stay on one line.
+- **`flex-name`.** The label is the point and the clause is a short qualifier — hand the leftover width to the label.
+- **`flex-meta`.** The trailing column carries a phrase rather than a stamp, and it should absorb the leftover width.
+- **`fixed`.** A deck was laid out against the old fixed-cqi tracks and should keep them rather than re-flow.
 
 ### Common mistakes
 
 - **Pairing a secondary modifier with the wrong primary variant (e.g. `def solid` or `metric rule`).** Each secondary modifier is scoped to exactly one primary — `rule` only styles `def`, `solid` only styles `metric`, `stacked` only styles `spec`, `outline` only styles `register`; pairing across combinations does nothing because no CSS selector matches.
 - **Authoring rows as a bullet list (`-`) instead of a numbered list (`1.`).** The counter column and row styling are keyed to `ol > li` — a `ul` doesn't produce the numbered ledger at all.
+- **Reaching for a column modifier before looking at the default.** The columns already size to their content. `fit-*` / `flex-*` name the exceptions — a label that should keep the slack, a clause that should hug — and `fixed` restores the old fixed-width tracks. Most ledgers need none of them.
 
 ## When to use
 
@@ -200,6 +207,105 @@ Outline pills — a lighter register.
 1. cards-grid `stable`
 2. split-panel `stable`
 3. quote `stable`
+```
+
+### `fit-name` — fit-name
+
+The label column hugs its content, uncapped.
+
+```markdown
+<!-- _class: list-tabular fit-name -->
+
+## fit-name lets short labels keep their own width.
+
+1. API
+   - The label column shrinks to the longest label.
+2. CLI
+   - Nothing is padded out to a fixed track.
+3. SDK
+   - The clause takes every pixel that is left.
+```
+
+### `fit-body` — fit-body
+
+The clause column hugs; the trailing column takes the slack.
+
+```markdown
+<!-- _class: list-tabular fit-body -->
+
+## fit-body hugs the clause and holds the right edge.
+
+1. Settlement window `T+1`
+   - Same day cutoff
+2. Reconciliation cadence `Nightly`
+   - Automated
+3. Exception review `Weekly`
+   - Risk committee
+```
+
+### `fit-meta` — fit-meta
+
+The trailing column hugs its content, uncapped.
+
+```markdown
+<!-- _class: list-tabular fit-meta -->
+
+## fit-meta keeps a long trailing value on one line.
+
+1. Coverage `98.4% of policies`
+2. Backlog `31 open findings`
+3. Cadence `every two weeks`
+```
+
+### `flex-name` — flex-name
+
+The label column takes the leftover.
+
+```markdown
+<!-- _class: list-tabular flex-name -->
+
+## flex-name hands the slack to the label.
+
+1. Board approval of the revised treasury policy
+   - Q3
+2. Migration of the settlement ledger to the new engine
+   - Q4
+3. Retirement of the legacy reconciliation batch
+   - Q1
+```
+
+### `flex-meta` — flex-meta
+
+The trailing column takes the leftover.
+
+```markdown
+<!-- _class: list-tabular flex-meta -->
+
+## flex-meta gives the trailing column the room.
+
+1. Scope `Retail and commercial deposits, twelve markets`
+   - Phase 1
+2. Owner `Group Treasury, reporting to the CFO`
+   - Phase 1
+3. Review `Audit and Risk Committee, quarterly`
+   - Phase 2
+```
+
+### `fixed` — fixed
+
+The pre-responsive fixed-width tracks.
+
+```markdown
+<!-- _class: list-tabular fixed -->
+
+## fixed pins the columns to their old widths.
+
+1. ID
+   - Every label column is the same width again.
+2. Mid
+   - Use it when a deck was tuned around those tracks.
+3. Long enough to wrap
+   - The label wraps inside its fixed track.
 ```
 
 ## Universal modifiers

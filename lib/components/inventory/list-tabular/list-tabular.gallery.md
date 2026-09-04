@@ -136,6 +136,93 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
+<!-- _class: list-tabular fit-name -->
+<!-- _footer: "fit-name · list-tabular fit-name — The label column hugs its content, uncapped." -->
+
+## fit-name lets short labels keep their own width.
+
+1. API
+   - The label column shrinks to the longest label.
+2. CLI
+   - Nothing is padded out to a fixed track.
+3. SDK
+   - The clause takes every pixel that is left.
+
+
+---
+
+<!-- _class: list-tabular fit-body -->
+<!-- _footer: "fit-body · list-tabular fit-body — The clause column hugs; the trailing column takes the slack." -->
+
+## fit-body hugs the clause and holds the right edge.
+
+1. Settlement window `T+1`
+   - Same day cutoff
+2. Reconciliation cadence `Nightly`
+   - Automated
+3. Exception review `Weekly`
+   - Risk committee
+
+
+---
+
+<!-- _class: list-tabular fit-meta -->
+<!-- _footer: "fit-meta · list-tabular fit-meta — The trailing column hugs its content, uncapped." -->
+
+## fit-meta keeps a long trailing value on one line.
+
+1. Coverage `98.4% of policies`
+2. Backlog `31 open findings`
+3. Cadence `every two weeks`
+
+
+---
+
+<!-- _class: list-tabular flex-name -->
+<!-- _footer: "flex-name · list-tabular flex-name — The label column takes the leftover." -->
+
+## flex-name hands the slack to the label.
+
+1. Board approval of the revised treasury policy
+   - Q3
+2. Migration of the settlement ledger to the new engine
+   - Q4
+3. Retirement of the legacy reconciliation batch
+   - Q1
+
+
+---
+
+<!-- _class: list-tabular flex-meta -->
+<!-- _footer: "flex-meta · list-tabular flex-meta — The trailing column takes the leftover." -->
+
+## flex-meta gives the trailing column the room.
+
+1. Scope `Retail and commercial deposits, twelve markets`
+   - Phase 1
+2. Owner `Group Treasury, reporting to the CFO`
+   - Phase 1
+3. Review `Audit and Risk Committee, quarterly`
+   - Phase 2
+
+
+---
+
+<!-- _class: list-tabular fixed -->
+<!-- _footer: "fixed · list-tabular fixed — The pre-responsive fixed-width tracks." -->
+
+## fixed pins the columns to their old widths.
+
+1. ID
+   - Every label column is the same width again.
+2. Mid
+   - Use it when a deck was tuned around those tracks.
+3. Long enough to wrap
+   - The label wraps inside its fixed track.
+
+
+---
+
 <!-- _class: list-tabular register -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · list-tabular — Seven rows — the register's page." -->
