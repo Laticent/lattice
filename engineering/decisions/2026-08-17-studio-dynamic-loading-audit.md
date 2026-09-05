@@ -500,3 +500,9 @@ accessibility pass rather than a loading one. **Fixed** in the follow-ups PR tha
 - **Off-path, logged not fixed** (HARD RULE #18): `docs/lighthouserc.cjs:35-36` still
   measures `/drawing-board/` and `/workbench/`, retired routes that now redirect — two of
   the nightly's seven URLs.
+  **FIXED 2026-09-05** — both left the desktop AND mobile url lists (this entry named only
+  the desktop one; the mobile config carried them too). The routes measured 310 and 306
+  bytes with zero `/_astro/*.js` references, so the 12 Lighthouse runs a night spent on them
+  measured nothing that could regress. The list is five URLs now, and
+  `check-route-budget.test.mjs` pins it equal to the byte ledger's route set.
+  See `2026-09-02-alarm-channel-saturation.md` § Decision.

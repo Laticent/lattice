@@ -702,6 +702,17 @@ locally from `docs/`:
   (`scripts/perf-regression.mjs`) — a **relative** budget, not absolute
   thresholds (which rotted + flapped — issue #327). On a regression it opens a
   `[perf-nightly]` tracking issue. Tolerances live in `perf-regression.mjs`.
+- **BYTES are NOT gated by that nightly — they are gated per-PR.**
+  `docs/scripts/check-route-budget.mjs` reads gzipped `/_astro/*.js` and the HTML
+  document off the built `dist/`, compares them to `docs/route-budget.json`, and
+  BLOCKS the merge (it runs at the end of the docs `build`, which `docs-build` runs
+  in CI). It covers all five routes the nightly measures. The nightly used to carry a
+  `script-size` metric too; it summed Lighthouse *network* records, so it measured what
+  happened to load during a visit rather than what the build produced, and it filed
+  false regressions nightly for weeks — deleted 2026-09-05
+  (`decisions/2026-09-02-alarm-channel-saturation.md`). Read the split as: the nightly
+  watches what only a browser can see (LCP, CLS, TBT, score), the ledger watches bytes.
+  Do not add a bytes metric back to `perf-regression.mjs`; add a route to the ledger.
 
 These live in `docs/package.json` (a separate package), so they are **not** in
 the root capability index that `tools/build-capabilities.js` generates.

@@ -296,6 +296,25 @@ test('nightly alarm contract', async (t) => {
     }
   });
 
+  await t.test("a FILING step runs on always() too — the half this contract kept missing", () => {
+    // The stand-down arm above has existed for a while; this one has not, and the gap is
+    // measurable. `perf-nightly.yml` alone has now had the SAME bug fixed by hand four separate
+    // times, each fix a one-line `always() &&` on a filing step, each found by a human reading
+    // the file rather than by this contract. The mute is silent by construction: GitHub applies
+    // an implicit `success()` to any `if:` carrying no status function, so a filing step whose
+    // job had ANY earlier step fail is skipped — including the artifact upload that runs AFTER
+    // the verdict is already recorded in an output. A measured regression then files nothing,
+    // which is this family's cardinal sin and is invisible in a green-looking run.
+    //
+    // Pinning it here makes the fifth instance impossible to land. Before this arm, deleting
+    // `always() &&` from any filing step in the family passed the whole suite, lint, and
+    // check-ownership.
+    for (const { id, filing } of jobs) {
+      if (!filing) continue;
+      assert.match(norm(filing.if), /always\(\)/, `${id}: filing step lacks always()`);
+    }
+  });
+
   await t.test('every step whose OUTPUT a stand-down reads has its OUTCOME guarded too', () => {
     // The pairing is the rule. An output is empty in every state where nothing
     // was measured — a cancellation, a step timeout, an earlier step that died

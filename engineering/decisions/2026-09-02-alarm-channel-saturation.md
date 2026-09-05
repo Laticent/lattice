@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   The nightly alarm family's live defect is the OPPOSITE of the silent night, and finding it
   reverses the order the remaining work should be done in. Two rolling threads are filing every
@@ -18,7 +18,7 @@ summary: >
 
 # The alarms are already crying wolf, which changes what to fix first
 
-**Date:** 2026-09-02 · **Status:** PROPOSED — options, owner's call
+**Date:** 2026-09-02 · **Status:** SHIPPED 2026-09-05 — option A, owner's pick. See § Decision.
 **Corrected:** 2026-09-03 — see § Correction. The conclusion survived; the mechanism did not.
 
 ## Correction (2026-09-03)
@@ -282,3 +282,71 @@ looks like progress and least changes the outcome.
 
 **Recommendation: A.** The ordering argument is unchanged by the correction — it was always the
 metric, and the correction removes the one step that would have made no difference.
+
+## Decision (2026-09-05) — option A, and what actually shipped
+
+Owner picked A: fix the measurement rather than delete the watch. Steps 1-3 shipped together;
+step 4 (the silent-night filing conditions) stays where this note put it — second.
+
+**One option was presented and withdrawn before the pick, and the reasoning is worth keeping.**
+A variant of step 2 proposed giving the three content routes an `htmlRaw` budget each but only
+ONE shared `eagerJsGz` number, because the three routes share a 71.0KB gz site shell out of
+each one's 72.6-77.2KB total — 5 chunks, only 1.5-6.1KB per route being its own (measured
+2026-09-05 off a real build). Three JS budgets therefore move together, and the variant read
+that as three findings for one cause.
+
+It was withdrawn on re-examination: `check-route-budget.mjs` collects every problem into ONE
+failure message, in the PR that caused it, with the fix inline. That is a true alarm reported
+in N lines, not N alarms — nothing like the false-alarm channel this note is about, and the
+resemblance was superficial. The variant also bought its tidiness with a bespoke shared-chunk
+concept the ledger does not have, against #15. Three plain per-route budgets are also STRICTER:
+a route-sized budget carries ~2.3KB of GROWTH headroom against the shell where the same bytes
+inside studio's 633KB budget have ~19KB, so a small shell regression is caught here and nowhere
+else. **State the other side too, because it is the tighter one:** the stale-loose floor leaves
+only 1.55-1.69KB of SHRINK room on the three new `eagerJsGz` budgets, and shrinking is what a
+genuine win does. Lazy-loading `PerfOverlay` (6.3KB gz) or `StorageOverlay` (4.0KB gz) out of the
+shell — both desirable — reds `docs-build` on three routes at once and costs three ledger edits.
+That is the ratchet working as designed, and it is a real friction cost the withdrawn variant
+would have paid once instead of three times. Recorded rather than smoothed over.
+The coupling is recorded in `route-budget.json` instead, so nobody reads three simultaneous
+bumps as three problems.
+
+**What shipped:**
+
+| step | change |
+|---|---|
+| 1 | `script-size` deleted from `docs/scripts/perf-regression.mjs` — config, extraction, and the `KB` formatter it alone used. The retirement is pinned as an ABSENCE in `perf-regression.test.mjs`: the fixture still carries a populated `resource-summary`, exactly as a real LHR does, and the detector must not read it. |
+| 2 | `/`, `/components/` and `/getting-started/` added to `docs/route-budget.json` with both metrics, measured off a real build at +~3% per the ledger's own convention. **This is not a like-for-like replacement, and § Options overstated it as one.** The ledger counts `/_astro/*.js` referenced in the HTML and deliberately does not follow dynamic `import()`; the retired metric summed everything a visit fetched, a strictly larger quantity (~1335KB measured on studio against this gate's 639KB budget). What is replaced is the DETERMINISTIC half. Deferred chunks are now watched by nothing — which is the right trade, because the quantity that included them could not be measured twice to the same number, but it is a trade and not a wash. |
+| 3 | `always()` added to `perf-nightly.yml`'s `watch` filing step, closing the fourth instance of the mute bug its sibling documents. |
+| + | **Coverage pinned in both directions.** `check-route-budget.test.mjs` asserts the ledger's route set equals the Lighthouse url list, joined on the built HTML path. Mutation-proved both ways: a url with no ledger entry fails, a ledger entry with no enforceable metric fails. |
+| + | **Two dead routes dropped from the nightly.** `/drawing-board/` and `/workbench/` were still measured 3x on two form factors every night. Both surfaces were REMOVED (`2026-07-03-studio-succession.md`) and their routes are 310- and 306-byte redirect stubs with ZERO JS — 12 Lighthouse runs a night on pages that cannot regress. Dropping them also makes the url list exactly the ledger's route set, which is what let the pin above be an equality rather than a subset with an exclusion list. |
+
+**One measurement in this note got sharper while implementing it, and it strengthens the case.**
+The nightly already runs Lighthouse **three times per URL and compares the MEDIAN**
+(`numberOfRuns: 3`, and `readFormFactor` takes the median run per metric). So the 104KB spread
+is a spread *between medians of three*, not between single samples. Raising the run count is
+therefore not an available fix either — worth stating before someone spends a night on it.
+
+**The independent checker (HARD RULE #25) changed what shipped, in three ways worth recording:**
+
+- **It found the claim above.** "Dropping the nightly metric loses no payload coverage" was false
+  and is now stated correctly here, in `check-route-budget.mjs`'s header, and in the changelog.
+- **It found that `watch`'s compare step mapped every non-zero exit to `regressed=true`** — so a
+  wiring bug or an unreadable LHR filed a `priority:high` issue whose entire body was the run
+  link, appended nightly to the thread this change exists to stop poisoning. Its `engine-perf`
+  sibling had already drawn that distinction *and written down why*; this job never got it.
+  Pre-existing, but on-path under #18 because this change edits that step's condition. Fixed to
+  the sibling's shape.
+- **The `always()` fix was an instance, not the class.** `nightly-alarm-contract.test.js` pinned
+  `always()` on stand-down steps and never on FILING steps — which is why the same one-line bug
+  had been found and fixed by hand four times. The contract now pins filing steps too, and the
+  arm immediately failed on **three more live instances**: `integration-nightly` (the filing step
+  for **#1845**, this note's other rolling thread, guarding eight `failed` outputs), and
+  `modulepreload-coverage-nightly` and `preview-e2e-nightly`, whose own comments describe filing
+  behavior the missing guard silently defeated. All three fixed. Seven instances total; the
+  eighth cannot land silently.
+
+**Still open, deliberately:** the `MEASUREMENT_FLOOR`-style question of WHICH capture stage
+admits the variance (§ above) remains inference, and the recommendation never depended on it.
+And #1532 still needs a human to close it; nothing here closes a thread that a differential job
+opened by design.

@@ -119,11 +119,22 @@ jobs:
         id: compare
         run: |
           set -uo pipefail
-          if node scripts/perf-regression.mjs --base "$BASE_OUT" --head "$HEAD_OUT" --md "$GITHUB_WORKSPACE/perf-report.md"; then
-            echo "regressed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "regressed=true" >> "$GITHUB_OUTPUT"
-          fi
+          # EXIT 2 IS A WIRING BUG, NOT A REGRESSION — the same distinction the `engine-perf`
+          # sibling draws, and for the same reason. The `if …; then … else …` form this step used
+          # collapsed every non-zero exit into `regressed=true`: a bad argument (exit 2), an
+          # unreadable LHR, any uncaught throw. The comparator writes its markdown only on the
+          # success path, so the filing step then appended its `_Run: …_` footer to a file that did
+          # not exist, CREATING it — and filed a priority:high "perf regression detected" issue
+          # whose entire body was that one footer line. No metric, no table, no admission that
+          # nothing was measured, appended nightly to the very thread this change exists to stop
+          # poisoning. A harness failure now goes red LOUDLY and files nothing.
+          rc=0
+          node scripts/perf-regression.mjs --base "$BASE_OUT" --head "$HEAD_OUT" --md "$GITHUB_WORKSPACE/perf-report.md" || rc=$?
+          case "$rc" in
+            0) echo "regressed=false" >> "$GITHUB_OUTPUT" ;;
+            1) echo "regressed=true"  >> "$GITHUB_OUTPUT" ;;
+            *) echo "regressed=false" >> "$GITHUB_OUTPUT"; echo "::warning::perf compare invoked wrong — not filed as a regression"; exit 1 ;;
+          esac
         working-directory: docs
 
       - name: Job summary
@@ -147,7 +158,21 @@ jobs:
       # guard), so a bot must carry the four-axis taxonomy itself — otherwise it
       # lands on the board unlabelled (this was issue #384). Skipped when green.
       - name: Open / append regression issue
-        if: steps.compare.outputs.regressed == 'true'
+        # `always() &&` is LOAD-BEARING, not decoration. GitHub applies an implicit
+        # `success()` to any `if:` carrying no status function, so without it this step
+        # is SKIPPED whenever an earlier step in the job failed — including `Upload
+        # reports` above, which runs after `Compare head vs base` has already recorded
+        # `regressed`. A measured regression would then file nothing, which is the
+        # red-nightly-nobody-watches outcome. The `engine-perf` filing step below carries the
+        # same guard for the same reason. DO NOT TRUST ANY INSTANCE COUNT IN THIS FILE — three
+        # different running tallies are in flight here (this bug, the exit-code class, and a
+        # cross-workflow count), none of them keyed, and an earlier draft of this comment added
+        # a fourth. The durable statement is the CONTRACT: every filing step in the nightly
+        # family must carry always(), pinned by the filing-step arm in
+        # test/unit/tools/nightly-alarm-contract.test.js, which is what found the three live
+        # instances outside this file.
+        # See engineering/decisions/2026-09-02-alarm-channel-saturation.md.
+        if: always() && steps.compare.outputs.regressed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

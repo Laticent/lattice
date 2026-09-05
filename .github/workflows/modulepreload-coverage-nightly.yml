@@ -68,9 +68,15 @@ jobs:
         run: cat "$GITHUB_WORKSPACE/coverage-report.md" >> "$GITHUB_STEP_SUMMARY" || true
 
       # On a miss, open or append a single rolling tracking issue (found by a
-      # title marker) — mirrors perf-nightly.yml's issue step exactly.
+      # title marker) — mirrors perf-nightly.yml's issue step exactly. That mirroring is
+      # also how this file inherited the family's recurring mute bug: an `if:` with no
+      # status function gets an implicit `success()` from GitHub, so the step is skipped
+      # whenever an earlier step in the job failed — after `check` has already recorded
+      # `uncovered`. `always() &&` is what makes a measured miss actually get filed.
+      # Sixth instance; caught by test/unit/tools/nightly-alarm-contract.test.js's
+      # filing-step arm rather than by hand.
       - name: Open / append coverage issue
-        if: steps.check.outputs.uncovered == 'true'
+        if: always() && steps.check.outputs.uncovered == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

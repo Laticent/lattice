@@ -1,18 +1,39 @@
 {
-  "_comment": "Per-route payload ledger. Enforced by scripts/check-route-budget.mjs in the docs build (blocking in CI via docs-build). Fails when a route EXCEEDS its budget and when it drops far enough below that the budget has gone stale \u2014 see that script's header, and engineering/decisions/2026-08-17-studio-dynamic-loading-audit.md \u00a79.7.",
+  "_comment": "Per-route payload ledger. Enforced by scripts/check-route-budget.mjs in the docs build (blocking in CI via docs-build). Fails when a route EXCEEDS its budget and when it drops far enough below that the budget has gone stale — see that script's header, and engineering/decisions/2026-08-17-studio-dynamic-loading-audit.md §9.7. COVERS ALL FIVE ROUTES perf-nightly.yml measures, as of 2026-09-05: the three content routes joined when `script-size` was deleted from that nightly for measuring what happened to LOAD rather than what the build produced (35% of 140 repeat readings of an IDENTICAL commit moved past its own 3% tolerance, worst 104KB on a ~200KB page). See engineering/decisions/2026-09-02-alarm-channel-saturation.md.",
   "_units": "bytes. eagerJsGz = gzip(level 6) of every /_astro/*.js referenced in the route's HTML. htmlRaw = the HTML document itself. Budgets carry ~3% headroom above the measured build; the gate also fails if a route drops more than 5% BELOW its budget, which means the number here is stale and must be ratcheted down.",
   "routes": {
     "studio": {
       "html": "studio/index.html",
       "eagerJsGz": 654175,
       "htmlRaw": 199200,
-      "_eagerJsGzNote": "659985 -> 654175 (2026-08-23): `architect-model.js` — the AI provider layer (OAuth, the model ladder, the streaming client, the catalog cache) — left the eager bundle. `WorkspaceSheet` statically imported it for ONE synchronous predicate, `orSupportsCache`, which now lives in its own dependency-free `ai/or-cache.js`; every other reach is already `architect.ts`'s dynamic import(), so the provider layer is now its own on-demand chunk (15.8KB raw / 6.1KB gz) instead of being inlined into the monolith. Measured -5.6KB gz / -16.0KB raw (640868 -> 635121 bytes gz), same machine, chunk count unchanged at 57. Set to measured + ~3% per _units above. See #1773 and engineering/decisions/2026-08-23-studio-shell-decomposition.md \u00a75.2.",
-      "_htmlRawNote": "192900 -> 199200 (2026-09-01): auto-split enrolled `content`, `list-criteria` and `journey`, and the Studio inlines the component catalog, so their three new `capacity` blocks ship in this route's HTML. Measured exactly, by building this route twice off one tree: 192397 bytes with main's manifests, 193414 with these \u2014 +1017, all of it the three blocks, nothing else in the change reaching this route. Not given back, because giving it back means un-enrolling the components: `content` is the commonest slide in any deck and could not split at all. Set to measured + ~3% per _units above. See engineering/decisions/2026-09-01-autosplit-splits-on-structure.md. PRIOR: 185400 -> 192900 (2026-08-19), the pre-paint shell's Craft activity rail filled with the app's own launchers (7.3KB of inline lucide glyphs); see 2026-08-09-studio-shell-structural-completeness.md."
+      "_eagerJsGzNote": "659985 -> 654175 (2026-08-23): `architect-model.js` — the AI provider layer (OAuth, the model ladder, the streaming client, the catalog cache) — left the eager bundle. `WorkspaceSheet` statically imported it for ONE synchronous predicate, `orSupportsCache`, which now lives in its own dependency-free `ai/or-cache.js`; every other reach is already `architect.ts`'s dynamic import(), so the provider layer is now its own on-demand chunk (15.8KB raw / 6.1KB gz) instead of being inlined into the monolith. Measured -5.6KB gz / -16.0KB raw (640868 -> 635121 bytes gz), same machine, chunk count unchanged at 57. Set to measured + ~3% per _units above. See #1773 and engineering/decisions/2026-08-23-studio-shell-decomposition.md §5.2.",
+      "_htmlRawNote": "192900 -> 199200 (2026-09-01): auto-split enrolled `content`, `list-criteria` and `journey`, and the Studio inlines the component catalog, so their three new `capacity` blocks ship in this route's HTML. Measured exactly, by building this route twice off one tree: 192397 bytes with main's manifests, 193414 with these — +1017, all of it the three blocks, nothing else in the change reaching this route. Not given back, because giving it back means un-enrolling the components: `content` is the commonest slide in any deck and could not split at all. Set to measured + ~3% per _units above. See engineering/decisions/2026-09-01-autosplit-splits-on-structure.md. PRIOR: 185400 -> 192900 (2026-08-19), the pre-paint shell's Craft activity rail filled with the app's own launchers (7.3KB of inline lucide glyphs); see 2026-08-09-studio-shell-structural-completeness.md."
     },
     "playground": {
       "html": "playground/index.html",
       "eagerJsGz": 597900,
       "htmlRaw": 483700
+    },
+    "home": {
+      "html": "index.html",
+      "eagerJsGz": 80300,
+      "htmlRaw": 101200,
+      "_eagerJsGzNote": "The three content routes share a 71.0KB gz site shell — 5 chunks (client, PerfOverlay, StorageOverlay, page, NavActions), measured 2026-09-05 — out of each one's 72.6-77.2KB total; only 1.5-6.1KB per route is its own. EXPECT ALL THREE eagerJsGz NUMBERS TO MOVE TOGETHER on a shell change, and read that as ONE cause reported three times, not three problems. They are kept as three separate budgets on purpose: a per-route number is ~2.3KB of headroom against the shell, where the same bytes inside studio's 633KB budget have ~19KB — so this is where a small shell regression is actually caught. Set to measured + ~3% per _units above. Measured 77933.",
+      "_htmlRawNote": "Measured 98196 on 2026-09-05, the first budget for this route. Set to measured + ~3% per _units above."
+    },
+    "components": {
+      "html": "components/index.html",
+      "eagerJsGz": 81400,
+      "htmlRaw": 472500,
+      "_eagerJsGzNote": "The three content routes share a 71.0KB gz site shell — 5 chunks (client, PerfOverlay, StorageOverlay, page, NavActions), measured 2026-09-05 — out of each one's 72.6-77.2KB total; only 1.5-6.1KB per route is its own. EXPECT ALL THREE eagerJsGz NUMBERS TO MOVE TOGETHER on a shell change, and read that as ONE cause reported three times, not three problems. They are kept as three separate budgets on purpose: a per-route number is ~2.3KB of headroom against the shell, where the same bytes inside studio's 633KB budget have ~19KB — so this is where a small shell regression is actually caught. Set to measured + ~3% per _units above. Measured 79023.",
+      "_htmlRawNote": "Measured 458676 on 2026-09-05, the first budget for this route. This route is HTML-heavy rather than JS-heavy — it inlines the whole component catalog, so htmlRaw is the number that actually moves here, and nothing in the tree watched it before. Set to measured + ~3% per _units above."
+    },
+    "getting-started": {
+      "html": "getting-started/index.html",
+      "eagerJsGz": 76600,
+      "htmlRaw": 77500,
+      "_eagerJsGzNote": "The three content routes share a 71.0KB gz site shell — 5 chunks (client, PerfOverlay, StorageOverlay, page, NavActions), measured 2026-09-05 — out of each one's 72.6-77.2KB total; only 1.5-6.1KB per route is its own. EXPECT ALL THREE eagerJsGz NUMBERS TO MOVE TOGETHER on a shell change, and read that as ONE cause reported three times, not three problems. They are kept as three separate budgets on purpose: a per-route number is ~2.3KB of headroom against the shell, where the same bytes inside studio's 633KB budget have ~19KB — so this is where a small shell regression is actually caught. Set to measured + ~3% per _units above. Measured 74323 — the leanest of the three, and so the closest thing to a bare reading of the shared shell (98% of it).",
+      "_htmlRawNote": "Measured 75194 on 2026-09-05, the first budget for this route. Set to measured + ~3% per _units above."
     }
   }
 }

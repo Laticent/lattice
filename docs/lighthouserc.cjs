@@ -15,9 +15,11 @@
 // in scripts/perf-regression.mjs, not here.
 //
 // Surfaces measured: the migrated React-island pages (landing, components,
-// playground) + a Starlight baseline (getting-started) + the three interactive
-// app surfaces (studio, drawing-board, workbench — the heavy CodeMirror + live
-// engine shells a user actually authors in), median of 3, desktop.
+// playground) + a Starlight baseline (getting-started) + the interactive app
+// surface (studio — the heavy CodeMirror + live engine shell a user actually
+// authors in), median of 3, desktop. FIVE URLs, and that is the same five
+// docs/route-budget.json gates per-PR; the equality is pinned by
+// scripts/check-route-budget.test.mjs.
 //
 // URLs are ROOT-based ('/…'): the site serves at base '/' in every environment
 // (the /lattice project-page base was retired 2026-06-28 — see astro.config.mjs).
@@ -33,8 +35,13 @@ module.exports = {
 				'http://localhost:4399/playground/',
 				'http://localhost:4399/getting-started/',
 				'http://localhost:4399/studio/',
-				'http://localhost:4399/drawing-board/',
-				'http://localhost:4399/workbench/',
+				// `/drawing-board/` and `/workbench/` were measured here until 2026-09-05.
+				// Both surfaces were REMOVED (the Studio succeeded them,
+				// engineering/decisions/2026-07-03-studio-succession.md) and their routes are
+				// now 310- and 306-byte redirect stubs carrying ZERO JS. Lighthouse ran three
+				// times on each, on both form factors — 12 runs a night that cannot regress.
+				// Dropped, which also makes this list exactly the set
+				// docs/route-budget.json gates; check-route-budget.test.mjs pins that equality.
 			],
 			numberOfRuns: 3,
 			settings: {

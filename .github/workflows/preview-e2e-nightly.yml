@@ -142,7 +142,14 @@ jobs:
       # triage gate — GitHub's recursion guard — so the bot carries the taxonomy
       # itself), with the screenshots embedded inline. Skipped when green.
       - name: Open / append regression issue
-        if: steps.e2e.outputs.failed == 'true'
+        # `always() &&` restores what the comment at `Publish screenshots` above already
+        # claims: *"the issue MUST still be filed (text + artifact link)"* when publishing
+        # fails. It did not. GitHub applies an implicit `success()` to an `if:` with no
+        # status function, so a failed publish step SKIPPED this one outright — no degraded
+        # report, no issue at all, on a night the e2e run had genuinely failed. Seventh
+        # instance in the family; caught by the filing-step arm in
+        # test/unit/tools/nightly-alarm-contract.test.js, added 2026-09-05.
+        if: always() && steps.e2e.outputs.failed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BASE: ${{ steps.shots.outputs.base }}

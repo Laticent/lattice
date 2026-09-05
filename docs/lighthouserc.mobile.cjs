@@ -18,8 +18,13 @@
 // Slow-4G). Edit the tolerances/metrics in scripts/perf-regression.mjs.
 //
 // URLs mirror lighthouserc.cjs: ROOT-based ('/…', the /lattice base was retired
-// 2026-06-28) and including the three interactive app surfaces (studio,
-// drawing-board, workbench), which stress the mobile profile hardest.
+// 2026-06-28) and including the interactive app surface (studio), which stresses
+// the mobile profile hardest. The two OTHER app surfaces this list used to carry,
+// `/drawing-board/` and `/workbench/`, were dropped 2026-09-05 — both were REMOVED
+// (engineering/decisions/2026-07-03-studio-succession.md) and their routes are now
+// 310- and 306-byte redirect stubs with zero JS, so the six runs a night spent on
+// them here measured nothing that could regress. The mobile history below is why
+// they were worth measuring once, not why they still are.
 module.exports = {
 	ci: {
 		collect: {
@@ -31,8 +36,6 @@ module.exports = {
 				'http://localhost:4399/playground/',
 				'http://localhost:4399/getting-started/',
 				'http://localhost:4399/studio/',
-				'http://localhost:4399/drawing-board/',
-				'http://localhost:4399/workbench/',
 			],
 			numberOfRuns: 3,
 			settings: {
