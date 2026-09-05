@@ -116,8 +116,8 @@ describe('inline-pills — the parser stays allocation-free on the literal path'
   test('a non-brace span is rejected before anything is allocated', () => {
     // Not a timing assertion — those are flaky in CI. This pins the SHAPE the speed
     // depends on: the reject is a single charCodeAt, so no slice, trim or split runs
-    // for the 99.9% of spans that are ordinary code. Measured separately at 16ns/span
-    // over the repo's real 115,516-span distribution.
+    // for the 99.75% of spans that are ordinary code. Measured separately at ~78ns/span
+    // cold over the repo's real distribution; see the kernel docblock for the method.
     const src = require('node:fs').readFileSync(require.resolve('../../../lib/core/inline-pills.js'), 'utf8');
     const body = /function parse\(text\) \{([\s\S]*?)\n\}/.exec(src)[1];
     const rejectLine = body.split('\n').find((l) => l.includes('charCodeAt'));

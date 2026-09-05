@@ -258,6 +258,9 @@ const PROBES = {
 
   inlinePills: {
     min: 12,
+    // Only the entries that exist BECAUSE the grammar fired. Without this the `code|`
+    // literals hold the count up on their own and the floor certifies nothing.
+    minMatch: /^(pill|mark)\|/,
     section: 'list-tabular',
     body: [
       '## Pills', '',
@@ -478,9 +481,18 @@ test('marp fidelity — a `mirrored` claim is attested by rendered output', asyn
       const deck = spec.deck || `<!-- _class: ${spec.section} -->\n\n${spec.body}`;
       const markup = spec.markup || marpShaped(spec.section, spec.body);
       const engineOut = spec.probe(renderEngine(deck));
+      // THE FLOOR MUST COUNT THE THING THE ROW IS ABOUT, not the probe's whole output.
+      // `inlinePills` reads both what became a pill or a mark AND what stayed a `<code>`,
+      // because a mirror that promoted everything would otherwise pass. But that makes the
+      // literals part of the array, so a mutation turning the grammar OFF entirely left
+      // 17/17 green: every pill fell back to a `<code>` and the count never dropped.
+      // Measured — `escapedText`→null, `resolve()`→null, and both at once all passed.
+      // `minMatch` narrows the floor to the entries that only exist when the row's
+      // transform actually fired.
+      const counted = spec.minMatch ? engineOut.filter((e) => spec.minMatch.test(e)) : engineOut;
       assert.ok(
-        engineOut.length >= spec.min,
-        `the engine produced ${engineOut.length} of the thing ${k} claims (floor ${spec.min}) — ` +
+        counted.length >= spec.min,
+        `the engine produced ${counted.length} of the thing ${k} claims (floor ${spec.min}) — ` +
           'the deck or the probe selector is wrong, and without this the comparison below would ' +
           'be two empty arrays passing forever',
       );

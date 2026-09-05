@@ -148,3 +148,66 @@ describe('inline-code-directives — the escape, on both paths', () => {
     assert.ok(d.renderHtml('{LIVE}'), 'the unescaped form still dispatches');
   });
 });
+
+describe('inline-code-directives — the mirror is a no-op on its own output', () => {
+  const { JSDOM: J } = require('jsdom');
+  const d = require('../../../lib/core/inline-code-directives.js');
+
+  /** The runtime's transformInlinePills, reproduced exactly. */
+  function pass(doc) {
+    for (const code of [...doc.querySelectorAll('section code')]) {
+      if (code.closest('pre')) continue;
+      if (code.hasAttribute(d.ESCAPED_ATTR)) continue;
+      const text = code.textContent || '';
+      const unescaped = d.escapedText(text);
+      if (unescaped !== null) {
+        code.textContent = unescaped;
+        code.setAttribute(d.ESCAPED_ATTR, '');
+        continue;
+      }
+      const el = d.renderElement(doc, text);
+      if (el) code.replaceWith(el);
+    }
+  }
+
+  test('an escaped span survives repeated passes', () => {
+    // THE DEFECT THIS PINS. Stripping the backslash is destructive: `\\{LIVE}` becomes
+    // `{LIVE}`, which is a valid INPUT to this same grammar. Before the guard, pass 2
+    // turned the literal the author asked for into the pill they asked to avoid — and
+    // `runAllContentTransforms()` runs many times per document, so the literal existed
+    // for one frame.
+    //
+    // A SINGLE-PASS TEST CANNOT SEE THIS, which is why it is here and not in the fidelity
+    // probe: that harness boots the runtime once, so engine output and
+    // runtime-after-one-pass agree and the arm is green while the escape is broken.
+    const doc = new J('<section><ul><li><code>\\{LIVE}</code></li><li><code>\\[x]</code></li></ul></section>').window.document;
+    const after = [];
+    for (let i = 0; i < 4; i++) { pass(doc); after.push(doc.querySelector('ul').innerHTML); }
+    assert.equal(after[0], after[1], 'pass 2 changed what pass 1 produced');
+    assert.equal(after[1], after[2]);
+    assert.equal(after[2], after[3]);
+    assert.match(after[0], /<code[^>]*>\{LIVE\}<\/code>/, 'the escaped pill did not stay literal');
+    assert.doesNotMatch(after[3], /lat-pill/, 'an escaped span became a pill');
+    assert.doesNotMatch(after[3], /lat-state/, 'an escaped span became a mark');
+  });
+
+  test('the mirror is a no-op on markup the ENGINE already resolved', () => {
+    // The second surface, and the one a repeat-pass test alone would miss: the docs Studio
+    // composes engine-rendered HTML and the runtime into ONE document, so the backslash is
+    // already gone before the mirror's FIRST pass. Without a mark on the element there is
+    // nothing left to distinguish "already resolved" from "a live directive".
+    const engineOutput = `<section><p><code ${d.ESCAPED_ATTR}="">{LIVE}</code> and <code ${d.ESCAPED_ATTR}="">[x]</code></p></section>`;
+    const doc = new J(engineOutput).window.document;
+    const before = doc.querySelector('p').innerHTML;
+    pass(doc); pass(doc);
+    assert.equal(doc.querySelector('p').innerHTML, before, 'the mirror rewrote engine output');
+  });
+
+  test('a LIVE directive still converts — the guard is not a blanket skip', () => {
+    const doc = new J('<section><p><code>{LIVE}</code> <code>[x]</code></p></section>').window.document;
+    pass(doc);
+    const html = doc.querySelector('p').innerHTML;
+    assert.match(html, /lat-pill/);
+    assert.match(html, /lat-state/);
+  });
+});

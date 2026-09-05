@@ -37,7 +37,7 @@ summary: Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}
 > axis, order-free modifiers, and "no default shape without an explicit marker".
 >
 > **Why the geometry had to go.** The map below assigns meaning to `[X]`, `(X)`, `{X}`,
-> `((X))`, `[[X]]`. Measured against all **12,493** single-backtick spans in this repo,
+> `((X))`, `[[X]]`. Measured against the **12,551** single-backtick spans of the deck corpus,
 > it captures **147** that their authors meant literally:
 >
 > - **118** are decks and docs QUOTING our own state markers — `[x]` `[-]` `[ ]` `[/]`.
@@ -52,7 +52,7 @@ summary: Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}
 > which are the most loaded characters in a repo whose decks are about code. A single
 > `{…}` pair plus one guard (the label must be trimmed and comma-free, which is already
 > the pill word budget in `lib/authoring/prose-budgets.js`) measures **zero collisions in
-> the DECK corpus** — `examples/`, `lib/`, `docs/src`, `test/integration`, 12,493 spans.
+> the DECK corpus** — `examples/`, `lib/`, `docs/src`, `test/integration`, 12,551 spans.
 >
 > **That is not "repo-wide", and an earlier draft of this paragraph said it was.** Measured
 > across every `.md` in the tree (109k+ spans), `{}` captures **31** on `origin/main`:
@@ -323,6 +323,11 @@ the argument, and the rejected alternatives.
    `/^\$([A-Za-z_][\w.]*)$/` already accepts `$client.name`.
 
 2. **Escape for literal `prefix:value`: CommonMark double-backtick.**
+   *(SUPERSEDED 2026-09-04 — the shipped escape is a BACKSLASH, `` `\{LIVE}` ``. The
+   double-backtick form reads the backtick run off `token.markup`, which exists only on
+   the markdown-it side: marp-core renders `` `{LIVE}` `` and ``` ``{LIVE}`` ``` to the
+   same `<code>`, so the runtime's DOM mirror cannot tell them apart. The fidelity probe
+   caught it. `` ``{LIVE}`` `` now dispatches on both paths. Original text kept below.)*
    `` ``var:--brand`` `` (double backticks) skips directive
    preprocessing because the rule runs only on single-backtick
    `code_inline` tokens with `markup === '` '`. Validated against

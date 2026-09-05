@@ -9,7 +9,9 @@
 - **Nothing existing changes.** A pill needs a brace pair whose label is trimmed and
   comma-free; every other inline code stays literal, including `` `[x]` ``,
   `` `[data-mark]` ``, `` `{ ok, scene }` `` and `` `getUserId()` ``. Measured across all
-  12,493 single-backtick spans in the repo: zero render differently. An unknown modifier
+  12,551 single-backtick spans of the deck corpus (`examples/`, `lib/`, `docs/src`,
+  `test/integration`): zero render differently. Repo-wide, ~30 brace spans in engineering
+  prose that never renders would now dispatch. An unknown modifier
   (`` `{X}:c13` ``) falls back to literal rather than being ignored, and double backticks
   force the literal for a label that would otherwise qualify.
 - **The four state markers are reserved inside `{}`.** `` `{x}` `` `` `{-}` `` `` `{/}` ``

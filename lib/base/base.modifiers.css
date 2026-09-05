@@ -3402,7 +3402,12 @@ section.corners-square {
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  vertical-align:baseline;
+  /* `middle`, not `baseline`. An inline-flex box's baseline is its BOTTOM MARGIN EDGE, so
+   * a baseline-aligned pill hangs below the text it sits in — and by a distance that
+   * scales with the type: measured, 2.9px low in 21px body prose and 11px low in a 37px
+   * heading, where it reads as a mistake. `middle` puts the box's centre on the text's
+   * optical centre instead, which is what a reader expects of a chip in a line of words. */
+  vertical-align:middle;
   line-height:1;
   font-family:var(--pill-font);
   font-size:calc(var(--pill-fs) * var(--lat-pill-scale, 1));
