@@ -256,6 +256,35 @@ const PROBES = {
     probe: marked('.cell'),
   },
 
+  inlinePills: {
+    min: 8,
+    section: 'list-tabular',
+    body: [
+      '## Pills', '',
+      // One row per shape, plus the modifier axes, plus the LITERALS. The literals are
+      // half the probe: this grammar reads every single-backtick span in every deck, so
+      // a drift that starts promoting `[x]` or `{ ok, scene }` is the failure that
+      // matters, and it is invisible to a probe that only feeds it valid pills.
+      '1. Shapes',
+      '   - `{A}` `{B}:tag` `{C}:chip` `{D}:tag-bordered`',
+      '2. More shapes',
+      '   - `{E}:circle` `{F}:chevron-right` `{G}:chevron-left` `{H}:diamond`',
+      '3. Axes',
+      '   - `{I}:c1:lg` `{J}:c12:sm`',
+      '4. Literals',
+      '   - `[x]` `{ ok, scene }` `getUserId()` `{K}:c13` `{}`',
+    ].join('\n'),
+    // Reads BOTH sides of the decision: what became a pill (with its resolved axes),
+    // and what stayed a `<code>`. Comparing only the pills would pass a mirror that
+    // promoted everything.
+    probe: (doc) => [
+      ...[...doc.querySelectorAll('span.lat-pill')].map(
+        (el) => `pill|${el.getAttribute('data-shape')}|${el.getAttribute('data-c') || '-'}|${el.getAttribute('data-size') || '-'}|${el.textContent}`,
+      ),
+      ...[...doc.querySelectorAll('code')].map((el) => `code|${el.textContent}`),
+    ],
+  },
+
   slotLabelLift: {
     min: 3,
     section: 'premise',

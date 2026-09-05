@@ -289,7 +289,7 @@ it is load-bearing.
 - ☐ [2026-05-16-post-foundation-followups.md](2026-05-16-post-foundation-followups.md) — Captures every workitem deferred or discovered late during the design-system-foundation branch, tracked as next
 - ☐ [2026-05-12-kpi-candidates.md](2026-05-12-kpi-candidates.md) — Candidate exploration deck for the executive KPI system — one cohesive base with five layout modifiers
 - ☐ [2026-05-12-workflow-debt.md](2026-05-12-workflow-debt.md) — Analysis of residual workflow friction after the 2026-05-12 reconciliation plus three concrete proposals for the next round
-- ☐ [2026-05-11-inline-code-directives.md](2026-05-11-inline-code-directives.md) — Design for namespaced inline-code directives (icons, vars) with all five open questions resolved but nothing implemented yet
+- ◐ [2026-05-11-inline-code-directives.md](2026-05-11-inline-code-directives.md) — Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}:shape:c4` (the bracket-geometry map it proposed is superseded…
 - ☐ [2026-05-10-tauri-exploration.md](2026-05-10-tauri-exploration.md) — v1 architectural shape for the SlideWright desktop app on Tauri, with personas, six-release plan, and engine-ownership decisions
 - ☐ [2026-05-07-chart-family-proposals.md](2026-05-07-chart-family-proposals.md) — Chart-family layout proposals turning list/sublist plus inline-code pills into timelines, Gantts, pie and progress views
 - ☐ [2026-05-04-authoring-proposals.md](2026-05-04-authoring-proposals.md) — Forward-looking authoring RFC covering the component model, modifier catalogue, new layout proposals, and rollout plan

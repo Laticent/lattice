@@ -1,0 +1,14 @@
+- **`{LABEL}` in inline code renders as a pill, anywhere in any deck.**
+  `` `{STABLE}:c2` `` draws a capsule; `:tag` `:tag-bordered` `:chip` `:circle`
+  `:chevron-right` `:chevron-left` `:diamond` pick the shape, `:c1`–`:c12` pick an
+  ordinal categorical slot (not a color — the same slot is sky blue on `indaco` and
+  deep red on `burgundy`), and `:sm` / `:lg` scale it from the type. Modifier order is
+  free. Shape and color now belong to the VALUE, so one ledger can carry four different
+  statuses without a variant class on the slide — which is what five of `list-tabular`'s
+  eight variants were doing, none of which ever moved a grid cell.
+- **Nothing existing changes.** A pill needs a brace pair whose label is trimmed and
+  comma-free; every other inline code stays literal, including `` `[x]` ``,
+  `` `[data-mark]` ``, `` `{ ok, scene }` `` and `` `getUserId()` ``. Measured across all
+  12,493 single-backtick spans in the repo: zero render differently. An unknown modifier
+  (`` `{X}:c13` ``) falls back to literal rather than being ignored, and double backticks
+  force the literal for a label that would otherwise qualify.

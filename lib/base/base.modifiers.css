@@ -3382,3 +3382,111 @@ section.corners-square {
     border-radius: 0;
   }
 }
+
+/* ── Inline pills — `{LABEL}:shape:c4:lg` ──────────────────────────────────────
+ * A `{LABEL}` inside SINGLE-backtick inline code is decoded by
+ * `lib/core/inline-pills.js` into `<span class="lat-pill" data-shape=…>`. See that
+ * file for the grammar and for why `{}` rather than the ADR's bracket geometry.
+ *
+ * THESE REUSE THE `--pill-*` TOKENS ABOVE (HARD RULE #15). The trailing-`code`
+ * metadata pill and this one are the same visual family reached two ways —
+ * positionally (last child of a row) and explicitly (the author asked). Sharing the
+ * token family is what keeps them from drifting into two different-looking pills.
+ * The two never collide in the cascade: that rule selects `code`, this one selects
+ * `[data-shape]`, which only the decoder emits.
+ *
+ * Shape is GEOMETRY ONLY — every color goes through a token (HARD RULE #3), and no
+ * shape is drawn with a typed glyph (#29): a chevron is a clip-path on our own box,
+ * not a `❯` borrowed from whatever font the machine has. */
+.lat-pill[data-shape] {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  vertical-align:baseline;
+  line-height:1;
+  font-family:var(--pill-font);
+  font-size:calc(var(--pill-fs) * var(--lat-pill-scale, 1));
+  font-weight:var(--pill-weight);
+  letter-spacing:var(--pill-tracking);
+  padding:var(--pill-pad-y) var(--pill-pad-x);
+  border:1px solid var(--lat-pill-edge, var(--pill-border, var(--muted-mark)));
+  background:var(--lat-pill-bg, var(--pill-bg, var(--bg)));
+  color:var(--lat-pill-ink, var(--pill-fg, var(--text-body)));
+  border-radius:var(--pill-radius);
+  white-space:nowrap;
+}
+
+/* Geometry per shape. `pill` is the default and needs no rule — it inherits the
+ * capsule `--pill-radius`. */
+.lat-pill[data-shape='chip'] { border-radius:var(--radius-sm); }
+.lat-pill[data-shape='tag'] { border-radius:0; }
+/* Double stroke: a ring of page color, then the edge again. `box-shadow` rather than
+ * `outline` because outline ignores `border-radius` on some engines and cannot be
+ * clipped by the chevron/diamond shapes below if a variant ever combines them. */
+.lat-pill[data-shape='tag-bordered'] {
+  border-radius:0;
+  box-shadow:0 0 0 2px var(--bg), 0 0 0 3px var(--lat-pill-edge, var(--pill-border, var(--muted-mark)));
+}
+/* A circle is the one shape whose box the TEXT must not size: `aspect-ratio` alone
+ * loses to the label's min-content width plus padding, so a two-character badge came
+ * out an upright oval (measured). Zero padding plus a square minimum lets the ratio
+ * actually bind, and the label centers in it. */
+.lat-pill[data-shape='circle'] {
+  aspect-ratio:1;
+  padding:0;
+  min-width:2em;
+  min-height:2em;
+  border-radius:var(--pill-radius);
+}
+/* Chevrons and the diamond are CLIPPED, so their border would be sliced through on
+ * the cut edges — they carry the edge as background instead and drop the stroke. The
+ * extra inline padding is the room the point needs. */
+.lat-pill[data-shape='chevron-right'],
+.lat-pill[data-shape='chevron-left'],
+.lat-pill[data-shape='diamond'] {
+  border-color:transparent;
+  border-radius:0;
+}
+.lat-pill[data-shape='chevron-right'] {
+  padding-right:calc(var(--pill-pad-x) + 0.5em);
+  clip-path:polygon(0 0, calc(100% - 0.5em) 0, 100% 50%, calc(100% - 0.5em) 100%, 0 100%);
+}
+.lat-pill[data-shape='chevron-left'] {
+  padding-left:calc(var(--pill-pad-x) + 0.5em);
+  clip-path:polygon(0.5em 0, 100% 0, 100% 100%, 0.5em 100%, 0 50%);
+}
+.lat-pill[data-shape='diamond'] {
+  /* SQUARE box, like the circle, and for the same reason stated as geometry rather
+   * than taste: a rhombus offers its full width only along the horizontal midline, and
+   * at the top and bottom edge of a line of text it has narrowed to roughly half. So a
+   * label only ever fits if the box is about twice the label's width — measured, a
+   * 6-character word in a content-sized box came out 105x26 and the word's ends sat
+   * outside the fill on both sides. A diamond holds a character or two; a word wants
+   * `tag` or `chip`, and `lint:deck` says so. */
+  aspect-ratio:1;
+  padding:0;
+  min-width:2.4em;
+  min-height:2.4em;
+  clip-path:polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+/* Size axis. Scales the type, and the padding follows because it is set in `em`. */
+.lat-pill[data-size='sm'] { --lat-pill-scale:0.85; }
+.lat-pill[data-size='lg'] { --lat-pill-scale:1.2; }
+
+/* Color axis — ORDINAL slots onto the role-based categorical tokens (HARD RULE #11).
+ * `--cat-N-fill` is the tint, `--cat-N-mark` the saturated edge, and `--cat-on-fill`
+ * is the ink the existing categorical contrast policy already derives to clear AA on
+ * that tint — so a slot needs no per-pill contrast math and no theme knows about it. */
+.lat-pill[data-c='c1']  { --lat-pill-bg:var(--cat-1-fill);  --lat-pill-edge:var(--cat-1-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c2']  { --lat-pill-bg:var(--cat-2-fill);  --lat-pill-edge:var(--cat-2-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c3']  { --lat-pill-bg:var(--cat-3-fill);  --lat-pill-edge:var(--cat-3-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c4']  { --lat-pill-bg:var(--cat-4-fill);  --lat-pill-edge:var(--cat-4-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c5']  { --lat-pill-bg:var(--cat-5-fill);  --lat-pill-edge:var(--cat-5-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c6']  { --lat-pill-bg:var(--cat-6-fill);  --lat-pill-edge:var(--cat-6-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c7']  { --lat-pill-bg:var(--cat-7-fill);  --lat-pill-edge:var(--cat-7-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c8']  { --lat-pill-bg:var(--cat-8-fill);  --lat-pill-edge:var(--cat-8-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c9']  { --lat-pill-bg:var(--cat-9-fill);  --lat-pill-edge:var(--cat-9-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c10'] { --lat-pill-bg:var(--cat-10-fill); --lat-pill-edge:var(--cat-10-mark); --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c11'] { --lat-pill-bg:var(--cat-11-fill); --lat-pill-edge:var(--cat-11-mark); --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c12'] { --lat-pill-bg:var(--cat-12-fill); --lat-pill-edge:var(--cat-12-mark); --lat-pill-ink:var(--cat-on-fill); }

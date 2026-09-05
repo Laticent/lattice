@@ -1238,6 +1238,56 @@ crests); reach for `auto` otherwise.
 
 ---
 
+## Inline pills — `{LABEL}`
+
+A `{LABEL}` inside **single-backtick** inline code renders as a pill. Shape and color
+belong to the value, not to the slide — one ledger can carry four different statuses
+without any variant class on the section.
+
+```markdown
+1. Settlement engine
+   - Shipped and load-tested `{STABLE}:c2`
+2. Ledger migration
+   - Cutover paused for review `{PARTIAL}:c4`
+```
+
+### Shape
+
+`:tag` · `:tag-bordered` · `:chip` · `:circle` · `:chevron-right` · `:chevron-left` ·
+`:diamond`. With no shape modifier you get the capsule `pill`.
+
+`circle` and `diamond` are square boxes by construction, so they hold a digit or a
+mark — `{3}:circle`, `{!}:diamond`. A word in one either overflows the fill or forces
+the box wide enough to stop reading as the shape; `lint:deck` suggests `:tag` or
+`:chip` instead, and never blocks.
+
+### Color — `:c1` … `:c12`
+
+Ordinal slots onto the categorical tokens, **not color names**. The same slot is sky
+blue on `indaco` and deep red on `burgundy`, so a slot picks contrast, never meaning —
+never write `:c2` because "green means good". Text contrast comes from the categorical
+policy already in the engine, so a slot needs no per-pill contrast math.
+
+### Size — `:sm` `:lg`
+
+Scales from the type, so a pill stays proportional to the row it sits in.
+
+Modifier order is free: `` `{X}:tag:c4:lg` `` and `` `{X}:lg:c4:tag` `` are the same pill.
+
+### What stays literal
+
+Plain inline code is untouched — `` `getUserId()` ``, `` `:root` ``, `` `[data-mark]` ``,
+`` `--accent` ``, `` `{ ok, scene }` ``. A pill needs a brace pair whose label is
+trimmed and comma-free, which is what separates a label from a JS object literal an
+author wrote as code.
+
+An unknown or repeated modifier fails back to literal rather than being ignored:
+`` `{X}:c13` `` renders as code, visibly wrong in review, instead of quietly becoming a
+pill the author did not ask for.
+
+To force the literal for a label that WOULD qualify, use double backticks —
+` ``{LIVE}`` ` renders as `{LIVE}`.
+
 ## Composition syntax
 
 Modifiers compose space-separated after the layout name.
