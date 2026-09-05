@@ -329,6 +329,44 @@ argues those six should keep whole for the reason `progress` and `timeline-list`
 were declined on 2026-09-02 — the comparison IS the read — and that remains an
 open enrollment question, six decisions wide.
 
+### What today's exchange settled, and what it left open — for the next branch
+
+**Settled.** `video` (and the `image` / `scene` statement forms) split **claim →
+artifact**: the heading and lede on one page, the player or image at full size on
+the next, with a QR riding alongside the player rather than taking a page of its
+own — it points at the same destination. This is the only genuine structural seam
+among the components that keep whole today, and it is what fixes `video qr`'s
+vertical overflow at portrait.
+
+**Agreed in direction, not yet settled in detail.** `wifi` and `contact` split
+too, in the order **credentials → code**: the human-readable fields first, the
+scannable code last and at full size. The ordering rule behind it is worth
+keeping because it generalizes — *the page you leave up is the page people act
+on*, so the actionable artifact goes last. Two questions are open:
+
+1. **Always, or only where it does not fit?** Both fit comfortably at `wide`
+   today. Splitting only at `square` / `tall` / `strip` follows the existing size
+   gate and matches every other component, but it means the full-page code — the
+   thing that scans from the back of a large room — appears only in portrait
+   decks.
+2. **What the split does to the redundancy.** For these two the code is not a
+   member: the transform builds it from the very same fields
+   (`wifi.transform.js:41` → `WIFI:T:…;S:…;P:…`; `contact.transform.js:32` →
+   a vCard). Splitting puts the reader who can scan and the reader who cannot on
+   different pages. The ordering above is what makes that acceptable rather than
+   free, and it is the one real cost of the move.
+
+**A correction worth carrying, because it is about method rather than pixels.**
+The first recommendation put to the owner for `wifi` / `contact` was to arrange
+the pieces differently at narrow page shapes rather than split them — the thing
+34 of the 61 components already do through `[data-family]` rules, and which
+`wifi`, `contact`, `image` and `code` have none of (measured; `kanban` has 15,
+`roadmap` and `timeline-list` 27 each). The owner's objection retired it, and the
+reason is the same one behind ruling 1: a per-component arrangement rule is a
+per-component special case, which is exactly the habit ruling 1 moves away from.
+Splitting is the consistent answer even where a bespoke rule would have been the
+cheaper one.
+
 **A false positive worth recording**, because the next person to look will trip
 on it: `stats` centers its heading on the split page AND on the unsplit page.
 That is the component's own CSS, not the split's doing, and it is not what
