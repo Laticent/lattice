@@ -97,7 +97,7 @@ function columnZeroProse(section) {
 const SANCTIONED_UNRELEASED_PROSE = [];
 
 /** Where the archive actually lives, for the humans reading a refusal. */
-const ARCHIVE_URL = 'https://github.com/slidewright/lattice/blob/main/changelog/';
+const ARCHIVE_URL = 'https://github.com/Laticent/lattice/blob/main/changelog/';
 
 /**
  * Is this link target the archive on GitHub?
@@ -117,7 +117,7 @@ function isArchiveUrl(target) {
   }
   return url.protocol === 'https:'
     && url.host === 'github.com'
-    && url.pathname.startsWith('/slidewright/lattice/blob/main/changelog/');
+    && url.pathname.startsWith('/Laticent/lattice/blob/main/changelog/');
 }
 
 /**

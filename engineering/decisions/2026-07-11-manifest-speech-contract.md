@@ -44,7 +44,7 @@ red-team, invert, and independently check **this doc itself** (§11).
 **Cadenza** (`docs/src/lib/cadenza/`) — the shared caption engine. `normalize.ts` does display→spoken
 (`numberToWords` `:70`, `toSpoken` `:87`, a fixed **16-entry** `ABBREV` `:27-32`); `cadence.ts` a
 punctuation→pause table that moves only the caption *highlight* estimate, never the audio. It is a real
-dual CJS/ESM package (`@slidewright/cadenza`) consumed by root CJS (`read-along-build.js:39`) and docs
+dual CJS/ESM package (`@laticent/cadenza`) consumed by root CJS (`read-along-build.js:39`) and docs
 ESM (`read-aloud.ts:2`).
 
 **Two divergent narration producers** (verified — the straw-man's "one producer, three consumers" is
@@ -548,7 +548,7 @@ IS by construction (see below).
   DOM at all, and recovering them would force every chart transform to emit its data first.
 - **Home = `lib/core`, not cadenza.** The narrators are Lattice-component-specific; cadenza
   stays a domain-agnostic, spin-off-able engine. `chart-narration.js` depends on cadenza's
-  `numberToWords` / `toSpokenText` (the CLI's existing `require('@slidewright/cadenza')`
+  `numberToWords` / `toSpokenText` (the CLI's existing `require('@laticent/cadenza')`
   pattern) plus the shared `slideToSpeech`.
 - **Browser sharing — the bundling decision.** The narration kernel rides ALONG in the
   existing `read-along-core` bundle (`tools/build-read-along-core.js` → `read-along-core.generated.js`)
@@ -649,7 +649,7 @@ become "second half" — the concern that removed them from BASE.
 (period patterns, expansions, case-sensitivity, the `fy26`/`h2`/`H2O` negatives).
 Audio naturalness is UNVERIFIED (no TTS in CI); only the display→spoken string is
 claimed. Both the live Present read-aloud and the CLI/export captions share the one
-`@slidewright/cadenza` normalizer, so the change lands on both surfaces.
+`@laticent/cadenza` normalizer, so the change lands on both surfaces.
 
 ---
 

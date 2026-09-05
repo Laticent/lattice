@@ -428,7 +428,7 @@ one page for this specific component shape. Neither `lattice-emulator.js`
 nor its overflow-warning path is touched by this PR (Case B is preview-only,
 `lib/runtime/index.js` only) — worth a dedicated investigation, not pulled
 into this diff. Tracked as
-[#894](https://github.com/SlideWright/lattice/issues/894) (a Munger-inversion
+[#894](https://github.com/Laticent/lattice/issues/894) (a Munger-inversion
 finding during §13's adversarial review: a decision-doc mention alone doesn't
 guarantee follow-up the way a tracked issue does).
 

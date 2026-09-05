@@ -59,5 +59,5 @@ page** — what each color paints, both contrast floors, the categorical
 cycle, and light/dark from one file. Start at
 [Theme anatomy](/craft/themes/anatomy/).
 
-See [`design/theming.md`](https://github.com/slidewright/lattice/blob/main/design/theming.md)
+See [`design/theming.md`](https://github.com/Laticent/lattice/blob/main/design/theming.md)
 in the repository for the full token reference and the Mermaid contract.

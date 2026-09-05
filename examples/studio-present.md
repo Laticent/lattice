@@ -2,7 +2,7 @@
 marp: true
 theme: cuoio
 paginate: true
-footer: "SlideWright · Studio Present"
+footer: "Laticent · Studio Present"
 ---
 
 <!-- _class: title -->

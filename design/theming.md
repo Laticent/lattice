@@ -38,7 +38,7 @@ contains:
    filename and this directive are projections of `manifest.json`'s `name`, and
    `check:ownership` fails if the three disagree. The directive stays in the CSS
    (rather than being stamped into `dist/` like `@size`) because
-   `@workwel/lattice/themes/<name>.css` is a published export documented as a
+   `@laticent/lattice/themes/<name>.css` is a published export documented as a
    Marp theme file, and Marp throws without it. A palette does **not** declare
    `@size` — the page box belongs to the engine's registry
    (`lib/engine/sizes.js`), and the build stamps those directives into `dist/`.

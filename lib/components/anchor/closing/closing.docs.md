@@ -86,7 +86,7 @@ Scan to take the deck with you.
 
 The payload bullet renders as a QR code sized for the back row.
 
-- https://slidewright.dev/components/closing
+- https://laticent.dev/components/closing
 - Scan to open `caption`
 ```
 

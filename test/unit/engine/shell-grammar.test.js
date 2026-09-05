@@ -46,7 +46,7 @@ function tokens(html, role) {
 describe('augmented shell grammar', () => {
   test('modern CLI tools are built_ins, so a command list is not monochrome', () => {
     const html = fence('bash', [
-      'npm install @workwel/lattice',
+      'npm install @laticent/lattice',
       'docker compose up -d --build',
       'kubectl apply -f k8s/ --namespace prod',
       'terraform apply -auto-approve',

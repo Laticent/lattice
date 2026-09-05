@@ -485,7 +485,7 @@ the flip is the cheapest de-risking of everything after it.
 | Coaching parity re-introduced fake AI | The honesty contract survives the port: `offline`/`blocked`, never `floorReply`; deterministic value lives in Coach, the composer stays model-gated (Coach-vs-Converse). |
 | ⚠ Chat depth ate the user's money or their instructions | One cache seam, owned by `chatComplete`: message-layer split (static prefix cached, per-turn assessment in the uncached tail), never the string auto-wrap + growing system turn; `withStudioVoice` merges before the split (its string-only content guard is the trap); `readCachingEnabled` honored; the Studio's instruction store wins over the kernel's (§2.3). |
 | Old links / offline PWA users hit a hole | P5 ships redirects for both routes, **bumps the SW `VERSION`** (a deploy alone never purges the runtime cache — ⚠ red-team corrected the draft here), and runs the docs sweep; the 404 page stops advertising dead surfaces. |
-| The desktop wrapper pointed at a deleted route | ⚠ Outside this repo: verify the SlideWright Tauri wrapper embeds the engine, not `/drawing-board/`, before P5 (§8). |
+| The desktop wrapper pointed at a deleted route | ⚠ Outside this repo: verify the Laticent Tauri wrapper embeds the engine, not `/drawing-board/`, before P5 (§8). |
 | One big-bang PR — unreviewable, unrevertable | Six slices, each green and standalone (§6); the flip (P1) is pure motion, the depth (P2) is pure addition, the deletion (P5) is pure subtraction — including its tests. |
 
 ## 8. Open questions (for the user; recommendations attached)
@@ -493,7 +493,7 @@ the flip is the cheapest de-risking of everything after it.
 1. **Removal timing.** ⚠ MOOT — P4 never shipped, so "one release after P4" had
    nothing to count from; P5 landed directly. Original recommendation: P5 lands no sooner than one release
    after P4 (banners + importer live for a full cycle). The gate is yours.
-2. **The Tauri wrapper.** Confirm the SlideWright desktop app embeds the
+2. **The Tauri wrapper.** Confirm the Laticent desktop app embeds the
    engine/Studio and not the Drawing Board route. If it does embed it, its
    migration joins the plan before P5.
 3. **Onboarding door.** Port the Architect's 3-question "draft with me" flow

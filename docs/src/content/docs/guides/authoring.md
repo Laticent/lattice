@@ -60,7 +60,7 @@ The fastest way to choose is the **[component reference](/components/)**:
 an interactive catalog of every component with its slots, variants, when to
 reach for it, and when not to — and you can preview the whole thing in
 any Lattice palette. The same content is also available as a single
-[Markdown document](https://github.com/slidewright/lattice/blob/main/dist/docs/components.md).
+[Markdown document](https://github.com/Laticent/lattice/blob/main/dist/docs/components.md).
 
 ## Swappable renderings (variants)
 
@@ -79,7 +79,7 @@ content:
 Write the list once, then swap `<!-- _class: inventory -->` for
 `inventory cards` (and so on) to try each. The variants are looks of the one
 `inventory` component, so they don't add to the component count.
-See [`examples/inventory.md`](https://github.com/slidewright/lattice/blob/main/examples/inventory.md)
+See [`examples/inventory.md`](https://github.com/Laticent/lattice/blob/main/examples/inventory.md)
 for one deck that renders the same content all four ways.
 
 ## The card-style nesting rule
@@ -365,5 +365,5 @@ header · Hide footer · Hide page number · Hide rail).
   authoring contract.
 - [Studio](/studio/) — author a full deck in the browser
   (autocomplete, live linting, coaching, present, export).
-- [`design/skill.md`](https://github.com/slidewright/lattice/blob/main/design/skill.md)
+- [`design/skill.md`](https://github.com/Laticent/lattice/blob/main/design/skill.md)
   in the repo — the full deck-authoring contract.

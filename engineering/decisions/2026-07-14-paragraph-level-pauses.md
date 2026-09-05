@@ -107,7 +107,7 @@ not an exported artifact — the exported `.vtt` cue **text** is still the displ
 Bar this is an **export-sign-off** change; a before/after sample is in the PR.
 
 Shared-kernel note (HARD RULE #1): the projection change lands in the one shared `prose-projection.mjs`,
-so Present and the export stay identical. Bundles regenerated: `@slidewright/cadenza` (cadence/track/
+so Present and the export stay identical. Bundles regenerated: `@laticent/cadenza` (cadence/track/
 segment), `player-core` (prose-projection), `read-along-core`.
 
 ## Verification honesty (HARD RULE #23)

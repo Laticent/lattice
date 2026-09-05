@@ -79,7 +79,7 @@ non-terminal majority something to do besides leave.
   PDFs; they don't visit tooling sites. "Boardroom" is the destination of the
   artifact, not the reader of the page — the copy mostly gets this right.
 
-The mass-appeal product is SlideWright, and it hasn't shipped. Pre-GA, "mass
+The mass-appeal product is Laticent, and it hasn't shipped. Pre-GA, "mass
 appeal" therefore means: convert P1 now, recruit P2 as evangelists, and
 *collect* P3 (stars, release-watch, playground shares) so launch day has an
 audience.
@@ -153,9 +153,9 @@ Each item below is followed by where the current site stands.
 9. **Give the majority persona nothing to do.** A consultant who can't
    install Node gets no waitlist, no "star to follow," no email capture —
    and the landing never mentions the desktop app that will eventually serve
-   them at all (SlideWright appears only on README/intro/story). ← Present.
+   them at all (Laticent appears only on README/intro/story). ← Present.
 10. **Ship three brand names before shipping one product.** Lattice, Lattice
-    Style, SlideWright — tripled surface area for a first-timer's confusion.
+    Style, Laticent — tripled surface area for a first-timer's confusion.
     ← Present (README hero, story; the intro carries two of the three).
 11. **Have an anonymous founder voice.** "I built Lattice because…" with no
     name attached anywhere. First-person conviction with no person. ← Present
@@ -363,7 +363,7 @@ majority persona's only usable CTA where the least-scrolling persona never
 arrives, and labeling a stable v1 engine "early access" invites "I'll wait
 for GA" from the one audience that can adopt today. Instead:
 - One preface line on the next-steps section: `The engine ships today; the
-  SlideWright desktop app is on the way.`
+  Laticent desktop app is on the way.`
 - A fourth next-steps card: title `Can't install anything?`, body `Open the
   playground — the full engine runs in your browser. Leave your email and
   we'll tell you when the desktop app lands.`, CTA `Open the playground`.
@@ -521,7 +521,7 @@ for GA" from the one audience that can adopt today. Instead:
   at lattice.style, so the name sits in the visitor's address bar and every
   footer — explaining it is load-bearing, not clutter. Refined position:
   first-touch surfaces (landing, intro, README hero) lead with **one** brand
-  (Lattice) plus at most one forward pointer (SlideWright, "the desktop app,
+  (Lattice) plus at most one forward pointer (Laticent, "the desktop app,
   on the way"); the *explanation* of Lattice Style lives on the story page,
   one link away, rather than being repeated inline. The README hero
   currently makes a newcomer parse three names in two paragraphs
@@ -606,7 +606,7 @@ while the features-page footer includes both — one footer nav, shared.
    where exact is impossible. This turns inversion #2 off permanently
    instead of patching today's numbers.
 4. **Every first-touch surface gets a "what to do if you can't install this
-   yet" action** (playground, gallery PDF, star/watch) until SlideWright
+   yet" action** (playground, gallery PDF, star/watch) until Laticent
    ships.
 
 ## 8. Blocking traction but not copy-fixable (product-level flags)
@@ -617,14 +617,14 @@ while the features-page footer includes both — one footer nav, shared.
    package" section documents `npx lattice …` (checker correction to an
    earlier draft of this flag). The actual gaps are that getting-started
    teaches the raw filename instead of the alias, and the package isn't on
-   npm yet (verified: the registry returns 404 for `@slidewright/lattice`),
+   npm yet (verified: the registry returns 404 for `@laticent/lattice`),
    so `npx lattice` only works inside a clone. Fix the docs today; publish
    when ready.
 2. **`marp: true` is the first line of front-matter a newcomer writes.**
    Whatever the engine needs for compatibility, the *authored* example
    should not open with a competitor's brand. If the engine can accept
    `lattice: true` (or nothing), the examples and docs should switch.
-3. **No email capture for SlideWright — and this is load-bearing, not a
+3. **No email capture for Laticent — and this is load-bearing, not a
    nice-to-have.** The "Can't install anything?" card (§5.5) is the doc's
    answer to inversion #9, and it cannot ship star-only: GitHub never
    notifies stargazers, so a star is a vanity counter with zero recontact

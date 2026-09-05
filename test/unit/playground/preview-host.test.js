@@ -30,7 +30,7 @@ describe('isPreviewHost', () => {
   test('production hosts → false', async () => {
     const { isPreviewHost } = await load();
     for (const h of [
-      'slidewright.github.io',
+      'laticent.github.io',
       'lattice.dev',
       'docs.lattice.dev',
       'example.com',

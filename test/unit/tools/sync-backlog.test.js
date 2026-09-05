@@ -17,7 +17,7 @@ const issue = (n, labels = [], extra = {}) => ({
   title: `Issue ${n}`,
   labels: labels.map((name) => ({ name })),
   assignees: [],
-  url: `https://github.com/SlideWright/lattice/issues/${n}`,
+  url: `https://github.com/Laticent/lattice/issues/${n}`,
   state: 'OPEN',
   ...extra,
 });

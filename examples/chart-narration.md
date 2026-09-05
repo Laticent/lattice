@@ -3,7 +3,7 @@ marp: true
 theme: indaco
 paginate: true
 color-mode: dark
-footer: "SlideWright · chart narration parity"
+footer: "Laticent · chart narration parity"
 ---
 
 <!-- _class: title silent -->

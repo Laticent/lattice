@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * Build the Suono library's consumable dist/ — the ESM entry + the CJS entry + type
- * declarations that let ROOT CJS `require('@workwel/suono')` AND a plain Node-ESM /
- * bundler consumer `import '@workwel/suono'`.
+ * declarations that let ROOT CJS `require('@laticent/suono')` AND a plain Node-ESM /
+ * bundler consumer `import '@laticent/suono'`.
  *
  *   docs/src/lib/suono/*.ts  (source, docs-side ESM/TS)
  *     →  docs/src/lib/suono/dist/index.mjs   (bundled ESM, esbuild)
@@ -63,7 +63,7 @@ function sourceFiles() {
 
 // Both module formats: CJS (`require` condition → dist/index.cjs) + ESM
 // (`import`/`module` condition → dist/index.mjs). Emitting a real .mjs is what makes
-// `import '@workwel/suono'` resolve for a plain Node-ESM / non-TS-bundler consumer —
+// `import '@laticent/suono'` resolve for a plain Node-ESM / non-TS-bundler consumer —
 // the `import` condition used to point at raw ./index.ts and crashed with
 // ERR_UNKNOWN_FILE_EXTENSION.
 const FORMATS = [

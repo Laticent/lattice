@@ -95,7 +95,7 @@ Most of the raw material is built; the gap is naming and assembling it:
 - **The theme/component bridge** (`exportMarkdown` → `embedThemeInMarkdown` +
   `embedComponentsInMarkdown`) already inlines a custom Workbench theme + library
   components into the source, so round-trip already survives bespoke themes.
-- **The engine is publish-ready but unpublished** (`@slidewright/lattice` 1.0.0,
+- **The engine is publish-ready but unpublished** (`@laticent/lattice` 1.0.0,
   MIT, `bin`/`exports`/`main` wired) — "no npm package" is an unflipped switch.
 
 ## Decision 1 — two artifacts, layered
@@ -343,6 +343,6 @@ require MY inspection").
 - Strip-notes-on-export toggle vs notes-by-default (§2e).
 - Un-inlinable asset: hard-fail vs warn-and-degrade (§2b).
 - **`.lattice` as a desktop document type** — register the extension with the
-  SlideWright Tauri app so double-click opens the deck natively (turns the format
+  Laticent Tauri app so double-click opens the deck natively (turns the format
   from "a zip you drag into a web tool" into "the native document type"). Ties
   this decision to the desktop wrapper; worth resolving with the import work.

@@ -86,7 +86,7 @@ the first shipped cut and is now the contract.
 `Q3 Board Review`
 ## Take the deck with you.
 Every slide, the appendix, and the workbook — before you go.
-- https://slidewright.dev/decks/q3
+- https://laticent.dev/decks/q3
 - Scan to open `caption`
 ```
 
@@ -98,7 +98,7 @@ Every slide, the appendix, and the workbook — before you go.
 Every line traces to a driver you can open — three scenarios off one shared set.
 - 142% `Net revenue retention`     ← metric (optional, 0+)
 - $48M `FY27 ARR, base case`       ← metric
-- https://slidewright.dev/appendix/model   ← payload (bare URL auto-resolves)
+- https://laticent.dev/appendix/model   ← payload (bare URL auto-resolves)
 - Scan for the live model `caption`         ← caption (optional)
 ```
 

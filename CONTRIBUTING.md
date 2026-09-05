@@ -21,7 +21,7 @@ up any rights. Full background:
   under commercial terms, that happens by explicit written arrangement — a
   paid license grant — never by a signature you were required to hand over.
 - **The symmetry pledge:** any engine capability that a commercial
-  SlideWright product monetizes lands in the AGPL engine within six months.
+  Laticent product monetizes lands in the AGPL engine within six months.
   The open engine is the product, not the demo.
 
 ## What contributions look like in practice

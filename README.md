@@ -25,15 +25,15 @@ authority chains, and obligation matrices; analysts get radar, quadrant,
 and KPI components. More than fifty components, one syntax you already
 know — no drawing tools, no boxes, no pasted screenshots.
 
-Lattice is the engine at the heart of **Lattice Style** — a project born
+Lattice is the engine at the heart of **Laticent** — a project born
 from a refusal to keep fighting the slide tools we all use, one that
 builds deck-quality documents with the discipline of a design system.
-([Read the story](#why-lattice-style-exists).) The same Lattice engine that
-runs from the command line will also run inside **SlideWright**, the desktop
+([Read the story](#why-laticent-exists).) The same Lattice engine that
+runs from the command line will also run inside **Laticent**, the desktop
 app (under development), so a deck authored in either context renders
 identically.
 
-## Why Lattice Style exists
+## Why Laticent exists
 
 I built Lattice because the slide tools we all use make authors
 unproductive by design — a blank canvas, no guardrails, and no way to see
@@ -43,9 +43,9 @@ engine instead of being left to chance. The full story —
 and what the name means — is at
 [lattice.style/story](https://lattice.style/story/).
 
-> **Documentation:** <https://slidewright.github.io/lattice/> — intro,
+> **Documentation:** <https://laticent.github.io/lattice/> — intro,
 > getting started, authoring and theming guides, and the interactive
-> [component reference](https://slidewright.github.io/lattice/components/)
+> [component reference](https://laticent.github.io/lattice/components/)
 > (every component, themable in any palette). Built from `docs/`; see
 > [`docs/README.md`](docs/README.md).
 
@@ -66,7 +66,7 @@ and what the name means — is at
   (`a11y-deuteranopia`, `a11y-protanopia`, `a11y-tritanopia`,
   `a11y-achromatopsia`) re-tune the categorical hues for the common
   color-vision deficiencies and are selectable in the picker. Preview them all in the
-  [component reference](https://slidewright.github.io/lattice/components/).
+  [component reference](https://laticent.github.io/lattice/components/).
 - **More than fifty components.** Title, divider, content, diagram, cards-grid,
   compare-prose, quote, timeline-list, big-number, split-panel, verdict-grid, more.
   Each component has an authoring contract documented in [design/skill.md](design/skill.md).
@@ -77,7 +77,7 @@ and what the name means — is at
 ## Install
 
 ```sh
-git clone https://github.com/slidewright/lattice.git
+git clone https://github.com/Laticent/lattice.git
 cd lattice
 npm install
 ```
@@ -95,12 +95,12 @@ engine renders every first-party path.
 
 ## Use as a package
 
-Distributed as `@workwel/lattice` (npm publishing is pending — see
+Distributed as `@laticent/lattice` (npm publishing is pending — see
 [RELEASE.md](RELEASE.md)). The bundled `lattice` bin renders through the owned
 engine — there is no Marp dependency or Marp render path:
 
 ```sh
-npm install @workwel/lattice
+npm install @laticent/lattice
 
 # The emulator, exposed as a bin (the owned engine). Resolves the engine +
 # every theme relative to the installed package, so it works from any dir.
@@ -116,16 +116,16 @@ The package also exposes these named entry points:
 
 | Subpath | Resolves to | For |
 |---|---|---|
-| `@workwel/lattice/default` | `dist/lattice-default.css` | **zero-config default** — engine + the cuoio palette, flattened into one drop-in stylesheet |
-| `@workwel/lattice/default/min` | `dist/lattice-default.min.css` | minified zero-config default — the leanest single-file `<link>` for browser use |
-| `@workwel/lattice/engine` | `lib/engine/index.js` | the **canonical render kernel** (`render()` + the transform pipeline) — for embedding the engine directly (HARD RULE #1: this is the source of truth all render paths share) |
-| `@workwel/lattice/runtime` | `dist/lattice-runtime.js` | the preview / web-export runtime transforms |
-| `@workwel/lattice/runtime/min` | `dist/lattice-runtime.min.js` | minified runtime — production / CDN drop-in (no inline source map) |
-| `@workwel/lattice/css` | `dist/lattice.css` | the engine bundle — **palette-blind** (components only, no color tokens) |
-| `@workwel/lattice/css/min` | `dist/lattice.min.css` | minified engine bundle (Marp `@theme`/`@size` directives preserved) |
-| `@workwel/lattice/themes/<name>.css` | `themes/<name>.css` | one palette — a **Marp theme file**, not a standalone stylesheet |
-| `lattice` bin · `@workwel/lattice` (`main`/`.`) | `dist/lattice-emulator.js` | the bundled CLI renderer / PDF exporter (`npx lattice deck.md out.pdf`) |
-| `@workwel/lattice/min` | `dist/lattice-emulator.min.js` | minified CLI bundle (shebang + executable bit preserved); the bin/main stays the unminified file |
+| `@laticent/lattice/default` | `dist/lattice-default.css` | **zero-config default** — engine + the cuoio palette, flattened into one drop-in stylesheet |
+| `@laticent/lattice/default/min` | `dist/lattice-default.min.css` | minified zero-config default — the leanest single-file `<link>` for browser use |
+| `@laticent/lattice/engine` | `lib/engine/index.js` | the **canonical render kernel** (`render()` + the transform pipeline) — for embedding the engine directly (HARD RULE #1: this is the source of truth all render paths share) |
+| `@laticent/lattice/runtime` | `dist/lattice-runtime.js` | the preview / web-export runtime transforms |
+| `@laticent/lattice/runtime/min` | `dist/lattice-runtime.min.js` | minified runtime — production / CDN drop-in (no inline source map) |
+| `@laticent/lattice/css` | `dist/lattice.css` | the engine bundle — **palette-blind** (components only, no color tokens) |
+| `@laticent/lattice/css/min` | `dist/lattice.min.css` | minified engine bundle (Marp `@theme`/`@size` directives preserved) |
+| `@laticent/lattice/themes/<name>.css` | `themes/<name>.css` | one palette — a **Marp theme file**, not a standalone stylesheet |
+| `lattice` bin · `@laticent/lattice` (`main`/`.`) | `dist/lattice-emulator.js` | the bundled CLI renderer / PDF exporter (`npx lattice deck.md out.pdf`) |
+| `@laticent/lattice/min` | `dist/lattice-emulator.min.js` | minified CLI bundle (shebang + executable bit preserved); the bin/main stays the unminified file |
 
 The `.min` variants are byte-for-byte render-faithful to their unminified
 siblings — the CSS minifier preserves Marp's directive comments, so a
@@ -139,7 +139,7 @@ engine's neutral built-in tokens. For a non-Marp / browser context, drop
 in the flattened default — a single self-contained stylesheet:
 
 ```html
-<link rel="stylesheet" href="…/@workwel/lattice/default">  <!-- engine + cuoio -->
+<link rel="stylesheet" href="…/@laticent/lattice/default">  <!-- engine + cuoio -->
 ```
 
 > **Per-theme files are Marp theme files, not drop-in CSS.** Each declares
@@ -228,7 +228,7 @@ npx lattice test/integration/baseline-decks/gallery.md gallery.pdf
 The gallery is committed to `test/integration/baseline-decks/` as the
 ground-truth fixture for what the renderer produces (the docs site serves
 the rendered PDF at
-[/gallery.pdf](https://slidewright.github.io/lattice/gallery.pdf)).
+[/gallery.pdf](https://laticent.github.io/lattice/gallery.pdf)).
 Re-rendering it after an engine or palette change should produce visually
 equivalent output; it's the regression check for the project.
 
@@ -375,16 +375,15 @@ The integration suite asserts cross-renderer parity between the two
 render paths — the owned engine (`lattice-emulator.js`) and the browser
 runtime (`dist/lattice-runtime.js`).
 
-## The Lattice Style project
+## The Laticent project
 
-Lattice is the engine at the core of **Lattice Style**, a project that
+Lattice is the engine at the core of **Laticent**, a project that
 publishes tools for crafting deck-quality documents. The repositories
-(current and planned, hosted at
-[github.com/slidewright](https://github.com/slidewright) until the org
-handle catches up to the name):
+(current and planned) live at
+[github.com/Laticent](https://github.com/Laticent):
 
 - **lattice** — this repo. The deck rendering engine + default palette.
-- **SlideWright** — the desktop app (Tauri). Wraps the Lattice engine
+- **Laticent** — the desktop app (Tauri). Wraps the Lattice engine
   with a markdown editor, live preview, theme picker, and PDF export.
   Aims to make Lattice approachable for people who don't run `node`
   from a terminal. (Under development.)
@@ -402,7 +401,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the per-version detail.
 ## License
 
 GNU Affero General Public License v3.0 (`AGPL-3.0-only`). See [LICENSE](LICENSE).
-Copyright © 2025–2026 Sharmarke Aden, doing business as SlideWright.
+Copyright © 2025–2026 Sharmarke Aden, doing business as Laticent.
 
 Lattice is free and open source, and everyday use carries no copyleft
 obligations: rendering decks on your laptop or in CI is not distribution, and
@@ -413,8 +412,8 @@ web server imposes nothing on you. The AGPL's conditions attach to the engine
 itself — if you redistribute it, serve it to browsers (shipping the JS/CSS
 bundles in a web app counts), or run a modified version as a network service,
 your engine source must be available under the same license. To embed Lattice
-in a closed-source product under different terms, contact SlideWright about a
+in a closed-source product under different terms, contact Laticent about a
 commercial license: <sharmarke.aden@gmail.com>.
 
-The "Lattice" and "SlideWright" names and logos are trademarks — the license
+The "Lattice" and "Laticent" names and logos are trademarks — the license
 does not grant them; forks must rename. See [TRADEMARKS.md](TRADEMARKS.md).

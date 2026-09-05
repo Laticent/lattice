@@ -13,7 +13,7 @@ summary: >
   reader's actual deck, not by ticking a matrix. The human gate is a LIBRARY invariant, not
   Studio discipline: the read path refuses to project an unapproved (or content-drifted) lens for
   EVERY consumer (Studio, export, share link, headless), and it cannot even import the suggester.
-  Ships as @slidewright/lente (docs/src/lib/lente/), the fourth spin-off-able sibling beside
+  Ships as @laticent/lente (docs/src/lib/lente/), the fourth spin-off-able sibling beside
   Cadenza / Vetrina / Suono — curated index, co-located tests, import-boundary gate. This doc is
   the DESIGN, hardened by the full adversarial trio (red-team + Munger inversion + independent
   checker); the library, the Studio panel, and the one export-pipeline directive touch are named
@@ -182,7 +182,7 @@ reader-eligible. **`includes:` is NOT in v1** (§5, deferred).
 
 ### 3.3 Workspace defaults + per-deck opt-out
 
-- **Workspace config** (`slidewright.workspace.json`, or a `lenses` key in the workspace-settings
+- **Workspace config** (`laticent.workspace.json`, or a `lenses` key in the workspace-settings
   store) ships the five lens *definitions* with house labels, bases, and suggester rules. A deck
   with no `lenses:` block inherits the definitions — but inherited lenses arrive **unapproved**, so
   a reader still sees only `full` until an author approves.
@@ -328,7 +328,7 @@ literally about camera lenses) that previously survived. Low probability, docume
 
 ---
 
-## 8. Library API — `@slidewright/lente`
+## 8. Library API — `@laticent/lente`
 
 Framework-free, zero-dep, pure; its own package + import-boundary gate + co-located tests +
 companion doc — the fourth spin-off sibling on the **Cadenza / Vetrina / Suono** template

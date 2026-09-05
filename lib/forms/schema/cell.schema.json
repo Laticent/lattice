@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://lattice.slidewright.dev/forms/cell.schema.json",
+  "$id": "https://lattice.laticent.dev/forms/cell.schema.json",
   "title": "Lattice Form Cell",
   "description": "A typed slot — an empty, sized, positioned box — produced by a Frame and occupied by a Tile. The connective tissue of the Form composition model (design/forms.md §3, §5, §6). Cells are RESOLUTION-BLIND: geometry references CSS token names (e.g. --masthead-h, --frame-x) defined in lib/base, never px literals. See design/forms.md §6.",
   "type": "object",

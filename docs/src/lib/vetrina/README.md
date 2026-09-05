@@ -12,10 +12,10 @@ modal to dismiss.
 It is **framework-free** (the core imports nothing but the DOM), **zero-config**
 (pass nothing, get the house look), and **buildless-friendly**: it ships a real ESM
 build (`dist/index.mjs`), so a plain `<script type="module">` that imports it needs
-no bundler. (A TS/bundler consumer imports the package by name — `@workwel/vetrina`
+no bundler. (A TS/bundler consumer imports the package by name — `@laticent/vetrina`
 resolves to the ESM build for `import` and the CJS build for `require`.)
 
-> Vetrina is the walkthrough engine behind SlideWright's Studio demo. The full
+> Vetrina is the walkthrough engine behind Laticent's Studio demo. The full
 > design contract, invariants, and the adversarial review that shaped it live in
 > [`engineering/decisions/2026-07-05-vetrina-walkthrough-library.md`](../../../../engineering/decisions/2026-07-05-vetrina-walkthrough-library.md).
 

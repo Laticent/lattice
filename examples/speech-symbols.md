@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 paginate: true
-header: "SlideWright · speech symbols"
+header: "Laticent · speech symbols"
 footer: "Speech Symbol Commons · read-aloud stress test"
 lexicon:
   "⚡": lightning
@@ -49,7 +49,7 @@ Throughput scaled 3 × 4 this sprint. Latency held ≈ 40 with a ± 5 band.
 
 ## Typographic marks and initialisms.
 
-© 2026 SlideWright. Lattice™ and the Acme® engine ship today. The detail lives in ¶ 4.
+© 2026 Laticent. Lattice™ and the Acme® engine ship today. The detail lives in ¶ 4.
 
 - Reach the team at sales@acme for a walkthrough.
 - R&D and the P&L stay whole words — the dictionary wins over a bare ampersand.

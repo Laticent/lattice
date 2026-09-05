@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 paginate: true
-footer: "SlideWright · focus & highlighting"
+footer: "Laticent · focus & highlighting"
 ---
 
 <!-- _class: title silent -->

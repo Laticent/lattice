@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 paginate: true
-footer: "SlideWright · narrative build"
+footer: "Laticent · narrative build"
 ---
 
 <!-- _class: title silent -->

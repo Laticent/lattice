@@ -6,7 +6,7 @@
 
 > **Two words, one feature — and which to use where.** The MACHINE register is
 > `lens`: the front-matter `lenses:` block, `lens-default:`, the per-slide `_lens`
-> tag, and every name in `@workwel/lente`. The HUMAN register is **view**: every
+> tag, and every name in `@laticent/lente`. The HUMAN register is **view**: every
 > string a person reads says "reader view" (the panel is titled *Reader views*, not
 > *Lenses*). Write prose in the human register; write keys and identifiers in the
 > machine one. Neither migrates into the other — see

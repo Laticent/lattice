@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: v1 architectural shape for the SlideWright desktop app on Tauri, with personas, six-release plan, and engine-ownership decisions
+summary: v1 architectural shape for the Laticent desktop app on Tauri, with personas, six-release plan, and engine-ownership decisions
 ---
 
 # Tauri exploration — desktop authoring app for Lattice
@@ -10,7 +10,7 @@ architecture from "should we use Tauri?" to "what's the v1 shape, and
 what runway do we leave for the long-term vision?" This note captures
 both the decisions taken and the open questions still to probe.
 
-The repo README names Tauri as the chosen stack for SlideWright. This
+The repo README names Tauri as the chosen stack for Laticent. This
 note revisits that choice deliberately — and ends up keeping it, but
 with a much sharper picture of what the v1 app actually is.
 
@@ -38,7 +38,7 @@ Direct from authoring intent (May 2026):
   **orthogonal** to focused/split/PiP modes.
 - **Settings.** Layered configuration — defaults → user → workspace
   — with **workspace-scoped overrides that travel with the project**
-  (`.slidewright/settings.json`, parallel to VS Code's `.vscode/`).
+  (`.laticent/settings.json`, parallel to VS Code's `.vscode/`).
   Settings editable via UI or JSON. Extensions contribute to the
   schema (autocomplete + validation in the JSON editor). Secrets
   never live in settings — credentials are referenced by ID and
@@ -205,7 +205,7 @@ answer is **"you're a Diana; our tool is for Mayas."**
 | `lattice.css` opinionated layouts | Quality without design effort |
 | `ThemeStudio` | One-time team setup; then never touched |
 | AI chat + suggestions | Speed accelerator, not novelty |
-| `.slidewright/` workspace settings | Commits next to deck source |
+| `.laticent/` workspace settings | Commits next to deck source |
 | Local AI as default (v1.x) | No friction; not load-bearing for Maya |
 | Tauri vs Electron | She doesn't care; only feel matters |
 
@@ -255,18 +255,18 @@ business model fits cleanly.
 
 ### License
 
-**MIT** for SlideWright — matches Lattice's existing MIT license.
+**MIT** for Laticent — matches Lattice's existing MIT license.
 Maximum permissive, easy adoption, easy enterprise upsell. The
 eventual enterprise tier sells *features and support*, not the
 license itself.
 
 ### Repository structure
 
-Separate repos under the `slidewright/` GitHub organization:
+Separate repos under the `laticent/` GitHub organization:
 
-- `slidewright/lattice` — engine layer (this repo)
-- `slidewright/slidewright` — desktop app
-- `slidewright/themes` — palette packs (future)
+- `laticent/lattice` — engine layer (this repo)
+- `laticent/laticent` — desktop app
+- `laticent/themes` — palette packs (future)
 - First-party extensions — in-tree, in the app repo
 - Third-party extensions — out-of-tree (separate repos), installed
   via the v1.5 extension runtime
@@ -297,11 +297,11 @@ in the Gaps section.
    demo GIFs, contributing guide, issue templates, releases page,
    demo video. The repo is the marketing site for phase one.
 2. **Conference talks** — Maya / Theo / Khoa attend; "we use
-   SlideWright" is the cleanest pitch.
+   Laticent" is the cleanest pitch.
 3. **Lattice ecosystem effect** — existing Lattice users get a
    natural upgrade path to the desktop app.
 4. **Viral PDF badge** — exported PDFs include a small "made
-   with SlideWright" footer (toggleable on by default; removable
+   with Laticent" footer (toggleable on by default; removable
    in the eventual enterprise tier). Cheap, organic, durable.
 5. **dev.to / Show HN / Reddit posts** at v1.0, v1.2 (AI launch),
    v1.5 (ecosystem opens).
@@ -446,7 +446,7 @@ Implications:
 The v1 commitment: **`lattice-engine` is ours.** Markdown → slides,
 directive parsing, and slide HTML output absorbed into the existing
 Lattice codebase. The README already positions Lattice as "the
-engine layer of SlideWright" — this finishes that positioning,
+engine layer of Laticent" — this finishes that positioning,
 replacing the runtime dependency on `@marp-team/marp-core` and
 `@marp-team/marp-cli`.
 
@@ -702,9 +702,9 @@ renders local FS today and Drive / OneDrive later.
 
 | Invocation | Behavior |
 |---|---|
-| `slidewright` | Last workspace + last open file from session state; welcome screen on first run |
-| `slidewright deck.md` | Opens file in editor; workspace root = **parent folder**; tree expanded to reveal the file |
-| `slidewright myfolder/` | Opens folder as workspace root; no file open |
+| `laticent` | Last workspace + last open file from session state; welcome screen on first run |
+| `laticent deck.md` | Opens file in editor; workspace root = **parent folder**; tree expanded to reveal the file |
+| `laticent myfolder/` | Opens folder as workspace root; no file open |
 
 Handled by Tauri's CLI plugin on startup. Same path also covers OS
 "Open With" (file association on `.md`) and drag-drop a file or
@@ -940,13 +940,13 @@ Layered configuration. VS Code-style: settings travel with the
 project so a workspace can pin its theme, linter rules, export
 defaults, and recommended extensions.
 
-#### Workspace config — `.slidewright/` folder
+#### Workspace config — `.laticent/` folder
 
 Hidden folder at workspace root, parallel to `.vscode/`. Folder
 beats single file because we'll want more than just settings:
 
 ```
-.slidewright/
+.laticent/
 ├── settings.json        # main settings
 ├── extensions.json      # recommended extensions for this workspace
 ├── snippets/            # workspace-scoped slide snippets
@@ -960,16 +960,16 @@ conventional app-config directory:
 
 | Platform | Path |
 |---|---|
-| macOS | `~/Library/Application Support/SlideWright/` |
-| Linux | `~/.config/slidewright/` (XDG) |
-| Windows | `%APPDATA%\SlideWright\` |
+| macOS | `~/Library/Application Support/Laticent/` |
+| Linux | `~/.config/laticent/` (XDG) |
+| Windows | `%APPDATA%\Laticent\` |
 
 Resolved at runtime via Tauri's `path::app_config_dir()` — never
-hardcoded. Folder layout mirrors `.slidewright/`, with two
+hardcoded. Folder layout mirrors `.laticent/`, with two
 additions:
 
 ```
-<app-config>/SlideWright/
+<app-config>/Laticent/
 ├── settings.json          # user-tier settings
 ├── keybindings.json       # custom keyboard shortcuts
 ├── snippets/              # user-level snippets
@@ -1003,8 +1003,8 @@ onboarding flags.
 | Tier | Where | Notes |
 |---|---|---|
 | Defaults | shipped in app | sensible baseline |
-| User | `<app-config>/SlideWright/settings.json` (platform-specific path above) | global preferences |
-| Workspace | `.slidewright/settings.json` | project overrides; commits to git |
+| User | `<app-config>/Laticent/settings.json` (platform-specific path above) | global preferences |
+| Workspace | `.laticent/settings.json` | project overrides; commits to git |
 | Folder | per-folder in multi-root | v1.x |
 
 Each tier overrides the previous. Settings UI surfaces effective
@@ -1053,9 +1053,9 @@ load-bearing). Settings reference credentials by ID:
 This is what makes workspace settings safely committable to git.
 
 **Extensions install at user scope, not workspace scope.**
-Workspaces *recommend* via `.slidewright/extensions.json`; users
+Workspaces *recommend* via `.laticent/extensions.json`; users
 *install* via an explicit prompt. Installed code lives in
-`<app-config>/SlideWright/extensions/`. **No auto-install in v1**,
+`<app-config>/Laticent/extensions/`. **No auto-install in v1**,
 even from workspace recommendations — that's what preserves the
 trust property until v1.x adds an explicit "trust this workspace"
 prompt. If extensions could be installed *by* workspace files,
@@ -1064,7 +1064,7 @@ machine; VS Code learned this lesson explicitly and we adopt it
 without paying the tuition.
 
 **User config can be cloud-synced; secrets still can't go there.**
-A user might sync `<app-config>/SlideWright/` through Dropbox /
+A user might sync `<app-config>/Laticent/` through Dropbox /
 iCloud / OneDrive. That makes the keychain-only rule for secrets
 *more* important, not less. User config holds the *index* of
 credentials (which IDs exist, which connector each belongs to);
@@ -1086,11 +1086,11 @@ the tokens themselves live in the OS keychain via Tauri.
 
 Settings declare their scope in the schema.
 
-#### Concrete example — `.slidewright/settings.json`
+#### Concrete example — `.laticent/settings.json`
 
 ```jsonc
 {
-  "$schema": "slidewright://schemas/settings/v1",
+  "$schema": "laticent://schemas/settings/v1",
   "version": 1,
   "workspace": {
     "name": "Q3 Investor Updates",
@@ -1129,7 +1129,7 @@ Settings declare their scope in the schema.
 }
 ```
 
-Sibling `.slidewright/extensions.json`:
+Sibling `.laticent/extensions.json`:
 
 ```jsonc
 {
@@ -1177,7 +1177,7 @@ tooltips.
 
 | Slide | Demonstrates |
 |---|---|
-| 1 | Title slide; "Welcome to SlideWright" |
+| 1 | Title slide; "Welcome to Laticent" |
 | 2 | Editor / preview side-by-side (app screenshot) |
 | 3 | Layout vocabulary (highlight reel from `examples/gallery.md`) |
 | 4 | Mermaid integration — a flowchart inline |
@@ -1220,7 +1220,7 @@ frees up implementation budget and removes a patronizing UX.
 
 #### State
 
-User-scope (`<app-config>/SlideWright/state/onboarding.json`) —
+User-scope (`<app-config>/Laticent/state/onboarding.json`) —
 onboarding is per-person, not per-project:
 
 ```jsonc
@@ -1697,7 +1697,7 @@ responsive even when an extension is busy.
   "id": "com.acme.d2-diagrams",
   "name": "D2 Diagrams",
   "version": "0.3.1",
-  "engine": "slidewright >= 1.0",
+  "engine": "laticent >= 1.0",
   "contributes": {
     "diagramTypes": [{ "name": "d2", "fence": "d2" }]
   },
@@ -2039,7 +2039,7 @@ persistence isn't:
   captures every op locally. Relaunch finds the persisted CRDT
   and offers to recover unsaved state.
 - **Backup retention.** Last N saved snapshots in
-  `.slidewright/.backups/<slug>/`. N = 10 default; workspace
+  `.laticent/.backups/<slug>/`. N = 10 default; workspace
   setting.
 
 #### Operational infrastructure
@@ -2152,7 +2152,7 @@ What format do decks save in:
   ```yaml
   schema: lattice/1
   ```
-- **Companion `.slidewright/decks/<slug>.json`** for things that
+- **Companion `.laticent/decks/<slug>.json`** for things that
   don't fit in markdown — chat history, AI tool-call history,
   comments, ambient state. Also versioned.
 
@@ -2182,7 +2182,7 @@ new-version decks may open with warnings in older versions.
   a deck headlessly. `lattice-emulator.js` already does this; the
   desktop CLI surface stays minimal — open file, render, version.
   **v1 minimum.**
-- **Snippets format + trigger UX.** The `.slidewright/snippets/`
+- **Snippets format + trigger UX.** The `.laticent/snippets/`
   layout is named; format and trigger aren't. Lean: VS Code-style
   JSON with prefix triggers. **v1.x.**
 - **RTL languages.** Arabic / Hebrew need RTL CSS — significant
@@ -2259,9 +2259,9 @@ The smallest thing Maya uses weekly. Zero AI runtime cost.
 - Keyboard nav + screen reader basics + reduced motion + WCAG AA
   (indaco verified)
 - Document format `schema: lattice/1` + companion
-  `.slidewright/decks/<slug>.json` (format defined; mostly empty
+  `.laticent/decks/<slug>.json` (format defined; mostly empty
   until later releases use it)
-- **Viral PDF badge** — "made with SlideWright" footer on exported
+- **Viral PDF badge** — "made with Laticent" footer on exported
   PDFs (toggleable on by default; removable in eventual enterprise
   tier)
 
@@ -2484,7 +2484,7 @@ Honest health check on the plan as it stands. Aggregate score:
   preserve enterprise optionality.
 - **Adoption (5 → 7).** Channels named explicitly: GitHub
   presence as marketing surface, conference talks, Lattice
-  ecosystem effect, viral "made with SlideWright" PDF badge,
+  ecosystem effect, viral "made with Laticent" PDF badge,
   GitHub Sponsors.
 - **Differentiation (6 → 7).** Combination is unique: OSS +
   private local AI grounded in our own docs + brand theming + viral

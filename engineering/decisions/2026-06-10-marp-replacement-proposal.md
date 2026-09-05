@@ -20,7 +20,7 @@ get there without regressing the gallery baselines, the VS Code loop, or the
 docs site.
 
 > **P1 status (2026-06-10): landed (experimental).** `lib/engine/` ships the
-> markdown-it-based core behind the `@slidewright/lattice/engine` export. It
+> markdown-it-based core behind the `@laticent/lattice/engine` export. It
 > reproduces Marpit's slide/directive token contract, runs the existing plugins
 > + transformer registry unchanged, and matches marp-core's per-section HTML
 > across **55/55** gallery decks (twemoji intentionally dropped). Decisions
@@ -60,7 +60,7 @@ docs site.
 > identically; Architect label reads `lattice-engine`). **GATE CLEARED
 > (2026-06-12):** the iOS Safari on-device pass is confirmed. On a real iPhone /
 > iOS Safari, against the **live production bundle** (`?css=engine`;
-> `slidewright.github.io/lattice/playground/lattice-playground.js` md5-verified
+> `laticent.github.io/lattice/playground/lattice-playground.js` md5-verified
 > byte-identical to `main`, so it was the owned emitter, not a stale-deploy marp
 > fallback): `big-number`'s `cqi`-sized numeral renders full-size and
 > `list-steps`' CSS counters fire — the exact two failure modes the P1.1 shelving
@@ -312,7 +312,7 @@ This means **"replace Marp" has two very different scopes**:
   `:is(pre, marp-pre)` carve-outs, and the twemoji `:not(.emoji)` rules as
   "marp-vscode compatibility shims." **Fully achievable in-repo.**
 - **Scope 2 (preview ownership):** stop depending on marp-vscode for the live
-  loop. This is only really answered by the **SlideWright desktop app** (the
+  loop. This is only really answered by the **Laticent desktop app** (the
   Tauri note's `PreviewPane` + incremental `SlideSegmenter`/`RenderCache`),
   or by a `lattice-engine`-powered VS Code preview/extension we'd have to
   build and ship separately. **Not a Lattice-repo change.**
@@ -320,7 +320,7 @@ This means **"replace Marp" has two very different scopes**:
 **Recommendation:** this proposal targets **Scope 1**. Keep the marp-vscode
 loop working unchanged (it's free, external, and good), and treat the
 compatibility shims as a small, documented tax. Sunsetting marp-vscode is a
-SlideWright-app decision, tracked there, not a blocker here. The CLAUDE.md
+Laticent-app decision, tracked there, not a blocker here. The CLAUDE.md
 framing ("Marp is the foundation") should be softened once Scope 1 lands:
 Marp becomes "the VS Code preview host + a retired build dependency," not the
 engine.

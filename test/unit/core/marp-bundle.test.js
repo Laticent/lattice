@@ -99,7 +99,7 @@ describe('marp-bundle spec', () => {
     // emulator's dist/ folder is no longer shipped.
     assert.match(MARP_CONFIG_CJS, /path\.join\(__dirname, 'lattice\.css'\)/);
     assert.doesNotMatch(MARP_CONFIG_CJS, /'dist'/);
-    assert.doesNotMatch(MARP_CONFIG_CJS, /@slidewright\/lattice\/config/);
+    assert.doesNotMatch(MARP_CONFIG_CJS, /@laticent\/lattice\/config/);
   });
 
   // marp-core defaults to html:false, which ESCAPES raw HTML — the deck's two
@@ -126,9 +126,9 @@ describe('marp-bundle spec', () => {
     const pkg = packageJson('My Deck');
     assert.ok(pkg.dependencies['@marp-team/marp-cli']);
     // The engine ships pre-bundled (dist/lattice-emulator.js), so it is NOT an
-    // npm dependency — listing the unpublished @workwel/lattice would 404
+    // npm dependency — listing the unpublished @laticent/lattice would 404
     // `npm install` and the recipient would never get marp-cli either.
-    assert.strictEqual(pkg.dependencies['@workwel/lattice'], undefined);
+    assert.strictEqual(pkg.dependencies['@laticent/lattice'], undefined);
     assert.match(pkg.name, /^My-Deck-marp-export$/);
     // The scripts name the SANITIZED file — the same string the producers write
     // the deck under. They used to interpolate the raw title, so this bundle's

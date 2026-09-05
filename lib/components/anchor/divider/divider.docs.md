@@ -108,7 +108,7 @@ The payload bullet becomes a code.
 
 ## The payload bullet below becomes a scannable code.
 
-- https://slidewright.dev/components/divider
+- https://laticent.dev/components/divider
 - Scan for the divider's docs `caption`
 ```
 

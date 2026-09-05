@@ -163,7 +163,7 @@
     "qr": {
       "label": "qr",
       "summary": "Payload bullet becomes a code.",
-      "sample": "<!-- _class: split-panel qr -->\n\n`split-panel qr`\n\n## The payload bullet becomes a code on the panel.\n\nA bare URL auto-resolves; the caption line labels the scan.\n\n- https://slidewright.dev/components/split-panel `qr`\n- Scan for this layout's docs `caption`\n"
+      "sample": "<!-- _class: split-panel qr -->\n\n`split-panel qr`\n\n## The payload bullet becomes a code on the panel.\n\nA bare URL auto-resolves; the caption line labels the scan.\n\n- https://laticent.dev/components/split-panel `qr`\n- Scan for this layout's docs `caption`\n"
     },
     "proof": {
       "label": "proof",

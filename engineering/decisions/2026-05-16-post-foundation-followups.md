@@ -241,7 +241,7 @@ genuinely shared infrastructure.
 
 - **What.** Build a visual picker — every component as a thumbnail
   with its name, function family, and variants. Could be a generated
-  static HTML, or a panel inside the SlideWright desktop wrapper.
+  static HTML, or a panel inside the Laticent desktop wrapper.
 - **Why.** Most mature design systems ship one (Storybook, Chakra
   docs, shadcn site). Authors who don't know component names by
   heart can pick visually.

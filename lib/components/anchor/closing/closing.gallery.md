@@ -34,7 +34,7 @@ Final slide. Dark canvas mirror of title.
 
 The payload bullet renders as a QR code sized for the back row.
 
-- https://slidewright.dev/components/closing
+- https://laticent.dev/components/closing
 - Scan to open `caption`
 
 

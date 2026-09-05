@@ -478,7 +478,7 @@ export function ByomSection({ featuresHref }: { featuresHref: string }) {
 	);
 }
 
-// ── Waitlist form (SlideWright desktop app) ─────────────────────────────────
+// ── Waitlist form (Laticent desktop app) ─────────────────────────────────
 // A plain HTML form that POSTs to Buttondown — no client JS. `target="_blank"`
 // opens Buttondown's confirmation page in a new tab, so the landing page stays
 // put. The hidden `embed=1` field is Buttondown's embeddable-form marker. The
@@ -493,7 +493,7 @@ export function WaitlistForm() {
 			className="mt-4 border-t border-border pt-4"
 		>
 			<p className="m-0 mb-2 text-[13.5px] text-foreground">
-				Or get <span className="font-semibold text-[var(--text-heading)]">SlideWright</span>, the desktop app, when it lands.
+				Or get <span className="font-semibold text-[var(--text-heading)]">Laticent</span>, the desktop app, when it lands.
 			</p>
 			<div className="flex gap-2">
 				<label htmlFor="bd-email" className="sr-only">

@@ -1,6 +1,6 @@
 ---
 status: blocked
-summary: DEFERRED (2026-08-24) until immediately before the first npm publish — npm is still clean, so nothing degrades by waiting. The repo is already a five-package monorepo that has published nothing — @workwel/lattice plus cadenza, lente, suono and vetrina, with npm `workspaces` declared and all four siblings publish-shaped (exports, dist, files allowlist, README). tools/release.js physically cannot release them: it only knows the root package.json. Adopts Changesets for versioning across the five, keeping the parts of the flow merged in #1443 that Changesets does not do — the ~100 MB showcase zip, the GitHub Release that carries it, and the PR-through-the-merge-queue shape. Corrects #1437 on two points: pnpm is not required (Changesets works with the npm workspaces already declared) and its release.yml block would clobber #1443. Also settles npm auth (OIDC trusted publishing — no NPM_TOKEN exists at all), the canary channel (@next on engine changes only, not every merge), the tag scheme (per-package `@scope/name@x.y.z`, replacing `v<x.y.z>`), the fate of a 17,000-line `## Unreleased` (closed under a dated pre-publish `## 1.0.0`, Changesets accumulates from there), and the HARD RULE #10 change from "edit ## Unreleased" to "add a changeset".
+summary: DEFERRED (2026-08-24) until immediately before the first npm publish — npm is still clean, so nothing degrades by waiting. The repo is already a five-package monorepo that has published nothing — @laticent/lattice plus cadenza, lente, suono and vetrina, with npm `workspaces` declared and all four siblings publish-shaped (exports, dist, files allowlist, README). tools/release.js physically cannot release them: it only knows the root package.json. Adopts Changesets for versioning across the five, keeping the parts of the flow merged in #1443 that Changesets does not do — the ~100 MB showcase zip, the GitHub Release that carries it, and the PR-through-the-merge-queue shape. Corrects #1437 on two points: pnpm is not required (Changesets works with the npm workspaces already declared) and its release.yml block would clobber #1443. Also settles npm auth (OIDC trusted publishing — no NPM_TOKEN exists at all), the canary channel (@next on engine changes only, not every merge), the tag scheme (per-package `@scope/name@x.y.z`, replacing `v<x.y.z>`), the fate of a 17,000-line `## Unreleased` (closed under a dated pre-publish `## 1.0.0`, Changesets accumulates from there), and the HARD RULE #10 change from "edit ## Unreleased" to "add a changeset".
 ---
 
 # Changesets, and a release pipeline for five packages
@@ -15,19 +15,19 @@ discipline does not)
 
 ## The finding that decides it
 
-`SlideWright/lattice` is not a single-package repo. The root `package.json`
+`Laticent/lattice` is not a single-package repo. The root `package.json`
 declares **npm workspaces**, and every one of them is shaped to publish:
 
 | Package | Version | Published? | Evidence it is meant to ship |
 |---|---|---|---|
-| `@workwel/lattice` | 1.0.0 | **no** | 16-entry `files` allowlist, `exports` map |
-| `@workwel/cadenza` | 0.1.0 | **no** | `exports`, `dist/index.cjs`, files allowlist, README |
-| `@workwel/lente` | 0.1.0 | **no** | same |
-| `@workwel/suono` | 0.1.0 | **no** | same |
-| `@workwel/vetrina` | 0.1.0 | **no** | same, plus a `react >=18` peer |
+| `@laticent/lattice` | 1.0.0 | **no** | 16-entry `files` allowlist, `exports` map |
+| `@laticent/cadenza` | 0.1.0 | **no** | `exports`, `dist/index.cjs`, files allowlist, README |
+| `@laticent/lente` | 0.1.0 | **no** | same |
+| `@laticent/suono` | 0.1.0 | **no** | same |
+| `@laticent/vetrina` | 0.1.0 | **no** | same, plus a `react >=18` peer |
 
 None is `private`. **None has ever been published** — npm returns *Not found*
-for `@workwel/lattice`.
+for `@laticent/lattice`.
 
 Two consequences follow immediately:
 
@@ -112,7 +112,7 @@ then describe that release rather than five months of development, and the
 GitHub Release body stops being 1.4 MB against a 125,000-character cap.
 
 **From then on, Changesets owns new entries.** Each package gets its own
-`CHANGELOG.md`; the root one continues as `@workwel/lattice`'s, with
+`CHANGELOG.md`; the root one continues as `@laticent/lattice`'s, with
 generated sections prepended above the pre-publish history.
 
 The honest cost: generated entries read differently from the hand-written prose
@@ -210,7 +210,7 @@ publisher cannot be attached to a package that does not exist.
 ## Risks and open questions
 
 - **The tag scheme changes.** Changesets tags per package
-  (`@workwel/lattice@1.0.1`), not `v1.0.1`. `RELEASE.md` currently states
+  (`@laticent/lattice@1.0.1`), not `v1.0.1`. `RELEASE.md` currently states
   "a release is a git tag `v<x.y.z>`" as the contract. Per-package tags are the
   only coherent scheme once there are five packages, so the contract changes —
   but it must change *in writing*, not by accident. No consumer is pinned to the
@@ -248,8 +248,8 @@ three premises the plan rested on.
 ### Why deferring is safe, and what it costs
 
 The central argument survives intact: **npm is still clean.** Verified
-2026-08-24 against the live registry — `@workwel/lattice`, `@workwel/cadenza`,
-`@workwel/vetrina` and `@slidewright/lattice` all return 404. Nothing is
+2026-08-24 against the live registry — every candidate scope was checked and all
+return 404. Nothing is
 published, so there is no version history to reconcile, no consumer pinned to a
 tag scheme, and no changelog format anyone has parsed. Every one of those stays
 true until the first publish, so nothing degrades by waiting.
@@ -266,10 +266,11 @@ What the delay *does* cost, and why the trigger is the publish rather than a dat
 
 ### Three corrections to the record above
 
-1. **The package scope is `@workwel`, not `@slidewright`.** Every package name
+1. **The npm scope and the GitHub org are separate names.** Every package name
    in the table in §"The finding that decides it", in §2, and in
-   §"Risks and open questions" has been corrected in place. The GitHub *org*
-   is still SlideWright; only the npm scope differs. This matters because
+   §"Risks and open questions" has been corrected in place. *(At the time the
+   scope was `@workwel` while the org was `SlideWright`; the 2026-09 rename
+   unified both on Laticent.)* This matters because
    slice 2 (bootstrap publish) and the per-package tag scheme key off exact
    names, and because "npm returns Not found" was originally checked against
    the wrong scope. Re-checked against both: clean either way.

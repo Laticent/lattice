@@ -6,7 +6,7 @@ description: "How a Lattice slide is composed: a Frame divides the slide into Ce
 import FormDiagram from '../../../components/model/FormDiagram.astro';
 
 :::note[Canonical source]
-This page mirrors the in-repo design doc [`design/forms.md`](https://github.com/slidewright/lattice/blob/main/design/forms.md), which owns the model. The diagrams are drawn from the live manifests under [`lib/forms/`](https://github.com/slidewright/lattice/blob/main/lib/forms). Form is one of four axes — for the whole system see [the concept map](/model/concepts/).
+This page mirrors the in-repo design doc [`design/forms.md`](https://github.com/Laticent/lattice/blob/main/design/forms.md), which owns the model. The diagrams are drawn from the live manifests under [`lib/forms/`](https://github.com/Laticent/lattice/blob/main/lib/forms). Form is one of four axes — for the whole system see [the concept map](/model/concepts/).
 :::
 
 A Lattice slide is **composed**, not just styled. One sentence is the whole system:
@@ -30,7 +30,7 @@ A Frame is, concretely, a `cells: […]` list (plus an optional `suppresses: [�
 
 <FormDiagram fig="frame-cell" />
 
-A slide has exactly **one** Frame — the root chrome frame, or a **sovereign** frame (like `split-panel`) that claims the whole canvas and suppresses the chrome. Cells hold Tiles; **Frames do not nest inside content cells** — that recursion was considered and [rejected](https://github.com/slidewright/lattice/blob/main/engineering/decisions/2026-06-18-frame-recursion-cells.md).
+A slide has exactly **one** Frame — the root chrome frame, or a **sovereign** frame (like `split-panel`) that claims the whole canvas and suppresses the chrome. Cells hold Tiles; **Frames do not nest inside content cells** — that recursion was considered and [rejected](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-06-18-frame-recursion-cells.md).
 
 ---
 
@@ -71,8 +71,8 @@ The diagrams show the *model*. Here's what the engine actually does with a slide
 3. **CSS layout** — `section` is a flex column at the resolved `@size` box; the masthead/stage/footer Cell CSS positions the bands via the `--frame-*` coordinate tokens; the **Component CSS** (`section.kpi …`) lays out the body; `z` flattens to `z-index`.
 4. **Paint** — the browser (or Puppeteer, for PDF) composites by z-plane → the slide.
 
-**The thing to internalise:** Cells and Tiles don't *place* anything at render time — **transforms + CSS do**, keyed on classes (`form`, `kpi`). The cell/tile **manifests are the contract** (validated by a build gate, surfaced in the catalog), not a layout engine that runs. That is the deliberate "light coupling" of the [Form manifest contract](https://github.com/slidewright/lattice/blob/main/engineering/decisions/2026-06-16-form-manifest-medium-independent-contract.md).
+**The thing to internalise:** Cells and Tiles don't *place* anything at render time — **transforms + CSS do**, keyed on classes (`form`, `kpi`). The cell/tile **manifests are the contract** (validated by a build gate, surfaced in the catalog), not a layout engine that runs. That is the deliberate "light coupling" of the [Form manifest contract](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-06-16-form-manifest-medium-independent-contract.md).
 
 ## Where orientation fits
 
-Because placement is transforms + CSS, **orientation is too**. Today a portrait/mobile deck stamps `data-orientation` on the section and the engine scales type (`--canvas-scale`) and reflows the grid layouts via component CSS (see [social/mobile sizes](https://github.com/slidewright/lattice/blob/main/engineering/decisions/2026-06-16-social-mobile-portrait-sizes.md)). The natural next rung — Cells carrying portrait/landscape geometry (the wireframe reshapes), and Tiles + Components *declaring* the orientations they support — is captured in the ADR [orientation in the Form model](https://github.com/slidewright/lattice/blob/main/engineering/decisions/2026-06-16-orientation-in-the-form-model.md). The manifest can *declare* that a layout works in portrait; someone still writes the orientation-aware CSS/transform that makes it true.
+Because placement is transforms + CSS, **orientation is too**. Today a portrait/mobile deck stamps `data-orientation` on the section and the engine scales type (`--canvas-scale`) and reflows the grid layouts via component CSS (see [social/mobile sizes](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-06-16-social-mobile-portrait-sizes.md)). The natural next rung — Cells carrying portrait/landscape geometry (the wireframe reshapes), and Tiles + Components *declaring* the orientations they support — is captured in the ADR [orientation in the Form model](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-06-16-orientation-in-the-form-model.md). The manifest can *declare* that a layout works in portrait; someone still writes the orientation-aware CSS/transform that makes it true.

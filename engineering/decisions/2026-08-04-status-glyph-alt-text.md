@@ -15,7 +15,7 @@ summary: >
 
 # Status glyphs leave the accessibility tree via `content` alt text
 
-**Issue:** [#1320](https://github.com/SlideWright/lattice/issues/1320) ·
+**Issue:** [#1320](https://github.com/Laticent/lattice/issues/1320) ·
 **Sites:** `lib/base/base.print-textures.css`, `themes/a11y-base.css`
 
 ## What was wrong

@@ -337,7 +337,7 @@ general desktop RPA tool. For our web surfaces that boundary doesn't bite.)
 
 - **Slide/PDF visual regression** stays on `golden-diff`/screenshot. Playwright
   does not touch the engine render path (HARD RULE #1).
-- **The Tauri desktop wrapper** (separate SlideWright repo) — not covered here.
+- **The Tauri desktop wrapper** (separate Laticent repo) — not covered here.
 - **Engine `bench` internals / rule #19 evidence contract** — unchanged. §3's
   nightly bench is *observational issue-filing only*, deliberately not a gate, so
   it does not creep into rule #19's intentionally un-blocked territory.

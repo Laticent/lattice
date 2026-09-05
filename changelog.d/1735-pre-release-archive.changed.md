@@ -1,5 +1,5 @@
 - **Changed: `CHANGELOG.md` is the record of releases again — the pre-1.0.0 development log
-  moved to [`changelog/pre-release-archive.md`](https://github.com/slidewright/lattice/blob/main/changelog/pre-release-archive.md).**
+  moved to [`changelog/pre-release-archive.md`](https://github.com/Laticent/lattice/blob/main/changelog/pre-release-archive.md).**
   1.0.0 shipped without rolling
   `## Unreleased` into it, so that section kept accumulating until it was 18,382 lines and
   99.7% of the file: 382,512 tokens down to 1,373. The archive keeps every entry verbatim, in

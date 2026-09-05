@@ -31,7 +31,7 @@ in patch versions.
 > leading the bullet with `**Breaking:**` so it counts as major even under
 > `### Changed`.
 
-> ## The pre-1.0.0 development log moved to [`changelog/pre-release-archive.md`](https://github.com/slidewright/lattice/blob/main/changelog/pre-release-archive.md)
+> ## The pre-1.0.0 development log moved to [`changelog/pre-release-archive.md`](https://github.com/Laticent/lattice/blob/main/changelog/pre-release-archive.md)
 >
 > 1.0.0 shipped on 2026-08-09 from a hand-written section, without rolling `## Unreleased`
 > into it — so that section kept growing until it was 18,382 lines and 99.7% of this file.
@@ -112,10 +112,11 @@ Initial public release.
 - `docs/editorial.md`: prose rules for writing the words on the slides.
 - `docs/architecture.md`: engine internals.
 
-### Position in SlideWright
+### Position in Laticent
 
 Lattice 1.0.0 is the first repository published under the
-[SlideWright](https://github.com/slidewright) organization. Lattice is
+[Laticent](https://github.com/Laticent) organization — which carried its
+former name, SlideWright, when 1.0.0 shipped. Lattice is
 the engine layer — the build pipeline, the layouts, the theme system.
-The SlideWright desktop app (under development) will wrap this engine
+The Laticent desktop app (under development) will wrap this engine
 with a GUI for non-developer deck authors.

@@ -253,8 +253,8 @@ would drop the longest file to `html-player`'s 197s and change the floor by noth
 
 ### 3c. After levers A · B · C — measured on this change's own CI run
 
-Same workflow, same repo, one commit apart: [32082889125](https://github.com/SlideWright/lattice/actions/runs/32082889125) (before) against
-[32092463213](https://github.com/SlideWright/lattice/actions/runs/32092463213) (after).
+Same workflow, same repo, one commit apart: [32082889125](https://github.com/Laticent/lattice/actions/runs/32082889125) (before) against
+[32092463213](https://github.com/Laticent/lattice/actions/runs/32092463213) (after).
 
 | | Before | After | Δ |
 |---|---:|---:|---:|
@@ -266,7 +266,7 @@ Same workflow, same repo, one commit apart: [32082889125](https://github.com/Sli
 Lever A's job-level result tracks §3a's arithmetic: the predicted floor moved 318s →
 268s (−16%) and the measured step moved −14%.
 
-A **second** green run on the next commit ([32093217913](https://github.com/SlideWright/lattice/actions/runs/32093217913)) came in at **8.9m**, so the
+A **second** green run on the next commit ([32093217913](https://github.com/Laticent/lattice/actions/runs/32093217913)) came in at **8.9m**, so the
 after-figure is two runs at 8m48 / 8m54 against a before-range of 10.9–11.4m across the
 four sampled full runs.
 
@@ -437,5 +437,5 @@ it (HARD RULE #18).
   was going to fail anyway, but the queue's behavior under it was not checked.
 - **Fork PRs.** Every number here is same-repo; `golden-diff` already behaves
   differently on a fork (read-only token).
-- **Anything about the SlideWright Tauri wrapper**, which shares the engine but not
+- **Anything about the Laticent Tauri wrapper**, which shares the engine but not
   this CI.

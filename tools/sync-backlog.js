@@ -123,7 +123,7 @@ function renderBacklog(issues) {
 
 # Backlog
 
-The live, claimable work queue — a read-only mirror of [open issues](https://github.com/SlideWright/lattice/issues),
+The live, claimable work queue — a read-only mirror of [open issues](https://github.com/Laticent/lattice/issues),
 grouped by board column. Design lives in \`engineering/decisions/\`; this tracks
 only *status*. **${open.length} open** item${open.length === 1 ? '' : 's'}.
 

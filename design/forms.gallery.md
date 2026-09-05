@@ -3,7 +3,7 @@ marp: true
 theme: crepuscolo
 paginate: true
 header: "Lattice · Form"
-footer: "SlideWright · The composition model"
+footer: "Laticent · The composition model"
 meta: "Composition Model · 2026-06-15 | Owner · S. Aden"
 form: standard
 ---

@@ -26,7 +26,7 @@
 // pass their base-aware `url()` helper and compute current from the request
 // pathname via `isCurrent` below.
 
-export const GITHUB_URL = 'https://github.com/slidewright/lattice';
+export const GITHUB_URL = 'https://github.com/Laticent/lattice';
 
 // The inline content destinations — visible directly in the desktop bar.
 export function contentNav(url) {

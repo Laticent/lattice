@@ -210,7 +210,7 @@ function notice() {
 
 ## Lattice
 
-Copyright (c) 2025-2026 SlideWright. Licensed under the **GNU Affero General
+Copyright (c) 2025-2026 Laticent. Licensed under the **GNU Affero General
 Public License, version 3** — the full text is in \`LICENSE\`, beside this file.
 
 \`lattice.min.css\`, \`${THEME}.min.css\`, \`${THEME}-dark.min.css\` and

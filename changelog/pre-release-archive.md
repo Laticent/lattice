@@ -723,7 +723,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
   under the four hue-spread ramps and **176 of 200** under `brand-mono` (worst 2.99:1) — with the
   tier, 0 of 200 on every strategy. The seeded sampler is in the decision record, so the figures
   reproduce.
-  ([#1457](https://github.com/SlideWright/lattice/issues/1457),
+  ([#1457](https://github.com/Laticent/lattice/issues/1457),
   `engineering/decisions/2026-08-10-no-safe-default-token-contract.md`)
 - **The categorical ink solver no longer collapses two categories onto one color.** The
   anti-collapse walk compared each slot only against its immediate predecessor, on the argument
@@ -1718,15 +1718,18 @@ headings each fold appended. A correction belongs in a new entry, never here.
 
 ### Changed
 
-- **All five packages move to the `@workwel` npm scope.** `@slidewright/lattice`, `cadenza`,
-  `lente`, `suono` and `vetrina` become `@workwel/*` ahead of the first publish. **Not a breaking
+- **All five packages move to a single npm scope.** `lattice`, `cadenza`,
+  `lente`, `suono` and `vetrina` are unified under one scope ahead of the first publish. *(That
+  scope was `@workwel` when this landed; it and the earlier `@slidewright` were both retired by
+  the 2026-09 rename to `@laticent`.)* **Not a breaking
   change, and only because of timing** — none of the five has ever been published, so no consumer
   is pinned to the old names and nothing needs a deprecation path. Renaming after the first
   publish would have permanently squatted five names on a scope being abandoned; npm only allows
   unpublishing within 72 hours. 82 references across 37 files, including real `require()` call
   sites (`tools/lint-deck.js`, the read-along bundler graph) rather than prose alone, so the
   workspace links and lockfile were rebuilt with it. The product, the copyright holder and the
-  SPDX headers are untouched — SlideWright remains both. The GitHub repository move is a separate
+  SPDX headers are untouched — the org (then SlideWright, now Laticent) remains both. The GitHub
+  repository move is a separate
   change and is not part of this one.
 
 - **185 committed PDFs now have the watcher the ownership table already credited them with.**
@@ -7198,16 +7201,16 @@ headings each fold appended. A correction belongs in a new entry, never here.
   (`docs/src/pages/suono.astro`.) *Visual layout verified via screenshots at all three widths in
   both themes; live audio playback + interaction is for real-surface testing (a headless build can't
   exercise WebAudio).*
-- **`@slidewright/suono` is now a packaged, publishable workspace with a node-consumable `dist/`.**
+- **`@laticent/suono` is now a packaged, publishable workspace with a node-consumable `dist/`.**
   Suono gains the library-shape recipe its siblings have (the packaging follow-up named in its ADR):
   a per-lib `package.json` (name, `exports`, `files`), membership in the npm `workspaces`, a build
   (`tools/build-suono-lib.js`, esbuild CJS + `tsc` `.d.ts`) wired into `npm run build` + the
   `build:check` freshness gate, a committed `dist/` un-ignored past `docs/.gitignore` and excluded
-  from biome — so `require('@slidewright/suono')` and `npm publish` resolve. Docs + Vitest still
+  from biome — so `require('@laticent/suono')` and `npm publish` resolve. Docs + Vitest still
   import the `./index.ts` source. (The WebAudio playback is browser-only at runtime; the built
   artifact is what a browser consumer requires.) (`docs/src/lib/suono/package.json`,
   `tools/build-suono-lib.js`; `engineering/decisions/2026-07-12-suono-audio-library.md`.)
-- **`@slidewright/suono` gains a fluent (thin) `sequence()` front door for house symmetry.**
+- **`@laticent/suono` gains a fluent (thin) `sequence()` front door for house symmetry.**
   `sequence(stage).items(…).produce(…).gap(…).onItemStart(…).play()` chains the same
   `SequenceOptions` the `stage.sequence({…})` object form takes, giving the sibling libraries one
   uniform `verb(input).….build()` shape. It is deliberately **thin**: Suono is a stateful runtime
@@ -7215,7 +7218,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
   `stage.sequence(collectedOptions)` (a parity test guards it) — discoverability, not new capability;
   the options-object form stays first-class. (`docs/src/lib/suono/builder.ts`, exported from
   `index.ts`.)
-- **`@slidewright/cadenza` gains a fluent `narration()` front door — configure once, emit many.**
+- **`@laticent/cadenza` gains a fluent `narration()` front door — configure once, emit many.**
   `buildTrack`, `makeReader`, `toVtt`, and `toSrt` each take an overlapping slice of the same
   options; instead of rebuilding that bag per output, chain
   `narration(text).pace('moderate').lexicon(map).calibration(state)` then emit `.toTrack()` /
@@ -7223,7 +7226,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
   the matching call, guarded by a parity test — and a *config* builder, not a cue assembler: you
   never hand-build the timeline, so the display/spoken/timing forms cannot desync and Cadenza stays
   "not a decider of what to say." (`docs/src/lib/cadenza/builder.ts`, exported from `index.ts`.)
-- **`@slidewright/lente` gains a fluent `lens()` read-path front door.** Instead of threading
+- **`@laticent/lente` gains a fluent `lens()` read-path front door.** Instead of threading
   `(slides, registry, lensId)` through every call, chain it once:
   `lens(slides).registry(frontMatter).pick('brief').project()` — with terminals `.project()` /
   `.slides()` / `.pairs()` / `.indices()` / `.pickable()` / `.hash()`. It is **pure sugar over the
@@ -7232,7 +7235,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
   silent full-deck substitution — and it is read-only by construction: it never imports the
   suggester and has no `.approve()`/`.suggest()` verb, so the human-Approve gate remains the only
   bridge from a proposal to a reader. (`docs/src/lib/lente/builder.ts`, exported from `index.ts`.)
-- **`@slidewright/lente` now builds a node-consumable `dist/`, so `require('@slidewright/lente')`
+- **`@laticent/lente` now builds a node-consumable `dist/`, so `require('@laticent/lente')`
   and `npm publish` resolve.** Lente's `package.json` already declared `main`/`require` →
   `./dist/index.cjs` and it was an npm-workspace member, but no build ever produced that file —
   requiring the package (or publishing it) hit a missing entry. It now builds like its siblings via
@@ -7985,7 +7988,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
 - **The export derives a WebVTT caption sidecar from a read-along.**
   `lib/core/read-along-vtt.js` turns a manifest `readAlong` section into WebVTT — one
   deck-level `.vtt` (each slide offset by prior durations) or per-slide files. It
-  consumes Cadenza's `toVtt` from the built `@slidewright/cadenza` workspace package —
+  consumes Cadenza's `toVtt` from the built `@laticent/cadenza` workspace package —
   one source of truth (the former node-loadable hand-mirror is retired).
 
 - **A shared producer assembles a read-along from a deck's narration.** `buildReadAlong`
@@ -8543,7 +8546,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
   `engineering/decisions/2026-07-02-studio-e2e-scenarios.md`.
 
 - **The landing "Can't install anything?" card captures an email for the
-  SlideWright waitlist.** A zero-JS Buttondown form (`WaitlistForm` in
+  Laticent waitlist.** A zero-JS Buttondown form (`WaitlistForm` in
   `landing/sections.tsx`) POSTs to the `latticestyle` list and opens the
   confirmation in a new tab, so browser-only visitors have a real follow
   mechanism instead of a dead end. Closes the last open item from the
@@ -10526,7 +10529,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
   required. This is what lets the owned CSS emitter reach math parity; it also
   means any drop-in `dist/lattice.css` consumer now renders `$…$` math correctly.
 
-- **`@slidewright/lattice/engine`** — an experimental, owned markdown→slide
+- **`@laticent/lattice/engine`** — an experimental, owned markdown→slide
   engine (`lib/engine/`), the P1 core of the Marp-replacement effort
   (`engineering/decisions/2026-06-10-marp-replacement-proposal.md`). Built on
   `markdown-it` 14, it reproduces Marpit's slide/directive token contract so the
@@ -11004,7 +11007,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
 - **Minified `.min` variants of every shipped CSS and JS artifact, with named
   export subpaths.** `dist/` now also carries `lattice.min.css`,
   `lattice-default.min.css`, `lattice-runtime.min.js`, and
-  `lattice-emulator.min.js`, reachable via `@slidewright/lattice/css/min`,
+  `lattice-emulator.min.js`, reachable via `@laticent/lattice/css/min`,
   `/default/min`, `/runtime/min`, and `/min` respectively. The CSS minifier
   preserves Marp's `@theme`/`@size` directive comments, so a minified bundle
   still registers as a theme — the `.min` files are render-faithful to their
@@ -12334,15 +12337,15 @@ headings each fold appended. A correction belongs in a new entry, never here.
   the moving parts, which is the only pixel change in the regenerated demo PDFs). (`scene.manifest.json`
   + regenerated docs.)
 
-- **The four spin-off libraries now ship a real ESM build — `import '@slidewright/…'` works in plain
+- **The four spin-off libraries now ship a real ESM build — `import '@laticent/…'` works in plain
   Node ESM and any bundler, not just `require`.** Every package (`suono`, `lente`, `cadenza`, `vetrina`)
   mapped its `exports["."].import` (and top-level `module`) at raw `./index.ts`, so a plain Node-ESM
   consumer — the modern default — crashed with `ERR_UNKNOWN_FILE_EXTENSION ".ts"`; only the `require`
   (CJS) path actually resolved, contradicting the "framework-free, publishable / buildless" positioning.
   Each library's build script now emits a real `dist/index.mjs` (vetrina also `dist/react.mjs`) alongside
   the existing `dist/index.cjs`, and the `import`/`module` conditions point at it. Verified: all four
-  import by name under real Node ESM (`import * as m from '@slidewright/suono'`, …), the `require` path is
-  unchanged (no regression — the in-repo `require('@slidewright/cadenza')` consumers still resolve), and
+  import by name under real Node ESM (`import * as m from '@laticent/suono'`, …), the `require` path is
+  unchanged (no regression — the in-repo `require('@laticent/cadenza')` consumers still resolve), and
   the docs runtime is unaffected (docs + Vitest import source through the `@/lib/*` alias, not the package
   name). Vetrina's README "buildless — no bundler required" claim + its `./vetrina/index.js` example (a
   file that never existed) are corrected to the shipped `dist/index.mjs`, and the other READMEs' example
@@ -14100,7 +14103,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
   valid markdown that matches what the CSS supports.
 
 - **The export-to-Marp bundle's `npm install` no longer 404s.** The generated
-  `package.json` listed `@slidewright/lattice` as a dependency, but that package
+  `package.json` listed `@laticent/lattice` as a dependency, but that package
   is unpublished — so a recipient following the README's marp-cli route
   (`npm install` → `npm run pdf`) hit `E404` and never even got marp-cli. The
   engine ships pre-bundled as `dist/lattice-emulator.js` (the README's
@@ -15363,7 +15366,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
   the value holds), or **idle** (muted — running but nothing scheduled), with a `title` explaining it is a
   transport every clip is scheduled onto, not a per-clip stopwatch. Verified live in light + dark across all
   three states (the value ticks while idle, freezes on pause). (`docs/src/pages/suono.astro`.)
-- **Breaking:** **`@slidewright/lente` `approvalHash` now uses an injective encoding — every previously
+- **Breaking:** **`@laticent/lente` `approvalHash` now uses an injective encoding — every previously
   stamped `approved: "sha256:…"` value is invalidated and each lens must be re-approved.** An
   adversarial-trio pass found the old pre-image (member pairs serialized as `` `${index} ${slide}` ``
   joined by `\n`) was **non-injective**: a slide body containing a `\n<index> ` sequence could forge the
@@ -15699,7 +15702,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
   retired.** *(Breaking for the reader-view picker: the built-in "Exec summary" / "One-pager" reshapes are
   gone.)* A reader view is now something the author builds and APPROVES in the Lenses panel — never a
   machine's un-vetted guess. Both the Compose preview and Present offer a deck's own `lenses:` registry
-  views (projected deterministically by `@slidewright/lente` from approved `_lens` tags); a deck with no
+  views (projected deterministically by `@laticent/lente` from approved `_lens` tags); a deck with no
   reader views yet shows a plain **"Full deck"** label in Present, and in the editor a **"＋ Reader view"**
   entry that opens the Lenses panel (so the feature stays discoverable from the deck surface, not a dead
   end). Present's reader picker lists **only reader-eligible lenses** (approved, non-empty, non-hidden,
@@ -15720,7 +15723,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
   the moment its content drifts (readers can't see it again until you re-approve), reads **Staged** when
   hidden, and an **empty** view can't be approved at all. Removing a view also clears its slide tags, so a
   later same-name view never silently inherits old membership. Every write funnels through the deck source
-  (undo-able) with `@slidewright/lente` as the sole registry serializer.
+  (undo-able) with `@laticent/lente` as the sole registry serializer.
 - **Themed tooltips reach more Studio controls (fast-follow).** The `Tip` migration extends from the
   toolbar to the remaining icon/hint controls that still used native `title=` — the Present overlay
   (Slides / Captions / Voice / Presenter), the slide inspector (Reset / Generate description / Connect
@@ -15729,7 +15732,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
   Only genuine hover hints migrated; component-prop `title`s and value-showing labels are unchanged.
   Docs-site Studio UI only. Verified on the real Present overlay.
 - **`_lens` is now a recognized per-slide directive.** A `<!-- _lens: brief ask -->` comment carries a
-  slide's reader-lens membership for the forthcoming lens system (`@slidewright/lente`). Like other
+  slide's reader-lens membership for the forthcoming lens system (`@laticent/lente`). Like other
   directives it is **stripped from exported HTML/PDF** and is never a `<section>` attribute — so internal
   lens membership can't leak into a shared export. Lowercase-only, and a bare `<!-- _lens -->` strips as
   empty. Decks without `_lens` tags export byte-identically to before. *(Minor authoring behavior change:
@@ -16803,7 +16806,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
   GNU Affero GPL v3 text replaces MIT in `LICENSE`; `package.json` now
   declares `AGPL-3.0-only`. Modified versions that are distributed or offered
   as a network service must publish their source under the same license;
-  contact SlideWright for commercial terms. `CONTRIBUTING.md` (new) covers
+  contact Laticent for commercial terms. `CONTRIBUTING.md` (new) covers
   the contribution terms. Versions published before this change remain
   MIT. The README, docs-site copy (landing/features/comparison/introduction,
   footers), and the LFM spec's governance section now say AGPL instead of MIT
@@ -16812,15 +16815,15 @@ headings each fold appended. A correction belongs in a new entry, never here.
   license-adjacent marketing copy to promise only what the AGPL actually
   permits (everyday rendering is obligation-free; redistributing or serving
   the engine is what triggers copyleft). The licensor is identified
-  (Sharmarke Aden dba SlideWright), commercial-license inquiries have a
+  (Sharmarke Aden dba Laticent), commercial-license inquiries have a
   contact address, `LICENSE-EXCEPTIONS` (new) grants the Lattice Output
   Exception so the engine CSS/JS embedded in exported HTML decks never
   encumbers a deck author, and `TRADEMARKS.md` (new) reserves the Lattice /
-  SlideWright names — forks must rename.
+  Laticent names — forks must rename.
 
 - **The Contributor License Agreement is retired — contributors own their
   work.** Introduced alongside the relicense and removed before a single
-  signature was collected: the CLA's core grant (letting SlideWright
+  signature was collected: the CLA's core grant (letting Laticent
   relicense contributions under commercial terms) was one-sided, and that is
   not this project's model. Contributions are accepted plainly under
   AGPL-3.0 (inbound = outbound) with no additional rights granted to anyone;
@@ -16830,7 +16833,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
   welcome; substantive engine work by arrangement (paid if it ships in
   anything commercially licensed); themes/plugins/tools belong entirely to
   their authors to license and sell anywhere; and a symmetry pledge that any
-  engine capability a commercial SlideWright product monetizes lands in the
+  engine capability a commercial Laticent product monetizes lands in the
   AGPL engine within six months. Analysis and decision:
   `engineering/decisions/2026-07-02-contribution-model.md`.
 
@@ -17364,7 +17367,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
   directly; touch-drag suspends page scroll until release; `prefers-reduced-motion`
   falls back to a static slide and the 2D `ConceptLattice` remains the no-JS
   fallback below. Replaces the renderer bake-off staging from #431. The graph
-  reflects the shipped ontology — no recursive Frame-in-Cell edge ([rejected](https://github.com/slidewright/lattice/blob/main/engineering/decisions/2026-06-18-frame-recursion-cells.md)).
+  reflects the shipped ontology — no recursive Frame-in-Cell edge ([rejected](https://github.com/Laticent/lattice/blob/main/engineering/decisions/2026-06-18-frame-recursion-cells.md)).
 
 - **One unified site header + a universal ⌘K command palette (docs site).** The
   top bar was eight copy-pasted topbars across two CSS systems (`TopBar.astro`,
@@ -17686,7 +17689,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
   owned render paths (`lattice-engine`, `lattice-emulator`), which emit emoji as
   plain text rather than twemoji `<img>`. Because Chromium honors an *installed*
   emoji font far more reliably than an `@font-face` one, CI and the cloud session
-  hook now also install `fonts-noto-color-emoji`; the SlideWright desktop app
+  hook now also install `fonts-noto-color-emoji`; the Laticent desktop app
   must ensure a color emoji font is present in its WebView. The marp-cli /
   marp-vscode paths still use twemoji and keep the `:not(.emoji)` carve-outs. See
   `engineering/gotchas.md` "Color emoji needs an installed font on the owned
@@ -18221,8 +18224,8 @@ headings each fold appended. A correction belongs in a new entry, never here.
   `engineering/decisions/2026-06-16-focus-highlighting.md`.
 
 - **Breaking: the BYO marp-cli render path is retired — `marp.config.js` is
-  deleted**, along with the `@slidewright/lattice/config` and
-  `@slidewright/lattice/marp.config.js` package exports. Lattice's own engine
+  deleted**, along with the `@laticent/lattice/config` and
+  `@laticent/lattice/marp.config.js` package exports. Lattice's own engine
   (`lib/engine`, the `lattice` CLI/emulator + docs playground) and the browser
   runtime (`dist/lattice-runtime.js`) are the only render paths. The shared
   markdown-it plugin kernel moved from `lib/integrations/marp/` to
@@ -18292,7 +18295,7 @@ headings each fold appended. A correction belongs in a new entry, never here.
   package is marp-free.** Nothing in the shipped runtime ever imported marp (the
   emulator renders via its own Puppeteer path); marp-cli was pulled only for the
   internal parity gate, the old test oracle, and the benchmark baseline, so
-  `npm install @slidewright/lattice` now skips ~42M of marp packages. **If you
+  `npm install @laticent/lattice` now skips ~42M of marp packages. **If you
   render via the shipped `marp.config.js` (the BYO `npx marp --config-file …`
   path), install marp-cli yourself** (`npm i @marp-team/marp-cli`) — the config
   and the marp-vscode CSS shims still ship, and the Export-to-Marp bundles are

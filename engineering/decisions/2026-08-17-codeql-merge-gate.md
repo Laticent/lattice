@@ -36,12 +36,12 @@ Two rulesets exist on the repository. One is disabled; one is active and governs
 `refs/heads/main`:
 
 ```
-GET /repos/SlideWright/lattice/rulesets   → HTTP 200
+GET /repos/Laticent/lattice/rulesets   → HTTP 200
   19400032  "Code Quality Copilot review for default branch"  enforcement: disabled
   18317422  "Main Merge Queue"                                enforcement: active
 ```
 
-The active one, in full — `GET /repos/SlideWright/lattice/rulesets/18317422`,
+The active one, in full — `GET /repos/Laticent/lattice/rulesets/18317422`,
 HTTP 200, `"current_user_can_bypass": "never"` — carries five rules: `deletion`,
 `non_fast_forward`, `merge_queue`, `pull_request`, and `required_status_checks`.
 The last is the whole finding:
@@ -78,7 +78,7 @@ them is `codeql.yml`. The API agrees — the workflow is dynamic, with no path i
 the tree:
 
 ```
-GET /repos/SlideWright/lattice/actions/workflows
+GET /repos/Laticent/lattice/actions/workflows
   id=304927975  "CodeQL"  path=dynamic/github-code-scanning/codeql  state=active
 ```
 
@@ -98,7 +98,7 @@ posts are reproducible from the check-run API:
 | `ef0248f` | success | **failure** | (2 still open) |
 | `e9303d3` | success | success | `No new alerts in code changed by this pull request` |
 
-`GET /repos/SlideWright/lattice/commits/c7f4a51/check-runs` returns the `CodeQL`
+`GET /repos/Laticent/lattice/commits/c7f4a51/check-runs` returns the `CodeQL`
 run with `"conclusion": "failure"` and `annotations_count: 4`; its `app.slug` is
 `github-advanced-security`, `app.id` 57789. The findings were real —
 polynomial-regex (ReDoS) alerts in new test helpers — and were caught only
@@ -142,7 +142,7 @@ rule drops the other four rules:
 # 1. Read the current ruleset and keep it, so the PUT is a superset.
 curl -sS -H "Authorization: Bearer $ADMIN_TOKEN" \
      -H "Accept: application/vnd.github+json" \
-     https://api.github.com/repos/SlideWright/lattice/rulesets/18317422 > mmq.json
+     https://api.github.com/repos/Laticent/lattice/rulesets/18317422 > mmq.json
 
 # 2. PUT it back with one added context. Only the required_status_checks rule
 #    changes; deletion / non_fast_forward / merge_queue / pull_request are
@@ -151,7 +151,7 @@ curl -sS -H "Authorization: Bearer $ADMIN_TOKEN" \
 curl -sS -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" \
      -H "Accept: application/vnd.github+json" \
      -H "X-GitHub-Api-Version: 2022-11-28" \
-     https://api.github.com/repos/SlideWright/lattice/rulesets/18317422 \
+     https://api.github.com/repos/Laticent/lattice/rulesets/18317422 \
      -d @- <<'JSON'
 {
   "rules": [

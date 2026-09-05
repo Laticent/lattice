@@ -128,7 +128,7 @@
     "qr": {
       "label": "qr",
       "summary": "Scan to take the deck with you.",
-      "sample": "<!-- _class: closing qr -->\n\n`closing qr`\n\n## Leave a scannable takeaway behind.\n\nThe payload bullet renders as a QR code sized for the back row.\n\n- https://slidewright.dev/components/closing\n- Scan to open `caption`\n"
+      "sample": "<!-- _class: closing qr -->\n\n`closing qr`\n\n## Leave a scannable takeaway behind.\n\nThe payload bullet renders as a QR code sized for the back row.\n\n- https://laticent.dev/components/closing\n- Scan to open `caption`\n"
     },
     "index": {
       "label": "index",

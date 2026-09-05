@@ -1,15 +1,15 @@
 ---
 title: The story
-description: Why Lattice Style exists, and the meaning behind the name — structure with taste, born from a refusal to keep fighting the slide tools we all use.
+description: Why Laticent exists, and the meaning behind the name — structure with taste, born from a refusal to keep fighting the slide tools we all use.
 ---
 
-**Lattice Style** is structure with taste — the project behind **Lattice**,
+**Laticent** is structure with taste — the project behind **Lattice**,
 the engine that turns plain Markdown into boardroom-quality decks. Here is
 where it came from, and what the name means.
 
 *— Sharmarke Aden, who builds Lattice*
 
-## Why Lattice Style exists
+## Why Laticent exists
 
 I built Lattice because I can't stand what the slide tools we all use do to
 the people who use them.
@@ -33,7 +33,7 @@ the discipline of a design system and taste built into the engine instead
 of left to chance. You write the words. The structure holds. The finish is
 consistent by default — and swapping it is one line, not a thousand
 hand-edits. What changed shows up in a `git diff`, line by line. And poor
-taste runs out of places to hide. **Lattice Style** is the project I'm
+taste runs out of places to hide. **Laticent** is the project I'm
 building around it.
 
 ## The name
@@ -44,7 +44,7 @@ engine: a structural frame for an argument, where every slide sits on the
 same grid, the same palette, the same deliberate components. You bring the
 meaning; the lattice keeps it straight.
 
-*Style* is the other half, and it means two things at once. The literal
+*Style* is the other half of that address, and it means two things at once. The literal
 one: this is a styling engine — themes, palettes, one stylesheet contract,
 a whole deck restyled in a single line. The deeper one: **style as craft.**
 Lattice is built on four layers — **Function · Form · Substance · Finish** —
@@ -54,16 +54,16 @@ Take style seriously — the way you'd take a well-made shoe seriously — and
 those four words are exactly what it means: *does it work, what's its shape,
 what's it made of, how is it finished.*
 
-So **Lattice Style**: structure you can trust, with taste. The frame and
-the finish — and it lives where it should, at
+So: structure you can trust, with taste — the frame and the finish. That is
+what **Laticent** builds, and why its home is
 [lattice.style](https://lattice.style).
 
-## Lattice, Lattice Style, SlideWright
+## Lattice and Laticent
 
-Three names, three jobs:
+Two names, two jobs:
 
 - **Lattice** — the engine. The thing that turns Markdown into a deck.
-- **Lattice Style** — the project around it, and the home it lives at,
+- **Laticent** — the project around it, the org that publishes it, and the
+  desktop app (under development) that wraps the Lattice engine for people
+  who'd rather not open a terminal. Its home is
   [lattice.style](https://lattice.style).
-- **SlideWright** — the desktop app (under development) that wraps the
-  Lattice engine for people who'd rather not open a terminal.
