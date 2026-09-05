@@ -17,3 +17,9 @@
   `- [x]` form. Without the reservation `{x}` drew a capsule pill containing the letter
   `x` — not an obvious no-op but a plausible-looking wrong artifact — and the four
   behaved three different ways, since `{ }` already fell to literal on the space.
+- **Fixed before release: a pill in a `list-tabular` row was not placed at all.** Every
+  placement rule in that component selects `code` — the element — so a pill auto-placed
+  into the first free cell instead. Measured on a row carrying both a `` `META` `` and a
+  pill, the pill landed in the label column and shoved the row name out to the counter
+  column at x=0. A pill now takes the same cell its variant gives a `code`, and a census
+  test fails if a future variant places a code without placing a pill.

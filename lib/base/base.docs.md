@@ -1288,6 +1288,23 @@ pill the author did not ask for.
 To force the literal for a label that WOULD qualify, use double backticks —
 ` ``{LIVE}`` ` renders as `{LIVE}`.
 
+### Where a pill can go
+
+Anywhere inline code can — verified on a real render: a heading, a paragraph,
+mid-sentence, a blockquote, a table cell, a footer, and a list row's clause. A fenced
+` ``` ` block is not inline code and is never touched.
+
+In a **`list-tabular` row** a pill takes the same cell a trailing `` `code` `` takes, so
+`` 1. cards-grid `{STABLE}:c2` `` puts the pill in the trailing column. Two limits, both
+measured:
+
+- **`spec`** addresses its two codes by position among `code` elements, which cannot see
+  a pill. A `spec` row whose trailing chip is a pill works; one whose **key** is a pill
+  does not — the key stays in the trailing column.
+- **Two trailing items in one row overlap**, e.g. `` 1. Name `META` `{PILL}` ``. That is
+  not about pills: two plain `` `code` `` values do the same, because the row is a grid
+  and a grid item paints over rather than pushing. Put one value in the trailing slot.
+
 ### `{x}` is not a checkbox
 
 The four state markers — `x`, `-`, `/` and a space — are **reserved** inside `{}` and
