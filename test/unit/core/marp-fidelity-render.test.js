@@ -278,6 +278,11 @@ const PROBES = {
       '   - `[x]` `[-]` `[ ]` `[/]`',
       '5. Literals',
       '   - `[?]` `[data-mark]` `{ ok, scene }` `getUserId()` `{K}:c13` `{}`',
+      // The escape, on both paths. A backslash survives into the DOM, which is why it
+      // replaced the double-backtick form — that one was invisible to the runtime and
+      // this arm is what proved it.
+      '6. Escaped',
+      '   - `\\{LIVE}` and `\\[x]` and `\\[a-z]` and `\\d+`',
     ].join('\n'),
     // Reads BOTH sides of the decision: what became a pill (with its resolved axes),
     // and what stayed a `<code>`. Comparing only the pills would pass a mirror that

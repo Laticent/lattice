@@ -101,6 +101,8 @@ Shape and color travel with the thing they describe, not with the slide.
    - `{ ok, scene }` is code, not a label
 4. A near-miss marker
    - `[?]` is not one of the four, so it stays literal
+5. An escape
+   - `\{LIVE}` and `\[x]` show the literal; `\[a-z]` keeps its backslash
 
 ---
 

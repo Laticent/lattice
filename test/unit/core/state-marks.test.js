@@ -109,3 +109,42 @@ describe('state-marks — one kernel, no duplicate decision', () => {
     }
   });
 });
+
+describe('inline-code-directives — the escape, on both paths', () => {
+  const d = require('../../../lib/core/inline-code-directives.js');
+
+  test('a backslash escapes what would have dispatched, and shows the literal', () => {
+    assert.equal(d.escapedText('\\{LIVE}'), '{LIVE}');
+    assert.equal(d.escapedText('\\[x]'), '[x]');
+    assert.equal(d.escapedText('\\{BETA}:tag:c4'), '{BETA}:tag:c4');
+  });
+
+  test('it does NOT strip a backslash that was never an escape — regexes are safe', () => {
+    // `\[a-z]` is a character class and `\d+` is a regex. Stripping unconditionally
+    // would have corrupted both, which is why the rule is "escape only what would
+    // otherwise dispatch" rather than "a leading backslash means escape".
+    for (const src of ['\\[a-z]', '\\d+', '\\n', '\\{ ok, scene }', '\\[?]', '\\[0]']) {
+      assert.equal(d.escapedText(src), null, src);
+    }
+  });
+
+  test('an escaped span never renders a mark or a pill', () => {
+    const { JSDOM: J } = require('jsdom');
+    const doc = new J().window.document;
+    for (const src of ['\\{LIVE}', '\\[x]']) {
+      assert.equal(d.renderHtml(src), null, src);
+      assert.equal(d.renderElement(doc, src), null, src);
+    }
+  });
+
+  test('the escape is visible in TEXT, not in the backtick run', () => {
+    // The previous escape read the backtick count off `token.markup`, which exists only
+    // on the markdown-it side. marp-core renders `` `{LIVE}` `` and ``` ``{LIVE}`` ``` to
+    // the same `<code>{LIVE}</code>`, so the DOM mirror could not tell them apart and
+    // converted both — the fidelity probe caught it. A backslash survives into the DOM,
+    // which is the whole reason it replaced that form; this asserts the property the fix
+    // depends on rather than the fix itself.
+    assert.equal(d.escapedText('{LIVE}'), null, 'no backslash, no escape');
+    assert.ok(d.renderHtml('{LIVE}'), 'the unescaped form still dispatches');
+  });
+});

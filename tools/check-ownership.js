@@ -1801,6 +1801,30 @@ const SANCTIONED_MARGINS = [
        + 'row. Horizontal-only (never touches height math) and a single-item end-shove has no '
        + '`gap`/`padding` equivalent. See the base.modifiers comment at the declaration.',
   },
+  {
+    file: 'lib/base/base.modifiers.css',
+    value: '0.22em',
+    why: 'outer breathing room for an INLINE PILL (`.lat-pill[data-shape]`). MEASURED as the '
+       + 'only mechanism: on the same pill, `padding-inline:1.2em` grew the chrome 58.9px to '
+       + '73.3px and gave 0px of outside space, while `margin-inline` left the chrome at '
+       + '58.9px and opened 5.59px — padding enlarges the box, it does not separate it from '
+       + 'the words either side, and on the fixed-square disc it shrinks the circle instead. '
+       + 'The only alternative is wrapping every pill in a spacer element in both render '
+       + 'paths. Horizontal-only: horizontal margins never collapse, and the block height '
+       + 'measured 27.6px with and without, so it never reaches the height math this rule '
+       + 'guards. There is deliberately no vertical margin OR padding — these are atomic '
+       + 'inline boxes, so block padding enters the line box (75.6px to 82px on a three-line '
+       + 'paragraph) and gives one line leading its neighbours lack.',
+  },
+  {
+    file: 'lib/base/base.modifiers.css',
+    value: '0.22em',
+    why: 'the same horizontal breathing room for an INLINE STATE MARK (`.lat-state`), which '
+       + 'needs its own entry because this allowlist consumes one declaration per entry. On '
+       + 'the disc the case against padding is even plainer than on the pill: the box is a '
+       + 'fixed 1em square with `box-sizing:border-box`, so `padding-inline` shrinks the '
+       + 'CIRCLE rather than moving it off the text. Horizontal-only, same as above.',
+  },
 ];
 
 // ─── Section-box ownership gate ───────────────────────────────────────────

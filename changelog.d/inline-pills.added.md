@@ -36,3 +36,19 @@
   in the markdown-it plugins and in the runtime, which is the drift HARD RULE #1 exists
   to stop. Adding the inline consumer forced the unification rather than a third copy;
   both originals import `lib/core/state-marks.js` now, and a test fails if one grows back.
+- **The escape is a backslash, and it works on every render path.** `` `\{LIVE}` `` and
+  `` `\[x]` `` render the literal with the backslash removed. It replaces a
+  double-backtick escape that worked only on the engine path: marp-core renders
+  `` `{LIVE}` `` and `` ``{LIVE}`` `` to the same `<code>`, so the runtime's DOM mirror
+  could not tell them apart and converted both — a divergence the fidelity probe now
+  pins. A backslash survives into the DOM, so both paths agree. It only escapes what
+  would otherwise dispatch, so `` `\[a-z]` `` and `` `\d+` `` keep their backslash and
+  a regex is safe. Fenced and indented code blocks were never affected — they are not
+  inline code, so no directive is ever read inside one.
+- **Pills and marks now clear the text either side of them.** Measured as the only
+  mechanism without wrapping every one in a spacer element: on the same pill,
+  `padding-inline` grew the chrome 58.9px to 73.3px and gave 0px of outside space, while
+  a horizontal margin left the chrome alone and opened 5.59px. Horizontal only, and there
+  is deliberately no vertical padding — these are atomic inline boxes, so block padding
+  enters the line box and gives one line of a paragraph leading its neighbors lack
+  (measured 75.6px to 82px). Vertical room stays the container's, through `line-height`.

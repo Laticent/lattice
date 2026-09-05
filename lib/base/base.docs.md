@@ -1285,8 +1285,15 @@ An unknown or repeated modifier fails back to literal rather than being ignored:
 `` `{X}:c13` `` renders as code, visibly wrong in review, instead of quietly becoming a
 pill the author did not ask for.
 
-To force the literal for a label that WOULD qualify, use double backticks —
-` ``{LIVE}`` ` renders as `{LIVE}`.
+To force the literal for a label that WOULD qualify, put a **backslash** in front:
+`` `\{LIVE}` `` renders as `{LIVE}`, and `` `\[x]` `` renders as `[x]`.
+
+The backslash is only an escape when what follows would actually have become a pill or
+a mark, so a regex is safe: `` `\[a-z]` `` and `` `\d+` `` are untouched and keep their
+backslash.
+
+**Fenced and indented code blocks are never touched at all** — they are not inline code,
+so nothing in them is ever read as a directive.
 
 ### Where a pill can go
 

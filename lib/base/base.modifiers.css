@@ -3414,6 +3414,16 @@ section.corners-square {
   color:var(--lat-pill-ink, var(--pill-fg, var(--text-body)));
   border-radius:var(--pill-radius);
   white-space:nowrap;
+  /* OUTER breathing room, and `margin` is provably the only mechanism (HARD RULE #20
+   * sanctioned floor). Measured on the same pill: `padding-inline:1.2em` grew the
+   * CHROME from 58.9px to 73.3px and produced 0px of outside space — padding makes the
+   * pill bigger, it does not separate it from the words either side. `margin-inline`
+   * left the chrome at 58.9px and opened 5.59px. A wrapper element would also work and
+   * is what this avoids: a span around every pill, in both render paths, for spacing.
+   * HORIZONTAL ONLY, which is what keeps it off the rule's actual target — horizontal
+   * margins never collapse, and the measurement confirms the block height is 27.6px
+   * with and without. Counted in MARGIN_BUDGET. */
+  margin-inline:0.22em;
 }
 
 /* Geometry per shape. `pill` is the default and needs no rule — it inherits the
@@ -3521,6 +3531,19 @@ section .lat-state {
   box-shadow:
     0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-ring-mix), black),
     inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
+  /* Same sanctioned horizontal margin as the pill above, and for the same measured
+   * reason. On the disc padding is worse than useless: the box is a fixed 1em square
+   * with `box-sizing:border-box`, so padding-inline shrinks the CIRCLE rather than
+   * moving it away from the text.
+   *
+   * AND NO VERTICAL PADDING, deliberately. The disc and the pill are ATOMIC inline
+   * boxes (`inline-block` / `inline-flex`), so unlike a plain inline their block padding
+   * DOES enter the line box: measured, `padding-block:0.5em` took a three-line paragraph
+   * from 75.6px to 82px — one line gains leading its neighbours do not, which is exactly
+   * the uneven rhythm this would be trying to avoid. Vertical room is the CONTAINER's to
+   * own, through its `line-height`; the mark takes what the line already gives it and
+   * centres on the text with `vertical-align`. */
+  margin-inline:0.22em;
 }
 section .lat-state.pass { --state-color:var(--pass); }
 section .lat-state.warn { --state-color:var(--warn); }
