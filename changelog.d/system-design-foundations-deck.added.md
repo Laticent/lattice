@@ -1,4 +1,4 @@
-- **Added: `examples/system-design-foundations.md`, a 218-slide system-design tutorial for
+- **Added: `examples/system-design-foundations.md`, a 219-slide system-design tutorial for
   engineers in their first years.** It opens on one engineer's Tuesday told wake-to-sleep with
   no vocabulary at all, then names each thing she met — system, purpose, boundary, environment,
   process, model, constraint, invariant, infrastructure, emergence — against the timestamp that
@@ -19,7 +19,10 @@
   pass on a course-registration spike. A second design then runs the whole method again from
   nothing — a parking app where drivers scan a sticker on the bay and pay — climbing the ladder
   from a one-table MVP through a scaled rung to an optimized one, where the card fee turns out
-  to be the bill and the servers never were. Choosing a store runs in three passes — shape and
+  to be the bill and the servers never were. Its payment path is worked against Stripe's
+  documented idempotency semantics, including the twenty-four-hour key window that turns a
+  next-morning sweep into a second charge, and the provider metadata that makes an
+  unanswered request findable at all. Choosing a store runs in three passes — shape and
   access, then a capability no shape provides (similarity, ranked text, proximity, live push,
   retention, traversal), then the operational properties that break a tie — so a capability adds
   a store beside the source rather than replacing it. Part seven maps the feed design back to the
