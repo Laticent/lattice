@@ -1288,6 +1288,20 @@ pill the author did not ask for.
 To force the literal for a label that WOULD qualify, use double backticks —
 ` ``{LIVE}`` ` renders as `{LIVE}`.
 
+### `{x}` is not a checkbox
+
+The four state markers — `x`, `-`, `/` and a space — are **reserved** inside `{}` and
+render literal. A state marker is bare at the start of its own bullet:
+
+```markdown
+- [x] Signed by both parties
+```
+
+Writing `` `{x}` `` inline gets you literal text and a `lint:deck` suggestion pointing
+at the bare form, rather than a pill containing the letter `x`. The labels are held back
+so an inline state mark can be added later without breaking a deck that used one as a
+pill.
+
 ## Composition syntax
 
 Modifiers compose space-separated after the layout name.

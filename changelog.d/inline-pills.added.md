@@ -12,3 +12,8 @@
   12,493 single-backtick spans in the repo: zero render differently. An unknown modifier
   (`` `{X}:c13` ``) falls back to literal rather than being ignored, and double backticks
   force the literal for a label that would otherwise qualify.
+- **The four state markers are reserved inside `{}`.** `` `{x}` `` `` `{-}` `` `` `{/}` ``
+  and `` `{ }` `` render literal, with a `lint:deck` suggestion pointing at the bare
+  `- [x]` form. Without the reservation `{x}` drew a capsule pill containing the letter
+  `x` — not an obvious no-op but a plausible-looking wrong artifact — and the four
+  behaved three different ways, since `{ }` already fell to literal on the space.

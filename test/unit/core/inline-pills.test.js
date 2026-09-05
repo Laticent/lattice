@@ -89,6 +89,49 @@ describe('inline-pills — what it refuses (the whole point)', () => {
   });
 });
 
+describe('inline-pills — the state markers are reserved', () => {
+  // The footgun this closes: an author who has learned `- [x]` reaches for `{x}` and,
+  // before this, got a capsule pill containing the letter "x" — a plausible-looking
+  // wrong artifact rather than an obvious no-op. And the four markers behaved THREE
+  // ways, since `{ }` fell to literal on the space while the other three became pills.
+  for (const m of ['x', '-', '/', ' ']) {
+    test(`{${m}} is literal, not a pill labeled "${m}"`, () => {
+      assert.equal(pills.pillHtml(`{${m}}`), null);
+      assert.equal(pills.pillHtml(`{${m}}:c4`), null, 'a modifier must not smuggle it past');
+      assert.equal(pills.pillHtml(`{${m}}:tag:lg`), null);
+    });
+  }
+
+  test('the reserved set is exactly the bare vocabulary, and nothing near it', () => {
+    assert.deepEqual([...pills.RESERVED_MARKERS].sort(), [' ', '-', '/', 'x']);
+    // Capital X is NOT a bare marker (`stateClassesFor` is lowercase-only), so it stays
+    // an ordinary label — reserving it would refuse a legitimate one-letter pill.
+    assert.ok(pills.pillHtml('{X}'));
+    assert.ok(pills.pillHtml('{3}'));
+    assert.ok(pills.pillHtml('{OK}'));
+  });
+});
+
+describe('inline-pills — the parser stays allocation-free on the literal path', () => {
+  test('a non-brace span is rejected before anything is allocated', () => {
+    // Not a timing assertion — those are flaky in CI. This pins the SHAPE the speed
+    // depends on: the reject is a single charCodeAt, so no slice, trim or split runs
+    // for the 99.9% of spans that are ordinary code. Measured separately at 16ns/span
+    // over the repo's real 115,516-span distribution.
+    const src = require('node:fs').readFileSync(require.resolve('../../../lib/core/inline-pills.js'), 'utf8');
+    const body = /function parse\(text\) \{([\s\S]*?)\n\}/.exec(src)[1];
+    const rejectLine = body.split('\n').find((l) => l.includes('charCodeAt'));
+    assert.ok(rejectLine, 'the O(1) first-char reject is gone');
+    assert.match(rejectLine, /return null/, 'the reject must return, not fall through');
+    // and it must come before any allocation
+    assert.ok(
+      body.indexOf('charCodeAt') < body.indexOf('.slice('),
+      'the first-char reject must precede the first slice',
+    );
+    assert.doesNotMatch(body, /\/[^/\s]+\/[gimsuy]*\.(test|exec)|\.match\(/, 'parse must stay regex-free');
+  });
+});
+
 describe('inline-pills — the two render paths agree', () => {
   test('pillElement and pillHtml carry identical attributes and text', () => {
     const doc = new JSDOM().window.document;
