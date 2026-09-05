@@ -1,6 +1,6 @@
 ---
-status: audit — no engine change
-summary: What auto-split actually produces for every component and every declared variant at `portrait` (1080×1350) and `square` (1080×1080), from 122 decks of representative authored content written at each component's `sweet` capacity and passing `lint:deck` with zero warnings. Headline: 147 authored slides become 628 portrait pages (4.3x), and auto-split collapses 45 of the 112 visually distinct looks the catalog's variants produce on an unsplit page down to 67. The collapse is measured, not eyeballed — every variant page is pixel-compared against the same content rendered unsplit at `hd`, and the two populations separate cleanly (survivors >= 1.8% of pixels different, erased variants 0.12–0.29%, i.e. antialiasing). Four components lose or destroy authored content outright. The audit exists to answer one question: should each component own its auto-split look entirely, or is this refinement of a shared envelope? Recommendation inside.
+status: audit — owner ruling recorded 2026-09-05; no engine change in this branch
+summary: What auto-split actually produces for every component and every declared variant at `portrait` (1080×1350) and `square` (1080×1080), from 122 decks of representative authored content written at each component's `sweet` capacity and passing `lint:deck` with zero warnings. Headline: 147 authored slides become 628 portrait pages (4.3x), and auto-split collapses 45 of the 112 visually distinct looks the catalog's variants produce on an unsplit page down to 67. The collapse is measured, not eyeballed — every variant page is pixel-compared against the same content rendered unsplit at `hd`, and the two populations separate cleanly (survivors >= 1.8% of pixels different, erased variants 0.12–0.29%, i.e. antialiasing). Four components lose or destroy authored content outright. The audit exists to answer one question: should each component own its auto-split look entirely, or is this refinement of a shared envelope? Answered: refine the shared envelope and route splitting through the PAGINATION path so a component's own CSS renders every page; drop chrome to reclaim space but never lose stage content; and never center the slide header on a split page (the closing page does today). See § The owner's ruling.
 builds-on: 2026-09-01-autosplit-splits-on-structure.md, 2026-07-29-autosplit-is-not-a-toggle.md, 2026-07-22-structure-derived-split-patterns.md
 ---
 
@@ -19,7 +19,7 @@ it lists the components that are problematic today with the reason for each.
 ## How the evidence was made
 
 **One deck per component, one slide per declared variant, at both sizes.**
-61 components; 31 enrol in auto-split, 30 do not. Every component's own variant
+61 components; 31 enroll in auto-split, 30 do not. Every component's own variant
 list is covered — 116 variants — plus the default, for 245 authored slides across
 122 decks, rendering to **1,436 pages**.
 
@@ -112,6 +112,7 @@ below: **A** content lost · **B** meaning lost · **C** envelope defect ·
 | `compare-code` | yes | B C | A before/after diff is unreadable serially, and both snippets would fit on one page. Body pages drop the heading entirely and carry no pointer. |
 | `decision` | yes | B C | The rejected option gets a full page identical to the chosen one, so that page alone argues the opposite. `banner-tag` shows no tag. |
 | `list-tabular` | yes | B C | **6 distinct looks → 1.** Heading demoted to a caption below the member it introduces; `(cont.)` absent on all 150 body pages. |
+| Every run with a closing page | yes | C | The closing page **centers its heading block vertically** instead of docking it at the top like the body pages and the source slide, so it reads as a fresh slide rather than the end of the run. Seen on `content` and on all six `roadmap` closing pages — every closing page the corpus produces. |
 | `roadmap` | yes | B C | No cover on any run. Closing-page heading set smaller than its own note. Forward pill reads `the note →`. Legend repeats on every page and is then restated as the key insight. **5 looks → 2** at portrait; at square the one variant that splits renders worse than the four that don't. |
 | `journey` | yes | B C | No cover. Both legends repeat on every page. **5 looks → 1** at portrait (heatmap pixel-identical to default); at square it does not split at all and leaves ~48% of the canvas empty. |
 | `kanban` | yes | C D | No cover, no closing page, and the deck kicker repeats on all nine pages. Worst page is one card on ~85% empty canvas. |
@@ -182,6 +183,7 @@ base components are themselves enrolled and win the lookup.
 | **The claimed beat rides every page** | `inventory`, `policy-recommendation`, `stats` | Eight enrolled components declare `coda.claims`. `roadmap` hoists its note to a closing page correctly; the plain paginate path does not, so the below-note prints once per member. `inventory` prints its insight 16 times across a portrait deck; `policy-recommendation` prints "THE ASK" 15 times, and it is the largest block on each page. (`journey`, `kanban`, `redline` and `split-panel` also claim a beat, but the corpus slides for them carry none, so this audit says nothing about those four.) |
 | **No cover** | `journey`, `kanban`, `roadmap` | The native-slice strategies open straight on a body page. `kanban` additionally repeats the deck kicker (`PLATFORM · WEEK 24`) on all nine pages, which the rule says a split page must not carry. |
 | **Closing page hierarchy inverted** | `roadmap` (all 6 closing pages) | The restated heading is set *smaller* than the note beneath it. |
+| **Closing page centers its heading** | `content`, `roadmap` — every closing page in the corpus | The heading, its rule and the beat are centered vertically as one block, with an empty third above and below, where the source slide and every body page dock the heading at the top. `closingPage` builds by subtracting the lede and collection from the source section, so the page inherits that layout's vertical centering with almost nothing left to fill the box. Owner ruling 3 forbids it. |
 | **Heading demoted below its own body** | `split-panel`, `compare-prose`, `compare-table`, `decision`, `list-tabular` | On body pages built by a re-authoring cover strategy the h2 renders as a hairline caption above a rule, smaller than the member title under it. `policy-recommendation` and `list-steps` keep it at display size, so this is a defect and not a house convention. |
 | **`(cont.)` missing on the first body page** | every run, every component | Page `x.2` repeats the heading bare; `x.3` onward carry the mark. `list-tabular` and `split-panel` carry it on no page at all. |
 | **Forward pointer degrades silently** | `checklist`, `list`, `agenda`, `policy-recommendation` | Past roughly 42 characters the pill stops naming the next member and says `continues →`. Measured: a 37- and a 38-character label name their target; a 44- and a 45-character one do not. |
@@ -284,6 +286,54 @@ answers:
    chart-family transform picks one rendered form regardless of variant, and the
    splitter never sees the others. ~4 looks. Fixing the splitter cannot fix these.
 
+## The owner's ruling (2026-09-05)
+
+The recommendation below was put to the owner with the evidence above and
+accepted, with three rulings that sharpen it. They are the decision; the section
+after this one is the argument that produced it.
+
+**1. Refine the shared envelope, and route splitting through the PAGINATION
+path.** Reusing the component's own styling is the point: split on structure,
+paginate, and let the component's own CSS render every page. That applies to
+every component that splits at all — the exceptions stay the ones already
+decided (a viewBox graphic that scales, `diagram`'s mermaid figure among them,
+plus the `anchor` / `asset` / `atomic` treatments in §0c). This settles the
+audit's finding that the four re-authoring `cover-*` strategies account for 30
+of the 45 lost looks: the fix is not to teach them the component's classes, it
+is to stop re-authoring.
+
+**2. Chrome may be dropped to reclaim space. Stage content may not.** Hiding a
+running header or footer to give a page back its room is legitimate and expected.
+Losing or clipping the stage's own content is not, ever. That draws the line
+under §A cleanly: `inventory`'s overprinted note, `statute-stack lane`'s missing
+provisions, `split-panel qr`'s dropped payload and every clip in the un-split
+table are defects to fix, not budget to spend. It also tells the un-split
+components what to do at portrait — shed chrome first, and only then ring.
+
+**3. A split page never centers the slide header.** Verified on the render while
+recording this ruling, and it is the CLOSING page that does it: on `content` the
+heading docks at the top of the source slide and of every body page, but the
+closing page centers the heading, its rule and the key insight as one block, with
+an empty third above and below. It stops reading as a continuation of the run and
+reads as a fresh slide. `roadmap`'s six closing pages do the same, and there it
+compounds with the heading set smaller than the note beneath it. The cause is
+that `closingPage` builds by subtracting the lede and the collection from the
+source section (`lib/core/split-envelope.js`), so the page inherits the source
+layout's vertical centering with almost nothing left in it to fill the box.
+
+One thing this ruling does NOT settle, and the audit should not pretend it does:
+**whether `kpi`, `stats`, `verdict-grid`, `compare-prose`, `decision` and
+`compare-code` should enroll at all.** Ruling 1 says which path a splitting
+component takes; it does not say that a comparison should be paginated. Section B
+argues those six should keep whole for the reason `progress` and `timeline-list`
+were declined on 2026-09-02 — the comparison IS the read — and that remains an
+open enrollment question, six decisions wide.
+
+**A false positive worth recording**, because the next person to look will trip
+on it: `stats` centers its heading on the split page AND on the unsplit page.
+That is the component's own CSS, not the split's doing, and it is not what
+ruling 3 is about.
+
 ## The recommendation
 
 **Refine the shared envelope; do not make each component own its auto-split look.**
@@ -316,11 +366,11 @@ What the evidence does support, in the order it would pay off:
    already shows what it looks like, and section D's instrument gives the target
    a number: bring a split body page's dead band back toward the 63% its own
    unsplit page carries, rather than the 79% it carries today.
-5. **Then, and only then, decide per component whether it should enrol at all.**
+5. **Then, and only then, decide per component whether it should enroll at all.**
    The audit says `kpi`, `stats`, `verdict-grid`, `compare-prose`, `decision` and
    `compare-code` should probably not — for exactly the reason `progress` and
    `timeline-list` were declined on 2026-09-02: the comparison *is* the read. That
-   is six enrolment decisions, not sixty-one implementations.
+   is six enrollment decisions, not sixty-one implementations.
 
 The one thing this audit does **not** settle is whether the size gate is right.
 `roadmap.square` is the uncomfortable case: four variants that decline to split
