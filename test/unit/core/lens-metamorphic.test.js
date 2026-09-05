@@ -86,7 +86,7 @@ const CSS_FAMILIES = [
 ];
 
 /** Build a deck that really declares a `brief` view, with a real registry and real tags. */
-function makeDeck(r, { plant = null } = {}) {
+function makeDeck(r, { plant = null, linkRef = false } = {}) {
 	const n = 3 + Math.floor(r() * 8); // 3..10 slides
 	const bodies = Array.from({ length: n }, (_, i) => BODIES[Math.floor(r() * BODIES.length)](i + 1));
 	// A non-empty PROPER subset, so the view always withholds something.
@@ -99,6 +99,19 @@ function makeDeck(r, { plant = null } = {}) {
 	if (plant && withheld.length) {
 		const at = withheld[Math.floor(r() * withheld.length)];
 		bodies[at] = `${plant}\n\n${bodies[at]}`;
+	}
+	// A LINK REFERENCE DEFINITION is the plant that fires the OTHER channel. markdown-it resolves
+	// `[text][ref]` against definitions collected across the WHOLE document, so a definition on a
+	// withheld slide reaches every kept slide that uses it — and when the slide goes, the kept slides'
+	// own MARKUP changes: `<a href>` becomes the literal text `[text][lref]`. Nothing about the
+	// document's `<style>`/`<script>`/`<link>` set moved, so `documentGlobals` is blind to it and the
+	// catch has to come from the per-section comparison. That distinction is the point of this mode:
+	// the `<style>` plant above is caught by the global channel, so on its own it proves only that
+	// ONE of the two channels works.
+	if (linkRef && withheld.length) {
+		const at = withheld[Math.floor(r() * withheld.length)];
+		bodies[at] = `${bodies[at]}\n\n[lref]: https://example.com/reference`;
+		for (const i of kept) bodies[i] = `${bodies[i]}\n\nSee [the reference][lref].`;
 	}
 
 	// The CSS is prepended to the BODY, so it lands inside chunk 0 — which means a view that
@@ -119,6 +132,25 @@ function makeDeck(r, { plant = null } = {}) {
 	return { src: `${head}---\n${body}`, kept, withheld, n, hasGlobalCss: css !== '' };
 }
 
+/**
+ * WHAT THIS FILE ACTUALLY OBSERVES, measured by deleting each of `crossSlideDrift`'s five
+ * comparisons in turn and re-running. The first draft of this file claimed its decks gave hop 2 "two
+ * different documents to compare"; re-derived, every drift it saw came through `documentGlobals`, and
+ * BOTH per-section comparisons could be deleted with all three arms green. The arms below were added
+ * until the table has no blank rows:
+ *
+ *   lens-export.mjs   comparison                                    killed by
+ *   authoredOrder(full) vs (proxy)      proxy integrity, hop 1      lens-export.test.js (injected renderer)
+ *   documentGlobals(full) vs (proxy)    document channel, hop 1     arms 1 and 2 here
+ *   documentGlobals(proxy) vs (ship)    document channel, hop 2     arm 4 here (bent render)
+ *   before vs middle, per section       section channel, hop 1      arm 3 here (link reference plant)
+ *   middleText vs afterText, per sect.  section channel, hop 2      arm 4 here (bent render)
+ *
+ * The two hop-2 rows are bent rather than generated, and that is not a shortcut: hop 2 asks whether
+ * the STAND-IN is a faithful model of what ships, and the two only disagree when the projection or
+ * the stand-in is itself broken — which no well-formed generated deck produces. Injecting the
+ * divergence is the honest way to prove the comparison is wired and read.
+ */
 test.describe('the metamorphic relation, over generated decks', () => {
 	test('the check fires EXACTLY when the deck has cross-slide state, and is silent otherwise', () => {
 		// Two directions in one sweep, which is what makes this a property rather than a smoke test.
@@ -176,6 +208,73 @@ test.describe('the metamorphic relation, over generated decks', () => {
 		}
 		assert.ok(eligible >= 20, `the generator produced too few projectable decks to judge (${eligible})`);
 		assert.equal(caught, eligible, `every planted cross-slide dependency must be caught (${caught}/${eligible})`);
+	});
+
+	test('and it CAN fail through the SECTION channel too, not only the document one', () => {
+		// The arm above plants a `<style>`, which `documentGlobals` catches — so on its own it proves
+		// one channel works and says nothing about the other. Measured before this arm existed: every
+		// drift the whole file observed came through `documentGlobals`, and BOTH per-section
+		// comparisons could be deleted with all three arms green. A link reference definition is the
+		// plant that fires the other one: the stylesheet set is untouched and a KEPT slide's markup
+		// changes, `<a href>` degrading to the literal text `[the reference][lref]`.
+		let caught = 0;
+		let eligible = 0;
+		let viaSection = 0;
+		for (let seed = 601; seed <= 660; seed++) {
+			const r = rng(seed);
+			const { src, kept } = makeDeck(r, { linkRef: true });
+			const out = projectForExport(src, ['brief']);
+			if (!out.ok) continue;
+			// The generator's own CSS lands on slide 0, so a deck that ALSO withholds slide 0 would be
+			// caught by the document channel and prove nothing here. Judge only the decks where the
+			// section channel is the only thing that can fire.
+			if (!kept.includes(0)) continue;
+			eligible += 1;
+			const drift = crossSlideDrift(src, out.source, kept, render);
+			if (drift) caught += 1;
+			if (drift?.channel === 'section') viaSection += 1;
+		}
+		assert.ok(eligible >= 15, `too few decks where the section channel is the only one that can fire (${eligible})`);
+		assert.equal(caught, eligible, `every planted link reference must be caught (${caught}/${eligible})`);
+		assert.equal(viaSection, eligible, `and caught through the SECTION channel, not the document one (${viaSection}/${eligible})`);
+	});
+
+	test('hop 2 is observed: a stand-in that does not match what SHIPS is reported', () => {
+		// The two hops answer different questions and the file used to prove only the first. Hop 1 asks
+		// whether the withheld slides were contributing anything; hop 2 asks whether the STAND-IN it
+		// asked that of is a faithful model of the document that actually ships — and no generated deck
+		// makes those two disagree, because they only disagree when the projection or the stand-in is
+		// itself broken. So the divergence is injected: a render that returns one extra character
+		// inside a kept section for the PROJECTED source only. Deleting the hop-2 comparison makes this
+		// arm fail, which is the property it exists to hold.
+		const r = rng(7);
+		const { src, kept } = makeDeck(r);
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true, 'the fixture deck must project');
+		const bent = (source) => {
+			const html = render(source);
+			// Only the shipped document is bent, and only inside a kept slide's body — so hop 1
+			// (full vs stand-in) still agrees and hop 2 is the only comparison that can see it.
+			return source === out.source ? html.replace('</p>', 'INJECTED</p>') : html;
+		};
+		assert.equal(crossSlideDrift(src, out.source, kept, render), null, 'the unbent deck is quiet');
+		const drift = crossSlideDrift(src, out.source, kept, bent);
+		assert.ok(drift, 'a stand-in that disagrees with what ships is a finding');
+		assert.equal(drift.hop, 2, 'reported as hop 2 — the stand-in vs the artifact');
+		assert.equal(drift.channel, 'section', 'through the per-section comparison');
+
+		// Hop 2 has TWO comparisons and the one above reaches only the second. This bends the
+		// DOCUMENT channel instead — a `<style>` appended outside every section, so no slide's markup
+		// moves and only `documentGlobals(proxy) !== documentGlobals(ship)` can see it. Without this,
+		// that line could be deleted with every other arm in the file still green.
+		const bentGlobal = (source) => {
+			const html = render(source);
+			return source === out.source ? `${html}<style>/* only in the shipped document */</style>` : html;
+		};
+		const globalDrift = crossSlideDrift(src, out.source, kept, bentGlobal);
+		assert.ok(globalDrift, 'a stand-in whose STYLESHEET SET disagrees with what ships is a finding');
+		assert.equal(globalDrift.hop, 2);
+		assert.equal(globalDrift.channel, 'style', 'through the document channel');
 	});
 
 	test('the projection always re-splits into the authored number of slots', () => {

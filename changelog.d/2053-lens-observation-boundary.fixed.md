@@ -40,3 +40,14 @@
   which `--quiet` hides, so the one flag every pipeline passes turned them into no output at all. They
   are warnings now, un-gated, like the author-CSS warning that was deliberately un-gated for exactly
   this reason: a privacy warning `--quiet` hides is a warning nobody reads.
+- **Fixed: the generated-deck suite proved one channel and claimed two.** Its own docblock said the
+  decks gave the cross-slide check's second hop "two different documents to compare". Re-derived by
+  deleting each of the five comparisons in turn: every drift the file ever observed came through the
+  document-stylesheet channel, and BOTH per-section comparisons could be deleted with all three arms
+  green. The plant was a `<style>`, which the document channel catches — so the arm billed as proving
+  the relation is checkable proved the other channel worked. Two arms close it: a markdown LINK
+  REFERENCE DEFINITION planted on a withheld slide, which leaves the stylesheet set untouched and
+  degrades `<a href>` to literal text on every kept slide that used it (so only the per-section
+  comparison can catch it), and a bent render that makes the stand-in disagree with what ships in each
+  of the two hop-2 channels. Four of the five comparisons are now killed by this file and the fifth by
+  the injected-renderer arm next door; the file carries that table instead of the claim.
