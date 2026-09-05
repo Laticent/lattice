@@ -978,6 +978,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// See 2026-07-20-landscape-phone-preview-lock.md §Real-device fix.
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
 	const mobile = bp === 'mobile' || landscapePhone; // single swappable pane
+	// …and reset it whenever we stop being MOBILE. It is a phone-only state: only
+	// `ComposeView`'s `onTypingCollapse` sets it, and that prop is `undefined` off mobile, so
+	// nothing on the other side of the breakpoint could ever clear it. That was survivable
+	// while a collapsed header meant "the phone's header"; it is not now that the desktop
+	// Read/Write stops render this same `<header>` (they used to have their own, which
+	// carried no collapse class at all). Without this, collapse on a phone, then widen past
+	// 1100 without the keyboard closing, and the desktop header is `max-h-0` with no control
+	// that can bring it back. Narrow, but the failure is a Studio with no top bar.
+	React.useEffect(() => {
+		if (!mobile) setChromeCollapsed(false);
+	}, [mobile]);
 	// The mobile pane the shell actually shows. Normally the user's Edit/Preview choice;
 	// on a landscape phone it is FORCED to preview (no editing surface → no keyboard).
 	const effPane: 'edit' | 'preview' = landscapePhone ? 'preview' : mobilePane;
@@ -1211,17 +1222,53 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// so the active row is projected from the live editor instead.
 	const deckList = React.useMemo(() => decks.map((d) => (d.id === deck.id ? { ...d, title: deckTitle, meta: metaFor(source) } : d)), [decks, deck.id, deckTitle, source]);
 
-	// Persist the active deck's source (debounced) so edits survive a switch AND a
-	// reload. Skipped on the very first render (nothing changed yet).
-	const firstSave = React.useRef(true);
+	// Persist the active deck's source (debounced) so edits survive a switch AND a reload.
+	//
+	// WHICH DECK'S LOAD HAVE WE ALREADY SEEN? This ref replaces a plain `firstSave` boolean and
+	// carries the deck id, which is what makes one effect enough: the first run for ANY deck —
+	// the mount, or a switch — is that deck's LOAD, and every later run with the same id is a
+	// real edit. A boolean plus a second effect keyed on `deck.id` cannot express that, and got
+	// it wrong in a way worth recording: React runs effects in declaration order, so on mount
+	// the debounce consumed the flag and the reset effect immediately put it back, which
+	// swallowed the very first edit of the session.
+	const loadedFor = React.useRef<string | null>(null);
+	// Has THIS deck's source actually changed since it was loaded?
+	//
+	// WITHOUT IT THE FLUSH WRITES A DECK NOBODY EDITED — measured: open the Studio at Read,
+	// touch nothing, leave, and `lattice-studio-src-welcome` exists. That is not harmless.
+	// `studio-store.ts`'s `loadSource(id) ?? canonicalSource(deck)` then PINS a built-in deck
+	// to the copy shipped on the day you first visited, so a later release's improved sample
+	// never reaches you; and `shouldNudgeBackup` counts "decks carrying edits" as
+	// `loadSource(id) != null`, so merely browsing would arm the backup nudge its own docblock
+	// reserves for "real unbacked-up work".
+	const dirty = React.useRef(false);
 	React.useEffect(() => {
-		if (firstSave.current) {
-			firstSave.current = false;
+		if (loadedFor.current !== deck.id) {
+			loadedFor.current = deck.id;
+			dirty.current = false;
 			return;
 		}
+		dirty.current = true;
 		const id = setTimeout(() => saveSourceGuarded(deck.id, source), 400);
 		return () => clearTimeout(id);
 	}, [source, deck.id, saveSourceGuarded]);
+	/**
+	 * Write the active deck through NOW, skipping the debounce — but only if it was edited.
+	 *
+	 * Every "I am leaving this deck" path funnels through here: the four switch-away callers
+	 * below (switch, new, the demo's first deck, import) and the departure listeners above.
+	 * One helper because the `dirty` rule has to hold at all of them or it holds at none —
+	 * gating the departure flush while `loadDeck` still wrote unconditionally would have left
+	 * the incoherent state where browsing writes nothing but browsing-then-switching does.
+	 *
+	 * Skipping a clean deck is not a shortcut, it is the correct write: `source` was loaded as
+	 * `loadSource(id) ?? deckSource(d)`, so re-writing it changes no CONTENT — it only creates
+	 * a row whose mere existence means "this deck is edited" to `loadSource`'s fallback and to
+	 * `shouldNudgeBackup`.
+	 */
+	const flushActiveDeck = React.useCallback(() => {
+		if (dirty.current) saveSourceGuarded(deck.id, source);
+	}, [deck.id, source, saveSourceGuarded]);
 	// The backup path (workspace-backup.packWorkspace → requestSourceFlush) asks
 	// for an immediate write-through, so a download can't race the 400ms timer
 	// above — without this, a JUST-edited built-in deck could drop out of the
@@ -1239,17 +1286,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// snapshot above: `pagehide` for a real navigation, `visibilitychange` for the
 	// mobile tab-switch that may never fire `pagehide` at all.
 	React.useEffect(() => {
-		const flush = () => saveSourceGuarded(deck.id, source);
-		const onVisibility = () => { if (document.visibilityState === 'hidden') flush(); };
-		window.addEventListener(FLUSH_EVENT, flush);
-		window.addEventListener('pagehide', flush);
+		const onVisibility = () => { if (document.visibilityState === 'hidden') flushActiveDeck(); };
+		window.addEventListener(FLUSH_EVENT, flushActiveDeck);
+		window.addEventListener('pagehide', flushActiveDeck);
 		document.addEventListener('visibilitychange', onVisibility);
 		return () => {
-			window.removeEventListener(FLUSH_EVENT, flush);
-			window.removeEventListener('pagehide', flush);
+			window.removeEventListener(FLUSH_EVENT, flushActiveDeck);
+			window.removeEventListener('pagehide', flushActiveDeck);
 			document.removeEventListener('visibilitychange', onVisibility);
 		};
-	}, [source, deck.id, saveSourceGuarded]);
+	}, [flushActiveDeck]);
 
 	// Record the deck + slide currently in view, so a reload (or an iOS memory-reclaim
 	// tab discard) boots back here instead of on deck #1 — and so studio.astro's pre-paint
@@ -1640,7 +1686,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	function loadDeck(d: StudioDeck) {
 		// Flush the current deck's edits before leaving it (the debounce may not
 		// have fired), then restore the target deck's saved source.
-		saveSourceGuarded(deck.id, source);
+		flushActiveDeck();
 		// Re-read the list AFTER that flush: the deck we're leaving may have been
 		// retitled by an edit (titles derive from the heading), and the switcher shows
 		// stored titles for every deck but the active one.
@@ -1653,7 +1699,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// New / rename / delete — all persisted via the store, then reflected in the
 	// live deck list and switcher.
 	function newDeck() {
-		saveSourceGuarded(deck.id, source);
+		flushActiveDeck();
 		const d = createDeck();
 		setDecks(loadDeckList());
 		setDeck(d);
@@ -1671,7 +1717,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// Flush the deck we're switching away from first (as newDeck/switchDeck do) — a
 		// viewer who clicks "Watch demo" within the 400ms autosave debounce of an edit
 		// would otherwise lose that edit when we switch decks.
-		saveSourceGuarded(deck.id, source);
+		flushActiveDeck();
 		// Dedupe by the deck's stable creation LABEL, not by its displayed title: the demo
 		// types a whole board deck in, so the displayed title (its first heading) is no
 		// longer "My First Deck" by the time the walkthrough ends. The label is the one
@@ -1748,7 +1794,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// exported.
 		const text = normalizeSourceText(rawText);
 		if (!text.trim()) { notify('That file was empty — nothing to import.'); return; }
-		saveSourceGuarded(deck.id, source);
+		flushActiveDeck();
 		const d = createDeck(title || titleFromSource(text), text);
 		// Restore comments SYNCHRONOUSLY (static import) before the deck goes active —
 		// a floating async restore could be overwritten by a comment added in the gap,
@@ -4064,8 +4110,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	 * THE SPLIT COSTS WIDTH, and the number is measured, not derived: the group is 62px below
 	 * 640, 70px at 640–1099 and 134px at ≥1100, against 58 / 64 / 128 for the single button it
 	 * replaced. That is +4px / +6px / +6px — the second box's own padding, which is the price
-	 * of a second target. `studio-header-fit`'s ≥16px spare floor at 700 still passes, which is
-	 * the only place it could have mattered.
+	 * of a second target.
+	 *
+	 * DO NOT CITE `MIN_SPARE_AT_FLOOR` AS THE PROOF THAT IT FITS. An earlier version of this
+	 * note did, and the guard cannot resolve 6px: `spareAt` measures 246px at 700, of which 188
+	 * is the DECK PILL'S OWN shrink range (230px down to its 42px floor), not row headroom. So a
+	 * ≥16px assertion carries ~230px of slack and is structurally incapable of failing on a
+	 * change this size. The number that means something is spare with the pill PINNED — 57px at
+	 * 700, Craft, fonts loaded — and `scrollWidth === clientWidth` at all nine sampled widths.
 	 *
 	 * The menu itself is unchanged, and it persists at EVERY width and stop — the first item
 	 * on the persist list (owner, 2026-08-18: *"as the available width decreases things that
@@ -4487,8 +4539,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    it also pulls the row's largest gap 144 → 130px).
 				    Gated `!compact` like its two siblings, and NOT `hidden xl:block` as it used to
 				    be: an `xl` gate meant desktop widths 1100–1279 drew rule 1 and rule 3 but not
-				    this one, so the banding scheme changed with the window. The 7px it costs at
-				    1100 comes back from the rule this change deleted inside the utilities band.
+				    this one, so the banding scheme changed with the window.
+				    IT COSTS 13px AT 1100–1279 AND NOTHING PAYS IT BACK. An earlier version of this
+				    note claimed the deleted mid-band rule covered it; that was wrong twice. The
+				    deleted rule was `hidden xl:block`, so across 1100–1279 — the exact band this
+				    sentence is about — it never painted and freed nothing. And a rule here does not
+				    cost 7px: 7 is the COMPACT figure (1px + a 6px `gap-1.5`), while this row runs
+				    `sm:gap-3` at `!compact`, so it is 1 + 12 = 13. The band affords it — the row
+				    measures 241px of spare at 1100 and `scrollWidth === clientWidth` at every
+				    sampled width — but it is spent, not recovered.
 				    It is still never drawn below desktop: a rule costs 7px there (1px + one 6px
 				    gap) and `studio-header-fit.spec.ts` measures the spare at the 700px floor
 				    against a ratcheted 16px, so the tablet has about 3px to spend and this does
@@ -4553,8 +4612,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    (owner, 2026-09-05: *"i think we should have the dividers but part of me feels
 				    like it is off"*). The row now runs exactly three rules, each closing a band and
 				    each gated identically on `!compact`: brand | deck, deck | dial, utilities |
-				    verbs. This one used to bracket the appearance box on its own, so at `xl` the
-				    tail carried two rules 19px apart around a single 58px control. */}
+				    verbs.
+				    WHAT THE DELETED RULE ACTUALLY BRACKETED was the TOURS BUTTON, not the appearance
+				    box — the base order was search → appearance → this rule → tours → the kept rule,
+				    so the appearance box had no rule on its left at all. (An earlier version of this
+				    note said otherwise and quoted "19px apart", a number from nowhere: with tours on
+				    the two rules sat 56px apart at desktop density, and with tours turned off, 13px.)
+				    The decision stands on its own — a mid-band rule, bracketing one once-a-session
+				    control — but the reason is worth stating correctly. */}
 
 				{/* Present + Share — the deliverable verbs, primary at every width. On
 				    phones they live one row down in the pane bar (with the panel toggles),

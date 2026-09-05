@@ -62,12 +62,20 @@ rail and the docked panels — and nothing in the band itself.
 2. deck | dial (closing the identity band: which app, which deck, which view)
 3. utilities | verbs
 
-The fourth is gone. It used to sit between the appearance box and the tours
-button — *inside* the utilities band, bracketing a single 58px control with two
-rules 19px apart. That is the "part of me feels like it is off": the row's
-banding scheme was not one rule per boundary, it was four rules at three
-different width gates with one of them mid-band. Rule 2 also lost its `xl` gate;
-the 7px that costs at 1100–1279 is paid for by deleting the mid-band rule.
+The fourth is gone. It sat between the appearance box and the tours button —
+*inside* the utilities band — so what it bracketed, with the rule after tours,
+was the **tours button**: the appearance box had no rule on its left at all.
+That is the "part of me feels like it is off": the banding scheme was not one
+rule per boundary, it was four rules at three different width gates with one of
+them mid-band, bracketing a once-a-session control.
+
+Rule 2 also lost its `xl` gate. **That is spent width, not recovered width** —
+two claims in an earlier draft of this note were wrong. The deleted rule was
+`hidden xl:block`, so across 1100–1279 (the band the `xl` gate is about) it
+never painted and freed nothing; and a rule at desktop density costs **13px**
+(1px + a 12px `sm:gap-3`), not the 7px that applies at compact. The band affords
+it — 241px of spare at 1100, no overflow at any sampled width — but it is a
+cost.
 
 **The deck switcher renders at Read.** It was a plain label there, on the theory
 that managing decks is a Write-and-up concern. A reader whose saved posture is
@@ -90,8 +98,13 @@ page in Chromium, the brand group is **62px below 640, 70px at 640–1099, 134px
 diff (`gap-1.5 px-1 sm:gap-2 sm:px-1.5`, a 28px mark, a 16px chevron, and a 56px
 wordmark measured at ≥1100), to 58 / 64 / 128. So the split spends **+4px below
 640 and +6px everywhere above it** — the second box's own padding, which is what
-makes it a second target. `studio-header-fit`'s ≥16px spare floor at 700px still
-passes, which is the only place that 6px could have mattered.
+makes it a second target. **Do not cite `MIN_SPARE_AT_FLOOR` as
+the proof that it fits** — an earlier draft did, and the guard cannot resolve
+6px: `spareAt` measures 246px at 700, of which 188 is the deck pill's own shrink
+range (230px down to its 42px floor) rather than row headroom, so a ≥16px
+assertion carries ~230px of slack. The numbers that mean something are spare with
+the pill **pinned** — 57px at 700, Craft, fonts loaded — and
+`scrollWidth === clientWidth` at all nine sampled widths.
 
 ## What the guard can assert now that it could not before
 
@@ -128,7 +141,49 @@ That deleted a duplicate tail's worth of inline lucide glyphs from the document:
 the route-budget gate correctly reported as stale. Ratcheted to 192800
 (measured + ~3%, per the ledger's own convention).
 
+## The one capability the unification drops
+
+**At desktop Read between 1100 and 1279, the slide count is gone.** The slim
+header drew `metaFor(source)` at `sm:inline` (≥640); the surviving deck pill
+draws its meta at `xl:inline` (≥1280). Below 1100 nothing changes (the slim
+header never rendered there) and at ≥1280 the pill covers it, so the delta is
+that one desktop band, at that one stop. Found by an independent checker, not by
+me — it is the only element-for-element difference between the deleted header and
+the survivor, which is otherwise a strict superset (it even *adds* the
+`data-demo="present" / "share" / "mode" / "show-me"` hooks that previously
+resolved to nothing at desktop Read/Write, so the tour toolkit now finds them).
+
+**It is not being restored in this PR, and the reason is a real cascade, not
+convenience.** Showing the meta from 1100 would put the pill's non-shrinking
+content at ~123px (2 border + 20 padding + 3 gaps + an 8px dot + a 53px meta +
+a 16px chevron) against its declared `min-w-[62px]` desktop floor. That floor is
+asserted against the pill's own rigid content by `readPill` in
+`studio-header-fit.spec.ts`, which exempts `≥ xl` precisely *because* the meta
+makes the floor unreachable there — so lowering the meta means either raising the
+desktop `min-width` to ~123px, which changes how the whole row absorbs pressure,
+or moving the exemption boundary down to 1100 and leaving the desktop floor
+unchecked at every width. Both are changes to the row's shrink model, which is
+not what this PR is about.
+
+**What ships instead is the full row's own documented policy** — the meta "shows
+only when the bar has room (≥xl); on a tight desktop/tablet the deck title takes
+priority" — now applied at every stop rather than at two of three. That is the
+unification working as intended: Read stops being special. But it is a loss
+against the base, it was not in the original write-up, and the owner should get
+to overrule it.
+
 ## Cost, taken knowingly
+
+**Below desktop the brand block reads as ONE control whose left half leaves the
+app.** The wordmark is gone at compact, so what is left is the logo plus a bare
+24 x 32 chevron 2px away — and nothing says they are two targets there, where at
+desktop the wordmark does. Tapping the logo then navigates to the marketing site,
+which is a surprise. The `pagehide` flush above removes the *data-loss* half of
+that surprise (whatever you had typed survives), but not the surprise itself.
+Making the split legible at compact — a wider gap, a divider, a different
+affordance — is a design call worth putting to the owner rather than picking
+here. Not reproduced on a real touch device; this is a desktop-Chromium reading
+of a phone-width layout, which #23 says is not the surface.
 
 **The workspace menu's touch target shrinks below desktop.** It used to be the whole
 64px brand button; it is now the chevron alone — 28 x 32px at 640–1099, 24 x 32 below
@@ -154,5 +209,8 @@ to change theme or color mode while reading, and a way to open another deck.
   decided by width alone (theme + tours at `xl`, feedback at `lg`, Present/Share
   at `md`), so a resized desktop window and a tablet at the same width still draw
   the same row.
-- **Mobile** (< 700px) is untouched except for the brand split, which is 6px
-  narrower there than what it replaced.
+- **Mobile** (< 700px) is untouched except for the brand split, which is **4px
+  WIDER** there than what it replaced (62px against 58px) — see the measured
+  table above. An earlier draft of this line said "6px narrower", which had the
+  sign backwards on the one line a reader skims for "does this cost the phone
+  anything".

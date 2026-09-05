@@ -183,6 +183,13 @@ async function readHeader(page: import('@playwright/test').Page, tail: string[],
  * they carry no role and no name — but they are the substance of the complaint this test now
  * guards ("the vertical divider is not consistent between read, write and craft"), and a
  * name-keyed control census is exactly the shape of oracle that cannot see them.
+ *
+ * KNOWN BLIND SPOT, stated so nobody reads this as a total census: it sees `button`,
+ * `a[href]` and separators. A stop-dependent `<span>` is INVISIBLE to it — and that is not
+ * hypothetical, it is the exact shape of what the slim header carried (a plain deck title
+ * `<span>` plus its slide-count meta). `readPill`'s unconditional `not.toBeNull()` covers
+ * that specific element; the CLASS is not covered. Widen the selector before trusting this
+ * to catch a text-only difference.
  */
 type RowCell = { key: string; x: number; w: number };
 
