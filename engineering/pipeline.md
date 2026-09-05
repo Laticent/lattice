@@ -78,6 +78,47 @@ more — it's grown considerably past a bare PDF exporter).
 
 Installed via npm, the same binary is `npx lattice`.
 
+**Exporting a reader view** — `--lens <ids>` renders only the slides the named views
+show, instead of the whole deck:
+
+```bash
+node lattice-emulator.js deck.md board.pdf  --lens brief             # one view, 4 pages
+node lattice-emulator.js deck.md pack.html  --lens brief,evidence --player   # both, one file
+node lattice-emulator.js deck.md pack.html  --lens brief,evidence --lens-default evidence --player
+```
+
+Views come from the deck's front-matter `lenses:` block, and each must have been
+approved by a human. It **fails closed**: an unavailable view (`unknown` · `hidden` ·
+`unapproved` · `empty` · `drifted`) exits non-zero naming the reason and writes nothing,
+never the full deck. Several views need `--player`, which carries them behind a switcher;
+every other format is one linear sequence and refuses.
+
+The projection is a **source transform applied before anything else**, which is why the
+page count, auto-split, the overflow pass, notes, captions, and the CSS/font prune all
+agree with it: by the time any of them measures the deck, it *is* the shorter deck. It is
+also what a `--lens` export can honestly claim that the Studio cannot — the slides it
+leaves out are not in the file, rather than hidden inside it. Inside a multi-view player
+the switching is still only hiding. `--lens-source full` puts the whole deck source back
+in the player's re-import envelope, which undoes that for everything except the DOM.
+
+The reduction covers the **views** as well as the slides: the projected source's `lenses:`
+block and every kept slide's `_lens` tag name only the views being exported, so a withheld
+view's id, label, approval digest and membership are absent from the artifact rather than
+merely absent from its switcher. The surviving views ship WITHOUT an approval digest — a
+machine reduced the deck, so re-importing reads them as `unapproved`, and the export never
+signs bytes a human has not seen. `--lens full` on its own is exempt: it is the identity,
+because a full-deck recipient was denied nothing.
+
+The export also re-splits the body it emitted and refuses if the slide count disagrees with
+the projection. The baked view map is indexed by position, so a slide lost or gained
+between the two shifts every view after it.
+
+`--lens-default <id>` names which of the exported views a carrier opens on. Without it the
+deck's own `lens-default:` wins, and the first id given is only the last resort — argv order
+already decides what the switcher lists, so letting it also pick the landing view would
+discard a choice the author wrote down. Naming a view the export does not carry exits
+non-zero rather than falling back, so a typo cannot ship a file that opens on the wrong view.
+
 **Palette resolution** (highest wins): CLI positional/`--palette` flag →
 `LATTICE_PALETTE` env → the deck's own front-matter `theme:` → default
 `indaco`.

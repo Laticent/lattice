@@ -128,10 +128,202 @@ active view and the fail-closed projection below is never asked to fall open.
 shows only the brief" — is a different lever with the opposite failure behavior: it
 withholds the picker and must fail **closed**, because the sender chose that scope on
 purpose and a fall-through would silently override them. It travels on the
-share/export channel rather than in the deck, and it is **not built yet**. When it is,
-remember what it can honestly claim: client-side projection **hides, it does not
-withhold** — a reader who views source sees every non-member slide's bytes. A pin is a
-scoping convenience, never a confidentiality control.
+share/export channel rather than in the deck. The **export half of that channel now
+exists**; a pinned *link* does not.
+
+## Exporting a view — the one consumer that can withhold
+
+`lattice deck.md --lens brief out.pdf` renders the `brief` view: its members, in
+author order, and nothing else. Several views at once need `--player`, which carries
+them behind a switcher in one file — a PDF is one linear sequence, so handed two views
+it could only show the union with nothing telling the reader which slide belongs to
+which, and it refuses instead.
+
+It **fails closed**, exactly as the reader path does. An unavailable view — `unknown`,
+`hidden`, `unapproved`, `empty`, `drifted` — exits non-zero naming the reason and writes
+no file. There is no fall-through to the full deck, because a view is often a deliberate
+reduction and a fall-through hands the reader every slide you kept out.
+
+**This is where the "hides, not withholds" limit finally moves — halfway.** Inside the
+Studio, projection is `display:none` over an array the browser already holds; a reader
+who views source sees every non-member slide. An export *constructs* the bytes, so the
+slides it leaves out are genuinely not in the file. Two things follow, and the split is
+the useful part:
+
+- **What the export leaves out is withheld.** Slides outside the union of the views you
+  exported are not in the artifact at all — not in the slide DOM, not in the article, and
+  not in the re-importable envelope.
+- **What a multi-view carrier switches between is only hidden.** Every view in that one
+  file is in that one file. Send one file with `brief` and `evidence` in it and the
+  `brief` reader can reach the `evidence` slides. If a recipient must not have them, send
+  them their own file.
+
+**An export freezes an approval, and a sent file cannot be un-approved.** Inside the Studio
+approval is revocable: edit the deck and the view de-approves itself, hide it and readers lose
+it. None of that reaches a file you already sent. The vocabulary here — approved, eligible,
+de-approves itself — describes a live check, and an exported artifact only carries the answer
+that check gave on the day it was baked.
+
+**The envelope is the channel people forget.** A `--player` export embeds the deck source
+for lossless re-import, so it round-trips back into a fully editable deck. With `--lens`
+it carries only the slides that shipped; `--lens-source full` restores the whole deck,
+which is a real choice with a real cost — the recipient can then recover every slide no
+view showed them, and the `lenses:` block naming the views they were not given.
+
+**The views themselves are pruned too, not just the slides.** A `--lens brief` export
+carries `brief` and nothing else: the front matter's `lenses:` block names only the views
+you exported, and each kept slide's `_lens` tag names only those views. So a withheld
+view's id, its human label (which is prose you wrote — "Board only — restructuring"), its
+approval digest and its per-slide membership are all absent from the file, not merely
+absent from the switcher. `--lens-source full` is one exception, and it is you asking
+for the whole deck by name; `--lens full` on its own is the other, for the same reason.
+
+**A `_lens` you QUOTED is prose, not membership.** A comment is a directive only when it
+opens its line — which is exactly when the renderer makes one of it — so a backticked
+`` `<!-- _lens: ask -->` `` example, a fenced one, or one written mid-sentence is left
+alone by every reader in the chain, and by the export that rewrites tags. A slide teaching
+the syntax exports intact. (It did not always: three attempts to detect quoted text
+directly each shipped something worse, including one that gutted the example to two bare
+backticks. Adopting the renderer's own rule removed the shape instead of guarding it.)
+
+**Write the membership tag on a blank line of its own.** Not for style — because a tag wedged
+into surrounding text usually cannot be removed. Deleting a line joins the blocks around it:
+a tag between two paragraphs merges them, a tag above a `===` turns the paragraph before it
+into a heading, a tag between two lists welds them into one. Six attempts to decide from the
+text alone which removals are safe each corrupted a real deck, so the export stopped
+deciding: it renders the slide with the engine's own parser before and after, keeps the
+prune only if the two renders match, and otherwise leaves your text exactly as you wrote
+it. (A seventh compared parse TOKENS instead of the render, which is a weaker question —
+a link reference definition emits no token at all, so deleting the line above one killed
+the definition and printed the URL on the slide while the check reported no change.)
+
+**And then it refuses rather than leaking.** A tag it could not remove still names a view the
+recipient is not getting, so nothing is written:
+
+> `error: reader view 'internal' is unavailable (unprunable) — a slide still names a view
+> this export does not carry, in a tag this export will not rewrite — either it shares its
+> line with other text, or removing it would change how the slide renders. Give the tag a
+> line of its own with a blank line above and below, clear of any list`
+
+A blank line above and below the tag is the shape most likely to survive, and it is where
+Lattice itself writes one — though not a guarantee: a comment at column 0 also TERMINATES a
+list, so a tag blank-wrapped between two lists cannot be removed without welding them into
+one and renumbering the second, and that refuses. Up to three spaces of indent and any
+trailing space are fine; **four spaces or a tab is not** — CommonMark makes that an
+indented code block, so the tag is typeset rather than read, and it neither prunes nor
+counts as membership. A tag naming only views you ARE exporting is left alone and ships as
+written — the refusal is about disclosure, not tidiness.
+
+**Two more things an export refuses, both about the deck AROUND a slide.** A slide you keep
+can render differently once the slides you dropped are gone: a `footer:`, `header:`,
+`class:`, `paginate:` or `backgroundColor:` directive applies *from that slide onward*, a
+`[ref]: url` link definition resolves across the whole deck, and a `<style>`, `<script>` or
+`<link>` reaches every slide wherever you wrote it. Set one of those on a slide a view
+excludes and the kept slides silently change — a `CONFIDENTIAL` footer disappearing from the
+very file you are sending, or, with `<style>`, a paragraph you had hidden coming back in it.
+The export renders the deck both ways, compares each kept slide against itself, and refuses
+rather than shipping the difference. Put deck-wide settings in the front matter, or on a
+slide every view keeps.
+
+**And a third: a deck that carries CSS of its own cannot be projected at all.** Write
+`section:nth-of-type(3) p { display: none }` — hide the paragraph on slide 3 — and export a
+view that drops slides before it, and the slide that *becomes* number 3 is a different one.
+A paragraph you had hidden can come back in the file you send; a classification marking can
+land on a slide you never marked. This is the one thing comparing the two renders cannot
+show you, because nothing textual moves: the stylesheet is identical in both files, and so
+is every slide's markup. Only which slide the rule counts to has changed.
+
+So a reducing view **warns** when your deck carries any CSS of its own, or anything that could
+build some: a front-matter `style:`, a `<style>` or a `<link>` anywhere in the deck, a
+`<script>` (three lines of it can add a stylesheet while the page loads), or a stylesheet you
+passed on the command line with `--css`.
+
+**That is deliberately blunt, and it is blunt because the sharp version does not work.**
+Three checks were built to tell dangerous CSS from harmless CSS. One read the rules and
+asked how they were spelled; it refused `p:not(:last-child)` and missed `section[id="3"]`.
+One asked a browser which slides each rule selects; it was walked past by CSS nesting,
+`@scope`, `@import`, a `<link>` and a `<style>` inside an inlined SVG. One compared what a
+reader sees in both renders; it was walked past by `display:none` on a wrapper element, by
+`color: transparent`, by `font-size: 0`, and by a hidden image. Each of those checks had to
+enumerate something with no end to it. "Does this deck carry CSS?" has an end to it, because
+you cannot write a positional rule without writing CSS.
+
+**The cost, measured:** 3 of the decks this repo ships warn — two for a `<style>`,
+one for a `<script>`. All three are already refused under *some* projection shapes by the
+check above, so this widens an existing refusal rather than opening a new one; across the six
+shapes the corpus test runs, it newly refuses 10 (deck, shape) pairs. `--lens full` is
+unaffected — it keeps every slide in place, so nothing can land anywhere new.
+
+**One cost is worth knowing up front.** `lib/base/base.registers.docs.md` tells you to set a
+finish's mark glyph with a per-deck `<style>section.finish-meridian { --fin-mark-text: "Q3";
+}</style>`, and the Studio splices a `<style>` into the markdown it hands you for any deck
+using a saved finish, theme or library component. Those decks cannot be projected into a
+reader view. That rule is scoped to a class and could not select a slide by position — but
+telling it apart from one that could is the question three checks lost, so this one takes it
+too.
+
+**What to do when it warns:** two things move and one does not, and the warning says which.
+
+A selector that COUNTS SLIDES is safe. A withheld slide is not deleted — it ships as an
+empty, hidden placeholder that keeps its slot — and `nth-of-type` is a *structural* selector,
+so it counts a `display:none` element. Measured on real exported files, `section:nth-of-type(4)`,
+`section:nth-child(6)` and `section:last-of-type` each land on the same slide in the projection
+as in the full deck.
+
+A CSS COUNTER is not safe, and it is the reason this warning still exists. Counters live on the
+box tree, and a hidden element generates no box, so it does not increment one. Measured on two
+real PDFs of one deck: a `counter()` heading reads `#4` under `--lens full` and `#2` under
+`--lens brief`. `counters()`, a `counter-reset` chain and `::marker` numbering behave the same
+way, and so does anything keyed to the visible page number
+(`section[data-lattice-pagination="3"]`) — that one by design, because a reader view really does
+renumber the pages it ships.
+
+The fix for both is the same: scope the rule to a class you set on the slide
+(`<!-- _class: hushed -->` and `section.hushed …`) and it travels with the slide. Otherwise,
+check the exported file.
+
+**It warns rather than refusing, deliberately.** Refusing was tried: it takes reader views
+away from essentially every deck the Studio hands back as `.md`, because the Studio embeds
+the palette CSS in a `<style>`, and the threat it guards has zero observed instances across
+every deck in `examples/`. HARD RULE #29 is the house posture for a rule like that — we warn,
+we coach.
+
+**And your `captions:` travel with the slides.** The block is keyed by slide number, so a
+projection renumbers it: entries for withheld slides are dropped, and the rest are
+renumbered to their new positions. Before that, a withheld slide's caption shipped in the
+file and — with `--captions` — was read aloud over a different slide.
+
+**Two things the prune deliberately does NOT do.** It never writes an approval digest: the
+views in a projected deck ship without `approved:`, so re-importing the artifact reads them
+as `unapproved` — which is true, because a machine reduced the deck and your approval
+described it before the reduction. (An earlier version re-stamped them, which made the
+projection self-certifying: the prune rewrites your slide text, so a hash taken afterwards
+would have blessed a damaged deck as approved.) And `--lens full` on its own is the
+identity — it changes nothing, registry included. A `full` recipient was denied nothing, so
+there is no disclosure to close; naming views alongside it (`--lens full,brief`) is a real
+selection and does prune.
+
+**A projection that cannot re-split refuses.** The baked view map is indexed by position,
+so a slide lost or gained between the projection and the emitted file shifts every view
+after it — the failure that shows a reader a slide their view excludes. The export
+re-splits what it wrote, checks it against what it said it kept, and writes nothing on a
+mismatch.
+
+**`--lens-default <id>` picks the view the file opens on.** Without it the deck's own
+`lens-default:` decides, and only if the deck names no default (or names one you are not
+exporting) does it fall back to the first id you typed. Argv order is already spoken for —
+it is what the dropdown lists — and the opening view is a real editorial choice (the board
+gets the brief, the analyst gets the evidence), so the order you happened to type is the
+last thing consulted, not the first. Naming a view the export does not carry is a refusal,
+not a fallback: otherwise you would ship a correct-looking file that opens on the wrong
+view and never be told.
+
+**The switcher is a dropdown, not a row of buttons.** A view's name is your own noun and
+there is no icon that could stand for one, so the control has to show words — and a button
+per view sizes the whole top bar to how many views you declared and how long you named
+them. One `<select>` costs one control however many views ship, keeps the full names in
+the platform's own picker (a full-screen list on a phone), and flexes with the bar instead
+of budgeting it.
 
 ## Depth — rungs and cuts
 
@@ -209,6 +401,8 @@ never five.
   `lens-picker.tsx` / `PresentOverlay.tsx` (the reader switchers).
 - **Engine touch**: `_lens` is a flag directive — tags are **stripped** from
   exported HTML/PDF, so membership never leaks into output bytes.
+- **Export**: `lib/core/lens-export.mjs` — the bake-time projection behind `--lens`,
+  over the same `lensEligibility` read path and the engine's own slide splitter.
 
 ---
 

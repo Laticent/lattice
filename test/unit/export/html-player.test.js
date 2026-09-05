@@ -467,6 +467,56 @@ test('produces a self-contained file — no file:// survives', async () => {
 		});
 	}
 
+	// ── The SCRIPT channel, one element over ────────────────────────────────────────
+	// A `<script>`'s content is RAWTEXT too: it ends at the first `</script`, and the
+	// parser knows nothing about JSON escaping. `JSON.stringify` does not escape `/`, so
+	// any author-controlled string baked into the player's one hashed script closes the
+	// element early and the rest of it is parsed as MARKUP.
+	//
+	// This is not hypothetical and it is not old: the reader-view carrier shipped it. A
+	// deck whose view LABEL carried `</script><img src=x onerror=…>` terminated the script,
+	// so `.lp-js` was never set and the whole player fell back to its no-JS floor with the
+	// attacker's `<img>` live in the document. The CSP held — the sha256 no longer matched
+	// and the inline handler was refused — so the measured outcome was denial of function
+	// plus markup injection, not execution. One net is not the net to rely on: the Studio
+	// renders UNTRUSTED decks into a same-origin frame (#22), and the moment it passes
+	// reader views (#1853 slice 4) this becomes that frame's problem.
+	//
+	// Asserted the same way as the stylesheet cases above — every `</script` in the output
+	// is an element closer and nothing more — plus the label surviving as READABLE text,
+	// because an escape that mangles what the reader sees is a different defect.
+	for (const [where, label] of [
+		['a reader-view label', 'Brief</script><img src=x onerror="alert(1)">'],
+		['an HTML comment opener in a label', 'Brief<!--<script>'],
+	]) {
+		test(`no live </script survives the baked view map from ${where} (HARD RULE #22)`, async () => {
+			const lensViews = [
+				{ id: 'brief', label, indices: [0] },
+				{ id: 'ask', label: 'The ask', indices: [1] },
+			];
+			const { html } = await buildPlayerHtml({ docHtml, source, now: 0, lensViews });
+			const openers = (html.match(/<script[\s>]/gi) || []).length;
+			const terminators = (html.match(/<\/script/gi) || []).length;
+			assert.equal(terminators, openers, `a live </script broke out of the baked map (${where})`);
+			assert.match(html, /var LENS_VIEWS=\[/, 'the map still ships');
+			assert.ok(html.includes('\\u003c'), 'the payload is escaped rather than dropped');
+			// The reader still gets the author's words, in the control's own option.
+			assert.ok(html.includes('<option value="brief"'), 'the view is still offered');
+			assert.match(html, /<option value="brief"[^>]*>Brief&lt;/, 'and its label is escaped as TEXT, not dropped');
+		});
+	}
+
+	test('a carrier with ordinary labels bakes a map a browser can parse back', async () => {
+		// The escape must be REVERSIBLE, not just safe: `\u003c` is valid inside a JSON
+		// string, so what the player parses is the label the author wrote.
+		const lensViews = [{ id: 'brief', label: 'A < B', indices: [0] }, { id: 'ask', label: 'The ask', indices: [1] }];
+		const { html } = await buildPlayerHtml({ docHtml, source, now: 0, lensViews });
+		const raw = /var LENS_VIEWS=(\[.*?\]);/s.exec(html);
+		assert.ok(raw, 'the baked map is present');
+		const parsed = JSON.parse(raw[1].replace(/\\u003c/g, '<'));
+		assert.equal(parsed[0].label, 'A < B', 'the label round-trips to exactly what the author wrote');
+	});
+
 	test('assembly is identity for CSS that does not carry the terminator — the export bytes are unmoved', async () => {
 		// The whole reason this was safe to land without changing a single shipped artifact:
 		// no stylesheet in the 179-sheet committed corpus contains `</style`.

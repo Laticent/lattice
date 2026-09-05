@@ -246,6 +246,31 @@ OPTIONS
                           selectable text is lost. PDF only.
       --orientation <o>   auto | landscape | portrait for --paper (auto follows
                           the deck aspect). Implies --paper auto if given alone.
+      --lens <ids>        Export only the slides the named READER VIEWS show —
+                          one id, or a comma list, or 'full'. Views are declared
+                          in the deck's front-matter 'lenses:' block and each one
+                          must have been APPROVED by a human; an unavailable view
+                          (unknown / hidden / unapproved / empty / drifted) exits
+                          non-zero naming the reason and writes nothing, rather
+                          than falling back to the full deck. Several views need
+                          --player, which carries them behind a switcher; every
+                          other format is one linear sequence, so it takes one.
+                          WHAT THIS WITHHOLDS, AND WHAT IT ONLY HIDES: slides
+                          outside the views you export are genuinely absent from
+                          the file. Slides INSIDE a multi-view carrier are only
+                          hidden — switching is a display rule, so every view in
+                          one file is reachable from that file. Export one view
+                          per file for a recipient who must not have the others.
+      --lens-default <id> Which of the --lens views the player OPENS on. Must be
+                          one of the ids you exported; naming any other exits
+                          non-zero. Without it the deck's own 'lens-default:'
+                          decides; the first id you named is the last resort.
+      --lens-source <s>   What a --lens player's embedded envelope carries:
+                          'projected' (default) ships only the slides that
+                          shipped; 'full' keeps the deck exactly as authored, so
+                          the file still re-imports losslessly — at the cost that
+                          a recipient can recover every slide no view showed
+                          them. No effect without --lens.
       --embed-source      Attach the deck's Markdown source to the PDF as an
                           embedded file (visible in any viewer's attachments
                           panel), so the deck can be re-rendered from the PDF
@@ -369,6 +394,12 @@ function parseArgs(argv) {
     // Who a clipped slide's marker speaks to in THIS render — the same export
     // setting tools/export-marp.js takes (lib/core/resolve-overflow-marker.js).
     '--overflow-marker': 'overflow-marker',
+    // Reader views to project into this export — one id, or a comma list. See LENS_IDS.
+    '--lens': 'lens',
+    // What the player envelope carries once --lens has projected: 'projected' | 'full'.
+    '--lens-source': 'lens-source',
+    // Which exported view the carrier opens on. See LENS_DEFAULT.
+    '--lens-default': 'lens-default',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -439,6 +470,18 @@ if (positional[1]?.endsWith('.css')) {
 if (flags.css)     { cssFile = flags.css; cssIsDefault = false; }
 if (flags.output)  outFile    = flags.output;
 if (flags.palette) paletteArg = flags.palette;
+// THE SLIDES A RASTER EXPORTER SHOOTS — every slide except a reader-view HOLE.
+//
+// A hole is a withheld slide the projection keeps so that `nth-of-type` still lands where the author
+// aimed; it is `display:none`, and Puppeteer cannot screenshot a hidden element — `.pptx` and `.png`
+// both died with "Node is either not visible or not an HTMLElement" (measured). Print needs no
+// equivalent: a hidden section simply emits no page.
+//
+// Excluding it here rather than skipping inside each loop is deliberate: this selector is read at
+// four sites (pptx, png, thumbnails, image-set) and a fifth would otherwise have to remember. It is
+// also what keeps the disclosure at ZERO for every rasterized format — the hole is absent from the
+// artifact entirely, not merely blank in it.
+const SHOOTABLE_SLIDES = 'section[data-lattice-slide]:not(.lens-hole)';
 const QUIET = flags.quiet;
 const NOTES_SIDECAR = !!flags.notes;
 const CAPTIONS = !!flags.captions;
@@ -738,6 +781,120 @@ function readFileOrDie(p, label) {
 }
 
 const mdRaw = readFileOrDie(mdFile, 'source markdown');
+
+// ── Reader-view projection (`--lens`) ───────────────────────────────────────
+// The author chooses, per export, WHICH reader views leave the building: one id,
+// a comma list, or `full`. Applied here — before every other stage — because
+// every stage below is a function of the source, so projecting once at the door
+// keeps the render, auto-split, notes, captions, pagination, the CSS/font prune
+// and the `.html` envelope consistent for free. A `--lens brief` PDF paginates
+// 1..4 because by the time anything measures it, it really is a four-slide deck.
+//
+// The alternative — render everything and drop pages afterwards — is the
+// `pdfseparate` workaround #1853 was filed about, and it needs the absolute page
+// numbers of a view's members, which is exactly the coupling reader views exist
+// to remove.
+//
+// ABSENT, THIS IS A NO-OP AND NOTHING MOVES A BYTE. `mdRaw` is passed through
+// untouched, so a deck with no views — every deck in the tree today — exports
+// exactly as it did before this flag existed.
+const LENS_IDS = String(flags.lens ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+// PASSING THE FLAG AND NAMING NOTHING IS AN ERROR, not "no projection". `--lens "$VIEW"`
+// with `$VIEW` unset is the ordinary way a script hits this, and the old reading — an empty
+// list means skip the whole block — handed over every slide the author kept out, exit 0, no
+// warning. Everything else in this feature refuses; this path silently did the opposite.
+if (flags.lens !== undefined && LENS_IDS.length === 0) {
+  console.error(`error: --lens was given no view id (got '${String(flags.lens)}').`);
+  console.error("       Name at least one view, or drop the flag to export the whole deck.");
+  process.exit(1);
+}
+const LENS_SOURCE = String(flags['lens-source'] ?? 'projected').trim().toLowerCase();
+if (!['projected', 'full'].includes(LENS_SOURCE)) {
+  console.error(`error: --lens-source must be 'projected' or 'full' (got '${LENS_SOURCE}')`);
+  process.exit(1);
+}
+// `--lens-source full` + `--strip-notes` ask for opposite things and only one can be kept.
+// The note-strip set is lifted from the slides that were RENDERED, so it cannot name a note
+// on a slide the projection dropped — and `--lens-source full` puts exactly those slides
+// back into the envelope. Measured: a withheld slide's speaker note reached the shared file
+// with `--strip-notes` set. `auditStrippedSource` caught it and warned, which is the net
+// doing its job, but a warning about a file that has already been written is not a guard.
+// Refused rather than half-honored, because the author asked for a privacy property here.
+if (LENS_SOURCE === 'full' && flags['strip-notes'] && String(flags.lens ?? '').trim()) {
+  console.error('error: --lens-source full cannot be combined with --strip-notes.');
+  console.error('       The note strip covers only the slides that were rendered, and `full` re-admits the ones');
+  console.error('       that were not — so their speaker notes would ride into the envelope. Drop one of the two.');
+  process.exit(1);
+}
+// WHICH VIEW THE FILE OPENS ON. A carrier's first view is a real editorial choice — the
+// board gets the brief, the analyst gets the evidence — and "the order you typed the ids in"
+// is a bad way to express it, because that order is also what the switcher lists. Naming a
+// view this export does not carry REFUSES rather than falling back: an author who typed the
+// wrong id would otherwise ship a correct-looking file that opens on the wrong view.
+const LENS_DEFAULT = String(flags['lens-default'] ?? '').trim();
+if (LENS_DEFAULT && !LENS_IDS.length) {
+  console.error('error: --lens-default needs --lens — it names one of the views being exported.');
+  process.exit(1);
+}
+let LENS_VIEWS = null;
+let LENS_PROJECTION = null;
+let LENS_REPORT = null;
+let LENS_TOTAL = 0;
+let LENS_OPENS_ON = null;
+let lensProjected = mdRaw;
+if (LENS_IDS.length) {
+  const { projectForExport, exportableViews, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
+  const out = projectForExport(mdRaw, LENS_IDS, { default: LENS_DEFAULT || undefined });
+  // FAIL CLOSED. A view is often a deliberate REDUCTION, so falling through to the
+  // full deck would hand the reader every slide the author kept out — the one
+  // failure mode the design forbids (2026-07-13-lente-reader-lenses.md §6.3).
+  if (!out.ok) {
+    const offered = exportableViews(mdRaw).map((v) => v.id);
+    console.error(`error: reader view '${out.lensId}' is unavailable (${out.reason}) — ${REFUSAL_REASONS[out.reason]}`);
+    console.error(`       nothing was exported. Views this deck can export right now: ${offered.join(', ')}`);
+    process.exit(1);
+  }
+  // AND ONE MORE CHECK, ONE SCOPE WIDER THAN THE KERNEL CAN SEE ON ITS OWN. `projectForExport`
+  // verifies each slide's own edit; it cannot see that DROPPING a slide changes the ones that
+  // remain — a `footer:`/`header:`/`class:`/`paginate:` directive applies "from here on", and a
+  // `[ref]: url` definition resolves document-wide. Measured on this CLI: a
+  // `<!-- footer: CONFIDENTIAL - do not distribute -->` set on a withheld slide vanished from every
+  // kept slide, so the marking was stripped from the file that is actually sent while the sender
+  // previewed it with the marking on.
+  //
+  // The kernel owns the comparison and this passes it the RENDERER, because `lib/core` must not
+  // depend on `lib/engine` — a capability, not a promise that one was used.
+  // The two RENDER-based checks do not run here. They have to render the source the pipeline will
+  // actually render, and three more source transforms — `withPrintColorMode`, `preprocessMermaid`,
+  // `appendAutoGlossary` — run downstream of this line. Checking here certified a document nobody
+  // receives: `glossary: auto` appends a slide after this point, so the CLI reported "2 of 3 slides
+  // ship" and wrote a three-slide file carrying an authored index the check had never seen, and every
+  // baked mermaid SVG sat outside both checks entirely. They now run just below `rawMd`, which IS the
+  // shipped source, and still before any byte is written.
+  LENS_PROJECTION = out;
+  LENS_VIEWS = out.views;
+  LENS_TOTAL = out.total;
+  LENS_OPENS_ON = out.default;
+  // The projected source has already SHED the views this export does not carry — both the
+  // front-matter `lenses:` block and the per-slide `_lens` tags (lib/core/lens-export.mjs).
+  // That matters here because `lensProjected` is what the `.html` envelope ends up carrying:
+  // without the prune, a one-view export still told the recipient the ids, labels, approval
+  // digests and per-slide membership of every view it withheld.
+  lensProjected = out.source;
+  // Reported only once the export is committed to running — see the carrier guard below.
+  // Saying "5 of 16 slides ship" and then refusing is a line that describes an artifact
+  // nobody received.
+  // ALWAYS reported, not only when the projection reduced. A carrier whose views happen
+  // to cover the whole deck used to print NOTHING, which is the one case where a reader
+  // most needs to know the file is a carrier rather than a cut.
+  // AND IT SAYS WHAT ACTUALLY LEAVES, WHICH IS NOT ALWAYS WHAT RENDERS. `--lens-source full` puts
+  // the WHOLE deck's markdown back into the `application/lattice+json` envelope, so a file whose
+  // pages show 4 of 8 slides carries all 8 in a channel a recipient can read. Reporting only the
+  // page count there described the artifact the sender expected rather than the one they sent.
+  LENS_REPORT = LENS_SOURCE === 'full'
+    ? `  reader views: ${LENS_IDS.join(', ')} — ${out.kept.length} of ${out.total} slides render, and --lens-source full carries ALL ${out.total} in the envelope`
+    : `  reader views: ${LENS_IDS.join(', ')} — ${out.kept.length} of ${out.total} slides ship`;
+}
 // PRINT canvas is stamped by `--print` OR by an image set's `--image-mode print`
 // (one `color-mode: print` path, so the whole set renders the B&W-safe handout).
 // The source transform lives in the kernel (lib/core/resolve-color-mode.js) so it
@@ -749,7 +906,7 @@ const {
 const { frontMatterValue } = require('./lib/core/front-matter-key');
 const { PALETTE_END_MARK } = require('./lib/core/export-shell-marks');
 const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.mode === 'print');
-const md = WANT_PRINT ? withPrintColorMode(mdRaw) : mdRaw;
+const md = WANT_PRINT ? withPrintColorMode(lensProjected) : lensProjected;
 
 // A REFUSED deck-wide `class:` token says so HERE, not only in `lint:deck`.
 //
@@ -850,7 +1007,16 @@ function applyImageModePalette(name) {
   }
   return name;
 }
-const paletteName = applyImageModePalette(resolvePalette({ md, cliArg: paletteArg }).name);
+// `resolvePalette` throws on a CLI/env value that is not a palette NAME — it is joined onto the
+// themes directory to build a path, so an unvalidated one reads a stylesheet from anywhere on disk.
+// A usage error deserves a usage message rather than a stack trace.
+let paletteName;
+try {
+  paletteName = applyImageModePalette(resolvePalette({ md, cliArg: paletteArg }).name);
+} catch (e) {
+  console.error(`error: ${e.message}`);
+  process.exit(1);
+}
 // The a11y-* palettes are first-class themes (pick `theme: a11y-deuteranopia`
 // like any theme). Their categorical fills reference texture <pattern> <defs>
 // — SVG markup CSS can't hold — so the engine emits those <defs> per page.
@@ -1675,9 +1841,25 @@ const { reorientMermaidForPortrait } = require('./lib/integrations/mermaid/reori
 // rendered `.mermaid-svg`. The image-set export's cross-scheme SVG look uses this to RE-BAKE a
 // diagram in a different scheme (mmdc bakes colors at render time, so a CSS restyle can't recolor
 // baked node text/edges — re-running renderMermaid in the look mode can). Empty for decks with no
-// diagrams; only read on a cross-scheme image-set export. SINGLE-SHOT: this is a run-once CLI
-// (`preprocessMermaid` fires once per process, one deck), so the array never accumulates across
-// decks. If this module is ever reused for multiple decks in one process, reset it per deck.
+// diagrams; only read on a cross-scheme image-set export. WRITTEN BY POSITION, not appended, and only
+// by a call that is rendering the deck we will actually ship (`recordRebakes`). The index is each
+// diagram's position within its own call, so the `data-mmd-idx` stamp is a property of the deck rather
+// than of how many times this process has rendered one. It accumulated once, when the reader-view
+// check started rendering the deck three extra times, and cost both directions at once: an index past
+// the end of a per-call array crashed every deck with a diagram, and the moving stamp made the two
+// renders differ so the check refused the identity export.
+// EVERY DIAGRAM BAKES ONCE PER PROCESS, keyed by its render request. Mermaid is not a deterministic
+// renderer — a `gitGraph` gives each commit a random id — so re-rendering the same fence produces a
+// different SVG. Nothing cared while the CLI rendered a deck once; the reader-view check renders it
+// three more times and compares the results, and read Mermaid's dice as the deck changing.
+const MERMAID_BAKE_CACHE = new Map();
+const bakeKey = (r) => JSON.stringify([r.definition, r.themeVars, r.look, r.extraClass]);
+// The per-diagram id `finishMermaidSvg` stamps, and the placeholder it is parked under while cached.
+// Everything mmdc emits from one `#my-svg` — the root id, internal marker/gradient ids, `url(#…)`
+// references and every selector in the embedded `<style>` — carries this prefix, so parking and
+// re-stamping it is one substitution in each direction.
+const MERMAID_ID_STAMP = /lattice-mmd-\d+/g;
+const MERMAID_ID_SLOT = '\u0000mmd-id\u0000';
 const MERMAID_REBAKE_DEFS = [];
 // The scheme each diagram was BAKED in (index-aligned with MERMAID_REBAKE_DEFS), so a cross-scheme
 // image-set look re-renders a diagram only when its own bake scheme differs from the look — keyed on
@@ -1699,7 +1881,13 @@ const MERMAID_REBAKE_LOOKS = [];
 // SAME font token, or a re-baked sketch diagram silently reverts to the clean face.
 const MERMAID_REBAKE_HAND = [];
 
-function preprocessMermaid(source) {
+// `recordRebakes: false` for a render nobody ships. The reader-view cross-slide check preprocesses
+// the deck three extra times to compare renders; those calls must not touch MERMAID_REBAKE_*, both
+// because the arrays describe the deck that is being exported and because the index they hand back is
+// stamped into the html as `data-mmd-idx`. An accumulating index made that stamp differ between the
+// real render and the probe's, and the comparison read its own bookkeeping as the deck changing —
+// refusing `--lens full`, the identity export, on every deck with a diagram.
+function preprocessMermaid(source, { recordRebakes = true } = {}) {
   const fmMatch = source.match(/^---\r?\n[\s\S]*?\r?\n---/);
   const fm = fmMatch ? fmMatch[0] : '';
   // Deck-wide orientation, resolved from the `size:` directive the same way the
@@ -1803,17 +1991,30 @@ function preprocessMermaid(source) {
     readToken: readScopeToken,
     scopeKey: diagramScopeKey,
     renderOne: (fence, themeVars, meta) => {
-      // Keep the source def AND the band it was baked in, index-aligned, so the
-      // image-set look re-bake can tell whether THIS diagram needs re-rendering.
-      const idx = MERMAID_REBAKE_DEFS.push(fence.source) - 1;
-      // The BAND, not the whole scope: `MERMAID_REBAKE_MODES` is compared against a
-      // look name (`'light'`/`'dark'`/`'print'`) to decide whether a diagram needs
-      // re-baking, and the scope became an object when the hand-type answer joined it.
-      MERMAID_REBAKE_MODES[idx] = meta.scope.band;
-      // Whether this diagram's labels are in the hand face, so a cross-scheme re-bake
-      // resolves the same font token the first bake did.
-      MERMAID_REBAKE_HAND[idx] = meta.scope.hand;
-      MERMAID_REBAKE_LOOKS[idx] = meta.look;
+      // A PER-CALL INDEX, because this function is no longer single-shot. It used to take the index
+      // from `MERMAID_REBAKE_DEFS.push(...)`, a module-level array, while `requests`/`htmls` are
+      // rebuilt on every call. That was the same number while the CLI really did render one deck per
+      // process — the declaration above says so, and says to reset per deck if it ever stopped being
+      // true. It stopped on this branch: the reader-view cross-slide check renders the deck three
+      // more times, so `htmls[idx]` read past the end of a per-call array and `--lens` died with
+      // `Cannot read properties of undefined (reading 'replace')` on every deck carrying a diagram —
+      // 25 of the 150 in examples/, `--lens full` among them, the identity export that must not fail.
+      // The re-bake arrays are now written BY POSITION and only by a recording call, so this index
+      // means the same thing in both places.
+      const idx = requests.length;
+      if (recordRebakes) {
+        // Keep the source def AND the band it was baked in, index-aligned, so the
+        // image-set look re-bake can tell whether THIS diagram needs re-rendering.
+        MERMAID_REBAKE_DEFS[idx] = fence.source;
+        // The BAND, not the whole scope: `MERMAID_REBAKE_MODES` is compared against a
+        // look name (`'light'`/`'dark'`/`'print'`) to decide whether a diagram needs
+        // re-baking, and the scope became an object when the hand-type answer joined it.
+        MERMAID_REBAKE_MODES[idx] = meta.scope.band;
+        // Whether this diagram's labels are in the hand face, so a cross-scheme re-bake
+        // resolves the same font token the first bake did.
+        MERMAID_REBAKE_HAND[idx] = meta.scope.hand;
+        MERMAID_REBAKE_LOOKS[idx] = meta.look;
+      }
       requests.push({ definition: fence.source, themeVars, look: meta.look, extraClass: null, scope: meta.scope });
       return { fence, idx };
     },
@@ -1824,16 +2025,50 @@ function preprocessMermaid(source) {
   // formality: a per-DIAGRAM failure is now degraded in place by the batch, so this
   // path is reached only when nothing rendered — where `renderMermaidOne`'s retry is
   // exactly what is wanted.
-  if (!QUIET && requests.length) {
-    const scopes = [...new Set(requests.map((r) => diagramScopeKey(r.scope)))].join(', ');
-    process.stdout.write(`  Rendering ${requests.length} mermaid diagram${requests.length === 1 ? '' : 's'} (${scopes}) in one pass...`);
+  // Everything `renderOne` was given, so a diagram baked in a different band, look or hand is a
+  // different entry. `uncached` is deduped: one fence repeated on two slides bakes once.
+  const seen = new Set();
+  const uncached = requests.filter((r) => {
+    const k = bakeKey(r);
+    if (MERMAID_BAKE_CACHE.has(k) || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  if (!QUIET && uncached.length) {
+    const scopes = [...new Set(uncached.map((r) => diagramScopeKey(r.scope)))].join(', ');
+    process.stdout.write(`  Rendering ${uncached.length} mermaid diagram${uncached.length === 1 ? '' : 's'} (${scopes}) in one pass...`);
   }
-  let htmls = renderMermaidBatch(requests);
-  if (!htmls) {
-    htmls = requests.map((r) => renderMermaidOne(r.definition, r.themeVars, r.extraClass, r.look));
-  } else if (!QUIET) {
-    console.log(' done');
+  // ONE BAKE PER DIAGRAM FOR THE LIFE OF THE PROCESS, and it is correctness before it is speed.
+  // Mermaid does not render deterministically: a `gitGraph` labels each commit with a RANDOM id, so
+  // two renders of the same fence differ (measured on `examples/cat-ink-tier.md`: `4-3c7c3cc` in one,
+  // `4-8416a93` in the next, from byte-identical source). The reader-view cross-slide check renders
+  // the deck three extra times and asks whether a kept slide changed — against a third-party renderer
+  // that answers differently every time, which refused `--lens full`, the identity export, on a deck
+  // whose diagram nobody had touched. Caching by request makes the answer a property of the fence.
+  // Keyed on everything `renderOne` is given, so a diagram baked in a different band, look or hand is
+  // a different entry. The cost saved is incidental and real: the check no longer re-renders diagrams.
+  if (uncached.length) {
+    // The bake's own id stamp is parked immediately below, so the counter values it consumes are
+    // discarded — rolled back here so a document's ids stay 1..N and the exported bytes do not shift
+    // just because a diagram was baked rather than served.
+    const counterBeforeBake = mermaidSvgCounter;
+    let baked = renderMermaidBatch(uncached);
+    if (!baked) {
+      baked = uncached.map((r) => renderMermaidOne(r.definition, r.themeVars, r.extraClass, r.look));
+    } else if (!QUIET) {
+      console.log(' done');
+    }
+    // STORED WITH ITS ID PARKED, because the id is not a property of the diagram. `finishMermaidSvg`
+    // gives every embedded SVG a `lattice-mmd-N` prefix so their `<style>` blocks — all written by
+    // mmdc against a hardcoded `#my-svg` — cannot step on each other, and that suffix is baked into the
+    // html the cache holds. Serving one cached entry twice therefore put TWO elements with
+    // `id="lattice-mmd-1"` in one document, with `url(#lattice-mmd-1-gradient)` in the second SVG
+    // resolving into the first one's defs: 19 duplicate ids measured on a deck repeating one fence.
+    // The cache is about not re-rendering, not about reusing an identity, so the id comes back out.
+    for (const [n, r] of uncached.entries()) MERMAID_BAKE_CACHE.set(bakeKey(r), String(baked[n]).replace(MERMAID_ID_STAMP, MERMAID_ID_SLOT));
+    mermaidSvgCounter = counterBeforeBake;
   }
+  const htmls = requests.map((r) => MERMAID_BAKE_CACHE.get(bakeKey(r)).replaceAll(MERMAID_ID_SLOT, `lattice-mmd-${++mermaidSvgCounter}`));
   for (const r of rendered) {
     // Stamp the def index so a cross-scheme image-set export can find + re-bake
     // this exact diagram.
@@ -1867,6 +2102,153 @@ function preprocessMermaid(source) {
 const { appendAutoGlossary, glossaryEntries, resolveGlossaryMode } = require('./lib/core/glossary-auto.mjs');
 const preGlossaryMd = preprocessMermaid(md);
 const rawMd = appendAutoGlossary(preGlossaryMd);
+
+// THE TWO RENDER-BASED READER-VIEW CHECKS, HERE BECAUSE `rawMd` IS THE SHIPPED SOURCE. Both were run
+// against the kernel's raw projection until it was measured that three transforms run after it —
+// print color mode, the mermaid bake, and the auto-glossary slide. Nothing is written before this
+// point, so a refusal here still writes nothing.
+if (LENS_PROJECTION) {
+  const { authorCss, authoredIndexDrift, crossSlideDrift, REFUSAL_REASONS } = require('./lib/core/lens-export.mjs');
+  const asShipped = (src) => appendAutoGlossary(preprocessMermaid(WANT_PRINT ? withPrintColorMode(src) : src, { recordRebakes: false }));
+  const renderAsShipped = (src) => require('./lib/engine/index.js').render(asShipped(src)).html;
+  // The carrier's map is indexed by AUTHORED slide, so the render has to agree with the projection
+  // about how many there are. Checked rather than assumed: every rule that turns one authored slide
+  // into several pages marks its own breaks, and when `_focusSteps` did not, the map pointed at the
+  // wrong slides on a deck this repo ships. This catches the next one without naming it.
+  // How many slides the pipeline ADDED after the projection — today only the auto-glossary appendix.
+  // Derived by splitting both sources rather than by knowing which transform appends, so the next one
+  // is counted without being named.
+  const { slideBoundaries: countSlides, frontMatterBlockOf: fmOf, normalizeSourceText: normSrc } = require('./lib/core/slide-boundaries.mjs');
+  const chunkCount = (src) => countSlides(normSrc(src).slice(fmOf(normSrc(src)).length)).lines.length + 1;
+  const appendedSlides = Math.max(0, chunkCount(rawMd) - chunkCount(preGlossaryMd));
+  // AND THE REPORT SAYS SO, because "2 of 3 slides ship" beside a three-slide file is a line that
+  // describes neither. The appendix is generated from the deck-wide acronym registry, which the
+  // projection does not prune — so a definition written for a withheld slide's subject rides out on it.
+  if (appendedSlides > 0 && LENS_REPORT) {
+    LENS_REPORT += `\n  plus ${appendedSlides} appended slide${appendedSlides === 1 ? '' : 's'} (auto-glossary), built from the deck-wide acronym registry — the projection does not prune it`;
+  }
+  // DOES THE DECK CARRY CSS OF ITS OWN? A reducing projection WARNS if it does — a class no
+  // comparison of two renders can see, since the stylesheet and every slide's markup are identical
+  // on both sides. `--lens full` keeps every slide in place, so the question does not arise.
+  //
+  // WHAT THIS IS FOR CHANGED UNDER POSITION-HOLDING PROJECTION, and the warning it prints changed
+  // with it. Withheld slides used to be DELETED, so every slide after the first one moved and
+  // `section:nth-of-type(3)` landed somewhere new. Holes closed that: the slot survives, and
+  // measured on real exports `nth-of-type`, `nth-child` and `last-of-type` all resolve to the same
+  // slide in the projection as in the full deck.
+  //
+  // ONE FAMILY SURVIVED, and it is the reason this warning still exists. `nth-of-type` is a
+  // STRUCTURAL selector and counts a `display:none` element; a CSS COUNTER is not — a hidden
+  // element generates no box and does not increment it. Measured on two real PDFs of one deck, the
+  // same slide's `counter()` heading reads `#4` under `--lens full` and `#2` under `--lens brief`.
+  // The visible page number moves for the same reason and by design. So the warning names those two
+  // and explicitly clears the selector family, rather than telling an author to go hunting for a
+  // misfire that can no longer happen. The rendered markup answers for `<style>`, `<link>` and
+  // `<script>` (including a `<style>` inside an inlined SVG, which leaves no trace in the markdown);
+  // the front matter answers for `style:`, which the CLI injects downstream of the render. Why a
+  // warning rather than a refusal is argued at the warning below; why a presence test rather than a
+  // detector, and the three detectors that lost, is in `authorCss` in lib/core/lens-export.mjs.
+  // THE COUNT COMES FROM THE KERNEL, which already returned it. Deriving it again here was one
+  // separator-count off on a deck whose body OPENS with a separator: Marpit's leading-group rule makes
+  // N+1 chunks render N sections, `chunksWithSeparators` applies it and a bare `slideBoundaries` count
+  // does not. So a projection that withheld nothing read as reducing, and `--lens full` — the identity
+  // export this kernel promises is byte-identical to no flag at all — refused. That is the SAME
+  // leading-group rule that once refused 147 of 147 decks, re-introduced by re-deriving a number the
+  // kernel hands back (#1).
+  const reducing = LENS_PROJECTION.kept.length < LENS_PROJECTION.total;
+  // EVERY TRANSFORM THAT CARRIES AUTHOR TEXT FORWARD, AND NONE THAT GENERATES ENGINE CONTENT. That is
+  // the rule, and both halves were learned the hard way in consecutive rounds.
+  //
+  // `preprocessMermaid` is excluded because it GENERATES: it splices mmdc's SVG inline, and mmdc bakes
+  // its own `<style>` inside it. Asking the baked render told every deck with a diagram that it
+  // "carries CSS of its own" and to move CSS it had not written — 25 of the 150 decks in examples/.
+  //
+  // `appendAutoGlossary` is INCLUDED because it carries author text: it builds an appendix slide from
+  // the front-matter `acronyms:` registry and emits each `definition` verbatim, so a `<style>` written
+  // in a definition reaches the shipped document. Reading `mdRaw` alone missed it — measured, a
+  // positional rule in an acronym definition hid a paragraph in the full render and showed it in the
+  // projection at exit 0. That is the exact inverse of the mermaid defect, opened by fixing it.
+  //
+  // A new transform between the projection and the render has to be classified: does it move the
+  // author's words, or make our own? The first kind belongs here.
+  // `fm` is not bound until much later in this file; the front-matter block comes from the same
+  // splitter the projection itself uses, so the two cannot disagree about where it ends.
+  const css = reducing && authorCss(require('./lib/engine/index.js').render(appendAutoGlossary(mdRaw)).html, fmOf(normSrc(mdRaw)));
+  // A STYLESHEET PASSED ON THE COMMAND LINE IS A SIXTH CHANNEL. `--css sheet.css` (or the positional
+  // form) is concatenated into the document downstream of everything above, so a positional rule in an
+  // org's house sheet ships with exactly the effect a deck-authored one would. Measured: a
+  // `section:nth-of-type(5)` rule in a `--css` sheet hid a sentence in the full render and showed it
+  // in the projection. `cssIsDefault` is the engine's own `dist/lattice.css`, present on every export
+  // and not the author's; only a sheet the CALLER named is a channel this cannot see into.
+  const cssChannel = css ? { 'front-matter': 'the front-matter `style:` block', style: 'a `<style>` element', link: 'a `<link>` element', script: 'a script element, which can build a stylesheet at run time' }[css.channel]
+    : (reducing && !cssIsDefault ? `the stylesheet passed on the command line (${cssFile})` : null);
+  // IT WARNS, IT DOES NOT REFUSE — and that is a decision, not an oversight.
+  //
+  // Refusing was tried and the cost was not what the corpus said. `examples/` puts it at 3 decks in
+  // 150, but the Studio embeds the palette CSS in a `<style>` on every markdown export it hands back
+  // (`share-export.ts` fetches it whenever no library theme is set; `embedThemeInMarkdown` splices it
+  // unconditionally), so in practice a refusal takes reader views away from essentially every deck
+  // that leaves the product as `.md`. And the remedy it printed could not be performed: it told the
+  // author to write `section.hushed …`, which lives in a `<style>`, which was refused. There was
+  // nowhere in a deck to put CSS the export would accept.
+  //
+  // Against that: the threat has ZERO observed instances across every deck in examples/ — a positional selector
+  // of any spelling appears in none of them — and this repo already deleted a scanner for it once, by
+  // name, on exactly that evidence. HARD RULE #29 says what to do with a rule that would refuse an
+  // author's deck for their own good: "authors can do whatever they want… when there are better
+  // alternatives we should present a warning and suggest fixes and help them fix it. We warn, we coach."
+  //
+  // Warning also removes the pressure that produced the worst defect this check has had. A refusal has
+  // to avoid false positives, which is why it grew a hand-rolled HTML tokenizer to skip comments — and
+  // that tokenizer read `<!--` inside an ATTRIBUTE VALUE as a comment opener, so one such attribute
+  // switched the whole guard off document-wide. A warning can over-fire harmlessly, so the test can
+  // stay a plain byte match and the tokenizer never needs to exist.
+  // UNGATED BY `--quiet`, like the other warnings in this file that a pipeline needs to see. This one
+  // is about what leaves the building; a privacy warning `--quiet` hides is a warning nobody reads.
+  if (cssChannel) {
+    const moved = LENS_PROJECTION.kept.map((at, i) => (at === i ? null : `${at + 1}→${i + 1}`)).filter(Boolean);
+    console.warn(`warning: this deck carries CSS of its own — ${cssChannel}.`);
+    console.warn('         Selectors that COUNT SLIDES are safe here: a withheld slide keeps its slot in the file, so');
+    console.warn('         `section:nth-of-type(3) …` still lands on the slide you wrote it for.');
+    console.warn(`         What moves is a slide's VISIBLE NUMBER — this view renumbers ${moved.length} slide${moved.length === 1 ? '' : 's'}${moved.length ? ` (${moved.slice(0, 6).join(', ')}${moved.length > 6 ? ', …' : ''})` : ''} — so:`);
+    console.warn('           · a CSS COUNTER skips the withheld slides. A hidden slide generates no box, so it does not');
+    console.warn('             increment. Measured: a `counter()` heading numbered a slide #4 in the full deck and #2 here.');
+    console.warn('           · so does a rule keyed to the page number, `section[data-lattice-pagination="3"] …`.');
+    console.warn('         Scope the rule to a class you set on the slide (`<!-- _class: hushed -->` and `section.hushed …`)');
+    console.warn('         and it travels with the slide instead. Otherwise, check the exported file.');
+  }
+  // `total`, not `kept.length` — the projection emits a HOLE for every withheld slide, so the deck
+  // that ships has the authored deck's length and its authored numbering. That is the point of the
+  // hole: nothing after a withheld slide moves, so nothing keyed on position can retarget.
+  const indexDrift = authoredIndexDrift(
+    require('./lib/engine/index.js').render(rawMd).html,
+    LENS_PROJECTION.total,
+    appendedSlides,
+  );
+  if (indexDrift) {
+    console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (authored-index) — ${REFUSAL_REASONS['authored-index']}`);
+    console.error(`       the projection kept ${LENS_PROJECTION.kept.length} slides; the render numbered them ${indexDrift.saw.join(', ')}. Nothing was exported.`);
+    process.exit(1);
+  }
+  const drift = crossSlideDrift(mdRaw, LENS_PROJECTION.source, LENS_PROJECTION.kept, renderAsShipped);
+  if (drift && drift.channel === 'proxy') {
+    // NOT A FINDING ABOUT THE DECK, and it must not be reported as one. The comparison builds a
+    // same-length stand-in for the projection and checks it lines up before trusting it; when it does
+    // not, every slide-level verdict is reading one slide against another and the honest answer is
+    // that the checker is broken. Naming a `footer:` here sent authors hunting a directive that was
+    // never in their file.
+    console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported — the export's own equivalence check could not build a comparable deck.`);
+    console.error('       This is a defect in the checker, not in your deck. Nothing was exported; please file it with the deck attached.');
+    process.exit(1);
+  }
+  if (drift) {
+    console.error(`error: reader view '${LENS_IDS.join(',')}' cannot be exported (cross-slide) — ${REFUSAL_REASONS['cross-slide']}`);
+    console.error(drift.channel === 'style'
+      ? "       a style, script or link element on a slide the view excludes reaches the slides it keeps, so dropping it changes what they show. Nothing was exported."
+      : `       slide ${drift.authored + 1} of the deck renders differently once the view's other slides are gone. Nothing was exported.`);
+    process.exit(1);
+  }
+}
 // The manifest term→definition projection is part of the SAME `glossary: auto` opt-in as the
 // slide (design §18) — gate it so a deck with acronym definitions but no `glossary: auto` stays
 // byte-identical. Read the mode off the pre-append source: `rawMd` has had the trigger stripped
@@ -1904,6 +2286,36 @@ if (OUT_FORMAT === 'html') {
 // --fluid (the player is the richer viewer). Frozen player-runtime version stamp.
 const PLAYER = !!flags.player || /^\s*player:\s*(?:true|yes|on)\s*$/im.test(fm);
 const PLAYER_VERSION = '1';
+// SEVERAL views need a CARRIER, and only the player is one. A PDF, a PPTX and an
+// image set are each ONE linear sequence: handed two views they could only show
+// the union, with nothing telling the reader which slide belongs to which view —
+// an artifact that looks like it carries both and carries neither. The player has
+// a view switcher already (`data-lp-view`), so it is the one format that can. Said
+// here rather than at parse time because `player: true` in front matter enables the
+// player too, and `fm` is the shared resolution of that (HARD RULE #1). Nothing has
+// been rendered or written yet.
+// The DELIVERABLE has to be the carrier, not merely accompanied by one. `PLAYER` alone is
+// satisfied by a `player: true` key in the deck's own front matter, so a `.pdf` export could
+// clear this guard while the PDF itself stayed one linear sequence carrying the union of two
+// views with nothing saying which slide belongs to which — precisely the artifact the guard
+// exists to prevent. The player is only ever the deliverable for `.html`.
+if (LENS_IDS.length > 1 && !(PLAYER && OUT_FORMAT === 'html')) {
+  console.error(`error: --lens got ${LENS_IDS.length} views (${LENS_IDS.join(', ')}) but ${OUT_EXT || '.pdf'} carries one linear sequence.`);
+  console.error('       Export one view per file, or add --player, which carries several views behind a switcher.');
+  process.exit(1);
+}
+if (LENS_REPORT && !flags.quiet) {
+  console.log(LENS_REPORT);
+  // The distinction the whole design record exists to protect, said WHERE THE AUTHOR IS.
+  // `design/skills/lens.md` states it well and a CLI user is not reading it. "5 of 16 slides
+  // ship" is the language of withholding, and for a multi-view carrier that is only half
+  // true: what the export left out is genuinely absent, but every view carried in one file
+  // is reachable from that file.
+  if (LENS_IDS.length > 1) {
+    console.log(`  note: this file CARRIES ${LENS_IDS.length} views — switching between them hides, it does not withhold.`);
+    console.log('        Every carried slide is in this file. Export one view per file for a recipient who must not have the others.');
+  }
+}
 const ENGINE_BUILD = pkgVersion() ?? '';
 // Auto-split — the Fit Ladder's SPLIT move. ONE trigger: a real render MEASURED the slide
 // overflowing its box, and the slide has a seam (lib/core/auto-split.js `splitDoc`, driven
@@ -2025,28 +2437,11 @@ const orientationStyle = orientationCss(_geom);
 // resolved against the section's CONTENT box, rendering ~11% smaller than the
 // token coefficients are defined for. See lib/engine/css.js geometryVarsCss.
 const geometryStyle = geometryVarsCss(_geom);
-// Deck-wide `style:` directive — Marp injects this CSS verbatim into the
-// rendered output. Authors use it for ad-hoc overrides like
-// `style: ":root{color-scheme:dark}"` without needing a custom theme.
-// Two forms are supported: an inline string (`style: "..."`) and a YAML
-// block scalar (`style: |` followed by indented lines).
-function readGlobalStyle(fmText) {
-  const inline = fmText.match(/^\s*style:\s*(["'])([\s\S]*?)\1\s*$/m);
-  if (inline) return inline[2];
-  // `(?=^\S|$(?![\s\S]))` — stop at the next top-level YAML key or at the
-  // absolute end of the frontmatter string. JS regex has no `\Z` anchor,
-  // so we spell end-of-input as `$` with a negative lookahead for any
-  // remaining characters.
-  const block = fmText.match(/^\s*style:\s*\|\s*\r?\n([\s\S]*?)(?=^\S|$(?![\s\S]))/m);
-  if (block) {
-    return block[1]
-      .split(/\r?\n/)
-      .map((l) => l.replace(/^ {2}/, '')) // strip the YAML indent (≥2 spaces)
-      .join('\n')
-      .trimEnd();
-  }
-  return '';
-}
+// Deck-wide `style:` directive — Marp injects this CSS verbatim into the rendered output. Authors
+// use it for ad-hoc overrides like `style: ":root{color-scheme:dark}"` without needing a custom
+// theme. Two forms: an inline string and a YAML block scalar. The reader lives in lib/core because
+// the reader-view export asks the same question of the same text (#1) — see its docblock there.
+const { readGlobalStyle } = require('./lib/core/front-matter-key');
 const globalStyle = readGlobalStyle(fm);
 
 // `![bg …]` half-canvas image handling — the engine path uses liftBgImages
@@ -2161,6 +2556,47 @@ function engineSlides(deckSource = rawMd) {
   // slide that fits its box is a slide the author composed and the engine has no business
   // re-cutting it. `capacity` speaks to the author through `lint:deck`, not to the splitter.
   const html = renderedHtml;
+  // ARE THE HOLES IN THIS DOCUMENT EXACTLY THE SLIDES THE VIEW WITHHELD? Run on EVERY export, not
+  // only a reader-view one, and run HERE because this is the document the artifact is built from —
+  // the refusals above read a separate render of the source, and the whole class of defects this
+  // closes lives in the gap between the two.
+  //
+  // A hole is a marker in markdown, and no markdown pipeline can tell the projection's marker from
+  // one an author typed. Measured before this check existed: a deck writing the running form
+  // `<!-- class: lens-hole -->` on slide 2 exported a THREE-slide deck as a ONE-page PDF, silently,
+  // exit 0 — while the two swallowed slides shipped verbatim in the `.html` the same command wrote
+  // and in the player's base64 envelope. With no `--lens`, the expected set is empty and any hole at
+  // all is drift, which is what makes that a refusal.
+  //
+  // It catches the opposite direction too, and that one was also measured: `form: off` stripped the
+  // `.form` class the old hiding rule leaned on, so every hole rendered as a live empty page and a
+  // 3-slide view came out as a 5-page PDF blank at the withheld positions — the deck's length and
+  // the withheld slots, disclosed. The rule now sits in `lib/base/base.lens-hole.css` and names no
+  // deck-controllable class; this check is what proves it won.
+  {
+    const { holeDrift } = require('./lib/core/lens-export.mjs');
+    const wantHoles = LENS_PROJECTION
+      ? Array.from({ length: LENS_PROJECTION.total }, (_, i) => i).filter((i) => !LENS_PROJECTION.kept.includes(i))
+      : [];
+    const hd = holeDrift(html, wantHoles);
+    if (hd) {
+      const forged = hd.saw.filter((i) => !wantHoles.includes(i));
+      const lost = wantHoles.filter((i) => !hd.saw.includes(i));
+      console.error('error: the rendered deck does not agree with the export about which slides are withheld.');
+      if (forged.length) {
+        console.error(`       Slide${forged.length === 1 ? '' : 's'} ${forged.map((i) => i + 1).join(', ')} render${forged.length === 1 ? 's' : ''} as a reader-view HOLE, which this export did not put there.`);
+        console.error("       `lens-hole` is the class `--lens` marks a withheld slide with; a deck that sets it hides the slide from");
+        console.error('       the PDF while its text still ships in the .html and in the embedded source. Remove it and use a reader view.');
+      }
+      if (lost.length) {
+        console.error(`       Slide${lost.length === 1 ? '' : 's'} ${lost.map((i) => i + 1).join(', ')} should be a withheld hole and did not render as one.`);
+        console.error('       Something in the deck is overriding the engine rule that hides it, so the artifact would disclose the');
+        console.error('       withheld positions as blank pages. This is a defect — please file it with the deck attached.');
+      }
+      console.error('       Nothing was exported.');
+      process.exit(1);
+    }
+  }
   const imageScrim = require('./lib/transformers/image-scrim');
   return splitTopLevelSections(html).map((sec, i) => {
     // Re-tag the slide index, then apply the per-section image fixups the
@@ -2362,6 +2798,29 @@ const slideNotes = notesCore.extractSlideNotes(slides);
 // guarantee that no materialized copy carries note text even if a note ever survived the scrub.
 const materializedNotes = STRIP_NOTES ? slideNotes.map(() => null) : slideNotes;
 const slideDescriptions = notesCore.extractSlideDescriptions(slides);
+// THE SHIPPED SLIDES, AS POSITIONS IN THE AUTHORED ARRAY — the source-side twin of
+// `SHOOTABLE_SLIDES`, which does the same job against the live DOM.
+//
+// A reader-view projection keeps every authored slot and marks the withheld ones as holes, so
+// `slides` (and every per-slide array built from it — notes, descriptions, captions) is
+// AUTHORED-length while every artifact is SHIPPED-length. Pairing the two by position is then off
+// by the number of preceding holes, and it fails silently in the worst possible direction: measured
+// on a 5-slide deck exporting slides 1/3/5, the PPTX bound the note the author wrote for slide 3 to
+// the exported slide SHOWING SLIDE 5, left slide 3's own note empty, and dropped slide 5's — a
+// private speaker note under the wrong slide in the deliverable, which is the same class of harm
+// the feature exists to control. The PDF path took the other branch of the same mismatch and
+// dropped EVERY annotation while the CLI printed "3 slides with speaker notes" one line below the
+// warning that it had not written any.
+//
+// Every consumer whose output is one entry per SHIPPED slide reads through this. The ones that
+// legitimately stay authored-length are the ones that rebuild the document (`slidesWithNotes`), and
+// the counts a human reads about the deck rather than the file.
+// `\sclass="` — the leading space is the #1358 guard, not decoration. Without it the pattern also
+// matches `data-class="<raw _class: payload>"`, which is the directive as the author typed it rather
+// than the class list the engine resolved; the ownership gate caught exactly this line.
+const SHIPPED_SLIDE_AT = slides.map((_, i) => i).filter((i) => !/\sclass="[^"]*\blens-hole\b/.test(String(slides[i] || '')));
+/** One entry per shipped slide, from an array indexed by authored slide. */
+const asShippedSlides = (arr) => SHIPPED_SLIDE_AT.map((i) => arr[i]);
 // Per-slide inline `<!-- caption: … -->` read-as text (Layer 1, §16) — the highest-precedence
 // narration source. Extracted from the rendered slides (index-aligned) exactly as notes are. A
 // caption is public-facing narration (the caption track), not a private note, so it is NOT blanked
@@ -2977,7 +3436,9 @@ fs.writeFileSync(outHtml, cleanDocHtml);
 // Skipped when the HTML *is* the deliverable: this fires BEFORE the auto-split pass
 // rewrites the file, so its count is the pre-split one. The `.html` branch logs the
 // final rendered-page count instead, and one line beats two disagreeing ones.
-if (!QUIET && OUT_FORMAT !== 'html') console.log(`HTML: ${slides.length} slides → ${outHtml}`);
+// SHIPPED slides, not authored ones: a reader-view hole holds a slot in `slides` and renders
+// nothing, so this line read "HTML: 5 slides" beside a three-slide view.
+if (!QUIET && OUT_FORMAT !== 'html') console.log(`HTML: ${SHIPPED_SLIDE_AT.length} slides → ${outHtml}`);
 
 // ── PDF via Puppeteer ─────────────────────────────────────────────────────────
 // Locate puppeteer in either: a local node_modules (preferred), the project
@@ -3671,7 +4132,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (EMBED_SOURCE) tags.push('source embedded');
       console.log(`PDF: ${outFile}${tags.length ? ` (${tags.join(', ')})` : ''}`);
     }
-    if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, asShippedSlides(materializedNotes));
   } else if (OUT_FORMAT === 'pdf') {
     // Image-per-page PDF. Two triggers land here:
     //   · --raster: one FULL-BLEED slide image per slide-sized page (max-compat sharing).
@@ -3686,7 +4147,7 @@ async function renderBody(browser, g, closeBrowser) {
       const { resolvePrintSheet } = require('./lib/core/print-sheet.mjs');
       paperSheet = resolvePrintSheet(slideW, slideH, { paper: PAPER, orientation: ORIENTATION });
     }
-    const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
+    const handles = await g(() => page.$$(SHOOTABLE_SLIDES), 'collect slide handles');
     const jpegBuffers = [];
     for (const h of handles) {
       jpegBuffers.push(await g(() => h.screenshot({ type: 'jpeg', quality: 95 }), 'screenshot slide'));
@@ -3717,7 +4178,7 @@ async function renderBody(browser, g, closeBrowser) {
     // materializedNotes, NOT slideNotes — the same rule the vector-PDF path above and the
     // HTML path below already follow. `--raster` / `--paper` land here instead, so handing
     // this sidecar the unstripped array shipped the notes the flag exists to remove.
-    if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, asShippedSlides(materializedNotes));
   } else if (OUT_FORMAT === 'imageset') {
     // IMAGE SET (.zip): one raster per slide in the chosen format, opt-in thumbnails,
     // and opt-in standalone chart/diagram SVGs — packed via the SHARED image-set kernel
@@ -3730,7 +4191,7 @@ async function renderBody(browser, g, closeBrowser) {
 
     // (1) Full-fidelity raster, one per slide, at the resolved `--image-size` scale. Taken
     // FIRST, before any SVG-look re-styling below, so the slides keep the export color mode.
-    const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
+    const handles = await g(() => page.$$(SHOOTABLE_SLIDES), 'collect slide handles');
     if (handles.length === 0) {
       await closeBrowser();
       console.error(`error: the deck rendered no slides — nothing to write to ${outFile}.`);
@@ -3758,7 +4219,7 @@ async function renderBody(browser, g, closeBrowser) {
     if (IMAGE_SET_OPTS.thumbnails) {
       const thumbScale = resolveThumbScale(IMAGE_SET_OPTS.thumbWidth, slideW, rasterScale);
       await g(() => page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: thumbScale }), 'set thumb viewport');
-      const thumbHandles = await g(() => page.$$('section[data-lattice-slide]'), 'collect thumb handles');
+      const thumbHandles = await g(() => page.$$(SHOOTABLE_SLIDES), 'collect thumb handles');
       for (const h of thumbHandles) {
         thumbs.push(await g(() => h.screenshot(shot), 'screenshot thumb'));
       }
@@ -3977,10 +4438,13 @@ async function renderBody(browser, g, closeBrowser) {
       const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } =
         require('./lib/components/chart/_chart-family/standalone-svg.js');
       await g(() => page.evaluate(`window.__flattenSvgStyles = ${flattenSvgStyles.toString()};`), 'inject svg flattener');
-      const raw = await g(() => page.evaluate((KEYED) => {
+      const raw = await g(() => page.evaluate((KEYED, SHOOTABLE) => {
         const ser = new XMLSerializer();
         const out = [];
-        document.querySelectorAll('section[data-lattice-slide]').forEach((sec, si) => {
+        // Holes are skipped for the same reason the rasterizer skips them: `slide: si + 1` below is
+        // the slide number a consumer of the manifest reads, and counting a hole made an asset in a
+        // three-slide zip claim `assets/chart-s05-c00.svg`.
+        document.querySelectorAll(SHOOTABLE).forEach((sec, si) => {
           const push = (svg, kind, chartType, mmdIdx) => {
             try {
               const flat = window.__flattenSvgStyles(svg, window);
@@ -4001,7 +4465,7 @@ async function renderBody(browser, g, closeBrowser) {
           }
         });
         return out;
-      }, KEYED_CHART_LAYOUTS), 'extract standalone svgs');
+      }, KEYED_CHART_LAYOUTS, SHOOTABLE_SLIDES), 'extract standalone svgs');
       // For a cross-scheme look, replace each diagram's LIVE markup (flattened against the slide doc)
       // with the look-rendered one from the isolated scratch page. Diagrams that couldn't be recolored
       // (author-themed / mmdc fallback) aren't in the map and keep their live markup.
@@ -4018,11 +4482,15 @@ async function renderBody(browser, g, closeBrowser) {
     }
 
     // Per-slide titles for the manifest — the slide's first heading (unaffected by the look).
-    const slideTitles = await g(() => page.evaluate(() =>
-      Array.from(document.querySelectorAll('section[data-lattice-slide]')).map((sec) => {
+    // SHOOTABLE_SLIDES, not the bare selector: the rasterizer three blocks up already filters
+    // reader-view holes out, so titling the unfiltered list numbered every title one slot per
+    // preceding hole too high. Measured on a 3-slide view of a 5-slide deck: image 2 showed Slide
+    // Three and was titled `null`, image 3 showed Slide Five and was titled "Slide Three".
+    const slideTitles = await g(() => page.evaluate((sel) =>
+      Array.from(document.querySelectorAll(sel)).map((sec) => {
         const h = sec.querySelector('h1, h2, h3');
         return (h?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200) || null;
-      })), 'extract slide titles');
+      }), SHOOTABLE_SLIDES), 'extract slide titles');
     await closeBrowser();
 
     // (4) Pack via the shared kernel → a single .zip.
@@ -4082,7 +4550,9 @@ async function renderBody(browser, g, closeBrowser) {
     // claim this format is documented on.
     let pageCount = slides.length;
     try {
-      const n = (await page.$$('#deck > section[data-lattice-slide], body > section[data-lattice-slide]')).length;
+      // `:not(.lens-hole)` on both arms — the line reports what the FILE holds, and a hole is not a
+      // slide in it. It read "HTML: 5 slides" for a three-slide view.
+      const n = (await page.$$('#deck > section[data-lattice-slide]:not(.lens-hole), body > section[data-lattice-slide]:not(.lens-hole)')).length;
       if (n > 0) pageCount = n;
     } catch { /* keep the authored count */ }
     await closeBrowser();
@@ -4097,12 +4567,12 @@ async function renderBody(browser, g, closeBrowser) {
       if (noteCount) tags.push(`${noteCount} slide${noteCount === 1 ? '' : 's'} with speaker notes`);
       console.log(`HTML: ${outFile} (${tags.join(', ')})`);
     }
-    if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
+    if (NOTES_SIDECAR) writeNotesSidecar(outFile, asShippedSlides(materializedNotes));
   } else {
     // PNG / PPTX: rasterize one image per slide from the SAME rendered page.
     // Each `section[data-lattice-slide]` is exactly slideW×slideH (fixed-page),
     // so an element screenshot yields a clean full-bleed slide image.
-    const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
+    const handles = await g(() => page.$$(SHOOTABLE_SLIDES), 'collect slide handles');
     const pngBuffers = [];
     // `.png` keeps a rounded corner as transparency; `.pptx` shares this loop but was
     // squared above, so OMIT_BG is false for it and its images stay opaque.
@@ -4134,7 +4604,7 @@ async function renderBody(browser, g, closeBrowser) {
         // the one format whose native viewer puts the author's private text in front of the
         // recipient by default. This call site was the last one still reading the unstripped
         // array (#1837).
-      }, materializedNotes, slideDescriptions);
+      }, asShippedSlides(materializedNotes), asShippedSlides(slideDescriptions));
       if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}`);
     }
   }
@@ -4191,11 +4661,31 @@ async function renderBody(browser, g, closeBrowser) {
         // from the render; captions match the `caption:` prefix), so the shared file leaks
         // no speaker text and/or no caption text. A stripped file re-imports without them —
         // the stated privacy tradeoff (§Notes on export).
-        source: stripSharedSource(rawMd, noteStripSet),
+        // `--lens-source full` keeps the deck EXACTLY AS AUTHORED in the envelope, so a
+        // projected file still re-imports losslessly. The default is `projected` — the
+        // envelope carries only what shipped — because it is the fourth and worst channel
+        // a withheld slide escapes through: unlike the DOM and the two article surfaces,
+        // this one is DESIGNED to round-trip, so a recipient re-imports the file and gets
+        // every slide no view showed them plus the `lenses:` block naming the views they
+        // were not given. A projected DOM beside a verbatim source withholds nothing at
+        // all, and silently undoing what the author just asked for is not a default.
+        source: stripSharedSource(LENS_VIEWS && LENS_SOURCE === 'full' ? mdRaw : rawMd, noteStripSet),
         // `false` FORCES the still; `undefined` inherits the deck's own registers
         // (`motion:`, with `player-motion: off` as the author-side opt-out). The flag can
         // only suppress, never force motion on — a deck that says `motion: off` means it.
         playerMotion: flags['no-player-motion'] ? false : undefined,
+        // The reader views this file CARRIES, each as indices into the PROJECTED slide list.
+        // Only past two views does the player build a switcher: one view is not a carrier,
+        // it is an ordinary player of a deck that was already reduced.
+        lensViews: LENS_VIEWS,
+        // Which of them the file OPENS on: `--lens-default`, else the deck's own
+        // `lens-default:` when it names an exported view, else the first id named.
+        lensDefault: LENS_OPENS_ON,
+        // What this envelope IS, when it is not the whole deck — so a re-import can say
+        // "4 of 16 slides, under `brief`" rather than looking like a deck that lost twelve
+        // slides and broke its own approvals. Only for a PROJECTED envelope: under
+        // `--lens-source full` the envelope really is the whole deck.
+        lensProjection: LENS_VIEWS && LENS_SOURCE === 'projected' ? { views: LENS_IDS, of: LENS_TOTAL } : undefined,
         title: deckTitle,
         // The deck's REAL canvas. Without it the player hardcoded 1280x720 and any deck
         // declaring a non-default `size:` exported laid out for its own canvas and then
@@ -4705,6 +5195,9 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
   process.exit(1);
 });
 
+
+
+
 // Attach each slide's speaker note as a PDF "Text" annotation (a sticky note)
 // in the top-left corner of its page, so any PDF viewer surfaces it on click.
 // Slides without a note get no annotation. Returns the modified PDF bytes; on
@@ -4722,7 +5215,14 @@ function notesPerRenderedPage(docHtml, authored) {
   if (at < 0) return authored;
   try {
     const parts = require('./lib/core/split-sections').splitSections(docHtml.slice(at))
-      .filter((p) => p.type === 'section');
+      .filter((p) => p.type === 'section')
+      // A READER-VIEW HOLE IS NOT A PAGE. It holds an authored slot in the DOM so positional CSS
+      // still lands where the author aimed it, and `display:none` keeps it out of print — so the
+      // rendered section list is longer than the artifact by exactly the number of holes. Counting
+      // them here made `embedNotesInPdf`'s own length guard fire on EVERY reducing lens export with
+      // notes: it warned "5 slide notes but 3 PDF pages" and dropped all of them, while the line
+      // below it printed "3 slides with speaker notes". The guard was right and its input was not.
+      .filter((p) => !/\sclass="[^"]*\blens-hole\b/.test(String(p.openTag || '')));
     return parts.length ? notesCore.notesPerRenderedPage(parts) : authored;
   } catch { return authored; }
 }
@@ -4932,7 +5432,11 @@ async function projectDeckSpeechFromHtml(docHtml) {
     const { projectDeckToSpeech } = await import('./lib/transformers/prose-projection.mjs');
     const sanitize = createSlideSanitizer(DOMPurify, new JSDOM('').window);
     const doc = new JSDOM(docHtml).window.document;
-    const raw = [...doc.querySelectorAll('section[data-lattice-slide]')];
+    // A READER-VIEW HOLE IS NOT A SLIDE TO NARRATE. It holds an authored slot in the DOM and shows
+    // nothing, so counting it made this list longer than the caption track's and the length guard in
+    // `writeCaptionsSidecar` then dropped the projection wholesale — "captions will be EMPTY for this
+    // deck" on every reducing lens export, for a mismatch the export itself had introduced.
+    const raw = [...doc.querySelectorAll('section[data-lattice-slide]:not(.lens-hole)')];
     // Sanitize each section in isolation, then project the clean nodes.
     const clean = raw
       .map((s) => new JSDOM(sanitize(s.outerHTML)).window.document.querySelector('section[data-lattice-slide]'))
@@ -5034,7 +5538,13 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
       // bake never touches (and withoutFences-blank any fence anyway), so they're byte-identical
       // on this input; only narrateDiagram needs the fence. See
       // 2026-07-13-mermaid-diagram-narration.md §8 (Axis B1, trio-verified).
-      const blocks = splitSourceToSections(appendAutoGlossary(md));
+      // A READER-VIEW HOLE IS DROPPED so the two lists index the same slides. `blocks` comes from the
+      // SOURCE, which under a reducing projection holds every authored slot; `projected` comes from
+      // the rendered sections, which no longer do. Left unfiltered the counts differ by exactly the
+      // holes, the equality below fails, and every chart slide in a lens export silently falls back
+      // to heading-only narration — a divergence the export introduced, reported as if the deck had
+      // caused it.
+      const blocks = splitSourceToSections(appendAutoGlossary(md)).filter((b) => !/<!--\s*_class:\s*lens-hole\s*-->/.test(String(b || '')));
       if (blocks.length === projected.length) {
         for (let i = 0; i < blocks.length; i++) {
           // Per-slide guard: one pathological chart slide can't disable narration for
@@ -5076,9 +5586,30 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
   if (fmCaptions?.size) {
     const at = cleanDocHtml.search(/<section\b[^>]*\bdata-lattice-slide=/);
     if (at >= 0) {
+      // HOLES ARE DROPPED HERE FOR THE SAME REASON SPLITS ARE REMAPPED HERE: this is the one place
+      // that converts an AUTHORED caption key into the page of the ARTIFACT that shows it, and a
+      // reader-view hole moves those pages exactly the way a split does. `pages` therefore has to be
+      // the artifact's page list, not the rendered section list.
+      //
+      // The two directions were both measured wrong within one commit of each other, which is what
+      // makes the single conversion point the point. Renumbering the KEYS instead — rank among kept —
+      // spoke slide 3's caption over a hole and slide 5's over slide 3, because the shipped deck keeps
+      // every slot. Keeping the keys authored but leaving the page list unfiltered was the mirror
+      // image. Keys stay authored (so the source in the envelope re-imports against the deck it
+      // describes, holes and all); pages are what shipped; this map is the join.
       const pages = require('./lib/core/split-sections').splitSections(cleanDocHtml.slice(at))
-        .filter((x) => x.type === 'section');
-      const origin = require('./lib/core/auto-split').authoredIndexPerPage(pages);
+        .filter((x) => x.type === 'section')
+        .filter((x) => !/\sclass="[^"]*\blens-hole\b/.test(String(x.openTag || '')));
+      // READ THE STAMP, DO NOT RECONSTRUCT IT. `authoredIndexPerPage` recovers page -> authored slide
+      // from contiguous `data-split-run` groups, which is POSITION arithmetic: hand it a list with the
+      // holes already removed and it answers `1,2,3` — the ranks it was just given back, not the
+      // authored numbers 1,3,5 this map needs. The engine stamps `data-authored-slide` on every
+      // section and split continuations copy it, so the number is on the page; the reconstruction is
+      // only the fallback for a document that carries no stamp (an older cached render).
+      const stamped = pages.map((x) => Number((String(x.openTag || '').match(/data-authored-slide="(\d+)"/) || [])[1]));
+      const origin = stamped.every((n) => Number.isInteger(n) && n >= 0)
+        ? stamped.map((n) => n + 1)
+        : require('./lib/core/auto-split').authoredIndexPerPage(pages);
       // Only rebuild when the split actually moved something; an unsplit deck keeps the
       // authored map byte-for-byte, so a deck that never paginates is unaffected.
       if (origin.length && origin[origin.length - 1] !== origin.length) {
