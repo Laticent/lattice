@@ -122,12 +122,6 @@
   It reads the AUTHOR's deck plus every transform that carries the author's words forward
   (`appendAutoGlossary` emits each `acronyms:` definition verbatim), and none that generates engine
   content (`preprocessMermaid` bakes mmdc's own `<style>` into every SVG). Closes #2053.
-- **Fixed: a `--palette` value was a path, not a name.** The front-matter `theme:` reader has always
-  constrained it to `[A-Za-z0-9_-]+`; the CLI argument and `LATTICE_PALETTE` did not, and the value is
-  joined onto the themes directory to build a file path — so `--palette ../elsewhere/sheet` read a
-  stylesheet from anywhere on disk, which also carried CSS past the reader-view check. It is now the
-  same constraint in all three places, and an invalid value is a usage error rather than a silent
-  fallback to the default palette.
 - **Fixed: a view that withheld a slide carrying a diagram always refused.** `preprocessMermaid` stamps
   each diagram with its position in that render's request list, and emptying a withheld slide renumbers
   every later stamp — so a kept slide compared unequal on nothing but `data-mmd-idx`, and the export
