@@ -41,7 +41,7 @@ Mean-distance-between-failures has fallen 38% in four years. Signal faults and s
 
 ## Where the $214M request goes, by asset class.
 
-1. Signal modernisation `$86M`
+1. Signal modernization `$86M`
    - Replaces 14 interlockings past their 40-year design life — the largest single source of faults.
 2. Track & structures `$61M`
    - Eliminates 22 slow-orders and rehabilitates four at-risk bridges.

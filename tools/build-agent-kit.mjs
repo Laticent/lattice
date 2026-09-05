@@ -1093,15 +1093,13 @@ function authoringReadme(files, layoutCount) {
     'Every deck opens with it. This is the whole of what you need:',
     '',
     '```markdown',
-    '---',
-    'marp: true',
-    'theme: indaco',
-    'paginate: true',
-    '---',
+    ...FRONT_MATTER,
     '```',
     '',
-    '`theme:` picks the palette — `indaco` and `cuoio` ship with the engine. `paginate:`',
-    'turns on page numbers. A deck with no front matter still renders, but with no theme.',
+    '`theme:` picks the palette, and it must name one your RENDERER has registered — not just',
+    'one the engine ships. `cuoio` and `cuoio-dark` resolve on every route this kit documents;',
+    'a name your renderer does not carry renders unstyled with no error. `paginate:` turns on',
+    'page numbers. A deck with no front matter still renders, but with no theme.',
     '',
     '## primer.md — the other way to work',
     '',
@@ -1253,7 +1251,7 @@ function skillsReadme(skills) {
 // which is the half a model follows best.
 const PASTE_STANDARD_MAX = 6000;
 const PASTE_MAX_MAX = 8000;
-const PASTE_SOLO_MAX = 12000;
+const PASTE_SOLO_MAX = 10000;
 
 const PASTE = 'paste';
 const UPLOAD = 'upload';
@@ -1266,7 +1264,7 @@ const EXAMPLES = 'examples';
  * The 20 layouts the small/solo path exposes, and the ONLY place a shortlist is
  * hardcoded. Measured over `exemplars/` — 46 realistic decks, 553 component
  * slides — these cover **91% of slides**. They do NOT cover whole decks: only
- * 24% of real decks are authorable from a top-20 list, because nearly every deck
+ * 26% of them (12 of 46) are authorable from a top-20 list alone, because nearly every deck
  * reaches for one specialist. That is why `content`/`list` are named as an
  * explicit FALLBACK in every solo text; the fallback is what takes deck coverage
  * to 100%, and it is the single most load-bearing line in the file.
@@ -1333,13 +1331,6 @@ function skeletonFor(cat, name) {
 }
 
 /**
- * The line every text ends on, and the reason the kit can be terse everywhere
- * else. `check.mjs` is CODE: it costs no tokens, runs offline, and cannot be
- * talked into approving a deck the way a model reviewing its own draft will be.
- */
-const CHECK_LINE = 'node check.mjs your-deck.md';
-
-/**
  * The five front-matter lines every deck opens with. One shape, no choices.
  *
  * `cuoio` AND NOT `indaco`, which is the engine's own default, because this is
@@ -1361,16 +1352,26 @@ const CHECK_LINE = 'node check.mjs your-deck.md';
 const FRONT_MATTER = ['---', 'marp: true', 'theme: cuoio', 'paginate: true', '---'];
 
 /**
- * The nine rules whose violation the LINTER rates `error` — the deck is wrong,
- * not merely plain. Every paste text carries all nine and spends its remaining
- * budget on the two TASTE rules that change what gets generated rather than what
- * can be fixed afterwards.
+ * The rules that make a deck STRUCTURALLY wrong rather than merely plain. Every
+ * paste text carries all of them, then spends its remaining budget on the two
+ * TASTE rules that change what gets GENERATED rather than what can be fixed after.
  *
- * The split is a fact about our code, not an opinion: `lib/authoring/lint-core.js`
- * rates these `error`, while all 18 entries of the reviewer's RUBRIC are
- * `suggestion`. Today `library/lattice-rules.md` and the canon present both
- * classes in one undifferentiated voice, which a frontier model can weight and a
- * small one cannot.
+ * BE PRECISE ABOUT PROVENANCE — an earlier draft of this comment claimed all nine
+ * are rated `error` by the linter, which was checkable and wrong. Four map to
+ * `error` rules in `lib/authoring/lint-core.js` (`card-style-inline-title`,
+ * `ledger-inline-title` / `split-bodyless-item`, `statement-ol-bold`,
+ * `unterminated-comment`). One maps to a `warning` (`unknown-class`). The other
+ * four — separator spacing, the three-space nested indent under `1.`, bookend slot
+ * ORDER, and never writing a hex code — are load-bearing at RENDER time and the
+ * linter has no rule for any of them. That is exactly why prose has to carry them:
+ * they are the ones `check.mjs` will NOT catch for you.
+ *
+ * The reverse holds too: lint-core has `error` rules this list omits (the `qr-*`
+ * and `gantt-*` families), for layouts the solo path does not expose. So this is
+ * not "the nine error rules" and must not be described as one.
+ *
+ * What IS a fact about the code: all 18 entries of the reviewer's RUBRIC are
+ * `suggestion`, so the taste half is separable and deferrable to the checker.
  */
 const ESSENTIALS = [
   'Every slide starts with `<!-- _class: NAME -->` and NAME is a real layout.',
@@ -1447,6 +1448,60 @@ function instructionsSolo(cat) {
     'Never invent a layout name.',
     '',
     ...skeletons,
+    // A WORKED DECK, not another isolated slide. Two files advertised solo as
+    // carrying one and it did not: 20 single-slide skeletons and no example of
+    // two slides in sequence, so the `---` separator that rule 2 is entirely
+    // about was never once demonstrated in context. That is the same defect the
+    // kit's own examples/ docblock names as the reason examples/ exists.
+    '## A whole deck, start to finish',
+    '',
+    'Four slides. Note the blank lines around each `---`.',
+    '',
+    ...fenced(
+      [
+        ...FRONT_MATTER,
+        '',
+        '<!-- _class: title silent -->',
+        '',
+        '# Move billing to the new platform in March',
+        '',
+        '`Finance Systems · Board review`',
+        '',
+        'One migration window replaces four years of manual reconciliation.',
+        '',
+        '---',
+        '',
+        '<!-- _class: big-number -->',
+        '',
+        '`Cost of the status quo`',
+        '',
+        '- $4.1M',
+        '  - spent every year reconciling invoices by hand, up from $2.6M in 2023.',
+        '',
+        '---',
+        '',
+        '<!-- _class: cards-grid -->',
+        '',
+        '## Three failures repeat every quarter.',
+        '',
+        '- Late close',
+        '  - Books close nine days after month end, against a four-day target.',
+        '- Manual matching',
+        '  - Sixty percent of invoices need a person to match them.',
+        '- No audit trail',
+        '  - Adjustments are recorded in spreadsheets outside the ledger.',
+        '',
+        '---',
+        '',
+        '<!-- _class: closing silent -->',
+        '',
+        '## Approve the March window and the $1.4M migration budget.',
+        '',
+        '`The ask`',
+      ].join('\n'),
+      'markdown',
+    ),
+    '',
     // The `title` and `closing` skeletons come from the manifest and strip the
     // running frame with three Marpit directives; the canon and every worked
     // example in this kit use the `silent` modifier, which does the same job in
@@ -1541,8 +1596,9 @@ function instructionsStandard() {
     '  sentence plus a signature, never a bulleted next-steps list.',
     '',
     'FINISHING',
-    'Hand back the complete `.md` file. Say how to render it and how to check it:',
-    `\`${CHECK_LINE}\` finds what is wrong without costing tokens.`,
+    'Hand back the complete `.md` file, and say how to render it.',
+    'If the reader has the Lattice kit on disk, `node review/check.mjs their-deck.md` finds',
+    'what is wrong for free. If they do not, say so rather than inventing a command.',
     '',
   ].join('\n');
 }
@@ -1569,7 +1625,9 @@ function instructionsMax(traps) {
     ...traps.map((t) => `- ${t}`),
     '',
     'FRONT MATTER YOU MAY SET',
-    '- `theme:` the palette. `indaco` (cool) and `cuoio` (warm) always exist.',
+    '- `theme:` the palette. It must name one your renderer has registered — `cuoio` and',
+    '  `cuoio-dark` work everywhere this kit documents. An unregistered name renders',
+    '  unstyled with no error.',
     '- `paginate: true` numbers the slides.',
     '- `size:` defaults to `hd` (1280x720). Leave it alone unless asked.',
     '',
@@ -1633,7 +1691,8 @@ function renderDoc() {
     'renders unstyled **with no error**, which is the single most common way this goes',
     'wrong.',
     '',
-    'The first run downloads a Chromium build to render the PDF. After that it is offline.',
+    'marp-cli renders the PDF through a Chrome or Chromium you already have. If it cannot',
+    'find one, point it at yours with `CHROME_PATH=/path/to/chrome`.',
     '',
     '## In the browser, with nothing at all',
     '',
@@ -1657,7 +1716,7 @@ function renderDoc() {
     '',
     '## Before you render, check the deck',
     '',
-    ...fenced(CHECK_LINE, 'sh'),
+    ...fenced(`node review/check.mjs your-deck.md   # from the kit root`, 'sh'),
     '',
     'It is code, not a model: no tokens, offline, about a tenth of a second, and it cannot',
     'be talked into approving a deck the way a model reviewing its own draft can.',
@@ -1694,7 +1753,20 @@ function exampleDecks() {
   for (const [slug, rel, blurb] of EXAMPLE_DECKS) {
     const src = path.join(ROOT, 'exemplars', rel);
     if (!existsSync(src)) continue;
-    const body = readFileSync(src, 'utf8');
+    // Retheme on copy, for the same reason `relocate()` rewrites links: these
+    // decks were written for a repo reader whose renderer has all 19 palettes,
+    // and the kit's reader has the Marp kit, which registers three. Byte-identity
+    // to `exemplars/` is NOT the property worth keeping — a worked example that
+    // renders unstyled through the route the kit documents teaches the wrong
+    // thing. Only the palette line changes; the deck is otherwise verbatim.
+    // ...and append the runtime tags for the same reason. Without them the
+    // DOM-composed layouts these decks lean on (kpi, stats, the chart family)
+    // render as plain ordered lists — palette live, layout absent, no error. The
+    // CLI strips deck-embedded runtime scripts before export, so this costs the
+    // repo reader nothing and buys the kit reader a deck that actually composes.
+    const body = `${readFileSync(src, 'utf8')
+      .replace(/^theme:[ \t]*\S+[ \t]*$/m, 'theme: cuoio')
+      .trimEnd()}\n\n${RUNTIME_TAGS.join('\n')}\n`;
     out.push({
       name: `lattice-example-${slug}.md`,
       blurb,
@@ -1868,16 +1940,33 @@ function rewireBundleLinks(text, members) {
   );
 }
 
-/** Demote every ATX heading by `n` levels, leaving fenced blocks alone. */
+/**
+ * Demote every ATX heading by `n` levels, leaving fenced content alone.
+ *
+ * KEEP THE HEADING TEXT. The first cut of this rebuilt the line from the hash
+ * run and the one whitespace character it matched and dropped everything after
+ * it, so all ten bundles shipped with 972 blank headings — `## ` with nothing
+ * on it — and every in-bundle anchor pointed at one. It cost nothing to run and
+ * broke the kit's single most-used artifact, because a bundle whose 61 sections
+ * are all untitled is worse to retrieve from than no bundle at all.
+ *
+ * The fence tracker counts ``` and ~~~ runs so a `#` inside a skeleton (every
+ * component doc has several) is left as authored. It does not model a longer
+ * fence closing a shorter one; nothing in the tree nests them.
+ */
 function demote(text, n) {
   let inFence = false;
   return String(text)
     .split('\n')
     .map((line) => {
-      if (/^ {0,3}`{3,}/.test(line)) inFence = !inFence;
+      if (/^ {0,3}(?:`{3,}|~{3,})/.test(line)) {
+        inFence = !inFence;
+        return line;
+      }
       if (inFence) return line;
-      const m = /^(#{1,6})(\s)/.exec(line);
-      return m ? `${'#'.repeat(Math.min(6, m[1].length + n))}${m[2]}` : line;
+      return line.replace(/^(#{1,6})(\s+)(.*)$/, (_all, hashes, gap, rest) =>
+        `${'#'.repeat(Math.min(6, hashes.length + n))}${gap}${rest}`,
+      );
     })
     .join('\n');
 }
@@ -1966,7 +2055,11 @@ const DESTINATIONS = [
   {
     slug: 'copilot',
     title: 'GitHub Copilot or Microsoft 365 Copilot',
-    paste: 'max',
+    // Three products under one name, and they do not take the same text. The
+    // headline names the one that works in all three; the notes below say where
+    // `max` is the better answer. An unconditional headline said `max` and then
+    // contradicted itself twice in its own body.
+    paste: 'standard',
     upload: 10,
     body: [
       '**In a repository:** copy `repo/AGENTS.md` to your repo root, or paste',
@@ -1988,6 +2081,11 @@ const DESTINATIONS = [
     title: 'a coding agent (Claude Code, Cursor, Codex, Windsurf, Cline, Zed, Aider)',
     paste: 'standard',
     upload: 0,
+    uploadNote: [
+      'Nothing to upload — but do not paste `paste/` text by hand either. Copy a drop-in',
+      'from [`repo/`](../repo/) instead: each one already carries the instructions AND the',
+      'link to the catalog, which the bare paste text assumes you were given separately.',
+    ],
     body: [
       'Copy the drop-in that matches your tool out of `repo/`:',
       '',
@@ -2056,7 +2154,7 @@ const DESTINATIONS = [
  * GPT, a reported 10 for a Gem, 5 on a free ChatGPT Project, and a Claude Project
  * that flips from in-context to retrieval somewhere around a dozen. The kit's 92
  * files clear none of those. Meanwhile nothing here is remotely near a SIZE cap —
- * 512 MB per file on a GPT, 100 MB on Gemini, and our largest file is 415 KB.
+ * 512 MB per file on a GPT, 100 MB on Gemini, and our largest file is 452 KiB.
  *
  * So the constraint is count, the tightest common denominator is ten, and this is
  * ten. The layout bundles group by BUCKET because that is the axis a reader picks
@@ -2102,7 +2200,8 @@ function uploadBundles(components, files, examples) {
       ...fenced(FRONT_MATTER.join('\n')),
       '',
       '`theme:` must name a palette your renderer has registered. `cuoio` and `cuoio-dark`',
-      'work on every route this kit documents; the engine ships 16 palettes in total.',
+      'work on every route this kit documents. The engine ships many more, but a name your',
+      'renderer does not carry falls back to unstyled output with no error.',
       '',
       '## What a good deck looks like',
       '',
@@ -2221,6 +2320,7 @@ function repoFiles(paste) {
     'anti-patterns — is published at',
     '<https://github.com/Laticent/lattice/tree/dist-kits/agent>.',
     'Read `upload/lattice-2-pick-a-layout.md` to choose, then that layout\'s own file.',
+    'The same folder carries `review/check.mjs`, a runnable deck checker.',
     '',
     'Do not pick a layout from memory. Capacity is the usual mistake: count your items',
     'before you commit to a layout, and split or escalate when you are over its budget.',
@@ -2243,7 +2343,8 @@ function repoFiles(paste) {
     '2. Read `references/pick-a-layout.md` and choose a layout per slide by intent,',
     '   then check your content against its capacity.',
     '3. Write the deck.',
-    '4. Run the checker: `node check.mjs your-deck.md`. Fix what it names.',
+    '4. If the Lattice kit is on disk, run `node <kit>/review/check.mjs your-deck.md` and fix',
+    '   what it names. It is code, so it costs nothing and cannot be argued with.',
     '5. Render it and look at it — `references/render.md` has the commands.',
     '',
     '## Rules that break a deck if you get them wrong',
@@ -2253,6 +2354,30 @@ function repoFiles(paste) {
   ].join('\n');
 
   return { agents, skill };
+}
+
+/**
+ * The three files `SKILL.md` tells the model to read.
+ *
+ * They shipped as instructions to open `references/writing-a-deck.md`,
+ * `references/pick-a-layout.md` and `references/render.md` while no `references/`
+ * directory existed anywhere in the kit — so the skill activated, three reads
+ * failed, and the plugin whose whole pitch is progressive disclosure had no
+ * catalog to disclose.
+ *
+ * ONE LEVEL DEEP from SKILL.md, deliberately: a reference chain two levels down
+ * gets partially read and yields incomplete information. These are the same
+ * bodies as `upload/` bundles 1 and 2 and `render/`, re-projected — duplication
+ * is the point, because the coding-agent lane must work without the reader having
+ * fetched anything else.
+ */
+function skillReferences(files) {
+  const txt = (k) => (files.get(k) || Buffer.alloc(0)).toString('utf8');
+  return [
+    ['writing-a-deck.md', txt(`${UPLOAD}/lattice-1-how-to-write-a-deck.md`)],
+    ['pick-a-layout.md', txt(`${UPLOAD}/lattice-2-pick-a-layout.md`)],
+    ['render.md', renderDoc()],
+  ];
 }
 
 /** start/ — one page per destination, generated from DESTINATIONS. */
@@ -2276,7 +2401,7 @@ function startPages() {
             'each has a globally unique name, so they survive an uploader that discards folders.',
             '',
           ]
-        : ['## What to upload', '', 'Nothing. This path is self-contained.', '']),
+        : ['## What to upload', '', ...(d.uploadNote || ['Nothing. This path is self-contained.']), '']),
       '## Notes',
       '',
       ...d.body,
@@ -2337,9 +2462,16 @@ function pluginFiles(skill) {
         '',
         '## Install',
         '',
-        ...fenced('/plugin marketplace add Laticent/lattice\n/plugin install lattice', 'text'),
+        'Copy `skills/lattice-decks/` — the `SKILL.md` and its `references/` — into your',
+        'project\'s `.claude/skills/`, or into `~/.claude/skills/` to have it everywhere.',
         '',
-        'Or copy `skills/lattice-decks/` into your project\'s `.claude/skills/`.',
+        ...fenced('cp -r skills/lattice-decks ~/.claude/skills/', 'sh'),
+        '',
+        '`.claude-plugin/` here is the manifest pair for installing this as a marketplace',
+        'plugin. **`/plugin marketplace add` does not work against this kit yet:** that command',
+        'resolves `.claude-plugin/marketplace.json` at a repository\'s default-branch root, and',
+        'these files publish to the `dist-kits` branch under `agent/plugin/`. The copy above is',
+        'the route that works today.',
         '',
       ].join('\n'),
     },
@@ -2435,13 +2567,16 @@ function rootReadme(files, layoutCount, components) {
     'Without them, layouts that compose in the DOM render as plain lists — again, no error.',
     'The starter deck in `examples/` carries them; copy it and you inherit them.',
     '',
-    `**Run the checker before you hand a deck over.** \`${CHECK_LINE}\` is code, not a model:`,
-    'no tokens, offline, a tenth of a second, and it cannot be talked into approving a deck.',
-    'A model reviewing its own draft will tell you the draft is fine.',
+    '**Run the checker before you hand a deck over.** `node review/check.mjs your-deck.md`,',
+    'from this folder, is code rather than a model: no tokens, offline, a tenth of a second,',
+    'and it cannot be talked into approving a deck. A model reviewing its own draft will tell',
+    'you the draft is fine.',
     '',
     '---',
     '',
-    '_Generated from the Lattice sources — do not hand-edit. Republished whenever an input changes._',
+    '_Generated from the Lattice sources — do not hand-edit. Republished whenever an input_',
+    '_changes. ~token figures are bytes ÷ 4, a rough cross-model approximation; your tokenizer_',
+    '_will differ, and the ratios are what matter._',
     '',
   ].join('\n');
 }
@@ -2586,6 +2721,12 @@ async function buildKit() {
   );
   files.set(`${REPO}/skills/lattice-decks/SKILL.md`, Buffer.from(skill, 'utf8'));
   for (const f of pluginFiles(skill)) files.set(`plugin/${f.name}`, Buffer.from(f.body, 'utf8'));
+  // The skill's own references, under BOTH copies of it. A skill that names a
+  // file it does not carry is a skill that fails on activation.
+  for (const [name, body] of skillReferences(files)) {
+    files.set(`${REPO}/skills/lattice-decks/references/${name}`, Buffer.from(body, 'utf8'));
+    files.set(`plugin/skills/lattice-decks/references/${name}`, Buffer.from(body, 'utf8'));
+  }
 
   files.set('README.md', Buffer.from(rootReadme(files, layoutCount, components), 'utf8'));
   return files;

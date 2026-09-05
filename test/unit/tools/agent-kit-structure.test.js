@@ -606,4 +606,149 @@ test('agent kit structure', { skip }, async (t) => {
 			assert.doesNotMatch(body, rail, `${why}: the payload can still break out of the fence`);
 		}
 	});
+
+	/**
+	 * THE DESTINATION EDITIONS — `paste/`, `upload/`, `start/`, `repo/`, `plugin/`.
+	 *
+	 * These arms exist because the recut shipped five defects that every existing
+	 * arm passed over, and each one below is the regression test for a specific
+	 * one of them. The pattern is worth naming: the old arms all check the LIBRARY
+	 * (does every component have a file, do the skills match byte-for-byte), and
+	 * the editions are a different artifact with different failure modes — a
+	 * heading with no text, a skill naming a file it does not carry, a paste text
+	 * contradicting the kit around it.
+	 */
+	const readKit = (rel) => fs.readFileSync(path.join(KIT, rel), 'utf8');
+	const kitMarkdown = () => {
+		const out = [];
+		const walk = (dir, prefix) => {
+			for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+				const rel = prefix ? `${prefix}/${e.name}` : e.name;
+				if (e.isDirectory()) walk(path.join(dir, e.name), rel);
+				else if (e.name.endsWith('.md')) out.push(rel);
+			}
+		};
+		walk(KIT, '');
+		return out;
+	};
+
+	/**
+	 * `demote()` rebuilt each heading from its hash run and dropped the text, so
+	 * all ten bundles shipped 972 headings reading `## ` with nothing on them —
+	 * and every in-bundle anchor pointed at one. It is the cheapest possible
+	 * check and it would have caught the worst defect in the change.
+	 */
+	await t.test('no generated file ships a heading with no text', () => {
+		const bad = [];
+		for (const rel of kitMarkdown()) {
+			let inFence = false;
+			readKit(rel).split('\n').forEach((line, i) => {
+				if (/^ {0,3}(?:`{3,}|~{3,})/.test(line)) inFence = !inFence;
+				else if (!inFence && /^#{1,6}\s*$/.test(line)) bad.push(`${rel}:${i + 1}`);
+			});
+		}
+		assert.deepEqual(
+			bad.slice(0, 10),
+			[],
+			`${bad.length} heading(s) have no text. A bundle whose sections are all untitled is ` +
+				'worse to retrieve from than no bundle at all.',
+		);
+	});
+
+	await t.test('every in-bundle anchor resolves to a heading in that bundle', () => {
+		const slug = (h) => h.trim().toLowerCase().replace(/[^a-z0-9 -]/g, '').replace(/\s+/g, '-');
+		const dead = [];
+		for (const f of fs.readdirSync(path.join(KIT, 'upload'))) {
+			const text = readKit(`upload/${f}`);
+			const heads = new Set([...text.matchAll(/^#{1,6}\s+(.+)$/gm)].map((m) => slug(m[1])));
+			for (const m of text.matchAll(/\]\(#([a-z0-9-]+)\)/g)) {
+				if (!heads.has(m[1])) dead.push(`upload/${f} -> #${m[1]}`);
+			}
+		}
+		assert.deepEqual(dead.slice(0, 10), [], `${dead.length} in-bundle anchor(s) point at nothing.`);
+	});
+
+	/**
+	 * The skill shipped telling the model to read three `references/` files while
+	 * no `references/` directory existed anywhere in the kit — so the plugin whose
+	 * entire pitch is progressive disclosure had nothing to disclose.
+	 */
+	await t.test('every file a SKILL.md names travels with it', () => {
+		for (const home of ['repo/skills/lattice-decks', 'plugin/skills/lattice-decks']) {
+			const text = readKit(`${home}/SKILL.md`);
+			const named = [...text.matchAll(/`(references\/[a-z0-9-]+\.md)`/g)].map((m) => m[1]);
+			assert.ok(named.length >= 1, `${home}/SKILL.md names no reference file — the arm is looking at nothing`);
+			for (const ref of new Set(named)) {
+				assert.ok(
+					fs.existsSync(path.join(KIT, home, ref)),
+					`${home}/SKILL.md tells the model to read ${ref}, which does not ship. The skill ` +
+						'activates, the read fails, and the catalog it promises is not there.',
+				);
+			}
+		}
+	});
+
+	/**
+	 * The whole point of the `cuoio` switch: the Marp kit registers `lattice`,
+	 * `cuoio` and `cuoio-dark` and nothing else, and Marp resolves a palette BY
+	 * NAME — so a kit that tells a model to write any other theme produces an
+	 * unstyled deck with no error. The `max` paste text reintroduced `indaco`
+	 * two commits into the fix.
+	 */
+	await t.test('no generated file promises a theme the Marp kit cannot resolve', () => {
+		const registered = new Set(['cuoio', 'cuoio-dark', 'lattice']);
+		const offenders = [];
+		for (const rel of kitMarkdown()) {
+			if (rel.startsWith('skills/') || rel.startsWith('library/')) continue; // verbatim copies
+			for (const m of readKit(rel).matchAll(/^theme:\s*([a-z0-9-]+)\s*$/gm)) {
+				if (!registered.has(m[1])) offenders.push(`${rel}: theme: ${m[1]}`);
+			}
+		}
+		assert.deepEqual(
+			offenders,
+			[],
+			'A generated deck or skeleton names a theme the copy-and-go Marp route does not ' +
+				'register. It renders unstyled, with no error and no failing gate.',
+		);
+	});
+
+	/**
+	 * Two files advertised `solo` as carrying "a worked example" while it held 20
+	 * isolated single-slide skeletons and never once demonstrated the `---`
+	 * separator its own rules are about.
+	 */
+	await t.test('the solo paste text carries a multi-slide worked deck', () => {
+		const text = readKit('paste/lattice-instructions-solo.md');
+		const blocks = [...text.matchAll(/```markdown\n([\s\S]*?)\n```/g)].map((m) => m[1]);
+		const best = Math.max(0, ...blocks.map((b) => (b.match(/^<!--\s*_class:/gm) || []).length));
+		assert.ok(
+			best >= 3,
+			`the largest fenced block in solo holds ${best} slide(s). A model that has never seen ` +
+				'two slides in sequence has never seen the separator rule applied.',
+		);
+	});
+
+	/** Every path a start/ page hands the reader has to exist. */
+	await t.test('every kit file a start/ page names exists', () => {
+		const missing = [];
+		for (const f of fs.readdirSync(path.join(KIT, 'start'))) {
+			for (const m of readKit(`start/${f}`).matchAll(/\]\(\.\.\/([^)#]+)\)/g)) {
+				if (!fs.existsSync(path.join(KIT, m[1]))) missing.push(`start/${f} -> ${m[1]}`);
+			}
+		}
+		assert.deepEqual(missing, [], 'a start page routes the reader to a file the kit does not contain');
+	});
+
+	/** The caps are the only thing standing between a paste text and a box that truncates silently. */
+	await t.test('every paste text is inside its platform budget', () => {
+		for (const [f, cap] of [
+			['lattice-instructions-standard.md', 6000],
+			['lattice-instructions-max.md', 8000],
+			['lattice-instructions-solo.md', 10000],
+		]) {
+			const n = [...readKit(`paste/${f}`)].length;
+			assert.ok(n <= cap, `paste/${f} is ${n} chars, over its ${cap} budget`);
+			assert.ok(n > 500, `paste/${f} is ${n} chars — suspiciously empty`);
+		}
+	});
 });

@@ -55,7 +55,7 @@ Reef-building corals are slow: a colony may take a decade to mature and centurie
 
 ## The coral is not one organism — it is a partnership under negotiation.
 
-Every coral hosts millions of single-celled algae, *Symbiodinium*, that photosynthesise inside its tissue and feed it. Heat ruptures that partnership: the algae turn toxic, the coral expels them, and the white skeleton shows through. That is bleaching.
+Every coral hosts millions of single-celled algae, *Symbiodinium*, that photosynthesize inside its tissue and feed it. Heat ruptures that partnership: the algae turn toxic, the coral expels them, and the white skeleton shows through. That is bleaching.
 
 ---
 
