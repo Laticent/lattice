@@ -850,7 +850,20 @@ function applyImageModePalette(name) {
   }
   return name;
 }
-const paletteName = applyImageModePalette(resolvePalette({ md, cliArg: paletteArg }).name);
+// A BAD PALETTE VALUE IS A USAGE ERROR, PRINTED LIKE ONE. `resolvePalette` throws when `--palette`
+// or `LATTICE_PALETTE` carries something that is not a name — the right behavior, since a silent
+// fallback to the default palette is the failure that module exists to prevent — but an uncaught
+// throw here reaches the user as a Node stack trace, which is not how this CLI reports every other
+// bad argument. Measured before this catch: `--palette ../../etc/passwd` printed eight frames of
+// `Module._load`. The unit tests asserted the throw and were right to; nobody had looked at the
+// terminal.
+let paletteName;
+try {
+  paletteName = applyImageModePalette(resolvePalette({ md, cliArg: paletteArg }).name);
+} catch (e) {
+  console.error(`error: ${e?.message ?? e}`);
+  process.exit(1);
+}
 // The a11y-* palettes are first-class themes (pick `theme: a11y-deuteranopia`
 // like any theme). Their categorical fills reference texture <pattern> <defs>
 // — SVG markup CSS can't hold — so the engine emits those <defs> per page.
