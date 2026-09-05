@@ -169,6 +169,49 @@ section.list-tabular ol > li > code {
   overflow-wrap:break-word;
 }
 
+/* ── An inline pill standing in for the row's trailing `code` ────────────────
+ * `{LABEL}` decodes to `<span class="lat-pill">`, and every placement rule in this
+ * file selects `code` — the ELEMENT. So without these a pill in a row is not placed
+ * at all: it auto-places into the first free cell, which is not always the trailing
+ * one. Measured on `1. Row one \`META\` and \`{PILL}\``, the `code` took column 4
+ * definitely and the pill landed in column 2, shoving the row NAME out to x=0 in the
+ * counter column. On `def` it landed at the name's own x. The trailing column happened
+ * to be right on `spec` — by luck, because nothing else had claimed it.
+ *
+ * A pill takes the SAME CELL its variant gives a `code`, and nothing else: appearance
+ * stays on the pill's own rules in `base.modifiers.css`, which is why these are a
+ * separate block rather than an `:is(code, .lat-pill)` widening of the rules above —
+ * those rules also strip `background`, `border` and `padding` to make a code read as
+ * plain meta, and a pill needs all three.
+ *
+ * NOT COVERED, and stated rather than hidden: `spec` addresses its two codes by
+ * `:first-of-type` / `:nth-of-type(2)`, which are element-type counters and cannot see
+ * a span at all. A `spec` row mixing a `code` key with a pill type-chip gets the
+ * trailing cell here, which is the common shape; a row whose KEY is a pill is not
+ * expressible. `lint:deck` does not flag it — it renders, just not in the key slot. */
+section.list-tabular ol > li > .lat-pill {
+  grid-column:4; grid-row:1;
+  justify-self:end;
+  align-self:center;
+}
+/* def has three tracks and its `code` is an EYEBROW above the name, so a pill goes
+ * where that eyebrow goes rather than to a trailing column def does not have. */
+section.list-tabular.def ol > li > .lat-pill {
+  grid-column:2; grid-row:1;
+  justify-self:start;
+}
+/* spec.stacked re-points its trailing chip to column 3 on row 1; match it. */
+section.list-tabular.spec.stacked ol > li > .lat-pill {
+  grid-column:3; grid-row:1;
+  justify-self:end;
+}
+/* In block flow (tall / strip families) the row is not a grid, so drop the placement
+ * and let the pill sit in the text run like the meta shapes above it. */
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > .lat-pill {
+  grid-column:auto; grid-row:auto;
+  justify-self:start;
+}
+
 /* ── Variant: def (editorial) ─────────────────────────────────────────── */
 section.list-tabular.def ol {
   /* Three tracks, no meta: def's `code` is an EYEBROW above the name, not a
