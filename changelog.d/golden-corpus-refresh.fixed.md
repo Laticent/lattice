@@ -24,3 +24,12 @@
   trailing column carrying a phrase rather than a stamp — and now renders every meta on
   one line. A 289-deck overflow sweep says it was the only slide in the corpus that
   clipped, so #2059's default is unchanged.
+- **Fixed: `examples/accent-on-accent`'s golden showed the wrong theme.** The deck declares
+  `theme: atelier-dark`; the committed PDF had been rendered with `indaco`, the engine
+  default — measured by re-rendering at three palettes and pixel-diffing each against the
+  old golden (`indaco` 10.1%, `atelier` 100%, `cuoio` 100%). The engine is not at fault:
+  `resolve-palette.js` is byte-unchanged since that golden was blessed, the producer passes
+  no palette argument, and the deck renders `atelier-dark` deterministically today. A CLI
+  palette argument or an exported `LATTICE_PALETTE` outranks a deck's own front matter, and
+  nothing reports the substitution — so a golden can be blessed against a theme its deck
+  never asked for.

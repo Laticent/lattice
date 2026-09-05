@@ -12,7 +12,11 @@ summary: >
   wrapped to two lines where three did before. A 289-deck overflow sweep says it is the
   ONLY casualty in the corpus, so the fix is the modifier #2059 shipped for exactly this
   shape (`flex-meta`) rather than a change to the default — and the fixed render is
-  word-identical to the pre-regression golden. Two things are recorded and not fixed:
+  word-identical to the pre-regression golden. A SECOND finding: `examples/accent-on-accent`'s
+  golden had been rendered with `indaco`, not the `atelier-dark` its front matter declares —
+  no engine bug (the resolver is byte-unchanged and the render is deterministic today), but
+  a CLI palette argument or an exported `LATTICE_PALETTE` outranks a deck's own `theme:` and
+  nothing reports the substitution. Two things are recorded and not fixed:
   #2059's changelog claim that "the default already fits" is false for one deck in 289,
   and `themes/palette-audit` page 2 now has its intro paragraph occluded by the note panel
   (that deck was already clipping on both sides of the refresh).
@@ -105,6 +109,55 @@ the PDF, under the panel. That deck carries a `Content clipped` stamp on pages 2
 in the OLD golden as well, so this is a pre-existing overflow in a hand-rolled audit
 artifact with its own `style:` block, not something the refresh introduced. It is also
 not in the overflow baseline, because it is not in that tool's corpus.
+
+## 4a. The second finding: a golden blessed with the wrong theme
+
+`examples/accent-on-accent` was the corpus's largest pixel mover — 100% of the worst page,
+with a word-identical text layer, which is the signature of a page that repainted rather
+than reflowed. **The committed golden was rendered with the wrong palette.** The deck
+declares `theme: atelier-dark`; the golden was `indaco`, the engine default.
+
+Measured, because "it looks like a different theme" is not a finding. Rendering the deck
+at three palettes and pixel-diffing each against the OLD golden:
+
+| Rendered as | Worst-page delta vs the old golden |
+| --- | ---: |
+| `indaco` (the DEFAULT) | **10.1%** — the residue is four days of unrelated engine drift |
+| `atelier` (the declared theme's light parent) | 100% |
+| `cuoio` | 100% |
+
+**The engine is not at fault, and this is not a live bug.** Four checks:
+
+- `lib/core/resolve-palette.js` was BYTE-UNCHANGED across the window this was measured in
+  — #1983 (the bad bless, 2026-09-01) through `e562d2f` — so no fix landed in between that
+  could be credited for the corrected render. #2063 changed the file AFTER that
+  measurement, and this branch is rebased onto it; it constrains what `--palette` and
+  `LATTICE_PALETTE` may CARRY (a name, not a path) and makes a bad value refuse instead of
+  falling back. It does not change the PRECEDENCE, so the hole below is untouched by it.
+  Worth recording that #2063's own docblock names this exact failure independently: *"a
+  deck rendering in indaco while its author believes they asked for something else."* That
+  is a description of what the `accent-on-accent` golden was.
+- The producer honors front matter: `tools/build-staged-pdfs.js:148` spawns
+  `[EMULATOR, src, out]` with no palette argument.
+- Nothing was missing at bless time. `themes/atelier-dark.css`, its manifest edge in
+  `lib/theme/edges.generated.mjs`, the deck and the golden were all added in the SAME
+  commit (#1983), and the edge is present in that commit's tree.
+- The render is deterministic today: two fresh renders are byte-identical to each other
+  AND to the blessed golden, and both honor `atelier-dark`.
+
+So the artifact was produced OFF the normal path. `resolvePalette`'s precedence is
+**CLI argument, then `LATTICE_PALETTE`, then the deck's `theme:`, then the default** — so
+either an explicit palette argument or an exported `LATTICE_PALETTE` in the blessing shell
+silently re-themes every deck it renders, front matter and all.
+
+**That is the durable hole, and #2063 does not close it.** That change makes a MALFORMED
+palette value refuse; it leaves a WELL-FORMED one silently outranking the deck's own
+`theme:`. A deck's declared theme is the thing a golden is supposed to be evidence OF, and
+`LATTICE_PALETTE=indaco` still overrides it with nothing reporting the substitution. No gate compares a golden against the theme its own front matter declares.
+The regression gate catches it only downstream, as ordinary drift, four days late and
+buried in 110 other drifted decks — which is exactly how it surfaced. Whether the golden
+producers should ignore `LATTICE_PALETTE` is a change to producer behavior repo-wide and
+is not made here.
 
 ## 5. What was checked before blessing
 
