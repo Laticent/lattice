@@ -33,3 +33,8 @@
   palette argument or an exported `LATTICE_PALETTE` outranks a deck's own front matter, and
   nothing reports the substitution — so a golden can be blessed against a theme its deck
   never asked for.
+- **The docs site's showcase rasters follow the gallery goldens.** Re-blessing the `kpi`
+  gallery left `docs/public/showcase/kpi.{light,dark}.webp` stale, which fails
+  `docs/scripts/rasterize-showcase.mjs --check` and takes the `docs-build` and `preview`
+  jobs with it. Regenerated. A gallery bless owes this whenever the blessed gallery is one
+  of the 30 the showcase samples.
