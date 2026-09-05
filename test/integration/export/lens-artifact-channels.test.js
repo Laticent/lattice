@@ -28,6 +28,7 @@ const { spawnSync } = require('node:child_process');
 
 const { applyTag, approvalHash, emitRegistry } = require('@workwel/lente');
 const { splitSlideChunks } = require('../../../lib/core/slide-boundaries.mjs');
+const { isHoleOpenTag } = require('../../../lib/core/lens-export.mjs');
 const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome.js');
 
 const CHROME = resolveChrome();
@@ -81,6 +82,42 @@ describe('a projected export keeps its per-slide channels aligned', { skip }, ()
 		assert.notEqual(r.status, 0, 'a forged hole is a refusal');
 		assert.match(r.stderr, /lens-hole/, 'and the message names the class the deck set');
 		assert.ok(!fs.existsSync(out), 'nothing was written');
+	});
+
+	test('an UN-HIDDEN hole is refused — the check reads the layout, not the class', { timeout: TIMEOUT }, () => {
+		// The attack the engine rule cannot lose to and cannot win: two lines of author CSS on a slide
+		// the view KEEPS. `!important` in author origin outranks an `!important` engine rule, so
+		// `base.lens-hole.css` is beaten by the cascade and no engine rule could beat it back.
+		// `holeDrift` is silent because the class is all still there — the marker is intact, the
+		// PROPERTY is gone. Measured before the visibility check existed: `brief` on this deck exported
+		// a FIVE-page PDF, blank at positions 2 and 4, exit 0, one line under "3 of 5 slides ship" —
+		// the deck's real length and the exact withheld slots, from a deck that never names one.
+		const style = '<style>\nsection.lens-hole { display: block !important }\n</style>\n\n';
+		const { r, out } = run(deck({ style }), 'unhide.pdf', ['--quiet', '--lens', 'brief']);
+		assert.notEqual(r.status, 0, 'an un-hidden hole is a refusal');
+		assert.match(r.stderr, /renders as a page/, 'and the message says what is wrong with the LAYOUT');
+		assert.match(r.stderr, /Slides 2, 4/, 'naming the withheld slots that took space');
+		assert.ok(!fs.existsSync(out), 'no PDF');
+		// The sidecar is written pre-navigation, so this refusal is the first that has to take a file
+		// back. "Nothing was exported" has to be true.
+		assert.ok(!fs.existsSync(out.replace(/\.pdf$/, '.html')), 'and the HTML sidecar was removed, not left behind');
+	});
+
+	test('and a KEPT slide the deck hides is refused under a view — the page it promised is missing', { timeout: TIMEOUT }, () => {
+		// The other direction. Under a reader view the run has just printed how many slides ship, so an
+		// artifact with fewer pages than that is the projection's own contract broken. With no `--lens`
+		// this warns instead: hiding a slide with CSS is something a deck could always do, and this
+		// change is not the place to start refusing it — but the count line must not lie about it.
+		const style = '<style>\nsection[data-authored-slide="2"] { display: none !important }\n</style>\n\n';
+		const { r, out } = run(deck({ style }), 'vanish.pdf', ['--quiet', '--lens', 'brief']);
+		assert.notEqual(r.status, 0);
+		assert.match(r.stderr, /renders no page/);
+		assert.ok(!fs.existsSync(out));
+
+		const loose = run(deck({ style }), 'vanish-noview.pdf', []);
+		assert.equal(loose.r.status, 0, 'with no reader view it is a warning, not a refusal');
+		assert.match(loose.r.stderr, /⚠ slide 3 renders no page/, 'and the warning is un-gated and names the slide');
+		assert.ok(fs.existsSync(loose.out), 'the export still happens');
 	});
 
 	test('the RUNNING `class:` form is refused too — it holes every slide after it', { timeout: TIMEOUT }, () => {
@@ -315,7 +352,9 @@ describe('what a projection lets a recipient observe', { skip }, () => {
 		assert.equal(html.r.status, 0, html.r.stderr);
 		const doc = fs.readFileSync(html.out, 'utf8');
 		const secs = [...doc.matchAll(/<section\b[^>]*data-authored-slide="(\d+)"[^>]*>/g)];
-		const holes = secs.filter((m) => /\sclass="[^"]*\blens-hole\b/.test(m[0])).map((m) => Number(m[1]) + 1);
+		// The KERNEL predicate, not a seventh spelling of it. The one this replaced was the unanchored
+		// `\blens-hole\b`, added by the same commit that centralized the predicate to abolish it.
+		const holes = secs.filter((m) => isHoleOpenTag(m[0])).map((m) => Number(m[1]) + 1);
 		// The plain `.html` keeps the holes — its sections are siblings, so `nth-of-type` is live there
 		// and the slot has to stay. The cost is stated rather than hidden: length and positions.
 		assert.equal(secs.length, 8, 'the plain .html carries every authored slot, so deck length is recoverable');

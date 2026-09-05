@@ -481,7 +481,7 @@ if (flags.palette) paletteArg = flags.palette;
 // four sites (pptx, png, thumbnails, image-set) and a fifth would otherwise have to remember. It is
 // also what keeps the disclosure at ZERO for every rasterized format — the hole is absent from the
 // artifact entirely, not merely blank in it.
-const { SHIPPED_SLIDES_SELECTOR: SHOOTABLE_SLIDES, isHoleOpenTag, isHoleSectionHtml, isHoleSourceChunk } = require('./lib/core/lens-export.mjs');
+const { SHIPPED_SLIDES_SELECTOR: SHOOTABLE_SLIDES, HOLE_CLASS_NAME, isHoleOpenTag, isHoleSectionHtml, isHoleSourceChunk } = require('./lib/core/lens-export.mjs');
 const QUIET = flags.quiet;
 const NOTES_SIDECAR = !!flags.notes;
 const CAPTIONS = !!flags.captions;
@@ -2572,12 +2572,27 @@ function engineSlides(deckSource = rawMd) {
   // `.form` class the old hiding rule leaned on, so every hole rendered as a live empty page and a
   // 3-slide view came out as a 5-page PDF blank at the withheld positions — the deck's length and
   // the withheld slots, disclosed. The rule now sits in `lib/base/base.lens-hole.css` and names no
-  // deck-controllable class; this check is what proves it won.
+  // deck-controllable class, so a hole that loses the class is drift here.
+  //
+  // WHAT THIS CHECK CANNOT SEE is a hole that keeps the class and is un-hidden anyway — author CSS
+  // marked `!important` outranks the engine by origin, and `saw === want` either way. That is the
+  // visibility check further down, on the laid-out document. Two questions, two checks: this one is
+  // which slides carry the class, that one is whether carrying it still means anything.
   {
-    const { holeDrift } = require('./lib/core/lens-export.mjs');
+    const { holeDrift, emptyHolePositions } = require('./lib/core/lens-export.mjs');
+    // With a reader view, the expected set is the one the projection withheld — the strongest
+    // statement available, because it comes from the decision rather than from the file.
+    //
+    // WITHOUT one it is not the empty set, and that difference is a projected deck being
+    // re-exported. Its source is markdown; the envelope of a shared player carries it verbatim, and
+    // the obvious thing to do with markdown is render it again. Refusing that made the tool reject
+    // its own output — under a message that was FALSE for that file, since the projection had
+    // already removed the text it warned was still shipping. So a chunk that IS the projection's
+    // empty hole body, byte for byte, is an expected hole; a hole with anything under it is not, and
+    // that is the case every word of the refusal below was written for.
     const wantHoles = LENS_PROJECTION
       ? Array.from({ length: LENS_PROJECTION.total }, (_, i) => i).filter((i) => !LENS_PROJECTION.kept.includes(i))
-      : [];
+      : emptyHolePositions(deckSource);
     const hd = holeDrift(html, wantHoles);
     if (hd) {
       const forged = hd.saw.filter((i) => !wantHoles.includes(i));
@@ -2585,8 +2600,9 @@ function engineSlides(deckSource = rawMd) {
       console.error('error: the rendered deck does not agree with the export about which slides are withheld.');
       if (forged.length) {
         console.error(`       Slide${forged.length === 1 ? '' : 's'} ${forged.map((i) => i + 1).join(', ')} render${forged.length === 1 ? 's' : ''} as a reader-view HOLE, which this export did not put there.`);
-        console.error("       `lens-hole` is the class `--lens` marks a withheld slide with; a deck that sets it hides the slide from");
-        console.error('       the PDF while its text still ships in the .html and in the embedded source. Remove it and use a reader view.');
+        console.error("       `lens-hole` is the class `--lens` marks a withheld slide with, and the export puts it only on a slide it");
+        console.error('       emptied. Set on a slide that still has content, it hides that slide from the PDF while its text ships');
+        console.error('       anyway — in the .html and in the embedded source. Remove it and use a reader view.');
       }
       if (lost.length) {
         console.error(`       Slide${lost.length === 1 ? '' : 's'} ${lost.map((i) => i + 1).join(', ')} should be a withheld hole and did not render as one.`);
@@ -3803,6 +3819,77 @@ async function renderBody(browser, g, closeBrowser) {
   // the page count; this verdict feeds the author warnings and the overflow marker, which is
   // the honest terminal for a page that still does not fit at one element per page.
   const overflow = await measureOverflow();
+  // IS THE HOLE ACTUALLY HIDDEN? Asked of the LAID-OUT DOCUMENT, because that is the only place
+  // the answer lives. `holeDrift` (above) asks whether the withheld slides carry the class; this
+  // asks whether carrying it still means anything, and the two are not the same question.
+  //
+  // Measured, and it is the disclosure the whole design exists to prevent: two lines of author CSS —
+  //
+  //     <style>section.lens-hole { display: block !important }</style>
+  //
+  // on a slide the view KEEPS — turned a `brief` export of a 5-slide deck into a FIVE-page PDF,
+  // blank at positions 2 and 4, one line under the CLI's own "brief — 3 of 5 slides ship". Exit 0.
+  // The deck's true length and the exact withheld slots, in the file, from a deck that never names
+  // a withheld slide. `holeDrift` was silent because the class was all still there, and
+  // `base.lens-hole.css` cannot win this on specificity — `!important` in author CSS outranks an
+  // `!important` engine rule by origin, and no engine rule can outrank it.
+  //
+  // So the guarantee is not "the engine ships a rule". It is "the rendered document was checked".
+  // A box is what a hole must not have: `getClientRects()` is empty exactly when an element
+  // generates none, which is exactly what keeps it off a page. `visibility: hidden` and `opacity: 0`
+  // DO generate boxes and DO take a blank page, and this catches both — a page-count check on the
+  // artifact would too, but only after the artifact exists.
+  //
+  // The other direction is a shipped slide that renders no box. Under a reader view that is the
+  // projection's own contract broken (the file has fewer pages than the run just promised) and it
+  // refuses. Without one, hiding a slide with CSS is something a deck could always do and this
+  // change is not the place to start refusing it — but the count line must not lie about it, so it
+  // warns, un-gated by `--quiet`, the way the other privacy notice is.
+  {
+    // The sidecar is already on disk by here — it is written pre-navigation so the raster path can
+    // load it — so a refusal at this point has to take it back, or "nothing was exported" is a
+    // sentence the tool is contradicting with a file. Every earlier refusal is pre-render and gets
+    // this for free; this one is the first that has to clean up after itself.
+    const refuse = (lines) => {
+      try { fs.unlinkSync(outHtml); } catch { /* it may never have been written */ }
+      for (const l of lines) console.error(l);
+      console.error('       Nothing was exported.');
+      process.exit(1);
+    };
+    const boxes = await g(() => page.evaluate((holeCls) => {
+      const secs = [...document.querySelectorAll('#deck > section[data-lattice-slide], body > section[data-lattice-slide]')];
+      return secs.map((el, i) => ({
+        at: Number(el.getAttribute('data-authored-slide') ?? i),
+        hole: el.classList.contains(holeCls),
+        boxed: el.getClientRects().length > 0,
+      }));
+    }, HOLE_CLASS_NAME), 'measure hole visibility');
+    const shown = boxes.filter((b) => b.hole && b.boxed).map((b) => b.at + 1);
+    const vanished = boxes.filter((b) => !b.hole && !b.boxed).map((b) => b.at + 1);
+    if (shown.length) {
+      refuse([
+        'error: a withheld slide renders as a page.',
+        `       Slide${shown.length === 1 ? '' : 's'} ${shown.join(', ')} ${shown.length === 1 ? 'is' : 'are'} withheld from this export and still ${shown.length === 1 ? 'takes' : 'take'} space in the rendered deck, so the`,
+        "       artifact would carry a blank page at each one — publishing the deck's real length and the exact",
+        '       positions you withheld. Something in the deck overrides the engine rule that hides them; author',
+        '       CSS marked `!important` outranks the engine by origin, so no engine rule can win this.',
+        '       Remove any rule that targets `.lens-hole`.',
+      ]);
+    }
+    if (vanished.length) {
+      const list = `slide${vanished.length === 1 ? '' : 's'} ${vanished.join(', ')}`;
+      if (LENS_PROJECTION) {
+        refuse([
+          `error: ${list} ship${vanished.length === 1 ? 's' : ''} in this view and render${vanished.length === 1 ? 's' : ''} no page.`,
+          '       The export promised a page for each and the deck hides it, so the artifact would be short of',
+          '       what this run just reported. Remove the rule that hides it, or drop the slide from the view.',
+        ]);
+      }
+      // Un-gated: a warning `--quiet` hides is a warning nobody reads, and this one says the count
+      // printed below is not the count in the file.
+      console.warn(`  ⚠ ${list} render${vanished.length === 1 ? 's' : ''} no page — the deck hides ${vanished.length === 1 ? 'it' : 'them'} with CSS, so the artifact is shorter than the slide count reported below.`);
+    }
+  }
   // §8 rule 8's figures are reported on their OWN line: "clipped" would be a lie (the box fits)
   // and so would "trim content" (the fix is a simpler figure, or a bigger box).
   const illegible = overflow.filter((o) => o.illegible);

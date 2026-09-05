@@ -150,5 +150,7 @@
   the deliverable, and for a `.pdf`, `.pptx`, `.png` or `.zip` it is the companion the run announces as
   `HTML: 3 slides → deck-brief.html`. An earlier fix removed only the first, so a refused `.pdf` printed
   "Nothing was exported" over a complete 2.7 MB `.html` carrying the exact leak the check had just
-  found — a file a sender can attach to an email. The refusal now runs ahead of every write instead, so
-  no target reaches disk at all.
+  found — a file a sender can attach to an email. Every refusal that CAN run ahead of the write now
+  does, so no target reaches disk. The visibility check below is the one that cannot — it needs the
+  laid-out document, and the browser loads that from the sidecar — so it removes the file before it
+  says the sentence.

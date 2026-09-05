@@ -19,7 +19,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { POSITION_NEUTRALIZERS, authorCss, authoredIndexDrift, crossSlideDrift, emptyWithheld, projectForExport, exportableViews, REFUSAL_REASONS } = require('../../../lib/core/lens-export.mjs');
+const { HOLE_CLASS_NAME, POSITION_NEUTRALIZERS, authorCss, authoredIndexDrift, crossSlideDrift, emptyWithheld, holeDrift, isHoleOpenTag, isHoleSectionHtml, isHoleSourceChunk, projectForExport, exportableViews, REFUSAL_REASONS, SHIPPED_SLIDES_SELECTOR } = require('../../../lib/core/lens-export.mjs');
 const { frontMatterBlockOf, normalizeSourceText, slideBoundaries } = require('../../../lib/core/slide-boundaries.mjs');
 const { approvalHash, applyTag, emitRegistry } = require('@workwel/lente');
 const engine = require('../../../lib/engine/index.js');
@@ -1446,5 +1446,86 @@ test.describe('front-matter `captions:` is projected onto the slides that ship',
 		assert.equal(out.ok, true);
 		assert.doesNotMatch(out.source, /LEAKED/);
 		assert.doesNotMatch(out.source, /captions:/, 'no empty block left behind');
+	});
+});
+
+/**
+ * ONE QUESTION, ONE ANSWER — the hole predicates against `holeDrift` and the CSS.
+ *
+ * The predicates exist because six call sites each hand-rolled the test in five spellings. Exporting
+ * them fixed the SPELLING and not the SEMANTICS: `isHoleOpenTag` matched `\blens-hole\b`, which is a
+ * substring test that runs across a hyphen, while `holeDrift` and `base.lens-hole.css` both match a
+ * whole class token. So an ordinary author class — `lens-hole-note` — was a hole to the CLI's slide
+ * filters and content to the integrity check and the stylesheet: a 3-slide deck shipping an `.html`
+ * that claimed 2 slides, with that slide's PDF note annotations dropped and its sidecar entry
+ * mislabeled, at exit 0 and past `holeDrift`.
+ *
+ * The arm that matters is not the table but the AGREEMENT: for each class value, the predicate and
+ * `holeDrift` (the two independent implementations) must return the same answer. A table alone would
+ * pin whatever the predicate happens to do; this pins the two to each other.
+ */
+test.describe('the hole predicates answer the same question as holeDrift', () => {
+	// [class attribute value, is it a hole]
+	const CASES = [
+		['lens-hole', true],
+		['lens-hole content', true],
+		['content lens-hole', true],
+		['a lens-hole b', true],
+		['my-lens-hole', false],
+		['lens-hole-note', false],
+		['deep-lens-hole-2', false],
+		['lens-holes', false],
+		['content', false],
+		['', false],
+	];
+
+	const sectionFor = (cls, authored) =>
+		`<section data-lattice-slide data-authored-slide="${authored}" class="${cls}"><p>x</p></section>`;
+
+	for (const [cls, isHole] of CASES) {
+		test(`class="${cls}" is ${isHole ? '' : 'NOT '}a hole, to every reader of the question`, () => {
+			const section = sectionFor(cls, 0);
+			const openTag = section.slice(0, section.indexOf('>') + 1);
+			assert.equal(isHoleOpenTag(openTag), isHole, 'isHoleOpenTag');
+			assert.equal(isHoleSectionHtml(section), isHole, 'isHoleSectionHtml');
+			// holeDrift is the independent implementation. Told to expect this slide as a hole, it
+			// agrees only when the predicate does; told to expect none, likewise.
+			assert.equal(holeDrift(section, [0]) === null, isHole, 'holeDrift, expecting a hole here');
+			assert.equal(holeDrift(section, []) === null, !isHole, 'holeDrift, expecting none');
+		});
+	}
+
+	test('a nested author `class="… lens-hole …"` is NOT the section\'s class', () => {
+		// The section-level predicate used to be an alias for the open-tag one, on the reasoning that
+		// "the open tag is inside it". It is — and so is every other `class="…"` on the slide. Author
+		// markup survives the engine, so a `<div class="badge lens-hole">` in a kept slide answered
+		// yes on any section the engine left without a class of its own: the notes join then dropped
+		// that slide's speaker note and bound the NEXT slide's note to it, in a sidecar written one
+		// line under the CLI's own "3 slides with speaker notes".
+		const bare = '<section data-lattice-slide data-authored-slide="0"><div class="badge lens-hole">draft</div></section>';
+		assert.equal(isHoleSectionHtml(bare), false, 'a section with no class of its own is not a hole');
+		const classed = '<section data-lattice-slide data-authored-slide="0" class="content"><div class="lens-hole">x</div></section>';
+		assert.equal(isHoleSectionHtml(classed), false, 'and neither is one whose own class is content');
+		assert.equal(isHoleSectionHtml('<div class="lens-hole"></div>'), false, 'a non-section is never a hole');
+		assert.equal(isHoleSectionHtml('  \n<section class="lens-hole"></section>'), true, 'leading whitespace is fine');
+	});
+
+	test('and `data-class` — the directive an author TYPED — is not the class the engine resolved (#1358)', () => {
+		assert.equal(isHoleOpenTag(`<section data-lattice-slide data-class="${HOLE_CLASS_NAME}">`), false);
+	});
+
+	test('the shipped-slides selector excludes exactly the class the predicate accepts', () => {
+		assert.equal(SHIPPED_SLIDES_SELECTOR.includes(`:not(.${HOLE_CLASS_NAME})`), true);
+		// The CSS that actually hides them keys on the same class token.
+		const fs = require('node:fs');
+		const path = require('node:path');
+		const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.lens-hole.css'), 'utf8');
+		assert.match(css, new RegExp(`section\\.${HOLE_CLASS_NAME}\\b`), 'the stylesheet hides that same token');
+	});
+
+	test('the SOURCE-chunk predicate reads the directive, and is likewise exact', () => {
+		assert.equal(isHoleSourceChunk('<!-- _class: lens-hole -->\n\n<!-- -->\n'), true);
+		assert.equal(isHoleSourceChunk('<!-- _class: lens-hole-note -->\n# real slide\n'), false);
+		assert.equal(isHoleSourceChunk('# a slide about lens-hole\n'), false);
 	});
 });

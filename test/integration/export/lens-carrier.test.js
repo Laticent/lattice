@@ -26,6 +26,7 @@ const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 
 const { applyTag, approvalHash, emitRegistry } = require('@workwel/lente');
+const { isHoleOpenTag } = require('../../../lib/core/lens-export.mjs');
 const { splitSlideChunks } = require('../../../lib/core/slide-boundaries.mjs');
 const { resolveChrome, skipWithoutChrome } = require('../../helpers/chrome.js');
 
@@ -141,6 +142,35 @@ describe('a multi-view player carrier', { skip }, () => {
 		// Slides 2, 4 and 8 are in no exported view. None of them may be in the file at all —
 		// this is the half the export CAN withhold, unlike the switching, which only hides.
 		for (const away of [2, 4, 8]) assert.ok(!html.includes(`Body of slide ${away + 1}.`), `slide ${away} withheld`);
+	});
+
+	test('and the CLI accepts that envelope back — a tool whose output it refuses is broken', { timeout: TIMEOUT }, () => {
+		// THE ROUND TRIP, on the artifact's OWN bytes rather than a re-derivation: decode the source
+		// this export actually wrote and hand it back to the same command. That source is a projected
+		// deck, so it is full of holes, and the integrity check refused every one of them — under a
+		// message that was FALSE for this file ("its text still ships in the .html") when the
+		// projection had already removed the text. The fix is not to stop checking: it is to check the
+		// property that matters, which is whether a hole has anything UNDER it.
+		const html = fs.readFileSync(file, 'utf8');
+		const env = /<script type="application\/lattice\+json"[^>]*>([\s\S]*?)<\/script>/.exec(html);
+		const source = JSON.parse(Buffer.from(env[1].trim(), 'base64').toString('utf8')).source;
+		assert.match(source, /lens-hole/, 'the source really is projected — this arm is worthless otherwise');
+
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-roundtrip-'));
+		const back = path.join(dir, 'reimported.md');
+		fs.writeFileSync(back, source);
+		const out = path.join(dir, 'again.html');
+		const r = spawnSync(process.execPath, [EMULATOR, back, out, '--quiet'], {
+			cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+		});
+		assert.equal(r.status, 0, `re-export of the envelope's own source was refused: ${r.stderr}`);
+		const again = fs.readFileSync(out, 'utf8');
+		// The re-render keeps the holes — that is what they are for, and it is why the envelope carries
+		// them — so it ships the same slides and hides the same slots.
+		const sections = [...again.matchAll(/<section[^>]*data-lattice-slide/g)].length;
+		const holes = [...again.matchAll(/<section\b[^>]*>/g)].filter((m) => isHoleOpenTag(m[0])).length;
+		assert.equal(sections - holes, UNION.length, 'the same slides ship on the second pass');
+		for (const away of [2, 4, 8]) assert.ok(!again.includes(`Body of slide ${away + 1}.`), `slide ${away} is still withheld`);
 	});
 
 	test('the switcher offers exactly the exported views, in order', { timeout: TIMEOUT }, async () => {
