@@ -124,18 +124,18 @@ below: **A** content lost · **B** meaning lost · **C** envelope defect ·
 | `wifi`, `contact` | no | A | Portrait cuts the Wi-Fi password off the page edge; drops the QR code and caption while still drawing their empty cell. |
 | `state-chart` | no | A | Three of four variants cut the terminal state through its own box at portrait; transition labels render at half the legibility floor on all four. Square loses the end marker past the page edge with no warning. |
 | `video` | no | A C | `qr` at portrait loses the first line of its heading off the top and its caption off the bottom, over the footer. `companion` silently suppresses the deck footer at both sizes, and at portrait it stacks rather than placing the player beside the claim — the variant's whole premise. |
-| `obligation-matrix` | no | A | `asymmetric` slices its row labels and loses the whole column-header row, both sizes. |
+| `obligation-matrix` | no | A | `asymmetric` slices its row labels to `FEDER` / `STATE` / `CONTR` and loses the whole column-header row, both sizes — with no engine warning. Its other four variants are fine and all five are measurably distinct. |
 | `code` | no | A | Portrait truncates code mid-identifier inside a panel that is ~90% empty. |
 | `logo-wall` | no | A | Square cuts a pill at the left page edge, with no engine warning of any kind. |
 | `matrix-grid` | no | A | Square clips the leading letter of its axis label, silently. |
 | `gantt` | no | A D | Elides three of five task labels while 28% (portrait) / 63% (square) of the page below the chart is empty. |
-| `citation-card` | no | A | `pull-quote` drops the below-note at both sizes — flagged as clipped only at portrait. `split` renders as `default`. |
-| `map`, `word-cloud`, `quadrant`, `radar`, `progress`, `timeline-list`, `funnel`, `piechart`, `image`, `scene` | no | D | No clipping; 30–85% of the canvas unused, because a figure composed for a landscape box is centered rather than grown. `quadrant` additionally renders 5 of 7 variants identically, `map` 3 of 6 — both unrelated to splitting. |
+| `citation-card` | no | A | `pull-quote` drops the below-note at both sizes — the sentence is on `default` and gone on `pull-quote`, with a clipped tag at portrait and none at square. All five variants are measurably distinct. |
+| `map`, `word-cloud`, `quadrant`, `radar`, `progress`, `timeline-list`, `funnel`, `piechart`, `image`, `scene` | no | D | No clipping; 30–85% of the canvas unused, because a figure composed for a landscape box is centered rather than grown. Two variant collapses here are real and **unrelated to splitting**: `image` and `scene` each render `default`, `split` and `mirror` as one look at portrait, and `map`'s `world` is identical to `default`. `quadrant`'s seven variants measure 0.7–1.9% apart — a marker-fill change and nothing more, which is thin for a declared variant but is not a collapse. |
 | `matrix-2x2` | no | B | At portrait the 2×2 collapses to a one-column stack of four cards, so the two-axis reading is gone. Square is correct. |
 | `q-and-a` | yes | A | Otherwise the best-behaved split in the audit — the forward pill carries the next question's text, and `solo` is the one variant that scales its type up for the page it owns. But at square the `grid` variant keeps drawing its 2×2 cell rules: three empty cells on three pages, and on the fourth a rule runs **through** the answer text. |
-| `authority-chain` | yes | C | 5 looks → 5 and no fit failure at square, but two citations clip at portrait (`pyramid`, `bracket`) and none of the ten runs emits a closing page. |
+| `authority-chain` | yes | C | 5 looks → 5 and no fit failure at square, but at portrait six body pages overflow their card (`branching` on all four, plus `pyramid` 4.3 and `bracket` 5.3) — the citation chip runs past the card's right edge. The engine warns on all six; the text stays legible. None of the ten runs emits a closing page. |
 | `divider` | no | C | `numbered` silently suppresses the deck footer its own deck set — it renders on the deck's other three pages, so it is the variant, not the deck. |
-| `regulatory-update` | yes | C D | Variants survive (5 → 5), but the scope kicker repeats on all 20 body pages, and at portrait `cards` overruns its card and cuts the forward pill at the page boundary with no clipped tag. |
+| `regulatory-update` | yes | C D | Variants survive (5 → 5), but the scope kicker repeats on all 20 body pages, and at portrait `cards` 4.3 collapses to a narrow column — the title rags to three lines, the citation to four, and the forward pill is cut by the card boundary. The engine warns on it. |
 | `compare-table`, `redline`, `big-number`, `quote`, `title`, `closing`, `diagram` | — | — | No blocking defect found. `compare-table` is the one read-across component that split on the right axis — it slices by criterion, so all three options stay on every page and the comparison survives. |
 
 ## Problems, by component
@@ -217,9 +217,14 @@ save them:
 | `matrix-grid` | square | The axis label renders `EEPER TUNING` — the leading `D` clipped at the canvas edge, silently. |
 | `gantt` | both | Three of five task labels elide with an ellipsis while 28% (portrait) / 63% (square) of the page below the chart is empty. |
 
-Two of those clips — `logo-wall.square` and `matrix-grid.square` — are invisible
-to the overflow probe: it catches a box that exceeds its frame or clips
-internally, not content that simply sits past the page edge.
+Four of those clips are invisible to the overflow probe — `logo-wall.square`,
+`matrix-grid.square`, `state-chart.square` and `obligation-matrix` at both
+sizes. The probe catches a box that exceeds its frame or clips internally, not
+content that simply sits past the page edge, so the CLI reports nothing and no
+ring prints. Where the probe *does* fire it is accurate: `citation-card`,
+`authority-chain`, `regulatory-update`, `code`, `state-chart.portrait`,
+`video.portrait`, `wifi`, `contact`, `pricing` and `split-compare` all carry a
+real warning or a `Content clipped` tag.
 
 ## What the pattern actually is
 
@@ -297,6 +302,23 @@ render better than the one that splits, on the same content, on the same page.
   section D are eye estimates from whole-page review, not instrument readings.
 - **One theme, one palette.** Everything is `indaco`, light mode. A palette-driven
   defect would not show here.
+- **Reviewer reports were re-checked, and some did not survive.** Nine parallel
+  reviewers worked the committed rubric; every claim that reached this document
+  was then re-opened against the real PDF or re-measured. Six did not hold and
+  are not in the tables above: `list`'s "missing counters" and `cards-grid
+  numbered` (inert on this corpus's content, not split damage), `list-tabular`'s
+  "15 of 15 variants erased" (6 erased, 8 already inert), `citation-card split`
+  and `obligation-matrix pills` "identical to default" (measurably distinct), and
+  `quadrant`'s "5 of 7 identical" (0.7–1.9% apart). The pattern is that a reader
+  over-calls *indistinguishable* when a difference is small but real, which is
+  why the variant numbers in this audit come from the pixel instrument and not
+  from a reading.
+- **Two corpus slides are contaminated by my own authoring.** `divider` and
+  `closing` carry the QR payload bullets their `qr` variants need, so the other
+  variants print the raw URL and a literal `caption` chip as prose. That is the
+  corpus's fault, not the engine's, and no finding rests on it — the `divider
+  numbered` footer suppression was confirmed against its three sibling pages,
+  which render the footer on the same content.
 - **Repeated headings across variant slides** are an artifact of the audit's own
   shape: the same content is rendered once per variant, so `lint:deck`'s
   `duplicate-heading` suggestion fires. It is advisory and not a finding.
