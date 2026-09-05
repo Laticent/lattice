@@ -1,0 +1,263 @@
+[
+ {
+  "name": "agenda",
+  "declared": 11,
+  "looksUnsplit": 10,
+  "looksSplit": 7,
+  "mergedBySplit": [
+   [
+    "progress-2",
+    "progress-3",
+    "progress-4",
+    "progress-5",
+    "progress-6"
+   ]
+  ]
+ },
+ {
+  "name": "authority-chain",
+  "declared": 5,
+  "looksUnsplit": 5,
+  "looksSplit": 5,
+  "mergedBySplit": []
+ },
+ {
+  "name": "cards-grid",
+  "declared": 4,
+  "looksUnsplit": 3,
+  "looksSplit": 1,
+  "mergedBySplit": [
+   [
+    "default",
+    "four",
+    "three",
+    "numbered"
+   ]
+  ]
+ },
+ {
+  "name": "cards-stack",
+  "declared": 3,
+  "looksUnsplit": 2,
+  "looksSplit": 1,
+  "mergedBySplit": [
+   [
+    "default",
+    "horizontal",
+    "numbered"
+   ]
+  ]
+ },
+ {
+  "name": "compare-prose",
+  "declared": 9,
+  "looksUnsplit": 8,
+  "looksSplit": 1,
+  "mergedBySplit": [
+   [
+    "default",
+    "transition",
+    "mirror",
+    "chosen",
+    "decision",
+    "vertical",
+    "banner-tag",
+    "rejected",
+    "axis"
+   ]
+  ]
+ },
+ {
+  "name": "decision",
+  "declared": 2,
+  "looksUnsplit": 2,
+  "looksSplit": 1,
+  "mergedBySplit": [
+   [
+    "default",
+    "banner-tag"
+   ]
+  ]
+ },
+ {
+  "name": "inventory",
+  "declared": 4,
+  "looksUnsplit": 4,
+  "looksSplit": 4,
+  "mergedBySplit": []
+ },
+ {
+  "name": "journey",
+  "declared": 5,
+  "looksUnsplit": 5,
+  "looksSplit": 1,
+  "mergedBySplit": [
+   [
+    "default",
+    "heatmap",
+    "curve",
+    "swimlane",
+    "weighted"
+   ]
+  ]
+ },
+ {
+  "name": "kanban",
+  "declared": 3,
+  "looksUnsplit": 3,
+  "looksSplit": 3,
+  "mergedBySplit": []
+ },
+ {
+  "name": "kpi",
+  "declared": 6,
+  "looksUnsplit": 6,
+  "looksSplit": 6,
+  "mergedBySplit": []
+ },
+ {
+  "name": "list",
+  "declared": 7,
+  "looksUnsplit": 2,
+  "looksSplit": 2,
+  "mergedBySplit": [
+   [
+    "default",
+    "principles",
+    "numbered",
+    "lettered",
+    "roman",
+    "bullet"
+   ]
+  ]
+ },
+ {
+  "name": "list-steps",
+  "declared": 14,
+  "looksUnsplit": 9,
+  "looksSplit": 7,
+  "mergedBySplit": [
+   [
+    "default",
+    "vertical",
+    "phase",
+    "lettered",
+    "stage",
+    "rank",
+    "tier",
+    "roman"
+   ]
+  ]
+ },
+ {
+  "name": "list-tabular",
+  "declared": 15,
+  "looksUnsplit": 6,
+  "looksSplit": 1,
+  "mergedBySplit": [
+   [
+    "default",
+    "def",
+    "metric",
+    "spec",
+    "register",
+    "rule",
+    "solid",
+    "stacked",
+    "outline",
+    "fit-name",
+    "fit-body",
+    "fit-meta",
+    "flex-name",
+    "flex-meta",
+    "fixed"
+   ]
+  ]
+ },
+ {
+  "name": "policy-recommendation",
+  "declared": 5,
+  "looksUnsplit": 5,
+  "looksSplit": 5,
+  "mergedBySplit": []
+ },
+ {
+  "name": "q-and-a",
+  "declared": 6,
+  "looksUnsplit": 6,
+  "looksSplit": 5,
+  "mergedBySplit": [
+   [
+    "default",
+    "rail"
+   ]
+  ]
+ },
+ {
+  "name": "redline",
+  "declared": 5,
+  "looksUnsplit": 5,
+  "looksSplit": 5,
+  "mergedBySplit": []
+ },
+ {
+  "name": "regulatory-update",
+  "declared": 5,
+  "looksUnsplit": 5,
+  "looksSplit": 5,
+  "mergedBySplit": []
+ },
+ {
+  "name": "roadmap",
+  "declared": 5,
+  "looksUnsplit": 5,
+  "looksSplit": 2,
+  "mergedBySplit": [
+   [
+    "default",
+    "horizons",
+    "swimlane",
+    "milestones"
+   ]
+  ]
+ },
+ {
+  "name": "split-panel",
+  "declared": 17,
+  "looksUnsplit": 17,
+  "looksSplit": 2,
+  "mergedBySplit": [
+   [
+    "default",
+    "metric",
+    "steps",
+    "watermark",
+    "proof",
+    "capstone",
+    "mirror",
+    "qr",
+    "cat-1",
+    "cat-2",
+    "cat-3",
+    "cat-4",
+    "cat-5",
+    "cat-6",
+    "cat-7",
+    "cat-8"
+   ]
+  ]
+ },
+ {
+  "name": "statute-stack",
+  "declared": 5,
+  "looksUnsplit": 4,
+  "looksSplit": 3,
+  "mergedBySplit": [
+   [
+    "hierarchy",
+    "bands",
+    "preemption"
+   ]
+  ]
+ }
+]
