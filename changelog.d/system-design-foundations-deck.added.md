@@ -1,4 +1,4 @@
-- **Added: `examples/system-design-foundations.md`, a 219-slide system-design tutorial for
+- **Added: `examples/system-design-foundations.md`, a 220-slide system-design tutorial for
   engineers in their first years.** It opens on one engineer's Tuesday told wake-to-sleep with
   no vocabulary at all, then names each thing she met — system, purpose, boundary, environment,
   process, model, constraint, invariant, infrastructure, emergence — against the timestamp that
@@ -26,7 +26,9 @@
   sends the same request and the minutes so an expiry can be computed, `started_at` is read
   off the charge rather than the handler's clock, and the key's lifetime — Stripe's
   twenty-four hours is the worked number — bounds a sweep that past that window refunds what
-  it cannot deliver or writes the row off, rather than re-sending. Choosing a store runs in three passes — shape and
+  it cannot deliver or writes the row off, rather than re-sending. The sweep itself gets a
+  slide: it asks the provider rather than guessing, and each of the four answers it can get
+  back writes a different status and either holds the bay or frees it. Choosing a store runs in three passes — shape and
   access, then a capability no shape provides (similarity, ranked text, proximity, live push,
   retention, traversal), then the operational properties that break a tie — so a capability adds
   a store beside the source rather than replacing it. Part seven maps the feed design back to the

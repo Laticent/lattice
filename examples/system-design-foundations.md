@@ -3217,11 +3217,28 @@ The second tap is a different request that means the same thing. So the page min
 
 ## The phone can drop off after the card is charged, and it often does.
 
-The card network answers your payment provider, not the driver's phone. So the provider calls you back on a webhook, and that call is what marks the session paid.
+The card network answers your payment provider, not the driver's phone. So the provider calls you back on a webhook, and that call is what marks the session paid when it arrives.
 
 The row flips to paid and the warden sees a paid bay, whether or not the phone ever came back.
 
-A decline is an answer, not a gap. Only a row that got no answer at all — a closed tab, a webhook that never came — is one you sweep. Sweep every few minutes, because a waiting row holds the bay, and ask the provider what happened rather than guessing: a driver still typing their card looks exactly like one who left.
+A decline is an answer, not a gap. Only a row that got no answer at all — a closed tab, a webhook that never came — is one you sweep. Sweep every few minutes, because a waiting row holds the bay against the next driver.
+
+---
+
+<!-- _class: compare-table -->
+
+`Parking · rung one, what the sweep does`
+
+## Ask the provider what happened. Four answers come back, and each writes something different.
+
+| The provider says | The row becomes | The bay |
+| --- | --- | --- |
+| A charge went through | Paid, with `started_at` read off the charge | Held until it expires |
+| The card was declined | Declined | Free at once |
+| No charge, and none open | Written off | Free at once |
+| An attempt is still open | Left waiting | Held, and asked again next sweep |
+
+Never guess at the last row: a driver still typing their card looks exactly like one who left. And note the first — the webhook is the fast path to paid, not the only one. A sweep that cannot write it leaves a driver charged and a bay reading empty.
 
 ---
 
