@@ -216,6 +216,34 @@ function relocate(text) {
   );
 }
 
+/**
+ * Give `## Demo deck` something to say.
+ *
+ * `relocate()` drops the "See <name>.gallery.light.pdf" sentence, because those
+ * PDFs are ~1 MB each and the kit is text — but it left the HEADING standing. The
+ * result shipped in all 61 component files AND was re-projected into the whole
+ * prose catalog: a section header with nothing under it, 61 times, which reads to
+ * a model as a section whose content failed to load.
+ *
+ * The live component page is the better answer anyway. It carries every variant
+ * rendered, a live preview and an in-browser editor — strictly more than the PDF
+ * the sentence used to promise — and it also gives the kit the outbound URL it
+ * did not have. Before this, the only navigational link in 2.2 MB pointed at
+ * `slidewright.github.io`, which is not where the site lives.
+ */
+function demoDeckLink(text, bucket, name) {
+  return String(text).replace(
+    /## Demo deck\s*$/,
+    [
+      '## Demo deck',
+      '',
+      `Every variant rendered, with a live preview and an in-browser editor:`,
+      `<https://lattice.style/components/${bucket}/${name}>`,
+      '',
+    ].join('\n'),
+  );
+}
+
 function componentDocs() {
   const { loadAll, manifestBucket } = require(path.join(ROOT, 'lib', 'components'));
   const out = [];
@@ -223,7 +251,11 @@ function componentDocs() {
     const bucket = manifestBucket(m);
     const src = path.join(ROOT, 'lib', 'components', bucket, m.name, `${m.name}.docs.md`);
     if (!existsSync(src)) continue;
-    out.push({ name: m.name, bucket, body: Buffer.from(relocate(readFileSync(src, 'utf8')), 'utf8') });
+    out.push({
+      name: m.name,
+      bucket,
+      body: Buffer.from(demoDeckLink(relocate(readFileSync(src, 'utf8')), bucket, m.name), 'utf8'),
+    });
   }
   for (const bucket of readdirSync(path.join(ROOT, 'lib', 'components'))) {
     const bucketDir = path.join(ROOT, 'lib', 'components', bucket);
@@ -1191,88 +1223,1256 @@ function skillsReadme(skills) {
   ].join('\n');
 }
 
+// ─── EDITIONS ────────────────────────────────────────────────────────────────
+//
+// The kit ships the same knowledge in four SHAPES, because the surfaces it has
+// to reach load files in three incompatible ways and no one tree serves them:
+//
+//   paste/    text for an INSTRUCTIONS BOX      — hard character caps
+//   upload/   bundles for a KNOWLEDGE UPLOADER  — hard FILE-COUNT caps, folders flattened
+//   repo/     drop-ins for a CODING AGENT       — progressive disclosure, always-on files
+//   the library one topic per file                — the deep reference both of the above cite
+//
+// The caps below are not style guidance. Each is a documented platform limit,
+// and two of them TRUNCATE SILENTLY, which is why `assertBudgets()` fails the
+// build rather than trusting a reviewer to notice.
+//
+//   6,000 chars  Windsurf `global_rules.md` — silently truncated past this.
+//   8,000 chars  OpenAI Custom GPT instructions AND M365 declarative agents;
+//                both hard, both documented. Claude Projects is reported at the
+//                same figure (unconfirmed by Anthropic, so it is not the driver).
+//  12,000 chars  Windsurf per-workspace rule file — the ceiling for the SOLO
+//                text, which also has to fit a local model's context (see below).
+//
+// WHY `solo` IS SIZED IN TOKENS AND THE OTHERS IN CHARACTERS. The paste texts are
+// bounded by a form field; solo is bounded by a CONTEXT WINDOW. Ollama defaults to
+// 4,096 tokens below 24 GiB of VRAM (llama.cpp and LM Studio default to 4,096 too),
+// and overflow is dropped with NO ERROR — so a solo text plus the deck the model
+// has to write must fit inside that. ~2,500 tokens leaves room for the deck.
+// A bigger solo file does not degrade on a laptop; it silently loses its own top,
+// which is the half a model follows best.
+const PASTE_STANDARD_MAX = 6000;
+const PASTE_MAX_MAX = 8000;
+const PASTE_SOLO_MAX = 12000;
+
+const PASTE = 'paste';
+const UPLOAD = 'upload';
+const START = 'start';
+const REPO = 'repo';
+const RENDER = 'render';
+const EXAMPLES = 'examples';
+
 /**
- * README.md — the ONE front door, at the kit root.
+ * The 20 layouts the small/solo path exposes, and the ONLY place a shortlist is
+ * hardcoded. Measured over `exemplars/` — 46 realistic decks, 553 component
+ * slides — these cover **91% of slides**. They do NOT cover whole decks: only
+ * 24% of real decks are authorable from a top-20 list, because nearly every deck
+ * reaches for one specialist. That is why `content`/`list` are named as an
+ * explicit FALLBACK in every solo text; the fallback is what takes deck coverage
+ * to 100%, and it is the single most load-bearing line in the file.
  *
- * GitHub renders a folder's README automatically, so a human who opens the
- * branch lands oriented with no clicks and an agent handed the folder URL has
- * one obvious entry point. There is no separate BOOTSTRAP.md: two front doors
- * is how the previous cut drifted into redundancy.
+ * `examples/` was NOT used to derive this: HARD RULE #9 makes it one deck per
+ * component by construction, so it over-weights niche layouts. `divider` is here
+ * against the data (0 uses in `exemplars/`) because a deck needs a section break
+ * and it is structurally trivial.
  */
-function bootstrap(components, skills, files, layoutCount, selfBytes = 0) {
-  const idx = bucketIndex(components);
+const SOLO_LAYOUTS = [
+  'title', 'closing', 'divider', 'content', 'list', 'cards-grid', 'stats', 'kpi',
+  'big-number', 'quote', 'list-steps', 'list-criteria', 'list-tabular',
+  'timeline-list', 'checklist', 'compare-table', 'decision', 'matrix-2x2',
+  'split-panel', 'agenda',
+];
+
+/** One line each, in the AUTHOR'S words — "use X when the slide is Y". */
+const SOLO_INTENT = {
+  title: 'the first slide',
+  closing: 'the last slide',
+  divider: 'a section break',
+  content: 'a claim plus a short paragraph',
+  list: '3-5 short bullets',
+  'cards-grid': '2-4 named items with one line each',
+  stats: '2-4 numbers side by side',
+  kpi: '3 metrics with targets and status',
+  'big-number': 'one number that is the whole point',
+  quote: "someone's words",
+  'list-steps': 'numbered steps in order',
+  'list-criteria': 'numbered requirements to meet',
+  'list-tabular': 'a name plus a value, per row',
+  'timeline-list': 'dated milestones in order',
+  checklist: 'done / partly done / not started',
+  'compare-table': '2-3 options scored on the same criteria',
+  decision: 'the option chosen and the ones rejected',
+  'matrix-2x2': 'items sorted into four quadrants',
+  'split-panel': 'one claim plus the points that back it',
+  agenda: 'what the deck covers',
+};
+
+/** Parse the kit's own components.json — the same file the checker reads. */
+function catalogOf(files) {
+  const raw = files.get(`${REFERENCE}/components.json`);
+  if (!raw) throw new Error('build-agent-kit: components.json must be set before the editions are built.');
+  const parsed = JSON.parse(raw.toString('utf8'));
+  const list = parsed.components || parsed;
+  const by = new Map();
+  for (const c of list) by.set(c.name, c);
+  return by;
+}
+
+/**
+ * A component's canonical skeleton, straight from the catalog.
+ *
+ * NEVER hand-copy one of these into a generated file: the skeleton is written by
+ * the component's manifest and a transcribed copy is a second source of truth
+ * that drifts silently (HARD RULE #1). If a skeleton is missing the build fails
+ * rather than shipping a layout with no shape to copy.
+ */
+function skeletonFor(cat, name) {
+  const m = cat.get(name);
+  if (!m?.skeleton) throw new Error(`build-agent-kit: no skeleton for '${name}' — the solo shortlist is out of sync with the catalog.`);
+  return String(m.skeleton).trimEnd();
+}
+
+/**
+ * The line every text ends on, and the reason the kit can be terse everywhere
+ * else. `check.mjs` is CODE: it costs no tokens, runs offline, and cannot be
+ * talked into approving a deck the way a model reviewing its own draft will be.
+ */
+const CHECK_LINE = 'node check.mjs your-deck.md';
+
+/**
+ * The five front-matter lines every deck opens with. One shape, no choices.
+ *
+ * `cuoio` AND NOT `indaco`, which is the engine's own default, because this is
+ * the theme the kit's own worked examples carry and it has to resolve on every
+ * render route the kit documents. It does not: the Marp kit published beside this
+ * one registers `lattice`, `cuoio` and `cuoio-dark` and NOTHING ELSE, and Marp
+ * resolves a palette by NAME through its theme set — so `theme: indaco` there
+ * falls back to Marp's default and renders an unstyled deck **with no error**.
+ *
+ * That was live until this file: the kit told every model to write `indaco`,
+ * the only no-install render route could not resolve it, and both gates stayed
+ * green because neither one renders. Caught by rendering a generated example and
+ * looking at the page, which is the only thing that catches it.
+ *
+ * `cuoio` is the intersection of all three documented routes. A deck that wants a
+ * different palette says so, and `render/` states the rule: the name must be one
+ * your renderer has registered.
+ */
+const FRONT_MATTER = ['---', 'marp: true', 'theme: cuoio', 'paginate: true', '---'];
+
+/**
+ * The nine rules whose violation the LINTER rates `error` — the deck is wrong,
+ * not merely plain. Every paste text carries all nine and spends its remaining
+ * budget on the two TASTE rules that change what gets generated rather than what
+ * can be fixed afterwards.
+ *
+ * The split is a fact about our code, not an opinion: `lib/authoring/lint-core.js`
+ * rates these `error`, while all 18 entries of the reviewer's RUBRIC are
+ * `suggestion`. Today `library/lattice-rules.md` and the canon present both
+ * classes in one undifferentiated voice, which a frontier model can weight and a
+ * small one cannot.
+ */
+const ESSENTIALS = [
+  'Every slide starts with `<!-- _class: NAME -->` and NAME is a real layout.',
+  'Slides are separated by a line containing only `---`, with a blank line each side.',
+  'Card layouts nest: `- Title` on one line, then `  - body` indented two spaces. Never `- **Title.** body`.',
+  'Under a numbered `1.` row, indent the nested line **three** spaces, not two.',
+  'A ledger or split row always has a body under its title — never a bare title.',
+  'A statement layout\'s `1.` rows carry no `**bold**` lead-in.',
+  'Every `<!-- -->` comment is closed.',
+  'The title slide is `# H1`, then a backtick `eyebrow` line, then a plain subtitle — in that order.',
+  'Colors and emphasis come from the layouts and modifiers. Never write a hex code.',
+];
+
+/** The two taste rules worth prompt budget: both change the SHAPE of the draft. */
+const TASTE_KEPT = [
+  'Write every `##` heading as a full sentence that states the point — "Revenue grew 18%, led by APAC", never "Q2 Results".',
+  'End with a `closing` slide that names ONE thing you want the room to do.',
+];
+
+/**
+ * paste/lattice-instructions-solo.md — self-contained. No uploads, no fetches.
+ *
+ * This is the one a LOCAL model gets, and the one you paste into a chat that has
+ * no knowledge-file feature at all. It carries 20 layouts with their real
+ * skeletons, the nine essentials, two taste rules, and a worked deck — and it
+ * deliberately carries NO "not for" lines, no modifier catalog and no per-layout
+ * budgets.
+ *
+ * WHY THE "NOT FOR" LINES ARE CUT, when `library/lattice-picker.md` says they are
+ * what saves you. They are, for a frontier model choosing between two plausible
+ * layouts. This text is sized for a model that measurably loses accuracy on
+ * negated constraints (23-32% in the published multi-constraint work), and naming
+ * `stats` inside "do not use `stats` here" puts `stats` in the activated set. The
+ * intent table replaces them with a positive-only mapping. That is a real trade,
+ * not a free win, and it is the place this file is most likely to be wrong.
+ */
+function instructionsSolo(cat) {
+  const rows = SOLO_LAYOUTS.map((n) => `| \`${n}\` | ${SOLO_INTENT[n]} |`);
+  const skeletons = SOLO_LAYOUTS.flatMap((n) => [
+    `### ${n}`,
+    '',
+    ...fenced(skeletonFor(cat, n)),
+    '',
+  ]);
+  return [
+    '# How to write a Lattice deck',
+    '',
+    'You write slide decks as one Markdown file. Copy the shapes below exactly.',
+    '',
+    '## The file',
+    '',
+    'Start every file with these five lines, then the slides:',
+    '',
+    ...fenced(FRONT_MATTER.join('\n')),
+    '',
+    'Separate every slide with a line containing only `---`.',
+    'Start every slide with one `<!-- _class: NAME -->` line.',
+    `Pick every NAME from the ${SOLO_LAYOUTS.length} below. Use only those names.`,
+    '',
+    '## Shape of a deck',
+    '',
+    'Slide 1 is `title`. The last slide is `closing`. Between them, 5 to 15 slides.',
+    'Give each slide one idea. Keep each slide under 70 words and 6 bullets.',
+    '',
+    `## The ${SOLO_LAYOUTS.length} layouts`,
+    '',
+    'Pick by what the slide does. Copy the shape under the name you picked.',
+    '',
+    '| Use | When the slide is |',
+    '|---|---|',
+    ...rows,
+    '',
+    '**If nothing above fits, use `content` for prose or `list` for bullets.**',
+    'Never invent a layout name.',
+    '',
+    ...skeletons,
+    // The `title` and `closing` skeletons come from the manifest and strip the
+    // running frame with three Marpit directives; the canon and every worked
+    // example in this kit use the `silent` modifier, which does the same job in
+    // CSS with one token. Both are correct and both ship, so SAY they are the
+    // same thing — two shapes for one outcome is exactly the ambiguity this file
+    // exists to remove.
+    'On the `title` and `closing` slides, `<!-- _class: title silent -->` is a shorter way',
+    'to write the three `_paginate` / `_header` / `_footer` lines. Either form works; pick one',
+    'and keep it.',
+    '',
+    '## The rules',
+    '',
+    ...ESSENTIALS.map((r, i) => `${i + 1}. ${r}`),
+    ...TASTE_KEPT.map((r, i) => `${ESSENTIALS.length + i + 1}. ${r}`),
+    '',
+    '## Check before you finish',
+    '',
+    '- Slide 1 uses `title`; the last slide uses `closing`.',
+    '- Every slide starts with `<!-- _class: NAME -->` and NAME is one of the list.',
+    '- Every card title has its body on the next line, indented.',
+    '- Every `##` heading is a sentence that states a point.',
+    '',
+  ].join('\n');
+}
+
+/**
+ * paste/lattice-instructions-standard.md — <= 6,000 characters.
+ *
+ * The universal one: it fits EVERY instruction box measured, including Windsurf's
+ * 6,000-char global rules file, which truncates past it without telling anyone.
+ * Unlike solo it assumes the `upload/` bundles are loaded beside it, so it spends
+ * its budget on judgment and defers every catalog fact to those files.
+ */
+function instructionsStandard() {
+  return [
+    'You author Lattice decks: boardroom-quality slides written as one Markdown file.',
+    '',
+    'FILE SHAPE — every deck opens with exactly this, then the slides:',
+    ...fenced(FRONT_MATTER.join('\n')),
+    'Slides are separated by a line containing only `---`.',
+    'Every slide opens with `<!-- _class: NAME -->` where NAME is one layout.',
+    'A three-slide deck, whole, so the shape is unambiguous:',
+    ...fenced(
+      [
+        ...FRONT_MATTER,
+        '',
+        '<!-- _class: title silent -->',
+        '',
+        '# Move billing to the new platform in March',
+        '',
+        '`Finance Systems · Board review`',
+        '',
+        'One migration window replaces four years of manual reconciliation.',
+        '',
+        '---',
+        '',
+        '<!-- _class: content -->',
+        '',
+        '## Manual reconciliation costs us $4.1M a year.',
+        '',
+        'Sixty percent of invoices need a human to match them, and the books close',
+        'nine days after month end against a four-day target.',
+        '',
+        '---',
+        '',
+        '<!-- _class: closing silent -->',
+        '',
+        '## Approve the March window and the $1.4M migration budget.',
+        '',
+        '`The ask`',
+      ].join('\n'),
+      'markdown',
+    ),
+    '',
+    'PICKING A LAYOUT',
+    'Match the slide\'s intent to a layout in the layout picker you have been given,',
+    'then COUNT your content against that layout\'s capacity. Over the hard number,',
+    'split the slide or escalate to the named alternative. Pick from the catalog,',
+    'never from memory. If nothing fits, use `content` for prose or `list` for bullets.',
+    '',
+    'MECHANICS THAT BREAK THE DECK IF YOU GET THEM WRONG',
+    ...ESSENTIALS.map((r) => `- ${r.replace(/`/g, '`')}`),
+    '',
+    'WHAT MAKES THE DECK WORTH SHOWING',
+    '- ONE idea per slide.',
+    ...TASTE_KEPT.map((r) => `- ${r}`),
+    '- Arc: a title that states the stakes, sections that build the argument, a close that asks.',
+    '- Rhythm: never three prose slides in a row. Interleave evidence, a human beat, a decision.',
+    '- Restraint: ~70 words of body and <= 6 bullets per slide. When it overflows, SPLIT the',
+    '  slide — never shrink the font.',
+    '- Bookends are stereotyped: title and closing both carry `silent`. The closing is ONE',
+    '  sentence plus a signature, never a bulleted next-steps list.',
+    '',
+    'FINISHING',
+    'Hand back the complete `.md` file. Say how to render it and how to check it:',
+    `\`${CHECK_LINE}\` finds what is wrong without costing tokens.`,
+    '',
+  ].join('\n');
+}
+
+/**
+ * paste/lattice-instructions-max.md — <= 8,000 characters.
+ *
+ * For the two platforms whose documented cap IS 8,000 — OpenAI Custom GPTs and
+ * Microsoft 365 declarative agents. It is `standard` plus the material that most
+ * changes output quality when there is room: the trap list the deck reviewer
+ * actually flags, and the front-matter register.
+ *
+ * It exists as a SEPARATE FILE rather than as advice to "add more if you have
+ * room" because on M365 the instruction box is the only trusted channel —
+ * knowledge-file content passes through cross-prompt-injection classifiers that
+ * may block, truncate or sanitize directive language, so "read the instructions
+ * in file X" is unreliable there by design.
+ */
+function instructionsMax(traps) {
+  return [
+    instructionsStandard().trimEnd(),
+    '',
+    'TRAPS THE REVIEWER FLAGS — avoid these up front, it is cheaper than being told',
+    ...traps.map((t) => `- ${t}`),
+    '',
+    'FRONT MATTER YOU MAY SET',
+    '- `theme:` the palette. `indaco` (cool) and `cuoio` (warm) always exist.',
+    '- `paginate: true` numbers the slides.',
+    '- `size:` defaults to `hd` (1280x720). Leave it alone unless asked.',
+    '',
+  ].join('\n');
+}
+
+/**
+ * The reviewer's trap list, read from the canon rather than retyped.
+ *
+ * The canon embeds them as `  - trap -> fix` lines inside a fenced block; this
+ * lifts them so the max text can carry them as its own bullets. Returns [] if the
+ * shape ever changes, and the caller degrades to the shorter text rather than
+ * shipping an empty section.
+ */
+function reviewerTraps() {
+  const { DECK_CANON } = require(path.join(ROOT, 'lib', 'authoring', 'deck-canon.js'));
+  return String(DECK_CANON)
+    .split('\n')
+    .filter((l) => /^\s+-\s.+→|^\s+-\s.+->/.test(l))
+    .map((l) => l.replace(/^\s+-\s/, '').trim())
+    .filter(Boolean);
+}
+
+/**
+ * render/lattice-render-a-deck.md — the step the kit did not have.
+ *
+ * Until this file, the kit taught an agent to produce a `.md` and stopped. There
+ * was no `npx`, no `npm install`, no render command anywhere on the authoring
+ * path — a search of the whole kit for one returned nothing — so a model followed
+ * the kit perfectly and handed back a file its author could not look at.
+ *
+ * ROUTE 1 IS THE ONE THAT WORKS WITH NOTHING INSTALLED, and it is verified: the
+ * Marp kit that ships beside this one on the same branch renders its own 13-slide
+ * sample to a 13-page PDF through real `marp-cli`, with the palette and the
+ * embedded fonts live. That is why it leads.
+ *
+ * `npm install @workwel/lattice` is DELIBERATELY ABSENT. The package is not
+ * published — the registry returns 404 today — so every install line of that
+ * shape in our own docs is aspirational, and a kit that opens with one teaches a
+ * command that fails on the reader's first attempt.
+ */
+function renderDoc() {
+  return [
+    '# Turn your deck into a PDF',
+    '',
+    'You have a `.md` file. Here is how to see it.',
+    '',
+    '## The quickest route: the Marp kit (nothing to install)',
+    '',
+    'The `marp/` folder published beside this kit is a copy-and-go bundle — the engine',
+    'CSS, the palettes, the fonts and a config. Copy the folder, put your deck inside it',
+    'next to `Sample-Deck.md`, then:',
+    '',
+    ...fenced(
+      'npx @marp-team/marp-cli@^4.3.1 your-deck.md \\\n  --config-file marp.config.cjs --allow-local-files -o your-deck.pdf',
+      'sh',
+    ),
+    '',
+    '**Put the deck inside the folder, not the folder beside the deck.** The config',
+    'registers the stylesheets by path relative to itself; a deck outside the folder',
+    'renders unstyled **with no error**, which is the single most common way this goes',
+    'wrong.',
+    '',
+    'The first run downloads a Chromium build to render the PDF. After that it is offline.',
+    '',
+    '## In the browser, with nothing at all',
+    '',
+    'Paste the deck into the Lattice Studio at <https://lattice.style/studio> and export',
+    'from there. Useful when you have no Node, or you want to try a different palette',
+    'before committing to one.',
+    '',
+    '## From a clone of the repository',
+    '',
+    'If you have the source checked out, the engine renders PDF, PPTX, PNG and HTML:',
+    '',
+    ...fenced('node dist/lattice-emulator.js your-deck.md your-deck.pdf', 'sh'),
+    '',
+    'The output format is chosen by the extension — `.pdf`, `.pptx`, `.png`, `.zip`, `.html`.',
+    'Needs Node 22.12 or newer and a Chromium that Puppeteer can find.',
+    '',
+    '## What about `npm install`?',
+    '',
+    'Not yet. The package is not published to the npm registry, so an `npm install`',
+    'line would fail on your first attempt. Use one of the three routes above until it is.',
+    '',
+    '## Before you render, check the deck',
+    '',
+    ...fenced(CHECK_LINE, 'sh'),
+    '',
+    'It is code, not a model: no tokens, offline, about a tenth of a second, and it cannot',
+    'be talked into approving a deck the way a model reviewing its own draft can.',
+    '',
+  ].join('\n');
+}
+
+/** The exemplar decks shipped as worked examples, and where each comes from. */
+const EXAMPLE_DECKS = [
+  ['investor-pitch', 'corporate/investor-pitch.md', 'A startup raising a round — the arc from problem to ask.'],
+  ['lecture', 'academic/lecture.md', 'A university lecture — teaching material, not a pitch.'],
+  ['budget-proposal', 'government-public/budget-proposal.md', 'A public-sector budget request to a council.'],
+  ['board-meeting', 'nonprofit/nonprofit-board-meeting.md', 'A nonprofit board pack — governance, not persuasion.'],
+];
+
+/**
+ * examples/ — complete, renderable decks. The kit had NONE.
+ *
+ * Measured before this landed: across all 92 files the largest number of
+ * `<!-- _class: -->` directives inside any single fenced block was ONE, and no
+ * two slides were ever separated by a `---`. Every skeleton showed one slide in
+ * isolation, so nothing in the kit showed a reader what a whole deck looks like.
+ *
+ * THE FOUR REAL DECKS DO NOT PASS THE CHECKER CLEAN, and that is deliberate.
+ * Each carries 3-7 findings, all `suggestion` severity — an `agenda-missing`
+ * here, a `verbose-eyebrow` there. Shipping only a synthetic zero-finding deck
+ * would teach that a clean run is the bar; it is not, and our own decks prove it.
+ * The starter deck IS clean, so there is one file to copy that has nothing to
+ * argue with; the four real ones show what the checker says about work that
+ * actually shipped.
+ */
+function exampleDecks() {
+  const out = [];
+  for (const [slug, rel, blurb] of EXAMPLE_DECKS) {
+    const src = path.join(ROOT, 'exemplars', rel);
+    if (!existsSync(src)) continue;
+    const body = readFileSync(src, 'utf8');
+    out.push({
+      name: `lattice-example-${slug}.md`,
+      blurb,
+      slides: (body.match(/^<!--\s*_class:/gm) || []).length,
+      body: Buffer.from(body, 'utf8'),
+    });
+  }
+  return out;
+}
+
+/**
+ * The two `<script>` lines a Marp-rendered deck needs, and the comment that
+ * explains why they are at the BOTTOM.
+ *
+ * Marp emits raw HTML in document order, so a script at the top of the file
+ * lands inside slide 1 and shows up as text on the slide. Verified end to end:
+ * without these the `kpi` layout renders as a plain ordered list — palette live,
+ * layout absent, no error anywhere. With them it composes correctly.
+ *
+ * Safe on every route: the CLI strips deck-embedded runtime scripts before
+ * export (`lattice-emulator.js`), so a deck carrying them renders identically
+ * there. That is what makes them the right default rather than a Marp-only
+ * footnote.
+ */
+const RUNTIME_TAGS = [
+  '<!-- markdownlint-disable MD033 -->',
+  '<script src="mermaid-v11.min.js"></script>',
+  '<script src="lattice-runtime.min.js"></script>',
+];
+
+/**
+ * examples/lattice-example-starter.md — the one deck to copy.
+ *
+ * Purpose-built to return ZERO findings from `check.mjs` and `lint:deck`, and
+ * verified rendered: 10 slides to 10 PDF pages through the Marp route this kit
+ * documents, with the layouts composing. It is the only file in the kit that is
+ * both a worked example and a passing test of its own instructions.
+ */
+function starterDeck() {
+  return [
+    ...FRONT_MATTER,
+    '',
+    '<!-- _class: title silent -->',
+    '',
+    '# Move billing to the new platform in March',
+    '',
+    '`Finance Systems · Board review`',
+    '',
+    'One migration window replaces four years of manual reconciliation.',
+    '',
+    '---',
+    '',
+    '<!-- _class: agenda -->',
+    '',
+    '## What this deck covers.',
+    '',
+    '1. What the current system costs us',
+    '2. What the migration buys',
+    '3. What it costs, and when',
+    '4. What we need from you',
+    '',
+    '---',
+    '',
+    '<!-- _class: big-number -->',
+    '',
+    '`Cost of the status quo`',
+    '',
+    '- $4.1M',
+    '  - spent every year reconciling invoices by hand, up from $2.6M in 2023.',
+    '',
+    '---',
+    '',
+    '<!-- _class: cards-grid -->',
+    '',
+    '## Three failures repeat every quarter.',
+    '',
+    '- Late close',
+    '  - Books close nine days after month end, against a four-day target.',
+    '- Manual matching',
+    '  - Sixty percent of invoices need a person to match them.',
+    '- No audit trail',
+    '  - Adjustments are recorded in spreadsheets that sit outside the ledger.',
+    '',
+    '---',
+    '',
+    '<!-- _class: kpi -->',
+    '',
+    '## The pilot beat every target it was set.',
+    '',
+    '1. 4 days',
+    '   - Time to close',
+    '   - from 9 days `On plan`',
+    '2. 12%',
+    '   - Invoices matched by hand',
+    '   - from 60% `On plan`',
+    '3. $0.9M',
+    '   - Annual run cost',
+    '   - from $4.1M `On plan`',
+    '',
+    '---',
+    '',
+    '<!-- _class: quote -->',
+    '',
+    '> We stopped arguing about whose number was right and started closing on time.',
+    '',
+    '— Dana Whitfield, Controller, pilot business unit',
+    '',
+    '---',
+    '',
+    '<!-- _class: compare-table -->',
+    '',
+    '## March costs less and carries less risk than June.',
+    '',
+    '| Criterion | March window | June window |',
+    '| --- | --- | --- |',
+    '| Cutover risk | Quarter-end freeze, no parallel run | Overlaps the external audit |',
+    '| Staffing cost | $1.4M | $1.1M |',
+    '| Earliest benefit | Q2 close | Q4 close |',
+    '',
+    '---',
+    '',
+    '<!-- _class: decision -->',
+    '',
+    '## We recommend the March window.',
+    '',
+    '- Migrate in March',
+    '  - The quarter-end freeze gives a clean cutover and returns the benefit two quarters sooner.',
+    '- Migrate in June',
+    '  - Cheaper to staff, but it overlaps the audit and doubles the cutover risk.',
+    '',
+    '---',
+    '',
+    '<!-- _class: list-steps -->',
+    '',
+    '## Four steps take us from freeze to retirement.',
+    '',
+    '1. Freeze new integrations — two weeks before cutover, changes stop.',
+    '2. Rehearse the cutover — a full dry run against production data.',
+    '3. Cut over at quarter end — three days, with finance on standby.',
+    '4. Retire the old ledger — read-only for a year, then archived.',
+    '',
+    '---',
+    '',
+    '<!-- _class: closing silent -->',
+    '',
+    '## Approve the March window and the $1.4M migration budget.',
+    '',
+    '`The ask`',
+    '',
+    ...RUNTIME_TAGS,
+    '',
+  ].join('\n');
+}
+
+/**
+ * Re-point a component doc's sibling links for life inside a BUNDLE.
+ *
+ * `relocate()` rewrites the repo's `../../<bucket>/<name>/<name>.docs.md` links to
+ * `./<name>.md`, which resolves in the flat `components/` folder. Concatenated
+ * into a bundle those become 244 links to files that are not there — the kit's
+ * own link test caught it, which is the whole reason that test exists.
+ *
+ * In-bundle targets become anchors (each component is a `##` heading here).
+ * Out-of-bundle targets lose the link and keep the name as code: a reader can
+ * still see which layout is being recommended, and there is no dead link
+ * promising a file that a flat uploader was never given.
+ */
+function rewireBundleLinks(text, members) {
+  return String(text).replace(/\[`([a-z0-9-]+)`\]\(\.\/(_?[a-z0-9-]+)\.md\)/g, (_whole, label, target) =>
+    members.has(target) ? `[\`${label}\`](#${target})` : `\`${label}\``,
+  );
+}
+
+/** Demote every ATX heading by `n` levels, leaving fenced blocks alone. */
+function demote(text, n) {
+  let inFence = false;
+  return String(text)
+    .split('\n')
+    .map((line) => {
+      if (/^ {0,3}`{3,}/.test(line)) inFence = !inFence;
+      if (inFence) return line;
+      const m = /^(#{1,6})(\s)/.exec(line);
+      return m ? `${'#'.repeat(Math.min(6, m[1].length + n))}${m[2]}` : line;
+    })
+    .join('\n');
+}
+
+/**
+ * One page per DESTINATION — the layer the kit did not have.
+ *
+ * The old tree cut at the top by KIND OF DOCUMENT (authoring / components /
+ * skills / review / reference). That is the writer's mental model. A reader
+ * arrives knowing one thing about themselves — where they are putting this — and
+ * had no row to stand on.
+ *
+ * Each entry: `paste` names the text to put in the instructions box, `files` how
+ * many knowledge files that destination accepts, and `notes` the things that
+ * silently go wrong there. A number that our research could NOT confirm at the
+ * vendor's own page is marked "reported" in the prose, every time. An invented
+ * limit would size a file wrongly and nobody downstream could tell.
+ */
+const DESTINATIONS = [
+  {
+    slug: 'claude-project',
+    title: 'a Claude Project',
+    paste: 'standard',
+    upload: 10,
+    body: [
+      'Open your project → **Set project instructions** → paste `lattice-instructions-standard.md`.',
+      'Then **Add content** and upload the numbered files from `upload/`.',
+      '',
+      '**Upload ten, not ninety.** Claude Projects switch from holding files in context to',
+      'retrieving from them as the project grows, and community reproduction puts that switch',
+      'as low as ~13 files — Anthropic documents the behavior but not the trigger, so treat',
+      'the number as reported, not confirmed. Either way the ten bundles are the safe shape,',
+      'and Anthropic does state that well-named files help it retrieve the right one.',
+    ],
+  },
+  {
+    slug: 'custom-gpt',
+    title: 'an OpenAI Custom GPT',
+    paste: 'max',
+    upload: 10,
+    body: [
+      'In the GPT editor: paste `lattice-instructions-max.md` into **Instructions**, then',
+      'upload the `upload/` files under **Knowledge**.',
+      '',
+      '**Use the `max` text here, not `standard`.** Custom GPT instructions are capped at a',
+      'reported 8,000 characters and `max` is built to sit just under it, so you get the trap',
+      'list as well as the mechanics.',
+      '',
+      'The uploader is flat — it keeps no folders. Every file in `upload/` already has a',
+      'globally unique name for exactly this reason.',
+    ],
+  },
+  {
+    slug: 'gemini-gem',
+    title: 'a Gemini Gem',
+    paste: 'standard',
+    upload: 10,
+    body: [
+      'In the Gem editor, paste `lattice-instructions-standard.md` into the **Instructions**',
+      'box and add the `upload/` files as **Knowledge**.',
+      '',
+      'Google publishes no character limit for Gem instructions, and the widely-quoted',
+      '"10 knowledge files" is reported rather than documented on Google\'s own page. Ten',
+      'bundles is what this kit ships, so you are inside it either way.',
+      '',
+      'Google\'s own guidance is to structure a Gem as Persona / Task / Context / Format.',
+      'The `standard` text is already written that way.',
+    ],
+  },
+  {
+    slug: 'notebooklm',
+    title: 'NotebookLM (Gemini Notebook)',
+    paste: 'standard',
+    upload: 10,
+    body: [
+      'Add the `upload/` files as **sources**, then paste `lattice-instructions-standard.md`',
+      'into the notebook\'s customization box.',
+      '',
+      'Per-source limits are generous — 500,000 words or 200 MB — so nothing in this kit is',
+      'close to them. The binding limit is the number of sources your plan allows.',
+      '',
+      'Notebooks answer strictly from their sources, so this is the best surface for',
+      '"which layout should I use for X" and a poor one for drafting a whole deck.',
+    ],
+  },
+  {
+    slug: 'copilot',
+    title: 'GitHub Copilot or Microsoft 365 Copilot',
+    paste: 'max',
+    upload: 10,
+    body: [
+      '**In a repository:** copy `repo/AGENTS.md` to your repo root, or paste',
+      '`lattice-instructions-standard.md` into `.github/copilot-instructions.md`. Copilot adds',
+      'that file to every request as soon as it is saved.',
+      '',
+      '**In a Copilot Space:** put the `standard` text in the instructions field and attach the',
+      '`upload/` files.',
+      '',
+      '**In an M365 declarative agent:** paste `lattice-instructions-max.md` into the',
+      'instructions — the cap there is 8,000 characters and it is hard. Do **not** move',
+      'instructions into a knowledge file to get around it: Microsoft routes knowledge content',
+      'through cross-prompt-injection classifiers that can block, truncate or sanitize',
+      'directive language, so "read the rules in file X" is unreliable there by design.',
+    ],
+  },
+  {
+    slug: 'coding-agent',
+    title: 'a coding agent (Claude Code, Cursor, Codex, Windsurf, Cline, Zed, Aider)',
+    paste: 'standard',
+    upload: 0,
+    body: [
+      'Copy the drop-in that matches your tool out of `repo/`:',
+      '',
+      '| Tool | Copy to |',
+      '|---|---|',
+      '| Claude Code | `CLAUDE.md` (or `AGENTS.md` plus a one-line `@AGENTS.md` import) |',
+      '| Codex, Zed, Jules, Junie, Cline | `AGENTS.md` at the repo root |',
+      '| Cursor | `.cursor/rules/lattice.mdc` — a plain `.md` there is ignored |',
+      '| GitHub Copilot | `.github/copilot-instructions.md` |',
+      '| Windsurf | `.windsurf/rules/lattice.md` — 12,000 chars per file, truncated silently past it |',
+      '| Aider | any path, then `aider --read lattice.md` |',
+      '',
+      '`repo/AGENTS.md` is deliberately small. Codex budgets the whole `AGENTS.md` chain at',
+      '32 KiB and stops adding files once it is spent, so a fat root file starves the nested',
+      'one that actually describes your project.',
+      '',
+      'For Claude Code specifically, `plugin/` installs the same thing as a plugin with a',
+      'skill, so the catalog loads only when a deck is actually being written.',
+    ],
+  },
+  {
+    slug: 'local-model',
+    title: 'a local model (Ollama, llama.cpp, LM Studio)',
+    paste: 'solo',
+    upload: 0,
+    body: [
+      'Use `lattice-instructions-solo.md` as the system prompt. It is self-contained — 20',
+      'layouts with their real skeletons, the rules that break a deck, and a worked example —',
+      'and it needs no knowledge files.',
+      '',
+      '**Raise the context window first.** Ollama defaults to 4,096 tokens below 24 GiB of',
+      'VRAM, and llama.cpp and LM Studio default to 4,096 too. Past the window, input is',
+      'dropped **with no error** — the model does not know, and neither do you. It simply gets',
+      'quietly worse.',
+      '',
+      ...fenced('ollama run <model> --think=false\n>>> /set parameter num_ctx 8192', 'sh'),
+      '',
+      'Or in a Modelfile: `PARAMETER num_ctx 8192`.',
+      '',
+      '**What this path gives up, on purpose:** 41 of the 61 layouts, every modifier, the',
+      'chart family and the per-layout budgets. Those 20 layouts cover 91% of the slides in',
+      'our own realistic decks, and the "if nothing fits, use `content` or `list`" line covers',
+      'the rest. Expect a plainer deck than a frontier model produces — a plain valid deck',
+      'beats an ambitious broken one.',
+    ],
+  },
+  {
+    slug: 'one-off-chat',
+    title: 'a single chat, with no setup',
+    paste: 'solo',
+    upload: 0,
+    body: [
+      'Paste `lattice-instructions-solo.md` as your first message, then ask for the deck in',
+      'your second. It is self-contained, so nothing else needs uploading.',
+      '',
+      'If the model can browse, you can instead point it at this kit\'s `upload/` folder and',
+      'paste `lattice-instructions-standard.md` — better output, one more step.',
+    ],
+  },
+];
+
+/**
+ * The ten upload bundles, and why bundling is mandatory rather than tidy.
+ *
+ * Every knowledge uploader caps FILE COUNT, not bytes: a reported 20 for a Custom
+ * GPT, a reported 10 for a Gem, 5 on a free ChatGPT Project, and a Claude Project
+ * that flips from in-context to retrieval somewhere around a dozen. The kit's 92
+ * files clear none of those. Meanwhile nothing here is remotely near a SIZE cap —
+ * 512 MB per file on a GPT, 100 MB on Gemini, and our largest file is 415 KB.
+ *
+ * So the constraint is count, the tightest common denominator is ten, and this is
+ * ten. The layout bundles group by BUCKET because that is the axis a reader picks
+ * on; splitting evenly by byte size would put `quote` and `radar` in one file.
+ *
+ * Component sections stay at `##` inside a bundle on purpose: heading-structured
+ * splitting is what makes a Markdown bundle retrieve well, and `##` is the
+ * boundary a chunker keys on. Each section is self-contained — nothing in one
+ * depends on having read the one above it.
+ */
+const BUNDLE_LAYOUTS = [
+  ['3-layouts-anchor-and-statement', ['anchor', 'statement'], 'Opening, closing, section breaks, and the one-claim slides.'],
+  ['4-layouts-lists-and-inventories', ['inventory'], 'Parallel sets of related items — lists, cards, checklists, agendas.'],
+  ['5-layouts-comparison-and-progression', ['comparison', 'progression'], 'How options differ, and ordered movement through stages.'],
+  ['6-layouts-numbers-and-charts', ['evidence', 'chart'], 'Metrics, stat rows, and every series-data visualization.'],
+  ['7-layouts-images-diagrams-math-code', ['imagery', 'diagram', 'math', 'code'], 'Visuals that carry meaning, graphs, equations, source code.'],
+  ['8-layouts-legal-and-contact', ['legal', 'connect'], 'Citation-aware legal layouts, and the cards a room can scan.'],
+];
+
+function uploadBundles(components, files, examples) {
+  const byBucket = new Map();
+  for (const c of components) {
+    if (!byBucket.has(c.bucket)) byBucket.set(c.bucket, []);
+    byBucket.get(c.bucket).push(c);
+  }
+  const txt = (k) => (files.get(k) || Buffer.alloc(0)).toString('utf8');
+  const out = [];
+
+  const header = (title, blurb, toc) =>
+    [`# ${title}`, '', `> ${blurb}`, '', ...(toc.length ? ['**Contents:** ' + toc.map((t) => `\`${t}\``).join(' · '), ''] : [])];
+
+  // 1 — the one file to read if you read only one.
+  out.push({
+    name: 'lattice-1-how-to-write-a-deck.md',
+    blurb: 'The whole authoring contract: file shape, what good looks like, the rules, how to render and check.',
+    body: [
+      ...header('How to write a Lattice deck', 'Read this first. It is the whole authoring contract in one file.', []),
+      '## The file',
+      '',
+      'A deck is one Markdown file. It opens with front matter, then slides separated by a',
+      'line containing only `---`, and every slide opens with `<!-- _class: NAME -->`.',
+      '',
+      ...fenced(FRONT_MATTER.join('\n')),
+      '',
+      '`theme:` must name a palette your renderer has registered. `cuoio` and `cuoio-dark`',
+      'work on every route this kit documents; the engine ships 16 palettes in total.',
+      '',
+      '## What a good deck looks like',
+      '',
+      demote(txt(`${AUTHORING}/deck-canon.md`).replace(/^# .*\n/, ''), 1),
+      '',
+      '## The mechanics',
+      '',
+      demote(txt(`${AUTHORING}/rules.md`).replace(/^# .*\n/, ''), 1),
+      '',
+      '## Rendering and checking',
+      '',
+      demote(renderDoc().replace(/^# .*\n/, ''), 1),
+      '',
+    ].join('\n'),
+  });
+
+  // 2 — the picker.
+  out.push({
+    name: 'lattice-2-pick-a-layout.md',
+    blurb: 'Which of the 61 layouts to use, by intent — and which to use instead when yours is the wrong fit.',
+    body: [
+      ...header('Pick a layout', 'Match your intent to a layout, then count your content against its capacity.', []),
+      demote(txt(`${COMPONENTS}/README.md`).replace(/^# .*\n/, ''), 1),
+      '',
+      '---',
+      '',
+      '# The same catalog as one table',
+      '',
+      demote(txt(`${COMPONENTS}/_index.md`).replace(/^# .*\n/, ''), 1),
+      '',
+    ].join('\n'),
+  });
+
+  // 3-8 — the layouts themselves, grouped by bucket.
+  for (const [slug, buckets, blurb] of BUNDLE_LAYOUTS) {
+    const members = buckets.flatMap((b) => byBucket.get(b) || []);
+    if (!members.length) continue;
+    const names = new Set(members.map((c) => c.name));
+    out.push({
+      name: `lattice-${slug}.md`,
+      blurb,
+      body: [
+        ...header(
+          `Lattice layouts — ${buckets.join(', ')}`,
+          blurb,
+          members.map((c) => c.name),
+        ),
+        ...members.map((c) => rewireBundleLinks(demote(c.body.toString('utf8'), 1), names)),
+        '',
+      ].join('\n\n'),
+    });
+  }
+
+  // 9 — the cross-cutting modifiers.
+  out.push({
+    name: 'lattice-9-modifiers.md',
+    blurb: 'The class tokens that compose onto any layout — mood, decoration, typography, chrome.',
+    body: [
+      ...header('Modifiers', 'Cross-cutting tokens you add beside a layout name on the same `_class` comment.', []),
+      demote(txt(`${AUTHORING}/modifiers.md`).replace(/^# .*\n/, ''), 1),
+      '',
+    ].join('\n'),
+  });
+
+  // 10 — complete decks.
+  out.push({
+    name: 'lattice-10-example-decks.md',
+    blurb: 'Five complete, renderable decks — one built to be copied, four that really shipped.',
+    body: [
+      ...header('Example decks', 'Complete files. Copy the starter; read the other four for range.', []),
+      'The starter returns zero findings from the checker. **The four real decks do not** —',
+      'each carries three to seven suggestions. That is the checker working, not the decks',
+      'failing: a clean run is not the bar, and our own shipped decks prove it.',
+      '',
+      '## Starter — copy this one',
+      '',
+      ...fenced(starterDeck(), 'markdown'),
+      '',
+      ...examples.flatMap((e) => [
+        `## ${e.name.replace(/^lattice-example-|\.md$/g, '').replace(/-/g, ' ')} — ${e.slides} slides`,
+        '',
+        `${e.blurb}`,
+        '',
+        ...fenced(e.body.toString('utf8'), 'markdown'),
+        '',
+      ]),
+    ].join('\n'),
+  });
+
+  return out;
+}
+
+/**
+ * repo/ — the drop-ins for a coding agent, and the one place a SIZE budget bites
+ * for a reason other than an instruction box.
+ *
+ * `AGENTS.md` is kept small deliberately. Codex budgets the ENTIRE concatenated
+ * `AGENTS.md` chain — global, repo root, and every nested one — at 32 KiB and
+ * simply stops adding files when it is spent. A generous root file therefore
+ * starves the nested file that describes the consumer's actual project, and the
+ * failure is invisible. Half the budget is the most we should ever take.
+ */
+function repoFiles(paste) {
+  const agents = [
+    '# Authoring Lattice decks',
+    '',
+    'A Lattice deck is one Markdown file that renders to boardroom-quality slides.',
+    'Each slide opens with `<!-- _class: NAME -->` picking one layout, and slides are',
+    'separated by a line containing only `---`.',
+    '',
+    paste.trimEnd(),
+    '',
+    '## Where the catalog is',
+    '',
+    'The full catalog — 61 layouts, one file each, with slots, capacity and',
+    'anti-patterns — is published at',
+    '<https://github.com/Laticent/lattice/tree/dist-kits/agent>.',
+    'Read `upload/lattice-2-pick-a-layout.md` to choose, then that layout\'s own file.',
+    '',
+    'Do not pick a layout from memory. Capacity is the usual mistake: count your items',
+    'before you commit to a layout, and split or escalate when you are over its budget.',
+    '',
+  ].join('\n');
+
+  const skill = [
+    '---',
+    'name: lattice-decks',
+    'description: Authors Lattice slide decks in Markdown. Use when writing, editing, or reviewing a presentation, slide deck, or .md file using Lattice layouts.',
+    '---',
+    '',
+    '# Lattice decks',
+    '',
+    'Write a slide deck as one Markdown file. One layout per slide.',
+    '',
+    '## Steps',
+    '',
+    '1. Read `references/writing-a-deck.md` for the file shape and the rules.',
+    '2. Read `references/pick-a-layout.md` and choose a layout per slide by intent,',
+    '   then check your content against its capacity.',
+    '3. Write the deck.',
+    '4. Run the checker: `node check.mjs your-deck.md`. Fix what it names.',
+    '5. Render it and look at it — `references/render.md` has the commands.',
+    '',
+    '## Rules that break a deck if you get them wrong',
+    '',
+    ...ESSENTIALS.map((r) => `- ${r}`),
+    '',
+  ].join('\n');
+
+  return { agents, skill };
+}
+
+/** start/ — one page per destination, generated from DESTINATIONS. */
+function startPages() {
+  const pasteName = (k) => `lattice-instructions-${k}.md`;
+  return DESTINATIONS.map((d) => ({
+    name: `lattice-start-${d.slug}.md`,
+    title: d.title,
+    body: [
+      `# Set up Lattice in ${d.title}`,
+      '',
+      '## What to paste',
+      '',
+      `Put [\`paste/${pasteName(d.paste)}\`](../${PASTE}/${pasteName(d.paste)}) in the instructions box.`,
+      '',
+      ...(d.upload
+        ? [
+            '## What to upload',
+            '',
+            `All ${d.upload} files from [\`upload/\`](../${UPLOAD}/). They are numbered in reading order and`,
+            'each has a globally unique name, so they survive an uploader that discards folders.',
+            '',
+          ]
+        : ['## What to upload', '', 'Nothing. This path is self-contained.', '']),
+      '## Notes',
+      '',
+      ...d.body,
+      '',
+      '---',
+      '',
+      `Render and check what it writes: [\`render/lattice-render-a-deck.md\`](../${RENDER}/lattice-render-a-deck.md).`,
+      '',
+    ].join('\n'),
+  }));
+}
+
+/**
+ * plugin/ — the Claude Code plugin, as a marketplace of one.
+ *
+ * A plugin is the only shape that gets PROGRESSIVE DISCLOSURE on this surface:
+ * the skill's ~100-token frontmatter sits in context always, and the catalog is
+ * read only once a deck is actually being written. Copying the same knowledge
+ * into `CLAUDE.md` costs the full amount on every unrelated turn.
+ *
+ * The description is written to 200 characters, not the spec's 1,024: that is
+ * claude.ai's cap for an uploaded skill, and writing to the tightest of the three
+ * published limits is what makes one file work on all of them.
+ */
+function pluginFiles(skill) {
+  const manifest = {
+    name: 'lattice',
+    description: 'Author boardroom-quality slide decks in Markdown with the Lattice layout catalog.',
+    version: '1.0.0',
+    author: { name: 'Lattice' },
+    homepage: 'https://lattice.style',
+    license: 'AGPL-3.0-only',
+  };
+  const marketplace = {
+    name: 'lattice',
+    owner: { name: 'Lattice' },
+    plugins: [
+      {
+        name: 'lattice',
+        source: './',
+        description: manifest.description,
+      },
+    ],
+  };
+  return [
+    { name: '.claude-plugin/plugin.json', body: `${JSON.stringify(manifest, null, 2)}\n` },
+    { name: '.claude-plugin/marketplace.json', body: `${JSON.stringify(marketplace, null, 2)}\n` },
+    { name: 'skills/lattice-decks/SKILL.md', body: skill },
+    {
+      name: 'README.md',
+      body: [
+        '# Lattice — Claude Code plugin',
+        '',
+        'Adds a `lattice-decks` skill that teaches Claude Code to author Lattice decks.',
+        'The skill costs about 100 tokens of context until a deck is actually being',
+        'written, which is the reason to install this rather than paste the catalog into',
+        '`CLAUDE.md`.',
+        '',
+        '## Install',
+        '',
+        ...fenced('/plugin marketplace add Laticent/lattice\n/plugin install lattice', 'text'),
+        '',
+        'Or copy `skills/lattice-decks/` into your project\'s `.claude/skills/`.',
+        '',
+      ].join('\n'),
+    },
+  ];
+}
+
+/**
+ * README.md — the front door, and the thing this restructure exists to fix.
+ *
+ * The previous root README routed by TASK ("writing a deck", "building a tool").
+ * That is the writer's model of the material. A reader arrives knowing one thing
+ * about themselves — where they are putting this — and there was no row for it,
+ * so the answer to "what do I do and what do I need" was: read five folder
+ * READMEs and work it out.
+ *
+ * This routes by DESTINATION first, and every row lands on a page that names the
+ * exact file to paste and the exact files to upload. The old task table survives
+ * one level down, in `library/`, where it is the right question to ask.
+ */
+function rootReadme(files, layoutCount, components) {
+  const soloChars = [...files.get(`${PASTE}/lattice-instructions-solo.md`).toString('utf8')].length;
   const compMedian = median(components.map((c) => c.body.length));
   const canonB = bytesOf(files, `${AUTHORING}/deck-canon.md`);
   const rulesB = bytesOf(files, `${AUTHORING}/rules.md`);
   const primerB = bytesOf(files, `${AUTHORING}/primer.md`);
-  const compReadmeB = bytesOf(files, `${COMPONENTS}/README.md`);
-
+  const pickB = bytesOf(files, `${COMPONENTS}/README.md`);
   return [
-    '# Lattice agent kit',
+    '# Lattice for AI',
     '',
     '**Lattice turns plain Markdown into boardroom-quality slides.** One layout per slide,',
     'chosen with `<!-- _class: NAME -->`; slides separated by a line containing only `---`.',
     '',
-    'This kit is everything you need to author Lattice artifacts well — no clone, no install.',
-    'It works with any model; nothing here is vendor-specific.',
+    'This kit teaches any model to write them. No clone, no install, nothing vendor-specific.',
     '',
-    '## Start here',
+    '## Start with where you are putting it',
     '',
-    '| You are… | Read, in order | ~tokens |',
-    '|---|---|---|',
-    // FIXED + PER-COMPONENT, because a deck is not one slide. The single figure
-    // this used to quote described a ONE-component read and a cold agent
-    // measured a real nine-slide deck at 2.9x it — the row an agent budgets
-    // against was the row that would run it out of context.
-    `| **writing a deck** | \`${AUTHORING}/deck-canon.md\` → \`${AUTHORING}/rules.md\` → \`${COMPONENTS}/README.md\` → \`${REVIEW}/\` | **${fmtTok(canonB + rulesB + compReadmeB)}** once |`,
-    `| …then one \`${COMPONENTS}/<name>.md\` per layout you use | the file for that component | + ${fmtTok(compMedian)} each |`,
-    `| **drafting a whole deck** in one pass | \`${AUTHORING}/deck-canon.md\` → \`${AUTHORING}/primer.md\` | ${fmtTok(canonB + primerB)} |`,
-    `| **creating a theme, component, finish or lens** | \`${SKILLS}/README.md\` → the one skill | ${skillsRange(files)} |`,
-    `| **checking a deck you already wrote** | \`${REVIEW}/README.md\` | ${fmtTok(bytesOf(files, `${REVIEW}/README.md`))} |`,
-    `| **building a tool** over the catalog | \`${REFERENCE}/README.md\` | ${fmtTok(bytesOf(files, `${REFERENCE}/README.md`))} |`,
+    '| I am setting up… | Open |',
+    '|---|---|',
+    ...DESTINATIONS.map(
+      (d) => `| ${d.title[0].toUpperCase()}${d.title.slice(1)} | [\`start/lattice-start-${d.slug}.md\`](./${START}/lattice-start-${d.slug}.md) |`,
+    ),
     '',
-    '**Every folder has its own README.** Open the folder and it tells you what is inside and',
-    'in what order to read it. Take only what you need — nothing here expects you to load it all.',
+    'Every one of those pages says the same two things: **the text to paste**, and **the files',
+    'to upload**. Nothing else is required to get a working setup.',
     '',
-    '## The five folders',
+    '## In a hurry',
     '',
-    `| Folder | For | Contains |`,
-    '|---|---|---|',
-    `| [\`${AUTHORING}/\`](./${AUTHORING}/) | Writing a deck | The canon (what good looks like), the cross-cutting rules, and all ${layoutCount} layouts with skeletons |`,
-    `| [\`${COMPONENTS}/\`](./${COMPONENTS}/) | Choosing and authoring a layout | One file per component — what it is for, what it is **not** for, slots, budgets, mistakes |`,
-    `| [\`${SKILLS}/\`](./${SKILLS}/) | Creating a NEW artifact from blank | ${skills.filter((x) => x.name !== 'README.md').length} self-contained guides, each with its own 10/10 bar |`,
-    `| [\`${REVIEW}/\`](./${REVIEW}/) | Checking your work | A runnable checker + the rubric it applies |`,
-    `| [\`${REFERENCE}/\`](./${REFERENCE}/) | Building a tool | The machine catalogs and the Studio's own prompts |`,
+    `Paste [\`paste/lattice-instructions-solo.md\`](./${PASTE}/lattice-instructions-solo.md) (${soloChars.toLocaleString('en-US')} characters)`,
+    'into any chat and ask for a deck. It is self-contained — 20 layouts with their real',
+    'skeletons, the rules that break a deck, and a worked example. Nothing to upload.',
     '',
-    '## Two things worth knowing before you start',
+    '## What is in here',
     '',
-    `**Read \`${AUTHORING}/deck-canon.md\` before you write slides.** It is what the Lattice Studio`,
-    'sends its own model on every turn: how a deck argues, and the traps its reviewer flags with',
-    'the fix for each. The component files tell you how to author a layout *correctly*; the canon',
-    'is what makes the deck worth showing.',
+    '| Folder | What it is for |',
+    '|---|---|',
+    `| [\`${START}/\`](./${START}/) | One page per destination — what to paste, what to upload |`,
+    `| [\`${PASTE}/\`](./${PASTE}/) | The instruction texts, at three sizes, each sized to a real platform cap |`,
+    `| [\`${UPLOAD}/\`](./${UPLOAD}/) | Ten knowledge files, ready to drag into a knowledge uploader |`,
+    `| [\`${REPO}/\`](./${REPO}/) | Drop-ins for a coding agent — \`AGENTS.md\`, \`CLAUDE.md\`, a Cursor rule, a skill |`,
+    `| [\`plugin/\`](./plugin/) | The same skill as an installable Claude Code plugin |`,
+    `| [\`${EXAMPLES}/\`](./${EXAMPLES}/) | Five complete, renderable decks |`,
+    `| [\`${RENDER}/\`](./${RENDER}/) | How to turn a finished \`.md\` into a PDF |`,
+    `| [\`${REVIEW}/\`](./${REVIEW}/) | A runnable checker — code, not a model |`,
+    `| [\`${COMPONENTS}/\`](./${COMPONENTS}/) | The deep reference — all ${layoutCount} layouts, one file each |`,
+    `| [\`${AUTHORING}/\`](./${AUTHORING}/) | The canon, the rules, the modifiers, the full primer |`,
+    `| [\`${SKILLS}/\`](./${SKILLS}/) | Creating a new theme, component, finish or lens from blank |`,
+    `| [\`${REFERENCE}/\`](./${REFERENCE}/) | Machine catalogs, for building a tool |`,
     '',
-    `**Run \`${REVIEW}/check.mjs\` when you are done.** It is code, not a model — it costs no tokens,`,
-    'runs offline in about a tenth of a second, and cannot be talked into approving a deck. A model',
-    'checking its own draft will tell you the draft is fine.',
+    'The last four are the **library** — one topic per file, for a reader who can fetch a',
+    'path. `upload/` is the same knowledge rebundled for an uploader that takes ten files and',
+    'discards folders. Both exist because those two consumers cannot be served by one tree.',
     '',
-    `## The ${idx.length} component families`,
+    '## What each path costs, if you are budgeting context',
     '',
-    ...idx.map(({ bucket, blurb, members, families }) => {
-      const names = members.map((c) => `\`${c.name}\``).join(' · ');
-      const fam = families.length
-        ? `\n  Shared contract: ${families.map((c) => `\`${COMPONENTS}/${c.name}.md\``).join(', ')}`
-        : '';
-      return `- **${bucket}** — ${blurb}\n  ${names}${fam}`;
-    }),
+    '| Reading… | ~tokens |',
+    '|---|---|',
+    `| \`${PASTE}/lattice-instructions-solo.md\` — everything, self-contained | ${fmtTok(bytesOf(files, `${PASTE}/lattice-instructions-solo.md`))} |`,
+    `| the authoring path: canon → rules → picker | **${fmtTok(canonB + rulesB + pickB)}** once |`,
+    `| …then one \`${COMPONENTS}/<name>.md\` per layout you use | + ${fmtTok(compMedian)} each |`,
+    `| drafting a whole deck in one pass: canon → primer | ${fmtTok(canonB + primerB)} |`,
+    `| creating a theme, component, finish or lens | ${skillsRange(files)} |`,
     '',
-    `Which one, and which to avoid: [\`${COMPONENTS}/README.md\`](./${COMPONENTS}/README.md).`,
+    'The per-layout row is the one that matters: a nine-slide deck reads nine of those files,',
+    'so the fixed figure alone describes a one-slide deck and understates a real one by about 3x.',
+    '',
+    '## Three things that will bite you',
+    '',
+    '**`theme:` must name a palette your renderer has registered.** Marp resolves palettes by',
+    'name; an unregistered one falls back to plain Marp styling **with no error**. `cuoio`',
+    'works on every route here.',
+    '',
+    '**A Marp-rendered deck needs the two runtime `<script>` tags at the bottom of the file.**',
+    'Without them, layouts that compose in the DOM render as plain lists — again, no error.',
+    'The starter deck in `examples/` carries them; copy it and you inherit them.',
+    '',
+    `**Run the checker before you hand a deck over.** \`${CHECK_LINE}\` is code, not a model:`,
+    'no tokens, offline, a tenth of a second, and it cannot be talked into approving a deck.',
+    'A model reviewing its own draft will tell you the draft is fine.',
     '',
     '---',
     '',
-    '_Generated from the Lattice sources — do not hand-edit. Republished whenever an input_',
-    `_changes. ~token figures are bytes ÷ 4, a rough cross-model approximation. This file is ${fmtTok(selfBytes)} tokens._`,
+    '_Generated from the Lattice sources — do not hand-edit. Republished whenever an input changes._',
     '',
   ].join('\n');
+}
+
+/**
+ * Fail the build when a paste text outgrows the box it has to fit in.
+ *
+ * This is the gate that makes the caps real. Two of the three limits truncate
+ * SILENTLY on the platform that owns them — Windsurf at 6,000 chars, and a local
+ * model's context window — so the failure mode without this check is not a
+ * rejected paste, it is a text that looks fine, loses its own top, and produces
+ * confidently wrong decks. A reviewer cannot see that in a diff; a byte count can.
+ *
+ * Characters, not bytes: every documented cap is stated in characters, and the
+ * texts carry multi-byte punctuation, so `Buffer.byteLength` would over-count and
+ * fail a text that actually fits.
+ */
+function assertBudgets(files) {
+  const caps = [
+    [`${PASTE}/lattice-instructions-standard.md`, PASTE_STANDARD_MAX, 'Windsurf global_rules.md truncates silently past this'],
+    [`${PASTE}/lattice-instructions-max.md`, PASTE_MAX_MAX, 'OpenAI Custom GPT and M365 declarative agents both cap here'],
+    [`${PASTE}/lattice-instructions-solo.md`, PASTE_SOLO_MAX, 'must also fit a 4k-token local context beside the deck it writes'],
+  ];
+  const over = [];
+  for (const [name, cap, why] of caps) {
+    const n = [...files.get(name).toString('utf8')].length;
+    if (n > cap) over.push(`${name}: ${n} chars > ${cap} (${why})`);
+  }
+  if (over.length) {
+    throw new Error(`build-agent-kit: paste text over budget —\n       ${over.join('\n       ')}`);
+  }
 }
 
 async function buildKit() {
@@ -1344,11 +2544,50 @@ async function buildKit() {
   files.set(`${REFERENCE}/README.md`, Buffer.from(referenceReadme(files), 'utf8'));
   files.set(`${REVIEW}/README.md`, Buffer.from(reviewReadme(files), 'utf8'));
 
-  // Two passes: the root README quotes its own token cost, so the first measures
-  // and the second states it. Converges — only a same-order number changes.
-  const pass1 = bootstrap(components, skills, files, layoutCount, 0);
-  const pass2 = bootstrap(components, skills, files, layoutCount, Buffer.byteLength(pass1, 'utf8'));
-  files.set('README.md', Buffer.from(pass2, 'utf8'));
+  // ── Editions ──────────────────────────────────────────────────────────────
+  // Built AFTER the catalogs and the component docs, because every one of them
+  // reads a skeleton, a size or a name out of what is already in `files`.
+  const cat = catalogOf(files);
+  const traps = reviewerTraps();
+  files.set(`${PASTE}/lattice-instructions-solo.md`, Buffer.from(instructionsSolo(cat), 'utf8'));
+  files.set(`${PASTE}/lattice-instructions-standard.md`, Buffer.from(instructionsStandard(), 'utf8'));
+  files.set(
+    `${PASTE}/lattice-instructions-max.md`,
+    Buffer.from(traps.length ? instructionsMax(traps) : instructionsStandard(), 'utf8'),
+  );
+  assertBudgets(files);
+
+  // render/ and examples/ — the two ends of the pipeline the kit was missing.
+  files.set(`${RENDER}/lattice-render-a-deck.md`, Buffer.from(renderDoc(), 'utf8'));
+  files.set(`${EXAMPLES}/lattice-example-starter.md`, Buffer.from(starterDeck(), 'utf8'));
+  const examples = exampleDecks();
+  for (const e of examples) files.set(`${EXAMPLES}/${e.name}`, e.body);
+
+  // start/ — one page per destination.
+  for (const p of startPages()) files.set(`${START}/${p.name}`, Buffer.from(p.body, 'utf8'));
+
+  // upload/ — the ten bundles. Built last of the content, because every one of
+  // them re-projects a file already in the map.
+  for (const b of uploadBundles(components, files, examples)) {
+    files.set(`${UPLOAD}/${b.name}`, Buffer.from(b.body, 'utf8'));
+  }
+
+  // repo/ + plugin/ — the coding-agent lane. Both carry the SAME skill text; a
+  // plugin is the packaging, not a second body of knowledge.
+  const { agents, skill } = repoFiles(files.get(`${PASTE}/lattice-instructions-standard.md`).toString('utf8'));
+  files.set(`${REPO}/AGENTS.md`, Buffer.from(agents, 'utf8'));
+  files.set(`${REPO}/CLAUDE.md`, Buffer.from('@AGENTS.md\n', 'utf8'));
+  files.set(
+    `${REPO}/lattice.mdc`,
+    Buffer.from(
+      ['---', 'description: Authoring Lattice slide decks in Markdown', 'alwaysApply: false', '---', '', agents].join('\n'),
+      'utf8',
+    ),
+  );
+  files.set(`${REPO}/skills/lattice-decks/SKILL.md`, Buffer.from(skill, 'utf8'));
+  for (const f of pluginFiles(skill)) files.set(`plugin/${f.name}`, Buffer.from(f.body, 'utf8'));
+
+  files.set('README.md', Buffer.from(rootReadme(files, layoutCount, components), 'utf8'));
   return files;
 }
 

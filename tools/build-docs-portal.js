@@ -124,7 +124,12 @@ const PICK_FILE = path.join(DOCS_DIR, 'components.pick.md');
 const GRAMMAR_FILE = path.join(DOCS_DIR, 'grammar.json');
 
 // The browsable HTML reference now lives at the docs-site components route.
-const PORTAL_URL = 'https://laticent.github.io/lattice/components/';
+// lattice.style, NOT the github.io default: docs/public/CNAME points the Pages
+// deploy at the custom domain, so the github.io form is a redirect at best and
+// was the ONLY navigational URL the agent kit carried. The 2026-09 org rename
+// swapped slidewright.github.io -> laticent.github.io here; the domain itself
+// did not move, so the custom domain is still the right target.
+const PORTAL_URL = 'https://lattice.style/components/';
 
 // Palette tokens resolved per palette / per mode for the landing-page token
 // CSS (tools/build-landing-tokens.js consumes paletteCss()). Everything else

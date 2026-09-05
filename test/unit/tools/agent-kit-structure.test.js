@@ -28,6 +28,16 @@ const skip = built ? false : 'dist/agent-kit not built — run `npm run build`';
 
 test('agent kit structure', { skip }, async (t) => {
 	const text = fs.readFileSync(BOOTSTRAP, 'utf8');
+	/**
+	 * The COMPONENT INDEX, which is no longer the front door.
+	 *
+	 * The root README used to carry all 61 names; it now routes by DESTINATION
+	 * (which product you are setting up) and hands the catalog to the picker. The
+	 * two reachability checks below still matter exactly as much — an index that
+	 * names a missing file costs a fetch and returns nothing — so they follow the
+	 * list to where it lives rather than being deleted with the table.
+	 */
+	const indexText = fs.readFileSync(path.join(KIT, 'components', 'README.md'), 'utf8');
 
 	await t.test('the four task folders exist and are non-empty', () => {
 		for (const dir of ['authoring', 'components', 'skills', 'reference', 'review']) {
@@ -41,31 +51,32 @@ test('agent kit structure', { skip }, async (t) => {
 		}
 	});
 
-	await t.test('every component the bootstrap names has a file', () => {
+	await t.test('every component the index names has a file', () => {
 		const named = new Set();
-		for (const line of text.split('\n')) {
-			if (!/^\s{2}`/.test(line)) continue; // the member lines under each family
-			for (const m of line.matchAll(/`([a-z0-9-]+)`/g)) named.add(m[1]);
+		for (const line of indexText.split('\n')) {
+			if (!/^- \*\*`/.test(line)) continue; // the per-component bullet in each family
+			const m = /^- \*\*`([a-z0-9-]+)`\*\*/.exec(line);
+			if (m) named.add(m[1]);
 		}
-		assert.ok(named.size >= 50, `only ${named.size} components parsed out of the bootstrap`);
+		assert.ok(named.size >= 50, `only ${named.size} components parsed out of the index`);
 		const missing = [...named].filter(
 			(n) => !fs.existsSync(path.join(KIT, 'components', `${n}.md`)),
 		);
 		assert.deepEqual(
 			missing,
 			[],
-			'The bootstrap names components with no file in components/. An index that points at ' +
+			'The index names components with no file in components/. An index that points at ' +
 				'a missing file costs the agent a fetch and returns nothing.',
 		);
 	});
 
-	await t.test('every components/ file is reachable from the bootstrap', () => {
+	await t.test('every components/ file is reachable from the index', () => {
 		const onDisk = fs
 			.readdirSync(path.join(KIT, 'components'))
 			.filter((f) => f.endsWith('.md') && f !== '_index.md' && f !== 'README.md')
 			.map((f) => f.replace(/\.md$/, ''));
 		const unreferenced = onDisk.filter(
-			(n) => !text.includes(`\`${n}\``) && !text.includes(`${n}.md`),
+			(n) => !indexText.includes(`\`${n}\``) && !indexText.includes(`${n}.md`),
 		);
 		assert.deepEqual(
 			unreferenced,
@@ -510,8 +521,19 @@ test('agent kit structure', { skip }, async (t) => {
 			);
 
 		const uncovered = [];
-		for (const m of gen.matchAll(/path\.join\(ROOT, ((?:'[^']*'|\s|,)+)\)/g)) {
-			const parts = [...m[1].matchAll(/'([^']*)'/g)].map((x) => x[1]);
+		// Two shapes, and the second one was a blind spot until `exemplars/` was
+		// read with a variable tail: `path.join(ROOT, 'exemplars', rel)` matched
+		// NEITHER the all-literal pattern nor anything else, so a new top-level
+		// source directory could be read without the filter ever being asked about
+		// it. The leading literal is enough to check coverage — a directory whose
+		// own `**` glob is present covers every path under it.
+		const reads = [
+			...[...gen.matchAll(/path\.join\(ROOT, ((?:'[^']*'|\s|,)+)\)/g)].map((m) =>
+				[...m[1].matchAll(/'([^']*)'/g)].map((x) => x[1]),
+			),
+			...[...gen.matchAll(/path\.join\(ROOT, '([^']+)'\s*,\s*[A-Za-z_$]/g)].map((m) => [m[1]]),
+		];
+		for (const parts of reads) {
 			if (!parts.length) continue; // a computed segment (bucket, m.name) — the lib/** glob covers those
 			const file = parts.join('/');
 			// node_modules rides on package-lock.json; dist/ is this build's own output.
