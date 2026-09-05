@@ -1,6 +1,6 @@
 ---
-status: proposed
-summary: Design for namespaced inline-code directives (icons, vars) with all five open questions resolved but nothing implemented yet
+status: in-progress
+summary: Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}:shape:c4` (the bracket-geometry map it proposed is superseded, measured); `$var` and `icon:` still unbuilt
 ---
 
 # Lattice — namespaced inline-code directives (icons, vars, …)
@@ -29,6 +29,43 @@ summary: Design for namespaced inline-code directives (icons, vars) with all fiv
 > "pill" work in #88 / `lib/transformers/pill-tag.js` is the unrelated
 > trailing-`code` metadata-pill fix, NOT this bracket-shape grammar —
 > that grammar is still unbuilt.)
+
+> **AMENDMENT 2026-09-04 — the pill grammar shipped, and the BRACKET MAP BELOW IS
+> SUPERSEDED.** Pills are `` `{LABEL}:shape:c4:lg` `` — one brace pair, with the shape
+> as a MODIFIER WORD rather than encoded in bracket geometry. Everything else in the
+> pill design survives intact: the eight shape names, the ordinal color slots, the size
+> axis, order-free modifiers, and "no default shape without an explicit marker".
+>
+> **Why the geometry had to go.** The map below assigns meaning to `[X]`, `(X)`, `{X}`,
+> `((X))`, `[[X]]`. Measured against all **12,493** single-backtick spans in this repo,
+> it captures **147** that their authors meant literally:
+>
+> - **118** are decks and docs QUOTING our own state markers — `[x]` `[-]` `[ ]` `[/]`.
+>   (The functional markers are bare at a bullet's start and were never at risk; it is
+>   the slides TEACHING the syntax that break. `checklist.gallery.md:107` says "`[?]`
+>   renders as literal text" — which under this map would have rendered as a pill.)
+> - **29** are ordinary code prose: `[data-mark]`, `{ ok, scene }`,
+>   `(slides, registry, lensId)`, `(0,2,2)`.
+>
+> This note ruled out `:` `@` `#` `!` as sigils for exactly this reason — "inline code
+> routinely starts with `:root`, `@media`" — and never ran the same test on brackets,
+> which are the most loaded characters in a repo whose decks are about code. A single
+> `{…}` pair plus one guard (the label must be trimmed and comma-free, which is already
+> the pill word budget in `lib/authoring/prose-budgets.js`) measures **zero** collisions
+> repo-wide. Resolved decision #6 is therefore satisfied more honestly than the map
+> satisfied it: the brace IS the dispatch marker, and nothing accidental reaches it.
+>
+> **Also corrected:** the color slots are `:c1`–`:c12` onto `--cat-N-fill` /
+> `--cat-N-mark`, not `:c1`–`:c8` onto `--cat-blue`…`--cat-mauve`. HARD RULE #11 retired
+> those per-hue names for the role-based set after this note was written, and there are
+> twelve of them. The note's ordinal INSTINCT was right and the engine went further.
+>
+> **Shipped:** `lib/core/inline-pills.js` (kernel, HARD RULE #1), the `inlinePills`
+> markdown-it plugin, `transformInlinePills` in `lib/runtime`, the `.lat-pill[data-shape]`
+> CSS in `base.modifiers.css` (reusing the existing `--pill-*` tokens), a
+> `pill-shape-crowded` coaching rule, `examples/inline-pills.md`, and docs in
+> `base.docs.md`. **Still unbuilt: `$var` interpolation and the `icon:` namespace** —
+> those sections below stand as written.
 
 ## What's already done
 
@@ -149,6 +186,10 @@ empty, no guessing. The linter reads the active source's name set from
 `lib/icons.js` to flag typos before render.
 
 ### Pill shapes — Mermaid-inspired bracket grammar
+
+> **SUPERSEDED 2026-09-04** by the amendment at the top of this note — the shape NAMES
+> and both modifier axes below shipped, the bracket geometry did not. Kept as written
+> because the measurement that replaced it is only legible against it.
 
 Pills get their own grammar because shape is a visual axis the
 `prefix:value` form can't express terselys. The bracket grammar is
