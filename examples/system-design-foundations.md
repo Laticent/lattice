@@ -3225,20 +3225,21 @@ A decline is an answer, not a gap. Only a row that got no answer at all — a cl
 
 ---
 
-<!-- _class: compare-table -->
+<!-- _class: split-panel proof cat-5 -->
+<!-- _header: "" -->
 
 `Parking · rung one, what the sweep does`
 
-## Ask the provider what happened. Four answers come back, and each writes something different.
+## A sweep is a second writer, and it writes on a guess about what silence means.
 
-| The provider says | The row becomes | The bay |
-| --- | --- | --- |
-| A charge went through | Paid, with `started_at` read off the charge | Held until it expires |
-| The card was declined | Declined | Free at once |
-| No charge, and none open | Written off | Free at once |
-| An attempt is still open | Left waiting | Held, and asked again next sweep |
+Ask the provider what happened and write the answer down — the webhook is the fast path to paid, not the only one. But you are writing rows another process writes too, and you are doing it without being sure the driver has gone.
 
-Never guess at the last row: a driver still typing their card looks exactly like one who left. And note the first — the webhook is the fast path to paid, not the only one. A sweep that cannot write it leaves a driver charged and a bay reading empty.
+- The tell
+  - A row has sat waiting longer than a payment takes, and nobody has told the driver anything.
+- Write only if it is still waiting
+  - The same guard the webhook needs, for the same reason: two writers on one row, and the later must not bury what the earlier learned.
+- To free a bay, cancel first
+  - A timeout is not the same answer as nothing was taken. Ask again, and only once the provider has cancelled the payment for good should the row be written off.
 
 ---
 
@@ -3283,8 +3284,8 @@ Every provider puts a lifetime on the key — Stripe's is twenty-four hours. Ins
 
 - The tell
   - A row still says waiting the morning after the park, and nobody has told the driver anything.
-- Inside the window, retry
-  - Same key, same parameters, and you cannot be charged twice — once the first request has answered.
+- Inside the window, the key still holds
+  - Send the same key and parameters again and you cannot be charged twice, once the first request has answered.
 - Past it, reconcile
   - Never re-send. Look for the charge by the id in the provider's metadata. Refund what you cannot deliver; write the row off if there is nothing there.
 
