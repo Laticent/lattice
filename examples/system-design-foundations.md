@@ -3206,7 +3206,7 @@ The second tap is a different request that means the same thing. So the page min
 - On a conflict, read the row
   - Paid, hand back the receipt. Still waiting, charge again with that same key.
 - One key, one stored answer
-  - The provider saves the first result against that key and replays it, so a retry after a crash costs nothing.
+  - Stripe saves the first result against that key, success or failure, and replays it. A retry after a crash costs nothing.
 - A refusal is an answer too
   - A declined key stays declined however often you send it. That attempt is over; the next needs a new key.
 
@@ -3255,6 +3255,26 @@ A spinner tells the driver that nothing landed. They close the tab and scan the 
 Check the signature your provider sends before you believe a single field in it. Skip that and you have built a free parking machine: anyone who can post to the endpoint can mark any bay paid.
 
 Then expect the same call more than once, because a provider retries until you answer. The charge carried your key, so find the row by that key and let the repeat land on a row already paid.
+
+---
+
+<!-- _class: split-panel proof cat-4 -->
+<!-- _header: "" -->
+
+`Parking · rung one, the key expires`
+
+## A key is good for a day. A row still waiting the next morning can be investigated, not retried.
+
+Stripe prunes an idempotency key after twenty-four hours and reads the next use of it as a brand new request. Every provider sets its own window; this design rests on knowing yours.
+
+- Send your own id with the payment
+  - Put the session id in the provider's metadata. It is your only thread back to a charge you never heard about.
+- Inside the window, retry
+  - Same key, same parameters, and the stored answer comes back instead of a second charge.
+- Outside it, search
+  - Look the charge up by your own id and write down what it says. Refund it if the driver has long gone.
+- One field, decided now
+  - Add the id later and every row stuck before you added it stays a phone call.
 
 ---
 
