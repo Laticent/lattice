@@ -49,8 +49,10 @@ node engineering/decisions/2026-09-05-auto-split-catalog-audit/decks/looks.js
 ```
 
 `looks.js` prints the distinct-look counts; `variants.js` prints the per-variant
-pixel diffs. `master-table.txt`, `looks.json` and `variant-diffs.json` in this
-directory are the outputs as measured on 2026-09-05.
+pixel diffs; `flatness.js` measures how much of each page has nothing to read.
+`master-table.txt`, `looks.json`, `variant-diffs.json`, `flatness.json` and
+`flatness-summary.json` in this directory are the outputs as measured on
+2026-09-05.
 
 ## The three numbers
 
@@ -118,7 +120,7 @@ below: **A** content lost · **B** meaning lost · **C** envelope defect ·
 | `policy-recommendation` | yes | C | Best variant fidelity in the audit (5 looks → 5) and correct hierarchy — but "THE ASK" prints 15 times instead of getting the closing page, and it is the largest block on each page. |
 | `agenda` | yes | B | `progress-2`…`progress-6` become mutually identical after the split — the current-item marker does not advance page to page. **11 looks → 7.** |
 | `cards-grid`, `cards-stack` | yes | B | Column-count and stacking variants have nothing to express when a page holds one card. Inherent, not a defect. |
-| `checklist`, `list`, `actors`, `cycle`, `glossary`, `premise`, `list-criteria`, `content` | yes | D | Correct structure, no clipping — and 60–85% of every body page empty, with the member set at the size it had when four more were beside it. `content` is the only component in the corpus that emits the promised closing page. |
+| `checklist`, `list`, `actors`, `cycle`, `glossary`, `premise`, `list-criteria`, `content` | yes | D | Correct structure, no clipping — and measured 66–86% of every body page with nothing to read, against 63–80% on the same content unsplit, with the member set at the size it had when four more were beside it. `content` is the only component in the corpus that emits the promised closing page. |
 | `pricing` | no | A | Portrait clips all three variants: one of three tiers visible, text cut mid-word, ~65% of the page blank. Backed out of splitting on 2026-09-01; this is the cost. |
 | `split-compare` | no | A | Portrait drops the `RECOMMENDATION` block — the slide's conclusion — and prints the page number inside a card. |
 | `wifi`, `contact` | no | A | Portrait cuts the Wi-Fi password off the page edge; drops the QR code and caption while still drawing their empty cell. |
@@ -190,12 +192,49 @@ base components are themselves enrolled and win the lookup.
 ### D — technically correct, visually poor
 
 Every split body page carries one member sized as if four more were beside it.
-Reviewers measured 55–85% of the canvas empty on the body pages of `actors`,
-`cards-grid`, `cards-stack`, `checklist`, `content`, `cycle`, `glossary`,
-`kanban`, `kpi`, `list`, `list-criteria`, `list-tabular`, `premise`, `split-panel`
-and `stats`. The one counter-example in the corpus is `q-and-a`'s `solo` variant,
-which does scale its type up for the page it owns and is visibly the best body
-page in the audit — proof the engine can do it and mostly does not.
+This section is **measured**, not estimated: `decks/flatness.js` scans each page
+row by row and counts the rows with nothing to read on them. A row's range
+(brightest minus darkest pixel across its interior) is near zero whether the
+flat is white page or a tinted card fill, so the instrument sees the void inside
+a stretched card, which a background-difference measure cannot. It trims 14% off
+each side of the row first, because a row crossing an empty card's left and
+right rules has a large range from those two rules alone.
+
+The comparison is the same component with the same content, unsplit at `hd`
+against its own split body pages:
+
+| | rows with nothing to read, as a share of the content band |
+|---|---|
+| Unsplit page (median over 31 enrolled components) | **63.4%** |
+| Split body page (median) | **78.7%** |
+| Longest unbroken flat band on a split body page (median) | **35%** |
+
+So a split body page carries about 15 points more dead band than the page it
+came from — and there are 4.3 times as many of them. The extremes are the
+components whose own layout filled the canvas before the split:
+
+| Component | Unsplit | Split body | Δ |
+|---|---|---|---|
+| `split-panel` (square) | 0% | 87.6% | +87.6 |
+| `split-panel` (portrait) | 0% | 83.2% | +83.2 |
+| `compare-code` (square) | 23% | 96.6% | +73.6 |
+| `decision` (square) | 24.3% | 87.6% | +63.3 |
+| `list-steps` (square) | 24.9% | 83.6% | +58.7 |
+| `compare-prose` (square) | 24% | 78.5% | +54.5 |
+
+**Five deck-sizes get FULLER after the split, and the reason is not a good one.**
+`policy-recommendation.portrait` (−4.0), `inventory.portrait` (−4.1),
+`stats.portrait` (−4.7), `glossary.portrait` (−6.5) and `roadmap.square` (−24.8)
+all carry less dead band per page than their unsplit original — because the beat
+or legend they repeat on every page is filling it. The instrument cannot tell a
+page that is full of content from one that is full of a repeat; section C names
+which is which.
+
+The one counter-example in the corpus is `q-and-a`'s `solo` variant, which does
+scale its type up for the page it owns and is visibly the best body page in the
+audit — proof the engine can do it and mostly does not.
+
+Per-component numbers: `flatness-summary.json`.
 
 ### The components that never split — the other half of the picture
 
@@ -274,7 +313,9 @@ What the evidence does support, in the order it would pay off:
    of the 45 lost looks in one change, and it is a property of four strategies,
    not sixty-one components.
 4. **Scale the member for the page it owns.** One shared rule; `q-and-a solo`
-   already shows what it looks like.
+   already shows what it looks like, and section D's instrument gives the target
+   a number: bring a split body page's dead band back toward the 63% its own
+   unsplit page carries, rather than the 79% it carries today.
 5. **Then, and only then, decide per component whether it should enrol at all.**
    The audit says `kpi`, `stats`, `verdict-grid`, `compare-prose`, `decision` and
    `compare-code` should probably not — for exactly the reason `progress` and
@@ -297,9 +338,13 @@ render better than the one that splits, on the same content, on the same page.
   that slide with `-` bullets. Re-run with an ordered list and the counters appear
   unsplit **and survive the split**. Twenty of the 116 variant slots are in this
   class and are counted as "already indistinct", not as split damage.
-- **Emptiness is a reviewer estimate.** A stretched empty card fills the canvas
-  with background, so a blank-row measurement cannot see it. The percentages in
-  section D are eye estimates from whole-page review, not instrument readings.
+- **The flatness instrument measures dead band, not judgement.** It counts rows
+  with nothing to read; it cannot tell a page that is full of content from one
+  that is full of a repeated beat, and it says nothing about whether the content
+  that IS there is well set. Read section D's numbers with section C beside them.
+  Its two constants — a range floor of 12/255 and a 14% side trim — were set to
+  make a bordered empty card read as empty; a component whose card rules sit
+  further in than 14% would still fool it.
 - **One theme, one palette.** Everything is `indaco`, light mode. A palette-driven
   defect would not show here.
 - **Reviewer reports were re-checked, and some did not survive.** Nine parallel
