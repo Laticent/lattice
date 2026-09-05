@@ -1,0 +1,698 @@
+[
+ {
+  "name": "agenda",
+  "variant": "progress-1",
+  "ctlDiff": 3.42,
+  "splitDiff": 3.23
+ },
+ {
+  "name": "agenda",
+  "variant": "progress-2",
+  "ctlDiff": 3.32,
+  "splitDiff": 1.81
+ },
+ {
+  "name": "agenda",
+  "variant": "progress-3",
+  "ctlDiff": 3.4,
+  "splitDiff": 1.82
+ },
+ {
+  "name": "agenda",
+  "variant": "progress-4",
+  "ctlDiff": 3.2,
+  "splitDiff": 1.81
+ },
+ {
+  "name": "agenda",
+  "variant": "progress-5",
+  "ctlDiff": 2.56,
+  "splitDiff": 1.82
+ },
+ {
+  "name": "agenda",
+  "variant": "progress-6",
+  "ctlDiff": 2.56,
+  "splitDiff": 1.81
+ },
+ {
+  "name": "agenda",
+  "variant": "circles",
+  "ctlDiff": 6.08,
+  "splitDiff": 2.93
+ },
+ {
+  "name": "agenda",
+  "variant": "rail",
+  "ctlDiff": 5.72,
+  "splitDiff": 3.23
+ },
+ {
+  "name": "agenda",
+  "variant": "cards",
+  "ctlDiff": 38.61,
+  "splitDiff": 58.53
+ },
+ {
+  "name": "agenda",
+  "variant": "checks",
+  "ctlDiff": 5.81,
+  "splitDiff": 2.91
+ },
+ {
+  "name": "authority-chain",
+  "variant": "branching",
+  "ctlDiff": 7.06,
+  "splitDiff": 13.25
+ },
+ {
+  "name": "authority-chain",
+  "variant": "trail",
+  "ctlDiff": 17.75,
+  "splitDiff": 5.42
+ },
+ {
+  "name": "authority-chain",
+  "variant": "pyramid",
+  "ctlDiff": 19.43,
+  "splitDiff": 4.85
+ },
+ {
+  "name": "authority-chain",
+  "variant": "bracket",
+  "ctlDiff": 17.67,
+  "splitDiff": 5.5
+ },
+ {
+  "name": "cards-grid",
+  "variant": "four",
+  "ctlDiff": 22.56,
+  "splitDiff": 0.12
+ },
+ {
+  "name": "cards-grid",
+  "variant": "three",
+  "ctlDiff": 21.13,
+  "splitDiff": 0.12
+ },
+ {
+  "name": "cards-grid",
+  "variant": "numbered",
+  "ctlDiff": 0.09,
+  "splitDiff": 0.16
+ },
+ {
+  "name": "cards-stack",
+  "variant": "horizontal",
+  "ctlDiff": 11.93,
+  "splitDiff": 0.17
+ },
+ {
+  "name": "cards-stack",
+  "variant": "numbered",
+  "ctlDiff": 0.09,
+  "splitDiff": 0.16
+ },
+ {
+  "name": "compare-prose",
+  "variant": "transition",
+  "ctlDiff": 24.78,
+  "splitDiff": 0.16
+ },
+ {
+  "name": "compare-prose",
+  "variant": "mirror",
+  "ctlDiff": 3.47,
+  "splitDiff": 0.14
+ },
+ {
+  "name": "compare-prose",
+  "variant": "chosen",
+  "ctlDiff": 25.22,
+  "splitDiff": 0.13
+ },
+ {
+  "name": "compare-prose",
+  "variant": "decision",
+  "ctlDiff": 28.16,
+  "splitDiff": 0.12
+ },
+ {
+  "name": "compare-prose",
+  "variant": "vertical",
+  "ctlDiff": 19.11,
+  "splitDiff": 0.15
+ },
+ {
+  "name": "compare-prose",
+  "variant": "banner-tag",
+  "ctlDiff": 8.23,
+  "splitDiff": 0.18
+ },
+ {
+  "name": "compare-prose",
+  "variant": "rejected",
+  "ctlDiff": 0.11,
+  "splitDiff": 0.13
+ },
+ {
+  "name": "compare-prose",
+  "variant": "axis",
+  "ctlDiff": 22.6,
+  "splitDiff": 0.12
+ },
+ {
+  "name": "decision",
+  "variant": "banner-tag",
+  "ctlDiff": 7.32,
+  "splitDiff": 0.18
+ },
+ {
+  "name": "inventory",
+  "variant": "cards",
+  "ctlDiff": 33.23,
+  "splitDiff": 43.67
+ },
+ {
+  "name": "inventory",
+  "variant": "timeline",
+  "ctlDiff": 12.09,
+  "splitDiff": 23.7
+ },
+ {
+  "name": "inventory",
+  "variant": "editorial",
+  "ctlDiff": 11.72,
+  "splitDiff": 25.87
+ },
+ {
+  "name": "journey",
+  "variant": "heatmap",
+  "ctlDiff": 30.26,
+  "splitDiff": 0.13
+ },
+ {
+  "name": "journey",
+  "variant": "curve",
+  "ctlDiff": 16.67,
+  "splitDiff": 0.15
+ },
+ {
+  "name": "journey",
+  "variant": "swimlane",
+  "ctlDiff": 19.42,
+  "splitDiff": 0.18
+ },
+ {
+  "name": "journey",
+  "variant": "weighted",
+  "ctlDiff": 30.38,
+  "splitDiff": 0.15
+ },
+ {
+  "name": "kanban",
+  "variant": "keyline",
+  "ctlDiff": 11.05,
+  "splitDiff": 14.48
+ },
+ {
+  "name": "kanban",
+  "variant": "tinted",
+  "ctlDiff": 21.5,
+  "splitDiff": 26.16
+ },
+ {
+  "name": "kpi",
+  "variant": "attention",
+  "ctlDiff": 0.51,
+  "splitDiff": 0.72
+ },
+ {
+  "name": "kpi",
+  "variant": "ops",
+  "ctlDiff": 45.46,
+  "splitDiff": 50.68
+ },
+ {
+  "name": "kpi",
+  "variant": "compliance",
+  "ctlDiff": 37.46,
+  "splitDiff": 3.77
+ },
+ {
+  "name": "kpi",
+  "variant": "trajectory",
+  "ctlDiff": 42.1,
+  "splitDiff": 50.61
+ },
+ {
+  "name": "kpi",
+  "variant": "spotlight",
+  "ctlDiff": 11.21,
+  "splitDiff": 3.07
+ },
+ {
+  "name": "list",
+  "variant": "takeaway",
+  "ctlDiff": 50.02,
+  "splitDiff": 57.33
+ },
+ {
+  "name": "list",
+  "variant": "principles",
+  "ctlDiff": 0.1,
+  "splitDiff": 0.17
+ },
+ {
+  "name": "list",
+  "variant": "numbered",
+  "ctlDiff": 0.09,
+  "splitDiff": 0.16
+ },
+ {
+  "name": "list",
+  "variant": "lettered",
+  "ctlDiff": 0.09,
+  "splitDiff": 0.15
+ },
+ {
+  "name": "list",
+  "variant": "roman",
+  "ctlDiff": 0.07,
+  "splitDiff": 0.11
+ },
+ {
+  "name": "list",
+  "variant": "bullet",
+  "ctlDiff": 0.07,
+  "splitDiff": 0.12
+ },
+ {
+  "name": "list-steps",
+  "variant": "vertical",
+  "ctlDiff": 20.53,
+  "splitDiff": 0.14
+ },
+ {
+  "name": "list-steps",
+  "variant": "chevron",
+  "ctlDiff": 48.98,
+  "splitDiff": 57.42
+ },
+ {
+  "name": "list-steps",
+  "variant": "converge",
+  "ctlDiff": 52.66,
+  "splitDiff": 57.46
+ },
+ {
+  "name": "list-steps",
+  "variant": "ghost",
+  "ctlDiff": 48.9,
+  "splitDiff": 57.43
+ },
+ {
+  "name": "list-steps",
+  "variant": "timeline",
+  "ctlDiff": 50.22,
+  "splitDiff": 60.67
+ },
+ {
+  "name": "list-steps",
+  "variant": "phase",
+  "ctlDiff": 0.44,
+  "splitDiff": 0.29
+ },
+ {
+  "name": "list-steps",
+  "variant": "milestone",
+  "ctlDiff": 0.55,
+  "splitDiff": 0.37
+ },
+ {
+  "name": "list-steps",
+  "variant": "lettered",
+  "ctlDiff": 0.16,
+  "splitDiff": 0.19
+ },
+ {
+  "name": "list-steps",
+  "variant": "stage",
+  "ctlDiff": 0.36,
+  "splitDiff": 0.31
+ },
+ {
+  "name": "list-steps",
+  "variant": "rank",
+  "ctlDiff": 0.24,
+  "splitDiff": 0.24
+ },
+ {
+  "name": "list-steps",
+  "variant": "tier",
+  "ctlDiff": 0.17,
+  "splitDiff": 0.23
+ },
+ {
+  "name": "list-steps",
+  "variant": "roman",
+  "ctlDiff": 0.17,
+  "splitDiff": 0.2
+ },
+ {
+  "name": "list-steps",
+  "variant": "capsule",
+  "ctlDiff": 38.45,
+  "splitDiff": 23.37
+ },
+ {
+  "name": "list-tabular",
+  "variant": "def",
+  "ctlDiff": 6.86,
+  "splitDiff": 0.07
+ },
+ {
+  "name": "list-tabular",
+  "variant": "metric",
+  "ctlDiff": 3.93,
+  "splitDiff": 0.13
+ },
+ {
+  "name": "list-tabular",
+  "variant": "spec",
+  "ctlDiff": 4.26,
+  "splitDiff": 0.12
+ },
+ {
+  "name": "list-tabular",
+  "variant": "register",
+  "ctlDiff": 3.94,
+  "splitDiff": 0.14
+ },
+ {
+  "name": "list-tabular",
+  "variant": "rule",
+  "ctlDiff": 0.07,
+  "splitDiff": 0.12
+ },
+ {
+  "name": "list-tabular",
+  "variant": "solid",
+  "ctlDiff": 0.07,
+  "splitDiff": 0.12
+ },
+ {
+  "name": "list-tabular",
+  "variant": "stacked",
+  "ctlDiff": 0.09,
+  "splitDiff": 0.15
+ },
+ {
+  "name": "list-tabular",
+  "variant": "outline",
+  "ctlDiff": 0.08,
+  "splitDiff": 0.14
+ },
+ {
+  "name": "list-tabular",
+  "variant": "fit-name",
+  "ctlDiff": 0.11,
+  "splitDiff": 0.23
+ },
+ {
+  "name": "list-tabular",
+  "variant": "fit-body",
+  "ctlDiff": 0.09,
+  "splitDiff": 0.2
+ },
+ {
+  "name": "list-tabular",
+  "variant": "fit-meta",
+  "ctlDiff": 0.09,
+  "splitDiff": 0.21
+ },
+ {
+  "name": "list-tabular",
+  "variant": "flex-name",
+  "ctlDiff": 3.25,
+  "splitDiff": 0.25
+ },
+ {
+  "name": "list-tabular",
+  "variant": "flex-meta",
+  "ctlDiff": 0.12,
+  "splitDiff": 0.25
+ },
+ {
+  "name": "list-tabular",
+  "variant": "fixed",
+  "ctlDiff": 6.24,
+  "splitDiff": 0.19
+ },
+ {
+  "name": "policy-recommendation",
+  "variant": "adopt",
+  "ctlDiff": 13.95,
+  "splitDiff": 18.44
+ },
+ {
+  "name": "policy-recommendation",
+  "variant": "amend",
+  "ctlDiff": 13.95,
+  "splitDiff": 18.44
+ },
+ {
+  "name": "policy-recommendation",
+  "variant": "oppose",
+  "ctlDiff": 13.96,
+  "splitDiff": 18.45
+ },
+ {
+  "name": "policy-recommendation",
+  "variant": "defer",
+  "ctlDiff": 13.92,
+  "splitDiff": 18.39
+ },
+ {
+  "name": "q-and-a",
+  "variant": "spine",
+  "ctlDiff": 10.5,
+  "splitDiff": 9.87
+ },
+ {
+  "name": "q-and-a",
+  "variant": "rail",
+  "ctlDiff": 12.28,
+  "splitDiff": 0.24
+ },
+ {
+  "name": "q-and-a",
+  "variant": "tab",
+  "ctlDiff": 11.77,
+  "splitDiff": 8.82
+ },
+ {
+  "name": "q-and-a",
+  "variant": "grid",
+  "ctlDiff": 13.28,
+  "splitDiff": 8.39
+ },
+ {
+  "name": "q-and-a",
+  "variant": "solo",
+  "ctlDiff": 14.5,
+  "splitDiff": 11.07
+ },
+ {
+  "name": "redline",
+  "variant": "annotated",
+  "ctlDiff": 4.86,
+  "splitDiff": 5.88
+ },
+ {
+  "name": "redline",
+  "variant": "three-col",
+  "ctlDiff": 50.11,
+  "splitDiff": 45.09
+ },
+ {
+  "name": "redline",
+  "variant": "split",
+  "ctlDiff": 48.09,
+  "splitDiff": 45.19
+ },
+ {
+  "name": "redline",
+  "variant": "stacked",
+  "ctlDiff": 45.96,
+  "splitDiff": 42.56
+ },
+ {
+  "name": "regulatory-update",
+  "variant": "timeline",
+  "ctlDiff": 43.77,
+  "splitDiff": 50.97
+ },
+ {
+  "name": "regulatory-update",
+  "variant": "priority",
+  "ctlDiff": 13.04,
+  "splitDiff": 7.27
+ },
+ {
+  "name": "regulatory-update",
+  "variant": "cards",
+  "ctlDiff": 21.4,
+  "splitDiff": 9.87
+ },
+ {
+  "name": "regulatory-update",
+  "variant": "diff-bands",
+  "ctlDiff": 42.31,
+  "splitDiff": 50.82
+ },
+ {
+  "name": "roadmap",
+  "variant": "horizons",
+  "ctlDiff": 38.74,
+  "splitDiff": 0.15
+ },
+ {
+  "name": "roadmap",
+  "variant": "status",
+  "ctlDiff": 24.08,
+  "splitDiff": 7.43
+ },
+ {
+  "name": "roadmap",
+  "variant": "swimlane",
+  "ctlDiff": 15.39,
+  "splitDiff": 0.18
+ },
+ {
+  "name": "roadmap",
+  "variant": "milestones",
+  "ctlDiff": 12.09,
+  "splitDiff": 0.18
+ },
+ {
+  "name": "split-panel",
+  "variant": "metric",
+  "ctlDiff": 93.55,
+  "splitDiff": 0.12
+ },
+ {
+  "name": "split-panel",
+  "variant": "pullquote",
+  "ctlDiff": 23.89,
+  "splitDiff": 51.42
+ },
+ {
+  "name": "split-panel",
+  "variant": "steps",
+  "ctlDiff": 47.13,
+  "splitDiff": 0.13
+ },
+ {
+  "name": "split-panel",
+  "variant": "watermark",
+  "ctlDiff": 68.11,
+  "splitDiff": 0.17
+ },
+ {
+  "name": "split-panel",
+  "variant": "proof",
+  "ctlDiff": 87.39,
+  "splitDiff": 0.13
+ },
+ {
+  "name": "split-panel",
+  "variant": "capstone",
+  "ctlDiff": 47.29,
+  "splitDiff": 0.15
+ },
+ {
+  "name": "split-panel",
+  "variant": "mirror",
+  "ctlDiff": 86.91,
+  "splitDiff": 0.14
+ },
+ {
+  "name": "split-panel",
+  "variant": "qr",
+  "ctlDiff": 7.6,
+  "splitDiff": 0.14
+ },
+ {
+  "name": "split-panel",
+  "variant": "cat-1",
+  "ctlDiff": 42.9,
+  "splitDiff": 0.18
+ },
+ {
+  "name": "split-panel",
+  "variant": "cat-2",
+  "ctlDiff": 42.89,
+  "splitDiff": 0.16
+ },
+ {
+  "name": "split-panel",
+  "variant": "cat-3",
+  "ctlDiff": 42.9,
+  "splitDiff": 0.17
+ },
+ {
+  "name": "split-panel",
+  "variant": "cat-4",
+  "ctlDiff": 42.9,
+  "splitDiff": 0.17
+ },
+ {
+  "name": "split-panel",
+  "variant": "cat-5",
+  "ctlDiff": 42.9,
+  "splitDiff": 0.17
+ },
+ {
+  "name": "split-panel",
+  "variant": "cat-6",
+  "ctlDiff": 42.9,
+  "splitDiff": 0.17
+ },
+ {
+  "name": "split-panel",
+  "variant": "cat-7",
+  "ctlDiff": 42.9,
+  "splitDiff": 0.18
+ },
+ {
+  "name": "split-panel",
+  "variant": "cat-8",
+  "ctlDiff": 42.9,
+  "splitDiff": 0.17
+ },
+ {
+  "name": "statute-stack",
+  "variant": "hierarchy",
+  "ctlDiff": 16.84,
+  "splitDiff": 6.76
+ },
+ {
+  "name": "statute-stack",
+  "variant": "bands",
+  "ctlDiff": 16.81,
+  "splitDiff": 6.71
+ },
+ {
+  "name": "statute-stack",
+  "variant": "preemption",
+  "ctlDiff": 19.06,
+  "splitDiff": 6.75
+ },
+ {
+  "name": "statute-stack",
+  "variant": "lane",
+  "ctlDiff": 51.53,
+  "splitDiff": 56.97
+ }
+]
