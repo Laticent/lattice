@@ -19,10 +19,10 @@
   pass on a course-registration spike. A second design then runs the whole method again from
   nothing — a parking app where drivers scan a sticker on the bay and pay — climbing the ladder
   from a one-table MVP through a scaled rung to an optimized one, where the card fee turns out
-  to be the bill and the servers never were. Its payment path is worked against Stripe's
-  documented idempotency semantics, including the twenty-four-hour key window that turns a
-  next-morning sweep into a second charge, and the provider metadata that makes an
-  unanswered request findable at all. Choosing a store runs in three passes — shape and
+  to be the bill and the servers never were. Its payment path is bounded by the
+  twenty-four-hour idempotency-key window Stripe documents, past which a retry is a second
+  charge rather than a replay, so a waiting row carries a `created_at` and a correlation id
+  in the provider's metadata and a stale sweep asks what happened instead of re-sending. Choosing a store runs in three passes — shape and
   access, then a capability no shape provides (similarity, ranked text, proximity, live push,
   retention, traversal), then the operational properties that break a tie — so a capability adds
   a store beside the source rather than replacing it. Part seven maps the feed design back to the

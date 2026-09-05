@@ -3166,6 +3166,7 @@ sessions
   id            uuid
   idem_key      unique. one park, one key, however many taps
   status        waiting, then paid or declined. a stale wait is swept
+  created_at    set on insert. how you tell a stale wait from a fresh one
   lot_id, bay   which sticker was scanned. also how you find a live session
   plate         typed by the driver
   started_at    set when the payment clears
@@ -3204,9 +3205,9 @@ The second tap is a different request that means the same thing. So the page min
 - Insert first, before you charge
   - The key goes in a unique column, so a second tap conflicts on it instead of starting a second payment.
 - On a conflict, read the row
-  - Paid, hand back the receipt. Still waiting, charge again with that same key.
+  - Paid, hand back the receipt. Still waiting, retry with that same key, which holds for a day.
 - One key, one stored answer
-  - Stripe saves the first result against that key, success or failure, and replays it. A retry after a crash costs nothing.
+  - The provider saves the first result against that key and replays it, so a retry after a crash costs nothing.
 - A refusal is an answer too
   - A declined key stays declined however often you send it. That attempt is over; the next needs a new key.
 
@@ -3263,18 +3264,18 @@ Then expect the same call more than once, because a provider retries until you a
 
 `Parking · rung one, the key expires`
 
-## A key is good for a day. A row still waiting the next morning can be investigated, not retried.
+## A key only works for a day, so a stuck row is a deadline.
 
-Stripe prunes an idempotency key after twenty-four hours and reads the next use of it as a brand new request. Every provider sets its own window; this design rests on knowing yours.
+Your provider's key has a shelf life. Stripe prunes one after twenty-four hours and reads the next use of it as a brand new request, so the sweep that clears stuck rows is built around that number.
 
+- Past the window, never re-send
+  - Look up your own id instead. A charge found means mark the row paid; nothing found means nothing was taken.
+- Inside it, retry
+  - Same key, same parameters, and you cannot be charged twice. That is the case the key was minted for.
+- Give the row a clock
+  - Stamp it on insert. A row whose only timestamp arrives with the payment has no age while it waits.
 - Send your own id with the payment
-  - Put the session id in the provider's metadata. It is your only thread back to a charge you never heard about.
-- Inside the window, retry
-  - Same key, same parameters, and the stored answer comes back instead of a second charge.
-- Outside it, search
-  - Look the charge up by your own id and write down what it says. Refund it if the driver has long gone.
-- One field, decided now
-  - Add the id later and every row stuck before you added it stays a phone call.
+  - Put the session id in the provider's metadata. Add it later and yesterday's stuck rows stay lost.
 
 ---
 
