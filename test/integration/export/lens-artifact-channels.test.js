@@ -38,9 +38,9 @@ const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
 const TIMEOUT = 240000;
 
 /** A 5-slide deck whose `brief` view keeps 1, 3 and 5 — so two holes fall between kept slides. */
-function deck({ extraFm = '', style = '', notes = false, captions = false } = {}) {
+function deck({ extraFm = '', style = '', notes = false, captions = false, inlineCaptions = false } = {}) {
 	const raw = Array.from({ length: 5 }, (_, i) =>
-		`\n<!-- _class: content -->\n\n# Slide ${i + 1}\n\nBody of slide ${i + 1}.\n${notes ? `\n<!-- NOTE FOR SLIDE ${i + 1} -->\n` : ''}`,
+		`\n<!-- _class: content -->\n${inlineCaptions ? `<!-- caption: INLINE for slide ${i + 1}. -->\n` : ''}\n# Slide ${i + 1}\n\nBody of slide ${i + 1}.\n${notes ? `\n<!-- NOTE FOR SLIDE ${i + 1} -->\n` : ''}`,
 	);
 	const mem = new Set([0, 2, 4]);
 	const tagged = raw.map((s, i) => applyTag(s, 'brief', mem.has(i), 'none'));
@@ -187,6 +187,28 @@ describe('a projected export keeps its per-slide channels aligned', { skip }, ()
 		}
 	});
 
+	test('and an INLINE `<!-- caption: -->` reaches it too — the other half of the same channel', { timeout: TIMEOUT }, () => {
+		// The sixth authored-vs-shipped pairing bug, found by the red team after the front-matter half
+		// above was fixed. `slideCaptions` is extracted from the AUTHORED slide array and
+		// `mergeNarration` reads `captions[i]` at the PAGE index, so the two spaces differ by every
+		// hole in front of a slide. Measured: page 1 got slide 1's caption, page 2 fell back to
+		// generated speech, and page 3 spoke SLIDE 3'S caption over SLIDE 5 — verbatim the
+		// misnarration table `pruneCaptions` exists to prevent, still live through the other channel.
+		// Both channels now go through one authored -> page join, which is the point.
+		const { r, dir } = run(deck({ inlineCaptions: true }), 'inline.pdf', ['--quiet', '--lens', 'brief', '--captions']);
+		assert.equal(r.status, 0, r.stderr);
+		const parts = fs.readdirSync(dir).filter((f) => /^inline\.\d+\.vtt$/.test(f)).sort();
+		assert.equal(parts.length, 3, 'three shipped slides, three parts');
+		for (const [i, authored] of [1, 3, 5].entries()) {
+			const vtt = fs.readFileSync(path.join(dir, parts[i]), 'utf8').replace(/<\d\d:\d\d:\d\d\.\d{3}>/g, '');
+			assert.match(vtt, new RegExp(`INLINE for slide ${authored}`), `part ${i + 1} narrates authored slide ${authored}`);
+		}
+		// And no withheld slide's caption is anywhere in the sidecars — the misbinding did not only
+		// misplace a caption, it PUBLISHED one the view withheld.
+		const all = parts.map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n') + fs.readFileSync(path.join(dir, 'inline.vtt'), 'utf8');
+		for (const away of [2, 4]) assert.doesNotMatch(all, new RegExp(`INLINE for slide ${away}`), `slide ${away}'s caption is withheld`);
+	});
+
 	test('a positional SELECTOR holds across the projection and a CSS COUNTER does not', { timeout: TIMEOUT }, async () => {
 		// The claim this whole design rests on, and its one measured exception. `nth-of-type` is a
 		// STRUCTURAL selector, so it counts the hidden hole and lands on the slide the author aimed
@@ -241,40 +263,89 @@ describe('a projected export keeps its per-slide channels aligned', { skip }, ()
  * verdicts below were produced by exporting an 8-slide deck twice — whole, and under a view keeping
  * slides 1/4/6/8 — and reading the result rather than reasoning about it:
  *
- *   CHANNEL                              VERDICT     mechanism
- *   nth-of-type(6)                       preserved   structural: counts hidden elements
- *   nth-child(8)                         preserved   structural
- *   last-of-type                         preserved   structural
- *   nth-last-of-type(3)                  preserved   structural, counting from the end
- *   nth-of-type(2n)                      preserved   structural, an+b form
- *   nth-of-type(3) + section             preserved   adjacent sibling combinator
- *   nth-of-type(1) ~ section             preserved   general sibling combinator
- *   counter() in generated content       MOVES       box tree: a hidden box does not increment
- *   visible page number                 moves        by design — a view renumbers what it ships
- *   withheld body / note / caption text  hidden      on every format
- *   deck length, withheld positions      disclosed   in the plain `.html` and the projected SOURCE
- *                                        hidden      in PDF / PPTX / PNG / the player's frames
+ * Columns are the authored slides each rule lands on: in the whole deck, in the whole deck RESTRICTED
+ * to the ones this view keeps (what the projection can be held to), in the projection, and in a
+ * MUTANT built by deleting the hole sections from the file the export actually wrote — "the
+ * projection stopped holding position", which is the failure this design is against. The mutant
+ * column is what makes the row evidence: without it a row can agree without ever being able to
+ * disagree, and two of the seven below were doing exactly that.
  *
- * The two `MOVES` rows are the honest residue and the reason the author-CSS warning still exists.
- * The last row is the design's stated cost: a hole says a slide was here, and nothing else.
+ *   CHANNEL                            full          kept      proj      no-holes   verdict
+ *   nth-of-type(6)                     [6]           [6]       [6]       []         preserved
+ *   nth-child(8)                       [8]           [8]       [8]       []         preserved
+ *   last-of-type                       [8]           [8]       [8]       [8]        preserved, BLIND
+ *   nth-last-of-type(3)                [6]           [6]       [6]       [4]        preserved
+ *   nth-of-type(2n)                    [2,4,6,8]     [4,6,8]   [4,6,8]   [4,8]      preserved
+ *   nth-of-type(3) + section           [4]           [4]       [4]       [8]        preserved
+ *   nth-of-type(3) ~ section           [4,5,6,7,8]   [4,6,8]   [4,6,8]   [8]        preserved
+ *   nth-child(3 of .kpi)               [6]           [6]       []        []         BREAKS
+ *   has(blockquote) + section          [4,6]         [4,6]     []        []         BREAKS
+ *   not(:has(blockquote)) + section    [2,3,5,7,8]   [8]       [4,6,8]   [4,6,8]    BREAKS (gains)
+ *   counter() in generated content     1..8          —         1..4      —          MOVES
+ *   visible page number                —             —         —         —          moves by design
+ *   withheld body / note / caption     —             —         —         —          hidden, every format
+ *   deck length, withheld positions    —             —         —         —          disclosed in the plain
+ *                                                                                   `.html` + projected SOURCE;
+ *                                                                                   hidden in PDF/PPTX/PNG/player
+ *
+ * THE THREE `BREAKS` ROWS ARE THE FAMILY THE FIRST SEVEN HID, and they are the reason "positional CSS
+ * is safe" was the wrong sentence. A hole keeps the withheld slide's SLOT and carries nothing else —
+ * not its class list, not a byte of its content — so counting slots holds and asking a QUESTION ABOUT
+ * a slot does not. The last of them is the dangerous direction: `:not(:has(…)) + section` styles three
+ * kept slides here that it styled none of in the whole deck, so a rule that HID something in the deck
+ * the sender previewed can UNHIDE it in the file they send. None of this is closable by trying harder —
+ * the only hole that could answer these the way the withheld slide did is one carrying that slide's
+ * classes and content, which is the disclosure the projection exists to prevent.
+ *
+ * `last-of-type` is marked BLIND rather than dropped: it really is preserved, and it also cannot tell
+ * the difference (slide 8 is kept and stays last with or without the holes). It stays because a reader
+ * of this table will reach for it, and it says out loud that it proves nothing.
+ *
+ * The `MOVES` row and the last row are the design's stated costs: a counter numbers boxes, and a hole
+ * says a slide was here and nothing else.
  */
 describe('what a projection lets a recipient observe', { skip }, () => {
 	// 8 slides, `brief` keeps 1/4/6/8 (0-based 0,3,5,7) so holes fall before, between AND after the
 	// kept slides — a shape where an off-by-one in any direction shows up.
 	const KEPT_1BASED = [1, 4, 6, 8];
+	// `discriminates` says whether the row can TELL THE DIFFERENCE — whether its answer would change
+	// if holes stopped holding position. Two of the seven original rows could not, and were being
+	// counted as evidence anyway: `last-of-type` lands on slide 8 whether or not the holes are there
+	// (slide 8 is kept and stays last either way), and `nth-of-type(1) ~ section` matched every slide
+	// but the first, which the restrict-to-kept filter then reduced to exactly the kept set on both
+	// sides. A row that cannot fail is documentation, not measurement, so it says so.
 	const CHANNELS = [
-		{ css: 'section:nth-of-type(6) h1  { color: rgb(255,0,0) }', prop: 'color', hit: 'rgb(255, 0, 0)', name: 'nth-of-type(6)' },
-		{ css: 'section:nth-child(8) h1 { outline-color: rgb(0,255,0) }', prop: 'outlineColor', hit: 'rgb(0, 255, 0)', name: 'nth-child(8)' },
-		{ css: 'section:last-of-type h1 { text-decoration-color: rgb(0,0,255) }', prop: 'textDecorationColor', hit: 'rgb(0, 0, 255)', name: 'last-of-type' },
-		{ css: 'section:nth-last-of-type(3) h1 { border-top-color: rgb(255,0,255) }', prop: 'borderTopColor', hit: 'rgb(255, 0, 255)', name: 'nth-last-of-type(3)' },
-		{ css: 'section:nth-of-type(2n) h1 { column-rule-color: rgb(0,255,255) }', prop: 'columnRuleColor', hit: 'rgb(0, 255, 255)', name: 'nth-of-type(2n)' },
-		{ css: 'section:nth-of-type(3) + section h1 { background-color: rgb(128,0,0) }', prop: 'backgroundColor', hit: 'rgb(128, 0, 0)', name: 'adjacent sibling +' },
-		{ css: 'section:nth-of-type(1) ~ section h1 { caret-color: rgb(0,128,0) }', prop: 'caretColor', hit: 'rgb(0, 128, 0)', name: 'general sibling ~' },
+		{ css: 'section:nth-of-type(6) h1  { color: rgb(255,0,0) }', prop: 'color', hit: 'rgb(255, 0, 0)', name: 'nth-of-type(6)', discriminates: true },
+		{ css: 'section:nth-child(8) h1 { outline-color: rgb(0,255,0) }', prop: 'outlineColor', hit: 'rgb(0, 255, 0)', name: 'nth-child(8)', discriminates: true },
+		{ css: 'section:last-of-type h1 { text-decoration-color: rgb(0,0,255) }', prop: 'textDecorationColor', hit: 'rgb(0, 0, 255)', name: 'last-of-type', discriminates: false },
+		{ css: 'section:nth-last-of-type(3) h1 { border-top-color: rgb(255,0,255) }', prop: 'borderTopColor', hit: 'rgb(255, 0, 255)', name: 'nth-last-of-type(3)', discriminates: true },
+		{ css: 'section:nth-of-type(2n) h1 { column-rule-color: rgb(0,255,255) }', prop: 'columnRuleColor', hit: 'rgb(0, 255, 255)', name: 'nth-of-type(2n)', discriminates: true },
+		{ css: 'section:nth-of-type(3) + section h1 { background-color: rgb(128,0,0) }', prop: 'backgroundColor', hit: 'rgb(128, 0, 0)', name: 'adjacent sibling +', discriminates: true },
+		{ css: 'section:nth-of-type(3) ~ section h1 { caret-color: rgb(0,128,0) }', prop: 'caretColor', hit: 'rgb(0, 128, 0)', name: 'general sibling ~', discriminates: true },
 	];
 
+	// THE FAMILIES THAT DO NOT HOLD, measured the same way and asserted to BREAK. A hole keeps the
+	// withheld slide's SLOT and carries nothing else — not its class list, not a byte of its content —
+	// so a selector that counts slots holds and a selector that asks a QUESTION ABOUT the slot does
+	// not. This is not closable by trying harder: the only hole that could answer these the way the
+	// withheld slide did is one carrying that slide's classes and content, which is the disclosure the
+	// projection exists to prevent (a class name is author text — `_class: acquisition-terms` names
+	// the thing). So the boundary is pinned in the direction it really runs, and if one of these ever
+	// starts holding, the warning the CLI prints is wrong and this file says so.
+	const BREAKS = [
+		{ css: 'section:nth-child(3 of .kpi) h1 { text-emphasis-color: rgb(9,9,9) }', prop: 'textEmphasisColor', hit: 'rgb(9, 9, 9)', name: 'nth-child(3 of .kpi)' },
+		{ css: 'section:has(blockquote) + section h1 { border-bottom-color: rgb(7,7,7) }', prop: 'borderBottomColor', hit: 'rgb(7, 7, 7)', name: 'has(blockquote) + section' },
+		{ css: 'section:not(:has(blockquote)) + section h1 { border-left-color: rgb(5,5,5) }', prop: 'borderLeftColor', hit: 'rgb(5, 5, 5)', name: 'not(:has(blockquote)) + section' },
+	];
+	const ALL = [...CHANNELS, ...BREAKS];
+
 	function channelDeck() {
-		const style = `<style>\n${CHANNELS.map((c) => c.css).join('\n')}\nsection { counter-increment: sl }\nsection h1::after { content: " [n" counter(sl) "]" }\n</style>\n`;
-		const raw = Array.from({ length: 8 }, (_, i) => `\n<!-- _class: content -->\n\n# Slide ${i + 1}\n\nBody of slide ${i + 1}.\n`);
+		const style = `<style>\n${ALL.map((c) => c.css).join('\n')}\nsection { counter-increment: sl }\nsection h1::after { content: " [n" counter(sl) "]" }\n</style>\n`;
+		// Slides 2, 3, 6 and 8 carry `kpi`; slides 3 and 5 carry a blockquote. Both sets straddle the
+		// kept/withheld line, which is what makes the three BREAKS rows fire rather than sit vacuous.
+		const KPI = new Set([2, 3, 6, 8]);
+		const QUOTE = new Set([3, 5]);
+		const raw = Array.from({ length: 8 }, (_, i) => `\n<!-- _class: content${KPI.has(i + 1) ? ' kpi' : ''} -->\n\n# Slide ${i + 1}\n\n${QUOTE.has(i + 1) ? `> Quoted on slide ${i + 1}.\n\n` : ''}Body of slide ${i + 1}.\n`);
 		const mem = new Set(KEPT_1BASED.map((n) => n - 1));
 		const body = style + raw.map((s, i) => applyTag(s, 'brief', mem.has(i), 'none')).join('\n---\n') + '\n';
 		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, { id: 'brief', label: 'Brief', base: 'none' }], default: 'full' };
@@ -303,21 +374,40 @@ describe('what a projection lets a recipient observe', { skip }, () => {
 						const o = { at: Number(s.getAttribute('data-authored-slide')) + 1, hole: s.classList.contains('lens-hole') };
 						for (const p of props) o[p] = cs ? cs[p] : '';
 						return o;
-					}), CHANNELS.map((c) => c.prop));
+					}), ALL.map((c) => c.prop));
 				await page.close();
 				return rows;
 			};
+			// THE THIRD DOCUMENT IS WHAT GIVES THE ROWS TEETH. Comparing the projection against the
+			// full deck shows a row AGREEING; it cannot show that the row would have noticed
+			// disagreement. So a mutant is built by deleting the hole sections from the very file the
+			// export wrote — "the projection stopped holding position", the failure this whole design
+			// is against — and every row that claims to discriminate has to answer differently there.
+			// Without this, two of the seven rows were certifying nothing and no one could tell.
+			const mutantPath = brief.out.replace(/\.html$/, '.mutant.html');
+			fs.writeFileSync(mutantPath, fs.readFileSync(brief.out, 'utf8').replace(/<section\b[^>]*>[\s\S]*?<\/section>/g,
+				(sec) => (isHoleOpenTag(/^<section\b[^>]*>/.exec(sec)[0]) ? '' : sec)));
 			const a = await read(full.out);
 			const b = await read(brief.out);
+			const m = await read(mutantPath);
 			const lands = (rows, c) => rows.filter((r) => !r.hole && r[c.prop] === c.hit).map((r) => r.at);
 			for (const c of CHANNELS) {
 				// Restrict the full deck's answer to the slides the view KEEPS: that is what the
 				// projection can be held to. Anything else would demand the view show a slide it withheld.
 				const want = lands(a, c).filter((n) => KEPT_1BASED.includes(n));
 				assert.deepEqual(lands(b, c), want, `${c.name} lands on the same authored slide(s) in both renders`);
+				if (c.discriminates) {
+					assert.notDeepEqual(lands(m, c), want, `${c.name} would have NOTICED the holes going away`);
+				}
 			}
-			// And the guard against a vacuous pass: the rules must actually have hit something.
-			assert.ok(CHANNELS.every((c) => lands(a, c).length > 0), 'every channel rule matched at least one slide in the full deck');
+			for (const c of BREAKS) {
+				// Asserted to break, in the direction measured. A row that quietly started holding would
+				// mean the hole had begun carrying something about the withheld slide, which is a leak.
+				const want = lands(a, c).filter((n) => KEPT_1BASED.includes(n));
+				assert.notDeepEqual(lands(b, c), want, `${c.name} does NOT survive the projection — it reads the withheld slide, and the hole is empty`);
+			}
+			// And the guard against a vacuous pass: every rule must have hit something in the full deck.
+			for (const c of ALL) assert.ok(lands(a, c).length > 0, `${c.name} matched at least one slide in the full deck`);
 		} finally {
 			await browser.close();
 		}

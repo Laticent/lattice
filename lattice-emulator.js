@@ -839,6 +839,8 @@ if (LENS_DEFAULT && !LENS_IDS.length) {
 let LENS_VIEWS = null;
 let LENS_PROJECTION = null;
 let LENS_REPORT = null;
+/** Privacy-relevant lines about what the artifact CARRIES. Printed as warnings, never `--quiet`-gated. */
+const LENS_DISCLOSURES = [];
 let LENS_TOTAL = 0;
 let LENS_OPENS_ON = null;
 let lensProjected = mdRaw;
@@ -891,9 +893,15 @@ if (LENS_IDS.length) {
   // the WHOLE deck's markdown back into the `application/lattice+json` envelope, so a file whose
   // pages show 4 of 8 slides carries all 8 in a channel a recipient can read. Reporting only the
   // page count there described the artifact the sender expected rather than the one they sent.
-  LENS_REPORT = LENS_SOURCE === 'full'
-    ? `  reader views: ${LENS_IDS.join(', ')} — ${out.kept.length} of ${out.total} slides render, and --lens-source full carries ALL ${out.total} in the envelope`
-    : `  reader views: ${LENS_IDS.join(', ')} — ${out.kept.length} of ${out.total} slides ship`;
+  LENS_REPORT = `  reader views: ${LENS_IDS.join(', ')} — ${out.kept.length} of ${out.total} slides ${LENS_SOURCE === 'full' ? 'render' : 'ship'}`;
+  // AND THE HALF THAT IS ABOUT WHAT LEAVES THE BUILDING GOES SOMEWHERE `--quiet` CANNOT REACH.
+  // This line rode on `LENS_REPORT`, which `--quiet` silences — so the one flag a pipeline always
+  // passes turned "this file carries all 8 slides" into no output at all. The author-CSS warning
+  // below was deliberately un-gated for exactly this reason, and this is the same kind of fact.
+  if (LENS_SOURCE === 'full' && out.kept.length < out.total) {
+    LENS_DISCLOSURES.push(`warning: --lens-source full carries ALL ${out.total} slides in the embedded envelope, though only ${out.kept.length} render.`,
+      '         A recipient can read the withheld slides out of the file. That is what the flag is for — say so if it was not.');
+  }
 }
 // PRINT canvas is stamped by `--print` OR by an image set's `--image-mode print`
 // (one `color-mode: print` path, so the whole set renders the B&W-safe handout).
@@ -2124,8 +2132,17 @@ if (LENS_PROJECTION) {
   // AND THE REPORT SAYS SO, because "2 of 3 slides ship" beside a three-slide file is a line that
   // describes neither. The appendix is generated from the deck-wide acronym registry, which the
   // projection does not prune — so a definition written for a withheld slide's subject rides out on it.
-  if (appendedSlides > 0 && LENS_REPORT) {
-    LENS_REPORT += `\n  plus ${appendedSlides} appended slide${appendedSlides === 1 ? '' : 's'} (auto-glossary), built from the deck-wide acronym registry — the projection does not prune it`;
+  if (appendedSlides > 0) {
+    LENS_REPORT += `\n  plus ${appendedSlides} appended slide${appendedSlides === 1 ? '' : 's'} (auto-glossary)`;
+    // UN-GATED, for the same reason as the flag above: this one says a definition written for a
+    // withheld slide's subject rides out on the appendix. Measured — a term named on exactly one
+    // slide, that slide withheld, its definition printed verbatim on the glossary page of the
+    // reduced PDF. Under `--quiet` the run said nothing at all.
+    if (LENS_PROJECTION.kept.length < LENS_PROJECTION.total) {
+      LENS_DISCLOSURES.push('warning: the auto-glossary appendix is built from the deck-wide `acronyms:` registry, which the',
+        '         projection does not prune — a term defined for a WITHHELD slide still gets its definition on the',
+        '         appended page. Remove the entry, or drop `glossary: auto`, if the definition itself is sensitive.');
+    }
   }
   // DOES THE DECK CARRY CSS OF ITS OWN? A reducing projection WARNS if it does — a class no
   // comparison of two renders can see, since the stylesheet and every slide's markup are identical
@@ -2205,15 +2222,24 @@ if (LENS_PROJECTION) {
   // stay a plain byte match and the tokenizer never needs to exist.
   // UNGATED BY `--quiet`, like the other warnings in this file that a pipeline needs to see. This one
   // is about what leaves the building; a privacy warning `--quiet` hides is a warning nobody reads.
+  for (const line of LENS_DISCLOSURES) console.warn(line);
   if (cssChannel) {
     const moved = LENS_PROJECTION.kept.map((at, i) => (at === i ? null : `${at + 1}→${i + 1}`)).filter(Boolean);
     console.warn(`warning: this deck carries CSS of its own — ${cssChannel}.`);
-    console.warn('         Selectors that COUNT SLIDES are safe here: a withheld slide keeps its slot in the file, so');
-    console.warn('         `section:nth-of-type(3) …` still lands on the slide you wrote it for.');
-    console.warn(`         What moves is a slide's VISIBLE NUMBER — this view renumbers ${moved.length} slide${moved.length === 1 ? '' : 's'}${moved.length ? ` (${moved.slice(0, 6).join(', ')}${moved.length > 6 ? ', …' : ''})` : ''} — so:`);
-    console.warn('           · a CSS COUNTER skips the withheld slides. A hidden slide generates no box, so it does not');
-    console.warn('             increment. Measured: a `counter()` heading numbered a slide #4 in the full deck and #2 here.');
-    console.warn('           · so does a rule keyed to the page number, `section[data-lattice-pagination="3"] …`.');
+    console.warn('         A withheld slide keeps its SLOT in the file and nothing else. That one sentence is the whole');
+    console.warn('         boundary, and it cuts three ways:');
+    console.warn('           · COUNTING SLOTS holds. `section:nth-of-type(3)`, `:nth-last-of-type`, `+` and `~` all still');
+    console.warn('             land on the slide you wrote them for — the slot is there, empty and hidden.');
+    console.warn('           · COUNTING BOXES does not. A hidden slide generates no box, so a CSS COUNTER skips it —');
+    console.warn(`             measured, a \`counter()\` heading numbered a slide #4 in the full deck and #2 here — and so`);
+    console.warn('             does a rule keyed to the page number, `section[data-lattice-pagination="3"] …`.');
+    console.warn(`             This view renumbers ${moved.length} slide${moved.length === 1 ? '' : 's'}${moved.length ? ` (${moved.slice(0, 6).join(', ')}${moved.length > 6 ? ', …' : ''})` : ''}.`);
+    console.warn('           · READING THE WITHHELD SLIDE does not, and this is the one that surprises. The slot is empty,');
+    console.warn('             so a rule that asks anything ABOUT that slide gets a different answer here than in the full');
+    console.warn('             deck. Measured: `:nth-child(3 of .kpi)` moved from slide 6 to slide 8 (the hole carries');
+    console.warn('             neither the class nor the content it filters on); `section:has(blockquote) + section` matched');
+    console.warn('             nothing; and `section:not(:has(blockquote)) + section` matched three kept slides it matched');
+    console.warn('             none of in the full deck — a rule that HID something can therefore UNHIDE it here.');
     console.warn('         Scope the rule to a class you set on the slide (`<!-- _class: hushed -->` and `section.hushed …`)');
     console.warn('         and it travels with the slide instead. Otherwise, check the exported file.');
   }
@@ -2831,9 +2857,10 @@ const slideDescriptions = notesCore.extractSlideDescriptions(slides);
 // Every consumer whose output is one entry per SHIPPED slide reads through this. The ones that
 // legitimately stay authored-length are the ones that rebuild the document (`slidesWithNotes`), and
 // the counts a human reads about the deck rather than the file.
-// `\sclass="` — the leading space is the #1358 guard, not decoration. Without it the pattern also
-// matches `data-class="<raw _class: payload>"`, which is the directive as the author typed it rather
-// than the class list the engine resolved; the ownership gate caught exactly this line.
+// `isHoleSectionHtml`, not a regex written here: this is a whole rendered SECTION, and the predicate
+// for that shape cuts the open tag out before reading its class. Asking the string as a whole let a
+// `<div class="badge lens-hole">` in ordinary author markup answer yes, which bound one slide's
+// private speaker note under the next slide in the sidecar and the PPTX.
 const SHIPPED_SLIDE_AT = slides.map((_, i) => i).filter((i) => !isHoleSectionHtml(slides[i]));
 /** One entry per shipped slide, from an array indexed by authored slide. */
 const asShippedSlides = (arr) => SHIPPED_SLIDE_AT.map((i) => arr[i]);
@@ -5669,37 +5696,54 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
   // page → authored slide from the contiguous `data-split-run` groups, so a caption
   // written for slide 4 reaches every page slide 4 became — the same treatment notes
   // got, for the same reason (2026-07-29-autosplit-is-not-a-toggle.md).
+  // PAGE -> AUTHORED SLIDE, computed ONCE for both caption channels.
+  //
+  // It used to be computed inside the front-matter branch, on the reasoning written two paragraphs
+  // up: "Inline `<!-- caption: -->` is unaffected: it rides with its section, staying index-aligned."
+  // It does not. `slideCaptions` is extracted from the AUTHORED slide array and `mergeNarration`
+  // reads `captions[i]` at the PAGE index, so the two spaces differ by every hole in front of a
+  // slide — and by every extra page a split produced, which was already true before holes existed.
+  // Measured on a 5-slide deck whose `brief` view keeps 1/3/5, one inline caption each: page 1 got
+  // slide 1's, page 2 fell back to generated speech, and page 3 SPOKE SLIDE 3'S CAPTION OVER SLIDE
+  // 5 — verbatim the misnarration table `pruneCaptions` was written to kill, still live through the
+  // other caption channel. That is the sixth authored-vs-shipped pairing bug in this feature, which
+  // is the argument for converting in one place rather than per channel.
+  const pageOrigin = (() => {
+    const at = cleanDocHtml.search(/<section\b[^>]*\bdata-lattice-slide=/);
+    if (at < 0) return null;
+    // HOLES ARE DROPPED HERE FOR THE SAME REASON SPLITS ARE REMAPPED HERE: this is the one place
+    // that converts an AUTHORED caption key into the page of the ARTIFACT that shows it, and a
+    // reader-view hole moves those pages exactly the way a split does. `pages` therefore has to be
+    // the artifact's page list, not the rendered section list.
+    //
+    // The two directions were both measured wrong within one commit of each other, which is what
+    // makes the single conversion point the point. Renumbering the KEYS instead — rank among kept —
+    // spoke slide 3's caption over a hole and slide 5's over slide 3, because the shipped deck keeps
+    // every slot. Keeping the keys authored but leaving the page list unfiltered was the mirror
+    // image. Keys stay authored (so the source in the envelope re-imports against the deck it
+    // describes, holes and all); pages are what shipped; this map is the join.
+    const pages = require('./lib/core/split-sections').splitSections(cleanDocHtml.slice(at))
+      .filter((x) => x.type === 'section')
+      .filter((x) => !isHoleOpenTag(x.openTag));
+    // READ THE STAMP, DO NOT RECONSTRUCT IT. `authoredIndexPerPage` recovers page -> authored slide
+    // from contiguous `data-split-run` groups, which is POSITION arithmetic: hand it a list with the
+    // holes already removed and it answers `1,2,3` — the ranks it was just given back, not the
+    // authored numbers 1,3,5 this map needs. The engine stamps `data-authored-slide` on every
+    // section and split continuations copy it, so the number is on the page; the reconstruction is
+    // only the fallback for a document that carries no stamp (an older cached render).
+    const stamped = pages.map((x) => Number((String(x.openTag || '').match(/data-authored-slide="(\d+)"/) || [])[1]));
+    const origin = stamped.every((n) => Number.isInteger(n) && n >= 0)
+      ? stamped.map((n) => n + 1)
+      : require('./lib/core/auto-split').authoredIndexPerPage(pages);
+    return origin.length ? origin : null;
+  })();
   let fmForMerge = fmCaptions;
   if (fmCaptions?.size) {
-    const at = cleanDocHtml.search(/<section\b[^>]*\bdata-lattice-slide=/);
-    if (at >= 0) {
-      // HOLES ARE DROPPED HERE FOR THE SAME REASON SPLITS ARE REMAPPED HERE: this is the one place
-      // that converts an AUTHORED caption key into the page of the ARTIFACT that shows it, and a
-      // reader-view hole moves those pages exactly the way a split does. `pages` therefore has to be
-      // the artifact's page list, not the rendered section list.
-      //
-      // The two directions were both measured wrong within one commit of each other, which is what
-      // makes the single conversion point the point. Renumbering the KEYS instead — rank among kept —
-      // spoke slide 3's caption over a hole and slide 5's over slide 3, because the shipped deck keeps
-      // every slot. Keeping the keys authored but leaving the page list unfiltered was the mirror
-      // image. Keys stay authored (so the source in the envelope re-imports against the deck it
-      // describes, holes and all); pages are what shipped; this map is the join.
-      const pages = require('./lib/core/split-sections').splitSections(cleanDocHtml.slice(at))
-        .filter((x) => x.type === 'section')
-        .filter((x) => !isHoleOpenTag(x.openTag));
-      // READ THE STAMP, DO NOT RECONSTRUCT IT. `authoredIndexPerPage` recovers page -> authored slide
-      // from contiguous `data-split-run` groups, which is POSITION arithmetic: hand it a list with the
-      // holes already removed and it answers `1,2,3` — the ranks it was just given back, not the
-      // authored numbers 1,3,5 this map needs. The engine stamps `data-authored-slide` on every
-      // section and split continuations copy it, so the number is on the page; the reconstruction is
-      // only the fallback for a document that carries no stamp (an older cached render).
-      const stamped = pages.map((x) => Number((String(x.openTag || '').match(/data-authored-slide="(\d+)"/) || [])[1]));
-      const origin = stamped.every((n) => Number.isInteger(n) && n >= 0)
-        ? stamped.map((n) => n + 1)
-        : require('./lib/core/auto-split').authoredIndexPerPage(pages);
-      // Only rebuild when the split actually moved something; an unsplit deck keeps the
-      // authored map byte-for-byte, so a deck that never paginates is unaffected.
-      if (origin.length && origin[origin.length - 1] !== origin.length) {
+    if (pageOrigin) {
+      const origin = pageOrigin;
+      // Only rebuild when the pages actually moved; an unsplit, unprojected deck keeps the
+      // authored map byte-for-byte, so a deck with neither is unaffected.
+      if (origin[origin.length - 1] !== origin.length) {
         const remapped = new Map();
         origin.forEach((authored, i) => {
           if (fmCaptions.has(authored)) remapped.set(i + 1, fmCaptions.get(authored));
@@ -5715,7 +5759,15 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
   // stripping the public channel cannot hand anyone the private one (it used to, and the help
   // text for this flag had to warn you to strip twice). Inline captions come in via the
   // `captions` arg; drop both here.
-  const inlineForMerge = STRIP_CAPTIONS ? [] : captions;
+  // The inline channel through the SAME join. `captions` is authored-indexed; `mergeNarration`
+  // reads by page. Without `pageOrigin` there is nothing to join through, so it keeps the old
+  // pass-through — which is correct for the deck that neither splits nor projects, and is the only
+  // deck that reaches that branch.
+  const inlineForMerge = STRIP_CAPTIONS
+    ? []
+    : pageOrigin
+      ? pageOrigin.map((authored) => captions[authored - 1] ?? null)
+      : captions;
   if (STRIP_CAPTIONS) fmForMerge = null;
   // Precedence, highest first: inline `<!-- caption: -->` → front-matter `captions:[n]` → projection.
   const slideTexts = mergeNarration(slideCount, projected, { captions: inlineForMerge, fmCaptions: fmForMerge });
