@@ -419,7 +419,16 @@ jobs:
       # title marker). Self-labeled at creation with the four-axis taxonomy (a
       # GITHUB_TOKEN-opened issue can't trigger the triage gate). Skipped when green.
       - name: Open / append regression issue
-        if: steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.regress.outputs.failed == 'true'
+        # `always() &&` + PARENTHESES, both load-bearing. Without the status function GitHub
+        # applies an implicit `success()`, so this step is skipped whenever any earlier step in
+        # the job failed — and every one of the eight arms below is an output recorded by a step
+        # that is ALLOWED to fail. A measured regression would go unfiled, silently, which is
+        # this family's cardinal sin. Without the parentheses `&&` binds tighter than `||`, so
+        # the guard would apply to the first arm only and the other seven would file on a
+        # cancelled run. Found by test/unit/tools/nightly-alarm-contract.test.js's filing-step
+        # arm, added 2026-09-05 — the FIFTH instance of this bug in the family and the first not
+        # found by a human reading the file.
+        if: always() && (steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.regress.outputs.failed == 'true')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

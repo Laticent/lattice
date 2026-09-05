@@ -15,9 +15,11 @@
 // in scripts/perf-regression.mjs, not here.
 //
 // Surfaces measured: the migrated React-island pages (landing, components,
-// playground) + a Starlight baseline (getting-started) + the three interactive
-// app surfaces (studio, drawing-board, workbench — the heavy CodeMirror + live
-// engine shells a user actually authors in), median of 3, desktop.
+// playground) + a Starlight baseline (getting-started) + the interactive app
+// surface (studio — the heavy CodeMirror + live engine shell a user actually
+// authors in), median of 3, desktop. FIVE URLs, and that is the same five
+// docs/route-budget.json gates per-PR; the equality is pinned by
+// scripts/check-route-budget.test.mjs.
 //
 // URLs are ROOT-based ('/…'): the site serves at base '/' in every environment
 // (the /lattice project-page base was retired 2026-06-28 — see astro.config.mjs).
@@ -33,8 +35,27 @@ module.exports = {
 				'http://localhost:4399/playground/',
 				'http://localhost:4399/getting-started/',
 				'http://localhost:4399/studio/',
-				'http://localhost:4399/drawing-board/',
-				'http://localhost:4399/workbench/',
+				// `/drawing-board/` and `/workbench/` were measured here until 2026-09-05.
+				// Both surfaces were REMOVED (the Studio succeeded them,
+				// engineering/decisions/2026-07-03-studio-succession.md) and their routes are
+				// now 310- and 306-byte redirect stubs carrying ZERO JS.
+				//
+				// They never produced rows of their own. Lighthouse follows their `meta refresh`
+				// and reports `finalDisplayedUrl` as `/studio/`, which is the field
+				// perf-regression.mjs groups on — so their six runs a night were folded into
+				// /studio/, and every comment on #1532 shows FIVE URLs from this seven-URL list.
+				// /studio/ was therefore measured median-of-NINE while every other route got
+				// median-of-three, which is the likeliest reason it alone shows a 0KB spread
+				// across 30 repeat observations.
+				//
+				// Dropping them is a correctness fix with a COST attached: /studio/ goes to the
+				// same three runs as everything else, so expect its LCP/TBT/score to get NOISIER.
+				// Accepted deliberately — measuring one page under three URLs is an accident, not
+				// a sampling strategy, and the fix for a noisy route is to raise numberOfRuns for
+				// all of them on purpose. See 2026-09-02-alarm-channel-saturation.md.
+				//
+				// It also makes this list exactly the set docs/route-budget.json gates;
+				// check-route-budget.test.mjs pins that equality in both directions.
 			],
 			numberOfRuns: 3,
 			settings: {

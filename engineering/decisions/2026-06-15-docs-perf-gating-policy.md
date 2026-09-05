@@ -93,6 +93,18 @@ shows on **both** base and head, so the *delta* is ~0 and never trips. So we kee
 
 ## Tolerances (in `scripts/perf-regression.mjs`, not the configs)
 
+> **SUPERSEDED IN PART, 2026-09-05 — the `script-size` row below is gone.** This section is
+> still what `perf-regression.mjs`, `lighthouserc.cjs` and `lighthouserc.mobile.cjs` name as
+> their canonical policy, so the correction belongs here rather than only in the newer note.
+> The "deterministic" class was **empty of anything real**: `script-size` summed Lighthouse
+> *network* records, so it measured what happened to load during a visit rather than what the
+> build produced, and 35% of 140 repeat readings of an identical commit moved past its own 3%
+> tolerance. The metric is deleted, and **the payload ratchet moved to
+> `docs/scripts/check-route-budget.mjs`** — a per-PR, blocking, five-route byte ledger read off
+> the built artifact. Everything else in this section still holds: the remaining four metrics
+> are all environment-coupled, and the relative-vs-absolute argument that motivated this
+> document is untouched. See `2026-09-02-alarm-channel-saturation.md` § Decision.
+
 Two metric classes:
 
 - **Deterministic** — `script-size` (bundle bytes; no runner/network noise) →
