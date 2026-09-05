@@ -20,9 +20,10 @@
   nothing — a parking app where drivers scan a sticker on the bay and pay — climbing the ladder
   from a one-table MVP through a scaled rung to an optimized one, where the card fee turns out
   to be the bill and the servers never were. Its payment path is bounded by the
-  twenty-four-hour idempotency-key window Stripe documents, past which a retry is a second
-  charge rather than a replay, so a waiting row carries a `created_at` and a correlation id
-  in the provider's metadata and a stale sweep asks what happened instead of re-sending. Choosing a store runs in three passes — shape and
+  idempotency-key lifetime a provider sets — Stripe's twenty-four hours is the deck's worked
+  number — past which a retry buys a second charge rather than the first answer, so a waiting
+  row carries a `created_at`, the charge carries a correlation id in the provider's metadata,
+  and a stale sweep reconciles and refunds instead of re-sending. Choosing a store runs in three passes — shape and
   access, then a capability no shape provides (similarity, ranked text, proximity, live push,
   retention, traversal), then the operational properties that break a tie — so a capability adds
   a store beside the source rather than replacing it. Part seven maps the feed design back to the

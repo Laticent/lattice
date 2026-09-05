@@ -3205,7 +3205,7 @@ The second tap is a different request that means the same thing. So the page min
 - Insert first, before you charge
   - The key goes in a unique column, so a second tap conflicts on it instead of starting a second payment.
 - On a conflict, read the row
-  - Paid, hand back the receipt. Still waiting, retry with that same key, which holds for a day.
+  - Paid, hand back the receipt. Still waiting, retry with that same key once the first request has answered.
 - One key, one stored answer
   - The provider saves the first result against that key and replays it, so a retry after a crash costs nothing.
 - A refusal is an answer too
@@ -3266,16 +3266,14 @@ Then expect the same call more than once, because a provider retries until you a
 
 ## A key only works for a day, so a stuck row is a deadline.
 
-Your provider's key has a shelf life. Stripe prunes one after twenty-four hours and reads the next use of it as a brand new request, so the sweep that clears stuck rows is built around that number.
+Every provider puts a lifetime on the key — Stripe's is twenty-four hours. Inside that window a retry is free; past it the same key buys a second charge, so look yours up and sweep well inside it.
 
-- Past the window, never re-send
-  - Look up your own id instead. A charge found means mark the row paid; nothing found means nothing was taken.
-- Inside it, retry
-  - Same key, same parameters, and you cannot be charged twice. That is the case the key was minted for.
-- Give the row a clock
-  - Stamp it on insert. A row whose only timestamp arrives with the payment has no age while it waits.
-- Send your own id with the payment
-  - Put the session id in the provider's metadata. Add it later and yesterday's stuck rows stay lost.
+- You know you're here when
+  - A row still says waiting the morning after the park, and nobody has told the driver anything.
+- Inside the window, retry
+  - Same key, same parameters, and you cannot be charged twice — once the first request has answered.
+- Past it, reconcile
+  - Never re-send. Find the charge by the id you put in the provider's metadata, then refund what you can no longer deliver.
 
 ---
 
