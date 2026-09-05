@@ -1583,7 +1583,7 @@ function instructionsStandard() {
     'never from memory. If nothing fits, use `content` for prose or `list` for bullets.',
     '',
     'MECHANICS THAT BREAK THE DECK IF YOU GET THEM WRONG',
-    ...ESSENTIALS.map((r) => `- ${r.replace(/`/g, '`')}`),
+    ...ESSENTIALS.map((r) => `- ${r}`),
     '',
     'WHAT MAKES THE DECK WORTH SHOWING',
     '- ONE idea per slide.',
