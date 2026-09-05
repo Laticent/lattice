@@ -1120,6 +1120,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const knownWithLocal = React.useMemo(() => [...catalogNames, ...localNames], [catalogNames, localNames]);
 	const lintKnown = React.useMemo(() => (validation ? knownWithLocal : usedComponents(source)), [validation, source, knownWithLocal]);
 	const issues = React.useMemo(() => unknownComponents(source, lintKnown).length, [source, lintKnown]);
+	// WHAT "FIX ALL" CAN ACTUALLY FIX — reported by the editor's own lint pass, because the
+	// count above is not it. `issues` counts UNKNOWN COMPONENTS; the button runs lint-core's
+	// `applyAllFixes`, which repairs a DIFFERENT set. Gating one on the other was wrong in
+	// both directions, and both were reproduced on the built Studio (2026-09-05):
+	//
+	//   `<!-- _class: zzznotacomponent -->`  1 unknown, 0 fixable (no near candidate)
+	//                                        -> the button was ENABLED and did nothing, silently
+	//   a card-style `- **Title.** body`      0 unknown, 1 fixable
+	//                                        -> the button was DISABLED while the underline
+	//                                           beside it offered that very Quick fix
+	//
+	// `null` means the editor has not answered — it is unmounted (Compose), the lint kernel
+	// never loaded, or the pass threw — and the old estimate stands rather than a made-up zero.
+	const [lintCounts, setLintCounts] = React.useState<{ total: number; fixable: number } | null>(null);
+	const fixableIssues = lintCounts ? lintCounts.fixable : issues;
 
 	// Panels are persistent columns on desktop, on-demand sheets below it. Reset
 	// their open state to the right default whenever the breakpoint flips so a
@@ -3045,7 +3060,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<div className="mx-2.5 mt-2.5 flex items-center gap-2 rounded-[10px] border border-[color-mix(in_srgb,var(--warn)_28%,transparent)] bg-[color-mix(in_srgb,var(--warn)_7%,transparent)] px-3 py-2">
 					<AlertTriangle className="size-4 text-[var(--warn)]" />
 					<span className="text-xs font-semibold text-[var(--text-heading)]">{issues} inline issue{issues > 1 ? 's' : ''}</span>
-					<button type="button" onClick={() => editorRef.current?.fixAll()} className="ml-auto rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)]">Fix all</button>
+					{fixableIssues > 0 && <button type="button" onClick={() => editorRef.current?.fixAll()} className="ml-auto rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)]">Fix all</button>}
 				</div>
 			)}
 			{/* Deck-level assessment — the REAL engine scorecard. TWO grades, not one: Craft is
@@ -3735,7 +3750,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    visible text (WCAG 2.5.3). */}
 				{insertComponents.length > 0 && <Tip label="Add slide"><button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Add slide"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Add</span></button></Tip>}
 				{reshapeVariants.length > 0 && <ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} variantAxes={reshapeVariantAxes} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} />}
-				<Tip label="Fix all issues"><button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!issues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
+				<Tip label="Fix all issues"><button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!fixableIssues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
 				{/* Version history — deck-level recovery, docked in the editor header at every
 				    width (an action, not a panel; not in the top nav). */}
 				<Tip label="Version history — save & restore snapshots"><Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history"><History className="size-[18px]" /></Button></Tip>
@@ -3759,7 +3774,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
-					<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
+					<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} className="flex-1" />
 				</React.Suspense>
 			)}
 		</section>
@@ -4680,6 +4695,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						issues={issues}
 						onInsert={() => setInsertOpen(true)}
 						onFixAll={() => editorRef.current?.fixAll()}
+						fixableIssues={fixableIssues}
 						onVersionHistory={() => setHistoryOpen(true)}
 						onLenses={() => setLensesOpen(true)}
 						demoActive={demoActive}
