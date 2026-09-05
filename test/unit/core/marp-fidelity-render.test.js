@@ -257,7 +257,7 @@ const PROBES = {
   },
 
   inlinePills: {
-    min: 8,
+    min: 12,
     section: 'list-tabular',
     body: [
       '## Pills', '',
@@ -271,8 +271,13 @@ const PROBES = {
       '   - `{E}:circle` `{F}:chevron-right` `{G}:chevron-left` `{H}:diamond`',
       '3. Axes',
       '   - `{I}:c1:lg` `{J}:c12:sm`',
-      '4. Literals',
-      '   - `[x]` `{ ok, scene }` `getUserId()` `{K}:c13` `{}`',
+      // The INLINE STATE vocabulary shares this pass, so it shares this probe: `[x]`
+      // and `{LABEL}` are disjoint by opening character, and a drift that let one
+      // swallow the other would show here as a path disagreement.
+      '4. Marks',
+      '   - `[x]` `[-]` `[ ]` `[/]`',
+      '5. Literals',
+      '   - `[?]` `[data-mark]` `{ ok, scene }` `getUserId()` `{K}:c13` `{}`',
     ].join('\n'),
     // Reads BOTH sides of the decision: what became a pill (with its resolved axes),
     // and what stayed a `<code>`. Comparing only the pills would pass a mirror that
@@ -280,6 +285,12 @@ const PROBES = {
     probe: (doc) => [
       ...[...doc.querySelectorAll('span.lat-pill')].map(
         (el) => `pill|${el.getAttribute('data-shape')}|${el.getAttribute('data-c') || '-'}|${el.getAttribute('data-size') || '-'}|${el.textContent}`,
+      ),
+      // A mark carries its name on `aria-label`, never as text, so the probe reads the
+      // label — a path that regressed to a visually-hidden word would show up here as a
+      // difference in `textContent`, which is exactly what it should be.
+      ...[...doc.querySelectorAll('span.lat-state')].map(
+        (el) => `mark|${el.className}|${el.getAttribute('aria-label')}|text=${el.textContent}`,
       ),
       ...[...doc.querySelectorAll('code')].map((el) => `code|${el.textContent}`),
     ],

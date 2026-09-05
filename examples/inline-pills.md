@@ -19,7 +19,7 @@ Shape and color travel with the thing they describe, not with the slide.
 
 ## What changed.
 
-- `{LABEL}` inside inline code becomes a pill.
+- `{LABEL}` inside inline code becomes a pill; `[x]` becomes a mark.
 - `:tag` `:chip` `:circle` `:chevron-right` name the shape.
 - `:c1`–`:c12` name a categorical slot, never a color.
 - Plain inline code is untouched, so nothing existing moves.
@@ -99,8 +99,26 @@ Shape and color travel with the thing they describe, not with the slide.
    - `[data-mark]` and `:root` are not pills
 3. An object
    - `{ ok, scene }` is code, not a label
-4. A quoted marker
-   - `[x]` still reads as the marker it names
+4. A near-miss marker
+   - `[?]` is not one of the four, so it stays literal
+
+---
+
+<!-- _class: list-tabular -->
+<!-- _footer: "Brackets make a mark, braces make a pill — one vocabulary, two positions." -->
+
+## A mark goes wherever inline code goes.
+
+1. Settlement engine
+   - Signed by both parties `[x]`
+2. Ledger migration
+   - Cutover paused for review `[-]`
+3. Reconciliation
+   - Not started `[ ]`
+4. Legacy batch
+   - Out of scope this quarter `[/]`
+5. Alongside a pill
+   - `[x]` shipped `{STABLE}:c2` — and `[data-mark]` stays literal
 
 ---
 

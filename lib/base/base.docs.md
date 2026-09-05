@@ -1305,19 +1305,39 @@ measured:
   not about pills: two plain `` `code` `` values do the same, because the row is a grid
   and a grid item paints over rather than pushing. Put one value in the trailing slot.
 
-### `{x}` is not a checkbox
+## Inline state marks — `` `[x]` ``
 
-The four state markers — `x`, `-`, `/` and a space — are **reserved** inside `{}` and
-render literal. A state marker is bare at the start of its own bullet:
+The same four markers an author writes bare at the start of a bullet — `[x]` `[-]`
+`[ ]` `[/]` — draw the same disc when written inside **single-backtick** inline code,
+anywhere inline code can go:
 
 ```markdown
-- [x] Signed by both parties
+1. Settlement engine
+   - Signed by both parties `[x]`
+2. Ledger migration
+   - Cutover paused `[-]`
 ```
 
-Writing `` `{x}` `` inline gets you literal text and a `lint:deck` suggestion pointing
-at the bare form, rather than a pill containing the letter `x`. The labels are held back
-so an inline state mark can be added later without breaking a deck that used one as a
-pill.
+**Brackets make a mark, braces make a pill.** One vocabulary in two positions rather
+than two vocabularies — bare at a bullet's start for a checklist row, inside inline code
+for a mark in a sentence, a heading, a table cell or a row's trailing column.
+
+`[ ]` takes the **neutral** reading inline — an unchecked box, the open ring — not
+`verdict-grid`'s "assessed and failed".
+
+The mark carries its name on `role="img"` + `aria-label`, so a screen reader says "done"
+and the document holds no extra word. Every `checks-*` style variant reaches an inline
+mark, because it uses the same `state` / semantic / shape classes a checklist row does.
+
+**Only the four exact forms dispatch.** `` `[?]` ``, `` `[!]` ``, `` `[data-mark]` ``,
+`` `[0]` `` and `` `[X]` `` all stay literal — the grammar is deliberately narrow,
+because `[` also opens a CSS attribute selector, an array index and a citation.
+
+### `{x}` is not a checkbox
+
+Braces make a pill, so `` `{x}` `` would be a pill containing the letter `x`. The four
+markers are **reserved** inside `{}` and render literal, with a `lint:deck` suggestion
+pointing at `` `[x]` `` — the bracket form above.
 
 ## Composition syntax
 

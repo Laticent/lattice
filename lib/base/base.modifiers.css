@@ -3490,3 +3490,48 @@ section.corners-square {
 .lat-pill[data-c='c10'] { --lat-pill-bg:var(--cat-10-fill); --lat-pill-edge:var(--cat-10-mark); --lat-pill-ink:var(--cat-on-fill); }
 .lat-pill[data-c='c11'] { --lat-pill-bg:var(--cat-11-fill); --lat-pill-edge:var(--cat-11-mark); --lat-pill-ink:var(--cat-on-fill); }
 .lat-pill[data-c='c12'] { --lat-pill-bg:var(--cat-12-fill); --lat-pill-edge:var(--cat-12-mark); --lat-pill-ink:var(--cat-on-fill); }
+
+/* ── Inline state marks — `` `[x]` `` anywhere inline code can go ──────────────
+ * `[x]` `[-]` `[ ]` `[/]` inside SINGLE-backtick inline code decode to the same disc
+ * `checklist` draws, via `lib/core/state-marks.js`. Same four markers an author already
+ * writes bare at a bullet's start, so the vocabulary is one thing in two positions
+ * rather than two things — which is the whole reason the inline form uses `[…]` and not
+ * a new spelling.
+ *
+ * NOTHING HERE IS A NEW LOOK. The mark mask (`section .state-full` → `--mark-check`),
+ * the open-ring `todo` treatment, and every `checks-*` style variant already select
+ * universally or from the section, so they reach an inline mark unchanged. What was
+ * missing is only the BOX: the disc geometry and the semantic → `--state-color` map
+ * lived under `section.state-cells td .state`, which an inline span in a paragraph
+ * never matches. `lat-state` is that box, and nothing else.
+ *
+ * Sized in `em` so the disc tracks whatever type it sits in — a heading, a row's meta,
+ * body prose — and `vertical-align:-0.15em` sets it on the text's optical centre rather
+ * than its baseline, where a circle reads as sitting high. */
+section .lat-state {
+  position:relative;
+  display:inline-block;
+  width:calc(1em * var(--state-disc-scale));
+  height:calc(1em * var(--state-disc-scale));
+  border-radius:50%;
+  box-sizing:border-box;
+  vertical-align:-0.15em;
+  line-height:1;
+  background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
+  box-shadow:
+    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-ring-mix), black),
+    inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
+}
+section .lat-state.pass { --state-color:var(--pass); }
+section .lat-state.warn { --state-color:var(--warn); }
+section .lat-state.fail { --state-color:var(--fail); }
+section .lat-state.skip { --state-color:var(--muted-mark); }
+section .lat-state.todo { --state-color:var(--muted-mark); }
+section .lat-state::after {
+  content:'';
+  position:absolute;
+  inset:0;
+  background-color:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-mark-pct), var(--bg));
+  -webkit-mask:var(--state-mark) center / 100% 100% no-repeat;
+          mask:var(--state-mark) center / 100% 100% no-repeat;
+}

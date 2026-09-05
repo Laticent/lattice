@@ -23,3 +23,16 @@
   pill, the pill landed in the label column and shoved the row name out to the counter
   column at x=0. A pill now takes the same cell its variant gives a `code`, and a census
   test fails if a future variant places a code without placing a pill.
+- **`` `[x]` `` in inline code draws the state disc, anywhere inline code can go.** The
+  same four markers an author already writes bare at the start of a bullet — `[x]` `[-]`
+  `[ ]` `[/]` — now work in a sentence, a heading, a table cell or a ledger row's
+  trailing column. Brackets make a mark, braces make a pill: one vocabulary in two
+  positions. `[ ]` takes the neutral open-ring reading inline. The mark names itself on
+  `role="img"` + `aria-label`, putting no word in the document, and every `checks-*`
+  style variant reaches it because it carries the same classes a checklist row does.
+  Only the four exact forms dispatch — `` `[?]` ``, `` `[data-mark]` `` and `` `[0]` ``
+  stay literal.
+- **`stateClassesFor` is one kernel again.** The marker-to-semantic decision lived twice,
+  in the markdown-it plugins and in the runtime, which is the drift HARD RULE #1 exists
+  to stop. Adding the inline consumer forced the unification rather than a third copy;
+  both originals import `lib/core/state-marks.js` now, and a test fails if one grows back.
