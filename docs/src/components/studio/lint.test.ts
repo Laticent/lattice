@@ -120,7 +120,7 @@ describe('slideClass (fuzz)', () => {
 	// slide the LAST `_class` wins. A slide "somehow carries two" whenever an author deletes
 	// a `---` to merge two slides, so the rail was naming the slide that got absorbed.
 	it('reads the LAST class when a slide carries two — the one the engine applies', () => {
-		expect(slideClass('<!-- _class: kpi -->\n<!-- _class: quote -->')).toBe('quote');
+		expect(slideClass('<!-- _class: kpi -->\n<!-- _class: quote -->\n\ntext\n')).toBe('quote');
 	});
 });
 
@@ -377,24 +377,33 @@ describe('presentationSet (reader lenses)', () => {
 });
 
 // ── `_class` is read the way the ENGINE reads it ─────────────────────────────
-// A DIFFERENTIAL table, and it is written as one on purpose: every "renders" column
-// below was produced by running `lib/engine/index.js` `render()` over that exact
-// source and reading the `class` off the emitted `<section>` (2026-09-05). The point
-// of the test is not that these strings are pleasing — it is that the rail, the inline
-// linter and the Coach count cannot drift away from the render again.
+// A DIFFERENTIAL table, and it is written as one on purpose: every "renders" answer below
+// was produced by running `lib/engine/index.js` `render()` over that exact source and
+// reading the `class` off the emitted `<section>` (2026-09-05). The point is not that these
+// strings are pleasing — it is that the rail, the inline linter and the Coach count cannot
+// drift away from the render.
 //
-// The regression it pins: `CLASS_RE` used to be unanchored, so any `_class:` comment
-// anywhere on a line counted. Type one character after the `-->` — which is how a
-// randomized walk over the real Studio reached it — and the rail went on calling the
-// slide `title` while the preview beside it painted `content`.
+// TWO regressions this pins, and the second is the instructive one. `CLASS_RE` was
+// unanchored, so one character typed after a directive's `-->` still counted and the rail
+// named a component the engine ignores. Anchoring it to column 0 then LOST every
+// container-prefixed directive — a mistake `lib/core/class-directive-scan.mjs` had already
+// made, fixed and documented, because markdown-it opens the `html_block` inside the
+// container. Both are gone now for the same reason: this file asks that kernel instead of
+// carrying a fifth copy of the parse.
 describe('usedComponents / slideClass agree with the engine about what a directive is', () => {
-	const HONOURED: Array<[string, string, string]> = [
+	const HONORED: Array<[string, string, string]> = [
 		['the plain shape', '<!-- _class: title -->\n\n# Hi\n', 'title'],
 		['trailing spaces after the close', '<!-- _class: title -->   \n\n# Hi\n', 'title'],
 		['extra modifier tokens', '<!-- _class: kpi dark scale-xl -->\n\n# Hi\n', 'kpi'],
 		['below the slide’s content', '# Hi\n\n<!-- _class: title -->\n', 'title'],
+		// The four the column-0 anchor lost. markdown-it opens the html_block INSIDE the
+		// container, so every one of these renders the class.
+		['a bullet prefix', '- <!-- _class: kpi -->\n\n# Hi\n', 'kpi'],
+		['a blockquote prefix', '> <!-- _class: kpi -->\n\n# Hi\n', 'kpi'],
+		['an ordered-list prefix', '1. <!-- _class: kpi -->\n\n# Hi\n', 'kpi'],
+		['a running global (no underscore)', '<!-- class: kpi -->\n\n# Hi\n', 'kpi'],
 	];
-	for (const [what, src, cls] of HONOURED) {
+	for (const [what, src, cls] of HONORED) {
 		it(`honors ${what}`, () => {
 			expect(slideClass(src)).toBe(cls);
 			expect(usedComponents(src)).toEqual([cls]);
@@ -409,6 +418,9 @@ describe('usedComponents / slideClass agree with the engine about what a directi
 		// A deck that documents Lattice quotes a directive. Engine: `content form`.
 		['a directive quoted inside a fence', '```md\n<!-- _class: kpi -->\n```\n\n# Hi\n'],
 		['a directive inside a tilde fence', '~~~\n<!-- _class: kpi -->\n~~~\n\n# Hi\n'],
+		// A TAB indent is an indented code block to markdown-it, so this is not a directive.
+		['a tab-indented directive', '\t<!-- _class: kpi -->\n\n# Hi\n'],
+		['a four-space-indented directive', '    <!-- _class: kpi -->\n\n# Hi\n'],
 	];
 	for (const [what, src] of IGNORED) {
 		it(`ignores ${what}`, () => {
@@ -423,29 +435,20 @@ describe('usedComponents / slideClass agree with the engine about what a directi
 		expect(unknownComponents(deck, KNOWN)).toEqual([]);
 	});
 
-	// KNOWN DIVERGENCE, kept as a test so it cannot change unnoticed. markdown-it reads a
-	// four-space indent as a code block, so the engine renders `content` — but `splitSlides`
-	// TRIMS every chunk and the live preview renders the trimmed chunk, so the preview honors
-	// it. Matching the engine here would make the rail disagree with the preview beside it
-	// while leaving the preview/export split untouched; the indent rule therefore matches
-	// `deck-source.ts`'s `DIRECTIVE_LINE_RE`, which is what the Compose pane reads.
-	it('still accepts an indented directive — matching the preview, not the export', () => {
-		expect(slideClass('    <!-- _class: title -->\n\n# Hi\n')).toBe('title');
-	});
-});
-
-// Two `_class` directives on ONE slide — what deleting a `---` to merge two slides
-// produces. The engine applies the LAST (measured: `big-number` … `stats` renders
-// `stats form`); the rail must name the same one, or it names a slide that was absorbed.
-describe('slideClass takes the directive the engine applies — the last one', () => {
-	it('names the last `_class` on a merged slide', () => {
-		expect(slideClass('<!-- _class: big-number -->\n\n- 0\n  - x\n\n<!-- _class: stats -->\n\ntext here\n')).toBe('stats');
-		expect(slideClass('<!-- _class: title -->\n\na\n\n<!-- _class: kpi -->\n\nb\n\n<!-- _class: quote -->\n\nc\n')).toBe('quote');
+	// A running global resolves onto every slide below it, so the kernel reports it per
+	// CHUNK. `usedComponents` counts DIRECTIVE LINES, because `issues` is a count of things
+	// an author has to go and fix — one typo'd global is one problem, not one per slide.
+	it('counts a running global once, not once per slide it governs', () => {
+		expect(usedComponents('<!-- class: kpi -->\n\n# A\n\n---\n\n# B\n\n---\n\n# C\n')).toEqual(['kpi']);
 	});
 
-	it('still reports EVERY directive to the linter, overridden or not', () => {
-		// An overridden `_class` is still a token the author typed, and a typo in one is still
-		// worth an underline — so `usedComponents` keeps all of them while `slideClass` picks one.
-		expect(usedComponents('<!-- _class: big-number -->\n\na\n\n<!-- _class: stats -->\n\nb\n')).toEqual(['big-number', 'stats']);
+	// Two directives on ONE slide — what deleting a `---` to merge two slides produces. The
+	// engine applies the LAST (measured: `big-number` … `stats` renders `stats form`), so the
+	// rail must name that one or it names a slide that was absorbed. The overridden directive
+	// is not reported either: the engine never applies it, so it is not a lint target.
+	it('takes the directive the engine applies — the last one on the slide', () => {
+		const merged = '<!-- _class: big-number -->\n\n- 0\n  - x\n\n<!-- _class: stats -->\n\ntext here\n';
+		expect(slideClass(merged)).toBe('stats');
+		expect(usedComponents(merged)).toEqual(['stats']);
 	});
 });

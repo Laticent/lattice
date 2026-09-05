@@ -203,6 +203,7 @@ async function pasteDeck(page: Page, text: string): Promise<void> {
 	await expect.poll(() => editorDoc(page), { message: 'the paste never reached the document' }).not.toBe('');
 }
 
+
 async function toCompose(page: Page): Promise<void> {
 	await page.getByRole('button', { name: 'Compose — rich editor', exact: true }).first().click();
 	await page.locator('.cs-host .ProseMirror').waitFor();
@@ -262,6 +263,51 @@ test('@smoke a pasted BOM never reaches the deck source', async ({ page }) => {
 	expect(await paintedText(page), 'the front matter must not be set as the slide').not.toContain('theme:');
 	// 3. And what persists — the thing a reload and every export read — is canonical too.
 	await expect.poll(() => persistedDeck(page)).toBe(DECK);
+	// 4. And ⌘Z cannot put it back. `undo` dispatches with `filter: false`, so no transaction
+	//    filter ever sees it — which is why the strip rides in the SAME transaction as the
+	//    paste (`sequential: true`) rather than as its own step: there is no state for an undo
+	//    to return to in which the BOM exists alone. Stated honestly, this arm PASSES on a
+	//    build that drops the outward guard too, because the paste path is already closed by
+	//    the merge; the door a filter structurally cannot cover is `EditorState.create`, and
+	//    that has its own oracle below.
+	await focusEditor(page);
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect.poll(() => persistedDeck(page), { message: 'an undo put the BOM back into the deck source' }).not.toContain(BOM);
+});
+
+// THE DOOR A TRANSACTION FILTER CANNOT COVER. `EditorState.create` runs no filter, so a deck
+// ALREADY STORED with a BOM — written before this landed, or by any path that reaches the
+// store without passing through the editor — opened with the byte in place and rendered its
+// front matter as the first slide, exactly as a paste did. Seeding the store and reloading is
+// the only way to reach `create` with author text; the paste oracle above cannot get there,
+// and this is the arm that fails without the seed-time strip.
+test('a deck already STORED with a BOM opens canonical', async ({ page }) => {
+	test.setTimeout(120_000); // two first paints
+	const DECK = '---\ntheme: indaco\npaginate: true\n---\n\n# One\n\nbody\n\n---\n\n# Two\n';
+	await setDeck(page, DECK);
+	await expect.poll(() => persistedDeck(page)).toBe(DECK);
+
+	// Put the BOM into the STORE, behind the editor's back, then reload into it.
+	const wrote = await page.evaluate((bomDeck) => {
+		const key = Object.keys(window.localStorage).find((k) => k.startsWith('lattice-studio-src-'));
+		if (!key) return false;
+		window.localStorage.setItem(key, JSON.stringify(bomDeck));
+		return true;
+	}, `${BOM}${DECK}`);
+	expect(wrote, 'witness: the deck source key was there to seed').toBe(true);
+
+	await page.reload();
+	await waitForStudioPaint(page);
+	await page.locator(EDITOR).waitFor();
+
+	await expect.poll(() => editorDoc(page), { message: 'a stored BOM survived into the open document' }).toBe(DECK);
+	// …and the front matter is front matter again, rather than the deck's first slide.
+	await expect(railButtons(page)).toHaveCount(2);
+	await railButtons(page).nth(0).click();
+	// POLLED. The preview repaints asynchronously after a reload, so a single read here is a
+	// race — and it read stale content once, which sent an earlier pass chasing a defect that
+	// was not there.
+	await expect.poll(() => paintedText(page), { message: 'the front matter was set as the slide' }).not.toContain('theme:');
 });
 
 // The other half of the same canonicalization contract, and it is a claim about a
@@ -363,6 +409,19 @@ test('a Compose edit deliberately drops the carried history', async ({ page }) =
 	expect(await editorDoc(page), 'a stale history must not be replayed over a Compose edit').toContain('COMPOSEMARK');
 });
 
+// ── The carried history belongs to ONE deck (pinned OFF this tier, deliberately) ──
+// The fix for the undo carry above had a defect of its own — it was guarded on the document
+// alone, and every new deck holds byte-identical template bytes, so deck A's history could
+// be restored into deck B. An independent checker reproduced it against the real CodeMirror.
+//
+// THERE IS NO ORACLE FOR IT HERE, and that is a decision rather than an omission. Replaying
+// the leak needs a REDO to put deck A's edit into deck B, and redo after an undo on a freshly
+// created deck did not fire on the shipped surface — measured, and not root-caused. An e2e
+// test written for it therefore PASSED against the broken guard: green for the wrong reason,
+// which is worse than no test (`2026-09-02-compose-fuzz-findings.md` §8 moved a security
+// property to its parser on exactly this reasoning). The pin is at the predicate instead:
+// `docs/src/components/studio/editor-carry.test.ts`, which fails on the document-only guard.
+
 // ── "Fix all issues" is offered exactly when something can be fixed ─────────
 // The shell gated the button on its own `unknownComponents` count while the button runs
 // lint-core's `applyAllFixes`, which repairs a DIFFERENT set. Wrong in both directions, and
@@ -416,6 +475,9 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 
 	const errors: string[] = [];
 	page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 200)));
+	// How many times invariant 2 actually COMPARED something — see the assertion after the
+	// loop for why a walk that only ever takes its escapes is a walk that certifies nothing.
+	let invariant2Ran = 0;
 
 	// Payloads an author really pastes, plus the two that carry the ingest hazards.
 	const PAYLOADS = [
@@ -580,6 +642,7 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 					const allowed = names.length ? names : ['content'];
 					const painted = await paintedClasses(page);
 					if (!painted.length) return 'ok'; // nothing painted yet
+					invariant2Ran++;
 					return allowed.some((n) => painted.includes(n))
 						? 'ok'
 						: `slide #${now.index}/${now.count} names [${allowed.join(' ')}], the engine painted [${painted.join(' ')}]`;
@@ -590,6 +653,13 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 
 		expect(errors, `after "${op}"`).toEqual([]);
 	}
+
+	// The walk is only as good as the invariant that fired for it. Invariant 2 has three
+	// legitimate escapes — a chunk that moved under the read, a chunk holding more than one
+	// heading, and a frame that has not painted — and `paintedClasses` swallows an unreachable
+	// frame to `[]`, so all 34 steps could take an escape and the walk would report success
+	// having compared nothing. This is the assertion that the net was actually in the water.
+	expect(invariant2Ran, 'invariant 2 never compared the source against a painted slide').toBeGreaterThan(10);
 });
 
 // ── The persisted source is what a reload reads back ────────────────────────

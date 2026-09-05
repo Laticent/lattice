@@ -85,9 +85,24 @@ and `SANCTIONED_EOL_BOUNDARIES` lists the doors that guard against it. The Studi
 door is on that list (`StudioShell.tsx:1730`). Its PASTE door — the editor — is not a boundary
 at all, and `onChange={setSource}` hands whatever CodeMirror holds straight to the shell.
 
-**Fix.** A CodeMirror `transactionFilter` in `Editor.tsx` that strips a leading BOM from the
-resulting document. It is at the ingest, it costs one character's inspection per transaction,
-and it heals a deck already stored with a BOM on the first edit that touches it.
+**Fix — THREE doors, and the first version only had one.** A CodeMirror `transactionFilter`
+strips a leading BOM from the resulting document, which covers the paste. A checker pass then
+showed that a filter sees TRANSACTIONS, not the document: `EditorState.create` runs no filter,
+so a deck ALREADY STORED with a BOM opened with the byte in place. Chasing that turned up the
+door that actually matters, and it is not in the editor at all — **the shell's `source` is
+what the preview renders and every export ships**, and it comes from `loadSource`. Measured
+without it: after opening a stored-BOM deck the editor showed clean text while the persisted
+source still carried the byte, until the author happened to type something. So `loadSource`
+delegates to `normalizeSourceText` — an ingest boundary in the policy's own sense — and the
+editor canonicalizes its seed document so the author never sees a byte they cannot select.
+
+**Two claims in the first draft of this note were wrong, and the corrections are the useful
+part.** "It heals a deck already stored with a BOM on the first edit" described the filter,
+not the document, and a deck opened from the store was not healed at all. And one ⌘Z does NOT
+put a pasted BOM back: `undo` bypasses filters, but the strip rides in the SAME transaction as
+the paste (`sequential: true`), so there is no state to return to in which the BOM exists
+alone — the oracle asserts that, and is honest that the arm passes on a build without the
+outward guard too, because the paste path was already closed by the merge.
 
 **Only the BOM half, and that is measured rather than assumed.** CodeMirror folds CRLF *and* a
 lone classic-Mac CR at this same door through `EditorState.lineSeparator`, so a `\r` cannot
@@ -121,17 +136,27 @@ The first wrong row is how the walk reached it: a stray keystroke at the end of 
 line. The rail went on calling the slide `title` while the preview beside it painted `content`,
 and the same reading feeds the inline linter's vocabulary and the Coach's issue count.
 
-**Fix.** Anchor the regex to a line the comment owns, and skip fenced ranges (`fenceRanges`,
-already shared with `deck-source.ts`). A deck that documents Lattice quotes a directive inside
-a fence; that is a code sample, not an assignment.
+**The first fix was a second bug, and this is the part worth keeping.** Anchoring the regex to
+column 0 closed the four rows above and silently opened four more: markdown-it opens the
+`html_block` INSIDE a container, so `- <!-- … -->`, `> <!-- … -->` and `1. <!-- … -->` all
+render the class, as does a running global `<!-- class: kpi -->`. Re-verified against
+`render()`: all four emit `kpi form`, and the anchored regex read every one of them as `text`.
+A slide with no resolved class is skipped by every lint rule, so the loss would have been
+silent and in the direction of less coverage than before.
 
-**One row is deliberately NOT matched to the engine.** markdown-it reads a four-space indent as
-a code block, so `    <!-- _class: kpi -->` renders as `content` — but `splitSlides` TRIMS every
-chunk and the live preview renders the trimmed chunk, so the PREVIEW honors it. Matching the
-engine here would have made the rail disagree with the preview beside it while leaving the
-deeper divergence untouched, so the indent rule matches `deck-source.ts`'s `DIRECTIVE_LINE_RE`
-instead — which is what the Compose pane reads, so the two panes now agree where they did not.
-The preview/export split is recorded below as its own finding.
+**`lib/core/class-directive-scan.mjs` had already made that mistake, fixed it, and written the
+reason down** — its docblock says exactly this, in the repo's own words. It is the kernel that
+answers "which class governs this slide?" the way the renderer answers it, it was already in
+the docs browser bundle, and `lint.ts` already imports a sibling from `lib/core/`. So the fix
+is a delegation, not a regex: `usedComponents` and `slideClass` now ask it (HARD RULE #1, #15).
+That also settles the indent question the first cut hedged on — a tab- or four-space-indented
+directive is an indented code block, the kernel says so, and the rail now agrees with the
+linter and the export rather than with the preview.
+
+**One consequence to know:** the kernel resolves the class in force per chunk, so an
+OVERRIDDEN directive is not reported. `usedComponents` dedupes on the winning directive's own
+line, which keeps a running global counted once rather than once per slide it governs — the
+count `issues` displays is a count of things an author has to go and fix.
 
 ## 3. `slideClass` took the first directive; the engine applies the last
 
@@ -196,7 +221,37 @@ consumed on use, so a deck switch never inherits the previous deck's undo stack.
 editor mounted instead was rejected: `responsive.spec.ts` asserts that Compose mounting leaves
 `Deck source` unmounted, so the unmount is a contract, not an accident.
 
-## 6. Two oracles were green only on an idle machine
+## 6. The fix for §5 leaked one deck's undo stack into another (found by the checker)
+
+The worst thing in this change, and it was introduced BY this change — a HARD RULE #18 window,
+caught before it shipped only because the checker pass ran.
+
+The carry was guarded on `carried.doc === value`: byte-equality of the document, with no deck
+identity. `newDeckSource()` is deterministic, so **every new deck starts from the same template
+bytes** and the guard matched across decks. Reproduced end to end against the real component
+and the real CodeMirror: type in deck A, undo, switch to Compose, create deck B, switch back —
+deck A's history was restored into deck B, and one ⌘⇧Z inserted text that had never been typed
+there, out through `onChange` and into the autosave as deck B's content.
+
+The docblock claimed "a deck switch (a different `value`) never inherits the previous deck's
+undo stack". The premise was false for the Studio's own new-deck template, which is the one
+document this could be wrong about most easily.
+
+**Fix.** The carry is keyed on the deck id as well as the document, held through a latest-ref
+because the init effect is keyed on `[known]` and a deck switch that leaves the editor mounted
+never re-runs it.
+
+**Its oracle is NOT end to end, and that is the second lesson of this section.** An e2e test
+was written for it and PASSED against the broken guard — twice, for two different reasons.
+The first started from the seeded tour deck, whose bytes never match a new deck's, so the leak
+could not arise. The second used two new decks and still passed: replaying the leak needs a
+REDO, and redo after an undo on a freshly created deck did not fire on the shipped surface —
+measured, and not root-caused. A test that cannot fail is worse than no test, so it was
+deleted and the pin moved to the predicate (`editor-carry.test.ts`), which does fail on the
+document-only guard. Same call the Compose note's §8 made about a security property, for the
+same reason.
+
+## 7. Two oracles were green only on an idle machine
 
 The fourth disguise of the Compose note's §10, and it recurred here on the first attempt.
 Running the file once at two workers was green; running it while a second copy of the suite ran
@@ -216,6 +271,17 @@ reader. Measured after: 6 consecutive clean runs at 4 workers on 4 cores (twice 
 count), plus two suites run concurrently, against the reproducible failure before.
 
 ---
+
+## 8. Three oracles of my own were weaker than they read
+
+Also the checker. `a Compose edit deliberately drops the carried history` went straight to
+Compose as its first action, so no markdown-pane edit existed and the carried history was
+EMPTY — the two ⌘Z presses would have done nothing whether the guard worked or not. It now
+makes an edit first, and asserts that edit survived. The BOM oracle never pressed ⌘Z, which is
+where the leak was. And the walk's invariant 2 has three legitimate escapes, one of which
+(`paintedClasses` catching an unreachable frame to `[]`) would have let all 34 steps pass
+having compared nothing; the walk now counts its own evaluations and asserts the net was in
+the water.
 
 ## Found, NOT fixed here (off the path of this change — HARD RULE #18)
 

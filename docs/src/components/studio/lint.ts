@@ -3,9 +3,9 @@
 // are property-testable without rendering anything.
 
 import { type LensRegistry, lensPairs } from '@/lib/lente';
+import { slideClassDirectives } from '../../../../lib/core/class-directive-scan.mjs';
 import { separatorRanges } from '../../../../lib/core/slide-boundaries.mjs';
 import { frontMatterBlock } from './front-matter';
-import { fenceRanges } from './slide-directives';
 
 // WHERE A SLIDE BEGINS — asked once, of the one module that knows.
 //
@@ -46,58 +46,47 @@ export function splitSlides(src: string): string[] {
 	return chunks.map((s) => s.trim()).filter(Boolean);
 }
 
-// First token of a `_class` value — the COMPONENT — tolerating extra modifier
-// tokens (`_class: kpi dark scale-xl`), which the old single-token regex missed
-// (so the rail chip read `text` and the score miscounted a modified slide).
+// WHICH `_class` GOVERNS A SLIDE — asked of the ONE module that already knows.
 //
-// THE COMMENT MUST OWN ITS LINE, and that is not pedantry — it is what the ENGINE
-// requires. This regex was unanchored, so it matched a `_class:` comment anywhere on
-// any line, and the rail then labelled slides by a directive the render ignores.
-// Measured against `lib/engine/index.js` `render()` on 2026-09-05, one slide per row:
+// This used to be a regex here, and it was wrong twice in opposite directions. Unanchored,
+// it matched a `_class:` comment anywhere on any line, so a stray character after the `-->`
+// left the rail naming a component the engine ignores. Anchoring it to column 0 then lost
+// every CONTAINER-PREFIXED directive — and `lib/core/class-directive-scan.mjs` had already
+// learned that exact lesson and written it down: markdown-it opens the `html_block` INSIDE
+// the container, so `- <!-- … -->`, `> <!-- … -->` and `1. <!-- … -->` all render the class.
+// Re-verified against `render()` on 2026-09-05: all three emit `kpi form`, as does a running
+// global `<!-- class: kpi -->`, while a TAB-indented directive is an indented code block and
+// emits `content form`.
 //
-//   source line                             engine renders   this file used to say
-//   `<!-- _class: title -->`                title            title
-//   `<!-- _class: title -->   ` (trailing)  title            title
-//   `<!-- _class: title -->.`               content          title   <-- wrong
-//   `<!-- _class: title --> trailing`       content          title   <-- wrong
-//   `text <!-- _class: title -->`           content          title   <-- wrong
-//   a `_class:` line inside a ``` fence     content          kpi     <-- wrong
-//
-// The first wrong row is not exotic: a stray keystroke at the end of the directive
-// line is how a randomized walk over the real editor reached it, and the rail went on
-// calling the slide `title` while the preview beside it painted `content`.
-//
-// LEADING WHITESPACE IS STILL ACCEPTED IN FULL, deliberately, even though markdown-it
-// treats a four-space indent as a code block (so the engine reads `    <!-- _class: x -->`
-// as content). `splitSlides` TRIMS every chunk, and the live preview renders the trimmed
-// chunk — so the preview honors an indented directive and an export does not. Tightening
-// this line to markdown-it's three-space rule would make the rail disagree with the
-// preview sitting next to it while the deeper divergence stayed, so the indent rule is
-// matched to `deck-source.ts`'s `DIRECTIVE_LINE_RE` (`^[ \t]*`) — the Compose pane's
-// reading of the same line — and the preview/export split is recorded as its own finding.
-const CLASS_RE = /^[ \t]*<!--\s*_class:\s*([A-Za-z0-9-]+)(?:[ \t][^\n>]*?)?\s*-->[ \t]*$/gm;
+// So this delegates (HARD RULE #1, #15). The kernel resolves spot directives, running
+// globals, container prefixes, fences and the engine's own line geometry — none of which a
+// regex here can carry without becoming a fifth copy of a parser that already exists.
 
-/** Every `_class` directive in `src` that the engine would honor, with its offset —
- *  line-owning (see CLASS_RE) and outside any fenced code block. A deck that documents
- *  Lattice quotes `<!-- _class: … -->` inside a fence, and that is a code sample, not a
- *  component assignment. */
-function classDirectives(src: string): Array<{ name: string; index: number }> {
-	const text = String(src ?? '');
-	const fences = fenceRanges(text);
-	const out: Array<{ name: string; index: number }> = [];
-	let m: RegExpExecArray | null;
-	CLASS_RE.lastIndex = 0;
-	while ((m = CLASS_RE.exec(text))) {
-		const at = m.index;
-		if (fences.some(([a, b]) => at >= a && at < b)) continue;
-		out.push({ name: m[1], index: at });
-	}
-	return out;
+/** The COMPONENT of a `_class` payload — its first token, tolerating trailing modifiers
+ *  (`kpi dark scale-xl` → `kpi`). */
+function componentOf(payload: string): string {
+	return String(payload ?? '').trim().split(/\s+/)[0] ?? '';
 }
 
-/** The `_class` component names used in the source, in document order. */
+/**
+ * The `_class` component names used in the source, in document order.
+ *
+ * ONE ENTRY PER DIRECTIVE LINE, not per slide. The kernel answers "what governs this
+ * chunk?", so a running global resolves onto every slide below it — and counting that once
+ * per slide would multiply a single typo into an issue count of five. Deduping on the
+ * winning directive's own line collapses it back to the literal directives an author wrote,
+ * which is what this function has always returned and what `issues` counts.
+ */
 export function usedComponents(src: string): string[] {
-	return classDirectives(src).map((d) => d.name);
+	const seen = new Set<number>();
+	const out: string[] = [];
+	for (const d of slideClassDirectives(String(src ?? ''))) {
+		if (!d?.payload || seen.has(d.line)) continue;
+		seen.add(d.line);
+		const name = componentOf(d.payload);
+		if (name) out.push(name);
+	}
+	return out;
 }
 
 /** Component names used in the source that are NOT in the known set. */
@@ -106,17 +95,17 @@ export function unknownComponents(src: string, known: Iterable<string>): string[
 	return usedComponents(src).filter((n) => !set.has(n));
 }
 
-/** The component label for a single slide — its first `_class`, or `text` for a
- *  bare-Markdown slide. Drives the slide-navigator chips. */
+/** The component label for a single slide — the class the ENGINE would apply to it, or
+ *  `text` for a bare-Markdown slide. Drives the slide-navigator chips.
+ *
+ *  THE LAST directive, not the first, because that is what the engine applies — measured:
+ *  `<!-- _class: big-number -->` … `<!-- _class: stats -->` on one slide renders `stats
+ *  form`. Not an exotic input: it is exactly what deleting a `---` to merge two slides
+ *  leaves behind, after which the rail used to name the slide that had just been absorbed.
+ *  The kernel resolves it; this only picks the component out of the payload. */
 export function slideClass(slideSrc: string): string {
-	// THE LAST ONE, not the first. A slide may carry two `_class` directives, and the engine
-	// applies the LAST — measured: `<!-- _class: big-number -->` … `<!-- _class: stats -->`
-	// on one slide renders `stats form`. Taking the first is not an exotic mistake: it is
-	// exactly what an author produces by deleting a `---` to merge two slides, after which
-	// the rail went on naming the slide that was absorbed while the preview beside it painted
-	// the one that won. Found by the fuzz walk, on that very op.
-	const found = classDirectives(slideSrc);
-	return found.length ? found[found.length - 1].name : 'text';
+	const found = slideClassDirectives(String(slideSrc ?? '')).filter((d) => d?.payload);
+	return found.length ? componentOf(found[found.length - 1].payload) || 'text' : 'text';
 }
 
 const HEADING_RE = /^[ \t]{0,3}#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/m;

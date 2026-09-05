@@ -4107,7 +4107,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
-					<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} className="flex-1" />
+					<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} carryKey={deck.id} className="flex-1" />
 				</React.Suspense>
 			)}
 		</section>
