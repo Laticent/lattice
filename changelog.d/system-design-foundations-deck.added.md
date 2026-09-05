@@ -20,9 +20,9 @@
   nothing — a parking app where drivers scan a sticker on the bay and pay — climbing the ladder
   from a one-table MVP through a scaled rung to an optimized one, where the card fee turns out
   to be the bill and the servers never were. Its payment path is worked to the
-  point a reader could implement it: two taps deduplicate on a unique key and two scans on a
-  unique index over the bay, a webhook writes only while the row still waits so a redelivery
-  cannot push the driver's expiry out, the row carries the amount and minutes at insert so a
+  point a reader could implement it: two taps deduplicate on a unique key and two racing scans on a
+  unique index over the bay while one is in flight, a webhook writes only while the row still
+  waits so a redelivery cannot overwrite a refund, the row carries the amount and minutes at insert so a
   retry can repeat the same request, `started_at` is read off the charge rather than the
   handler's clock, and the key's lifetime — Stripe's twenty-four hours is the worked number —
   bounds the sweep, which past that window reconciles and refunds instead of re-sending. Choosing a store runs in three passes — shape and

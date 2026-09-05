@@ -3163,13 +3163,13 @@ Solution type MVP. Nobody knows yet whether drivers scan the sticker.
 
 ```text
 sessions
-  id            uuid
-  idem_key      unique. one park, one key, however many taps
-  lot_id, bay   unique while a session is unresolved. one live park per bay
-  status        waiting, then paid, declined, or unresolved
+  id            uuid. also what you send in the provider's metadata
+  idem_key      unique. one attempt, one key, however many taps
+  lot_id, bay   unique while status is waiting. two scans cannot both be live
+  status        waiting, then paid, declined, refunded, or written off
   created_at    set on insert. how you tell a stale wait from a fresh one
-  minutes       what the driver bought. on insert, so a retry can repeat it
-  amount_cents  what that costs. on insert, for the same reason
+  minutes       what the driver bought. on insert, so expires_at can be computed
+  amount_cents  what that costs. on insert, so a retry sends the same request
   started_at    when the payment cleared, read off the charge, not your clock
   expires_at    started_at plus minutes
   payment_ref   the provider's id for the charge
@@ -3202,7 +3202,7 @@ The second is the signal itself. The card form sits on the far side of a network
 
 The second tap is a different request that means the same thing. So the page mints one key for this attempt and keeps it across reloads, and the unique index decides — not your code.
 
-- You know you're here when
+- The tell
   - The page hesitates on a weak signal, and the driver taps Pay a second time.
 - Insert first, then charge
   - The key sits in a unique column, so the second tap conflicts instead of paying again. Read the row: paid hands back the receipt, waiting waits for the first answer.
@@ -3234,12 +3234,12 @@ A decline is an answer, not a gap. Only a row that never got any answer at all �
 
 A spinner tells the driver that nothing landed. They close the tab and scan the sticker again — a fresh page, a fresh key, which is exactly why the key does not stop the second charge.
 
-- You know you're here when
+- The tell
   - A driver taps Pay, watches nothing land, and starts over from the sticker.
 - The key cannot stop this
   - It was minted for one attempt, and a rescan is a new one. There is nothing for it to conflict with.
 - The bay can
-  - A unique index on lot and bay, held while a session is unresolved — the index decides, not a read. Then show the driver the receipt the warden already sees.
+  - A unique index on lot and bay while a scan is in flight, so two cannot race. If one already paid, read it and hand back that receipt.
 
 ---
 
@@ -3251,7 +3251,7 @@ A spinner tells the driver that nothing landed. They close the tab and scan the 
 
 Check the signature your provider sends before you believe a single field in it. Skip that and you have built a free parking machine: anyone who can post to the endpoint can mark any bay paid.
 
-Then expect the same call more than once, because a provider retries until you answer. Find the row by the key the charge carried, and write only if it is still waiting. An update with no condition re-stamps the clock, so every redelivery pushes the driver's expiry further out.
+Then expect the same call more than once, because a provider retries until you answer. Find the row by the key the charge carried, and write only if it is still waiting. An update with no condition also lands on a row you already refunded, and quietly marks it paid again.
 
 ---
 
@@ -3264,12 +3264,12 @@ Then expect the same call more than once, because a provider retries until you a
 
 Every provider puts a lifetime on the key — Stripe's is twenty-four hours. Inside that window a retry is free; past it the same key buys a second charge, so look yours up and sweep well inside it.
 
-- You know you're here when
+- The tell
   - A row still says waiting the morning after the park, and nobody has told the driver anything.
 - Inside the window, retry
   - Same key, same parameters, and you cannot be charged twice — once the first request has answered.
 - Past it, reconcile
-  - Never re-send. Find the charge by the id you put in the provider's metadata, then refund what you can no longer deliver.
+  - Never re-send. Find the charge by the id in the provider's metadata: refund it, or write the row off if there is none.
 
 ---
 
@@ -3345,7 +3345,7 @@ What the card fee takes from a three-dollar park, at thirty cents plus 2.9 perce
 | A mobile app | A driver in the rain will not install one | Regulars who park daily, once they exist |
 | Accounts and login | A screen between the sticker and the money | Rung three's settlement earned it |
 | A live map of free bays | Needs a sensor in every bay | Somebody willing to pay for the sensors |
-| Knowing which car is in the bay | The session is keyed to the bay, so the next driver parks on what the last one paid for | A plate or a sensor, once that leak costs more than reading it |
+| Knowing which car is in the bay | The session is keyed to the bay, so the next driver parks on what the last one paid for | A plate or a sensor, once the free parks cost more than the hardware |
 
 ---
 
@@ -3370,7 +3370,7 @@ What the card fee takes from a three-dollar park, at thirty cents plus 2.9 perce
 
 ## Five moves carried this design, and every one of them came out of a kit.
 
-Relational, because nothing here outgrows one machine and the questions keep changing — pass one ended there. Two indexes: the one a warden's question needs, and the one that makes a second charge on a bay impossible. Idempotency three times over: the driver's second tap, the driver's second scan, and a webhook your provider will send again. A read replica, to keep reports off the path a driver waits on. A bounded queue, for the work nobody is waiting for.
+Relational, because nothing here outgrows one machine and the questions keep changing — pass one ended there. Indexes doing three jobs: the key that stops a second tap, the bay that stops two scans racing, and the one a warden's question needs. Idempotency behind all three, and behind a webhook your provider will send again. A read replica, to keep reports off the path a driver waits on. A bounded queue, for the work nobody is waiting for.
 
 The security kit arrived as practice, not a card: the provider's form keeps card numbers off your servers, and a signed webhook keeps a stranger from marking bays paid. Not one of those is a product name, and not one of them was a guess.
 
