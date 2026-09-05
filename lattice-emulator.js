@@ -481,7 +481,7 @@ if (flags.palette) paletteArg = flags.palette;
 // four sites (pptx, png, thumbnails, image-set) and a fifth would otherwise have to remember. It is
 // also what keeps the disclosure at ZERO for every rasterized format — the hole is absent from the
 // artifact entirely, not merely blank in it.
-const SHOOTABLE_SLIDES = 'section[data-lattice-slide]:not(.lens-hole)';
+const { SHIPPED_SLIDES_SELECTOR: SHOOTABLE_SLIDES, isHoleOpenTag, isHoleSectionHtml, isHoleSourceChunk } = require('./lib/core/lens-export.mjs');
 const QUIET = flags.quiet;
 const NOTES_SIDECAR = !!flags.notes;
 const CAPTIONS = !!flags.captions;
@@ -2818,7 +2818,7 @@ const slideDescriptions = notesCore.extractSlideDescriptions(slides);
 // `\sclass="` — the leading space is the #1358 guard, not decoration. Without it the pattern also
 // matches `data-class="<raw _class: payload>"`, which is the directive as the author typed it rather
 // than the class list the engine resolved; the ownership gate caught exactly this line.
-const SHIPPED_SLIDE_AT = slides.map((_, i) => i).filter((i) => !/\sclass="[^"]*\blens-hole\b/.test(String(slides[i] || '')));
+const SHIPPED_SLIDE_AT = slides.map((_, i) => i).filter((i) => !isHoleSectionHtml(slides[i]));
 /** One entry per shipped slide, from an array indexed by authored slide. */
 const asShippedSlides = (arr) => SHIPPED_SLIDE_AT.map((i) => arr[i]);
 // Per-slide inline `<!-- caption: … -->` read-as text (Layer 1, §16) — the highest-precedence
@@ -4552,7 +4552,7 @@ async function renderBody(browser, g, closeBrowser) {
     try {
       // `:not(.lens-hole)` on both arms — the line reports what the FILE holds, and a hole is not a
       // slide in it. It read "HTML: 5 slides" for a three-slide view.
-      const n = (await page.$$('#deck > section[data-lattice-slide]:not(.lens-hole), body > section[data-lattice-slide]:not(.lens-hole)')).length;
+      const n = (await page.$$(`#deck > ${SHOOTABLE_SLIDES}, body > ${SHOOTABLE_SLIDES}`)).length;
       if (n > 0) pageCount = n;
     } catch { /* keep the authored count */ }
     await closeBrowser();
@@ -5222,7 +5222,7 @@ function notesPerRenderedPage(docHtml, authored) {
       // them here made `embedNotesInPdf`'s own length guard fire on EVERY reducing lens export with
       // notes: it warned "5 slide notes but 3 PDF pages" and dropped all of them, while the line
       // below it printed "3 slides with speaker notes". The guard was right and its input was not.
-      .filter((p) => !/\sclass="[^"]*\blens-hole\b/.test(String(p.openTag || '')));
+      .filter((p) => !isHoleOpenTag(p.openTag));
     return parts.length ? notesCore.notesPerRenderedPage(parts) : authored;
   } catch { return authored; }
 }
@@ -5436,7 +5436,7 @@ async function projectDeckSpeechFromHtml(docHtml) {
     // nothing, so counting it made this list longer than the caption track's and the length guard in
     // `writeCaptionsSidecar` then dropped the projection wholesale — "captions will be EMPTY for this
     // deck" on every reducing lens export, for a mismatch the export itself had introduced.
-    const raw = [...doc.querySelectorAll('section[data-lattice-slide]:not(.lens-hole)')];
+    const raw = [...doc.querySelectorAll(SHOOTABLE_SLIDES)];
     // Sanitize each section in isolation, then project the clean nodes.
     const clean = raw
       .map((s) => new JSDOM(sanitize(s.outerHTML)).window.document.querySelector('section[data-lattice-slide]'))
@@ -5544,7 +5544,7 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
       // holes, the equality below fails, and every chart slide in a lens export silently falls back
       // to heading-only narration — a divergence the export introduced, reported as if the deck had
       // caused it.
-      const blocks = splitSourceToSections(appendAutoGlossary(md)).filter((b) => !/<!--\s*_class:\s*lens-hole\s*-->/.test(String(b || '')));
+      const blocks = splitSourceToSections(appendAutoGlossary(md)).filter((b) => !isHoleSourceChunk(b));
       if (blocks.length === projected.length) {
         for (let i = 0; i < blocks.length; i++) {
           // Per-slide guard: one pathological chart slide can't disable narration for
@@ -5599,7 +5599,7 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
       // describes, holes and all); pages are what shipped; this map is the join.
       const pages = require('./lib/core/split-sections').splitSections(cleanDocHtml.slice(at))
         .filter((x) => x.type === 'section')
-        .filter((x) => !/\sclass="[^"]*\blens-hole\b/.test(String(x.openTag || '')));
+        .filter((x) => !isHoleOpenTag(x.openTag));
       // READ THE STAMP, DO NOT RECONSTRUCT IT. `authoredIndexPerPage` recovers page -> authored slide
       // from contiguous `data-split-run` groups, which is POSITION arithmetic: hand it a list with the
       // holes already removed and it answers `1,2,3` — the ranks it was just given back, not the
