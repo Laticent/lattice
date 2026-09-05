@@ -3221,7 +3221,7 @@ The card network answers your payment provider, not the driver's phone. So the p
 
 The row flips to paid and the warden sees a paid bay, whether or not the phone ever came back.
 
-A decline is an answer, not a gap. Only a row that got no answer at all — a closed tab, a webhook that never came — is one you sweep. Sweep every few minutes, because a waiting row holds the bay against the next driver.
+A decline is an answer, not a gap: the webhook writes it down and the bay frees at once. Only a row that got no answer at all — a closed tab, a webhook that never came — is one you sweep. Sweep every few minutes, because a waiting row holds the bay against the next driver.
 
 ---
 
@@ -3235,11 +3235,11 @@ A decline is an answer, not a gap. Only a row that got no answer at all — a cl
 Ask the provider what happened and write the answer down — the webhook is the fast path to paid, not the only one. But you are writing rows another process writes too, and you are doing it without being sure the driver has gone.
 
 - The tell
-  - A row has sat waiting longer than a payment takes, and nobody has told the driver anything.
+  - A row has sat waiting fifteen minutes — far longer than a payment takes, even on a bad signal — and nobody has told the driver anything.
 - Write only if it is still waiting
   - The same guard the webhook needs, for the same reason: two writers on one row, and the later must not bury what the earlier learned.
 - To free a bay, cancel first
-  - A timeout is not the same answer as nothing was taken. Ask again, and only once the provider has cancelled the payment for good should the row be written off.
+  - A timeout is not the same answer as nothing was taken. An open payment can still complete, so cancel it at the provider before writing the row off — or you free the bay and take the money afterwards.
 
 ---
 
@@ -3285,7 +3285,7 @@ Every provider puts a lifetime on the key — Stripe's is twenty-four hours. Ins
 - The tell
   - A row still says waiting the morning after the park, and nobody has told the driver anything.
 - Inside the window, the key still holds
-  - Send the same key and parameters again and you cannot be charged twice, once the first request has answered.
+  - The provider replays its first answer to that key and those parameters, so a retry inside the day cannot charge twice.
 - Past it, reconcile
   - Never re-send. Look for the charge by the id in the provider's metadata. Refund what you cannot deliver; write the row off if there is nothing there.
 
