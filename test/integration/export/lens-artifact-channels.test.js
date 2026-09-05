@@ -188,3 +188,145 @@ describe('a projected export keeps its per-slide channels aligned', { skip }, ()
 		}
 	});
 });
+
+/**
+ * THE OBSERVATION CHANNELS — the set `O` of what a recipient can learn about the slides a view
+ * withheld. This is the arm that exists because we never wrote `O` down.
+ *
+ * Position-holding projection is TOMBSTONING: keep the slot, blank the content, so the structure a
+ * CSS engine can count stays invariant. That closes a channel by CONSTRUCTION rather than by
+ * detection — but only the channels the invariant actually covers, and we had never enumerated
+ * them. We closed sibling position, shipped, and were then ambushed by CSS counters, which live on
+ * the BOX tree and therefore do not see a `display:none` element at all. Two channels found one at
+ * a time is not a bound; it is a sample.
+ *
+ * So the channels are listed and MEASURED here, and a change in any of them fails this file. The
+ * verdicts below were produced by exporting an 8-slide deck twice — whole, and under a view keeping
+ * slides 1/4/6/8 — and reading the result rather than reasoning about it:
+ *
+ *   CHANNEL                              VERDICT     mechanism
+ *   nth-of-type(6)                       preserved   structural: counts hidden elements
+ *   nth-child(8)                         preserved   structural
+ *   last-of-type                         preserved   structural
+ *   nth-last-of-type(3)                  preserved   structural, counting from the end
+ *   nth-of-type(2n)                      preserved   structural, an+b form
+ *   nth-of-type(3) + section             preserved   adjacent sibling combinator
+ *   nth-of-type(1) ~ section             preserved   general sibling combinator
+ *   counter() in generated content       MOVES       box tree: a hidden box does not increment
+ *   visible page number                 moves        by design — a view renumbers what it ships
+ *   withheld body / note / caption text  hidden      on every format
+ *   deck length, withheld positions      disclosed   in the plain `.html` and the projected SOURCE
+ *                                        hidden      in PDF / PPTX / PNG / the player's frames
+ *
+ * The two `MOVES` rows are the honest residue and the reason the author-CSS warning still exists.
+ * The last row is the design's stated cost: a hole says a slide was here, and nothing else.
+ */
+describe('what a projection lets a recipient observe', { skip }, () => {
+	// 8 slides, `brief` keeps 1/4/6/8 (0-based 0,3,5,7) so holes fall before, between AND after the
+	// kept slides — a shape where an off-by-one in any direction shows up.
+	const KEPT_1BASED = [1, 4, 6, 8];
+	const CHANNELS = [
+		{ css: 'section:nth-of-type(6) h1  { color: rgb(255,0,0) }', prop: 'color', hit: 'rgb(255, 0, 0)', name: 'nth-of-type(6)' },
+		{ css: 'section:nth-child(8) h1 { outline-color: rgb(0,255,0) }', prop: 'outlineColor', hit: 'rgb(0, 255, 0)', name: 'nth-child(8)' },
+		{ css: 'section:last-of-type h1 { text-decoration-color: rgb(0,0,255) }', prop: 'textDecorationColor', hit: 'rgb(0, 0, 255)', name: 'last-of-type' },
+		{ css: 'section:nth-last-of-type(3) h1 { border-top-color: rgb(255,0,255) }', prop: 'borderTopColor', hit: 'rgb(255, 0, 255)', name: 'nth-last-of-type(3)' },
+		{ css: 'section:nth-of-type(2n) h1 { column-rule-color: rgb(0,255,255) }', prop: 'columnRuleColor', hit: 'rgb(0, 255, 255)', name: 'nth-of-type(2n)' },
+		{ css: 'section:nth-of-type(3) + section h1 { background-color: rgb(128,0,0) }', prop: 'backgroundColor', hit: 'rgb(128, 0, 0)', name: 'adjacent sibling +' },
+		{ css: 'section:nth-of-type(1) ~ section h1 { caret-color: rgb(0,128,0) }', prop: 'caretColor', hit: 'rgb(0, 128, 0)', name: 'general sibling ~' },
+	];
+
+	function channelDeck() {
+		const style = `<style>\n${CHANNELS.map((c) => c.css).join('\n')}\nsection { counter-increment: sl }\nsection h1::after { content: " [n" counter(sl) "]" }\n</style>\n`;
+		const raw = Array.from({ length: 8 }, (_, i) => `\n<!-- _class: content -->\n\n# Slide ${i + 1}\n\nBody of slide ${i + 1}.\n`);
+		const mem = new Set(KEPT_1BASED.map((n) => n - 1));
+		const body = style + raw.map((s, i) => applyTag(s, 'brief', mem.has(i), 'none')).join('\n---\n') + '\n';
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, { id: 'brief', label: 'Brief', base: 'none' }], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(splitSlideChunks(body).chunks, bare, l.id) })), default: 'full' };
+		let head = `---\nmarp: true\ntheme: indaco\npaginate: true\n${emitRegistry(reg)}`;
+		if (!head.endsWith('\n')) head += '\n';
+		return `${head}---\n${body}`;
+	}
+
+	test('every SELECTOR channel lands on the same authored slide in a projection as in the whole deck', { timeout: TIMEOUT }, async () => {
+		const src = channelDeck();
+		const full = run(src, 'full.html', ['--quiet']);
+		assert.equal(full.r.status, 0, full.r.stderr);
+		const brief = run(src, 'brief.html', ['--quiet', '--lens', 'brief']);
+		assert.equal(brief.r.status, 0, brief.r.stderr);
+
+		const browser = await require('puppeteer').launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+		try {
+			const read = async (file) => {
+				const page = await browser.newPage();
+				await page.goto(`file://${file}`);
+				const rows = await page.evaluate((props) =>
+					[...document.querySelectorAll('section[data-lattice-slide]')].map((s) => {
+						const h = s.querySelector('h1');
+						const cs = h && getComputedStyle(h);
+						const o = { at: Number(s.getAttribute('data-authored-slide')) + 1, hole: s.classList.contains('lens-hole') };
+						for (const p of props) o[p] = cs ? cs[p] : '';
+						return o;
+					}), CHANNELS.map((c) => c.prop));
+				await page.close();
+				return rows;
+			};
+			const a = await read(full.out);
+			const b = await read(brief.out);
+			const lands = (rows, c) => rows.filter((r) => !r.hole && r[c.prop] === c.hit).map((r) => r.at);
+			for (const c of CHANNELS) {
+				// Restrict the full deck's answer to the slides the view KEEPS: that is what the
+				// projection can be held to. Anything else would demand the view show a slide it withheld.
+				const want = lands(a, c).filter((n) => KEPT_1BASED.includes(n));
+				assert.deepEqual(lands(b, c), want, `${c.name} lands on the same authored slide(s) in both renders`);
+			}
+			// And the guard against a vacuous pass: the rules must actually have hit something.
+			assert.ok(CHANNELS.every((c) => lands(a, c).length > 0), 'every channel rule matched at least one slide in the full deck');
+		} finally {
+			await browser.close();
+		}
+	});
+
+	test('a CSS COUNTER is the channel holes do NOT close, and it is measured rather than assumed', { timeout: TIMEOUT }, () => {
+		// `nth-of-type` is structural and counts a `display:none` element. A counter lives on the BOX
+		// tree, and a hidden element generates no box, so it does not increment. If this test ever
+		// starts passing as "preserved", the author-CSS warning is telling authors the wrong thing and
+		// must be rewritten — that is why the ASSERTION IS THAT IT MOVES.
+		const src = channelDeck();
+		const { execFileSync } = require('node:child_process');
+		const readCounters = (pdf) => {
+			let text = '';
+			try { text = execFileSync('pdftotext', ['-layout', pdf, '-'], { encoding: 'utf8' }); } catch { return null; }
+			return [...text.matchAll(/Slide (\d+) \[n(\d+)\]/g)].map((m) => [Number(m[1]), Number(m[2])]);
+		};
+		const full = run(src, 'full.pdf', ['--quiet']);
+		assert.equal(full.r.status, 0, full.r.stderr);
+		const brief = run(src, 'brief.pdf', ['--quiet', '--lens', 'brief']);
+		assert.equal(brief.r.status, 0, brief.r.stderr);
+		const a = readCounters(full.out);
+		const b = readCounters(brief.out);
+		if (!a || !b) return; // no pdftotext on this machine
+		assert.deepEqual(a, [[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7, 7], [8, 8]], 'the whole deck numbers itself 1..8');
+		assert.deepEqual(b, [[1, 1], [4, 2], [6, 3], [8, 4]], 'and the projection renumbers: slide 4 reads n2, slide 6 reads n3, slide 8 reads n4');
+	});
+
+	test('the artifact discloses the withheld POSITIONS only where the design says it does', { timeout: TIMEOUT }, async () => {
+		const src = channelDeck();
+		const html = run(src, 'shape.html', ['--quiet', '--lens', 'brief']);
+		assert.equal(html.r.status, 0, html.r.stderr);
+		const doc = fs.readFileSync(html.out, 'utf8');
+		const secs = [...doc.matchAll(/<section\b[^>]*data-authored-slide="(\d+)"[^>]*>/g)];
+		const holes = secs.filter((m) => /\sclass="[^"]*\blens-hole\b/.test(m[0])).map((m) => Number(m[1]) + 1);
+		// The plain `.html` keeps the holes — its sections are siblings, so `nth-of-type` is live there
+		// and the slot has to stay. The cost is stated rather than hidden: length and positions.
+		assert.equal(secs.length, 8, 'the plain .html carries every authored slot, so deck length is recoverable');
+		assert.deepEqual(holes, [2, 3, 5, 7], 'and so are the withheld positions');
+		// What it must NEVER carry is the content.
+		for (const away of [2, 3, 5, 7]) assert.ok(!doc.includes(`Body of slide ${away}.`), `slide ${away}'s body is not in the .html`);
+
+		// The PDF is the opposite: it pays nothing. Neither length nor positions survive.
+		const pdf = run(src, 'shape.pdf', ['--quiet', '--lens', 'brief']);
+		assert.equal(pdf.r.status, 0, pdf.r.stderr);
+		const d = await require('pdf-lib').PDFDocument.load(fs.readFileSync(pdf.out));
+		assert.equal(d.getPageCount(), 4, 'the PDF has one page per SHIPPED slide — the deck length does not survive');
+	});
+});
