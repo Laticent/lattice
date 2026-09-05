@@ -3221,7 +3221,7 @@ The card network answers your payment provider, not the driver's phone. So the p
 
 The row flips to paid and the warden sees a paid bay, whether or not the phone ever came back.
 
-A decline is an answer, not a gap. Only a row that never got any answer at all — a closed tab, a webhook that never came — is one you sweep.
+A decline is an answer, not a gap. Only a row that never got any answer at all — a closed tab, a webhook that never came — is one you sweep. Sweep every minute, because a waiting row holds the bay against the next driver.
 
 ---
 
@@ -3239,7 +3239,7 @@ A spinner tells the driver that nothing landed. They close the tab and scan the 
 - The key cannot stop this
   - It was minted for one attempt, and a rescan is a new one. There is nothing for it to conflict with.
 - The bay can
-  - A unique index on lot and bay while a scan is in flight, so two cannot race. If one already paid, read it and hand back that receipt.
+  - Read the live session first, and hand back its receipt if it is paid. A unique index on lot and bay, while a scan is in flight, stops two drivers racing that read.
 
 ---
 
@@ -3251,7 +3251,7 @@ A spinner tells the driver that nothing landed. They close the tab and scan the 
 
 Check the signature your provider sends before you believe a single field in it. Skip that and you have built a free parking machine: anyone who can post to the endpoint can mark any bay paid.
 
-Then expect the same call more than once, because a provider retries until you answer. Find the row by the key the charge carried, and write only if it is still waiting. An update with no condition also lands on a row you already refunded, and quietly marks it paid again.
+Then expect the same call more than once, because a provider retries until you answer. Find the row by the key the charge carried, and write only if it is still waiting. An update with no condition lands on a row you already refunded and quietly marks it paid again.
 
 ---
 
@@ -3269,7 +3269,7 @@ Every provider puts a lifetime on the key — Stripe's is twenty-four hours. Ins
 - Inside the window, retry
   - Same key, same parameters, and you cannot be charged twice — once the first request has answered.
 - Past it, reconcile
-  - Never re-send. Find the charge by the id in the provider's metadata: refund it, or write the row off if there is none.
+  - Never re-send. Look for the charge by the id in the provider's metadata. Refund what you cannot deliver; write the row off if there is nothing there.
 
 ---
 
@@ -3296,7 +3296,7 @@ Write down the one question they ask the system, roughly how often it is asked, 
 2. How often
    - Two bays a minute per warden, two hundred lots: about 400 a minute. Under ten a second.
 3. What answers it
-   - An index on lot, bay and expiry. The question is a point read and it stays one.
+   - An index on lot, bay and expiry, over the paid rows only. The question is a point read and it stays one.
 
 ---
 
@@ -3370,7 +3370,7 @@ What the card fee takes from a three-dollar park, at thirty cents plus 2.9 perce
 
 ## Five moves carried this design, and every one of them came out of a kit.
 
-Relational, because nothing here outgrows one machine and the questions keep changing — pass one ended there. Indexes doing three jobs: the key that stops a second tap, the bay that stops two scans racing, and the one a warden's question needs. Idempotency behind all three, and behind a webhook your provider will send again. A read replica, to keep reports off the path a driver waits on. A bounded queue, for the work nobody is waiting for.
+Relational, because nothing here outgrows one machine and the questions keep changing — pass one ended there. Indexes doing three jobs: the key that stops a second tap, the bay that stops two scans racing, and the one a warden's question needs. Idempotency behind the first two, and behind a webhook your provider will send again. A read replica, to keep reports off the path a driver waits on. A bounded queue, for the work nobody is waiting for.
 
 The security kit arrived as practice, not a card: the provider's form keeps card numbers off your servers, and a signed webhook keeps a stranger from marking bays paid. Not one of those is a product name, and not one of them was a guess.
 

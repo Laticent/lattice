@@ -22,10 +22,11 @@
   to be the bill and the servers never were. Its payment path is worked to the
   point a reader could implement it: two taps deduplicate on a unique key and two racing scans on a
   unique index over the bay while one is in flight, a webhook writes only while the row still
-  waits so a redelivery cannot overwrite a refund, the row carries the amount and minutes at insert so a
-  retry can repeat the same request, `started_at` is read off the charge rather than the
-  handler's clock, and the key's lifetime — Stripe's twenty-four hours is the worked number —
-  bounds the sweep, which past that window reconciles and refunds instead of re-sending. Choosing a store runs in three passes — shape and
+  waits so a redelivery cannot overwrite a refund, the row carries the amount at insert so a retry
+  sends the same request and the minutes so an expiry can be computed, `started_at` is read
+  off the charge rather than the handler's clock, and the key's lifetime — Stripe's
+  twenty-four hours is the worked number — bounds a sweep that past that window refunds what
+  it cannot deliver or writes the row off, rather than re-sending. Choosing a store runs in three passes — shape and
   access, then a capability no shape provides (similarity, ranked text, proximity, live push,
   retention, traversal), then the operational properties that break a tie — so a capability adds
   a store beside the source rather than replacing it. Part seven maps the feed design back to the
