@@ -3516,7 +3516,7 @@ section.corners-square {
  * never matches. `lat-state` is that box, and nothing else.
  *
  * Sized in `em` so the disc tracks whatever type it sits in — a heading, a row's meta,
- * body prose — and `vertical-align:-0.15em` sets it on the text's optical centre rather
+ * body prose — and `vertical-align:-0.15em` sets it on the text's optical center rather
  * than its baseline, where a circle reads as sitting high. */
 section .lat-state {
   position:relative;
@@ -3539,7 +3539,7 @@ section .lat-state {
    * AND NO VERTICAL PADDING, deliberately. The disc and the pill are ATOMIC inline
    * boxes (`inline-block` / `inline-flex`), so unlike a plain inline their block padding
    * DOES enter the line box: measured, `padding-block:0.5em` took a three-line paragraph
-   * from 75.6px to 82px — one line gains leading its neighbours do not, which is exactly
+   * from 75.6px to 82px — one line gains leading its neighbors do not, which is exactly
    * the uneven rhythm this would be trying to avoid. Vertical room is the CONTAINER's to
    * own, through its `line-height`; the mark takes what the line already gives it and
    * centres on the text with `vertical-align`. */

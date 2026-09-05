@@ -51,8 +51,16 @@ summary: Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}
 > routinely starts with `:root`, `@media`" — and never ran the same test on brackets,
 > which are the most loaded characters in a repo whose decks are about code. A single
 > `{…}` pair plus one guard (the label must be trimmed and comma-free, which is already
-> the pill word budget in `lib/authoring/prose-budgets.js`) measures **zero** collisions
-> repo-wide. Resolved decision #6 is therefore satisfied more honestly than the map
+> the pill word budget in `lib/authoring/prose-budgets.js`) measures **zero collisions in
+> the DECK corpus** — `examples/`, `lib/`, `docs/src`, `test/integration`, 12,493 spans.
+>
+> **That is not "repo-wide", and an earlier draft of this paragraph said it was.** Measured
+> across every `.md` in the tree (109k+ spans), `{}` captures **31** on `origin/main`:
+> `{children}`, `{staged_files}`, `{ok:true}`, `{once:true}` and similar, all in
+> `engineering/decisions/**`, `engineering/gotchas/` and `tools/perf-torture/`. None is on
+> a rendered surface, so nothing draws wrong — but the claim named a surface it had not
+> scanned, which is the thing HARD RULE #23 exists to stop. The honest statement is: zero
+> on anything that renders, 31 in engineering prose. Resolved decision #6 is therefore satisfied more honestly than the map
 > satisfied it: the brace IS the dispatch marker, and nothing accidental reaches it.
 >
 > **Also corrected:** the color slots are `:c1`–`:c12` onto `--cat-N-fill` /

@@ -178,6 +178,16 @@ section.list-tabular ol > li > code {
  * counter column. On `def` it landed at the name's own x. The trailing column happened
  * to be right on `spec` — by luck, because nothing else had claimed it.
  *
+ * `[data-shape]`, NOT `.lat-pill` alone — the class was already taken. `pill-tag.js` has
+ * put `lat-pill` on a trailing `<code>` since #88, so an ordinary deck with no pill in it
+ * renders `<code class="lat-pill">Term</code>`, and a bare `.lat-pill` rule here scores
+ * (0,2,3) against that `code` rule's (0,1,4) — it WINS, and applied `justify-self:end`
+ * and `align-self:center` to decks that asked for neither (measured on a two-row deck
+ * containing no pill at all). Only the decoder emits `data-shape`, so gating on it makes
+ * these rules unreachable from existing markup. base.modifiers.css already claimed the
+ * two never collide "because that rule selects `code`, this one selects `[data-shape]`" —
+ * true of the appearance rules, and these were written on the class instead.
+ *
  * A pill takes the SAME CELL its variant gives a `code`, and nothing else: appearance
  * stays on the pill's own rules in `base.modifiers.css`, which is why these are a
  * separate block rather than an `:is(code, .lat-pill)` widening of the rules above —
@@ -189,25 +199,25 @@ section.list-tabular ol > li > code {
  * a span at all. A `spec` row mixing a `code` key with a pill type-chip gets the
  * trailing cell here, which is the common shape; a row whose KEY is a pill is not
  * expressible. `lint:deck` does not flag it — it renders, just not in the key slot. */
-section.list-tabular ol > li > .lat-pill {
+section.list-tabular ol > li > .lat-pill[data-shape] {
   grid-column:4; grid-row:1;
   justify-self:end;
   align-self:center;
 }
 /* def has three tracks and its `code` is an EYEBROW above the name, so a pill goes
  * where that eyebrow goes rather than to a trailing column def does not have. */
-section.list-tabular.def ol > li > .lat-pill {
+section.list-tabular.def ol > li > .lat-pill[data-shape] {
   grid-column:2; grid-row:1;
   justify-self:start;
 }
 /* spec.stacked re-points its trailing chip to column 3 on row 1; match it. */
-section.list-tabular.spec.stacked ol > li > .lat-pill {
+section.list-tabular.spec.stacked ol > li > .lat-pill[data-shape] {
   grid-column:3; grid-row:1;
   justify-self:end;
 }
 /* In block flow (tall / strip families) the row is not a grid, so drop the placement
  * and let the pill sit in the text run like the meta shapes above it. */
-section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > .lat-pill {
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > .lat-pill[data-shape] {
   grid-column:auto; grid-row:auto;
   justify-self:start;
 }

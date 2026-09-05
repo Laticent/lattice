@@ -1814,7 +1814,7 @@ const SANCTIONED_MARGINS = [
        + 'measured 27.6px with and without, so it never reaches the height math this rule '
        + 'guards. There is deliberately no vertical margin OR padding — these are atomic '
        + 'inline boxes, so block padding enters the line box (75.6px to 82px on a three-line '
-       + 'paragraph) and gives one line leading its neighbours lack.',
+       + 'paragraph) and gives one line leading its neighbors lack.',
   },
   {
     file: 'lib/base/base.modifiers.css',
