@@ -16,3 +16,11 @@
   matches its 8-page golden on this host. A `pdftotext` word-multiset diff leaves 113 of 118
   refreshed goldens word-identical; three of the five deltas are extraction artifacts where a
   wrap position moved (`derisk` → `de risk`).
+- **Fixed: `examples/gallery-jargon` slide 15 no longer ships cut off.** #2059 capped
+  `list-tabular`'s trailing column at `fit-content(26cqi)` while the description column
+  kept taking every remaining pixel, so a ledger of six phrase-length metas wrapped all
+  six rows to two lines where three had wrapped before, outgrew the stage, and lost its
+  tail. The slide takes `flex-meta` — the modifier that component documents for a
+  trailing column carrying a phrase rather than a stamp — and now renders every meta on
+  one line. A 289-deck overflow sweep says it was the only slide in the corpus that
+  clipped, so #2059's default is unchanged.
