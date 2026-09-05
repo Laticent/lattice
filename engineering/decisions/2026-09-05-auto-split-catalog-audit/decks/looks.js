@@ -5,8 +5,8 @@ const WORK=process.env.ASAUDIT_WORK || path.join(ROOT,'.scratch','asaudit');
 // How many DISTINCT looks does a component's variant set produce — before the
 // split (hd, one page per authored slide) and after it (portrait, the first body
 // page of each run)? All-pairs pixel comparison, clustered at 0.30% of pixels.
-const {execSync}=require('child_process');
 const fs=require('fs');
+const { renderPage, diffPct }=require('./measure.js');
 const oracle=require(path.join(ROOT,'test/oracle/split-oracle.json')).components;
 const cat=require(path.join(ROOT,'dist/docs/components.json')).components;
 const byName=Object.fromEntries(cat.map(c=>[c.name,c]));
@@ -24,16 +24,9 @@ function sections(deck){
   }));
 }
 function png(deck,page){
-  const base=path.join(TMP,`${deck}-${page}`);
-  if(!fs.existsSync(base+'.png')) execSync(`pdftoppm -png -r 50 -f ${page} -l ${page} -singlefile ${PDF}/${deck}.pdf ${base}`);
-  return base+'.png';
+  return renderPage(path.join(PDF,`${deck}.pdf`), page, path.join(TMP,`${deck}-${page}`));
 }
-function pct(a,b){
-  const o=execSync(`compare -metric AE ${a} ${b} null: 2>&1 || true`,{encoding:'utf8'}).trim();
-  const n=parseInt(o.replace(/[^0-9].*$/,''),10)||0;
-  const [w,h]=execSync(`identify -format "%w %h" ${a}`,{encoding:'utf8'}).trim().split(' ').map(Number);
-  return (n/(w*h))*100;
-}
+const pct=(a,b)=>diffPct(a,b) ?? Number.POSITIVE_INFINITY;
 function looks(files){
   const p=files.map((_x,i)=>i);
   const find=x=>p[x]===x?x:(p[x]=find(p[x]));

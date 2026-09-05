@@ -8,8 +8,8 @@ const WORK=process.env.ASAUDIT_WORK || path.join(ROOT,'.scratch','asaudit');
 // For each component, every variant page is pixel-compared with the default's
 // equivalent page. A variant that differs at hd and stops differing at portrait
 // was erased BY the split; one that differs at neither was inert to begin with.
-const {execSync}=require('child_process');
 const fs=require('fs');
+const { renderPage, diffPct }=require('./measure.js');
 const oracle=require(path.join(ROOT,'test/oracle/split-oracle.json')).components;
 const cat=require(path.join(ROOT,'dist/docs/components.json')).components;
 const byName=Object.fromEntries(cat.map(c=>[c.name,c]));
@@ -26,18 +26,9 @@ function pages(deck){
   });
 }
 function png(deck,page){
-  const out=path.join(TMP,`${deck}-${page}.png`);
-  if(!fs.existsSync(out)) execSync(`pdftoppm -png -r 50 -f ${page} -l ${page} -singlefile ${PDF}/${deck}.pdf ${out.replace(/\.png$/,'')}`);
-  return out;
+  return renderPage(path.join(PDF,`${deck}.pdf`), page, path.join(TMP,`${deck}-${page}`));
 }
-function diffPct(a,b){
-  try{
-    const o=execSync(`compare -metric AE ${a} ${b} null: 2>&1 || true`,{encoding:'utf8'}).trim();
-    const n=parseInt(o.replace(/[^0-9].*$/,''),10);
-    const [w,h]=execSync(`identify -format "%w %h" ${a}`,{encoding:'utf8'}).trim().split(' ').map(Number);
-    return +(n/(w*h)*100).toFixed(2);
-  }catch{ return null; }
-}
+const pct=(a,b)=>{ const d=diffPct(a,b); return d===null?null:+d.toFixed(2); };
 const rows=[];
 for(const name of Object.keys(oracle)){
   if(!oracle[name].enrolled) continue;
@@ -57,8 +48,8 @@ for(const name of Object.keys(oracle)){
   const ctlBase=png(name+'.hd', ctlByIdx[0].page);
   const splBase=png(name+'.portrait', firstBody[0].page);
   for(let i=0;i<vs.length;i++){
-    const c=diffPct(ctlBase, png(name+'.hd', ctlByIdx[i+1].page));
-    const s=diffPct(splBase, png(name+'.portrait', firstBody[i+1].page));
+    const c=pct(ctlBase, png(name+'.hd', ctlByIdx[i+1].page));
+    const s=pct(splBase, png(name+'.portrait', firstBody[i+1].page));
     rows.push({name, variant:vs[i], ctlDiff:c, splitDiff:s});
   }
 }
