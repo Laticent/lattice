@@ -3221,7 +3221,7 @@ The card network answers your payment provider, not the driver's phone. So the p
 
 The row flips to paid and the warden sees a paid bay, whether or not the phone ever came back.
 
-A decline is an answer, not a gap. Only a row that never got any answer at all — a closed tab, a webhook that never came — is one you sweep. Sweep every minute, because a waiting row holds the bay against the next driver.
+A decline is an answer, not a gap. Only a row that got no answer at all — a closed tab, a webhook that never came — is one you sweep. Sweep every few minutes, because a waiting row holds the bay, and ask the provider what happened rather than guessing: a driver still typing their card looks exactly like one who left.
 
 ---
 
@@ -3239,7 +3239,7 @@ A spinner tells the driver that nothing landed. They close the tab and scan the 
 - The key cannot stop this
   - It was minted for one attempt, and a rescan is a new one. There is nothing for it to conflict with.
 - The bay can
-  - Read the live session first, and hand back its receipt if it is paid. A unique index on lot and bay, while a scan is in flight, stops two drivers racing that read.
+  - Read the live session first, and hand back its receipt if it is paid. A unique index on lot and bay stops a second scan inserting while the first is still waiting.
 
 ---
 
@@ -3370,7 +3370,7 @@ What the card fee takes from a three-dollar park, at thirty cents plus 2.9 perce
 
 ## Five moves carried this design, and every one of them came out of a kit.
 
-Relational, because nothing here outgrows one machine and the questions keep changing — pass one ended there. Indexes doing three jobs: the key that stops a second tap, the bay that stops two scans racing, and the one a warden's question needs. Idempotency behind the first two, and behind a webhook your provider will send again. A read replica, to keep reports off the path a driver waits on. A bounded queue, for the work nobody is waiting for.
+Relational, because nothing here outgrows one machine and the questions keep changing — pass one ended there. Indexes doing three jobs: the key that stops a second tap, the bay that stops two scans racing, and the one a warden's question needs. Idempotency behind the first, and behind a webhook your provider will send again. A read replica, to keep reports off the path a driver waits on. A bounded queue, for the work nobody is waiting for.
 
 The security kit arrived as practice, not a card: the provider's form keeps card numbers off your servers, and a signed webhook keeps a stranger from marking bays paid. Not one of those is a product name, and not one of them was a guess.
 
