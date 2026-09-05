@@ -159,6 +159,44 @@ buried in 110 other drifted decks — which is exactly how it surfaced. Whether 
 producers should ignore `LATTICE_PALETTE` is a change to producer behavior repo-wide and
 is not made here.
 
+## 4b. The third finding: the only unwatched artifact was the broken one
+
+A word multiset and a page count cannot see a slide that loses content while keeping its text
+count stable, so the corpus was swept a third way: every committed golden's text layer was
+grepped for the engine's own `Content clipped` tag. Nine clipped slides, five artifacts:
+
+| Artifact | Pages | Verdict |
+| --- | --- | --- |
+| `examples/overflow-fix-me` | 2, 3, 5 | DELIBERATE — the deck exists to demonstrate overflow |
+| `examples/marker-corner` | 3, 4 | DELIBERATE — *"this deck renders the collision"*, and documents the clip tab itself |
+| `premise.gallery` (light + dark) | 3 | DELIBERATE — footer reads *"Stress test — Eight rows — the categorical palette's ceiling"* |
+| `themes/palette-audit` | 2, 84 | **REAL, and fixed here** |
+
+**The one genuinely broken artifact is the one no fit gate watches.** `overflow:check` reported
+the corpus clean at 0 above a baseline of 7 — correctly, because `themes/palette-audit.md` is not
+in its corpus. Two instruments, and the artifact outside both of them is where the defect was.
+That is the #1279 lesson landing a third time: the set of committed artifacts drifting from the
+set any gate knows about IS the defect.
+
+Both broken slides were the same authoring error. `_class: title` carries an h1, an optional
+inline-code eyebrow and an optional subtitle — `lib/components/anchor/title/title.docs.md` lists
+exactly three slots and none of them is a blockquote. Slide 1 handed it a six-line Key Insight,
+which the layout had nowhere to put, so the panel occluded the lede and auto-split cut what was
+left. The scoring slide handed the same layout three paragraphs, a six-item list and a trailing
+note, and silently dropped `Hue coverage — 5 pts`. Both now put their prose on a `content` slide;
+the deck goes from two content-losing slides to zero and from one overflow warning to none.
+
+### The height was set by how the file was wrapped, not by how much it said
+
+Worth its own line because the first fix got it wrong. The Key Insight panel was enormous, and
+the obvious reading is "too many words". It is not: `lib/engine/index.js:226` sets markdown-it's
+`breaks: true` to match marp-core, so **every newline inside a paragraph or blockquote renders as
+a `<br>`**. The audit deck's note was wrapped at ~100 columns in the source, so it rendered one
+hard break per source line — the panel's height was a property of the author's text editor.
+Unwrapping the source is what made it fit; the words that were cut in the first attempt did not
+need cutting. `lib/core/overflow-probe.js:908` already carries the same warning for anyone
+measuring overflow.
+
 ## 5. What was checked before blessing
 
 Both arms `2026-08-24-golden-corpus-re-bless.md` §5 established, because a mechanical

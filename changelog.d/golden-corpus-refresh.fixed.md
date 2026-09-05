@@ -38,3 +38,18 @@
   `docs/scripts/rasterize-showcase.mjs --check` and takes the `docs-build` and `preview`
   jobs with it. Regenerated. A gallery bless owes this whenever the blessed gallery is one
   of the 30 the showcase samples.
+- **Fixed: `themes/palette-audit` shipped two slides that lost content.** A corpus-wide scan of
+  every committed golden's text layer for the engine's `Content clipped` tag found 9 clipped
+  slides across 5 artifacts. Six are deliberate — `examples/overflow-fix-me` exists to
+  demonstrate overflow, `examples/marker-corner` renders the corner collision on purpose, and
+  `premise.gallery` p3 is a labelled stress test of the eight-row ceiling. The other two were
+  real: the audit deck's opening slide was a `title` layout carrying a six-line Key Insight
+  blockquote, which the title component has no slot for, so the panel occluded the lede; and the
+  scoring slide silently dropped its `Hue coverage — 5 pts` bullet. Both were `title` slides
+  doing a content slide's job, and both now carry their prose on a `content` slide. The deck
+  goes from 2 content-losing slides to 0, and from 1 overflow warning to none.
+- **A hard-wrapped paragraph is a taller paragraph.** `lib/engine/index.js` sets markdown-it's
+  `breaks: true` (matching marp-core), so every newline inside a paragraph or blockquote renders
+  as a `<br>`. The audit deck's Key Insight was wrapped at ~100 columns in the source and got one
+  hard break per source line, inflating the panel well past what the text needs. Unwrapping the
+  source, not cutting the words, is what made it fit.
