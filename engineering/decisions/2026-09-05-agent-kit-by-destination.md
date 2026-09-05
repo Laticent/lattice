@@ -11,7 +11,7 @@ summary: >
   near a size cap; everything is over a count cap); the kit's cheapest honest entry is ~9.5k
   tokens against a 4,096-token default local context that truncates silently, so the current
   kit cannot physically be used by a default Ollama install; and 20 layouts cover 91% of real
-  SLIDES but only 24% of real DECKS, which turns the small-model design from "a shortlist"
+  SLIDES but only 26% of real DECKS, which turns the small-model design from "a shortlist"
   into "a shortlist plus a named fallback". Also fixes a live cross-kit defect found by
   rendering a generated example and looking at it — the kit told every model to write
   `theme: indaco`, which the Marp kit published beside it cannot resolve, so the deck
@@ -56,7 +56,7 @@ Three gaps were measurable rather than aesthetic:
 **File count binds; bytes do not.** Knowledge uploaders cap the number of files —
 a reported 20 for a Custom GPT, a reported 10 for a Gem, 5 on a free ChatGPT
 Project — and flatten folders. Per-file size caps are 512 MB, 100 MB, 200 MB. Our
-largest file is 415 KB. **Nothing we ship is close to a size cap and everything we
+largest file is 452 KiB. **Nothing we ship is close to a size cap and everything we
 ship is over a count cap**, which makes a bundling step mandatory rather than tidy.
 Ten is the tightest common denominator, so `upload/` is ten files. The kit also
 carried **six files named `README.md`**, which collide the moment anyone drags the
@@ -72,7 +72,7 @@ model card.
 
 **Coverage of slides and coverage of decks are not the same question.** Over
 `exemplars/` — 46 realistic decks, 553 component slides — a top-20 layout list
-covers **91% of slides but only 24% of decks end to end**, because nearly every
+covers **91% of slides but only 26% of decks end to end** (12 of 46), because nearly every
 real deck reaches for one specialist. So the small-model path cannot be a
 shortlist. It is a shortlist **plus a named fallback** ("if nothing fits, use
 `content` or `list`"), which takes deck coverage to 100% at a bounded quality cost
@@ -81,12 +81,16 @@ on ~9% of slides. That one line is the most load-bearing sentence in the file.
 `examples/` was deliberately NOT used to derive the shortlist: HARD RULE #9 makes
 it one deck per component by construction, so it over-weights niche layouts.
 
-**Essential and taste are separable in code, not by opinion.** `lint-core.js` rates
-nine rules `error`; all 18 entries of the reviewer's `RUBRIC` are `suggestion`. The
-old `rules.md` and the canon present both classes in one undifferentiated voice — a
-frontier model can weight them, a small one cannot. Every paste text now carries all
-nine essentials and exactly two taste rules, chosen because they change the SHAPE of
-the draft rather than something fixable afterwards.
+**Essential and taste are separable, and the taste half is separable IN CODE.** All 18
+entries of the reviewer's `RUBRIC` are `suggestion` severity, so every one of them can
+be deferred to `check.mjs` and costs no prompt budget. The structural half is messier
+than a first draft of this note claimed: of the nine essentials the paste texts carry,
+four map to `error` rules in `lint-core.js`, one to a `warning`, and **four have no lint
+rule at all** — separator spacing, the three-space nested indent under `1.`, bookend slot
+order, and never writing a hex code. Those four are exactly why prose has to carry them:
+they break a render and no gate will tell you. The old `rules.md` and the canon present
+all three classes in one undifferentiated voice, which a frontier model can weight and a
+small one cannot.
 
 ## 3. The cross-kit defect, and why only rendering found it
 
@@ -136,6 +140,20 @@ deleted its whole llms.txt family in 2026 for lack of traffic.
 - The Marp kit ships only `cuoio`. Adding `indaco` would make the engine's own
   default work on the copy-and-go route; that is `build-marp-kit.js` scope.
 - `dist/README.md` carries 60+ "TODO: describe this artifact" placeholders.
+- **Two British spellings ship in the kit's worked examples** — `modernisation`
+  (`exemplars/government-public/budget-proposal.md`) and `photosynthesise`
+  (`exemplars/academic/lecture.md`), against HARD RULE #21. The repo's own
+  `tools/us-english.js` map carries neither, so no gate sees them.
+  **This change tried to fix them and reverted.** Editing those two decks made the
+  pre-commit hook rebuild their committed golden PDFs on this machine, and
+  `golden-diff` then reported **5 slides of pixel churn across 2 goldens** — labels
+  re-wrapping from two lines to one on slides the edit never touched. That is the
+  cross-host Skia drift `engineering/pipeline.md` §131-163 documents, not a
+  consequence of the words. HARD RULE #8 (isolate feature content from the
+  long-running galleries) and #18 (log an off-path defect, do not pull it into the
+  diff) both point the same way, and the golden churn is what they exist to
+  prevent. Fix them in a change whose subject is the exemplars, where the golden
+  rebuild is the expected diff rather than noise.
 - `reference/components.md` is a mechanical concatenation of the 61 component
   files: 105,200 of its 106,194 tokens are a second copy, and the same prose ships
   a third time inside `components.json`. About 46% of the kit is that triplication.
