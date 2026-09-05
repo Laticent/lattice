@@ -15,9 +15,19 @@ import { BookOpen, FileBox, FileSliders, Gauge, Layers, PencilLine, Settings as 
 import type * as React from 'react';
 import { Separator } from '@/components/ui/separator';
 import { Tip } from '@/components/ui/tooltip';
+import { joinBase } from '@/lib/base-url.mjs';
 import { cn } from '@/lib/utils';
 import { ChatIcon, LensIcon } from './icons';
 import type { Posture } from './studio-store';
+
+// The site home, which the brand MARK links to at every width and stop. ONE constant for the
+// same reason `BAR_RULE` is one: the app header and the pre-paint skeleton both draw that link
+// and `studio-shell-parity.spec.ts` compares their boxes, so a second copy could drift.
+//
+// It goes through `joinBase` rather than being written `/`: the base is `/` in every
+// environment today, but a hardcoded root would silently break the day it isn't, and the
+// naive `${base}/` yields `//` — which a browser reads as protocol-relative.
+export const HOME_HREF = joinBase(import.meta.env.BASE_URL || '/', '');
 
 // The top bar's band rule. ONE constant because the app header and the pre-paint
 // skeleton both draw it and `studio-shell-parity.spec.ts` compares their boxes — two

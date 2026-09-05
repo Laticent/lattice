@@ -185,20 +185,77 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
 	});
 
-	it('Write keeps deck navigation — the switcher (Switch + New deck) rides the slim header; Read stays a calm label', async () => {
+	it('the brand mark is a link to the home page, and the launcher menu is a separate control', async () => {
 		seedPosture('read');
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
-		// Read: the deck is a calm label, not a switcher — no deck-CRUD affordance.
-		expect(document.querySelector('[data-demo="deck-switcher"]')).toBeNull();
-		// Dial to Write: the switcher appears. Deck-switching + New deck are the Write persona's
-		// most basic navigation — not strippable chrome (they used to be reachable NOWHERE in Write:
-		// not the slim header, and New deck wasn't even in ⌘K).
-		await user.click(screen.getByRole('button', { name: 'Write — editor + preview' }));
-		const switcher = document.querySelector('[data-demo="deck-switcher"]') as HTMLElement | null;
-		expect(switcher).not.toBeNull();
-		await user.click(switcher as HTMLElement);
+		// TWO CONTROLS, NOT ONE. They were a single button, so the only way out of the Studio
+		// to the marketing site was the browser's back button, and clicking the thing every
+		// other page on this site treats as a home link opened a menu instead.
+		const home = screen.getByRole('link', { name: 'Lattice — home' });
+		// A real href, not an onClick: ⌘-click, middle-click and "copy link address" all have
+		// to work, which is also what makes it match SiteHeader's `sh-brand`.
+		expect(home).toHaveAttribute('href', '/');
+		// …and the menu is still one tap away on its own trigger, with the same three doors.
+		await user.click(screen.getByRole('button', { name: 'Workspace launcher' }));
+		for (const door of ['Decks', 'Fabricate', 'Import deck…']) {
+			expect(screen.getByRole('menuitem', { name: new RegExp(door.replace('…', '')) })).toBeInTheDocument();
+		}
+	});
+
+	it.each(['pagehide', 'visibilitychange'])('a %s writes the live deck source through, without waiting for the 400ms debounce', (evt) => {
+		// WHY THIS EXISTS: the editor's writes run on a 400ms debounce, and an unmount CLEARS
+		// that timer rather than running it — so anything typed in the last 400ms before a
+		// departure was lost. The exposure predates the brand link (the browser's own back
+		// button did it too), but the link puts a leave-the-page control one tap from the
+		// editor, which makes it a routine path (HARD RULE #18).
+		//
+		// The assertion is the WIRING — the handler is registered and writes the source that
+		// is live at the moment the page hides — not a keystroke round trip: CodeMirror is
+		// lazy and never mounts in jsdom, so there is no editor textbox here to type into.
+		// The same handler serves FLUSH_EVENT, which `workspace-backup` already exercises.
+		localStorage.clear();
+		seedPosture('write');
+		render(<StudioShell options={options} />);
+		expect(
+			Object.keys(localStorage).find((k) => k.startsWith('lattice-studio-src-')),
+			'nothing should be written before the first flush — the debounce skips its first run',
+		).toBeUndefined();
+		act(() => {
+			if (evt === 'pagehide') window.dispatchEvent(new Event('pagehide'));
+			else {
+				// Restored below: `visibilityState` is an own property once redefined, so leaving
+				// it 'hidden' would leak a hidden document into every test after this one.
+				Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+				document.dispatchEvent(new Event('visibilitychange'));
+			}
+		});
+		if (evt === 'visibilitychange') Reflect.deleteProperty(document, 'visibilityState');
+		const written = Object.entries(localStorage).find(([k]) => k.startsWith('lattice-studio-src-'));
+		expect(written, `${evt} did not flush the deck source`).toBeDefined();
+		expect(String(written?.[1]), 'the flushed value is not the deck the editor is on').toContain('_class:');
+	});
+
+	it('deck navigation is in the header at EVERY stop — Read included', async () => {
+		seedPosture('read');
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		// READ GETS THE REAL SWITCHER. It used to get a dead title label, on the theory that
+		// managing decks is a Write-and-up concern — which left a reader whose saved posture is
+		// Read with no route to their other decks anywhere in the app, and made the header's
+		// left run change shape on every dial step (owner, 2026-09-05: *"read doesn't allow you
+		// to select a deck which is wrong imo"*).
+		const atRead = document.querySelector('[data-demo="deck-switcher"]') as HTMLElement | null;
+		expect(atRead).not.toBeNull();
+		await user.click(atRead as HTMLElement);
 		expect(screen.getByRole('menuitem', { name: 'New deck' })).toBeInTheDocument();
+		await user.keyboard('{Escape}');
+		// …and it is the SAME one control at Write and Craft, not a per-stop copy: exactly one
+		// element carries the hook at each stop, which is what makes the row's left run stable.
+		for (const stop of ['Write — editor + preview', 'Craft — every panel']) {
+			await user.click(screen.getByRole('button', { name: stop }));
+			expect(document.querySelectorAll('[data-demo="deck-switcher"]')).toHaveLength(1);
+		}
 	});
 
 	it('mobile: the Read home — "Edit this slide" swaps to the editor + persists Write', async () => {

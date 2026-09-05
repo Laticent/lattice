@@ -6,7 +6,7 @@ import { Kbd } from '@/components/ui/kbd';
 import { Separator } from '@/components/ui/separator';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { ACTIVITY_RAIL_CLOSED, ActivityRail, BAR_RULE, BarIcon, EditorSkeleton, PostureDial } from './chrome-parts';
+import { ACTIVITY_RAIL_CLOSED, ActivityRail, BAR_RULE, BarIcon, EditorSkeleton, HOME_HREF, PostureDial } from './chrome-parts';
 import { ChatIcon, FeedbackIcon, PreviewIcon } from './icons';
 import { LatticeMark } from './LatticeMark';
 
@@ -72,13 +72,10 @@ function ActionBar() {
 /**
  * The deck pill — content-sized exactly as the app's is (min-w-0 + truncating title).
  *
- * The app has TWO of these, and which one it renders is a tier AND stop question. The FULL
- * header (phone, tablet, and desktop at Craft) carries the bordered switcher below. The
- * DESKTOP SLIM header at Read carries no switcher at all — deck navigation is a Write-and-up
- * concern there — just a plain title and a mono slide count. `ReadTitle` is that second one;
- * the CSS gate picks between them. Flattening the pill's borders and calling it a title, which
- * is what the shell did, left the title 27px right of the app's and drew a live-dot the app
- * does not have at Read.
+ * ONE of these now, at every width and every stop, because the app draws one. Desktop Read
+ * used to carry no switcher at all — deck navigation was a Write-and-up concern there — so
+ * this file also carried a `ReadTitle` twin and `studio.astro` a media query to pick between
+ * them. Both are gone with the slim header (2026-09-05).
  */
 function DeckPill({ title }: { title: string }) {
 	return (
@@ -109,18 +106,6 @@ function DeckPill({ title }: { title: string }) {
 			<span aria-hidden="true" className="hidden h-2.5 w-[53px] shrink-0 rounded-full bg-current opacity-25 xl:inline-block" />
 			<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
 		</button>
-	);
-}
-
-/** The desktop SLIM header's deck line at Read: a plain title, plus the slide-count meta. */
-function ReadTitle({ title }: { title: string }) {
-	return (
-		<span className="ssr-read-title hidden">
-			<span className="ssr-deck-title min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{title}</span>
-			{/* Same reasoning as the pill's meta slot: "7 slides" is deck content the shell must
-			    not draw, but its width is part of the row, so reserve it at the measured width. */}
-			<span aria-hidden="true" className="hidden h-2.5 w-[53px] shrink-0 rounded-full bg-current opacity-25 sm:inline-block" />
-		</span>
 	);
 }
 
@@ -172,35 +157,37 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 		// `Tip`; Radix reads context at render, so without it a build-time render throws.
 		<TooltipProvider>
 			{/* ── Top bar ─────────────────────────────────────────────────────────
-			    Below 1100 the app renders its FULL header; at 1100+ (Read/Write) a SLIM one.
-			    Both are rendered and CSS-gated, since the breakpoint hook can't run here. */}
+			    ONE row, every width and every stop — the app renders one `<header>` now, so the
+			    shell has one too. It used to draw a FULL row and a SLIM one and let CSS pick by
+			    `data-ssr-stop`; the app's own slim/full split is gone (2026-09-05), and with it
+			    `.ssr-launcher-wrap`, `.ssr-craft-lead`, `.ssr-read-title` and `.ssr-desktop-tail`.
+			    What remains CSS-gated here is WIDTH — the breakpoint hook cannot run at build
+			    time — at the app's own 700 / 1100 boundaries, never Tailwind's. */}
 			<div className="ssr-topbar flex h-[54px] shrink-0 items-center gap-1.5 overflow-hidden border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 min-[1100px]:gap-3 min-[1100px]:px-3.5">
-				{/* FULL-header left: the launcher (mark + chevron). Phone + tablet — and desktop at
-				    CRAFT, where the app swaps the slim header for this one. That last case is not
-				    expressible in a Tailwind width class (it depends on the STOP), so the shell CSS
-				    re-gates these three spans under `:root[data-ssr-stop="craft"]`; drawing the slim
-				    header's bare mark there instead pushed the deck pill 27px right. */}
-				<span className="ssr-launcher-wrap contents">
-					<button type="button" aria-label="Workspace launcher" className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 sm:gap-2 sm:px-1.5">
+				{/* THE BRAND BLOCK — two controls in one 2px group: the mark links home, the
+				    chevron (plus the wordmark from 1100 up) opens the workspace menu. Two boxes,
+				    not one, because the app draws two and the parity matrix compares SETS. */}
+				<div className="flex shrink-0 items-center gap-0.5">
+					{/* The app's `BRAND_BOX` minus its hover/focus states, which a pre-paint shell can
+					    never be in — the BOX is what the parity matrix compares. */}
+					<a href={HOME_HREF} aria-label="Lattice — home" className="flex h-8 shrink-0 items-center rounded-md px-1 sm:px-1.5">
 						<LatticeMark mode="light" className="size-7 ssr-mark-light" /><LatticeMark mode="dark" className="size-7 ssr-mark-dark" />
-						{/* The wordmark rides the launcher only at !compact — the desktop FULL header, which
-							    is what the app renders at Craft. */}
-							<span className="hidden font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)] min-[1100px]:inline" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Lattice</span>
-							<ChevronDown className="size-4 text-muted-foreground" />
+					</a>
+					<button type="button" aria-label="Workspace launcher" className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 sm:gap-2 sm:px-1.5">
+						{/* The wordmark rides the launcher only at !compact. */}
+						<span className="hidden font-display text-[19px] font-extrabold tracking-tight text-[var(--text-heading)] min-[1100px]:inline" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>Lattice</span>
+						<ChevronDown className="size-4 text-muted-foreground" />
 					</button>
-				</span>
-				{/* The rule between the launcher and the deck pill — `!compact` in the app, so it
-				    exists ONLY in the desktop full header, which is the Craft stop. */}
-				<span className="ssr-craft-lead hidden">
+				</div>
+				{/* RULE 1 — brand | deck. `!compact` in the app, at every stop. */}
+				<span className="hidden min-[1100px]:contents">
 					<Separator orientation="vertical" className={BAR_RULE} />
 				</span>
 
 				<DeckPill title={deckTitle} />
-				<ReadTitle title={deckTitle} />
-				{/* IDENTITY BAND — the rule + dial the app renders right after the deck at every
-				    width from 700 up (`!mobile`). It lived in the three tails below until
-				    2026-08-16; the app moved it up here, so this must too or the parity spec
-				    fails on every control right of the deck pill. */}
+				{/* RULE 2 — deck | dial, closing the identity band. `!compact` in the app, at every
+				    stop; it was `hidden xl:block` there until 2026-09-05, which is why this span's
+				    1100 gate used to disagree with the app across 1100–1279 at Craft. */}
 				<span className="hidden min-[1100px]:contents">
 					<Separator orientation="vertical" className={BAR_RULE} />
 				</span>
@@ -218,28 +205,20 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 					<Button variant="ghost" size="icon-sm" aria-label="Menu"><MenuIcon className="size-[18px]" /></Button>
 				</span>
 
-				{/* ≥700: ONE TAIL, ONE LADDER (2026-08-18). This was three tails — phone, tablet
-				    (700–1100) and desktop (≥1100) — mirroring an app that drew a different control
-				    set per tier. The app no longer does: search is present at EVERY width, and what
-				    overflows into the "More controls" menu is decided by WIDTH ALONE, so a resized
-				    desktop window and a tablet at the same width draw the same row. The skeleton has
-				    to say the same thing or parity fails on every control right of the deck pill.
+				{/* ≥700: ONE TAIL, ONE LADDER. This was three tails, then two — phone, tablet and
+				    desktop, then a desktop pair split by STOP — each mirroring an app that drew a
+				    different control set per tier or stop. The app draws one row now: search is
+				    present at EVERY width, the appearance box and tours at every STOP, and what
+				    overflows into the "More controls" menu is decided by WIDTH ALONE. So a resized
+				    desktop window, a tablet at the same width, and a dial step all draw the same
+				    row — and the skeleton has to say the same thing or parity fails on every
+				    control right of the deck pill.
 				    The ladder, first to leave the row: theme + tours (xl) → feedback (lg) →
-				    Present/Share (md). Search and the menu never leave. */}
-				<span className="ssr-desktop-tail hidden min-[700px]:contents">
-					<button type="button" aria-label="Search or run a command" className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] xl:px-3">
-						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
-						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
-					</button>
-					<Button size="sm" className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
-					<Button variant="outline" size="sm" className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
-					<Button variant="ghost" size="icon-sm" aria-label="Send feedback" className="hidden lg:inline-flex"><FeedbackIcon className="size-[18px]" /></Button>
-					<Button variant="ghost" size="icon-sm" aria-label="More controls"><MenuIcon className="size-[18px]" /></Button>
-				</span>
-				{/* CRAFT keeps two extra utilities, and only from `xl` up — the stop carries more,
-				    but the WIDTH rule is the same one. Their bracketing rules are `xl` too, or they
-				    would draw with nothing between them. */}
-				<span className="ssr-craft-tail hidden min-[700px]:contents">
+				    Present/Share (md). Search and the menu never leave.
+				    ONE rule in this run, not two: it closes the utilities band before the verbs.
+				    It is `min-[1100px]` and not `xl`, matching the app's `!compact` gate — at
+				    1100–1279 the appearance box and tours are gone but the band still closes. */}
+				<span className="hidden min-[700px]:contents">
 					<button type="button" aria-label="Search or run a command" className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-border bg-card px-2 text-[13px] text-[var(--text-body)] xl:px-3">
 						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
 						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
@@ -248,9 +227,8 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 						<Button variant="ghost" size="icon-sm" className="size-[26px]" aria-label="Theme"><Palette className="size-[18px]" /></Button>
 						<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark size-[26px]"><Moon className="size-[18px]" /></Button>
 					</span>
-					<Separator orientation="vertical" className={cn(BAR_RULE, 'hidden xl:block')} />
 					<Button variant="ghost" size="icon-sm" aria-label="Show me — guided tours" className="ssr-tours hidden text-[var(--text-body)] xl:inline-flex"><MonitorPlay className="size-[18px]" /></Button>
-					<Separator orientation="vertical" className={cn(BAR_RULE, 'hidden xl:block')} />
+					<Separator orientation="vertical" className={cn(BAR_RULE, 'hidden min-[1100px]:block')} />
 					<Button size="sm" className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button>
 					<Button variant="outline" size="sm" className="hidden gap-1.5 px-2 md:inline-flex lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Send feedback" className="hidden lg:inline-flex"><FeedbackIcon className="size-[18px]" /></Button>

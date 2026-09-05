@@ -47,7 +47,7 @@ import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import type { ComposeHandle } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
-import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, EditorSkeleton, PostureDial } from './chrome-parts';
+import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, EditorSkeleton, HOME_HREF, PostureDial } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
@@ -1226,10 +1226,29 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// for an immediate write-through, so a download can't race the 400ms timer
 	// above — without this, a JUST-edited built-in deck could drop out of the
 	// backup entirely (no stored source yet at pack time).
+	//
+	// `pagehide` and a hide `visibilitychange` are on the SAME flush, and they are here
+	// because of the brand mark: it is an `<a href>` to the site home now, so the Studio
+	// has an in-app control that LEAVES THE PAGE, one tap from the editor. The 400ms
+	// debounce above means the last keystrokes before that tap were still in a pending
+	// timer, and an unmount does not run it — it clears it. The exposure predates the
+	// link (the browser's own back button, a bookmark, a closed tab all did this), but
+	// the link is what makes it a routine path rather than an edge, so it is fixed here
+	// rather than logged (HARD RULE #18: a latent fragility your change tips into
+	// failure is yours). Same two events, in the same order, as the preview-rect
+	// snapshot above: `pagehide` for a real navigation, `visibilitychange` for the
+	// mobile tab-switch that may never fire `pagehide` at all.
 	React.useEffect(() => {
 		const flush = () => saveSourceGuarded(deck.id, source);
+		const onVisibility = () => { if (document.visibilityState === 'hidden') flush(); };
 		window.addEventListener(FLUSH_EVENT, flush);
-		return () => window.removeEventListener(FLUSH_EVENT, flush);
+		window.addEventListener('pagehide', flush);
+		document.addEventListener('visibilitychange', onVisibility);
+		return () => {
+			window.removeEventListener(FLUSH_EVENT, flush);
+			window.removeEventListener('pagehide', flush);
+			document.removeEventListener('visibilitychange', onVisibility);
+		};
 	}, [source, deck.id, saveSourceGuarded]);
 
 	// Record the deck + slide currently in view, so a reload (or an iOS memory-reclaim
@@ -4018,30 +4037,59 @@ export default function StudioShell({ options, components: seedComponents = [], 
 
 	// Feedback — a persistent, one-tap entry point (not gated on onboarded — first
 	// impressions matter too). Opens a pre-filled GitHub issue; no token, no backend.
-	// ONE definition, rendered by BOTH headers (the slim Read/Write header and the
-	// full Craft/compact one) at the SAME tail slot, so stepping the dial never moves
-	// it — nor anything beside it. Before this it lived only in the full header, which
-	// made the desktop right cluster jump 70px on every Write↔Craft step and left Read
-	// and Write with no feedback affordance at all.
+	// It rode the SAME tail slot in both of the row's former headers so that stepping the
+	// dial never moved it; there is one header now, so that is structural rather than
+	// maintained. Before either, it lived only in the Craft header, which made the desktop
+	// right cluster jump 70px on every Write↔Craft step and left Read and Write with no
+	// feedback affordance at all.
 	/**
-	 * THE LOGO IS A DROPDOWN AT EVERY WIDTH AND EVERY STOP — the first item on the
-	 * persist list (owner, 2026-08-18: *"as the available width decreases things that
-	 * persist are the logo drop down, deck selection dropdown, dial and search"*).
+	 * THE BRAND BLOCK — TWO controls, not one: the MARK goes home, the WORDMARK opens the
+	 * workspace menu.
 	 *
-	 * It is hoisted here because the slim Read/Write header used to render a BARE
-	 * `LatticeMark` while the full header rendered this menu, so resizing a desktop
-	 * window across 1099 made the workspace launcher appear out of nowhere. Same
-	 * control, one definition, both headers — a discontinuity you can see is a
-	 * discontinuity in the source.
+	 * They were a single button, so the only way to reach the marketing site from the Studio
+	 * was the browser's back button, and clicking the thing every other page on this site
+	 * treats as a home link opened a menu instead. Owner, 2026-09-05: *"we need to separate
+	 * the logo and the word lattice with the drop down with deck, fabricate. touching or
+	 * clicking the logo should take you to the home page."*
+	 *
+	 * The mark is a real `<a href>`, not a button with an `onClick`: middle-click, ⌘-click and
+	 * "copy link address" all work, and it matches `SiteHeader.astro`'s `sh-brand` — same
+	 * destination, same accessible name (`Lattice — home`).
+	 *
+	 * THE TWO SIT IN ONE GROUP with a 2px gap, NOT as two header children. The header's own
+	 * gap is 6px (12px at desktop), so two loose children would read as two unrelated objects
+	 * AND cost 4px more than the group does. Each half keeps its own hover ground and its own
+	 * focus ring, which is what says they are two targets.
+	 *
+	 * THE SPLIT COSTS WIDTH, and the number is measured, not derived: the group is 62px below
+	 * 640, 70px at 640–1099 and 134px at ≥1100, against 58 / 64 / 128 for the single button it
+	 * replaced. That is +4px / +6px / +6px — the second box's own padding, which is the price
+	 * of a second target. `studio-header-fit`'s ≥16px spare floor at 700 still passes, which is
+	 * the only place it could have mattered.
+	 *
+	 * The menu itself is unchanged, and it persists at EVERY width and stop — the first item
+	 * on the persist list (owner, 2026-08-18: *"as the available width decreases things that
+	 * persist are the logo drop down, deck selection dropdown, dial and search"*).
 	 */
-	const workspaceLauncher = (
+	// ONE class list for both halves' shared box, so the two targets are the same height and
+	// carry the same hover ground and the same focus ring. The ring is `Button`'s own idiom
+	// (`ui/button.tsx`) rather than the UA default: the mark is now the FIRST focusable thing
+	// in the app, and a square browser outline on a `rounded-md` chip is the one place a
+	// keyboard user meets the Studio.
+	const BRAND_BOX =
+		'flex h-8 shrink-0 items-center rounded-md px-1 outline-none transition-colors hover:bg-[color-mix(in_srgb,var(--accent)_9%,transparent)] focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:px-1.5';
+	const brandLauncher = (
+		<div className="flex shrink-0 items-center gap-0.5">
+			<Tip label="Lattice — home">
+				<a href={HOME_HREF} aria-label="Lattice — home" className={BRAND_BOX}>
+					<LatticeMark mode={mode} className="size-7" />
+				</a>
+			</Tip>
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
-					{/* The real brand mark (not a text tile), and the chevron shows at EVERY
-					    width — without it the phone-width trigger reads as a static logo,
-					    not a menu. */}
-					<button type="button" className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-1 hover:bg-[color-mix(in_srgb,var(--accent)_9%,transparent)] sm:gap-2 sm:px-1.5" aria-label="Workspace launcher">
-						<LatticeMark mode={mode} className="size-7" />
+					{/* The chevron shows at EVERY width — below 1100 it is the whole trigger, and
+					    without it the compact launcher would be an invisible target beside the mark. */}
+					<button type="button" className={cn(BRAND_BOX, 'gap-1.5 sm:gap-2')} aria-label="Workspace launcher">
 						{/* DESKTOP ONLY. Below 1100 the header is out of room — adding the feedback
 						    button pushed the ⋯ Menu clean off an 820px tablet — and 64px of
 						    decoration is the first thing to spend when the mark and the chevron
@@ -4068,6 +4116,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<DropdownMenuItem onSelect={() => importInputRef.current?.click()}><Upload className="size-4" />Import deck…</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
+		</div>
 	);
 
 	const feedbackButton = (
@@ -4176,11 +4225,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		</DropdownMenu>
 	);
 
-	// The deck switcher — deck identity + CRUD (Switch / Rename / New). SHARED by the
-	// full header (Craft / compact) AND the slim Write header: deck-switching and
-	// New deck are the Write persona's most basic navigation, not strippable chrome,
-	// so Write gets the real switcher, not a dead title label. Read stays a calm label
-	// (one sample deck; managing decks is a Write-and-up concern — dial up to reach it).
+	// The deck switcher — deck identity + CRUD (Switch / Rename / New). ONE control, drawn
+	// at EVERY width and EVERY stop. Read used to get a dead title label instead, on the
+	// theory that managing decks is a Write-and-up concern; a reader whose saved posture is
+	// Read then had no route to their other decks anywhere in the app, and the row's left
+	// run changed shape on every dial step. Deck navigation is not strippable chrome
+	// (owner, 2026-09-05: *"read doesn't allow you to select a deck which is wrong imo"*).
 	const deckSwitcher = (
 		<DropdownMenu open={deckMenuOpen} onOpenChange={setDeckMenuOpen}>
 			<DropdownMenuTrigger asChild>
@@ -4352,16 +4402,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    real change (never on mount, never behind Fabricate) by the effect above. */}
 			<div role="status" aria-live="polite" className="sr-only">{stopAnnounce}</div>
 			{/* ── Top bar ─────────────────────────────────────────────── */}
-			{/* Read + Write stops (DESKTOP only): a slim header — deck title · ⌘K · Present ·
-			    Share · the dial. Most of the control cluster is gone; ⌘K still reaches
-			    every feature, and the dial is the always-visible way to any stop (no
-			    "exit" — you are never in a mode, only at a stop). On COMPACT widths the
-			    full header stays (its ⋯ overflow carries deck-switch / theme / tours),
-			    since a slim header would strand those; the dial rides the full header. */}
-			{/* The cinema morph (iPhone landscape) shows NO header — the slide is the whole
-			    screen. Every other width/stop keeps its header. */}
-			{!landscapePhone && (effectiveStop !== 'craft' && !compact ? (
-			<header className={cn('flex h-[54px] shrink-0 items-center gap-3 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-3.5',
+			{/* ONE HEADER, EVERY STOP AND EVERY WIDTH (owner, 2026-09-05: *"the shell should
+			    also be consistent too. there should be zero shift when moving between these
+			    views. the idea being the shell has the same look"*).
+			    Desktop Read and Write used to render a SEPARATE, slimmer header — no rule before
+			    the deck, a plain title instead of the switcher, and no appearance box or tours in
+			    the tail. Two rows meant every Write↔Craft step swapped one whole `<header>` for
+			    another, which is #1414: the deck pill reflowed, the rules moved, and the tail slid
+			    ~15px before landing back where it started. A row that rebuilds itself cannot be
+			    stable no matter how carefully its two copies are kept in step, so there is one copy.
+			    What still varies by STOP is the body below — Craft adds the activity rail and the
+			    docked panels — and nothing in this band.
+			    The cinema morph (iPhone landscape) shows NO header — the slide is the whole
+			    screen. Every other width/stop keeps this one. */}
+			{!landscapePhone && (
+			<header className={cn('flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 transition-[max-height,opacity,transform] duration-200 ease-out',
 				// THE CLIP LIFTS WHILE SEARCH IS OPEN — one of the TWO clips the inline dropdown
 				// has to clear, and the less interesting one. `overflow-x-auto` is this row's
 				// overflow survival valve (#1381), and `overflow-x: auto` computes
@@ -4373,74 +4428,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				// it is neutralized in CommandPalette.tsx, and that note is the one to read before
 				// touching this, because lifting either clip ALONE paints nothing and invites the
 				// wrong conclusion. The scroll valve is KEPT: it never had to be traded away.
-				searchExpanded ? 'relative z-30 overflow-visible' : 'overflow-x-auto overscroll-x-contain')}>
-				{workspaceLauncher}
-				{/* Read is calm — the deck is a label (a newcomer has the one sample deck;
-				    switching / New deck is a Write-and-up concern). Write gets the real
-				    switcher: deck navigation is not strippable chrome. */}
-				{effectiveStop === 'read' ? (
-					<>
-						<span className="min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{deckTitle}</span>
-						<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
-					</>
-				) : deckSwitcher}
-				{/* IDENTITY BAND: app · deck · view-of-the-deck (2026-08-16, owner's ordering).
-				    The dial sits WITH the deck rather than out in the action cluster, so the
-				    row's left-to-right reads as descending scope — which app, which deck, which
-				    view of it — and only then utilities and verbs. The rule is what makes that
-				    legible: without it the dial reads as a stray third object rather than the
-				    close of a band (measured, it also pulls the row's largest gap 144 → 130px).
-				    Cost, accepted knowingly: the dial no longer holds a fixed x. It now sits
-				    behind a content-sized, truncating deck pill, so its position moves with the
-				    deck's NAME and with the stop (Read renders a plain label, Write a switcher)
-				    — measured at 171px of travel across the three stops. That is the cheapest
-				    stability in the row to spend: this repo's own 2026-07-03 review found the
-				    mode control is "the least-used control on the bar". Present, Share and
-				    feedback keep their pinned x — see the tail note below. */}
-				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
-				{!mobile && <PostureDial posture={posture} quietened={quietened} revealCraft={revealCraft} onChange={changePosture} />}
-				<div className="flex-1" />
-				{/* The search is the header's own combobox now, not a button that opens an
-				    overlay (2026-08-16). Closed it renders the same pill it always did — the SSR
-				    skeleton draws that pill and `studio-shell-parity` measures it, so the idle box
-				    must not move. Opened it becomes the field, grown into the row's free space with
-				    the command list beneath it.
-				    No `Tip` wrapper any more: a tooltip belongs on a button, not on a control that
-				    turns into a text field under the pointer — and Radix would keep it armed while
-				    you type. The ⌘K hint the tooltip carried is drawn inside the pill itself.
-				    Desktop only. `cmdPalette` below mounts the OVERLAY for compact tiers, and the
-				    two are mutually exclusive, so exactly one search surface exists per width. */}
-				{cmdInline}
-				{/* THE ROW YIELDS ITS TAIL WHILE THE FIELD IS OPEN (owner's call, 2026-08-17).
-				    The #1371 x-invariant below is about the IDLE row and is unaffected: these
-				    three still sit at the same x at Read, Write and Craft, and still mirror the
-				    full header, whenever the search is closed. While it is open they are not
-				    moved — they are GONE — so there is no x to disagree about, and the width they
-				    were holding goes to the field instead of coming out of the deck title.
-				    `studio-header-fit`'s open-state guard asserts exactly that. */}
-				{searchExpanded ? overflowMenu : (<>
-				{/* THE TAIL — Present · Share · feedback — mirrors the full header's tail
-				    EXACTLY, and that is the point: all three sit at the SAME x at Read, Write
-				    and Craft (#1371). It survives the dial moving to the identity band precisely
-				    BECAUSE the trailing run is what the invariant is about: everything the full
-				    header carries that this one doesn't (appearance, tours, their rules) sits
-				    LEFT of these three and is absorbed by the flex spacer, so the run's
-				    right-gaps are identical in both. Move or drop one element in this trailing
-				    run without doing the same in the full header and the whole cluster slides on
-				    every dial step. `studio-header-fit.spec.ts` asserts the x-stability but NOT
-				    the order, so the mirror is on you.
-				    Present/Share stay reachable at EVERY stop, never hidden behind a posture
-				    (2026-07-17-studio-persona-dial.md, T5 graft), and the accent CTA is still
-				    the last LABELED control — only the icon-only feedback button sits outboard,
-				    which is what the comparable set does. */}
-				<Tip label="Present"><Button size="sm" onClick={openPresent} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>
-				<Tip label="Share"><Button variant="outline" size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>
-				{feedbackButton}
-				{!mobile && overflowMenu}</>)}
-			</header>
-			) : (
-			<header className={cn('flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 transition-[max-height,opacity,transform] duration-200 ease-out',
-				// See the slim header's note: the clip lifts while the inline search is open.
 				searchExpanded ? 'relative z-30 overflow-visible' : 'overflow-x-auto overscroll-x-contain', compact ? 'sm:gap-1.5 sm:px-2.5' : 'sm:gap-3 sm:px-3.5', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
 				{/* SCROLLABLE WHEN IT OVERFLOWS — the failure mode, made survivable. Everything
 				    above is about making the row FIT; this is about what happens the day it
@@ -4473,9 +4460,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    desktop density back on and the deck title truncates to `Markdown for the …`
 				    at 1024 and to `M…` at 820 (measured). A JSX ternary branch admits exactly one
 				    element, which is why this note sits inside the tag rather than above it. */}
-				{workspaceLauncher}
+				{brandLauncher}
 
-				{/* DESKTOP-ONLY, like the two dividers further down the row. `hidden sm:block`
+				{/* RULE 1 of 3 — brand | deck. DESKTOP-ONLY, like the other two. `hidden sm:block`
 				    drew these from 640px up, so a tablet paid 7px each (1px rule + one 6px gap)
 				    for a banding device the phone header below it does without — and at the
 				    700px floor this row had NO free width to pay it from, so it came out of the
@@ -4485,27 +4472,33 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    boundary, never Tailwind's `sm`/`lg`. */}
 				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
 
+				{/* THE DECK SWITCHER RENDERS AT EVERY STOP, Read included (owner, 2026-09-05:
+				    *"read doesn't allow you to select a deck which is wrong imo"*). Read used to
+				    draw a plain label instead, on the theory that deck navigation is a
+				    Write-and-up concern — which left a reader with a saved Read posture no route
+				    to their other decks at all, and made the row's left run change SHAPE on every
+				    dial step. */}
 				{deckSwitcher}
 
-				{/* IDENTITY BAND — the twin of the slim header's; see the long note there for
-				    the ordering rationale and the x-drift it knowingly costs. Both headers must
-				    carry this pair, or the two rows disagree about where the dial lives and the
-				    stop change becomes a jump.
-				    Unlike the rule above it, this one is NOT `!compact`: the tablet renders this
-				    Gated `!compact`, NOT `!mobile`, and that is a budget fact rather than a taste
-				    one: a rule costs 7px here (1px + one 6px gap) and `studio-header-fit.spec.ts`
-				    measures ~19px of spare at the 700px floor against a ratcheted floor of 16 —
-				    so the tablet has about 3px to spend and this does not fit. Shipped at
-				    `!mobile` it took that floor to 9px and turned the guard red, which is the
-				    guard doing its job. Below desktop the row already does without the other two
-				    rules and reads as a wider phone header (#1408), so the band closes on
-				    proximity there instead.
+				{/* RULE 2 of 3 — deck | dial, closing the identity band. The row's left-to-right
+				    reads as descending scope: which app, which deck, which view of it — and only
+				    then utilities and verbs. The rule is what makes that legible; without it the
+				    dial reads as a stray third object rather than the close of a band (measured,
+				    it also pulls the row's largest gap 144 → 130px).
+				    Gated `!compact` like its two siblings, and NOT `hidden xl:block` as it used to
+				    be: an `xl` gate meant desktop widths 1100–1279 drew rule 1 and rule 3 but not
+				    this one, so the banding scheme changed with the window. The 7px it costs at
+				    1100 comes back from the rule this change deleted inside the utilities band.
+				    It is still never drawn below desktop: a rule costs 7px there (1px + one 6px
+				    gap) and `studio-header-fit.spec.ts` measures the spare at the 700px floor
+				    against a ratcheted 16px, so the tablet has about 3px to spend and this does
+				    not fit. Below desktop the band closes on proximity instead (#1408).
 				    The dial keeps its WORDS at every width it renders at (≥700) — why, and what
 				    that width is bought with, is on the dial itself in `chrome-parts.tsx`; the
 				    short version is #1401: icon-only made the stops unreachable on touch, and
 				    the row pays for the labels by keeping tours in ⋯ and running at the phone's
 				    density below desktop. */}
-				{!compact && <Separator orientation="vertical" className={cn(BAR_RULE, 'hidden xl:block')} />}
+				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
 				{!mobile && <PostureDial posture={posture} quietened={quietened} revealCraft={revealCraft} onChange={changePosture} />}
 
 				<div className="flex-1" />
@@ -4555,10 +4548,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</div>
 				)}
 
-				{/* Desktop dividers band the right cluster by altitude — utilities |
-				    deliverable verbs | session panels | app surfaces — so global and
-				    deck controls don't read as one interleaved run (2026-07-03). */}
-				{!compact && <Separator orientation="vertical" className={cn(BAR_RULE, 'hidden xl:block')} />}
+				{/* NO RULE HERE ANY MORE. Search, appearance and tours are ONE band — utilities —
+				    and a rule inside a band is what made the row's banding read as arbitrary
+				    (owner, 2026-09-05: *"i think we should have the dividers but part of me feels
+				    like it is off"*). The row now runs exactly three rules, each closing a band and
+				    each gated identically on `!compact`: brand | deck, deck | dial, utilities |
+				    verbs. This one used to bracket the appearance box on its own, so at `xl` the
+				    tail carried two rules 19px apart around a single 58px control. */}
 
 				{/* Present + Share — the deliverable verbs, primary at every width. On
 				    phones they live one row down in the pane bar (with the panel toggles),
@@ -4623,8 +4619,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						</DropdownMenuContent>
 					</DropdownMenu>
 				)}
-				{/* DESKTOP-ONLY — see the note on its twin above the deck switcher. It closes
-				    the utilities band; the verbs open after it. */}
+				{/* RULE 3 of 3 — utilities | verbs. DESKTOP-ONLY, same gate as the other two. It
+				    closes the utilities band (search, appearance, tours) whether one of them
+				    renders or all three; the verbs open after it. */}
 				{!compact && <Separator orientation="vertical" className={BAR_RULE} />}
 				{/* The dial used to sit HERE, between this rule and the verbs. It moved up to
 				    the identity band beside the deck (2026-08-16) — the note is on its new site.
@@ -4643,11 +4640,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    tablet AND desktop — the one fixed address for it. Tablet reaches it in one
 				    tap here instead of two through ⋯ (that row is gone: one action, one home).
 				    Desktop has no header Settings button (the activity bar owns it), so the same
-				    slot puts feedback last — which is exactly where the slim header ends too. */}
+				    slot puts feedback last. */}
 				{!mobile && feedbackButton}
-				{/* No trailing separator on desktop: it separated the feedback button from
-				    nothing (the controls after it are compact-only), and the 13px it spent
-				    was 13px the slim header could never match. */}
+				{/* No trailing separator on desktop: it would separate the feedback button from
+				    nothing — every control after it is compact-only. */}
 
 				{/* Compact (≤1099): the mode toggle stands alone (1-tap). The Menu
 				    trigger below it is SHARED by tablet and mobile (same position, same
@@ -4699,7 +4695,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    bar's Globals group; on compact they're in the ⋯ overflow (above). So the
 				    top bar carries neither here. */}
 			</header>
-			))}
+			)}
 
 			{/* ── Body ─────────────────────────────────────────────────── */}
 			{view === 'fabricate' ? (

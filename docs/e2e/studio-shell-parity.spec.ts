@@ -79,8 +79,8 @@ const CASES: {
 	{ w: 1099, h: 900, stop: 'write', why: 'top of the app tablet tier' },
 	{ w: 1100, h: 900, stop: 'write', why: 'bottom of the app desktop tier' },
 	{ w: 1440, h: 900, stop: 'write', smoke: true, why: 'desktop' },
-	{ w: 1440, h: 900, stop: 'read', why: 'desktop at Read — slim header, plain title' },
-	{ w: 1440, h: 900, stop: 'craft', why: 'desktop at Craft — activity rail + full header' },
+	{ w: 1440, h: 900, stop: 'read', why: 'desktop at Read — same header as Write and Craft' },
+	{ w: 1440, h: 900, stop: 'craft', why: 'desktop at Craft — activity rail, plus the tail utilities the row keeps at xl' },
 	// SHORT desktop, and the height is the point: at a raised minimum font size the rail's
 	// natural height (690px) exceeds this column (666px), so both surfaces have to shrink their
 	// cells the same way. A tall 1440x900 case cannot see it — nothing overflows there — which

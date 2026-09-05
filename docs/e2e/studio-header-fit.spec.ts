@@ -41,9 +41,10 @@ const DESKTOP = 1100; // the app's own boundary (use-breakpoint.ts), not Tailwin
 const XL = 1280; // Tailwind's `xl` — where the deck pill grows its slide-count meta
 const TOLERANCE = 2; // sub-pixel rounding, same as check:overflow
 const X_DRIFT = 1; // sub-pixel only: #1371's defect was a 70px jump, not a rounded pixel
-// Every geometry read waits for the row to STOP MOVING first. Stepping the dial at
-// ≥1100 swaps the slim header for the full one, and the deck pill then reflows for
-// ~100ms (250px → 240px), dragging Present from 630 to 616 as it goes. A read taken
+// Every geometry read waits for the row to STOP MOVING first. Stepping the dial at ≥1100
+// used to swap a slim header for the full one, and the deck pill then reflowed for
+// ~100ms (250px → 240px), dragging Present from 630 to 616 as it went. There is one
+// header now, so that particular reflow is gone — but the settle stays: a read taken
 // the instant React commits the button is a read of a row mid-flight: it reported
 // 616 / 616 / 631 locally and 616 / 616 / 617 on CI — the SAME defect, sized by how
 // busy the machine is. A tolerance cannot fix that; it only picks which machines
@@ -165,6 +166,53 @@ async function readHeader(page: import('@playwright/test').Page, tail: string[],
 }
 
 
+/**
+ * THE WHOLE ROW, in order, with every box — the oracle for "zero shift between the stops".
+ *
+ * `readHeader` above measures four TAIL controls, because for most of this file's life the
+ * three stops genuinely drew different rows at desktop (a slim Read/Write header, a full
+ * Craft one) and only the trailing run could be compared. That is what #1414 was: the tail
+ * landed back where it started while everything left of it — the rules, the deck control, the
+ * appearance box — appeared, vanished or moved on every dial step.
+ *
+ * There is ONE header now (2026-09-05), so the strongest available assertion is available:
+ * the row's whole control set, its ORDER and every box must be byte-identical across Read,
+ * Write and Craft at a given width. Anything a stop changes about this band fails here.
+ *
+ * Separators are included, keyed by their position among the rules. They are not controls —
+ * they carry no role and no name — but they are the substance of the complaint this test now
+ * guards ("the vertical divider is not consistent between read, write and craft"), and a
+ * name-keyed control census is exactly the shape of oracle that cannot see them.
+ */
+type RowCell = { key: string; x: number; w: number };
+
+async function readRow(page: import('@playwright/test').Page): Promise<RowCell[]> {
+	return page.evaluate(() => {
+		const h = document.querySelector('[data-studio-root] header');
+		if (!h) throw new Error('no [data-studio-root] header — the selector or the route moved');
+		// Same rewind as `readHeader`, for the same reason: every x here is a function of
+		// `scrollLeft`, and focus can scroll the row.
+		h.scrollLeft = 0;
+		const cells: RowCell[] = [];
+		let rule = 0;
+		for (const el of h.querySelectorAll('button, a[href], [data-slot="separator"]')) {
+			const r = el.getBoundingClientRect();
+			if (r.width < 1 || r.height < 1) continue;
+			// `data-slot === 'separator'` EXACTLY, never `hasAttribute('data-slot')`: every shadcn
+			// primitive carries the attribute, so the loose test keyed each Button `rule N` and
+			// the census then compared six rules and a search pill instead of the row.
+			const key = el.getAttribute('data-slot') === 'separator'
+				? `rule ${++rule}`
+				: el.getAttribute('aria-label') ||
+					el.getAttribute('data-demo') ||
+					(el.textContent || '').trim().slice(0, 24) ||
+					'<unnamed>';
+			cells.push({ key, x: Math.round(r.x), w: Math.round(r.width) });
+		}
+		return cells;
+	});
+}
+
 type PillShape = { width: number; floor: number; needs: number; spill: number; title: number };
 
 /**
@@ -197,11 +245,10 @@ type PillShape = { width: number; floor: number; needs: number; spill: number; t
  *            but reported, because "the title rendered at 0px" is what this defect looked
  *            like to a human long before anything was measurably outside the box.
  *
- * Returns `null` when the pill is not in the header at all, which is a REAL state and not
- * an error: at desktop the Read stop renders the calm slim header, where the deck is a
- * label rather than a switcher. The caller decides which states may legitimately be null
- * (see `pillExpected`), so an accidentally-vanished pill still fails rather than passing
- * as "nothing to measure".
+ * Returns `null` when the pill is not in the header at all. That used to be a REAL state —
+ * desktop Read drew a plain title instead of the switcher — and is now a failure at every
+ * width and stop; the caller asserts `not.toBeNull()` unconditionally, so an
+ * accidentally-vanished pill fails rather than passing as "nothing to measure".
  */
 async function readPill(page: import('@playwright/test').Page): Promise<PillShape | null> {
 	return page.evaluate(() => {
@@ -322,6 +369,7 @@ test('@smoke the Studio header fits — and keeps its words — at every support
 		await expect(header.getByRole('button', { name: /Search or run/ })).toHaveCount(1);
 
 		const perStop: Record<string, HeaderShape> = {};
+		const perRow: Record<string, RowCell[]> = {};
 		for (const stop of STOPS) {
 			const button = header.getByRole('button', { name: stop.name }).first();
 			await button.click();
@@ -394,16 +442,14 @@ test('@smoke the Studio header fits — and keeps its words — at every support
 			// reason every other geometry read here is: the pill is what reflows on a
 			// dial step, so a read taken as React commits is a read of a box mid-flight.
 			//
-			// The pill is in the header at every stop EXCEPT desktop Read, which renders the
-			// calm slim header where the deck is a label, not a switcher. Asserting that
-			// exception both ways keeps a vanished pill from passing as "nothing to measure"
-			// — the disguised-coverage failure this file already closed twice elsewhere.
+			// THE PILL IS IN THE HEADER AT EVERY WIDTH AND EVERY STOP, Read included. Desktop
+			// Read used to draw a plain title instead — deck navigation was a Write-and-up
+			// concern there — and this branch carried the `expect(pill).toBeNull()` arm that
+			// pinned it. A reader whose saved posture is Read then had no route to their other
+			// decks anywhere in the app (owner, 2026-09-05).
 			const pill = await readPill(page);
-			const pillExpected = compact || stop.word !== 'Read';
-			if (!pillExpected) {
-				expect(pill, `desktop Read renders the deck as a calm label; a switcher at ${width}px means the slim header changed`).toBeNull();
-			} else {
-				expect(pill, `the deck switcher should be in the header at ${width}px on ${stop.word}`).not.toBeNull();
+			expect(pill, `the deck switcher should be in the header at ${width}px on ${stop.word}`).not.toBeNull();
+			{
 				const p = pill as PillShape;
 				expect(p.spill, `the deck pill paints ${p.spill}px of its own content outside its padding box at ${width}px on ${stop.word} (title rendered ${p.title}px)`).toBeLessThanOrEqual(TOLERANCE);
 				expect(p.width, `the deck pill is ${p.width}px but its own non-shrinking content needs ${p.needs}px at ${width}px on ${stop.word}`).toBeGreaterThanOrEqual(p.needs - TOLERANCE);
@@ -427,27 +473,44 @@ test('@smoke the Studio header fits — and keeps its words — at every support
 				expect(shape.menu?.x ?? -1, `⋯ Menu left edge at ${width}px on ${stop.word}`).toBeGreaterThanOrEqual(0);
 			}
 			perStop[stop.word] = shape;
+			perRow[stop.word] = await readRow(page);
 		}
 
-		// #1371: stepping the dial must not slide the controls beside it. Compared
-		// only across controls present in ALL three stops — at desktop the Read/Write
-		// slim header genuinely carries fewer of them, and that is not drift.
+		// ZERO SHIFT ACROSS THE DIAL — the whole row, not just its tail (2026-09-05).
 		//
-		// Read from SETTLED geometry (above), so this compares finished layouts. The 1px
-		// of allowance left is for genuine sub-pixel rounding between two DIFFERENT rows:
-		// at ≥1100 Read and Write render the slim header and Craft the full one.
+		// This used to compare the four TAIL controls only, and the reason was structural:
+		// at desktop, Read and Write rendered a SLIM header and Craft a FULL one, so the
+		// two rows genuinely carried different control sets and the trailing run was the
+		// only thing they had in common. #1371 pinned that run; #1414 logged what it could
+		// not pin — the row left of it, which appeared, vanished and slid on every step.
 		//
-		// Below 1100 the assertion is structurally satisfied — all three stops render the
-		// same full header, so nothing CAN move — and it is kept anyway: it costs nothing
-		// and it is what would fail if a future change reintroduced a per-stop header
-		// below desktop. The load-bearing widths for it are 1100 and 1440.
+		// One header at every stop makes the strong assertion available, so it is made:
+		// same controls, same order, same boxes, rules included. `toEqual` on the whole
+		// array rather than a per-name loop, because ORDER is part of the contract and a
+		// name-keyed comparison cannot see a reordering.
 		//
-		// Be exact about what settling gives up: at ≥1100 the tail DOES slide briefly on
-		// Write→Craft (Present travels ~15px over ~75ms at 1440 as the deck pill reflows
-		// into the full header), so what is asserted here is "lands in the same place",
-		// not "never moves at all". That transient predates this branch — it belongs to
-		// the slim↔full header swap, which #1371 did not touch — so it is logged rather
-		// than folded in (HARD RULE #18, off-path): #1414.
+		// Read from SETTLED geometry (above), so this compares finished layouts rather
+		// than boxes mid-reflow.
+		// A census that finds nothing agrees with itself trivially. Pin it by NAME rather than
+		// by a count: the four controls below are the row's persist list — they are in it at
+		// every width this spec samples and at every stop — so a drifted selector or an empty
+		// read fails here instead of passing as agreement. A count would have to be re-derived
+		// every time the width ladder moves a control into the menu.
+		const keys = perRow[STOPS[0].word].map((c) => c.key);
+		for (const need of [CHROME.brandHome, CHROME.workspaceLauncher, 'deck-switcher', CHROME.searchOverflow]) {
+			expect(keys, `readRow found no ${need} at ${width}px — the selector has drifted and this census is comparing two rows it cannot see`).toContain(need);
+		}
+		for (const s of STOPS.slice(1)) {
+			expect(
+				perRow[s.word],
+				`the header is not the same row at ${s.word} as at ${STOPS[0].word} (${width}px) — the stops share one <header>, so a control, a rule or a box that differs here is a visible shift on the dial step`,
+			).toEqual(perRow[STOPS[0].word]);
+		}
+
+		// #1371's original assertion, kept as the narrow one it was: the tail specifically.
+		// It is now implied by the whole-row check above, and that is fine — it costs one
+		// comparison and it is the one that names the four controls a reviewer cares most
+		// about, with the x values in the failure message.
 		const shared = TAIL.filter((n) => STOPS.every((s) => perStop[s.word].x[n] !== undefined));
 		for (const name of shared) {
 			const xs = STOPS.map((s) => perStop[s.word].x[name]);
