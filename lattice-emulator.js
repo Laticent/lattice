@@ -5763,11 +5763,36 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
   // reads by page. Without `pageOrigin` there is nothing to join through, so it keeps the old
   // pass-through — which is correct for the deck that neither splits nor projects, and is the only
   // deck that reaches that branch.
+  // THE INLINE CHANNEL, THROUGH `asShippedSlides` — the join this file already owns.
+  //
+  // `captions` is indexed by RENDERED SECTION: one entry per section the engine emitted, holes
+  // included, split continuations included. `mergeNarration` reads by PAGE. Those two agree only on
+  // a deck that neither projects nor splits, and the gap is exactly the holes — which is what
+  // `asShippedSlides` converts, and why it exists.
+  //
+  // Both wrong answers were measured on one deck (5 slides, `brief` keeps 1/3/5, slide 1 cut in two
+  // by its second heading, an inline caption on every slide):
+  //
+  //   captions[page]                    p1 CAPONE · p2 —      · p3 —        · p4 CAPTHREE
+  //   captions[pageOrigin[page] - 1]    p1 CAPONE · p2 CAPONE · p3 —        · p4 —
+  //   asShippedSlides(captions)         p1 CAPONE · p2 —      · p3 CAPTHREE · p4 CAPFIVE
+  //
+  // The first spoke slide 3's caption over slide 5. The second — reading the array as if it were
+  // authored-indexed, which is what "the sixth pairing bug" looked like before the split case was
+  // reachable — looked two of them up at HOLE positions and dropped them on the floor.
+  //
+  // The per-page fill is the other half. Page 2 is slide 1's continuation and the comment physically
+  // lives in the first half, so its own entry is empty; a caption is written for a SLIDE and every
+  // page that slide became should speak it, which is the rule the front-matter channel already
+  // applies for the same reason. `pageOrigin` is what makes "the same slide" answerable.
+  const shippedCaptions = asShippedSlides(captions);
+  const perAuthored = new Map();
+  if (pageOrigin) pageOrigin.forEach((at, i) => { if (shippedCaptions[i] && !perAuthored.has(at)) perAuthored.set(at, shippedCaptions[i]); });
   const inlineForMerge = STRIP_CAPTIONS
     ? []
     : pageOrigin
-      ? pageOrigin.map((authored) => captions[authored - 1] ?? null)
-      : captions;
+      ? pageOrigin.map((at, i) => shippedCaptions[i] ?? perAuthored.get(at) ?? null)
+      : shippedCaptions;
   if (STRIP_CAPTIONS) fmForMerge = null;
   // Precedence, highest first: inline `<!-- caption: -->` → front-matter `captions:[n]` → projection.
   const slideTexts = mergeNarration(slideCount, projected, { captions: inlineForMerge, fmCaptions: fmForMerge });

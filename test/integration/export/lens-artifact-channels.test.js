@@ -38,9 +38,13 @@ const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
 const TIMEOUT = 240000;
 
 /** A 5-slide deck whose `brief` view keeps 1, 3 and 5 — so two holes fall between kept slides. */
-function deck({ extraFm = '', style = '', notes = false, captions = false, inlineCaptions = false } = {}) {
+function deck({ extraFm = '', style = '', notes = false, captions = false, inlineCaptions = false, splitFirst = false } = {}) {
+	// `splitFirst` gives slide 1 a SECOND HEADING, which the default split mode cuts on — so the deck
+	// renders more pages than it has slides, on top of the holes. That is the crossing no fixture
+	// reached until it was measured by hand, and it is where the authored / rendered-section / page
+	// index spaces all differ at once.
 	const raw = Array.from({ length: 5 }, (_, i) =>
-		`\n<!-- _class: content -->\n${inlineCaptions ? `<!-- caption: INLINE for slide ${i + 1}. -->\n` : ''}\n# Slide ${i + 1}\n\nBody of slide ${i + 1}.\n${notes ? `\n<!-- NOTE FOR SLIDE ${i + 1} -->\n` : ''}`,
+		`\n<!-- _class: content -->\n${inlineCaptions ? `<!-- caption: INLINE for slide ${i + 1}. -->\n` : ''}\n# Slide ${i + 1}\n\nBody of slide ${i + 1}.\n${splitFirst && i === 0 ? `\n## Second heading of slide 1\n\nMore of slide 1.\n` : ''}${notes ? `\n<!-- NOTE FOR SLIDE ${i + 1} -->\n` : ''}`,
 	);
 	const mem = new Set([0, 2, 4]);
 	const tagged = raw.map((s, i) => applyTag(s, 'brief', mem.has(i), 'none'));
@@ -207,6 +211,30 @@ describe('a projected export keeps its per-slide channels aligned', { skip }, ()
 		// misplace a caption, it PUBLISHED one the view withheld.
 		const all = parts.map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('\n') + fs.readFileSync(path.join(dir, 'inline.vtt'), 'utf8');
 		for (const away of [2, 4]) assert.doesNotMatch(all, new RegExp(`INLINE for slide ${away}`), `slide ${away}'s caption is withheld`);
+	});
+
+	test('and it survives a SPLIT crossed with the projection — three index spaces at once', { timeout: TIMEOUT }, () => {
+		// The crossing every earlier round assumed and none reached: slide 1 carries a second heading,
+		// so the default split mode cuts it in two, and the view withholds slides 2 and 4. Now the
+		// AUTHORED slides (5), the RENDERED sections (6 — five slots plus one continuation) and the
+		// PAGES (4) are three different index spaces, and `captions` is indexed by the middle one while
+		// `mergeNarration` reads the last. Measured by hand on this exact shape, both wrong answers:
+		// reading it as page-indexed spoke slide 3's caption over slide 5, and reading it as
+		// authored-indexed looked two captions up at HOLE positions and dropped them.
+		const { r, dir } = run(deck({ inlineCaptions: true, splitFirst: true }), 'split.pdf', ['--quiet', '--lens', 'brief', '--captions']);
+		assert.equal(r.status, 0, r.stderr);
+		const parts = fs.readdirSync(dir).filter((f) => /^split\.\d+\.vtt$/.test(f)).sort();
+		assert.equal(parts.length, 4, 'four pages: slide 1 in two, then slides 3 and 5');
+		const say = parts.map((f) => fs.readFileSync(path.join(dir, f), 'utf8').replace(/<\d\d:\d\d:\d\d\.\d{3}>/g, ''));
+		// Both pages of slide 1 speak slide 1's caption — a caption is written for a SLIDE, and this is
+		// the rule the front-matter channel already applies to a split.
+		assert.match(say[0], /INLINE for slide 1\./);
+		assert.match(say[1], /INLINE for slide 1\./);
+		assert.match(say[2], /INLINE for slide 3\./, 'page 3 is authored slide 3, not slide 5');
+		assert.match(say[3], /INLINE for slide 5\./, 'and page 4 is slide 5, whose caption is not lost');
+		for (const away of [2, 4]) {
+			assert.ok(!say.join('\n').includes(`INLINE for slide ${away}.`), `slide ${away}'s caption is withheld`);
+		}
 	});
 
 	test('a positional SELECTOR holds across the projection and a CSS COUNTER does not', { timeout: TIMEOUT }, async () => {

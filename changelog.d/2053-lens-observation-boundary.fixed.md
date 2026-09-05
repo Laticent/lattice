@@ -26,7 +26,18 @@
   holes existed. Measured on a 5-slide deck whose `brief` view keeps 1/3/5: page 2 fell back to
   generated speech and page 3 spoke SLIDE 3'S CAPTION OVER SLIDE 5, which is verbatim the misnarration
   `pruneCaptions` was written to kill, still live through the other caption channel. Both channels now
-  go through ONE authored → page join, which is the argument the front-matter fix already made.
+  go through the join this file already owns, `asShippedSlides`.
+  **The first attempt at this fix was wrong, and the case that caught it is the one no round had
+  reached: a SPLIT crossed with a projection.** Give slide 1 a second heading and the default split
+  mode cuts it in two, so the authored slides (5), the rendered sections (6) and the pages (4) are
+  three different index spaces at once. `captions` is indexed by the middle one — one entry per
+  section the engine emitted, holes and continuations included — so treating it as authored-indexed
+  looked two captions up at HOLE positions and dropped them on the floor, trading one wrong answer
+  for another. Measured on that deck: `captions[page]` gives `CAPONE · — · — · CAPTHREE`,
+  `captions[authored]` gives `CAPONE · CAPONE · — · —`, and `asShippedSlides(captions)` gives
+  `CAPONE · — · CAPTHREE · CAPFIVE`. The empty second page is slide 1's continuation, whose caption
+  comment lives in the first half; it is filled from the same authored slide, which is the rule the
+  front-matter channel already applies to a split. That crossing is now a test.
 - **Fixed: a deck that DOCUMENTS the hole marker lost its chart narration.** `isHoleSourceChunk` tested
   whether a chunk CONTAINS `<!-- _class: lens-hole -->`, which is unanchored and fence-blind: a slide
   explaining reader views inside a ```md fence counted as a hole, the source and rendered section
