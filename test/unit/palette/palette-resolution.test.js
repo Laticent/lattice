@@ -163,6 +163,24 @@ describe('palette-resolution', () => {
     }
   });
 
+  test('resolve: the CLI argument and the env var take the same constraint, and say so LOUDLY', () => {
+    // The front-matter case above falls back to the default; these throw, and the asymmetry is the
+    // point. A typo in a deck's `theme:` should not stop the deck rendering. A `--palette` value is an
+    // explicit instruction from whoever ran the command, so silently rendering something else is the
+    // failure this module's own docblock was written about.
+    //
+    // It is also a path: the name becomes `themes/<name>.css`, and only the front-matter reader had
+    // ever constrained it — so `--palette ../elsewhere/sheet` loaded a stylesheet from anywhere on
+    // disk, which also carried CSS past the reader-view export's check on caller-supplied sheets.
+    for (const bad of ['../../etc/passwd', 'a b', 'foo/bar', '..', '../.scratch/evil']) {
+      assert.throws(() => resolvePalette({ md: '', cliArg: bad, env: {} }), /--palette/, bad);
+      assert.throws(() => resolvePalette({ md: '', env: { LATTICE_PALETTE: bad } }), /LATTICE_PALETTE/, bad);
+    }
+    // And a real name still resolves from both.
+    assert.equal(resolvePalette({ md: '', cliArg: 'cuoio', env: {} }).name, 'cuoio');
+    assert.equal(resolvePalette({ md: '', env: { LATTICE_PALETTE: 'a11y-deuteranopia' } }).name, 'a11y-deuteranopia');
+  });
+
   test('resolve: a hyphenated a11y palette still resolves', () => {
     const r = resolvePalette({ md: '---\ntheme: a11y-deuteranopia\n---\n\n# T\n', env: {} });
     assert.equal(r.name, 'a11y-deuteranopia');
