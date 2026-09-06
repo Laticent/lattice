@@ -81,6 +81,29 @@ draws it. The paint moves with it, from `scatter.styles.css` to
 draw the same mark for the same reason, and a second copy of one hairline would
 drift.
 
+**And the emitter learned what its own line crosses, because the first cut of it
+shipped the defect it exists to remove.** `placeLabels` guarantees the label's
+BOX is clear and says nothing about the corridor between box and mark — which is
+exactly what the leader paints. On the quadrant's `bubble` gallery slide the
+first cut drew "Weekly signal brief" straight down through the word
+*calibration* in the name above it: 10.1 of the segment's 12.3 units inside
+another label's box, entering the ink mid-word, in both moods. A reader tracing
+it lands on the wrong initiative. So a caller now hands over what the corridor
+must not cross — every other name's box, every other mark, the corner names —
+and the line is aimed at the nearest point of its own label that can be reached
+cleanly, falling back through the box's corners and edge midpoints in order of
+distance. A label reachable at none of them gets no leader.
+
+**The re-route earns its place and the fallback is honest about its limit.** On
+the fourteen-initiative stress slide eight names want a leader: seven are
+reachable head-on and ONE only at a corner, so without the re-route that slide
+has an orphan. On the `bubble` slide "Weekly signal brief" is reachable at no
+clear point and now carries no line at all — the reader gets it by elimination,
+because the two names whose corridors ARE clear are pointed explicitly at the
+other two bubbles. That is worse than a correct line and better than a wrong
+one, which is the same call the module already makes when it drops a label it
+cannot place.
+
 **Two.** Order becomes a term inside `placeLabels`. A candidate position that
 would read backwards against an already-placed label sharing its column costs
 `ORDER_COST` — added to the ANCHOR preference, never to the collision score. Two
@@ -230,12 +253,22 @@ the lesson §6 of the expansion note paid for.
   springing from it. "All four carry a leader" was the old scatter arm, and this
   change breaks it honestly — one of the four is now seated against its own dot
   and needs no line.
-- Mutants killed, fourteen of fourteen: the order term disabled, weakened to 1,
-  never applied, inverted, and with its same-height escape removed; the column
-  test removed and `columnShare`'s formula altered two ways; the leader always
-  drawn, never drawn, drawn for a hidden label, thrown 50 units out, and
-  detached from its mark; and `quadrant`'s leaders removed and attached to the
-  wrong dot.
+- Mutants killed: the order term disabled, weakened to 1, never applied,
+  inverted, and with its same-height escape removed; `COLUMN_SHARE` neutered to
+  0.01 and to 0.99; the column test removed and `columnShare`'s formula altered
+  three ways, including the NaN case; the leader always drawn, never drawn,
+  drawn for a hidden label, thrown 50 units out, and detached from its mark; the
+  corridor check deleted; `segmentEntersBox` inverted both ways and its
+  boundary case flipped; the draw-or-skip decision moved off the nearest point;
+  and `quadrant`'s leaders removed and attached to the wrong dot.
+- **Three of those arms exist because an independent checker found the guards
+  they replace were unexercised.** `COLUMN_SHARE` could be moved to either
+  extreme with the suite still green, and the fixtures that catch it now were
+  found by diffing 4,000 randomized layouts against each mutant — the 0.99 case
+  changes 1,500 of them, and the arm uses one of the smallest. Measured on the
+  corpus, the constant is load-bearing in both directions: 0.01 gives 7.98% /
+  2.93% and drops four more names, 0.99 gives 16.75% / 5.85% — near the 18.61%
+  it is supposed to fix.
 - **One of those mutants is a bug the sweep found in this change before it
   shipped.** The order term billed a penalty for two marks at the SAME height,
   where there is no order to contradict — so every position for the second label

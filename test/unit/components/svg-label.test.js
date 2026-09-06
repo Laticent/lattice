@@ -32,6 +32,7 @@ const {
   deCollideLabels,
   placeLabels,
   leaderLine,
+  segmentEntersBox,
   columnShare,
   LINE_HEIGHT,
   LEADER_MIN_GAP,
@@ -538,6 +539,45 @@ describe('placeLabels — a column never reads against its marks', () => {
     assert.equal(placed[1].anchorKey, 'below');
   });
 
+  // COLUMN_SHARE ITSELF, not just its formula. Deleting the guard already fails
+  // an arm above, but NEUTERING it did not: at 0.01 every grazing pair counts as
+  // a column, at 0.99 almost none does, and both survived the suite this change
+  // first shipped. These two arms hold the constant from both sides.
+  test('a pair that barely grazes is NOT a column — the threshold is not near zero', () => {
+    // ~17% overlap: below the half the docblock claims, so no order claim is
+    // made and both labels keep their preferred anchor. At COLUMN_SHARE = 0.01
+    // the second one is billed a penalty and moves.
+    const three = { width: 26, fontSize: 8.5, maxLines: 3, className: 'x', emitFontSize: false };
+    const placed = placeLabels([
+      { text: 'Tall name here', cx: 100, cy: 100, r: 4, spec: three },
+      at(118, 96, 'Level'),
+    ]);
+    const share = columnShare(placed[0].box, placed[1].box);
+    assert.ok(share > 0 && share < 0.5, `fixture must graze, not stack: got ${share.toFixed(2)}`);
+    // No order claim binds at this overlap, so the label keeps the seat the
+    // collision geometry gives it. Drop the threshold to 0.01 and a phantom
+    // penalty sends it to `above-right` instead.
+    assert.equal(placed[1].anchorKey, 'below');
+    assert.equal(placed[1].ring, 0);
+  });
+
+  test('a partly-overlapping stack IS a column — the threshold is not near one', () => {
+    // Three marks offset horizontally as well as vertically, so the pairs share
+    // most of a box but not all of it — the band a 0.99 threshold would stop
+    // counting. Found by diffing 4,000 randomized layouts against that mutant;
+    // it changes 1,500 of them, and this is one of the smallest.
+    const spec = { width: 54, fontSize: 7.5, maxLines: 3, className: 'x', emitFontSize: false };
+    const mk = (cx, cy, text) => ({ text, cx, cy, r: 3.8, spec });
+    const items = [mk(131.21, 90.65, 'Alpha'), mk(128.53, 104.12, 'Bravo'), mk(123.09, 98.74, 'Charlie')];
+    const placed = placeLabels(items, { bounds: { x0: 36, y0: 2, x1: 318, y1: 156 }, gap: 2.4, minGap: 1.2 });
+    const share = columnShare(placed[0].box, placed[1].box);
+    assert.ok(share >= 0.5 && share < 0.99, `fixture must sit in the band, got ${share.toFixed(3)}`);
+    // The order claim binds here, so Charlie takes an adjacent diagonal. At 0.99
+    // it stops binding and Charlie climbs two rings instead.
+    assert.equal(placed[2].anchorKey, 'above-left');
+    assert.equal(placed[2].ring, 0);
+  });
+
   test('columnShare is the overlap as a fraction of the NARROWER box', () => {
     // The narrower box is the denominator, so a short name fully covered by a
     // wide one counts as a column — which is how a reader sees it.
@@ -547,6 +587,8 @@ describe('placeLabels — a column never reads against its marks', () => {
     assert.equal(columnShare(narrow, wide), 1);
     assert.equal(columnShare(wide, { left: 200, right: 300, top: 0, bottom: 10 }), 0);
     assert.equal(columnShare(wide, { left: 90, right: 110, top: 0, bottom: 10 }), 0.5);
+    // Fails CLOSED, not open: an uncomputable overlap is not a column.
+    assert.equal(columnShare(wide, { left: NaN, right: NaN, top: 0, bottom: 10 }), 0);
   });
 });
 
@@ -576,6 +618,58 @@ describe('leaderLine', () => {
   test('a hidden label gets no leader — there is nothing to lead to', () => {
     const far = 100 - mark.r - LEADER_MIN_GAP - 5;
     assert.equal(leaderLine(mark, { svg: '', box: { left: 90, right: 110, top: far - 10, bottom: far } }), '');
+  });
+
+  test('a blocked corridor re-routes to the nearest point that is clear', () => {
+    // The head-on line would pass through a neighbor's name. The leader is not
+    // abandoned — it lands on the nearest reachable point of its own box
+    // instead, so the label keeps its pointer and the neighbor keeps its ink.
+    const far = 100 - mark.r - LEADER_MIN_GAP - 20;
+    const target = box(80, 130, far - 10, far);
+    const wall = { left: 96, right: 104, top: far - 4, bottom: far + 4 };
+    const direct = leaderLine(mark, target);
+    const routed = leaderLine(mark, target, { avoid: [wall] });
+    assert.notEqual(direct, '', 'the fixture must want a leader');
+    assert.notEqual(routed, '', 'a re-route was available and should have been taken');
+    assert.notEqual(routed, direct, 'it must not be the blocked line');
+    const x2 = Number(/x2="([-\d.]+)"/.exec(routed)[1]);
+    assert.ok(x2 <= wall.left || x2 >= wall.right, `re-routed line still lands inside the wall at x=${x2}`);
+  });
+
+  test('a label reachable at no clear point gets no leader at all', () => {
+    // An honestly missing pointer beats a confidently wrong one: a line through
+    // a neighbor's letterforms sends the reader to the wrong name.
+    const far = 100 - mark.r - LEADER_MIN_GAP - 20;
+    const target = box(80, 130, far - 10, far);
+    const wall = { left: 0, right: 300, top: far + 1, bottom: far + 3 };
+    assert.notEqual(leaderLine(mark, target), '', 'the fixture must want a leader');
+    assert.equal(leaderLine(mark, target, { avoid: [wall] }), '');
+  });
+
+  test('a box that merely touches the corridor does not refuse the leader', () => {
+    // Liang-Barsky on the INTERIOR: a segment ending on an edge, or running
+    // alongside one, is not passing through it.
+    const far = 100 - mark.r - LEADER_MIN_GAP - 20;
+    const target = box(80, 130, far - 10, far);
+    const touching = { left: 100, right: 140, top: far - 30, bottom: far - 25 };
+    assert.notEqual(leaderLine(mark, target, { avoid: [touching] }), '');
+  });
+
+  // The boundary cases, pinned directly, because the leader arms above cannot
+  // see them: `segmentEntersBox` answers about the INTERIOR, and a mutation
+  // that merely reclassifies a touch as a crossing changes no visible leader on
+  // any fixture — it just quietly refuses lines that were fine.
+  test('segmentEntersBox is about the interior, not the boundary', () => {
+    const b = { left: 10, right: 20, top: 10, bottom: 20 };
+    assert.equal(segmentEntersBox(15, 0, 15, 30, b), true, 'straight through');
+    assert.equal(segmentEntersBox(12, 12, 18, 18, b), true, 'starts and ends inside');
+    assert.equal(segmentEntersBox(5, 0, 5, 30, b), false, 'passes well to the side');
+    assert.equal(segmentEntersBox(15, 0, 15, 10, b), false, 'stops ON the top edge');
+    assert.equal(segmentEntersBox(0, 0, 0, 0, b), false, 'zero length, outside');
+    // A degenerate point INSIDE is inside, and answering `true` is the safe
+    // side: it refuses a leader rather than drawing one into a neighbor. It is
+    // unreachable from `leaderLine`, which skips a zero-length candidate.
+    assert.equal(segmentEntersBox(15, 15, 15, 15, b), true, 'zero length, inside');
   });
 
   test('the class comes from the caller, so one emitter serves the whole family', () => {

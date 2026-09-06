@@ -127,4 +127,4 @@ Five names in one corner, and their dots far enough apart to check the reading. 
 
 ## One emitter, one hairline, one rule.
 
-The leader lives in the shared label kernel and both charts draw the same mark from it — quieter than the type, springing from the mark's rim, stopping short of the box. The order preference lives beside it, priced in the same currency as the eight anchor positions: enough to buy the whole vertical family before it gives up on the order, and not enough to buy a name set sideways.
+The leader lives in the shared label kernel and both charts draw the same mark from it — quieter than the type, springing from the mark's rim, stopping short of the box, and never drawn through a neighbor's name. The order preference lives beside it, priced in the same currency as the eight anchor positions: enough to buy the whole vertical family before it gives up on the order, and not enough to buy a name set sideways.
