@@ -11,7 +11,12 @@
   answers reveals anyway after 1.5s, so a dead font can cost a shift but never a
   blank preview.
 - The desktop print path waits for that gate rather than a fixed 450ms beat before
-  opening the print dialog. That beat was safe before this change — the reveal ran
-  unconditionally as the frame parsed — and gating the reveal is what put it at
-  risk: `buildSrcdoc` hides `.lattice` until the reveal, so a beat that fired first
-  would have printed blank pages into a file the author keeps.
+  opening the print dialog. This is hardening, not a bug fix, and the measurement
+  says so: driving the real Share → Print deck → Print with faces on a 600ms link,
+  `.lattice` computed `visible` at the instant `print()` was called *with the wait
+  removed as well*, because the reveal lands before the frame's `load` event; with
+  faces hung, `load` never fires and nothing prints on either arm. What the change
+  removes is a latent coupling — the print path's correctness rested on "the reveal
+  happens before `onload`", which is incidental rather than guaranteed, and
+  `buildSrcdoc` hides `.lattice` until that reveal, so losing the race would print
+  blank pages into a file the author keeps.

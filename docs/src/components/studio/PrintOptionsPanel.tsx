@@ -71,11 +71,18 @@ function isIOSLike(): boolean {
  *
  * `buildSrcdoc` hides `.lattice` until the FIT agent reveals it, so printing before
  * that reveal prints BLANK PAGES — and the reveal waits for the document's own faces
- * to settle (lib/core/preview-font-gate.mjs). This used to be a flat 450ms beat, which
- * was already a guess against "web fonts settle" and became a guess that can LOSE once
- * the reveal was gated: on a cold cache, or a face that never answers (the gate's own
- * backstop is 1.5s), 450ms fires first and the author keeps a blank PDF. Silent, and in
- * a file rather than on screen.
+ * to settle (lib/core/preview-font-gate.mjs). This used to be a flat 450ms beat, a
+ * guess against "web fonts settle".
+ *
+ * HARDENING, NOT A BUG FIX, and the measurement is the reason to say so rather than
+ * claim a save: driving the real Share -> Print deck -> Print with faces on a 600ms
+ * link and THIS WAIT REMOVED, `.lattice` still computed `visible` at the `print()`
+ * call, because the reveal lands before the frame's `load` event and the beat starts
+ * at `load`; with faces hung, `load` never fires and nothing prints either way. So the
+ * old beat was not losing. What it was doing is resting on "the reveal happens before
+ * onload" — incidental, not guaranteed, and the thing that breaks silently into a file
+ * the author keeps if a future change moves the reveal later. Asking the gate removes
+ * the coupling for the price of one promise hop.
  *
  * So: ask the gate when there is one, and keep a bound so a document that never resolves
  * still opens a dialog rather than none. Extracted from `printHtmlDoc` because that

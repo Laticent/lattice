@@ -187,11 +187,17 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
   needs `serviceWorkers: 'block'`; the docs site is a PWA and a
   service-worker-served font never reaches a Playwright route handler, so the
   fonts-blocked control silently does nothing and the run reports "clean". (3) Any
-  consumer that waited a FIXED BEAT for the reveal is now racing the gate. The desktop
-  print path (`printHtmlDoc` in `PrintOptionsPanel.tsx`) waited 450ms and then called
-  `print()`; since every element in the document computes to hidden before the reveal,
-  losing that race prints blank pages into a file the author keeps. It now waits on
-  `window.__latticeFontsReady` (bounded), pinned by `print-ready.test.ts`.
+  consumer that waited a FIXED BEAT for the reveal is now racing the gate, and every
+  element computes to hidden before the reveal — so losing that race prints or captures
+  a blank page. The desktop print path (`printHtmlDoc` in `PrintOptionsPanel.tsx`)
+  waited 450ms and then called `print()`; it now waits on `window.__latticeFontsReady`
+  (bounded), pinned by `print-ready.test.ts`. **Measured, and worth knowing before you
+  hunt this:** the race does not currently bite, because the reveal lands before the
+  frame's `load` event and the beat starts AT `load` — verified by driving the real
+  Share → Print deck → Print with the wait removed and reading `.lattice` inside the
+  print document at the `print()` call (`visible`, faces settled). With faces hung,
+  `load` never fires and nothing prints at all. So this is a latent coupling closed,
+  not a defect observed.
 - **Triggered by:** Any preview document whose layout depends on text metrics —
   which is most of them. `matrix-grid` was the loudest (#2095 pinned
   `table-layout: fixed` at `wide` to mitigate it for that one component), not the
