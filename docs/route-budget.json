@@ -12,7 +12,8 @@
     "playground": {
       "html": "playground/index.html",
       "eagerJsGz": 597900,
-      "htmlRaw": 483700
+      "htmlRaw": 515700,
+      "_htmlRawNote": "483700 -> 515700 (2026-09-06): seven new chart components — bar, stacked-bar, line, waterfall, scatter, slope, bullet — joined the catalog this route inlines, and a component's manifest is the byte cost: slots, variants, whenToUse, antiPatterns, commonMistakes, dataShapeGuidance and every sample. Measured exactly, by building this route twice off one tree: 477928 bytes with the seven component directories moved aside, 500721 with them present — +22793, all of it those manifests. Not given back, because giving it back means shipping the components without the authoring contract this route exists to carry. Set to measured + ~3% per _units above. See engineering/decisions/2026-09-06-cartesian-chart-expansion.md."
     },
     "home": {
       "html": "index.html",
@@ -24,9 +25,9 @@
     "components": {
       "html": "components/index.html",
       "eagerJsGz": 81400,
-      "htmlRaw": 472500,
+      "htmlRaw": 522800,
       "_eagerJsGzNote": "The three content routes share a 71.0KB gz site shell — 5 chunks (client, PerfOverlay, StorageOverlay, page, NavActions), measured 2026-09-05 — out of each one's 72.6-77.2KB total; only 1.5-6.1KB per route is its own. EXPECT ALL THREE eagerJsGz NUMBERS TO MOVE TOGETHER on a shell change, and read that as ONE cause reported three times, not three problems. They are kept as three separate budgets on purpose: a per-route number is ~2.3KB of headroom against the shell, where the same bytes inside studio's 633KB budget have ~19KB — so this is where a small shell regression is actually caught. Set to measured + ~3% per _units above. Measured 79023.",
-      "_htmlRawNote": "Measured 458676 on 2026-09-05, the first budget for this route. This route is HTML-heavy rather than JS-heavy — it inlines the whole component catalog, so htmlRaw is the number that actually moves here, and nothing in the tree watched it before. Set to measured + ~3% per _units above."
+      "_htmlRawNote": "472500 -> 522800 (2026-09-06): the same seven Cartesian chart components. This route inlines the WHOLE component catalog, so it carries each one's full docs body — slots table, variants, when to use, anti-patterns, common mistakes — not just the manifest summary the playground shows. Measured the same way, twice off one tree: 458670 bytes with the seven moved aside, 507617 with them present — +48947, about 7KB per component. Set to measured + ~3% per _units above. PRIOR: Measured 458676 on 2026-09-05, the first budget for this route. This route is HTML-heavy rather than JS-heavy — it inlines the whole component catalog, so htmlRaw is the number that actually moves here, and nothing in the tree watched it before. Set to measured + ~3% per _units above."
     },
     "getting-started": {
       "html": "getting-started/index.html",
