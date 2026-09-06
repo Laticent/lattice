@@ -187,6 +187,57 @@ diverged — under `sketch` the packer allotted JetBrains Mono clearance for lab
 rendered in a wider hand sans, seating two edge labels close enough to touch. The
 existing measurement is the fix and carries over unchanged.
 
+### 5.2 Clearance follows where the label sits, and the two axes differ
+
+**A label drawn BESIDE the line spends the axis it sits on, not the axis the edge
+runs along.** Once the labels moved off the line (below a horizontal run on `lr`,
+right of a vertical run on `tb`), the clearance rule that fed dagre kept charging
+both axes for both dimensions:
+
+```js
+// before — symmetric, and wrong on one axis
+const rankClear = (lr ? metrics.maxW : labelH) + G.arrow + G.gap * 2;
+```
+
+On `tb` that adds the label's stacked HEIGHT to the vertical rank gap, for a label
+that now occupies no vertical space between the ranks at all. Vertical is the
+scarce axis on a 16:9 stage, so it was spending the expensive one on nothing:
+
+```js
+// after — each axis charged for the dimension the label actually puts on it
+const rankClear = lr
+  ? metrics.maxW + G.arrow + G.gap * 2
+  : Math.max(G.arrow + G.gap * 2, labelH);
+const crossClear = (lr ? labelH : metrics.maxW) + G.labelOff + G.gap;
+```
+
+`max`, not a bare arrow clearance: the label is CENTERED on the edge midpoint, so a
+two-line label still has to fit between the ranks or it spills onto the node below.
+
+**The wrap budget follows the same asymmetry**, and it has to, or the fix half
+undoes itself. Wrapping converts width into HEIGHT — more lines, and a centered
+multi-line label raises `labelH` back into the rank gap through the `max`. On `tb`
+the label runs out into the cross axis, which is the axis a 16:9 stage has to
+spare, so `tb` now wraps late (`G.gapFloorLr * 5`) where `lr` still wraps to its
+own run (`G.gapFloorLr * 2.4`).
+
+**Measured**, on the four-state `tb` machine the test pins: the rank gap falls from
+**1.01x** the node height to **0.57x**, canvas 317.5 → 264.9 tall at unchanged
+width 215.8. The fit spine spends the freed height scaling the whole figure up, so
+the visible result is a bigger, more legible diagram in the same envelope rather
+than a shorter one — see `examples/state-chart.md` p5 and
+`examples/state-chart-branching.md` p5 before/after.
+
+**The test for this took four attempts, and the first three were the F5 failure
+again** (§9.1: six tests that regex-matched source text and passed with all four
+defects present). Comparing CANVAS HEIGHT across two specs — labeled vs bare, wide
+label vs narrow — passes under both rules, because changing a label also moves
+`metrics.maxW`, hence `nodesep`, hence the responsive stretch: the height
+difference is real but not attributable. What discriminates is measuring the RANK
+GAP itself off the painted rects and normalizing by the node height read from the
+same output, which survives the fit scale. Verified red by reverting `rankClear`
+alone and re-running.
+
 ## 6. Self-hosted: no external script, ever
 
 **The requirement is already the contract, and on two paths it is structurally

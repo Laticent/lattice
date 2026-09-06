@@ -1234,6 +1234,44 @@ describe('dagre re-ranking (fake DOM)', () => {
     assert.equal(new Set(ds).size, ds.length, `two edges share a route: ${ds.join(' | ')}`);
   });
 
+  // A label drawn BESIDE the line spends the axis it sits on, not the axis the
+  // edge runs along. On TB it sits to the RIGHT, so a one-line label must not be
+  // stacked into the RANK GAP as well — the gap already clears the arrowhead,
+  // which is taller than one line of label text.
+  //
+  // That is the whole point of putting it there: vertical space is the scarce
+  // axis on a 16:9 stage, and the previous rule added `labelH` on top of the
+  // arrow clearance, spending height on something no longer occupying any.
+  //
+  // The assertion is the gap MEASURED FROM THE PAINTED RECTS, normalized by the
+  // node height read from the same output, so it survives the fit scale. Old
+  // rule: rankClear = 13 + 7 + 5*2 = 30. New rule: max(17, 13) = 17. Two earlier
+  // versions of this test compared canvas heights across two different specs and
+  // passed under BOTH rules — removing or widening a label also moves `maxW`,
+  // `nodesep` and the responsive stretch, so the height difference was not
+  // attributable. Pinning the gap itself is what discriminates.
+  test('on TB, a one-line label is not stacked into the rank gap', { skip: !hasDagre }, () => {
+    const { svg } = run({
+      dir: 'tb',
+      nodes: [n(1, 'A', 'start'), n(2, 'B'), n(3, 'C'), n(4, 'D')],
+      transitions: [e(1, 2, 'go'), e(2, 3, 'go'), e(2, 4, 'go')],
+    });
+    const boxes = [...svg.matchAll(
+      /<rect class="state-node-shape"[^>]*\by="([-\d.]+)" width="[-\d.]+" height="([-\d.]+)"/g)]
+      .map((m) => ({ y: +m[1], h: +m[2] }));
+    assert.ok(boxes.length >= 4, `expected four painted states, got ${boxes.length}`);
+    const rows = [...new Set(boxes.map((b) => Math.round(b.y * 10) / 10))].sort((a, b) => a - b);
+    assert.ok(rows.length >= 3, `expected three ranks, got ys ${rows.join(',')}`);
+    const nodeH = boxes[0].h;
+    const gap = (rows[1] - rows[0] - nodeH) / nodeH;
+    // Measured: 1.01x under the old rule, 0.57x under this one. The threshold
+    // sits between them and nearer the new value, so a partial revert fails too.
+    // Verified red by reverting `rankClear` alone and re-running.
+    assert.ok(gap < 0.8,
+      `the TB rank gap is ${gap.toFixed(2)}x the node height — a one-line label ` +
+      'is being stacked into the vertical gap it does not occupy');
+  });
+
   test('an authored line break renders as two tspans', { skip: !hasDagre }, () => {
     const { svg } = run({ ...FAN,
       transitions: FAN.transitions.map((t, i) => (i === 1 ? { ...t, event: 'needs\nreview' } : t)) });
