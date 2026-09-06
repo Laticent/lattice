@@ -208,3 +208,27 @@ test('buildReadAlong with no emphasis is byte-identical to before the feature', 
 	const texts = ['Alpha holds. Beta follows.'];
 	assert.equal(JSON.stringify(buildReadAlong(texts, { voice: VOICE })), JSON.stringify(buildReadAlong(texts, { voice: VOICE, emphasis: [] })));
 });
+
+// ── WHERE A FINAL-CUE HOLD ACTUALLY LANDS ─────────────────────────────────────────────────────
+// The coda's pause was removed once because it was measured against the .vtt, which is derived from
+// `durationMs` — the LAST CUE'S END — and so is structurally incapable of carrying silence after the
+// final line. The exported player holds the gap on every cue including the last (player-core.mjs:
+// "Held even for the last cue, so the slide boundary does not land on the final syllable"). Both
+// halves are pinned here so the next person measures the right artifact.
+test('a hold on the FINAL cue is invisible to durationMs but present in the cue gap', () => {
+	const { buildTrack, interCueGapMs } = require('@laticent/cadenza');
+	const text = 'Coverage sits at 2.9x. Pipeline is thin.\n\nRetention carries the year.';
+	const at = text.indexOf('Retention');
+	const plain = buildTrack(text, { pace: 'moderate' });
+	const held = buildTrack(text, { pace: 'moderate', emphasis: [{ start: at, end: text.length, weight: 2 }] });
+	const last = held.cues.length - 1;
+
+	assert.equal(held.cues[last].weight, 2, 'the coda span ends in the final cue');
+	assert.equal(held.durationMs, plain.durationMs, 'durationMs cannot see it — this is what misled the measurement');
+
+	// …but the gap the bake emits for that cue does carry it, and the player spends that gap.
+	const lastWord = held.cues[last].words[held.cues[last].words.length - 1].display;
+	const off = interCueGapMs(lastWord, !!held.cues[last].endsParagraph, 1);
+	const on = interCueGapMs(lastWord, !!held.cues[last].endsParagraph, held.cues[last].weight);
+	assert.equal(on - off, 250, `final-cue gap ${off} -> ${on}`);
+});
