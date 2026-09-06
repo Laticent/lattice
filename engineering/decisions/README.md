@@ -298,6 +298,7 @@ it is load-bearing.
 
 ### Shipped — the work landed; the note stays as the record
 
+- ☑ [2026-09-06-label-attribution-and-order.md](2026-09-06-label-attribution-and-order.md) — The open fork left by the Cartesian expansion asked whether a label ranking is information or false precision when marks overlap.
 - ☑ [2026-09-06-narration-emphasis-weight.md](2026-09-06-narration-emphasis-weight.md) — Narration priced time by structure alone — syllables, punctuation glyphs and flat boundary constants — so a deck's key claim was paced…
 - ☑ [2026-09-06-type-floor-tab-plain-words.md](2026-09-06-type-floor-tab-plain-words.md) — The type-floor alarm reported itself in the vocabulary of the check that raised it — `Type 6.6px · floor 7.2px` — and the person who wrote…
 - ☑ [2026-09-05-agent-kit-by-destination.md](2026-09-05-agent-kit-by-destination.md) — The agent kit was cut by KIND OF DOCUMENT (authoring / components / skills / review / reference) — the writer's model of the material.
