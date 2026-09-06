@@ -319,21 +319,40 @@ section.kpi.briefing > .cell-stage > ol:not(:has(> li:nth-child(3))) > li:not(:f
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:not(:has(> li:nth-child(3))) > li:not(:first-child) {
   justify-content: start;
 }
+/* THE RULE IS A SEPARATOR, SO IT ONLY EXISTS BETWEEN TWO RAIL ROWS.
+ *
+ * The rail used to BRACKET itself: a 1.5px --text-heading border-top on the first
+ * support, 1px --border between the interior ones, and a 1.5px --text-heading
+ * border-bottom under the last. The two heavy ones are not separators — they are the
+ * ledger's outer edges, and they turned three numbers into a closed table frame that
+ * reads heavier than the content in it. Same defect #2055 cleared across the table
+ * family (engineering/decisions/2026-09-03-table-outer-edge-rules.md), and the same
+ * one inventory.styles.css already removed from its own ledger, citing that record.
+ *
+ * The rail is rows 2..n of the list — the hero is nth-child(1), in the other column —
+ * so the interior boundaries are `nth-child(n+3)`: the second rail row onward. That
+ * is the positional equivalent of inventory's `li + li`, which cannot be used here
+ * because the adjacent sibling of the FIRST rail row is the hero, not another rail
+ * row. Like `li + li` it can only ever match an interior boundary, so there is no
+ * outer edge to suppress and nothing to keep in sync.
+ *
+ * The surviving separators are all 1px --border. The 1.5px --text-heading weight
+ * existed only on the two edges being removed. */
 section.kpi.briefing > .cell-stage > ol > li:nth-child(2),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(2) {
   grid-row: 1;
-  border-top: 1.5px solid var(--text-heading);
 }
 section.kpi.briefing > .cell-stage > ol > li:nth-child(3),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(3) {
   grid-row: 2;
-  border-top: 1px solid var(--border);
 }
 section.kpi.briefing > .cell-stage > ol > li:nth-child(4),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(4) {
   grid-row: 3;
+}
+section.kpi.briefing > .cell-stage > ol > li:nth-child(n+3),
+section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(n+3) {
   border-top: 1px solid var(--border);
-  border-bottom: 1.5px solid var(--text-heading);
 }
 /* Briefing supports: 3.9583cqi (= 38pt) sits between --fs-h2 (28pt, reads
  * as a heading, too quiet next to the hero) and --fs-h1 (48pt, which makes
@@ -583,11 +602,10 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) {
   justify-content: center;
   padding: 0;
 }
-section.kpi.spotlight > .cell-stage > ol > li:nth-child(2) { border-top: 1.5px solid var(--text-heading); }
-section.kpi.spotlight > .cell-stage > ol > li:nth-child(3) { border-top: 1px solid var(--border); }
-section.kpi.spotlight > .cell-stage > ol > li:nth-child(4) {
+/* Separators only, exactly as the briefing rail above — same rail, same two outer
+ * edges removed. */
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(n+3) {
   border-top: 1px solid var(--border);
-  border-bottom: 1.5px solid var(--text-heading);
 }
 section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > strong {
   font-size: var(--fs-emphasis);
@@ -665,8 +683,19 @@ section.kpi.kpi:where([data-family="tall"], [data-family="strip"]) > .cell-stage
 section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) {
   background: none;
   border-left: none;
-  border-top: 1.5px solid var(--text-heading);
   padding: var(--sp-sm) 0;
+}
+/* Linearised, the hero is the LEAD ROW of one ledger rather than a card beside a
+ * rail — so the boundaries move down by one. The demoted hero loses the heavy
+ * border-top it used to carry (it was the ledger's outer top edge, the same thing
+ * the rail rules above just dropped), and the first support gains the separator
+ * that now divides it from the lead row. Rows 3+ already carry theirs from the
+ * briefing rules, which are not family-gated.
+ *
+ * Ties the briefing rail rule at (0,4,3) and wins on source order — the same
+ * mechanism the hero rules above rely on. */
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(2) {
+  border-top: 1px solid var(--border);
 }
 section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1)::after {
   content: none;
