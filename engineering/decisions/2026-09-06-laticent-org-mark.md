@@ -137,13 +137,62 @@ invisible unless measured.
 mark still needs `docs/public/` copies, PWA icons via
 `tools/make-pwa-icons.js`, and the site header.
 
-**Parent fit is still the open weakness.** The mark is a letterform in a family
-of abstract marks, and no product mark is a letterform. That is a real
-structural mismatch, accepted rather than solved.
+**Parent fit is resolved, and the premise it rested on was half wrong.** See
+below.
+
+## Parent fit: why the parent is a tile
+
+The open weakness was stated as "the mark is a letterform in a family of
+abstract marks." Rendering the mark **beside the five children for the first
+time** showed the framing was half wrong, and the measurement showed why.
+
+**Every one of the five product marks places its hub at exactly (64,64)**,
+radius 13-16.5. The family is not merely "has a hub" — it is *organized
+around* one. Every child is centripetal. The Laticent L has zero circles.
+
+So the obvious fix was tried: transplant lattice's own core construction
+(ground halo, gold disc, deep-gold inner ring) into the letter, at the crook,
+at the arm's terminal, at the stem's head, and with the seam removed. **All
+four fail, on geometry rather than taste.** A letterform cannot be centripetal
+without ceasing to be a letter; the node lands 38 units off center and reads
+as a bolted-on dot.
+
+That leaves the resolution the precedent already points at: the parent does
+not imitate its children, it differs by **class**. A contained mark beside five
+free-standing ones reads as the thing they live inside, which is the actual
+relationship — Alphabet, Meta and P&G all do this at the corporate register.
+Rendered back into the family row, the tile reads as the parent where the bare
+letter read as a mark from another system.
+
+The container pays for itself three more times:
+
+- it converts a *letter* into an *object*, so the lockup stops reading as
+  "L Laticent" — the Facebook / Pinterest device;
+- its content is the only form here that clears the **Android maskable safe
+  circle** (43.7 against 51.2), which no free-standing mark in this family
+  does, the existing five included;
+- a full-bleed tile is what an app icon wants.
+
+Two errors were caught while building it, both by measurement rather than eye:
+
+- **The tile must not adapt.** Letting it follow `prefers-color-scheme`
+  inverted it into a glaring bright block on dark. An app-icon tile is a brand
+  constant; only the ground behind a lockup and the wordmark shift.
+- **Lightening the seam for the tile was backwards.** The seam never touches
+  the tile — it sits inside the cream letter — so lifting it from `#C67A12` to
+  `#E0972A` took contrast from 3.06:1 to **2.20:1**, under the 3:1 graphical
+  floor, to solve a problem that did not exist.
+
+`audit.py` grew two capabilities for this and both were load-bearing: it
+recognizes a full-bleed tile and judges its *content* against the maskable
+circle rather than flagging corners it is designed to lose, and it is now
+**transform-aware** — ignoring the tile's `translate`+`scale` reported the
+letter's pre-scaled coordinates, and a wrong number from a gate is worse than
+no gate.
 
 ## Files
 
-- `design/logo/laticent/generate.py` — the mark, minimal variant and lockups
+- `design/logo/laticent/generate.py` — the tile, the mark, minimal variants and lockups
 - `design/logo/laticent/audit.py` — the crop / bounding-box gate
-- `design/logo/laticent/laticent-*.svg` — the four master assets
+- `design/logo/laticent/laticent-*.svg` — the eight master assets
 - `design/logo/laticent/README.md` — palette, rules, regeneration

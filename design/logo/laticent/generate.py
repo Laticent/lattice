@@ -56,6 +56,30 @@ WMFONT = "Fraunces,'Cormorant Garamond',Georgia,serif"
 
 SAFE_R = 54.0
 
+# The TILE — the parent's primary symbol.
+#
+# Measured, not assumed: every one of the five product marks places a haloed
+# hub at exactly (64,64), radius 13-16.5. The family is not merely "has a
+# hub", it is ORGANISED AROUND one — every child is centripetal. A letterform
+# cannot be centripetal without ceasing to be a letter, so transplanting a hub
+# into the L fails on geometry, not taste: its node lands 38 units off center
+# and reads as a bolted-on dot.
+#
+# So the parent does not imitate its children, it differs by CLASS. A
+# contained mark beside five free-standing ones reads as the thing they live
+# inside — which is the relationship — and it is what Alphabet, Meta and P&G
+# all do at the corporate register.
+#
+# The tile does NOT adapt to the color scheme. An app-icon tile is a brand
+# constant; letting it follow `prefers-color-scheme` inverted it into a glaring
+# bright block on dark. Only the ground behind a lockup and the wordmark shift.
+TILE_BG = "#25333C"      # a touch deeper than STONE, so it holds on cream
+TILE_INK = HALO          # the letter, reversed out of the tile
+TILE_SEAM = GOLD         # 3.06:1 on the cream letter; the seam never touches
+                         # the tile, so lightening it only LOWERED contrast
+TILE_R = 27              # corner radius, ~21% — a squircle
+TILE_PAD = 17
+
 STYLE = (
     f'<style>.sf{{fill:{STONE}}}.gf{{fill:{GOLD}}}.hs{{stroke:{HALO}}}'
     f'@media(prefers-color-scheme:dark){{.sf{{fill:{STONE_DM}}}'
@@ -108,6 +132,22 @@ def mark(p=None):
             f'<path d="{seam}" class="gf"/>')
 
 
+def tile(p=None):
+    """The mark reversed out of a fixed slate tile. No recess: inside the tile
+    the seam borders the cream letter, never the slate, and cream-on-cream
+    would be invisible."""
+    import re as _re
+    art = mark(p)
+    art = _re.sub(r'<path d="[^"]+" class="hs"[^/]*/>', '', art)
+    art = art.replace('class="sf"', f'fill="{TILE_INK}"', 1)
+    art = art.replace('class="gf"', f'fill="{TILE_SEAM}"')
+    f = (128 - 2 * TILE_PAD) / 128
+    return (f'<rect x="0" y="0" width="128" height="128" rx="{TILE_R}" '
+            f'fill="{TILE_BG}"/>'
+            f'<g transform="translate({TILE_PAD} {TILE_PAD}) scale({f:.4f})">'
+            f'{art}</g>')
+
+
 def svg(inner):
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" '
             f'fill="none">{STYLE}{inner}</svg>\n')
@@ -134,12 +174,27 @@ MARK_INK_X = 100.8        # ... and its right edge
 GAP_CAPS = 0.42           # space to the wordmark, in cap heights
 
 
-def lockup(style, width=None):
-    """Mark + wordmark, sharing one baseline."""
+TILE_CAPS = 1.90         # the tile's height in cap heights
+TILE_CENTRE = 69.5       # measured: between the cap-band center (67.5) and the
+                         # word's center of mass (74.2). A tile is not a letter,
+                         # so it has no baseline to share; the eye put it here.
+
+
+def lockup(style, width=None, form="tile"):
+    """Mark + wordmark. form="tile" is primary; form="bare" is the letter
+    alone, for monochrome, engraving and very small print."""
     cap = CAP_RATIO * FONT_SIZE
-    sc = (MARK_CAPS * cap) / (MARK_INK[1] - MARK_INK[0])
-    ty = BASELINE - MARK_INK[1] * sc            # the mark's foot ON the baseline
-    tx = 4 + MARK_INK_X * sc + GAP_CAPS * cap
+    if form == "tile":
+        th = TILE_CAPS * cap
+        sc = th / 128
+        ty = TILE_CENTRE - th / 2
+        tx = 4 + th + GAP_CAPS * cap
+        art = tile()
+    else:
+        sc = (MARK_CAPS * cap) / (MARK_INK[1] - MARK_INK[0])
+        ty = BASELINE - MARK_INK[1] * sc        # the mark's foot ON the baseline
+        tx = 4 + MARK_INK_X * sc + GAP_CAPS * cap
+        art = mark()
     stone = STONE if style == "light" else STONE_DM
     gold = GOLD if style == "light" else GOLD_DM
     halo = HALO if style == "light" else HALO_DM
@@ -148,7 +203,7 @@ def lockup(style, width=None):
     w = width or int(tx + 300)
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} 128" '
             f'fill="none">{st}'
-            f'<g transform="translate(4 {ty:.2f}) scale({sc:.4f})">{mark()}</g>'
+            f'<g transform="translate(4 {ty:.2f}) scale({sc:.4f})">{art}</g>'
             f'<text x="{tx:.1f}" y="{BASELINE}" font-family="{WMFONT}" '
             f'font-size="{FONT_SIZE}" font-weight="600" letter-spacing="-1" '
             f'fill="{txt}">Laticent</text></svg>\n')
@@ -161,11 +216,15 @@ def write(path, text):
 
 def emit(d=OUT):
     os.makedirs(d, exist_ok=True)
+    write(os.path.join(d, "laticent-tile.svg"), svg(tile()))
+    write(os.path.join(d, "laticent-tile-min.svg"), svg(tile(MIN)))
     write(os.path.join(d, "laticent-mark.svg"), svg(mark()))
     write(os.path.join(d, "laticent-mark-min.svg"), svg(mark(MIN)))
     write(os.path.join(d, "laticent-lockup.svg"), lockup("light"))
     write(os.path.join(d, "laticent-lockup-dark.svg"), lockup("dark"))
-    print("wrote 4 master assets to", d)
+    write(os.path.join(d, "laticent-lockup-bare.svg"), lockup("light", form="bare"))
+    write(os.path.join(d, "laticent-lockup-bare-dark.svg"), lockup("dark", form="bare"))
+    print("wrote 8 master assets to", d)
 
 
 if __name__ == "__main__":

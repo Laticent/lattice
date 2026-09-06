@@ -7,6 +7,13 @@ Two crops matter in production:
 
 Also reports the bounding box, so a mark that sits off-center in its own frame
 shows up as unequal margins rather than having to be spotted by eye.
+
+A TILE is judged differently, and the distinction is the whole point of this
+file being a script rather than an opinion. A free-standing mark must stay
+inside the crop. A tile is a full-bleed container that is MEANT to be cropped
+by the mask — flagging its corners is a false failure — so what gets measured
+is the content sitting inside it, against the maskable safe circle. A tile is
+detected by the full-bleed rounded rect it opens with.
 """
 import glob, math, os, re, sys
 
@@ -38,16 +45,41 @@ def pts(svg):
     return out
 
 
+TILE_RE = re.compile(r'<rect x="0(?:\.0+)?" y="0(?:\.0+)?" width="128" height="128"[^>]*/>')
+
+
+GROUP_RE = re.compile(
+    r'<g transform="translate\(([-\d.]+) ([-\d.]+)\) scale\(([\d.]+)\)">(.*?)</g>',
+    re.S)
+
+
+def pts_with_transforms(svg):
+    """Points in user space. The tile nests the letter under a
+    translate+scale, and ignoring it reported the letter's PRE-scaled
+    coordinates — a wrong number from a gate is worse than no gate."""
+    out = []
+    rest = svg
+    for m in GROUP_RE.finditer(svg):
+        tx, ty, sc = float(m.group(1)), float(m.group(2)), float(m.group(3))
+        out += [(tx + x * sc, ty + y * sc) for x, y in pts(m.group(4))]
+        rest = rest.replace(m.group(0), '')
+    return out + pts(rest)
+
+
 def audit(path):
     with open(path, encoding="utf-8") as fh:
         svg = fh.read()
-    p = pts(svg)
+    is_tile = bool(TILE_RE.search(svg))
+    if is_tile:
+        # measure the CONTENT, not the container it is meant to be cropped from
+        svg = TILE_RE.sub('', svg, count=1)   # drop it, do not zero it
+    p = pts_with_transforms(svg)
     if not p:
         return None
     rmax = max(math.hypot(x - C, y - C) for x, y in p)
     xs = [x for x, _ in p]; ys = [y for _, y in p]
     return dict(r=rmax, x0=min(xs), x1=max(xs), y0=min(ys), y1=max(ys),
-                kb=os.path.getsize(path) / 1024)
+                kb=os.path.getsize(path) / 1024, tile=is_tile)
 
 
 if __name__ == "__main__":
@@ -61,9 +93,15 @@ if __name__ == "__main__":
         a = audit(f)
         if not a:
             continue
-        av = "CLIP" if a["r"] > 64.0 else "ok"
-        mk = "over" if a["r"] > 51.2 else "ok"
-        bad += a["r"] > 64.0
+        if a["tile"]:
+            av = "tile"                       # full-bleed by design
+            mk = "ok" if a["r"] <= 51.2 else "OVER"
+            bad += a["r"] > 51.2              # the CONTENT must clear the mask
+        else:
+            av = "CLIP" if a["r"] > 64.0 else "ok"
+            mk = "over" if a["r"] > 51.2 else "ok"
+            bad += a["r"] > 64.0
         print(f"{os.path.basename(f):26s} {a['r']:6.1f} {av:>7s} {mk:>6s} "
               f"{a['x0']:6.1f}..{a['x1']:5.1f} {a['y0']:6.1f}..{a['y1']:5.1f} {a['kb']:5.1f}")
-    print(f"\n{bad} mark(s) clipped by a round avatar crop.")
+    print(f"\n{bad} asset(s) failing their crop rule "
+          f"(marks: round avatar r<=64 · tiles: content inside the maskable r<=51.2).")

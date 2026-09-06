@@ -1,24 +1,67 @@
 # Laticent org mark — the inlaid L
 
 A slate **L** with a brass seam let into it, tracing the load path down the
-stem and turning out along the arm. Laticent is the parent of Lattice,
-Cadenza, Lente, Suono and Vetrina, so the mark answers to the name first:
+stem and turning out along the arm — set in a slate tile. Laticent is the
+parent of Lattice, Cadenza, Lente, Suono and Vetrina, so the mark answers to
+the name first:
 
 | Latin root | How the drawing says it |
 | --- | --- |
 | *latus* — broad, expansive | the arm runs 76 against an 84 cap height, so the letter's own stance is wide |
 | *latere* — the hidden bedrock | the seam is the load path — the structure that carries the letter, made visible as one line |
 
+## Why the parent is a TILE and the children are not
+
+This is the one decision worth reading before changing anything.
+
+Measured, not assumed: **every one of the five product marks places a haloed
+hub at exactly (64,64)**, radius 13–16.5. The family is not merely "has a
+hub" — it is *organized around* one. Every child is centripetal.
+
+A letterform cannot be centripetal without ceasing to be a letter. Dropping a
+hub into the L was tried and it fails on geometry, not taste: the node lands
+**38 units off center** and reads as a bolted-on dot.
+
+So the parent does not imitate its children — it differs by **class**. A
+contained mark beside five free-standing ones reads as the thing they live
+inside, which is the actual relationship. Alphabet, Meta and P&G all do this
+at the corporate register.
+
+The container earns its place three more times: it converts a *letter* into an
+*object*, so the lockup stops reading as "L Laticent"; it is the only form
+here whose content clears the Android maskable safe circle (43.7 against
+51.2); and a full-bleed tile is exactly what an app icon wants.
+
+## Usage — three forms, and they are not interchangeable
+
+The convention every large brand uses, and the reason it exists: the symbol
+alone for small and square surfaces, the wordmark alone where the name must
+be read, the lockup only where both are needed at once.
+
+| Surface | Use |
+| --- | --- |
+| App icon, favicon, avatar, any square | `laticent-tile.svg` (`-min` at ≤24px) |
+| Site header, documents, letterhead | the wordmark alone |
+| Formal first-impression use | `laticent-lockup.svg` |
+| Monochrome, engraving, very small print | `laticent-mark.svg`, the bare letter |
+
 ## Files
 
 | File | What | Use |
 | --- | --- | --- |
-| `laticent-mark.svg` | Full mark, light+dark adaptive | Anywhere ≥28px |
-| `laticent-mark-min.svg` | Reduced mark, adaptive | Favicon / app icon, ≤24px |
-| `laticent-lockup.svg` | Mark + wordmark, dark text | On light surfaces |
-| `laticent-lockup-dark.svg` | Mark + wordmark, light text | On dark surfaces |
-| `generate.py` | Source of truth — regenerates all four | `python3 generate.py` |
-| `audit.py` | Crop / bounding-box gate | `python3 audit.py .` |
+| `laticent-tile.svg` | **Primary symbol.** Fixed colors | App icon, favicon, avatar |
+| `laticent-tile-min.svg` | Reduced tile | ≤24px |
+| `laticent-mark.svg` | The bare letter, light+dark adaptive | Monochrome, engraving |
+| `laticent-mark-min.svg` | Reduced bare letter, adaptive | ≤24px |
+| `laticent-lockup.svg` / `-dark.svg` | Tile + wordmark | Formal use |
+| `laticent-lockup-bare.svg` / `-dark.svg` | Letter + wordmark | Where a container is wrong |
+| `generate.py` | Source of truth — regenerates all eight | `python3 generate.py` |
+| `audit.py` | Crop gate, transform-aware | `python3 audit.py .` |
+
+**The tile does not adapt to the color scheme.** An app-icon tile is a brand
+constant — Facebook's `f` stays blue. Letting it follow
+`prefers-color-scheme` inverted it into a glaring bright block on dark. Only
+the ground behind a lockup and the wordmark shift.
 
 ## Palette — the achromatic parent
 
@@ -31,6 +74,7 @@ it read as the root rather than a sixth sibling.
 | Slate | `#2C3A43` | `#9DB2BE` | the letter |
 | Gold | `#C67A12` | `#F6B64A` | the seam |
 | Ground | `#F6F3EC` | `#101314` | the recess the seam sits in |
+| Tile | `#25333C` | `#25333C` | the container — a brand constant, never adapts |
 | Wordmark | `#241F1B` | `#E6E2DD` | lockup text |
 
 ## What makes it the letter and not two rectangles
@@ -58,8 +102,12 @@ Both were caught failing in review, and neither is visible at 128px.
   mono print, and for a viewer with a color vision deficiency. Without it the
   mark collapses to a plain slate L; verified on a grayscale render.
 - **Round-crop safety.** A GitHub org or Slack avatar is a **circle**. Nothing
-  is painted more than `SAFE_R = 54` units from the center. `audit.py` measures
-  every painted point; the family marks run 41–61 and both assets here clear it.
+  in a free-standing mark is painted more than `SAFE_R = 54` units from the
+  center. A **tile is judged differently**: it is full-bleed *by design* and
+  meant to be cropped by the mask, so `audit.py` measures the content inside
+  it against the maskable circle instead. The audit is transform-aware —
+  ignoring the tile's `translate`+`scale` reported the letter's pre-scaled
+  coordinates, and a wrong number from a gate is worse than no gate.
 
 ## Rules
 
@@ -78,7 +126,10 @@ Both were caught failing in review, and neither is visible at 128px.
   that box and a symbol centered on it drops visibly low. The first version of
   this file did exactly that — the mark hung **9.2px below the baseline** at
   2.1× cap height.
-- **Don't:** put a product hue in it, remove the recess, lay the seam directly
-  on the slate, add gradients or shadows, or squash the aspect ratio.
+- **Don't:** put a product hue in it, remove the recess from the bare mark,
+  lay the seam directly on the slate, let the tile follow the color scheme,
+  lighten the seam inside the tile (it borders the cream letter, so lightening
+  only *lowers* contrast — 2.20:1 against the brand gold's 3.06:1), add
+  gradients or shadows, or squash the aspect ratio.
 
 Regenerate after any change: `python3 design/logo/laticent/generate.py`.
