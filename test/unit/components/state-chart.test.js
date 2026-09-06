@@ -975,3 +975,104 @@ describe('Tier-2 per-node detail reveal', () => {
     assert.match(html, /data-mark="0"/, 'nodes are still index-tagged');
   });
 });
+
+/**
+ * `:::token` — the author-facing tint channel.
+ *
+ * An author names a THEME TOKEN, never a color, so a tinted deck still
+ * re-themes with the palette (HARD RULE #3). The grammar is the security
+ * boundary as much as the ergonomics: the value is interpolated into a
+ * `var(--…)` reference inside markup the browser pass assigns through
+ * `svg.innerHTML` — the sink HARD RULE #22 polices — so a name able to carry a
+ * quote, a paren or a `)` could close the function and inject.
+ *
+ * Three properties are pinned here, and the third is the one most likely to rot:
+ * the channel must be PURELY ADDITIVE, so a deck that authors no `:::` produces
+ * a byte-identical model. That is what keeps the six shipped galleries and their
+ * committed PDFs from churning.
+ */
+describe('state-chart `:::token` tint channel', () => {
+  const li = (spec = '', tspec = '') =>
+    `<li>Draft <code>start</code>${spec}\n<ul><li><code>go =&gt; 2</code>${tspec}</li></ul></li>` +
+    `<li>Next <code>end</code></li>`;
+
+  test('a well-formed token reaches both the state and the transition', () => {
+    const m = parseStateChart(li(':::state-info-hue', ':::state-pass-hue'));
+    assert.equal(m.states[0].tint, 'state-info-hue');
+    assert.equal(m.transitions[0].tint, 'state-pass-hue');
+  });
+
+  test('the second slot is the edge-label background', () => {
+    const m = parseStateChart(li('', ':::state-fail-hue/surface-raised'));
+    assert.equal(m.transitions[0].tint, 'state-fail-hue');
+    assert.equal(m.transitions[0].labelBg, 'surface-raised');
+  });
+
+  test('a tint does not eat the status pill or the start/end keywords', () => {
+    const m = parseStateChart(
+      `<li>Draft <code>start</code> <code>at-risk</code>:::state-warn-hue</li><li>B <code>end</code></li>`
+    );
+    assert.equal(m.states[0].label, 'Draft', 'label keeps its text');
+    assert.equal(m.states[0].status, 'at-risk', 'status pill still parses');
+    assert.equal(m.states[0].isStart, true, 'start keyword still parses');
+    assert.equal(m.states[0].tint, 'state-warn-hue');
+  });
+
+  test('a prose bullet is still detail, not a transition, when a tint is present', () => {
+    const m = parseStateChart(
+      `<li>Draft <code>start</code>:::state-info-hue\n<ul><li>Entry action runs here.</li></ul></li>` +
+      `<li>B <code>end</code></li>`
+    );
+    assert.deepEqual(m.states[0].detail, ['Entry action runs here.']);
+    assert.equal(m.transitions.length, 0);
+  });
+
+  // The security arm. Each of these can close a `var(--x` or break an attribute
+  // if the grammar ever loosens to something like /:::(\S+)/.
+  for (const bad of [
+    'red); fill:url(#evil',            // close the var() and inject a paint
+    'a" onload="alert(1)',             // break out of the style attribute
+    'a);}</style><script>x</script>',  // RAWTEXT escape (HARD RULE #22)
+    '--state-edge',                    // author-supplied `--`; the engine adds it
+    'UPPER', '1abc', 'a b', '../../etc', 'a/b/c', '',
+  ]) {
+    test(`rejects \`:::${bad}\``, () => {
+      const m = parseStateChart(li(':::' + bad, ':::' + bad));
+      assert.equal(m.states[0].tint, undefined, 'state tint refused');
+      // A malformed spec is refused one of two equally correct ways: the tint is
+      // dropped and the transition survives, or the bullet no longer matches the
+      // transition shape at all and falls through to detail prose. Both leave
+      // NO tint anywhere, which is the property under test — asserting the
+      // transition still exists would pin the accident rather than the rule.
+      for (const t of m.transitions) {
+        assert.equal(t.tint, undefined, 'transition tint refused');
+        assert.equal(t.labelBg, undefined, 'label-bg refused');
+      }
+    });
+  }
+
+  test('an untinted machine is byte-identical — the channel is purely additive', () => {
+    const plain = li();
+    const model = parseStateChart(plain);
+    // No `tint`/`labelBg` KEY at all, not merely a null one: the transition
+    // record is JSON-serialised into `data-sc-transitions`, and an added key
+    // would change every shipped gallery's markup.
+    assert.equal('tint' in model.states[0], false);
+    assert.equal('tint' in model.transitions[0], false);
+    assert.equal('labelBg' in model.transitions[0], false);
+  });
+
+  test('the tint reaches the emitted markup on both channels', () => {
+    const html = buildStateChart(
+      parseStateChart(li(':::state-info-hue', ':::state-pass-hue/surface-raised')),
+      {}, 'landscape'
+    );
+    assert.match(html, /data-tint="state-info-hue"/, 'state tint rides the measuring <li>');
+    // The transition JSON lives in an ATTRIBUTE, so escAttr has entity-escaped
+    // every quote — asserting the raw `"tint":"…"` form would fail against
+    // correct output, and asserting an unescaped quote reached the attribute
+    // would be asserting the HARD RULE #22 bug this escaping exists to prevent.
+    assert.match(html, /&quot;tint&quot;:&quot;state-pass-hue&quot;/, 'transition tint rides the serialised JSON');
+    assert.match(html, /&quot;labelBg&quot;:&quot;surface-raised&quot;/);
+  });
+});

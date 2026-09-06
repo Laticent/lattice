@@ -16,12 +16,16 @@
   "form": "timeline",
   "substance": "graph",
   "render": "hybrid",
-  "renderNote": "States are authored as an HTML `<ol>`, which the browser pass measures and then paints as nodes, edges and edge labels into the `<svg>` overlay \u2014 edge routing needs each state's measured box, so the HTML has to exist first. Once painted the list is hidden, so a default slide is SVG in practice; what keeps the component hybrid is the `inline` variant, whose chip row stays HTML and is never painted over.",
+  "renderNote": "States are authored as an HTML `<ol>`, which the browser pass measures and then paints as nodes, edges and edge labels into the `<svg>` overlay — edge routing needs each state's measured box, so the HTML has to exist first. Once painted the list is hidden, so a default slide is SVG in practice; what keeps the component hybrid is the `inline` variant, whose chip row stays HTML and is never painted over.",
   "kernel": {
     "figureClass": "state-chart-figure"
   },
   "stage": "canvas",
-  "coda": { "claims": ["trailing-paragraph"] },
+  "coda": {
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
   "orientation": [
     "landscape",
     "portrait"
@@ -64,6 +68,11 @@
       "selector": "ol > li > ul > li (prose, no arrow)",
       "required": false,
       "description": "Optional per-state reveal detail (the shared chart-family detail substrate). A nested bullet under a state that is NOT an inline-code transition (plain prose — the entry/exit action, the rule, the why) is captured as that state's detail rather than a transition. It drives two surfaces from one source: (1) Present/Practice/Preview — the state node is tagged `data-mark` and the prose rides an inert `<template class=\"chart-detail\">` the reveal layer shows in a popover on hover/tap, with the active node lifted, the rest dimmed, and the whole figure tilting (the edge-router skips re-measuring while the tilt is live, so the routed edges stay aligned); (2) the static PDF — the same detail folds into the slide's speaker note (`Label (status): item · item`) as a Marp-faithful comment. Renders nothing on the slide face, so a machine with no prose bullets is byte-identical. Must be a bullet (`-`/`*`), not numbered."
+    },
+    "tint": {
+      "selector": "ol > li (::: suffix), ol > li > ul > li (::: suffix)",
+      "required": false,
+      "description": "Optional `:::token` naming a THEME TOKEN to paint with — `:::state-fail-hue`, never a color literal. On a state it tints the node's gradient and stroke; on a transition it tints the line and its arrowhead. A transition takes an optional second slot for its edge-label background: `:::state-fail-hue/surface-raised`. The name is used verbatim as `var(--<token>)` and must match `^[a-z][a-z0-9-]*$` with no `--` prefix (the engine adds it); anything else is dropped whole and the element keeps its inherited paint. Existence is NOT checked at build time — this is a pure string transform and cannot read the theme's declared tokens — so a typo resolves to nothing and the deck degrades rather than breaking. `npm run lint:deck` is where a typo gets named."
     }
   },
   "skeleton": "<!-- _class: state-chart -->\n\n`Submission lifecycle`\n\n## Document approval flow.\n\nHow a draft moves from author to archive.\n\n1. Draft `start`\n   - `submit => 2`\n   - `discard => 6`\n2. Submitted `on-track`\n   - `review => 3`\n3. In Review\n   - `approve => 4`\n   - `reject => 1`\n   - `revise => self`\n4. Approved `done`\n   - `publish => 5`\n5. Published `live`\n   - `archive => 6`\n6. Archived `end`\n\n*Rejected drafts return to the author; revisions stay in review.*\n",
