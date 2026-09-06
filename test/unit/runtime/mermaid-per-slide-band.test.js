@@ -430,6 +430,49 @@ describe('the scope key survives the runtime stamping the section it keys on', (
     );
   });
 
+  // The FIT agent (deck-preview.js, injected into every buildSrcdoc document) writes
+  // these three onto every section — and rewrites `transform` on EVERY pane or window
+  // resize. Unfiltered, that moved the key on every resize and re-rendered every diagram
+  // in the document once per resize. Plain properties, not `--_`-prefixed, so nothing
+  // else in the predicate would have caught them.
+  test('the FIT agent scaling the section does not change the key', () => {
+    assert.equal(
+      diagramScopeKey(el('diagram form', AUTHORED)),
+      diagramScopeKey(
+        el('diagram form', `${AUTHORED}transform-origin: left top; transform: scale(0.7); margin-bottom: -216px;`),
+      ),
+      'a cached diagram is SVG markup; scaling the section it sits in does not change it',
+    );
+    // And a resize, which is the case that actually bit: same section, two scales.
+    assert.equal(
+      diagramScopeKey(el('diagram form', `${AUTHORED}transform: scale(0.7);`)),
+      diagramScopeKey(el('diagram form', `${AUTHORED}transform: scale(0.42);`)),
+    );
+  });
+
+  // The CLASS half of the key had NO filter at all while the style half was being
+  // carefully fixed. These four are watcher OUTPUT — written and cleared as content
+  // settles — so a reader that runs while a diagram slide is transiently marked keys the
+  // render one way and the reader after the marks clear misses.
+  test("the runtime's measurement markers do not change the key", () => {
+    assert.equal(
+      diagramScopeKey(el('diagram form', AUTHORED)),
+      diagramScopeKey(el('diagram form overflow clip-marked fit-marked illegible', AUTHORED)),
+      'overflow/clip/fit/illegible are watcher output, not palette',
+    );
+  });
+
+  // The deliberate NON-drop, and the reason is the dangerous direction: an author can
+  // write `_class: finish` on its own, so filtering it would alias a finish slide with a
+  // plain one — and a finish is palette. The four markers above cannot be a stable author
+  // signal because the watcher that owns each one sweeps it; `finish` has no watcher.
+  test('`finish` is NOT dropped — it can be authored, and it is palette', () => {
+    assert.notEqual(
+      diagramScopeKey(el('diagram form', AUTHORED)),
+      diagramScopeKey(el('diagram form finish', AUTHORED)),
+    );
+  });
+
   // The MECHANISM, not a paraphrase of it: the key reads the CSSOM's serialization
   // (`style.cssText`), which both readers see identically, rather than the `style`
   // ATTRIBUTE, which is the author's text until the first `setProperty` replaces it
