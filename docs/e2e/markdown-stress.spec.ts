@@ -278,7 +278,7 @@ async function pasteDeck(page: Page, text: string): Promise<void> {
 	await expect.poll(() => editorDoc(page), { message: 'the document never emptied before the paste' }).toBe('');
 	// THE CLIPBOARD IS CLEARED FIRST, and that is not ceremony. A caller that pastes two
 	// payloads in a row — the CRLF oracle does, and both of its payloads normalize to the SAME
-	// 19 characters — would otherwise re-paste iteration 1's text on iteration 2 if the second
+	// 18 characters — would otherwise re-paste iteration 1's text on iteration 2 if the second
 	// `writeText` silently failed, satisfying both the delivery check below and the oracle's own
 	// `toBe(DECK)`. The lone-CR arm would then pass having never pasted a lone CR. Clearing
 	// makes a failed write leave an EMPTY clipboard, which the check below catches.
@@ -694,10 +694,11 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 	const ops: Record<string, () => Promise<void>> = {
 		async type() {
 			const line = int(40);
-			// `zzznope` is unknown and UNFIXABLE — too far from any component for a suggestion — and
-			// `kpii` is unknown and FIXABLE, one character off `kpi`. Both are here deliberately:
-			// with only the first, the Quick-fix op could hover a marker but never had an action
-			// to click, so its `applied` counter was structurally zero and no seed could move it.
+			// `zzznope` is unknown and UNFIXABLE — too far from any component for a suggestion —
+			// and `kpii` is unknown and FIXABLE, one character off `kpi`. Keeping BOTH walks the
+			// linter's two branches: a finding with a machine fix and one without. (The pair was
+			// originally added for the Quick-fix op, which no longer exists; the payloads earn
+			// their place without it, which is why they stayed when the op went.)
 			const text = pick([
 				'abc',
 				'# H',
@@ -875,9 +876,6 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 	// frame to `[]`, so all 34 steps could take an escape and the walk would report success
 	// having compared nothing. This is the assertion that the net was actually in the water.
 	expect(invariant2Ran, 'invariant 2 never compared the source against a painted slide').toBeGreaterThan(10);
-	// A hovering pointer means the Quick-fix op had a path to take, so it must have taken one.
-	// Where it does not (a touch context, and headless Firefox), the op is legitimately inert
-	// and this says so rather than pretending the walk covered it.
 });
 
 // ── The persisted source is what a reload reads back ────────────────────────
