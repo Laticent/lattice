@@ -17,9 +17,13 @@ Not a rebrand — product, copyright holder and SPDX headers stay SlideWright.
 > sheet is written from *inside* the source org, so "SlideWright" names the org the
 > repo moved **from**. The 2026-09 rebrand did not sweep it: rewriting it to
 > "Laticent" would have the sheet instruct you to move Laticent out of Laticent.
-> The move has since completed — the repo now lives at
-> `github.com/Laticent/lattice`, and the org, product and dba are all **Laticent**.
-> Per the line above, this note is now disposable.
+> What is observable today is that the repo lives at `github.com/Laticent/lattice`
+> and the org, product and dba are all **Laticent**. What is *not* recorded anywhere
+> is **which** path got it there — the repo transfer this sheet describes, or a plain
+> org rename, which is a different operation and leaves this sheet unexecuted. The
+> front matter still says `status: proposed`, so the decisions index lists it as
+> active work. **Confirm which happened before you either run this sheet or delete
+> it** — §1 calls the transfer a one-way door.
 
 ## Read this first — three things that are not what they look like
 

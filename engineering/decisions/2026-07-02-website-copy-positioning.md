@@ -156,6 +156,8 @@ Each item below is followed by where the current site stands.
    them at all (Laticent appears only on README/intro/story). ← Present.
 10. **Ship three brand names before shipping one product.** Lattice, Lattice
     Style, Laticent — tripled surface area for a first-timer's confusion.
+    *(2026-09: down to two — "Lattice Style" was retired and the org renamed
+    from SlideWright, so Laticent now covers project, org and app.)*
     ← Present (README hero, story; the intro carries two of the three).
 11. **Have an anonymous founder voice.** "I built Lattice because…" with no
     name attached anywhere. First-person conviction with no person. ← Present
@@ -523,7 +525,10 @@ for GA" from the one audience that can adopt today. Instead:
   first-touch surfaces (landing, intro, README hero) lead with **one** brand
   (Lattice) plus at most one forward pointer (Laticent, "the desktop app,
   on the way"); the *explanation* of Lattice Style lives on the story page,
-  one link away, rather than being repeated inline. The README hero
+  one link away, rather than being repeated inline. *(2026-09: the brand was
+  retired; story.md §The name now explains Laticent and the `lattice.style`
+  address instead, and the README heading it cites is `Why Laticent exists`.)*
+  The README hero
   currently makes a newcomer parse three names in two paragraphs
   (inversion #10).
 
@@ -617,7 +622,8 @@ while the features-page footer includes both — one footer nav, shared.
    package" section documents `npx lattice …` (checker correction to an
    earlier draft of this flag). The actual gaps are that getting-started
    teaches the raw filename instead of the alias, and the package isn't on
-   npm yet (verified: the registry returns 404 for `@laticent/lattice`),
+   npm yet (verified: the registry returns 404 for `@slidewright/lattice`,
+   the name at the time),
    so `npx lattice` only works inside a clone. Fix the docs today; publish
    when ready.
 2. **`marp: true` is the first line of front-matter a newcomer writes.**

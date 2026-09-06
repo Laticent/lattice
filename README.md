@@ -25,12 +25,12 @@ authority chains, and obligation matrices; analysts get radar, quadrant,
 and KPI components. More than fifty components, one syntax you already
 know — no drawing tools, no boxes, no pasted screenshots.
 
-Lattice is the engine at the heart of **Laticent** — a project born
+Lattice is the engine at the heart of **Laticent** — the project born
 from a refusal to keep fighting the slide tools we all use, one that
 builds deck-quality documents with the discipline of a design system.
-([Read the story](#why-laticent-exists).) The same Lattice engine that
-runs from the command line will also run inside **Laticent**, the desktop
-app (under development), so a deck authored in either context renders
+([Read the story](#why-laticent-exists).) Laticent is also the name of the
+desktop app (under development), which runs this same engine, so a deck
+authored from the command line or in the app renders
 identically.
 
 ## Why Laticent exists

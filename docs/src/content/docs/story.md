@@ -44,7 +44,8 @@ engine: a structural frame for an argument, where every slide sits on the
 same grid, the same palette, the same deliberate components. You bring the
 meaning; the lattice keeps it straight.
 
-*Style* is the other half of that address, and it means two things at once. The literal
+*Style* is the other half of the address this project lives at,
+[lattice.style](https://lattice.style), and it means two things at once. The literal
 one: this is a styling engine — themes, palettes, one stylesheet contract,
 a whole deck restyled in a single line. The deeper one: **style as craft.**
 Lattice is built on four layers — **Function · Form · Substance · Finish** —
@@ -54,16 +55,17 @@ Take style seriously — the way you'd take a well-made shoe seriously — and
 those four words are exactly what it means: *does it work, what's its shape,
 what's it made of, how is it finished.*
 
-So: structure you can trust, with taste — the frame and the finish. That is
-what **Laticent** builds, and why its home is
-[lattice.style](https://lattice.style).
+**Laticent** keeps the *lattice* in its name for the same reason the engine
+does: the frame is the part that doesn't move. Structure you can trust, with
+taste — the frame and the finish — is what the project builds, and
+`lattice.style` is where it lives.
 
 ## Lattice and Laticent
 
-Two names, two jobs:
+Two names:
 
 - **Lattice** — the engine. The thing that turns Markdown into a deck.
-- **Laticent** — the project around it, the org that publishes it, and the
-  desktop app (under development) that wraps the Lattice engine for people
-  who'd rather not open a terminal. Its home is
+- **Laticent** — everything around it: the project, the org that publishes
+  it, and the desktop app (under development) that wraps the Lattice engine
+  for people who'd rather not open a terminal. Its home is
   [lattice.style](https://lattice.style).

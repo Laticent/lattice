@@ -26,8 +26,8 @@ declares **npm workspaces**, and every one of them is shaped to publish:
 | `@laticent/suono` | 0.1.0 | **no** | same |
 | `@laticent/vetrina` | 0.1.0 | **no** | same, plus a `react >=18` peer |
 
-None is `private`. **None has ever been published** — npm returns *Not found*
-for `@laticent/lattice`.
+None is `private`. **None has ever been published** — npm returned *Not found*
+for `@workwel/lattice`, the name at the time.
 
 Two consequences follow immediately:
 
@@ -248,8 +248,9 @@ three premises the plan rested on.
 ### Why deferring is safe, and what it costs
 
 The central argument survives intact: **npm is still clean.** Verified
-2026-08-24 against the live registry — every candidate scope was checked and all
-return 404. Nothing is
+2026-08-24 against the live registry — `@workwel/lattice`, `@workwel/cadenza`,
+`@workwel/vetrina` and `@slidewright/lattice` all return 404 (those were the
+names at the time; the 2026-09 rename moved all five to `@laticent`). Nothing is
 published, so there is no version history to reconcile, no consumer pinned to a
 tag scheme, and no changelog format anyone has parsed. Every one of those stays
 true until the first publish, so nothing degrades by waiting.
@@ -273,7 +274,7 @@ What the delay *does* cost, and why the trigger is the publish rather than a dat
    unified both on Laticent.)* This matters because
    slice 2 (bootstrap publish) and the per-package tag scheme key off exact
    names, and because "npm returns Not found" was originally checked against
-   the wrong scope. Re-checked against both: clean either way.
+   the wrong scope. Re-checked against `@workwel` and `@slidewright` both: clean either way.
 2. **The migrate-before-first-publish window is half closed.** Recorded in
    `2026-08-23-changelog-is-a-release-record.md` §8: a published `v1.0.0` tag
    and GitHub Release exist as of 2026-08-09, so the *tagging* half of "no
