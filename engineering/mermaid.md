@@ -27,10 +27,17 @@ flowchart LR
 a tilde fence exactly as it does for a backtick one, so the preview has always rendered
 either — but the export's substitution was backtick-only until 2026-09-06, and a
 `~~~mermaid` fence therefore rendered in the preview the author was working in and printed
-as raw source in the PDF. Both callers now read one matcher
+as raw source in the PDF. Both callers now read one walker
 (`lib/core/mermaid-fences.js`): the substitution, and the NARRATOR, which speaks a diagram
-slide from the same fence it renders. Nothing else about the pattern was relaxed, so what
-a backtick fence substitutes to is byte-for-byte unchanged.
+slide from the same fence it renders.
+
+It walks lines rather than matching a regex, and the reason is worth a sentence: a regex
+closing on exactly three characters drew a legal `~~~mermaid` … `~~~~` fence as the diagram
+PLUS a stray `~`, and a regex with no outer-fence state substituted a `~~~mermaid` sample
+shown inside a ```` ```markdown ```` block. Both were driven on the real CLI. What no deck
+sees is any change at all: measured against the pattern it replaces over all 1387 tracked
+markdown files, the only spans that move are three DOCS that were substituting their own
+teaching examples.
 
 **The `.html` player takes a third step past either path: it BAKES the diagram.**
 The player sanitizes its slide DOM (`sanitizeSlideHtml`), and that sanitizer bars

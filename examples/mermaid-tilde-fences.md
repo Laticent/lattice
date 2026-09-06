@@ -61,12 +61,15 @@ flowchart LR
 
 ---
 
-<!-- _class: content -->
+<!-- _class: cards-stack -->
 
-## One matcher, two paths
+## One walker, and what it is allowed to move.
 
-The pattern lives in `lib/core/mermaid-fences.js`, and both callers read it: the CLI's substitution, and the **narrator** that speaks a diagram slide. Widening one alone would have drawn a diagram the voice could not read.
-
-It is no looser than the regex it replaced, so a backtick fence substitutes to the same bytes it always did.
+- Both callers read it
+  - The CLI's substitution, and the narrator. Widen one alone and the voice cannot read the diagram.
+- It walks lines, not a regex
+  - A closer may outrun its opener; a fence inside a fence is a sample. A regex got both wrong.
+- No deck's bytes moved
+  - Across 1387 tracked files, three docs changed — each already substituting its own example.
 
 <!-- _footer: "Rendered with `node lattice-emulator.js examples/mermaid-tilde-fences.md`" -->

@@ -492,14 +492,47 @@ slide; G is rejected on 116KB for what CSS does for free.
   what fills the reserved slot, so its source-frame count is A's by construction —
   but that is an argument, not a measurement.
 - ~~The `~~~mermaid` export gap this uncovered is REPORTED, not fixed~~ — CLOSED
-  (2026-09-06). Both callers now read one matcher, `lib/core/mermaid-fences.js`: the CLI's
+  (2026-09-06). Both callers now read one walker, `lib/core/mermaid-fences.js`: the CLI's
   substitution, and the NARRATOR, whose own docblock claims it reads the same fence
   `preprocessMermaid` renders — widening one alone would have drawn a diagram the voice
-  could not read. The pattern is no looser than the one it replaced (three markers, the tag
-  followed immediately by a newline, a close on a run of the same character), and the
-  export-bytes claim is measured rather than argued: `examples/a11y.md`, a backtick-only
-  deck, exports a BYTE-IDENTICAL `.html` sidecar before and after. `examples/mermaid-tilde-fences.md`
-  is the demo deck, rendered in light and dark.
+  could not read.
+
+  **It is a line walker rather than the obvious regex, and an independent checker is why.**
+  The first version was `/(```|~~~)mermaid\n([\s\S]*?)\1/`, argued as "no looser than the
+  pattern it replaces". True, and beside the point: the pattern it replaces had two warts
+  that were unreachable while only backticks were recognized, and tildes reach both. Driven
+  on the real CLI, not reasoned:
+
+  | input | what the export drew |
+  |---|---|
+  | `~~~mermaid` … `~~~~` (a CommonMark-legal longer closer) | the diagram **and a stray `~`** beside it |
+  | a `~~~mermaid` sample inside a ```` ```markdown ```` block | the teaching example, **substituted into a picture** |
+
+  The second is the shape `mermaid-check.ts` already carries an outer-fence tracker for,
+  after a red-teamer hit it there. So the module walks lines the way a parser does: three or
+  more of one character opens, a run of the SAME character at least as long and alone on its
+  line closes, and a fence opened by another info string swallows what is inside it.
+
+  **No deck moves, and that is a differential rather than a spot check.** The pre-branch
+  regex against the shipped walker over all 1387 tracked `.md` files (48 carry a fence):
+  identical spans and bodies everywhere except three DOCS that were substituting their own
+  teaching examples — `engineering/mermaid.md`,
+  `lib/components/diagram/diagram/diagram.docs.md`, `changelog/pre-release-archive.md` — plus
+  the new demo deck. Backed by the direct check as well: `examples/a11y.md` exports a
+  BYTE-IDENTICAL `.html` sidecar from a `git archive` of the merge-base against this branch.
+
+  **The narrator had the same defect in three more places.** `withoutFences`
+  (chart-narration) and both fence toggles in `slide-speech.js` tracked state with their own
+  backtick-only `/^```/`, so a `~~~` fence's body was never fenced as far as speech was
+  concerned — its source lines narrated. Harmless while a tilde fence was raw text on the
+  slide too; not harmless once the slide draws a picture. One `createFenceReader` now, shared
+  by all three. Differential over every tracked `.md`, block by block: of 6453 narrated
+  blocks **18 changed, in 7 files, all of them DOCS** (`README.md`, `design/`,
+  `docs/src/content/docs/`, an `engineering/decisions/` note) — and each change is fenced
+  code that had been read aloud and no longer is. No deck's narration moved.
+
+  `examples/mermaid-tilde-fences.md` is the demo deck, rendered and eyeballed in light and
+  dark.
 - A's failure mode is now STRUCTURAL rather than argued: the rule requires
   `[data-lattice-diagrams]`, which only a builder injecting the MERMAID script stamps, so a
   document that will not draw the diagram cannot match it. Verified on a real export (the
