@@ -254,6 +254,33 @@ returns any SVG already held. Everything it cannot settle stays pending for the
 debounced pass. It reuses the runtime's own cache and key, so a slide whose palette
 differs misses here exactly as it misses there.
 
+**And when the SOURCE changed, it holds the diagram already on screen.** A cached SVG can
+only answer a fence whose source is byte-identical — which is every keystroke EXCEPT the
+ones an author types into the diagram itself. For those the cache misses by definition, and
+the slot used to show the raw source and then (after the rule above) nothing, for the ~200ms
+the render takes. `adoptOutgoingDiagrams` runs straight after the replay, in the same
+observer callback, and takes the outgoing `<svg>` out of the `MutationRecord`'s
+`removedNodes` — the DOM the host just threw away is still reachable there — and MOVES it
+into the fence that replaced it. The `<pre>` is left `pending`, so the debounced pass still
+renders the new source over the top: the held SVG is a placeholder with a render already
+queued, never an answer. It refuses three cases, because each would be a wrong diagram
+rather than a slow one: a different NUMBER of fences either side (position is the only
+identity left once the source has changed), a different `diagramScopeKey` (the slide's
+palette changed, so the held ink is the old band's), and a document with no Mermaid (the
+same guard the replay opens with — a held SVG nothing replaces is permanently stale).
+
+**A fence with an EMPTY slot does not wait out the debounce.** The 150ms buys exactly one
+thing: not re-rendering a diagram the author is in the middle of editing. Where the slot is
+empty there is no such diagram, so `scheduleRun` takes a delay and the observer asks for 0
+whenever a pending fence's target is still empty after the replay and the adoption.
+Navigating onto a diagram for the first time: 214ms → 70ms, of which the remainder is
+`mermaid.render` itself. A burst still coalesces — it is still a timeout, re-armed per
+record, and the shorter delay wins within a burst.
+
+Numbers for all three, the `--scenario edit` arm that measures the case a cache cannot
+answer, and why the previous diagram was never held on any earlier build:
+`engineering/decisions/2026-09-06-diagram-edit-holds-the-last.md`.
+
 The key is why this took two attempts, and the trap is worth knowing:
 `diagramScopeKey` reads the section's inline style, and the RUNTIME writes to that
 style (`patchSectionGeometry` stamps `--_sec-1cqi`/`--_sec-1cqh`; a `logo:` deck gets

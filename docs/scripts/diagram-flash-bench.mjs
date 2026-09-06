@@ -13,7 +13,14 @@
 //
 //   source   — frames painted showing raw Mermaid source (the flash)
 //   blank    — frames painted showing an empty diagram slot (the wait)
-//   diagram  — the frame the SVG first painted on
+//   held     — frames painted showing the PREVIOUS diagram, still on screen while its
+//              replacement renders. A third state the first version of this instrument
+//              could not see: it scored any SVG as "the diagram arrived", so a run that
+//              held the outgoing ink and a run that rendered instantly were the same
+//              number. Told apart by NODE IDENTITY — a generation stamped on the element
+//              the first frame it is seen — so an SVG the runtime transplanted keeps its
+//              generation while a re-render or a cache replay gets a new one
+//   diagram  — the frame the SVG for THIS source first painted on
 //   shift    — layout shift (the "jump") accumulated across the swap
 //
 // Frames, not only milliseconds, because a human perceives a wrong frame — and the
@@ -28,8 +35,12 @@
 // Usage (from docs/), against a built docs/dist:
 //   npm run build:e2e && npm run bench:flash -- [flags]
 //
-//   --scenario nav|type|mount   click between slides (default), type on a diagram slide,
-//                         or reload the Studio and time the preview's first paint
+//   --scenario nav|type|edit|mount  click between slides (default), type on a diagram slide's
+//                         HEADING, type INSIDE its fence, or reload the Studio and time the
+//                         preview's first paint. `type` and `edit` differ in the one way that
+//                         decides the whole race: `type` leaves the fence source alone, so the
+//                         rendered SVG is in cache and comes back in one microtask, while `edit`
+//                         changes the source, which no cache can answer
 //   --deck diagram|prose  `mount` only: which of the two mount decks to reload. They
 //                         differ in ONE slide — the third is a diagram, or prose in its
 //                         place — and the shown slide is prose in both, so the difference
@@ -85,7 +96,7 @@ function parseArgs(argv) {
 		else if (a === '--deck') o.deck = argv[++i];
 		else throw new Error(`unknown arg: ${a}`);
 	}
-	if (!['nav', 'type', 'mount'].includes(o.scenario)) throw new Error(`unknown --scenario: ${o.scenario} (nav|type|mount)`);
+	if (!['nav', 'type', 'edit', 'mount'].includes(o.scenario)) throw new Error(`unknown --scenario: ${o.scenario} (nav|type|edit|mount)`);
 	if (!['diagram', 'prose'].includes(o.deck)) throw new Error(`unknown --deck: ${o.deck} (diagram|prose)`);
 	// `--deck` only means anything to `mount`; accepting it silently elsewhere let a run be
 	// LABELLED `--deck prose` while measuring the diagram deck.
@@ -198,7 +209,7 @@ function sampler() {
 	const SRC = 'pre > code[class*="language-mermaid"], marp-pre > code[class*="language-mermaid"]';
 	// A NEW document means the parent did a full srcdoc rewrite rather than a patch —
 	// the single most expensive fact about a navigation, and invisible from the outside.
-	const state = { frames: [], swaps: [], shift: 0, t0: performance.now(), doc: Math.random().toString(36).slice(2), marks: {}, origin: performance.timeOrigin };
+	const state = { frames: [], swaps: [], shift: 0, t0: performance.now(), doc: Math.random().toString(36).slice(2), marks: {}, origin: performance.timeOrigin, gen: 0 };
 	window.__flash = state;
 	// The rAF sampler is installed FIRST and never behind anything that can throw. An
 	// init script runs at document-start, where `document.documentElement` can still be
@@ -233,6 +244,12 @@ function sampler() {
 			const srcAlpha = code ? inkVisible(code) : 0;
 			const slotPresent = !!pre;
 			const svgEl = document.querySelector('.mermaid > svg, .mermaid-svg svg');
+			// A generation per SVG ELEMENT, stamped once. The runtime can put a diagram on
+			// screen three ways and only node identity tells them apart: a fresh render and a
+			// cache replay both write `innerHTML` (a NEW element, so a new generation), while
+			// holding the outgoing diagram MOVES the element that was already there (same
+			// generation). Without this the two are indistinguishable from outside.
+			if (svgEl && !svgEl.__flashGen) svgEl.__flashGen = ++state.gen;
 			// A frame the PARENT is hiding was never seen. The Studio reveals the preview
 			// iframe by fading `opacity` from 0, so a frame painted behind that fade is not
 			// a flash — counting it would credit the flash to a window nobody looked at.
@@ -245,7 +262,7 @@ function sampler() {
 					shown = fcs.display !== 'none' && fcs.visibility !== 'hidden' && Number(fcs.opacity) > 0.01;
 				}
 			} catch (_e) {}
-			state.frames.push([Math.round(performance.now() * 10) / 10, shown ? Math.round(srcAlpha * 100) / 100 : 0, svgEl ? (inkVisible(svgEl) > 0 ? 1 : 0) : 0, slotPresent ? 1 : 0, shown ? 1 : 0]);
+			state.frames.push([Math.round(performance.now() * 10) / 10, shown ? Math.round(srcAlpha * 100) / 100 : 0, svgEl ? (inkVisible(svgEl) > 0 ? 1 : 0) : 0, slotPresent ? 1 : 0, shown ? 1 : 0, svgEl ? svgEl.__flashGen || 0 : 0]);
 			if (state.frames.length > 4000) state.frames.splice(0, 2000);
 		} catch (_e) {
 			/* one bad frame must not end the sampling */
@@ -303,30 +320,55 @@ function sampler() {
 	armWhenReady();
 }
 
-/** Frames painted between `from` and the first frame carrying the SVG. */
-function scoreWindow(frames, from) {
+/**
+ * Frames painted between `from` and the frame the diagram FOR THIS SOURCE landed on.
+ *
+ * `baseGen` is the SVG generation on screen when the window opened. A frame carrying
+ * that same generation is the PREVIOUS diagram, still held — it ends nothing, because
+ * the author is waiting on the render their keystroke asked for. Only a higher
+ * generation closes the window. Scoring on "is an SVG present" instead (what this did
+ * until the held state existed) reports a held frame as an arrival, and every candidate
+ * that holds the outgoing ink measures as instant no matter how slow its render is.
+ */
+function scoreWindow(frames, from, baseGen = 0) {
 	const win = frames.filter((f) => f[0] >= from);
 	let source = 0;
 	let sourceInk = 0;
 	let blank = 0;
+	let held = 0;
 	let diagramAt = null;
-	for (const [t, src, svg, slot] of win) {
-		if (svg) {
+	for (const [t, src, svg, slot, , gen] of win) {
+		if (svg && gen > baseGen) {
 			diagramAt = t;
 			break;
 		}
-		if (src > 0.02) {
+		if (svg && gen && gen <= baseGen) held++;
+		else if (src > 0.02) {
 			source++;
 			sourceInk += src;
 		} else if (slot) blank++;
 	}
 	// `sourceInk` is frames weighted by how opaque the source was — a cross-fade's
 	// half-visible frames count as half a frame of insult, not a whole one.
-	return { source, sourceInk: Math.round(sourceInk * 10) / 10, blank, diagramMs: diagramAt === null ? null : Math.round(diagramAt - from) };
+	return { source, sourceInk: Math.round(sourceInk * 10) / 10, blank, held, diagramMs: diagramAt === null ? null : Math.round(diagramAt - from) };
 }
 
 async function main() {
 	const opts = parseArgs(process.argv.slice(2));
+	// REFUSE A SERVER WE DID NOT START. `astro preview` from an earlier run (or from
+	// another checkout) can outlive it and keep 4321; the server this run spawns then
+	// fails to bind, SILENTLY, and every number below describes whatever tree that
+	// other process is serving. That is not a hypothetical — it produced a full set of
+	// plausible, wrong, internally-consistent numbers for four historical builds.
+	try {
+		const pre = await fetch(`${BASE}/studio/`);
+		if (pre.ok) {
+			console.error(`something is already serving ${BASE} — stop it first (this bench must own the port,\nor it measures that server's build instead of this one).`);
+			process.exit(2);
+		}
+	} catch {
+		// Nothing listening — the only state this bench can trust.
+	}
 	const server = spawn(process.execPath, [join(DOCS, 'scripts', 'preview-e2e.mjs')], { cwd: DOCS, stdio: 'ignore' });
 	const stop = () => {
 		try {
@@ -514,8 +556,23 @@ async function main() {
 		await page.keyboard.press('End');
 		await page.waitForTimeout(600);
 	}
+	// `edit` parks the caret INSIDE the fence — one character before the closing `]` of
+	// `B[Process]` — so every keystroke changes the DIAGRAM SOURCE and still parses.
+	// That is the case no cache can answer, and the case `type` never reaches: `type`
+	// edits the heading, leaves the fence byte-identical, and the rendered SVG comes
+	// back from `mermaidSvgCache` in a microtask. Measuring only `type` is how a
+	// per-keystroke 200ms wait scored as 20ms.
+	if (opts.scenario === 'edit') {
+		await rail.nth(1).click();
+		await page.waitForTimeout(2500);
+		await page.getByText('A[Input] --> B[Process]').first().click();
+		await page.keyboard.press('End');
+		await page.keyboard.press('ArrowLeft');
+		await page.waitForTimeout(600);
+	}
 	for (let i = 0; i < order.length; i++) {
-		const target = opts.scenario === 'type' ? 2 : order[i];
+		const typing = opts.scenario === 'type' || opts.scenario === 'edit';
+		const target = typing ? 2 : order[i];
 		// Clear the sampler window, then act.
 		await page
 			.frameLocator('[aria-label="Live deck preview"] iframe.live')
@@ -527,9 +584,13 @@ async function main() {
 				s.frames.length = 0;
 				s.swaps.length = 0;
 				s.shift = 0;
+				// The generation on screen BEFORE the action. Everything at or below it is the
+				// outgoing diagram; the window closes on the first generation above it.
+				const cur = document.querySelector('.mermaid > svg, .mermaid-svg svg');
+				s.baseGen = cur ? cur.__flashGen || 0 : 0;
 			})
 			.catch(() => null);
-		if (opts.scenario === 'type') await page.keyboard.type('x');
+		if (typing) await page.keyboard.type('x');
 		else if (railCount >= target) await rail.nth(target - 1).click();
 		await page.waitForTimeout(1600);
 		const sample = await page
@@ -539,7 +600,7 @@ async function main() {
 			.evaluate(() => {
 				const s = window.__flash;
 				const res = performance.getEntriesByType('resource').map((r) => [r.name.split('/').pop(), Math.round(r.startTime), Math.round(r.duration), r.transferSize || 0]);
-				return s ? { frames: s.frames.slice(), swaps: s.swaps.slice(), shift: s.shift, doc: s.doc, marks: s.marks, res } : null;
+				return s ? { frames: s.frames.slice(), swaps: s.swaps.slice(), shift: s.shift, doc: s.doc, marks: s.marks, res, baseGen: s.baseGen || 0 } : null;
 			})
 			.catch(() => null);
 		if (!sample?.frames.length) {
@@ -547,8 +608,8 @@ async function main() {
 			continue;
 		}
 		const from = sample.swaps.length ? sample.swaps[0] : sample.frames[0][0];
-		const score = scoreWindow(sample.frames, from);
-		const isDiagram = opts.scenario === 'type' ? true : target % 2 === 0;
+		const score = scoreWindow(sample.frames, from, sample.baseGen || 0);
+		const isDiagram = typing ? true : target % 2 === 0;
 		const rewrite = sample.doc !== lastDoc;
 		lastDoc = sample.doc;
 		const m = sample.marks || {};
@@ -582,7 +643,7 @@ async function main() {
 			const v = rows.filter((r) => r.rewrite).map((r) => r.phases?.[k]).filter((x) => x !== null && x !== undefined).sort((a, b) => a - b);
 			return v.length ? v[Math.floor(v.length / 2)] : null;
 		};
-		return { n: rows.length, sourceFrames: med('source'), sourceInk: med('sourceInk'), blankFrames: med('blank'), diagramMs: med('diagramMs'), shift: med('shift'), rewrites: rows.filter((r) => r.rewrite).length, phaseShown: medPhase('shown'), phaseTagged: medPhase('tagged'), phaseSvg: medPhase('svg') };
+		return { n: rows.length, sourceFrames: med('source'), sourceInk: med('sourceInk'), blankFrames: med('blank'), heldFrames: med('held'), diagramMs: med('diagramMs'), shift: med('shift'), rewrites: rows.filter((r) => r.rewrite).length, phaseShown: medPhase('shown'), phaseTagged: medPhase('tagged'), phaseSvg: medPhase('svg') };
 	};
 	const out = { variant: opts.variant, cpu: opts.cpu, runs: opts.runs, cold: agg(cold), warm: agg(warm), all: agg(diagrams), samples: results };
 	if (opts.shots) {
@@ -594,10 +655,10 @@ async function main() {
 		console.log(JSON.stringify(out, null, 2));
 	} else {
 		console.log(`\nvariant: ${opts.variant}   cpu×${opts.cpu}   runs: ${opts.runs}\n`);
-		console.log('                 raw-source frames   (ink-weighted)   blank frames   time-to-diagram   layout shift');
+		console.log('                 raw-source frames   (ink-weighted)   blank frames   held frames   time-to-diagram   layout shift');
 		for (const [label, a] of [['cold (first visit)', out.cold], ['warm (cached)', out.warm]]) {
 			if (!a) continue;
-			console.log(`  ${label.padEnd(18)} ${String(a.sourceFrames).padStart(8)}       ${String(a.sourceInk).padStart(10)}      ${String(a.blankFrames).padStart(9)}    ${String(a.diagramMs === null ? 'never' : `${a.diagramMs}ms`).padStart(12)}   ${String(a.shift).padStart(10)}`);
+			console.log(`  ${label.padEnd(18)} ${String(a.sourceFrames).padStart(8)}       ${String(a.sourceInk).padStart(10)}      ${String(a.blankFrames).padStart(9)}   ${String(a.heldFrames).padStart(9)}    ${String(a.diagramMs === null ? 'never' : `${a.diagramMs}ms`).padStart(12)}   ${String(a.shift).padStart(10)}`);
 		}
 		console.log('\n  phases, from the frame document\'s own `.lattice` (ms):   full rewrites / visits');
 		for (const [label, a] of [['cold (first visit)', out.cold], ['warm (cached)', out.warm]]) {
