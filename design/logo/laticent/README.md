@@ -30,9 +30,26 @@ never shouting.
 
 ## Two forms, two jobs
 
-**The bare letter is the identity.** Rendered beside the five product marks it
-belongs: same free-standing class, same visual density, achromatic where they
-are chromatic.
+**The bare letter is the identity.** It shares the children's free-standing
+class and is achromatic where they are chromatic.
+
+**It does not share their visual density, and an earlier version of this line
+said it did.** Measured at 256px against the five product marks:
+
+| | ink coverage | contour density |
+| --- | --- | --- |
+| **laticent-mark** | **15.1%** | **0.90** |
+| lattice | 19.9% | 1.54 |
+| cadenza | 9.7% | 1.62 |
+| lente | 11.8% | 1.73 |
+| suono | 19.6% | 3.74 |
+| vetrina | 14.7% | 2.17 |
+
+On ink coverage the parent is mid-range. On **contour density** — edge pixels,
+which is what the eye reads as busy-ness — it is 1.7x to 4.2x sparser than
+every child: five open radial constructions beside one solid slab. Look at a
+family row and you see it immediately. "Same visual density" was the fourth
+claim in these documents composed rather than measured (see below).
 
 **The tile is the square-surface form.** App icons, favicons and org avatars
 need a ground — a letter alone in a round crop looks unfinished — and the bare
@@ -96,7 +113,7 @@ constant — Facebook's `f` stays blue. Letting it follow
 `prefers-color-scheme` inverted it into a glaring bright block on dark.
 
 **Why the tile is mid-tone and not near-black.** It was `#25333C`, and that was
-a blocking defect: a near-black tile measures 1.28–1.46:1 against the dark
+a blocking defect: a near-black tile measures 1.27–1.46:1 against the dark
 grounds it has to sit on, so the container was invisible exactly where a
 container has to hold — a GitHub org avatar. Nothing dark can clear 3:1 against
 a dark ground; a visible container must be mid-tone. `#526D7D` is the deepest
@@ -188,8 +205,13 @@ asset set is exactly that surface. The single-scheme lockups and the
 fixed-color tiles now paint by attribute, and the two remaining class names are
 prefixed `lat-` so a host page's own `.sf` cannot collide.
 
-**The groove is clipped, not fitted.** `clipPath` means a mis-set inset or tail
-cannot paint outside the letter, whatever the numbers say.
+**The groove is clipped, not fitted, in BOTH forms.** `clipPath` means a
+mis-set inset or tail cannot paint outside the letter, whatever the numbers
+say. This line claimed both forms while only `mark()` did it — backwards, since
+the tile is where escape actually hurts (brass on the tile ground is 1.61:1, so
+the groove reads only while cream surrounds it). `assert_invariants()` catches a
+bad inset or tail on its own, but a claimed second layer that does not exist is
+worse than an honest single one.
 
 ## What the generator enforces
 
@@ -217,9 +239,13 @@ pre-empt is worse than no gate.
 
 - **Clear space:** one stem-width on all sides.
 - **Minimum size:** the groove is 3.4 units in a 128 viewBox, so it falls under
-  one device pixel at **128 / 3.4 ≈ 38px**, and it stops reading well before
-  that. Use the `-min` variants below ~46px. An earlier version of this line
-  said 28px, which was arithmetic nobody did.
+  one device pixel at **128 / 3.4 ≈ 38px**. Use the `-min` variants below
+  ~46px. Be clear about what that number is: 38 is derived, **46 is a judgment
+  on top of it** — measured off the raster, the groove delivers only 1.26:1 in
+  light mode at 48px, so it has stopped doing anything well above the
+  arithmetic floor. An earlier version said 28px, which was arithmetic nobody
+  did. The rule is also **DPR-blind**: at 2x the groove survives smaller than
+  this allows, and in print or on a 1x projector it does not.
 - **Dark mode:** ship the adaptive SVG. Never hand-recolor.
 - **The lockup shares one baseline.** In the bare form the mark IS a letter, so
   its foot sits on the wordmark's baseline — flat foot to flat foot, no
@@ -242,6 +268,15 @@ pre-empt is worse than no gate.
   2.14:1 on the brand's own bluestone. This is the family's convention — all
   five siblings do it — so it is logged here rather than fixed in this diff
   (HARD RULE #18, off-path), but it is a real limit, not a solved problem.
+- **On a dark page, a light-scheme viewer gets the retired hole design back.**
+  The groove `#16202A` against GitHub dark is **1.148:1** and against zinc-900
+  **1.075:1** — the groove *is* the ground there, so it reads as a hole cut
+  through the letter to the page, which is precisely the failure the groove
+  replaced. It is the same root cause as the line above and has the same
+  status: logged, not fixed here.
+- **The groove's rendered strength is not monotonic in size.** Because it is a
+  sub-pixel feature, it strengthens and weakens with pixel phase — 46px
+  measures stronger than 48px. Nothing in the design controls that.
 - **Nothing here has been seen on a real device.** Every render is headless
   Chromium. An installed Android icon under a real maskable mask, a live GitHub
   org avatar, an iOS home screen and a print proof are all **UNVERIFIED**.

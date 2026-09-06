@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: The Laticent mark is an incised L — a letter with the load path cut through it, down the stem and out along the arm, so what carries the letter is the material showing through from underneath. It arrived by elimination. Five concepts (a datum, an arch, a lattice substrate, a monogram, a cornerstone) were drawn to shipping quality and independently reviewed; every one landed on an unintended first-second reading — a papal cross, a bank-lobby arch, a chain-link fence, a carpenter's square, a Rubik's cube. The owner rejected all but the monogram: the target was 10/10, not a clearable 8. The monogram was rebuilt with typographic craft, shipped as a brass seam inlaid in a slate letter inside a near-black tile — and an independent critic scored THAT 6/10, with four structural findings that all held up. The second rebuild is what this note is mostly about, because the interesting failures are there: a near-black container measured 1.28-1.46:1 against every dark ground it has to sit on, so the container that was the whole argument was invisible on a GitHub org avatar; brass on slate is 1.23:1 on dark, and the ground-color recess meant to fence it severed the letter instead of framing it; and the wordmark was live text whose width spans 219.6 to 315.9 units across its own fallback chain, so the lockup's fixed allotment clipped. The fixes were a mid-tone tile at >=3:1 on cream and on every common dark ground, a channel cut as a MASK so it shows whatever is actually behind it, and a wordmark outlined from Fraunces. Two invariants that had been carried as prose — and were both wrong in prose — are now asserted from the numbers at generate time.
+summary: The Laticent mark is an incised L — a letter with the load path cut INTO it as a groove, a darker value of the letter itself, down the stem and out along the arm. It arrived by elimination and then survived three rebuilds, each forced by an independent checker. Five original concepts all landed on an unintended first-second reading (a papal cross, a bank-lobby arch, a chain-link fence, a carpenter's square, a Rubik's cube) and the owner rejected all but the monogram. The rebuilds are the interesting part. A near-black container measured 1.27-1.46:1 against every dark ground it has to sit on, so the container that was the whole argument was invisible on a GitHub org avatar. Brass on slate is 1.23:1 on dark, and the ground-color recess meant to fence it severed the letter rather than framing it. Cutting the channel to the ground instead put IDENTICAL VALUE ON BOTH SIDES OF THE CONTOUR, which cannot signal depth — only edge — so it read as a hollow inline L. The groove that replaced it is darker than the letter and clipped to it, deliberately below the 3:1 graphical floor because it models depth and carries no information. Along the way the wordmark turned out to be live text whose width spans 219.6 to 315.9 units across its own fallback chain (now outlined from Fraunces and pinned by sha256), and the outliner's own normalizer was corrupting twelve path commands. The lasting lesson is not any of those: it is that FOUR load-bearing justifications in these documents were composed rather than checked, every one of them the headline sentence of its section, while every merely descriptive number verified exactly.
 ---
 
 # The Laticent mark is an incised L
@@ -325,3 +325,95 @@ any "this is the whole argument" sentence here as unverified until re-run.
   the two lockup constants were each chosen against a rendered comparison that
   lives only in a scratch directory. The conclusions can be re-run but not
   re-derived from the tree.
+
+## A fourth rebuild, and the fourth composed claim
+
+A second checker read the groove version. Its verdict on the central question
+is worth recording in full, because it is a judgment rather than a measurement
+and the evidence under it is not in dispute:
+
+> **The groove does not read as an incision.** At 128 light it reads as a
+> pinstripe; at 128 dark as a bevel-and-emboss. At 48 light it is a smear; at
+> 24 light it is gone. In light mode it never exceeds 1.41:1 at any size and is
+> under 1.27:1 at the sanctioned minimum.
+
+Its structural reasons, which are the useful part:
+
+1. **One dark line, no light counterpart.** A cut in a lit surface has two
+   walls of *opposite* value. "Darker than the surface" is necessary and not
+   sufficient; darker-and-lighter together is what signals a channel. A single
+   darker line is what a *drawn stroke* looks like.
+2. **Two free ends at two different lengths** (`inset: 15`, `tail: 8`). Cut
+   material either runs out at an edge or terminates deliberately; these stop
+   mid-plane, inconsistently with each other.
+3. **It is concentric with the letter's own contour.** Concentricity is the
+   signature of a typographic *inline*, which is exactly what the eye reports.
+
+It also measured the rendered strength as **non-monotonic in size** — 46px
+reads stronger than 48px, because a sub-pixel feature strengthens and weakens
+with pixel phase. That is now in README.md's limits.
+
+### The defects it found, all confirmed
+
+| | Evidence |
+| --- | --- |
+| `MIN` was a different letterform, not a reduction | `sw: 23` against `FINAL`'s 20 — a 15% heavier stem, which widened the arm and bracket with it. A leftover from the hole design, where a channel that *removed* ink needed compensating. No rationale anywhere in four documents that all called it "a reduction". Now 20; verified to hold at 16px |
+| `laticent-lockup-bare.svg` was badly off-center | 27.50 units of pad on the left against 4.75 on the right, 39.00 below against 21.75 above. `PAD` went to the mark's *box origin* on the left but the wordmark's *ink* on the right, and the mark's ink starts 30 units into its box. Both lockups are padded by ink on all four sides now: 4.00/4.00 and 4.00/4.25 |
+| `generate.py` still asserted all three retracted claims | The file README.md calls "source of truth" carried the Garamond 0.60 claim, the hole's "10.6:1 / 8.5:1 channel", and the 28px minimum — every one retracted elsewhere. Docstring rewritten |
+| The clipping guarantee was false for the tile | README claimed both forms clip; only `mark()` did. Backwards: brass on the tile ground is 1.61:1, so the tile is the form where escape hurts. Both clip now |
+| Duplicate `clipPath` ids | The two bare lockups shared one; so did the tile and both tile lockups. Harmless only because the clip content was byte-identical. All six ids are unique now |
+| Dead style rules shipped | `laticent-mark-min.svg` carried `.lat-gv` with no element using it — a dead rule in a document-scoped stylesheet is still live for the rest of the page, which is the exact mechanism this diff was written to fix. `style_for()` emits only what the asset uses |
+| The groove returns to a hole on a dark page | `#16202A` against GitHub dark is 1.148:1. For a light-scheme viewer on a dark page the groove *is* the ground — the failure the groove replaced. Logged in the limits |
+
+And one it found in a fix from the same round: the ink-padded lockup's first
+`ty` used the mark's *height* where it needed its ink-bottom *coordinate*,
+putting the foot 14.95 units low. The invariant that reads the emitted SVG
+caught it immediately, which is the entire argument for that arm existing.
+
+### "Same visual density" — the fourth
+
+`README.md` argued the bare letter belongs beside the product marks because it
+has "the same visual density". Measured at 256px:
+
+| | ink coverage | contour density |
+| --- | --- | --- |
+| **laticent-mark** | **15.1%** | **0.90** |
+| lattice | 19.9% | 1.54 |
+| cadenza | 9.7% | 1.62 |
+| lente | 11.8% | 1.73 |
+| suono | 19.6% | 3.74 |
+| vetrina | 14.7% | 2.17 |
+
+On ink coverage it holds. On contour density — what the eye reads as
+busy-ness — the parent is **1.7x to 4.2x sparser than every child**. Half true,
+stated as measured, and the half that matters is the false one.
+
+That makes four, and the pattern from the previous section is now confirmed
+rather than suspected: **every claim in these documents that argues has needed
+correcting; every claim that merely describes has verified exactly.** The two
+checkers between them re-derived every contrast ratio, the whole font-advance
+table, the L-width table, and both crop figures — all exact.
+
+## Where this leaves the design
+
+Four channel treatments have now been tried — brass flush, brass in a recess, a
+hole cut to the ground, and a darker-value groove — and all four failed in the
+same class: **a 3.4-unit feature in a 128 box is about 1.3 device pixels at
+48px**, and no treatment survives that. The failure is not the treatment. It is
+that the idea is being asked to live in a detail smaller than the medium can
+hold.
+
+The uncomfortable corroborating fact: in a three-way render the *solid* letter
+is the strongest of the three at every size in light and at 24 in dark, and the
+solid letter is what `-min` already ships.
+
+That is a direction question, not a defect, and it is the owner's:
+
+- **Ship the solid letter** and let the restraint be the point — arguably the
+  brief itself ("great structures don't draw attention to how they are built"),
+  at the cost of a mark with no device in it.
+- **Give the groove a value pair** — the dark wall plus a light one — so it
+  reads as a channel rather than a line. The checker's own highest-leverage
+  suggestion, and it risks the bevel reading it already reports on dark.
+- **Move the idea out of the detail** and into the silhouette, which is a
+  genuine redesign rather than another sweep.
