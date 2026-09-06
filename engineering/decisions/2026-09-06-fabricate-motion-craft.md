@@ -472,3 +472,44 @@ not hypothetical either — the first version of the test did exactly that and l
 **What is still unverified, and always will be by any test here:** whether a real model, asked in
 earnest, returns SVG at the bar this faculty sets. A mock proves the plumbing, not the drawing. That
 is a question for a human with a key and a prompt.
+
+---
+
+## 13. Dark mode, and what the preview's palette really is
+
+*Added after driving the built site in both modes at 1440 / 820 / 390.*
+
+Dark mode is verified: the faculty lays out with zero horizontal overflow at all three widths, and
+the mobile stack (stage, frames, receipt) reads correctly. Screenshots were taken and looked at.
+
+The measurement worth recording is the one an eye gets wrong. The Studio document does not load the
+engine stylesheet — decks render in their iframe — so every `--cat-N-mark` resolves to the empty
+string there, and `palette-fallback.ts` derives a ramp from the tokens the Studio *does* carry. On
+the real surface, with the `indaco` palette, the example drawing's five shapes paint:
+
+| token | light | dark |
+|---|---|---|
+| `--cat-2-mark` | `oklab(0.387 0.0088 0.0621)` | `oklab(0.821 0.0058 0.0781)` |
+| `--text-muted` | `rgb(118 104 84)` | `rgb(166 152 130)` |
+| `--accent` | `rgb(122 90 16)` | `rgb(200 160 64)` |
+| `--cat-6-mark` | `oklab(0.510 0.0097 0.0578)` | `oklab(0.701 0.0074 0.0694)` |
+
+**They are distinct, and they vary by LIGHTNESS rather than hue** — every one sits at roughly the
+same `a`/`b`. The same drawing rendered by the real engine shows teal, blue and purple. So the
+preview reads as one family where the slide reads as several, and the panel's line — *"Palette
+colors are approximate here — the deck's own are used on the slide"* — is carrying more weight than
+"approximate" suggests.
+
+That is left as it is, deliberately. The fallback mixes the theme's own tokens rather than naming
+colors, so it cannot drift from the deck's family and it keeps HARD RULE #3. Inventing a hue-varying
+ramp here would look more like the engine's and match it no better — a plausible wrong answer is
+worse than an obviously neutral one, on a surface whose whole job is to be honest about what the
+slide will do.
+
+**What IS now pinned** is the failure the fallback exists to prevent: two of five shapes rendering
+invisible because a token resolved to nothing. `motion-faculty.spec.ts` reads the computed `stroke`
+of every shape on the live stage in both modes and fails on `none`, on empty, on a fully transparent
+value, and on a ramp that collapses to fewer than three distinct values. Measured: with
+`MOTION_PALETTE_FALLBACK` neutered and the site rebuilt, it fails in both modes naming the shape.
+No screenshot test could catch this — an invisible stroke still lays out, still counts as a part,
+and still screenshots as a box that happens to be empty.

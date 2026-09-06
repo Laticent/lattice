@@ -24,6 +24,9 @@
   labelled as the still your PDF freezes. It is also the whole surface for anyone whose system asks
   for reduced motion: the preview settles rather than autoplaying, and every beat is still checkable
   as a picture, by keyboard, with nothing moving.
+- **Fixed: some shapes could be invisible in the Motion preview.** The Studio does not load the deck
+  stylesheet, so a drawing using the categorical palette had shapes painted with nothing at all. The
+  preview now derives those colors from your theme — approximate, as the panel says, and it says so.
 - **Added: “Match the theme”**, which recolors a brought drawing to your palette. It rewrites the
   drawing itself rather than the plan, so the new colors reach fills, outlines *and* the still that
   lands in your PDF and in a shared HTML file.

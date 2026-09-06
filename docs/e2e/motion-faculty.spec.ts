@@ -229,3 +229,62 @@ test.describe('the Motion faculty at every width', () => {
 		});
 	}
 });
+
+// DARK MODE, AND THE ONE THING THAT SILENTLY BREAKS IN IT.
+//
+// The Studio document does NOT load the engine stylesheet — decks render in their iframe — so every
+// `--cat-N-mark` resolves to the EMPTY STRING here. A drawing painted with the categorical ramp,
+// which includes this faculty's own worked example, had two of its five shapes render INVISIBLE
+// until `palette-fallback.ts` derived a ramp from the tokens the Studio does carry.
+//
+// Nothing above catches a regression in that: an invisible stroke still lays out, still counts as a
+// part, still passes an overflow check and still screenshots as a box that happens to be empty. So
+// this reads the COMPUTED stroke of every shape on the live stage, in both modes.
+test.describe('the live stage paints every shape, in both modes', () => {
+	for (const mode of ['light', 'dark'] as const) {
+		test(`no shape is invisible in ${mode} mode`, async ({ page }) => {
+			test.slow();
+			// The app's own persisted preference, read on boot — the state a returning user lands in.
+			// The chrome's toggle is not exposed at every width, and this is the same code path.
+			await page.addInitScript((m) => {
+				try {
+					localStorage.setItem('lattice-docs-mode', m);
+					localStorage.setItem('starlight-theme', m);
+				} catch {
+					/* storage unavailable — the assertion below fails loudly either way */
+				}
+			}, mode);
+			await openMotion(page);
+			await page.getByRole('button', { name: /try an example/i }).click();
+			await expect(page.getByRole('listbox', { name: 'Parts, grouped by beat' })).toBeVisible();
+			await expect(page.locator('.motion-stage [id]').first()).toBeAttached();
+
+			const strokes = await page.evaluate(() => {
+				const stage = document.querySelector('.motion-stage');
+				if (!stage) return null;
+				const seen = new Map<string, string>();
+				for (const el of Array.from(stage.querySelectorAll('[id]'))) {
+					// First wins: the poster and the live layer carry the same ids.
+					if (!seen.has(el.id)) seen.set(el.id, getComputedStyle(el).stroke);
+				}
+				return Object.fromEntries(seen);
+			});
+			expect(strokes, 'the stage must be mounted').not.toBeNull();
+
+			const entries = Object.entries(strokes ?? {});
+			expect(entries.length, 'the example has five shapes').toBe(5);
+			for (const [id, stroke] of entries) {
+				// `none` is what an UNRESOLVED var() collapses to, and it is indistinguishable from a
+				// deliberately unstroked shape by eye — which is exactly how this shipped once.
+				expect(stroke, `${id} must paint a stroke in ${mode} mode`).not.toBe('none');
+				expect(stroke, `${id} must paint a stroke in ${mode} mode`).not.toBe('');
+				expect(stroke, `${id} must not be fully transparent in ${mode} mode`).not.toMatch(/,\s*0\s*\)$/);
+			}
+
+			// And the ramp must not collapse: a categorical drawing whose shapes all paint IDENTICALLY
+			// has lost the distinction it was drawn to make. The derived fallback varies by lightness
+			// rather than hue — approximate, as the panel says — but it must still vary.
+			expect(new Set(entries.map(([, v]) => v)).size, `${mode}: the categorical ramp must not collapse to one value`).toBeGreaterThanOrEqual(3);
+		});
+	}
+});
