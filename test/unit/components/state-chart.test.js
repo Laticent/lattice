@@ -1631,7 +1631,7 @@ describe('dagre re-ranking (fake DOM)', () => {
   //
   // So the assertion is the CLEARANCE, measured off the emitted geometry: the top
   // of the first line's box must sit at least `labelOff` below the edge it
-  // labels. Verified red against the block-centred offset.
+  // labels. Verified red against the block-centered offset.
   test('an lr label clears the edge it labels', { skip: !hasDagre }, () => {
     const LABEL_LINE = 13, LABEL_OFF = 7;   // G.labelLine, G.labelOff
     const { svg } = run({
@@ -1662,6 +1662,73 @@ describe('dagre re-ranking (fake DOM)', () => {
         `${LABEL_OFF}px clearance — its halo will cut the connector`);
     }
     assert.ok(checked > 0, 'no level lr run with a label was found to measure');
+  });
+
+  // A DEGENERATE NODE BOX MUST NOT REACH THE CANVAS. Every dimension in this pass
+  // comes from `getBoundingClientRect` on elements found in the document, and a
+  // `.state-node` with a zero, negative or non-finite rect used to propagate
+  // straight through: measured, a zero-size node emitted `viewBox="0 0 47.8 NaN"`
+  // with path data reading `M 23.9 NaN`, which makes the browser discard the
+  // viewBox and render the overlay as nothing. `origin/main` produced a valid
+  // canvas on the same input, so it arrived with the dagre path.
+  //
+  // Not reachable from authored markdown, but reachable through the same raw
+  // inline HTML that made the tint injection above reachable — and "not reachable
+  // today" is not something to depend on when the fix is a guard.
+  describe('a degenerate node box degrades instead of poisoning the canvas', () => {
+    const drive = (rectFor) => {
+      const els = [1, 2, 3, 4].map((i) => {
+        const a = { 'data-index': String(i), 'data-kind': i === 1 ? 'start' : null };
+        return { getAttribute: (k) => (Object.hasOwn(a, k) ? a[k] : null),
+          querySelector: () => null, getBoundingClientRect: () => rectFor(i) };
+      });
+      const svg = { _attrs: {}, innerHTML: '', setAttribute(k, v) { this._attrs[k] = v; } };
+      const at = { 'data-sc-transitions': JSON.stringify([
+        { from: 1, to: 2, event: 'a', isSelf: false },
+        { from: 2, to: 3, event: 'b', isSelf: false },
+        { from: 2, to: 4, event: 'c', isSelf: false }]),
+        'data-sc-dir': 'tb', 'data-sc-style': null };
+      const fig = {
+        getAttribute: (k) => (Object.hasOwn(at, k) ? at[k] : null),
+        getBoundingClientRect: () => ({ left: 0, top: 0, width: 1200, height: 800 }),
+        closest: () => ({ getBoundingClientRect: () => ({ width: 1280 }) }),
+        querySelector: (s2) => (s2 === '.state-chart-edges' ? svg
+          : s2 === '.state-nodes' ? { style: {} } : null),
+        querySelectorAll: (s2) => (s2 === '.state-node' ? els : []),
+      };
+      installStateChartLayout({ readyState: 'complete', addEventListener() {},
+        querySelectorAll: (s2) => (
+          s2 === '.state-chart-figure[data-sc-transitions]' || s2 === '.state-chart-figure'
+            ? [fig] : []) });
+      return { viewBox: svg._attrs.viewBox, markup: svg.innerHTML };
+    };
+
+    for (const [name, rectFor] of [
+      ['zero-size', () => ({ left: 0, top: 0, width: 0, height: 0 })],
+      ['negative width', (i) => ({ left: 100, top: 60 + i * 90, width: -50, height: 40 })],
+      ['Infinity', (i) => ({ left: 100, top: 60 + i * 90, width: Infinity, height: 40 })],
+      ['all NaN', () => ({ left: NaN, top: NaN, width: NaN, height: NaN })],
+    ]) {
+      test(name, { skip: !hasDagre }, () => {
+        const { viewBox, markup } = drive(rectFor);
+        // Two acceptable outcomes, and no third: either the pass bails and leaves
+        // the CSS column standing (no viewBox), or it draws a finite canvas. What
+        // must never happen is a canvas or a coordinate carrying NaN/Infinity.
+        assert.doesNotMatch(markup, /NaN|Infinity/,
+          'a degenerate node rect reached the emitted markup');
+        if (viewBox !== undefined) {
+          const [, , w, h] = viewBox.split(/\s+/).map(Number);
+          assert.ok(Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0,
+            `the canvas is not a finite positive box: ${viewBox}`);
+        }
+      });
+    }
+
+    test('a well-formed machine is unaffected by the guard', { skip: !hasDagre }, () => {
+      const { viewBox, markup } = drive((i) => ({ left: 100, top: 60 + i * 90, width: 120, height: 40 }));
+      assert.match(viewBox, /^0 0 [\d.]+ [\d.]+$/);
+      assert.match(markup, /state-node-shape/, 'the states are still painted');
+    });
   });
 
   test('an authored line break renders as two tspans', { skip: !hasDagre }, () => {
@@ -1695,17 +1762,33 @@ describe('state-chart parsing stays linear on adversarial author text', () => {
     return Number(process.hrtime.bigint() - t0) / 1e6;
   };
 
-  for (const [name, build] of [
+  for (const [name, build, lo, hi] of [
     ['a state lead with a long whitespace run', (pad) =>
       () => parseStateLi(`Draft <code>start</code>a${pad}b`, 1)],
     ['an event label with a long whitespace run', (pad) =>
       () => parseTransitionToken(`${pad}go => 2`)],
+    // A MATCHING input never backtracks, so the arm above cannot see the defect
+    // it looks like it covers. `TRANSITION_RE` was
+    // `/^\s*([^=]*?)\s*=>\s*(\d+|self)\s*$/` — three quantifiers dividing one
+    // whitespace run — which is CUBIC, but only when the match FAILS. Measured
+    // before the fix: 4 000 spaces cost 8 272ms failing and 0.06ms matching. A
+    // nested bullet whose inline code is nothing but spaces reaches it from
+    // ordinary authoring, and blocks whatever thread is parsing.
+    // These two run at 500/2 000 rather than 8 000/32 000, and the smaller sizes
+    // are load-bearing: under the old cubic regex a 32 000-space NON-match takes
+    // roughly an hour, so the arm would HANG rather than fail, and a hanging test
+    // is worse than a red one. At 500 -> 2 000 the old form measures 19.93ms ->
+    // 1 030ms (a 51x ratio, caught immediately) and the fixed form stays flat.
+    ['an event label that does NOT match — the failing path is the slow one', (pad) =>
+      () => parseTransitionToken(pad), 500, 2000],
+    ['a token with an arrow but no target — matches the prefix, fails at the end', (pad) =>
+      () => parseTransitionToken(`${pad}go =>${pad}`), 500, 2000],
     ['a lead whose whitespace run is TRAILING', (pad) =>
       () => parseStateLi(`Draft <code>start</code>${pad}`, 1)],
   ]) {
     test(name, () => {
-      const small = timeOf(build(' '.repeat(8000)));
-      const large = timeOf(build(' '.repeat(32000)));
+      const small = timeOf(build(' '.repeat(lo || 8000)));
+      const large = timeOf(build(' '.repeat(hi || 32000)));
       // 4x the input. Linear ~4x; quadratic ~16x. 9x is a wide band that still
       // separates the two, and both sides are milliseconds on a quiet machine.
       const ratio = large / Math.max(small, 0.05);

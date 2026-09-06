@@ -256,8 +256,26 @@ async function measure(page, slack, vbSlack) {
       if (stage) {
         // The painted marks, not their container: a container can sit inside the
         // stage while the children overflowing IT are the ones cut.
+        //
+        // PAINTED means painted. `getClientRects()` is non-empty for a
+        // `visibility: hidden` element — it still has boxes, it just draws
+        // nothing — and `getBoundingClientRect` ignores an ancestor's clip, so a
+        // hidden measuring scaffold reports its full natural size and is counted
+        // as content cut at the stage. Nothing is cut: there is nothing to cut.
+        //
+        // `state-chart` is where this surfaced. It keeps a hidden `<ol
+        // class="state-nodes">` of `<li data-mark>` boxes purely so the browser
+        // pass can measure real, font-dependent text, then paints the SVG from
+        // those measurements; once a re-ranked machine pins the scale box to the
+        // DRAWING, the column no longer matches it and overflows. Measured on
+        // `examples/state-chart-branching.md`: four reports, every offender a
+        // `visibility: hidden` `LI`, with no visible mark outside the stage on any
+        // of them. A gate that cannot tell that from a real clip cannot be trusted
+        // on the one component whose SVG is `overflow: visible` — the case only
+        // this arm can see.
         const marks = [...stage.querySelectorAll('svg, .chart-body > *, [data-mark]')]
-          .filter((el) => el.getClientRects().length > 0);
+          .filter((el) => el.getClientRects().length > 0)
+          .filter((el) => getComputedStyle(el).visibility !== 'hidden');
         if (marks.length) {
           const sr = stage.getBoundingClientRect();
           let top = Infinity; let bottom = -Infinity; let left = Infinity; let right = -Infinity;

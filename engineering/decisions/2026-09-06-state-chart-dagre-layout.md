@@ -221,9 +221,19 @@ the label runs out into the cross axis, which is the axis a 16:9 stage has to
 spare, so `tb` now wraps late (`G.gapFloorLr * 5`) where `lr` still wraps to its
 own run (`G.gapFloorLr * 2.4`).
 
+**A correction, left visible rather than tidied away.** The width above read
+`215.8` when this section was written, and the commit message of the change still
+says so. An independent checker could not reproduce it: the spec the test pins
+produces `201.8`, on both sides of the change. `317.5 -> 264.9` and the
+`1.012 -> 0.575` gap ratio both reproduce exactly; the width was carried over from
+an earlier harness. "Unchanged" was true; the number was not. In a record whose
+whole value is that its claims were measured, an unreproducible measurement is the
+expensive kind of error, so it is corrected here and named rather than silently
+edited.
+
 **Measured**, on the four-state `tb` machine the test pins: the rank gap falls from
 **1.01x** the node height to **0.57x**, canvas 317.5 → 264.9 tall at unchanged
-width 215.8. The fit spine spends the freed height scaling the whole figure up, so
+width 201.8. The fit spine spends the freed height scaling the whole figure up, so
 the visible result is a bigger, more legible diagram in the same envelope rather
 than a shorter one — see `examples/state-chart.md` p5 and
 `examples/state-chart-branching.md` p5 before/after.
@@ -441,6 +451,96 @@ width squeezes the node rects — and was verified red by reverting the two
 `removeProperty` calls. It needs a GENUINE fan-out to bite: with a skip edge
 instead, dagre ranks the machine linearly, the adoption test declines, no pin is
 ever set, and the test certifies nothing. The first draft had exactly that shape.
+
+### 9.4 What the adversarial trio found, and what it cost to check
+
+Three agents drove the diff independently — a red team, a Munger inversion and a
+checker. Nine defects between them, seven fixed here, and the two that were not
+are named below rather than filed away.
+
+**The expensive one nobody's tests could see.** The browser pass reads its tints
+back OUT of the DOM, and the DOM is not the parser: `renderHtmlNode` interpolates
+the author's label markup verbatim, and `fig.querySelectorAll('.state-node')` is a
+descendant search, so an author's raw inline HTML can hand the pass a node the
+parser never saw. `data-tint` went into a `style="…"` attribute unescaped, and a
+crafted value closed the attribute and put a live `onerror` into `svg.innerHTML`.
+That is HARD RULE #22's post-sanitize injection, on a same-origin preview frame,
+and in a distributed `.html` export it bakes into every copy the recipient opens.
+
+The tint suite had a "security arm" — ten payloads, all green, all of them driving
+`parseStateChart`, which is the one path that was never vulnerable. Worse, three of
+its four injection payloads are refused by *incidental* structure (a space, or a
+third slash) rather than by the grammar the arm names, so a loosened
+`TINT_TOKEN_RE` would have passed it. The fix re-validates at the DOM boundary and
+escapes at the sink; the new arm drives the pass with a hostile DOM and goes red on
+all fourteen payloads against the pre-fix build. **No #22 gate can see this sink** —
+they scope to `lib/runtime`, `docs/src` and the export roots, and this is
+`lib/components`.
+
+**The one a green census hid.** `.state-edge-arrow` reads `--edge-tint`, declared
+on `.state-edge-group` — and `startMarker` emits an arrowhead into
+`<g class="state-marker">`, outside every group. `fill` fell to the SVG initial, so
+every start arrowhead painted `rgb(0,0,0)` instead of `rgb(26,26,26)`: every
+machine, every path, chains included, and invisible against a dark canvas. The
+commit that introduced it reported "all 52 edges across the gallery paint identical
+stroke, dash and arrow fill" — a census of `.state-edge-group` descendants, which
+is precisely the set that could not fail. §9.1's lesson, in a new costume.
+
+**The one that made a typo destructive.** An inline declaration beats the
+stylesheet, so `--edge-tint: var(--typo)` could not fall back to the section
+default — it made the property invalid and every reader fell to its own initial:
+`stroke: none` erased the transition, the state lost its border, and its gradient
+stops painted it solid black. Five surfaces promised the opposite in so many words.
+Each inline value now carries `var(--token, var(--default))`.
+
+**The one whose test fed the wrong input.** `TRANSITION_RE` was
+`/^\s*([^=]*?)\s*=>\s*(\d+|self)\s*$/` — three quantifiers dividing one
+whitespace run, cubic on a NON-match. 4 000 spaces cost 8 272ms failing and 0.06ms
+matching, and a nested bullet whose inline code is only spaces reaches it from
+ordinary authoring. The linearity suite this branch added fed a MATCHING input,
+which never backtracks. Pre-existing, but two lines from the code the ReDoS commit
+rewrote and squarely inside what its changelog claims, so it is fixed here: the
+ambiguity is gone (`m[1].trim()` already did that work) and the new arms measure
+the failing path at 500/2 000 rather than 8 000/32 000 — at the larger sizes a
+defective build takes about an hour, so the test would hang rather than fail.
+
+**The gate that could no longer tell a clip from scaffolding.** `check:chart-fit`
+reported four clips on the branching demo deck. Every offender was a
+`visibility: hidden` `<li>` — the measuring column, which overflows the scale box
+once a re-ranked machine pins that box to the drawing. Nothing visible is cut. The
+gate's own comment says it measures "the painted marks", and `getClientRects()` is
+non-empty for a hidden element while `getBoundingClientRect` ignores an ancestor's
+clip, so it was counting scaffolding. It now skips `visibility: hidden`. Two
+measurements back that: the full fixture is unchanged (85 slides / 88 pairs / 33
+viewBoxes, identical counts), and a control that makes those same `<li>` boxes
+VISIBLE still fires all four reports — so the filter separates painted from
+not-painted rather than defanging the arm.
+
+**Two found and NOT fixed, named rather than filed:**
+
+- **A label can graze a node on a diagonal run.** The clearance floor is an
+  axis-aligned guarantee; a diagonal edge takes its label at the arc-length
+  midpoint plus a fixed perpendicular offset, which the floor does not bound. Two
+  labels in the shipped decks touch a node bbox by 1.6px and 3.3px, with no glyph
+  collision. The code comment claimed the floor prevents this "ever"; that claim is
+  corrected in place. The real fix — place the label on the longest axis-aligned
+  segment of the route — is a placement change owing its own visual review.
+- **Nothing names a typo'd `:::token`.** The docblock, the docs and the manifest
+  all said "`lint:deck` is where a typo gets named"; `lib/authoring/lint-core.js`
+  has no `:::` handling at all. HARD RULE #29 was cited to justify the omission and
+  then neither half happened. The claim is corrected to say plainly that a typo is
+  silent. Building the warning needs a decision this component cannot make alone:
+  which token list is authoritative for a rule that must stay fs-free (HARD RULE
+  #7).
+
+**And one claim the trio made that did not hold.** Two of the three reported the
+layout as stable across redraws and could not reproduce §9.3's oscillation. Both
+drove it with `window.resize` — which is the same vacuous method §9.3 records
+failing: a CSS transform does not change the observed content box, and neither does
+a synthetic resize event on a fixed viewport, so the `ResizeObserver` that owns the
+redraw never fires. Re-evaluating the pass's own `<script>` does fire it, and the
+oscillation reproduces every time. Worth recording because the harness, not the
+finding, is what differed.
 
 ## 8. Open
 
