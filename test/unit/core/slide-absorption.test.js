@@ -9,6 +9,22 @@ test.before(async () => {
 	A = await import('../../../lib/core/slide-absorption.mjs');
 });
 
+/** A full slide: masthead (headline) + stage (body) + coda, the shape the engine really emits.
+ *  `slide()` below builds only a stage, which is what hid the headline/coda defect for so long. */
+function fullSlide(masthead, stage, coda, cls = 'content') {
+	const dom = new JSDOM(
+		`<!doctype html><body><article class="lattice"><section data-class="${cls}">` +
+			`<header>page chrome</header>` +
+			`<div class="cell-masthead"><div class="masthead-lede"><h2>${masthead}</h2></div></div>` +
+			`<div class="cell-stage">${stage}</div>` +
+			`<div class="cell-coda">${coda}</div>` +
+			`<div class="cell-footer">footer chrome</div>` +
+			`<div class="overflow-tab" data-lattice-berth aria-hidden="true"></div>` +
+			`</section></article></body>`,
+	);
+	return dom.window.document.querySelector('section');
+}
+
 /** Build a slide `<section>` from markup, the shape the kernel is handed on both render paths. */
 function slide(inner, cls = 'content') {
 	const dom = new JSDOM(
@@ -153,10 +169,20 @@ test('exit is a RESIDUAL — narration that already covered the slide owes nothi
 	assert.ok(silent.exitMs > 2000, 'a costly visual with one sentence of narration still owes time');
 });
 
-test('a media slide gets little credit for its narration — the voice never described the visual', () => {
-	const prose = A.spend(8000, { narrationMs: 5000, isMedia: false, floorMs: 1400 });
-	const media = A.spend(8000, { narrationMs: 5000, isMedia: true, floorMs: 1400 });
-	assert.ok(media.exitMs > prose.exitMs, 'prose narration pays down the whole cost; media narration barely any');
+test('narration is credited PER CHANNEL — in full against reading, barely against looking', () => {
+	// Blending the two and discounting the whole thing on a media component made a diagram's cost
+	// track its CODA rather than its diagram: E's exit correlated with mark count at 0.12, i.e. its
+	// differentiation was noise. The voice really does read the prose aloud, on every component.
+	const look = { read: 0, look: 8000 };
+	const read = { read: 8000, look: 0 };
+	const lookMedia = A.spend(8000, { channels: look, narrationMs: 5000, isMedia: true, floorMs: 1400 });
+	const lookProse = A.spend(8000, { channels: look, narrationMs: 5000, isMedia: false, floorMs: 1400 });
+	assert.ok(lookMedia.exitMs > lookProse.exitMs, 'narration buys little looking on a media slide');
+
+	// The READ channel is paid down in full whether or not the component is "media" — a math or
+	// diagram slide whose narration reads its own coda aloud must not be charged for it again.
+	const readMedia = A.spend(8000, { channels: read, narrationMs: 8000, isMedia: true, floorMs: 1400 });
+	assert.equal(readMedia.exitMs, 0, 'the voice read it; the eye owes nothing more');
 });
 
 test('the floor is honored even above the ceiling, and a bad share cannot zero the beat', () => {
@@ -179,8 +205,17 @@ test('no model returns NaN on a partial measure, and none is silently zeroed', (
 });
 
 test('a beat is either zero or perceptible — never a stutter', () => {
-	const { exitMs } = A.spend(1500, { narrationMs: 1400, floorMs: 1400 });
-	assert.ok(exitMs === 0 || exitMs >= A.MIN_BEAT_MS, 'a sub-threshold residual is dropped, not rounded up');
+	// The old fixture yielded a residual of MINUS 1300, so it never constructed a sub-threshold
+	// POSITIVE residual and passed with the threshold removed entirely. These sweep the band where
+	// the rule actually bites: a residual between 1 ms and MIN_BEAT_MS must collapse to 0.
+	for (let residual = 10; residual < A.MIN_BEAT_MS; residual += 10) {
+		const cost = 1400 + residual; // arrive takes the 1400 floor, so the rest is the residual
+		const { exitMs } = A.spend(cost, { channels: { read: 0, look: cost }, arriveCostMs: 0, narrationMs: 0, floorMs: 1400 });
+		assert.equal(exitMs, 0, `residual ${residual}ms should collapse to 0, got ${exitMs}`);
+	}
+	const big = 1400 + A.MIN_BEAT_MS + 500;
+	const clears = A.spend(big, { channels: { read: 0, look: big }, arriveCostMs: 0, narrationMs: 0, floorMs: 1400 });
+	assert.ok(clears.exitMs >= A.MIN_BEAT_MS, 'and a residual above the threshold survives');
 	assert.ok(A.spend(1e9, { floorMs: 0 }).arriveMs <= A.MAX_BEAT_MS, 'one pathological slide cannot stall a delivery');
 });
 
@@ -208,11 +243,16 @@ test('edges cost more than marks — a diagram is its relations, not its boxes',
 });
 
 test('hybrid takes the SLOWER channel, never the sum', () => {
+	// This test used to compute its upper bound LINEARLY (`read + 40 * MARK_MS`) while `scanTimeMs`
+	// applies the knee, so the sum landed 71 ms UNDER the bound and the assertion passed with `max`
+	// replaced by `+`. It asserted nothing about the design claim it was named for. The bound is now
+	// derived from the two channel values themselves.
 	const m = { words: 100, proseWords: 100, labelWords: 0, svgMarks: 40, cells: 0, items: 0, images: 0, diagramNodes: 0, diagramEdges: 0, role: 'body' };
-	const read = (100 / A.SILENT_READ_WPM) * 60000;
-	const cost = A.ABSORPTION_MODELS.hybrid.cost(m);
-	assert.ok(cost < read + 40 * A.MARK_MS, 'summing double-charges every slide that has words AND marks');
-	assert.ok(cost >= read * 0.99, 'and it is at least the slower of the two');
+	const readOnly = A.ABSORPTION_MODELS.hybrid.cost({ ...m, svgMarks: 0 });
+	const scanOnly = A.ABSORPTION_MODELS.hybrid.cost({ ...m, words: 0, proseWords: 0 });
+	const both = A.ABSORPTION_MODELS.hybrid.cost(m);
+	assert.equal(Math.round(both), Math.round(Math.max(readOnly, scanOnly)), 'exactly the slower channel');
+	assert.ok(both < readOnly + scanOnly - 1, 'and strictly less than their sum — a sum double-charges');
 });
 
 // ── Cross-module invariants ───────────────────────────────────────────────────────────────
@@ -255,4 +295,193 @@ test('roleOf agrees with rehearsal.js on the roles it can decide without a bucke
 	assert.equal(A.roleOf('content', 8, 9, ''), 'close', 'the last slide closes');
 	assert.equal(A.roleOf('content', 3, 9, 'Thank you'), 'close', 'a closing phrase beats position');
 	assert.equal(A.roleOf('funnel', 3, 9, '', () => 'chart'), 'visual', 'bucket decides when injected');
+});
+
+// ── The live runtime's DOM shape ──────────────────────────────────────────────────────────
+
+test('a diagram drawn by the runtime is measured ONCE, from the SVG, not again from its source', () => {
+	// The exact shape `lib/runtime/index.js:474-500` produces: the source `<code>` is defanged to
+	// `language-mermaid-source`, and the SVG lands in a SIBLING `<div class="mermaid">`. The old
+	// guard looked for an SVG INSIDE the source element and matched the class by SUBSTRING, so it
+	// found neither — and charged the hidden source block as a whole second diagram on top of the
+	// SVG that replaced it (+82% cost, +2.97s on a five-node flowchart, on the live surface).
+	const drawn = slide(
+		'<pre data-mermaid-state="rendered"><code class="language-mermaid-source">flowchart LR\n A["a"] --> B["b"]\n B --> C["c"]</code></pre>' +
+			'<div class="mermaid" aria-hidden="true"><svg><path/><path/><rect/></svg></div>',
+		'diagram',
+	);
+	const m = A.measureSlide(drawn);
+	assert.equal(m.diagramEdges, 0, 'the source block is not re-counted once a sibling SVG exists');
+	assert.equal(m.diagramNodes, 0);
+	assert.equal(m.svgMarks, 3, 'the drawn marks ARE counted');
+});
+
+test('aria-hidden is not a skip signal — it means "do not announce", not "do not paint"', () => {
+	// The runtime marks every drawn diagram `aria-hidden` because the source carries the accessible
+	// text. Treating that as hidden would erase the rendered diagram from the measurement.
+	const m = A.measureSlide(slide('<div class="mermaid" aria-hidden="true"><svg><rect/><circle/></svg></div>', 'diagram'));
+	assert.equal(m.svgMarks, 2);
+});
+
+test('an undrawn source fence is still measured — both render paths, one kernel', () => {
+	const m = A.measureSlide(slide('<pre><code class="language-mermaid">flowchart LR\n A["a"] --> B["b"]</code></pre>', 'diagram'));
+	assert.equal(m.diagramEdges, 1);
+	assert.equal(m.words, 0, 'and its DSL is never words');
+});
+
+
+// ── The measurement roots and skips ───────────────────────────────────────────────────────
+
+test('the HEADLINE and CODA are counted — they live OUTSIDE .cell-stage', () => {
+	// The defect that invalidated the first bake-off. The engine puts the headline in a sibling
+	// `.cell-masthead > .masthead-lede > h2` and a harvested insight in a sibling `.cell-coda`;
+	// rooting the measurement at `.cell-stage` dropped both on 1065 of 1602 slides and left 141
+	// measuring ZERO words while showing visible prose.
+	const m = A.measureSlide(fullSlide('One two three', '<p>four five</p>', '<p>six seven eight</p>'));
+	assert.equal(m.proseWords, 8, 'headline (3) + stage (2) + coda (3)');
+});
+
+test('slide chrome outside the stage is still excluded', () => {
+	const m = A.measureSlide(fullSlide('Title here', '<p>body</p>', ''));
+	assert.equal(m.words, 3, 'the header, footer and berth tabs contribute nothing');
+});
+
+test('a slide whose only content is a headline and coda is not measured at zero', () => {
+	// `examples/form.md` slide 6 has an EMPTY stage; under the old root it measured 0 words and got
+	// today's flat beat with no exit — it "did not breathe", which is the complaint this exists to fix.
+	const m = A.measureSlide(fullSlide('When it is a lot', '', '<p>a wall of numbers becomes a shape</p>'));
+	assert.ok(m.proseWords >= 10, `expected the lede+coda to be counted, got ${m.proseWords}`);
+});
+
+test('invisible SVG title/desc is not on-slide content', () => {
+	// The SVG spelling of `.lattice-description`: a tooltip and an accessible name, never painted.
+	// A world basemap carries one <title> per country — map.md#3 measured 257 words, 17 visible.
+	const m = A.measureSlide(slide('<svg><title>Map</title><desc>Key — United States 42, India 38</desc><path><title>Angola</title></path><text>Visible label</text></svg>'));
+	assert.equal(m.labelWords, 2, 'only the painted <text> counts');
+});
+
+test('a rendered KaTeX formula is ONE look, not one word per glyph', () => {
+	// KaTeX sets every symbol in its own span, so a TreeWalker charged `f : [ a , b ] -> R` as eight
+	// words at reading speed. cat-ink-tier.md#1 measured 200 prose words where ~123 is text, and both
+	// its beats pinned at the ceiling — 18s of silence, the exact symptom skipping `.katex-mathml`
+	// was supposed to have closed.
+	const withMath = A.measureSlide(slide('<p>the relation</p><span class="katex"><span class="katex-mathml">E equals m c squared</span><span class="katex-html"><span class="mord">E</span><span class="mord">=</span><span class="mord">m</span><span class="mord">c</span><span class="mord">2</span></span></span>'));
+	assert.equal(withMath.proseWords, 2, 'the prose');
+	assert.equal(withMath.labelWords, 1, 'the whole formula is a single look');
+});
+
+test('a uniform run of marks is one picture, not one look per mark', () => {
+	// examples/map.md renders a world basemap as 175 identically-classed <path class="map-region">.
+	// Charging each as a fixation gave every map slide both beats at the ceiling.
+	const many = `<svg>${'<path class="map-region"/>'.repeat(175)}</svg>`;
+	const few = `<svg>${'<path class="map-region"/>'.repeat(10)}</svg>`;
+	const mMany = A.measureSlide(slide(many));
+	const mFew = A.measureSlide(slide(few));
+	assert.equal(mFew.svgMarks, 10, 'a small uniform run is charged in full');
+	assert.ok(mMany.svgMarks < 40, `175 identical paths should not cost 175 looks, got ${mMany.svgMarks}`);
+	assert.ok(mMany.svgMarks > mFew.svgMarks, 'but a bigger picture still costs more than a smaller one');
+});
+
+test('distinctly-classed marks are NOT discounted — a 20-series chart is twenty things', () => {
+	const varied = `<svg>${Array.from({ length: 20 }, (_, i) => `<rect class="bar cat-${i}"/>`).join('')}</svg>`;
+	assert.equal(A.measureSlide(slide(varied)).svgMarks, 20);
+});
+
+test("a table cell's text is not billed on top of the cell", () => {
+	const m = A.measureSlide(slide('<table><tbody><tr><td>alpha beta</td><td>gamma</td></tr></tbody></table>'));
+	assert.equal(m.cells, 2);
+	assert.equal(m.labelWords, 0, 'the cell is the unit; its text is already paid for');
+});
+
+test('an unregistered role cannot poison the cost — Object.prototype keys included', () => {
+	// `ROLE_MULT[role] || 1` returns a truthy FUNCTION for `toString`/`constructor`, so `|| 1` never
+	// fires and the cost comes back NaN — which spend()'s finiteness guard turns into cost 0,
+	// silently giving the slide no absorption. The same defect the numeric guard was added to close.
+	for (const role of ['toString', 'constructor', 'valueOf', '__proto__', 'nonsense']) {
+		for (const [id, model] of Object.entries(A.ABSORPTION_MODELS)) {
+			const c = model.cost({ words: 10, proseWords: 10, labelWords: 0, svgMarks: 0, cells: 0, items: 0, images: 0, diagramNodes: 0, diagramEdges: 0, role });
+			assert.ok(Number.isFinite(c) && c >= 0, `${id} returned ${c} for role "${role}"`);
+		}
+	}
+});
+
+test('measureSlide survives an unusable argument instead of taking down the loop', () => {
+	for (const bad of [null, undefined, {}, 'not an element', 42]) {
+		const m = A.measureSlide(bad);
+		assert.equal(m.words, 0);
+		assert.equal(m.role, 'body');
+	}
+});
+
+// ── Diagram source: labels, comments, axes, and grammars without arrows ───────────────────
+
+test('an arrow inside a LABEL is text, not an edge', () => {
+	assert.deepEqual(A.diagramMarksOf('flowchart LR\n A["step --> step"] --> B["b"]'), { nodes: 2, edges: 1 });
+});
+
+test('a trailing %% comment contributes no structure', () => {
+	// The strip was line-anchored; Mermaid allows a comment after content.
+	assert.deepEqual(A.diagramMarksOf('graph TD\n A-->B %% note --> more --> yet'), { nodes: 2, edges: 1 });
+});
+
+test('a bare --- rule inside the body is not an edge', () => {
+	assert.equal(A.diagramMarksOf('flowchart LR\nA-->B\n---\nC-->D\n---\nE-->F').edges, 3);
+});
+
+test("xychart's axis RANGE operator is not a link", () => {
+	// `-->` in `x-axis "Trial" 1 --> 5` is a range, so an xychart's absorption cost was a count of
+	// how many axes declared one.
+	const { edges } = A.diagramMarksOf('xychart-beta\n x-axis "Trial" 1 --> 5\n y-axis "Score" 0 --> 10\n bar [1,2,3]');
+	assert.equal(edges, 0);
+});
+
+test('grammars with no arrows are measured by their rows, not scored at zero', () => {
+	// Eleven grammars scored {0,0} — no absorption at all on a component whose narration skips the
+	// visual. 15 shipped fences, including every chart in examples/xychart-narration.md.
+	for (const src of [
+		'xychart-beta\n bar [1,2,3]\n line [4,5,6]',
+		'gitGraph\n commit\n branch dev\n commit',
+		'timeline\n 2021 : launch\n 2022 : scale',
+		'gantt\n dateFormat YYYY-MM-DD\n section A\n task :a1, 2024-01-01, 30d',
+	]) {
+		const { nodes, edges } = A.diagramMarksOf(src);
+		assert.ok(nodes + edges > 0, `scored zero: ${src.split('\n')[0]}`);
+	}
+});
+
+test('the arrival beat is paid from the LOOK channel, never as a share of the whole cost', () => {
+	// The correction that changed the answer. A blanket share made arrive a plain additive pause:
+	// 78% of everything the model added was arrival silence, and 84% of THAT landed on prose slides
+	// — a slide with 83 prose words took 8.5s of silence before the voice read those same words.
+	// Prose is exactly what the voice is about to say, so pre-reading silence buys nothing.
+	const wordy = { words: 200, proseWords: 200, labelWords: 0, svgMarks: 0, cells: 0, items: 0, images: 0, diagramNodes: 0, diagramEdges: 0, role: 'body', isVisual: false };
+	const visual = { ...wordy, words: 0, proseWords: 0, svgMarks: 30, role: 'visual', isVisual: true };
+	const E = A.ABSORPTION_MODELS.hybrid;
+	assert.equal(E.arriveCost(wordy), 0, 'a prose slide owes no arrival silence');
+	assert.ok(E.arriveCost(visual) > 0, 'a visual slide does');
+
+	const proseBeat = A.spend(E.cost(wordy), { arriveCostMs: E.arriveCost(wordy), channels: E.channels(wordy), floorMs: 1400, narrationMs: 0 });
+	assert.equal(proseBeat.arriveMs, 1400, 'so it gets exactly the beat it gets today, and no more');
+});
+
+test('the flat control does NOT take part in the residual', () => {
+	// Not knowing the narration time is the whole point of the control. Running it through the
+	// residual would test a weaker rule than the one proposed and flatter every model it exists to
+	// hold to account.
+	const visual = { words: 0, proseWords: 0, labelWords: 0, svgMarks: 5, cells: 0, items: 0, images: 0, diagramNodes: 0, diagramEdges: 0, role: 'visual', isVisual: true, isMedia: true };
+	const [scored] = A.scoreDeck([{ ...visual, index: 0 }], 'flatVisual', { narrationFor: () => 600000, floorMs: 1400 });
+	assert.equal(scored.exitMs, 3000, 'ten minutes of narration does not erode the flat hold');
+});
+
+test('the deck pace register scales the model rather than being outgrown by it', () => {
+	// `resolve-pace.mjs` argues delivery rhythm is the author's choice and travels with the deck.
+	// An arrival beat of `max(floor, cost x share)` stops consulting the floor once the cost term
+	// outgrows it — above ~27 prose words `brisk`, `natural` and `deliberate` played identically.
+	const opts = { arriveCostMs: 6000, channels: { read: 0, look: 20000 }, narrationMs: 0, floorMs: 1400 };
+	const brisk = A.spend(20000, { ...opts, paceScale: 800 / 1400 });
+	const natural = A.spend(20000, { ...opts, paceScale: 1 });
+	const deliberate = A.spend(20000, { ...opts, paceScale: 2200 / 1400 });
+	assert.ok(brisk.arriveMs < natural.arriveMs, 'brisk is briskER');
+	assert.ok(deliberate.arriveMs > natural.arriveMs, 'and deliberate is slower');
+	assert.ok(brisk.exitMs < deliberate.exitMs, 'the register reaches both beats, not just the floor');
 });

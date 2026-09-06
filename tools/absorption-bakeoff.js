@@ -13,19 +13,28 @@
  *
  * WHAT TO READ IN THE OUTPUT. The per-model summary is not the interesting part — every
  * model can be scaled to any mean. The interesting columns are:
- *   · media exit    the beat a chart/diagram/image slide gets after its narration ends.
- *                   Today this is 0 for every slide in the tree. A model that leaves it
- *                   near 0 has not fixed the stated complaint. THIS is the column that
- *                   discriminates, and with `media w/ beat` it is the only one that does.
+ *   · visual exit   the beat a chart/diagram/image slide gets after its narration ends.
+ *                   Without a model this is 0 for every slide in the tree, so a model that
+ *                   leaves it near 0 has not fixed the stated complaint.
+ *   · ADDED         the total silence the model introduces, split arrive/exit. THIS is the
+ *                   column the first report lacked, and lacking it is how a model that spent
+ *                   78% of its budget on arrival silence over PROSE slides was picked as the
+ *                   winner: the only column the report dignified was one a model is rewarded
+ *                   for inflating. A model is read as a PAIR — what it buys on `visual exit`
+ *                   against what it costs on `ADDED`.
+ *   · T · flat      the two-line control (`if (isVisual) exit = 3000`). Any model that does
+ *                   not beat this row on both halves of that pair has not earned its module.
  *
- * Two columns look like evidence and are NOT — printed for completeness, and named here so
- * nobody argues from them again (an earlier draft of the decision record did):
- *   · prose exit    structurally 0 for every prose slide under every model. Silent reading
- *                   (250 wpm) always beats reading aloud (120-175 wpm) and a prose slide's
- *                   narration is credited in full, so the residual cannot be positive.
- *                   "No padding" is a property of the spend rule, not of a cost function.
- *   · spread        max/min arrive, but min is pinned at the caller's floor and max at
- *                   MAX_BEAT_MS — so it mostly reports whether ONE slide saturated.
+ * The population is `isVisual`, NOT `isMedia`. `MEDIA_COMPONENTS` answers "whose narration
+ * skips the visual" — a projection question. Seven components (gantt, kanban, matrix-grid,
+ * progress, roadmap, timeline-list, scene) are things you look at while sitting outside it,
+ * and scoring them as prose meant the metric that picked a winner did not cover the
+ * population the complaint names.
+ *
+ * One column is printed but is NOT evidence: `prose exit` is near-0 for every prose slide
+ * under every model, because silent reading (250 wpm) beats reading aloud (120-175 wpm) and
+ * prose narration is credited in full. "No padding" is a property of the spend rule, not of
+ * a cost function.
  *
  * On-demand diagnostic, NOT a gate: it renders decks and prints a table, and nothing in the
  * build depends on it. Mirrors `bench`/`quality` in that respect.
@@ -146,7 +155,7 @@ async function main() {
 		for (const id of modelIds) {
 			scored[id] = scoreDeck(measures, id, {
 				narrationFor: (m) => narrationMs[m.index] || 0,
-				floorMs: 1400, // today's flat `SLIDE_PAUSE_MS` — no slide may get a SHORTER arrival
+				floorMs: BASELINE_BEAT_MS, // today's flat `SLIDE_PAUSE_MS` — no slide may get a SHORTER arrival
 			});
 		}
 		perDeck.push({ deck: rel, slides: sections.length, narrationMs, measures, scored });
@@ -162,33 +171,40 @@ async function main() {
 
 /** Mean of the finite numbers in `xs` (0 for an empty set). */
 const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
-const fmt = (ms) => `${(ms / 1000).toFixed(1)}s`;
+const fmt = (ms) => (Math.abs(ms) >= 90000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(1)}s`);
+
+/** The beat every slide gets today — the thing a model has to beat, and the zero point for `ADDED`. */
+const BASELINE_BEAT_MS = 1400;
 
 function report(perDeck, modelIds, MODELS, opts) {
 	const totalSlides = perDeck.reduce((n, d) => n + d.slides, 0);
-	const mediaCount = perDeck.reduce((n, d) => n + d.measures.filter((m) => m.isMedia).length, 0);
+	const visualCount = perDeck.reduce((n, d) => n + d.measures.filter((m) => m.isVisual).length, 0);
+	const narrationTotal = perDeck.reduce((n, d) => n + d.narrationMs.reduce((a, b) => a + b, 0), 0);
 
-	console.log(`\nSLIDE-ABSORPTION BAKE-OFF — ${perDeck.length} decks, ${totalSlides} slides (${mediaCount} media)\n`);
-	console.log('Today: every slide gets a flat 1.4s arrival beat and a 0s exit hold.\n');
+	console.log(`\nSLIDE-ABSORPTION BAKE-OFF — ${perDeck.length} decks, ${totalSlides} slides (${visualCount} visual)`);
+	console.log(`Narration runtime across the corpus: ${fmt(narrationTotal)}.`);
+	console.log(`Today: every slide gets a flat ${BASELINE_BEAT_MS / 1000}s arrival beat and a 0s exit hold.\n`);
 
-	const head = ['model', 'arrive avg', 'spread', 'exit avg', 'prose exit', 'MEDIA EXIT', 'media w/ beat'];
+	const head = ['model', 'VISUAL EXIT', 'visual w/ beat', 'ADDED total', 'added arrive', 'added exit', 'prose exit'];
 	const rows = [];
 
 	for (const id of modelIds) {
 		const all = perDeck.flatMap((d) => d.scored[id]);
-		const arrive = all.map((s) => s.arriveMs);
-		const media = all.filter((s) => s.isMedia);
-		const prose = all.filter((s) => !s.isMedia);
-		const spread = Math.min(...arrive) > 0 ? Math.max(...arrive) / Math.min(...arrive) : 0;
-		const withBeat = media.filter((s) => s.exitMs > 0).length;
+		const visual = all.filter((s) => s.isVisual);
+		const prose = all.filter((s) => !s.isVisual);
+		const withBeat = visual.filter((s) => s.exitMs > 0).length;
+		// The silence the model ADDS, against the flat beat that ships today. `arriveMs` already
+		// includes that floor, so only the excess counts.
+		const addedArrive = all.reduce((n, s) => n + Math.max(0, s.arriveMs - BASELINE_BEAT_MS), 0);
+		const addedExit = all.reduce((n, s) => n + s.exitMs, 0);
 		rows.push([
 			MODELS[id].label,
-			fmt(mean(arrive)),
-			`${spread.toFixed(1)}x`,
-			fmt(mean(all.map((s) => s.exitMs))),
+			fmt(mean(visual.map((s) => s.exitMs))),
+			visual.length ? `${withBeat}/${visual.length}` : '—',
+			fmt(addedArrive + addedExit),
+			fmt(addedArrive),
+			fmt(addedExit),
 			fmt(mean(prose.map((s) => s.exitMs))),
-			fmt(mean(media.map((s) => s.exitMs))),
-			media.length ? `${withBeat}/${media.length}` : '—',
 		]);
 	}
 
