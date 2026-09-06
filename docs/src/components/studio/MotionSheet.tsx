@@ -10,7 +10,7 @@ import { SLIDE_SEP } from './deck-ops';
 import { frontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 import { splitSlides } from './lint';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
-import { DOM_CHROME, deckMotionOf, type MotionTarget, PLAY_TOKENS, type Provenance, readTargets, SPEED_TOKENS, STYLE_TOKENS, tally, type Verdict } from './motion-sheet';
+import { DOM_CHROME, deckClassTokens, deckMotionOf, type MotionTarget, PLAY_TOKENS, type Provenance, readTargets, SPEED_TOKENS, STYLE_TOKENS, tally, type Verdict } from './motion-sheet';
 import { setGroupToken } from './slide-directives';
 
 // The Motion tab, rebuilt on the frame model.
@@ -201,6 +201,13 @@ export function MotionSheet({
 	// passed a constant here, so these three controls displayed the built-in default whatever the
 	// deck said — the deck-scope half of the sheet was decorative. Caught by looking at the render.
 	const deck = React.useMemo(() => deckMotionOf(source), [source]);
+	// A deck can also carry motion tokens on its front-matter `class:` line, which the engine puts
+	// on every section. Those are NOT reachable from these three controls — writing `motion: off`
+	// while `class: chart-anima` is present changes nothing, because the section token wins. The
+	// switch would have looked on, done nothing, and snapped back with no message. So say where the
+	// value actually lives instead of offering a control that cannot move it.
+	const classTokens = React.useMemo(() => deckClassTokens(source), [source]);
+	const classDriven = classTokens.some((t) => t.startsWith('motion-') || t === 'chart-anima');
 	const deckPlay = deck.play === 'on';
 	const setDeckAxis = (label: string, key: string, value: string | null) => onEdit(label, (src) => writeFrontMatterLine(src, key, value));
 
@@ -287,7 +294,7 @@ export function MotionSheet({
 
 					<p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Motion sheet</p>
 					<p className="mt-1 text-[12.5px] leading-relaxed text-[var(--text-body)]">
-						Every target the engine can animate in this deck. Nothing here changes your PDF.
+						Every target the engine can animate in this deck. Motion is a live-surface capability — your PDF and PPTX always render the final frame.
 					</p>
 
 					<div className="-mx-3 mt-2.5 flex gap-1.5 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0">
@@ -336,10 +343,17 @@ export function MotionSheet({
 				<aside className="shrink-0 border-t border-border bg-card px-3 py-3 lg:overflow-y-auto lg:border-l lg:border-t-0">
 					<p className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Deck default</p>
 					<p className="mt-1 text-[12px] text-muted-foreground">What every slide inherits.</p>
+					{classDriven && (
+						<p className="mt-2 rounded-md border border-border bg-background px-2.5 py-2 text-[12px] leading-relaxed text-[var(--text-body)]">
+							This deck sets motion on its front-matter <code className="rounded bg-[var(--bg-alt)] px-1 font-mono text-[11px]">class:</code> line
+							(<code className="rounded bg-[var(--bg-alt)] px-1 font-mono text-[11px]">{classTokens.filter((t) => t.startsWith('motion-') || t === 'chart-anima').join(' ')}</code>).
+							The engine puts that on every slide, so it outranks these controls — edit the front matter to change it.
+						</p>
+					)}
 					<div className="mt-2 space-y-2 border-b border-border pb-3">
 						<div className="flex items-center justify-between gap-2">
 							<span className="text-[13px] font-semibold text-[var(--text-heading)]">Play</span>
-							<Switch checked={deckPlay} onCheckedChange={(v) => setDeckAxis(v ? 'Chart motion on for the deck' : 'Chart motion off for the deck', 'motion', v ? 'on' : null)} aria-label="Chart motion" />
+							<Switch checked={deckPlay} disabled={classDriven} onCheckedChange={(v) => setDeckAxis(v ? 'Chart motion on for the deck' : 'Chart motion off for the deck', 'motion', v ? 'on' : null)} aria-label="Chart motion" />
 						</div>
 						<div className="flex items-center justify-between gap-2">
 							<span className="text-[13px] font-semibold text-[var(--text-heading)]">Style</span>
@@ -367,11 +381,11 @@ export function MotionSheet({
 							</div>
 							<div className="flex items-center justify-between gap-2">
 								<span className="text-[13px] font-semibold text-[var(--text-heading)]">Style</span>
-								<CatalogSelect ariaLabel="Set style on the selection" value={activeMotionStyle(undefined).name} onValueChange={(v) => applyToSelection('style', v)} groups={[{ options: catalogOptions(MOTION_STYLE_ENTRIES) }]} />
+								<CatalogSelect ariaLabel="Set style on the selection" value="" placeholder="Set style…" onValueChange={(v) => applyToSelection('style', v)} groups={[{ options: catalogOptions(MOTION_STYLE_ENTRIES) }]} />
 							</div>
 							<div className="flex items-center justify-between gap-2">
 								<span className="text-[13px] font-semibold text-[var(--text-heading)]">Speed</span>
-								<CatalogSelect ariaLabel="Set speed on the selection" value={activeMotionSpeed(undefined).name} onValueChange={(v) => applyToSelection('speed', v)} groups={[{ options: catalogOptions(MOTION_SPEED_ENTRIES) }]} />
+								<CatalogSelect ariaLabel="Set speed on the selection" value="" placeholder="Set speed…" onValueChange={(v) => applyToSelection('speed', v)} groups={[{ options: catalogOptions(MOTION_SPEED_ENTRIES) }]} />
 							</div>
 							<p className="text-[11px] leading-relaxed text-muted-foreground">Writes the same slide tokens the Inspector writes. One undo step.</p>
 						</div>
@@ -392,7 +406,7 @@ export function MotionSheet({
 					<p className="mt-3 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Export &amp; print</p>
 					<p className="mt-1 flex items-start gap-1.5 text-[12px] leading-relaxed text-[var(--text-body)]">
 						<Printer className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-						PDF and PPTX always render the final frame. Nothing on this tab changes one exported byte.
+						PDF and PPTX always render the final frame, so no motion setting changes an exported byte. Writing one does re-save the deck source, exactly as the Inspector does.
 					</p>
 				</aside>
 			</div>

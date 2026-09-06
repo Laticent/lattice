@@ -151,8 +151,9 @@ export async function listStoredScenes(): Promise<StoredScene[]> {
 }
 
 /** Every RENDERABLE saved scene, newest first. Returns [] when the store is unavailable — the
- *  module's long-standing "a read never throws" contract, kept for the UI callers that rely on
- *  it. Anything that must not lose a record (a backup, an export) uses `listStoredScenes`. */
+ *  module's long-standing "a read never throws" contract. It has no production caller today (the
+ *  backup and the Studio both read `listStoredScenes`, which reports what it could not parse);
+ *  it is kept as the narrow, forgiving read for a surface that only ever wants renderable scenes. */
 export async function listStudioScenes(): Promise<StudioScene[]> {
 	try {
 		const rows = await listStoredScenes();
@@ -174,12 +175,17 @@ export async function listStudioScenes(): Promise<StudioScene[]> {
  * through `sanitizeSceneAssets`, because HARD RULE #22's store-boundary guarantee has to hold on
  * EVERY write, and a backup file is exactly the hand-editable input that guarantee exists for.
  */
-export async function putUnreadableScene(raw: unknown): Promise<void> {
-	if (!raw || typeof raw !== 'object') return;
+export async function putUnreadableScene(raw: unknown): Promise<boolean> {
+	if (!raw || typeof raw !== 'object') return false;
 	const rec = raw as SceneAssetRecord;
-	if (!rec.name) return;
-	const { id: _drop, ...rest } = rec;
-	await putAsset({ ...rest, ...sanitizeSceneAssets({ poster: rec.poster, art: rec.art }), kind: 'scene' } as unknown as SceneAssetRecord);
+	if (!rec.name) return false;
+	// KEEP the id. Dropping it sent the record down putAsset's no-id path, which resolves
+	// (kind, name) to whatever already holds that name — so restoring a backup whose `rotor` is
+	// unreadable would overwrite a WORKING `rotor`, and `scene` is not in VERSIONED_KINDS so there
+	// would be no snapshot to recover from. With the id, a restore updates the same record it came
+	// from and is idempotent across repeated restores.
+	await putAsset({ ...rec, ...sanitizeSceneAssets({ poster: rec.poster, art: rec.art }), kind: 'scene' } as unknown as SceneAssetRecord);
+	return true;
 }
 
 /** Remove a saved scene by id (no-op if the store is unavailable). */

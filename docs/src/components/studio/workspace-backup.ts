@@ -179,8 +179,11 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	if (unreadableFile) {
 		const rows = JSON.parse(await unreadableFile.async('string')) as { record?: unknown }[];
 		for (const row of Array.isArray(rows) ? rows : []) {
-			await putUnreadableScene(row?.record);
-			summary.unreadableScenes++;
+			// Count what was actually STORED. `putUnreadableScene` declines a row with no name or
+			// no object, and incrementing regardless would report "N restored" having written
+			// zero — the same "could not read" / "nothing there" conflation this whole change is
+			// about, one file over.
+			if (await putUnreadableScene(row?.record)) summary.unreadableScenes++;
 		}
 	}
 

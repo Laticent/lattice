@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { expect, gotoStudio, test } from './studio-fixture';
+import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
 // Fabricate — the Theme / Component studio. Deterministic surfaces: the derived
 // contract + palette audit recompute from the theme colors, the light/dark specimen
@@ -379,23 +379,19 @@ const MOTION_DECK = [
 	'',
 	'## Where deals stall',
 	'',
-	'```funnel',
-	'Qualified   1240',
-	'Proposal    620',
-	'Negotiation 310',
-	'Closed won  118',
-	'```',
+	'- Qualified `1240`',
+	'- Proposal `620`',
+	'- Negotiation `310`',
+	'- Closed won `118`',
 	'',
 	'---',
 	'',
-	'<!-- _class: piechart motion-together -->',
+	'<!-- _class: quadrant motion-together -->',
 	'',
-	'## Revenue mix',
+	'## Effort and impact',
 	'',
-	'```piechart',
-	'Direct 42',
-	'Partner 33',
-	'```',
+	'- Alpha `3` `4`',
+	'- Beta `1` `2`',
 	'',
 	'---',
 	'',
@@ -403,19 +399,17 @@ const MOTION_DECK = [
 	'',
 	'## Customer arc',
 	'',
-	'```journey',
-	'Discover 3',
-	'Trial 4',
-	'```',
+	'- Discover `3`',
+	'- Trial `4`',
 ].join('\n');
 
 async function openMotionSheet(page: import('@playwright/test').Page) {
 	// `beforeEach` already opened Fabricate, so step back to Compose to reach the editor.
 	await page.getByRole('button', { name: 'Back to Compose' }).click();
-	const editor = page.getByLabel('Deck source');
-	await editor.click();
-	await page.keyboard.press('ControlOrMeta+a');
-	await page.keyboard.type(MOTION_DECK, { delay: 0 });
+	// The fixture's own helper, not a hand-rolled type(): its docblock names the exact trap here —
+	// per-key typing lets the editor's list auto-continuation rewrite a multi-line deck, and a
+	// chart's marks are bullets, so every one of them would be mangled.
+	await setEditorContent(page, MOTION_DECK);
 	// Wait for the SIGNAL, not a guessed interval: the shell re-derives the slide count from the
 	// source on a debounce, so "3 slides" is the deck actually having landed.
 	await expect(page.getByText(/3\s+slides/).first()).toBeVisible();
@@ -428,7 +422,7 @@ test('the Motion sheet lists every animatable target with its resolved register'
 	await openMotionSheet(page);
 	// One row per animatable component, and nothing else from the deck.
 	await expect(page.getByText('Where deals stall', { exact: true }).last()).toBeVisible();
-	await expect(page.getByText('Revenue mix', { exact: true })).toBeVisible();
+	await expect(page.getByText('Effort and impact', { exact: true })).toBeVisible();
 	await expect(page.getByText('Customer arc', { exact: true })).toBeVisible();
 	// The summary counts what will ACTUALLY animate — the journey has Play on from the deck but
 	// emits no roles, so it is not counted as animating.

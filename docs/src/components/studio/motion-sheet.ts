@@ -73,24 +73,35 @@ export interface MotionTarget {
 }
 
 /**
- * Components whose motion the engine can actually paint, and how it reaches them.
+ * Components that emit `data-anima-role`, and so are the ones chart motion can actually reach.
  *
- * MEASURED, not assumed: grepping every component manifest for `"render": "svg"` returns exactly
- * EIGHT — the seven charts plus `diagram`. The frame-model note's own §4 says the same; its
- * front-matter summary says nine and is wrong (corrected in this PR).
+ * MEASURED, not inferred from the manifests: `grep -rl data-anima-role lib/` returns these seven
+ * transforms plus the shared `_chart-family/svg-label.js`. An earlier draft of this file keyed on
+ * `render: svg` in the manifest instead, and got two of them backwards — `diagram` declares SVG
+ * and emits NO role (its markup is third-party Mermaid), while `state-chart` is `render: hybrid`
+ * and DOES emit one. Declaring SVG and being animatable are different properties.
  */
-export const SVG_COMPONENTS = new Set(['funnel', 'gantt', 'map', 'piechart', 'quadrant', 'radar', 'word-cloud', 'diagram']);
+export const ROLE_COMPONENTS = new Set(['funnel', 'gantt', 'map', 'piechart', 'quadrant', 'radar', 'state-chart']);
 
 /**
- * SVG components that emit no `data-anima-role`, so `chartToScene` finds no marks and chart motion
- * skips them however the register resolves.
+ * Components that render but emit no `data-anima-role`, so `chartToScene` finds no marks and
+ * motion skips them however the register resolves.
  *
- * `word-cloud` declares `render: svg` but is not among the files that emit a role — the frame
- * model's §4 counts 7 chart components declaring SVG and 8 files emitting a role, and those are
- * different sets. `journey` is `render: hybrid` and its manifest states the gap outright, with the
- * fix named: emit the role on the mood curve and the faces.
+ * `word-cloud` and `diagram` both declare `render: svg` and neither emits a role; `journey` is
+ * `render: hybrid` and its own manifest states the gap, with the fix named (emit the role on the
+ * mood curve and the faces).
  */
-export const NO_ROLE_COMPONENTS = new Set(['word-cloud', 'journey', 'state-chart']);
+export const NO_ROLE_COMPONENTS = new Set(['word-cloud', 'diagram', 'journey']);
+
+/**
+ * Components whose marks the engine reveals SYNCHRONIZED under every style, not just `together`.
+ *
+ * `chart-anima.ts:286` sets `synchronized = style === 'together' || isSector`, and the comment
+ * above it records why: a staggered disc reads as "missing a slice", not "assembling" — a finding
+ * from an adversarial pass. So a pie is a single fade whatever the author picks, which means
+ * flagging `together` on one would nag about a choice the engine overrides anyway.
+ */
+export const SECTOR_COMPONENTS = new Set(['piechart']);
 
 /** Chrome the frame model wants animated eventually but which no painter can reach today — the
  *  rail is `<span class="dot">` per section with zero `<svg>`, and the deck logo is an `<img>`.
@@ -109,16 +120,41 @@ const firstHeading = (chunk: string): string => {
 };
 
 /**
- * Rows inside the slide's first fenced block — how a chart's marks are authored.
+ * How many marks a chart slide declares — the FIRST contiguous top-level list, and nothing else.
  *
- * Returns `null` when there is no fence, rather than 0: "this chart has no marks" and "we could
- * not count them" are different claims, and only one of them should ever reach a verdict.
+ * Charts are authored as a markdown list (`ul > li`), not a fenced block, and the data list comes
+ * first on the slide. Counting every bullet in the chunk over-counted any slide with a bulleted
+ * speaker note or a prose aside beneath the chart, which then inflated the displayed build
+ * duration and silently cleared the one-mark verdict. A nested `- ` is the per-stage detail
+ * (`li > ul`), not a mark, and a bullet inside a fence is sample text.
+ *
+ * This is a HEURISTIC over source, not the engine's own count — the engine counts rendered
+ * `[data-mark]` nodes. It is right for the shape every shipped chart uses and it is reported as
+ * `null` rather than guessed when there is no list at all, but a deck that interleaves prose
+ * bullets INTO the data list will still read high. The duration derived from it is labelled as an
+ * estimate for that reason.
  */
 export function markCount(chunk: string): number | null {
-	const m = /^[ \t]*```+[^\n]*\n([\s\S]*?)^[ \t]*```+/m.exec(chunk);
-	if (!m) return null;
-	const rows = m[1].split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
-	return rows.length || null;
+	let n = 0;
+	let started = false;
+	let inFence = false;
+	for (const raw of chunk.split('\n')) {
+		if (/^\s*(?:```|~~~)/.test(raw)) {
+			inFence = !inFence;
+			continue;
+		}
+		if (inFence) continue;
+		const isTop = /^[-*+]\s+\S/.test(raw);
+		const isNested = /^\s+[-*+]\s+\S/.test(raw);
+		if (isTop) {
+			n++;
+			started = true;
+			continue;
+		}
+		// A blank line or nested detail keeps the run open; anything else ends it.
+		if (started && !isNested && raw.trim() !== '') break;
+	}
+	return n || null;
 }
 
 const styleOf = (tokens: string[]): ChartAnimaStyle | null => {
@@ -135,9 +171,22 @@ const playOf = (tokens: string[]): 'on' | 'off' | null => {
 	return null;
 };
 
-/** The deck-level defaults, read with the same parser the live host uses. */
+/** The deck-level defaults from the three `motion*` keys, read with the parser the live host uses. */
 export function deckMotionOf(source: string): DeckMotion {
 	return parseDeckMotion(getFrontMatter(source, 'motion'), getFrontMatter(source, 'motion-style'), getFrontMatter(source, 'motion-speed'));
+}
+
+/**
+ * The motion tokens a deck's front-matter `class:` puts on EVERY section.
+ *
+ * `base.docs.md` documents `class: chart-anima` as the deck-wide switch, and the engine appends
+ * every `class:` token to every section — including a section that names its own `_class:`. So
+ * `class: motion-off` really does silence a deck whose slides say `motion-on`, and
+ * `class: motion-fast` really does set the speed. Reading only `chart-anima` here reported the
+ * opposite of the deck on three of the four documented shapes.
+ */
+export function deckClassTokens(source: string): string[] {
+	return (getFrontMatter(source, 'class') ?? '').split(/\s+/).filter(Boolean);
 }
 
 /**
@@ -152,24 +201,42 @@ export function readTargets(source: string): MotionTarget[] {
 	const chunks = splitSlides(stripFrontMatter(source));
 	const out: MotionTarget[] = [];
 
-	chunks.forEach((chunk, i) => {
-		const tokens = getClassTokens(chunk);
-		// The component is the first class token — `<!-- _class: funnel motion-on -->`. Every
-		// other token is a modifier, which is why the register's tokens can sit beside it.
-		const component = tokens[0] ?? '';
-		if (!component) return;
-		if (!SVG_COMPONENTS.has(component) && !NO_ROLE_COMPONENTS.has(component)) return;
-		const slidePlay = playOf(tokens);
-		const slideStyle = styleOf(tokens);
-		const slideSpeed = speedOf(tokens);
+	const deckClass = deckClassTokens(source);
 
-		const play = (slidePlay ?? deck.play ?? 'off') === 'on';
-		const style = slideStyle ?? deck.style ?? 'build';
-		const speed = slideSpeed ?? deck.speed ?? 'auto';
+	chunks.forEach((chunk, i) => {
+		const slideTokens = getClassTokens(chunk);
+		// POSITION-INDEPENDENT, like the engine's own dispatch: `chart-family.js` picks the layout
+		// with `CHART_LAYOUTS.find(l => classTokens.includes(l))`, so `_class: dark funnel` is a
+		// funnel. Reading `tokens[0]` made any deck that puts a modifier first vanish from the
+		// sheet entirely — the worst failure for a surface whose promise is "every target".
+		const component = slideTokens.find((t) => ROLE_COMPONENTS.has(t) || NO_ROLE_COMPONENTS.has(t));
+		if (!component) return;
+
+		// The engine APPENDS front-matter `class:` to every section, so a deck-level `motion-off`
+		// or `motion-fast` arrives as a token ON THE SECTION and is read by the SLIDE-level
+		// readers — it is not a "deck default" that a slide token outranks. Modelling it as one
+		// made the sheet report the opposite of the deck on four documented shapes.
+		const tokens = [...slideTokens, ...deckClass];
+		const slidePlay = playOf(slideTokens);
+		const slideStyle = styleOf(slideTokens);
+		const slideSpeed = speedOf(slideTokens);
+		// A `class:` token is deck-scope to the AUTHOR even though it is slide-scope to the engine,
+		// so it reports as `deck` — that is where they would go to change it.
+		const classPlay = playOf(deckClass);
+		const classStyle = styleOf(deckClass);
+		const classSpeed = speedOf(deckClass);
+
+		// `resolveMotion` reads the section's class list, which carries BOTH sets, and `motion-off`
+		// beats `motion-on` there — so the union is resolved with the same precedence the engine
+		// uses rather than by layering slide over deck.
+		const unionPlay = playOf(tokens);
+		const play = (unionPlay ?? deck.play ?? 'off') === 'on';
+		const style = styleOf(tokens) ?? deck.style ?? 'build';
+		const speed = speedOf(tokens) ?? deck.speed ?? 'auto';
 		const provenance = {
-			play: slidePlay ? ('slide' as const) : deck.play ? ('deck' as const) : ('built-in' as const),
-			style: slideStyle ? ('slide' as const) : deck.style ? ('deck' as const) : ('built-in' as const),
-			speed: slideSpeed ? ('slide' as const) : deck.speed ? ('deck' as const) : ('built-in' as const),
+			play: slidePlay ? ('slide' as const) : classPlay || deck.play ? ('deck' as const) : ('built-in' as const),
+			style: slideStyle ? ('slide' as const) : classStyle || deck.style ? ('deck' as const) : ('built-in' as const),
+			speed: slideSpeed ? ('slide' as const) : classSpeed || deck.speed ? ('deck' as const) : ('built-in' as const),
 		};
 
 		const marks = markCount(chunk);
@@ -215,9 +282,14 @@ export function judge(t: { component: string; play: boolean; style: ChartAnimaSt
 	if (t.marks === 1) {
 		return { verdict: 'review', note: 'One mark, so the build is one beat — it reads as a fade, not a sequence. Motion here shows nothing the still does not.' };
 	}
-	// `together` synchronizes every mark into one window, and a sector chart does so under every
-	// style (chart-anima.ts:286). That is the right default for a disc, but it means the motion is
-	// a fade-in: legitimate as an entrance, worth a second look as information.
+	// A SECTOR chart is synchronized under EVERY style (chart-anima.ts:286) — the engine overrides
+	// the author, deliberately, because a staggered disc reads as "missing a slice". Flagging
+	// `together` here would nag about a choice that changes nothing, and NOT flagging `build` on
+	// the same chart would give two rows with identical rendered motion opposite verdicts. So the
+	// note is about the shape, carries no alarm, and never offers "turn it off".
+	if (SECTOR_COMPONENTS.has(t.component)) {
+		return { verdict: 'carries', note: 'A disc reveals as one piece whatever the style says — the engine synchronizes sectors so the chart never reads as missing a slice.' };
+	}
 	if (t.style === 'together') {
 		return { verdict: 'review', note: 'Together reveals every mark in one window, so the build is a single fade. It arrives; it does not sequence.' };
 	}

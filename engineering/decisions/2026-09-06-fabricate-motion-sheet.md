@@ -143,7 +143,7 @@ name; `together` reveals every mark in one window, so it arrives rather than seq
 `data-anima-role`, so the register cannot reach it however it resolves). Every non-carrying verdict
 carries a sentence explaining itself, because a status you cannot act on is a colored dot.
 
-## 6. Frames are derived, not counted
+## 6. Frames are derived, not counted — and the kernel is deferred
 
 `docs/src/lib/anima/frames.ts` turns a compiled `Timeline` into the beats it actually paints. The
 obvious formula — *marks + labels + settle* — is wrong four ways, each measured against
@@ -163,9 +163,14 @@ nothing, because every closing lands mid-way through the next mark's arrival. Op
 events a viewer can name; the same funnel now reports six, and `bar-4` and the labels correctly
 merge — they open 108 ms apart at normal speed, under the legibility floor.
 
-**It ships with tests and no UI consumer yet, and that is a real cost.** It is the substrate a
-frame strip needs, and it exists now because the alternative was a UI that states counts a viewer
-never sees. If the frame strip is never built, this module should be deleted rather than left.
+**It was written, adversarially reviewed, and then REMOVED from this PR.** Two reviewers
+independently objected that it shipped with zero consumers, and a third found a defect that
+settled it: `synchronized` could never be true on a real chart scene, because the flag compared
+every revealing element's window — and a chart's label window is by construction different from
+its marks'. Its own test passed only because the fixture built a label-less scene, a shape
+`chartToScene` never emits. A kernel with a wrong invariant, a test certifying the opposite, and
+no caller is worse than no kernel. The measurements above are the durable part and they are kept
+here; the module lands with the frame strip that needs it.
 
 ## 7. The §7c data-loss fix, landing first
 
@@ -212,6 +217,37 @@ Found while building, fixed here:
   declare `render: svg`; its own §4 says 7 charts + `diagram`. Measured: **8**. The summary likely
   collided with the *other* 8 in that same row — the count of files emitting `data-anima-role`,
   which is a different set. Three of the five design tracks independently caught this.
+
+## 10. What the adversarial pass changed, and what it did not
+
+The trio (red team · inversion · independent checker) ran against what was going to ship, and it
+moved the design rather than polishing it. The findings that changed code:
+
+| Finding | What was wrong | Now |
+|---|---|---|
+| **Charts are lists, not fences** | `markCount` read rows inside a ``` fence. **No chart uses that shape** — every chart's data slot is `ul > li`. On a real deck every row read "marks not countable", the one-mark verdict was unreachable, and the unit and e2e fixtures were all written in the fenced form, so they asserted over decks that could not animate at all | Counts the first contiguous top-level list, fence- and detail-aware. Every fixture rewritten in the real shape |
+| **`diagram` and `state-chart` were backwards** | Keyed on `render: svg` in the manifest. `diagram` declares SVG and emits NO role (its markup is third-party Mermaid); `state-chart` is `render: hybrid` and DOES emit one. So the sheet said "Carries" on the most common animatable class in the repo's decks and told the author to go fix a component that was already fine | Keyed on `data-anima-role`, measured by grep |
+| **Deck `class:` tokens were invisible** | The engine appends front-matter `class:` to **every** section, so `class: motion-off` really does silence a deck. Reading only the `motion:` key made the sheet report the exact opposite on four documented shapes — including a full green board for a deck the author had turned off | Slide and deck-class tokens resolve as one union, with the engine's own precedence. Four new parity cases drive the real `resolveMotion` |
+| **A leading modifier hid a whole target** | `component = tokens[0]`, but the engine's dispatch is `CHART_LAYOUTS.find(l => classTokens.includes(l))` — position-independent. `_class: dark funnel` produced no row at all | Position-independent, like the engine |
+| **The bulk pickers were dead on two of seven values** | A controlled Radix `Select` only fires when the picked value differs from the one shown, and they showed `Build` and `Auto` — exactly what an author picks to normalize a deck back to default | One-shot pickers with a placeholder, so every pick fires |
+| **The deck Play switch was dead on a `class:`-driven deck** | It rendered on, wrote a key the section token outranks, and snapped back with no message | Disabled, with the front-matter line and its tokens named |
+| **`putUnreadableScene` dropped the id** | Sent the record down `putAsset`'s no-id path, which resolves `(kind, name)` — so restoring a backup whose `rotor` is unreadable would overwrite a **working** `rotor`, with no version history to recover from | Preserves the id; idempotent across restores |
+| **Restore counted what it did not store** | Incremented for rows `putUnreadableScene` had declined | Counts actual writes |
+
+**Two findings were accepted and NOT fixed, deliberately.** A write round-trips the deck through
+`splitSlides` + rejoin, which trims slides, drops a deliberately blank one, and normalizes author
+separators. That is the **house pattern** — `deck-ops.replaceSlide` does exactly the same and the
+Inspector writes through it — so it is a pre-existing defect this change inherits rather than
+authors, and #18 says an off-path one gets logged, not pulled into the diff. What this change owed
+was to stop *overstating*: the two "nothing changes your PDF" lines now say that no motion setting
+changes an exported byte, and that writing one re-saves the deck source exactly as the Inspector
+does.
+
+**The inversion's core objection stands and is not resolved by any of the above:** everything the
+sheet does, the Inspector can do one slide at a time, and a deck-scale review surface has a
+shipped precedent that is *not* a Fabricate tab (`LensesPanel`). It argued for landing §7c alone
+and taking §7b's option 2. That case is recorded here because the merge gate is where it should be
+weighed, and because the sheet was built to make that reversal cheap.
 
 ## 10. Known open, and deliberately not fixed here
 
