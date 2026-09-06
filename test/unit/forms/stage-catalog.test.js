@@ -32,7 +32,7 @@ const EXPECTED_FLOW = [
   'checklist', 'citation-card', 'code', 'compare-prose', 'compare-table', 'content', 'cycle',
   'decision', 'glossary', 'inventory', 'kpi', 'list', 'list-criteria', 'list-steps',
   'list-tabular', 'logo-wall', 'matrix-2x2', 'obligation-matrix', 'policy-recommendation', 'pricing', 'q-and-a',
-  'quote', 'redline', 'regulatory-update', 'stats', 'statute-stack', 'verdict-grid',
+  'quote', 'redline', 'regulatory-update', 'stats', 'statute-stack', 'team-profile', 'verdict-grid',
 ].sort();
 const EXPECTED_CANVAS = [
   'contact', 'diagram', 'bar', 'bullet', 'funnel', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'gantt', 'journey', 'kanban', 'map', 'matrix-grid', 'piechart',

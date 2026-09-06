@@ -72,6 +72,12 @@ const BUILDERS = {
   // `node tools/calibrate-capacity.js premise --family tall`.
   premise: (w) => `1. ${cap(words(2))}\n   - ${cap(words(Math.max(1, w - 5)))}.\n   - ${cap(words(3))}?`,
   'q-and-a': (w) => `- ${cap(words(2))}?\n  - ${cap(words(w - 2))}.`,
+  // A team-profile person is name / role pill / one note line. The portrait is
+  // deliberately OMITTED so the rig measures the MONOGRAM path: the figure box is
+  // CSS-sized and identical in height either way, and a relative `![](x.svg)` in
+  // a temp deck would resolve to nothing and collapse the cell it is supposed to
+  // stand in. The variable words go to the note, which is the part that varies.
+  'team-profile': (w) => `- ${cap(words(2))}\n  - \`Head of Delivery\`\n  - ${cap(words(Math.max(1, w - 2)))}.`,
   agenda: (w) => `1. ${cap(words(w))} \`p.3\``,
   checklist: (w) => `- [x] ${cap(words(w))}`,
   stats: (w) => `1. 73%\n   - ${cap(words(w))}`,

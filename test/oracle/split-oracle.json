@@ -25,6 +25,11 @@
       "deck": "examples/split-decision.md",
       "by": "owner ruling 2026-09-06 (title, first card, second card, recommendation); rendered at size: portrait and read page by page",
       "note": "Both split-compare slides split to FOUR pages: cover (frame label, heading, context) -> one `.option` card per page -> the `.verdict` on its own CLOSING page (deck pages 3, 3.2-3.4 and 4, 4.2-4.4). 12 pages from 6 authored slides, 0 overflow and 0 clip warnings. The `.preferred` treatment survives on the second option's page in both runs. THIS ONE NEEDED A STRATEGY AND THE REASON IS MEASURED, NOT ASSUMED -- it is the first case where the generic path provably could not do the job. Enrolled on a bare `item` axis with `cover-paginate` first: the run came out with option A's INNER ROWS paginated (2 pages, 2 rows) while option B and the verdict repeated whole on both, because the transform builds `.compare-right > .options > .option` DIVS and leaves NO top-level list for `firstList` to find. That render is what `compare-options` exists for, and it is one level deeper than the refusal recorded in split-facts.js: the note said the verdict repeats because it is a sibling of `.options`, which is true, but the options had already stopped being a sliceable collection. Contrast `pricing`, enrolled the same day, which needed no strategy at all. THE VERDICT IS A SLOT, NOT TRAILING MATERIAL, and that distinction is now pinned in the tests: `carousel.test.js` CLOSES_ON_A_SLOT lists this strategy, because the negative control 'no trailing material -> no closing page' does not hold for a run whose closing page IS the component's required recommendation. The entry fails when stale. Conservation (rule 6), the one-closing-page invariant and the no-duplication check all still run for this strategy and all pass. TWO DEFECTS WERE FOUND BY RASTERIZING, NOT BY A GATE, and both are fixed: the first cover carried an invented `split-compare-cover` class with no CSS behind it and rendered as plain small text (now the shared `coverSection` accent field, the same one cover-paginate opens with); and the relationship signal read \"Options 1-2 of 4\" on a two-option comparison, because `membersIn` counts the first list's `<li>`s and this page carries one option card that has a list of its own -- fixed by stamping `data-split-label`, which auto-split.js names as the remedy for exactly this shape. The trailing-beats carry was added because the rule-6 gate caught it: reading only `.verdict` dropped an author's key insight or below-note, which land as siblings AFTER `.compare-right`. WHAT THIS DOES NOT BUY: the closing page seats its panel high and leaves the lower half of the page empty -- the same width-relative sizing problem the catalog audit measured across the catalog, not something this enrollment addresses. LANDSCAPE IS UNTOUCHED: split is gated off `wide` (lattice-emulator.js AUTOSPLIT_APPLIES), and `readCompareOptions` returns null without a `.compare-left`/`.compare-right` pair, so any other rendered form keeps ringing."
+    },
+    "team-profile": {
+      "deck": "examples/team-profile.md",
+      "by": "claude/team-profile-component-qjcym1 (rendered at size: portrait, indaco, and read page by page)",
+      "note": "All five compositions split to one `li.person` per page across 45 pages: the heading repeats with `(cont.)`, each page carries the person's portrait, name, role and note intact, and the forward pointer reads `continues ->`. Axis `item` derived from the rendered <ul.team-roster>, which is the authored top-level list after the component's transform rebuilds each item -- the transform retags the <li> but does not move it, so the `ul > li` axis default still resolves and no `domSelector` is needed. list-heavy rather than atomic on purpose: a lone PERSON reads exactly as authored (a name, a role, the line about what they own -- a title AND a body), unlike a lone logo-wall mark, which would assert an endorsement nobody wrote; the reasoning is recorded at the TREATMENTS entry in lib/core/split-facts.js. This split is what caught the `bio` row defect: its text block was a wrapped flex line whose note carried `min-width: 100%`, unshrinkable, and ran up to 191px past the stage's right edge on a narrow page, losing its last word. Rebuilt as a two-track grid; re-measured at zero overflow on every one of the 45 pages. A long roster that should stay ONE slide has the in-component answer instead -- the `bench` variant drops the notes and packs six up."
     }
   },
   "components": {
@@ -695,6 +700,17 @@
       "enrolled": true,
       "strategy": "cover-paginate",
       "reshape": "paginator",
+      "coverClass": "lat-split-cover",
+      "perPage": 1,
+      "relationship": null
+    },
+    "team-profile": {
+      "treatment": "list-heavy",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": null,
+      "reshape": null,
       "coverClass": "lat-split-cover",
       "perPage": 1,
       "relationship": null

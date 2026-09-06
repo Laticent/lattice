@@ -1,0 +1,490 @@
+/* team-profile — a roster of named people, each under a portrait.
+ * See lib/components/inventory/team-profile/team-profile.manifest.json for the contract.
+ *
+ * Substance: structure. The author writes the house card shape (`- Name` with the
+ * portrait / role / note nested under it); team-profile.transform.js rebuilds each
+ * item into a flat, named card:
+ *
+ *   li.person > .person-figure          the portrait — an <img>, or a monogram
+ *             > .person-text            > .person-name / .person-role / .person-note
+ *
+ * Five compositions off that one DOM, and the split between them is entirely
+ * `.person`'s flex-direction plus what `.person-figure` measures:
+ *   team-profile          3-up cards, portrait over the words        (the roster)
+ *   team-profile lead     one hero row, the rest ranked beneath      (leader + reports)
+ *   team-profile bench    6-up, portrait + name + role only          (the long roster)
+ *   team-profile sides    two labelled rosters facing each other     (the QBR roll-call)
+ *   team-profile bio      one person per row, room for a sentence    (meet the leaders)
+ *
+ * Every size is `cqi` (1% of the stage's inline size), so a portrait holds its
+ * proportion of the slide at every deck size, instead of being a pixel guess
+ * that only looks right at 16:9.
+ *
+ * Rules are UNLAYERED (no `@layer components` wrapper) to match every other
+ * component file — broad @layer activation is blocked (engineering/cascade.md),
+ * so a wrapped file would lose to unlayered base rules regardless of specificity.
+ */
+
+section.team-profile > .cell-stage {
+  /* The four knobs every design re-tunes. `--person-col-gap` feeds the per-cell
+   * width below, so the tiling stays exact even when a reflow uses an asymmetric
+   * gap (the same arrangement logo-wall uses). */
+  --person-cols: 3;
+  --person-size: 7cqi;
+  --person-gap: var(--sp-xl);
+  /* Rows are the scarce axis — two rows of portrait + three text lines is what a
+   * 16:9 stage holds — so the row gap runs tighter than the column gap rather
+   * than one `gap` splitting the difference badly in both directions. */
+  --person-row-gap: var(--sp-lg);
+  --person-col-gap: var(--person-gap);
+}
+
+/* The headline block keeps its natural height at the top; the roster takes the
+ * rest of the canvas and centers its rows as one cluster, so a two-row grid sits
+ * in the middle of the frame rather than hanging off the heading. */
+section.team-profile > .cell-stage > ul.team-roster {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  /* flex mirror of `repeat(N, 1fr)` — N cards per row, rows centered as a cluster. */
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--person-col-gap);
+  row-gap: var(--person-row-gap);
+  align-content: center;
+  justify-content: center;
+  align-items: start;
+}
+
+section.team-profile > .cell-stage > ul.team-roster > li.person {
+  /* `width` (not a flex-basis calc, which renders unreliably) tiles N per row. */
+  width: calc((100% - (var(--person-cols) - 1) * var(--person-col-gap)) / var(--person-cols));
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-xs);
+  min-width: 0;
+}
+
+/* ── The portrait cell.
+ * A circle at `--person-size`, with a hairline ring so a light photo on a light
+ * ground still has an edge. `overflow: hidden` + `object-fit: cover` is what makes
+ * a roster of mismatched crops read as one wall: every face is centered in the
+ * same circle whatever the source aspect. `flex: 0 0 auto` keeps the circle from
+ * being squeezed by a long name beside it in the row-shaped designs. */
+section.team-profile .person-figure {
+  width: var(--person-size);
+  height: var(--person-size);
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+}
+
+section.team-profile .person-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* The monogram — the same circle, filled and carrying the person's initials,
+ * sized as a fraction of the circle so it tracks `--person-size` through every
+ * design and every deck size.
+ *
+ * TWO treatments, and which one applies is decided by the ROSTER, not the person.
+ * A monogram does one of two different jobs:
+ *
+ *   - Beside real photographs it STANDS IN for one that has not arrived, so it
+ *     must be quiet. Measured on a dark canvas, the categorical treatment below
+ *     turned four photo-less people into saturated discs shouting next to eight
+ *     soft portraits — `--cat-N-fill` is a pale tint on a light ground but a
+ *     vivid color on a dark one, which is right for a chart wedge and wrong for a
+ *     missing face. The default is therefore neutral: the card's own surface, the
+ *     same hairline ring a photo gets, secondary ink.
+ *
+ *   - When NOBODY has a photo — the QBR roll-call, where one side of the room is
+ *     never photographed — the monograms ARE the roster, and a column of six
+ *     identical gray discs is not a design. There they carry the categorical
+ *     identity: `--cat-N-fill` with `--cat-N-ink`, the three-layer contrast
+ *     contract's own pair, so the ink is AA on the fill in both color modes
+ *     without a per-mode override.
+ *
+ * `:has()` reads that distinction off the rendered roster, so an author gets the
+ * right answer without a modifier to remember. (HARD RULE #12 banned `:has()` in
+ * theme CSS until it was retired in 2026-07 — retested against a current
+ * Chromium, both forms behave per spec.) */
+section.team-profile .person-figure--monogram {
+  background: var(--bg-alt);
+  border-color: var(--border);
+}
+
+section.team-profile .person-initials {
+  font-family: var(--font-label);
+  font-size: calc(var(--person-size) * 0.33);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--text-secondary);
+}
+
+/* An all-monogram roster takes the categorical cycle. EIGHT slots, not the
+ * palette's twelve, and the ceiling is a contrast contract rather than a taste
+ * call: `--cat-N-ink` has no `:root` default (the export bundle loads the theme
+ * before the base, so a default would override every curated ink), so each read
+ * carries its own `, var(--cat-N-mark)` fallback — and that fallback drops a 4.5:1
+ * text floor to a 3:1 shape floor, which is pre-audited for slots 1-8 only. A
+ * ninth hue would mean logging a new contrast drop to ship a color we do not need.
+ * matrix-grid cycles 8 and piechart 6 for the neighbouring reason. */
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 1) .person-figure--monogram { background: var(--cat-1-fill); border-color: var(--cat-1-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 1) .person-initials { color: var(--cat-1-ink, var(--cat-1-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 2) .person-figure--monogram { background: var(--cat-2-fill); border-color: var(--cat-2-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 2) .person-initials { color: var(--cat-2-ink, var(--cat-2-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 3) .person-figure--monogram { background: var(--cat-3-fill); border-color: var(--cat-3-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 3) .person-initials { color: var(--cat-3-ink, var(--cat-3-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 4) .person-figure--monogram { background: var(--cat-4-fill); border-color: var(--cat-4-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 4) .person-initials { color: var(--cat-4-ink, var(--cat-4-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 5) .person-figure--monogram { background: var(--cat-5-fill); border-color: var(--cat-5-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 5) .person-initials { color: var(--cat-5-ink, var(--cat-5-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 6) .person-figure--monogram { background: var(--cat-6-fill); border-color: var(--cat-6-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 6) .person-initials { color: var(--cat-6-ink, var(--cat-6-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 7) .person-figure--monogram { background: var(--cat-7-fill); border-color: var(--cat-7-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 7) .person-initials { color: var(--cat-7-ink, var(--cat-7-mark)); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n) .person-figure--monogram { background: var(--cat-8-fill); border-color: var(--cat-8-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n) .person-initials { color: var(--cat-8-ink, var(--cat-8-mark)); }
+
+/* ── The words.
+ * A column by default, centered under the portrait. The three lines are a
+ * hierarchy — name, then role, then note — and their spacing says so: the role
+ * sits tight under the name it belongs to, the note further off. Rhythm is
+ * padding, not gap, so each step is tuned separately (and never margin — #20). */
+section.team-profile .person-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+section.team-profile .person-name {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: var(--lh-snug);
+  color: var(--text-heading);
+  text-wrap: balance;
+}
+
+/* The role is a LABEL, not a pill. A pill under every one of twelve faces is
+ * twelve boxes competing with the portraits; the label register (mono-ish caps,
+ * tracked, secondary ink) says "metadata" just as clearly and disappears into the
+ * card the way a caption should. */
+section.team-profile .person-role {
+  padding-top: var(--sp-3xs);
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  color: var(--text-secondary);
+}
+
+section.team-profile .person-note {
+  padding-top: var(--sp-2xs);
+  font-size: var(--fs-meta);
+  font-weight: 400;
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+/* ── Roster-size reflow.
+ * The three-up composition holds six: two rows of portrait-plus-three-lines is
+ * what a 16:9 stage measures out at (tools/calibrate-capacity.js reads a ceiling
+ * of 6, and a seventh starts a third row that does not fit). Rather than let a
+ * seven-person roster ring, the grid goes to four columns and takes the portrait
+ * down to match — 4+4 or 4+3 in the same two rows. A quantity query
+ * (`:has(> li:nth-child(7))` — "is there a seventh?") reads the roster's own size,
+ * so the author gets the right column count without a modifier to remember.
+ * Past eight the notes are what stop being readable, and dropping them is a
+ * CONTENT decision, so that is where `bench` takes over rather than this rule
+ * silently hiding what someone wrote. */
+section.team-profile:not(.lead):not(.bench):not(.sides):not(.bio)
+  > .cell-stage > ul.team-roster:has(> li.person:nth-child(7)) {
+  --person-cols: 4;
+  --person-size: 6.5cqi;
+}
+
+/* ── lead — one hero, the rest ranked beneath.
+ * The roster becomes a single column of two bands: the first person alone in a
+ * row-shaped hero, then everyone else tiled small. `flex-wrap: wrap` on the list
+ * with a full-width first child is what splits the bands — no wrapper element,
+ * so the same DOM serves this and the default. */
+section.team-profile.lead > .cell-stage {
+  --person-cols: 4;
+  --person-size: 6.5cqi;
+  --person-gap: var(--sp-lg);
+  --person-row-gap: var(--sp-md);
+}
+
+section.team-profile.lead > .cell-stage > ul.team-roster {
+  align-content: center;
+  row-gap: var(--sp-xl);
+}
+
+section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child {
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-xl);
+  padding-bottom: var(--sp-md);
+  /* The rule under the hero is the whole hierarchy statement: one person above
+   * the line, the team below it. */
+  border-bottom: 1px solid var(--border);
+  --person-size: 12cqi;
+}
+
+section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child > .person-text {
+  align-items: start;
+  text-align: left;
+}
+
+section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child .person-name {
+  font-size: var(--fs-h3);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+}
+
+section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child .person-role {
+  padding-top: var(--sp-2xs);
+  font-size: var(--fs-body-compact);
+  color: var(--accent);
+}
+
+section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child .person-note {
+  padding-top: var(--sp-sm);
+  font-size: var(--fs-body);
+  color: var(--text-body);
+  max-width: var(--measure-body);
+}
+
+/* ── bench — the long roster.
+ * Six up, portraits small, and the note suppressed: past a dozen people the note
+ * is the first thing that stops being readable, so `bench` drops it rather than
+ * shrinking it into decoration. */
+section.team-profile.bench > .cell-stage {
+  --person-cols: 6;
+  --person-size: 7.5cqi;
+  --person-gap: var(--sp-lg);
+  --person-row-gap: var(--sp-md);
+}
+
+section.team-profile.bench .person-note { display: none; }
+section.team-profile.bench .person-name { font-size: var(--fs-meta); }
+section.team-profile.bench .person-role { font-size: calc(var(--fs-meta) * 0.88); letter-spacing: 0.06em; }
+section.team-profile.bench > .cell-stage > ul.team-roster > li.person { gap: var(--sp-xs); }
+
+/* ── sides — two labelled rosters facing each other.
+ * The author writes two `### ` headings, each followed by its own list; the stage
+ * puts them in two columns with `grid-auto-flow: column`, so heading 1 / list 1
+ * fill the first column and heading 2 / list 2 the second. A hairline between them
+ * is what makes it a MEETING rather than two unrelated lists — it is drawn on the
+ * second column's items (both of them, with `row-gap: 0`) so the two segments meet
+ * as one unbroken rule. */
+section.team-profile.sides > .cell-stage {
+  --person-cols: 1;
+  --person-size: 7cqi;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-auto-flow: column;
+  column-gap: 0;
+  row-gap: 0;
+  align-content: stretch;
+}
+
+section.team-profile.sides > .cell-stage > h3 {
+  padding: 0 var(--sp-xl) var(--sp-md);
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  color: var(--text-label, var(--text-secondary));
+}
+
+section.team-profile.sides > .cell-stage > ul.team-roster {
+  padding: 0 var(--sp-xl);
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-content: start;
+  justify-content: center;
+  gap: var(--sp-md);
+}
+
+/* Each person is a row inside the column — portrait, then name over role. */
+section.team-profile.sides > .cell-stage > ul.team-roster > li.person {
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-md);
+}
+
+section.team-profile.sides .person-text { align-items: start; text-align: left; }
+
+/* The dividing rule: the second column's two children carry a shared start edge. */
+section.team-profile.sides > .cell-stage > :nth-child(n + 3) {
+  border-inline-start: 1px solid var(--border);
+}
+
+/* ── bio — one person per row, with room for a sentence.
+ * The grid turns on its side: full-width rows separated by hairlines, the name
+ * and role sharing a baseline and the note running under them. This is the
+ * "meet the leaders" shape — four people who each need a real line, not twelve
+ * who need a label. */
+section.team-profile.bio > .cell-stage {
+  --person-cols: 1;
+  --person-size: 6.25cqi;
+}
+
+section.team-profile.bio > .cell-stage > ul.team-roster {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0;
+  justify-content: center;
+}
+
+section.team-profile.bio > .cell-stage > ul.team-roster > li.person {
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-lg);
+  padding: var(--sp-xs) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+section.team-profile.bio > .cell-stage > ul.team-roster > li.person:last-child {
+  border-bottom: 0;
+}
+
+/* Name and role share the top line (the role tucked in beside the name, not under
+ * it), and the note claims the full width below — the shape a printed bio has. */
+/* The bio row's words are a GRID, not a wrapped flex line, and the reason is
+ * measured rather than stylistic. The shape wanted is: name at the row's left,
+ * role anchored at its right, note on its own line spanning both. Flex could not
+ * hold it. `flex-basis: 100%` on the note did not break the line at all — the
+ * three items stayed on one line, the note sitting at its 645px content width
+ * inside a 1057px box — and `min-width: 100%`, which did break it, made the note
+ * unshrinkable, so on a split portrait page it ran up to 191px past the stage's
+ * right edge and lost its last word. A two-track grid states the same intent
+ * directly: `1fr auto` puts the role at the right end, `1 / -1` gives the note its
+ * own row, and neither track can exceed the row, so there is nothing to overflow.
+ * `min-width: 0` because a grid item's automatic minimum is its content, which is
+ * what would otherwise push a long name past the role. */
+section.team-profile.bio .person-text {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  align-content: center;
+  column-gap: var(--sp-lg);
+  text-align: left;
+}
+
+section.team-profile.bio .person-name { grid-column: 1; min-width: 0; }
+section.team-profile.bio .person-role { grid-column: 2; }
+section.team-profile.bio .person-note { grid-column: 1 / -1; min-width: 0; }
+
+section.team-profile.bio .person-name { font-size: var(--fs-body); }
+section.team-profile.bio .person-role { padding-top: 0; }
+section.team-profile.bio .person-note {
+  padding-top: var(--sp-3xs);
+  font-size: var(--fs-body-compact);
+  color: var(--text-body);
+  max-width: var(--measure-body);
+}
+
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+ * A wide roster letterboxes into a short band in a tall box — every portrait
+ * shrinks and the canvas reads empty. Halve the columns so each face keeps
+ * presence and the rows fill down the frame. Keyed on the deck's `data-family`
+ * stamp (never `@container … aspect-ratio`, retired in #1218), attached to the
+ * `section.team-profile` compound — a LEADING `:where([data-family=…])` would be a
+ * descendant combinator and match nothing. The class is doubled because
+ * `:where()` is zero-specificity and these must outrank the base rules above. */
+section.team-profile.team-profile:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  --person-cols: 2;
+  --person-size: 18cqi;
+  --person-gap: var(--sp-lg);
+}
+
+section.team-profile.bench.bench:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  --person-cols: 3;
+  --person-size: 13cqi;
+}
+
+/* A square box is wide enough to keep three across, but the portraits want the
+ * extra height back. */
+section.team-profile.team-profile:where([data-family="square"]) > .cell-stage {
+  --person-size: 14cqi;
+}
+
+section.team-profile.bench.bench:where([data-family="square"]) > .cell-stage {
+  --person-cols: 4;
+  --person-size: 10cqi;
+}
+
+/* The hero stacks in a narrow box — a 20cqi portrait beside a headline leaves the
+ * words about eight characters of column. */
+section.team-profile.lead.lead:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  --person-cols: 3;
+  --person-size: 11cqi;
+}
+
+section.team-profile.lead.lead:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster > li.person:first-child {
+  flex-direction: column;
+  --person-size: 26cqi;
+}
+
+section.team-profile.lead.lead:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster > li.person:first-child > .person-text {
+  align-items: center;
+  text-align: center;
+}
+
+/* Two columns of people do not survive a portrait box — the rosters stack, and the
+ * rule between them becomes the rule above the second label. */
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto auto auto;
+  grid-auto-flow: row;
+  --person-size: 9cqi;
+}
+
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :nth-child(n + 3) {
+  border-inline-start: 0;
+}
+
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3:nth-of-type(2) {
+  padding-top: var(--sp-xl);
+  border-top: 1px solid var(--border);
+}
+
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3,
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster {
+  padding-inline: 0;
+}
+
+section.team-profile.bio.bio:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  --person-size: 13cqi;
+}
