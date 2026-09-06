@@ -618,7 +618,8 @@ test('speech: the coda gets its own PARAGRAPH beat, not a sentence pause', () =>
 
 test('speech: a coda INSIDE the stage is not spoken twice', () => {
 	// A layout that CLAIMS its trailing block (coda.claims) keeps it in the stage, where the body
-	// walker already says it. `stage.contains` is the guard; without it that slide stutters.
+	// walker already says it. The guard asks whether the BODY already says it; without it that
+	// slide stutters.
 	const claimed = `<section data-lattice-slide data-class="content">
 	  <div class="cell-stage"><ul><li>Coverage sits at 2.9x.</li></ul>
 	    <div class="cell-coda"><blockquote><p>Retention carries the year.</p></blockquote></div></div>
@@ -653,10 +654,14 @@ test('emphasis: a <strong> becomes a span over exactly its own words', () => {
 	assert.equal(s.emphasis[0].weight, 2);
 });
 
-test('emphasis: the coda is emphasized as well as spoken', () => {
+test('emphasis: the coda is SPOKEN but not emphasized — the hold would be discarded', () => {
+	// A coda is appended last, so its span always ends in the slide's final cue, and the hold lives
+	// in the gap AFTER a cue while durationMs is the last cue's end. Every ordinary coda bought
+	// exactly zero, so the source was withdrawn rather than left claiming to work. Measured: deleting
+	// it left examples/emphasis-narration.vtt byte-identical.
 	const [s] = script(sections(CODA_SLIDE));
-	const marked = s.emphasis.map((sp) => s.text.slice(sp.start, sp.end));
-	assert.ok(marked.includes('The year is made on retention.'), JSON.stringify(marked));
+	assert.match(s.text, /The year is made on retention\./); // spoken — that is the win
+	assert.deepEqual(s.emphasis, []); // and not weighted, because the weight could not be spent
 });
 
 test('emphasis: a phrase appearing TWICE is skipped rather than guessed', () => {
@@ -729,13 +734,15 @@ test('emphasis: every span indexes the phrase its source element actually carrie
 	// NOT `slice(a,b).length === b - a`, which is true of any in-bounds pair and cannot fail. The
 	// claim worth pinning is that the span lands on the SOURCE ELEMENT'S OWN WORDS — an off-by-one
 	// or a stale offset survives a bounds check and is exactly the defect that shipped once.
-	for (const one of script(sections(BOLD_SLIDE, CODA_SLIDE))) {
-		const sourceEl = one.text.includes('one hundred') ? 'one hundred and eighteen percent' : 'The year is made on retention.';
-		assert.ok(one.emphasis.length > 0, one.text);
-		for (const sp of one.emphasis) {
-			assert.ok(sp.start >= 0 && sp.end <= one.text.length && sp.end > sp.start);
-			assert.equal(one.text.slice(sp.start, sp.end), sourceEl, `span landed on ${JSON.stringify(one.text.slice(sp.start, sp.end))}`);
-		}
+	const [bold] = script(sections(BOLD_SLIDE));
+	assert.ok(bold.emphasis.length > 0, bold.text);
+	for (const sp of bold.emphasis) {
+		assert.ok(sp.start >= 0 && sp.end <= bold.text.length && sp.end > sp.start);
+		assert.equal(
+			bold.text.slice(sp.start, sp.end),
+			'one hundred and eighteen percent',
+			`span landed on ${JSON.stringify(bold.text.slice(sp.start, sp.end))}`,
+		);
 	}
 });
 
@@ -751,4 +758,30 @@ test('projectDeckToSpeech is exactly projectDeckToScript mapped to its text', ()
 	// gets the same string built once.
 	const secs = sections(BOLD_SLIDE, CODA_SLIDE);
 	assert.deepEqual(speak(secs), script(secs).map((s) => s.text));
+});
+
+
+test('speech: a coda that ECHOES a phrase from the body is still spoken', () => {
+	// The defect a second checker found in the first fix pass. The guard was `body.includes(text)` —
+	// a SUBSTRING test — so a coda restating words that also appear mid-sentence in the body was
+	// silently dropped. A punchline restating a phrase from the body IS the ordinary shape of a
+	// punchline, so this is the common case, not a corner one.
+	const echo = `<section data-lattice-slide data-class="content">
+	  <div class="cell-stage"><p>We must decide now, before the window closes and the option lapses.</p></div>
+	  <div class="cell-coda"><blockquote><p>We must decide now</p></blockquote></div>
+	</section>`;
+	const [text] = speak(sections(echo));
+	assert.match(text, /We must decide now\.$/, text);
+	assert.equal(text.match(/We must decide now/g)?.length, 2, text); // body's mention + the coda
+});
+
+test('speech: a coda already spoken as its own SENTENCE mid-block is not repeated', () => {
+	// The other direction, and why block equality is not the answer either: speakGeneric emits a
+	// claimed coda in sentence flow with the block before it, one paragraph rather than two.
+	const claimed = `<section data-lattice-slide data-class="content">
+	  <div class="cell-stage"><ul><li>Coverage sits at 2.9x.</li></ul>
+	    <div class="cell-coda"><blockquote><p>Retention carries the year.</p></blockquote></div></div>
+	</section>`;
+	const [text] = speak(sections(claimed));
+	assert.equal(text.match(/Retention carries the year/g)?.length, 1, text);
 });

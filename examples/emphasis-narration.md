@@ -53,7 +53,9 @@ footer: "read-aloud holds a beat after what matters"
 A trailing quote is lifted into its own cell, outside the stage every body walker reads.
 
 - Measured, not guessed
-  - 52 of 156 committed decks carry one.
+  - 53 of 161 committed decks carry one.
+- Spoken, not weighted
+  - It closes the slide, so a hold after it would have nowhere to land.
 
 > A slide's punchline was not paced badly. It was missing.
 
@@ -64,7 +66,7 @@ A trailing quote is lifted into its own cell, outside the stage every body walke
 ## A long insight lands once.
 
 - The cue that ends it holds
-  - A four-sentence coda gets one beat after it, not four inside it.
+  - A passage spanning four sentences gets one beat after it, not four inside it.
 - A short phrase is unchanged
   - A bolded claim starts and ends in the same sentence.
 

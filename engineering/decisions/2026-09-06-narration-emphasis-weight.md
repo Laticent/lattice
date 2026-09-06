@@ -106,32 +106,42 @@ The load-bearing fact is the ratio, about a third of decks; the denominator is n
 
 It is now spoken last, as its own paragraph block so the beat before it is the
 paragraph tier. A layout that CLAIMS its trailing block keeps it inside the stage
-where the body walker already says it; `stage.contains` stops the double-speak.
+where the body walker already says it. The guard against saying it twice asks whether the BODY
+ALREADY CONTAINS THIS BLOCK, as a whole sentence — see § "What the second checker found" for why
+neither `stage.contains`, a substring test, nor block equality is the right predicate.
 
 **This is the larger half of the change.** A punchline that is not paced well is a
 smaller problem than a punchline nobody hears.
 
 ## Honest scope of the timing half
 
-Measured on `examples/emphasis-narration.md`: 7 holds fire and **1 buys time**. The
-other 6 land on a slide's final cue, where the hold is a no-op because
-`SLIDE_PAUSE_MS` (1400 ms) already follows — charging 250 more would be paying twice
-for the same silence. That matters because the common emphasized passage *is* last:
-a coda closes the slide. So emphasis buys silence exactly where more narration still
-follows on the same slide, and the coda's win is that it is spoken at all.
+Emphasis buys silence exactly where more narration still follows on the same slide. A span that ends
+in a slide's FINAL cue buys nothing, because the hold is spent in the gap after a cue and
+`CaptionTrack.durationMs` is the last cue's end — that gap is discarded.
 
-On the five committed caption goldens carrying codas: ~1 s of added silence per
-4-minute deck. The three unchanged goldens carry **no coda and no `<strong>`**, so they show only
-that a deck with nothing to emphasize is untouched — that is a back-compat check, and calling it a
-"causality check" (as an earlier draft did) claimed more than it proves. It does not establish that
-the silence in the five changed goldens landed correctly; that took the fix below.
+An earlier draft of this note explained that no-op as "`SLIDE_PAUSE_MS` (1400 ms) already follows, so
+charging 250 more would pay twice for the same silence." **That was wrong**, and wrong in the
+comfortable direction: it made a discarded value sound like a deliberate saving. There is no slide
+pause anywhere in the `.vtt` timeline — `read-along-vtt.js` advances by `durationMs` alone, and
+`slideBeatMs` is read only by Present. The real mechanism is arithmetic, not policy.
+
+That is why the coda is **spoken but not weighted**. A coda is appended last, so an ordinary
+single-block one always ends in the final cue. Deleting `.cell-coda` from `EMPHASIS_SOURCES` leaves
+`examples/emphasis-narration.vtt` byte-identical — on the deck whose whole job is to show the feature
+— so it was withdrawn rather than left claiming to work.
+
+**No committed caption golden changes.** All nine regenerate byte-identically, and the eight that
+predate this branch match `origin/main`. An earlier draft claimed "five changed goldens, ~1 s of added
+silence each"; that described the first cut, whose spans were misplaced by the identity-guard defect
+below, and it survived one revision past the revert that fixed it.
 
 **The blast radius is far wider than the diff suggests, and the diff cannot show it.** `speakCoda`
 changes narration TEXT on **284 of 3402 slides, across 72 decks** — measured by rendering every
 committed deck under `examples/`, `test/integration/baseline-decks/` and `lib/components/` (329 decks)
 through `lib/engine`, then running `projectDeckToSpeech` from `origin/main` and from this branch over
-the same sections and counting the slides whose text differs. Only six `.vtt` files are committed, so
-every other deck's captions change silently at export time with no golden to move. That asymmetry is
+the same sections and counting the slides whose text differs. Only **nine** `.vtt` files are committed
+(`git ls-files '*.vtt'`), so every other deck's captions change silently at export with no golden to
+move. That asymmetry is
 worth knowing before trusting a green diff on this module.
 
 The method is stated because the number is the kind this branch keeps getting wrong: an independent
@@ -169,6 +179,44 @@ stage", which is equivalent to "was it already spoken" only while the component'
 `speakGeneric` — `speakStats`, `speakBigNumber` and `speakQuote` do not walk the coda, so a
 stage-less slide of those four would have gone silent again with the guard appearing to work. It now
 asks the question directly: is this text already in the body.
+
+## What the second checker found — the fix pass was the unreviewed part
+
+The first checker audited the revision BEFORE its own findings were addressed, so the fixes it
+prompted had nobody on them. A second pass over just those changes found two blocking defects, both
+introduced by that fix pass. Recording the pattern as much as the bugs: **on this line of work, every
+fix pass has shipped a new defect**, and neither of these was reachable by the gates.
+
+**1 · The new coda guard silently DROPPED content.** Replacing `stage.contains(coda)` with
+`body.includes(text)` swapped one wrong predicate for another: `includes` is a SUBSTRING test, so a
+coda whose words also appear inside a longer body sentence was dropped entirely. A body reading
+"We must decide now, before the window closes and the option lapses." lost the coda "We must decide
+now" — and a punchline restating a phrase from the body is the ordinary shape of a punchline. The
+irony is exact: a branch whose subject is a coda nobody hears introduced a second way not to hear one.
+
+Block equality is wrong in the other direction — `speakGeneric` emits a claimed coda in SENTENCE FLOW
+with the block before it, one paragraph rather than two, so comparing whole blocks misses it and the
+slide says its coda twice. The predicate that is right is neither: match the TERMINATED form, and only
+where it begins at a sentence boundary. `saysAlready()` does that, and both directions are pinned.
+
+**2 · The `.cell-coda` emphasis source was inert**, per § Honest scope. Withdrawn.
+
+**3 · The four producers do NOT spend identical beats, and a changelog line said they did.** The
+`.vtt` deriver advances by `durationMs` and so drops any gap after a slide's final cue;
+`player-core.mjs` holds `g` on the final cue deliberately ("so the slide boundary does not land on the
+final syllable"). That seam PREDATES this branch — the `.vtt` never carried post-final silence — but
+this branch adds a new per-deck quantity that lands exactly on it, which is the reason the coda source
+was withdrawn rather than made to count. Making the final gap count is the named follow-on, and it is
+a change to what the `.vtt` contains, not a tweak.
+
+**4 · Several claims in this note were false** and are corrected above: five changed goldens (zero),
+six committed `.vtt` files (nine), and the `SLIDE_PAUSE_MS` explanation for the final-cue no-op. All
+three described the pre-revert state and survived a revision past the revert.
+
+**What held.** The emulator snapshot is correctly placed (nothing else mutates `projected` between it
+and the guard); `emphasisForResolved`'s sparse-index discipline is right; the bake, Present and
+`shareHtmlPlayer` guards read the correct operand; every generated bundle's export list is complete;
+all nine goldens regenerate byte-identically and the eight pre-existing ones match `origin/main`.
 
 ## What is NOT verified
 
