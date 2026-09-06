@@ -3727,6 +3727,21 @@ So take one design you made in these pages and build the smallest version of it 
 
 ---
 
+<!-- _class: list-tabular -->
+
+`Back to Tuesday`
+
+## 482 was not blocked by the build. It was blocked by a queue.
+
+1. The queue had one server
+   - Five pull requests, one reviewer, one waking hour: a bounded pool of one. Throughput is capped, so the queue in front grows until something sheds it. That number was set when the team decided one person reviews everything.
+2. Nothing inherited a deadline
+   - The window shut at four, and nothing downstream of it carried a shorter one. The network kit's first invariant is that a call inherits its deadline from the caller and always shorter — the review never got one, so nothing said it was late until it was.
+3. The one move she had, she made late
+   - At 15:50 she stopped answering and batched the replies. That is admission control, from the scale kit. The spiral started at 15:30, and those twenty minutes were the twenty she needed at four.
+
+---
+
 <!-- _class: list-steps -->
 
 `What to do on Monday`
