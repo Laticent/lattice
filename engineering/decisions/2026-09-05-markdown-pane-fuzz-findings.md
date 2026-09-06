@@ -7,7 +7,7 @@ summary: >
   `<textarea>` in jsdom. It does not — measured — and §9 corrects it.) The worst is silent, durable corruption: a leading U+FEFF pasted with a deck
   defeated the `^---` front-matter anchor, so the front matter rendered AS the first slide
   with `theme:`/`size:`/`paginate:` ignored — and it persisted and survived a reload. The
-  Studio's file-open door was a listed EOL/BOM boundary and its PASTE door was not. Also:
+  Studio's file-open door called the sanctioned normalizer and its PASTE door called nothing. Also:
   the rail read a `_class` comment anywhere on a line, so one stray character after the
   `-->` left it naming a component the engine ignores, and it took the FIRST directive on a
   slide where the engine applies the LAST, so merging two slides made the rail name the one
@@ -79,10 +79,17 @@ Measured on the built Studio with the SAME deck pasted twice:
 It then persisted and survived a reload, so this was durable corruption of the author's source
 rather than a transient paint, and it would ride into every export.
 
-**Root cause.** `docs/src/lib/normalize-source-text.ts` names this defect class (#1349/#1388)
-and `SANCTIONED_EOL_BOUNDARIES` lists the doors that guard against it. The Studio's FILE-OPEN
-door is on that list (`StudioShell.tsx:1730`). Its PASTE door — the editor — is not a boundary
-at all, and `onChange={setSource}` hands whatever CodeMirror holds straight to the shell.
+**Root cause.** `docs/src/lib/normalize-source-text.ts` names this defect class (#1349/#1388),
+and it is the one raw implementation the docs site is allowed to have —
+`SANCTIONED_EOL_BOUNDARIES` carries it plus `ai/architect-edits.js`, and nothing else under
+`docs/`. The Studio's FILE-OPEN door CALLS it (`StudioShell.tsx:1827`); its PASTE door — the
+editor — called nothing, and `onChange={setSource}` handed whatever CodeMirror held straight to
+the shell.
+
+*(An earlier draft said the file-open door "is on that list" and cited `StudioShell.tsx:1730`.
+Both were wrong: `StudioShell` is not a sanctioned boundary — it is a CALLER of the sanctioned
+helper, which is the whole point of the list — and 1730 is `setView('compose')`. A checker
+caught it. The design point survives the correction; the citation did not.)*
 
 **Fix — THREE doors, and the first version only had one.** A CodeMirror `transactionFilter`
 strips a leading BOM from the resulting document, which covers the paste. A checker pass then

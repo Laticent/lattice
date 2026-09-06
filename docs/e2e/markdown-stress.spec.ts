@@ -27,7 +27,10 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  * this input"; reach for that one for anything you can ask a component and the engine
  * directly. See the findings note §9.
  *
- * WHAT THE WALK DID. It drove twelve op families against the shipped Studio in random
+ * WHAT THE WALK DID. Eleven op families act unconditionally; the twelfth, the lint gutter's
+ * Quick fix, is OPPORTUNISTIC — it needs a marker to be rendered when it is drawn, and lint is
+ * asynchronous, so its coverage varies run to run and is reported rather than asserted (see the
+ * note at the walk's own annotation). It drove those families against the shipped Studio in random
  * order — type, paste (CRLF / BOM / a 900-column line / a whole slide / a table / math /
  * block HTML / `* * *`), cut, copy, undo, redo, select-all-and-replace, front-matter edits,
  * directive edits, deleting a `---` separator to merge two slides, the lint gutter's Quick
@@ -84,8 +87,10 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  * and then read the rail" for all of them and that is not what the failures say:
  *
  *   · the two BOM oracles      the RAIL — `railClick` times out, the rail being toggled away
- *   · the rail-names oracle    the PREVIEW IFRAME — `paintedClasses` has nothing to read
- *   · the walk                 the same, through invariant 2
+ *   · the rail-names oracle    the PREVIEW IS STALE — not unreachable. `paintedClasses` reads
+ *                              fine; the hidden preview simply does not follow the editor, so
+ *                              it keeps painting slide 1 (`Expected "kpi", Received ["title"]`)
+ *   · the walk                 the same, through invariant 2 (`names [stats], painted [title]`)
  *   · Fix all is offered       the TOOLBAR — `fixAll.isEnabled()`, not the rail at all
  *
  * Running them here would mean toggling panes between every write and every read. That is a
@@ -611,13 +616,11 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 	// How many times invariant 2 actually COMPARED something — see the assertion after the
 	// loop for why a walk that only ever takes its escapes is a walk that certifies nothing.
 	let invariant2Ran = 0;
-	// The same accounting the invariant above gets, for the same reason. `quickFix` returns
-	// early on a context without hover, and a skipped op is INVISIBLE in a pass count — the
-	// walk reports 34 steps either way. Measured: headless Firefox at 1440x900 with no touch
-	// reports `(hover: hover)` FALSE, so on that engine this op would silently never act while
-	// the header's Firefox row still read as full coverage. Counted here, and asserted below
-	// only where the platform says a pointer can hover.
-	let quickFixRan = 0;
+	// Counted at the hover and at the click — the points of ACTION — because a count taken at
+	// the top of the op would be a constant of the seed and could never move for a product
+	// reason. Reported rather than asserted; the reasoning is at the report below.
+	let quickFixHovered = 0;
+	let quickFixApplied = 0;
 
 	// Payloads an author really pastes, plus the two that carry the ingest hazards.
 	const PAYLOADS = [
@@ -696,7 +699,6 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 			await page.keyboard.press('Delete');
 		},
 		async quickFix() {
-			quickFixRan++;
 			const marker = page.locator('.cm-lint-marker').first();
 			if (!(await marker.count())) return;
 			// THE QUICK FIX IS REACHED BY HOVER, so this op has nothing to drive on a touch
@@ -707,13 +709,28 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 			// the findings note rather than fixed here.
 			if (!(await page.evaluate(() => matchMedia('(hover: hover)').matches))) return;
 			await marker.hover();
+			quickFixHovered++;
+			// AND THE POPUP TAKES 300ms TO OPEN. `@codemirror/lint`'s gutter tooltip carries
+			// `hoverTime: 300`, so reading `.cm-diagnosticAction` straight after the hover finds
+			// NOTHING — measured on the built Studio: 0 actions at the hover and at +200ms, then
+			// 1 from +400ms on. Without this wait the op hovered and never once looked at an
+			// open popup, which is how it spent its whole life never applying anything.
 			const action = page.locator('.cm-diagnosticAction').first();
-			if (await action.count()) await action.click();
+			await action.waitFor({ timeout: 1_000 }).catch(() => {});
+			if (!(await action.count())) return;
+			await action.click();
+			quickFixApplied++;
 		},
 		async railPick() {
+			// DRAWN BEFORE THE GUARD, like every other op. The walk's replayability depends on
+			// the random stream never branching on live DOM state, and this op used to return on
+			// an empty rail BEFORE consuming its draw — which desynchronizes every later step, so
+			// the "fixed seed" replays a different walk. `dropSeparator` gets this right; this was
+			// the one exception.
 			const n = await railButtons(page).count();
+			const which = int(Math.max(n, 1));
 			if (!n) return;
-			await railClick(page, int(n));
+			await railClick(page, which);
 		},
 		async paneSwitch() {
 			await toCompose(page);
@@ -811,12 +828,24 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 	// A hovering pointer means the Quick-fix op had a path to take, so it must have taken one.
 	// Where it does not (a touch context, and headless Firefox), the op is legitimately inert
 	// and this says so rather than pretending the walk covered it.
+	// REPORTED, NOT ASSERTED, and the reason is worth the paragraph. Three attempts at asserting
+	// this op's coverage all failed for different reasons, and the third is the honest one:
+	//   · counting draws made it a constant of the seed — it could not fail for a product reason;
+	//   · counting APPLICATIONS never fires, because whether the walk draws a FIXABLE finding is
+	//     a property of the seed rather than of the product;
+	//   · counting HOVERS is flaky, because lint is ASYNCHRONOUS — whether a marker has rendered
+	//     by the moment this op is drawn is a race, and run 2 of 2 went red on it.
+	// So this op is OPPORTUNISTIC: it exercises the Quick fix when a marker happens to be up,
+	// and nothing more can truthfully be claimed for it. The counts go into the report so a
+	// reader can see what a given run actually covered, instead of an assertion that reads like
+	// a guarantee and is not one. The other eleven op families act unconditionally.
 	const canHover = await page.evaluate(() => matchMedia('(hover: hover)').matches);
-	if (canHover) {
-		expect(quickFixRan, 'the Quick-fix op never ran, so this walk did not cover it').toBeGreaterThan(0);
-	} else {
-		test.info().annotations.push({ type: 'inert-op', description: 'quickFix: no hovering pointer on this surface' });
-	}
+	test.info().annotations.push({
+		type: 'quickfix-coverage',
+		description: canHover
+			? `hovered ${quickFixHovered}, applied ${quickFixApplied} (opportunistic — see the note at this assertion)`
+			: 'inert: no hovering pointer on this surface',
+	});
 });
 
 // ── The persisted source is what a reload reads back ────────────────────────
