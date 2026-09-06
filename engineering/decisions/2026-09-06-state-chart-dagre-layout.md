@@ -614,9 +614,17 @@ property that makes it readable at all.
 Three things make it behave:
 
 - **The midpoint is tried first and kept when clear**, so a label that does not
-  collide is emitted at exactly the coordinate it had before. Measured across the
-  four state-chart decks: **2 pages of 38 changed**, and the two demo decks whose
-  machines never grazed re-render byte-identically.
+  collide is emitted at exactly the coordinate it had before. Measured against the
+  PR base across the four state-chart decks: **3 pages of 38 changed** — the two
+  that grazed, plus one where `skip` was already hanging 1.1px outside its own
+  canvas and the canvas bound pulled it back in. The two demo decks whose machines
+  never grazed re-render byte-identically.
+
+  **That number was "2 of 38" for most of this branch, and the reason it was wrong
+  is the same one §9.6 records twice over:** it was measured before the canvas
+  bound and the pad increase existed, and never re-derived at the head that ships.
+  CI's golden-diff bot caught it, which is the third time in this branch a stale
+  measurement has been corrected by something other than the person who wrote it.
 - **The tested box is inflated past the line box.** Measured over the 22 labels
   of `examples/state-chart-branching.md`, a one-line label's real `getBBox()` is
   14px against the 13px line box and sits 1.48px above it — `dominant-baseline:

@@ -2012,7 +2012,7 @@ describe('dagre re-ranking (fake DOM)', () => {
     // THE BLAST RADIUS, asserted rather than assumed. The walk tries the arc-length
     // midpoint FIRST and keeps it whenever it is clear, so a machine with no
     // collision must be laid out exactly as it was before the walk existed —
-    // measured across the four shipped state-chart decks, 2 pages of 38 changed.
+    // measured across the four shipped state-chart decks, 3 pages of 38 changed.
     // Recovering the home position from the DRAWN PATH rather than hardcoding
     // coordinates keeps this from breaking on unrelated spacing changes.
     test('a label that does not collide stays on its edge midpoint', { skip: !hasDagre }, () => {

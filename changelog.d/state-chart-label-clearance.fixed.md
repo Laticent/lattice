@@ -9,4 +9,7 @@
   (the text would be cut), never onto a state box (the state's name goes with it),
   so at worst two labels touch and both stay readable.
 - The arc-length midpoint is tried first and kept whenever it is clear, so only
-  labels that actually collided move: 2 of 38 pages changed across the four decks.
+  labels that actually needed to move do: 3 of 38 pages changed across the four
+  decks. The third is a label that was already hanging 1.1px outside its own
+  canvas before this change, where the slide clips it — the walk now treats the
+  canvas as a boundary and pulls it back inside.
