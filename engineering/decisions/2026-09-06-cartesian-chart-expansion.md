@@ -163,8 +163,8 @@ itself.
 
 ## 6. Known, recorded, not fixed here
 
-Three things the adversarial trio and the visual sweep found that this change
-records rather than repairs, each with the reason.
+Four things the adversarial trio, the visual sweep and the accessibility-tree
+check found that this change records rather than repairs, each with the reason.
 
 **`scatter`'s tight cluster labels are not in value order.** On the twelve-tool
 stress slide, four dots inside one dot's width get four labels, and
@@ -190,3 +190,15 @@ themselves with the same anecdote. Folding `domainFor` back into the substrate i
 right, and it moves `slope`'s axis as well as `scatter`'s, so it belongs in its
 own change with its own renders.
 
+**`role="img"` does not prune the SVG subtree, so a reader hears the desc AND
+every text node under it.** Dumping the real accessibility tree over the rendered
+deck (Chromium CDP `Accessibility.getFullAXTree`) shows all seven charts exposing
+a correct accessible name and a correct description — and also 24 unignored
+descendants under `bar` alone, one `StaticText` per category label and tick. A
+screen reader therefore announces the curated sentence and can then walk into
+`North America`, `EMEA`, `$4.2M` as loose text: verbose, not wrong. **This is not
+new here.** `funnel`, `gantt`, `map`, `piechart`, `quadrant`, `radar` and
+`state-chart` all use the same `role="img"` + `<title>`/`<desc>` idiom and all
+behave the same way, so the fix is one `aria-hidden` decision taken once for the
+whole chart family — off the path of this change under HARD RULE #18, and worth
+its own render pass because hiding the subtree also hides it from find-in-page.

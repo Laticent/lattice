@@ -557,6 +557,20 @@ describe('slope — defects the adversarial trio confirmed', () => {
     return out;
   };
 
+  test('a one-point move reads "1 point", not "1 points"', () => {
+    // Found on the REAL accessibility tree (CDP Accessibility.getFullAXTree over
+    // the rendered deck), which is the only surface this string is heard on:
+    // Meridian's 16% -> 15% announced "down 1 points". The magnitude was
+    // hard-plural while `pointsOverflow` ten lines below already pluralized.
+    const d = desc(build([
+      ['Meridian', [['2023', '16%'], ['2026', '15%']]],
+      ['Vantage', [['2023', '19%'], ['2026', '21%']]],
+    ]));
+    assert.match(d, /down 1 point\b/, 'singular at one');
+    assert.doesNotMatch(d, /\b1 points\b/, 'never "1 points"');
+    assert.match(d, /up 2 points\b/, 'plural everywhere else');
+  });
+
   test('a detail bullet cannot close the template it is wrapped in', () => {
     const html = transformSection(
       '<section class="slope"><h2>H.</h2><ul>'
