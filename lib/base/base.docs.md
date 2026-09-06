@@ -82,6 +82,26 @@ The CSS pattern is `p:has(> code:only-child) + h1/h2/…`. Eyebrows are
 **markdown-lint compliant**: a `<p>` containing code is not a heading,
 so the eyebrow pattern can never violate heading-order rules.
 
+**The eyebrow takes PLAIN inline code — a pill or a mark there is not a
+kicker.** The selector needs a `<code>` ELEMENT as the paragraph's only
+child, and the inline directive grammar (`{LABEL}` pills, `[x]` marks —
+see *Inline pills — `{LABEL}`* below) replaces that `<code>` with a
+`<span>`. So `` `{DRAFT}:c2` `` above a heading renders as a **pill alone
+on a line**, not as a colored eyebrow, and `` `[x]` `` there renders as a
+state disc. Both are legal; neither is promoted.
+
+**The same shadow falls on the SUBTITLE** — a code-only paragraph immediately AFTER a
+heading, which `base.modifiers.css` promotes to an italic muted line by the same
+`> code:only-child` rule.
+
+This is a shadow rather than a break: measured across every shipped deck — well over a
+thousand spans across the two positions — **zero** dispatch. A real
+one reads `` `Section 01` `` or `` `H1 FY26 · 1,840 person-hours` ``, and none starts with
+a brace or is a bare marker. `test/unit/css/eyebrow-position-shadow.test.js` scans both
+positions and fails if one ever does.
+Want the literal braces as your kicker text? Escape it — `` `\{DRAFT}` ``
+stays a `<code>` and stays an eyebrow.
+
 Styling: `--font-label`, 13px (`--fs-label`), 600 weight, 0.18em
 letter-spacing, uppercase, `--text-secondary` (the AA-tuned secondary
 content tier — a `light-dark()` pair, so it resolves correctly on `.dark`
@@ -1239,6 +1259,14 @@ crests); reach for `auto` otherwise.
 ---
 
 ## Inline pills — `{LABEL}`
+
+**Turning the grammar off:** `inline-code: literal` in front matter makes every
+single-backtick span in the deck literal — pills, marks and all, including any in the
+deck's own `header:` / `footer:`. One slide at a time is
+`<!-- _class: inline-code-literal -->`. It is the switch for a
+deck you did not write, where `` `[x]` `` in prose was never meant to draw anything. See
+[`base.registers.docs.md`](base.registers.docs.md) § `inline-code:`; the Studio carries it
+as **Deck settings · General · Inline pills and marks**.
 
 A `{LABEL}` inside **single-backtick** inline code renders as a pill. Shape and color
 belong to the value, not to the slide — one ledger can carry four different statuses

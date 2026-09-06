@@ -107,6 +107,137 @@ summary: Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}
 > becomes the general dispatch marker and `[x]` is the lone exception rather than a
 > separate vocabulary; revisit the respell at that point, not before.
 
+> **AMENDMENT 2026-09-06 — the fork above resolved, in the direction it predicted, and
+> the `$` grammar is BRACED: `` `{$now.date}` ``, not `` `$now.date` ``.**
+>
+> It came up immediately. `2026-06-10-marp-replacement-proposal.md` §12.5 proposes
+> render-time built-ins — `$now.date` / `$now.time` / `$now.datetime` / `$now.year`,
+> plus `$deck.*` and `$slide.*` — and specs them BARE. Shipped that way they would be a
+> THIRD opening character beside `{` and `[`, which is exactly the fraying the paragraph
+> above names.
+>
+> **The decision: `{}` is the dispatch marker, and `$` is a namespace INSIDE it.**
+> `` `{$now.date}` ``, `` `{$deck.title}` ``, `` `{$slide.page}/{$slide.total}` ``. The
+> grammar is then two characters with one rule each — **braces dispatch, brackets mark** —
+> rather than three vocabularies.
+>
+> **Why the sigil stays rather than collapsing to `` `{now.date}` ``.** Dropping `$` would
+> put built-ins in the same namespace as user pill labels, so `` `{now.date}` `` and
+> `` `{LABEL}` `` compete and the resolver needs reserved WORDS inside author label space.
+> That is the mechanism we deliberately refused for `{x}` (§ reserved markers), and
+> refusing it there while adopting it here would be incoherent. Keeping `$` means the
+> dispatcher routes on the character after the brace — cheap, and no author label is ever
+> shadowed.
+>
+> **What this does NOT change: `[x]` stays — and the cost argument first written here was
+> wrong.** It read: "5 live inline `` `[x]` `` against **1,304** bare `- [x]` markers in 39
+> decks… a 1,304-occurrence migration that also abandons GFM task-list syntax." Two errors,
+> both found by review:
+>
+> - **1,304 counts the wrong population.** Re-derived over the same shipped decks: 1,306 is
+>   *any* bare bracket marker anywhere, mostly table cells. The leading-bullet `- [x]`
+>   family is **398**; GFM-strict `- [x]` / `- [ ]` is **301**.
+> - **None of them is the migration anyway.** A bare `- [x]` at a bullet is a BLOCK-level
+>   task-list production read by `checklist`, `roadmap`, `obligation-matrix` and
+>   `verdict-grid`; `parseInlineState` never sees it. Respelling the INLINE marker would not
+>   touch one of them — the migration is the **5 inline spans**. And this repo has done a
+>   1,285-occurrence mechanical sweep across 406 files in one pass, so even the wrong number
+>   would not have been decisive.
+>
+> **The decision stands on a better reason.** Respelling inline marks `{x}` gives TWO
+> SPELLINGS OF ONE SEMANTIC — `- [x]` at a bullet, `` `{x}` `` inline — a worse authoring
+> story than two opening characters. Brackets mean "state marker" in both positions; braces
+> are the dispatch grammar. They are not competing spellings of one idea, and THAT is the
+> argument, not the count.
+>
+> **Consequence for #289 / #288:** the acceptance criteria on both should read the braced
+> form. §12.5's table is superseded by this paragraph, and says so there.
+
+> **AMENDMENT 2026-09-06 — the EYEBROW position is shadowed by this grammar, measured
+> harmless, and now written down.**
+>
+> The eyebrow kicker is a POSITION, not a register: a paragraph whose only child is inline
+> code, immediately before a heading or list. The CSS is
+> `section p:has(> code:only-child):has(+ h1)` (`base.modifiers.css`) — it requires a
+> `<code>` ELEMENT. This grammar replaces that `<code>` with a `<span class="lat-pill">`,
+> so the paragraph stops matching and **the eyebrow promotion silently drops**: the author
+> gets a pill alone on a line instead of a kicker.
+>
+> **TWO positions carry this shadow, not one.** `base.modifiers.css` promotes a code-only
+> paragraph both BEFORE a heading (the eyebrow) and immediately AFTER one (the subtitle),
+> by the same `> code:only-child` rule — so the grammar shadows both identically. Three
+> review rounds scanned, measured and documented only the eyebrow half.
+>
+> **Measured before calling it harmless: every eyebrow-position and subtitle-position span
+> across every shipped deck — well over a thousand — and ZERO of them dispatch.** None
+> starts with a brace; none is a bare marker. Real ones read `` `Section 01` `` and `` `H1 FY26 · 1,840 person-hours` ``.
+> So this is a shadow, not a regression — but the positions were no longer "any inline
+> code," which was written down nowhere. They are now, in `base.docs.md` and
+> `base.registers.docs.md`, and `test/unit/css/eyebrow-position-shadow.test.js` scans both
+> and fails if a shipped deck ever writes one.
+>
+> *(An earlier draft of this paragraph said 1,273. That figure never reproduced — not at
+> this commit and not on `main` — which is the "quote a base or the number will not
+> reproduce" trap HARD RULE #9 records, hit inside the amendment that cites it. It then
+> said 1,275, which was what the scanner could SEE: it stopped at the first non-blank line
+> after a span, so an HTML comment between the span and its heading — one
+> `markdownlint-disable-next-line` in `gallery.md` — hid the span entirely. markdown-it
+> strips the comment and promotes the eyebrow anyway, so the census was certifying a deck
+> it had not looked at. The walker now steps over comments, which moved the count by one.
+> No fourth figure is recorded here: the third was overtaken by a routine rebase that added
+> decks, and a count restated in prose is exactly what the census test exists to replace.)*
+>
+> **Deliberately NOT fixed by widening the selector.** Letting `.lat-pill` satisfy the
+> eyebrow rule would make `` `{Q3 REVIEW}:c2` `` a colored kicker, which is a real
+> capability — and the eyebrow's mono-caps, letterspaced styling would then fight the pill
+> chrome. That is a visual design task with a review pass, not a one-line selector change,
+> so it is not smuggled in here.
+
+> **AMENDMENT 2026-09-06 — the corpus measurement above is now a GATE, and its numbers
+> have been re-derived.**
+>
+> The "12,551 spans / 147 collisions / zero for braces" figures above were taken once, on
+> the tree as it stood, and nothing re-derived them. A number in prose cannot fail, so it
+> could only rot — and it did: a review round found it restated in five places with two
+> different corpus definitions and no way to reproduce either.
+>
+> **Two things changed.** First, the surface is now named precisely: the comparison that
+> matters is over the decks we SHIP (`examples/`, `kit/`, `*.gallery.md`,
+> `test/integration/baseline-decks/` — 250-odd decks, several thousand inline-code spans),
+> because a `*.docs.md` is prose ABOUT a component and never reaches a slide. On that surface the
+> ADR's bracket geometry captures **27** spans an author meant literally (13 quoted state
+> markers, 14 ordinary prose — `(cont.)`, `(0,2,2)`, `[data-mark]`, `[ REDACTED ]`), and
+> one brace pair captures **36**, in exactly two decks: 22 in `examples/inline-pills.md`,
+> which exists to demonstrate the grammar, and 14 in `examples/inline-code-literal.md`,
+> which sets `inline-code: literal` and renders them as text. Zero in every other deck.
+>
+> Second — and this half is DEFERRED, deliberately. A corpus-wide census that re-walks every
+> deck on every run, asks the same `dispatches()` predicate both render paths call (HARD
+> RULE #1), and fails on a dispatching span in any other deck was built and measured. It is
+> not in the change that carries this amendment. Four review rounds went into it and each
+> found a defect in the one before — a regex that could not see a double-backtick or a
+> line-wrapped span, comment handling that was exactly inverted, a fixed token offset that
+> hid an eyebrow behind a comment, and a front-matter guard that made the walker disagree
+> with the engine — plus two high-severity CodeQL alerts, one of them a real hang. Every one
+> was in the census helper; none was in the register. Holding a register hostage to that is
+> the wrong trade, so the census lands on its own branch and this stays a measurement until
+> it does.
+>
+> **The original numbers are left standing as the record of what was measured, not
+> corrected in place.** They were taken over the wider `examples/` + `lib/` + `docs/src` +
+> `test/integration` glob; re-running that same method gives a fifth more spans and 161
+> bracket collisions. The corpus keeps growing and the conclusion has not moved — which is
+> the useful thing to know about a measurement, and is only knowable because the method was
+> written down beside it.
+>
+> **Corpus SIZES are deliberately approximate here; the 27 / 36 / 22 / 14 figures are not.**
+> The latter are properties of what the decks say and have survived every re-measurement.
+> The former move whenever anyone adds a deck: an exact pair was written into this amendment
+> and was false eleven commits later, overtaken by a routine rebase — inside the amendment
+> whose subject is numbers nobody re-derives. The census test is where an exact number
+> belongs, because it is re-run and prose is not.
+
+
 ## What's already done
 
 - **Branch `claude/fix-emoji-rendering-WO4vI`** ships the unicode-emoji

@@ -28,6 +28,22 @@ export const CHROME = {
 	/** Opens the Inspector pointed at SLIDE scope (editor row / mobile preview bar). */
 	slideSettings: 'Slide settings',
 	/**
+	 * The SAME destination as `deckScope`, reached the two other ways the Studio offers it.
+	 * `deckScope` is a desktop-only control: at 820px there is no scope rail, and at 390px
+	 * there is neither rail nor overflow menu. So a spec that only knows `deckScope` silently
+	 * covers one width — which is how the deck-settings routes at tablet and mobile went
+	 * untested until #2075 drove all three. These are LOCATIONS, so they live here for the
+	 * same reason `deckTab` does: a rename moves settings out from under every spec at once.
+	 */
+	deckSettingsAt: {
+		/** 820px: the overflow menu that replaces the scope rail. */
+		tabletMenu: 'More controls',
+		/** 820px: the item inside that menu. */
+		tabletItem: 'Settings — deck & slide',
+		/** 390px: a first-class button in the bottom bar — no menu in front of it. */
+		mobileButton: 'Settings',
+	},
+	/**
 	 * The Inspector's pill-tab names, per scope. They are the LOCATION of nearly every
 	 * setting, so a rename moves controls out from under a spec exactly the way #780's
 	 * accessible-name drift did — and the 2026-08-18 regroup renamed and merged several

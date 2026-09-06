@@ -1519,6 +1519,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const toggleForm = () => settingsWrite(formOn ? 'Deck chrome off' : 'Deck chrome on', (s) => writeFrontMatterLine(s, 'form', formOn ? 'off' : null));
 	// Auto-glossary (`glossary:`) — an appendix slide built from the acronym registry's
 	// definitions. lib/core/glossary-auto.mjs; the canonical written value is `auto`.
+	// Inline pills + marks (`inline-code: literal`) — whether the inline directive grammar
+	// runs at all. lib/core/resolve-inline-code.js; `rich` is the default, and the canonical
+	// written value for OFF is `literal`, not `off`. Writing `off` here would be silently
+	// inert (the kernel maps anything but `literal` to the running default) — which is what
+	// `unknown-inline-code` warns an author about, so the Inspector must not do it either.
+	//
+	// KNOWN DIVERGENCE, shared with `formOn` / `glossaryOn` above and not introduced here:
+	// `getFrontMatter` does not strip a trailing YAML comment, where the kernel's
+	// `frontMatterName` does. So `inline-code: literal  # deck from Acme` reads as ON in
+	// this switch while the engine renders it literal — the Inspector shows a toggle on
+	// over a preview with no pills in it. Fixing it belongs in `getFrontMatter`, where it
+	// fixes all three at once, rather than in one register's read. Tracked: #2087.
+	const inlineCodeRich = !/^literal$/i.test((getFrontMatter(source, 'inline-code') || '').trim());
+	const toggleInlineCode = () => settingsWrite(inlineCodeRich ? 'Inline pills and marks off' : 'Inline pills and marks on', (s) => writeFrontMatterLine(s, 'inline-code', inlineCodeRich ? 'literal' : null));
 	const glossaryOn = /^(auto|on|true|yes)$/i.test((getFrontMatter(source, 'glossary') || '').trim());
 	const toggleGlossary = () => settingsWrite(glossaryOn ? 'Auto-glossary off' : 'Auto-glossary on', (s) => writeFrontMatterLine(s, 'glossary', glossaryOn ? null : 'auto'));
 	// The deck LOGO and its four placement modifiers. Read by plugins.js + lib/runtime,
@@ -3587,6 +3601,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<CatalogSelect ariaLabel="Choose how slides split" value={slideSplit} onValueChange={setSlideSplit} className="w-full" groups={[{ options: [{ value: 'headings', label: 'Each ## heading' }, { value: 'rule', label: '--- dividers only' }] }] } />
 				</Field>
 				<Field label="Deck chrome" desc="The masthead band and status bay." help={<>The Form composition model — the masthead band, the meta/status bay and the progress rail. On for every deck by default; turning it off strips all three, leaving bare slides.</>}><Toggle label="Deck chrome" on={formOn} onClick={toggleForm} /></Field>
+				<Field label="Inline pills and marks" desc={'Draw {LABEL} pills and [x] marks in inline code.'} help={<>On by default: <code>{'`{STABLE}:c2`'}</code> draws a pill and <code>{'`[x]`'}</code> draws a state disc, anywhere inline code goes. Turn it off and <strong>every</strong> single-backtick span stays literal text — the switch to reach for when a deck written elsewhere says <code>[x]</code> or <code>{'{LABEL}'}</code> in its prose and you want none of it interpreted. For a single span, escape it instead: <code>{'`\\[x]`'}</code>.</>}><Toggle label="Inline pills and marks" on={inlineCodeRich} onClick={toggleInlineCode} /></Field>
 				<Field label="Auto-glossary" desc="Append a glossary slide." help={<>Builds a reference appendix from the <strong>definitions</strong> in your acronym registry (Speech ▸ Acronyms). It shows in the live preview — but only once at least one term carries a definition, so nothing appears until then.</>}><Toggle label="Auto-glossary" on={glossaryOn} onClick={toggleGlossary} /></Field>
 				<TextRow label="Default slide class" desc="A modifier applied to every slide." help={<>Space-separated modifiers stamped on every slide — e.g. <code>no-note</code>. Color belongs to <strong>Color mode</strong>, which supersedes a <code>dark</code>/<code>light</code> token here, and a component name is ignored outright. The Section rail toggle owns its own token in this key and isn't shown here.</>} value={deckClass} placeholder="e.g. no-note" onCommit={setDeckClass} />
 				{/* Developer — the two preview-only authoring aids. They used to be a footer

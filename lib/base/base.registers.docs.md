@@ -4,7 +4,8 @@ The **deck-level registers**: keys you set once in a deck's front matter that
 propagate to every slide, and that a per-slide `_class:` can override. They are
 `theme:`'s siblings — `theme:` picks the palette, these pick the rendering hand,
 the backdrop, the divider, the marker shape, the accent, the heading rule, the
-kicker, the framing alignment, the card elevation and the slide's own corner.
+kicker, whether inline code draws pills and marks, the framing alignment, the card
+elevation, where a card row puts its spare height, and the slide's own corner.
 
 **Why this file exists.** Nine of these ten lived under `### sketch` in
 `base.docs.md` — a per-slide *variant* — because `mode: sketch` is how you turn
@@ -32,6 +33,7 @@ model, see `design/concepts.md`.
 | [`spectrum:` / `spectrum-edge:`](#the-spectrum--spectrum-edge-registers-the-spectrum-accent-finish) | The spectrum accent finish and which edge carries it | *(none)* |
 | [`rule:`](#the-rule-front-matter-register-heading-underline) | The heading underline | *(none)* |
 | [`eyebrow:`](#the-eyebrow-front-matter-register-kicker-decoration) | The kicker decoration | *(none)* |
+| [`inline-code:`](#the-inline-code-front-matter-register-pills-and-marks) | Whether `{LABEL}` pills and `[x]` marks are drawn | `rich` |
 | [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
@@ -325,6 +327,98 @@ positioned pseudo that had to be hand-placed; the element makes alignment a plai
 split-panel kicker rule honors `none` / `accent` (drop or recolor it); `short` / `full` are
 masthead-scoped. On a slide with no heading underline, `rule:` is a graceful no-op.
 
+## The `inline-code:` front-matter register (pills and marks)
+
+`inline-code:` decides whether the **inline directive grammar** runs — `` `{LABEL}` `` pills
+and `` `[x]` `` `` `[-]` `` `` `[ ]` `` `` `[/]` `` state marks. Sibling register
+(`lib/core/resolve-inline-code.js`), read by both render paths; a typo is caught as
+`unknown-inline-code`. Deck-wide.
+
+| `inline-code:` value | Token | Effect |
+|---|---|---|
+| `rich` | *(none)* | The grammar runs — pills and marks are drawn. **The default** (omit the key). |
+| `literal` | `inline-code-literal` | **Every** single-backtick span stays a `<code>`, exactly as typed. |
+
+**Reach for `literal` when you did not write the deck.** The grammar reads every
+single-backtick span in every deck, so a deck authored elsewhere whose prose happens to say
+`` `[x]` `` or `` `{LABEL}` `` renders a disc or a pill where it rendered text. One line
+turns the whole thing off; the per-occurrence escape (`` `\[x]` ``) is the right tool for
+one span and the wrong one for ninety.
+
+**A literal deck keeps a backslash you typed.** With no grammar running there is nothing to
+escape from, so `` `\[x]` `` renders as `\[x]` rather than being quietly rewritten — the
+register never edits your text.
+
+**Turning it off in a MARP-KIT deck** — any deck marp-core renders, with the kit's
+`lattice-runtime.min.js` drawing the pills — uses Marp's own global `class:` directive.
+**This is the route for `marp --pdf` and `marp --html` too, not only the VS Code preview.**
+On a marp-core render the register cannot reach the runtime at all: over `file://` — which
+is how marp-cli loads a deck, and how a recipient opens an exported `.html` — `fetch` is
+CORS-blocked outright (measured in `lib/core/deck-front-matter.js`), and over http(s) the
+answer arrives after the pills are drawn. The class is the one signal that always lands:
+
+```yaml
+---
+marp: true
+class: inline-code-literal
+---
+```
+
+Verified against real marp-cli: the token lands on every section. Two things to know if you
+go this route.
+
+**A slide that sets its own `_class:` loses the token** — Marpit's local directive
+*replaces* the global one rather than adding to it, so the grammar comes back on that
+slide. Measured through Marpit itself:
+
+| slide directive | resulting section class |
+|---|---|
+| *(none — global `class:` only)* | `inline-code-literal` |
+| `_class: big-number` | `big-number` — **the token is gone** |
+| `_class: big-number inline-code-literal` | both — list it and it survives |
+
+So on the raw-Marp route, any slide with its own `_class:` must name
+`inline-code-literal` alongside its other tokens. A Lattice deck never hits this: the
+engine appends the register's token to the class list it builds, so a per-slide `_class:`
+composes with it instead of competing.
+
+**One known limit: a marp-core render with nothing baked into it.** The register needs the
+setting to be *knowable* where the decision is made. It is, on every shape a deck actually ships in:
+
+| shape | how the setting arrives |
+|---|---|
+| the engine, the CLI, the Studio | reads the deck source directly |
+| an **HTML export** | no block needed — the engine already applied the register, so nothing is left to decide |
+| an **Export-to-Marp bundle** | the front matter is baked into the `.md` and the runtime reads it synchronously |
+
+The gap is a deck rendered by **marp-core rather than by Lattice** — so the runtime is the
+only implementation — **and** carrying no baked front-matter block. That is a hand-authored
+marp-kit deck (`marp --pdf`, `marp --html`, the VS Code preview), and an export predating
+the bake. There the register cannot arrive: `fetch` is CORS-blocked on `file://`, and over
+http(s) it answers after the pills are drawn.
+
+**Use `class: inline-code-literal` for those**, per the section above — it needs no fetch
+because marp-core puts the token on every section itself. An export made by Lattice bakes
+its front matter and needs nothing. Making the runtime wait instead was tried and reverted: it cost every other deck
+a full extra transform pass (measured 1 to 3 on a 40-slide deck carrying no register at
+all) and needed a wall-clock guess that produced a wrong render at 3.2s, then at 10.2s once
+the guess was enlarged.
+
+**Per slide, on a Lattice deck**, use the token as an ordinary slide modifier —
+`<!-- _class: inline-code-literal -->` turns the grammar off for that slide and leaves the
+rest of the deck alone. It composes with a component class the usual way
+(`<!-- _class: list-tabular inline-code-literal -->`). For a single SPAN rather than a
+slide, escape it: `` `\{LABEL}` ``.
+
+Both render paths gate on the resolved section class rather than on the front matter, which
+is what makes the register, `class:`, and `_class:` one mechanism instead of three. The one
+exception is a timing detail, not a second mechanism: the engine builds `header:` /
+`footer:` chrome eleven ruler rules before the deck class is propagated, so it reads the
+section class first (that is how a per-slide `_class:` silences that slide's chrome) and
+re-derives the deck-level answer from the front matter when the class is not there yet.
+The runtime needs no exception — marp-core puts chrome inside the section, so it reads the
+same class from inside a header as from inside the body.
+
 ## The `eyebrow:` front-matter register (kicker decoration)
 
 `eyebrow:` decorates the mono-caps **eyebrow** kicker (the code-only line above a heading —
@@ -340,6 +434,14 @@ cleanly.
 | `bar` | `eyebrow-bar` | A short vertical `--accent` tick before the label. |
 | `arrow` | `eyebrow-arrow` | A leading chevron (`›`) in the accent color. |
 | `underline` | `eyebrow-underline` | A hairline rule beneath the label. |
+
+**What this decorates has to BE an eyebrow first, and a pill is not one.** The kicker is a
+POSITION — a paragraph whose only child is a `<code>` element — so `` `{DRAFT}:c2` `` or
+`` `[x]` `` on that line renders as a pill or a mark alone on a line, and no `eyebrow:`
+treatment reaches it. Escape it (`` `\{DRAFT}` ``) to keep the `<code>` and keep the
+kicker. Measured harmless across shipped decks (over a thousand spans across both positions, zero affected) and gated by
+`test/unit/css/eyebrow-position-shadow.test.js`; see *Eyebrow labels* in
+[`base.docs.md`](base.docs.md).
 
 Pick **one** eyebrow treatment deck-wide so every kicker reads as one family — mixing marks
 per slide reads as a ransom note. Together `spectrum:` / `rule:` / `eyebrow:` are the Finish
