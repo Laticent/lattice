@@ -7,3 +7,10 @@
   reliability's fail-apart question about credentials. Backward references inside
   Part four go from one slide to seven; the six kit openings go from zero bridges
   to six.
+- **The deck's protagonist comes back for Parts three and six.** Maya, who opens
+  the deck and then disappeared for 179 slides, now carries three load-bearing
+  references in Part three (the twelve-minute build as three requests wearing one
+  sentence; two candidates for a ceiling and only one that stopped PR 482; where
+  her Tuesday sat on the four-movement arc) and two in Part six (nothing that
+  broke her day was load either; the manual part gives out before the machine).
+  Per-part spine coverage: Part three 0/13 → 3/13, Part six 0/20 → 2/20.

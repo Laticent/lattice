@@ -694,6 +694,8 @@ The second line is the hard one. If you cannot put a number on W, you have just 
 
 The same words — design a photo sharing app — have five legitimate answers that share almost no architecture. A build that takes a week and a build that takes two years are both correct, for different questions.
 
+Maya's team says the twelve-minute build is too slow. That is three requests wearing one sentence: rent a faster runner, profile the slow step, or write a build system that knows this repository. Nobody said which, so nobody did any of them.
+
 Gall's law says it plainly: a complex system that works is invariably found to have evolved from a simple system that worked. You climb this ladder. You do not parachute onto it.
 
 ---
@@ -747,7 +749,7 @@ Its job is to produce a decision, not to last. Every hour spent making it durabl
 
 ## A scaled system survives ten times the load without a rewrite.
 
-You have stopped buying information and started buying headroom. The question moves from "does it work" to "what breaks first, and how do I move that limit."
+You have stopped buying information and started buying headroom. The question moves from "does it work" to "what breaks first, and how do I move that limit." Maya's day had two candidates for that limit — the twelve-minute build and one reviewer — and only one stopped 482.
 
 - The tell
   - Growth is real, and the current design has a ceiling you can point at.
@@ -887,7 +889,7 @@ Write a rung for each and one sentence on what it costs. Then turn the page.
 4. Deliver
    - Ship it and watch it. The running system names the field you guessed.
 
-> Every exercise from here asks you to discover and to design. The last two are yours to run.
+> Every exercise here asks you to discover and to design. The other two, where Maya spent Tuesday, are yours.
 
 ---
 
@@ -3199,6 +3201,8 @@ Two hundred lots of forty bays turning over four times a day is 32,000 rows — 
 
 Thirty-two thousand rows a day is a rounding error, so scale is not your problem and will not be for a long time. Say that out loud, because it stops a team building for a load that never arrives.
 
+Nothing that broke Maya's Tuesday was load either — a registry, a build and a sleeping reviewer, and not one of them was traffic.
+
 The first break is a double charge. The page hesitates on a weak signal, the driver taps Pay again, and one park costs them twice. That reaches a human the same day.
 
 The second is the signal itself. The card form sits on the far side of a network that keeps disappearing.
@@ -3337,7 +3341,7 @@ Write down the one question they ask the system, roughly how often it is asked, 
 ## Two hundred lots, and the manual parts give out before the machine does.
 
 - What actually changed
-  - Not the traffic. The manual work. One warden typing bay numbers held at one lot and gave out long before two hundred.
+  - Not the traffic. The manual work. A warden typing bay numbers gave out at ten lots; Maya's team, at one reviewer.
 - Give the warden a list, not a keyboard
   - The point read becomes one range scan per walk: every live session in this lot. Their phone already knows the bays.
 - Move slow work off the path a driver waits on
