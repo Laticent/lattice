@@ -86,6 +86,10 @@ const STEPS = [
   { label: 'theme catalog (docs studio palettes)', script: 'build-theme-catalog.js' },
   { label: 'axis-DOM catalog (lib/runtime)', script: 'build-axis-dom-catalog.js' },
   { label: 'chart dispatch registry (lib/components/chart)', script: 'build-chart-registry.js' },
+  // Ahead of the bundles: the state-chart transform requires the generated
+  // dagre IIFE at BUNDLE time, so a stale or missing file would be baked into
+  // lattice-runtime.js and lattice-emulator.js rather than caught later.
+  { label: 'dagre bundle (state-chart layout)', script: 'build-dagre-bundle.js', uncommitted: true },
   { label: 'lattice-runtime.js', script: 'build-runtime.js', uncommitted: true },
   { label: 'lattice-emulator.js', script: 'build-emulator.js', uncommitted: true },
   { label: 'VS Code snippets', script: 'build-snippets.js' },

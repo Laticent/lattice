@@ -2726,7 +2726,18 @@ let stateChartScript = '';
 if (hasStateChart) {
   try {
     const { STATE_CHART_BROWSER_JS } = require('./lib/components/chart/state-chart/state-chart.transform');
-    stateChartScript = `${ENGINE_SCRIPT_OPEN}\n${STATE_CHART_BROWSER_JS}\n</script>`;
+    // The pass is serialised through `.toString()`, so it carries no imports and
+    // can only reach a layout engine through a global that already exists in the
+    // document. This IIFE installs `globalThis.__latticeDagre` ahead of it.
+    // Prepended HERE rather than inside the transform because the runtime bundle
+    // imports that module too, and a top-level require there shipped the 62KB
+    // string to every reader of every deck — measured at +51KB gzipped on
+    // lattice-runtime.min.js (dagre carried twice: inlined AND as this string)
+    // against +28KB for the live library alone. Missing bundle (a clone that
+    // never ran `npm install`) → '' → the pass falls back to the numbered column.
+    let dagreIife = '';
+    try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* column fallback */ }
+    stateChartScript = `${ENGINE_SCRIPT_OPEN}\n${dagreIife}\n${STATE_CHART_BROWSER_JS}\n</script>`;
   } catch (_e) { /* kernel unavailable; figures degrade to an empty overlay */ }
 }
 

@@ -38,6 +38,11 @@ function isIgnored(p) {
 // set lands inside the built-not-committed paths. Changing this list means re-measuring,
 // not re-reasoning.
 const EXPECTED_UNCOMMITTED = new Set([
+  // Measured 2026-09-06 against a timestamped tree: its entire write set is
+  // lib/core/dagre-bundle.generated.js, which .gitignore carries for the same
+  // reason as the docs-site bundles — a 62KB minified bundle on one line makes
+  // every concurrent PR conflict.
+  'build-dagre-bundle.js',
   'build-css.js',
   'build-default-bundle.js',
   'build-runtime.js',
