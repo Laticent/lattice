@@ -5196,6 +5196,30 @@ async function renderBody(browser, g, closeBrowser) {
       } catch (e) {
         pruneNotes.push(`  note: player optimization skipped (${e?.message}); shipping full CSS + fonts`);
       }
+      // THE CARRIER IS AN ARTIFACT TOO, and it was the last per-slide write path with no assertion.
+      // Its frames come from `player-core`'s `shipped` list — now derived from the projection rather
+      // than from a captured DOM — so one frame per shipped section is the same number every other
+      // format promises. Counted off the FINISHED string, after the CSS/font prune has rewritten it,
+      // because that is the byte sequence the recipient opens.
+      //
+      // A FRAME IS COUNTED BY WHAT IT WRAPS, not by its class. `.lp-frame` is a plain class and
+      // DOMPurify keeps `class` and `data-*`, so an author can write
+      // `<div class="lp-frame" data-lp-i="0">FORGED</div>` into a slide and it survives into the file
+      // — which `lens-carrier.test.js` has an arm for, because it once shifted the switcher's map.
+      // Counting the class refused that deck outright: 4 against a promise of 3.
+      //
+      // Two discriminators were measured on that exact file before picking one. A line-start anchor
+      // does NOT work — the forged div opens a line too, 4 of 4. What separates them is that a real
+      // frame wraps its slide: `<div class="lp-frame" …><section …>`, 3 of 4. That is a property of
+      // how the player EMITS, pinned by the forged-frame arm, rather than a guess about what an
+      // author will write.
+      //
+      // The bound, stated rather than implied: an author who nests a literal `<section
+      // data-lattice-slide>` inside a slide could still inflate this. That is the same hazard the
+      // raster loops already scope `SHOOTABLE_SLIDES` against, it is not reachable by the class alone,
+      // and the frames themselves are chosen from the projection now — so a forge changes this COUNT,
+      // never WHICH slides ship.
+      assertArtifactPages((finalPlayerHtml.match(/<div class="lp-frame"[^>]*><section /g) ?? []).length, 'slide');
       fs.writeFileSync(outHtml, finalPlayerHtml);
       // The player carries its own, STRICTER policy (`default-src 'none'`). Record that it
       // is what landed at outHtml, so the subresource injection below skips it — see the
