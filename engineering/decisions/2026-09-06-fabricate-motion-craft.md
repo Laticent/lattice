@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: in-progress
 summary: >
   Fabricate Motion crafts a MOTION ASSET — a drawing plus a plan for how it reveals — and that is
   what makes it a Fabricate tab rather than a control panel. Its three siblings each bring a named,
@@ -28,7 +28,7 @@ companion:
 
 # Fabricate Motion — craft a drawing that moves
 
-**Date:** 2026-09-06 · **Status:** accepted — §10 answered by the author 2026-09-06; build follows
+**Date:** 2026-09-06 · **Status:** in-progress — §10 answered by the author 2026-09-06; the faculty is being built
 
 ---
 
