@@ -78,9 +78,10 @@ test('the deck-settings toggle turns the inline grammar off, and the preview obe
 //    820  "More controls" → "Settings — deck & slide"     (no Deck-scope button exists)
 //    390  a first-class "Settings" button in the bottom bar
 //
-// The routes are local to this spec rather than folded into the fixture on purpose: the
-// fixture is shared by every Studio spec, and widening its one helper to guess a width is
-// a change to all of them for the benefit of this one.
+// The control NAMES live in `CHROME.deckSettingsAt` — that map exists so a rename moves
+// settings out from under every spec at once, and these are locations like the tabs are.
+// The route LOGIC stays here: `openInspector` is used by every Studio spec, and widening
+// its one helper to guess a width changes all of them for the benefit of this one.
 for (const [label, width, height] of [
 	['tablet', 820, 1180],
 	['mobile', 390, 844],
@@ -96,16 +97,16 @@ for (const [label, width, height] of [
 		await expect(page.getByRole('button', { name: CHROME.deckScope })).toHaveCount(0);
 
 		if (width > 500) {
-			await page.getByRole('button', { name: 'More controls' }).first().click();
+			await page.getByRole('button', { name: CHROME.deckSettingsAt.tabletMenu }).first().click();
 			await page
 				.locator('[role=menuitem],[role=menuitemradio],button,[role=button]')
-				.filter({ hasText: /^Settings — deck & slide$/ })
+				.filter({ hasText: CHROME.deckSettingsAt.tabletItem })
 				.first()
 				.click();
 		} else {
 			// Opening the Menu first would lay an overlay over this button — the bottom bar
 			// carries it directly.
-			await page.getByRole('button', { name: 'Settings', exact: true }).first().click();
+			await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
 		}
 
 		const tab = page.getByRole('tab', { name: CHROME.deckTab.general });

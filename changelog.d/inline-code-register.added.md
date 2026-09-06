@@ -37,6 +37,6 @@
   most likely to carry. Both render paths gate on the resolved section class rather than
   on front matter, so the register, Marp's `class:` and a per-slide `_class:` are one
   mechanism instead of three that can disagree. (The engine builds chrome eleven ruler
-  steps before that class exists, so it reads the class first and re-derives the deck-level
+  rules before that class exists, so it reads the class first and re-derives the deck-level
   answer from the front matter when it is not there yet — a timing exception, same inputs
   and same answer. The runtime needs none: chrome lives inside the section.)

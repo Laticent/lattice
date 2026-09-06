@@ -230,9 +230,9 @@ test('the RUNTIME gates the deck CHROME too, and gates it on the same class the 
  * a deck-wide `class:` and the register itself are one mechanism rather than three.
  *
  * ONE PLACE STILL READS THE SOURCE, and it is not an exception to that: the engine's
- * `header:` / `footer:` chrome is built at ruler step 14 and the deck class is propagated
- * at step 25, so at the moment chrome is rendered the deck-level token is not on the
- * section yet. `slideIsInlineCodeLiteral` therefore checks the section class FIRST (which
+ * `header:` / `footer:` chrome is built at the 15th core ruler rule and the deck class is
+ * propagated at the 26th, so at the moment chrome is rendered the deck-level token is not
+ * on the section yet. `slideIsInlineCodeLiteral` therefore checks the section class FIRST (which
  * is how a per-slide `_class:` reaches chrome) and falls back to re-deriving the
  * deck-level answer from the front matter. Same three inputs, same answer, one ruler step
  * too early to read it off the class.

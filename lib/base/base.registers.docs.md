@@ -413,7 +413,7 @@ slide, escape it: `` `\{LABEL}` ``.
 Both render paths gate on the resolved section class rather than on the front matter, which
 is what makes the register, `class:`, and `_class:` one mechanism instead of three. The one
 exception is a timing detail, not a second mechanism: the engine builds `header:` /
-`footer:` chrome eleven ruler steps before the deck class is propagated, so it reads the
+`footer:` chrome eleven ruler rules before the deck class is propagated, so it reads the
 section class first (that is how a per-slide `_class:` silences that slide's chrome) and
 re-derives the deck-level answer from the front matter when the class is not there yet.
 The runtime needs no exception — marp-core puts chrome inside the section, so it reads the
@@ -439,7 +439,7 @@ cleanly.
 POSITION — a paragraph whose only child is a `<code>` element — so `` `{DRAFT}:c2` `` or
 `` `[x]` `` on that line renders as a pill or a mark alone on a line, and no `eyebrow:`
 treatment reaches it. Escape it (`` `\{DRAFT}` ``) to keep the `<code>` and keep the
-kicker. Measured harmless across shipped decks (1,276 eyebrow and 484 subtitle spans, zero affected) and gated by
+kicker. Measured harmless across shipped decks (over a thousand spans across both positions, zero affected) and gated by
 `test/unit/css/eyebrow-position-shadow.test.js`; see *Eyebrow labels* in
 [`base.docs.md`](base.docs.md).
 

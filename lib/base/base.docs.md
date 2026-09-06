@@ -94,8 +94,8 @@ state disc. Both are legal; neither is promoted.
 heading, which `base.modifiers.css` promotes to an italic muted line by the same
 `> code:only-child` rule.
 
-This is a shadow rather than a break: measured across every shipped deck, **1,276**
-eyebrow-position and **484** subtitle-position spans, and **zero** that dispatch — a real
+This is a shadow rather than a break: measured across every shipped deck — well over a
+thousand spans across the two positions — **zero** dispatch. A real
 one reads `` `Section 01` `` or `` `H1 FY26 · 1,840 person-hours` ``, and none starts with
 a brace or is a bare marker. `test/unit/css/eyebrow-position-shadow.test.js` scans both
 positions and fails if one ever does.

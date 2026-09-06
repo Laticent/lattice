@@ -14,10 +14,16 @@
  * with two different corpus definitions and no way to reproduce either. A comment cannot
  * fail. This can.
  *
- * WHAT IT PINS. Of the single-backtick spans in the decks we ship, the ones that dispatch
- * are exactly the ones in the deck that exists to demonstrate them. Anywhere else, a
- * dispatching span is an author who meant literal text and will not find out until they
- * look at the slide.
+ * WHAT IT PINS. Of the inline-code spans in the decks we ship, the ones that dispatch are
+ * exactly the ones in the two decks that exist to demonstrate the grammar — one showing it
+ * on, one showing the register turning it off. Anywhere else, a dispatching span is an
+ * author who meant literal text and will not find out until they look at the slide.
+ *
+ * TWO ARMS, because the register splits the corpus. The first walks every deck the grammar
+ * RUNS in and allows dispatching spans only in `examples/inline-pills.md`; the second takes
+ * the one deck the register switches off and proves it is full of spans that would have
+ * dispatched — otherwise the first arm's skip could be covering an empty set and reporting
+ * that the register works while never exercising it.
  *
  * IT ASKS THE KERNEL, NOT A COPY OF THE GRAMMAR — `dispatches()` is the same predicate
  * both render paths call (HARD RULE #1), so widening or narrowing the grammar moves this

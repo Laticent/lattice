@@ -12,6 +12,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const MarkdownIt = require('markdown-it');
+
+/** A PLAIN parser — see `inlineSpans`. The engine's has the pill plugin installed. */
+const md = new MarkdownIt();
 
 const ROOT = path.join(__dirname, '..', '..');
 
@@ -36,30 +40,44 @@ function shippedDecks() {
 const FENCE = /^\s*(```|~~~)/;
 
 /**
- * Every SINGLE-backtick inline span in a deck, with the line it sits on.
+ * Every inline-code span in a deck, with the line it sits on.
  *
- * Single-backtick only, because that is what the grammar reads: a `` ``…`` `` run is
- * CommonMark's form for embedding a backtick, and the double-backtick special case was
- * removed when the escape became a backslash (`lib/core/inline-code-directives.js`).
- * Fenced blocks are skipped — their contents are never inline code.
+ * IT ASKS A PARSER, NOT A REGEX, and the first cut did the opposite — which left the
+ * census with two blind spots that render as pills TODAY:
+ *
+ *   ``{LIVE}``        a double-backtick span. CommonMark's double form is for embedding a
+ *                     backtick, not for asking to be left alone, and the grammar's
+ *                     double-backtick special case was REMOVED when the escape became a
+ *                     backslash (`lib/core/inline-code-directives.js`) — so this dispatches
+ *                     exactly like the single form. Measured: `<span class="lat-pill">LIVE</span>`.
+ *   `{AB\nCD}`        a span that wraps across a source line. CommonMark joins the lines
+ *                     with a space, so this dispatches as the label `AB CD`. Measured.
+ *
+ * A line-at-a-time regex sees neither, and planting both in a shipped deck left the census
+ * GREEN. Neither shape occurs in the corpus today, so the conclusion held — but a gate that
+ * only catches the shapes its author thought of is the thing this census exists to replace.
+ *
+ * markdown-it is the parser the engine itself runs on, so fenced blocks, indented code and
+ * HTML comments fall out for free rather than needing a rule each. A PLAIN instance
+ * deliberately: the engine's configured one has the pill plugin installed, which would
+ * consume the very tokens this walks.
+ *
+ * THE LINE NUMBER IS THE BLOCK'S FIRST LINE, not the span's. markdown-it carries `map` on
+ * block tokens and not on inline children, so a span in a wrapped paragraph reports the
+ * paragraph's opening line. That is close enough to find it by hand and honest about being
+ * approximate — the failure message says so.
  *
  * @returns {{file:string, line:number, text:string}[]}
  */
 function inlineSpans(file) {
-  const lines = fs.readFileSync(path.join(ROOT, file), 'utf8').split('\n');
+  const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
   const found = [];
-  let inFence = false;
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i];
-    if (FENCE.test(line)) { inFence = !inFence; continue; }
-    if (inFence) continue;
-    const re = /(^|[^`])`([^`\n]+)`([^`]|$)/g;
-    let m;
-    // Step back one character each iteration: `a` and `b` on one line share the
-    // character between them, and a plain exec walk would see only the first.
-    while ((m = re.exec(line))) {
-      found.push({ file, line: i + 1, text: m[2] });
-      re.lastIndex -= 1;
+  let blockLine = 1;
+  for (const token of md.parse(src, {})) {
+    if (Array.isArray(token.map)) blockLine = token.map[0] + 1;
+    if (token.type !== 'inline' || !Array.isArray(token.children)) continue;
+    for (const child of token.children) {
+      if (child.type === 'code_inline') found.push({ file, line: blockLine, text: child.content });
     }
   }
   return found;

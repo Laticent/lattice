@@ -16,8 +16,8 @@
  * WHY THIS IS A CENSUS AND NOT A FIXTURE. A fixture would assert that one crafted
  * pill fails to become an eyebrow — pinning the shadow, which is not the risk. The
  * risk is an AUTHOR writing one, in a deck, by accident. So this walks every deck
- * we ship and asserts none does. The corpus carries 1,276 eyebrow spans and 484 subtitle
- * spans and zero collisions; a real eyebrow reads `Section 01` or
+ * we ship and asserts none does. The corpus carries well over a thousand spans across the
+ * two positions and zero collisions; a real eyebrow reads `Section 01` or
  * `H1 FY26 · 1,840 person-hours`, and none starts with a brace or is a bare marker.
  *
  * THE DECISION IT SPEAKS FOR is deliberate: the selector was NOT widened to accept
@@ -120,7 +120,7 @@ test('no shipped deck writes an eyebrow the directive grammar would swallow', ()
   // ANTI-VACUITY, and it is the whole guard here: "zero collisions" is trivially
   // true of an empty list, so a scanner broken by a markdown change (a different
   // fence marker, a heading style) would certify nothing and pass forever. The
-  // floor is deliberately far below the 1,276 measured today — this pins that
+  // floor is deliberately far below the measured count — this pins that
   // the walk still WORKS, not the exact corpus size, which moves every time a
   // deck is added.
   assert.ok(
