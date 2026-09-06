@@ -953,7 +953,7 @@ flowchart TB
 
 > A cache and a CDN are one idea at two distances: keep the answer nearer than its store.
 
-*Rung one, from Part three, said one database and nothing clever. Both shapes here are still that: one store owning the answer, with something in front of it holding the same answer nearer. Nothing here exists to answer a different question — that starts on the next slide.*
+*Part three's ladder starts at one database and nothing clever. That is still the store in both shapes here; what stands between it and the reader buys distance, not a new answer. A copy that exists to answer a different question starts on the next slide.*
 
 ---
 
