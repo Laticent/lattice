@@ -487,3 +487,41 @@ describe('slope kernel', () => {
     });
   });
 });
+
+describe('slope — de-collided labels stay inside the viewBox', () => {
+  // `deCollideLabels` knows about its neighbors and not about the box it is
+  // inside, so a crowded band near an edge pushed the outermost label straight
+  // out of the frame. An SVG crops at its viewBox, so the name was CUT before
+  // anything in the DOM could measure it — found by `npm run check:chart-fit`
+  // once the seven Cartesian members were added to its fixture, at 2.4 user
+  // units past the bottom edge.
+  const tight = [
+    ['Northwind', '31%', '24%'], ['Kestrel Group', '22%', '29%'],
+    ['Vantage', '19.4%', '21.1%'], ['Meridian', '18.9%', '20.4%'],
+    ['Fornax', '18.2%', '19.6%'], ['Halcyon', '17.8%', '18.8%'],
+  ];
+  const inner = tight.map(([n, a, b]) =>
+    `<li>${n}<ul><li>2023 <code>${a}</code></li><li>2026 <code>${b}</code></li></ul></li>`).join('');
+
+  test('no text baseline escapes the viewBox, on either orientation', () => {
+    for (const orientation of [undefined, 'portrait']) {
+      const svg = buildSlope(parseSlope(inner), { orientation, classTokens: ['slope'] });
+      const vb = /viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/.exec(svg);
+      assert.ok(vb, 'no viewBox on the root');
+      const height = Number(vb[2]);
+      const ys = [...svg.matchAll(/<tspan[^>]*\sy="(-?[\d.]+)"/g)].map((m) => Number(m[1]));
+      assert.ok(ys.length > 0, 'no label baselines found');
+      for (const y of ys) {
+        assert.ok(y >= 0 && y <= height,
+          `a label baseline at y=${y} is outside the 0..${height} viewBox (${orientation || 'landscape'})`);
+      }
+    }
+  });
+
+  test('every entity keeps its name — clamping must not drop one', () => {
+    const svg = buildSlope(parseSlope(inner), { classTokens: ['slope'] });
+    for (const [name] of tight) {
+      assert.ok(svg.includes(name), `${name} is missing from the chart`);
+    }
+  });
+});

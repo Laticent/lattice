@@ -357,8 +357,11 @@ describe('cartesian — the CSS mirror', () => {
 
   for (const [cls, key] of PAIRS) {
     test(`.${cls} font-size matches FS.${key}`, () => {
+      // The head is `:is(section.chart-frame, figure.chart-frame)` — both arms,
+      // because the dispatcher puts `chart-frame` on the SECTION and the
+      // Read·Article projection re-hosts the SVG in a `<figure>` of that class.
       const rule = css.match(
-        new RegExp(`\\.chart-frame\\s+\\.${cls}\\s*\\{([^}]*)\\}`));
+        new RegExp(`chart-frame\\)\\s+\\.${cls}\\s*\\{([^}]*)\\}`));
       assert.ok(rule, `no .${cls} rule in chart-family.css`);
       const fontSize = rule[1].match(/font-size:\s*([\d.]+)px/);
       assert.ok(fontSize, `.${cls} declares no px font-size`);
@@ -378,6 +381,13 @@ describe('cartesian — the CSS mirror', () => {
       .slice(css.indexOf('*/', marker) + 2)
       .replace(/\/\*[\s\S]*?\*\//g, '');
     assert.ok(block.includes('.cart-grid'), 'the Cartesian chrome rules are missing');
+    // Every chrome rule must lead with a `section`/`:is(section…)` head, or
+    // composeCss() scopes it to a descendant that does not exist and the label
+    // falls to SVG-initial black on the scoped path (#956).
+    for (const m of block.matchAll(/^([^{}\s][^{}]*)\{/gm)) {
+      assert.match(m[1].trim(), /^:is\(section\.chart-frame, figure\.chart-frame\)/,
+        `a Cartesian chrome rule is not anchored on a section head: ${m[1].trim()}`);
+    }
     assert.ok(!/@layer/.test(block), '@layer is inert here and loses the cascade (#26)');
     assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(block), 'a hex literal in layout CSS (#3)');
     assert.ok(!/(^|[;{\s])margin(-[a-z]+)?\s*:\s*(?!0\s*;)/.test(block),

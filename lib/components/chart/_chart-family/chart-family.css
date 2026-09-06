@@ -1287,9 +1287,18 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
  *
  * Unlayered, like every other component file (@layer is inert in this bundle
  * and a layered rule silently loses to an unlayered base rule — cascade.md).
- * Matched on `.chart-frame` so it also resolves in the Read·Article `<figure
- * class="chart-frame">` re-host, where the chart SVG is re-parented outside its
- * `section` and a `section.`-anchored rule would drop on the floor.
+ * Matched on `:is(section.chart-frame, figure.chart-frame)` — BOTH arms, and
+ * both are load-bearing. The dispatcher puts `chart-frame` on the SECTION
+ * itself (`class="bar content form chart-frame"`), and the Read·Article
+ * projection re-hosts the same SVG in a `<figure class="chart-frame">`
+ * outside its section. A bare `.chart-frame` descendant selector covers
+ * NEITHER on the scoped path: `composeCss()` rewrites a rule's leading head,
+ * and a `.chart-frame` that is not led by `section`/`:is(section…)` scopes to
+ * `article.lattice > section .chart-frame …`, which asks for a DESCENDANT
+ * carrying the class the section itself has. Every `.cart-*` label therefore
+ * resolved to nothing and fell to SVG-initial BLACK in the Studio and the
+ * scoped export — the #956 class, caught by `npm run check:render`, invisible
+ * on the CLI path where the bundle is not scoped.
  *
  * The px font sizes are viewBox USER UNITS, not CSS pixels — they scale with
  * the SVG (check-chart-responsiveness exempts SVG-context rules for exactly
@@ -1303,7 +1312,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
  * reader take a value off the chart, not to be seen. Mixed toward transparent
  * off the border token rather than given its own gray, so it recedes by the
  * same amount on both canvases and follows a theme that re-tunes its borders. */
-.chart-frame .cart-grid {
+:is(section.chart-frame, figure.chart-frame) .cart-grid {
   fill: none;
   stroke: color-mix(in oklab, var(--border) 62%, transparent);
   stroke-width: 0.5;
@@ -1312,7 +1321,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
 /* The zero rule is NOT a styled gridline, and the distinction is load-bearing:
  * on a waterfall or a diverging bar it is the reference the marks are read
  * against. It survives a theme that softens the grid to near-nothing. */
-.chart-frame .cart-zero {
+:is(section.chart-frame, figure.chart-frame) .cart-zero {
   fill: none;
   stroke: color-mix(in oklab, var(--text-body) 42%, transparent);
   stroke-width: 0.7;
@@ -1320,7 +1329,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
 
 /* The axis rule — the line the categories sit on. Between the grid and the
  * zero rule in weight: it bounds the plot without competing with the data. */
-.chart-frame .cart-axis {
+:is(section.chart-frame, figure.chart-frame) .cart-axis {
   fill: none;
   stroke: color-mix(in oklab, var(--border) 88%, transparent);
   stroke-width: 0.6;
@@ -1329,7 +1338,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
 /* Value-axis tick label. Muted, in the gutter, ON THE CANVAS — never on a mark,
  * so its contrast is a property of the slide background and not of whichever
  * fill happens to sit behind it. */
-.chart-frame .cart-tick {
+:is(section.chart-frame, figure.chart-frame) .cart-tick {
   fill: var(--text-muted);
   font-family: var(--font-label);
   font-size: 7px;
@@ -1339,7 +1348,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
 
 /* Category label — the reader's entry point into the plot, so it carries body
  * ink rather than the tick's muted gray. */
-.chart-frame .cart-cat {
+:is(section.chart-frame, figure.chart-frame) .cart-cat {
   fill: var(--text-body);
   font-family: var(--font-body);
   font-size: 7.5px;
@@ -1347,7 +1356,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
 
 /* A value printed next to a mark: the figure that matters, so it takes the
  * display face and heading ink, exactly as the funnel's stage value does. */
-.chart-frame .cart-value {
+:is(section.chart-frame, figure.chart-frame) .cart-value {
   fill: var(--text-heading);
   font-family: var(--font-display);
   font-size: 8px;
@@ -1359,7 +1368,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
  * slope's entity name). Direct labels beat a legend whenever they fit, so this
  * is a first-class register, not a fallback. Colored by the member from the
  * series' own ink so the name and its line are the same hue. */
-.chart-frame .cart-series {
+:is(section.chart-frame, figure.chart-frame) .cart-series {
   fill: var(--text-body);
   font-family: var(--font-body);
   font-size: 7.5px;
@@ -1368,7 +1377,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
 
 /* Axis caption — uppercase and tracked, matching the chart eyebrow's register
  * so the plot's captions belong to the same typographic system as the frame's. */
-.chart-frame .cart-axis-title {
+:is(section.chart-frame, figure.chart-frame) .cart-axis-title {
   fill: var(--text-muted);
   font-family: var(--font-label);
   font-size: 6.5px;
@@ -1378,7 +1387,7 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
 }
 
 /* The plot's own <svg> root fills the chart body, like every other member. */
-.chart-frame .cart-svg {
+:is(section.chart-frame, figure.chart-frame) .cart-svg {
   width: 100%;
   height: 100%;
   display: block;

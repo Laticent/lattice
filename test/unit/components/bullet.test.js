@@ -466,11 +466,11 @@ describe('bullet kernel', () => {
     };
 
     test('FS.name matches the family category register the name wears', () => {
-      assert.equal(FS.name, sizeOf(FAMILY_STYLES, '\\.chart-frame \\.cart-cat'));
+      assert.equal(FS.name, sizeOf(FAMILY_STYLES, 'chart-frame\\) \\.cart-cat'));
     });
 
     test('FS.value matches the family value register the readout wears', () => {
-      assert.equal(FS.value, sizeOf(FAMILY_STYLES, '\\.chart-frame \\.cart-value'));
+      assert.equal(FS.value, sizeOf(FAMILY_STYLES, 'chart-frame\\) \\.cart-value'));
     });
 
     test('FS.target matches .bullet-plan in this component\'s own stylesheet', () => {

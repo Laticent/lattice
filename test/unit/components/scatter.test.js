@@ -472,7 +472,7 @@ describe('scatter kernel', () => {
     // not occupy, and hands the placement pass a box narrower than the paint.
     test('FS.point matches the .cart-series size the family paints', () => {
       const css = fs.readFileSync(path.join(ROOT, '_chart-family/chart-family.css'), 'utf8');
-      const rule = css.match(/\.chart-frame \.cart-series \{[^}]*\}/)[0];
+      const rule = css.match(/chart-frame\) \.cart-series \{[^}]*\}/)[0];
       const size = Number(rule.match(/font-size:\s*([\d.]+)px/)[1]);
       assert.equal(FS.point, size,
         '.scatter-label inherits its size from .cart-series — the kernel must wrap to the same number');
