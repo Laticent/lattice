@@ -337,6 +337,15 @@ Three consequences follow and they are not optional:
   measurement that matters is the one against the alternative's failure mode, not against zero.
   The faculty should still refuse a drawing large enough to bloat a deck, and say so at paste time
   rather than at save time.
+  **Pick the ceiling from evidence, not a round number.** Across this repo's 82 non-flag SVGs —
+  logos, component art, sample imagery, the kind of thing someone would actually choreograph — the
+  median is **1.3 KB**, p90 is **2.7 KB**, and the largest is **28.7 KB**. Nothing real comes close
+  to 64 KB. So **warn above ~24 KB** (past the p99 of genuine design assets: still workable, but
+  worth telling the author their deck just gained a page-weight problem) and **refuse above 64 KB**
+  (double the largest real asset — anything there is a traced photo or a map, which is not a
+  drawing you choreograph). Measure the SANITIZED bytes, since that is what lands in the deck.
+  The 256 KB `MAX_SPEC_B64` ceiling in `hydrate.ts` bounds the ```anima fence, not the drawing —
+  a spec never approaches it, so it is not the guard this needs.
 
 "Portable" also constrains the *plan*, not just the drawing: a motion asset must not depend on
 deck-level front matter or a theme token that may not exist where it lands. It carries everything
