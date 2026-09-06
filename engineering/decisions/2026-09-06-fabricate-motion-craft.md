@@ -122,6 +122,50 @@ underneath it. One record has one lifetime.
 `art`, `poster` and `spec` are the three fields `StudioScene` **already declares**, so this is the
 existing shape finally being filled rather than a new one. The old faculty wrote only `spec`.
 
+### 4.1 Where it lands — the exact markdown Insert writes
+
+Read off the shipped worked deck (`examples/anima-scene.md`, the `source: "svg"` slide) rather than
+inferred, because Insert has to produce this byte shape and nothing else:
+
+````markdown
+<!-- _class: scene -->
+<!-- _footer: "svg · the flow draws itself, node by node" -->
+
+## The pipeline assembles in order.
+
+The drawing ORDER is the meaning — which a static diagram can only present all-at-once.
+
+<svg viewBox="0 0 460 150" fill="none" stroke-width="3" …><rect id="n1" …/><path id="a1" …/></svg>
+
+```anima
+{ "source": "svg", "duration": 3600, "hero": 1, "asset": "flow",
+  "elements": [
+    { "id": "n1", "pathRef": "n1", "color": "var(--cat-2-mark)", "motion": [{ "verb": "draw", "at": 0,    "span": 0.2  }] },
+    { "id": "a1", "pathRef": "a1", "color": "var(--text-muted)", "motion": [{ "verb": "draw", "at": 0.2,  "span": 0.15 }] }
+  ] }
+```
+````
+
+**Four facts in that shape settle design questions people otherwise argue about.**
+
+1. **The drawing rides INLINE in the deck**, as the slide's poster `<svg>`. `scene.transform.js` wraps
+   it in `.scene-figure` and reads the aspect from its `viewBox`; the ```anima fence is lifted to
+   `data-scene-spec` on the section and mounted by `anima-scenes.ts` against `SCENE_SEL`
+   (`section.scene[data-scene-spec]`). So a deck carrying a crafted asset is self-contained with no
+   further work — §10.1's portability is a property of the target, not something Insert has to add.
+2. **`spec.asset` is a LABEL, not a path.** `parseScene` requires a non-empty string for an svg
+   scene and nothing ever resolves it. It names the drawing for a human reading the fence; it does
+   not fetch anything. Do not build a file picker for it.
+3. **`pathRef` is the whole addressing contract**, and `parseScene` requires it UNIQUE across
+   elements — two parts may not choreograph the same node (the paint would be silently last-wins).
+   That is a validation the choreograph surface should enforce as it edits, not discover at save.
+4. **Each part carries its own `color` as a `var(--token)`.** So the faculty needs a token picker,
+   never a color picker: the part's paint has to stay palette-blind (#3) or the asset stops being
+   portable across themes the moment it lands in a deck with a different palette.
+
+`hero: 1` on a draw scene is also deliberate and worth copying: the still the PDF freezes is the
+FINAL frame — the finished drawing — because a half-drawn diagram is not a fallback, it is a defect.
+
 ## 5. Three on-ramps — and why Bring leads v1
 
 `2026-07-19` §4.2 names Describe · Bring · Template, and flags Describe as the risk in its own words:
