@@ -378,12 +378,19 @@ So on the raw-Marp route, any slide with its own `_class:` must name
 engine appends the register's token to the class list it builds, so a per-slide `_class:`
 composes with it instead of competing.
 
-**One known limit: a PRE-BAKE export served over http(s).** An `.html` sitting beside its
-`.md` with no baked front-matter block has to fetch that file, and the pills are drawn
-before the answer arrives — so the register does not take effect there. Every current path
-is fine: the engine and the CLI read the source directly, the Studio renders through the
-engine first, and every export bakes its front matter into the document. If you hit this,
-re-export. Making the runtime wait instead was tried and reverted: it cost every other deck
+**One known limit, and it is narrow.** The register needs the setting to be *knowable*
+where the decision is made. It is, on every shape a deck actually ships in:
+
+| shape | how the setting arrives |
+|---|---|
+| the engine, the CLI, the Studio | reads the deck source directly |
+| an **HTML export** | no block needed — the engine already applied the register, so nothing is left to decide |
+| an **Export-to-Marp bundle** | the front matter is baked into the `.md` and the runtime reads it synchronously |
+
+The gap is an `.html` rendered by **marp-core rather than by Lattice** — so the runtime is
+the only implementation — **and** carrying no baked front-matter block, which today means an
+export predating the bake. There the runtime must fetch the sibling `.md`, and the pills are
+drawn before the answer arrives. Re-export and the block is baked. Making the runtime wait instead was tried and reverted: it cost every other deck
 a full extra transform pass (measured 1 to 3 on a 40-slide deck carrying no register at
 all) and needed a wall-clock guess that produced a wrong render at 3.2s, then at 10.2s once
 the guess was enlarged.
