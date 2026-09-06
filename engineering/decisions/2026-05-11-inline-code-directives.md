@@ -74,6 +74,38 @@ summary: Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}
 > `pill-shape-crowded` coaching rule, `examples/inline-pills.md`, and docs in
 > `base.docs.md`. **Still unbuilt: `$var` interpolation and the `icon:` namespace** —
 > those sections below stand as written.
+>
+> **VERIFIED ON THREE SURFACES, each with an artifact (HARD RULE #23).** The grammar has
+> two implementations by design — a markdown-it plugin that builds a string, and a
+> runtime that builds elements inside the preview frame — so "it works" is a claim about
+> whichever surface you name.
+>
+> | Surface | What runs | Evidence |
+> |---|---|---|
+> | The engine | markdown-it plugin only | `test/unit/core/inline-pills.test.js`, `state-marks.test.js`, the `inlinePills` probe in `marp-fidelity-render.test.js` |
+> | The Playground | engine renders, runtime MIRRORS over its output | `docs/e2e/inline-pill-grammar.spec.ts` — the real Studio, real Chromium |
+> | A Marp preview | runtime ONLY; the engine never ran | `docs/e2e/inline-grammar-marp-mirror.spec.ts`, plus a hand render of a grammar deck through **real marp-cli 4.x** on the shipped `dist/marp-kit`, opened in Chromium |
+>
+> **The split between the last two is load-bearing, and mutation proved it.** Deleting the
+> `data-lat-escaped` stamp from `transformInlinePills` turns the marp-mirror spec red —
+> `` `\{LIVE}` `` promoted to a pill by the fourth pass — while the Playground spec stays
+> GREEN, because the engine stamps that attribute server-side and the mirror never reaches
+> the branch. A single Playground spec would have certified an escape that does not
+> survive a second pass for every Marp reader.
+>
+> The marp-cli render is a hand verification, not a gate: marp-cli is not a dependency
+> (HARD RULE #1 — Marp is an export target), and `test/integration/export/marp-kit-render.test.js`
+> already fetches it on demand for the kit's own deck. What it showed that the specs cannot:
+> the slide itself, with the escapes sitting as literal `` `{Alpha}` `` / `` `[x]` `` code
+> spans beside live pills — and one coached authoring error, `{Gamma}:circle` spilling its
+> label, which `lint:deck` names as `pill-shape-crowded` before it reaches a slide.
+>
+> **THE FORK STILL AHEAD.** `[x]` was kept rather than respelled `{x}` (the decks escape
+> their quoted mentions instead), which leaves the grammar with two opening characters.
+> That is the cheaper trade only while `$var` and `icon:` stay unbuilt or land as BARE
+> forms. If either lands BRACED — `` `{$client.name}` ``, `` `{icon:check}` `` — then `{}`
+> becomes the general dispatch marker and `[x]` is the lone exception rather than a
+> separate vocabulary; revisit the respell at that point, not before.
 
 ## What's already done
 
