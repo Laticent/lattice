@@ -75,7 +75,7 @@ import { STAGE_CHROME_CSS } from './stage-chrome.js';
  * strings and could never have seen the difference — so the comment is the only place the
  * distinction can live, and it may as well be accurate.
  */
-export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', mermaidUrl = '', a11yDefs = '', pad = { factor: 0.012, floor: 0 }, standalone = false, chromeDecls = '', token = '' }) {
+export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexUrl = '', mermaidUrl = '', dagreUrl = '', a11yDefs = '', pad = { factor: 0.012, floor: 0 }, standalone = false, chromeDecls = '', token = '' }) {
 	html = sanitizeSlideHtml(html); // #616 T-CONTENT — strip script before the same-origin stage srcdoc
 	const sw = width;
 	const sh = height;
@@ -408,6 +408,16 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		(standalone ? STAGE_CHROME_CSS : '') + '</style></head><body>' +
 		a11yDefs + '<div id="latt-stage"><div id="latt-view"><div id="latt-fit"><div id="latt-film">' + html + '</div></div>' + controls + '</div>' + chrome + '</div>' +
 		(mermaidUrl ? '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>' : '') +
+		// The dagre layout engine, for a stage carrying a drawn state chart. Gated on the
+		// SANITIZED html above, not on a caller flag — `data-sc-transitions` is emitted only
+		// by the DEFAULT variant, which is the only one the runtime's pass draws.
+		//
+		// BEFORE the runtime tag, which is the mechanism: both are classic scripts, so they
+		// run in document order, and the pass reads `globalThis.__latticeDagre` synchronously
+		// on its first draw. Absent → a branching machine paints as the numbered column, and
+		// the runtime says so on the console.
+		(dagreUrl && html.indexOf('data-sc-transitions') !== -1
+			? '<scr' + 'ipt src="' + dagreUrl + '"></scr' + 'ipt>' : '') +
 		'<scr' + 'ipt src="' + rt + '"></scr' + 'ipt>' +
 		'<scr' + 'ipt>requestAnimationFrame(function(){var st=document.getElementById("latt-stage");if(st)st.style.visibility="visible"});</scr' + 'ipt>' +
 		'<scr' + 'ipt>' + FIT + '</scr' + 'ipt></body></html>'

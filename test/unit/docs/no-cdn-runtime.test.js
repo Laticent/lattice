@@ -125,6 +125,16 @@ test('the relative paths the hosts request are the ones sync-playground-assets s
 		`lib/core/marp-bundle.js STATIC_ASSETS must carry mermaid-v11.min.js (staged as export/<basename>) — the hosts request /export/mermaid-v11.min.js. Saw: ${basenames.join(', ')}`,
 	);
 
+	// dagre is staged by literal destination path, like KaTeX — it is NOT under
+	// `export/`, because it is fetched by the preview frame rather than copied into an
+	// exported bundle (it is BOTH, in fact: `STATIC_ASSETS` carries it too, for the
+	// exported deck the recipient opens from `file://`).
+	assert.match(
+		staging,
+		/'lattice-dagre\.js'/,
+		"sync-playground-assets.mjs must stage 'lattice-dagre.js' — the hosts request exactly that path, and with the engine no longer inlined in the runtime bundle nothing else supplies it",
+	);
+
 	// And the hosts must ask for those exact paths. Any host that builds one of these
 	// URLs is a place a rename has to reach.
 	const hosts = [
@@ -143,6 +153,15 @@ test('the relative paths the hosts request are the ones sync-playground-assets s
 		assert.ok(
 			text.includes('katex/katex.min.css'),
 			`${rel} must pass the vendored KaTeX URL — with no CDN fallback, omitting it silently ships math unstyled`,
+		);
+		// The engine's failure is the quietest of the three, which is why it is worth an
+		// arm of its own: a missing Mermaid URL leaves a blank diagram and a missing
+		// KaTeX URL leaves unstyled math, but a missing dagre URL leaves a state chart
+		// that DRAWS — as the numbered column. A host that stops passing this ships a
+		// plausible-looking wrong layout.
+		assert.ok(
+			text.includes('lattice-dagre.js'),
+			`${rel} must pass the vendored dagre URL — omitting it silently returns every BRANCHING state chart to the numbered column`,
 		);
 	}
 });

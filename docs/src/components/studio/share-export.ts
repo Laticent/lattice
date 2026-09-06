@@ -38,6 +38,13 @@ export type DeckRender = {
 	 *  third party at export time, baking those bytes into a file handed to someone else.
 	 *  See engineering/decisions/2026-09-03-self-hosted-runtime-deps.md. */
 	mermaidUrl?: string;
+	/** Local dagre URL (`<assetBase>lattice-dagre.js`), so a state chart that BRANCHES
+	 *  is laid out rather than falling back to the numbered column. Absent → no tag is
+	 *  injected and the machine renders as a column — a different layout, not a missing
+	 *  one, which is why lib/runtime/index.js says so on the console. Split out of the
+	 *  runtime bundle because inlining it put 26.5 KB gzipped on every reader of every
+	 *  deck for an engine only a branching machine uses. */
+	dagreUrl?: string;
 };
 
 function pg(): PG | undefined {
@@ -103,6 +110,7 @@ export async function buildDeckRender(options: SingleSlideOptions, source: strin
 		runtimeUrl: options.runtimeUrl,
 		fontCss: previewFontFaceCss(),
 		mermaidUrl: options.mermaidUrl,
+		dagreUrl: options.dagreUrl,
 	};
 }
 
@@ -447,6 +455,7 @@ export async function shareHtmlPlayer(
 			runtimeUrl: options.runtimeUrl,
 			fontCss,
 			...(options.mermaidUrl ? { mermaidUrl: options.mermaidUrl } : {}),
+			...(options.dagreUrl ? { dagreUrl: options.dagreUrl } : {}),
 		});
 		// Slide-count parity is the correctness gate: notes, narration cues and the
 		// manifest are all indexed by slide, so a bake that lost or gained a section

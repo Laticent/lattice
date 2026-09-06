@@ -85,6 +85,7 @@ export function initSpecimen() {
     runtimeUrl: data.runtimeUrl,
     engineUrl: data.engineUrl,
     mermaidUrl: data.mermaidUrl,
+    dagreUrl: data.dagreUrl,
     katexUrl: data.katexUrl,
   });
 

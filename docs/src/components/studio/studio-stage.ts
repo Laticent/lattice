@@ -55,6 +55,9 @@ export async function buildStageDocument(options: SingleSlideOptions, source: st
 		// executing a floating third-party bundle. See deck-preview.js's note.
 		katexUrl: render.html.includes('katex') ? options.katexUrl || '' : '',
 		mermaidUrl: render.html.includes('language-mermaid') ? options.mermaidUrl || '' : '',
+		// Same shape for the dagre layout engine. buildStageDoc re-checks the marker on its
+		// own sanitized html, so this narrowing is the cheap early-out, not the guarantee.
+		dagreUrl: render.html.includes('data-sc-transitions') ? options.dagreUrl || '' : '',
 		a11yDefs: A11Y_DEFS,
 		// The projected window, not an iframe: this is what adds the audience-chrome
 		// hosts, the opener handshake and the `f` fallback (see buildStageDoc).

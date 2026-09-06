@@ -459,6 +459,16 @@ beats `--pale-blue-bg` because the role survives a palette swap.
   Chromium on install.
 - **highlight.js** (optional): syntax highlights code blocks. The
   renderer falls back to monochrome if `hljs` is missing.
+- **dagre** (`dagre-d3-es`, MIT): places the nodes of a `state-chart`
+  that BRANCHES. Never bundled into the runtime — it is built to a
+  standalone `dist/lattice-dagre.min.js` that a host tags before
+  `lattice-runtime.min.js`, and the CLI export inlines the same IIFE
+  only for a deck whose machine actually branches. A chain keeps the
+  numbered column and needs no engine, which is why the delivery is
+  conditional: inlining it cost every reader of every deck 26.5 KB
+  gzipped. Absent, a branching machine falls back to the column and
+  the runtime says so on the console. See
+  `engineering/decisions/2026-09-06-state-chart-dagre-layout.md`.
 - **No build system.** No webpack, no rollup, no TypeScript compiler.
   The renderer is plain Node, the runtime is plain ES2017+ JavaScript,
   the CSS is plain CSS. A future palette author or layout contributor

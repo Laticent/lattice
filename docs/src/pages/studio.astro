@@ -63,6 +63,7 @@ const options = {
 	// `globalThis.mermaid` the runtime orchestrates. The Studio renders diagrams
 	// from our own origin, never the jsdelivr CDN (offline / strict-CSP safe).
 	mermaidUrl: url(pg + 'export/mermaid-v11.min.js'),
+	dagreUrl: url(pg + 'lattice-dagre.js'),
 	// Locally-vendored KaTeX (staged under katex/) for the presenter/stage math path —
 	// same reason as Mermaid: render math from our own origin, never jsdelivr.
 	katexUrl: url(pg + 'katex/katex.min.css'),

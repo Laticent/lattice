@@ -18,6 +18,7 @@ export type HeroData = {
 	runtimeUrl: string;
 	engineUrl: string;
 	mermaidUrl: string;
+	dagreUrl: string;
 	katexUrl: string;
 };
 
@@ -32,9 +33,10 @@ export default function HeroPreview({ data }: { data: HeroData }) {
 			runtimeUrl: data.runtimeUrl,
 			engineUrl: data.engineUrl,
 			mermaidUrl: data.mermaidUrl,
+			dagreUrl: data.dagreUrl,
 			katexUrl: data.katexUrl,
 		}),
-		[data.themeBase, data.runtimeUrl, data.engineUrl, data.mermaidUrl, data.katexUrl],
+		[data.themeBase, data.runtimeUrl, data.engineUrl, data.mermaidUrl, data.dagreUrl, data.katexUrl],
 	);
 
 	return (

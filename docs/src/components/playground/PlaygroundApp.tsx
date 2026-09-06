@@ -74,6 +74,7 @@ export type PlaygroundData = {
 	 *  omitted means the tag is not injected and the diagram or math simply does not
 	 *  render. See engineering/decisions/2026-09-03-self-hosted-runtime-deps.md. */
 	mermaidUrl?: string;
+	dagreUrl?: string;
 	katexUrl?: string;
 	palettes: string[];
 	finishes: string[];
@@ -187,7 +188,7 @@ function adoptBootSeed(view: 'read' | 'edit', pane: 'edit' | 'preview') {
  * the config panel (DeckSetupSheet). None are reimplemented.
  */
 export function PlaygroundApp({ data }: { data: PlaygroundData }) {
-	const { catalog, components, lenses, gallerySources, galleryGroups, themeBase, runtimeUrl, engineUrl, mermaidUrl, katexUrl, palettes, finishes, lintVocab, starter, plansBase } = data;
+	const { catalog, components, lenses, gallerySources, galleryGroups, themeBase, runtimeUrl, engineUrl, mermaidUrl, dagreUrl, katexUrl, palettes, finishes, lintVocab, starter, plansBase } = data;
 
 	// Two component states, one rule each (2026-07-05 decision §4): `draftComponent`
 	// is DERIVED — what detectComponent reads out of the live editor, possibly '' when
@@ -308,7 +309,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// replaces the iframe doc). Export untouched (poster still).
 	const animaScenesRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
 	const editorRef = React.useRef<EditorAdapter | null>(null);
-	const engineRef = React.useRef(createEngineBridge(themeBase, runtimeUrl, engineUrl, palettes, { mermaidUrl, katexUrl }));
+	const engineRef = React.useRef(createEngineBridge(themeBase, runtimeUrl, engineUrl, palettes, { mermaidUrl, dagreUrl, katexUrl }));
 	const previewStateRef = React.useRef<PreviewState>({ frameSig: '', lastSections: null });
 	const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 

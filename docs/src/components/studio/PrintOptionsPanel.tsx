@@ -229,6 +229,7 @@ export function PrintOptionsPanel({
 				html: `<article class="lattice">${sections[i]}</article>`, css: render.css, mode: render.mode, geom: render.geom,
 				runtimeUrl: render.runtimeUrl, fontCss: render.fontCss,
 				...(render.mermaidUrl ? { mermaidUrl: render.mermaidUrl } : {}),
+				...(render.dagreUrl ? { dagreUrl: render.dagreUrl } : {}),
 				// padding 0 + white ground so the slide fills its cell edge-to-edge (no dark
 				// letterbox); center so the FIT-scaled slide sits flush. The frame is sized to
 				// the cell's fit-rect, so there is nothing to scroll.
@@ -292,6 +293,7 @@ export function PrintOptionsPanel({
 			html: render.html, css: render.css, mode: render.mode, geom: render.geom,
 			runtimeUrl: render.runtimeUrl, fontCss: render.fontCss,
 			...(render.mermaidUrl ? { mermaidUrl: render.mermaidUrl } : {}),
+			...(render.dagreUrl ? { dagreUrl: render.dagreUrl } : {}),
 			// `diagrams: false` — the same opt-out `deck-export.js`'s capture frame takes, for
 			// the same reason and on the same kind of document. This one is never watched (it
 			// is mounted off-screen at -10000px and handed straight to `print()`), and what it

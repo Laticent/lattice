@@ -312,14 +312,51 @@ Also to update: the prose dependency list at `engineering/architecture.md:453`, 
 `changelog.d/` fragment (HARD RULE #10), and `npm run build:check` after the lockfile
 regenerates, so `checkLockfileOptionalPeers` sees the new subtree.
 
-### 6.3 Bundle weight lands on an EAGER path
+### 6.3 Bundle weight landed on an EAGER path, and has been taken off it
+
+**This section recorded a cost as "acceptable" and it was not. Corrected in place.**
 
 `2026-09-03-self-hosted-runtime-deps.md:153` warns that Mermaid "must never drift onto
-an eager path". dagre is not Mermaid-sized, but the asymmetry matters: Mermaid is
-injected per-slide only when a diagram exists, whereas dagre inlines into
-`dist/lattice-runtime.min.js`, which `sync-playground-assets.mjs` stages and the
-landing page loads. +22 KB gzipped is paid by every reader, including on decks with no
-state chart. Acceptable at this size; it would not be at ELK's 430 KB.
+an eager path", and names the compliant shape: "it is injected per-slide, only for a
+slide that has a diagram." The first cut inlined dagre into
+`dist/lattice-runtime.min.js`, which `sync-playground-assets.mjs` stages and the landing
+page loads — so every reader of every deck paid for it, including on decks with no state
+chart, and this section argued that was fine at the size. It was the exact drift the
+rule names, and "not Mermaid-sized" is not the test the rule states.
+
+It is measured, not estimated: `lattice-runtime.min.js` went **242,155 → 215,702 B
+gzipped**, so the eager cost was **26.5 KB, 10.9% of the bundle**, for an engine that
+**none of the 13 shipped machines uses** — every one of them is a chain.
+
+**dagre now travels the way every other heavy dep here does.** Mermaid (3.16 MB) is a
+separate file the preview builder tags conditionally; the KaTeX provider (268 KB) and the
+156 hljs grammars are separate files loaded on demand off a sibling URL. dagre was the
+only one inside a bundle. It is now `dist/lattice-dagre.min.js`, and it reaches a
+document two ways, both conditional:
+
+- **Browser hosts** tag it with a `<script src>` emitted BEFORE the runtime tag, and only
+  when the document carries `data-sc-transitions` (the DEFAULT state-chart variant — the
+  `inline` variant is chips and needs no layout). Classic scripts run in document order,
+  so the global is installed before the pass reads it and there is no repaint.
+- **The CLI export** inlines the same IIFE, and only for a deck whose machine actually
+  BRANCHES — decided by running the real dagre in Node over the deck's own topology
+  (`state-chart.adoption.js`), because rank assignment is topology-only. A chain-only
+  export sheds 63.7 KB raw / 22.4 KB gzipped.
+
+**What it costs, stated plainly.** `lattice-runtime.min.js` is no longer self-sufficient:
+a consumer who embeds it bare gets the numbered column for a branching machine. That is
+the same property Mermaid has always had, and our own distribution closes it — the file
+is in `STATIC_ASSETS`, so the marp kit, the CLI export bundle and the playground staging
+all carry it, and `RUNTIME_SCRIPTS` tags it ahead of the runtime in every exported deck.
+What is genuinely new is the failure MODE: a missing Mermaid leaves a blank diagram, but
+a missing dagre leaves a chart that draws — as a column, which looks like a deliberate
+layout. Nothing on the page would say otherwise, so `lib/runtime/index.js` says it on the
+console, once per document, naming the file.
+
+**The player path is unaffected and cannot use the sibling.** Its CSP is
+`default-src 'none'; script-src 'sha256-<jsHash>'` and it strips every `<script src>`, so
+it takes the inlined IIFE or nothing — which is why the export half stayed an inline
+string rather than becoming a second tag.
 
 ## 7. Method note
 
