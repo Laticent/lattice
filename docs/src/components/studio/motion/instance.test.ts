@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 // The insert seam: a stored drawing is a template, and every copy of it needs its own ids.
 //
 // The regression these pin cost five duplicate ids in this repo's own worked deck. `artNamespace`
