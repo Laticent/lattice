@@ -530,6 +530,19 @@ slide; G is rejected on 116KB for what CSS does for free.
   8000+ unit tests. What eventually held them was not review at all but the conformance corpus
   below, which asks the ENGINE rather than the author of the change.
 
+  **So the corpus was extended until it would have caught rounds four and five UNAIDED**, which
+  is the only way off a treadmill where each review round finds the last one's mistake. The arm
+  that does it asks a different question from the rest of the file: not "is this a fence" but
+  **what does the SPLICE do**. It substitutes a placeholder over every span the walker reports —
+  exactly as `preprocessMermaid` does, back to front — re-renders through the real engine, and
+  requires that the deck still has the same number of SLIDES and that every sentinel the author
+  wrote outside a fence is still on one of them.
+
+  Both defects were correct about *which* fences and wrong about *what the splice does*, so both
+  fall to it. Mutation-proved: reverting the span to `offset - indent.length` turns it red, and
+  so does narrowing the break guard back to `/^---$/`. A reviewer found each of those by hand,
+  once; this asks the engine on every run.
+
   The indented pair is the one worth dwelling on. This module exists to stop a fence the
   PREVIEW draws from printing as source, and its first version reintroduced exactly that for
   every fence an author indents — with a green unit test asserting the behavior was correct

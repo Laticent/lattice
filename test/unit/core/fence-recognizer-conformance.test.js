@@ -43,6 +43,9 @@ const { createFenceReader } = require('../../../lib/core/slide-speech');
 const { scanFences } = require('../../../lib/core/fence-languages');
 
 const FRONT = '---\nmarp: true\ntheme: lattice\n---\n\n<!-- _class: diagram -->\n\n## A heading.\n\n';
+// Front matter WITHOUT the `_class` directive or a heading — the substitution invariant below
+// supplies its own slides and must not have extra ones prepended.
+const FRONT_PLAIN = '---\nmarp: true\ntheme: lattice\n---\n\n';
 const DEF = 'flowchart LR\n  A[Input] --> B[Process]\n';
 
 /**
@@ -131,6 +134,67 @@ describe('fence recognizers — conformance against the engine', () => {
 				'text with a picture. There is no budget for this direction — a MISS shows the source ' +
 				'and is recoverable; an over-match is not.',
 		);
+	});
+
+	// THE SUBSTITUTION INVARIANT, and this is the arm that would have caught the last two
+	// rounds unaided.
+	//
+	// Everything above asks "is this a fence". That question missed both defects that made it
+	// furthest: a span that started N characters early (which deleted the author's prose) and a
+	// slide-boundary guard that covered `---` and not `***` (which deleted a whole slide). Both
+	// were correct about WHICH fences and wrong about WHAT THE SPLICE DOES — so ask that
+	// directly, the way `preprocessMermaid` does: splice a placeholder over every span the
+	// walker reports, re-render, and require that nothing but the fence changed.
+	//
+	// Two properties, both against the real engine:
+	//   · the deck still has the same number of SLIDES;
+	//   · every sentinel the author wrote outside a fence is still on one of them.
+	//
+	// A reviewer found each of these by hand, once. This asks the engine, every run.
+	test('substituting every fence the walker finds changes nothing but the fences', () => {
+		const SENTINELS = ['Prose that must survive', '42 million', 'literal sample'];
+		const tail = [
+			'', '## Prose that must survive.', '', 'The Q4 forecast is 42 million.', '',
+			'```text', 'literal sample', '```', '',
+		];
+		const decks = [];
+		// A fence under a bullet, closed correctly and mis-indented, against every spelling of a
+		// thematic break the engine splits on.
+		for (const sep of ['---', '***', '___', '- - -', '* * *', '  ***', '   ---']) {
+			for (const closer of ['  ```', '    ```']) {
+				decks.push({
+					name: `list fence, closer ${JSON.stringify(closer)}, separator ${JSON.stringify(sep)}`,
+					src: ['## One.', '', '- The flow:', '', '  ```mermaid', '  flowchart LR', '    A --> B', closer, '', sep, ...tail].join('\n'),
+				});
+			}
+		}
+		// And the shapes that broke the span arithmetic: prose immediately before a fence, at
+		// every indent, plus a fence at the head of the document.
+		for (const pad of ['', ' ', '  ', '   ']) {
+			decks.push({
+				name: `prose then a fence indented ${pad.length}`,
+				src: ['The Q4 forecast is 42 million.', `${pad}\`\`\`mermaid`, `${pad}flowchart LR`, `${pad}\`\`\``, '', '---', '', '## Prose that must survive.', '', '```text', 'literal sample', '```', ''].join('\n'),
+			});
+		}
+		decks.push({
+			name: 'fence at the head of the document',
+			src: ['```mermaid', 'flowchart LR', '```', '', '---', '', '## Prose that must survive.', '', 'The Q4 forecast is 42 million.', '', '```text', 'literal sample', '```', ''].join('\n'),
+		});
+
+		const sections = (body) => (render(FRONT_PLAIN + body).html.match(/<section/g) || []).length;
+		for (const { name, src } of decks) {
+			// Splice back-to-front so earlier offsets stay valid — what `preprocessMermaid` does.
+			let out = src;
+			for (const m of matchMermaidFences(src).slice().reverse()) {
+				out = out.slice(0, m.start) + '<div class="mermaid-svg"></div>' + out.slice(m.end);
+			}
+			assert.equal(sections(out), sections(src), `${name}: substituting changed the SLIDE COUNT`);
+			const rendered = render(FRONT_PLAIN + out).html;
+			for (const sentinel of SENTINELS) {
+				if (!src.includes(sentinel)) continue;
+				assert.ok(rendered.includes(sentinel), `${name}: "${sentinel}" was lost by the substitution`);
+			}
+		}
 	});
 
 	// The two other `lib/` recognizers, and the ways they deliberately differ. Prose said this
