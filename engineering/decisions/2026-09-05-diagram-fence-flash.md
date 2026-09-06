@@ -38,9 +38,16 @@ summary: >
   self-inflicted defects before merge, both fixed and both recorded in §5: the CSS rule
   blanked the source in EXPORTS (a `~~~mermaid` fence, which `preprocessMermaid`'s regex does
   not match, reaches the exported HTML unsubstituted with the runtime stripped), so the rule
-  now requires a `[data-lattice-runtime]` attribute that only a builder injecting the runtime
-  stamps; and the first normalization missed the CSSOM's VALUE re-serialization, so every
-  slide carrying a `![bg](…)` would still have missed.
+  was gated on an attribute; and the first normalization missed the CSSOM's VALUE
+  re-serialization, so every slide carrying a `![bg](…)` would still have missed. A SECOND
+  checker then found that gate was itself defective — it required `data-lattice-runtime`, a
+  name `lib/runtime/index.js` has always written at boot, so the rule switched itself on in
+  exactly the hosts it was meant to spare and hid a late fence permanently on any host with
+  the runtime and no Mermaid. The runtime was never the right precondition: a fence is
+  replaced by MERMAID, so the shipped gate is `[data-lattice-diagrams]`, stamped only when a
+  builder injects the Mermaid script. That pass also found a SORT in the scope key that
+  discarded last-one-wins (two blocks resolving to different colors normalized to one key)
+  and a `--logo-*` drop that swallowed the `--logo-ink` color token; both fixed.
 ---
 
 # The Mermaid fence flashes before the diagram — measured, and seven ways out
@@ -293,9 +300,10 @@ matches ```` ```mermaid ```` and nothing else, so a `~~~mermaid` fence — a for
 Studio's own diagnostic accepts (`mermaid-check.ts`) — reaches the exported HTML
 unsubstituted, with the runtime stripped. Un-scoped, the new rule hid it: the author's
 only signal that the CLI never drew their diagram became an empty slot, silently, in
-export bytes. Reproduced with one CLI run. The rule is now gated on
-`[data-lattice-runtime]`, an attribute stamped by the three builders that inject the
-runtime (`previewRuntimeAttr`, deck-preview.js) and by nothing else — so every export
+export bytes. Reproduced with one CLI run. The rule was then gated on an
+attribute — and the FIRST gate chosen for it was itself defective; see the second-pass
+section below for what actually shipped (`[data-lattice-diagrams]`, stamped by
+`previewDiagramsAttr` only when a builder injects the Mermaid script) — so every export
 path, the `.html` player and a hand-rolled Marp page keep the old behavior. It is in the
 markup rather than set by script at boot because the window this rule covers starts at
 first paint of a full document write. The cost is that marp-vscode's own preview, which
@@ -403,12 +411,13 @@ slide; G is rejected on 116KB for what CSS does for free.
   Widening that regex changes export bytes, which is the QUALITY BAR's stop-and-show gate
   and a different change from this one. Off the path (HARD RULE #18), so it is logged here
   rather than pulled into this diff.
-- A's failure mode with the runtime absent is now STRUCTURAL rather than argued: the rule
-  requires `[data-lattice-runtime]`, which only a builder that injects the runtime stamps, so
-  a document without one cannot match it. Verified on a real export (the fence renders
-  `visibility: visible`). What is still not driven: a document that stamps the attribute and
-  then fails to load the runtime — a CSP that blocks the script, or a 404 on `runtimeUrl`.
-  There the source stays hidden.
+- A's failure mode is now STRUCTURAL rather than argued: the rule requires
+  `[data-lattice-diagrams]`, which only a builder injecting the MERMAID script stamps, so a
+  document that will not draw the diagram cannot match it. Verified on a real export (the
+  fence renders `visibility: visible`) and on the second checker's own late-fence repro.
+  What is still not driven: a document that stamps the attribute and then fails to load
+  Mermaid — a CSP that blocks the script, or a 404 on `mermaidUrl`. There the source stays
+  hidden.
 - D's first-mount cost is now MEASURED, and it is not free. Same build, one variable — a
   three-slide deck whose third slide is a diagram, against the same deck with prose in its
   place — timing a reload to the preview's first painted `.lattice`, 5 runs each:
