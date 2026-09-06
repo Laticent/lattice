@@ -29,7 +29,7 @@ import type { StudioFinish } from './finish-library';
 import { type Finding, LayoutStudio, STARTER_CSS, STARTER_DESCRIPTION, STARTER_META, STARTER_NAME, STARTER_SKELETON } from './LayoutStudio';
 import { REFUSAL_PREFIX } from './library/asset-store.js';
 import { findNameClash } from './library/save-guard.js';
-import { MotionStudio } from './MotionStudio';
+import { MotionSheet } from './MotionSheet';
 import { manifestJsonCompletion } from './manifest-complete';
 import { useReferenceDoc } from './reference-doc-ui';
 import { type StudioTheme, saveStudioTheme } from './theme-library';
@@ -238,7 +238,7 @@ export type FabricateSeed =
 	| { kind: 'component'; record: StudioComponent }
 	| { kind: 'finish'; record: StudioFinish };
 
-export function Fabricate({ options, catalog = [], seed, savedThemes = [], savedComponents = [], savedFinishes = [], onClose, notify, onSaved, onOpenWorkspace }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: FabricateSeed | null; savedThemes?: { id: string; name: string }[]; savedComponents?: { id: string; name: string }[]; savedFinishes?: { id: string; name: string }[]; onClose: () => void; notify: (msg: string) => void; onSaved?: () => void; onOpenWorkspace?: () => void }) {
+export function Fabricate({ options, catalog = [], seed, savedThemes = [], savedComponents = [], savedFinishes = [], source = '', onEdit, deckTitle = 'This deck', savedSceneCount = 0, onExportScenes, onClose, notify, onSaved, onOpenWorkspace }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: FabricateSeed | null; savedThemes?: { id: string; name: string }[]; savedComponents?: { id: string; name: string }[]; savedFinishes?: { id: string; name: string }[]; /** The open deck's markdown — the Motion tab reads its targets from it and writes the register back. */ source?: string; onEdit?: (label: string, updater: (s: string) => string) => void; deckTitle?: string; savedSceneCount?: number; onExportScenes?: () => void; onClose: () => void; notify: (msg: string) => void; onSaved?: () => void; onOpenWorkspace?: () => void }) {
 	const [tab, setTab] = React.useState<'theme' | 'layout' | 'finish' | 'motion'>('theme');
 	// All ten essentials in state, seeded from the first curated starter.
 	const [core, setCore] = React.useState<Record<EssKey, string>>(() => ({ ...(STARTERS[0].essentials as Record<EssKey, string>) }));
@@ -947,7 +947,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 					{facultyToggle}
 					<div className="flex-1" />
 				</div>
-				<MotionStudio notify={notify} onSaved={onSaved} onOpenWorkspace={onOpenWorkspace} />
+				<MotionSheet source={source} onEdit={onEdit ?? (() => {})} deckTitle={deckTitle} savedSceneCount={savedSceneCount} onExportScenes={onExportScenes} notify={notify} />
 			</div>
 		);
 	}

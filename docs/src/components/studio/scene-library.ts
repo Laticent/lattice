@@ -68,11 +68,6 @@ export type StoredScene = { valid: true; scene: StudioScene } | UnreadableScene;
 // (listAssets filters by kind), beside 'theme' / 'component' / 'finish'.
 type SceneAssetRecord = { id: string; kind: 'scene'; name: string; label?: string; description?: string; spec?: unknown; poster?: string; art?: string; addedAt?: number; specVersion?: number };
 
-/** The engine a scene targets, derived from its source (built→Zdog, svg→Vivus). */
-export function sceneEngine(spec: Scene): 'zdog' | 'vivus' {
-	return spec.source === 'svg' ? 'vivus' : 'zdog';
-}
-
 /** Sanitize a scene's UNTRUSTED SVG markup (`poster`/`art`) — the store-boundary chokepoint
  *  (HARD RULE #22). Applied by `saveStudioScene` so no raw markup is ever persisted, whatever
  *  the caller. Exported so the boundary is directly unit-testable without the IndexedDB store. */

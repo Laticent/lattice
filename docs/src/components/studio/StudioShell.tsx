@@ -84,6 +84,7 @@ import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
 import { DRAWER_LABEL, StudioDrawer } from './StudioDrawer';
+import { listStoredScenes } from './scene-library';
 import { ScrollFade } from './scroll-fade';
 import { importComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
@@ -1049,6 +1050,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		listStudioFinishes().then(setSavedFinishes).catch(() => setSavedFinishes([]));
 	}, []);
 	React.useEffect(() => { refreshFinishes(); }, [refreshFinishes]);
+	// Saved motion scenes — counted, not listed. The Motion tab no longer edits them (the frame
+	// model retired the standalone-scene model, §7b), so all the surface owes them is an honest
+	// count and a way OUT. Counted through the raw reader so a record this version cannot parse is
+	// still counted and still exportable — the §7c fix would be pointless if the UI that offers the
+	// export used the lossy list.
+	const [savedSceneCount, setSavedSceneCount] = React.useState(0);
+	React.useEffect(() => {
+		listStoredScenes().then((rows) => setSavedSceneCount(rows.length)).catch(() => setSavedSceneCount(0));
+	}, []);
 	// The add-slide gallery = your saved local components (first) + the built-in catalog.
 	// Locals carry their own `css` so the gallery previews them STYLED (per-tile extraCss —
 	// the engine theme doesn't know a local `.name` rule).
@@ -2233,6 +2243,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const notify = React.useCallback((msg: string) => {
 		toast(msg, { duration: 2600 });
 	}, []);
+	const exportSavedScenes = React.useCallback(() => {
+		(async () => {
+			const rows = await listStoredScenes();
+			const valid = rows.filter((r) => r.valid).map((r) => r.scene);
+			const unreadable = rows.filter((r) => !r.valid);
+			const { packBundle } = await import('./asset-bundle');
+			const { downloadBlob } = await import('./download');
+			const zip = await packBundle([], [], [], valid);
+			downloadBlob('lattice-motion-scenes.zip', zip);
+			notify(unreadable.length ? `Downloaded ${valid.length} scene(s). ${unreadable.length} could not be read and stay in your library and backups.` : `Downloaded ${valid.length} scene(s).`);
+		})().catch(() => notify('Could not export your scenes.'));
+	}, [notify]);
 
 	// ── Self-driving demo walkthrough ───────────────────────────────────────
 	// A guided "watch it drive itself" tour: a fake cursor + captions play a
@@ -5018,7 +5040,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    the heading would be page content sitting in no landmark. */}
 					<h1 className="sr-only">Lattice Studio</h1>
 					<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the Fabricate studio…</div>}>
-						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} onClose={() => { setFabricateSeed(null); setView('compose'); }} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
+						<Fabricate options={options} catalog={components} seed={fabricateSeed} source={source} onEdit={settingsWrite} deckTitle={deckTitle} savedSceneCount={savedSceneCount} onExportScenes={exportSavedScenes} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} onClose={() => { setFabricateSeed(null); setView('compose'); }} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 					</React.Suspense>
 				</main>
 			) : landscapePhone ? (
