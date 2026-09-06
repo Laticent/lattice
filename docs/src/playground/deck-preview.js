@@ -345,7 +345,7 @@ export function buildSrcdoc({
 	const needsKatex = html.indexOf('katex') !== -1;
 	const needsMermaid = html.indexOf('language-mermaid') !== -1;
 	return (
-		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"><head><meta charset="utf-8">' +
+		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewRuntimeAttr(runtimeUrl) + '><head><meta charset="utf-8">' +
 		// FIRST in <head>, before any content or subresource link — a CSP meta governs only
 		// what the parser has not already reached (#1753).
 		(csp ? previewCspMeta({ katexUrl }) : '') +
@@ -407,6 +407,27 @@ export function buildSrcdoc({
 		(sync ? '<scr' + 'ipt>' + syncAgent(gap) + '</scr' + 'ipt>' : '') +
 		'</body></html>'
 	);
+}
+
+/**
+ * The attribute a preview document wears to say "a Lattice runtime is being injected
+ * into me". ONE place writes it, because it is a promise about the document rather
+ * than a style hook: `mermaid.css` withholds an un-tagged Mermaid fence's ink only
+ * under `[data-lattice-runtime]`, on the reasoning that hiding a diagram's source is
+ * right only where something is going to replace it.
+ *
+ * It is in the MARKUP the builder writes, never set by script at boot, because the
+ * window it covers starts at the first paint of a full document write — before any
+ * script of ours has run.
+ *
+ * Returns nothing when there is no runtime URL, so a document that ends up without a
+ * runtime never claims one: the fence stays readable, which is the old behavior and
+ * the safe direction. Every export path and the .html player fall in that half by
+ * simply not calling this.
+ * See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A.
+ */
+export function previewRuntimeAttr(runtimeUrl) {
+	return runtimeUrl ? ' data-lattice-runtime' : '';
 }
 
 // Patch only the <section> nodes whose HTML changed. Returns true on success

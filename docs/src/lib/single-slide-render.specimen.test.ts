@@ -162,7 +162,11 @@ async function srcdocFor(specimen?: boolean): Promise<string> {
 describe('the specimen flag on the rendered frame (#1463)', () => {
 	it('stamps <html data-lattice-specimen> when the host renders catalog specimens', async () => {
 		const doc = await srcdocFor(true);
-		expect(doc).toMatch(/^<!doctype html><html data-lattice-specimen>/);
+		// `[ >]`, not `>`: the tag now also carries `data-lattice-runtime` (this builder
+		// injects the runtime, and `mermaid.css` withholds an un-tagged Mermaid fence's ink
+		// only under that attribute). The assertion is about the specimen flag being FIRST
+		// and well-formed, not about it being alone.
+		expect(doc).toMatch(/^<!doctype html><html data-lattice-specimen[ >]/);
 	});
 
 	it('leaves the tag bare for a full-size host — every other preview keeps its watcher', async () => {
@@ -170,12 +174,24 @@ describe('the specimen flag on the rendered frame (#1463)', () => {
 		// own preview, the landing islands and the specimens all take this path, and
 		// e2e/reader-alarms.spec.ts' positive control depends on their watcher still running.
 		const doc = await srcdocFor(undefined);
-		expect(doc).toMatch(/^<!doctype html><html>/);
+		expect(doc).toMatch(/^<!doctype html><html data-lattice-runtime>/);
 		expect(doc).not.toContain('data-lattice-specimen');
 	});
 
 	it('an explicit false is the same as omitting it', async () => {
 		expect(await srcdocFor(false)).not.toContain('data-lattice-specimen');
+	});
+
+	// The other flag this tag carries, and the one with teeth: `mermaid.css` hides an
+	// un-tagged Mermaid fence's ink ONLY under `[data-lattice-runtime]`, because hiding a
+	// diagram's source is right only where something is going to replace it. This builder
+	// always injects the runtime, so it always stamps. A builder that does not inject one
+	// must not stamp — that is what keeps an export, whose runtime is stripped, showing
+	// the source of a fence the CLI could not substitute rather than an empty slot.
+	// See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A.
+	it('claims a runtime, because it injects one', async () => {
+		expect(await srcdocFor(undefined)).toContain('data-lattice-runtime');
+		expect(await srcdocFor(true)).toContain('data-lattice-runtime');
 	});
 
 	it('does not disturb the rest of the document head — the theme style still carries its id', async () => {

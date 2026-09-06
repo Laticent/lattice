@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   A diagram slide in the Studio paints its raw ```mermaid source before it paints the
   diagram, and the report that it "didn't use to be that way" is half right. Two mechanisms
@@ -23,12 +23,22 @@ summary: >
   on its own measurement — it leaves the source on screen 50-75% LONGER; F (render in the
   engine) on price — ~700ms idle and ~1.8s busy before anything appears, paid on the Studio's
   own thread; G (anime.js) on 116KB for what one `::before` already does. Nothing is
-  implemented: this is the bake-off, awaiting the pick.
+  SHIPPED as A+E+D. Re-measured from a real build, not from injected candidates: typing
+  10 source frames / 172ms -> 0 / 0 blank / 20ms; navigate-revisit 4 / 368ms -> 0 / 0 / 19ms
+  with 0 of 4 realm rebuilds; a genuinely cold diagram is 0 source frames behind an empty
+  slot at 386ms. Implementing E surfaced a LATENT DEFECT the bake-off had not: `diagramScopeKey`
+  keyed the SVG cache on the section's raw inline `style`, which the runtime itself stamps
+  (`--_sec-1cqi` from patchSectionGeometry, `--logo-*` from the deck logo) — and touching it
+  makes the browser re-serialize the rest — so one slide produced two different keys either
+  side of the stamp and the replay missed 100% of the time. The key now drops runtime-written
+  properties and normalizes whitespace and order, which also stops the ordinary path missing
+  on a re-serialized section. Failure direction is a miss (a re-render), never another slide's
+  baked ink.
 ---
 
 # The Mermaid fence flashes before the diagram — measured, and seven ways out
 
-**Date:** 2026-09-05 · **Status:** bake-off, awaiting the pick · **Surface:** Studio live preview
+**Date:** 2026-09-05 · **Status:** shipped (A+E+D) · **Surface:** Studio live preview
 
 A diagram slide in the Studio paints its raw ```mermaid source first, then swaps it
 for the diagram. This note reproduces that, measures it, and prices seven candidate
@@ -231,7 +241,91 @@ one `::before` and one `@keyframes` — a library buys nothing here, and a JS-dr
 animation in the frame competes for the same main thread that is late tagging the
 fence.
 
-## 5. Recommendation
+## 5. What shipped
+
+**A + E + D**, in that order. Re-measured from a real build — the candidates in §4 were
+injected into the preview frame, so these are the numbers that count:
+
+| scenario | before | after |
+|---|---|---|
+| typing on a diagram slide | 10 source frames · 172ms | **0 source · 0 blank · 20ms** |
+| navigate on, revisit | 4 source frames · 368ms · 4/4 rebuilds | **0 source · 0 blank · 20ms · 0/4** |
+| navigate on, first visit | 4 source frames · 448ms | **0 source** · 10 frames empty · 455ms |
+
+Layout shift stayed 0 in every arm.
+
+**Implementing E surfaced a defect the bake-off had not.** The first implementation missed
+the cache 100% of the time, and the reason was not in the replay: `diagramScopeKey` keyed a
+rendered diagram on the section's RAW inline `style`, and the runtime writes to that style —
+`patchSectionGeometry` stamps `--_sec-1cqi`/`--_sec-1cqh`, and a `logo:` deck gets `--logo-*`.
+Touching the attribute also makes the browser re-serialize the rest with a space after every
+colon. Measured on the running Studio, one slide therefore produced two keys:
+
+```
+authored   --theme:"cuoio";--class:"diagram";
+stamped    --theme: "cuoio"; --class: "diagram"; --_sec-1cqi: 12.800px; --_sec-1cqh: 7.200px;
+```
+
+Any reader on one side of the stamp could never hit a cache filled on the other. The key now
+drops runtime-written properties and normalizes whitespace and declaration order
+(`normalizeScopeStyle`), which also stops the ORDINARY path missing on a re-serialized
+section. The failure direction is stated in the code and is why this is safe: an unlisted
+runtime stamp costs a cache miss — a re-render — and can never hand a slide another slide's
+baked ink, because everything surviving normalization is still compared exactly. Pinned in
+`test/unit/runtime/mermaid-per-slide-band.test.js` against the real strings above.
+
+### What an independent checker found, and what it changed
+
+Maker–checker on the diff (CLAUDE.md § MAKER-CHECKER) returned two CONFIRMED
+self-inflicted defects, both outside the surface this change set out to touch. Both are
+fixed above; they are recorded because each was asserted as *verified* in three
+documents before anyone drove it.
+
+**The CSS rule blanked the source in EXPORTS.** `preprocessMermaid` (lattice-emulator.js)
+matches ```` ```mermaid ```` and nothing else, so a `~~~mermaid` fence — a form the
+Studio's own diagnostic accepts (`mermaid-check.ts`) — reaches the exported HTML
+unsubstituted, with the runtime stripped. Un-scoped, the new rule hid it: the author's
+only signal that the CLI never drew their diagram became an empty slot, silently, in
+export bytes. Reproduced with one CLI run. The rule is now gated on
+`[data-lattice-runtime]`, an attribute stamped by the three builders that inject the
+runtime (`previewRuntimeAttr`, deck-preview.js) and by nothing else — so every export
+path, the `.html` player and a hand-rolled Marp page keep the old behavior. It is in the
+markup rather than set by script at boot because the window this rule covers starts at
+first paint of a full document write. The cost is that marp-vscode's own preview, which
+assembles its own page, does not get the rule.
+
+**The scope-key normalization did not achieve the stability it claimed.** It handled the
+two drifts measured above and not the third: the CSSOM re-serializes VALUES, so
+`background-position:center` returns `center center` and `url(x)` returns `url("x")` —
+which moved the key on every slide carrying a `![bg](…)`. The key now reads
+`style.cssText` (the CSSOM's serialization, identical on both sides by construction)
+rather than the `style` attribute; `normalizeScopeStyle` still drops the declarations the
+stamp ADDS. Driven in real Chromium across five engine-emitted styles — plain, `url()`
+background, data-URI background, color, and a value containing `;` — all five now stable,
+with palette, `_class: dark` and a genuinely different background still splitting the key.
+
+Three more findings, dispositioned:
+
+- **The replay tagged fences with no Mermaid to render them.** `initAndRun` returns before
+  `wrapFences()` when `window.mermaid` is a stub or absent; the replay had no such guard,
+  so on such a host a fence arriving after boot would be tagged, hidden, and never
+  rendered. It now opens with the same guard.
+- **Two comments asserted the opposite of the code** (StudioShell's "unified to the shown
+  slide", PresentOverlay's "keeps the render signature aligned with the editor"). Both
+  rewritten — and the second exposed that Present was still slide-scoped, so a presenter
+  moving between a text slide and a diagram slide rebuilt the frame's realm *mid-talk*.
+  Present is deck-scoped now too.
+- **D lengthening the life of the stale-palette-after-restyle hazard** — NOT REPRODUCED.
+  Driven on the built Studio with a cached diagram: flipping the mode re-themed the slide
+  surface and the diagram ink together. Recorded as driven for the mode toggle only.
+
+One knock-on: extracting `settleFenceFromCache` collapsed what would have been a third
+`target.innerHTML` site into one shared injection, and HARD RULE #22's runtime-markup census
+is a count. The receiver is destructured (`const { target } = job`) rather than written as
+`job.target.innerHTML`, so the census's text matcher still sees the sink it declares; that is
+recorded in `SANCTIONED_RUNTIME_MARKUP_SINKS`.
+
+## 6. Recommendation, as it stood before the pick
 
 **E + A, then D.** In that order, and they are one change each:
 
@@ -248,14 +342,27 @@ Stacked, measured: first visit **0** source frames / 388ms; revisit and keystrok
 C is rejected on its own measurement; F is rejected on the 700ms–1.8s it charges the
 slide; G is rejected on 116KB for what CSS does for free.
 
-## 6. What is not yet verified
+## 7. What is not verified
 
-- The CSS candidates were injected into the frame, not shipped in `lattice.css`;
-  cascade position differs. Re-measure the winner from a real build.
+- ~~The CSS candidates were injected into the frame, not shipped~~ — CLOSED: §5's table is
+  from a real build, and A behaves the same shipped as injected.
 - One machine, Chromium only, one deck, 3–4 runs per arm. The numbers are medians,
   not a distribution.
 - Candidate B was not measured under the typing scenario; it differs from A only in
   what fills the reserved slot, so its source-frame count is A's by construction —
   but that is an argument, not a measurement.
-- A's failure mode with the runtime absent (JS blocked / a CSP that stops the script)
-  was reasoned about, not driven.
+- The `~~~mermaid` export gap this uncovered is REPORTED, not fixed: `preprocessMermaid`
+  still substitutes only ```` ```mermaid ````, so those fences render as source in a PDF.
+  Widening that regex changes export bytes, which is the QUALITY BAR's stop-and-show gate
+  and a different change from this one. Off the path (HARD RULE #18), so it is logged here
+  rather than pulled into this diff.
+- A's failure mode with the runtime absent is now STRUCTURAL rather than argued: the rule
+  requires `[data-lattice-runtime]`, which only a builder that injects the runtime stamps, so
+  a document without one cannot match it. Verified on a real export (the fence renders
+  `visibility: visible`). What is still not driven: a document that stamps the attribute and
+  then fails to load the runtime — a CSP that blocks the script, or a 404 on `runtimeUrl`.
+  There the source stays hidden.
+- D's cost is still unmeasured: a diagram deck now loads the 3.16MB Mermaid bundle on its
+  FIRST full write, even while the author is on a text slide. It moves that load earlier
+  rather than adding one, and full writes become rare, but the deck's own first mount was
+  not benchmarked.

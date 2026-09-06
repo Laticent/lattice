@@ -45,10 +45,30 @@ describe('buildSrcdoc', () => {
 
 	test('stamps <html lang> — default en, and the deck language when given (WCAG 3.1.1)', async () => {
 		const { buildSrcdoc } = await load();
-		assert.match(buildSrcdoc({ ...BASE }), /<html lang="en">/); // default
-		assert.match(buildSrcdoc({ ...BASE, lang: 'fr' }), /<html lang="fr">/);
+		// `[ >]` closes each match rather than `>`: the tag also carries
+		// `data-lattice-runtime` now. The assertion is that the lang attribute is present and
+		// well-formed — including that a hostile value cannot break out of it — not that it is
+		// the only attribute on the tag.
+		assert.match(buildSrcdoc({ ...BASE }), /<html lang="en"[ >]/); // default
+		assert.match(buildSrcdoc({ ...BASE, lang: 'fr' }), /<html lang="fr"[ >]/);
 		// A hostile lang is sanitized to letters/hyphen (no attribute-breakout).
-		assert.match(buildSrcdoc({ ...BASE, lang: 'en"><script>' }), /<html lang="enscript">/);
+		assert.match(buildSrcdoc({ ...BASE, lang: 'en"><script>' }), /<html lang="enscript"[ >]/);
+	});
+
+	// A PROMISE ABOUT THE DOCUMENT, not a style hook. `mermaid.css` withholds an un-tagged
+	// Mermaid fence's ink only under `[data-lattice-runtime]`, because hiding a diagram's
+	// source is right only where something is going to replace it. This builder always
+	// injects the runtime, so it always stamps — and a builder that does NOT inject one must
+	// not, which is what keeps an export (runtime stripped) showing the source of a fence the
+	// CLI could not substitute instead of an empty slot.
+	// See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A.
+	test('claims a runtime on the <html> tag, because it injects one', async () => {
+		const { buildSrcdoc, previewRuntimeAttr } = await load();
+		assert.match(buildSrcdoc({ ...BASE }), /<html[^>]* data-lattice-runtime[ >]/);
+		// The claim follows the runtime, so a caller with no runtime URL makes no claim.
+		assert.equal(previewRuntimeAttr(''), '');
+		assert.equal(previewRuntimeAttr(undefined), '');
+		assert.equal(previewRuntimeAttr('/rt.js'), ' data-lattice-runtime');
 	});
 
 	test('always injects the link guard so an external tap cannot navigate (blank) the frame', async () => {
