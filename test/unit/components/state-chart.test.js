@@ -1241,3 +1241,47 @@ describe('dagre re-ranking (fake DOM)', () => {
       'a two-line event label must emit one tspan per line');
   });
 });
+
+/**
+ * Polynomial ReDoS on author text — the class CodeQL flagged high on PR #2084.
+ *
+ * A state's lead text and a transition's event label are whatever the deck says,
+ * so a pattern that backtracks quadratically here is reachable by any author (and
+ * by any deck a Studio user pastes in). Three patterns on this path had it, and
+ * the third is the instructive one: it was introduced BY the fix for the first
+ * two. `/\s+$/` retries `\s+` from every position in a trailing whitespace run,
+ * each attempt failing at `$` — 732ms on 32k spaces, worse than the regex it
+ * replaced. `trimEnd()` is native and linear.
+ *
+ * Pinned by SHAPE, not by a wall-clock threshold: a timing assertion would be
+ * flaky on a loaded runner. Quadratic growth shows up as a ratio — 4x the input
+ * costs ~16x the time — so the test compares two sizes and allows a wide band.
+ */
+describe('state-chart parsing stays linear on adversarial author text', () => {
+  const timeOf = (fn) => {
+    fn(); // warm, so JIT compilation is not counted as growth
+    const t0 = process.hrtime.bigint();
+    fn();
+    return Number(process.hrtime.bigint() - t0) / 1e6;
+  };
+
+  for (const [name, build] of [
+    ['a state lead with a long whitespace run', (pad) =>
+      () => parseStateLi(`Draft <code>start</code>a${pad}b`, 1)],
+    ['an event label with a long whitespace run', (pad) =>
+      () => parseTransitionToken(`${pad}go => 2`)],
+    ['a lead whose whitespace run is TRAILING', (pad) =>
+      () => parseStateLi(`Draft <code>start</code>${pad}`, 1)],
+  ]) {
+    test(name, () => {
+      const small = timeOf(build(' '.repeat(8000)));
+      const large = timeOf(build(' '.repeat(32000)));
+      // 4x the input. Linear ~4x; quadratic ~16x. 9x is a wide band that still
+      // separates the two, and both sides are milliseconds on a quiet machine.
+      const ratio = large / Math.max(small, 0.05);
+      assert.ok(ratio < 9,
+        `4x the input cost ${ratio.toFixed(1)}x the time (${small.toFixed(1)}ms -> ` +
+        `${large.toFixed(1)}ms) — that is polynomial backtracking, not linear scanning`);
+    });
+  }
+});

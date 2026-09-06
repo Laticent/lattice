@@ -1,0 +1,1 @@
+- **Security:** `state-chart` parsing no longer backtracks quadratically on author text. Three patterns on the path a state's lead text and a transition's event label take had polynomial ReDoS reachable from any deck — including `stripTrailingPills`, which predates this work. A 32k-character label went from ~850 ms to under 2 ms, and the growth is now flat with input size.
