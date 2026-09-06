@@ -16,7 +16,7 @@
  * WHY THIS IS A CENSUS AND NOT A FIXTURE. A fixture would assert that one crafted
  * pill fails to become an eyebrow — pinning the shadow, which is not the risk. The
  * risk is an AUTHOR writing one, in a deck, by accident. So this walks every deck
- * we ship and asserts none does. When #2066 landed the count was 1,273 spans and
+ * we ship and asserts none does. When #2066 landed the count was 1,275 eyebrow spans and 484 subtitle spans and
  * zero collisions; a real eyebrow reads `Section 01` or
  * `H1 FY26 · 1,840 person-hours`, and none starts with a brace or is a bare marker.
  *
@@ -87,13 +87,46 @@ function eyebrowSpans(file) {
   return found;
 }
 
+/** The line before a code-only paragraph, for the SUBTITLE position (heading BEFORE it). */
+const HEADING = /^#{1,5}\s/;
+
+/**
+ * Every SUBTITLE-position span in a deck — the OTHER promotion with the same shadow.
+ *
+ * `base.modifiers.css` promotes a code-only paragraph in TWO positions: before a heading
+ * or list (the eyebrow) and immediately AFTER a heading (the subtitle, italic and muted).
+ * Both select `> code:only-child`, so the directive grammar shadows both identically — and
+ * for three review rounds only the eyebrow half was scanned, measured and documented, while
+ * `examples/inline-code-literal.md` uses the subtitle position on its own first slide.
+ */
+function subtitleSpans(file) {
+  const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
+  if (isLiteralFromSource(src)) return [];
+  const lines = src.split('\n');
+  const found = [];
+  let inFence = false;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    if (FENCE.test(line)) { inFence = !inFence; continue; }
+    if (inFence) continue;
+    const m = ONLY_CODE.exec(line);
+    if (!m) continue;
+    // walk BACK to the previous non-blank line — a heading makes this a subtitle
+    let j = i - 1;
+    while (j >= 0 && !lines[j].trim()) j -= 1;
+    if (j < 0 || !HEADING.test(lines[j].trim())) continue;
+    found.push({ file, line: i + 1, text: m[1] });
+  }
+  return found;
+}
+
 test('no shipped deck writes an eyebrow the directive grammar would swallow', () => {
   const spans = shippedDecks().flatMap(eyebrowSpans);
 
   // ANTI-VACUITY, and it is the whole guard here: "zero collisions" is trivially
   // true of an empty list, so a scanner broken by a markdown change (a different
   // fence marker, a heading style) would certify nothing and pass forever. The
-  // floor is deliberately far below the 1,273 measured at #2066 — this pins that
+  // floor is deliberately far below the 1,275 measured at #2066 — this pins that
   // the walk still WORKS, not the exact corpus size, which moves every time a
   // deck is added.
   assert.ok(
@@ -121,4 +154,30 @@ test('the escape keeps an eyebrow an eyebrow', () => {
   // selector still matches.
   assert.equal(dispatches('{DRAFT}'), true, 'precondition: the bare form would dispatch');
   assert.equal(dispatches('\\{DRAFT}'), false, 'the escaped form must not dispatch');
+});
+
+test('no shipped deck writes a SUBTITLE the directive grammar would swallow', () => {
+  // The second promotion, and the one three review rounds missed. A `{LABEL}` pill or an
+  // `[x]` mark replaces the `<code>` with a `<span>`, so `section h1 + p:has(> code:only-child)`
+  // stops matching and the italic subtitle silently becomes a pill on its own line —
+  // exactly the eyebrow failure, one position over.
+  const spans = shippedDecks().flatMap(subtitleSpans);
+
+  // ANTI-VACUITY, at a floor well below the measured count so it pins that the walk still
+  // WORKS rather than pinning a corpus size that moves whenever a deck is added.
+  assert.ok(
+    spans.length >= 100,
+    `found only ${spans.length} subtitle-position spans — the scanner is probably broken, not the decks fixed`,
+  );
+
+  const swallowed = spans.filter((s) => dispatches(s.text));
+  assert.deepEqual(
+    swallowed,
+    [],
+    'these subtitle labels dispatch as a pill or a mark, so they render as themselves and ' +
+      'LOSE the subtitle promotion:\n' +
+      swallowed.map((s) => `  ${s.file}:${s.line}  \`${s.text}\``).join('\n') +
+      '\nEscape it (`\\{LABEL}` keeps the <code> and keeps the subtitle) or pick a label ' +
+      'that is not a directive.',
+  );
 });

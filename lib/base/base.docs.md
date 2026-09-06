@@ -90,11 +90,15 @@ see *Inline pills — `{LABEL}`* below) replaces that `<code>` with a
 on a line**, not as a colored eyebrow, and `` `[x]` `` there renders as a
 state disc. Both are legal; neither is promoted.
 
-This is a shadow rather than a break: measured across every shipped deck,
-1,273 eyebrow-position spans and **zero** that dispatch — a real eyebrow
-reads `` `Section 01` `` or `` `H1 FY26 · 1,840 person-hours` ``, and
-none starts with a brace or is a bare marker.
-`test/unit/css/eyebrow-position-shadow.test.js` fails if one ever is.
+**The same shadow falls on the SUBTITLE** — a code-only paragraph immediately AFTER a
+heading, which `base.modifiers.css` promotes to an italic muted line by the same
+`> code:only-child` rule.
+
+This is a shadow rather than a break: measured across every shipped deck, **1,275**
+eyebrow-position and **484** subtitle-position spans, and **zero** that dispatch — a real
+one reads `` `Section 01` `` or `` `H1 FY26 · 1,840 person-hours` ``, and none starts with
+a brace or is a bare marker. `test/unit/css/eyebrow-position-shadow.test.js` scans both
+positions and fails if one ever does.
 Want the literal braces as your kicker text? Escape it — `` `\{DRAFT}` ``
 stays a `<code>` and stays an eyebrow.
 

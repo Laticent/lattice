@@ -3,10 +3,12 @@
   `<code>` element, before a heading or list — so the `{LABEL}` / `[x]` grammar replaces
   that element with a `<span>` and the promotion silently drops: `` `{DRAFT}:c2` `` above
   a heading renders as a pill alone on a line. Escaping it (`` `\{DRAFT}` ``) keeps the
-  `<code>` and keeps the kicker. Measured across every shipped deck — 1,273
-  eyebrow-position spans, **zero** affected, since a real eyebrow reads `Section 01` and
-  starts with neither a brace nor a marker — so nothing rendered differently; what was
-  missing was anyone writing it down. A census test now fails if a deck ever writes one,
+  `<code>` and keeps the kicker. The same is true of the SUBTITLE position — a code-only
+  paragraph immediately after a heading, promoted by the same rule. Measured across every
+  shipped deck: **1,275** eyebrow-position and **484** subtitle-position spans, **zero**
+  affected, since a real one reads `Section 01` and starts with neither a brace nor a
+  marker — so nothing rendered differently; what was missing was anyone writing it down.
+  A census test scans both positions and fails if a deck ever writes one,
   naming the file, the line and the escape.
 - **Decided: the variable grammar will be BRACED — `` `{$now.date}` ``, not
   `` `$now.date` ``.** The render-time built-ins proposed for the engine

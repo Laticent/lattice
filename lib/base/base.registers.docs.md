@@ -348,10 +348,13 @@ one span and the wrong one for ninety.
 escape from, so `` `\[x]` `` renders as `\[x]` rather than being quietly rewritten — the
 register never edits your text.
 
-**Turning it off in a MARP-KIT deck** — one the Marp extension previews, with the kit's
-`lattice-runtime.min.js` drawing the pills — uses Marp's own global `class:` directive. The
-extension's webview sandbox blocks the runtime from reading the deck's `.md`, so the class
-is the one signal that always arrives:
+**Turning it off in a MARP-KIT deck** — any deck marp-core renders, with the kit's
+`lattice-runtime.min.js` drawing the pills — uses Marp's own global `class:` directive.
+**This is the route for `marp --pdf` and `marp --html` too, not only the VS Code preview.**
+On a marp-core render the register cannot reach the runtime at all: over `file://` — which
+is how marp-cli loads a deck, and how a recipient opens an exported `.html` — `fetch` is
+CORS-blocked outright (measured in `lib/core/deck-front-matter.js`), and over http(s) the
+answer arrives after the pills are drawn. The class is the one signal that always lands:
 
 ```yaml
 ---
@@ -387,10 +390,15 @@ where the decision is made. It is, on every shape a deck actually ships in:
 | an **HTML export** | no block needed — the engine already applied the register, so nothing is left to decide |
 | an **Export-to-Marp bundle** | the front matter is baked into the `.md` and the runtime reads it synchronously |
 
-The gap is an `.html` rendered by **marp-core rather than by Lattice** — so the runtime is
-the only implementation — **and** carrying no baked front-matter block, which today means an
-export predating the bake. There the runtime must fetch the sibling `.md`, and the pills are
-drawn before the answer arrives. Re-export and the block is baked. Making the runtime wait instead was tried and reverted: it cost every other deck
+The gap is a deck rendered by **marp-core rather than by Lattice** — so the runtime is the
+only implementation — **and** carrying no baked front-matter block. That is a hand-authored
+marp-kit deck (`marp --pdf`, `marp --html`, the VS Code preview), and an export predating
+the bake. There the register cannot arrive: `fetch` is CORS-blocked on `file://`, and over
+http(s) it answers after the pills are drawn.
+
+**Use `class: inline-code-literal` for those**, per the section above — it needs no fetch
+because marp-core puts the token on every section itself. An export made by Lattice bakes
+its front matter and needs nothing. Making the runtime wait instead was tried and reverted: it cost every other deck
 a full extra transform pass (measured 1 to 3 on a 40-slide deck carrying no register at
 all) and needed a wall-clock guess that produced a wrong render at 3.2s, then at 10.2s once
 the guess was enlarged.
@@ -424,7 +432,7 @@ cleanly.
 POSITION — a paragraph whose only child is a `<code>` element — so `` `{DRAFT}:c2` `` or
 `` `[x]` `` on that line renders as a pill or a mark alone on a line, and no `eyebrow:`
 treatment reaches it. Escape it (`` `\{DRAFT}` ``) to keep the `<code>` and keep the
-kicker. Measured harmless across shipped decks (1,273 eyebrows, zero affected) and gated by
+kicker. Measured harmless across shipped decks (1,275 eyebrow and 484 subtitle spans, zero affected) and gated by
 `test/unit/css/eyebrow-position-shadow.test.js`; see *Eyebrow labels* in
 [`base.docs.md`](base.docs.md).
 

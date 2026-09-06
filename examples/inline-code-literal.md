@@ -21,7 +21,7 @@ One line of front matter, and every backtick span goes back to being text.
 ## Why an off switch exists.
 
 - The pill grammar reads **every** single-backtick span in every deck.
-- Zero collisions measured across our own 12,551 — but that is *our* corpus.
+- Zero collisions measured across our own decks — but that is *our* corpus.
 - A deck written elsewhere may say `[x]` in its prose and mean the characters.
 - Escaping is right for one span and absurd for ninety.
 
@@ -73,7 +73,7 @@ One line of front matter, and every backtick span goes back to being text.
 
 - Chrome is markdown too — `header:` and `footer:` render inline like a paragraph.
 - So a literal deck has to silence them as well, or a foreign deck's running header still draws.
-- Look at the top of every page in this deck: `{DEMO}` and `[x]`, as characters.
+- Look at the running header on the slides that carry one: `{DEMO}` and `[x]`, as characters.
 - One slide at a time: `<!-- _class: inline-code-literal -->` scopes it without the register.
 
 ---

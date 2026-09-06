@@ -163,12 +163,22 @@ summary: Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}
 > so the paragraph stops matching and **the eyebrow promotion silently drops**: the author
 > gets a pill alone on a line instead of a kicker.
 >
-> **Measured before calling it harmless: 1,273 eyebrow-position spans across every shipped
-> deck, ZERO of which dispatch.** None starts with a brace; none is a bare marker. Real
-> eyebrows read `` `Section 01` `` and `` `H1 FY26 · 1,840 person-hours` ``. So this is a
-> shadow, not a regression — but the position is no longer "any inline code," which was
-> written down nowhere. It is now, in `base.docs.md` and `base.registers.docs.md`, and
-> `test/unit/css/eyebrow-position-shadow.test.js` fails if a shipped deck ever writes one.
+> **TWO positions carry this shadow, not one.** `base.modifiers.css` promotes a code-only
+> paragraph both BEFORE a heading (the eyebrow) and immediately AFTER one (the subtitle),
+> by the same `> code:only-child` rule — so the grammar shadows both identically. Three
+> review rounds scanned, measured and documented only the eyebrow half.
+>
+> **Measured before calling it harmless: 1,275 eyebrow-position and 484 subtitle-position
+> spans across every shipped deck, ZERO of which dispatch.** None starts with a brace; none
+> is a bare marker. Real ones read `` `Section 01` `` and `` `H1 FY26 · 1,840 person-hours` ``.
+> So this is a shadow, not a regression — but the positions were no longer "any inline
+> code," which was written down nowhere. They are now, in `base.docs.md` and
+> `base.registers.docs.md`, and `test/unit/css/eyebrow-position-shadow.test.js` scans both
+> and fails if a shipped deck ever writes one.
+>
+> *(An earlier draft of this paragraph said 1,273. That figure never reproduced — not at
+> this commit and not on `main` — which is the "quote a base or the number will not
+> reproduce" trap HARD RULE #9 records, hit inside the amendment that cites it.)*
 >
 > **Deliberately NOT fixed by widening the selector.** Letting `.lat-pill` satisfy the
 > eyebrow rule would make `` `{Q3 REVIEW}:c2` `` a colored kicker, which is a real

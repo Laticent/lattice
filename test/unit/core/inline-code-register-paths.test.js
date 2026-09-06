@@ -285,3 +285,32 @@ test('chrome obeys a deck-wide `class:` even on a slide that sets its own `_clas
     assert.ok(s.classList.contains(INLINE_CODE_LITERAL), `section missing the token: ${s.className}`);
   }
 });
+
+/**
+ * THE CHROME ENV IS ONE FLAG, NOT THE WHOLE RENDER ENV — the ninth mutant, and the only
+ * one that survived a full battery.
+ *
+ * `lib/engine/slides.js` hands chrome a single boolean. An earlier cut spread
+ * `{ ...state.env }` alongside it, which handed `md.renderInline` markdown-it's
+ * `references` map — populated by the block parse of the deck BODY. So a `header:` began
+ * resolving link-reference definitions written a hundred lines away and rendering as an
+ * anchor, on decks that do not use this register at all. That is HARD RULE #18's exact
+ * shape: a render change on a surface the feature never set out to touch.
+ *
+ * It was fixed and then nothing pinned it. Restoring the spread — a one-token edit any
+ * author would make while adding a second flag — left all 8,284 tests green.
+ */
+test('chrome does not resolve link-reference definitions from the deck body', () => {
+  const body = ['# One', '', 'Body.', '', '[docs]: https://example.com/evil'].join('\n');
+  const doc = render(['header: "See [docs] for detail"'], body);
+  const header = doc.querySelector('header');
+  assert.ok(header, 'anti-vacuity: the deck must actually render a header');
+
+  assert.equal(header.querySelector('a'), null, `chrome resolved a body link definition: ${header.innerHTML}`);
+  assert.match(header.textContent, /See \[docs\] for detail/);
+
+  // CONTROL: a link written INLINE in the chrome still works, so this pins the leak
+  // rather than breaking chrome markdown wholesale.
+  const inline = render(['header: "See [docs](https://example.com/ok) now"'], body);
+  assert.ok(inline.querySelector('header a'), 'an inline chrome link must still render');
+});
