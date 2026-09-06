@@ -226,6 +226,28 @@ test('engine: a squatting deck gets zero duplicate ids, on every render', () => 
 	}
 });
 
+// A DECK CAN CARRY THE SAME DRAWING TWICE, and that is the case the engine's own id minting cannot
+// help with — the ids come in with the markup. It is how PR #2081 shipped five duplicates into
+// `examples/motion-asset.md`: the Fabricate Motion faculty namespaced a drawing's ids by hashing its
+// content, so a second insert of one drawing hashed identically. The gate that would have caught it
+// existed and only ever ran against `gallery.md`.
+//
+// So it sweeps every deck we ship, at ~1.1s for all of them. All are clean at the time of writing,
+// which is what makes this an invariant and not a backlog.
+test('engine: no shipped example deck renders a duplicate id', () => {
+	const dir = path.join(ROOT, 'examples');
+	const decks = fs.readdirSync(dir).filter((f) => f.endsWith('.md'));
+	assert.ok(decks.length > 100, `fixture broken: found only ${decks.length} example decks`);
+	const offenders = [];
+	for (const deck of decks) {
+		const html = engine.render(fs.readFileSync(path.join(dir, deck), 'utf8'), 'lattice').html;
+		const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
+		const dupes = [...new Set(ids.filter((id, i) => ids.indexOf(id) !== i))];
+		if (dupes.length) offenders.push(`${deck}: ${dupes.slice(0, 4).join(', ')}`);
+	}
+	assert.deepEqual(offenders, [], `decks rendering duplicate ids:\n  ${offenders.join('\n  ')}`);
+});
+
 test('engine: ids stay unique WITHIN a render (the trap the sequences exist for)', () => {
 	// Per-render reset must not reintroduce duplicate ids in one document: a second `#pie-wedge-1`
 	// would make every reference resolve to the first gradient, so wedges would share a fill.

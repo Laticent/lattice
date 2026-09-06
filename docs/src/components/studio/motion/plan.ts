@@ -72,8 +72,11 @@ export function beatsOf(plan: Plan): number[] {
 }
 
 function slideVector(from: SlideFrom, box: readonly [number, number, number, number]): [number, number] {
-	const dx = box[2] * SLIDE_FRACTION;
-	const dy = box[3] * SLIDE_FRACTION;
+	// Rounded for the same reason `at` and `span` are: this lands in a fence a human reads and a
+	// reviewer diffs, and `320 × 0.18` in binary floating point is 57.599999999999994.
+	const round = (v: number) => Number(v.toFixed(4));
+	const dx = round(box[2] * SLIDE_FRACTION);
+	const dy = round(box[3] * SLIDE_FRACTION);
 	if (from === 'left') return [-dx, 0];
 	if (from === 'right') return [dx, 0];
 	if (from === 'above') return [0, -dy];

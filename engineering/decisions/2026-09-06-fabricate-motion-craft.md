@@ -399,3 +399,43 @@ drop), and never mutates a saved asset in place from a path that could not later
 so the exclusion becomes a deliberate deferral rather than an accident. Say so in the code, at the
 `VERSIONED_KINDS` definition, or the next reader will re-derive the wrong reason.
 
+
+---
+
+## 11. Where uniqueness lives — the insert seam, not the intake
+
+*Added after an independent checker found five duplicate element ids in this PR's own worked deck.*
+
+`intake()` namespaces every id in a drawing so two assets on one deck cannot corrupt each other:
+`id="clip0"` is what every exporter writes, so without a prefix the second asset's `url(#clip0)`
+resolves to the first asset's clip path. The prefix was **derived from the drawing's content**, on
+the reasoning that the same bytes should give the same ids.
+
+That is exactly backwards for the case the prefix most needs to cover. **One drawing inserted twice
+is byte-identical by definition**, so a content hash gives both copies the same ids — and a saved
+asset re-read from the Library never comes through the hash at all, because it carries its namespace
+stamped in `data-lattice-motion` (which is what makes reopening it stable). Intake cannot tell two
+copies apart, in either direction.
+
+So uniqueness moved to **`reinstance`** (`motion/instance.ts`), called by `slideSkeleton`:
+
+> A stored asset is a template. Every insertion is a copy, and the copy gets fresh ids.
+
+It swaps the namespace prefix on every id, on every `url(#…)` and `href="#…"` reference, on the
+stamp, and on both `id` and `pathRef` of every element in the plan — together, because a
+half-remapped copy still validates, which is worse than not remapping at all.
+
+Three things about it are deliberate:
+
+- **It is its own module, not part of the kernel.** `Library.tsx` reaches `slideSkeleton`, and the
+  intake kernel carries DOMPurify. The Studio route's eager budget is measured and had already been
+  blown once by exactly this shape of import. (The Library's own call is now behind a dynamic
+  `import()` as well — Insert is a click, and the many sessions that never place a motion should not
+  pay for it: 638.6KB → 637.9KB against a 638.8KB ceiling.)
+- **The content hash stayed**, in front of the random tail, because it is what makes an id readable
+  in a diff and groups one drawing's ids together on sight. It is no longer what makes them unique.
+- **The gate that should have caught this existed.** `test/unit/core/render-ids.test.js` asserts
+  across the engine that a rendered document has no duplicate id — a duplicate makes every `url(#…)`
+  resolve to the first one — and it only ever ran against `gallery.md`. It now sweeps every deck in
+  `examples/` (164 of them, ~1.1s, all clean), and it fails on the pre-fix deck with the five ids
+  named.

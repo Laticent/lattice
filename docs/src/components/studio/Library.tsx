@@ -15,7 +15,6 @@ import { deleteStudioFinish, listStudioFinishes, type StudioFinish, saveStudioFi
 import { type ImportRefusal, refuseImportedComponent, refuseImportedTheme } from './import-gate';
 import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-history.js';
 import { listAssets } from './library/asset-store.js';
-import { slideSkeleton } from './motion/skeleton';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
 import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './reference-doc-store';
 import { deleteStudioScene, listStudioScenes, type StudioScene, saveStudioScene } from './scene-library';
@@ -566,7 +565,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	function removeScene(m: StudioScene) {
 		deleteStudioScene(m.id).then(() => { reload(); onChanged(); notify(`Deleted ${m.label}.`); });
 	}
-	function insertScene(m: StudioScene) {
+	// LOADED ON THE CLICK, not with the route. Insert is a user gesture, and everything the skeleton
+	// reaches — the slide writer and the instancing that gives each copy its own ids — is dead weight
+	// for the many sessions that open the Library and never place a motion. The Studio route's eager
+	// budget had 0.2KB of headroom with this imported at the top; deferring it measured 638.6KB →
+	// 637.9KB, so the headroom is 0.9KB rather than 0.2KB.
+	async function insertScene(m: StudioScene) {
 		// A scene the RETIRED Motion tab saved carries a spec and no `art` — it authored a built scene,
 		// not a drawing. Inserting it wrote a heading over an empty poster and reported success, which
 		// is the silent-wrongness class this faculty exists to avoid. Edit already refuses honestly.
@@ -574,6 +578,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			notify(`“${m.label}” was saved by the old Motion tab and has no drawing, so there is nothing to place. Open it in Fabricate to bring one.`);
 			return;
 		}
+		const { slideSkeleton } = await import('./motion/skeleton');
 		const md = slideSkeleton({ label: m.label, description: m.description, art: m.art, spec: m.spec });
 		onInsert(md, m.name);
 		onOpenChange(false);

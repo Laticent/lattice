@@ -700,7 +700,16 @@ export async function generateDrawing(prompt: string): Promise<DrawingGenOutcome
 		return { status: 'offline' };
 	}
 	const svg = extractSvg(reply);
-	if (!svg) return { status: 'nochange', note: 'The model returned no usable drawing.' };
+	if (!svg) {
+		// A reply that OPENED a drawing and never closed it was cut off mid-answer, which is a
+		// different problem with a different fix — the generic note sent a person back to reword a
+		// prompt that was fine. (Not `TRUNCATION_NOTE`: its advice is "ask for fewer slides", and a
+		// drawing has none.)
+		if (/<svg[\s>]/i.test(reply)) {
+			return { status: 'nochange', note: 'The drawing was cut off before it finished — the reply hit its length ceiling. Ask for something simpler, or pick a model with more output room.' };
+		}
+		return { status: 'nochange', note: 'The model returned no usable drawing.' };
+	}
 	return { status: 'ok', svg };
 }
 
@@ -715,9 +724,17 @@ export function extractSvg(reply: string): string | null {
 	const text = String(reply || '');
 	const open = text.search(/<svg[\s>]/i);
 	if (open < 0) return null;
-	const close = text.toLowerCase().lastIndexOf('</svg>');
-	if (close <= open) return null;
-	return text.slice(open, close + 6);
+	// `</svg   >` is a legal end tag — HTML allows whitespace before the `>` — and a literal
+	// `'</svg>'` search threw away an otherwise perfect drawing that used one.
+	let close = -1;
+	let width = 0;
+	for (const m of text.matchAll(/<\/svg\s*>/gi)) {
+		if (m.index === undefined || m.index <= open) continue;
+		close = m.index;
+		width = m[0].length;
+	}
+	if (close < 0) return null;
+	return text.slice(open, close + width);
 }
 
 // Pull the first JSON object out of a (possibly fenced) reply and shape it into a

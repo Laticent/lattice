@@ -18,6 +18,7 @@
 //    saying "Value chain, five stages" and saying nothing at all.
 
 import type { Scene } from '@/lib/anima';
+import { reinstance } from './instance';
 import { ART_MAX_BYTES } from './limits';
 
 /** Strip newlines out of serialized markup so it can sit on one markdown line. Attribute values are
@@ -111,8 +112,15 @@ export interface SkeletonInput {
  */
 export function slideSkeleton({ label, description, art, spec, caption }: SkeletonInput): string {
 	const heading = oneLineText(label) || 'Untitled drawing';
-	const poster = oneLine(labelArt(art, heading, description));
-	const fence = JSON.stringify(spec, null, 2);
+	// EVERY INSERT IS A COPY, and a copy needs its own ids. The same drawing on two slides otherwise
+	// carries the same ids into one rendered document, where a duplicate makes every `url(#…)`
+	// resolve to the first one — an invariant `test/unit/core/render-ids.test.js` asserts across the
+	// engine, and one this repo's own worked example broke five times over before `reinstance` moved
+	// the minting to this seam. A stored asset keeps its stamped namespace on purpose (that is what
+	// makes reopening it stable), so intake cannot be where the copies are told apart.
+	const copy = reinstance(art, spec);
+	const poster = oneLine(labelArt(copy.art, heading, description));
+	const fence = JSON.stringify(copy.spec, null, 2);
 	const lines = ['<!-- _class: scene -->', '', `## ${heading}`, ''];
 	if (caption) lines.push(oneLineText(caption), '');
 	lines.push(poster, '', '```anima', fence, '```', '');

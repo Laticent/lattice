@@ -3,7 +3,9 @@
   model draws it, ready to choreograph. It asks for outlined line art in your palette's colors —
   which is exactly what draws itself well — and the result goes through the same reading and
   reporting a pasted drawing does, so you see what was kept and what was removed either way. With no
-  model connected the bar says so and offers to connect one; pasting still works untouched.
+  model connected the bar says so and offers to connect one; pasting still works untouched. A reply
+  that gets cut off mid-drawing says that, rather than sending you back to reword a prompt that was
+  fine, and pressing Enter to commit a character in an input method no longer submits half a prompt.
 - **Added: Fabricate has a fourth faculty — **Motion**, which crafts a drawing that moves.** Bring an
   SVG (paste it, or drop the file), and it finds the drawing's parts, you give each one a beat, and it
   plays. Name it and **Save** puts it on your Library shelf beside your themes, components and
@@ -23,6 +25,10 @@
 - **Added: “Match the theme”**, which recolors a brought drawing to your palette. It rewrites the
   drawing itself rather than the plan, so the new colors reach fills, outlines *and* the still that
   lands in your PDF and in a shared HTML file.
+- **Fixed: placing one drawing on two slides made both stop working properly.** Every insert now
+  gives its copy of the drawing its own element names, so a second copy cannot reach back into the
+  first — which, in a drawing that uses a clipped or gradient-filled shape, is what makes the second
+  one paint wrong. The deck we ship as the worked example carried five such collisions.
 - **Fixed: inserting from the Library could add the slide in the wrong place.** The Insert action
   used the slide you were looking at rather than its position in the whole deck, so in any view that
   filters slides it landed after the wrong one.

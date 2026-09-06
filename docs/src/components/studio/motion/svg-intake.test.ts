@@ -290,7 +290,10 @@ describe('small pure helpers', () => {
 		expect(estimateBox(parse('<svg><circle cx="10" cy="10" r="5"/></svg>').querySelector('circle') as Element)).toEqual([5, 5, 10, 10]);
 	});
 
-	it('derives a stable namespace from content', () => {
+	it('derives a stable namespace from content — readable ids, NOT what keeps two copies apart', () => {
+		// Content-derivation is for legibility. `reinstance` (instance.test.ts) is what stops one
+		// drawing inserted twice from carrying the same ids into one document; a hash cannot, the two
+		// copies being the same bytes.
 		expect(artNamespace('abc')).toBe(artNamespace('abc'));
 		expect(artNamespace('abc')).not.toBe(artNamespace('abd'));
 		expect(artNamespace('abc')).toMatch(/^m[a-z0-9]+$/);

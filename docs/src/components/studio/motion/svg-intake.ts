@@ -59,6 +59,7 @@
 
 import { normalizeSourceText } from '@/lib/normalize-source-text';
 import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
+import { PROCESSED_ATTR } from './instance';
 import { ART_MAX_BYTES, ART_WARN_BYTES } from './limits';
 
 /** Tags anime.js can actually stroke. `drawable.ts` calls `createDrawable(node)`, which stamps
@@ -167,14 +168,14 @@ function parseInert(markup: string): SVGSVGElement | null {
 	return doc.querySelector('svg');
 }
 
-/** Stamped on art this module has already processed. Without it, reopening a saved asset ran its own
- *  output back through `intake` and prefixed every id a SECOND time — so the saved spec's `pathRef`s
- *  matched nothing, every part reported "no longer in the drawing", and the Library's Edit button was
- *  a dead end that could not be saved out of. */
-export const PROCESSED_ATTR = 'data-lattice-motion';
 
 /** A short, stable namespace for one drawing's ids. Content-derived so the same bytes give the same
- *  prefix — which is what makes a re-paste of an unchanged drawing reconcile cleanly. */
+ *  prefix, which keeps a re-paste of an unchanged drawing diffable and its ids readable.
+ *
+ *  IT IS NOT WHAT KEEPS TWO COPIES APART. Content-derivation cannot: one drawing inserted twice is
+ *  byte-identical by definition, and a saved asset re-read from the Library keeps the namespace
+ *  stamped on it, so it would not come through here at all. Uniqueness belongs at the INSERT seam,
+ *  where a document actually acquires a copy — see `reinstance` below. */
 export function artNamespace(markup: string): string {
 	let h = 2166136261;
 	for (let i = 0; i < markup.length; i++) {
@@ -313,7 +314,8 @@ export interface NamespaceOutcome {
  *  • Two assets on one deck. `id="a"` / `id="clip0"` / `id="gradient1"` are what every exporter
  *    writes, so the second asset's `url(#clip0)` resolves to the FIRST asset's clip path. The
  *    painter is safe (it scopes its map to its own parsed clone) but the deck is not, and the same
- *    corruption hits one asset inserted twice.
+ *    corruption hits one asset inserted twice — which is why `artNamespace` mints a fresh prefix
+ *    per intake rather than hashing the content, those two inserts being byte-identical.
  *  • A duplicate id inside ONE drawing. `svg-paint.ts`'s node map is first-wins and `parseScene`
  *    rejects a duplicate `pathRef`, so the later twin is unaddressable. De-duplicated here.
  *

@@ -29,6 +29,12 @@ describe('pulling a drawing out of a model reply', () => {
 		expect(extractSvg('<svg viewBox="0 0 1 1">')).toBeNull();
 	});
 
+	it('accepts a legal end tag with whitespace — `</svg >` is not a malformed drawing', () => {
+		// The literal `'</svg>'` search this replaced threw away an otherwise perfect drawing.
+		expect(extractSvg('<svg viewBox="0 0 10 10"><path d="M0 0 H1"/></svg   >')).toContain('<path');
+		expect(extractSvg('<svg viewBox="0 0 10 10"><path d="M0 0 H1"/></SVG\n>')).toContain('<path');
+	});
+
 	it('does NOT sanitize — that is intake\'s single job, and a second guard would drift from it', () => {
 		const hostile = '<svg viewBox="0 0 10 10"><script>alert(1)</script><path d="M0 0 H1"/></svg>';
 		expect(extractSvg(hostile)).toContain('<script>');

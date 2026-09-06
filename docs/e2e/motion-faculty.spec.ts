@@ -195,6 +195,19 @@ test.describe('the Motion faculty at every width', () => {
 		test(`lays out at ${label} (${width}px) with no horizontal overflow`, async ({ page }) => {
 			await page.setViewportSize({ width, height });
 			await openMotion(page);
+
+			// MEASURE THE EMPTY PANE FIRST. Clicking straight through to the example unmounts it, so
+			// the on-ramps — the Describe command bar, the paste box, the file picker — were never
+			// overflow-checked at any width, which is exactly where a command bar with an input and
+			// two buttons is most likely to burst at 390px.
+			const empty = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+			expect(empty, `${label} empty pane must not scroll horizontally`).toBeLessThanOrEqual(1);
+			const bar = page.getByLabel('Describe a drawing');
+			await expect(bar).toBeVisible();
+			const box = await bar.boundingBox();
+			expect(box, 'the Describe input must have a box').not.toBeNull();
+			expect((box?.x ?? 0) + (box?.width ?? 0), `${label} Describe bar must fit the viewport`).toBeLessThanOrEqual(width);
+
 			await page.getByRole('button', { name: /try an example/i }).click();
 			await expect(page.getByRole('listbox', { name: 'Parts, grouped by beat' })).toBeVisible();
 

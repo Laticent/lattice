@@ -27,6 +27,20 @@ describe('beats compile to explicit windows, never to sequence', () => {
 		expect(windows.every((w) => w.span === Number((1 / 3).toFixed(6)))).toBe(true);
 	});
 
+	it('rounds the slide vector too — a fence a human reads carries no float noise', () => {
+		// `320 × 0.18` is 57.599999999999994 in binary floating point, and that is what shipped into a
+		// committed example deck before this rounded.
+		const { parts } = partsOf(1);
+		const plan = planFor(
+			parts.map((p) => p.pathRef),
+			() => ({ role: 'slide' as const, from: 'right' as const }),
+		);
+		const scene = planToScene(parts, plan, 'calm', 'drawing', [0, 0, 320, 180]);
+		const el = (scene as unknown as { elements: { motion: { verb: string; from?: [number, number] }[] }[] }).elements[0];
+		const slide = el.motion.find((m) => m.verb === 'slide');
+		expect(slide?.from).toEqual([57.6, 0]);
+	});
+
 	it('never emits `sequence` — compile tiles the whole subset in tree order and would override the beats', () => {
 		const { parts } = partsOf(4);
 		const scene = planToScene(parts, planFor(parts.map((p) => p.pathRef), () => ({ role: 'draw' })), 'brisk', 'a', BOX);

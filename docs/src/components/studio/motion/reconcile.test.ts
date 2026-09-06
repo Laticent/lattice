@@ -125,12 +125,35 @@ describe('the slide a motion asset lands on', () => {
 		expect(out).toContain('&lt;script&gt;');
 	});
 
-	it('the fence it writes parses back to the same scene', () => {
+	// The fence is the SAME scene with re-instanced ids — not the same object. Insert mints a fresh
+	// namespace per copy (`reinstance`), because two inserts of one drawing otherwise carry identical
+	// ids into one rendered document. So the invariant worth pinning is that the fence and the poster
+	// on the SAME slide still address each other, and that nothing but the ids moved.
+	it('the fence it writes parses back to the same scene, re-instanced and still addressable', () => {
 		const { art, parts, viewBox } = artOf(src);
 		const spec = planToScene(parts, new Map(parts.map((p) => [p.pathRef, { ...DEFAULT_PART_PLAN, role: 'draw' as const }])), 'brisk', 'flow', viewBox);
 		const md = slideSkeleton({ label: 'Flow', art, spec });
 		const fence = md.slice(md.indexOf('```anima') + 8, md.lastIndexOf('```')).trim();
-		expect(JSON.parse(fence)).toEqual(spec);
+		const back = JSON.parse(fence);
+
+		// Every part still resolves to an element in this slide's own poster.
+		const els = (sc: unknown) => (sc as { elements: { id: string; pathRef: string }[] }).elements;
+		expect(els(back)).toHaveLength(els(spec).length);
+		for (const e of els(back)) expect(md).toContain(`id="${e.pathRef}"`);
+
+		// And nothing but the ids moved.
+		const strip = (sc: unknown) => ({ ...(sc as object), elements: els(sc).map(({ id: _i, pathRef: _p, ...rest }) => rest) });
+		expect(strip(back)).toEqual(strip(spec));
+	});
+
+	it('two inserts of one drawing do not collide — the render-ids invariant, at the seam that owns it', () => {
+		const { art, parts, viewBox } = artOf(src);
+		const spec = planToScene(parts, new Map(parts.map((p) => [p.pathRef, { ...DEFAULT_PART_PLAN, role: 'draw' as const }])), 'brisk', 'flow', viewBox);
+		const idsOf = (md: string) => new Set(Array.from(md.matchAll(/\sid="([^"]+)"/g), (m) => m[1]));
+		const a = idsOf(slideSkeleton({ label: 'Flow', art, spec }));
+		const b = idsOf(slideSkeleton({ label: 'Flow', art, spec }));
+		expect(a.size).toBeGreaterThan(0);
+		for (const id of b) expect(a.has(id)).toBe(false);
 	});
 });
 

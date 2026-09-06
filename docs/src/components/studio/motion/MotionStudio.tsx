@@ -94,7 +94,7 @@ export function MotionStudio({
 	// Read a pasted, dropped or example drawing. `keepPlanFromParts` carries the parts we had when
 	// Replace sent us back to the paste pane, so that path RECONCILES instead of resetting.
 	const load = React.useCallback(
-		(raw: string, keepPlanFromParts: IntakePart[] | null | boolean) => {
+		(raw: string, keepPlanFromParts: IntakePart[] | null | boolean, onDone?: (ok: boolean) => void) => {
 			// `Replace` hands back the parts we had, so the diff runs against them rather than against a
 			// `loaded` we have already cleared to show the paste pane.
 			const keepPlanFrom = Array.isArray(keepPlanFromParts) ? keepPlanFromParts : null;
@@ -106,6 +106,7 @@ export function MotionStudio({
 				if (!r.ok) {
 					setRefusal(r.message);
 					setBusy(false);
+					onDone?.(false);
 					return;
 				}
 				const next: Loaded = { art: r.art, parts: r.parts, viewBox: r.viewBox, receipt: r.receipt };
@@ -139,6 +140,7 @@ export function MotionStudio({
 				setReplacing(null);
 				setBusy(false);
 				setReplay((n) => n + 1);
+				onDone?.(true);
 			}, 0);
 		},
 		[notify],
@@ -150,6 +152,14 @@ export function MotionStudio({
 	// `load` → `intake()` path: sanitized, stripped of every off-origin fetch, id-namespaced, and
 	// reported in the same receipt. That is why Bring shipped first — it built the door this walks
 	// through, and Describe adds a source rather than a security surface.
+	//
+	// THE TOAST AND THE PROMPT WIPE WAIT FOR `intake()`, and that ordering is the whole reason `load`
+	// carries a callback. The sibling this copies — `FinishStudio`'s `runGenerate` — sets its recipe
+	// synchronously through a coercion that cannot fail, so announcing success on the next line is
+	// true there. Here the model's SVG still has to survive intake, which refuses a drawing with no
+	// coordinate box, nothing addressable, or too many bytes. Announcing first said "Drew it" over a
+	// red refusal, and cleared the prompt the user would now have to retype — the §7c data-loss
+	// lesson, on the one path that produced nothing.
 	const runDescribe = React.useCallback(
 		async (text: string) => {
 			if (!text.trim() || generating) return;
@@ -158,19 +168,26 @@ export function MotionStudio({
 			try {
 				const out = await generateDrawing(text);
 				if (out.status === 'ok') {
-					load(out.svg, replacing);
-					setDescribe('');
-					notify('Drew it — now give its parts their beats.');
-				} else if (out.status === 'offline') {
+					load(out.svg, replacing, (ok) => {
+						setGenerating(false);
+						// A refusal keeps the prompt: it is the thing the user would edit and resend.
+						if (!ok) return;
+						setDescribe('');
+						notify('Drew it — now give its parts their beats.');
+					});
+					return;
+				}
+				if (out.status === 'offline') {
 					setRefusal('No model is connected. Connect one to describe a drawing — or paste an SVG you already have.');
 				} else {
 					setRefusal(out.note);
 				}
 			} catch {
 				setRefusal('That drawing could not be generated — please try again.');
-			} finally {
-				setGenerating(false);
 			}
+			// Only the paths that did NOT hand off to `load` land here; the `ok` branch above returns,
+			// and its callback owns the spinner until intake has actually decided.
+			setGenerating(false);
 		},
 		[generating, load, notify, replacing],
 	);
@@ -464,7 +481,9 @@ function Empty({ paste, setPaste, busy, replacing, describe, setDescribe, genera
 							value={describe}
 							onChange={(e) => setDescribe(e.target.value)}
 							onKeyDown={(e) => {
-								if (e.key === 'Enter') onDescribe(describe);
+								// `isComposing` guards the IME: a CJK author presses Enter to COMMIT a candidate,
+								// and without this that keystroke submits a half-typed prompt and spends a call.
+								if (e.key === 'Enter' && !e.nativeEvent.isComposing) onDescribe(describe);
 							}}
 							disabled={generating || !modelReady}
 							placeholder="Describe a drawing — e.g. “a review loop”"
