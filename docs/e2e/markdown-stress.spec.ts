@@ -93,8 +93,14 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  *   390  Chromium (± touch)   5/10    structural, and not a defect: see below
  *
  * The table quotes PASS COUNTS, so adding an oracle makes it stale in a way nothing checks.
- * Re-run `.scratch/pw-crosswidth.config.ts` when you add one — this row set is a re-measure
- * of all ten, taken after the Quick-fix oracle below landed, not the nine-oracle run patched.
+ * This row set is a re-measure of all ten AFTER the Quick-fix oracle below landed — not the
+ * earlier nine-oracle run with a number patched. Re-measuring costs about seven minutes and
+ * needs no committed harness: a throwaway Playwright config that spreads `docs/playwright.
+ * config.ts`, points `testDir` at this directory, `testMatch`es `/markdown-stress/`, and
+ * declares one project per row above (820 and 390 Chromium with and without `hasTouch`,
+ * `Desktop Safari` at 1440 and 820, `Desktop Firefox` at 1440). Keep it in `.scratch/`; if
+ * you put it there, symlink `docs/node_modules` beside it or `@playwright/test` will not
+ * resolve. The 1440 Chromium row is just the shipped `desktop` project.
  *
  * THE PHONE IS A DIFFERENT SURFACE, and this is the measurement rather than a guess. At 390
  * the Studio shows ONE PANE AT A TIME — probed directly: by default the rail is visible and
