@@ -215,7 +215,7 @@ a 1152px stage that resolves to **hero 748px (64.9%), gap 64px (5.6%), rail 340p
 
 | tile | box | ink | fill |
 |---|---|---|---|
-| hero | 748 x 438.2 | 215.5 x 231.8 | **15.2%** |
+| hero (before the fix in § 6.5) | 748 x 438.2 | 215.5 x 231.8 | **15.2%** |
 | support (gallery labels) | 340 x 146.1 | ~203 x 134.3 | **54-56%** |
 | support (stress-test labels) | 340 x 146.1 | ~299 x 134.3 | **66-81%** |
 
@@ -490,10 +490,22 @@ Neither pass reached: a real non-clipping preview surface (Studio, Playground,
 export-to-Marp), themes other than `indaco`, the `square` family, or PPTX output.
 Those stay UNVERIFIED (#23) rather than assumed.
 
-**The real design question — kpi's split.**
-5. Center the hero's content on both axes and let the value scale with the box,
-   THEN reconsider the column ratio. Doing them in the other order makes the rail
-   worse.
+**The real design question — kpi's split. Move 5 is DONE; the re-cut it proposes is
+measured NOT worth doing.**
+5. ~~Center the hero's content on both axes and let the value scale with the box, THEN
+   reconsider the column ratio~~ — **the first half shipped**: the hero centers on both
+   axes, the value takes `calc(var(--fs-hero) * 1.25)`, the padding tightens to
+   `sp-lg`/`sp-xl`, and the orphaned corner spark retires. Capacity-neutral, measured:
+   against the shipped design on identical stress content (19.6px vertical / 10.1px
+   horizontal slack) it reads 20.4px and 23.1px.
+   **The second half was measured and abandoned.** Sweeping the column ratio from
+   2.6fr to 1.6fr with the filled hero, the rail's labels wrap at the documented
+   8-word density at EVERY ratio down to 1.8fr; they only stop at 1.6fr, which is near
+   the 60/40 the brief ruled out. The hero keeps 111.2px of vertical and 198-314px of
+   horizontal slack throughout. So the rail's wrapping is a type-size and density
+   problem, not a column-split one, and narrowing the hero trades away the presence it
+   just earned for nothing. **2.2fr stays.** That is the whole value of doing the fill
+   first: the ratio question answered itself once the hero used its box.
 
 **The budgets.**
 6. Correct the declared numbers to the measured ones (kpi briefing hard 3 at

@@ -264,32 +264,50 @@ section.kpi.briefing > .cell-stage > ol:has(> li:nth-child(4)),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol:has(> li:nth-child(4)) {
   grid-template-rows: repeat(3, minmax(min-content, 1fr));
 }
+/* THE HERO IS THE FOCUS, so it is composed like one: centered on BOTH axes, with a
+ * value scaled to the box it sits in.
+ *
+ * It used to center on the block axis only and sit left-aligned, so its content
+ * parked in the upper left of a 748 x 438 panel and filled 15.2% of it — the
+ * emptiest tile on the slide, holding 2.2x the width of the rail beside it. That is
+ * the measurement that inverts the obvious fix: the rail is not stealing the hero's
+ * room, the hero is failing to use it, and narrowing the rail would take room from
+ * the tile that is actually running out (66-81% full at word weight, and wrapping).
+ *
+ * x1.25 IS A MEASURED CEILING, not a taste. Swept against the documented stress
+ * density (an 8-word label, a wide value, two pills) the vertical slack inside the
+ * padding runs 51.6px at x1.0, 26.4 at x1.2, 14.3 at x1.3, 1.2 at x1.4 and -4.8 at
+ * x1.45. The first draft used x1.45, which looked better and overflowed the
+ * documented density. Against the SHIPPED design on identical content — 19.6px
+ * vertical, 10.1px horizontal — x1.25 measures 20.4px and 23.1px, so it is
+ * capacity-neutral on both axes and costs no label. x1.3 would cost 5.3px, which is
+ * a regression this must not introduce (#18).
+ *
+ * THE CORNER SPARK RETIRES, and the reason is measured too. Centered content leaves
+ * a top-right mark orphaned, so the alternative was to keep it as a crown above the
+ * value — which pushes ink to y = -4.7 at the documented density, above the panel's
+ * own top edge. The variant that keeps the mark costs capacity; retiring it does
+ * not. `--fs-hero` is unchanged; only this tile's multiplier is new. */
 section.kpi.briefing > .cell-stage > ol > li:nth-child(1),
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1) {
   grid-column: 1; grid-row: 1 / -1;
   background: var(--accent-soft);
-  padding: var(--sp-xl) var(--sp-2xl);
+  padding: var(--sp-lg) var(--sp-xl);
   position: relative;
   display: flex; flex-direction: column;
   justify-content: center;
+  align-items: safe center;
+  text-align: center;
   border-left: 4px solid var(--accent);
 }
+/* Retired with the hero's recomposition — see the note above. */
 section.kpi.briefing > .cell-stage > ol > li:nth-child(1)::after,
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1)::after {
-  /* DRAWN, not typed (HARD RULE #29) — `font-size` is the `em` basis for the box. */
-  content: '';
-  position: absolute;
-  top: var(--sp-lg); right: var(--sp-lg);
-  font-size: var(--fs-h2);
-  line-height: 1;
-  width: 1em; height: 1em;
-  background-color: var(--accent);
-  -webkit-mask: var(--shape-spark) var(--shape-paint);
-          mask: var(--shape-spark) var(--shape-paint);
+  content: none;
 }
 section.kpi.briefing > .cell-stage > ol > li:nth-child(1) > strong,
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li:nth-child(1) > strong {
-  font-size: var(--fs-hero);
+  font-size: calc(var(--fs-hero) * 1.25);
   line-height: 0.88;
 }
 section.kpi.briefing > .cell-stage > ol > li:nth-child(1) > ul > li:first-child,
@@ -631,6 +649,7 @@ section.kpi.spotlight > .cell-stage > ol:has(> li:nth-child(3)):not(:has(> li:nt
 section.kpi.spotlight > .cell-stage > ol:has(> li:nth-child(4)) {
   grid-template-rows: repeat(3, minmax(min-content, 1fr));
 }
+/* Same composition as the briefing hero above, for the same measured reasons. */
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) {
   grid-column: 1; grid-row: 1 / -1;
   background: var(--accent-soft);
@@ -638,20 +657,11 @@ section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) {
   position: relative;
   display: flex; flex-direction: column;
   justify-content: center;
+  align-items: safe center;
+  text-align: center;
   border-left: 4px solid var(--accent);
 }
-section.kpi.spotlight > .cell-stage > ol > li:nth-child(1)::after {
-  /* DRAWN, not typed (HARD RULE #29) — `font-size` is the `em` basis for the box. */
-  content: '';
-  position: absolute;
-  top: var(--sp-xl); right: var(--sp-xl);
-  font-size: var(--fs-h1);
-  line-height: 1;
-  width: 1em; height: 1em;
-  background-color: var(--accent);
-  -webkit-mask: var(--shape-spark) var(--shape-paint);
-          mask: var(--shape-spark) var(--shape-paint);
-}
+section.kpi.spotlight > .cell-stage > ol > li:nth-child(1)::after { content: none; }
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) > strong {
   font-size: var(--fs-hero);
   line-height: 0.88;
@@ -775,9 +785,14 @@ section.kpi.kpi:where([data-family="tall"], [data-family="strip"]) > .cell-stage
  * hairline lead row (bigger number, no box) all four metrics read as one ledger
  * and fit. Scoped away from ops/compliance/trajectory, which are already uniform
  * grids/cards. (0,3,3) ties the briefing hero rules and wins on source order. */
+/* Linearised, the hero is the lead ROW of a ledger rather than a panel, so the
+ * centering the wide composition adds has to come back off — a ledger row reads from
+ * the left like every row under it. */
 section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) {
   background: none;
   border-left: none;
+  align-items: stretch;
+  text-align: left;
   padding: var(--sp-sm) 0;
 }
 /* Linearised, the hero is the LEAD ROW of one ledger rather than a card beside a

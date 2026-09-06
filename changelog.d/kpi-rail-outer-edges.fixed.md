@@ -20,3 +20,10 @@
 - **Fixed: `kpi trajectory` sizes its columns to the metrics authored.** The grid
   was pinned at four, so a 3-metric slide — the count the docs recommend — left an
   empty 270px track, 23% of the stage.
+- **Changed: the `kpi` hero is composed as the focus it is.** Its content centers on
+  both axes instead of parking in the upper left, the value scales to the box, and
+  the corner spark — orphaned once the content centers — retires. Measured
+  capacity-neutral against the previous design on identical content, so it costs no
+  label length. The column ratio is deliberately unchanged: sweeping it showed the
+  rail wraps at the documented density at every ratio worth having, so the split was
+  never the lever.
