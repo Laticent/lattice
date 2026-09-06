@@ -1269,6 +1269,33 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+ * LABEL LEADERS — the hairline that says which mark a name belongs to
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * The paint side of `svg-label.js` § leaderLine. Two members draw it today —
+ * `scatter` and `quadrant` — and it is here rather than in either of them
+ * because they draw the SAME line for the same reason: `placeLabels` keeps a
+ * name beside its own mark, and on a crowded plot "beside" stops meaning
+ * "nearest". A per-member copy of one hairline would drift a half-percent at a
+ * time, which is the argument the Cartesian block below makes at length.
+ *
+ * Quieter than the marks and quieter than the type, because it is a pointer and
+ * not data: at 52% of the body ink it survives a projector and never competes
+ * with the name it is pointing at. Mixed toward transparent off `--text-body`
+ * rather than given a gray of its own, so it follows a theme that re-tunes its
+ * ink and lands the same distance from the canvas in both modes.
+ *
+ * Palette-blind (HARD RULE #3): the shape is the kernel's, the color is the
+ * element's. `stroke-width` is in viewBox USER UNITS, like every other rule in
+ * this file's SVG section.
+ */
+:is(section.chart-frame, figure.chart-frame) .chart-leader {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text-body) 52%, transparent);
+  stroke-width: 0.55;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
  * CARTESIAN CHROME — the shared plot furniture
  * ═══════════════════════════════════════════════════════════════════════════
  *

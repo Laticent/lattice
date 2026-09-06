@@ -799,6 +799,66 @@ test('buildQuadrant: a dense cluster fans out instead of overprinting', () => {
   }
 });
 
+// ATTRIBUTION IS THE OTHER HALF OF PLACEMENT, and until 2026-09-06 this chart
+// had none. `placeLabels` keeps a name beside its own dot, but on a crowded plot
+// "beside" stops meaning "nearest": measured on the gallery's own fourteen-
+// initiative stress slide, SIX of the fourteen names sat closer to another
+// initiative's dot than to their own — and a quadrant carries no leader lines,
+// no value pills and no axis to read a position off, so proximity was the only
+// channel and it gave the wrong answer six times. See the 2026-09-06
+// label-attribution decision note.
+describe('quadrant — every name says which dot it belongs to', () => {
+  const dotsOf = (out) => [...out.matchAll(/<circle class="quadrant-dot"[^>]*cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/g)]
+    .map((m) => ({ cx: +m[1], cy: +m[2], r: +m[3] }));
+  const leadersOf = (out) => [...out.matchAll(/<line class="chart-leader"[^<>]{0,200}?\/>/g)].map((m) => ({
+    x1: +/x1="([-\d.]+)"/.exec(m[0])[1],
+    y1: +/y1="([-\d.]+)"/.exec(m[0])[1],
+  }));
+  const near = (box, d) => Math.hypot(
+    Math.min(Math.max(d.cx, box.left), box.right) - d.cx,
+    Math.min(Math.max(d.cy, box.top), box.bottom) - d.cy,
+  );
+
+  test('a crowded corner: every name is nearest its own dot, or led to it', () => {
+    // The same six-point cluster the fan-out test uses, where the pass has to
+    // push labels two rings out — exactly where proximity stops answering.
+    const ul = innerOf(`<ul><li>Quick Wins<ul>
+      <li>Weekly signal digest <code>8, 88</code></li>
+      <li>Slack intake bot <code>8, 87</code></li>
+      <li>Decision-log API <code>7.6, 87</code></li>
+      <li>Scoring model v2 <code>8.2, 86</code></li>
+      <li>Partner API keys <code>7.8, 85</code></li>
+      <li>Self-serve onboarding <code>8.1, 84</code></li>
+    </ul></li></ul>`);
+    const out = buildQuadrant(parseQuadrant(ul), 'default', SCALE);
+    const dots = dotsOf(out);
+    const boxes = textBoxes(out, 'quadrant-dot-label', FS_ITEM);
+    const leaders = leadersOf(out);
+    assert.equal(boxes.length, dots.length, 'one label per dot on this fixture');
+    // The i-th dot and the i-th label are the same item: both are emitted in
+    // parse order by the same loop.
+    boxes.forEach((box, i) => {
+      const own = dots[i];
+      const led = leaders.some((l) => Math.hypot(l.x1 - own.cx, l.y1 - own.cy) <= own.r * 2);
+      const ownDist = near(box, own);
+      const seated = dots.every((d, j) => j === i || near(box, d) >= ownDist);
+      assert.ok(led || seated,
+        `label ${i} is neither led to its own dot nor seated nearest it`);
+    });
+  });
+
+  test('a spread plot draws no leaders at all — a line nobody needs is noise', () => {
+    const ul = innerOf(`<ul>
+      <li>Strategic Bets<ul><li>Scoring model v2 <code>3, 72</code></li></ul></li>
+      <li>Quick Wins<ul><li>Weekly signal brief <code>8, 80</code></li></ul></li>
+      <li>Defer<ul><li>Vendor scoping <code>2, 30</code></li></ul></li>
+      <li>Time Sinks<ul><li>Custom audit log UI <code>7, 18</code></li></ul></li>
+    </ul>`);
+    const out = buildQuadrant(parseQuadrant(ul), 'default', SCALE);
+    assert.equal(leadersOf(out).length, 0);
+  });
+});
+
 // VERTICAL BEATS HORIZONTAL, and by enough that a further ring above a point
 // still wins over the nearest spot beside it. A name centered over or under its
 // point reads as that point's caption; a name off to one side reads as a row in

@@ -356,14 +356,14 @@ describe('scatter kernel', () => {
       const spread = buildScatter(parseScatter(ul([
         ['A', '1', '1'], ['B', '5', '5'], ['C', '9', '9'],
       ])), CTX, AXES);
-      assert.equal(/scatter-leader/.test(spread), false,
+      assert.equal(/chart-leader/.test(spread), false,
         'a well-spread plot should need no leaders');
       const cluster = buildScatter(parseScatter(ul([
         ['Cardinal', '180', '52'], ['Granite', '182', '53'],
         ['Halyard', '178', '50'], ['Ironwood', '185', '54'],
         ['Fathom', '60', '74'], ['Atlas', '420', '18'],
       ])), CTX, AXES);
-      assert.ok(/scatter-leader/.test(cluster),
+      assert.ok(/chart-leader/.test(cluster),
         'a tight cluster must state which name belongs to which dot');
     });
   });
@@ -569,12 +569,21 @@ describe('scatter kernel', () => {
 
 describe('scatter — the dense cluster keeps every name reachable', () => {
   // The twelve-tool stress slide from `scatter.gallery.md`. Four entities land
-  // within a dot's width of each other, and the contract on that slide is NOT
-  // that the labels rank them — the marks overlap, so there is no vertical
-  // order to read off (measured: centre distances 2.5-4.6 against summed radii
-  // of 7.6). The contract is that every entity is still NAMED, that no two
-  // names overprint, and that each one keeps the leader line that carries the
-  // attribution the overlapping dots cannot. See the decision note section 6.
+  // within a dot's width of each other (measured: centre distances 2.5-4.6
+  // against summed radii of 7.6), and the contract on that slide has two
+  // halves, one for each question a reader asks.
+  //
+  // WHICH DOT IS THIS? Every entity is NAMED, no two names overprint, and every
+  // name is ATTRIBUTABLE — either its own mark is the nearest thing to it, or it
+  // carries a leader springing from that mark. Deliberately stated as the
+  // property and not as "all four carry a leader": a label the pass manages to
+  // seat against its own dot needs no line, and demanding one would pin the
+  // geometry of the day rather than the contract.
+  //
+  // AND IN WHAT ORDER? Where two of these names end up sharing a column, the
+  // column reads in the same order as the dots. That is the invariant
+  // `placeLabels` buys with ORDER_COST — see the 2026-09-06 label-attribution
+  // decision note.
   const STRESS = [
     ['Atlas', '$420k', '18%'], ['Borealis', '$310k', '24%'], ['Cardinal', '$180k', '52%'],
     ['Dovetail', '$95k', '61%'], ['Everline', '$240k', '31%'], ['Fathom', '$60k', '74%'],
@@ -595,35 +604,59 @@ describe('scatter — the dense cluster keeps every name reachable', () => {
     }
   });
 
-  test('each of the four overlapping marks keeps its OWN leader line', () => {
-    // Without a leader, a name beside a four-dot blob attributes to nothing.
-    // Counting leaders document-wide is not this assertion: the slide carries
-    // leaders outside the cluster too, so a count passes while two of these
-    // four silently lose theirs. Each leader is matched to the dot it springs
-    // from instead.
+  // Where a name is ANCHORED, read straight out of the markup: the `<text>`'s
+  // own x, and the mean of its tspan baselines. Deliberately not a box — the
+  // emitted markup carries no width, and reconstructing one here would re-derive
+  // the kernel's estimator inside its own test. The anchor is enough for the
+  // question this file asks (which dot is nearest); the BOX-level property lives
+  // in test/unit/components/svg-label.test.js, where the boxes are real.
+  const anchors = (out) => new Map([...out.matchAll(/<text [^>]*scatter-label[^>]*>[\s\S]*?<\/text>/g)]
+    .map((m) => {
+      const frag = m[0];
+      const name = frag.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      const ys = [...frag.matchAll(/y="([-\d.]+)"/g)].map((q) => Number(q[1]));
+      return [name, {
+        x: Number(/ x="([-\d.]+)"/.exec(frag)[1]),
+        y: ys.reduce((a, b) => a + b, 0) / ys.length,
+      }];
+    }));
+
+  test('every name in the blob is attributable — nearest its own dot, or led to it', () => {
+    // Without one of the two, a name beside a four-dot blob attributes to
+    // nothing. Counting leaders document-wide is not this assertion: the slide
+    // carries leaders outside the cluster too, so a count passes while one of
+    // these four silently loses its own. Each leader is matched to the dot it
+    // springs from instead.
     const out = html();
     const circles = out.match(/<circle[^<>]{0,400}?\/>/g) || [];
-    const dotOf = (n) => {
-      const tag = circles.find((t) => t.includes(`data-label="${n}"`));
-      return tag && {
-        cx: Number(/\scx="([-\d.]+)"/.exec(tag)[1]),
-        cy: Number(/\scy="([-\d.]+)"/.exec(tag)[1]),
-        r: Number(/\sr="([-\d.]+)"/.exec(tag)[1]),
-      };
-    };
-    const leaders = [...out.matchAll(/<line class="scatter-leader"[^<>]{0,200}?\/>/g)].map((m) => ({
+    const dot = (tag) => ({
+      cx: Number(/\scx="([-\d.]+)"/.exec(tag)[1]),
+      cy: Number(/\scy="([-\d.]+)"/.exec(tag)[1]),
+      r: Number(/\sr="([-\d.]+)"/.exec(tag)[1]),
+      name: (/data-label="([^"]*)"/.exec(tag) || [])[1],
+    });
+    const dots = circles.filter((t) => /data-label="/.test(t)).map(dot);
+    const leaders = [...out.matchAll(/<line class="chart-leader"[^<>]{0,200}?\/>/g)].map((m) => ({
       x1: Number(/x1="([-\d.]+)"/.exec(m[0])[1]),
       y1: Number(/y1="([-\d.]+)"/.exec(m[0])[1]),
     }));
+    const at = anchors(out);
     for (const name of ['Ironwood', 'Granite', 'Cardinal', 'Halyard']) {
-      const d = dotOf(name);
-      assert.ok(d, `${name} is drawn`);
+      const d = dots.find((q) => q.name === name);
+      const a = at.get(name);
+      assert.ok(d && a, `${name} is drawn and labelled`);
       // A leader springs from the rim of its own dot, so its origin sits within
       // a radius-and-a-bit of that centre. The four are ~2.5 units apart, so
       // this is deliberately tight enough to tell them apart only vertically —
       // which is all that is needed to catch a whole leader going missing.
-      const own = leaders.some((l) => Math.hypot(l.x1 - d.cx, l.y1 - d.cy) <= d.r * 2);
-      assert.ok(own, `${name} keeps a leader line springing from its own mark`);
+      const led = leaders.some((l) => Math.hypot(l.x1 - d.cx, l.y1 - d.cy) <= d.r * 2);
+      // The other half of the contract, and why this is not "all four carry a
+      // leader": a name the pass seats against its own dot needs no line, and
+      // demanding one would pin today's geometry rather than the promise.
+      const own = Math.hypot(a.x - d.cx, a.y - d.cy);
+      const seated = dots.every((q) => q.name === name || Math.hypot(a.x - q.cx, a.y - q.cy) >= own);
+      assert.ok(led || seated,
+        `${name} is neither led to its own mark nor seated nearest it`);
     }
   });
 
