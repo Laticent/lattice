@@ -19,3 +19,10 @@
 - **In the Studio: Deck settings · General · Inline pills and marks.** Toggling it off
   writes `inline-code: literal`; toggling it back on removes the key rather than writing
   `rich`, so a deck that never opted out carries no trace of having been switched.
+- **It works per slide, and in the deck's own chrome.**
+  `<!-- _class: inline-code-literal -->` turns the grammar off for one slide and composes
+  with a component class; a literal deck's `header:` and `footer:` go literal with the
+  body, which matters because those are the two directives a deck written elsewhere is
+  most likely to carry. Both render paths gate on the resolved section class rather than
+  on front matter, so the register, Marp's `class:` and a per-slide `_class:` are one
+  mechanism instead of three that can disagree.

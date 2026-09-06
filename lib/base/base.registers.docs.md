@@ -377,7 +377,14 @@ So on the raw-Marp route, any slide with its own `_class:` must name
 engine appends the register's token to the class list it builds, so a per-slide `_class:`
 composes with it instead of competing.
 
-**And through the Lattice engine the register is deck-wide**: for a single span, escape it.
+**Per slide, on a Lattice deck**, use the token as an ordinary slide modifier —
+`<!-- _class: inline-code-literal -->` turns the grammar off for that slide and leaves the
+rest of the deck alone. It composes with a component class the usual way
+(`<!-- _class: list-tabular inline-code-literal -->`). For a single SPAN rather than a
+slide, escape it: `` `\{LABEL}` ``.
+
+Both render paths gate on the resolved section class rather than on the front matter, which
+is what makes the register, `class:`, and `_class:` one mechanism instead of three.
 
 ## The `eyebrow:` front-matter register (kicker decoration)
 

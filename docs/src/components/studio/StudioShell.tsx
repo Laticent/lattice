@@ -1524,6 +1524,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// written value for OFF is `literal`, not `off`. Writing `off` here would be silently
 	// inert (the kernel maps anything but `literal` to the running default) — which is what
 	// `unknown-inline-code` warns an author about, so the Inspector must not do it either.
+	//
+	// KNOWN DIVERGENCE, shared with `formOn` / `glossaryOn` above and not introduced here:
+	// `getFrontMatter` does not strip a trailing YAML comment, where the kernel's
+	// `frontMatterName` does. So `inline-code: literal  # deck from Acme` reads as ON in
+	// this switch while the engine renders it literal — the Inspector shows a toggle on
+	// over a preview with no pills in it. Fixing it belongs in `getFrontMatter`, where it
+	// fixes all three at once, rather than in one register's read.
 	const inlineCodeRich = !/^literal$/i.test((getFrontMatter(source, 'inline-code') || '').trim());
 	const toggleInlineCode = () => settingsWrite(inlineCodeRich ? 'Inline pills and marks off' : 'Inline pills and marks on', (s) => writeFrontMatterLine(s, 'inline-code', inlineCodeRich ? 'literal' : null));
 	const glossaryOn = /^(auto|on|true|yes)$/i.test((getFrontMatter(source, 'glossary') || '').trim());

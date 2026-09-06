@@ -1256,8 +1256,10 @@ crests); reach for `auto` otherwise.
 
 ## Inline pills — `{LABEL}`
 
-**Turning the whole grammar off:** `inline-code: literal` in front matter makes every
-single-backtick span in the deck literal — pills, marks and all. It is the switch for a
+**Turning the grammar off:** `inline-code: literal` in front matter makes every
+single-backtick span in the deck literal — pills, marks and all, including any in the
+deck's own `header:` / `footer:`. One slide at a time is
+`<!-- _class: inline-code-literal -->`. It is the switch for a
 deck you did not write, where `` `[x]` `` in prose was never meant to draw anything. See
 [`base.registers.docs.md`](base.registers.docs.md) § `inline-code:`; the Studio carries it
 as **Deck settings · General · Inline pills and marks**.
