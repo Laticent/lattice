@@ -441,7 +441,8 @@ describe('marp bundle — the overflow-marker export setting', () => {
       + '<script src="lattice-runtime.min.js"></script>\n';
     const out = withRuntimeScripts(legacy);
     for (const [file, want] of [['mermaid-v11.min.js', 1], ['lattice-dagre.min.js', 1], ['lattice-runtime.min.js', 1]]) {
-      const n = (out.match(new RegExp(`<script src="${file.replace(/\./g, '\\.')}"></script>`, 'g')) || []).length;
+      const esc = file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const n = (out.match(new RegExp(`<script src="${esc}"></script>`, 'g')) || []).length;
       assert.equal(n, want, `${file} appears ${n} times — the older block was not stripped`);
     }
     assert.equal((out.match(/markdownlint-disable MD033/g) || []).length, 1, 'one trailer, not two');
