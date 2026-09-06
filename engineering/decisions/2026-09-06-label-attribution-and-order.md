@@ -261,7 +261,18 @@ first column — 42 bytes and 36 bytes — is drift that was already there:
 `adaptive-sweep.pdf` was last built at `70d711d` (2026-09-03) and the baseline
 gallery at `e69d99c`, both before render-input commits that moved them. Only the
 gap between the middle and last columns is this change. Both had to be rebuilt
-here because this change genuinely moves them, so those bytes ride along. This is the class
+here because this change genuinely moves them, so those bytes ride along.
+
+**Rasterized, that split is exact, and it matters because `golden-diff` reads
+the first column.** The gate compares a PR's committed golden against the base
+branch's committed golden, so pre-existing staleness reports as if the PR caused
+it — on `adaptive-sweep` it listed seven changed slides. Page by page at 70 dpi:
+`main` → this head differs on pages 37, 38, 39, 41, 42, 43, 44 and 63, while
+`main` → a render at the base *with this change reverted* differs on 37, 38, 39,
+41, 42, 43 and 44, at pixel counts identical to the digit (24984, 24377, 17674,
+16576, 22930, 20830, 20091). So this change moves exactly ONE page of that deck —
+page 63, the quadrant chart slide, by 75 pixels. Pages 37-44 are `q-and-a`
+slides, stale since `4780a41` (#2097) landed without rebuilding the golden. This is the class
 `engineering/decisions/2026-09-06-cartesian-chart-expansion.md` §6 already records:
 per-PR CI structurally cannot see a golden nobody edits, and the nightly
 committed-golden freshness step is its only watcher.
