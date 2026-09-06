@@ -2004,13 +2004,19 @@ section.illegible > .illegible-tab {
    * and still enough: nothing a READER receives has it, because `reader` and `off` — the
    * export default and every delivered path — remove the node outright.
    *
-   * ONE MEASURED CONSEQUENCE, accepted rather than hidden: docs/src/playground/chart-interact.js
-   * resolves a pointer to a chart slice with `elementFromPoint(...).closest(MARK_SEL)`, and over
-   * this tab that now returns the tab, so `sliceAt` answers -1. A chart mark under the top-right
-   * corner of a slide that is ALSO ringed therefore stops revealing on hover. Narrow by
-   * construction (it needs a full-bleed chart on a slide whose figure is already below the
-   * floor), and the two hover affordances want the same pixel anyway — the alarm's hint wins,
-   * which is the right winner on a slide the alarm is about.
+   * THE ONE CONSEQUENCE WORTH CHECKING, and it is MEASURED rather than reasoned.
+   * docs/src/playground/chart-interact.js resolves a pointer to a chart slice with
+   * `elementFromPoint(...).closest(MARK_SEL)`; over a hit-testable tab that returns the tab, so
+   * `sliceAt` would answer -1 and a mark under this corner would stop revealing on hover.
+   *
+   * It does not happen, and that is the measurement rather than the placement note's word for
+   * it: every shipped chart gallery that emits `[data-mark]` (funnel · gantt · map · piechart ·
+   * quadrant · radar), rendered through the real emulator at hd with `.illegible` forced onto
+   * every slide so the tab paints at full size — 66 slides, 461 interactive marks, ZERO under
+   * the tab by rect intersection AND by `elementFromPoint`. The closest any mark came was 162px
+   * BELOW the tab's bottom edge. The corner really is reserved, and that is now a number rather
+   * than a claim. (Re-derive with the probe in the decision note; a component that starts
+   * drawing marks into the top chrome band is what would change it.)
    *
    * NOT THE WHOLE CHANNEL. A tooltip needs a pointer, so on a touch preview — the surface this
    * change was reported from — the hint is unreachable and the LABEL has to stand alone. That

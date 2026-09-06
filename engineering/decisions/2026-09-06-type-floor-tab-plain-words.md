@@ -157,14 +157,30 @@ and the second one was contradicted by this change's own evidence.
   export with the tab printed on it. The true bound is narrower and still sufficient: no
   READER receives it, because `reader` and `off` — the export default and every delivered
   path — remove the node outright.
-- **One measured consequence, accepted rather than hidden.**
+- **The consequence worth checking — measured, and it does not occur.**
   `docs/src/playground/chart-interact.js` resolves a pointer to a chart slice via
-  `elementFromPoint(...).closest(MARK_SEL)`; over this tab that now returns the tab, so
-  `sliceAt` answers -1 and a mark under the top-right corner stops revealing on hover. It
-  needs a full-bleed chart on a slide whose figure is *also* below the floor, and the two
-  hover affordances want the same pixel regardless — on a slide the alarm is about, the alarm
-  wins. Reasoned from the mechanism (confirmed live: `elementFromPoint` over the tab returns
-  the tab), not reproduced on a constructed slide.
+  `elementFromPoint(...).closest(MARK_SEL)`; over a hit-testable tab that returns the tab, so
+  `sliceAt` would answer -1 and a mark under this corner would stop revealing on hover. The
+  checker raised it as plausible-but-unreproduced, which was the right call on the evidence
+  then available. It is now reproduced against — every shipped chart gallery emitting
+  `[data-mark]`, rendered through the real emulator at hd with `.illegible` forced onto every
+  slide so the tab paints at full size:
+
+  | gallery | slides | interactive marks | under the tab |
+  |---|---|---|---|
+  | funnel | 8 | 31 | 0 |
+  | gantt | 8 | 44 | 0 |
+  | map | 13 | 178 | 0 |
+  | piechart | 9 | 40 | 0 |
+  | quadrant | 14 | 84 | 0 |
+  | radar | 14 | 84 | 0 |
+  | **total** | **66** | **461** | **0** |
+
+  Zero by rect intersection *and* by `elementFromPoint` at the overlap centroid. The closest
+  any mark came was **162px below** the tab's bottom edge. So the placement note's "no
+  component puts content in this corner" is now a number rather than an assertion, and the
+  `pointer-events` change costs nothing on the shipped catalog. What would change it is a
+  component that starts drawing interactive marks into the top chrome band.
 
 **`.fixme-tab` has the same mismatch and is NOT fixed here — deliberately, and the call is
 close enough to write down.** It has carried a `title` (`base.modifiers.css` sets
