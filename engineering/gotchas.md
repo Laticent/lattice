@@ -149,6 +149,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 - [Studio / playground LIVE PREVIEW shows hand-body decks in a system sans](gotchas/fonts.md#studio--playground-live-preview-shows-hand-body-decks-in-a-system-sans)
 - [Color emoji needs an installed font on the owned render paths](gotchas/fonts.md#color-emoji-needs-an-installed-font-on-the-owned-render-paths)
 - [Flex-centered caps read high in JetBrains Mono (and `text-box-trim` can't fix it here)](gotchas/fonts.md#flex-centered-caps-read-high-in-jetbrains-mono-and-text-box-trim-cant-fix-it-here)
+- [A preview's layout jumps once, shortly after it appears](gotchas/fonts.md#a-previews-layout-jumps-once-shortly-after-it-appears)
 
 ### [Lattice internals](gotchas/lattice-internals.md)
 

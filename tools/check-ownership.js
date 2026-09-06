@@ -5016,6 +5016,23 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
+    file: 'docs/e2e/preview-font-swap.spec.ts', ms: 1500, count: 1,
+    why: 'ONE ABSENCE ASSERTION, and it is the whole point of the spec: after the preview has '
+       + 'revealed a layout and the document reports its faces settled, NO SECOND layout may '
+       + 'appear. There is no signal for a thing that must not happen — a poll goes green on '
+       + 'its first tick, before the font-swap re-solve it exists to catch could have been '
+       + 'painted, which is the exact shape of the defect (the re-solve landed 320ms after the '
+       + 'reveal). Everything else in the spec IS polled: the arrival of a first sample and the '
+       + 'in-frame `__latticeFontsSettled` flag are one bounded `expect.poll`, so this wait '
+       + 'covers only the tail. 1500ms is ~4.7x the measured swap window and is deliberately '
+       + 'NOT read from the gate bound: a regression that raised that bound must still fail '
+       + 'here rather than move the goalposts with itself. COUNT 1 is the syntactic site, '
+       + 'which is what this gate censuses; `measure()` is called four times across the '
+       + 'three tests, so the wait EXECUTES 4x for ~6s of the file\'s runtime. That is the '
+       + 'price of the absence assertion being made once per arm, and it is stated here so '
+       + 'the entry is not read as "this file sleeps for 1.5 seconds".',
+  },
+  {
     file: 'docs/e2e/stage-placement.spec.ts', ms: 1200, count: 3,
     why: 'ABSENCE ASSERTIONS on an ASYNC path. `autoPlaceStage` runs off the open gesture as a '
        + 'promise chain, so "the Stage was never moved" and "the Stage was never fullscreened" '

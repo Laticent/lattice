@@ -43,6 +43,7 @@
 // SYNC scroll math (window.scrollY) and content-visibility virtualization both
 // keep measuring against the document viewport.
 
+import { fontGateAgent, onFontsReady } from '../../../lib/core/preview-font-gate.mjs';
 import {
 	buildPrintCss,
 	fitSlideOnSheet,
@@ -134,11 +135,28 @@ function fitAgent(gap, clamp) {
 		clamp
 			? '    if(secs.length){lattice.style.height=(secs.length*SH*sc+(secs.length-1)*GAP)+"px";lattice.style.overflow="clip";lattice.style.overflowClipMargin="40px";}'
 			: '',
-		// Reveal only once scaled — the srcdoc hides .lattice so the first paint
-		// (and the display:none->block pane switch on mobile, where clientWidth is
-		// 0 until shown) never flashes the slides at full 1280px width.
-		'    lattice.style.visibility="visible";',
+		// Reveal only once scaled AND once the document's own faces have landed.
+		// The srcdoc hides .lattice so the first paint (and the display:none->block
+		// pane switch on mobile, where clientWidth is 0 until shown) never flashes
+		// the slides at full 1280px width — `revealOk` extends that same gate over
+		// the FONT SWAP, which was the other thing a reader saw happen to a slide
+		// that was already on screen.
+		//
+		// Measured on `/playground/?view=edit` with a `list` + `cards-grid` deck and
+		// the faces served over a modeled link: without the gate the frame showed
+		// TWO layouts (197ms, 517ms) and the worst text run moved 330.3px across
+		// them. `fit()` still runs and still SCALES on every earlier call — only the
+		// reveal waits, so the geometry is finished before it is visible rather than
+		// computed late. See lib/core/preview-font-gate.mjs for why this waits on
+		// `document.fonts.ready` and not on `settleFonts`.
+		'    if(revealOk) lattice.style.visibility="visible";',
 		'  }',
+		'  var revealOk=false;',
+		// `fit()` and not `gatedFit()`, deliberately: the drag suspension below exists to
+		// stop a PER-FRAME fit storm while a splitter is dragged, and this is ONE fit, once
+		// per document. Routing it through the gate would mean a reader who happens to be
+		// dragging the splitter as the faces land sees nothing at all until they let go.
+		'  function revealNow(){revealOk=true;fit();}',
 		// Drag-time suspension: a live pane-splitter drag resizes this iframe every
 		// frame, and each width change would run fit() (O(sections) style writes +
 		// a filmstrip reflow) via the resize/RO listeners below — a per-frame layout
@@ -165,6 +183,9 @@ function fitAgent(gap, clamp) {
 		'      for(var i=0;i<ss.length;i++) ro.observe(ss[i]);}',
 		'  }',
 		'  fit();',
+		// …and reveal once the faces are ready. `revealNow` re-runs fit(), so the
+		// geometry a reader first sees is the one solved against the real metrics.
+		'  ' + onFontsReady('revealNow'),
 		// Backstop for async Mermaid/chart renders that grow a section after the
 		// observers are attached (or where ResizeObserver is absent). The fixed-box
 		// scale is content-independent, so these are belt-and-braces, not required.
@@ -415,7 +436,17 @@ export function buildSrcdoc({
 		// paper pick + safe margin. After `css`, the print sheet + margin win. (The
 		// `@media print` block is already `!important`, so order never mattered for it.)
 		printCss +
-		'</style></head><body>' +
+		'</style>' +
+		// The font gate, in <head> — the ONE placement rule across all three preview
+		// builders. It publishes `__latticeFontsSettled` / `__latticeFontsReady`
+		// synchronously and defers its own measurement to DOMContentLoaded, so being
+		// early costs nothing and being early is what a POLLING revealer needs (see
+		// lib/core/preview-font-gate.mjs). It must precede every revealer, because a
+		// revealer that finds no gate reveals immediately by design — so a late gate
+		// is a silent no-op, not a visible failure. `preview-font-gate.test.js` pins
+		// the order at every call site for exactly that reason.
+		'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
+		'</head><body>' +
 		a11yDefs +
 		html +
 		// Same pairing as the KaTeX link above — content AND url, so a missing URL emits

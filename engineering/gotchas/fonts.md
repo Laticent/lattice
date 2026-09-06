@@ -152,3 +152,57 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Triggered by:** Any small flex-centered caps label set in JetBrains Mono.
 - **Removable when:** The render Chromium reaches ≥133 — then `text-box-trim:trim-both; text-box-edge:cap alphabetic` becomes the general, font-agnostic fix.
 - **Commits:** The universal-pill branch.
+
+## A preview's layout jumps once, shortly after it appears
+
+- **Symptom:** A slide in the Studio filmstrip, the Playground, the Present stage
+  or a landing-page island paints, and then — a few hundred milliseconds later,
+  while you are already reading it — the text re-flows. Columns change width, a
+  heading re-wraps, a line appears or disappears. Nothing warns: no `⚠ OVERFLOW`,
+  no red ring, no "Content clipped" tag, and a screenshot of either moment looks
+  perfectly fine.
+- **Cause:** Every engine `@font-face` carries `font-display: swap`
+  (`tools/build-css.js`). A preview document therefore lays out once against the
+  FALLBACK face's metrics, paints that, and re-solves when the real face arrives.
+  The slide box is pinned to its `@size`, so nothing overflows and no fit or
+  overflow channel has anything to report — the geometry simply changes underneath
+  the reader. Measured on `/playground/?view=edit` with a `list` + `cards-grid`
+  deck: two layouts, at 197ms and 517ms, the worst text run moving 330.3px
+  horizontally and 50.7px vertically.
+- **Mitigation:** Fixed for the FIRST reveal of a document in all three preview
+  builders, and the fix is a gate rather than a per-component workaround. (First
+  reveal, not every render: a patch or restyle into an already-settled document that
+  brings in a face it has not loaded can still swap — narrower by construction, since
+  the slide is already on screen and the author is the one who changed it.)
+  `lib/core/preview-font-gate.mjs`
+  publishes `window.__latticeFontsReady` inside the document, and each builder's
+  EXISTING reveal (`.lattice{visibility:hidden}` in `deck-preview.js`,
+  `#latt-stage` in `stage-window.js`, the parent-side opacity fade in
+  `single-slide-render.ts`) waits for it. **A new preview surface owes the same
+  gate** — inject the agent in `<head>` and hang the reveal off it.
+- **Three traps if you touch this.** (1) The agent goes in `<head>`, not at the end
+  of `<body>`: `.lattice` parses long before an end-of-body script runs, so a
+  parent that POLLS for the gate reads `undefined`, concludes "no gate" and reveals
+  early — measured as a correctly-wired fix that did nothing. (2) Measuring it
+  needs `serviceWorkers: 'block'`; the docs site is a PWA and a
+  service-worker-served font never reaches a Playwright route handler, so the
+  fonts-blocked control silently does nothing and the run reports "clean". (3) Any
+  consumer that waited a FIXED BEAT for the reveal is now racing the gate, and every
+  element computes to hidden before the reveal — so losing that race prints or captures
+  a blank page. The desktop print path (`printHtmlDoc` in `PrintOptionsPanel.tsx`)
+  waited 450ms and then called `print()`; it now waits on `window.__latticeFontsReady`
+  (bounded), pinned by `print-ready.test.ts`. **Measured, and worth knowing before you
+  hunt this:** the race does not currently bite, because the reveal lands before the
+  frame's `load` event and the beat starts AT `load` — verified by driving the real
+  Share → Print deck → Print with the wait removed and reading `.lattice` inside the
+  print document at the `print()` call (`visible`, faces settled). With faces hung,
+  `load` never fires and nothing prints at all. So this is a latent coupling closed,
+  not a defect observed.
+- **Triggered by:** Any preview document whose layout depends on text metrics —
+  which is most of them. `matrix-grid` was the loudest (#2095 pinned
+  `table-layout: fixed` at `wide` to mitigate it for that one component), not the
+  only one.
+- **Removable when:** Never, while faces load asynchronously. `font-display: block`
+  would trade the shift for invisible text, which is worse.
+- **See:** `lib/core/preview-font-gate.mjs`, `docs/e2e/preview-font-swap.spec.ts`,
+  `engineering/jank.md`.

@@ -13,7 +13,10 @@ what the numbers mean, what counts as a defect, and the traps already paid for.
 
 Not the web-perf sense (dropped frames, layout thrash). In a slide engine it is: **a fixed
 visual element does not stay fixed as the content around it varies.** Three failure modes,
-and they need three different measurements.
+and they need three different measurements — plus a fourth, RE-SOLVE, where the content
+never varied at all and the FONT changed underneath it. `check:jank` measures the first
+three; the fourth is fixed at its cause rather than swept, and is described at the end of
+this section so the model is complete.
 
 **Drift.** An anchor that is supposed to hold position moves as content grows. A running
 section mark that sits 22% down the canvas on a one-line heading and 14% down on a
@@ -31,6 +34,23 @@ no "Content clipped" tag, no autosplit. See the *an OVERLAP IS NOT AN OVERFLOW* 
 **Crowding.** Content stays inside the frame and eats all its breathing room. The engine's
 own warning text already names this case ("a slide that overflows by padding alone is not
 tagged"), which is the honest admission that it is unmeasured.
+
+**Re-solve.** The content did not change at all — the FONT did. Every engine `@font-face`
+is `font-display: swap`, so a preview document lays out against the fallback face, paints,
+and re-solves when the real face lands. This is the one failure mode `check:jank` does NOT
+measure, and it is invisible to the sweep by construction: the sweep varies content and
+compares slides, while this varies nothing and compares one slide *against itself, one
+moment later*. Measured on `/playground/?view=edit` with a `list` + `cards-grid` deck, two
+layouts at 197ms and 517ms, the worst text run moving 330.3px. It is fixed at the CAUSE
+rather than measured per component — `lib/core/preview-font-gate.mjs` holds each preview
+builder's existing reveal until the document's own faces settle. **What that covers is a
+document's FIRST reveal**, which is the case where a page assembles itself in front of a
+reader; an edit that patches into an already-settled document and introduces a face it has
+not loaded can still swap, and deliberately so (hiding content an author is actively
+editing is the worse trade). **Any new preview surface owes that gate**; the guard is
+`docs/e2e/preview-font-swap.spec.ts`, and the oracle there is worth borrowing whenever you
+suspect a surface assembles in view: sample every animation frame and count how many
+distinct geometries a person was SHOWN, rather than asking whether the settled one is right.
 
 ## Why no existing tool answers it
 
