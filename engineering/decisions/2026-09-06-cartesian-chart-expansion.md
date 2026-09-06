@@ -1,7 +1,20 @@
+---
+status: in-progress
+summary: >
+  The chart family ships fourteen components and not one of them plots a value against an
+  axis — `progress` is a percentage fill with no scale, `quadrant` scores on a unitless 2x2,
+  and `gantt`'s only axis is time. So a deck that needs "revenue by quarter", "where the
+  budget went" or "actual against plan" has nothing to say it with, which is the largest gap
+  in the catalog and in the most-used direction. Seven Cartesian members close it — bar,
+  stacked-bar, line, waterfall, scatter, slope, bullet — each admitted because it makes a
+  claim no existing member can make. The load-bearing decision is that the axis machinery
+  landed FIRST, as one shared substrate: seven charts built one at a time would have minted
+  seven private tick generators, seven gutter conventions and seven gridline weights, which
+  is seven charts that look like seven products.
+---
+
 # Cartesian chart expansion — the family had no plot
 
-**Date**: 2026-09-06
-**Status**: implemented
 **Scope**: `lib/components/chart/_chart-family/cartesian.js` (new shared kernel),
 seven new chart components, `chart-family.css` § Cartesian chrome.
 
