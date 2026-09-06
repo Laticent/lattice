@@ -130,6 +130,26 @@ describe('a projected export keeps its per-slide channels aligned', { skip }, ()
 		assert.ok(!fs.existsSync(out));
 	});
 
+	test('the RASTER formats are immune to the print-time attacks, and that is measured not assumed', { timeout: TIMEOUT }, () => {
+		// Both adversarial lenses reasoned this and neither measured it, so it went in their reports as
+		// "could not verify". PNG / PPTX / the image set screenshot the SCREEN document and never
+		// invoke printing, so a `beforeprint` handler never fires for them and a `@media print` rule
+		// never applies. The point of pinning a negative that holds by construction: the construction
+		// could change. The PDF path has an artifact-level page-count check to catch that; these do not.
+		const beforePrint = '<script>window.addEventListener("beforeprint",function(){for(const e of document.querySelectorAll(".lens-hole"))e.style.setProperty("display","block","important")})</script>\n\n';
+		const png = run(deck({ style: beforePrint }), 'bp.png', ['--quiet', '--lens', 'brief']);
+		assert.equal(png.r.status, 0, png.r.stderr);
+		const images = fs.readdirSync(png.dir).filter((f) => /^bp\.\d+\.png$/.test(f));
+		assert.equal(images.length, 3, 'three shipped slides, three images — the handler never ran');
+
+		// And `@media print` IS caught on these formats, by the print-media half of the visibility
+		// check — so the two attacks land differently and both are covered.
+		const media = '<style>\n@media print { section.lens-hole { display: block !important } }\n</style>\n\n';
+		const shot = run(deck({ style: media }), 'pm.pptx', ['--quiet', '--lens', 'brief']);
+		assert.notEqual(shot.r.status, 0, 'a print-media un-hiding refuses on the PPTX path too');
+		assert.match(shot.r.stderr, /renders as a page/);
+	});
+
 	test('and a KEPT slide the deck hides is refused under a view — the page it promised is missing', { timeout: TIMEOUT }, () => {
 		// The other direction. Under a reader view the run has just printed how many slides ship, so an
 		// artifact with fewer pages than that is the projection's own contract broken. With no `--lens`

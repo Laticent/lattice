@@ -71,3 +71,11 @@
   correctly; under a reader view the refusal never fired at all. The two readings are zipped by
   position now — same query, same order — and the reported numbers are de-duplicated, so a split slide
   is named once instead of as "slides 1, 1".
+- **Measured: the raster formats are immune to both print-time attacks.** Both adversarial lenses
+  reasoned this and neither ran it, so it stood in their reports as "could not verify". PNG, PPTX and
+  the image set screenshot the SCREEN document and never invoke printing, so a `beforeprint` handler
+  never fires for them — measured: 3 images and 3 PPTX slides from a 3-slide view under the same
+  payload that gave the PDF five pages, with no withheld text anywhere in the package. A `@media
+  print` un-hiding IS caught on those paths, by the print-media half of the visibility check. Pinned,
+  because a negative that holds by construction holds only while the construction does, and these
+  formats have no artifact-level count check behind them the way the PDF now does.
