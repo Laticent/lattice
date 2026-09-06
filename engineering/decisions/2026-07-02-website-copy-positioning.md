@@ -156,8 +156,10 @@ Each item below is followed by where the current site stands.
    them at all (Laticent appears only on README/intro/story). ← Present.
 10. **Ship three brand names before shipping one product.** Lattice, Lattice
     Style, Laticent — tripled surface area for a first-timer's confusion.
-    *(2026-09: down to two — "Lattice Style" was retired and the org renamed
-    from SlideWright, so Laticent now covers project, org and app.)*
+    *(Named on the date: Lattice, Lattice Style, SlideWright. 2026-09: down to
+    two — "Lattice Style" was retired and SlideWright renamed to Laticent, which
+    now covers project, org and app. Dated observations elsewhere in this file
+    carry the swept name.)*
     ← Present (README hero, story; the intro carries two of the three).
 11. **Have an anonymous founder voice.** "I built Lattice because…" with no
     name attached anywhere. First-person conviction with no person. ← Present
@@ -515,7 +517,8 @@ for GA" from the one audience that can adopt today. Instead:
 - Add a byline. `I built Lattice because…` with no name reads as copy
   pretending to be conviction. One line fixes it: a name, optionally a link.
 - **Dedupe the brand story, don't just demote it.** README §"Why Lattice
-  Style exists" + §"The name" reproduce story.md nearly verbatim — the same
+  Style exists" *(2026-09: now §"Why Laticent exists")* + §"The name"
+  reproduce story.md nearly verbatim — the same
   drift-on-a-no-drift-product problem as overview/introduction, on a
   higher-traffic surface. The README keeps two sentences and links the
   story page; story.md stays the canonical telling.
@@ -526,9 +529,8 @@ for GA" from the one audience that can adopt today. Instead:
   (Lattice) plus at most one forward pointer (Laticent, "the desktop app,
   on the way"); the *explanation* of Lattice Style lives on the story page,
   one link away, rather than being repeated inline. *(2026-09: the brand was
-  retired; story.md §The name now explains Laticent and the `lattice.style`
-  address instead, and the README heading it cites is `Why Laticent exists`.)*
-  The README hero
+  retired; story.md §The name now explains Lattice and the `lattice.style`
+  address instead.)* The README hero
   currently makes a newcomer parse three names in two paragraphs
   (inversion #10).
 

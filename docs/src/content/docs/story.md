@@ -1,11 +1,11 @@
 ---
 title: The story
-description: Why Laticent exists, and the meaning behind the name — structure with taste, born from a refusal to keep fighting the slide tools we all use.
+description: Why Laticent exists, and what Lattice and lattice.style mean — structure with taste, born from a refusal to keep fighting the slide tools we all use.
 ---
 
 **Laticent** is structure with taste — the project behind **Lattice**,
 the engine that turns plain Markdown into boardroom-quality decks. Here is
-where it came from, and what the name means.
+where it came from, and what *Lattice* means.
 
 *— Sharmarke Aden, who builds Lattice*
 
@@ -55,10 +55,9 @@ Take style seriously — the way you'd take a well-made shoe seriously — and
 those four words are exactly what it means: *does it work, what's its shape,
 what's it made of, how is it finished.*
 
-**Laticent** keeps the *lattice* in its name for the same reason the engine
-does: the frame is the part that doesn't move. Structure you can trust, with
-taste — the frame and the finish — is what the project builds, and
-`lattice.style` is where it lives.
+Structure you can trust, with taste — the frame and the finish. That is what
+**Laticent** builds, and [lattice.style](https://lattice.style) is where it
+lives.
 
 ## Lattice and Laticent
 

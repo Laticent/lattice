@@ -23,7 +23,7 @@ Not a rebrand — product, copyright holder and SPDX headers stay SlideWright.
 > org rename, which is a different operation and leaves this sheet unexecuted. The
 > front matter still says `status: proposed`, so the decisions index lists it as
 > active work. **Confirm which happened before you either run this sheet or delete
-> it** — §1 calls the transfer a one-way door.
+> it** — "Read this first" item 1 calls the transfer a one-way door.
 
 ## Read this first — three things that are not what they look like
 
