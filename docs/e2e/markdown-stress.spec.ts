@@ -11,13 +11,21 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  * a REPRODUCTION found by a randomized walk over the real built Studio, not as a guess
  * about what might break.
  *
- * WHY THE UNIT TIER COULD NOT SEE ANY OF IT, stated plainly because it is the same class
- * of blind spot that let eight Compose defects through: `Editor.tsx` degrades to a plain
- * `<textarea>` when CodeMirror cannot construct, and CodeMirror cannot construct in jsdom.
- * So every jsdom test that "exercises the editor" exercises the FALLBACK. It has no
- * linter, no history, no transaction filters and no `EditorView` — which is to say none of
- * the four defects below is reachable from that tier at all. 1825 studio unit tests were
- * green over every one of them.
+ * WHY THE UNIT TIER MISSED ALL OF IT — and the honest answer is not the one this file was
+ * first written with. It used to say `Editor.tsx` degrades to a `<textarea>` because
+ * CodeMirror cannot construct in jsdom, so that tier could only ever exercise the fallback.
+ * **That is false, measured**: rendering this component under the docs vitest environment
+ * gives `textarea: false, .cm-content: true` — `docs/vitest.setup.ts` stubs the rect APIs
+ * CodeMirror measures with, precisely so it CAN construct.
+ *
+ * What is true is duller and more useful: 1822 studio unit tests were green over all of this
+ * because none of them drove these paths, not because they could not. Most of it IS reachable
+ * there — the engine renders in Node, so the rail-vs-engine differential runs in jsdom (this
+ * change ships it, `lint.test.ts`), and so do the history and BOM defects. What genuinely is
+ * not is a real clipboard `paste` event, and invariant 2 as an in-page assertion against the
+ * preview iframe. Reach for THIS tier when the question is "what does a real browser do with
+ * this input"; reach for that one for anything you can ask a component and the engine
+ * directly. See the findings note §9.
  *
  * WHAT THE WALK DID. It drove twelve op families against the shipped Studio in random
  * order — type, paste (CRLF / BOM / a 900-column line / a whole slide / a table / math /

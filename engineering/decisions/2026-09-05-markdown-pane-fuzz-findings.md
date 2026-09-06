@@ -2,11 +2,9 @@
 status: shipped
 summary: >
   A randomized Playwright walk over the real Studio's MARKDOWN pane — twelve op families,
-  five structural invariants after every op — found five defects the unit tier could not
-  see, for one structural reason: `Editor.tsx` degrades to a plain `<textarea>` when
-  CodeMirror cannot construct, and CodeMirror cannot construct in jsdom, so every jsdom
-  test of "the editor" exercises the FALLBACK. 1825 studio unit tests were green over all
-  five. The worst is silent, durable corruption: a leading U+FEFF pasted with a deck
+  five structural invariants after every op — found five defects that 1822 green studio unit
+  tests had walked past. (An earlier draft blamed that on `Editor.tsx` degrading to a
+  `<textarea>` in jsdom. It does not — measured — and §9 corrects it.) The worst is silent, durable corruption: a leading U+FEFF pasted with a deck
   defeated the `^---` front-matter anchor, so the front matter rendered AS the first slide
   with `theme:`/`size:`/`paginate:` ignored — and it persisted and survived a reload. The
   Studio's file-open door was a listed EOL/BOM boundary and its PASTE door was not. Also:
@@ -25,7 +23,7 @@ summary: >
   as three slides and shows as ONE, with two of them unreachable.
 ---
 
-# Markdown-pane fuzz sweep — what a random walk found that the unit tier could not
+# Markdown-pane fuzz sweep — what a random walk found that 1822 unit tests walked past
 
 **Symptom.** None. Nobody reported any of this; the pane had simply never been walked, and
 Compose — the Studio's other authoring surface — had just been (`2026-09-02-compose-fuzz-
@@ -54,14 +52,15 @@ these reads a different producer:
 4. no page error;
 5. the document is canonical — no CR, no leading BOM.
 
-**Why the unit tier missed all of it, and it is one sentence.** `Editor.tsx` ends with
-`if (failed) return <textarea …>` — a deliberate degradation for surfaces where CodeMirror
-cannot construct, which includes jsdom. So every jsdom test that appears to exercise the deck
-editor exercises a textarea with no linter, no history, no transaction filters and no
-`EditorView`. Four of the five defects below live in exactly those four things. This is the
-same class of blind spot as the Compose sweep's ("the unit test only ever drove the in-Compose
-`slideOp` path"), one level more total: there, the unit tests tested the wrong path; here they
-test a different component.
+**Why the unit tier missed all of it.** Because none of its 1822 studio tests drove these
+paths — not because it structurally could not. **An earlier draft of this paragraph said the
+opposite, confidently and at length; §9 has the measurement that killed it.** Most of this is
+reachable at the seam: the engine renders in Node, so the rail-vs-engine differential runs in
+jsdom (this PR ships it — `lint.test.ts`'s table), and so do the history and BOM defects. What
+genuinely is not reachable there is a real clipboard `paste` event, and invariant 2 *as an
+in-page assertion against the preview iframe* — which is one realization of the invariant, not
+the invariant. The Compose sweep's framing is the accurate one here too ("the unit test only
+ever drove the in-Compose `slideOp` path"): the tests drove the wrong paths.
 
 ---
 
@@ -241,15 +240,23 @@ document this could be wrong about most easily.
 because the init effect is keyed on `[known]` and a deck switch that leaves the editor mounted
 never re-runs it.
 
-**Its oracle is NOT end to end, and that is the second lesson of this section.** An e2e test
-was written for it and PASSED against the broken guard — twice, for two different reasons.
-The first started from the seeded tour deck, whose bytes never match a new deck's, so the leak
-could not arise. The second used two new decks and still passed: replaying the leak needs a
-REDO, and redo after an undo on a freshly created deck did not fire on the shipped surface —
-measured, and not root-caused. A test that cannot fail is worse than no test, so it was
-deleted and the pin moved to the predicate (`editor-carry.test.ts`), which does fail on the
-document-only guard. Same call the Compose note's §8 made about a security property, for the
-same reason.
+**Its oracle is at the PREDICATE, not end to end, and the reason first given for that was
+wrong.** An e2e test was written and PASSED against the broken guard — twice. The first
+started from the seeded tour deck, whose bytes never match a new deck's, so the leak could not
+arise. The second used two new decks and still passed, and this note originally recorded the
+reason as "redo does not fire on the shipped surface — measured, and not root-caused."
+
+**It fires. Redo here is `Ctrl+Y`.** `@codemirror/commands` binds `Mod-y`, with `Mod-Shift-z`
+on mac and a `linux: "Ctrl-Shift-z"` alternative that is not active in a headless context — so
+`Ctrl+Shift+Z` falls through to the base `Mod-z` and performs a SECOND UNDO. Instrumenting
+CodeMirror's own history is what showed it: `done` fell and `undone` rose, which is an undo
+wearing a redo's name. "Measured, and not root-caused" was doing a lot of work in that
+sentence; the measurement was real and the conclusion drawn from it was not.
+
+So the pin here is `editor-carry.test.ts`, which fails on the document-only guard and states
+the rule directly — worth keeping either way, because it cannot be confounded by a keybinding.
+**An end-to-end oracle for this leak is follow-up work, not an impossibility**, and it lands
+with the deck-history PR named at the end of this note.
 
 ## 7. Two oracles were green only on an idle machine
 
@@ -283,7 +290,51 @@ where the leak was. And the walk's invariant 2 has three legitimate escapes, one
 having compared nothing; the walk now counts its own evaluations and asserts the net was in
 the water.
 
+## 9. The reason this note first gave for the unit tier's blind spot was false
+
+Worth its own section because it was the most-repeated sentence in the change — this note's
+summary, its method section, the spec's header docblock — and because getting it wrong tells
+the next session to stop trying.
+
+**The claim.** `Editor.tsx` degrades to a `<textarea>` when CodeMirror cannot construct;
+CodeMirror cannot construct in jsdom; therefore every jsdom test of the deck editor exercises
+the fallback, and none of these defects is reachable from that tier.
+
+**The measurement.** Rendering `Editor` under the docs vitest environment:
+
+```
+FALLBACK textarea?   false
+.cm-content present? true
+```
+
+`docs/vitest.setup.ts` stubs `Range.getClientRects` and friends for exactly this reason — its
+own comment says CodeMirror measures selection geometry and bare jsdom throws. The fallback is
+real; it is not what that tier runs. Two further excuses went with it and did not survive
+either: `userEvent.keyboard('{Control>}z')` drives CodeMirror's real keymap and history in
+jsdom, and `lib/engine`'s `render()` runs in Node — so the rail-vs-engine differential is a
+unit test, which is why `lint.test.ts` in this very change is one.
+
+**What it cost.** The belief is what made the unit tier unavailable for the rest of the sweep.
+The rule the Compose note wrote for itself applies here unchanged: *a claim about what a tier
+can see is a claim, and it needs a measurement like any other* (#23). This one had never been
+run.
+
+**What is true.** Most of this is reachable at the seam. What is not is a real clipboard
+`paste` event and invariant 2 as an in-page assertion against the preview iframe.
+
 ## Found, NOT fixed here (off the path of this change — HARD RULE #18)
+
+- **A deck switch leaks the previous deck's whole document, and it is worse than §6.** Found
+  while root-causing §6's redo question. The editor does not remount when you change decks (its
+  init effect is keyed on `[known]`), so the whole-document swap from deck A's text to deck B's
+  is just another entry in CodeMirror's history. Measured on the built Studio: type in the tour
+  deck, create a new deck, press ⌘Z ONCE, and deck A's entire 1,933-character document is in
+  front of you — and `onChange` carries it into deck B's saved source from there. One keystroke,
+  no Compose detour, and it survives a reload. §6's carry is a second, narrower route to the
+  same harm. **Entirely pre-existing**, and its fix is structural — a different editor per deck,
+  with consequences across every Studio surface that mounts one — so it goes in its own PR
+  rather than widening this one. That PR also carries the end-to-end oracle §6 says is follow-up
+  work.
 
 - **The Studio's slide list does not model `split: headings`, and that is the largest thing in
   this note.** `split: headings` is the DEFAULT register (`lib/core/resolve-split.js`): "a deck
