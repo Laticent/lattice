@@ -367,8 +367,19 @@ section.state-chart .state-chart-edges {
  * `--state-edge-back` declares no role in its name, so `checkTokenContracts`
  * cannot compare its contract inside a fallback chain and fails the build. An
  * author's `:::token` arrives as an inline style on the same group, and inline
- * beats stylesheet, so it overrides both defaults without !important. */
-section.state-chart .state-edge-group { --edge-tint: var(--state-edge); }
+ * beats stylesheet, so it overrides both defaults without !important.
+ *
+ * THE DEFAULT IS DECLARED ON THE SECTION, NOT ON THE GROUP, and that is not
+ * tidiness. `.state-edge-arrow` reads `--edge-tint`, and not every arrowhead is
+ * inside an edge group: `startMarker` emits one into `<g class="state-marker">`.
+ * Declared on the group, `var(--edge-tint)` was invalid at computed-value time
+ * there, so `fill` fell to the SVG initial and every start arrowhead painted
+ * rgb(0,0,0) instead of rgb(26,26,26) — on every machine, chains included, and
+ * invisible against a dark canvas. Measured in real Chromium against the shipped
+ * export. The commit that introduced it certified "all 52 edges paint identical
+ * arrow fill" by enumerating `.state-edge-group` descendants, which is exactly
+ * the set that could not fail. */
+section.state-chart { --edge-tint: var(--state-edge); }
 section.state-chart .state-edge-group[data-dir="back"] { --edge-tint: var(--state-edge-back); }
 
 section.state-chart .state-edge {

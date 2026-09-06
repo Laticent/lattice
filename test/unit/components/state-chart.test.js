@@ -1066,6 +1066,195 @@ describe('state-chart `:::token` tint channel', () => {
     });
   }
 
+  // THE GRAMMAR IS NOT THE ONLY WAY IN, and the arm above cannot see the other
+  // one. Every test up there drives `parseStateChart` — the BUILD-time path,
+  // where `stripTint` has already refused anything but a bare token. The browser
+  // pass reads its tints back OUT of the DOM (`data-tint` on the measured node,
+  // and `tint`/`labelBg` from the `data-sc-transitions` JSON), and the DOM is not
+  // the parser: a deck author's raw inline HTML lands in the same document, and
+  // `fig.querySelectorAll('.state-node')` is a descendant search, so the pass can
+  // be handed a node the parser never saw.
+  //
+  // It was reachable. `data-tint` of `x"><image href="1" onerror="…"><rect a="`
+  // closed the `style="--fill-hue:var(--…)"` attribute and put a live `onerror`
+  // into `svg.innerHTML` — the post-sanitize injection of HARD RULE #22, on a
+  // same-origin preview frame; in a distributed `.html` export it bakes into
+  // every copy the recipient opens. The same value reached a `<stop>`'s style
+  // through the gradient defs. The comment on `renderHtmlNode`'s escAttr call
+  // ("TINT_TOKEN_RE has already refused anything with a quote") was true of the
+  // path it was written on and was used to justify not escaping on this one.
+  //
+  // So this arm drives the PASS with a hostile DOM, which is the only shape that
+  // can fail on it. Verified red against the pre-fix build.
+  describe('the browser pass refuses a hostile DOM-supplied tint', () => {
+    const HOSTILE = [
+      'x"><image href="1" onerror="top.__pwned=1"><rect a="',  // attribute breakout
+      'red); fill:url(#evil',                                  // close the var()
+      'a);}</style><script>x</script>',                        // RAWTEXT escape
+      'a b', 'UPPER', '1abc', '../../etc',
+    ];
+    const drive = ({ nodeTint = null, edgeTint = null, edgeBg = null } = {}) => {
+      const mk = (index, tint) => {
+        const a = { 'data-index': String(index), 'data-kind': null, 'data-tint': tint };
+        return {
+          getAttribute: (k) => (Object.hasOwn(a, k) ? a[k] : null),
+          querySelector: () => null,
+          getBoundingClientRect: () => ({ left: 100, top: 60 + index * 90, width: 120, height: 40 }),
+        };
+      };
+      const els = [mk(1, null), mk(2, nodeTint), mk(3, null)];
+      const trs = [
+        { from: 1, to: 2, event: 'a', isSelf: false,
+          ...(edgeTint ? { tint: edgeTint } : null), ...(edgeBg ? { labelBg: edgeBg } : null) },
+        { from: 2, to: 3, event: 'b', isSelf: false },
+      ];
+      const svg = { _attrs: {}, innerHTML: '', setAttribute(k, v) { this._attrs[k] = v; } };
+      const at = { 'data-sc-transitions': JSON.stringify(trs), 'data-sc-dir': 'tb', 'data-sc-style': null };
+      const fig = {
+        getAttribute: (k) => (Object.hasOwn(at, k) ? at[k] : null),
+        getBoundingClientRect: () => ({ left: 0, top: 0, width: 1200, height: 800 }),
+        closest: () => ({ getBoundingClientRect: () => ({ width: 1280 }) }),
+        querySelector: (s2) => (s2 === '.state-chart-edges' ? svg
+          : s2 === '.state-nodes' ? { style: {} } : null),
+        querySelectorAll: (s2) => (s2 === '.state-node' ? els : []),
+      };
+      installStateChartLayout({ readyState: 'complete', addEventListener() {},
+        querySelectorAll: (s2) => (
+          s2 === '.state-chart-figure[data-sc-transitions]' || s2 === '.state-chart-figure'
+            ? [fig] : []) });
+      return svg.innerHTML;
+    };
+
+    for (const bad of HOSTILE) {
+      test(`node \`data-tint\` — ${JSON.stringify(bad).slice(0, 34)}`, () => {
+        const html = drive({ nodeTint: bad });
+        assert.ok(html.length > 0, 'the pass drew something to assert about');
+        assert.equal(html.includes(bad), false, 'the raw value reached the markup');
+        assert.doesNotMatch(html, /<(image|script|iframe|svg)\b/i, 'an element was injected');
+        assert.doesNotMatch(html, /\son[a-z]+\s*=/i, 'an event-handler attribute was injected');
+      });
+
+      test(`transition tint + label-bg — ${JSON.stringify(bad).slice(0, 26)}`, () => {
+        const html = drive({ edgeTint: bad, edgeBg: bad });
+        assert.ok(html.length > 0, 'the pass drew something to assert about');
+        assert.equal(html.includes(bad), false, 'the raw value reached the markup');
+        assert.doesNotMatch(html, /<(image|script|iframe|svg)\b/i, 'an element was injected');
+        assert.doesNotMatch(html, /\son[a-z]+\s*=/i, 'an event-handler attribute was injected');
+      });
+    }
+
+    // The other half of the rule: refusing must not break the legitimate channel.
+    test('a well-formed token still paints', () => {
+      const html = drive({ nodeTint: 'state-pass-hue', edgeTint: 'state-fail-hue',
+        edgeBg: 'surface-raised' });
+      // Each carries its own fallback — see the degradation arm below for why.
+      assert.match(html, /--fill-hue:var\(--state-pass-hue,var\(--muted-mark\)\)/, 'node tint painted');
+      assert.match(html, /--edge-tint:var\(--state-fail-hue,var\(--state-edge\)\)/, 'edge tint painted');
+      assert.match(html, /--edge-label-bg:var\(--surface-raised,var\(--state-label-bg\)\)/,
+        'label background painted');
+    });
+  });
+
+  // A `:::token` NAMING A TOKEN THAT DOES NOT EXIST MUST DEGRADE, and five
+  // surfaces promise it in those words — the transform's own docblock, the docs
+  // table, the manifest, the changelog fragment and the design record: "a
+  // well-formed name for a token that does not exist resolves to nothing and the
+  // element keeps its inherited paint — the deck degrades, it does not break."
+  //
+  // It broke, three ways, all measured in real Chromium against the shipped
+  // export with one letter dropped from `:::state-pass-hue`:
+  //
+  //   · the transition's `stroke` went to `none` — the edge VANISHED from the
+  //     diagram — and its arrowhead painted rgb(0,0,0);
+  //   · the state's border went to `stroke: none`;
+  //   · the state's gradient stops fell to their initial and painted it SOLID
+  //     BLACK.
+  //
+  // The cause is one CSS rule in all three: an INLINE declaration beats the
+  // stylesheet, so `--edge-tint: var(--typo)` does not fall back to the
+  // section's default — it makes the property invalid at computed-value time and
+  // everything reading it drops to its own initial. The fix is that the inline
+  // value carries its own fallback, so these assertions are on the FALLBACK
+  // being present. Remove it and each one goes red.
+  // NOT EVERY ARROWHEAD IS INSIDE AN EDGE GROUP. `startMarker` emits a
+  // `<polygon class="state-edge-arrow">` into `<g class="state-marker">`, and the
+  // CSS paints every `.state-edge-arrow` with `fill: var(--edge-tint)`. Declared
+  // on `.state-edge-group`, that property simply does not exist at the marker, so
+  // `fill` fell to the SVG initial and EVERY start arrowhead painted rgb(0,0,0)
+  // instead of rgb(26,26,26) — on every machine including the chains this branch
+  // promises are untouched, and invisible against a dark canvas.
+  //
+  // The commit that introduced it reported "all 52 edges across the gallery paint
+  // identical stroke, dash and arrow fill". That census enumerated
+  // `.state-edge-group` descendants — precisely the set that could not fail.
+  //
+  // So this asserts the SCOPE, which is the thing that was wrong: the default has
+  // to be declared somewhere every `.state-edge-arrow` inherits from, and the only
+  // such place is the section.
+  test('the --edge-tint default is declared where a start marker can inherit it', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const css = fs.readFileSync(path.join(__dirname,
+      '../../../lib/components/chart/state-chart/state-chart.styles.css'), 'utf8');
+    // Every selector that assigns the default (not the [data-dir="back"] override).
+    const decls = [...css.matchAll(/^([^{}\n]*?)\{\s*--edge-tint:\s*var\(--state-edge\)/gm)]
+      .map((m) => m[1].trim());
+    assert.ok(decls.length > 0, '--edge-tint has no default declaration at all');
+    assert.ok(decls.some((sel) => sel === 'section.state-chart'),
+      'the --edge-tint default must be declared on `section.state-chart`, not only on ' +
+      `an edge group — a start marker is outside every group. Found: ${decls.join(' | ')}`);
+  });
+
+  describe('an unknown token degrades rather than erasing the mark', () => {
+    // The `inline` variant is the HTML paint path — it sets `--fill-hue` on the
+    // chip directly. The default variant stamps `data-tint` on the measuring
+    // <li> and lets the browser pass paint the rect, which the next test drives.
+    test('the inline variant falls back to the untinted default', () => {
+      const html = buildStateChart(parseStateChart(li(':::state-pass-hue')), 'inline');
+      assert.match(html, /--fill-hue:var\(--state-pass-hue,var\(--muted-mark\)\)/,
+        'the inline --fill-hue must carry a fallback, or an unknown token drops the border');
+    });
+
+    // The SVG paint path is the one the browser pass emits, so it is driven
+    // rather than string-matched: the rect's style AND the gradient stops both
+    // read the token, and the gradient one is what painted the state black.
+    test('the painted rect and its gradient both fall back', () => {
+      const mk = (index, tint) => {
+        const a = { 'data-index': String(index), 'data-kind': null, 'data-tint': tint };
+        return {
+          getAttribute: (k) => (Object.hasOwn(a, k) ? a[k] : null),
+          querySelector: () => null,
+          getBoundingClientRect: () => ({ left: 100, top: 60 + index * 90, width: 120, height: 40 }),
+        };
+      };
+      const els = [mk(1, null), mk(2, 'state-pass-hue'), mk(3, null)];
+      const svg = { _attrs: {}, innerHTML: '', setAttribute(k, v) { this._attrs[k] = v; } };
+      const at = { 'data-sc-transitions': JSON.stringify([
+        { from: 1, to: 2, event: 'a', isSelf: false, tint: 'state-fail-hue' },
+        { from: 2, to: 3, event: 'b', isSelf: false },
+      ]), 'data-sc-dir': 'tb', 'data-sc-style': null };
+      const fig = {
+        getAttribute: (k) => (Object.hasOwn(at, k) ? at[k] : null),
+        getBoundingClientRect: () => ({ left: 0, top: 0, width: 1200, height: 800 }),
+        closest: () => ({ getBoundingClientRect: () => ({ width: 1280 }) }),
+        querySelector: (s2) => (s2 === '.state-chart-edges' ? svg
+          : s2 === '.state-nodes' ? { style: {} } : null),
+        querySelectorAll: (s2) => (s2 === '.state-node' ? els : []),
+      };
+      installStateChartLayout({ readyState: 'complete', addEventListener() {},
+        querySelectorAll: (s2) => (
+          s2 === '.state-chart-figure[data-sc-transitions]' || s2 === '.state-chart-figure'
+            ? [fig] : []) });
+      const out = svg.innerHTML;
+      assert.match(out, /--fill-hue:var\(--state-pass-hue,var\(--muted-mark\)\)/,
+        'the painted rect must carry a fallback');
+      assert.match(out, /var\(--state-pass-hue, var\(--muted-mark\)\)/,
+        'the gradient stop must carry a fallback, or an unknown token paints the state black');
+      assert.match(out, /--edge-tint:var\(--state-fail-hue,var\(--state-edge\)\)/,
+        'the edge tint must carry a fallback, or an unknown token erases the transition');
+    });
+  });
+
   test('an untinted machine is byte-identical — the channel is purely additive', () => {
     const plain = li();
     const model = parseStateChart(plain);
@@ -1270,6 +1459,209 @@ describe('dagre re-ranking (fake DOM)', () => {
     assert.ok(gap < 0.8,
       `the TB rank gap is ${gap.toFixed(2)}x the node height — a one-line label ` +
       'is being stacked into the vertical gap it does not occupy');
+  });
+
+  // THE LAYOUT MUST CONVERGE. draw() re-runs on every resize, on `fonts.ready`,
+  // and on every tick of a live preview's ResizeObserver — so a layout whose
+  // output feeds back into its own input does not merely compute once and stop.
+  //
+  // It did. On a re-ranked machine the tail of draw() pins the scale box to the
+  // drawing (`geo.style.width/height`), and the hidden measuring column lays out
+  // INSIDE that box — so the pin left over from the previous draw constrained the
+  // node boxes the next draw measured. Driven in a real browser against the real
+  // `.html` export, the `lr` incident machine of `examples/state-chart-branching.md`
+  // alternated between `viewBox 1167.4 x 168.1` and `1073.5 x 154.7` forever,
+  // period two: the chart visibly jumped between two sizes on every redraw. The
+  // measured metrics were identical each round; it was the node rects that moved.
+  //
+  // This harness models exactly that coupling — a `.state-chart-scale` box whose
+  // pinned width squeezes the node rects — because that is the only part of the
+  // mechanism a fake DOM can carry. A structural assertion that draw() calls
+  // `removeProperty` would pass on a build that removed the pin at the WRONG time,
+  // which is the failure mode this whole suite exists to stop seeing.
+  //
+  // What it proves is the COUPLING, not the period-two cycle: the squeeze here is
+  // a step function, so an unfixed build settles on a second value after one draw
+  // rather than alternating. Either way it produces more than one viewBox, which
+  // is the assertion. Verified red by reverting the two `removeProperty` calls:
+  // `683.2 x 197.5` on the first draw, `647.2 x 197.5` on every one after.
+  test('the layout converges — a stale size pin cannot feed the next draw',
+    { skip: !hasDagre }, () => {
+    const spec = {
+      dir: 'lr',
+      // A GENUINE fan-out: three targets that land on one rank. `3 => 4` instead
+      // would make this a chain with a skip edge, dagre would rank it linearly,
+      // and the adoption test would decline to re-rank at all — no dagre layout,
+      // no size pin, and this test would certify nothing.
+      nodes: [n(1, 'Detected', 'start'), n(2, 'Triaged'), n(3, 'Mitigated'),
+        n(4, 'Closed'), n(5, 'Escalated')],
+      transitions: [e(1, 2, 'page'), e(2, 3, 'act'), e(2, 4, 'drop'), e(2, 5, 'verify')],
+    };
+    const NODE_H = 40, CX = 400;
+    // A minimal CSSStyleDeclaration: the pass sets `width`/`height` on the pin and
+    // clears them with removeProperty, which a bare object literal does not carry.
+    const scale = {
+      style: { removeProperty(k) { delete this[k]; } },
+      // The scale box reports the PIN when one is set — that is the coupling under
+      // test — and the natural column extent when it is not.
+      getBoundingClientRect: () => ({
+        left: 0, top: 0,
+        width: Number.parseFloat(scale.style.width) || 600,
+        height: Number.parseFloat(scale.style.height) || 400,
+      }),
+      _attrs: {},
+      setAttribute(k, v) { this._attrs[k] = v; },
+      getAttribute(k) { return Object.hasOwn(this._attrs, k) ? this._attrs[k] : null; },
+    };
+    // The reflow the pin causes, modelled: while the box is pinned, the column is
+    // narrower and every node measures 12px narrower with it. Unpinned, natural.
+    const squeeze = () => (scale.style.width ? 12 : 0);
+    const els = spec.nodes.map((nd, i) => {
+      const a = { 'data-index': String(nd.index), 'data-kind': nd.kind || null };
+      return {
+        getAttribute: (k) => (Object.hasOwn(a, k) ? a[k] : null),
+        querySelector: () => null,
+        getBoundingClientRect: () => {
+          const w = 70 + String(nd.label).length * 7 - squeeze();
+          return { left: CX - w / 2, top: 60 + i * (NODE_H + 48), width: w, height: NODE_H };
+        },
+      };
+    });
+    const svg = { _attrs: {}, innerHTML: '<title>t</title><desc>d</desc>',
+      setAttribute(k, v) { this._attrs[k] = v; } };
+    const at = {
+      'data-sc-transitions': JSON.stringify(spec.transitions),
+      'data-sc-dir': 'lr',
+      'data-sc-style': null,
+    };
+    const fig = {
+      getAttribute: (k) => (Object.hasOwn(at, k) ? at[k] : null),
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 2400, height: 1200 }),
+      closest: () => ({ getBoundingClientRect: () => ({ width: 1280 }) }),
+      querySelector: (s2) => (s2 === '.state-chart-edges' ? svg
+        : s2 === '.state-chart-scale' ? scale
+        : s2 === '.state-nodes' ? { style: {} } : null),
+      querySelectorAll: (s2) => (s2 === '.state-node' ? els : []),
+    };
+    const doc = {
+      readyState: 'complete',
+      addEventListener() {},
+      querySelectorAll: (s2) => (
+        s2 === '.state-chart-figure[data-sc-transitions]' || s2 === '.state-chart-figure'
+          ? [fig] : []),
+    };
+    const boxes = [];
+    for (let i = 0; i < 4; i++) {
+      // A fresh document object each pass: the real install guard
+      // (`doc.__scLayoutInstalled`) is per-document and would skip the observer
+      // wiring, but drawAll() runs first either way. What must NOT be reset is
+      // `scale`, which is the DOM node carrying the stale pin between draws.
+      installStateChartLayout({ ...doc });
+      boxes.push(svg._attrs.viewBox);
+    }
+    const distinct = [...new Set(boxes)];
+    assert.equal(distinct.length, 1,
+      `the layout does not converge — ${boxes.length} draws produced ` +
+      `${distinct.length} distinct viewBoxes: ${boxes.join(' | ')}`);
+  });
+
+  // WRAPPING IS THE RE-RANKED PATH'S, AND A CHAIN IS NOT IT. Only `edgeDagre`
+  // draws the label beside the line; a column draws it ON the line under a
+  // `paint-order: stroke` halo, where a second line cuts a taller gap out of the
+  // connector — the failure moving the label off the line exists to avoid.
+  //
+  // The wrap was applied to `t.event` before the adoption test, so it re-rendered
+  // every chain too — which is every machine in the six shipped galleries. It went
+  // unseen because the longest event any shipped deck carries (`return for
+  // changes`, ~119px) clears the 134.4px `lr` budget by 15px, so no gallery moved
+  // and the byte-identity check saw nothing. This test uses a label that does not
+  // clear it.
+  test('a chain does not wrap — the label is still drawn on the line', () => {
+    const long = 'submit for editorial review';
+    const mk = (index) => {
+      const a = { 'data-index': String(index), 'data-kind': index === 1 ? 'start' : null };
+      return {
+        getAttribute: (k) => (Object.hasOwn(a, k) ? a[k] : null),
+        querySelector: () => null,
+        getBoundingClientRect: () => ({ left: 100 + (index - 1) * 260, top: 100, width: 120, height: 40 }),
+      };
+    };
+    const els = [mk(1), mk(2), mk(3)];
+    const svg = { _attrs: {}, innerHTML: '', setAttribute(k, v) { this._attrs[k] = v; } };
+    const at = {
+      'data-sc-transitions': JSON.stringify([
+        { from: 1, to: 2, event: long, isSelf: false },
+        { from: 2, to: 3, event: 'ok', isSelf: false },
+      ]),
+      'data-sc-dir': 'lr', 'data-sc-style': null,
+    };
+    const fig = {
+      getAttribute: (k) => (Object.hasOwn(at, k) ? at[k] : null),
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 1200, height: 600 }),
+      closest: () => ({ getBoundingClientRect: () => ({ width: 1280 }) }),
+      querySelector: (s2) => (s2 === '.state-chart-edges' ? svg
+        : s2 === '.state-nodes' ? { style: {} } : null),
+      querySelectorAll: (s2) => (s2 === '.state-node' ? els : []),
+    };
+    installStateChartLayout({ readyState: 'complete', addEventListener() {},
+      querySelectorAll: (s2) => (
+        s2 === '.state-chart-figure[data-sc-transitions]' || s2 === '.state-chart-figure'
+          ? [fig] : []) });
+    const html = svg.innerHTML;
+    // Not re-ranked: three states in a row is a column, so the adoption test
+    // declines and the canvas stays the measured figure box rather than a dagre
+    // drawing. Asserting this is not decoration — if the machine DID re-rank, the
+    // wrap would be legitimate and the rest of this test would pin the wrong rule.
+    assert.equal(svg._attrs.viewBox, '0 0 1200.0 600.0',
+      'this machine must NOT be re-ranked — the canvas should still be the figure box');
+    assert.match(html, new RegExp('>' + long + '</text>'),
+      'the chain label must render as one unbroken line, as it does on main');
+    assert.doesNotMatch(html, /<tspan/, 'a chain label must not be split into tspans');
+  });
+
+  // THE LABEL MUST CLEAR ITS OWN EDGE, which is the point of moving it off the
+  // line and is what the branching deck's coda claims in so many words. It did
+  // not: `ly` is the label BLOCK's centre, so `mid.y + labelOff` put the first
+  // line's CENTRE 7px below the edge and its box TOP 0.5px below it — and
+  // `.state-edge-label` carries a `paint-order: stroke` halo (0.46875cqi, ~3px
+  // half-width at the HD baseline) that reached back across the line. On page 7
+  // of `examples/state-chart-branching.md` the one-line `auto approve` notched
+  // the green edge and the two-line `escalate to legal / counsel` broke its
+  // connector into a dashed run — visible at a glance in the committed PDF.
+  //
+  // So the assertion is the CLEARANCE, measured off the emitted geometry: the top
+  // of the first line's box must sit at least `labelOff` below the edge it
+  // labels. Verified red against the block-centred offset.
+  test('an lr label clears the edge it labels', { skip: !hasDagre }, () => {
+    const LABEL_LINE = 13, LABEL_OFF = 7;   // G.labelLine, G.labelOff
+    const { svg } = run({
+      dir: 'lr',
+      nodes: [n(1, 'Submitted', 'start'), n(2, 'Second'), n(3, 'Approved'), n(4, 'Escalated')],
+      transitions: [e(1, 2, 'needs second review'), e(1, 3, 'auto approve'),
+        e(2, 4, 'escalate to legal counsel')],
+    });
+    // Pair each edge path with the label that follows it — `edgeDagre` emits the
+    // path, then the arrowhead, then the label, in that order.
+    const chunks = svg.split('<path class="state-edge"').slice(1);
+    let checked = 0;
+    for (const c of chunks) {
+      const d = /\bd="([^"]+)"/.exec(c);
+      const lab = /<text class="state-edge-label"[^>]*?(?:\sy="([-\d.]+)")?[^>]*>([\s\S]*?)<\/text>/.exec(c);
+      if (!d || !lab) continue;
+      const ys = [...d[1].matchAll(/[ML]\s[-\d.]+\s([-\d.]+)/g)].map((m) => Number(m[1]));
+      // Only a level run has a single unambiguous edge y to measure against.
+      if (!ys.length || Math.max(...ys) - Math.min(...ys) > 0.5) continue;
+      const edgeY = ys[0];
+      const tspanYs = [...lab[0].matchAll(/<tspan[^>]*\by="([-\d.]+)"/g)].map((m) => Number(m[1]));
+      const firstY = tspanYs.length ? Math.min(...tspanYs) : Number(lab[1]);
+      if (!Number.isFinite(firstY)) continue;
+      const boxTop = firstY - LABEL_LINE / 2;
+      checked++;
+      assert.ok(boxTop - edgeY >= LABEL_OFF - 0.01,
+        `a label sits ${(boxTop - edgeY).toFixed(2)}px below its edge, under the ` +
+        `${LABEL_OFF}px clearance — its halo will cut the connector`);
+    }
+    assert.ok(checked > 0, 'no level lr run with a label was found to measure');
   });
 
   test('an authored line break renders as two tspans', { skip: !hasDagre }, () => {

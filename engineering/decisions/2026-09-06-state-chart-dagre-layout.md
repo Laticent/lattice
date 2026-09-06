@@ -379,6 +379,8 @@ sat ~20px above its box on a machine whose column had wrapped a label.
 | distributable `.html` export | dagre inlined, global installed, machine re-ranked in a real browser |
 | PPTX / PNG export | render clean |
 | docs site preview iframe (real dev server) | renders `viewBox 0 0 970.4 253.4` — identical to the CLI — nothing at negative coordinates, no page errors |
+| tilt guard, real browser (`.html` export) | geometry frozen under a live `matrix3d` transform and restored after; zero page errors — and the run found the non-convergent layout in §9.3 |
+| layout convergence, real browser | all figures of all four state-chart decks stable across six successive draws |
 | docs **Playground**, branching deck typed in | re-ranked: the three fan-out targets land at one rank (x ≈ 421/426/430) across three rows (y 5/112/219); dagre reachable in the frame; nothing at negative coordinates; no page errors |
 | six shipped galleries | byte-identical node geometry |
 
@@ -390,13 +392,55 @@ gallery deck — every one of which is a chain. What worked is CDP `Input.insert
 which inserts verbatim and bypasses key handling.
 
 **A false alarm on the way, recorded because the next person will hit it:** the
-first reading said the Studio did NOT re-rank. It does. dagre CENTRES nodes in a
+first reading said the Studio did NOT re-rank. It does. dagre CENTERS nodes in a
 rank, so their left edges differ by node width — comparing the `x` ATTRIBUTE finds
 no two equal and reports a column. Compare rank coordinates, not box origins.
 
-**Still UNVERIFIED:** the **Drawing Board tilt** path. `draw()`'s
-`getComputedStyle(fig).transform !== 'none'` early return now leaves the size pin
-in place, which reads correctly but was not driven.
+### 9.3 Driving the tilt path found a layout that never converged
+
+The tilt row above was the last UNVERIFIED one, and closing it turned up a defect
+nothing else had — which is the argument for closing such rows rather than
+reasoning about them.
+
+**Two harnesses failed before one worked, both in the vacuous direction.** The
+first tilted the figure and dispatched a `resize` event. Nothing moved — and
+nothing moved on a build with the guard DELETED either, which is the tell: a CSS
+transform does not change the observed content box, so the `ResizeObserver` that
+owns the redraw never fired, and the harness was reporting the absence of a redraw
+as the presence of a guard. The second re-evaluates the pass's own `<script>` text
+in the page, which is the same `drawAll()` the observer calls.
+
+With a redraw actually firing, the guard holds: across all five figures of
+`examples/state-chart-branching.md` in a real headless Chromium, geometry is
+unchanged while a live `matrix3d` transform is on the figure, and unchanged again
+once it settles back. Zero page errors.
+
+**And the fifth figure moved on every redraw, tilt or no tilt.** It alternated
+between `viewBox 1167.4 x 168.1` and `1073.5 x 154.7`, period two, forever — so a
+live preview, a resize, or `fonts.ready` made the chart visibly jump between two
+sizes. The measured label metrics were identical every round (`maxW 112.199`,
+`maxLines 2`) and `want` was constant, which ruled out the feedback loop this code
+already guards: `want` is read from the figure VIEWPORT precisely so the layout
+cannot chase its own output.
+
+The residual path was the SIZE PIN. On a re-ranked machine the tail of `draw()`
+pins the scale box to the drawing, and the hidden measuring column lays out inside
+that box — so the pin left over from the previous draw constrained the node rects
+the next draw measured. Narrower boxes, wrapped labels, a different layout. The fix
+is one line of symmetry: the pin comes off before measuring, next to the fit
+transform that was already being reset there for exactly the same reason.
+
+**It was changing what we ship.** The PDF path draws twice (`fonts.ready` fires a
+second `drawAll`), so the committed decks carried the fed-back layout: on the
+ten-step pipeline of `examples/state-chart-stress.md`, "In Progress" and "Code
+Review" wrapped to two lines under a pin that had squeezed their boxes. Three
+pages across two decks changed when the pin came off, all of them for the better.
+
+The regression test models the coupling in the fake DOM — a scale box whose pinned
+width squeezes the node rects — and was verified red by reverting the two
+`removeProperty` calls. It needs a GENUINE fan-out to bite: with a skip edge
+instead, dagre ranks the machine linearly, the adoption test declines, no pin is
+ever set, and the test certifies nothing. The first draft had exactly that shape.
 
 ## 8. Open
 
