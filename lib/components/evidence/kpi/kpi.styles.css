@@ -833,36 +833,40 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > strong {
 section.kpi.spotlight:where(section:not([data-family]), [data-family="square"]) > .cell-stage > ol > li:nth-child(n+3) > strong {
   padding-top: 0.12em;
 }
-/* THE LINEARIZED FAMILIES GET NO LEAD, AND IT IS A TRADE, NOT A CLEARANCE.
+/* THE LINEARIZED FAMILIES GET NO LEAD, AND THE REASON IS CAPACITY — NOT CLEARANCE.
  *
- * A draft of this comment claimed the tall ledger "already clears — measured 6.72px and
- * 6.56px of painted white". That number was wrong, and wrong the same way twice before
- * it: the scan window started at 10% of the slide width while the value starts at 5%,
- * so it measured the letters BEHIND the first glyph. Scanned across the full ledger
- * width the answer is 0.00px above and below — at tall the accent is IN CONTACT with
- * the rule. `--fs-emphasis` is 68.04px on a 64.64px line box there, so the ascender
- * overflows its own line box and any rule above it is crossed.
+ * Two drafts of this comment justified the exclusion with a measurement of the tall
+ * ledger's rules. Both were wrong, and the second was wrong in a way worth writing down.
  *
- * WHY NO LEAD ANYWAY. Adding one costs a slide: on a dense 4-metric portrait deck at
- * `compact`, inside the documented `tall.soft: 4`, it pushes the ledger past the stage
- * and `overflow: clip` shears the last row's pills, where the same deck without it is
- * clean. So the choice at tall is a crossing or a clip, and the crossing is the one
- * that keeps the author's fourth metric.
+ * Draft one said the ledger "already clears — 6.72px and 6.56px of painted white". That
+ * number came from a scan window starting at 10% of the slide width while the value
+ * starts at 5%, so it measured the letters BEHIND the first glyph.
  *
- * WHAT THIS BRANCH OWES, STATED PLAINLY. The crossing is PRE-EXISTING — remove the
- * row-2 border this file adds below and one ruled row still crosses on main's geometry
- * — but this branch adds a second ruled row at tall, so it extends the defect by one
- * row. Isolated and measured both ways: 1 crossing without that border, 2 with it.
- * Fixing it properly is a type-metrics change (the line box, or the value's size), not
- * a padding, and it is bigger than this diff.
+ * Draft two corrected the number to a CROSSING and called it a known miss this branch
+ * extends by one row. That is wrong too, for a bigger reason: THE EXPORT NEVER RENDERS
+ * THAT LEDGER. kpi's metric list overflows the portrait box at as few as TWO metrics, so
+ * the Fit Spine splits it to one element per page (lib/core/auto-split.js — split fires
+ * on fit, and the cut is one structural element per page). Measured on main and here
+ * alike: a 2-metric `kpi` at `size: story` emits one metric per page on both. On those
+ * pages there is no separator to cross — main paints a 1px top rule on each single row,
+ * this branch paints none.
  *
- * Scope note, since a draft got this wrong too: the ruled rows at tall are `n+2` (the
- * reflow below adds the row-2 separator), while the lead selector is `n+3`. So it is
- * NOT true that "every ruled row is led at tall"; row 2 would be ruled and unled. The
- * cost of leading tall measures 1.70x wide, not the "roughly triple" a draft asserted.
- * And excluding the family does not leave tall "byte-for-byte as main" — this branch
- * changes tall deliberately (outer edge off the hero, separator onto row 2). It leaves
- * only the LEAD's contribution at zero there, which is the narrower true claim. */
+ * The crossing reproduces ONLY under `--no-split` (École 4.20px, Ärlig 2.44px), and the
+ * emulator documents that flag as INSTRUMENTATION rather than an authoring mode: it exists
+ * so measuring rigs can keep page N equal to slide N. Measuring ink on a page the engine
+ * would never emit is the same class of error as the two above — a control that is not the
+ * thing it is named for.
+ *
+ * SO WHAT ACTUALLY JUSTIFIES THE EXCLUSION IS CAPACITY, AND ONLY CAPACITY. Applying the
+ * lead at every family pushed a dense 4-metric portrait deck at `compact` past the stage —
+ * inside the documented `tall.soft: 4` — where the same deck without it is clean. That
+ * cost is real and reproducible on the shipped path. No clearance claim is needed, and
+ * none should be made: at tall there is no rendered rule for a lead to clear.
+ *
+ * The row-2 separator this file adds below at tall/strip is subject to the same limit. It
+ * needs `li:nth-child(2)` to exist, which a one-element-per-page split never produces, so
+ * it reaches only surfaces that do NOT split — the runtime preview and the Studio, which
+ * render the authored slide whole. It is kept for those; it is not doing work in a PDF. */
 section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > ul > li:first-child {
   padding-top: 0.15625cqi;
   font-size: var(--fs-body);

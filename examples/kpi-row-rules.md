@@ -123,5 +123,5 @@ Five defects in one component, found by measuring rather than looking. The suppo
 
 - **`0.12em` is the most the rail carries with four metrics still fitting.** At 0.13em the slide above pushes 1.13px past the stage; at 0.14em the pill loses ink.
 - **The overflow warning reports neither.** `overflow: clip` shears in silence. What sized this was the stage's bottom edge against the deepest descendant box.
-- **`tall` and `strip` get no lead — a trade, not a clearance.** There the accent touches its rule, and a lead clips a dense portrait deck inside `tall.soft: 4`.
-- Family is set once in front matter, so no one deck shows both; `examples/adaptive-sizing.md` renders this rail linearized.
+- **`tall` and `strip` get no lead, and the reason is capacity.** A lead there clips a dense four-metric portrait deck inside the documented `tall.soft: 4`.
+- **Two drafts justified that exclusion by measuring the portrait ledger instead. There is no portrait ledger to measure:** `kpi` overflows a portrait box at two metrics, so the Fit Spine cuts it to one per page and a single row has no separator to cross.

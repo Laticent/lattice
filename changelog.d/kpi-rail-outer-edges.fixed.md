@@ -41,10 +41,16 @@
   Doubly-marked capitals stay a known miss: `Ǻ` (U+01FA, ring *and* acute — not `Å`,
   which clears) starts its ink 5.60px above the hairline, and eight more cross by
   1.9–7.9px, further than the whole lead reaches.
-- **Known, not fixed: at `tall` and `strip` the value's accent touches the rule above
-  it.** Measured 0.00px across the full ledger width. No lead is applied there because
-  one clips a dense 4-metric portrait deck inside the documented `tall.soft: 4` — so the
-  choice is a crossing or a clip, and the crossing keeps the author's fourth metric. The
-  crossing is largely pre-existing: one ruled row crosses without the row-2 separator
-  this change adds, and this change takes it from one row to two. Closing it needs a
-  type-metrics change (the value's line box or its size), not a padding.
+- **No lead at `tall` and `strip`, and the reason is capacity.** Applying it there pushed a
+  dense 4-metric portrait deck at `compact` past the stage — inside the documented
+  `tall.soft: 4` — where the same deck without it is clean. Two drafts of this note instead
+  justified the exclusion with a measurement of the linearized ledger's rules; both were
+  wrong, and the second usefully so. The export never renders that ledger: `kpi`'s metric
+  list overflows a portrait box at as few as two metrics, so the Fit Spine splits it to one
+  element per page — measured on main and here alike — and a single-metric page has no
+  separator to cross. The crossing those drafts reported reproduces only under `--no-split`,
+  which the engine documents as instrumentation rather than an authoring mode.
+- **What changes at `tall` and `strip` is the outer edge, and it is visible.** The demoted
+  hero loses the heavy top rule it used to carry; `examples/adaptive-sizing.pdf` shows the
+  before and after. The row-2 separator added alongside it needs an unsplit two-metric
+  ledger, so it reaches the runtime preview and the Studio rather than a PDF.

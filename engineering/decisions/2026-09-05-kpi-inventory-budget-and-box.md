@@ -388,22 +388,38 @@ the line box and paints nothing.
   Applying the lead at every family clipped a dense 4-metric portrait deck at `compact`,
   inside the documented `tall.soft: 4`, where the same deck without it is clean.
 
-  **The reason first given for excluding tall was false, and the correction matters more
-  than the rule.** The draft said the linearized ledger "already clears — 6.72px and
-  6.56px of white". It does not. That number came from a scan window starting at 10% of
-  the slide width when the value starts at 5%, so it measured the letters behind the
-  first glyph — the third time on this branch that a window excluded the glyph it was
-  named for. Scanned across the full width: **0.00px above and below**; at tall the
-  accent is in contact with the rule, because `--fs-emphasis` is 68.04px on a 64.64px
-  line box and the ascender overflows its own line box.
+  **The reason first given for excluding tall was false. So was the reason that replaced
+  it, and the second failure is the more instructive one.**
 
-  So the tall exclusion is a **trade**, not a clearance: a crossing, or a clip that costs
-  an author's fourth metric. The crossing is largely pre-existing — isolate the row-2
-  border this branch adds and one ruled row still crosses without it — but the branch
-  adds a second ruled row there, so it extends the defect from one row to two. Measured
-  both ways. Fixing it properly is a type-metrics change, not a padding, and it is
-  bigger than this diff; what is NOT acceptable is the draft's claim that it does not
-  exist.
+  Draft five's first correction said the linearized ledger "already clears — 6.72px and
+  6.56px of white". It does not. That number came from a scan window starting at 10% of
+  the slide width when the value starts at 5%, so it measured the letters behind the first
+  glyph — the third time on this branch that a window excluded the glyph it was named for.
+
+  The correction to THAT was to call it a crossing: 0.00px, a known miss this branch
+  extends from one ruled row to two. Wrong again, and wrong about something bigger than a
+  number. **The export never renders that ledger.** `kpi`'s metric list overflows a
+  portrait box at as few as TWO metrics, so the Fit Spine splits it to one structural
+  element per page (`lib/core/auto-split.js`; split fires on fit, and the cut is one
+  element per page). Rendered both sides at `size: story`, a 2-metric `kpi` emits one
+  metric per page on main and on this branch alike. A single-metric page has no separator
+  to cross: main paints a 1px top rule on each, this branch paints none.
+
+  The crossing reproduces only under `--no-split` — École 4.20px, Ärlig 2.44px — and the
+  emulator's own comment calls that flag INSTRUMENTATION, there so a measuring rig can keep
+  page N equal to slide N. **Measuring ink on a page the engine would never emit is the
+  same class of error as the two before it**: a control that is not the thing it is named
+  for. Three windows, three names, one habit.
+
+  **So the exclusion rests on capacity, and only capacity.** Applying the lead at every
+  family pushed a dense 4-metric portrait deck at `compact` past the stage, inside the
+  documented `tall.soft: 4`, where the same deck without it is clean. That cost is real and
+  reproducible on the shipped path. No clearance claim is needed, and none is made.
+
+  One consequence worth recording rather than hiding: the row-2 separator this change adds
+  at tall/strip needs `li:nth-child(2)` to exist, which a one-element-per-page split never
+  produces. It reaches the runtime preview and the Studio, which render the authored slide
+  whole; it is not doing work in a PDF.
 
 **One tension this leaves open, and it belongs to the reader.** Two-and-a-bit pixels
 under an accented capital is thin, and `Ǻ` gets none. Not a tuning oversight — 0.12em
@@ -613,20 +629,30 @@ ink, and shipped a padding that clipped the component's documented 4-metric ceil
 The sixth checker reproduced the pixel scan and the
 overflow the padding causes, and both reverted.
 
-**Four more passes followed, and each found something the one before had missed.** The
+**Five more passes followed, and each found something the one before had missed.** The
 seventh caught that the sixth's correction had gone too far — removing the lead shipped
 a value in contact with its rule, on a scan whose window excluded the `$`. The eighth
 caught the replacement lead shearing a status pill while the export reported the deck
 clean. The ninth caught that lead breaking at the family boundary its sweep had stopped
-at. The tenth caught two things nobody had looked for: ~19 committed PDFs left stale
-across the corpus by the hero recomposition, and this section's own claim that the tall
-ledger clears — measured with the same excluded-glyph window a third time.
+at. The tenth caught two things nobody had looked for: committed PDFs left stale across
+the corpus by the hero recomposition, and this section's own claim that the tall ledger
+clears — measured with the same excluded-glyph window a third time.
 
-**Ten passes, nine with real findings.** The lesson the file keeps teaching, sharpened
-each round: on this component every claim that was *reasoned* rather than *rendered*
-has been wrong — and several that WERE rendered were wrong too, because the instrument
-was pointed at the wrong pixels. A raster is only as good as its window, its resolution
-and its direction.
+**The eleventh is the one worth reading.** It disputed the tenth's replacement claim, and
+was itself wrong about why — it cited a main rule that does apply at tall, so its
+counterfactual was not main's geometry either. Chasing that down produced the finding both
+had walked past: **the export never renders the ledger at all.** `kpi` overflows a portrait
+box at two metrics, the Fit Spine cuts it to one element per page, and every measurement of
+"the tall ledger" on this branch — including the two corrections — was taken on a
+`--no-split` render, a page the engine documents as instrumentation and never emits.
+
+**Eleven passes.** The lesson the file keeps teaching, sharpened each round: on this
+component every claim that was *reasoned* rather than *rendered* has been wrong — and
+several that WERE rendered were wrong too, because the instrument was pointed at the wrong
+pixels, or at a page that does not ship. A raster is only as good as its window, its
+resolution, its direction, and the reality of the page under it. Four measurements of the
+tall ledger, four wrong answers, and the fourth was wrong because nobody asked whether the
+thing being measured exists.
 
 **What that sweep DID reach.** All 33 palettes at wide — spotlight ink clearance
 identical geometry in every one and no render failure. The palettes carry essentially
