@@ -1,9 +1,9 @@
 ---
 status: proposed
-summary: Five candidate marks for the Laticent org, each iterated to shipping quality with mark, minimal variant and both lockups, and each put through an independent visual review. The reviews are the value here: every one of the five landed on an unintended reading that no amount of parameter tuning would have found — a papal cross, a bank-lobby arch, a chain-link fence, a carpenter's square, a Rubik's cube — and two defects turned out to be systemic rather than per-concept. Gold and slate sit at 1.23:1 on dark, so every focal element was carried by hue alone and died in grayscale; and a GitHub or Slack avatar is a circle, which was slicing the foundation off two marks. Both are now enforced in the generator (a ground-color hairline around gold, and a 54-unit safe radius checked by audit.py) rather than left to the eye. The pick itself is the owner's.
+summary: The Laticent mark is an inlaid L — a slate letter with a brass seam let into it, tracing the load path down the stem and out along the arm. It arrived by elimination. Five concepts (a datum, an arch, a lattice substrate, a monogram, a cornerstone) were drawn to shipping quality and independently reviewed; every one landed on an unintended first-second reading — a papal cross, a bank-lobby arch, a chain-link fence, a carpenter's square, a Rubik's cube. Fixing those raised the set to 5.5-7.5 self-scored, and the owner rejected all but the monogram: the target was 10/10, not a clearable 8. The monogram's 6.5 had a nameable cause — it was two rectangles and a square, with no typographic craft — so the rebuild put the craft in: an arm lighter than the stem, a bracketed crook, a seam that bends on a radius echoing that bracket and tapers as load spreads. Two defects proved systemic and are now enforced in the generator rather than eyeballed: gold and slate measure 1.23:1 on dark, so the seam sits in a ground-color recess or it dies in grayscale; and a GitHub or Slack avatar is a circle, so nothing is painted past a 54-unit safe radius.
 ---
 
-# Five candidate marks for Laticent
+# The Laticent mark is an inlaid L
 
 **Ask (2026-09-06, the owner, verbatim):**
 
@@ -86,21 +86,64 @@ painted point in every asset against both the round-avatar radius (64) and the
 Android maskable safe circle (51.2). It is a script, not a judgment: the marks
 that matter here are the ones nobody looks at in a circle until it is live.
 
+## The pick, and why the set was rejected
+
+Shown the five repaired candidates, the owner rejected all but the monogram:
+
+> these are awful except for the monogram. we are targeting 10/10 boardroom
+> ready killer logo not things they can't clear 8
+
+That was the right call and the numbers agreed with it — self-scored, the set
+ran 5.5 to 7.5, and two axes capped every one of them. **Category collision:**
+the arch, the cube and the bare L all sit in occupied space, while the datum
+and the substrate were uncrowded but unmemorable. **Parent fit:** only the
+substrate carried anything structural from the children.
+
+The monogram's 6.5 had a cause that could be named and therefore fixed: it was
+two plain rectangles and an orange square — no optical correction, no corner
+treatment, no proportional system. Craft, not concept, was the gap.
+
+## What the rebuild added
+
+Each move was chosen against a rendered comparison, not asserted.
+
+| Move | Why |
+| --- | --- |
+| arm at 0.80 of the stem | a horizontal of equal measure reads heavier than a vertical |
+| bracketed crook (a quadratic, not a miter) | the single change that makes it read as drawn rather than extruded |
+| seam bends on a radius echoing the bracket | a mitered seam inside a bracketed letter is two drawing languages in one mark |
+| seam tapers to 0.72 along the arm | load concentrates in the stem and diminishes as it spreads |
+| the seam sits in a ground-color recess | real inlay sits in a cut channel — and see below |
+
+Four executions were tried and dropped on the evidence: a seam that **exits
+below the baseline** and one that **runs straight through as a pile** both read
+as gold leaking out of the letter; a **chiseled arm terminal** read as a slip
+rather than as craft; a seam **tracing the counter's inner edge** made the void
+busy.
+
+## The recess is not decoration
+
+Gold and slate measure **1.23:1 on dark** — the same value, separated only by
+hue. A grayscale render of the seam-on-slate version showed the mark collapsing
+to a plain slate L: the seam was carried entirely by hue, so it died in
+grayscale, in mono print, and for a viewer with a color vision deficiency. The
+ground-color channel restores it by **shape**, which is also what a real inlay
+looks like. Light mode was fine at 3.45:1, so the defect was one-sided and
+invisible unless measured.
+
 ## What is deliberately not settled
 
-**The pick.** A brand mark is irreversible and externally visible, so which of
-the five gets adopted is the owner's call, not this session's. All five are
-drawn to shipping quality so the choice is between finished things rather than
-sketches.
-
 **Downstream adoption.** Nothing outside `design/logo/laticent/` changed. The
-winning mark still needs `docs/public/` copies, PWA icons via
-`tools/make-pwa-icons.js`, and the site header — all of which depend on which
-one wins, and none of which should land before it does.
+mark still needs `docs/public/` copies, PWA icons via
+`tools/make-pwa-icons.js`, and the site header.
+
+**Parent fit is still the open weakness.** The mark is a letterform in a family
+of abstract marks, and no product mark is a letterform. That is a real
+structural mismatch, accepted rather than solved.
 
 ## Files
 
-- `design/logo/laticent/generate.py` — all five concepts, one run
+- `design/logo/laticent/generate.py` — the mark, minimal variant and lockups
 - `design/logo/laticent/audit.py` — the crop / bounding-box gate
-- `design/logo/laticent/candidates/` — 20 assets (5 × mark, min, 2 lockups)
+- `design/logo/laticent/laticent-*.svg` — the four master assets
 - `design/logo/laticent/README.md` — palette, rules, regeneration

@@ -1,76 +1,76 @@
-# Laticent org mark — five candidates
+# Laticent org mark — the inlaid L
 
-**Status: awaiting the owner's pick.** Five concepts are drawn to shipping
-quality — mark, minimal variant, and both lockups each. One gets adopted; the
-other four and this directory's `candidates/` folder go away with the pick.
+A slate **L** with a brass seam let into it, tracing the load path down the
+stem and turning out along the arm. Laticent is the parent of Lattice,
+Cadenza, Lente, Suono and Vetrina, so the mark answers to the name first:
 
-Laticent is the **parent** of Lattice, Cadenza, Lente, Suono and Vetrina, so
-every candidate answers to the name before it answers to taste:
-
-| Latin root | What it demands of the drawing |
+| Latin root | How the drawing says it |
 | --- | --- |
-| *latus* — broad, expansive | the surface is the widest thing in the frame |
-| *latere* — the hidden bedrock | the load-bearing part recedes; it never shouts |
+| *latus* — broad, expansive | the arm runs 76 against an 84 cap height, so the letter's own stance is wide |
+| *latere* — the hidden bedrock | the seam is the load path — the structure that carries the letter, made visible as one line |
 
-## The candidates
+## Files
 
-| Concept | The idea | Best at |
+| File | What | Use |
 | --- | --- | --- |
-| **a-core** | A broad datum at the surface; beneath it the load concentrates into the ground, and one gold pile is driven through the strata | Quiet, sectional, least like a logo |
-| **b-keystone** | An arch on piers, with the gold in the **footing**, not the crown | Gravitas; the strongest silhouette |
-| **c-substrate** | The grade line cuts one lattice cell — its apex shows, the rest continues below | The tightest tie to the engine's name |
-| **d-monogram** | `L` as structure: a riser landing on a plinth, gold at the load joint | Small sizes; the clearest at 16px |
-| **e-cornerstone** | A broad coursed plinth with a finished top and one gold cornerstone | Most substantial; best in a round avatar |
+| `laticent-mark.svg` | Full mark, light+dark adaptive | Anywhere ≥28px |
+| `laticent-mark-min.svg` | Reduced mark, adaptive | Favicon / app icon, ≤24px |
+| `laticent-lockup.svg` | Mark + wordmark, dark text | On light surfaces |
+| `laticent-lockup-dark.svg` | Mark + wordmark, light text | On dark surfaces |
+| `generate.py` | Source of truth — regenerates all four | `python3 generate.py` |
+| `audit.py` | Crop / bounding-box gate | `python3 audit.py .` |
 
 ## Palette — the achromatic parent
 
 The five products each carry one chromatic hue plus a shared warm gold. The
-parent carries **no product hue**: slate structure and the same gold. That is
-what makes it read as the root rather than a sixth sibling.
+parent carries **no product hue**: slate and the same gold. That is what makes
+it read as the root rather than a sixth sibling.
 
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |
-| Slate | `#2C3A43` | `#9DB2BE` | structure — every load-bearing line |
-| Gold | `#C67A12` | `#F6B64A` | the accent, and only ever one per mark |
-| Deep gold | `#7A5A10` | `#C67A12` | the shaded face of a gold solid |
-| Ground | `#F6F3EC` | `#101314` | halos and mortar joints (family halo) |
+| Slate | `#2C3A43` | `#9DB2BE` | the letter |
+| Gold | `#C67A12` | `#F6B64A` | the seam |
+| Ground | `#F6F3EC` | `#101314` | the recess the seam sits in |
 | Wordmark | `#241F1B` | `#E6E2DD` | lockup text |
 
-Gold and slate sit at **1.23:1 on dark** — the same value, separated only by
-hue. So gold is never laid straight onto slate: `grect()` fences it with a
-ground-color hairline, or the geometry places it where it only meets the
-ground. Without that the focal element of every mark dies in grayscale, in
-mono print, and for a viewer with a color vision deficiency.
+## What makes it the letter and not two rectangles
+
+An earlier L scored 6.5 in review because it had no typographic craft. Each of
+these was chosen against a rendered comparison, not asserted:
+
+- **The arm is lighter than the stem** (`ah = sw * 0.80`). A horizontal of
+  equal measure reads heavier than a vertical.
+- **The crook is bracketed** — a quadratic transition, not a dead 90° miter.
+  This is the single move that makes it read as drawn rather than extruded.
+- **The seam bends on a radius** echoing that bracket. A mitered seam inside a
+  bracketed letter is two drawing languages in one mark.
+- **The seam tapers to 0.72** along the arm: load concentrates in the stem and
+  diminishes as it spreads.
+- **The stem tapers** 3.5 narrower at the top, the way a cut letter does.
 
 ## Two things the generator enforces
 
 Both were caught failing in review, and neither is visible at 128px.
 
-- **Round-crop safety.** Nothing is painted more than `SAFE_R = 54` units from
-  the center, because a GitHub org or Slack avatar is a **circle**. Before the
-  clamp, two marks had their foundation sliced off by it. `audit.py` measures
-  every painted point; the existing family marks run 41–61, and no candidate
-  exceeds 61.
-- **A minimal variant is a reduction, not a redraw.** Each `-min` keeps its
-  parent's proportions and drops the finest detail. Re-tuning geometry instead
-  changes what the symbol *is* — an early two-course `a-core` minimal was a
-  Cross of Lorraine.
+- **The recess.** Gold and slate measure **1.23:1 on dark** — the same value,
+  separated only by hue. The ground-color channel around the seam is what a
+  real inlay has, and it is also what keeps the seam visible in grayscale, in
+  mono print, and for a viewer with a color vision deficiency. Without it the
+  mark collapses to a plain slate L; verified on a grayscale render.
+- **Round-crop safety.** A GitHub org or Slack avatar is a **circle**. Nothing
+  is painted more than `SAFE_R = 54` units from the center. `audit.py` measures
+  every painted point; the family marks run 41–61 and both assets here clear it.
 
-## Regenerate
+## Rules
 
-```sh
-python3 design/logo/laticent/generate.py     # rewrites candidates/
-python3 design/logo/laticent/audit.py candidates
-```
-
-## Rules (they apply to whichever candidate wins)
-
-- **Clear space:** one course-height on all sides; never crop into `SAFE_R`.
-- **Minimum size:** full mark to ~28px; below that use the `-min` variant.
+- **Clear space:** one stem-width on all sides.
+- **Minimum size:** full mark to ~28px; below that use `laticent-mark-min.svg`.
 - **Dark mode:** ship the adaptive SVG. Never hand-recolor — the file carries
   its own `prefers-color-scheme` block, as the rest of the family does.
 - **Wordmark:** Fraunces / Cormorant Garamond (Georgia fallback), 600,
-  letter-spacing −1, at the family's lockup geometry (mark at `scale 0.9375`,
+  letter-spacing −1, on the family's lockup geometry (mark at `scale 0.9375`,
   text at `x=150`, `font-size 70`).
-- **Don't:** put a product hue in it, lay gold directly on slate, add gradients
-  or shadows, or squash the aspect ratio.
+- **Don't:** put a product hue in it, remove the recess, lay the seam directly
+  on the slate, add gradients or shadows, or squash the aspect ratio.
+
+Regenerate after any change: `python3 design/logo/laticent/generate.py`.

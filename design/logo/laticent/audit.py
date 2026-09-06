@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Geometry audit: how far does any painted point sit from the mark's centre?
+"""Geometry audit: how far does any painted point sit from the mark's center?
 
 Two crops matter in production:
   r <= 64.0  a round avatar (GitHub org, Slack) — anything beyond is cut off
   r <= 51.2  the Android maskable safe circle (80% of the 128 box)
 
-Also reports the bounding box, so a mark that sits off-centre in its own frame
+Also reports the bounding box, so a mark that sits off-center in its own frame
 shows up as unequal margins rather than having to be spotted by eye.
 """
 import glob, math, os, re, sys
