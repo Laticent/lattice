@@ -39,7 +39,8 @@ def pts(svg):
 
 
 def audit(path):
-    svg = open(path).read()
+    with open(path, encoding="utf-8") as fh:
+        svg = fh.read()
     p = pts(svg)
     if not p:
         return None

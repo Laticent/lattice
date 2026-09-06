@@ -411,17 +411,22 @@ def lockup(fn, params, style, wordmark="Laticent", width=470):
 WMFONT = "Fraunces,'Cormorant Garamond',Georgia,serif"
 
 
+def write(path, text):
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(text)
+
+
 def emit_all(tag):
     d = os.path.join(OUT, tag)
     os.makedirs(d, exist_ok=True)
     for name, fn in CONCEPTS.items():
-        open(os.path.join(d, f"{name}.svg"), "w").write(svg(fn()))
         mfn, mp = MIN[name]
-        open(os.path.join(d, f"{name}-min.svg"), "w").write(svg(mfn(mp)))
+        write(os.path.join(d, f"{name}.svg"), svg(fn()))
+        write(os.path.join(d, f"{name}-min.svg"), svg(mfn(mp)))
         for style in ("light", "dark"):
             sfx = "" if style == "light" else "-dark"
-            open(os.path.join(d, f"{name}-lockup{sfx}.svg"), "w").write(
-                lockup(fn, None, style))
+            write(os.path.join(d, f"{name}-lockup{sfx}.svg"),
+                  lockup(fn, None, style))
     print("wrote full asset set →", d)
 
 
