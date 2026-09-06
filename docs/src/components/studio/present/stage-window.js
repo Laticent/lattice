@@ -40,6 +40,7 @@ import {
 	padInset,
 	swipeAction,
 } from '../../../../../lib/core/present-transport.mjs';
+import { fontGateAgent, onFontsReady } from '../../../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../../../lib/sanitize-slide-html.js';
 import { previewDiagramsAttr } from '../../../playground/deck-preview.js';
@@ -405,11 +406,23 @@ export function buildStageDoc({ html, width, height, bg, css, runtimeUrl, katexU
 		// authored without knowing this row exists. Our selectors are all `.latt-*`, which
 		// no deck uses, so putting them last costs the deck nothing and removes the whole
 		// class of "a theme quietly restyled the room's captions".
-		(standalone ? STAGE_CHROME_CSS : '') + '</style></head><body>' +
+		(standalone ? STAGE_CHROME_CSS : '') + '</style>' +
+		// The font gate, in <head> — same placement rule as the other two preview
+		// builders. See lib/core/preview-font-gate.mjs.
+		'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
+		'</head><body>' +
 		a11yDefs + '<div id="latt-stage"><div id="latt-view"><div id="latt-fit"><div id="latt-film">' + html + '</div></div>' + controls + '</div>' + chrome + '</div>' +
 		(mermaidUrl ? '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>' : '') +
 		'<scr' + 'ipt src="' + rt + '"></scr' + 'ipt>' +
-		'<scr' + 'ipt>requestAnimationFrame(function(){var st=document.getElementById("latt-stage");if(st)st.style.visibility="visible"});</scr' + 'ipt>' +
+		// The reveal waits for this document's OWN faces, not just for one frame.
+		// `#latt-stage` is `visibility:hidden` until the line below flips it, so the
+		// fallback-metric solve already happens off-screen; the defect was that the
+		// flip did not wait for the swap. It matters more here than in the editor
+		// preview: under `standalone` this document is the top-level window an
+		// AUDIENCE is watching, so the shift lands on a projector. Never holds
+		// forever — see lib/core/preview-font-gate.mjs.
+		'<scr' + 'ipt>function lattStageReveal(){requestAnimationFrame(function(){var st=document.getElementById("latt-stage");if(st)st.style.visibility="visible"})}' +
+		onFontsReady('lattStageReveal') + '</scr' + 'ipt>' +
 		'<scr' + 'ipt>' + FIT + '</scr' + 'ipt></body></html>'
 	);
 }

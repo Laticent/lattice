@@ -490,9 +490,25 @@ describe('deck-preview: every preview-frame builder carries the CSP', () => {
 			);
 			// It has to land in the HEAD, before content. Assert the call sits ahead of the
 			// document's <body>, which is the ordering the browser actually honors.
+			//
+			// The sentinel is the emitted LITERAL `'</head><body>'`, and there is deliberately
+			// NO fallback to a bare `<body` search. That fallback was reached the first time a
+			// builder split its head/body literal — the font gate landed between `</style>` and
+			// `</head>` — and it then matched a COMMENT, so this census failed a file whose CSP
+			// was correctly first in head, with a message saying the opposite. The same fallback
+			// would equally have PASSED a file whose CSP really was late, whenever a `<body`
+			// mention happened to sit after the call. A census that cannot find its boundary
+			// must say so rather than guess at one: that is the difference between this arm
+			// reporting on the CSP and reporting on comment placement.
 			const call = src.indexOf('previewCspMeta(');
-			const body = src.indexOf("'</style></head><body>'") === -1 ? src.indexOf('<body') : src.indexOf("'</style></head><body>'");
-			if (body !== -1) assert.ok(call < body, `${rel} emits the CSP after <body>, where it is inert`);
+			const body = src.indexOf("'</head><body>'");
+			assert.ok(
+				body !== -1,
+				`${rel} no longer emits a literal '</head><body>', so this census cannot locate where `
+				+ 'the document body begins and cannot check the CSP ordering at all. Restore the literal, '
+				+ 'or teach this arm the new boundary — do not let it fall through to a substring search.',
+			);
+			assert.ok(call < body, `${rel} emits the CSP after <body>, where it is inert`);
 		});
 	}
 });

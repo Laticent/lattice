@@ -66,6 +66,51 @@ function isIOSLike(): boolean {
 // "Preparing print…" spinner across that window and clear it when the dialog opens. It
 // fires exactly once (a safety timer covers a load that never fires, so the caller's
 // loading state can never stick).
+/**
+ * WHEN MAY THIS DOCUMENT BE HANDED TO `print()`?
+ *
+ * `buildSrcdoc` hides `.lattice` until the FIT agent reveals it, so printing before
+ * that reveal prints BLANK PAGES — and the reveal waits for the document's own faces
+ * to settle (lib/core/preview-font-gate.mjs). This used to be a flat 450ms beat, which
+ * was already a guess against "web fonts settle" and became a guess that can LOSE once
+ * the reveal was gated: on a cold cache, or a face that never answers (the gate's own
+ * backstop is 1.5s), 450ms fires first and the author keeps a blank PDF. Silent, and in
+ * a file rather than on screen.
+ *
+ * So: ask the gate when there is one, and keep a bound so a document that never resolves
+ * still opens a dialog rather than none. Extracted from `printHtmlDoc` because that
+ * function needs a real iframe and a real load event to exercise, and the part worth
+ * pinning is this policy — see `print-ready.test.ts`.
+ *
+ * @param gate the frame's `window.__latticeFontsReady`, or undefined when the document
+ *   carries no gate (an older cached build) — then the pre-gate 450ms beat, unchanged.
+ * @param run  hand off to `print()`.
+ * @param timer injectable `setTimeout`, for the test.
+ */
+export function whenPrintReady(
+	gate: Promise<void> | undefined,
+	run: () => void,
+	timer: (fn: () => void, ms: number) => unknown = setTimeout,
+): void {
+	if (!gate?.then) {
+		timer(run, 450);
+		return;
+	}
+	let fired = false;
+	// One more beat AFTER the gate: the reveal itself rides the same promise, so this
+	// lets its style write lay out before the dialog captures the page.
+	const armed = () => {
+		if (fired) return;
+		fired = true;
+		timer(run, 120);
+	};
+	// Resolve AND reject both release — a gate that failed is not a reason to withhold
+	// the print dialog, only a reason to accept the pre-gate rendering.
+	gate.then(armed, armed);
+	// The bound. Never leave the author with a spinner and no dialog.
+	timer(armed, 3000);
+}
+
 function printHtmlDoc(doc: string, onDialog?: () => void): void {
 	const frame = document.createElement('iframe');
 	frame.setAttribute('aria-hidden', 'true');
@@ -80,9 +125,10 @@ function printHtmlDoc(doc: string, onDialog?: () => void): void {
 		try {
 			frame.contentWindow?.focus();
 			frame.contentWindow?.addEventListener('afterprint', reclaim);
-			// A beat for the FIT agent + web fonts to settle before the dialog captures the page.
 			// Clear the caller's loading state right as we open the dialog (print() then blocks).
-			setTimeout(() => { signal(); try { frame.contentWindow?.print(); } catch { /* noop */ } }, 450);
+			const go = () => { signal(); try { frame.contentWindow?.print(); } catch { /* noop */ } };
+			const w = frame.contentWindow as (Window & { __latticeFontsReady?: Promise<void> }) | null;
+			whenPrintReady(w?.__latticeFontsReady, go);
 		} catch { signal(); }
 	};
 	document.body.appendChild(frame);

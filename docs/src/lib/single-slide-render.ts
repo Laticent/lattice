@@ -22,6 +22,7 @@
 // pulls bundled .woff2 that Node can't load, so a static import would break this
 // module in a Node/SSR context — the lazy import keeps construction Node-safe.
 
+import { fontGateAgent } from '../../../lib/core/preview-font-gate.mjs';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import {
 	alignmentFailure,
@@ -167,7 +168,7 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // unchanged sig means the next render can PATCH the section in place; plus a
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
-type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticePendingLoad?: boolean; __latticeRevealPoll?: ReturnType<typeof setInterval> };
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeFrameCss?: { extraCss: string; themeCss: string }; __latticeRestyleSig?: string; __latticePendingLoad?: boolean; __latticeRevealPoll?: ReturnType<typeof setInterval>; __latticeFontWake?: Promise<void> };
 // "Has the live iframe actually painted a slide yet?" — true once its document holds a
 // rendered `.lattice`. scaleFrame reveals the frame only when this is true, so it never
 // unhides the pre-load `about:blank` white document (no `.lattice`) — the white-flash
@@ -866,7 +867,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			previewCspMeta({ katexUrl: opts.katexUrl || '' }) +
 			'<style id="lattice-theme">' +
 			styleElementText(css, mode, geom, extraCss) +
-			'</style></head><body>' +
+			'</style>' +
+			// The font gate, in <head> — and here the placement is LOAD-BEARING rather
+			// than merely consistent. This document does not reveal itself: the parent
+			// fades the iframe in from `scaleFrame`, which POLLS. `facesReady` decides
+			// "is there a gate in this document?" by whether the flag exists, and
+			// `.lattice` is parsed long before an end-of-body script runs — so with the
+			// agent at the end of <body> the poll read `undefined`, concluded "no gate",
+			// and revealed at 117ms against a settle at ~520ms. Correctly wired, and a
+			// no-op. See lib/core/preview-font-gate.mjs.
+			'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
+			'</head><body>' +
 			html;
 		// Content AND url — the URL half was missing, so a diagram slide met by a caller
 		// passing no URL emitted `<script src="">` rather than nothing. See deck-preview.js.
@@ -905,12 +916,59 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// Reveal by fading OPACITY 0→1 (a quick ~180ms transition set on the element) rather
 			// than a hard visibility cut, so the slide eases in over the loader instead of
 			// popping — no flicker. opacity:0 hides the about:blank white just as well.
-			if (fr.style.opacity === '0' && frameHasPainted(fr)) {
+			// …AND (c) the document's own faces have landed. Every engine `@font-face` is
+			// `font-display: swap`, so a frame revealed at first paint shows the FALLBACK
+			// solve and then re-solves when the real face arrives — measured on the landing
+			// page as two layouts, at 195ms and 516ms. Nothing reports it: the slide box is
+			// pinned to its `@size`, so no box overflows and no fit channel fires.
+			//
+			// `facesReady` is a POLL, not an await, precisely because this reveal is a poll
+			// whose interval stops at first paint (see the reveal poll below) — so it also
+			// ARMS a one-shot wake on the frame's own gate promise, and the reveal happens
+			// on that wake even after the poll is gone. It answers `true` whenever it cannot
+			// tell (no agent, a cross-realm throw), which keeps a document that ships
+			// without the gate behaving exactly as it did before.
+			if (fr.style.opacity === '0' && frameHasPainted(fr) && facesReady(fr, host)) {
 				fr.style.opacity = '1';
 				// Restore hit-testing on reveal — an opacity:0 iframe is still hit-testable, so it was
 				// held `pointer-events:none` (below) to not swallow scroll/clicks during the load window.
 				fr.style.pointerEvents = '';
 			}
+		}
+	}
+
+	/**
+	 * Have the frame's own `@font-face` files landed?
+	 *
+	 * Answers from the flag `lib/core/preview-font-gate.mjs` publishes inside the
+	 * document, and — the half that makes it safe — arms a ONE-SHOT wake on the same
+	 * gate's promise so a reveal still happens after the caller's poll has stopped.
+	 * The gate always resolves (it races its own backstop timer), so this can delay a
+	 * reveal but never prevent one.
+	 *
+	 * Returns TRUE whenever it cannot tell: no agent in the document, a realm that
+	 * throws on access, a frame torn down mid-read. A preview that appears with the
+	 * old shift is a defect; a preview that never appears is a broken page, and this
+	 * file has already paid for that once (the iOS srcdoc `onload` "blank").
+	 */
+	function facesReady(fr: HTMLIFrameElement, host: HTMLElement): boolean {
+		try {
+			const win = fr.contentWindow as (Window & { __latticeFontsSettled?: boolean; __latticeFontsReady?: Promise<void> }) | null;
+			if (!win || typeof win.__latticeFontsSettled !== 'boolean') return true;
+			if (win.__latticeFontsSettled) return true;
+			// Arm once per DOCUMENT, not per call — scaleFrame runs on every resize and
+			// on every poll tick, and a `.then` per tick would queue hundreds of wakes.
+			const armed = (host as LiveHost).__latticeFontWake;
+			if (armed !== win.__latticeFontsReady) {
+				(host as LiveHost).__latticeFontWake = win.__latticeFontsReady;
+				const wake = () => {
+					if (!disposed && host.isConnected) scaleFrame(host);
+				};
+				win.__latticeFontsReady?.then(wake, wake);
+			}
+			return false;
+		} catch {
+			return true;
 		}
 	}
 
@@ -1819,7 +1877,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			} catch {}
 		}
 		ownedObservers.clear();
-		for (const h of ownedHosts) scaleTargets.delete(h);
+		for (const h of ownedHosts) {
+			scaleTargets.delete(h);
+			// Drop the font-gate wake reference too. It holds a Promise from the IFRAME'S
+			// OWN REALM, so leaving it on a host pins that whole detached realm for the
+			// host's lifetime — the class `2026-07-17-preview-accumulation-leaks.md` exists
+			// for, and reachable in practice because a subsequent full write never resets
+			// `opacity` to '0', so `facesReady` is not called again to overwrite it. One
+			// realm per host rather than N, but this file's doctrine is to release every
+			// root it owns, and this is one.
+			(h as LiveHost).__latticeFontWake = undefined;
+		}
 		ownedHosts.clear();
 		// Unsubscribe theme watchers via their own closures so the pending debounce
 		// timer is cleared too (a bare mo.disconnect() would leave it armed).
