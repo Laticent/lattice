@@ -18,11 +18,13 @@
 - **Six new ask-then-answer exercises break Part four's drought.** That part ran
   96 slides with four `Your turn` slides in it, three of them in the last seven,
   so the reader read 51 slides between the data kit's exercise and the security
-  kit's. Every kit now closes with one — run the data tree's first question on
-  three teams; take or refuse three writes under a partition; place three
-  workloads on a runtime; spend a latency budget on three cross-continent round
-  trips; size a pool with Little's law, then break it in both directions; say
-  what a page does when three dependencies go slow rather than down. Inside Part
+  kit's. Six more now sit through it — two inside the data kit, then one closing
+  each of compute, network, scale and reliability: run the data tree's first
+  question on three teams; take or refuse three writes under a partition; place
+  three workloads on a runtime; spend a latency budget on three cross-continent
+  round trips; size a pool with Little's law, then break it in both directions;
+  say what a page does when three dependencies go slow rather than down. Every
+  one of the six kits now carries at least one. Inside Part
   four the longest stretch without the reader producing something drops from 51
   slides to 20; deck wide it drops from 51 to 45, and the longest run now starts
   in Part five.
