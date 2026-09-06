@@ -54,7 +54,7 @@
     "pitch"
   ],
   "description": "A roster of named people, each under a portrait, with the role they own.",
-  "purpose": "Use for the people slide — 'meet the leaders', 'your account team', the QBR roll-call. Each person is a portrait, a name, a role and one line; anyone with no photo gets a monogram drawn from their initials in a palette token, so a half-photographed roster still reads as one designed wall rather than a set of holes.",
+  "purpose": "Use for the people slide — 'meet the leaders', 'your account team', the QBR roll-call. Each person is a portrait, a name, a role and one line. Anyone with no photo gets a monogram of their initials instead, so a half-photographed roster still reads as one designed wall rather than a set of holes: the monogram stays quiet beside real faces, and takes a categorical hue only when nobody in the roster has a photo.",
   "variants": [
     "lead",
     "bench",
@@ -155,11 +155,11 @@
     "bench": {
       "label": "bench",
       "summary": "The long roster, packed to a face, a name and a role.",
-      "sample": "<!-- _class: team-profile bench -->\n\n`team-profile bench`\n\n## bench packs the long roster down to a face, a name, and a role.\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Executive Sponsor`\n- Marcus Vale\n  - ![](marcus.svg)\n  - `Program Director`\n- Priya Raman\n  - ![](priya.svg)\n  - `Head of Delivery`\n- Tomas Lindqvist\n  - ![](tomas.svg)\n  - `Solutions Architect`\n- Nia Bello\n  - ![](nia.svg)\n  - `Data Lead`\n- Jonah Reyes\n  - ![](jonah.svg)\n  - `Customer Success`\n- Sofia Marchetti\n  - ![](sofia.svg)\n  - `Security Lead`\n- Kenji Sato\n  - ![](kenji.svg)\n  - `Support Manager`\n- Hana Suzuki\n  - `Field Engineer`\n- Owen Adeyemi\n  - `Revenue Ops`\n- Clara Nunes\n  - `Quality Lead`\n- Idris Khan\n  - `Release Manager`\n"
+      "sample": "<!-- _class: team-profile bench -->\n\n`team-profile bench`\n\n## bench packs the long roster down to a face, a name, and a role.\n\n- Ada Okafor\n  - ![](ada.svg)\n  - `Executive Sponsor`\n- Marcus Vale\n  - ![](marcus.svg)\n  - `Program Director`\n- Hana Suzuki\n  - `Field Engineer`\n- Priya Raman\n  - ![](priya.svg)\n  - `Head of Delivery`\n- Tomas Lindqvist\n  - ![](tomas.svg)\n  - `Solutions Architect`\n- Owen Adeyemi\n  - `Revenue Ops`\n- Nia Bello\n  - ![](nia.svg)\n  - `Data Lead`\n- Jonah Reyes\n  - ![](jonah.svg)\n  - `Customer Success`\n- Clara Nunes\n  - `Quality Lead`\n- Sofia Marchetti\n  - ![](sofia.svg)\n  - `Security Lead`\n- Kenji Sato\n  - ![](kenji.svg)\n  - `Support Manager`\n- Idris Khan\n  - `Release Manager`\n"
     },
     "sides": {
       "label": "sides",
-      "summary": "Two labelled rosters facing each other across the slide.",
+      "summary": "Two labeled rosters facing each other across the slide.",
       "sample": "<!-- _class: team-profile sides -->\n\n`team-profile sides`\n\n## sides faces two rosters across the table, each under its own label.\n\n### Your team\n\n- Ada Okafor\n  - `VP Operations`\n- Priya Raman\n  - `Head of Delivery`\n- Nia Bello\n  - `Data Lead`\n\n### Our team\n\n- Marcus Vale\n  - `Account Director`\n- Tomas Lindqvist\n  - `Solutions Architect`\n- Jonah Reyes\n  - `Customer Success`\n"
     },
     "bio": {

@@ -90,30 +90,30 @@ A roster of named people, each under a portrait, with the role they own.
 - Marcus Vale
   - ![](marcus.svg)
   - `Program Director`
+- Hana Suzuki
+  - `Field Engineer`
 - Priya Raman
   - ![](priya.svg)
   - `Head of Delivery`
 - Tomas Lindqvist
   - ![](tomas.svg)
   - `Solutions Architect`
+- Owen Adeyemi
+  - `Revenue Ops`
 - Nia Bello
   - ![](nia.svg)
   - `Data Lead`
 - Jonah Reyes
   - ![](jonah.svg)
   - `Customer Success`
+- Clara Nunes
+  - `Quality Lead`
 - Sofia Marchetti
   - ![](sofia.svg)
   - `Security Lead`
 - Kenji Sato
   - ![](kenji.svg)
   - `Support Manager`
-- Hana Suzuki
-  - `Field Engineer`
-- Owen Adeyemi
-  - `Revenue Ops`
-- Clara Nunes
-  - `Quality Lead`
 - Idris Khan
   - `Release Manager`
 
@@ -121,7 +121,7 @@ A roster of named people, each under a portrait, with the role they own.
 ---
 
 <!-- _class: team-profile sides -->
-<!-- _footer: "sides · team-profile sides — Two labelled rosters facing each other across the slide." -->
+<!-- _footer: "sides · team-profile sides — Two labeled rosters facing each other across the slide." -->
 
 `team-profile sides`
 

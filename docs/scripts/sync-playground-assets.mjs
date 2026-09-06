@@ -248,6 +248,26 @@ const version = hash.digest('hex').slice(0, 12);
 const versionedRoot = join(pgDir, 'v');
 rmSync(versionedRoot, { recursive: true, force: true });
 
+// `samples/` is a FLAT namespace and the copy below is last-wins, so two files
+// with the same basename would silently leave one image standing in for another —
+// and the content hash would still change, so the symptom is a wrong picture, not
+// a failed build. That was a two-directory risk when this list was hand-written;
+// it is a 69-directory risk now that it walks the component tree, which is exactly
+// the trade the derivation makes. Naming the collision is the cheap half.
+const seen = new Map();
+for (const [rel, src] of assets) {
+  const prior = seen.get(rel);
+  if (prior && prior !== src) {
+    throw new Error(
+      `sync-playground-assets: two sources stage to the same dest "${rel}"\n` +
+      `  ${prior}\n  ${src}\n` +
+      'The staged namespace is flat and the copy is last-wins, so one would silently ' +
+      'replace the other. Rename one of the files, or stage it under a subdirectory.',
+    );
+  }
+  seen.set(rel, src);
+}
+
 for (const [rel, src] of assets) {
   const dest = join(versionedRoot, version, rel);
   mkdirSync(dirname(dest), { recursive: true });

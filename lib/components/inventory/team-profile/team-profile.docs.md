@@ -6,7 +6,7 @@
 
 **Tags** `org-chart` · `onboarding` · `kickoff` · `pitch`
 
-Use for the people slide — 'meet the leaders', 'your account team', the QBR roll-call. Each person is a portrait, a name, a role and one line; anyone with no photo gets a monogram drawn from their initials in a palette token, so a half-photographed roster still reads as one designed wall rather than a set of holes.
+Use for the people slide — 'meet the leaders', 'your account team', the QBR roll-call. Each person is a portrait, a name, a role and one line. Anyone with no photo gets a monogram of their initials instead, so a half-photographed roster still reads as one designed wall rather than a set of holes: the monogram stays quiet beside real faces, and takes a categorical hue only when nobody in the roster has a photo.
 
 ## Agent contract
 
@@ -68,8 +68,8 @@ Use for the people slide — 'meet the leaders', 'your account team', the QBR ro
 ```text
 ┌─────────────────────────────────────────┐
 │  header                                 │
-│            YOUR ACCOUNT TEAM            │
-│      Six people own this program.       │
+│  YOUR ACCOUNT TEAM                      │
+│  Six people own this program.           │
 │                                         │
 │      ( o )       ( o )       ( o )      │
 │       Ada        Marcus      Priya      │
@@ -129,37 +129,37 @@ The long roster, packed to a face, a name and a role.
 - Marcus Vale
   - ![](marcus.svg)
   - `Program Director`
+- Hana Suzuki
+  - `Field Engineer`
 - Priya Raman
   - ![](priya.svg)
   - `Head of Delivery`
 - Tomas Lindqvist
   - ![](tomas.svg)
   - `Solutions Architect`
+- Owen Adeyemi
+  - `Revenue Ops`
 - Nia Bello
   - ![](nia.svg)
   - `Data Lead`
 - Jonah Reyes
   - ![](jonah.svg)
   - `Customer Success`
+- Clara Nunes
+  - `Quality Lead`
 - Sofia Marchetti
   - ![](sofia.svg)
   - `Security Lead`
 - Kenji Sato
   - ![](kenji.svg)
   - `Support Manager`
-- Hana Suzuki
-  - `Field Engineer`
-- Owen Adeyemi
-  - `Revenue Ops`
-- Clara Nunes
-  - `Quality Lead`
 - Idris Khan
   - `Release Manager`
 ```
 
 ### `sides` — sides
 
-Two labelled rosters facing each other across the slide.
+Two labeled rosters facing each other across the slide.
 
 ```markdown
 <!-- _class: team-profile sides -->

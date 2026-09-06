@@ -529,8 +529,8 @@ def demo_blocks() -> dict[str, str]:
 
     blocks['team-profile'] = frame([
         ('left', 'header'),
-        ('center', 'YOUR ACCOUNT TEAM'),
-        ('center', 'Six people own this program.'),
+        ('left', 'YOUR ACCOUNT TEAM'),
+        ('left', 'Six people own this program.'),
         ('blank',),
         ('left', '    ( o )       ( o )       ( o )   '),
         ('left', '     Ada        Marcus      Priya   '),

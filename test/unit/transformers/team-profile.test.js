@@ -125,6 +125,70 @@ describe('team-profile — applyToRenderedHtml', () => {
   });
 });
 
+// Every one of these is a defect an independent checker confirmed against this
+// kernel, with the input that reproduced it. They are pinned by that input.
+describe('team-profile — the shapes an author actually writes', () => {
+  test('a portrait URL with a query string is not double-escaped', () => {
+    // The src is read out of ALREADY-escaped HTML, so escaping it again turned
+    // `&amp;` into `&amp;amp;` and the image 404'd on any CDN or signed URL.
+    const html = wrap('team-profile',
+      person('Ada<ul><li><img src="https://cdn/x.jpg?w=200&amp;h=200"></li></ul>'));
+    assert.match(t.applyToRenderedHtml(html), /src="https:\/\/cdn\/x\.jpg\?w=200&amp;h=200"/);
+    assert.doesNotMatch(t.applyToRenderedHtml(html), /&amp;amp;/);
+  });
+
+  test('a quoted list is quoted material, not a roster', () => {
+    const out = t.applyToRenderedHtml(wrap('team-profile',
+      '<blockquote><p>Quote</p><ul><li>alpha</li></ul></blockquote>' + person('Ada Okafor')));
+    assert.match(out, /<blockquote><p>Quote<\/p><ul><li>alpha<\/li><\/ul><\/blockquote>/);
+    assert.equal((out.match(/class="team-roster"/g) || []).length, 1);
+  });
+
+  test('the coda cell keeps its place BEFORE the footer', () => {
+    // Peeling it and re-appending put the cell after `.cell-footer` — the one
+    // layout in the catalog to do that, and the order coda.test.js pins.
+    const out = t.applyToRenderedHtml(
+      `<section class="team-profile"><div class="cell-stage">${person('Ada Okafor')}</div>`
+      + '<div class="cell-coda"><blockquote>Key insight</blockquote></div>'
+      + '<div class="cell-footer">1</div></section>');
+    assert.ok(out.indexOf('cell-coda') < out.indexOf('cell-footer'), 'coda must precede the footer');
+    assert.match(out, /<div class="cell-coda"><blockquote>Key insight<\/blockquote><\/div>/);
+  });
+
+  test('a LOOSE list still yields a role, not an inline-code chip', () => {
+    // A blank line inside a person makes markdown-it wrap each item in a <p>.
+    const out = t.applyToRenderedHtml(wrap('team-profile',
+      '<ul><li><p>Ada Okafor</p><ul><li><p><code>Executive Sponsor</code></p></li>'
+      + '<li><p>Clears blockers.</p></li></ul></li></ul>'));
+    assert.match(out, /<span class="person-name">Ada Okafor<\/span>/);
+    assert.match(out, /<span class="person-role">Executive Sponsor<\/span>/);
+    assert.doesNotMatch(out, /<p>/);
+  });
+
+  test('the words "team-roster" in a note do not disable the component', () => {
+    // The guard was a bare substring, so author prose aborted the whole rebuild.
+    const out = t.applyToRenderedHtml(wrap('team-profile',
+      person('Ada Okafor<ul><li>We keep the team-roster in Notion.</li></ul>')));
+    assert.match(out, /<ul class="team-roster">/);
+    assert.match(out, /<span class="person-name">Ada Okafor<\/span>/);
+  });
+
+  test("a single-quoted src is read, not silently dropped", () => {
+    // The engine runs `html: true`, so a hand-written tag is a live path.
+    const out = t.applyToRenderedHtml(wrap('team-profile',
+      person("Ada<ul><li><img src='ada.svg'></li></ul>")));
+    assert.match(out, /class="person-photo" src="ada\.svg"/);
+    assert.doesNotMatch(out, /person-figure--monogram/);
+  });
+
+  test('a portrait and a role in the SAME bullet keep both', () => {
+    const out = t.applyToRenderedHtml(wrap('team-profile',
+      person('Ada<ul><li><img src="a.svg"> <code>Sponsor</code></li></ul>')));
+    assert.match(out, /class="person-photo"/);
+    assert.match(out, /<span class="person-role">Sponsor<\/span>/);
+  });
+});
+
 describe('team-profile — initials', () => {
   test('first word + last word, uppercased', () => {
     assert.equal(t.initialsOf('Ada Okafor'), 'AO');
@@ -156,28 +220,40 @@ describe('team-profile — initials', () => {
 });
 
 describe('team-profile — applyToDom', () => {
+  // A REAL DOM, not a hand-rolled fake. The fake this replaced answered
+  // `querySelectorAll` with `[]`, which meant the riskiest line in the arm — the
+  // `img.setAttribute('src', img.src)` pin — was never once executed by the suite.
+  const { JSDOM } = require('jsdom');
+  const mount = (html, url = 'https://s/deck/page.html') =>
+    new JSDOM(`<article>${html}</article>`, { url }).window.document;
+
   test('rebuilds a live section and stays idempotent', () => {
-    const sections = [];
-    const make = (cls, html) => {
-      const el = {
-        className: cls,
-        innerHTML: html,
-        querySelector: (sel) => (el.innerHTML.includes('team-roster') && sel.includes('team-roster') ? {} : null),
-        // The real arm pins each already-resolved `img.src` into the attribute
-        // before serializing; this section carries no portrait, so there is
-        // nothing to pin.
-        querySelectorAll: () => [],
-      };
-      sections.push(el);
-      return el;
-    };
-    const sec = make('team-profile', person('Ada Okafor'));
-    const root = { querySelectorAll: (sel) => (sel === 'section.team-profile' ? sections : []) };
-    t.applyToDom(root);
+    const doc = mount(wrap('team-profile', person('Ada Okafor')));
+    t.applyToDom(doc);
+    const sec = doc.querySelector('section.team-profile');
     assert.match(sec.innerHTML, /class="team-roster"/);
+    assert.match(sec.innerHTML, /<span class="person-initials">AO<\/span>/);
     const after = sec.innerHTML;
-    t.applyToDom(root);
+    t.applyToDom(doc);
     assert.equal(sec.innerHTML, after);
+  });
+
+  test('pins the DOM-resolved portrait URL into the attribute', () => {
+    // The browser resolved `ada.svg` against the document; the rebuild must carry
+    // that absolute URL, not hand the author's relative path back to be resolved
+    // a second time against whatever document the markup lands in.
+    const doc = mount(wrap('team-profile', person('Ada<ul><li><img src="ada.svg"></li></ul>')));
+    t.applyToDom(doc);
+    assert.match(doc.querySelector('section.team-profile').innerHTML,
+      /src="https:\/\/s\/deck\/ada\.svg"/);
+  });
+
+  test('leaves a section it declines to rebuild completely untouched', () => {
+    const doc = mount(wrap('team-profile', '<p>No roster yet</p><img src="logo.svg">'));
+    const sec = doc.querySelector('section.team-profile');
+    const before = sec.innerHTML;
+    t.applyToDom(doc);
+    assert.equal(sec.innerHTML, before);
   });
 
   test('safely returns on a null / non-DOM root', () => {

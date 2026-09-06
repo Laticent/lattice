@@ -24,7 +24,7 @@ A roster of six with a line each is a different picture from a roster of eightee
 
 - The default tiles portrait cards three up — a face, a name, a role, one line on what they own.
 - `lead` hands the first person a hero row and ranks the rest beneath a rule; `bio` turns the grid on its side, giving each leader's line a row of its own.
-- `bench` packs the long roster six up, and `sides` faces two labelled teams across the table.
+- `bench` packs the long roster six up, and `sides` faces two labeled teams across the table.
 
 ---
 
@@ -182,10 +182,10 @@ A roster of six with a line each is a different picture from a roster of eightee
 
 ## The four people with no headshot are the point.
 
-Half a roster arrives without photos — the customer side of a QBR almost always does. Rather than leave four holes, the engine reads the initials off each name and draws them in a categorical palette token.
+Half a roster arrives without photos — the customer side of a QBR almost always does. Rather than leave four holes, the engine reads the initials off each name and draws them in the circle.
 
-- The color is ours, so it re-tones per theme and per color mode and holds its contrast on either ground.
-- A photo is a real `<img>` cropped square, so mismatched headshots still tile as one wall.
+- Beside real faces the monogram stays neutral, as it does two slides back: it is standing in for a photo, not competing with one.
+- When nobody has a photo it takes a categorical hue instead, because six identical gray discs is not a design.
 - Write `- Name` and a backticked role and you have a usable slide; the portrait is optional everywhere.
 
 ---
@@ -194,4 +194,4 @@ Half a roster arrives without photos — the customer side of a QBR almost alway
 
 ## Put the faces on the slide.
 
-*`<!-- _class: team-profile -->` — then one bullet per person.*
+*One `_class` directive, then one bullet per person.*

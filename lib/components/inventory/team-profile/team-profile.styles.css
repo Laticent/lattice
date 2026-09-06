@@ -13,7 +13,7 @@
  *   team-profile          3-up cards, portrait over the words        (the roster)
  *   team-profile lead     one hero row, the rest ranked beneath      (leader + reports)
  *   team-profile bench    6-up, portrait + name + role only          (the long roster)
- *   team-profile sides    two labelled rosters facing each other     (the QBR roll-call)
+ *   team-profile sides    two labeled rosters facing each other     (the QBR roll-call)
  *   team-profile bio      one person per row, room for a sentence    (meet the leaders)
  *
  * Every size is `cqi` (1% of the stage's inline size), so a portrait holds its
@@ -138,30 +138,68 @@ section.team-profile .person-initials {
   color: var(--text-secondary);
 }
 
-/* An all-monogram roster takes the categorical cycle. EIGHT slots, not the
- * palette's twelve, and the ceiling is a contrast contract rather than a taste
- * call: `--cat-N-ink` has no `:root` default (the export bundle loads the theme
- * before the base, so a default would override every curated ink), so each read
- * carries its own `, var(--cat-N-mark)` fallback — and that fallback drops a 4.5:1
- * text floor to a 3:1 shape floor, which is pre-audited for slots 1-8 only. A
- * ninth hue would mean logging a new contrast drop to ship a color we do not need.
- * matrix-grid cycles 8 and piechart 6 for the neighbouring reason. */
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 1) .person-figure--monogram { background: var(--cat-1-fill); border-color: var(--cat-1-mark); }
+/* An all-monogram roster takes the categorical cycle — and it carries the hue in
+ * the INITIALS and the RING, on the same neutral disc the standing-in monogram
+ * uses. That is the only pairing the theme actually guarantees, and getting here
+ * took two measured wrong turns worth recording, because both looked right:
+ *
+ *   `--cat-N-fill` + `--cat-N-ink`. Looks like a matched pair and is not. The theme
+ *   documents the fill as a band tint "NOT suitable as foreground/stroke", and the
+ *   ink is solved against `--bg` / `--bg-alt` — the SLIDE surface — never against
+ *   the fill. The cycles are hued independently too, so at one index they need not
+ *   be the same color: light `--cat-2-fill` is khaki while `--cat-2-ink` is crimson.
+ *   Measured on the rendered slide, four of eight light slots fell under AA, two at
+ *   3.05:1 — maroon initials on a khaki disc, reading as a bug, not a palette.
+ *
+ *   Then `color-mix(… var(--cat-N-ink) 14%, var(--bg))`, reasoning that a ground
+ *   mixed out of the canvas keeps the ink's guarantee. It does the opposite: mixing
+ *   the ink INTO the ground moves the ground toward the ink. Re-measured, 2.52:1 —
+ *   worse than the defect it replaced.
+ *
+ * `--cat-N-ink` on `--bg-alt` is AA by construction: `--bg-alt` is one of the two
+ * surfaces the ink generator solves against, and `checkCatContrast` gates it. The
+ * ring takes `--cat-N-mark`, the 3:1 graphical token, which is what a border wants.
+ * So the disc stays quiet, the person still has a color, and the contrast is the
+ * theme's to keep rather than this file's to assert. */
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 1) .person-figure--monogram { border-color: var(--cat-1-mark); }
 section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 1) .person-initials { color: var(--cat-1-ink, var(--cat-1-mark)); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 2) .person-figure--monogram { background: var(--cat-2-fill); border-color: var(--cat-2-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 2) .person-figure--monogram { border-color: var(--cat-2-mark); }
 section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 2) .person-initials { color: var(--cat-2-ink, var(--cat-2-mark)); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 3) .person-figure--monogram { background: var(--cat-3-fill); border-color: var(--cat-3-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 3) .person-figure--monogram { border-color: var(--cat-3-mark); }
 section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 3) .person-initials { color: var(--cat-3-ink, var(--cat-3-mark)); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 4) .person-figure--monogram { background: var(--cat-4-fill); border-color: var(--cat-4-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 4) .person-figure--monogram { border-color: var(--cat-4-mark); }
 section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 4) .person-initials { color: var(--cat-4-ink, var(--cat-4-mark)); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 5) .person-figure--monogram { background: var(--cat-5-fill); border-color: var(--cat-5-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 5) .person-figure--monogram { border-color: var(--cat-5-mark); }
 section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 5) .person-initials { color: var(--cat-5-ink, var(--cat-5-mark)); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 6) .person-figure--monogram { background: var(--cat-6-fill); border-color: var(--cat-6-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 6) .person-figure--monogram { border-color: var(--cat-6-mark); }
 section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 6) .person-initials { color: var(--cat-6-ink, var(--cat-6-mark)); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 7) .person-figure--monogram { background: var(--cat-7-fill); border-color: var(--cat-7-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 7) .person-figure--monogram { border-color: var(--cat-7-mark); }
 section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n + 7) .person-initials { color: var(--cat-7-ink, var(--cat-7-mark)); }
-section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n) .person-figure--monogram { background: var(--cat-8-fill); border-color: var(--cat-8-mark); }
+section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n) .person-figure--monogram { border-color: var(--cat-8-mark); }
 section.team-profile ul.team-roster:not(:has(.person-photo)) > li.person:nth-child(8n) .person-initials { color: var(--cat-8-ink, var(--cat-8-mark)); }
+
+
+/* `sides` offsets its SECOND roster's cycle. Both lists restart at `nth-child(1)`,
+ * so left and right took the same hues in the same order — which reads as a claim
+ * that row 1 faces row 1, row 2 faces row 2. Nothing in the data says that; a QBR
+ * roll-call is two teams, not a set of counterparts. Shifting the right-hand list
+ * by three breaks the mirror while keeping every person a stable color. */
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 1) .person-figure--monogram { border-color: var(--cat-4-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 1) .person-initials { color: var(--cat-4-ink, var(--cat-4-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 2) .person-figure--monogram { border-color: var(--cat-5-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 2) .person-initials { color: var(--cat-5-ink, var(--cat-5-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 3) .person-figure--monogram { border-color: var(--cat-6-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 3) .person-initials { color: var(--cat-6-ink, var(--cat-6-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 4) .person-figure--monogram { border-color: var(--cat-7-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 4) .person-initials { color: var(--cat-7-ink, var(--cat-7-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 5) .person-figure--monogram { border-color: var(--cat-8-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 5) .person-initials { color: var(--cat-8-ink, var(--cat-8-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 6) .person-figure--monogram { border-color: var(--cat-1-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 6) .person-initials { color: var(--cat-1-ink, var(--cat-1-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 7) .person-figure--monogram { border-color: var(--cat-2-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n + 7) .person-initials { color: var(--cat-2-ink, var(--cat-2-mark)); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n) .person-figure--monogram { border-color: var(--cat-3-mark); }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2):not(:has(.person-photo)) > li.person:nth-child(8n) .person-initials { color: var(--cat-3-ink, var(--cat-3-mark)); }
 
 /* ── The words.
  * A column by default, centered under the portrait. The three lines are a
@@ -198,11 +236,12 @@ section.team-profile .person-role {
   text-transform: uppercase;
   line-height: 1.25;
   color: var(--text-secondary);
+  text-wrap: balance;
 }
 
 section.team-profile .person-note {
   padding-top: var(--sp-2xs);
-  font-size: var(--fs-meta);
+  font-size: var(--fs-body-compact);
   font-weight: 400;
   line-height: var(--lh-base);
   color: var(--text-muted);
@@ -285,17 +324,22 @@ section.team-profile.lead > .cell-stage > ul.team-roster > li.person:first-child
  * shrinking it into decoration. */
 section.team-profile.bench > .cell-stage {
   --person-cols: 6;
-  --person-size: 7.5cqi;
+  /* Sized against the WORST case, not the sample: a six-column cell is narrow, so
+   * a long role ("Principal Solutions Architect") wraps to three lines, and the
+   * stress slide carries twelve of them under a specimen caption that takes 44px
+   * out of the stage. Putting the name and role back on the type ladder (they were
+   * below it) grew every card, so the portrait gives the height back. */
+  --person-size: 6.5cqi;
   --person-gap: var(--sp-lg);
-  --person-row-gap: var(--sp-md);
+  --person-row-gap: var(--sp-sm);
 }
 
 section.team-profile.bench .person-note { display: none; }
-section.team-profile.bench .person-name { font-size: var(--fs-meta); }
-section.team-profile.bench .person-role { font-size: calc(var(--fs-meta) * 0.88); letter-spacing: 0.06em; }
+section.team-profile.bench .person-name { font-size: var(--fs-body-compact); }
+section.team-profile.bench .person-role { font-size: var(--fs-meta); letter-spacing: 0.06em; }
 section.team-profile.bench > .cell-stage > ul.team-roster > li.person { gap: var(--sp-xs); }
 
-/* ── sides — two labelled rosters facing each other.
+/* ── sides — two labeled rosters facing each other.
  * The author writes two `### ` headings, each followed by its own list; the stage
  * puts them in two columns with `grid-auto-flow: column`, so heading 1 / list 1
  * fill the first column and heading 2 / list 2 the second. A hairline between them
@@ -307,12 +351,29 @@ section.team-profile.sides > .cell-stage {
   --person-size: 7cqi;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto minmax(0, 1fr);
-  grid-auto-flow: column;
+  /* Row 1 is for a lead-in sentence and collapses to nothing without one. */
+  grid-template-rows: auto auto minmax(0, 1fr);
   column-gap: 0;
   row-gap: 0;
   align-content: stretch;
 }
+
+/* Placed EXPLICITLY, not by auto-flow. `grid-auto-flow: column` assumed the stage
+ * held exactly four children in one order, so an ordinary lead-in sentence between
+ * the `##` and the first `###` shifted every item one cell: the labels came apart
+ * from their rosters, "OUR TEAM" landed under the first roster, and two spurious
+ * rules appeared. Nothing warned the author — `lint:deck` called the slide clean.
+ * Naming each cell means an extra element cannot renumber the others. */
+section.team-profile.sides > .cell-stage > p {
+  grid-area: 1 / 1 / 2 / 3;
+  padding: 0 var(--sp-xl) var(--sp-lg);
+  font-size: var(--fs-body);
+  color: var(--text-body);
+}
+section.team-profile.sides > .cell-stage > h3:nth-of-type(1) { grid-area: 2 / 1; }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(1) { grid-area: 3 / 1; }
+section.team-profile.sides > .cell-stage > h3:nth-of-type(2) { grid-area: 2 / 2; }
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2) { grid-area: 3 / 2; }
 
 section.team-profile.sides > .cell-stage > h3 {
   padding: 0 var(--sp-xl) var(--sp-md);
@@ -344,8 +405,11 @@ section.team-profile.sides > .cell-stage > ul.team-roster > li.person {
 
 section.team-profile.sides .person-text { align-items: start; text-align: left; }
 
-/* The dividing rule: the second column's two children carry a shared start edge. */
-section.team-profile.sides > .cell-stage > :nth-child(n + 3) {
+/* The dividing rule: the second column's two children carry a shared start edge.
+ * Keyed on WHICH ELEMENTS they are, not on their position among the stage's
+ * children, for the same reason the placement above is explicit. */
+section.team-profile.sides > .cell-stage > h3:nth-of-type(2),
+section.team-profile.sides > .cell-stage > ul.team-roster:nth-of-type(2) {
   border-inline-start: 1px solid var(--border);
 }
 
@@ -395,7 +459,7 @@ section.team-profile.bio > .cell-stage > ul.team-roster > li.person:last-child {
  * what would otherwise push a long name past the role. */
 section.team-profile.bio .person-text {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: baseline;
   align-content: center;
   column-gap: var(--sp-lg);
@@ -466,12 +530,18 @@ section.team-profile.lead.lead:where([data-family="tall"], [data-family="strip"]
  * rule between them becomes the rule above the second label. */
 section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
   grid-template-columns: 1fr;
-  grid-template-rows: auto auto auto auto;
-  grid-auto-flow: row;
+  grid-template-rows: auto auto auto auto auto;
   --person-size: 9cqi;
 }
 
-section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :nth-child(n + 3) {
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > p { grid-area: 1 / 1; }
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3:nth-of-type(1) { grid-area: 2 / 1; }
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster:nth-of-type(1) { grid-area: 3 / 1; }
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3:nth-of-type(2) { grid-area: 4 / 1; }
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster:nth-of-type(2) { grid-area: 5 / 1; }
+
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > h3:nth-of-type(2),
+section.team-profile.sides.sides:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul.team-roster:nth-of-type(2) {
   border-inline-start: 0;
 }
 
