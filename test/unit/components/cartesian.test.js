@@ -756,3 +756,44 @@ describe('cartesian — a category name is never silently dropped', () => {
       'a width of 5 must not shrink the real gutter box');
   });
 });
+
+describe('cartesian — defects the adversarial trio confirmed', () => {
+  test('a flat item\'s pill is guarded too, not just a nested one', () => {
+    // `isValuePill` was applied to the nested path only, so a FLAT
+    // `- Alpha `PROJ-42`` reached parseValue, plotted at -42, became the
+    // largest mark on the chart and dragged the domain with it.
+    const m = C.parseSeries(ul(['Alpha <code>PROJ-42</code>', 'Beta <code>12</code>', 'Gamma <code>9</code>']));
+    assert.ok(Number.isNaN(m.groups[0].num), 'a ticket id is not a value');
+    assert.equal(m.min, 9);
+    assert.equal(m.max, 12);
+  });
+
+  test('a spreadsheet\'s separators are read, not guessed at', () => {
+    // `1,25M` was read as 125M — a hundredfold misplot with the author's own
+    // label printed beside it proving it wrong — and `1.234.567` failed the
+    // pill test outright, so three of four points in a grouped chart silently
+    // became mark-detail. A GROUP separator is always followed by three digits.
+    assert.equal(C.parseValue('1,25M'), 1250000);
+    assert.equal(C.parseValue('1,5'), 1.5);
+    assert.equal(C.parseValue('1.234.567'), 1234567);
+    assert.equal(C.parseValue('1,234'), 1234);
+    assert.equal(C.parseValue('1,234.5'), 1234.5);
+    assert.equal(C.parseValue('$1,234,567,890'), 1234567890);
+    assert.equal(C.isValuePill('1.234.567'), true);
+  });
+
+  test('signedValue finds a sign wherever it sits before the digits', () => {
+    // A waterfall's whole claim is direction, and there are four spellings.
+    // Re-deriving this in the member found three: `($0.8M)` — what every
+    // finance system prints — became a zero-anchored level that reset the
+    // running total, with the right figure on the wrong kind of bar.
+    for (const s of ['+1.4M', '-0.8M', '−0.8M', '(0.8M)', '($1.2M)', '-$0.9M', '$-0.9M']) {
+      assert.equal(C.signedValue(s).signed, true, `${s} carries a sign`);
+    }
+    for (const s of ['12.0M', '9.8M', '$4.2M', '1,200']) {
+      assert.equal(C.signedValue(s).signed, false, `${s} carries none`);
+    }
+    assert.equal(C.signedValue('($1.2M)').value, -1200000);
+    assert.equal(C.signedValue('$-0.9M').value, -900000);
+  });
+});

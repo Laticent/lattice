@@ -205,12 +205,19 @@ describe('waterfall kernel', () => {
     function geometry(rows, ctx = {}) {
       const model = parseWaterfall(ul(rows));
       const svg = buildWaterfall(model, ctx);
-      const bars = [...svg.matchAll(
-        /<(rect|path|line) class="waterfall-bar"[^>]*data-s="([a-z]+)"[^>]*?(?:y="([-\d.]+)"[^>]*height="([-\d.]+)"|y1="([-\d.]+)")/g)]
-        .map((m) => (m[3] !== undefined
-          ? { dir: m[2], top: +m[3], bottom: +m[3] + +m[4] }
-          : { dir: m[2], top: +m[5], bottom: +m[5] }));
-      const connectors = [...svg.matchAll(/<line class="waterfall-connector"[^>]*y1="([-\d.]+)"/g)]
+      // Match each bar tag ONCE, then read its attributes off the tag. Chaining
+      // several `[^<>]*` runs in one pattern backtracks polynomially on a long
+      // tag (CodeQL js/polynomial-redos), and a `<rect>` here carries a dozen
+      // attributes.
+      const bars = [...svg.matchAll(/<(?:rect|path|line) class="waterfall-bar"[^<>]*>/g)]
+        .map(([tag]) => {
+          const at = (name) => (new RegExp(`\\s${name}="([-\\d.]+)"`).exec(tag) || [])[1];
+          const dir = (/\sdata-s="([a-z]+)"/.exec(tag) || [])[1];
+          const y = at('y');
+          if (y !== undefined) return { dir, top: +y, bottom: +y + +at('height') };
+          return { dir, top: +at('y1'), bottom: +at('y1') };
+        });
+      const connectors = [...svg.matchAll(/<line class="waterfall-connector"[^<>]*y1="([-\d.]+)"/g)]
         .map((m) => +m[1]);
       return { model, svg, bars, connectors };
     }
@@ -273,7 +280,7 @@ describe('waterfall kernel', () => {
       assert.doesNotMatch(plain, /data-clipped/, 'the default baseline is zero');
       assert.equal((zoomed.match(/data-clipped="1"/g) || []).length, 2,
         'both anchors are cut off and marked');
-      const ticksOf = (svg) => [...svg.matchAll(/class="cart-tick"[^>]*><tspan[^>]*>([^<]*)/g)]
+      const ticksOf = (svg) => [...svg.matchAll(/class="cart-tick"[^<>]*><tspan[^<>]*>([^<]*)/g)]
         .map((m) => m[1]);
       // `0`, not `0M`: zero carries no magnitude on a compacted axis
       // (cartesian.js axisFormatter) — `$0M` reads as a quantity of millions.
@@ -294,7 +301,7 @@ describe('waterfall kernel', () => {
     });
 
     test('one scaled SVG with a viewBox and the family aspect ratio', () => {
-      assert.match(svg, /<svg[^>]*viewBox="0 0 320 180"/);
+      assert.match(svg, /<svg[^<>]*viewBox="0 0 320 180"/);
       assert.match(svg, /preserveAspectRatio="xMidYMid meet"/);
       assert.match(svg, /role="img"/);
       assert.doesNotMatch(svg, /aria-hidden/, 'the chart stays in the accessibility tree');
@@ -309,9 +316,9 @@ describe('waterfall kernel', () => {
       assert.doesNotMatch(svg, /#[0-9a-fA-F]{3,8}\b/, 'no hex literal');
       assert.doesNotMatch(svg, /\b(?:rgba?|hsla?|oklch)\(/, 'no color function');
       // Every mark names a class and its semantic register, nothing else.
-      assert.match(svg, /class="waterfall-bar"[^>]*data-s="up"/);
-      assert.match(svg, /class="waterfall-bar"[^>]*data-s="down"/);
-      assert.match(svg, /class="waterfall-bar"[^>]*data-s="total"/);
+      assert.match(svg, /class="waterfall-bar"[^<>]*data-s="up"/);
+      assert.match(svg, /class="waterfall-bar"[^<>]*data-s="down"/);
+      assert.match(svg, /class="waterfall-bar"[^<>]*data-s="total"/);
     });
 
     test('gradient ids are document-unique, so two walks on one slide cannot collide', () => {
@@ -323,7 +330,7 @@ describe('waterfall kernel', () => {
 
     test('every bar carries its label and value for the reveal layer and the note', () => {
       assert.match(svg, /data-mark="0"/);
-      assert.match(svg, /data-label="Plan"[^>]*data-value="12\.0M"|data-label="Plan" data-value="12\.0M"/);
+      assert.match(svg, /data-label="Plan"[^<>]*data-value="12\.0M"|data-label="Plan" data-value="12\.0M"/);
       assert.match(svg, /data-anima-role="bar"/);
     });
 
@@ -419,7 +426,7 @@ describe('waterfall kernel', () => {
         assert.ok(model, 'parses');
         for (const ctx of [{}, { orientation: 'portrait' }, { classTokens: ['waterfall', 'zoom'] }]) {
           const svg = buildWaterfall(model, ctx);
-          assert.match(svg, /<svg[^>]*viewBox="0 0 320 \d+"/);
+          assert.match(svg, /<svg[^<>]*viewBox="0 0 320 \d+"/);
           assert.doesNotMatch(svg, /NaN|Infinity|undefined/, 'no unresolved geometry');
         }
       });
@@ -464,5 +471,94 @@ describe('waterfall kernel', () => {
       assert.match(css, /\[data-s="total"\][\s\S]*?--text-body/);
       assert.doesNotMatch(css.replace(/\/\*[\s\S]*?\*\//g, ''), /state-mute/);
     });
+  });
+});
+
+describe('waterfall — defects the adversarial trio confirmed', () => {
+  const walk = (rows) => parseWaterfall(ul(rows));
+
+  test('every spelling of a negative makes a STEP, not a level', () => {
+    // `($0.8M)` — what every finance system prints — used to become a
+    // zero-anchored LEVEL that reset the running total, with the right figure
+    // on the wrong kind of bar and nothing on the slide to say so.
+    for (const form of ['-0.8M', '−0.8M', '(0.8M)', '($0.8M)', '$-0.8M', '-$0.8M']) {
+      const m = walk([['Plan', '12.0M'], ['Churn', form], ['Actual', '11.2M']]);
+      assert.equal(m.rows[1].kind, 'step', `${form} must be a step`);
+      assert.ok(m.rows[1].num < 0, `${form} must be negative`);
+    }
+    assert.equal(walk([['Plan', '12.0M'], ['X', '9.8M']]).rows[1].kind, 'total',
+      'a bare value is still a level');
+  });
+
+  test('a signed pill never prints a double minus', () => {
+    const svg = buildWaterfall(walk([['Open', '$4.2M'], ['Churn', '$-0.9M'], ['Close', '$3.3M']]), {});
+    assert.ok(!/−\$-/.test(svg), 'the sign was applied twice');
+    assert.match(svg, /−\$0\.9M/);
+  });
+
+  test('EVERY total is a reconciliation point, not just the last', () => {
+    // A mid-walk subtotal could restate the running total by any amount — 111
+    // becomes 200 — and `reconciles` still said true, with the description
+    // reading it out as a clean bridge. The `total` marker is documented FOR
+    // the mid-walk subtotal, which made it an unchecked write.
+    const bad = walk([['Opening', '100'], ['Wins', '+18'], ['Churn', '-7'],
+      ['H1 subtotal', '200'], ['Expansion', '+5'], ['Closing', '205']]);
+    assert.equal(bad.reconciles, false);
+    assert.equal(bad.breaks.length, 1);
+    assert.match(buildWaterfall(bad, {}), /does not reconcile/);
+    const good = walk([['Plan', '12.0M'], ['Price', '+1.4M'], ['Volume', '-3.6M'], ['Actual', '9.8M']]);
+    assert.equal(good.reconciles, true);
+    assert.equal(good.breaks.length, 0);
+  });
+
+  test('a walk that closes on a STEP reports the level it reached', () => {
+    // The head read the raw pill, so it announced "Bridge from Opening 12.0M to
+    // Cost −0.8M, a net change of −0.8M" for a walk that closes at 12.6M — a
+    // sentence contradicting itself on the only channel a screen reader has.
+    const m = walk([['Opening', '12.0M'], ['Price', '+1.4M'], ['Cost', '-0.8M']]);
+    m.rows[2].kind = 'step';
+    const desc = /<desc>([^<]*)<\/desc>/.exec(buildWaterfall(walk([
+      ['Opening', '12.0M'], ['Price', '+1.4M'], ['Cost', '-0.8M'], ['Close', '12.6M'],
+    ]), {}))[1];
+    assert.match(desc, /Bridge from Opening 12\.0M to Close 12\.6M/,
+      'a level endpoint still prints the author\'s own pill');
+  });
+
+  test('a value label is never truncated into a different number', () => {
+    // `$2,000,000,000` painted as `$2,000,000…` — well formed, readable, and
+    // off by a factor of a thousand from the bar it names.
+    const svg = buildWaterfall(walk([
+      ['Open', '$1,234,567,890'], ['D1', '+$120,000,000'], ['Close', '$2,000,000,000'],
+    ]), {});
+    assert.ok(!svg.includes('…'), 'a figure was ellipsized');
+  });
+
+  test('`zoom` tears the edge it actually cut, on a negative walk too', () => {
+    // An anchor's base is zero, and on an all-negative walk — a cost bridge,
+    // net debt, a cumulative loss — zero is off the domain at the TOP. Tearing
+    // the bottom ripped the edge carrying the data and drew the cut edge flat.
+    const svg = buildWaterfall(walk([
+      ['Opening', '-1.0M'], ['Impairment', '-1.5M'], ['Provision', '-2.5M'], ['Closing', '-5.0M'],
+    ]), { classTokens: ['waterfall', 'zoom'] });
+    const paths = [...svg.matchAll(/data-clipped="1" d="([^"]+)"/g)].map((m) => m[1]);
+    assert.equal(paths.length, 2, 'both anchors are clipped');
+    assert.notEqual(paths[0], paths[1],
+      'two anchors at different levels must not paint identical bars');
+    const ys = [...svg.matchAll(/<rect[^<>]*\sy="(-?[\d.]+)"/g)].map((m) => Number(m[1]));
+    assert.ok(ys.every((y) => y >= 0), 'nothing may escape the viewBox');
+  });
+
+  test('an entity-encoded pill is not escaped twice', () => {
+    // markdown-it hands the kernel `&gt;100` for an authored `` `>100` ``, and
+    // every sink downstream escapes again, so the slide printed `&gt;100`.
+    const svg = buildWaterfall(parseWaterfall(
+      '<li>Open <code>&gt;100</code></li><li>Close <code>80</code></li>'), {});
+    assert.ok(!/&amp;gt;/.test(svg), 'the pill was escaped twice');
+  });
+
+  test('a two-bar walk does not paint two barn doors', () => {
+    const svg = buildWaterfall(walk([['Open', '12.0M'], ['Close', '9.8M']]), {});
+    const widths = [...svg.matchAll(/<rect[^<>]*\swidth="([\d.]+)"/g)].map((m) => Number(m[1]));
+    assert.ok(widths.every((w) => w <= 56), `a bar took ${Math.max(...widths)} units`);
   });
 });

@@ -50,17 +50,26 @@ function nested(lead, children) {
 
 /** Every `<rect class="bullet-band …">` in emitted order, as numbers. */
 function zones(html) {
-  return [...html.matchAll(/class="bullet-band bullet-zone-(\d+)"[^>]*x="([-\d.]+)"[^>]*width="([-\d.]+)"/g)]
-    .map((m) => ({ z: +m[1], x: +m[2], w: +m[3] }));
+  // Match each tag ONCE, then read its attributes. Several `[^<>]*` runs in one
+  // pattern backtrack polynomially on a long tag (CodeQL js/polynomial-redos).
+  return [...html.matchAll(/<rect class="bullet-band bullet-zone-\d+"[^<>]*>/g)]
+    .map((m) => ({
+      z: +(/bullet-zone-(\d+)/.exec(m[0]) || [])[1],
+      x: +(/\sx="([-\d.]+)"/.exec(m[0]) || [])[1],
+      w: +(/\swidth="([-\d.]+)"/.exec(m[0]) || [])[1],
+    }));
 }
 
 function measures(html) {
-  return [...html.matchAll(/class="bullet-measure"[^>]*x="([-\d.]+)"[^>]*width="([-\d.]+)"/g)]
-    .map((m) => ({ x: +m[1], w: +m[2] }));
+  return [...html.matchAll(/<rect class="bullet-measure"[^<>]*>/g)]
+    .map((m) => ({
+      x: +(/\sx="([-\d.]+)"/.exec(m[0]) || [])[1],
+      w: +(/\swidth="([-\d.]+)"/.exec(m[0]) || [])[1],
+    }));
 }
 
 function targets(html) {
-  return [...html.matchAll(/class="bullet-target"[^>]*x1="([-\d.]+)"/g)].map((m) => +m[1]);
+  return [...html.matchAll(/class="bullet-target"[^<>]*x1="([-\d.]+)"/g)].map((m) => +m[1]);
 }
 
 describe('bullet kernel', () => {
@@ -192,9 +201,9 @@ describe('bullet kernel', () => {
 
     test('the SVG carries a viewBox, the meet aspect, and stays in the a11y tree', () => {
       const html = buildBullet(model, {});
-      assert.match(html, /<svg[^>]*viewBox="0 0 320 180"/);
+      assert.match(html, /<svg[^<>]*viewBox="0 0 320 180"/);
       assert.match(html, /preserveAspectRatio="xMidYMid meet"/);
-      assert.match(html, /<svg[^>]*role="img"/);
+      assert.match(html, /<svg[^<>]*role="img"/);
       assert.doesNotMatch(html, /aria-hidden="true"/);
       assert.match(html, /<title>Bullet graph — actual against target<\/title>/);
     });
@@ -219,7 +228,8 @@ describe('bullet kernel', () => {
       // quantity, and the reader re-scaled between a measure and the target it
       // is being compared with.
       const html = buildBullet(parseBullet(ul([['A', '900k', '1.2M'], ['B', '1.4M', '1.3M']])), {});
-      assert.match(html, /class="cart-value bullet-value"[^>]*>(?:<tspan[^>]*>)?0\.9M</);
+      const valueTag = html.split('class="cart-value bullet-value"')[1] || '';
+      assert.match(valueTag.slice(0, 200), /0\.9M</);
       assert.doesNotMatch(html, />900k</);
       // The AUTHORED pill still rides `data-value`, which is the datum tooling
       // and the reveal popover read.
@@ -252,12 +262,12 @@ describe('bullet kernel', () => {
 
     test('marks carry the a11y/print texture hooks, and they do not paint', () => {
       const html = buildBullet(model, {});
-      assert.match(html, /class="bullet-measure"[^>]*data-cat="0"/, 'categorical slot, as the legend swatches use');
-      assert.match(html, /class="bullet-target"[^>]*data-marker="target"/);
-      assert.match(html, /class="bullet-band bullet-zone-0"[^>]*data-zone="0"/);
-      assert.match(html, /class="bullet-measure"[^>]*data-anima-role="bar"/);
-      assert.match(html, /class="bullet-band[^"]*"[^>]*data-anima-role="region"/);
-      assert.match(html, /class="bullet-target"[^>]*data-anima-role="point"/);
+      assert.match(html, /class="bullet-measure"[^<>]*data-cat="0"/, 'categorical slot, as the legend swatches use');
+      assert.match(html, /class="bullet-target"[^<>]*data-marker="target"/);
+      assert.match(html, /class="bullet-band bullet-zone-0"[^<>]*data-zone="0"/);
+      assert.match(html, /class="bullet-measure"[^<>]*data-anima-role="bar"/);
+      assert.match(html, /class="bullet-band[^"]*"[^<>]*data-anima-role="region"/);
+      assert.match(html, /class="bullet-target"[^<>]*data-anima-role="point"/);
       assert.doesNotMatch(html, /\bid="bullet-/, 'no non-unique bullet-* ids baked into the export');
     });
   });
@@ -309,7 +319,7 @@ describe('bullet kernel', () => {
       assert.ok(runaway.x + runaway.w > targets(html)[0], 'the bar clears its own target marker');
       assert.ok(runaway.w > 0 && runaway.x + runaway.w <= bandEnd + 0.05,
         'and stays inside the plot, because the scale grew to hold it');
-      assert.match(html, /class="bullet-measure"[^>]*data-over="1"/, 'and is flagged over-target');
+      assert.match(html, /class="bullet-measure"[^<>]*data-over="1"/, 'and is flagged over-target');
     });
 
     test('a measure at or under target carries no over-target flag', () => {
@@ -352,8 +362,8 @@ describe('bullet kernel', () => {
       // bounded by the clearance instead of chosen freely.
       const rows = Array.from({ length: 7 }, (_, i) => [`KPI ${i}`, '90', '100']);
       const html = buildBullet(parseBullet(ul(rows)), {});
-      const tops = [...html.matchAll(/class="bullet-target"[^>]*y1="([-\d.]+)"/g)].map((m) => +m[1]);
-      const trackTops = [...html.matchAll(/class="bullet-band bullet-zone-0"[^>]*y="([-\d.]+)"/g)].map((m) => +m[1]);
+      const tops = [...html.matchAll(/class="bullet-target"[^<>]*y1="([-\d.]+)"/g)].map((m) => +m[1]);
+      const trackTops = [...html.matchAll(/class="bullet-band bullet-zone-0"[^<>]*y="([-\d.]+)"/g)].map((m) => +m[1]);
       tops.forEach((t, i) => {
         const nameBaseline = trackTops[i] - ROW.nameGap;
         assert.ok(t > nameBaseline, `tick ${i} starts below the name baseline (${t} > ${nameBaseline})`);
@@ -362,13 +372,13 @@ describe('bullet kernel', () => {
 
     test('a floored row draws its origin edge; a zero-based row does not', () => {
       const floored = buildBullet(parseBullet(nested('U <code>99.4%</code> <code>99.9%</code>', ['Floor <code>99.0%</code>'])), {});
-      assert.match(floored, /class="bullet-floor"[^>]*data-marker="floor"/);
+      assert.match(floored, /class="bullet-floor"[^<>]*data-marker="floor"/);
       assert.doesNotMatch(buildBullet(parseBullet(ul([['A', '4.2M', '5.0M']])), {}), /bullet-floor/);
     });
 
     test('portrait caps the track height so a roomier pitch spaces rows instead of inflating them', () => {
       const model = parseBullet(ul([['A', '4.2M', '5.0M'], ['B', '3.6M', '3.0M'], ['C', '2.8M', '2.6M']]));
-      const h = (html) => +/class="bullet-band bullet-zone-0"[^>]*height="([\d.]+)"/.exec(html)[1];
+      const h = (html) => +/class="bullet-band bullet-zone-0"[^<>]*height="([\d.]+)"/.exec(html)[1];
       assert.ok(h(buildBullet(model, { orientation: 'portrait' })) <= ROW.trackMax + 0.01);
       assert.ok(h(buildBullet(model, {})) <= ROW.trackMax + 0.01);
     });
@@ -389,7 +399,7 @@ describe('bullet kernel', () => {
       assert.match(html, /<template class="chart-detail" data-mark="0">/);
       assert.equal((html.match(/class="chart-detail"/g) || []).length, 1);
       assert.match(html, /<!-- New ARR \(4\.2M\): Two enterprise renewals slipped -->/);
-      assert.doesNotMatch(html, /<t(?:ext|span)[^>]*>Two enterprise renewals/,
+      assert.doesNotMatch(html, /<t(?:ext|span)[^<>]*>Two enterprise renewals/,
         'detail rides the template only — never a painted <text>');
     });
 

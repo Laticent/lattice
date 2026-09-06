@@ -147,6 +147,18 @@ section.print.slope :is(.slope-line, .slope-bar)[data-series="4"] { stroke-dasha
 section.print.line :is(.line-path, .line-dot)[data-series="5"],
 section.print.slope :is(.slope-line, .slope-bar)[data-series="5"] { stroke-dasharray: 11 4 1 4 !important; }
 
+/* The KEY swatches carry the same texture as the marks they name. The Cartesian
+ * members emit `data-cat` on their legend rows (svg-legend.js), so one rule per
+ * slot covers every member that shows a key — and without it the bars carried
+ * six distinct textures while the key carried six flat grays, which on the one
+ * palette whose whole job is the non-color channel makes the key unusable. */
+:is(section.print.bar, section.print.stacked-bar, section.print.line, section.print.scatter, section.print.slope) .chart-key-swatch[data-cat="0"] { fill: url(#latt-a11y-chart-tex-1) !important; }
+:is(section.print.bar, section.print.stacked-bar, section.print.line, section.print.scatter, section.print.slope) .chart-key-swatch[data-cat="1"] { fill: url(#latt-a11y-chart-tex-2) !important; }
+:is(section.print.bar, section.print.stacked-bar, section.print.line, section.print.scatter, section.print.slope) .chart-key-swatch[data-cat="2"] { fill: url(#latt-a11y-chart-tex-3) !important; }
+:is(section.print.bar, section.print.stacked-bar, section.print.line, section.print.scatter, section.print.slope) .chart-key-swatch[data-cat="3"] { fill: url(#latt-a11y-chart-tex-4) !important; }
+:is(section.print.bar, section.print.stacked-bar, section.print.line, section.print.scatter, section.print.slope) .chart-key-swatch[data-cat="4"] { fill: url(#latt-a11y-chart-tex-5) !important; }
+:is(section.print.bar, section.print.stacked-bar, section.print.line, section.print.scatter, section.print.slope) .chart-key-swatch[data-cat="5"] { fill: url(#latt-a11y-chart-tex-6) !important; }
+
 /* BULLET is deliberately untextured. Its three layers are separated by VALUE,
  * not hue — a light band wash, a solid measure bar, a dark target tick — and
  * value is exactly what survives grayscale. Texturing the band would fight the

@@ -9,7 +9,7 @@
  * THIS IS THE ONE CARTESIAN MEMBER WHERE COLOR MEANS SOMETHING. An increase and
  * a decrease are not two categories, they are two directions, so they take the
  * semantic `--state-pass-*` / `--state-fail-*` pair rather than categorical
- * slots — and a total takes the neutral `--state-mute-*`, which is why the three
+ * slots — and a total takes canvas ink derived from `--text-body` (NOT `--state-mute-*`, which cuoio tints to a warm taupe that reads as a decrease — see the note below), which is why the three
  * registers read as different KINDS of bar and not as three items in a series.
  * Everything else on this plot stays neutral so the one semantic channel is
  * unmistakable.

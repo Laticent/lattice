@@ -247,7 +247,7 @@ describe('scatter kernel', () => {
     });
 
     test('the <desc> carries the numbers AND the relationship the chart is for', () => {
-      const desc = buildScatter(model, CTX, AXES).match(/<desc>([\s\S]*?)<\/desc>/)[1];
+      const desc = buildScatter(model, CTX, AXES).match(/<desc>([^<]*)<\/desc>/)[1];
       assert.match(desc, /Annual cost horizontal/);
       assert.match(desc, /Teams adopting vertical/);
       for (const name of ['Atlas', 'Borealis', 'Cardinal', 'Fathom']) {
@@ -303,7 +303,7 @@ describe('scatter kernel', () => {
       assert.equal((svg.match(/class="scatter-dot"/g) || []).length, 12);
       // A name with nowhere to sit is DROPPED, never overprinted — but it must
       // still reach the reader through the desc.
-      const desc = svg.match(/<desc>([\s\S]*?)<\/desc>/)[1];
+      const desc = svg.match(/<desc>([^<]*)<\/desc>/)[1];
       for (const [name] of rows) assert.ok(desc.includes(name), `${name} missing from the desc`);
     });
 
@@ -350,7 +350,13 @@ describe('scatter kernel', () => {
         ['Cardinal', '180', '52', '900'],
       ])), { ...CTX, classTokens: ['scatter', 'bubble'] }, { ...AXES, size: 'Seats' });
       const plotBottom = 180 - GUTTER.bottom;
-      for (const m of svg.matchAll(/class="scatter-bubble"[^>]*cx="([\d.-]+)" cy="([\d.-]+)" r="([\d.]+)"/g)) {
+      for (const tag of svg.matchAll(/<circle class="scatter-bubble"[^<>]*>/g)) {
+        const m = [
+          tag[0],
+          (/\scx="([\d.-]+)"/.exec(tag[0]) || [])[1],
+          (/\scy="([\d.-]+)"/.exec(tag[0]) || [])[1],
+          (/\sr="([\d.]+)"/.exec(tag[0]) || [])[1],
+        ];
         const cy = Number(m[2]), r = Number(m[3]);
         assert.ok(cy + r <= plotBottom + 0.01, `a bubble overhangs the x axis by ${cy + r - plotBottom}`);
         assert.ok(cy - r >= GUTTER.top - 0.01, 'a bubble overhangs the top of the plot');
@@ -398,7 +404,14 @@ describe('scatter kernel', () => {
         ['A', '1', '1'], ['B', '2', '40'], ['C', '3', '3'],
         ['D', '4', '90'], ['E', '5', '5'],
       ])), { ...CTX, classTokens: ['scatter', 'trend'] }, AXES);
-      const line = svg.match(/class="scatter-trend"[^>]*y1="([\d.-]+)"[^>]*y2="([\d.-]+)"/);
+      // Match the tag ONCE, then read attributes off it. Two `[^<>]*` runs in
+      // one pattern backtrack polynomially on a long tag (CodeQL js/polynomial-redos).
+      const trendTag = svg.match(/<[a-z]+ class="scatter-trend"[^<>]*>/);
+      const line = trendTag && [
+        trendTag[0],
+        (/\sy1="([\d.-]+)"/.exec(trendTag[0]) || [])[1],
+        (/\sy2="([\d.-]+)"/.exec(trendTag[0]) || [])[1],
+      ];
       if (line) {
         for (const y of [Number(line[1]), Number(line[2])]) {
           assert.ok(y >= GUTTER.top - 0.01 && y <= 180 - GUTTER.bottom + 0.01,
@@ -461,7 +474,9 @@ describe('scatter kernel', () => {
       const b = transformSection(withDetail, CTX);
       assert.match(b, /<template class="chart-detail" data-mark="0">/);
       // The chart pixels are byte-identical: strip the detail payload + note.
-      const svgOf = (s) => s.match(/<svg[\s\S]*?<\/svg>/)[0];
+      // Sliced rather than matched: `<svg[\s\S]*?<\/svg>` is a lazy any-char
+      // run behind a literal, the polynomial-backtracking shape CodeQL flags.
+      const svgOf = (s) => s.slice(s.indexOf('<svg'), s.lastIndexOf('</svg>') + 6);
       assert.equal(svgOf(b), svgOf(a));
     });
   });

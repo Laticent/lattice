@@ -56,7 +56,7 @@ const build = (rows, tokens = []) =>
 
 /** Every <rect class="sbar-seg"> as {cat, x, y, w, h}, in emission order. */
 function rects(html) {
-  return [...html.matchAll(/<rect class="sbar-seg"[^>]*>/g)].map((m) => {
+  return [...html.matchAll(/<rect class="sbar-seg"[^<>]*>/g)].map((m) => {
     const tag = m[0];
     const num = (k) => Number(tag.match(new RegExp(`${k}="(-?[\\d.]+)"`))[1]);
     return {
@@ -318,7 +318,7 @@ describe('stacked-bar kernel', () => {
     test('NO color literal reaches the output — every mark is a class plus a slot', () => {
       for (const tokens of [[], ['share'], ['row']]) {
         const html = build(FY, tokens);
-        const hex = html.replace(/url\(#[^)]*\)/g, '');
+        const hex = html.replace(/url\(#[^)(]*\)/g, '');
         assert.doesNotMatch(hex, /#[0-9a-fA-F]{3,8}\b/, `hex literal with ${tokens}`);
         assert.doesNotMatch(html, /\b(?:rgba?|hsla?|oklch)\(/);
         // The token names the family DOES allow inside a paint attribute.
@@ -327,7 +327,7 @@ describe('stacked-bar kernel', () => {
     });
 
     test('every segment carries the family hooks: data-cat, data-mark, --i, a role', () => {
-      const tag = build(FY).match(/<rect class="sbar-seg"[^>]*>/)[0];
+      const tag = build(FY).match(/<rect class="sbar-seg"[^<>]*>/)[0];
       assert.match(tag, /data-cat="0"/);
       assert.match(tag, /data-mark="0"/);
       assert.match(tag, /data-anima-role="bar"/);
@@ -362,7 +362,7 @@ describe('stacked-bar kernel', () => {
 
     test('the name column and the key both report the LAST bar, under its own name', () => {
       const direct = build(FY);
-      assert.match(direct, /class="cart-axis-title"[^>]*>?[\s\S]{0,120}FY25/);
+      assert.match(direct, /class="cart-axis-title"[^<>]*>?[\s\S]{0,120}FY25/);
       assert.match(direct, />19\.6</);       // FY25's Licenses, not FY23's
       const keyed = build(FY, ['row']);
       assert.match(keyed, /chart-key-head/);

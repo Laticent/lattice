@@ -24,7 +24,7 @@ Use for a variance walk — budget to actual, an EBITDA bridge, price/volume/mix
 ### Common mistakes
 
 - **Writing a driver's value bare — `Price \`1.4M\`` — when you meant a rise of 1.4M.** Sign it: `Price \`+1.4M\``. A bare value is a LEVEL and renders as a zero-anchored neutral bar, which is loud and obvious rather than a silent misread — but it is still not what you meant.
-- **Expecting the value axis to start somewhere other than zero so the small drivers read bigger.** It does not, and that is deliberate: the anchor bars are magnitudes and a clipped baseline would misstate them by whatever the baseline was raised to. A step too small to see is floored to a visible sliver and always prints its exact figure. If the drivers genuinely are the slide, plot them without the anchors as a diverging `bar`.
+- **Expecting the default value axis to start somewhere other than zero so the small drivers read bigger.** It does not, and that is deliberate: the anchor bars are magnitudes, and a raised baseline would misstate them by whatever it was raised to. A step too small to see is floored to a visible sliver and always prints its exact figure. When the drivers genuinely ARE the slide, ask for it explicitly with `waterfall zoom`, which re-bases the axis on the walk and draws a torn edge across every anchor it clips — so the chart says out loud that it is not zero-based, instead of quietly pretending.
 - **Assuming the `detail` sublist appears somewhere on the printed chart.** It renders nowhere on the chart face — it drives the on-screen reveal popover and folds into the PDF's speaker note. A walk with detail bullets is pixel-identical to one without.
 
 ### Data shape
@@ -78,6 +78,27 @@ Use for a variance walk — budget to actual, an EBITDA bridge, price/volume/mix
 │                                         │
 │  footer                           1/19  │
 └─────────────────────────────────────────┘
+```
+
+## Variants (component-specific)
+
+### `zoom`
+
+Re-bases the axis on the walk itself and tears the anchors it clips. For a compressed bridge — a 12.0M to 9.8M walk moved by steps of a few hundred thousand — where the zero-based default spends most of the plot on the two anchors and renders every driver as a hairline. Opt-in, because a silently re-based axis is the truncated-axis lie; the tear is what makes it honest.
+
+```markdown
+<!-- _class: waterfall zoom -->
+
+`FY26 · cash`
+
+## The drivers are the story, so the anchors are cut.
+
+- Opening cash `12.0M`
+- Price `+0.3M`
+- Volume `-0.4M`
+- Mix `-0.2M`
+- Cost base `-1.9M`
+- Closing cash `9.8M`
 ```
 
 ## Universal modifiers

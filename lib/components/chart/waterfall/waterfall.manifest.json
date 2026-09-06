@@ -30,6 +30,9 @@
     "metric",
     "transformation"
   ],
+  "variants": [
+    "zoom"
+  ],
   "description": "A bridge from one total to another through signed contributions, each bar starting where the last one ended.",
   "purpose": "Use for a variance walk — budget to actual, an EBITDA bridge, price/volume/mix, a headcount reconciliation. Increases and decreases take the semantic pass/fail hues and float; totals anchor to zero in a neutral third register; a dashed connector carries the running total across each gap so the geometry does the arithmetic.",
   "slots": {
@@ -120,8 +123,8 @@
       "fix": "Sign it: `Price \\`+1.4M\\``. A bare value is a LEVEL and renders as a zero-anchored neutral bar, which is loud and obvious rather than a silent misread — but it is still not what you meant."
     },
     {
-      "mistake": "Expecting the value axis to start somewhere other than zero so the small drivers read bigger.",
-      "fix": "It does not, and that is deliberate: the anchor bars are magnitudes and a clipped baseline would misstate them by whatever the baseline was raised to. A step too small to see is floored to a visible sliver and always prints its exact figure. If the drivers genuinely are the slide, plot them without the anchors as a diverging `bar`."
+      "mistake": "Expecting the default value axis to start somewhere other than zero so the small drivers read bigger.",
+      "fix": "It does not, and that is deliberate: the anchor bars are magnitudes, and a raised baseline would misstate them by whatever it was raised to. A step too small to see is floored to a visible sliver and always prints its exact figure. When the drivers genuinely ARE the slide, ask for it explicitly with `waterfall zoom`, which re-bases the axis on the walk and draws a torn edge across every anchor it clips — so the chart says out loud that it is not zero-based, instead of quietly pretending."
     },
     {
       "mistake": "Assuming the `detail` sublist appears somewhere on the printed chart.",
@@ -137,5 +140,11 @@
   "showcase": {
     "featured": true
   },
-  "specimenVoice": true
+  "specimenVoice": true,
+  "variantDocs": {
+    "zoom": {
+      "summary": "Re-bases the axis on the walk itself and tears the anchors it clips. For a compressed bridge — a 12.0M to 9.8M walk moved by steps of a few hundred thousand — where the zero-based default spends most of the plot on the two anchors and renders every driver as a hairline. Opt-in, because a silently re-based axis is the truncated-axis lie; the tear is what makes it honest.",
+      "sample": "<!-- _class: waterfall zoom -->\n\n`FY26 · cash`\n\n## The drivers are the story, so the anchors are cut.\n\n- Opening cash `12.0M`\n- Price `+0.3M`\n- Volume `-0.4M`\n- Mix `-0.2M`\n- Cost base `-1.9M`\n- Closing cash `9.8M`\n"
+    }
+  }
 }

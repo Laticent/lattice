@@ -44,7 +44,7 @@ const nested = (groups) => groups
   .join('');
 
 const build = (model, tokens = ['line']) => buildLine(model, { classTokens: tokens });
-const paths = (html, cls) => html.match(new RegExp(`<path class="${cls}[^"]*"[^>]*>`, 'g')) || [];
+const paths = (html, cls) => html.match(new RegExp(`<path class="${cls}[^"]*"[^<>]*>`, 'g')) || [];
 const dAttr = (tag) => tag.match(/ d="([^"]*)"/)[1];
 
 describe('line kernel', () => {
@@ -293,9 +293,9 @@ describe('line kernel', () => {
         ['Q1', [['Product', '2.4'], ['Services', '1.8']]],
         ['Q2', [['Product', '3.0'], ['Services', '2.2']]],
       ])));
-      assert.match(html, /class="cart-series line-series"[^>]*data-cat="0"/);
-      assert.match(html, /<tspan[^>]*>Product 3\.0<\/tspan>/);
-      assert.match(html, /<tspan[^>]*>Services 2.2<\/tspan>/);
+      assert.match(html, /class="cart-series line-series"[^<>]*data-cat="0"/);
+      assert.match(html, /<tspan[^<>]*>Product 3\.0<\/tspan>/);
+      assert.match(html, /<tspan[^<>]*>Services 2.2<\/tspan>/);
       assert.equal(html.includes('chart-key'), false, 'no legend when direct labeling fits');
     });
 
@@ -319,7 +319,10 @@ describe('line kernel', () => {
         ['H1', [['Northern Region', '12.4'], ['South', '9.8']]],
         ['H2', [['Northern Region', '18.2'], ['South', '6.2']]],
       ])));
-      const names = [...html.matchAll(/class="cart-series line-series"[\s\S]*?<\/text>/g)].map((mm) => mm[0]);
+      // Split on the close tag instead of a lazy any-char run behind a literal
+      // (the polynomial-backtracking shape CodeQL flags).
+      const names = html.split('class="cart-series line-series"').slice(1)
+        .map((chunk) => chunk.slice(0, chunk.indexOf('</text>')));
       const withValue = names.filter((t) => /\d/.test(t)).length;
       assert.ok(withValue === 0 || withValue === names.length, 'all or nothing');
     });
@@ -419,7 +422,7 @@ describe('line kernel', () => {
         ['Q2 2025', [['Enterprise', '4.4'], ['Services', '2.6']]],
         ['Q3 2025', [['Enterprise', '3.5'], ['Services', '5.2']]],
       ])));
-      const desc = html.match(/<desc>([\s\S]*?)<\/desc>/)[1];
+      const desc = html.match(/<desc>([^<]*)<\/desc>/)[1];
       assert.match(desc, /3 points, Q1 2025 to Q3 2025/);
       assert.match(desc, /Enterprise — 4\.1 at Q1 2025, 3\.5 at Q3 2025, down 15%/);
       assert.match(desc, /peak 4\.4 at Q2 2025/, 'a peak between the ends is named');

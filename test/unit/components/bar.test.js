@@ -66,7 +66,7 @@ const ctx = (tokens = []) => ({ cls: ['bar', ...tokens].join(' '), classTokens: 
 // mark class, not the element: a grouped chart's key is built from <rect>
 // swatches that are chrome, not data.
 function rects(html) {
-  return [...html.matchAll(/<rect class="bar-mark[^>]*>/g)].map((m) => {
+  return [...html.matchAll(/<rect class="bar-mark[^<>]*>/g)].map((m) => {
     const out = {};
     for (const a of m[0].matchAll(/([a-z-]+)="([^"]*)"/g)) {
       out[a[1]] = /^(x|y|width|height)$/.test(a[1]) ? Number(a[2]) : a[2];
@@ -203,7 +203,7 @@ describe('bar kernel', () => {
       const model = parseBar(ul(SIGNED));
       const html = buildBar(model, ctx());
       const r = rects(html);
-      const zeroY = Number(html.match(/<line class="cart-zero"[^>]*y1="([\d.-]+)"/)[1]);
+      const zeroY = Number(html.match(/<line class="cart-zero"[^<>]*y1="([\d.-]+)"/)[1]);
       // Positive bars end AT zero; negative bars start at it.
       assert.ok(Math.abs(r[0].y + r[0].height - zeroY) < 0.02, 'positive bar sits on zero');
       assert.ok(Math.abs(r[2].y - zeroY) < 0.02, 'negative bar hangs from zero');
@@ -479,5 +479,80 @@ describe('bar kernel', () => {
       assert.doesNotMatch(RULES, /@layer/);
       assert.doesNotMatch(RULES, /^\s*margin(-|\s*:)/m, 'HARD RULE #20 — no margin in layout CSS');
     });
+  });
+});
+
+describe('bar — defects the adversarial trio confirmed', () => {
+  const flat = (rows) => parseBar(rows.map(([l, v]) => `<li>${l} <code>${v}</code></li>`).join(''));
+
+  test('the row form keeps EVERY category name', () => {
+    // `buildCategoryLabels` culls a colliding vertical label unless it is told
+    // the band pitch. Ten business-unit names rendered six — and the auto-`row`
+    // flip exists precisely to avoid losing a name, so losing them in the
+    // destination made the flip self-defeating.
+    const names = ['Commercial Banking', 'Wealth & Asset Management', 'Insurance & Protection',
+      'Retail & Small Business', 'Private Credit Partnerships', 'Treasury & Liquidity Services',
+      'Global Transaction Services', 'Markets & Securities', 'Corporate Advisory', 'Digital Channels'];
+    const svg = buildBar(flat(names.map((n, i) => [n, 10 - i])), { classTokens: ['bar'] });
+    assert.equal((svg.match(/class="cart-cat"/g) || []).length, names.length);
+  });
+
+  test('no label escapes the viewBox, wrapped or not', () => {
+    // `CAT_GAP_X` was 11, paying for an ascender the substrate had already
+    // fixed; the second line of a two-line name landed at y=180.2 in a
+    // 0 0 320 180 box and the SVG clipped it.
+    const svg = buildBar(flat([['Retail Banking', 41], ['Wealth Mgmt', 33],
+      ['Markets Desk', 28], ['Card Issuing', 22], ['Trade Finance', 18]]), { classTokens: ['bar'] });
+    const h = Number(/viewBox="0 0 [\d.]+ ([\d.]+)"/.exec(svg)[1]);
+    for (const m of svg.matchAll(/<tspan[^<>]*\sy="([-\d.]+)"/g)) {
+      assert.ok(Number(m[1]) <= h, `a label baseline at ${m[1]} is past the ${h}-unit viewBox`);
+    }
+  });
+
+  test('a value label is never truncated into a different number', () => {
+    // The fit test measured against the BAND and the paint used the BAR, so a
+    // figure that passed the test was then ellipsized: `$1,234,567,890` printed
+    // as `$1,234,…`, a well-formed wrong number beside a correct bar.
+    for (const tokens of [['bar'], ['bar', 'row']]) {
+      const svg = buildBar(flat([['North America', '$1,234,567,890'], ['EMEA', '$987,654,321']]),
+        { classTokens: tokens });
+      assert.ok(!svg.includes('…'), `${tokens.join(' ')} ellipsized a figure`);
+    }
+  });
+
+  test('a flat group in a nested list still draws its bar', () => {
+    // Branching on the model-wide `flat` flag meant a mixed list drew nothing
+    // for the flat group while its value still set the domain — the chart
+    // squashed for a number that appeared nowhere on it.
+    const m = parseBar('<li>Q1 <code>40</code></li>'
+      + '<li>Q2<ul><li>Plan <code>3</code></li><li>Actual <code>5</code></li></ul></li>');
+    const svg = buildBar(m, { classTokens: ['bar'] });
+    assert.equal((svg.match(/class="bar-mark"/g) || []).length, 3);
+    assert.match(svg, /data-value="40"/);
+  });
+
+  test('the description matches the picture past the series cap', () => {
+    // It announced a seventh series painted nowhere and then computed a
+    // "highest" from the drawn six that the listed seven contradicted.
+    const inner = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+      .map((x, i) => `<li>${x.toUpperCase()} <code>${(i + 1) * 10}</code></li>`).join('');
+    const svg = buildBar(parseBar(`<li>Q1<ul>${inner}</ul></li>`), { classTokens: ['bar'] });
+    const desc = /<desc>([^<]*)<\/desc>/.exec(svg)[1];
+    assert.ok(!/ G 70/.test(desc), 'an undrawn series was announced as data');
+    assert.match(desc, /Not shown, past the six-series limit: G/);
+    assert.match(desc, /Highest Q1 F 60/);
+  });
+
+  test('the legend swatch carries data-cat so the a11y texture can pair it', () => {
+    const inner = ['a', 'b', 'c'].map((x, i) => `<li>${x} <code>${i + 1}</code></li>`).join('');
+    const svg = buildBar(parseBar(`<li>Q1<ul>${inner}</ul></li><li>Q2<ul>${inner}</ul></li>`),
+      { classTokens: ['bar'] });
+    assert.ok((svg.match(/chart-key-swatch[^>]*data-cat/g) || []).length >= 3);
+  });
+
+  test('twenty categories keep twenty labels', () => {
+    const svg = buildBar(flat(Array.from({ length: 20 }, (_, i) => [`Q${i + 1}`, i + 1])),
+      { classTokens: ['bar'] });
+    assert.equal((svg.match(/class="cart-cat"/g) || []).length, 20);
   });
 });

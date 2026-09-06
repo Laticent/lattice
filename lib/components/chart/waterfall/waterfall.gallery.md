@@ -34,6 +34,23 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
+<!-- _class: waterfall zoom -->
+<!-- _footer: "zoom · waterfall zoom — Re-bases the axis on the walk itself and tears the anchors it clips. For a compressed bridge — a 12.0M to 9.8M walk moved by steps of a few hundred thousand — where the zero-based default spends most of the plot on the two anchors and renders every driver as a hairline. Opt-in, because a silently re-based axis is the truncated-axis lie; the tear is what makes it honest." -->
+
+`FY26 · cash`
+
+## The drivers are the story, so the anchors are cut.
+
+- Opening cash `12.0M`
+- Price `+0.3M`
+- Volume `-0.4M`
+- Mix `-0.2M`
+- Cost base `-1.9M`
+- Closing cash `9.8M`
+
+
+---
+
 <!-- _class: waterfall -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · waterfall — Eight bars, a mid-walk subtotal, a step that takes the running total below zero and back, and a level authored as a negative — the geometries that break a naive bridge." -->

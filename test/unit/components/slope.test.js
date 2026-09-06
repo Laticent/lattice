@@ -191,11 +191,11 @@ describe('slope kernel', () => {
     });
 
     test('every mark carries the family texture hooks', () => {
-      assert.match(html, /<polyline class="slope-line"[^>]*data-series="0"/);
-      assert.match(html, /<polyline class="slope-line"[^>]*data-dir="up"/);
-      assert.match(html, /<circle class="slope-dot"[^>]*data-series="1"/);
+      assert.match(html, /<polyline class="slope-line"[^<>]*data-series="0"/);
+      assert.match(html, /<polyline class="slope-line"[^<>]*data-dir="up"/);
+      assert.match(html, /<circle class="slope-dot"[^<>]*data-series="1"/);
       const d = buildSlope(parseSlope(TWO), { classTokens: ['slope', 'dumbbell'] });
-      assert.match(d, /<line class="slope-bar"[^>]*data-series="0"/);
+      assert.match(d, /<line class="slope-bar"[^<>]*data-series="0"/);
       assert.match(d, /class="slope-dot slope-dot-from"/);
       assert.match(d, /class="slope-dot slope-dot-to"/);
     });
@@ -234,7 +234,7 @@ describe('slope kernel', () => {
     // The kernel is a string emitter, so the invariants are read back off the
     // emitted coordinates. Parsing them here is deliberate: it is the only way
     // to assert the SCALE without re-implementing it.
-    const pts = (html) => [...html.matchAll(/<polyline class="slope-line"[^>]*points="([^"]+)"/g)]
+    const pts = (html) => [...html.matchAll(/<polyline class="slope-line"[^<>]*points="([^"]+)"/g)]
       .map((m) => m[1].split(' ').map((p) => p.split(',').map(Number)));
 
     test('the value axis is inverted — a bigger number sits HIGHER on the slide', () => {
@@ -259,7 +259,7 @@ describe('slope kernel', () => {
         ['Goodwill', [['FY24', 'n/a'], ['FY26', '2.0']]],
       ])), { classTokens: ['slope'] });
       assert.equal(pts(html).length, 1, 'only the two-point entity gets a polyline');
-      const cxs = [...html.matchAll(/<circle class="slope-dot"[^>]*cx="([\d.]+)"/g)].map((m) => Number(m[1]));
+      const cxs = [...html.matchAll(/<circle class="slope-dot"[^<>]*cx="([\d.]+)"/g)].map((m) => Number(m[1]));
       const plot = cart.plotBox({ view: cart.viewFor(), gutter: { left: 100, right: 100, top: 18, bottom: 8 } });
       assert.equal(cxs.length, 3, 'two for Margin, one for Goodwill');
       assert.equal(cxs[2], cart.round2(plot.x1), 'Goodwill sits in FY26, not FY24');
@@ -267,13 +267,13 @@ describe('slope kernel', () => {
 
     test('the dumbbell bar spans first to last, and the dots sit on its ends', () => {
       const html = buildSlope(parseSlope(TWO), { classTokens: ['slope', 'dumbbell'] });
-      const bar = /<line class="slope-bar"[^>]*x1="([\d.-]+)" y1="([\d.-]+)" x2="([\d.-]+)" y2="([\d.-]+)"/.exec(html);
+      const bar = /<line class="slope-bar"[^<>]*x1="([\d.-]+)" y1="([\d.-]+)" x2="([\d.-]+)" y2="([\d.-]+)"/.exec(html);
       assert.ok(bar, 'a bar is emitted');
       const [, x1, y1, x2, y2] = bar.map(Number);
       assert.equal(y1, y2, 'a dumbbell row is horizontal');
       assert.ok(x2 > x1, 'Atlas rose 12 to 19, so the "to" dot is to the right');
-      const from = /<circle class="slope-dot slope-dot-from"[^>]*cx="([\d.-]+)"/.exec(html);
-      const to = /<circle class="slope-dot slope-dot-to"[^>]*cx="([\d.-]+)"/.exec(html);
+      const from = /<circle class="slope-dot slope-dot-from"[^<>]*cx="([\d.-]+)"/.exec(html);
+      const to = /<circle class="slope-dot slope-dot-to"[^<>]*cx="([\d.-]+)"/.exec(html);
       assert.equal(Number(from[1]), x1);
       assert.equal(Number(to[1]), x2);
     });
@@ -290,7 +290,7 @@ describe('slope kernel', () => {
         const rows = names.slice(0, n).map((label, i) =>
           [label, [['Plan', String(40 + 3 * i)], ['Actual', String(45 + 2 * i)]]]);
         const html = buildSlope(parseSlope(ul(rows)), { classTokens: ['slope', 'dumbbell'] });
-        const labels = [...html.matchAll(/class="cart-cat"[\s\S]*?<\/text>/g)].length;
+        const labels = html.split('class="cart-cat"').length - 1;
         assert.equal(labels, n, `${n} rows must emit ${n} names, got ${labels}`);
       }
     });
@@ -303,16 +303,20 @@ describe('slope kernel', () => {
         ['A', [['x', '10'], ['y', '31']]],
         ['B', [['x', '11'], ['y', '30']]],
       ])), { classTokens: ['slope', 'dumbbell'] });
-      const tickTexts = [...html.matchAll(/class="cart-tick"[^>]*>.*?<tspan[^>]*>([^<]+)<\/tspan>/g)]
-        .map((m) => m[1]);
+      // Split on the class rather than scanning past it with a lazy any-char run
+      // behind a literal — the polynomial-backtracking shape CodeQL flags.
+      const tickTexts = html.split('class="cart-tick"').slice(1)
+        .map((chunk) => (/<tspan[^<>]*>([^<]+)<\/tspan>/.exec(chunk) || [])[1])
+        .filter((t) => t !== undefined);
       assert.ok(tickTexts.length >= 2 && tickTexts.length <= 5, `2-5 ticks, got ${tickTexts.length}`);
       assert.ok(!tickTexts.includes('40'), 'no tick beyond the data');
     });
   });
 
   describe('printed values — one magnitude for the whole chart', () => {
-    const vals = (html) => [...html.matchAll(/class="cart-value slope-value"[^>]*>(?:<tspan[^>]*>([^<]*)<\/tspan>)/g)]
-      .map((m) => m[1]);
+    const vals = (html) => html.split('class="cart-value slope-value"').slice(1)
+      .map((chunk) => (/^[^<>]*><tspan[^<>]*>([^<]*)<\/tspan>/.exec(chunk) || [])[1])
+      .filter((t) => t !== undefined);
 
     test('a chart spanning k and M speaks ONE unit, taken from the axis it would have had', () => {
       // The raw pills are `$800k` and `$3.4M`; printing them verbatim puts two
@@ -509,7 +513,7 @@ describe('slope — de-collided labels stay inside the viewBox', () => {
       const vb = /viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/.exec(svg);
       assert.ok(vb, 'no viewBox on the root');
       const height = Number(vb[2]);
-      const ys = [...svg.matchAll(/<tspan[^>]*\sy="(-?[\d.]+)"/g)].map((m) => Number(m[1]));
+      const ys = [...svg.matchAll(/<tspan[^<>]*\sy="(-?[\d.]+)"/g)].map((m) => Number(m[1]));
       assert.ok(ys.length > 0, 'no label baselines found');
       for (const y of ys) {
         assert.ok(y >= 0 && y <= height,
