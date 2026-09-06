@@ -1,4 +1,4 @@
-- **Added: `examples/system-design-foundations.md`, a 220-slide system-design tutorial for
+- **Added: `examples/system-design-foundations.md`, a 232-slide system-design tutorial for
   engineers in their first years.** It opens on one engineer's Tuesday told wake-to-sleep with
   no vocabulary at all, then names each thing she met — system, purpose, boundary, environment,
   process, model, constraint, invariant, infrastructure, emergence — against the timestamp that
@@ -14,9 +14,9 @@
   Capacity is worked from a daily average up to a peak page-fetch rate, and the design's own
   fixes are checked against the promises that motivated them. The method is framed as four movements — discover, design,
   develop, deliver — of which the deck teaches the first two and hands the last two to the
-  reader as the only honest check on their own design. Ten ask-then-answer exercises sit at
-  the ends of Parts one to four and inside both designs, including a full discover-then-design
-  pass on a course-registration spike. A second design then runs the whole method again from
+  reader as the only honest check on their own design. Sixteen ask-then-answer exercises sit at
+  the ends of Parts one to three, at the close of every kit, and inside both designs, including a
+  full discover-then-design pass on a course-registration spike. A second design then runs the whole method again from
   nothing — a parking app where drivers scan a sticker on the bay and pay — climbing the ladder
   from a one-table MVP through a scaled rung to an optimized one, where the card fee turns out
   to be the bill and the servers never were. Its payment path is worked to the

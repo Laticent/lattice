@@ -1097,7 +1097,7 @@ flowchart LR
 
 One: a payroll system, four thousand employees, thirty tables, and finance asks a new question every quarter. Two: a metrics pipeline writing four hundred thousand samples a second, read back by series and by time range. Three: a startup with nine thousand users whose engineer says the database will not scale.
 
-Answer the tree's first question for each, and only walk further if it says yes. Then turn the page.
+Answer the tree's first question for each, and say whether the tree stops there. Then turn the page.
 
 ---
 
@@ -1105,7 +1105,7 @@ Answer the tree's first question for each, and only walk further if it says yes.
 
 `One answer`
 
-## The first question sends two of the three home, and nobody has named a store yet.
+## The first question is the whole answer for two of the three.
 
 1. Payroll, four thousand employees
    - No. Thirty tables and questions nobody has asked yet are the case relational was built for, and four thousand rows is not a size. The tree stops here.
@@ -1413,7 +1413,7 @@ For each, say whether you take the write or refuse it while the link is down, an
 
 `One answer`
 
-## Two of the three take the write. The third refuses, and pays for it every day after.
+## Only the seat refuses, and refusing is the cheaper half of what that costs.
 
 1. A like
    - Take it. Eventual is correct: two replicas disagreeing about a count for a second costs nothing, and refusing costs you a user.
@@ -1734,7 +1734,7 @@ Name the runtime, and the invariant each one fails first if you get it wrong. Th
 
 `One answer`
 
-## Two of them are decided by the shape of the work. The third is decided by the idle.
+## The shape of the work decides the first two. The idle decides the last one.
 
 1. The nightly report
    - A machine on a schedule. Forty minutes outlives the runtime cap on most functions, and one long run is not spiky. The invariant it fails first: capacity is a number somebody owns.
@@ -3734,7 +3734,7 @@ So take one design you made in these pages and build the smallest version of it 
 ## 482 was not blocked by the build. It was blocked by a queue.
 
 1. The queue had one server
-   - Five pull requests, one reviewer, one waking hour: a bounded pool of one. Throughput is capped, so the queue in front grows. Nobody had written that ceiling down anywhere.
+   - Five pull requests, one reviewer, one waking hour: a bounded pool of one. Throughput is capped, so the queue in front grows. Maya chose none of those numbers.
 2. Nothing inherited a deadline
    - The window shut at four, and nothing downstream of it carried a shorter one. The network kit's first invariant says a call inherits its deadline from the caller, and inherits a shorter one. The review never got one, so nothing said it was late until it was.
 3. The one move she had, she made late

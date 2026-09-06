@@ -1,7 +1,8 @@
 - **`examples/system-design-foundations.md` now carries the reader across its own
   section boundaries.** Six kit-opening slides (data, compute, network, scale,
-  reliability, security) each pay a debt from the kit that just closed instead of
-  starting cold — the compute kit answers the data kit's "every derived copy
+  reliability, security) now open by paying a debt instead of starting cold — five
+  to the kit that just closed, and the data kit, which has none before it, to Part
+  three's rung one — the compute kit answers the data kit's "every derived copy
   rebuilds unattended" with the thing that runs the rebuild, the scale kit shows
   the cache and the replica returning as scaling moves, the security kit asks
   reliability's fail-apart question about credentials. None of the six referred
@@ -21,10 +22,11 @@
   three teams; take or refuse three writes under a partition; place three
   workloads on a runtime; spend a latency budget on three cross-continent round
   trips; size a pool with Little's law, then break it in both directions; say
-  what a page does when three dependencies go slow rather than down. The longest
-  stretch without the reader producing something drops from 51 slides to 20.
+  what a page does when three dependencies go slow rather than down. Inside Part four the longest
+  stretch without the reader producing something drops from 51 slides to 20; deck
+  wide it drops from 51 to 45, and Part five now holds the longest run.
 - **Part seven now closes the loop the deck opened on.** The first eleven slides
-  are a Tuesday that fails — pull request 482 does not merge — and 482 was then
-  never mentioned again. A new slide before "What to do on Monday" says what
+  are a Tuesday that fails — pull request 482 does not merge. After one last
+  mention in Part two the deck never came back to it. A new slide before "What to do on Monday" says what
   would have made Tuesday different, in the deck's own vocabulary: a bounded pool
   of one, a deadline nothing inherited, and admission control twenty minutes late.
