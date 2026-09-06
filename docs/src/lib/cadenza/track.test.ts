@@ -224,9 +224,15 @@ describe('buildTrack + emphasis', () => {
     expect(emphasisHoldMs(99)).toBe(ceiling);
   });
 
-  it('does not extend the track when the LAST cue is emphasized — there is nothing to breathe into', () => {
-    // durationMs is the last cue's end, and the hold lives in the gap AFTER a cue. Emphasis on the
-    // final sentence must not invent trailing silence the player would sit through.
+  it('does not extend the track when the LAST cue is emphasized — the slide beat already pays', () => {
+    // durationMs is the last cue's end and the hold lives in the gap AFTER a cue, so emphasis on a
+    // slide's final sentence is a no-op HERE. That is correct, not a gap: a slide's last cue is
+    // already followed by SLIDE_PAUSE_MS (1400 ms), the longest beat in the ladder, and charging
+    // another 250 on top would be paying twice for the same silence — the double-charge the
+    // residual design exists to avoid. It matters because the common emphasized passage IS last:
+    // a coda closes the slide. Measured on examples/emphasis-narration.md, 7 holds fire and 1 buys
+    // time; the other 6 are codas the slide beat already covers.
+    // Emphasis therefore buys silence exactly where more narration still follows on the same slide.
     const plain = buildTrack(NOTE);
     const t = buildTrack(NOTE, { emphasis: [{ start: 45, end: 51, weight: 2 }] }); // 'points' in cue 1
     expect(t.cues[1].weight).toBe(2);
