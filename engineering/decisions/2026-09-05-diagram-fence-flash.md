@@ -948,12 +948,27 @@ It is not a settings-file key either: it is a per-resource memento reached only 
 | SVGs in the sibling `.mermaid` | — | **0** |
 
 **What that settles for this note.** §7 predicted marp-vscode as the host where "the runtime
-boots and Mermaid never becomes real", taking the ~10s deadline arm. Neither configuration
-is that. At Strict nothing of ours executes, so `wrapFences` never runs and the author
-already has their source — the give-up is unreachable. At Disable the runtime boots *and*
-Mermaid is real, because the kit vendors it. #2092's give-up therefore does not fire on this
-host in either state; the case where it would is narrower than the note claimed — a Disable
-preview whose vendored Mermaid is missing or blocked.
+boots and Mermaid never becomes real", taking the ~10s deadline arm. Neither of its two
+ordinary configurations is that. At Strict nothing of ours executes, so `wrapFences` never
+runs and the author already has their source — the give-up is unreachable. At Disable the
+runtime boots *and* Mermaid is real, because the kit vendors it.
+
+**So the case where the give-up matters here had to be constructed, and then it was DRIVEN
+rather than left inferred** — the last claim about #2092's behavior that rested on argument.
+Same host at Disable, with the kit's `mermaid-v11.min.js` removed so the tag 404s: the
+runtime boots, `window.mermaid` stays `undefined`, and the fence lands
+
+```
+data-mermaid-state   "unavailable"
+computed display     block
+the fence's box      307 × 119      ← the author's source, on the slide
+```
+
+Steady across reads at 4s, 8s, 13s and 18s. **A first read taken immediately showed
+`pending` / `display:none` / 0×0** — the give-up had not fired yet — which is worth keeping
+next to the result: on this host the release is not instantaneous, so a measurement taken
+too early reads exactly like the defect. It is the same trap as reading before the FIT
+reveal, one layer down.
 
 **And it exposed a DIFFERENT live defect, which is not this note's and is not #2092's.** At
 Disable the fence reaches `rendered` with an **empty** `.mermaid` container: `display:none`
