@@ -147,7 +147,7 @@ describe('overflow-marker — `off` clears what is already there and stays stamp
   test('a pre-marked document is swept AND every slide is stamped off', async () => {
     const marked = '<section class="content overflow illegible">'
       + '<h2>T</h2><div class="overflow-tab">Overflows</div>'
-      + '<div class="illegible-tab">Type 3px · floor 8.4px</div></section>';
+      + '<div class="illegible-tab">Text too small · 3pt</div></section>';
     const dom = await boot({ markup: marked, block: exportSettingsBlock({ overflowMarker: 'off' }) });
     const { document } = dom.window;
     assert.deepEqual(levelsOn(document), ['off'], 'stamped, so the CSS suppression can key on it');
@@ -222,7 +222,7 @@ describe('a SPECIMEN document is watched by nothing (#1463)', () => {
   test('a pre-marked specimen is swept clean', async () => {
     const marked = '<section class="content overflow illegible">'
       + '<h2>T</h2><div class="overflow-tab">Overflows</div>'
-      + '<div class="illegible-tab">Type 3px · floor 8.4px</div></section>';
+      + '<div class="illegible-tab">Text too small · 3pt</div></section>';
     const dom = await boot({ markup: marked, specimen: true });
     const { document } = dom.window;
     assert.deepEqual(levelsOn(document), ['off']);

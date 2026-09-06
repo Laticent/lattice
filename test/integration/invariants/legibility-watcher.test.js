@@ -14,7 +14,7 @@
  *
  *   2. that it stays OFF for a READER. The floor is a fraction of the slide box, and in the fluid
  *      viewer that box is the reader's phone — so ungated it fired on 7 of 11 slides of a shipped
- *      gallery at 390×844, printing an amber "Type 3px · floor 8.4px" over the deck header. All
+ *      gallery at 390×844, printing an amber "Text too small · 3pt" over the deck header. All
  *      three lenses of the HARD RULE #25 trio caught it independently. A reader cannot resize a
  *      figure; the signal has no reader action, so unlike the overflow tab (which becomes a calm
  *      "More below") it simply must not appear.
@@ -83,10 +83,19 @@ describe('type-floor watcher — the live runtime, on the real bundle', () => {
     await page.setViewport({ width: 1200, height: 900 });
     await page.goto('file://' + file, { waitUntil: 'networkidle0' });
     await new Promise((r) => setTimeout(r, 2500));
-    const out = await page.evaluate(() => [...document.querySelectorAll('section')].map((s) => ({
-      illegible: s.classList.contains('illegible'),
-      tab: s.querySelector(':scope > .illegible-tab')?.textContent || null,
-    })));
+    const out = await page.evaluate(() => [...document.querySelectorAll('section')].map((s) => {
+      const tab = s.querySelector(':scope > .illegible-tab');
+      return {
+        illegible: s.classList.contains('illegible'),
+        tab: tab?.textContent || null,
+        hint: tab?.getAttribute('title') || null,
+        // The hint rides in `title`, which a browser shows on HOVER — so a tab the pointer
+        // cannot reach carries advice nobody can read. Asserted from COMPUTED style on the
+        // real bundle, because the declaration lives in base.modifiers.css and a later rule
+        // could take it back without any of the JS above noticing.
+        hoverable: tab ? getComputedStyle(tab).pointerEvents : null,
+      };
+    }));
     await page.close();
     return out;
   };
@@ -96,9 +105,18 @@ describe('type-floor watcher — the live runtime, on the real bundle', () => {
     fs.writeFileSync(file, harness());
     const [dense, legible] = await read(file);
     assert.equal(dense.illegible, true, 'the 4px figure must ring — this is the whole rule');
-    assert.match(dense.tab || '', /^Type [\d.]+px · floor [\d.]+px$/, 'and name the numbers, not just color');
+    // The label states the CONDITION and then a preset-invariant size. It used to read
+    // `Type 4px · floor 5.4px` — two numbers and no sentence — which is the report that
+    // sent an author to ask what their own alarm meant.
+    assert.match(dense.tab || '', /^Text too small · [\d.]+pt$/, 'and name the condition in words, not just color');
+    assert.ok(/[1-9]/.test(dense.tab || ''), 'with a real measured size, not a zero placeholder');
+    // The fix, on the same element, reachable by pointer.
+    assert.match(dense.hint || '', /pt minimum/, 'the hint names the minimum the label drops');
+    assert.match(dense.hint || '', /Simplify the figure|bigger box/, '…and what to change');
+    assert.equal(dense.hoverable, 'auto', 'a `title` on a pointer-events:none tab can never be shown');
     assert.equal(legible.illegible, false, 'a legible figure must stay clean (no blanket ring)');
     assert.equal(legible.tab, null);
+    assert.equal(legible.hint, null, 'and carries no stale advice from a previous measure');
   });
 
   test('a READER of a --fluid export never sees it, at any viewport', { timeout: 300000 }, async () => {

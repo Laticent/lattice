@@ -180,7 +180,7 @@ describe('sweepOverflowMarkers — what `off` clears', () => {
       <h2>A</h2>
       <div class="cell-stage fit-culprit" data-fit-label="Fix Me"></div>
       <div class="overflow-tab">Overflows</div>
-      <div class="illegible-tab">Type 3px · floor 8.4px</div>
+      <div class="illegible-tab">Text too small · 3pt</div>
       <div class="fixme-tab" title="Likely cause — 90 words, over budget">Fix Me</div>
     </section>
     <section class="content" data-lattice-slide><h2>B</h2></section>
