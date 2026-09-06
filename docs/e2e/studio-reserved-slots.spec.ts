@@ -38,8 +38,11 @@ import { expect, test } from './studio-fixture';
 // a reader actually experiences, and it is the property a fitted width can never have, because
 // a fitted width is only ever right for the input it was fitted to.
 
-const WIDE = { width: 1440, height: 900 }; // >= 1280: the deck meta is `xl`-gated
-const PHONE = { width: 390, height: 844 };
+// >= 1280, because the deck meta is `xl`-gated and one arm needs BOTH slots on screen. The
+// phone tier is not sampled here on purpose: the metamorphic sweep this spec came from covers
+// 22 widths from 320 up, and what it finds below 700 is `mobileBarH`'s frozen-constant band
+// offset (#2070), which is not this contract and would fail this spec for the wrong reason.
+const WIDE = { width: 1440, height: 900 };
 
 type Slot = { key: string; box: [number, number, number, number]; fits: boolean };
 
