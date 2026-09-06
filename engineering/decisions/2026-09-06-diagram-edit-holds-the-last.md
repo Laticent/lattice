@@ -167,14 +167,24 @@ does not parse. Measured after the fix: **1 render per 8-character burst.**
 `cd docs && npm run build:e2e && npm run bench:flash -- --scenario <s>`, medians of 5–6
 runs:
 
-| scenario | before | after |
+ONE VARIABLE. Both columns are the same machine, the same bench, and the same base
+commit — `6016a3f1`, built twice, once with this change and once without. An earlier
+draft of this table compared against a build from before #2108, which had moved this
+file underneath it; a before/after whose two arms differ by more than the diff is not a
+before/after.
+
+| scenario | base `6016a3f1` | + this change |
 |---|---|---|
-| `edit`, x1 (type inside the fence) | 0 source, **11 blank**, 209ms | 0 source, **11 held**, 213ms |
-| `edit`, x4 | 0 source, **9 blank**, ~490ms | 0 source, **8 held**, 464ms |
-| `nav` cold (first sight of a diagram) | **10 blank**, 214ms | **2 blank**, 75ms |
-| `type` (heading, cached) | 0/0, 5ms | 0/0, 5ms |
-| `edit-broken` (8 keystrokes, unparseable) | 1 render | **1 render** |
-| layout shift, `nav` / `type` / `edit` | 0 | 0 |
+| `edit`, x1 (type inside the fence) | **11 blank**, 196ms, 1 render | **11 held**, 201ms, 1 render |
+| `edit`, x4 CPU | **10 blank**, 392ms, 1 render | **9 held**, 378ms, 1 render |
+| `nav` cold (first sight of a diagram) | **10 blank**, 200ms | **1 blank**, 57ms |
+| `type` (heading, cached) | 0/0, 4ms | 0/0, 4ms |
+| `edit-broken` (8 keystrokes, unparseable) | 96 source, 66 blank, 1 render | 96 source, 65 blank, **1 render** |
+| layout shift, every arm | 0 | 0 |
+
+The wait itself does not move on `edit` — 196ms to 201ms is the same render, and it was
+never the thing to fix. What changes is that the author is looking at their diagram for
+it rather than at nothing.
 
 `nav` cold keeps 2 blank frames and always will: on the first sight of a diagram there is
 nothing to hold, and `mermaid.render` has to run. What is gone is the 150ms of pure waiting
@@ -194,13 +204,22 @@ in front of it.
   this arm of the bench.
 - **A mid-edit parse error still replaces the held diagram with the error box, and that is
   now the loudest thing left on this surface.** `attachError` clears the target and the
-  `error` state un-hides the `<pre>`, so the raw source comes back and the slot collapses.
-  Measured with the new `edit-broken` arm — eight characters that leave the diagram
-  unparseable — **96 frames of raw source, 68 blank, and 0.047 of layout shift**, against 0
-  and 0 in every other arm. Most of the time spent building a diagram from scratch is spent
-  in that state. It is left alone here on purpose: clearing the target is what shows the
-  author what failed, and holding the last good diagram *through* an error is a different
-  decision with a real tradeoff, not a bug in this one.
+  `error` state un-hides the `<pre>`, so the raw source comes back. The `edit-broken` arm
+  measures **96 frames of raw source and ~65 blank** per eight-character burst — identical
+  on both sides of this change, so it is neither caused nor helped here — against 0 and 0 in
+  every other arm. Most of the time spent building a diagram from scratch is spent in that
+  state. Left alone on purpose: clearing the target is what shows the author what failed,
+  and holding the last good diagram *through* an error is a different decision with a real
+  tradeoff. (Layout shift in that arm is 0; an earlier reading of 0.047 was taken before
+  #2108, whose CSS collapses the slot consistently for `error` and `unavailable`.)
+- **It sits on top of #2108, which gave the same fence a new `unavailable` state.** The two
+  do not collide: `unavailable` means Mermaid is never coming, and every function here is
+  guarded on a real `mermaid` and keys on `pending`, so a released fence is invisible to
+  both. A held SVG in a fence that is later released stays hidden — `mermaid.css` collapses
+  `.mermaid` for `unavailable` exactly as it does for `error` — and the author gets their
+  source, which is the right answer. Re-verified on the rebased base rather than reasoned
+  about: 9056 unit tests, the `edit-broken`/`nav`/`edit` arms above, and every guard's
+  mutant still failing.
 - **Two exported artifacts get the new behavior too**, so "the Studio's" is shorthand.
   `lib/runtime/index.js` is not in `dist/lattice-emulator.js` and PDF/PPTX/PNG bytes are
   untouched (the emulator strips the runtime `<script>` before rasterizing), but the

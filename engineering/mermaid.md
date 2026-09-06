@@ -277,7 +277,7 @@ slide whenever the counts happened to agree.
 coalescing — consecutive keystrokes collapsing into one `mermaid.render` on a strictly
 serial queue — and a fence nobody has seen yet has nothing to coalesce. `scheduleRun` takes
 a delay and the observer asks for 0 when `burstFirstSight(records)` is true. Navigating onto
-a diagram for the first time: 214ms → 75ms, of which the remainder is `mermaid.render`
+a diagram for the first time: 200ms → 57ms, of which the remainder is `mermaid.render`
 itself.
 
 **"Just appeared" is NOT "showing nothing", and keying on the second removes the debounce
