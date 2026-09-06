@@ -131,7 +131,28 @@
    * stage does not have at design size, and better spent on the header band. */
   border-spacing: 0;
   font-size: var(--fs-body-compact);
-  table-layout: auto;
+  /* FIXED, not auto — the column geometry must not be a function of the text
+   * metrics. Under `auto` every column width is re-solved from cell content, so
+   * the web font landing after first paint silently re-lays the whole grid:
+   * measured live in the Studio (fonts normal vs. fonts blocked, same deck),
+   * the five columns went 258.2/165.7/175.5/216.4/304.2 →
+   * 248.7/176.9/178.9/218.9/296.6 at design scale — every cell in the grid
+   * sliding up to 11px sideways one frame after it painted. That is the shift a
+   * reader sees, and no fit/overflow channel reports it because nothing
+   * overflows: the table was 1120px wide before and after.
+   * `roadmap` — the other table in this bucket, and the precedent this file
+   * already follows on type steps — is `table-layout: fixed` for the same
+   * reason. This applies at WIDE only; every narrower family puts `auto` back,
+   * for the reason written on that arm at the end of this file. Fixed also makes `width: 100%` binding rather than advisory, which
+   * is what the box-local arm at the end of this file was written around: an
+   * `auto` table cannot render below its min-content width, so `width: 100%` is
+   * a request the browser may ignore. (That arm's own comment still cites a
+   * 1145px-in-919px portrait overflow. Re-measured today it does not reproduce —
+   * the portrait table is 919.4px inside a 972px figure and story is 912.9px
+   * inside 972px, neither overflowing — because the type step the arm added has
+   * since resolved it. The number is left in place as the record of why the arm
+   * exists, not as a live symptom.) */
+  table-layout: fixed;
 }
 :is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure thead tr {
   background: var(--spectrum-structure) bottom / 100% 2px no-repeat;
@@ -168,8 +189,20 @@
 /* The corner cell stays EMPTY: both axes are named by their own generated
  * labels (data-col-axis above the grid, data-row-axis rotated beside it), so a
  * literal "Verb" heading in the corner is a third, redundant axis name that
- * competes with them. `font-size:0` blanks the text while the cell keeps its
- * column width — the row-label column must still reserve its track. */
+ * competes with them. `font-size:0` blanks the text, and under
+ * `table-layout: fixed` the column's track does not depend on that text anyway.
+ * NO COLUMN DECLARES A WIDTH, and that is the whole column model: a fixed table
+ * splits its width equally among the columns that declare none, so all five (or
+ * six) tracks — the row-label stub included — come out identical. That is what
+ * makes the reach axis read as equal steps; under `auto` the columns were sized
+ * by whichever label ran longest (165.7px against 304.2px on the shipped gallery
+ * slide, a 1.8x spread) and the last step looked like a bigger move than the
+ * first.
+ * An earlier cut gave the stub `width: 22%` to preserve the proportion `auto`
+ * had been giving it. It was dropped in favor of plain equal columns — one less
+ * arbitrary number, and the stub has room to spare either way (`Understand`
+ * clears its track by 99.8px at wide). If you are looking for that declaration
+ * because a comment mentioned it: it is gone on purpose. */
 :is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure thead th:first-child { text-align: left; font-size: 0; }
 :is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td {
   padding: 0.15625cqi var(--sp-xs);
@@ -355,4 +388,82 @@ section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-g
 section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure td,
 :where([data-family="tall"], [data-family="strip"]) figure.matrix-grid .matrix-grid-figure td {
   padding: 0.15625cqi var(--sp-2xs);
+}
+/* AND the table goes back to `auto` on every family EXCEPT wide, which is where
+ * the jank fix above does not reach. A fixed table gives each undeclared column
+ * an equal share, and only `wide` is broad enough for this content to live
+ * inside equal shares. Measured as TEXT ADVANCE against the cell's own content
+ * box (a Range over the text node — the honest unit; `scrollWidth` on a
+ * `justify-content: center` flex box does not count the half that overflows to
+ * the LEFT, and reported a 2px rounding artifact where the real number was
+ * -25.2px). Under `fixed`, at WIDE — what ships:
+ *
+ *                            default face    mode:sketch
+ *   "Distinguished" cell        +75.9px        +62.5px
+ *   "Understand" stub           +99.8px        +84.5px
+ *   worst cell on any shipped   +69.9px        +62.5px
+ *     gallery slide             ("Associate", the 6-column stress slide)
+ *
+ * And the counterfactual — `fixed` FORCED onto the narrower families, which is
+ * what this arm exists to prevent:
+ *
+ *                              square    square+sketch     story
+ *   "Distinguished" cell      -25.2px       -44.5px      -38.9px
+ *   "Understand" stub          +9.8px       -11.8px      -42.3px
+ *
+ * Square fails for the same reason portrait does, just later: `--canvas-scale`
+ * raises the type as the box narrows, so a 5-column grid runs out of width
+ * before it runs out of columns. The type cannot absorb it — `--fs-meta` is the
+ * FLOOR of the 12-token scale (HARD RULE #4), and the portrait arm above already
+ * takes the last step available. `mode: sketch` is the widest case in the engine:
+ * it re-points --font-body and --font-label to Shantell Sans (base.sketch.css),
+ * which costs another ~19px on the same string, and is why square is judged on
+ * that column rather than on the default face.
+ *
+ * Under `fixed` the shortfall does NOT clip and no gate reports it: `.cell` has
+ * `overflow: visible`, so the label simply paints straight through its own pill's
+ * border on both sides, and the engine's clip probe stays silent because the
+ * spill lands inside `.chart-body`. Confirmed by rendering square and looking.
+ *
+ * So everything but wide keeps negotiating, and `auto` is what negotiates — it
+ * pays for the fit by starving the unlabeled columns (147px against the labeled
+ * 227.5px on the shipped story slide). An uneven grid that shows all its text
+ * beats a regular one that paints over its own chrome.
+ *
+ * HEADROOM AT WIDE IS NOT UNLIMITED, and `--fs-scale` is what eats it. The
+ * author-facing `scale-l` / `scale-xl` / `scale-2xl` modifiers (base.modifiers.css,
+ * recommended in base.docs.md for a projector or an accessibility bump) raise the
+ * type without growing the box, so a fixed column cannot widen to meet it. Worst
+ * cell slack on the 5-column gallery slide, `fixed` against the `auto` it
+ * replaces:
+ *
+ *                  auto        fixed
+ *   scale-l      +77.4px      +59.0px
+ *   scale-xl     +66.9px      +42.2px
+ *   scale-2xl    +53.5px      +19.7px
+ *
+ * Still positive at every step, including the 6-column stress slide at
+ * `scale-2xl` (+29.4px) — so nothing overflows today and this is not a
+ * regression. But `fixed` does spend roughly two thirds of the margin at the top
+ * of that range, and a longer label than any we ship would land there first.
+ * (`scale-xl` and `scale-2xl` already trip the engine's own frame-overflow
+ * warning on this slide, identically on `auto` — that is vertical, pre-existing,
+ * and loud, unlike the silent class this rule is about.)
+ *
+ * WHAT THAT COSTS, stated plainly: the font-swap re-solve the base rule removes
+ * is still live on square, tall and strip, because content-derived widths are
+ * text-metric-derived widths. Closing that needs a type step below --fs-meta or a
+ * layout that is not a table — both larger than a jank fix, neither decided here.
+ *
+ * The four families are `wide` · `square` · `tall` · `strip` and the list below is
+ * exhaustive BY CONSTRUCTION: `wide` is the ABSENCE of the stamp
+ * (lib/adaptive/families.js — `familySelector('wide')` is
+ * `:where(section:not([data-family]))`), so naming the other three is the same as
+ * saying "not wide", without needing a `:not()` that the figure path cannot
+ * express (there the stamp sits on an ANCESTOR, not on the figure). A fifth
+ * family would land here as `auto`, which is today's shipped behavior — the
+ * fail-safe direction. */
+section.matrix-grid:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .matrix-grid-figure table,
+:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.matrix-grid .matrix-grid-figure table {
+  table-layout: auto;
 }

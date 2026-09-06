@@ -32,6 +32,7 @@ Use for a rubric where BOTH axes are ordered categories (a depth ladder × a rea
 - The header row's first cell is conventionally blank or names the category axis; the remaining header cells are the reach/scope axis labels in ascending order.
 - Body rows go deepest/highest category first — the row order IS the depth axis, so declare rows in the same descending order you'd want read top-to-bottom.
 - Up to eight rows are colored from the chart family's categorical palette before hues repeat; past eight, split into two grids.
+- On a wide deck every column is the same width, so a filled cell's label has to fit that share rather than widening its own column. Keep labels to a word or two — `Senior`, `Principal`, `VP`. `Distinguished` at five columns is the longest the shipped gallery carries and it clears its cell by 75.9px; a much longer one does not get cut, it paints straight through the pill's border, so treat the pill as the budget.
 
 ## When to use
 
