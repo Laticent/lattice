@@ -235,6 +235,21 @@ would serve `scatter`, `slope` and `quadrant` with one mechanism (HARD RULE #1).
 behavior, and NO leader lines at all, so it has no second channel to fall back
 on.
 
+**SETTLED (2026-09-06) — and the prediction in the paragraph above was half
+right.** `engineering/decisions/2026-09-06-label-attribution-and-order.md`
+answers the fork. The reading it landed on: a column of names is read as an
+order whether the pass meant one or not, so the rule is that the column must not
+CONTRADICT its marks — enforced as a preference INSIDE `placeLabels`, not as a
+repair after it. `quadrant` was indeed the caller with most to gain, but not for
+the reason guessed here: the missing leader lines were not a weaker fallback,
+they were the whole defect. Six of the fourteen names on its stress slide sat
+closer to another initiative's dot than to their own, and it now draws the
+family's leader from the shared kernel. **The lift proposed here was built and
+measured, and declined**: with a post-condition honest enough for a plot that
+labels share with everything, it applied to neither of the two real slides —
+zero pixels — and without one it introduced 2,102 label overprints per 20,000
+layouts. `slope` keeps its repack, and its galleries do not move.
+
 What ships instead is a test that pins the contract that actually holds on that
 slide: all twelve named, each of the four carrying a leader line **springing
 from its own mark** (a document-wide leader count passed while two of the four

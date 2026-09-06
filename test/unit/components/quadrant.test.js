@@ -799,6 +799,175 @@ test('buildQuadrant: a dense cluster fans out instead of overprinting', () => {
   }
 });
 
+// ATTRIBUTION IS THE OTHER HALF OF PLACEMENT, and until 2026-09-06 this chart
+// had none. `placeLabels` keeps a name beside its own dot, but on a crowded plot
+// "beside" stops meaning "nearest": measured on the gallery's own fourteen-
+// initiative stress slide, SIX of the fourteen names sat closer to another
+// initiative's dot than to their own — and a quadrant carries no leader lines,
+// no value pills and no axis to read a position off, so proximity was the only
+// channel and it gave the wrong answer six times. See the 2026-09-06
+// label-attribution decision note.
+describe('quadrant — every name says which dot it belongs to', () => {
+  // Every `[^>]` run is BOUNDED. Unbounded, `[^>]*` followed by a literal the
+  // class can also match is quadratic on adversarial input, which CodeQL flags
+  // as `js/polynomial-redos` — and a bound is free here: the widest attribute
+  // run a dot emits is well under 300 characters.
+  const dotsOf = (out) => [...out.matchAll(/<circle class="quadrant-dot"[^>]{0,300}cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/g)]
+    .map((m) => ({ cx: +m[1], cy: +m[2], r: +m[3] }));
+  const bubblesOf = (out) => [...out.matchAll(/<circle class="quadrant-bubble"[^>]{0,300}cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/g)]
+    .map((m) => ({ cx: +m[1], cy: +m[2], r: +m[3] }));
+  const leadersOf = (out) => [...out.matchAll(/<line class="chart-leader"[^<>]{0,200}?\/>/g)].map((m) => ({
+    x1: +/x1="([-\d.]+)"/.exec(m[0])[1],
+    y1: +/y1="([-\d.]+)"/.exec(m[0])[1],
+    x2: +/x2="([-\d.]+)"/.exec(m[0])[1],
+    y2: +/y2="([-\d.]+)"/.exec(m[0])[1],
+  }));
+  const near = (box, d) => Math.hypot(
+    Math.min(Math.max(d.cx, box.left), box.right) - d.cx,
+    Math.min(Math.max(d.cy, box.top), box.bottom) - d.cy,
+  );
+
+  // Liang-Barsky, matching the kernel's own test: does the segment pass through
+  // the interior of this box?
+  const crosses = (l, box) => {
+    const dx = l.x2 - l.x1;
+    const dy = l.y2 - l.y1;
+    let t0 = 0;
+    let t1 = 1;
+    const clip = (p, q) => {
+      if (p === 0) return q >= 0;
+      const t = q / p;
+      if (p < 0) { if (t > t1) return false; if (t > t0) t0 = t; } else { if (t < t0) return false; if (t < t1) t1 = t; }
+      return true;
+    };
+    if (!clip(-dx, l.x1 - box.left) || !clip(dx, box.right - l.x1)
+      || !clip(-dy, l.y1 - box.top) || !clip(dy, box.bottom - l.y1)) return false;
+    return t1 > t0;
+  };
+
+  test('a crowded field: every name is nearest its own dot, or led to it', () => {
+    // The gallery's own fourteen-initiative stress slide — the realistic
+    // ceiling, and the case the change is for. Eight of the fourteen names
+    // travel far enough to want a leader and every one of them gets a clean
+    // corridor (seven head-on, one to a corner).
+    const ul = innerOf(`<ul>
+      <li>Strategic Bets<ul>
+        <li>Scoring model v2 <code>3, 72</code></li>
+        <li>Per-team calibration <code>5, 85</code></li>
+        <li>Multi-source signal dedupe <code>4, 78</code></li>
+        <li>Decision-log audit trail <code>2, 66</code></li>
+      </ul></li>
+      <li>Quick Wins<ul>
+        <li>Weekly signal brief <code>8, 80</code></li>
+        <li>Snapshot exports <code>9, 55</code></li>
+        <li>Adoption dashboard <code>7, 62</code></li>
+      </ul></li>
+      <li>Defer<ul>
+        <li>Vendor scoping <code>2, 30</code></li>
+        <li>Manual recalibration <code>1, 22</code></li>
+        <li>Legacy intake shim <code>3, 14</code></li>
+      </ul></li>
+      <li>Time Sinks<ul>
+        <li>Custom audit log UI <code>7, 18</code></li>
+        <li>Bespoke board export <code>9, 28</code></li>
+        <li>Per-decision profiles <code>8, 12</code></li>
+        <li>Self-assessment generator <code>6, 25</code></li>
+      </ul></li>
+    </ul>`);
+    const out = buildQuadrant(parseQuadrant(ul), 'default', SCALE);
+    const dots = dotsOf(out);
+    const boxes = textBoxes(out, 'quadrant-dot-label', FS_ITEM);
+    const leaders = leadersOf(out);
+    assert.equal(boxes.length, dots.length, 'one label per dot on this fixture');
+    // The i-th dot and the i-th label are the same item: both are emitted in
+    // parse order by the same loop.
+    let ledOnly = 0;
+    boxes.forEach((box, i) => {
+      const own = dots[i];
+      const led = leaders.some((l) => Math.hypot(l.x1 - own.cx, l.y1 - own.cy) <= own.r * 2);
+      const ownDist = near(box, own);
+      const seated = dots.every((d, j) => j === i || near(box, d) >= ownDist);
+      assert.ok(led || seated,
+        `label ${i} is neither led to its own dot nor seated nearest it`);
+      if (led && !seated) ledOnly++;
+    });
+    // The half the leader actually buys, stated as a floor rather than a count
+    // so a small geometry shift does not fail it: on this slide six names sit
+    // nearer another initiative's dot than their own, and the ONLY thing
+    // attributing them is the line. A pass that draws no leaders satisfies
+    // every assertion above and none of this one.
+    assert.ok(ledOnly >= 4,
+      `only ${ledOnly} name(s) are attributable by their leader alone`);
+  });
+
+  // THE DEFECT THIS ARM EXISTS FOR, and it shipped once. `placeLabels`
+  // guarantees the label's BOX is clear; it says nothing about the corridor
+  // between the box and the mark, and the leader paints exactly that corridor.
+  // On the gallery's own `bubble` slide the first cut drew "Weekly signal brief"
+  // straight down through the word `calibration` in the name above it — a
+  // reader tracing the line landed on the wrong initiative, which is the
+  // misattribution the whole mechanism is meant to remove.
+  test('no leader is ever drawn through another name or another mark', () => {
+    const fixtures = {
+      // The exact slide that carried the defect.
+      bubble: [innerOf(`<ul>
+        <li>Strategic Bets<ul>
+          <li>Scoring model v2 <code>3, 70, 2.4</code></li>
+          <li>Per-team calibration <code>5, 85, 4.1</code></li>
+        </ul></li>
+        <li>Quick Wins<ul>
+          <li>Weekly signal brief <code>8, 80, 0.9</code></li>
+          <li>Snapshot exports <code>9, 55, 0.6</code></li>
+        </ul></li>
+        <li>Defer<ul><li>Vendor scoping <code>2, 30, 0.4</code></li></ul></li>
+        <li>Time Sinks<ul><li>Custom audit log UI <code>7, 18, 1.3</code></li></ul></li>
+      </ul>`), 'bubble', 'quadrant-bubble-label'],
+      // Six names inside four points — the packed case, where most corridors
+      // are blocked and the honest answer is to draw nothing.
+      packed: [innerOf(`<ul><li>Quick Wins<ul>
+        <li>Weekly signal digest <code>8, 88</code></li>
+        <li>Slack intake bot <code>8, 87</code></li>
+        <li>Decision-log API <code>7.6, 87</code></li>
+        <li>Scoring model v2 <code>8.2, 86</code></li>
+        <li>Partner API keys <code>7.8, 85</code></li>
+        <li>Self-serve onboarding <code>8.1, 84</code></li>
+      </ul></li></ul>`), 'default', 'quadrant-dot-label'],
+    };
+    for (const [name, [ul, variant, labelClass]] of Object.entries(fixtures)) {
+      const out = buildQuadrant(parseQuadrant(ul), variant, SCALE);
+      const leaders = leadersOf(out);
+      const boxes = textBoxes(out, labelClass, FS_ITEM);
+      const dots = variant === 'bubble' ? bubblesOf(out) : dotsOf(out);
+      for (const l of leaders) {
+        // The mark this leader springs from is the one its origin sits on.
+        const ownIdx = dots.findIndex((d) => Math.hypot(l.x1 - d.cx, l.y1 - d.cy) <= d.r * 2);
+        boxes.forEach((box, i) => {
+          if (i === ownIdx) return;
+          assert.equal(crosses(l, box), false,
+            `${name}: a leader passes through the name at index ${i}`);
+        });
+        dots.forEach((d, i) => {
+          if (i === ownIdx) return;
+          const box = { left: d.cx - d.r, right: d.cx + d.r, top: d.cy - d.r, bottom: d.cy + d.r };
+          assert.equal(crosses(l, box), false,
+            `${name}: a leader passes through the mark at index ${i}`);
+        });
+      }
+    }
+  });
+
+  test('a spread plot draws no leaders at all — a line nobody needs is noise', () => {
+    const ul = innerOf(`<ul>
+      <li>Strategic Bets<ul><li>Scoring model v2 <code>3, 72</code></li></ul></li>
+      <li>Quick Wins<ul><li>Weekly signal brief <code>8, 80</code></li></ul></li>
+      <li>Defer<ul><li>Vendor scoping <code>2, 30</code></li></ul></li>
+      <li>Time Sinks<ul><li>Custom audit log UI <code>7, 18</code></li></ul></li>
+    </ul>`);
+    const out = buildQuadrant(parseQuadrant(ul), 'default', SCALE);
+    assert.equal(leadersOf(out).length, 0);
+  });
+});
+
 // VERTICAL BEATS HORIZONTAL, and by enough that a further ring above a point
 // still wins over the nearest spot beside it. A name centered over or under its
 // point reads as that point's caption; a name off to one side reads as a row in

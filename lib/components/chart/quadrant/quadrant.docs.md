@@ -4,7 +4,7 @@
 
 **Function** evidence · **Form** scatter · **Substance** series
 
-**Drawn with** `svg` — Axes, cell tints, bubbles, trails and every label — including the corner names that sit outside the plot — are one `<svg>`. Points are placed by value on two axes, and the placement engine that keeps labels off each other and off the marks needs all of it in one coordinate system.
+**Drawn with** `svg` — Axes, cell tints, bubbles, trails and every label — including the corner names that sit outside the plot — are one `<svg>`. Points are placed by value on two axes, and the placement engine that keeps labels off each other and off the marks needs all of it in one coordinate system. A name the engine had to move away from its own dot is joined back to it by a hairline leader, because on a crowded plot "beside" stops meaning "nearest" — and a quadrant has no axis, no value pill and no other channel to say which dot a name belongs to.
 
 **Tags** `two-by-two` · `positioning` · `prioritize` · `risk`
 
@@ -34,6 +34,7 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 ### Common mistakes
 
 - **Under `magic`, expecting the group heading text to move an item into that quadrant.** Placement is driven entirely by the item's `x, y` coordinate — the group heading is an editorial label only; an item whose coordinates don't fall in the region a heading like 'Leaders' implies still renders wherever its numbers place it.
+- **Reading a name as belonging to the dot nearest it.** Follow the hairline where there is one. A crowded corner pushes names one or two rings out from their own dot, and a leader is drawn for exactly that case — a name with no line is sitting against the dot it names.
 
 ### Data shape
 

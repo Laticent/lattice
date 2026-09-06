@@ -128,12 +128,3 @@ section.form.scatter:not(.claim-hero):not(.claim-bleed) .scatter-figure {
   display: contents;
 }
 
-/* The leader — a hairline from a dot to a name that could not sit against it.
- * Lighter than the axis rule and only ever a few units long: it states an
- * ownership the reader would otherwise have to guess, and must never read as a
- * mark of its own. */
-:is(section.scatter, figure.chart-frame) .scatter-leader {
-  fill: none;
-  stroke: color-mix(in oklab, var(--text-body) 52%, transparent);
-  stroke-width: 0.55;
-}

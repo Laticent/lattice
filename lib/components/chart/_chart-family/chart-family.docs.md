@@ -375,9 +375,32 @@ quadrant is ~76% of that quadrant in label, which no arrangement fixes — it is
 names and says nothing; the dropped one still rides `data-label`, the popover
 and the speaker note.
 
+Two more properties come out of the same pass, and both are about what a reader
+takes off the finished picture rather than about fitting boxes.
+
+**A name that had to travel is joined back to its mark by a hairline.**
+`leaderLine` in the same module emits it and takes its class from the caller;
+`scatter` and `quadrant` both draw `.chart-leader`, painted once in
+`chart-family.css` § Label leaders. It is drawn only when the label is further
+from its mark than a first-ring seat, because a connector between two things
+that are visibly together is noise. The reason it is not optional: on a crowded
+plot ADJACENT stops meaning NEAREST — six of the fourteen names on the quadrant
+stress slide sit closer to another initiative's dot than to their own.
+
+**A column of labels never contradicts the marks it names.** Two names stacked
+in one column are read top-to-bottom as an order whether the pass meant one or
+not, so a candidate position that would read backwards against a label already
+in that column costs `ORDER_COST` — added to the ANCHOR preference, never to the
+collision score. The pass answers with a different position, and when every
+clear position reads backwards it takes one rather than drop a name. Order is
+worth an anchor; it is never worth a name.
+
 See `engineering/decisions/2026-07-26-svg-chart-labels-motion.md` for why
 `<tspan>` and not `<foreignObject>`, who owns the font size, and (§14) why
-placement is a choice of position rather than a nudge.
+placement is a choice of position rather than a nudge; and
+`engineering/decisions/2026-09-06-label-attribution-and-order.md` for the two
+properties above, their measurements, and why the fixed-pitch repack `slope`
+uses does not port to a plot its labels share with everything.
 
 ---
 
