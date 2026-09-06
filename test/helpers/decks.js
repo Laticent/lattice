@@ -170,8 +170,25 @@ function spansIn(text) {
  */
 const FRONT_MATTER = /^---\r?\n(?:[^\n]*\n)*?[ \t]*[A-Za-z][\w-]*:[\s\S]*?\r?\n---\r?\n/;
 
-/** An `html_block` that is nothing but comments — it renders no element, so it is not a sibling. */
-const COMMENT_ONLY_HTML = /^(?:\s*<!--[\s\S]*?-->\s*)+$/;
+/** One whole HTML comment. A single lazy scan to the first `-->` — no nested quantifier. */
+const ONE_COMMENT = /<!--[\s\S]*?-->/g;
+
+/**
+ * Is this `html_block` nothing but comments? It renders no element, so it is not a sibling.
+ *
+ * WRITTEN AS A STRIP, NOT A MATCH, and the reason is a measured hang. The first cut was
+ * `/^(?:\s*<!--[\s\S]*?-->\s*)+$/`, which nests a quantifier inside a repeated group whose
+ * ends can both match empty — classic exponential backtracking, and CodeQL flagged it as two
+ * high-severity alerts. It is not theoretical: `'<!---->' + '\t<!---->'.repeat(18) + 'X'` is
+ * 152 characters and took **9.6 seconds** to reject. This helper runs over every deck we
+ * ship, so one author's comment could have hung the suite. Stripping whole comments and
+ * asking whether anything non-blank survives is linear, and it answers the same question —
+ * `<!-- x --><div>y</div>` correctly does NOT count as comment-only, because a `<div>` really
+ * does render an element and really does break the adjacency the CSS needs.
+ */
+function isCommentOnlyHtml(content) {
+  return String(content ?? '').replace(ONE_COMMENT, '').trim() === '';
+}
 
 /**
  * The type of the real block sibling in direction `step`, stepping over anything that
@@ -194,7 +211,7 @@ const COMMENT_ONLY_HTML = /^(?:\s*<!--[\s\S]*?-->\s*)+$/;
 function siblingType(tokens, from, step) {
   for (let i = from; i >= 0 && i < tokens.length; i += step) {
     const t = tokens[i];
-    if (t.type === 'html_block' && COMMENT_ONLY_HTML.test(t.content || '')) continue;
+    if (t.type === 'html_block' && isCommentOnlyHtml(t.content)) continue;
     return t.type;
   }
   return '';
