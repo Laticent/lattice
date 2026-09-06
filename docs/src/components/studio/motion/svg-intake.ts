@@ -66,9 +66,6 @@ import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
  *  group flashes on instead of drawing. It does not throw, so nothing reports it. */
 const GEOMETRY_TAGS = new Set(['path', 'line', 'polyline', 'polygon', 'rect', 'circle', 'ellipse']);
 
-/** Paintable leaves the census will offer as parts. `<text>` is addressable but not drawable. */
-const PAINTABLE_TAGS = new Set([...GEOMETRY_TAGS, 'text', 'image', 'g']);
-
 /** Containers whose contents never paint on their own. Their ids are still namespaced (step 6);
  *  they are simply not offered as parts, because animating one addresses a node nobody can see. */
 const NON_PAINTING_CONTAINERS = new Set(['defs', 'clippath', 'mask', 'marker', 'symbol', 'pattern', 'lineargradient', 'radialgradient', 'filter']);
@@ -173,7 +170,7 @@ export type HintMap = Map<string, string>;
 function cleanLabel(raw: string | null | undefined): string {
 	if (!raw) return '';
 	return raw
-		.replace(/[^A-Za-z0-9 _.\-]/g, ' ')
+		.replace(/[^A-Za-z0-9 _.-]/g, ' ')
 		.replace(/\s+/g, ' ')
 		.trim()
 		.slice(0, 32)
