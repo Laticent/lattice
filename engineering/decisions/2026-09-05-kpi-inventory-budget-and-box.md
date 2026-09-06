@@ -161,17 +161,36 @@ reports clean and the vacuity warning does not fire. Neither can
 
 ### tall, stated with its caveat
 
-Sweeps at `--family tall` render `--no-split`, so these are PRE-SPLIT ceilings.
-Autosplit paginates a tall deck in the PDF export, so these numbers do not
-predict a clipped page there. They DO predict the live preview and an
-export-to-Marp bundle, where nothing re-paginates — the same path #1277 was about.
+Sweeps at `--family tall` render `--no-split`, so these are PRE-SPLIT ceilings:
+they measure the shape a tall slide has BEFORE the structural splitter runs.
+
+Measured, on a 3-item `inventory` deck at `size: portrait`: the splitter fires
+(`auto-split (structural): 1 slide(s) split to one element per page`) and BOTH
+outputs paginate. The PDF does, and so does the emulator's own HTML — four
+sections, one item each, `spill` of −64.7px, 0.0px, 0.0px. So neither of the two
+surfaces this tool writes shows a clipped page, and these ceilings do not predict
+one there.
+
+**Where a pre-split ceiling would bite is NOT re-verified here.**
+`kpi.styles.css`'s #1277 note names two surfaces where nothing re-paginates —
+the live preview and an export-to-Marp bundle — and that is the repo's own
+record, not a measurement taken for this note. Neither was driven. Treat the
+tall table as a description of the pre-split shape and nothing more until
+someone drives one of those two surfaces (#23).
 
 | component | declared tall hard | measured pre-split |
 |---|---|---|
 | kpi | 5 | 4 |
 | inventory | 8 | 2 |
 
-The inventory tall figure is a fourfold overstatement.
+These are not stated as defects. `adapt.capacity.tall.hard` may legitimately be
+describing POST-split behavior — 8 items in a tall deck become 8 pages, and that
+is a reasonable thing for the field to mean. What the table shows is that the
+tall numbers and the wide numbers are not measuring the same thing, and nothing
+in the manifest or the docs says which. Deciding what `tall.hard` is FOR is a
+prerequisite to correcting it; the wide numbers in § 2 need no such decision,
+because at wide the splitter does not run and the declared number and the
+measured ceiling are directly comparable.
 
 ---
 
