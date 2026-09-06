@@ -1256,6 +1256,12 @@ crests); reach for `auto` otherwise.
 
 ## Inline pills — `{LABEL}`
 
+**Turning the whole grammar off:** `inline-code: literal` in front matter makes every
+single-backtick span in the deck literal — pills, marks and all. It is the switch for a
+deck you did not write, where `` `[x]` `` in prose was never meant to draw anything. See
+[`base.registers.docs.md`](base.registers.docs.md) § `inline-code:`; the Studio carries it
+as **Deck settings · General · Inline pills and marks**.
+
 A `{LABEL}` inside **single-backtick** inline code renders as a pill. Shape and color
 belong to the value, not to the slide — one ledger can carry four different statuses
 without any variant class on the section.

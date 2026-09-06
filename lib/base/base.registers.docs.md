@@ -32,6 +32,7 @@ model, see `design/concepts.md`.
 | [`spectrum:` / `spectrum-edge:`](#the-spectrum--spectrum-edge-registers-the-spectrum-accent-finish) | The spectrum accent finish and which edge carries it | *(none)* |
 | [`rule:`](#the-rule-front-matter-register-heading-underline) | The heading underline | *(none)* |
 | [`eyebrow:`](#the-eyebrow-front-matter-register-kicker-decoration) | The kicker decoration | *(none)* |
+| [`inline-code:`](#the-inline-code-front-matter-register-pills-and-marks) | Whether `{LABEL}` pills and `[x]` marks are drawn | `rich` |
 | [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
@@ -324,6 +325,46 @@ positioned pseudo that had to be hand-placed; the element makes alignment a plai
 `rule:` governs the `form` masthead hairline — the canonical heading underline. The
 split-panel kicker rule honors `none` / `accent` (drop or recolor it); `short` / `full` are
 masthead-scoped. On a slide with no heading underline, `rule:` is a graceful no-op.
+
+## The `inline-code:` front-matter register (pills and marks)
+
+`inline-code:` decides whether the **inline directive grammar** runs — `` `{LABEL}` `` pills
+and `` `[x]` `` `` `[-]` `` `` `[ ]` `` `` `[/]` `` state marks. Sibling register
+(`lib/core/resolve-inline-code.js`), read by both render paths; a typo is caught as
+`unknown-inline-code`. Deck-wide.
+
+| `inline-code:` value | Token | Effect |
+|---|---|---|
+| `rich` | *(none)* | The grammar runs — pills and marks are drawn. **The default** (omit the key). |
+| `literal` | `inline-code-literal` | **Every** single-backtick span stays a `<code>`, exactly as typed. |
+
+**Reach for `literal` when you did not write the deck.** The grammar reads every
+single-backtick span in every deck, so a deck authored elsewhere whose prose happens to say
+`` `[x]` `` or `` `{LABEL}` `` renders a disc or a pill where it rendered text. One line
+turns the whole thing off; the per-occurrence escape (`` `\[x]` ``) is the right tool for
+one span and the wrong one for ninety.
+
+**A literal deck keeps a backslash you typed.** With no grammar running there is nothing to
+escape from, so `` `\[x]` `` renders as `\[x]` rather than being quietly rewritten — the
+register never edits your text.
+
+**Turning it off in a RAW MARP deck** — one Lattice never renders, previewed by the Marp
+extension or `marp-cli` alone — uses Marp's own global `class:` directive, because nothing
+of ours can read front matter there:
+
+```yaml
+---
+marp: true
+class: inline-code-literal
+---
+```
+
+Verified against real marp-cli: the token lands on every section. Two things to know if you
+go this route. Marpit's per-slide `_class:` **replaces** the global `class:` for that slide,
+so a slide that sets its own `_class:` loses the token and the grammar comes back — a
+Lattice deck is unaffected, because the engine appends the token to the class list it
+builds. And through the Lattice engine the register is **deck-wide**: for a single span,
+escape it.
 
 ## The `eyebrow:` front-matter register (kicker decoration)
 
