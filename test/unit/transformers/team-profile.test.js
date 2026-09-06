@@ -98,6 +98,27 @@ describe('team-profile — applyToRenderedHtml', () => {
     assert.equal(t.applyToRenderedHtml(html), html);
   });
 
+  // The CLI renders against the on-disk deck dir and passes NO baseUrl, so the
+  // author's relative path must survive untouched there (exported bytes unchanged).
+  // A preview iframe's srcdoc has no deck-dir base, so the same path has to be
+  // resolved or every face renders as a broken-image icon — which is exactly what
+  // the docs-site preview showed before this was threaded through.
+  test('resolves a relative portrait against ctx.baseUrl (web preview)', () => {
+    const html = wrap('team-profile', person('Ada<ul><li><img src="ada.svg"></li></ul>'));
+    assert.match(t.applyToRenderedHtml(html, { baseUrl: 'https://o/v/h/samples/' }),
+      /src="https:\/\/o\/v\/h\/samples\/ada\.svg"/);
+  });
+
+  test('leaves the portrait relative with no baseUrl (CLI / export path)', () => {
+    const html = wrap('team-profile', person('Ada<ul><li><img src="ada.svg"></li></ul>'));
+    assert.match(t.applyToRenderedHtml(html), /src="ada\.svg"/);
+  });
+
+  test('an already-absolute portrait passes through unchanged', () => {
+    const html = wrap('team-profile', person('Ada<ul><li><img src="https://x/y.svg"></li></ul>'));
+    assert.match(t.applyToRenderedHtml(html, { baseUrl: 'https://o/v/' }), /src="https:\/\/x\/y\.svg"/);
+  });
+
   test('idempotent: a second pass over rebuilt markup is a no-op', () => {
     const once = t.applyToRenderedHtml(wrap('team-profile', person('Ada Okafor')));
     assert.equal(t.applyToRenderedHtml(once), once);
@@ -142,6 +163,10 @@ describe('team-profile — applyToDom', () => {
         className: cls,
         innerHTML: html,
         querySelector: (sel) => (el.innerHTML.includes('team-roster') && sel.includes('team-roster') ? {} : null),
+        // The real arm pins each already-resolved `img.src` into the attribute
+        // before serializing; this section carries no portrait, so there is
+        // nothing to pin.
+        querySelectorAll: () => [],
       };
       sections.push(el);
       return el;

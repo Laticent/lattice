@@ -120,22 +120,33 @@ if (existsSync(hljsDir)) {
   }
 }
 
-// Component sample images referenced by manifest `sample` decks — e.g. the image
-// component's `![bg](sample-image-landscape.svg)`. Staged under samples/ so the
-// playground preview can load them; the component render passes this base as
-// `{ baseUrl }` to the engine, which resolves the deck-relative path against it.
-const imageSamplesDir = join(repoRoot, 'lib', 'components', 'imagery', 'image');
-for (const file of readdirSync(imageSamplesDir)) {
-  if (file.endsWith('.svg')) assets.push([`samples/${file}`, join(imageSamplesDir, file)]);
-}
-// logo-wall's manifest sample references the brand marks by bare filename
-// (`![Acme](acme.svg)`), resolved against the same samples/ base. Stage them
-// flat so the component studio renders real marks instead of broken images.
-// (The bucket gallery refs them as `logo-wall/acme.svg`; that nested copy is
-// staged via collectGalleryAssets below — both paths resolve.)
-const logoWallDir = join(repoRoot, 'lib', 'components', 'inventory', 'logo-wall');
-for (const file of readdirSync(logoWallDir)) {
-  if (file.endsWith('.svg')) assets.push([`samples/${file}`, join(logoWallDir, file)]);
+// Component sample images referenced by manifest `sample` decks — the image
+// component's `![bg](sample-image-landscape.svg)`, logo-wall's `![Acme](acme.svg)`,
+// team-profile's `![](ada.svg)`. Every one is a BARE FILENAME in the manifest, so
+// the preview resolves it against this samples/ base: the component render passes
+// the base as `{ baseUrl }` and the engine resolves the deck-relative path against
+// it. Staged FLAT for that reason. (The bucket galleries ref the same files
+// nested, e.g. `logo-wall/acme.svg`; those copies come from collectGalleryAssets
+// below, and both paths resolve.)
+//
+// DERIVED from the component tree rather than hand-listed. This was two hard-coded
+// directories, and the third component to ship sample art (team-profile) had its
+// portraits silently missing from the staged set — its docs page rendered a grid of
+// broken-image icons while every gate stayed green, because no gate looks at that
+// page. The filesystem already knows which components ship art; asking it removes
+// the whole class. Additive only: an SVG staged for a component whose sample never
+// references it is an inert file.
+for (const bucket of readdirSync(join(repoRoot, 'lib', 'components'), { withFileTypes: true })) {
+  if (!bucket.isDirectory()) continue;
+  const bucketDir = join(repoRoot, 'lib', 'components', bucket.name);
+  for (const component of readdirSync(bucketDir, { withFileTypes: true })) {
+    // `_`-prefixed folders are bucket-scoped shared infrastructure, not components.
+    if (!component.isDirectory() || component.name.startsWith('_')) continue;
+    const componentDir = join(bucketDir, component.name);
+    for (const file of readdirSync(componentDir)) {
+      if (file.endsWith('.svg')) assets.push([`samples/${file}`, join(componentDir, file)]);
+    }
+  }
 }
 // Images the "Load a deck" gallery decks reference (e.g. the imagery survey's
 // `![bg](image/sample-photo-wide.svg)`, the inventory logo-wall). Staged under
