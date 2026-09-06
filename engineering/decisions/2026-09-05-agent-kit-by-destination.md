@@ -120,7 +120,7 @@ routes, and both traps are named on the front page.
 returns 404 on the npm registry — it is not published — so every `npm install
 @workwel/lattice` line in our own docs is aspirational, and a developer kit whose
 first command fails is worse than none. Held until the package is published. The
-research for it is not wasted and is recorded in §5.
+research for it is not wasted and is recorded in §6.
 
 **`llms.txt`.** The standard requires a domain root to work, and the decision on
 this change was to publish to the orphan branch only, without touching the docs
@@ -129,7 +129,64 @@ served from `lattice.style`, ship it then — as a router of ~2 KB, not an index
 Stripe's is 90 KB, Cloudflare's `llms-full.txt` is 57 MB and unusable, and Astro
 deleted its whole llms.txt family in 2026 for lack of traffic.
 
-## 5. Findings recorded but not fixed here (off-path, per HARD RULE #18)
+## 5. The small-model path, measured
+
+The design above was reasoned from published benchmarks and our own deck corpus.
+It has now been **run against a real small model**, because the reasoning was the
+weakest link in the whole change and a card that says so is worth less than a
+measurement.
+
+**Setup.** `Qwen2.5-3B-Instruct` Q4_K_M via `llama-cpp-python`, `n_ctx=4096` —
+Ollama's documented default below 24 GiB of VRAM, and the number
+`paste/lattice-instructions-solo.md` was sized against. Testing at 8192 would have
+measured a configuration the kit tells you to set rather than the one you get.
+`temperature=0.7`; greedy decoding would have flattered the result. The system
+prompt was the shipped file byte for byte — no coaxing, no extra examples. Twenty
+realistic deck briefs across corporate, academic, government, nonprofit and
+product. Two runs, 40 decks. Scored by `dist/agent-kit/review/check.mjs`, which is
+code, so the grade is not another model's opinion.
+
+| Measure | Result |
+|---|---|
+| Decks generated, front matter valid, checker-parseable | **40 / 40** |
+| **Layout names invented outside the 20** | **0 / 40** |
+| `error`-severity findings | **2 decks / 40** (5%) |
+| `warning`-severity findings | 2 / 40 |
+| `suggestion` (taste) findings | median **2 per deck** |
+| Distinct layouts actually used | 15-16 of the 20 |
+
+**The closed list is the result that matters.** Zero invented layout names across
+40 decks. That was the single largest design risk — a small model asked to pick
+from a 61-item catalog it cannot hold, given 20 names instead, inventing a 21st.
+It did not happen once. Neither did a missing front matter block.
+
+**Both structural failures are the same failure**, and it is the one the design
+predicted it could not write its way out of: an inline `- **Title.** body` where a
+nested `- Title` / `  - body` is required (`card-style-inline-title` in run 1,
+`ledger-inline-title` in run 2). It is a rule about invisible whitespace, and
+prose does not fix it. `check.mjs` catches both and prints an autofix, which is
+exactly the designed mitigation — write, check, fix — working as intended.
+
+**Median 2 taste findings per deck is better than our own shipped exemplars**,
+which carry 3-7 each. That is not a claim that a 3B model writes better decks than
+we do; it is a claim that the reduced canon keeps it inside the falsifiable rules,
+which is all it was asked to do.
+
+**One thing did NOT work and is recorded as such.** One deck in twenty echoed the
+skeletons' placeholder prose verbatim ("One-line subtitle that frames the deck.",
+"Section 01") instead of filling the shape. A line was added telling the reader the
+skeletons are shapes to fill, not text to copy — and the rate after was **also 1 in
+20**. With n=1 on each side that is noise, and the line cannot be said to have
+helped. It stays because it is true and costs 90 characters, not because it was
+shown to work.
+
+**What this does not cover.** One model family, one quantization, one temperature.
+Llama-3.2-3B and Gemma-3-4B are untested, and the published work says the small
+class degrades unevenly, so a second family could differ. The eval harness lives in
+the session scratchpad, not the repo; committing it as a standing gate is a
+follow-up worth taking.
+
+## 6. Findings recorded but not fixed here (off-path, per HARD RULE #18)
 
 - `README.md:171` and `engineering/pipeline.md:253` document `CHROME_PATH`. The
   emulator never reads it — 0 occurrences — it reads `PUPPETEER_EXECUTABLE_PATH`.

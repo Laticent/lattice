@@ -1508,6 +1508,14 @@ function instructionsSolo(cat) {
     // CSS with one token. Both are correct and both ship, so SAY they are the
     // same thing — two shapes for one outcome is exactly the ambiguity this file
     // exists to remove.
+    // MEASURED, not anticipated: one deck in twenty came back with the skeleton's
+    // own placeholder prose in it — "One-line subtitle that frames the deck.",
+    // "Section 01", "Section name" — because a small model can read a shape to
+    // copy as text to emit. The skeletons cannot drop their placeholders (they
+    // are what makes the shape legible), so the file has to say this outright.
+    '**The skeletons are shapes to fill, not text to copy.** Replace every placeholder',
+    'with real content. Never ship the example words.',
+    '',
     'On the `title` and `closing` slides, `<!-- _class: title silent -->` is a shorter way',
     'to write the three `_paginate` / `_header` / `_footer` lines. Either form works; pick one',
     'and keep it.',
