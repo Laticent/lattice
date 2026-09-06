@@ -2676,7 +2676,7 @@ following                              followers
 - Counts fall, and B does not follow them down
   - Someone unfollows and the count drops. Shrink `B` and every edge in the buckets above it is stranded.
 - A fan-out worker reads B fresh
-  - Never from the cached count a profile page shows. A stale, smaller `B` scans too few buckets and skips the newest followers.
+  - Never the cached count on a profile page. A stale `B` scans too few buckets and skips the newest followers.
 - The low buckets run heavy
   - Edges written while `B` was small crowd the early buckets, until `B` reaches its cap.
 
@@ -3161,7 +3161,7 @@ Solution type MVP. Nobody knows yet whether drivers scan the sticker.
 ## Rung one is one lot, a printed sticker per bay, and the provider's card form.
 
 - What you build
-  - A sticker on every bay carrying a link with the lot and bay in it. The provider's own form takes the card, so the number never touches your server.
+  - A sticker per bay whose link carries the lot and bay. The card goes to the provider's form, not your server.
 - What it buys
   - The only answer you need this month: do drivers scan the sticker, and do they finish paying.
 - What it charges

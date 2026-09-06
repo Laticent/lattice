@@ -14,3 +14,9 @@
   her Tuesday sat on the four-movement arc) and two in Part six (nothing that
   broke her day was load either; the manual part gives out before the machine).
   Per-part spine coverage: Part three 0/13 → 3/13, Part six 0/20 → 2/20.
+- **Fixed: two `cards-stack` bodies spilled past their card onto the card below**
+  (slides 162 and 192, plus the one on 203 that this change rewrote anyway). A
+  stack card is a fixed height, so a body that wraps to a second line paints
+  over the next card's border — and nothing catches it: the slide does not clip
+  at the frame, so the export's overflow oracle stays green and `lint:deck` only
+  ever warns. Found by looking at the rendered pages.
