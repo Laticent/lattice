@@ -491,11 +491,15 @@ slide; G is rejected on 116KB for what CSS does for free.
 - Candidate B was not measured under the typing scenario; it differs from A only in
   what fills the reserved slot, so its source-frame count is A's by construction —
   but that is an argument, not a measurement.
-- The `~~~mermaid` export gap this uncovered is REPORTED, not fixed: `preprocessMermaid`
-  still substitutes only ```` ```mermaid ````, so those fences render as source in a PDF.
-  Widening that regex changes export bytes, which is the QUALITY BAR's stop-and-show gate
-  and a different change from this one. Off the path (HARD RULE #18), so it is logged here
-  rather than pulled into this diff.
+- ~~The `~~~mermaid` export gap this uncovered is REPORTED, not fixed~~ — CLOSED
+  (2026-09-06). Both callers now read one matcher, `lib/core/mermaid-fences.js`: the CLI's
+  substitution, and the NARRATOR, whose own docblock claims it reads the same fence
+  `preprocessMermaid` renders — widening one alone would have drawn a diagram the voice
+  could not read. The pattern is no looser than the one it replaced (three markers, the tag
+  followed immediately by a newline, a close on a run of the same character), and the
+  export-bytes claim is measured rather than argued: `examples/a11y.md`, a backtick-only
+  deck, exports a BYTE-IDENTICAL `.html` sidecar before and after. `examples/mermaid-tilde-fences.md`
+  is the demo deck, rendered in light and dark.
 - A's failure mode is now STRUCTURAL rather than argued: the rule requires
   `[data-lattice-diagrams]`, which only a builder injecting the MERMAID script stamps, so a
   document that will not draw the diagram cannot match it. Verified on a real export (the

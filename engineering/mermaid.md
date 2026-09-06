@@ -2,7 +2,8 @@
 
 ## 5.1 Diagrams in Markdown
 
-Write a fenced ` ```mermaid ` block. That is the whole authoring surface — the
+Write a fenced ` ```mermaid ` block — or a `~~~mermaid` one, which CommonMark treats as
+the same thing and so does the engine. That is the whole authoring surface — the
 engine owns the render on both paths, and neither one is Marp's built-in Mermaid:
 
 ````markdown
@@ -21,6 +22,15 @@ flowchart LR
 | --- | --- | --- |
 | PDF / export (`lattice-emulator.js`) | `mmdc` (Mermaid's CLI, one process per diagram) | build time, pre-rendered to inline SVG |
 | Live preview (`dist/lattice-runtime.js`) | `mermaid.render()` in the browser | on the live DOM, in the Playground / Studio / marp-vscode |
+
+**Both fence characters, on both paths.** markdown-it emits `class="language-mermaid"` for
+a tilde fence exactly as it does for a backtick one, so the preview has always rendered
+either — but the export's substitution was backtick-only until 2026-09-06, and a
+`~~~mermaid` fence therefore rendered in the preview the author was working in and printed
+as raw source in the PDF. Both callers now read one matcher
+(`lib/core/mermaid-fences.js`): the substitution, and the NARRATOR, which speaks a diagram
+slide from the same fence it renders. Nothing else about the pattern was relaxed, so what
+a backtick fence substitutes to is byte-for-byte unchanged.
 
 **The `.html` player takes a third step past either path: it BAKES the diagram.**
 The player sanitizes its slide DOM (`sanitizeSlideHtml`), and that sanitizer bars
@@ -111,9 +121,12 @@ Two wrong versions of that gate shipped before this one, and both are worth know
 because both looked right:
 
 - **Ungated.** The rule matched anywhere the stylesheet did. `preprocessMermaid`
-  (`lattice-emulator.js`) substitutes only ```` ```mermaid ````, so a `~~~mermaid` fence
-  reaches the exported HTML unsubstituted with the runtime stripped — and the author's
-  only signal that the CLI never drew their diagram became an empty slot, in export bytes.
+  (`lattice-emulator.js`) substituted only ```` ```mermaid ```` at the time, so a
+  `~~~mermaid` fence reached the exported HTML unsubstituted with the runtime stripped —
+  and the author's only signal that the CLI never drew their diagram became an empty slot,
+  in export bytes. (That substitution gap is closed now — see §5.1 — but the gate stays:
+  the CLI can still fail to draw a fence for other reasons, and an empty slot is the wrong
+  way to say so.)
 - **Gated on `data-lattice-runtime`.** That is a name `lib/runtime/index.js` has always
   written on `document.documentElement` at boot, so the rule switched itself on in every
   document the runtime booted in — precisely the set it was meant to spare. On a host with
