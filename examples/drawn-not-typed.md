@@ -61,7 +61,7 @@ color from the element at all, or to a hollow box, which takes nothing.
 | Adoption     |  [x]   |     [x]      |  [ ]   |     [x]     |
 | Calibration  |  [ ]   |     [-]      |  [ ]   |     [x]     |
 
-> Two layouts already decoded `[x]` inside a cell. Everywhere else a comparison
+> Two layouts already decoded `\[x]` inside a cell. Everywhere else a comparison
 > table had no drawn status at all — which is exactly why authors typed a check.
 
 ---

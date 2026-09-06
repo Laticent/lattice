@@ -1801,6 +1801,43 @@ const SANCTIONED_MARGINS = [
        + 'row. Horizontal-only (never touches height math) and a single-item end-shove has no '
        + '`gap`/`padding` equivalent. See the base.modifiers comment at the declaration.',
   },
+  {
+    file: 'lib/base/base.modifiers.css',
+    value: '0.22em',
+    why: 'outer breathing room for an INLINE PILL (`.lat-pill[data-shape]`). Padding is not '
+       + 'an alternative — measured on one pill, `padding-inline:1.2em` grew the CHROME from '
+       + '58.9px to 73.3px and produced 0px of outside space; it enlarges the box rather than '
+       + 'separating it from the words. TWO no-margin alternatives were built and measured, '
+       + 'and this justification is narrower than an earlier draft claimed as a result. (1) A '
+       + 'transparent `border-inline` with `background-clip:padding-box` FAILS: the border '
+       + 'enters the box, so the pill went 35.6px to 41.6px tall — re-introducing the line-box '
+       + 'growth this rule exists to prevent — and `aspect-ratio` counts it, inflating the '
+       + 'circle 45x36 to 50x50 and the diamond 39x36 to 58x58. (2) Painting the chrome on a '
+       + '`::before` and using the element box as a spacer DOES work for the unclipped '
+       + 'capsule, and does not generalise: `circle`, `diamond` and both chevrons carry '
+       + '`clip-path`/`aspect-ratio` on the ELEMENT, so outer padding lands inside the clip '
+       + 'and each shape would need its paint model restructured onto the pseudo-element. '
+       + 'Margin is therefore the only mechanism that behaves uniformly across all eight '
+       + 'shapes without a per-shape rewrite — which is a narrower claim than "the only '
+       + 'mechanism", and is the honest one. Horizontal-only: horizontal margins never '
+       + 'collapse, and block height measured 27.6px with and without. No vertical margin OR '
+       + 'padding — these are atomic inline boxes, so block padding enters the line box '
+       + '(measured 75.6px to 82px on a three-line paragraph whose leading was ~25px; on '
+       + 'looser leading the line absorbs it, so the effect is leading-dependent).',
+  },
+  {
+    file: 'lib/base/base.modifiers.css',
+    value: '0.22em',
+    why: 'the same horizontal breathing room for an INLINE STATE MARK (`.lat-state`), which '
+       + 'needs its own entry because this allowlist consumes one declaration per entry. On '
+       + 'the disc the case against padding is plainer than on the pill: the box is a fixed '
+       + '1em square with `box-sizing:border-box`, so `padding-inline` shrinks the CIRCLE '
+       + 'rather than moving it off the text, and a transparent border inflates it (measured '
+       + 'with the pill above). The `::before` alternative is unavailable here for a second '
+       + 'reason — `.lat-state::after` already carries the mark mask, and the ring is a '
+       + '`box-shadow` on the element, so the paint model has no spare layer. Horizontal-only, '
+       + 'same as above.'
+  },
 ];
 
 // ─── Section-box ownership gate ───────────────────────────────────────────

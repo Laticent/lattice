@@ -1,6 +1,6 @@
 ---
-status: proposed
-summary: Design for namespaced inline-code directives (icons, vars) with all five open questions resolved but nothing implemented yet
+status: in-progress
+summary: Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}:shape:c4` (the bracket-geometry map it proposed is superseded, measured); `$var` and `icon:` still unbuilt
 ---
 
 # Lattice — namespaced inline-code directives (icons, vars, …)
@@ -29,6 +29,83 @@ summary: Design for namespaced inline-code directives (icons, vars) with all fiv
 > "pill" work in #88 / `lib/transformers/pill-tag.js` is the unrelated
 > trailing-`code` metadata-pill fix, NOT this bracket-shape grammar —
 > that grammar is still unbuilt.)
+
+> **AMENDMENT 2026-09-04 — the pill grammar shipped, and the BRACKET MAP BELOW IS
+> SUPERSEDED.** Pills are `` `{LABEL}:shape:c4:lg` `` — one brace pair, with the shape
+> as a MODIFIER WORD rather than encoded in bracket geometry. Everything else in the
+> pill design survives intact: the eight shape names, the ordinal color slots, the size
+> axis, order-free modifiers, and "no default shape without an explicit marker".
+>
+> **Why the geometry had to go.** The map below assigns meaning to `[X]`, `(X)`, `{X}`,
+> `((X))`, `[[X]]`. Measured against the **12,551** single-backtick spans of the deck corpus,
+> it captures **147** that their authors meant literally:
+>
+> - **118** are decks and docs QUOTING our own state markers — `[x]` `[-]` `[ ]` `[/]`.
+>   (The functional markers are bare at a bullet's start and were never at risk; it is
+>   the slides TEACHING the syntax that break. `checklist.gallery.md:107` says "`[?]`
+>   renders as literal text" — which under this map would have rendered as a pill.)
+> - **29** are ordinary code prose: `[data-mark]`, `{ ok, scene }`,
+>   `(slides, registry, lensId)`, `(0,2,2)`.
+>
+> This note ruled out `:` `@` `#` `!` as sigils for exactly this reason — "inline code
+> routinely starts with `:root`, `@media`" — and never ran the same test on brackets,
+> which are the most loaded characters in a repo whose decks are about code. A single
+> `{…}` pair plus one guard (the label must be trimmed and comma-free, which is already
+> the pill word budget in `lib/authoring/prose-budgets.js`) measures **zero collisions in
+> the DECK corpus** — `examples/`, `lib/`, `docs/src`, `test/integration`, 12,551 spans.
+>
+> **That is not "repo-wide", and an earlier draft of this paragraph said it was.** Measured
+> across every `.md` in the tree (109k+ spans), `{}` captures **31** on `origin/main`:
+> `{children}`, `{staged_files}`, `{ok:true}`, `{once:true}` and similar, all in
+> `engineering/decisions/**`, `engineering/gotchas/` and `tools/perf-torture/`. None is on
+> a rendered surface, so nothing draws wrong — but the claim named a surface it had not
+> scanned, which is the thing HARD RULE #23 exists to stop. The honest statement is: zero
+> on anything that renders, 31 in engineering prose. Resolved decision #6 is therefore satisfied more honestly than the map
+> satisfied it: the brace IS the dispatch marker, and nothing accidental reaches it.
+>
+> **Also corrected:** the color slots are `:c1`–`:c12` onto `--cat-N-fill` /
+> `--cat-N-mark`, not `:c1`–`:c8` onto `--cat-blue`…`--cat-mauve`. HARD RULE #11 retired
+> those per-hue names for the role-based set after this note was written, and there are
+> twelve of them. The note's ordinal INSTINCT was right and the engine went further.
+>
+> **Shipped:** `lib/core/inline-pills.js` (kernel, HARD RULE #1), the `inlinePills`
+> markdown-it plugin, `transformInlinePills` in `lib/runtime`, the `.lat-pill[data-shape]`
+> CSS in `base.modifiers.css` (reusing the existing `--pill-*` tokens), a
+> `pill-shape-crowded` coaching rule, `examples/inline-pills.md`, and docs in
+> `base.docs.md`. **Still unbuilt: `$var` interpolation and the `icon:` namespace** —
+> those sections below stand as written.
+>
+> **VERIFIED ON THREE SURFACES, each with an artifact (HARD RULE #23).** The grammar has
+> two implementations by design — a markdown-it plugin that builds a string, and a
+> runtime that builds elements inside the preview frame — so "it works" is a claim about
+> whichever surface you name.
+>
+> | Surface | What runs | Evidence |
+> |---|---|---|
+> | The engine | markdown-it plugin only | `test/unit/core/inline-pills.test.js`, `state-marks.test.js`, the `inlinePills` probe in `marp-fidelity-render.test.js` |
+> | The Playground | engine renders, runtime MIRRORS over its output | `docs/e2e/inline-pill-grammar.spec.ts` — the real Studio, real Chromium |
+> | A Marp preview | runtime ONLY; the engine never ran | `docs/e2e/inline-grammar-marp-mirror.spec.ts`, plus a hand render of a grammar deck through **real marp-cli 4.x** on the shipped `dist/marp-kit`, opened in Chromium |
+>
+> **The split between the last two is load-bearing, and mutation proved it.** Deleting the
+> `data-lat-escaped` stamp from `transformInlinePills` turns the marp-mirror spec red —
+> `` `\{LIVE}` `` promoted to a pill by the fourth pass — while the Playground spec stays
+> GREEN, because the engine stamps that attribute server-side and the mirror never reaches
+> the branch. A single Playground spec would have certified an escape that does not
+> survive a second pass for every Marp reader.
+>
+> The marp-cli render is a hand verification, not a gate: marp-cli is not a dependency
+> (HARD RULE #1 — Marp is an export target), and `test/integration/export/marp-kit-render.test.js`
+> already fetches it on demand for the kit's own deck. What it showed that the specs cannot:
+> the slide itself, with the escapes sitting as literal `` `{Alpha}` `` / `` `[x]` `` code
+> spans beside live pills — and one coached authoring error, `{Gamma}:circle` spilling its
+> label, which `lint:deck` names as `pill-shape-crowded` before it reaches a slide.
+>
+> **THE FORK STILL AHEAD.** `[x]` was kept rather than respelled `{x}` (the decks escape
+> their quoted mentions instead), which leaves the grammar with two opening characters.
+> That is the cheaper trade only while `$var` and `icon:` stay unbuilt or land as BARE
+> forms. If either lands BRACED — `` `{$client.name}` ``, `` `{icon:check}` `` — then `{}`
+> becomes the general dispatch marker and `[x]` is the lone exception rather than a
+> separate vocabulary; revisit the respell at that point, not before.
 
 ## What's already done
 
@@ -149,6 +226,10 @@ empty, no guessing. The linter reads the active source's name set from
 `lib/icons.js` to flag typos before render.
 
 ### Pill shapes — Mermaid-inspired bracket grammar
+
+> **SUPERSEDED 2026-09-04** by the amendment at the top of this note — the shape NAMES
+> and both modifier axes below shipped, the bracket geometry did not. Kept as written
+> because the measurement that replaced it is only legible against it.
 
 Pills get their own grammar because shape is a visual axis the
 `prefix:value` form can't express terselys. The bracket grammar is
@@ -274,6 +355,11 @@ the argument, and the rejected alternatives.
    `/^\$([A-Za-z_][\w.]*)$/` already accepts `$client.name`.
 
 2. **Escape for literal `prefix:value`: CommonMark double-backtick.**
+   *(SUPERSEDED 2026-09-04 — the shipped escape is a BACKSLASH, `` `\{LIVE}` ``. The
+   double-backtick form reads the backtick run off `token.markup`, which exists only on
+   the markdown-it side: marp-core renders `` `{LIVE}` `` and ``` ``{LIVE}`` ``` to the
+   same `<code>`, so the runtime's DOM mirror cannot tell them apart. The fidelity probe
+   caught it. `` ``{LIVE}`` `` now dispatches on both paths. Original text kept below.)*
    `` ``var:--brand`` `` (double backticks) skips directive
    preprocessing because the rule runs only on single-backtick
    `code_inline` tokens with `markup === '` '`. Validated against

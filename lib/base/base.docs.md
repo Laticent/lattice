@@ -1238,6 +1238,114 @@ crests); reach for `auto` otherwise.
 
 ---
 
+## Inline pills — `{LABEL}`
+
+A `{LABEL}` inside **single-backtick** inline code renders as a pill. Shape and color
+belong to the value, not to the slide — one ledger can carry four different statuses
+without any variant class on the section.
+
+```markdown
+1. Settlement engine
+   - Shipped and load-tested `{STABLE}:c2`
+2. Ledger migration
+   - Cutover paused for review `{PARTIAL}:c4`
+```
+
+### Shape
+
+`:tag` · `:tag-bordered` · `:chip` · `:circle` · `:chevron-right` · `:chevron-left` ·
+`:diamond`. With no shape modifier you get the capsule `pill`.
+
+`circle` and `diamond` are square boxes by construction, so they hold a digit or a
+mark — `{3}:circle`, `{!}:diamond`. A word in one either overflows the fill or forces
+the box wide enough to stop reading as the shape; `lint:deck` suggests `:tag` or
+`:chip` instead, and never blocks.
+
+### Color — `:c1` … `:c12`
+
+Ordinal slots onto the categorical tokens, **not color names**. The same slot is sky
+blue on `indaco` and deep red on `burgundy`, so a slot picks contrast, never meaning —
+never write `:c2` because "green means good". Text contrast comes from the categorical
+policy already in the engine, so a slot needs no per-pill contrast math.
+
+### Size — `:sm` `:lg`
+
+Scales from the type, so a pill stays proportional to the row it sits in.
+
+Modifier order is free: `` `{X}:tag:c4:lg` `` and `` `{X}:lg:c4:tag` `` are the same pill.
+
+### What stays literal
+
+Plain inline code is untouched — `` `getUserId()` ``, `` `:root` ``, `` `[data-mark]` ``,
+`` `--accent` ``, `` `{ ok, scene }` ``. A pill needs a brace pair whose label is
+trimmed and comma-free, which is what separates a label from a JS object literal an
+author wrote as code.
+
+An unknown or repeated modifier fails back to literal rather than being ignored:
+`` `{X}:c13` `` renders as code, visibly wrong in review, instead of quietly becoming a
+pill the author did not ask for.
+
+To force the literal for a label that WOULD qualify, put a **backslash** in front:
+`` `\{LIVE}` `` renders as `{LIVE}`, and `` `\[x]` `` renders as `[x]`.
+
+The backslash is only an escape when what follows would actually have become a pill or
+a mark, so a regex is safe: `` `\[a-z]` `` and `` `\d+` `` are untouched and keep their
+backslash.
+
+**Fenced and indented code blocks are never touched at all** — they are not inline code,
+so nothing in them is ever read as a directive.
+
+### Where a pill can go
+
+Anywhere inline code can — verified on a real render: a heading, a paragraph,
+mid-sentence, a blockquote, a table cell, a footer, and a list row's clause. A fenced
+` ``` ` block is not inline code and is never touched.
+
+In a **`list-tabular` row** a pill takes the same cell a trailing `` `code` `` takes, so
+`` 1. cards-grid `{STABLE}:c2` `` puts the pill in the trailing column. Two limits, both
+measured:
+
+- **`spec`** addresses its two codes by position among `code` elements, which cannot see
+  a pill. A `spec` row whose trailing chip is a pill works; one whose **key** is a pill
+  does not — the key stays in the trailing column.
+- **Two trailing items in one row overlap**, e.g. `` 1. Name `META` `{PILL}` ``. That is
+  not about pills: two plain `` `code` `` values do the same, because the row is a grid
+  and a grid item paints over rather than pushing. Put one value in the trailing slot.
+
+## Inline state marks — `` `[x]` ``
+
+The same four markers an author writes bare at the start of a bullet — `[x]` `[-]`
+`[ ]` `[/]` — draw the same disc when written inside **single-backtick** inline code,
+anywhere inline code can go:
+
+```markdown
+1. Settlement engine
+   - Signed by both parties `[x]`
+2. Ledger migration
+   - Cutover paused `[-]`
+```
+
+**Brackets make a mark, braces make a pill.** One vocabulary in two positions rather
+than two vocabularies — bare at a bullet's start for a checklist row, inside inline code
+for a mark in a sentence, a heading, a table cell or a row's trailing column.
+
+`[ ]` takes the **neutral** reading inline — an unchecked box, the open ring — not
+`verdict-grid`'s "assessed and failed".
+
+The mark carries its name on `role="img"` + `aria-label`, so a screen reader says "done"
+and the document holds no extra word. Every `checks-*` style variant reaches an inline
+mark, because it uses the same `state` / semantic / shape classes a checklist row does.
+
+**Only the four exact forms dispatch.** `` `[?]` ``, `` `[!]` ``, `` `[data-mark]` ``,
+`` `[0]` `` and `` `[X]` `` all stay literal — the grammar is deliberately narrow,
+because `[` also opens a CSS attribute selector, an array index and a citation.
+
+### `{x}` is not a checkbox
+
+Braces make a pill, so `` `{x}` `` would be a pill containing the letter `x`. The four
+markers are **reserved** inside `{}` and render literal, with a `lint:deck` suggestion
+pointing at `` `[x]` `` — the bracket form above.
+
 ## Composition syntax
 
 Modifiers compose space-separated after the layout name.

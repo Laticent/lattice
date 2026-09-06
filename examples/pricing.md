@@ -23,7 +23,7 @@ The plans / packages slide every commercial, membership, and procurement deck ne
 A pricing table is the same shape whether you sell software, ask for a donation, or respond to an RFP: named tiers, a price, a feature checklist, and a nudge toward one of them.
 
 - Mark the recommendation with `*Most popular*` (or `*Best value*`, `*Recommended*`) — it becomes a ribbon and elevates the card.
-- `[x]` is included, `[/]` is not (muted, struck through), `[-]` is limited. Keep the feature list identical across tiers so the columns scan.
+- `\[x]` is included, `\[/]` is not (muted, struck through), `\[-]` is limited. Keep the feature list identical across tiers so the columns scan.
 
 ---
 
