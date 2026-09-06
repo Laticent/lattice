@@ -138,8 +138,15 @@ stop-dependent thing in the shell's top bar.
 
 That deleted a duplicate tail's worth of inline lucide glyphs from the document:
 `studio` `htmlRaw` measured **187218 bytes** against a 199200-byte budget, which
-the route-budget gate correctly reported as stale. Ratcheted to 192800
-(measured + ~3%, per the ledger's own convention).
+the route-budget gate correctly reported as stale.
+
+**Then the editor toolbar below put more back than the tail took out.** Drawing
+eleven controls where the shell had drawn one costs their inline lucide glyphs:
+the route measures **195679 bytes** as it ships, so the branch is **net +8461**
+on `studio` `htmlRaw`, not the −6182 the first ratchet recorded. The budget is
+201600 (measured + ~3%, the ledger's own convention). Worth stating plainly
+because the intermediate ratchet is still in the ledger's own note chain and
+reads, on its own, like a saving. It was one, for two commits.
 
 ## Two more hand-off shifts, found by looking at the real thing
 
