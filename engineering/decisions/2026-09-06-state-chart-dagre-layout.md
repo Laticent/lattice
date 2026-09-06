@@ -389,6 +389,8 @@ sat ~20px above its box on a machine whose column had wrapped a label.
 | distributable `.html` export | dagre inlined, global installed, machine re-ranked in a real browser |
 | PPTX / PNG export | render clean |
 | docs site preview iframe (real dev server) | renders `viewBox 0 0 970.4 253.4` — identical to the CLI — nothing at negative coordinates, no page errors |
+| docs **Playground**, re-driven on the fixed head | branching deck typed in by CDP `Input.insertText`: 5 nodes across 3 ranks (re-ranked), start arrowhead `rgb(26,26,26)`, valid tints paint green/red, a TYPO'd `:::state-warn-hu` degrades to the default instead of erasing the edge, no injected element, no handler attribute, no negative coordinate. Only console error is the dev server's own favicon 404 |
+| **dark-mode PDF export** (`color-mode: dark`) | the start arrowhead paints light against the dark canvas. Diffed against the pre-fix CSS on the same deck: 48 differing pixels, all at the arrowhead — it was invisible before. This is the artifact §9.4's arrowhead finding needed and an earlier checker could not produce |
 | tilt guard, real browser (`.html` export) | geometry frozen under a live `matrix3d` transform and restored after; zero page errors — and the run found the non-convergent layout in §9.3 |
 | layout convergence, real browser | all figures of all four state-chart decks stable across six successive draws |
 | docs **Playground**, branching deck typed in | re-ranked: the three fan-out targets land at one rank (x ≈ 421/426/430) across three rows (y 5/112/219); dagre reachable in the frame; nothing at negative coordinates; no page errors |
