@@ -500,14 +500,49 @@ slide; G is rejected on 116KB for what CSS does for free.
   `[data-lattice-diagrams]`, which only a builder injecting the MERMAID script stamps, so a
   document that will not draw the diagram cannot match it. Verified on a real export (the
   fence renders `visibility: visible`) and on the second checker's own late-fence repro.
-  What is still not driven: a document that stamps the attribute and then fails to load
-  Mermaid — a CSP that blocks the script, or a 404 on `mermaidUrl`. There the source stays
-  hidden. That exposure was ALSO not preview-only until the third checker drove it: the
-  Studio's offscreen export capture frame stamped the attribute too, and a Mermaid failure
-  inside it rasterized an empty slot where the old behavior gave raw source — confirmed
-  through the real rasterizer, and fixed by not stamping in that frame. So the residual is
-  now genuinely preview-only: a WATCHED frame that stamps and then 404s or is CSP-blocked
-  keeps the source hidden. Reasoned, not driven.
+  What was still not driven: a document that stamps the attribute and then fails to load
+  Mermaid — a CSP that blocks the script, or a 404 on `mermaidUrl`. That exposure was ALSO
+  not preview-only until the third checker drove it: the Studio's offscreen export capture
+  frame stamped the attribute too, and a Mermaid failure inside it rasterized an empty slot
+  where the old behavior gave raw source — confirmed through the real rasterizer, and fixed
+  by not stamping in that frame.
+
+  **DRIVEN 2026-09-06, and the "genuinely preview-only" line this paragraph used to end on
+  was WRONG.** The real Studio, the real Share → Webpage export, Mermaid 404'd at the network
+  for every frame the Studio opens. Read back out of the downloaded file in real Chromium:
+
+  ```
+  data-lattice-diagrams on <html>   false      ← the opt-out holds; rule A is not live
+  <pre> data-mermaid-state          "pending"
+  computed display, that <pre>      "none"     ← hidden anyway
+  the fence's own text              present in the bytes, 0×0 on the page
+  rendered SVG                      absent
+  ```
+
+  So HALF the claim is now driven and true: `diagrams: false` keeps rule A out of the export,
+  exactly as §5 says. The other half is false. **The exported file shows an empty slot
+  regardless**, through the OLDER `data-mermaid-state` rule and a mechanism none of the three
+  checkers looked at: `bootstrap()` in `lib/runtime/index.js` calls `wrapFences()`
+  UNCONDITIONALLY, before it knows whether Mermaid will ever arrive — deliberately, to cover
+  the load window — and `mermaid.css` hides any tagged `<pre>`. When Mermaid never arrives,
+  `tick()` gives up after `MERMAID_WAIT_CAP` frames and nothing un-tags them. The author's
+  only signal that their diagram did not draw is gone, in a file they downloaded. It is the
+  same harm the first checker fixed for the CLI, arriving down a third path.
+
+  **Not fixed here** — it is pre-existing, it predates every part of #2073, and it is off the
+  path of this change (HARD RULE #18), so it is logged rather than pulled in. It is also not
+  a small call: the shape of the fix is for `tick()` to UN-tag its pending fences when it
+  gives up, which is a shared-runtime change that alters export bytes on an error path and
+  reaches every host the runtime boots in. That belongs to its own change, with its own
+  sign-off.
+
+  The same mechanism answers the marp-vscode half of §7 by construction, and widens it: on
+  ANY host where the runtime boots and Mermaid never becomes real — the plain markdown
+  preview's render-blocks-only stub, a CSP block, a 404 — a fence present at boot is tagged
+  and hidden, whatever `data-lattice-diagrams` says. **marp-vscode itself remains
+  UNVERIFIED** (HARD RULE #23): no VS Code host is reachable from this sandbox, so nobody has
+  opened that preview, and the hand-rolled page the second checker drove is a stand-in, not
+  the surface.
 - D's first-mount cost is now MEASURED, and it is not free. Same build, one variable — a
   three-slide deck whose third slide is a diagram, against the same deck with prose in its
   place — timing a reload to the preview's first painted `.lattice`, 5 runs each:
