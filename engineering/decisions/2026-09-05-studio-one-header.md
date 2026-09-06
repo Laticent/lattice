@@ -141,6 +141,55 @@ That deleted a duplicate tail's worth of inline lucide glyphs from the document:
 the route-budget gate correctly reported as stale. Ratcheted to 192800
 (measured + ~3%, per the ledger's own convention).
 
+## Two more hand-off shifts, found by looking at the real thing
+
+Unifying the header removed the shift *between stops*. The owner then reported a
+shift that survives it — the one from the **pre-paint shell to the hydrated app**
+— twice, and both reports were right about a different cause.
+
+**The deck pill was ~42px too wide until the webfonts landed.** The shell paints
+immediately in the fallback stack, and the pill sizes itself to its text, so the
+divider and the dial after it slid when Outfit 600 and Playfair 700 arrived and
+the text re-measured. `font-display: swap` is what makes that visible: it is the
+right choice for body copy and the wrong one for a control whose width IS its
+text. The fix is a `<link rel=preload>` for exactly those two faces in
+`studio.astro` — the two the bar actually paints with, not the eleven in
+`fonts.css`. Metric-adjusted fallbacks (`size-adjust`, `ascent-override`) were
+the alternative and were not taken: they shrink the shift rather than removing
+it, and they need a per-face measurement that nothing in the tree re-derives when
+a font is swapped. `docs/e2e/font-preload.spec.ts` pins the preloads to faces the
+route really requests, so a preload for a font nobody loads — a pure regression,
+two extra round trips — fails rather than sits there. Measured on a throttled
+connection: the title settles at its final width immediately, against **41.9px**
+of shift before.
+
+**The editor's sub-bar was a single placeholder against the app's eleven
+controls.** The shell drew one generic pill where the hydrated app draws Add
+slide, Reshape slide, Fix all issues, Version history, Slide settings, the
+Markdown/Compose segment and Collapse editor — so the whole band under the header
+filled in at hand-off, and grew. The shell's own rule says to draw a control
+wherever its presence is a function of width or `data-ssr-stop`; every one of
+these qualifies, and the sub-bar had simply never been held to it. Three things
+were needed to make the shell's copy land in the same place as the app's:
+
+- `.ssr-editpane` needed `container-type: inline-size`, because the app's
+  toolbar hides controls with container queries (`@[36rem]`, `@[34rem]`,
+  `@[21rem]`) resolving against the editor pane, not the viewport.
+- `ReshapePicker` had to render **disabled** rather than not render, so that a
+  deck with no variants does not change the row's control count between shell
+  and app.
+- `Slide settings` is width-gated in the app but not by a container query, so
+  the shell gates it with a plain `@media (min-width: 1100px)` on
+  `.ssr-slide-settings` — the app's own boundary, not Tailwind's `xl`.
+
+Verified on iPad Air 4 metrics (820 x 1180 and 1180 x 820, DPR 2, touch), which
+is the device the report came from: **12/12** controls in portrait and **11/11**
+in landscape, worst positional delta **1px**, against a shell that drew **1**
+control before. `studio-shell-parity` now censuses both sub-bars
+(`[data-slot="edit-bar"]`, `[data-slot="preview-bar"]`) in addition to the three
+roots it already had — the guard could not have caught this, because it had never
+been pointed at the band that broke.
+
 ## The one capability the unification drops
 
 **At desktop Read between 1100 and 1279, the slide count is gone.** The slim
