@@ -310,6 +310,18 @@ export function buildSrcdoc({
 	// remote subresources is a real question, but it is one decision covering both export
 	// paths — see the decision record's "What this does not do".
 	csp = true,
+	// Stamp `data-lattice-diagrams`, the gate rule A is keyed on (see previewDiagramsAttr).
+	// Defaults ON — every frame a human WATCHES wants the fence's ink withheld until
+	// something draws it. The one caller that passes `false` is the same one that passes
+	// `csp: false` above, for the mirror-image reason: the offscreen EXPORT capture frame
+	// is never watched, so the anti-flash rule buys nothing there, and it is rasterized —
+	// `html-to-image` copies the COMPUTED style onto its clone, so a `visibility:hidden`
+	// the rule applied is baked into the .pdf/.png/.pptx. If Mermaid fails inside that
+	// frame (a 404, a CSP block), stamping would turn the author's only signal that the
+	// diagram never drew into an empty slot, in downloaded bytes. Not stamping leaves that
+	// path exactly as it was before rule A existed. Found by the third independent checker,
+	// driven through the real rasterizer.
+	diagrams = true,
 }) {
 	// Strip script-bearing content before it reaches this same-origin srcdoc
 	// frame (#616 T-CONTENT). Covers buildSrcdoc's external caller too
@@ -345,7 +357,7 @@ export function buildSrcdoc({
 	const needsKatex = html.indexOf('katex') !== -1;
 	const needsMermaid = html.indexOf('language-mermaid') !== -1;
 	return (
-		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(needsMermaid ? mermaidUrl : '') + '><head><meta charset="utf-8">' +
+		'<!doctype html><html lang="' + (String(lang || 'en').replace(/[^A-Za-z0-9-]/g, '') || 'en') + '"' + previewDiagramsAttr(diagrams && needsMermaid ? mermaidUrl : '') + '><head><meta charset="utf-8">' +
 		// FIRST in <head>, before any content or subresource link — a CSP meta governs only
 		// what the parser has not already reached (#1753).
 		(csp ? previewCspMeta({ katexUrl }) : '') +
@@ -435,12 +447,14 @@ export function buildSrcdoc({
  * behavior and the safe direction. The CLI export, the .html player builder and any page
  * we did not assemble fall in that half by simply not calling this.
  *
- * NOT "every export path", and the exception is worth stating where a reader meets it:
- * the Studio's offscreen capture frame (`deck-export.js` → `createCaptureFrame` →
- * `buildSrcdoc`) is handed a real Mermaid URL, so it DOES stamp. That is correct — Mermaid
- * renders in that frame — and the artifact it produces is re-assembled by the player
- * builder, which does not stamp. The residue is that a Mermaid failure inside the capture
- * frame would rasterize an empty slot rather than raw source.
+ * The Studio's offscreen EXPORT capture frame is handed a real Mermaid URL and would
+ * otherwise stamp through this same builder — it does not, because `buildSrcdoc`'s
+ * `diagrams` knob is `false` there. It is not watched by anyone, so the anti-flash rule
+ * buys nothing, and it IS rasterized: `html-to-image` copies the computed style onto its
+ * clone, so a `visibility:hidden` this rule applied would be baked into the .pdf / .png /
+ * .pptx whenever Mermaid failed inside that frame. Every export path therefore keeps the
+ * pre-rule behavior — the .html player because its builder re-assembles the document
+ * without stamping, the raster paths because the capture frame does not stamp at all.
  * See engineering/decisions/2026-09-05-diagram-fence-flash.md §4A.
  */
 export function previewDiagramsAttr(mermaidUrl) {

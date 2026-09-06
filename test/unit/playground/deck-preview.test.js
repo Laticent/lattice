@@ -77,6 +77,40 @@ describe('buildSrcdoc', () => {
 		assert.equal(previewDiagramsAttr('/m.js'), ' data-lattice-diagrams');
 	});
 
+	// THE SEAM, and the only thing on this branch that has been wrong twice. The gate lives
+	// in CSS and the stamp lives in JS, joined by nothing but a matching string — so a rename
+	// on either side passes lint, `build:check` and all 8000+ unit tests while silently
+	// switching rule A off (or, as in round 1, on in every document the runtime booted in).
+	// Join them here: whatever attribute the rule keys on must be the attribute the builder
+	// writes. Found missing by the third independent checker.
+	test('the CSS gate is keyed on exactly the attribute the builder stamps', async () => {
+		const { previewDiagramsAttr } = await load();
+		const fs = require('node:fs');
+		const path = require('node:path');
+		const css = fs.readFileSync(path.join(__dirname, '../../../lib/integrations/mermaid/mermaid.css'), 'utf8');
+		// The one rule that withholds an un-tagged fence's ink, minus comments.
+		const live = css.replace(/\/\*[\s\S]*?\*\//g, '');
+		const rule = live.split('\n').find((l) => l.includes('language-mermaid') && l.includes('visibility:hidden'));
+		assert.ok(rule, 'mermaid.css no longer carries the un-tagged-fence rule');
+		const gate = /^\[([a-z-]+)\]/.exec(rule.trim());
+		assert.ok(gate, 'the rule is no longer gated on a root attribute — it would hide fences everywhere');
+		assert.equal(' ' + gate[1], previewDiagramsAttr('/m.js'));
+	});
+
+	// The offscreen EXPORT capture frame opts OUT: it is rasterized through `html-to-image`,
+	// which copies the COMPUTED style onto its clone, so a `visibility:hidden` rule A applied
+	// is baked into the .pdf/.png/.pptx. With Mermaid failing inside that frame nothing tags
+	// the fence, and stamping would export an empty slot where the author's unrendered source
+	// used to be. Driven through the real rasterizer by the third independent checker.
+	test('does not claim diagrams when the caller opts out (the export capture frame)', async () => {
+		const { buildSrcdoc } = await load();
+		const withFence = { ...BASE, html: '<pre><code class="language-mermaid">graph LR</code></pre>', mermaidUrl: '/m.js' };
+		assert.match(buildSrcdoc(withFence), /<html[^>]* data-lattice-diagrams[ >]/);
+		assert.doesNotMatch(buildSrcdoc({ ...withFence, diagrams: false }), /data-lattice-diagrams/);
+		// Opting out must not also drop the Mermaid script — the frame still renders diagrams.
+		assert.match(buildSrcdoc({ ...withFence, diagrams: false }), /src="\/m\.js"/);
+	});
+
 	test('always injects the link guard so an external tap cannot navigate (blank) the frame', async () => {
 		const { buildSrcdoc } = await load();
 		// The guard is unconditional (every filmstrip srcdoc), capture-phase, gated to
