@@ -207,11 +207,28 @@ const ONE_COMMENT = /<!--[\s\S]*?-->/g;
  * does render an element and really does break the adjacency the CSS needs.
  */
 function rendersNoElement(content) {
-  const withoutComments = String(content ?? '').replace(ONE_COMMENT, '');
-  // Raw TEXT beside a comment is a text node, not an element, so it does not break the
-  // adjacency either — `<!-- x --> trailing` still leaves `p + h1` matching, checked in
-  // real Chrome. Only a tag does.
-  return !/<[A-Za-z!/]/.test(withoutComments);
+  const s = String(content ?? '');
+  for (let i = 0; i < s.length; ) {
+    if (s.startsWith('<!--', i)) {
+      const end = s.indexOf('-->', i + 4);
+      if (end === -1) return true; // unterminated: the comment swallows the rest
+      i = end + 3;
+      continue;
+    }
+    if (s[i] !== '<') { i += 1; continue; }
+    const next = s[i + 1] || '';
+    if (next === '!' || next === '?') {
+      // A bogus comment (`<!DOCTYPE`, `<!x`, `<?x`) — the parser makes a comment of it, so
+      // it renders no element either. Skip to its close.
+      const gt = s.indexOf('>', i);
+      if (gt === -1) return true;
+      i = gt + 1;
+      continue;
+    }
+    if (/[A-Za-z/]/.test(next)) return false; // a real tag
+    i += 1;
+  }
+  return true;
 }
 
 /**
