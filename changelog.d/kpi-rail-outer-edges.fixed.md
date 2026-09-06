@@ -36,8 +36,11 @@
   and a `$` merged into the line at 1x. The lead is `0.12em` on the ruled rows. That is
   the ceiling a 4-metric slide allows: 0.13em is the first value that pushes the row past
   the stage (1.13px at 16:9) and the status pill starts losing ink at 0.14em, none of
-  which the export's overflow warning reports. Measured at 600dpi the lead leaves `École`
-  2.24px, `Ålborg` 2.40px, `Ärlig` 3.20px, `$2.4B` 6.24px and a bare `2.4` 18.72px.
+  which the export's overflow warning reports. Measured at 600dpi in rail row 3 the lead leaves
+  `École` 2.24px, `Ålborg` 2.40px, `Ärlig` 3.20px, `$2.4B` 6.24px and a bare `2.4` 18.72px.
+  **Row 4 runs about 1.1px tighter than row 3 at the same value** — the same `École` measures
+  2.36px in row 3 and 1.24px in row 4 — so 1.24px, not 2.24px, is the floor a 4-metric slide
+  actually ships.
   Doubly-marked capitals stay a known miss: `Ǻ` (U+01FA, ring *and* acute — not `Å`,
   which clears) starts its ink 5.60px above the hairline, and eight more cross by
   1.9–7.9px, further than the whole lead reaches.
@@ -61,12 +64,13 @@
   `golden-diff` reports 130 slides across 52 because it compares against goldens blessed on
   other machines, where Skia's rasterization is not bit-identical; its own header documents
   that band.
-- **Known, not fixed: `kpi spotlight`'s rail leaves an empty row when a slide authors two
-  supports.** The rail places supports at grid rows 1-3, so the common two-support slide
-  shows a large gap between its metrics and dead space below the last one — the same
-  empty-track defect this change fixes for `trajectory` on the column axis. It is
-  pre-existing (identical rendered from `main`), it is invisible to every rule-and-ink
-  instrument because an empty track paints nothing, and fixing it means re-deciding the
-  rail's row distribution, which the lead and the capacity ceiling are both measured
-  against. Logged for the next slice.
-
+- **Trade, stated with both numbers: top-aligning the rail moves its slack rather than
+  removing it.** A `spotlight` row is 187.1px and a support's content is ~103px, so ~84px of
+  slack exists either way. Before, that slack was split — 44.25px above the ink and 44.27px
+  below — and the half above is what stranded each hairline from the number it heads. Now all
+  of it sits below: the rule-to-ink gap is **0.00px** and the last row's trailing band is
+  **83.72px**, against 44.27px before. Total whitespace is unchanged; only its distribution
+  moves. Two candidates that zero the band were built and rejected on looking —
+  `space-between` tears each number away from its own label, and content-sized rows stop the
+  hero panel stretching. Closing it properly means re-deciding the rail's vertical
+  composition, which is a design question rather than a padding.

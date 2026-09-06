@@ -421,23 +421,49 @@ the line box and paints nothing.
   produces. It reaches the runtime preview and the Studio, which render the authored slide
   whole; it is not doing work in a PDF.
 
-**Found by LOOKING, after every measurement had passed: `spotlight`'s rail has the same
-empty-track defect `trajectory` had, one axis over — and this change does not fix it.**
-The rail places supports at `grid-row` 1, 2 and 3, so a slide authoring the common TWO
-supports leaves the third row empty: the two metrics sit with a large gap between them and
-a band of dead space beneath the last one. That is precisely the defect §4 fixes for
-`trajectory`, where a grid pinned at four columns left an empty 270px track on the
-3-metric slide the docs recommend. Nobody caught it here because every instrument pointed
-at this rail was asking about RULES — where the borders are, whether ink clears them — and
-an empty grid track paints nothing, so it is invisible to all of them.
+**Found by LOOKING, after every measurement had passed — and then MIS-DIAGNOSED twice in
+the paragraph that recorded it.** A twelfth pass caught both errors; this is the corrected
+account, and the correction is the more useful half.
 
-**It is pre-existing and is deliberately left.** Rendered from `origin/main` and from this
-branch, the gap and the trailing space are identical; this change alters the rail's
-borders, not its row distribution. Fixing it means re-deciding how the rail distributes
-rows, which interacts with the lead, the capacity ceiling and the 0.12em ceiling — all
-measured against the current distribution — so it would widen the diff past what #17 and
-#8 allow. Logged here rather than pulled in (#18's off-path rule), and it is the obvious
-next slice for this component.
+What is actually there: on a `spotlight` with the common two supports, the band of dead
+space beneath the last support measures **83.72px on this branch against 44.27px on
+`origin/main`**. It nearly doubles, and it doubles *because of this change*.
+
+**The first draft said the two were "identical" and called the defect pre-existing. Both
+halves were false.** `justify-content` on the rail row is `center` on main and `start`
+here — this change alters the row's distribution directly, which is the opposite of what
+that paragraph claimed.
+
+**The second error was the mechanism.** The draft blamed an empty third grid row. There is
+no third row: `grid-auto-rows: minmax(min-content, 1fr)` sizes the rail to the supports
+actually authored, the computed template on a 3-metric slide is `187.109px 187.109px`, and
+the `ol`'s own comment three lines above says the row count "follows the supports actually
+authored rather than a hard-coded three". The dead space is unfilled slack *inside* the
+last row, not a phantom track.
+
+**What it really is: a conserved trade, and worth stating as one.** The row is 187.1px and
+a support's content is ~103px, so ~84px of slack exists either way. Main splits it — 44.25px
+above the ink and 44.27px below — which is exactly what strands the hairline from the number
+it heads. This change moves all of it below, so the rule→ink gap goes to **0.00px** (the fix)
+and the last row's trailing band goes to 83.72px (the cost). Total whitespace is unchanged;
+only its distribution moves.
+
+**Two candidate fixes were built, measured and rejected by LOOKING at them**, which is the
+part worth keeping:
+
+- `justify-content: space-between` zeroes the band (measured 0.00px) and is worse: it pushes
+  each row's label and meta line to the bottom of the track, tearing the number away from
+  its own label. That is the same stranded-element defect this section exists to fix, one
+  element over. A correct number, a wrong composition.
+- Content-sized rows (`grid-auto-rows: min-content` with `align-content: center`) also zero
+  it, and stop the hero stretching — the panel ends partway down the stage and no longer
+  anchors the composition.
+
+So the trailing band ships, deliberately, as the price of attaching every hairline to its
+number. It is a cost of the fix rather than a defect beside it, and unlike the first draft's
+account it is now stated with both numbers. Closing it properly means re-deciding the rail's
+vertical composition — which of the hero's height, the row slack and the rule attachment
+gives way — and that is a design question, not a padding.
 
 **One tension this leaves open, and it belongs to the reader.** Two-and-a-bit pixels
 under an accented capital is thin, and `Ǻ` gets none. Not a tuning oversight — 0.12em

@@ -765,7 +765,30 @@ section.kpi.spotlight > .cell-stage > ol > li:nth-child(4) { grid-column: 2; gri
  * briefing rail note above already describes and fixes; briefing scoped its fix to
  * the one-support case and excluded `.spotlight` by name, so spotlight kept it at
  * every count. The spotlight rail's rows are always taller than a support's content
- * (the hero sets the height), so this is unconditional here rather than count-aware. */
+ * (the hero sets the height), so this is unconditional here rather than count-aware.
+ *
+ * WHAT IT COSTS, because `start` MOVES the slack rather than removing it. The row is
+ * 187.1px and a support's content is ~103px, so ~84px of slack exists either way. Main's
+ * `center` split it — 44.25px above the ink, 44.27px below — and the half above is the
+ * strand. All of it now sits below, so the rule-to-ink gap is 0.00px and the LAST row's
+ * trailing band goes 44.27px -> 83.72px. Total whitespace is conserved; only its
+ * distribution moves. Interior rows are unaffected in the read (their slack simply sits
+ * before the next rule instead of after it) — the visible cost is the band under the last
+ * support.
+ *
+ * TWO CANDIDATES THAT ZERO THE BAND WERE BUILT, MEASURED AND REJECTED BY LOOKING.
+ * `justify-content: space-between` measures 0.00px and pushes each row's label and meta
+ * to the bottom of the track, tearing the number away from its own label — the same
+ * stranded-element defect this rule exists to fix, one element over. Content-sized rows
+ * (`grid-auto-rows: min-content` + `align-content: center`) also measure 0.00px and stop
+ * the hero stretching, so the panel ends partway down the stage. A correct number and a
+ * wrong composition, twice. Closing it properly is a decision about the rail's vertical
+ * composition, not a padding.
+ *
+ * AND NOT AN EMPTY GRID TRACK, which a draft of this comment claimed. `grid-auto-rows`
+ * above already sizes the rail to the supports authored — a 3-metric slide computes
+ * `187.109px 187.109px`, two tracks — so there is no phantom third row. The dead space is
+ * unfilled slack INSIDE the last row. */
 section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) {
   display: flex; flex-direction: column;
   justify-content: start;
@@ -829,7 +852,16 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > strong {
  * crossing; the next read the correction as proof of clearance and removed a lead a
  * real glyph needed, on a scan whose window started past x=762.7 and so missed the
  * `$`; the third sized itself with the overflow warning, above. Rasterize, scan the
- * WHOLE column, and check 1x as well as high DPI. */
+ * WHOLE column, and check 1x as well as high DPI.
+ *
+ * TWO SCOPE FACTS A READER WILL WANT, both measured rather than assumed. The published
+ * figures are rail ROW 3; row 4 runs about 1.1px tighter at the same value (`École` 2.36px
+ * in row 3, 1.24px in row 4), so 1.24px is the floor a 4-metric slide actually ships, not
+ * 2.24px. And the `square` arm does no work in a PDF: `kpi spotlight` at `size: square`
+ * auto-splits to one element per page at 2, 3 and 4 metrics, so `nth-child(n+3)` never
+ * matches there and every split page computes `padding-top: 0px`. Like the tall/strip
+ * separator below, that arm reaches only surfaces that do not re-paginate — the runtime
+ * preview, the Studio, export-to-Marp. It is kept for those. */
 section.kpi.spotlight:where(section:not([data-family]), [data-family="square"]) > .cell-stage > ol > li:nth-child(n+3) > strong {
   padding-top: 0.12em;
 }
