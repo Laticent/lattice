@@ -501,13 +501,16 @@ section.kpi.compliance > .cell-stage > ol > li {
  * and on a two-row slide 209.2px — parking the "separator" flush against the row
  * below it. inventory's `li + li` is right THERE because its rows have no gap
  * between them. Keeping the border on the bottom edge holds every interior separator
- * within 1px of where it was, against the 28.2px / 209.2px the top-edge form moved
- * them. It is not zero and cannot be: removing the floor takes 1px of border out of
- * the column, and `space-between` hands that pixel back to the two gaps — measured
- * +0.50px on the gallery's first boundary and +1.00px on the second. A floor cannot
- * be removed from a space-between list without the free space changing; what CAN be
- * avoided is moving the separators by the height of a row, which is what the other
- * idiom did. */
+ * within half a pixel of where it was, against the 28.2px / 209.2px the top-edge
+ * form moved them. Measured on the gallery AT THE PAINTED EDGE — the bottom border
+ * of each row, which is where this rule puts the line: boundary 1 3209.56 to
+ * 3209.56 (+0.00px), boundary 2 3352.28 to 3352.78 (+0.50px), and the last row's
+ * border gone, which is the floor. It is not exactly zero and cannot be: removing
+ * the floor takes 1px of border out of the column and `space-between` hands that
+ * pixel back to the gaps. Measure the ROW TOPS instead and you get +0.50 / +1.00 —
+ * a shipped draft of this comment quoted those, but the top of row 3 carries no
+ * border, so that edge paints nothing and the number describes a boundary the
+ * reader cannot see. */
 section.kpi.compliance > .cell-stage > ol > li:not(:last-child) {
   border-bottom: 1px solid var(--border);
 }
@@ -531,15 +534,23 @@ section.kpi.compliance > .cell-stage > ol > li > ul > li:first-child {
   grid-column: 2; grid-row: 1;
   padding-top: 0;
 }
-/* The meta line keeps main's `padding-top: 0`. Deleting the whole rule with the
- * status-column grid let the shared `li + li` padding (--sp-xs, 8px) back in, which
- * pushed every compliance row 8px taller and moved the separators this change claims
- * stay on the pixel they already occupied: +8.00px on the gallery's first boundary
- * and +4.50px on the second. It also split the row's own rhythm — sub-bullet 2 got
- * 8px of lead where sub-bullet 3 and beyond still get 0. Auto-placement already puts
- * this line at column 2 / row 2, so the two placement declarations main carried are
- * not restored with it; only the padding was load-bearing. */
+/* The meta line keeps main's three declarations, ALL THREE. Deleting the rule with
+ * the status-column grid let the shared `li + li` padding (--sp-xs, 8px) back in,
+ * which pushed every compliance row 8px taller and moved both separators, +8.00px
+ * and +4.50px on the gallery; it also split the row's rhythm, 8px of lead on
+ * sub-bullet 2 against 0 on sub-bullet 3 and beyond.
+ *
+ * A first repair restored only the padding, on the reasoning that auto-placement
+ * lands this line at column 2 / row 2 anyway. It does — while the row HAS a value.
+ * `lib/core/slot-label-lift.js` returns the `li` untouched when the lead is empty,
+ * so a row authored as a bare `1.` with two sub-bullets has no `strong` spanning
+ * column 1, the cursor finds row 1 / column 1 free, and the meta line places itself
+ * to the LEFT of the label on the same line — reading order reversed. Measured:
+ * label left=392.1 with the meta at left=64 on the branch, against 128 / 128 and
+ * stacked on main. `lint:deck` says nothing about it. Narrow shape, real regression,
+ * and one declaration prevents it. */
 section.kpi.compliance > .cell-stage > ol > li > ul > li:nth-child(2) {
+  grid-column: 2; grid-row: 2;
   padding-top: 0;
 }
 /* THE META LINE STAYS INLINE, and the status column this file used to declare is
@@ -765,21 +776,31 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) {
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(n+3) {
   border-top: 1px solid var(--border);
 }
-/* THE VALUE PADS ITSELF, IN EM, BECAUSE `start` ALIGNS THE LINE BOX AND THE GLYPHS
- * OVERFLOW IT. --fs-emphasis sets a 40px value on a 38px line box, so the value's
- * text box runs 0.206em above the line it is packed against — measured identically
- * at 40px (wide) and 68px (tall), which is why this is em and not a spacing token:
- * --sp-xs is 8.0px at wide against an 8.2px overshoot and 13.2px at tall against
- * 14.0px, so a token clears one family by a hair and crosses in the other. Without
- * it the support's value prints THROUGH the separator that heads it — -8.0px of
- * clearance at wide, -7.0px at square, on the shipped gallery, and the `$` of
- * `$1.1B` visibly crosses the hairline at 200dpi. 0.4em is the overshoot doubled:
- * the number lands 8.0px (wide) / 9.2 (square) / 13.2 (tall) under its rule, inside
- * the band the briefing rail already reads at. It costs no capacity — split-render
- * overflow is identical to main in all three families. */
+/* NO TOP PADDING ON THE SUPPORT VALUE, AND THE NEAR-MISS IS WORTH THE COMMENT.
+ *
+ * Top-aligning the rail above pulls each value up against the rule that heads it.
+ * Measured on a rendered deck with the widest realistic value (`$1.1B`, whose `$`
+ * ascends past the digits' cap height): main left 37.3px between rule and glyph;
+ * with `start` it is 6.7px on a probe deck and ~1.5px on the worst case built to
+ * break it. Tight, and it CLEARS — a 400dpi pixel scan of the pre-padding render
+ * reads the rule at rows 1787-1791 and pure white through 1818, with the first
+ * glyph ink at 1819.
+ *
+ * A `padding-top: 0.4em` shipped here for one commit and was reverted, because the
+ * measurement behind it was of the wrong box. `Range.getClientRects()` on the value
+ * returns the FONT-METRIC box, which extends about 0.2em above the line box and
+ * paints nothing; reading that as ink turned a 6.7px clearance into a reported
+ * "-8.0px crossing". The padding then cost real capacity: a 4-metric spotlight at
+ * wide — `adapt.capacity.wide.hard: 4`, authored the way the manifest prescribes —
+ * fits on main with 0.00px of slack and CLIPS with the padding, by 33.56px. Zero
+ * slack at the documented ceiling means any lead here is paid for by an author's
+ * fourth metric.
+ *
+ * So if the tightness is ever judged a design problem, the lever is the rail's row
+ * height or the value's size, not padding — and whatever is tried has to be
+ * re-measured against that 4-metric wide slide, which has none to give. */
 section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > strong {
   font-size: var(--fs-emphasis);
-  padding-top: 0.4em;
 }
 section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > ul > li:first-child {
   padding-top: 0.15625cqi;

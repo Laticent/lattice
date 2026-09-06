@@ -340,20 +340,32 @@ spotlight supports top-align under their own rules — unconditional there rathe
 count-aware, because the hero sets the rail's height, so a spotlight support's row is
 always taller than its content.
 
-**And top-aligning it walked straight into the half-leading this paragraph had just
-measured.** `justify-content: start` aligns the LINE BOX; at `line-height: 0.88` the
-value's glyph box runs **0.206em above** that box. So the first cut of the fix put the
-number's ascenders THROUGH the rule instead of 37.3px under it — **-8.0px** of ink
-clearance at wide and **-7.0px** at square, on the gallery this repo ships, with the
-`$` of `$1.1B` visibly crossing the hairline at 200dpi. The rule was reasoned in
-border-box terms and lands in ink terms, which is the same confusion the paragraph
-above warns is not interchangeable. The value now carries `padding-top: 0.4em` — em
-rather than a spacing token, because the overshoot scales with the type and the token
-does not: `--sp-xs` is 8.0px against an 8.2px overshoot at wide and 13.2px against
-14.0px at tall, so a token clears one family by a hair and crosses in the other. The
-number now sits 8.0px (wide) / 9.2px (square) / 13.2px (tall) below its rule, inside
-the band the briefing rail already reads at, and costs no capacity: split-render
-overflow is identical to main in all three families.
+**Top-aligning it leaves the value close to its rule, and a commit that tried to buy
+that back was reverted — the near-miss is the more useful record.** `justify-content:
+start` packs the value against the rule: measured on a rendered deck, main left 37.3px
+of ink between rule and glyph, `start` leaves **6.7px** on a probe deck and about
+**1.5px** on the worst realistic value (`$1.1B`, whose `$` ascends past the digits'
+cap height). Tight, and it clears.
+
+**A `padding-top: 0.4em` shipped for one commit on the claim that it did NOT clear,
+and both halves of that claim were wrong.** The measurement said "-8.0px of ink
+clearance"; it was not ink. `Range.getClientRects()` on the value returns the
+FONT-METRIC box, which stands about 0.2em above the line box and paints nothing — so
+the reported crossing was of a box, and a 400dpi pixel scan of the same render shows
+the rule at rows 1787-1791, pure white through 1818, and the first glyph ink at 1819.
+This section had already named that trap one paragraph earlier ("that 37.3px is an INK
+measurement… they are not interchangeable"), and the next fix walked into it anyway.
+The second half was worse: the padding was said to cost no capacity, having been swept
+only against decks that already overflowed. It costs the documented ceiling. A
+4-metric `spotlight` at wide — `adapt.capacity.wide.hard: 4`, authored the way the
+manifest prescribes — fits on main with **0.00px** of slack and CLIPS with the
+padding, by **33.56px**. Zero slack at the ceiling means any lead in that rail is paid
+for out of an author's fourth metric.
+
+**So no padding ships, and the lever is named instead of taken.** If the tightness is
+judged a design problem later, it is the rail's row height or the value's size, not a
+pad — and whatever is tried has to be re-measured against that 4-metric wide slide,
+which has nothing to give.
 
 **The trajectory grid is fixed at four columns.** `repeat(4, minmax(0, 1fr))`,
 so a 3-metric slide — which is `sweet` — leaves the fourth column, 270px and 23%
@@ -529,21 +541,27 @@ the checker rung of HARD RULE #25: not one of the four was visible on the shippe
 gallery, and every one passed lint, the unit suite, `build:check` and the overflow
 probe.
 
-**A sixth defect came from the maker, sweeping the surfaces the checkers had named as
-unreached.** Rendering the square and tall families side by side against main is what
-surfaced the spotlight value crossing its own rule (§ 4). The caveat list was not a
-formality; working it produced a finding the five passes had all walked past.
+**A SIXTH pass then caught the fix the fifth pass had prompted.** Sweeping the
+unreached surfaces did produce something — the spotlight value sits very close to its
+rule once the rail top-aligns — but the maker measured a font-metric box, called it
+ink, and shipped a padding that clipped the component's documented 4-metric ceiling.
+The sixth checker reproduced the pixel scan that disproves the crossing and the
+overflow that the padding causes, and both reverted. Six passes, six sets of real
+findings, five regressions introduced and removed. The lesson the file keeps teaching:
+on this component every claim that was *reasoned* rather than *rendered* has been
+wrong, and the two that survived a raster are the two that were rastered.
 
 **What that sweep DID reach.** All 33 palettes at wide — spotlight ink clearance
 +8.0px in every one, no negative clearance, no render failure. The square and tall
 families, rule by rule, against main. The PPTX export, unzipped and looked at
 (`ppt/media/image-7-1.png`, 2560x1440). The live docs site at `/components/evidence/kpi/`,
 which renders the component through the browser runtime rather than the export path,
-in `cuoio` rather than `indaco`. And a five-support `spotlight`, which turns out to
-overflow at EVERY size — 4K included, with one-word labels and a single pill — so the
-stray-rule case cannot be photographed on any surface: the slide clips before it draws.
-Its fix is confirmed structurally instead, on a real render: `li5` lands at column 2
-(x=2288) where main auto-placed it under the hero (x=192).
+in `cuoio` rather than `indaco`. And a five-support `spotlight`, whose fix is confirmed on a
+real render: `li5` lands at column 2 (x=2288) where main auto-placed it under the hero
+(x=192). An earlier draft of this section said such a slide "overflows at EVERY size —
+4K included", and that is false: swept across the size register it clips at `hd`, `4K`,
+`square` and `portrait` and FITS at `standard`, `story` and `mobile`. It can be
+photographed; two sizes were checked and the conclusion was written as if all had been.
 
 Still not reached: the Studio's own editing surface, `export-to-Marp`'s renderer, and
 the dark palettes beyond `indaco`'s `dark` modifier at every family. The Marp kit ships
