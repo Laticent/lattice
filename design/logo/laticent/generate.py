@@ -66,9 +66,11 @@ SAFE_R = 54.0
 # and reads as a bolted-on dot.
 #
 # So the parent does not imitate its children, it differs by CLASS. A
-# contained mark beside five free-standing ones reads as the thing they live
-# inside — which is the relationship — and it is what Alphabet, Meta and P&G
-# all do at the corporate register.
+# contained mark beside five free-standing ones is INTENDED to read as the
+# thing they live inside. Note the limit of that argument: the real
+# containered-letter precedent (Facebook's f, Pinterest's P) is for PRODUCT
+# marks, not parent marks, and a critic reports that "different class" and
+# "doesn't belong" look identical here. Unresolved.
 #
 # The tile does NOT adapt to the color scheme. An app-icon tile is a brand
 # constant; letting it follow `prefers-color-scheme` inverted it into a glaring
@@ -169,7 +171,7 @@ FONT_SIZE = 70
 CAP_RATIO = 0.70          # cap height as a fraction of em, Fraunces/Georgia
 MARK_CAPS = 1.35          # the mark's height in cap heights (convention 1.2-1.6)
 BASELINE = 92.0
-MARK_INK = (19.0, 102.8)  # the mark's own ink bbox in y, measured
+MARK_INK = (19.0, 103.0)  # the mark's own ink bbox in y (= top, base)
 MARK_INK_X = 100.8        # ... and its right edge
 GAP_CAPS = 0.42           # space to the wordmark, in cap heights
 

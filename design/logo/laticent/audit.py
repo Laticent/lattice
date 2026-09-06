@@ -37,9 +37,19 @@ def pts(svg):
     for m in re.finditer(r'<circle cx="([-\d.]+)" cy="([-\d.]+)" r="([\d.]+)"', svg):
         cx, cy, r = (float(m.group(i)) for i in (1, 2, 3))
         out += [(cx - r, cy - r), (cx + r, cy + r)]
-    for m in re.finditer(r'<path d="([^"]+)"[^>]*?(?:stroke-width="([\d.]+)")?[^>]*?/>', svg):
-        sw = float(m.group(2) or 0) / 2
-        for a, b in re.findall(r'([-\d.]+)\s+([-\d.]+)', m.group(1)):
+    # The stroke-width group must be searched INSIDE the matched tag. Making it
+    # optional inline let the lazy [^>]*? satisfy the pattern without ever
+    # reaching it, so every path reported stroke-width None and the recess's
+    # 2.4 was silently dropped — a gate that under-reports, which this file's
+    # own docstring calls worse than no gate.
+    for m in re.finditer(r'<path\b([^>]*)/>', svg):
+        tag = m.group(1)
+        dm = re.search(r'\sd="([^"]+)"', tag)
+        if not dm:
+            continue
+        swm = re.search(r'stroke-width="([\d.]+)"', tag)
+        sw = float(swm.group(1)) / 2 if swm else 0.0
+        for a, b in re.findall(r'([-\d.]+)\s+([-\d.]+)', dm.group(1)):
             x, y = float(a), float(b)
             out += [(x - sw, y - sw), (x + sw, y + sw)]
     return out

@@ -23,9 +23,22 @@ hub into the L was tried and it fails on geometry, not taste: the node lands
 **38 units off center** and reads as a bolted-on dot.
 
 So the parent does not imitate its children — it differs by **class**. A
-contained mark beside five free-standing ones reads as the thing they live
-inside, which is the actual relationship. Alphabet, Meta and P&G all do this
-at the corporate register.
+contained mark beside five free-standing ones is *intended* to read as the
+thing they live inside.
+
+**This argument is not backed by the precedent that was first cited here, and
+that citation was wrong.** An earlier draft claimed "Alphabet, Meta and P&G
+all do this at the corporate register." None of them does: Alphabet is a bare
+wordmark, Meta a free-standing loop, P&G a wordmark with a moon-and-stars
+device. Not one differentiates from its children by putting the parent in a
+container. The containered-letter precedent that *is* real — Facebook's `f`,
+Pinterest's `P` — is for **product** marks, not parent marks.
+
+What survives is weaker and worth stating plainly: containment is *a* way to
+make the difference deliberate, and an independent critic reports that
+"different class" and "doesn't belong" look identical here, with no shared
+construction, stroke weight, geometry or ground to separate them. That
+objection is unresolved.
 
 The container earns its place three more times: it converts a *letter* into an
 *object*, so the lockup stops reading as "L Laticent"; it is the only form
@@ -94,7 +107,8 @@ these was chosen against a rendered comparison, not asserted:
 
 ## Two things the generator enforces
 
-Both were caught failing in review, and neither is visible at 128px.
+Both were caught failing in review. Note the recess IS visible at 128px and
+is gone by 48px — an earlier draft of this line claimed the opposite.
 
 - **The recess.** Gold and slate measure **1.23:1 on dark** — the same value,
   separated only by hue. The ground-color channel around the seam is what a
@@ -129,7 +143,8 @@ Both were caught failing in review, and neither is visible at 128px.
 - **Don't:** put a product hue in it, remove the recess from the bare mark,
   lay the seam directly on the slate, let the tile follow the color scheme,
   lighten the seam inside the tile (it borders the cream letter, so lightening
-  only *lowers* contrast — 2.20:1 against the brand gold's 3.06:1), add
+  only *lowers* contrast — a trial `#E0972A` measured 2.20:1 against the brand
+  gold's 3.06:1; that color is not in the shipped files), add
   gradients or shadows, or squash the aspect ratio.
 
 Regenerate after any change: `python3 design/logo/laticent/generate.py`.
