@@ -202,3 +202,34 @@ new here.** `funnel`, `gantt`, `map`, `piechart`, `quadrant`, `radar` and
 behave the same way, so the fix is one `aria-hidden` decision taken once for the
 whole chart family — off the path of this change under HARD RULE #18, and worth
 its own render pass because hiding the subtree also hides it from find-in-page.
+
+## 7. Surfaces driven, and what each one showed
+
+HARD RULE #23 asks a verification claim to name its surface and carry an
+artifact from it. These are the surfaces a Cartesian chart can reach, each
+driven on this branch rather than argued from a proxy.
+
+| Surface | How it was driven | What it showed |
+|---|---|---|
+| CLI PDF export | 151 slides rasterized, three reviewers, `indaco` light + dark plus a `cuoio` pass | Geometry decodes to the printed values — the bridge closes to 0.03M, bullet bars and ticks match their readouts, stacked shares sum to 100 |
+| Docs-site component preview | `/components/chart/<name>/` in a real browser, screenshotted | A different builder from the CLI draws the same chart |
+| Studio — Write | Markdown inserted through CDP `Input.insertText`, live re-render watched | The preview redraws on edit; the slide chip resolves the component |
+| Studio — Read·Article | The Read tab, same session | The chart re-hosts at article width; the widened band ladder reads better there than on the slide |
+| Studio — Present | The Present button, same session | Full-bleed render keeps endpoint labels, ticks and the crossing legible |
+| Accessibility tree | Chromium CDP `Accessibility.getFullAXTree` | All seven expose a correct name and a description carrying the real numbers — and it caught "down 1 points", which no unit arm could |
+| Print texture channel | `color-mode: print` render of the demo deck | Series separate by hatch, not hue |
+| CVD texture channel | The deck rendered under `theme: a11y-deuteranopia` | The waterfall's three registers survive total loss of color as three distinct textures: diagonal hatch for the rise, horizontal for falls, dot grid for anchors |
+
+**PPTX is not on this list on purpose.** `lib/export/pptx-export.js` is an
+image-per-slide writer that full-bleeds one PNG per slide, rasterized from the
+same headless-Chromium render the PDF sweep already covered. It cannot
+distinguish a chart from any other slide content, so driving it would re-test
+the rasterizer rather than these components.
+
+One useful accident: the ad-hoc waterfall typed into the Studio dropped two
+steps, so its drivers did not reconcile — and the component said so, both in
+the geometry (the dashed connector visibly misses the closing bar's corner) and
+in words (`<desc>`: "Actual restates the total at 9.8M where the steps landed on
+10.7M, which does not reconcile"). The chart refuses to launder bad arithmetic,
+which is the promise `waterfall.docs.md` makes under "The drivers reconcile".
+
