@@ -289,9 +289,17 @@ every deck in `examples/`. HARD RULE #29 is the house posture for a rule like th
 we coach.
 
 **And your `captions:` travel with the slides.** The block is keyed by slide number, so a
-projection renumbers it: entries for withheld slides are dropped, and the rest are
-renumbered to their new positions. Before that, a withheld slide's caption shipped in the
-file and — with `--captions` — was read aloud over a different slide.
+projection prunes it: entries for withheld slides are dropped, and **every entry that
+survives keeps its number**. Before that, a withheld slide's caption shipped in the file
+and — with `--captions` — was read aloud over a different slide.
+
+Keeping the number is what position-holding projection changed, and this page said the
+opposite until it was measured. While the projection DELETED withheld slides a survivor
+really did move — slide 3 of 5 became slide 2 of 3 — so entries were renumbered to their
+rank. A hole keeps every slot, so slide 3 is still in position 3, and renumbering it would
+shift the caption by the number of holes in front of it: the misnarration the prune exists
+to prevent, reintroduced by arithmetic that had stopped being true. Write your caption keys
+against the deck you wrote, not against the view.
 
 **Two things the prune deliberately does NOT do.** It never writes an approval digest: the
 views in a projected deck ship without `approved:`, so re-importing the artifact reads them

@@ -570,4 +570,85 @@ describe('what a projection lets a recipient observe', { skip }, () => {
 		const d = await require('pdf-lib').PDFDocument.load(fs.readFileSync(pdf.out));
 		assert.equal(d.getPageCount(), 4, 'the PDF has one page per SHIPPED slide — the deck length does not survive');
 	});
+
+	// ── The guard that had no arm ───────────────────────────────────────────────────────────────
+	//
+	// `assertArtifactPages` is what every artifact claim in this file rests on, and until these two
+	// arms it was certified by nothing: replacing its body with `return;` left all 17 arms in this
+	// suite GREEN, on all four formats. Measured, not supposed. The refusal messages the other arms
+	// match on (`renders as a page`, `should be withheld and are not marked as withheld`) come from
+	// the DOM-side checks that run BEFORE it, so every attack the suite carried was already stopped
+	// upstream and the artifact check never had to fire.
+
+	test('a `beforeprint` handler that un-hides the holes is caught by the ARTIFACT, not the DOM', { timeout: TIMEOUT }, () => {
+		// The attack that motivated the artifact check and never had a PDF arm. `beforeprint` fires
+		// inside the real print flow — after the two-media visibility check has looked, after
+		// `holeDrift` read the rendered string — so every check that measures the DOCUMENT passes and
+		// the FILE still comes out with a page per authored slide. Only comparing the written PDF
+		// against the promise sees it.
+		//
+		// Restore the defect (`assertArtifactPages` → `return;`) and this arm gets a 5-page PDF from a
+		// 3-slide view at exit 0, which is the disclosure in full: the deck's real length and the exact
+		// withheld positions.
+		const script = '<script>window.addEventListener("beforeprint",function(){'
+			+ 'var h=document.querySelectorAll(".lens-hole");'
+			+ 'for(var j=0;j<h.length;j++){h[j].style.setProperty("display","block","important");}'
+			+ '});</script>\n\n';
+		const { r, out } = run(deck({ style: script }), 'bp.pdf', ['--quiet', '--lens', 'brief']);
+		assert.equal(r.status, 1, 'the export refuses');
+		assert.match(r.stderr, /the artifact has 5 pages and this export ships 3 slides/, 'and says what it found');
+		assert.equal(fs.existsSync(out), false, 'and nothing is left on disk');
+		assert.equal(fs.existsSync(out.replace(/\.pdf$/, '.html')), false, 'including the .html sidecar');
+	});
+
+	test('and DECOY sections cannot inflate the promise the artifact is checked against', { timeout: TIMEOUT }, () => {
+		// THE ELEVENTH FINDING, and the same shape as the tenth. Round 10 moved the WITHHELD SET onto
+		// `LENS_PROJECTION` — the source, which no script can reach — and left the PROMISE reading the
+		// live DOM (`PROMISED_PAGES = boxes.filter((b) => !b.hole).length`). So both sides could still
+		// move together: append two decoy `<section data-lattice-slide>` elements at load and the
+		// promise inflates from 3 to 5; remove them in `beforeprint` while un-hiding the holes and the
+		// finished PDF has 5 pages, which now MATCHES. Measured on the real CLI before the fix —
+		// `brief — 3 of 5 slides ship`, a five-page PDF blank at exactly the withheld positions, exit 0.
+		//
+		// The decoys carry no `data-authored-slide`, so the page-side `?? i` fallback handed them a
+		// plausible authored number. A section now counts toward the promise only if the RENDER
+		// numbered it and that number is one the projection kept, or it is one of the appended slides
+		// the SOURCE says exist. Revert either half — the `declared` flag or the kept/appended test —
+		// and this arm goes back to exit 0 with a five-page file.
+		const script = '<script>(function(){var made=[];function add(){'
+			+ 'var d=document.querySelector("#deck")||document.body;'
+			+ 'for(var k=0;k<2;k++){var s=document.createElement("section");'
+			+ 's.setAttribute("data-lattice-slide","d"+k);s.style.cssText="width:20px;height:20px";'
+			+ 'd.appendChild(s);made.push(s);}}'
+			+ 'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",add);}else{add();}'
+			+ 'window.addEventListener("beforeprint",function(){'
+			+ 'for(var i=0;i<made.length;i++){made[i].remove();}'
+			+ 'var h=document.querySelectorAll(".lens-hole");'
+			+ 'for(var j=0;j<h.length;j++){h[j].style.setProperty("display","block","important");}'
+			+ '});})();</script>\n\n';
+		const { r, out } = run(deck({ style: script }), 'decoy.pdf', ['--quiet', '--lens', 'brief']);
+		assert.equal(r.status, 1, 'the export refuses');
+		assert.match(r.stderr, /not accounted for by this projection/, 'and names the unaccounted sections');
+		assert.equal(fs.existsSync(out), false, 'nothing is left on disk');
+		assert.equal(fs.existsSync(out.replace(/\.pdf$/, '.html')), false, 'including the .html sidecar');
+	});
+
+	test('while an APPENDED auto-glossary slide is accounted for, not mistaken for a decoy', { timeout: TIMEOUT }, () => {
+		// The other side of the same rule, and the one that would break real decks if the check were
+		// written as "every shipped section must be a kept slide". `glossary: auto` appends a slide
+		// AFTER the projection, so it carries an authored number one past the deck's length and is in
+		// no view's kept set. The source knows how many such slides exist; the page does not get to say.
+		// Drop the appended allowance and this arm refuses a perfectly ordinary deck.
+		// The ROI mention rides in `style`, which `deck()` folds into the body BEFORE it computes the
+		// approval hash. Editing the returned string instead changes the deck out from under its own
+		// digest, and the run refuses as `drifted` — which is the approval gate working, not this
+		// check failing.
+		const src = deck({
+			extraFm: 'glossary: auto\nacronyms:\n  ROI: { expansion: Return on Investment, definition: "How much we make back." }\n',
+			style: 'We track ROI closely.\n\n',
+		});
+		const { r, out } = run(src, 'gloss.pdf', ['--quiet', '--lens', 'brief']);
+		assert.equal(r.status, 0, r.stderr);
+		assert.equal(fs.existsSync(out), true, 'the deck exports');
+	});
 });

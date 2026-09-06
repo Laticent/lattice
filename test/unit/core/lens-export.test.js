@@ -20,7 +20,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { HOLE_CLASS_NAME, POSITION_NEUTRALIZERS, authorCss, authoredIndexDrift, crossSlideDrift, emptyWithheld, holeDrift, isHoleOpenTag, isHoleSectionHtml, isHoleSourceChunk, projectForExport, exportableViews, REFUSAL_REASONS, SHIPPED_SLIDES_SELECTOR } = require('../../../lib/core/lens-export.mjs');
-const { frontMatterBlockOf, normalizeSourceText, slideBoundaries } = require('../../../lib/core/slide-boundaries.mjs');
+const { frontMatterBlockOf, normalizeSourceText, slideBoundaries, splitSlideChunks } = require('../../../lib/core/slide-boundaries.mjs');
 const { approvalHash, applyTag, emitRegistry } = require('@laticent/lente');
 const engine = require('../../../lib/engine/index.js');
 
@@ -940,7 +940,7 @@ test.describe('dropping a slide changes the slides that stay — checked, not as
  * Each refusal below is a REAL cross-slide dependency, named with its cause. A stale entry fails too,
  * so the list cannot quietly accumulate.
  */
-test.describe('the check stays silent on 147 real decks, under six projection shapes', () => {
+test.describe('the check stays silent on every projectable example deck, under six projection shapes', () => {
 	const fs = require('node:fs');
 	const path = require('node:path');
 	const render = (src) => engine.render(src).html;
@@ -1022,8 +1022,12 @@ test.describe('the check stays silent on 147 real decks, under six projection sh
 		// Pinned exactly, not as `> 100`. A loose floor lets the front-matter filter silently start
 		// skipping decks while the rate below still reads as a measurement over everything.
 		const all = fs.readdirSync(dir).filter((f) => f.endsWith('.md'));
+		// THE TITLE USED TO SAY "147 real decks" AND THE FLOOR BELOW USED TO BE `> 140`, so the corpus
+		// grew to 156 and neither noticed — in a PR whose whole subject is claims nobody re-derives.
+		// The count is no longer restated: it is DERIVED from the directory on every run, and the only
+		// fixed number is the one with a stated reason. A floor cannot catch drift; an identity can.
 		assert.equal(all.length - decks.length, 3, 'exactly 3 example decks are unprojectable: 2 with no front matter, 1 under three slides');
-		assert.ok(decks.length > 140, `expected the full corpus, saw ${decks.length}`);
+		assert.equal(decks.length, all.length - 3, `every other deck in examples/ is swept — saw ${decks.length} of ${all.length}`);
 	});
 
 	for (const [shape, pick] of Object.entries(SHAPES)) {
@@ -1527,5 +1531,106 @@ test.describe('the hole predicates answer the same question as holeDrift', () =>
 		assert.equal(isHoleSourceChunk('<!-- _class: lens-hole -->\n\n<!-- -->\n'), true);
 		assert.equal(isHoleSourceChunk('<!-- _class: lens-hole-note -->\n# real slide\n'), false);
 		assert.equal(isHoleSourceChunk('# a slide about lens-hole\n'), false);
+	});
+});
+
+// ── captions: every spelling the resolver accepts, the projection must prune ─────────────────
+//
+// `pruneCaptions` recognised ONE spelling — a bare `captions:` header with flat `N: text` entries at
+// one indent — and shipped the other three verbatim into the recipient's envelope. Each arm below is
+// a measured leak, not a hypothetical: the red team pulled the text back out of a real `--player`
+// export's `application/lattice+json` block.
+require('node:test').describe('pruneCaptions reads every caption spelling, not just the canonical one', () => {
+	const project = (fm, keptIdx) => {
+		const slides = Array.from({ length: 6 }, (_, i) => `\n<!-- _class: content -->\n\n# S${i + 1}\n\nBody ${i + 1}.\n`);
+		let tagged = slides;
+		const mem = new Set(keptIdx);
+		tagged = tagged.map((x, i) => applyTag(x, 'brief', mem.has(i), 'none'));
+		const body = `${tagged.join('\n---\n')}\n`;
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, { id: 'brief', label: 'Brief', base: 'none' }], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(splitSlideChunks(body).chunks, bare, l.id) })), default: 'full' };
+		let head = `---\nmarp: true\ntheme: indaco\n${fm}${emitRegistry(reg)}`;
+		if (!head.endsWith('\n')) head += '\n';
+		const src = `${head}---\n${body}`;
+		const out = projectForExport(src, ['brief']);
+		assert.equal(out.ok, true, out.reason);
+		return out.source;
+	};
+
+	test('a QUOTED key is pruned like a bare one', () => {
+		// `^(\d+)\s*:` did not match `"4":`, so the entry `continue`d and survived. YAML permits the
+		// quoted form and the resolver reads it, so the prune has to as well.
+		const got = project('captions:\n  1: One.\n  "4": "LEAKQUOTED board only"\n  5: Five.\n', [0, 2, 4]);
+		assert.doesNotMatch(got, /LEAKQUOTED/, "a withheld slide's quoted-key caption does not ship");
+		assert.match(got, /1: One\./, 'and the kept entries survive');
+		assert.match(got, /5: Five\./);
+	});
+
+	test('a BLOCK SCALAR takes its body with it, instead of re-parenting onto a kept caption', () => {
+		// The worst of the three. The `2: |` key line matched and was dropped; its indented body was
+		// skipped as "a deeper stray line" and stayed — so the withheld text re-parented under the
+		// PREVIOUS surviving entry. Measured: `1: One.` came out of the projection carrying two lines
+		// of the withheld slide's caption beneath it, i.e. spoken over a kept slide.
+		const got = project('captions:\n  1: One.\n  2: |\n    LEAKBLOCK we expect to lose the suit.\n    LEAKBLOCK second line.\n  5: Five.\n', [0, 2, 4]);
+		assert.doesNotMatch(got, /LEAKBLOCK/, "the withheld entry's continuation lines go with its key");
+		assert.match(got, /1: One\./, 'the entry above it is untouched');
+		assert.match(got, /5: Five\./, 'and so is the one below');
+	});
+
+	test('an INLINE FLOW map is pruned pair by pair', () => {
+		// `blockLines` needs a bare `captions:` to open a block, so the flow form opened none and the
+		// whole map rode out untouched — into the envelope AND into the manifest `config` echo, where
+		// the engine's shallow front-matter parse surfaces it as a string.
+		const got = project('captions: { 1: "One.", 2: "LEAKFLOW the Acme suit", 5: "Five." }\n', [0, 2, 4]);
+		assert.doesNotMatch(got, /LEAKFLOW/, "the withheld pair does not ship");
+		assert.match(got, /1: "One\."/, 'the kept pairs do');
+		assert.match(got, /5: "Five\."/);
+	});
+
+	test('and a flow map whose every pair is withheld loses the whole line', () => {
+		const got = project('captions: { 2: "LEAKALL one", 4: "LEAKALL two" }\n', [0, 2, 4]);
+		assert.doesNotMatch(got, /LEAKALL/, 'nothing survives');
+		assert.doesNotMatch(got, /captions:/, 'and no dangling header is left behind');
+	});
+});
+
+// ── the VISIBLE page number, which nothing pinned ────────────────────────────────────────────
+//
+// `lib/engine/slides.js` carries TWO numbers per slide: the STRUCTURAL position, which every slide
+// holds and CSS counts, and the VISIBLE number, which ranks only the slides that ship. The second is
+// the privacy half — the changelog calls it "the one thing the projection exists to prevent" — and
+// no arm in the repo asserted it. Measured: replacing `const isHole = HOLE_CLASS.test(...)` with
+// `false` in slides.js left 109 lens arms green while a three-page export printed 1..5 with the
+// shipped pages reading 1, 3, 5, i.e. the withheld slots named on the artifact.
+require('node:test').describe('the visible page number ranks only the slides that ship', () => {
+	const projected = (keptIdx, n = 5) => {
+		const slides = Array.from({ length: n }, (_, i) => `\n<!-- _class: content -->\n\n# S${i + 1}\n\nBody ${i + 1}.\n`);
+		const mem = new Set(keptIdx);
+		const tagged = slides.map((x, i) => applyTag(x, 'brief', mem.has(i), 'none'));
+		const body = `${tagged.join('\n---\n')}\n`;
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, { id: 'brief', label: 'Brief', base: 'none' }], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(splitSlideChunks(body).chunks, bare, l.id) })), default: 'full' };
+		let head = `---\nmarp: true\ntheme: indaco\npaginate: true\n${emitRegistry(reg)}`;
+		if (!head.endsWith('\n')) head += '\n';
+		const out = projectForExport(`${head}---\n${body}`, ['brief']);
+		assert.equal(out.ok, true, out.reason);
+		return engine.render(out.source).html;
+	};
+
+	test('a hole does not advance the printed number, and does not inflate the total', () => {
+		const html = projected([0, 2, 4]);
+		const nums = [...html.matchAll(/<span class="lat-pagination[^"]*">([^<]*)<\/span>/g)].map((m) => m[1]);
+		// Dense 1..3 — NOT 1, 3, 5, which would name the withheld slots on the face of the artifact.
+		assert.deepEqual(nums, ['1', '2', '3'], 'the shipped pages are numbered consecutively');
+		const totals = [...new Set([...html.matchAll(/data-lattice-pagination-total="([^"]*)"/g)].map((m) => m[1]))];
+		assert.deepEqual(totals, ['3'], 'and "of N" is the shipped count, not the authored one');
+	});
+
+	test('and a projection that withholds nothing still numbers every slide', () => {
+		// The other direction, so the arm above cannot be satisfied by a rule that simply stops
+		// counting: with all five kept the deck numbers 1..5 of 5.
+		const html = projected([0, 1, 2, 3, 4]);
+		const nums = [...html.matchAll(/<span class="lat-pagination[^"]*">([^<]*)<\/span>/g)].map((m) => m[1]);
+		assert.deepEqual(nums, ['1', '2', '3', '4', '5']);
 	});
 });

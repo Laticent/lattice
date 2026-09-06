@@ -251,16 +251,32 @@ describe('--lens: the projected export', () => {
 
 	});
 
-	test('the auto-glossary says it was not pruned, even under --quiet', { timeout: TIMEOUT }, () => {
-		// The appendix is built from the deck-wide `acronyms:` registry, which the projection does not
-		// prune — so a term named ONLY on a withheld slide still gets its definition printed on the
-		// page that ships. Measured here end to end, not just asserted on stderr.
+	test('the auto-glossary is PRUNED to terms a recipient can see, and says so under --quiet', { timeout: TIMEOUT }, () => {
+		// THIS ARM USED TO ASSERT THE LEAK. `glossaryEntries` (lib/core/glossary-auto.mjs) walks the
+		// deck-wide `acronyms:` registry and emits every entry carrying a `definition` — it never asks
+		// whether the term appears in the deck — so a term named on exactly ONE slide, with that slide
+		// withheld, had its definition printed verbatim on a page that ships. It was warned about and
+		// shipped. It is now closed in the kernel (`pruneAcronyms`), because `--lens` is what CREATED
+		// the channel: before it there was no withheld slide for a definition to be about (HARD RULE #18).
 		//
-		// The `{ expansion, definition }` form is load-bearing: the bare `ACME: text` form is the
-		// CAPTION spoken-form and appends no glossary page at all. A first draft of this arm used it,
-		// could not make the warning fire, and would have "proved" the disclosure does not exist.
+		// Three entries, and each one is load-bearing:
+		//   ACME — named ONLY on the withheld slide            -> must be GONE
+		//   ROI  — named by its ACRONYM on a kept slide        -> must SURVIVE
+		//   GTM  — named only by its EXPANSION on a kept slide -> must SURVIVE
+		// Drop the expansion half of the oracle and GTM disappears, which would be a regression in the
+		// glossary dressed up as a privacy fix; drop the term half and ROI disappears too. Without both
+		// survivors this arm would pass on a prune that simply deleted the whole registry.
+		//
+		// The `{ expansion, definition }` form is load-bearing for a different reason: the bare
+		// `ACME: text` form is the CAPTION spoken-form and appends no glossary page at all. A first
+		// draft of the older arm used it, could not make the warning fire, and would have "proved" the
+		// disclosure does not exist.
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-gloss-'));
-		const bodies = ['# Cover\n\nOpening.', '# Deal\n\nWe are buying ACME this quarter.', '# Ask\n\nPlease approve.'];
+		const bodies = [
+			'# Cover\n\nOpening. We track ROI closely, and our go-to-market motion is set.',
+			'# Deal\n\nWe are buying ACME this quarter.',
+			'# Ask\n\nPlease approve.',
+		];
 		const raw = bodies.map((b) => `\n<!-- _class: content -->\n\n${b}\n`);
 		const mem = new Set([0, 2]);
 		const tagged = raw.map((x, i) => applyTag(x, 'brief', mem.has(i), 'none'));
@@ -268,19 +284,56 @@ describe('--lens: the projected export', () => {
 		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, { id: 'brief', label: 'Brief', base: 'none' }], default: 'full' };
 		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(splitSlideChunks(body).chunks, bare, l.id) })), default: 'full' };
 		const deck = path.join(dir, 'gloss.md');
-		fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\nglossary: auto\nacronyms:\n  ACME: { expansion: Acme Corporation, definition: "GLOSSLEAK the acquisition target." }\n${emitRegistry(reg)}\n---\n${body}`);
+		fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\nglossary: auto\nacronyms:\n  ACME: { expansion: Acme Corporation, definition: "GLOSSLEAK the acquisition target." }\n  ROI: { expansion: Return on Investment, definition: "KEEPROI how much we make back." }\n  GTM: { expansion: go-to-market, definition: "KEEPGTM how we reach buyers." }\n${emitRegistry(reg)}\n---\n${body}`);
 
 		const out = path.join(dir, 'gloss.pdf');
 		const r = run(deck, out, ['--lens', 'brief']);
 		assert.equal(r.status, 0, r.stderr);
-		assert.match(r.stderr, /auto-glossary appendix/, 'the sender is told, under --quiet');
-		assert.match(r.stderr, /projection does not prune/, 'and why it matters');
-		// And the disclosure the warning is about is really there — otherwise this arm would pass on a
-		// deck where nothing leaks, which is how the first draft of it went wrong.
+		// The sender is told what was dropped, BY NAME, and under --quiet.
+		assert.match(r.stderr, /dropped 1 acronym entry named only on withheld/, 'the prune reports itself');
+		assert.match(r.stderr, /\(ACME\)/, 'and names the entry it cut');
+		// And the residual it CANNOT close is still stated, because the oracle is whether the term is
+		// named on a kept slide, not what its definition talks about.
+		assert.match(r.stderr, /matches the term, not the/, 'the residual is still disclosed');
+
+		// The artifact is the claim. stderr saying "pruned" is not evidence the bytes are gone —
+		// reading the page is, which is how the older arm proved the leak was real.
 		const { execFileSync } = require('node:child_process');
 		let text = '';
 		try { text = execFileSync('pdftotext', ['-layout', out, '-'], { encoding: 'utf8' }); } catch { return; }
-		assert.match(text, /GLOSSLEAK/, "the withheld slide's term really does get its definition on the appended page");
+		assert.doesNotMatch(text, /GLOSSLEAK/, "the withheld slide's term takes its definition with it");
+		assert.match(text, /KEEPROI/, 'a term named by its acronym on a kept slide still gets its row');
+		assert.match(text, /KEEPGTM/, 'and so does one named only by its expansion');
+
+		// The whole HTML too, not just the PDF's text layer — the definition must not survive in any
+		// channel of the shipped file.
+		const html = fs.readFileSync(out.replace(/\.pdf$/, '.html'), 'utf8');
+		assert.doesNotMatch(html, /GLOSSLEAK/, 'and it is absent from the HTML the same run wrote');
+	});
+
+	test('a NON-reducing view leaves the acronym registry exactly as the author wrote it', { timeout: TIMEOUT }, () => {
+		// The gate that keeps this fix from becoming a behavior change for everyone else. `--lens full`
+		// withholds nothing, so there is no disclosure to prevent — and an author is entitled to define
+		// a term they never spell out in the body and still see it in the glossary. `pruneAcronyms`
+		// therefore no-ops unless the projection actually reduces. Delete the `reducing` guard and this
+		// arm fails: UNUSED is named nowhere in the deck.
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-gloss-full-'));
+		const bodies = ['# Cover\n\nOpening.', '# Deal\n\nA deal.', '# Ask\n\nPlease approve.'];
+		const raw = bodies.map((b) => `\n<!-- _class: content -->\n\n${b}\n`);
+		const tagged = raw.map((x, i) => applyTag(x, 'brief', i !== 1, 'none'));
+		const body = `${tagged.join('\n---\n')}\n`;
+		const bare = { lenses: [{ id: 'full', label: 'Full', base: 'all' }, { id: 'brief', label: 'Brief', base: 'none' }], default: 'full' };
+		const reg = { lenses: bare.lenses.map((l) => (l.id === 'full' ? l : { ...l, approved: approvalHash(splitSlideChunks(body).chunks, bare, l.id) })), default: 'full' };
+		const deck = path.join(dir, 'gloss.md');
+		fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\nglossary: auto\nacronyms:\n  UNUSED: { expansion: Never Written Out, definition: "KEEPUNUSED defined but never named." }\n${emitRegistry(reg)}\n---\n${body}`);
+
+		const out = path.join(dir, 'gloss.pdf');
+		const r = run(deck, out, ['--lens', 'full']);
+		assert.equal(r.status, 0, r.stderr);
+		const { execFileSync } = require('node:child_process');
+		let text = '';
+		try { text = execFileSync('pdftotext', ['-layout', out, '-'], { encoding: 'utf8' }); } catch { return; }
+		assert.match(text, /KEEPUNUSED/, 'a full view prunes nothing — the author keeps the row they wrote');
 	});
 
 	describe('fails closed', () => {

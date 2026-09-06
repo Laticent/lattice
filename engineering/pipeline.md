@@ -95,7 +95,13 @@ every other format is one linear sequence and refuses.
 
 The projection is a **source transform applied before anything else**, which is why the
 page count, auto-split, the overflow pass, notes, captions, and the CSS/font prune all
-agree with it: by the time any of them measures the deck, it *is* the shorter deck. It is
+agree with it: by the time any of them measures the deck, the projection has already
+happened. What they agree on is **two numbers, not one** — a withheld slide ships as an
+empty hidden placeholder that keeps its slot, so the deck is the AUTHORED length
+structurally while only the shipped slides carry a visible page number. (This paragraph
+said "it *is* the shorter deck" until that was measured false; it is the premise behind six
+authored-vs-shipped index defects, which is why `SHIPPED_SLIDE_AT` and `asShippedSlides`
+exist at all.) It is
 also what a `--lens` export can honestly claim that the Studio cannot — the slides it
 leaves out are not in the file, rather than hidden inside it. Inside a multi-view player
 the switching is still only hiding. `--lens-source full` puts the whole deck source back

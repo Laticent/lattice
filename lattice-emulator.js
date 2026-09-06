@@ -876,7 +876,20 @@ let PROMISED_PAGES = null;
  * @param {() => void} [cleanup] removes anything already written, before the refusal is printed
  */
 function assertArtifactPages(got, noun, cleanup) {
-  if (!Number.isInteger(PROMISED_PAGES) || PROMISED_PAGES <= 0 || got === PROMISED_PAGES) return;
+  // A ZERO OR ABSENT PROMISE IS A REFUSAL UNDER A LENS, not a silent pass. Zero is exactly what a
+  // broken section selector produces, and returning early there would disable every artifact
+  // assertion at once on the runs that need them most.
+  if (!Number.isInteger(PROMISED_PAGES) || PROMISED_PAGES <= 0) {
+    if (LENS_PROJECTION) {
+      if (cleanup) { try { cleanup(); } catch { /* best effort */ } }
+      try { fs.unlinkSync(outHtml); } catch { /* may never have been written */ }
+      console.error('error: this export could not establish how many slides it ships, so the artifact cannot be');
+      console.error('       checked against it. Nothing was exported.');
+      process.exit(1);
+    }
+    return;
+  }
+  if (got === PROMISED_PAGES) return;
   const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
   const detail = got > PROMISED_PAGES
     ? ['       The extra ones are slides this export withheld, appearing at render time — so the file would',
@@ -2203,19 +2216,35 @@ if (LENS_PROJECTION) {
   const { slideBoundaries: countSlides, frontMatterBlockOf: fmOf, normalizeSourceText: normSrc } = require('./lib/core/slide-boundaries.mjs');
   const chunkCount = (src) => countSlides(normSrc(src).slice(fmOf(normSrc(src)).length)).lines.length + 1;
   const appendedSlides = Math.max(0, chunkCount(rawMd) - chunkCount(preGlossaryMd));
+  // Stashed on the projection because the PROMISE below needs it, and it must travel with the
+  // SOURCE-derived anchor rather than be recomputed next to the DOM it is meant to check.
+  LENS_PROJECTION.appended = appendedSlides;
   // AND THE REPORT SAYS SO, because "2 of 3 slides ship" beside a three-slide file is a line that
   // describes neither. The appendix is generated from the deck-wide acronym registry, which the
   // projection does not prune — so a definition written for a withheld slide's subject rides out on it.
   if (appendedSlides > 0) {
     LENS_REPORT += `\n  plus ${appendedSlides} appended slide${appendedSlides === 1 ? '' : 's'} (auto-glossary)`;
-    // UN-GATED, for the same reason as the flag above: this one says a definition written for a
-    // withheld slide's subject rides out on the appendix. Measured — a term named on exactly one
-    // slide, that slide withheld, its definition printed verbatim on the glossary page of the
-    // reduced PDF. Under `--quiet` the run said nothing at all.
+    // UN-GATED, for the same reason as the flag above. THIS MESSAGE USED TO SAY THE OPPOSITE OF
+    // WHAT THE CODE DOES: it read "the projection does not prune", which was true when it was
+    // written and false the moment `pruneAcronyms` landed. A shipped sentence that describes an
+    // older build is the same defect class this branch has now corrected five times, so what it
+    // says is derived from the prune's own output rather than restated beside it.
+    //
+    // What the prune closes: an entry whose TERM and EXPANSION appear nowhere a recipient can read
+    // is dropped, so a definition written about a withheld slide's subject no longer rides out on
+    // the appendix. What it CANNOT close, and therefore what is still worth saying: the oracle is
+    // whether the term is NAMED on a kept slide, not what the definition talks about. An acronym
+    // that appears on a slide the view keeps carries whatever its definition says — including a
+    // sentence about material the view withholds. No prune can read that; only the author can.
     if (LENS_PROJECTION.kept.length < LENS_PROJECTION.total) {
-      LENS_DISCLOSURES.push('warning: the auto-glossary appendix is built from the deck-wide `acronyms:` registry, which the',
-        '         projection does not prune — a term defined for a WITHHELD slide still gets its definition on the',
-        '         appended page. Remove the entry, or drop `glossary: auto`, if the definition itself is sensitive.');
+      const cut = LENS_PROJECTION.prunedAcronyms ?? [];
+      if (cut.length) {
+        LENS_DISCLOSURES.push(`note: the auto-glossary dropped ${cut.length} acronym entr${cut.length === 1 ? 'y' : 'ies'} named only on withheld`,
+          `      slides (${cut.join(', ')}) — their definitions are not on the appended page.`);
+      }
+      LENS_DISCLOSURES.push('warning: an acronym NAMED on a slide this view keeps still gets its full definition on the',
+        '         appended page, whatever that definition discusses. The prune matches the term, not the',
+        '         sentence. Reword the entry, or drop `glossary: auto`, if the definition itself is sensitive.');
     }
   }
   // DOES THE DECK CARRY CSS OF ITS OWN? A reducing projection WARNS if it does — a class no
@@ -4007,11 +4036,19 @@ async function renderBody(browser, g, closeBrowser) {
     // measures the screen document.
     const measureBoxes = () => g(() => page.evaluate((holeCls) => {
       const secs = [...document.querySelectorAll('#deck > section[data-lattice-slide], body > section[data-lattice-slide]')];
-      return secs.map((el, i) => ({
-        at: Number(el.getAttribute('data-authored-slide') ?? i),
-        hole: el.classList.contains(holeCls),
-        boxed: el.getClientRects().length > 0,
-      }));
+      return secs.map((el, i) => {
+        // `declared` separates a section the RENDER numbered from one that merely landed at this
+        // DOM position. The `?? i` fallback is still right for a non-lens render (nothing to
+        // check against), but under a projection it is the whole fail-open: a section injected by
+        // a script carries no `data-authored-slide`, took `i`, and was counted as a shipped slide.
+        const raw = el.getAttribute('data-authored-slide');
+        return {
+          at: Number(raw ?? i),
+          declared: raw !== null,
+          hole: el.classList.contains(holeCls),
+          boxed: el.getClientRects().length > 0,
+        };
+      });
     }, HOLE_CLASS_NAME), 'measure hole visibility');
     const boxes = await measureBoxes();
     let printBoxes = boxes;
@@ -4098,7 +4135,60 @@ async function renderBody(browser, g, closeBrowser) {
     // is the whole point: the gap between them is where a print-time rule, a `beforeprint` handler or
     // a late timer lives, and comparing the ARTIFACT to the promise closes that gap without having to
     // enumerate what can happen inside it.
-    PROMISED_PAGES = boxes.filter((b) => !b.hole).length;
+    //
+    // AND THE PROMISE ITSELF IS ANCHORED, which is where the tenth round's fix stopped short. It
+    // moved the WITHHELD SET to `LENS_PROJECTION` and left this line reading the live DOM, so the
+    // two sides could still move together: a script that appends two decoy `<section
+    // data-lattice-slide>` elements at load inflates this count to the authored length, and a
+    // `beforeprint` handler then removes the decoys and un-hides the holes. Measured on the real
+    // CLI — `brief — 3 of 5 slides ship`, a FIVE-page PDF, blank at exactly the withheld positions,
+    // exit 0. No withheld body text escaped; the deck's real length and the exact slots did, which
+    // is the disclosure the hole design exists to prevent and which the channel table claimed was
+    // hidden in the PDF.
+    //
+    // A section counts toward the promise only if the RENDER numbered it (`declared`) AND that
+    // number is one the projection kept — or it is an APPENDED slide, of which the source says how
+    // many there are (`LENS_PROJECTION.appended`, from a chunk count of two source strings; the
+    // auto-glossary is the only one today). A split slide renders several sections sharing one
+    // authored number and all of them count, which is why this counts sections rather than
+    // deduplicating. Anything else is a section the source cannot account for, and it is refused
+    // rather than excluded — silently dropping it would leave the artifact check passing on a
+    // document that had been added to.
+    if (LENS_PROJECTION) {
+      const keptSet = new Set(LENS_PROJECTION.kept);
+      const shipped = boxes.filter((b) => !b.hole);
+      const appendedCap = Number.isInteger(LENS_PROJECTION.appended) ? LENS_PROJECTION.appended : 0;
+      const appended = shipped.filter((b) => b.declared && b.at >= LENS_PROJECTION.total);
+      const unaccounted = shipped.filter((b) => !b.declared || (!keptSet.has(b.at) && b.at < LENS_PROJECTION.total));
+      // AND THE MIRROR: every kept slide must still be present as a NON-hole section. The check above
+      // catches sections the page ADDED; this one catches a kept slide the page took away, by giving
+      // it the hole class at runtime. That direction is a loss rather than a disclosure — the
+      // recipient silently never sees a slide the sender approved — and it was invisible to every
+      // check here: `shown` wants `hole && boxed`, `vanished` wants `!hole && !boxed`, and a kept
+      // section that gains the class is `hole && !boxed`, in neither list. The promise was then taken
+      // from the same mutated DOM, so the artifact matched a count that had already dropped.
+      const seenKept = new Set(shipped.filter((b) => b.declared).map((b) => b.at));
+      const missing = LENS_PROJECTION.kept.filter((i) => !seenKept.has(i));
+      if (missing.length) {
+        refuse([
+          `error: slide${missing.length === 1 ? '' : 's'} ${missing.map((i) => i + 1).join(', ')} ${missing.length === 1 ? 'is' : 'are'} in this view and did not render as ${missing.length === 1 ? 'a slide' : 'slides'}.`,
+          '       Something in the deck marked a kept slide as withheld after the document was rendered — a',
+          '       script, most likely — so the recipient would silently be missing a slide this view ships.',
+        ]);
+      }
+      if (unaccounted.length || appended.length > appendedCap) {
+        const n = unaccounted.length + Math.max(0, appended.length - appendedCap);
+        refuse([
+          `error: ${n} section${n === 1 ? '' : 's'} in the rendered page ${n === 1 ? 'is' : 'are'} not accounted for by this projection.`,
+          '       The source says which slides ship and how many are appended; the rendered document has more',
+          '       than that. Something added to the page after it was rendered — a script, most likely — and a',
+          "       count taken from it would promise the artifact more pages than the view withholds.",
+        ]);
+      }
+      PROMISED_PAGES = shipped.length;
+    } else {
+      PROMISED_PAGES = boxes.filter((b) => !b.hole).length;
+    }
   }
   // §8 rule 8's figures are reported on their OWN line: "clipped" would be a lie (the box fits)
   // and so would "trim content" (the fix is a simpler figure, or a bigger box).
@@ -4478,6 +4568,21 @@ async function renderBody(browser, g, closeBrowser) {
     finalBytes = await embedNotesInPdf(finalBytes, notesPerRenderedPage(cleanDocHtml, materializedNotes));
     finalBytes = await applyPresentMode(finalBytes);
     finalBytes = await embedSourceInPdf(finalBytes);
+    // THE SAME ASSERTION THE VECTOR PATH MAKES, because this branch writes a PDF too and had none.
+    // `assertArtifactPages` guarded four call sites while the export has SEVEN write paths, so
+    // `--raster` and `--paper` reached disk unchecked: measured, a deck whose kept slide strips the
+    // hole class once print emulation is turned back OFF produced `brief — 3 of 6 slides ship` and
+    // `PDF: … (raster, 6 pages)` in the same output, at exit 0. Those two lines contradict each
+    // other and nothing refused. The handles here come from `page.$$(SHOOTABLE_SLIDES)` on the LIVE
+    // page, so a strip that lands after the visibility check makes every hole shootable again.
+    //
+    // Counted off the ASSEMBLED BYTES rather than `jpegBuffers.length`, which is the array that
+    // produced them — one more proxy, and the thing the docblock above refuses to accept.
+    {
+      const { PDFDocument } = require('pdf-lib');
+      const got = (await PDFDocument.load(finalBytes)).getPageCount();
+      assertArtifactPages(got, 'page');
+    }
     fs.writeFileSync(outFile, pinPdfTimestamps(finalBytes).bytes);
     // materializedNotes, NOT slideNotes — see the sidecar write below. Counting the
     // unstripped array made this line claim "3 slides with speaker notes" on a run that
@@ -4880,6 +4985,26 @@ async function renderBody(browser, g, closeBrowser) {
       if (n > 0) pageCount = n;
     } catch { /* keep the authored count */ }
     await closeBrowser();
+    // COUNTED OFF THE WRITTEN FILE UNDER A READER VIEW, because the query above runs on the LIVE
+    // page and a deck that strips the hole class after the visibility check makes every hole
+    // shootable again. The file on disk still marks them — it is written pre-navigation — so the
+    // live count and the artifact disagreed and the LINE was the one that lied: measured, `HTML:
+    // … (6 slides)` printed directly beneath `brief — 3 of 6 slides ship`.
+    //
+    // The `.html` is the one format where a hole legitimately SHIPS (its sections are siblings, so
+    // `nth-of-type` is live and the slot has to stay — see player-core). So the artifact's slide
+    // count is its non-hole sections, read out of the bytes rather than asked of the browser.
+    if (LENS_PROJECTION) {
+      try {
+        const written = fs.readFileSync(outFile, 'utf8');
+        const opens = written.match(/<section\b[^>]*>/g) ?? [];
+        const shippedInFile = opens.filter((tag) => /\sdata-lattice-slide=/.test(tag) && !isHoleOpenTag(tag)).length;
+        if (shippedInFile > 0) {
+          pageCount = shippedInFile;
+          assertArtifactPages(shippedInFile, 'slide');
+        }
+      } catch { /* an unreadable file is the writer's problem, not this line's */ }
+    }
     // materializedNotes, NOT slideNotes — under --strip-notes the former is all-null. The
     // sidecar is a SHAREABLE file, so handing it the unstripped array leaks exactly the
     // text the flag exists to remove, and it did (red-team, this PR): the same deck+flags
@@ -5020,6 +5145,11 @@ async function renderBody(browser, g, closeBrowser) {
         // slides and broke its own approvals. Only for a PROJECTED envelope: under
         // `--lens-source full` the envelope really is the whole deck.
         lensProjection: LENS_VIEWS && LENS_SOURCE === 'projected' ? { views: LENS_IDS, of: LENS_TOTAL } : undefined,
+        // BUILD-TIME ONLY, and deliberately a sibling of `lensProjection` rather than a field inside
+        // it: that object is serialized into the envelope, and the kept set is exactly the withheld
+        // positions in the negative. The player uses this to decide which sections are holes, instead
+        // of asking a captured DOM that a deck's own script may already have edited.
+        lensKept: LENS_PROJECTION ? LENS_PROJECTION.kept : undefined,
         title: deckTitle,
         // The deck's REAL canvas. Without it the player hardcoded 1280x720 and any deck
         // declaring a non-default `size:` exported laid out for its own canvas and then

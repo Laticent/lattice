@@ -8,7 +8,22 @@ import type { LensBase, SlideTags } from './types';
 // The comment structure is scanned with plain `indexOf` / character loops, NOT regex. A regex over an
 // HTML comment (`<!--\s*_lens:([^>]*)-->`) has two unbounded quantifiers CodeQL models as polynomial
 // (js/polynomial-redos), even when it is provably linear; string scanning sidesteps the query entirely
-// and is genuinely O(n). The only regexes left in this file are trivial whitespace SPLIT delimiters.
+// and is genuinely O(n).
+//
+// ONE NON-TRIVIAL REGEX LIVES HERE NOW, and this paragraph claimed none did until that was checked.
+// `COMMENT_OPEN` (below) carries a quantified group inside a quantified group — the shape the rule
+// above exists to avoid — and it runs on author-influenced line prefixes. It is kept, for the reason
+// its own docblock gives: the canonical statement of what may precede a directive lives in
+// `lib/core/class-directive-scan.mjs`, and restating it as a character scan here would be a second
+// definition of the same grammar (HARD RULE #1), which is the duplication that has cost this repo
+// most.
+//
+// It is linear, and that is measured rather than argued: every alternative in the group fails on its
+// first character, so a failed parse dies in O(1) instead of fanning out. Timed on this build,
+// `"> ".repeat(n) + "X"` and `"- ".repeat(n) + "X"` — the shapes that make a polynomial regex blow
+// up — run 0.08ms at n=1000 and 1.94ms at n=50000, i.e. linear in n with no backtracking cliff.
+// Whether CodeQL's query nonetheless FIRES on the shape is a separate question and is UNVERIFIED
+// here; CodeQL is not runnable from this sandbox.
 
 /** The fence marker a line opens/closes with (e.g. "```"), or null — 3+ backticks/tildes after AT
  *  MOST THREE SPACES. Pure char scan, no regex.
