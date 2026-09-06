@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { CHROME, expect, gotoStudio, openInspector, persistedByPrefix, persistedSource, test, toastText } from './studio-fixture';
+import { CHROME, expect, gotoStudio, openInspector, persistedByPrefix, persistedSource, setEditorContent, test, toastText } from './studio-fixture';
 
 // The Deck inspector's front-matter controls, speaker notes, and version history.
 // Front-matter writes are asserted both on the immediate outer-DOM signal
@@ -69,4 +69,86 @@ test('saving a version records a checkpoint', async ({ page }) => {
 		const snaps = await persistedByPrefix(page, 'snap');
 		return snaps ? JSON.parse(snaps).length : 0;
 	}).toBeGreaterThan(0);
+});
+
+/**
+ * THE DECK MOTION TAB — the register AND what it actually produces (HARD RULE #23).
+ *
+ * The Studio had ZERO coverage of what a deck's motion settings DO: the three controls were
+ * asserted, the consequence never was. That is how the old Fabricate scene studio shipped an
+ * engine badge naming a package deleted a week earlier — nothing on any tier looked.
+ *
+ * The deck below is deliberately NOT at the built-in defaults (`motion-style: rise`,
+ * `motion-speed: slow`), which is what makes the register assertion meaningful: a deck sitting at
+ * build/auto cannot tell a control that reads the deck from one that returns a constant.
+ */
+const MOTION_DECK = [
+	'---',
+	'theme: indaco',
+	'motion: on',
+	'motion-style: rise',
+	'motion-speed: slow',
+	'---',
+	'',
+	'<!-- _class: funnel motion-on -->',
+	'',
+	'## Where deals stall',
+	'',
+	'- Qualified 1240',
+	'- Proposal 620',
+	'- Negotiation 310',
+	'- Closed won 118',
+	'',
+	'---',
+	'',
+	'<!-- _class: piechart -->',
+	'',
+	'## Revenue mix',
+	'',
+	'- Direct 42',
+	'',
+	'---',
+	'',
+	'<!-- _class: journey -->',
+	'',
+	'## Customer arc',
+	'',
+	'- Discover 3',
+	'- Trial 4',
+].join('\n');
+
+async function openDeckMotion(page: Page) {
+	await setEditorContent(page, MOTION_DECK);
+	// Wait for the SIGNAL the deck landed, not a guessed interval: the shell persists the source
+	// on a debounce, so seeing the deck's own front matter in storage is the deck having arrived.
+	await expect.poll(() => persistedSource(page)).toContain('motion-style: rise');
+	// `beforeEach` already opened the Inspector — `openInspector` TOGGLES, so calling it again here
+	// closes the panel and every later locator misses.
+	await page.getByRole('tab', { name: CHROME.deckTab.motion }).click();
+}
+
+test('the deck Motion controls read the deck, not the built-in default', async ({ page }) => {
+	await openDeckMotion(page);
+	// The deck says rise/slow. A control showing Build/Auto here is reading a constant.
+	await expect(page.getByRole('combobox', { name: 'Choose motion style' })).toContainText('Rise');
+	await expect(page.getByRole('combobox', { name: 'Choose motion speed' })).toContainText('Slow');
+});
+
+test('the Motion tab names what the deck will actually animate', async ({ page }) => {
+	await openDeckMotion(page);
+	// Scoped to the Motion panel's own list — the heading also appears in the editor and preview.
+	await expect(page.getByRole('button', { name: /Go to slide 1, Where deals stall/ })).toBeVisible();
+	// Three targets: the funnel carries, the one-mark piechart moves but is flagged, and the
+	// journey has Play on from the deck default yet emits no motion roles — so it is counted as
+	// unreachable rather than inflating "will move". That last distinction is the point.
+	await expect(page.getByText(/3 targets · 2 will move · 1 the engine cannot reach/)).toBeVisible();
+});
+
+test('the admission test flags motion that carries nothing, and offers the fix', async ({ page }) => {
+	await openDeckMotion(page);
+	// One mark cannot build — the "sequence" is a single fade, which is the still it already was.
+	await expect(page.getByText(/reads as a fade, not a sequence/)).toBeVisible();
+	await page.getByRole('button', { name: 'Turn it off' }).click();
+	// It writes the Inspector's own token, so the two surfaces cannot drift.
+	await expect.poll(() => persistedSource(page)).toContain('motion-off');
 });

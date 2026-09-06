@@ -20,10 +20,15 @@ import type { StudioTheme } from './theme-library';
 
 export const ASSET_FORMAT = 'lattice-asset/1';
 
-// The engine a scene targets, derived from its source (built→Zdog, svg→Vivus). Inlined
-// here (rather than importing scene-library's `sceneEngine`) so this "pure data + JSZip"
-// module stays free of the IndexedDB-bound store graph. Mirrors scene-library.sceneEngine.
-const engineOf = (spec: Scene): 'zdog' | 'vivus' => (spec.source === 'svg' ? 'vivus' : 'zdog');
+// The painter a scene targets, derived from its source. Inlined here (rather than imported) so
+// this "pure data + JSZip" module stays free of the IndexedDB-bound store graph.
+//
+// An svg scene reads `anime`, not `vivus`: Vivus was REPLACED by anime.js v4 in 90a2b41, and this
+// string is written into every exported bundle's manifest and README. It is descriptive metadata
+// — nothing reads it back on import (`unpackBundle` keys on `kind`) — which is exactly why it sat
+// wrong: no gate could see it, and the only surface that showed it was the Motion tab's engine
+// badge, which shipped reading `vivus` until this change removed it.
+const engineOf = (spec: Scene): 'zdog' | 'anime' => (spec.source === 'svg' ? 'anime' : 'zdog');
 
 export type ThemeItem = { kind: 'theme'; name: string; label: string; essentials: Record<string, string> | null; css: string; showcase?: string };
 export type ComponentItem = { kind: 'component'; name: string; bucket: string | null; css: string; skeleton: string };

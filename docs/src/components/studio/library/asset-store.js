@@ -83,10 +83,16 @@ export { HISTORY_STORE, openDB, reqAsPromise } from './asset-db.js';
  *              artifact. You replace one by attaching the file again, so there is no
  *              edit to lose, and versioning it would put up to 20 copies of a
  *              multi-megabyte binary into a quota the decks share.
- *   `scene`  — authored, and it would belong here, but scenes have no Library shelf
- *              yet (#1678), so there is nowhere to see or restore a version from.
- *              Storing them would be cost with no reachable benefit. Add `'scene'`
- *              to this set in the same change that gives scenes a card.
+ *   `scene`  — authored, it now HAS a Library card (the Motion faculty, #2081), and it
+ *              still is not versioned. This is a DEFERRAL the owner asked for, not the
+ *              old "nowhere to restore from" reason — that reason is gone, and leaving
+ *              it standing would have the next reader add `'scene'` here believing they
+ *              were completing an instruction. Versioning motion assets is wanted; it is
+ *              simply not this change. What v1 owes it is only that nothing forecloses
+ *              it: the record keeps its stable `id` and its `specVersion` stamp, and no
+ *              path mutates a saved asset in a way that could not have been snapshotted
+ *              first. Adding `'scene'` here is then a one-line change plus the version
+ *              chip on the card.
  */
 const VERSIONED_KINDS = new Set(['theme', 'component', 'finish']);
 

@@ -17,6 +17,7 @@ import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-histo
 import { listAssets } from './library/asset-store.js';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
 import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './reference-doc-store';
+import { deleteStudioScene, listStudioScenes, type StudioScene, saveStudioScene } from './scene-library';
 import { renderThemeShowcase } from './share-export';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme, saveStudioTheme } from './theme-library';
 
@@ -26,7 +27,7 @@ import { deleteStudioTheme, listStudioThemes, type StudioTheme, saveStudioTheme 
 // actions (apply a theme, insert a component) delegate to the shell; storage ops
 // (delete, import) run here, then `onChanged` refreshes the shell's topbar/insert lists.
 
-type Filter = 'all' | 'theme' | 'component' | 'finish' | 'refdoc';
+type Filter = 'all' | 'theme' | 'component' | 'finish' | 'motion' | 'refdoc';
 
 function download(blob: Blob, filename: string) {
 	const url = URL.createObjectURL(blob);
@@ -130,7 +131,7 @@ function LibraryFrame({ docked, open, onOpenChange, dropProps, children }: { doc
 	);
 }
 
-export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onChanged, notify }: {
+export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged, notify }: {
 	open: boolean;
 	onOpenChange: (o: boolean) => void;
 	/** Desktop-Craft: render as a docked left column (plain div, no Sheet portal),
@@ -155,6 +156,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	onEditTheme?: (t: StudioTheme) => void;
 	onEditComponent?: (c: StudioComponent) => void;
 	onEditFinish?: (f: StudioFinish) => void;
+	onEditMotion?: (m: StudioScene) => void;
 	onChanged: () => void;
 	notify: (msg: string) => void;
 }) {
@@ -176,15 +178,17 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// store rather than a query per card, so a shelf of forty assets is one read.
 	const [versionCounts, setVersionCounts] = React.useState<Record<string, number>>({});
 	const [historyFor, setHistoryFor] = React.useState<VersionedAsset | null>(null);
+	const [scenes, setScenes] = React.useState<StudioScene[]>([]);
 	const fileRef = React.useRef<HTMLInputElement>(null);
 	const docFileRef = React.useRef<HTMLInputElement>(null);
 
 	const reload = React.useCallback(() => {
-		Promise.all([listStudioThemes(), listStudioComponents(), listStudioFinishes(), listRefDocs()]).then(([t, c, f, d]) => {
+		Promise.all([listStudioThemes(), listStudioComponents(), listStudioFinishes(), listRefDocs(), listStudioScenes()]).then(([t, c, f, d, m]) => {
 			setThemes(t);
 			setComponents(c);
 			setFinishes(f);
 			setDocs(d);
+			setScenes(m);
 			// Version counts, and the orphan net, in the same pass.
 			//
 			// `listAssets()` — the RAW store, every kind, one read — and deliberately not the
@@ -232,8 +236,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const vThemes = filter === 'all' || filter === 'theme' ? themes.filter((t) => !q || t.label.toLowerCase().includes(q) || t.name.includes(q)) : [];
 	const vComponents = filter === 'all' || filter === 'component' ? components.filter((c) => !q || c.name.includes(q) || (c.bucket || '').includes(q)) : [];
 	const vFinishes = filter === 'all' || filter === 'finish' ? finishes.filter((f) => !q || f.label.toLowerCase().includes(q) || f.name.includes(q)) : [];
+	const vScenes = filter === 'all' || filter === 'motion' ? scenes.filter((m) => !q || m.label.toLowerCase().includes(q) || m.name.includes(q)) : [];
 	const vDocs = filter === 'all' || filter === 'refdoc' ? docs.filter((d) => !q || d.name.toLowerCase().includes(q)) : [];
-	const total = themes.length + components.length + finishes.length + docs.length;
+	// `scenes` belongs in this sum. Without it a Library holding ONLY motion assets rendered its
+	// empty state, which gates the whole card grid — so the shelf the Motion faculty saves to was
+	// invisible, and Insert/Edit/Delete with it. That is the exact defect the card was added to close.
+	const total = themes.length + components.length + finishes.length + docs.length + scenes.length;
 	// Only the reference files carry a byte size (a theme/component/finish is CSS + a
 	// recipe, measured in kilobytes nobody budgets), so the status bar reports the one
 	// number a browser-storage shelf can genuinely run out of rather than a made-up total.
@@ -404,7 +412,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		const selThemes = themes.filter((t) => sel.has(tKey(t)));
 		const selComps = components.filter((c) => sel.has(cKey(c)));
 		const selFinishes = finishes.filter((f) => sel.has(fKey(f)));
-		const n = selThemes.length + selComps.length + selFinishes.length;
+		// `packBundle` has taken scenes since it was written, and `restoreWorkspace` reads them back.
+		// Omitting them here meant the motion card's own select checkbox counted toward the footer's
+		// "Export N as .zip" and then packed nothing — three motions selected produced a bare return,
+		// no download and no error at all.
+		const selScenes = scenes.filter((m) => sel.has(`motion:${m.id}`));
+		const n = selThemes.length + selComps.length + selFinishes.length + selScenes.length;
 		if (n === 0) return;
 		// A single selected asset shares as its own zip; a mix becomes a bundle.
 		if (n === 1 && selThemes.length === 1) return shareTheme(selThemes[0]);
@@ -413,7 +426,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		setBusy(`Packing ${n} assets…`);
 		try {
 			const withPdf = await Promise.all(selThemes.map(async (theme) => ({ theme, showcase: await renderThemeShowcase(options, theme).catch(() => null) })));
-			download(await packBundle(withPdf, selComps, selFinishes), 'lattice-assets.zip');
+			download(await packBundle(withPdf, selComps, selFinishes, selScenes), 'lattice-assets.zip');
 			notify(`Exported ${n} assets as lattice-assets.zip.`);
 			setSel(new Set());
 		} catch {
@@ -428,6 +441,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		let nThemes = 0;
 		let nComps = 0;
 		let nFinishes = 0;
+		let nScenes = 0;
 		// PER ITEM, not per bundle. The whole three-loop import used to sit in one `try`,
 		// so one bad asset skipped every asset after it — and `reload()`/`onChanged()` sat
 		// inside that `try` too, so the shelf was not even refreshed for the ones that HAD
@@ -436,7 +450,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		const refused: ImportRefusal[] = [];
 		try {
 			for (const f of Array.from(files)) {
-				const { themes: ts, components: cs, finishes: fs } = await unpackBundle(f);
+				const { themes: ts, components: cs, finishes: fs, scenes: ms } = await unpackBundle(f);
 				// `historyLabel` — an import that lands on a name you already use REPLACES that
 				// record (the store dedupes by kind+name when no id is passed), so the version it
 				// snapshots is the one thing between a stranger's .zip and your own work.
@@ -456,6 +470,17 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				// regenerates it from the recipe, and `coerceRecipe` clamps every number and
 				// enum-checks every keyword on the way in. Safe by construction, not by a scan.
 				for (const fin of fs) { await saveStudioFinish({ name: fin.name, label: fin.label, css: fin.css, recipe: fin.recipe }, { historyLabel: 'Before import' }); nFinishes++; }
+				// `unpackBundle` has always parsed scenes; the Library simply threw them away, so a
+				// bundle round-tripped through Export and Import lost every motion asset in silence.
+				// The art goes back through `saveStudioScene`, which re-sanitizes at the store boundary.
+				for (const m of ms) {
+					try {
+						await saveStudioScene({ name: m.name, label: m.label, description: m.description, spec: m.spec, art: m.art, poster: m.poster });
+						nScenes++;
+					} catch {
+						refused.push({ name: m.label || m.name, why: 'its motion plan is not valid' });
+					}
+				}
 			}
 		} catch (e) {
 			notify(`Import failed — ${String((e as Error)?.message || e)}`);
@@ -464,8 +489,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			// a stale shelf is how a partial import reads as "nothing happened".
 			reload();
 			onChanged();
-			const got = nThemes + nComps + nFinishes;
-			if (got) notify(`Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}.`);
+			const got = nThemes + nComps + nFinishes + nScenes;
+			if (got) notify(`Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}.`);
 			for (const r of refused) if (r) notify(`Refused ${r.name} — ${r.why}`);
 			if (!got && !refused.length) notify('Nothing to import from that file.');
 			setBusy(null);
@@ -534,6 +559,30 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	}
 	function removeFinish(f: StudioFinish) {
 		deleteStudioFinish(f.id).then(() => { reload(); onChanged(); notify(`Deleted ${f.label}.`); });
+	}
+	// Closes the retired faculty's actual defect: `deleteStudioScene` shipped with ZERO callers, so a
+	// saved scene could not be seen, edited, deleted or placed from any UI — a shelf with no door.
+	function removeScene(m: StudioScene) {
+		deleteStudioScene(m.id).then(() => { reload(); onChanged(); notify(`Deleted ${m.label}.`); });
+	}
+	// LOADED ON THE CLICK, not with the route. Insert is a user gesture, and everything the skeleton
+	// reaches — the slide writer and the instancing that gives each copy its own ids — is dead weight
+	// for the many sessions that open the Library and never place a motion. The Studio route's eager
+	// budget had 0.2KB of headroom with this imported at the top; deferring it measured 638.6KB →
+	// 637.9KB, so the headroom is 0.9KB rather than 0.2KB.
+	async function insertScene(m: StudioScene) {
+		// A scene the RETIRED Motion tab saved carries a spec and no `art` — it authored a built scene,
+		// not a drawing. Inserting it wrote a heading over an empty poster and reported success, which
+		// is the silent-wrongness class this faculty exists to avoid. Edit already refuses honestly.
+		if (!m.art) {
+			notify(`“${m.label}” was saved by the old Motion tab and has no drawing, so there is nothing to place. Open it in Fabricate to bring one.`);
+			return;
+		}
+		const { slideSkeleton } = await import('./motion/skeleton');
+		const md = slideSkeleton({ label: m.label, description: m.description, art: m.art, spec: m.spec });
+		onInsert(md, m.name);
+		onOpenChange(false);
+		notify(`Inserted “${m.label}”.`);
 	}
 
 	const selCount = sel.size;
@@ -604,9 +653,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 						ariaLabel="Library sections"
 						value={filter}
 						onValueChange={(v) => setFilter(v as Filter)}
-						tabs={(['all', 'theme', 'component', 'finish', 'refdoc'] as Filter[]).map((f) => ({
+						tabs={(['all', 'theme', 'component', 'finish', 'motion', 'refdoc'] as Filter[]).map((f) => ({
 							value: f,
-							label: f === 'all' ? 'All' : f === 'refdoc' ? 'Files' : f === 'finish' ? 'Finishes' : `${f[0].toUpperCase()}${f.slice(1)}s`,
+							label: f === 'all' ? 'All' : f === 'refdoc' ? 'Files' : f === 'finish' ? 'Finishes' : f === 'motion' ? 'Motions' : `${f[0].toUpperCase()}${f.slice(1)}s`,
 						}))}
 					/>
 					{/* The count MOVED to the status bar at the foot of the panel (#1655). It sat
@@ -693,6 +742,30 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 												{onEditFinish && <button type="button" onClick={() => { onEditFinish(f); onOpenChange(false); }} aria-label={`Edit ${f.label}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
 												<button type="button" disabled={!!busy} onClick={() => shareFinish(f)} aria-label={`Share ${f.label}`} className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground disabled:opacity-50"><Share2 className="size-3.5" /><span className={shareLabel}>Share</span></button>
 												<DeleteBtn labelClass={confirmLabel} armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeFinish(f); }} onCancel={() => setArmed(null)} label={f.label} />
+											</div>
+										</div>
+									</div>
+								);
+							})}
+							{vScenes.map((m) => {
+								const k = `motion:${m.id}`;
+								const beats = new Set((m.spec.source === 'svg' ? m.spec.elements : []).flatMap((el) => (el.motion ?? []).map((mo) => (mo as { at?: number }).at ?? 0))).size;
+								const partCount = m.spec.source === 'svg' ? m.spec.elements.length : 0;
+								return (
+									<div key={k} className={cn('relative overflow-hidden rounded-xl border bg-card', sel.has(k) ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]' : 'border-border')}>
+										<button type="button" aria-label={`Select ${m.label}`} aria-pressed={sel.has(k)} onClick={() => toggle(k)} className={cn('absolute left-2.5 top-2.5 z-10 grid size-[18px] place-items-center rounded-md border bg-background', sel.has(k) ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--on-accent)]' : 'border-border')}>{sel.has(k) && <Check className="size-3" />}</button>
+										{/* The thumbnail is the drawing itself. It is already sanitized twice over — intake ran
+										    `sanitizeSlideHtml` before it was ever stored, and `saveStudioScene` re-runs it at the
+										    store boundary on EVERY write (HARD RULE #22), so no path can put raw markup here. */}
+										{/* biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized TWICE before it can reach here — svg-intake runs sanitizeSlideHtml before the art is ever held, and saveStudioScene re-runs it at the store boundary on every write (HARD RULE #22), so no path can put raw markup on this shelf. */}
+										<div className="grid h-[88px] w-full place-items-center overflow-hidden bg-[var(--bg)] p-2 [&>svg]:max-h-full [&>svg]:max-w-full" aria-hidden dangerouslySetInnerHTML={{ __html: m.art ?? '' }} />
+										<div className="p-2.5">
+											<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><span className="truncate">{m.label}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">Motion</span></div>
+											{metaLine(m.art ? <>{m.name} · {partCount} part{partCount === 1 ? '' : 's'} · {beats} beat{beats === 1 ? '' : 's'}</> : <>{m.name} · no drawing — saved by the old Motion tab</>, { id: m.id, label: m.label })}
+											<div className="mt-2.5 flex items-center gap-1.5">
+												<button type="button" onClick={() => insertScene(m)} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[var(--accent-soft)] py-1.5 text-[11.5px] font-semibold text-[var(--accent)]"><Plus className="size-3.5" />Insert</button>
+												{onEditMotion && <button type="button" onClick={() => { onEditMotion(m); onOpenChange(false); }} aria-label={`Edit ${m.label}`} className="flex items-center justify-center rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11.5px] font-semibold text-foreground"><Pencil className="size-3.5" /></button>}
+												<DeleteBtn labelClass={confirmLabel} armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removeScene(m); }} onCancel={() => setArmed(null)} label={m.label} />
 											</div>
 										</div>
 									</div>

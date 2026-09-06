@@ -29,9 +29,10 @@ import type { StudioFinish } from './finish-library';
 import { type Finding, LayoutStudio, STARTER_CSS, STARTER_DESCRIPTION, STARTER_META, STARTER_NAME, STARTER_SKELETON } from './LayoutStudio';
 import { REFUSAL_PREFIX } from './library/asset-store.js';
 import { findNameClash } from './library/save-guard.js';
-import { MotionStudio } from './MotionStudio';
 import { manifestJsonCompletion } from './manifest-complete';
+import { MotionStudio } from './motion/MotionStudio';
 import { useReferenceDoc } from './reference-doc-ui';
+import type { StudioScene } from './scene-library';
 import { type StudioTheme, saveStudioTheme } from './theme-library';
 
 // You pick ALL TEN essentials — the same set the engine derivation + the
@@ -236,9 +237,10 @@ const tierOf = (ratio: number | null, ok: boolean) => ((ratio ?? 0) >= 7 ? 'AAA'
 export type FabricateSeed =
 	| { kind: 'theme'; record: StudioTheme }
 	| { kind: 'component'; record: StudioComponent }
-	| { kind: 'finish'; record: StudioFinish };
+	| { kind: 'finish'; record: StudioFinish }
+	| { kind: 'motion'; record: StudioScene };
 
-export function Fabricate({ options, catalog = [], seed, savedThemes = [], savedComponents = [], savedFinishes = [], onClose, notify, onSaved, onOpenWorkspace }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: FabricateSeed | null; savedThemes?: { id: string; name: string }[]; savedComponents?: { id: string; name: string }[]; savedFinishes?: { id: string; name: string }[]; onClose: () => void; notify: (msg: string) => void; onSaved?: () => void; onOpenWorkspace?: () => void }) {
+export function Fabricate({ options, catalog = [], seed, savedThemes = [], savedComponents = [], savedFinishes = [], savedScenes = [], onClose, notify, onSaved, onOpenWorkspace, onInsert }: { options: SingleSlideOptions; catalog?: { name: string; bucket?: string; description?: string; tags?: string[] }[]; seed?: FabricateSeed | null; savedThemes?: { id: string; name: string }[]; savedComponents?: { id: string; name: string }[]; savedFinishes?: { id: string; name: string }[]; savedScenes?: { id: string; name: string }[]; onClose: () => void; notify: (msg: string) => void; onSaved?: () => void; onOpenWorkspace?: () => void; onInsert?: (markdown: string, name: string) => void }) {
 	const [tab, setTab] = React.useState<'theme' | 'layout' | 'finish' | 'motion'>('theme');
 	// All ten essentials in state, seeded from the first curated starter.
 	const [core, setCore] = React.useState<Record<EssKey, string>>(() => ({ ...(STARTERS[0].essentials as Record<EssKey, string>) }));
@@ -831,6 +833,12 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 			setCompJsonError('');
 			return;
 		}
+		// The Motion faculty owns its own seed hydration — MotionStudio re-derives the running order
+		// from the saved spec (`sceneToPlan`), which is not something this effect could do for it.
+		if (seed.kind === 'motion') {
+			setTab('motion');
+			return;
+		}
 		const t = seed.record;
 		setTab('theme');
 		setEditingId(t.id);
@@ -926,6 +934,18 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 			{facTab('motion', 'Motion', Film)}
 		</div>
 	);
+	if (tab === 'motion') {
+		return (
+			<div className="flex min-h-0 flex-1 flex-col">
+				<div className="flex h-[44px] shrink-0 items-center gap-2 border-b border-border bg-card px-3 sm:gap-3 sm:px-4">
+					<button type="button" onClick={closeFaculty} className={cn('shrink-0 rounded-md p-1', closeArmed ? 'bg-[var(--fail)] text-[var(--bg)]' : 'text-muted-foreground hover:text-foreground')} aria-label={closeArmed ? 'Leave and discard your edits' : 'Back to Compose'}><X className="size-4" /></button>
+					{facultyToggle}
+					<div className="flex-1" />
+				</div>
+				<MotionStudio seed={seed?.kind === 'motion' ? seed.record : null} savedScenes={savedScenes} notify={notify} onSaved={onSaved} onInsert={onInsert} onOpenWorkspace={onOpenWorkspace} />
+			</div>
+		);
+	}
 	if (tab === 'finish') {
 		return (
 			<div className="flex min-h-0 flex-1 flex-col">
@@ -935,19 +955,6 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 					<div className="flex-1" />
 				</div>
 				<FinishStudio options={options} seed={seed?.kind === 'finish' ? seed.record : null} savedFinishes={savedFinishes} notify={notify} onSaved={onSaved} onOpenWorkspace={onOpenWorkspace} />
-			</div>
-		);
-	}
-
-	if (tab === 'motion') {
-		return (
-			<div className="flex min-h-0 flex-1 flex-col">
-				<div className="flex h-[44px] shrink-0 items-center gap-2 border-b border-border bg-card px-3 sm:gap-3 sm:px-4">
-					<button type="button" onClick={closeFaculty} className={cn('shrink-0 rounded-md p-1', closeArmed ? 'bg-[var(--fail)] text-[var(--bg)]' : 'text-muted-foreground hover:text-foreground')} aria-label={closeArmed ? 'Leave and discard your CSS edits' : 'Back to Compose'} title={closeArmed ? 'Leave and discard your unsaved CSS edits?' : undefined}><X className="size-4" /></button>
-					{facultyToggle}
-					<div className="flex-1" />
-				</div>
-				<MotionStudio notify={notify} onSaved={onSaved} onOpenWorkspace={onOpenWorkspace} />
 			</div>
 		);
 	}
@@ -967,12 +974,7 @@ export function Fabricate({ options, catalog = [], seed, savedThemes = [], saved
 				<Tip label="Description — used in the export header / README"><button type="button" onClick={() => setDescOpen((v) => !v)} aria-expanded={descOpen} aria-label="Description" className={cn('inline-flex shrink-0 items-center gap-0.5 rounded-md px-1 py-1 hover:text-foreground', desc.trim() ? 'text-[var(--accent)]' : 'text-muted-foreground')}>
 					<Text className="size-3.5" /><ChevronDown className={cn('size-3 transition-transform', descOpen && 'rotate-180')} />
 				</button></Tip>
-				<div className="ml-1 inline-flex shrink-0 rounded-[10px] border border-border bg-background p-[3px] sm:ml-2">
-					<button type="button" onClick={() => setTab('theme')} aria-pressed={tab === 'theme'} aria-label="Theme" className={cn('inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-semibold sm:px-3', tab === 'theme' ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}><Palette className="size-3.5" /><span className="hidden sm:inline">Theme</span></button>
-					<button type="button" onClick={() => setTab('layout')} aria-pressed={tab === 'layout'} aria-label="Component" className={cn('inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-semibold sm:px-3', tab === 'layout' ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}><LayoutGrid className="size-3.5" /><span className="hidden sm:inline">Component</span></button>
-					<button type="button" onClick={() => setTab('finish')} aria-pressed={false} aria-label="Finish" className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-semibold text-muted-foreground sm:px-3"><Sparkles className="size-3.5" /><span className="hidden sm:inline">Finish</span></button>
-					<button type="button" onClick={() => setTab('motion')} aria-pressed={false} aria-label="Motion" className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] font-semibold text-muted-foreground sm:px-3"><Film className="size-3.5" /><span className="hidden sm:inline">Motion</span></button>
-				</div>
+				{facultyToggle}
 				<div className="flex-1" />
 				<Button variant="outline" size="sm" disabled={!canExport} className="shrink-0 gap-1.5 px-2 sm:px-3" onClick={exportArtifact}><Download className="size-4" /><span className="hidden sm:inline">Export</span></Button>
 				<Tip label={nameTakenBy && tab === 'theme' ? `“${themeName}” is already a saved theme — pick another name.` : compNameTakenBy && tab === 'layout' ? `“.${compName}” is already a saved component — pick another name.` : importedGap.length ? `This component was imported without its ${importedGap.join(', ')} — set ${importedGap.length === 1 ? 'it' : 'them'} in the Manifest panel to save.` : ''}>

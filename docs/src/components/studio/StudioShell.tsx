@@ -74,9 +74,11 @@ import { Library } from './Library';
 import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
+import { MotionTargets } from './MotionTargets';
 import { checkDiagrams, type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
+import { readTargets, setSlideMotionOff } from './motion-sheet';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
 import { ReshapePicker } from './ReshapePicker';
 import { activeRule, RULES } from './rule-catalog';
@@ -84,6 +86,8 @@ import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
 import { DRAWER_LABEL, StudioDrawer } from './StudioDrawer';
+import { listStudioScenes, type StudioScene } from './scene-library';
+
 import { ScrollFade } from './scroll-fade';
 import { importComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
@@ -776,6 +780,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const editTheme = (t: StudioTheme) => openInFabricate({ kind: 'theme', record: t });
 	const editComponent = (c: StudioComponent) => openInFabricate({ kind: 'component', record: c });
 	const editFinish = (f: StudioFinish) => openInFabricate({ kind: 'finish', record: f });
+	const editMotion = (m: StudioScene) => openInFabricate({ kind: 'motion', record: m });
 	// CLEARED ON EVERY EXIT, not just Fabricate's own Close. `view` moves from
 	// 'fabricate' through at least six other paths (the launcher's Decks item, the
 	// mode buttons, a share/present entry), and a seed left standing means the NEXT
@@ -1049,6 +1054,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		listStudioFinishes().then(setSavedFinishes).catch(() => setSavedFinishes([]));
 	}, []);
 	React.useEffect(() => { refreshFinishes(); }, [refreshFinishes]);
+	// Saved motion assets. Read for the Motion faculty's name-clash guard — the same rule the three
+	// siblings use, so re-saving your own record stays legal while taking someone else's name does not.
+	const [savedScenes, setSavedScenes] = React.useState<StudioScene[]>([]);
+	const refreshScenes = React.useCallback(() => {
+		listStudioScenes().then(setSavedScenes).catch(() => setSavedScenes([]));
+	}, []);
+	React.useEffect(() => { refreshScenes(); }, [refreshScenes]);
+	// Every target in the deck the engine can animate, derived from the live source. The deck
+	// Motion tab shows it under Play/Style/Speed: those three state the intent, this states what
+	// the intent actually produces.
+	const motionTargets = React.useMemo(() => readTargets(source), [source]);
 	// The add-slide gallery = your saved local components (first) + the built-in catalog.
 	// Locals carry their own `css` so the gallery previews them STYLED (per-tile extraCss —
 	// the engine theme doesn't know a local `.name` rule).
@@ -3888,6 +3904,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<Field label="Speed" desc="How fast the build runs." help={<><strong>Auto</strong> paces to the chart's size, so a big chart doesn't crawl and a small one doesn't flash past.</>}>
 					<CatalogSelect ariaLabel="Choose motion speed" value={activeMotionSpeed(motionSpeed).name} onValueChange={setMotionSpeedFM} className="w-full" groups={[{ options: catalogOptions(MOTION_SPEED_ENTRIES) }]} />
 				</Field>
+				{/* The three controls above state the deck's INTENT; this states the CONSEQUENCE —
+				    which slides the engine can actually animate and whether the motion earns its
+				    place. Both halves answer the same question, which is why they share a tab. */}
+				<MotionTargets
+					targets={motionTargets}
+					onGoToSlide={(slide) => setActiveSlide(slide - 1)}
+					onTurnOff={(t) => settingsWrite(`Motion off for slide ${t.slide}`, (src) => setSlideMotionOff(src, t.chunk))}
+					onTurnOffAllFlagged={() => {
+						const flagged = motionTargets.filter((t) => t.verdict === 'review');
+						if (!flagged.length) return;
+						settingsWrite(`Motion off for ${flagged.length} slides`, (src) => flagged.reduce((acc, t) => setSlideMotionOff(acc, t.chunk), src));
+					}}
+				/>
 			</div>
 			)}
 			{deckTab === 'speech' && (
@@ -5018,7 +5047,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    the heading would be page content sitting in no landmark. */}
 					<h1 className="sr-only">Lattice Studio</h1>
 					<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the Fabricate studio…</div>}>
-						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} onClose={() => { setFabricateSeed(null); setView('compose'); }} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
+						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} savedScenes={savedScenes} onClose={() => { setFabricateSeed(null); setView('compose'); }} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 					</React.Suspense>
 				</main>
 			) : landscapePhone ? (
@@ -5219,7 +5248,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 										</>
 									)}
 									{libraryOpen && (
-										<Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, curIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} notify={notify} />
+										<Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} notify={notify} />
 									)}
 								</ResizablePanel>
 								<ResizableHandle aria-label="Resize panel" />
@@ -5409,7 +5438,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					initialFilter={libInitialFilter}
 					onApplyTheme={applyPalette}
 					onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }}
-					onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, curIndex, skeleton))}
+					onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))}
 					onEditTheme={editTheme}
 					onEditComponent={editComponent}
 					onEditFinish={editFinish}

@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   Anima's SVG backend is built on Vivus, and Vivus is the wrong tool: it drives the WHOLE
   drawing off ONE progress scalar (so per-element windows and author-set order are impossible —

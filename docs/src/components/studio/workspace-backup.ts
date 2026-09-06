@@ -26,7 +26,7 @@ import { packBundle, unpackBundle } from './asset-bundle';
 import { listStudioComponents, saveStudioComponent } from './component-library';
 import { listStudioFinishes, saveStudioFinish } from './finish-library';
 import { listRefDocs, type RefDocRecord, recordToDoc, saveRefDoc } from './reference-doc-store';
-import { listStudioScenes, saveStudioScene } from './scene-library';
+import { listStoredScenes, putUnreadableScene, type StudioScene, saveStudioScene, type UnreadableScene } from './scene-library';
 import { exportStudioState, type ImportSummary, importStudioState, requestSourceFlush, resolvedSources, type StudioExport, titleFromSource } from './studio-store';
 import { listStudioThemes, saveStudioTheme } from './theme-library';
 
@@ -38,10 +38,13 @@ export type WorkspaceManifest = {
 	exportedAt: string; // ISO — provenance for the human opening the zip
 	// `refdocs` is absent from pre-refdoc backups — read with ?? 0.
 	// `scenes` is absent from pre-scene backups — read with ?? 0.
-	counts: { decks: number; themes: number; components: number; finishes: number; scenes?: number; refdocs?: number };
+	counts: { decks: number; themes: number; components: number; finishes: number; scenes?: number; unreadableScenes?: number; refdocs?: number };
+	/** Set only when the scene shelf could not be READ. Distinguishes "no scenes" from "we could
+	 *  not see the scenes", which the old `catch { return [] }` collapsed into a silent `0`. */
+	scenesUnavailable?: true;
 };
 
-export type RestoreSummary = ImportSummary & { themes: number; components: number; finishes: number; scenes: number; refdocs: number };
+export type RestoreSummary = ImportSummary & { themes: number; components: number; finishes: number; scenes: number; unreadableScenes: number; refdocs: number };
 
 // biome-ignore lint/suspicious/noExplicitAny: JSZip is dynamically imported.
 async function jszip(): Promise<any> {
@@ -62,7 +65,22 @@ export async function packWorkspace(now: number): Promise<Blob> {
 	// built-in would have no stored source at all and drop out entirely).
 	requestSourceFlush();
 	const state = exportStudioState();
-	const [themes, components, finishes, scenes, refdocs] = await Promise.all([listStudioThemes(), listStudioComponents(), listStudioFinishes(), listStudioScenes(), listRefDocs()]);
+	// Scenes come through the RAW reader, not `listStudioScenes`. That list drops any record whose
+	// spec no longer validates, and this function is what turns that drop into permanent data loss:
+	// the backup is built from the list, so a tightened schema erased the user's scenes from their
+	// only copy (2026-09-02-frame-model-for-motion.md §7c). `listStoredScenes` also THROWS rather
+	// than returning [] on a store failure, so a backup can no longer claim `0 scene(s)` because
+	// IndexedDB hiccuped — the rejection surfaces instead of a quietly incomplete file.
+	const [themes, components, finishes, storedScenes, refdocs] = await Promise.all([listStudioThemes(), listStudioComponents(), listStudioFinishes(), listStoredScenes().catch(() => null), listRefDocs()]);
+	// A shelf we could not read is NOT a shelf with nothing on it, and the difference decides what
+	// this file may claim. `null` here means the read failed; it is recorded in the manifest and the
+	// README so the backup never reports `0 scene(s)` for scenes it simply could not see. It does
+	// NOT abort the backup: a browser with no IndexedDB at all (private mode, an SSR/jsdom context)
+	// has no scenes to lose, and refusing to back up the decks in that case would trade a small
+	// reporting lie for a much larger loss.
+	const scenesUnavailable = storedScenes === null;
+	const scenes = (storedScenes ?? []).filter((s): s is { valid: true; scene: StudioScene } => s.valid).map((s) => s.scene);
+	const unreadableScenes = (storedScenes ?? []).filter((s): s is UnreadableScene => !s.valid);
 
 	const zip = await jszip();
 	zip.file('workspace.json', JSON.stringify(state, null, 2));
@@ -87,6 +105,13 @@ export async function packWorkspace(now: number): Promise<Blob> {
 		const assets = await packBundle(themes.map((theme) => ({ theme })), components, finishes, scenes);
 		zip.file('library.zip', assets);
 	}
+	// Scenes we could not parse ride in their OWN file, verbatim. They cannot go through
+	// `packBundle` — it takes `StudioScene[]`, which requires a spec that validates, and coercing
+	// one to fit would be inventing content the author never wrote. A separate lane keeps
+	// `packBundle`'s type honest AND keeps the bytes, which is the whole obligation §7c names.
+	if (unreadableScenes.length) {
+		zip.file('library-unreadable-scenes.json', JSON.stringify(unreadableScenes.map((s) => ({ name: s.name, label: s.label, reason: s.reason, specVersion: s.specVersion, record: s.raw })), null, 2));
+	}
 	// Reference docs are user-imported content (the Architect's brand guidelines
 	// etc.) — as much "the workspace" as the decks are.
 	if (refdocs.length) zip.file('refdocs.json', JSON.stringify(refdocs, null, 2));
@@ -94,12 +119,13 @@ export async function packWorkspace(now: number): Promise<Blob> {
 	const manifest: WorkspaceManifest = {
 		format: WORKSPACE_FORMAT,
 		exportedAt: new Date(now).toISOString(),
-		counts: { decks: state.index.length, themes: themes.length, components: components.length, finishes: finishes.length, scenes: scenes.length, refdocs: refdocs.length },
+		counts: { decks: state.index.length, themes: themes.length, components: components.length, finishes: finishes.length, scenes: scenes.length, unreadableScenes: unreadableScenes.length, refdocs: refdocs.length },
+		...(scenesUnavailable ? { scenesUnavailable: true as const } : {}),
 	};
 	zip.file('manifest.json', JSON.stringify(manifest, null, 2));
 	zip.file(
 		'README.md',
-		`# Lattice workspace backup\n\nExported ${manifest.exportedAt}. ${manifest.counts.decks} deck(s), ${manifest.counts.themes} theme(s), ${manifest.counts.components} component(s), ${manifest.counts.finishes} finish(es), ${scenes.length} scene(s), ${refdocs.length} reference doc(s).\n\n- \`decks/*.md\` — your decks, readable anywhere.\n- \`workspace.json\` + \`library.zip\` + \`refdocs.json\` — the full workspace; restore via Studio → Workspace → General → Restore backup.\n\nYour OpenRouter connection is deliberately NOT in this file — reconnect with one click after a restore.\n`,
+		`# Lattice workspace backup\n\nExported ${manifest.exportedAt}. ${manifest.counts.decks} deck(s), ${manifest.counts.themes} theme(s), ${manifest.counts.components} component(s), ${manifest.counts.finishes} finish(es), ${scenes.length} scene(s), ${refdocs.length} reference doc(s).\n\n- \`decks/*.md\` — your decks, readable anywhere.\n- \`workspace.json\` + \`library.zip\` + \`refdocs.json\` — the full workspace; restore via Studio → Workspace → General → Restore backup.\n${unreadableScenes.length ? `- \`library-unreadable-scenes.json\` — ${unreadableScenes.length} saved scene(s) this version could not read. They are kept here exactly as stored, and a restore puts them back untouched. Nothing was discarded.\n` : ''}${scenesUnavailable ? `\n**Scenes are not in this backup.** The scene shelf could not be read when this file was written, so this backup makes no claim about your saved scenes — it does not mean you have none. Take another backup once the Studio opens normally.\n` : ''}\nYour OpenRouter connection is deliberately NOT in this file — reconnect with one click after a restore.\n`,
 	);
 	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 }
@@ -120,7 +146,7 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 	if (!stateFile) throw new Error('Backup is missing workspace.json.');
 	const state = JSON.parse(await stateFile.async('string')) as StudioExport;
 
-	const summary: RestoreSummary = { ...importStudioState(state, now), themes: 0, components: 0, finishes: 0, scenes: 0, refdocs: 0 };
+	const summary: RestoreSummary = { ...importStudioState(state, now), themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0 };
 
 	const libraryFile = zip.file('library.zip');
 	if (libraryFile) {
@@ -143,6 +169,21 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 			// the store boundary — so restoring a hand-crafted backup can't persist raw markup.
 			await saveStudioScene({ name: s.name, label: s.label, description: s.description, spec: s.spec, poster: s.poster, art: s.art });
 			summary.scenes++;
+		}
+	}
+
+	// Scenes this version could not read go back exactly as they came out. A restore that put back
+	// only the readable ones would lose them on the round trip — the same defect as the export half,
+	// just one step later.
+	const unreadableFile = zip.file('library-unreadable-scenes.json');
+	if (unreadableFile) {
+		const rows = JSON.parse(await unreadableFile.async('string')) as { record?: unknown }[];
+		for (const row of Array.isArray(rows) ? rows : []) {
+			// Count what was actually STORED. `putUnreadableScene` declines a row with no name or
+			// no object, and incrementing regardless would report "N restored" having written
+			// zero — the same "could not read" / "nothing there" conflation this whole change is
+			// about, one file over.
+			if (await putUnreadableScene(row?.record)) summary.unreadableScenes++;
 		}
 	}
 

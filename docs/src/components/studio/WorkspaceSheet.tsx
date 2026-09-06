@@ -20,6 +20,7 @@ import { onToursEnabledChange, setToursEnabled, toursEnabled } from '@/playgroun
 import { onViewportDebugEnabledChange, setViewportDebugEnabled, VIEWPORT_DEBUG_AVAILABLE, viewportDebugEnabled } from '@/playground/viewport-debug-prefs';
 import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE, vizOverlayEnabled } from '@/playground/viz-overlay-prefs';
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
+import { packBundle } from './asset-bundle';
 import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearNarrationAudio, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
 import { LensIcon } from './icons';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
@@ -27,6 +28,7 @@ import { LanguageSelect } from './LanguageSelect';
 import { DeleteBtn } from './Library';
 import { ModelPicker } from './ModelPicker';
 import { OnDeviceTier } from './OnDeviceTier';
+import { listStoredScenes } from './scene-library';
 import { languageFor } from './studio-language';
 import {
 	clearAllDecks,
@@ -300,7 +302,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	// a last-backup line + storage readout that are simply always there.
 	const [backupAt, setBackupAt] = React.useState<number | null>(() => lastBackupAt());
 	const [storageLine, setStorageLine] = React.useState('');
-	const [busy, setBusy] = React.useState<'backup' | 'restore' | null>(null);
+	const [busy, setBusy] = React.useState<'backup' | 'restore' | 'scenes' | null>(null);
 	const restoreInput = React.useRef<HTMLInputElement>(null);
 	// Install-the-app (General tab): four honest states — see install-app.ts.
 	// Chromium can park its prompt at any moment, so track the announce event.
@@ -381,6 +383,33 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 		} catch (e) {
 			notify(`Couldn't clear everything: ${(e as Error)?.message || 'unknown error'}`);
 			setDeletingAll(false);
+		}
+	};
+
+	// SAVED MOTION SCENES — a way OUT, which is what §7c requires of a retirement path.
+	//
+	// The Fabricate Motion tab that made these is gone: it authored a standalone Zdog scene, an
+	// engine that no longer paints, and its output was never placeable in a deck. The records are
+	// NOT deleted — they ride in every workspace backup, unreadable ones included — but a shelf
+	// with no door is how the original defect started, so this is the door. Counted through the raw
+	// reader so a record this version cannot parse is still counted and still offered.
+	const [sceneCount, setSceneCount] = React.useState(0);
+	React.useEffect(() => {
+		if (!open) return;
+		listStoredScenes().then((rows) => setSceneCount(rows.length)).catch(() => setSceneCount(0));
+	}, [open]);
+	const downloadScenes = async () => {
+		setBusy('scenes');
+		try {
+			const rows = await listStoredScenes();
+			const valid = rows.filter((r) => r.valid).map((r) => r.scene);
+			const unreadable = rows.length - valid.length;
+			downloadBlob('lattice-motion-scenes.zip', await packBundle([], [], [], valid));
+			notify(unreadable ? `Downloaded ${valid.length} scene(s). ${unreadable} could not be read — they stay in your library and in every backup.` : `Downloaded ${valid.length} scene(s).`);
+		} catch (e) {
+			notify(`Scene export failed: ${(e as Error)?.message || 'unknown error'}`);
+		} finally {
+			setBusy(null);
 		}
 	};
 
@@ -1160,6 +1189,17 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 								</button>
 								<input ref={restoreInput} type="file" accept=".zip" aria-label="Restore a workspace backup" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) restoreBackup(f); }} />
 							</div>
+							{sceneCount > 0 && (
+								<div className="mt-3 rounded-xl border border-border bg-background p-3">
+									<p className="text-[13px] font-semibold text-[var(--text-heading)]">{sceneCount} saved motion scene{sceneCount === 1 ? '' : 's'}</p>
+									<p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+										Scenes were standalone animated assets, built on an engine Lattice no longer uses. Nothing has been deleted — they stay here and ride in every backup — but the tab that made them is gone, so this is how you take them with you.
+									</p>
+									<button type="button" onClick={downloadScenes} disabled={busy != null} className="mt-2.5 flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-[13px] font-semibold text-[var(--text-heading)] disabled:opacity-60">
+										<Download className="size-4" />{busy === 'scenes' ? 'Packing…' : 'Download scenes (.zip)'}
+									</button>
+								</div>
+							)}
 							<p className="mt-3 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
 								<SlidersHorizontal className="size-3" />
 								Last backup: {backupAt ? new Date(backupAt).toLocaleDateString() : 'never'}{storageLine ? ` · ${storageLine}` : ''}
