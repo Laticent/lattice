@@ -424,9 +424,16 @@ describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
   test('the unmeasured branch reports the floor in points too', () => {
     withStubbedStyle(() => {
       // A mermaid flowchart: labels are <foreignObject> HTML the probe cannot size. It comes
-      // back "not measured", and the emulator prints the floor beside that — so this branch
-      // owes `floorPt` as much as the measured one does, and returned only `floorPx` when
-      // `minPt` was first added.
+      // back "not measured", and the two branches must describe the same floor in the same
+      // units — this one returned `floorPx` alone when `minPt` was first added.
+      //
+      // NOTE WHAT THIS DOES NOT CLAIM. Nothing reads either field on this branch today: the
+      // emulator's `TYPE FLOOR NOT MEASURED` line prints page numbers only, and
+      // lib/core/split-verdict.js forwards `leg.unmeasured` as a NUMBER rather than the
+      // object. An earlier version of this comment said the emulator prints the floor here,
+      // which is false. The field is pinned as SHAPE PARITY between two branches of one
+      // return type — so a future caller that does read it gets the units the measured
+      // branch reports, instead of a silent `undefined`.
       const r = probeFigureLegibility(section([svg({ texts: [], foreign: 39 })], 720), FIGURE_TEXT_FLOOR_RATIO);
       assert.equal(r.under, false);
       assert.equal(r.unmeasured, 1);

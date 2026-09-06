@@ -77,18 +77,43 @@ author exactly the misleading quantity the rule had just finished rejecting.
 - It is what this engine's own PDF page measures at `hd` — `lattice-emulator.js` sets the
   page to `slideW x 0.75` by `slideH x 0.75`, and 720 x 0.75 = 540. At the commonest preset
   the reported pt is therefore the literal measurement of the printed page, not a proxy.
-- It is the unit `lib/typography/scale.js` documents the landscape type roles in: `meta`
-  11.25pt, `body` 16pt, `h2` 28pt. So "4.9pt" is instantly placeable against the smallest
-  type the deck sets anywhere — roughly a THIRD of the smallest role in the system.
+- Near 16:9 it is the unit `lib/typography/scale.js` documents the type roles in: `meta`
+  11.25pt, `body` 16pt, `h2` 28pt. So on an `hd` or `4K` deck "4.9pt" places itself against
+  the smallest role in the system — roughly a THIRD of it.
+
+  **That third bullet is aspect-bound, and the bound is worth stating because the first draft
+  of this note did not.** `--fs-*` is sized in `cqi` — one hundredth of slide WIDTH — while
+  this is a fraction of slide HEIGHT, so the two agree only where the aspect does. The `meta`
+  role expressed in this function's own pt units:
+
+  | preset | meta in probe-pt |
+  |---|---|
+  | hd 1280x720 · 4K 3840x2160 | 11.23 |
+  | square 1080x1080 | 11.07 |
+  | portrait 1080x1350 | 12.01 |
+  | **standard 960x720** | **8.42** |
+  | **story 1080x1920** | **8.44** |
+  | **mobile 1080x2340** | **6.93** |
+
+  On `mobile`, an author who reads `Text too small · 5.3pt` and calibrates against the
+  documented 11.25pt concludes the figure is under half the smallest role; in these units that
+  deck's own `meta` is 6.93, so the figure is 76% of it. The old px label got this right on
+  every preset, because `6.6px` and `floor 7.2px` and `meta 30.0px` were all real px on one
+  page. This is the single respect in which pt is worse, it is not hypothetical, and it does
+  not overturn the choice — but it is the honest entry on the other side of the ledger.
+  (Re-derive: `SCALES[category].meta * width/100`, then `/ height * 540`.)
 
 Dividing by the slide's own height before scaling is what makes it invariant. The floor is
 5.4pt on `hd`, on `square`, on `portrait` and on `4K`, because the floor is a ratio and this
 is that ratio in units a human owns.
 
-**What it costs, stated plainly.** On a non-landscape preset the reported pt is "as if
-printed at HD" rather than a measurement of that deck's own PDF page — a portrait deck's page
-is 810x1440pt, and 4.9pt there is not a length you could measure with a ruler on the printed
-sheet. That is the same trade the ratio itself makes, and it is the right one: the invariant
+**What it costs, stated plainly.** Off 16:9 the reported pt is "as if printed at HD" rather
+than a measurement of that deck's own PDF page. `PT = 0.75` scales both page axes, so a
+`mobile` deck (1080x2340) prints a 1755pt-tall sheet on which a glyph reported here as 5.3pt
+really measures **17.4pt** — a 3.3x gap, in a unit whose whole meaning is physical size on
+paper. The label and the hint carry no qualifier saying so; adding one would cost the plain
+words the change exists to buy, so the disclosure lives here and in the probe's own comment
+instead. Anyone quoting these numbers as a physical length off 16:9 is quoting them wrong. That is the same trade the ratio itself makes, and it is the right one: the invariant
 an author needs is the glyph's size RELATIVE to the frame, because a deck is displayed
 scaled-to-fit and nobody prints a 40-inch page. A number that is literally true of one
 artifact and useless for comparison is worth less than one that means the same thing
@@ -118,15 +143,48 @@ Which surfaced a defect. `.illegible-tab` was `pointer-events: none`, so a nativ
 it could never fire; the hint would have sat in the DOM, correct and unreachable. It is now
 `pointer-events: auto`, asserted from computed style in
 `test/integration/invariants/legibility-watcher.test.js` because the declaration lives in
-`base.modifiers.css` where a later rule could take it back without any JS noticing. The cost
-is bounded: a ~20x190px strip stops passing clicks through, on an AUTHORING surface only —
-the tab renders solely under `overflow-marker: author`, never in an export or a delivered
-deck.
+`base.modifiers.css` where a later rule could take it back without any JS noticing.
 
-**`.fixme-tab` has the same mismatch and is NOT fixed here.** It has carried a `title` under
-`pointer-events: none` since it was written, so its culprit hint has never been reachable
-either. That is a pre-existing defect in a different register, off the path of this change,
-so HARD RULE #18 logs it rather than sweeping it into this diff.
+**What that costs, corrected.** The first draft of this section claimed a "~20x190px" strip on
+"an AUTHORING surface only — never in an export or a delivered deck". Both halves were wrong,
+and the second one was contradicted by this change's own evidence.
+
+- **Measured, the tab's box is 269x23px at hd** — 42% wider than the guess, and 21% of the
+  slide width.
+- **`author` is a level an EXPORT can be run at.** `--overflow-marker=author` keeps the tab:
+  the emulator's strip is `lvl !== 'author'` and its stderr line says "The export carries the
+  amber ring and its tag." The rasterized PDF page offered as proof in §5 *is* an author-level
+  export with the tab printed on it. The true bound is narrower and still sufficient: no
+  READER receives it, because `reader` and `off` — the export default and every delivered
+  path — remove the node outright.
+- **One measured consequence, accepted rather than hidden.**
+  `docs/src/playground/chart-interact.js` resolves a pointer to a chart slice via
+  `elementFromPoint(...).closest(MARK_SEL)`; over this tab that now returns the tab, so
+  `sliceAt` answers -1 and a mark under the top-right corner stops revealing on hover. It
+  needs a full-bleed chart on a slide whose figure is *also* below the floor, and the two
+  hover affordances want the same pixel regardless — on a slide the alarm is about, the alarm
+  wins. Reasoned from the mechanism (confirmed live: `elementFromPoint` over the tab returns
+  the tab), not reproduced on a constructed slide.
+
+**`.fixme-tab` has the same mismatch and is NOT fixed here — deliberately, and the call is
+close enough to write down.** It has carried a `title` (`base.modifiers.css` sets
+`pointer-events: none`; `lib/runtime/index.js` sets the title on that same tab) since it was
+written, so its "Likely cause — N words, over budget" hint has never been reachable.
+
+The argument for fixing it here is strong: it is one declaration, forty lines away in the
+same file, and this change's entire thesis is that a `title` under `pointer-events: none` is
+unreachable. Leaving it is a broken window in the room being repaired.
+
+The argument against won, narrowly. HARD RULE #18 does not merely permit logging an off-path
+defect, it *prohibits* pulling one into the diff — "rather than ignoring it OR pulling it into
+the diff — that boundary keeps #8 and #17 intact". Fix-Me is a separate register with its own
+placement history, its hint is set only on the density-guess path, and making a second tab
+hit-testable spreads the `elementFromPoint` consequence above to the BOTTOM-right corner,
+where charts more often reach. That is a behavior change to a register nobody asked about,
+argued for by analogy rather than by a report.
+
+So it is logged, not swept. A reviewer who reads Fix-Me as on-path should say so — it is a
+one-word fix and this note is the record that it was seen, weighed, and left.
 
 **A tooltip is not the whole channel, and the design accounts for that.** Hover needs a
 pointer, so on the touch preview this report came FROM, the hint is unreachable. That is why
@@ -151,5 +209,19 @@ Per HARD RULE #23, each claim names the surface it was measured on:
   720 / 1080 / 2160 px slide heights while `floorPx` is 7.2 / 10.8 / 21.6 — the invariance
   claim above, asserted rather than argued.
 
-Not verified: iOS Safari, which cannot be reached from this sandbox. The change is a string
-and one CSS declaration, so the risk there is low, but "low" is not "checked".
+An independent checker re-derived every number here against the tree and found five stated
+facts wrong — the export bound (§4), the type-role comparability (§2), the tab's pixel size,
+the label's character count, and a test comment describing an emulator channel that prints no
+such thing. All five are corrected in place above rather than quietly dropped; the arithmetic,
+the injection safety and the rounding all held.
+
+**Not verified, and named rather than implied:**
+
+- **iOS Safari and any real touch device.** Unreachable from this sandbox. The design
+  *depends* on the label standing alone there, which makes it the surface this change would
+  most like to have driven.
+- **The native tooltip actually painting.** The preconditions are verified — hit-testable,
+  `title` present, `pointer-events: auto` from computed style — but an OS-drawn tooltip is not
+  in the DOM and cannot be screenshotted headless. "The hint reaches a person" is one
+  inference deep.
+- **A delivered `--player` bundle at `author` level, and PPTX.** Neither was built and driven.

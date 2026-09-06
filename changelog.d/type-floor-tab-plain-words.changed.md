@@ -7,5 +7,7 @@
   The size is reported in points on the standard 960×540pt slide page, so the floor
   is the same 5.4pt on every preset rather than four different pixel numbers for one
   rule, and it is directly comparable to the deck's own type roles (`meta` is
-  11.25pt). The export's `TYPE FLOOR` stderr warning names the same points. The tab
-  is authoring-only as before — no export or delivered deck shows it.
+  11.25pt) on 16:9 decks — that last comparison is aspect-bound and the probe's comment
+  says where it breaks. The export's `TYPE FLOOR` stderr warning names the same points.
+  The tab's gating is unchanged: it appears only at `overflow-marker: author`, so no
+  deck a reader receives carries it.
