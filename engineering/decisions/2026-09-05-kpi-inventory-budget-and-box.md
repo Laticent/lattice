@@ -1,0 +1,392 @@
+---
+status: proposed
+summary: >
+  `kpi` and `inventory` declare `capacity` (items) and `density` (words per item) as
+  INDEPENDENT budgets, and each is only true while the other is unspent. kpi's briefing
+  fits 3 metrics at 15 words, and 4 only by dropping to one status pill — a slot no field
+  carries — so 4 metrics at the documented 8 words overflows by 69.5px. inventory's ledger
+  declares hard 6 / 22 words; measured it is hard 4, and at 4 the word ceiling is 18.
+  One declared number covers five kpi modifiers and four inventory looks and is wrong for
+  most of them. Separately, the box is not filled: kpi's hero holds 15.2% of its 748px
+  column while the 340px rail runs at 66-81% and wraps, so narrowing the rail would make it
+  worse; inventory's cards and timeline looks leave 41-43% of the stage empty and editorial
+  reserves 77.6% of a column for one sentence. Four rules do not do what they say — the
+  compliance status pill's `grid-column: 3` is inert (65-67% of every row empty), spotlight
+  and trajectory strand the rule that heads each number, trajectory reserves a 4th column a
+  sweet-count slide never fills, and the briefing rail still draws the closing outer-edge
+  border `2026-09-03-table-outer-edge-rules.md` retired. `check:jank` reports DRIFT on both
+  and both are false leads: the marks hold position and the stage moves under them.
+---
+
+# kpi and inventory: the budget is only true one number at a time, and the box is not filled
+
+`kpi` and `inventory` both feel wrong to author and both waste their stage, and
+the two symptoms share one cause. Each component declares a `capacity` (how many
+items) and a `density` (how many words per item) as INDEPENDENT numbers, and each
+is measured on its own. Spend both at once and the slide overflows. On top of
+that, three of the four `inventory` looks and every `kpi` modifier center a
+content-sized block inside a stage that is taller and wider than the block, so
+the ink that survives the budget lands in a fraction of the room it was given.
+
+Ordered by what a reader hits first: the false lead, the budgets, the wasted box,
+three inert or stranded rules, and the duplication question.
+
+Every number below is from a real Chromium render at `wide` / `indaco`. The
+re-derivation for each is in § How to re-derive.
+
+---
+
+## 1. `check:jank` finds no jank here, and that is the finding
+
+Run `--anchors` on either component and it names a mark and says it does not hold
+position. Both are false leads, and it is worth writing down why, because the
+tool warns about exactly this case and someone will hit it again.
+
+**kpi.** The only generated box the walk can place is `li::after`, the hero
+tile's spark. Over a 1-to-3-line heading sweep it moves **89.6px** vertically and
+the run reports `DRIFT ... it does not hold position`.
+
+It does hold position. The spark's offset inside the hero tile is a constant
+`32px` on every step. What moves is the whole stage: the masthead grows **44.8px
+per heading line**, so the stage top drops 89.6px over three lines and the stage
+loses the same 89.6px of height. The mark rides its host, the host rides the
+masthead, and that is the Form working as designed.
+
+**inventory.** `li::before` (the row ordinal) reports 170.5px, matching nine
+boxes per slide — the tool tells you to narrow it. Narrowed to
+`li:first-child::before` the first row's ordinal still moves 170.5px across a
+1-to-8 item sweep, and NOT monotonically: 352.3, 307.1, 311.1, 266.0, 230.8. That
+is the stage's `justify-content: safe center` re-centering a growing ledger, not
+a mark drifting inside its row.
+
+No sweep on either component, on any axis, at any count, produced a COLLISION.
+
+So the two rungs that can fail a `check:jank` run — DRIFT and COLLISION — report
+nothing actionable on either component. What the runs DO produce is the advisory
+CROWDING row and the `probe` column, and those are where the real defects are.
+`engineering/jank.md` § "What a green run does NOT mean" already says a green run
+is narrower than the word suggests; this is a worked example of the other half:
+a RED run that is not a defect.
+
+---
+
+## 2. The joint budget: capacity and density are only true one at a time
+
+Both manifests declare a count budget and a word budget as if they were
+independent. They are not, and neither the manifest nor the docs carry the joint
+number an author actually needs.
+
+### kpi (briefing, the bare default)
+
+Declared: `adapt.capacity.wide` sweet 3 / soft 4 / hard 4, `density` soft 8 /
+hard 14.
+
+| metrics | pills per row | measured ceiling |
+|---|---|---|
+| 3 | 2 | fits to **15** words per label; 16 overflows |
+| 4 | 2 | **never fits** — overflows at 3 words, the shortest the rig emits |
+| 4 | 1, one-line title, no eyebrow | **fits**, 0.0px overflow |
+
+Read the second and third rows together. `hard: 4` is reachable, but only by
+spending a slot the manifest has no field for — the PILL COUNT. `kpi.docs.md`
+says so in prose ("a fourth needs everything terse — one status pill, no eyebrow,
+a one-line title") and that sentence is correct. Nothing machine-readable carries
+it, so an agent that reads `hard: 4` and `density.soft: 8` and writes four
+metrics at eight words each produces a slide that overflows by **69.5px**. The
+two numbers in the same manifest cannot both be spent.
+
+First overflow per modifier, at the documented soft density of 8 words and the
+documented two-pill row:
+
+| modifier | first overflow | so the real hard count is |
+|---|---|---|
+| briefing (bare) | 4 | 3 |
+| compliance | 4 | 3 |
+| ops | 5 | 4 |
+| trajectory | 5 | 4 |
+| spotlight | 5 | 4 |
+
+One declared `hard: 4` covers all five, and it is wrong for two of them in one
+direction and pessimistic for three in the other.
+
+### inventory (ledger, the bare default)
+
+Declared: `capacity` min 2 / sweet 4 / soft 5 / hard 6, `density` soft 14 /
+hard 22.
+
+| items | measured ceiling |
+|---|---|
+| 3 | no overflow through 30 words |
+| 4 | **18** words per item; 19 overflows |
+| 5 | **never fits** — overflows at 3 words |
+| 6 | never fits |
+
+So the declared `soft: 5` and `hard: 6` are both unreachable at any word count,
+the real hard count is **4**, and at 4 the word ceiling is **18**, not the
+declared 22. An author writing to the documented contract — 4 items, 22 words —
+overflows. This is the "the word budget seems off" complaint, and it is off by
+about four words at the count the docs recommend and by two entire items at the
+count they permit.
+
+First overflow per look, at the documented soft density of 14 words:
+
+| look | first overflow | so the real hard count is |
+|---|---|---|
+| editorial | 4 | 3 |
+| ledger (default) | 5 | 4 |
+| cards | 7 | 6 |
+| timeline | none through 8 | see below — the probe is blind here |
+
+One declared `hard: 6` covers all four looks. It is right for `cards` alone. And
+`inventory.docs.md` singles out "the cards/timeline looks past four" as the tight
+ones, which is backwards: `cards` and `timeline` are the roomy two and
+`editorial` is the tightest by a wide margin.
+
+### The timeline look fails in a direction nothing measures
+
+`inventory timeline` never trips the overflow probe because adding items makes
+the columns NARROWER, not the block taller. Its failure mode is horizontal, and
+its budget is on the LEAD, not the item.
+
+At the gallery's own four items the columns are 264px and the display-face lead
+wraps to two lines on **three of the four** entries; the widest lead is 248.4px
+in a 264px column, 94% of the track. Bodies then start at different heights
+across the run — visible in `inventory.gallery.light.pdf` today. The measured
+lead budget at four columns is about **three words**, and no field anywhere
+expresses a per-slot budget, only a per-item one.
+
+`check:jank` cannot see this either: the ink height does not move, so the sweep
+reports clean and the vacuity warning does not fire. Neither can
+`check:overflow-corpus`. It is invisible to every instrument we have.
+
+### tall, stated with its caveat
+
+Sweeps at `--family tall` render `--no-split`, so these are PRE-SPLIT ceilings.
+Autosplit paginates a tall deck in the PDF export, so these numbers do not
+predict a clipped page there. They DO predict the live preview and an
+export-to-Marp bundle, where nothing re-paginates — the same path #1277 was about.
+
+| component | declared tall hard | measured pre-split |
+|---|---|---|
+| kpi | 5 | 4 |
+| inventory | 8 | 2 |
+
+The inventory tall figure is a fourfold overstatement.
+
+---
+
+## 3. The box is not filled
+
+Fill is the readable ink's area over its container's area, both measured from the
+render.
+
+### kpi: the hero hoards the room and the rail runs out of it
+
+The briefing grid is `minmax(0, 2.2fr) minmax(0, 1fr)` with an `--sp-2xl` gap. In
+a 1152px stage that resolves to **hero 748px (64.9%), gap 64px (5.6%), rail 340px
+(29.5%)**.
+
+| tile | box | ink | fill |
+|---|---|---|---|
+| hero | 748 x 438.2 | 215.5 x 231.8 | **15.2%** |
+| support (gallery labels) | 340 x 146.1 | ~203 x 134.3 | **54-56%** |
+| support (stress-test labels) | 340 x 146.1 | ~299 x 134.3 | **66-81%** |
+
+The hero holds 15% of its box across every modifier and every universal variant
+measured — 14.1% under `compact`, 15.1% under `dark`, 21.3% under `spotlight`. It
+is the emptiest tile on the slide and it has 2.2 times the width of the tile
+beside it.
+
+That inverts the complaint. The rail is not stealing room from the hero: at full
+word weight the RAIL is the constrained one, at 66-81% and wrapping, while the
+hero sits at 20% with 68px of left inset and 464.5px of empty to the right of its
+own status pill. The hero's content is `justify-content: center` — vertical only
+— and left-aligned, so a short block in a 748 x 438 box reads as parked in the
+upper left rather than composed.
+
+So "narrow the rail" on its own would make it worse: it would take room from the
+tile that is running out and give it to the tile that already wastes 85%. What
+makes the split feel right is the hero using its box — centering its content on
+both axes and letting the number take the scale the space implies. Then the split
+can move.
+
+### inventory: three looks huddle in the middle of the stage
+
+| look | list height | stage height | dead space |
+|---|---|---|---|
+| ledger (default) | 368.0 | 400.4 | **8.1%** |
+| timeline | 235.3 | 400.4 | **41.3%** |
+| cards | 226.5 | 400.4 | **43.5%** |
+| editorial | see below | 400.4 | **39.4%** |
+
+`cards` is the clearest: 87px empty above and 87px below a 226.5px grid, in a
+stage that is 400.4px tall. The default ledger, which is the one look the user did
+not complain about, is also the only one that fills its stage.
+
+The cause is deliberate and recorded in the CSS: the `ul` deliberately does NOT
+take `flex: 1`, so a trailing insight blockquote is never pushed past the stage
+clip, and the stage `safe center`s the group. That fixes a real bug and creates
+this one — the list sizes to its rows and the leftover height goes to padding on
+both ends.
+
+`editorial` is worse in the other direction. The stage is `1fr 1.25fr`: the items
+take 604.5px and the insight column takes ~483.5px to hold an 89.6px block, so
+**77.6% of the left column is empty** while the component overflows at four items.
+Half the slide is reserved for one sentence.
+
+---
+
+## 4. Three rules that do not do what they say
+
+**The compliance status pill is inert.** `kpi.styles.css` puts the pill in a
+right-hand status column:
+
+```css
+section.kpi.compliance > .cell-stage > ol > li > ul > li code:first-of-type {
+  grid-column: 3; grid-row: 1 / 3; align-self: center;
+}
+```
+
+The row's `<ul>` is `display: contents`, so the inner `<li>`s become grid items.
+The `<code>` is a child of one of THOSE, so it is a grandchild of the grid
+container and not a grid item at all. The declaration computes and has no effect.
+Measured: the pill's right edge lands at 438.6-464.5px on a 1152px row, leaving
+**751-777px of empty right column — 65-67% of every compliance row**. The
+reserved status column is never used and the pill trails the meta text instead.
+This is the single largest instance of "pill placement leaves lots of space".
+
+**The spotlight supports strand their own rules.** `kpi.styles.css` already
+documents this defect and fixes it — for briefing, at one count only:
+
+> With a SINGLE support the row is the whole column, so centering strands that
+> hairline ~157px above the number it introduces — a rule heading nothing.
+
+The fix is `ol:not(:has(> li:nth-child(3))) > li:not(:first-child) {
+justify-content: start }`, scoped to briefing and explicitly excluding
+`.spotlight`. `spotlight` centers its supports at every count and has no
+equivalent, so on a 3-metric spotlight slide each support's ink sits **37.3px**
+below the rule that heads it, in a 187.1px row at 21-23% fill. `trajectory` has
+the same shape at **110.2px** below its categorical stripe.
+
+**The trajectory grid is fixed at four columns.** `repeat(4, minmax(0, 1fr))`,
+so a 3-metric slide — which is `sweet` — leaves the fourth column, 270px and 23%
+of the stage, completely empty.
+
+**And the closing rule on the rail is one the repo already retired elsewhere.**
+The briefing rail brackets itself: row 1 takes a 1.5px `--text-heading`
+border-top, interior rows take 1px `--border`, and the LAST row takes a 1.5px
+`--text-heading` **border-bottom**. That bottom rule separates nothing — it is
+the ledger's floor. `inventory.styles.css` removed exactly this, deliberately,
+citing #2055 and `2026-09-03-table-outer-edge-rules.md`:
+
+> It used to ride `border-bottom` on every row, which put one under the LAST row
+> too — where it stops separating anything and becomes the ledger's floor.
+
+kpi never got that pass. The rail reads as a closed table frame rather than a set
+of separated rows, which is what makes it feel heavier than the three numbers in
+it justify.
+
+---
+
+## 5. Does inventory duplicate other components?
+
+Largely, yes, and the corpus has already voted.
+
+**Usage.** `_class: inventory` appears 25 times across the whole tree. Outside its
+own gallery, docs and manifest, it is used in exactly two decks — `examples/inventory.md`
+(its own demo) and `examples/split-envelope.md` — plus the survey gallery. For
+comparison, in the same bucket: `cards-grid` 105, `cards-stack` 91, `list-tabular`
+66, `list` 55, `agenda` 48, `glossary` 46.
+
+**Classification.** `inventory` and `cards-grid` share a bucket, a function
+(`inventory`), a substance (`structure`) and the same three tags — `overview`,
+`summary`, `showcase` — differing only in Form (`ledger` vs `grid`). And
+`inventory cards` renders a two-column card grid, which is `cards-grid`'s Form,
+not its own.
+
+**And the two cannot share source.** `cards-grid` is in `CARD_STYLE_LAYOUTS`, so
+HARD RULE #5's gate requires the nested `- Title` / `  - body` shape. `inventory`
+is deliberately NOT in that set and its docs mandate the inline `- **Lead.**
+body` shape, listing the nested form as an anti-pattern. That is not a rule
+violation — inventory does not auto-bold its `li`, so the ransom-note bug the gate
+exists to catch does not apply — but it does mean the one promise the component
+is built on ("write the items once, switch the variant, no re-authoring") stops at
+its own boundary. An author on `cards-grid` who wants inventory's timeline look
+must re-author every item, which is the exact cost inventory says it removes.
+
+The honest read: `inventory`'s default ledger is a good, well-behaved layout — it
+is the only look here that fills its stage. Its three variant looks are a card
+grid that duplicates `cards-grid`, a horizontal run that duplicates part of
+`list-steps timeline`, and a magazine split that overflows at four items while
+wasting 77.6% of its own sidebar.
+
+---
+
+## 6. Candidate moves
+
+Nothing below is implemented. Grouped by what they cost.
+
+**Cheap and self-contained.**
+1. Delete the closing `border-bottom` on the briefing and spotlight rails, per
+   `2026-09-03-table-outer-edge-rules.md`. One declaration each.
+2. Fix or delete the compliance status column. `display: contents` on the inner
+   `<li>` makes the existing `grid-column: 3` work and reclaims 65% of every row.
+3. Extend the briefing `justify-content: start` count fix to `spotlight` and
+   `trajectory`, so a rule always heads the number it introduces.
+4. Size the trajectory grid to the metrics authored, the way briefing's row count
+   already is.
+
+**The real design question — kpi's split.**
+5. Center the hero's content on both axes and let the value scale with the box,
+   THEN reconsider the column ratio. Doing them in the other order makes the rail
+   worse.
+
+**The budgets.**
+6. Correct the declared numbers to the measured ones (kpi briefing hard 3 at
+   documented density; inventory hard 4, word ceiling 18), and declare them
+   per-variant, since one number is wrong for four of five kpi modifiers and three
+   of four inventory looks.
+7. Give the contract a joint budget rather than two independent ones, and a slot
+   budget for kpi's pills and inventory timeline's lead.
+
+**The duplication.**
+8. Decide whether `inventory` keeps its variant looks at all, or narrows to the
+   ledger and points `cards` at `cards-grid` and `timeline` at `list-steps`.
+
+---
+
+## How to re-derive
+
+```sh
+# The sweeps. --advisory keeps a red CROWDING row from masking the table.
+node tools/check-jank.js kpi --anchors
+node tools/check-jank.js kpi --anchor 'ol > li:nth-child(1)::after'   # the false DRIFT
+node tools/check-jank.js kpi --axis count --max 6 --advisory
+node tools/check-jank.js kpi --axis words --count 4 --max 14 --advisory
+node tools/check-jank.js "kpi spotlight" --axis count --max 6 --advisory
+node tools/check-jank.js inventory --axis count --max 8 --advisory
+node tools/check-jank.js inventory --axis words --count 4 --max 28 --advisory
+node tools/check-jank.js "inventory editorial" --axis count --max 8 --advisory
+node tools/check-jank.js inventory --axis count --max 9 --family tall --advisory
+
+# The geometry (fill ratios, column widths, pill slack, dead space) is measured
+# off the component's own gallery render. Render it, then read the boxes in
+# Chromium:
+node lattice-emulator.js lib/components/evidence/kpi/kpi.gallery.md out.pdf
+```
+
+The fill and dead-space figures came from ad-hoc Chromium measurements over
+`kpi.gallery.md` and `inventory.gallery.md`. They are not yet a committed
+instrument; if any of these moves ships, the fill ratio is the number to pin,
+because it is the one thing that distinguishes "the layout is balanced" from
+"the layout is empty" and nothing in the tree measures it today.
+
+## Canonical sources
+
+- `engineering/jank.md` — the method, and § "What a green run does NOT mean".
+- `engineering/decisions/2026-09-03-table-outer-edge-rules.md` — the outer-edge
+  rule decision kpi has not had applied.
+- `lib/components/evidence/kpi/kpi.styles.css` — the briefing row-count and
+  stranded-hairline notes, which already name half of § 4.
+- `lib/components/inventory/inventory/inventory.styles.css` — the `li + li`
+  separator note, and the `flex: 1` note that explains § 3's dead space.
