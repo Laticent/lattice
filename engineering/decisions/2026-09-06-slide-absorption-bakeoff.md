@@ -121,15 +121,25 @@ gets a flat 1.4 s arrival beat and a 0 s exit hold.
 
 ```
 model              arrive avg  spread  exit avg  prose exit  MEDIA EXIT  media w/ beat
-A · text time      3.4s        6.4x    0.2s      0.0s        0.8s        9/34
-B · density fill   2.1s        6.4x    0.2s      0.0s        0.8s        9/34
+A · text time      3.3s        5.4x    0.2s      0.0s        0.6s        9/34
+B · density fill   2.1s        5.0x    0.2s      0.0s        0.6s        9/34
 C · role-weighted  1.4s        2.9x    0.1s      0.0s        0.4s        7/34
-D · visual cost    1.6s        3.6x    0.4s      0.0s        1.6s        19/34
-E · hybrid         3.6s        6.4x    0.7s      0.0s        3.1s        33/34
+D · visual cost    1.5s        3.6x    0.3s      0.0s        1.4s        19/34
+E · hybrid         3.6s        6.1x    0.6s      0.0s        2.6s        32/34
 ```
 
-**Read the media column, not the average.** Any model can be scaled to any mean; what separates
-them is whether a chart or diagram — the slide the complaint is about — gets a beat at all.
+**Read the media columns, and ONLY those.** Two of the three columns the tool originally named as
+interesting turn out to carry no discriminating signal, and §12.2 records why:
+
+- **`spread`** is `max(arrive)/min(arrive)`, but min is pinned at the 1400 ms floor and max at the
+  9000 ms ceiling, so it mostly reports *whether any single slide saturated* — one slide in 142.
+- **`prose exit` is 0 for all 108 prose slides under all five models, structurally.** Silent
+  reading (250 wpm) is always faster than reading aloud (120–175 wpm) and a prose slide's narration
+  is credited in full, so the residual can never be positive. "E pads nothing" is a property of the
+  spend rule, not evidence for E.
+
+What actually separates the models is whether a chart or diagram — the slide the complaint is
+about — gets a beat at all.
 
 - **A and B are blind to visuals by construction** and reach 9 of 34 media slides. B degrades to A
   for the 32 components declaring no density block, which is most of them.
@@ -142,15 +152,21 @@ them is whether a chart or diagram — the slide the complaint is about — gets
 
 Per-slide behavior under E, from `--slides`, showing it differentiates rather than inflating:
 
-| slide | marks | narration | E arrive + exit |
-|---|---|---|---|
-| `quadrant` (51 labels) | 19 | 1.9 s | 2.8 s + 4.8 s |
-| `journey` | 56 | 22.5 s | 2.5 s + **0 s** |
-| `diagram` (largest) | 9 nodes/edges | 4.1 s | 3.1 s + 4.7 s |
-| prose body | 0 | 18.1 s | 3.3 s + **0 s** |
+| deck | slide | marks | narration | E arrive + exit |
+|---|---|---|---|---|
+| `chart-narration.md` | 5 · `quadrant` (61 labels) | 10 | 1.9 s | 2.9 s + 4.8 s |
+| `chart-narration.md` | 3 · `journey` | 30 | 22.5 s | 2.9 s + **0 s** |
+| `chart-narration.md` | 7 · `light` (prose close) | 0 | 18.1 s | 3.4 s + **0 s** |
+| `diagram-narration.md` | 6 · `diagram` (largest) | 9 nodes/edges | 4.1 s | 2.8 s + 4.3 s |
 
-The `journey` row is the one to check: 56 marks, the busiest visual in the set, and it correctly
-owes **nothing** at the exit because its own narration ran 22.5 s.
+Reproduce with `node tools/absorption-bakeoff.js --deck examples/chart-narration.md
+examples/diagram-narration.md --slides`. The `journey` row is the one to check: the busiest visual
+in the set, and it correctly owes **nothing** at the exit because its own narration ran 22.5 s.
+
+An earlier draft of this table was written from a pre-fix run and did not reproduce — five of its
+twelve cells were wrong and one row matched no slide in the corpus. In a record whose thesis is
+"prove the cost function on real decks rather than asserting it," that was the load-bearing table;
+it is now generated from the tool's own output and carries the command that regenerates it.
 
 ## 7. Two modeling errors the bake-off found
 
@@ -172,6 +188,87 @@ quadrant with 51 scattered axis labels priced at 12.2 s of "reading" and model E
 **7.3 (mechanical, same class.)** `textContent` concatenates adjacent elements with no separator,
 so `<p>…three</p><text>alpha</text>` counted as one word. The measurement now walks text nodes.
 Real rendered markup has newlines and mostly got away with it; a fixture does not.
+
+## 7b. What the independent checker found
+
+A checker agent (maker-checker, HARD RULE #25) audited the kernel after the first commit. It
+confirmed nine defects; all are fixed, each with a regression test named for the failure it closes.
+They are recorded because every one of them read as reasonable code.
+
+**7b.1 — The diagram node estimate produced names that were not in the diagram.** Reading the
+identifiers either side of an arrow breaks on an UNSPACED link, which shipped decks use. On
+`examples/sequence-narration.md`, `Client-)Server` / `Server--xClient` / `Worker-->>Queue` yielded
+the "nodes" `Server--`, `xClient`, `Worker--` — the operator's own characters fused into the name,
+the real participants dropped, and the `x` of the cross-operator became a node. The hyphen in the
+identifier class was the direct cause. **Nodes are now derived from edges** (`edges + 1` bounds a
+connected graph) with explicit shape declarations winning when higher — no identifier parsing, so
+no invented name.
+
+**7b.2 — Mermaid YAML frontmatter counted as two edges.** Its delimiters are literally `---`, which
+the link alternation read as two plain links. On the corpus's largest diagram that added 1800 ms,
+and it reaches six shipped decks including the gallery. Frontmatter and `%%` comments are now
+stripped first.
+
+**7b.3 — A ReDoS in the edge alternation.** `={2,}>`'s open quantifier backtracks quadratically on a
+run of `=` with no `>`: 15 ms at 4k characters, 303 ms at 16k, 1.0 s at 32k, 2.3 s at 50k — on a
+markdown fence, i.e. author-controlled text from a shared deck. This is the shape the house pattern
+already bans (`edgeTrim`, `docs/src/lib/cadenza/normalize.ts`). Every quantifier is now bounded;
+50k `=` scans in 4 ms, and a test fails if the bound is ever removed.
+
+**7b.4 — Model B was scored against the wrong item count, and it was a HARD RULE #1/#15 violation.**
+The kernel used a hardcoded `'li, dt, tr'` where `lib/core/collections.js` already owns this
+question (`domItemElements` — the direct `li` children of the FIRST list, under a comment reading
+"never a hardcoded per-component list"). HARD RULE #5 makes a card a NESTED list, so a depth-blind
+count reads every card twice: **46 of 60 catalog-backed slides differed, almost always by exactly
+2×**, doubling B's cost on every card-style slide. Since B divides by a `soft` budget calibrated
+over the canonical count, its bake-off row was a test of the wrong quantity. Now a sync-gated mirror
+of the canonical rule, pinned by test. (It cannot import it: `collections.js` is CJS, and Rollup
+will not resolve named exports off a CJS file outside its root — the same constraint
+`resolve-pace.mjs` documents.)
+
+**7b.5 — KaTeX's screen-reader duplicate was counted as prose, and it saturated both beats.**
+`.katex-mathml` is the same kind of thing as `.lattice-description` — the content again, for a
+screen reader — and it was not skipped. Gallery slide 106 measured **111 prose words where it holds
+66**: 41% of the count was one formula three times. Under model E that slide took `arrive 9000 +
+exit 9000` — **18 seconds of added silence**, both beats at the ceiling. Worth noting the compound
+cause: `math` is in `MEDIA_COMPONENTS`, so `spend` credited only 25% of its narration on the premise
+that "the voice never buys a media slide any absorption time" — but here the projection narrated 54
+words that ARE the slide's prose. The premise is sound for a chart and weak for `math`; the credit
+split is on the list in §11 to re-examine against a real delivery.
+
+**7b.6 — The counted mark sets overlapped.** An `svg text` was both a mark and its own label words
+(9 quadrant labels billed as 25 things to look at; 160 such elements in the corpus); a `tr` was both
+an item and its own cells; a `figure` was charged as an image alongside the `img` it wraps. The sets
+are now disjoint by construction, with each exclusion stated where it is made.
+
+**7b.7 — The role probe still read `textContent`.** §7.3 rewrote the word count to walk text nodes
+because `textContent` concatenates with no separator — and the closing-phrase probe one line below
+kept the defect, also seeing chrome the word count excludes. `<p>data</p><p>Thank you</p>` read as
+one run; a masthead reached the regex on the 32 gallery slides that have no `.cell-stage`. Latent in
+practice — **0 role flips across 1602 slides** — and now closed.
+
+**7b.8 — Two models returned NaN on a partial measure, and `spend` swallowed it.** `scanTimeMs`
+guarded only `labelWords`. `visualCost` and `hybrid` returned NaN, which `spend`'s finiteness guard
+turned into **cost 0** — the slide silently got no absorption rather than failing loudly. Every
+model now reads its inputs through one numeric guard.
+
+**7b.9 — `spend`'s advertised floor invariant could break.** `clampBeat` applies MIN then MAX, so a
+`floorMs` above `MAX_BEAT_MS` came back clamped DOWN, below the floor the docblock promises.
+Unreachable at today's 1400 ms preset; a slower future preset would reach it.
+
+**Two more the checker raised that are worth carrying rather than fixing.** The cross-module pins
+were regex scrapes that could fail loudly on a harmless reformat *and pass silently on a real
+divergence* (`new Set([...SPATIAL, 'funnel'])` parsed as empty; `open: 1.12 * TUNE` parsed as
+`1.12`), and `TABLE_COMPONENTS` had no pin at all. Both lists are now **exported and compared by
+identity** — `lib/core` may not import `lib/transformers` (`kernel-no-transformer-imports`) and may
+not import `docs/`, so the test is the seam, exactly as `pace-names.test.js` is the seam between the
+two copies of the pace presets.
+
+**What the checker could not verify, and neither can I.** The pre-fix numbers in §7.1 and §7.2 are
+not reproducible — the whole change landed as one commit, so the superseded code exists nowhere.
+And every finding above was found on the Node/jsdom path; the browser path, where Mermaid has
+actually drawn an SVG, was not exercised. §7b.6's overlap and the wrapper double-count both behave
+differently there, so their real impact on the live surface is **UNVERIFIED**.
 
 ## 8. A constraint the export path imposes
 
@@ -210,8 +307,10 @@ decider of what matters either.
 ## 10. What this ships, and what it does not
 
 **Ships:** `lib/core/slide-absorption.mjs` (the measure, the five models, the spend rule),
-`tools/absorption-bakeoff.js` (the diagnostic), and 18 unit tests including two cross-module pins
-(`MEDIA_COMPONENTS` equal to the projection's, `ROLE_MULT` equal to `rehearsal.js`'s).
+`tools/absorption-bakeoff.js` (the diagnostic), and 29 unit tests — including three cross-module
+pins compared by IDENTITY (`MEDIA_COMPONENTS` against the projection's, `ROLE_MULT` and
+`TABLE_COMPS` against `rehearsal.js`'s, the item rule against `collections.js`'s) and one
+regression test per defect in §7b.
 
 **Does not ship:** any change to what a deck renders, exports, or narrates. Nothing calls the
 kernel yet. The arrive beat is still `slideBeatMs`'s flat constant and the exit hold does not
@@ -229,5 +328,8 @@ human sign-off is owed.
    (agreed in the session that opened this record) — the string is the lossy channel.
 2. Wire `arrive` to `slideBeatMs` and add the `exit` hold to `read-aloud.ts` and `player-core.mjs`.
 3. Watch a narrated deck under E and tune `arriveShare` / `mediaNarrationCredit` against what a
-   room actually feels — the tuning that cannot be done from a table.
+   room actually feels — the tuning that cannot be done from a table. `math`'s 25% media credit
+   (§7b.5) is the first thing to re-examine there: its narration really is the slide's prose.
+4. Exercise the BROWSER render path, where Mermaid has drawn a real SVG. Everything measured here
+   is the Node/jsdom shape.
 4. Then the emphasis half, on its own branch (HARD RULE #17), starting at Tier 0.

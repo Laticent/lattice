@@ -39,12 +39,12 @@ import { frontMatterBlockOf, splitSlideChunks } from '../../../../../lib/core/sl
 // gap is unchanged and bounded: a mid-deck global makes a slide's ROLE fall back to the density
 // heuristic, which shifts a dwell weight, never correctness.
 const CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
-const TABLE_COMPS = new Set(['matrix-2x2', 'compare-table', 'list-tabular', 'obligation-matrix', 'verdict-grid', 'glossary']);
+export const TABLE_COMPS = new Set(['matrix-2x2', 'compare-table', 'list-tabular', 'obligation-matrix', 'verdict-grid', 'glossary']);
 const BEAT_KINDS = new Set(['pause', 'eye', 'breathe', 'transition', 'emphasis']);
 
 // Roles drive both the time weighting and the default beats. One word per slide
 // describing what the presenter is *doing* on it.
-const ROLE_MULT = { open: 1.12, section: 0.5, data: 1.28, visual: 1.16, quote: 1.12, table: 1.22, decision: 1.45, close: 0.92, body: 1 };
+export const ROLE_MULT = { open: 1.12, section: 0.5, data: 1.28, visual: 1.16, quote: 1.12, table: 1.22, decision: 1.45, close: 0.92, body: 1 };
 const WHY = {
   open: 'Set the frame — name the room and the one decision this deck drives.',
   section: 'A hinge between sections — keep it short, let it reset attention.',

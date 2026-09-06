@@ -15,12 +15,17 @@
  * model can be scaled to any mean. The interesting columns are:
  *   · media exit    the beat a chart/diagram/image slide gets after its narration ends.
  *                   Today this is 0 for every slide in the tree. A model that leaves it
- *                   near 0 has not fixed the stated complaint.
- *   · prose exit    the same for text slides. A model that inflates this is padding a
- *                   slide the voice already covered — the failure mode in the other
- *                   direction.
- *   · spread        max/min arrive beat across the deck. A flat model (spread ~1) is what
- *                   we already have; the whole point is to differentiate.
+ *                   near 0 has not fixed the stated complaint. THIS is the column that
+ *                   discriminates, and with `media w/ beat` it is the only one that does.
+ *
+ * Two columns look like evidence and are NOT — printed for completeness, and named here so
+ * nobody argues from them again (an earlier draft of the decision record did):
+ *   · prose exit    structurally 0 for every prose slide under every model. Silent reading
+ *                   (250 wpm) always beats reading aloud (120-175 wpm) and a prose slide's
+ *                   narration is credited in full, so the residual cannot be positive.
+ *                   "No padding" is a property of the spend rule, not of a cost function.
+ *   · spread        max/min arrive, but min is pinned at the caller's floor and max at
+ *                   MAX_BEAT_MS — so it mostly reports whether ONE slide saturated.
  *
  * On-demand diagnostic, NOT a gate: it renders decks and prints a table, and nothing in the
  * build depends on it. Mirrors `bench`/`quality` in that respect.
