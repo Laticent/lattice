@@ -11,7 +11,7 @@ header: "Lattice · state marks"
 
 # Circles, with a mark
 
-A universal, color-blind-safe treatment for `[x]` `[-]` `[ ]` `[/]` — one status-colored disc, one distinct mark.
+A universal, color-blind-safe treatment for `\[x]` `\[-]` `\[ ]` `\[/]` — one status-colored disc, one distinct mark.
 
 ---
 

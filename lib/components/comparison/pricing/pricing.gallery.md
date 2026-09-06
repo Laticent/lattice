@@ -173,9 +173,9 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 - Every tier marked popular
   - Elevate exactly one tier. Two ribbons cancel out and the eye has nowhere to land — the whole point of the marker is a single recommendation.
 - Features that drift between tiers
-  - If each tier lists a different set of features, the columns can't be compared row-for-row. Keep the feature list and order identical; toggle inclusion with `[x]` / `[/]`.
+  - If each tier lists a different set of features, the columns can't be compared row-for-row. Keep the feature list and order identical; toggle inclusion with `\[x]` / `\[/]`.
 - A wall of red 'not included'
-  - Use `[/]` (muted, struck through) for an absent feature, not `[ ]` (alarming empty/fail). A pricing table sells what's included; it shouldn't read as a list of denials.
+  - Use `\[/]` (muted, struck through) for an absent feature, not `\[ ]` (alarming empty/fail). A pricing table sells what's included; it shouldn't read as a list of denials.
 
 ---
 

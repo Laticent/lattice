@@ -3382,3 +3382,184 @@ section.corners-square {
     border-radius: 0;
   }
 }
+
+/* ── Inline pills — `{LABEL}:shape:c4:lg` ──────────────────────────────────────
+ * A `{LABEL}` inside SINGLE-backtick inline code is decoded by
+ * `lib/core/inline-pills.js` into `<span class="lat-pill" data-shape=…>`. See that
+ * file for the grammar and for why `{}` rather than the ADR's bracket geometry.
+ *
+ * THESE REUSE THE `--pill-*` TOKENS ABOVE (HARD RULE #15). The trailing-`code`
+ * metadata pill and this one are the same visual family reached two ways —
+ * positionally (last child of a row) and explicitly (the author asked). Sharing the
+ * token family is what keeps them from drifting into two different-looking pills.
+ * The two never collide in the cascade: that rule selects `code`, this one selects
+ * `[data-shape]`, which only the decoder emits.
+ *
+ * Shape is GEOMETRY ONLY — every color goes through a token (HARD RULE #3), and no
+ * shape is drawn with a typed glyph (#29): a chevron is a clip-path on our own box,
+ * not a `❯` borrowed from whatever font the machine has. */
+.lat-pill[data-shape] {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  /* `middle`, not `baseline`. An inline-flex box's baseline is its BOTTOM MARGIN EDGE, so
+   * a baseline-aligned pill hangs below the text it sits in — and by a distance that
+   * scales with the type: measured, 2.9px low in 21px body prose and 11px low in a 37px
+   * heading, where it reads as a mistake. `middle` puts the box's centre on the text's
+   * optical centre instead, which is what a reader expects of a chip in a line of words. */
+  vertical-align:middle;
+  line-height:1;
+  font-family:var(--pill-font);
+  font-size:calc(var(--pill-fs) * var(--lat-pill-scale, 1));
+  font-weight:var(--pill-weight);
+  letter-spacing:var(--pill-tracking);
+  padding:var(--pill-pad-y) var(--pill-pad-x);
+  border:1px solid var(--lat-pill-edge, var(--pill-border, var(--muted-mark)));
+  background:var(--lat-pill-bg, var(--pill-bg, var(--bg)));
+  color:var(--lat-pill-ink, var(--pill-fg, var(--text-body)));
+  border-radius:var(--pill-radius);
+  white-space:nowrap;
+  /* OUTER breathing room, and `margin` is provably the only mechanism (HARD RULE #20
+   * sanctioned floor). Measured on the same pill: `padding-inline:1.2em` grew the
+   * CHROME from 58.9px to 73.3px and produced 0px of outside space — padding makes the
+   * pill bigger, it does not separate it from the words either side. `margin-inline`
+   * left the chrome at 58.9px and opened 5.59px. A wrapper element would also work and
+   * is what this avoids: a span around every pill, in both render paths, for spacing.
+   * HORIZONTAL ONLY, which is what keeps it off the rule's actual target — horizontal
+   * margins never collapse, and the measurement confirms the block height is 27.6px
+   * with and without. Counted in MARGIN_BUDGET. */
+  margin-inline:0.22em;
+}
+
+/* Geometry per shape. `pill` is the default and needs no rule — it inherits the
+ * capsule `--pill-radius`. */
+.lat-pill[data-shape='chip'] { border-radius:var(--radius-sm); }
+.lat-pill[data-shape='tag'] { border-radius:0; }
+/* Double stroke: a ring of page color, then the edge again. `box-shadow` rather than
+ * `outline` because outline ignores `border-radius` on some engines and cannot be
+ * clipped by the chevron/diamond shapes below if a variant ever combines them. */
+.lat-pill[data-shape='tag-bordered'] {
+  border-radius:0;
+  box-shadow:0 0 0 2px var(--bg), 0 0 0 3px var(--lat-pill-edge, var(--pill-border, var(--muted-mark)));
+}
+/* A circle is the one shape whose box the TEXT must not size: `aspect-ratio` alone
+ * loses to the label's min-content width plus padding, so a two-character badge came
+ * out an upright oval (measured). Zero padding plus a square minimum lets the ratio
+ * actually bind, and the label centers in it. */
+.lat-pill[data-shape='circle'] {
+  aspect-ratio:1;
+  padding:0;
+  min-width:2em;
+  min-height:2em;
+  border-radius:var(--pill-radius);
+}
+/* Chevrons and the diamond are CLIPPED, so their border would be sliced through on
+ * the cut edges — they carry the edge as background instead and drop the stroke. The
+ * extra inline padding is the room the point needs. */
+.lat-pill[data-shape='chevron-right'],
+.lat-pill[data-shape='chevron-left'],
+.lat-pill[data-shape='diamond'] {
+  border-color:transparent;
+  border-radius:0;
+}
+.lat-pill[data-shape='chevron-right'] {
+  padding-right:calc(var(--pill-pad-x) + 0.5em);
+  clip-path:polygon(0 0, calc(100% - 0.5em) 0, 100% 50%, calc(100% - 0.5em) 100%, 0 100%);
+}
+.lat-pill[data-shape='chevron-left'] {
+  padding-left:calc(var(--pill-pad-x) + 0.5em);
+  clip-path:polygon(0.5em 0, 100% 0, 100% 100%, 0.5em 100%, 0 50%);
+}
+.lat-pill[data-shape='diamond'] {
+  /* SQUARE box, like the circle, and for the same reason stated as geometry rather
+   * than taste: a rhombus offers its full width only along the horizontal midline, and
+   * at the top and bottom edge of a line of text it has narrowed to roughly half. So a
+   * label only ever fits if the box is about twice the label's width — measured, a
+   * 6-character word in a content-sized box came out 105x26 and the word's ends sat
+   * outside the fill on both sides. A diamond holds a character or two; a word wants
+   * `tag` or `chip`, and `lint:deck` says so. */
+  aspect-ratio:1;
+  padding:0;
+  min-width:2.4em;
+  min-height:2.4em;
+  clip-path:polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+/* Size axis. Scales the type, and the padding follows because it is set in `em`. */
+.lat-pill[data-size='sm'] { --lat-pill-scale:0.85; }
+.lat-pill[data-size='lg'] { --lat-pill-scale:1.2; }
+
+/* Color axis — ORDINAL slots onto the role-based categorical tokens (HARD RULE #11).
+ * `--cat-N-fill` is the tint, `--cat-N-mark` the saturated edge, and `--cat-on-fill`
+ * is the ink the existing categorical contrast policy already derives to clear AA on
+ * that tint — so a slot needs no per-pill contrast math and no theme knows about it. */
+.lat-pill[data-c='c1']  { --lat-pill-bg:var(--cat-1-fill);  --lat-pill-edge:var(--cat-1-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c2']  { --lat-pill-bg:var(--cat-2-fill);  --lat-pill-edge:var(--cat-2-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c3']  { --lat-pill-bg:var(--cat-3-fill);  --lat-pill-edge:var(--cat-3-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c4']  { --lat-pill-bg:var(--cat-4-fill);  --lat-pill-edge:var(--cat-4-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c5']  { --lat-pill-bg:var(--cat-5-fill);  --lat-pill-edge:var(--cat-5-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c6']  { --lat-pill-bg:var(--cat-6-fill);  --lat-pill-edge:var(--cat-6-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c7']  { --lat-pill-bg:var(--cat-7-fill);  --lat-pill-edge:var(--cat-7-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c8']  { --lat-pill-bg:var(--cat-8-fill);  --lat-pill-edge:var(--cat-8-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c9']  { --lat-pill-bg:var(--cat-9-fill);  --lat-pill-edge:var(--cat-9-mark);  --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c10'] { --lat-pill-bg:var(--cat-10-fill); --lat-pill-edge:var(--cat-10-mark); --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c11'] { --lat-pill-bg:var(--cat-11-fill); --lat-pill-edge:var(--cat-11-mark); --lat-pill-ink:var(--cat-on-fill); }
+.lat-pill[data-c='c12'] { --lat-pill-bg:var(--cat-12-fill); --lat-pill-edge:var(--cat-12-mark); --lat-pill-ink:var(--cat-on-fill); }
+
+/* ── Inline state marks — `` `[x]` `` anywhere inline code can go ──────────────
+ * `[x]` `[-]` `[ ]` `[/]` inside SINGLE-backtick inline code decode to the same disc
+ * `checklist` draws, via `lib/core/state-marks.js`. Same four markers an author already
+ * writes bare at a bullet's start, so the vocabulary is one thing in two positions
+ * rather than two things — which is the whole reason the inline form uses `[…]` and not
+ * a new spelling.
+ *
+ * NOTHING HERE IS A NEW LOOK. The mark mask (`section .state-full` → `--mark-check`),
+ * the open-ring `todo` treatment, and every `checks-*` style variant already select
+ * universally or from the section, so they reach an inline mark unchanged. What was
+ * missing is only the BOX: the disc geometry and the semantic → `--state-color` map
+ * lived under `section.state-cells td .state`, which an inline span in a paragraph
+ * never matches. `lat-state` is that box, and nothing else.
+ *
+ * Sized in `em` so the disc tracks whatever type it sits in — a heading, a row's meta,
+ * body prose — and `vertical-align:-0.15em` sets it on the text's optical center rather
+ * than its baseline, where a circle reads as sitting high. */
+section .lat-state {
+  position:relative;
+  display:inline-block;
+  width:calc(1em * var(--state-disc-scale));
+  height:calc(1em * var(--state-disc-scale));
+  border-radius:50%;
+  box-sizing:border-box;
+  vertical-align:-0.15em;
+  line-height:1;
+  background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
+  box-shadow:
+    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-ring-mix), black),
+    inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
+  /* Same sanctioned horizontal margin as the pill above, and for the same measured
+   * reason. On the disc padding is worse than useless: the box is a fixed 1em square
+   * with `box-sizing:border-box`, so padding-inline shrinks the CIRCLE rather than
+   * moving it away from the text.
+   *
+   * AND NO VERTICAL PADDING, deliberately. The disc and the pill are ATOMIC inline
+   * boxes (`inline-block` / `inline-flex`), so unlike a plain inline their block padding
+   * DOES enter the line box: measured, `padding-block:0.5em` took a three-line paragraph
+   * from 75.6px to 82px — one line gains leading its neighbors do not, which is exactly
+   * the uneven rhythm this would be trying to avoid. Vertical room is the CONTAINER's to
+   * own, through its `line-height`; the mark takes what the line already gives it and
+   * centres on the text with `vertical-align`. */
+  margin-inline:0.22em;
+}
+section .lat-state.pass { --state-color:var(--pass); }
+section .lat-state.warn { --state-color:var(--warn); }
+section .lat-state.fail { --state-color:var(--fail); }
+section .lat-state.skip { --state-color:var(--muted-mark); }
+section .lat-state.todo { --state-color:var(--muted-mark); }
+section .lat-state::after {
+  content:'';
+  position:absolute;
+  inset:0;
+  background-color:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-mark-pct), var(--bg));
+  -webkit-mask:var(--state-mark) center / 100% 100% no-repeat;
+          mask:var(--state-mark) center / 100% 100% no-repeat;
+}

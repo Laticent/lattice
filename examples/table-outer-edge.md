@@ -59,7 +59,7 @@ The table fills the stage, so its last row sits closest to this note — the cas
 | GDPR | [x] | [x] | [x] | [x] |
 | LGPD | [ ] | [x] | [-] | [x] |
 
-State discs still decode from the `[x]` `[-]` `[ ]` markers; only the closing hairline is gone.
+State discs still decode from the `\[x]` `\[-]` `\[ ]` markers; only the closing hairline is gone.
 
 ---
 

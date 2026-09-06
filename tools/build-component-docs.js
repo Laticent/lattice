@@ -631,7 +631,7 @@ function renderAntiPatternsSlide(m) {
   // title line, matching the old format's inline-code resilience. No shipping
   // manifest has a code-bearing title today; this keeps a future one safe.
   const items = m.antiPatterns.map(
-    (p) => `- ${p.title.replace(/`/g, '')}\n  - ${p.body}`
+    (p) => `- ${p.title.replace(/`/g, '')}\n  - ${escapeDeckMarkers(p.body)}`
   );
   return `<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · ${m.name}" -->
@@ -639,6 +639,26 @@ function renderAntiPatternsSlide(m) {
 ## When NOT to reach for ${m.name}.
 
 ${items.join('\n')}`;
+}
+
+/**
+ * A manifest's prose is written for a HUMAN — `` `[x]` `` in an anti-pattern means the two
+ * characters an author types. The same string feeds two outputs with opposite rules:
+ * `<name>.docs.md` is ordinary markdown, where a backslash would be VISIBLE noise, and
+ * `<name>.gallery.md` is a rendered DECK, where `[x]` inside inline code now decodes to a
+ * state mark (`lib/core/state-marks.js`).
+ *
+ * So the escape belongs here, on the deck side only, rather than in the manifest. Written
+ * into the manifest it would leak a literal backslash into every docs page and every
+ * consumer of `dist/docs/components.json`; written here, a manifest author never has to
+ * know the deck grammar exists.
+ *
+ * Only the four canonical markers, and only inside a single-backtick span — the same
+ * narrow set the decoder dispatches on, so this can never escape something that was not
+ * going to be decoded.
+ */
+function escapeDeckMarkers(text) {
+  return String(text).replace(/`(\[[x\-/ ]\])`/g, '`\\$1`');
 }
 
 function renderClosingSlide(m) {

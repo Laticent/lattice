@@ -256,6 +256,54 @@ const PROBES = {
     probe: marked('.cell'),
   },
 
+  inlinePills: {
+    min: 12,
+    // Only the entries that exist BECAUSE the grammar fired. Without this the `code|`
+    // literals hold the count up on their own and the floor certifies nothing.
+    minMatch: /^(pill|mark)\|/,
+    section: 'list-tabular',
+    body: [
+      '## Pills', '',
+      // One row per shape, plus the modifier axes, plus the LITERALS. The literals are
+      // half the probe: this grammar reads every single-backtick span in every deck, so
+      // a drift that starts promoting `[x]` or `{ ok, scene }` is the failure that
+      // matters, and it is invisible to a probe that only feeds it valid pills.
+      '1. Shapes',
+      '   - `{A}` `{B}:tag` `{C}:chip` `{D}:tag-bordered`',
+      '2. More shapes',
+      '   - `{E}:circle` `{F}:chevron-right` `{G}:chevron-left` `{H}:diamond`',
+      '3. Axes',
+      '   - `{I}:c1:lg` `{J}:c12:sm`',
+      // The INLINE STATE vocabulary shares this pass, so it shares this probe: `[x]`
+      // and `{LABEL}` are disjoint by opening character, and a drift that let one
+      // swallow the other would show here as a path disagreement.
+      '4. Marks',
+      '   - `[x]` `[-]` `[ ]` `[/]`',
+      '5. Literals',
+      '   - `[?]` `[data-mark]` `{ ok, scene }` `getUserId()` `{K}:c13` `{}`',
+      // The escape, on both paths. A backslash survives into the DOM, which is why it
+      // replaced the double-backtick form — that one was invisible to the runtime and
+      // this arm is what proved it.
+      '6. Escaped',
+      '   - `\\{LIVE}` and `\\[x]` and `\\[a-z]` and `\\d+`',
+    ].join('\n'),
+    // Reads BOTH sides of the decision: what became a pill (with its resolved axes),
+    // and what stayed a `<code>`. Comparing only the pills would pass a mirror that
+    // promoted everything.
+    probe: (doc) => [
+      ...[...doc.querySelectorAll('span.lat-pill')].map(
+        (el) => `pill|${el.getAttribute('data-shape')}|${el.getAttribute('data-c') || '-'}|${el.getAttribute('data-size') || '-'}|${el.textContent}`,
+      ),
+      // A mark carries its name on `aria-label`, never as text, so the probe reads the
+      // label — a path that regressed to a visually-hidden word would show up here as a
+      // difference in `textContent`, which is exactly what it should be.
+      ...[...doc.querySelectorAll('span.lat-state')].map(
+        (el) => `mark|${el.className}|${el.getAttribute('aria-label')}|text=${el.textContent}`,
+      ),
+      ...[...doc.querySelectorAll('code')].map((el) => `code|${el.textContent}`),
+    ],
+  },
+
   slotLabelLift: {
     min: 3,
     section: 'premise',
@@ -433,9 +481,18 @@ test('marp fidelity — a `mirrored` claim is attested by rendered output', asyn
       const deck = spec.deck || `<!-- _class: ${spec.section} -->\n\n${spec.body}`;
       const markup = spec.markup || marpShaped(spec.section, spec.body);
       const engineOut = spec.probe(renderEngine(deck));
+      // THE FLOOR MUST COUNT THE THING THE ROW IS ABOUT, not the probe's whole output.
+      // `inlinePills` reads both what became a pill or a mark AND what stayed a `<code>`,
+      // because a mirror that promoted everything would otherwise pass. But that makes the
+      // literals part of the array, so a mutation turning the grammar OFF entirely left
+      // 17/17 green: every pill fell back to a `<code>` and the count never dropped.
+      // Measured — `escapedText`→null, `resolve()`→null, and both at once all passed.
+      // `minMatch` narrows the floor to the entries that only exist when the row's
+      // transform actually fired.
+      const counted = spec.minMatch ? engineOut.filter((e) => spec.minMatch.test(e)) : engineOut;
       assert.ok(
-        engineOut.length >= spec.min,
-        `the engine produced ${engineOut.length} of the thing ${k} claims (floor ${spec.min}) — ` +
+        counted.length >= spec.min,
+        `the engine produced ${counted.length} of the thing ${k} claims (floor ${spec.min}) — ` +
           'the deck or the probe selector is wrong, and without this the comparison below would ' +
           'be two empty arrays passing forever',
       );
