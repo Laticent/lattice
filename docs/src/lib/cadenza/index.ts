@@ -13,9 +13,12 @@ export type { Pace, PaceName } from './cadence';
 export {
   CLIP_TRAILING_FRACTION,
   clipTrailingMs,
+  EMPHASIS_HOLD_MS,
+  emphasisHoldMs,
   estimateWordMs,
   FINAL_LENGTHEN_MS,
   interCueGapMs,
+  MAX_EMPHASIS_STEPS,
   PACE_PRESETS,
   PACE_WPM,
   PARAGRAPH_PAUSE_MS,
@@ -50,6 +53,6 @@ export { makeReader } from './reader';
 export { splitParagraphs, splitSentences, splitWords } from './segment';
 export type { LexiconMap, ResolveSymbolsOptions } from './symbols';
 export { resolveSymbols, SEPARATOR_GLYPHS, SYMBOL_SPEAK } from './symbols';
-export type { BuildOptions, CaptionTrack, Cue, Word } from './track';
+export type { BuildOptions, CaptionTrack, Cue, EmphasisSpan, Word } from './track';
 export { buildTrack } from './track';
 export { formatTimestamp, toSrt, toVtt } from './vtt';

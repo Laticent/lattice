@@ -713,7 +713,11 @@ export function useReadAloud(
 				gapMs: (s, _next, index) => {
 					const cue = track.cues[from + index];
 					const lastDisplay = cue?.words[cue.words.length - 1]?.display ?? s;
-					return interCueGapMs(lastDisplay, !!cue?.endsParagraph);
+					// `cue.weight` rides along for the same reason `endsParagraph` does: it widens this gap in
+					// buildTrack, so omitting it here would make the clocked audio space an emphasized cue
+					// tighter than the estimate that drew the caption — the exact drift this shared formula exists
+					// to prevent.
+					return interCueGapMs(lastDisplay, !!cue?.endsParagraph, cue?.weight);
 				},
 				onItemStart: ({ index, onsetMs, durationMs }) => {
 					const cue = from + index; // sliced item i ↦ cue (from + i) — re-anchoring stays cue-accurate

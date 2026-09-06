@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { SENTENCE_PAUSE_MS } from '../../playground/voice-model.js';
 import {
   clipTrailingMs,
+  EMPHASIS_HOLD_MS,
+  emphasisHoldMs,
   estimateWordMs,
   FINAL_LENGTHEN_MS,
   interCueGapMs,
+  MAX_EMPHASIS_STEPS,
   PACE_PRESETS,
   PARAGRAPH_PAUSE_MS,
   pauseAfter,
@@ -244,4 +247,79 @@ describe('slideBeatMs — the top rung of the ladder (the between-slide beat)', 
 	it('falls back to natural for an unknown pace name', () => {
 		expect(slideBeatMs('slide', 'nonsense' as unknown as 'natural')).toBe(SLIDE_PAUSE_MS);
 	});
+});
+
+
+// ── The EMPHASIS tier — the one rung keyed on meaning rather than on a glyph ───────────────────
+describe('emphasisHoldMs', () => {
+  it('is silent for ordinary narration, so an unweighted deck is timed exactly as before', () => {
+    // The load-bearing default. Every other assertion here is about the feature; this one is about
+    // every deck that never uses it.
+    expect(emphasisHoldMs(1)).toBe(0);
+    expect(emphasisHoldMs(undefined)).toBe(0);
+  });
+
+  it('buys one hold per step above 1', () => {
+    expect(emphasisHoldMs(2)).toBe(EMPHASIS_HOLD_MS);
+    expect(emphasisHoldMs(3)).toBe(2 * EMPHASIS_HOLD_MS);
+  });
+
+  it('caps, so a deck that bolds every line cannot buy an unlistenable stall', () => {
+    const ceiling = MAX_EMPHASIS_STEPS * EMPHASIS_HOLD_MS;
+    expect(emphasisHoldMs(MAX_EMPHASIS_STEPS + 1)).toBe(ceiling);
+    expect(emphasisHoldMs(99)).toBe(ceiling);
+    expect(emphasisHoldMs(Number.MAX_SAFE_INTEGER)).toBe(ceiling);
+  });
+
+  it('never SHORTENS — this tier only ever adds silence', () => {
+    // A negative or sub-1 weight must not claw back the phrase-final lengthening a word already
+    // earned; rushing a phrase would be a different feature with a different failure mode.
+    for (const w of [0, 0.5, -1, -99]) expect(emphasisHoldMs(w)).toBe(0);
+  });
+
+  it('survives the garbage a DOM-walking producer can emit', () => {
+    for (const w of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      expect(emphasisHoldMs(w)).toBe(0);
+    }
+    expect(emphasisHoldMs('2' as unknown as number)).toBe(EMPHASIS_HOLD_MS); // Number() coerces
+  });
+
+  it('rounds a fractional weight rather than paying a fractional millisecond', () => {
+    expect(emphasisHoldMs(2.4)).toBe(EMPHASIS_HOLD_MS);
+    expect(emphasisHoldMs(2.6)).toBe(2 * EMPHASIS_HOLD_MS);
+    expect(Number.isInteger(emphasisHoldMs(2.5))).toBe(true);
+  });
+
+  it('is a multiple of 10, like every other value in the ladder', () => {
+    for (let w = 1; w <= MAX_EMPHASIS_STEPS + 2; w++) expect(emphasisHoldMs(w) % 10).toBe(0);
+  });
+});
+
+describe('interCueGapMs + emphasis', () => {
+  it('adds the hold on top of the boundary pause, leaving the pause itself untouched', () => {
+    const plain = interCueGapMs('points.', false);
+    expect(interCueGapMs('points.', false, 2)).toBe(plain + EMPHASIS_HOLD_MS);
+  });
+
+  it('composes with the paragraph tier instead of replacing it', () => {
+    const para = interCueGapMs('points.', true);
+    expect(interCueGapMs('points.', true, 2)).toBe(para + EMPHASIS_HOLD_MS);
+    expect(para).toBeGreaterThan(interCueGapMs('points.', false));
+  });
+
+  it('defaults to the pre-emphasis value when no weight is passed', () => {
+    // Pins the back-compat of the shared formula itself: a caller that has not been taught about
+    // weight yet must still compute exactly what it computed before.
+    expect(interCueGapMs('points.', false, 1)).toBe(interCueGapMs('points.', false));
+    expect(interCueGapMs('grew,', true, undefined as unknown as number)).toBe(interCueGapMs('grew,', true));
+  });
+
+  it('does NOT touch the clip-internal share — the hold is pure inter-clip breath', () => {
+    // The TTS clip is synthesized from the sentence's own words and knows nothing about emphasis,
+    // so the hold must land entirely in the gap BETWEEN clips. If it leaked into clipTrailingMs the
+    // cue's span would claim silence the audio does not contain.
+    expect(clipTrailingMs('points.')).toBe(clipTrailingMs('points.'));
+    const delta = interCueGapMs('points.', false, 3) - interCueGapMs('points.', false, 1);
+    expect(delta).toBe(emphasisHoldMs(3));
+  });
 });

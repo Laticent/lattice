@@ -1,0 +1,1 @@
+- Narration can now spend time on what matters. Cadenza's `buildTrack` takes an optional `emphasis` map — `[{start, end, weight}]` char ranges over the narration text — and a cue carrying an emphasized phrase holds a beat after it lands, so a deck's key claim no longer gets exactly the same pacing as a footnote. An unweighted deck is timed byte-for-byte as before.

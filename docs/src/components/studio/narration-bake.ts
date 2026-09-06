@@ -607,7 +607,9 @@ export async function bakeNarration(
 			return {
 				text: cue?.display ?? '',
 				estimateMs: cue ? Math.max(0, Math.round(cue.endMs - cue.startMs)) : 0,
-				gapMs: cue ? Math.max(0, Math.round(interCueGapMs(lastDisplay, !!cue.endsParagraph))) : 0,
+				// Same three arguments as buildTrack and the live reader — `cue.weight` included, or a baked
+				// deck would lose the emphasis holds the estimate and the live path both carry.
+				gapMs: cue ? Math.max(0, Math.round(interCueGapMs(lastDisplay, !!cue.endsParagraph, cue.weight))) : 0,
 				words,
 				audio: null as string | null,
 			};
