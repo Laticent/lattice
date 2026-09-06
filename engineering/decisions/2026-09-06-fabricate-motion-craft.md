@@ -232,9 +232,11 @@ governs, and the boundary already exists in three places this design must use ra
 ### 8.1 What the guard COSTS the drawing — measured, because two common exports come out blank
 
 The rule above says what is stripped. It does not say what that does to a real file, and the answer
-decides a whole screen of this faculty. Measured through the actual boundary — `createSlideSanitizer`
-with the installed DOMPurify 3.4.11 (`.scratch/svg-sanitize-probe.mjs`; both guards agree, since
-`svg-paint.ts`'s `STRIP_TAGS` carries the same two tags):
+decides a whole screen of this faculty. Measured in REAL CHROMIUM with the installed DOMPurify
+3.4.11 and the config imported from `lib/core/sanitize-slide-html.mjs` rather than retyped
+(`docs/e2e/svg-paste-guard.spec.ts`). Node + jsdom returns byte-identical output, and
+`svg-paint.ts`'s `STRIP_TAGS` carries the same two tags, so all three agree — but the pin is taken
+on the browser, because that is the surface that ships (#23):
 
 | Pasted construct | Survives? | What it means for the faculty |
 |---|---|---|
