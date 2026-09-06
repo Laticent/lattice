@@ -182,6 +182,39 @@ governs, and the boundary already exists in three places this design must use ra
 **A dropped file is a new ingest**, so it also owes the line-ending/BOM boundary
 (`2026-08-04-line-endings-lf-boundaries.md` + `SANCTIONED_EOL_BOUNDARIES`).
 
+### 8.1 What the guard COSTS the drawing — measured, because two common exports come out blank
+
+The rule above says what is stripped. It does not say what that does to a real file, and the answer
+decides a whole screen of this faculty. Measured through the actual boundary — `createSlideSanitizer`
+with the installed DOMPurify 3.4.11 (`.scratch/svg-sanitize-probe.mjs`; both guards agree, since
+`svg-paint.ts`'s `STRIP_TAGS` carries the same two tags):
+
+| Pasted construct | Survives? | What it means for the faculty |
+|---|---|---|
+| `id`, `class`, `data-*` on any node | **yes** | the whole addressing scheme is safe — choreography can target what it finds |
+| `<g transform>`, `<defs>`, `linearGradient`, `clipPath`, `mask`, `filter` | **yes** | structure and paint survive; a grouped drawing keeps its groups |
+| `pathLength`, `stroke-dasharray`, `stroke-dashoffset` | **yes** | the draw channel's own mechanism is untouched |
+| inline `style="…"` (incl. `var(--token)`) | **yes** | per-element paint survives, tokens included |
+| `<text>`, `<title>`, `<desc>` | **yes** | labels and the a11y names survive |
+| **`<style>` block** | **NO — element deleted** | classes survive with nothing defining them |
+| **`<use>`** | **NO — element deleted** | by DOMPurify's own default, not our config |
+| `<foreignObject>`, `<script>`, `on*`, `<animate>` | no | intended; SMIL is not our animation channel |
+
+**Two of those are not edge cases, they are default exports.** Illustrator's "Style Elements" CSS
+option puts every fill and stroke in one `<style>` block and references it by `class`; an icon sprite
+or a Figma component with repeated instances is `<symbol>` + `<use>`. Run either through the guard and
+the markup is still well-formed and still full of addressable ids — it just paints **nothing**. The
+`<use>` case is the crueler one: the `<defs>`/`<symbol>` survive, so the drawing looks structurally
+intact to any code that counts nodes, and renders as an empty box.
+
+So the faculty cannot treat sanitizing as a silent internal step. **It has to compare before and
+after, at paste time, and say what it lost** — naming the construct, saying which export option
+produced it, and telling the user the one-line fix ("re-export with presentation attributes", "flatten
+instances"). A guard that quietly returns a blank drawing is indistinguishable from a broken faculty,
+and the user will blame the faculty. `<use>` in particular can be *offered* as an automatic fix: it is
+a reference to a node already in the document, so inlining it before sanitizing is a lossless
+rewrite the faculty can do on the user's behalf.
+
 ## 9. What v1 does NOT do
 
 Stated so it is not implied:
