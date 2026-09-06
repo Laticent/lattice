@@ -155,6 +155,57 @@ this file is the detail. Entry shape and the rule for adding one are in the inde
 - **Commits:** Phase 1–4 of the refactor land in the branch
   above; the final cleanup commit removed the alias declarations.
 
+## Narration timed from `projectDeckToSpeech` is ~9x too short — it is ONE STAGE
+
+- **Symptom:** you measure a slide's narration by calling
+  `projectDeckToSpeech` (`lib/transformers/prose-projection.mjs`) and feeding
+  the result to Cadenza's `buildTrack`, and a `diagram` slide comes back at
+  ~4 seconds. The shipped caption for that same slide runs ~40 seconds, and
+  the deck really does hold on it for that long. Any model calibrated against
+  the short figure — a pause budget, a dwell estimate, a progress rail — is
+  wrong by most of an order of magnitude.
+- **Cause:** the projection is one stage of a multi-stage pipeline, not the
+  narration. Both producers run the shared `narrateChart`
+  (`lib/core/chart-narration.js`) **on top of it** and substitute its
+  full-slide narration wherever it fires — the CLI at
+  `lattice-emulator.js:5037`, the live Studio through `narrationAt`. For a
+  `diagram` slide that means `narrateDiagram` speaks the whole flowchart, node
+  by node ("From API Service: reads from Postgres; writes to Redis; publishes
+  to Kafka"), which is many times longer than the heading-and-caption text the
+  projection alone returns. Author caption overrides then win above both, via
+  `mergeNarration`.
+- **Fix:** measure the narration the way the pipeline builds it. Either export
+  captions and read the `.vtt` (`node lattice-emulator.js deck.md out.html
+  --captions` writes a per-slide `out.NN.vtt`), or apply `narrateChart` over
+  the projection yourself the way `lattice-emulator.js` does. Do not time the
+  projection and call it narration.
+- **Measured:** `examples/diagram-narration.md` slide 2 — projection 4.3s,
+  shipped caption **40.6s**. Slide 3 — projection 4.7s, caption **29.9s**.
+
+## Per-slide dwell in Present IS the narration — there is no hidden stall
+
+- **Symptom:** you drive the real Present overlay, watch a deck autoplay, and
+  each slide sits for 20-40 seconds. It reads like a stall — a synthesis
+  timeout, a starved audio buffer, a hung retry — and there is a tempting
+  explanation waiting in `2026-08-03-present-instant-audio-pacing-guide.md`
+  about cold clips and unmeasured TTS latency.
+- **Cause:** none of those. The dwell is the slide's own narration playing to
+  the end, plus the arrival beat (`slideBeatMs`, 1400ms at the default pace).
+  Measured against the exported captions on `examples/diagram-narration.md`:
+  caption 40.60s → dwell 42.0s; caption 29.92s → dwell 31.3s. The beat is
+  spent on the slide that just arrived, so it lands between the two.
+- **How to check it yourself, cheaply:** delete `AudioContext` before app code
+  runs (`page.addInitScript`) and drive the same deck again. Mode is `'audio'`
+  only when a Suono stage exists, so removing it forces the estimate clock. If
+  the dwells are unchanged, no audio path is involved. Measured: 21029/42003/31314
+  with audio against 20972/41979/31381 without — identical within 0.2%.
+- **Why this is worth its own entry:** an entire branch was built on the
+  premise that diagram slides advance too fast and need engineered pauses.
+  They do not. The premise came from timing the projection instead of the
+  narration (see the entry above), and it survived three fix passes, two
+  adversarial trios and a green pipeline — because every reviewer checked the
+  arithmetic downstream of the figure and nobody re-derived the figure.
+
 ## Two render paths — land transforms in the shared kernel, not one path
 
 - **Symptom:** A new authoring transform (e.g., chart-family layouts,
