@@ -17,7 +17,7 @@
  * dep "must never drift onto an eager path", and dagre was the one that had. A
  * single import from `lib/runtime`, `docs/src` or a playground bundle re-inlines
  * the whole library — those all esbuild with no externals — and silently undoes
- * the split, costing every reader of every deck 26.5 KB gzipped for an engine
+ * the split, costing every reader of every deck 25.9 KiB gzipped for an engine
  * only a branching machine uses.
  *
  * What is pinned here is the SHAPE of that contract, because every part of it is
@@ -117,7 +117,7 @@ describe('dagre delivery to the state-chart pass', () => {
       assert.equal(rt.includes(marker), false,
         `dagre is back on the eager path (found "${marker}" in lattice-runtime.min.js). `
         + 'Some module in the runtime\'s import graph requires it again; esbuild has no '
-        + 'externals here, so one import inlines the whole library — 26.5 KB gzipped '
+        + 'externals here, so one import inlines the whole library — 25.9 KiB gzipped '
         + 'paid by every reader of every deck, for an engine only a BRANCHING state '
         + 'chart uses. It belongs in dist/lattice-dagre.min.js, tagged by the host.');
       assert.equal(sa.includes(marker), true,

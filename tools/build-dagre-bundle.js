@@ -25,8 +25,9 @@
  * dep "must never drift onto an eager path". Mermaid (3.16 MB) and the KaTeX
  * provider (268 KB) are both separate, conditionally-fetched files; dagre was the
  * one that sat inside `lattice-runtime.min.js`, so every reader of every deck
- * paid 26.5 KB gzipped for a layout engine 13 of the 13 shipped machines never
- * use. Splitting it out took that bundle from 242,155 to 215,702 B gzipped.
+ * paid 25.9 KiB gzipped for a layout engine all 9 drawn machines in
+ * the shipped galleries never use. Splitting it out took that bundle from 243,431
+ * to 216,937 B gzipped.
  *
  * The pass reads `globalThis.__latticeDagre` and falls back to the numbered
  * column when it is absent, so a host that loads neither degrades to today's

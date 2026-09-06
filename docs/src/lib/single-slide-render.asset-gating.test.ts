@@ -106,7 +106,7 @@ describe('single-slide Mermaid gating — content AND url', () => {
 });
 
 // The SAME gate, for the dagre layout engine — added when dagre was split out of the
-// runtime bundle (it had been inlined, so every reader of every deck paid 26.5 KB
+// runtime bundle (it had been inlined, so every reader of every deck paid 25.9 KiB
 // gzipped for an engine only a BRANCHING state chart uses). Same content-AND-url shape
 // as Mermaid above, and the same failure to avoid: an absent URL must emit no tag, never
 // `src=""`. One difference worth stating — an absent engine is not a missing diagram

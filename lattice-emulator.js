@@ -2754,9 +2754,9 @@ if (hasStateChart) {
     // never ran `npm install`) → '' → the pass falls back to the numbered column.
     //
     // GATED ON THE MACHINE, NOT ON THE COMPONENT. dagre's answer is only ever
-    // USED when it puts two nodes in one rank, and zero of the 13 machines in
+    // USED when it puts two nodes in one rank, and zero of the 9 drawn machines in
     // the shipped galleries branch — so keying this on `hasStateChart` made every
-    // one of them carry 63.7 KB raw / 22.4 KB gzipped for a layout the pass then
+    // one of them carry 62.2 KiB raw / 21.8 KiB gzipped for a layout the pass then
     // discarded. `htmlNeedsDagre` runs the REAL dagre in Node over the real
     // topology (rank assignment is topology-only, so unit boxes give the same
     // partition the browser gets with measured ones) and answers TRUE for

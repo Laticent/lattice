@@ -62,7 +62,7 @@ const runtimeJs = join(repoRoot, 'dist', 'lattice-runtime.min.js');
 // a preview document that carries a drawn state chart, via a `<script src>` the
 // host emits before the runtime tag — the same conditional shape mermaid uses.
 // Inlined into lattice-runtime.js until then, which put it on the eager path:
-// 26.5 KB gzipped for every reader of every deck, for an engine only a BRANCHING
+// 25.9 KiB gzipped for every reader of every deck, for an engine only a BRANCHING
 // machine uses. See tools/build-dagre-bundle.js.
 const dagreJs = join(repoRoot, 'dist', 'lattice-dagre.min.js');
 const pgDir = join(here, '..', 'public', 'playground');

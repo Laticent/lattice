@@ -42,7 +42,7 @@ export type DeckRender = {
 	 *  is laid out rather than falling back to the numbered column. Absent → no tag is
 	 *  injected and the machine renders as a column — a different layout, not a missing
 	 *  one, which is why lib/runtime/index.js says so on the console. Split out of the
-	 *  runtime bundle because inlining it put 26.5 KB gzipped on every reader of every
+	 *  runtime bundle because inlining it put 25.9 KiB gzipped on every reader of every
 	 *  deck for an engine only a branching machine uses. */
 	dagreUrl?: string;
 };

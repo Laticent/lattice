@@ -134,7 +134,7 @@ export type SingleSlideOptions = {
 	 * **Absent → a state chart that BRANCHES falls back to the numbered column.** Not a
 	 * blank diagram and not an error — a different layout, which is why the runtime says
 	 * so on the console. Same removed-CDN-fallback reasoning as `mermaidUrl`. dagre used
-	 * to be inlined into the runtime bundle; that cost every reader of every deck 26.5 KB
+	 * to be inlined into the runtime bundle; that cost every reader of every deck 25.9 KiB
 	 * gzipped for an engine only a branching machine uses.
 	 */
 	dagreUrl?: string;

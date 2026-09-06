@@ -465,7 +465,7 @@ beats `--pale-blue-bg` because the role survives a palette swap.
   `lattice-runtime.min.js`, and the CLI export inlines the same IIFE
   only for a deck whose machine actually branches. A chain keeps the
   numbered column and needs no engine, which is why the delivery is
-  conditional: inlining it cost every reader of every deck 26.5 KB
+  conditional: inlining it cost every reader of every deck 25.9 KiB
   gzipped. Absent, a branching machine falls back to the column and
   the runtime says so on the console. See
   `engineering/decisions/2026-09-06-state-chart-dagre-layout.md`.

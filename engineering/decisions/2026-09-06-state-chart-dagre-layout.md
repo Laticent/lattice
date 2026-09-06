@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: state-chart adopts dagre for node placement and edge routing, reversing PR #27's explicit "no dagre, no force layout". Self-hosted with no external script — the player CSP (script-src sha256) and the .toString() serialization both make one impossible. Measured against ELK on all 13 shipped gallery machines: dagre keeps authored reading order 14/15 against ELK's 9/15, fits a 16:9 stage better on 12 of 15, lays out 2.5x faster, and costs 22 KB gzipped against ELK's 430 KB. The decisive constraint is synchronous API — the layout pass is serialized into the emulator bootstrap via .toString(), which a Promise cannot cross.
+summary: state-chart adopts dagre for node placement and edge routing, reversing PR #27's explicit "no dagre, no force layout". Self-hosted with no external script — the player CSP (script-src sha256) and the .toString() serialization both make one impossible. Measured against ELK on all 9 drawn gallery machines: dagre keeps authored reading order 14/15 against ELK's 9/15, fits a 16:9 stage better on 12 of 15, lays out 2.5x faster, and costs 22 KB gzipped against ELK's 430 KB. The decisive constraint is synchronous API — the layout pass is serialized into the emulator bootstrap via .toString(), which a Promise cannot cross.
 ---
 
 # state-chart adopts dagre for layout
@@ -324,9 +324,9 @@ page loads — so every reader of every deck paid for it, including on decks wit
 chart, and this section argued that was fine at the size. It was the exact drift the
 rule names, and "not Mermaid-sized" is not the test the rule states.
 
-It is measured, not estimated: `lattice-runtime.min.js` went **242,155 → 215,702 B
-gzipped**, so the eager cost was **26.5 KB, 10.9% of the bundle**, for an engine that
-**none of the 13 shipped machines uses** — every one of them is a chain.
+It is measured, not estimated: `lattice-runtime.min.js` went **243,431 → 216,937 B
+gzipped**, so the eager cost was **25.9 KiB, 10.9% of the bundle**, for an engine that
+**none of the 9 drawn machines in the shipped galleries uses** — every one of them is a chain.
 
 **dagre now travels the way every other heavy dep here does.** Mermaid (3.16 MB) is a
 separate file the preview builder tags conditionally; the KaTeX provider (268 KB) and the
@@ -341,7 +341,7 @@ document two ways, both conditional:
 - **The CLI export** inlines the same IIFE, and only for a deck whose machine actually
   BRANCHES — decided by running the real dagre in Node over the deck's own topology
   (`state-chart.adoption.js`), because rank assignment is topology-only. A chain-only
-  export sheds 63.7 KB raw / 22.4 KB gzipped.
+  export sheds 62.2 KiB raw / 21.8 KiB gzipped.
 
 **What it costs, stated plainly.** `lattice-runtime.min.js` is no longer self-sufficient:
 a consumer who embeds it bare gets the numbered column for a branching machine. That is
@@ -629,12 +629,116 @@ Three things make it behave:
   above a label overlap: a label over a node hides the state's name and its
   gradient, while two labels that touch are still both readable.
 
+**A fourth thing, and an independent checker had to find it.** The candidates were
+scored against node boxes and other labels and against nothing else — but the
+canvas is fixed from the node rects and the routed polylines BEFORE any label is
+placed, so labels never enter that extent. A candidate could be clear of every box
+and hang past the viewBox edge, where `.chart-body`'s `overflow: clip` cuts it.
+Reproduced on a five-way fan with a long back-edge label: the walk slid it **97px
+outside** its viewBox, the slide rendered `escalate back to triage f`, and the
+engine's own CONTENT CLIPPED gate fired — §9.1's F1 in a new costume, and a
+self-inflicted regression under HARD RULE #18 (the label was merely touching
+another label before). The canvas is now a boundary in the clash test and the
+highest-weighted term in the score.
+
+**What it gives up when nothing fits, in order.** On a machine with no clear spot
+the fallback takes the least-bad candidate, and "least bad" is not a wash: a label
+off the canvas has its text CUT, one on a node hides the state's name and its
+gradient, and two labels that touch are both still readable. So the residue is
+allowed to be label-on-label and nothing else. That ordering was unexercised and
+three mutants of it survived the first test suite; it is now pinned by a machine
+built to have no solution.
+
 **Measured, in a real browser off the rendered decks** (HARD RULE #23 — the label
 is `<text>`, so its extent depends on the font that actually drew it):
 **118 labels across the four state-chart decks, 3 overlapping → 0.** The probe
 reproduces §9.4's own numbers before the change (3.28px and 1.63px against nodes)
 and finds a third §9.4 did not name — `block` overlapping the `reject` LABEL by
 1.9px, which the deck rendered as the single garbled token `reject›lock`.
+Off-canvas labels on the same decks went 8 → 6; the six that remain are
+**pre-existing and off this path** — they belong to the column router, which this
+change does not touch.
+
+**The first test suite for all this was largely vacuous, which is the part worth
+keeping.** An independent checker mutation-tested it and found **seven of ten**
+mutants surviving, including deleting the arc-length walk outright
+(`LABEL_SPOTS = [0.5]`), deleting the far-side mirror, and zeroing the pad — every
+one of the "three things that make it behave" above. The single fixture had no
+label-on-label collision to avoid, so the arm named for it could not fail. What
+replaced it is three fixtures with all three pressures at once, plus arms that
+assert the levers by what they CHANGE (a label leaves its midpoint; an `end`
+anchor appears somewhere; the impossible machine's residue is label-on-label
+only). All ten mutants now die, and so do two more introduced with the canvas
+bound.
+
+**And the pad is a scaled geometry constant now, not a bare number.** It was
+`2.5`/`2` raw pixels while everything it compensates for scales with `S`: the
+`paint-order: stroke` halo measures 2.7px half-width at 16:9 and 8.1px at 4K, so
+an unscaled pad under-reserves exactly where the figure is largest. It lives in
+`G_BASE` as `labelPad: 3.5` and is scaled with every other length.
+
+### 9.6 What the trio found, and the two numbers that did not reproduce
+
+A red team, a Munger inversion and two checkers drove the delivery split and the
+label walk. Six confirmed defects, all fixed here; two of the six were in this
+work's own claims rather than its code, which is the half worth recording.
+
+**A Studio export dropped the engine.** `createCaptureFrame` destructures the
+`DeckRender` by name, and `dagreUrl` was not in the list — so every Studio export
+(.pdf, .pptx, the .png set, the shared player) rendered a branching machine as a
+numbered column while the preview beside it showed the fan-out. It was threaded
+correctly through `SingleSlideOptions` and `buildDeckRender` and fell out at one
+hop. Before the split the frame had the engine for free, so this is HARD RULE #18,
+on exported bytes. The guard now parses that parameter list — the FIRST guard was
+`text.includes('dagreUrl')`, which stayed green when the name was removed, because
+the comment two lines above satisfied it.
+
+**The re-export strip ate quoted content.** Matching a tag SET rather than an exact
+block is what lets the strip survive the set changing; it also made it wide enough
+to gut a deck that QUOTES our tag block in a code fence — which the kit's own
+"how to wire the runtime" slide does. Anchored to end-of-document.
+
+**A label could slide off the canvas.** §9.5.
+
+**The two predicates could disagree in the unsafe direction.** `draw()` drops a
+`.state-node` whose measured rect is non-finite; the Node gate reads `<li>`s from
+markup and cannot see that, so the two ran the identical predicate over DIFFERENT
+topologies. Fuzzed with an induced drop: 102 machines of 3,210 where the gate said
+"chain" and the pass re-ranked anyway. The pass now declines to re-rank when a node
+was dropped — one topology behind the decision instead of two argued equal.
+
+**Neither number in the first draft of this record reproduced, and both were mine.**
+
+- **The bundle delta.** It said `242,155 → 215,702 B gzipped`. The before
+  reproduces exactly; the after does not — it is `216,937`. A checker found the
+  mechanism: the figure was measured before the console warning was added, and
+  deleting that one call site lets esbuild tree-shake the function and its string,
+  landing within three bytes of the stale number. It is now stated as the
+  counterfactual measured on today's tree — dagre inlined `243,431` gz against
+  `216,937` split out, **−26,494 B = −25.9 KiB, −10.9%** — because the runtime
+  bundle also carries the label walk now, and a before/after across two changes
+  attributes neither.
+- **"13 machines in the shipped galleries."** Carried over from the brief and never
+  re-derived. There are **9** drawn (default-variant) machines across the three
+  galleries that have any: 7 in `state-chart.gallery.md`, 1 in `chart.gallery.md`,
+  1 in the baseline gallery. All 9 are chains, so the substantive claim holds and
+  the count did not.
+- Units were mixed too: "63.7 KB" (÷1000) beside the build's own "62.2 KB" (÷1024)
+  for the same file, and "22.4 KB gzipped" which only appears at gzip's default
+  level. Everything here is now KiB at `gzip -9`.
+
+That is three unreproducible numbers in a record whose §5.2 already carries a
+correction for exactly this, and whose §9.1 lesson is that a claim nobody
+re-derives is the expensive kind of error. The rule that would have caught all
+three: re-measure at the commit that ships, not at the commit that had the idea.
+
+**Found, not caused (off-path, logged not fixed):** when a node is dropped for an
+unmeasurable rect, the SYNTHETIC EXIT reuses its index — `byIndex[4]` becomes the
+exit — and the node-painting loop then draws the exit as a state box at a position
+no CSS rect has. Reachable only through the raw-inline-HTML door, and it is the
+column router's paint loop rather than anything the dagre path touches. It cost an
+hour indirectly: a fuzz oracle read that stray shape as a re-rank and reported 363
+disagreements where there were 102.
 
 ## 8. Open
 

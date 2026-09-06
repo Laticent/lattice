@@ -274,7 +274,7 @@ export function buildSrcdoc({
 	mermaidUrl = '',
 	// The dagre layout engine (`dist/lattice-dagre.min.js`). Same contract as the two
 	// above: no default, and no URL means "omit the tag". It used to be inlined into
-	// lattice-runtime.js, which put 26.5 KB gzipped on every reader of every deck for
+	// lattice-runtime.js, which put 25.9 KiB gzipped on every reader of every deck for
 	// an engine only a BRANCHING state chart uses — see lib/runtime/index.js.
 	dagreUrl = '',
 	fontCss = '',
