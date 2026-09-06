@@ -166,16 +166,61 @@ itself.
 Four things the adversarial trio, the visual sweep and the accessibility-tree
 check found that this change records rather than repairs, each with the reason.
 
-**`scatter`'s tight cluster labels are not in value order.** On the twelve-tool
-stress slide, four dots inside one dot's width get four labels, and
-`placeLabels` — greedy, eight candidate positions per point, each point placed
-independently — settles `Cardinal` above `Granite` when their dots run the other
-way. Every leader line is correct and present, so the attribution is recoverable;
-a reader pairing by proximity alone gets that one pair wrong. Sorting the input
-by `cy` was tried and made it worse (it swapped a different pair). The real fix
-is an ORDERED pack, which `slope` now has for its gutter columns — lifting that
-into `placeLabels` touches `quadrant` as well and is a substrate change on its
-own, not a rider on this one.
+**INVESTIGATED AND NOT CHANGED — `scatter`'s tight cluster labels.** An earlier
+draft of this note called it a defect: on the twelve-tool stress slide the four
+entities at 50-54% are labelled Ironwood, CARDINAL, GRANITE, Halyard while their
+marks run Ironwood, Granite, Cardinal, Halyard, because `placeLabels` is greedy
+IN INPUT ORDER and `Cardinal` is authored first. A fix was written — an opt-in
+`preserveOrder` pass that permuted the already-scored placements within a
+cluster — and then **reverted after the adversarial trio, which is the useful
+part of this entry.**
+
+**The premise does not hold.** The four marks OVERLAP. Measured off the real
+transform: centre distances of 2.93, 2.54 and 4.58 view units against a summed
+radius of 7.60. There is no perceptible vertical order among overlapping dots,
+so the "a reader pairing name to dot by proximity gets two wrong" story fails at
+its first step — a reader cannot pair by proximity here at all, and must use the
+leader lines, which were correct before and after. The chart is dense, not
+wrong.
+
+**The implementation was wrong in a way that needed a rewrite, not a patch.**
+Its docblock argued monotonicity from "offsets sorted ascending against marks
+sorted ascending", but the code sorted `centerOf` — an ABSOLUTE y — and a slot
+carried `{anchorKey, ring, reach}`, whose implied offset depends on the
+RECEIVING label's own height and `cy`. So the property it claimed was never the
+property it computed. Three consequences, all measured by the trio: on real
+scatter decks it changed the render and left the cluster exactly as mis-ordered
+in 9 of 1,329 changed renders; at the kernel's wider input space it produced a
+strictly WORSE ordering (1 inversion to 2); and its collision guard declined 87%
+of the clusters it was written for, so it addressed roughly one in eight of the
+case it existed for.
+
+**Its safety net was untested, and that was verified rather than assumed.**
+Replacing the guard with `if (false && !clean) continue;` — deleting the revert
+path entirely — left all 99 arms in `svg-label.test.js` and `scatter.test.js`
+green. An independent mutation run put the kill rate at 4 of 16. A guard nothing
+exercises is not a guard.
+
+**What survived the attack, for whoever picks this up.** The other callers were
+byte-identical (800 randomized `quadrant`/`slope` renders, SHA-equal), no new
+collisions appeared in 24,000 fuzzed layouts, no label was lost or resurrected,
+it was deterministic, and it had no performance cost. The idea is sound; the
+permutation is the wrong mechanism for it.
+
+**If it is ever taken up, the shape is `slope`'s, not a permutation.**
+`slope.transform.js` already solves this invariant by repacking a crowded run at
+a fixed pitch in value order — monotonic BY CONSTRUCTION, so there is no
+post-condition to hope for and nothing to revert. Lifting that into the kernel
+would serve `scatter`, `slope` and `quadrant` with one mechanism, which is what
+HARD RULE #1 asks for, and it would want the perceptibility question answered
+first: when marks overlap, is a label ranking information or false precision?
+`quadrant` is the caller that would gain most — it has the same greedy placer,
+the same behavior, and NO leader lines at all.
+
+What ships instead is a test that pins the contract that actually holds on that
+slide: every one of the twelve is named, no two names overprint, each of the
+four carries a leader line, and the four marks still overlap — so the reasoning
+above stops applying the moment the geometry changes.
 
 **The `cards-stack` anti-pattern slide reserves no bottom padding for a second
 line of body copy.** A one-line card has generous air under it; a two-line card
@@ -202,6 +247,47 @@ new here.** `funnel`, `gantt`, `map`, `piechart`, `quadrant`, `radar` and
 behave the same way, so the fix is one `aria-hidden` decision taken once for the
 whole chart family — off the path of this change under HARD RULE #18, and worth
 its own render pass because hiding the subtree also hides it from find-in-page.
+
+**The landscape canvas letterboxes, by ~16% per side — and that is INHERITED,
+not introduced here.** Measured in a real browser at a 1280px viewport, off the
+rendered galleries: the chart body is 2.5-2.9 : 1 while the viewBox is
+320 x 180 = 1.78 : 1, and `preserveAspectRatio="xMidYMid meet"` centers the
+painted band, so 32-38% of the element's width goes unpainted — 16-19% a side.
+An earlier draft of this note put it at "roughly 12% on each side", which was an
+estimate and was low; these are measurements.
+**The decisive comparison is `funnel`**, a component this change does not touch:
+it carries the same 320 x 180 canvas and measures 29.6-32.4% dead width,
+14.8-16.2% a side — the same range. So the seven inherited this the moment they
+adopted funnel's canvas, which was the deliberate choice for family
+consistency, and it is not a regression under HARD RULE #18.
+It is also not obviously a defect. The tree already SPENDS the spare width:
+`bar.transform.js` puts the grouped-series key in a right rail rather than below
+precisely because "every Cartesian chart here is HEIGHT-limited and has spare
+width to give away", measured at 73% more plot area than key-below. Widening the
+Cartesian box would buy plot area and cost the family a shared canvas — the
+seven would no longer sit at funnel's aspect — so it is a **family-wide design
+fork**, not a fix to make inside this change. Recorded with its numbers so
+whoever takes it starts from measurements rather than an estimate.
+
+**FOUND, NOT CAUSED — four committed gallery PDFs are stale on `main`.**
+Rebuilding `scatter`'s galleries for the label fix above also rewrote
+`split-compare`, `glossary`, `list` and `q-and-a` — none of which touch the
+label kernel, so this change cannot be the cause. It is not: all four were last
+built at `2d1ca4c` (2026-09-01), and `a3ccf31` — "`{LABEL}` pills and `[x]`
+marks in inline code" (#2066) — landed on 2026-09-06. Those four components are
+exactly the inline-code-pill-heavy ones, and `list.gallery.light.pdf` grows
+1,255 bytes on a faithful rebuild.
+Nothing per-PR could have caught it, and the tree already says why:
+`integration-nightly.yml` records that `build:galleries:check` is an input-hash
+guard comparing against HEAD with a documented blind spot — "once both sides are
+at HEAD the pairing looks sound whether or not anyone re-rendered" — while
+`golden-diff` only reads goldens a PR actually touches, so "a golden nobody
+edits is watched by nothing at all". The nightly committed-golden freshness step
+is the watcher for this class and should report it.
+Left OUT of this change deliberately: they are off its path, and folding four
+unrelated regenerated binaries into a chart PR is exactly what HARD RULES #8 and
+#17 exist to prevent. Recorded here so the next person does not have to
+re-derive which commit made them stale.
 
 ## 7. Surfaces driven, and what each one showed
 

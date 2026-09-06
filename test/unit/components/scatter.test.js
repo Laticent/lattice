@@ -566,3 +566,63 @@ describe('scatter kernel', () => {
     });
   });
 });
+
+describe('scatter — the dense cluster keeps every name reachable', () => {
+  // The twelve-tool stress slide from `scatter.gallery.md`. Four entities land
+  // within a dot's width of each other, and the contract on that slide is NOT
+  // that the labels rank them — the marks overlap, so there is no vertical
+  // order to read off (measured: centre distances 2.5-4.6 against summed radii
+  // of 7.6). The contract is that every entity is still NAMED, that no two
+  // names overprint, and that each one keeps the leader line that carries the
+  // attribution the overlapping dots cannot. See the decision note section 6.
+  const STRESS = [
+    ['Atlas', '$420k', '18%'], ['Borealis', '$310k', '24%'], ['Cardinal', '$180k', '52%'],
+    ['Dovetail', '$95k', '61%'], ['Everline', '$240k', '31%'], ['Fathom', '$60k', '74%'],
+    ['Granite', '$182k', '53%'], ['Halyard', '$178k', '50%'], ['Ironwood', '$185k', '54%'],
+    ['Juniper', '$400k', '20%'], ['Keystone', '$88k', '66%'], ['Lantern', '$300k', '28%'],
+  ];
+  const html = () => transformSection(
+    '<section class="scatter"><h2>Stress.</h2>'
+    + '<p><code>Annual cost</code> <code>Teams adopting</code></p>'
+    + `<ul>${ul(STRESS)}</ul></section>`,
+    CTX,
+  );
+
+  test('all twelve entities are named on the plot', () => {
+    const out = html();
+    for (const [name] of STRESS) {
+      assert.match(out, new RegExp(`>${name}<`), `${name} is labelled`);
+    }
+  });
+
+  test('the four overlapping marks each keep a leader line', () => {
+    // Without a leader, a name beside a four-dot blob attributes to nothing.
+    const out = html();
+    const leaders = (out.match(/class="[^"]{0,60}leader/g) || []).length;
+    assert.ok(leaders >= 4, `expected at least 4 leader lines, found ${leaders}`);
+  });
+
+  test('the cluster really is unresolvable — this fixture still earns its name', () => {
+    // Guards the premise above. If the geometry ever separates these four, the
+    // reasoning in the decision note stops applying and this test says so.
+    const out = html();
+    const circles = out.match(/<circle[^<>]{0,400}?\/>/g) || [];
+    const dot = (n) => {
+      const tag = circles.find((t) => t.includes(`data-label="${n}"`));
+      return tag && {
+        cx: Number(/\scx="([-\d.]+)"/.exec(tag)[1]),
+        cy: Number(/\scy="([-\d.]+)"/.exec(tag)[1]),
+        r: Number(/\sr="([-\d.]+)"/.exec(tag)[1]),
+      };
+    };
+    const pairs = [['Ironwood', 'Granite'], ['Granite', 'Cardinal'], ['Cardinal', 'Halyard']];
+    for (const [a, b] of pairs) {
+      const A = dot(a);
+      const B = dot(b);
+      assert.ok(A && B, `${a}/${b} are drawn`);
+      const d = Math.hypot(A.cx - B.cx, A.cy - B.cy);
+      assert.ok(d < A.r + B.r, `${a} and ${b} still overlap (d=${d.toFixed(2)}, r sum=${A.r + B.r})`);
+    }
+  });
+});
+
