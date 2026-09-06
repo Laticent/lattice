@@ -1,17 +1,6 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "split-compare",
-  "function": "comparison",
-  "form": "split",
-  "coda": { "dock": "row", "readsInsightLabel": true, "claims": ["blockquote", "trailing-paragraph"] },
-  "substance": "structure",
-  "density": {
-    "axis": "item",
-    "soft": 14,
-    "hard": 22,
-    "note": "a terse point per line",
-    "domSelector": ".options > .option"
-  },
   "adapt": {
     "mode": "reflow",
     "families": [
@@ -48,10 +37,47 @@
         "sweet": 2,
         "soft": 2,
         "hard": 2
-      },
-      "axisRetired": "READ-ACROSS — keep whole / carousel (§0c). Its meaning lives in the cross-reading between the two sides, so an item-axis split destroys it. Same stale-axis defect as matrix-2x2, which the follow-on list named while missing this one."
+      }
     }
   },
+  "capacity": {
+    "axis": "item",
+    "relationship": "comparison",
+    "min": 2,
+    "sweet": 2,
+    "soft": 2,
+    "hard": 2,
+    "escalateTo": [
+      "decision",
+      "compare-table"
+    ],
+    "note": "exactly two by contract — the form IS a two-way choice, so there is no band to grow into. A split run paces ONE option per page and lands the verdict on its own closing page, carrying a derived “Option N of 2 · comparing …” signal."
+  },
+  "density": {
+    "axis": "item",
+    "soft": 14,
+    "hard": 22,
+    "note": "a terse point per line",
+    "domSelector": ".options > .option"
+  },
+  "split": {
+    "strategy": "compare-options",
+    "axis": "item",
+    "perPage": 1,
+    "intro": "The choice",
+    "note": "Cover (frame label, heading, context) -> one .option card per page -> the verdict on its own CLOSING page, per the owner's ruling of 2026-09-06. A bare axis CANNOT do this and was measured failing: the transform builds `.compare-right > .options > .option` divs, so there is no top-level list left, and `cover-paginate` paginated option A's inner rows while option B and the verdict repeated on every page. lib/core/carousel.js compare-options."
+  },
+  "function": "comparison",
+  "form": "split",
+  "coda": {
+    "dock": "row",
+    "readsInsightLabel": true,
+    "claims": [
+      "blockquote",
+      "trailing-paragraph"
+    ]
+  },
+  "substance": "structure",
   "tags": [
     "tradeoff",
     "recommendation",

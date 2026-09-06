@@ -43,6 +43,13 @@ const [dcSection] = splitSections(dcFixture).filter((p) => p.type === 'section')
 const ccFixture = fs.readFileSync(path.join(__dirname, 'fixtures/compare-code.rendered.html'), 'utf8');
 const [ccSection] = splitSections(ccFixture).filter((p) => p.type === 'section');
 
+// split-compare is READ-ACROSS, so this is a committed RENDERED fixture rather than a
+// hand-authored shape — the whole reason it needs a strategy is that its transform leaves no
+// top-level list to slice, and only the real output shows that. Hand-authoring it would
+// certify a shape the engine does not produce.
+const scFixture = fs.readFileSync(path.join(__dirname, 'fixtures/split-compare.rendered.html'), 'utf8');
+const [scSection] = splitSections(scFixture).filter((p) => p.type === 'section');
+
 describe('core: carousel — readSubjects', () => {
   test('extracts exactly two label/body subjects from the real compare-prose DOM', () => {
     const subjects = readSubjects(section.inner);
@@ -684,6 +691,7 @@ const STRATEGY_CASES = [
   ['kanban-lanes',   kbTag,             kbInner,         { strategy: 'kanban-lanes' }],
   ['roadmap-horizons', rmTag,           rmInner,         { strategy: 'roadmap-horizons' }],
   ['journey-stages', jnTag,             jnInner,         { strategy: 'journey-stages' }],
+  ['compare-options', scSection.openTag, scSection.inner, { strategy: 'compare-options', axis: 'item', perPage: 1 }],
 ];
 
 // THE TABLE'S POPULATION COMES FROM THE ENGINE, not from whatever fixtures anyone happened to
@@ -968,17 +976,41 @@ describe('core: carousel — the run closes on ONE page carrying both beats (202
     });
   }
 
+  // A strategy whose closing page comes from a component SLOT rather than from trailing
+  // material — so the negative control below does not hold for it, and saying why is cheaper
+  // than a weaker control for everyone.
+  //
+  // `compare-options` (split-compare): the `.verdict` blockquote is a REQUIRED slot of the
+  // layout, and the owner's ruling of 2026-09-06 is that the run reads title -> option ->
+  // option -> recommendation. A run of two options with no recommendation is not the shape
+  // that was ruled; the closing page is the recommendation, not a page for leftovers.
+  //
+  // This narrows ONE control and weakens nothing else: conservation (rule 6), the
+  // one-closing-page invariant, and the no-duplication check all still run for this strategy
+  // and all still bite. A STALE entry fails — a listed strategy that stops emitting a
+  // slot-borne closing page is asserted below, so the list cannot rot.
+  const CLOSES_ON_A_SLOT = new Set(['compare-options']);
+
   // The pair above has to be able to FAIL, or a green run proves nothing. Feed a strategy a
   // slide with NO trailing material and there must be no closing page at all — which also pins
   // that a run with nothing to say does not end on an empty page.
   test('no trailing material → no closing page (negative control)', () => {
+    const slotBorne = new Set();
     for (const [name, tag, inner, rec] of STRATEGY_CASES) {
       const bare = inner.replace(/<div class="below-note">[\s\S]*?<\/div>\s*<\/div>|<div class="below-note">[\s\S]*?<\/div>/, '');
       const parts = carouselize(tag, bare, rec, 2, name);
       if (!parts) continue;
       const closing = parts.filter((p) => roleOf(p) === 'closing');
+      if (CLOSES_ON_A_SLOT.has(name)) {
+        if (closing.length) slotBorne.add(name);
+        assert.equal(closing.length, 1,
+          `${name}: is listed in CLOSES_ON_A_SLOT, so it must close on its own slot — got ${closing.length} closing pages`);
+        continue;
+      }
       assert.equal(closing.length, 0, `${name}: emitted a closing page for a slide with no trailing material`);
     }
+    assert.deepEqual([...CLOSES_ON_A_SLOT].filter((n) => !slotBorne.has(n)), [],
+      'CLOSES_ON_A_SLOT names a strategy that no longer emits a slot-borne closing page — delete the entry');
   });
 });
 

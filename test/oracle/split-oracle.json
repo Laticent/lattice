@@ -20,6 +20,11 @@
       "deck": "examples/split-pricing.md",
       "by": "owner ruling 2026-09-06 (\"pricing is no different than compare components. we accept the splitting\"); rendered at size: portrait and read page by page",
       "note": "All THREE tier counts split, one tier per page: default 3 -> cover + 3 (deck pages 3, 3.2-3.4), `two` -> cover + 2 (4, 4.2-4.3), `four` -> cover + 4 (5, 5.2-5.5). 16 pages from 7 authored slides, 0 overflow and 0 clip warnings. The component's OWN card survives on each body page and that is the point of the enrollment (ruling 1, reuse the component's styling): the featured tier keeps its `Most chosen` flag, accent border, tinted fill and accent-colored heading on its own page, verified on all three variants. Relationship `comparison` renders \"Option 1 of 3 - comparing Volume discounts - Savings guarantee\" and counts correctly to 2-of-2 and 4-of-4; it is what keeps a paged comparison readable as one comparison. LANDSCAPE IS UNTOUCHED and must stay so: hd and 4K render 1 page with no warning (split is gated off `wide`, lattice-emulator.js AUTOSPLIT_APPLIES), so the native 3-across row is unchanged. WHAT MAKES THE LONE CARD FILL THE MEASURE IS NOT pricing's own CSS. pricing.styles.css:50 sets an explicit `width: calc(100% / 3 - 2 * var(--sp-md) / 3)` on the tier `li` (and :38/:40 for the two/four variants), and the portrait/tall reflow at :134-149 flips flex-direction without overriding it. The generic lone-member fill in base.modifiers.css:2676 (`width: auto` on `li:only-child`, four `.lat-split-native` repetitions to outweigh box-local portrait reflows) is what beats it. That rule's own comment names pricing as the case that surfaced it -- it was written for the enrollment that was backed out on 2026-09-01 and left in place. So this enrollment needed no CSS change, and the dependency is recorded here because nothing else states it. WHAT THIS DOES NOT BUY, stated because the render shows it: each body page's card still carries substantial dead vertical space between the feature badges and the footnote. That is the width-relative sizing problem the catalog audit measured across the whole catalog (every length is `cqi`, so a taller box grows the card and not its contents), not something the enrollment fixes. Reshape is `paginator`, not width-reducing: cover-paginate flows the component's native cards and narrows nothing. `cover-cards` would be wrong -- it transposes a wide TABLE into cards, and pricing's tiers are already cards in a top-level <ul>."
+    },
+    "split-compare": {
+      "deck": "examples/split-decision.md",
+      "by": "owner ruling 2026-09-06 (title, first card, second card, recommendation); rendered at size: portrait and read page by page",
+      "note": "Both split-compare slides split to FOUR pages: cover (frame label, heading, context) -> one `.option` card per page -> the `.verdict` on its own CLOSING page (deck pages 3, 3.2-3.4 and 4, 4.2-4.4). 12 pages from 6 authored slides, 0 overflow and 0 clip warnings. The `.preferred` treatment survives on the second option's page in both runs. THIS ONE NEEDED A STRATEGY AND THE REASON IS MEASURED, NOT ASSUMED -- it is the first case where the generic path provably could not do the job. Enrolled on a bare `item` axis with `cover-paginate` first: the run came out with option A's INNER ROWS paginated (2 pages, 2 rows) while option B and the verdict repeated whole on both, because the transform builds `.compare-right > .options > .option` DIVS and leaves NO top-level list for `firstList` to find. That render is what `compare-options` exists for, and it is one level deeper than the refusal recorded in split-facts.js: the note said the verdict repeats because it is a sibling of `.options`, which is true, but the options had already stopped being a sliceable collection. Contrast `pricing`, enrolled the same day, which needed no strategy at all. THE VERDICT IS A SLOT, NOT TRAILING MATERIAL, and that distinction is now pinned in the tests: `carousel.test.js` CLOSES_ON_A_SLOT lists this strategy, because the negative control 'no trailing material -> no closing page' does not hold for a run whose closing page IS the component's required recommendation. The entry fails when stale. Conservation (rule 6), the one-closing-page invariant and the no-duplication check all still run for this strategy and all pass. TWO DEFECTS WERE FOUND BY RASTERIZING, NOT BY A GATE, and both are fixed: the first cover carried an invented `split-compare-cover` class with no CSS behind it and rendered as plain small text (now the shared `coverSection` accent field, the same one cover-paginate opens with); and the relationship signal read \"Options 1-2 of 4\" on a two-option comparison, because `membersIn` counts the first list's `<li>`s and this page carries one option card that has a list of its own -- fixed by stamping `data-split-label`, which auto-split.js names as the remedy for exactly this shape. The trailing-beats carry was added because the rule-6 gate caught it: reading only `.verdict` dropped an author's key insight or below-note, which land as siblings AFTER `.compare-right`. WHAT THIS DOES NOT BUY: the closing page seats its panel high and leaves the lower half of the page empty -- the same width-relative sizing problem the catalog audit measured across the catalog, not something this enrollment addresses. LANDSCAPE IS UNTOUCHED: split is gated off `wide` (lattice-emulator.js AUTOSPLIT_APPLIES), and `readCompareOptions` returns null without a `.compare-left`/`.compare-right` pair, so any other rendered form keeps ringing."
     }
   },
   "components": {
@@ -575,14 +580,14 @@
     },
     "split-compare": {
       "treatment": "read-across",
-      "axis": null,
-      "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
-      "perPage": null,
-      "relationship": null
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": "compare-options",
+      "reshape": "paginator",
+      "coverClass": "split-compare-cover",
+      "perPage": 1,
+      "relationship": "comparison"
     },
     "split-panel": {
       "treatment": "read-across",
