@@ -44,17 +44,17 @@ A universal, color-blind-safe treatment for `\[x]` `\[-]` `\[ ]` `\[/]` — one 
 
 ## Same grammar inside verdict badges.
 
-- **Build in-house.**
+- Build in-house
   - [ ] Certified
   - [-] Residency
   - [ ] Export
   - Full control of every axis, three engineer-quarters from having any of it.
-- **Vendor North.**
+- Vendor North
   - [x] Certified
   - [x] Residency
   - [-] Export
   - Certified and in-region, but data export is support-gated.
-- **Vendor West.**
+- Vendor West
   - [x] Certified
   - [x] Residency
   - [x] Export

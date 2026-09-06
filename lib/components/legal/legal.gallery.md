@@ -462,7 +462,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 > A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out, <ins>including, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices,"</ins> for use by consumers to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.
 
-- **Why this matters** SB-362 collapses "sale" and "sharing" into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
+- Why this matters
+  - SB-362 collapses "sale" and "sharing" into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
 
 ---
 
@@ -477,7 +478,8 @@ Pick when each cell carries a sentence, not a glyph.
 
 > A business that **collects, sells, or shares** consumers' personal information shall provide **at least one** designated method for submitting requests to opt-out, including a clear and conspicuous homepage link titled **"Your Privacy Choices,"** for use by consumers to **direct the business not to sell or share** their personal information.
 
-- **Why this matters** Sale and sharing collapse into one duty; the homepage chrome and DSAR workflows both need a uniform UX.
+- Why this matters
+  - Sale and sharing collapse into one duty; the homepage chrome and DSAR workflows both need a uniform UX.
 
 ---
 
@@ -490,9 +492,12 @@ Pick when each cell carries a sentence, not a glyph.
 
 > A business that <del>collects</del> <ins>collects, sells, or shares</ins><sup>1</sup> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins><sup>2</sup> designated method for submitting requests to opt-out, <ins>including a homepage link titled "Your Privacy Choices,"</ins><sup>3</sup> for use by consumers to opt out.
 
-1. **Scope** Sale and sharing now both trigger the opt-out duty — even free programs are in.
-2. **Floor** Two-channel minimum drops to one; a homepage link plus a portal is now sufficient.
-3. **Chrome** The literal link title is now mandated — uniform branding across the web.
+- Scope
+  - Sale and sharing now both trigger the opt-out duty — even free programs are in.
+- Floor
+  - Two-channel minimum drops to one; a homepage link plus a portal is now sufficient.
+- Chrome
+  - The literal link title is now mandated — uniform branding across the web.
 
 ---
 
@@ -520,9 +525,12 @@ Pick when each cell carries a sentence, not a glyph.
 
 > A business that collects, sells, or shares consumers' personal information shall provide at least one method, including a homepage link titled "Your Privacy Choices," to direct the business not to sell or share personal information.
 
-- **Scope** Sale and sharing collapse into one duty — even free programs trigger the obligation.
-- **Floor** Two-channel minimum drops to one — a homepage link plus a portal now suffices.
-- **Chrome** The literal link title is now mandated — uniform branding.
+- Scope
+  - Sale and sharing collapse into one duty — even free programs trigger the obligation.
+- Floor
+  - Two-channel minimum drops to one — a homepage link plus a portal now suffices.
+- Chrome
+  - The literal link title is now mandated — uniform branding.
 
 ---
 

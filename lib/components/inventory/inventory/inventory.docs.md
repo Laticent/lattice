@@ -20,7 +20,7 @@ Use for a small register of related items where each carries similar weight. Aut
 |---|---|---|---|
 | `eyebrow` | `p:first-child > code` | no | Optional kicker above the title (lifts into the masthead band under Form). |
 | `title` | `h2` | yes | Slide heading. |
-| `items` | `ul > li` | yes | Each list item is one entry, authored as `- **Lead.** detail sentence.` — the bold lead is the entry name, the rest is its description. |
+| `items` | `ul > li` | yes | Each list item is one entry: the lead line is the entry name — it renders in display type automatically (no `**…**` needed) — and one nested `- ` bullet carries the detail sentence. |
 | `insight` | `blockquote` | no | Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial). |
 
 ### Variant decision rule
@@ -58,10 +58,14 @@ Use for a small register of related items where each carries similar weight. Aut
 
 ## Slide heading.
 
-- **First entry.** One-sentence description.
-- **Second entry.** One-sentence description.
-- **Third entry.** One-sentence description.
-- **Fourth entry.** One-sentence description.
+- First entry
+  - One-sentence description.
+- Second entry
+  - One-sentence description.
+- Third entry
+  - One-sentence description.
+- Fourth entry
+  - One-sentence description.
 
 > Optional trailing insight.
 ```
@@ -99,10 +103,14 @@ The register as tiles with a pull-quote.
 
 ## cards deals the parts into tiles.
 
-- **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
-- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
-- **Looks reskin the list.** cards, timeline, editorial change form, not content.
+- One part per row
+  - A name and one clause of body.
+- Four parts reads best
+  - Five fits; six is the hard stop.
+- Bodies stay clauses
+  - Fourteen words soft, twenty-two hard.
+- Looks reskin the list
+  - cards, timeline, editorial change form, not content.
 ```
 
 ### `timeline` — Timeline
@@ -116,10 +124,14 @@ A numbered run along a line.
 
 ## timeline strings the parts along a line.
 
-- **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
-- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
-- **Looks reskin the list.** cards, timeline, editorial change form, not content.
+- One part per row
+  - A name and one clause of body.
+- Four parts reads best
+  - Five fits; six is the hard stop.
+- Bodies stay clauses
+  - Fourteen words soft, twenty-two hard.
+- Looks reskin the list
+  - cards, timeline, editorial change form, not content.
 ```
 
 ### `editorial` — Editorial
@@ -133,10 +145,14 @@ A magazine split with a sidebar takeaway.
 
 ## editorial sets the parts as a column.
 
-- **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
-- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
-- **Looks reskin the list.** Same content, magazine form.
+- One part per row
+  - A name and one clause of body.
+- Four parts reads best
+  - Five fits; six is the hard stop.
+- Bodies stay clauses
+  - Fourteen words soft, twenty-two hard.
+- Looks reskin the list
+  - Same content, magazine form.
 
 > The sidebar carries the register's one takeaway.
 ```

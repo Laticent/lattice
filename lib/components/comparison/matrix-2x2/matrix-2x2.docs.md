@@ -17,7 +17,7 @@ Use for categorical 2×2 reasoning when the items are fixed and you control whic
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading naming the framework. |
-| `axes` | `ul > li` | yes | Four outer list items (one per cell). Lead each with **Quadrant label.** then the items as inner bullets. |
+| `axes` | `ul > li` | yes | Four outer list items (one per cell). Lead each with its quadrant label — it renders bold automatically (no `**…**` needed) — then the items as inner bullets. |
 
 ### Common mistakes
 
@@ -47,14 +47,14 @@ Use for categorical 2×2 reasoning when the items are fixed and you control whic
 
 ## Where each option lives.
 
-- **High value · Low cost.**
+- High value · Low cost
   - First item in this quadrant
   - Second item
-- **High value · High cost.**
+- High value · High cost
   - First item in this quadrant
-- **Low value · Low cost.**
+- Low value · Low cost
   - First item in this quadrant
-- **Low value · High cost.**
+- Low value · High cost
   - First item in this quadrant
 ```
 

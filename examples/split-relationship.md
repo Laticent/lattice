@@ -87,22 +87,22 @@ footer: "split relationship signal"
 
 ## Which option meets the residency criteria.
 
-- **Build in region.**
+- Build in region
   - [x] Residency
   - [x] Self-serve
   - [-] SOC 2
   - Fully compliant and fully ours, including the two engineers it takes to keep it that way.
-- **Regional vendor.**
+- Regional vendor
   - [x] Residency
   - [ ] Self-serve
   - [x] SOC 2
   - Compliant and certified, but every tenant change is a support ticket with a two-day turnaround.
-- **Global vendor with an addendum.**
+- Global vendor with an addendum
   - [-] Residency
   - [x] Self-serve
   - [x] SOC 2
   - Fastest to ship and the weakest residency story — the addendum relies on a narrowed mechanism.
-- **Do nothing this year.**
+- Do nothing this year
   - [ ] Residency
   - [x] Self-serve
   - [-] SOC 2

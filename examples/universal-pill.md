@@ -21,17 +21,17 @@ center-aligned text, color left to carry the meaning.
 
 ## Badges share the pill's geometry, not its color.
 
-- **Build in-house.**
+- Build in-house
   - [ ] Certified
   - [-] Residency
   - [ ] Export
   - Full control of every axis, and three engineer-quarters from having any of it.
-- **Vendor North.**
+- Vendor North
   - [x] Certified
   - [x] Residency
   - [-] Export
   - Certified and in-region, but data export is support-gated, not self-serve.
-- **Vendor West.**
+- Vendor West
   - [x] Certified
   - [x] Residency
   - [x] Export

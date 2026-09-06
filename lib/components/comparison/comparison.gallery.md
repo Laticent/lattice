@@ -51,16 +51,16 @@ Comparison — how two or more options differ.
 
 ## The matrix places items on two named axes.
 
-- **High impact · Low effort.**
+- High impact · Low effort
   - Quick wins
   - Two per cell
-- **High impact · High effort.**
+- High impact · High effort
   - Strategic bets
   - Named plainly
-- **Low impact · Low effort.**
+- Low impact · Low effort
   - Habit fillers
   - Prune here
-- **Low impact · High effort.**
+- Low impact · High effort
   - Time sinks
   - One suffices
 
@@ -98,7 +98,8 @@ Comparison — how two or more options differ.
 
 > A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out, <ins>including, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices,"</ins> for use by consumers to <del>opt out of the sale of</del> <ins>direct the business not to sell or share</ins> their personal information.
 
-- **Why this matters.** SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
+- Why this matters
+  - SB-362 collapses sale and sharing into one duty and pins a uniform link title — homepage chrome and DSAR workflows both need a uniform UX.
 
 ---
 
@@ -127,15 +128,15 @@ One question on the left; two option cards and a verdict on the right.
 
 ## The grid scores options against shared criteria.
 
-- **Option one.**
+- Option one
   - [ ] Criterion
   - [-] Criterion
   - Why the checks land this way.
-- **Option two.**
+- Option two
   - [x] Criterion
   - [-] Criterion
   - Same criteria, same order, always.
-- **Option three.**
+- Option three
   - [x] Criterion
   - [x] Criterion
   - The sweep is the verdict. Recommended.

@@ -22,10 +22,14 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ## The inventory lists a system's parts.
 
-- **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
-- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
-- **Looks reskin the list.** cards, timeline, editorial change form, not content.
+- One part per row
+  - A name and one clause of body.
+- Four parts reads best
+  - Five fits; six is the hard stop.
+- Bodies stay clauses
+  - Fourteen words soft, twenty-two hard.
+- Looks reskin the list
+  - cards, timeline, editorial change form, not content.
 
 
 ---
@@ -37,10 +41,14 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ## cards deals the parts into tiles.
 
-- **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
-- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
-- **Looks reskin the list.** cards, timeline, editorial change form, not content.
+- One part per row
+  - A name and one clause of body.
+- Four parts reads best
+  - Five fits; six is the hard stop.
+- Bodies stay clauses
+  - Fourteen words soft, twenty-two hard.
+- Looks reskin the list
+  - cards, timeline, editorial change form, not content.
 
 
 ---
@@ -52,10 +60,14 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ## timeline strings the parts along a line.
 
-- **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
-- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
-- **Looks reskin the list.** cards, timeline, editorial change form, not content.
+- One part per row
+  - A name and one clause of body.
+- Four parts reads best
+  - Five fits; six is the hard stop.
+- Bodies stay clauses
+  - Fourteen words soft, twenty-two hard.
+- Looks reskin the list
+  - cards, timeline, editorial change form, not content.
 
 
 ---
@@ -67,10 +79,14 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ## editorial sets the parts as a column.
 
-- **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
-- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
-- **Looks reskin the list.** Same content, magazine form.
+- One part per row
+  - A name and one clause of body.
+- Four parts reads best
+  - Five fits; six is the hard stop.
+- Bodies stay clauses
+  - Fourteen words soft, twenty-two hard.
+- Looks reskin the list
+  - Same content, magazine form.
 
 > The sidebar carries the register's one takeaway.
 
@@ -83,11 +99,16 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ## The ledger clips past five full rows.
 
-- **Part one.** Bodies stay short when the count is maxed.
-- **Part two.** Matched shapes keep five rows scannable.
-- **Part three.** The middle rows forgive the least.
-- **Part four.** The sweet spot ended here.
-- **Part five.** The last row that seats whole — the declared ceiling of six clips its body.
+- Part one
+  - Bodies stay short when the count is maxed.
+- Part two
+  - Matched shapes keep five rows scannable.
+- Part three
+  - The middle rows forgive the least.
+- Part four
+  - The sweet spot ended here.
+- Part five
+  - The last row that seats whole — the declared ceiling of six clips its body.
 
 
 ---
@@ -99,10 +120,14 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ## The inventory lists a system's parts.
 
-- **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
-- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
-- **Looks reskin the list.** cards, timeline, editorial change form, not content.
+- One part per row
+  - A name and one clause of body.
+- Four parts reads best
+  - Five fits; six is the hard stop.
+- Bodies stay clauses
+  - Fourteen words soft, twenty-two hard.
+- Looks reskin the list
+  - cards, timeline, editorial change form, not content.
 
 
 ---
@@ -114,10 +139,14 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ## The inventory lists a system's parts.
 
-- **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
-- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
-- **Looks reskin the list.** cards, timeline, editorial change form, not content.
+- One part per row
+  - A name and one clause of body.
+- Four parts reads best
+  - Five fits; six is the hard stop.
+- Bodies stay clauses
+  - Fourteen words soft, twenty-two hard.
+- Looks reskin the list
+  - cards, timeline, editorial change form, not content.
 
 
 ---
@@ -129,10 +158,14 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ## The inventory lists a system's parts.
 
-- **One part per row.** A name and one clause of body.
-- **Four parts reads best.** Five fits; six is the hard stop.
-- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.
-- **Looks reskin the list.** cards, timeline, editorial change form, not content.
+- One part per row
+  - A name and one clause of body.
+- Four parts reads best
+  - Five fits; six is the hard stop.
+- Bodies stay clauses
+  - Fourteen words soft, twenty-two hard.
+- Looks reskin the list
+  - cards, timeline, editorial change form, not content.
 
 
 ---

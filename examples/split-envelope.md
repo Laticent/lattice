@@ -114,10 +114,14 @@ Source: vendor evaluation, Q3 procurement review.
 
 `what holds the truth`
 
-- **Customer identity.** The CRM is authoritative; every downstream system reads it and none writes back.
-- **Billing and entitlement.** The ledger holds invoices, credits, and what a customer may actually use.
-- **Product telemetry.** Warehouse-derived, rebuilt nightly, never treated as evidence on its own.
-- **Risk register.** The board pack is authoritative — reviewed quarterly, versioned, signed by counsel.
+- Customer identity
+  - The CRM is authoritative; every downstream system reads it and none writes back.
+- Billing and entitlement
+  - The ledger holds invoices, credits, and what a customer may actually use.
+- Product telemetry
+  - Warehouse-derived, rebuilt nightly, never treated as evidence on its own.
+- Risk register
+  - The board pack is authoritative — reviewed quarterly, versioned, signed by counsel.
 
 ---
 

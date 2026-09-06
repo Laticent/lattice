@@ -1673,7 +1673,8 @@ Filled = applies, half = partial, empty = exempt — a rare grid where empty is 
 
 > Upon termination, Provider shall return Customer Data in <del>an open, machine-readable format</del> <ins>Provider's standard export format</ins> within <del>thirty (30)</del> <ins>ninety (90)</ins> days, <ins>subject to a data-processing fee at then-current rates,</ins> after which Provider <del>shall delete</del> <ins>may retain for archival purposes</ins> all Customer Data.
 
-- **Why this matters.** The exit clause is where per-seat pricing hides. Draft 3 makes leaving slower, billable, and optional for them — the calibration weights were never coming back anyway.
+- Why this matters
+  - The exit clause is where per-seat pricing hides. Draft 3 makes leaving slower, billable, and optional for them — the calibration weights were never coming back anyway.
 
 ---
 
@@ -1727,10 +1728,14 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ## The system has four moving parts.
 
-- **Signal Intake.** Weekly structured collection across conversations and market data.
-- **Scoring Model.** Each signal scored on confidence, recency, and relevance.
-- **Decision Log.** Every call recorded with the signals that informed it.
-- **Calibration Loop.** Outcomes compared to predictions each cycle.
+- Signal Intake
+  - Weekly structured collection across conversations and market data.
+- Scoring Model
+  - Each signal scored on confidence, recency, and relevance.
+- Decision Log
+  - Every call recorded with the signals that informed it.
+- Calibration Loop
+  - Outcomes compared to predictions each cycle.
 
 ---
 

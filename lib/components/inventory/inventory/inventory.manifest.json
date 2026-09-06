@@ -26,7 +26,11 @@
   "form": "ledger",
   "substance": "structure",
   "stage": "flow",
-  "coda": { "claims": ["blockquote"] },
+  "coda": {
+    "claims": [
+      "blockquote"
+    ]
+  },
   "adapt": {
     "mode": "reflow",
     "families": [
@@ -96,7 +100,7 @@
     "items": {
       "selector": "ul > li",
       "required": true,
-      "description": "Each list item is one entry, authored as `- **Lead.** detail sentence.` — the bold lead is the entry name, the rest is its description."
+      "description": "Each list item is one entry: the lead line is the entry name — it renders in display type automatically (no `**…**` needed) — and one nested `- ` bullet carries the detail sentence."
     },
     "insight": {
       "selector": "blockquote",
@@ -104,11 +108,11 @@
       "description": "Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial)."
     }
   },
-  "skeleton": "<!-- _class: inventory -->\n\n`Eyebrow`\n\n## Slide heading.\n\n- **First entry.** One-sentence description.\n- **Second entry.** One-sentence description.\n- **Third entry.** One-sentence description.\n- **Fourth entry.** One-sentence description.\n\n> Optional trailing insight.\n",
-  "sample": "<!-- _class: inventory -->\n\n`inventory · the parts ledger`\n\n## The inventory lists a system's parts.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits; six is the hard stop.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** cards, timeline, editorial change form, not content.\n",
+  "skeleton": "<!-- _class: inventory -->\n\n`Eyebrow`\n\n## Slide heading.\n\n- First entry\n  - One-sentence description.\n- Second entry\n  - One-sentence description.\n- Third entry\n  - One-sentence description.\n- Fourth entry\n  - One-sentence description.\n\n> Optional trailing insight.\n",
+  "sample": "<!-- _class: inventory -->\n\n`inventory · the parts ledger`\n\n## The inventory lists a system's parts.\n\n- One part per row\n  - A name and one clause of body.\n- Four parts reads best\n  - Five fits; six is the hard stop.\n- Bodies stay clauses\n  - Fourteen words soft, twenty-two hard.\n- Looks reskin the list\n  - cards, timeline, editorial change form, not content.\n",
   "stressDoc": {
     "summary": "Five full rows seat; the declared six-row ceiling clips.",
-    "sample": "<!-- _class: inventory compact -->\n\n## The ledger clips past five full rows.\n\n- **Part one.** Bodies stay short when the count is maxed.\n- **Part two.** Matched shapes keep five rows scannable.\n- **Part three.** The middle rows forgive the least.\n- **Part four.** The sweet spot ended here.\n- **Part five.** The last row that seats whole — the declared ceiling of six clips its body.\n"
+    "sample": "<!-- _class: inventory compact -->\n\n## The ledger clips past five full rows.\n\n- Part one\n  - Bodies stay short when the count is maxed.\n- Part two\n  - Matched shapes keep five rows scannable.\n- Part three\n  - The middle rows forgive the least.\n- Part four\n  - The sweet spot ended here.\n- Part five\n  - The last row that seats whole — the declared ceiling of six clips its body.\n"
   },
   "anatomyBlock": "T7-card-grid-2x2",
   "whenToUse": [
@@ -169,17 +173,17 @@
     "cards": {
       "label": "Cards",
       "summary": "The register as tiles with a pull-quote.",
-      "sample": "<!-- _class: inventory cards -->\n\n`inventory cards`\n\n## cards deals the parts into tiles.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits; six is the hard stop.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** cards, timeline, editorial change form, not content.\n"
+      "sample": "<!-- _class: inventory cards -->\n\n`inventory cards`\n\n## cards deals the parts into tiles.\n\n- One part per row\n  - A name and one clause of body.\n- Four parts reads best\n  - Five fits; six is the hard stop.\n- Bodies stay clauses\n  - Fourteen words soft, twenty-two hard.\n- Looks reskin the list\n  - cards, timeline, editorial change form, not content.\n"
     },
     "timeline": {
       "label": "Timeline",
       "summary": "A numbered run along a line.",
-      "sample": "<!-- _class: inventory timeline -->\n\n`inventory timeline`\n\n## timeline strings the parts along a line.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits; six is the hard stop.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** cards, timeline, editorial change form, not content.\n"
+      "sample": "<!-- _class: inventory timeline -->\n\n`inventory timeline`\n\n## timeline strings the parts along a line.\n\n- One part per row\n  - A name and one clause of body.\n- Four parts reads best\n  - Five fits; six is the hard stop.\n- Bodies stay clauses\n  - Fourteen words soft, twenty-two hard.\n- Looks reskin the list\n  - cards, timeline, editorial change form, not content.\n"
     },
     "editorial": {
       "label": "Editorial",
       "summary": "A magazine split with a sidebar takeaway.",
-      "sample": "<!-- _class: inventory editorial -->\n\n`inventory editorial`\n\n## editorial sets the parts as a column.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits; six is the hard stop.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** Same content, magazine form.\n\n> The sidebar carries the register's one takeaway.\n"
+      "sample": "<!-- _class: inventory editorial -->\n\n`inventory editorial`\n\n## editorial sets the parts as a column.\n\n- One part per row\n  - A name and one clause of body.\n- Four parts reads best\n  - Five fits; six is the hard stop.\n- Bodies stay clauses\n  - Fourteen words soft, twenty-two hard.\n- Looks reskin the list\n  - Same content, magazine form.\n\n> The sidebar carries the register's one takeaway.\n"
     }
   },
   "commonMistakes": [

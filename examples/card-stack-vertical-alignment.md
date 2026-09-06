@@ -52,15 +52,15 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 ## Top anchors the band where the eye enters.
 
-- **Under the rule.**
+- Under the rule
   - [x] Gutter kept
   - [/] Band centered
   - Cards start below the headline. Nothing floats.
-- **Spare height below.**
+- Spare height below
   - [x] Gutter kept
   - [/] Band centered
   - Spare height collects at the bottom.
-- **Composition void.**
+- Composition void
   - [x] Gutter kept
   - [/] Band centered
   - Where the content ends is the deck's business.
@@ -72,15 +72,15 @@ A row of cards gets the whole stage. When the cards are sparse, that height goes
 
 ## Spread shares the height out between the rows.
 
-- **Rows move apart.**
+- Rows move apart
   - [x] Void gone
   - [ ] Gutter kept
   - The row gap grows; the column gap does not.
-- **Measured.**
+- Measured
   - [x] Void gone
   - [ ] Gutter kept
   - Measured at 4.2x the column gutter.
-- **Use it deliberately.**
+- Use it deliberately
   - [x] Void gone
   - [ ] Gutter kept
   - Two sparse rows carry it; a dense grid cannot.

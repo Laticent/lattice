@@ -65,7 +65,7 @@
     "options": {
       "selector": "ul > li",
       "required": true,
-      "description": "One outer li per option, lead with **Option name.**. Then one inner li per criterion, each led by a state marker ([x]/[-]/[ ]/[/]) followed by a badge label of AT MOST TWO WORDS. Criteria are shared across every option, in the same order. The last option renders as the focal verdict."
+      "description": "One outer li per option, lead with the option name — it renders bold automatically (no `**…**` needed). Then one inner li per criterion, each led by a state marker ([x]/[-]/[ ]/[/]) followed by a badge label of AT MOST TWO WORDS. Criteria are shared across every option, in the same order. The last option renders as the focal verdict."
     },
     "rationale": {
       "selector": "ul > li > ul > li:last-child",
@@ -73,12 +73,12 @@
       "description": "REQUIRED. The final inner li of every option carries NO state marker — one short prose line giving the verdict for that option. This content line is what fills the card; omit it and the card renders empty below the badges."
     }
   },
-  "skeleton": "<!-- _class: verdict-grid -->\n\n## Which option meets the criteria.\n\n- **First option.**\n  - [x] First badge\n  - [-] Second badge\n  - [ ] Third badge\n  - One-line rationale giving the verdict for this option.\n- **Second option.**\n  - [x] First badge\n  - [x] Second badge\n  - [-] Third badge\n  - One-line rationale giving the verdict for this option.\n- **Third option.**\n  - [x] First badge\n  - [x] Second badge\n  - [x] Third badge\n  - One-line rationale; the last option is the focal verdict. Recommended.\n",
+  "skeleton": "<!-- _class: verdict-grid -->\n\n## Which option meets the criteria.\n\n- First option\n  - [x] First badge\n  - [-] Second badge\n  - [ ] Third badge\n  - One-line rationale giving the verdict for this option.\n- Second option\n  - [x] First badge\n  - [x] Second badge\n  - [-] Third badge\n  - One-line rationale giving the verdict for this option.\n- Third option\n  - [x] First badge\n  - [x] Second badge\n  - [x] Third badge\n  - One-line rationale; the last option is the focal verdict. Recommended.\n",
   "anatomyBlock": "verdict-grid",
-  "sample": "<!-- _class: verdict-grid -->\n\n## The grid scores options against shared criteria.\n\n- **Option one.**\n  - [ ] Criterion\n  - [-] Criterion\n  - Why the checks land this way.\n- **Option two.**\n  - [x] Criterion\n  - [-] Criterion\n  - Same criteria, same order, always.\n- **Option three.**\n  - [x] Criterion\n  - [x] Criterion\n  - The sweep is the verdict. Recommended.\n",
+  "sample": "<!-- _class: verdict-grid -->\n\n## The grid scores options against shared criteria.\n\n- Option one\n  - [ ] Criterion\n  - [-] Criterion\n  - Why the checks land this way.\n- Option two\n  - [x] Criterion\n  - [-] Criterion\n  - Same criteria, same order, always.\n- Option three\n  - [x] Criterion\n  - [x] Criterion\n  - The sweep is the verdict. Recommended.\n",
   "stressDoc": {
     "summary": "Five options — the hard ceiling.",
-    "sample": "<!-- _class: verdict-grid -->\n\n## Five options is the verdict grid's ceiling.\n\n- **First.**\n  - [ ] Check\n  - [ ] Check\n  - Early cards set the criteria order.\n- **Second.**\n  - [-] Check\n  - [ ] Check\n  - Partial marks keep the grid honest.\n- **Third.**\n  - [x] Check\n  - [-] Check\n  - The middle card is read most carefully.\n- **Fourth.**\n  - [x] Check\n  - [x] Check\n  - Late cards inherit the reader's fatigue.\n- **Fifth.**\n  - [x] Check\n  - [x] Check\n  - The hard stop; six wants compare-table.\n"
+    "sample": "<!-- _class: verdict-grid -->\n\n## Five options is the verdict grid's ceiling.\n\n- First\n  - [ ] Check\n  - [ ] Check\n  - Early cards set the criteria order.\n- Second\n  - [-] Check\n  - [ ] Check\n  - Partial marks keep the grid honest.\n- Third\n  - [x] Check\n  - [-] Check\n  - The middle card is read most carefully.\n- Fourth\n  - [x] Check\n  - [x] Check\n  - Late cards inherit the reader's fatigue.\n- Fifth\n  - [x] Check\n  - [x] Check\n  - The hard stop; six wants compare-table.\n"
   },
   "whenToUse": [
     {

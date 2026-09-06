@@ -20,16 +20,16 @@ Static 2×2 quadrant grid with author-placed items per cell.
 
 ## The matrix places items on two named axes.
 
-- **High impact · Low effort.**
+- High impact · Low effort
   - Quick wins
   - Two per cell
-- **High impact · High effort.**
+- High impact · High effort
   - Strategic bets
   - Named plainly
-- **Low impact · Low effort.**
+- Low impact · Low effort
   - Habit fillers
   - Prune here
-- **Low impact · High effort.**
+- Low impact · High effort
   - Time sinks
   - One suffices
 
@@ -42,19 +42,19 @@ Static 2×2 quadrant grid with author-placed items per cell.
 
 ## Three items per cell is the matrix ceiling.
 
-- **High impact · Low effort.**
+- High impact · Low effort
   - Three short items
   - Fit each cell
   - At the ceiling
-- **High impact · High effort.**
+- High impact · High effort
   - Labels stay short
   - Sixteen words hard
   - Per cell entry
-- **Low impact · Low effort.**
+- Low impact · Low effort
   - Past three items
   - The quadrants crowd
   - Split the story
-- **Low impact · High effort.**
+- Low impact · High effort
   - A fourth entry
   - Does not fit
   - Stop at three
@@ -67,16 +67,16 @@ Static 2×2 quadrant grid with author-placed items per cell.
 
 ## The matrix places items on two named axes.
 
-- **High impact · Low effort.**
+- High impact · Low effort
   - Quick wins
   - Two per cell
-- **High impact · High effort.**
+- High impact · High effort
   - Strategic bets
   - Named plainly
-- **Low impact · Low effort.**
+- Low impact · Low effort
   - Habit fillers
   - Prune here
-- **Low impact · High effort.**
+- Low impact · High effort
   - Time sinks
   - One suffices
 
@@ -88,16 +88,16 @@ Static 2×2 quadrant grid with author-placed items per cell.
 
 ## The matrix places items on two named axes.
 
-- **High impact · Low effort.**
+- High impact · Low effort
   - Quick wins
   - Two per cell
-- **High impact · High effort.**
+- High impact · High effort
   - Strategic bets
   - Named plainly
-- **Low impact · Low effort.**
+- Low impact · Low effort
   - Habit fillers
   - Prune here
-- **Low impact · High effort.**
+- Low impact · High effort
   - Time sinks
   - One suffices
 
@@ -109,16 +109,16 @@ Static 2×2 quadrant grid with author-placed items per cell.
 
 ## The matrix places items on two named axes.
 
-- **High impact · Low effort.**
+- High impact · Low effort
   - Quick wins
   - Two per cell
-- **High impact · High effort.**
+- High impact · High effort
   - Strategic bets
   - Named plainly
-- **Low impact · Low effort.**
+- Low impact · Low effort
   - Habit fillers
   - Prune here
-- **Low impact · High effort.**
+- Low impact · High effort
   - Time sinks
   - One suffices
 

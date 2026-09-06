@@ -17,7 +17,7 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 | `heading` | `h2` | yes | Slide heading naming the amendment or change. |
 | `citation` | `p:first-of-type > code` | yes | Inline-code citation of the amended provision (e.g. 'Cal. Civ. Code §1798.135 · SB-362 (2024)'). |
 | `redline` | `blockquote` | yes | The amended language. Use `<del>old text</del>` and `<ins>new text</ins>` inline. |
-| `implications` | `ul > li` | no | Optional explanation. Use **Why this matters** for the operational read. |
+| `implications` | `ul > li` | no | Optional explanation. Lead each item with its label — it renders as a mono-caps accent label automatically (no `**…**` needed) — then a nested `- ` bullet with the operational read. `Why this matters` is the conventional label for a single trailing implication. |
 
 ### Variant decision rule
 
@@ -55,7 +55,8 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 
 > Verbatim language with <del>old wording</del> <ins>new wording</ins> inline so the diff reads cleanly.
 
-- **Why this matters.** What the amendment changes in operational terms, in one sentence.
+- Why this matters
+  - What the amendment changes in operational terms, in one sentence.
 ```
 
 ## Anatomy
@@ -89,9 +90,12 @@ Adds the why beside each edit.
 
 > A business that <del>collects</del> <ins>collects, sells, or shares</ins><sup>1</sup> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins><sup>2</sup> designated method for submitting requests to opt-out, <ins>including, at minimum, a clear and conspicuous link on the homepage titled "Your Privacy Choices,"</ins><sup>3</sup> for use by consumers.
 
-- **Scope expansion.** Collapses sale and sharing into one duty.
-- **Method floor.** One method is now sufficient; previously two were required.
-- **Link mandate.** Pins a uniform link title across all businesses.
+- Scope expansion
+  - Collapses sale and sharing into one duty.
+- Method floor
+  - One method is now sufficient; previously two were required.
+- Link mandate
+  - Pins a uniform link title across all businesses.
 ```
 
 ### `three-col` — three-col
@@ -109,9 +113,12 @@ Old, new, and why side by side.
 
 > A business that collects, sells, or shares consumers' personal information shall provide at least one designated method for submitting requests to opt-out, including a clear and conspicuous homepage link titled "Your Privacy Choices."
 
-- **Scope.** Sale and sharing fold into one duty.
-- **Method floor.** One method now suffices.
-- **Link title.** Homepage label is mandatory and standardized.
+- Scope
+  - Sale and sharing fold into one duty.
+- Method floor
+  - One method now suffices.
+- Link title
+  - Homepage label is mandatory and standardized.
 ```
 
 ### `split` — split
@@ -129,7 +136,8 @@ Before and after in parallel.
 
 > A business that collects, sells, or shares consumers' personal information shall provide at least one designated method for submitting requests to opt-out, including a clear and conspicuous homepage link titled "Your Privacy Choices."
 
-- **Why this matters.** The left column is the prior text; the right is the amendment. Reading across makes the scope expansion obvious.
+- Why this matters
+  - The left column is the prior text; the right is the amendment. Reading across makes the scope expansion obvious.
 ```
 
 ### `stacked` — stacked
@@ -147,7 +155,8 @@ Prior text struck above the current.
 
 > A business that collects, sells, or shares consumers' personal information shall provide at least one designated method for submitting requests to opt-out, including a clear and conspicuous homepage link titled "Your Privacy Choices."
 
-- **Why this matters.** Stacking keeps the reading order vertical when each passage is a full sentence or more.
+- Why this matters
+  - Stacking keeps the reading order vertical when each passage is a full sentence or more.
 ```
 
 ## Universal modifiers

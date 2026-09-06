@@ -19,7 +19,7 @@ Use to evaluate 2–4 options against the same set of criteria, with pass/partia
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading naming the choice. |
-| `options` | `ul > li` | yes | One outer li per option, lead with **Option name.**. Then one inner li per criterion, each led by a state marker ([x]/[-]/[ ]/[/]) followed by a badge label of AT MOST TWO WORDS. Criteria are shared across every option, in the same order. The last option renders as the focal verdict. |
+| `options` | `ul > li` | yes | One outer li per option, lead with the option name — it renders bold automatically (no `**…**` needed). Then one inner li per criterion, each led by a state marker ([x]/[-]/[ ]/[/]) followed by a badge label of AT MOST TWO WORDS. Criteria are shared across every option, in the same order. The last option renders as the focal verdict. |
 | `rationale` | `ul > li > ul > li:last-child` | yes | REQUIRED. The final inner li of every option carries NO state marker — one short prose line giving the verdict for that option. This content line is what fills the card; omit it and the card renders empty below the badges. |
 
 ### Common mistakes
@@ -48,17 +48,17 @@ Use to evaluate 2–4 options against the same set of criteria, with pass/partia
 
 ## Which option meets the criteria.
 
-- **First option.**
+- First option
   - [x] First badge
   - [-] Second badge
   - [ ] Third badge
   - One-line rationale giving the verdict for this option.
-- **Second option.**
+- Second option
   - [x] First badge
   - [x] Second badge
   - [-] Third badge
   - One-line rationale giving the verdict for this option.
-- **Third option.**
+- Third option
   - [x] First badge
   - [x] Second badge
   - [x] Third badge
