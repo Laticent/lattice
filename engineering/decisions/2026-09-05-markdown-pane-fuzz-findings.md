@@ -473,6 +473,33 @@ run.
   had the walk's `quickFix` op skip on a no-hover context; that op is gone entirely — the
   spec header says why — so the skip went with it.)
 
+- **The desktop Playwright tier is not green on `main`, and the six failures are not this
+  change's.** Running the full `--project=desktop` tier on this branch returned **6 failed, 6
+  skipped, 396 passed** out of 408. Every one of the six is in the instant-shell / first-paint /
+  reserved-slot family, and every one reproduces on this branch's BASE (`81b964e`) with the
+  change absent:
+
+  | run | tree | scope | failed |
+  |---|---|---|---|
+  | full tier | branch | 408 | 6 |
+  | the 4 affected specs | base | 55 | 3 — `playground-paint:73`, `studio-instant-shell:539`, `studio-reserved-slots:122` |
+  | the same, again | base | 55 | 3 — `playground-first-paint:629`, `playground-paint:73`, `studio-reserved-slots:144` |
+  | the same | branch | 55 | 4 — `playground-first-paint:760` ×2, `playground-paint:73`, `studio-reserved-slots:144` |
+  | `-g "pre-paint boot view matches"`, 1 worker | base | 9 | 1 — `:760` "a pristine draft" |
+
+  Two things follow. The union of the base's own failures across those runs is **all six**, so
+  none is introduced here. And the set SHIFTS run to run on both trees — two base runs of the
+  same 55 tests failed two different threes — which is the signature of state leaking between
+  parameterized cases, not of a deterministic break. The one that looked most like mine
+  (`:760`, a shell-vs-app parity test, and this change does alter one control's presence)
+  fails on `expect(__seededView).toBe('read')` receiving `'edit'` — persisted view seeding,
+  nothing to do with the toolbar — and it fails on the base in isolation at one worker.
+
+  Not fixed here: it is pre-existing, off this change's path, and it lives in the instant-shell
+  seeding code this PR does not touch (#18's off-path rule). Recorded rather than ignored
+  because the tier is nightly, so nothing on a PR gate reports it — `studio-e2e-nightly.yml`
+  files against `main`, which is where it belongs.
+
 - **The Studio's slide list does not model `split: headings`, and that is the largest thing in
   this note.** `split: headings` is the DEFAULT register (`lib/core/resolve-split.js`): "a deck
   divides on its outline with no separators to forget". `lib/core/slide-boundaries.mjs` — which
