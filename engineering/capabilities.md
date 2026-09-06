@@ -54,7 +54,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `build:check` | Freshness gate for the COMMITTED generated artifacts: regenerate in memory and diff, skipping the bundles that are built-not-committed (CI/pre-push). |
 | `build:check:all` | The same gate without the scope: every artifact, including the built-not-committed bundles. Needs dist/ present, so run it after npm run build. |
 | `build:uncommitted` | Generate ONLY the built-not-committed artifacts (dist/, the docs-site bundles). The cold-tree bootstrap: the ownership guard reads dist/ CSS, so it cannot run before this. Skips the guard for that reason. |
-| `cadenza-lib:build` | Build the Cadenza library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@workwel/cadenza') resolves — the workspace package that retires the caption hand-mirrors. |
+| `cadenza-lib:build` | Build the Cadenza library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@laticent/cadenza') resolves — the workspace package that retires the caption hand-mirrors. |
 | `cadenza-lib:check` | Freshness gate for the Cadenza library dist/ (stale vs docs/src/lib/cadenza/*.ts). |
 | `capabilities:build` | Generate engineering/capabilities.md — the index of every script, tool, and framework. |
 | `capabilities:check` | Freshness gate for capabilities.md; fails on drift or any undescribed script/tool. |
@@ -94,7 +94,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `katex-provider:watch` | Rebuild the katex-provider bundle on change. |
 | `layout-core:build` | Bundle the pure Layout Studio core for the browser (docs site). |
 | `layout-core:check` | Freshness gate for the layout-core bundle. |
-| `lente-lib:build` | Build the Lente library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@workwel/lente') and npm publish resolve — the fourth spin-off sibling's consumable artifact. |
+| `lente-lib:build` | Build the Lente library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@laticent/lente') and npm publish resolve — the fourth spin-off sibling's consumable artifact. |
 | `lente-lib:check` | Freshness gate for the Lente library dist/ (stale vs docs/src/lib/lente/*.ts). |
 | `marp-kit:build` | Build dist/marp-kit — the copy-and-go Marp folder (CSS, runtime, fonts, Mermaid, configs, Sample-Deck.md). No export needed. |
 | `player-core:build` | Bundle the pure HTML-player assembly core (lib/export/player-core.mjs) for the browser — the Studio "Download as webpage" export. |
@@ -118,7 +118,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `stage-catalog:check` | Freshness gate for the generated stage-cell catalog. |
 | `standalone-core:build` | Bundle the standalone chart-SVG export core for the browser (docs site). |
 | `standalone-core:check` | Freshness gate for the standalone-core bundle. |
-| `suono-lib:build` | Build the Suono library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@workwel/suono') and npm publish resolve — the audio engine's consumable artifact. |
+| `suono-lib:build` | Build the Suono library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@laticent/suono') and npm publish resolve — the audio engine's consumable artifact. |
 | `suono-lib:check` | Freshness gate for the Suono library dist/ (stale vs docs/src/lib/suono/*.ts). |
 | `theme-catalog:build` | Generate docs/src/lib/theme-catalog.generated.ts — the palette picker's groups (tier/order) and swatches, baked from themes/*.manifest.json so the docs bundle gets the one scope declaration without fs-loading 32 manifests at runtime. Replaces two hand-kept lists a test had to reconcile. |
 | `theme-catalog:check` | Freshness gate for the generated Studio palette catalog. |

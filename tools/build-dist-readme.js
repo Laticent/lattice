@@ -72,43 +72,43 @@ const GROUPS = [
 const DESCRIPTIONS = {
   'lattice.css': {
     purpose: 'Engine bundle — the palette-blind layout system (layouts + modifiers, no color tokens).',
-    consume: '`@workwel/lattice/css`',
+    consume: '`@laticent/lattice/css`',
   },
   'lattice.min.css': {
     purpose: 'Minified `lattice.css` — same engine, comments/whitespace stripped (Marp `@theme`/`@size` directives preserved). Production / CDN drop-in.',
-    consume: '`@workwel/lattice/css/min`',
+    consume: '`@laticent/lattice/css/min`',
   },
   'lattice-default.css': {
     purpose: 'Zero-config drop-in: the engine flattened together with the default palette (cuoio), `@import` resolved at build time. Browser-droppable.',
-    consume: '`@workwel/lattice/default`',
+    consume: '`@laticent/lattice/default`',
   },
   'lattice-default.min.css': {
     purpose: 'Minified `lattice-default.css` — the zero-config themed drop-in, compressed. The leanest single-file `<link>` for browser use.',
-    consume: '`@workwel/lattice/default/min`',
+    consume: '`@laticent/lattice/default/min`',
   },
   'lattice-emoji.css': {
     purpose: 'Opt-in full-offline color emoji `@font-face` (Noto Color Emoji). Link after `lattice.css`; run `npm run fonts:emoji` to vendor the font (excluded from the npm tarball, ~25 MB). Without it, emoji fall back to the installed system font.',
-    consume: '`@workwel/lattice/dist/lattice-emoji.css` (opt-in, not in `exports`)',
+    consume: '`@laticent/lattice/dist/lattice-emoji.css` (opt-in, not in `exports`)',
   },
   'lattice-runtime.js': {
     purpose: 'Browser runtime transforms (chart-family, structure post-processing) — powers the web export, the marp-vscode preview, and (bundled) the Export-to-Marp zip\'s full-fidelity HTML route. esbuild IIFE.',
-    consume: '`@workwel/lattice/runtime`',
+    consume: '`@laticent/lattice/runtime`',
   },
   'lattice-runtime.min.js': {
     purpose: 'Minified `lattice-runtime.js` — no inline source map. Production / CDN runtime drop-in.',
-    consume: '`@workwel/lattice/runtime/min`',
+    consume: '`@laticent/lattice/runtime/min`',
   },
   'lattice-emulator.js': {
     purpose: 'Lattice\'s own engine, bundled as a CLI — renders PDF, PPTX, and PNG directly (no Marp involved); the local engine graph inlined, node_modules deps left external. This is the package `bin` and `main`.',
-    consume: '`lattice` bin / `@workwel/lattice`',
+    consume: '`lattice` bin / `@laticent/lattice`',
   },
   'lattice-emulator.min.js': {
     purpose: 'Minified `lattice-emulator.js` — the same CLI bundle compressed, shebang + executable bit preserved. Leaner install footprint; the bin/main stays the unminified file.',
-    consume: '`@workwel/lattice/min`',
+    consume: '`@laticent/lattice/min`',
   },
   'docs/components.json': {
     purpose: 'Machine-readable component catalog (axes, tags, slots, skeletons, when/anti/related) — the JSON an agent or tool loads to pick a component.',
-    consume: 'load as JSON / `@workwel/lattice/dist/docs/components.json`',
+    consume: 'load as JSON / `@laticent/lattice/dist/docs/components.json`',
   },
   'docs/components.pick.md': {
     purpose:

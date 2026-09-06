@@ -91,7 +91,7 @@ question nobody had asked.
 stats API:
 
 ```
-GET https://data.jsdelivr.com/v1/stats/packages/gh/SlideWright/lattice?period=year
+GET https://data.jsdelivr.com/v1/stats/packages/gh/Laticent/lattice?period=year
   → {"hits": {"total": 2}}
 GET .../versions?period=year
   → [{"type":"commit","version":"471359d…","hits":{"total":2}}]
@@ -105,14 +105,14 @@ uncommitting could break: **zero**. Corroborating: 1 star, 0 forks, 0 subscriber
 > **"0 tags — no release has ever been cut, so `/gh/` has no version to resolve"**,
 > from `git tag | wc -l` returning 0. The local clone simply had no tags fetched.
 > A **`v1.0.0` tag exists on the remote, with a published GitHub Release carrying a
-> `lattice-v1.0.0.zip` asset**, and `cdn.jsdelivr.net/gh/slidewright/lattice@v1.0.0/…`
+> `lattice-v1.0.0.zip` asset**, and `cdn.jsdelivr.net/gh/laticent/lattice@v1.0.0/…`
 > resolves today. Running a command that returned 0 and believing it — without
 > asking whether the command could see what it was counting — is the same error
 > this note's §3 is about, committed inside the correction. The conclusion holds
 > only because a tag is immutable: a `@v1.0.0` pin keeps resolving to that tag's
 > tree regardless of what `main` does. Found by the red team.
 
-`README.md` routes every entry point through `@workwel/lattice/…` — though the same
+`README.md` routes every entry point through `@laticent/lattice/…` — though the same
 README says npm publishing is **pending**, so that route does not yet exist, which
 is why the git-URL install path (§8) mattered so much.
 
@@ -272,7 +272,7 @@ committed artifact still fails and is named.
 §3 leans on jsDelivr `/gh/` stats. Stated plainly, because §3 did not: that API
 covers jsDelivr CDN requests and **nothing else**. It says nothing about
 `git clone`, `npm i <git-url>`, `degit`, GitHub "Download ZIP",
-`raw.githubusercontent.com`, corporate mirrors, or the sibling SlideWright Tauri
+`raw.githubusercontent.com`, corporate mirrors, or the sibling Laticent Tauri
 app in another repository. "Nobody fetches this" is inferred from those two hits
 *together with* 0 forks, 0 subscribers and no published npm package (the v1.0.0 tag
 exists but a tag pin is immutable, so it keeps resolving) — not

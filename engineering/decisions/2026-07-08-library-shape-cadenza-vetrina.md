@@ -7,7 +7,7 @@ summary: >
   library-SHAPED (self-contained, zero-dep for Cadenza, boundary-gated by checkCadenzaBoundary /
   checkVetrinaBoundary, README + standalone tests) but UNBUILT and UNREACHABLE from root CJS.
   DECISION (revised after an adversarial pass falsified the first draft — see "What the red team
-  broke"): (1) add the libs to an npm WORKSPACE so root resolves `@slidewright/cadenza` BY NAME
+  broke"): (1) add the libs to an npm WORKSPACE so root resolves `@laticent/cadenza` BY NAME
   (a bare co-located package.json does NOT make root require() work and silently flips Vite/Vitest
   onto dist/); (2) the `exports` map points `import`/`types` at the SOURCE `./index.ts` and only
   `require` at `./dist/index.cjs`, so the docs toolchain stays on source (no split-brain) while
@@ -65,7 +65,7 @@ three load-bearing claims.** They are recorded here so the corrected plan doesn'
    present → stale build; absent → Vite falls back to source). This directly violated the draft's
    "docs runtime unaffected" invariant.
 2. **The payoff didn't work — root can't `require()` the lib by name.** Root `package.json` has no
-   `workspaces` and the libs live under `docs/`'s module world, so `require('@slidewright/cadenza')`
+   `workspaces` and the libs live under `docs/`'s module world, so `require('@laticent/cadenza')`
    from `lib/core/` → `MODULE_NOT_FOUND`. The only resolvable path was a hardcoded
    `require('../../docs/src/lib/cadenza/dist/index.cjs')`, which *reverses the layering* (root
    engine depending on `docs/src/**`) and bypasses the `exports` map entirely.
@@ -83,8 +83,8 @@ is skipped) and dual-package is safe (both libs are pure / name-based, no cross-
 ## Decision
 
 1. **npm workspace, not a bare co-located manifest.** Add the two lib dirs to the root
-   `package.json` `workspaces` so root's module graph resolves `@slidewright/cadenza` /
-   `@slidewright/vetrina` **by name**. This is what makes `require()` work (finding #2) — a
+   `package.json` `workspaces` so root's module graph resolves `@laticent/cadenza` /
+   `@laticent/vetrina` **by name**. This is what makes `require()` work (finding #2) — a
    co-located `package.json` alone does not, and it is what earns the `exports.require` path a real
    consumer.
 2. **`exports` map that pins the docs toolchain to source.** `import` + `types` → the **source**
@@ -115,7 +115,7 @@ is skipped) and dual-package is safe (both libs are pure / name-based, no cross-
   `exports` `import`/`types` condition resolves to source, verified against the installed Vite).
   Slice 1 still carries a before/after `astro build` + `vitest run` check as belt-and-suspenders.
 - **Root CJS / export pipeline:** once Cadenza is a workspace with a CJS `dist/`, `lib/export/*` and
-  the CLI `require('@slidewright/cadenza')` the built engine by name. The hand-mirrors
+  the CLI `require('@laticent/cadenza')` the built engine by name. The hand-mirrors
   (`splitSentences`, `trackToVtt`) become deletable — one source of truth, parity tests retired.
 - **The gates:** stay. They are the spin-off boundary; the build must not weaken them, and it
   doesn't (verified — `package.json`/`dist/` are invisible to the boundary scan).
@@ -141,20 +141,20 @@ is skipped) and dual-package is safe (both libs are pure / name-based, no cross-
   workspace entry is *not* that move — it's a root-package resolution edge, zero import-path churn.)
 - **Rewriting consumers** — docs imports stay as-is, on source.
 
-### ⚠ Publish prerequisite — the shipped `lattice` bin `require`s `@slidewright/cadenza`
+### ⚠ Publish prerequisite — the shipped `lattice` bin `require`s `@laticent/cadenza`
 
-Because `@slidewright/cadenza` is a **workspace** package (not in root `dependencies`, not published),
-it resolves ONLY via the in-repo `node_modules/@slidewright/cadenza` symlink. Since the read-along
+Because `@laticent/cadenza` is a **workspace** package (not in root `dependencies`, not published),
+it resolves ONLY via the in-repo `node_modules/@laticent/cadenza` symlink. Since the read-along
 export work, the shipped root CJS `require`s it: `lib/core/read-along-vtt.js` and
 `lib/core/read-along-build.js` (both in the published `files: ["lib/"]`), and the `lattice` bin hits
 that path at runtime under `--captions`. **In-repo this is fine** (the symlink is present; the bundled
 `dist/lattice-emulator.js` keeps the require external). **But a plain `npm publish` + `npm i -g` — or a
 Tauri desktop package that ships `dist/`+`lib/` without the workspace `node_modules` — would
 `MODULE_NOT_FOUND` on `--captions`.** So, as a hard prerequisite of the eventual publish (and of any
-desktop packaging), one of: **(a)** bundle Cadenza into the emulator (drop `@slidewright/cadenza` from
+desktop packaging), one of: **(a)** bundle Cadenza into the emulator (drop `@laticent/cadenza` from
 `tools/build-emulator.js`'s `packages: 'external'`, e.g. via an esbuild alias to its built `dist/index.cjs`
 — then reorder `tools/build.js` so `cadenza-lib` builds before the emulator), or **(b)** publish
-`@slidewright/cadenza` and declare it a real `dependency`. Tracked here rather than fixed now, since
+`@laticent/cadenza` and declare it a real `dependency`. Tracked here rather than fixed now, since
 publish + packaging are the non-goals above (HARD RULE #18: off-path, logged not pulled into the diff).
 
 ## Build order (slices, each its own PR, each builds/tests against `main` alone — HARD RULE #17)
@@ -164,7 +164,7 @@ publish + packaging are the non-goals above (HARD RULE #18: off-path, logged not
    the committed `dist/`, and a `build:check` freshness gate. Boundary gate stays green; before/after
    docs-build + Vitest check proves invariant #2.
 2. **Retire a mirror** — point `lib/core/read-along-vtt.js` at the built Cadenza `toVtt` via
-   `require('@slidewright/cadenza')`, delete `trackToVtt` + its parity test. Proves the by-name CJS
+   `require('@laticent/cadenza')`, delete `trackToVtt` + its parity test. Proves the by-name CJS
    path end-to-end. (Gated on slice 1 landing in `main` — sequential, not stacked.)
 3. **Vetrina workspace + build**, same recipe + the two-entrypoint / react-external specifics.
 4. **(Unblocked) the CLI/PDF read-along `.vtt`** — now that Cadenza is CJS-importable by name, wire

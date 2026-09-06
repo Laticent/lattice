@@ -47,7 +47,7 @@ about what marp-core actually produces.
 ## The shape
 
 1. Add `@marp-team/marp-cli` as a **devDependency** — quarantined to the test
-   tier, never a runtime dependency. `npm install @slidewright/lattice` stays
+   tier, never a runtime dependency. `npm install @laticent/lattice` stays
    marp-free, which is the property `marp-independence.md` §1 actually claims.
 2. Render the **`dist/` kit's `sample.md`** (register §5b) — the same artifact a
    recipient copy-pastes, so the gate tests the thing users actually get. It must

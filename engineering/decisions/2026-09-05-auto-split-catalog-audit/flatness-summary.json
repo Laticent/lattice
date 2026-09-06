@@ -1,0 +1,533 @@
+[
+ {
+  "component": "split-panel",
+  "size": "square",
+  "unsplitFlatPct": 0,
+  "splitBodyFlatPct": 87.6,
+  "deltaPts": 87.6,
+  "biggestFlatBandPct": 42.3,
+  "bodyPages": 47
+ },
+ {
+  "component": "split-panel",
+  "size": "portrait",
+  "unsplitFlatPct": 0,
+  "splitBodyFlatPct": 83.2,
+  "deltaPts": 83.2,
+  "biggestFlatBandPct": 38,
+  "bodyPages": 47
+ },
+ {
+  "component": "compare-code",
+  "size": "square",
+  "unsplitFlatPct": 23,
+  "splitBodyFlatPct": 96.6,
+  "deltaPts": 73.6,
+  "biggestFlatBandPct": 58.5,
+  "bodyPages": 2
+ },
+ {
+  "component": "compare-code",
+  "size": "portrait",
+  "unsplitFlatPct": 23,
+  "splitBodyFlatPct": 92.9,
+  "deltaPts": 69.9,
+  "biggestFlatBandPct": 55.6,
+  "bodyPages": 2
+ },
+ {
+  "component": "decision",
+  "size": "square",
+  "unsplitFlatPct": 24.3,
+  "splitBodyFlatPct": 87.6,
+  "deltaPts": 63.3,
+  "biggestFlatBandPct": 41.7,
+  "bodyPages": 4
+ },
+ {
+  "component": "list-steps",
+  "size": "square",
+  "unsplitFlatPct": 24.9,
+  "splitBodyFlatPct": 83.6,
+  "deltaPts": 58.7,
+  "biggestFlatBandPct": 36.4,
+  "bodyPages": 56
+ },
+ {
+  "component": "decision",
+  "size": "portrait",
+  "unsplitFlatPct": 24.3,
+  "splitBodyFlatPct": 82.7,
+  "deltaPts": 58.4,
+  "biggestFlatBandPct": 38,
+  "bodyPages": 4
+ },
+ {
+  "component": "compare-prose",
+  "size": "square",
+  "unsplitFlatPct": 24,
+  "splitBodyFlatPct": 78.5,
+  "deltaPts": 54.5,
+  "biggestFlatBandPct": 33.5,
+  "bodyPages": 18
+ },
+ {
+  "component": "list-steps",
+  "size": "portrait",
+  "unsplitFlatPct": 24.9,
+  "splitBodyFlatPct": 73.1,
+  "deltaPts": 48.2,
+  "biggestFlatBandPct": 28.2,
+  "bodyPages": 56
+ },
+ {
+  "component": "compare-prose",
+  "size": "portrait",
+  "unsplitFlatPct": 24,
+  "splitBodyFlatPct": 71.8,
+  "deltaPts": 47.8,
+  "biggestFlatBandPct": 26.6,
+  "bodyPages": 18
+ },
+ {
+  "component": "premise",
+  "size": "square",
+  "unsplitFlatPct": 45.7,
+  "splitBodyFlatPct": 80.4,
+  "deltaPts": 34.7,
+  "biggestFlatBandPct": 38.9,
+  "bodyPages": 4
+ },
+ {
+  "component": "verdict-grid",
+  "size": "square",
+  "unsplitFlatPct": 53.6,
+  "splitBodyFlatPct": 81.7,
+  "deltaPts": 28.1,
+  "biggestFlatBandPct": 58.1,
+  "bodyPages": 3
+ },
+ {
+  "component": "cycle",
+  "size": "square",
+  "unsplitFlatPct": 59.3,
+  "splitBodyFlatPct": 85.3,
+  "deltaPts": 26,
+  "biggestFlatBandPct": 37.9,
+  "bodyPages": 4
+ },
+ {
+  "component": "q-and-a",
+  "size": "square",
+  "unsplitFlatPct": 59.3,
+  "splitBodyFlatPct": 81.1,
+  "deltaPts": 21.8,
+  "biggestFlatBandPct": 36.4,
+  "bodyPages": 24
+ },
+ {
+  "component": "premise",
+  "size": "portrait",
+  "unsplitFlatPct": 45.7,
+  "splitBodyFlatPct": 66.1,
+  "deltaPts": 20.4,
+  "biggestFlatBandPct": 28.6,
+  "bodyPages": 4
+ },
+ {
+  "component": "cards-grid",
+  "size": "square",
+  "unsplitFlatPct": 63.7,
+  "splitBodyFlatPct": 83.8,
+  "deltaPts": 20.1,
+  "biggestFlatBandPct": 38.3,
+  "bodyPages": 12
+ },
+ {
+  "component": "regulatory-update",
+  "size": "square",
+  "unsplitFlatPct": 59.6,
+  "splitBodyFlatPct": 78.7,
+  "deltaPts": 19.1,
+  "biggestFlatBandPct": 33.7,
+  "bodyPages": 20
+ },
+ {
+  "component": "content",
+  "size": "square",
+  "unsplitFlatPct": 66.6,
+  "splitBodyFlatPct": 85.1,
+  "deltaPts": 18.5,
+  "biggestFlatBandPct": 38.1,
+  "bodyPages": 4
+ },
+ {
+  "component": "cycle",
+  "size": "portrait",
+  "unsplitFlatPct": 59.3,
+  "splitBodyFlatPct": 77,
+  "deltaPts": 17.7,
+  "biggestFlatBandPct": 32.4,
+  "bodyPages": 4
+ },
+ {
+  "component": "list-criteria",
+  "size": "square",
+  "unsplitFlatPct": 66.9,
+  "splitBodyFlatPct": 84,
+  "deltaPts": 17.1,
+  "biggestFlatBandPct": 38.7,
+  "bodyPages": 4
+ },
+ {
+  "component": "verdict-grid",
+  "size": "portrait",
+  "unsplitFlatPct": 53.6,
+  "splitBodyFlatPct": 70.1,
+  "deltaPts": 16.5,
+  "biggestFlatBandPct": 30.9,
+  "bodyPages": 3
+ },
+ {
+  "component": "actors",
+  "size": "square",
+  "unsplitFlatPct": 67.2,
+  "splitBodyFlatPct": 83.6,
+  "deltaPts": 16.4,
+  "biggestFlatBandPct": 38.3,
+  "bodyPages": 4
+ },
+ {
+  "component": "authority-chain",
+  "size": "square",
+  "unsplitFlatPct": 62.8,
+  "splitBodyFlatPct": 78.7,
+  "deltaPts": 15.9,
+  "biggestFlatBandPct": 35.8,
+  "bodyPages": 20
+ },
+ {
+  "component": "kanban",
+  "size": "square",
+  "unsplitFlatPct": 66.6,
+  "splitBodyFlatPct": 81.7,
+  "deltaPts": 15.1,
+  "biggestFlatBandPct": 36.4,
+  "bodyPages": 9
+ },
+ {
+  "component": "agenda",
+  "size": "square",
+  "unsplitFlatPct": 74.4,
+  "splitBodyFlatPct": 88.6,
+  "deltaPts": 14.2,
+  "biggestFlatBandPct": 41.9,
+  "bodyPages": 44
+ },
+ {
+  "component": "content",
+  "size": "portrait",
+  "unsplitFlatPct": 66.6,
+  "splitBodyFlatPct": 80.2,
+  "deltaPts": 13.6,
+  "biggestFlatBandPct": 35.1,
+  "bodyPages": 4
+ },
+ {
+  "component": "statute-stack",
+  "size": "square",
+  "unsplitFlatPct": 65.3,
+  "splitBodyFlatPct": 78.7,
+  "deltaPts": 13.4,
+  "biggestFlatBandPct": 37.7,
+  "bodyPages": 15
+ },
+ {
+  "component": "policy-recommendation",
+  "size": "square",
+  "unsplitFlatPct": 54.3,
+  "splitBodyFlatPct": 67.4,
+  "deltaPts": 13.1,
+  "biggestFlatBandPct": 28,
+  "bodyPages": 15
+ },
+ {
+  "component": "roadmap",
+  "size": "portrait",
+  "unsplitFlatPct": 55.5,
+  "splitBodyFlatPct": 68.6,
+  "deltaPts": 13.1,
+  "biggestFlatBandPct": 18.5,
+  "bodyPages": 15
+ },
+ {
+  "component": "cards-grid",
+  "size": "portrait",
+  "unsplitFlatPct": 63.7,
+  "splitBodyFlatPct": 75.6,
+  "deltaPts": 11.9,
+  "biggestFlatBandPct": 33.3,
+  "bodyPages": 12
+ },
+ {
+  "component": "q-and-a",
+  "size": "portrait",
+  "unsplitFlatPct": 59.3,
+  "splitBodyFlatPct": 70.9,
+  "deltaPts": 11.6,
+  "biggestFlatBandPct": 27.6,
+  "bodyPages": 24
+ },
+ {
+  "component": "inventory",
+  "size": "square",
+  "unsplitFlatPct": 63.4,
+  "splitBodyFlatPct": 72.8,
+  "deltaPts": 9.4,
+  "biggestFlatBandPct": 28,
+  "bodyPages": 16
+ },
+ {
+  "component": "list-criteria",
+  "size": "portrait",
+  "unsplitFlatPct": 66.9,
+  "splitBodyFlatPct": 76.3,
+  "deltaPts": 9.4,
+  "biggestFlatBandPct": 33.4,
+  "bodyPages": 4
+ },
+ {
+  "component": "checklist",
+  "size": "square",
+  "unsplitFlatPct": 72.9,
+  "splitBodyFlatPct": 81.9,
+  "deltaPts": 9,
+  "biggestFlatBandPct": 37.1,
+  "bodyPages": 6
+ },
+ {
+  "component": "cards-stack",
+  "size": "square",
+  "unsplitFlatPct": 73.2,
+  "splitBodyFlatPct": 81.5,
+  "deltaPts": 8.3,
+  "biggestFlatBandPct": 35.2,
+  "bodyPages": 9
+ },
+ {
+  "component": "journey",
+  "size": "portrait",
+  "unsplitFlatPct": 56.5,
+  "splitBodyFlatPct": 64.7,
+  "deltaPts": 8.2,
+  "biggestFlatBandPct": 17,
+  "bodyPages": 15
+ },
+ {
+  "component": "kanban",
+  "size": "portrait",
+  "unsplitFlatPct": 66.6,
+  "splitBodyFlatPct": 74.6,
+  "deltaPts": 8,
+  "biggestFlatBandPct": 34.1,
+  "bodyPages": 9
+ },
+ {
+  "component": "stats",
+  "size": "square",
+  "unsplitFlatPct": 61.8,
+  "splitBodyFlatPct": 68.2,
+  "deltaPts": 6.4,
+  "biggestFlatBandPct": 29.9,
+  "bodyPages": 4
+ },
+ {
+  "component": "statute-stack",
+  "size": "portrait",
+  "unsplitFlatPct": 65.3,
+  "splitBodyFlatPct": 71.6,
+  "deltaPts": 6.3,
+  "biggestFlatBandPct": 32.6,
+  "bodyPages": 15
+ },
+ {
+  "component": "list-tabular",
+  "size": "square",
+  "unsplitFlatPct": 80.8,
+  "splitBodyFlatPct": 86.5,
+  "deltaPts": 5.7,
+  "biggestFlatBandPct": 42.3,
+  "bodyPages": 60
+ },
+ {
+  "component": "agenda",
+  "size": "portrait",
+  "unsplitFlatPct": 74.4,
+  "splitBodyFlatPct": 79.5,
+  "deltaPts": 5.1,
+  "biggestFlatBandPct": 35,
+  "bodyPages": 44
+ },
+ {
+  "component": "actors",
+  "size": "portrait",
+  "unsplitFlatPct": 67.2,
+  "splitBodyFlatPct": 72.1,
+  "deltaPts": 4.9,
+  "biggestFlatBandPct": 29.4,
+  "bodyPages": 4
+ },
+ {
+  "component": "compare-table",
+  "size": "square",
+  "unsplitFlatPct": 79.5,
+  "splitBodyFlatPct": 84.2,
+  "deltaPts": 4.7,
+  "biggestFlatBandPct": 35.6,
+  "bodyPages": 4
+ },
+ {
+  "component": "list",
+  "size": "square",
+  "unsplitFlatPct": 77.6,
+  "splitBodyFlatPct": 81.9,
+  "deltaPts": 4.3,
+  "biggestFlatBandPct": 37.1,
+  "bodyPages": 28
+ },
+ {
+  "component": "authority-chain",
+  "size": "portrait",
+  "unsplitFlatPct": 62.8,
+  "splitBodyFlatPct": 66.7,
+  "deltaPts": 3.9,
+  "biggestFlatBandPct": 26.1,
+  "bodyPages": 20
+ },
+ {
+  "component": "cards-stack",
+  "size": "portrait",
+  "unsplitFlatPct": 73.2,
+  "splitBodyFlatPct": 76.8,
+  "deltaPts": 3.6,
+  "biggestFlatBandPct": 33.6,
+  "bodyPages": 9
+ },
+ {
+  "component": "checklist",
+  "size": "portrait",
+  "unsplitFlatPct": 72.9,
+  "splitBodyFlatPct": 76.3,
+  "deltaPts": 3.4,
+  "biggestFlatBandPct": 36,
+  "bodyPages": 6
+ },
+ {
+  "component": "kpi",
+  "size": "portrait",
+  "unsplitFlatPct": 63.4,
+  "splitBodyFlatPct": 66.7,
+  "deltaPts": 3.3,
+  "biggestFlatBandPct": 29.6,
+  "bodyPages": 18
+ },
+ {
+  "component": "compare-table",
+  "size": "portrait",
+  "unsplitFlatPct": 79.5,
+  "splitBodyFlatPct": 82.5,
+  "deltaPts": 3,
+  "biggestFlatBandPct": 34.6,
+  "bodyPages": 4
+ },
+ {
+  "component": "regulatory-update",
+  "size": "portrait",
+  "unsplitFlatPct": 59.6,
+  "splitBodyFlatPct": 62.2,
+  "deltaPts": 2.6,
+  "biggestFlatBandPct": 22,
+  "bodyPages": 20
+ },
+ {
+  "component": "glossary",
+  "size": "square",
+  "unsplitFlatPct": 80.4,
+  "splitBodyFlatPct": 82.9,
+  "deltaPts": 2.5,
+  "biggestFlatBandPct": 38.9,
+  "bodyPages": 4
+ },
+ {
+  "component": "kpi",
+  "size": "square",
+  "unsplitFlatPct": 63.4,
+  "splitBodyFlatPct": 65.3,
+  "deltaPts": 1.9,
+  "biggestFlatBandPct": 22.5,
+  "bodyPages": 18
+ },
+ {
+  "component": "list",
+  "size": "portrait",
+  "unsplitFlatPct": 77.6,
+  "splitBodyFlatPct": 79.3,
+  "deltaPts": 1.7,
+  "biggestFlatBandPct": 36.3,
+  "bodyPages": 28
+ },
+ {
+  "component": "list-tabular",
+  "size": "portrait",
+  "unsplitFlatPct": 80.8,
+  "splitBodyFlatPct": 81.3,
+  "deltaPts": 0.5,
+  "biggestFlatBandPct": 38,
+  "bodyPages": 60
+ },
+ {
+  "component": "policy-recommendation",
+  "size": "portrait",
+  "unsplitFlatPct": 54.3,
+  "splitBodyFlatPct": 50.3,
+  "deltaPts": -4,
+  "biggestFlatBandPct": 10.8,
+  "bodyPages": 15
+ },
+ {
+  "component": "inventory",
+  "size": "portrait",
+  "unsplitFlatPct": 63.4,
+  "splitBodyFlatPct": 59.3,
+  "deltaPts": -4.1,
+  "biggestFlatBandPct": 14.5,
+  "bodyPages": 16
+ },
+ {
+  "component": "stats",
+  "size": "portrait",
+  "unsplitFlatPct": 61.8,
+  "splitBodyFlatPct": 57.1,
+  "deltaPts": -4.7,
+  "biggestFlatBandPct": 22.7,
+  "bodyPages": 4
+ },
+ {
+  "component": "glossary",
+  "size": "portrait",
+  "unsplitFlatPct": 80.4,
+  "splitBodyFlatPct": 73.9,
+  "deltaPts": -6.5,
+  "biggestFlatBandPct": 33.3,
+  "bodyPages": 4
+ },
+ {
+  "component": "roadmap",
+  "size": "square",
+  "unsplitFlatPct": 55.5,
+  "splitBodyFlatPct": 30.7,
+  "deltaPts": -24.8,
+  "biggestFlatBandPct": 14.9,
+  "bodyPages": 3
+ }
+]

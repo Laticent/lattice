@@ -53,18 +53,18 @@ const FITTING = `<!-- _class: contact -->
 
 - Ada Slide \`name\`
 - One scan saves the speaker \`title\`
-- SlideWright \`org\`
-- hello@slidewright.dev \`email\`
+- Laticent \`org\`
+- hello@laticent.io \`email\`
 `;
 
 const OVERSTUFFED = `<!-- _class: contact -->
 
 - Alexandria Bartholomew Christopherson Featherstonehaugh Wolfeschlegelsteinhausenbergerdorff \`name\`
 - Distinguished Principal Staff Systems Architect and Head of Platform \`title\`
-- SlideWright Advanced Presentation Systems International Holdings \`org\`
-- alexandria.featherstonehaugh@slidewright-international-holdings.example \`email\`
+- Laticent Advanced Presentation Systems International Holdings \`org\`
+- alexandria.featherstonehaugh@laticent-international-holdings.example \`email\`
 - +1-555-0142 extension 99815 \`phone\`
-- slidewright-international-holdings.example/team/alexandria/profile \`url\`
+- laticent-international-holdings.example/team/alexandria/profile \`url\`
 - Scan to add me — this call to action runs long across several wrapped lines so the identity card grows well past the height of the stage cell \`caption\`
 `;
 

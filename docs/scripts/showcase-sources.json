@@ -52,12 +52,12 @@
 	"divider.light": {
 		"src": "lib/components/anchor/divider/divider.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "3b6b6763801da27174e1ae27349405185114cd272a15a7ef8d737ff069072498"
+		"srcSha256": "86c9818763efb35169d46731da2629f9f6dc0893f18aa39bd85a88f336e5698d"
 	},
 	"divider.dark": {
 		"src": "lib/components/anchor/divider/divider.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "657185d11c31b0bda1b6489e68cc7985c30398debe5360ae211122ca0e5c6c64"
+		"srcSha256": "7e07e312c7e5296b59d54d7e2665176a2b83a6d212c856c143a48909c236d0d6"
 	},
 	"funnel.light": {
 		"src": "lib/components/chart/funnel/funnel.gallery.light.pdf",
@@ -92,22 +92,22 @@
 	"kpi.light": {
 		"src": "lib/components/evidence/kpi/kpi.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "7cead820b59d83c35b65f0b15f1796111f3e17c9eb48bd52fb1106d567434cb4"
+		"srcSha256": "df950c8ba78b222d6f7f12fdb3d14cb07f419b4ac7ee9d03b56796243ec0535f"
 	},
 	"kpi.dark": {
 		"src": "lib/components/evidence/kpi/kpi.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "d21780ffe051e607ac0b1c077b171200bc6c163575c590e646932ab8cad5a1c5"
+		"srcSha256": "9f9ac77463b53e2e564461dce7b77e955ba1d24e8f4a87109a01f1e9dd904882"
 	},
 	"pricing.light": {
 		"src": "lib/components/comparison/pricing/pricing.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "c0f8817f95f8986da08016ec0d387c5715bc12ed37dc919f4b43ed229ad74829"
+		"srcSha256": "98041444df070970fcf76bc87fe1bb8b9f99e21ab3bb948954f91ade8328f487"
 	},
 	"pricing.dark": {
 		"src": "lib/components/comparison/pricing/pricing.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "15eb069a64a5bde40ef3592b6e28d7c8096769e603728cb4a5e04d322845217b"
+		"srcSha256": "eaa14e812b561ae7785ca78cb9182ae3415a68225373a07c3d92330c7acd0f98"
 	},
 	"quote.light": {
 		"src": "lib/components/statement/quote/quote.gallery.light.pdf",

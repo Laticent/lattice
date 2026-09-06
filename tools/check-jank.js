@@ -279,7 +279,20 @@ if (!SIZE_ALIAS[FAMILY]) die(`unknown family '${FAMILY}'. Known: ${FAMILIES.join
 // The default axis is the component's own. `capacity.axis` already encodes what a deck
 // author adds more of, and a component with none (an anchor slide: `adapt.mode: native`,
 // one heading, no repeating element) has exactly one thing that can grow — the heading.
-const AXIS = flag('axis', manifest.capacity?.axis && BUILDERS[COMP] ? 'count' : 'heading');
+//
+// EXCEPT IN DISCOVERY. `--anchors` asks "what positioned marks does this component HAVE",
+// and a count sweep answers it from a GENERATED deck: `calibrate-core.js` BUILDERS emit one
+// plain repeated element, so every mark that lives on the component's optional chrome is
+// invisible. Measured on two components the day a `capacity` was added to each:
+// `pricing` lost its `*Most chosen*` corner tag (`em`) and its `[/]` slashed badge, and
+// `split-compare` lost `div.verdict::before` — the RECOMMENDATION tag, which is the most
+// position-sensitive mark it has. Nothing warned in either case; two arms of
+// `jank-sweep.test.js` failing on pricing is the only reason it surfaced, and split-compare
+// has no arm at all. So discovery reads the component's OWN sample unless told otherwise.
+// (Not changed for the MEASURING modes: there a count sweep is the point — grow the
+// collection and watch what moves — and the builders feed `calibrate-capacity` /
+// `calibrate-density`, where a heavier element would shift the measured ceilings.)
+const AXIS = flag('axis', ANCHORS_MODE ? 'heading' : (manifest.capacity?.axis && BUILDERS[COMP] ? 'count' : 'heading'));
 if (!['heading', 'count', 'words'].includes(AXIS)) die(`unknown --axis '${AXIS}' (heading | count | words).`);
 const MAX = num('max', AXIS === 'count' ? '9' : '24');
 if (!(MAX > 1)) die('--max must be at least 2 — a sweep of one step measures nothing.');

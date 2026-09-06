@@ -70,7 +70,7 @@ has been public since the same day.
 ```
 $ git ls-remote --tags origin
 5979ae9743a74b90ebafd464be94d7ec46fb6b9b	refs/tags/v1.0.0
-$ GET /repos/SlideWright/lattice/releases
+$ GET /repos/Laticent/lattice/releases
 tag: v1.0.0 | draft: false | prerelease: false | published: 2026-08-09T14:54:53Z
 ```
 
@@ -189,7 +189,7 @@ written down once.
 One correction to that record's framing, now that the history is established: its case rests
 on *"there is no published version history to reconcile, no consumer pinned to a tag scheme."*
 **A published 1.0.0 tag and GitHub Release already exist**, so that window closed on
-2026-08-09, before this change. npm is still clean (`@workwel/lattice` 404s), which is the
+2026-08-09, before this change. npm is still clean (`@laticent/lattice` 404s), which is the
 part of the argument that survives. Its slice 1 also says to "close `## Unreleased` under the
 dated `## 1.0.0`" and to convert the pending fragment pile; the first is discharged
 differently here (a separate archive file) and the second is untouched by design.

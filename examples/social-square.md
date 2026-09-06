@@ -55,7 +55,7 @@ Set the `size:` directive in the front matter and the layouts adapt to the talle
 
 > The best deck is the one that meets your audience where they already are — and right now, that's a phone held upright.
 
-— SlideWright field notes
+— Laticent field notes
 
 ---
 

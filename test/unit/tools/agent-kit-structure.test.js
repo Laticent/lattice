@@ -28,6 +28,16 @@ const skip = built ? false : 'dist/agent-kit not built — run `npm run build`';
 
 test('agent kit structure', { skip }, async (t) => {
 	const text = fs.readFileSync(BOOTSTRAP, 'utf8');
+	/**
+	 * The COMPONENT INDEX, which is no longer the front door.
+	 *
+	 * The root README used to carry all 61 names; it now routes by DESTINATION
+	 * (which product you are setting up) and hands the catalog to the picker. The
+	 * two reachability checks below still matter exactly as much — an index that
+	 * names a missing file costs a fetch and returns nothing — so they follow the
+	 * list to where it lives rather than being deleted with the table.
+	 */
+	const indexText = fs.readFileSync(path.join(KIT, 'components', 'README.md'), 'utf8');
 
 	await t.test('the four task folders exist and are non-empty', () => {
 		for (const dir of ['authoring', 'components', 'skills', 'reference', 'review']) {
@@ -41,31 +51,32 @@ test('agent kit structure', { skip }, async (t) => {
 		}
 	});
 
-	await t.test('every component the bootstrap names has a file', () => {
+	await t.test('every component the index names has a file', () => {
 		const named = new Set();
-		for (const line of text.split('\n')) {
-			if (!/^\s{2}`/.test(line)) continue; // the member lines under each family
-			for (const m of line.matchAll(/`([a-z0-9-]+)`/g)) named.add(m[1]);
+		for (const line of indexText.split('\n')) {
+			if (!/^- \*\*`/.test(line)) continue; // the per-component bullet in each family
+			const m = /^- \*\*`([a-z0-9-]+)`\*\*/.exec(line);
+			if (m) named.add(m[1]);
 		}
-		assert.ok(named.size >= 50, `only ${named.size} components parsed out of the bootstrap`);
+		assert.ok(named.size >= 50, `only ${named.size} components parsed out of the index`);
 		const missing = [...named].filter(
 			(n) => !fs.existsSync(path.join(KIT, 'components', `${n}.md`)),
 		);
 		assert.deepEqual(
 			missing,
 			[],
-			'The bootstrap names components with no file in components/. An index that points at ' +
+			'The index names components with no file in components/. An index that points at ' +
 				'a missing file costs the agent a fetch and returns nothing.',
 		);
 	});
 
-	await t.test('every components/ file is reachable from the bootstrap', () => {
+	await t.test('every components/ file is reachable from the index', () => {
 		const onDisk = fs
 			.readdirSync(path.join(KIT, 'components'))
 			.filter((f) => f.endsWith('.md') && f !== '_index.md' && f !== 'README.md')
 			.map((f) => f.replace(/\.md$/, ''));
 		const unreferenced = onDisk.filter(
-			(n) => !text.includes(`\`${n}\``) && !text.includes(`${n}.md`),
+			(n) => !indexText.includes(`\`${n}\``) && !indexText.includes(`${n}.md`),
 		);
 		assert.deepEqual(
 			unreferenced,
@@ -510,8 +521,19 @@ test('agent kit structure', { skip }, async (t) => {
 			);
 
 		const uncovered = [];
-		for (const m of gen.matchAll(/path\.join\(ROOT, ((?:'[^']*'|\s|,)+)\)/g)) {
-			const parts = [...m[1].matchAll(/'([^']*)'/g)].map((x) => x[1]);
+		// Two shapes, and the second one was a blind spot until `exemplars/` was
+		// read with a variable tail: `path.join(ROOT, 'exemplars', rel)` matched
+		// NEITHER the all-literal pattern nor anything else, so a new top-level
+		// source directory could be read without the filter ever being asked about
+		// it. The leading literal is enough to check coverage — a directory whose
+		// own `**` glob is present covers every path under it.
+		const reads = [
+			...[...gen.matchAll(/path\.join\(ROOT, ((?:'[^']*'|\s|,)+)\)/g)].map((m) =>
+				[...m[1].matchAll(/'([^']*)'/g)].map((x) => x[1]),
+			),
+			...[...gen.matchAll(/path\.join\(ROOT, '([^']+)'\s*,\s*[A-Za-z_$]/g)].map((m) => [m[1]]),
+		];
+		for (const parts of reads) {
 			if (!parts.length) continue; // a computed segment (bucket, m.name) — the lib/** glob covers those
 			const file = parts.join('/');
 			// node_modules rides on package-lock.json; dist/ is this build's own output.
@@ -582,6 +604,151 @@ test('agent kit structure', { skip }, async (t) => {
 			// The decisive property: no line in the body may open or close the rail.
 			const rail = new RegExp(`^ {0,3}\\\`{${open.length},}`, 'm');
 			assert.doesNotMatch(body, rail, `${why}: the payload can still break out of the fence`);
+		}
+	});
+
+	/**
+	 * THE DESTINATION EDITIONS — `paste/`, `upload/`, `start/`, `repo/`, `plugin/`.
+	 *
+	 * These arms exist because the recut shipped five defects that every existing
+	 * arm passed over, and each one below is the regression test for a specific
+	 * one of them. The pattern is worth naming: the old arms all check the LIBRARY
+	 * (does every component have a file, do the skills match byte-for-byte), and
+	 * the editions are a different artifact with different failure modes — a
+	 * heading with no text, a skill naming a file it does not carry, a paste text
+	 * contradicting the kit around it.
+	 */
+	const readKit = (rel) => fs.readFileSync(path.join(KIT, rel), 'utf8');
+	const kitMarkdown = () => {
+		const out = [];
+		const walk = (dir, prefix) => {
+			for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+				const rel = prefix ? `${prefix}/${e.name}` : e.name;
+				if (e.isDirectory()) walk(path.join(dir, e.name), rel);
+				else if (e.name.endsWith('.md')) out.push(rel);
+			}
+		};
+		walk(KIT, '');
+		return out;
+	};
+
+	/**
+	 * `demote()` rebuilt each heading from its hash run and dropped the text, so
+	 * all ten bundles shipped 972 headings reading `## ` with nothing on them —
+	 * and every in-bundle anchor pointed at one. It is the cheapest possible
+	 * check and it would have caught the worst defect in the change.
+	 */
+	await t.test('no generated file ships a heading with no text', () => {
+		const bad = [];
+		for (const rel of kitMarkdown()) {
+			let inFence = false;
+			readKit(rel).split('\n').forEach((line, i) => {
+				if (/^ {0,3}(?:`{3,}|~{3,})/.test(line)) inFence = !inFence;
+				else if (!inFence && /^#{1,6}\s*$/.test(line)) bad.push(`${rel}:${i + 1}`);
+			});
+		}
+		assert.deepEqual(
+			bad.slice(0, 10),
+			[],
+			`${bad.length} heading(s) have no text. A bundle whose sections are all untitled is ` +
+				'worse to retrieve from than no bundle at all.',
+		);
+	});
+
+	await t.test('every in-bundle anchor resolves to a heading in that bundle', () => {
+		const slug = (h) => h.trim().toLowerCase().replace(/[^a-z0-9 -]/g, '').replace(/\s+/g, '-');
+		const dead = [];
+		for (const f of fs.readdirSync(path.join(KIT, 'upload'))) {
+			const text = readKit(`upload/${f}`);
+			const heads = new Set([...text.matchAll(/^#{1,6}\s+(.+)$/gm)].map((m) => slug(m[1])));
+			for (const m of text.matchAll(/\]\(#([a-z0-9-]+)\)/g)) {
+				if (!heads.has(m[1])) dead.push(`upload/${f} -> #${m[1]}`);
+			}
+		}
+		assert.deepEqual(dead.slice(0, 10), [], `${dead.length} in-bundle anchor(s) point at nothing.`);
+	});
+
+	/**
+	 * The skill shipped telling the model to read three `references/` files while
+	 * no `references/` directory existed anywhere in the kit — so the plugin whose
+	 * entire pitch is progressive disclosure had nothing to disclose.
+	 */
+	await t.test('every file a SKILL.md names travels with it', () => {
+		for (const home of ['repo/skills/lattice-decks', 'plugin/skills/lattice-decks']) {
+			const text = readKit(`${home}/SKILL.md`);
+			const named = [...text.matchAll(/`(references\/[a-z0-9-]+\.md)`/g)].map((m) => m[1]);
+			assert.ok(named.length >= 1, `${home}/SKILL.md names no reference file — the arm is looking at nothing`);
+			for (const ref of new Set(named)) {
+				assert.ok(
+					fs.existsSync(path.join(KIT, home, ref)),
+					`${home}/SKILL.md tells the model to read ${ref}, which does not ship. The skill ` +
+						'activates, the read fails, and the catalog it promises is not there.',
+				);
+			}
+		}
+	});
+
+	/**
+	 * The whole point of the `cuoio` switch: the Marp kit registers `lattice`,
+	 * `cuoio` and `cuoio-dark` and nothing else, and Marp resolves a palette BY
+	 * NAME — so a kit that tells a model to write any other theme produces an
+	 * unstyled deck with no error. The `max` paste text reintroduced `indaco`
+	 * two commits into the fix.
+	 */
+	await t.test('no generated file promises a theme the Marp kit cannot resolve', () => {
+		const registered = new Set(['cuoio', 'cuoio-dark', 'lattice']);
+		const offenders = [];
+		for (const rel of kitMarkdown()) {
+			if (rel.startsWith('skills/') || rel.startsWith('library/')) continue; // verbatim copies
+			for (const m of readKit(rel).matchAll(/^theme:\s*([a-z0-9-]+)\s*$/gm)) {
+				if (!registered.has(m[1])) offenders.push(`${rel}: theme: ${m[1]}`);
+			}
+		}
+		assert.deepEqual(
+			offenders,
+			[],
+			'A generated deck or skeleton names a theme the copy-and-go Marp route does not ' +
+				'register. It renders unstyled, with no error and no failing gate.',
+		);
+	});
+
+	/**
+	 * Two files advertised `solo` as carrying "a worked example" while it held 20
+	 * isolated single-slide skeletons and never once demonstrated the `---`
+	 * separator its own rules are about.
+	 */
+	await t.test('the solo paste text carries a multi-slide worked deck', () => {
+		const text = readKit('paste/lattice-instructions-solo.md');
+		const blocks = [...text.matchAll(/```markdown\n([\s\S]*?)\n```/g)].map((m) => m[1]);
+		const best = Math.max(0, ...blocks.map((b) => (b.match(/^<!--\s*_class:/gm) || []).length));
+		assert.ok(
+			best >= 3,
+			`the largest fenced block in solo holds ${best} slide(s). A model that has never seen ` +
+				'two slides in sequence has never seen the separator rule applied.',
+		);
+	});
+
+	/** Every path a start/ page hands the reader has to exist. */
+	await t.test('every kit file a start/ page names exists', () => {
+		const missing = [];
+		for (const f of fs.readdirSync(path.join(KIT, 'start'))) {
+			for (const m of readKit(`start/${f}`).matchAll(/\]\(\.\.\/([^)#]+)\)/g)) {
+				if (!fs.existsSync(path.join(KIT, m[1]))) missing.push(`start/${f} -> ${m[1]}`);
+			}
+		}
+		assert.deepEqual(missing, [], 'a start page routes the reader to a file the kit does not contain');
+	});
+
+	/** The caps are the only thing standing between a paste text and a box that truncates silently. */
+	await t.test('every paste text is inside its platform budget', () => {
+		for (const [f, cap] of [
+			['lattice-instructions-standard.md', 6000],
+			['lattice-instructions-max.md', 8000],
+			['lattice-instructions-solo.md', 10000],
+		]) {
+			const n = [...readKit(`paste/${f}`)].length;
+			assert.ok(n <= cap, `paste/${f} is ${n} chars, over its ${cap} budget`);
+			assert.ok(n > 500, `paste/${f} is ${n} chars — suspiciously empty`);
 		}
 	});
 });

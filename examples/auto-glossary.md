@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 paginate: true
-footer: "SlideWright · auto-glossary"
+footer: "Laticent · auto-glossary"
 glossary: auto
 acronyms:
   ARR: { expansion: annual recurring revenue, definition: "Revenue a business can reliably expect to recur every year." }

@@ -1,7 +1,7 @@
 # Lattice documentation site
 
 The public docs site for Lattice, built with [Astro Starlight](https://starlight.astro.build)
-and deployed to GitHub Pages at <https://slidewright.github.io/lattice/>.
+and deployed to GitHub Pages at <https://laticent.github.io/lattice/>.
 
 ## Local development
 

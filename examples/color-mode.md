@@ -3,7 +3,7 @@ marp: true
 theme: cuoio
 paginate: true
 color-mode: dark
-footer: "SlideWright · color mode"
+footer: "Laticent · color mode"
 ---
 
 <!-- _class: title silent -->
@@ -62,6 +62,6 @@ This deck is `theme: cuoio`, not the website's palette. Change the site theme al
 
 ## Independent by default.
 
-`SlideWright · color mode`
+`Laticent · color mode`
 
 The deck owns its theme and its canvas. The website owns the chrome and a shared light/dark default. They stopped fighting over one switch.

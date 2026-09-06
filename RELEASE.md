@@ -1,4 +1,4 @@
-# Releasing `@workwel/lattice`
+# Releasing `@laticent/lattice`
 
 > **Status: automated, manually triggered, cut in two phases across a merge.**
 > **Release (prepare)** (`.github/workflows/release.yml`, `workflow_dispatch`)
@@ -227,7 +227,7 @@ Prerequisites:
   `pull-requests: write` for phase 1, `contents: write` + `id-token: write` for
   phase 2 (`id-token` for npm `--provenance`).
 - **To enable npm publish:** add an **`NPM_TOKEN`** secret (publish rights,
-  exposed as `NODE_AUTH_TOKEN`) and confirm the `@slidewright` scope exists and
+  exposed as `NODE_AUTH_TOKEN`) and confirm the `@laticent` scope exists and
   the token can publish to it. **Put it in the `automation` environment, not in
   the repo secrets** — a registry-publish credential is the last thing that
   should be readable from a PR branch. **Setting the secret *is* the opt-in** —

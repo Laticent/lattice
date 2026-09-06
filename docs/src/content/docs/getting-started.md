@@ -12,7 +12,7 @@ configuration.
 ## Install
 
 ```sh
-git clone https://github.com/slidewright/lattice.git
+git clone https://github.com/Laticent/lattice.git
 cd lattice
 npm install
 ```

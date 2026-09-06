@@ -10,6 +10,8 @@ Use for the plans / packages slide — two to four tiers compared on price and f
 
 ## Agent contract
 
+**Capacity** ~3 items (over 4 overflows) — past that, compare-table / split across slides.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

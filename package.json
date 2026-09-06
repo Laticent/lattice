@@ -1,7 +1,7 @@
 {
-  "name": "@workwel/lattice",
+  "name": "@laticent/lattice",
   "version": "1.0.0",
-  "description": "A slide deck engine for boardroom-quality PDFs from Markdown. Author every slide as plain Markdown lists; render it as KaTeX math, gantt/kanban/roadmaps, all 25 Mermaid diagram types, native charts, and legal layouts — 61 components, 14 palettes, WCAG AA throughout. Lattice is the engine layer of the SlideWright deck system; decks can also export to Marp for recipients who prefer that tool.",
+  "description": "A slide deck engine for boardroom-quality PDFs from Markdown. Author every slide as plain Markdown lists; render it as KaTeX math, gantt/kanban/roadmaps, all 25 Mermaid diagram types, native charts, and legal layouts — 61 components, 14 palettes, WCAG AA throughout. Lattice is the engine layer of the Laticent deck system; decks can also export to Marp for recipients who prefer that tool.",
   "keywords": [
     "slides",
     "presentation",
@@ -11,18 +11,18 @@
     "deck",
     "theme",
     "design-system",
-    "slidewright"
+    "laticent"
   ],
-  "homepage": "https://github.com/slidewright/lattice",
+  "homepage": "https://github.com/Laticent/lattice",
   "repository": {
     "type": "git",
-    "url": "https://github.com/slidewright/lattice.git"
+    "url": "https://github.com/Laticent/lattice.git"
   },
   "bugs": {
-    "url": "https://github.com/slidewright/lattice/issues"
+    "url": "https://github.com/Laticent/lattice/issues"
   },
   "license": "AGPL-3.0-only",
-  "author": "Sharmarke Aden (SlideWright) <sharmarke.aden@gmail.com>",
+  "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
   "main": "dist/lattice-emulator.js",
   "bin": {
     "lattice": "dist/lattice-emulator.js"

@@ -12,7 +12,7 @@ summary: >
   takes identity as an argument, the legacy `add(css)` survives for the published API with
   its scan bounded to the file header, and a nameless registration throws instead of
   returning a `false` nobody checked. `@theme` stays in source CSS — unlike `@size` — because
-  `@workwel/lattice/themes/<name>.css` is a published export README.md documents as a Marp
+  `@laticent/lattice/themes/<name>.css` is a published export README.md documents as a Marp
   theme file. Verified later against real marp-cli: without the directive it does not throw —
   it WARNS and renders the deck completely unstyled at exit 0, a silent failure, which makes
   the case for keeping the directive stronger still (§1).
@@ -39,7 +39,7 @@ engine. It had no business in a stylesheet.
 
 **`@theme` is IDENTITY, and identity travels with content.** Two hard constraints:
 
-- **`@workwel/lattice/themes/<name>.css` is a published package export**, and `README.md`
+- **`@laticent/lattice/themes/<name>.css` is a published package export**, and `README.md`
   documents it as *"a Marp theme file"*. Without the directive the palette does not register.
   **Verified against real marp-cli 4.5.0 / marp-core 4.4.0 on 2026-08-16** (this note
   originally said "Marpit throws", taken from its documented behavior rather than observed —

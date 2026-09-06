@@ -1,6 +1,6 @@
 {
   "model": "Concepts 1.0",
-  "modelHref": "https://github.com/slidewright/lattice/blob/main/design/concepts.md",
+  "modelHref": "https://github.com/Laticent/lattice/blob/main/design/concepts.md",
   "$comment": "The canonical concept ontology — hand-authored source of truth for the relationship GRAPH (the §2 lattice + §7 edge table of design/concepts.md). Loaded + drift-gated by lib/concepts/index.js; projected to dist/docs/concepts.json by tools/build-concepts.js. Each node's `source` names the live catalog vocabulary that encodes it; the gate asserts those resolve, and counts are derived from them (never hand-typed). Edit nodes/edges here; counts are NOT stored here on purpose.",
   "nodes": [
     {

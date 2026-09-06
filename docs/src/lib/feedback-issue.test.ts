@@ -5,7 +5,7 @@ describe('buildFeedbackIssueUrl', () => {
 	it('points at the studio-feedback issue template with no token/credential params', () => {
 		const url = buildFeedbackIssueUrl({ category: 'bug', summary: 'Export hangs', details: 'It just spins.' });
 		const parsed = new URL(url);
-		expect(parsed.origin + parsed.pathname).toBe('https://github.com/SlideWright/lattice/issues/new');
+		expect(parsed.origin + parsed.pathname).toBe('https://github.com/Laticent/lattice/issues/new');
 		expect(parsed.searchParams.get('template')).toBe('studio-feedback.yml');
 		expect([...parsed.searchParams.keys()]).not.toContain('token');
 	});

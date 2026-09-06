@@ -2,7 +2,7 @@
 marp: true
 theme: indaco
 paginate: true
-footer: "SlideWright · Q3 board review · confidential"
+footer: "Laticent · Q3 board review · confidential"
 ---
 
 <!-- _class: divider -->

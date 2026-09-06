@@ -67,19 +67,24 @@ style: |
 
 ---
 
-<!-- _class: title note-warn -->
+<!-- _class: title -->
 
 # Palette audit
 ## every token tier, every theme
 
 Each slide hardcodes the resolved hex values for one palette so the swatches show *that* palette regardless of the deck's active theme.
 
-> **The `--cat-*` categorical proposals here are SUPERSEDED (2026-07-16, #1022).** They were
-> scored under the retired "pale L≈87 / deep L≈32, fixed non-flipping ink" model; the shipped
-> categorical cycle is now the **three-layer contrast contract** (`engineering/decisions/2026-07-15-categorical-token-contract.md`,
-> gated by `checkCatContrast`). **Do not copy these `--cat-*` values into a new theme** — copy a
-> shipped three-layer block (indaco / cuoio) and re-hue it. The chart-palette scoring here is
-> unaffected and remains valid.
+---
+
+<!-- _class: content note-warn -->
+
+`Before you copy anything · 2026-07-16`
+
+## The `--cat-*` proposals here are superseded.
+
+The chart-palette scoring on the slides that follow is unaffected.
+
+> **Superseded by #1022.** These values were scored under the retired "pale L≈87 / deep L≈32, fixed non-flipping ink" model. The shipped cycle is the **three-layer contrast contract** (`engineering/decisions/2026-07-15-categorical-token-contract.md`, gated by `checkCatContrast`). **Do not copy these `--cat-*` values into a new theme** — copy a shipped three-layer block (indaco / cuoio) and re-hue it.
 
 ---
 
@@ -2472,11 +2477,15 @@ coverage (higher = wider palette).
 # Palette proposals
 ## ranked top-5 per theme · 13 themes · 65 candidates
 
-Each slide: 12 paired slots (hue shared between light + dark variants).
-Light = pale fill + dark text contract (AA target 4.5:1 on theme text-heading).
-Dark = deep fill + white text contract (AA target 4.5:1 on white).
+Each slide carries 12 paired slots, with the hue shared between light and dark variants.
 
-Composite score (0-100):
+---
+
+<!-- _class: content -->
+
+`How a candidate is scored`
+
+## Composite score, 0-100.
 
 - AA-text light pass — 30 pts
 - AA-text dark pass — 30 pts
@@ -2485,8 +2494,7 @@ Composite score (0-100):
 - Brand affinity — 5 pts (peaked at 75° — anchored but diverse)
 - Hue coverage — 5 pts (300°+ = full credit)
 
-Slides are sorted within each theme: #1 is the highest scorer. The metric
-breakdown next to each ratio shows the points contributed by that axis.
+Light is a pale fill with dark text (AA 4.5:1 on the theme's text-heading); dark is a deep fill with white text (AA 4.5:1 on white). Slides sort by score within each theme.
 
 ---
 

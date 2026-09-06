@@ -63,7 +63,7 @@ function chunkGraphPlugin() {
 // DOMAIN, so it serves at the ROOT (base '/'), not under the old project-page
 // /lattice/ path. Cloudflare Pages PR previews serve at the root of their
 // *.pages.dev host too. So the base is '/' in EVERY environment now — the
-// /lattice project-page base is retired (slidewright.github.io/lattice/ 301-
+// /lattice project-page base is retired (laticent.github.io/lattice/ 301-
 // redirects to the custom domain once it's attached in repo Settings → Pages).
 //
 // `site` is the canonical origin used for sitemap / og:url / absolute links.
@@ -179,7 +179,7 @@ export default defineConfig({
 				useStarlightUiThemeColors: true,
 			},
 			social: [
-				{ icon: 'github', label: 'GitHub', href: 'https://github.com/slidewright/lattice' },
+				{ icon: 'github', label: 'GitHub', href: 'https://github.com/Laticent/lattice' },
 			],
 			// The docs sidebar is now docs-only: one coherent learning track,
 			// Introduction → Get started → Guides. The apps (Playground, Drawing

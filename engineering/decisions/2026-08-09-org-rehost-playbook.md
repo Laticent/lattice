@@ -13,6 +13,18 @@ Not a rebrand — product, copyright holder and SPDX headers stay SlideWright.
 > **This note is disposable.** Delete it after the move, per
 > `engineering/decisions/README.md`'s absorb-then-delete rule.
 
+> **Historical note (2026-09-05) — the old name below is deliberate.** This run
+> sheet is written from *inside* the source org, so "SlideWright" names the org the
+> repo moved **from**. The 2026-09 rebrand did not sweep it: rewriting it to
+> "Laticent" would have the sheet instruct you to move Laticent out of Laticent.
+> What is observable today is that the repo lives at `github.com/Laticent/lattice`
+> and the org, product and dba are all **Laticent**. What is *not* recorded anywhere
+> is **which** path got it there — the repo transfer this sheet describes, or a plain
+> org rename, which is a different operation and leaves this sheet unexecuted. The
+> front matter still says `status: proposed`, so the decisions index lists it as
+> active work. **Confirm which happened before you either run this sheet or delete
+> it** — "Read this first" item 1 calls the transfer a one-way door.
+
 ## Read this first — three things that are not what they look like
 
 **1. This is a one-way door.** GitHub's transfer documentation:

@@ -1,8 +1,8 @@
 # Trademark policy
 
-"Lattice" (as the name of this slide-deck engine), "Lattice Style," and
-"SlideWright," together with the project logos, are trademarks of Sharmarke
-Aden, doing business as SlideWright. The AGPL-3.0 license covers the code; it
+"Lattice" (as the name of this slide-deck engine) and
+"Laticent," together with the project logos, are trademarks of Sharmarke
+Aden, doing business as Laticent. The AGPL-3.0 license covers the code; it
 does not grant any right to use these names or logos (see AGPL-3.0 §7(e)).
 
 ## You may, without asking
@@ -16,10 +16,10 @@ does not grant any right to use these names or logos (see AGPL-3.0 §7(e)).
 
 ## You may not, without written permission
 
-- Ship a fork or modified version under the names "Lattice" or "SlideWright"
+- Ship a fork or modified version under the names "Lattice" or "Laticent"
   or a confusingly similar name. Forks must be renamed.
 - Offer a hosted or commercial service under the names, or imply sponsorship,
-  endorsement, or official status by SlideWright.
+  endorsement, or official status by Laticent.
 - Use the logos, or names likely to be confused with them, as your own
   product's branding.
 

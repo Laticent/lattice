@@ -252,7 +252,7 @@ not a meeting).
    *phase*/severity notation (the marp program) — a `pN` priority would overload
    it on case alone. Not MoSCoW (Scrum-flavoured).
 2. **One board or many** → **one Project board per repo.** When the
-   Tauri/SlideWright desktop work splits into its own repo, it gets its own board
+   Tauri/Laticent desktop work splits into its own repo, it gets its own board
    (and its own `ROADMAP.md`).
 3. **Extraction** → a **one-time maker-checker reconciliation sweep**, code as the
    source of truth (see §Seeding the queue) — not lazy, not hand-transcribed.

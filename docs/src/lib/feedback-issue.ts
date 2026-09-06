@@ -12,7 +12,7 @@
 
 export type FeedbackCategory = 'bug' | 'idea' | 'confusing' | 'other';
 
-const REPO_URL = 'https://github.com/SlideWright/lattice';
+const REPO_URL = 'https://github.com/Laticent/lattice';
 const TEMPLATE = 'studio-feedback.yml';
 
 const CATEGORY_META: Record<FeedbackCategory, { label: string; titlePrefix: string; ghLabel: string }> = {

@@ -132,7 +132,7 @@ network trace (theme CSS and engine bundle firing at the same timestamp)
 and an independent-checker pass (confirmed no other `createEngineBridge`
 call site had the same unfixed pattern; flagged the frozen Drawing Board as
 having the same underlying pattern, logged as
-[#870](https://github.com/SlideWright/lattice/issues/870) per HARD RULE #18
+[#870](https://github.com/Laticent/lattice/issues/870) per HARD RULE #18
 since it's out of scope while frozen). Shipped in PR #869.
 
 ## 4. KaTeX bundle-weight finding — confirmed, quantified, IMPLEMENTED (§4b)
@@ -401,7 +401,7 @@ measures the same build a real deploy ships).
 references 404 at `/<page>/fonts/*.woff2` instead of the hashed asset path
 across all three app surfaces (pre-existing, confirmed present in traces
 from earlier in this same investigation, unrelated to the module-graph
-work) — filed as [#876](https://github.com/SlideWright/lattice/issues/876).
+work) — filed as [#876](https://github.com/Laticent/lattice/issues/876).
 
 ## 6b. Second adversarial pass — against the SHIPPED diff, not just the plan
 

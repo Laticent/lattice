@@ -117,6 +117,11 @@ on:
       # reading it when FINISH_SYSTEM was dropped, so listing it would republish for
       # a file the kit no longer contains.
       - 'design/skills/**'
+      # The kit ships four exemplar decks VERBATIM as worked examples — it had no
+      # complete deck at all before that, so a reader never saw what one looks
+      # like end to end. Without this entry, editing an exemplar would leave the
+      # published kit serving the old deck until something else happened to change.
+      - 'exemplars/**'
       # The branch-root staging files, and the publisher itself.
       - 'tools/kit-branch/**'
       - '.github/workflows/publish-kits.yml'

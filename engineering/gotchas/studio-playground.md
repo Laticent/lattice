@@ -70,7 +70,7 @@ never turn "passed in headless" into "works on iOS."
 
 ## Playground/specimen previews 404 on the engine CSS + runtime
 
-- **Symptom:** On the *deployed* docs site (slidewright.github.io/lattice),
+- **Symptom:** On the *deployed* docs site (laticent.github.io/lattice),
   every live preview — the Playground page and every component-page
   specimen — fails with a red status like `theme lattice (404)`. The
   rendered page references `…/playground/themes/lattice.css` and

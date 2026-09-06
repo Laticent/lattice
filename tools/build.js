@@ -116,7 +116,7 @@ const STEPS = [
   { label: 'Vetrina library dist (CJS + .d.ts)', script: 'build-vetrina-lib.js', uncommitted: true },
   // Lente has no root CJS consumer today, but its package.json promises
   // ./dist/index.cjs (main/require) and it is a workspace member, so it must
-  // build like its siblings or `require('@workwel/lente')` / publish break.
+  // build like its siblings or `require('@laticent/lente')` / publish break.
   { label: 'Lente library dist (CJS + .d.ts)', script: 'build-lente-lib.js', uncommitted: true },
   { label: 'Suono library dist (CJS + .d.ts)', script: 'build-suono-lib.js', uncommitted: true },
   { label: 'read-along-core bundle (docs site)', script: 'build-read-along-core.js', uncommitted: true },
@@ -275,8 +275,8 @@ async function main(argv) {
     // pipeline starts the four workspace-library dists in the background early and
     // joins them at build-read-along-core.js; a naive in-order serial loop here
     // instead ran build-player-core.js BEFORE build-cadenza-lib.js, and player-core
-    // bundles `@workwel/cadenza`, whose entry IS that dist. It failed with
-    // `Could not resolve "@workwel/cadenza"` on a genuinely cold tree — and only
+    // bundles `@laticent/cadenza`, whose entry IS that dist. It failed with
+    // `Could not resolve "@laticent/cadenza"` on a genuinely cold tree — and only
     // there, because any previously-built dist/ hid it.
     const bootstrapOrder = [
       ...STEPS.filter((x) => x.uncommitted && BACKGROUND_LABELS.has(x.label)),

@@ -30,7 +30,7 @@ function inlineIntoEmptyScope(fn, name) {
 let makeCursor;
 let buildTrack;
 test.before(async () => {
-	({ makeCursor, buildTrack } = await import('@workwel/cadenza'));
+	({ makeCursor, buildTrack } = await import('@laticent/cadenza'));
 });
 
 test('makeCursor survives being inlined into an empty scope, and still works', () => {

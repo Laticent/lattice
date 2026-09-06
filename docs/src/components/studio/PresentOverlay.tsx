@@ -1191,8 +1191,13 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 
 	// The current present slide, rendered by Present's OWN in-flow DeckPreview (below) — Present
 	// no longer borrows a hoisted shared host. `null` while a lens is withheld (fail-closed) →
-	// the slot shows the "unavailable" card instead of any slide. `hasMermaid(cur)` keeps the
-	// render signature aligned with the editor so same-slide navigation stays a patch.
+	// the slot shows the "unavailable" card instead of any slide. `mermaid` is DECK-scoped
+	// (`presentMermaid` below) for the same reason the editor's is: keyed on the SHOWN slide it
+	// flips as the presenter moves between a text slide and a diagram slide, and the flag is
+	// part of the frame signature — so that move rebuilt this frame's whole realm mid-talk
+	// instead of patching it (2026-09-05-diagram-fence-flash.md §4D). Present's signature is
+	// its own: it renders its own DeckPreview into its own host, so this does not have to
+	// match the editor's and never did.
 	// DECK CONTEXT (see DeckPreview's `slideIndex`): render the whole presented set and display
 	// `clamped`. Presenting one sliced-out slide printed "1" as the page number on every slide —
 	// the engine numbers a slide by its position among the sections it parses, so a one-slide
@@ -1203,7 +1208,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const presentSample = React.useMemo(() => (unavailable ? null : frontMatter + set.join(SLIDE_SEP)), [unavailable, frontMatter, set]);
 	// Alignment fallback — the presented slide alone (see DeckPreview's `slideMarkdown`).
 	const presentSlideAlone = React.useMemo(() => frontMatter + cur, [frontMatter, cur]);
-	const presentMermaid = unavailable ? false : hasMermaid(cur);
+	const presentMermaid = unavailable ? false : hasMermaid(presentSample || '');
 	// ── THE CONSOLE'S OWN INSTRUMENTS (2026-08-24-stage-console-split.md §4) ─────
 	//
 	// Next slide and speaker notes are what the retired second window carried, and they
@@ -1882,7 +1887,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 								// engine frame, and `coalesce` keeps a same-deck navigation a patch rather
 								// than a remount — this frame re-renders on every slide change, which is
 								// the one place a full rebuild per step would be felt.
-								<DeckPreview options={options} sample={presentSample ?? ''} slideIndex={nextIdx} slideCount={set.length} slideMarkdown={nextSlideAlone} mermaid={hasMermaid(nextSlide)} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Next slide preview" />
+								<DeckPreview options={options} sample={presentSample ?? ''} slideIndex={nextIdx} slideCount={set.length} slideMarkdown={nextSlideAlone} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Next slide preview" />
 							) : (
 								<div className="grid size-full place-items-center px-3 text-center text-[12px] text-muted-foreground">End of the deck</div>
 							)}

@@ -152,7 +152,7 @@ async function main(argv) {
   let unmatchedAcronyms = null;
   if (doDiscover) {
     ({ acronymSpokenMap } = await import('../lib/core/resolve-captions.mjs'));
-    ({ unmatchedAcronyms } = require('@workwel/cadenza'));
+    ({ unmatchedAcronyms } = require('@laticent/cadenza'));
   }
 
   const report = [];

@@ -80,13 +80,20 @@ describe('components.pick.md', () => {
     if (invariant) assert.doesNotMatch(cells(rowFor(invariant.name))[3], /\*$/, `${invariant.name}: invariant budget must not be marked`);
   });
 
-  // A component whose SPLIT axis was retired (matrix-2x2's four quadrants, split-compare's
-  // two sides) still holds a fixed count. Rendering it as `—` under a legend reading "no
-  // repeating axis … its budget is prose length" asserted something false about 40 rows.
-  test('a retired axis still publishes its count', () => {
+  // A component holding a FIXED count still publishes it. Rendering it as `—` under a legend
+  // reading "no repeating axis … its budget is prose length" asserted something false about 40
+  // rows.
+  //
+  // The axis prefix is optional here, and the two names show why. `matrix-2x2`'s axis is
+  // retired, so its cell is a bare `4/4/4`. `split-compare`'s was retired too until it was
+  // enrolled on 2026-09-06 (owner's ruling), so its cell is now `item:2/2/2` — the same fixed
+  // count with the live axis named in front of it. Both publish the count, which is the whole
+  // assertion; a dash still fails either way. Pinning the bare form would have made a
+  // component's ENROLLMENT look like a pick-list regression.
+  test('a fixed count is published, not dashed', () => {
     for (const name of ['matrix-2x2', 'split-compare']) {
       if (!manifests.some((m) => m.name === name)) continue;
-      assert.match(cells(rowFor(name))[3], /^\d+\/\d+\/\d+$/, `${name}: fixed count should be published, not dashed`);
+      assert.match(cells(rowFor(name))[3], /^(?:[a-z-]+:)?\d+\/\d+\/\d+$/, `${name}: fixed count should be published, not dashed`);
     }
   });
 

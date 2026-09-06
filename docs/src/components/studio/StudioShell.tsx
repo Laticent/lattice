@@ -2903,7 +2903,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The editor preview is a normal layout child of `previewBoxRef` (see below) — no
 	// hoisted fixed host, no measure-and-track. Present renders its OWN preview
 	// (PresentOverlay), so there is no shared iframe to re-aim and no iOS fixed-vs-visual
-	// drift. `mermaid` is unified to the shown slide so a same-signature edit stays a patch.
+	// drift. `mermaid` is DECK-scoped (see `editorMermaid` below), so the frame signature is
+	// constant across the deck and moving onto a diagram slide patches instead of rebuilding
+	// the realm. It used to be the shown slide's, which is what made that navigation a full
+	// srcdoc rewrite (2026-09-05-diagram-fence-flash.md §4D).
 	// DECK CONTEXT, not a lone slide. The preview renders the whole viewed deck and displays
 	// `viewIndex` (DeckPreview's `slideIndex`). Handing the engine one sliced-out slide is what
 	// printed "1" as the page number on EVERY slide: the engine numbers a slide by its ordinal
@@ -2919,7 +2922,24 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// deck, where one authored slide becomes several sections and an index cannot name the shown
 	// slide. Then the preview renders this instead: the right slide, honestly numbered 1 of 1.
 	const editorSlideAlone = React.useMemo(() => previewFm + slide, [previewFm, slide]);
-	const editorMermaid = hasMermaid(slide);
+	// DECK-scoped, not slide-scoped, and that is a frame-signature decision rather than
+	// a question about this slide. `mermaid` is folded into the srcdoc signature
+	// (single-slide-render.ts), so keying it on the SHOWN slide meant a text slide and a
+	// diagram slide never shared one: moving between them missed the patch path and
+	// REBUILT THE IFRAME REALM — re-parsing ~560KB of CSS, re-executing the runtime, and
+	// discarding the runtime's rendered-SVG cache with the realm it lived in. Measured at
+	// 6 of 6 such navigations, which is why a revisit cost what a first visit did
+	// (368ms vs 448ms) and why the same-task replay had nothing to replay.
+	//
+	// Deck-scoped, the flag is constant for the whole deck, so navigation patches and the
+	// cache survives: 175ms, and 17ms once the replay lands (0 of 6 rebuilds).
+	//
+	// WHAT IT COSTS, stated because it is a real trade: a deck with one diagram now
+	// injects the 3.16MB Mermaid bundle on its FIRST full write, even while the author is
+	// on a text slide. It moves that load earlier rather than adding one — full writes
+	// become rare, which is the point — but the deck's own first mount pays it up front.
+	// engineering/decisions/2026-09-05-diagram-fence-flash.md §4D.
+	const editorMermaid = React.useMemo(() => hasMermaid(editorSample), [editorSample]);
 	// Whether the editor preview should render (else it parks — iframe kept warm, per-keystroke
 	// renders deferred): on-screen in the desktop/tablet pane (not collapsed), the Read
 	// full-bleed, or the active mobile preview pane — never in Fabricate or while Present is up.

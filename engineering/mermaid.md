@@ -68,6 +68,79 @@ divergence. Two corollaries, both learned by measuring:
 Component contract, slots, and the anti-patterns:
 `lib/components/diagram/diagram/diagram.docs.md`.
 
+### What the slide shows while the diagram is still coming
+
+Nothing — in a document that has promised to draw it. The fence is a conduit, never a
+thing to read on a slide, so from the moment it enters such a document it paints no ink:
+
+```css
+[data-lattice-diagrams] :is(pre, marp-pre):not([data-mermaid-state]) > code[class*="language-mermaid"] { visibility:hidden; }
+```
+
+`visibility` on the CODE rather than `display` on the `<pre>`, because the `<pre>` is
+already sized to the rendered diagram's slot — withholding only the ink leaves the slot
+reserved, so nothing on the slide moves when the SVG lands (measured layout shift: 0).
+The three `data-mermaid-state` rules beside it take over the moment the runtime tags the
+fence; this one covers the window before that, which nothing did.
+
+**`[data-lattice-diagrams]` is the load-bearing half, and it names the MERMAID SCRIPT,
+not the runtime.** Hiding a diagram's source is right only where something is going to
+draw it, so the attribute is written by the BUILDER that injects Mermaid —
+`previewDiagramsAttr()` in `docs/src/playground/deck-preview.js`, called by the two
+preview frames, the Stage window and the Studio's export capture frame, and by nothing
+else. A document we did not assemble
+(a hand-rolled Marp page, marp-vscode's own preview) never gets it and keeps showing the
+source; so do the CLI export and the `.html` player builder, which is what keeps a
+fence the CLI could not substitute readable rather than blank. One export path DOES stamp,
+and it is worth knowing: the Studio's offscreen capture frame is built by `buildSrcdoc`
+with a real Mermaid URL, so the rule is live inside it — correctly, since Mermaid renders
+there, and the file it produces is re-assembled by the player builder, which does not stamp. It has to be in the MARKUP, not set
+by script at boot: the window this covers starts at the first paint of a full document
+write.
+
+Two wrong versions of that gate shipped before this one, and both are worth knowing
+because both looked right:
+
+- **Ungated.** The rule matched anywhere the stylesheet did. `preprocessMermaid`
+  (`lattice-emulator.js`) substitutes only ```` ```mermaid ````, so a `~~~mermaid` fence
+  reaches the exported HTML unsubstituted with the runtime stripped — and the author's
+  only signal that the CLI never drew their diagram became an empty slot, in export bytes.
+- **Gated on `data-lattice-runtime`.** That is a name `lib/runtime/index.js` has always
+  written on `document.documentElement` at boot, so the rule switched itself on in every
+  document the runtime booted in — precisely the set it was meant to spare. On a host with
+  the runtime and no Mermaid (the markdown-preview stub, a 404, a CSP block) a fence
+  arriving after boot was hidden permanently.
+
+Both were caught by an independent checker, driven, before merge.
+
+**A diagram the runtime has already rendered comes back in the SAME TASK as the swap
+that brought its slide in.** A host that re-renders a slide — the Studio on every
+keystroke, marp-vscode on every edit — replaces the `<section>` wholesale, and the
+fresh `<pre>` reaches `initAndRun` only through a 150ms-debounced observer. That
+debounce is right for RENDERING (re-rendering a deck's diagrams per keystroke is
+what it exists to prevent) and wrong for a diagram already sitting in
+`mermaidSvgCache`: paying it 150ms late is what an author sees as the diagram
+blinking back to its source. So `replayCachedFences` runs from the observer callback
+itself — a microtask, before the frame that swap produces — tags the fences and
+returns any SVG already held. Everything it cannot settle stays pending for the
+debounced pass. It reuses the runtime's own cache and key, so a slide whose palette
+differs misses here exactly as it misses there.
+
+The key is why this took two attempts, and the trap is worth knowing:
+`diagramScopeKey` reads the section's inline style, and the RUNTIME writes to that
+style (`patchSectionGeometry` stamps `--_sec-1cqi`/`--_sec-1cqh`; a `logo:` deck gets
+`--logo-*`). Touching it also makes the browser re-serialize the rest with a space
+after every colon. So one slide produced two different keys either side of the stamp,
+and the replay missed every time. The key now drops runtime-stamped properties
+— on both halves: the style half (the geometry stamp, the deck-logo placement, the FIT
+agent's scale) and the class half (the overflow / clip / fit / illegible watcher marks)
+— and normalizes whitespace while **preserving declaration order**
+(`normalizeScopeStyle`), which is also why a re-serialized section no longer misses the
+cache on the ordinary path. Order is preserved rather than sorted on purpose: sorting
+discards last-one-wins, so two styles resolving to different colors would share a key. Numbers, the
+instrument (`cd docs && npm run bench:flash`) and the options not taken:
+`engineering/decisions/2026-09-05-diagram-fence-flash.md`.
+
 A hand-written `<div class="mermaid">` renders on NEITHER path and is a silent
 no-op: the emulator's pre-pass matches fences only
 (`preprocessMermaid`, `lattice-emulator.js`), and the runtime picks up

@@ -105,7 +105,7 @@ own.
 
 - **From a terminal.** Install Node.js, write Markdown, run one
   command, get a PDF. See [Getting started](/getting-started/).
-- **From a desktop app.** **SlideWright** is the editor application
+- **From a desktop app.** **Laticent** is the editor application
   (under active development) that wraps the same Lattice engine for
   people who do not want to touch a terminal.
 

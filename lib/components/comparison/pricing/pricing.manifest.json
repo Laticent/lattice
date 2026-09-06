@@ -1,10 +1,6 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "pricing",
-  "function": "comparison",
-  "form": "grid",
-  "substance": "structure",
-  "stage": "flow",
   "adapt": {
     "mode": "reflow",
     "families": [
@@ -21,6 +17,30 @@
       "tier"
     ]
   },
+  "capacity": {
+    "axis": "item",
+    "relationship": "comparison",
+    "min": 2,
+    "sweet": 3,
+    "soft": 4,
+    "hard": 4,
+    "escalateTo": [
+      "compare-table",
+      "split across slides"
+    ],
+    "note": "two tiers read as a binary and four is the widest row that holds; past four the tiers narrow until a feature label wraps to three lines. A split run paces ONE tier per page and carries a derived “Option N of M · comparing …” signal, so the pages still read as one comparison (§0b connected members)."
+  },
+  "split": {
+    "strategy": "cover-paginate",
+    "axis": "item",
+    "perPage": 1,
+    "intro": "The renewal structures",
+    "note": "READ-ACROSS that splits anyway, by the owner's ruling of 2026-09-06: \"pricing is no different than compare components. we accept the splitting.\" Cutting a comparison to one member per page costs the cross-reading, and that cost is accepted because NOT splitting measured worse — at portrait the un-split slide showed one of three tiers with text cut mid-word and ~65% of the canvas blank (2026-09-05-auto-split-catalog-audit). `cover-paginate` rather than compare-table's `cover-cards`: cover-cards transposes a wide TABLE into cards, and pricing's tiers are already cards in a top-level <ul>, so there is nothing to transpose. The accent cover leads in, then the component's own tier cards flow one per page. lib/core/carousel.js cover-paginate."
+  },
+  "function": "comparison",
+  "form": "grid",
+  "substance": "structure",
+  "stage": "flow",
   "tags": [
     "pitch",
     "tradeoff",
@@ -56,8 +76,8 @@
   "anatomyBlock": "pricing",
   "sample": "<!-- _class: pricing -->\n\n## Three tiers, one recommended column.\n\n- Starter `$0`\n  - [x] The checklist rows compare\n  - [/] Slashed rows mean not included\n  - [/] Same rows on every tier\n  - One line positions the tier.\n- Growth `$49 / mo` *Most popular*\n  - [x] The starred tier gets the accent\n  - [x] Checks accumulate up the ladder\n  - [/] One gap keeps it honest\n  - The column buyers should read first.\n- Enterprise `Custom`\n  - [x] The top tier checks every row\n  - [x] Custom replaces a number\n  - [x] Nothing slashed up here\n  - The ceiling of the ladder.\n",
   "stressDoc": {
-    "summary": "Six feature rows per tier.",
-    "sample": "<!-- _class: pricing -->\n\n## Six lines of features per tier still hold.\n\n- Starter `$0`\n  - [x] Up to 3 seats\n  - [x] Community support\n  - [/] SSO\n  - [/] Audit log\n  - [/] Dedicated CSM\n  - [/] 99.9% uptime SLA\n  - For evaluating, one team.\n- Growth `$49 / mo` *Most popular*\n  - [x] Up to 25 seats\n  - [x] Priority support\n  - [x] SSO\n  - [-] Audit log\n  - [/] Dedicated CSM\n  - [/] 99.9% uptime SLA\n  - For scaling teams.\n- Enterprise `Custom`\n  - [x] Unlimited seats\n  - [x] Dedicated support\n  - [x] SSO + SCIM\n  - [x] Audit log\n  - [x] Dedicated CSM\n  - [x] 99.9% uptime SLA\n  - For procurement and compliance.\n"
+    "summary": "Four tiers, six feature rows each — the ceiling on both axes.",
+    "sample": "<!-- _class: pricing four -->\n\n## Four tiers at six feature rows each is the ceiling.\n\n- Starter `$0`\n  - [x] Up to 3 seats\n  - [x] Community support\n  - [/] SSO\n  - [/] Audit log\n  - [/] Dedicated CSM\n  - [/] 99.9% uptime SLA\n  - For evaluating, one team.\n- Growth `$49 / mo`\n  - [x] Up to 25 seats\n  - [x] Priority support\n  - [x] SSO\n  - [-] Audit log\n  - [/] Dedicated CSM\n  - [/] 99.9% uptime SLA\n  - For scaling teams.\n- Business `$149 / mo` *Most popular*\n  - [x] Up to 100 seats\n  - [x] Priority support\n  - [x] SSO\n  - [x] Audit log\n  - [-] Dedicated CSM\n  - [/] 99.9% uptime SLA\n  - For a department with its own budget.\n- Enterprise `Custom`\n  - [x] Unlimited seats\n  - [x] Dedicated support\n  - [x] SSO + SCIM\n  - [x] Audit log\n  - [x] Dedicated CSM\n  - [x] 99.9% uptime SLA\n  - For procurement and compliance.\n"
   },
   "whenToUse": [
     {

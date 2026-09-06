@@ -46,8 +46,8 @@ Two components — `wifi` and `contact` — that turn a postfix-key list into a 
 
 - Sharmarke Aden `name`
 - Founder & CEO `title`
-- SlideWright `org`
-- sharmarke@slidewright.dev `email`
+- Laticent `org`
+- sharmarke@laticent.io `email`
 - +1-555-0142 `phone`
 
 ---
@@ -59,7 +59,7 @@ Two components — `wifi` and `contact` — that turn a postfix-key list into a 
 
 - Dana Osei `name`
 - Head of Partnerships `role`
-- dana@slidewright.dev `email`
+- dana@laticent.io `email`
 
 ---
 

@@ -142,7 +142,7 @@ source + resolved palette, emits the bundle. Steps:
    into `themes/`; write the `@theme`/`markdown.marp.themes` guidance.
 5. **Emit config + manifest.** A portable `marp.config.cjs` (the Lattice engine
    — likely the existing bundled `dist/lattice-emulator.js` surface, or a slim
-   config that `require`s the published `@slidewright/lattice` package) +
+   config that `require`s the published `@laticent/lattice` package) +
    `package.json` pinning versions.
 6. **Write README** with the two-tier quick start + a note on what degrades in
    stock tools.
@@ -183,7 +183,7 @@ a representative deck.
 1. **Config delivery.** Ship the **prebuilt `dist/lattice-emulator.js`** as the
    bundle's renderer (one file, zero install, but it's "the Lattice CLI" not
    literally `marp`), **or** a thin `marp.config.cjs` + a `package.json` that
-   installs `@slidewright/lattice` from npm (true `marp-cli`, needs `npm i` +
+   installs `@laticent/lattice` from npm (true `marp-cli`, needs `npm i` +
    the package being published)? *Recommendation: the published-package config*
    — it's genuinely "use it with Marp," but it depends on us publishing the
    engine to npm (status?).

@@ -243,7 +243,7 @@ defaulting to the previewed mode. The §A2b carve-out for the two headless-baked
 `math.canvas`/function-plot) is unchanged and still owned there.
 
 Also folded in from the parent's §Phasing and §Open questions: **`.lattice` as a desktop document type**
-(register the extension with the SlideWright Tauri app) stays an open question owned with the desktop
+(register the extension with the Laticent Tauri app) stays an open question owned with the desktop
 wrapper, tracked below — not resolved here.
 
 ---
@@ -570,7 +570,7 @@ HARD RULE #25 obligation for work of this blast radius.
 
 ## Open questions (carried)
 
-- **`.lattice` as a desktop document type** — register with the SlideWright Tauri app (from parent).
+- **`.lattice` as a desktop document type** — register with the Laticent Tauri app (from parent).
 - **Hosted-player track**: storage backend, ID scheme, auth/privacy model, retention — deferred to its
   own decision doc (Decision C).
 - **Read·Slides card sizing** — fixed 16:9 aspect vs natural component height in the reflow column (the

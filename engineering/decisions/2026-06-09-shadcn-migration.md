@@ -3,7 +3,7 @@ status: shipped
 summary: shadcn/React migration of every docs-site surface, website-only inside docs/ with Starlight kept for docs
 ---
 
-# shadcn migration — the website (and the shared SlideWright UI layer)
+# shadcn migration — the website (and the shared Laticent UI layer)
 
 > Status: **LANDED — all surfaces merged to `main` (PRs #319–#325, 2026-06-14).**
 > Followed by the deck-preview consolidation (#331/#335 — see
@@ -201,7 +201,7 @@ Two things make a component framework worth the migration cost now:
    are real apps (editors, chat, settings, dialogs) — shadcn's sweet spot,
    not a marketing-site over-reach.
 2. **A second consumer amortizes the cost.** We are building a Tauri
-   desktop app (SlideWright) that already embeds the same engine. A Tauri
+   desktop app (Laticent) that already embeds the same engine. A Tauri
    shell is a React webview; if the website and the desktop app share one
    component library and one token system, we build the authoring UI
    **once for both**. That flips the ROI on the riskiest surface (the
@@ -242,7 +242,7 @@ we did not have to design*, plus a stack every AI tool already understands
   continue to work everywhere (12 are light/dark pairs; **carbone is
   dark-only** — its light and dark token blocks are identical, and the
   bridge must treat it as single-mode, not fabricate a light variant).
-- The engine (`@slidewright/lattice`) is unchanged in behavior, build,
+- The engine (`@laticent/lattice`) is unchanged in behavior, build,
   publish, and exports. It simply also becomes the workspace root.
 
 ## 3. Decisions locked (the forks we already resolved)
@@ -262,18 +262,18 @@ we did not have to design*, plus a stack every AI tool already understands
 
 ```
 lattice/
-├── package.json          # @slidewright/lattice (engine) + "workspaces": ["docs","packages/*","apps/*"]
+├── package.json          # @laticent/lattice (engine) + "workspaces": ["docs","packages/*","apps/*"]
 ├── lib/ themes/ tools/ dist/   # ENGINE — unchanged paths (publish + CI filters stay valid)
 ├── docs/                 # Astro site — stays at this path; becomes a workspace member
 ├── packages/
-│   ├── ui/               # @slidewright/ui  (private) — React + Tailwind + shadcn + the token bridge + the palette-blind structural tokens
-│   └── core/             # @slidewright/core (private) — framework-agnostic logic lifted from docs/src/playground
+│   ├── ui/               # @laticent/ui  (private) — React + Tailwind + shadcn + the token bridge + the palette-blind structural tokens
+│   └── core/             # @laticent/core (private) — framework-agnostic logic lifted from docs/src/playground
 └── apps/
     └── desktop/          # Tauri + Vite + React (Phase 7 / handed to desktop kickoff) — consumes ui + core
 ```
 
 Rules:
-- Root **remains** the published `@slidewright/lattice`. `packages/*` and
+- Root **remains** the published `@laticent/lattice`. `packages/*` and
   `apps/*` are `"private": true`, never published. **Verify** in Phase 0
   that `npm publish` from the workspace root still tarballs only the
   engine `files` allowlist and does not try to resolve `packages/*`

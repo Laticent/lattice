@@ -200,7 +200,7 @@ The most configurable component — a feature or a warning sign, depending on yo
 
 ---
 
-<!-- _class: list-tabular -->
+<!-- _class: list-tabular flex-meta -->
 <!-- _footer: "Tabular list · list-tabular" -->
 
 ## The six signal dimensions

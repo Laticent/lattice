@@ -19,7 +19,7 @@ subset.
 ## 60-second start
 
 ```ts
-import { parseLensRegistry, lensSlides, readerLenses, lensEligibility } from '@workwel/lente';
+import { parseLensRegistry, lensSlides, readerLenses, lensEligibility } from '@laticent/lente';
 
 const slides = splitDeckIntoSlides(source);          // your `---`-splitter
 const registry = parseLensRegistry(frontMatterText); // the deck's `lenses:` block
@@ -46,7 +46,7 @@ is exactly the matching `project.ts` function, guarded by a parity test — so i
 adds no behavior:
 
 ```ts
-import { lens } from '@workwel/lente';
+import { lens } from '@laticent/lente';
 
 const view = lens(slides).registry(frontMatterText).pick('brief').project();
 if (view.status === 'ok') render(view.pairs);
@@ -98,7 +98,7 @@ loses a slide they just read. **Cuts** are arbitrary subsets — `ask`, `story` 
 no order and no containment; you land on a cut or you are handed one.
 
 ```ts
-import { ladderRungs, validateLadder, deeperLens } from '@workwel/lente';
+import { ladderRungs, validateLadder, deeperLens } from '@laticent/lente';
 
 ladderRungs(slides, registry);            // [brief, evidence, full] — narrowest first
 validateLadder(slides, registry);          // [] when every rung contains the one below

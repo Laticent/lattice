@@ -124,7 +124,7 @@ Not in this slice — but the model is structured so calibration is a coefficien
   module-scoped + exported so a test can pin the race-safety ratio); a **short head/tail gain-ramp
   fade** on each clip so a hard buffer edge can't click at a sentence boundary.
 - `docs/src/components/studio/read-aloud.ts` — the small sync lead-bias in the tick clock.
-- Regenerate `@slidewright/cadenza` + `read-along-core` bundles. Audio-path + silent-estimate change;
+- Regenerate `@laticent/cadenza` + `read-along-core` bundles. Audio-path + silent-estimate change;
   **`.vtt` display bytes unchanged** (timings shift, but the `.vtt` word timestamps are derived from
   this estimate — so `.vtt` *timestamps* DO change; caption TEXT does not). Flag for export sign-off.
 
