@@ -150,6 +150,40 @@ export function clipTrailingMs(display: string): number {
   return Math.round(pauseAfter(display) * CLIP_TRAILING_FRACTION);
 }
 
+/** The extra breath one step of EMPHASIS buys, ms. The only tier keyed on what the content MEANS
+ *  rather than on a glyph or a structural boundary: every other rung above (syllables, punctuation,
+ *  paragraph, slide, section) can be computed without knowing which words matter, which is why a
+ *  deck could not previously make its own key claim land any longer than a footnote.
+ *
+ *  Deliberately SMALL, and 250 is not a round number picked for looking modest. `PARAGRAPH_PAUSE_MS`
+ *  above records the relevant prior: it was tuned DOWN from 1000 to 750 after on-device review,
+ *  because a deep pause at every block seam "read as the highlight lagging". One emphasis step lands
+ *  a sentence beat at 550 + 250 = 800 — a shade above a paragraph beat, comfortably under a slide's
+ *  1400. The failure mode this tier must avoid is not "too quiet"; it is a deck that stalls after
+ *  every bolded phrase, which reads as a bug rather than as emphasis.
+ *
+ *  A multiple of 10, per the partition note on `PAUSE_MS` — though this value never passes through
+ *  `CLIP_TRAILING_FRACTION` (see below), so it could not break the partition even if it were not. */
+export const EMPHASIS_HOLD_MS = 250;
+
+/** How many emphasis steps a cue can actually spend, however heavily it is weighted. Two steps is
+ *  500 ms of added breath — already a slide-sized beat once the sentence pause is counted. The cap
+ *  exists because weight arrives from a PRODUCER walking author markup, and a deck that bolds every
+ *  line would otherwise buy itself an unlistenable stall one `**` at a time. Emphasis is a contrast
+ *  effect: if everything is held, nothing is. */
+export const MAX_EMPHASIS_STEPS = 2;
+
+/** The added breath a cue of `weight` earns, ms. `weight` is a small scale where 1 is ordinary
+ *  narration — so an unweighted deck yields 0 here and every timing in this engine is byte-identical
+ *  to what it was before emphasis existed. Anything below 1, non-finite, or absent is treated as 1:
+ *  this tier only ever ADDS silence. It cannot be used to rush a phrase, which would be a different
+ *  feature with a different failure mode (clipping a word's own phrase-final lengthening). */
+export function emphasisHoldMs(weight: number | undefined): number {
+  const w = Number(weight);
+  if (!Number.isFinite(w) || w <= 1) return 0;
+  return Math.min(Math.round(w) - 1, MAX_EMPHASIS_STEPS) * EMPHASIS_HOLD_MS;
+}
+
 /** The inter-cue BREATH after a cue whose last word is `display`: the boundary pause — the PARAGRAPH
  *  tier when `endsParagraph`, else the sentence/glyph pause — minus the clip's own trailing silence
  *  (which already lives INSIDE the cue's end, `clipTrailingMs`). This is THE ONE gap formula both the
@@ -157,10 +191,24 @@ export function clipTrailingMs(display: string): number {
  *  player (`read-aloud.ts` `gapMs`) use, so they can't drift — they MUST space cues identically or the
  *  highlight races into (or lags behind) the audio at a boundary. Deriving the paragraph breath
  *  per-cue from the actual terminator (not a constant that assumes a 550 ms sentence pause) is what
- *  keeps an ellipsis-ended paragraph (`…`, pause 650) consistent across the two paths. */
-export function interCueGapMs(display: string, endsParagraph = false): number {
+ *  keeps an ellipsis-ended paragraph (`…`, pause 650) consistent across the two paths.
+ *
+ *  `weight` adds an EMPHASIS hold on top (`emphasisHoldMs`), and the fact that it is spent HERE —
+ *  at the seam between cues — rather than inside one is the whole design, not an implementation
+ *  convenience. This gap is the one place both playback paths already insert real silence: the
+ *  silent estimate advances the next cue by it, and the clocked player passes it to Suono as the
+ *  breath BETWEEN synthesized clips. A hold placed mid-cue would have no counterpart in the audio,
+ *  because the TTS clip is synthesized from the sentence's words and contains no such pause — so
+ *  the caption highlight would drift against the voice for the rest of that sentence. The cue is
+ *  therefore the finest unit emphasis can be spent on without desyncing the two paths, and a
+ *  sentence carrying an emphasized phrase holds a beat after it lands.
+ *
+ *  EVERY caller must pass the same `weight` for a cue, exactly as they must already pass the same
+ *  `display` and `endsParagraph` — this is the ONE gap formula and it desyncs if they disagree.
+ *  Read it off `cue.weight`, which `buildTrack` puts there for that purpose. */
+export function interCueGapMs(display: string, endsParagraph = false, weight = 1): number {
   const boundary = endsParagraph ? PARAGRAPH_PAUSE_MS : pauseAfter(display);
-  return boundary - clipTrailingMs(display);
+  return boundary - clipTrailingMs(display) + emphasisHoldMs(weight);
 }
 
 /** Exact syllable counts for the small, CLOSED set of spoken-expansion words the vowel-group

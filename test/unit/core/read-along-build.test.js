@@ -150,3 +150,61 @@ test('buildReadAlong: end-to-end from front-matter — resolve-captions → regi
 	const spoken = track.cues.flatMap((c) => c.words.map((w) => w.spoken)).join(' ');
 	assert.match(spoken, /chief revenue officer/);
 });
+
+// ── EMPHASIS: the identity rule, and the snapshot it must be fed ─────────────────────────────
+// This is the layer the first pass shipped a real defect in and no test could see: the emulator
+// compared the resolved narration against an array `narrateChart` had already MUTATED IN PLACE, so
+// the guard passed on exactly the slides it exists to reject and applied char offsets measured
+// against a different string — 83 stale spans over 77 slides in 15 committed decks.
+const { emphasisForResolved } = require('../../../lib/core/read-along-build.js');
+
+test('emphasisForResolved keeps spans where the narration is unchanged', () => {
+	const spans = [[{ start: 0, end: 3, weight: 2 }], [{ start: 5, end: 9, weight: 2 }]];
+	assert.deepEqual(emphasisForResolved(['same', 'same2'], ['same', 'same2'], spans), spans);
+});
+
+test('emphasisForResolved DROPS spans wherever the narration was replaced', () => {
+	const spans = [[{ start: 0, end: 3, weight: 2 }], [{ start: 5, end: 9, weight: 2 }]];
+	const out = emphasisForResolved(['same', 'a caption override'], ['same', 'the projection'], spans);
+	assert.deepEqual(out[0], spans[0]);
+	assert.equal(out[1], undefined);
+});
+
+test('emphasisForResolved is defeated by a MUTATED projection — pass the snapshot', () => {
+	// The defect, reproduced as the contract. `narrateChart` substitution done in place makes both
+	// sides of the comparison the chart narration, so the guard cannot see the replacement.
+	const spans = [[{ start: 0, end: 20, weight: 2 }]];
+	const projected = ['the figure projection'];
+	const snapshot = projected.slice(); // what a correct caller keeps
+	projected[0] = 'the chart narration'; // narrateChart, in place
+	const resolved = ['the chart narration'];
+
+	assert.equal(emphasisForResolved(resolved, snapshot, spans)[0], undefined, 'the snapshot rejects it');
+	assert.deepEqual(emphasisForResolved(resolved, projected, spans)[0], spans[0], 'the mutated array wrongly keeps it');
+});
+
+test('emphasisForResolved survives absent/short inputs from any producer', () => {
+	assert.deepEqual(emphasisForResolved([], [], []), []);
+	assert.deepEqual(emphasisForResolved(['a'], [], []), [undefined]);
+	assert.deepEqual(emphasisForResolved(['a'], ['a'], []), [undefined]);
+	assert.deepEqual(emphasisForResolved(undefined, undefined, undefined), []);
+});
+
+test('buildReadAlong applies a slide emphasis span, keyed by ORIGINAL slide index', () => {
+	// The slides array is SPARSE — empty entries are skipped — so an emphasis array indexed by the
+	// dense output rather than the original index would silently weight the wrong slide.
+	const texts = ['', 'Alpha holds. Beta follows. Gamma trails.'];
+	const spans = [undefined, [{ start: 0, end: 12, weight: 2 }]];
+	const plain = buildReadAlong(texts, { voice: VOICE });
+	const held = buildReadAlong(texts, { voice: VOICE, emphasis: spans });
+	assert.equal(held.slides.length, 1);
+	assert.equal(held.slides[0].index, 1);
+	assert.equal(held.slides[0].track.cues[0].weight, 2);
+	assert.equal(plain.slides[0].track.cues[0].weight, undefined);
+	assert.ok(held.slides[0].track.cues[1].startMs > plain.slides[0].track.cues[1].startMs);
+});
+
+test('buildReadAlong with no emphasis is byte-identical to before the feature', () => {
+	const texts = ['Alpha holds. Beta follows.'];
+	assert.equal(JSON.stringify(buildReadAlong(texts, { voice: VOICE })), JSON.stringify(buildReadAlong(texts, { voice: VOICE, emphasis: [] })));
+});

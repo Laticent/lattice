@@ -16,7 +16,7 @@ import { type CalibrationState, rateScale as rateScaleFor } from './calibrate';
 import type { AcronymRegistry } from './normalize';
 import { makeReader, type Reader, type ReaderOptions } from './reader';
 import type { LexiconMap } from './symbols';
-import { type BuildOptions, buildTrack, type CaptionTrack } from './track';
+import { type BuildOptions, buildTrack, type CaptionTrack, type EmphasisSpan } from './track';
 import { toSrt, toVtt } from './vtt';
 
 // ── Compile-time PARITY GATE (no runtime footprint) ───────────────────────────────────────────
@@ -32,6 +32,7 @@ type _NarrationSetterMap = {
 	rate: 'rateScale';
 	calibration: 'rateScale';
 	lexicon: 'lexicon';
+	emphasis: 'emphasis';
 };
 type _EveryBuildOptionCovered = _RequireNever<Exclude<keyof BuildOptions, _NarrationSetterMap[keyof _NarrationSetterMap]>>;
 type _EveryNarrationSetterReal = _RequireNever<Exclude<keyof _NarrationSetterMap, keyof Narration>>;
@@ -49,6 +50,9 @@ export interface Narration {
 	calibration(state: CalibrationState | null | undefined): this;
 	/** The deck's read-aloud lexicon (token → spoken form, beating the built-in symbol commons). */
 	lexicon(map: LexiconMap): this;
+	/** Emphasis spans over the text — which ranges matter, and how much. Char offsets into the same
+	 *  string this was configured with. Omit for ordinary, unweighted narration. */
+	emphasis(spans: readonly EmphasisSpan[]): this;
 
 	// ── terminals — each is exactly the matching pure call over the collected (text, options) ──
 	/** The estimate-baseline timeline. === `buildTrack(text, options)`. */
@@ -88,6 +92,10 @@ export function narration(text: string): Narration {
 		calibration(state) {
 			opts.rateScale = rateScaleFor(state);
 			return b;
+		},
+		emphasis(spans) {
+			opts.emphasis = spans;
+			return b; // `b`, not `this` — every sibling verb does, so a detached method still chains
 		},
 		lexicon(map) {
 			opts.lexicon = map;

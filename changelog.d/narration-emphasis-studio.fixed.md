@@ -1,0 +1,1 @@
+- All four narration producers resolve emphasis through one shared rule: the CLI captions sidecar, the Studio's "Captions (.vtt)" download, the exported player's baked track, and live Present. Each applies spans only where the resolved narration is still the text they were measured against, so a beat cannot land mid-phrase after a caption override or a chart substitution.

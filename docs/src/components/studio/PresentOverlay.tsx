@@ -38,7 +38,12 @@ import { PresentRail } from './PresentRail';
 import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, POINTER_BOX } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
+
 import { narrationLatencyKey, narrationReadiness, prefetchFrontOf, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
+
+/** Emphasis spans over a slide's narration text — char offsets from the shared projection. */
+type EmphasisSpans = readonly { start: number; end: number; weight: number }[];
+
 import { mergeReadiness, readinessWindow } from './readiness-window';
 import { SlideOverview } from './SlideOverview';
 import { getCaption } from './slide-caption';
@@ -263,7 +268,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// applies. TAGGED with the `set` it was computed for (a stable per-lens reference):
 	// `narrationAt` only reads it when the tag still matches the current set, so a
 	// same-length lens switch can never speak the previous lens's text (no stale read).
-	const [projected, setProjected] = React.useState<{ set: string[]; texts: string[] }>({ set: [], texts: [] });
+	const [projected, setProjected] = React.useState<{ set: string[]; texts: string[]; emphasis: EmphasisSpans[] }>({
+		set: [],
+		texts: [],
+		emphasis: [],
+	});
 	// biome-ignore lint/correctness/useExhaustiveDependencies: recompute on presented SET or theme change; extraTheme keyed by name (its content hash).
 	React.useEffect(() => {
 		if (!open) return;
@@ -271,8 +280,11 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		const target = set; // the reference this render's projection belongs to
 		const source = frontMatter + target.join(SLIDE_SEP);
 		import('./narration-projection')
-			.then(({ projectDeckSpeech }) => projectDeckSpeech(options, source, paletteOverride, extraTheme, extraCss, modeOverride))
-			.then((texts) => { if (!canceled && texts.length === target.length) setProjected({ set: target, texts }); })
+			.then(({ projectDeckScript }) => projectDeckScript(options, source, paletteOverride, extraTheme, extraCss, modeOverride))
+			.then((scripts) => {
+				if (canceled || scripts.length !== target.length) return;
+				setProjected({ set: target, texts: scripts.map((x) => x.text), emphasis: scripts.map((x) => x.emphasis) });
+			})
 			.catch(() => {});
 		return () => { canceled = true; };
 	}, [open, set, frontMatter, paletteOverride, extraTheme?.name, modeOverride, extraCss, options]);
@@ -294,10 +306,10 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// switch invalidates the tag) the markdown flatten keeps Present off dead air and off a
 	// stale lens's narration.
 	const narrationAt = React.useCallback(
-		(i: number) => {
+		(i: number): { text: string; emphasis?: EmphasisSpans } => {
 			const md = set[i] ?? '';
 			const aligned = projected.set === set;
-			return resolveNarration({
+			const text = resolveNarration({
 				caption: getCaption(md),
 				fmCaption: fmCaptions.get((setIndices[i] ?? i) + 1), // front-matter captions[author slide number]
 				// NO NOTE RUNG. A note is the presenter's, and it reaches the presenter's own
@@ -306,6 +318,12 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 				projected: aligned ? (projected.texts[i] ?? '') : null,
 				fallback: aligned ? null : slideToSpeech(md),
 			});
+			// EMPHASIS ONLY WHERE THE RESOLVED TEXT IS STILL THE PROJECTED TEXT. The spans are char
+			// offsets into the string the projection built; a caption override or narrateChart's
+			// substitution replaces it, and reusing those offsets would land a beat mid-phrase. The
+			// same identity test the CLI export applies, so the two producers agree slide for slide.
+			const emphasis = aligned && text === (projected.texts[i] ?? '') ? projected.emphasis[i] : undefined;
+			return { text, emphasis };
 		},
 		[set, setIndices, fmCaptions, projected],
 	);
@@ -331,9 +349,17 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// A fresh record commits on every navigation regardless of what the text says, while the
 	// `track` memo still keys on the STRING, so identical text keeps the same track object and
 	// the reader is not needlessly torn down.
-	const [narration, setNarration] = React.useState<{ idx: number; text: string }>({ idx: -1, text: '' });
+	const [narration, setNarration] = React.useState<{ idx: number; text: string; emphasis?: EmphasisSpans }>({ idx: -1, text: '' });
 	const narrationText = narration.text;
-	const setNarrationText = React.useCallback((text: string) => setNarration((n) => (n.text === text ? n : { idx: n.idx, text })), []);
+	const narrationEmphasis = narration.emphasis;
+	// The emphasis is compared alongside the text: a projection LANDING can resolve the same string
+	// it already had while newly carrying spans, and a text-only guard would keep the unweighted
+	// record forever on those slides.
+	const setNarrationText = React.useCallback(
+		(next: { text: string; emphasis?: EmphasisSpans }) =>
+			setNarration((n) => (n.text === next.text && n.emphasis === next.emphasis ? n : { idx: n.idx, ...next })),
+		[],
+	);
 	const playingRef = React.useRef(false);
 	// Autoplay intent (chain across slides) + a per-advance flag. Declared HERE (read by
 	// the projection-upgrade guard below) though set later; the guard runs post-commit
@@ -351,8 +377,8 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// already guards its half; this is the other half.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: navigation trigger (slide/lens); narrationAt read via ref so a projection landing doesn't re-fire this.
 	React.useEffect(() => {
-		const text = narrationAtRef.current(clamped);
-		setNarration((n) => (n.idx === clamped && n.text === text ? n : { idx: clamped, text }));
+		const next = narrationAtRef.current(clamped);
+		setNarration((n) => (n.idx === clamped && n.text === next.text && n.emphasis === next.emphasis ? n : { idx: clamped, ...next }));
 	}, [clamped, set]);
 	// Projection-landing upgrade: swap the CURRENT slide's fallback narration for the
 	// richer DOM-projection text once it resolves — but ONLY when the slide is idle and
@@ -585,6 +611,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			lexicon,
 			lang,
 			muted,
+			emphasis: narrationEmphasis,
 			debug: readAloudDebug,
 			debugLabel: `slide ${clamped + 1}/${count}`,
 			onFinish: () => {
@@ -764,7 +791,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		// voice-model's prefetch queue is FIFO at a small fixed concurrency, so whatever is
 		// enqueued first is what wins the race that is actually about to happen.
 		const texts: string[] = [];
-		for (let i = clamped; i <= clamped + lookahead && i < set.length; i++) texts.push(narrationAt(i));
+		// `.text` only: emphasis shifts WHEN a cue is spoken, never WHAT is spoken, so the clip cache
+		// keys these prefetches build are identical with or without it.
+		for (let i = clamped; i <= clamped + lookahead && i < set.length; i++) texts.push(narrationAt(i).text);
 		if (!texts.length) return;
 		// Stop this warm from firing any FURTHER requests once it's superseded — the slide
 		// advanced again, Voice was muted, or Present closed — so an abandoned warm doesn't
@@ -794,7 +823,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// on every deck edit — an O(deck) pass on the EDITOR's typing path, for a readiness display
 	// nobody had open (Munger inversion, #1352). Present-only work belongs to Present.
 	const readinessSentences = React.useMemo(
-		() => (open ? spokenSentencesPerSlide(set.map((_, i) => narrationAt(i)), { acronyms, lang, lexicon }) : EMPTY_SENTENCES),
+		() => (open ? spokenSentencesPerSlide(set.map((_, i) => narrationAt(i).text), { acronyms, lang, lexicon }) : EMPTY_SENTENCES),
 		[open, set, narrationAt, acronyms, lang, lexicon],
 	);
 	const [readyFractions, setReadyFractions] = React.useState<number[]>([]);

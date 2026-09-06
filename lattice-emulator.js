@@ -5022,7 +5022,7 @@ async function projectDeckSpeechFromHtml(docHtml) {
     const { JSDOM } = require('jsdom');
     const DOMPurify = require('dompurify');
     const { createSlideSanitizer } = await import('./lib/core/sanitize-slide-html.mjs');
-    const { projectDeckToSpeech } = await import('./lib/transformers/prose-projection.mjs');
+    const { projectDeckToScript } = await import('./lib/transformers/prose-projection.mjs');
     const sanitize = createSlideSanitizer(DOMPurify, new JSDOM('').window);
     const doc = new JSDOM(docHtml).window.document;
     const raw = [...doc.querySelectorAll('section[data-lattice-slide]')];
@@ -5030,7 +5030,7 @@ async function projectDeckSpeechFromHtml(docHtml) {
     const clean = raw
       .map((s) => new JSDOM(sanitize(s.outerHTML)).window.document.querySelector('section[data-lattice-slide]'))
       .filter(Boolean);
-    return projectDeckToSpeech(clean);
+    return projectDeckToScript(clean);
   } catch (e) {
     // SURFACE THE FAILURE, and say what actually happens now. This used to read
     // "falling back to speaker notes only" — true of the old ladder, false since the
@@ -5059,7 +5059,7 @@ async function projectDeckSpeechFromHtml(docHtml) {
 // `--strip-notes` does not touch this path — it scrubs the note channel, and captions
 // narrate content, so the two flags are independent.
 async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = []) {
-  const { buildReadAlong, mergeNarration } = require('./lib/core/read-along-build.js');
+  const { buildReadAlong, emphasisForResolved, mergeNarration } = require('./lib/core/read-along-build.js');
   const { readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');
   const base = outPath.replace(/\.(pdf|html?|pptx|png|zip)$/i, '');
   // Deck acronym registry (author `acronyms:` front-matter, §15) → term→spoken map, and the
@@ -5084,7 +5084,19 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
   // A caption is generated from the slide's own CONTENT — which is on the slide, in front of
   // the room — so it carries nothing `--strip-notes` is protecting, and emptying it was the
   // last place a note still decided what a caption said.
-  const projected = await projectDeckSpeechFromHtml(docHtml);
+  const script = await projectDeckSpeechFromHtml(docHtml);
+  // `projected` stays a plain string[] so the length check, the narrateChart substitution and
+  // mergeNarration below are all untouched; the emphasis rides alongside, keyed by the same index.
+  const projected = script.map((x) => x.text);
+  const projectedEmphasis = script.map((x) => x.emphasis);
+  // THE PRE-SUBSTITUTION SNAPSHOT, and it is what the emphasis guard must compare against.
+  // `projected` is mutated IN PLACE below (`projected[i] = chart`) when narrateChart fires, so by
+  // the time the guard runs, `projected[i]` IS the chart narration — the test passes trivially on
+  // exactly the slides it exists to reject, and char offsets measured against the figure projection
+  // get applied to a different string. Measured before this line existed: 83 stale spans across 77
+  // slides in 15 committed decks. The bake and Present are unaffected because `applyChartNarration`
+  // returns a COPY; this producer is the one that mutates.
+  const projectedForEmphasis = projected.slice();
   // A length mismatch (an autosplit deck renders more sections than authored slides)
   // makes the index mapping unsafe, so mergeNarration drops the projection wholesale
   // rather than misalign a caption — surface that here so it isn't silent.
@@ -5194,11 +5206,16 @@ async function writeCaptionsSidecar(outPath, slideCount, docHtml, captions = [])
   if (STRIP_CAPTIONS) fmForMerge = null;
   // Precedence, highest first: inline `<!-- caption: -->` → front-matter `captions:[n]` → projection.
   const slideTexts = mergeNarration(slideCount, projected, { captions: inlineForMerge, fmCaptions: fmForMerge });
+  // Emphasis survives only where the resolved narration is still the projected text — the ONE
+  // shared rule (read-along-build.js), fed the PRE-substitution snapshot because `projected` was
+  // mutated in place above.
+  const emphasis = emphasisForResolved(slideTexts, projectedForEmphasis, projectedEmphasis);
   const readAlong = buildReadAlong(slideTexts, {
     // Voice is metadata for the manifest; captions time off `pace`, not the voice.
     voice: { model: 'hexgrad/kokoro-82m', voice: 'af_heart', speed: 1 },
     pace: 'moderate',
     acronyms,
+    emphasis,
     lexicon,
     lang, // non-English deck bypasses the English lexicon + number/period expansion (#919)
   });

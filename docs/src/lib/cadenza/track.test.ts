@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SENTENCE_PAUSE_MS } from '../../playground/voice-model.js';
-import { clipTrailingMs, interCueGapMs, PARAGRAPH_PAUSE_MS, pauseAfter } from './cadence';
+import { clipTrailingMs, EMPHASIS_HOLD_MS, emphasisHoldMs, interCueGapMs, MAX_EMPHASIS_STEPS, PARAGRAPH_PAUSE_MS, pauseAfter } from './cadence';
 import { buildTrack } from './track';
 
 const NOTE = 'Revenue grew to $4.2M. We beat plan by eight points.';
@@ -120,5 +120,158 @@ describe('buildTrack', () => {
     // Regression guard: text without a blank line must build exactly as it did pre-paragraph-pauses.
     const t = buildTrack(NOTE);
     for (const cue of t.cues) expect(cue.endsParagraph).toBeUndefined();
+  });
+});
+
+
+// ── EMPHASIS spans → weighted cues → a beat after the thing that matters ──────────────────────
+// NOTE is 'Revenue grew to $4.2M. We beat plan by eight points.' — '$4.2M' occupies [16, 21) and is
+// the last word of cue 0, so a span over it weights cue 0 and pushes cue 1 out by exactly one hold.
+const VALUE_SPAN = { start: 16, end: 21, weight: 2 };
+
+describe('buildTrack + emphasis', () => {
+  it('adds NOTHING when no emphasis is passed — no weight keys, identical timings', () => {
+    // The whole back-compat promise in one assertion: an unweighted deck must serialize and time
+    // exactly as it did before this feature, so no committed .vtt or manifest golden moves.
+    const t = buildTrack(NOTE);
+    expect(JSON.stringify(t)).toBe(JSON.stringify(buildTrack(NOTE, { emphasis: [] })));
+    for (const cue of t.cues) {
+      expect(cue.weight).toBeUndefined();
+      for (const w of cue.words) expect(w.weight).toBeUndefined();
+    }
+  });
+
+  it('weights the word the span covers, and only that word', () => {
+    const t = buildTrack(NOTE, { emphasis: [VALUE_SPAN] });
+    const cue0 = t.cues[0];
+    const value = cue0.words.find((w) => w.display.startsWith('$4.2M'));
+    expect(value?.weight).toBe(2);
+    for (const w of cue0.words) if (w !== value) expect(w.weight).toBeUndefined();
+    for (const w of t.cues[1].words) expect(w.weight).toBeUndefined();
+  });
+
+  it('lifts the weight onto the CUE, because the cue is what buys the breath', () => {
+    const t = buildTrack(NOTE, { emphasis: [VALUE_SPAN] });
+    expect(t.cues[0].weight).toBe(2);
+    expect(t.cues[1].weight).toBeUndefined();
+  });
+
+  it('takes the MAX over a cue, so a long sentence cannot dilute its own key phrase', () => {
+    const t = buildTrack(NOTE, {
+      emphasis: [{ start: 0, end: 7, weight: 2 }, VALUE_SPAN, { start: 8, end: 12, weight: 3 }],
+    });
+    expect(t.cues[0].weight).toBe(3); // not an average, not the first, not the last
+  });
+
+  it('pushes the NEXT cue out by exactly the hold — the beat is real, and it is at the seam', () => {
+    const plain = buildTrack(NOTE);
+    const weighted = buildTrack(NOTE, { emphasis: [VALUE_SPAN] });
+    expect(weighted.cues[1].startMs - plain.cues[1].startMs).toBe(EMPHASIS_HOLD_MS);
+    // and the emphasized cue itself is NOT stretched — the silence lands after it, not inside it,
+    // because the TTS clip for that sentence contains no such pause.
+    expect(weighted.cues[0].endMs).toBe(plain.cues[0].endMs);
+    expect(weighted.cues[0].startMs).toBe(plain.cues[0].startMs);
+    for (let i = 0; i < plain.cues[0].words.length; i++) {
+      expect(weighted.cues[0].words[i].endMs).toBe(plain.cues[0].words[i].endMs);
+    }
+  });
+
+  it('agrees with the shared gap formula the clocked player uses', () => {
+    // If these ever disagree the caption highlight drifts against the voice at the seam. This is the
+    // same identity the paragraph tier is pinned on, extended to carry weight.
+    const t = buildTrack(NOTE, { emphasis: [VALUE_SPAN] });
+    const cue0 = t.cues[0];
+    const last = cue0.words[cue0.words.length - 1];
+    expect(t.cues[1].startMs - cue0.endMs).toBe(interCueGapMs(last.display, !!cue0.endsParagraph, cue0.weight));
+  });
+
+  it('counts a word that STRADDLES the span edge — a listener hears the whole phrase', () => {
+    // A producer reports the <strong> element's range; a trailing possessive or comma the markup
+    // excluded is still plainly part of the emphasized phrase.
+    const t = buildTrack(NOTE, { emphasis: [{ start: 0, end: 3, weight: 2 }] }); // 'Rev' of 'Revenue'
+    expect(t.cues[0].words[0].weight).toBe(2);
+  });
+
+  it('ignores spans that cannot mean anything instead of throwing', () => {
+    // A producer computing offsets from a live DOM will emit a bad one eventually; a caption track
+    // must degrade to "no emphasis here", never crash the export.
+    const junk = [
+      { start: 5, end: 5, weight: 2 }, // empty
+      { start: 9, end: 4, weight: 2 }, // inverted
+      { start: Number.NaN, end: 10, weight: 2 },
+      { start: 0, end: Number.NaN, weight: 2 },
+      { start: 0, end: 7, weight: Number.NaN },
+      { start: 0, end: 7, weight: 1 }, // not emphasis
+      { start: -50, end: -10, weight: 2 }, // wholly before the text
+      { start: 9000, end: 9100, weight: 2 }, // wholly after
+    ];
+    const t = buildTrack(NOTE, { emphasis: junk });
+    expect(JSON.stringify(t)).toBe(JSON.stringify(buildTrack(NOTE)));
+  });
+
+  it('survives a null/undefined entry from a producer', () => {
+    const t = buildTrack(NOTE, {
+      emphasis: [null as unknown as typeof VALUE_SPAN, undefined as unknown as typeof VALUE_SPAN, VALUE_SPAN],
+    });
+    expect(t.cues[0].weight).toBe(2);
+  });
+
+  it('caps the hold at the seam, not just in the pure function', () => {
+    const plain = buildTrack(NOTE);
+    const huge = buildTrack(NOTE, { emphasis: [{ ...VALUE_SPAN, weight: 99 }] });
+    const ceiling = MAX_EMPHASIS_STEPS * EMPHASIS_HOLD_MS;
+    expect(huge.cues[1].startMs - plain.cues[1].startMs).toBe(ceiling);
+    expect(emphasisHoldMs(99)).toBe(ceiling);
+  });
+
+  it('does not extend the track when the LAST cue is emphasized — the slide beat already pays', () => {
+    // durationMs is the last cue's end and the hold lives in the gap AFTER a cue, so emphasis on a
+    // slide's final sentence is a no-op HERE. That is correct, not a gap: a slide's last cue is
+    // already followed by SLIDE_PAUSE_MS (1400 ms), the longest beat in the ladder, and charging
+    // another 250 on top would be paying twice for the same silence — the double-charge the
+    // residual design exists to avoid. It matters because the common emphasized passage IS last:
+    // a coda closes the slide. Measured on examples/emphasis-narration.md, 7 holds fire and 1 buys
+    // time; the other 6 are codas the slide beat already covers.
+    // Emphasis therefore buys silence exactly where more narration still follows on the same slide.
+    const plain = buildTrack(NOTE);
+    const t = buildTrack(NOTE, { emphasis: [{ start: 45, end: 51, weight: 2 }] }); // 'points' in cue 1
+    expect(t.cues[1].weight).toBe(2);
+    expect(t.durationMs).toBe(plain.durationMs);
+  });
+});
+
+
+describe('buildTrack + a MULTI-CUE emphasized passage', () => {
+  // A key-insight coda runs several sentences. Weighting every cue it touches spends a hold inside
+  // the passage it is meant to set apart — measured at 1000 ms dripped through one insight on
+  // examples/radar-narration.md. One beat, after it lands.
+  const PASSAGE = 'Alpha leads. Beta follows. Gamma trails. Then the rest.';
+  const WHOLE = { start: 0, end: 40, weight: 2 }; // covers the first three sentences
+
+  it('holds ONCE, on the cue where the passage ends', () => {
+    const t = buildTrack(PASSAGE, { emphasis: [WHOLE] });
+    expect(t.cues.map((c) => c.weight)).toEqual([undefined, undefined, 2, undefined]);
+  });
+
+  it('still marks every WORD in the passage — the two questions are different', () => {
+    // Word weight answers "is this emphasized" (a caption could style it); cue weight answers
+    // "did a passage finish here" (that is what buys silence). Collapsing them is the bug above.
+    const t = buildTrack(PASSAGE, { emphasis: [WHOLE] });
+    expect(t.cues[0].words.every((w) => w.weight === 2)).toBe(true);
+    expect(t.cues[1].words.every((w) => w.weight === 2)).toBe(true);
+    expect(t.cues[3].words.every((w) => w.weight === undefined)).toBe(true);
+  });
+
+  it('adds exactly ONE hold to the whole passage, not one per sentence', () => {
+    const plain = buildTrack(PASSAGE);
+    const held = buildTrack(PASSAGE, { emphasis: [WHOLE] });
+    expect(held.durationMs - plain.durationMs).toBe(EMPHASIS_HOLD_MS);
+  });
+
+  it('gives two separate passages a beat each', () => {
+    const t = buildTrack(PASSAGE, {
+      emphasis: [{ start: 0, end: 12, weight: 2 }, { start: 26, end: 40, weight: 2 }],
+    });
+    expect(t.cues.map((c) => c.weight)).toEqual([2, undefined, 2, undefined]);
   });
 });
