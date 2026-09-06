@@ -69,7 +69,7 @@ const BROKEN_DECK = deckWith([`flowchart LR ${SENTINEL}`, '  A -->']);
  * fast arm reasons about a script that has already had its turn, and `addScriptTag`
  * appends after load, which is the one shape the arm deliberately does not claim.
  */
-async function readFence({ mermaid, stampDiagrams = false, deck = DECK, scriptAttrs = '', mermaidDelayMs = 0, basePath = '/' }) {
+async function readFence({ mermaid, stampDiagrams = false, deck = DECK, scriptAttrs = '', mermaidDelayMs = 0, basePath = '/', extraScript = '', dynamicInsert = null, waitFor = null, settleMs = 8000, runtimeFirst = false }) {
   const puppeteer = require('puppeteer');
   const engine = require('../../../lib/engine');
   const { composeCss } = require('../../../lib/engine/css.js');
@@ -85,10 +85,23 @@ async function readFence({ mermaid, stampDiagrams = false, deck = DECK, scriptAt
   // first, then the runtime, both plain. Reversing it would silently retire cell 4.
   const doc = '<!doctype html><html' + (stampDiagrams ? ' data-lattice-diagrams' : '') + '><head><style>'
     + fontFaceCss(ROOT) + css + '\n.lattice>section{width:1280px;height:720px}'
-    + '</style></head><body>'
+    + '</style>'
+    + (dynamicInsert
+      // Inserted by script, `async = false`, into <head> — so it precedes the runtime tag
+      // at the end of <body> in document order while not having run. No platform signal
+      // separates this from a parser-inserted tag; the `load` handler is the bound.
+      ? '<scr' + 'ipt>(function(){var s=document.createElement("script");s.async=false;'
+        + 's.src="mermaid.js";document.head.appendChild(s);})();</scr' + 'ipt>'
+      : '')
+    + '</head><body>'
     + `<article class="lattice">${out.html}</article>`
-    + (mermaid === 'no-tag' ? '' : '<scr' + 'ipt ' + scriptAttrs + ' src="mermaid.js"></scr' + 'ipt>')
-    + '<scr' + 'ipt ' + scriptAttrs + ' src="lattice-runtime.js"></scr' + 'ipt>'
+    // `scriptAttrs` goes on the MERMAID tag only. Putting it on both made the defer cell
+    // vacuous — two `defer` scripts execute in order, so Mermaid was already real when the
+    // runtime booted and `mermaidPromiseBroken()` was never consulted at all.
+    + (runtimeFirst ? '<scr' + 'ipt ' + scriptAttrs + ' src="lattice-runtime.js"></scr' + 'ipt>' : '')
+    + (mermaid === 'no-tag' || dynamicInsert ? '' : '<scr' + 'ipt ' + scriptAttrs + ' src="mermaid.js"></scr' + 'ipt>')
+    + (extraScript || '')
+    + (runtimeFirst ? '' : '<scr' + 'ipt src="lattice-runtime.js"></scr' + 'ipt>')
     + '</body></html>';
 
   const runtimeJs = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'));
@@ -118,14 +131,27 @@ async function readFence({ mermaid, stampDiagrams = false, deck = DECK, scriptAt
   });
   try {
     const page = await browser.newPage();
+    // THE GIVE-UP ITSELF, not just its outcome. A misfire on a document whose Mermaid was
+    // still coming is recovered — by the `load` handler, or by an edit — so asserting only
+    // the final state cannot tell a correct wait from a wrong release that got rescued.
+    // The runtime says when it gives up; that line is the discriminator.
+    const gaveUpLines = [];
+    page.on('console', (m) => {
+      const t = m.text();
+      if (t.includes('real mermaid never loaded; giving up')) gaveUpLines.push(t);
+    });
     const startedAt = Date.now();
     await page.goto(base, { waitUntil: 'load' });
     // Wait for the fence to SETTLE either way — rendered, or handed back. Bounded well
     // under the runtime's own 10s deadline so cell 4 can distinguish the two arms; a
     // release that only happened on the deadline times out here rather than passing late.
+    const settleStates = waitFor ? [waitFor] : ['rendered', 'unavailable', 'error'];
+    const settleSelector = settleStates
+      .flatMap((st) => [`pre[data-mermaid-state="${st}"]`, `marp-pre[data-mermaid-state="${st}"]`])
+      .join(',');
     const settled = await page.waitForFunction(
-      () => !!document.querySelector('pre[data-mermaid-state="rendered"],pre[data-mermaid-state="unavailable"],pre[data-mermaid-state="error"],marp-pre[data-mermaid-state="rendered"],marp-pre[data-mermaid-state="unavailable"],marp-pre[data-mermaid-state="error"]'),
-      { timeout: 8000 },
+      (sel) => !!document.querySelector(sel),
+      { timeout: settleMs }, settleSelector,
     ).then(() => true).catch(() => false);
     const settledMs = Date.now() - startedAt;
     await page.evaluate(() => document.fonts.ready);
@@ -149,7 +175,7 @@ async function readFence({ mermaid, stampDiagrams = false, deck = DECK, scriptAt
         stamped: document.documentElement.hasAttribute('data-lattice-diagrams'),
       };
     });
-    return { ...read, settled, settledMs };
+    return { ...read, settled, settledMs, gaveUp: gaveUpLines.length > 0, gaveUpLines };
   } finally {
     await browser.close();
     await new Promise((r) => server.close(r));
@@ -184,19 +210,25 @@ describe('a fence Mermaid never draws', { skip: skipWithoutChrome(CHROME), timeo
     // author a fence that is present, correctly sized, and invisible — which no box
     // measurement catches. Hence `codeVisibility`.
     //
-    // BE HONEST ABOUT WHAT THIS CELL CAN AND CANNOT FAIL ON TODAY. This document carries
-    // the UNSCOPED rule from `dist/lattice.css`, where the attribute on `<html>` really
-    // does match; the Studio's preview cascade scopes the same rule to
-    // `article.lattice > section [data-lattice-diagrams] …`, which wants the attribute
-    // inside a slide and therefore never fires. So `codeVisibility` is a live
-    // discriminator HERE and is inert in the hosts that actually stamp. That scoping is a
-    // separate, pre-existing defect; this cell is deliberately written against the arm
-    // where the rule works, because that is the arm the design argument rests on.
+    // AND BE HONEST ABOUT WHAT THIS CELL CANNOT FAIL ON, because the first version of this
+    // paragraph got it backwards and overstated the coverage. It claimed the document
+    // carries the UNSCOPED rule and that `codeVisibility` is therefore a live
+    // discriminator here. It is not: this cell builds its sheet with `composeCss`, the
+    // same function the preview uses, and that PREFIXES every rule with
+    // `article.lattice > section` — so the shipped rule wants a `[data-lattice-diagrams]`
+    // element INSIDE a slide while the attribute is on `<html>`, and cannot match in any
+    // arm. A checker proved it by rebuilding the runtime to un-tag and watching
+    // `codeVisibility` stay `visible` through the very failure the assertion was written
+    // for. So the ink assertion is gone rather than left to look like coverage, and
+    // NOTHING here exercises rule A live — that scoping is a separate, pre-existing defect
+    // (engineering/decisions/2026-09-05-diagram-fence-flash.md).
+    //
+    // What this cell still proves, and it is the part that matters: the give-up runs in a
+    // stamping document, hands the fence back, and does not touch the document's markup.
     const r = await readFence({ mermaid: false, stampDiagrams: true });
     assert.equal(r.state, 'unavailable', 'the give-up runs in a stamping document too');
     assert.equal(r.stamped, true, 'the give-up leaves the document\'s own markup alone');
     assert.notEqual(r.display, 'none', 'the source <pre> is shown');
-    assert.equal(r.codeVisibility, 'visible', 'and it paints — the state is what keeps rule A off it');
     assert.match(r.text, new RegExp(SENTINEL));
   });
 
@@ -229,24 +261,79 @@ describe('a fence Mermaid never draws', { skip: skipWithoutChrome(CHROME), timeo
     // version of the predicate reported a defer tag as settled and gave up while Mermaid
     // was still on its way. Position against our own script is the exact question instead.
     const r = await readFence({ mermaid: true, scriptAttrs: 'defer', mermaidDelayMs: 1200 });
-    assert.equal(r.state, 'rendered', 'a slow DEFER mermaid still draws — the runtime must not give up on it');
+    assert.equal(r.gaveUp, false,
+      `the runtime must not GIVE UP on a defer tag that has not run: ${r.gaveUpLines.join(' | ')}`);
+    assert.equal(r.state, 'rendered', 'a slow DEFER mermaid still draws');
     assert.ok(r.svgs > 0, 'the diagram is on the slide');
+  });
+
+  test('waits for a DEFER tag that comes AFTER our own script', async () => {
+    // THE CELL THAT ISOLATES THE PREDICATE, and it took a second checker plus a corrected
+    // mutation run to find the shape. With Mermaid's tag first — which is what every
+    // builder writes — the old `readyState` predicate and the new position one agree, so
+    // the cell above cannot tell them apart: reverting the fix leaves it green.
+    //
+    // The disagreement needs OUR tag first. Both deferred, the runtime runs before the
+    // Mermaid tag has executed, and `readyState` is already `interactive` — so the old
+    // form called it settled and gave up on a Mermaid that was one script away. Position
+    // gets it right: our script does not FOLLOW that element, so the arm stays silent.
+    // No builder writes this order; the predicate should not depend on that.
+    const r = await readFence({
+      mermaid: true, scriptAttrs: 'defer', runtimeFirst: true,
+      mermaidDelayMs: 600, waitFor: 'rendered', settleMs: 25000,
+    });
+    assert.equal(r.gaveUp, false,
+      `our tag coming first must not turn a pending Mermaid into a broken promise: ${r.gaveUpLines.join(' | ')}`);
+    assert.equal(r.state, 'rendered', 'and the diagram draws');
   });
 
   test('waits for an ASYNC tag that has not run yet', async () => {
     const r = await readFence({ mermaid: true, scriptAttrs: 'async', mermaidDelayMs: 1200 });
+    assert.equal(r.gaveUp, false,
+      `the runtime must not GIVE UP on an async tag that has not run: ${r.gaveUpLines.join(' | ')}`);
     assert.equal(r.state, 'rendered', 'a slow ASYNC mermaid still draws');
   });
 
   test('does not read a FOLDER NAME as a promise of Mermaid', async () => {
     // `el.src` is the RESOLVED url, so matching /mermaid/i against the whole of it made
-    // every script in a document served from a path containing "mermaid" — including the
-    // runtime's own tag — count as a mermaid script. A document with no mermaid tag at all
-    // then gave up on the first tick. The tag is matched on its file name now.
-    const r = await readFence({ mermaid: 'no-tag', basePath: '/mermaid-demo/' });
-    assert.notEqual(r.state, 'unavailable',
-      'no mermaid tag means no promise — this document must take the deadline, not the fast arm');
+    // every script in a document served from a path containing "mermaid" count as a
+    // mermaid script. A document with no mermaid tag at all then gave up on the first tick.
+    //
+    // THE THIRD-PARTY SCRIPT IS WHAT MAKES THIS CELL ABLE TO FAIL, and a checker is why it
+    // is here: with only the runtime's own tag in the document, the `el !== OWN_SCRIPT`
+    // exclusion rescues the cell on its own, so reverting the FILE-NAME fix left it green
+    // and the fix it names had no isolating coverage. An unrelated third-party script in
+    // the same mermaid-named folder is excluded by neither guard, so it isolates the one
+    // under test.
+    const r = await readFence({
+      mermaid: 'no-tag',
+      basePath: '/mermaid-demo/',
+      extraScript: '<scr' + 'ipt src="analytics.js"></scr' + 'ipt>',
+    });
+    assert.equal(r.gaveUp, false,
+      `a folder name is not a promise of Mermaid: ${r.gaveUpLines.join(' | ')}`);
     assert.equal(r.state, 'pending', 'so the fence is still waiting when we look');
+  });
+
+  test('takes the fence back when a slow Mermaid finally loads, with no edit to trigger it', async () => {
+    // The bound on the fast arm's residual, and on any late arrival. A document nobody is
+    // editing produces no mutations, so before the `load` handler nothing re-ran and the
+    // author kept looking at source — which in an offscreen export capture means the
+    // artifact is written that way and frozen. The tag is dynamically inserted into
+    // `<head>`, which is the exact shape a checker drove: it sits BEFORE our own script,
+    // carries neither `async` nor `defer`, and has not run, so the fast arm misfires on it.
+    // The point of this cell is that the misfire is recovered rather than permanent.
+    const r = await readFence({
+      mermaid: true,
+      mermaidDelayMs: 900,
+      dynamicInsert: 'head',
+      // Wait for the DIAGRAM, not for the first settled state — the first settled state
+      // here is the misfire this cell exists to watch recover from.
+      waitFor: 'rendered',
+      settleMs: 20000,
+    });
+    assert.equal(r.state, 'rendered', 'the diagram draws in the end, with no edit to prompt it');
+    assert.ok(r.svgs > 0, 'and the SVG is on the slide');
   });
 
   test('gives up fast, not on the ten-second deadline', async () => {

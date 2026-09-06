@@ -175,24 +175,48 @@ The Studio's desktop print path waits `load` + 450ms and never waits on diagrams
 release on the ten-second deadline would be far too late for it:
 
 1. **The document already told us.** Every builder writes a plain `<script src>` for
-   Mermaid *before* the runtime's own tag, so a classic parser-inserted script that is
-   already in the DOM when the runtime boots has had its turn — it ran, or it failed. One
-   sitting there with nothing real on `window.mermaid` is a broken promise, decided
-   synchronously on the first tick. A document with NO such tag never promised anything
-   and falls through to the deadline; so does an `async` tag, which has not had its turn.
+   Mermaid *before* the runtime's own tag, so a markup-authored classic script that
+   precedes ours has had its turn by the time we run — it ran, or it failed. One sitting
+   there with nothing real on `window.mermaid` is a broken promise, decided synchronously
+   on the first tick. The question is asked as **document position against our own
+   `<script>`** (captured at module scope, where `document.currentScript` is still
+   readable), *not* from `readyState` — which flips to `interactive` before deferred
+   scripts execute, so an earlier version of this arm called a still-loading `defer` tag
+   settled and released the fence while Mermaid was on its way. A document with NO such
+   tag never promised anything and falls through to the deadline; so do `async` and
+   `defer` tags, and so does an inlined runtime, which has no `<script>` to anchor to.
+
+   **The residual, because it is real and unfixable from here:** a script inserted *by
+   JavaScript* with `async = false` into `<head>` also precedes our tag and has *not* run,
+   and no platform signal separates it from a parser-inserted one. Measured — same
+   document, insert into `<head>` releases the fence, insert into `<body>` does not. No
+   caller in this repo does that, and the damage when one does is bounded without extra
+   machinery: driven on that exact document, the give-up fires and the diagram still lands
+   (`state=rendered` at 1577ms for a Mermaid served at 900ms), because the runtime already
+   re-runs on later DOM activity. A `load` listener that reclaimed directly was written,
+   measured against that arm, changed nothing, and was deleted rather than shipped
+   unproven.
 2. **`MERMAID_WAIT_CAP` frames** — the responsive arm, unchanged.
 3. **`MERMAID_WAIT_MS` on the wall clock** — because `requestAnimationFrame` is throttled
    in a backgrounded tab and does not run at all in a document nothing is painting, which
    describes both offscreen export frames. A frame budget that never advances never gives
    up.
+**Giving up does NOT touch `data-lattice-diagrams`**, and the reasoning is worth keeping
+because the opposite shipped for one commit. Dropping it looks right — it is the
+document's promise that something will draw a fence, and the promise has just been
+falsified. But the rule it gates cannot fire in any host that stamps: the preview cascade
+scopes it to `article.lattice > section [data-lattice-diagrams] …`, which wants the
+attribute *inside* a slide while it lives on `<html>`. So the removal protected nothing,
+and nothing restored it. That scoping is a separate, pre-existing defect
+(`engineering/decisions/2026-09-05-diagram-fence-flash.md`).
 
-Giving up also **drops `data-lattice-diagrams`**, since that attribute is the document's
-promise that something will draw a fence and it has just been falsified — otherwise a
-fence the author types afterwards would be invisible rather than merely un-drawn.
-
-And if Mermaid turns up late anyway, `initAndRun` puts released fences back to `pending`
-before its walk. It is the one caller that has already established `window.mermaid` is
-real, so it cannot resurrect a fence into a document that still cannot draw it.
+If Mermaid turns up late, `initAndRun` puts released fences back to `pending` — **after**
+its `themeSettled` guard, and only for fences it can render. Reclaiming *is* hiding, so a
+pass that reclaims and then declines to walk leaves a blank where the source was: with the
+reclaim ahead of that guard, a host whose theme vars never resolve hid the fence on every
+pass and rendered on none. And if the walk then *fails*, a reclaimed fence goes back to
+`unavailable` rather than to `pending`, because a retry that will re-fail the same way is
+not worth taking the author's source for.
 
 Driven on both artifacts — the real Studio, Share → Webpage and Share → Print deck, with
 Mermaid cut off at the network (`docs/e2e/mermaid-unavailable-export.spec.ts`), and on the

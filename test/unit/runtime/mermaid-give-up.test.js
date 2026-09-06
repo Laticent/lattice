@@ -46,10 +46,18 @@ function liftFenceState(document) {
   const block = RUNTIME_SRC.slice(start, end);
   assert.match(block, /function releaseUnrenderableFences/, 'the lifted block must carry the release');
   assert.match(block, /function reclaimReleasedFences/, 'the lifted block must carry the reclaim');
+  assert.match(block, /function resetFenceAfterFailure/, 'the lifted block must carry the failure reset');
   // `new Function`, not `eval`: the lifted block gets its own scope with `document` as its
   // only free variable, so it cannot reach this file's locals. Lifting IS the point — see the
   // docblock; a re-implementation would assert the test's own copy of the logic.
-  return new Function('document', `${block}\nreturn { releaseUnrenderableFences, reclaimReleasedFences, PENDING_FENCE_SELECTOR, RELEASED_FENCE_SELECTOR };`)(document);
+  // `markRendered` stands in for the two shipped success sites, which live outside this
+  // block and both do exactly `reclaimed?.delete(preEl)` after stamping `rendered`.
+  return new Function('document', `${block}
+    return {
+      releaseUnrenderableFences, reclaimReleasedFences, resetFenceAfterFailure,
+      markRendered: (el) => reclaimed?.delete(el),
+      PENDING_FENCE_SELECTOR, RELEASED_FENCE_SELECTOR,
+    };`)(document);
 }
 
 /** A slide carrying one `<pre>` per state, each with the sibling `.mermaid` box wrapFences adds. */
@@ -137,6 +145,41 @@ describe('giving up on Mermaid hands the fence back to its author', () => {
       'the fence the caller cannot render keeps showing its source');
   });
 
+  test('a reclaimed fence that fails to render goes back to its SOURCE, not to hidden', () => {
+    // `canRender` answers "is this fence shaped right", which is not "will this pass render
+    // it". A second checker drove the gap in a real browser: a `window.mermaid` real enough
+    // to clear `initAndRun`'s guard but whose `initialize` throws sends the walk down its
+    // catch, and both catches reset to `pending` — which is HIDDEN. For a fence that was
+    // already pending that is right (retry it); for one a reclaim took from the author it
+    // is the pre-#2092 outcome produced by the fix, permanently, because every retry
+    // re-fails the same way. Measured there: a 446px box of source became a 0px slot.
+    const doc = deck(['unavailable', 'pending']);
+    const { reclaimReleasedFences, resetFenceAfterFailure } = liftFenceState(doc);
+    const [reclaimedPre, alreadyPending] = [...doc.querySelectorAll('pre')];
+    reclaimReleasedFences(() => true);
+    // The walk stamps everything it dispatches `rendering`, then throws.
+    reclaimedPre.dataset.mermaidState = 'rendering';
+    alreadyPending.dataset.mermaidState = 'rendering';
+    resetFenceAfterFailure(reclaimedPre);
+    resetFenceAfterFailure(alreadyPending);
+    assert.deepEqual(stateOf(doc), ['unavailable', 'pending'],
+      'the reclaimed fence returns to the author; the ordinary one stays queued for a retry');
+  });
+
+  test('a fence that DREW is no longer on loan, so a later failure retries it', () => {
+    // Otherwise the mark is sticky: a fence reclaimed once, rendered, then re-queued by an
+    // ordinary edit would be handed back to `unavailable` by an unrelated later failure —
+    // showing source where a retry was the right answer.
+    const doc = deck(['unavailable']);
+    const { reclaimReleasedFences, resetFenceAfterFailure, markRendered } = liftFenceState(doc);
+    const pre = doc.querySelector('pre');
+    reclaimReleasedFences(() => true);
+    markRendered(pre);
+    pre.dataset.mermaidState = 'rendering';
+    resetFenceAfterFailure(pre);
+    assert.deepEqual(stateOf(doc), ['pending'], 'a drawn fence retries rather than reverting');
+  });
+
   test('the released state is not one the pending selector re-selects', () => {
     // If it were, `initAndRun` would walk a released fence on a document that still has no
     // Mermaid, and the reclaim would be unreachable dead code rather than the recovery path.
@@ -144,6 +187,24 @@ describe('giving up on Mermaid hands the fence back to its author', () => {
     const { PENDING_FENCE_SELECTOR, RELEASED_FENCE_SELECTOR } = liftFenceState(doc);
     assert.equal(doc.querySelectorAll(PENDING_FENCE_SELECTOR).length, 0);
     assert.equal(doc.querySelectorAll(RELEASED_FENCE_SELECTOR).length, 1);
+  });
+
+  test('initAndRun reclaims AFTER its theme guard, not before', () => {
+    // The one property of this fix that is an ORDERING rather than a value, and the one a
+    // checker found broken: reclaiming before `themeSettled` means a host whose theme vars
+    // never resolve hides the fence on every pass and renders on none. It cannot be driven
+    // by lifting a block — it is where one call sits relative to another inside
+    // `initAndRun` — so this reads the shipped source, and says so rather than pretending
+    // otherwise. It is a text matcher with the usual envelope: it pins the ORDER of two
+    // calls and cannot see a third path that reintroduces the same hazard. It fails loudly
+    // if either call is renamed or removed, which is the drift it exists to catch.
+    const body = RUNTIME_SRC.slice(RUNTIME_SRC.indexOf('function initAndRun('));
+    const guard = body.indexOf('themeSettled({ force })');
+    const reclaim = body.indexOf('reclaimReleasedFences(');
+    assert.notEqual(guard, -1, 'initAndRun must still gate on themeSettled');
+    assert.notEqual(reclaim, -1, 'initAndRun must still reclaim released fences');
+    assert.ok(reclaim > guard,
+      'reclaiming re-HIDES a fence, so it must come after the guard that can decline the walk');
   });
 
   test('both selectors cover marp-pre, which is what the VS Code preview emits', () => {
