@@ -153,9 +153,12 @@ The drawing ORDER is the meaning — which a static diagram can only present all
    `data-scene-spec` on the section and mounted by `anima-scenes.ts` against `SCENE_SEL`
    (`section.scene[data-scene-spec]`). So a deck carrying a crafted asset is self-contained with no
    further work — §10.1's portability is a property of the target, not something Insert has to add.
-2. **`spec.asset` is a LABEL, not a path.** `parseScene` requires a non-empty string for an svg
-   scene and nothing ever resolves it. It names the drawing for a human reading the fence; it does
-   not fetch anything. Do not build a file picker for it.
+2. **`spec.asset` is a self-keying LABEL, not a path.** `parseScene` requires a non-empty string
+   for an svg scene, and `hydrate.ts`'s `assetsFor` then builds a ONE-ENTRY `AssetMap`
+   — `{ [scene.asset]: assetMarkup }` — whose markup is the slide's own poster `<svg>`, re-sanitized
+   at the point of use. So the string is a map key that always finds itself: it never names a file,
+   nothing is fetched, and any non-empty value works as long as the spec uses one value. Set it to
+   the asset's slug so the fence reads meaningfully to a human, and do not build a file picker.
 3. **`pathRef` is the whole addressing contract**, and `parseScene` requires it UNIQUE across
    elements — two parts may not choreograph the same node (the paint would be silently last-wins).
    That is a validation the choreograph surface should enforce as it edits, not discover at save.
