@@ -823,10 +823,58 @@ test('team-profile sides: each roster keeps its own label', () => {
 });
 
 test('team-profile: a person with no role or no note reads without an empty clause', () => {
-	// `bench` drops the note by design, and an author may give only a name. Neither
-	// may produce a stray colon or a dangling comma.
+	// An author may give only a name. That must not produce a stray colon or a
+	// dangling comma. NOTE: `bench` hides the note with `display: none` in CSS, which
+	// is a PAINT decision — the note is still in the DOM and is still narrated, on
+	// `main` as well as here. A checker flagged an earlier version of this comment
+	// for claiming `bench` "drops the note", which is true of the stylesheet and
+	// false of the speaker.
 	const [t] = renderSpeech('<!-- _class: team-profile bench -->\n\n## Bench\n\n- Ada Okafor\n  - `Executive Sponsor`\n- Marcus Vale\n');
 	assert.match(t, /Ada Okafor, Executive Sponsor\./);
 	assert.match(t, /Marcus Vale\./);
 	assert.doesNotMatch(t, /:\s*\.|,\s*\./, 'no empty clause, no dangling separator');
+});
+
+// ── the two surfaces are DIFFERENT functions, and only one was fixed the first time ──
+// `projectDeckToSpeech` drives captions and Studio Present; `projectDeckToProse`
+// drives Read·Article in the self-contained player. The first fix touched only the
+// former while its commit claimed both, so Read·Article kept rendering the raw span
+// run. These pin each surface separately, because that is how they broke.
+
+test('team-profile: EVERY note line is spoken, not just the first', () => {
+	// One `.person-note` span per note line. An author who writes the role as plain
+	// text instead of backticks gets two — the component's own commonMistakes list
+	// names that shape — and reading only the first silently dropped an authored
+	// line. That is worse than the concatenation it replaced: ugly but complete
+	// became quiet and lossy, against a deck `lint:deck` calls clean.
+	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## The team\n\n- Ada Okafor\n  - Executive Sponsor\n  - Clears blockers above the program.\n');
+	assert.match(t, /Executive Sponsor/);
+	assert.match(t, /Clears blockers above the program/, 'the second note line must survive');
+});
+
+test('team-profile: Read·Article renders people, not the raw span run', () => {
+	const { html } = engine.render('<!-- _class: team-profile -->\n\n## The team\n\n- Ada Okafor\n  - `Executive Sponsor`\n  - Clears blockers.\n', 'indaco', {});
+	const dom = new JSDOM(`<body>${html}</body>`);
+	const { articleHtml } = project([...dom.window.document.querySelectorAll('section[data-class]')]);
+	assert.match(articleHtml, /<strong>Ada Okafor<\/strong>/, 'the name leads the entry');
+	assert.match(articleHtml, /Clears blockers/);
+	assert.doesNotMatch(articleHtml, /AOAda|person-initials/, 'no monogram, no raw span run');
+});
+
+test('team-profile: a roster behind a wrapper still gets the people treatment', () => {
+	// Walking only `stage.children` returned null whenever anything sat between the
+	// stage and the roster — a second component class puts a wrapper there — and the
+	// `|| speakGeneric` fallback then re-ran the very bug this speaker fixes.
+	const [t] = renderSpeech('<!-- _class: team-profile image -->\n\n## Team\n\n- Ada Okafor\n  - `Sponsor`\n  - Owns it.\n');
+	assert.doesNotMatch(t, /OkaforSponsor/, 'the fallback must not re-introduce the concatenation');
+	assert.match(t, /Ada Okafor, Sponsor: Owns it\./);
+});
+
+test('team-profile: a mid-stage blockquote is not swallowed by the roster walk', () => {
+	// `speakGeneric` speaks blockquote/table; an earlier version of this speaker
+	// listed only rosters, h3, h4 and p, so a quote between two rosters vanished.
+	const [t] = renderSpeech('<!-- _class: team-profile -->\n\n## Team\n\n- Ada Okafor\n  - `Sponsor`\n\n> A quoted line in the middle.\n\n- Marcus Vale\n  - `Director`\n');
+	assert.match(t, /A quoted line in the middle/);
+	assert.match(t, /Ada Okafor, Sponsor\./);
+	assert.match(t, /Marcus Vale, Director\./);
 });
