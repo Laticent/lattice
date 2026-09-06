@@ -94,3 +94,35 @@ test('the Webpage (.html) player bakes the emphasis hold into its gaps', async (
 	const sum = (a: number[]) => a.reduce((n, x) => n + x, 0);
 	expect(sum(bold) - sum(plain), `plain=${plain} bold=${bold}`).toBe(250);
 });
+
+
+// A CODA's hold lands HERE and nowhere else. The .vtt is derived from durationMs — the last cue's
+// END — so it cannot carry silence after the final line, and checking it is what got this feature
+// deleted once. The player holds the gap on every cue including the last, on purpose. Same deck
+// twice, differing only by whether the closing quote is present.
+const CODA_DECK = (coda: string) => `---
+marp: true
+theme: indaco
+---
+
+# Probe
+
+---
+
+## Where the quarter turned.
+
+Cost discipline held through the period. Pipeline coverage sits below target.
+${coda}
+`;
+
+test('the player holds a beat after the closing quote', async ({ page }) => {
+	const gapsOf = (html: string) => [...html.matchAll(/"g":(\d+)/g)].map((m) => Number(m[1]));
+	// Without the quote there is no coda at all; with it, the closing line is spoken AND weighted,
+	// so the deck gains one hold — the extra sentence's own gap, plus the 250 ms emphasis hold.
+	const none = gapsOf(await download(page, CODA_DECK(''), /Webpage/, /Download webpage/));
+	const coda = gapsOf(await download(page, CODA_DECK('\n> Retention carries the year.\n'), /Webpage/, /Download webpage/));
+	expect(coda.length, 'the coda should add one cue').toBe(none.length + 1);
+	// The final cue is the coda, and its gap carries the emphasis hold rather than the bare
+	// sentence pause. 415 = the sentence gap (165) + EMPHASIS_HOLD_MS (250).
+	expect(coda[coda.length - 1], `gaps=${coda}`).toBe(415);
+});

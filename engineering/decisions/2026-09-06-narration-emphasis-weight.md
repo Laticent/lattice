@@ -125,10 +125,18 @@ comfortable direction: it made a discarded value sound like a deliberate saving.
 pause anywhere in the `.vtt` timeline — `read-along-vtt.js` advances by `durationMs` alone, and
 `slideBeatMs` is read only by Present. The real mechanism is arithmetic, not policy.
 
-That is why the coda is **spoken but not weighted**. A coda is appended last, so an ordinary
-single-block one always ends in the final cue. Deleting `.cell-coda` from `EMPHASIS_SOURCES` leaves
-`examples/emphasis-narration.vtt` byte-identical — on the deck whose whole job is to show the feature
-— so it was withdrawn rather than left claiming to work.
+**That reasoning was then applied to the wrong artifact, and the coda's emphasis was deleted for a
+day.** A coda is appended last, so it always ends in the final cue; removing `.cell-coda` from
+`EMPHASIS_SOURCES` left `examples/emphasis-narration.vtt` byte-identical, which was read as "it buys
+nothing". It buys nothing IN THE `.vtt`, which is derived from `durationMs` and is structurally
+incapable of carrying a pause after its own last line. The exported webpage player holds the gap on
+every cue INCLUDING the last, deliberately (`player-core.mjs`: "so the slide boundary does not land on
+the final syllable"), and that is the surface with a voice on it. Measured: final cue takes weight 2,
+`durationMs` identical either way, baked gap 165 ms → 415 ms. Restored, and pinned on a real
+downloaded player in `docs/e2e/share-emphasis.spec.ts`.
+
+The transferable lesson is not about codas. **The artifact that was measured was blind to the property
+being measured**, and it agreed with the hypothesis, so nobody looked further.
 
 **No committed caption golden changes.** All nine regenerate byte-identically, and the eight that
 predate this branch match `origin/main`. An earlier draft claimed "five changed goldens, ~1 s of added

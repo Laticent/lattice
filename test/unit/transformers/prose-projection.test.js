@@ -654,14 +654,15 @@ test('emphasis: a <strong> becomes a span over exactly its own words', () => {
 	assert.equal(s.emphasis[0].weight, 2);
 });
 
-test('emphasis: the coda is SPOKEN but not emphasized — the hold would be discarded', () => {
-	// A coda is appended last, so its span always ends in the slide's final cue, and the hold lives
-	// in the gap AFTER a cue while durationMs is the last cue's end. Every ordinary coda bought
-	// exactly zero, so the source was withdrawn rather than left claiming to work. Measured: deleting
-	// it left examples/emphasis-narration.vtt byte-identical.
+test('emphasis: the coda is spoken AND weighted', () => {
+	// Its hold lands in the exported player, which holds the gap on every cue including the last,
+	// not in the .vtt, whose duration is the final cue's END and so cannot carry a trailing pause.
+	// This source was briefly removed because the .vtt was the artifact checked — see the docblock
+	// on EMPHASIS_SOURCES.
 	const [s] = script(sections(CODA_SLIDE));
-	assert.match(s.text, /The year is made on retention\./); // spoken — that is the win
-	assert.deepEqual(s.emphasis, []); // and not weighted, because the weight could not be spent
+	assert.match(s.text, /The year is made on retention\./);
+	const marked = s.emphasis.map((sp) => s.text.slice(sp.start, sp.end));
+	assert.ok(marked.includes('The year is made on retention.'), JSON.stringify(marked));
 });
 
 test('emphasis: a phrase appearing TWICE is skipped rather than guessed', () => {

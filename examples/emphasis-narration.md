@@ -54,8 +54,8 @@ A trailing quote is lifted into its own cell, outside the stage every body walke
 
 - Measured, not guessed
   - 53 of 161 committed decks carry one.
-- Spoken, not weighted
-  - It closes the slide, so a hold after it would have nowhere to land.
+- Spoken, and held
+  - The beat lands in the shared webpage, which pauses after the last line too.
 
 > A slide's punchline was not paced badly. It was missing.
 
