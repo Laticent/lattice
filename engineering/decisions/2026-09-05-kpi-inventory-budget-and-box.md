@@ -421,6 +421,24 @@ the line box and paints nothing.
   produces. It reaches the runtime preview and the Studio, which render the authored slide
   whole; it is not doing work in a PDF.
 
+**Found by LOOKING, after every measurement had passed: `spotlight`'s rail has the same
+empty-track defect `trajectory` had, one axis over — and this change does not fix it.**
+The rail places supports at `grid-row` 1, 2 and 3, so a slide authoring the common TWO
+supports leaves the third row empty: the two metrics sit with a large gap between them and
+a band of dead space beneath the last one. That is precisely the defect §4 fixes for
+`trajectory`, where a grid pinned at four columns left an empty 270px track on the
+3-metric slide the docs recommend. Nobody caught it here because every instrument pointed
+at this rail was asking about RULES — where the borders are, whether ink clears them — and
+an empty grid track paints nothing, so it is invisible to all of them.
+
+**It is pre-existing and is deliberately left.** Rendered from `origin/main` and from this
+branch, the gap and the trailing space are identical; this change alters the rail's
+borders, not its row distribution. Fixing it means re-deciding how the rail distributes
+rows, which interacts with the lead, the capacity ceiling and the 0.12em ceiling — all
+measured against the current distribution — so it would widen the diff past what #17 and
+#8 allow. Logged here rather than pulled in (#18's off-path rule), and it is the obvious
+next slice for this component.
+
 **One tension this leaves open, and it belongs to the reader.** Two-and-a-bit pixels
 under an accented capital is thin, and `Ǻ` gets none. Not a tuning oversight — 0.12em
 is the most the rail carries with 4 metrics still fitting, so more daylight costs

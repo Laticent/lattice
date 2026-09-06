@@ -61,3 +61,12 @@
   `golden-diff` reports 130 slides across 52 because it compares against goldens blessed on
   other machines, where Skia's rasterization is not bit-identical; its own header documents
   that band.
+- **Known, not fixed: `kpi spotlight`'s rail leaves an empty row when a slide authors two
+  supports.** The rail places supports at grid rows 1-3, so the common two-support slide
+  shows a large gap between its metrics and dead space below the last one — the same
+  empty-track defect this change fixes for `trajectory` on the column axis. It is
+  pre-existing (identical rendered from `main`), it is invisible to every rule-and-ink
+  instrument because an empty track paints nothing, and fixing it means re-deciding the
+  rail's row distribution, which the lead and the capacity ceiling are both measured
+  against. Logged for the next slice.
+
