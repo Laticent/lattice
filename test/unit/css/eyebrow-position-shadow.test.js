@@ -38,51 +38,31 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { ROOT, shippedDecks, FENCE } = require('../../helpers/decks.js');
+const { ROOT, shippedDecks, codeOnlyParagraphs } = require('../../helpers/decks.js');
 const { dispatches } = require(path.join(ROOT, 'lib/core/inline-code-directives.js'));
 const { isLiteralFromSource } = require(path.join(ROOT, 'lib/core/resolve-inline-code.js'));
 
-/** A paragraph that is EXACTLY one inline-code span — the eyebrow's own shape. */
-const ONLY_CODE = /^`([^`]+)`$/;
-/** What the eyebrow rule accepts as the next block: a heading, a list, or a fence. */
-const PROMOTES_AFTER = /^(#{1,5}\s|[-*+]\s|\d+\.\s|```)/;
-/** A line that is nothing but an HTML comment — invisible to the rendered tree. */
-const COMMENT_ONLY = /^<!--[\s\S]*-->$/;
+/**
+ * The block types that make a code-only paragraph an EYEBROW. `base.modifiers.css` promotes
+ * it before a heading, a list, or a fence — `:has(+ h1)`, `:has(+ ul)`, `:has(+ pre)`.
+ */
+const PROMOTES_AFTER = new Set(['heading_open', 'bullet_list_open', 'ordered_list_open', 'fence']);
 
-/** Every eyebrow-position span in a deck, with the line it sits on. */
+/**
+ * Every eyebrow-position span in a deck, with the line it sits on.
+ *
+ * The shape comes from `codeOnlyParagraphs` in the shared helper, which asks markdown-it
+ * for "a paragraph whose inline content is exactly one `code_inline`" — the CSS selector's
+ * own semantics. It replaced a line-at-a-time regex that could not see a paragraph whose
+ * single span used double backticks or wrapped across two source lines, and that needed a
+ * hand-rolled rule to step over an HTML comment between the span and its heading. The
+ * parser walk finds 24 eyebrow spans and 1 subtitle span the regex did not.
+ */
 function eyebrowSpans(file) {
   const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
-  // A deck that turns the grammar OFF has no shadow to warn about — the `<code>` survives
-  // and the kicker promotes normally. Without this the census failed a CORRECT deck and
-  // told its author to escape something that needs no escaping, which is worse than not
-  // checking: both halves shipped in one PR and neither knew about the other.
   if (isLiteralFromSource(src)) return [];
-  const lines = src.split('\n');
-  const found = [];
-  let inFence = false;
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i].trim();
-    // A fence's CONTENT is not inline code, so no directive is ever read inside one.
-    if (FENCE.test(line)) { inFence = !inFence; continue; }
-    if (inFence) continue;
-    const m = ONLY_CODE.exec(line);
-    if (!m) continue;
-    // Walk past blanks AND HTML comments. markdown-it strips a comment before the CSS ever
-    // sees the tree, so `<!-- markdownlint-disable-next-line MD026 -->` between the span and
-    // its heading leaves the eyebrow promoting normally — but a scanner that stops at the
-    // comment skips the span and the census certifies a deck it never looked at. There is
-    // one such span in the corpus today (`test/integration/baseline-decks/gallery.md`), and
-    // planting a dispatching label there passed all three arms before this line.
-    let j = i + 1;
-    while (j < lines.length && (!lines[j].trim() || COMMENT_ONLY.test(lines[j].trim()))) j += 1;
-    if (j >= lines.length || !PROMOTES_AFTER.test(lines[j].trim())) continue;
-    found.push({ file, line: i + 1, text: m[1] });
-  }
-  return found;
+  return codeOnlyParagraphs(file).filter((p) => PROMOTES_AFTER.has(p.after));
 }
-
-/** The line before a code-only paragraph, for the SUBTITLE position (heading BEFORE it). */
-const HEADING = /^#{1,5}\s/;
 
 /**
  * Every SUBTITLE-position span in a deck — the OTHER promotion with the same shadow.
@@ -96,22 +76,7 @@ const HEADING = /^#{1,5}\s/;
 function subtitleSpans(file) {
   const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
   if (isLiteralFromSource(src)) return [];
-  const lines = src.split('\n');
-  const found = [];
-  let inFence = false;
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i].trim();
-    if (FENCE.test(line)) { inFence = !inFence; continue; }
-    if (inFence) continue;
-    const m = ONLY_CODE.exec(line);
-    if (!m) continue;
-    // walk BACK to the previous non-blank line — a heading makes this a subtitle
-    let j = i - 1;
-    while (j >= 0 && !lines[j].trim()) j -= 1;
-    if (j < 0 || !HEADING.test(lines[j].trim())) continue;
-    found.push({ file, line: i + 1, text: m[1] });
-  }
-  return found;
+  return codeOnlyParagraphs(file).filter((p) => p.before === 'heading_close');
 }
 
 test('no shipped deck writes an eyebrow the directive grammar would swallow', () => {

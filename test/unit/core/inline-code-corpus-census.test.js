@@ -21,9 +21,13 @@
  *
  * TWO ARMS, because the register splits the corpus. The first walks every deck the grammar
  * RUNS in and allows dispatching spans only in `examples/inline-pills.md`; the second takes
- * the one deck the register switches off and proves it is full of spans that would have
+ * the deck the register switches off and proves it is full of spans that would have
  * dispatched — otherwise the first arm's skip could be covering an empty set and reporting
  * that the register works while never exercising it.
+ *
+ * NO DECK COUNT IS WRITTEN DOWN HERE. Two were, and both were stale within days of being
+ * typed — overtaken by routine rebases that added decks, in a test whose entire subject is
+ * a number nobody re-derived. `shippedDecks()` is the number; it is recomputed every run.
  *
  * IT ASKS THE KERNEL, NOT A COPY OF THE GRAMMAR — `dispatches()` is the same predicate
  * both render paths call (HARD RULE #1), so widening or narrowing the grammar moves this
@@ -77,7 +81,8 @@ test('the only shipped deck whose inline code dispatches is the one demonstratin
     stray,
     [],
     'these spans dispatch as a pill or a mark, so they render as chrome and NOT as the ' +
-      'literal text the author typed:\n' +
+      'literal text the author typed (the line is the enclosing BLOCK\'s first line, so a ' +
+      'span in a wrapped paragraph or a nested list may sit a line or two below it):\n' +
       stray.map((s) => `  ${s.file}:${s.line}  \`${s.text}\``).join('\n') +
       '\nEscape it (`\\{LABEL}`, `\\[x]`) to keep the literal, set `inline-code: literal` ' +
       'in the deck front matter to turn the grammar off for the whole deck, or — if the ' +
