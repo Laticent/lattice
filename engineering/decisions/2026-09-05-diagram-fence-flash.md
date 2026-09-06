@@ -717,23 +717,59 @@ slide; G is rejected on 116KB for what CSS does for free.
   document assembled inside a template literal, a value passed through a variable, or a
   renaming import each fail the test rather than pass silently.
 
-  **The un-tag defect is not fixed here** — it is pre-existing, it predates every part of
-  #2073, and it is off the path of this change (HARD RULE #18), so it is logged rather than
-  pulled in. **Tracked as #2092**, titled by its SYMPTOM ("a diagram that fails to render
+  **The un-tag defect was not fixed here** — it was pre-existing, it predated every part of
+  #2073, and it was off the path of that change (HARD RULE #18), so it was logged rather
+  than pulled in. Tracked as #2092, titled by its SYMPTOM ("a diagram that fails to render
   exports an empty slot instead of its source") rather than its mechanism, because a
-  paragraph inside a file named after a date is not where anyone will look for it. It is also not
-  a small call: the shape of the fix is for `tick()` to UN-tag its pending fences when it
-  gives up, which is a shared-runtime change that alters export bytes on an error path and
-  reaches every host the runtime boots in. That belongs to its own change, with its own
-  sign-off.
+  paragraph inside a file named after a date is not where anyone will look for it.
+
+  **CLOSED 2026-09-06 (#2092).** `giveUp()` in `lib/runtime/index.js` now hands every still
+  pending fence back as `data-mermaid-state="unavailable"`, a state `mermaid.css` shows
+  exactly as it shows `error`. The full contract is in `engineering/mermaid.md` § "When
+  Mermaid never arrives"; three things about it are worth carrying forward here, because
+  each replaced an answer that looked obviously right:
+
+  - **Un-tagging is the wrong fix, and would have been a WORSE bug.** Rule A withholds an
+    UNTAGGED fence's ink under `[data-lattice-diagrams]`, so removing the attribute hides
+    the source in exactly the documents that stamp — a fence present, correctly sized, and
+    painting nothing. `wrapFences` would also have re-tagged it on the next pass, because
+    its selector matches the defanged `language-mermaid-source` class too. A distinct state
+    is what the export capture reads to know a fence has settled, as well.
+  - **The deadline alone does not reach the print document.** `PrintOptionsPanel` waits
+    `load` + 450ms and never waits on diagrams, so a release at ~10s misses it entirely.
+    What reaches it is a SYNCHRONOUS determination: every builder writes Mermaid's plain
+    `<script src>` BEFORE the runtime's own tag, so by the time the runtime boots that
+    script has already had its turn — one sitting in the DOM with nothing real on
+    `window.mermaid` is a promise already broken, and no waiting will change it. A
+    `MERMAID_WAIT_MS` wall clock joins the frame counter as the backstop, because `rAF`
+    does not run at all in a document nothing is painting, which describes both offscreen
+    export frames.
+  - **A second, older defect fell out of measuring the first.**
+    `section.diagram > .cell-stage > .mermaid { display:flex; flex:1 }` is (0,3,1) and
+    `[data-mermaid-state="error"] + .mermaid { display:none }` is (0,2,1), so on every
+    Form-wrapped diagram slide since the masthead kernel began wrapping the body, the spent
+    EMPTY box kept `flex:1` beside the source it was supposed to make room for — while the
+    comment above it promised "full room". Found by measuring the error state while adding
+    `unavailable` next to it, not by reading the arithmetic; both states carry the wrapped
+    arm now.
+
+  **What it cost in export bytes, measured rather than argued.** `examples/mermaid-tilde-fences.md`
+  rendered by the CLI against a rebuild of the merge-base: the **PDF is byte-identical**, and
+  the `.html` sidecar differs by exactly the added CSS (+2254 bytes of rules and comment) and
+  nothing else — no DOM change. That is the whole CLI story, and the reason is worth stating:
+  the CLI strips the runtime and substitutes diagrams with `mmdc`, so its exported body carries
+  no `data-mermaid-state` and no `.mermaid` sibling at all. Neither new state can occur there.
+  The behavior change is browser-hosted, which is also why this change ships no demo deck
+  (HARD RULE #9): a committed PDF cannot show either state, so it would be identical before and
+  after. The artifacts are the two downloaded Studio exports instead.
 
   The same mechanism answers the marp-vscode half of §7 by construction, and widens it: on
   ANY host where the runtime boots and Mermaid never becomes real — the plain markdown
-  preview's render-blocks-only stub, a CSP block, a 404 — a fence present at boot is tagged
-  and hidden, whatever `data-lattice-diagrams` says. **marp-vscode itself remains
-  UNVERIFIED** (HARD RULE #23): no VS Code host is reachable from this sandbox, so nobody has
-  opened that preview, and the hand-rolled page the second checker drove is a stand-in, not
-  the surface.
+  preview's render-blocks-only stub, a CSP block, a 404 — a fence present at boot was tagged
+  and hidden, whatever `data-lattice-diagrams` says. That host has no Mermaid `<script src>`
+  of ours, so it takes the DEADLINE arm rather than the synchronous one: the source comes
+  back after ~10s rather than on the first tick. **marp-vscode itself remains UNVERIFIED**
+  (HARD RULE #23) — see § "The marp-vscode host" below for the routes tried.
 - D's first-mount cost is now MEASURED, and it is not free. Same build, one variable — a
   three-slide deck whose third slide is a diagram, against the same deck with prose in its
   place — timing a reload to the preview's first painted `.lattice`, 5 runs each:

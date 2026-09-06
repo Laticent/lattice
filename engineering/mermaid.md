@@ -130,12 +130,62 @@ set by script at boot: the window this covers starts at the first paint of a ful
 write.
 
 **What that opt-out does NOT buy, and it was only found by driving it.** The same export
-still shows an empty slot when Mermaid fails, through the OLDER `data-mermaid-state` rule
-(which hides a tagged `<pre>` in every state but `error`): `bootstrap()` tags every fence
-`pending` before it can know whether Mermaid will arrive — deliberately, since that covers
-the load window — `tick()` gives up after ~10s, and nothing un-tags them. Pre-existing,
-wider than the export, and logged rather than fixed — see
-`engineering/decisions/2026-09-05-diagram-fence-flash.md` §7.
+still showed an empty slot when Mermaid failed, through the OLDER `data-mermaid-state`
+rule (which hid a tagged `<pre>` in every state but `error`): `bootstrap()` tags every
+fence `pending` before it can know whether Mermaid will arrive — deliberately, since that
+covers the load window — and nothing un-tagged them when the answer turned out to be
+never. **Fixed in #2092, and the fix is the state below.**
+
+### When Mermaid never arrives: `unavailable`
+
+A fifth state, and the reason it exists rather than simply removing the attribute:
+
+| state | what it means | what the slide shows |
+|---|---|---|
+| *(untagged)* | the runtime has not reached this fence | nothing, under `[data-lattice-diagrams]` |
+| `pending` | tagged, waiting for Mermaid or for its turn in the queue | nothing |
+| `rendering` | handed to `mermaid.render` | nothing |
+| `rendered` | the SVG is in the sibling `.mermaid` box | the diagram |
+| `error` | Mermaid parsed the diagram and rejected it | the source, plus a themed error block |
+| `unavailable` | **Mermaid itself never became real** — a 404, a CSP block, a stub host | the source |
+
+`giveUp()` in `lib/runtime/index.js` writes it, and it is the ONLY thing that does.
+Un-tagging instead would have been wrong three ways, all of them silent: the anti-flash
+rule above withholds an UNTAGGED fence's ink, so the source would have gone invisible in
+precisely the documents that stamp; `wrapFences` skips a tagged `<pre>` and its selector
+matches the defanged `language-mermaid-source` class, so the next pass would re-tag and
+re-hide it; and the Studio's export capture reads the state to know a fence has SETTLED,
+so a failed diagram would burn the bake's whole 12s budget before shipping the blank
+anyway.
+
+**Three arms decide when to give up, and the fast one is why the print document works.**
+The Studio's desktop print path waits `load` + 450ms and never waits on diagrams, so a
+release on the ten-second deadline would be far too late for it:
+
+1. **The document already told us.** Every builder writes a plain `<script src>` for
+   Mermaid *before* the runtime's own tag, so a classic parser-inserted script that is
+   already in the DOM when the runtime boots has had its turn — it ran, or it failed. One
+   sitting there with nothing real on `window.mermaid` is a broken promise, decided
+   synchronously on the first tick. A document with NO such tag never promised anything
+   and falls through to the deadline; so does an `async` tag, which has not had its turn.
+2. **`MERMAID_WAIT_CAP` frames** — the responsive arm, unchanged.
+3. **`MERMAID_WAIT_MS` on the wall clock** — because `requestAnimationFrame` is throttled
+   in a backgrounded tab and does not run at all in a document nothing is painting, which
+   describes both offscreen export frames. A frame budget that never advances never gives
+   up.
+
+Giving up also **drops `data-lattice-diagrams`**, since that attribute is the document's
+promise that something will draw a fence and it has just been falsified — otherwise a
+fence the author types afterwards would be invisible rather than merely un-drawn.
+
+And if Mermaid turns up late anyway, `initAndRun` puts released fences back to `pending`
+before its walk. It is the one caller that has already established `window.mermaid` is
+real, so it cannot resurrect a fence into a document that still cannot draw it.
+
+Driven on both artifacts — the real Studio, Share → Webpage and Share → Print deck, with
+Mermaid cut off at the network (`docs/e2e/mermaid-unavailable-export.spec.ts`), and on the
+shipped runtime plus the shipped stylesheet in real Chromium
+(`test/integration/mermaid/mermaid-unavailable.test.js`).
 
 Two wrong versions of that gate shipped before this one, and both are worth knowing
 because both looked right:

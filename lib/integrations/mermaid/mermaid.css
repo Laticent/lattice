@@ -51,14 +51,42 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
  * source so the author can see what failed.
  *
  * While pending/rendering the .mermaid sibling fills the layout slot as an
- * empty flex container; when rendered it holds the SVG; only for "error" is
- * it collapsed so the source <pre> has full room.
+ * empty flex container; when rendered it holds the SVG; for "error" and
+ * "unavailable" it is collapsed so the source <pre> has full room.
+ *
+ * TWO STATES SHOW THE SOURCE, not one, and the second is why this rule is a
+ * chain of :not() rather than a single one. "error" is Mermaid rejecting the
+ * DIAGRAM; "unavailable" is the runtime giving up on MERMAID ITSELF — the
+ * script 404'd, a CSP blocked it, the host installed a stub, nothing ever
+ * arrived. Both mean no picture is coming, and in both the source the author
+ * wrote is the honest artifact. Without the second the fence stayed tagged
+ * `pending` forever, and `pending` is hidden — so a failed diagram exported an
+ * EMPTY SLOT, permanently, in a file the author had already downloaded (#2092,
+ * engineering/decisions/2026-09-05-diagram-fence-flash.md §7).
+ *
+ * Chained :not(), not `:not(a, b)`: this stylesheet is inlined into every
+ * exported artifact and rendered by whatever opens that file years from now,
+ * so the Selectors-3 spelling is worth the eight characters.
  *
  * Rules are intentionally UNSCOPED — `data-mermaid-state` is only ever set
  * by our runtime, so this cannot affect unrelated <pre> blocks. */
-:is(pre, marp-pre)[data-mermaid-state]:not([data-mermaid-state="error"]) { display:none; }
+:is(pre, marp-pre)[data-mermaid-state]:not([data-mermaid-state="error"]):not([data-mermaid-state="unavailable"]) { display:none; }
 :is(pre, marp-pre)[data-mermaid-state="error"]         + .mermaid        { display:none; }
+:is(pre, marp-pre)[data-mermaid-state="unavailable"]   + .mermaid        { display:none; }
 :is(pre, marp-pre)[data-mermaid-state="rendered"]      + .mermaid        { display:flex; }
+/* …AND THE SAME COLLAPSE ON A FORM-WRAPPED DIAGRAM SLIDE, which the two rules above
+ * could not reach. `section.diagram > .cell-stage > .mermaid { display:flex; flex:1 }`
+ * (line 39) is (0,3,1); `[data-mermaid-state="error"] + .mermaid` is (0,2,1). So on every
+ * diagram slide since the masthead kernel began wrapping the body in `.cell-stage`, an
+ * EMPTY `.mermaid` box kept `flex:1` and claimed half the stage — while the source <pre>,
+ * also `flex:1`, got the other half. The comment above has promised "full room" for the
+ * error state the whole time; this is the rule that keeps the promise.
+ *
+ * Found by measuring the error state while adding `unavailable` beside it, not by reading
+ * the specificity off the page — the arithmetic is exactly what a review gets wrong.
+ * Driven in test/integration/mermaid/mermaid-unavailable.test.js. */
+section.diagram > :is(pre, marp-pre):is([data-mermaid-state="error"], [data-mermaid-state="unavailable"]) + .mermaid,
+section.diagram > .cell-stage > :is(pre, marp-pre):is([data-mermaid-state="error"], [data-mermaid-state="unavailable"]) + .mermaid { display:none; }
 
 /* …and BEFORE it is tagged, the fence paints nothing either — in a document that is
  * injecting a Mermaid renderer, and so has promised something will draw it.
