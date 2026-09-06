@@ -6,7 +6,7 @@
 
 **Tags** `visual` · `showcase` · `walkthrough`
 
-Use to put an Anima scene (a 3D mechanism, a self-drawing process flow) on a slide as its hero still. Because the deck renders to a static PDF, a `scene` slide shows the POSTER — an INLINE `<svg>` (never a background-image), so its `var(--token)` fills recolor with the deck theme in light and dark. Author it by pasting the scene's poster SVG under the heading; the Studio's Motion faculty inlines it for you. Scene is a faithful mirror of `image`: the composition auto-RESOLVES from the poster's own aspect × the deck orientation (`clean` is the safe floor), and you name a variant only to override. The compositions: `clean` (a card shaped to the still), `split` (a tall scene gets its own full-height column), `spotlight` (a wide scene owns the frame on a matte stage), `gallery` (opt-in — the whole still matted in a passe-partout frame with a placard below, the exhibit look for a diagram-like scene), `statement` (opt-in — the still on a matte stage with the title on an editorial band), and `mirror` (flips the side). For LIVE motion (Stage 6), add an ```anima fenced block — the scene's motion SPEC as JSON — beside the poster: the PDF still freezes the poster, and on the Studio Playground the poster comes alive (the Motion faculty emits this block for you). Under `prefers-reduced-motion` the motion reduces to the poster.
+Use to put an Anima scene (a 3D mechanism, a self-drawing process flow) on a slide as its hero still. Because the deck renders to a static PDF, a `scene` slide shows the POSTER — an INLINE `<svg>` (never a background-image), so its `var(--token)` fills recolor with the deck theme in light and dark. Author it by pasting the scene's poster SVG under the heading. Scene is a faithful mirror of `image`: the composition auto-RESOLVES from the poster's own aspect × the deck orientation (`clean` is the safe floor), and you name a variant only to override. The compositions: `clean` (a card shaped to the still), `split` (a tall scene gets its own full-height column), `spotlight` (a wide scene owns the frame on a matte stage), `gallery` (opt-in — the whole still matted in a passe-partout frame with a placard below, the exhibit look for a diagram-like scene), `statement` (opt-in — the still on a matte stage with the title on an editorial band), and `mirror` (flips the side). For LIVE motion (Stage 6), add an ```anima fenced block — the scene's motion SPEC as JSON — beside the poster: the PDF still freezes the poster, and on the Studio Playground the poster comes alive (author the block by hand). Under `prefers-reduced-motion` the motion reduces to the poster.
 
 ## Agent contract
 
@@ -15,7 +15,7 @@ Use to put an Anima scene (a 3D mechanism, a self-drawing process flow) on a sli
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `heading` | `h2` | no | Optional heading — the so-what of the scene, not 'Animation'. |
-| `scene` | `.scene-figure svg, svg` | yes | The scene's poster still, authored as an INLINE `<svg>` under the heading. Its `var(--token)` fills recolor with the theme (it must be inline, not a background-image). The Motion faculty inlines a saved scene's stored poster here. |
+| `scene` | `.scene-figure svg, svg` | yes | The scene's poster still, authored as an INLINE `<svg>` under the heading. Its `var(--token)` fills recolor with the theme (it must be inline, not a background-image). |
 | `body` | `p` | no | Optional caption — one line on what the motion reveals that a still can't. |
 
 ### Variant decision rule
@@ -35,7 +35,7 @@ Use to put an Anima scene (a 3D mechanism, a self-drawing process flow) on a sli
 ## When to use
 
 - **Motion carries the meaning.** A mechanism you must rotate to read, a process that assembles in order, a quantity bound to live data — anywhere a still can only imply the relationship. The poster captures the hero frame; the live surfaces animate it.
-- **You have a fabricated scene.** You built and tuned an Anima scene in the Studio's Motion faculty and want it in the deck. The faculty inlines its poster; the slide recolors it to whichever theme frames it.
+- **You have a fabricated scene.** You have an Anima scene's poster still and want it in the deck. Paste the poster under the heading; the slide recolors it to whichever theme frames it.
 - **A diagram that earns its motion.** When a static `diagram` almost says it but the ORDER or the DEPTH is the point — a flow drawing itself node-by-node, a rig turning — reach for `scene` over `diagram`.
 
 ## When NOT to use
@@ -55,7 +55,7 @@ Use to put an Anima scene (a 3D mechanism, a self-drawing process flow) on a sli
 
 The rotor spins inside its housing — a relationship a single still can only imply.
 
-<!-- Live motion (HTML/present only) — the Motion faculty writes this `anima` block for you; edit or delete it. -->
+<!-- Live motion (HTML/present only) — author this `anima` block by hand; edit or delete it. -->
 
 ```anima
 {
