@@ -100,8 +100,8 @@ function anchorsJson(component, extraArgs) {
 }
 
 /** Discovery mode: what marks does this component HAVE. */
-function anchors(component, max) {
-  const args = [TOOL, component, '--anchors', '--max', max, '--json'];
+function anchors(component, max, extraArgs = []) {
+  const args = [TOOL, component, '--anchors', '--max', max, ...extraArgs, '--json'];
   const r = spawnSync(process.execPath, args, {
     cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT, env: { ...process.env, CHROME_PATH: resolveChrome() },
   });
@@ -469,7 +469,19 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
     // slide were reached 0 times and `--anchors` answered "this component draws no positioned
     // pseudo the walk can place" over marks it places fine. An empty candidate list passed
     // all nine arms above.
-    const r = anchors('pricing', '4');
+    // `--axis heading` explicitly, though it is now also the DISCOVERY DEFAULT
+    // (check-jank.js), because the reason is a trap worth naming and pinning. `check-jank`
+    // picks its sweep axis from the manifest: a component with a `capacity.axis` and an
+    // element builder is swept by COUNT, everything else by HEADING. `pricing` gained a
+    // capacity when it was enrolled in splitting (2026-09-06), which silently flipped this
+    // arm from sweeping the SHIPPED sample to sweeping a generated one — and the generated
+    // element (`calibrate-core.js` BUILDERS.pricing) emits N identical tiers with one `[x]`
+    // badge each: no featured tier, so no corner tag, and no `[/]`. Both assertions below
+    // are about marks the shipped component has, so the heading sweep is what this test
+    // means. The builder is deliberately NOT changed to carry them: it also feeds
+    // `calibrate-capacity` and `calibrate-density`, where a heavier element would move the
+    // measured ceilings.
+    const r = anchors('pricing', '4', ['--axis', 'heading']);
     const sels = r.candidates.map((c) => c.sel);
     assert.ok(sels.some((s) => /\.badge.*::after$/.test(s)),
       `discovery missed the marks below the card title: ${JSON.stringify(sels)}`);
@@ -550,8 +562,11 @@ describe('check-jank measures what it claims to measure', { skip: skipWithoutChr
     // element — correct while the ink was border boxes, silently lossy once it was not.
     // `pricing`'s corner tag is the shape: a positioned `<em>` inside a `<li>` that carries
     // the card title.
-    const pricing = anchorsJson('pricing', ['--max', '2']);
-    const noTag = anchorsJson('pricing', ['--max', '2', '--style', 'section.pricing li > em { display: none; }']);
+    // `--axis heading` for the same reason as the discovery arm above: the count sweep's
+    // generated tiers carry no corner tag, so there would be nothing for the `display: none`
+    // arm to remove and the two counts would trivially match.
+    const pricing = anchorsJson('pricing', ['--max', '2', '--axis', 'heading']);
+    const noTag = anchorsJson('pricing', ['--max', '2', '--axis', 'heading', '--style', 'section.pricing li > em { display: none; }']);
     assert.ok(noTag.rows[0].contentBoxes < pricing.rows[0].contentBoxes,
       `readable text nested inside a text-bearing element is not being measured: `
       + `${pricing.rows[0].contentBoxes} boxes with the corner tag, `

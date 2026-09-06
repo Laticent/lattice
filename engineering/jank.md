@@ -296,7 +296,7 @@ Narrower than the word suggests. It means: *one* anchor you named, on *one* comp
   table, n=86). It makes a different
   claim from any sweep — not that a component is clean, but that this rig can still go red.
 
-## Two traps this already paid for
+## Three traps this already paid for
 
 **Measure the anchor's painted edge, not its content box.** A `::after` is `content-box`,
 so `getComputedStyle(el, '::after').height` is the glyph alone — beneath it sit its
@@ -312,6 +312,31 @@ exactly when the block would overflow, so the top edge pins and the growth goes 
 where a slide running long eventually leaves the frame and every existing channel can see
 it. The tool reproduces this: keep the band, drop `safe`, and the collision comes back at
 the same step.
+
+**Declaring a `capacity.axis` silently changes what the tool sweeps — and can WEAKEN
+discovery.** The sweep axis is chosen in `check-jank.js`: a component with a
+`capacity.axis` AND an entry in `calibrate-core.js` BUILDERS is swept by **count**,
+everything else by **heading**. The count sweep builds its slides from that builder, and a
+builder emits one plain repeated element — `BUILDERS.pricing` produces N identical tiers
+with a single `[x]` badge each. So the moment `pricing` gained a capacity (2026-09-06,
+enrolling it in splitting), `--anchors` stopped reporting its `*Most chosen*` corner tag
+and its `[/]` slashed badge: two positioned marks the shipped component really has, and
+the corner tag is *precisely* the fixed-element-that-must-hold-position this tool exists
+to police. Nothing warned; two arms of `jank-sweep.test.js` failed and that is the only
+reason it was noticed.
+
+The general shape: **for any capacity-bearing component whose real chrome is optional — a
+featured flag, a variant-only badge — a count sweep under-reports.** `split-compare` was
+the second instance and lost `div.verdict::before`, the RECOMMENDATION corner tag, which is
+the most position-sensitive mark it has; nothing failed, because it has no arm here.
+
+**Fixed for DISCOVERY (2026-09-06): `--anchors` now defaults to the heading sweep**, which
+reads the component's own sample. Discovery asks what marks a component HAS, and a
+generated deck cannot answer that. The MEASURING modes still default to the count sweep for
+a capacity-bearing component — there, growing the collection and watching what moves is the
+entire point, and the builders also feed `calibrate-capacity` / `calibrate-density`, where a
+heavier element would shift the measured ceilings. So the builders were deliberately NOT
+taught the optional chrome; that remains open if a measuring mode ever needs it.
 
 ## Four decisions, and what would change them
 

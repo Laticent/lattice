@@ -840,7 +840,8 @@
             "roadmap-horizons",
             "journey-stages",
             "cover-cards",
-            "cover-paginate"
+            "cover-paginate",
+            "compare-options"
           ],
           "description": "Which carouselize() splitter re-authors the overflowing section. See lib/core/carousel.js for what each strategy parses and emits."
         },
