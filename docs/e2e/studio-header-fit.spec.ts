@@ -71,9 +71,23 @@ const SETTLE_TRIES = 40; // 4s ceiling — far past the ~100ms reflow, still bou
 // pre-fix row measures **-11px** — it did not fit at 700px at all, and never had. So the
 // old 25 was not headroom that this change consumed; it was headroom that was never there.
 //
-// Measured today, on the floored row: **19px** (700px, Craft stop, fonts loaded), agreeing
-// to the pixel between `spareAt` here and an independent puppeteer rig. The floor stays at
-// **16** — unchanged, and now met HONESTLY for the first time. Note the tolerance is
+// THAT 19px NUMBER WAS WRONG, and with it the claim that 16 is a meaningful floor. This
+// docblock read "**19px** (700px, Craft, fonts loaded), agreeing to the pixel between
+// `spareAt` here and an independent puppeteer rig". Re-measured 2026-09-05 with `spareAt`'s
+// own algorithm at the same width and stop, on the built site: **246px** — and **252px** on
+// a build from before this branch, so the 19 has been wrong for longer than the branch is.
+//
+// The reason it matters is not the arithmetic. 188 of those 246 are the DECK PILL'S OWN
+// shrink range (230px down to its 42px floor), i.e. capacity the row can only "spend" by
+// truncating the deck title — the very thing #1417 says is not headroom. Spare with the pill
+// PINNED is **58px**. So `MIN_SPARE_AT_FLOOR = 16` sits ~230px below what `spareAt` returns
+// and cannot fail on any change smaller than the pill's whole title: it is INERT, and this
+// file's own ratchet rule ("if a change frees width, raise it to match") has never fired.
+//
+// It is left at 16 here rather than retuned, deliberately: the honest fix is to measure with
+// the pill pinned, which is a change to what this guard MEANS, and that is a decision to take
+// on its own rather than inside a header PR. Filed so it cannot rot quietly.
+// The floor stays at **16** — but do NOT cite it as evidence that a width change fits. Note the tolerance is
 // thinner than it was (3px, not 9): the fonts are self-hosted woff2 and this spec waits on
 // `document.fonts.ready`, so cross-runner metric drift should be sub-pixel rather than the
 // several px the original 9 was guarding against. If CI ever does flake here, the answer is

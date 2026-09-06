@@ -103,7 +103,7 @@ the proof that it fits** — an earlier draft did, and the guard cannot resolve
 6px: `spareAt` measures 246px at 700, of which 188 is the deck pill's own shrink
 range (230px down to its 42px floor) rather than row headroom, so a ≥16px
 assertion carries ~230px of slack. The numbers that mean something are spare with
-the pill **pinned** — 57px at 700, Craft, fonts loaded — and
+the pill **pinned** — 58px at 700, Craft, fonts loaded — and
 `scrollWidth === clientWidth` at all nine sampled widths.
 
 ## What the guard can assert now that it could not before

@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import StudioShell from './StudioShell';
 import { TOURS } from './tours';
@@ -242,6 +243,32 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(
 			Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-src-')),
 			`${evt} wrote a source row for a deck that was never edited`,
+		).toEqual([]);
+	});
+
+	it.each(['pagehide', 'visibilitychange'])('a %s does NOT write an untouched deck UNDER STRICTMODE either', (evt) => {
+		// THE BUILD THE OTHER ARM CANNOT SEE. `StudioIsland.tsx` wraps the shell in `<StrictMode>`
+		// on purpose, and StrictMode replays every effect body mount → cleanup → mount with
+		// IDENTICAL deps. A gate phrased as "the first run for this deck is its load, every later
+		// run is an edit" therefore takes the edit branch on run 2 and writes a deck nobody
+		// touched. Production React makes StrictMode inert, so that shipped a fixed site and a
+		// broken `npm run dev` — a split invisible to every guard here, because the arm above
+		// renders without StrictMode and every e2e drives the production bundle.
+		//
+		// The gate is value-based now (compare the loaded TEXT, not the run count), which is what
+		// makes it immune. This arm is the oracle for that, and it fails against the run-count
+		// version — which is the only reason it is worth its runtime.
+		localStorage.clear();
+		seedPosture('write');
+		render(
+			<React.StrictMode>
+				<StudioShell options={options} />
+			</React.StrictMode>,
+		);
+		fireDeparture(evt);
+		expect(
+			Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-src-')),
+			`${evt} wrote a source row for an untouched deck under StrictMode`,
 		).toEqual([]);
 	});
 

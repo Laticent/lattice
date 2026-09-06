@@ -1224,14 +1224,26 @@ export default function StudioShell({ options, components: seedComponents = [], 
 
 	// Persist the active deck's source (debounced) so edits survive a switch AND a reload.
 	//
-	// WHICH DECK'S LOAD HAVE WE ALREADY SEEN? This ref replaces a plain `firstSave` boolean and
-	// carries the deck id, which is what makes one effect enough: the first run for ANY deck —
-	// the mount, or a switch — is that deck's LOAD, and every later run with the same id is a
-	// real edit. A boolean plus a second effect keyed on `deck.id` cannot express that, and got
-	// it wrong in a way worth recording: React runs effects in declaration order, so on mount
-	// the debounce consumed the flag and the reset effect immediately put it back, which
-	// swallowed the very first edit of the session.
-	const loadedFor = React.useRef<string | null>(null);
+	// WHAT DID THIS DECK LOOK LIKE WHEN IT LOADED? The id AND the text, because the question the
+	// flush has to answer — "did the user change anything?" — is about VALUES, and any answer
+	// phrased in terms of how many times an effect has run is wrong on a build that runs effects
+	// twice.
+	//
+	// That is not hypothetical, it is where this landed twice. First attempt: a `firstSave`
+	// boolean plus a second effect keyed on `deck.id`; React runs effects in declaration order,
+	// so on mount the debounce consumed the flag and the reset effect put it straight back,
+	// swallowing the first edit of the session. Second attempt: this ref holding only the id,
+	// on the theory that "the first run for any deck is its LOAD and every later run is an
+	// edit". STRICTMODE FALSIFIES THAT — `StudioIsland.tsx` wraps the shell in `<StrictMode>`
+	// deliberately, and its mount → cleanup → mount replays this body with IDENTICAL deps, so
+	// run 2 took the edit branch and wrote a deck nobody had touched. Production React makes
+	// StrictMode inert, so the shipped site was fine and `npm run dev` was not — a split no
+	// guard here could see, since the unit tests render without a StrictMode wrapper and every
+	// e2e runs the production bundle.
+	//
+	// Comparing the TEXT is immune to both: a replayed run carries the same `source` it just
+	// saw, so it is not an edit, however many times it runs.
+	const loadedFor = React.useRef<{ id: string; src: string } | null>(null);
 	// Has THIS deck's source actually changed since it was loaded?
 	//
 	// WITHOUT IT THE FLUSH WRITES A DECK NOBODY EDITED — measured: open the Studio at Read,
@@ -1241,13 +1253,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// never reaches you; and `shouldNudgeBackup` counts "decks carrying edits" as
 	// `loadSource(id) != null`, so merely browsing would arm the backup nudge its own docblock
 	// reserves for "real unbacked-up work".
+	//
+	// STICKY once set, deliberately: undoing back to the loaded text still leaves a deck the
+	// user edited, and writing a row identical to the canonical source is a far cheaper mistake
+	// than dropping a real one.
 	const dirty = React.useRef(false);
 	React.useEffect(() => {
-		if (loadedFor.current !== deck.id) {
-			loadedFor.current = deck.id;
+		if (loadedFor.current?.id !== deck.id) {
+			loadedFor.current = { id: deck.id, src: source };
 			dirty.current = false;
 			return;
 		}
+		if (!dirty.current && source === loadedFor.current.src) return; // a StrictMode replay, not an edit
 		dirty.current = true;
 		const id = setTimeout(() => saveSourceGuarded(deck.id, source), 400);
 		return () => clearTimeout(id);
@@ -4116,7 +4133,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	 * note did, and the guard cannot resolve 6px: `spareAt` measures 246px at 700, of which 188
 	 * is the DECK PILL'S OWN shrink range (230px down to its 42px floor), not row headroom. So a
 	 * ≥16px assertion carries ~230px of slack and is structurally incapable of failing on a
-	 * change this size. The number that means something is spare with the pill PINNED — 57px at
+	 * change this size. The number that means something is spare with the pill PINNED — 58px at
 	 * 700, Craft, fonts loaded — and `scrollWidth === clientWidth` at all nine sampled widths.
 	 *
 	 * The menu itself is unchanged, and it persists at EVERY width and stop — the first item
@@ -4548,10 +4565,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    `sm:gap-3` at `!compact`, so it is 1 + 12 = 13. The band affords it — the row
 				    measures 241px of spare at 1100 and `scrollWidth === clientWidth` at every
 				    sampled width — but it is spent, not recovered.
-				    It is still never drawn below desktop: a rule costs 7px there (1px + one 6px
-				    gap) and `studio-header-fit.spec.ts` measures the spare at the 700px floor
-				    against a ratcheted 16px, so the tablet has about 3px to spend and this does
-				    not fit. Below desktop the band closes on proximity instead (#1408).
+				    It is still never drawn below desktop, and the REASON is not the one this comment
+				    used to give. It said "a rule costs 7px there and the spare is ~19px against a
+				    ratcheted 16, so the tablet has about 3px" — but 19 was never the spare (it is
+				    246 by `spareAt`, 58 with the deck pill pinned), so ~3px was arithmetic on a
+				    number the note above already declares meaningless. The tablet can AFFORD a
+				    rule; it does without one because below desktop this row reads as a wider phone
+				    header, closing its bands on proximity rather than on rules (#1408). Below desktop the band closes on proximity instead (#1408).
 				    The dial keeps its WORDS at every width it renders at (≥700) — why, and what
 				    that width is bought with, is on the dial itself in `chrome-parts.tsx`; the
 				    short version is #1401: icon-only made the stops unreachable on touch, and
