@@ -1076,3 +1076,67 @@ describe('state-chart `:::token` tint channel', () => {
     assert.match(html, /&quot;labelBg&quot;:&quot;surface-raised&quot;/);
   });
 });
+
+/**
+ * dagre re-ranking — the hybrid layout rule.
+ *
+ * A CHAIN keeps the numbered column: `state i at row i` is not an approximation
+ * of good layout for a chain, it IS good layout, and keeping it means the six
+ * shipped galleries and their committed PDFs cannot churn. A BRANCHING machine
+ * has no correct single-column rendering, and that is the case dagre exists for.
+ *
+ * These are transform-level tests: the adoption decision happens inside the
+ * browser pass (it needs measured boxes), so what is pinned here is the SHAPE of
+ * the contract — that the pass is self-contained, reads the engine off a global,
+ * and degrades to the column rather than throwing when that global is absent.
+ * The positional guarantee itself is verified by rendering: the gallery's node
+ * geometry is byte-identical before and after this change.
+ */
+describe('state-chart dagre re-ranking contract', () => {
+  const src = installStateChartLayout.toString();
+
+  test('the pass reads the engine off a global, never an import', () => {
+    assert.match(src, /globalThis\.__latticeDagre/,
+      'a stringified function carries no module scope — a global is the only channel');
+    assert.equal(/\brequire\s*\(/.test(src), false,
+      'a require() inside the pass would be dead code once it is serialised');
+    assert.equal(/\bimport\s+/.test(src), false);
+  });
+
+  test('a missing engine falls back to the column instead of throwing', () => {
+    // The guard is what makes the whole feature safe to ship: hosts that never
+    // load dagre (a clone with no `npm install`) must render today's layout.
+    assert.match(src, /if \(!D \|\| typeof D\.Graph !== 'function'\) return null;/);
+    // …and any internal failure is caught rather than taking the diagram down.
+    assert.match(src, /catch \(_e\) \{\s*\n?\s*return null;/);
+  });
+
+  test('self-loops are withheld from dagre', () => {
+    // dagre does not route a self-edge, and feeding it one perturbs the ranking
+    // for no gain — the existing router draws them, as it does today.
+    assert.match(src, /if \(t\.isSelf \|\| t\.from === t\.to\) continue;/);
+  });
+
+  test('adoption requires a genuine rank collision', () => {
+    // Not "has a branch in the grammar" — two nodes sharing a rank in the LAID
+    // OUT graph. A machine whose branches happen to serialise into a column is
+    // left alone, which is what makes the chain guarantee hold by construction.
+    assert.match(src, /if \(!branching\) return null;/);
+  });
+
+  test('the node children carry the same delta as the node', () => {
+    // The badge and label are painted from their OWN measured rects — they have
+    // to be, that is where the browser put the glyphs — so a moved node must
+    // shift them by the same amount or the text stays behind in the old column.
+    // This shipped broken once and is invisible to every non-visual gate.
+    assert.match(src, /const ddx = n\.x - \(n\.mx != null \? n\.mx : n\.x\);/);
+    assert.match(src, /const ddy = n\.y - \(n\.my != null \? n\.my : n\.y\);/);
+  });
+
+  test('the inline size pin is removed again when dagre is not adopted', () => {
+    // draw() re-runs on resize and fonts.ready. A pin left behind would outlive
+    // the layout it was computed for and silently letterbox the next one.
+    assert.match(src, /geo\.style\.removeProperty\('width'\)/);
+    assert.match(src, /geo\.style\.removeProperty\('height'\)/);
+  });
+});

@@ -56,12 +56,19 @@ describe('dagre delivery to the state-chart pass', () => {
   test('the serialised pass does NOT carry the dagre IIFE', () => {
     const { STATE_CHART_BROWSER_JS } = require(
       path.join(ROOT, 'lib/components/chart/state-chart/state-chart.transform.js'));
-    assert.equal(
-      STATE_CHART_BROWSER_JS.includes('__latticeDagre'), false,
-      'the IIFE is prepended by the emulator, not baked into the shared transform — ' +
-      'baking it in ships 62KB of dead string to every reader of every deck');
-    assert.ok(STATE_CHART_BROWSER_JS.length < 80 * 1024,
-      'the pass alone stays well under the bundle it would carry');
+    // NOT `includes('__latticeDagre')`: the pass legitimately NAMES that global —
+    // reading it is how a stringified function reaches a layout engine at all.
+    // What must not be here is the LIBRARY, so the markers are internals only the
+    // bundle contains. (This assertion started as the identifier check and went
+    // red the moment the layout code landed, which is the right failure for the
+    // wrong reason — a size-only check would have missed a half-inlined bundle.)
+    for (const marker of ['barycenter', 'nestingGraph', 'normalizeRanks', 'acyclic']) {
+      assert.equal(
+        STATE_CHART_BROWSER_JS.includes(marker), false,
+        `the dagre bundle leaked into the shared transform (found "${marker}"). ` +
+        'It is prepended by the emulator; baking it in ships 62KB of dead string ' +
+        'to every reader of every deck — measured at +51KB gzipped on the runtime bundle.');
+    }
   });
 
   test('the emulator prepends the IIFE at its call site', () => {

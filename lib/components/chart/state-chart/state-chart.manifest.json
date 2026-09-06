@@ -16,7 +16,7 @@
   "form": "timeline",
   "substance": "graph",
   "render": "hybrid",
-  "renderNote": "States are authored as an HTML `<ol>`, which the browser pass measures and then paints as nodes, edges and edge labels into the `<svg>` overlay — edge routing needs each state's measured box, so the HTML has to exist first. Once painted the list is hidden, so a default slide is SVG in practice; what keeps the component hybrid is the `inline` variant, whose chip row stays HTML and is never painted over.",
+  "renderNote": "States are authored as an HTML `<ol>`, which the browser pass measures and then paints as nodes, edges and edge labels into the `<svg>` overlay — edge routing needs each state's measured box, so the HTML has to exist first. Once painted the list is hidden, so a default slide is SVG in practice; what keeps the component hybrid is the `inline` variant, whose chip row stays HTML and is never painted over. LAYOUT IS HYBRID TOO: a chain keeps the numbered column (`state i at row i`), and a machine that BRANCHES is re-ranked by dagre using the same measured boxes. The browser measures, dagre positions — dagre cannot measure text, so it replaces the positioning half of the layout and nothing else. Self-transitions are never handed to dagre (it does not route them) and keep the hand-written router, so one machine can use both.",
   "kernel": {
     "figureClass": "state-chart-figure"
   },
@@ -37,7 +37,7 @@
   ],
   "anatomyBlock": "state-chart",
   "description": "Native state machine diagram — states as a numbered list, transitions as nested inline-code refs.",
-  "purpose": "Use to show a finite-state machine — the discrete states a system can be in and the events that move between them. Authors write a numbered list; each state's index becomes its stable ref so transitions cite numbers, not names. The numbering is the layout: state i renders at row i, so there is no auto-layout problem to solve.",
+  "purpose": "Use to show a finite-state machine — the discrete states a system can be in and the events that move between them. Authors write a numbered list; each state's index becomes its stable ref so transitions cite numbers, not names. The numbering is the REF, always: transitions cite `=> 4`, and the index badge is painted on the node. It is also the LAYOUT for a chain, where a single column is not an approximation of good layout but the right answer. A machine that branches is re-ranked by dagre, because no column can show a fan-out — the states would read as a sequence.",
   "variants": [
     "lr",
     "inline",
