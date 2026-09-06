@@ -360,11 +360,24 @@ class: inline-code-literal
 ```
 
 Verified against real marp-cli: the token lands on every section. Two things to know if you
-go this route. Marpit's per-slide `_class:` **replaces** the global `class:` for that slide,
-so a slide that sets its own `_class:` loses the token and the grammar comes back — a
-Lattice deck is unaffected, because the engine appends the token to the class list it
-builds. And through the Lattice engine the register is **deck-wide**: for a single span,
-escape it.
+go this route.
+
+**A slide that sets its own `_class:` loses the token** — Marpit's local directive
+*replaces* the global one rather than adding to it, so the grammar comes back on that
+slide. Measured through Marpit itself:
+
+| slide directive | resulting section class |
+|---|---|
+| *(none — global `class:` only)* | `inline-code-literal` |
+| `_class: big-number` | `big-number` — **the token is gone** |
+| `_class: big-number inline-code-literal` | both — list it and it survives |
+
+So on the raw-Marp route, any slide with its own `_class:` must name
+`inline-code-literal` alongside its other tokens. A Lattice deck never hits this: the
+engine appends the register's token to the class list it builds, so a per-slide `_class:`
+composes with it instead of competing.
+
+**And through the Lattice engine the register is deck-wide**: for a single span, escape it.
 
 ## The `eyebrow:` front-matter register (kicker decoration)
 
