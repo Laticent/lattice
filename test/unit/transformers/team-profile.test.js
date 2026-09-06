@@ -160,3 +160,36 @@ describe('team-profile — applyToDom', () => {
     assert.doesNotThrow(() => t.applyToDom({}));
   });
 });
+
+// CodeQL alerts 241 + 242 on PR #2102, both against `textOf`. Neither was
+// reachable as a vulnerability here — the output is filtered to letters and
+// truncated to two code points before it is escaped and emitted — but the
+// function was genuinely broken as a text extractor, and a broken one gets
+// reused. Both defects are pinned so they cannot come back.
+describe('team-profile — textOf', () => {
+  test('strips tags to a FIXPOINT (alert 241: incomplete multi-character sanitization)', () => {
+    // One pass removes the inner `<b>` and closes the halves into a live tag the
+    // pass has already walked past.
+    assert.doesNotMatch(t.textOf('<<b>b>Ada'), /</);
+    assert.doesNotMatch(t.textOf('<<script>script>alert(1)'), /</);
+  });
+
+  test('leaves no bare angle bracket, even from an UNCLOSED tag', () => {
+    assert.doesNotMatch(t.textOf('<script src=x'), /[<>]/);
+    assert.doesNotMatch(t.textOf('a < b > c'), /[<>]/);
+  });
+
+  test('decodes entities in ONE pass (alert 242: double unescaping)', () => {
+    // Chained replaces would turn `&amp;lt;` into `&lt;` and then into `<`,
+    // manufacturing a character the author never wrote.
+    assert.equal(t.textOf('&amp;lt;'), '&lt;');
+    assert.equal(t.textOf('&amp;amp;'), '&amp;');
+    assert.equal(t.textOf('&amp;'), '&');
+  });
+
+  test('still reads an ordinary name, markup and entities included', () => {
+    assert.equal(t.textOf('<strong>Ada</strong>&nbsp;Okafor'), 'Ada Okafor');
+    assert.equal(t.textOf('Ada &amp; Marcus'), 'Ada & Marcus');
+    assert.equal(t.textOf('  Ada\n  Okafor '), 'Ada Okafor');
+  });
+});
