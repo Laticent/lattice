@@ -73,16 +73,26 @@ import { expect, gotoStudio, persistedSource, railButtons, test, waitForStudioPa
  *   1440 WebKit              7/7 + 2  the two clipboard oracles SKIP; see below
  *   1440 Firefox             7/7 + 2  same
  *   820  WebKit              7/7 + 2  same
- *   390  Chromium (± touch)  3/9      structural, and not a defect: see below
+ *   390  Chromium (± touch)  4/9      structural, and not a defect: see below
  *
  * THE PHONE IS A DIFFERENT SURFACE, and this is the measurement rather than a guess. At 390
  * the Studio shows ONE PANE AT A TIME — probed directly: by default the rail is visible and
  * the editor is not; reveal the editor through its `Markdown source` toggle and the rail goes.
- * So the three oracles that need only the editor pass there (CR/CRLF folding, undo across
- * Compose, the Compose carry), and the six that must TYPE in the editor and then READ the rail
- * cannot run without toggling panes between every step. That is a different spec, not a missing
- * assertion here. `revealEditor` in the setup exists so this file gives that answer instead of
- * timing out on a hidden element.
+ * Four oracles pass there — CR/CRLF folding, undo across Compose, the Compose carry, and the
+ * reload round trip. The five that do not are blocked by three different things, which is worth
+ * stating precisely because an earlier draft of this paragraph said "must type in the editor
+ * and then read the rail" for all of them and that is not what the failures say:
+ *
+ *   · the two BOM oracles      the RAIL — `railClick` times out, the rail being toggled away
+ *   · the rail-names oracle    the PREVIEW IFRAME — `paintedClasses` has nothing to read
+ *   · the walk                 the same, through invariant 2
+ *   · Fix all is offered       the TOOLBAR — `fixAll.isEnabled()`, not the rail at all
+ *
+ * Running them here would mean toggling panes between every write and every read. That is a
+ * different spec, not a missing assertion. `revealEditor` in the setup exists so this file
+ * gives that answer instead of timing out on a hidden element. One caveat on the fourth
+ * passer: the reload oracle's rail assertion counts DOM nodes, which the hidden rail still
+ * satisfies — so it passes at 390 without really exercising the rail there.
  *
  * THE TWO ENGINE SKIPS ARE HONEST ONES. WebKit rejects the `clipboard-write` permission by
  * name and Firefox has no equivalent, and `navigator.clipboard.writeText` then rejects into a
@@ -289,22 +299,24 @@ test.beforeEach(async ({ page, browserName }) => {
 	await revealEditor(page);
 });
 
-/** The markdown pane is on screen by default at desktop and tablet widths, and NOT on a phone,
- *  where the Studio's default stop shows the deck and keeps the source behind its toggle. This
- *  is a no-op wherever the pane is already visible, so it cannot change what the desktop
- *  project has always measured — it exists so the file can be RUN at a narrow width and give an
- *  answer, rather than time out on a hidden element and leave "not verified below 1440px" as a
- *  permanent caveat. Measured with it: 9/9 at 820, 9/9 at 390. */
-/** Click a rail slide, scrolling it into view first. At 1440px the rail is fully on screen and
- *  the scroll is a no-op; at 390px it sits at the bottom edge, and a bare `.click()` times out
- *  waiting for a stable box — which read as "the rail is unusable on a phone" until the box was
- *  measured (it is 81x32 at y=772 in an 844-tall viewport, visible and clickable once scrolled). */
+/** Click a rail slide, scrolling it into view first. The rail is a HORIZONTALLY scrolling
+ *  strip, and the scroll this needs is horizontal — measured on `railButtons.nth(3)`, which
+ *  moves x=845.7 → 620.7 at 820px and x=468 → 217 at 390px, with y unchanged both times; at
+ *  1440px it does not move at all. An earlier version of this comment said the button "sits at
+ *  the bottom edge" and described a vertical scroll, which was the wrong mechanism read off the
+ *  right symptom. Playwright's own `.click()` already scrolls, so this adds little that can
+ *  fail — it is here to make the intent explicit rather than to rescue a click. */
 async function railClick(page: Page, index: number): Promise<void> {
 	const button = railButtons(page).nth(index);
 	await button.scrollIntoViewIfNeeded();
 	await button.click();
 }
 
+/** The markdown pane is on screen by default at desktop AND tablet widths, and not on a phone,
+ *  where the Studio's body is a single swappable Edit/Preview pane and the source sits behind
+ *  its toggle. A no-op wherever the pane is already visible, so it cannot change what the
+ *  desktop project has always measured — it exists so this file can be RUN at a narrow width
+ *  and give an answer instead of timing out on a hidden element. */
 async function revealEditor(page: Page): Promise<void> {
 	const editor = page.locator(EDITOR).first();
 	if (await editor.isVisible().catch(() => false)) return;
@@ -320,13 +332,29 @@ async function revealEditor(page: Page): Promise<void> {
 			.catch(() => false)
 	)
 		return;
-	// A HIDDEN PANE IS ONLY EXPECTED ON A NARROW LAYOUT. Above the Studio's two-pane
-	// threshold the source editor is on screen, so reaching here means something hid it —
-	// and quietly clicking it back would REPAIR a regression and let every oracle in this
-	// file pass over it. That is the hazard this whole helper introduces, so it fails loudly
-	// instead. (The threshold is the one `split.spec.ts` pins its workspace group at.)
+	// A HIDDEN PANE IS ONLY EXPECTED WHERE THE STUDIO ACTUALLY HIDES ONE. Anywhere else,
+	// reaching this line means something hid the editor — and quietly clicking it back would
+	// REPAIR a regression and let every oracle in this file pass over the top. That is the
+	// hazard this whole helper introduces, so it fails loudly instead.
+	//
+	// THE THRESHOLD IS 700, NOT 1100, and getting that wrong is how this guard shipped inert
+	// across its most important width. `use-breakpoint.ts` puts the single swappable pane at
+	// `max-width: 699px`; 1100 is where the Architect and Inspector stop being docked columns,
+	// which has nothing to do with the source pane. A checker measured the difference against a
+	// genuinely hidden pane: at 1099 and at 820 the old guard was silent and the toggle simply
+	// repaired it — 820 being exactly the width this file now claims 9/9 for.
+	//
+	// A LANDSCAPE PHONE is the other legitimate case, and it is not width-based: wide (667–932)
+	// but short, where the Studio locks to a full-bleed preview with no editor at all so the
+	// software keyboard has nowhere to bury the caret. Same triad `use-breakpoint.ts` uses.
 	const width = page.viewportSize()?.width ?? 0;
-	expect(width, 'the deck source is not on screen at a width where the Studio shows two panes').toBeLessThan(1100);
+	const landscapePhone = await page.evaluate(() =>
+		window.matchMedia('(orientation: landscape) and (max-height: 500px) and (pointer: coarse)').matches,
+	);
+	expect(
+		width < 700 || landscapePhone,
+		`the deck source is not on screen at ${width}px, a width where the Studio shows it`,
+	).toBe(true);
 	const toggle = page.getByRole('button', { name: 'Markdown source', exact: true }).first();
 	if (!(await toggle.count())) return;
 	await toggle.click();
@@ -433,7 +461,7 @@ test('CodeMirror folds CRLF and a lone CR at the same door', async ({ page }) =>
 
 // ── The rail names the component the engine renders ─────────────────────────
 // `lint.ts`'s `_class` regex was unanchored, so it matched a directive comment anywhere on
-// any line — and the rail then labelled slides by a directive the render ignores. The walk
+// any line — and the rail then labeled slides by a directive the render ignores. The walk
 // reached it with one keystroke: a `.` typed at the end of the directive line, after which
 // the rail went on saying `title` while the preview beside it painted `content`.
 //
@@ -516,13 +544,16 @@ test('a Compose edit deliberately drops the carried history', async ({ page }) =
 // alone, and every new deck holds byte-identical template bytes, so deck A's history could
 // be restored into deck B. An independent checker reproduced it against the real CodeMirror.
 //
-// THERE IS NO ORACLE FOR IT HERE, and that is a decision rather than an omission. Replaying
-// the leak needs a REDO to put deck A's edit into deck B, and redo after an undo on a freshly
-// created deck did not fire on the shipped surface — measured, and not root-caused. An e2e
-// test written for it therefore PASSED against the broken guard: green for the wrong reason,
-// which is worse than no test (`2026-09-02-compose-fuzz-findings.md` §8 moved a security
-// property to its parser on exactly this reasoning). The pin is at the predicate instead:
-// `docs/src/components/studio/editor-carry.test.ts`, which fails on the document-only guard.
+// THERE IS NO ORACLE FOR IT HERE, and the honest reason is not the one first recorded. Two e2e
+// attempts PASSED against the broken guard. The first started from the seeded tour deck, whose
+// bytes never match a new deck's, so the leak could not arise. The second used two new decks,
+// and WHY it passed is still unknown: the explanation written down at the time ("redo does not
+// fire on this surface") was wrong, and so was the correction that replaced it ("redo is
+// Ctrl+Y"). Measured on the built Studio, `Ctrl+Shift+Z` redoes — on Chromium, WebKit and
+// Firefox. A test that passes for a reason nobody has established is worse than no test
+// (`2026-09-02-compose-fuzz-findings.md` §8 moved a security property to its parser on exactly
+// this reasoning), so the pin is at the predicate — `editor-carry.test.ts`, which fails on the
+// document-only guard — and the end-to-end oracle lands with the deck-history change.
 
 // ── "Fix all issues" is offered exactly when something can be fixed ─────────
 // The shell gated the button on its own `unknownComponents` count while the button runs
@@ -580,6 +611,13 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 	// How many times invariant 2 actually COMPARED something — see the assertion after the
 	// loop for why a walk that only ever takes its escapes is a walk that certifies nothing.
 	let invariant2Ran = 0;
+	// The same accounting the invariant above gets, for the same reason. `quickFix` returns
+	// early on a context without hover, and a skipped op is INVISIBLE in a pass count — the
+	// walk reports 34 steps either way. Measured: headless Firefox at 1440x900 with no touch
+	// reports `(hover: hover)` FALSE, so on that engine this op would silently never act while
+	// the header's Firefox row still read as full coverage. Counted here, and asserted below
+	// only where the platform says a pointer can hover.
+	let quickFixRan = 0;
 
 	// Payloads an author really pastes, plus the two that carry the ingest hazards.
 	const PAYLOADS = [
@@ -658,6 +696,7 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 			await page.keyboard.press('Delete');
 		},
 		async quickFix() {
+			quickFixRan++;
 			const marker = page.locator('.cm-lint-marker').first();
 			if (!(await marker.count())) return;
 			// THE QUICK FIX IS REACHED BY HOVER, so this op has nothing to drive on a touch
@@ -769,6 +808,15 @@ test('a randomized walk over the markdown-pane ops holds the structural invarian
 	// frame to `[]`, so all 34 steps could take an escape and the walk would report success
 	// having compared nothing. This is the assertion that the net was actually in the water.
 	expect(invariant2Ran, 'invariant 2 never compared the source against a painted slide').toBeGreaterThan(10);
+	// A hovering pointer means the Quick-fix op had a path to take, so it must have taken one.
+	// Where it does not (a touch context, and headless Firefox), the op is legitimately inert
+	// and this says so rather than pretending the walk covered it.
+	const canHover = await page.evaluate(() => matchMedia('(hover: hover)').matches);
+	if (canHover) {
+		expect(quickFixRan, 'the Quick-fix op never ran, so this walk did not cover it').toBeGreaterThan(0);
+	} else {
+		test.info().annotations.push({ type: 'inert-op', description: 'quickFix: no hovering pointer on this surface' });
+	}
 });
 
 // ── The persisted source is what a reload reads back ────────────────────────

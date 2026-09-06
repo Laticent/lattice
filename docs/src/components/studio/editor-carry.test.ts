@@ -3,11 +3,11 @@ import { type CarriedState, carryApplies } from './Editor';
 import { newDeckSource } from './studio-store';
 
 // The editor's undo history is CARRIED across the unmount a Markdown↔Compose switch causes.
-// This is the guard that decides when that carry may be applied, and it is tested here
-// rather than end to end for a reason worth stating: replaying the leak needs a REDO, and
-// redo after an undo on a freshly created deck did not fire on the shipped surface — so an
-// e2e oracle for it passes against the broken guard, which is worse than no oracle
-// (`2026-09-02-compose-fuzz-findings.md` §8, same call for the same reason).
+// This is the guard that decides when that carry may be applied. It is pinned here rather
+// than end to end because two e2e attempts PASSED against the broken guard and the reason the
+// second one did is still unknown — two different confident explanations were recorded and a
+// checker refuted both (findings note §6). A unit pin states the rule directly and cannot be
+// confounded by a keybinding, which is worth having whatever the e2e answer turns out to be.
 describe('carryApplies — the editor history never crosses decks', () => {
 	const state = (key: string, doc: string): CarriedState => ({ key, doc, state: {} as CarriedState['state'] });
 

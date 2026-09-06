@@ -147,12 +147,19 @@ let carried: CarriedState | null = null;
 /**
  * May `carried` be restored into the editor now mounting?
  *
- * EXPORTED SO IT CAN BE TESTED, because the leak it closes is not reachable from the e2e
- * tier. Driving it needs a REDO to replay deck A's edit into deck B, and redo after an undo
- * on a freshly created deck did not fire on the shipped surface — measured, and not
- * root-caused. An end-to-end oracle for it therefore passes against the broken guard, which
- * is worse than no oracle at all (`2026-09-02-compose-fuzz-findings.md` §8 moved a security
- * property to its parser for exactly this reason). So the pin is here, at the predicate.
+ * EXPORTED SO IT CAN BE TESTED. Driving the leak end to end needs a REDO to replay deck A's
+ * edit into deck B, and redo DOES fire here — `Ctrl+Shift+Z` restores the edit,
+ * measured on the built Studio (Chromium, WebKit and Firefox alike; `navigator.platform` is
+ * `Linux x86_64`, so `@codemirror/commands`' `linux: "Ctrl-Shift-z"` binding is active). Two
+ * earlier e2e attempts still passed against the broken guard, and WHY IS NOT KNOWN. The first
+ * had a plain cause — it started from the seeded tour deck, whose bytes never match a new
+ * deck's, so the leak could not arise. The second used two new decks, and the explanation
+ * recorded for it ("redo does not fire on this surface") was WRONG, as was the correction that
+ * replaced it ("redo is Ctrl+Y, so Ctrl+Shift+Z is a second undo"). Both were confident, both
+ * were called measured, and a checker refuted each in turn. So the pin is here, at the predicate, where the rule is
+ * stated directly and cannot be confounded by a keybinding — and the end-to-end oracle is
+ * follow-up work in the deck-history change rather than an impossibility. See the findings
+ * note §6; treat any account of WHY those two attempts passed as unwritten.
  *
  * BOTH halves are load-bearing. The DECK half: `newDeckSource()` is deterministic, so every
  * new deck holds the same template bytes, and a document-only guard matched ACROSS decks —

@@ -246,12 +246,26 @@ started from the seeded tour deck, whose bytes never match a new deck's, so the 
 arise. The second used two new decks and still passed, and this note originally recorded the
 reason as "redo does not fire on the shipped surface — measured, and not root-caused."
 
-**It fires. Redo here is `Ctrl+Y`.** `@codemirror/commands` binds `Mod-y`, with `Mod-Shift-z`
-on mac and a `linux: "Ctrl-Shift-z"` alternative that is not active in a headless context — so
-`Ctrl+Shift+Z` falls through to the base `Mod-z` and performs a SECOND UNDO. Instrumenting
-CodeMirror's own history is what showed it: `done` fell and `undone` rose, which is an undo
-wearing a redo's name. "Measured, and not root-caused" was doing a lot of work in that
-sentence; the measurement was real and the conclusion drawn from it was not.
+**That was wrong. So was the correction that replaced it.** The first replacement said redo is
+`Ctrl+Y` and that `Ctrl+Shift+Z` therefore performs a second undo, because the
+`linux: "Ctrl-Shift-z"` binding is "not active in a headless context". A checker refuted it and
+the measurement is unambiguous — type, `Ctrl+Z`, `Ctrl+Shift+Z`:
+
+```
+typed                1932 chars, marker present
+after Ctrl+Z         1924 chars, marker gone
+after Ctrl+Shift+Z   1932 chars, marker BACK      ← a redo
+```
+
+on Chromium, WebKit and Firefox alike. `navigator.platform` reads `Linux x86_64` in headless
+Chromium, so CodeMirror's linux branch IS active. **Redo works, by both chords.**
+
+**Which means the honest state of §6 is: nobody knows why the second e2e attempt passed.** Two
+explanations were recorded, each stated as measured, each refuted in turn — and the second was
+written INTO the section that exists to retract the first. That is the failure this note's §9
+is about, committed inside the retraction itself. The pin stays at the predicate because a unit
+test states the rule directly, and the end-to-end oracle lands with the deck-history change,
+where the question can be re-opened from scratch. **Do not carry either explanation forward.**
 
 So the pin here is `editor-carry.test.ts`, which fails on the document-only guard and states
 the rule directly — worth keeping either way, because it cannot be confounded by a keybinding.
@@ -335,6 +349,15 @@ run.
   with consequences across every Studio surface that mounts one — so it goes in its own PR
   rather than widening this one. That PR also carries the end-to-end oracle §6 says is follow-up
   work.
+
+- **`Editor.tsx` still carries its own `CLASS_RE`, so §2's delegation removed one copy of the
+  parse and not the other.** It drives the FALLBACK linter and the fallback `fixAll()`, and §4's
+  new `report()` makes it authoritative for the Fix-all button whenever that fallback runs. It is
+  dead in the shipped Studio — `useRealLint` is `!!lintVocab?.names` and `StudioShell` always
+  passes `lintVocab` — so this is a latent duplicate rather than a live defect, which is why it
+  is logged instead of fixed. It is still the thing HARD RULES #1 and #7 point at, and this
+  change's own argument is "stop carrying another copy of the parse", so it should go with the
+  fallback path it serves. Found by a checker.
 
 - **The lint gutter's Quick fix is reachable only by HOVER, so a touch author cannot take it.**
   Found by running this file at a tablet viewport with `hasTouch` — the walk's `quickFix` op
