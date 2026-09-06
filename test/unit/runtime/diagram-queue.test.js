@@ -67,16 +67,25 @@ function liftQueue({ mermaid, log, capMs, attachErrorThrows = false }) {
     mermaidSvgCache: new Map(),
     diagramCacheKey: (a, b) => `${a}|${b}`,
     pinMermaidTooltip: () => {},
+    // The queue's failure paths ask WHERE a fence came from before resetting it — a fence
+    // a reclaim took from the author goes back to `unavailable` (its source), an ordinarily
+    // pending one to `pending` for a retry (#2092). Nothing here reclaims, so the shipped
+    // function's `reclaimed` branch is never the answer; this stands in with the plain
+    // half, which is what these cells are about.
+    resetFenceAfterFailure: (preEl) => {
+      if (preEl.dataset.mermaidState === 'rendering') preEl.dataset.mermaidState = 'pending';
+    },
+    markFenceDrawn: () => {},
   };
   // biome-ignore lint/security/noGlobalEval: evaluating the SHIPPED queue is the point — a paraphrase would test the paraphrase.
   const factory = eval(
-    `(function (configureForScope, attachError, mermaidSvgCache, diagramCacheKey, pinMermaidTooltip) {
+    `(function (configureForScope, attachError, mermaidSvgCache, diagramCacheKey, pinMermaidTooltip, resetFenceAfterFailure, markFenceDrawn) {
        let renderCounter = 0;
 ${block}
        return { beginDiagramRun, enqueueDiagramJob, endDiagramRuns, get queue() { return diagramQueue; } };
      })`,
   );
-  const q = factory(deps.configureForScope, deps.attachError, deps.mermaidSvgCache, deps.diagramCacheKey, deps.pinMermaidTooltip);
+  const q = factory(deps.configureForScope, deps.attachError, deps.mermaidSvgCache, deps.diagramCacheKey, deps.pinMermaidTooltip, deps.resetFenceAfterFailure, deps.markFenceDrawn);
 
   /** Drive the real kernel over a deck, exactly as the runtime does. */
   const tagOf = new WeakMap();
@@ -199,7 +208,16 @@ describe('the diagram queue always advances', () => {
     // Both bands are healthy here, so the meaningful assertion is that the SHIPPED source
     // carries the reset — the throw path itself is exercised by the hang test above, which
     // proves the chain survives a failing link.
-    assert.match(RUNTIME_SRC, /if \(preEl\.dataset\.mermaidState === 'rendering'\) preEl\.dataset\.mermaidState = 'pending';/);
+    //
+    // The reset moved behind a named function (#2092): a fence a RECLAIM took from the
+    // author goes back to `unavailable` — its source — where an ordinarily pending one
+    // goes back to `pending` for a retry, and the queue cannot tell them apart on its own.
+    // So this pins the call site AND the guard inside the callee, which together are what
+    // the old single-line match covered.
+    assert.match(RUNTIME_SRC, /for \(const preEl of fences\) resetFenceAfterFailure\(preEl\);/,
+      'the run-failure path must still hand its in-flight fences back');
+    assert.match(RUNTIME_SRC, /function resetFenceAfterFailure\(preEl\) \{\s*\n\s*if \(preEl\.dataset\.mermaidState !== 'rendering'\) return;/,
+      'and the reset must still act only on a fence that was actually in flight');
     assert.equal(good.preEl.dataset.mermaidState, 'rendered');
   });
 

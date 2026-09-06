@@ -338,14 +338,19 @@ describe('a failed walk is retried, not stuck', () => {
     // slides sit blank for the session with nothing to retry them. Asserted on the
     // shipped source because the surrounding function needs a whole live preview to
     // drive; the reset itself is three lines and its absence is the whole bug.
-    assert.match(RUNTIME_SRC, /if \(job\.preEl\.dataset\.mermaidState === 'rendering'\) job\.preEl\.dataset\.mermaidState = 'pending';/,
-      'a throw in the diagram walk must return in-flight fences to `pending` so the next '
-      + 'scheduled pass retries them');
-    // …and so must a throw inside the QUEUE LINK (a `mermaid.initialize` failure), which
-    // used to be swallowed by a bare `.catch(() => {})` — leaving that run's diagrams
-    // blank for the session with no diagnostic.
-    assert.match(RUNTIME_SRC, /if \(preEl\.dataset\.mermaidState === 'rendering'\) preEl\.dataset\.mermaidState = 'pending';/,
-      'a failed RUN must return its fences to `pending` too');
+    //
+    // BOTH RESETS NOW GO THROUGH ONE NAMED FUNCTION (#2092), because "back to `pending`"
+    // stopped being the whole answer: a fence a RECLAIM took from the author goes back to
+    // `unavailable` — its source — since a retry that will re-fail the same way is not
+    // worth taking the source for. So the pin is the two call sites plus the callee's own
+    // guard, which is what the two single-line matches used to cover between them.
+    assert.match(RUNTIME_SRC, /resetFenceAfterFailure\(job\.preEl\);/,
+      'a throw in the diagram walk must hand its in-flight fences back so a later pass can '
+      + 'retry them (or the author can read their source)');
+    assert.match(RUNTIME_SRC, /for \(const preEl of fences\) resetFenceAfterFailure\(preEl\);/,
+      'a failed RUN must hand its fences back too');
+    assert.match(RUNTIME_SRC, /preEl\.dataset\.mermaidState = reclaimed\?\.has\(preEl\) \? 'unavailable' : 'pending';/,
+      'and the reset must send a reclaimed fence to its SOURCE, not to a hidden retry');
     assert.equal(/\.catch\(\(\) => \{\}\)\n\s*\.then\(pinMermaidTooltip\)/.test(RUNTIME_SRC), false,
       'a bare swallow on the run link strands every fence in that run');
     // …and the probes still come down on that path.

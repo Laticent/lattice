@@ -21,7 +21,14 @@ flowchart LR
 | Path | Who renders | When |
 | --- | --- | --- |
 | PDF / export (`lattice-emulator.js`) | the engine's own Mermaid render worker, one batched child process (it replaced a per-diagram `mmdc` shell-out — `lib/integrations/mermaid/render-worker.js`) | build time, pre-rendered to inline SVG |
-| Live preview (`dist/lattice-runtime.js`) | `mermaid.render()` in the browser | on the live DOM, in the Playground / Studio / marp-vscode |
+| Live preview (`dist/lattice-runtime.js`) | `mermaid.render()` in the browser | on the live DOM, in the Playground / Studio / marp-vscode¹ |
+
+¹ **marp-vscode only at preview security = Disable.** Its webview carries
+`script-src 'nonce-…'` and the deck's own script tags do not carry that nonce, so at the
+DEFAULT level neither Mermaid nor this runtime executes at all — the fence simply stays as
+the author wrote it. Measured on a real VS Code preview; the whole reading is in
+`engineering/decisions/2026-09-05-diagram-fence-flash.md` § 8, including a live defect on
+that host (at Disable a fence reaches `rendered` with an empty container).
 
 **Both fence characters, on both paths.** markdown-it emits `class="language-mermaid"` for
 a tilde fence exactly as it does for a backtick one, so the preview has always rendered
@@ -113,8 +120,13 @@ not the runtime.** Hiding a diagram's source is right only where something is go
 draw it, so the attribute is written by the BUILDER that injects Mermaid —
 `previewDiagramsAttr()` in `docs/src/playground/deck-preview.js`, called by the two
 preview frames and the Stage window, and by nothing else. A document we did not assemble
-(a hand-rolled Marp page, marp-vscode's own preview) never gets it and keeps showing the
-source; so do the CLI export and the `.html` player builder, which is what keeps a
+(a hand-rolled Marp page, marp-vscode's own preview) never gets it — measured: no
+`data-lattice-diagrams` on `<html>` in a real marp-vscode preview, at either security
+level. **"And therefore keeps showing the source" is a step too far, and driving it is what
+showed that**: this rule is not the only one that can hide a fence, and on that host at
+security = Disable the older `data-mermaid-state` rule hides it anyway (§ 8 of the
+fence-flash note). What the absent stamp buys is that the ANTI-FLASH rule cannot fire
+there; so do the CLI export and the `.html` player builder, which is what keeps a
 fence the CLI could not substitute readable rather than blank. **No document whose bytes
 the author keeps stamps** — two build through this same `buildSrcdoc` with a real Mermaid
 URL and would otherwise, so both pass `diagrams: false`: the offscreen RASTER capture
@@ -130,12 +142,86 @@ set by script at boot: the window this covers starts at the first paint of a ful
 write.
 
 **What that opt-out does NOT buy, and it was only found by driving it.** The same export
-still shows an empty slot when Mermaid fails, through the OLDER `data-mermaid-state` rule
-(which hides a tagged `<pre>` in every state but `error`): `bootstrap()` tags every fence
-`pending` before it can know whether Mermaid will arrive — deliberately, since that covers
-the load window — `tick()` gives up after ~10s, and nothing un-tags them. Pre-existing,
-wider than the export, and logged rather than fixed — see
-`engineering/decisions/2026-09-05-diagram-fence-flash.md` §7.
+still showed an empty slot when Mermaid failed, through the OLDER `data-mermaid-state`
+rule (which hid a tagged `<pre>` in every state but `error`): `bootstrap()` tags every
+fence `pending` before it can know whether Mermaid will arrive — deliberately, since that
+covers the load window — and nothing un-tagged them when the answer turned out to be
+never. **Fixed in #2092, and the fix is the state below.**
+
+### When Mermaid never arrives: `unavailable`
+
+A fifth state, and the reason it exists rather than simply removing the attribute:
+
+| state | what it means | what the slide shows |
+|---|---|---|
+| *(untagged)* | the runtime has not reached this fence | nothing, under `[data-lattice-diagrams]` |
+| `pending` | tagged, waiting for Mermaid or for its turn in the queue | nothing |
+| `rendering` | handed to `mermaid.render` | nothing |
+| `rendered` | the SVG is in the sibling `.mermaid` box | the diagram |
+| `error` | Mermaid parsed the diagram and rejected it | the source, plus a themed error block |
+| `unavailable` | **Mermaid itself never became real** — a 404, a CSP block, a stub host | the source |
+
+`giveUp()` in `lib/runtime/index.js` writes it, and it is the ONLY thing that does.
+Un-tagging instead would have been wrong three ways, all of them silent: the anti-flash
+rule above withholds an UNTAGGED fence's ink, so the source would have gone invisible in
+precisely the documents that stamp; `wrapFences` skips a tagged `<pre>` and its selector
+matches the defanged `language-mermaid-source` class, so the next pass would re-tag and
+re-hide it; and the Studio's export capture reads the state to know a fence has SETTLED,
+so a failed diagram would burn the bake's whole 12s budget before shipping the blank
+anyway.
+
+**Three arms decide when to give up, and the fast one is why the print document works.**
+The Studio's desktop print path waits `load` + 450ms and never waits on diagrams, so a
+release on the ten-second deadline would be far too late for it:
+
+1. **The document already told us.** Every builder writes a plain `<script src>` for
+   Mermaid *before* the runtime's own tag, so a markup-authored classic script that
+   precedes ours has had its turn by the time we run — it ran, or it failed. One sitting
+   there with nothing real on `window.mermaid` is a broken promise, decided synchronously
+   on the first tick. The question is asked as **document position against our own
+   `<script>`** (captured at module scope, where `document.currentScript` is still
+   readable), *not* from `readyState` — which flips to `interactive` before deferred
+   scripts execute, so an earlier version of this arm called a still-loading `defer` tag
+   settled and released the fence while Mermaid was on its way. A document with NO such
+   tag never promised anything and falls through to the deadline; so do `async` and
+   `defer` tags, and so does an inlined runtime, which has no `<script>` to anchor to.
+
+   **The residual, because it is real and unfixable from here:** a script inserted *by
+   JavaScript* with `async = false` into `<head>` also precedes our tag and has *not* run,
+   and no platform signal separates it from a parser-inserted one. Measured — same
+   document, insert into `<head>` releases the fence, insert into `<body>` does not. No
+   caller in this repo does that, and the damage when one does is bounded without extra
+   machinery: driven on that exact document, the give-up fires and the diagram still lands
+   (`state=rendered` at 1577ms for a Mermaid served at 900ms), because the runtime already
+   re-runs on later DOM activity. A `load` listener that reclaimed directly was written,
+   measured against that arm, changed nothing, and was deleted rather than shipped
+   unproven.
+2. **`MERMAID_WAIT_CAP` frames** — the responsive arm, unchanged.
+3. **`MERMAID_WAIT_MS` on the wall clock** — because `requestAnimationFrame` is throttled
+   in a backgrounded tab and does not run at all in a document nothing is painting, which
+   describes both offscreen export frames. A frame budget that never advances never gives
+   up.
+**Giving up does NOT touch `data-lattice-diagrams`**, and the reasoning is worth keeping
+because the opposite shipped for one commit. Dropping it looks right — it is the
+document's promise that something will draw a fence, and the promise has just been
+falsified. But the rule it gates cannot fire in any host that stamps: the preview cascade
+scopes it to `article.lattice > section [data-lattice-diagrams] …`, which wants the
+attribute *inside* a slide while it lives on `<html>`. So the removal protected nothing,
+and nothing restored it. That scoping is a separate, pre-existing defect
+(`engineering/decisions/2026-09-05-diagram-fence-flash.md`).
+
+If Mermaid turns up late, `initAndRun` puts released fences back to `pending` — **after**
+its `themeSettled` guard, and only for fences it can render. Reclaiming *is* hiding, so a
+pass that reclaims and then declines to walk leaves a blank where the source was: with the
+reclaim ahead of that guard, a host whose theme vars never resolve hid the fence on every
+pass and rendered on none. And if the walk then *fails*, a reclaimed fence goes back to
+`unavailable` rather than to `pending`, because a retry that will re-fail the same way is
+not worth taking the author's source for.
+
+Driven on both artifacts — the real Studio, Share → Webpage and Share → Print deck, with
+Mermaid cut off at the network (`docs/e2e/mermaid-unavailable-export.spec.ts`), and on the
+shipped runtime plus the shipped stylesheet in real Chromium
+(`test/integration/mermaid/mermaid-unavailable.test.js`).
 
 Two wrong versions of that gate shipped before this one, and both are worth knowing
 because both looked right:
@@ -1008,6 +1094,6 @@ Some types accept both. The rendered CSS class is determined by diagram type, no
 
 **Never guess class names.** They are inconsistent across diagram types — some use camelCase suffix `TitleText`, some use bespoke names like `radarTitle`, some have no class at all. Always verify from rendered output.
 
-**Marp-vscode preview parser quirk.** One CSS pattern is silently broken in the marp-vscode Chromium build (the preview applies via JS but the rule never matches): `:not(:has(...))` and `:is(:has(...), :has(...))`. Plain `:has()` is fine; nested inside `:not()` / `:is()` it isn't. Use descendant combinators or compound selectors instead. See `engineering/gotchas.md`. (Historical note: when the build path injected CSS via Mermaid's `themeCSS` init parameter, two additional limits applied — no CSS comments, no `>` combinator. That path no longer exists; rules now live in `lattice.css` and reach the SVG via host-page cascade, so both restrictions are gone.)
+**Marp-vscode preview parser quirk — RETIRED, and this line stated a dead rule as live fact.** It used to say `:not(:has(...))` and `:is(:has(...), :has(...))` were silently broken in the marp-vscode Chromium build. That was HARD RULE #12, retired 2026-07-10 after an empirical retest against a real current Chromium found both forms behave per spec, with no corroborating bug report anywhere — `engineering/decisions/2026-07-10-hard-rule-12-retirement.md`. This page kept asserting it. The preview's engine, now that it is reachable, is Chromium 148 / Electron 42.10.0 (§ 8 of the fence-flash note); the selectors were not re-tested there, and per the retirement record they need no special handling. (Historical note: when the build path injected CSS via Mermaid's `themeCSS` init parameter, two additional limits applied — no CSS comments, no `>` combinator. That path no longer exists; rules now live in `lattice.css` and reach the SVG via host-page cascade, so both restrictions are gone.)
 
 ---

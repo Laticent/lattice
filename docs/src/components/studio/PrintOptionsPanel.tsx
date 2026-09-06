@@ -356,22 +356,25 @@ export function PrintOptionsPanel({
 			// authoring-error surface. The print PREVIEW cells above deliberately keep the
 			// stamp: those are watched, and that is exactly what the rule is for.
 			//
-			// Redundant today and fixed anyway, and BOTH halves of that are driven rather than
-			// reasoned — the real Studio, Share → Print deck → Print, Mermaid 404'd at the
-			// network, reading the offscreen print document itself once the FIT agent has
-			// revealed it:
+			// Both halves are driven rather than reasoned — the real Studio, Share → Print deck
+			// → Print, Mermaid 404'd at the network, reading the offscreen print document itself
+			// once the FIT agent has revealed it:
 			//
-			//                          stamped (before)   diagrams:false (after)
-			//   data-lattice-diagrams   true               false
-			//   data-mermaid-state      "pending"          "pending"
-			//   computed display, <pre> none               none      ← the older rule, both ways
+			//                          stamped        diagrams:false   …and after #2092
+			//   data-lattice-diagrams   true           false            false
+			//   data-mermaid-state      "pending"      "pending"        "unavailable"
+			//   computed display, <pre> none           none             block  ← the source
 			//
-			// So the stamp is gone, and what the author sees is unchanged today: the older
-			// `data-mermaid-state` rule hides the fence either way, because the runtime tags it
-			// `pending` at boot and nothing un-tags it when Mermaid never arrives. THAT is the
-			// real defect, logged not fixed in
-			// engineering/decisions/2026-09-05-diagram-fence-flash.md §7 — and it is precisely
-			// why this line matters: fixing it would make this stamp live.
+			// The middle column is why this line matters and the right one is why it is no longer
+			// redundant. Until #2092 the older `data-mermaid-state` rule hid the fence either way
+			// — the runtime tagged it `pending` at boot and nothing un-tagged it when Mermaid
+			// never arrived — so this document printed a blank where the author's source belonged.
+			// The runtime hands those fences back now, and THAT is what would have made a stamp
+			// here live: an un-tagged fence under `[data-lattice-diagrams]` paints nothing.
+			//
+			// This path is also why the give-up has a synchronous arm at all. There is no diagram
+			// wait here — `load` plus a 450ms beat, then `print()` — so a release on the runtime's
+			// ten-second deadline would miss the capture entirely.
 			// (Read the fence AFTER the FIT reveal or the measurement is worthless — `buildSrcdoc`
 			// hides `.lattice` until then, so every element in the document computes to hidden.)
 			diagrams: false,

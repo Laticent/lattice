@@ -1,0 +1,181 @@
+import path from 'node:path';
+import { expect, gotoStudio, SHARE_EXPORTS, setEditorContent, test } from './studio-fixture';
+
+/**
+ * THE TWO ARTIFACTS A FAILED DIAGRAM USED TO RUIN, ON THE REAL BUTTONS (#2092).
+ *
+ * `wrapFences` tags every ```mermaid fence `pending` at boot — before it can know whether
+ * Mermaid will arrive — and `mermaid.css` hides a tagged fence in every state but `error`.
+ * When Mermaid never arrived, nothing un-tagged it, so the author got an EMPTY SLOT where
+ * their diagram belonged: in a file they had downloaded, permanently
+ * (engineering/decisions/2026-09-05-diagram-fence-flash.md §7).
+ *
+ * WHY HERE AND NOT IN THE UNIT OR INTEGRATION TIER. The integration tier
+ * (test/integration/mermaid/mermaid-unavailable.test.js) drives the runtime and the
+ * shipped stylesheet against a document shaped like `buildSrcdoc`'s. It cannot see either
+ * artifact this file is about, and both have their own machinery between the runtime and
+ * what the author ends up holding:
+ *   · the WEBPAGE export bakes the deck through an offscreen capture frame, waits on the
+ *     runtime's own state machine, serializes the settled DOM, and then PRUNES the
+ *     stylesheet to the selectors the baked markup uses — so a visibility rule that is
+ *     correct in the engine can still be pruned out of the downloaded file;
+ *   · the desktop PRINT document waits `load` + 450ms and nothing else. No diagram wait at
+ *     all. A give-up that fired on the ten-second deadline would be far too late here, and
+ *     no amount of unit coverage would say so.
+ *
+ * Mermaid is 404'd by aborting the request, which is the honest shape of the failure: the
+ * document still carries its `<script src>`, the tag still fails, and the runtime learns
+ * about it exactly the way it would on a CSP block or an offline machine.
+ */
+
+const SENTINEL = 'UNRENDERABLEFENCESENTINEL';
+const F = String.fromCharCode(96, 96, 96);
+
+const DECK = [
+	'---', 'theme: indaco', '---', '',
+	'# Cover', '',
+	'---', '', '<!-- _class: diagram -->', '', '## The diagram', '',
+	`${F}mermaid`, 'flowchart LR', `  A["${SENTINEL}"] --> B["Second"]`, F, '',
+].join('\n');
+
+/**
+ * Walk the exported player to the diagram slide, and wait until it is really the live one.
+ *
+ * The player packs each slide in an `.lp-frame` and lays out only the active one, so a
+ * `getBoundingClientRect()` taken on slide 1 reports 0x0 for a fence on slide 2 — a fence
+ * that is present, correctly styled and simply not on screen. Measured that way once; it
+ * looks exactly like the bug this file is about, which is the reason for the wait rather
+ * than a press-and-hope.
+ */
+async function showDiagramSlide(viewer: import('@playwright/test').Page): Promise<void> {
+	await viewer.keyboard.press('ArrowRight');
+	await viewer.waitForFunction(() => {
+		const pre = document.querySelector('pre[data-mermaid-state], marp-pre[data-mermaid-state]');
+		const frame = pre ? pre.closest('.lp-frame') : null;
+		// No frames at all (a flat document) is not a failure — nothing is paging anything.
+		return frame ? frame.classList.contains('lp-active') : !!pre;
+	}, { timeout: 30_000 });
+}
+
+/** Cut Mermaid off at the network, for every frame this page opens. */
+async function breakMermaid(page: import('@playwright/test').Page): Promise<void> {
+	await page.route('**/*mermaid*', (route) => route.abort());
+}
+
+/** What the fence looks like to someone opening the artifact. Read from a REAL layout. */
+function fenceReadback() {
+	const pre = document.querySelector('pre[data-mermaid-state], marp-pre[data-mermaid-state]');
+	const code = pre ? pre.querySelector('code') : null;
+	const box = pre ? pre.getBoundingClientRect() : null;
+	const sib = pre?.nextElementSibling?.classList.contains('mermaid') ? pre.nextElementSibling : null;
+	return {
+		state: pre ? pre.getAttribute('data-mermaid-state') : null,
+		display: pre ? getComputedStyle(pre).display : null,
+		// The CODE's visibility, because the anti-flash rule withholds ink on the <code>
+		// rather than collapsing the <pre>. A box measurement alone would pass on a fence
+		// that is present, correctly sized, and painting absolutely nothing.
+		codeVisibility: code ? getComputedStyle(code).visibility : null,
+		width: box ? Math.round(box.width) : 0,
+		height: box ? Math.round(box.height) : 0,
+		text: (pre?.textContent || '').trim(),
+		siblingDisplay: sib ? getComputedStyle(sib).display : null,
+		svgTexts: [...document.querySelectorAll('svg text, svg foreignObject')].map((n) => n.textContent || '').join(' '),
+		stamped: document.documentElement.hasAttribute('data-lattice-diagrams'),
+	};
+}
+
+test('the Studio webpage export ships the author’s source when Mermaid never loads', async ({ page, context }, testInfo) => {
+	test.setTimeout(180_000);
+	await breakMermaid(page);
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('button', { name: SHARE_EXPORTS.webpage.row }).click();
+	const downloadPromise = page.waitForEvent('download', { timeout: 150_000 });
+	await dialog.getByRole('button', { name: SHARE_EXPORTS.webpage.confirm }).click();
+	const file = path.join(testInfo.outputDir, 'mermaid-404.html');
+	await (await downloadPromise).saveAs(file);
+
+	// Open the artifact the way its recipient would, and let its own CSS lay it out.
+	const viewer = await context.newPage();
+	await viewer.goto(`file://${file}`, { waitUntil: 'networkidle' });
+	await expect(viewer.locator('html')).toHaveClass(/\blp-js\b/);
+	await showDiagramSlide(viewer);
+	const r = await viewer.evaluate(fenceReadback);
+
+	// ANCHOR FIRST: with no `<pre>` found every assertion below is vacuous, and a renamed
+	// state value or a bake that dropped the fence outright would read as a pass.
+	expect(r.state, 'the exported file carries the fence the runtime gave up on').toBe('unavailable');
+	expect(r.text, 'and it carries the author’s own Mermaid source').toContain(SENTINEL);
+	expect(r.display, 'the source is shown, not hidden by the pending rule').not.toBe('none');
+	expect(r.codeVisibility, 'and it PAINTS — the prune kept the rule that shows it').toBe('visible');
+	expect(r.width, 'with a real box').toBeGreaterThan(0);
+	expect(r.height, 'with a real box').toBeGreaterThan(0);
+	expect(r.siblingDisplay, 'the empty diagram slot collapses so the source has the full stage').toBe('none');
+	expect(r.svgTexts, 'no diagram was drawn — that is the premise').not.toContain(SENTINEL);
+	await viewer.close();
+});
+
+test('the same export is unchanged when Mermaid loads', async ({ page, context }, testInfo) => {
+	test.setTimeout(180_000);
+	// The control arm, and the reason it is here rather than assumed: everything above is
+	// satisfied by an export that has simply stopped baking diagrams. One variable — the
+	// route — separates "the failure path is honest" from "the happy path broke".
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('button', { name: SHARE_EXPORTS.webpage.row }).click();
+	const downloadPromise = page.waitForEvent('download', { timeout: 150_000 });
+	await dialog.getByRole('button', { name: SHARE_EXPORTS.webpage.confirm }).click();
+	const file = path.join(testInfo.outputDir, 'mermaid-ok.html');
+	await (await downloadPromise).saveAs(file);
+
+	const viewer = await context.newPage();
+	await viewer.goto(`file://${file}`, { waitUntil: 'networkidle' });
+	await expect(viewer.locator('html')).toHaveClass(/\blp-js\b/);
+	await showDiagramSlide(viewer);
+	const r = await viewer.evaluate(fenceReadback);
+	expect(r.svgTexts, 'the diagram baked, labels and all').toContain(SENTINEL);
+	expect(r.state, 'the fence is spent, not handed back').toBe('rendered');
+	expect(r.display, 'and the spent source stays hidden').toBe('none');
+	await viewer.close();
+});
+
+test('the Studio desktop print document shows the source when Mermaid never loads', async ({ page }) => {
+	test.setTimeout(180_000);
+	// `print()` blocks on a modal dialog Playwright cannot dismiss, so stub it in EVERY
+	// frame — including the offscreen srcdoc the panel is about to mount. Everything up to
+	// that call is the real path: the real panel, the real `buildSrcdoc`, the real 450ms
+	// beat. What we read afterwards is the exact document the dialog would have captured.
+	await page.addInitScript(() => { window.print = () => {}; });
+	await breakMermaid(page);
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('button', { name: SHARE_EXPORTS.print.row }).click();
+	await dialog.getByRole('button', { name: 'Print', exact: true }).click();
+
+	// The offscreen print frame, identified by the off-screen offset the panel gives it —
+	// the print PREVIEW cells are ordinary on-screen frames and must not be read instead.
+	const handle = page.locator('iframe[style*="-10000px"]');
+	await expect(handle).toBeAttached({ timeout: 60_000 });
+	// READ AFTER THE FIT AGENT REVEALS. `buildSrcdoc` holds the whole deck
+	// `visibility:hidden` until then, so a measurement taken earlier reports `hidden` for a
+	// document where nothing is wrong — a first attempt at exactly this measurement did.
+	await expect(handle.contentFrame().locator('.lattice')).toBeVisible({ timeout: 60_000 });
+	const el = await handle.elementHandle();
+	const doc = el ? await el.contentFrame() : null;
+	expect(doc, 'the offscreen print document is reachable').not.toBeNull();
+	const r = await doc!.evaluate(fenceReadback);
+
+	expect(r.state, 'the print document gave up on the fence rather than leaving it pending').toBe('unavailable');
+	expect(r.display, 'so the page carries the source instead of an empty slot').not.toBe('none');
+	expect(r.codeVisibility, 'and the source paints').toBe('visible');
+	expect(r.width, 'with a real box').toBeGreaterThan(0);
+	expect(r.text, 'the author’s own Mermaid source is what gets printed').toContain(SENTINEL);
+	// This path already passed `diagrams: false`, so the stamp was never here to drop.
+	expect(r.stamped, 'the print document never claims diagrams').toBe(false);
+});

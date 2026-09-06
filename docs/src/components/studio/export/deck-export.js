@@ -442,9 +442,13 @@ export async function waitForDiagrams(doc, budgetMs = 4000) {
 		let pending = doc.querySelectorAll(UNTAGGED).length;
 		for (const pre of doc.querySelectorAll(TAGGED)) {
 			const state = pre.getAttribute('data-mermaid-state');
-			// `error` IS settled — the runtime has given up and the source <pre> is the
-			// honest artifact. Only `rendered` owes an SVG in the sibling box.
-			if (state !== 'rendered' && state !== 'error') pending++;
+			// `error` and `unavailable` ARE settled — the runtime has given up and the source
+			// <pre> is the honest artifact. (`error` is a diagram Mermaid rejected;
+			// `unavailable` is Mermaid itself never arriving — a 404, a CSP block, a stub.
+			// Reading only the first is what made a 404'd script burn this whole budget and
+			// then bake the empty slot anyway; see lib/runtime/index.js releaseUnrenderableFences.)
+			// Only `rendered` owes an SVG in the sibling box.
+			if (state !== 'rendered' && state !== 'error' && state !== 'unavailable') pending++;
 			else if (state === 'rendered' && !pre.nextElementSibling?.querySelector?.('svg')) pending++;
 		}
 		if (!pending) return;

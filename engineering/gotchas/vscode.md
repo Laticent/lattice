@@ -73,7 +73,7 @@ logging them here — which is the standing caveat above, demonstrated.
 **Read this register with the CSP entry below in mind.** A mirror makes a
 transform work on the *runtime* route — the exported HTML, `npm run pdf`,
 `npm run html`. The marp-vscode PREVIEW pane is believed to execute no scripts,
-in which case a mirror does not make anything appear there. **Status of this claim: UNVERIFIED and contested.** It originates in this file's CSP entry below and has never been tested against a real VS Code. A field report (2026-07-29) describes structural components rendering correctly in the preview, which would require the runtime to execute. Do not treat either reading as settled; the safe advice is unchanged — render the bundle for anything you need to trust. An empty table
+in which case a mirror does not make anything appear there. **Status of this claim: SETTLED 2026-09-06 — it holds at the DEFAULT preview security level and not otherwise.** Measured against a real VS Code (see the entry below): the deck's `<script>` tags carry no CSP nonce, so at the default they never run and the register is right; set the level to Disable and they all run and it is wrong. The 2026-07-29 field report describing structural components rendering in the preview is reconciled by that — it was a Disable preview. The safe advice is unchanged, and now for a stated reason: the default is Strict and you cannot assume a reader has changed it, so render the bundle for anything you need to trust. An empty table
 means "no gap logged for the runtime route", never "the preview is complete.
 
 - **Removable when:** never fully — it's a living list, not a one-time
@@ -100,89 +100,94 @@ means "no gap logged for the runtime route", never "the preview is complete.
   build deps.
 - **Commits:** `8607e65`.
 
-## Does the marp-vscode webview execute `<script>`? — UNVERIFIED, and this is the entry that says so
+## Does the marp-vscode webview execute `<script>`? — SETTLED: it depends on the preview security level
 
-> **Read the status line before the content.** This entry is the ORIGIN of the
-> "the preview is a CSS-only surface" claim that the rest of the repo cites, and
-> **the claim has never been tested against a real VS Code.** It used to be
-> written here as flat fact — Symptom/Cause/Mitigation, no hedge — while the
-> preview-gaps register 130 lines above called that same claim "UNVERIFIED and
-> contested." A reader who found this entry first got a fact; a reader who found
-> the register first got a caveat about a fact they hadn't read yet. Same file,
-> two epistemic statuses, and the unhedged one was the one people quoted.
->
-> Nothing below is new evidence. The only change is that the entry now carries
-> its own status, and tells you how to settle it.
+> **Status: settled 2026-09-06, by opening a real VS Code.** Every earlier version
+> of this entry said the answer was unknown and unreachable. Both halves were
+> wrong: the answer is "it depends on a setting nobody had named", and the host
+> IS reachable from a headless sandbox. The earlier attempt tried **code-server**,
+> whose GitHub release this sandbox's egress policy answers with a 403; the VS
+> Code **desktop** tarball is a different route and it runs fine under `xvfb-run`.
 
-- **Symptom:** A DOM transform authored in `lattice-runtime.js` (or any
-  `<script src="...">` tag in the markdown) is *reported* to work in PDF export
-  and the browser but not fire in VS Code Marp preview. The slide HTML looks
-  correct in the build output and (per this reading) wrong in preview.
-- **Claimed cause — UNVERIFIED:** that marp-vscode loads preview content in a
-  sandboxed webview with a Content Security Policy disallowing script execution,
-  and that even with `enableHtml: true`, relative `<script src="...">` paths do
-  not resolve inside the webview context. **No test against a real VS Code
-  backs this**, and no marp-vscode issue or doc has been cited for it here.
-- **The contradicting evidence:** a field report (2026-07-29) describes
-  structural components rendering correctly in the preview pane — which would
-  require the runtime to have executed. One report, not a measurement, but it
-  points the other way and has never been reconciled.
-- **Mitigation — unchanged either way, which is why this stayed unsettled so
-  long.** Treat the preview as **palette + CSS layout, and everything the
-  runtime builds as UNKNOWN there** — do not promise it, do not rely on it.
-  Anything a reader needs to trust gets rendered: `npm run pdf` / `npm run html`
-  and marp-cli's own `--pdf`/`--html` DO execute the runtime, because they drive
-  a real headless browser. That advice is correct under both readings, so the
-  open question costs nothing operationally; what it costs is that
-  `lib/runtime/index.js` (2,182 lines) is partly priced against a surface nobody
-  has checked.
-- **A separate thing that IS settled:** marp-vscode renders with raw marp-core
-  and never runs `lib/integrations/markdown-it/plugins.js` (see the entry above),
-  so there is no build-time plugin pass on that surface regardless of the script
-  question. An earlier version of this entry claimed structural transforms "run
-  at build time — before the webview CSP applies," which is wrong for any Marp
-  surface, and is why the Export-to-Marp README promised a fidelity it did not
-  deliver until #1256. Do not let the two questions merge again: "no plugins"
-  is established, "no scripts" is not.
-- **HOW TO SETTLE IT — ten minutes, needs a real VS Code (unreachable from a
-  headless sandbox, HARD RULE #23).** `dist/marp-kit` exists precisely to be the
-  fixture:
+**The answer.** The webview carries `script-src 'nonce-…'`. The extension's own
+scripts carry that nonce; **the deck's do not** — `mermaid-v11.min.js` and
+`lattice-runtime.min.js` both read back with `nonce: null`. So at the default
+security level the deck's scripts sit in the DOM and never execute. Set the level
+to **Disable** and they all run.
 
-  ```sh
-  cp -r dist/marp-kit ~/kit-test && code ~/kit-test   # open the FOLDER as workspace root
-  ```
+It is not a settings-file key. It is a per-resource memento reached only through
+the command palette: **Markdown: Change Preview Security Settings**.
 
-  Open `Sample-Deck.md` and turn on the Marp preview. The deck is built so the
-  answer is visible rather than inferred — **four of its thirteen slides are
-  assembled by `lattice-runtime.min.js` and by nothing else.** Verified against a
-  real marp-cli render with JavaScript disabled and re-enabled: all four flip.
-  Three of them (`.panel-left`, the drawn progress bars, the matrix cell marks)
-  appear nowhere in the static HTML; the fourth, the diagram, is present only as
-  an unrendered code fence.
+**The four markers, both ways.** This is the entry's own protocol, run as written —
+`cp -r dist/marp-kit <ws>`, open the folder as workspace root, preview
+`Sample-Deck.md` — against VS Code 1.136.1 / marp-vscode 3.6.1 / Chromium 148 /
+Electron 42.10.0:
 
-  | Slide | What proves the runtime ran |
-  |---|---|
-  | `_class: diagram` | a drawn Mermaid flowchart, not a code fence |
-  | `_class: split-panel` | two panels — `.panel-left` / `.panel-right` |
-  | `_class: progress` | drawn bars, not a bullet list |
-  | `_class: obligation-matrix` | drawn cell marks, not literal `[x]` / `[ ]` text |
+| marker | Strict (the default) | Disable |
+|---|---|---|
+| `<html data-lattice-runtime>` | `null` | `"loaded"` |
+| `typeof window.mermaid` | `undefined` | `object` |
+| `_class: diagram` — a drawn flowchart | **0 SVGs**, fence VISIBLE | **0 SVGs**, fence hidden |
+| `_class: split-panel` — `.panel-left` / `.panel-right` | 0 / 0 | **1 / 1** |
+| `_class: progress` — drawn bars | 0 | **present** |
+| `_class: obligation-matrix` — literal `[x]` / `[ ]` still in the text | **yes** | **no** (marks built) |
+| theme registered (`--accent` resolves) | yes | yes |
 
-  Styled slides with all four flat ⇒ the CSS-only reading is right. Any one of
-  the four composed ⇒ the webview executes scripts and this entry is wrong.
-  Unstyled slides ⇒ neither — the theme did not register, so fix that first
-  (workspace root, see the kit README) before reading anything into the rest.
+So the decision rule this entry used to end on — "all four flat ⇒ CSS-only; any
+one composed ⇒ the webview executes scripts" — **returns both answers, selected by
+the security level.** At Strict all four are flat and the CSS-only reading is
+right. At Disable three of the four compose and it is wrong. Any future run of
+this protocol has to record the level, or it is measuring a coin flip.
 
-  Whatever it shows, correct **this entry**, the preview-gaps register above,
-  `engineering/marp-independence.md` (§Scorecard and §5 Cost 3, both currently
-  hedged to match), and the kit README's Fidelity section
-  (`tools/build-marp-kit.js` `readme()`) — and record the VS Code and
-  marp-vscode versions, because a CSP is a property of a version, not of the
-  extension forever.
-- **Triggered by:** Any structural transform viewed in the VS Code Marp preview.
-- **Removable when:** the experiment above is run — then this becomes either a
-  real ceiling entry or a deleted one.
-- **Commits:** Split-panel feature commit; corrected in #1256; status made
-  honest in the marp-kit render-gate change.
+- **Mitigation — unchanged, and now for a stated reason.** Treat the preview as
+  **palette + CSS layout, and everything the runtime builds as UNKNOWN there** —
+  because the default is Strict and you cannot assume a reader has changed it.
+  Anything a reader must trust gets rendered: `npm run pdf` / `npm run html` and
+  marp-cli's own `--pdf`/`--html` DO execute the runtime, because they drive a
+  real headless browser.
+- **A separate thing that IS settled:** marp-vscode renders with raw marp-core and
+  never runs `lib/integrations/markdown-it/plugins.js` (see the entry above), so
+  there is no build-time plugin pass on that surface regardless of the script
+  question. Do not let the two questions merge again.
+- **The 2026-07-29 field report is reconciled.** It described structural
+  components rendering in the preview, which the CSS-only reading could not
+  explain. It is explained now: that reporter's preview was at Disable, or their
+  workspace was trusted into it. It was not wrong, and neither was the register.
+- **AND THE DIAGRAM MARKER IS A DEFECT, not a data point.** At Disable the fence
+  reaches `data-mermaid-state="rendered"` with an EMPTY `.mermaid` container:
+  source hidden, box 0×0, zero SVGs. The author gets a blank where the diagram
+  belongs. The frame is capable — calling `window.mermaid.render()` in it by hand
+  returns an 11.6KB SVG — so this is our runtime marking a fence rendered and
+  landing nothing. Reproduced independently twice on two builds. Mechanism not
+  chased. One clue: with `bierner.markdown-mermaid` also installed, our render
+  DOES land (21KB, one SVG, deck face) — n=2 each way, cause unknown.
+- **`bierner.markdown-mermaid` installs no `window.mermaid` at 1.32.1** — not a
+  stub with `.render` missing, no global at all, in both preview hosts. Three
+  comments in `lib/runtime/index.js` said otherwise; they are corrected. The
+  guards were always safe either way.
+
+**HOW TO REPRODUCE IT — about forty minutes, and it needs no VS Code you do not
+already have access to.** Download the official Linux tarball
+(`https://update.code.visualstudio.com/latest/linux-x64/stable`, ~354MB), extract,
+install the extension from **Open VSX** (`npm view @marp-team/marp-vscode` is a
+404 — it is a VSIX, never published to npm), then:
+
+```sh
+xvfb-run -a --server-args="-screen 0 1600x1200x24" ./VSCode-linux-x64/bin/code \
+  --no-sandbox --disable-gpu --disable-workspace-trust \
+  --user-data-dir=<ud> --extensions-dir=<ed> \
+  --remote-debugging-port=9333 --new-window <workspace>
+```
+
+Then `puppeteer.connect({ browserURL })` and find the frame whose
+`document.body.classList` contains `marp-vscode`. **`browser.targets()` does not
+surface the webview; `page.frames()` does** — the webview is out-of-process, which
+is also why a parent-page screenshot of it comes back black. Read the DOM, not a
+picture. Opening the preview needs a command (`markdown.showPreviewToSide`), which
+a twenty-line development extension can issue on `onStartupFinished`.
+
+None of this is committed. Whether it should become a harness or a CI job is a
+CI-contract decision, not one to take on the way past.
 
 ## `enableHtml` / `html: true` is required or the runtime `<script>` tags print as TEXT
 

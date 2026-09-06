@@ -39,11 +39,21 @@
  * Neither is a stand-in for the other and neither is a synthetic harness
  * (HARD RULE #23): both drive the actual artifact through the actual tool.
  *
- * WHAT IT DELIBERATELY DOES NOT COVER. The marp-vscode PREVIEW pane. Whether
- * that webview executes the deck's `<script>` tags is UNVERIFIED and contested
- * (`engineering/gotchas.md` § "Does the marp-vscode webview execute `<script>`?"),
- * and it cannot be driven from a headless sandbox at all. A green run here says
- * nothing about it.
+ * WHAT IT DELIBERATELY DOES NOT COVER. The marp-vscode PREVIEW pane. A green run
+ * here says nothing about it.
+ *
+ * That used to rest on two claims, and ONE OF THEM IS NOW FALSE. "Whether the
+ * webview executes the deck's `<script>` tags is UNVERIFIED" — it is verified:
+ * it depends on the markdown preview SECURITY LEVEL, because the deck's tags
+ * carry no CSP nonce, so at the default they never run
+ * (`engineering/decisions/2026-09-05-diagram-fence-flash.md` § 8). "And it cannot
+ * be driven from a headless sandbox at all" — it can: VS Code desktop runs under
+ * `xvfb-run` and its webviews are readable CDP frames. The earlier attempt tried
+ * code-server, which the sandbox's egress policy blocks; the desktop tarball is a
+ * different route.
+ *
+ * The exclusion STANDS anyway, on the reason below rather than on reachability:
+ * booting a 354MB editor is not something to hang on the export tier.
  *
  * marp-cli is NOT a dependency of this project and is not becoming one — Marp is
  * an export TARGET, not a render path (HARD RULE #1). It is fetched on demand at
