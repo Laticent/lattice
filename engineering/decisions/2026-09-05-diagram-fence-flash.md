@@ -528,13 +528,32 @@ slide; G is rejected on 116KB for what CSS does for free.
   regardless**, through the OLDER `data-mermaid-state` rule and a mechanism none of the three
   checkers looked at: `bootstrap()` in `lib/runtime/index.js` calls `wrapFences()`
   UNCONDITIONALLY, before it knows whether Mermaid will ever arrive — deliberately, to cover
-  the load window — and `mermaid.css` hides any tagged `<pre>`. When Mermaid never arrives,
+  the load window — and `mermaid.css` hides a tagged `<pre>` in every state but `error`
+  (`error` deliberately keeps showing the source, which is the whole argument). When Mermaid
+  never arrives,
   `tick()` gives up after `MERMAID_WAIT_CAP` frames and nothing un-tags them. The author's
   only signal that their diagram did not draw is gone, in a file they downloaded. It is the
   same harm the first checker fixed for the CLI, arriving down a third path.
 
-  **Not fixed here** — it is pre-existing, it predates every part of #2073, and it is off the
-  path of this change (HARD RULE #18), so it is logged rather than pulled in. It is also not
+  **A FOURTH export path was stamping, and an independent fact-check on this branch found
+  it.** The third checker fixed the raster capture frame; the Studio's DESKTOP VECTOR PRINT
+  document (`PrintOptionsPanel.tsx`'s `printDoc`) builds through the same `buildSrcdoc` with
+  a real Mermaid URL, is mounted off-screen and handed straight to `print()`, and did not opt
+  out — so #2073's own "no export path stamps" was false when it shipped, in three documents.
+  It passes `diagrams: false` now. The stamp is masked TODAY by the older rule above, which
+  hides the fence there anyway; it is fixed regardless, because fixing the older rule would
+  make it live. The print PREVIEW cells keep the stamp: those are watched.
+
+  The lesson is the one the third checker already drew about the CSS gate and the builder's
+  stamp — a per-caller invariant that nothing enumerates drifts. `deck-preview.test.js` now
+  carries a CENSUS of every `buildSrcdoc` call site, classified watched-or-exported, so an
+  unlisted caller fails. Mutation-proved twice: once by deleting the new `diagrams: false`
+  (the census went red), and once before that, when deleting it left the census GREEN because
+  the regex was matching the knob's name inside the comment explaining it.
+
+  **The un-tag defect is not fixed here** — it is pre-existing, it predates every part of
+  #2073, and it is off the path of this change (HARD RULE #18), so it is logged rather than
+  pulled in. It is also not
   a small call: the shape of the fix is for `tick()` to UN-tag its pending fences when it
   gives up, which is a shared-runtime change that alters export bytes on an error path and
   reaches every host the runtime boots in. That belongs to its own change, with its own

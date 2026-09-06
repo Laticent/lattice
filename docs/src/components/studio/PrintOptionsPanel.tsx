@@ -292,6 +292,21 @@ export function PrintOptionsPanel({
 			html: render.html, css: render.css, mode: render.mode, geom: render.geom,
 			runtimeUrl: render.runtimeUrl, fontCss: render.fontCss,
 			...(render.mermaidUrl ? { mermaidUrl: render.mermaidUrl } : {}),
+			// `diagrams: false` — the same opt-out `deck-export.js`'s capture frame takes, for
+			// the same reason and on the same kind of document. This one is never watched (it
+			// is mounted off-screen at -10000px and handed straight to `print()`), and what it
+			// produces is a file the author keeps. The anti-flash rule withholds an un-tagged
+			// fence's ink, so stamping here means a Mermaid failure prints an EMPTY SLOT where
+			// the author's unrendered source used to be — an export-bytes regression on an
+			// authoring-error surface. The print PREVIEW cells above deliberately keep the
+			// stamp: those are watched, and that is exactly what the rule is for.
+			//
+			// Redundant today and fixed anyway: the older `data-mermaid-state` rule already
+			// hides the fence here, because the runtime tags it `pending` at boot and nothing
+			// un-tags it when Mermaid never arrives. That is the real defect and it is logged,
+			// not fixed, in engineering/decisions/2026-09-05-diagram-fence-flash.md §7 — which
+			// is precisely why this line matters: fixing THAT would make this stamp live.
+			diagrams: false,
 			printRules: true,
 			printOpts: { paper: opts.paper, orientation: opts.orientation, fit: 'page' },
 			contentVisibility: false, cursor: false, sync: false,

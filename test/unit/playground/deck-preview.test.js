@@ -111,6 +111,87 @@ describe('buildSrcdoc', () => {
 		assert.match(buildSrcdoc({ ...withFence, diagrams: false }), /src="\/m\.js"/);
 	});
 
+	// A CENSUS OF THE CALLERS, because the per-caller knob is the shape that keeps being got
+	// wrong. `diagrams` decides whether a document promises "something will draw this fence",
+	// and the rule that promise switches on withholds the fence's ink — right for a frame a
+	// human WATCHES, wrong for a document whose bytes the author keeps, where a Mermaid
+	// failure turns their unrendered source into an empty slot.
+	//
+	// #2073 fixed that for the raster capture frame and MISSED the desktop vector print
+	// document, which builds through this same function and prints to the author's PDF. It
+	// missed it because nothing in the tree enumerated the callers: three documents said "no
+	// export path stamps" while one did. A per-call-site test is the only shape that catches
+	// the NEXT caller, so this is a census — a new `buildSrcdoc(` anywhere under `docs/src`
+	// fails here until it is classified, exactly like the runtime-markup sink census (#22).
+	//
+	// See engineering/decisions/2026-09-05-diagram-fence-flash.md §5 and §7.
+	test('every buildSrcdoc caller is classified watched-or-exported', async () => {
+		const fs = require('node:fs');
+		const path = require('node:path');
+		const root = path.join(__dirname, '../../../docs/src');
+		// file → true when that call site must pass `diagrams: false` (an EXPORT document:
+		// unwatched, and its bytes are what the author keeps).
+		const EXPECTED = {
+			// `renderDeck`'s own full-write, the deck preview frame — watched. It forwards
+			// `...opts`, so a host CAN opt out through it; every host that does so today is a
+			// live preview, and none passes the knob.
+			'playground/deck-preview.js': [false],
+			// The offscreen raster capture frame: rasterized through html-to-image, which
+			// bakes the computed style into the .pdf/.png/.pptx.
+			'components/studio/export/deck-export.js': [true],
+			// The print PREVIEW cells (watched, in-app), then the DESKTOP PRINT document
+			// (offscreen at -10000px, handed straight to print() — the author's PDF).
+			'components/studio/PrintOptionsPanel.tsx': [false, true],
+		};
+		const found = {};
+		const walk = (dir) => {
+			for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+				const p = path.join(dir, e.name);
+				if (e.isDirectory()) {
+					walk(p);
+					continue;
+				}
+				if (!/\.(js|ts|tsx|mjs)$/.test(e.name) || /\.test\./.test(e.name)) continue;
+				const text = fs.readFileSync(p, 'utf8');
+				const rel = path.relative(root, p);
+				for (let i = text.indexOf('buildSrcdoc({'); i !== -1; i = text.indexOf('buildSrcdoc({', i + 1)) {
+					// The definition matches the same text as a call. Skip it — `export function
+					// buildSrcdoc({ … })` is where the `diagrams = true` default lives, not a caller.
+					if (/function\s+$/.test(text.slice(Math.max(0, i - 20), i))) continue;
+					// Scan to the matching close brace of the single object argument.
+					let depth = 0;
+					let j = text.indexOf('{', i);
+					const start = j;
+					for (; j < text.length; j++) {
+						if (text[j] === '{') depth++;
+						else if (text[j] === '}' && --depth === 0) break;
+					}
+					// COMMENTS STRIPPED FIRST. Every opt-out here carries a paragraph explaining
+					// itself, and those paragraphs name the knob — so a census reading the raw
+					// span is satisfied by the PROSE about the fix and passes with the fix
+					// deleted. Caught by mutating it: removing the real line left this green.
+					const args = text
+						.slice(start, j + 1)
+						.replace(/\/\*[\s\S]*?\*\//g, '')
+						.replace(/\/\/[^\n]*/g, '');
+					(found[rel] ||= []).push(/\bdiagrams:\s*false\b/.test(args));
+				}
+			}
+		};
+		walk(root);
+		// Every caller is listed, and no listed caller has vanished — a stale entry is as much
+		// a failure as an unlisted one, because it means the census stopped describing the tree.
+		assert.deepEqual(Object.keys(found).sort(), Object.keys(EXPECTED).sort());
+		for (const [file, want] of Object.entries(EXPECTED)) {
+			assert.deepEqual(
+				found[file],
+				want,
+				`${file}: each buildSrcdoc call must ${want.map((w) => (w ? 'OPT OUT (diagrams:false)' : 'stamp')).join(', then ')} — ` +
+					'a document whose bytes the author keeps must not withhold a fence it failed to draw',
+			);
+		}
+	});
+
 	test('always injects the link guard so an external tap cannot navigate (blank) the frame', async () => {
 		const { buildSrcdoc } = await load();
 		// The guard is unconditional (every filmstrip srcdoc), capture-phase, gated to

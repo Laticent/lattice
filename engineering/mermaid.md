@@ -100,21 +100,26 @@ draw it, so the attribute is written by the BUILDER that injects Mermaid —
 preview frames and the Stage window, and by nothing else. A document we did not assemble
 (a hand-rolled Marp page, marp-vscode's own preview) never gets it and keeps showing the
 source; so do the CLI export and the `.html` player builder, which is what keeps a
-fence the CLI could not substitute readable rather than blank. **No export path stamps** —
-the Studio's offscreen capture frame passes through the same `buildSrcdoc` with a real
-Mermaid URL and would otherwise, so it passes `diagrams: false`: it is rasterized through
-`html-to-image`, which copies the COMPUTED style onto its clone, so a `visibility:hidden`
-this rule applied would be baked into the .pdf / .png / .pptx whenever Mermaid failed
-inside it. Driven on the real Share → Webpage export with the bundle 404'd: the exported
-`<html>` carries no `data-lattice-diagrams`. It has to be in the MARKUP, not set
-by script at boot: the window this covers starts at the first paint of a full document
+fence the CLI could not substitute readable rather than blank. **No document whose bytes
+the author keeps stamps** — two build through this same `buildSrcdoc` with a real Mermaid
+URL and would otherwise, so both pass `diagrams: false`: the offscreen RASTER capture
+frame (rasterized through `html-to-image`, which copies the COMPUTED style onto its clone,
+so a `visibility:hidden` this rule applied is baked into the .pdf / .png / .pptx) and the
+desktop VECTOR PRINT document (mounted off-screen and handed straight to `print()`). The
+print PREVIEW cells beside it do stamp, correctly: those are watched. Which caller is
+which is a census, not a convention — `deck-preview.test.js` fails on a `buildSrcdoc` call
+site nobody has classified, because the print document was missed exactly once and three
+documents said otherwise. Driven on the real Share → Webpage export with the bundle 404'd:
+the exported `<html>` carries no `data-lattice-diagrams`. It has to be in the MARKUP, not
+set by script at boot: the window this covers starts at the first paint of a full document
 write.
 
 **What that opt-out does NOT buy, and it was only found by driving it.** The same export
-still shows an empty slot when Mermaid fails, through the OLDER `data-mermaid-state` rule:
-`bootstrap()` tags every fence `pending` before it can know whether Mermaid will arrive
-(deliberately — that covers the load window), `tick()` gives up after ~10s, and nothing
-un-tags them. Pre-existing, wider than the export, and logged rather than fixed — see
+still shows an empty slot when Mermaid fails, through the OLDER `data-mermaid-state` rule
+(which hides a tagged `<pre>` in every state but `error`): `bootstrap()` tags every fence
+`pending` before it can know whether Mermaid will arrive — deliberately, since that covers
+the load window — `tick()` gives up after ~10s, and nothing un-tags them. Pre-existing,
+wider than the export, and logged rather than fixed — see
 `engineering/decisions/2026-09-05-diagram-fence-flash.md` §7.
 
 Two wrong versions of that gate shipped before this one, and both are worth knowing
