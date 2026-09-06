@@ -28,7 +28,12 @@
 // Usage (from docs/), against a built docs/dist:
 //   npm run build:e2e && npm run bench:flash -- [flags]
 //
-//   --scenario nav|type   click between slides (default), or type on a diagram slide
+//   --scenario nav|type|mount   click between slides (default), type on a diagram slide,
+//                         or reload the Studio and time the preview's first paint
+//   --deck diagram|prose  `mount` only: which of the two mount decks to reload. They
+//                         differ in ONE slide — the third is a diagram, or prose in its
+//                         place — and the shown slide is prose in both, so the difference
+//                         between the two runs IS what containing a diagram costs at mount
 //   --order 1,2,3,4       the navigation cycle; `--order 2,4` stays inside the diagram
 //                         slides, which is what tells a realm rewrite from a patch
 //   --cpu N               throttle the CPU N× through CDP (default 1)
@@ -53,7 +58,7 @@ const PORT = 4321;
 const BASE = `http://localhost:${PORT}`;
 
 function parseArgs(argv) {
-	const o = { runs: 5, json: false, variant: 'baseline', cpu: 1, shots: false, order: [1, 2, 3, 4], css: '', js: '', scenario: 'nav' };
+	const o = { runs: 5, json: false, variant: 'baseline', cpu: 1, shots: false, order: [1, 2, 3, 4], css: '', js: '', scenario: 'nav', deck: 'diagram' };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === '--runs') o.runs = Number(argv[++i]);
@@ -75,6 +80,9 @@ function parseArgs(argv) {
 		// heading — the interaction an author spends the most time in, and a different race
 		// (the preview re-renders on a keystroke debounce, into a resident document).
 		else if (a === '--scenario') o.scenario = argv[++i];
+		// `mount` only. The paired decks below differ in one slide, so running the bench
+		// once with each and subtracting is the whole measurement.
+		else if (a === '--deck') o.deck = argv[++i];
 		else throw new Error(`unknown arg: ${a}`);
 	}
 	return o;
@@ -126,6 +134,50 @@ flowchart TB
   R --> P
 \`\`\`
 `;
+
+// THE MOUNT PAIR. One variable: the third slide is a diagram, or prose in its place.
+// Everything else — front matter, slide count, the shown slide — is byte-identical, so
+// the difference between the two runs is exactly what "this deck contains a diagram
+// somewhere" costs at first mount. The SHOWN slide is prose in both, which is the whole
+// point: the author who opens this deck is not looking at a diagram, and the question is
+// whether they still wait for one.
+const MOUNT_HEAD = `---
+theme: lattice
+palette: indaco
+---
+
+# Mount bench
+
+The slide the Studio opens on. Prose in both arms.
+
+---
+
+## A second plain slide
+
+Text, in both arms.
+
+---
+
+`;
+const MOUNT_DECKS = {
+	diagram: `${MOUNT_HEAD}<!-- _class: diagram -->
+
+## Signals move from input to decision.
+
+\`\`\`mermaid
+flowchart LR
+  A[Input] --> B[Process]
+  B --> C{Decision}
+  C -->|yes| D[Ship]
+  C -->|no| E[Revise]
+\`\`\`
+`,
+	prose: `${MOUNT_HEAD}## Signals move from input to decision.
+
+Input, then process, then a decision — which either ships or goes back for revision.
+The same words the diagram arm draws, so the two decks are the same length.
+`,
+};
 
 // The per-frame sampler, installed in EVERY frame of the page (the parent no-ops —
 // it has no `.lattice`). It re-arms itself across srcdoc rewrites because
@@ -329,11 +381,106 @@ async function main() {
 	await page.getByLabel('Deck source').click();
 	await page.keyboard.press('ControlOrMeta+a');
 	await page.keyboard.press('Delete');
-	await page.keyboard.insertText(DECK);
+	await page.keyboard.insertText(opts.scenario === 'mount' ? MOUNT_DECKS[opts.deck] : DECK);
 	await page.waitForTimeout(2500);
 
 	const rail = page.getByRole('button', { name: /^Slide \d+/ });
 	const railCount = await rail.count();
+
+	// MOUNT. A different question from the other two scenarios, so a different loop: not
+	// "what does the preview paint while it swaps", but "how long after a reload does the
+	// author see their deck at all". The Studio restores its source from localStorage, so
+	// a reload re-mounts the SAME deck — one variable, and it is the deck's content.
+	//
+	// The clock is absolute on both sides. `performance.timeOrigin` is epoch-based, so the
+	// frame's origin plus a mark in the frame's own clock is directly comparable to the
+	// parent's navigation start. Playwright's own polling resolution (tens of ms) would be
+	// most of the difference we are trying to see.
+	if (opts.scenario === 'mount') {
+		// Open on slide 1 — prose in both arms — so the mount never renders a diagram and
+		// what we time is only the cost of the deck CONTAINING one.
+		if (railCount) await rail.nth(0).click();
+		await page.waitForTimeout(800);
+		const mounts = [];
+		for (let r = 0; r < opts.runs; r++) {
+			await page.reload({ waitUntil: 'domcontentloaded' });
+			const f = page.frameLocator('[aria-label="Live deck preview"] iframe.live');
+			await f.locator('.lattice').first().waitFor({ timeout: 120_000 });
+			// One more settle so `shown` (the parent revealing the frame) and any Mermaid
+			// resource entry have landed before we read them.
+			await page.waitForTimeout(2000);
+			const parentOrigin = await page.evaluate(() => performance.timeOrigin);
+			const sample = await f
+				.locator('.lattice')
+				.first()
+				.evaluate(() => {
+					const s = window.__flash;
+					const mer = performance
+						.getEntriesByType('resource')
+						.filter((x) => /mermaid/i.test(x.name))
+						.map((x) => ({ start: Math.round(x.startTime), dur: Math.round(x.duration) }))[0];
+					return s ? { origin: s.origin, marks: s.marks, mermaidRes: mer || null } : null;
+				})
+				.catch(() => null);
+			if (!sample) continue;
+			const at = (k) => (sample.marks[k] === undefined ? null : Math.round(sample.origin + sample.marks[k] - parentOrigin));
+			// FRAME-LOCAL, in the frame document's own clock. The page-total numbers above
+			// carry the whole Studio boot — React, the engine bundle, the theme fetch — which
+			// swamps what a script tag inside the frame can move, and varies by hundreds of ms
+			// run to run. This is the low-variance half: how long the frame itself took from
+			// its own document creation to having a slide in it. A parser-blocking Mermaid tag
+			// lands INSIDE that window; a deferred one does not.
+			const local = (k) => (sample.marks[k] === undefined ? null : Math.round(sample.marks[k]));
+			mounts.push({
+				run: r,
+				lattice: at('lattice'),
+				shown: at('shown'),
+				mermaidLib: at('mermaidLib'),
+				frameLattice: local('lattice'),
+				frameMermaidLib: local('mermaidLib'),
+				// When the Mermaid bundle was FETCHED, in the frame's own clock. Null means
+				// this mount never asked for it — which, for the diagram arm, is the win.
+				mermaidFetch: sample.mermaidRes ? sample.mermaidRes.start : null,
+			});
+		}
+		await browser.close();
+		stop();
+		const med = (k) => {
+			const v = mounts.map((m) => m[k]).filter((x) => x !== null).sort((a, b) => a - b);
+			return v.length ? v[Math.floor(v.length / 2)] : null;
+		};
+		const range = (k) => {
+			const v = mounts.map((m) => m[k]).filter((x) => x !== null).sort((a, b) => a - b);
+			return v.length ? `${v[0]}–${v[v.length - 1]}` : '—';
+		};
+		const out = {
+			variant: opts.variant,
+			scenario: 'mount',
+			deck: opts.deck,
+			cpu: opts.cpu,
+			runs: opts.runs,
+			latticeMs: med('lattice'),
+			shownMs: med('shown'),
+			mermaidLibMs: med('mermaidLib'),
+			frameLatticeMs: med('frameLattice'),
+			frameMermaidLibMs: med('frameMermaidLib'),
+			mermaidFetchedRuns: mounts.filter((m) => m.mermaidFetch !== null).length,
+			samples: mounts,
+		};
+		if (opts.json) console.log(JSON.stringify(out, null, 2));
+		else {
+			console.log(`\nvariant: ${opts.variant}   scenario: mount   deck: ${opts.deck}   cpu×${opts.cpu}   runs: ${mounts.length}\n`);
+			console.log(`  reload → .lattice in the DOM     ${String(out.latticeMs).padStart(6)}ms   (${range('lattice')})`);
+			console.log(`  reload → preview revealed        ${String(out.shownMs).padStart(6)}ms   (${range('shown')})`);
+			console.log(`  reload → window.mermaid ready    ${String(out.mermaidLibMs === null ? 'never' : `${out.mermaidLibMs}ms`).padStart(8)}   (${range('mermaidLib')})`);
+			console.log('');
+			console.log(`  IN THE FRAME'S OWN CLOCK — document created → .lattice in it`);
+			console.log(`    frame → .lattice               ${String(out.frameLatticeMs).padStart(6)}ms   (${range('frameLattice')})`);
+			console.log(`    frame → window.mermaid ready   ${String(out.frameMermaidLibMs === null ? 'never' : `${out.frameMermaidLibMs}ms`).padStart(8)}   (${range('frameMermaidLib')})`);
+			console.log(`  mounts that fetched Mermaid      ${out.mermaidFetchedRuns}/${mounts.length}\n`);
+		}
+		return;
+	}
 
 	const results = [];
 	const shots = [];

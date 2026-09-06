@@ -547,6 +547,53 @@ slide; G is rejected on 116KB for what CSS does for free.
   scope, and widening it dragged the second along because they are the same variable. The
   signature needs to be constant across the deck (that is what stops the realm rebuild); the
   3.16MB bundle does not need to be in the document from the first byte. Injecting it on first sight of a fence — from the
-  runtime, inside the frame — would keep every measured win and hand back the second. Not
-  attempted here: it changes when a shared dependency loads for every preview surface, which
-  is its own change with its own blast radius. Logged rather than folded in.
+  runtime, inside the frame — would keep every measured win and hand back the second.
+
+  **THE SECOND IS NOT THERE. Re-measured 2026-09-06 with a committed instrument, and the
+  +1000ms above does not reproduce — so the clean fix was built, priced, and DROPPED.**
+
+  The +1000ms came from a scratch script that was never committed, at 5 runs. `bench:flash`
+  now carries the arm (`--scenario mount --deck diagram|prose`), so anyone can re-derive
+  this: it types one of two decks that differ in ONE slide — the third is a diagram, or
+  prose in its place, and the SHOWN slide is prose in both — reloads the Studio, and times
+  the reload against the preview's first `.lattice`, using `performance.timeOrigin` on both
+  sides so the two clocks are directly comparable. ×4 CPU, 11 runs, medians:
+
+  | | before | with the loader |
+  |---|---|---|
+  | frame's own clock → `.lattice`, diagram deck | 490ms (395–642) | 494ms (378–584) |
+  | frame's own clock → `.lattice`, prose deck | 441ms (268–597) | 448ms (376–490) |
+  | **what containing a diagram costs** | **+49ms** | **+46ms** |
+  | reload → preview revealed, diagram deck | 2274ms | 2032ms |
+  | reload → preview revealed, prose deck | 2044ms | 2016ms |
+  | window.mermaid ready, frame's own clock | 754ms | 1182ms |
+
+  Two readings, and the second is why nothing shipped. The FRAME-LOCAL number — the
+  low-variance half, because it excludes the Studio's own ~1.6s boot — says the eager tag
+  costs about **50ms**, not a second, and the loader does not move it: `.lattice` is in the
+  markup BEFORE the script tag, so the parser reaches it either way. The PAGE-TOTAL number
+  is the one an author feels, and it is below this instrument's noise floor: four passes
+  (9 and 11 runs, both builds) put the diagram deck's reveal cost at −61ms, +199ms, +230ms
+  and +16ms. **The sign disagrees across passes.** A change that alters when a shared
+  dependency loads for every preview surface cannot be justified by a number whose sign is
+  not stable, and HARD RULE #19 says so outright: a perf win without a reproducible
+  measurement is unproven.
+
+  The prototype worked and is worth describing, because the next person will have the same
+  idea. `mermaidLoaderAgent()` in `deck-preview.js` — an inline script in the frame that
+  appends the same `<script src>` on the first of (a) a fence present at first paint, (b) a
+  fence arriving later, (c) the document going idle. Every path fires inside the runtime's
+  own ~10s bootstrap poll (`MERMAID_WAIT_CAP`), so it needs no hook into `lib/runtime`. Two
+  callers must keep the plain tag: the Stage window (a diagram missing mid-talk is worse
+  than a slower open) and the Studio's offscreen export capture frame, whose `rAF` and
+  `requestIdleCallback` are paused or starved in a backgrounded tab — which is exactly where
+  the print export runs. It also does NOT deliver the decoupling its own name promises: the
+  warm-up still fires off the deck-scoped `mermaid` PROP, so the signature term and the
+  injection switch remain one variable. Making the injection genuinely content-driven means
+  dropping the warm-up, which puts the injection outside that 10s poll and needs a runtime
+  hook — more blast radius again, for the same ~50ms.
+
+  So the conflation stands, documented, at a measured price of about 50ms of frame-local
+  work. Reopen this only with a measurement that separates the two arms by more than the
+  instrument's spread — a slower machine, a heavier throttle, or a metric with less of the
+  Studio's own boot in it.
