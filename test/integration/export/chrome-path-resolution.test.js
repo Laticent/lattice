@@ -14,17 +14,24 @@
  * discoverable cache — where the documented fix did nothing and the program's own
  * warning named a different variable. #2088.
  *
- * These four cases are the contract, and each one is a thing that was or could be
- * got wrong. They drive the REAL CLI to a REAL PDF: the resolver's whole failure
- * mode was that every cheaper signal said it was fine.
+ * HOW THESE ARMS DISCRIMINATE, and why the first draft of this file did not. That
+ * draft took the browser away by pointing HOME at an empty directory. It cannot
+ * work: the cache scan walks EVERY `/home/<user>/.cache/puppeteer` regardless of
+ * HOME, so on a GitHub runner (`HOME=/home/runner`, and `ci.yml` caches exactly
+ * there) the browser is always discoverable. The draft guarded on that with a bare
+ * `return`, which made the ONLY arm that detects a revert a silent no-op on the
+ * very gate it was added to — `node:test` reports it `ok`, with `skipped: 0`, so no
+ * log scan finds it either. That is the failure `test/unit/tools/chrome-guard.test.js`
+ * was written about, reintroduced.
  *
- * `HOME` pointed at an empty directory is what makes the cases separable — it is
- * how the puppeteer cache is taken away without deleting anything. (The scan also
- * walks `/home/<user>/.cache/puppeteer`; the guard below skips rather than lies if
- * this machine has one of those.)
+ * So these arms never hide the browser. Each points an env var at a SHIM — a tiny
+ * script that touches a marker file and then `exec`s the real Chromium — and asserts
+ * which marker exists. That answers "which path did the renderer launch" directly
+ * instead of inferring it from whether a render happened, and it holds whether or
+ * not a cache is present, on a runner or a laptop.
  */
 
-const { test, describe } = require('node:test');
+const { test, describe, after } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const fs = require('fs');
@@ -42,22 +49,30 @@ describe('chrome-path-resolution', () => {
   const chrome = resolveChrome();
   const skip = skipWithoutChrome(chrome);
 
-  /**
-   * A HOME with no puppeteer cache under it. Only meaningful while no OTHER home
-   * on this box has one either — the scan walks `/home/*` regardless of HOME — so
-   * `cacheIsHidable` reports whether taking HOME away actually takes the cache away.
-   */
-  const emptyHome = () => fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-nohome-'));
-  const cacheIsHidable = (() => {
-    try {
-      return !fs.readdirSync('/home').some((u) => fs.existsSync(`/home/${u}/.cache/puppeteer`));
-    } catch { return true; }
-  })();
+  const dirs = [];
+  const workDir = () => {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-chrome-'));
+    dirs.push(d);
+    return d;
+  };
+  after(() => { for (const d of dirs) fs.rmSync(d, { recursive: true, force: true }); });
 
-  /** Render the fixture with exactly this env overlay; return the CLI result. */
-  function render(env, label) {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-chrome-'));
-    const out = path.join(dir, `${label}.pdf`);
+  /**
+   * An executable that records having been run, then becomes the real browser.
+   * `exec` matters: puppeteer talks to the process it spawned over its stdio and
+   * DevTools pipe, so the shim must not survive as a parent in between.
+   */
+  function shim(dir, name) {
+    const bin = path.join(dir, name);
+    const marker = path.join(dir, `${name}.ran`);
+    fs.writeFileSync(bin, `#!/bin/sh\n: > "${marker}"\nexec "${chrome}" "$@"\n`);
+    fs.chmodSync(bin, 0o755);
+    return { bin, marker, ran: () => fs.existsSync(marker) };
+  }
+
+  /** Render the fixture with exactly this env overlay; report exit and output. */
+  function render(dir, env) {
+    const out = path.join(dir, 'out.pdf');
     const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet'], {
       cwd: ROOT,
       encoding: 'utf8',
@@ -67,32 +82,54 @@ describe('chrome-path-resolution', () => {
     return { ...r, rendered: fs.existsSync(out) && fs.statSync(out).size > 0 };
   }
 
-  test('CHROME_PATH alone renders when nothing else can be discovered', { skip }, () => {
-    if (!cacheIsHidable) return; // another user's cache would resolve regardless
-    const r = render({ HOME: emptyHome(), CHROME_PATH: chrome }, 'chrome-path');
-    assert.ok(r.rendered, `CHROME_PATH did not reach the renderer:\n${r.stderr}`);
+  test('CHROME_PATH selects the browser', { skip }, () => {
+    // THE FIX. Before it this arm failed: the marker was never written, because
+    // the renderer resolved its own cache and never looked at CHROME_PATH.
+    const dir = workDir();
+    const s = shim(dir, 'chrome-path-shim');
+    const r = render(dir, { CHROME_PATH: s.bin });
+    assert.ok(r.rendered, `render failed:\n${r.stderr}`);
+    assert.ok(s.ran(), 'CHROME_PATH did not reach the renderer — some other binary launched');
   });
 
-  test('PUPPETEER_EXECUTABLE_PATH alone renders — unchanged', { skip }, () => {
-    if (!cacheIsHidable) return;
-    const r = render({ HOME: emptyHome(), PUPPETEER_EXECUTABLE_PATH: chrome }, 'pptr-path');
-    assert.ok(r.rendered, `PUPPETEER_EXECUTABLE_PATH did not reach the renderer:\n${r.stderr}`);
+  test('PUPPETEER_EXECUTABLE_PATH selects the browser — unchanged', { skip }, () => {
+    const dir = workDir();
+    const s = shim(dir, 'pptr-shim');
+    const r = render(dir, { PUPPETEER_EXECUTABLE_PATH: s.bin });
+    assert.ok(r.rendered, `render failed:\n${r.stderr}`);
+    assert.ok(s.ran(), 'PUPPETEER_EXECUTABLE_PATH did not reach the renderer');
   });
 
-  test('PUPPETEER_EXECUTABLE_PATH still wins over CHROME_PATH', { skip }, () => {
-    // The explicit override stays FIRST and stays unconditional: overflow-nightly
-    // pins one specific Chromium so its baseline stays comparable, and a pin that
-    // quietly renders on some other browser is worse than one that fails.
-    const r = render({ PUPPETEER_EXECUTABLE_PATH: chrome, CHROME_PATH: MISSING }, 'precedence');
-    assert.ok(r.rendered, `the explicit override lost its precedence:\n${r.stderr}`);
+  test('PUPPETEER_EXECUTABLE_PATH wins over CHROME_PATH', { skip }, () => {
+    // The explicit pin stays FIRST. overflow-nightly.yml pins one specific Chromium
+    // so its baseline stays comparable, and it sets BOTH variables; if CHROME_PATH
+    // ever took precedence, that pin would quietly stop meaning anything.
+    const dir = workDir();
+    const winner = shim(dir, 'pptr-shim');
+    const loser = shim(dir, 'chrome-path-shim');
+    const r = render(dir, { PUPPETEER_EXECUTABLE_PATH: winner.bin, CHROME_PATH: loser.bin });
+    assert.ok(r.rendered, `render failed:\n${r.stderr}`);
+    assert.ok(winner.ran(), 'the explicit override lost its precedence');
+    assert.ok(!loser.ran(), 'CHROME_PATH overtook PUPPETEER_EXECUTABLE_PATH');
   });
 
-  test('a CHROME_PATH pointing at nothing falls through to the cache scan', { skip }, () => {
-    // The regression guard for this change. Before it, a junk CHROME_PATH was
-    // ignored because the variable was ignored; it must stay ignored now that the
-    // variable is read, or every decorative CHROME_PATH in the tree becomes a
-    // render failure.
-    const r = render({ CHROME_PATH: MISSING }, 'fallthrough');
-    assert.ok(r.rendered, `a stale CHROME_PATH broke a render that used to work:\n${r.stderr}`);
+  test('an unusable CHROME_PATH falls through instead of failing the render', { skip }, () => {
+    // The regression guard, and it needs all three shapes. A path that merely does
+    // not exist was the only one the first draft checked, so `fs.existsSync` looked
+    // sufficient — while a DIRECTORY (`/Applications/Google Chrome.app` is one) and
+    // a non-executable file both passed it and then died in puppeteer with
+    // `spawn … EACCES`, turning a working render into a failure. Every decorative
+    // CHROME_PATH in the tree is one of these three shapes.
+    const dir = workDir();
+    const aDir = path.join(dir, 'chrome.app');
+    fs.mkdirSync(aDir);
+    const notExec = path.join(dir, 'not-executable');
+    fs.writeFileSync(notExec, '#!/bin/sh\nexit 0\n');
+    fs.chmodSync(notExec, 0o644);
+
+    for (const [label, value] of [['missing', MISSING], ['a directory', aDir], ['not executable', notExec]]) {
+      const r = render(workDir(), { CHROME_PATH: value });
+      assert.ok(r.rendered, `CHROME_PATH ${label} broke a render that used to work:\n${r.stderr}`);
+    }
   });
 });

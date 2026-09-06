@@ -190,7 +190,7 @@ pre-push:
           printf '%s\n' "$files" | grep -qE '^lib/|^tools/|^test/|^themes/|^dist/|^examples/|^exemplars/|^marp\.config\.js$|^lattice-emulator\.js$|^mermaid-v11\.min\.js$|^package\.json$|^package-lock\.json$|^\.github/workflows/ci\.yml$' || run_it=0
         fi
         if [ "$run_it" = 1 ]; then
-          export CHROME_PATH="${CHROME_PATH:-$(ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | head -1)}"
+          export CHROME_PATH="${CHROME_PATH:-$(ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | sort -V | tail -1)}"
           npm run test:integration
         else
           command -v pdfinfo >/dev/null 2>&1 || echo "  ⚠ pdfinfo missing (poppler-utils) — the integration gate that re-checks it was skipped"

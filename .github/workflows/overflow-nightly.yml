@@ -131,7 +131,7 @@ jobs:
       # `executablePath()` COMPUTES a path; it does not check the file is there. Measured: point
       # PUPPETEER_CACHE_DIR at an empty directory and it still returns a path and exits 0. That
       # matters because `detectChromeExecutable()` returns PUPPETEER_EXECUTABLE_PATH
-      # unconditionally (lattice-emulator.js:1254) — setting it turns the cache scan and `which`
+      # unconditionally — setting it turns the cache scan and `which`
       # fallbacks into dead code. So a partial or stale cache restore would hand both variables a
       # path to nothing, sail past the `check-overflow-corpus.js:145` guard (which only asks that
       # CHROME_PATH is non-empty), and fail all 279 renders. This step therefore fails HERE, where

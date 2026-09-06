@@ -1297,12 +1297,25 @@ function themeVarsForBand(band, hand = false) {
   return vars;
 }
 
+/** True when `p` is a regular file this process may execute — not a directory,
+ *  not a non-executable file, not a dangling path. `fs.existsSync` alone answers
+ *  none of those, and every one of them reaches puppeteer as `spawn … EACCES`. */
+function isLaunchableBinary(p) {
+  try {
+    if (!fs.statSync(p).isFile()) return false;
+    fs.accessSync(p, fs.constants.X_OK); // throws when it is not executable
+    return true;
+  } catch { return false; }
+}
+
 // ── Puppeteer config — chrome auto-detection ─────────────────────────────
 // Both the diagram render worker and the PDF rasterize step drive puppeteer, which
 // needs a Chrome binary; resolution order:
 //   1. PUPPETEER_EXECUTABLE_PATH env var (explicit, unconditional override)
-//   2. CHROME_PATH env var, if it points at a file that exists
-//   3. puppeteer's bundled copy under <user>/.cache/puppeteer/chrome/
+//   2. CHROME_PATH env var, if it names an executable file
+//   3. puppeteer's bundled copy — under $HOME/.cache/puppeteer/chrome AND under
+//      EVERY /home/<user>/.cache/puppeteer/chrome, newest build first, regardless
+//      of what HOME says. Overriding HOME therefore does NOT isolate this step.
 //   4. system Chrome / Chromium (looked up via `which`)
 // If none of these resolve, we omit executablePath and let puppeteer use
 // its default (which may download a Chrome on first run).
@@ -1321,15 +1334,22 @@ function themeVarsForBand(band, hand = false) {
 // The two steps are deliberately NOT symmetric. Step 1 stays unconditional: an
 // explicit pin that has gone missing must fail loudly, not silently render on some
 // other browser — .github/workflows/overflow-nightly.yml pins a specific Chromium
-// precisely so its baseline stays comparable. Step 2 is existence-checked, so a
-// stale or decorative CHROME_PATH falls through to the cache scan exactly as it did
-// before this change, and no configuration in this repo resolves a different binary
-// than it did yesterday.
+// precisely so its baseline stays comparable. Step 2 falls through instead, so a
+// stale or decorative CHROME_PATH lands on the cache scan exactly as it did before
+// this change rather than becoming a new render failure.
+//
+// "Falls through" has to mean more than `existsSync`, and the first draft of this
+// got it wrong. A path can exist and still not be a browser: `/Applications/Google
+// Chrome.app` is a DIRECTORY, and a non-executable file is just as unlaunchable.
+// Both passed `existsSync`, and both then died in puppeteer with `spawn … EACCES`
+// on renders that had worked the day before — a regression manufactured by the very
+// guard meant to prevent one. isFile + X_OK is what the sentence above actually
+// promises.
 function detectChromeExecutable() {
   if (process.env.PUPPETEER_EXECUTABLE_PATH) {
     return process.env.PUPPETEER_EXECUTABLE_PATH;
   }
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) {
+  if (process.env.CHROME_PATH && isLaunchableBinary(process.env.CHROME_PATH)) {
     return process.env.CHROME_PATH;
   }
   // Look in known puppeteer cache locations across users.

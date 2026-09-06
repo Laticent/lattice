@@ -77,7 +77,7 @@ fi
 
 # 3. Point marp-cli at the puppeteer-cached Chromium for the whole session
 #    (and thus for the pre-push integration gate, which inherits this env).
-CHROME_BIN="$(ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | head -1 || true)"
+CHROME_BIN="$(ls /root/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome 2>/dev/null | sort -V | tail -1 || true)"
 if [ -n "$CHROME_BIN" ] && [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo "export CHROME_PATH=\"$CHROME_BIN\"" >> "$CLAUDE_ENV_FILE"
 fi
