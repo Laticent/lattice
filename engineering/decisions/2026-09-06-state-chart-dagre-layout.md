@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: state-chart adopts dagre for node placement and edge routing, reversing PR #27's explicit "no dagre, no force layout". Self-hosted with no external script — the player CSP (script-src sha256) and the .toString() serialization both make one impossible. Measured against ELK on all 13 shipped gallery machines: dagre keeps authored reading order 14/15 against ELK's 9/15, fits a 16:9 stage better on 12 of 15, lays out 2.5x faster, and costs 22 KB gzipped against ELK's 430 KB. The decisive constraint is synchronous API — the layout pass is serialized into the emulator bootstrap via .toString(), which a Promise cannot cross.
 ---
 
@@ -268,11 +268,88 @@ did not help). It made a working `context-stroke` marker look unsupported. Raste
 through puppeteer, not the Chrome CLI. The large sheets were unaffected — verified by
 re-rendering and diffing (4.77% differing pixels, all antialiasing from the 2× scale).
 
+## 9. What shipped, and what verified it
+
+Built on `claude/mermaid-layout-state-charts-1bn5hd`. The hybrid rule holds: a
+chain keeps `state i at row i`, and **every machine in the six shipped galleries
+has byte-identical node geometry** — verified by dumping node rects and viewBoxes
+from real headless Chromium before and after, re-run after every subsequent fix,
+not reasoned about.
+
+**Adoption is a property of the LAYOUT, not the grammar**, and that distinction
+was arrived at by measurement rather than taste. "Some state has two successors"
+sounds like the right question, but a SKIP edge (`1 => 2` beside `1 => 5`)
+satisfies it while dagre still ranks the machine linearly — switching to it
+re-laid out every shipped gallery for no visual gain, and was reverted. The test
+is two nodes sharing a rank, excluding the synthetic exit (a sink every terminal
+converges on) and disconnected nodes (dagre parks every one of them in rank 0).
+
+**Edge length is responsive**: the rank gap stretches so a `tb` machine fills the
+stage's height and an `lr` machine fills its width, floored at label clearance and
+only ever stretched upward. Solved from two samples, because the gap is one term
+of `extent = fixed + nRanks * ranksep` and a naive ratio moved an lr machine from
+86% to 88% of the width. The target aspect is read from the figure VIEWPORT: the
+pass pins the scale box, so reading it from that box fed draw()'s own output back
+in and walked a tb machine from 46% to 24% across re-draws.
+
+**Labels sit off the line** — below on `lr`, right on `tb` — at the polyline's
+arc-length midpoint. Event text takes `\n` and `<br>`, and wraps itself when still
+too wide, never mid-word.
+
+### 9.1 What a checker found that the tests did not
+
+An independent checker (HARD RULE #25) found four confirmed defects in the first
+layout commit. Recorded because three are instructive:
+
+| | defect | why nothing caught it |
+|---|---|---|
+| F1 | the canvas pad was `G.gap` (5) while the start marker is painted `markerGap + startR` (46) beyond the first node | dagre's bounds hold nodes and edges; the markers are drawn by the other router. Every re-ranked figure put the start disc at `cy = -35` and **the engine's own CONTENT CLIPPED gate fired on a shipped PDF** |
+| F2 | `curved` never reached `edgeDagre`, so a fan-out silently rendered as the default | no gate compares a modifier's output to its absence |
+| F3 | routes keyed by endpoint PAIR in a multigraph, collapsing duplicate transitions onto one line | dagre had the distinct routes; the code discarded them |
+| F4 | adoption fired on machines with no branch | see the exclusions above |
+
+**F5 is the one worth keeping.** The six tests written with that commit
+regex-matched the pass's own SOURCE TEXT (`assert.match(src, /if \(!branching\)
+return null;/)`). All six passed with all four defects present, because none of
+the four changes a source string. They are replaced by a behavioral suite that
+drives the real closure against a fake DOM and asserts coordinates — each test
+fails on the defect it names.
+
+One more surfaced while fixing those: pinning the scale box BEFORE painting
+reflows the hidden measuring column, moving the very label rects `nodeShape`
+reads, while `n.mx`/`n.my` still describe the pre-pin layout. Every node's text
+sat ~20px above its box on a machine whose column had wrapped a label.
+
+### 9.2 Verification matrix
+
+| surface | result |
+|---|---|
+| CLI PDF, light + dark | branching, chains, self-loops, tints all correct; no CONTENT CLIPPED on any shipped deck |
+| distributable `.html` export | dagre inlined, global installed, machine re-ranked in a real browser |
+| PPTX / PNG export | render clean |
+| docs site preview iframe (real dev server) | renders `viewBox 0 0 970.4 253.4` — identical to the CLI — nothing at negative coordinates, no page errors |
+| six shipped galleries | byte-identical node geometry |
+
+**UNVERIFIED, and named rather than glossed:** the docs **Playground** with a
+BRANCHING deck. The component page exercises the preview frame on a chain, and
+the branching path is the same code in the same runtime bundle, but the editor
+could not be seeded from a headless driver (no reachable CodeMirror view), so a
+fan-out was never typed into the real Studio. The **Drawing Board tilt** path is
+also unexercised: `draw()`'s `getComputedStyle(fig).transform !== 'none'` early
+return now leaves the size pin in place, which reads correctly but was not driven.
+
 ## 8. Open
 
 - Self-loop routing stays hand-rolled. Scope it before implementation.
 - Within-rank order: adopt constraint edges, or accept dagre's crossing-minimal order?
-- The tall-machine stage-fit problem is unaddressed and wants its own note.
+- The tall-machine stage-fit problem is **partly** addressed: the responsive rank
+  gap makes a `tb` machine fill the stage height, but a narrow machine still
+  leaves the width unused. That is inherent to a vertical stack on a 16:9 stage
+  and wants its own note.
+- **Found, not caused (off-path, logged not fixed):** on the `lr` build-pipeline
+  slide of `examples/state-chart.md` the final marker is clipped at the right
+  edge. Verified pre-existing — zero differing pixels in that region across this
+  change.
 - **Found, not caused (HARD RULE #18, off-path — logged, not fixed here):** roughjs is
   inlined into `dist/lattice-runtime.js` and appears nowhere in
   `dist/marp-kit/THIRD-PARTY-LICENSES.txt`, and its notice does not survive in the
