@@ -49,28 +49,33 @@ describe('median', () => {
 });
 
 describe('metricsFromLhr', () => {
-	it('extracts the five tracked metrics', () => {
+	it('extracts the four tracked metrics', () => {
 		const m = metricsFromLhr(lhr({ score: 0.9, lcp: 2000, cls: 0.01, tbt: 100, script: 1500000 }));
 		expect(m['performance-score']).toBe(0.9);
 		expect(m['largest-contentful-paint']).toBe(2000);
 		expect(m['cumulative-layout-shift']).toBe(0.01);
 		expect(m['total-blocking-time']).toBe(100);
-		expect(m['script-size']).toBe(1500000);
 	});
-	it('returns null script-size when resource-summary is absent (not 0)', () => {
-		const m = metricsFromLhr({ categories: { performance: { score: 0.9 } }, audits: {} });
-		expect(m['script-size']).toBeNull();
+	// The RETIRED metric, pinned as an absence. `script-size` summed Lighthouse
+	// network records, so it measured what happened to load during a visit rather
+	// than what the build produced — 35% of 140 repeat readings of an IDENTICAL
+	// commit moved past its own 3% tolerance. The fixture still carries a populated
+	// `resource-summary`, exactly as a real LHR does: the point is that the detector
+	// no longer reads it. Deterministic bytes are gated per-PR off the built artifact
+	// by check-route-budget.mjs; a bytes metric must never come back here.
+	it('does NOT emit script-size, even from a populated resource-summary', () => {
+		const m = metricsFromLhr(lhr({ score: 0.9, lcp: 2000, cls: 0.01, tbt: 100, script: 1500000 }));
+		expect(m['script-size']).toBeUndefined();
+		expect(Object.keys(m).sort()).toEqual([
+			'cumulative-layout-shift',
+			'largest-contentful-paint',
+			'performance-score',
+			'total-blocking-time',
+		]);
 	});
 });
 
 describe('evaluate', () => {
-	it('flags a script-size growth beyond the tight deterministic tolerance', () => {
-		// +5% on a 1.6MB bundle is ~80KB, over both the 3% tol and 10KB noise.
-		expect(evaluate('script-size', 1600000, 1680000).regressed).toBe(true);
-	});
-	it('ignores a sub-noise script wobble', () => {
-		expect(evaluate('script-size', 1600000, 1605000).regressed).toBe(false);
-	});
 	it('ignores LCP noise under 150ms even if technically slower', () => {
 		expect(evaluate('largest-contentful-paint', 2000, 2100).regressed).toBe(false);
 	});
@@ -95,8 +100,8 @@ describe('evaluate', () => {
 		expect(evaluate('performance-score', 0.45, 0.45).regressed).toBe(false); // no-op
 	});
 	it('treats a missing metric as skip, not a 0-valued improvement/regression', () => {
-		expect(evaluate('script-size', 1600000, null).regressed).toBe(false); // head missing
-		expect(evaluate('script-size', null, 1600000).regressed).toBe(false); // base missing
+		expect(evaluate('total-blocking-time', 300, null).regressed).toBe(false); // head missing
+		expect(evaluate('total-blocking-time', null, 300).regressed).toBe(false); // base missing
 	});
 	it('flags CLS worse by more than 0.05 absolute', () => {
 		expect(evaluate('cumulative-layout-shift', 0.0, 0.1).regressed).toBe(true);

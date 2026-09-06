@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   The nightly alarm family's live defect is the OPPOSITE of the silent night, and finding it
   reverses the order the remaining work should be done in. Two rolling threads are filing every
@@ -18,7 +18,7 @@ summary: >
 
 # The alarms are already crying wolf, which changes what to fix first
 
-**Date:** 2026-09-02 · **Status:** PROPOSED — options, owner's call
+**Date:** 2026-09-02 · **Status:** SHIPPED 2026-09-05 — option A, owner's pick. See § Decision.
 **Corrected:** 2026-09-03 — see § Correction. The conclusion survived; the mechanism did not.
 
 ## Correction (2026-09-03)
@@ -282,3 +282,124 @@ looks like progress and least changes the outcome.
 
 **Recommendation: A.** The ordering argument is unchanged by the correction — it was always the
 metric, and the correction removes the one step that would have made no difference.
+
+## Decision (2026-09-05) — option A, and what actually shipped
+
+Owner picked A: fix the measurement rather than delete the watch. Steps 1-3 shipped together;
+step 4 (the silent-night filing conditions) stays where this note put it — second.
+
+**One option was presented and withdrawn before the pick, and the reasoning is worth keeping.**
+A variant of step 2 proposed giving the three content routes an `htmlRaw` budget each but only
+ONE shared `eagerJsGz` number, because the three routes share a 71.0KB gz site shell out of
+each one's 72.6-77.2KB total — 5 chunks, only 1.5-6.1KB per route being its own (measured
+2026-09-05 off a real build). Three JS budgets therefore move together, and the variant read
+that as three findings for one cause.
+
+It was withdrawn on re-examination: `check-route-budget.mjs` collects every problem into ONE
+failure message, in the PR that caused it, with the fix inline. That is a true alarm reported
+in N lines, not N alarms — nothing like the false-alarm channel this note is about, and the
+resemblance was superficial. The variant also bought its tidiness with a bespoke shared-chunk
+concept the ledger does not have, against #15. Three plain per-route budgets are also STRICTER:
+a route-sized budget carries ~2.3KB of GROWTH headroom against the shell where the same bytes
+inside studio's 633KB budget have ~19KB, so a small shell regression is caught here and nowhere
+else. **State the other side too, because it is the tighter one:** the stale-loose floor leaves
+only 1.55-1.69KB of SHRINK room on the three new `eagerJsGz` budgets, and shrinking is what a
+genuine win does. Lazy-loading `PerfOverlay` (6.3KB gz) or `StorageOverlay` (4.0KB gz) out of the
+shell — both desirable — reds `docs-build` on three routes at once and costs three ledger edits.
+That is the ratchet working as designed, and it is a real friction cost the withdrawn variant
+would have paid once instead of three times. Recorded rather than smoothed over.
+The coupling is recorded in `route-budget.json` instead, so nobody reads three simultaneous
+bumps as three problems.
+
+**What shipped:**
+
+| step | change |
+|---|---|
+| 1 | `script-size` deleted from `docs/scripts/perf-regression.mjs` — config, extraction, and the `KB` formatter it alone used. The retirement is pinned as an ABSENCE in `perf-regression.test.mjs`: the fixture still carries a populated `resource-summary`, exactly as a real LHR does, and the detector must not read it. |
+| 2 | `/`, `/components/` and `/getting-started/` added to `docs/route-budget.json` with both metrics, measured off a real build at +~3% per the ledger's own convention. **This is not a like-for-like replacement, and § Options overstated it as one.** The ledger counts `/_astro/*.js` referenced in the HTML and deliberately does not follow dynamic `import()`; the retired metric summed everything a visit fetched, a strictly larger quantity (~1335KB measured on studio against this gate's 639KB budget). What is replaced is the DETERMINISTIC half. Deferred chunks are now watched by nothing — which is the right trade, because the quantity that included them could not be measured twice to the same number, but it is a trade and not a wash. |
+| 3 | `always()` added to `perf-nightly.yml`'s `watch` filing step, closing the fourth instance of the mute bug its sibling documents. |
+| + | **Coverage pinned in both directions.** `check-route-budget.test.mjs` asserts the ledger's route set equals the Lighthouse url list, joined on the built HTML path. Mutation-proved both ways: a url with no ledger entry fails, a ledger entry with no enforceable metric fails. |
+| + | **Two dead routes dropped from the nightly.** `/drawing-board/` and `/workbench/` were still measured 3x on two form factors every night. Both surfaces were REMOVED (`2026-07-03-studio-succession.md`) and their routes are 310- and 306-byte redirect stubs with ZERO JS — 12 Lighthouse runs a night on pages that cannot regress. Dropping them also makes the url list exactly the ledger's route set, which is what let the pin above be an equality rather than a subset with an exclusion list. |
+
+**One measurement in this note got sharper while implementing it, and it strengthens the case.**
+The nightly already runs Lighthouse **three times per URL and compares the MEDIAN**
+(`numberOfRuns: 3`, and `readFormFactor` takes the median run per metric). So the 104KB spread
+is a spread *between medians of three*, not between single samples. Raising the run count is
+therefore not an available fix either — worth stating before someone spends a night on it.
+
+**The independent checker (HARD RULE #25) changed what shipped, in three ways worth recording:**
+
+- **It found the claim above.** "Dropping the nightly metric loses no payload coverage" was false
+  and is now stated correctly here, in `check-route-budget.mjs`'s header, and in the changelog.
+- **It found that `watch`'s compare step mapped every non-zero exit to `regressed=true`** — so a
+  wiring bug or an unreadable LHR filed a `priority:high` issue whose entire body was the run
+  link, appended nightly to the thread this change exists to stop poisoning. Its `engine-perf`
+  sibling had already drawn that distinction *and written down why*; this job never got it.
+  Pre-existing, but on-path under #18 because this change edits that step's condition. Fixed to
+  the sibling's shape.
+- **The `always()` fix was an instance, not the class.** `nightly-alarm-contract.test.js` pinned
+  `always()` on stand-down steps and never on FILING steps — which is why the same one-line bug
+  had been found and fixed by hand four times. The contract now pins filing steps too, and the
+  arm immediately failed on **three more live instances**: `integration-nightly` (the filing step
+  for **#1845**, this note's other rolling thread, guarding eight `failed` outputs), and
+  `modulepreload-coverage-nightly` and `preview-e2e-nightly`, whose own comments describe filing
+  behavior the missing guard silently defeated. All three fixed. Seven instances total; the
+  eighth cannot land silently.
+
+### The 140-observation measurement, re-derived from primary data (2026-09-05)
+
+This note's central claim was, until now, a parse nobody had reproduced — the exact defect the
+note exists to warn about. It has now been re-derived independently: all **24** of #1532's
+comments pulled fresh, **240 Script rows** extracted, statistics recomputed from scratch. The
+raw table is not committed (it is reproducible from the thread in minutes, and a stale copy
+would be a second unverified artifact), but the method is: spread = max − min across every
+reading of one (commit, URL, form-factor); tolerance = 3% of that triple's median; percentile
+by nearest-rank.
+
+| measure | note, 23 comments | re-derived, 24 comments |
+|---|---|---|
+| triples measured 2+ times | 140 | **150** |
+| spread past its own 3% tolerance | 49 (**35%**) | 53 (**35%**) |
+| median spread | 0.0% | **0.0%** |
+| p90 spread (nearest-rank) | 27.6% | **27.6%** |
+| identical-pair rows flipping verdict | 9 of 30 (**30%**) | 9 of 30 (**30%**) |
+| worst spread | 104KB / 48.5% of median | **106KB / 53.5%** (`90a2b41`, `mobile /`, 145 · 251) |
+| `/` median spread | 47.5KB | **47.5KB** |
+| `/studio/` max spread | 0KB | **0KB** |
+
+**Every rate reproduces exactly.** The counts differ by exactly one night — a 24th comment landed
+on 09-04, after the note was written — which is also where the new worst spread came from: the
+metric was still manufacturing a 106KB swing on unchanged bytes the day before it was deleted.
+
+### A second defect in the same measurement, found and then half-refuted
+
+`docs/lighthouserc.cjs` listed **seven** URLs and every comment table shows **five**. Measured, not
+inferred: Lighthouse follows the stubs' `meta refresh`, reports `finalDisplayedUrl` as
+`http://localhost:4399/studio/`, and `readFormFactor` (`:127`) groups on exactly that field. So
+`/drawing-board/` and `/workbench/` never had rows of their own — **their six runs a night were
+silently folded into `/studio/`, which has therefore been measured with nine runs per form factor
+rather than three.**
+
+**And this is where a claim died before it shipped, which is worth recording in full.** The first
+measurement showed a redirect-arrived run reporting 1214KB of script against 667KB direct, and an
+826ms worse LCP — read as `resource-summary` double-counting both navigations. Rerun on a WARM
+server, alternating direct and redirect four times, every run reports **667KB** and comparable
+LCP. The 1214KB was the first Lighthouse run against a freshly started preview server: a
+cold-start artifact of the measurement, not a property of the redirect. **The mechanism was
+wrong and the number was an artifact — the exact shape of failure § Correction above records,
+caught this time only because the run was repeated with the order controlled.**
+
+**What follows is a COST of removing them, not a benefit.** `/studio/` has been enjoying an
+accidental median-of-nine while every other route gets a median-of-three, and that is the likeliest
+reason it shows a **0KB** max spread across 30 repeat observations — the quietest route in the
+table is the one accidentally sampled three times over. Dropping the stubs puts it on the same
+three runs as everything else, so **expect `/studio/`'s LCP / TBT / score rows to get noisier, not
+quieter.** Accepted: measuring a page under two URLs it was never asked to be measured under is
+not a sampling strategy, and the honest fix for a noisy `/studio/` is to raise `numberOfRuns` for
+every route deliberately, not to keep two redirect stubs in the list by accident. Named here so
+the first noisy `/studio/` night is not mistaken for a regression.
+
+**Still open, deliberately:** the `MEASUREMENT_FLOOR`-style question of WHICH capture stage
+admits the variance (§ above) remains inference, and the recommendation never depended on it.
+And #1532 still needs a human to close it; nothing here closes a thread that a differential job
+opened by design.

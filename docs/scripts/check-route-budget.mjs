@@ -8,6 +8,20 @@
 // failure mode a relative nightly cannot see, and it is what happened.
 // See engineering/decisions/2026-08-17-studio-dynamic-loading-audit.md §7, §9.7.
 //
+// AND THAT NIGHTLY WATCH NO LONGER MEASURES BYTES AT ALL, which is why this ledger covers
+// all five routes it measures rather than two. The nightly itself still runs — it watches
+// LCP, CLS, TBT and the perf score, the things only a browser can see. Only the bytes moved.
+//
+// `script-size` claimed to be deterministic and was not: it summed Lighthouse NETWORK
+// records, so it measured what happened to load during a visit. Across 140 (commit, URL, form-factor) triples read two or more times on an
+// IDENTICAL commit, 35% moved further than its own 3% tolerance and the worst moved
+// 104KB on a ~200KB page — surviving a median of three runs. A tolerance band wide
+// enough to swallow that is 52%, which would pass a doubling of the payload, so the
+// metric was deleted rather than widened (2026-09-05) and the three routes it covered
+// joined this ledger. `check-route-budget.test.mjs` pins the two lists equal, so a route
+// cannot be added to one and forgotten in the other.
+// See engineering/decisions/2026-09-02-alarm-channel-saturation.md.
+//
 // WHY BYTES CAN BE GATED WHERE WALL CLOCK CANNOT. 2026-08-03-performance-guard.md
 // established the rule: a shared runner cannot resolve anything smaller than ~2x, so
 // durations became a nightly alarm and only DETERMINISTIC COUNTS gate the merge. Bytes
@@ -28,8 +42,17 @@
 //             must be ratcheted down. Without this the ledger rots into a number nobody
 //             has to respect, and a hard-won reduction is silently re-spendable.
 //
-// This gate does NOT try to be a performance model. It counts bytes on the two heavy app
-// routes. Bytes are a proxy for parse+hydrate, which — because the service worker serves
+// This gate does NOT try to be a performance model. It counts bytes on five routes: the two
+// heavy app shells and the three content routes that joined in 2026-09.
+//
+// AND IT DOES NOT COUNT ALL OF THEM — read this before claiming a route is "covered". measure()
+// counts only `/_astro/*.js` REFERENCED IN THE HTML. It deliberately does not follow dynamic
+// `import()` (that is the whole point of a lazy boundary), and it cannot see a script served
+// from outside `/_astro/` at all — `docs/public/playground/lattice-playground.js` is 971KB and
+// invisible here. So this is a deterministic watch on the EAGER path, not a payload total. The
+// retired `script-size` metric summed everything a visit actually fetched, which is a strictly
+// larger quantity (~2x on studio: ~1335KB measured vs this gate's 639KB budget) — it was deleted
+// for being unmeasurable, not for being redundant, and nothing watches the deferred bytes today. Bytes are a proxy for parse+hydrate, which — because the service worker serves
 // /_astro/ cache-first — is the cost that actually RECURS per launch.
 //
 // Runs post-`astro build` in the docs `build` script, which `docs-build` runs in CI, and
