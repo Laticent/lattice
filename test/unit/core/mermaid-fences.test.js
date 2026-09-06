@@ -140,12 +140,20 @@ describe('mermaid-fences', () => {
 
 	// ── group 3: the opener's shape, which is what decides whether a deck's bytes move ────
 
-	test('only an info string of exactly `mermaid` opens one of ours', () => {
-		assert.equal(matchMermaidFences(`\`\`\`mermaidish\n${BODY}\`\`\``).length, 0);
-		assert.equal(matchMermaidFences(`\`\`\`mermaid js\n${BODY}\`\`\``).length, 0);
-		// Trailing whitespace is not part of the info string — markdown-it renders this as a
-		// Mermaid fence, so declining it would put the preview and the export back out of step.
+	// THE INFO STRING IS THE ENGINE'S RULE, not a guess at it. markdown-it takes the FIRST
+	// whitespace-delimited token, so ```` ```mermaid js ```` renders `language-mermaid` and the
+	// preview draws it — an earlier version of this module required the trimmed info to EQUAL
+	// `mermaid` and printed the source instead. A conformance test against the real render
+	// (`fence-recognizer-conformance.test.js`) caught it within a minute of existing.
+	test('the info string follows the engine: the first token, and it must be ours', () => {
+		assert.equal(matchMermaidFences(`\`\`\`mermaid js\n${BODY}\`\`\``).length, 1);
 		assert.equal(matchMermaidFences(`\`\`\`mermaid  \n${BODY}\`\`\``).length, 1);
+		assert.equal(matchMermaidFences(`\`\`\`mermaid{.x}\n${BODY}\`\`\``).length, 1);
+		// …and a tag that merely STARTS with ours is a different language. The runtime's
+		// `class*="language-mermaid"` selector is loose enough to draw these; an export that
+		// replaced them with a picture would be over-matching on someone else's block.
+		assert.equal(matchMermaidFences(`\`\`\`mermaidish\n${BODY}\`\`\``).length, 0);
+		assert.equal(matchMermaidFences(`\`\`\`mermaid-x\n${BODY}\`\`\``).length, 0);
 	});
 
 	test('a backtick fence cannot be opened by a line of inline code', () => {

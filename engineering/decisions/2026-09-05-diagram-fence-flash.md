@@ -521,8 +521,31 @@ slide; G is rejected on 116KB for what CSS does for free.
 
   So the module walks lines the way the parser does — up to three spaces of indent opens, the
   content is de-indented by the opener's indent, a run of the SAME character at least as long
-  closes, a fence opened by another info string swallows what is inside it, and an HTML
-  comment is not markdown. A red-team pass measured the result against markdown-it under the
+  closes, a fence opened by another info string swallows what is inside it, an HTML comment is
+  not markdown, and the info string is read the way markdown-it reads it (the FIRST
+  whitespace-delimited token), so ```` ```mermaid js ```` draws on both paths.
+
+  **The durable artifact is a CONFORMANCE TEST, and it is the part to keep.**
+  `test/unit/core/fence-recognizer-conformance.test.js` runs a corpus of fence shapes through
+  `lib/engine`'s REAL render and asks whether the preview would draw each one — using the
+  runtime's own `code[class*="language-mermaid"]` selector, not a reading of CommonMark. Then
+  it asserts two things: the engine still behaves as the corpus records (so a markdown-it
+  upgrade fails here by name rather than drifting the CLI away from the preview for a year),
+  and **the walker never OVER-MATCHES** — every disagreement must be a miss, where the author
+  sees their source. That budget is zero, not "few": a miss is a visible annoyance, an
+  over-match replaces something the author wrote as literal text with a picture.
+
+  It paid for itself immediately. Within a minute of existing it failed on
+  ```` ```mermaid js ````: markdown-it emits `language-mermaid` for it, the preview drew a
+  diagram, and the walker — which required the trimmed info to EQUAL `mermaid` — printed the
+  source. The same class of defect as the indented fence, found by an instrument this time
+  instead of by an adversary.
+
+  The test also writes down what the five recognizers in this repo actually do, which was
+  prose until now and wrong in at least one place: `createFenceReader` (narration) trims, so
+  it accepts any indent; `scanFences` (grammar loading) is arbitrarily generous; the Studio's
+  `extractDiagrams` and `hasMermaid` over-report on purpose because they are diagnostics.
+  Only the walker is strict, because only the walker REPLACES source with a picture. A red-team pass measured the result against markdown-it under the
   engine's own config over 60,000 generated cases: the walker substitutes where the engine
   renders something else in **0.5%** of them, against **38.6%** for the regex it replaces, and
   every residual is a MISS — the author sees their source, never a wrong picture.

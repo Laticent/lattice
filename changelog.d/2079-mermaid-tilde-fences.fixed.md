@@ -7,6 +7,9 @@
   accept up to three spaces — so an indented fence drew in the Studio and printed as source.
   An indented CLOSER was worse: the fence stayed open across slide separators and the
   substitution swallowed them, exporting a three-slide deck as one page.
+- **Fixed: ```` ```mermaid js ```` and other multi-word fence tags now render.** Markdown takes
+  the first word of a fence's info string as its language, so the preview drew these; the
+  export required the tag to be exactly `mermaid` and printed the source.
 - **Fixed: a Mermaid fence commented out is no longer rendered into your speaker notes.** A
   draft diagram left inside an HTML comment was substituted anyway, putting kilobytes of SVG
   markup into the `.notes` sidecar where the author had written a note.
