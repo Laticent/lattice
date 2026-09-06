@@ -1,9 +1,9 @@
 ---
 status: proposed
-summary: The Laticent mark is an inlaid L — a slate letter with a brass seam let into it, tracing the load path down the stem and out along the arm. It arrived by elimination. Five concepts (a datum, an arch, a lattice substrate, a monogram, a cornerstone) were drawn to shipping quality and independently reviewed; every one landed on an unintended first-second reading — a papal cross, a bank-lobby arch, a chain-link fence, a carpenter's square, a Rubik's cube. Fixing those raised the set to 5.5-7.5 self-scored, and the owner rejected all but the monogram: the target was 10/10, not a clearable 8. The monogram's 6.5 had a nameable cause — it was two rectangles and a square, with no typographic craft — so the rebuild put the craft in: an arm lighter than the stem, a bracketed crook, a seam that bends on a radius echoing that bracket and tapers as load spreads. Two defects proved systemic and are now enforced in the generator rather than eyeballed: gold and slate measure 1.23:1 on dark, so the seam sits in a ground-color recess or it dies in grayscale; and a GitHub or Slack avatar is a circle, so nothing is painted past a 54-unit safe radius.
+summary: The Laticent mark is an incised L — a letter with the load path cut through it, down the stem and out along the arm, so what carries the letter is the material showing through from underneath. It arrived by elimination. Five concepts (a datum, an arch, a lattice substrate, a monogram, a cornerstone) were drawn to shipping quality and independently reviewed; every one landed on an unintended first-second reading — a papal cross, a bank-lobby arch, a chain-link fence, a carpenter's square, a Rubik's cube. The owner rejected all but the monogram: the target was 10/10, not a clearable 8. The monogram was rebuilt with typographic craft, shipped as a brass seam inlaid in a slate letter inside a near-black tile — and an independent critic scored THAT 6/10, with four structural findings that all held up. The second rebuild is what this note is mostly about, because the interesting failures are there: a near-black container measured 1.28-1.46:1 against every dark ground it has to sit on, so the container that was the whole argument was invisible on a GitHub org avatar; brass on slate is 1.23:1 on dark, and the ground-color recess meant to fence it severed the letter instead of framing it; and the wordmark was live text whose width spans 219.6 to 315.9 units across its own fallback chain, so the lockup's fixed allotment clipped. The fixes were a mid-tone tile at >=3:1 on cream and on every common dark ground, a channel cut as a MASK so it shows whatever is actually behind it, and a wordmark outlined from Fraunces. Two invariants that had been carried as prose — and were both wrong in prose — are now asserted from the numbers at generate time.
 ---
 
-# The Laticent mark is an inlaid L
+# The Laticent mark is an incised L
 
 **Ask (2026-09-06, the owner, verbatim):**
 
@@ -121,24 +121,18 @@ as gold leaking out of the letter; a **chiseled arm terminal** read as a slip
 rather than as craft; a seam **tracing the counter's inner edge** made the void
 busy.
 
-## The recess is not decoration
+## The recess was the right diagnosis and the wrong cure
 
 Gold and slate measure **1.23:1 on dark** — the same value, separated only by
 hue. A grayscale render of the seam-on-slate version showed the mark collapsing
-to a plain slate L: the seam was carried entirely by hue, so it died in
-grayscale, in mono print, and for a viewer with a color vision deficiency. The
-ground-color channel restores it by **shape**, which is also what a real inlay
-looks like. Light mode was fine at 3.45:1, so the defect was one-sided and
-invisible unless measured.
+to a plain slate L. That much was correct and it is why the seam is gone.
 
-## What is deliberately not settled
-
-**Downstream adoption.** Nothing outside `design/logo/laticent/` changed. The
-mark still needs `docs/public/` copies, PWA icons via
-`tools/make-pwa-icons.js`, and the site header.
-
-**Parent fit is resolved, and the premise it rested on was half wrong.** See
-below.
+The cure was not. Fencing the seam with a ground-color recess makes the stem
+FIVE bands wide — slate / near-black / gold / near-black / slate across 20
+units — and on dark the near-black recess *is* the ground, so it does not frame
+the seam, it severs the letter into two floating rails. Rendered side by side
+against the flush seam it is visibly the worse of the two, and it shipped
+because it was only ever judged on light.
 
 ## Parent fit: why the parent is a tile
 
@@ -157,12 +151,21 @@ four fail, on geometry rather than taste.** A letterform cannot be centripetal
 without ceasing to be a letter; the node lands 38 units off center and reads
 as a bolted-on dot.
 
-That leaves the resolution the precedent already points at: the parent does
-not imitate its children, it differs by **class**. A contained mark beside five
-free-standing ones reads as the thing they live inside, which is the actual
-relationship — Alphabet, Meta and P&G all do this at the corporate register.
-Rendered back into the family row, the tile reads as the parent where the bare
-letter read as a mark from another system.
+That left containment, argued at the time as "the parent differs by CLASS —
+a contained mark beside five free-standing ones reads as the thing they live
+inside", and supported with a precedent that **does not exist**. This note
+claimed "Alphabet, Meta and P&G all do this at the corporate register." None of
+them does: Alphabet is a bare wordmark, Meta a free-standing loop, P&G a
+wordmark with a moon-and-stars device. Not one differentiates from its children
+by containing the parent. The real containered-letter precedent — Facebook's
+`f`, Pinterest's `P` — is for **product** marks. An independent critic
+separately reported that "different class" and "doesn't belong" look identical
+here, with no shared construction, stroke weight, geometry or ground to
+separate them.
+
+The argument was replaced rather than patched, and the replacement is in
+§ "Two forms, two jobs" below. It rests on a measurement instead of a claim
+about hierarchy.
 
 The container pays for itself three more times:
 
@@ -192,7 +195,9 @@ no gate.
 
 ## Files
 
-- `design/logo/laticent/generate.py` — the tile, the mark, minimal variants and lockups
+- `design/logo/laticent/generate.py` — the tile, the mark, minimal variants, lockups
+- `design/logo/laticent/outline-wordmark.py` — re-outlines the wordmark (on demand, needs network)
+- `design/logo/laticent/wordmark.py` — generated: the wordmark as a path
 - `design/logo/laticent/audit.py` — the crop / bounding-box gate
 - `design/logo/laticent/laticent-*.svg` — the eight master assets
 - `design/logo/laticent/README.md` — palette, rules, regeneration
