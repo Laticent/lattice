@@ -10,7 +10,7 @@ import { SLIDE_SEP } from './deck-ops';
 import { frontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 import { splitSlides } from './lint';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
-import { DOM_CHROME, type MotionTarget, PLAY_TOKENS, type Provenance, readTargets, SPEED_TOKENS, STYLE_TOKENS, tally, type Verdict } from './motion-sheet';
+import { DOM_CHROME, deckMotionOf, type MotionTarget, PLAY_TOKENS, type Provenance, readTargets, SPEED_TOKENS, STYLE_TOKENS, tally, type Verdict } from './motion-sheet';
 import { setGroupToken } from './slide-directives';
 
 // The Motion tab, rebuilt on the frame model.
@@ -43,7 +43,29 @@ const VERDICT: Record<Verdict, { label: string; Icon: typeof Check; tone: string
 	'no-painter': { label: 'Not yet', Icon: CircleSlash, tone: 'text-muted-foreground border-border' },
 };
 
-const PROV_LABEL: Record<Provenance, string> = { slide: 'slide', deck: 'deck', 'built-in': 'built-in' };
+// Only an OVERRIDE is worth naming. `built-in` is the value nobody chose, so spelling it out
+// spent the widest string in the row on the least information — and clipped to "buil…" at 390px.
+/** Render a note's `backticked` spans as inline code. The notes name real identifiers — a
+ *  component, a class, a tag — and showing the backticks raw is the tell of copy that was written
+ *  for a Markdown file and pasted into a UI. Splitting on the fence is enough: these strings are
+ *  ours, not author input, so there is no nesting or escaping to handle. */
+function Note({ text }: { text: string }) {
+	return (
+		<>
+			{text.split('`').map((part, i) =>
+				i % 2 === 1 ? (
+					// biome-ignore lint/suspicious/noArrayIndexKey: the split is positional and the string is static.
+					<code key={i} className="rounded bg-[var(--bg-alt)] px-1 font-mono text-[11px] text-[var(--text-heading)]">{part}</code>
+				) : (
+					// biome-ignore lint/suspicious/noArrayIndexKey: same.
+					<React.Fragment key={i}>{part}</React.Fragment>
+				),
+			)}
+		</>
+	);
+}
+
+const PROV_LABEL: Record<Provenance, string> = { slide: 'slide', deck: 'deck', 'built-in': '' };
 
 type Filter = 'all' | 'on' | 'off' | 'review' | 'blocked';
 
@@ -54,8 +76,9 @@ function Axis({ label, value, from }: { label: string; value: string; from: Prov
 	return (
 		<div className="flex min-w-0 flex-col rounded-md border border-border bg-background px-2 py-1">
 			<span className="truncate text-[12px] font-semibold text-[var(--text-heading)]">{value}</span>
-			<span className="truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-				{label} · {PROV_LABEL[from]}
+			<span className="truncate font-mono text-[10.5px] text-muted-foreground">
+				{label.toLowerCase()}
+				{from === 'built-in' ? '' : ` · ${PROV_LABEL[from]}`}
 			</span>
 		</div>
 	);
@@ -97,7 +120,7 @@ function Row({ t, checked, onCheck, onTurnOff }: { t: MotionTarget; checked: boo
 			{t.note && (
 				<div className="mt-2 flex items-start gap-2 rounded-md border border-border bg-background px-2.5 py-2 pl-2.5">
 					<Info className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-					<p className="min-w-0 flex-1 text-[12px] leading-relaxed text-[var(--text-body)]">{t.note}</p>
+					<p className="min-w-0 flex-1 text-[12px] leading-relaxed text-[var(--text-body)]"><Note text={t.note} /></p>
 					{t.verdict === 'review' && (
 						<Button size="sm" variant="outline" className="h-6 shrink-0 px-2 text-[11px]" onClick={onTurnOff}>
 							Turn it off
@@ -174,7 +197,11 @@ export function MotionSheet({
 		editChunks(`Motion off for slide ${slide}`, new Set([chunk]), (c) => setGroupToken(c, PLAY_TOKENS, 'motion-off'));
 	};
 
-	const deckPlay = /^\s*motion\s*:\s*on\s*$/m.test(frontMatterBlock(source));
+	// Read the deck's ACTUAL defaults through the same parser the live host uses. An earlier draft
+	// passed a constant here, so these three controls displayed the built-in default whatever the
+	// deck said — the deck-scope half of the sheet was decorative. Caught by looking at the render.
+	const deck = React.useMemo(() => deckMotionOf(source), [source]);
+	const deckPlay = deck.play === 'on';
 	const setDeckAxis = (label: string, key: string, value: string | null) => onEdit(label, (src) => writeFrontMatterLine(src, key, value));
 
 	// The forwardable review record — GENERATED, never authored, and given the same treatment
@@ -268,7 +295,7 @@ export function MotionSheet({
 						{chip('on', 'On', counts.on)}
 						{chip('off', 'Off', counts.off)}
 						{chip('review', 'Review', counts.review)}
-						{chip('blocked', 'Not yet', counts.blocked)}
+						{chip('blocked', 'No roles', counts.blocked)}
 					</div>
 
 					{targets.length === 0 ? (
@@ -299,7 +326,7 @@ export function MotionSheet({
 										<CircleSlash className="size-3" aria-hidden /> Not yet
 									</span>
 								</div>
-								<p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{c.note}</p>
+								<p className="mt-1 text-[12px] leading-relaxed text-muted-foreground"><Note text={c.note} /></p>
 							</li>
 						))}
 					</ul>
@@ -316,11 +343,11 @@ export function MotionSheet({
 						</div>
 						<div className="flex items-center justify-between gap-2">
 							<span className="text-[13px] font-semibold text-[var(--text-heading)]">Style</span>
-							<CatalogSelect ariaLabel="Choose motion style" value={activeMotionStyle(undefined).name} onValueChange={(v) => setDeckAxis('Deck motion style', 'motion-style', v)} groups={[{ options: catalogOptions(MOTION_STYLE_ENTRIES) }]} />
+							<CatalogSelect ariaLabel="Choose motion style" value={activeMotionStyle(deck.style).name} onValueChange={(v) => setDeckAxis('Deck motion style', 'motion-style', v)} groups={[{ options: catalogOptions(MOTION_STYLE_ENTRIES) }]} />
 						</div>
 						<div className="flex items-center justify-between gap-2">
 							<span className="text-[13px] font-semibold text-[var(--text-heading)]">Speed</span>
-							<CatalogSelect ariaLabel="Choose motion speed" value={activeMotionSpeed(undefined).name} onValueChange={(v) => setDeckAxis('Deck motion speed', 'motion-speed', v)} groups={[{ options: catalogOptions(MOTION_SPEED_ENTRIES) }]} />
+							<CatalogSelect ariaLabel="Choose motion speed" value={activeMotionSpeed(deck.speed).name} onValueChange={(v) => setDeckAxis('Deck motion speed', 'motion-speed', v)} groups={[{ options: catalogOptions(MOTION_SPEED_ENTRIES) }]} />
 						</div>
 					</div>
 

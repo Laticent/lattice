@@ -14,8 +14,8 @@ summary: >
   The price is named rather than hidden: motion is worth nothing in the artifact a recipient
   forwards, and the frame model's cheapest dividend — N frames as N pages, which `_focusSteps`
   already proves the engine can do — is deliberately left on the table. The TARGETS split into two
-  channels, verified against source, and only one is SVG: charts (9 components declare
-  `render: svg`, 12 kernels already emit `data-anima-role` + `data-mark`) and `diagram` are SVG;
+  channels, verified against source, and only one is SVG: charts (**8** components declare
+  `render: svg` — 7 charts plus `diagram`, per §4; 8 files emit `data-anima-role`) and `diagram` are SVG;
   the rails (`div.tile-progress` — zero `<svg>`), masthead, header, footer and pagination are all
   DOM, and the deck logo is an `<img class="deck-logo">`, not inline SVG, so an SVG painter cannot
   reach it until something inlines it. So: ONE pure `at(t)`, TWO painters. FIRST SLICE is charts,
