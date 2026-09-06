@@ -610,10 +610,14 @@ describe('scatter — the dense cluster keeps every name reachable', () => {
   // the kernel's estimator inside its own test. The anchor is enough for the
   // question this file asks (which dot is nearest); the BOX-level property lives
   // in test/unit/components/svg-label.test.js, where the boxes are real.
-  const anchors = (out) => new Map([...out.matchAll(/<text [^>]*scatter-label[^>]*>[\s\S]*?<\/text>/g)]
+  // Every unbounded run is BOUNDED here. `[^>]*` on either side of a literal the
+  // class can also match is quadratic on adversarial input (`js/polynomial-redos`),
+  // and the bounds cost nothing: the widest attribute run a label emits is well
+  // under 300 characters and its whole element well under 4000.
+  const anchors = (out) => new Map([...out.matchAll(/<text [^>]{0,300}scatter-label[^>]{0,300}>[\s\S]{0,4000}?<\/text>/g)]
     .map((m) => {
       const frag = m[0];
-      const name = frag.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      const name = frag.replace(/<[^>]{0,300}>/g, ' ').replace(/\s+/g, ' ').trim();
       const ys = [...frag.matchAll(/y="([-\d.]+)"/g)].map((q) => Number(q[1]));
       return [name, {
         x: Number(/ x="([-\d.]+)"/.exec(frag)[1]),

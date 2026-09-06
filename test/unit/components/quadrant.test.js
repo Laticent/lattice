@@ -808,7 +808,11 @@ test('buildQuadrant: a dense cluster fans out instead of overprinting', () => {
 // channel and it gave the wrong answer six times. See the 2026-09-06
 // label-attribution decision note.
 describe('quadrant — every name says which dot it belongs to', () => {
-  const dotsOf = (out) => [...out.matchAll(/<circle class="quadrant-dot"[^>]*cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/g)]
+  // Every `[^>]` run is BOUNDED. Unbounded, `[^>]*` followed by a literal the
+  // class can also match is quadratic on adversarial input, which CodeQL flags
+  // as `js/polynomial-redos` — and a bound is free here: the widest attribute
+  // run a dot emits is well under 300 characters.
+  const dotsOf = (out) => [...out.matchAll(/<circle class="quadrant-dot"[^>]{0,300}cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/g)]
     .map((m) => ({ cx: +m[1], cy: +m[2], r: +m[3] }));
   const leadersOf = (out) => [...out.matchAll(/<line class="chart-leader"[^<>]{0,200}?\/>/g)].map((m) => ({
     x1: +/x1="([-\d.]+)"/.exec(m[0])[1],
