@@ -110,7 +110,7 @@ const CASES: Case[] = [
 	{ w: 390, h: 844, stop: 'craft', why: 'phone at Craft — no rail, no docked panels, the bar stays' },
 	{ w: 820, h: 1180, stop: 'read', why: 'tablet at Read — chromeless preview, no editor column' },
 	{ w: 820, h: 1180, stop: 'craft', why: 'tablet at Craft — full header, NO activity rail (desktop-only)' },
-	{ w: 1440, h: 900, stop: 'read', why: 'desktop at Read — slim header, full-bleed preview' },
+	{ w: 1440, h: 900, stop: 'read', why: 'desktop at Read — full-bleed preview' },
 	{ w: 1440, h: 900, stop: 'craft', why: 'desktop at Craft — the activity rail sits outside the split' },
 	// A dragged splitter is PERSISTED, so it is the state a returning visitor reloads into.
 	// The shell drew the 54% default regardless, which put the split line up to 288px off.
@@ -159,12 +159,12 @@ const READ_SHELL = () => {
 		// pill jumped 164.5px -> 185px at hand-off. Bands and the phone's bar cells are
 		// both width-constrained, so nothing else here can see that class of drift.
 		pill: r('#studio-ssr-shell .ssr-deck-pill'),
-		// The deck TITLE, which exists at every tier and stop — unlike the switcher, which the
-		// desktop slim header drops at Read. Compared by its own box, so the two surfaces are
-		// held to the same line whichever container the tier puts it in.
-		// BOTH deck-title elements are in the DOM (the switcher's and the slim header's); the
-		// CSS shows one. Pick the one with a box — `:not([hidden])` would match the collapsed
-		// one too, since it is hidden by a display rule, not the attribute.
+		// The deck TITLE, compared by its own box so the two surfaces are held to the same line
+		// whichever container the tier puts it in. There is one title element in the shell now:
+		// desktop Read used to drop the switcher for a plain label, so the shell carried both
+		// and CSS picked. The lookup still takes the one WITH a box rather than the first match
+		// — `:not([hidden])` would match a display-hidden element, and reading the wrong one is
+		// exactly how the desktop-Read wrong-title bug passed this spec green.
 		title: (() => {
 			const el = [...document.querySelectorAll('#studio-ssr-shell .ssr-deck-title')].find(
 				(e) => e.getBoundingClientRect().width > 0,
@@ -212,9 +212,9 @@ const READ_APP = (want: string) => {
 		// Write/Craft stack the navigator and the deck status strip; Read has a single
 		// affordance and no status strip of its own.
 		status: below.length > 1 ? r(below[below.length - 1]) : null,
-		// The deck title, found by TEXT rather than by class: the app puts it inside the
-		// switcher button in its full header and bare in its slim one, and neither container is
-		// a contract. The deepest header element carrying exactly that string is.
+		// The deck title, found by TEXT rather than by class: the app used to put it inside the
+		// switcher button in one header and bare in the other, and neither container is a
+		// contract. The deepest header element carrying exactly that string is.
 		title: (() => {
 			const header = document.querySelector('header');
 			if (!want || !header) return null;
@@ -295,9 +295,9 @@ for (const c of CASES) {
 			? [app.rail[0], app.rail[1], app.rail[2], app.rail[3] + (app.status?.[3] ?? 0)]
 			: null;
 		near(shell.paneftr, appFooter, 'preview footer');
-		// The switcher exists only where the app draws one (everywhere but the desktop slim
-		// header at Read); the TITLE exists everywhere, so it is the assertion that holds at
-		// every tier and stop.
+		// The switcher exists at every tier and stop now (desktop Read used to draw a plain
+		// title instead). The `else` arm stays: it is what fails if the app ever drops it
+		// again while the shell keeps drawing one.
 		if (app.pill) near(shell.pill, app.pill, 'deck switcher', PILL_TOLERANCE);
 		else {
 			expect(shell.pill, 'the .ssr-deck-pill element is gone — the selector has drifted').not.toBeNull();

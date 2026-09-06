@@ -14,7 +14,7 @@ import { applyVariant, componentLooks, type VariantAxis, variantActive, variantN
 // so you never end up with two members of the same family. See
 // engineering/decisions/2026-07-18-slide-variants-in-gallery.md.
 
-export function ReshapePicker({ chunk, variants, axes, variantAxes, options, frontMatter, paletteOverride, extraTheme, modeOverride, extraCss, onReshape, compact }: {
+export function ReshapePicker({ chunk, variants, axes, variantAxes, options, frontMatter, paletteOverride, extraTheme, modeOverride, extraCss, onReshape, compact, disabled }: {
 	/** The current slide's source chunk. */
 	chunk: string;
 	/** The current component's variant tokens (its offered looks). */
@@ -32,6 +32,9 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 	/** Apply a look to the current slide (empty token = back to the default look). */
 	onReshape: (token: string) => void;
 	compact?: boolean;
+	/** No looks to offer — render the trigger inert rather than dropping it (see the note on
+	 *  the trigger). Keeps the toolbar's control set constant across slides and pre-paint. */
+	disabled?: boolean;
 }) {
 	const [open, setOpen] = React.useState(false);
 	const component = getClassTokens(chunk)[0] ?? '';
@@ -44,7 +47,14 @@ export function ReshapePicker({ chunk, variants, axes, variantAxes, options, fro
 		<Popover open={open} onOpenChange={setOpen}>
 			<Tip label="Reshape — recast this slide to another look">
 				<PopoverTrigger asChild>
-					<button type="button" aria-label="Reshape slide" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]">
+					{/* DISABLED, NOT ABSENT, when the slide's component offers no looks. The caller used
+					    to gate this whole control on `reshapeVariants.length > 0`, which made the
+					    editor toolbar's SHAPE a function of the active slide: buttons appeared and
+					    vanished as you moved between slides, and the pre-paint shell could not draw
+					    the row at all without knowing the boot slide's component. `disabled` is the
+					    idiom the neighbouring "Fix all issues" already uses for exactly this — a
+					    control that is always there and sometimes inert. */}
+					<button type="button" aria-label="Reshape slide" disabled={disabled} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)] disabled:pointer-events-none disabled:opacity-40">
 						<Shapes className="size-3" />
 						<span className={cn(!compact && 'hidden @[36rem]:inline')}>Reshape</span>
 					</button>

@@ -21,6 +21,23 @@ import ResourceHints from '../components/site/ResourceHints.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
 import RuntimeWarm from '../components/site/RuntimeWarm.astro';
+// The webfont files the PRE-PAINT SHELL's top bar paints with, imported with `?url` so
+// Vite hands back the SAME hashed, base-aware asset URL that `styles/fonts.css` resolves
+// its own relative `url()` to. That identity is the whole point: a preload whose href does
+// not match the URL the stylesheet requests is not a no-op, it is a second download plus a
+// "preloaded but not used" console warning. `font-preload.spec.ts` asserts the match,
+// because nothing else would notice it breaking.
+//
+// FILES, NOT FACES — and the difference is the reason two `<link>`s are enough. Every
+// vendored Outfit weight is the SAME FILE (md5 `fdf9c509…` for 300/400/500/600/700), as are
+// upright Playfair 400 and 700 (`ef05b30d…`): they are variable fonts stored under
+// per-weight names, and `fonts.css`'s five `@font-face` blocks each pin a different position
+// on the one file's weight axis. Vite content-hashes and dedupes them, so these two imports
+// resolve to the two assets the whole family is served from — which is why the built href
+// reads `outfit-300` and `playfair-display-400` (the dedup winner's name) rather than the
+// 600/700 named here. Preloading them covers EVERY weight of both families, not two faces.
+import outfitUrl from '../playground/fonts/outfit-600.woff2?url';
+import playfairUrl from '../playground/fonts/playfair-display-700.woff2?url';
 import { joinBase } from '../lib/base-url.mjs';
 import { buildStudioCatalog } from '../lib/studio-catalog.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
@@ -260,7 +277,14 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
 :root[data-ssr-chrome] #studio-ssr-shell .ssr-band{display:flex;}
 /* Tablet + desktop: the editor column left of the split. Hidden on the phone (one swappable
    pane) and at the Read stop (the editor track collapses to 0). */
-#studio-ssr-shell .ssr-editpane{left:var(--sh-rail,0px);top:var(--sh-pane-t,54px);width:calc(var(--sh-pane-l,0px) - var(--sh-rail,0px));bottom:0;border-right:1px solid var(--border,rgba(127,127,127,.16));}
+/* container-type:inline-size because the EDIT toolbar's labels ride the app's own
+   at-36rem / at-34rem container queries, which resolve against the EDITOR PANE. Without a
+   container here those queries would resolve against the nearest ancestor that is one — a
+   different box — and every label would appear or hide at the wrong pane width. */
+#studio-ssr-shell .ssr-editpane{left:var(--sh-rail,0px);top:var(--sh-pane-t,54px);width:calc(var(--sh-pane-l,0px) - var(--sh-rail,0px));bottom:0;border-right:1px solid var(--border,rgba(127,127,127,.16));container-type:inline-size;}
+/* Slide settings is compact-only in the app: from 1100 up the activity bar owns it, and a
+   duplicate would also break e2e's strict 'Slide settings' locator. */
+@media (min-width:1100px){#studio-ssr-shell .ssr-slide-settings{display:none;}}
 :root[data-ssr-bp="mobile"] #studio-ssr-shell .ssr-editpane,:root[data-ssr-read] #studio-ssr-shell .ssr-editpane{display:none;}
 /* The preview pane's own sub-bar. Absent at Read, where the app renders the preview
    chromeless — so --sh-hdr is 0 and the band is dropped. */
@@ -311,10 +335,6 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
    (it used to re-derive "not mobile", which put a rail into every tablet Craft layout). */
 #studio-ssr-shell .ssr-activityrail{left:0;top:var(--sh-pane-t,54px);width:var(--sh-rail,0px);bottom:0;border-right:1px solid var(--border,rgba(127,127,127,.16));}
 :root:not([data-ssr-rail]) #studio-ssr-shell .ssr-activityrail{display:none;}
-/* At Craft the app swaps the SLIM header for the FULL one: the launcher regains its wordmark
-   and the tail regains Theme, the mode toggle and the tours launcher. Two tails, one shown. */
-:root[data-ssr-stop="craft"] #studio-ssr-shell .ssr-desktop-tail{display:none;}
-:root:not([data-ssr-stop="craft"]) #studio-ssr-shell .ssr-craft-tail{display:none;}
 /* Guided tours are a PERSISTED PREFERENCE, not a width or a stop — the one chrome gate of that
    kind. The seed publishes it so the shell can honor it; see the rule in the header note above. */
 :root[data-ssr-no-tours] #studio-ssr-shell .ssr-tours{display:none;}
@@ -322,18 +342,15 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
    Write meant a Read visitor watched the highlight chip jump at hand-off. */
 #studio-ssr-shell .ssr-dial{display:none;}
 :root[data-ssr-stop="read"] #studio-ssr-shell .ssr-dial-read,:root[data-ssr-stop="write"] #studio-ssr-shell .ssr-dial-write,:root[data-ssr-stop="craft"] #studio-ssr-shell .ssr-dial-craft{display:contents;}
-/* …and the header's LEFT run swaps with it: the full header leads with the launcher and a
-   rule, the slim one with a bare mark. Not expressible in a width class — it turns on the
-   STOP — so the three spans are re-gated here. Drawing the slim mark at Craft put the deck
-   pill 27px right of where the app puts it, which is a visible slide at hand-off. */
-@media (min-width:1100px){:root[data-ssr-stop="craft"] #studio-ssr-shell .ssr-launcher-wrap{display:contents;}:root[data-ssr-stop="craft"] #studio-ssr-shell .ssr-slim-mark{display:none;}:root[data-ssr-stop="craft"] #studio-ssr-shell .ssr-craft-lead{display:contents;}}
-/* READ on a DESKTOP viewport shows the deck title as plain text, not the bordered switcher —
-   the app's slim header drops deck navigation there entirely. Two elements, one shown, like the
-   header's left run above; the shell used to keep the pill and merely blank its border, which
-   left the title 27px right of the app's and kept a live-dot the app does not draw at Read.
-   Below 1100 the app renders its FULL header at every stop, switcher included, so the pill
-   stays exactly as it is — an unscoped data-ssr-read rule flattened it on a phone too. */
-@media (min-width:1100px){:root[data-ssr-read] #studio-ssr-shell .ssr-deck-pill{display:none;}:root[data-ssr-read] #studio-ssr-shell .ssr-read-title{display:contents;}}`;
+/* THE DIAL IS THE LAST STOP-DEPENDENT THING IN THIS ROW. Four more rules used to live here,
+   all of them consequences of the app rendering a SLIM desktop header at Read/Write and a FULL
+   one at Craft: the left run swapped a bare mark for the launcher plus a rule, the tail swapped
+   Theme/mode/tours in and out, and Read replaced the deck switcher with a plain title. The app
+   draws ONE header at every stop now (2026-09-05), so the shell does too, and the six classes
+   that expressed the swap — ssr-desktop-tail, ssr-craft-tail, ssr-launcher-wrap, ssr-slim-mark,
+   ssr-craft-lead and ssr-read-title — are gone with them. data-ssr-read is still published and
+   still used, by the BAND rules above: they drop the editor pane and the preview sub-bars at
+   Read, which is a BODY difference, not a header one. */`;
 
 // The Nacre skeleton — a scoped inline COPY of docs/src/styles/nacre-loader.css (the
 // island's stylesheet doesn't exist pre-hydration). It fills the 16:9 .ssr-slidebox exactly
@@ -375,6 +392,42 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		    CSS below, which would otherwise delay it. */}
 		<ColorSchemeSeed />
 		<ResourceHints />
+		{/* PRELOAD THE TWO FACES THE INSTANT SHELL PAINTS ITS TOP BAR WITH.
+		    ────────────────────────────────────────────────────────────────
+		    `fonts.css` serves every face `font-display: swap`, so the shell paints its
+		    header in the FALLBACK stack and re-lays it out when the woff2 lands. Measured
+		    at 1440 on the built site, fallback -> webfont:
+
+		      deck title (Outfit 600)      230.3px -> 188.4px   (-41.9)
+		      deck pill (content-sized)    353.3px -> 311.4px   (-41.9)
+		      wordmark (Playfair)           53.7px ->  56.0px   (+2.3)
+
+		    So the deck pill and everything right of it — rule 2, the posture dial — jump
+		    ~42px at hand-off, which is the shift reported against the brand block. Note the
+		    brand block is the SMALL half of it: the wordmark contributes 2.3 of the 42.
+		    The deck TITLE is the offender, because the pill is content-sized (#1417) and so
+		    its width is a direct function of the font's metrics.
+
+		    MEASURED, same machine, same 400kbps/300ms throttle, with and without these two
+		    lines (the control is JetBrains Mono, which shares the stylesheet and is NOT
+		    preloaded, so one run shows both behaviors):
+
+		      without   font fetch starts 4435ms, initiator `css`   title shifts -41.9px
+		      with      font fetch starts  405ms, initiator `link`  title shifts   0.0px
+
+		    69KB for the two files — which is both families entire, not two faces, since the
+		    weights share one variable file each (see the import note above). JetBrains Mono
+		    is deliberately NOT preloaded: no text in the top bar is mono at first paint.
+
+		    WHAT THIS DOES NOT DO: it moves the fetch to parse time, it does not remove
+		    `swap`. On a link slow enough that 69KB still has not landed when the shell
+		    paints, the fallback paints first and the shift returns. The cure is
+		    metric-adjusted fallback faces (`size-adjust` + ascent/descent-override against a
+		    deterministic named fallback), which costs no bytes and holds at any speed — a
+		    site-wide font-stack change, deliberately kept out of a header PR (owner's call,
+		    2026-09-06). */}
+		<link rel="preload" href={outfitUrl} as="font" type="font/woff2" crossorigin />
+		<link rel="preload" href={playfairUrl} as="font" type="font/woff2" crossorigin />
 		{/* The crash sentinel, started as early as a bundled module can run — before
 		    the client:only island hydrates, so a fault during boot is still recorded.
 		    It writes only to this browser; see the module header for why an in-page
