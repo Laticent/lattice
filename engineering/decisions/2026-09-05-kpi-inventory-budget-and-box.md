@@ -6,8 +6,8 @@ summary: >
   fits 3 metrics at 15 words, and 4 only by dropping to one status pill — a slot no field
   carries — so 4 metrics at the documented 8 words overflows by 69.5px. inventory's ledger
   declares hard 6 / 22 words; measured it is hard 4, and at 4 the word ceiling is 18.
-  One declared number covers five kpi modifiers and four inventory looks and is wrong for
-  most of them. Separately, the box is not filled: kpi's hero holds 15.2% of its 748px
+  One declared number covers five kpi modifiers and four inventory looks: it is wrong for
+  two of the five (briefing, compliance) and three of the four. Separately, the box is not filled: kpi's hero holds 15.2% of its 748px
   column while the 340px rail runs at 66-81% and wraps, so narrowing the rail would make it
   worse; inventory's cards and timeline looks leave 41-43% of the stage empty and editorial
   reserves 77.6% of a column for one sentence. Four rules do not do what they say — the
@@ -106,8 +106,11 @@ documented two-pill row:
 | trajectory | 5 | 4 |
 | spotlight | 5 | 4 |
 
-One declared `hard: 4` covers all five, and it is wrong for two of them in one
-direction and pessimistic for three in the other.
+One declared `hard: 4` covers all five, and it is wrong for **two** of them —
+briefing and compliance, whose real ceiling is 3. For ops, trajectory and
+spotlight the declared 4 is exactly right. An earlier draft called it
+"pessimistic for three", which its own table above refutes: a first overflow at 5
+means a hard count of 4, which is what the manifest already says.
 
 ### inventory (ledger, the bare default)
 
@@ -167,7 +170,8 @@ they measure the shape a tall slide has BEFORE the structural splitter runs.
 Measured, on a 3-item `inventory` deck at `size: portrait`: the splitter fires
 (`auto-split (structural): 1 slide(s) split to one element per page`) and BOTH
 outputs paginate. The PDF does, and so does the emulator's own HTML — four
-sections, one item each, `spill` of −64.7px, 0.0px, 0.0px. So neither of the two
+sections, one item each, the list clearing the stage bottom by 64.7px, 64.7px and
+0.0px. So neither of the two
 surfaces this tool writes shows a clipped page, and these ceilings do not predict
 one there.
 
@@ -178,10 +182,14 @@ record, not a measurement taken for this note. Neither was driven. Treat the
 tall table as a description of the pre-split shape and nothing more until
 someone drives one of those two surfaces (#23).
 
-| component | declared tall hard | measured pre-split |
+| component | declared tall hard | measured pre-split (max fitting count) |
 |---|---|---|
-| kpi | 5 | 4 |
+| kpi | 5 | 3 |
 | inventory | 8 | 2 |
+
+Both cells are the last count that FITS, not the first that overflows — kpi first
+overflows at 4 and inventory at 3. An earlier draft put 4 in the kpi row, which
+was the first-overflow number sitting beside inventory's max-fitting one.
 
 These are not stated as defects. `adapt.capacity.tall.hard` may legitimately be
 describing POST-split behavior — 8 items in a tall deck become 8 pages, and that
@@ -211,15 +219,19 @@ a 1152px stage that resolves to **hero 748px (64.9%), gap 64px (5.6%), rail 340p
 | support (gallery labels) | 340 x 146.1 | ~203 x 134.3 | **54-56%** |
 | support (stress-test labels) | 340 x 146.1 | ~299 x 134.3 | **66-81%** |
 
-The hero holds 15% of its box across every modifier and every universal variant
-measured — 14.1% under `compact`, 15.1% under `dark`, 21.3% under `spotlight`. It
+The hero holds 14-15% of its box on the briefing default and its universal
+variants — 14.1% under `compact`, 15.1% under `dark` — and stays low, though not
+that low, elsewhere: 21.3% under `spotlight`, 22.2% under `trajectory`, 25.0%
+under `ops`. It
 is the emptiest tile on the slide and it has 2.2 times the width of the tile
 beside it.
 
 That inverts the complaint. The rail is not stealing room from the hero: at full
 word weight the RAIL is the constrained one, at 66-81% and wrapping, while the
-hero sits at 20% with 68px of left inset and 464.5px of empty to the right of its
-own status pill. The hero's content is `justify-content: center` — vertical only
+hero sits at 19.6% with 68px of left inset and 403.1px of empty to the right of
+its own status pill. (Those two figures are from the stress slide, the one the
+sentence is about; on the default slide, where the hero is at 15.2%, they are
+68px and 464.5px.) The hero's content is `justify-content: center` — vertical only
 — and left-aligned, so a short block in a 748 x 438 box reads as parked in the
 upper left rather than composed.
 
@@ -234,9 +246,9 @@ can move.
 | look | list height | stage height | dead space |
 |---|---|---|---|
 | ledger (default) | 368.0 | 400.4 | **8.1%** |
-| timeline | 235.3 | 400.4 | **41.3%** |
-| cards | 226.5 | 400.4 | **43.5%** |
-| editorial | see below | 400.4 | **39.4%** |
+| timeline | 235.3 | 400.4 | **41.2%** |
+| cards | 226.5 | 400.4 | **43.4%** |
+| editorial | 395.9 | 400.4 | **1.1%** (see below) |
 
 `cards` is the clearest: 87px empty above and 87px below a 226.5px grid, in a
 stage that is 400.4px tall. The default ledger, which is the one look the user did
@@ -248,10 +260,18 @@ clip, and the stage `safe center`s the group. That fixes a real bug and creates
 this one — the list sizes to its rows and the leftover height goes to padding on
 both ends.
 
-`editorial` is worse in the other direction. The stage is `1fr 1.25fr`: the items
-take 604.5px and the insight column takes ~483.5px to hold an 89.6px block, so
-**77.6% of the left column is empty** while the component overflows at four items.
-Half the slide is reserved for one sentence.
+`editorial` wastes its stage on the OTHER axis, which is why its row above reads
+1.1% and means nothing: its item column is nearly stage-tall, so the table's
+measure — how much of the stage's HEIGHT the list leaves unused — is the wrong
+question for it. The waste is a whole column. The stage is `1fr 1.25fr`, so the
+insight column takes 483.5px and the items 604.5px; the insight itself is an
+89.6px block in a 400.4px-tall stage, leaving **77.6% of that column's height
+empty** while the component overflows at four items. Half the slide's width is
+reserved for one sentence.
+
+(Read that 77.6% as 89.6px against the stage's 400.4px height. It is NOT 89.6
+against the column's 483.5px width — those are different axes, and dividing them
+gives 81.5%, a number that describes nothing.)
 
 ---
 
@@ -311,11 +331,37 @@ it justify.
 
 Largely, yes, and the corpus has already voted.
 
-**Usage.** `_class: inventory` appears 25 times across the whole tree. Outside its
-own gallery, docs and manifest, it is used in exactly two decks — `examples/inventory.md`
-(its own demo) and `examples/split-envelope.md` — plus the survey gallery. For
-comparison, in the same bucket: `cards-grid` 105, `cards-stack` 91, `list-tabular`
-66, `list` 55, `agenda` 48, `glossary` 46.
+**Usage.** Counted as SLIDES — a `<!-- _class: X … -->` directive whose first token
+is the component — over the committed decks that actually render: `examples/`, the
+baseline decks, and the component and integration galleries. Not `.docs.md`
+(authoring examples set in prose) and not manifests (skeleton strings inside JSON),
+neither of which is a slide anyone sees. The script is reproduced in full in § How
+to re-derive; run it and the table reproduces.
+
+| component | slides | distinct decks |
+|---|---|---|
+| cards-stack | 102 | **70** |
+| cards-grid | 101 | **45** |
+| glossary | 42 | 23 |
+| list | 39 | 18 |
+| list-tabular | 48 | 12 |
+| agenda | 25 | 10 |
+| **inventory** | **15** | **5** |
+
+**The deck column is the one that matters**, and it is the one an earlier draft did
+not have. Slide count rewards a component with a long gallery; deck count says how
+many separate decks reached for it. `inventory`'s five are `examples/inventory.md`
+(its own demo deck), its own component gallery, its bucket's survey gallery,
+`test/integration/baseline-decks/gallery.md` (the catalog), and
+`examples/split-envelope.md`. Four of the five exist to exhibit the component. **One
+deck uses it for its own sake.** `cards-stack` is in seventy.
+
+An earlier draft of this paragraph gave seven counts — 25 for inventory, 105 for
+cards-grid, and so on — that no single grep reproduces; each needed a different
+file filter, and the one that yielded 25 excluded the very manifest the next
+sentence said was inside it. They were measured by a command nobody wrote down,
+which is the failure `tools/lib/calibrate-core.js`'s own `premise` note warns about.
+The numbers above replace them and ship with the script.
 
 **Classification.** `inventory` and `cards-grid` share a bucket, a function
 (`inventory`), a substance (`structure`) and the same three tags — `overview`,
@@ -363,7 +409,7 @@ Nothing below is implemented. Grouped by what they cost.
 **The budgets.**
 6. Correct the declared numbers to the measured ones (kpi briefing hard 3 at
    documented density; inventory hard 4, word ceiling 18), and declare them
-   per-variant, since one number is wrong for four of five kpi modifiers and three
+   per-variant, since one number is wrong for two of five kpi modifiers and three
    of four inventory looks.
 7. Give the contract a joint budget rather than two independent ones, and a slot
    budget for kpi's pills and inventory timeline's lead.
@@ -393,6 +439,35 @@ node tools/check-jank.js inventory --axis count --max 9 --family tall --advisory
 # Chromium:
 node lattice-emulator.js lib/components/evidence/kpi/kpi.gallery.md out.pdf
 ```
+
+The usage table in § 5 is this, in full — paste it into a file and run it. There is
+no committed tool for the question, and the whole point of § 5 is that its numbers
+must be re-runnable:
+
+```js
+const { execSync } = require('node:child_process');
+const fs = require('node:fs');
+const files = execSync('git ls-files "examples/*.md" "test/integration/baseline-decks/*.md"'
+  + ' "lib/components/**/*.gallery.md" "lib/integrations/**/*.gallery.md"',
+  { encoding: 'utf8' }).split('\n').filter(Boolean);
+const slides = new Map(); const decks = new Map();
+for (const f of files) {
+  for (const m of fs.readFileSync(f, 'utf8').matchAll(/<!--\s*_class:\s*([^>]+?)\s*-->/g)) {
+    const first = m[1].trim().split(/\s+/)[0];
+    slides.set(first, (slides.get(first) || 0) + 1);
+    if (!decks.has(first)) decks.set(first, new Set());
+    decks.get(first).add(f);
+  }
+}
+for (const n of ['inventory', 'cards-grid', 'cards-stack', 'list', 'list-tabular',
+                 'glossary', 'agenda']) {
+  console.log(n.padEnd(14), String(slides.get(n) || 0).padStart(4),
+              (decks.get(n) || new Set()).size);
+}
+```
+
+It scanned 241 files at the commit this note landed on. The counts move as decks are
+added, so re-run it rather than quoting these numbers forward.
 
 The fill and dead-space figures came from ad-hoc Chromium measurements over
 `kpi.gallery.md` and `inventory.gallery.md`. They are not yet a committed
