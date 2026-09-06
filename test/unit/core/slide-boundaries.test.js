@@ -154,8 +154,15 @@ function corpusDecks() {
 		fs.existsSync(dir)
 			? fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]))
 			: [];
+	// DOTFILES ARE NOT COMMITTED DECKS. This walks the WORKING TREE, but the assertion below is
+	// about "every committed deck" — and `regression-gate.mjs` writes transient `.regr-<name>.dark.md`
+	// sources beside the real galleries while it renders (it must, because the emulator resolves a
+	// deck's relative assets against the OUTPUT directory). Those files are gitignored, they exist
+	// for a few hundred milliseconds, and globbing them made this test fail with a bare ENOENT
+	// whenever the suite ran during a corpus sweep — the exact pairing a golden refresh performs.
+	// Measured: `.regr-piechart.dark.md`, read after it had already been cleaned up.
 	return [...walk(path.join(ROOT, 'examples')), ...walk(path.join(ROOT, 'test/integration/baseline-decks')), ...walk(path.join(ROOT, 'lib/components'))].filter(
-		(f) => f.endsWith('.md'),
+		(f) => f.endsWith('.md') && !path.basename(f).startsWith('.'),
 	);
 }
 
