@@ -1672,7 +1672,7 @@ function reviewerTraps() {
  * sample to a 13-page PDF through real `marp-cli`, with the palette and the
  * embedded fonts live. That is why it leads.
  *
- * `npm install @workwel/lattice` is DELIBERATELY ABSENT. The package is not
+ * `npm install @laticent/lattice` is DELIBERATELY ABSENT. The package is not
  * published — the registry returns 404 today — so every install line of that
  * shape in our own docs is aspirational, and a kit that opens with one teaches a
  * command that fails on the reader's first attempt.

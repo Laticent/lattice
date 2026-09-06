@@ -116,9 +116,10 @@ routes, and both traps are named on the front page.
 
 ## 4. What was deliberately left out
 
-**The embed / "build Lattice into my own application" kit.** `@workwel/lattice`
-returns 404 on the npm registry — it is not published — so every `npm install
-@workwel/lattice` line in our own docs is aspirational, and a developer kit whose
+**The embed / "build Lattice into my own application" kit.** `@laticent/lattice`
+(named `@workwel/lattice` when this was written; the org rename landed in #2076 and
+did not change the fact) returns 404 on the npm registry — it is not published — so every `npm install
+@laticent/lattice` line in our own docs is aspirational, and a developer kit whose
 first command fails is worse than none. Held until the package is published. The
 research for it is not wasted and is recorded in §6.
 
@@ -223,9 +224,9 @@ named follow-up.
 
 - `README.md:171` and `engineering/pipeline.md:253` document `CHROME_PATH`. The
   emulator never reads it — 0 occurrences — it reads `PUPPETEER_EXECUTABLE_PATH`.
-- `require('@workwel/lattice')` **exits the host process**: `main` points at the
+- `require('@laticent/lattice')` **exits the host process**: `main` points at the
   CLI, which parses `process.argv` at top level with no `require.main` guard. The
-  real API is `@workwel/lattice/engine` → `createEngine`, `render`, `geometry`,
+  real API is `@laticent/lattice/engine` → `createEngine`, `render`, `geometry`,
   `addThemes`, `hasTheme`, `languages`.
 - The Marp kit ships only `cuoio`. Adding `indaco` would make the engine's own
   default work on the copy-and-go route; that is `build-marp-kit.js` scope.
