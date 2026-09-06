@@ -132,59 +132,72 @@ deleted its whole llms.txt family in 2026 for lack of traffic.
 ## 5. The small-model path, measured
 
 The design above was reasoned from published benchmarks and our own deck corpus.
-It has now been **run against a real small model**, because the reasoning was the
-weakest link in the whole change and a card that says so is worth less than a
+It has now been **run against three real small models**, because the reasoning was
+the weakest link in the change and a card that says so is worth less than a
 measurement.
 
-**Setup.** `Qwen2.5-3B-Instruct` Q4_K_M via `llama-cpp-python`, `n_ctx=4096` —
-Ollama's documented default below 24 GiB of VRAM, and the number
-`paste/lattice-instructions-solo.md` was sized against. Testing at 8192 would have
-measured a configuration the kit tells you to set rather than the one you get.
-`temperature=0.7`; greedy decoding would have flattered the result. The system
-prompt was the shipped file byte for byte — no coaxing, no extra examples. Twenty
-realistic deck briefs across corporate, academic, government, nonprofit and
-product. Two runs, 40 decks. Scored by `dist/agent-kit/review/check.mjs`, which is
-code, so the grade is not another model's opinion.
+**Setup.** `Qwen2.5-3B-Instruct`, `Llama-3.2-3B-Instruct` and `Gemma-3-4B-it`, all
+Q4_K_M via `llama-cpp-python`, `n_ctx=4096` — Ollama's documented default below
+24 GiB of VRAM, and the number `paste/lattice-instructions-solo.md` was sized
+against. Testing at 8192 would measure a configuration the kit tells you to set
+rather than the one you get. `temperature=0.7`; greedy decoding would flatter the
+result. System prompt is the shipped file byte for byte — no coaxing, no extra
+examples. Twenty realistic briefs across corporate, academic, government,
+nonprofit and product. 60 decks, scored by `dist/agent-kit/review/check.mjs`,
+which is code, so the grade is not another model's opinion.
 
-| Measure | Result |
-|---|---|
-| Decks generated, front matter valid, checker-parseable | **40 / 40** |
-| **Layout names invented outside the 20** | **0 / 40** |
-| `error`-severity findings | **2 decks / 40** (5%) |
-| `warning`-severity findings | 2 / 40 |
-| `suggestion` (taste) findings | median **2 per deck** |
-| Distinct layouts actually used | 15-16 of the 20 |
+| | Qwen2.5-3B | Llama-3.2-3B | Gemma-3-4B |
+|---|---|---|---|
+| Decks with valid front matter | 20/20 | 20/20 | 20/20 |
+| **Layout names invented outside the 20** | **0** | **0** | **0** |
+| Decks carrying a structural `error` | 1 | 1 | **11** |
+| Taste findings, median per deck | 2 | 3 | 3 |
 
-**The closed list is the result that matters.** Zero invented layout names across
-40 decks. That was the single largest design risk — a small model asked to pick
-from a 61-item catalog it cannot hold, given 20 names instead, inventing a 21st.
-It did not happen once. Neither did a missing front matter block.
+**The closed list is the result that matters, and it held across all three.** Zero
+invented layout names in 60 decks. That was the single largest design risk — a
+small model handed 20 names instead of a 61-item catalog it cannot hold, inventing
+a 21st. It did not happen once, in any family. Neither did a missing front matter
+block.
 
-**Both structural failures are the same failure**, and it is the one the design
-predicted it could not write its way out of: an inline `- **Title.** body` where a
-nested `- Title` / `  - body` is required (`card-style-inline-title` in run 1,
-`ledger-inline-title` in run 2). It is a rule about invisible whitespace, and
-prose does not fix it. `check.mjs` catches both and prints an autofix, which is
-exactly the designed mitigation — write, check, fix — working as intended.
+**One rule accounts for one hundred percent of the structural failures.** All 16
+errors, across all three families, are an inline `- **Title.** body` where the body
+must be nested on its own line (`card-style-inline-title` and its `ledger-` and
+`split-` siblings). Nothing else broke. It is a rule about invisible whitespace,
+and the wrong shape is the more natural English sentence, which is why prose
+stating it once is not enough.
 
-**Median 2 taste findings per deck is better than our own shipped exemplars**,
-which carry 3-7 each. That is not a claim that a 3B model writes better decks than
-we do; it is a claim that the reduced canon keeps it inside the falsifiable rules,
-which is all it was asked to do.
+**The rate is violently family-dependent, and that is why one model was not enough
+of a test.** Gemma-3-4B hit it on 11 of 20 decks; Qwen and Llama on 1 each. A
+single-family eval would have reported ~5% and called the question settled. There
+is no confound behind the Gemma number: it accepts a system role, so it received
+identical treatment.
 
-**One thing did NOT work and is recorded as such.** One deck in twenty echoed the
-skeletons' placeholder prose verbatim ("One-line subtitle that frames the deck.",
-"Section 01") instead of filling the shape. A line was added telling the reader the
-skeletons are shapes to fill, not text to copy — and the rate after was **also 1 in
-20**. With n=1 on each side that is noise, and the line cannot be said to have
-helped. It stays because it is true and costs 90 characters, not because it was
-shown to work.
+In response, `solo` gained a WRONG/RIGHT contrast for that one shape, placed
+before the skeletons rather than in the rule list. Whether it moves Gemma's number
+is being measured; if it does not, this note will say so and keep the number.
 
-**What this does not cover.** One model family, one quantization, one temperature.
-Llama-3.2-3B and Gemma-3-4B are untested, and the published work says the small
-class degrades unevenly, so a second family could differ. The eval harness lives in
-the session scratchpad, not the repo; committing it as a standing gate is a
-follow-up worth taking.
+**What was tried and did NOT work, recorded as such.** One deck in twenty echoed
+the skeletons' placeholder prose verbatim. A line was added saying the skeletons
+are shapes to fill; the rate afterwards was **also 1 in 20**. With n=1 either side
+that is noise, and the line cannot be said to have helped. It stays because it is
+true and costs 90 characters, not because it was shown to work.
+
+**A methodological failure worth recording, because it nearly shipped as a
+finding.** The first harness extracted the deck from a model reply with
+`re.search` for a fenced block — the FIRST one. But `solo` shows the front matter
+in its own fence and every skeleton in its own fence, so a model imitating that
+shape emits one fence PER SLIDE: a Llama reply measured 18 fences and 8 slides.
+The harness scored those complete decks as empty and produced a clean-looking
+"Llama fails to emit `_class` on 20% of briefs". That is a defect in the
+measurement that reads exactly like a defect in the model, and the only thing that
+caught it was dumping one raw reply and reading it. Every number above comes from
+the corrected harness, which concatenates all fences.
+
+**What this does not cover.** One quantization (Q4_K_M), one temperature, one
+context size, twenty briefs. `check.mjs` grades structure and the falsifiable half
+of taste; whether these decks are *good* is not something it can see. The harness
+lives in the session scratchpad, not the repo — making it a standing gate is a
+named follow-up.
 
 ## 6. Findings recorded but not fixed here (off-path, per HARD RULE #18)
 
