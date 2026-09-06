@@ -14,6 +14,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const MarkdownIt = require('markdown-it');
 const { frontMatterValue } = require(path.join(__dirname, '..', '..', 'lib/core/front-matter-key.js'));
+const { readDirectiveComment } = require(path.join(__dirname, '..', '..', 'lib/core/comment-directive.mjs'));
 
 /**
  * A PLAIN parser — see `inlineSpans`. The engine's has the pill plugin installed, which
@@ -51,14 +52,10 @@ function shippedDecks() {
 /** A line that opens or closes a fenced block — its contents are code, not prose. */
 const FENCE = /^\s*(```|~~~)/;
 
-/** `<!-- _header: … -->` / `<!-- _footer: … -->` — a Marp per-slide chrome directive. */
-const SLIDE_CHROME = /<!--\s*_(header|footer)\s*:\s*([\s\S]*?)\s*-->/g;
-
-/** Strip one layer of matching quotes, the way a YAML scalar reads. */
-function unquote(v) {
-  const t = String(v ?? '').trim();
-  return /^(['"])[\s\S]*\1$/.test(t) ? t.slice(1, -1) : t;
-}
+/** Whole HTML comments, including multi-line ones — the shape a chrome directive comes in. */
+const HTML_COMMENT = /<!--[\s\S]*?-->/g;
+/** The two chrome directives, deck-scoped or slide-scoped. */
+const CHROME_KEYS = new Set(['header', 'footer']);
 
 /**
  * Every inline-code span in a deck, with the line it sits on.
@@ -102,7 +99,7 @@ function inlineSpans(file) {
   // was reported TWICE (once as a paragraph, once as chrome), and a span in a value that
   // renders nowhere — a `title:`, a `description:` — was reported as if it were on a slide.
   // Blanked rather than removed so every line number below still matches the source file.
-  const body = src.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, (m) => m.replace(/[^\n]/g, ''));
+  const body = src.replace(FRONT_MATTER, (m) => m.replace(/[^\n]/g, ''));
   let blockLine = 1;
   for (const token of md.parse(body, {})) {
     if (Array.isArray(token.map)) blockLine = token.map[0] + 1;
@@ -117,23 +114,37 @@ function inlineSpans(file) {
 /** The spans inside a deck's running header and footer — deck-wide and per slide. */
 function chromeSpans(file, src) {
   const found = [];
-  const lines = src.split('\n');
 
   const fm = src.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
   if (fm) {
-    const fmLine = (key) => lines.findIndex((l) => new RegExp(`^[ \\t]*${key}:`).test(l)) + 1;
+    // Bounded to the front-matter block and anchored at column 0. An unbounded
+    // `^[ \t]*key:` search could land on a NESTED key, or on a body line, and report a
+    // line number that has nothing to do with the value being read.
+    const fmLines = fm[0].split('\n');
+    const fmLine = (key) => {
+      const i = fmLines.findIndex((l) => new RegExp(`^${key}:`).test(l));
+      return i >= 0 ? i + 1 : 1;
+    };
     for (const key of ['header', 'footer']) {
       const value = frontMatterValue(fm[1], key);
       if (value) for (const t of spansIn(value)) found.push({ file, line: fmLine(key) || 1, text: t });
     }
   }
 
-  for (let i = 0; i < lines.length; i += 1) {
-    SLIDE_CHROME.lastIndex = 0;
-    let m;
-    while ((m = SLIDE_CHROME.exec(lines[i]))) {
-      for (const t of spansIn(unquote(m[2]))) found.push({ file, line: i + 1, text: t });
-    }
+  // ASK THE ENGINE'S OWN PARSER, not a regex of my own. A hand-rolled
+  // `/<!--\s*_(header|footer)\s*:\s*(.*?)-->/` matched one line and required the
+  // underscore, and missed two forms the engine really honors: a BARE `<!-- footer: … -->`
+  // (a global directive that applies to that slide and every one after) and a MULTI-LINE
+  // comment. Both render live pills — measured through the real engine. `readDirectiveComment`
+  // is the same kernel `lib/engine/slides.js` reads directives with, so the walker cannot
+  // disagree with what actually renders (HARD RULE #1).
+  HTML_COMMENT.lastIndex = 0;
+  let m;
+  while ((m = HTML_COMMENT.exec(src))) {
+    const directive = readDirectiveComment(m[0], { known: CHROME_KEYS });
+    if (!directive) continue;
+    const line = src.slice(0, m.index).split('\n').length;
+    for (const t of spansIn(directive.value)) found.push({ file, line, text: t });
   }
   return found;
 }
@@ -145,6 +156,48 @@ function spansIn(text) {
     .flatMap((t) => t.children || [])
     .filter((c) => c.type === 'code_inline')
     .map((c) => c.content);
+}
+
+/**
+ * A LEADING FRONT-MATTER BLOCK, and only that.
+ *
+ * The inner `[A-Za-z]` guard is not decoration: `/^---\n[\s\S]*?\n---\n/` alone also
+ * matches a deck with NO front matter whose first line is a `---` thematic break, and would
+ * blank every line up to the next `---` — real slide content. No shipped deck is shaped that
+ * way today, which is exactly why the guard is here rather than a comment saying it cannot
+ * happen. Requiring a `key:` line inside makes it a front-matter block rather than two rules
+ * with prose between them.
+ */
+const FRONT_MATTER = /^---\r?\n(?:[^\n]*\n)*?[ \t]*[A-Za-z][\w-]*:[\s\S]*?\r?\n---\r?\n/;
+
+/** An `html_block` that is nothing but comments — it renders no element, so it is not a sibling. */
+const COMMENT_ONLY_HTML = /^(?:\s*<!--[\s\S]*?-->\s*)+$/;
+
+/**
+ * The type of the real block sibling in direction `step`, stepping over anything that
+ * renders no element.
+ *
+ * INDEXING A FIXED OFFSET WAS A BUG, and a measured one. `paragraph_open, inline,
+ * paragraph_close, <next>` holds only until something invisible sits between the paragraph
+ * and its neighbour — and enabling `html: true` (so comments stop being parsed as prose)
+ * made exactly that happen: `<!-- markdownlint-disable-next-line MD026 -->` between an
+ * eyebrow and its heading became an `html_block` at the offset the heading was expected at,
+ * so the eyebrow was silently dropped from the census. In the DOM a comment is a comment
+ * node and `p:has(> code:only-child):has(+ h2)` still matches — verified in real Chrome —
+ * so the gate stopped looking at a slide that promotes normally. A dispatching label
+ * planted at `gallery.md:1135` passed all three arms.
+ *
+ * Only COMMENT-ONLY html is stepped over. Real markup — a `<div>`, an `<img>` — does render
+ * an element, so it genuinely breaks the adjacency the CSS requires, and skipping it would
+ * turn this into a false positive in the other direction.
+ */
+function siblingType(tokens, from, step) {
+  for (let i = from; i >= 0 && i < tokens.length; i += step) {
+    const t = tokens[i];
+    if (t.type === 'html_block' && COMMENT_ONLY_HTML.test(t.content || '')) continue;
+    return t.type;
+  }
+  return '';
 }
 
 /**
@@ -168,7 +221,7 @@ function spansIn(text) {
  */
 function codeOnlyParagraphs(file) {
   const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
-  const body = src.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, (m) => m.replace(/[^\n]/g, ''));
+  const body = src.replace(FRONT_MATTER, (m) => m.replace(/[^\n]/g, ''));
   const tokens = md.parse(body, {});
   const found = [];
   for (let i = 0; i < tokens.length; i += 1) {
@@ -181,8 +234,8 @@ function codeOnlyParagraphs(file) {
       file,
       line: (tokens[i].map ? tokens[i].map[0] : 0) + 1,
       text: kids[0].content,
-      before: tokens[i - 1]?.type || '',
-      after: tokens[i + 3]?.type || '',
+      before: siblingType(tokens, i - 1, -1),
+      after: siblingType(tokens, i + 3, +1),
     });
   }
   return found;

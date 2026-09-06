@@ -56,7 +56,9 @@ const PROMOTES_AFTER = new Set(['heading_open', 'bullet_list_open', 'ordered_lis
  * own semantics. It replaced a line-at-a-time regex that could not see a paragraph whose
  * single span used double backticks or wrapped across two source lines, and that needed a
  * hand-rolled rule to step over an HTML comment between the span and its heading. The
- * parser walk finds 24 eyebrow spans and 1 subtitle span the regex did not.
+ * parser walk finds 13 eyebrow spans the regex could not see, and loses none. The SUBTITLE
+ * half gains nothing today — a double-backtick or wrapped subtitle does not occur in the
+ * corpus — and is converted anyway so both positions answer the same way when one does.
  */
 function eyebrowSpans(file) {
   const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
