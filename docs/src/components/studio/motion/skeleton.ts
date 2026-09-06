@@ -26,6 +26,22 @@ function oneLine(markup: string): string {
 	return markup.replace(/\s*\n\s*/g, ' ').trim();
 }
 
+/**
+ * Flatten a label to something that can sit on ONE markdown line.
+ *
+ * `label` reaches here from a record, and a record can come from an imported bundle whose manifest a
+ * stranger hand-edited — where a label carrying newlines wrote `---` and a second `<!-- _class -->`
+ * straight into the heading, injecting arbitrary slides into the author's deck under their own name.
+ * The `<title>` half was already safe (escaped, then newline-collapsed by `oneLine`); the heading was
+ * not, because it is markdown rather than markup.
+ */
+function oneLineText(text: string): string {
+	return String(text ?? '')
+		.replace(/[\r\n]+/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
 /** Escape the two characters that would end an attribute or open a tag inside `<title>`/`<desc>`. */
 function escapeText(text: string): string {
 	return String(text ?? '')
@@ -76,10 +92,11 @@ export interface SkeletonInput {
  * no further work — portability is a property of the target, not something Insert has to add.
  */
 export function slideSkeleton({ label, description, art, spec, caption }: SkeletonInput): string {
-	const poster = oneLine(labelArt(art, label, description));
+	const heading = oneLineText(label) || 'Untitled drawing';
+	const poster = oneLine(labelArt(art, heading, description));
 	const fence = JSON.stringify(spec, null, 2);
-	const lines = ['<!-- _class: scene -->', '', `## ${label || 'Untitled drawing'}`, ''];
-	if (caption) lines.push(caption, '');
+	const lines = ['<!-- _class: scene -->', '', `## ${heading}`, ''];
+	if (caption) lines.push(oneLineText(caption), '');
 	lines.push(poster, '', '```anima', fence, '```', '');
 	return lines.join('\n');
 }

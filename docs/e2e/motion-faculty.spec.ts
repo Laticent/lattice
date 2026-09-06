@@ -139,6 +139,38 @@ test.describe('Fabricate → Motion', () => {
 	});
 });
 
+test.describe('the whole round trip, on the real surface', () => {
+	test('save, then reopen from the Library — the running order survives, and the shelf is not empty', async ({ page }) => {
+		await openMotion(page);
+		await page.getByRole('button', { name: /try an example/i }).click();
+		const list = page.getByRole('listbox', { name: 'Parts, grouped by beat' });
+		await expect(list.getByRole('option')).toHaveCount(5);
+
+		// Give it a running order worth losing: move one part to its own beat.
+		await list.getByRole('option').nth(1).click();
+		await page.getByRole('spinbutton', { name: /^Beat for / }).filter({ visible: true }).fill('2');
+		await page.getByLabel('Motion name').fill('value-chain');
+		await page.getByRole('button', { name: 'Save' }).click();
+		await expect(page.getByText(/Saved “value-chain”/)).toBeVisible();
+
+		// The Library must actually SHOW it. A shelf holding only motions used to render its empty
+		// state, which gates the whole card grid — the door existed, behind a wall.
+		await page.getByRole('button', { name: 'Back to Compose' }).click();
+		await page.getByRole('button', { name: 'Open Library' }).click();
+		await expect(page.getByText('value-chain').first()).toBeVisible();
+
+		// Reopening must not destroy the plan. Feeding stored art back through intake used to
+		// prefix every id a second time, so every saved pathRef matched nothing.
+		await page.getByRole('button', { name: 'Edit value-chain' }).click();
+		await expect(list.getByRole('option')).toHaveCount(5);
+		await expect(page.getByText(/No longer in the drawing/)).toHaveCount(0);
+		await expect(page.getByText(/did not validate/)).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled();
+		// And the beat we set came back with it.
+		await expect(page.getByText('Beat 2')).toBeVisible();
+	});
+});
+
 test.describe('the Motion faculty at every width', () => {
 	for (const [label, width, height] of [
 		['desktop', 1440, 900],

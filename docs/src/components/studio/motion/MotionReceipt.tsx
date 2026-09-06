@@ -35,6 +35,7 @@ export function MotionReceipt({ receipt, onReplace }: { receipt: IntakeReceipt; 
 	if (r.removed.stylesheets) removed.push(<Line key="style">{r.removed.stylesheets} stylesheet — colors set by CSS classes are gone. Re-export with <strong className="text-[var(--text-heading)]">presentation attributes</strong> to keep them.</Line>);
 	if (r.removed.images) removed.push(<Line key="img">{r.removed.images} embedded image — a motion asset carries vector only, and an image would have fetched from someone else's server in every copy of your deck.</Line>);
 	if (r.removed.smil) removed.push(<Line key="smil">{r.removed.smil} built-in animation — this drawing's motion is the plan you write here.</Line>);
+	if (r.removed.offOrigin) removed.push(<Line key="ext">{r.removed.offOrigin} link{r.removed.offOrigin === 1 ? '' : 's'} to another server — a drawing that loads from elsewhere would call that server from every copy of your deck.</Line>);
 	if (r.removed.unresolvedUses) removed.push(<Line key="uu">{r.removed.unresolvedUses} reference{r.removed.unresolvedUses === 1 ? '' : 's'} to something outside the drawing.</Line>);
 	if (r.removed.unsafe) removed.push(<Line key="unsafe">{r.removed.unsafe} unsafe node{r.removed.unsafe === 1 ? '' : 's'} (script or event handler).</Line>);
 

@@ -18,7 +18,7 @@ import { listAssets } from './library/asset-store.js';
 import { slideSkeleton } from './motion/skeleton';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
 import { deleteRefDoc, listRefDocs, type RefDocRecord, saveRefDoc } from './reference-doc-store';
-import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
+import { deleteStudioScene, listStudioScenes, type StudioScene, saveStudioScene } from './scene-library';
 import { renderThemeShowcase } from './share-export';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme, saveStudioTheme } from './theme-library';
 
@@ -239,7 +239,10 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const vFinishes = filter === 'all' || filter === 'finish' ? finishes.filter((f) => !q || f.label.toLowerCase().includes(q) || f.name.includes(q)) : [];
 	const vScenes = filter === 'all' || filter === 'motion' ? scenes.filter((m) => !q || m.label.toLowerCase().includes(q) || m.name.includes(q)) : [];
 	const vDocs = filter === 'all' || filter === 'refdoc' ? docs.filter((d) => !q || d.name.toLowerCase().includes(q)) : [];
-	const total = themes.length + components.length + finishes.length + docs.length;
+	// `scenes` belongs in this sum. Without it a Library holding ONLY motion assets rendered its
+	// empty state, which gates the whole card grid — so the shelf the Motion faculty saves to was
+	// invisible, and Insert/Edit/Delete with it. That is the exact defect the card was added to close.
+	const total = themes.length + components.length + finishes.length + docs.length + scenes.length;
 	// Only the reference files carry a byte size (a theme/component/finish is CSS + a
 	// recipe, measured in kilobytes nobody budgets), so the status bar reports the one
 	// number a browser-storage shelf can genuinely run out of rather than a made-up total.
@@ -410,7 +413,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		const selThemes = themes.filter((t) => sel.has(tKey(t)));
 		const selComps = components.filter((c) => sel.has(cKey(c)));
 		const selFinishes = finishes.filter((f) => sel.has(fKey(f)));
-		const n = selThemes.length + selComps.length + selFinishes.length;
+		// `packBundle` has taken scenes since it was written, and `restoreWorkspace` reads them back.
+		// Omitting them here meant the motion card's own select checkbox counted toward the footer's
+		// "Export N as .zip" and then packed nothing — three motions selected produced a bare return,
+		// no download and no error at all.
+		const selScenes = scenes.filter((m) => sel.has(`motion:${m.id}`));
+		const n = selThemes.length + selComps.length + selFinishes.length + selScenes.length;
 		if (n === 0) return;
 		// A single selected asset shares as its own zip; a mix becomes a bundle.
 		if (n === 1 && selThemes.length === 1) return shareTheme(selThemes[0]);
@@ -419,7 +427,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		setBusy(`Packing ${n} assets…`);
 		try {
 			const withPdf = await Promise.all(selThemes.map(async (theme) => ({ theme, showcase: await renderThemeShowcase(options, theme).catch(() => null) })));
-			download(await packBundle(withPdf, selComps, selFinishes), 'lattice-assets.zip');
+			download(await packBundle(withPdf, selComps, selFinishes, selScenes), 'lattice-assets.zip');
 			notify(`Exported ${n} assets as lattice-assets.zip.`);
 			setSel(new Set());
 		} catch {
@@ -434,6 +442,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		let nThemes = 0;
 		let nComps = 0;
 		let nFinishes = 0;
+		let nScenes = 0;
 		// PER ITEM, not per bundle. The whole three-loop import used to sit in one `try`,
 		// so one bad asset skipped every asset after it — and `reload()`/`onChanged()` sat
 		// inside that `try` too, so the shelf was not even refreshed for the ones that HAD
@@ -442,7 +451,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		const refused: ImportRefusal[] = [];
 		try {
 			for (const f of Array.from(files)) {
-				const { themes: ts, components: cs, finishes: fs } = await unpackBundle(f);
+				const { themes: ts, components: cs, finishes: fs, scenes: ms } = await unpackBundle(f);
 				// `historyLabel` — an import that lands on a name you already use REPLACES that
 				// record (the store dedupes by kind+name when no id is passed), so the version it
 				// snapshots is the one thing between a stranger's .zip and your own work.
@@ -462,6 +471,17 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				// regenerates it from the recipe, and `coerceRecipe` clamps every number and
 				// enum-checks every keyword on the way in. Safe by construction, not by a scan.
 				for (const fin of fs) { await saveStudioFinish({ name: fin.name, label: fin.label, css: fin.css, recipe: fin.recipe }, { historyLabel: 'Before import' }); nFinishes++; }
+				// `unpackBundle` has always parsed scenes; the Library simply threw them away, so a
+				// bundle round-tripped through Export and Import lost every motion asset in silence.
+				// The art goes back through `saveStudioScene`, which re-sanitizes at the store boundary.
+				for (const m of ms) {
+					try {
+						await saveStudioScene({ name: m.name, label: m.label, description: m.description, spec: m.spec, art: m.art, poster: m.poster });
+						nScenes++;
+					} catch {
+						refused.push({ name: m.label || m.name, why: 'its motion plan is not valid' });
+					}
+				}
 			}
 		} catch (e) {
 			notify(`Import failed — ${String((e as Error)?.message || e)}`);
@@ -470,8 +490,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			// a stale shelf is how a partial import reads as "nothing happened".
 			reload();
 			onChanged();
-			const got = nThemes + nComps + nFinishes;
-			if (got) notify(`Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}.`);
+			const got = nThemes + nComps + nFinishes + nScenes;
+			if (got) notify(`Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}.`);
 			for (const r of refused) if (r) notify(`Refused ${r.name} — ${r.why}`);
 			if (!got && !refused.length) notify('Nothing to import from that file.');
 			setBusy(null);

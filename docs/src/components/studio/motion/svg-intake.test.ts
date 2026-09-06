@@ -383,3 +383,81 @@ describe('a rename reaches the DRAWING, so it survives a save', () => {
 		expect(title?.textContent ?? '').not.toMatch(/[<>]/);
 	});
 });
+
+describe('the red-team findings, each pinned so it cannot come back', () => {
+	it('REOPEN does not re-namespace — running intake on its own output is idempotent', () => {
+		// The Library's Edit button feeds STORED art back through intake. Prefixing a second time made
+		// every saved pathRef match nothing: every part read "no longer in the drawing", the plan
+		// emitted no elements, parseScene refused it, and the asset could not be saved out of again.
+		const first = intake(svgOf(paths(3)));
+		if (!first.ok) throw new Error(first.message);
+		const second = intake(first.art);
+		if (!second.ok) throw new Error(second.message);
+		expect(second.parts.map((p) => p.pathRef)).toEqual(first.parts.map((p) => p.pathRef));
+		expect(second.art).not.toMatch(/id="m[a-z0-9]+-m[a-z0-9]+-/);
+		// And a third pass is still stable — reopen, edit, save, reopen.
+		const third = intake(second.art);
+		expect(third.ok && third.parts.map((p) => p.pathRef)).toEqual(first.parts.map((p) => p.pathRef));
+	});
+
+	it('a minted pathRef never collides with an id the drawing already had', () => {
+		// A drawing carrying `id="p1"` plus an unnamed shape used to mint `<ns>-p1` for the unnamed
+		// one too. Either parseScene refused the asset ("a bug on our side"), or — when the twin sat
+		// in <defs> — it validated and bound the part to a GRADIENT, animating the wrong node.
+		const r = intake(svgOf('<rect width="10" height="10" stroke="var(--accent)"/><rect id="p1" x="20" width="10" height="10" stroke="var(--accent)"/>'));
+		if (!r.ok) throw new Error(r.message);
+		const refs = r.parts.map((p) => p.pathRef);
+		expect(new Set(refs).size).toBe(refs.length);
+		const art = parse(r.art);
+		for (const ref of refs) expect(art.querySelectorAll(`[id="${ref}"]`)).toHaveLength(1);
+	});
+
+	it('a defs id cannot shadow a part — the part must bind to the shape, not the gradient', () => {
+		const r = intake(svgOf('<defs><linearGradient id="p1"><stop offset="0"/></linearGradient></defs><rect width="30" height="30" fill="url(#p1)" stroke="var(--accent)"/><rect id="hat" x="40" width="30" height="30" stroke="var(--accent)"/>'));
+		if (!r.ok) throw new Error(r.message);
+		const art = parse(r.art);
+		for (const p of r.parts) {
+			const node = art.querySelector(`[id="${p.pathRef}"]`);
+			expect(node?.tagName.toLowerCase(), `${p.pathRef} must not bind to a defs node`).not.toMatch(/gradient|clippath|mask|filter/i);
+		}
+	});
+
+	it('closes every off-origin fetch, not just the one wearing an <image> tag', () => {
+		// Measured in real Chromium against a beacon: fill, mask, feImage and a style
+		// background-image ALL fetched. The harm is the one the <image> strip names — a call to
+		// someone else's server from the Studio origin, and from every exported copy of the deck.
+		const r = intake(svgOf('<defs><filter id="f"><feImage href="https://evil.example/a"/></filter></defs><rect id="a" width="9" height="9" fill="url(https://evil.example/b#g)" stroke="var(--accent)"/><rect id="b" x="20" width="9" height="9" mask="url(https://evil.example/c#m)" stroke="var(--accent)"/><rect id="c" x="40" width="9" height="9" style="background-image:url(https://evil.example/d)" stroke="var(--accent)"/>'));
+		if (!r.ok) throw new Error(r.message);
+		expect(r.art).not.toContain('evil.example');
+		expect(r.art.toLowerCase()).not.toContain('feimage');
+		expect(r.receipt.removed.offOrigin).toBeGreaterThan(0);
+	});
+
+	it('keeps an INTERNAL url(#…) reference, which is the whole point of namespacing them', () => {
+		const r = intake(svgOf('<defs><linearGradient id="g"><stop offset="0"/></linearGradient></defs><rect id="a" width="9" height="9" fill="url(#g)" stroke="var(--accent)"/>'));
+		if (!r.ok) throw new Error(r.message);
+		expect(r.art).toMatch(/fill="url\(#m[a-z0-9]+-g\)"/);
+		expect(r.receipt.removed.offOrigin).toBe(0);
+	});
+
+	it('refuses an oversized paste on the RAW bytes, before spending a parse on it', () => {
+		// A 2 MB paste took 78 seconds in real Chromium to reach the sanitized-bytes ceiling and be
+		// refused for its size anyway — freezing the tab, and the user's unsaved deck, throughout.
+		const huge = svgOf(paths(20000, 'padpadpadpadpadpad'));
+		const started = Date.now();
+		const r = intake(huge);
+		expect(!r.ok && r.failure).toBe('too-big');
+		expect(Date.now() - started, 'a refusal this size must not cost a parse').toBeLessThan(2000);
+	});
+
+	it('a band reports the shapes the AUTHOR drew, not the titles we added', () => {
+		const r = intake(svgOf(paths(50)));
+		if (!r.ok) throw new Error(r.message);
+		const band = r.parts.find((p) => p.band);
+		if (!band) throw new Error('expected a band');
+		const before = band.childCount;
+		const renamed = setPartTitle(r.art, band.pathRef, 'A group');
+		const after = intake(renamed);
+		expect(after.ok && after.parts.find((p) => p.pathRef === band.pathRef)?.childCount).toBe(before);
+	});
+});

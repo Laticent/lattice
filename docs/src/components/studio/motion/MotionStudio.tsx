@@ -78,6 +78,8 @@ export function MotionStudio({
 	const [replacing, setReplacing] = React.useState<IntakePart[] | null>(null);
 	/** A saved plan whose windows do not quantize to beats. Shown read-only rather than re-timed. */
 	const [customTiming, setCustomTiming] = React.useState(false);
+	/** The spec exactly as it was stored, kept ONLY for a custom-timing asset — see `save`. */
+	const [originalSpec, setOriginalSpec] = React.useState<Scene | null>(null);
 
 	// A worked example is the front door for someone with an empty clipboard, so it loads eagerly
 	// rather than waiting for a click that a first-time user has no reason to make.
@@ -133,6 +135,7 @@ export function MotionStudio({
 		}
 		const { plan: back, pace: seedPace, beatShaped } = sceneToPlan(seed.spec);
 		setCustomTiming(!beatShaped);
+		setOriginalSpec(beatShaped ? null : seed.spec);
 		const known = new Set(r.parts.map((p) => p.pathRef));
 		// A part in the plan with no node in the art is reported, never dropped.
 		setMissing(Array.from(back.keys()).filter((k) => !known.has(k)).map((k) => ({ pathRef: k, label: k })));
@@ -148,8 +151,13 @@ export function MotionStudio({
 
 	const spec: Scene | null = React.useMemo(() => {
 		if (!loaded) return null;
+		// A CUSTOM-TIMING asset keeps the spec it arrived with. The banner tells the user it will be
+		// saved as-is, and this is what makes that true: `planToScene` would quantize its uneven
+		// windows onto equal beats and re-time the whole thing, and a motion asset carries no version
+		// history to undo that from.
+		if (customTiming && originalSpec) return originalSpec;
 		return planToScene(loaded.parts, plan, pace, slugify(name) || 'drawing', loaded.viewBox);
-	}, [loaded, plan, pace, name]);
+	}, [loaded, plan, pace, name, customTiming, originalSpec]);
 
 	const beatCount = React.useMemo(() => new Set(Array.from(plan.values()).map((p) => p.beat)).size || 1, [plan]);
 	const validity = React.useMemo(() => (spec ? validatePlan(spec) : { ok: false as const, errors: ['nothing loaded'] }), [spec]);

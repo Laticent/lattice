@@ -61,7 +61,22 @@ export function MotionStage({ art, spec, replayKey, className, reducedMotion }: 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: see above — replayKey is the remount signal
 	React.useEffect(() => {
 		const host = hostRef.current;
-		if (!host || !spec) return;
+		if (!host) return;
+
+		// NO PLAYABLE PLAN STILL SHOWS THE DRAWING. This file's own contract is that a spec which
+		// throws leaves the poster standing rather than blanking the panel; returning early on
+		// `!spec` broke that for the other half of the same case — an invalid plan — and left an
+		// empty box where the drawing should be, with not even the "could not be played" note.
+		if (!spec) {
+			host.replaceChildren();
+			const figure = host.ownerDocument.createElement('div');
+			figure.className = 'scene-figure';
+			figure.innerHTML = sanitizeSlideHtml(art);
+			host.appendChild(figure);
+			setFailed(true);
+			return () => host.replaceChildren();
+		}
+
 		const b64 = encodeSpec(spec);
 		if (!b64) {
 			setFailed(true);

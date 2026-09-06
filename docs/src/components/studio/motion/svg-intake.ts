@@ -71,8 +71,25 @@ const GEOMETRY_TAGS = new Set(['path', 'line', 'polyline', 'polygon', 'rect', 'c
 const NON_PAINTING_CONTAINERS = new Set(['defs', 'clippath', 'mask', 'marker', 'symbol', 'pattern', 'lineargradient', 'radialgradient', 'filter']);
 
 /** Removed AFTER the sanitizer, because DOMPurify keeps them and `svg-paint.ts` does not.
- *  Keeping the two in step means the stored drawing equals the painted drawing. */
-const NET_NEW_STRIPS = new Set(['image', 'animatetransform', 'animatemotion']);
+ *  Keeping the two in step means the stored drawing equals the painted drawing.
+ *  `feimage` is here for the OTHER reason below: it fetches. */
+const NET_NEW_STRIPS = new Set(['image', 'animatetransform', 'animatemotion', 'feimage']);
+
+/** Any value that would make the browser fetch from somewhere else.
+ *
+ *  Stripping `<image href="https://…">` and stopping there was half a guard. MEASURED in real
+ *  Chromium against a beacon server, from a real HTTP origin, with the art injected the way the
+ *  Library thumbnail injects it: `fill="url(http://…)"`, `mask="url(http://…)"`,
+ *  `<feImage href>` and `style="background-image:url(http://…)"` ALL fetched. (Only
+ *  `filter="url(http://…)"` was refused by the browser itself.)
+ *
+ *  `svg-paint.ts` carries a comment asserting that an external `url()` in a filter/mask/fill
+ *  attribute "is not a fetch vector browsers honor cross-document". That is not true in Chromium
+ *  131, and this is the file that has to act on it: the harm is exactly the one the `<image>` strip
+ *  names — a beacon that fires from the Studio's own origin every time the shelf paints, and that
+ *  bakes into every exported copy of the deck a recipient opens. */
+const EXTERNAL_URL_RE = /url\(\s*['"]?\s*(?:[a-z][a-z0-9+.-]*:)?\/\//i;
+const EXTERNAL_HREF_RE = /^\s*(?:[a-z][a-z0-9+.-]*:)?\/\//i;
 
 /** Attributes that can carry a `url(#id)` reference we must rewrite when we namespace. */
 const REF_ATTRS = ['fill', 'stroke', 'clip-path', 'mask', 'filter', 'marker', 'marker-start', 'marker-mid', 'marker-end', 'style'];
@@ -115,7 +132,7 @@ export interface IntakeReceipt {
 	bands: number;
 	artBytes: number;
 	rewritten: { usesExpanded: number; idsNamespaced: number; duplicateIds: number; bandsCreated: number; viewBoxStamped: boolean; titlesKept: number };
-	removed: { stylesheets: number; images: number; smil: number; unsafe: number; unresolvedUses: number };
+	removed: { stylesheets: number; images: number; smil: number; unsafe: number; unresolvedUses: number; offOrigin: number };
 	kept: { fixedColors: number };
 	/** Non-blocking notes, already phrased for the user. */
 	notes: string[];
@@ -133,7 +150,7 @@ function emptyReceipt(): IntakeReceipt {
 		bands: 0,
 		artBytes: 0,
 		rewritten: { usesExpanded: 0, idsNamespaced: 0, duplicateIds: 0, bandsCreated: 0, viewBoxStamped: false, titlesKept: 0 },
-		removed: { stylesheets: 0, images: 0, smil: 0, unsafe: 0, unresolvedUses: 0 },
+		removed: { stylesheets: 0, images: 0, smil: 0, unsafe: 0, unresolvedUses: 0, offOrigin: 0 },
 		kept: { fixedColors: 0 },
 		notes: [],
 	};
@@ -148,6 +165,12 @@ function parseInert(markup: string): SVGSVGElement | null {
 	const doc = new DOMParser().parseFromString(markup, 'text/html');
 	return doc.querySelector('svg');
 }
+
+/** Stamped on art this module has already processed. Without it, reopening a saved asset ran its own
+ *  output back through `intake` and prefixed every id a SECOND time — so the saved spec's `pathRef`s
+ *  matched nothing, every part reported "no longer in the drawing", and the Library's Edit button was
+ *  a dead end that could not be saved out of. */
+export const PROCESSED_ATTR = 'data-lattice-motion';
 
 /** A short, stable namespace for one drawing's ids. Content-derived so the same bytes give the same
  *  prefix — which is what makes a re-paste of an unchanged drawing reconcile cleanly. */
@@ -329,7 +352,11 @@ export function namespaceIds(svg: SVGSVGElement, ns: string): NamespaceOutcome {
 		for (const name of el.getAttributeNames()) {
 			if (name !== 'href' && name !== 'xlink:href' && !REF_ATTRS.includes(name)) continue;
 			const val = el.getAttribute(name);
-			if (!val || val.indexOf('#') === -1) continue;
+			// `indexOf('#')` alone matches every `fill="#abcdef"`, which put every painted element into
+			// the inner loop over every id — quadratic, and measured at 1.6s for 3000 nodes that became
+			// 248ms once the hex colors stopped qualifying. A real reference is `url(#…)` or a bare
+			// fragment href; a color is neither.
+			if (!val || (val.indexOf('url(#') === -1 && !val.startsWith('#'))) continue;
 			let out = val;
 			for (const old of olds) {
 				if (out.indexOf(`#${old}`) === -1) continue;
@@ -462,6 +489,16 @@ export function ensureViewBox(svg: SVGSVGElement): { box: Box | null; stamped: b
 }
 
 // ── Step 8 · the census, and the shallowest readable cut of the tree ────────────────────────────
+
+/** How many PAINTING descendants a node has. `querySelectorAll('*')` counts a `<title>` we insert on
+ *  a rename, and counting our own metadata as the author's shapes makes "24 shapes together" drift
+ *  upward every time somebody names something. */
+function shapeCount(el: Element): number {
+	return Array.from(el.querySelectorAll('*')).filter((c) => {
+		const t = tag(c);
+		return !NON_PAINTING_CONTAINERS.has(t) && t !== 'title' && t !== 'desc' && t !== 'metadata' && t !== 'stop';
+	}).length;
+}
 
 /** Element children that paint, ignoring the containers that never do. */
 function paintableChildren(node: Element): Element[] {
@@ -620,6 +657,22 @@ export function intake(raw: string): IntakeResult {
 	const text = normalizeSourceText(String(raw ?? ''));
 	if (!text.trim()) return { ok: false, failure: 'not-svg', message: 'There is nothing here yet. Paste the SVG markup, or drop the .svg file.', receipt };
 
+	// REFUSE ON THE RAW BYTES FIRST. The real ceiling is measured on the sanitized art, but reaching
+	// it costs a parse, a <use> expansion, a DOMPurify pass and an id rewrite — and a 2 MB paste
+	// spent 78 seconds on that work in real Chromium before being refused for its size anyway,
+	// freezing the tab (and the user's unsaved deck) the whole time. Nothing survives sanitizing to
+	// more than it arrived as, so anything this far over the ceiling cannot come in under it.
+	const rawBytes = text.length;
+	if (rawBytes > ART_MAX_BYTES * 4) {
+		receipt.artBytes = rawBytes;
+		return {
+			ok: false,
+			failure: 'too-big',
+			message: `That drawing is about ${Math.round(rawBytes / 1024)} KB — far too big to travel inside a deck, where the ceiling is ${ART_MAX_BYTES / 1024} KB. Simplify it in your drawing tool, or crop to the part you want to animate.`,
+			receipt,
+		};
+	}
+
 	const hintDoc = parseInert(text);
 	if (!hintDoc) {
 		return { ok: false, failure: 'not-svg', message: 'That paste has no <svg> element in it. Copy the SVG markup itself, or drop the .svg file.', receipt };
@@ -649,24 +702,40 @@ export function intake(raw: string): IntakeResult {
 	}
 	countRemoved(hintDoc, svg, receipt);
 
-	// 5 · strip what the painter strips anyway, so the STORED drawing equals the PAINTED one. An
-	// <image href="https://…"> survives DOMPurify and would otherwise be a live off-origin fetch in
-	// every recipient's copy of an exported deck.
+	// 5 · strip what the painter strips anyway, so the STORED drawing equals the PAINTED one — and
+	// close every off-origin fetch, not just the one that wears an <image> tag.
 	for (const el of Array.from(svg.querySelectorAll('*'))) {
-		if (NET_NEW_STRIPS.has(tag(el))) {
-			if (tag(el) === 'image') receipt.removed.images++;
+		const t = tag(el);
+		if (NET_NEW_STRIPS.has(t)) {
+			if (t === 'image' || t === 'feimage') receipt.removed.images++;
 			else receipt.removed.smil++;
 			el.remove();
+			continue;
+		}
+		for (const name of el.getAttributeNames()) {
+			const val = el.getAttribute(name);
+			if (!val) continue;
+			const isHref = name === 'href' || name === 'xlink:href';
+			if ((isHref && EXTERNAL_HREF_RE.test(val)) || EXTERNAL_URL_RE.test(val)) {
+				el.removeAttribute(name);
+				receipt.removed.offOrigin++;
+			}
 		}
 	}
 
-	// 6 · namespace, so two assets on one deck cannot corrupt each other.
-	const ns = artNamespace(sanitized);
+	// 6 · namespace, so two assets on one deck cannot corrupt each other — ONCE. Art we already
+	// processed carries its stamp and its prefixes; re-prefixing it is what made reopening a saved
+	// asset lose the whole running order.
+	const alreadyProcessed = svg.hasAttribute(PROCESSED_ATTR);
+	const ns = alreadyProcessed ? (svg.getAttribute(PROCESSED_ATTR) ?? artNamespace(sanitized)) : artNamespace(sanitized);
 	const authorIds = new Map<Element, string>();
 	for (const el of Array.from(svg.querySelectorAll('[id]'))) authorIds.set(el, el.getAttribute('id') || '');
-	const namespaced = namespaceIds(svg, ns);
-	receipt.rewritten.idsNamespaced = namespaced.renamed;
-	receipt.rewritten.duplicateIds = namespaced.duplicates;
+	if (!alreadyProcessed) {
+		const namespaced = namespaceIds(svg, ns);
+		receipt.rewritten.idsNamespaced = namespaced.renamed;
+		receipt.rewritten.duplicateIds = namespaced.duplicates;
+		svg.setAttribute(PROCESSED_ATTR, ns);
+	}
 
 	// 7 · a coordinate box, or an honest refusal.
 	const { box, stamped } = ensureViewBox(svg);
@@ -698,10 +767,20 @@ export function intake(raw: string): IntakeResult {
 	// because `pathRef` IS the address and a part without one silently never moves.
 	const labels: string[] = [];
 	const rows: Omit<IntakePart, 'label'>[] = [];
+	// Every id already in the drawing, so a MINTED one cannot land on top of one. A drawing that
+	// happens to contain `id="p1"` would otherwise produce two parts with the same `pathRef` —
+	// which `parseScene` rejects outright (an un-craftable asset blamed on us), or, when the twin is
+	// in `<defs>`, sails through and binds the part to a GRADIENT, so the plan validates and the
+	// wrong node animates with nothing to report it. The de-dup at step 6 cannot see this, because
+	// the collision is created here, three steps later.
+	const minted = new Set(Array.from(svg.querySelectorAll('[id]')).map((e) => e.getAttribute('id') ?? ''));
 	cut.forEach((el, i) => {
 		let pathRef = el.getAttribute('id') || '';
 		if (!pathRef) {
-			pathRef = `${ns}-p${i + 1}`;
+			let n = i + 1;
+			while (minted.has(`${ns}-p${n}`)) n++;
+			pathRef = `${ns}-p${n}`;
+			minted.add(pathRef);
 			el.setAttribute('id', pathRef);
 		}
 		const authorId = authorIds.get(el) ?? '';
@@ -714,7 +793,7 @@ export function intake(raw: string): IntakeResult {
 			drawable: GEOMETRY_TAGS.has(t),
 			strokeable: hasStroke(el, svg),
 			band: isBand,
-			childCount: isBand || t === 'g' ? el.querySelectorAll('*').length : 0,
+			childCount: isBand || t === 'g' ? shapeCount(el) : 0,
 		});
 	});
 	const parts: IntakePart[] = dedupe(labels).map((label, i) => ({ ...rows[i], label }));
@@ -803,18 +882,22 @@ export function splitBand(art: string, bandRef: string): { art: string; members:
 	const rows: IntakePart[] = [];
 	const labels: string[] = [];
 
+	const slot = bandRef.split('-').pop() ?? '1';
 	members.forEach((el, i) => {
 		let pathRef = el.getAttribute('id') || '';
 		if (!pathRef) {
+			// Checked against every id already in the drawing, for the same reason the census mints
+			// checked: a duplicate `pathRef` either makes the asset unsaveable or binds the part to
+			// the wrong node, and neither says anything.
 			let n = i + 1;
-			while (taken.has(`${ns}-${bandRef.split('-').pop()}s${n}`)) n++;
-			pathRef = `${ns}-${bandRef.split('-').pop()}s${n}`;
+			while (taken.has(`${ns}-b${slot}s${n}`)) n++;
+			pathRef = `${ns}-b${slot}s${n}`;
 			taken.add(pathRef);
 			el.setAttribute('id', pathRef);
 		}
 		labels.push(namePart(el, view, new Map(), ''));
 		const t = tag(el);
-		rows.push({ pathRef, label: '', tag: t, drawable: GEOMETRY_TAGS.has(t), strokeable: hasStroke(el, svg), band: false, childCount: t === 'g' ? el.querySelectorAll('*').length : 0 });
+		rows.push({ pathRef, label: '', tag: t, drawable: GEOMETRY_TAGS.has(t), strokeable: hasStroke(el, svg), band: false, childCount: t === 'g' ? shapeCount(el) : 0 });
 	});
 
 	// Unwrap: move the members up to where the band sat, then drop the wrapper.
