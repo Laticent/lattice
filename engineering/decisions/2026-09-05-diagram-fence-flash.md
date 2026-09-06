@@ -22,18 +22,25 @@ summary: >
   render), then D (deck-scope the mermaid flag) as its own change. C (cross-fade) is rejected
   on its own measurement — it leaves the source on screen 50-75% LONGER; F (render in the
   engine) on price — ~700ms idle and ~1.8s busy before anything appears, paid on the Studio's
-  own thread; G (anime.js) on 116KB for what one `::before` already does. Nothing is
-  SHIPPED as A+E+D. Re-measured from a real build, not from injected candidates: typing
-  10 source frames / 172ms -> 0 / 0 blank / 20ms; navigate-revisit 4 / 368ms -> 0 / 0 / 19ms
-  with 0 of 4 realm rebuilds; a genuinely cold diagram is 0 source frames behind an empty
-  slot at 386ms. Implementing E surfaced a LATENT DEFECT the bake-off had not: `diagramScopeKey`
-  keyed the SVG cache on the section's raw inline `style`, which the runtime itself stamps
-  (`--_sec-1cqi` from patchSectionGeometry, `--logo-*` from the deck logo) — and touching it
-  makes the browser re-serialize the rest — so one slide produced two different keys either
-  side of the stamp and the replay missed 100% of the time. The key now drops runtime-written
-  properties and normalizes whitespace and order, which also stops the ordinary path missing
-  on a re-serialized section. Failure direction is a miss (a re-render), never another slide's
-  baked ink.
+  own thread; G (anime.js) on 116KB for what one `::before` already does.
+  SHIPPED as A+E+D, re-measured from a real build rather than from injected candidates:
+  typing 10 source frames / 172ms -> 0 source, 0 blank, 20ms; navigate-revisit 4 / 368ms ->
+  0 source, 0 blank, 20ms with 0 of 4 realm rebuilds; a genuinely cold diagram is 0 source
+  frames behind an empty slot at 455ms. Implementing E surfaced a LATENT DEFECT the bake-off
+  had not: `diagramScopeKey` keyed the SVG cache on the section's raw inline `style`, which
+  the runtime itself stamps (`--_sec-1cqi` from patchSectionGeometry, `--logo-*` from the
+  deck logo) — and any `setProperty` makes the browser re-serialize the rest, rewriting
+  VALUES as well as whitespace — so one slide produced two different keys either side of the
+  stamp and the replay missed 100% of the time. The key now reads the CSSOM's own
+  serialization (`style.cssText`) and drops runtime-written properties, which also stops the
+  ordinary path missing on a re-serialized section. Failure direction is a miss (a
+  re-render), never another slide's baked ink. An independent checker then caught two
+  self-inflicted defects before merge, both fixed and both recorded in §5: the CSS rule
+  blanked the source in EXPORTS (a `~~~mermaid` fence, which `preprocessMermaid`'s regex does
+  not match, reaches the exported HTML unsubstituted with the runtime stripped), so the rule
+  now requires a `[data-lattice-runtime]` attribute that only a builder injecting the runtime
+  stamps; and the first normalization missed the CSSOM's VALUE re-serialization, so every
+  slide carrying a `![bg](…)` would still have missed.
 ---
 
 # The Mermaid fence flashes before the diagram — measured, and seven ways out
