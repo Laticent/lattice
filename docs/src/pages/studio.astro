@@ -21,6 +21,23 @@ import ResourceHints from '../components/site/ResourceHints.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
 import RuntimeWarm from '../components/site/RuntimeWarm.astro';
+// The webfont files the PRE-PAINT SHELL's top bar paints with, imported with `?url` so
+// Vite hands back the SAME hashed, base-aware asset URL that `styles/fonts.css` resolves
+// its own relative `url()` to. That identity is the whole point: a preload whose href does
+// not match the URL the stylesheet requests is not a no-op, it is a second download plus a
+// "preloaded but not used" console warning. `font-preload.spec.ts` asserts the match,
+// because nothing else would notice it breaking.
+//
+// FILES, NOT FACES — and the difference is the reason two `<link>`s are enough. Every
+// vendored Outfit weight is the SAME FILE (md5 `fdf9c509…` for 300/400/500/600/700), as are
+// upright Playfair 400 and 700 (`ef05b30d…`): they are variable fonts stored under
+// per-weight names, and `fonts.css`'s five `@font-face` blocks each pin a different position
+// on the one file's weight axis. Vite content-hashes and dedupes them, so these two imports
+// resolve to the two assets the whole family is served from — which is why the built href
+// reads `outfit-300` and `playfair-display-400` (the dedup winner's name) rather than the
+// 600/700 named here. Preloading them covers EVERY weight of both families, not two faces.
+import outfitUrl from '../playground/fonts/outfit-600.woff2?url';
+import playfairUrl from '../playground/fonts/playfair-display-700.woff2?url';
 import { joinBase } from '../lib/base-url.mjs';
 import { buildStudioCatalog } from '../lib/studio-catalog.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
@@ -368,6 +385,42 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		    CSS below, which would otherwise delay it. */}
 		<ColorSchemeSeed />
 		<ResourceHints />
+		{/* PRELOAD THE TWO FACES THE INSTANT SHELL PAINTS ITS TOP BAR WITH.
+		    ────────────────────────────────────────────────────────────────
+		    `fonts.css` serves every face `font-display: swap`, so the shell paints its
+		    header in the FALLBACK stack and re-lays it out when the woff2 lands. Measured
+		    at 1440 on the built site, fallback -> webfont:
+
+		      deck title (Outfit 600)      230.3px -> 188.4px   (-41.9)
+		      deck pill (content-sized)    353.3px -> 311.4px   (-41.9)
+		      wordmark (Playfair)           53.7px ->  56.0px   (+2.3)
+
+		    So the deck pill and everything right of it — rule 2, the posture dial — jump
+		    ~42px at hand-off, which is the shift reported against the brand block. Note the
+		    brand block is the SMALL half of it: the wordmark contributes 2.3 of the 42.
+		    The deck TITLE is the offender, because the pill is content-sized (#1417) and so
+		    its width is a direct function of the font's metrics.
+
+		    MEASURED, same machine, same 400kbps/300ms throttle, with and without these two
+		    lines (the control is JetBrains Mono, which shares the stylesheet and is NOT
+		    preloaded, so one run shows both behaviors):
+
+		      without   font fetch starts 4435ms, initiator `css`   title shifts -41.9px
+		      with      font fetch starts  405ms, initiator `link`  title shifts   0.0px
+
+		    69KB for the two files — which is both families entire, not two faces, since the
+		    weights share one variable file each (see the import note above). JetBrains Mono
+		    is deliberately NOT preloaded: no text in the top bar is mono at first paint.
+
+		    WHAT THIS DOES NOT DO: it moves the fetch to parse time, it does not remove
+		    `swap`. On a link slow enough that 69KB still has not landed when the shell
+		    paints, the fallback paints first and the shift returns. The cure is
+		    metric-adjusted fallback faces (`size-adjust` + ascent/descent-override against a
+		    deterministic named fallback), which costs no bytes and holds at any speed — a
+		    site-wide font-stack change, deliberately kept out of a header PR (owner's call,
+		    2026-09-06). */}
+		<link rel="preload" href={outfitUrl} as="font" type="font/woff2" crossorigin />
+		<link rel="preload" href={playfairUrl} as="font" type="font/woff2" crossorigin />
 		{/* The crash sentinel, started as early as a bundled module can run — before
 		    the client:only island hydrates, so a fault during boot is still recorded.
 		    It writes only to this browser; see the module header for why an in-page
