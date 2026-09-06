@@ -28,7 +28,8 @@
  *   3. Mermaid 404s in a document that STAMPS `data-lattice-diagrams` (the watched preview
  *      shape) → still visible, because the give-up drops the falsified promise.
  *   4. A diagram Mermaid REJECTS (the `error` state) collapses its empty slot too.
- *   5. The release is FAST — under two seconds, not the ten-second deadline. That is not a
+ *   5. A slow defer/async tag, and a folder named "mermaid", do NOT trip the fast arm.
+ *   6. The release is FAST — under two seconds, not the ten-second deadline. That is not a
  *      nicety: the Studio's desktop print document waits `load` + 450ms and nothing else,
  *      so a release on the deadline would print the empty slot anyway.
  */
@@ -68,7 +69,7 @@ const BROKEN_DECK = deckWith([`flowchart LR ${SENTINEL}`, '  A -->']);
  * fast arm reasons about a script that has already had its turn, and `addScriptTag`
  * appends after load, which is the one shape the arm deliberately does not claim.
  */
-async function readFence({ mermaid, stampDiagrams = false, deck = DECK }) {
+async function readFence({ mermaid, stampDiagrams = false, deck = DECK, scriptAttrs = '', mermaidDelayMs = 0, basePath = '/' }) {
   const puppeteer = require('puppeteer');
   const engine = require('../../../lib/engine');
   const { composeCss } = require('../../../lib/engine/css.js');
@@ -86,20 +87,22 @@ async function readFence({ mermaid, stampDiagrams = false, deck = DECK }) {
     + fontFaceCss(ROOT) + css + '\n.lattice>section{width:1280px;height:720px}'
     + '</style></head><body>'
     + `<article class="lattice">${out.html}</article>`
-    + '<scr' + 'ipt src="/mermaid.js"></scr' + 'ipt>'
-    + '<scr' + 'ipt src="/lattice-runtime.js"></scr' + 'ipt>'
+    + (mermaid === 'no-tag' ? '' : '<scr' + 'ipt ' + scriptAttrs + ' src="mermaid.js"></scr' + 'ipt>')
+    + '<scr' + 'ipt ' + scriptAttrs + ' src="lattice-runtime.js"></scr' + 'ipt>'
     + '</body></html>';
 
   const runtimeJs = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'));
-  const mermaidJs = mermaid ? fs.readFileSync(path.join(ROOT, 'node_modules', 'mermaid', 'dist', 'mermaid.js')) : null;
-  const server = http.createServer((req, res) => {
-    if (req.url === '/lattice-runtime.js') {
+  const mermaidJs = mermaid && mermaid !== 'no-tag' ? fs.readFileSync(path.join(ROOT, 'node_modules', 'mermaid', 'dist', 'mermaid.js')) : null;
+  const server = http.createServer(async (req, res) => {
+    if (req.url.endsWith('/lattice-runtime.js')) {
       res.writeHead(200, { 'content-type': 'application/javascript' });
       res.end(runtimeJs);
       return;
     }
-    if (req.url === '/mermaid.js') {
+    if (req.url.endsWith('/mermaid.js')) {
       if (!mermaidJs) { res.writeHead(404); res.end('no mermaid here'); return; }
+      // A SLOW but successful load — the case the fast arm must not mistake for a failure.
+      if (mermaidDelayMs) await new Promise((r) => { setTimeout(r, mermaidDelayMs); });
       res.writeHead(200, { 'content-type': 'application/javascript' });
       res.end(mermaidJs);
       return;
@@ -108,7 +111,7 @@ async function readFence({ mermaid, stampDiagrams = false, deck = DECK }) {
     res.end(doc);
   });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
-  const base = `http://127.0.0.1:${server.address().port}/`;
+  const base = `http://127.0.0.1:${server.address().port}${basePath}`;
 
   const browser = await puppeteer.launch({
     executablePath: CHROME || undefined, args: ['--no-sandbox', '--disable-setuid-sandbox'],
@@ -175,15 +178,25 @@ describe('a fence Mermaid never draws', { skip: skipWithoutChrome(CHROME), timeo
   });
 
   test('shows the source in a document that stamped data-lattice-diagrams', async () => {
-    // The watched-preview shape. Rule A withholds an UNTAGGED fence's ink under this
-    // attribute, so a give-up that merely removed `data-mermaid-state` would hand the
-    // author a fence that is present, sized, and invisible — a worse bug than the one it
-    // fixed, and one no box measurement would catch. Hence `codeVisibility` below.
+    // The watched-preview shape, and the cell that says why the give-up writes a STATE
+    // rather than removing the attribute: under `[data-lattice-diagrams]` the anti-flash
+    // rule withholds an UNTAGGED fence's ink, so an un-tagging give-up would hand the
+    // author a fence that is present, correctly sized, and invisible — which no box
+    // measurement catches. Hence `codeVisibility`.
+    //
+    // BE HONEST ABOUT WHAT THIS CELL CAN AND CANNOT FAIL ON TODAY. This document carries
+    // the UNSCOPED rule from `dist/lattice.css`, where the attribute on `<html>` really
+    // does match; the Studio's preview cascade scopes the same rule to
+    // `article.lattice > section [data-lattice-diagrams] …`, which wants the attribute
+    // inside a slide and therefore never fires. So `codeVisibility` is a live
+    // discriminator HERE and is inert in the hosts that actually stamp. That scoping is a
+    // separate, pre-existing defect; this cell is deliberately written against the arm
+    // where the rule works, because that is the arm the design argument rests on.
     const r = await readFence({ mermaid: false, stampDiagrams: true });
     assert.equal(r.state, 'unavailable', 'the give-up runs in a stamping document too');
-    assert.equal(r.stamped, false, 'the give-up drops the promise the document could not keep');
+    assert.equal(r.stamped, true, 'the give-up leaves the document\'s own markup alone');
     assert.notEqual(r.display, 'none', 'the source <pre> is shown');
-    assert.equal(r.codeVisibility, 'visible', 'and it paints — rule A must not still be withholding its ink');
+    assert.equal(r.codeVisibility, 'visible', 'and it paints — the state is what keeps rule A off it');
     assert.match(r.text, new RegExp(SENTINEL));
   });
 
@@ -200,6 +213,40 @@ describe('a fence Mermaid never draws', { skip: skipWithoutChrome(CHROME), timeo
     assert.equal(r.state, 'error', 'Mermaid rejected the diagram, so this is the error state');
     assert.notEqual(r.display, 'none', 'the error state shows the source — that is its whole point');
     assert.equal(r.siblingDisplay, 'none', 'the empty .mermaid box must collapse so the source has the full slot');
+  });
+
+  /**
+   * THE THREE WAYS THE FAST ARM CAN BE WRONG, each driven by an independent checker against
+   * the FIRST version of it and each now a cell.
+   *
+   * Being wrong here is expensive in one specific direction: a false "the promise is broken"
+   * releases a fence whose Mermaid was still coming, so the slide shows raw source — the
+   * §4A flash this whole swimlane exists to remove — and an export bakes that source into
+   * the artifact, because `waitForDiagrams` treats the released state as settled.
+   */
+  test('waits for a DEFER tag that has not run yet', async () => {
+    // `readyState` flips to `interactive` BEFORE deferred scripts execute, so the first
+    // version of the predicate reported a defer tag as settled and gave up while Mermaid
+    // was still on its way. Position against our own script is the exact question instead.
+    const r = await readFence({ mermaid: true, scriptAttrs: 'defer', mermaidDelayMs: 1200 });
+    assert.equal(r.state, 'rendered', 'a slow DEFER mermaid still draws — the runtime must not give up on it');
+    assert.ok(r.svgs > 0, 'the diagram is on the slide');
+  });
+
+  test('waits for an ASYNC tag that has not run yet', async () => {
+    const r = await readFence({ mermaid: true, scriptAttrs: 'async', mermaidDelayMs: 1200 });
+    assert.equal(r.state, 'rendered', 'a slow ASYNC mermaid still draws');
+  });
+
+  test('does not read a FOLDER NAME as a promise of Mermaid', async () => {
+    // `el.src` is the RESOLVED url, so matching /mermaid/i against the whole of it made
+    // every script in a document served from a path containing "mermaid" — including the
+    // runtime's own tag — count as a mermaid script. A document with no mermaid tag at all
+    // then gave up on the first tick. The tag is matched on its file name now.
+    const r = await readFence({ mermaid: 'no-tag', basePath: '/mermaid-demo/' });
+    assert.notEqual(r.state, 'unavailable',
+      'no mermaid tag means no promise — this document must take the deadline, not the fast arm');
+    assert.equal(r.state, 'pending', 'so the fence is still waiting when we look');
   });
 
   test('gives up fast, not on the ten-second deadline', async () => {

@@ -89,6 +89,16 @@ describe('giving up on Mermaid hands the fence back to its author', () => {
     assert.equal(releaseUnrenderableFences(), 0, 'a released fence is not pending, so it cannot be released twice');
   });
 
+  test('the release and the reclaim are not each other\'s inverse by accident', () => {
+    // Release is unconditional; reclaim is gated. Pinning the asymmetry means a later
+    // simplification that makes reclaim unconditional again has to argue with this cell.
+    const doc = deck(['pending']);
+    const { releaseUnrenderableFences, reclaimReleasedFences } = liftFenceState(doc);
+    releaseUnrenderableFences();
+    reclaimReleasedFences(() => false);
+    assert.deepEqual(stateOf(doc), ['unavailable'], 'a refused reclaim changes nothing');
+  });
+
   test('leaves the sibling .mermaid box in place, because the reclaim needs it', () => {
     // `fenceJob` requires `preEl.nextElementSibling` to be the `.mermaid` target. Removing
     // the empty box on give-up would look tidier and would make a late Mermaid unrenderable;
@@ -102,9 +112,29 @@ describe('giving up on Mermaid hands the fence back to its author', () => {
   test('a Mermaid that turns up late gets the released fences back', () => {
     const doc = deck(['unavailable', 'rendered', 'unavailable']);
     const { reclaimReleasedFences } = liftFenceState(doc);
-    reclaimReleasedFences();
+    reclaimReleasedFences(() => true);
     assert.deepEqual(stateOf(doc), ['pending', 'rendered', 'pending'],
       'released fences requeue; a drawn one is not re-rendered');
+  });
+
+  test('reclaims ONLY what the caller says it can render', () => {
+    // RECLAIMING IS HIDING: `pending` is the state the stylesheet hides on, so taking a
+    // fence back on a pass that then declines to render it leaves the author a blank where
+    // their source was — the pre-#2092 outcome, produced by the fix. An independent checker
+    // drove exactly that: the reclaim used to run BEFORE `initAndRun`'s `themeSettled`
+    // guard, and on a host whose theme vars never resolve (marp-vscode's webview, by that
+    // guard's own docblock) every pass hid the fence and then returned. The `force` that
+    // would break the deadlock only ever comes from `tick`, which has already given up.
+    //
+    // The second instance is this one: `fenceJob` returns null when the `.mermaid` target
+    // is not where it expects, and the walk `continue`s past it — stranding a fence it just
+    // hid. So the caller's own renderability test gates the reclaim.
+    const doc = deck(['unavailable', 'unavailable']);
+    const { reclaimReleasedFences } = liftFenceState(doc);
+    const pres = [...doc.querySelectorAll('pre')];
+    reclaimReleasedFences((el) => el === pres[0]);
+    assert.deepEqual(stateOf(doc), ['pending', 'unavailable'],
+      'the fence the caller cannot render keeps showing its source');
   });
 
   test('the released state is not one the pending selector re-selects', () => {

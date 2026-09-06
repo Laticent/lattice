@@ -96,10 +96,18 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code [
  * and .badge.fail so it feels native to the deck. Width matches the
  * source <pre> / rendered .mermaid container so the error sits flush with
  * the diagram slot above it. Height is intrinsic — errors are short. */
-/* Gap from the diagram slot above lives on the (no-bg) .mermaid container, not as a
- * margin-top on this bordered/filled block (which would bleed its fill / can't be
- * measured) — HARD RULE #20. The container is the error's previous sibling
- * (attachError inserts afterend of the target). */
+/* Gap from the diagram slot above, for a host where the `.mermaid` container is still
+ * laid out. Carried as padding on that (no-bg) container rather than as a margin-top on
+ * this bordered/filled block, which would bleed its fill and could not be measured —
+ * HARD RULE #20. The container is the error's previous sibling (attachError inserts
+ * afterend of the target).
+ *
+ * ON A DIAGRAM SLIDE THIS IS NOW INERT, and the gap comes from elsewhere. `mermaid.css`
+ * collapses the spent container in both failure states so the source <pre> gets the whole
+ * stage, and `display:none` pays no padding; `.cell-stage`'s flex `gap` supplies the
+ * separation instead. Measured before and after that collapse: the <pre> goes 92px → 216px
+ * and the gap to `.mermaid-error` 140px → 16px. Kept for the hosts that do not wrap a
+ * diagram slide in `.cell-stage`, where the container still lays out. */
 .mermaid:has(+ .mermaid-error) {
   padding-bottom:var(--sp-sm);
 }
