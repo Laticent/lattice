@@ -209,14 +209,19 @@ summary: Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}
 > markers, 14 ordinary prose — `(cont.)`, `(0,2,2)`, `[data-mark]`, `[ REDACTED ]`), and
 > one brace pair captures **36**, in exactly two decks: 22 in `examples/inline-pills.md`,
 > which exists to demonstrate the grammar, and 14 in `examples/inline-code-literal.md`,
-> which sets `inline-code: literal` and renders them as text. Zero in the other 247.
+> which sets `inline-code: literal` and renders them as text. Zero in every other deck.
 >
-> Second, the zero-elsewhere half is enforced:
-> `test/unit/core/inline-code-corpus-census.test.js` re-walks the corpus on every run,
-> asks the same `dispatches()` predicate both render paths call (HARD RULE #1), and fails
-> on a dispatching span in any other deck — naming the file and the line, and offering the
-> escape, the `inline-code: literal` register, and the allowlist as the three ways out. A
-> stale allowlist entry fails it too.
+> Second — and this half is DEFERRED, deliberately. A corpus-wide census that re-walks every
+> deck on every run, asks the same `dispatches()` predicate both render paths call (HARD
+> RULE #1), and fails on a dispatching span in any other deck was built and measured. It is
+> not in the change that carries this amendment. Four review rounds went into it and each
+> found a defect in the one before — a regex that could not see a double-backtick or a
+> line-wrapped span, comment handling that was exactly inverted, a fixed token offset that
+> hid an eyebrow behind a comment, and a front-matter guard that made the walker disagree
+> with the engine — plus two high-severity CodeQL alerts, one of them a real hang. Every one
+> was in the census helper; none was in the register. Holding a register hostage to that is
+> the wrong trade, so the census lands on its own branch and this stays a measurement until
+> it does.
 >
 > **The original numbers are left standing as the record of what was measured, not
 > corrected in place.** They were taken over the wider `examples/` + `lib/` + `docs/src` +

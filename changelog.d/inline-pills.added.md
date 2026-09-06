@@ -12,10 +12,9 @@
   every inline-code span in every deck we ship — thousands of them: 36 dispatch, and they
   sit in exactly two decks — 22 in `examples/inline-pills.md`, which demonstrates the
   grammar, and 14 in `examples/inline-code-literal.md`, which turns it off. Zero in any
-  other deck. A census test re-walks the corpus on every run and fails on a dispatching
-  span anywhere else, naming the file and the line — so the claim is gated, not
-  remembered, and the exact corpus size lives in the test rather than in this sentence. An
-  unknown modifier (`` `{X}:c13` ``) falls back to literal rather than being ignored, and double backticks
+  other deck. That is a measurement, not yet a gate: the corpus-wide census that would
+  re-walk every deck on every run is deferred to its own change, so re-derive before you
+  rely on the number. An unknown modifier (`` `{X}:c13` ``) falls back to literal rather than being ignored, and double backticks
   force the literal for a label that would otherwise qualify.
 - **The four state markers are reserved inside `{}`.** `` `{x}` `` `` `{-}` `` `` `{/}` ``
   and `` `{ }` `` render literal, with a `lint:deck` suggestion pointing at the bare

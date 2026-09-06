@@ -15,6 +15,10 @@
   independently: it stopped at the first non-blank line after a span, so an HTML comment
   between a span and its heading hid the span entirely — markdown-it strips the comment and
   promotes the eyebrow anyway, so the census was certifying a deck it had not looked at.)
+  The scan is line-based, so it misses a code-only paragraph written with DOUBLE backticks
+  or WRAPPED across two source lines — 13 such spans exist, none of which dispatches, so the
+  conclusion holds. A parser-based walk that sees them is built and lands with the
+  corpus-wide census on its own branch.
 - **Decided: the variable grammar will be BRACED — `` `{$now.date}` ``, not
   `` `$now.date` ``.** The render-time built-ins proposed for the engine
   (`$now.date` / `$now.time` / `$now.datetime` / `$now.year`, plus `$deck.*` and
