@@ -40,6 +40,7 @@ Use for the people slide — 'meet the leaders', 'your account team', the QBR ro
 - **Writing the role as plain nested text instead of backticks.** The one backticked nested line is the role, set as the label under the name. Written plain it becomes a second note line, so the card shows two body lines and no role.
 - **Filling the alt text on the portrait.** Write `![](photo.jpg)` with an empty alt. The name is set right beside the face and IS the accessible label, so alt text only makes a screen reader say it twice — the engine drops it either way.
 - **Adding a KEY INSIGHT or a closing note to a full six-person roster.** The coda cell takes its height out of the stage, so the second row clips. Drop to four people, move the line into the headline, or switch to `bench`, whose rows are half the height.
+- **Giving the ranked people under a `lead` hero their own note lines.** The hero's note is the one that earns the room. Five notes do fit under a one-line headline, so nothing warns you — but let the headline wrap to a second line and the stage clips the whole ranked row (measured at 31px on indaco, 1280x720), the engine marks the slide OVERFLOWS, and every lieutenant note vanishes at once. Give the note to the hero and leave the rest at name and role, the way the sample does.
 
 ## Authoring
 
