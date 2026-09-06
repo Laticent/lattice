@@ -7,9 +7,11 @@ summary: >
   `data-mermaid-state` from a 150ms-DEBOUNCED observer, and nothing hides it before that
   attribute exists; and the Studio's frame signature carries `mermaid` PER SLIDE, so moving
   from a text slide to a diagram slide misses the patch path and REBUILDS THE IFRAME REALM —
-  6 of 6 measured — discarding the rendered-SVG cache with it. Both arrive with #1080 (July),
-  and before it every render was a full rewrite, so no regressing commit exists; what changed
-  is #1614 (2026-08-11), which zeroed the fence's padding so the source now sits flush under
+  6 of 6 measured — discarding the rendered-SVG cache with it. Neither is a regression: the
+  debounce predates the runtime's May move out of `src/`, the patch path is #913 (2026-07-11),
+  and the per-slide `mermaid` flag is #1062 (2026-07-18) — the commit that made diagram slides
+  render in the editing preview AT ALL, so the flash arrived with the feature. What changed is
+  #1614 (2026-08-11), which zeroed the fence's padding so the source now sits flush under
   the title and reads as part of the slide. Measured on the real Studio with a new
   rAF-sampling bench (`docs/scripts/diagram-flash-bench.mjs`): typing one character on a
   diagram slide repaints the raw source for 10 PAINTED FRAMES even unthrottled, with the
@@ -114,11 +116,30 @@ patch-vs-rewrite. So a text slide and a diagram slide never share a signature:
 bundle, and discarding `mermaidSvgCache` with the realm it lived in. Measured: 6 of 6
 such navigations were full rewrites, and a revisit costs the same as a first visit.
 
-Neither is new. The patch fast path, the signature's `mermaid` term, and the 150ms
-debounce all arrive together in #1080 (2026-07-19), and before it *every* render was
-a full rewrite — so the flash predates the machinery that was supposed to remove it.
-No single regressing commit was found; what changed on 2026-08-11 is how the flashed
-frame is typeset, not whether it happens.
+Neither is new, and neither is a regression — but the first version of this note got
+the history wrong, in a way worth recording because the mechanism will fool the next
+person too. **This sandbox had a SHALLOW CLONE**, truncated at `0bff960a` (2026-07-19,
+the squash point of #1080). `git log -S` against a shallow clone reports the truncation
+boundary as the origin of everything that already existed there — so three unrelated
+mechanisms all appeared to "arrive together in #1080", and the note said so. They did
+not. Re-derived after `git fetch --unshallow` (2124 commits, not 466):
+
+| mechanism | actually arrives |
+|---|---|
+| the 150ms `DEBOUNCE_MS` observer | predates the runtime's move out of `src/` (2026-05-28) |
+| the srcdoc signature + patch fast path | **#913** (2026-07-11) |
+| the signature's per-SLIDE `mermaid` term | **#1062** (2026-07-18) |
+
+#1062 is the interesting one. Before it the Studio's editor preview passed
+`mermaid={false}` unconditionally: Mermaid was never injected, and a diagram slide did
+not render in the editing preview at all. #1062 — *"render diagram slides in the editing
+preview"* — is what started injecting it, keyed on the shown slide. So the flash did not
+regress out of working code; **it arrived with the feature that made diagrams appear
+there**, and has been the behavior for roughly seven weeks. What changed on 2026-08-11
+(#1614) is how the flashed frame is typeset, not whether it happens.
+
+Anyone re-deriving this from a fresh agent sandbox should check
+`git rev-parse --is-shallow-repository` first.
 
 ## 3. Baseline — what it costs today
 
@@ -507,9 +528,22 @@ slide; G is rejected on 116KB for what CSS does for free.
   carried the pre-re-measurement 20/20 and survived the pass that corrected them
   elsewhere in this same section). The recurring costs shrink; the one-time cost grows.
 
-  **The clean fix decouples the two things D conflates.** The signature needs to be constant
-  across the deck (that is what stops the realm rebuild); the 3.16MB bundle does not need to
-  be in the document from the first byte. Injecting it on first sight of a fence — from the
+  **What the second costs, and why it is CPU rather than scheduling.** The ~1s is the browser
+  parsing, compiling and executing a 3.16MB minified bundle inside a FRESH iframe realm. It is
+  not network (Mermaid is self-hosted since #2026-09-03) and it is not script-blocking: an
+  `async` tag measured +1543ms against sync's +1581ms — a wash, so moving WHEN the parse
+  happens does not help when the parse IS the cost. (Scratch experiment, not committed:
+  indicative, not a pinned number.) Note also that the slide-scoped arrangement was not free
+  — it paid the same ~1s PLUS a realm rebuild on every crossing onto a diagram slide, 4 of 4
+  measured. D turns a repeated cost into a single one; it does not add one.
+
+  **The clean fix decouples the two things D conflates**, and the conflation is literal: in
+  `single-slide-render.ts` ONE boolean does two unrelated jobs — it is a term in the frame
+  SIGNATURE (`:1381`, patch vs. full realm rebuild) and it decides whether the
+  `<script src=mermaid>` tag is IN THE DOCUMENT (`:873`). D had to widen the first to deck
+  scope, and widening it dragged the second along because they are the same variable. The
+  signature needs to be constant across the deck (that is what stops the realm rebuild); the
+  3.16MB bundle does not need to be in the document from the first byte. Injecting it on first sight of a fence — from the
   runtime, inside the frame — would keep every measured win and hand back the second. Not
   attempted here: it changes when a shared dependency loads for every preview surface, which
   is its own change with its own blast radius. Logged rather than folded in.
