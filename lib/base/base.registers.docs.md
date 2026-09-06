@@ -4,7 +4,8 @@ The **deck-level registers**: keys you set once in a deck's front matter that
 propagate to every slide, and that a per-slide `_class:` can override. They are
 `theme:`'s siblings — `theme:` picks the palette, these pick the rendering hand,
 the backdrop, the divider, the marker shape, the accent, the heading rule, the
-kicker, the framing alignment, the card elevation and the slide's own corner.
+kicker, whether inline code draws pills and marks, the framing alignment, the card
+elevation, where a card row puts its spare height, and the slide's own corner.
 
 **Why this file exists.** Nine of these ten lived under `### sketch` in
 `base.docs.md` — a per-slide *variant* — because `mode: sketch` is how you turn
@@ -381,8 +382,8 @@ So on the raw-Marp route, any slide with its own `_class:` must name
 engine appends the register's token to the class list it builds, so a per-slide `_class:`
 composes with it instead of competing.
 
-**One known limit, and it is narrow.** The register needs the setting to be *knowable*
-where the decision is made. It is, on every shape a deck actually ships in:
+**One known limit: a marp-core render with nothing baked into it.** The register needs the
+setting to be *knowable* where the decision is made. It is, on every shape a deck actually ships in:
 
 | shape | how the setting arrives |
 |---|---|
@@ -410,7 +411,13 @@ rest of the deck alone. It composes with a component class the usual way
 slide, escape it: `` `\{LABEL}` ``.
 
 Both render paths gate on the resolved section class rather than on the front matter, which
-is what makes the register, `class:`, and `_class:` one mechanism instead of three.
+is what makes the register, `class:`, and `_class:` one mechanism instead of three. The one
+exception is a timing detail, not a second mechanism: the engine builds `header:` /
+`footer:` chrome eleven ruler steps before the deck class is propagated, so it reads the
+section class first (that is how a per-slide `_class:` silences that slide's chrome) and
+re-derives the deck-level answer from the front matter when the class is not there yet.
+The runtime needs no exception — marp-core puts chrome inside the section, so it reads the
+same class from inside a header as from inside the body.
 
 ## The `eyebrow:` front-matter register (kicker decoration)
 
@@ -432,7 +439,7 @@ cleanly.
 POSITION — a paragraph whose only child is a `<code>` element — so `` `{DRAFT}:c2` `` or
 `` `[x]` `` on that line renders as a pill or a mark alone on a line, and no `eyebrow:`
 treatment reaches it. Escape it (`` `\{DRAFT}` ``) to keep the `<code>` and keep the
-kicker. Measured harmless across shipped decks (1,275 eyebrow and 484 subtitle spans, zero affected) and gated by
+kicker. Measured harmless across shipped decks (1,276 eyebrow and 484 subtitle spans, zero affected) and gated by
 `test/unit/css/eyebrow-position-shadow.test.js`; see *Eyebrow labels* in
 [`base.docs.md`](base.docs.md).
 

@@ -8,11 +8,13 @@
   eight variants were doing, none of which ever moved a grid cell.
 - **Nothing existing changes.** A pill needs a brace pair whose label is trimmed and
   comma-free; every other inline code stays literal, including `` `[x]` ``,
-  `` `[data-mark]` ``, `` `{ ok, scene }` `` and `` `getUserId()` ``. Measured across all
-  12,551 single-backtick spans of the deck corpus (`examples/`, `lib/`, `docs/src`,
-  `test/integration`): zero render differently. Repo-wide, ~30 brace spans in engineering
-  prose that never renders would now dispatch. An unknown modifier
-  (`` `{X}:c13` ``) falls back to literal rather than being ignored, and double backticks
+  `` `[data-mark]` ``, `` `{ ok, scene }` `` and `` `getUserId()` ``. Measured across the
+  6,775 single-backtick spans in the 249 decks we ship: 36 dispatch, and they sit in
+  exactly two decks — 22 in `examples/inline-pills.md`, which demonstrates the grammar,
+  and 14 in `examples/inline-code-literal.md`, which turns it off. Zero in the other 247.
+  A census test re-walks that corpus on every run and fails on a dispatching span
+  anywhere else, naming the file and the line — so the claim is gated, not remembered. An
+  unknown modifier (`` `{X}:c13` ``) falls back to literal rather than being ignored, and double backticks
   force the literal for a label that would otherwise qualify.
 - **The four state markers are reserved inside `{}`.** `` `{x}` `` `` `{-}` `` `` `{/}` ``
   and `` `{ }` `` render literal, with a `lint:deck` suggestion pointing at the bare

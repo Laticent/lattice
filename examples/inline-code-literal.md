@@ -20,8 +20,8 @@ One line of front matter, and every backtick span goes back to being text.
 
 ## Why an off switch exists.
 
-- The pill grammar reads **every** single-backtick span in every deck.
-- Zero collisions measured across our own decks — but that is *our* corpus.
+- The pill grammar reads every single-backtick span in every deck. All of them.
+- Zero collisions measured across our own decks — but that corpus is ours, not yours.
 - A deck written elsewhere may say `[x]` in its prose and mean the characters.
 - Escaping is right for one span and absurd for ninety.
 
@@ -59,10 +59,10 @@ One line of front matter, and every backtick span goes back to being text.
 
 ## The value is `literal`, not `off`.
 
-- `inline-code: off` is **not** a known value — the deck keeps drawing pills.
+- `inline-code: off` is not a known value, so the deck keeps drawing pills.
 - `lint:deck` warns `unknown-inline-code` and names the two real values.
-- The Studio writes the canonical value for you: **General · Inline pills and marks**.
-- Unknown always falls to the *running* default, never to silence.
+- The Studio writes the canonical value for you, under General · Inline pills and marks.
+- An unknown value always falls to the running default, never to silence.
 
 ---
 
@@ -72,9 +72,9 @@ One line of front matter, and every backtick span goes back to being text.
 ## The header up there is the proof.
 
 - Chrome is markdown too — `header:` and `footer:` render inline like a paragraph.
-- So a literal deck has to silence them as well, or a foreign deck's running header still draws.
+- So a literal deck silences those too, or a foreign running header still draws.
 - Look at the running header on the slides that carry one: `{DEMO}` and `[x]`, as characters.
-- One slide at a time: `<!-- _class: inline-code-literal -->` scopes it without the register.
+- Scope it to a single slide with `<!-- _class: inline-code-literal -->`.
 
 ---
 
@@ -82,8 +82,8 @@ One line of front matter, and every backtick span goes back to being text.
 
 ## On a raw Marp deck, use Marp's own directive.
 
-- In the VS Code Marp preview the sandbox blocks reading the deck's `.md`.
-- So the **class** is the contract, not the register.
+- marp-cli loads a deck over `file://`, where fetching the sibling `.md` is CORS-blocked.
+- So the class is the contract here, not the register.
 - `class: inline-code-literal` in front matter — marp-core stamps every section.
 - Careful: a slide's own `_class:` replaces the global one, and the grammar returns.
 

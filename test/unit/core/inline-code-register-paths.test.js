@@ -190,12 +190,52 @@ test('the runtime reaches the register through its own deck-register mirror', as
 });
 
 
+test('the RUNTIME gates the deck CHROME too, and gates it on the same class the body uses', async () => {
+  // The engine needs a special case for chrome (see `slideIsInlineCodeLiteral` in
+  // lib/engine/slides.js: `header:` is rendered by `renderInline`, eleven ruler steps
+  // before the deck class exists, so it re-reads the front matter). The runtime needs
+  // none — marp-core has already emitted `<header>`/`<footer>` as children of the section,
+  // so `closest('section')` finds the class from inside chrome exactly as it does from
+  // inside the body. This arm is what lets the docs say the two paths agree on chrome
+  // WITHOUT anyone having to trust that reasoning.
+  const chrome = (cls) =>
+    `<section class="${cls}"><header><code>{HEAD}</code> <code>[x]</code></header>` +
+    `<p>Body <code>{ALPHA}:c2</code></p><footer><code>{FOOT}</code></footer></section>`;
+
+  const on = await renderRuntimeBaked(deck([]), chrome('content'));
+  const off = await renderRuntimeBaked(deck([]), chrome(`content ${INLINE_CODE_LITERAL}`));
+
+  const inChrome = (doc, sel) => doc.querySelectorAll(`${sel} .lat-pill, ${sel} .lat-state`).length;
+
+  // CONTROL: without the class the grammar runs in chrome, so the arm below measures the
+  // gate rather than a header the transform never reached.
+  assert.equal(inChrome(on, 'header'), 2, 'control: a rich deck draws a pill and a mark in its header');
+  assert.equal(inChrome(on, 'footer'), 1, 'control: and a pill in its footer');
+
+  assert.equal(inChrome(off, 'header'), 0, 'a literal section must leave its header text alone');
+  assert.equal(inChrome(off, 'footer'), 0, 'and its footer');
+  assert.equal(
+    off.querySelectorAll('p .lat-pill').length, 0,
+    'control on the other side: the body of the same section is literal too, so the gate ' +
+      'is the section class and not something specific to chrome',
+  );
+});
+
+
 /**
  * THE THREE SHAPES THE FIRST CUT GOT WRONG, each an independent checker's failing input.
  *
  * All three came from one asymmetry: the engine gated on the deck's FRONT MATTER while the
  * runtime gated on the section CLASS. Both now gate on the class, so a per-slide `_class:`,
  * a deck-wide `class:` and the register itself are one mechanism rather than three.
+ *
+ * ONE PLACE STILL READS THE SOURCE, and it is not an exception to that: the engine's
+ * `header:` / `footer:` chrome is built at ruler step 14 and the deck class is propagated
+ * at step 25, so at the moment chrome is rendered the deck-level token is not on the
+ * section yet. `slideIsInlineCodeLiteral` therefore checks the section class FIRST (which
+ * is how a per-slide `_class:` reaches chrome) and falls back to re-deriving the
+ * deck-level answer from the front matter. Same three inputs, same answer, one ruler step
+ * too early to read it off the class.
  */
 
 test('a per-slide `_class: inline-code-literal` turns the grammar off for that slide only', () => {

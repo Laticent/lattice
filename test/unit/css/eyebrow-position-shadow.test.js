@@ -16,8 +16,8 @@
  * WHY THIS IS A CENSUS AND NOT A FIXTURE. A fixture would assert that one crafted
  * pill fails to become an eyebrow — pinning the shadow, which is not the risk. The
  * risk is an AUTHOR writing one, in a deck, by accident. So this walks every deck
- * we ship and asserts none does. When #2066 landed the count was 1,275 eyebrow spans and 484 subtitle spans and
- * zero collisions; a real eyebrow reads `Section 01` or
+ * we ship and asserts none does. The corpus carries 1,276 eyebrow spans and 484 subtitle
+ * spans and zero collisions; a real eyebrow reads `Section 01` or
  * `H1 FY26 · 1,840 person-hours`, and none starts with a brace or is a bare marker.
  *
  * THE DECISION IT SPEAKS FOR is deliberate: the selector was NOT widened to accept
@@ -37,29 +37,17 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
 
-const ROOT = path.join(__dirname, '..', '..', '..');
+const { ROOT, shippedDecks, FENCE } = require('../../helpers/decks.js');
 const { dispatches } = require(path.join(ROOT, 'lib/core/inline-code-directives.js'));
 const { isLiteralFromSource } = require(path.join(ROOT, 'lib/core/resolve-inline-code.js'));
 
-/** The decks we SHIP — the ones a reader sees and the ones we hold to our own bar. */
-function shippedDecks() {
-  const out = execFileSync('git', ['ls-files', '*.md'], { cwd: ROOT, encoding: 'utf8' });
-  return out.split('\n').filter(
-    (f) =>
-      f.startsWith('examples/') ||
-      f.startsWith('kit/') ||
-      f.endsWith('.gallery.md') ||
-      f.startsWith('test/integration/baseline-decks/'),
-  );
-}
-
-const FENCE = /^(```|~~~)/;
 /** A paragraph that is EXACTLY one inline-code span — the eyebrow's own shape. */
 const ONLY_CODE = /^`([^`]+)`$/;
 /** What the eyebrow rule accepts as the next block: a heading, a list, or a fence. */
 const PROMOTES_AFTER = /^(#{1,5}\s|[-*+]\s|\d+\.\s|```)/;
+/** A line that is nothing but an HTML comment — invisible to the rendered tree. */
+const COMMENT_ONLY = /^<!--[\s\S]*-->$/;
 
 /** Every eyebrow-position span in a deck, with the line it sits on. */
 function eyebrowSpans(file) {
@@ -79,8 +67,14 @@ function eyebrowSpans(file) {
     if (inFence) continue;
     const m = ONLY_CODE.exec(line);
     if (!m) continue;
+    // Walk past blanks AND HTML comments. markdown-it strips a comment before the CSS ever
+    // sees the tree, so `<!-- markdownlint-disable-next-line MD026 -->` between the span and
+    // its heading leaves the eyebrow promoting normally — but a scanner that stops at the
+    // comment skips the span and the census certifies a deck it never looked at. There is
+    // one such span in the corpus today (`test/integration/baseline-decks/gallery.md`), and
+    // planting a dispatching label there passed all three arms before this line.
     let j = i + 1;
-    while (j < lines.length && !lines[j].trim()) j += 1;
+    while (j < lines.length && (!lines[j].trim() || COMMENT_ONLY.test(lines[j].trim()))) j += 1;
     if (j >= lines.length || !PROMOTES_AFTER.test(lines[j].trim())) continue;
     found.push({ file, line: i + 1, text: m[1] });
   }
@@ -126,7 +120,7 @@ test('no shipped deck writes an eyebrow the directive grammar would swallow', ()
   // ANTI-VACUITY, and it is the whole guard here: "zero collisions" is trivially
   // true of an empty list, so a scanner broken by a markdown change (a different
   // fence marker, a heading style) would certify nothing and pass forever. The
-  // floor is deliberately far below the 1,275 measured at #2066 — this pins that
+  // floor is deliberately far below the 1,276 measured today — this pins that
   // the walk still WORKS, not the exact corpus size, which moves every time a
   // deck is added.
   assert.ok(

@@ -168,7 +168,7 @@ summary: Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}
 > by the same `> code:only-child` rule — so the grammar shadows both identically. Three
 > review rounds scanned, measured and documented only the eyebrow half.
 >
-> **Measured before calling it harmless: 1,275 eyebrow-position and 484 subtitle-position
+> **Measured before calling it harmless: 1,276 eyebrow-position and 484 subtitle-position
 > spans across every shipped deck, ZERO of which dispatch.** None starts with a brace; none
 > is a bare marker. Real ones read `` `Section 01` `` and `` `H1 FY26 · 1,840 person-hours` ``.
 > So this is a shadow, not a regression — but the positions were no longer "any inline
@@ -178,13 +178,53 @@ summary: Inline-code directives — the PILL half shipped 2026-09-04 as `{LABEL}
 >
 > *(An earlier draft of this paragraph said 1,273. That figure never reproduced — not at
 > this commit and not on `main` — which is the "quote a base or the number will not
-> reproduce" trap HARD RULE #9 records, hit inside the amendment that cites it.)*
+> reproduce" trap HARD RULE #9 records, hit inside the amendment that cites it. It then
+> said 1,275, which was what the scanner could SEE: it stopped at the first non-blank line
+> after a span, so an HTML comment between the span and its heading — one
+> `markdownlint-disable-next-line` in `gallery.md` — hid the span entirely. markdown-it
+> strips the comment and promotes the eyebrow anyway, so the census was certifying a deck
+> it had not looked at. The walker now steps over comments; the count is 1,276.)*
 >
 > **Deliberately NOT fixed by widening the selector.** Letting `.lat-pill` satisfy the
 > eyebrow rule would make `` `{Q3 REVIEW}:c2` `` a colored kicker, which is a real
 > capability — and the eyebrow's mono-caps, letterspaced styling would then fight the pill
 > chrome. That is a visual design task with a review pass, not a one-line selector change,
 > so it is not smuggled in here.
+
+> **AMENDMENT 2026-09-06 — the corpus measurement above is now a GATE, and its numbers
+> have been re-derived.**
+>
+> The "12,551 spans / 147 collisions / zero for braces" figures above were taken once, on
+> the tree as it stood, and nothing re-derived them. A number in prose cannot fail, so it
+> could only rot — and it did: a review round found it restated in five places with two
+> different corpus definitions and no way to reproduce either.
+>
+> **Two things changed.** First, the surface is now named precisely: the comparison that
+> matters is over the decks we SHIP (`examples/`, `kit/`, `*.gallery.md`,
+> `test/integration/baseline-decks/` — 249 decks, 6,775 single-backtick spans), because a
+> `*.docs.md` is prose ABOUT a component and never reaches a slide. On that surface the
+> ADR's bracket geometry captures **27** spans an author meant literally (13 quoted state
+> markers, 14 ordinary prose — `(cont.)`, `(0,2,2)`, `[data-mark]`, `[ REDACTED ]`), and
+> one brace pair captures **36**, in exactly two decks: 22 in `examples/inline-pills.md`,
+> which exists to demonstrate the grammar, and 14 in `examples/inline-code-literal.md`,
+> which sets `inline-code: literal` and renders them as text. Zero in the other 247.
+>
+> Second, the zero-elsewhere half is enforced:
+> `test/unit/core/inline-code-corpus-census.test.js` re-walks the corpus on every run,
+> asks the same `dispatches()` predicate both render paths call (HARD RULE #1), and fails
+> on a dispatching span in any other deck — naming the file and the line, and offering the
+> escape, the `inline-code: literal` register, and the allowlist as the three ways out. A
+> stale allowlist entry fails it too.
+>
+> **The original numbers are left standing as the record of what was measured, not
+> corrected in place.** They were taken over the wider `examples/` + `lib/` + `docs/src` +
+> `test/integration` glob; re-running that same method today gives ~13,170 spans and 161
+> bracket collisions. The corpus grew ~5% and the collisions ~10%; the conclusion did not
+> move — which is the useful thing to know about a measurement, and is only knowable
+> because the method was written down beside it. The counts are a snapshot either way:
+> every one of them moved while this amendment was being written, because writing it added
+> spans to the corpus it measures. The census test is the durable form.
+
 
 ## What's already done
 
