@@ -444,6 +444,32 @@ the owner's call, not a side effect of a bug fix.
   that link's behavior. Inherited verbatim from `fouc-bench`'s inline `serve()`, so it is
   log-not-fix under HARD RULE #18 — but every number here inherits the optimism, and the
   before/after ratio is what the measurement supports, not the absolute milliseconds.
+- **The shell paints the preview pane the wrong ground, and stage 1 moves when you see it.**
+  The app's preview holder is `bg-card` (`--color-card: var(--bg-alt)`); the shell's whole
+  layer is `var(--bg)`. Sampled in the letterbox — inside the preview pane, outside the slide
+  box — just before and just after the hand-off:
+
+  | | shell paints | app paints |
+  |---|---|---|
+  | light | `rgb(250,247,242)` | `rgb(243,237,228)` |
+  | dark | `rgb(21,17,13)` | `rgb(30,26,21)` |
+
+  Dark mode is the visible one, ~40% lighter. This is PRE-EXISTING — the shell always painted
+  the wrong ground, and before stage 1 the correction simply landed later, at the shell's
+  removal. It is a real part of the "46% of viewport pixels change in one paint" figure above,
+  and it is a pure shell-fidelity bug rather than anything the hand-off introduced.
+
+  **Not fixed here, deliberately.** The shell's bands are `position:absolute` and the stage is
+  in flow, so absolutes paint ABOVE it: a ground band would cover the Nacre box unless the
+  stacking order is reworked. That is surgery on the layer system, and the layer system is
+  precisely what caught this change out twice (the cascade specificity loss, the removal that
+  broke three specs). It does not belong in a change that is otherwise finished. The fix is a
+  ground band ordered before the other bands with the slide box lifted above it, and it helps
+  whichever hand-off design ships.
+- **`handoff-bench` cannot reach the phone.** It defaults to `--width 1440` and sets no touch
+  emulation, so it never enters the `landscapePhone` / cinema branch, and it never interacts —
+  so it cannot see any of the stranding cases either. Those are covered by e2e and by the
+  ad-hoc guard sweep, not by the bench, and the bench should not be read as covering them.
 - **`fouc-bench` still serves `no-store`.** Its committed numbers are on that footing
   and it measures paint-versus-stylesheet, which the caching model does not distort;
   the option defaults to the old behavior so its numbers stay comparable. Its own
