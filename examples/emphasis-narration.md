@@ -16,15 +16,14 @@ footer: "read-aloud holds a beat after what matters"
 
 `Emphasis weight in the pause ladder`
 
-*Every rung of the pause ladder keyed on a glyph or a boundary — syllables, punctuation, paragraph, slide. Nothing on a slide could buy itself room, so a deck's key claim was paced exactly like its footnote. This deck is the demonstration and the test case.*
+*Every rung of the pause ladder keyed on a glyph or a boundary, so a deck's key claim was paced exactly like its footnote.*
+
 ---
 
 `01 · The problem`
 
 ## Every beat was the same length.
 
-- Syllables set word duration
-  - A long word takes longer to say. That much was always right.
 - Punctuation set the pause
   - A comma bought 200 ms, a period 550. The glyph decided, never the meaning.
 - Boundaries set the rest
@@ -42,8 +41,6 @@ footer: "read-aloud holds a beat after what matters"
 
 - The author pressed the button
   - `**bold**` is the whole signal. No model, no inference.
-- One step, 250 ms
-  - The beat lands at 800 ms: above a paragraph, under a slide.
 
 > If everything is held, nothing is.
 
@@ -53,12 +50,10 @@ footer: "read-aloud holds a beat after what matters"
 
 ## The coda used to be silent.
 
-A trailing quote is lifted into its own cell, and that cell sits outside the stage every body walker reads.
+A trailing quote is lifted into its own cell, outside the stage every body walker reads.
 
 - Measured, not guessed
   - 52 of 156 committed decks carry one.
-- Now spoken last
-  - It arrives after a paragraph beat.
 
 > A slide's punchline was not paced badly. It was missing.
 
@@ -73,8 +68,6 @@ A trailing quote is lifted into its own cell, and that cell sits outside the sta
 - A short phrase is unchanged
   - A bolded claim starts and ends in the same sentence.
 
-Real output found this: weighting every sentence dripped a full second through the insight it was meant to set apart.
-
 > Holding everything is holding nothing, one sentence at a time.
 
 ---
@@ -87,8 +80,6 @@ Real output found this: weighting every sentence dripped a full second through t
   - The same words twice, and neither is marked.
 - The hold is capped
   - Bolding every line buys no stall.
-- Replaced narration keeps today's pacing
-  - An author caption drops the marks rather than misplacing them.
 
 > A missed beat sounds like yesterday. A misplaced one sounds like a defect.
 

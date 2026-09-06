@@ -550,12 +550,18 @@ export async function shareHtmlPlayer(
 	let readAlongVoice: BakeVoice | null = null;
 	if (narration && (narration.captions || narration.audio)) {
 		onStatus?.('Projecting narration…');
-		const [{ projectSectionsToSpeech }, bake] = await Promise.all([import('./narration-projection'), import('./narration-bake')]);
+		const [{ projectSectionsToScript }, bake] = await Promise.all([import('./narration-projection'), import('./narration-bake')]);
 		let projected: string[] = [];
+		// Parallel to `projected` — carried so the BAKED deck holds the same beats Present plays and
+		// the CLI export writes. Empty when the projection failed, which stands emphasis down with it.
+		let projectedEmphasis: readonly { start: number; end: number; weight: number }[][] = [];
 		try {
-			projected = await projectSectionsToSpeech(tagged);
+			const scripts = await projectSectionsToScript(tagged);
+			projected = scripts.map((x) => x.text);
+			projectedEmphasis = scripts.map((x) => x.emphasis as { start: number; end: number; weight: number }[]);
 		} catch {
 			projected = []; // the chain still resolves captions, notes and chart facts
+			projectedEmphasis = [];
 		}
 		// THE SCRUBBED SOURCE, not the raw one. The narration chain's third rung reads the
 		// slide's speaker note out of the source comments (`narration-bake.ts` →
@@ -567,6 +573,7 @@ export async function shareHtmlPlayer(
 		const result = await bake.bakeNarration(envelopeSource, projected, {
 			voice: narration.voice,
 			audio: narration.audio,
+			projectedEmphasis,
 			// The author's explicit override, only ever set after a refusal named the sentences.
 			allowPartial: narration.allowPartial,
 			signal: narration.signal,

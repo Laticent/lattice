@@ -326,6 +326,10 @@ export function useReadAloud(
 		muted?: boolean;
 		debug?: boolean;
 		debugLabel?: string;
+		/** Emphasis spans over `text` — char offsets from the shared projection. The LIVE reader
+		 *  must spend the same beats the CLI export bakes, or a deck sounds different in Present
+		 *  than it does in its own exported captions. Omit for uniform pacing. */
+		emphasis?: readonly { start: number; end: number; weight: number }[];
 	},
 ): ReadAloudState {
 	// One word-timed track per slide. The voice speaks Cadenza's SPOKEN expansion (so
@@ -344,7 +348,8 @@ export function useReadAloud(
 	const debugLabel = opts?.debugLabel;
 	const debugLabelRef = React.useRef(debugLabel);
 	debugLabelRef.current = debugLabel;
-	const track = React.useMemo(() => buildTrack(text, { acronyms, lang, lexicon }), [text, acronyms, lang, lexicon]);
+	const emphasis = opts?.emphasis;
+	const track = React.useMemo(() => buildTrack(text, { acronyms, emphasis, lang, lexicon }), [text, acronyms, emphasis, lang, lexicon]);
 	const [playing, setPlaying] = React.useState(false);
 	const [active, setActive] = React.useState<Active | null>(null);
 	const [progress, setProgress] = React.useState(0);

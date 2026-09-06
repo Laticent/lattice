@@ -367,7 +367,9 @@ function toBase64(bytes: Uint8Array): string {
  *
  * `projected` is the component-aware DOM projection from the caller's render.
  */
-function resolveDeck(source: string, projected?: readonly string[]) {
+type EmphasisSpans = readonly { start: number; end: number; weight: number }[];
+
+function resolveDeck(source: string, projected?: readonly string[], projectedEmphasis?: readonly (EmphasisSpans | undefined)[]) {
 	const slides = splitSlides(stripFrontMatter(source));
 	const fmCaptions = frontMatterCaptions(source);
 	const acronyms = acronymSpokenMap(source);
@@ -412,7 +414,16 @@ function resolveDeck(source: string, projected?: readonly string[]) {
 	// One cue per sentence, and the cue's SPOKEN join is the cache key's text — the identity
 	// `warmNarration` and `play()` both use. Acronyms / lexicon / lang must match theirs or
 	// the spoken form differs and every key misses.
-	const tracks = texts.map((t) => (t ? buildTrack(t, { acronyms, lang, lexicon }) : null));
+	// Emphasis applies ONLY where the resolved text is still the text the spans were measured
+	// against. `aligned` above may already have swapped in narrateChart's full-slide narration, and a
+	// caption rung can win over either — both replace the string, and stale offsets would land a beat
+	// mid-phrase. The same identity test Present and the CLI export apply, so all three producers
+	// bake, play and export the identical beats.
+	const tracks = texts.map((t, i) => {
+		if (!t) return null;
+		const emphasis = t === projected?.[i] ? projectedEmphasis?.[i] : undefined;
+		return buildTrack(t, { acronyms, emphasis, lang, lexicon });
+	});
 	const perSlide = tracks.map((track) => (track ? track.cues.map((c) => c.words.map((w) => w.spoken).join(' ')) : []));
 	// "A projection was SUPPLIED", not "was used". A misaligned one is stood down, but the
 	// fallback rung above then reproduces exactly what Present does with the same input — so
@@ -584,13 +595,22 @@ export type BakeProgress = { done: number; total: number; synthesized: number; p
 export async function bakeNarration(
 	source: string,
 	projected: readonly string[] | undefined,
-	opts: { voice: BakeVoice; audio: boolean; allowPartial?: boolean; signal?: AbortSignal; onProgress?: (p: BakeProgress) => void; maxBytes?: number },
+	opts: {
+		voice: BakeVoice;
+		audio: boolean;
+		allowPartial?: boolean;
+		signal?: AbortSignal;
+		onProgress?: (p: BakeProgress) => void;
+		maxBytes?: number;
+		/** Per-slide emphasis spans, parallel to `projected`. Omit for uniform pacing. */
+		projectedEmphasis?: readonly (EmphasisSpans | undefined)[];
+	},
 ): Promise<NarrationBake> {
 	const { voice, audio, allowPartial, signal, onProgress } = opts;
 	// Injectable so a test can drive the ceiling without allocating and base64-encoding 150 MB
 	// to reach it. Production never passes it.
 	const maxBytes = opts.maxBytes && opts.maxBytes > 0 ? opts.maxBytes : PAYLOAD_MAX_BYTES;
-	const { tracks, perSlide } = resolveDeck(source, projected);
+	const { tracks, perSlide } = resolveDeck(source, projected, opts.projectedEmphasis);
 	const total = perSlide.reduce((n, s) => n + s.length, 0);
 
 	// The cue skeleton — text, estimate, breath, word timings. Identical whether or not audio
