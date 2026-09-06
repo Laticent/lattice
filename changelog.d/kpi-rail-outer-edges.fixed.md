@@ -54,3 +54,10 @@
   hero loses the heavy top rule it used to carry; `examples/adaptive-sizing.pdf` shows the
   before and after. The row-2 separator added alongside it needs an unsplit two-metric
   ledger, so it reaches the runtime preview and the Studio rather than a PDF.
+- **Re-blessed 46 committed deck goldens, and measured the footprint rather than reporting
+  the gate's number.** Isolated — both CSS bundles built here, every deck rendered twice in
+  one tree on one machine, rasterized and compared page-by-page — this change moves **77
+  pages across 46 decks**, 1 to 4 per deck, and no page without a `kpi` moves at all. CI's
+  `golden-diff` reports 130 slides across 52 because it compares against goldens blessed on
+  other machines, where Skia's rasterization is not bit-identical; its own header documents
+  that band.

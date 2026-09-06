@@ -646,11 +646,36 @@ box at two metrics, the Fit Spine cuts it to one element per page, and every mea
 "the tall ledger" on this branch — including the two corrections — was taken on a
 `--no-split` render, a page the engine documents as instrumentation and never emits.
 
+**A seventh instrument error, found after the branch was already green, and the most
+transferable of the set.** Re-blessing 46 deck goldens raised an obvious question: were
+they stale because of THIS change, or because their committed PDF was blessed somewhere
+else? `tools/regression-gate.mjs` and `tools/golden-diff.mjs` both answer "drifted", and
+both compare against a golden **blessed on another machine** — and `golden-diff`'s own
+header says the band that opens up is wide: *"most decks under 2%, but 29 over 5% and one
+at 64% with a page-count flip."* So neither tool can separate the change from the host.
+
+CI's `golden-diff` duly reported **130 slides across 52 goldens**. The isolated answer is
+**77 pages across 46 decks**. The isolation is the whole method: the only source difference
+between this branch and main is `kpi.styles.css`, so the only artifact that differs is
+`dist/lattice.css`. Build both bundles, render every deck **twice in the same tree on the
+same machine** — identical emulator, fonts, transforms — and rasterize and compare
+page-by-page. `exemplars/nonprofit/program-overview` is the clean case: `golden-diff` says
+15 slides changed; the deck authors exactly 2 `kpi` sections out of 30; the isolated diff
+moves exactly those 2. The other 13 were the host.
+
+Two things fell out of it, both worth having. The blast radius is now confirmed by
+measurement rather than by reading selectors — no page without a `kpi` moves, and per-deck
+the counts are 1–4 pages. And the bless set is exactly right: all 46 genuinely move, none
+came back at zero. That second one was a real risk, because the gate's own source warns
+that *"a blanket re-render rewrites every file whose golden was blessed on ANOTHER machine
+— 185 rewritten files to land ~20 real changes, burying the review in noise."*
+
 **Eleven passes.** The lesson the file keeps teaching, sharpened each round: on this
 component every claim that was *reasoned* rather than *rendered* has been wrong — and
 several that WERE rendered were wrong too, because the instrument was pointed at the wrong
 pixels, or at a page that does not ship. A raster is only as good as its window, its
-resolution, its direction, and the reality of the page under it. Four measurements of the
+resolution, its direction, the reality of the page under it, and the machine that drew
+the thing it is compared against. Four measurements of the
 tall ledger, four wrong answers, and the fourth was wrong because nobody asked whether the
 thing being measured exists.
 
