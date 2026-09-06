@@ -144,8 +144,12 @@ export function markCount(chunk: string): number | null {
 			continue;
 		}
 		if (inFence) continue;
-		const isTop = /^[-*+]\s+\S/.test(raw);
-		const isNested = /^\s+[-*+]\s+\S/.test(raw);
+		// BOTH list forms: charts use `- `, and `state-chart`'s states are an ORDERED list
+		// (`ol > li`) whose nested `- ` items are its transitions, not marks. Counting only
+		// bullets reported "not countable" for every state-chart — verified on the live surface,
+		// where a 3-state chart emits exactly 3 `[data-mark]` nodes.
+		const isTop = /^(?:[-*+]|\d+[.)])\s+\S/.test(raw);
+		const isNested = /^\s+(?:[-*+]|\d+[.)])\s+\S/.test(raw);
 		if (isTop) {
 			n++;
 			started = true;
