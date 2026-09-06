@@ -195,3 +195,62 @@ describe('slot-label-lift', () => {
     assert.equal(liftSlotLabel(''), '');
   });
 });
+
+/**
+ * The REGISTRY, end to end. `liftSlotLabel` above is the split-panels helper;
+ * these arms drive the real markdown-it plugin, which is the path a deck takes.
+ *
+ * What they pin is the promise the registry makes to authors: a layout on
+ * SLOT_LAYOUTS supplies its own item header, so typing `**…**` for one is a
+ * NO-OP. That is what lets a deck written the old way keep rendering while the
+ * docs teach the plain lead — and it is only true while both shapes come out the
+ * same, which no other test checks. `inventory`, `matrix-2x2` and `verdict-grid`
+ * joined in #2113 precisely because dropping the asterisks used to leave them
+ * with zero `<strong>` at all.
+ */
+describe('slot-label-lift · registered layouts', () => {
+  const MarkdownIt = require('markdown-it');
+  const { installSlidePipeline } = require('../../../lib/engine/slides');
+  const { slotLabelLift } = require('../../../lib/integrations/markdown-it/plugins');
+  const { SLOT_LAYOUTS } = require('../../../lib/core/slot-label-lift');
+
+  const render = (src) => {
+    const md = new MarkdownIt('commonmark', { html: true, breaks: true });
+    md.enable(['table', 'strikethrough']);
+    installSlidePipeline(md);
+    md.use(slotLabelLift);
+    return md.render(src);
+  };
+  const strongs = (html) =>
+    [...html.matchAll(/<strong>([\s\S]*?)<\/strong>/g)].map((m) => m[1].replace(/<[^>]+>/g, '').trim());
+
+  const NESTED = (cls) => `<!-- _class: ${cls} -->\n\n## Heading.\n\n- First label\n  - First body.\n- Second label\n  - Second body.\n`;
+  const BOLDED = (cls) => `<!-- _class: ${cls} -->\n\n## Heading.\n\n- **First label**\n  - First body.\n- **Second label**\n  - Second body.\n`;
+
+  for (const cls of ['inventory', 'matrix-2x2', 'verdict-grid', 'redline']) {
+    test(`${cls}: a plain lead becomes the label`, () => {
+      assert.deepEqual(strongs(render(NESTED(cls))), ['First label', 'Second label']);
+    });
+
+    test(`${cls}: typing the bold is a no-op`, () => {
+      assert.deepEqual(strongs(render(BOLDED(cls))), strongs(render(NESTED(cls))));
+    });
+  }
+
+  test('the label stops at the nested body — it does not swallow it', () => {
+    // The regression this change fixed: a `redline` row authored inline had no
+    // nested list to delimit the lead, so the lift took the whole line as the
+    // label. The nested shape is what bounds it.
+    const html = render('<!-- _class: redline -->\n\n## Heading.\n\n- Why this matters\n  - What the amendment changes, in one sentence.\n');
+    assert.deepEqual(strongs(html), ['Why this matters']);
+  });
+
+  test('every layout the docs now teach a plain lead for is registered', () => {
+    // Guards the direction of the change: a future edit that drops one of these
+    // from the registry would silently take its header away, and the component's
+    // own docs would still be telling authors not to type it.
+    for (const cls of ['inventory', 'matrix-2x2', 'verdict-grid', 'redline']) {
+      assert.ok(SLOT_LAYOUTS.includes(cls), `${cls} must stay on SLOT_LAYOUTS`);
+    }
+  });
+});
