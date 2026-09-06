@@ -497,21 +497,35 @@ slide; G is rejected on 116KB for what CSS does for free.
   `preprocessMermaid` renders — widening one alone would have drawn a diagram the voice
   could not read.
 
-  **It is a line walker rather than the obvious regex, and an independent checker is why.**
+  **It is a line walker rather than the obvious regex, and three independent passes are why.**
   The first version was `/(```|~~~)mermaid\n([\s\S]*?)\1/`, argued as "no looser than the
-  pattern it replaces". True, and beside the point: the pattern it replaces had two warts
-  that were unreachable while only backticks were recognized, and tildes reach both. Driven
-  on the real CLI, not reasoned:
+  pattern it replaces". True, and beside the point: the pattern it replaces had defects that
+  were unreachable while only backticks were recognized, and tildes reach them. Every row
+  below was DRIVEN on the real CLI, not reasoned — and the last two destroy slides:
 
   | input | what the export drew |
   |---|---|
-  | `~~~mermaid` … `~~~~` (a CommonMark-legal longer closer) | the diagram **and a stray `~`** beside it |
+  | `~~~mermaid` … `~~~~` (a legal longer closer) | the diagram **and a stray `~`** beside it |
   | a `~~~mermaid` sample inside a ```` ```markdown ```` block | the teaching example, **substituted into a picture** |
+  | a fence indented at all — a diagram written under a bullet | **raw Mermaid source in the PDF**, where the preview drew a diagram |
+  | a fence whose CLOSER is indented two spaces | the fence never closed: the substitution ate two `---` separators, and a **three-slide deck exported as one page** with both diagrams and a slide of prose gone |
+  | a fence commented out inside `<!-- … -->` | **12KB of SVG in the `.notes` sidecar**, where the author had a commented-out draft |
 
-  The second is the shape `mermaid-check.ts` already carries an outer-fence tracker for,
-  after a red-teamer hit it there. So the module walks lines the way a parser does: three or
-  more of one character opens, a run of the SAME character at least as long and alone on its
-  line closes, and a fence opened by another info string swallows what is inside it.
+  The indented pair is the one worth dwelling on. This module exists to stop a fence the
+  PREVIEW draws from printing as source, and its first version reintroduced exactly that for
+  every fence an author indents — with a green unit test asserting the behavior was correct
+  and a docblock calling the gap "pre-existing". It was not: the regex being replaced was
+  unanchored and matched at any column. Checked against what `lib/engine` ACTUALLY emits, not
+  against a reading of CommonMark: one, two and three spaces of indent all render
+  `language-mermaid`, four is an indented code block and does not.
+
+  So the module walks lines the way the parser does — up to three spaces of indent opens, the
+  content is de-indented by the opener's indent, a run of the SAME character at least as long
+  closes, a fence opened by another info string swallows what is inside it, and an HTML
+  comment is not markdown. A red-team pass measured the result against markdown-it under the
+  engine's own config over 60,000 generated cases: the walker substitutes where the engine
+  renders something else in **0.5%** of them, against **38.6%** for the regex it replaces, and
+  every residual is a MISS — the author sees their source, never a wrong picture.
 
   **No deck moves, and that is a differential rather than a spot check.** The pre-branch
   regex against the shipped walker over all 1387 tracked `.md` files (48 carry a fence):
@@ -524,12 +538,24 @@ slide; G is rejected on 116KB for what CSS does for free.
   **The narrator had the same defect in three more places.** `withoutFences`
   (chart-narration) and both fence toggles in `slide-speech.js` tracked state with their own
   backtick-only `/^```/`, so a `~~~` fence's body was never fenced as far as speech was
-  concerned — its source lines narrated. Harmless while a tilde fence was raw text on the
-  slide too; not harmless once the slide draws a picture. One `createFenceReader` now, shared
-  by all three. Differential over every tracked `.md`, block by block: of 6453 narrated
-  blocks **18 changed, in 7 files, all of them DOCS** (`README.md`, `design/`,
-  `docs/src/content/docs/`, an `engineering/decisions/` note) — and each change is fenced
-  code that had been read aloud and no longer is. No deck's narration moved.
+  concerned — its source lines narrated. One `createFenceReader` now, shared by all three.
+
+  Differential against the merge-base over every tracked `.md`, block by block: of **6461
+  narrated blocks, 18 changed, in 17 files. None is a deck** — `examples/`, `exemplars/`, the
+  baseline decks and the six galleries are all unmoved; the only `examples/` entry is this
+  change's own new demo deck.
+
+  **Two things about those 18 that the first version of this paragraph got wrong, and both
+  were caught by an independent checker re-deriving the number.** It said 7 files, which came
+  from reading the file list off a diff printer that stopped after eight lines — the count was
+  never measured, it was miscounted. And it said every change was fenced code no longer read
+  aloud. The real split is **12 longer, 6 shorter**: the dominant effect is prose that had been
+  wrongly SWALLOWED and is now spoken (`lib/base/base.docs.md` goes from 391 characters of
+  narration to 8875). The cause is not the tildes either — **17 of the 18 changed blocks
+  contain no `~~~` at all.** It is the closer rule: an info-string line such as
+  ```` ```mermaid ```` inside a ```` ````markdown ```` sample used to flip a naive toggle and
+  blank everything after it. Both corrections are the same lesson as the rest of this note —
+  a number nobody re-derives is a claim, not a measurement.
 
   `examples/mermaid-tilde-fences.md` is the demo deck, rendered and eyeballed in light and
   dark.
@@ -573,9 +599,26 @@ slide; G is rejected on 116KB for what CSS does for free.
   document (`PrintOptionsPanel.tsx`'s `printDoc`) builds through the same `buildSrcdoc` with
   a real Mermaid URL, is mounted off-screen and handed straight to `print()`, and did not opt
   out — so #2073's own "no export path stamps" was false when it shipped, in three documents.
-  It passes `diagrams: false` now. The stamp is masked TODAY by the older rule above, which
-  hides the fence there anyway; it is fixed regardless, because fixing the older rule would
-  make it live. The print PREVIEW cells keep the stamp: those are watched.
+  It passes `diagrams: false` now, and unlike the claim it replaces, this one is DRIVEN: the
+  real Studio, Share → Print deck → Print, Mermaid 404'd at the network, reading the offscreen
+  print document itself, before and after:
+
+  | in the print document | stamped (before) | `diagrams: false` (after) |
+  |---|---|---|
+  | `data-lattice-diagrams` on `<html>` | **true** | **false** |
+  | `data-mermaid-state` on the `<pre>` | `pending` | `pending` |
+  | computed `display` of that `<pre>` | `none` | `none` |
+  | the fence's box | 0×0 | 0×0 |
+
+  Read the fence AFTER the FIT agent reveals `.lattice`, or the measurement is worthless —
+  `buildSrcdoc` holds the whole deck `visibility:hidden` until then, and a first attempt at
+  this measurement reported `hidden` for a document where nothing was wrong.
+
+  Two things follow. The stamp is gone. And what an author sees is unchanged TODAY, because
+  the older `data-mermaid-state` rule hides the fence either way — so this is the third
+  independent path on which a failed Mermaid prints a blank, after the CLI and the webpage
+  export. It is fixed regardless, because fixing the older rule would make the stamp live.
+  The print PREVIEW cells keep the stamp: those are watched.
 
   The lesson is the one the third checker already drew about the CSS gate and the builder's
   stamp — a per-caller invariant that nothing enumerates drifts. `deck-preview.test.js` now
@@ -586,7 +629,9 @@ slide; G is rejected on 116KB for what CSS does for free.
 
   **The un-tag defect is not fixed here** — it is pre-existing, it predates every part of
   #2073, and it is off the path of this change (HARD RULE #18), so it is logged rather than
-  pulled in. It is also not
+  pulled in. **Tracked as #2092**, titled by its SYMPTOM ("a diagram that fails to render
+  exports an empty slot instead of its source") rather than its mechanism, because a
+  paragraph inside a file named after a date is not where anyone will look for it. It is also not
   a small call: the shape of the fix is for `tick()` to UN-tag its pending fences when it
   gives up, which is a shared-runtime change that alters export bytes on an error path and
   reaches every host the runtime boots in. That belongs to its own change, with its own
@@ -602,6 +647,11 @@ slide; G is rejected on 116KB for what CSS does for free.
 - D's first-mount cost is now MEASURED, and it is not free. Same build, one variable — a
   three-slide deck whose third slide is a diagram, against the same deck with prose in its
   place — timing a reload to the preview's first painted `.lattice`, 5 runs each:
+
+  **SUPERSEDED — do not quote this table.** It came from a scratch script that was never
+  committed, at 5 runs, and it does not reproduce on the committed instrument. It is left in
+  place because the paragraphs below reason from it; the re-measurement is at the end of this
+  section.
 
   | | idle (×1) | loaded (×4) |
   |---|---|---|
@@ -640,15 +690,17 @@ slide; G is rejected on 116KB for what CSS does for free.
   3.16MB bundle does not need to be in the document from the first byte. Injecting it on first sight of a fence — from the
   runtime, inside the frame — would keep every measured win and hand back the second.
 
-  **THE SECOND IS NOT THERE. Re-measured 2026-09-06 with a committed instrument, and the
-  +1000ms above does not reproduce — so the clean fix was built, priced, and DROPPED.**
+  **THE COST IS REAL AND IT IS ABOUT 200ms, NOT 1000ms — AND THE LOADER COSTS MORE THAN IT
+  SAVES. Re-measured 2026-09-06 on a committed instrument; built, priced, and DROPPED.**
 
   The +1000ms came from a scratch script that was never committed, at 5 runs. `bench:flash`
   now carries the arm (`--scenario mount --deck diagram|prose`), so anyone can re-derive
   this: it types one of two decks that differ in ONE slide — the third is a diagram, or
   prose in its place, and the SHOWN slide is prose in both — reloads the Studio, and times
   the reload against the preview's first `.lattice`, using `performance.timeOrigin` on both
-  sides so the two clocks are directly comparable. ×4 CPU, 11 runs, medians:
+  sides so the two clocks are directly comparable. ×4 CPU, 11 runs, medians — on the
+  TWO-VARIABLE arms this bench originally shipped with, superseded by the corrected pair
+  below:
 
   | | before | with the loader |
   |---|---|---|
@@ -659,16 +711,29 @@ slide; G is rejected on 116KB for what CSS does for free.
   | reload → preview revealed, prose deck | 2044ms | 2016ms |
   | window.mermaid ready, frame's own clock | 754ms | 1182ms |
 
-  Two readings, and the second is why nothing shipped. The FRAME-LOCAL number — the
-  low-variance half, because it excludes the Studio's own ~1.6s boot — says the eager tag
-  costs about **50ms**, not a second, and the loader does not move it: `.lattice` is in the
-  markup BEFORE the script tag, so the parser reaches it either way. The PAGE-TOTAL number
-  is the one an author feels, and it is below this instrument's noise floor: four passes
-  (9 and 11 runs, both builds) put the diagram deck's reveal cost at −61ms, +199ms, +230ms
-  and +16ms. **The sign disagrees across passes.** A change that alters when a shared
-  dependency loads for every preview surface cannot be justified by a number whose sign is
-  not stable, and HARD RULE #19 says so outright: a perf win without a reproducible
-  measurement is unproven.
+  **HOW BIG THE COST ACTUALLY IS.** Five passes, at ×4, 9–11 runs each, of the diagram deck's
+  reveal minus the prose deck's: **−61ms, +199ms, +230ms, +16ms, +222ms**. The first four ran
+  on arms that differed in TWO things — a red-team pass caught that the prose arm had dropped
+  `<!-- _class: diagram -->` along with the fence, so the difference carried the `diagram`
+  component's own layout cost as well as Mermaid's. The fifth is the corrected one-variable
+  pair and is the one to quote: **+222ms page-total, +25ms frame-local**. So the note's
+  original +1000ms is about five times too large — and "there is no cost", which an earlier
+  draft of this paragraph said, is wrong in the other direction. There is a cost, it is around
+  200ms on a loaded machine, and it sits at the edge of what this instrument can resolve.
+
+  The frame-local half explains why it is small: `.lattice` is in the markup BEFORE the script
+  tag, so the parser reaches the slide either way, and the bundle's cost lands after that.
+
+  **WHY THE LOADER STILL DID NOT SHIP.** Its page-total effect was inside the spread on the
+  arms it was measured with (+199ms and +16ms, the two-variable pair), so it was never shown
+  to remove that 200ms. What it DID have was a cost with a stable sign: `window.mermaid` ready
+  moved from 754ms to 1182ms in the frame's own clock — **+428ms**, the same direction in
+  every arm — bought against a frame-local saving of about 3ms that is itself inside the
+  spread. A measurable cost against an unmeasured benefit is a decision, not a coin flip. HARD
+  RULE #19 is the rest: a perf win without a reproducible measurement is unproven.
+
+  **Reopen it with an instrument that can separate 200ms**, and re-measure the loader on the
+  corrected arms first — its numbers above are from the two-variable pair.
 
   The prototype worked and is worth describing, because the next person will have the same
   idea. `mermaidLoaderAgent()` in `deck-preview.js` — an inline script in the frame that

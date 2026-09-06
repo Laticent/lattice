@@ -85,6 +85,11 @@ function parseArgs(argv) {
 		else if (a === '--deck') o.deck = argv[++i];
 		else throw new Error(`unknown arg: ${a}`);
 	}
+	if (!['nav', 'type', 'mount'].includes(o.scenario)) throw new Error(`unknown --scenario: ${o.scenario} (nav|type|mount)`);
+	if (!['diagram', 'prose'].includes(o.deck)) throw new Error(`unknown --deck: ${o.deck} (diagram|prose)`);
+	// `--deck` only means anything to `mount`; accepting it silently elsewhere let a run be
+	// LABELLED `--deck prose` while measuring the diagram deck.
+	if (o.deck !== 'diagram' && o.scenario !== 'mount') throw new Error('--deck applies to --scenario mount only');
 	return o;
 }
 
@@ -172,10 +177,16 @@ flowchart LR
   C -->|no| E[Revise]
 \`\`\`
 `,
-	prose: `${MOUNT_HEAD}## Signals move from input to decision.
+	// The class directive STAYS. Dropping it made the two arms differ in two things — the
+	// fence AND the `diagram` component's own layout — so the difference measured the wrong
+	// thing. (An earlier version also claimed the two decks were "the same length"; they were
+	// 347 and 365 characters. Length is not the variable being held constant, the SHOWN slide
+	// and the slide count are, so the claim is gone rather than fixed.)
+	prose: `${MOUNT_HEAD}<!-- _class: diagram -->
+
+## Signals move from input to decision.
 
 Input, then process, then a decision — which either ships or goes back for revision.
-The same words the diagram arm draws, so the two decks are the same length.
 `,
 };
 
@@ -470,13 +481,18 @@ async function main() {
 		if (opts.json) console.log(JSON.stringify(out, null, 2));
 		else {
 			console.log(`\nvariant: ${opts.variant}   scenario: mount   deck: ${opts.deck}   cpu×${opts.cpu}   runs: ${mounts.length}\n`);
-			console.log(`  reload → .lattice in the DOM     ${String(out.latticeMs).padStart(6)}ms   (${range('lattice')})`);
-			console.log(`  reload → preview revealed        ${String(out.shownMs).padStart(6)}ms   (${range('shown')})`);
-			console.log(`  reload → window.mermaid ready    ${String(out.mermaidLibMs === null ? 'never' : `${out.mermaidLibMs}ms`).padStart(8)}   (${range('mermaidLib')})`);
+			// Each row's median and range are over the runs that RECORDED that mark, so two rows
+			// can describe different subsets. `n=` says how many, per row, so a row built from
+			// three of eleven runs cannot be read as if it were built from all of them.
+			const ms = (v) => (v === null ? 'never' : `${v}ms`);
+			const n = (k) => mounts.filter((m) => m[k] !== null).length;
+			console.log(`  reload → .lattice in the DOM     ${ms(out.latticeMs).padStart(8)}   (${range('lattice')})  n=${n('lattice')}`);
+			console.log(`  reload → preview revealed        ${ms(out.shownMs).padStart(8)}   (${range('shown')})  n=${n('shown')}`);
+			console.log(`  reload → window.mermaid ready    ${ms(out.mermaidLibMs).padStart(8)}   (${range('mermaidLib')})  n=${n('mermaidLib')}`);
 			console.log('');
 			console.log(`  IN THE FRAME'S OWN CLOCK — document created → .lattice in it`);
-			console.log(`    frame → .lattice               ${String(out.frameLatticeMs).padStart(6)}ms   (${range('frameLattice')})`);
-			console.log(`    frame → window.mermaid ready   ${String(out.frameMermaidLibMs === null ? 'never' : `${out.frameMermaidLibMs}ms`).padStart(8)}   (${range('frameMermaidLib')})`);
+			console.log(`    frame → .lattice               ${ms(out.frameLatticeMs).padStart(8)}   (${range('frameLattice')})  n=${n('frameLattice')}`);
+			console.log(`    frame → window.mermaid ready   ${ms(out.frameMermaidLibMs).padStart(8)}   (${range('frameMermaidLib')})  n=${n('frameMermaidLib')}`);
 			console.log(`  mounts that fetched Mermaid      ${out.mermaidFetchedRuns}/${mounts.length}\n`);
 		}
 		return;

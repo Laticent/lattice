@@ -31,13 +31,20 @@ as raw source in the PDF. Both callers now read one walker
 (`lib/core/mermaid-fences.js`): the substitution, and the NARRATOR, which speaks a diagram
 slide from the same fence it renders.
 
-It walks lines rather than matching a regex, and the reason is worth a sentence: a regex
-closing on exactly three characters drew a legal `~~~mermaid` … `~~~~` fence as the diagram
-PLUS a stray `~`, and a regex with no outer-fence state substituted a `~~~mermaid` sample
-shown inside a ```` ```markdown ```` block. Both were driven on the real CLI. What no deck
-sees is any change at all: measured against the pattern it replaces over all 1387 tracked
-markdown files, the only spans that move are three DOCS that were substituting their own
-teaching examples.
+It walks lines rather than matching a regex, because a regex got five things wrong that only
+became reachable once tildes were recognized — a longer closing run left a stray `~` on the
+slide, a fence shown inside another fence was drawn as a picture, an INDENTED fence was not a
+fence at all (so a diagram written under a bullet printed as source), an indented CLOSER let
+one substitution swallow two slide separators, and a fence commented out was rendered into the
+speaker notes. All five driven on the real CLI. What the walker recognizes is checked against
+what the engine ACTUALLY emits: up to three spaces of indent is a fence, four is an indented
+code block, and an HTML comment is not markdown.
+
+What no deck sees is any change at all: measured against the pattern it replaces over every
+tracked markdown file, the only spans that move are three DOCS that were substituting their
+own teaching examples. That proves no regression and nothing more — no deck in this repo
+indents a Mermaid fence or writes one with tildes, so there was nothing for it to find. The
+hazard arrives with the decks written after this, which is what the unit arms are for.
 
 **The `.html` player takes a third step past either path: it BAKES the diagram.**
 The player sanitizes its slide DOM (`sanitizeSlideHtml`), and that sanitizer bars

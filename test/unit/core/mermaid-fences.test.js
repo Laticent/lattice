@@ -103,6 +103,41 @@ describe('mermaid-fences', () => {
 		assert.equal(matchMermaidFences(`\`\`\`mermaid\n${BODY}`).length, 0);
 	});
 
+	// AN INDENTED CLOSER IS A CLOSER, and getting this wrong destroyed slides. The fence stayed
+	// open across two `---` separators, the substitution swallowed them, and a three-slide deck
+	// exported as ONE page with both diagrams and a slide of prose gone. Driven on the real CLI
+	// by a red-team pass: 3 pages → 1, 65,942 bytes → 34,580, two `.mermaid-svg` → zero.
+	test('a fence whose CLOSER is indented does not run on into the next slide', () => {
+		const deck = [
+			'<!-- _class: diagram -->', '', '## First.', '',
+			'```mermaid', 'flowchart LR', '  A --> B', '  ```', '',
+			'---', '', '## Prose that must survive.', '',
+			'The Q4 forecast is 42 million.', '',
+			'---', '', '<!-- _class: diagram -->', '', '## Second.', '',
+			'```mermaid', 'flowchart LR', '  C --> D', '```', '',
+		].join('\n');
+		const found = matchMermaidFences(deck);
+		assert.equal(found.length, 2, 'the indented closer did not close its fence');
+		assert.deepEqual(found.map((f) => f.body), ['flowchart LR\n  A --> B\n', 'flowchart LR\n  C --> D\n']);
+		// The decisive property: no span may reach across a slide separator.
+		for (const f of found) assert.ok(!deck.slice(f.start, f.end).includes('\n---\n'), 'a fence span swallowed a slide boundary');
+	});
+
+	// A SPEAKER NOTE IS AN HTML COMMENT, and markdown never parses what is inside one — the
+	// engine emits no `language-mermaid` there. Substituting anyway put 12KB of rendered SVG
+	// into the `.notes` sidecar where the author had commented a draft diagram out. Driven on
+	// the real CLI: the notes file went from 103 bytes to 12,035.
+	test('a fence commented out is not a fence', () => {
+		const commented = '## Slide.\n\nProse.\n\n<!--\nOld draft:\n~~~mermaid\nflowchart LR\n  A --> B\n~~~\n-->\n';
+		assert.equal(matchMermaidFences(commented).length, 0);
+		// A one-line directive comment must not leave the walker thinking it is inside one.
+		assert.equal(matchMermaidFences(`<!-- _class: diagram -->\n\n\`\`\`mermaid\n${BODY}\`\`\`\n`).length, 1);
+		// …and `<!--` INSIDE a fence is diagram source, not a comment opener.
+		const inBody = matchMermaidFences('```mermaid\n%% <!-- a note\nflowchart LR\n```\n');
+		assert.equal(inBody.length, 1);
+		assert.equal(inBody[0].body, '%% <!-- a note\nflowchart LR\n');
+	});
+
 	// ── group 3: the opener's shape, which is what decides whether a deck's bytes move ────
 
 	test('only an info string of exactly `mermaid` opens one of ours', () => {
@@ -119,9 +154,38 @@ describe('mermaid-fences', () => {
 		assert.equal(matchMermaidFences('```mermaid` and `more`\nx\n```\n').length, 0);
 	});
 
-	test('an indented fence is out of scope, as it was before', () => {
-		// The same blind spot the regex had. Widening it is a change to what the CLI renders
-		// and is deliberately not made here — see the module docblock.
-		assert.equal(matchMermaidFences(`  \`\`\`mermaid\n${BODY}  \`\`\`\n`).length, 0);
+	// INDENTATION, and this arm exists because the first version of this module got it wrong
+	// in the direction that matters. It required column 0, while the ENGINE renders a fence
+	// indented up to three spaces — driven through `lib/engine`'s own render, which emits
+	// `class="language-mermaid"` for every case below. So an author who indented their fence
+	// saw a diagram in the preview and raw source in the PDF: the exact defect this module
+	// exists to close, still open, under a doc claiming it was fixed.
+	//
+	// Four spaces is an indented CODE BLOCK, not a fence, and the engine agrees — so matching
+	// it would substitute a picture over something the author wrote as literal text.
+	test('a fence indented up to three spaces is still a fence; four is a code block', () => {
+		// EVERY body line carries the indent, the way an author writing an indented block
+		// actually types it — indenting only the first line is a different input entirely.
+		const indent = (text, pad) => text.replace(/^(?=.)/gm, pad);
+		for (const pad of ['', ' ', '  ', '   ']) {
+			const found = matchMermaidFences(`${pad}\`\`\`mermaid\n${indent(BODY, pad)}${pad}\`\`\`\n`);
+			assert.equal(found.length, 1, `${pad.length} spaces of indent was not seen as a fence`);
+			// CommonMark strips up to the OPENER's indent from each content line, so mmdc is
+			// handed the same definition however the author indented the block.
+			assert.equal(found[0].body, BODY, `${pad.length} spaces: body was not de-indented`);
+		}
+		assert.equal(matchMermaidFences(`    \`\`\`mermaid\n${indent(BODY, '    ')}    \`\`\`\n`).length, 0);
+	});
+
+	test('a fence inside a list item is seen, at the depth the engine sees it', () => {
+		const found = matchMermaidFences('- item\n\n  ```mermaid\n  flowchart LR\n    A --> B\n  ```\n');
+		assert.equal(found.length, 1);
+		assert.equal(found[0].body, 'flowchart LR\n  A --> B\n');
+	});
+
+	test('the closer may be indented independently of the opener', () => {
+		// CommonMark allows it, and so does the engine.
+		assert.equal(matchMermaidFences(`\`\`\`mermaid\n${BODY}   \`\`\`\n`).length, 1);
+		assert.equal(matchMermaidFences(`   \`\`\`mermaid\n${BODY}\`\`\`\n`).length, 1);
 	});
 });

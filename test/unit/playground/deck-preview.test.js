@@ -111,39 +111,91 @@ describe('buildSrcdoc', () => {
 		assert.match(buildSrcdoc({ ...withFence, diagrams: false }), /src="\/m\.js"/);
 	});
 
-	// A CENSUS OF THE CALLERS, because the per-caller knob is the shape that keeps being got
-	// wrong. `diagrams` decides whether a document promises "something will draw this fence",
+	// A CENSUS OF THE STAMPERS, because the per-caller knob is the shape that keeps being got
+	// wrong. `data-lattice-diagrams` is a document's promise that something will draw a fence,
 	// and the rule that promise switches on withholds the fence's ink — right for a frame a
 	// human WATCHES, wrong for a document whose bytes the author keeps, where a Mermaid
 	// failure turns their unrendered source into an empty slot.
 	//
 	// #2073 fixed that for the raster capture frame and MISSED the desktop vector print
-	// document, which builds through this same function and prints to the author's PDF. It
-	// missed it because nothing in the tree enumerated the callers: three documents said "no
-	// export path stamps" while one did. A per-call-site test is the only shape that catches
-	// the NEXT caller, so this is a census — a new `buildSrcdoc(` anywhere under `docs/src`
-	// fails here until it is classified, exactly like the runtime-markup sink census (#22).
+	// document, because nothing in the tree enumerated the population: three documents said
+	// "no export path stamps" while one did.
+	//
+	// THE POPULATION IS `previewDiagramsAttr` CALL SITES, not `buildSrcdoc` ones, and the
+	// first version of this census got that wrong. Two builders assemble their own
+	// `<!doctype html>` and call the stamp directly — `single-slide-render.ts` and the Present
+	// stage window — so a `buildSrcdoc`-scoped census could not see either, which is the same
+	// blind spot in a new place. Every call site is listed below with what it builds; a new one
+	// fails here until someone classifies it.
 	//
 	// See engineering/decisions/2026-09-05-diagram-fence-flash.md §5 and §7.
-	test('every buildSrcdoc caller is classified watched-or-exported', async () => {
+	test('every document that can stamp data-lattice-diagrams is classified', async () => {
 		const fs = require('node:fs');
 		const path = require('node:path');
 		const root = path.join(__dirname, '../../../docs/src');
-		// file → true when that call site must pass `diagrams: false` (an EXPORT document:
-		// unwatched, and its bytes are what the author keeps).
+		// file → one entry per call site, in source order. `true` = this site can stamp an
+		// EXPORT document (one whose bytes the author keeps) and must be gated so it does not.
 		const EXPECTED = {
-			// `renderDeck`'s own full-write, the deck preview frame — watched. It forwards
-			// `...opts`, so a host CAN opt out through it; every host that does so today is a
-			// live preview, and none passes the knob.
-			'playground/deck-preview.js': [false],
-			// The offscreen raster capture frame: rasterized through html-to-image, which
-			// bakes the computed style into the .pdf/.png/.pptx.
-			'components/studio/export/deck-export.js': [true],
-			// The print PREVIEW cells (watched, in-app), then the DESKTOP PRINT document
-			// (offscreen at -10000px, handed straight to print() — the author's PDF).
-			'components/studio/PrintOptionsPanel.tsx': [false, true],
+			// The shared builder. Gated on its `diagrams` knob, which is what its callers set.
+			'playground/deck-preview.js': ['gated'],
+			// The single-slide preview frame — the Studio editor, thumbs, landing previews.
+			'lib/single-slide-render.ts': ['watched'],
+			// The Present stage window: a presenter is watching it.
+			'components/studio/present/stage-window.js': ['watched'],
 		};
-		const found = {};
+		// And every caller of the gated builder, with what it hands the knob.
+		const KNOB = {
+			// renderDeck's full write — the deck preview frame. Forwards `...opts`; every host
+			// that reaches it today is a live preview.
+			'playground/deck-preview.js': ['default'],
+			// The print PREVIEW cells (watched), then the DESKTOP PRINT document (offscreen at
+			// -10000px, handed straight to print() — the author's PDF).
+			'components/studio/PrintOptionsPanel.tsx': ['default', 'false'],
+			// The offscreen raster capture frame: rasterized through html-to-image, which bakes
+			// the computed style into the .pdf/.png/.pptx.
+			'components/studio/export/deck-export.js': ['false'],
+		};
+		// EVERY SCAN BELOW READS CODE, NOT PROSE. This file's own comments discuss
+		// `buildSrcdoc` and `diagrams: false` at length, and a text matcher cannot tell a
+		// mention from a call — the first version of this census reported eight "unclassifiable
+		// references" that were all sentences. Blank the BODIES of comments and string literals,
+		// preserving length so every offset below still indexes the original text. Blanking the
+		// strings also deletes the brace-matching hazard: a call whose CSS argument carries an
+		// unbalanced `{` (`css: '@media print {'` is real) used to run off the end of the call
+		// and swallow the NEXT call's opt-out, certifying an export document that never opted
+		// out. That false PASS was demonstrated by a red-team pass.
+		const codeOnly = (text) => {
+			const out = text.split('');
+			let i = 0;
+			const blank = (from, to) => {
+				for (let k = from; k < to && k < out.length; k++) if (out[k] !== '\n') out[k] = ' ';
+			};
+			while (i < text.length) {
+				const two = text.slice(i, i + 2);
+				if (two === '//') {
+					const end = text.indexOf('\n', i);
+					blank(i, end === -1 ? text.length : end);
+					i = end === -1 ? text.length : end;
+				} else if (two === '/*') {
+					const end = text.indexOf('*/', i + 2);
+					blank(i, end === -1 ? text.length : end + 2);
+					i = end === -1 ? text.length : end + 2;
+				} else if (text[i] === '"' || text[i] === "'" || text[i] === '`') {
+					const q = text[i];
+					let j = i + 1;
+					for (; j < text.length; j++) {
+						if (text[j] === '\\') j++;
+						else if (text[j] === q) break;
+					}
+					blank(i + 1, j);
+					i = j + 1;
+				} else i++;
+			}
+			return out.join('');
+		};
+		const stamps = {};
+		const knobs = {};
+		const indirect = [];
 		const walk = (dir) => {
 			for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
 				const p = path.join(dir, e.name);
@@ -151,45 +203,84 @@ describe('buildSrcdoc', () => {
 					walk(p);
 					continue;
 				}
-				if (!/\.(js|ts|tsx|mjs)$/.test(e.name) || /\.test\./.test(e.name)) continue;
-				const text = fs.readFileSync(p, 'utf8');
+				// `.astro` is in scope: `docs/src` has 41 of them and one already imports this
+				// module and installs it on `window`. Leaving them out was a hole a red-team pass
+				// walked through.
+				if (!/\.(js|ts|tsx|mjs|astro)$/.test(e.name) || /\.test\./.test(e.name)) continue;
+				const text = codeOnly(fs.readFileSync(p, 'utf8'));
 				const rel = path.relative(root, p);
-				for (let i = text.indexOf('buildSrcdoc({'); i !== -1; i = text.indexOf('buildSrcdoc({', i + 1)) {
-					// The definition matches the same text as a call. Skip it — `export function
-					// buildSrcdoc({ … })` is where the `diagrams = true` default lives, not a caller.
+				// Stamp sites. The definition and the import line are not call sites.
+				for (const m of text.matchAll(/previewDiagramsAttr\(/g)) {
+					const before = text.slice(Math.max(0, m.index - 30), m.index);
+					if (/function\s+$/.test(before) || /import\s*\{[^}]*$/.test(before)) continue;
+					(stamps[rel] ||= []).push(rel.endsWith('deck-preview.js') ? 'gated' : 'watched');
+				}
+				// Callers of the gated builder, and what each passes. `\s*` on both sides of the
+				// paren: a red-team pass got three shapes past an `indexOf('buildSrcdoc({')`
+				// scan, and a line break before the brace was one of them.
+				for (const m of text.matchAll(/buildSrcdoc\s*\(\s*\{/g)) {
+					const i = m.index;
 					if (/function\s+$/.test(text.slice(Math.max(0, i - 20), i))) continue;
-					// Scan to the matching close brace of the single object argument.
+					// STRING-AWARE brace matching. A naive counter walks INTO string literals, and
+					// a call whose CSS argument contains an unbalanced `{` — `css: '@media print {'`
+					// is real — runs off the end of the call and swallows the NEXT call's
+					// `diagrams: false`, certifying an export document that never opted out. That
+					// false PASS was demonstrated; this loop is why it cannot happen again.
 					let depth = 0;
-					let j = text.indexOf('{', i);
-					const start = j;
+					let j = i + m[0].length - 1;
+					const from = j;
 					for (; j < text.length; j++) {
 						if (text[j] === '{') depth++;
 						else if (text[j] === '}' && --depth === 0) break;
 					}
-					// COMMENTS STRIPPED FIRST. Every opt-out here carries a paragraph explaining
-					// itself, and those paragraphs name the knob — so a census reading the raw
-					// span is satisfied by the PROSE about the fix and passes with the fix
-					// deleted. Caught by mutating it: removing the real line left this green.
-					const args = text
-						.slice(start, j + 1)
-						.replace(/\/\*[\s\S]*?\*\//g, '')
-						.replace(/\/\/[^\n]*/g, '');
-					(found[rel] ||= []).push(/\bdiagrams:\s*false\b/.test(args));
+					// The knob, read from code only — every opt-out here carries a paragraph
+					// explaining itself, and those paragraphs name it. A census reading the raw
+					// span is satisfied by the PROSE about the fix and passes with the fix deleted;
+					// that was caught by mutating this test, which stayed green.
+					const args = text.slice(from, j + 1);
+					(knobs[rel] ||= []).push(/\bdiagrams:\s*false\b/.test(args) ? 'false' : 'default');
+				}
+				// AN INDIRECT REFERENCE THIS SCAN CANNOT CLASSIFY. `buildSrcdoc(opts)`, an alias,
+				// or a value passed on — each is a document this census would silently miss, so it
+				// FAILS rather than certifying a tree it cannot read. This is the honest edge of a
+				// text matcher, and it is the one that has to be loud.
+				for (const m of text.matchAll(/\bbuildSrcdoc\b/g)) {
+					const after = text.slice(m.index + 'buildSrcdoc'.length, m.index + 'buildSrcdoc'.length + 40);
+					const before = text.slice(Math.max(0, m.index - 40), m.index);
+					const isCall = /^\s*\(\s*\{/.test(after);
+					const isDefn = /function\s+$/.test(before);
+					// A RENAMING import hides the call behind a name this scan never looks for —
+					// `import { buildSrcdoc as bsd }` then `bsd({…})`. It is the one evasion that
+					// survived the first hardening pass, so it is called out by name.
+					const isRenamed = /^\s*as\s+\w/.test(after);
+					const isImportOrExport = !isRenamed && (/(import|export)\s*\{[^}]*$/.test(before) || /^\s*[,}]/.test(after));
+					if (!isCall && !isDefn && !isImportOrExport) indirect.push(`${rel}: …${text.slice(Math.max(0, m.index - 25), m.index + 35).replace(/\n/g, ' ')}…`);
 				}
 			}
 		};
 		walk(root);
-		// Every caller is listed, and no listed caller has vanished — a stale entry is as much
-		// a failure as an unlisted one, because it means the census stopped describing the tree.
-		assert.deepEqual(Object.keys(found).sort(), Object.keys(EXPECTED).sort());
-		for (const [file, want] of Object.entries(EXPECTED)) {
+		const listed = (found, want, what) => {
 			assert.deepEqual(
-				found[file],
-				want,
-				`${file}: each buildSrcdoc call must ${want.map((w) => (w ? 'OPT OUT (diagrams:false)' : 'stamp')).join(', then ')} — ` +
-					'a document whose bytes the author keeps must not withhold a fence it failed to draw',
+				Object.keys(found).sort(),
+				Object.keys(want).sort(),
+				`${what}: a file appeared or vanished. A NEW one must be added to this census with ` +
+					'what it builds — a document nobody watches, whose bytes the author keeps, must not ' +
+					'withhold a fence it failed to draw. A file that vanished means the entry is stale.',
 			);
-		}
+			for (const [file, expect] of Object.entries(want)) {
+				assert.deepEqual(found[file], expect, `${what} — ${file}: each site must be ${expect.join(', then ')}`);
+			}
+		};
+		assert.deepEqual(
+			indirect,
+			[],
+			'a `buildSrcdoc` reference this census cannot classify — an alias, a variable argument, ' +
+				'or a value passed on. Give it a literal object argument, or teach this test to read it. ' +
+				'A document nobody watches, whose bytes the author keeps, must not withhold a fence it ' +
+				'failed to draw, and this scan cannot tell whether that one does.',
+		);
+		listed(stamps, EXPECTED, 'stamp sites');
+		listed(knobs, KNOB, 'buildSrcdoc callers');
 	});
 
 	test('always injects the link guard so an external tap cannot navigate (blank) the frame', async () => {

@@ -61,6 +61,16 @@ flowchart LR
 
 ---
 
+<!-- _class: content -->
+
+## Checked against what the engine draws
+
+Three spaces of indent is still a fence, so a diagram under a bullet draws. Four is a code block. A closer may outrun its opener. A fence inside a fence is a sample. A commented-out fence is not a fence.
+
+> Every one was a real export bug. The worst: an indented **closer** never closed, so one substitution ate two slide separators and a three-slide deck exported as a single page.
+
+---
+
 <!-- _class: cards-stack -->
 
 ## One walker, and what it is allowed to move.
@@ -70,6 +80,6 @@ flowchart LR
 - It walks lines, not a regex
   - A closer may outrun its opener; a fence inside a fence is a sample. A regex got both wrong.
 - No deck's bytes moved
-  - Across 1387 tracked files, three docs changed — each already substituting its own example.
+  - Measured across every tracked file: three docs changed, each already substituting its own example.
 
 <!-- _footer: "Rendered with `node lattice-emulator.js examples/mermaid-tilde-fences.md`" -->

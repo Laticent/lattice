@@ -301,11 +301,24 @@ export function PrintOptionsPanel({
 			// authoring-error surface. The print PREVIEW cells above deliberately keep the
 			// stamp: those are watched, and that is exactly what the rule is for.
 			//
-			// Redundant today and fixed anyway: the older `data-mermaid-state` rule already
-			// hides the fence here, because the runtime tags it `pending` at boot and nothing
-			// un-tags it when Mermaid never arrives. That is the real defect and it is logged,
-			// not fixed, in engineering/decisions/2026-09-05-diagram-fence-flash.md §7 — which
-			// is precisely why this line matters: fixing THAT would make this stamp live.
+			// Redundant today and fixed anyway, and BOTH halves of that are driven rather than
+			// reasoned — the real Studio, Share → Print deck → Print, Mermaid 404'd at the
+			// network, reading the offscreen print document itself once the FIT agent has
+			// revealed it:
+			//
+			//                          stamped (before)   diagrams:false (after)
+			//   data-lattice-diagrams   true               false
+			//   data-mermaid-state      "pending"          "pending"
+			//   computed display, <pre> none               none      ← the older rule, both ways
+			//
+			// So the stamp is gone, and what the author sees is unchanged today: the older
+			// `data-mermaid-state` rule hides the fence either way, because the runtime tags it
+			// `pending` at boot and nothing un-tags it when Mermaid never arrives. THAT is the
+			// real defect, logged not fixed in
+			// engineering/decisions/2026-09-05-diagram-fence-flash.md §7 — and it is precisely
+			// why this line matters: fixing it would make this stamp live.
+			// (Read the fence AFTER the FIT reveal or the measurement is worthless — `buildSrcdoc`
+			// hides `.lattice` until then, so every element in the document computes to hidden.)
 			diagrams: false,
 			printRules: true,
 			printOpts: { paper: opts.paper, orientation: opts.orientation, fit: 'page' },

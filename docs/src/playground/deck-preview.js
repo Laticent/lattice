@@ -312,15 +312,24 @@ export function buildSrcdoc({
 	csp = true,
 	// Stamp `data-lattice-diagrams`, the gate rule A is keyed on (see previewDiagramsAttr).
 	// Defaults ON — every frame a human WATCHES wants the fence's ink withheld until
-	// something draws it. The one caller that passes `false` is the same one that passes
-	// `csp: false` above, for the mirror-image reason: the offscreen EXPORT capture frame
-	// is never watched, so the anti-flash rule buys nothing there, and it is rasterized —
-	// `html-to-image` copies the COMPUTED style onto its clone, so a `visibility:hidden`
-	// the rule applied is baked into the .pdf/.png/.pptx. If Mermaid fails inside that
-	// frame (a 404, a CSP block), stamping would turn the author's only signal that the
-	// diagram never drew into an empty slot, in downloaded bytes. Not stamping leaves that
-	// path exactly as it was before rule A existed. Found by the third independent checker,
-	// driven through the real rasterizer.
+	// something draws it. TWO callers pass `false`, and they are the two documents whose
+	// bytes the author KEEPS rather than watches:
+	//
+	//   · the offscreen EXPORT capture frame (`deck-export.js`), which also passes
+	//     `csp: false` for the mirror-image reason. It is rasterized, and `html-to-image`
+	//     copies the COMPUTED style onto its clone — so a `visibility:hidden` this rule
+	//     applied is baked into the .pdf / .png / .pptx;
+	//   · the desktop VECTOR PRINT document (`PrintOptionsPanel.tsx`), mounted off-screen at
+	//     -10000px and handed straight to `print()`.
+	//
+	// In either, if Mermaid fails (a 404, a CSP block), stamping turns the author's only
+	// signal that the diagram never drew into an empty slot, in bytes they downloaded. Not
+	// stamping leaves both paths exactly as they were before rule A existed.
+	//
+	// WHICH CALLER IS WHICH IS A TEST, NOT A CONVENTION. This list was wrong for one release
+	// — it said "the one caller", while the print document had never opted out — so
+	// `deck-preview.test.js` censuses every `previewDiagramsAttr` site and every caller of
+	// this builder, and fails on one nobody has classified.
 	diagrams = true,
 }) {
 	// Strip script-bearing content before it reaches this same-origin srcdoc
