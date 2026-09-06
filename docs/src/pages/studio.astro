@@ -38,6 +38,7 @@ import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 // 600/700 named here. Preloading them covers EVERY weight of both families, not two faces.
 import outfitUrl from '../playground/fonts/outfit-600.woff2?url';
 import playfairUrl from '../playground/fonts/playfair-display-700.woff2?url';
+import monoUrl from '../playground/fonts/jetbrains-mono-400.woff2?url';
 import { joinBase } from '../lib/base-url.mjs';
 import { buildStudioCatalog } from '../lib/studio-catalog.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
@@ -454,8 +455,24 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		      with      font fetch starts  405ms, initiator `link`  title shifts   0.0px
 
 		    69KB for the two files — which is both families entire, not two faces, since the
-		    weights share one variable file each (see the import note above). JetBrains Mono
-		    is deliberately NOT preloaded: no text in the top bar is mono at first paint.
+		    weights share one variable file each (see the import note above).
+
+		    THE THIRD LINE IS JETBRAINS MONO, and it used to say here that mono was
+		    "deliberately NOT preloaded: no text in the top bar is mono at first paint." That
+		    was true of the TOP BAR and stopped being true of the shell in #1438, which added
+		    the structural pane bands — and the EDIT and PREVIEW sub-bars are
+		    `font-mono text-[11px] uppercase tracking-widest`. So the shell does paint mono
+		    text at first paint; it just is not in the row the comment was looking at.
+
+		    MEASURED (`scripts/handoff-bench.mjs`, fresh context, 3/3 runs, both networks):
+		    mono arrives via `css` ~640ms after the two preloaded files, and on the frame it
+		    resolves the PREVIEW label grows 2.781px, which pushes the Reader-view pill and
+		    everything right of it 2.781px sideways. Fast local path: the swap lands ~200ms,
+		    mid-load, in full view. That is the second half of the reported "flicker + shift".
+
+		    +31KB, and the same file-not-face dedup applies: 400/500/600 are one variable file
+		    (all three are 31432 bytes and Vite emits one `jetbrains-mono-400` asset), so this
+		    covers every mono weight the site uses.
 
 		    WHAT THIS DOES NOT DO: it moves the fetch to parse time, it does not remove
 		    `swap`. On a link slow enough that 69KB still has not landed when the shell
@@ -466,6 +483,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		    2026-09-06). */}
 		<link rel="preload" href={outfitUrl} as="font" type="font/woff2" crossorigin />
 		<link rel="preload" href={playfairUrl} as="font" type="font/woff2" crossorigin />
+		<link rel="preload" href={monoUrl} as="font" type="font/woff2" crossorigin />
 		{/* The crash sentinel, started as early as a bundled module can run — before
 		    the client:only island hydrates, so a fault during boot is still recorded.
 		    It writes only to this browser; see the module header for why an in-page

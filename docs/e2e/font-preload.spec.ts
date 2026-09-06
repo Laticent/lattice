@@ -3,10 +3,16 @@ import { expect, test } from '@playwright/test';
 /**
  * THE PRELOADED FONT URLS MUST BE THE ONES THE STYLESHEET ACTUALLY REQUESTS.
  *
- * `/studio/` preloads the two woff2 files its PRE-PAINT SHELL paints its top bar with, so
- * the shell's first paint has the real metrics instead of the fallback's. Measured on a
- * 400kbps/300ms link, the deck title lands 188.4px with the preload and 230.3px without —
- * a 41.9px shift of the pill and everything right of it, at the moment the app takes over.
+ * `/studio/` preloads the three woff2 files its PRE-PAINT SHELL paints with, so the shell's
+ * first paint has the real metrics instead of the fallback's. Measured on a 400kbps/300ms
+ * link, the deck title lands 188.4px with the preload and 230.3px without — a 41.9px shift of
+ * the pill and everything right of it, at the moment the app takes over.
+ *
+ * The THIRD file is JetBrains Mono, added once `handoff-bench.mjs` measured what the other two
+ * hid: the shell's EDIT and PREVIEW sub-bars (added with the structural bands in #1438) are
+ * `font-mono`, so mono IS painted at first paint even though the top bar carries none. It
+ * arrived ~640ms after the preloaded pair and moved the Reader-view pill 2.781px on the frame
+ * it resolved, 3/3 runs.
  *
  * That whole benefit rests on ONE fragile identity: the preload `href` and the `url()` in
  * `styles/fonts.css` must resolve to the same hashed asset. Vite guarantees it today because
@@ -25,7 +31,9 @@ test('@smoke every font the Studio preloads is one its stylesheet actually reque
 	const preloaded = await page.evaluate(() =>
 		[...document.querySelectorAll('link[rel="preload"][as="font"]')].map((l) => (l as HTMLLinkElement).getAttribute('href') ?? ''),
 	);
-	expect(preloaded.length, 'the Studio should preload the two faces its pre-paint shell paints with').toBe(2);
+	// A COUNT, not a set: this spec's job is the href identity below, but the count catches the
+	// other way this breaks — someone drops a preload, and every remaining one still matches.
+	expect(preloaded.length, 'the Studio should preload the three families its pre-paint shell paints with').toBe(3);
 	for (const href of preloaded) {
 		expect(href, 'a font preload with no href').toBeTruthy();
 		// `crossorigin` is REQUIRED on a font preload even same-origin: without it the
