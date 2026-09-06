@@ -20,3 +20,11 @@
   over the next card's border — and nothing catches it: the slide does not clip
   at the frame, so the export's overflow oracle stays green and `lint:deck` only
   ever warns. Found by looking at the rendered pages.
+- **Six new ask-then-answer exercises break Part four's drought.** The reader
+  used to produce an answer twice in that part's 96 slides, with stretches of 41
+  and 51 slides where they only read. Every kit now closes with one — run the
+  data tree's first question on three teams; take or refuse three writes under a
+  partition; place three workloads on a runtime; spend a Sydney reader's latency
+  budget; size a pool with Little's law, then break it in both directions; say
+  what a page does when three dependencies go slow rather than down. The longest
+  stretch without the reader producing something drops from 51 slides to 20.

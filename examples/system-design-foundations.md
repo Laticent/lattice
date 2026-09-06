@@ -1089,6 +1089,33 @@ flowchart LR
 
 ---
 
+<!-- _class: content -->
+
+`Your turn`
+
+## Three teams want a new store. Say which of them has actually outgrown relational.
+
+One: a payroll system, four thousand employees, thirty tables, and finance asks a new question every quarter. Two: a metrics pipeline writing four hundred thousand samples a second, read back by series and by time range. Three: a startup with nine thousand users whose engineer says the database will not scale.
+
+Answer the tree's first question for each, and only walk further if it says yes. Then turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## The first question sends two of the three home.
+
+1. Payroll, four thousand employees
+   - No. Thirty tables and questions nobody has asked yet are the case relational was built for, and four thousand rows is not a size. The tree stops here.
+2. Four hundred thousand samples a second
+   - Yes. One machine's writes are gone, joins are not needed, and series plus time range is a partition plus a range. Wide-column.
+3. Nine thousand users
+   - No, and "will not scale" is not a measurement. The tree wants a table that outgrew a machine, not a feeling. Move up a rung on evidence.
+
+---
+
 <!-- _class: cards-stack -->
 
 `Data kit · relational`
@@ -1367,6 +1394,33 @@ Ask whether coordinating now costs less than reconciling later.
    - Coordinate first, so the data is never observably wrong. You pay in latency and in how far you can partition.
 2. BASE
    - Diverge now, converge later. You pay in application code, because every reader must tolerate stale state.
+
+---
+
+<!-- _class: content -->
+
+`Your turn`
+
+## A link between two regions breaks for ninety seconds. Say what each write does.
+
+One: a like on a post. Two: the last seat on a flight. Three: "you are now following this account", shown back to the person who just tapped it.
+
+For each, say whether you take the write or refuse it while the link is down, and which level of consistency it needs the rest of the time. Then turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## Only one of the three may refuse, and only one pays for a round trip.
+
+1. A like
+   - Take it. Eventual is correct: two replicas disagreeing about a count for a second costs nothing, and refusing costs you a user.
+2. The last seat
+   - Refuse it. Two sides both selling 14C is the divergence CAP is about, and the price the rest of the time is linearizable — a round trip on every read.
+3. Your own follow
+   - Take it, and read your writes. The person who just tapped will look immediately; nobody else notices for a second.
 
 ---
 
@@ -1664,6 +1718,33 @@ flowchart TB
 
 ---
 
+<!-- _class: content -->
+
+`Your turn`
+
+## Three workloads land on your desk. Say what each one runs on.
+
+One: a nightly job that reads the whole orders table and writes one report file — forty minutes, once a day. Two: an API taking three thousand requests a second, deployed six times a day by four teams. Three: a thumbnail made whenever somebody uploads a photo — a few hundred a day, none overnight.
+
+Name the runtime, and the invariant each one fails first if you get it wrong. Then turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## Idle is the whole argument for one of them, and irrelevant to the other two.
+
+1. The nightly report
+   - A machine on a schedule. Forty minutes outlives the runtime cap on most functions, and one long run is not spiky. The invariant it fails first: capacity is a number somebody owns.
+2. Three thousand a second, six deploys a day
+   - Containers behind a balancer — many teams, frequent deploys, one packaging story. It fails "any instance can be killed" the moment somebody keeps a session in memory.
+3. A few hundred thumbnails
+   - A function on the upload event. Idle is most of the day and costs nothing, and the cold start it charges you for is one nobody is waiting on.
+
+---
+
 <!-- _class: divider -->
 
 `Network`
@@ -1819,6 +1900,33 @@ Every waiting request holds a connection, a thread and some memory. Under a slow
    - The network will deliver your request twice. Decide now what that means.
 4. Distance appears in the design
    - Counted on purpose, not discovered in production. Nobody counted Maya's reviewer, six time zones away.
+
+---
+
+<!-- _class: content -->
+
+`Your turn`
+
+## A reader in Sydney opens a page served from Virginia. Say where the budget goes.
+
+The page has 400 milliseconds. Loading it costs three sequential cross-continent round trips — the page itself, then an API call it depends on, then an image nothing knew about until the first two came back — plus about 60 milliseconds of work inside your own datacenter.
+
+Add it up, name the one change that buys back the most, and say what that change costs. Then turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## Distance is almost all of that page, and only one move touches it.
+
+1. The bill
+   - `3 × 150` is 450 milliseconds of round trips before your code runs, and about 60 more once it does. The budget was 400, so the page is late by more than the work takes.
+2. The move
+   - End the connection near the reader. A CDN serves the page and the image from the edge; the API call is the one that still has to cross. Three round trips become one.
+3. What it costs
+   - A second copy with its own staleness, and a purge you have to time. Nothing makes distance free — the CDN only stops you paying for it three times.
 
 ---
 
@@ -1987,6 +2095,33 @@ Networks duplicate, clients retry, queues redeliver. The only question is whethe
    - A balancing loop from Part one, and the move Maya made at 15:50 when she stopped answering.
 4. Adding a machine is routine
    - No manual steps, no rebalancing outage, no cold-cache stampede.
+
+---
+
+<!-- _class: content -->
+
+`Your turn`
+
+## Your service takes 1,200 requests a second at 40 milliseconds each. Size it.
+
+First: how many requests are in flight at once? Then a dependency slows and each request now spends 160 milliseconds inside, while the same 1,200 keep arriving.
+
+Second: say what happens with an unbounded pool, and what happens with the pool your first answer sized. Do the arithmetic before you turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## One number, then two failures that look nothing alike.
+
+1. In flight at once
+   - `1,200 × 0.04` is 48. That is the floor on concurrency, and no tuning moves it while the other two numbers hold.
+2. Unbounded
+   - `1,200 × 0.16` is 192 in flight. The machine you sized for 48 runs out of memory, and nothing warned you on the way.
+3. Bounded at 48
+   - Concurrency cannot rise, so throughput falls to `48 / 0.16`, about 300 a second against 1,200 still arriving. The queue in front grows until something sheds it.
 
 ---
 
@@ -2176,6 +2311,33 @@ Under pressure something has to give. Either you decided in advance which featur
    - Restores, failovers and rollbacks happen on a schedule, not for the first time at 3am.
 4. The system tells you before a user does
    - Alerts fire on the indicator, never on the complaint.
+
+---
+
+<!-- _class: content -->
+
+`Your turn`
+
+## Three dependencies go slow rather than down. Say what the page does.
+
+Your service renders a product page inside a 300-millisecond budget, calling a price service, a recommendations service and a reviews service in parallel. Each in turn starts answering in two seconds instead of forty milliseconds.
+
+For each, say what the page shows and which containment pattern makes it do that. Then turn the page.
+
+---
+
+<!-- _class: list-tabular -->
+
+`One answer`
+
+## Only one of the three is allowed to fail the page, and all three need their own pool.
+
+1. Price
+   - Fail it. A product page with no price is wrong, not degraded, so it is the top tier: a timeout, then a fast error rather than a spinner.
+2. Recommendations
+   - Drop the strip and render. A breaker opens after the first few slow calls, so every other page does not pay two seconds to learn the same thing.
+3. Reviews
+   - Serve the last good copy. Read paths outlive write paths, and stale is an answer where a timeout is not.
 
 ---
 
