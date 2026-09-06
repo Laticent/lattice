@@ -360,14 +360,32 @@ the line box and paints nothing.
   entirely, and shipped the 0.00px case above. Its pixel scan looked sound and was
   not: the scan window started past x=762.7, so it missed the `$` and reported the
   clearance of the digits behind it.
-- Draft three scopes the lead to the rows that actually carry a rule,
-  `li:nth-child(n+3) > strong`. The first rail row has no border — removing that outer
-  edge is what this change is for — so padding it buys nothing and costs a row of
-  height. Scoped that way, **0.15em** fits 4 metrics at 16:9, standard, 4K and square
-  and 5 at the tall ceiling, and buys the `Ä` case 4.08px at 400dpi and 3.0px at 1x.
-  0.20em was measured too: it clips the 4-metric slide at 4K.
+- Draft three scoped the lead to the ruled rows and picked **0.15em**, sizing it with
+  the export's OVERFLOW warning. That warning has a threshold and a clip does not: at
+  16:9 the 4-metric slide's status pill was sheared 2.39px by `.cell-stage
+  { overflow: clip }` while the emulator reported the deck CLEAN. Its scope was wrong
+  too — `n+3` is right at wide and square, but the reflow block gives
+  `li:nth-child(2)` a border at tall and strip and does not exclude `.spotlight`, so
+  the first ledger row kept 0.00px while the rows under it got 8.4px: the same defect,
+  surviving where nobody looked, and now inconsistent inside one ledger.
+- Draft four, which ships. **0.12em**, plus a family-gated companion for the row that
+  is ruled at tall and strip. The ceiling is measured with the right instrument — the
+  stage's bottom edge against the deepest descendant box, not the overflow warning:
+  clean at 0.06 through 0.12em, and **0.13em already cuts 1.13px** at 16:9. Painted
+  ink at 1x: `École` 1.0px, `Ärlig`/`Ålborg`/`Ñuñoa` 2.0px, `$2.4B` 6.0px, `£1.1B`
+  10.0px, a bare `2.4` 18.0px.
 
-**The rule to carry forward: measure ink, not the box, and scan the whole column.**
+**One tension this leaves open, and it belongs to the reader.** One pixel of white
+under an accented capital at 1x is thin. It is not a tuning oversight — 0.12em is the
+most the rail carries with 4 metrics still fitting, so more daylight for `É` costs
+either the documented wide `hard` of 4 or the rail's type size. Both are design
+decisions, and neither is this change's to make.
+
+**The rule to carry forward: measure ink, not the box, scan the whole column, and
+never size a rule with a gate's warning.** Four drafts, four instrument failures: the
+font-metric box read as ink; a scan window that excluded the glyph it was named for;
+the export's overflow warning used as a capacity test when it cannot see a clip; and
+in between, a capacity sweep run only against decks that were already overflowing.
 This section had already written the distinction down ("that 37.3px is an INK
 measurement… they are not interchangeable") — and 37.3 is itself the font-metric
 figure, so even the sentence naming the trap was standing in it. The border-box gap on
@@ -564,8 +582,11 @@ on this component every claim that was *reasoned* rather than *rendered* has bee
 wrong, and the two that survived a raster are the two that were rastered.
 
 **What that sweep DID reach.** All 33 palettes at wide — spotlight ink clearance
-identical geometry in every one and no render failure — the palettes carry no font
-tokens at all, so they cannot move ink relative to a rule. (A draft of this line
+identical geometry in every one and no render failure. The palettes carry essentially
+no type declarations — two exist (`cuoio.css`'s pagination font-size and
+`a11y-base.css`'s chart-status weight) and neither reaches this rail — so a palette
+cannot move ink relative to a rule here. An earlier draft said "no font tokens at
+all", which is the kind of absolute that is one grep from being false. (A draft of this line
 quoted "+8.0px clearance in every one"; that was the padding-era number, and it was
 a font-metric figure besides.) The square and tall
 families, rule by rule, against main. The PPTX export, unzipped and looked at

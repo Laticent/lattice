@@ -794,20 +794,49 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > strong {
  * overflowed it by 33.56px. Scoped to the ruled rows, 0.15em fits 4 metrics at
  * 16:9, standard, 4K and square, and 5 at the tall ceiling on portrait.
  *
- * WHY 0.15em. It is the largest value that clears every one of those, measured:
- * 0.20em clips the 4-metric slide at 4K. It buys the `Ä` case 4.08px at 400dpi and
- * 3.0px at 1x, against 0.00px with no lead. em, not a spacing token, because the
- * ascent it clears scales with the type.
+ * WHY 0.12em, AND HOW THE CEILING IS MEASURED. Swept against a 4-metric slide with
+ * the stage's bottom edge against the deepest descendant box: clean at 0.06 through
+ * 0.12em, and 0.13em already cuts 1.13px at 16:9 (0.15em cuts 3.56px there and
+ * 2.92px at 4K). 0.12em is the ceiling, one step under the first value that fails.
  *
- * MEASURE INK, NOT THE BOX. Three drafts of this rule were wrong because
- * `Range.getClientRects()` returns the FONT-METRIC box, which stands ~0.2em above
- * the line box and paints nothing: one draft read that as a crossing and padded a
- * gap that already existed, the next read the correction as proof of clearance and
- * removed the lead a real glyph needed. Rasterize and scan the pixels — and scan
- * the WHOLE rail column, because a window starting past x=762.7 misses the `$`
- * entirely and reports the clearance of the digits behind it. */
+ * DO NOT SIZE THIS RULE WITH THE EXPORT'S OVERFLOW WARNING. A draft did, picked
+ * 0.15em, and shipped a slide whose 4th status pill was sheared 2.39px by
+ * `.cell-stage { overflow: clip }` while the emulator reported the deck CLEAN. The
+ * warning has a threshold; a clip does not. Measure the stage's bottom against the
+ * deepest box, at 16:9 AND 4K — nothing else in the tree sees this.
+ *
+ * WHAT IT BUYS, AND THE TENSION IT DOES NOT RESOLVE. Scanned as painted ink over the
+ * whole rail column, at 1x: `École` 1.0px, `Ärlig` / `Ålborg` / `Ñuñoa` / `Ǻland`
+ * 2.0px, `$2.4B` and `98.6%` 6.0px, `£1.1B` 10.0px, a bare `2.4` 18.0px. Positive
+ * everywhere, and thin at the top of that list: an accented capital gets one pixel of
+ * white at the resolution the deck is read at.
+ *
+ * That thinness is not a tuning oversight, it is the capacity ceiling showing. 0.12em
+ * is the most this rail can carry with 4 metrics still fitting, so buying `É` more
+ * daylight means spending something else — dropping the documented wide `hard` from 4
+ * to 3, or taking the rail's type size down. Both are design decisions rather than
+ * fixes, and neither belongs in this change.
+ *
+ * MEASURE INK, NOT THE BOX. Four drafts of this rule were wrong, each because of the
+ * instrument rather than the design: `Range.getClientRects()` returns the FONT-METRIC
+ * box (~0.2em above the line box, paints nothing) and one draft read that as a
+ * crossing; the next read the correction as proof of clearance and removed a lead a
+ * real glyph needed, on a scan whose window started past x=762.7 and so missed the
+ * `$`; the third sized itself with the overflow warning, above. Rasterize, scan the
+ * WHOLE column, and check 1x as well as high DPI. */
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(n+3) > strong {
-  padding-top: 0.15em;
+  padding-top: 0.12em;
+}
+/* …and at tall/strip the FIRST rail row is ruled too, so it needs the same lead.
+ * `n+3` is right for wide and square, where the rule above removed the outer edge and
+ * only interior boundaries carry a border. The linearised families are different: the
+ * reflow block below gives `li:nth-child(2)` a `border-top`, and its selector does not
+ * exclude `.spotlight`. Without this companion the first ledger row measured 0.00px
+ * while rows 3+ measured 8.4px — the defect this rule exists to close, surviving in
+ * the one place it was not looked for, and now inconsistent within a single ledger
+ * where main was at least uniformly tight. */
+section.kpi.spotlight:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(2) > strong {
+  padding-top: 0.12em;
 }
 section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) > ul > li:first-child {
   padding-top: 0.15625cqi;

@@ -31,10 +31,11 @@
   ratio is unchanged too — sweeping it showed the rail wraps at the documented density
   at every ratio worth having, so the split was never the lever.
 - **Fixed: a `kpi spotlight` support's value keeps a lead under the rule that heads
-  it.** Top-aligning the rail packs the value against its hairline, and at that type
-  size an accented capital (`Ä`) measured 0.00px of white between rule and ink — at
-  400dpi and at 1x — while a `$` merged into the line at 1x. The lead is 0.15em, on
-  the ruled rows only (`li:nth-child(n+3)`): the first rail row carries no border, so
-  padding it would spend height for nothing. Measured against both documented
-  ceilings — 4 metrics at 16:9/standard/4K/square and 5 at tall all still fit, and
-  0.20em does not.
+  it.** Top-aligning the rail packed the value against its hairline: an accented
+  capital measured 0.00px of white between rule and ink, at 400dpi and at 1x, and a
+  `$` merged into the line at 1x. The lead is 0.12em, on the rows that carry a rule —
+  `li:nth-child(n+3)`, plus `li:nth-child(2)` at `tall`/`strip`, where the reflow
+  gives the first ledger row a border too. 0.12em is the ceiling a 4-metric slide
+  allows: 0.13em shears the 4th status pill at 16:9, which the export's overflow
+  warning does not report. At 1x the lead leaves `École` 1.0px, `Ärlig` 2.0px,
+  `$2.4B` 6.0px and a bare `2.4` 18.0px.
