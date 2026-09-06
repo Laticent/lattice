@@ -5,17 +5,24 @@ summary: >
   reason is not a broken splitter — none of the eleven is enrolled. Eight are barred by the
   NEVER_SPLIT treatment gate, three were classified splittable and never wired. The owner ruled
   that every component splits on structure except the container-responsive figures, and that the
-  splitter that knows a component's seam belongs WITH that component. That is not a reversal of
-  `2026-07-22-structure-derived-split-patterns.md` — it finishes it: that note's §5 already
-  retains ~14 sovereign builders a generic slot walk provably cannot drive, and its P0-P4 phasing
-  is entirely unbuilt. The one new thing is WHERE a sovereign builder lives: today
-  `lib/core/carousel.js`, from here the component's own folder, dispatched through the shipped
-  manifest-kernel machinery (`2026-09-01-manifest-driven-chart-dispatch.md`) rather than a second
-  registry. The kernel/engine line is fixed by the owner's earlier envelope ruling: the component
-  declares the SEAM and the extras it must carry, the engine builds every PAGE. And the exception
-  is re-founded on a measurement rather than a name — "container-responsive AND above the type
-  floor" excuses eight of the nine graphics, not nine: state-chart renders labels at ~half the
-  legible floor at both split sizes and word-cloud misses by 0.2px at square.
+  splitter which knows a component's seam belongs WITH that component. Against
+  `2026-07-22-structure-derived-split-patterns.md` that is PART continuation and PART reversal,
+  and an independent checker was needed to separate them. Continuation: that note's §5 retains
+  ~14 sovereign builders a generic slot walk provably cannot drive, and it never says WHERE one
+  lives — so moving a sovereign builder into the component's folder is genuinely new and
+  genuinely uncontradicted. Correction: §5 is a stated LIMIT (~14 sovereign against ~45 flow
+  layouts), not a sanction for per-component splitters as the default, and substantial mechanism
+  DID ship — a whole P-envelope phase, nine §8 rules, and rule 6's content-conservation gate,
+  which is built and green. What did not ship is the generic slot re-author, so carousel.js still
+  hand-parses nine components in 966 lines. Reversal, and it is the owner's call because it
+  overturns a built ruling: §8 rule 8 already measured state-chart below the legibility floor and
+  ruled ring-never-split ("a figure has no seam"), so giving it a seam reverses rule 8 rather
+  than extending it. The exception test itself — container-responsive AND above the floor, a
+  measurement rather than the word "mermaid" — stands. The kernel/engine line follows the owner's
+  earlier envelope ruling: the component declares the SEAM and the extras it must carry, the
+  engine builds every PAGE. And the first enrollment argues for the narrow reading: `pricing`
+  shipped needing NO component-owned kernel at all — a manifest block naming the existing central
+  cover-paginate strategy, no new module and no CSS.
 builds-on: 2026-07-22-structure-derived-split-patterns.md, 2026-09-01-autosplit-splits-on-structure.md, 2026-09-01-manifest-driven-chart-dispatch.md, 2026-09-05-auto-split-catalog-audit/README.md
 ---
 
@@ -54,14 +61,36 @@ Its §5 already concedes the other half:
 > (`h3:nth-of-type(2) + pre`) and no collection slot. These ~14 sovereign builders
 > are retained behind an allowlist."*
 
-A generic walk cannot tell those apart; only the component can. That is the
-pre-processor the owner asked for, already argued for and already accepted.
+A generic walk cannot tell those apart; only the component can.
 
-**Its phasing P0–P4 are all unchecked.** None of the mechanism shipped, which is
-why `lib/core/carousel.js` still hand-parses six components in one 966-line file.
+**But read that bullet's own label before leaning on it: "Slot insufficiency
+(sovereign tail stays)", closing "— matching, not contradicting, the §9 plan."**
+§5 is a stated LIMIT on a generic collapse, not a sanction for per-component
+splitters as the default. §0 sizes the tail at ~14 sovereign builders against
+~45 flow layouts — about a quarter of the catalog. So the ruling is not simply
+what §5 already accepted; it widens an exception into an architecture, and that
+widening is the thing to argue for on its merits rather than to inherit.
 
-So exactly one thing here is new: **where a sovereign builder lives.** Today
-`lib/core/carousel.js`. From here, the component's own folder.
+**What did and did not ship, stated exactly, because a first draft of this note
+got it wrong.** §9's P1–P4 carry no completion glyph. That is NOT the same as
+"nothing shipped": §9 also lists a **P-envelope** phase added by the second trio
+pass, marked `☑ SHIPPED`, and nine rules across §8 carry `☑ BUILT`. Among them,
+rule 5's oracle (`☑ BUILT, ahead of its P2 slot`) is `test/oracle/split-oracle.json`
+plus `checkSplitOracle` in `build:check` today, and rule 6's **content-conservation
+gate is BUILT and green** — `test/unit/core/carousel.test.js` § "no strategy drops
+content", a word-multiset containment check over every strategy, with
+`SANCTIONED_SPLIT_DROPS` empty. What did not ship is the generic slot-driven
+RE-AUTHOR that would retire the hand-parsers: `lib/core/carousel.js` is still 966
+lines and still hand-parses **nine** components (`feature-cover`, `cover-rows`,
+`cover-sides`, `cover-decision`, `cover-code`, `redline-blocks`, `kanban-lanes`,
+`roadmap-horizons`, `journey-stages`; `cover-cards` and `cover-paginate` delegate
+to `split-envelope.js`). The note's own "9 carousel DOM-parsers" is a 2026-07
+count of a table that now holds eleven strategies.
+
+So what is new here is narrower than "finishing" suggests: **where a sovereign
+builder lives** — `lib/core/carousel.js` today, the component's own folder from
+here. That half is genuinely uncontradicted; the source note says sovereign
+builders are retained and never says where they live.
 
 ## The dispatch already exists — do not build a second one
 
@@ -73,8 +102,19 @@ folder-drop and no central file names it."*
 
 `lib/components/index.js:669` fences it deliberately —
 `KERNEL_BUCKETS = ['chart']`, with the note that widening it *"is a Phase-2
-decision (the ADR's `block` kind), not a silent one."* A split kernel is that
-second kind. It reuses this machinery; it does not get a registry of its own.
+decision … not a silent one."*
+
+**A split kernel is NOT the ADR's `block` kind, and an earlier draft of this note
+said it was.** The plugin ADR's five `kind`s are AUTHORING SURFACES — `block` is
+"a fence ```name" producing an inline figure (mermaid, function-plot). An author
+types nothing to invoke a split. So a split kernel is a new kind, and widening
+`KERNEL_BUCKETS` for it is a contract change to argue for, not a free reuse.
+Three costs the reuse carries: the generated registry resolves kernels relative
+to `_chart-family/`; `figureClass` is chart-frame-specific; and the convention
+entrypoint returns ONE rewritten section, while a split kernel must return N
+pages plus its declared extras. The dispatch SHAPE (manifest block → generator →
+frozen registry → convention path) is timing-agnostic and worth copying. The
+bucket fence is not free to move.
 
 ## Where the line falls, and what fixes it there
 
@@ -96,9 +136,14 @@ page looks.
 content: `readFeature` pulls `.watermark`, `.panel-eyebrow` and `.lede`;
 `splitCoverSides` carries a `.below-note` verdict to a final slide. None of those
 is a member, and a slot walk that returns only members loses all four. So a kernel
-names the extras it must carry, and the **content-conservation gate** — §5's, still
-unbuilt — is the referee: a builder migrates only once the emitted pages' text
-nodes are proved a superset of the source section's.
+names the extras it must carry, and the **content-conservation gate is the
+referee** — a builder migrates only once the emitted pages' text nodes are proved
+a superset of the source section's. That gate already exists and is green
+(`test/unit/core/carousel.test.js` § "no strategy drops content",
+`SANCTIONED_SPLIT_DROPS` empty), so a component-owned kernel inherits it rather
+than waiting on it. What it does not yet do is cover a kernel that lives outside
+`lib/core/carousel.js`; extending its case table is the first thing any migration
+owes.
 
 ## The exception is a measurement, not a name
 
@@ -117,13 +162,29 @@ Scaling is only a valid exception while the result stays readable, so the test i
 | `state-chart` | **6.7px against a 13.5px floor** | **6.9–7.4px against 10.8px** |
 
 Seven earn the exception outright. `word-cloud` misses at one size by 0.2px,
-which is noise. **`state-chart` renders its labels at roughly half the legible
-floor at both sizes** — not a figure that scales, a figure that shrinks past
-readability — and the audit independently found it cutting its terminal state
-`Expired` through its own box at portrait. It needs a seam like everything else.
+which is noise, and only in its `dense` and `focal` variants — the default is
+clear. **`state-chart` renders its labels at roughly half the legible floor at
+both sizes**, and the audit independently found it cutting its terminal state
+`Expired` through its own box at portrait.
 
-So the exception excuses **eight** components, not nine, and it does so on a
-number anyone can re-measure rather than on the word "mermaid".
+**Here the ruling REVERSES a shipped ruling of the same note, and this section's
+title does not cover it.** §8 rule 8 — `☑ BUILT`, hardened by the second trio
+pass — already measured exactly this, already published `state-chart` at
+0.74 / 0.81% of slide height, and ruled the opposite remedy: *"below the floor →
+the honest ring, never a silent shrink"*, and explicitly *"the slide is never
+handed to the splitter — a figure has no seam."* The measurement offered above is
+not new evidence; it is rule 8's own instrument (`probeFigureLegibility`)
+reporting what rule 8 already recorded.
+
+So there are two questions, and only the first is settled. **Settled:** the
+exception is "container-responsive AND above the legibility floor", a measurement
+rather than the word "mermaid". **Open, and the owner's to decide because it
+overturns a built ruling:** what happens to a figure that fails the floor. Rule 8
+says ring and never split. The alternative is to give it a seam — for
+`state-chart`, one transition per page. Rule 8's reason for refusing was that a
+figure has no seam; `state-chart` is the case where that is arguably false, since
+its transitions are a real collection. Until that is decided, `state-chart` keeps
+ringing and this note claims nothing more.
 
 ## What this costs the NEVER_SPLIT gate
 
@@ -145,12 +206,25 @@ about whether the one page it has fits.
 
 ## Order of work
 
-Owner's call, taken 2026-09-06: **three components first, the generic gate
+Owner's call, taken 2026-09-06: **three components first, the generic mechanism
 after.** Enroll `pricing` (a plain top-level `<ul>`, the cheap case),
 `split-compare` (overturns a recorded refusal — see below) and `code` (the hard
-case) with component-owned kernels, then generalize with three real migrations to
-test the gate against rather than hypothetical ones. The cost accepted is that the
-interface may shift once and the three get revised.
+case), then generalize with three real migrations to test the interface against
+rather than hypothetical ones. The cost accepted is that the interface may shift
+once and the three get revised.
+
+**`pricing` shipped first and it needed NO component-owned kernel, which is a
+result worth reading rather than an exception to explain away.** Its enrollment is
+a manifest `capacity` + `split` block naming the existing central
+`cover-paginate` strategy, plus a treatment move to `read-across`. No new module,
+no dispatch change, no CSS: the lone-member fill in `base.modifiers.css` was
+already there, written for the enrollment that was backed out on 2026-09-01. So
+the generic mechanism reached one of the three on its own. That is evidence for
+§5's framing — a residual tail needs its own builder, the rest does not — and
+against reading "the splitter belongs with the component" as the default for all
+61. Take the same measurement on `split-compare` and `code` before generalizing:
+if `code` is the only one that truly needs its own module, the architecture is a
+tail, not a rule.
 
 **`split-compare`'s recorded refusal no longer holds.** `split-facts.js:232`
 declines it because *"N is 2 by contract, the `.verdict` is a sibling of
@@ -173,10 +247,17 @@ at the top of the next page. Line numbering rides the same stack.
 - **The interface's exact shape.** "Seam plus declared extras" is the contract;
   the field names, and whether extras are selectors or named slots, are settled by
   building the first three.
+- **Whether a below-floor figure rings or splits.** The owner's call, because it
+  overturns §8 rule 8, which is built and says a figure is never handed to the
+  splitter. `state-chart` is the case that forces it. Until then it rings.
+- **Whether "the splitter lives with the component" is the rule or the tail.**
+  `pricing` enrolled with no component-owned kernel at all. If `split-compare` and
+  `code` split the same way, this note describes a residual tail (§5's ~14) rather
+  than an architecture, and its title overstates it. That is decided by building
+  the other two, not by argument.
 - **The other eight of the eleven.** `wifi` and `contact` have a ruled direction
   (credentials → code) and two open questions recorded in the audit;
   `obligation-matrix`, `gantt`, `logo-wall` and `matrix-grid` have none yet.
-  `state-chart` now has a reason but no seam.
 - **The four silent clips.** `logo-wall.square`, `matrix-grid.square`,
   `state-chart.square` and `obligation-matrix` at both sizes lose content with no
   warning, because the overflow probe measures a box that exceeds its frame, not

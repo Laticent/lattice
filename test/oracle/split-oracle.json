@@ -15,6 +15,11 @@
       "deck": "examples/portrait-journey.md",
       "by": "#2042 (rendered at size: story, indaco, and read page by page)",
       "note": "PORTRAIT ONLY, which is the whole enrollment. All three journey slides split to one `li.journey-vstage` per page (pages 6-8, 9-11, 12-14 of 15): stage band, that stage's rows with their actor dots and per-task mood faces, and BOTH legends repeated -- a page of mood faces without the mood key is unreadable. Tasks conserved 3+2+2, 2+3+1, 2+2+1 against the unsplit render; `data-section` stays 0/1/2 across each run, so each stage still resolves its own categorical token -- the attribute-driven property `timeline-list` lacks, which is why that one is placed atomic instead. BUT WHAT THAT BUYS ON THE PAGE IS SMALL, and the first wording of this note overclaimed it. Measured from computed style on the real render: all three bands paint the SAME background (a constant `--journey-stage-bg`, 81px tall) and the categorical token reaches only a 3px `border-top`. Unsplit, the three hairlines sit adjacent and read as a sequence; one stage per page leaves a single hairline with nothing to compare it against, which two independent visual reviewers each sampled and reported as 'the three bands are the same color'. The stage NAME is set large and bold in the band, so no information is lost -- the color is redundant encoding, and it is the redundancy that the split weakens. Not changed here: filling the band with the categorical color would depart from the accent-rule-on-neutral idiom `roadmap` uses for the same job, which is a design decision about the engine's visual language rather than a defect in this split. The forward pointer names the next STAGE -- 'next: Trial', 'next: Activate' -- not an actor, verified against a 4-actor deck. LANDSCAPE is untouched and must stay so: `examples/data-viz-gallery.md` renders byte-identical through the split (sha 4c1f75b0-era A/B), because the grid form carries an absolute `--col` per task into `repeat(var(--task-count), 1fr)` and a slice would draw tasks into columns that are no longer there. `journeyStageSplit` returns null without an `ol.journey-vstack`, which is what enforces that. Reshape is `paginator`: the split paginates a vertical stack and cannot narrow anything, so it must not be marked width-reducing."
+    },
+    "pricing": {
+      "deck": "examples/split-pricing.md",
+      "by": "owner ruling 2026-09-06 (\"pricing is no different than compare components. we accept the splitting\"); rendered at size: portrait and read page by page",
+      "note": "All THREE tier counts split, one tier per page: default 3 -> cover + 3 (deck pages 3, 3.2-3.4), `two` -> cover + 2 (4, 4.2-4.3), `four` -> cover + 4 (5, 5.2-5.5). 16 pages from 7 authored slides, 0 overflow and 0 clip warnings. The component's OWN card survives on each body page and that is the point of the enrollment (ruling 1, reuse the component's styling): the featured tier keeps its `Most chosen` flag, accent border, tinted fill and accent-colored heading on its own page, verified on all three variants. Relationship `comparison` renders \"Option 1 of 3 - comparing Volume discounts - Savings guarantee\" and counts correctly to 2-of-2 and 4-of-4; it is what keeps a paged comparison readable as one comparison. LANDSCAPE IS UNTOUCHED and must stay so: hd and 4K render 1 page with no warning (split is gated off `wide`, lattice-emulator.js AUTOSPLIT_APPLIES), so the native 3-across row is unchanged. WHAT MAKES THE LONE CARD FILL THE MEASURE IS NOT pricing's own CSS. pricing.styles.css:50 sets an explicit `width: calc(100% / 3 - 2 * var(--sp-md) / 3)` on the tier `li` (and :38/:40 for the two/four variants), and the portrait/tall reflow at :134-149 flips flex-direction without overriding it. The generic lone-member fill in base.modifiers.css:2676 (`width: auto` on `li:only-child`, four `.lat-split-native` repetitions to outweigh box-local portrait reflows) is what beats it. That rule's own comment names pricing as the case that surfaced it -- it was written for the enrollment that was backed out on 2026-09-01 and left in place. So this enrollment needed no CSS change, and the dependency is recorded here because nothing else states it. WHAT THIS DOES NOT BUY, stated because the render shows it: each body page's card still carries substantial dead vertical space between the feature badges and the footnote. That is the width-relative sizing problem the catalog audit measured across the whole catalog (every length is `cqi`, so a taller box grows the card and not its contents), not something the enrollment fixes. Reshape is `paginator`, not width-reducing: cover-paginate flows the component's native cards and narrows nothing. `cover-cards` would be wrong -- it transposes a wide TABLE into cards, and pricing's tiers are already cards in a top-level <ul>."
     }
   },
   "components": {
@@ -459,15 +464,15 @@
       "relationship": null
     },
     "pricing": {
-      "treatment": "connected",
-      "axis": null,
-      "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
-      "perPage": null,
-      "relationship": null
+      "treatment": "read-across",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": "cover-paginate",
+      "reshape": "paginator",
+      "coverClass": "lat-split-cover",
+      "perPage": 1,
+      "relationship": "comparison"
     },
     "progress": {
       "treatment": "atomic",
